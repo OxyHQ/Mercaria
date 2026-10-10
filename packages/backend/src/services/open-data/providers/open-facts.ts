@@ -25,6 +25,10 @@
  *   countries, newest edit first, stopping at the run's watermark. A demanded
  *   GTIN the database does not have is simply absent: it is not this source's
  *   object, so there is nothing to remove.
+ * - A source whose account ref is {@link OPEN_FACTS_DEMAND_ONLY} stops after the
+ *   demand. Spain alone is ~370k Open Food Facts products; the demand is the
+ *   few hundred some price source actually saw, which are the only ones that
+ *   can become a comparison.
  *
  * Neither is a complete enumeration — the full database is only complete in a
  * multi-gigabyte nightly dump — so this provider never retires by omission.
@@ -105,6 +109,9 @@ const FIELDS = [
   'periods_after_opening', 'conservation_conditions', 'customer_service', 'owner',
 ].join(',');
 
+/** The account ref that reads only the catalogue's demand, never the country search. */
+export const OPEN_FACTS_DEMAND_ONLY = 'demand';
+
 export function createOpenFactsProvider(site: OpenFactsSite): OpenDataProvider {
   const provider: OpenDataProvider = {
     slug: site.slug,
@@ -114,7 +121,7 @@ export function createOpenFactsProvider(site: OpenFactsSite): OpenDataProvider {
     kind: 'marketplace_api',
     licence: 'odbl_1_0',
     attribution: `Datos de producto de ${site.name}, bajo licencia ODbL; imágenes CC BY-SA`,
-    accountRefMeaning: null,
+    accountRefMeaning: `"${OPEN_FACTS_DEMAND_ONLY}" reads only the GTINs other sources priced; empty also walks the country catalogue`,
     accountRefRequired: false,
     refreshModes: ['query_driven', 'targeted'],
     minRequestIntervalMs: PRODUCT_INTERVAL_MS,
@@ -160,6 +167,7 @@ async function fetchTargeted(site: OpenFactsSite, context: OpenDataPageContext):
 }
 
 async function fetchSearch(site: OpenFactsSite, context: OpenDataPageContext): Promise<OpenDataPage> {
+  const demandOnly = context.accountRef === OPEN_FACTS_DEMAND_ONLY;
   // Phase 1: demand. A cursor with `w` is mid-demand; a cursor with `p` is in
   // the search; no cursor starts with demand when there is any.
   if (context.demand !== null && (context.cursor === null || 'w' in context.cursor)) {
@@ -183,9 +191,12 @@ async function fetchSearch(site: OpenFactsSite, context: OpenDataPageContext): P
       }
       return { items, next: { w: wanted[wanted.length - 1] ?? null }, complete: false };
     }
-    // Demand exhausted: the search starts on the next page.
+    // Demand exhausted: the search starts on the next page, unless this
+    // source reads the demand alone.
+    if (demandOnly) return { items: [], next: null, complete: false };
     if (after !== null) return { items: [], next: { p: 1 }, complete: false };
   }
+  if (demandOnly) return { items: [], next: null, complete: false };
   const page = typeof context.cursor?.p === 'number' ? context.cursor.p : 1;
   const pageSize = Math.min(Math.max(context.pageSize, 1), SEARCH_PAGE_CAP);
   const params = new URLSearchParams({

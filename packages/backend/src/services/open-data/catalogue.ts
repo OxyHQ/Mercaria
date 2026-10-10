@@ -2,7 +2,7 @@
  * Every open-data provider Mercaria can read — THE list.
  *
  * Adding a provider is a module under `providers/`, a line here and a test;
- * `OPEN_DATA_PROVIDERS` then decides whether a deployment registers it. Slugs
+ * every deployment registers all of them (`register.ts`). Slugs
  * are unique by a test, because a slug is the `catalog_source_configs.provider`
  * value every stored source row carries forever.
  */

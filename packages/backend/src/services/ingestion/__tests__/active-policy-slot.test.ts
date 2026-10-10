@@ -153,9 +153,10 @@ const TOUCHER_FLOOR = 6;
  * Every file any touch detector matches today. See `TOUCHER_FLOOR`.
  *
  * 8 since ADR 0014: `reference-seeding.realdb.test.ts` ingests and runs the
- * matcher, and takes the slot as a holder.
+ * matcher, and takes the slot as a holder. 9 since ADR 0015:
+ * `catalog-autopilot.realdb.test.ts` publishes the baseline policy, a holder.
  */
-const TOUCHER_COUNT = 8;
+const TOUCHER_COUNT = 9;
 
 /**
  * Opening the suite's SHARED handle. See the header: this is the scope rule,
@@ -214,6 +215,8 @@ const ACTIVE_POLICY_CALLS: readonly RegExp[] = [
   new RegExp(`${'run'}${'MatchSweepHandler'}\\s*\\(`, 'u'),
   new RegExp(`${'activate'}${'MatchPolicyHandler'}\\s*\\(`, 'u'),
   new RegExp(`${'drain'}${'IngestionHandler'}\\s*\\(`, 'u'),
+  new RegExp(`${'ensure'}${'ActiveMatchPolicy'}\\s*\\(`, 'u'),
+  new RegExp(`${'reconcile'}${'CatalogSources'}\\s*\\(`, 'u'),
 ];
 
 /**
@@ -555,6 +558,8 @@ describe('the global active-matching-policy slot', () => {
       `${'run'}${'MatchSweepHandler'}`,
       `${'activate'}${'MatchPolicyHandler'}`,
       `${'drain'}${'IngestionHandler'}`,
+      `${'ensure'}${'ActiveMatchPolicy'}`,
+      `${'reconcile'}${'CatalogSources'}`,
     ];
 
     // The floor: as many probes as detectors, so dropping a detector without

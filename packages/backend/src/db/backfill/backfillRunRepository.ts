@@ -488,6 +488,34 @@ export async function listResumableBackfillRuns(
     .limit(Math.max(1, options.limit));
 }
 
+/**
+ * The newest whole-catalogue run of each named stage, in one read — what the
+ * catalogue autopilot plans its next stage from. A stage that never ran is
+ * absent from the result.
+ */
+export async function findLatestWholeCatalogueRuns(
+  options: {
+    stages: readonly CatalogBackfillStage[];
+    mode: CatalogBackfillMode;
+    mappingVersion: number;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<CatalogBackfillRunRow[]> {
+  if (options.stages.length === 0) return [];
+  return db
+    .selectDistinctOn([catalogBackfillRuns.stage])
+    .from(catalogBackfillRuns)
+    .where(
+      and(
+        inArray(catalogBackfillRuns.stage, [...options.stages]),
+        eq(catalogBackfillRuns.mode, options.mode),
+        eq(catalogBackfillRuns.mappingVersion, options.mappingVersion),
+        eq(catalogBackfillRuns.cohortKind, 'all'),
+      ),
+    )
+    .orderBy(catalogBackfillRuns.stage, desc(catalogBackfillRuns.createdAt));
+}
+
 /** Every run of one mapping version, newest first — the metrics and report read. */
 export async function listBackfillRuns(
   options: { mappingVersion?: number; limit: number },

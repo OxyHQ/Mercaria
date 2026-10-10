@@ -76,6 +76,14 @@ export interface OpenDataDownload {
   readonly digest: string;
 }
 
+/**
+ * How Mercaria identifies itself to every provider: product, version and a
+ * contact, the form Open Food Facts, Scryfall and MusicBrainz ask for. A
+ * constant rather than configuration, because an anonymous client is the one
+ * thing those providers ban by IP, and a deployment must not be able to forget it.
+ */
+export const OPEN_DATA_USER_AGENT = 'Mercaria/1.0 (contact@mercaria.co; +https://mercaria.co)';
+
 export interface OpenDataHttpOptions {
   readonly userAgent: string;
   readonly timeoutMs: number;
@@ -107,8 +115,7 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
 
   if (options.userAgent.trim().length === 0) {
     // Refused at construction rather than per request: an anonymous client is
-    // the one thing every provider here bans, and the composition root already
-    // declines to register without an agent. Reaching this is a wiring defect.
+    // the one thing every provider here bans. Reaching this is a wiring defect.
     throw new Error('An open-data transport needs a User-Agent that identifies Mercaria and a contact.');
   }
 

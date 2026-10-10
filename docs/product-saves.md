@@ -309,7 +309,7 @@ see.
 ## Environment
 
 ```
-PRODUCT_SAVES_ENABLED=false            # mounts /product-saves and /saved-items
+PRODUCT_SAVES_ENABLED=true             # mounts /product-saves and /saved-items
 PRODUCT_SAVE_READS=off                 # off | dual | on
 PRODUCT_SAVE_MIGRATION_ENABLED=false   # may a migration page WRITE?
 PRODUCT_SAVE_MIGRATION_BATCH_SIZE=200

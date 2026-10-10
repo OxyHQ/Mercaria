@@ -1,8 +1,10 @@
 # Open-data providers: keyless catalogue and price sources
 
-**Status:** implemented and **inert by default**. `OPEN_DATA_PROVIDERS` is empty unless
-a deployment lists providers, and nothing registers without `OPEN_DATA_USER_AGENT`.
-Every provider was exercised live against its real endpoint on 2026-10-10.
+**Status:** implemented and **running by default** (ADR 0015). Every provider is
+registered on every deployment; the sources Mercaria runs are declared in
+`services/open-data/sources.ts` and converged at boot by the catalogue autopilot
+(`services/catalog-autopilot/`). No environment variable is involved. Every provider
+was exercised live against its real endpoint on 2026-10-10.
 
 Mercaria compares prices from as many sources as it can reach. The eBay and Awin adapters
 need accounts that are not approved yet (`ebay-browse.md`, `awin.md`). This kit covers the
@@ -17,7 +19,8 @@ services/open-data/
                      failure classification, conditional dump cache
   read.ts            JSON narrowing, MACHINE-decimal money, FactCollector
   catalogue.ts       THE list of providers (unique slugs, gated by a test)
-  register.ts        builds the transport once; registers what OPEN_DATA_PROVIDERS lists
+  register.ts        builds the transport once; registers every provider
+  sources.ts         THE sources Mercaria runs: chain, merchant, cadence, rights
   providers/*.ts     one module per provider (the Open Facts family is one factory)
 services/ingestion/adapters/open-data.ts
                      any descriptor → a #62 CatalogSourceAdapter (cursor codec,
@@ -58,7 +61,7 @@ later, reviewable step; adapters never do it.
 | Slug | What | Prices | Licence | `sourceAccountRef` | Modes |
 |---|---|---|---|---|---|
 | `open_prices` | Crowd-sourced shelf/receipt prices by GTIN, shop and date (daily dumps) | EUR, per chain | ODbL | chain: fold of the OSM brand (`mercadona`, `lidl`, `supeco`…) | snapshot, incremental |
-| `open_food_facts` | Food catalogue: GTIN, name, brand, photos, ingredients, allergens, nutrition, Nutri-Score/NOVA/Eco-Score | — | ODbL (images CC BY-SA) | — | query_driven (DEMAND first, then country search), targeted (by GTIN) |
+| `open_food_facts` | Food catalogue: GTIN, name, brand, photos, ingredients, allergens, nutrition, Nutri-Score/NOVA/Eco-Score | — | ODbL (images CC BY-SA) | `demand`: only the GTINs other sources priced; empty: also the country catalogue | query_driven (DEMAND first, then country search), targeted (by GTIN) |
 | `open_products_facts` · `open_beauty_facts` · `open_pet_food_facts` | The same database for general products, cosmetics and pet food | — | ODbL | — | as above |
 | `miteco_fuel` | Every fuel at every public service station in Spain, refreshed every 30 min | EUR/l (exact in a fact) | Spanish public-sector reuse | station brand: fold of `Rótulo` (`repsol`, `ballenoil`…) | snapshot, incremental |
 | `cheapshark` | PC game prices across ~15 digital stores | USD | provider terms | CheapShark `storeID` (`1` Steam, `7` GOG…) | incremental |
@@ -103,31 +106,47 @@ that reaches the database) supplies it as a function.
 
 ## Operating a source
 
-1. List the provider in `OPEN_DATA_PROVIDERS` and set `OPEN_DATA_USER_AGENT` to
-   `Product/Version (contact email)`. Also enable `CATALOG_INGESTION_ENABLED`.
-2. Configure the source through `/internal/ingestion`: provider slug, account ref, and
-   territories (`ES`).
-3. Publish its rights policy:
-   - `may_display` and `may_display_price` on, and `attribution_required` on, with the
-     descriptor's `attribution` line.
-   - For Open Prices, `may_link_out` is **off**: there is no retailer page to send
-     anyone to. The offer then materializes as `informational` (`offerKindFor`), which
-     ranking already admits.
-4. Bind the source to the retailer's merchant. A catalogue-only source (the Open Facts
-   family) is bound to no merchant and therefore produces no offers, by #62's rule.
+Sources are declared, not configured by hand. `services/open-data/sources.ts` lists
+each one with its provider, account ref, merchant, markets, cadence and rights; the
+catalogue autopilot converges the database onto it on boot and every hour:
+
+1. The retailer merchant exists (by slug).
+2. The source is configured through #62's `configureIngestionSource`, converging on
+   its name.
+3. Its rights policy is the declared one, published by `system:catalog-autopilot`:
+   - ODbL grants store, cache (30 days), display, index and refresh, with
+     attribution required.
+   - The Open Facts catalogues are bound to no merchant and grant
+     `may_seed_catalog` (ADR 0014), so they mint products and never become offers.
+     They are declared **demand-only** (account ref `demand`): they fetch the GTINs
+     a price source saw and nothing else. Spain alone is ~370k Open Food Facts
+     products, and walking them would mint drafts no price points at into a
+     database every Oxy product shares.
+   - Open Prices chains are bound to their retailer and `may_link_out` is off:
+     there is no retailer page to send anyone to, so the offer materializes as
+     `informational` (`offerKindFor`), which ranking already admits.
+4. A source still in `draft` is activated.
+
+**An operator still wins.** Pausing or revoking a source through
+`/internal/ingestion` sticks: only `draft` is activated. A policy an operator
+publishes sticks: only a policy the autopilot published is replaced when the
+declaration changes.
+
+Adding a chain or a provider's source is a line in `sources.ts` and a deploy. The pull
+request is the terms review.
 
 ## Known limits — read before expecting offers
 
 - **The matcher never mints a canonical product** (`create_new` is recorded and stops).
   ADR 0014 adds the route by which a price for a product no store sells becomes a
-  comparison:
-  1. Grant the reference source (Open Food Facts) `may_seed_catalog` in its policy.
-  2. Run the backfill stages `reference_products` (it mints DRAFT products from that
+  comparison, and the catalogue autopilot runs it every 30 minutes:
+  1. The reference sources (the Open Facts family) are declared with `may_seed_catalog`.
+  2. The backfill stages run in a cycle: `reference_products` (it mints DRAFT products from that
      source's `create_new` objects with a valid GTIN), `source_readvance` (it
      re-asks the matcher about unmatched objects whose GTIN is now owned, so the
      Open Prices price attaches and its offer materializes) and
-     `reference_promotion` (a seeded draft with a priced offer becomes `active`),
-     then `search_reindex`.
+     `reference_promotion` (a seeded draft with a priced offer becomes `active`,
+     and `/search` finds it).
 
   `reference-seeding.realdb.test.ts` drives that whole chain.
 - **Sources without GTINs (games, cards, fuel) cannot match by identifier.** They are
