@@ -64,6 +64,7 @@ import {
   findScopedReviewsPage,
   findListingReviewsPage,
   findMediaForReviews,
+  findReviewMediaPage,
 } from '../reviews/reviewRepository.js';
 import { consumeEligibility, insertEligibility } from '../reviews/reviewEligibilityRepository.js';
 import { findPurchasedVariantsForReviews } from '../reviews/reviewPurchaseContextRepository.js';
@@ -1455,5 +1456,41 @@ describe('ordered review attachments and atomic eligibility consumption', () => 
       prepare.mockRestore();
       check.mockRestore();
     }
+  });
+});
+
+describe('public review gallery pagination', () => {
+  it('counts and pages attachments across all reviews, excluding hidden and other targets', async () => {
+    const productId = await makeCanonicalProduct();
+    const otherId = await makeCanonicalProduct();
+    async function add(targetId: string, date: string, files: string[]) {
+      const row = await insertReview({
+        authorOxyUserId: userId('gallery'), targetType: 'canonical_product', scope: 'product', targetId,
+        rating: 5, verification: 'unverified', classificationState: 'native', incentiveDisclosure: 'none',
+        media: files.map(fileId => ({ fileId, kind: 'image' })),
+      }, db);
+      createdReviewIds.push(row.id);
+      await db.update(reviews).set({ createdAt: new Date(date) }).where(eq(reviews.id, row.id));
+      return row;
+    }
+    const oldest = await add(productId, '2026-01-01', ['fixture-old-0', 'fixture-old-1']);
+    const recent = await add(productId, '2026-01-02', ['fixture-recent']);
+    // A text-only first review must not suppress older photos from the gallery.
+    await add(productId, '2026-01-03', []);
+    const hidden = await add(productId, '2026-01-04', ['fixture-hidden']);
+    await setReviewStatusIfIn(hidden.id, 'hidden', ['published'], db);
+    await add(otherId, '2026-01-05', ['fixture-other-product']);
+    const target = { scope: 'product' as const, targetType: 'canonical_product' as const, targetId: productId };
+    const first = await findReviewMediaPage(target, 1, 2, db);
+    const second = await findReviewMediaPage(target, 2, 2, db);
+    expect(first.total).toBe(3);
+    expect(second.total).toBe(3);
+    expect(first.rows.map(row => [row.review.id, row.media.fileId, row.media.position])).toEqual([
+      [recent.id, 'fixture-recent', 0], [oldest.id, 'fixture-old-0', 0],
+    ]);
+    expect(second.rows.map(row => [row.review.id, row.media.fileId, row.media.position])).toEqual([
+      [oldest.id, 'fixture-old-1', 1],
+    ]);
+    expect((await findReviewMediaPage(target, 3, 2, db)).rows).toEqual([]);
   });
 });

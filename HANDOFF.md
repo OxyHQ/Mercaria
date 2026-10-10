@@ -642,9 +642,15 @@ prove live uploads. The complete backend run passed 800 files and exposed five
 new-table governance failures; all five were corrected and their 93 tests passed.
 Backend, shared UI and all three app typechecks passed; backend lint has no errors.
 
-Still missing: the creation form's upload flow, the product-wide media strip
-(current media hydration covers only the returned review page), and the Bloom
-viewer with associated review. ReviewCard still renders text, rating and author
+Product-wide media reads now page attachments through
+`/reviews/product/:canonicalProductId/media` and `/listings/:id/reviews/media`,
+independently of text review pages; each entry includes its associated review.
+PostgreSQL tests cover older photos beneath newer text-only reviews, ordering,
+pagination totals, hidden reviews and other-target exclusion; HTTP tests cover
+anonymous access and invalid IDs. The frontend client/cache hook is ready.
+
+Still missing: the creation form's upload flow, the rendered media strips and
+the Bloom viewer with associated review. ReviewCard still renders text, rating and author
 only. Implement and validate these with real author-owned Oxy files. Keep
 purchase verification and moderation intact; supplier URLs or synthetic file
 IDs are not review media. Full Shop parity remains unproven.

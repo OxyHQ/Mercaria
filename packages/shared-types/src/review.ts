@@ -424,6 +424,12 @@ export interface ReviewMedia {
   position: number;
 }
 
+/** One gallery entry with the review it illustrates, independent of text pagination. */
+export interface ReviewMediaItem {
+  media: ReviewMedia;
+  review: Review;
+}
+
 /**
  * A published (or hidden) review, with the relevant target id set and the
  * author hydrated for display.

@@ -47,6 +47,7 @@ import type {
   ScopedRatingAggregate,
   ReviewRatingSummary,
   ReviewListFilters,
+  ReviewMediaItem,
 } from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxy.so/db';
 import { getDb } from '../db/postgres.js';
@@ -58,6 +59,7 @@ import {
   authorHasReviewedTarget,
   findDimensionsForReviews,
   findMediaForReviews,
+  findReviewMediaPage,
   findListingReviewsPage,
   findReviewsPage,
   findScopedReviewsPage,
@@ -454,6 +456,27 @@ interface ReviewPage {
   ratingSummary?: ReviewRatingSummary;
   data: ReviewDTO[];
   total: number;
+}
+
+/** Product and listing galleries page media separately from the text reviews. */
+export async function listPublicReviewMedia(
+  kind: 'product' | 'listing',
+  targetId: string,
+  { page, limit }: { page: number; limit: number },
+): Promise<{ data: ReviewMediaItem[]; total: number }> {
+  const target = kind === 'product' ? scopedTarget('product', targetId)
+    : { targetType: 'listing' as const, targetId };
+  const { rows, total } = await findReviewMediaPage(target, page, limit);
+  const unique = [...new Map(rows.map(row => [row.review.id, row.review])).values()];
+  const hydrated = await hydrate(unique, unique.length);
+  const byId = new Map(hydrated.data.map(review => [review.id, review]));
+  return { total, data: rows.flatMap(row => {
+    const review = byId.get(row.review.id);
+    // A moderator may have hidden the review between reads. Hydration repeats
+    // the visibility check, so do not reintroduce its earlier media projection.
+    const media = review?.media?.find(item => item.id === row.media.id);
+    return review && media ? [{ review, media }] : [];
+  }) };
 }
 
 /** Hydrate a page with batched author, dimension, purchased-variant and helpful-vote reads. */

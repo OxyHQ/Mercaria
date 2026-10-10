@@ -372,6 +372,31 @@ export async function findMediaForReviews(ids: readonly string[], db: DatabaseOr
     .orderBy(asc(reviewMedia.reviewId), asc(reviewMedia.position));
 }
 
+/** Page the attachments themselves, so a photo on an older review is discoverable
+ * even when the first page of text reviews has no photos. */
+export async function findReviewMediaPage(
+  target: ReviewTarget | ScopedReviewTarget,
+  page: number,
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+) {
+  const where = and(
+    'scope' in target ? publishedScopedFilter(target) : publishedTargetFilter(target),
+    sql`${reviews.targetType} <> 'order_item'`,
+    or(isNull(reviews.scope), sql`${reviews.scope} <> 'native_transaction'`),
+  );
+  const [rows, [totals]] = await Promise.all([
+    db.select({ review: reviews, media: { id: reviewMedia.id, fileId: reviewMedia.fileId,
+      kind: reviewMedia.kind, position: reviewMedia.position } })
+      .from(reviewMedia).innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId))
+      .where(where).orderBy(desc(reviews.createdAt), desc(reviews.id), asc(reviewMedia.position))
+      .limit(limit).offset((page - 1) * limit),
+    db.select({ count: sql<number>`count(*)::int` })
+      .from(reviewMedia).innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId)).where(where),
+  ]);
+  return { rows, total: totals?.count ?? 0 };
+}
+
 /**
  * The average rating and count of a LEGACY target's PUBLISHED reviews.
  *

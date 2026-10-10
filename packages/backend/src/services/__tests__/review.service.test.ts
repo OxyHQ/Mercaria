@@ -27,6 +27,7 @@ const aggregatePublishedReviews = vi.fn();
 const authorHasReviewedTarget = vi.fn();
 const findDimensionsForReviews = vi.fn();
 const findMediaForReviews = vi.fn().mockResolvedValue([]);
+const findReviewMediaPage = vi.fn();
 const findPurchasedVariantsForReviews = vi.fn();
 const findReviewHelpfulness = vi.fn();
 const findListingReviewsPage = vi.fn();
@@ -59,6 +60,7 @@ vi.mock('../../db/reviews/reviewRepository.js', () => ({
   authorHasReviewedTarget: (...args: unknown[]) => authorHasReviewedTarget(...args),
   findDimensionsForReviews: (...args: unknown[]) => findDimensionsForReviews(...args),
   findMediaForReviews: (...args: unknown[]) => findMediaForReviews(...args),
+  findReviewMediaPage: (...args: unknown[]) => findReviewMediaPage(...args),
   findListingReviewsPage: (...args: unknown[]) => findListingReviewsPage(...args),
   findReviewsPage: (...args: unknown[]) => findReviewsPage(...args),
   findScopedReviewsPage: (...args: unknown[]) => findScopedReviewsPage(...args),
@@ -136,7 +138,7 @@ vi.mock('../catalog-hydration.service.js', () => ({
   resolveMedia: (value: string, variant?: string) => (variant ? `${value}:${variant}` : value),
 }));
 
-import { createReview, recomputeAggregate, listReviewsForStoreHandle, listReviews, listScopedReviews } from '../review.service.js';
+import { createReview, recomputeAggregate, listReviewsForStoreHandle, listReviews, listScopedReviews, listPublicReviewMedia } from '../review.service.js';
 import type { StoreCaller } from '../store-access.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
@@ -698,5 +700,23 @@ describe('public review attachments', () => {
     expect(result.data[0].media).toEqual(attachments);
     expect(result.data[1]).not.toHaveProperty('media');
     expect(findMediaForReviews).toHaveBeenCalledExactlyOnceWith([first.id, second.id]);
+  });
+});
+
+describe('public review media gallery', () => {
+  it('keeps each photo with its review and suppresses attachments hidden during hydration', async () => {
+    const first = reviewRow({ id: 'visible-media-review' });
+    const second = reviewRow({ id: 'moderated-during-read' });
+    const media = { id: 'attachment-1', fileId: 'oxy-photo', kind: 'image', position: 0 };
+    findReviewMediaPage.mockResolvedValue({ rows: [
+      { review: first, media },
+      { review: second, media: { ...media, id: 'attachment-hidden' } },
+    ], total: 2 });
+    findMediaForReviews.mockResolvedValueOnce([{ ...media, reviewId: first.id }]);
+    const result = await listPublicReviewMedia('product', 'product-1', { page: 1, limit: 10 });
+    expect(findReviewMediaPage).toHaveBeenCalledExactlyOnceWith({ scope: 'product', targetType: 'canonical_product', targetId: 'product-1' }, 1, 10);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]).toMatchObject({ media, review: { id: first.id } });
+    expect(result.total).toBe(2);
   });
 });

@@ -115,6 +115,12 @@ review. It has no independent moderation state: public hydration joins the paren
 and excludes hidden reviews and transaction targets. Deleting a review cascades
 to its attachment rows; Oxy owns the underlying file lifetime. Media reads on a
 paginated review response describe that page, not a complete product media strip.
+The public `GET /reviews/product/:canonicalProductId/media` and
+`GET /listings/:id/reviews/media` page attachments across all published reviews
+of the target. Each entry carries the attachment and its hydrated review; the
+pagination total counts attachments. Sorting is newest review first, then review
+ID, then attachment position. A review hidden during hydration is omitted from
+the response. These reads never include private transaction reviews.
 
 A review with no eligibility is written `unverified` — labelled, counted
 separately, never blended into the headline rating. It is not refused: that is a

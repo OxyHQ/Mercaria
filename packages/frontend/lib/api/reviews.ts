@@ -5,6 +5,7 @@ import type {
   CreateReviewInput,
   PaginatedResponse,
   Review,
+  ReviewMediaItem,
   ReviewHelpfulness,
   ReviewRatingSummary,
   ReviewEligibility,
@@ -27,6 +28,17 @@ import apiClient from './client';
 
 export interface ListingReviewPage extends PaginatedResponse<Review> {
   ratingSummary?: ReviewRatingSummary;
+}
+
+/** Attachments across the target's published reviews, independent of text pages. */
+export async function fetchReviewMedia(
+  scope: 'product' | 'p2p_listing',
+  id: string,
+  params?: PaginationParams,
+): Promise<PaginatedResponse<ReviewMediaItem>> {
+  const path = scope === 'product' ? `/reviews/product/${id}/media` : `/listings/${id}/reviews/media`;
+  const { data } = await apiClient.get<PaginatedResponse<ReviewMediaItem>>(path, { params });
+  return data;
 }
 
 /** Fetch a page of a listing's published reviews. */

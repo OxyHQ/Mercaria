@@ -196,6 +196,9 @@ export const queryKeys = {
    * are for the legacy reads.
    */
   reviews: {
+    media: (scope: 'product' | 'p2p_listing', id: string, limit: number) => scope === 'product'
+      ? ["reviews", "product", id, "media", { limit }] as const
+      : ["listings", id, "reviews", "media", { limit }] as const,
     helpfulnessAll: (userId: string) => ["review-helpfulness", userId] as const,
     helpfulness: (userId: string, ids: string[]) => ["review-helpfulness", userId, ids] as const,
     productAll: (canonicalProductId: string) =>
