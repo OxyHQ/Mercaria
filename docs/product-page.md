@@ -462,6 +462,19 @@ Each is a named contract that fails closed, not a stub that lies:
 
 ### Merchant return-policy reader
 
+The listing page's mobile merchant header uses Bloom `Screen.header` so it stays
+visible while the product scrolls. This follows the sticky merchant bar in Shop's
+captured public product module. Bloom measures the header: document mode reserves
+the web inset, and the existing native scroller reserves `useScreen().topInset`.
+The desktop merchant header remains in the buy column. The `Screen` stays mounted
+across breakpoint changes so the gallery and selected variant keep their identity.
+Browser acceptance covers 390px English/Arabic, 820px English, keyboard navigation
+after scrolling and a 1440→390→1440 resize with the same gallery node. On Pixel8a
+in English/dark mode, the merchant name and Visit store action retain identical
+bounds after two full swipes; tapping the pinned action opens the real store.
+The product detail region also reserves
+Shop's 32px mobile / 64px desktop bottom spacing before related sections.
+
 The merchant menu's internal pages use incoming push/pop transitions measured
 from Shop's public merchant bundle: 40% of the page width over 300ms with
 `cubic-bezier(.32,.72,0,1)`, and a 150ms initial fade. `StoreMenuTransition`
@@ -474,8 +487,11 @@ movement, mobile height interpolation, Escape focus restoration and reduced
 motion at desktop English and mobile Arabic. On Pixel8a, the combined slide/fade
 initially hid review contents inside nested ScrollViews. The three menu pages now
 render ordinary Views: Bloom Dialog owns scrolling and natural-height measurement.
-The complete animation now reveals reviews on the device and the list scrolls to
-its pagination controls. Close/Back and Follow/Share use Bloom's public
+In English, the complete animation reveals reviews on the device and the list
+scrolls to its pagination controls. A cold Arabic launch still loses the review
+body during Bloom's size morph. Disabling only that size morph through the public
+frame API keeps the body visible, including with Mercaria's slide/fade intact;
+that diagnostic override is not shipped. Close/Back and Follow/Share use Bloom's public
 `header.left`/`header.right` slots, with stable memoized nodes. The navigation bar
 stays fixed while the dialog scrolls policies and reviews; browser tests cover
 desktop English and mobile Arabic with wheel input, and Pixel8a bounds are

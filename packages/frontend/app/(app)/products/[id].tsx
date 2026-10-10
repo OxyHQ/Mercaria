@@ -9,13 +9,14 @@ import {
   useShoppingHistory,
   useShoppingHistoryOwner,
 } from "@/lib/stores/shopping-history";
-import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Image } from "@mercaria/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { Link, type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { Button } from "@oxy.so/bloom/button";
 import { Rating } from "@oxy.so/bloom/rating";
+import { Screen, useScreen } from "@oxy.so/bloom/screen";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
 import {
   Accordion,
@@ -135,6 +136,34 @@ function merchantIdentity(listing: Listing): MerchantIdentity {
   const reviewCount = store?.reviewCount ?? seller?.reviewCount;
   if (reviewCount !== undefined) identity.reviewCount = reviewCount;
   return identity;
+}
+
+function ListingMerchantHeader({ listing, size, moreAction }: {
+  listing: Listing;
+  size: "large" | "compact";
+  moreAction?: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const identity = merchantIdentity(listing);
+  // A person is addressed by their Oxy account id, never by a mutable handle.
+  const href: Href | undefined = listing.store?.handle
+    ? { pathname: "/stores/[handle]", params: { handle: listing.store.handle } }
+    : listing.seller?.oxyUserId
+      ? { pathname: "/sellers/[oxyUserId]", params: { oxyUserId: listing.seller.oxyUserId } }
+      : undefined;
+  return <MerchantHeader
+    {...identity}
+    renderLink={href ? child => <Link href={href} asChild>{child}</Link> : undefined}
+    visitLabel={listing.seller ? t("sellers.linkCard.visitProfile") : undefined}
+    moreAction={moreAction}
+    size={size}
+  />;
+}
+
+/** Bloom measures the custom header; the native page owns its existing scroller. */
+function ProductHeaderInset() {
+  const { topInset } = useScreen();
+  return Platform.OS === "web" ? null : <View style={{ height: topInset }} />;
 }
 
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
@@ -413,8 +442,6 @@ function ProductBody({ listing }: ProductBodyProps) {
     [listing, selectedVariant?.images],
   );
 
-  const identity = useMemo(() => merchantIdentity(listing), [listing]);
-
   const selectOption = (name: string, value: string) => {
     const next = chooseListingVariant(
       listing.variants,
@@ -426,19 +453,6 @@ function ProductBody({ listing }: ProductBodyProps) {
     setQuantity(1);
     addToCart.reset();
   };
-
-  // Keyed on the OXY ACCOUNT ID, never on the handle: a handle can change and a
-  // renamed seller's every inbound link would 404, while the account id never
-  // moves. Same reasoning as the follow target's URI.
-  const merchantHref: Href | undefined = listing.store?.handle
-    ? { pathname: "/stores/[handle]", params: { handle: listing.store.handle } }
-    : listing.seller?.oxyUserId
-      ? { pathname: "/sellers/[oxyUserId]", params: { oxyUserId: listing.seller.oxyUserId } }
-      : undefined;
-  const renderMerchantLink = merchantHref
-    ? (child: React.ReactElement) => <Link href={merchantHref} asChild>{child}</Link>
-    : undefined;
-  const visitLabel = listing.seller ? t("sellers.linkCard.visitProfile") : undefined;
 
   const onAddToCart = () => {
     if (!selectedVariant) return;
@@ -480,22 +494,8 @@ function ProductBody({ listing }: ProductBodyProps) {
   return (
     <View className="web:mx-auto web:w-full web:max-w-[1600px] md:px-5">
       <View className="flex-col">
-        {/* Mobile sticky merchant bar. */}
-        {!desktopNavigation ? <View className="px-space-16 py-space-12">
-          <MerchantHeader
-            name={identity.name}
-            logoUrl={identity.logoUrl}
-            logoFileId={identity.logoFileId}
-            rating={identity.rating}
-            reviewCount={identity.reviewCount}
-            renderLink={renderMerchantLink}
-            visitLabel={visitLabel}
-            size="large"
-          />
-        </View> : null}
-
         {/* Top two-column region: large gallery (flex-1) + fixed buy column. */}
-        <View className="flex-col gap-space-16 md:mt-6 md:flex-row md:gap-space-40 md:px-4">
+        <View className="flex-col gap-space-16 pb-space-32 md:mt-6 md:flex-row md:gap-space-40 md:px-4 md:pb-space-64">
           <View className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8">
             <ProductMediaGallery
               className="md:w-full md:flex-none web:md:static web:md:top-auto"
@@ -514,14 +514,8 @@ function ProductBody({ listing }: ProductBodyProps) {
             {/* Desktop buy-column merchant header. */}
             <View className="gap-space-16" testID="product-summary">
               {desktopNavigation ? <View>
-                <MerchantHeader
-                  name={identity.name}
-                  logoUrl={identity.logoUrl}
-                  logoFileId={identity.logoFileId}
-                  rating={identity.rating}
-                  reviewCount={identity.reviewCount}
-                  renderLink={renderMerchantLink}
-                  visitLabel={visitLabel}
+                <ListingMerchantHeader
+                  listing={listing}
                   moreAction={<ProductActionsMenu key={listing.id} listingId={listing.id} title={listing.title} store={listing.store} />}
                   size="compact"
                 />
@@ -997,6 +991,7 @@ function ProductSkeleton() {
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { width } = useWindowDimensions();
   const { t } = useTranslation();
   const { data: listing, isLoading, isError } = useProduct(id ?? "");
   const historyOwner = useShoppingHistoryOwner();
@@ -1049,9 +1044,22 @@ export default function ProductScreen() {
   }
 
   return (
-    <ScreenShell>
-      {head}
-      <ProductBody key={listing.id} listing={listing} />
-    </ScreenShell>
+    <Screen
+      documentScroll
+      contentClearance={0}
+      style={{ backgroundColor: "transparent" }}
+      testID="product-screen"
+      header={width < STOREFRONT_NAV_FROM ? (
+        <View testID="product-merchant-header" className="bg-bg-fill px-space-16 py-space-12">
+          <ListingMerchantHeader listing={listing} size="large" />
+        </View>
+      ) : undefined}
+    >
+      <ScreenShell>
+        <ProductHeaderInset />
+        {head}
+        <ProductBody key={listing.id} listing={listing} />
+      </ScreenShell>
+    </Screen>
   );
 }

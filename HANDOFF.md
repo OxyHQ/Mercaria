@@ -1524,3 +1524,25 @@ the loading→tall-content arrival. All temporary overrides restored to defaults
 Bloom agent owns further root-cause reproduction in its worktree; no new release
 without reproduction/review. First two morph-off XMLs ending -menu/-reviews were
 captured on Home because startup navigation was not ready; they are NOT evidence.
+
+Product merchant header now uses official Bloom Screen.header with measured
+native clearance, keeping the same gallery/variant across responsive changes.
+8 browser cases (4 header/resize,4 existing merchant links), frontend types/lint,
+route/RTL/i18n guards pass; final spacing change rechecked by4headercases.
+Pixel8a EN/dark: merchant label [179,154][733,216] and Visit store
+[799,186][991,234] unchanged after2swipes; tapping opens real milkmakeup store.
+Evidence /tmp/mercaria-product-header-{before,after,visit}.xml and
+/tmp/mercaria-product-header-native.png. Product details regain captured Shop
+bottom clearance32mobile/64desktop. Native Arabic header acceptance not claimed.
+
+f0c98a75 fixes Wholesale inventory late-read overwrite after a successful PATCH
+while its panel is folded: cancel exact query before publishing confirmed DTO.
+2new cases fail before,4hooktests +6browsercases and dashboard types/lint pass.
+Other-location drafts survive; transport tests perform no real commercial writes.
+
+Bloom explicit500→600 diagnostic also reproduced invisible body/rollback500;
+adding measurement logs produced a visible600 result instead. Thus size-morph
+failure is timing-sensitive, not limited to natural-height targets. Both
+StoreMenu probes restored byte-for-byte before header native acceptance. Agent
+is preparing an isolated RN/Reanimated reproduction; stale settled-style collector
+is a hypothesis, not a proven cause. Do not publish a purported fix yet.
