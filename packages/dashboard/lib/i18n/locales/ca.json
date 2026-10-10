@@ -557,6 +557,40 @@
         "newest": "Més recents primer",
         "title": "Títol: A–Z"
       }
+    },
+    "rules": {
+      "heading": "Condicions",
+      "match": "Els productes han de complir",
+      "all": "Totes les condicions",
+      "any": "Qualsevol condició",
+      "empty": "Sense condicions, aquesta col·lecció no conté productes.",
+      "field": "Camp del producte",
+      "operator": "Comparació",
+      "value": "Valor",
+      "availability": "Disponibilitat",
+      "inStock": "Disponible",
+      "outOfStock": "Esgotat",
+      "price": "Preu",
+      "compareAtPrice": "Preu de comparació",
+      "exactElement": "Les etiquetes i els identificadors de categoria coincideixen amb valors complets, fins i tot amb «conté».",
+      "retained": "Aquesta condició existent es conserva sense canvis. No es pot editar aquí; la pots eliminar explícitament.",
+      "remove": "Eliminar condició %{position}",
+      "add": "Afegir condició",
+      "failed": "No s’han pogut desar les condicions. Es conserven els canvis.",
+      "saved": "Condicions desades",
+      "save": "Desar condicions",
+      "operators": {
+        "equals": "És igual a",
+        "notEquals": "No és igual a",
+        "contains": "Conté",
+        "startsWith": "Comença per",
+        "endsWith": "Acaba en",
+        "gt": "Més gran que",
+        "gte": "Més gran o igual que",
+        "lt": "Més petit que",
+        "lte": "Més petit o igual que"
+      },
+      "categoryIdentifier": "Identificador de categoria"
     }
   },
   "common": {

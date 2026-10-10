@@ -557,6 +557,40 @@
         "newest": "Les plus récents",
         "title": "Titre : A–Z"
       }
+    },
+    "rules": {
+      "heading": "Conditions",
+      "match": "Les produits doivent remplir",
+      "all": "Toutes les conditions",
+      "any": "Au moins une condition",
+      "empty": "Sans conditions, cette collection ne contient aucun produit.",
+      "field": "Champ du produit",
+      "operator": "Comparaison",
+      "value": "Valeur",
+      "availability": "Disponibilité",
+      "inStock": "En stock",
+      "outOfStock": "Rupture de stock",
+      "price": "Prix",
+      "compareAtPrice": "Prix de comparaison",
+      "exactElement": "Les étiquettes et identifiants de catégorie correspondent à des valeurs entières, même avec « contient ».",
+      "retained": "Cette condition existante est conservée sans modification. Elle ne peut pas être modifiée ici ; vous pouvez la supprimer explicitement.",
+      "remove": "Supprimer la condition %{position}",
+      "add": "Ajouter une condition",
+      "failed": "Impossible d’enregistrer les conditions. Vos modifications sont conservées.",
+      "saved": "Conditions enregistrées",
+      "save": "Enregistrer les conditions",
+      "operators": {
+        "equals": "Est égal à",
+        "notEquals": "N’est pas égal à",
+        "contains": "Contient",
+        "startsWith": "Commence par",
+        "endsWith": "Se termine par",
+        "gt": "Supérieur à",
+        "gte": "Supérieur ou égal à",
+        "lt": "Inférieur à",
+        "lte": "Inférieur ou égal à"
+      },
+      "categoryIdentifier": "Identifiant de catégorie"
     }
   },
   "common": {

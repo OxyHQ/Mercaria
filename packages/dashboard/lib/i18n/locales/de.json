@@ -546,6 +546,40 @@
         "newest": "Neueste zuerst",
         "title": "Titel: A–Z"
       }
+    },
+    "rules": {
+      "heading": "Bedingungen",
+      "match": "Produkte müssen erfüllen",
+      "all": "Alle Bedingungen",
+      "any": "Mindestens eine Bedingung",
+      "empty": "Ohne Bedingungen enthält diese Kollektion keine Produkte.",
+      "field": "Produktfeld",
+      "operator": "Vergleich",
+      "value": "Wert",
+      "availability": "Verfügbarkeit",
+      "inStock": "Auf Lager",
+      "outOfStock": "Nicht auf Lager",
+      "price": "Preis",
+      "compareAtPrice": "Vergleichspreis",
+      "exactElement": "Tags und Kategoriekennungen werden als vollständige Werte verglichen, auch bei „enthält“.",
+      "retained": "Diese bestehende Bedingung bleibt unverändert. Sie kann hier nicht bearbeitet, aber ausdrücklich entfernt werden.",
+      "remove": "Bedingung %{position} entfernen",
+      "add": "Bedingung hinzufügen",
+      "failed": "Bedingungen konnten nicht gespeichert werden. Deine Änderungen bleiben erhalten.",
+      "saved": "Bedingungen gespeichert",
+      "save": "Bedingungen speichern",
+      "operators": {
+        "equals": "Ist gleich",
+        "notEquals": "Ist nicht gleich",
+        "contains": "Enthält",
+        "startsWith": "Beginnt mit",
+        "endsWith": "Endet mit",
+        "gt": "Größer als",
+        "gte": "Größer oder gleich",
+        "lt": "Kleiner als",
+        "lte": "Kleiner oder gleich"
+      },
+      "categoryIdentifier": "Kategoriekennung"
     }
   },
   "common": {

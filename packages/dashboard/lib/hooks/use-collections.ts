@@ -62,7 +62,10 @@ export function useUpdateCollection(storeId: string, id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: UpdateCollectionInput) => updateCollection(storeId, id, input),
-    onSuccess: collection => publishCollection(queryClient, storeId, collection),
+    onSuccess: async (collection, input) => {
+      await publishCollection(queryClient, storeId, collection);
+      if (input.rules) queryClient.invalidateQueries({ queryKey: ["stores", storeId, "products"] });
+    },
   });
 }
 

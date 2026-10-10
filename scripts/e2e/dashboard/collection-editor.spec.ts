@@ -106,7 +106,7 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await page.screenshot({ path: `/tmp/mercaria-collection-editor-${width}-${locale}-${mode}.png`, fullPage: true });
     canWrite = false; await page.reload(); await expect(title).toBeDisabled(); await expect(save).toHaveCount(0); await expect(browse).toHaveCount(0);
     canWrite = true; collection.type = 'automated'; await page.reload();
-    await expect(page.getByText(copy.collections.editor.automated, { exact: true })).toBeVisible(); await expect(membership).toHaveCount(0);
+    await expect(page.getByText(copy.collections.editor.automated, { exact: true })).toBeVisible(); await expect(membership).toBeVisible(); await expect(browse).toHaveCount(0);
     expect(metadataWrites).toHaveLength(3); expect(membershipWrites).toHaveLength(3);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });

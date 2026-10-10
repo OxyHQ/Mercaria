@@ -557,6 +557,40 @@
         "newest": "Mais recentes primeiro",
         "title": "Título: A–Z"
       }
+    },
+    "rules": {
+      "heading": "Condições",
+      "match": "Os produtos devem atender",
+      "all": "Todas as condições",
+      "any": "Qualquer condição",
+      "empty": "Sem condições, esta coleção não contém produtos.",
+      "field": "Campo do produto",
+      "operator": "Comparação",
+      "value": "Valor",
+      "availability": "Disponibilidade",
+      "inStock": "Em estoque",
+      "outOfStock": "Sem estoque",
+      "price": "Preço",
+      "compareAtPrice": "Preço de comparação",
+      "exactElement": "Tags e identificadores de categoria correspondem a valores completos, mesmo ao usar “contém”.",
+      "retained": "Esta condição existente é preservada sem alterações. Não é possível editá-la aqui; você pode removê-la explicitamente.",
+      "remove": "Remover condição %{position}",
+      "add": "Adicionar condição",
+      "failed": "Não foi possível salvar as condições. Suas alterações foram preservadas.",
+      "saved": "Condições salvas",
+      "save": "Salvar condições",
+      "operators": {
+        "equals": "É igual a",
+        "notEquals": "Não é igual a",
+        "contains": "Contém",
+        "startsWith": "Começa com",
+        "endsWith": "Termina com",
+        "gt": "Maior que",
+        "gte": "Maior ou igual a",
+        "lt": "Menor que",
+        "lte": "Menor ou igual a"
+      },
+      "categoryIdentifier": "Identificador de categoria"
     }
   },
   "common": {

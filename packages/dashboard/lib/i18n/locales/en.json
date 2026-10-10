@@ -546,6 +546,40 @@
         "newest": "Newest first",
         "title": "Title: A–Z"
       }
+    },
+    "rules": {
+      "heading": "Conditions",
+      "match": "Products must match",
+      "all": "All conditions",
+      "any": "Any condition",
+      "empty": "Without conditions, this collection contains no products.",
+      "field": "Product field",
+      "operator": "Comparison",
+      "value": "Value",
+      "availability": "Availability",
+      "inStock": "In stock",
+      "outOfStock": "Out of stock",
+      "price": "Price",
+      "compareAtPrice": "Compare-at price",
+      "exactElement": "Tags and category identifiers match complete values, including when using “contains”.",
+      "retained": "This existing condition is preserved unchanged. Editing it is not available here; you can explicitly remove it.",
+      "remove": "Remove condition %{position}",
+      "add": "Add condition",
+      "failed": "Could not save conditions. Your changes are preserved.",
+      "saved": "Conditions saved",
+      "save": "Save conditions",
+      "operators": {
+        "equals": "Equals",
+        "notEquals": "Does not equal",
+        "contains": "Contains",
+        "startsWith": "Starts with",
+        "endsWith": "Ends with",
+        "gt": "Greater than",
+        "gte": "Greater than or equal to",
+        "lt": "Less than",
+        "lte": "Less than or equal to"
+      },
+      "categoryIdentifier": "Category identifier"
     }
   },
   "common": {

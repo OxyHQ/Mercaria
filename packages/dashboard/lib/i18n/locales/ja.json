@@ -546,6 +546,40 @@
         "newest": "新しい順",
         "title": "タイトル：A–Z"
       }
+    },
+    "rules": {
+      "heading": "条件",
+      "match": "商品の一致条件",
+      "all": "すべての条件",
+      "any": "いずれかの条件",
+      "empty": "条件がない場合、このコレクションには商品が含まれません。",
+      "field": "商品フィールド",
+      "operator": "比較",
+      "value": "値",
+      "availability": "在庫状況",
+      "inStock": "在庫あり",
+      "outOfStock": "在庫なし",
+      "price": "価格",
+      "compareAtPrice": "比較価格",
+      "exactElement": "タグとカテゴリー識別子は、「含む」を選んだ場合も値全体で一致判定されます。",
+      "retained": "この既存の条件は変更せず保持されます。ここでは編集できませんが、明示的に削除できます。",
+      "remove": "条件 %{position} を削除",
+      "add": "条件を追加",
+      "failed": "条件を保存できませんでした。変更内容は保持されています。",
+      "saved": "条件を保存しました",
+      "save": "条件を保存",
+      "operators": {
+        "equals": "等しい",
+        "notEquals": "等しくない",
+        "contains": "含む",
+        "startsWith": "で始まる",
+        "endsWith": "で終わる",
+        "gt": "より大きい",
+        "gte": "以上",
+        "lt": "より小さい",
+        "lte": "以下"
+      },
+      "categoryIdentifier": "カテゴリー識別子"
     }
   },
   "common": {

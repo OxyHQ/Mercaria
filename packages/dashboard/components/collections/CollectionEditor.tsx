@@ -12,6 +12,7 @@ import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { collectionChanges, type CollectionDraft } from "@/lib/collection-draft";
 import { useTranslation } from "@/lib/i18n";
 import { OxyProductImage } from "@/components/products/OxyProductImage";
+import { CollectionRules } from "./CollectionRules";
 import { CollectionProducts } from "./CollectionProducts";
 
 const SORT_KEYS: Record<CollectionSortOrder, string> = {
@@ -26,7 +27,8 @@ export function CollectionEditor({ storeId, collection, readBlocked }: { storeId
   const canWrite = can("collections:write");
   const update = useUpdateCollection(storeId, collection.id);
   const products = useSetCollectionProducts(storeId, collection.id);
-  const busy = update.isPending || products.isPending;
+  const rules = useUpdateCollection(storeId, collection.id);
+  const busy = update.isPending || products.isPending || rules.isPending;
   const [draft, setDraft] = useState<CollectionDraft>({});
   const title = draft.title ?? collection.title;
   const handle = draft.handle ?? collection.handle;
@@ -66,6 +68,9 @@ export function CollectionEditor({ storeId, collection, readBlocked }: { storeId
       </View> : null}
     </View>
     {collection.type === "manual" ? <CollectionProducts storeId={storeId} collection={collection} canWrite={canWrite} busy={busy} readBlocked={readBlocked} mutation={products} />
-      : <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface"><Text className="text-sm text-muted-foreground">{t("collections.editor.automated")}</Text></View>}
+      : <><Text className="text-sm text-muted-foreground">{t("collections.editor.automated")}</Text>
+        <CollectionRules collection={collection} canWrite={canWrite} busy={busy} readBlocked={readBlocked} mutation={rules} />
+        <CollectionProducts storeId={storeId} collection={collection} canWrite={false} busy={busy} readBlocked={readBlocked} mutation={products} />
+      </>}
   </View>;
 }

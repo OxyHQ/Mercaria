@@ -546,6 +546,40 @@
         "newest": "最新优先",
         "title": "标题：A–Z"
       }
+    },
+    "rules": {
+      "heading": "条件",
+      "match": "商品必须满足",
+      "all": "所有条件",
+      "any": "任一条件",
+      "empty": "没有条件时，此商品系列不包含任何商品。",
+      "field": "商品字段",
+      "operator": "比较方式",
+      "value": "值",
+      "availability": "库存状态",
+      "inStock": "有货",
+      "outOfStock": "缺货",
+      "price": "价格",
+      "compareAtPrice": "对比价格",
+      "exactElement": "标签和类别标识符按完整值匹配，即使选择“包含”也一样。",
+      "retained": "此现有条件将原样保留。无法在此编辑，但你可以明确删除它。",
+      "remove": "删除条件 %{position}",
+      "add": "添加条件",
+      "failed": "无法保存条件。你的更改已保留。",
+      "saved": "条件已保存",
+      "save": "保存条件",
+      "operators": {
+        "equals": "等于",
+        "notEquals": "不等于",
+        "contains": "包含",
+        "startsWith": "开头是",
+        "endsWith": "结尾是",
+        "gt": "大于",
+        "gte": "大于或等于",
+        "lt": "小于",
+        "lte": "小于或等于"
+      },
+      "categoryIdentifier": "类别标识符"
     }
   },
   "common": {
