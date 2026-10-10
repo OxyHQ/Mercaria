@@ -15,6 +15,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import express from 'express';
+import type { AddressInfo } from 'node:net';
 import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
@@ -25,6 +27,8 @@ import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import { nativeListingLinks, offers } from '../../db/schema/offers.js';
 import { listings, productVariants } from '../../db/schema/catalog.js';
 import { readListingBundleContents } from '../catalog-bundle-contents.service.js';
+import { readListingCatalogIdentities } from '../catalog-listing-identity.service.js';
+import listingsRouter from '../../routes/listings.js';
 import { readListingBundleRecommendations } from '../catalog-bundle-recommendations.service.js';
 import { listingConditionDetails } from '../../db/schema/condition.js';
 import { revokeNativeListingLink } from '../../db/offers/nativeListingLinkRepository.js';
@@ -250,6 +254,62 @@ async function mintNativeBundleListing(label: string, canonicalVariantIds: reado
   }))).returning({ id: nativeListingLinks.id });
   return { listingId: listing.id, variantIds: variants.map(variant => variant.id), linkIds: links.map(link => link.id) };
 }
+
+describe('listing catalog identities', () => {
+  it('publishes exact identity through the anonymous listing route and withholds a hidden listing', async () => {
+    const product = await mintProduct('public-listing-specifications');
+    const native = await mintNativeBundleListing('public-listing-specifications', product.variantIds);
+    const [store] = await db.insert(stores).values({
+      oxyAccountId: `specifications-owner-${RUN}`, handle: `specifications-${RUN}`,
+      name: 'Specifications store', description: 'Fixture', brandColor: '#101010',
+    }).returning({ id: stores.id });
+    createdStoreIds.push(store.id);
+    await db.update(listings).set({ ownerType: 'store', oxyUserId: null, storeId: store.id })
+      .where(eq(listings.id, native.listingId));
+    const app = express();
+    app.use('/listings', listingsRouter);
+    const server = await new Promise<ReturnType<typeof app.listen>>(resolve => {
+      const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
+    });
+    try {
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/listings/${native.listingId}`;
+      const response = await fetch(url);
+      expect(response.status).toBe(200);
+      expect((await response.json()).data.catalogIdentityByVariant).toEqual({
+        [native.variantIds[0]]: { productId: product.productId, variantId: product.variantIds[0] },
+      });
+      await revokeNativeListingLink(db, { id: native.linkIds[0], revokedByOxyUserId: `operator-${RUN}`, reason: 'Wrong public attachment' });
+      expect((await (await fetch(url)).json()).data).not.toHaveProperty('catalogIdentityByVariant');
+      await db.update(listings).set({ status: 'draft' }).where(eq(listings.id, native.listingId));
+      expect((await fetch(url)).status).toBe(404);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
+  });
+
+  it('exposes only exact owned active attachments with public catalog identities', async () => {
+    const product = await mintProduct('listing-specifications', 2);
+    const native = await mintNativeBundleListing('listing-specifications', product.variantIds);
+    const foreign = await mintNativeBundleListing('foreign-specifications', [product.variantIds[0]]);
+    const read = () => readListingCatalogIdentities(native.listingId, native.variantIds);
+    expect(await read()).toEqual(Object.fromEntries(native.variantIds.map((id, index) => [id, {
+      productId: product.productId, variantId: product.variantIds[index],
+    }])));
+    expect(await readListingCatalogIdentities(native.listingId, foreign.variantIds)).toEqual({});
+    expect(await readListingCatalogIdentities(native.listingId, [])).toEqual({});
+    await db.update(nativeListingLinks).set({ status: 'superseded' }).where(eq(nativeListingLinks.id, native.linkIds[1]));
+    expect(Object.keys(await read())).toEqual([native.variantIds[0]]);
+    await db.update(canonicalVariants).set({ status: 'draft' }).where(eq(canonicalVariants.id, product.variantIds[0]));
+    expect(await read()).toEqual({});
+    await db.update(canonicalVariants).set({ status: 'active' }).where(eq(canonicalVariants.id, product.variantIds[0]));
+    await db.update(canonicalProducts).set({ status: 'suppressed' }).where(eq(canonicalProducts.id, product.productId));
+    expect(await read()).toEqual({});
+    await db.update(canonicalProducts).set({ status: 'active' }).where(eq(canonicalProducts.id, product.productId));
+    expect(Object.keys(await read())).toEqual([native.variantIds[0]]);
+    await revokeNativeListingLink(db, { id: native.linkIds[0], revokedByOxyUserId: `operator-${RUN}`, reason: 'Wrong specification attachment' });
+    expect(await read()).toEqual({});
+  });
+});
 
 describe('listing bundle contents', () => {
   it('recommends available same-seller packs for the exact component, with their own prices and action', async () => {

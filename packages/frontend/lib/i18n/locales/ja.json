@@ -234,7 +234,8 @@
       "product": "この商品について",
       "variant": "この構成について",
       "definitionsUnavailable": "一部の項目名は保存されているまま表示しています。",
-      "untranslated": "一部の項目名はまだあなたの言語に翻訳されていません。"
+      "untranslated": "一部の項目名はまだあなたの言語に翻訳されていません。",
+      "loadError": "仕様を読み込めませんでした。もう一度お試しください。"
     },
     "variants": {
       "unavailable": "在庫なし",

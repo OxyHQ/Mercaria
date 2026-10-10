@@ -234,7 +234,8 @@
       "product": "关于此商品",
       "variant": "关于此配置",
       "definitionsUnavailable": "部分名称按存储的原样显示。",
-      "untranslated": "部分名称尚未翻译成你的语言。"
+      "untranslated": "部分名称尚未翻译成你的语言。",
+      "loadError": "无法加载规格。请重试。"
     },
     "variants": {
       "unavailable": "暂无供应",

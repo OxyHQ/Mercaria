@@ -23,6 +23,7 @@ import {
 import { searchListingsOffset, searchListingsCursor } from '../services/search.service.js';
 import { hydrateListings } from '../services/catalog-hydration.service.js';
 import { readListingBundleContents } from '../services/catalog-bundle-contents.service.js';
+import { readListingCatalogIdentities } from '../services/catalog-listing-identity.service.js';
 import { readListingBundleRecommendations } from '../services/catalog-bundle-recommendations.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../utils/api-response.js';
@@ -237,10 +238,11 @@ export async function getListingById(req: Request, res: Response): Promise<void>
      * honest answer for a listing with no barcode, an unclaimed one, or variants
      * that disagree.
      */
-    const [canonicalProductId, bundleContentsByVariant, bundlesByVariant] = await Promise.all([
+    const [canonicalProductId, bundleContentsByVariant, bundlesByVariant, catalogIdentityByVariant] = await Promise.all([
       findCanonicalProductIdForListing(row.id),
       readListingBundleContents(row.id, dto.variants.map(variant => variant.id), dto.itemCondition.details),
       readListingBundleRecommendations(dto),
+      readListingCatalogIdentities(row.id, dto.variants.map(variant => variant.id)),
     ]);
     // Emitted AFTER the 404 guard, so a view of something that does not exist
     // is not counted as a product view — `product_page_view` is the denominator
@@ -260,6 +262,7 @@ export async function getListingById(req: Request, res: Response): Promise<void>
       ...(canonicalProductId ? { canonicalProductId } : {}),
       ...(Object.keys(bundleContentsByVariant).length ? { bundleContentsByVariant } : {}),
       ...(Object.keys(bundlesByVariant).length ? { bundlesByVariant } : {}),
+      ...(Object.keys(catalogIdentityByVariant).length ? { catalogIdentityByVariant } : {}),
     });
   } catch (err) {
     log.general.error({ err, listingId: id }, 'Failed to load listing');

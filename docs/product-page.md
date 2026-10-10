@@ -353,6 +353,29 @@ Store policies and **Report store** remain in the store page's own menu.
 Contact information is not shown because `StoreSummary` has no published
 contact fields; private admin or Oxy account fields are not a substitute.
 
+## Specifications on a listing
+
+The listing detail route also returns `catalogIdentityByVariant` for exact active
+native-to-catalog attachments. It omits revoked or superseded links, foreign
+native variants, and catalog products or configurations outside the shared
+shopper-visible status set. This detail-only projection carries public IDs and
+the category, never matching evidence. A product-level barcode match alone
+cannot establish which configuration's specifications belong to an option.
+
+`/products/[id]` uses that mapping for its Specifications accordion, sharing the
+attribute registry queries and `SpecificationGroups` with the canonical page.
+The section starts collapsed, matching Shop's public product accordion.
+Selecting another option changes the value query keys without remounting the
+gallery. Loading and failed reads hide the previous option's facts; retry uses
+the current identity. An unmapped option or a successful empty result omits the
+section. Product and configuration scopes remain separate, and unavailable
+definitions retain the existing label fallback notice.
+
+The real PostgreSQL product-page suite checks the anonymous listing route and
+attachment visibility. Browser coverage at 390 and 1440 pixels checks delayed
+reads, failure/retry, unmapped options and a retained gallery element using
+isolated attribute data; it does not demonstrate imported product images.
+
 ## Reaching the page
 
 `/products/:id` — the listing page — gains ONE control: "Compare all offers",

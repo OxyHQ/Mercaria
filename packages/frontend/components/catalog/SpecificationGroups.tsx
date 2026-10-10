@@ -33,6 +33,8 @@ import type {
 
 export interface SpecificationGroupsProps {
   table: SpecificationTable;
+  /** The enclosing product accordion already labels this section. */
+  showTitle?: boolean;
   /**
    * True when the definition read failed, so every label fell back to the value
    * projection's own — which the server falls back to the stable KEY on.
@@ -43,6 +45,7 @@ export interface SpecificationGroupsProps {
 export function SpecificationGroups({
   table,
   definitionsUnavailable,
+  showTitle = true,
 }: SpecificationGroupsProps) {
   const { t } = useTranslation();
 
@@ -50,9 +53,9 @@ export function SpecificationGroups({
 
   return (
     <View className="gap-space-24">
-      <Text className="text-shop-captionBold text-text" accessibilityRole="header">
+      {showTitle ? <Text className="text-shop-captionBold text-text" accessibilityRole="header">
         {t('catalog.specs.title')}
-      </Text>
+      </Text> : null}
 
       {definitionsUnavailable ? (
         <Text className="text-shop-caption text-text-tertiary">

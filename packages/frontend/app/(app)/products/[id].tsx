@@ -49,6 +49,7 @@ import { isOxyFileId, type Listing, type StoreSummary, type Seller } from "@merc
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { ProductDescription } from "@/components/product/ProductDescription";
+import { ListingSpecifications } from "@/components/product/ListingSpecifications";
 import { PurchasePlanPreview } from "@/components/listing/PurchasePlanPreview";
 import { resolvePurchasePreview } from "@/lib/catalog/purchase-preview";
 import { ProductReviewsDialog } from "@/components/product/ProductReviewsDialog";
@@ -866,6 +867,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                   </AccordionContent>
                 </AccordionItem>
               ) : null}
+              <ListingSpecifications identity={selectedVariant ? listing.catalogIdentityByVariant?.[selectedVariant.id] : undefined} />
               <AccordionItem value="reviews" className={refundPolicy
                 ? isDarkColorScheme ? "border-white/10" : "border-[#183b4e0f]"
                 : "border-0"}>

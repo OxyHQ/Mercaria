@@ -236,7 +236,8 @@
       "product": "À propos de ce produit",
       "variant": "À propos de cette configuration",
       "definitionsUnavailable": "Certains noms sont affichés tels qu'ils sont enregistrés.",
-      "untranslated": "Certains noms ne sont pas encore traduits dans votre langue."
+      "untranslated": "Certains noms ne sont pas encore traduits dans votre langue.",
+      "loadError": "Impossible de charger les caractéristiques. Réessayez."
     },
     "variants": {
       "unavailable": "non disponible",

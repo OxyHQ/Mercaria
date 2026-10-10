@@ -236,7 +236,8 @@
       "product": "Sobre aquest producte",
       "variant": "Sobre aquesta configuració",
       "definitionsUnavailable": "Alguns noms es mostren tal com estan desats.",
-      "untranslated": "Alguns noms encara no estan traduïts al teu idioma."
+      "untranslated": "Alguns noms encara no estan traduïts al teu idioma.",
+      "loadError": "No s’han pogut carregar les especificacions. Torna-ho a provar."
     },
     "variants": {
       "unavailable": "no disponible",

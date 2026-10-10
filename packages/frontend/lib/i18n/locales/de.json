@@ -234,7 +234,8 @@
       "product": "Über dieses Produkt",
       "variant": "Über diese Konfiguration",
       "definitionsUnavailable": "Einige Bezeichnungen werden genau so angezeigt, wie sie gespeichert sind.",
-      "untranslated": "Einige Bezeichnungen sind noch nicht in deine Sprache übersetzt."
+      "untranslated": "Einige Bezeichnungen sind noch nicht in deine Sprache übersetzt.",
+      "loadError": "Die technischen Daten konnten nicht geladen werden. Versuche es erneut."
     },
     "variants": {
       "unavailable": "nicht verfügbar",
