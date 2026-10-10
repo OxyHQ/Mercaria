@@ -258,6 +258,11 @@ makes `variant_selected` a number nobody can act on. They belong to #111 with
 - The variant selector and the intent picker are RADIO GROUPS with `checked`
   state, so a screen reader announces "2 of 5, selected" rather than five
   unrelated buttons (#71 UX rule 2).
+  Named configurations and catalog axes use Bloom's `RadioGroup variant="chip"`:
+  one tab stop, mirrored arrow navigation, Home/End, disabled-option skipping
+  and non-toggle Space/Enter activation. Availability remains visible text.
+  Bloom owns those interactions; the page retains selection in its URL without
+  pushing a history entry or remounting its gallery.
 - Every badge is text on neutral chrome — never colour alone (#71 UX rule 4,
   #90 policy rule 3), and never a colour scale, which would additionally read as
   a quality verdict on a correctly-labelled for-parts item.

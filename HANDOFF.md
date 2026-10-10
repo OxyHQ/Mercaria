@@ -709,7 +709,7 @@ Eligibility queries and form identity are scoped to the active account; upload
 and publish failures preserve the review draft. Private transaction prompts
 have no public-media uploader.
 
-The three apps now pin published Bloom 7.24.1 and Services 11.1.11. Bloom fixes
+The review-media pass pinned published Bloom 7.24.1 and Services 11.1.11. Bloom fixes
 first-click star activation and hidden uploader status accessibility at source
 (PR 301); the Services maintenance release verifies the compatible peer range.
 All apps, shared UI and Services resolve one physical Bloom copy. Two real
@@ -826,3 +826,18 @@ files: every chip image loads and its Oxy URL contains a file ID returned by the
 feed. A separate failure case aborts the actual imported category file and retains
 the fallback and navigation. The old same-web-origin assertion described bundled
 fixtures and was replaced with the catalog's Oxy ownership boundary.
+
+## Configuration controls and official Bloom adoption — 2026-10-10
+
+All three apps now pin official Bloom 7.26.0 and Services 11.1.12, with one
+physical Bloom copy shared by the apps and Services. Services retains its
+11.1.11 implementation; this maintenance release updates its tested Bloom peer
+range. Named configurations and catalog axes use the published radio-chip API,
+without application keyboard handlers or hidden radio indicators.
+
+Four browser cases cover keyboard selection at 1440px/en and 390px/ar, including
+disabled values, Home/End, clearing a named configuration, one tab stop, stable
+history and mounted gallery. Seven existing selection/failure cases also pass.
+All app/UI typechecks and 148 storefront unit tests pass. Full Shop parity,
+successful author-owned review-media acceptance and import of description HTML
+images remain outstanding; these control checks do not prove those workflows.

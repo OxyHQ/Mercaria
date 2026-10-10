@@ -1,4 +1,5 @@
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
+import { RadioGroup } from '@oxy.so/bloom/radio';
 import type { ProductPageVariant } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
@@ -17,11 +18,8 @@ import { useTranslation } from '@/lib/i18n';
  *
  * ## Accessibility is a radio GROUP, not a row of buttons
  *
- * `accessibilityRole="radio"` with `checked` state, inside a `radiogroup`: a
- * screen reader then announces "2 of 5, selected" rather than five unrelated
- * buttons, and keyboard focus moves through them as one control. #71 UX rule 2
- * asks for exactly this, and a `Pressable` with no role announces nothing at
- * all.
+ * Bloom owns the radio semantics, one tab stop, arrow navigation and RTL
+ * behavior. The page owns the selected configuration through its URL.
  */
 
 export interface VariantSelectorProps {
@@ -37,53 +35,35 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
   if (variants.length <= 1) return null;
 
   return (
-    <View
-      className="gap-space-8"
-      accessibilityRole="radiogroup"
-      accessibilityLabel={t('product.variant.configuration')}
-    >
+    <View className="gap-space-8">
       <Text className="text-shop-captionBold text-text">{t('product.variant.configuration')}</Text>
-      <View className="flex-row flex-wrap gap-space-8">
-        <Pressable
-          accessibilityRole="radio"
-          accessibilityState={{ checked: selectedVariantId === undefined }}
-          accessibilityLabel={t('product.variant.allConfigurationsA11y')}
-          onPress={() => onSelect(undefined)}
-          className={`rounded-radius-max border px-space-16 py-space-8 ${
-            selectedVariantId === undefined ? 'border-text bg-bg-fill' : 'border-border-secondary'
-          }`}
-        >
-          <Text className="text-shop-buttonMedium text-text">{t('product.variant.all')}</Text>
-        </Pressable>
-
-        {variants.map((variant) => {
-          const label = variant.name ?? optionSummary(variant) ?? t('product.variant.standard');
-          return (
-            <Pressable
-              key={variant.id}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selectedVariantId === variant.id }}
-              // The offer COUNT is in the label rather than a separate badge:
-              // "256 GB, Black — 4 offers" is one thing to announce, and a
-              // count rendered as its own chip is a second focus stop that
-              // reads as another control. It is ABSENT when the offers half is
-              // withheld — a "0 offers" there would answer the question the
-              // page is not answering.
-              accessibilityLabel={
-                variant.offerCount === undefined
-                  ? label
-                  : t('product.variant.offerCountA11y', { label, count: variant.offerCount })
-              }
-              onPress={() => onSelect(variant.id)}
-              className={`rounded-radius-max border px-space-16 py-space-8 ${
-                selectedVariantId === variant.id ? 'border-text bg-bg-fill' : 'border-border-secondary'
-              }`}
-            >
-              <Text className="text-shop-buttonMedium text-text">{label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <RadioGroup
+        label={t('product.variant.configuration')}
+        variant="chip"
+        size="md"
+        tone="neutral"
+        appearance="outline"
+        value={selectedVariantId ?? ''}
+        onValueChange={(value) => onSelect(value || undefined)}
+        options={[
+          {
+            value: '',
+            label: t('product.variant.all'),
+            accessibilityLabel: t('product.variant.allConfigurationsA11y'),
+          },
+          ...variants.map((variant) => {
+            const label = variant.name ?? optionSummary(variant) ?? t('product.variant.standard');
+            return {
+              value: variant.id,
+              label,
+              // An unavailable comparison has no offer count, not zero offers.
+              accessibilityLabel: variant.offerCount === undefined
+                ? label
+                : t('product.variant.offerCountA11y', { label, count: variant.offerCount }),
+            };
+          }),
+        ]}
+      />
     </View>
   );
 }
