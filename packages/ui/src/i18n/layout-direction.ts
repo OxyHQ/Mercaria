@@ -45,9 +45,9 @@ export type DirectionSyncResult =
  * Bring the platform's layout direction in line with `locale`.
  *
  * Idempotent, and cheap enough to call on every locale change, on every
- * rehydration and at module scope — the native branch compares against
- * `I18nManager.isRTL` first, so a launch whose direction is already correct
- * writes nothing and asks for nothing.
+ * rehydration and at module scope. Native always persists the desired direction;
+ * `I18nManager.isRTL` describes this process, not the preference for the next one.
+ * A launch whose direction already matches does not ask for a restart.
  *
  * Not to be called from a `useEffect`. The direction has to be settled BEFORE
  * the tree using it renders, and `I18nManager.isRTL` is external mutable state,
@@ -72,9 +72,10 @@ export function syncLayoutDirection(i18n: I18n, locale: string): DirectionSyncRe
   // Must precede forceRTL: without it the build may refuse to mirror, and
   // forceRTL then reports success while changing nothing.
   I18nManager.allowRTL(true);
-
-  if (I18nManager.isRTL === rtl) return { kind: 'applied', rtl };
-
+  // The provisional device locale can have scheduled a different next-launch
+  // direction before the saved locale hydrates. Persist the final preference
+  // even when this process already matches it (also handles switching back
+  // before restarting). Otherwise each cold launch can undo the previous one.
   I18nManager.forceRTL(rtl);
-  return { kind: 'restart_required', rtl };
+  return { kind: I18nManager.isRTL === rtl ? 'applied' : 'restart_required', rtl };
 }
