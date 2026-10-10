@@ -820,3 +820,9 @@ not a signed-in merchant browser journey; the latter still needs a real session.
 Backend integration validation passed 814 files / 12,770 tests (five skipped).
 Test workers explicitly clear application service credentials so local development
 credentials cannot make mocked suites contact production.
+
+The illustrated-category browser acceptance also passes with the real imported
+files: every chip image loads and its Oxy URL contains a file ID returned by the
+feed. A separate failure case aborts the actual imported category file and retains
+the fallback and navigation. The old same-web-origin assertion described bundled
+fixtures and was replaced with the catalog's Oxy ownership boundary.

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Feed } from '../../../packages/shared-types/src';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -400,7 +401,14 @@ test('Recently viewed keeps one image-only card per product and opens its full h
   await expect(page.getByTestId('recently-viewed-products')).toContainText(product.title);
 });
 
-test('category mosaics show four independently navigable published categories', async ({ page }) => {
+test('category mosaics show four independently navigable published categories', async ({ page, request }) => {
+  const response = await request.get('http://localhost:4160/feed');
+  expect(response.ok()).toBe(true);
+  const { data }: { data: Feed } = await response.json();
+  const fileIds = data.sections.flatMap(section => section.kind === 'category-pills'
+    ? section.pills.map(pill => pill.imageFileId) : []);
+  expect(fileIds.length).toBeGreaterThan(0);
+  for (const id of fileIds) expect(id).toMatch(/^[A-Za-z0-9_-]+$/);
   await page.goto('/');
   const chips = page.getByTestId('category-pills');
   await expect(chips).toBeVisible();
@@ -412,7 +420,11 @@ test('category mosaics show four independently navigable published categories', 
   const chipCount = await chips.getByRole('link').count();
   await expect(chips.getByTestId('category-pill-image')).toHaveCount(chipCount);
   await expect.poll(() => chips.locator('img').evaluateAll(images => images.filter(image => image.complete && image.naturalWidth > 0).length)).toBe(chipCount);
-  expect(await chips.locator('img').evaluateAll(images => images.every(image => new URL(image.src).origin === location.origin))).toBe(true);
+  // Catalog photos are real Oxy files, not bundled assets or supplier hotlinks.
+  expect(await chips.locator('img').evaluateAll((images, ids) => images.every(image => {
+    const url = new URL(image.src);
+    return url.origin === 'https://cloud.oxy.so' && ids.includes(url.pathname.split('/')[1]);
+  }), fileIds)).toBe(true);
   const shelf = page.getByTestId('category-mosaic-shelf');
   const first = shelf.getByTestId('category-mosaic').first();
   await expect(first).toBeVisible();
@@ -422,8 +434,14 @@ test('category mosaics show four independently navigable published categories', 
   await expect(page).toHaveURL(/\/categories\/dresses$/);
 });
 
-test('category chips retain a visible fallback and navigation when an image fails', async ({ page }) => {
-  await page.route('**/automotive.jpg*', route => route.abort());
+test('category chips retain a visible fallback and navigation when an image fails', async ({ page, request }) => {
+  const response = await request.get('http://localhost:4160/feed');
+  expect(response.ok()).toBe(true);
+  const { data }: { data: Feed } = await response.json();
+  const automotiveImage = data.sections.flatMap(section => section.kind === 'category-pills' ? section.pills : [])
+    .find(pill => pill.slug === 'brake-pad-automotive')?.imageFileId;
+  expect(automotiveImage).toMatch(/^[A-Za-z0-9_-]+$/);
+  await page.route(`https://cloud.oxy.so/${automotiveImage}**`, route => route.abort());
   await page.goto('/');
   const automotive = page.getByTestId('category-pills').getByRole('link', { name: 'Automotive', exact: true });
   await expect(automotive.getByTestId('category-pill-image-fallback')).toBeVisible();
