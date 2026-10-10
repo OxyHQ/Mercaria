@@ -940,7 +940,7 @@
     "status": {
       "cancelled": "Отменён",
       "delivered": "Доставлен",
-      "digitallyDelivered": "Доставлено",
+      "digitallyDelivered": "Доставлено в цифровом виде",
       "paid": "Оплачен",
       "partiallyRefunded": "Част. возврат",
       "pendingPayment": "Ожидает",
@@ -948,7 +948,6 @@
       "refunded": "Возвращён",
       "shipped": "Отправлен"
     },
-    "subtitle": "Выполняйте и отслеживайте свои продажи",
     "title": "Заказы",
     "totals": {
       "discounts": "Скидки",
@@ -1033,7 +1032,7 @@
         "few": "%{count} варианта · %{stock} в наличии"
       }
     },
-    "searchPlaceholder": "Поиск товаров на этой странице…",
+    "searchPlaceholder": "Поиск товаров…",
     "status": {
       "active": "Активен",
       "archived": "В архиве",
@@ -1042,7 +1041,6 @@
       "sold": "Продан"
     },
     "stockLabel": "Остаток",
-    "subtitle": "Каталог вашего магазина",
     "title": "Товары",
     "variants": {
       "add": "Добавить",
@@ -1922,5 +1920,14 @@
     "subtitle": "Выберите магазин для управления",
     "switch": "Сменить магазин",
     "title": "Ваши магазины"
+  },
+  "resourceList": {
+    "noResults": "Нет подходящих результатов",
+    "clearFilters": "Сбросить фильтры",
+    "previous": "Назад",
+    "next": "Далее",
+    "price": "Цена",
+    "date": "Дата",
+    "customer": "Покупатель"
   }
 }

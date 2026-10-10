@@ -910,7 +910,7 @@
     "status": {
       "cancelled": "キャンセル済み",
       "delivered": "配達済み",
-      "digitallyDelivered": "配信済み",
+      "digitallyDelivered": "デジタル配信済み",
       "paid": "支払い済み",
       "partiallyRefunded": "一部返金",
       "pendingPayment": "支払い待ち",
@@ -918,7 +918,6 @@
       "refunded": "返金済み",
       "shipped": "発送済み"
     },
-    "subtitle": "売上のフルフィルメントと追跡",
     "title": "注文",
     "totals": {
       "discounts": "割引",
@@ -997,7 +996,7 @@
         "other": "バリエーション%{count}件 · 在庫%{stock}点"
       }
     },
-    "searchPlaceholder": "このページの商品を検索…",
+    "searchPlaceholder": "商品を検索…",
     "status": {
       "active": "販売中",
       "archived": "アーカイブ済み",
@@ -1006,7 +1005,6 @@
       "sold": "売却済み"
     },
     "stockLabel": "在庫",
-    "subtitle": "ストアのカタログ",
     "title": "商品",
     "variants": {
       "add": "追加",
@@ -1878,5 +1876,14 @@
     "subtitle": "管理するストアを選択",
     "switch": "ストアを切り替え",
     "title": "ストア一覧"
+  },
+  "resourceList": {
+    "noResults": "一致する結果がありません",
+    "clearFilters": "絞り込みを解除",
+    "previous": "前へ",
+    "next": "次へ",
+    "price": "価格",
+    "date": "日付",
+    "customer": "顧客"
   }
 }

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   PaginatedResponse,
   Listing,
+  ListingStatus,
   InventoryLevelDTO,
   CreateStoreProductInput,
   UpdateListingInput,
@@ -26,14 +27,16 @@ import { queryKeys } from "../queryKeys";
 
 const PAGE_LIMIT = 20;
 
-/** Paginated product list for a store (search filtered client-side on title). */
-export function useProducts(storeId: string, page: number, search: string) {
+/** Paginated product list for a store (search and status filtered before pagination). */
+export function useProducts(storeId: string, page: number, search: string, status: ListingStatus | "all" = "all") {
   return useQuery<PaginatedResponse<Listing>>({
-    queryKey: queryKeys.products.list(storeId, page, search),
-    queryFn: () => fetchProducts(storeId, { page, limit: PAGE_LIMIT }),
+    queryKey: queryKeys.products.list(storeId, page, search, status),
+    queryFn: () => fetchProducts(storeId, { page, limit: PAGE_LIMIT, ...(search ? { search } : {}), ...(status !== "all" ? { status } : {}) }),
     enabled: Boolean(storeId),
     placeholderData: (previous, query) =>
-      query?.queryKey[1] === storeId ? previous : undefined,
+      query?.queryKey[1] === storeId &&
+      (query.queryKey[3] as { search?: string; status?: string })?.search === search &&
+      (query.queryKey[3] as { status?: string })?.status === status ? previous : undefined,
   });
 }
 

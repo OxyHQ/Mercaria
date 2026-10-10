@@ -68,3 +68,34 @@ describe.each(hooks)('$name pagination', ({ read }) => {
     }
   });
 });
+
+/* eslint-disable react-hooks/rules-of-hooks -- mocked useQuery only captures production query options. */
+const filterCases = [
+  { name: 'product search', read: (changed: boolean) => useProducts('store-a', 1, changed ? 'jacket' : '') },
+  { name: 'product status', read: (changed: boolean) => useProducts('store-a', 1, '', changed ? 'active' : 'all') },
+  { name: 'order status', read: (changed: boolean) => useOrders('store-a', 1, changed ? 'paid' : 'all') },
+];
+/* eslint-enable react-hooks/rules-of-hooks */
+
+describe.each(filterCases)('$name filter', ({ read }) => {
+  it('clears rows immediately while a different filter is pending', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    clients.push(client);
+    const options = (changed: boolean): QueryObserverOptions => {
+      read(changed);
+      return vi.mocked(useQuery).mock.calls.at(-1)![0] as QueryObserverOptions;
+    };
+    const initial = options(false);
+    client.setQueryData(initial.queryKey, { data: [{ id: 'unfiltered-row' }] });
+    const observer = new QueryObserver(client, initial);
+    const unsubscribe = observer.subscribe(() => undefined);
+    let resolve!: (value: unknown) => void;
+    try {
+      expect(observer.getCurrentResult().data).toBeDefined();
+      observer.setOptions({ ...options(true), queryFn: () => new Promise(done => { resolve = done; }) });
+      expect(observer.getCurrentResult()).toMatchObject({ data: undefined, isPlaceholderData: false, fetchStatus: 'fetching' });
+      resolve({ data: [{ id: 'matching-row' }] });
+      await vi.waitFor(() => expect(observer.getCurrentResult().data).toEqual({ data: [{ id: 'matching-row' }] }));
+    } finally { unsubscribe(); observer.destroy(); }
+  });
+});

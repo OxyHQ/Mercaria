@@ -925,7 +925,7 @@
     "status": {
       "cancelled": "Annulée",
       "delivered": "Livrée",
-      "digitallyDelivered": "Livré",
+      "digitallyDelivered": "Livré numériquement",
       "paid": "Payée",
       "partiallyRefunded": "Part. remboursée",
       "pendingPayment": "En attente",
@@ -933,7 +933,6 @@
       "refunded": "Remboursée",
       "shipped": "Expédiée"
     },
-    "subtitle": "Traitez et suivez vos ventes",
     "title": "Commandes",
     "totals": {
       "discounts": "Réductions",
@@ -1015,7 +1014,7 @@
         "many": "%{count} de variantes · %{stock} en stock"
       }
     },
-    "searchPlaceholder": "Rechercher des produits sur cette page…",
+    "searchPlaceholder": "Rechercher des produits…",
     "status": {
       "active": "Actif",
       "archived": "Archivé",
@@ -1024,7 +1023,6 @@
       "sold": "Vendu"
     },
     "stockLabel": "Stock",
-    "subtitle": "Le catalogue de votre boutique",
     "title": "Produits",
     "variants": {
       "add": "Ajouter",
@@ -1900,5 +1898,14 @@
     "subtitle": "Choisissez une boutique à gérer",
     "switch": "Changer de boutique",
     "title": "Vos boutiques"
+  },
+  "resourceList": {
+    "noResults": "Aucun résultat correspondant",
+    "clearFilters": "Effacer les filtres",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "price": "Prix",
+    "date": "Date",
+    "customer": "Client"
   }
 }

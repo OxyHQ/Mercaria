@@ -19,8 +19,8 @@ export const queryKeys = {
   oxyAccount: (accountId: string) => ["oxy-account", accountId] as const,
   oxyAccountMembers: (accountId: string) => ["oxy-account", accountId, "members"] as const,
   products: {
-    list: (storeId: string, page: number, search: string) =>
-      ["stores", storeId, "products", { page, search }] as const,
+    list: (storeId: string, page: number, search: string, status: string = "all") =>
+      ["stores", storeId, "products", { page, search, status }] as const,
     detail: (storeId: string, productId: string) =>
       ["stores", storeId, "products", productId] as const,
     levels: (storeId: string, productId: string, variantId: string) =>

@@ -910,7 +910,7 @@
     "status": {
       "cancelled": "বাতিল",
       "delivered": "ডেলিভার হয়েছে",
-      "digitallyDelivered": "বিতরিত",
+      "digitallyDelivered": "ডিজিটাল ডেলিভারি সম্পন্ন",
       "paid": "পেমেন্ট হয়েছে",
       "partiallyRefunded": "আংশিক রিফান্ড",
       "pendingPayment": "বাকি",
@@ -918,7 +918,6 @@
       "refunded": "রিফান্ড হয়েছে",
       "shipped": "শিপ হয়েছে"
     },
-    "subtitle": "আপনার বিক্রি সম্পন্ন করুন ও ট্র্যাক করুন",
     "title": "অর্ডার",
     "totals": {
       "discounts": "ডিসকাউন্ট",
@@ -997,7 +996,7 @@
         "other": "%{count}টি ভ্যারিয়েন্ট · %{stock} স্টকে"
       }
     },
-    "searchPlaceholder": "এই পাতায় পণ্য খুঁজুন…",
+    "searchPlaceholder": "পণ্য খুঁজুন…",
     "status": {
       "active": "সক্রিয়",
       "archived": "আর্কাইভ করা",
@@ -1006,7 +1005,6 @@
       "sold": "বিক্রি হয়ে গেছে"
     },
     "stockLabel": "স্টক",
-    "subtitle": "আপনার স্টোর ক্যাটালগ",
     "title": "পণ্য",
     "variants": {
       "add": "যোগ করুন",
@@ -1878,5 +1876,14 @@
     "subtitle": "পরিচালনা করার জন্য একটি স্টোর বেছে নিন",
     "switch": "স্টোর বদলান",
     "title": "আপনার স্টোর"
+  },
+  "resourceList": {
+    "noResults": "কোনো মিল পাওয়া যায়নি",
+    "clearFilters": "ফিল্টার মুছুন",
+    "previous": "আগের",
+    "next": "পরের",
+    "price": "মূল্য",
+    "date": "তারিখ",
+    "customer": "ক্রেতা"
   }
 }

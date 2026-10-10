@@ -910,7 +910,7 @@
     "status": {
       "cancelled": "已取消",
       "delivered": "已送达",
-      "digitallyDelivered": "已交付",
+      "digitallyDelivered": "已数字交付",
       "paid": "已付款",
       "partiallyRefunded": "部分退款",
       "pendingPayment": "待付款",
@@ -918,7 +918,6 @@
       "refunded": "已退款",
       "shipped": "已发货"
     },
-    "subtitle": "发货并跟踪你的销售",
     "title": "订单",
     "totals": {
       "discounts": "折扣",
@@ -997,7 +996,7 @@
         "other": "%{count} 个变体 · 库存 %{stock}"
       }
     },
-    "searchPlaceholder": "在本页中搜索商品…",
+    "searchPlaceholder": "搜索商品…",
     "status": {
       "active": "有效",
       "archived": "已归档",
@@ -1006,7 +1005,6 @@
       "sold": "已售出"
     },
     "stockLabel": "库存",
-    "subtitle": "你的店铺商品目录",
     "title": "商品",
     "variants": {
       "add": "添加",
@@ -1878,5 +1876,14 @@
     "subtitle": "选择要管理的店铺",
     "switch": "切换店铺",
     "title": "你的店铺"
+  },
+  "resourceList": {
+    "noResults": "没有匹配的结果",
+    "clearFilters": "清除筛选",
+    "previous": "上一页",
+    "next": "下一页",
+    "price": "价格",
+    "date": "日期",
+    "customer": "客户"
   }
 }

@@ -910,7 +910,7 @@
     "status": {
       "cancelled": "Cancelled",
       "delivered": "Delivered",
-      "digitallyDelivered": "Delivered",
+      "digitallyDelivered": "Digitally delivered",
       "paid": "Paid",
       "partiallyRefunded": "Part. refunded",
       "pendingPayment": "Pending",
@@ -918,7 +918,6 @@
       "refunded": "Refunded",
       "shipped": "Shipped"
     },
-    "subtitle": "Fulfil and track your sales",
     "title": "Orders",
     "totals": {
       "discounts": "Discounts",
@@ -997,7 +996,7 @@
         "other": "%{count} variants · %{stock} in stock"
       }
     },
-    "searchPlaceholder": "Search products on this page…",
+    "searchPlaceholder": "Search products…",
     "status": {
       "active": "Active",
       "archived": "Archived",
@@ -1006,7 +1005,6 @@
       "sold": "Sold"
     },
     "stockLabel": "Stock",
-    "subtitle": "Your store catalog",
     "title": "Products",
     "variants": {
       "add": "Add",
@@ -1878,5 +1876,14 @@
     "subtitle": "Pick a store to manage",
     "switch": "Switch store",
     "title": "Your stores"
+  },
+  "resourceList": {
+    "noResults": "No matching results",
+    "clearFilters": "Clear filters",
+    "previous": "Previous",
+    "next": "Next",
+    "price": "Price",
+    "date": "Date",
+    "customer": "Customer"
   }
 }

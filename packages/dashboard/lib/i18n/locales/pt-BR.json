@@ -925,7 +925,7 @@
     "status": {
       "cancelled": "Cancelado",
       "delivered": "Entregue",
-      "digitallyDelivered": "Entregue",
+      "digitallyDelivered": "Entrega digital concluída",
       "paid": "Pago",
       "partiallyRefunded": "Reemb. parcial",
       "pendingPayment": "Pendente",
@@ -933,7 +933,6 @@
       "refunded": "Reembolsado",
       "shipped": "Enviado"
     },
-    "subtitle": "Processe e acompanhe suas vendas",
     "title": "Pedidos",
     "totals": {
       "discounts": "Descontos",
@@ -1015,7 +1014,7 @@
         "many": "%{count} de variantes · %{stock} em estoque"
       }
     },
-    "searchPlaceholder": "Buscar produtos nesta página…",
+    "searchPlaceholder": "Buscar produtos…",
     "status": {
       "active": "Ativo",
       "archived": "Arquivado",
@@ -1024,7 +1023,6 @@
       "sold": "Vendido"
     },
     "stockLabel": "Estoque",
-    "subtitle": "O catálogo da sua loja",
     "title": "Produtos",
     "variants": {
       "add": "Adicionar",
@@ -1900,5 +1898,14 @@
     "subtitle": "Escolha uma loja para gerenciar",
     "switch": "Trocar de loja",
     "title": "Suas lojas"
+  },
+  "resourceList": {
+    "noResults": "Nenhum resultado correspondente",
+    "clearFilters": "Limpar filtros",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "price": "Preço",
+    "date": "Data",
+    "customer": "Cliente"
   }
 }

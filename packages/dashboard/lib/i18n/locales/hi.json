@@ -910,7 +910,7 @@
     "status": {
       "cancelled": "रद्द",
       "delivered": "डिलीवर",
-      "digitallyDelivered": "वितरित",
+      "digitallyDelivered": "डिजिटल डिलीवरी पूरी",
       "paid": "पेमेंट हुआ",
       "partiallyRefunded": "आंशिक रिफंड",
       "pendingPayment": "बाकी",
@@ -918,7 +918,6 @@
       "refunded": "रिफंड",
       "shipped": "भेजा गया"
     },
-    "subtitle": "अपनी बिक्री पूरी करें और उस पर नज़र रखें",
     "title": "ऑर्डर",
     "totals": {
       "discounts": "डिस्काउंट",
@@ -997,7 +996,7 @@
         "other": "%{count} वेरिएंट · %{stock} स्टॉक में"
       }
     },
-    "searchPlaceholder": "इस पेज पर प्रोडक्ट खोजें…",
+    "searchPlaceholder": "उत्पाद खोजें…",
     "status": {
       "active": "चालू",
       "archived": "आर्काइव",
@@ -1006,7 +1005,6 @@
       "sold": "बिक गया"
     },
     "stockLabel": "स्टॉक",
-    "subtitle": "आपके स्टोर का कैटलॉग",
     "title": "प्रोडक्ट",
     "variants": {
       "add": "जोड़ें",
@@ -1878,5 +1876,14 @@
     "subtitle": "संभालने के लिए स्टोर चुनें",
     "switch": "स्टोर बदलें",
     "title": "आपके स्टोर"
+  },
+  "resourceList": {
+    "noResults": "कोई मेल खाता परिणाम नहीं",
+    "clearFilters": "फ़िल्टर हटाएँ",
+    "previous": "पिछला",
+    "next": "अगला",
+    "price": "कीमत",
+    "date": "तारीख",
+    "customer": "ग्राहक"
   }
 }

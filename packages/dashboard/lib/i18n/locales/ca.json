@@ -925,7 +925,7 @@
     "status": {
       "cancelled": "Cancel·lada",
       "delivered": "Lliurada",
-      "digitallyDelivered": "Lliurat",
+      "digitallyDelivered": "Lliurament digital completat",
       "paid": "Pagada",
       "partiallyRefunded": "Reemb. parcial",
       "pendingPayment": "Pendent",
@@ -933,7 +933,6 @@
       "refunded": "Reemborsada",
       "shipped": "Enviada"
     },
-    "subtitle": "Prepara i fes el seguiment de les teves vendes",
     "title": "Comandes",
     "totals": {
       "discounts": "Descomptes",
@@ -1015,7 +1014,7 @@
         "many": "%{count} de variants · %{stock} en estoc"
       }
     },
-    "searchPlaceholder": "Cerca productes en aquesta pàgina…",
+    "searchPlaceholder": "Cerca productes…",
     "status": {
       "active": "Actiu",
       "archived": "Arxivat",
@@ -1024,7 +1023,6 @@
       "sold": "Venut"
     },
     "stockLabel": "Estoc",
-    "subtitle": "El catàleg de la teva botiga",
     "title": "Productes",
     "variants": {
       "add": "Afegeix",
@@ -1900,5 +1898,14 @@
     "subtitle": "Tria una botiga per gestionar-la",
     "switch": "Canvia de botiga",
     "title": "Les teves botigues"
+  },
+  "resourceList": {
+    "noResults": "No hi ha resultats coincidents",
+    "clearFilters": "Esborra els filtres",
+    "previous": "Anterior",
+    "next": "Següent",
+    "price": "Preu",
+    "date": "Data",
+    "customer": "Client"
   }
 }
