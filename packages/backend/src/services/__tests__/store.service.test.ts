@@ -32,6 +32,14 @@ const updateStoreColumns = vi.fn();
 const upsertStorePermissionOverride = vi.fn();
 const deleteStorePermissionOverride = vi.fn();
 const readCallerAccountRole = vi.fn();
+const storeImages = vi.fn();
+
+// Test the real HTML import boundary, replacing only its byte-storage port.
+vi.mock('../catalog-media/sync.js', () => ({
+  CatalogMediaSyncError: class CatalogMediaSyncError extends Error {},
+  synchronizeStoreImages: (...args: unknown[]) => storeImages(...args),
+  synchronizeAccountImages: vi.fn(),
+}));
 
 vi.mock('../../db/stores/storeRepository.js', () => ({
   findStoreById: vi.fn(),
@@ -57,7 +65,9 @@ import {
   setStorePermissionOverride,
   transferStoreOwnerAccount,
   updateStoreSettings,
+  updateStore,
 } from '../store.service.js';
+import { resolveMedia } from '../catalog-media/urls.js';
 import { resetStoreAccessCacheForTests } from '../store-access.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
@@ -101,6 +111,7 @@ beforeEach(() => {
   upsertStorePermissionOverride.mockImplementation(async (input: Record<string, unknown>) => input);
   deleteStorePermissionOverride.mockResolvedValue(true);
   readCallerAccountRole.mockResolvedValue(null);
+  storeImages.mockImplementation(async (_store: string, sources: string[]) => sources.map((_, index) => `policy-image-${index}`));
 });
 
 describe('createStoreForCaller — which account may be given a store', () => {
@@ -268,5 +279,43 @@ describe('store.service.updateStoreSettings', () => {
     await expect(
       updateStoreSettings(STORE_ID, { policies: { refundPolicy: 'x' } }),
     ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND);
+  });
+});
+
+describe.each([
+  ['profile', updateStore],
+  ['settings', updateStoreSettings],
+] as const)('store policy media through the %s writer', (_name, update) => {
+  it.each(['shippingNote', 'refundPolicy', 'privacyPolicy', 'termsOfService'] as const)(
+    'synchronizes %s before writing, retaining only the supplied policy', async field => {
+      const columns = { shippingNote: 'policiesShippingNote', refundPolicy: 'policiesRefundPolicy', privacyPolicy: 'policiesPrivacyPolicy', termsOfService: 'policiesTermsOfService' };
+      const input = { policies: { [field]: '<p>Authored policy</p><picture><source srcset="https://merchant.example/large.png 2x"><img src="https://merchant.example/policy.png" alt="Policy diagram"></picture>' } };
+      await update(STORE_ID, input);
+      expect(storeImages).toHaveBeenCalledExactlyOnceWith(STORE_ID, ['https://merchant.example/policy.png']);
+      expect(storeImages.mock.invocationCallOrder[0]).toBeLessThan(updateStoreColumns.mock.invocationCallOrder[0]);
+      expect(updateStoreColumns).toHaveBeenCalledExactlyOnceWith(STORE_ID, {
+        [columns[field]]: `<p>Authored policy</p><picture><img src="${resolveMedia('policy-image-0')}" alt="Policy diagram"></picture>`,
+      });
+      expect(input.policies[field]).toContain('merchant.example');
+    },
+  );
+
+  it('does not save any fields when a later policy import fails', async () => {
+    storeImages.mockResolvedValueOnce(['policy-image-0']).mockRejectedValueOnce(new Error('Storage unavailable'));
+    await expect(update(STORE_ID, { policies: {
+      returnWindowDays: 21,
+      refundPolicy: '<img src="https://merchant.example/returns.png">',
+      privacyPolicy: '<img src="https://merchant.example/privacy.png">',
+    } })).rejects.toThrow('Storage unavailable');
+    expect(updateStoreColumns).not.toHaveBeenCalled();
+  });
+
+  it('preserves plain copy, clearing and already stored media without storage calls', async () => {
+    const privacy = `<img src="${resolveMedia('existing-policy-image')}">`;
+    await update(STORE_ID, { policies: { refundPolicy: '', privacyPolicy: privacy, termsOfService: 'Terms\nKeep this line.' } });
+    expect(storeImages).not.toHaveBeenCalled();
+    expect(updateStoreColumns).toHaveBeenCalledExactlyOnceWith(STORE_ID, {
+      policiesRefundPolicy: '', policiesPrivacyPolicy: privacy, policiesTermsOfService: 'Terms\nKeep this line.',
+    });
   });
 });

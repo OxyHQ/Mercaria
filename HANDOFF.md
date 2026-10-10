@@ -1126,3 +1126,16 @@ checks deliberately still reproduce the old manual scope defect. The prepared
 `/tmp/mercaria-official-color-scope.patch` replaces that manual scope with the
 public 7.27 API after official Bloom and compatible Services publication. Do not
 call those color checks passing or the native-device acceptance complete.
+
+## Policy media write boundary — 2026-10-10
+
+Both `updateStore` and `updateStoreSettings` synchronize images in supplied
+policy bodies through the existing store-owned description importer before the
+single column update. An import failure prevents all requested settings/profile
+writes; omitted fields remain untouched, plain copy is preserved and an empty
+string still clears a policy. Existing policy rows are not backfilled or mutated
+on reads. No new image transport or browser supplier fallback was introduced.
+
+Forty service/HTML-import tests and 37 storage-port/real-Postgres repository tests
+pass, with backend types and lint. The new service tests use the real HTML parser
+and replace the byte-storage port; they do not establish a new live upload run.
