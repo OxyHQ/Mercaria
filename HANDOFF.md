@@ -1149,3 +1149,21 @@ warning; all three app typechecks pass. Local native build directories stay
 ignored. A connected Pixel 8a loaded the JavaScript bundle in Expo Go, but its
 unsupported native notifications stopped startup. A real development build is
 being prepared; that failed Expo Go launch is not native UI acceptance.
+
+## Native lazy imports — 2026-10-10
+
+The real development build reproduced Expo 56.0.11's upstream lazy-import
+failure (`Requiring unknown module`), including after a fresh Metro graph.
+Updated the shared Expo pin and all app manifests to SDK 56 patch 56.0.23;
+the official runtime includes expo/expo#46870's native load-before-import fix.
+Native entry files now use the public `expo-router/entry`. No runtime patch,
+disabled lazy loading or error suppression was introduced. All app/UI types,
+155 storefront units and nine browser selection/return-policy cases pass.
+The rebuilt APK starts on the Pixel 8a without that red screen. Its first home
+inspection still shows missing imagery and excessive vertical spacing; native
+visual acceptance remains open. Do not treat successful startup as full parity.
+
+Wholesale accessibility was corrected separately in 6a3821a0: drafts contain
+only explicit flags, retain edits made while a save is pending, and reconcile
+with the authoritative GoWay reread after DELETE204. Forty-four unit tests and
+two isolated browser cases pass; no live writes were made in those checks.
