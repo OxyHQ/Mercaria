@@ -955,6 +955,12 @@
       "variantCount": {
         "one": "%{count} 个变体",
         "other": "%{count} 个变体"
+      },
+      "organization": {
+        "heading": "商品分类管理",
+        "tags": "标签",
+        "addTag": "添加标签",
+        "removeTag": "移除%{tag}"
       }
     },
     "documentTitle": "商品 | Mercaria Dashboard",

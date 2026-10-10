@@ -80,7 +80,12 @@ export function useUpdateProduct(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: UpdateListingInput) => updateProduct(storeId, productId, input),
-    onSuccess: () => invalidateProducts(queryClient, storeId),
+    onSuccess: (product) => {
+      // Publish the saved DTO before refreshing. Editors may now release their
+      // dirty fields without briefly displaying the pre-save server values.
+      queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
+      invalidateProducts(queryClient, storeId);
+    },
   });
 }
 

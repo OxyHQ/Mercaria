@@ -955,6 +955,12 @@
       "variantCount": {
         "one": "%{count} متغيّر",
         "other": "%{count} متغيّر"
+      },
+      "organization": {
+        "heading": "تنظيم المنتج",
+        "tags": "الوسوم",
+        "addTag": "إضافة وسم",
+        "removeTag": "إزالة %{tag}"
       }
     },
     "documentTitle": "المنتجات | Mercaria Dashboard",

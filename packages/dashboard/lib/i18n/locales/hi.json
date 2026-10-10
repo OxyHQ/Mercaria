@@ -955,6 +955,12 @@
       "variantCount": {
         "one": "%{count} वेरिएंट",
         "other": "%{count} वेरिएंट"
+      },
+      "organization": {
+        "heading": "उत्पाद का संगठन",
+        "tags": "टैग",
+        "addTag": "टैग जोड़ें",
+        "removeTag": "%{tag} हटाएँ"
       }
     },
     "documentTitle": "प्रोडक्ट | Mercaria Dashboard",

@@ -972,6 +972,12 @@
         "one": "%{count} variant",
         "other": "%{count} variants",
         "many": "%{count} de variants"
+      },
+      "organization": {
+        "heading": "Organització del producte",
+        "tags": "Etiquetes",
+        "addTag": "Afegeix una etiqueta",
+        "removeTag": "Elimina %{tag}"
       }
     },
     "documentTitle": "Productes | Mercaria Dashboard",

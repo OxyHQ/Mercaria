@@ -955,6 +955,12 @@
       "variantCount": {
         "one": "%{count} Variante",
         "other": "%{count} Varianten"
+      },
+      "organization": {
+        "heading": "Produktorganisation",
+        "tags": "Schlagwörter",
+        "addTag": "Schlagwort hinzufügen",
+        "removeTag": "%{tag} entfernen"
       }
     },
     "documentTitle": "Produkte | Mercaria Dashboard",

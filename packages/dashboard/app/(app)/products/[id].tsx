@@ -28,6 +28,7 @@ import { Textarea } from "@oxy.so/bloom/textarea";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { canRetainDetailData } from "@/lib/detail-query-state";
+import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
 import { ProductMedia } from "@/components/products/ProductMedia";
 import { DetailContent } from "@/components/shell/DetailContent";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -144,6 +145,22 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
   const [title, setTitle] = useState(product.title);
   const [description, setDescription] = useState(product.description);
+  const [organizationDraft, setOrganization] = useState<ProductOrganizationValue>({ vendor: product.vendor ?? "", productType: product.productType ?? "", tags: product.tags ?? [] });
+  const [editedOrganization, setEditedOrganization] = useState({ vendor: false, productType: false, tags: false });
+  // Untouched fields follow a refreshed DTO; an in-progress edit stays local.
+  const organization: ProductOrganizationValue = {
+    vendor: editedOrganization.vendor ? organizationDraft.vendor : product.vendor ?? "",
+    productType: editedOrganization.productType ? organizationDraft.productType : product.productType ?? "",
+    tags: editedOrganization.tags ? organizationDraft.tags : product.tags ?? [],
+  };
+  const organizationErrors = {
+    vendor: editedOrganization.vendor && Boolean(product.vendor) && !organization.vendor.trim(),
+    productType: editedOrganization.productType && Boolean(product.productType) && !organization.productType.trim(),
+  };
+  const changeOrganization = (next: ProductOrganizationValue) => {
+    setEditedOrganization(previous => ({ vendor: previous.vendor || next.vendor !== organization.vendor, productType: previous.productType || next.productType !== organization.productType, tags: previous.tags || next.tags !== organization.tags }));
+    setOrganization(next);
+  };
   const restricted = isRestricted(product);
   // Falls back to `draft` only so the control has a valid value while disabled —
   // it is never submitted, because `save` is unreachable for a restricted listing.
@@ -152,11 +169,18 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   );
 
   const save = () => {
-    if (restricted) return;
+    if (restricted || organizationErrors.vendor || organizationErrors.productType) return;
     updateProduct.mutate(
-      { title: title.trim(), description: description.trim(), status },
+      { title: title.trim(), description: description.trim(), status,
+        ...(editedOrganization.vendor && organization.vendor.trim() !== (product.vendor ?? "") ? { vendor: organization.vendor.trim() } : {}),
+        ...(editedOrganization.productType && organization.productType.trim() !== (product.productType ?? "") ? { productType: organization.productType.trim() } : {}),
+        ...(editedOrganization.tags && JSON.stringify(organization.tags) !== JSON.stringify(product.tags ?? []) ? { tags: organization.tags } : {}),
+      },
       {
-        onSuccess: () => toast.success(t("products.detail.saved")),
+        onSuccess: () => {
+          setEditedOrganization({ vendor: false, productType: false, tags: false });
+          toast.success(t("products.detail.saved"));
+        },
         onError: () => toast.error(t("products.detail.saveFailed")),
       },
     );
@@ -173,7 +197,8 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   };
 
   return (
-      <View className="gap-5 rounded-xl border border-border bg-white p-4 dark:bg-surface">
+      <View className="gap-5 lg:flex-row lg:items-start">
+      <View testID="merchant-product-main" className="min-w-0 flex-1 gap-5 rounded-xl border border-border bg-white p-4 dark:bg-surface">
         {source ? (
           <View className="gap-3">
             <SourceBadge provider={source.provider} />
@@ -236,14 +261,14 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             placeholder={null}
             value={title}
             onValueChange={setTitle}
-            disabled={!canWrite}
+            disabled={!canWrite || restricted}
           />
         </Field>
         <Textarea
           label={t("common.description")}
           value={description}
           onValueChange={setDescription}
-          disabled={!canWrite}
+          disabled={!canWrite || restricted}
         />
         <ProductMedia images={product.images} title={product.title} />
         <Field
@@ -266,16 +291,18 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         {canWrite ? (
           <View className="flex-row gap-3">
-            <Button tone="accent" className="flex-1" onPress={save} loading={updateProduct.isPending}>
+            <Button tone="accent" className="flex-1" onPress={save} disabled={restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
               {t("products.detail.saveChanges")}
             </Button>
-            <Button tone="danger" onPress={archive} loading={archiveProduct.isPending}>
+            <Button tone="danger" onPress={archive} disabled={restricted} loading={archiveProduct.isPending}>
               {t("products.detail.archive")}
             </Button>
           </View>
         ) : null}
 
         <VariantsSection storeId={storeId} product={product} canWrite={canWrite} />
+      </View>
+      <View className="w-full lg:w-72"><ProductOrganization category={product.category} value={organization} onChange={changeOrganization} errors={organizationErrors} disabled={!canWrite || restricted} busy={updateProduct.isPending} /></View>
       </View>
   );
 }

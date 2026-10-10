@@ -989,6 +989,12 @@
         "other": "%{count} вариантов",
         "many": "%{count} вариантов",
         "few": "%{count} варианта"
+      },
+      "organization": {
+        "heading": "Организация товара",
+        "tags": "Метки",
+        "addTag": "Добавить метку",
+        "removeTag": "Удалить %{tag}"
       }
     },
     "documentTitle": "Товары | Mercaria Dashboard",

@@ -955,6 +955,12 @@
       "variantCount": {
         "one": "%{count} variant",
         "other": "%{count} variants"
+      },
+      "organization": {
+        "heading": "Product organization",
+        "tags": "Tags",
+        "addTag": "Add tag",
+        "removeTag": "Remove %{tag}"
       }
     },
     "documentTitle": "Products | Mercaria Dashboard",

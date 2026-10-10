@@ -955,6 +955,12 @@
       "variantCount": {
         "one": "%{count}টি ভ্যারিয়েন্ট",
         "other": "%{count}টি ভ্যারিয়েন্ট"
+      },
+      "organization": {
+        "heading": "পণ্য সংগঠন",
+        "tags": "ট্যাগ",
+        "addTag": "ট্যাগ যোগ করুন",
+        "removeTag": "%{tag} সরান"
       }
     },
     "documentTitle": "পণ্য | Mercaria ড্যাশবোর্ড",

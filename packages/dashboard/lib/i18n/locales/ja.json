@@ -955,6 +955,12 @@
       "variantCount": {
         "one": "バリエーション%{count}件",
         "other": "バリエーション%{count}件"
+      },
+      "organization": {
+        "heading": "商品の整理",
+        "tags": "タグ",
+        "addTag": "タグを追加",
+        "removeTag": "%{tag}を削除"
       }
     },
     "documentTitle": "商品 | Mercaria Dashboard",
