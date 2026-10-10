@@ -346,7 +346,7 @@ function variantRow(
 
 /** One `listing_images` row. */
 function imageRow(listingId: string, fileId: string, position = 0): ListingImageRecord {
-  return { id: uuidv7(), listingId, fileId, alt: null, position, createdAt: AT, updatedAt: AT };
+  return { id: uuidv7(), kind: 'image', listingId, fileId, alt: null, position, createdAt: AT, updatedAt: AT };
 }
 
 /** One `product_variant_option_values` row. */
@@ -361,6 +361,7 @@ function optionValueRow(variantId: string, name: string, value: string): Variant
  */
 function childrenWithOneImageEach(listingIds: readonly string[]): ListingChildren {
   return {
+    media: new Map(),
     images: new Map(listingIds.map((id) => [id, [imageRow(id, 'img-1')]])),
     options: new Map(),
     collectionIds: new Map(),

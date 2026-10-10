@@ -1200,3 +1200,5 @@ Each is a named contract rather than a stub that lies.
 - [ ] A real Shopify store and a real WooCommerce site exercised end to end
       through the wizard. #69 acceptance 7 is still NOT met — no real store has
       been connected — and nothing in this issue changes that.
+
+Typed mixed galleries use `mediaSources` while legacy image inputs remain photographic. See [catalog media](catalog-media.md) for ownership verification, video limits, and API/worker rollout order.

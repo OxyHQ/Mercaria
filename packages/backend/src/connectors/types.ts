@@ -1,3 +1,4 @@
+import type { CatalogMediaSource } from '@mercaria/shared-types';
 /**
  * Connector platform — the provider contract.
  *
@@ -303,8 +304,7 @@ export type VariantSet =
  * provenance used for upsert-by-external-key and newer-than checks.
  *
  * Images are ABSOLUTE platform CDN URLs — Mercaria's media chokepoint
- * (`resolveMedia`) passes absolute http(s) URLs through unchanged, so they are
- * stored as image "file ids" verbatim (no re-upload).
+ * imports the bytes into Oxy before any catalog write; clients receive file IDs.
  */
 export interface NormalizedProduct {
   /** The product's id on the external platform (upsert key with the connection). */
@@ -325,6 +325,8 @@ export interface NormalizedProduct {
   options: { name: string; values: string[] }[];
   /** Absolute image URLs (platform CDN), in gallery order. */
   imageUrls: string[];
+  /** Explicit mixed gallery, when the provider exposes video sources. */
+  mediaSources?: CatalogMediaSource[];
   /**
    * The external collection ids this product belongs to on the platform. The sync
    * service maps these through the connection's `collectionMapping` onto Mercaria

@@ -365,12 +365,17 @@ export async function insertCanonicalImage(
   db: DatabaseOrTransaction,
   input: InsertCanonicalImageInput,
 ): Promise<CanonicalImageRow | undefined> {
+  return insertCanonicalMedia(db, { ...input, kind: 'image' });
+}
+
+export async function insertCanonicalMedia(db: DatabaseOrTransaction, input: InsertCanonicalImageInput & { kind: 'image' | 'video' }): Promise<CanonicalImageRow | undefined> {
   const isProduct = input.grain.kind === 'product';
   const rows = await db
     .insert(canonicalImages)
     .values({
       productId: isProduct ? input.grain.id : null,
       variantId: isProduct ? null : input.grain.id,
+      kind: input.kind,
       fileId: input.fileId ?? null,
       sourceUrl: input.sourceUrl ?? null,
       sourceRecordId: input.sourceRecordId,
@@ -404,8 +409,13 @@ export async function listCanonicalImages(
   return db
     .select()
     .from(canonicalImages)
-    .where(owner)
+    .where(and(owner, eq(canonicalImages.kind, 'image')))
     .orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
+}
+
+export async function listCanonicalMedia(db: DatabaseOrTransaction, grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>): Promise<CanonicalImageRow[]> {
+  const owner = grain.kind === 'product' ? eq(canonicalImages.productId, grain.id) : eq(canonicalImages.variantId, grain.id);
+  return db.select().from(canonicalImages).where(owner).orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
 }
 
 /** Retain the source observation, row identity and variant grain when importing

@@ -247,6 +247,7 @@ function imageRow(listingId: string, fileId: string): ListingImageRecord {
     id: uuidv7(),
     listingId,
     fileId,
+    kind: 'image',
     alt: null,
     position: 0,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),

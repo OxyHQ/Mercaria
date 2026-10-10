@@ -342,7 +342,7 @@ export async function listPrimaryProductImages(
       source_record_id as "sourceRecordId",
       alt as "alt"
     from canonical_images
-    where product_id = any(${sql.param([...productIds])}::text[])
+    where kind = 'image' and product_id = any(${sql.param([...productIds])}::text[])
       and status = 'active'
     order by product_id, position, id`);
   return [...rows];
