@@ -1061,6 +1061,17 @@ Further store-menu review found that its custom `vars(storeThemeVars(...))`
 wrapper is still separate from Bloom's current scope APIs; the page applies it
 to a plain View. Bloom documents that react-native-css v3 can drop those native
 variables. This needs a measured native/theming audit, not an unverified CSS
-workaround. Store policies also still print their authored body as plain Text,
-and the public Shop merchant bundle uses push/pop transitions for those pages.
+workaround. Store policies also still print their authored body as plain Text.
 These are further parity work, separate from the validated listing-policy sheet.
+
+## Store-menu page motion — 2026-10-10
+
+`StoreMenuTransition` now reproduces the public merchant bundle's incoming
+push/pop movement (40% of page width, 300ms, `.32,.72,0,1`) and initial 150ms
+fade through Reanimated. Progress is bounded and RTL mirrors its direction.
+Bloom's `useDialogFrame` declares the navigation changes and morphs mobile
+sheet height; the mounted Dialog retains its focus ownership. Four browser
+cases pass at desktop English/mobile Arabic with motion enabled/disabled,
+including actual intermediate page positions and mobile height interpolation,
+final geometry, overflow and Escape focus. No image interception. Frontend
+types/lint and i18n/RTL/route guards pass. Native device acceptance is outstanding.

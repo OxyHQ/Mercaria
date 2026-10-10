@@ -39,6 +39,7 @@ import {
 import type { Collection, StoreSummary, Review, ReviewHelpfulness } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
 import { StoreContactDialog } from "@/components/store/StoreContactDialog";
+import { StoreMenuTransition, type StoreMenuDirection } from "@/components/store/StoreMenuTransition";
 import { useStoreLocations } from "@/lib/hooks/use-visit-us";
 import { useStoreReviews } from "@/lib/hooks/use-store";
 import { REVIEW_SCOPE_HEADING_KEYS, useReviewHelpfulness } from "@/lib/hooks/use-reviews";
@@ -753,6 +754,7 @@ export function StoreMenuSheet({
       };
   // Internal navigation stack: the menu is always the root.
   const [stack, setStack] = useState<SheetPage[]>(["menu"]);
+  const [direction, setDirection] = useState<StoreMenuDirection>("initial");
   const current = stack[stack.length - 1];
 
   const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
@@ -782,13 +784,20 @@ export function StoreMenuSheet({
     void (isFollowing ? unfollow() : follow());
   };
 
-  const push = (page: SheetPage) => setStack((prev) => [...prev, page]);
-  const pop = () => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  const push = (page: SheetPage) => {
+    setDirection("forward");
+    setStack((prev) => [...prev, page]);
+  };
+  const pop = () => {
+    setDirection("backward");
+    setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  };
 
   // Dismiss the sheet AND reset the internal stack to the menu root, so the
   // next open starts fresh at the menu rather than on a lingering sub-page.
   const handleClose = () => {
     setContactOpen(false);
+    setDirection("initial");
     setStack(["menu"]);
     onClose();
   };
@@ -880,7 +889,7 @@ export function StoreMenuSheet({
       ) : null}
 
       {/* Sub-page region: the current page from the internal stack. */}
-      <View className="flex-1">
+      <StoreMenuTransition page={current} direction={direction}>
         {atRoot ? (
           <MenuPage
             store={store}
@@ -922,7 +931,7 @@ export function StoreMenuSheet({
             </Text>
           </ScrollView>
         )}
-      </View>
+      </StoreMenuTransition>
       <StoreContactDialog key={store.id} storeId={store.id} storeName={store.name} open={contactOpen && open} onClose={() => setContactOpen(false)} />
       <AbuseReportDialog
         reportedType="store"

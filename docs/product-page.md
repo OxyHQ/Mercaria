@@ -457,6 +457,17 @@ Each is a named contract that fails closed, not a stub that lies:
 
 ### Merchant return-policy reader
 
+The merchant menu's internal pages use incoming push/pop transitions measured
+from Shop's public merchant bundle: 40% of the page width over 300ms with
+`cubic-bezier(.32,.72,0,1)`, and a 150ms initial fade. `StoreMenuTransition`
+uses Reanimated's bounded progress, mirrors direction in RTL, and skips motion
+for reduced-motion users. The Dialog and header stay mounted. Its public
+`useDialogFrame` API declares page changes so Bloom also morphs the mobile
+bottom sheet's natural height; Mercaria does not measure or resize the panel.
+Browser acceptance covers both directions, retained dialog identity, bounded
+movement, mobile height interpolation, Escape focus restoration and reduced
+motion at desktop English and mobile Arabic. Device acceptance remains pending.
+
 A selected connected-store offer exposes its published return policy through a
 40px Bloom button and an opaque `MarketplaceSheet`, matching the policy action
 in Shop's public product bundle. The complete authored body uses the existing
