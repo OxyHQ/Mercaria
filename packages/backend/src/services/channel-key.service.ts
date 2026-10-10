@@ -32,11 +32,11 @@
  * deliberately NOT what this does: the narrowing is on the public `prefix`, and
  * the decision is `verifySecret`. Nothing here ever compares a digest with `!==`.
  *
- * Two Mongo idioms translated rather than transcribed: `revokedAt: { $exists:
- * false }` is `revoked_at IS NULL` (equivalent only because revocation is the
- * sole writer of that column and always writes a real `Date` — a `''` would be a
- * VALUE and read as revoked), and the revoke's filter-plus-update is ONE
- * conditional UPDATE, so two concurrent revokes produce exactly one winner.
+ * Two rules worth stating: "not revoked" is `revoked_at IS NULL` (sound only
+ * because revocation is the sole writer of that column and always writes a real
+ * `Date` — a `''` would be a VALUE and read as revoked), and the revoke's
+ * filter-plus-update is ONE conditional UPDATE, so two concurrent revokes
+ * produce exactly one winner.
  */
 
 import crypto from 'node:crypto';
@@ -149,8 +149,8 @@ export async function generateKey(
 
   const raw = KEY_PREFIX + crypto.randomBytes(KEY_RANDOM_BYTES).toString('hex');
 
-  // `scopes` is written explicitly, and now it HAS to be: the column's DDL
-  // default is the empty array, where Mongoose defaulted it to the full set.
+  // `scopes` is written explicitly, and it HAS to be: the column's DDL default
+  // is the empty array.
   const row = await insertChannelApiKey({
     storeId,
     ...(connectionId !== undefined ? { connectionId } : {}),

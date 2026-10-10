@@ -16,7 +16,7 @@
  *
  * ## Absent optionals are `undefined`, never `null`
  *
- * A field Mongo left ABSENT is `NULL` here. Every consumer of these records —
+ * An ABSENT field is `NULL` in the row. Every consumer of these records —
  * `report-delivery.worker`'s `crowdSourceReportId !== undefined` check,
  * `evidence-snapshot.service`'s `details === undefined` branch — was written
  * against `undefined`, so the normalization happens once, at this edge, rather

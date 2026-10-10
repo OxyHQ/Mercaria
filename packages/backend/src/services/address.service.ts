@@ -5,16 +5,16 @@
  * becomes their default automatically; promoting a later one clears the previous
  * default.
  *
- * ## Ported to Postgres — the single-default rule stopped being a convention
+ * ## The single-default rule is a constraint, not a convention
  *
  * `addresses_oxy_user_id_default_key` is a partial unique index on
- * `(oxy_user_id) WHERE is_default`, so two defaults for one buyer are no longer
+ * `(oxy_user_id) WHERE is_default`, so two defaults for one buyer are not
  * representable. That moves three things out of this service and into the
  * repository, where they belong with the constraint they have to satisfy:
  *
- *  - **The demote and the promote are ONE transaction.** Mongo ran them as two
- *    independent statements, so a half-finished promotion could persist — a buyer
- *    with two defaults, or with none. Postgres checks the index per statement, so
+ *  - **The demote and the promote are ONE transaction.** As two independent
+ *    statements a half-finished promotion could persist — a buyer with two
+ *    defaults, or with none. Postgres checks the index per statement, so
  *    demote-then-promote inside one transaction is fine and either half alone is
  *    not.
  *  - **Delete-and-promote is one transaction too**, and the delete decides
@@ -25,10 +25,10 @@
  *    race by re-inserting as non-default — losing it means the address was not
  *    first.
  *
- * The absent/NULL distinction is the other change: Mongo left an unset optional
- * field ABSENT and Postgres stores NULL, so {@link toDTO} omits a field that is
- * null rather than emitting `null` for it. An empty string is never written —
- * it is a real value and would print a blank line on a shipping label.
+ * The absent/NULL distinction is the other rule: an unset optional field is
+ * stored NULL, so {@link toDTO} omits a field that is null rather than emitting
+ * `null` for it. An empty string is never written — it is a real value and
+ * would print a blank line on a shipping label.
  */
 
 import type {
@@ -58,7 +58,7 @@ function toDTO(row: AddressRecord): AddressDTO {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
-  // NULL is what Mongo left ABSENT, so an unset field stays off the DTO rather
+  // NULL means ABSENT, so an unset field stays off the DTO rather
   // than arriving as an explicit null the client would have to special-case.
   if (row.label !== null) dto.label = row.label;
   if (row.line2 !== null) dto.line2 = row.line2;

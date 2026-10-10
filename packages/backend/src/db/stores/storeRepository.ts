@@ -67,8 +67,7 @@ export async function findStoresByIds(
  * The feed's "Worth the hype" shelf: the best-rated ACTIVE stores.
  *
  * `product_count` breaks ties on `rating` so a brand-new store with one
- * five-star review does not outrank an established one, which is the ordering
- * the Mongo sort already had.
+ * five-star review does not outrank an established one.
  */
 export async function findTopActiveStores(
   limit: number,

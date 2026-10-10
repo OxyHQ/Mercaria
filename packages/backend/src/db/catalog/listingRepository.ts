@@ -2,7 +2,7 @@
  * `listings` and its child tables — `listing_images`, `listing_options`, the
  * `listing_collections` membership read, and the browse/search queries.
  *
- * One Mongoose document became four tables, so this module is where "a listing"
+ * A listing spans four tables, so this module is where "a listing"
  * is reassembled. Two shapes leave it, and the split is deliberate:
  *
  *  - {@link ListingRecord} — the base row, nothing joined. This is what search,
@@ -14,8 +14,8 @@
  *
  * Nothing above this layer writes a child table directly: an image list or an
  * option list is replaced WHOLESALE through {@link replaceListingImages} /
- * {@link replaceListingOptions}, which is what the Mongoose sub-document
- * assignment did, and doing it any other way leaves the old rows behind.
+ * {@link replaceListingOptions}; doing it any other way leaves the old rows
+ * behind.
  *
  * ## The ORDER BY is written out rather than built with `desc()`
  *
@@ -25,8 +25,7 @@
  * Postgres means NULLS **FIRST**. The two do not match, so a feed ordered with
  * `desc()` cannot use that index for its ordering AND puts unpublished rows at
  * the head of "newest first". `NEWEST_FIRST` states `desc nulls last`
- * explicitly, which matches the index and matches Mongo (a descending Mongo
- * sort puts missing values last).
+ * explicitly, which matches the index and keeps missing values last.
  *
  * ## `published_at` means the FIRST activation, and this module is its only author
  *
@@ -685,8 +684,7 @@ export async function releasePinnedFields(
 /**
  * Recompute a listing's denormalized facets from its variants.
  *
- * The Mongo version read every variant row into the process and reduced it in
- * JavaScript. Here the reduction is an AGGREGATE — the rows never leave the
+ * The reduction is an AGGREGATE — the rows never leave the
  * database — and the result is written back in a second statement.
  *
  * Two statements rather than one `UPDATE … FROM (…)` deliberately: the update
@@ -694,7 +692,7 @@ export async function releasePinnedFields(
  * and an aggregate over an empty set returns one row of NULLs from a plain
  * `select` but NO row from a `FROM` clause, which would silently skip the update
  * and leave the previous price range on a listing that no longer has one. The
- * race profile is identical to the Mongo version this replaces.
+ * race profile is that of any read-then-write recompute.
  *
  * Two details of the aggregate are load-bearing:
  *
@@ -702,9 +700,9 @@ export async function releasePinnedFields(
  *    matching `!v.inventory.tracked || v.inventory.available > 0`. Dropping the
  *    first half silently unlists every made-to-order product.
  *  - **The price range takes its currency from the LOWEST-priced variant.** The
- *    Mongo version read `variants[0].price.currency` and assumed one currency
- *    per listing; this is the same answer for that case and a defined one for a
- *    listing whose variants disagree.
+ *    usual listing has one currency across its variants; this is the obvious
+ *    answer for that case and a defined one for a listing whose variants
+ *    disagree.
  */
 export async function recomputeListingFacets(
   listingId: string,
@@ -749,8 +747,8 @@ export async function recomputeListingFacets(
 /**
  * Move a listing's `favorite_count` by `delta`, clamped at zero.
  *
- * The clamp is `greatest(0, …)` in SQL rather than a guarded `where count > 0`,
- * which is what Mongo used: the guard makes the whole update a no-op when the
+ * The clamp is `greatest(0, …)` in SQL rather than a guarded `where count > 0`:
+ * the guard would make the whole update a no-op when the
  * count is already 0, so a legitimate INCREMENT arriving at the same moment is
  * lost. Clamping applies the delta and refuses only to go negative.
  */
@@ -804,8 +802,8 @@ export async function findActiveStoreListingIds(
  *
  * Returns the ids that are NOT, which is what the caller reports back — a
  * collection cannot hold another store's product, and `listing_collections` has
- * a real foreign key now, so an unchecked id is a 23503 rather than the silent
- * no-match Mongo produced.
+ * a real foreign key, so an unchecked id is a 23503 rather than a silent
+ * no-match.
  */
 export async function findUnknownStoreListingIds(
   storeId: string,
@@ -1060,7 +1058,7 @@ export async function findStoreListingsPageForAdmin(
  * parser that never raises on user input (a lone `"` or `|` is a syntax error to
  * `to_tsquery`), and it gives buyers the quoting and `-exclusion` they already
  * expect from a search box. `plainto_tsquery` is also safe but ANDs every word
- * with no way to phrase-match, which the Mongo `$text` index did support.
+ * with no way to phrase-match, which a search box is expected to support.
  *
  * The configuration is `LISTING_BASE_TEXT_SEARCH_CONFIGURATION` and it MUST
  * equal the one `listings.search_vector` is generated with. That is not a
@@ -1195,16 +1193,14 @@ export interface ListingSearchFilters {
 /**
  * Translate the filters into predicates over `listings`.
  *
- * **Text and geo are now COMBINABLE.** Mongo could not run `$text` and `$near`
- * in one query, so `search.service` silently dropped the free-text term whenever
- * a `near` filter was present — a buyer searching "bike" within 5 km got every
- * listing within 5 km. A GIN `tsvector` match and a GiST `ST_DWithin` are
- * ordinary predicates here and simply AND together.
+ * **Text and geo are COMBINABLE.** A GIN `tsvector` match and a GiST
+ * `ST_DWithin` are ordinary predicates and simply AND together, so a free-text
+ * term is never dropped because a `near` filter is present.
  *
- * `ST_DWithin` rather than ordering by distance: the Mongo `$near` both filtered
- * by `$maxDistance` and sorted by distance. The sort is dropped on purpose —
- * `sort` is an explicit request parameter, and a `near` filter silently
- * overriding it is the same class of surprise as geo silently overriding text.
+ * `ST_DWithin` filters rather than ordering by distance. The sort is omitted on
+ * purpose — `sort` is an explicit request parameter, and a `near` filter
+ * silently overriding it is the same class of surprise as geo silently
+ * overriding text.
  */
 function buildSearchWhere(filters: ListingSearchFilters): SQL | undefined {
   const predicates: SQL[] = [eq(listings.status, 'active')];
@@ -1298,10 +1294,10 @@ function buildSearchWhere(filters: ListingSearchFilters): SQL | undefined {
  * The ORDER BY for a browse sort.
  *
  * **A listing with no price range now sorts LAST in both price directions.**
- * Mongo's ascending sort put missing values FIRST, so `price_asc` led with every
- * listing that had no price at all; `price_desc` put them last. One consistent
- * rule replaces the two, and `asc nulls last` is Postgres's own default, which is
- * what `listings_status_price_published_at_idx` was built with.
+ * Missing values FIRST would make `price_asc` lead with every listing that has
+ * no price at all. One consistent rule applies to both directions, and
+ * `asc nulls last` is Postgres's own default, which is what
+ * `listings_status_price_published_at_idx` was built with.
  */
 function buildSearchOrder(sort: ListingQuery['sort']): SQL[] {
   switch (sort) {
@@ -1439,10 +1435,9 @@ export async function searchListingsKeyset(
  * enforcement. A read-then-write would let two deliveries of the same decision
  * both believe they were the one that acted.
  *
- * `status <> next` reproduces Mongo's `modifiedCount === 1` exactly — a
- * `$set` to the value a document already holds matches but modifies nothing, and
- * the caller's "the listing was neither restricted nor awaiting changes" branch
- * is written against that distinction.
+ * `status <> next` makes a write to the value a row already holds report no
+ * change, and the caller's "the listing was neither restricted nor awaiting
+ * changes" branch is written against that distinction.
  *
  * A move to `active` stamps `published_at` if it is still NULL, which is what
  * makes a moderation `restore` targeting `active` — the enforcement recorded no
@@ -1720,10 +1715,10 @@ export async function findNewestActiveListings(
  * the home feed's store-wide "On sale" shelf AND the discovery feed's
  * category-scoped `on-sale` signal.
  *
- * ONE query. The Mongo path read every active listing with a non-zero price,
- * then read every variant of those listings that had a `compareAtPrice`, then
- * intersected the two sets IN THE PROCESS and sliced the shelf out — so rendering
- * eight cards read the entire active catalogue twice.
+ * ONE query. Reading every active listing with a non-zero price, then every
+ * variant of those listings with a `compareAtPrice`, and intersecting the two
+ * sets IN THE PROCESS would read the entire active catalogue twice to render
+ * eight cards.
  *
  * `categoryIds` is `undefined` for the home feed's store-wide shelf — today's
  * exact behaviour, unchanged. PROVIDED (discovery's category scope), it

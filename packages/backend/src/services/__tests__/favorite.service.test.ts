@@ -14,7 +14,7 @@
  * (`{favoriteCount: {$gt: 0}}`) and became `greatest(0, …)` inside
  * `adjustFavoriteCount`, so the only test that can tell a clamp from its absence
  * runs against a live server — `src/db/__tests__/catalog.realdb.test.ts` does
- * that, including the concurrent-increment case the Mongo guard lost. A
+ * that, including the concurrent-increment case a guarded decrement loses. A
  * mock-based duplicate here could only assert that the service passes `-1`,
  * which it does either way.
  *
@@ -82,9 +82,8 @@ describe('favorite.service.toggle', () => {
     // rather than loosening the assertion is deliberate: this is the write that
     // decides how the #80 migration later reads the row.
     expect(insertFavorite).toHaveBeenCalledWith(USER, LISTING_ID, 'listing_save');
-    // The old assertion read the Mongo update document (`{$inc:{favoriteCount:1}}`)
-    // against a filter; there is no update document any more, so the SERVICE's
-    // decision — which repository call, with which delta — is what is pinned.
+    // The SERVICE's decision — which repository call, with which delta — is
+    // what is pinned.
     expect(adjustFavoriteCount).toHaveBeenCalledWith(LISTING_ID, 1);
   });
 
@@ -131,11 +130,11 @@ describe('favorite.service.toggle', () => {
 describe('the count follows the ROW, not a prior read', () => {
   it('does NOT count a save the unique index absorbed', async () => {
     /**
-     * The behaviour change the port made, and the drift it closes. Mongo read
-     * first and then wrote, so two concurrent saves could both see "not saved",
-     * both insert (the unique index absorbing the second) and both increment —
-     * leaving a listing showing one more favorite than it has. `insertFavorite`
-     * reports whether a row was really created, and `false` must move nothing.
+     * The drift this closes. A read-then-write lets two concurrent saves both
+     * see "not saved", both insert (the unique index absorbing the second) and
+     * both increment — leaving a listing showing one more favorite than it has.
+     * `insertFavorite` reports whether a row was really created, and `false`
+     * must move nothing.
      *
      * Reached through `save` rather than `toggle` on purpose: `toggle` only
      * inserts when `favoriteExists` said no, so the racing shape cannot be

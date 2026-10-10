@@ -180,13 +180,13 @@ const RULES = [
  *
  * The list must only SHRINK: an entry that stops matching anything FAILS the
  * run, so a bypass cannot outlive the reason it was allowed — the discipline
- * `validate-rtl-logical-classes.mjs` and `validate-no-mongo.mjs` both use. That
- * property is also this guard's standing positive control against the real tree:
- * every entry below names text that is really in it, so a rule that silently
- * stopped matching turns the run RED instead of green. It is the answer to "a
- * scan that reports clean because it read nothing looks identical to a clean
- * one" that does not decay as the tree is cleaned up, because both entries
- * describe code that is CORRECT and is meant to stay.
+ * `validate-rtl-logical-classes.mjs` uses. That property is also this guard's
+ * standing positive control against the real tree: every entry below names text
+ * that is really in it, so a rule that silently stopped matching turns the run
+ * RED instead of green. It is the answer to "a scan that reports clean because
+ * it read nothing looks identical to a clean one" that does not decay as the
+ * tree is cleaned up, because both entries describe code that is CORRECT and is
+ * meant to stay.
  *
  * ## `count` is not decoration, and it was added because a mutation got through
  *

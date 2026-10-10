@@ -145,7 +145,7 @@ export const cartItems = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    // Mongoose's `min: 1` on the embedded quantity.
+    // A cart line holds at least one unit.
     check('cart_items_quantity_check', sql`${t.quantity} > 0`),
     checkOneOf(
       'cart_items_merge_review_reason_check',
@@ -193,8 +193,8 @@ export const addresses = pgTable(
       t.isDefault.desc(),
       t.createdAt.desc(),
     ),
-    // `address.service` promotes a new default by clearing the old one. Mongo
-    // could not state the invariant that makes that correct; here at most one
+    // `address.service` promotes a new default by clearing the old one. The
+    // invariant that makes that correct is a constraint: at most one
     // address per user is default, so a half-finished promotion cannot persist.
     uniqueIndex('addresses_oxy_user_id_default_key')
       .on(t.oxyUserId)
@@ -321,9 +321,8 @@ export const userPreferences = pgTable(
  *
  * The one table here whose name is SINGULAR. `CONVENTIONS.md` says plural, and
  * "feedback" is a mass noun with no plural in English — `feedbacks` is not a
- * word, and Mongoose's derived collection name being exactly that is an artifact
- * of `pluralize()`, not a naming decision to inherit. Recorded as the single
- * documented exception rather than left to look like an oversight.
+ * word, and a `pluralize()` artifact is not a naming decision. Recorded as the
+ * single documented exception rather than left to look like an oversight.
  *
  * `email` is a PROTECTED column: an optional contact address a reporter typed
  * in, on a table an admin surface reads whole.
@@ -339,8 +338,8 @@ export const feedback = pgTable(
     message: text().notNull(),
     email: text(),
     // `metadata` — three columns, not jsonb. The TypeScript interface carries an
-    // index signature, but the Mongoose SCHEMA declares only these three paths and
-    // strict mode drops everything else, so no open-shaped data was ever stored.
+    // index signature, but only these three paths were ever stored, so there is
+    // no open-shaped data to keep.
     metadataPlatform: text(),
     metadataAppVersion: text(),
     metadataDeviceInfo: text(),

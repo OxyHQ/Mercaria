@@ -252,10 +252,9 @@ function linesOf(draft: DraftOrderRecord): NewDraftLineItem[] {
  * Re-price `lines` through the pricing engine and write the whole result back:
  * per-line discounts, applied discounts, tax lines and totals.
  *
- * Every register mutation ends here, which is the shape the Mongoose version had
- * (mutate the sub-document arrays, then `save()`) expressed against tables. The
- * write is ONE transaction and replaces the four child relations wholesale — a
- * draft carrying two generations of tax lines would charge both.
+ * Every register mutation ends here. The write is ONE transaction and replaces
+ * the four child relations wholesale — a draft carrying two generations of tax
+ * lines would charge both.
  *
  * Returns the `PricingResult` alongside the fresh record so `completeDraftOrder`
  * can stamp the same figures onto the order it creates instead of re-deriving

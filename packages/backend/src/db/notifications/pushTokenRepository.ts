@@ -24,13 +24,11 @@
  * reinstalling, or an app resuming after a logout, REACTIVATES the stored row
  * (`active = true`) and refreshes whichever of `device_id` / `platform` the client
  * actually sent. A field the client omitted is left alone rather than nulled —
- * omission at the client means "not reported", not "erase what we know", and that
- * is the same conditional-`$set` semantics the Mongo upsert had.
+ * omission at the client means "not reported", not "erase what we know".
  *
  * ## An absent `device_id` is NULL, never `''`
  *
- * The Mongoose path spread the field in only when truthy, so an unsent value was
- * ABSENT. The Postgres equivalent of absent is NULL; writing `''` would store a
+ * An unsent value is ABSENT, and absent is NULL; writing `''` would store a
  * real value that compares equal to another device that also sent nothing.
  * `push_tokens` has no unique index on `device_id` today, so this costs no
  * collisions yet — it would the moment one is added, which is exactly when nobody
@@ -103,8 +101,8 @@ export async function upsertPushToken(
  *
  * @returns `false` when the user has no such token — the caller turns that into a
  *   NOT_FOUND. A token that was ALREADY inactive still returns `true`: the row
- *   matched, which is the `matchedCount` the Mongo path checked, and re-reporting
- *   a logged-out device as missing would be a new error the client never saw.
+ *   matched, and re-reporting a logged-out device as missing would be a new
+ *   error the client never saw.
  */
 export async function deactivatePushToken(
   oxyUserId: string,
@@ -137,8 +135,8 @@ export async function deactivatePushTokenById(
  * Deactivate every row carrying `token`, across users.
  *
  * Expo's `DeviceNotRegistered` ticket names the TOKEN and nothing else, and the
- * device really is gone — so this is deliberately not user-scoped, exactly as the
- * Mongo path was. `push_tokens_token_idx` exists for this lookup.
+ * device really is gone — so this is deliberately not user-scoped.
+ * `push_tokens_token_idx` exists for this lookup.
  */
 export async function deactivatePushTokensByToken(
   token: string,

@@ -31,9 +31,9 @@ import type {
 const MAX_TEXT_LENGTH = 4_000;
 
 async function loadReview(reviewId: string): Promise<ReviewRecord | null> {
-  // `isLiveEntityId`, NOT `mongoose.isValidObjectId`: a review written after the
-  // Postgres cutover carries a uuid v7, which the ObjectId check REJECTS — so the
-  // old guard would silently refuse to snapshot every new review, and a report
+  // `isLiveEntityId`, NOT a 24-hex ObjectId check: a review written today
+  // carries a uuid v7, which an ObjectId check REJECTS — so that guard would
+  // silently refuse to snapshot every new review, and a report
   // against one would be stored with no subject to send.
   if (!isLiveEntityId(reviewId)) return null;
   return await findReviewById(reviewId);
@@ -47,9 +47,9 @@ async function loadReview(reviewId: string): Promise<ReviewRecord | null> {
  * `insufficient_context` — so the snapshot says what the review consisted of
  * rather than sending an empty text resource, which the contract rejects anyway.
  *
- * `title` and `body` are NULL when absent, never `''` — a Mongo field that was
- * simply not set is a `NULL` column here — so both branches of the coalesce are
- * reachable and the empty-string case still collapses to `null` after the trim.
+ * `title` and `body` are NULL when absent, never `''` — so both branches of the
+ * coalesce are reachable and the empty-string case still collapses to `null`
+ * after the trim.
  */
 function reviewText(review: ReviewRecord): string | null {
   const title = review.title?.trim() ?? '';

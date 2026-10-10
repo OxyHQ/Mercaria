@@ -9,8 +9,7 @@
  * mocks mirror the sibling connector-sync test so no heavy real module loads at
  * import.
  *
- * The Mongo FILTER this used to assert on (`{mode, status, 'syncSettings.products':
- * {$in: […]}}`) is not a value the service composes any more — it is the
+ * The reconcile FILTER is not a value the service composes — it is the
  * repository's own `where`, which a mock cannot see and a mocked assertion about
  * it could only restate. What the service still owns, and what is asserted here,
  * is that the sweep enqueues one job per row the repository returns and survives

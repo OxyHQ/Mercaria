@@ -253,13 +253,9 @@ export async function handleLowInventoryAlert(job: LowInventoryAlertJob): Promis
  * review target that has published reviews. Each target is recomputed
  * independently; a single failure is logged and the sweep continues.
  *
- * The Mongo version skipped a group whose resolved `targetId` came back null,
- * because its `$switch` had a `default: null` branch and nothing stopped a
- * review from carrying a `targetType` with the matching id unset. Postgres
- * states both halves as constraints — `reviews_target_type_check` bounds the
- * type to the three the CASE covers, and `reviews_target_exclusivity_check`
- * requires the matching column to be non-null — so the skip had nothing left to
- * skip and went with the query.
+ * No group can resolve to a null `targetId`: `reviews_target_type_check` bounds
+ * the type to the three the CASE covers, and `reviews_target_exclusivity_check`
+ * requires the matching column to be non-null, so there is nothing to skip.
  */
 export async function handleAggregateSweep(): Promise<void> {
   const { recomputeAggregate } = await import('../services/review.service.js');

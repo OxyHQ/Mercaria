@@ -1,48 +1,40 @@
 /**
  * `moderation_outboxes` — the durable promise that moderation work will happen.
  *
- * The at-least-once contract is unchanged from the Mongo original: an expired
- * lease is reclaimable and a worker can die mid-delivery, so every handler MUST
- * make its downstream effect idempotent using the event id.
+ * The contract is at-least-once: an expired lease is reclaimable and a worker
+ * can die mid-delivery, so every handler MUST make its downstream effect
+ * idempotent using the event id.
  *
  * ## The claim is `FOR UPDATE SKIP LOCKED`, not a `findOneAndUpdate`
  *
- * Mongo claimed with an atomic `findOneAndUpdate` over a disjunctive filter.
- * Postgres has a better primitive for exactly this shape: the `SELECT … ORDER BY
- * created_at LIMIT 1 FOR UPDATE SKIP LOCKED` lives INSIDE the `UPDATE`, so N
- * dispatchers draining the queue never hand each other the same row and never
- * block on one another either — `SKIP LOCKED` steps over a row another task is
- * already claiming instead of waiting for it. Mercaria runs several ECS tasks and
- * every one of them starts a dispatcher, so that is the normal case rather than an
- * edge one. The predicate is otherwise identical: a `pending` row that is due, or
- * a `processing` row whose lease has expired.
+ * Postgres has the right primitive for exactly this shape: the
+ * `SELECT … ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED` lives INSIDE
+ * the `UPDATE`, so N dispatchers draining the queue never hand each other the
+ * same row and never block on one another either — `SKIP LOCKED` steps over a
+ * row another task is already claiming instead of waiting for it. Mercaria runs
+ * several ECS tasks and every one of them starts a dispatcher, so that is the
+ * normal case rather than an edge one. The predicate: a `pending` row that is
+ * due, or a `processing` row whose lease has expired.
  *
  * `lease_until` is nullable and `NULL <= now` is NULL, so a row that has never
- * been leased is excluded from the reclaim branch by the comparison itself —
- * matching Mongo, where a missing field did not match `{$lte: now}` either.
+ * been leased is excluded from the reclaim branch by the comparison itself.
  *
- * ## The Mongo `timestamps: false` hazard has no counterpart here, and that is the point
+ * ## A repeated enqueue writes NOTHING, and that is the point
  *
- * The Mongo enqueue carried a long comment about writing `createdAt`/`updatedAt`
- * explicitly under `timestamps: false`, because Mongoose otherwise named
- * `updatedAt` in two operators of one update document and the server rejected the
- * WHOLE write — which, inside the intake transaction, took the `AbuseReport` with
- * it. The fix it settled on was not interchangeable with the obvious one: letting
- * Mongoose own the timestamps also cleared the server error but left a
- * `$set: { updatedAt }` on the update, turning a repeated enqueue into a real
- * write that contends with the dispatcher's live lease on that same row.
+ * A repeated enqueue that still touched `updated_at` would be a real write that
+ * contends with the dispatcher's live lease on that same row.
  *
  * `ON CONFLICT (id) DO NOTHING` writes nothing at all — no tuple version, no
  * timestamp, no lock — so a repeat is a genuine no-op for a STRUCTURAL reason
  * rather than by matching a spelling.
  *
- * `DO UPDATE` reintroduces precisely the bug the Mongo flag existed to fix, and
- * measurably so: mutating this call to `onConflictDoUpdate` with the SAME values
- * moved `updated_at` by the 25 ms the test waits (drizzle applies the column's
- * `$onUpdate` to a conflict branch's `set`, so "write the same data back" is not
- * even a quiet write) and moved the row's `xmin`. Both are asserted in
- * `moderation-writes.realdb.test.ts`; the `xmin` one is what would still catch a
- * `DO UPDATE` careful enough to leave every column alone.
+ * `DO UPDATE` reintroduces precisely that write, and measurably so: mutating
+ * this call to `onConflictDoUpdate` with the SAME values moved `updated_at` by
+ * the 25 ms the test waits (drizzle applies the column's `$onUpdate` to a
+ * conflict branch's `set`, so "write the same data back" is not even a quiet
+ * write) and moved the row's `xmin`. Both are asserted in
+ * `moderation-writes.realdb.test.ts`; the `xmin` one is what would still catch
+ * a `DO UPDATE` careful enough to leave every column alone.
  */
 
 import { and, asc, eq, gt, lte, or, sql } from 'drizzle-orm';
@@ -97,7 +89,7 @@ type OutboxRow = typeof moderationOutboxes.$inferSelect;
 /**
  * Absent optionals come back as `undefined`, never `null`.
  *
- * A field Mongo left ABSENT is `NULL` in Postgres, and every caller here was
+ * An ABSENT field is `NULL` in the row, and every caller here was
  * written against `undefined` — so the normalization happens once, at the edge of
  * the repository, rather than at each `if (event.leaseOwner)`.
  */

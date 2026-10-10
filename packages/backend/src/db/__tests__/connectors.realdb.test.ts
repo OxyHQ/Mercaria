@@ -621,7 +621,7 @@ describe('sync settings', () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
 
-    // Under Mongo this stored a dangling id in silence. The FK is what makes it
+    // Without the FK this would store a dangling id in silence. The FK makes it
     // an error, and `connector-sync.service.updateSyncSettings` translates it
     // into a 400 rather than letting it surface as a 500.
     let caught: unknown;
@@ -1272,9 +1272,9 @@ describe('sync_runs', () => {
       counts: { created: 1, updated: 0, skipped: 0, failed: 0 },
     });
 
-    // Writing `null` explicitly rather than omitting the key: the Mongoose form
-    // assigned `error` only when set, so a retried run kept the earlier message
-    // on a document that now says `completed`.
+    // Writing `null` explicitly rather than omitting the key: assigning `error`
+    // only when set would let a retried run keep the earlier message on a row
+    // that now says `completed`.
     expect(reclosed.error).toBeNull();
   });
 

@@ -20,11 +20,10 @@
  * **Deleting a location can now be REFUSED by the database.** `draft_orders` and
  * `connections.sync_settings_target_location_id` reference it ON DELETE RESTRICT,
  * because NULL already means "the store's default location" on both — SET NULL
- * would silently reroute an open draft's reservation or a live sync. Under Mongo
- * the delete simply succeeded and left a dangling id. That refusal arrives as
- * SQLSTATE 23503 and is translated here into the CONFLICT this service already
- * promises, with a message naming what is holding the location — a bare 500 would
- * tell the merchant nothing they could act on.
+ * would silently reroute an open draft's reservation or a live sync. That
+ * refusal arrives as SQLSTATE 23503 and is translated here into the CONFLICT
+ * this service already promises, with a message naming what is holding the
+ * location — a bare 500 would tell the merchant nothing they could act on.
  */
 
 import type { CreateLocationInput, UpdateLocationInput } from '@mercaria/shared-types';
@@ -127,7 +126,7 @@ export async function deleteLocation(storeId: string, locationId: string): Promi
   }
 
   // `inventory_levels` CASCADE from the location, which removes the orphaned
-  // rows Mongo used to leak — but a cascade does NOT update the denormalized
+  // rows — but a cascade does NOT update the denormalized
   // `product_variants.inventory_*` rollup, so a variant would keep counting
   // stock at a place that no longer exists. Recompute each affected variant.
   for (const variantId of affectedVariantIds) {

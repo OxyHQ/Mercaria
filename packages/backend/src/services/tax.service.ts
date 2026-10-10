@@ -6,17 +6,16 @@
  * its `storeId`. The matching/computation side lives in `pricing.service`; this
  * module is the admin CRUD only.
  *
- * ## What the Postgres port changed
+ * ## NULL is absence
  *
- * The embedded `region` sub-document became three flat columns, so an ABSENT
- * field is a NULL column rather than a missing key — which is why the DTO
- * serializer below tests for `null` and the old one tested for `undefined`.
+ * `region` is three flat columns, so an ABSENT field is a NULL column rather
+ * than a missing key — which is why the DTO serializer below tests for `null`.
  *
- * `product_type_scope` keeps a distinction Mongo blurred and the service must
- * preserve: NULL means "not scoped to any product type", i.e. applies to all of
- * them, while an EMPTY array means "scoped to no product type at all" and matches
- * nothing. A patch that wrote `[]` intending to clear the scope would silently
- * disable the rate.
+ * `product_type_scope` keeps a distinction the service must preserve: NULL
+ * means "not scoped to any product type", i.e. applies to all of them, while an
+ * EMPTY array means "scoped to no product type at all" and matches nothing. A
+ * patch that wrote `[]` intending to clear the scope would silently disable the
+ * rate.
  */
 
 import type {
@@ -105,7 +104,7 @@ export async function updateTaxRate(
   const updated = await updateTaxRateRow(storeId, taxRateId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.rateBps !== undefined ? { rateBps: patch.rateBps } : {}),
-    // `region` is replaced wholesale, exactly as the Mongoose sub-document was:
+    // `region` is replaced wholesale:
     // a supplied region with no `country` CLEARS the country rather than keeping
     // the previous one.
     ...(patch.region !== undefined
@@ -143,9 +142,8 @@ export async function deleteTaxRate(storeId: string, taxRateId: string): Promise
  * Patch a store's tax settings (scoped to `storeId`, else NOT_FOUND). Only the
  * supplied fields are touched.
  *
- * The Mongo version reconstructed an absent `taxSettings` block from defaults
- * before patching it. That branch is gone: all three columns are NOT NULL with
- * the same defaults it substituted, so there is no absent block left to rebuild.
+ * All three columns are NOT NULL with defaults, so there is no absent block to
+ * rebuild before patching.
  */
 export async function updateTaxSettings(
   storeId: string,

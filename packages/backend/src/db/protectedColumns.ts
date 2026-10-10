@@ -1,8 +1,8 @@
 /**
  * Columns That Must Not Reach a Client
  *
- * Mongoose has `select: false`; drizzle has nothing equivalent, because it
- * enumerates columns explicitly — and `db.select().from(table)` enumerates ALL
+ * Drizzle has no per-column `select: false`, because it enumerates columns
+ * explicitly — and `db.select().from(table)` enumerates ALL
  * of them. So the guard has to be data plus a gate, decided once per table
  * rather than remembered at each call site.
  *

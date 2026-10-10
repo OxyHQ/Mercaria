@@ -123,7 +123,7 @@ from what they were shown — which is the convention's one allowed copy.
 - **Duplicates** are GoWay's to find; the 150 m duplicate probe is gone, and
   two of one store's locations cannot name one place.
 - **Legacy points removed with it.** `listings.longitude`/`latitude`/`geo`
-  (a Mongo-era point read only by an unused `/listings?lng&lat&radiusM` filter)
+  (a point read only by an unused `/listings?lng&lat&radiusM` filter)
   and `seller_listing_drafts`' coarse location are dropped: a P2P seller's area
   is `listing_local_discovery`'s cell and nothing else. PostGIS stays a required
   extension only because the migration chain names `geography`.

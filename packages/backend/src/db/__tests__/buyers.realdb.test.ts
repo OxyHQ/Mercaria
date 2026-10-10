@@ -21,7 +21,7 @@
  *    simultaneously is permitted — an index written `.on(isDefault)` by mistake
  *    would pass every single-buyer assertion and fail only this one;
  *  - `reviews_target_exclusivity_check` refuses a review naming two targets, an
- *    invariant the Mongoose model stated in prose and enforced nowhere;
+ *    invariant prose alone cannot enforce;
  *  - `recomputeAggregate` averages the right ROWS. Two assertions, because
  *    neither catches the other's bug: a target WITH published reviews must not
  *    read as 0 (which is what a query returning nothing produces — drizzle's
@@ -205,8 +205,8 @@ describe('the single-default address invariant', () => {
   it('REFUSES two defaults written naively', async () => {
     // The assertion the happy path above cannot make: a repository that simply
     // never wrote a second default would pass it against no index at all. This
-    // bypasses the repository and writes the row the old Mongo path could
-    // produce, and the index has to be what stops it.
+    // bypasses the repository and writes the row a half-finished promotion
+    // could produce, and the index has to be what stops it.
     const buyer = makeUserId('buyer');
     await insertAddress(buyer, addressInput('First'));
 
@@ -300,8 +300,8 @@ describe('the review target-exclusivity CHECK', () => {
       caught = error;
     }
 
-    // Mongoose stated this in prose and enforced it nowhere, so a row naming two
-    // targets was accepted and then read back by whichever query reached it first.
+    // Without the CHECK a row naming two targets would be accepted and then
+    // read back by whichever query reached it first.
     expect(isCheckViolation(caught)).toBe(true);
   });
 

@@ -437,9 +437,8 @@ export async function listEvaluableShoppingAgentIdsForProduct(
  * Apply a shopper's edit, scoped to its owner.
  *
  * Absent means "leave it alone", written as a conditional spread rather than by
- * handing drizzle an `undefined`: `$set: { x: undefined }` is a no-op in Mongo
- * and this domain's ancestors came from there, so the spelling that reads as
- * "leave it alone" and the spelling that WRITES NULL must never be the same one.
+ * handing drizzle an `undefined`: the spelling that reads as "leave it alone"
+ * and the spelling that WRITES NULL must never be the same one.
  */
 export async function updateShoppingAgentColumns(
   id: string,

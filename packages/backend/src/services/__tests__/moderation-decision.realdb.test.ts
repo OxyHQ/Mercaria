@@ -19,11 +19,11 @@
  * accepts every duplicate and every test below would pass against a double
  * takedown.
  *
- * `insertListing` generates a **uuid v7**, which `mongoose.isValidObjectId`
- * REJECTS. Under the pre-port guard, enforcement against every listing created
- * after the cutover would have refused with a tidy "not a valid id" and changed
- * nothing. It passes here because the service uses `isLiveEntityId`, which accepts
- * both id shapes — and the malformed-id test below proves the guard still exists.
+ * `insertListing` generates a **uuid v7**, which a 24-hex ObjectId check
+ * REJECTS. Under such a guard, enforcement against every listing created today
+ * would refuse with a tidy "not a valid id" and change nothing. It passes here
+ * because the service uses `isLiveEntityId`, which accepts both id shapes — and
+ * the malformed-id test below proves the guard still exists.
  *
  * ## The fixture is built from the schema's errors, not from what it looks like
  *
@@ -359,12 +359,11 @@ describe('a violation is enforced end to end', () => {
     /**
      * The guard `restrictListing` opens with, kept honest.
      *
-     * It used to be `mongoose.isValidObjectId`, and after the cutover that
-     * predicate answers "invalid" for every listing the catalogue creates — so the
-     * branch would have swallowed real enforcement while looking like a careful
-     * input check. `isLiveEntityId` accepts both live id shapes, which means a
-     * fixture exercising this branch has to be something NEITHER shape admits: not
-     * 24 hex characters, not a uuid v7.
+     * A 24-hex ObjectId check would answer "invalid" for every listing the
+     * catalogue creates — so the branch would swallow real enforcement while
+     * looking like a careful input check. `isLiveEntityId` accepts both live id
+     * shapes, which means a fixture exercising this branch has to be something
+     * NEITHER shape admits: not 24 hex characters, not a uuid v7.
      */
     const malformed = 'listing-42';
     expect(isLiveEntityId(malformed)).toBe(false);
@@ -709,24 +708,16 @@ describe('a restriction survives archiving, and an appeal can still reach it', (
 describe('the database accepts every status the TYPE admits', () => {
   it.each(ALL_LISTING_STATUSES)('a listing can really be saved as %s', async (status) => {
     /**
-     * The drift this catches shipped once already, and the port changed WHERE it
-     * would hide rather than removing it.
-     *
-     * Under Mongo the model declared its own `const STATUSES: readonly
-     * ListingStatus[] = [...]`, and a hand-written SUBSET satisfies that type — so
-     * adding `restricted` to the union produced no compile error and the schema
-     * enum never learned it. It then hid a second time behind the difference
-     * between two Mongo APIs: enforcement used `updateOne`, which does not run
-     * validators, so restricting a listing worked and every moderation test
-     * passed, while a seller editing the TITLE of a restricted listing hit a
-     * validation error about a status they never touched.
+     * The drift this catches shipped once already: a hand-written status list
+     * is a SUBSET that still satisfies `readonly ListingStatus[]`, so adding
+     * `restricted` to the union produced no compile error and the stored enum
+     * never learned it.
      *
      * In Postgres the enum is `listings_status_check`, and it applies to EVERY
-     * writer — so the second hiding place is gone. The first is not: the CHECK the
-     * throwaway database actually carries comes from a FROZEN migration file, not
-     * from `ALL_LISTING_STATUSES` at run time. A status added to the union without
-     * a generated migration therefore fails here — a `23514` on the INSERT — and
-     * nowhere else until production.
+     * writer. But the CHECK the throwaway database actually carries comes from
+     * a FROZEN migration file, not from `ALL_LISTING_STATUSES` at run time. A
+     * status added to the union without a generated migration therefore fails
+     * here — a `23514` on the INSERT — and nowhere else until production.
      *
      * Iterating the type's own runtime list means a status added later is covered
      * without anyone remembering to come back here.

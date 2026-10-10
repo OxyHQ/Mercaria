@@ -39,7 +39,7 @@ vi.mock('../services/oxy-account-graph.js', () => ({
 import { authorizeAndJoinStore } from '../socket.js';
 import { serviceUnavailable } from '../lib/errors/error-codes.js';
 
-/** A syntactically valid Mongo ObjectId (24 hex chars). */
+/** A syntactically valid legacy store id (24 hex chars). */
 const VALID_STORE_ID = '0'.repeat(24);
 const OWNING_ORG = 'org-socket';
 const MEMBER = { userId: 'user-1', accessToken: 'bearer-user-1' };
@@ -107,11 +107,11 @@ describe('authorizeAndJoinStore', () => {
     expect(join).not.toHaveBeenCalled();
   });
 
-  // The Mongo version of this guard fed `rawStoreId` straight into a filter, so
-  // an object like `{$ne: null}` was a query OPERATOR and matched any store. A
-  // parameterised repository call cannot be smuggled that way, but the guard is
-  // kept and so is this test: the type check is the reason it cannot, and
-  // deleting the assertion is how a future refactor reintroduces the hole.
+  // A filter built straight from `rawStoreId` would let an object like
+  // `{$ne: null}` act as a query OPERATOR and match any store. A parameterised
+  // repository call cannot be smuggled that way, but the guard is kept and so
+  // is this test: the type check is the reason it cannot, and deleting the
+  // assertion is how a future refactor reintroduces the hole.
   it('rejects a non-string store id (client cannot smuggle an object filter)', async () => {
     const join = vi.fn();
 

@@ -29,10 +29,10 @@ import { log } from '../lib/logger.js';
 /**
  * Serialize a collection row to the `Collection` DTO.
  *
- * `productIds` is passed IN rather than read from the row: it was a field on the
- * Mongo document and is a `listing_collections` relation now, so the caller
- * batches it (see `getProductIdsByCollection`) instead of this function issuing a
- * query per collection.
+ * `productIds` is passed IN rather than read from the row: it is a
+ * `listing_collections` relation, so the caller batches it (see
+ * `getProductIdsByCollection`) instead of this function issuing a query per
+ * collection.
  */
 export function toCollectionDTO(
   collection: CollectionRecord,

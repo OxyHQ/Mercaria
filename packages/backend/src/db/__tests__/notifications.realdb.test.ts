@@ -1,22 +1,20 @@
 /**
  * The notifications-domain repositories, against a REAL Postgres database.
  *
- * There was no test for either notification service before this port, so nothing
- * here is replacing a mocked one — but a mocked test could not have covered any
- * of it either. Every block below asserts something that only a server can
- * answer, and each corresponds to a way the Mongo code was legal and the
- * Postgres translation is not:
+ * A mocked test could not cover any of this. Every block below asserts
+ * something that only a server can answer, and each corresponds to a write that
+ * would look legal from the application and is refused by Postgres:
  *
- *  - **`notifications_dismissed_at_check`.** Mongo's `dismissNotification` wrote
- *    `status` alone and its `markAsRead` moved a document OUT of `dismissed`
- *    without a thought. Both spellings are SQLSTATE 23514 now. The rejection is
- *    asserted in BOTH directions (a status with no timestamp, and a timestamp
- *    with no status) because a CHECK written as a one-way implication would pass
- *    a test that only tried one of them.
+ *  - **`notifications_dismissed_at_check`.** Writing `status` alone on a
+ *    dismissal, or moving a row OUT of `dismissed` without clearing the
+ *    timestamp, is SQLSTATE 23514. The rejection is asserted in BOTH directions
+ *    (a status with no timestamp, and a timestamp with no status) because a
+ *    CHECK written as a one-way implication would pass a test that only tried
+ *    one of them.
  *  - **The 90-day retention measures from `dismissed_at`, not `created_at`.** The
  *    two fixtures are the same age by `created_at` and differ ONLY in whether they
- *    were dismissed, so a sweep still measuring from `created_at` — the Mongo rule
- *    — reaps both and fails here rather than passing quietly.
+ *    were dismissed, so a sweep measuring from `created_at` reaps both and
+ *    fails here rather than passing quietly.
  *  - **The unread set.** Fixtures sit on both sides of every distinction the
  *    predicate makes: `pending` and `sent` in, `read` and `dismissed` out, and
  *    another user's unread row out by scope. A predicate that lost any one of
@@ -128,7 +126,7 @@ describe('the dismissed_at CHECK', () => {
     const user = newUserId();
     const created = await makeNotification(user);
 
-    // Exactly what Mongo's `dismissNotification` wrote: `{$set: {status}}`.
+    // A dismissal that writes `status` alone.
     let caught: unknown;
     try {
       await db
@@ -174,8 +172,8 @@ describe('the dismissed_at CHECK', () => {
     await markNotificationDismissed(user, created.id);
 
     // Reachable from the feed: the user dismisses a notification and then taps it.
-    // Mongo's `markAsRead` wrote `status` alone, which is a 23514 here — so this
-    // is the transition, not a hypothetical.
+    // Writing `status` alone here is a 23514 — so this is the transition, not a
+    // hypothetical.
     expect(await markNotificationRead(user, created.id)).toBe(true);
 
     const { rows } = await findNotificationsPage(user, {}, 1, 10);
@@ -194,9 +192,8 @@ describe('the 90-day retention sweep', () => {
     await markNotificationDismissed(user, dismissed.id);
 
     // Both rows are backdated on `created_at` to the same instant, so the ONLY
-    // difference between them is `dismissed_at`. A sweep still measuring from
-    // `created_at` — Mongo's rule, with its partial filter lost in translation —
-    // deletes both and fails the count below.
+    // difference between them is `dismissed_at`. A sweep measuring from
+    // `created_at` deletes both and fails the count below.
     await db
       .update(notifications)
       .set({ createdAt: PAST_RETENTION, dismissedAt: PAST_RETENTION })
@@ -223,12 +220,11 @@ describe('the 90-day retention sweep', () => {
 
     // This is what the test is actually about, and it is not contention-prone:
     // of THIS user's two rows — backdated to the same `created_at`, differing
-    // only in `dismissed_at` — exactly the dismissed one is gone. A sweep still
-    // measuring from `created_at` (Mongo's rule, with its partial filter lost in
-    // translation) takes BOTH and fails here, whichever tick did the deleting;
-    // a sweep that deletes nothing leaves both and fails here too. Verified by
-    // mutating the registry entry to `notifications.createdAt` and watching this
-    // assertion — not the count — catch it.
+    // only in `dismissed_at` — exactly the dismissed one is gone. A sweep
+    // measuring from `created_at` takes BOTH and fails here, whichever tick did
+    // the deleting; a sweep that deletes nothing leaves both and fails here
+    // too. Verified by mutating the registry entry to `notifications.createdAt`
+    // and watching this assertion — not the count — catch it.
     const { rows } = await findNotificationsPage(user, {}, 1, 10);
     expect(rows.map((row) => row.id)).toEqual([neverDismissed.id]);
     expect(rows[0].dismissedAt).toBeNull();
@@ -326,7 +322,7 @@ describe('push-token registration', () => {
       .from(pushTokens)
       .where(eq(pushTokens.oxyUserId, user));
 
-    // A field Mongo left ABSENT is NULL here. `''` is a real value that compares
+    // An ABSENT field is NULL. `''` is a real value that compares
     // equal to the next device that also reports nothing.
     expect(rows[0].deviceId).toBeNull();
     expect(rows[0].platform).toBeNull();

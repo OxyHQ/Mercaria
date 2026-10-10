@@ -189,8 +189,7 @@ function openedRun(connectionId: string, kind: string) {
 /**
  * The row `finishSyncRun` hands back — built from the outcome the service passed,
  * exactly as the repository builds it from the columns it just wrote. Reading the
- * returned run therefore reads what the service DECIDED, which is what the
- * mutated Mongoose document used to carry.
+ * returned run therefore reads what the service DECIDED.
  */
 function finishedRun(
   runId: string,
@@ -289,9 +288,8 @@ function listingRow(
  * Answer the provenance lookup per external id.
  *
  * The import path and the archive path both resolve a listing through
- * `findListingBySourceExternalId` now — Mongo used a `findOne` for the import and
- * a provenance-FILTERED `updateOne` for the archive, so they were two different
- * mocks — which is why a single `mockResolvedValue` cannot serve both.
+ * `findListingBySourceExternalId`, each with its own external ids — which is
+ * why a single `mockResolvedValue` cannot serve both.
  */
 function stubListingsByExternalId(rows: Record<string, unknown>): void {
   findListingBySourceExternalId.mockImplementation((_storeId, _connectionId, externalId) =>
@@ -757,10 +755,10 @@ describe('runBackfill — Fix 1: re-prices existing variants', () => {
     expect(updateVariant).not.toHaveBeenCalled();
   });
 
-  it('prices a variant that has NO stored price at all — a state Mongo could not hold', async () => {
-    // `price` was required on the Mongoose model; both of its columns are nullable
-    // here. NULL must differ from every incoming amount, so the first re-sync
-    // prices the variant rather than leaving it priceless.
+  it('prices a variant that has NO stored price at all', async () => {
+    // Both of `price`'s columns are nullable. NULL must differ from every
+    // incoming amount, so the first re-sync prices the variant rather than
+    // leaving it priceless.
     findConnection.mockResolvedValue(mockConnection('respect_overrides'));
     findListingBySourceExternalId.mockResolvedValue(listingRow('listing-existing'));
     stubExistingVariants([existingVariant({ priceAmount: null, priceCurrency: null })]);
@@ -878,9 +876,9 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
   });
 
   it('never re-archives an ALREADY-archived sourced listing', async () => {
-    // The repository read is deliberately status-agnostic (the Mongo query filtered
-    // `status: { $ne: 'archived' }` itself), so the service filters — and this is
-    // what keeps a nightly reconcile from re-counting yesterday's archives.
+    // The repository read is deliberately status-agnostic, so the service
+    // filters — and this is what keeps a nightly reconcile from re-counting
+    // yesterday's archives.
     findConnection.mockResolvedValue(mockConnection());
     createStoreProduct.mockResolvedValue('listing-new');
     fetchProducts.mockResolvedValue({ products: [product({ externalId: 'p1' })] });

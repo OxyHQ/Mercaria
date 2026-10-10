@@ -5,22 +5,20 @@
  * ## `dismissed_at` is HALF of a CHECK, so it is never written alone
  *
  * `notifications_dismissed_at_check` states
- * `(status = 'dismissed') = (dismissed_at is not null)`. Mongo had no such rule:
- * `dismissNotification` set only `status`, and `markAsRead` moved a document out
- * of `dismissed` without a thought. Both spellings raise SQLSTATE 23514 here, so
- * every transition in this module writes BOTH columns together —
- * {@link markNotificationDismissed} sets the pair, {@link markNotificationRead}
- * clears `dismissed_at` because marking a dismissed notification read UN-dismisses
- * it.
+ * `(status = 'dismissed') = (dismissed_at is not null)`. Setting only `status`
+ * on a dismissal, or moving a row out of `dismissed` without clearing the
+ * column, raises SQLSTATE 23514, so every transition in this module writes BOTH
+ * columns together — {@link markNotificationDismissed} sets the pair,
+ * {@link markNotificationRead} clears `dismissed_at` because marking a
+ * dismissed notification read UN-dismisses it.
  *
  * That column is also what `db/expiryTargets.ts` measures the 90-day retention
- * from, which is a real behaviour change worth stating: Mongo's TTL index counted
- * 90 days from `created_at` with `partialFilterExpression: {status: 'dismissed'}`,
- * so a notification dismissed on day 89 vanished the next morning while one
- * dismissed on day 1 survived for 89 more. Every row now gets its full 90 days
- * FROM THE DISMISSAL, and a row that was never dismissed has NULL and is never
- * swept at all. Clearing `dismissed_at` on a read therefore also takes the row
- * back out of the sweep's set — correct, since it is no longer dismissed.
+ * from: counting from `created_at` would make a notification dismissed on day
+ * 89 vanish the next morning while one dismissed on day 1 survived for 89 more.
+ * Every row gets its full 90 days FROM THE DISMISSAL, and a row that was never
+ * dismissed has NULL and is never swept at all. Clearing `dismissed_at` on a
+ * read therefore also takes the row back out of the sweep's set — correct,
+ * since it is no longer dismissed.
  *
  * ## The unread predicate is a LITERAL, and that is not laziness
  *
@@ -38,9 +36,8 @@
  *
  * ## `trigger_id` is gone
  *
- * The Mongoose model carried `triggerId: {type: ObjectId, ref: 'Trigger'}` and
- * there is no `Trigger` model in this repo. No caller passed one and no read path
- * returned it, so it is not ported and {@link NewNotification} has no such field.
+ * There is no `Trigger` model in this repo, no caller passes a trigger and no
+ * read path returns one, so {@link NewNotification} has no such field.
  */
 
 import { and, desc, eq, sql } from 'drizzle-orm';
@@ -130,10 +127,9 @@ export async function insertNotification(
 /**
  * Record the per-channel delivery outcome once every channel has answered.
  *
- * ONE update at the end rather than one per channel: the Mongo path mutated the
- * document in place and called `save()` after `Promise.allSettled`, which is the
- * same single write — but `save()` would have raced any concurrent read-state
- * change on the whole document, where this touches one column.
+ * ONE update at the end rather than one per channel, after
+ * `Promise.allSettled`. It touches one column, so it cannot race a concurrent
+ * read-state change on the rest of the row.
  *
  * @returns The stored row, or `null` if it no longer exists.
  */
@@ -165,10 +161,10 @@ export async function countUnreadNotifications(
 /**
  * A page of the user's notifications, newest first, with the matched total.
  *
- * `id` is a secondary sort key that Mongo's `{createdAt: -1}` did not have.
- * `created_at` carries milliseconds and a fan-out writes several notifications
- * inside one, so without a tiebreaker two offset pages can repeat a row and skip
- * another. The id is not meaningful as an order, only as a total one.
+ * `id` is a secondary sort key. `created_at` carries milliseconds and a fan-out
+ * writes several notifications inside one, so without a tiebreaker two offset
+ * pages can repeat a row and skip another. The id is not meaningful as an
+ * order, only as a total one.
  */
 export async function findNotificationsPage(
   oxyUserId: string,
@@ -202,10 +198,9 @@ export async function findNotificationsPage(
  *
  * `dismissed_at` is cleared in the same statement: a dismissed notification being
  * marked read is leaving the `dismissed` status, and leaving it with the timestamp
- * still set is exactly what `notifications_dismissed_at_check` refuses. The Mongo
- * update wrote `status` alone and this transition was reachable from the feed, so
- * omitting the clear here is a 23514 on a real user action rather than a
- * theoretical one.
+ * still set is exactly what `notifications_dismissed_at_check` refuses. This
+ * transition is reachable from the feed, so omitting the clear here is a 23514
+ * on a real user action rather than a theoretical one.
  *
  * @returns `false` when the notification is not this user's — the scoping IS the
  *   authorization, and the caller turns it into a NOT_FOUND.

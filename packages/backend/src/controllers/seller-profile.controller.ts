@@ -23,8 +23,8 @@ import { log } from '../lib/logger.js';
  *
  * The two preference sub-objects are re-composed from their four columns and
  * emitted only when the seller has actually set something: an object of four
- * `null`s is not the same wire shape as the absent one Mongo produced, and the
- * clients read `shippingPrefs` for presence.
+ * `null`s is not the same wire shape as an absent one, and the clients read
+ * `shippingPrefs` for presence.
  */
 function toSellerProfileResponse(profile: SellerProfileRecord): Record<string, unknown> {
   const shippingPrefs = {

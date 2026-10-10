@@ -2,8 +2,7 @@
  * Merchandising: `collections`, `collection_rules`, `listing_collections`,
  * `discounts`, `discount_codes`.
  *
- * Two Mongo mechanisms are replaced here rather than copied, and both replace a
- * denormalization with a relation.
+ * Two decisions here replace a denormalization with a relation.
  */
 
 import { sql } from 'drizzle-orm';
@@ -167,15 +166,15 @@ export const collectionRules = pgTable(
 /**
  * `listing_collections` — which listings are in which collection.
  *
- * ## This ONE table replaces TWO Mongo fields, and that is the decision to read
+ * ## This ONE table holds TWO memberships, and that is the decision to read
  *
- * Mongo carried the membership twice: `Collection.productIds` (the hand-picked,
+ * The membership has two readings: `Collection.productIds` (the hand-picked,
  * ORDERED input of a MANUAL collection) and `Listing.collectionIds` (the
  * MATERIALIZED membership of both kinds, written by
  * `collection.service.materialize`). For a manual collection those two sets are
  * the same set — `materialize` computes `shouldHave` as literally
  * `[...collection.productIds]` — so keeping both would be storing one fact in
- * two places that can disagree, which is the shape this port exists to remove.
+ * two places that can disagree.
  *
  * `position` carries the only information the two did not share: the manual
  * ordering that `sortOrder: 'manual'` pages by. NULL means the membership was
@@ -334,12 +333,10 @@ export const discounts = pgTable(
  *
  * ## `store_id` is denormalized ON PURPOSE, and the unique index is why
  *
- * Mongo enforced per-store code uniqueness with `{storeId, 'codes.code'}` — a
- * compound index reaching from the parent document into the embedded array.
- * Postgres cannot put a UNIQUE across a join, so the store must be ON this row
- * for `unique(store_id, code)` to be expressible at all. The alternative is a
- * uniqueness rule enforced only in the service layer, which is precisely what
- * fails when two requests race.
+ * A code is unique per store. Postgres cannot put a UNIQUE across a join, so
+ * the store must be ON this row for `unique(store_id, code)` to be expressible
+ * at all. The alternative is a uniqueness rule enforced only in the service
+ * layer, which is precisely what fails when two requests race.
  *
  * The redundancy is constrained rather than trusted: `unique(id, store_id)` on
  * the parent plus a COMPOSITE foreign key means a code row cannot name a

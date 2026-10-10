@@ -1,17 +1,15 @@
 /**
  * `tax_rates` — a store-scoped tax rule, matched by region and priority.
  *
- * The plainest table in the port: a flat Mongoose document with one embedded
- * `region` object, which flattens into three columns. The only thing worth
- * stating is what `product_type_scope` means, because Postgres can represent a
- * distinction Mongo blurred.
+ * The plainest table in the schema: a flat row whose `region` is three columns.
+ * The only thing worth stating is what `product_type_scope` means, because
+ * Postgres represents a distinction that is easy to blur.
  *
  * **NULL and `{}` are different values here, and the service must keep them
- * apart.** Mongoose declared `default: undefined`, i.e. ABSENT — "this rate is
- * not scoped to any particular product type, so it applies to all of them". An
- * EMPTY array is the opposite: "scoped to no product type at all", which matches
- * nothing. A patch that writes `[]` where it meant to clear the scope silently
- * disables the rate.
+ * apart.** NULL is ABSENT — "this rate is not scoped to any particular product
+ * type, so it applies to all of them". An EMPTY array is the opposite: "scoped
+ * to no product type at all", which matches nothing. A patch that writes `[]`
+ * where it meant to clear the scope silently disables the rate.
  */
 
 import { and, asc, desc, eq } from 'drizzle-orm';
@@ -51,9 +49,8 @@ export async function findTaxRatesByStore(
  * A store's ACTIVE tax rates — the pricing engine's one query per seller group.
  *
  * Ordered highest priority first with `id` as the tiebreaker, which is the order
- * the engine applies them in: the Mongo path sorted in memory by
- * `priority desc, _id asc` after loading, and doing it in SQL keeps that ordering
- * a property of the read rather than of whoever calls it next.
+ * the engine applies them in: doing it in SQL keeps that ordering a property of
+ * the read rather than of whoever calls it next.
  */
 export async function findActiveTaxRates(
   storeId: string,

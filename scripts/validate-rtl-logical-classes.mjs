@@ -223,9 +223,8 @@ const RULES = [
  * matched text contains `pattern`, EXACTLY `count` times.
  *
  * The list must only SHRINK: an entry that stops matching anything FAILS the
- * run, so a workaround cannot outlive the thing it worked around — the same
- * discipline `validate-no-mongo.mjs` uses, for the same reason. That property is
- * also this guard's positive control: every entry below names text that is
+ * run, so a workaround cannot outlive the thing it worked around. That property
+ * is also this guard's positive control: every entry below names text that is
  * really in the tree, so a matcher that silently stopped matching turns the run
  * red instead of green.
  *

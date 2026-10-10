@@ -99,7 +99,7 @@ export const SYNC_RUN_STATUSES: readonly SyncRunStatus[] = ['running', 'complete
  *
  * ## `shop_currency` deliberately has NO currency CHECK
  *
- * It is the EXTERNAL platform's currency, declared with no enum in Mongoose for
+ * It is the EXTERNAL platform's currency, declared with no enum for
  * a reason: a Shopify or WooCommerce shop may report a code Mercaria does not
  * list, and rejecting the connection because of it would break the import rather
  * than the price. Every other currency column in this schema is CHECKed; this
@@ -388,9 +388,9 @@ export const connectionWebhookFailures = pgTable(
 /**
  * `sync_runs` — one run of a sync operation, append-only.
  *
- * `counts` is a fixed four-field tally, flattened. Mongoose declared
- * `timestamps: true` on top of an explicit `startedAt`, so the table keeps all
- * four date columns exactly as the source has them.
+ * `counts` is a fixed four-field tally, flattened. The table carries
+ * `created_at`/`updated_at` beside the explicit `started_at`/`finished_at`, so
+ * all four date columns are kept.
  */
 export const syncRuns = pgTable(
   'sync_runs',

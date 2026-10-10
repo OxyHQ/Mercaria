@@ -12,9 +12,9 @@
  *
  * `ON CONFLICT DO NOTHING … RETURNING` reports the loss as an empty result rather
  * than as an exception to classify, so a duplicate and a database failure are
- * structurally distinguishable: the first returns `null`, the second throws. Under
- * Mongo both arrived as errors and were told apart by `code === 11000`, one
- * mis-widened `catch` away from treating an outage as "already enforced".
+ * structurally distinguishable: the first returns `null`, the second throws.
+ * Telling them apart by classifying an error code would be one mis-widened
+ * `catch` away from treating an outage as "already enforced".
  *
  * ## `revision` is IN the key, not merely stored beside it
  *
