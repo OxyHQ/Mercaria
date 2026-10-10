@@ -184,16 +184,15 @@ describe('the legacy service-auth surface is gone and stays gone (#164)', () => 
     expect(/^OXY_API_URL=/m.test(template)).toBe(true);
   });
 
-  it('the deploy workflow no longer syncs the retired secret', () => {
+  it('the deploy workflow does not carry the retired secret', () => {
     const workflow = readFileSync(join(REPO_ROOT, '.github/workflows/deploy-aws.yml'), 'utf8');
     expect(workflow.length).toBeGreaterThan(1000);
-    // The workflow's own comment explains the retirement by name, so this
-    // matches the two BINDING shapes rather than the word.
-    expect(/SYNC_SERVICE_SECRET:/.test(workflow)).toBe(false);
-    expect(/^\s*APP_SECRETS=".*\bSERVICE_SECRET\b.*"/m.test(workflow)).toBe(false);
-    // Positive control: a secret that IS still synced matches both shapes.
-    expect(/SYNC_DATABASE_URL:/.test(workflow)).toBe(true);
-    expect(/^\s*APP_SECRETS=".*\bDATABASE_URL\b.*"/m.test(workflow)).toBe(true);
+    // Since 2026-10-10 the deploy syncs no secret at all (SSM is the only
+    // source, `deployWorkflow.test.ts`), so the retired one cannot be bound.
+    // Matched as a BINDING, not the word, which comments may still name.
+    expect(/secrets\.SERVICE_SECRET\b/.test(workflow)).toBe(false);
+    // Positive control: the binding shape the matcher looks for exists here.
+    expect(/secrets\.GITHUB_TOKEN\b/.test(workflow)).toBe(true);
   });
 
   /**
