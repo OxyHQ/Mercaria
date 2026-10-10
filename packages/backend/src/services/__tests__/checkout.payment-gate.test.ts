@@ -347,6 +347,7 @@ function imageRow(): ListingImageRecord {
     id: uuidv7(),
     listingId: LISTING,
     fileId: 'img-1',
+    kind: 'image',
     alt: null,
     position: 0,
     createdAt: AT,
@@ -356,6 +357,7 @@ function imageRow(): ListingImageRecord {
 
 function children(): ListingChildren {
   return {
+    media: new Map(),
     images: new Map([[LISTING, [imageRow()]]]),
     options: new Map(),
     collectionIds: new Map(),

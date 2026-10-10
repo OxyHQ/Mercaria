@@ -485,7 +485,9 @@ export interface CreateStoreProductInput {
   /** The v1 category SLUG. See `LEGACY_LISTING_CATEGORY_CONTRACT`. */
   category: string;
   /** Oxy media file ids for the gallery, in display order. */
-  imageFileIds: string[];
+  imageFileIds?: string[];
+  /** Mixed gallery, mutually exclusive with imageFileIds. Server derives each kind from Oxy. */
+  mediaFileIds?: string[];
   tags?: string[];
   /** Selectable options that the variants assign values for. */
   options: ListingOption[];
@@ -509,6 +511,8 @@ export interface CreateStoreProductInput {
  * 8). The service refuses one on a listing that has already sold.
  */
 export type UpdateListingInput = Partial<CreateP2PListingInput> & {
+  /** Store mixed gallery. Mutually exclusive with imageFileIds. */
+  mediaFileIds?: string[];
   /**
    * Seller-settable statuses only — a client can never ask for `restricted`, nor
    * PATCH its way out of one. See {@link SellerSettableListingStatus}.

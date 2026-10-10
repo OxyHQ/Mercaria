@@ -948,7 +948,7 @@ export async function loadPrimaryProductImages(
       ${canonicalImages.alt} as "alt"
     from ${canonicalImages}
     where ${canonicalImages.productId} = any(${sql.param([...productIds])}::text[])
-      and ${canonicalImages.status} = 'active'
+      and ${canonicalImages.status} = 'active' and ${canonicalImages.kind} = 'image'
     order by ${canonicalImages.productId}, ${canonicalImages.position}, ${canonicalImages.id}`);
   return [...rows];
 }

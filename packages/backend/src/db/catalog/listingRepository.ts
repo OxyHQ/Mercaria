@@ -1,3 +1,4 @@
+import { requireTransaction } from '../moderation/transactionGuard.js';
 /**
  * `listings` and its child tables — `listing_images`, `listing_options`, the
  * `listing_collections` membership read, and the browse/search queries.
@@ -127,6 +128,7 @@ export type ListingOptionRecord = InferSelectModel<typeof listingOptions>;
 /** The child rows of a BATCH of listings, keyed by listing id. */
 export interface ListingChildren {
   readonly images: Map<string, ListingImageRecord[]>;
+  readonly media: Map<string, ListingImageRecord[]>;
   readonly options: Map<string, ListingOptionRecord[]>;
   readonly collectionIds: Map<string, string[]>;
 }
@@ -223,7 +225,7 @@ export async function findListingChildren(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingChildren> {
   if (listingIds.length === 0) {
-    return { images: new Map(), options: new Map(), collectionIds: new Map() };
+    return { images: new Map(), media: new Map(), options: new Map(), collectionIds: new Map() };
   }
   const ids = [...listingIds];
 
@@ -256,7 +258,8 @@ export async function findListingChildren(
   }
 
   return {
-    images: groupByListing(imageRows),
+    images: groupByListing(imageRows.filter(row => row.kind === 'image')),
+    media: groupByListing(imageRows),
     options: groupByListing(optionRows),
     collectionIds,
   };
@@ -284,7 +287,7 @@ export async function findListingGallery(
   return db
     .select()
     .from(listingImages)
-    .where(eq(listingImages.listingId, listingId))
+    .where(and(eq(listingImages.listingId, listingId), eq(listingImages.kind, 'image')))
     .orderBy(asc(listingImages.position), asc(listingImages.id));
 }
 
@@ -313,21 +316,45 @@ export async function findListingGallery(
  * REPLACE rather than a merge: removing a photograph removes it, and its variant
  * selections go with it, exactly as the cascade intends.
  */
-export async function replaceListingImages(
+export async function replaceListingImages(listingId: string, images: readonly ListingImageInput[], db: DatabaseOrTransaction = getDb()): Promise<void> {
+  // Root handles open a transaction; existing transactions use a savepoint.
+  // In both cases the row lock survives the whole replacement.
+  await db.transaction(tx => replaceGallery(listingId, images.map(image => ({ ...image, kind: 'image' })), tx, true));
+}
+
+/** The mixed gallery replaces all kinds, preserving surviving IDs and image FKs. */
+export async function replaceListingMedia(listingId: string, media: readonly (ListingImageInput & { kind: 'image' | 'video' })[], db: DatabaseOrTransaction): Promise<void> {
+  await replaceGallery(listingId, media, requireTransaction(db, 'replaceListingMedia'), false);
+}
+
+async function replaceGallery(
   listingId: string,
-  images: readonly ListingImageInput[],
-  db: DatabaseOrTransaction = getDb(),
+  images: readonly (ListingImageInput & { kind: 'image' | 'video' })[],
+  db: DatabaseOrTransaction,
+  imagesOnly: boolean,
 ): Promise<void> {
+  // Serialize both replacement dialects on their owning listing.
+  await db.select({ id: listings.id }).from(listings).where(eq(listings.id, listingId)).for('update');
+  const scope = and(eq(listingImages.listingId, listingId), imagesOnly ? eq(listingImages.kind, 'image') : undefined);
   if (images.length === 0) {
-    await db.delete(listingImages).where(eq(listingImages.listingId, listingId));
+    await db.delete(listingImages).where(scope);
     return;
   }
 
   const existing = await db
     .select()
     .from(listingImages)
-    .where(eq(listingImages.listingId, listingId))
+    .where(scope)
     .orderBy(asc(listingImages.position), asc(listingImages.id));
+
+  if (imagesOnly) {
+    const [tail] = await db.select({ position: sql<number>`coalesce(max(${listingImages.position}), -1)`, videos: sql<number>`count(*) filter (where ${listingImages.kind} = 'video')` })
+      .from(listingImages).where(eq(listingImages.listingId, listingId));
+    // Legacy clients only reorder image slots; video positions are left intact.
+    const hasVideos = Number(tail?.videos ?? 0) > 0;
+    if (hasVideos) images = images.map((image, index) => ({ ...image,
+      position: existing[index]?.position ?? Number(tail?.position ?? -1) + 1 + index - existing.length }));
+  }
 
   // One QUEUE per file id, not one row: a gallery may hold the same file twice,
   // and a plain map would hand both incoming copies the same existing row and
@@ -339,10 +366,11 @@ export async function replaceListingImages(
     else available.set(row.fileId, [row]);
   }
 
-  const survivors: { row: ListingImageRecord; image: ListingImageInput }[] = [];
-  const additions: ListingImageInput[] = [];
+  const survivors: { row: ListingImageRecord; image: ListingImageInput & { kind: 'image' | 'video' } }[] = [];
+  const additions: (ListingImageInput & { kind: 'image' | 'video' })[] = [];
   for (const image of images) {
     const row = available.get(image.fileId)?.shift();
+    if (row && row.kind !== image.kind) throw new Error('A catalog file cannot change media kind.');
     if (row) survivors.push({ row, image });
     else additions.push(image);
   }
@@ -352,8 +380,8 @@ export async function replaceListingImages(
     .delete(listingImages)
     .where(
       keptIds.length === 0
-        ? eq(listingImages.listingId, listingId)
-        : and(eq(listingImages.listingId, listingId), notInArray(listingImages.id, keptIds)),
+        ? scope
+        : and(scope, notInArray(listingImages.id, keptIds)),
     );
 
   // Only the rows whose rendered fields actually moved. A reorder that changed
@@ -372,6 +400,7 @@ export async function replaceListingImages(
       additions.map((image) => ({
         listingId,
         fileId: image.fileId,
+        kind: image.kind,
         alt: image.alt ?? null,
         position: image.position,
       })),
@@ -1940,6 +1969,7 @@ export async function findLegacyMediaListingIds(
 ): Promise<string[]> {
   const rows = await db.selectDistinct({ id: listingImages.listingId }).from(listingImages)
     .where(and(
+      eq(listingImages.kind, 'image'),
       sql`${listingImages.fileId} !~ '^[A-Za-z0-9_-]+$'`,
       options.after ? gt(listingImages.listingId, options.after) : undefined,
       options.listingId ? eq(listingImages.listingId, options.listingId) : undefined,
@@ -1988,7 +2018,7 @@ export async function applyListingMediaImport(
       owner = store?.owner;
     }
     if (owner !== snapshot.ownerOxyUserId) return 'changed';
-    const current = await tx.select().from(listingImages).where(eq(listingImages.listingId, snapshot.listingId))
+    const current = await tx.select().from(listingImages).where(and(eq(listingImages.listingId, snapshot.listingId), eq(listingImages.kind, 'image')))
       .orderBy(asc(listingImages.position), asc(listingImages.id)).for('update');
     if (current.length !== snapshot.images.length || current.some((row, index) => {
       const previous = snapshot.images[index];

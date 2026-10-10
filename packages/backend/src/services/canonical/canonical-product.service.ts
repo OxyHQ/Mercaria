@@ -31,6 +31,7 @@ import type {
   CanonicalAlias,
   CanonicalAttributeAssignment,
   CanonicalImage,
+  CanonicalMedia,
   CanonicalProduct,
   FieldProvenance,
   IdentifierScheme,
@@ -38,7 +39,7 @@ import type {
   SourceFreshness,
   SourceLinkMethod,
 } from '@mercaria/shared-types';
-import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES, isOxyFileId } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   countProductsForFamily,
@@ -67,9 +68,9 @@ import {
   findCanonicalVariantById,
 } from '../../db/canonical/canonicalVariantRepository.js';
 import {
-  insertCanonicalImage,
+  insertCanonicalMedia,
   listAttributeValues,
-  listCanonicalImages,
+  listCanonicalMedia,
   listFieldProvenance,
   recordFieldProvenance,
 } from '../../db/canonical/attributeRepository.js';
@@ -94,7 +95,7 @@ import { normalizeAttributeKey } from './variant-signature.js';
 import { ensureDefaultVariant, listVariantOptions } from './canonical-variant.service.js';
 import { isPubliclyVisibleIdentifier } from './product-identifier.service.js';
 import { resolveIdentifier } from './product-identifier.service.js';
-import { synchronizeAccountImages } from '../catalog-media/sync.js';
+import { synchronizeAccountMedia } from '../catalog-media/sync.js';
 import { assertDescriptionImagesStored, descriptionNeedsMediaImport, synchronizeAccountDescription } from '../catalog-media/description.js';
 
 /** How many redirect hops resolution tolerates before calling the data corrupt. */
@@ -379,6 +380,7 @@ export interface ApplyProductSourceObservationInput {
   };
   /** Images the source supplied, each traced to this observation. */
   images?: { fileId?: string; sourceUrl?: string; alt?: string; locale?: string }[];
+  media?: { kind: 'image' | 'video'; fileId?: string; sourceUrl?: string; alt?: string; locale?: string }[];
   /** Identifiers the source asserted, applied through the identifier service. */
   identifiers?: { scheme: IdentifierScheme; rawValue: string }[];
 }
@@ -413,7 +415,8 @@ export async function applyProductSourceObservation(
     throw validationError('applyProductSourceObservation: confidence must be within [0, 1].');
   }
 
-  const images = input.images ?? [];
+  if (input.images !== undefined && input.media !== undefined) throw validationError('Use images or media, not both.');
+  const images = input.media ?? (input.images ?? []).map(image => ({ ...image, kind: 'image' as const }));
   let imageFileIds: string[] = [];
   let description = input.fields.description;
   let importsDescription = descriptionNeedsMediaImport(description);
@@ -432,11 +435,11 @@ export async function applyProductSourceObservation(
     const references = images.map(image => {
       const reference = image.fileId ?? image.sourceUrl;
       if (!reference) throw validationError('A canonical image needs a fileId or an HTTPS sourceUrl.');
-      return reference;
+      return { kind: image.kind, reference };
     });
     // No transaction is held across supplier downloads or Oxy uploads. A
     // refused import cannot partially apply scalar facts or attach source URLs.
-    imageFileIds = await synchronizeAccountImages(input.decidedByOxyUserId, references);
+    imageFileIds = (await synchronizeAccountMedia(input.decidedByOxyUserId, references)).map(media => media.fileId);
     if (importsDescription && description !== undefined) {
       description = await synchronizeAccountDescription(input.decidedByOxyUserId, description);
     }
@@ -472,6 +475,7 @@ export async function applyProductSourceObservation(
               .map((image) => image.fileId ?? image.sourceUrl ?? '')
               .sort(),
           }),
+      ...(input.media === undefined ? {} : { media: input.media.map(item => ({ kind: item.kind, reference: item.fileId ?? item.sourceUrl ?? '' })) }),
       ...((input.identifiers ?? []).length === 0
         ? {}
         : {
@@ -627,7 +631,8 @@ export async function applyProductSourceObservation(
 
     let imagesAdded = 0;
     for (const [index, image] of images.entries()) {
-      const row = await insertCanonicalImage(tx, {
+      const row = await insertCanonicalMedia(tx, {
+        kind: image.kind,
         grain: { kind: 'product', id: product.id },
         sourceRecordId: record.id,
         fileId: imageFileIds[index],
@@ -955,7 +960,8 @@ async function toPublicCanonicalProduct(
 ): Promise<CanonicalProduct> {
   const aliases = await listCanonicalProductAliases(db, row.id);
   const freshness = await productFreshness(db, row.id);
-  const imageRows = await listCanonicalImages(db, { kind: 'product', id: row.id });
+  const mediaRows = await listCanonicalMedia(db, { kind: 'product', id: row.id });
+  const imageRows = mediaRows.filter(media => media.kind === 'image');
   const attributeRows = await listAttributeValues(db, { kind: 'product', id: row.id });
   const identifierRows = await listIdentifiersForProduct(db, row.id);
   const provenanceRows = await listFieldProvenance(db, { kind: 'product', id: row.id });
@@ -975,6 +981,15 @@ async function toPublicCanonicalProduct(
         value === undefined ? {} : { freshness: value },
       )),
     });
+  }
+
+  const media: CanonicalMedia[] = [];
+  for (const item of mediaRows) {
+    if (item.status !== 'active' || !isOxyFileId(item.fileId)) continue;
+    const freshness = await recordFreshness(db, item.sourceRecordId);
+    media.push({ id: item.id, kind: item.kind, fileId: item.fileId, position: item.position, status: item.status,
+      ...(item.alt === null ? {} : { alt: item.alt }), ...(item.locale === null ? {} : { locale: item.locale }),
+      ...(freshness === undefined ? {} : { freshness }) });
   }
 
   const attributes: CanonicalAttributeAssignment[] = attributeRows.map((attribute) => ({
@@ -1035,6 +1050,7 @@ async function toPublicCanonicalProduct(
     searchTokens: row.searchTokens,
     variantDefiningAttributeKeys: row.variantDefiningAttributeKeys,
     images,
+    media,
     attributes,
     identifiers: identifierRows
       .filter((identifier) => isPubliclyVisibleIdentifier(identifier.status))

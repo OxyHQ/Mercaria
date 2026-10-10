@@ -191,6 +191,7 @@ export const updateListingSchema = z
     condition: z.enum(LEGACY_BINARY_CONDITION_VALUES).optional(),
     itemCondition: listingConditionSchema.optional(),
     category: z.string().trim().min(1).optional(),
+    mediaFileIds: z.array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID')).max(64).optional(),
     imageFileIds: z.array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID')).optional(),
     tags: z.array(z.string().trim().min(1)).optional(),
     quantity: z.number().int().nonnegative().optional(),
@@ -200,6 +201,7 @@ export const updateListingSchema = z
     handle: z.string().trim().min(1).optional(),
     seo: seoSchema.optional(),
   })
+  .refine(obj => obj.mediaFileIds === undefined || obj.imageFileIds === undefined, { message: 'Choose mediaFileIds or imageFileIds' })
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
 
 /**
@@ -247,7 +249,8 @@ export const createStoreProductSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().max(10_000),
   category: z.string().trim().min(1),
-  imageFileIds: z.array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID')),
+  imageFileIds: z.array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID')).optional(),
+  mediaFileIds: z.array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID')).max(64).optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
   options: z.array(listingOptionSchema).max(MAX_VARIANT_AXES_PER_PRODUCT),
   variants: z.array(createStoreProductVariantSchema).min(1),
@@ -255,7 +258,7 @@ export const createStoreProductSchema = z.object({
   productType: z.string().trim().min(1).optional(),
   handle: z.string().trim().min(1).optional(),
   seo: seoSchema.optional(),
-});
+}).refine(obj => obj.mediaFileIds === undefined || obj.imageFileIds === undefined, { message: 'Choose mediaFileIds or imageFileIds' });
 
 /** Body for store `POST /products/:id/variants` (add a variant). */
 export const createVariantSchema = createStoreProductVariantSchema;
@@ -1327,13 +1330,14 @@ const ingestProductSchema = z.object({
   images: z
     .array(z.string().trim().url().startsWith('http', 'Must be an absolute http(s) URL'))
     .optional(),
+  mediaSources: z.array(z.object({ kind: z.enum(['image', 'video']), reference: z.string().trim().url().startsWith('https://') }).strict()).max(64).optional(),
   options: z.array(listingOptionSchema).max(MAX_VARIANT_AXES_PER_PRODUCT).optional(),
   variants: z.array(ingestVariantSchema).min(1),
   vendor: z.string().trim().min(1).max(200).optional(),
   productType: z.string().trim().min(1).max(200).optional(),
   handle: z.string().trim().min(1).max(200).optional(),
   seo: seoSchema.optional(),
-});
+}).refine(value => value.images === undefined || value.mediaSources === undefined, { message: 'Use images or mediaSources, not both' });
 
 /**
  * Body for `POST /admin/stores/:storeId/channels/:connectionId/ingest/products`

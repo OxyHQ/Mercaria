@@ -42,7 +42,7 @@ export async function readBundleImages(db: DatabaseOrTransaction, productIds: st
     fileId: canonicalImages.fileId,
     alt: canonicalImages.alt,
   }).from(canonicalImages).where(and(
-    eq(canonicalImages.status, 'active'),
+    eq(canonicalImages.status, 'active'), eq(canonicalImages.kind, 'image'),
     or(inArray(canonicalImages.productId, productIds), inArray(canonicalImages.variantId, variantIds)),
   )).orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
 }

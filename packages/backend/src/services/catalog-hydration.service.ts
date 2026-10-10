@@ -225,7 +225,7 @@ function cheapestVariant(variants: VariantRecord[]): VariantRecord | undefined {
 
 /** Preserve stored file IDs in listing image DTOs. */
 function toListingImages(images: ListingImageRecord[]): ListingImage[] {
-  return images.map((img) => {
+  return images.filter(img => img.kind === undefined || img.kind === 'image').map((img) => {
     const dto: ListingImage = { fileId: img.fileId, position: img.position };
     if (img.alt) {
       dto.alt = img.alt;
@@ -764,6 +764,7 @@ export async function hydrateListings(
       status: listing.status,
       category: listing.categorySlugs[listing.categorySlugs.length - 1] ?? '',
       images: gallery,
+      media: (children.media?.get(id) ?? children.images.get(id) ?? []).filter(item => isOxyFileId(item.fileId)).map(item => ({ kind: item.kind ?? 'image', fileId: item.fileId, position: item.position, ...(item.alt ? { alt: item.alt } : {}) })),
       tags: [...listing.tags],
       quantity,
       saved: savedSet.has(id),

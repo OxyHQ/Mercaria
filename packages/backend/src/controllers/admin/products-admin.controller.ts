@@ -1,3 +1,5 @@
+import { prepareCatalogMedia } from '../../services/catalog-media/verify.js';
+import { requireStoreCaller } from '../../services/store-access.service.js';
 /**
  * Store products controller (THIN) — the store-owned catalog write path.
  *
@@ -21,6 +23,7 @@ import type {
 } from '@mercaria/shared-types';
 import {
   findListingById,
+  findListingChildren,
   findStoreListingsPageForAdmin,
   type ListingRecord,
 } from '../../db/catalog/listingRepository.js';
@@ -144,7 +147,11 @@ export async function listProducts(req: Request, res: Response): Promise<void> {
 export async function createProduct(req: Request, res: Response): Promise<void> {
   try {
     const id = storeId(req);
+    const body = req.body as CreateStoreProductInput;
+    const media = body.mediaFileIds === undefined ? undefined : await prepareCatalogMedia(req.store.oxyAccountId, requireStoreCaller(req).accessToken, body.mediaFileIds);
+    if (body.imageFileIds?.length) await prepareCatalogMedia(req.store.oxyAccountId, requireStoreCaller(req).accessToken, body.imageFileIds, true);
     const listingId = await createStoreProduct(id, req.body as CreateStoreProductInput, {
+      media,
       // #90: the acting store member OWNS any condition evidence this product
       // needs. `store:manage` is not the gate here — every member who may write
       // a product may state its condition — but the photographs still have to
@@ -184,10 +191,17 @@ export async function patchProduct(req: Request, res: Response): Promise<void> {
     // the merchant's work. `getRequiredOxyUserId` throws instead, so the
     // unreachable case stays unreachable by construction rather than by a
     // reading of another middleware.
+    const body = req.body as UpdateListingInput;
+    // Existing permitted gallery references may be manufacturer media owned by
+    // a canonical operator. Retaining them must not invent a new ownership claim.
+    const retained = body.mediaFileIds !== undefined || body.imageFileIds !== undefined
+      ? new Set((await findListingChildren([listingId])).media.get(listingId)?.map(item => item.fileId) ?? []) : new Set<string>();
+    const media = body.mediaFileIds === undefined ? undefined : await prepareCatalogMedia(req.store.oxyAccountId, requireStoreCaller(req).accessToken, body.mediaFileIds, false, retained);
+    if (body.imageFileIds?.length) await prepareCatalogMedia(req.store.oxyAccountId, requireStoreCaller(req).accessToken, body.imageFileIds, true, retained);
     await updateListing(listingId, req.body as UpdateListingInput, {
       kind: 'seller',
       oxyUserId: getRequiredOxyUserId(req),
-    });
+    }, media);
     await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);

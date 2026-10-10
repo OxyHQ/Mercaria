@@ -805,6 +805,7 @@ erDiagram
     product_variant_images {
     }
     listing_images ||--o{ product_variant_images : "listing_image_id + listing_id · cascade"
+    listing_images ||--o{ product_variant_images : "listing_image_id + listing_id + media_kind · cascade"
     listings ||--o{ product_variant_images : "listing_id · cascade"
     product_variants ||--o{ product_variant_images : "variant_id + listing_id · cascade"
 ```
@@ -1028,7 +1029,7 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 |---|---|
 | Tables in the population | 87 |
 | Modules they are grouped into | 21 |
-| Foreign keys out of an epic table | 180 |
+| Foreign keys out of an epic table | 181 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 21 |
 | Relationships the schema proves are 1:1 | 3 |
@@ -1037,7 +1038,7 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 4 |
 
-`ON DELETE` across those 180 foreign keys: **47** `cascade`, **2** `no action`, **128** `restrict`, **3** `set null`.
+`ON DELETE` across those 181 foreign keys: **48** `cascade`, **2** `no action`, **128** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 

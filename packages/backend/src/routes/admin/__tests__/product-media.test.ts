@@ -6,6 +6,8 @@ import { productMediaRouter } from '../product-media.js';
 import { PRODUCT_IMAGE_MAX_BYTES } from '../../../services/catalog-media/upload.js';
 
 vi.mock('../../../capabilities/oxy-service-client.js', () => ({ oxyServiceClient: () => ({ baseURL: 'https://oxy.test', serviceToken: async () => 'isolated-service-token' }) }));
+const flags = vi.hoisted(() => ({ video: false }));
+vi.mock('../../../config/index.js', () => ({ config: { catalog: { get videoWritesEnabled() { return flags.video; } } } }));
 const originalFetch = globalThis.fetch;
 const upstream = vi.fn();
 let server: Server; let origin: string;
@@ -22,6 +24,7 @@ beforeAll(async () => {
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
 beforeEach(() => {
+  flags.video = false;
   upstream.mockReset().mockResolvedValue(new Response(JSON.stringify({ data: { file: { id: 'oxy-imported-image', visibility: 'public' } } }), { status: 201 }));
   vi.stubGlobal('fetch', ((input, init) => String(input).startsWith('https://oxy.test') ? upstream(input, init) : originalFetch(input, init)) as typeof fetch);
 });
@@ -31,7 +34,7 @@ const send = (body: Buffer, mime = 'image/png', permission = 'write') => fetch(`
 });
 it('passes real image bytes through the JSON-mounted router and derives owner exclusively from the store', async () => {
   const response = await send(png); expect(response.status).toBe(201);
-  expect(await response.json()).toEqual({ success: true, data: { fileId: 'oxy-imported-image' } });
+  expect(await response.json()).toEqual({ success: true, data: { fileId: 'oxy-imported-image', kind: 'image' } });
   expect(upstream).toHaveBeenCalledTimes(1);
   const [url, request] = upstream.mock.calls[0];
   expect(url).toBe('https://oxy.test/assets/service/user-media');
@@ -56,4 +59,18 @@ it('returns an honest retryable error for Oxy failures, never an invented file I
 it.each([{ id: 'https://external.test/photo.png', visibility: 'public' }, { id: 'oxy-id', visibility: 'private' }, {}])('refuses invalid Oxy response metadata %o', async file => {
   upstream.mockResolvedValueOnce(new Response(JSON.stringify({ data: { file } })));
   expect((await send(png)).status).toBe(502);
+});
+
+it('gates new MP4 uploads, derives the owner from store authority and verifies the Oxy kind', async () => {
+  const mp4 = Buffer.from('00000018667479706d703432000000006d70343269736f6d', 'hex');
+  expect((await send(mp4, 'video/mp4')).status).toBe(503); expect(upstream).not.toHaveBeenCalled();
+  flags.video = true;
+  expect((await send(mp4, 'video/mp4', 'read')).status).toBe(403); expect(upstream).not.toHaveBeenCalled();
+  upstream.mockResolvedValueOnce(Response.json({ data: { file: { id: 'oxy-video', visibility: 'public', mime: 'video/mp4', size: mp4.length } } }));
+  const response = await send(mp4, 'video/mp4'); expect(response.status).toBe(201);
+  expect(await response.json()).toEqual({ success: true, data: { fileId: 'oxy-video', kind: 'video' } });
+  expect(upstream.mock.calls[0][1].headers['x-owner-user-id']).toBe('persisted-store-account');
+  expect((await send(png, 'video/mp4')).status).toBe(400);
+  upstream.mockResolvedValueOnce(Response.json({ data: { file: { id: 'oxy-video', visibility: 'public', mime: 'image/png', size: mp4.length } } }));
+  expect((await send(mp4, 'video/mp4')).status).toBe(502);
 });

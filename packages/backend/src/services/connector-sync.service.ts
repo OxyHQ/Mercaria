@@ -48,7 +48,7 @@
  *    `Record`.
  */
 
-import { synchronizeStoreImages } from './catalog-media/sync.js';
+import { synchronizeStoreImages, synchronizeStoreMedia } from './catalog-media/sync.js';
 import { synchronizeStoreDescription } from './catalog-media/description.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -2892,13 +2892,16 @@ async function importProduct(
     let createdListingId: string | undefined;
     try {
       const input = toCreateInput(product, opts.categorySlug, opts.priceRules);
-      input.imageFileIds = await synchronizeStoreImages(conn.storeId, input.imageFileIds ?? []);
+      const media = product.mediaSources === undefined ? undefined : await synchronizeStoreMedia(conn.storeId, product.mediaSources);
+      if (media) { delete input.imageFileIds; input.mediaFileIds = media.map(item => item.fileId); }
+      else input.imageFileIds = await synchronizeStoreImages(conn.storeId, input.imageFileIds ?? []);
       input.description = await synchronizeStoreDescription(conn.storeId, input.description);
       createdListingId = await createStoreProduct(
         conn.storeId,
         input,
         {
           locationId: opts.importLocationId,
+          ...(media === undefined ? {} : { media }),
           source: buildSource(conn, product),
           status: opts.autoPublish ? 'active' : 'draft',
           variantSources: buildVariantSources(conn, product),
@@ -2963,7 +2966,9 @@ async function importProduct(
   if (patch.description !== undefined) {
     patch.description = await synchronizeStoreDescription(conn.storeId, patch.description);
   }
-  if (patch.imageFileIds !== undefined) {
+  const media = !overridden.has('images') && product.mediaSources !== undefined ? await synchronizeStoreMedia(conn.storeId, product.mediaSources) : undefined;
+  if (media) { delete patch.imageFileIds; patch.mediaFileIds = media.map(item => item.fileId); }
+  else if (patch.imageFileIds !== undefined) {
     patch.imageFileIds = await synchronizeStoreImages(conn.storeId, patch.imageFileIds);
   }
   // Validate and synchronize media before changing any catalog state.
@@ -2982,7 +2987,7 @@ async function importProduct(
     // account, so `writeListingConditionEvidence` refuses any condition that needs
     // photographs rather than attributing them to nobody — and a connector patch
     // never carries one today.
-    await updateListing(listingId, patch, { kind: 'source' });
+    await updateListing(listingId, patch, { kind: 'source' }, media);
   }
   // #220: converge the variant SET, not just the prices — create what the
   // platform added, unsell what it removed (respects a pinned `price`). It is

@@ -1,3 +1,4 @@
+import type { CatalogMediaSource } from './catalog-media';
 /**
  * Connector / integration DTOs for the Mercaria connectors platform.
  *
@@ -592,8 +593,10 @@ export interface IngestProduct {
   title: string;
   /** Product description (may contain source HTML). */
   description?: string;
-  /** Absolute image URLs (stored verbatim — no re-upload). */
+  /** Image sources imported into durable Oxy files by the backend. */
   images?: string[];
+  /** Ordered, explicitly typed sources; mutually exclusive with images. */
+  mediaSources?: CatalogMediaSource[];
   /** Selectable options and their values. */
   options?: { name: string; values: string[] }[];
   /** Concrete variants (at least one). */

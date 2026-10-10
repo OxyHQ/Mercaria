@@ -75,6 +75,7 @@ import {
   ATTRIBUTE_VERIFICATION_STATES,
   CANONICAL_ALIAS_KINDS,
   CANONICAL_CATALOG_STATUSES,
+  CATALOG_MEDIA_KINDS,
   CANONICAL_IDENTIFIER_SCHEMES,
   CANONICAL_IMAGE_STATUSES,
   CANONICAL_REDIRECT_REASONS,
@@ -721,6 +722,7 @@ export const canonicalImages = pgTable(
     variantId: text().references(() => canonicalVariants.id, { onDelete: 'cascade' }),
     /** An Oxy media file id — no foreign key; Oxy owns the file. */
     fileId: text(),
+    kind: text({ enum: asEnumValues(CATALOG_MEDIA_KINDS) }).notNull().default('image'),
     /** The image's address at its source, when Mercaria holds no copy of it. */
     sourceUrl: text(),
     /** The convergence key: whichever address this image actually has. */
@@ -743,6 +745,8 @@ export const canonicalImages = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
+    checkOneOf('canonical_images_kind_check', t.kind, CATALOG_MEDIA_KINDS),
+    check('canonical_images_video_grain_check', sql`${t.kind} = 'image' or (${t.productId} is not null and ${t.fileId} is not null)`),
     checkOneOf('canonical_images_status_check', t.status, CANONICAL_IMAGE_STATUSES),
     // Exactly one grain — the `product_identifiers` shape, for the same reason:
     // an image of "the product and also this one variant" is two facts.

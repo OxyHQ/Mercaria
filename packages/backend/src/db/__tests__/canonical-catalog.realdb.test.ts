@@ -29,7 +29,9 @@ import { fixtureGtin } from '../../__tests__/fixture-gtin.js';
 import { log } from '../../lib/logger.js';
 import { deleteTestCanonicalRows } from './canonical-teardown.js';
 import { brands } from '../schema/organizations.js';
-import { categories } from '../schema/catalog.js';
+import { categories, listings } from '../schema/catalog.js';
+import { listingConditionPhotos } from '../schema/condition.js';
+import { sellerListingDrafts, sellerDraftImages } from '../schema/sellYours.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
 import {
   attributeDefinitionCategories,
@@ -1492,4 +1494,54 @@ describe('#629 — a multi-valued attribute keeps the order it declared', () => 
     // And the positions never moved, which is what made the reorder silent.
     expect(after.map((row) => row.position)).toEqual([0, 2, 10]);
   });
+});
+
+it('projects canonical videos only through mixed media and refuses variant-video grain at SQL', async () => {
+  const productId = await mintProduct({ label: 'Mixed Gallery Product' });
+  const observation = await applyProductSourceObservation({ productId, sourceId, externalId: `mixed-gallery-${RUN}`,
+    observedAt: new Date(), method: 'connector_declared', matchRule: 'test.mixed-gallery', decidedByOxyUserId: OPERATOR,
+    fields: {}, images: [{ fileId: `canonical-photo-${RUN}` }] });
+  await db.insert(canonicalImages).values({ productId, sourceRecordId: observation.sourceRecordId,
+    kind: 'video', fileId: `canonical-video-${RUN}`, position: 1 });
+  // Reads never depend on enabling new video writes during a rollout/rollback.
+  const projected = await getPublicCanonicalProduct(productId);
+  expect(projected?.images.map(image => image.fileId)).toEqual([`canonical-photo-${RUN}`]);
+  expect(projected?.media?.map(media => [media.kind, media.fileId])).toEqual([
+    ['image', `canonical-photo-${RUN}`], ['video', `canonical-video-${RUN}`],
+  ]);
+  expect(projected?.media?.some(media => 'sourceUrl' in media)).toBe(false);
+  const [variant] = await listVariants(productId);
+  await expect(db.insert(canonicalImages).values({ variantId: variant!.id, sourceRecordId: observation.sourceRecordId,
+    kind: 'video', fileId: `variant-video-${RUN}`, position: 0 })).rejects.toThrow();
+});
+
+
+it('rejects canonical-only video as condition and seller-draft evidence in both insertion orders', async () => {
+  const productId = await mintProduct({ label: 'Canonical evidence boundary' });
+  const observation = await applyProductSourceObservation({ productId, sourceId, externalId: `canonical-evidence-${RUN}`,
+    observedAt: new Date(), method: 'connector_declared', matchRule: 'test.video-evidence', decidedByOxyUserId: OPERATOR, fields: {} });
+  const [listing] = await db.insert(listings).values({ ownerType: 'user', oxyUserId: OPERATOR, title: 'Evidence', description: '',
+    condition: 'used_good', conditionAssertion: 'seller_declared', status: 'draft' }).returning();
+  const [draft] = await db.insert(sellerListingDrafts).values({ oxyUserId: OPERATOR, clientDraftKey: uuidv7(), entryPath: 'unmatched' }).returning();
+  const video = (fileId: string) => db.insert(canonicalImages).values({ productId, sourceRecordId: observation.sourceRecordId,
+    fileId, kind: 'video', position: 0 });
+  const condition = (fileId: string) => db.insert(listingConditionPhotos).values({ listingId: listing.id, fileId,
+    provenance: 'seller_uploaded', uploadedByOxyUserId: OPERATOR, uploadedAt: new Date() });
+  const staged = (fileId: string) => db.insert(sellerDraftImages).values({ draftId: draft.id, fileId, provenance: 'seller_uploaded' });
+  try {
+    for (const evidence of [condition, staged]) {
+      const videoFirst = uuidv7();
+      await video(videoFirst);
+      await expect(evidence(videoFirst)).rejects.toThrow();
+      const evidenceFirst = uuidv7();
+      await evidence(evidenceFirst);
+      await expect(video(evidenceFirst)).rejects.toThrow();
+      const concurrent = uuidv7();
+      const results = await Promise.allSettled([video(concurrent), evidence(concurrent)]);
+      expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    }
+  } finally {
+    await db.delete(sellerListingDrafts).where(eq(sellerListingDrafts.id, draft.id));
+    await db.delete(listings).where(eq(listings.id, listing.id));
+  }
 });
