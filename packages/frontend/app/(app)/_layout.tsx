@@ -73,6 +73,7 @@ function StorefrontLayout() {
         <GestureHandlerRootView style={GESTURE_ROOT_STYLE}>
           <AppShell
             variant="feed"
+            safeArea
             panel
             // WEB scrolls the DOCUMENT (sticky navigation, the address bar
             // collapsing, scroll restoration); NATIVE is one fixed frame and each
