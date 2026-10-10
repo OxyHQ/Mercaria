@@ -1100,3 +1100,29 @@ category membership and verifies resizing at 390/768/1024/1440/1920px.
 No image request is intercepted. The initial desktop failure was an invalid
 Button appearance in the new component, corrected to Bloom's public outline
 appearance before final types and rerun. Current native acceptance is unproven.
+
+## Merchant reading surfaces and Wholesale recovery — 2026-10-10
+
+MarketplaceSheet now takes its surface from Bloom's resolved background (using
+its public `withAlpha` for the translucent web recipe). The close control and
+rich-text links/tables read canonical tokens, so a local palette can reach them
+without inheriting a root-resolved alias. The shared typography registers the
+missing Shop `heroNormal` (36/42, 600) and `bodyLarge` (16/22, 400) tokens in both
+CSS, the legacy preset and class merging. Eleven description/return-policy/
+contact browser cases, 155 frontend unit tests and UI types pass. Return-policy
+acceptance still requires an opaque surface, now compared with the actual Bloom
+recipe rather than assuming every light theme is white.
+
+Wholesale recovery is committed separately as c6ef5297. Its inner error boundary
+uses the active Bloom context/Button; the outer recovery uses the public
+`buildTheme` with Wholesale's orange recipe and the system mode, without requiring
+a healthy provider. Four isolated real-component browser tests cover both modes
+and keyboard retry; dashboard types/lint and direct i18n/RTL/routes pass.
+
+Exact merchant scope adoption is NOT complete. Bloom PR308 is green and queued
+for merge; no candidate dependency was installed. Working-tree store-policy HTML
+rendering has passed content/motion checks, but two new opposite-mode theme
+checks deliberately still reproduce the old manual scope defect. The prepared
+`/tmp/mercaria-official-color-scope.patch` replaces that manual scope with the
+public 7.27 API after official Bloom and compatible Services publication. Do not
+call those color checks passing or the native-device acceptance complete.

@@ -36,7 +36,17 @@ for (const width of [390, 1440]) {
       const bounds = await sheet.boundingBox();
       return bounds && Math.round(bounds.x);
     }).toBe(width >= 976 ? width - 516 : 0);
-    await expect(sheet).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+    const themeBackground = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--background)';
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    // Opaque means the actual Bloom surface, in the active recipe and mode.
+    await expect(sheet).toHaveCSS('background-color', themeBackground);
+    expect(themeBackground).toMatch(/^rgb\(/);
     await expect(sheet.getByRole('heading', { name: 'Return conditions', exact: true })).toBeVisible();
     await expect(sheet.locator('li')).toHaveCount(2);
     await expect(sheet.getByRole('link', { name: 'return instructions' })).toHaveAttribute('href', 'https://example.com/returns');

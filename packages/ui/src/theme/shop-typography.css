@@ -4,6 +4,12 @@
  * `body` is Mercaria's existing reading-text token, not a Shop token.
  */
 @theme {
+  --text-shop-heroNormal: 36px;
+  --text-shop-heroNormal--line-height: 42px;
+  --text-shop-heroNormal--font-weight: 600;
+  --text-shop-heroNormal--letter-spacing: -1.5px;
+  --font-weight-shop-heroNormal: 600;
+
   --text-shop-heroBold: 36px;
   --text-shop-heroBold--line-height: 42px;
   --text-shop-heroBold--font-weight: 700;
@@ -45,6 +51,12 @@
   --text-shop-bodySmall--font-weight: 400;
   --text-shop-bodySmall--letter-spacing: -.2px;
   --font-weight-shop-bodySmall: 400;
+
+  --text-shop-bodyLarge: 16px;
+  --text-shop-bodyLarge--line-height: 22px;
+  --text-shop-bodyLarge--font-weight: 400;
+  --text-shop-bodyLarge--letter-spacing: -.5px;
+  --font-weight-shop-bodyLarge: 400;
 
   --text-shop-bodyTitleSmall: 14px;
   --text-shop-bodyTitleSmall--line-height: 18px;

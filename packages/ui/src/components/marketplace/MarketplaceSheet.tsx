@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
 import { Button } from "@oxy.so/bloom/button";
 import { surfaceStyle } from "@oxy.so/bloom/shapes";
+import { withAlpha } from "@oxy.so/bloom/theme";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import { useColorScheme } from "../../lib/useColorScheme";
 import { Text } from "../ui/text";
@@ -35,7 +36,7 @@ export function MarketplaceSheet({ open, onClose, title, testID, opaque = false,
   const safeTop = Platform.OS === "web" ? 0 : Math.max(0, safeArea.top - (wide ? 16 : 0));
   const safeBottom = Platform.OS === "web" ? 0 : Math.max(0, safeArea.bottom - (wide ? 16 : 0));
   const t = useSharedUiTranslation();
-  const { isDarkColorScheme } = useColorScheme();
+  const { colors } = useColorScheme();
   useEffect(() => {
     if (open) control.open();
     else control.close();
@@ -65,8 +66,8 @@ export function MarketplaceSheet({ open, onClose, title, testID, opaque = false,
       material="flat"
       panelStyle={[surfaceStyle({ curve: "round", radius: wide ? 24 : 0 }), {
         backgroundColor: Platform.OS === "web" && !opaque
-          ? (isDarkColorScheme ? "rgba(18,18,18,0.9)" : "rgba(255,255,255,0.9)")
-          : (isDarkColorScheme ? "#121212" : "#ffffff"),
+          ? withAlpha(colors.background, 0.9)
+          : colors.background,
       }]}
       panelClassName={opaque ? undefined : "web:backdrop-blur-[9px]"}
       scrollable={false}
@@ -88,7 +89,7 @@ export function MarketplaceSheet({ open, onClose, title, testID, opaque = false,
         <View className="absolute start-space-24 top-space-24">
           <Button
             iconOnly size="lg" appearance="outline" material="flat"
-            className={`shop-sheet-close group/sheet-close ${isDarkColorScheme ? "shop-sheet-close-dark" : ""} ${reducedMotion ? "" : "shop-sheet-close-motion"}`}
+            className={`shop-sheet-close group/sheet-close ${reducedMotion ? "" : "shop-sheet-close-motion"}`}
             accessibilityLabel={t("ui.sheet.close")}
             onPress={() => control.close()}
             icon={<ShopDetailIcon name="cross" size={20} className={`text-text ${reducedMotion ? "" : "web:transition-transform web:duration-150 group-hover/sheet-close:scale-110 group-active/sheet-close:scale-95"}`} />}
