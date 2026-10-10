@@ -1056,7 +1056,8 @@
         "invalid": "Insira uma quantidade inteira válida."
       },
       "optionRequired": "Escolha um valor para cada opção.",
-      "duplicateCombination": "Esta combinação de opções já existe."
+      "duplicateCombination": "Esta combinação de opções já existe.",
+      "currencyChanged": "A moeda mudou. Cancele esta edição para usar o preço atual."
     },
     "wizard": {
       "documentTitle": "Criar um produto",

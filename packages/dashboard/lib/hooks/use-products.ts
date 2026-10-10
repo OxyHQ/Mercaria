@@ -133,7 +133,10 @@ export function useUpdateVariant(storeId: string, productId: string) {
   return useMutation({
     mutationFn: ({ variantId, input }: { variantId: string; input: UpdateVariantInput }) =>
       updateVariant(storeId, productId, variantId, input),
-    onSuccess: () => invalidateProducts(queryClient, storeId),
+    onSuccess: (product) => {
+      queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
+      invalidateProducts(queryClient, storeId);
+    },
   });
 }
 

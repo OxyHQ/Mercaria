@@ -1056,7 +1056,8 @@
         "invalid": "Introdueix una quantitat entera vàlida."
       },
       "optionRequired": "Tria un valor per a cada opció.",
-      "duplicateCombination": "Aquesta combinació d’opcions ja existeix."
+      "duplicateCombination": "Aquesta combinació d’opcions ja existeix.",
+      "currencyChanged": "La moneda ha canviat. Cancel·la aquesta edició per utilitzar el preu actual."
     },
     "wizard": {
       "documentTitle": "Crear un producte",

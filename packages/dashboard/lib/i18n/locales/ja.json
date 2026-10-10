@@ -1038,7 +1038,8 @@
         "invalid": "有効な整数の数量を入力してください。"
       },
       "optionRequired": "すべてのオプションに値を指定してください。",
-      "duplicateCombination": "このオプションの組み合わせはすでに存在します。"
+      "duplicateCombination": "このオプションの組み合わせはすでに存在します。",
+      "currencyChanged": "通貨が変更されました。現在の価格を使用するには、この編集をキャンセルしてください。"
     },
     "wizard": {
       "documentTitle": "商品を作成",

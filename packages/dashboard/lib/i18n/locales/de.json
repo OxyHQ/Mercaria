@@ -1038,7 +1038,8 @@
         "invalid": "Gib eine gültige ganze Menge ein."
       },
       "optionRequired": "Wähle für jede Option einen Wert.",
-      "duplicateCombination": "Diese Optionskombination ist bereits vorhanden."
+      "duplicateCombination": "Diese Optionskombination ist bereits vorhanden.",
+      "currencyChanged": "Die Währung hat sich geändert. Verwirf diese Bearbeitung, um den aktuellen Preis zu verwenden."
     },
     "wizard": {
       "documentTitle": "Produkt anlegen",

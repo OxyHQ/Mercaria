@@ -1038,7 +1038,8 @@
         "invalid": "أدخل كمية صحيحة صالحة."
       },
       "optionRequired": "اختر قيمة لكل خيار.",
-      "duplicateCombination": "مجموعة الخيارات هذه موجودة بالفعل."
+      "duplicateCombination": "مجموعة الخيارات هذه موجودة بالفعل.",
+      "currencyChanged": "تغيّرت العملة. ألغِ هذا التعديل لاستخدام السعر الحالي."
     },
     "wizard": {
       "documentTitle": "إنشاء منتج",

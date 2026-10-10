@@ -112,8 +112,8 @@ export async function updateVariant(
   id: string,
   variantId: string,
   input: UpdateVariantInput,
-): Promise<ProductVariantDTO> {
-  const { data } = await apiClient.patch<ApiResponse<ProductVariantDTO>>(
+): Promise<Listing> {
+  const { data } = await apiClient.patch<ApiResponse<Listing>>(
     `${base(storeId)}/${id}/variants/${variantId}`,
     input,
   );

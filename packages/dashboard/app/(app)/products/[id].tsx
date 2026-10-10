@@ -30,6 +30,7 @@ import { Screen } from "@/components/shell/Screen";
 import { canRetainDetailData } from "@/lib/detail-query-state";
 import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
 import { VariantInventory } from "@/components/products/VariantInventory";
+import { VariantPrice } from "@/components/products/VariantPrice";
 import { CreateVariantForm } from "@/components/products/CreateVariantForm";
 import { ProductMedia } from "@/components/products/ProductMedia";
 import { DetailContent } from "@/components/shell/DetailContent";
@@ -38,14 +39,12 @@ import {
   useProduct,
   useUpdateProduct,
   useArchiveProduct,
-  useUpdateVariant,
   useDeleteVariant,
   useReleaseProductPins,
 } from "@/lib/hooks/use-products";
 import { useConnection } from "@/lib/hooks/use-channels";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { useTranslation } from "@/lib/i18n";
-import { toMajorString, toMinorUnits } from "@/lib/money";
 
 const STATUSES: SellerSettableListingStatus[] = ["draft", "active", "archived"];
 
@@ -372,32 +371,7 @@ function VariantRow({
 }) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
-  const updateVariant = useUpdateVariant(storeId, productId);
   const deleteVariant = useDeleteVariant(storeId, productId);
-
-  /**
-   * The variant's OWN currency (#927) — a stored price already names its
-   * denomination, so nothing here needs the store or a literal. Rendering
-   * at FAIR's eight decimals showed a EUR price 10^6 too large, and the
-   * matching write hid it by being wrong in the same direction.
-   */
-  const currency = variant.price.currency;
-  const [price, setPrice] = useState(toMajorString(variant.price.amount, currency));
-
-  const savePrice = () => {
-    const priceMinor = toMinorUnits(price, currency);
-    if (priceMinor === null) {
-      toast.error(t("products.variants.priceInvalid"));
-      return;
-    }
-    updateVariant.mutate(
-      { variantId: variant.id, input: { price: { amount: priceMinor, currency } } },
-      {
-        onSuccess: () => toast.success(t("products.variants.updated")),
-        onError: () => toast.error(t("products.variants.updateFailed")),
-      },
-    );
-  };
 
   const remove = () => {
     deleteVariant.mutate(variant.id, {
@@ -415,31 +389,7 @@ function VariantRow({
         </View>
         <PriceDisplay price={variant.price} primaryClassName="text-sm font-semibold" />
       </View>
-      <View className="flex-row items-end gap-2">
-        <View className="flex-1">
-          <Field label={`${t("resourceList.price")} (${currency ?? ""})`}>
-            <TextFieldInput
-              label={`${t("resourceList.price")} (${currency ?? ""})`}
-              placeholder={null}
-              value={price}
-              onValueChange={setPrice}
-              keyboardType="decimal-pad"
-              disabled={!canWrite}
-            />
-          </Field>
-        </View>
-        {canWrite ? (
-          <Button
-            appearance="outline"
-            tone="neutral"
-            size="sm"
-            onPress={savePrice}
-            loading={updateVariant.isPending}
-          >
-            {t("common.save")}
-          </Button>
-        ) : null}
-      </View>
+      <VariantPrice storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
       <VariantInventory storeId={storeId} productId={productId} variantId={variant.id} available={variant.available} canWrite={canInventory} />
       {canWrite && removable ? (
         <Pressable onPress={remove} className="mt-2 flex-row items-center gap-1 self-end active:opacity-70">

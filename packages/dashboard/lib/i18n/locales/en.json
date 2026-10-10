@@ -1038,7 +1038,8 @@
         "invalid": "Enter a valid whole quantity."
       },
       "optionRequired": "Choose a value for every option.",
-      "duplicateCombination": "This option combination already exists."
+      "duplicateCombination": "This option combination already exists.",
+      "currencyChanged": "The currency changed. Cancel this edit to use the current price."
     },
     "wizard": {
       "documentTitle": "Create a product",

@@ -1038,7 +1038,8 @@
         "invalid": "请输入有效的整数数量。"
       },
       "optionRequired": "请为每个选项选择一个值。",
-      "duplicateCombination": "此选项组合已存在。"
+      "duplicateCombination": "此选项组合已存在。",
+      "currencyChanged": "货币已更改。请取消此次编辑以使用当前价格。"
     },
     "wizard": {
       "documentTitle": "创建商品",
