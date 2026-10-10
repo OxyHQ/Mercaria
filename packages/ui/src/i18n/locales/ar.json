@@ -876,6 +876,9 @@
       "increase": "زيادة الكمية"
     },
     "review": {
+      "loading": "جارٍ تحميل المراجعات…",
+      "loadError": "تعذّر تحميل المراجعات. حاول مرة أخرى.",
+      "retry": "إعادة المحاولة",
       "defaultScope": "المراجعات",
       "starsA11y": "متوسط التقييم: %{rating}. عدد المراجعات: %{reviews}.",
       "starsScopedA11y": "%{subject}. متوسط التقييم: %{rating}. عدد المراجعات: %{reviews}.",

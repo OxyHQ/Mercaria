@@ -876,6 +876,9 @@
       "increase": "मात्रा बढ़ाएँ"
     },
     "review": {
+      "loading": "समीक्षाएँ लोड हो रही हैं…",
+      "loadError": "समीक्षाएँ लोड नहीं हो सकीं। फिर कोशिश करें।",
+      "retry": "फिर कोशिश करें",
       "defaultScope": "समीक्षाएँ",
       "starsA11y": "औसत रेटिंग: %{rating}. समीक्षाएँ: %{reviews}.",
       "starsScopedA11y": "%{subject}. औसत रेटिंग: %{rating}. समीक्षाएँ: %{reviews}.",

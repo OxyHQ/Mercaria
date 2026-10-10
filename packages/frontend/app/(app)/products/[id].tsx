@@ -883,6 +883,9 @@ function ProductBody({ listing }: ProductBodyProps) {
                         distribution={productDistribution}
                         reviews={productReviews}
                         isLoading={productReviewsQuery.isLoading}
+                        isError={productReviewsQuery.isError}
+                        isRetrying={productReviewsQuery.isFetching}
+                        onRetry={() => { void productReviewsQuery.refetch(); }}
                         {...(productAggregate
                           ? { unverified: productAggregate.unverified }
                           : {})}
@@ -896,7 +899,7 @@ function ProductBody({ listing }: ProductBodyProps) {
               5). A new item's listing feedback carries the same scope and the
               same heading, for the same reason: it describes THIS listing.
             */}
-                    {hasListingReviews || !listing.canonicalProductId ? (
+                    {hasListingReviews || listingReviewsQuery.isError || listingReviewsQuery.isLoading || !listing.canonicalProductId ? (
                       <ReviewSummaryCard
                         mediaContent={<ProductReviewMedia scope="p2p_listing" id={listing.id} scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)} />}
                         scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)}
@@ -909,6 +912,9 @@ function ProductBody({ listing }: ProductBodyProps) {
                         distribution={listingSummary?.distribution}
                         reviews={listingReviews}
                         isLoading={listingReviewsQuery.isLoading}
+                        isError={listingReviewsQuery.isError}
+                        isRetrying={listingReviewsQuery.isFetching}
+                        onRetry={() => { void listingReviewsQuery.refetch(); }}
                       />
                     ) : null}
                   </View>

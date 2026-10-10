@@ -876,6 +876,9 @@
       "increase": "পরিমাণ বাড়ান"
     },
     "review": {
+      "loading": "রিভিউ লোড হচ্ছে…",
+      "loadError": "রিভিউ লোড করা যায়নি। আবার চেষ্টা করুন।",
+      "retry": "আবার চেষ্টা করুন",
       "defaultScope": "পর্যালোচনা",
       "starsA11y": "গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",
       "starsScopedA11y": "%{subject}। গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",

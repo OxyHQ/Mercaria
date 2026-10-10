@@ -344,6 +344,9 @@ export default function CanonicalProductPageScreen() {
               distribution={reviews.data?.ratingSummary?.distribution}
               reviews={reviews.data?.data ?? []}
               isLoading={reviews.isLoading}
+              isError={reviews.isError}
+              isRetrying={reviews.isFetching}
+              onRetry={() => { void reviews.refetch(); }}
               onReadMore={() => setReviewsOpen(true)}
               onReviewPress={(id) => { setInitialReviewId(id); setReviewsOpen(true); }}
             />

@@ -460,6 +460,15 @@ Each is a named contract that fails closed, not a stub that lies:
   route owns it.
 - **#95 / #96** — natural-language intent and grounded comparison.
 
+### Review preview availability
+
+Review previews distinguish a pending request, a failed request and a confirmed
+empty result. The shared summary exposes loading and retry states in its own
+locale bundles. Listing, canonical-product and 3D-product pages pass their own
+query state and retry callback; product and listing feedback remain independent.
+A failed background refresh retains the cached rating and preview cards with an
+error notice. An initial failure never claims that the product has no reviews.
+
 ### Merchant return-policy reader
 
 The listing page's mobile merchant header uses Bloom `Screen.header` so it stays
@@ -487,16 +496,19 @@ movement, mobile height interpolation, Escape focus restoration and reduced
 motion at desktop English and mobile Arabic. On Pixel8a, the combined slide/fade
 initially hid review contents inside nested ScrollViews. The three menu pages now
 render ordinary Views: Bloom Dialog owns scrolling and natural-height measurement.
-In English, the complete animation reveals reviews on the device and the list
-scrolls to its pagination controls. A cold Arabic launch still loses the review
-body during Bloom's size morph. Disabling only that size morph through the public
-frame API keeps the body visible, including with Mercaria's slide/fade intact;
-that diagnostic override is not shipped. Close/Back and Follow/Share use Bloom's public
+The complete animation reveals reviews on the device and the list scrolls to its
+pagination controls. The cold-start body disappearance was traced to Reanimated's
+settled-style synchronization: a delayed JS collection could restore the initial
+height and opacity. The official 4.3.4 patch, with a rebuilt Android binary,
+retains the body after cold starts in English and Arabic. Bloom's size morph and
+Mercaria's slide/fade remain enabled. See [native animation runtime](native-animation-runtime.mdx)
+for the isolated reproduction, compatibility exception and device evidence.
+Close/Back and Follow/Share use Bloom's public
 `header.left`/`header.right` slots, with stable memoized nodes. The navigation bar
 stays fixed while the dialog scrolls policies and reviews; browser tests cover
 desktop English and mobile Arabic with wheel input, and Pixel8a bounds are
 unchanged from the first review to the pagination controls. Native
-RTL/reduced-motion timing acceptance remains pending.
+reduced-motion timing acceptance remains pending.
 
 A selected connected-store offer exposes its published return policy through a
 40px Bloom button and an opaque `MarketplaceSheet`, matching the policy action

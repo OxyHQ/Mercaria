@@ -876,6 +876,9 @@
       "increase": "增加数量"
     },
     "review": {
+      "loading": "正在加载评价…",
+      "loadError": "无法加载评价，请重试。",
+      "retry": "重试",
       "defaultScope": "评价",
       "starsA11y": "平均评分：%{rating}。评价数：%{reviews}。",
       "starsScopedA11y": "%{subject}。平均评分：%{rating}。评价数：%{reviews}。",

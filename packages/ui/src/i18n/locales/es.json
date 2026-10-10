@@ -883,6 +883,9 @@
       "increase": "Aumentar la cantidad"
     },
     "review": {
+      "loading": "Cargando reseñas…",
+      "loadError": "No se han podido cargar las reseñas. Inténtalo de nuevo.",
+      "retry": "Reintentar",
       "defaultScope": "Reseñas",
       "starsA11y": "Valoración media: %{rating}. Reseñas: %{reviews}.",
       "starsScopedA11y": "%{subject}. Valoración media: %{rating}. Reseñas: %{reviews}.",

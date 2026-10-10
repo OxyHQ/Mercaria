@@ -1569,3 +1569,26 @@ it. Agent is adopting that verified patch (5manifests+lock, RN/Worklets unchange
 and rebuilding Android; native acceptance is NOT yet complete. Expo56.0.23's
 recommended exact4.3.1 will warn; do not silence it with exclude/override. OldAPK
 preserved /tmp/mercaria-native-before-reanimated434/mercaria-reanimated431.apk.
+
+ReviewSummaryCard now separates initial loading/error/confirmed empty states and
+exposes scoped retry on listing, canonical and3D product pages. Transient failed
+refreshes retain cached ratings/cards; product and listing failures/retries remain
+independent. New UI-owned copy ships in all12bundles.3browsercases pass (1440EN,
+390AR with actual offline/reconnect and stale cache; combined scopes andcanonical
+route). Final390AR visual rerun passes; initial-error screenshot inspected at
+/tmp/mercaria-review-summary-error-390-ar.png. UI/frontend types, frontend lint
+(0errors/5priorwarnings), i18n scan +73guardcases pass. No review/media success
+substitution in transport tests; retry reaches the real local review endpoint.
+
+b7db630f fixes i18n source census for actual test conventions (.test/.spec.ts[x],
+__tests__ directory). Fixtures no longer count as app copy OR as translation-key
+usage.73tests verify true tests, production near-matches and test-only dead keys.
+New cached-product tests keep their original fixture labels.
+
+Official Reanimated4.3.4 native acceptance has progressed: rebuilt APK's isolated
+normal/stall controls retain449.9048dp and text, then real cold EN and AR merchant
+review flows retain loaded bodies with original animations/Bloom7.30.1.8web menu/
+contact cases pass. Agent finishes physical scroll/Back andEnglish restoration;
+manifest/lock/native-runtime docs commit remains agent-owned until final report.
+Native alpha serialization and real video/media acceptance remain separate open
+items; this does not claim full Shop parity or resolve production approvals.

@@ -876,6 +876,9 @@
       "increase": "Increase quantity"
     },
     "review": {
+      "loading": "Loading reviews…",
+      "loadError": "Reviews couldn't be loaded. Try again.",
+      "retry": "Try again",
       "defaultScope": "Reviews",
       "starsA11y": "Average rating: %{rating}. Reviews: %{reviews}.",
       "starsScopedA11y": "%{subject}. Average rating: %{rating}. Reviews: %{reviews}.",

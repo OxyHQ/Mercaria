@@ -50,6 +50,10 @@ export interface ReviewSummaryCardProps {
   mediaContent?: ReactNode;
   /** Whether the reviews query is still loading (suppresses the empty state). */
   isLoading: boolean;
+  /** A failed read is not evidence of an empty review history. */
+  isError?: boolean;
+  isRetrying?: boolean;
+  onRetry?: () => void;
   /**
    * The heading — what these reviews are ABOUT (#76 UI rule 6). Defaults to the
    * pre-#76 wording so an un-migrated surface keeps rendering, but every call
@@ -80,6 +84,9 @@ export function ReviewSummaryCard({
   distribution,
   reviews,
   isLoading,
+  isError = false,
+  isRetrying = false,
+  onRetry,
   scopeLabel,
   showHeading = true,
   unverified,
@@ -115,7 +122,24 @@ export function ReviewSummaryCard({
     >
       {showHeading ? <Text className="text-shop-subtitle text-text">{scopeText}</Text> : null}
 
-      {!hasReviews && !isLoading ? (
+      {isLoading && !hasReviews ? (
+        <Text testID="review-summary-loading" accessibilityLiveRegion="polite" className="text-shop-bodySmall text-text-tertiary">
+          {t("ui.review.loading")}
+        </Text>
+      ) : null}
+
+      {isError ? (
+        <View className="gap-space-8" testID="review-summary-error">
+          <Text accessibilityRole="alert" className="text-shop-bodySmall text-text-tertiary">
+            {t("ui.review.loadError")}
+          </Text>
+          {onRetry ? <Button appearance="outline" size="sm" loading={isRetrying} disabled={isRetrying} onPress={onRetry}>
+            {t("ui.review.retry")}
+          </Button> : null}
+        </View>
+      ) : null}
+
+      {!hasReviews && !isLoading && !isError ? (
         <Text className="text-shop-bodySmall text-text-tertiary">
           {t(REVIEW_EMPTY_KEY, { subject: scopeText })}
         </Text>

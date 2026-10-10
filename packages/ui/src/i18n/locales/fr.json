@@ -883,6 +883,9 @@
       "increase": "Augmenter la quantité"
     },
     "review": {
+      "loading": "Chargement des avis…",
+      "loadError": "Impossible de charger les avis. Réessayez.",
+      "retry": "Réessayer",
       "defaultScope": "Avis",
       "starsA11y": "Note moyenne : %{rating}. Avis : %{reviews}.",
       "starsScopedA11y": "%{subject}. Note moyenne : %{rating}. Avis : %{reviews}.",

@@ -890,6 +890,9 @@
       "increase": "Увеличить количество"
     },
     "review": {
+      "loading": "Загрузка отзывов…",
+      "loadError": "Не удалось загрузить отзывы. Попробуйте ещё раз.",
+      "retry": "Повторить",
       "defaultScope": "Отзывы",
       "starsA11y": "Средняя оценка: %{rating}. Отзывов: %{reviews}.",
       "starsScopedA11y": "%{subject}. Средняя оценка: %{rating}. Отзывов: %{reviews}.",

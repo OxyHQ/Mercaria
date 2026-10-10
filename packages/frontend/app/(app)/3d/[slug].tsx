@@ -233,6 +233,9 @@ export default function DigitalAssetScreen() {
                   distribution={distribution}
                   reviews={reviews}
                   isLoading={reviewsQuery.isLoading}
+                  isError={reviewsQuery.isError}
+                  isRetrying={reviewsQuery.isFetching}
+                  onRetry={() => { void reviewsQuery.refetch(); }}
                   onReadMore={() => setReviewsOpen(true)}
                   onReviewPress={(id) => { setInitialReviewId(id); setReviewsOpen(true); }}
                   {...(aggregate === undefined ? {} : { unverified: aggregate.unverified })}

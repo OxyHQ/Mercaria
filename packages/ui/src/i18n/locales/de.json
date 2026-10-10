@@ -876,6 +876,9 @@
       "increase": "Menge erhöhen"
     },
     "review": {
+      "loading": "Bewertungen werden geladen…",
+      "loadError": "Die Bewertungen konnten nicht geladen werden. Versuche es erneut.",
+      "retry": "Erneut versuchen",
       "defaultScope": "Bewertungen",
       "starsA11y": "Durchschnittsbewertung: %{rating}. Bewertungen: %{reviews}.",
       "starsScopedA11y": "%{subject}. Durchschnittsbewertung: %{rating}. Bewertungen: %{reviews}.",

@@ -883,6 +883,9 @@
       "increase": "Augmenta la quantitat"
     },
     "review": {
+      "loading": "S’estan carregant les ressenyes…",
+      "loadError": "No s’han pogut carregar les ressenyes. Torna-ho a provar.",
+      "retry": "Torna-ho a provar",
       "defaultScope": "Ressenyes",
       "starsA11y": "Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
       "starsScopedA11y": "%{subject}. Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
