@@ -18,14 +18,8 @@
  * the answers. A stored one goes stale in exactly the case that matters — a
  * conditional field appearing after an earlier answer changes.
  *
- * ## What is deliberately not here
- *
- * `imageFileIds` is never SENT. A patch leaves a field it does not name
- * untouched, and this app has no way to obtain an Oxy file id — no upload path
- * exists anywhere in this repository — so naming the property would replace a
- * draft's media with an empty list every time somebody typed a title. What that
- * costs is stated in `docs/dashboard-authoring.md` rather than hidden behind a
- * picker that does nothing.
+ * Media stays omitted until explicitly edited; normal text changes therefore
+ * preserve the server gallery. Uploaded IDs use the same versioned autosave.
  */
 
 import type {
@@ -61,6 +55,7 @@ import type { WizardStepId } from "./findings";
 
 /** Everything the author has entered, for one open draft. */
 export interface WizardFormState {
+  readonly imageFileIds?: readonly string[];
   readonly title: string;
   readonly description: string;
   readonly tags: readonly string[];
@@ -206,6 +201,7 @@ export function composePatch(
   }
   return {
     version,
+    ...(form.imageFileIds !== undefined ? { imageFileIds: form.imageFileIds } : {}),
     title: form.title.trim().length === 0 ? null : form.title.trim(),
     description: form.description.trim().length === 0 ? null : form.description.trim(),
     tags: form.tags,

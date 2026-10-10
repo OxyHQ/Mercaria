@@ -1282,8 +1282,7 @@
         "noSoldVariants": "Activez au moins une combinaison pour lui donner un prix."
       },
       "listing": {
-        "mediaTitle": "Photographies",
-        "mediaUnavailable": "Les photographies ne peuvent pas encore être ajoutées depuis le tableau de bord. Celles déjà rattachées à ce brouillon sont conservées."
+        "mediaTitle": "Photographies"
       },
       "review": {
         "category": "Catégorie",
@@ -1392,6 +1391,17 @@
       "select": "Sélectionner %{title}",
       "selectPage": "Sélectionner les produits modifiables de cette page",
       "selection": "Choisir"
+    },
+    "photos": {
+      "add": "Ajouter une photo",
+      "prompt": "Sélectionnez une photo du produit",
+      "uploading": "Envoi de la photo",
+      "uploaded": "Photo envoyée",
+      "invalid": "JPG, PNG, WebP, GIF ou AVIF, jusqu’à 20 Mo.",
+      "failed": "Impossible d’ajouter la photo. Vérifiez le fichier et réessayez.",
+      "notice": "Les photos sont publiques et appartiennent à votre boutique. Les retirer ici supprime uniquement leur référence à l’enregistrement.",
+      "position": "Photo %{position}",
+      "remove": "Retirer la photo %{position}"
     }
   },
   "settings": {

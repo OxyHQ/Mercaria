@@ -1264,8 +1264,7 @@
         "noSoldVariants": "価格を付けるには、少なくとも 1 つの組み合わせを有効にしてください。"
       },
       "listing": {
-        "mediaTitle": "写真",
-        "mediaUnavailable": "写真はまだダッシュボードから追加できません。この下書きに付いている写真はそのまま保持されます。"
+        "mediaTitle": "写真"
       },
       "review": {
         "category": "カテゴリー",
@@ -1374,6 +1373,17 @@
       "select": "%{title} を選択",
       "selectPage": "このページの編集可能な商品を選択",
       "selection": "選択"
+    },
+    "photos": {
+      "add": "写真を追加",
+      "prompt": "商品写真を選択",
+      "uploading": "写真をアップロード中",
+      "uploaded": "写真をアップロードしました",
+      "invalid": "JPG、PNG、WebP、GIF、AVIF、最大20 MB。",
+      "failed": "写真を追加できませんでした。ファイルを確認して再試行してください。",
+      "notice": "写真は公開され、ストアに属します。ここで削除しても、保存時に参照だけが削除されます。",
+      "position": "写真 %{position}",
+      "remove": "写真 %{position} を削除"
     }
   },
   "settings": {

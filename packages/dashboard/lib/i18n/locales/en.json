@@ -1264,8 +1264,7 @@
         "noSoldVariants": "Switch on at least one combination to price it."
       },
       "listing": {
-        "mediaTitle": "Photographs",
-        "mediaUnavailable": "Photographs cannot be added from the dashboard yet. Any already attached to this draft are kept."
+        "mediaTitle": "Photographs"
       },
       "review": {
         "category": "Category",
@@ -1374,6 +1373,17 @@
       "select": "Select %{title}",
       "selectPage": "Select editable products on this page",
       "selection": "Select"
+    },
+    "photos": {
+      "add": "Add photo",
+      "prompt": "Select a product photo",
+      "uploading": "Uploading photo",
+      "uploaded": "Photo uploaded",
+      "invalid": "JPG, PNG, WebP, GIF or AVIF, up to 20 MB.",
+      "failed": "Could not add the photo. Check the file and try again.",
+      "notice": "Photos are public and belong to your store. Removing a photo here only removes its reference when you save.",
+      "position": "Photo %{position}",
+      "remove": "Remove photo %{position}"
     }
   },
   "settings": {

@@ -1282,8 +1282,7 @@
         "noSoldVariants": "Activa com a mínim una combinació per posar-hi preu."
       },
       "listing": {
-        "mediaTitle": "Fotografies",
-        "mediaUnavailable": "Encara no es poden afegir fotografies des del tauler. Les que ja tingui aquest esborrany es conserven."
+        "mediaTitle": "Fotografies"
       },
       "review": {
         "category": "Categoria",
@@ -1392,6 +1391,17 @@
       "select": "Seleccionar %{title}",
       "selectPage": "Seleccionar productes editables d’aquesta pàgina",
       "selection": "Triar"
+    },
+    "photos": {
+      "add": "Afegir foto",
+      "prompt": "Selecciona una foto del producte",
+      "uploading": "Pujant foto",
+      "uploaded": "Foto pujada",
+      "invalid": "JPG, PNG, WebP, GIF o AVIF, fins a 20 MB.",
+      "failed": "No s’ha pogut afegir la foto. Comprova el fitxer i torna-ho a provar.",
+      "notice": "Les fotos són públiques i pertanyen a la teva botiga. Treure-les aquí només elimina la referència en desar.",
+      "position": "Foto %{position}",
+      "remove": "Treure foto %{position}"
     }
   },
   "settings": {

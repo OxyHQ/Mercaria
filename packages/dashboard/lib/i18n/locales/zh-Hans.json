@@ -1264,8 +1264,7 @@
         "noSoldVariants": "请至少启用一个组合再设置价格。"
       },
       "listing": {
-        "mediaTitle": "照片",
-        "mediaUnavailable": "暂时无法从控制台添加照片。此草稿已有的照片会被保留。"
+        "mediaTitle": "照片"
       },
       "review": {
         "category": "类目",
@@ -1374,6 +1373,17 @@
       "select": "选择 %{title}",
       "selectPage": "选择本页可编辑的商品",
       "selection": "选择"
+    },
+    "photos": {
+      "add": "添加照片",
+      "prompt": "选择商品照片",
+      "uploading": "正在上传照片",
+      "uploaded": "照片已上传",
+      "invalid": "JPG、PNG、WebP、GIF 或 AVIF，最大 20 MB。",
+      "failed": "无法添加照片。请检查文件并重试。",
+      "notice": "照片公开且属于您的商店。在此移除仅会在保存时删除引用。",
+      "position": "照片 %{position}",
+      "remove": "移除照片 %{position}"
     }
   },
   "settings": {

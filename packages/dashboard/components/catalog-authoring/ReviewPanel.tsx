@@ -38,10 +38,8 @@ interface ReviewPanelProps {
  * read off the draft rather than off whatever the picker last held — that pin
  * is what the answers were given under.
  *
- * Existing media is reviewed through its Oxy IDs. There is no attachment
- * control in this wizard: uploading requires its own supported flow. A draft's
- * stored `imageFileIds` remain untouched by saves, including when an image
- * cannot be loaded. A failed preview must never clear the draft's media.
+ * Review the explicit gallery draft when edited, otherwise the server's IDs.
+ * A failed preview must never clear either selection.
  */
 export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
   const { t } = useTranslation();
@@ -124,7 +122,7 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
       </Section>
 
       <Section title={t("products.wizard.steps.listing")}>
-        <ProductMedia images={draft.imageFileIds.map((fileId, position) => ({ fileId, position }))} title={form.title} />
+        <ProductMedia images={(form.imageFileIds ?? draft.imageFileIds).map((fileId, position) => ({ fileId, position }))} title={form.title} />
         <Row
           label={t("common.title")}
           value={form.title.trim().length > 0 ? form.title.trim() : t("products.wizard.review.empty")}

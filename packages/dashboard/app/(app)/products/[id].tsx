@@ -36,7 +36,7 @@ import { VariantIdentifiers } from "@/components/products/VariantIdentifiers";
 import { VariantPrice } from "@/components/products/VariantPrice";
 import { RemoveVariantButton } from "@/components/products/RemoveVariantButton";
 import { CreateVariantForm } from "@/components/products/CreateVariantForm";
-import { ProductMedia } from "@/components/products/ProductMedia";
+import { ProductPhotoEditor } from "@/components/products/ProductPhotoEditor";
 import { DetailContent } from "@/components/shell/DetailContent";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
@@ -145,6 +145,9 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
       onError: () => toast.error(t("products.detail.pins.releaseFailed")),
     });
 
+  const [photoDraft, setPhotos] = useState<string[]>();
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photos = photoDraft?.map((fileId, position) => ({ fileId, position })) ?? product.images;
   const [titleDraft, setTitle] = useState<string>();
   const [descriptionDraft, setDescription] = useState<string>();
   const title = titleDraft ?? product.title;
@@ -172,6 +175,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   const status = restricted ? "draft" : statusDraft ?? (product.status as SellerSettableListingStatus);
 
   const changes: UpdateListingInput = {
+    ...(photoDraft !== undefined && JSON.stringify(photoDraft) !== JSON.stringify(product.images.map(image => image.fileId)) ? { imageFileIds: photoDraft } : {}),
     ...(titleDraft !== undefined && title.trim() !== product.title ? { title: title.trim() } : {}),
     ...(descriptionDraft !== undefined && description.trim() !== product.description ? { description: description.trim() } : {}),
     ...(statusDraft !== undefined && status !== product.status ? { status } : {}),
@@ -181,11 +185,12 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   };
   const hasChanges = Object.keys(changes).length > 0;
   const save = () => {
-    if (!canWrite || updateProduct.isPending || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType) return;
+    if (!canWrite || uploadingPhoto || updateProduct.isPending || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType) return;
     updateProduct.mutate(
       changes,
       {
         onSuccess: () => {
+          setPhotos(undefined);
           setTitle(undefined);
           setDescription(undefined);
           setStatus(undefined);
@@ -281,7 +286,8 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
           onValueChange={setDescription}
           disabled={!canWrite || restricted || updateProduct.isPending}
         />
-        <ProductMedia images={product.images} title={product.title} />
+        <ProductPhotoEditor storeId={storeId} images={photos} title={product.title} disabled={!canWrite || restricted || updateProduct.isPending}
+          onChange={setPhotos} onBusyChange={setUploadingPhoto} />
         <Field
           label={t("common.status")}
           description={restricted ? t("products.detail.restrictedNotice") : undefined}
@@ -302,10 +308,10 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         {canWrite ? (
           <View className="flex-row gap-3">
-            <Button tone="accent" className="flex-1" onPress={save} disabled={!hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
+            <Button tone="accent" className="flex-1" onPress={save} disabled={uploadingPhoto || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
               {t("products.detail.saveChanges")}
             </Button>
-            <Button tone="danger" onPress={archive} disabled={restricted} loading={archiveProduct.isPending}>
+            <Button tone="danger" onPress={archive} disabled={restricted || uploadingPhoto || updateProduct.isPending} loading={archiveProduct.isPending}>
               {t("products.detail.archive")}
             </Button>
           </View>

@@ -252,11 +252,15 @@ anything, which is the only way it does damage.
 
 ## What this could NOT do, and why
 
-- **Media.** No upload path to Oxy's file service exists anywhere in this
-  repository, so there is no picker. `imageFileIds` is deliberately never SENT —
-  a patch leaves an unnamed field untouched — so a draft that has images does not
-  lose them every time somebody types a title. A control that cannot finish would
-  be worse than its absence.
+- **Media.** Product photos upload through the authenticated store route
+  `POST /admin/stores/:storeId/products/media` (`products:write`). It accepts
+  raster image bytes up to 20 MiB, resolves ownership from the persisted store,
+  and calls Oxy's service user-media API. The dashboard receives a public Oxy
+  file ID, never an external source URL. New products and the detail editor
+  save ordered `imageFileIds`; the wizard includes that field only after an
+  explicit gallery edit, through its versioned autosave. Failures keep the
+  local selection; removal drops a reference and never deletes the shared file.
+  No authenticated production upload is claimed by the isolated tests.
 - **Per-location stock.** `DraftVariantPayload` carries ONE available quantity
   per variant, which the publication hands to the same product-create path the
   rest of the dashboard uses. Splitting it across locations is `inventory_levels`'

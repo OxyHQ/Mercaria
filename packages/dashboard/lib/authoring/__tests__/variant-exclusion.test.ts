@@ -380,6 +380,13 @@ describe('regenerating the matrix preserves what the author excluded', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('composePatch — the body a save actually sends', () => {
+  it('preserves untouched server media and sends explicit ordered edits or clearing', () => {
+    const form = formWith([row('MEDIA', { [COLOUR.key]: 'val-a' })]);
+    expect(composePatch(form, SCHEMA, 3)).not.toHaveProperty('imageFileIds');
+    expect(composePatch({ ...form, imageFileIds: ['oxy-b', 'oxy-a'] }, SCHEMA, 3).imageFileIds).toEqual(['oxy-b', 'oxy-a']);
+    expect(composePatch({ ...form, imageFileIds: [] }, SCHEMA, 3).imageFileIds).toEqual([]);
+    expect(formSignature({ ...form, imageFileIds: ['oxy-a'] }, SCHEMA, 3)).not.toBe(formSignature(form, SCHEMA, 3));
+  });
   /**
    * The claim at the grain that leaves the app. `enabledVariantPayloads` being
    * correct is necessary and not sufficient: `composePatch` is what the autosave

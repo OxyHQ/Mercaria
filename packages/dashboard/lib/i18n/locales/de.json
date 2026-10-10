@@ -1264,8 +1264,7 @@
         "noSoldVariants": "Schalte mindestens eine Kombination ein, um sie zu bepreisen."
       },
       "listing": {
-        "mediaTitle": "Fotos",
-        "mediaUnavailable": "Fotos lassen sich noch nicht aus dem Dashboard hinzufügen. Bereits am Entwurf hängende Fotos bleiben erhalten."
+        "mediaTitle": "Fotos"
       },
       "review": {
         "category": "Kategorie",
@@ -1374,6 +1373,17 @@
       "select": "%{title} auswählen",
       "selectPage": "Bearbeitbare Produkte dieser Seite auswählen",
       "selection": "Wählen"
+    },
+    "photos": {
+      "add": "Foto hinzufügen",
+      "prompt": "Produktfoto auswählen",
+      "uploading": "Foto wird hochgeladen",
+      "uploaded": "Foto hochgeladen",
+      "invalid": "JPG, PNG, WebP, GIF oder AVIF, bis zu 20 MB.",
+      "failed": "Foto konnte nicht hinzugefügt werden. Prüfe die Datei und versuche es erneut.",
+      "notice": "Fotos sind öffentlich und gehören deinem Shop. Entfernen löscht beim Speichern nur den Verweis.",
+      "position": "Foto %{position}",
+      "remove": "Foto %{position} entfernen"
     }
   },
   "settings": {
