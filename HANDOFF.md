@@ -1449,3 +1449,31 @@ Services11.1.16 already admits the patch. Do not adopt unpublished bits or start
 another publisher. After public verification, pin all3apps and UIpeer floor, bun
 install, repeat affected checks and Pixel grid136dp acceptance. Main is local
 118commits ahead of origin at8df62ecb; do not treat that as a production rollout.
+
+## Native merchant header and card typography — 2026-10-10
+
+273e60de completes the previously pending merchant header: public Bloom Dialog
+header.left/right own the memoized Back/Close and Share/Follow controls. Pixel8a
+Back bounds [42,132][158,247] and Share [923,132][1038,247] remain unchanged after
+eight review-list swipes to pagination; Back returns to the menu. Eight browser
+motion/policy/sticky-header cases pass, frontend types pass, lint has no errors.
+Native RTL/reduced-motion timing is still unverified. Screenshot:
+/tmp/mercaria-native-store-sticky-end.png.
+
+06aa9601 fixes the i18n guard's bundle ownership lookup for t('ui.*'): shared keys
+are checked against the shared bundle instead of each app. No alias workaround
+or duplicated strings. Full guard and all68 mutation cases pass.
+
+f392a61d removes inherited leading-[16px] from ProductCard's wrapping Pressable;
+each child already owns text-xs typography. Pixel title bounds shrink from504px
+to48px. Direct leading-[40px] on Explore's heading correctly measures105physical
+pixels (40dp), so there is no indiscriminate replacement of direct text classes.
+UI typecheck and two real-catalog keyboard/new-tab browser cases pass. Evidence:
+/tmp/mercaria-native-card-leading-{before,after}.png and
+/tmp/mercaria-card-{before,after}.xml. No fixed-height or clipping workaround.
+
+Bloom PR312 head d38d9a8e12ee782e4ae3bb0a04055774e43b21d6 passed head CI after
+regenerating its adoption matrix. Merge-group38057973742 is still running; agent
+owns publisher37872 and public watcher87953. Installed Bloom remains official
+7.30.0 until7.30.1 is published and independently verified. Native alpha remains
+separately blocked on upstream react-native-css PR464 (still open).
