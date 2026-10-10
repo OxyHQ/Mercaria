@@ -278,7 +278,8 @@ const selfPricedSources: DeclaredOpenDataSource[] = [
  * Spanish Shopify stores on Shop (shop.app), read from their own
  * `/products.json` under their robots.txt — Mercaria's own extraction
  * provider. Each was confirmed on 2026-10-10 to answer `/meta.json` with
- * country ES and currency EUR. The store's name is its merchant's.
+ * country ES and currency EUR, and is named by the domain that file declares.
+ * The store's name is its merchant's.
  */
 const SPANISH_SHOPIFY_STORES: readonly { readonly domain: string; readonly name: string }[] = [
   { domain: 'pompeiibrand.com', name: 'Pompeii' },
@@ -296,13 +297,24 @@ const SPANISH_SHOPIFY_STORES: readonly { readonly domain: string; readonly name:
   { domain: 'alohas.io', name: 'Alohas' },
   { domain: 'castaner.com', name: 'Castañer' },
   { domain: 'beatrizfurest.com', name: 'Beatriz Furest' },
+  { domain: 'gioseppo.com', name: 'Gioseppo' },
+  { domain: 'www.silbonshop.com', name: 'Silbon' },
+  { domain: 'www.pdpaola.com', name: 'PdPaola' },
+  { domain: 'www.browniespain.com', name: 'Brownie' },
+  { domain: 'hannun.com', name: 'Hannun' },
+  { domain: 'morrisonshoes.com', name: 'Morrison' },
+  { domain: 'coolway.com', name: 'Coolway' },
+  { domain: 'www.lefrik.com', name: 'Lefrik' },
+  { domain: 'www.rightsidecoffee.com', name: 'Right Side Coffee' },
+  { domain: 'syra.coffee', name: 'Syra Coffee' },
+  { domain: 'thewoodpecker.es', name: 'The Woodpecker' },
 ];
 
 const shopifySources: DeclaredOpenDataSource[] = SPANISH_SHOPIFY_STORES.map((store) => ({
   name: `Shop · ${store.domain}`,
   provider: SHOPIFY_STOREFRONT_PROVIDER,
   accountRef: store.domain,
-  merchant: { slug: store.domain.replace(/\./gu, '-'), name: store.name },
+  merchant: { slug: store.domain.replace(/^www\./u, '').replace(/\./gu, '-'), name: store.name },
   territories: ['ES'],
   fetchCadenceSeconds: 12 * HOUR,
   freshnessTtlSeconds: 2 * DAY,
