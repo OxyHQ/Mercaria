@@ -360,7 +360,7 @@ export function selfTest(): { readonly caught: ScanReport; readonly clean: ScanR
   const innocent = JSON.stringify({
     scenario: 'W1',
     syncRunId: redactIdentifier(innocentIdentifier),
-    site: redactUrl('https://shop.example/wp-json/wc/v3/products?consumer_secret=' + secret),
+    site: redactUrl(`https://shop.example/wp-json/wc/v3/products?consumer_secret=${secret}`),
     counts: { created: 12, updated: 0, skipped: 0, failed: 0 },
   });
   const clean = registry.scan(innocent);

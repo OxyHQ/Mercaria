@@ -28,7 +28,7 @@ const files = walk(SRC).filter((p) => !p.includes('__tests__') && !p.endsWith('.
 
 /** Files OUTSIDE routes/ and controllers/ that name the symbol. */
 function nonRouteCallers(symbol) {
-  const re = new RegExp('(?<![.\\w])' + symbol + '\\s*\\(');
+  const re = new RegExp(`(?<![.\\w])${symbol}\\s*\\(`);
   return files.filter((p) => {
     if (p.includes('/routes/') || p.includes('/controllers/')) return false;
     return re.test(readFileSync(p, 'utf8'));
@@ -37,6 +37,6 @@ function nonRouteCallers(symbol) {
 
 for (const symbol of process.argv.slice(2)) {
   const hits = nonRouteCallers(symbol);
-  console.log(String(hits.length).padStart(3) + '  ' + symbol);
-  for (const h of hits.slice(0, 4)) console.log('      ' + h.replace(SRC + '/', ''));
+  console.log(`${String(hits.length).padStart(3)}  ${symbol}`);
+  for (const h of hits.slice(0, 4)) console.log(`      ${h.replace(`${SRC}/`, '')}`);
 }

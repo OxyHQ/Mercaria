@@ -46,7 +46,7 @@ function importMap(file) {
 }
 
 function functionBody(source, name) {
-  const head = new RegExp('(?:export\\s+)?(?:async\\s+)?function\\s+' + name + '\\s*\\(');
+  const head = new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\(`);
   const at = source.search(head);
   if (at < 0) return null;
   const open = source.indexOf('{', at);
@@ -64,7 +64,7 @@ function functionBody(source, name) {
 
 /** Walk the call graph from one symbol, returning what it reaches. */
 function reaches(file, symbol, depth, seen) {
-  const key = file + '#' + symbol;
+  const key = `${file}#${symbol}`;
   if (depth > MAX_DEPTH || seen.has(key)) return { trail: false, actor: false, depth: 0 };
   seen.add(key);
   const body = functionBody(read(file), symbol);
@@ -98,9 +98,8 @@ for (const name of readdirSync(ROUTES)
     const module = routerImports.get(handler);
     if (!module) continue;
     const r = reaches(module, handler, 1, new Set());
-    const row =
-      name.replace('internal-', '').replace('.ts', '') + '  ' + m[1].toUpperCase() + ' ' + path;
-    if (r.trail) buckets.trail.push(row + '   (depth ' + r.depth + ')');
+    const row = `${name.replace('internal-', '').replace('.ts', '')}  ${m[1].toUpperCase()} ${path}`;
+    if (r.trail) buckets.trail.push(`${row}   (depth ${r.depth})`);
     else if (r.actor) buckets.actor.push(row);
     else buckets.neither.push(row);
   }
@@ -110,4 +109,4 @@ console.log('trail   :', buckets.trail.length);
 console.log('actor   :', buckets.actor.length);
 console.log('neither :', buckets.neither.length);
 console.log('\n--- neither ---');
-for (const r of buckets.neither) console.log('  ' + r);
+for (const r of buckets.neither) console.log(`  ${r}`);

@@ -268,7 +268,7 @@ function declaresLabel(tag: string): boolean {
   const names = LABEL_NAMED_ELEMENTS.has(element)
     ? '(?:accessibilityLabel|aria-label|(?<![\\w-])label)'
     : '(?:accessibilityLabel|aria-label)';
-  const empty = String.raw`\s*=\s*(?:""|''|\{\s*(?:""|''|` + '``' + String.raw`)\s*\})`;
+  const empty = `${String.raw`\s*=\s*(?:""|''|\{\s*(?:""|''|`}\`\`${String.raw`)\s*\})`}`;
   if (new RegExp(names + empty, 'u').test(tag)) return false;
   return new RegExp(names + String.raw`\s*=`, 'u').test(tag);
 }
@@ -393,7 +393,7 @@ describe('the detector, driven (self-test)', () => {
     // so this is the only thing that proves those arms work at all.
     for (const element of CONTROL_ELEMENTS) {
       const selfClosing = controlsIn('x.tsx', `<${element} onPress={go} />`);
-      expect(selfClosing.length, `<${element} />` + ' was not matched').toBe(1);
+      expect(selfClosing.length, `<${element} /> was not matched`).toBe(1);
       expect(
         declaresLabel(selfClosing[0].tag) || rendersText(selfClosing[0].children),
         `a self-closing <${element}> with no label read as named`,

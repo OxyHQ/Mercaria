@@ -36,9 +36,9 @@ for (const name of readdirSync(ROUTES)
 }
 
 for (const f of perFile) {
-  console.log('\n## ' + f.name + '  (' + String(f.rows.length) + ')');
+  console.log(`\n## ${f.name}  (${String(f.rows.length)})`);
   for (const r of f.rows) {
-    console.log('  ' + r.method.padEnd(6) + ' ' + r.path.padEnd(50) + ' ' + r.handler);
+    console.log(`  ${r.method.padEnd(6)} ${r.path.padEnd(50)} ${r.handler}`);
   }
 }
-console.log('\nfiles: ' + String(perFile.length) + '  routes: ' + String(total));
+console.log(`\nfiles: ${String(perFile.length)}  routes: ${String(total)}`);

@@ -55,7 +55,7 @@ describe('ifNoneMatchMatches', () => {
   it('does not match a different tag, an empty header or a prefix of the tag', () => {
     expect(ifNoneMatchMatches(OTHER, TAG)).toBe(false);
     expect(ifNoneMatchMatches('', TAG)).toBe(false);
-    expect(ifNoneMatchMatches(TAG.slice(0, -4) + '"', TAG)).toBe(false);
+    expect(ifNoneMatchMatches(`${TAG.slice(0, -4)}"`, TAG)).toBe(false);
   });
 
   it('is not fooled by surrounding whitespace, which a real proxy adds', () => {

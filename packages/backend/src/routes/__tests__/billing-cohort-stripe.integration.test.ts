@@ -329,7 +329,7 @@ async function post(
 it('keeps actions/general/Connect rails disabled but mounts the signed billing ingress', async () => {
   expect(config.merchantBilling.enabled).toBe(actions);
   expect(config.payments.stripe.enabled).toBe(false);
-  const response = await fetch(base + '/webhooks/stripe', {
+  const response = await fetch(`${base}/webhooks/stripe`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: '{}',
