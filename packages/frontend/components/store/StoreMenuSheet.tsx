@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
-  ScrollView,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -115,12 +114,12 @@ type SheetPage = "menu" | "reviews" | PolicyPage;
 function PolicyPageContent({ title, policy }: { title: string; policy: string }) {
   const { html, full } = useMemo(() => prepareProductDescription(policy), [policy]);
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 24 }}>
+    <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 24 }}>
       <Text accessibilityRole="header" className="mb-space-24 text-shop-heroNormal text-text">
         {title}
       </Text>
       {html ? <ProductRichText nodes={full} /> : <Text selectable className="text-shop-bodySmall text-text">{policy}</Text>}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -406,9 +405,8 @@ function ReviewsPage({
   const total = data?.pagination.total ?? store.reviewCount;
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
+    <View
+      style={{
         paddingHorizontal: 16,
         paddingBottom: 24,
         gap: 16,
@@ -503,7 +501,7 @@ function ReviewsPage({
           </View>
         </View>
       ) : null}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -542,9 +540,8 @@ function MenuPage({
   const hasContact = locations.isError || (locations.data?.length ?? 0) > 0;
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
+    <View
+      style={{
         paddingHorizontal: 16,
         paddingBottom: 24,
         gap: 24,
@@ -690,7 +687,7 @@ function MenuPage({
           onPress={onReport}
         />
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -708,7 +705,9 @@ function MenuPage({
  * (`SheetPage[]`) with the menu as the root, a contextual top bar (Close (X) at
  * the root, Back (←) on a sub-page, with Follow/Share on the right), and the
  * Menu, Reviews and authored-policy pages. Each sub-page is rendered
- * within the same sheet.
+ * within the same sheet. Dialog owns scrolling and natural-height measurement;
+ * pages supply ordinary Views. A nested ScrollView can detach its contents
+ * during the horizontal transition on Android.
  *
  * `Dialog` is controlled here (driven by `open`) and keeps its children mounted
  * across the close transition, so closing also resets the internal stack to the

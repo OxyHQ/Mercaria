@@ -1414,3 +1414,27 @@ justification while removing intrinsic growth inflation. Do not patch installed
 packages, change Mercaria spacing to conceal the error, or claim it fixed before
 an official release and another physical-device check. Native serialized alpha
 remains independently unresolved upstream (react-native-css PR464).
+
+## Merchant scroll ownership and Wholesale exceptions — 2026-10-10
+
+Wholesale fbccdc2c fixes dated-hours request races with the current GoWay SDK:
+fields are disabled during POST, errors retain the draft, deleting cannot issue
+duplicate pending requests, GET errors offer Retry and drafts belong to placeId.
+Types/lint,26 pure tests and2 browser scenarios (1440EN/390AR) pass. No deployment
+or live service write; the separate atomic weekly-hours rollout stays pending.
+
+Pixel8a exposed invisible merchant review pages after menu→reviews. The header
+and expanded panel remained visible, but UIAutomator reported only5 text nodes;
+no review content appeared. Temporary probes showed incoming progress=1 and a
+fully measured4287dp page. Fade-only and slide-only controls rendered; the full
+transition plus an inner ScrollView detached its content. All probes are restored.
+The actual correction removes the three nested ScrollViews (menu/reviews/policy):
+Bloom Dialog already owns scrolling and natural-height measurement. Page Views
+preserve all spacing and full fade/translation. No clipping override, animation
+delay or dependency patch remains. Pixel now exposes44 text nodes including the
+first review, and eight upward swipes reach Page1of2/Next. Screenshot before:
+/tmp/mercaria-native730-store-reviews.png; after:
+/tmp/mercaria-native-store-reviews-scroll-owner.png. Six browser motion/policy
+cases pass and frontend types pass. The toolbar currently still scrolls with the
+body on native; moving it to Bloom Dialog's official header.left/right slots is
+remaining work (avoid claiming pinned-header acceptance).
