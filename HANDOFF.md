@@ -577,6 +577,13 @@ The audit and current implementation:
   The order records themselves are not rewritten. Feed cache v2 invalidates
   responses assembled before this rule. Full backend validation: 804 files,
   12,654 tests passed, five skipped (2026-10-10).
+- Device-local history can still contain earlier URL-valued DTOs. ProductCard
+  and ThreadShelf now display those URLs only if they match the current
+  Bloom/Oxy resolver output for the file/rendition. Titles, conversation text
+  and navigation are retained. Two real browser cases at 390/1440px load old
+  history and open its thread/product without any supplier image request; no
+  image or API interception is used in those cases. This validates withholding
+  stale hotlinks, not a completed media import.
 - Local preview seeds also put external URLs into image fields. Some category
   and merchant artwork is already bundled locally; this does not prove all
   catalog media is synchronized.
@@ -615,7 +622,22 @@ transport mocks remain in isolated backend tests for error/atomicity coverage.
 New dashboard list rows and bundle recommendation cards already reject URL
 values in `fileId`; this is not a claim that other surfaces are corrected.
 The canonical browser gallery test also supplies deliberately external source
-URLs and proves zero requests to that origin while rendering Oxy images.
+URLs and asserts zero requests to that origin while rendering Oxy images; its
+real-media seed precondition must pass before that case can establish this.
+
+## Storefront product parity — review media still missing (2026-10-10)
+
+The public Shop [rhode product](https://shop.app/products/8117398765806/peptide-lip-tint-ribbon)
+contains a ten-photo buyer-review strip (`pdp-reviews-media-strip-media-*`). Its
+public `ReviewsSheetContent` module also renders an all-reviews strip and opens
+`ReviewMediaViewer`, with the associated review rather than a product-gallery
+image substituted for it. Mercaria's `Review` DTO, review schema, creation form
+and read projections do not yet carry attachments; ReviewCard renders text,
+rating and author only. This is a confirmed remaining parity gap, not hidden
+Shop skeleton markup. Implement real Oxy-backed review attachments, published
+parent visibility and the Bloom strip/viewer together. Keep author ownership,
+purchase verification and moderation intact; supplier URLs or synthetic file
+IDs are not review media. Full Shop parity remains unproven.
 
 # Open-data providers — what is built and what is next
 
