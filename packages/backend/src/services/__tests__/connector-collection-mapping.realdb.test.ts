@@ -109,7 +109,7 @@ function normalizedProduct(overrides: Partial<NormalizedProduct> = {}): Normaliz
     description: '<p>Imported</p>',
     handle: `mapped-tee-${uuidv7()}`,
     options: [],
-    imageUrls: ['https://cdn.example.test/mapped-tee.jpg'],
+    imageUrls: ['oxy-fixture-image'],
     externalUpdatedAt: new Date('2026-08-01T10:00:00Z'),
     collectionRefs: [EXTERNAL_REF],
     variants: {

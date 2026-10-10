@@ -21,7 +21,9 @@
  * would put a production seam in place for a test's convenience.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Readable } from 'node:stream';
+import { createHash } from 'node:crypto';
 import { uuidv7 } from '@oxy.so/db';
 import type { ConnectorProvider } from '../../types.js';
 import {
@@ -636,3 +638,22 @@ describe('the contract fault schedule', () => {
     expect(response.status).toBe(200);
   });
 });
+
+// External image servers and Oxy storage are fake; the media importer and DB are real.
+vi.mock('@oxy.so/core/server', async importOriginal => ({
+  ...await importOriginal<typeof import('@oxy.so/core/server')>(),
+  safeFetch: async (url: string) => ({
+    status: 200, headers: { 'content-type': 'image/png' },
+    response: Readable.from([Buffer.from(url)]),
+  }),
+}));
+vi.mock('../../../capabilities/oxy-service-client.js', () => ({
+  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.test', serviceToken: async () => 'fixture-token' }),
+}));
+const originalMediaFetch = globalThis.fetch;
+beforeEach(() => vi.stubGlobal('fetch', async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+  if (String(input) !== 'https://api.oxy.test/assets/service/user-media') return originalMediaFetch(input, init);
+  const hash = createHash('sha256').update(init?.body as Uint8Array).digest('hex');
+  return Response.json({ data: { file: { id: `oxy-file-${hash}`, visibility: 'public' } } });
+}));
+afterEach(() => vi.unstubAllGlobals());

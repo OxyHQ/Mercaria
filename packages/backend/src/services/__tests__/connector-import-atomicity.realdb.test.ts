@@ -38,15 +38,16 @@
  * wire.
  */
 
+import { Readable } from 'node:stream';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { isForeignKeyViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import type { ConnectorProvider, NormalizedProduct } from '../../connectors/types.js';
 import { wooCommerceProvider } from '../../connectors/woocommerce/index.js';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
-import { categories, listings } from '../../db/schema/catalog.js';
+import { categories, listings, listingImages } from '../../db/schema/catalog.js';
 import { connections } from '../../db/schema/connectors.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { insertCategory } from '../../db/taxonomy/taxonomyRepository.js';
@@ -61,6 +62,27 @@ import { findVariantsByListing } from '../../db/catalog/variantRepository.js';
 import { createStoreProduct } from '../catalog-write.service.js';
 import { connectWithApiKey, runBackfill } from '../connector-sync.service.js';
 import { connectPushIn, ingestProducts } from '../channel-ingest.service.js';
+
+// Only external image transports are replaced. Store ownership, media sync,
+// catalog services, repositories and PostgreSQL constraints remain real.
+const { mediaUpload } = vi.hoisted(() => ({ mediaUpload: vi.fn() }));
+vi.mock('@oxy.so/core/server', async importOriginal => ({
+  ...await importOriginal<typeof import('@oxy.so/core/server')>(),
+  safeFetch: async () => ({
+    status: 200, headers: { 'content-type': 'image/png' },
+    response: Readable.from([Buffer.from('fixture image')]),
+  }),
+}));
+vi.mock('../../capabilities/oxy-service-client.js', () => ({
+  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.test', serviceToken: async () => 'fixture-token' }),
+}));
+beforeEach(() => {
+  mediaUpload.mockReset().mockImplementation(async () => Response.json({
+    data: { file: { id: 'oxy-synchronized-image', visibility: 'public' } },
+  }));
+  vi.stubGlobal('fetch', mediaUpload);
+});
+afterEach(() => vi.unstubAllGlobals());
 
 /**
  * The provider `getConnectorProvider` currently answers with.
@@ -1093,5 +1115,27 @@ describe('the channel PUSH-IN path strands nothing either (#221)', () => {
     const rows = await listingsOf(fixture.storeId);
     expect(rows).toHaveLength(1);
     expect(rows[0].title).toBe('Pushed tee (renamed)');
+  });
+});
+
+
+describe('catalog media uses stored Oxy IDs in PostgreSQL', () => {
+  it('persists only the returned ID and preserves the existing gallery on storage failure', async () => {
+    const fixture = await makePullFixture();
+    installProviderYielding([normalizedProduct()]);
+    const first = await runBackfill(fixture.storeId, fixture.connection.id);
+    expect(first.countsCreated).toBe(1);
+    const [listing] = await listingsOf(fixture.storeId);
+    const gallery = () => db.select().from(listingImages).where(eq(listingImages.listingId, listing.id));
+    const before = await gallery();
+    expect(before.map(row => row.fileId)).toEqual(['oxy-synchronized-image']);
+    expect(mediaUpload.mock.calls[0][1].headers['x-owner-user-id']).toMatch(/^owner-/);
+
+    installProviderYielding([normalizedProduct({ title: 'Must not replace title', imageUrls: ['https://supplier.example/new.png'] })]);
+    mediaUpload.mockResolvedValue(new Response('Denied', { status: 403 }));
+    const failed = await runBackfill(fixture.storeId, fixture.connection.id);
+    expect(failed.countsFailed).toBe(1);
+    expect(await gallery()).toEqual(before);
+    expect((await listingsOf(fixture.storeId))[0].title).toBe(listing.title);
   });
 });

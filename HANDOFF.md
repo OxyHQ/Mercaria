@@ -547,12 +547,15 @@ registers between deploys keeps it. `NEARBY_DISCOVERY_ENABLED` and
 
 The storefront requirement is **internal Oxy file IDs only**: download/import
 remote artwork in the backend before publishing it; never hotlink a supplier
-image as a fallback. This is not established by the connector synchronization
-currently implemented here. An audit found:
+image as a fallback. This is not yet established across the whole catalog.
+The audit and current implementation:
 
-- `channel-ingest.service.ts` copies `product.images` to `imageFileIds`;
-  `connector-sync.service.ts` does the same with `product.imageUrls`. Neither
-  imports the bytes into Oxy.
+- `channel-ingest.service.ts` and `connector-sync.service.ts` now call
+  `catalog-media/sync.ts` before catalog writes. It downloads through Oxy
+  `safeFetch`, bounds images to 20 MiB, stores durable public media under the
+  persisted store owner, and accepts only the returned file ID. Failed imports
+  preserve the old product/gallery; pinned images skip remote I/O. This needs
+  the Oxy application permission below before a live upload can succeed.
 - `canonical-product.service.ts` accepts `sourceUrl` without `fileId`, and
   several canonical read projections/UI consumers display that URL directly.
 - `catalog-hydration.service.ts` and `variant-images.controller.ts` replace
@@ -571,7 +574,7 @@ legacy pair). The federation cache route is an evictable namespace, not a
 substitute for catalog ownership. Resolve the proper authorized upload path
 before migrating stored references.
 
-Remaining work: synchronize both import paths and canonical ingestion, retain
+Remaining work: authorize and verify the live upload path, synchronize canonical ingestion, retain
 source URLs as provenance only, migrate existing media without dropping gallery
 identity/order, preserve IDs in DTOs, resolve renditions through Oxy in every
 consumer, and verify browser requests never fetch supplier image origins.

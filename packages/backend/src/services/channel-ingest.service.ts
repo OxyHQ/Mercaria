@@ -30,6 +30,7 @@
  * is what {@link finalizeRun} now writes.
  */
 
+import { synchronizeStoreImages } from './catalog-media/sync.js';
 import type {
   ConnectorProviderId,
   CreateStoreProductInput,
@@ -442,9 +443,11 @@ async function upsertProduct(
     // every later push of that product fails on `listings_store_id_handle_key`.
     let createdListingId: string | undefined;
     try {
+      const input = toCreateInput(product, opts.categorySlug, opts.priceRules);
+      input.imageFileIds = await synchronizeStoreImages(conn.storeId, input.imageFileIds ?? []);
       createdListingId = await createStoreProduct(
         conn.storeId,
-        toCreateInput(product, opts.categorySlug, opts.priceRules),
+        input,
         {
           locationId: opts.importLocationId,
           source: buildSource(conn, product),
@@ -495,6 +498,9 @@ async function upsertProduct(
     ? new Set(existing.overriddenFields)
     : new Set<string>();
   const patch = toUpdatePatch(product, overridden);
+  if (patch.imageFileIds !== undefined) {
+    patch.imageFileIds = await synchronizeStoreImages(conn.storeId, patch.imageFileIds);
+  }
   const listingChanged = Object.keys(patch).length > 0;
   if (listingChanged) {
     // #90: a connector sync is a SOURCE assertion, not a seller's. It carries no
