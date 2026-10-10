@@ -201,7 +201,7 @@ const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
  * one.
  */
 const CANONICAL_WRITE_REFERENCE =
-  /(?<![.\w])(createCanonicalProduct|createVariant|createMerchant|linkNativeStore|assignIdentifier|insertNativeListingLink|supersedeNativeListingLink|requestNativeOfferSync|requestNativeVariantMatch)\s*\(/;
+  /(?<![.\w])(createCanonicalProduct|createVariant|createMerchant|linkNativeStore|assignIdentifier|insertNativeListingLink|supersedeNativeListingLink|requestNativeOfferSync|requestNativeVariantMatch|readvanceSourceObject)\s*\(/;
 
 /** Every stage module — the set the writer boundary applies to. */
 const STAGE_SOURCES = DOMAIN_SOURCES.filter((entry) =>

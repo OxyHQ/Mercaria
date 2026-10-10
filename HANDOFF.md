@@ -551,15 +551,14 @@ recorded responses and #62's contract suite, and exercised live. They are
 **inert**: `OPEN_DATA_PROVIDERS` is empty and `OPEN_DATA_USER_AGENT` unset on
 every deployment.
 
-- **Reference seeding is the missing piece.** The matcher never mints, so an
-  open-data offer materializes only for a GTIN some store listing already put
-  in the canonical catalogue. A backfill stage that mints DRAFT canonical
-  products from a source whose policy grants a new `may_seed_catalog` right
-  (Open Food Facts first), plus a promotion stage, closes it — ADR amending
-  ADR 0002 D23.
-- **Re-advance.** An object stored `unmatched` before its GTIN was seeded is
-  never matched again (the `unchanged` branch returns before `advanceObject`);
-  an operator re-advance of a source's `unmatched` objects is needed with it.
+- **Reference seeding is BUILT (ADR 0014)** and inert until an operator grants a
+  source `may_seed_catalog`. The backfill stages are `reference_products` →
+  `source_readvance` → `reference_promotion`, then `search_reindex`. Nothing
+  schedules them: they run when an operator opens a run on
+  `/internal/catalog/backfill`, exactly as #60's stages do. Seeded products carry
+  no category, no brand and no images yet. The brand hint and the Open Facts
+  photos are in the observation's payload, and mapping them is the next step.
+  Facts are stored, not yet mapped onto the attribute registry (#94).
 - **Non-GTIN sources** (games, cards, fuel) need a stable cross-source
   identity before they can match; Wikidata QIDs are the candidate.
 - **Storefront** renders no attribution and shows an `informational` offer as

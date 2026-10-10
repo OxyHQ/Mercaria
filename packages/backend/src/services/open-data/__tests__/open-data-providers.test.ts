@@ -17,7 +17,7 @@ import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import type { CatalogRefreshMode, NormalizedSourceFact } from '@mercaria/shared-types';
 import { canonicalizeNormalizedRecord } from '../../ingestion/normalization.js';
-import { redactSourceObservation } from '../../ingestion/redact.js';
+import { buildStoredPayload, normalizedFromStoredPayload, redactSourceObservation } from '../../ingestion/redact.js';
 import type { OpenDataDownload, OpenDataHttp, OpenDataJsonResponse } from '../http.js';
 import type { OpenDataCursor, OpenDataItem, OpenDataPage, OpenDataProvider } from '../provider.js';
 import { cheapSharkProvider } from '../providers/cheapshark.js';
@@ -87,7 +87,14 @@ function stored(item: OpenDataItem) {
   // Every fact the provider emitted survives normalization: a dropped fact is
   // data lost for good, because the raw payload is discarded.
   expect(canonical.facts?.length ?? 0).toBe(item.normalized.facts?.length ?? 0);
-  return { canonical, payload: redacted?.payload ?? {} };
+  // A RE-ADVANCE (ADR 0014 D4) rebuilds the record from the stored payload;
+  // it must project back to the very same payload, or the re-advanced offer
+  // would differ from the one a fresh page would have written.
+  const payload = redacted?.payload ?? {};
+  const reread = normalizedFromStoredPayload(payload);
+  expect(reread, `${item.externalId} payload does not read back`).not.toBeNull();
+  if (reread !== null) expect(buildStoredPayload(reread)).toEqual(payload);
+  return { canonical, payload };
 }
 
 function fact(facts: readonly NormalizedSourceFact[] | undefined, key: string): NormalizedSourceFact['value'] | undefined {

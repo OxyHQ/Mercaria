@@ -149,8 +149,13 @@ const SHARED_DATABASE_FILE_FLOOR = 80;
  */
 const TOUCHER_FLOOR = 6;
 
-/** Every file any touch detector matches today. See `TOUCHER_FLOOR`. */
-const TOUCHER_COUNT = 7;
+/**
+ * Every file any touch detector matches today. See `TOUCHER_FLOOR`.
+ *
+ * 8 since ADR 0014: `reference-seeding.realdb.test.ts` ingests and runs the
+ * matcher, and takes the slot as a holder.
+ */
+const TOUCHER_COUNT = 8;
 
 /**
  * Opening the suite's SHARED handle. See the header: this is the scope rule,

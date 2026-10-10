@@ -521,6 +521,7 @@ describe('rights are versioned, frozen, and can never disagree with the registry
               mayAppendAffiliateParams: resolved.policy.mayAppendAffiliateParams,
               mayIndex: resolved.policy.mayIndex,
               mayRefreshAutomatically: resolved.policy.mayRefreshAutomatically,
+              maySeedCatalog: resolved.policy.maySeedCatalog,
               extractionMode: resolved.policy.extractionMode,
               attributionRequired: resolved.policy.attributionRequired,
             };

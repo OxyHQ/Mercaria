@@ -56,7 +56,22 @@ export type CatalogBackfillStage =
    */
   | 'search_reindex'
   /** Both directions of the active listing ↔ variant ↔ native offer agreement. */
-  | 'consistency';
+  | 'consistency'
+  /**
+   * ADR 0014: an `unmatched` object from a source granted `seed_catalog`, whose
+   * matcher verdict is `create_new` and which asserts a valid GTIN nothing owns,
+   * mints a DRAFT canonical product. It links nothing — attaching is the
+   * matcher's, on the next `source_readvance`.
+   */
+  | 'reference_products'
+  /**
+   * ADR 0014: every `unmatched` ingested object is re-asked of the matcher
+   * through #62's own advance path, so an observation stored before its GTIN
+   * was in the catalogue attaches — and materializes its offer — now that it is.
+   */
+  | 'source_readvance'
+  /** ADR 0014: a seeded draft with a displayable offer becomes `active`. */
+  | 'reference_promotion';
 
 export const CATALOG_BACKFILL_STAGES: readonly CatalogBackfillStage[] = [
   'store_merchants',
@@ -67,6 +82,9 @@ export const CATALOG_BACKFILL_STAGES: readonly CatalogBackfillStage[] = [
   'rebuild_projections',
   'search_reindex',
   'consistency',
+  'reference_products',
+  'source_readvance',
+  'reference_promotion',
 ];
 
 /**
@@ -195,7 +213,9 @@ export type CatalogBackfillSubjectKind =
   | 'product_variant'
   | 'vendor_value'
   | 'canonical_product'
-  | 'native_offer';
+  | 'native_offer'
+  /** A `catalog_source_objects` row — what the ADR 0014 stages examine. */
+  | 'source_object';
 
 export const CATALOG_BACKFILL_SUBJECT_KINDS: readonly CatalogBackfillSubjectKind[] = [
   'store',
@@ -204,6 +224,7 @@ export const CATALOG_BACKFILL_SUBJECT_KINDS: readonly CatalogBackfillSubjectKind
   'vendor_value',
   'canonical_product',
   'native_offer',
+  'source_object',
 ];
 
 /**
@@ -285,6 +306,18 @@ export type CatalogBackfillReasonCode =
   | 'offer_listing_not_active'
   | 'offer_link_missing'
   | 'offer_variant_mismatch'
+  // ── reference_products (ADR 0014) ──────────────────────────────────────────
+  | 'reference_product_minted'
+  | 'reference_no_identifier'
+  | 'identifier_already_owned'
+  // ── source_readvance (ADR 0014) ────────────────────────────────────────────
+  | 'readvance_matched'
+  | 'readvance_unmatched'
+  | 'readvance_review_required'
+  | 'readvance_requested'
+  // ── reference_promotion (ADR 0014) ─────────────────────────────────────────
+  | 'reference_product_promoted'
+  | 'promotion_awaiting_offer'
   // ── cross-stage ────────────────────────────────────────────────────────────
   | 'out_of_cohort'
   | 'write_publication_disabled'
@@ -318,6 +351,15 @@ export const CATALOG_BACKFILL_REASON_CODES: readonly CatalogBackfillReasonCode[]
   'offer_listing_not_active',
   'offer_link_missing',
   'offer_variant_mismatch',
+  'reference_product_minted',
+  'reference_no_identifier',
+  'identifier_already_owned',
+  'readvance_matched',
+  'readvance_unmatched',
+  'readvance_review_required',
+  'readvance_requested',
+  'reference_product_promoted',
+  'promotion_awaiting_offer',
   'out_of_cohort',
   'write_publication_disabled',
   'record_error',
@@ -369,6 +411,16 @@ export const CATALOG_BACKFILL_REASON_OUTCOMES: Readonly<
   offer_listing_not_active: ['review_required'],
   offer_link_missing: ['review_required'],
   offer_variant_mismatch: ['review_required'],
+  reference_product_minted: ['created'],
+  reference_no_identifier: ['skipped'],
+  identifier_already_owned: ['skipped'],
+  readvance_matched: ['matched'],
+  readvance_unmatched: ['unmatched'],
+  readvance_review_required: ['review_required'],
+  // A dry run reports what it WOULD re-ask without asking: no verdict exists.
+  readvance_requested: ['enqueued'],
+  reference_product_promoted: ['created'],
+  promotion_awaiting_offer: ['skipped'],
   out_of_cohort: ['skipped'],
   write_publication_disabled: ['skipped'],
   record_error: ['failed'],

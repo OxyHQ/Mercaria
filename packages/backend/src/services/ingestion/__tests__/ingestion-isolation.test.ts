@@ -319,7 +319,7 @@ describe('no credential can be stored, projected or logged', () => {
 });
 
 describe('the rights vocabulary is complete and load-bearing', () => {
-  it('every one of the nine rights has a policy column', async () => {
+  it('every one of the ten rights has a policy column', async () => {
     const { catalogSourcePolicies } = await import('../../../db/schema/ingestion.js');
     const columns = Object.keys(getTableColumns(catalogSourcePolicies));
     const columnFor: Readonly<Record<string, string>> = {
@@ -332,8 +332,9 @@ describe('the rights vocabulary is complete and load-bearing', () => {
       index: 'mayIndex',
       automated_refresh: 'mayRefreshAutomatically',
       extraction: 'extractionMode',
+      seed_catalog: 'maySeedCatalog',
     };
-    expect(CATALOG_SOURCE_RIGHTS).toHaveLength(9);
+    expect(CATALOG_SOURCE_RIGHTS).toHaveLength(10);
     for (const right of CATALOG_SOURCE_RIGHTS) {
       const column = columnFor[right];
       expect(column, `right '${right}' has no declared column`).toBeDefined();

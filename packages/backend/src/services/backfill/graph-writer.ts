@@ -50,6 +50,8 @@ import { createVariant } from '../canonical/canonical-variant.service.js';
 import { assignIdentifier } from '../canonical/product-identifier.service.js';
 import { requestNativeOfferSync } from '../offers/native-offer.service.js';
 import { requestNativeVariantMatch } from '../matching/match.service.js';
+import { updateCanonicalProduct } from '../canonical/canonical-product.service.js';
+import { readvanceSourceObject, type ReadvanceOutcome } from '../ingestion/ingest.service.js';
 import type { IdentifierScheme, NativeStoreLinkMethod } from '@mercaria/shared-types';
 
 /** The result shape every write operation shares. */
@@ -120,6 +122,13 @@ export interface CanonicalGraphWriter {
     categoryId: string | null;
     variantDefiningAttributeKeys: readonly string[];
     actorOxyUserId: string;
+    /**
+     * An explicit slug. A reference seed (ADR 0014) passes the name's slug
+     * suffixed with the GTIN, because product names are not unique and a slug
+     * collision is a refusal, never a suffix chosen at random.
+     */
+    slug?: string;
+    description?: string;
   }): Promise<GraphWriteResult>;
 
   /** Mint (or converge on) one canonical variant of that product. */
@@ -159,6 +168,18 @@ export interface CanonicalGraphWriter {
 
   /** Ask #57's converger to materialize one listing's native offers. */
   requestOfferConvergence(listingId: string): Promise<GraphWriteResult>;
+
+  /**
+   * Re-ask #58's matcher about one `unmatched` ingested object, through #62's
+   * own advance path (ADR 0014 D4). The OUTCOME is carried because whether the
+   * object attached is the stage's verdict; a dry run asks nothing.
+   */
+  readvanceSourceObject(sourceObjectId: string): Promise<
+    GraphWriteResult & { readonly outcome: ReadvanceOutcome | 'not_written' }
+  >;
+
+  /** Make a seeded draft shopper-visible (ADR 0014 D3). Records the review stamp. */
+  promoteProduct(input: { productId: string; actorOxyUserId: string }): Promise<GraphWriteResult>;
 }
 
 /** The writer that changes nothing. Every method reports what it would do. */
@@ -191,6 +212,10 @@ export const dryRunGraphWriter: CanonicalGraphWriter = {
     Promise.resolve({ id: dryRunId(`match:${productVariantId}`), persisted: false }),
   requestOfferConvergence: (listingId) =>
     Promise.resolve({ id: dryRunId(`offer-sync:${listingId}`), persisted: false }),
+  readvanceSourceObject: (sourceObjectId) =>
+    Promise.resolve({ id: dryRunId(`readvance:${sourceObjectId}`), persisted: false, outcome: 'not_written' }),
+  promoteProduct: (input) =>
+    Promise.resolve({ id: dryRunId(`promote:${input.productId}`), persisted: false }),
 };
 
 /**
@@ -232,6 +257,8 @@ export function applyGraphWriter(tx?: DatabaseOrTransaction): CanonicalGraphWrit
     async createDraftProduct(input) {
       const product = await createCanonicalProduct({
         name: input.name,
+        ...(input.slug === undefined ? {} : { slug: input.slug }),
+        ...(input.description === undefined ? {} : { description: input.description }),
         // DRAFT, always. ADR 0002 D23 phase 1 calls these provisional: a guess
         // minted from one seller's listing title is not a live product page, and
         // `draft` is the status `CanonicalCatalogStatus` defines for exactly
@@ -317,6 +344,29 @@ export function applyGraphWriter(tx?: DatabaseOrTransaction): CanonicalGraphWrit
     async requestOfferConvergence(listingId) {
       await requestNativeOfferSync(listingId, tx ?? getDb());
       return { id: listingId, persisted: true };
+    },
+
+    /**
+     * Not inside `tx`: a re-advance is #62's own match-link-materialize path,
+     * which opens its own transactions exactly as an ingestion page does. A
+     * stage calls it once per subject, so a failure is isolated to that
+     * subject's record — the same shape every other write here has.
+     */
+    async readvanceSourceObject(sourceObjectId) {
+      const result = await readvanceSourceObject(sourceObjectId);
+      return {
+        id: result.offerId ?? sourceObjectId,
+        persisted: result.outcome === 'matched',
+        outcome: result.outcome,
+      };
+    },
+
+    async promoteProduct(input) {
+      const product = await updateCanonicalProduct(input.productId, {
+        status: 'active',
+        actorOxyUserId: input.actorOxyUserId,
+      });
+      return { id: product.id, persisted: true };
     },
   };
 }

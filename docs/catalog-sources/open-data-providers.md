@@ -107,11 +107,17 @@ later, reviewable step; adapters never do it.
 ## Known limits — read before expecting offers
 
 - **The matcher never mints a canonical product** (`create_new` is recorded and stops).
-  An offer materializes only for an object that matches an EXISTING canonical variant.
-  Today canonical products come from store listings (#60 backfill), so open-data offers
-  appear only for GTINs some store already sells, until a reference-seeding stage mints
-  canonical products from a reference source (Open Food Facts). That stage is the next
-  step in `HANDOFF.md`; it needs an ADR amending ADR 0002 D23.
+  ADR 0014 adds the route by which a price for a product no store sells becomes a
+  comparison:
+  1. Grant the reference source (Open Food Facts) `may_seed_catalog` in its policy.
+  2. Run the backfill stages `reference_products` (it mints DRAFT products from that
+     source's `create_new` objects with a valid GTIN), `source_readvance` (it
+     re-asks the matcher about unmatched objects whose GTIN is now owned, so the
+     Open Prices price attaches and its offer materializes) and
+     `reference_promotion` (a seeded draft with a priced offer becomes `active`),
+     then `search_reindex`.
+
+  `reference-seeding.realdb.test.ts` drives that whole chain.
 - **Sources without GTINs (games, cards, fuel) cannot match by identifier.** They are
   stored, deduplicated and refreshed as source objects. Linking them to canonical
   products needs the same seeding stage, keyed on a stable cross-source identity

@@ -15,7 +15,7 @@
  *
  * ## The two disjoint unions, and what they make unrepresentable
  *
- * {@link CATALOG_SOURCE_RIGHTS} names the nine things Mercaria may be permitted
+ * {@link CATALOG_SOURCE_RIGHTS} names the ten things Mercaria may be permitted
  * to do with a source's data. {@link CATALOG_SOURCE_PAYLOAD_FIELDS} names every
  * key that may be STORED from a provider payload, and
  * {@link CATALOG_SOURCE_FORBIDDEN_PAYLOAD_FIELDS} names credential-shaped keys
@@ -68,7 +68,10 @@ export const CATALOG_SOURCE_DISPLAYABLE_STATUSES: readonly CatalogSourceStatus[]
 ];
 
 /**
- * The nine rights issue §"Rights and controlled extraction" enumerates.
+ * The nine rights issue §"Rights and controlled extraction" enumerates, plus
+ * `seed_catalog` (ADR 0014): whether this source's observations may MINT draft
+ * canonical products through the `reference_products` backfill stage. Every
+ * source that predates it holds it `false`.
  *
  * They are NAMES rather than booleans in a bag so a refusal can say which one
  * is missing: "this source may not have affiliate parameters appended" is
@@ -84,7 +87,8 @@ export type CatalogSourceRight =
   | 'affiliate_params'
   | 'index'
   | 'automated_refresh'
-  | 'extraction';
+  | 'extraction'
+  | 'seed_catalog';
 
 export const CATALOG_SOURCE_RIGHTS: readonly CatalogSourceRight[] = [
   'store',
@@ -96,6 +100,7 @@ export const CATALOG_SOURCE_RIGHTS: readonly CatalogSourceRight[] = [
   'index',
   'automated_refresh',
   'extraction',
+  'seed_catalog',
 ];
 
 /**
@@ -602,7 +607,7 @@ export type CatalogSourceForbiddenPayloadField =
  * The effective rights of one source at one moment — the answer
  * `services/ingestion/rights.ts` computes and every consumer reads.
  *
- * A RECORD over the nine rights rather than nine booleans, so a consumer asking
+ * A RECORD over the ten rights rather than ten booleans, so a consumer asking
  * for a right it forgot to handle is a `tsc` error rather than `undefined`.
  */
 export type CatalogSourceRightsVerdict = Readonly<Record<CatalogSourceRight, boolean>>;

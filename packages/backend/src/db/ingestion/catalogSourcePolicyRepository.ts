@@ -36,6 +36,8 @@ export interface PublishSourcePolicyInput {
   mayAppendAffiliateParams: boolean;
   mayIndex: boolean;
   mayRefreshAutomatically: boolean;
+  /** ADR 0014. Omitted means `false`. */
+  maySeedCatalog?: boolean;
   extractionMode: CatalogSourceExtractionMode;
   extractionMaxRequestsPerDay: number | null;
   extractionUserAgent: string | null;
@@ -151,6 +153,7 @@ export async function publishSourcePolicy(
       mayAppendAffiliateParams: input.mayAppendAffiliateParams,
       mayIndex: input.mayIndex,
       mayRefreshAutomatically: input.mayRefreshAutomatically,
+      maySeedCatalog: input.maySeedCatalog ?? false,
       extractionMode: input.extractionMode,
       extractionMaxRequestsPerDay: input.extractionMaxRequestsPerDay,
       extractionUserAgent: input.extractionUserAgent,

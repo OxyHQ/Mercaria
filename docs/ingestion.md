@@ -224,7 +224,10 @@ reachable through `last_match_decision_id` — a pointer, never a copy.
 1. **Adapters never create canonical products, brands or merchants.** There is
    no code path from the framework into a canonical WRITE service; the matcher
    is called and never mints either. A `create_new` recommendation is RECORDED
-   and the object is left `unmatched`; #60 owns minting.
+   and the object is left `unmatched`; minting is #60's backfill — from a store
+   listing, or (ADR 0014) from a source an operator granted `seed_catalog`,
+   after which `source_readvance` re-asks the matcher through this file's own
+   `advanceObject` (`readvanceSourceObject`).
 2. **An offer is upserted only after canonical variant AND merchant
    resolution.** The variant comes from an `automatic_match`; the merchant comes
    from the source's own BINDING (`catalog_source_configs.merchant_id`), bound
@@ -566,7 +569,8 @@ Each is a NAMED contract that fails closed, never a stub that lies.
   and `destination_url` stays the ORIGINAL; nothing here composes a tracked URL.
 - **#59 — the review UI and corrections.** This framework routes to the queue
   and never resolves anything in it.
-- **#60 — minting a canonical product** a `create_new` recommends.
+- **#60 — minting a canonical product** a `create_new` recommends (ADR 0014's
+  `reference_products` stage for a `seed_catalog` source; see `backfill.md`).
 - **#74 — ranking**, and #61 — indexes and projections with numbers attached.
 - **#116 / #121 — supplier-backed `mercaria_retail` eligibility.** This
   framework does not grant it and cannot reach the domain that does.
