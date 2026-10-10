@@ -14,13 +14,10 @@
  * result cached. Redis failures fall back gracefully — they are logged, never
  * thrown. The caching is unchanged by the port.
  *
- * ## Ported to Postgres — "On sale" stopped reading the whole catalogue
+ * ## "On sale" never reads the whole catalogue
  *
- * The shelf is a set of listings with a discounted variant. Mongo could not
- * express that in one query, so this service read EVERY active listing with a
- * non-zero price, then every `compareAtPrice`-carrying variant of those
- * listings, intersected the two sets in memory and sliced eight cards out of the
- * result. `findOnSaleListings` is one statement with an `EXISTS` and a `LIMIT`.
+ * The shelf is a set of listings with a discounted variant.
+ * `findOnSaleListings` is one statement with an `EXISTS` and a `LIMIT`.
  */
 
 import type {

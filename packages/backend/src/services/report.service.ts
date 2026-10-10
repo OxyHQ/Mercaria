@@ -157,10 +157,9 @@ export async function getSummary(storeId: string): Promise<ReportSummary> {
  * Time-bucketed sales over the (validated/clamped) range, one point per non-empty
  * bucket of `interval` granularity, ascending by bucket.
  *
- * `date_trunc` replaces Mongo's `$dateTrunc` and buckets by the same timeline
- * anchor: `coalesce(paid_at, created_at)`, so an order whose platform reported no
- * settlement time still lands in the bucket it was created in rather than
- * vanishing from the report.
+ * `date_trunc` buckets by the timeline anchor: `coalesce(paid_at, created_at)`,
+ * so an order whose platform reported no settlement time still lands in the
+ * bucket it was created in rather than vanishing from the report.
  */
 export async function getSalesReport(
   storeId: string,
@@ -183,10 +182,9 @@ export async function getSalesReport(
  * The top-selling products over the (validated/clamped) range, ranked by units
  * sold then revenue, limited to `limit` (default 10, clamped to a max).
  *
- * A join to `order_items` replaces Mongo's `$unwind`. The title comes from
- * `max(title)` rather than `$last`: a listing renamed between two sales has two
- * titles in the snapshot set, and `$last` returned whichever the storage engine
- * happened to emit last, which Mongo never promised to order.
+ * A join to `order_items`. The title comes from `max(title)`: a listing renamed
+ * between two sales has two titles in the snapshot set, and "the last one"
+ * depends on an ordering the storage engine never promises.
  */
 export async function getTopProducts(
   storeId: string,

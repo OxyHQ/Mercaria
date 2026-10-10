@@ -238,9 +238,9 @@ alternative is a buyer told to collect a parcel that is half short.
 ### Stock moves at the chosen branch
 
 `reserve(variantId, qty, locationId)` — the SAME guarded UPDATE every other
-checkout uses, whose predicate has been race-safe at the location grain since the
-Mongo port. The whole of the change #93 needed here was passing an id that was
-already an optional parameter.
+checkout uses, whose predicate is race-safe at the location grain. The whole of
+the change #93 needed here was passing an id that was already an optional
+parameter.
 
 Three companions matter and none is optional:
 

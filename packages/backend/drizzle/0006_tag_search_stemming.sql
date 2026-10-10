@@ -13,9 +13,9 @@
 -- `'Bikes' 'handmade'`, while `to_tsvector('english','handmade Bikes')` is
 -- `'bike':2 'handmad':1`. So a listing tagged `Handmade` was NOT findable by
 -- "handmade" (the query stems to `handmad`), and `Bikes` was not findable by
--- "bikes" at all. Mongo's `$text` index DID stem array elements, so this was a
--- real narrowing of tag search introduced by the port, pinned as known-wrong by
--- `catalog.realdb.test.ts` rather than left to be discovered by a seller.
+-- "bikes" at all. Tag search must stem array elements, so this was a real
+-- narrowing of tag search, pinned as known-wrong by `catalog.realdb.test.ts`
+-- rather than left to be discovered by a seller.
 --
 -- ## Why a function, when two shorter spellings exist
 --

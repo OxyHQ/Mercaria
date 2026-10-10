@@ -4,7 +4,7 @@
  * `referral_attributions`, `referral_subject_redirects`,
  * `referral_conversions`, `referral_events`.
  *
- * Born in Postgres — like the payment domain, there is no Mongoose model any of
+ * Born in Postgres — like the payment domain, there is no legacy model any of
  * this is a port of, and the backfill has nothing to copy into it.
  *
  * ## The rules this file exists to hold

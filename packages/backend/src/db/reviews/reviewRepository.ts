@@ -3,9 +3,9 @@
  *
  * ## The target is SIX columns and exactly one of them is set
  *
- * Mongoose stated that in prose and enforced it nowhere, so a write naming both
- * a listing and a store was accepted and then read back by whichever query got
- * to it first. `reviews_target_exclusivity_check` makes it unrepresentable,
+ * Stated in prose alone, a write naming both a listing and a store would be
+ * accepted and then read back by whichever query got to it first.
+ * `reviews_target_exclusivity_check` makes it unrepresentable,
  * which means every write path has to satisfy it rather than merely intend to.
  * That is why {@link insertReview} takes ONE `targetId` plus its `targetType`
  * and expands them here — the five nulls are written explicitly, in the single
@@ -241,10 +241,9 @@ export async function findReviewById(
  * deliveries of the same decision both believe they were the one that acted, and
  * the enforcement ledger would record two.
  *
- * `status <> next` reproduces Mongo's `modifiedCount === 1` exactly: a `$set` to
- * the value a document already holds matches but modifies nothing, and the
- * caller's "the review was already hidden" branch is written against that
- * distinction.
+ * `status <> next` makes a write to the value a row already holds report no
+ * change, and the caller's "the review was already hidden" branch is written
+ * against that distinction.
  *
  * @returns `true` when this call made the change, `false` when the guard refused.
  */
@@ -478,7 +477,7 @@ export async function findDimensionsForReviews(
 /**
  * A page of a LEGACY target's PUBLISHED reviews, newest first by default, plus the total.
  *
- * The `id` tiebreaker is new. Mongo sorted on `createdAt` alone, which leaves
+ * The `id` tiebreaker is load-bearing. Sorting on `createdAt` alone leaves
  * reviews written in the same millisecond in an order the server may choose
  * differently per query — so an offset pager could show one twice and skip
  * another. `id` is a uuid v7 here, whose time component agrees with `createdAt`,

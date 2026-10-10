@@ -436,7 +436,7 @@ that set — no more, no fewer. A new table referencing `canonical_products` fai
 the build until somebody decides what a merge does with it.
 
 That is the point. "Finding fewer referencing tables" looks identical to "there
-being fewer" (`~/Oxy/AGENTS.md`, the git-pathspec and Mongo-reader findings), so
+being fewer" (`~/Oxy/AGENTS.md`, the git-pathspec finding), so
 completeness has to be checked against the schema rather than read out of an
 implementation. The gate carries the prescribed defences: a vacuity floor on the
 schema size and the census size, a positive control that it finds references
