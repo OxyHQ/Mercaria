@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Listing, ListingBundleRecommendation } from '../../../packages/shared-types/src';
 import english from '../../../packages/ui/src/i18n/locales/en.json';
 import german from '../../../packages/ui/src/i18n/locales/de.json';
+import arabic from '../../../packages/ui/src/i18n/locales/ar.json';
 
 for (const width of [320, 390, 1440]) {
   const locale = width === 320 ? 'de' : 'en';
@@ -88,4 +89,50 @@ for (const width of [320, 390, 1440]) {
     expect(writes).toHaveLength(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
   });
+}
+
+
+for (const width of [820, 1440]) {
+  for (const locale of ['en', 'ar']) {
+    test(`bundle carousel advances by visible groups at ${width}px in ${locale}`, async ({ page, request }) => {
+      const feed = await (await request.get('http://localhost:4160/feed')).json();
+      const summary = feed.data.sections.flatMap((section: { products?: Listing[] }) => section.products ?? [])
+        .find((listing: Listing) => listing.title === 'Brilliant Eye Brightener');
+      expect(summary, 'Requires the local storefront seed').toBeTruthy();
+      const listing: Listing = (await (await request.get(`http://localhost:4160/listings/${summary.id}`)).json()).data;
+      const source = listing.variants[0];
+      listing.bundlesByVariant = {
+        [source.id]: listing.variants.slice(0, 7).map((variant, index) => ({
+          listingId: listing.id, variantId: variant.id, title: `Brightener pack ${index + 1}`,
+          price: { amount: 4200, currency: 'EUR' }, action: 'view_bundle',
+        })),
+      };
+      await page.route(`**/listings/${listing.id}`, route => route.fulfill({ json: { success: true, data: listing } }));
+      await page.addInitScript(locale => localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale }, version: 0 })), locale);
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(`/products/${listing.id}?variantId=${source.id}`);
+      const shelf = page.getByTestId('bundle-recommendations');
+      const cards = shelf.getByTestId('bundle-recommendation-card');
+      await expect(cards).toHaveCount(7);
+      await cards.first().scrollIntoViewIfNeeded();
+      const rtl = locale === 'ar';
+      const edge = async (index: number) => {
+        const box = await cards.nth(index).boundingBox();
+        expect(box).not.toBeNull();
+        return box!.x + (rtl ? box!.width : 0);
+      };
+      const origin = await edge(0);
+      const group = width >= 976 ? 3 : 2;
+      const copy = (rtl ? arabic : english).ui.carousel;
+      const next = shelf.getByRole('button', { name: copy.next, exact: true });
+      const previous = shelf.getByRole('button', { name: copy.previous, exact: true });
+      await expect(next).toBeVisible();
+      await next.click();
+      await expect.poll(async () => Math.abs(await edge(group) - origin)).toBeLessThanOrEqual(2);
+      await previous.click();
+      await expect.poll(async () => Math.abs(await edge(0) - origin)).toBeLessThanOrEqual(2);
+      await expect(previous).toBeHidden();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    });
+  }
 }

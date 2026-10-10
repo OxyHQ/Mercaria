@@ -36,7 +36,7 @@ export function BundleRecommendations({ bundles, onView, onAddToCart }: BundleRe
     <View testID="bundle-recommendations" className="my-space-32 min-w-0 gap-space-16 md:px-space-16">
       <Text accessibilityRole="header" className="px-space-16 text-shop-subtitle text-text md:px-0 md:text-shop-sectionTitle">{title}</Text>
       <View className="min-w-0" onLayout={event => setMeasuredWidth(event.nativeEvent.layout.width)}>
-      {measuredWidth > 0 ? <Carousel {...shelf} gap={8} inset={inset} accessibilityLabel={title}>
+      {measuredWidth > 0 ? <Carousel {...shelf} gap={8} inset={inset} slidesPerGroup={width >= 976 ? 3 : desktop ? 2 : 1} accessibilityLabel={title}>
         {bundles.map(bundle => <CarouselItem key={bundle.variantId} width={cardWidth}>
           <BundleRecommendationCard bundle={bundle} onView={onView} onAddToCart={onAddToCart} />
         </CarouselItem>)}

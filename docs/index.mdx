@@ -93,7 +93,9 @@ schema decision. `HANDOFF.md` holds deferred work.
   listing variant. The shelf displays the pack's own discount, never a price
   calculated by adding its components. Bloom renders the responsive carousel,
   pending actions and retryable errors; below 360px a full card keeps translated
-  actions readable beside the fixed-size image.
+  actions readable beside the fixed-size image. Its arrows advance by one card
+  on phones, two at 768–975px and three from 976px, using Bloom 7.23's public
+  `slidesPerGroup` API; swipes still address individual cards.
 - Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
   Shop's public CSS; product columns switch independently at 768px. Product
   thumbnails appear in a horizontal 48px strip from 768–975px, then move to a
