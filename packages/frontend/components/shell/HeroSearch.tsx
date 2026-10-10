@@ -1,10 +1,10 @@
 import { STOREFRONT_NAV_FROM } from "@/lib/layout";
-import { merchantImageSource, resolveCatalogImage, useSharedUiTranslation } from "@mercaria/ui";
+import { CatalogImage, merchantImageSource } from "@mercaria/ui";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { Link, type Href } from "expo-router";
 import Animated, {
   runOnJS,
   useAnimatedReaction,
@@ -34,7 +34,7 @@ function HeroCard({
   pointerX,
   pointerY,
   reduced,
-  onPress,
+  href,
   label,
   onInteraction,
 }: {
@@ -47,11 +47,14 @@ function HeroCard({
   pointerX: SharedValue<number>;
   pointerY: SharedValue<number>;
   reduced: boolean;
-  onPress: () => void;
+  href: Href;
   label: string;
-  onInteraction: (active: boolean) => void;
+  onInteraction: (key: string, active: boolean) => void;
 }) {
   const hover = useSharedValue(1);
+  useEffect(() => () => {
+    for (const kind of ["hover", "focus", "press"]) onInteraction(`${index}:${kind}`, false);
+  }, [index, onInteraction]);
   const style = useAnimatedStyle(() => {
     const progress = reduced
       ? 0
@@ -82,32 +85,33 @@ function HeroCard({
       ]}
       testID={`hero-card-${index}`}
     >
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={label}
-        onPress={onPress}
-        onHoverIn={() => {
-          hover.value = withTiming(1.025, { duration: reduced ? 0 : 200 });
-          onInteraction(true);
-        }}
-        onHoverOut={() => {
-          hover.value = withTiming(1, { duration: reduced ? 0 : 200 });
-          onInteraction(false);
-        }}
-        onFocus={() => onInteraction(true)}
-        onBlur={() => onInteraction(false)}
-        onPressIn={() => {
-          hover.value = withTiming(0.98, { duration: reduced ? 0 : 100 });
-          onInteraction(true);
-        }}
-        onPressOut={() => {
-          hover.value = withTiming(1, { duration: reduced ? 0 : 200 });
-          onInteraction(false);
-        }}
-        className="overflow-hidden rounded-[24px] border border-black/[0.04] bg-background web:shadow-xl"
-      >
-        {children}
-      </Pressable>
+      <Link href={href} asChild>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={label}
+          onHoverIn={() => {
+            hover.value = withTiming(1.025, { duration: reduced ? 0 : 200 });
+            onInteraction(`${index}:hover`, true);
+          }}
+          onHoverOut={() => {
+            hover.value = withTiming(1, { duration: reduced ? 0 : 200 });
+            onInteraction(`${index}:hover`, false);
+          }}
+          onFocus={() => onInteraction(`${index}:focus`, true)}
+          onBlur={() => onInteraction(`${index}:focus`, false)}
+          onPressIn={() => {
+            hover.value = withTiming(0.98, { duration: reduced ? 0 : 100 });
+            onInteraction(`${index}:press`, true);
+          }}
+          onPressOut={() => {
+            hover.value = withTiming(1, { duration: reduced ? 0 : 200 });
+            onInteraction(`${index}:press`, false);
+          }}
+          className="overflow-hidden rounded-[24px] border border-black/[0.04] bg-background web:shadow-xl"
+        >
+          {children}
+        </Pressable>
+      </Link>
     </Animated.View>
   );
 }
@@ -121,9 +125,7 @@ export function HeroSearch({
   merchants: StoreSummary[];
   onVisibilityChange: (visible: boolean) => void;
 }) {
-  const router = useRouter();
   const resolveImage = useImageResolver();
-  const uiT = useSharedUiTranslation();
   const { width: viewport, height: windowHeight } = useWindowDimensions();
   const [width, setWidth] = useState(viewport);
   const [cycle, setCycle] = useState(0);
@@ -133,6 +135,12 @@ export function HeroSearch({
   const clock = useSharedValue(CYCLE_MS / 2);
   const active = useSharedValue(true);
   const paused = useSharedValue(false);
+  const interactions = useRef(new Set<string>());
+  const onInteraction = useCallback((key: string, engaged: boolean) => {
+    if (engaged) interactions.current.add(key);
+    else interactions.current.delete(key);
+    paused.value = interactions.current.size > 0;
+  }, [paused]);
   const pointerX = useSharedValue(0);
   const pointerY = useSharedValue(0);
   const desktop = viewport >= STOREFRONT_NAV_FROM;
@@ -233,7 +241,6 @@ export function HeroSearch({
       >
         {desktop
           ? current.map((product, index) => {
-              const imageUrl = resolveCatalogImage(product.imageFileId, product.imageUrl, resolveImage);
               const coordinates = position(index, false) ?? {
                 x: width * (index === 1 ? 0.4 : 0.59),
                 y: collageHeight * (index === 1 ? 0.28 : 0.22),
@@ -249,28 +256,16 @@ export function HeroSearch({
                   pointerY={pointerY}
                   reduced={reduced}
                   label={product.title}
-                  onInteraction={(value) => {
-                    paused.value = value;
-                  }}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/products/[id]",
-                      params: { id: product.id },
-                    })
-                  }
+                  onInteraction={onInteraction}
+                  href={{ pathname: "/products/[id]", params: { id: product.id } }}
                 >
                   <View className="gap-2 p-2 md:p-3">
-                    {imageUrl ? (
-                      <Image
-                        source={{ uri: imageUrl }}
-                        className="aspect-square w-full rounded-2xl bg-muted"
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <View className="aspect-square w-full items-center justify-center rounded-2xl bg-muted">
-                        <Text className="text-xs text-muted-foreground">{uiT("ui.marketplace.noImage")}</Text>
-                      </View>
-                    )}
+                    <CatalogImage
+                      fileId={product.imageFileId}
+                      legacyUrl={product.imageUrl}
+                      accessibilityLabel={product.title}
+                      className="aspect-square w-full overflow-hidden rounded-2xl bg-muted"
+                    />
                     <View className="gap-1 px-1 pb-1">
                       <Text
                         numberOfLines={1}
@@ -305,15 +300,8 @@ export function HeroSearch({
                   pointerY={pointerY}
                   reduced={reduced}
                   label={merchant.name}
-                  onInteraction={(value) => {
-                    paused.value = value;
-                  }}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/stores/[handle]",
-                      params: { handle: merchant.handle },
-                    })
-                  }
+                  onInteraction={onInteraction}
+                  href={{ pathname: "/stores/[handle]", params: { handle: merchant.handle } }}
                 >
                   <View
                     className="aspect-square items-center justify-center"
@@ -363,12 +351,8 @@ export function HeroSearch({
           <View
             ref={search}
             className="mt-6 w-full max-w-[600px]"
-            onFocus={() => {
-              paused.value = true;
-            }}
-            onBlur={() => {
-              paused.value = false;
-            }}
+            onFocus={() => onInteraction("composer", true)}
+            onBlur={() => onInteraction("composer", false)}
           >
             <ShoppingComposer inline />
           </View>

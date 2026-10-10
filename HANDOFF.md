@@ -592,6 +592,16 @@ The audit and current implementation:
   arbitrary `{ uri }` fallback. A browser regression injects malformed feed
   metadata and checks zero supplier requests plus preserved product navigation;
   it does not intercept image responses or demonstrate a successful upload.
+- Hero and product shelves now share `CatalogImage`, including Oxy request
+  failures and source-keyed image state. Failed images retain a usable product
+  link and a missing-image label; a rotating hero resets only that image, not
+  the animated card. Hover, keyboard focus and press pause independently, so
+  mouse-out no longer changes a keyboard-selected product. Browser coverage
+  exercises deliberately missing Oxy files, rotation and keyboard activation;
+  this is failure/identity coverage, not live-import acceptance. The current
+  local feed still has zero usable file IDs across its 16 product entries.
+  Product/store hero cards now use actual Expo Router links; the previous
+  `Pressable` with `role="link"` but no `href` did not activate with Enter on web.
 - Local preview seeds also put external URLs into image fields. Some category
   and merchant artwork is already bundled locally; this does not prove all
   catalog media is synchronized.

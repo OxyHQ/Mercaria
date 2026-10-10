@@ -55,3 +55,70 @@ test('hero withholds URL-valued file IDs and legacy supplier URLs while preservi
   expect(injected).toBe(true);
   expect(requests).toEqual([]);
 });
+
+test('failed Oxy images keep product cards usable and retry a new source when the hero rotates', async ({ page, request }) => {
+  const response = await request.get('http://localhost:4160/feed');
+  expect(response.ok()).toBe(true);
+  const body: { success: boolean; data: Feed } = await response.json();
+  const products = [...new Map(body.data.sections.flatMap(section => section.kind === 'products' ? section.products : [])
+    .map(product => [product.id, product])).values()].slice(0, 8);
+  expect(products).toHaveLength(8);
+  products.forEach((product, index) => {
+    product.imageFileId = `unavailable-hero-media-test-${index}`;
+    delete product.imageUrl;
+  });
+  const shelf = body.data.sections.find(section => section.kind === 'products');
+  if (!shelf || shelf.kind !== 'products') throw new Error('The local feed needs a product shelf');
+  body.data.sections = [{ ...shelf, products }];
+  await page.route(/\/feed(?:\?.*)?$/, route => route.fulfill({ json: body }));
+  // Missing-file boundary only. No successful images or persisted pretend IDs.
+  const imageRequests: string[] = [];
+  await page.route('https://cloud.oxy.so/unavailable-hero-media-test-*', route => {
+    imageRequests.push(route.request().url());
+    return route.fulfill({ status: 404 });
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale: 'en' }, version: 0 }));
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  const hero = page.getByTestId('home-hero');
+  const card = hero.getByTestId('hero-card-0');
+  await expect(card.getByRole('link', { name: products[0].title, exact: true })).toBeVisible();
+  await expect(card.getByText('No image', { exact: true })).toBeVisible();
+  const mountedCard = await card.elementHandle();
+  await expect(card.getByRole('link', { name: products[4].title, exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(card.getByText('No image', { exact: true })).toBeVisible();
+  expect(await mountedCard!.evaluate(node => node.isConnected)).toBe(true);
+  // It was requested once for the shelf, and again for the new hero source.
+  expect(imageRequests.filter(url => url.endsWith('/unavailable-hero-media-test-4')).length).toBeGreaterThanOrEqual(2);
+  const target = card.getByRole('link', { name: products[4].title, exact: true });
+  const bounds = (await target.boundingBox())!;
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await target.click();
+  await expect(page).toHaveURL(new RegExp(`/products/${products[4].id}$`));
+});
+
+test('keyboard focus keeps the selected hero product stable after the pointer leaves', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  const card = page.getByTestId('hero-card-0');
+  const link = card.getByRole('link');
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', /^\/products\//);
+  const bounds = (await link.boundingBox())!;
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await link.focus();
+  const title = await link.getAttribute('aria-label');
+  await page.mouse.move(0, 0);
+  // Cross a whole 7s cycle while keyboard focus still owns the selected item.
+  // Poll every second so a transient wrong product cannot pass unnoticed.
+  for (let second = 0; second < 8; second++) {
+    await page.waitForTimeout(1000);
+    await expect(link).toBeFocused();
+    await expect(link).toHaveAttribute('aria-label', title!);
+  }
+  await link.press('Enter');
+  await expect(page).toHaveURL(/\/products\/[^/]+$/);
+  await expect(page.getByText(title!, { exact: true }).first()).toBeVisible();
+});

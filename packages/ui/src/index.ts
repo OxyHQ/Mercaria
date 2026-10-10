@@ -327,6 +327,7 @@ export {
 // ---------------------------------------------------------------------------
 // Marketplace presentational components
 // ---------------------------------------------------------------------------
+export { CatalogImage } from "./components/marketplace/CatalogImage";
 export { ProductCard, type ProductCardProps } from "./components/marketplace/ProductCard";
 // Every rating renders `@oxy.so/bloom/rating` through `useRatingDisplay`; over a
 // brand colour the caller passes Bloom's `color` / `starColor` / `emptyStarColor`.

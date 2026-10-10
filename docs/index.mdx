@@ -114,6 +114,13 @@ schema decision. `HANDOFF.md` holds deferred work.
   the same client resolver. Feed cache v3 expires old URL-only projections.
   New listing history retains IDs; legacy URLs render only when they exactly
   match the configured resolver. Categories prefer their stored file ID.
+  The hero and product cards share `CatalogImage`: failed Oxy requests show
+  the missing-image state, and changing the source resets only the image's
+  instance and failure state. The animated hero card stays mounted. Hero hover,
+  keyboard focus, press and composer focus independently hold the rotation;
+  leaving with the mouse cannot release a keyboard-focused product.
+  Hero product/store cards use Expo Router links, including actual web anchors
+  for Enter activation and browser open-in-new-tab behavior.
   Existing Oxy URLs in legacy category/order snapshot columns are validated
   against the SDK namespace, without rewriting immutable order history.
   Changing a variant keeps the gallery mounted: only a different set of image
