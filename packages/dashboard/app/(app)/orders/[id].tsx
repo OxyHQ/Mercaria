@@ -17,6 +17,7 @@ import {
 import { Field } from "@oxy.so/bloom/field";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
+import { Loading } from "@oxy.so/bloom/loading";
 import { RefundDialog } from "@/components/orders/RefundDialog";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
@@ -250,19 +251,27 @@ function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder
   // No extra `can("orders:read")` gate: the whole screen already sits behind
   // `RequireStore permission="orders:read"`, which is exactly what the GET
   // endpoint enforces, so a second check here could only ever agree with it.
-  const { data } = useOrderRefunds(storeId, order.id);
+  const refunds = useOrderRefunds(storeId, order.id);
+  const data = canRetainDetailData(refunds.error) ? refunds.data : undefined;
 
-  // Most orders are never refunded, so an always-mounted empty card would be
-  // noise on every order detail — the card appears only once there is history.
-  if (!data || data.length === 0) {
+  // Hide only a confirmed empty history. Failed reads are never an empty result.
+  if (refunds.isSuccess && data?.length === 0) {
     return null;
   }
 
   return (
     <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
       <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.refunds")}</Text>
-      <View className="gap-3">
-        {data.map((refund) => (
+      <View testID="merchant-refund-history-status" accessibilityLiveRegion="polite">
+        {refunds.isError ? <View className="mb-3 flex-row flex-wrap items-center justify-between gap-2">
+          <Text className="text-sm text-foreground">{t("orders.detail.refundsLoadFailed")}</Text>
+          <Button size="sm" appearance="outline" material="flat" disabled={refunds.isFetching}
+            onPress={() => { void refunds.refetch(); }}>{t("common.retry")}</Button>
+        </View> : null}
+        {refunds.isFetching ? <Loading variant="inline" size="sm" accessibilityLabel={t("common.loading")} /> : null}
+      </View>
+      <View testID="merchant-refund-history" className="gap-3">
+        {data?.map((refund) => (
           <RefundRow key={refund.id} refund={refund} />
         ))}
       </View>

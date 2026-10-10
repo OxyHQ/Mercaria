@@ -931,7 +931,8 @@
       "title": "Заказ",
       "trackingLabel": "Трек-номер (необязательно)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "Не удалось обновить заказ"
+      "updateFailed": "Не удалось обновить заказ",
+      "refundsLoadFailed": "Не удалось загрузить историю возвратов."
     },
     "documentTitle": "Заказы | Wholesale by Mercaria",
     "empty": {

@@ -903,7 +903,8 @@
       "title": "অর্ডার",
       "trackingLabel": "ট্র্যাকিং নম্বর (ঐচ্ছিক)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "অর্ডার আপডেট করা যায়নি"
+      "updateFailed": "অর্ডার আপডেট করা যায়নি",
+      "refundsLoadFailed": "রিফান্ডের ইতিহাস লোড করা যায়নি।"
     },
     "documentTitle": "অর্ডার | Wholesale by Mercaria",
     "empty": {

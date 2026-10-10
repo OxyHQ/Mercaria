@@ -903,7 +903,8 @@
       "title": "Order",
       "trackingLabel": "Tracking number (optional)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "Couldn't update the order"
+      "updateFailed": "Couldn't update the order",
+      "refundsLoadFailed": "Couldn’t load refund history."
     },
     "documentTitle": "Orders | Wholesale by Mercaria",
     "empty": {

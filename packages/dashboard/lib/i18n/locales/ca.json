@@ -917,7 +917,8 @@
       "title": "Comanda",
       "trackingLabel": "Número de seguiment (opcional)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "No s'ha pogut actualitzar la comanda"
+      "updateFailed": "No s'ha pogut actualitzar la comanda",
+      "refundsLoadFailed": "No s’ha pogut carregar l’historial de reemborsaments."
     },
     "documentTitle": "Comandes | Wholesale by Mercaria",
     "empty": {

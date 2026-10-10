@@ -143,11 +143,18 @@ export function useCreateGoWayPlace() {
 
 /** Edit a place the store's claim lets this session edit: hours, contact. */
 export function useUpdateGoWayPlace(placeId: string) {
+  const queryClient = useQueryClient();
+  const { locale } = useTranslation();
   const client = useGoWayClient();
   const invalidate = useInvalidatePlace();
   return useMutation({
     mutationFn: (input: PlaceUpdateInput) => client.places.update(placeId, input),
-    onSuccess: () => invalidate(placeId),
+    onSuccess: async (place) => {
+      const queryKey = queryKeys.goway.place(placeId, locale);
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      queryClient.setQueryData(queryKey, place);
+      invalidate(placeId);
+    },
   });
 }
 

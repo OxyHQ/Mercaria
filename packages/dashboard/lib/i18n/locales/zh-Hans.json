@@ -903,7 +903,8 @@
       "title": "订单",
       "trackingLabel": "物流单号（选填）",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "无法更新订单"
+      "updateFailed": "无法更新订单",
+      "refundsLoadFailed": "无法加载退款记录。"
     },
     "documentTitle": "订单 | Wholesale by Mercaria",
     "empty": {

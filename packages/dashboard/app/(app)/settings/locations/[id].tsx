@@ -9,6 +9,7 @@ import { Text, useColorScheme } from "@mercaria/ui";
 import { Badge } from "@oxy.so/bloom/badge";
 import { Button } from "@oxy.so/bloom/button";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
+import { canRetainDetailData } from "@/lib/detail-query-state";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { EditorSection } from "@/components/locations/EditorSection";
 import { HoursExceptionsCard } from "@/components/locations/HoursExceptionsCard";
@@ -99,10 +100,11 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
       </Screen>
     );
   }
-  if (locations.isError || publication.isError || location === undefined) {
+  if (location === undefined || !canRetainDetailData(locations.error) || !canRetainDetailData(publication.error) || publication.data === undefined) {
     return (
       <Screen title={t("settings.locations.editor.title")} action={back}>
         <ScreenMessage title={t("settings.locations.editor.loadFailed")} body={t("common.pleaseTryAgain")} />
+        <Button disabled={locations.isFetching || publication.isFetching} onPress={() => { void locations.refetch(); void publication.refetch(); }}>{t("common.retry")}</Button>
       </Screen>
     );
   }
@@ -110,6 +112,10 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
   return (
     <Screen title={location.name} subtitle={t("settings.locations.editor.subtitle")} action={back}>
       <View className="gap-4 pb-10">
+        {locations.isError || publication.isError ? <View className="flex-row flex-wrap items-center justify-between gap-2" accessibilityLiveRegion="polite">
+          <Text className="text-sm text-foreground">{t("settings.locations.editor.loadFailed")}</Text>
+          <Button disabled={locations.isFetching || publication.isFetching} onPress={() => { void locations.refetch(); void publication.refetch(); }}>{t("common.retry")}</Button>
+        </View> : null}
         <PlaceLinkStatusCard
           storeId={storeId}
           locationId={location.id}
@@ -187,7 +193,7 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
         ) : null}
 
         <PublicationCard
-          key={publication.data?.id ?? "new"}
+          key={`${storeId}:${location.id}`}
           storeId={storeId}
           locationId={location.id}
           publication={publication.data}

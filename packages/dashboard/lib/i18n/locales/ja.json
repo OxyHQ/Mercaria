@@ -903,7 +903,8 @@
       "title": "注文",
       "trackingLabel": "追跡番号（任意）",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "注文を更新できませんでした"
+      "updateFailed": "注文を更新できませんでした",
+      "refundsLoadFailed": "返金履歴を読み込めませんでした。"
     },
     "documentTitle": "注文 | Wholesale by Mercaria",
     "empty": {

@@ -917,7 +917,8 @@
       "title": "Pedido",
       "trackingLabel": "Número de seguimiento (opcional)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "No se ha podido actualizar el pedido"
+      "updateFailed": "No se ha podido actualizar el pedido",
+      "refundsLoadFailed": "No se pudo cargar el historial de reembolsos."
     },
     "documentTitle": "Pedidos | Wholesale by Mercaria",
     "empty": {

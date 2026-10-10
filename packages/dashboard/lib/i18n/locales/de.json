@@ -903,7 +903,8 @@
       "title": "Bestellung",
       "trackingLabel": "Sendungsnummer (optional)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "Die Bestellung konnte nicht aktualisiert werden"
+      "updateFailed": "Die Bestellung konnte nicht aktualisiert werden",
+      "refundsLoadFailed": "Der Erstattungsverlauf konnte nicht geladen werden."
     },
     "documentTitle": "Bestellungen | Wholesale by Mercaria",
     "empty": {

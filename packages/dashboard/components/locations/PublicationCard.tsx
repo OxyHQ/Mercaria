@@ -32,6 +32,7 @@ import {
   type PublicationDraft,
 } from "@/lib/locations/publication-form";
 import { useTranslation } from "@/lib/i18n";
+import { retainLaterEdits } from "@/lib/locations/retain-later-edits";
 import { EditorSection } from "./EditorSection";
 
 const IDENTITY_REQUIREMENTS: PickupIdentityRequirement[] = [
@@ -78,19 +79,25 @@ export function PublicationCard({
   const save = useSaveLocationPublication(storeId, locationId);
   const setState = useSetLocationPublicationState(storeId, locationId);
   const setPause = useSetLocationPickupPause(storeId, locationId);
-  const [draft, setDraft] = useState<PublicationDraft>(() => publicationDraftOf(publication));
+  const [edits, setEdits] = useState<Partial<PublicationDraft>>({});
+  const draft = { ...publicationDraftOf(publication), ...edits };
   const [pauseReason, setPauseReason] = useState("");
 
-  const patch = (next: Partial<PublicationDraft>) => setDraft((current) => ({ ...current, ...next }));
+  const patch = (next: Partial<PublicationDraft>) => setEdits((current) => ({ ...current, ...next }));
 
   const submit = () => {
+    if (save.isPending || setState.isPending || setPause.isPending) return;
+    const submitted = edits;
     const built = publicationInputOf(draft, goWayPlaceId);
     if (!built.ok) {
       toast.error(t(built.errorKey));
       return;
     }
     save.mutate(built.input, {
-      onSuccess: () => toast.success(t("settings.locations.editor.publication.saved")),
+      onSuccess: () => {
+        setEdits(current => retainLaterEdits(current, submitted));
+        toast.success(t("settings.locations.editor.publication.saved"));
+      },
       onError: (error) => toast.error(t(publicationErrorKey(error))),
     });
   };
@@ -180,7 +187,7 @@ export function PublicationCard({
           accessibilityLabel={t("settings.locations.editor.publication.exactStock")}
         />
       </View>
-      <Button tone="accent" loading={save.isPending} disabled={goWayPlaceId === undefined} onPress={submit}>
+      <Button tone="accent" loading={save.isPending} disabled={goWayPlaceId === undefined || save.isPending || setState.isPending || setPause.isPending} onPress={submit}>
         {t("settings.locations.editor.publication.save")}
       </Button>
 
@@ -207,16 +214,16 @@ export function PublicationCard({
           ) : null}
           <View className="flex-row flex-wrap gap-2">
             {publication.publicationState === "published" ? (
-              <Button tone="neutral" appearance="outline" loading={setState.isPending} onPress={() => move("withdrawn")}>
+              <Button tone="neutral" appearance="outline" loading={setState.isPending} disabled={save.isPending || setState.isPending || setPause.isPending} onPress={() => move("withdrawn")}>
                 {t("settings.locations.editor.publication.withdraw")}
               </Button>
             ) : (
-              <Button tone="accent" loading={setState.isPending} onPress={() => move("published")}>
+              <Button tone="accent" loading={setState.isPending} disabled={save.isPending || setState.isPending || setPause.isPending} onPress={() => move("published")}>
                 {t("settings.locations.editor.publication.publish")}
               </Button>
             )}
             {publication.publicationState === "withdrawn" ? (
-              <Button tone="neutral" appearance="outline" loading={setState.isPending} onPress={() => move("draft")}>
+              <Button tone="neutral" appearance="outline" loading={setState.isPending} disabled={save.isPending || setState.isPending || setPause.isPending} onPress={() => move("draft")}>
                 {t("settings.locations.editor.publication.toDraft")}
               </Button>
             ) : null}
@@ -233,6 +240,7 @@ export function PublicationCard({
                 tone="neutral"
                 appearance="outline"
                 loading={setPause.isPending}
+                disabled={save.isPending || setState.isPending || setPause.isPending}
                 onPress={() =>
                   setPause.mutate(
                     { paused: false },
@@ -255,7 +263,7 @@ export function PublicationCard({
               <Button
                 tone="neutral"
                 appearance="outline"
-                disabled={pauseReason.trim() === ""}
+                disabled={pauseReason.trim() === "" || save.isPending || setState.isPending || setPause.isPending}
                 loading={setPause.isPending}
                 onPress={() =>
                   setPause.mutate(

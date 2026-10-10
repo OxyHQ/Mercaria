@@ -92,28 +92,18 @@ describe('GoWay address selection', () => {
 });
 
 describe('contactInputOf', () => {
-  it('sends only filled fields and refuses a website that is not a link', () => {
-    expect(contactInputOf({ phone: ' +34 600 ', email: '', website: '' })).toEqual({
-      ok: true,
-      contact: { phone: '+34 600' },
-    });
-    expect(contactInputOf({ phone: '', email: '', website: 'example.org' })).toMatchObject({ ok: false });
-    expect(contactInputOf({ phone: '', email: 'not-an-email', website: '' })).toMatchObject({ ok: false });
+  it('sends only edited fields, never stale values from an earlier DTO', () => {
+    expect(contactInputOf({ email: ' new@example.org ' })).toEqual({ ok: true, contact: { email: 'new@example.org' } });
+    expect(contactInputOf({ phone: ' +34 600 ' })).toEqual({ ok: true, contact: { phone: '+34 600' } });
+    expect(contactInputOf({})).toEqual({ ok: true, contact: {} });
   });
-
-  it('clears a field the merchant EMPTIED with null — PATCH is a merge patch — and leaves an empty one alone', () => {
-    const current = { phone: '+34 600 000 000', email: 'shop@example.org' };
-    expect(contactInputOf({ phone: '', email: 'shop@example.org', website: '' }, current)).toEqual({
-      ok: true,
-      contact: { phone: null, email: 'shop@example.org' },
-    });
-    // Nothing was there and nothing is: nothing to clear, nothing sent.
-    expect(contactInputOf({ phone: '', email: '', website: '' }, {})).toEqual({ ok: true, contact: {} });
-    // A whitespace-only draft is empty too.
-    expect(contactInputOf({ phone: '   ', email: '', website: '' }, current)).toEqual({
-      ok: true,
-      contact: { phone: null, email: null },
-    });
+  it('clears an explicitly emptied field even when an earlier read had no value', () => {
+    expect(contactInputOf({ phone: '' })).toEqual({ ok: true, contact: { phone: null } });
+    expect(contactInputOf({ website: '   ', email: '' })).toEqual({ ok: true, contact: { website: null, email: null } });
+  });
+  it('validates only edited email and website fields', () => {
+    expect(contactInputOf({ website: 'example.org' })).toMatchObject({ ok: false });
+    expect(contactInputOf({ email: 'not-an-email' })).toMatchObject({ ok: false });
   });
 });
 

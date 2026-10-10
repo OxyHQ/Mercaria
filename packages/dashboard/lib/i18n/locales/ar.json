@@ -903,7 +903,8 @@
       "title": "الطلب",
       "trackingLabel": "رقم التتبّع (اختياري)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "تعذّر تحديث الطلب"
+      "updateFailed": "تعذّر تحديث الطلب",
+      "refundsLoadFailed": "تعذّر تحميل سجل المبالغ المستردة."
     },
     "documentTitle": "الطلبات | Wholesale by Mercaria",
     "empty": {

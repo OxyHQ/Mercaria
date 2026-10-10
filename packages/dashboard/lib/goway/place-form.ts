@@ -152,32 +152,23 @@ export function contactDraftOf(contact: PlaceContact | undefined): ContactDraft 
 /** The `contact` part of a GoWay merge patch: absent leaves a part alone, `null` clears it. */
 export type ContactPatch = { phone?: string | null; email?: string | null; website?: string | null };
 
-/**
- * The `contact` update a draft says, as a merge patch (`PATCH /places/{id}`).
- *
- * A filled field is sent; a field the merchant EMPTIED — the place has a value
- * and the draft no longer does — is sent as `null`, which clears it on GoWay; a
- * field that was empty and still is, is not sent at all. The editor says
- * beside the fields that emptying one removes it.
- */
+/** Only edited fields enter the merge patch; an explicit empty value clears that field. */
 export function contactInputOf(
-  draft: ContactDraft,
-  current?: PlaceContact,
+  draft: Partial<ContactDraft>,
 ): { ok: true; contact: ContactPatch } | { ok: false; errorKey: string } {
-  const website = nonEmpty(draft.website);
+  const website = nonEmpty(draft.website ?? "");
   if (website !== undefined && !/^https?:\/\//i.test(website)) {
     return { ok: false, errorKey: "settings.locations.editor.contact.websiteInvalid" };
   }
-  const email = nonEmpty(draft.email);
+  const email = nonEmpty(draft.email ?? "");
   if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, errorKey: "settings.locations.editor.contact.emailInvalid" };
   }
-  const phone = nonEmpty(draft.phone);
+  const phone = nonEmpty(draft.phone ?? "");
   const part = (key: keyof ContactDraft, value: string | undefined): ContactPatch => {
     const patch: ContactPatch = {};
-    const held = current?.[key];
-    if (value !== undefined) patch[key] = value;
-    else if (typeof held === "string" && held.trim() !== "") patch[key] = null;
+    if (draft[key] === undefined) return patch;
+    patch[key] = value ?? null;
     return patch;
   };
   return {

@@ -917,7 +917,8 @@
       "title": "Commande",
       "trackingLabel": "Numéro de suivi (facultatif)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "Impossible de mettre à jour la commande"
+      "updateFailed": "Impossible de mettre à jour la commande",
+      "refundsLoadFailed": "Impossible de charger l’historique des remboursements."
     },
     "documentTitle": "Commandes | Wholesale by Mercaria",
     "empty": {

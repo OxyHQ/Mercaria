@@ -9,16 +9,20 @@ import { useUpdateGoWayPlace } from "@/lib/goway/hooks";
 import { goWayErrorKey } from "@/lib/goway/errors";
 import { contactDraftOf, contactInputOf, type ContactDraft } from "@/lib/goway/place-form";
 import { useTranslation } from "@/lib/i18n";
+import { retainLaterEdits } from "@/lib/locations/retain-later-edits";
 import { EditorSection } from "./EditorSection";
 
 /** The place's public phone, email and website, written to GoWay. */
 export function PlaceContactCard({ place }: { place: Place }) {
   const { t } = useTranslation();
   const update = useUpdateGoWayPlace(place.id);
-  const [draft, setDraft] = useState<ContactDraft>(() => contactDraftOf(place.contact));
+  const [edits, setEdits] = useState<Partial<ContactDraft>>({});
+  const draft = { ...contactDraftOf(place.contact), ...edits };
 
   const save = () => {
-    const built = contactInputOf(draft, place.contact);
+    if (update.isPending) return;
+    const submitted = edits;
+    const built = contactInputOf(submitted);
     if (!built.ok) {
       toast.error(t(built.errorKey));
       return;
@@ -27,7 +31,10 @@ export function PlaceContactCard({ place }: { place: Place }) {
     update.mutate(
       { contact: built.contact },
       {
-        onSuccess: () => toast.success(t("settings.locations.editor.contact.saved")),
+        onSuccess: () => {
+          setEdits(current => retainLaterEdits(current, submitted));
+          toast.success(t("settings.locations.editor.contact.saved"));
+        },
         onError: (error) => toast.error(t(goWayErrorKey(error))),
       },
     );
@@ -35,7 +42,7 @@ export function PlaceContactCard({ place }: { place: Place }) {
 
   const field = (key: keyof ContactDraft) => ({
     value: draft[key],
-    onValueChange: (value: string) => setDraft((current) => ({ ...current, [key]: value })),
+    onValueChange: (value: string) => setEdits((current) => ({ ...current, [key]: value })),
   });
 
   return (
@@ -63,7 +70,7 @@ export function PlaceContactCard({ place }: { place: Place }) {
         />
       </Field>
       <Text className="text-xs text-muted-foreground">{t("settings.locations.editor.contact.hint")}</Text>
-      <Button tone="accent" loading={update.isPending} onPress={save}>
+      <Button tone="accent" loading={update.isPending} disabled={Object.keys(edits).length === 0 || update.isPending} onPress={save}>
         {t("settings.locations.editor.contact.save")}
       </Button>
     </EditorSection>
