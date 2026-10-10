@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@oxy.so/bloom/button";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { View, Pressable } from "react-native";
 import { Image } from "expo-image";
 import Head from "expo-router/head";
@@ -13,6 +14,7 @@ import {
   commercialSellerLabel,
   formatDate,
   useFormatters,
+  resolveStoredImageUrl,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { ReviewEligibilityPrompts } from "@/components/reviews/ReviewEligibilityPrompts";
@@ -23,9 +25,13 @@ import { useTranslation } from "@/lib/i18n";
 function OrderRow({ order, view }: { order: OrderSummary; view: BuyerOrderView }) {
   const { t, locale } = useTranslation();
   const { formatReviewCount } = useFormatters();
+  const resolveImage = useImageResolver();
   const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
-  const images = order.images?.filter(image => !failedImages.has(image.url)) ?? [];
-  const logo = order.store?.logoUrl ?? order.seller?.avatar;
+  const images = order.images?.flatMap(image => {
+    const url = resolveStoredImageUrl(image.url, resolveImage);
+    return url && !failedImages.has(url) ? [{ ...image, url }] : [];
+  }) ?? [];
+  const logo = resolveStoredImageUrl(order.store?.logoUrl ?? order.seller?.avatar ?? undefined, resolveImage);
   // From the order's own commercial presentation (#129): a `platform` order has
   // neither `store` nor `seller`, so the old coalesce left Mercaria's own sales
   // with no seller in the list at all.

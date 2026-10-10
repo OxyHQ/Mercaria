@@ -13,9 +13,15 @@ for (const width of [390, 1440]) {
       localStorage.setItem('oxy.auth.v1', JSON.stringify({ userId, sessionId: 'fixture-session',
         accessToken: token, expiresAt: new Date(Date.now() + 3600000).toISOString() }));
     }, { userId, token });
-    await page.route('https://order-images.example.invalid/**', route => {
-      if (route.request().url().endsWith('/missing.svg')) return route.fulfill({ status: 404, body: '' });
-      return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#d0a88f"/></svg>' });
+    const externalImages: string[] = [];
+    const unavailableImages = new Set<string>();
+    page.on('request', request => {
+      if (request.url().startsWith('https://order-images.example.invalid/')) externalImages.push(request.url());
+    });
+    // Explicit failure-path coverage, never substitute successful image bytes.
+    await page.route('https://cloud.oxy.so/unavailable-order-*', route => {
+      unavailableImages.add(new URL(route.request().url()).pathname);
+      return route.fulfill({ status: 404, body: '' });
     });
     // Exercise the actual Oxy provider and query hooks with HTTP fixtures. No
     // synthetic credential leaves the browser; persistence/ownership is realdb-tested.
@@ -44,9 +50,12 @@ for (const width of [390, 1440]) {
           status: view === 'past' ? 'delivered' : 'processing',
           grandTotal: { shop: { amount: 2400, currency: 'EUR' }, presentment: { amount: 2400, currency: 'EUR' } },
           itemCount: 1, sellerType: 'user', createdAt: new Date().toISOString(),
-          images: view === 'past' ? undefined : ['missing', 'first', 'second', 'third'].map(name => ({
-            url: `https://order-images.example.invalid/${name}.svg`, alt: `Purchased ${name}`,
-          })),
+          images: view === 'past' ? undefined : [
+            { url: 'https://order-images.example.invalid/legacy.jpg', alt: 'Legacy external image' },
+            ...['missing', 'first', 'second', 'third'].map(name => ({
+              url: `https://cloud.oxy.so/unavailable-order-${name}`, alt: `Purchased ${name}`,
+            })),
+          ],
           commercial: { mode: 'connected_marketplace', sellerKind: 'user', sellerLabel: 'Fixture seller',
             sellerRole: 'direct', disclosures: ['sold_by_merchant'] },
         };
@@ -69,12 +78,9 @@ for (const width of [390, 1440]) {
     await expect(orders.getByRole('link', { name: 'Open order MRC-active-1', exact: true })).toBeVisible();
     await expect(orders.getByRole('link', { name: 'Open order MRC-active-1', exact: true })).toHaveAttribute('href', '/orders/order-active-1');
     const images = orders.getByTestId('order-card-images');
-    await expect(images.getByRole('img')).toHaveCount(2);
-    await expect(images.getByRole('img', { name: 'Purchased first' })).toBeVisible();
-    await expect(images.getByRole('img', { name: 'Purchased second' })).toBeVisible();
-    await expect.poll(() => images.locator('img').evaluateAll(nodes => nodes.every(node => node.complete && node.naturalWidth > 0))).toBe(true);
-    await expect(images.getByText(/^\+/)).toHaveText('+\u20681\u2069');
-    expect(Math.round((await images.getByRole('img').first().boundingBox())!.width)).toBe(30);
+    await expect.poll(() => unavailableImages.size).toBe(4);
+    await expect(images).toHaveCount(0);
+    expect(externalImages).toEqual([]);
     await orders.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(orders.getByRole('link', { name: 'Open order MRC-active-2', exact: true })).toBeVisible();
     await expect(orders.getByRole('button', { name: 'Next', exact: true })).toBeDisabled();
@@ -97,6 +103,7 @@ for (const width of [390, 1440]) {
     await expect(orders.getByRole('link', { name: 'Open order MRC-active-1', exact: true })).toBeVisible();
     expect(requests).toContainEqual({ view: 'active', page: 2 });
     expect(requests.filter(request => request.view === 'past').every(request => request.page === 1)).toBe(true);
+    expect(externalImages).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
     await expect.poll(() => orders.evaluate(element => {
       for (let node: Element | null = element; node; node = node.parentElement) {
