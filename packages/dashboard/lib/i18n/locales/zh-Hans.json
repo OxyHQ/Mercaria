@@ -1015,7 +1015,6 @@
     "variants": {
       "add": "添加",
       "addFailed": "无法添加变体",
-      "added": "变体已添加",
       "available": "可售",
       "heading": "变体与库存",
       "inventoryUpdateFailed": "无法更新库存",
@@ -1035,7 +1034,9 @@
         "loadFailed": "无法加载库存",
         "empty": "没有存货地点",
         "invalid": "请输入有效的整数数量。"
-      }
+      },
+      "optionRequired": "请为每个选项选择一个值。",
+      "duplicateCombination": "此选项组合已存在。"
     },
     "wizard": {
       "documentTitle": "创建商品",

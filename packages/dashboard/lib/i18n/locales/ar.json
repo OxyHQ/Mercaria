@@ -1015,7 +1015,6 @@
     "variants": {
       "add": "إضافة",
       "addFailed": "تعذّرت إضافة المتغيّر",
-      "added": "تمت إضافة المتغيّر",
       "available": "المتاح",
       "heading": "المتغيّرات والمخزون",
       "inventoryUpdateFailed": "تعذّر تحديث المخزون",
@@ -1035,7 +1034,9 @@
         "loadFailed": "تعذر تحميل المخزون",
         "empty": "لا توجد مواقع بها مخزون",
         "invalid": "أدخل كمية صحيحة صالحة."
-      }
+      },
+      "optionRequired": "اختر قيمة لكل خيار.",
+      "duplicateCombination": "مجموعة الخيارات هذه موجودة بالفعل."
     },
     "wizard": {
       "documentTitle": "إنشاء منتج",

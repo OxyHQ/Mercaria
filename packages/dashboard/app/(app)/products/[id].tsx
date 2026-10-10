@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { Trash2, Plus, Boxes } from "lucide-react-native";
+import { Trash2, Boxes } from "lucide-react-native";
 import { partitionPinnedFields } from "@mercaria/shared-types";
 import type {
   Listing,
@@ -30,7 +30,7 @@ import { Screen } from "@/components/shell/Screen";
 import { canRetainDetailData } from "@/lib/detail-query-state";
 import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
 import { VariantInventory } from "@/components/products/VariantInventory";
-import { parseInventoryQuantity } from "@/lib/inventory-quantity";
+import { CreateVariantForm } from "@/components/products/CreateVariantForm";
 import { ProductMedia } from "@/components/products/ProductMedia";
 import { DetailContent } from "@/components/shell/DetailContent";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -38,7 +38,6 @@ import {
   useProduct,
   useUpdateProduct,
   useArchiveProduct,
-  useCreateVariant,
   useUpdateVariant,
   useDeleteVariant,
   useReleaseProductPins,
@@ -318,52 +317,9 @@ function VariantsSection({
   canWrite: boolean;
 }) {
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
   const { can, store } = useActiveStoreContext();
-  const createVariant = useCreateVariant(storeId, product.id);
-  /**
-   * A new variant joins a product whose existing variants already name a
-   * currency, so it matches them; a product with none takes the STORE's
-   * (#927). Never a literal — writing FAIR here denominated a EUR store's
-   * catalogue in FairCoin, at eight decimals instead of two.
-   */
-  const currency = product.variants?.[0]?.price.currency ?? store?.defaultCurrency;
-
-  const optionName = product.options?.[0]?.name ?? "";
   const [showAdd, setShowAdd] = useState(false);
-  const [newValue, setNewValue] = useState("");
-  const [newPrice, setNewPrice] = useState("");
-  const [newStock, setNewStock] = useState("0");
-
-  const addVariant = () => {
-    // Refuse rather than default: an unknown currency must not become FAIR.
-    if (!currency) return;
-    const priceMinor = toMinorUnits(newPrice, currency);
-    if (priceMinor === null) {
-      toast.error(t("products.variants.priceInvalid"));
-      return;
-    }
-    const available = parseInventoryQuantity(newStock);
-    if (available === null) { toast.error(t("products.variants.inventory.invalid")); return; }
-    createVariant.mutate(
-      {
-        optionValues:
-          optionName && newValue.trim() ? [{ name: optionName, value: newValue.trim() }] : [],
-        price: { amount: priceMinor, currency },
-        inventory: { available },
-      },
-      {
-        onSuccess: () => {
-          toast.success(t("products.variants.added"));
-          setShowAdd(false);
-          setNewValue("");
-          setNewPrice("");
-          setNewStock("0");
-        },
-        onError: () => toast.error(t("products.variants.addFailed")),
-      },
-    );
-  };
+  const currency = product.variants?.[0]?.price.currency ?? store?.defaultCurrency;
 
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
@@ -372,65 +328,15 @@ function VariantsSection({
           {t("products.variants.heading")}
         </Text>
         {canWrite ? (
-          <Pressable
-            onPress={() => setShowAdd((s) => !s)}
-            className="flex-row items-center gap-1 active:opacity-70"
-          >
-            <Plus size={16} color={colors.primary} />
-            <Text className="text-sm font-medium text-primary">{t("products.variants.add")}</Text>
-          </Pressable>
+          <Button size="sm" appearance="outline" material="flat" disabled={showAdd}
+            onPress={() => setShowAdd(true)}>
+            {t("products.variants.add")}
+          </Button>
         ) : null}
       </View>
 
-      {showAdd ? (
-        <View className="mb-3 rounded-xl border border-border p-3">
-          {optionName ? (
-            <View className="mb-2">
-              <Field label={optionName}>
-                <TextFieldInput
-                  label={optionName}
-                  value={newValue}
-                  onValueChange={setNewValue}
-                  placeholder={t("products.variants.valuePlaceholder")}
-                />
-              </Field>
-            </View>
-          ) : null}
-          <View className="flex-row gap-2">
-            <View className="flex-1">
-              <Field label={`${t("resourceList.price")} (${currency ?? ""})`}>
-                <TextFieldInput
-                  label={`${t("resourceList.price")} (${currency ?? ""})`}
-                  value={newPrice}
-                  onValueChange={setNewPrice}
-                  keyboardType="decimal-pad"
-                  placeholder="0.00"
-                />
-              </Field>
-            </View>
-            <View className="flex-1">
-              <Field label={t("products.stockLabel")}>
-                <TextFieldInput
-                  label={t("products.stockLabel")}
-                  value={newStock}
-                  onValueChange={setNewStock}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                />
-              </Field>
-            </View>
-          </View>
-          <Button
-            tone="accent"
-            size="sm"
-            className="mt-3 self-start"
-            onPress={addVariant}
-            loading={createVariant.isPending}
-          >
-            {t("products.variants.saveVariant")}
-          </Button>
-        </View>
-      ) : null}
+      {showAdd && canWrite ? <CreateVariantForm storeId={storeId} product={product} currency={currency}
+        onClose={() => setShowAdd(false)} /> : null}
 
       <View className="gap-2">
         {product.variants.map((variant) => (

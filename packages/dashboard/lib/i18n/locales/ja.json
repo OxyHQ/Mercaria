@@ -1015,7 +1015,6 @@
     "variants": {
       "add": "追加",
       "addFailed": "バリエーションを追加できませんでした",
-      "added": "バリエーションを追加しました",
       "available": "販売可能",
       "heading": "バリエーションと在庫",
       "inventoryUpdateFailed": "在庫を更新できませんでした",
@@ -1035,7 +1034,9 @@
         "loadFailed": "在庫を読み込めませんでした",
         "empty": "在庫のある拠点はありません",
         "invalid": "有効な整数の数量を入力してください。"
-      }
+      },
+      "optionRequired": "すべてのオプションに値を指定してください。",
+      "duplicateCombination": "このオプションの組み合わせはすでに存在します。"
     },
     "wizard": {
       "documentTitle": "商品を作成",

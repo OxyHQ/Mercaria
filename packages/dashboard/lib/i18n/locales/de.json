@@ -1015,7 +1015,6 @@
     "variants": {
       "add": "Hinzufügen",
       "addFailed": "Die Variante konnte nicht hinzugefügt werden",
-      "added": "Variante hinzugefügt",
       "available": "Verfügbar",
       "heading": "Varianten und Bestand",
       "inventoryUpdateFailed": "Der Bestand konnte nicht aktualisiert werden",
@@ -1035,7 +1034,9 @@
         "loadFailed": "Bestand konnte nicht geladen werden",
         "empty": "Keine Standorte mit Bestand",
         "invalid": "Gib eine gültige ganze Menge ein."
-      }
+      },
+      "optionRequired": "Wähle für jede Option einen Wert.",
+      "duplicateCombination": "Diese Optionskombination ist bereits vorhanden."
     },
     "wizard": {
       "documentTitle": "Produkt anlegen",

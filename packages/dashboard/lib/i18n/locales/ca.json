@@ -1033,7 +1033,6 @@
     "variants": {
       "add": "Afegeix",
       "addFailed": "No s'ha pogut afegir la variant",
-      "added": "Variant afegida",
       "available": "Disponible",
       "heading": "Variants i inventari",
       "inventoryUpdateFailed": "No s'ha pogut actualitzar l'inventari",
@@ -1053,7 +1052,9 @@
         "loadFailed": "No s’ha pogut carregar l’inventari",
         "empty": "Cap ubicació amb existències",
         "invalid": "Introdueix una quantitat entera vàlida."
-      }
+      },
+      "optionRequired": "Tria un valor per a cada opció.",
+      "duplicateCombination": "Aquesta combinació d’opcions ja existeix."
     },
     "wizard": {
       "documentTitle": "Crear un producte",

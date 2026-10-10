@@ -120,7 +120,10 @@ export function useCreateVariant(storeId: string, productId: string) {
   return useMutation({
     mutationFn: (input: CreateStoreProductVariantInput) =>
       createVariant(storeId, productId, input),
-    onSuccess: () => invalidateProducts(queryClient, storeId),
+    onSuccess: (product) => {
+      queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
+      invalidateProducts(queryClient, storeId);
+    },
   });
 }
 

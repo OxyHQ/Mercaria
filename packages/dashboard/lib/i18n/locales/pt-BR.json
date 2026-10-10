@@ -1033,7 +1033,6 @@
     "variants": {
       "add": "Adicionar",
       "addFailed": "Não foi possível adicionar a variante",
-      "added": "Variante adicionada",
       "available": "Disponível",
       "heading": "Variantes e estoque",
       "inventoryUpdateFailed": "Não foi possível atualizar o estoque",
@@ -1053,7 +1052,9 @@
         "loadFailed": "Não foi possível carregar o estoque",
         "empty": "Nenhum local com estoque",
         "invalid": "Insira uma quantidade inteira válida."
-      }
+      },
+      "optionRequired": "Escolha um valor para cada opção.",
+      "duplicateCombination": "Esta combinação de opções já existe."
     },
     "wizard": {
       "documentTitle": "Criar um produto",

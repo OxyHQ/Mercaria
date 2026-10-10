@@ -98,8 +98,8 @@ export async function createVariant(
   storeId: string,
   id: string,
   input: CreateStoreProductVariantInput,
-): Promise<ProductVariantDTO> {
-  const { data } = await apiClient.post<ApiResponse<ProductVariantDTO>>(
+): Promise<Listing> {
+  const { data } = await apiClient.post<ApiResponse<Listing>>(
     `${base(storeId)}/${id}/variants`,
     input,
   );

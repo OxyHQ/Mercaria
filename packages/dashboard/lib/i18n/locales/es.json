@@ -1033,7 +1033,6 @@
     "variants": {
       "add": "Añadir",
       "addFailed": "No se ha podido añadir la variante",
-      "added": "Variante añadida",
       "available": "Disponibles",
       "heading": "Variantes e inventario",
       "inventoryUpdateFailed": "No se ha podido actualizar el inventario",
@@ -1053,7 +1052,9 @@
         "loadFailed": "No se pudo cargar el inventario",
         "empty": "Sin ubicaciones con existencias",
         "invalid": "Introduce una cantidad entera válida."
-      }
+      },
+      "optionRequired": "Elige un valor para cada opción.",
+      "duplicateCombination": "Esta combinación de opciones ya existe."
     },
     "wizard": {
       "documentTitle": "Crear un producto",
