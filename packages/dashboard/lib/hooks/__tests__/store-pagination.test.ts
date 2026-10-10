@@ -24,7 +24,7 @@ afterEach(() => {
 const hooks = [
   { name: 'products', read: (store: string, page: number) => useProducts(store, page, '') },
   { name: 'orders', read: (store: string, page: number) => useOrders(store, page, 'all') },
-  { name: 'customers', read: (store: string, page: number) => useCustomers(store, page, '') },
+  { name: 'customers', read: (store: string, page: number) => useCustomers(store, page, 'Taylor') },
 ];
 /* eslint-enable react-hooks/rules-of-hooks */
 
@@ -73,6 +73,7 @@ describe.each(hooks)('$name pagination', ({ read }) => {
 const filterCases = [
   { name: 'product search', read: (changed: boolean) => useProducts('store-a', 1, changed ? 'jacket' : '') },
   { name: 'product status', read: (changed: boolean) => useProducts('store-a', 1, '', changed ? 'active' : 'all') },
+  { name: 'customer search', read: (changed: boolean) => useCustomers('store-a', 1, changed ? 'Taylor' : '') },
   { name: 'order status', read: (changed: boolean) => useOrders('store-a', 1, changed ? 'paid' : 'all') },
 ];
 /* eslint-enable react-hooks/rules-of-hooks */
