@@ -25,7 +25,8 @@ export async function synchronizeStoreImages(storeId: string, references: readon
   });
 }
 
-/** The account must come from authenticated server context, never request data.
+/** The account must come from authenticated server context or a persisted
+ * listing owner during maintenance, never request data.
  * Canonical operators own the durable media they import into the catalogue. */
 export async function synchronizeAccountImages(ownerOxyUserId: string | undefined, references: readonly string[]): Promise<string[]> {
   return synchronizeImages(references, async () => {

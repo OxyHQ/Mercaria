@@ -572,6 +572,19 @@ The audit and current implementation:
 - Local preview seeds also put external URLs into image fields. Some category
   and merchant artwork is already bundled locally; this does not prove all
   catalog media is synchronized.
+- `src/scripts/backfill-listing-media.ts` now provides a read-only `--preview`
+  (the default) and explicit `--apply` for existing listing galleries. It uses
+  persisted user/store ownership and the real importer. Images update in place
+  only after the whole gallery uploads; row IDs, positions, alt text and variant
+  selections survive. A concurrent gallery or ownership edit produces a retry
+  instead of overwriting it. `--limit=1..500`, `--after=<listingId>` and
+  `--listing=<listingId>` bound/resume the pass. Reports contain source hashes,
+  never signed URLs. A local preview found **27 references across 12 listings**;
+  no apply/upload was run. Canonical images and store/category/collection artwork
+  are outside this listing-only command and still need their own migration.
+  Ten of those local listings use `seed.ts`'s development owner sentinel;
+  live media also needs a genuine local Oxy owner account. Do not solve this by
+  fabricating file IDs or silently importing under an unrelated account.
 
 SSM's existing Mercaria application credential successfully minted an Oxy token
 on 2026-10-10; its scopes contain no `files:*` permissions. No credential values
