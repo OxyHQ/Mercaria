@@ -91,10 +91,7 @@ import {
   type ReferralRewardRow,
 } from '../../../db/referrals/rewardRepository.js';
 import { recordRewardTransition } from '../../../db/referralEarnings/rewardTransitionRepository.js';
-import {
-  bookRewardAccrual,
-  bookRewardReversal,
-} from '../earnings/posting.service.js';
+import { bookRewardAccrual, bookRewardReversal } from '../earnings/posting.service.js';
 import {
   capPeriodStart,
   clampReward,
@@ -190,7 +187,10 @@ export async function accrueRewardForConversion(
     }
     const rule = await findRewardRuleVersion(tx, pinned);
     if (!rule) {
-      return await refuse('rule_version_not_found', `no rule version ${attribution.ruleVersionRef}`);
+      return await refuse(
+        'rule_version_not_found',
+        `no rule version ${attribution.ruleVersionRef}`,
+      );
     }
     // `superseded` is FINE and that is ADR 0005 D19 working: the pinned version
     // governs how much is earned, forever. Only RETIREMENT stops new accruals,
@@ -221,8 +221,7 @@ export async function accrueRewardForConversion(
             campaignRef: rule.campaignRef,
           })
         : undefined;
-    const recordRef =
-      rule.fundingSourceId === 'fixed_budget' ? budget?.id : input.fundingRecordRef;
+    const recordRef = rule.fundingSourceId === 'fixed_budget' ? budget?.id : input.fundingRecordRef;
     if (!recordRef) {
       return await refuse(
         'funding_source_unavailable',
@@ -253,10 +252,7 @@ export async function accrueRewardForConversion(
       );
     }
     if (realized.amountMinor <= 0) {
-      return await refuse(
-        'zero_base',
-        `${rule.fundingSourceId} realized nothing for ${recordRef}`,
-      );
+      return await refuse('zero_base', `${rule.fundingSourceId} realized nothing for ${recordRef}`);
     }
 
     const currency = realized.currency;
@@ -642,7 +638,11 @@ async function reverseRewardIn(
   // A payout is never un-paid (ADR 0005 R7): a paid reward keeps its state and
   // the shortfall becomes a liability #145's partner balance carries.
   const recoveryState =
-    delta === 0 ? 'not_applicable' : reward.state === 'paid' ? 'partner_liability' : 'offset_against_balance';
+    delta === 0
+      ? 'not_applicable'
+      : reward.state === 'paid'
+        ? 'partner_liability'
+        : 'offset_against_balance';
   const nextState: ReferralRewardState =
     reward.state === 'paid' ? 'paid' : nextNet === 0 ? 'voided' : reward.state;
 

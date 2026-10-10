@@ -262,7 +262,11 @@ export type CommercePredicate =
       readonly upper?: RangeBound;
     }
   | { readonly facet: 'availability'; readonly op: 'in'; readonly values: readonly string[] }
-  | { readonly facet: 'condition'; readonly op: 'in' | 'not_in'; readonly values: readonly string[] }
+  | {
+      readonly facet: 'condition';
+      readonly op: 'in' | 'not_in';
+      readonly values: readonly string[];
+    }
   | { readonly facet: 'market'; readonly op: 'in'; readonly territories: readonly string[] }
   | { readonly facet: 'official_channel'; readonly op: 'is'; readonly value: boolean }
   | {

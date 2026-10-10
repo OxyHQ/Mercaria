@@ -79,18 +79,12 @@ export async function resolveMerchantDemandAccess(
     .select({ storeId: nativeStoreLinks.storeId })
     .from(nativeStoreLinks)
     .where(
-      and(
-        eq(nativeStoreLinks.merchantId, input.merchantId),
-        eq(nativeStoreLinks.status, 'active'),
-      ),
+      and(eq(nativeStoreLinks.merchantId, input.merchantId), eq(nativeStoreLinks.status, 'active')),
     )
     .limit(1);
   const nativeStoreId = linkRows[0]?.storeId;
 
-  if (
-    merchant.claimState === 'claimed' &&
-    merchant.claimedByOxyUserId === input.caller.accountId
-  ) {
+  if (merchant.claimState === 'claimed' && merchant.claimedByOxyUserId === input.caller.accountId) {
     return {
       outcome: 'granted',
       via: 'claimant',

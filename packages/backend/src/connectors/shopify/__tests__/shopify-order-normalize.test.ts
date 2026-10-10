@@ -18,7 +18,12 @@ vi.mock('../../../services/fx.service.js', () => {
   const unavailable = (): never => {
     throw new Error('connector normalization must not consult Mercaria FX');
   };
-  return { getRates: unavailable, convert: unavailable, pairRate: unavailable, toDualMoney: unavailable };
+  return {
+    getRates: unavailable,
+    convert: unavailable,
+    pairRate: unavailable,
+    toDualMoney: unavailable,
+  };
 });
 
 import { createShopifyProvider, normalizeShopifyOrder } from '../index.js';
@@ -173,10 +178,15 @@ describe('normalizeShopifyOrder — status + currency edge cases', () => {
   });
 
   it('maps refunded/voided orders', () => {
-    expect(normalizeShopifyOrder(dualCurrencyOrder({ financial_status: 'refunded' }), 'USD').status).toBe('refunded');
-    expect(normalizeShopifyOrder(dualCurrencyOrder({ financial_status: 'voided' }), 'USD').status).toBe('cancelled');
     expect(
-      normalizeShopifyOrder(dualCurrencyOrder({ financial_status: 'pending' }), 'USD').paymentStatus,
+      normalizeShopifyOrder(dualCurrencyOrder({ financial_status: 'refunded' }), 'USD').status,
+    ).toBe('refunded');
+    expect(
+      normalizeShopifyOrder(dualCurrencyOrder({ financial_status: 'voided' }), 'USD').status,
+    ).toBe('cancelled');
+    expect(
+      normalizeShopifyOrder(dualCurrencyOrder({ financial_status: 'pending' }), 'USD')
+        .paymentStatus,
     ).toBe('unpaid');
   });
 

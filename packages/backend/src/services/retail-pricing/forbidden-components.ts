@@ -55,7 +55,10 @@ const FORBIDDEN_PATTERNS: readonly ForbiddenPattern[] = [
   { kind: 'referral_commission', pattern: /referral|ambassador|bounty/ },
   { kind: 'affiliate_economics', pattern: /affiliate/ },
   { kind: 'merchant_subscription_economics', pattern: /subscription|planfee|plantier/ },
-  { kind: 'paid_ranking_economics', pattern: /sponsored|paidranking|rankingboost|promotedplacement/ },
+  {
+    kind: 'paid_ranking_economics',
+    pattern: /sponsored|paidranking|rankingboost|promotedplacement/,
+  },
   { kind: 'fraud_chargeback_reserve', pattern: /fraud|chargebackreserve|disputereserve/ },
   { kind: 'return_defect_reserve', pattern: /returnreserve|defectreserve|breakagereserve/ },
   { kind: 'expected_support_cost', pattern: /supportcost|supportallowance|servicecostallowance/ },
@@ -112,10 +115,7 @@ export function detectForbiddenPricingComponents(
  * @param context Where the attempt arrived (`retail pricing policy`, …), so the
  *   message says which surface refused it.
  */
-export function assertNoForbiddenPricingComponent(
-  keys: readonly string[],
-  context: string,
-): void {
+export function assertNoForbiddenPricingComponent(keys: readonly string[], context: string): void {
   const matches = detectForbiddenPricingComponents(keys);
   if (matches.length === 0) {
     return;

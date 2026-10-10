@@ -220,8 +220,8 @@ export type CatalogTraceConvergence =
   /** Given up on, visibly. */
   | 'dead_letter';
 
-export type CatalogTraceOfferConvergenceHop
-  = | {
+export type CatalogTraceOfferConvergenceHop =
+  | {
       readonly state: 'present';
       readonly outboxId: string;
       readonly status: string;
@@ -596,7 +596,9 @@ function toDraftHop(
     market: draftRow.market,
     publishedListingId: draftRow.publishedListingId,
     publishedAt: draftRow.publishedAt,
-    hasSchemaSnapshot: flag(draftRow.schemaSnapshot !== null && draftRow.schemaSnapshot !== undefined),
+    hasSchemaSnapshot: flag(
+      draftRow.schemaSnapshot !== null && draftRow.schemaSnapshot !== undefined,
+    ),
     createdAt: draftRow.createdAt,
     updatedAt: draftRow.updatedAt,
   };
@@ -750,7 +752,11 @@ async function readMatchingHop(
     .where(inArray(matchQueue.productVariantId, variantIds));
 
   if (rows.length === 0) {
-    return { state: 'empty', reason: 'no_queue_row_for_any_variant', variantCount: variantIds.length };
+    return {
+      state: 'empty',
+      reason: 'no_queue_row_for_any_variant',
+      variantCount: variantIds.length,
+    };
   }
 
   const queuedVariantIds = new Set(rows.map((row) => row.productVariantId));

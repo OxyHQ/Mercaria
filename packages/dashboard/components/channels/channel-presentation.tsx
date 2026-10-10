@@ -12,11 +12,11 @@
  * different things (#87 UX 2).
  */
 
-import React from "react";
-import { View } from "react-native";
-import { AlertTriangle, Info, ShieldAlert } from "lucide-react-native";
-import { Badge } from "@oxy.so/bloom/badge";
-import type { AccentTone } from "@oxy.so/bloom/theme";
+import React from 'react';
+import { View } from 'react-native';
+import { AlertTriangle, Info, ShieldAlert } from 'lucide-react-native';
+import { Badge } from '@oxy.so/bloom/badge';
+import type { AccentTone } from '@oxy.so/bloom/theme';
 import type {
   ChannelConnectionState,
   ChannelEntityAbsenceReason,
@@ -31,21 +31,21 @@ import type {
   Connection,
   ConnectionWebhookFailure,
   ConnectorWebhookFailureReason,
-} from "@mercaria/shared-types";
-import { CONNECTOR_WEBHOOK_UNRETRYABLE_FAILURE_REASONS } from "@mercaria/shared-types";
-import { Text, formatDate, formatDateTime, useColorScheme, type Translate } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/shared-types';
+import { CONNECTOR_WEBHOOK_UNRETRYABLE_FAILURE_REASONS } from '@mercaria/shared-types';
+import { Text, formatDate, formatDateTime, useColorScheme, type Translate } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The five states a channel row can be in, and their tones — painted as a
  * `subtle` Bloom `Badge`, the fleet's pill for a status that is READ.
  */
 const STATE_TONES: Record<ChannelConnectionState, AccentTone> = {
-  healthy: "primary",
-  attention: "error",
-  paused: "default",
-  error: "error",
-  not_connected: "default",
+  healthy: 'primary',
+  attention: 'error',
+  paused: 'default',
+  error: 'error',
+  not_connected: 'default',
 };
 
 /**
@@ -58,11 +58,11 @@ const STATE_TONES: Record<ChannelConnectionState, AccentTone> = {
  * are two things a translator can make disagree.
  */
 const STATE_LABEL_KEYS: Record<ChannelConnectionState, string> = {
-  healthy: "channels.state.connected",
-  attention: "channels.state.needsAttention",
-  paused: "channels.state.paused",
-  error: "channels.state.needsAttention",
-  not_connected: "channels.state.notConnected",
+  healthy: 'channels.state.connected',
+  attention: 'channels.state.needsAttention',
+  paused: 'channels.state.paused',
+  error: 'channels.state.needsAttention',
+  not_connected: 'channels.state.notConnected',
 };
 
 /** A channel's current state, as a pill. */
@@ -91,8 +91,8 @@ export function NativeCheckoutBadge({ supported }: { supported: boolean }) {
     <Badge
       size="label-small"
       variant="subtle"
-      color={supported ? "primary" : "default"}
-      content={supported ? t("channels.badge.sellsOnMercaria") : t("channels.badge.comparisonOnly")}
+      color={supported ? 'primary' : 'default'}
+      content={supported ? t('channels.badge.sellsOnMercaria') : t('channels.badge.comparisonOnly')}
     />
   );
 }
@@ -109,9 +109,9 @@ export function ChannelLimitationRow({ limitation }: { limitation: ChannelLimita
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   const Icon =
-    limitation.severity === "blocks_activation"
+    limitation.severity === 'blocks_activation'
       ? ShieldAlert
-      : limitation.severity === "degrades"
+      : limitation.severity === 'degrades'
         ? AlertTriangle
         : Info;
   // `useColorScheme` exposes no destructive token, so a severity is carried by
@@ -128,7 +128,7 @@ export function ChannelLimitationRow({ limitation }: { limitation: ChannelLimita
         <Text className="text-xs text-muted-foreground">{limitation.summary}</Text>
         {limitation.openIssue !== undefined ? (
           <Text className="mt-0.5 text-[10px] font-medium text-muted-foreground">
-            {t("channels.limitation.knownIssue", { issue: limitation.openIssue })}
+            {t('channels.limitation.knownIssue', { issue: limitation.openIssue })}
           </Text>
         ) : null}
       </View>
@@ -144,11 +144,11 @@ export function ChannelLimitationRow({ limitation }: { limitation: ChannelLimita
  * copy instead of falling through to a generic sentence nobody can act on.
  */
 export const READINESS_BLOCKER_COPY_KEYS: Record<ChannelReadinessBlocker, string> = {
-  no_connected_channel: "channels.readinessBlocker.noConnectedChannel",
-  no_native_checkout_channel: "channels.readinessBlocker.noNativeCheckoutChannel",
-  no_successful_sync: "channels.readinessBlocker.noSuccessfulSync",
-  no_publishable_listing: "channels.readinessBlocker.noPublishableListing",
-  payments_not_ready: "channels.readinessBlocker.paymentsNotReady",
+  no_connected_channel: 'channels.readinessBlocker.noConnectedChannel',
+  no_native_checkout_channel: 'channels.readinessBlocker.noNativeCheckoutChannel',
+  no_successful_sync: 'channels.readinessBlocker.noSuccessfulSync',
+  no_publishable_listing: 'channels.readinessBlocker.noPublishableListing',
+  payments_not_ready: 'channels.readinessBlocker.paymentsNotReady',
 };
 
 /**
@@ -162,17 +162,17 @@ export const READINESS_BLOCKER_COPY_KEYS: Record<ChannelReadinessBlocker, string
  * `CHANNEL_SYNC_ENTITIES` fails the Typecheck Dashboard job until it has a name.
  */
 export const CHANNEL_SYNC_ENTITY_LABEL_KEYS: Record<ChannelSyncEntity, string> = {
-  products: "channels.entity.products",
-  inventory: "channels.entity.inventory",
-  orders: "channels.entity.orders",
-  collections: "channels.entity.collections",
-  customers: "channels.entity.customers",
-  discounts: "channels.entity.discounts",
-  tax_rates: "channels.entity.taxRates",
-  refunds: "channels.entity.refunds",
-  gift_cards: "channels.entity.giftCards",
-  shipping_rates: "channels.entity.shippingRates",
-  product_reviews: "channels.entity.productReviews",
+  products: 'channels.entity.products',
+  inventory: 'channels.entity.inventory',
+  orders: 'channels.entity.orders',
+  collections: 'channels.entity.collections',
+  customers: 'channels.entity.customers',
+  discounts: 'channels.entity.discounts',
+  tax_rates: 'channels.entity.taxRates',
+  refunds: 'channels.entity.refunds',
+  gift_cards: 'channels.entity.giftCards',
+  shipping_rates: 'channels.entity.shippingRates',
+  product_reviews: 'channels.entity.productReviews',
 };
 
 /**
@@ -185,28 +185,28 @@ export const CHANNEL_SYNC_ENTITY_LABEL_KEYS: Record<ChannelSyncEntity, string> =
  * generates the next report when it is not.
  */
 export const CHANNEL_ENTITY_ABSENCE_COPY_KEYS: Record<ChannelEntityAbsenceReason, string> = {
-  channel_not_implemented: "channels.entityAbsence.channelNotImplemented",
-  native_catalog_is_not_a_sync: "channels.entityAbsence.nativeCatalogIsNotASync",
-  channel_transports_products_only: "channels.entityAbsence.channelTransportsProductsOnly",
-  not_built_for_this_channel: "channels.entityAbsence.notBuiltForThisChannel",
-  not_modelled_by_mercaria: "channels.entityAbsence.notModelledByMercaria",
-  owned_by_another_system: "channels.entityAbsence.ownedByAnotherSystem",
-  imported_only_as_part_of_an_order: "channels.entityAbsence.importedOnlyAsPartOfAnOrder",
+  channel_not_implemented: 'channels.entityAbsence.channelNotImplemented',
+  native_catalog_is_not_a_sync: 'channels.entityAbsence.nativeCatalogIsNotASync',
+  channel_transports_products_only: 'channels.entityAbsence.channelTransportsProductsOnly',
+  not_built_for_this_channel: 'channels.entityAbsence.notBuiltForThisChannel',
+  not_modelled_by_mercaria: 'channels.entityAbsence.notModelledByMercaria',
+  owned_by_another_system: 'channels.entityAbsence.ownedByAnotherSystem',
+  imported_only_as_part_of_an_order: 'channels.entityAbsence.importedOnlyAsPartOfAnOrder',
 };
 
 /** What a `partial` entry means — the record does not arrive, some of its data does. */
 export const CHANNEL_ENTITY_CAVEAT_COPY_KEYS: Record<ChannelEntityCaveat, string> = {
-  membership_only_through_a_mapping: "channels.entityCaveat.membershipOnlyThroughAMapping",
-  breakdown_only_on_imported_orders: "channels.entityCaveat.breakdownOnlyOnImportedOrders",
+  membership_only_through_a_mapping: 'channels.entityCaveat.membershipOnlyThroughAMapping',
+  breakdown_only_on_imported_orders: 'channels.entityCaveat.breakdownOnlyOnImportedOrders',
 };
 
 /** Which way an entity moves, as a merchant reads it — the KEY, resolved by the caller. */
 function directionSummaryKey(directions: readonly ChannelSyncDirection[]): string {
-  const pull = directions.includes("pull");
-  const push = directions.includes("push");
-  if (pull && push) return "channels.direction.bothWays";
-  if (push) return "channels.direction.push";
-  return "channels.direction.pull";
+  const pull = directions.includes('pull');
+  const push = directions.includes('push');
+  if (pull && push) return 'channels.direction.bothWays';
+  if (push) return 'channels.direction.push';
+  return 'channels.direction.pull';
 }
 
 /**
@@ -227,27 +227,27 @@ export function ChannelCoverage({
   compact?: boolean;
 }) {
   const { t } = useTranslation();
-  const carried = coverage.filter((entry) => entry.state !== "not_synced");
-  const absent = coverage.filter((entry) => entry.state === "not_synced");
+  const carried = coverage.filter((entry) => entry.state !== 'not_synced');
+  const absent = coverage.filter((entry) => entry.state === 'not_synced');
 
   if (compact) {
     return (
       <View className="gap-1">
         <Text className="text-xs text-muted-foreground">
           <Text className="text-xs font-semibold text-foreground">
-            {t("channels.coverage.syncsLabel")}
+            {t('channels.coverage.syncsLabel')}
           </Text>
           {carried.length === 0
-            ? t("channels.coverage.nothing")
-            : carried.map((entry) => t(CHANNEL_SYNC_ENTITY_LABEL_KEYS[entry.entity])).join(", ")}
+            ? t('channels.coverage.nothing')
+            : carried.map((entry) => t(CHANNEL_SYNC_ENTITY_LABEL_KEYS[entry.entity])).join(', ')}
         </Text>
         <Text className="text-xs text-muted-foreground">
           <Text className="text-xs font-semibold text-foreground">
-            {t("channels.coverage.doesNotSyncLabel")}
+            {t('channels.coverage.doesNotSyncLabel')}
           </Text>
           {absent.length === 0
-            ? t("channels.coverage.nothing")
-            : absent.map((entry) => t(CHANNEL_SYNC_ENTITY_LABEL_KEYS[entry.entity])).join(", ")}
+            ? t('channels.coverage.nothing')
+            : absent.map((entry) => t(CHANNEL_SYNC_ENTITY_LABEL_KEYS[entry.entity])).join(', ')}
         </Text>
       </View>
     );
@@ -258,7 +258,7 @@ export function ChannelCoverage({
       {carried.length > 0 ? (
         <View className="gap-1.5">
           <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-            {t("channels.coverage.syncsHeading")}
+            {t('channels.coverage.syncsHeading')}
           </Text>
           {carried.map((entry) => (
             <View key={entry.entity} className="flex-row items-start gap-2">
@@ -266,8 +266,8 @@ export function ChannelCoverage({
                 {t(CHANNEL_SYNC_ENTITY_LABEL_KEYS[entry.entity])}
               </Text>
               <Text className="flex-1 text-xs text-muted-foreground">
-                {entry.state === "partial"
-                  ? t("channels.coverage.partial", {
+                {entry.state === 'partial'
+                  ? t('channels.coverage.partial', {
                       direction: t(directionSummaryKey(entry.directions)),
                       caveat: t(CHANNEL_ENTITY_CAVEAT_COPY_KEYS[entry.caveat]),
                     })
@@ -281,7 +281,7 @@ export function ChannelCoverage({
       {absent.length > 0 ? (
         <View className="gap-1.5">
           <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-            {t("channels.coverage.doesNotSyncHeading")}
+            {t('channels.coverage.doesNotSyncHeading')}
           </Text>
           {absent.map((entry) => (
             <View key={entry.entity} className="flex-row items-start gap-2">
@@ -289,7 +289,7 @@ export function ChannelCoverage({
                 {t(CHANNEL_SYNC_ENTITY_LABEL_KEYS[entry.entity])}
               </Text>
               <Text className="flex-1 text-xs text-muted-foreground">
-                {entry.state === "not_synced"
+                {entry.state === 'not_synced'
                   ? t(CHANNEL_ENTITY_ABSENCE_COPY_KEYS[entry.reason])
                   : null}
               </Text>
@@ -321,13 +321,13 @@ export function describeOrderHorizon(
   locale: string,
 ): string | null {
   switch (horizon.kind) {
-    case "complete":
+    case 'complete':
       return null;
-    case "not_synced":
-      return t("channels.orderHorizon.notSynced");
-    case "unknown":
-      return t("channels.orderHorizon.unknown");
-    case "bounded": {
+    case 'not_synced':
+      return t('channels.orderHorizon.notSynced');
+    case 'unknown':
+      return t('channels.orderHorizon.unknown');
+    case 'bounded': {
       // The locale is REQUIRED (#529): `toLocaleDateString()` with none renders
       // the cut-off in the DEVICE's language inside a merchant's sentence. The
       // sentence NAMES that date, so an unformattable one answers `null` — which
@@ -335,21 +335,21 @@ export function describeOrderHorizon(
       // already handles — rather than interpolating a null.
       const before = formatDate(Date.now() - horizon.days * 24 * 60 * 60 * 1000, locale);
       if (before === null) return null;
-      return t("channels.orderHorizon.bounded", { count: horizon.days, before });
+      return t('channels.orderHorizon.bounded', { count: horizon.days, before });
     }
   }
 }
 
 /** Merchant-facing channel names, for a screen that has only the id. */
 export const CHANNEL_TYPE_NAME_KEYS: Record<ChannelTypeId, string> = {
-  shopify: "channels.type.shopify",
-  woocommerce: "channels.type.woocommerce",
-  woocommerce_plugin: "channels.type.woocommercePlugin",
-  etsy: "channels.type.etsy",
-  prestashop: "channels.type.prestashop",
-  magento: "channels.type.magento",
-  product_feed: "channels.type.productFeed",
-  native: "channels.type.native",
+  shopify: 'channels.type.shopify',
+  woocommerce: 'channels.type.woocommerce',
+  woocommerce_plugin: 'channels.type.woocommercePlugin',
+  etsy: 'channels.type.etsy',
+  prestashop: 'channels.type.prestashop',
+  magento: 'channels.type.magento',
+  product_feed: 'channels.type.productFeed',
+  native: 'channels.type.native',
 };
 
 /**
@@ -376,17 +376,17 @@ export function formatWhen(iso: string | undefined, absent: string, locale: stri
  * any retry could ever fix it rather than on the individual topic.
  */
 export const WEBHOOK_FAILURE_REASON_COPY_KEYS: Record<ConnectorWebhookFailureReason, string> = {
-  permission_denied: "channels.webhookFailureReason.permissionDenied",
-  rate_limited: "channels.webhookFailureReason.rateLimited",
-  topic_not_supported: "channels.webhookFailureReason.topicNotSupported",
-  platform_error: "channels.webhookFailureReason.platformError",
-  unexpected_response: "channels.webhookFailureReason.unexpectedResponse",
-  transport_error: "channels.webhookFailureReason.transportError",
+  permission_denied: 'channels.webhookFailureReason.permissionDenied',
+  rate_limited: 'channels.webhookFailureReason.rateLimited',
+  topic_not_supported: 'channels.webhookFailureReason.topicNotSupported',
+  platform_error: 'channels.webhookFailureReason.platformError',
+  unexpected_response: 'channels.webhookFailureReason.unexpectedResponse',
+  transport_error: 'channels.webhookFailureReason.transportError',
 };
 
 /** The five things a merchant's real-time sync can be doing (#262). */
 export interface WebhookDeliveryPresentation {
-  readonly state: "healthy" | "unregistered" | "retrying" | "refused" | "stopped";
+  readonly state: 'healthy' | 'unregistered' | 'retrying' | 'refused' | 'stopped';
   readonly headline: string;
   readonly detail: string;
   /** What the button says — "try now" while Mercaria is already retrying. */
@@ -421,13 +421,13 @@ function remedyFor(
 ): string | undefined {
   const reasons = new Set(failures.map((failure) => failure.reason).filter(isUnretryable));
   const sentences: string[] = [];
-  if (reasons.has("permission_denied")) {
-    sentences.push(t("channels.webhooks.remedyPermissionDenied", { provider: providerName }));
+  if (reasons.has('permission_denied')) {
+    sentences.push(t('channels.webhooks.remedyPermissionDenied', { provider: providerName }));
   }
-  if (reasons.has("topic_not_supported")) {
-    sentences.push(t("channels.webhooks.remedyTopicNotSupported", { provider: providerName }));
+  if (reasons.has('topic_not_supported')) {
+    sentences.push(t('channels.webhooks.remedyTopicNotSupported', { provider: providerName }));
   }
-  return sentences.length > 0 ? sentences.join(" ") : undefined;
+  return sentences.length > 0 ? sentences.join(' ') : undefined;
 }
 
 /**
@@ -461,20 +461,20 @@ export function deriveWebhookDelivery(
   const registration = connection.webhookRegistration;
   const remedy = remedyFor(failures, providerName, t);
 
-  if (registration?.state === "dead_letter") {
+  if (registration?.state === 'dead_letter') {
     // No failures recorded means the registration never got far enough to name a
     // topic — a credential Mercaria could not resolve is the case that produces
     // it, and reconnecting is the only thing that fixes that one.
     const cause =
       remedy ??
       (failures.length > 0
-        ? t("channels.webhooks.causeUnreachable", { provider: providerName })
-        : t("channels.webhooks.causeIncomplete"));
+        ? t('channels.webhooks.causeUnreachable', { provider: providerName })
+        : t('channels.webhooks.causeIncomplete'));
     return {
-      state: "stopped",
-      headline: t("channels.webhooks.stoppedHeadline"),
-      detail: t("channels.webhooks.stoppedDetail", { count: registration.attempts, cause }),
-      actionLabel: t("channels.webhooks.registerAgain"),
+      state: 'stopped',
+      headline: t('channels.webhooks.stoppedHeadline'),
+      detail: t('channels.webhooks.stoppedDetail', { count: registration.attempts, cause }),
+      actionLabel: t('channels.webhooks.registerAgain'),
     };
   }
 
@@ -487,60 +487,60 @@ export function deriveWebhookDelivery(
   // channel nobody has registered yet falls through to the `webhookIds` branch,
   // which says so plainly and offers the button that starts it.
   if (
-    registration?.state === "pending" &&
+    registration?.state === 'pending' &&
     (registration.attempts > 0 || registration.nextAttemptAt !== undefined)
   ) {
     // `nextAttemptAt` is absent on a claim that is in flight right now, and can
     // be in the PAST for one that is due — printing a past timestamp beside
     // "the next attempt is" reads as a stuck queue, so both say "due now".
     const scheduled = registration.nextAttemptAt;
-    const dueNow = t("channels.webhooks.dueNow");
+    const dueNow = t('channels.webhooks.dueNow');
     const due =
       scheduled !== undefined && new Date(scheduled).getTime() > now.getTime()
         ? formatWhen(scheduled, dueNow, locale)
         : dueNow;
     return {
-      state: "retrying",
-      headline: t("channels.webhooks.retryingHeadline"),
-      detail: t("channels.webhooks.retryingDetail", {
+      state: 'retrying',
+      headline: t('channels.webhooks.retryingHeadline'),
+      detail: t('channels.webhooks.retryingDetail', {
         due,
-        remedy: remedy ?? t("channels.webhooks.bringForward"),
+        remedy: remedy ?? t('channels.webhooks.bringForward'),
       }),
-      actionLabel: t("channels.webhooks.tryNow"),
+      actionLabel: t('channels.webhooks.tryNow'),
     };
   }
 
   if (failures.length > 0) {
     return {
-      state: "refused",
-      headline: t("channels.webhooks.refusedHeadline"),
+      state: 'refused',
+      headline: t('channels.webhooks.refusedHeadline'),
       detail:
         remedy ??
         // Every refusal here is one a retry could take (an unretryable one would
         // have produced a `remedy`), and such a connection IS in the sweep's
         // population — so the schedule can be promised rather than leaving the
         // merchant to think the button is the only thing that will ever try.
-        t("channels.webhooks.refusedDetail", { provider: providerName }),
-      actionLabel: t("channels.webhooks.registerAgain"),
+        t('channels.webhooks.refusedDetail', { provider: providerName }),
+      actionLabel: t('channels.webhooks.registerAgain'),
     };
   }
 
   if (connection.webhookIds.length === 0) {
     return {
-      state: "unregistered",
-      headline: t("channels.webhooks.unregisteredHeadline"),
-      detail: t("channels.webhooks.unregisteredDetail", { provider: providerName }),
-      actionLabel: t("channels.webhooks.register"),
+      state: 'unregistered',
+      headline: t('channels.webhooks.unregisteredHeadline'),
+      detail: t('channels.webhooks.unregisteredDetail', { provider: providerName }),
+      actionLabel: t('channels.webhooks.register'),
     };
   }
 
   return {
-    state: "healthy",
-    headline: t("channels.webhooks.healthyHeadline"),
-    detail: t("channels.webhooks.healthyDetail", {
+    state: 'healthy',
+    headline: t('channels.webhooks.healthyHeadline'),
+    detail: t('channels.webhooks.healthyDetail', {
       count: connection.webhookIds.length,
       provider: providerName,
     }),
-    actionLabel: t("channels.webhooks.registerAgain"),
+    actionLabel: t('channels.webhooks.registerAgain'),
   };
 }

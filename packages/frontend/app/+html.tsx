@@ -33,10 +33,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
 
         {/* Viewport and mobile optimization */}
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, shrink-to-fit=no"
-        />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
         {/* Security and Performance */}
         <meta httpEquiv="Content-Security-Policy" content="upgrade-insecure-requests" />
@@ -45,10 +42,7 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Primary Meta Tags */}
         <meta name="title" content="Mercaria" />
-        <meta
-          name="description"
-          content={SITE_DESCRIPTION}
-        />
+        <meta name="description" content={SITE_DESCRIPTION} />
         <meta
           name="keywords"
           content="marketplace, buy, sell, secondhand, shops, ecommerce, classifieds, Oxy"
@@ -58,20 +52,14 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://mercaria.co/" />
         <meta property="og:title" content="Mercaria" />
-        <meta
-          property="og:description"
-          content={SITE_DESCRIPTION}
-        />
+        <meta property="og:description" content={SITE_DESCRIPTION} />
         <meta property="og:image" content="/og-image.png" />
 
         {/* Twitter Card Meta Tags */}
         <meta property="twitter:card" content="summary_large_image" />
         <meta property="twitter:url" content="https://mercaria.co/" />
         <meta property="twitter:title" content="Mercaria" />
-        <meta
-          property="twitter:description"
-          content={SITE_DESCRIPTION}
-        />
+        <meta property="twitter:description" content={SITE_DESCRIPTION} />
         <meta property="twitter:image" content="/og-image.png" />
 
         {/* Theme color for mobile browsers */}

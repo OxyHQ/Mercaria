@@ -94,11 +94,7 @@ export function readPortalToken(value: string | undefined): string | undefined {
   return matches(value, PORTAL_TOKEN_PREFIX, PORTAL_TOKEN_PATTERN) ? value : undefined;
 }
 
-function matches(
-  value: string | undefined,
-  prefix: string,
-  pattern: RegExp,
-): value is string {
+function matches(value: string | undefined, prefix: string, pattern: RegExp): value is string {
   // Length first: the patterns are anchored and linear anyway, but refusing on
   // length keeps the cost of an adversarial megabyte cookie constant.
   if (value === undefined || value.length !== prefix.length + TOKEN_BODY_LENGTH) return false;

@@ -189,10 +189,7 @@ async function makeProviderEventRow(expiresAt: Date): Promise<string> {
  * The `tokenHash` is a synthetic unique marker, never a real token's hash —
  * what is under test is the purge predicate, and the resolver is not in play.
  */
-async function makeGuestSessionRow(input: {
-  expiresAt: Date;
-  revokedAt?: Date;
-}): Promise<string> {
+async function makeGuestSessionRow(input: { expiresAt: Date; revokedAt?: Date }): Promise<string> {
   const [row] = await db
     .insert(guestSessions)
     .values({
@@ -404,9 +401,7 @@ afterEach(async () => {
   }
   const salts = saltEpochs.splice(0);
   if (salts.length > 0) {
-    await db
-      .delete(analyticsPseudonymSalts)
-      .where(inArray(analyticsPseudonymSalts.epoch, salts));
+    await db.delete(analyticsPseudonymSalts).where(inArray(analyticsPseudonymSalts.epoch, salts));
   }
 });
 
@@ -568,7 +563,9 @@ describe('the registry the sweeper runs over', () => {
 
   it('gives every target a reason, since a registry entry authorises a DELETE', () => {
     for (const target of EXPIRY_TARGETS) {
-      expect(target.reason.length, `${getTableName(target.table)} has no reason`).toBeGreaterThan(0);
+      expect(target.reason.length, `${getTableName(target.table)} has no reason`).toBeGreaterThan(
+        0,
+      );
     }
   });
 });
@@ -664,10 +661,9 @@ describe('sweepExpiredRowsOnce — the tick the scheduler runs', () => {
 
     await sweepExpiredRowsOnce();
 
-    expect(
-      await guestSessionExists(revokedPastGrace),
-      'the long-revoked session survived',
-    ).toBe(false);
+    expect(await guestSessionExists(revokedPastGrace), 'the long-revoked session survived').toBe(
+      false,
+    );
     expect(
       await guestSessionExists(revokedInsideGrace),
       'a freshly revoked session was reaped',

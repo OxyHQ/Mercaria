@@ -348,8 +348,7 @@ describe('outbound isolation (#67)', () => {
       // The link-composition wall applies IN FULL to the redirect half only;
       // the reconciliation half answers to the pair below. Every other wall
       // applies to the whole domain.
-      const subject =
-        wall.pattern === LINK_COMPOSITION ? redirectHalf : files;
+      const subject = wall.pattern === LINK_COMPOSITION ? redirectHalf : files;
       let scanned = 0;
       for (const file of subject) {
         scanned += 1;
@@ -384,9 +383,7 @@ describe('outbound isolation (#67)', () => {
     expect(UNCONDITIONAL_LINK_COMPOSITION.test("params.set('clickref', clickId)")).toBe(true);
     expect(UNCONDITIONAL_LINK_COMPOSITION.test("readRef(record['clickRef'])")).toBe(false);
     // ...and the API request the poll legitimately builds is NOT flagged.
-    expect(UNCONDITIONAL_LINK_COMPOSITION.test("url.searchParams.set('startDate', d)")).toBe(
-      false,
-    );
+    expect(UNCONDITIONAL_LINK_COMPOSITION.test("url.searchParams.set('startDate', d)")).toBe(false);
     expect(DESTINATION_REFERENCE.test('networkClickRef: row.clickRef ?? null,')).toBe(false);
   });
 
@@ -445,16 +442,18 @@ describe('outbound isolation (#67)', () => {
     expect(LOCAL_FRESHNESS_REFERENCE.test('const OUTBOUND_TTL_SECONDS = 3600;')).toBe(true);
     expect(FAIRCOIN_REFERENCE.test('// settles in FairCoin')).toBe(true);
     expect(FAIRCOIN_REFERENCE.test('// pay through Peable')).toBe(true);
-    expect(REFERRAL_REFERENCE.test("import { attribute } from '../referrals/attribution.service.js';")).toBe(
-      true,
-    );
+    expect(
+      REFERRAL_REFERENCE.test("import { attribute } from '../referrals/attribution.service.js';"),
+    ).toBe(true);
     // ...and the seam allowance really does distinguish the one permitted import.
     const permitted = (line: string) => REFERRAL_SEAMS.some((seam) => seam.test(line));
     expect(permitted("import { classifyReferralTraffic } from '../referrals/traffic.js';")).toBe(
       true,
     );
     expect(
-      permitted("import { registerAffiliateCommissionReader } from '../referrals/rewards/funding.js';"),
+      permitted(
+        "import { registerAffiliateCommissionReader } from '../referrals/rewards/funding.js';",
+      ),
     ).toBe(true);
     // ...and everything else in the referral tree is still refused.
     expect(permitted("import { attribute } from '../referrals/attribution.service.js';")).toBe(
@@ -492,8 +491,12 @@ describe('outbound isolation (#67)', () => {
         columnsSeen += 1;
         const name = column.name.toLowerCase();
         for (const forbidden of AFFILIATE_FORBIDDEN_CLICK_FACTS) {
-          expect({ table: getTableName(table), column: name, forbidden, hit: name === forbidden })
-            .toEqual({ table: getTableName(table), column: name, forbidden, hit: false });
+          expect({
+            table: getTableName(table),
+            column: name,
+            forbidden,
+            hit: name === forbidden,
+          }).toEqual({ table: getTableName(table), column: name, forbidden, hit: false });
         }
       }
     }

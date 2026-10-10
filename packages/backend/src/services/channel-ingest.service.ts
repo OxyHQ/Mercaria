@@ -174,7 +174,10 @@ function toVariantInput(
 ): CreateStoreProductVariantInput {
   const input: CreateStoreProductVariantInput = {
     optionValues: (variant.optionValues ?? []).map((o) => ({ name: o.name, value: o.value })),
-    price: applyPriceRules({ amount: variant.price.amount, currency: variant.price.currency }, priceRules),
+    price: applyPriceRules(
+      { amount: variant.price.amount, currency: variant.price.currency },
+      priceRules,
+    ),
     inventory:
       variant.inventory === undefined
         ? { tracked: false, available: 0 }
@@ -285,9 +288,7 @@ function buildSource(conn: ConnectionRow, product: IngestProduct): ListingSource
     sourceConnectionId: conn.id,
     sourceProvider: conn.provider,
     sourceExternalId: product.externalId,
-    sourceExternalUpdatedAt: product.externalUpdatedAt
-      ? new Date(product.externalUpdatedAt)
-      : null,
+    sourceExternalUpdatedAt: product.externalUpdatedAt ? new Date(product.externalUpdatedAt) : null,
   };
 }
 
@@ -428,11 +429,7 @@ async function upsertProduct(
 ): Promise<{ action: UpsertOutcome; listingId: string }> {
   // `let` because the create branch may LOSE the provenance-unique race and fall
   // through to the update branch with the row the winner wrote (#221).
-  let existing = await findListingBySourceExternalId(
-    conn.storeId,
-    conn.id,
-    product.externalId,
-  );
+  let existing = await findListingBySourceExternalId(conn.storeId, conn.id, product.externalId);
 
   if (!existing) {
     // #221: the provenance and the initial status are written by the listing's
@@ -445,21 +442,17 @@ async function upsertProduct(
     try {
       const input = toCreateInput(product, opts.categorySlug, opts.priceRules);
       input.imageFileIds = await synchronizeStoreImages(conn.storeId, input.imageFileIds ?? []);
-      createdListingId = await createStoreProduct(
-        conn.storeId,
-        input,
-        {
-          locationId: opts.importLocationId,
-          source: buildSource(conn, product),
-          status: opts.autoPublish ? 'active' : 'draft',
-          // No `variantSources`, and that is structural rather than an omission:
-          // `IngestProductVariant` (`shared-types/src/integration.ts`) carries no
-          // external variant id and no inventory item id, so this wire DTO cannot
-          // express one. The push-in path matches variants by SKU throughout,
-          // consistently with that. It becomes available when the plugin sends
-          // those ids, not before.
-        },
-      );
+      createdListingId = await createStoreProduct(conn.storeId, input, {
+        locationId: opts.importLocationId,
+        source: buildSource(conn, product),
+        status: opts.autoPublish ? 'active' : 'draft',
+        // No `variantSources`, and that is structural rather than an omission:
+        // `IngestProductVariant` (`shared-types/src/integration.ts`) carries no
+        // external variant id and no inventory item id, so this wire DTO cannot
+        // express one. The push-in path matches variants by SKU throughout,
+        // consistently with that. It becomes available when the plugin sends
+        // those ids, not before.
+      });
     } catch (err) {
       // The provenance unique, by CONSTRAINT NAME off the driver error (a drizzle
       // error's SQLSTATE is on `cause`, never `error.code`). Two plugin instances
@@ -474,11 +467,7 @@ async function upsertProduct(
       if (!isUniqueViolation(err, 'listings_store_id_source_key_idx')) {
         throw err;
       }
-      const raced = await findListingBySourceExternalId(
-        conn.storeId,
-        conn.id,
-        product.externalId,
-      );
+      const raced = await findListingBySourceExternalId(conn.storeId, conn.id, product.externalId);
       // The constraint fired and the row is not there: something other than the
       // race we can explain. Rethrow the ORIGINAL error rather than invent one.
       if (!raced) {
@@ -494,9 +483,7 @@ async function upsertProduct(
   }
 
   const listingId = existing.id;
-  const overridden = opts.respectOverrides
-    ? new Set(existing.overriddenFields)
-    : new Set<string>();
+  const overridden = opts.respectOverrides ? new Set(existing.overriddenFields) : new Set<string>();
   const patch = toUpdatePatch(product, overridden);
   if (patch.imageFileIds !== undefined) {
     patch.imageFileIds = await synchronizeStoreImages(conn.storeId, patch.imageFileIds);
@@ -614,11 +601,7 @@ async function resolveInventoryVariant(
   conn: ConnectionRow,
   item: { externalId: string; sku?: string },
 ): Promise<InventoryVariantResolution> {
-  const listing = await findListingBySourceExternalId(
-    conn.storeId,
-    conn.id,
-    item.externalId,
-  );
+  const listing = await findListingBySourceExternalId(conn.storeId, conn.id, item.externalId);
   if (!listing) {
     return { outcome: 'unmapped' };
   }
@@ -739,7 +722,11 @@ export async function ingestInventory(
       }
       await setAvailable(mapping.variantId, mapping.listingId, locationId, item.available);
       counts.updated += 1;
-      results.push({ externalId: item.externalId, action: 'updated', variantId: mapping.variantId });
+      results.push({
+        externalId: item.externalId,
+        action: 'updated',
+        variantId: mapping.variantId,
+      });
     } catch (err) {
       counts.failed += 1;
       recordFailures.push({

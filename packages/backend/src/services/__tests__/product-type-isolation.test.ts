@@ -189,7 +189,10 @@ describe('the product-type domain scans a real, non-trivial file set', () => {
     expect(sourceFiles(DOMAIN_DIRS[0]).length).toBeGreaterThanOrEqual(3);
     expect(sourceFiles(DOMAIN_DIRS[1]).length).toBeGreaterThanOrEqual(2);
     for (const file of DOMAIN_FILES) {
-      expect(readFileSync(file, 'utf8').length, `${relative(SRC_ROOT, file)} looks empty`).toBeGreaterThan(400);
+      expect(
+        readFileSync(file, 'utf8').length,
+        `${relative(SRC_ROOT, file)} looks empty`,
+      ).toBeGreaterThan(400);
     }
     expect(statSync(SCHEMA_FILE).size).toBeGreaterThan(4_000);
   });
@@ -251,10 +254,18 @@ describe('a product type cannot reach money, stock or ranking', () => {
     // Through `detects`, which is the function the scan above calls: a self-test
     // that matched a literal directly would be a control on a different
     // instrument from the one under test.
-    expect(detects(COMMERCE_REFERENCE, "import { postLedger } from '../payments/ledgerRepository.js';")).toBe(true);
-    expect(detects(COMMERCE_REFERENCE, "import { rankOffers } from '../ranking/ranking.js';")).toBe(true);
-    expect(detects(COMMERCE_REFERENCE, 'const rows = await db.select().from(inventory_levels);')).toBe(true);
-    expect(detects(COMMERCE_REFERENCE, "import { getDb } from '../../db/postgres.js';")).toBe(false);
+    expect(
+      detects(COMMERCE_REFERENCE, "import { postLedger } from '../payments/ledgerRepository.js';"),
+    ).toBe(true);
+    expect(detects(COMMERCE_REFERENCE, "import { rankOffers } from '../ranking/ranking.js';")).toBe(
+      true,
+    );
+    expect(
+      detects(COMMERCE_REFERENCE, 'const rows = await db.select().from(inventory_levels);'),
+    ).toBe(true);
+    expect(detects(COMMERCE_REFERENCE, "import { getDb } from '../../db/postgres.js';")).toBe(
+      false,
+    );
     // And it is blind to a comment, which is what makes the real scan's silence
     // mean something: every module here NAMES these domains while explaining
     // that it does not reach them.
@@ -278,7 +289,9 @@ describe('the visibility-rule interpreter cannot execute anything', () => {
     expect(detects(CODE_EXECUTION, 'const fn = new Function("draft", rule.body);')).toBe(true);
     expect(detects(CODE_EXECUTION, "import vm from 'node:vm';")).toBe(true);
     expect(detects(CODE_EXECUTION, "import { compile } from 'handlebars';")).toBe(true);
-    expect(detects(CODE_EXECUTION, 'const outcome = evaluateNode(rule, values, trace);')).toBe(false);
+    expect(detects(CODE_EXECUTION, 'const outcome = evaluateNode(rule, values, trace);')).toBe(
+      false,
+    );
   });
 
   it('no module in the domain builds a RegExp from anything but a literal', () => {
@@ -293,7 +306,9 @@ describe('the visibility-rule interpreter cannot execute anything', () => {
       }
     }
     expect(offenders).toEqual([]);
-    expect(/new\s+RegExp\s*\(/.test(stripComments('const re = new RegExp(row.pattern);'))).toBe(true);
+    expect(/new\s+RegExp\s*\(/.test(stripComments('const re = new RegExp(row.pattern);'))).toBe(
+      true,
+    );
   });
 });
 
@@ -373,15 +388,20 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       COMMERCE_REFERENCE.test("import { helper } from '../payments/thing.service.js';"),
       "a module here reaches payments as '../payments/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCE_REFERENCE.test("import { helper } from '../../services/payments/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCE_REFERENCE.test("import { helper } from '../../services/payments/thing.service.js';"),
+    ).toBe(true);
     expect(
       COMMERCE_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
       "a module here reaches ranking as '../ranking/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCE_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCE_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';"),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(COMMERCE_REFERENCE.test("import { helper } from '../payments-display/format.js';")).toBe(false);
+    expect(COMMERCE_REFERENCE.test("import { helper } from '../payments-display/format.js';")).toBe(
+      false,
+    );
     expect(COMMERCE_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
-
 });

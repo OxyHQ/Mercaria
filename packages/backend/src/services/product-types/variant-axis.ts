@@ -41,7 +41,11 @@ export type VariantAxisRefusal = 'scope_is_not_variant' | 'attribute_may_not_be_
  */
 export type VariantAxisVerdict =
   | { readonly outcome: 'permitted' }
-  | { readonly outcome: 'refused'; readonly refusal: VariantAxisRefusal; readonly attributeKey: string };
+  | {
+      readonly outcome: 'refused';
+      readonly refusal: VariantAxisRefusal;
+      readonly attributeKey: string;
+    };
 
 /**
  * May this (scope, attribute) pair carry `variant_capable`?

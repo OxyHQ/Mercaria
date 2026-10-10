@@ -366,9 +366,9 @@ describe('the property over every pair, not over the examples above', () => {
     // requires every facet to match and the keys to differ, which is what makes
     // it a statement about missing DATA rather than about the systems.
     const twin: SizeSystem = { ...systemNamed('shoe_size_eu'), key: 'shoe_size_eu_legacy' };
-    expect(compareSizeDeclarations(sized(systemNamed('shoe_size_eu'), '42'), sized(twin, '42'))).toEqual(
-      { outcome: 'refused', reason: 'no_sourced_mapping' },
-    );
+    expect(
+      compareSizeDeclarations(sized(systemNamed('shoe_size_eu'), '42'), sized(twin, '42')),
+    ).toEqual({ outcome: 'refused', reason: 'no_sourced_mapping' });
   });
 });
 
@@ -468,7 +468,9 @@ describe('no module in the backend converts between size systems', () => {
     for (const { signal, pattern } of SIZE_CONVERSION_SIGNALS) {
       const fixture = positives[signal];
       expect(fixture, `no fixture for ${signal}`).toBeDefined();
-      expect(pattern.test(fixture as string), `${signal} did not fire on its own fixture`).toBe(true);
+      expect(pattern.test(fixture as string), `${signal} did not fire on its own fixture`).toBe(
+        true,
+      );
       expect(pattern.test(negative), `${signal} fires on ordinary code`).toBe(false);
     }
   });
@@ -495,16 +497,23 @@ describe('the forbidden operations are named as values and none of them exists',
     expect(exported.length).toBeGreaterThanOrEqual(10);
 
     const snake = (name: string) =>
-      name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/([A-Z])([A-Z][a-z])/g, '$1_$2').toLowerCase();
+      name
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
+        .toLowerCase();
     // The normalizer's own control, or a broken one makes every comparison
     // below fail to match and the disjointness pass for the wrong reason.
     expect(snake('sizeConversion')).toBe('size_conversion');
-    expect(SIZE_SYSTEM_FORBIDDEN_OPERATIONS as readonly string[]).toContain(snake('sizeConversion'));
+    expect(SIZE_SYSTEM_FORBIDDEN_OPERATIONS as readonly string[]).toContain(
+      snake('sizeConversion'),
+    );
 
     const offenders = exported.filter((name) =>
       (SIZE_SYSTEM_FORBIDDEN_OPERATIONS as readonly string[]).includes(snake(name)),
     );
-    expect(offenders, `the module exports a forbidden operation: ${offenders.join(', ')}`).toEqual([]);
+    expect(offenders, `the module exports a forbidden operation: ${offenders.join(', ')}`).toEqual(
+      [],
+    );
     expect(SIZE_SYSTEM_FORBIDDEN_OPERATIONS.length).toBeGreaterThanOrEqual(5);
     expect(new Set(SIZE_SYSTEM_FORBIDDEN_OPERATIONS).size).toBe(
       SIZE_SYSTEM_FORBIDDEN_OPERATIONS.length,

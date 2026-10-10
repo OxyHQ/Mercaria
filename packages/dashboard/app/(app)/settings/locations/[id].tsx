@@ -1,38 +1,38 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import * as WebBrowser from "expo-web-browser";
-import { ChevronLeft } from "lucide-react-native";
-import type { Place } from "@goway.to/sdk";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { Badge } from "@oxy.so/bloom/badge";
-import { Button } from "@oxy.so/bloom/button";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { EditorSection } from "@/components/locations/EditorSection";
-import { HoursExceptionsCard } from "@/components/locations/HoursExceptionsCard";
-import { PlaceAccessibilityCard } from "@/components/locations/PlaceAccessibilityCard";
-import { PlaceClaimCard } from "@/components/locations/PlaceClaimCard";
-import { PlaceContactCard } from "@/components/locations/PlaceContactCard";
-import { PlaceHoursCard } from "@/components/locations/PlaceHoursCard";
-import { PlaceLinkStatusCard } from "@/components/locations/PlaceLinkStatusCard";
-import { PlacePickerCard } from "@/components/locations/PlacePickerCard";
-import { PublicationCard } from "@/components/locations/PublicationCard";
-import { StoreLinkCard } from "@/components/locations/StoreLinkCard";
-import { useGoWayPlace, useGoWayPlaceUrl, usePlaceClaims } from "@/lib/goway/hooks";
-import { goWayErrorKey } from "@/lib/goway/errors";
-import { claimOnPlace } from "@/lib/goway/place-link";
-import { useLocationPublication } from "@/lib/hooks/use-location-publication";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
-import { useLocations } from "@/lib/hooks/use-tax-and-locations";
-import { useTranslation } from "@/lib/i18n";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import * as WebBrowser from 'expo-web-browser';
+import { ChevronLeft } from 'lucide-react-native';
+import type { Place } from '@goway.to/sdk';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { Badge } from '@oxy.so/bloom/badge';
+import { Button } from '@oxy.so/bloom/button';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { EditorSection } from '@/components/locations/EditorSection';
+import { HoursExceptionsCard } from '@/components/locations/HoursExceptionsCard';
+import { PlaceAccessibilityCard } from '@/components/locations/PlaceAccessibilityCard';
+import { PlaceClaimCard } from '@/components/locations/PlaceClaimCard';
+import { PlaceContactCard } from '@/components/locations/PlaceContactCard';
+import { PlaceHoursCard } from '@/components/locations/PlaceHoursCard';
+import { PlaceLinkStatusCard } from '@/components/locations/PlaceLinkStatusCard';
+import { PlacePickerCard } from '@/components/locations/PlacePickerCard';
+import { PublicationCard } from '@/components/locations/PublicationCard';
+import { StoreLinkCard } from '@/components/locations/StoreLinkCard';
+import { useGoWayPlace, useGoWayPlaceUrl, usePlaceClaims } from '@/lib/goway/hooks';
+import { goWayErrorKey } from '@/lib/goway/errors';
+import { claimOnPlace } from '@/lib/goway/place-link';
+import { useLocationPublication } from '@/lib/hooks/use-location-publication';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { useLocations } from '@/lib/hooks/use-tax-and-locations';
+import { useTranslation } from '@/lib/i18n';
 
 /** What a place's status reads as, as KEYS. */
-const PLACE_STATUS_KEYS: Record<Place["status"], string> = {
-  active: "settings.locations.editor.place.status.active",
-  closed: "settings.locations.editor.place.status.closed",
-  proposed: "settings.locations.editor.place.status.proposed",
+const PLACE_STATUS_KEYS: Record<Place['status'], string> = {
+  active: 'settings.locations.editor.place.status.active',
+  closed: 'settings.locations.editor.place.status.closed',
+  proposed: 'settings.locations.editor.place.status.proposed',
 };
 
 /**
@@ -54,7 +54,7 @@ export default function LocationEditorScreen() {
   return (
     <>
       <Head>
-        <title>{t("settings.locations.editor.documentTitle")}</title>
+        <title>{t('settings.locations.editor.documentTitle')}</title>
       </Head>
       <RequireStore permission="locations:write">
         {(storeId) => <LocationEditorBody storeId={storeId} locationId={String(id)} />}
@@ -88,27 +88,30 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
     </Pressable>
   );
 
   if (locations.isPending || publication.isPending || !store) {
     return (
-      <Screen title={t("settings.locations.editor.title")} action={back}>
+      <Screen title={t('settings.locations.editor.title')} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (locations.isError || publication.isError || location === undefined) {
     return (
-      <Screen title={t("settings.locations.editor.title")} action={back}>
-        <ScreenMessage title={t("settings.locations.editor.loadFailed")} body={t("common.pleaseTryAgain")} />
+      <Screen title={t('settings.locations.editor.title')} action={back}>
+        <ScreenMessage
+          title={t('settings.locations.editor.loadFailed')}
+          body={t('common.pleaseTryAgain')}
+        />
       </Screen>
     );
   }
 
   return (
-    <Screen title={location.name} subtitle={t("settings.locations.editor.subtitle")} action={back}>
+    <Screen title={location.name} subtitle={t('settings.locations.editor.subtitle')} action={back}>
       <View className="gap-4 pb-10">
         <PlaceLinkStatusCard
           storeId={storeId}
@@ -126,7 +129,7 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
             }}
           />
         ) : (
-          <EditorSection title={t("settings.locations.editor.place.title")}>
+          <EditorSection title={t('settings.locations.editor.place.title')}>
             {place.isPending ? (
               <ScreenLoading />
             ) : place.isError ? (
@@ -138,23 +141,30 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
                   <Badge
                     size="label-small"
                     variant="subtle"
-                    color={place.data.status === "active" ? "success" : "warning"}
+                    color={place.data.status === 'active' ? 'success' : 'warning'}
                     content={t(PLACE_STATUS_KEYS[place.data.status])}
                   />
                 </View>
                 {place.data.address?.formatted ? (
-                  <Text className="text-xs text-muted-foreground">{place.data.address.formatted}</Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {place.data.address.formatted}
+                  </Text>
                 ) : null}
                 {chosenPlaceId !== undefined && chosenPlaceId !== location.goWayPlaceId ? (
                   <Text className="text-xs text-muted-foreground">
-                    {t("settings.locations.editor.place.chosenNotSaved")}
+                    {t('settings.locations.editor.place.chosenNotSaved')}
                   </Text>
                 ) : null}
               </View>
             )}
             <View className="flex-row flex-wrap gap-2">
-              <Button size="sm" tone="neutral" appearance="outline" onPress={() => setPicking(true)}>
-                {t("settings.locations.editor.place.change")}
+              <Button
+                size="sm"
+                tone="neutral"
+                appearance="outline"
+                onPress={() => setPicking(true)}
+              >
+                {t('settings.locations.editor.place.change')}
               </Button>
               {placeUrl ? (
                 <Button
@@ -163,7 +173,7 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
                   appearance="outline"
                   onPress={() => void WebBrowser.openBrowserAsync(placeUrl)}
                 >
-                  {t("settings.locations.editor.openOnGoWay")}
+                  {t('settings.locations.editor.openOnGoWay')}
                 </Button>
               ) : null}
             </View>
@@ -187,7 +197,7 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
         ) : null}
 
         <PublicationCard
-          key={publication.data?.id ?? "new"}
+          key={publication.data?.id ?? 'new'}
           storeId={storeId}
           locationId={location.id}
           publication={publication.data}

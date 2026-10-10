@@ -10,7 +10,9 @@ import { ROUTES } from './paths.mjs';
 
 const GATE = /requireCatalogOperator|CATALOG_OPERATOR_OXY_USER_IDS/;
 const WRITE = /^router\.(post|patch|put|delete)\s*\(\s*(?:\n\s*)?'([^']+)'/gm;
-for (const name of readdirSync(ROUTES).filter((n) => n.endsWith('.ts')).sort()) {
+for (const name of readdirSync(ROUTES)
+  .filter((n) => n.endsWith('.ts'))
+  .sort()) {
   const source = readFileSync(join(ROUTES, name), 'utf8');
   if (!GATE.test(source)) continue;
   const writes = [...source.matchAll(WRITE)];

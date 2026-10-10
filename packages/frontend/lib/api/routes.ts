@@ -6,12 +6,12 @@
 export const API_ROUTES = {
   // Notifications
   notifications: {
-    list: "/notifications",
-    pushToken: "/notifications/push-token",
-    vapidPublicKey: "/notifications/vapid-public-key",
-    webPushSubscription: "/notifications/web-push-subscription",
+    list: '/notifications',
+    pushToken: '/notifications/push-token',
+    vapidPublicKey: '/notifications/vapid-public-key',
+    webPushSubscription: '/notifications/web-push-subscription',
   },
 
   // Health check
-  health: "/health",
+  health: '/health',
 } as const;

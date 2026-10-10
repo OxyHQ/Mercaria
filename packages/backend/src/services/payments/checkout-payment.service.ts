@@ -217,18 +217,18 @@ export async function openCheckoutPayment(input: {
     payment.providerObjectId && isResumableProvider(provider)
       ? await provider.resumePayment(payment.providerObjectId)
       : await provider.createPayment({
-        paymentId: payment.id,
-        checkoutGroupId: input.checkoutGroupId,
-        amount,
-        orderIds,
-        idempotencyKey: `pi:${payment.id}`,
-        metadata: buildPaymentMetadata({
           paymentId: payment.id,
           checkoutGroupId: input.checkoutGroupId,
+          amount,
           orderIds,
-          ...(guestCheckoutId !== undefined ? { guestCheckoutId } : {}),
-        }),
-      });
+          idempotencyKey: `pi:${payment.id}`,
+          metadata: buildPaymentMetadata({
+            paymentId: payment.id,
+            checkoutGroupId: input.checkoutGroupId,
+            orderIds,
+            ...(guestCheckoutId !== undefined ? { guestCheckoutId } : {}),
+          }),
+        });
 
   if (!payment.providerObjectId) {
     // Attached rather than transitioned. The payment stays `created` — which is

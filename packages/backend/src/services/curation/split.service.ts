@@ -258,7 +258,8 @@ export async function requestSplit(input: RequestSplitInput): Promise<CatalogSpl
         entityType: input.entityType,
         sourceEntityId: input.sourceEntityId,
         targetMode: input.targetMode,
-        targetEntityId: input.targetMode === 'revive_tombstone' ? (input.targetEntityId ?? null) : null,
+        targetEntityId:
+          input.targetMode === 'revive_tombstone' ? (input.targetEntityId ?? null) : null,
         targetSlug: input.targetMode === 'new_entity' ? (input.targetSlug ?? null) : null,
         targetName: input.targetMode === 'new_entity' ? (input.targetName ?? null) : null,
         reason: input.reason,
@@ -351,8 +352,7 @@ export async function approveSplit(
  */
 export type SplitJobCancellationState =
   /** The `allowed` branch carries no reason: there is none to read. */
-  | { readonly state: 'allowed' }
-  | { readonly state: 'refused'; readonly reason: string };
+  { readonly state: 'allowed' } | { readonly state: 'refused'; readonly reason: string };
 
 export function splitJobCancellationState(job: CatalogSplitJobRow): SplitJobCancellationState {
   if (job.status === 'blocked') return { state: 'allowed' };
@@ -469,8 +469,7 @@ export async function cancelSplit(
  */
 export type SplitJobBlockingState =
   /** The `clear` branch carries no reason: there is none to read. */
-  | { readonly state: 'clear' }
-  | { readonly state: 'blocked'; readonly reason: string };
+  { readonly state: 'clear' } | { readonly state: 'blocked'; readonly reason: string };
 
 /**
  * PURE, and it takes no database handle — unlike `mergeJobBlockingState`.
@@ -598,10 +597,7 @@ async function runMintPhase(
       .update(definition.table)
       .set({ status: 'active', mergedIntoId: null })
       .where(
-        and(
-          eq(definition.idColumn, targetId),
-          eq(definition.mergedIntoColumn, job.sourceEntityId),
-        ),
+        and(eq(definition.idColumn, targetId), eq(definition.mergedIntoColumn, job.sourceEntityId)),
       )
       .returning({ id: definition.idColumn });
     return { rowsAffected: revived.length, targetEntityId: targetId };
@@ -644,7 +640,9 @@ async function runMintPhase(
     .limit(1);
   const targetId = minted[0]?.id;
   if (!targetId) {
-    throw new Error(`Split job ${job.id} could neither mint nor find the product for slug ${slug}.`);
+    throw new Error(
+      `Split job ${job.id} could neither mint nor find the product for slug ${slug}.`,
+    );
   }
   return { rowsAffected: 1, targetEntityId: targetId };
 }
@@ -738,11 +736,7 @@ async function runSavesPhase(
   // owed the same prompt on both. Splitting this into two phases would let a
   // resumed job answer one and not the other.
   const markedSaves = await markProductSavesAmbiguousAfterSplit(job.sourceEntityId, job.id, db);
-  const markedItems = await markWatchlistItemsAmbiguousAfterSplit(
-    job.sourceEntityId,
-    job.id,
-    db,
-  );
+  const markedItems = await markWatchlistItemsAmbiguousAfterSplit(job.sourceEntityId, job.id, db);
   return { rowsAffected: markedSaves + markedItems, targetEntityId: job.targetEntityId };
 }
 
@@ -931,7 +925,13 @@ export async function runSplitJob(jobId: string, leaseOwner: string): Promise<Ru
         { jobId: job.id, phase, reason: blocking.reason },
         '[Curation] split job blocked on an operator decision',
       );
-      return { jobId: job.id, finalPhase: phase, completed: false, blocked: true, rowsAffected: totalRows };
+      return {
+        jobId: job.id,
+        finalPhase: phase,
+        completed: false,
+        blocked: true,
+        rowsAffected: totalRows,
+      };
     }
 
     const outcome = await db.transaction(async (tx) => runSplitPhase(job, phase, tx));
@@ -940,7 +940,13 @@ export async function runSplitJob(jobId: string, leaseOwner: string): Promise<Ru
     const next = nextSplitPhase(phase);
     if (!next) break;
     if (!(await advanceSplitPhase(job.id, leaseOwner, next, outcome.targetEntityId, db))) {
-      return { jobId: job.id, finalPhase: phase, completed: false, blocked: false, rowsAffected: totalRows };
+      return {
+        jobId: job.id,
+        finalPhase: phase,
+        completed: false,
+        blocked: false,
+        rowsAffected: totalRows,
+      };
     }
     const refreshed = await findSplitJobById(job.id, db);
     if (!refreshed) break;

@@ -42,10 +42,7 @@
 import type { MatchQueueTrigger, NativeListingLinkMethod } from '@mercaria/shared-types';
 import { log } from '../../lib/logger.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
-import {
-  enqueueMatch,
-  type EnqueueMatchInput,
-} from '../../db/matching/matchQueueRepository.js';
+import { enqueueMatch, type EnqueueMatchInput } from '../../db/matching/matchQueueRepository.js';
 import {
   findActiveMatchPolicyVersion,
   type MatchPolicyVersionRow,
@@ -199,7 +196,9 @@ export const MATCHER_MAY_DISPLACE: Readonly<Record<NativeListingLinkMethod, bool
  * from that same variant. A matcher recording either would be asserting evidence
  * it does not have.
  */
-export function linkMethodForStage(stage: MatchEvaluation['decidedStage']): NativeListingLinkMethod {
+export function linkMethodForStage(
+  stage: MatchEvaluation['decidedStage'],
+): NativeListingLinkMethod {
   switch (stage) {
     case 'existing_source_link':
     case 'global_identifier':
@@ -249,9 +248,7 @@ export async function applyMatchOutcome(
   return getDb().transaction(async (tx) => {
     const ranked = [...evaluation.candidates].sort((left, right) => right.score - left.score);
     const selectedKey =
-      evaluation.matchedCanonicalVariantId === null
-        ? null
-        : evaluation.matchedCanonicalVariantId;
+      evaluation.matchedCanonicalVariantId === null ? null : evaluation.matchedCanonicalVariantId;
 
     const decision = await upsertMatchDecision(tx, {
       subjectKind: subject.kind,

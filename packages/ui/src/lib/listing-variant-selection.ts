@@ -1,4 +1,4 @@
-import type { ProductVariantDTO } from "@mercaria/shared-types";
+import type { ProductVariantDTO } from '@mercaria/shared-types';
 
 /** A deep link may deliberately name a sold-out variant. Never replace it with
  * another purchasable configuration; fall back only for an unknown/missing id. */
@@ -23,9 +23,7 @@ export function chooseListingVariant(
   value: string,
 ): ProductVariantDTO | undefined {
   const candidates = variants.filter((variant) =>
-    variant.optionValues.some(
-      (option) => option.name === optionName && option.value === value,
-    ),
+    variant.optionValues.some((option) => option.name === optionName && option.value === value),
   );
   const score = (variant: ProductVariantDTO) =>
     variant.optionValues.reduce(
@@ -34,14 +32,10 @@ export function chooseListingVariant(
         Number(
           option.name !== optionName &&
             current?.optionValues.some(
-              (selected) =>
-                selected.name === option.name &&
-                selected.value === option.value,
+              (selected) => selected.name === option.name && selected.value === option.value,
             ),
         ),
       0,
     );
-  return candidates.sort(
-    (a, b) => score(b) - score(a) || Number(b.inStock) - Number(a.inStock),
-  )[0];
+  return candidates.sort((a, b) => score(b) - score(a) || Number(b.inStock) - Number(a.inStock))[0];
 }

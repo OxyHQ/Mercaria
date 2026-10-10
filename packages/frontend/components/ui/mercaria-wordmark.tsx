@@ -1,7 +1,7 @@
-import { Text as RNText } from "react-native";
-import { useColorScheme } from "@mercaria/ui";
+import { Text as RNText } from 'react-native';
+import { useColorScheme } from '@mercaria/ui';
 
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation } from '@/lib/i18n';
 
 export interface MercariaWordmarkProps {
   width?: number;
@@ -37,15 +37,15 @@ export function MercariaWordmark({ width = 96, height, color }: MercariaWordmark
     <RNText
       accessibilityRole="header"
       style={{
-        fontFamily: "Inter",
-        fontWeight: "700",
+        fontFamily: 'Inter',
+        fontWeight: '700',
         fontSize,
         lineHeight: Math.round(fontSize * 1.1),
         letterSpacing: -fontSize * 0.03,
         color: fill,
       }}
     >
-      {t("brand.wordmark")}
+      {t('brand.wordmark')}
     </RNText>
   );
 }

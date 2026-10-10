@@ -42,7 +42,8 @@ const MAX_INCONSISTENCY_SAMPLE = 50;
  * is a trace and never a dump of everyone's merges.
  */
 export async function listCartMergesHandler(req: Request, res: Response): Promise<void> {
-  const guestSessionId = typeof req.query.guestSessionId === 'string' ? req.query.guestSessionId : undefined;
+  const guestSessionId =
+    typeof req.query.guestSessionId === 'string' ? req.query.guestSessionId : undefined;
   const oxyUserId = typeof req.query.oxyUserId === 'string' ? req.query.oxyUserId : undefined;
 
   if (guestSessionId === undefined && oxyUserId === undefined) {

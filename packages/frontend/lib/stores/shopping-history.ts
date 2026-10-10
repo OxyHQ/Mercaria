@@ -1,12 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useOxy } from "@oxy.so/services";
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
-import type {
-  ProductSummary,
-  SearchResult,
-  ShoppingThreadMessage,
-} from "@mercaria/shared-types";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useOxy } from '@oxy.so/services';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import type { ProductSummary, SearchResult, ShoppingThreadMessage } from '@mercaria/shared-types';
 
 export type ThreadMessage = ShoppingThreadMessage & {
   results?: readonly SearchResult[];
@@ -41,16 +37,12 @@ export const useShoppingHistory = create<ShoppingHistory>()(
       products: [],
       saveThread: (thread) =>
         set((state) => {
-          const threads = [
-            thread,
-            ...state.threads.filter((item) => item.id !== thread.id),
-          ].slice(0, 12);
+          const threads = [thread, ...state.threads.filter((item) => item.id !== thread.id)].slice(
+            0,
+            12,
+          );
           // Bound persisted conversation text as well as the number of rows.
-          while (
-            threads.length > 1 &&
-            JSON.stringify(threads).length > 1_500_000
-          )
-            threads.pop();
+          while (threads.length > 1 && JSON.stringify(threads).length > 1_500_000) threads.pop();
           return { threads };
         }),
       viewProduct: (owner, product) =>
@@ -65,7 +57,7 @@ export const useShoppingHistory = create<ShoppingHistory>()(
         })),
     }),
     {
-      name: "mercaria.shopping-history",
+      name: 'mercaria.shopping-history',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: ({ threads, products }) => ({ threads, products }),
       onRehydrateStorage: () => () => {
@@ -77,5 +69,5 @@ export const useShoppingHistory = create<ShoppingHistory>()(
 
 export function useShoppingHistoryOwner() {
   const { user, isAuthenticated } = useOxy();
-  return isAuthenticated && user?.id ? user.id : "guest";
+  return isAuthenticated && user?.id ? user.id : 'guest';
 }

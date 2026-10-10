@@ -321,11 +321,13 @@ export async function seedAncestryTaxonomy(
  * quoted.
  */
 export function ancestrySeedFloors(): ReadonlyMap<string, number> {
-  const categories =
-    SHAPE_OF_THE_TREE.roots + SHAPE_OF_THE_TREE.roots * subtreeDescendantCount(0);
+  const categories = SHAPE_OF_THE_TREE.roots + SHAPE_OF_THE_TREE.roots * subtreeDescendantCount(0);
   return new Map<string, number>([
     ['categories', categories],
-    ['canonical_products', SHAPE_OF_THE_TREE.productsPerLeaf * SHAPE_OF_THE_TREE.roots * subtreeLeafCount(0)],
+    [
+      'canonical_products',
+      SHAPE_OF_THE_TREE.productsPerLeaf * SHAPE_OF_THE_TREE.roots * subtreeLeafCount(0),
+    ],
   ]);
 }
 
@@ -410,7 +412,8 @@ export const ANCESTRY_SHAPES: readonly AncestryShape[] = [
     reader: 'db/taxonomy/taxonomyRepository.ts findCategoryDescendants',
     subjectDepth: 0,
     minRowsProduced: (seed) => seed.rootDescendants,
-    materializedPath: async (db, seed) => (await findCategoryDescendants(seed.rootId, {}, db)).length,
+    materializedPath: async (db, seed) =>
+      (await findCategoryDescendants(seed.rootId, {}, db)).length,
     recursiveCte: (db, seed) => recursiveDescendants(db, seed.rootId),
   },
   {
@@ -425,7 +428,8 @@ export const ANCESTRY_SHAPES: readonly AncestryShape[] = [
       requireIndexes: ['categories_ancestor_ids_idx'],
       forbidNodeTypes: ['Seq Scan'],
     },
-    materializedPath: async (db, seed) => (await findCategoryDescendants(seed.midId, {}, db)).length,
+    materializedPath: async (db, seed) =>
+      (await findCategoryDescendants(seed.midId, {}, db)).length,
     recursiveCte: (db, seed) => recursiveDescendants(db, seed.midId),
   },
   {
@@ -694,9 +698,7 @@ export interface AncestryVerdict {
  * recursive-CTE win, and waiting for hardware to produce one of those is how a
  * decision rule ends up asserted by nothing.
  */
-export function deriveAncestryVerdict(
-  comparisons: readonly ShapeComparison[],
-): AncestryVerdict {
+export function deriveAncestryVerdict(comparisons: readonly ShapeComparison[]): AncestryVerdict {
   const shapes: ShapeVerdict[] = [];
   const summary: string[] = [];
 
@@ -905,7 +907,9 @@ export function renderAncestryReport(result: AncestryBenchmarkResult): string {
       .map(([relation, count]) => `${relation}=${String(count)}`)
       .join(', ')}`,
   );
-  lines.push(`Latency runs per strategy per shape: ${String(result.latencyRuns)} (uninstrumented).`);
+  lines.push(
+    `Latency runs per strategy per shape: ${String(result.latencyRuns)} (uninstrumented).`,
+  );
   if (result.seedFloorViolations.length > 0) {
     lines.push('');
     lines.push('## THIS RUN MEASURED NOTHING');
@@ -921,7 +925,9 @@ export function renderAncestryReport(result: AncestryBenchmarkResult): string {
       `subject depth ${String(comparison.subjectDepth)}; floor ${String(comparison.minRowsProduced)} rows`,
     );
     lines.push('');
-    lines.push('| strategy | stmts | rows out | rows scanned | p50 ms | p95 ms | p99 ms | nodes | indexes |');
+    lines.push(
+      '| strategy | stmts | rows out | rows scanned | p50 ms | p95 ms | p99 ms | nodes | indexes |',
+    );
     lines.push('| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |');
     for (const side of [comparison.materializedPath, comparison.recursiveCte]) {
       lines.push(

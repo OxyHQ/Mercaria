@@ -96,7 +96,8 @@ export async function upsertCatalogSourceConfig(
     .onConflictDoUpdate({ target: catalogSourceConfigs.sourceId, set: values })
     .returning();
   const row = rows[0];
-  if (!row) throw new Error(`catalog_source_configs upsert for ${input.sourceId} returned nothing.`);
+  if (!row)
+    throw new Error(`catalog_source_configs upsert for ${input.sourceId} returned nothing.`);
   return row;
 }
 
@@ -170,7 +171,8 @@ export async function setCatalogSourceStatus(
       status: input.status,
       statusChangedByOxyUserId: input.actorOxyUserId,
       statusChangedAt: input.actorOxyUserId === null ? null : input.now,
-      statusReason: input.reason === null ? null : input.reason.slice(0, CATALOG_SOURCE_MAX_TEXT_LENGTH),
+      statusReason:
+        input.reason === null ? null : input.reason.slice(0, CATALOG_SOURCE_MAX_TEXT_LENGTH),
     })
     .where(eq(catalogSourceConfigs.sourceId, input.sourceId))
     .returning();
@@ -245,7 +247,10 @@ export async function claimDueSources(
         lte(catalogSourceConfigs.nextRunAt, options.now),
       ),
     ),
-    and(isNotNull(catalogSourceConfigs.leaseOwner), lte(catalogSourceConfigs.leaseUntil, options.now)),
+    and(
+      isNotNull(catalogSourceConfigs.leaseOwner),
+      lte(catalogSourceConfigs.leaseUntil, options.now),
+    ),
   );
 
   return db

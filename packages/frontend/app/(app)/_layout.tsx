@@ -1,20 +1,20 @@
-import { Slot, Stack } from "expo-router";
-import { Platform, useWindowDimensions } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AppShell } from "@oxy.so/bloom/app-shell";
-import { CartFlightProvider } from "@mercaria/ui";
-import { STOREFRONT_NAV_FROM } from "@/lib/layout";
-import { AppErrorBoundary } from "@/components/error-boundary";
-import { useStorefrontSidebar } from "@/components/shell/useStorefrontSidebar";
-import { BottomTabBar } from "@/components/shell/BottomTabBar";
-import { useNotificationSetup } from "@/lib/hooks/use-notification-setup";
-import { ShoppingActionsProvider } from "@/components/shell/ShoppingActionsProvider";
+import { Slot, Stack } from 'expo-router';
+import { Platform, useWindowDimensions } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppShell } from '@oxy.so/bloom/app-shell';
+import { CartFlightProvider } from '@mercaria/ui';
+import { STOREFRONT_NAV_FROM } from '@/lib/layout';
+import { AppErrorBoundary } from '@/components/error-boundary';
+import { useStorefrontSidebar } from '@/components/shell/useStorefrontSidebar';
+import { BottomTabBar } from '@/components/shell/BottomTabBar';
+import { useNotificationSetup } from '@/lib/hooks/use-notification-setup';
+import { ShoppingActionsProvider } from '@/components/shell/ShoppingActionsProvider';
 
 const SCREEN_OPTIONS = { headerShown: false } as const;
 
 const GESTURE_ROOT_STYLE = { flex: 1 } as const;
 
-const IS_WEB = Platform.OS === "web";
+const IS_WEB = Platform.OS === 'web';
 
 /**
  * The storefront's reading column. A MAXIMUM, not a width: Bloom's feed column
@@ -24,7 +24,11 @@ const IS_WEB = Platform.OS === "web";
 const CONTENT_WIDTH = 2000;
 
 export default function AppLayout() {
-  return <CartFlightProvider><StorefrontLayout /></CartFlightProvider>;
+  return (
+    <CartFlightProvider>
+      <StorefrontLayout />
+    </CartFlightProvider>
+  );
 }
 
 function StorefrontLayout() {
@@ -72,7 +76,7 @@ function StorefrontLayout() {
             // WEB scrolls the DOCUMENT (sticky navigation, the address bar
             // collapsing, scroll restoration); NATIVE is one fixed frame and each
             // page owns its scroller (`ScreenShell`).
-            scroll={IS_WEB ? "document" : "fixed"}
+            scroll={IS_WEB ? 'document' : 'fixed'}
             sidebar={sidebar}
             // Mobile destinations live in the bottom bar or Profile (Orders),
             // so no drawer trigger is needed. Pages draw their own headings.

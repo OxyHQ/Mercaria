@@ -107,13 +107,11 @@ export default function CategoryIndexScreen() {
           href={alternate.href}
         />
       ))}
-      {document?.robots === undefined ? null : (
-        <meta name="robots" content={document.robots} />
-      )}
+      {document?.robots === undefined ? null : <meta name="robots" content={document.robots} />}
       {jsonLd === undefined ? null : (
         <script
           type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: a JSON-LD script body from the structured-data serialiser, not markup
           dangerouslySetInnerHTML={{ __html: jsonLd }}
         />
       )}
@@ -172,12 +170,12 @@ export default function CategoryIndexScreen() {
        * horizontal padding.
        */}
       <View className="mb-space-32 web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
-        <CatalogBreadcrumbs
-          crumbs={document?.breadcrumbs ?? []}
-          hrefForPath={hubHrefForPath}
-        />
+        <CatalogBreadcrumbs crumbs={document?.breadcrumbs ?? []} hrefForPath={hubHrefForPath} />
 
-        <Text className="text-center text-[36px] font-bold leading-[40px] tracking-tight text-text" accessibilityRole="header">
+        <Text
+          className="text-center text-[36px] font-bold leading-[40px] tracking-tight text-text"
+          accessibilityRole="header"
+        >
           {t('nav.explore')}
         </Text>
 
@@ -197,12 +195,22 @@ export default function CategoryIndexScreen() {
       </View>
 
       <CurationHighlights />
-      <DiscoveryFeed sections={sections} categoryTitle={t('catalog.categoryIndex.title')} categoryShortcuts={[{
-        key: 'three_d',
-        label: t('nav.threeD'),
-        onPress: () => router.push('/3d'),
-        preview: <View className="h-24 items-center justify-center rounded-xl bg-background"><LucideGlyph icon={Box} size={48} /></View>,
-      }]} />
+      <DiscoveryFeed
+        sections={sections}
+        categoryTitle={t('catalog.categoryIndex.title')}
+        categoryShortcuts={[
+          {
+            key: 'three_d',
+            label: t('nav.threeD'),
+            onPress: () => router.push('/3d'),
+            preview: (
+              <View className="h-24 items-center justify-center rounded-xl bg-background">
+                <LucideGlyph icon={Box} size={48} />
+              </View>
+            ),
+          },
+        ]}
+      />
 
       <Footer />
     </ScreenShell>

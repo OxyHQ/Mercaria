@@ -1,18 +1,18 @@
-import { merchantImageSource } from "@mercaria/ui";
-import { useEffect } from "react";
-import { View } from "react-native";
-import { Image } from "expo-image";
-import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useOxy } from "@oxy.so/services";
-import type { CatalogStructuredData } from "@mercaria/shared-types";
-import { SectionHeader, Text } from "@mercaria/ui";
-import * as Skeleton from "@oxy.so/bloom/skeleton";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { OfficialChannelSection } from "@/components/brand/OfficialChannelSection";
-import { CatalogProductGrid } from "@/components/brand/CatalogProductGrid";
-import { useTranslation } from "@/lib/i18n";
-import { useBrandPage, useBrandProducts } from "@/lib/hooks/use-catalog-pages";
+import { merchantImageSource } from '@mercaria/ui';
+import { useEffect } from 'react';
+import { View } from 'react-native';
+import { Image } from 'expo-image';
+import Head from 'expo-router/head';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useOxy } from '@oxy.so/services';
+import type { CatalogStructuredData } from '@mercaria/shared-types';
+import { SectionHeader, Text } from '@mercaria/ui';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { OfficialChannelSection } from '@/components/brand/OfficialChannelSection';
+import { CatalogProductGrid } from '@/components/brand/CatalogProductGrid';
+import { useTranslation } from '@/lib/i18n';
+import { useBrandPage, useBrandProducts } from '@/lib/hooks/use-catalog-pages';
 
 /**
  * The BRAND page (#72).
@@ -79,35 +79,35 @@ export default function BrandPageScreen() {
     return (
       <ScreenShell>
         <View className="flex flex-col gap-2 p-4">
-          <Text className="text-lg font-semibold">{t("brands.notFound.title")}</Text>
-          <Text className="text-sm text-muted-foreground">{t("brands.notFound.body")}</Text>
+          <Text className="text-lg font-semibold">{t('brands.notFound.title')}</Text>
+          <Text className="text-sm text-muted-foreground">{t('brands.notFound.body')}</Text>
         </View>
       </ScreenShell>
     );
   }
 
   const logoUrl =
-    brand.logo.state === "displayable"
-      ? oxyServices.assets.publicUrl(brand.logo.fileId, "thumb")
+    brand.logo.state === 'displayable'
+      ? oxyServices.assets.publicUrl(brand.logo.fileId, 'thumb')
       : undefined;
 
   return (
     <>
       <Head>
-        <title>{t("brands.meta.title", { name: brand.name })}</title>
+        <title>{t('brands.meta.title', { name: brand.name })}</title>
         <link rel="canonical" href={brand.canonicalPath} />
-        {brand.indexability === "indexable" ? null : (
+        {brand.indexability === 'indexable' ? null : (
           <meta name="robots" content="noindex,follow" />
         )}
-        {brand.description.state === "displayable" ? (
+        {brand.description.state === 'displayable' ? (
           <meta name="description" content={brand.description.text} />
         ) : null}
-        {brand.structuredData.kind === "none" ? null : (
+        {brand.structuredData.kind === 'none' ? null : (
           // Emitted ONLY when the server said the visible facts support it —
           // the derivation is the server's and this is its rendering.
           <script
             type="application/ld+json"
-            // eslint-disable-next-line react/no-danger
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: a JSON-LD script body from the structured-data serialiser, not markup
             dangerouslySetInnerHTML={{
               __html: toJsonLd(brand.structuredData, brand.canonicalPath),
             }}
@@ -133,23 +133,23 @@ export default function BrandPageScreen() {
                 // and printing a legal entity from a name match is the exact
                 // inference #55 exists to prevent.
                 <Text className="text-sm text-muted-foreground">
-                  {t("brands.ownedBy", { organization: brand.owningOrganization.name })}
+                  {t('brands.ownedBy', { organization: brand.owningOrganization.name })}
                 </Text>
               )}
               <Text className="text-xs text-muted-foreground">
-                {t("brands.productCount", { count: brand.productCount })}
+                {t('brands.productCount', { count: brand.productCount })}
               </Text>
             </View>
           </View>
 
-          {brand.description.state === "displayable" ? (
+          {brand.description.state === 'displayable' ? (
             <View className="flex flex-col gap-1">
               <Text className="text-sm">{brand.description.text}</Text>
               {brand.description.provenance?.attribution === undefined ? null : (
                 // The source demanded attribution; showing the text without it
                 // would be using the licence without meeting its condition.
                 <Text className="text-xs text-muted-foreground">
-                  {t("brands.descriptionSource", {
+                  {t('brands.descriptionSource', {
                     attribution: brand.description.provenance.attribution,
                   })}
                 </Text>
@@ -158,22 +158,22 @@ export default function BrandPageScreen() {
           ) : null}
 
           <OfficialChannelSection
-            title={t("brands.officialStores.title")}
-            description={t("brands.officialStores.description")}
+            title={t('brands.officialStores.title')}
+            description={t('brands.officialStores.description')}
             entries={brand.channels.officialStores}
-            emptyText={t("brands.officialStores.empty")}
+            emptyText={t('brands.officialStores.empty')}
           />
 
           <OfficialChannelSection
-            title={t("brands.authorizedResellers.title")}
-            description={t("brands.authorizedResellers.description")}
+            title={t('brands.authorizedResellers.title')}
+            description={t('brands.authorizedResellers.description')}
             entries={brand.channels.authorizedResellers}
-            emptyText={t("brands.authorizedResellers.empty")}
+            emptyText={t('brands.authorizedResellers.empty')}
           />
 
           {brand.families.length === 0 ? null : (
             <View className="flex flex-col gap-3">
-              <SectionHeader title={t("brands.families.title")} />
+              <SectionHeader title={t('brands.families.title')} />
               <View className="flex-row flex-wrap gap-2">
                 {brand.families.map((family) => (
                   <Text
@@ -191,7 +191,7 @@ export default function BrandPageScreen() {
 
           {brand.categories.length === 0 ? null : (
             <View className="flex flex-col gap-3">
-              <SectionHeader title={t("brands.categories.title")} />
+              <SectionHeader title={t('brands.categories.title')} />
               <View className="flex-row flex-wrap gap-2">
                 {brand.categories.map((category) => (
                   <Text
@@ -206,7 +206,7 @@ export default function BrandPageScreen() {
           )}
 
           <View className="flex flex-col gap-3">
-            <SectionHeader title={t("brands.products.title")} />
+            <SectionHeader title={t('brands.products.title')} />
             <CatalogProductGrid
               pages={products.data}
               isLoading={products.isLoading}
@@ -241,29 +241,29 @@ export default function BrandPageScreen() {
  */
 function toJsonLd(data: CatalogStructuredData, canonicalPath: string): string {
   const body: Record<string, unknown> =
-    data.kind === "organization"
+    data.kind === 'organization'
       ? {
-          "@context": "https://schema.org",
-          "@type": "Organization",
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
           name: data.name,
           url: canonicalPath,
-          brand: { "@type": "Brand", name: data.brandName },
+          brand: { '@type': 'Brand', name: data.brandName },
         }
       : {
-          "@context": "https://schema.org",
-          "@type": "Brand",
-          name: data.kind === "brand" ? data.name : "",
+          '@context': 'https://schema.org',
+          '@type': 'Brand',
+          name: data.kind === 'brand' ? data.name : '',
           url: canonicalPath,
-          ...(data.kind === "brand" && data.description !== undefined
+          ...(data.kind === 'brand' && data.description !== undefined
             ? { description: data.description }
             : {}),
-          ...(data.kind === "brand" && data.sameAs !== undefined
+          ...(data.kind === 'brand' && data.sameAs !== undefined
             ? { sameAs: [...data.sameAs] }
             : {}),
         };
 
   return JSON.stringify(body)
-    .replace(/</gu, "\\u003c")
-    .replace(/>/gu, "\\u003e")
-    .replace(/&/gu, "\\u0026");
+    .replace(/</gu, '\\u003c')
+    .replace(/>/gu, '\\u003e')
+    .replace(/&/gu, '\\u0026');
 }

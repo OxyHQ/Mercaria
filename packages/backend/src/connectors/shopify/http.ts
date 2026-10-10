@@ -30,12 +30,7 @@
 
 import { request as httpsRequest } from 'node:https';
 import type { IncomingMessage } from 'node:http';
-import {
-  safeFetch,
-  assertSafePublicUrl,
-  SsrfRejection,
-  UpstreamError,
-} from '@oxy.so/core/server';
+import { safeFetch, assertSafePublicUrl, SsrfRejection, UpstreamError } from '@oxy.so/core/server';
 import { log } from '../../lib/logger.js';
 
 /** A normalized HTTP response (status + headers + fully-buffered text body). */

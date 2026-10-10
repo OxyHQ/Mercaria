@@ -132,9 +132,10 @@ describe('the block-reason vocabulary is whole', () => {
 
     // POSITIVE CONTROL: the instrument finds something before we trust a zero.
     const produced = producedMembers(sources);
-    expect(produced.has('no_eligible_offer'), 'positive control failed: the scan matches nothing').toBe(
-      true,
-    );
+    expect(
+      produced.has('no_eligible_offer'),
+      'positive control failed: the scan matches nothing',
+    ).toBe(true);
 
     const missing = PRICE_ALERT_BLOCK_REASONS.filter((member) => !produced.has(member));
     expect(missing, `block reasons with no producer: ${missing.join(', ')}`).toEqual([]);

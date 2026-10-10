@@ -149,7 +149,10 @@ export interface MercariaProductsApi {
    * Current product detail, by id or product ref. Detail reads accept no
    * locale (the server refuses any query parameter on them).
    */
-  get(product: MercariaProductRef | string, options?: MercariaRequestOptions): Promise<MercariaProduct>;
+  get(
+    product: MercariaProductRef | string,
+    options?: MercariaRequestOptions,
+  ): Promise<MercariaProduct>;
   /** Hydrate a persisted product ref. */
   resolveRef(ref: MercariaProductRef, options?: MercariaRequestOptions): Promise<MercariaProduct>;
   /**
@@ -157,7 +160,10 @@ export interface MercariaProductsApi {
    * names. Rejects with `MercariaNotFoundError` when the product no longer has
    * that option.
    */
-  resolveVariant(ref: MercariaVariantRef, options?: MercariaRequestOptions): Promise<MercariaResolvedVariant>;
+  resolveVariant(
+    ref: MercariaVariantRef,
+    options?: MercariaRequestOptions,
+  ): Promise<MercariaResolvedVariant>;
   /** Search the public catalogue. */
   search(input?: MercariaProductSearchInput): Promise<MercariaPage<MercariaProductSummary>>;
 }
@@ -184,14 +190,23 @@ export interface MercariaStoresApi {
    * place facts — name, address, hours, photos — from GoWay with its
    * `goWayPlaceId`.
    */
-  locations(store: MercariaStoreRef | string, options?: MercariaPageOptions): Promise<MercariaPage<MercariaLocation>>;
+  locations(
+    store: MercariaStoreRef | string,
+    options?: MercariaPageOptions,
+  ): Promise<MercariaPage<MercariaLocation>>;
 }
 
 export interface MercariaCollectionsApi {
   /** A published collection, by id or collection ref. */
-  get(collection: MercariaCollectionRef | string, options?: MercariaRequestOptions): Promise<MercariaCollection>;
+  get(
+    collection: MercariaCollectionRef | string,
+    options?: MercariaRequestOptions,
+  ): Promise<MercariaCollection>;
   /** Hydrate a persisted collection ref. */
-  resolveRef(ref: MercariaCollectionRef, options?: MercariaRequestOptions): Promise<MercariaCollection>;
+  resolveRef(
+    ref: MercariaCollectionRef,
+    options?: MercariaRequestOptions,
+  ): Promise<MercariaCollection>;
   /** One page of a collection's products. */
   products(
     collection: MercariaCollectionRef | string,
@@ -218,7 +233,10 @@ export interface MercariaLocationsApi {
    * with `MercariaUnavailableError` when Mercaria could not ask GoWay — which
    * is NOT a reason to discard the ref.
    */
-  get(location: MercariaLocationRef | string, options?: MercariaRequestOptions): Promise<MercariaLocation>;
+  get(
+    location: MercariaLocationRef | string,
+    options?: MercariaRequestOptions,
+  ): Promise<MercariaLocation>;
   /** Hydrate a persisted location ref. */
   resolveRef(ref: MercariaLocationRef, options?: MercariaRequestOptions): Promise<MercariaLocation>;
   /**
@@ -295,7 +313,8 @@ function idOf(value: unknown, kind: EntityKind): string {
 
 function refIdOf(value: unknown, kind: EntityKind): string {
   const ref = parseMercariaRef(value);
-  if (ref === null || ref.kind !== kind) throw new MercariaValidationError(`expected a ${kind} ref`);
+  if (ref === null || ref.kind !== kind)
+    throw new MercariaValidationError(`expected a ${kind} ref`);
   return pathSegment(ref.id, `${kind} id`);
 }
 
@@ -308,7 +327,8 @@ function queryIdOf(value: unknown, kind: EntityKind): unknown {
 
 function localeFor(override: unknown, fallback: string | undefined): string | undefined {
   if (override === undefined) return fallback;
-  if (!isLocale(override)) throw new MercariaValidationError('locale must be a BCP 47 language tag');
+  if (!isLocale(override))
+    throw new MercariaValidationError('locale must be a BCP 47 language tag');
   return override;
 }
 
@@ -324,12 +344,18 @@ function wire(value: unknown): string | undefined {
  * `MercariaValidationError` for refused values, `status: null` because nothing
  * was sent.
  */
-function checkedQuery(schema: z.ZodType, query: Record<string, string | undefined>): Record<string, QueryValue> {
-  const present = Object.fromEntries(Object.entries(query).filter(([, value]) => value !== undefined));
+function checkedQuery(
+  schema: z.ZodType,
+  query: Record<string, string | undefined>,
+): Record<string, QueryValue> {
+  const present = Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined),
+  );
   const parsed = schema.safeParse(present);
   if (!parsed.success) {
     const refusal = classifyRequestIssues(parsed.error.issues);
-    const ErrorClass = refusal.code === 'bad_request' ? MercariaBadRequestError : MercariaValidationError;
+    const ErrorClass =
+      refusal.code === 'bad_request' ? MercariaBadRequestError : MercariaValidationError;
     throw new ErrorClass(refusal.message, { details: refusal.details ?? null });
   }
   return present;
@@ -401,11 +427,16 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
 
     resolveVariant: async (ref: MercariaVariantRef, callOptions?: MercariaRequestOptions) => {
       const parsed = parseMercariaRef(ref);
-      if (parsed === null || parsed.kind !== 'variant') throw new MercariaValidationError('expected a variant ref');
+      if (parsed === null || parsed.kind !== 'variant')
+        throw new MercariaValidationError('expected a variant ref');
       const product = await getProduct(pathSegment(parsed.productId, 'product id'), callOptions);
-      const option = product.purchaseOptions.find((candidate) => candidate.ref.variantId === parsed.variantId);
+      const option = product.purchaseOptions.find(
+        (candidate) => candidate.ref.variantId === parsed.variantId,
+      );
       if (!option) {
-        throw new MercariaNotFoundError('The product no longer has this purchase option', { status: null });
+        throw new MercariaNotFoundError('The product no longer has this purchase option', {
+          status: null,
+        });
       }
       return { product, option };
     },
@@ -445,11 +476,17 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
       );
     },
 
-    products: async (store: MercariaStoreRef | string, callOptions: MercariaProductListOptions = {}) =>
+    products: async (
+      store: MercariaStoreRef | string,
+      callOptions: MercariaProductListOptions = {},
+    ) =>
       request(
         config,
         `/stores/${idOf(store, 'store')}/products`,
-        checkedQuery(MercariaStoreProductsQuerySchema, productListQuery(callOptions, defaultLocale)),
+        checkedQuery(
+          MercariaStoreProductsQuerySchema,
+          productListQuery(callOptions, defaultLocale),
+        ),
         MercariaProductSummaryPageSchema,
         callOptions.signal,
       ),
@@ -483,7 +520,10 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
     resolveRef: async (ref: MercariaCollectionRef, callOptions?: MercariaRequestOptions) =>
       getCollection(refIdOf(ref, 'collection'), callOptions),
 
-    products: async (collection: MercariaCollectionRef | string, callOptions: MercariaPageOptions = {}) =>
+    products: async (
+      collection: MercariaCollectionRef | string,
+      callOptions: MercariaPageOptions = {},
+    ) =>
       request(
         config,
         `/collections/${idOf(collection, 'collection')}/products`,
@@ -517,15 +557,27 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
     resolveRef: async (ref: MercariaLocationRef, callOptions?: MercariaRequestOptions) =>
       getLocation(refIdOf(ref, 'location'), callOptions),
 
-    products: async (location: MercariaLocationRef | string, callOptions: MercariaProductListOptions = {}) =>
+    products: async (
+      location: MercariaLocationRef | string,
+      callOptions: MercariaProductListOptions = {},
+    ) =>
       request(
         config,
         `/locations/${idOf(location, 'location')}/products`,
-        checkedQuery(MercariaLocationProductsQuerySchema, productListQuery(callOptions, defaultLocale)),
+        checkedQuery(
+          MercariaLocationProductsQuerySchema,
+          productListQuery(callOptions, defaultLocale),
+        ),
         MercariaLocationProductPageSchema,
         callOptions.signal,
       ),
   });
 
-  return Object.freeze({ products, stores, collections, locations, links: createLinks(webBaseUrl) });
+  return Object.freeze({
+    products,
+    stores,
+    collections,
+    locations,
+    links: createLinks(webBaseUrl),
+  });
 }

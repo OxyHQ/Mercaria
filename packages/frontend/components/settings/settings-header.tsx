@@ -1,6 +1,6 @@
-import { useRouter } from "expo-router";
-import { PageHeader } from "@oxy.so/bloom/page-header";
-import { useTranslation } from "@/lib/i18n";
+import { useRouter } from 'expo-router';
+import { PageHeader } from '@oxy.so/bloom/page-header';
+import { useTranslation } from '@/lib/i18n';
 
 interface SettingsHeaderProps {
   title: string;
@@ -23,7 +23,7 @@ export function SettingsHeader({ title, subtitle, showBack = false, onBack }: Se
       title={title}
       subtitle={subtitle}
       onBack={showBack ? (onBack ?? router.back) : undefined}
-      backLabel={t("common.back")}
+      backLabel={t('common.back')}
     />
   );
 }

@@ -147,7 +147,9 @@ describe('saving a product has no side effects and no reach', () => {
     // scan below pass against an empty list.
     expect(domain.length).toBeGreaterThanOrEqual(8);
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 

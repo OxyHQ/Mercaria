@@ -75,7 +75,9 @@ export async function recordRepair(
     })
     .returning();
   if (!row) {
-    throw new Error(`Recording a '${input.action}' repair for '${input.subjectKey}' returned no row.`);
+    throw new Error(
+      `Recording a '${input.action}' repair for '${input.subjectKey}' returned no row.`,
+    );
   }
   return row;
 }

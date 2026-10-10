@@ -30,10 +30,7 @@ import {
   readLocalizationFieldHistory,
   rollbackLocalizationField,
 } from '../catalogLocalization/revisionRepository.js';
-import {
-  LOCALIZATION_REVISION_FIELD_PAIRS,
-  type LocalizedFieldKey,
-} from '@mercaria/shared-types';
+import { LOCALIZATION_REVISION_FIELD_PAIRS, type LocalizedFieldKey } from '@mercaria/shared-types';
 
 const ADMIN_URL =
   process.env['TEST_DATABASE_URL'] ??
@@ -88,7 +85,6 @@ async function revisionsFor(categoryId: string, fieldKey: LocalizedFieldKey) {
     );
 }
 
-
 /**
  * The reason Postgres actually gave.
  *
@@ -127,10 +123,7 @@ describe('the trail is written by the trigger, not by a caller', () => {
       .where(eq(catalogLocalizationRevisions.entityId, id));
     // Both registered category fields, one row each — one row per FIELD is what
     // makes a per-field diff possible at all.
-    expect(all.map((r) => r.fieldKey).sort()).toEqual([
-      'category.description',
-      'category.name',
-    ]);
+    expect(all.map((r) => r.fieldKey).sort()).toEqual(['category.description', 'category.name']);
     expect(all.every((r) => r.action === 'create')).toBe(true);
     const name = all.find((r) => r.fieldKey === 'category.name');
     expect(name.value).toBe('Zapatos');
@@ -195,12 +188,7 @@ describe('the trail is written by the trigger, not by a caller', () => {
     await db
       .update(categoryLocalizations)
       .set({ description: 'かばん' })
-      .where(
-        and(
-          eq(categoryLocalizations.categoryId, id),
-          eq(categoryLocalizations.locale, 'ja'),
-        ),
-      );
+      .where(and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'ja')));
     expect(await revisionsFor(id, 'category.name')).toHaveLength(1);
     expect(await revisionsFor(id, 'category.description')).toHaveLength(2);
   });
@@ -234,9 +222,7 @@ describe('the trail is append-only', () => {
 
     expect(
       await reasonFor(() =>
-        db
-          .delete(catalogLocalizationRevisions)
-          .where(eq(catalogLocalizationRevisions.id, row.id)),
+        db.delete(catalogLocalizationRevisions).where(eq(catalogLocalizationRevisions.id, row.id)),
       ),
     ).toMatch(/append-only/u);
 
@@ -286,8 +272,12 @@ describe('the field-pair CHECK', () => {
     // `in ()`, which no row satisfies, and every insert would fail for a reason
     // nobody could read.
     expect(LOCALIZATION_REVISION_FIELD_PAIRS.length).toBeGreaterThan(1);
-    expect(LOCALIZATION_REVISION_FIELD_PAIRS).toContain('product_type_field|product_type_field.label');
-    expect(LOCALIZATION_REVISION_FIELD_PAIRS).not.toContain('product_type|product_type_field.label');
+    expect(LOCALIZATION_REVISION_FIELD_PAIRS).toContain(
+      'product_type_field|product_type_field.label',
+    );
+    expect(LOCALIZATION_REVISION_FIELD_PAIRS).not.toContain(
+      'product_type|product_type_field.label',
+    );
   });
 });
 
@@ -308,9 +298,7 @@ describe('rollback is a NEW revision that names what it undoes', () => {
     await db
       .update(categoryLocalizations)
       .set({ name: 'Manoplas' })
-      .where(
-        and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'es')),
-      );
+      .where(and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'es')));
 
     const history = await readLocalizationFieldHistory(
       'category',
@@ -339,9 +327,7 @@ describe('rollback is a NEW revision that names what it undoes', () => {
     const [live] = await db
       .select()
       .from(categoryLocalizations)
-      .where(
-        and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'es')),
-      );
+      .where(and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'es')));
     expect(live.name).toBe('Guantes');
 
     // …and the ORIGINAL revision is untouched: a rollback adds history, it does
@@ -369,21 +355,14 @@ describe('rollback is a NEW revision that names what it undoes', () => {
     await db
       .update(categoryLocalizations)
       .set({ name: 'Pañuelos' })
-      .where(
-        and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'es')),
-      );
-    await rollbackLocalizationField(
-      { ...first, createdAt: first.createdAt.toISOString() },
-      db,
-    );
+      .where(and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'es')));
+    await rollbackLocalizationField({ ...first, createdAt: first.createdAt.toISOString() }, db);
 
     // An ordinary edit AFTER the rollback transaction committed.
     await db
       .update(categoryLocalizations)
       .set({ name: 'Chales' })
-      .where(
-        and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'es')),
-      );
+      .where(and(eq(categoryLocalizations.categoryId, id), eq(categoryLocalizations.locale, 'es')));
     const rows = await revisionsFor(id, 'category.name');
     const latest = rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
     expect(latest.value).toBe('Chales');

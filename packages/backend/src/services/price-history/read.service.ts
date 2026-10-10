@@ -84,7 +84,11 @@ function fromRow(row: OfferPricePointRow, displayCurrency: CurrencyCode): Readab
     native: { amount: row.nativeAmount, currency: row.nativeCurrency },
     displayAmount: row.displayAmount,
     displayCurrency,
-    ...(row.fxRate !== null && row.fxFrom !== null && row.fxTo !== null && row.fxProvider !== null && row.fxAsOf !== null
+    ...(row.fxRate !== null &&
+    row.fxFrom !== null &&
+    row.fxTo !== null &&
+    row.fxProvider !== null &&
+    row.fxAsOf !== null
       ? {
           fx: {
             rate: row.fxRate,
@@ -156,7 +160,11 @@ function valueFor(
   if (!ALL_CURRENCY_CODES.includes(nativeCurrency)) return undefined;
   const currentRate = safePairRate(nativeCurrency, requested, rates);
   if (currentRate === undefined) return undefined;
-  const money = safeConvert({ amount: point.native.amount, currency: nativeCurrency }, requested, rates);
+  const money = safeConvert(
+    { amount: point.native.amount, currency: nativeCurrency },
+    requested,
+    rates,
+  );
   if (!money) return undefined;
 
   return {
@@ -455,7 +463,8 @@ function describeCoverage(input: {
     // Both are present by construction — a run is only pushed when non-empty —
     // and re-read through a guard because the compiler cannot see through the
     // array and a non-null assertion is forbidden.
-    if (!first || !last) return { from: input.from.toISOString(), to: input.to.toISOString(), buckets: 0 };
+    if (!first || !last)
+      return { from: input.from.toISOString(), to: input.to.toISOString(), buckets: 0 };
     return {
       from: first.toISOString(),
       to: priceHistoryBucketEnd(last, input.granularity).toISOString(),
@@ -512,7 +521,9 @@ function summarize(
     );
   }
   if (latest) {
-    sentences.push(`The most recent was ${formatMinorUnits(latest.value.money)} on ${latest.observedAt}.`);
+    sentences.push(
+      `The most recent was ${formatMinorUnits(latest.value.money)} on ${latest.observedAt}.`,
+    );
   }
   if (gaps.length > 0) {
     const bucketCount = gaps.reduce((total, gap) => total + gap.buckets, 0);

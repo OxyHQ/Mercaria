@@ -21,10 +21,7 @@ import { sendSuccess } from '../utils/api-response.js';
 import { forbidden, respondWithError } from '../lib/errors/error-codes.js';
 import { checkout } from '../services/checkout.service.js';
 import { cartOwnerForActor } from '../services/cart-owner.js';
-import {
-  isCheckoutRefusal,
-  type CheckoutRefusalReason,
-} from '../services/checkout/refusal.js';
+import { isCheckoutRefusal, type CheckoutRefusalReason } from '../services/checkout/refusal.js';
 import type { CommerceActor } from '../services/commerce-actor.js';
 import { readCheckoutPaymentStatus } from '../services/payments/checkout-payment.service.js';
 import { log } from '../lib/logger.js';

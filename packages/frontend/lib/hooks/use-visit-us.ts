@@ -38,8 +38,12 @@ export function useGoWayPlacePhotos(placeId: string) {
   return useQuery<PlaceMedia[]>({
     queryKey: queryKeys.visitUs.photos(placeId),
     queryFn: async () =>
-      (await goWayClient.places.media.list(placeId, { kinds: [...VISIT_PHOTO_KINDS], limit: VISIT_PHOTO_LIMIT }))
-        .items,
+      (
+        await goWayClient.places.media.list(placeId, {
+          kinds: [...VISIT_PHOTO_KINDS],
+          limit: VISIT_PHOTO_LIMIT,
+        })
+      ).items,
     staleTime: STALE_TIME,
     retry: 1,
   });

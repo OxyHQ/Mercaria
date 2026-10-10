@@ -26,7 +26,11 @@
  * that constraint plus `signalsFromRecords` is what stands between them.
  */
 
-import { PRICE_SIGNAL_POLICY_KEY, type CurrencyCode, type PriceSignal } from '@mercaria/shared-types';
+import {
+  PRICE_SIGNAL_POLICY_KEY,
+  type CurrencyCode,
+  type PriceSignal,
+} from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import {
@@ -70,9 +74,7 @@ export async function runPriceSignalSweepPage(
   const policy = toPriceSignalPolicy(versionRow);
 
   const productIds = await listCohortProductIds({
-    ...(run.cursorCanonicalProductId === null
-      ? {}
-      : { afterId: run.cursorCanonicalProductId }),
+    ...(run.cursorCanonicalProductId === null ? {} : { afterId: run.cursorCanonicalProductId }),
     limit: config.priceSignals.sweepBatchSize,
   });
 
@@ -155,9 +157,7 @@ export async function runPriceSignalSweepPage(
     signalsUnmeasured,
     finished,
     ...(finished ? { finishedAt: now } : {}),
-    ...(finished
-      ? {}
-      : { leaseUntil: new Date(now.getTime() + config.priceSignals.sweepLeaseMs) }),
+    ...(finished ? {} : { leaseUntil: new Date(now.getTime() + config.priceSignals.sweepLeaseMs) }),
   });
 
   return advanced !== undefined;
@@ -227,7 +227,10 @@ function toEvaluationRow(input: {
       : {}),
     evidenceObservationIds: signal.evidence.observationIds.slice(0, PRICE_SIGNAL_EVIDENCE_MAX_IDS),
     evidenceOfferIds: signal.evidence.offerIds.slice(0, PRICE_SIGNAL_EVIDENCE_MAX_IDS),
-    excludedOutlierObservationIds: signal.evidence.excludedOutlierObservationIds.slice(0, PRICE_SIGNAL_EVIDENCE_MAX_IDS),
+    excludedOutlierObservationIds: signal.evidence.excludedOutlierObservationIds.slice(
+      0,
+      PRICE_SIGNAL_EVIDENCE_MAX_IDS,
+    ),
   };
 }
 
@@ -237,7 +240,10 @@ function toEvaluationRow(input: {
  * @returns whether any work was found, so the dispatcher can poll rather than
  * spin.
  */
-export async function drainPriceSignalSweep(leaseOwner: string, now = new Date()): Promise<boolean> {
+export async function drainPriceSignalSweep(
+  leaseOwner: string,
+  now = new Date(),
+): Promise<boolean> {
   const run = await claimPriceSignalRun(
     leaseOwner,
     new Date(now.getTime() + config.priceSignals.sweepLeaseMs),

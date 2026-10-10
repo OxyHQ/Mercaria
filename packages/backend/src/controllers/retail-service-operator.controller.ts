@@ -41,7 +41,11 @@ import {
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
-import { findRetailServiceRequest, listOpenRetailServiceRequests, listRetailServiceEvents } from '../db/retailServiceRequests/requestRepository.js';
+import {
+  findRetailServiceRequest,
+  listOpenRetailServiceRequests,
+  listRetailServiceEvents,
+} from '../db/retailServiceRequests/requestRepository.js';
 import { listOpenSupplierRecoveries } from '../db/retailServiceRequests/supplierRecoveryRepository.js';
 import { findOrderById } from '../db/orders/orderRepository.js';
 import { retailOperatorDecider } from '../services/retail-service-requests/authorization.js';
@@ -117,7 +121,9 @@ const settleSchema = z
   })
   .strict();
 
-const reasonSchema = z.object({ reason: z.string().min(1).max(RETAIL_SERVICE_NOTE_MAX_LENGTH) }).strict();
+const reasonSchema = z
+  .object({ reason: z.string().min(1).max(RETAIL_SERVICE_NOTE_MAX_LENGTH) })
+  .strict();
 
 /** Read a request and its order, or send the 404 and return `null`. */
 async function loadForOperator(req: Request, res: Response) {
@@ -177,7 +183,12 @@ export async function retailServiceDecideHandler(req: Request, res: Response): P
   try {
     const parsed = decideSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid request', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid request',
+        400,
+      );
       return;
     }
     const loaded = await loadForOperator(req, res);
@@ -358,7 +369,12 @@ export async function retailReturnReportHandler(req: Request, res: Response): Pr
   try {
     const parsed = reportSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid request', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid request',
+        400,
+      );
       return;
     }
     const loaded = await loadForOperator(req, res);
@@ -393,7 +409,12 @@ export async function retailRecoveryOpenHandler(req: Request, res: Response): Pr
   try {
     const parsed = recoverySchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid request', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid request',
+        400,
+      );
       return;
     }
     const loaded = await loadForOperator(req, res);
@@ -431,7 +452,12 @@ export async function retailRecoverySettleHandler(req: Request, res: Response): 
   try {
     const parsed = settleSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid request', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid request',
+        400,
+      );
       return;
     }
     const loaded = await loadForOperator(req, res);
@@ -470,11 +496,7 @@ export async function retailSupplierCancelHandler(req: Request, res: Response): 
     const loaded = await loadForOperator(req, res);
     if (loaded === null) return;
     const decider = retailOperatorDecider(getRequiredOxyUserId(req), 'recovery:drive');
-    const state = await requestRetailSupplierCancellation(
-      decider,
-      loaded.record.id,
-      new Date(),
-    );
+    const state = await requestRetailSupplierCancellation(decider, loaded.record.id, new Date());
     sendSuccess(res, state);
   } catch (error) {
     respondWithError(res, error, 'Failed to request the cancellation');

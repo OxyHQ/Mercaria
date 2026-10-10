@@ -180,7 +180,9 @@ export const priceAlerts = pgTable(
     requirePickupAvailable: boolean().notNull().default(false),
 
     // ── Lifecycle and repeat policy (issue model fields 9, 10) ───────────────
-    state: text({ enum: asEnumValues(PRICE_ALERT_STATES) }).notNull().default('enabled'),
+    state: text({ enum: asEnumValues(PRICE_ALERT_STATES) })
+      .notNull()
+      .default('enabled'),
     repeatPolicy: text({ enum: asEnumValues(PRICE_ALERT_REPEAT_POLICIES) })
       .notNull()
       .default('once'),
@@ -259,11 +261,7 @@ export const priceAlerts = pgTable(
   (t) => [
     ...currencyChecks('price_alerts', [t.targetCurrency]),
     checkOneOf('price_alerts_basis_check', t.basis, PRICE_ALERT_COMPARISON_BASES),
-    checkEveryElementOf(
-      'price_alerts_condition_groups_check',
-      t.conditionGroups,
-      CONDITION_GROUPS,
-    ),
+    checkEveryElementOf('price_alerts_condition_groups_check', t.conditionGroups, CONDITION_GROUPS),
     checkEveryElementOf(
       'price_alerts_last_block_reasons_check',
       t.lastBlockReasons,
@@ -292,7 +290,11 @@ export const priceAlerts = pgTable(
       sql`${t.lastBlockedAt} is null or ${t.lastEvaluatedAt} is not null`,
     ),
     checkOneOf('price_alerts_seller_scope_check', t.sellerScope, PRICE_ALERT_SELLER_SCOPES),
-    checkOneOf('price_alerts_proximity_scope_check', t.proximityScope, PRICE_ALERT_PROXIMITY_SCOPES),
+    checkOneOf(
+      'price_alerts_proximity_scope_check',
+      t.proximityScope,
+      PRICE_ALERT_PROXIMITY_SCOPES,
+    ),
     checkOneOf(
       'price_alerts_availability_requirement_check',
       t.availabilityRequirement,
@@ -418,9 +420,7 @@ export const priceAlerts = pgTable(
     index('price_alerts_subject_idx')
       .on(t.canonicalProductId, t.state)
       .where(sql`${t.state} = 'enabled'`),
-    index('price_alerts_split_job_idx')
-      .on(t.splitJobId)
-      .where(sql`${t.splitJobId} is not null`),
+    index('price_alerts_split_job_idx').on(t.splitJobId).where(sql`${t.splitJobId} is not null`),
   ],
 );
 
@@ -466,9 +466,7 @@ export const priceAlertEvaluations = pgTable(
     canonicalProductId: text()
       .notNull()
       .references(() => canonicalProducts.id, { onDelete: 'cascade' }),
-    state: text({ enum: PRICE_ALERT_EVALUATION_STATES })
-      .notNull()
-      .default('pending'),
+    state: text({ enum: PRICE_ALERT_EVALUATION_STATES }).notNull().default('pending'),
     /** Bumped by every enqueue. See the table docblock. */
     requestedRevision: integer().notNull().default(1),
     /** The revision a worker took responsibility for when it claimed. */

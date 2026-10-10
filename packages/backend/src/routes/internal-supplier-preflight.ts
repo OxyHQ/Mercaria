@@ -108,10 +108,6 @@ router.post(
 );
 
 /** POST — run one sweep pass now. Adds no capability the timer does not have. */
-router.post(
-  '/sweep',
-  validateBody(supplierPreflightSweepSchema),
-  runSupplierPreflightSweepHandler,
-);
+router.post('/sweep', validateBody(supplierPreflightSweepSchema), runSupplierPreflightSweepHandler);
 
 export default router;

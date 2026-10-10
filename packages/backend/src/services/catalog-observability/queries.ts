@@ -296,8 +296,7 @@ export async function tallyProposals(
   );
   const bandCounts = sql.join(
     CATALOG_PROPOSAL_AGE_BANDS.map((band, index) => {
-      const upper =
-        band.toSeconds === null ? sql`true` : sql`${age} < ${band.toSeconds}`;
+      const upper = band.toSeconds === null ? sql`true` : sql`${age} < ${band.toSeconds}`;
       return sql`
         count(*) filter (
           where state in (${open}) and ${age} >= ${band.fromSeconds} and ${upper}

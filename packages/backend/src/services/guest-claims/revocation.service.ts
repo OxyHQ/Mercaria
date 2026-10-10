@@ -244,9 +244,7 @@ async function execute(
     // the orders have already been detached in this transaction, so a claim row
     // that refused to move would leave the two disagreeing, and rolling back is
     // the only correct answer.
-    throw new Error(
-      `claim ${claim.id} could not be marked revoked after its orders were detached`,
-    );
+    throw new Error(`claim ${claim.id} could not be marked revoked after its orders were detached`);
   }
 
   const executed = await markRevocationExecuted(tx, {
@@ -295,8 +293,6 @@ export async function withdrawClaimRevocation(input: {
 }
 
 /** The standing request for a claim, if one is open — the operator's read. */
-export async function readOpenRevocation(
-  claimId: string,
-): Promise<GuestClaimRevocationRow | null> {
+export async function readOpenRevocation(claimId: string): Promise<GuestClaimRevocationRow | null> {
   return await findOpenRevocationForClaim(getDb(), claimId);
 }

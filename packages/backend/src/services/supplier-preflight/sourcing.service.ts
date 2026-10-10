@@ -143,7 +143,17 @@ export async function sourceRetailLine(
   }
 
   const candidates = await Promise.all(
-    offers.map((offer) => buildCandidate(offer, destinationCountry, policy.healthWindowMinutes, policy.healthMinimumSamples, policy.healthMaxFailureBps, now, db)),
+    offers.map((offer) =>
+      buildCandidate(
+        offer,
+        destinationCountry,
+        policy.healthWindowMinutes,
+        policy.healthMinimumSamples,
+        policy.healthMaxFailureBps,
+        now,
+        db,
+      ),
+    ),
   );
   const withFacts = candidates.filter(
     (entry): entry is { offer: ProcurementOfferRecord; facts: SourcingCandidateFacts } =>
@@ -164,7 +174,9 @@ export async function sourceRetailLine(
     },
   );
 
-  const offerById = new Map(withFacts.map((entry) => [entry.facts.procurementOfferId, entry.offer]));
+  const offerById = new Map(
+    withFacts.map((entry) => [entry.facts.procurementOfferId, entry.offer]),
+  );
   const attempts: NewSupplierSourcingAttempt[] = [];
   let sequence = 0;
   let selected: SupplierPreflightResult | null = null;
@@ -430,11 +442,7 @@ async function buildCandidate(
       // has one; a single-line source has no group to concentrate within, so it
       // is zero rather than an invented share.
       currentShareBps: 0,
-      suppression: marketSuppressed
-        ? 'market'
-        : suppressions.length > 0
-          ? 'supplier'
-          : 'none',
+      suppression: marketSuppressed ? 'market' : suppressions.length > 0 ? 'supplier' : 'none',
       accountActive: account.state === 'active',
     },
   };
@@ -517,7 +525,9 @@ export async function runCheckoutGroupPreflight(
     const itemSubtotalMinor = groupQuotes.reduce<number | null>((sum, quote) => {
       if (sum === null || !quote || quote.quote.unitCostAmount === null) return null;
       return (
-        sum + quote.quote.unitCostAmount * quote.quote.quantity + (quote.quote.supplierFeesAmount ?? 0)
+        sum +
+        quote.quote.unitCostAmount * quote.quote.quantity +
+        (quote.quote.supplierFeesAmount ?? 0)
       );
     }, 0);
 

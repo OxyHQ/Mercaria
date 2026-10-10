@@ -121,10 +121,7 @@ export async function runSupplierPreflightSweep(
     db,
   );
   for (const quote of lapsedQuotes) {
-    const released = await releaseSupplierQuote(
-      { quoteId: quote.id, reason: 'expired', now },
-      db,
-    );
+    const released = await releaseSupplierQuote({ quoteId: quote.id, reason: 'expired', now }, db);
     if (released) result.quotesReleased += 1;
   }
 

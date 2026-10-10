@@ -2,11 +2,7 @@ import { View } from 'react-native';
 import { Chip } from '@oxy.so/bloom/chip';
 import { Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
-import type {
-  VariantAxis,
-  VariantAxisValue,
-  VariantMatrix,
-} from '@/lib/catalog/variant-axes';
+import type { VariantAxis, VariantAxisValue, VariantMatrix } from '@/lib/catalog/variant-axes';
 
 /**
  * The variant selector, one control per ACTUAL axis (#367 workstream 9).

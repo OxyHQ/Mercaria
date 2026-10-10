@@ -145,7 +145,9 @@ export const watchlists = pgTable(
     /** An emoji or short token the owner picked. Copy, never a file reference. */
     icon: text(),
     /** #81 privacy rule 1. One member; see the file header. */
-    visibility: text({ enum: asEnumValues(WATCHLIST_VISIBILITIES) }).notNull().default('private'),
+    visibility: text({ enum: asEnumValues(WATCHLIST_VISIBILITIES) })
+      .notNull()
+      .default('private'),
     /** #81 model rule 4 — what every amount on this list is expressed in. */
     displayCurrency: text({ enum: asEnumValues(ALL_CURRENCY_CODES) }).notNull(),
     /** ISO 3166-1 alpha-2, uppercase. NULL means "do not narrow by market". */

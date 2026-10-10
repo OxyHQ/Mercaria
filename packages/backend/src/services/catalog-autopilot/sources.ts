@@ -35,7 +35,11 @@ import {
   publishIngestionSourcePolicy,
 } from '../ingestion/source.service.js';
 import { findOpenDataProvider } from '../open-data/catalogue.js';
-import type { DeclaredMerchant, DeclaredOpenDataSource, DeclaredSourceRights } from '../open-data/sources.js';
+import type {
+  DeclaredMerchant,
+  DeclaredOpenDataSource,
+  DeclaredSourceRights,
+} from '../open-data/sources.js';
 import { CATALOG_AUTOPILOT_ACTOR } from './actor.js';
 
 export interface SourceReconciliation {
@@ -111,7 +115,8 @@ async function reconcileOne(declared: DeclaredOpenDataSource): Promise<SourceRec
   const provider = findOpenDataProvider(declared.provider);
   if (provider === undefined) throw new Error(`Unknown open-data provider ${declared.provider}.`);
 
-  const merchantId = declared.merchant === null ? undefined : await ensureMerchant(declared.merchant);
+  const merchantId =
+    declared.merchant === null ? undefined : await ensureMerchant(declared.merchant);
   const configured = await configureIngestionSource({
     name: declared.name,
     kind: provider.kind,
@@ -158,7 +163,10 @@ export async function reconcileDeclaredSources(
     try {
       results.push(await reconcileOne(source));
     } catch (error: unknown) {
-      log.general.error({ err: error, source: source.name }, '[CatalogAutopilot] source reconciliation failed');
+      log.general.error(
+        { err: error, source: source.name },
+        '[CatalogAutopilot] source reconciliation failed',
+      );
       results.push({
         name: source.name,
         sourceId: null,

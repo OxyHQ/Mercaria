@@ -38,18 +38,18 @@ import type {
   ComparisonUnavailableReason,
   ComparisonUnknownReason,
   ExplanationRejectionReason,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 
 /** The named alternatives, as a shopper reads them. */
 const RESULT_KIND_KEYS: Readonly<Record<BasketResultKind, string>> = {
-  cheapest_known_item_prices: "ui.basket.result.cheapestKnownItemPrices",
-  cheapest_known_total: "ui.basket.result.cheapestKnownTotal",
-  fewest_merchants: "ui.basket.result.fewestMerchants",
-  best_native_plan: "ui.basket.result.bestNativePlan",
-  official_channel_plan: "ui.basket.result.officialChannelPlan",
-  best_nearby_pickup: "ui.basket.result.bestNearbyPickup",
-  used_or_refurbished_value: "ui.basket.result.usedOrRefurbishedValue",
-  partial_coverage: "ui.basket.result.partialCoverage",
+  cheapest_known_item_prices: 'ui.basket.result.cheapestKnownItemPrices',
+  cheapest_known_total: 'ui.basket.result.cheapestKnownTotal',
+  fewest_merchants: 'ui.basket.result.fewestMerchants',
+  best_native_plan: 'ui.basket.result.bestNativePlan',
+  official_channel_plan: 'ui.basket.result.officialChannelPlan',
+  best_nearby_pickup: 'ui.basket.result.bestNearbyPickup',
+  used_or_refurbished_value: 'ui.basket.result.usedOrRefurbishedValue',
+  partial_coverage: 'ui.basket.result.partialCoverage',
 };
 
 export function basketResultTextKey(kind: BasketResultKind): string {
@@ -75,14 +75,14 @@ export function basketResultTextKey(kind: BasketResultKind): string {
  * locale has to preserve that distinction, not just the English.
  */
 const RESULT_KIND_DEFINITION_KEYS: Readonly<Record<BasketResultKind, string>> = {
-  cheapest_known_item_prices: "ui.basket.resultDefinition.cheapestKnownItemPrices",
-  cheapest_known_total: "ui.basket.resultDefinition.cheapestKnownTotal",
-  fewest_merchants: "ui.basket.resultDefinition.fewestMerchants",
-  best_native_plan: "ui.basket.resultDefinition.bestNativePlan",
-  official_channel_plan: "ui.basket.resultDefinition.officialChannelPlan",
-  best_nearby_pickup: "ui.basket.resultDefinition.bestNearbyPickup",
-  used_or_refurbished_value: "ui.basket.resultDefinition.usedOrRefurbishedValue",
-  partial_coverage: "ui.basket.resultDefinition.partialCoverage",
+  cheapest_known_item_prices: 'ui.basket.resultDefinition.cheapestKnownItemPrices',
+  cheapest_known_total: 'ui.basket.resultDefinition.cheapestKnownTotal',
+  fewest_merchants: 'ui.basket.resultDefinition.fewestMerchants',
+  best_native_plan: 'ui.basket.resultDefinition.bestNativePlan',
+  official_channel_plan: 'ui.basket.resultDefinition.officialChannelPlan',
+  best_nearby_pickup: 'ui.basket.resultDefinition.bestNearbyPickup',
+  used_or_refurbished_value: 'ui.basket.resultDefinition.usedOrRefurbishedValue',
+  partial_coverage: 'ui.basket.resultDefinition.partialCoverage',
 };
 
 export function basketResultDefinitionKey(kind: BasketResultKind): string {
@@ -98,26 +98,26 @@ export function basketResultDefinitionKey(kind: BasketResultKind): string {
  * nothing to measure TO.
  */
 const REASON_KEYS: Readonly<Record<BasketReasonCode, string>> = {
-  no_eligible_offer: "ui.basket.reason.noEligibleOffer",
-  no_offer_in_requested_condition: "ui.basket.reason.noOfferInRequestedCondition",
-  no_offer_from_requested_merchant: "ui.basket.reason.noOfferFromRequestedMerchant",
-  every_offer_from_excluded_merchant: "ui.basket.reason.everyOfferFromExcludedMerchant",
-  no_offer_in_channel_policy: "ui.basket.reason.noOfferInChannelPolicy",
-  no_convertible_price: "ui.basket.reason.noConvertiblePrice",
-  quantity_exceeds_available_stock: "ui.basket.reason.quantityExceedsAvailableStock",
-  quantity_not_splittable: "ui.basket.reason.quantityNotSplittable",
-  merchant_limit_would_be_exceeded: "ui.basket.reason.merchantLimitWouldBeExceeded",
-  hard_constraint_failed: "ui.basket.reason.hardConstraintFailed",
-  watchlist_item_unresolved: "ui.basket.reason.watchlistItemUnresolved",
-  delivery_cost_unknown: "ui.basket.reason.deliveryCostUnknown",
-  tax_inclusion_unknown: "ui.basket.reason.taxInclusionUnknown",
-  objective_requires_complete_costs: "ui.basket.reason.objectiveRequiresCompleteCosts",
-  objective_requires_native_offer: "ui.basket.reason.objectiveRequiresNativeOffer",
-  objective_requires_official_channel: "ui.basket.reason.objectiveRequiresOfficialChannel",
-  objective_requires_used_offer: "ui.basket.reason.objectiveRequiresUsedOffer",
-  pickup_data_unavailable: "ui.basket.reason.pickupDataUnavailable",
-  offer_no_longer_eligible: "ui.basket.reason.offerNoLongerEligible",
-  offer_price_changed: "ui.basket.reason.offerPriceChanged",
+  no_eligible_offer: 'ui.basket.reason.noEligibleOffer',
+  no_offer_in_requested_condition: 'ui.basket.reason.noOfferInRequestedCondition',
+  no_offer_from_requested_merchant: 'ui.basket.reason.noOfferFromRequestedMerchant',
+  every_offer_from_excluded_merchant: 'ui.basket.reason.everyOfferFromExcludedMerchant',
+  no_offer_in_channel_policy: 'ui.basket.reason.noOfferInChannelPolicy',
+  no_convertible_price: 'ui.basket.reason.noConvertiblePrice',
+  quantity_exceeds_available_stock: 'ui.basket.reason.quantityExceedsAvailableStock',
+  quantity_not_splittable: 'ui.basket.reason.quantityNotSplittable',
+  merchant_limit_would_be_exceeded: 'ui.basket.reason.merchantLimitWouldBeExceeded',
+  hard_constraint_failed: 'ui.basket.reason.hardConstraintFailed',
+  watchlist_item_unresolved: 'ui.basket.reason.watchlistItemUnresolved',
+  delivery_cost_unknown: 'ui.basket.reason.deliveryCostUnknown',
+  tax_inclusion_unknown: 'ui.basket.reason.taxInclusionUnknown',
+  objective_requires_complete_costs: 'ui.basket.reason.objectiveRequiresCompleteCosts',
+  objective_requires_native_offer: 'ui.basket.reason.objectiveRequiresNativeOffer',
+  objective_requires_official_channel: 'ui.basket.reason.objectiveRequiresOfficialChannel',
+  objective_requires_used_offer: 'ui.basket.reason.objectiveRequiresUsedOffer',
+  pickup_data_unavailable: 'ui.basket.reason.pickupDataUnavailable',
+  offer_no_longer_eligible: 'ui.basket.reason.offerNoLongerEligible',
+  offer_price_changed: 'ui.basket.reason.offerPriceChanged',
 };
 
 export function basketReasonTextKey(reason: BasketReasonCode): string {
@@ -126,9 +126,9 @@ export function basketReasonTextKey(reason: BasketReasonCode): string {
 
 /** Why an answer is not proven optimal. A TERM, filled into the frame below. */
 const APPROXIMATION_KEYS: Readonly<Record<BasketApproximationReason, string>> = {
-  candidate_limit_reached: "ui.basket.approximation.candidateLimitReached",
-  merchant_limit_reached: "ui.basket.approximation.merchantLimitReached",
-  time_limit_reached: "ui.basket.approximation.timeLimitReached",
+  candidate_limit_reached: 'ui.basket.approximation.candidateLimitReached',
+  merchant_limit_reached: 'ui.basket.approximation.merchantLimitReached',
+  time_limit_reached: 'ui.basket.approximation.timeLimitReached',
 };
 
 export function basketApproximationTextKey(reason: BasketApproximationReason): string {
@@ -136,17 +136,17 @@ export function basketApproximationTextKey(reason: BasketApproximationReason): s
 }
 
 /** "Best possible plan from the offers we can see." */
-export const BASKET_OPTIMALITY_PROVEN_KEY = "ui.basket.optimalityProven";
+export const BASKET_OPTIMALITY_PROVEN_KEY = 'ui.basket.optimalityProven';
 
 /**
  * "Best plan found — %{reason}." — the WHOLE sentence, so a language that puts
  * the qualification first, or joins it with something other than an em dash,
  * can. `%{reason}` is resolved from {@link basketApproximationTextKey}.
  */
-export const BASKET_OPTIMALITY_APPROXIMATE_KEY = "ui.basket.optimalityApproximate";
+export const BASKET_OPTIMALITY_APPROXIMATE_KEY = 'ui.basket.optimalityApproximate';
 
 /** What separates two joined reasons. `"; "` in English, `、` in Japanese. */
-export const COMPARISON_LIST_SEPARATOR_KEY = "ui.comparison.listSeparator";
+export const COMPARISON_LIST_SEPARATOR_KEY = 'ui.comparison.listSeparator';
 
 /**
  * `BasketPlanCard`'s own copy (#437).
@@ -181,31 +181,31 @@ export const COMPARISON_LIST_SEPARATOR_KEY = "ui.comparison.listSeparator";
  * figure to its caveat, and in a right-to-left run its side was decided by the
  * text around it rather than by the sentence.
  */
-export const BASKET_CARD_REFUSED_KEY = "ui.basket.card.refused";
-export const BASKET_CARD_TALLY_KEY = "ui.basket.card.tally";
-export const BASKET_CARD_ITEM_PRICES_KEY = "ui.basket.card.itemPrices";
-export const BASKET_CARD_STALE_PRICES_KEY = "ui.basket.card.stalePrices";
-export const BASKET_CARD_NOT_INCLUDED_KEY = "ui.basket.card.notIncluded";
-export const BASKET_CARD_ADD_TO_CART_KEY = "ui.basket.card.addToCart";
-export const BASKET_CARD_ADD_TO_CART_A11Y_KEY = "ui.basket.card.addToCartA11y";
-export const BASKET_CARD_OPEN_RETAILERS_KEY = "ui.basket.card.openRetailers";
-export const BASKET_CARD_OPEN_RETAILERS_NOTE_KEY = "ui.basket.card.openRetailersNote";
-export const BASKET_CARD_MERCHANT_LINE_KEY = "ui.basket.card.merchantLine";
-export const BASKET_CARD_MERCHANT_LINE_A11Y_KEY = "ui.basket.card.merchantLineA11y";
-export const BASKET_CARD_AT_LEAST_KEY = "ui.basket.card.atLeast";
-export const BASKET_CARD_AT_LEAST_MISSING_KEY = "ui.basket.card.atLeastMissing";
-export const BASKET_CARD_DELIVERY_ONE_KEY = "ui.basket.card.deliveryOne";
-export const BASKET_CARD_DELIVERY_MULTIPLE_KEY = "ui.basket.card.deliveryMultiple";
-export const BASKET_CARD_TAX_UNKNOWN_KEY = "ui.basket.card.taxUnknown";
-export const BASKET_CARD_PRICES_UNKNOWN_KEY = "ui.basket.card.pricesUnknown";
+export const BASKET_CARD_REFUSED_KEY = 'ui.basket.card.refused';
+export const BASKET_CARD_TALLY_KEY = 'ui.basket.card.tally';
+export const BASKET_CARD_ITEM_PRICES_KEY = 'ui.basket.card.itemPrices';
+export const BASKET_CARD_STALE_PRICES_KEY = 'ui.basket.card.stalePrices';
+export const BASKET_CARD_NOT_INCLUDED_KEY = 'ui.basket.card.notIncluded';
+export const BASKET_CARD_ADD_TO_CART_KEY = 'ui.basket.card.addToCart';
+export const BASKET_CARD_ADD_TO_CART_A11Y_KEY = 'ui.basket.card.addToCartA11y';
+export const BASKET_CARD_OPEN_RETAILERS_KEY = 'ui.basket.card.openRetailers';
+export const BASKET_CARD_OPEN_RETAILERS_NOTE_KEY = 'ui.basket.card.openRetailersNote';
+export const BASKET_CARD_MERCHANT_LINE_KEY = 'ui.basket.card.merchantLine';
+export const BASKET_CARD_MERCHANT_LINE_A11Y_KEY = 'ui.basket.card.merchantLineA11y';
+export const BASKET_CARD_AT_LEAST_KEY = 'ui.basket.card.atLeast';
+export const BASKET_CARD_AT_LEAST_MISSING_KEY = 'ui.basket.card.atLeastMissing';
+export const BASKET_CARD_DELIVERY_ONE_KEY = 'ui.basket.card.deliveryOne';
+export const BASKET_CARD_DELIVERY_MULTIPLE_KEY = 'ui.basket.card.deliveryMultiple';
+export const BASKET_CARD_TAX_UNKNOWN_KEY = 'ui.basket.card.taxUnknown';
+export const BASKET_CARD_PRICES_UNKNOWN_KEY = 'ui.basket.card.pricesUnknown';
 
 /** Why a comparison cell has no value. */
 const UNKNOWN_KEYS: Readonly<Record<ComparisonUnknownReason, string>> = {
-  not_recorded: "ui.comparison.unknown.notRecorded",
-  conflicting_sources: "ui.comparison.unknown.conflictingSources",
-  low_confidence: "ui.comparison.unknown.lowConfidence",
-  unit_not_comparable: "ui.comparison.unknown.unitNotComparable",
-  definition_not_published: "ui.comparison.unknown.definitionNotPublished",
+  not_recorded: 'ui.comparison.unknown.notRecorded',
+  conflicting_sources: 'ui.comparison.unknown.conflictingSources',
+  low_confidence: 'ui.comparison.unknown.lowConfidence',
+  unit_not_comparable: 'ui.comparison.unknown.unitNotComparable',
+  definition_not_published: 'ui.comparison.unknown.definitionNotPublished',
 };
 
 export function comparisonUnknownTextKey(reason: ComparisonUnknownReason): string {
@@ -214,8 +214,8 @@ export function comparisonUnknownTextKey(reason: ComparisonUnknownReason): strin
 
 /** Why a fact does not apply to a product at all. */
 const NOT_APPLICABLE_KEYS: Readonly<Record<ComparisonNotApplicableReason, string>> = {
-  attribute_out_of_category: "ui.comparison.notApplicable.attributeOutOfCategory",
-  attribute_not_comparable: "ui.comparison.notApplicable.attributeNotComparable",
+  attribute_out_of_category: 'ui.comparison.notApplicable.attributeOutOfCategory',
+  attribute_not_comparable: 'ui.comparison.notApplicable.attributeNotComparable',
 };
 
 export function comparisonNotApplicableTextKey(reason: ComparisonNotApplicableReason): string {
@@ -228,7 +228,7 @@ export function comparisonNotApplicableTextKey(reason: ComparisonNotApplicableRe
  * A key rather than a template literal because the separator is not a colon in
  * every language, and because the value it carries is itself translated.
  */
-export const COMPARISON_CELL_A11Y_KEY = "ui.comparison.cellA11y";
+export const COMPARISON_CELL_A11Y_KEY = 'ui.comparison.cellA11y';
 
 /**
  * "%{label}: %{value}, inferred" — the same frame for a cell whose value
@@ -239,10 +239,10 @@ export const COMPARISON_CELL_A11Y_KEY = "ui.comparison.cellA11y";
  * source-backed fact, and where that qualifier sits in the sentence is a
  * per-language decision.
  */
-export const COMPARISON_CELL_INFERRED_A11Y_KEY = "ui.comparison.cellInferredA11y";
+export const COMPARISON_CELL_INFERRED_A11Y_KEY = 'ui.comparison.cellInferredA11y';
 
 /** The visible note under an inferred cell — "converted, not stated". */
-export const COMPARISON_CELL_INFERRED_NOTE_KEY = "ui.comparison.cellInferredNote";
+export const COMPARISON_CELL_INFERRED_NOTE_KEY = 'ui.comparison.cellInferredNote';
 
 /**
  * The comparison TABLE's own chrome (#437).
@@ -261,19 +261,19 @@ export const COMPARISON_CELL_INFERRED_NOTE_KEY = "ui.comparison.cellInferredNote
  * render something, and rendering the ref would put a wire identifier in front
  * of a shopper (#596's finding, one component over).
  */
-export const COMPARISON_TABLE_SPECIFICATION_KEY = "ui.comparison.table.specification";
-export const COMPARISON_TABLE_UNNAMED_PRODUCT_KEY = "ui.comparison.table.unnamedProduct";
-export const COMPARISON_TABLE_NO_DIFFERENCES_KEY = "ui.comparison.table.noDifferences";
-export const COMPARISON_TABLE_IN_UNIT_KEY = "ui.comparison.table.inUnit";
-export const COMPARISON_TABLE_HIGHER_IS_BETTER_KEY = "ui.comparison.table.higherIsBetter";
-export const COMPARISON_TABLE_LOWER_IS_BETTER_KEY = "ui.comparison.table.lowerIsBetter";
+export const COMPARISON_TABLE_SPECIFICATION_KEY = 'ui.comparison.table.specification';
+export const COMPARISON_TABLE_UNNAMED_PRODUCT_KEY = 'ui.comparison.table.unnamedProduct';
+export const COMPARISON_TABLE_NO_DIFFERENCES_KEY = 'ui.comparison.table.noDifferences';
+export const COMPARISON_TABLE_IN_UNIT_KEY = 'ui.comparison.table.inUnit';
+export const COMPARISON_TABLE_HIGHER_IS_BETTER_KEY = 'ui.comparison.table.higherIsBetter';
+export const COMPARISON_TABLE_LOWER_IS_BETTER_KEY = 'ui.comparison.table.lowerIsBetter';
 
 /** Why a product cannot be bought. */
 const UNAVAILABLE_KEYS: Readonly<Record<ComparisonUnavailableReason, string>> = {
-  no_eligible_offer: "ui.comparison.unavailable.noEligibleOffer",
-  all_offers_constrained_out: "ui.comparison.unavailable.allOffersConstrainedOut",
-  no_convertible_price: "ui.comparison.unavailable.noConvertiblePrice",
-  offer_comparison_withheld: "ui.comparison.unavailable.offerComparisonWithheld",
+  no_eligible_offer: 'ui.comparison.unavailable.noEligibleOffer',
+  all_offers_constrained_out: 'ui.comparison.unavailable.allOffersConstrainedOut',
+  no_convertible_price: 'ui.comparison.unavailable.noConvertiblePrice',
+  offer_comparison_withheld: 'ui.comparison.unavailable.offerComparisonWithheld',
 };
 
 export function comparisonUnavailableTextKey(reason: ComparisonUnavailableReason): string {
@@ -289,16 +289,16 @@ export function comparisonUnavailableTextKey(reason: ComparisonUnavailableReason
  * on a shopping page would be telling them about somebody else's outage.
  */
 const REJECTION_KEYS: Readonly<Record<ExplanationRejectionReason, string>> = {
-  unknown_record_reference: "ui.comparison.explanationRejection.unknownRecordReference",
-  uncited_statement: "ui.comparison.explanationRejection.uncitedStatement",
-  introduced_number: "ui.comparison.explanationRejection.introducedNumber",
-  constraint_result_changed: "ui.comparison.explanationRejection.constraintResultChanged",
-  unknown_constraint_reference: "ui.comparison.explanationRejection.unknownConstraintReference",
-  forbidden_topic: "ui.comparison.explanationRejection.forbiddenTopic",
-  schema_invalid: "ui.comparison.explanationRejection.schemaInvalid",
-  output_too_long: "ui.comparison.explanationRejection.outputTooLong",
-  provider_unavailable: "ui.comparison.explanationRejection.providerUnavailable",
-  provider_error: "ui.comparison.explanationRejection.providerError",
+  unknown_record_reference: 'ui.comparison.explanationRejection.unknownRecordReference',
+  uncited_statement: 'ui.comparison.explanationRejection.uncitedStatement',
+  introduced_number: 'ui.comparison.explanationRejection.introducedNumber',
+  constraint_result_changed: 'ui.comparison.explanationRejection.constraintResultChanged',
+  unknown_constraint_reference: 'ui.comparison.explanationRejection.unknownConstraintReference',
+  forbidden_topic: 'ui.comparison.explanationRejection.forbiddenTopic',
+  schema_invalid: 'ui.comparison.explanationRejection.schemaInvalid',
+  output_too_long: 'ui.comparison.explanationRejection.outputTooLong',
+  provider_unavailable: 'ui.comparison.explanationRejection.providerUnavailable',
+  provider_error: 'ui.comparison.explanationRejection.providerError',
 };
 
 export function explanationRejectionTextKey(reason: ExplanationRejectionReason): string {
@@ -312,8 +312,7 @@ export function explanationRejectionTextKey(reason: ExplanationRejectionReason):
  * table below is the real comparison and was not written by a model, which is
  * true in every branch and is the more useful fact.
  */
-export const COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY =
-  "ui.comparison.explanationFallbackNotice";
+export const COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY = 'ui.comparison.explanationFallbackNotice';
 
 /**
  * The provenance line, keyed on WHO wrote the narrative (#560).
@@ -344,9 +343,7 @@ export const COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY =
  * inspect, it has no localized form, and it is shown verbatim by design — the
  * `{code.code}` case on the referral screen, one package over.
  */
-export const COMPARISON_PROVENANCE_KEYS: Readonly<
-  Record<"generated" | "template", string>
-> = {
-  generated: "ui.comparison.provenance.generated",
-  template: "ui.comparison.provenance.template",
+export const COMPARISON_PROVENANCE_KEYS: Readonly<Record<'generated' | 'template', string>> = {
+  generated: 'ui.comparison.provenance.generated',
+  template: 'ui.comparison.provenance.template',
 };

@@ -47,7 +47,10 @@ import type {
   MerchantSubscriptionStatus,
 } from '@mercaria/shared-types';
 import { and, eq } from 'drizzle-orm';
-import { merchantSubscriptions, merchantSubscriptionEvents } from '../../db/schema/merchantPlans.js';
+import {
+  merchantSubscriptions,
+  merchantSubscriptionEvents,
+} from '../../db/schema/merchantPlans.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import { merchantBillingAvailableForStore, registeredBillingCohort } from './cohort-access.js';
@@ -82,14 +85,12 @@ import {
   type BillingProvider,
   type BillingSubscriptionSnapshot,
 } from './provider.js';
-import {
-  subscriptionInvoicePaidEntries,
-  type SubscriptionSettlement,
-} from './ledger-postings.js';
+import { subscriptionInvoicePaidEntries, type SubscriptionSettlement } from './ledger-postings.js';
 
 /** Reject before acceptance/customer effects; replay belongs to a user intent. */
 function requireIntent(provider: BillingProvider, storeId: string, key?: string): void {
-  if (key !== undefined && !/^[A-Za-z0-9:_-]{8,200}$/.test(key)) throw validationError('Invalid Idempotency-Key.');
+  if (key !== undefined && !/^[A-Za-z0-9:_-]{8,200}$/.test(key))
+    throw validationError('Invalid Idempotency-Key.');
   if (provider.requiresExplicitIntent?.(storeId) && !key) {
     throw validationError('A stable Idempotency-Key is required for this billing action.');
   }
@@ -213,7 +214,9 @@ export async function startMerchantPlanCheckout(
     returnUrl,
     storeId: input.storeId,
     planId: plan.id,
-    idempotencyKey: input.idempotencyKey ?? `billing-checkout:${input.storeId}:${plan.id}:${input.interval}:${price.unitPriceCurrency}`,
+    idempotencyKey:
+      input.idempotencyKey ??
+      `billing-checkout:${input.storeId}:${plan.id}:${input.interval}:${price.unitPriceCurrency}`,
   });
   return { url: session.url, expiresAt: session.expiresAt?.toISOString() ?? null };
 }
@@ -269,7 +272,10 @@ export async function scheduleMerchantSubscriptionCancellation(input: {
     throw conflict('That subscription has already ended.');
   }
 
-  const snapshot = await provider.cancelAtPeriodEnd(subscription.providerSubscriptionId, input.idempotencyKey);
+  const snapshot = await provider.cancelAtPeriodEnd(
+    subscription.providerSubscriptionId,
+    input.idempotencyKey,
+  );
   const applied = await applyProviderSubscriptionState({
     snapshot,
     note: 'cancellation scheduled by the merchant',
@@ -489,7 +495,10 @@ export async function recordSubscriptionInvoicePaid(input: {
   subscriptionId: string;
   providerEventId: string;
   providerInvoiceId: string;
-  expectedSubscription: Pick<MerchantSubscriptionRow, 'provider' | 'livemode' | 'providerSubscriptionId' | 'billingCustomerId'>;
+  expectedSubscription: Pick<
+    MerchantSubscriptionRow,
+    'provider' | 'livemode' | 'providerSubscriptionId' | 'billingCustomerId'
+  >;
   /**
    * What actually landed on the platform balance. ABSENT when the invoice
    * settled no money at all — a fully-discounted period, or one paid from a
@@ -504,20 +513,31 @@ export async function recordSubscriptionInvoicePaid(input: {
   const db = getDb();
   try {
     return await db.transaction(async (tx) => {
-      const [current] = await tx.select().from(merchantSubscriptions)
-        .where(eq(merchantSubscriptions.id, input.subscriptionId)).for('update');
-      if (!current || current.provider !== input.expectedSubscription.provider ||
+      const [current] = await tx
+        .select()
+        .from(merchantSubscriptions)
+        .where(eq(merchantSubscriptions.id, input.subscriptionId))
+        .for('update');
+      if (
+        !current ||
+        current.provider !== input.expectedSubscription.provider ||
         current.livemode !== input.expectedSubscription.livemode ||
         current.providerSubscriptionId !== input.expectedSubscription.providerSubscriptionId ||
-        current.billingCustomerId !== input.expectedSubscription.billingCustomerId) {
+        current.billingCustomerId !== input.expectedSubscription.billingCustomerId
+      ) {
         throw conflict('Subscription billing binding changed before settlement.');
       }
-      const [priorClaim] = await tx.select({ id: merchantSubscriptionEvents.id })
-        .from(merchantSubscriptionEvents).where(and(
-          eq(merchantSubscriptionEvents.subscriptionId, input.subscriptionId),
-          eq(merchantSubscriptionEvents.kind, 'invoice_paid'),
-          eq(merchantSubscriptionEvents.providerInvoiceId, input.providerInvoiceId),
-        )).limit(1);
+      const [priorClaim] = await tx
+        .select({ id: merchantSubscriptionEvents.id })
+        .from(merchantSubscriptionEvents)
+        .where(
+          and(
+            eq(merchantSubscriptionEvents.subscriptionId, input.subscriptionId),
+            eq(merchantSubscriptionEvents.kind, 'invoice_paid'),
+            eq(merchantSubscriptionEvents.providerInvoiceId, input.providerInvoiceId),
+          ),
+        )
+        .limit(1);
       if (priorClaim) return { booked: false };
       // An invoice that settled nothing books NOTHING and still leaves a claim,
       // so a redelivery of it converges the same way a settled one does.
@@ -599,7 +619,7 @@ export async function announceExpiredGracePeriods(input?: {
     invalidateMerchantEntitlements(subscription.storeId);
     announced += 1;
   }
-  const nextAfterId = due.length === limit ? due.at(-1)?.id ?? null : null;
+  const nextAfterId = due.length === limit ? (due.at(-1)?.id ?? null) : null;
   return { announced, nextAfterId };
 }
 
@@ -651,6 +671,6 @@ export async function reconcileMerchantSubscriptions(input?: {
     }
   }
   // Advance past failed reads too; a partial/empty page wraps on the next pass.
-  const nextAfterId = page.length === limit ? page.at(-1)?.id ?? null : null;
+  const nextAfterId = page.length === limit ? (page.at(-1)?.id ?? null) : null;
   return { examined: page.length, applied, failed, nextAfterId };
 }

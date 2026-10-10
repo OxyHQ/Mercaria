@@ -40,19 +40,20 @@ import type { SupplierPreflightAdapter } from './adapter.js';
  * of their own: `order_partial_acceptance` (line outcomes) and `tracking_events`
  * (carrier scans) are enforced at the capability boundary, not here.
  */
-const CAPABILITY_METHODS: Readonly<Partial<Record<SupplierAdapterCapability, readonly string[]>>> = {
-  inventory_reservation: ['releaseReservation'],
-  order_draft_submission: ['submitOrder'],
-  order_state_read: ['readOrder'],
-  order_reference_lookup: ['findOrderByClientReference'],
-  order_cancellation: ['cancelOrder'],
-  shipment_read: ['readShipments'],
-  invoice_retrieval: ['readInvoice'],
-  credit_note_retrieval: ['readCreditNotes'],
-  return_authorization: ['createReturn', 'readReturn'],
-  order_webhooks: ['verifyWebhook'],
-  order_polling: ['pollChanges'],
-};
+const CAPABILITY_METHODS: Readonly<Partial<Record<SupplierAdapterCapability, readonly string[]>>> =
+  {
+    inventory_reservation: ['releaseReservation'],
+    order_draft_submission: ['submitOrder'],
+    order_state_read: ['readOrder'],
+    order_reference_lookup: ['findOrderByClientReference'],
+    order_cancellation: ['cancelOrder'],
+    shipment_read: ['readShipments'],
+    invoice_retrieval: ['readInvoice'],
+    credit_note_retrieval: ['readCreditNotes'],
+    return_authorization: ['createReturn', 'readReturn'],
+    order_webhooks: ['verifyWebhook'],
+    order_polling: ['pollChanges'],
+  };
 
 /** Provider slug → adapter. Populated at startup; empty in this repository. */
 const adapters = new Map<string, SupplierPreflightAdapter>();

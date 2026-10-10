@@ -1,9 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import type {
-  BasketRevalidation,
-  BasketSolution,
-  ComparisonResult,
-} from '@mercaria/shared-types';
+import type { BasketRevalidation, BasketSolution, ComparisonResult } from '@mercaria/shared-types';
 import {
   compareProducts,
   revalidateBasketPlan,

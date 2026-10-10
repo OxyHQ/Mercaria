@@ -3,9 +3,9 @@ import type {
   PaginatedResponse,
   Customer,
   CreateCustomerInput,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/customers`;
 

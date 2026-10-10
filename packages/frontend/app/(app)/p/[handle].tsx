@@ -1,4 +1,4 @@
-import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import Head from 'expo-router/head';
@@ -9,7 +9,13 @@ import type {
   ProductPageSeller,
 } from '@mercaria/shared-types';
 import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
-import { BundleContents, OfferLabelBadge, ProductGallery, ReviewSummaryCard, Text } from '@mercaria/ui';
+import {
+  BundleContents,
+  OfferLabelBadge,
+  ProductGallery,
+  ReviewSummaryCard,
+  Text,
+} from '@mercaria/ui';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
 import { Button } from '@oxy.so/bloom/button';
@@ -86,10 +92,14 @@ export default function CanonicalProductPageScreen() {
   const page = pageQuery.displayData;
   const media = page?.product.images ?? [];
   const images = media.flatMap((image) => {
-    const uri =
-      image.fileId ? resolveImage?.(image.fileId) : undefined;
+    const uri = image.fileId ? resolveImage?.(image.fileId) : undefined;
     return uri
-      ? [{ uri, alt: image.alt ?? t('product.imageFromCatalogueA11y', { name: page?.product.name }) }]
+      ? [
+          {
+            uri,
+            alt: image.alt ?? t('product.imageFromCatalogueA11y', { name: page?.product.name }),
+          },
+        ]
       : [];
   });
 
@@ -114,7 +124,8 @@ export default function CanonicalProductPageScreen() {
   const toggleProductSave = useToggleProductSave();
   const productSave = useProductSave(page?.product.id);
   const saved = productSave.data?.saved ?? false;
-  const savePending = toggleProductSave.isPending ||
+  const savePending =
+    toggleProductSave.isPending ||
     (canUsePrivateApi && (productSave.isPending || productSave.isFetching));
 
   /*
@@ -219,8 +230,14 @@ export default function CanonicalProductPageScreen() {
       <ScreenShell contentClassName="md:pt-6">
         {head}
         <View className="items-center justify-center gap-space-8 px-8 py-16">
-          <Text className="text-center text-shop-body text-text-tertiary">{t(pageQuery.isNotFound ? 'product.notFound' : 'product.loadError')}</Text>
-          {!pageQuery.isNotFound ? <Button appearance="outline" tone="neutral" onPress={() => void pageQuery.refetch()}>{t('common.tryAgain')}</Button> : null}
+          <Text className="text-center text-shop-body text-text-tertiary">
+            {t(pageQuery.isNotFound ? 'product.notFound' : 'product.loadError')}
+          </Text>
+          {!pageQuery.isNotFound ? (
+            <Button appearance="outline" tone="neutral" onPress={() => void pageQuery.refetch()}>
+              {t('common.tryAgain')}
+            </Button>
+          ) : null}
         </View>
       </ScreenShell>
     );
@@ -237,9 +254,16 @@ export default function CanonicalProductPageScreen() {
               images={images}
               title={page.product.name}
             />
-            {width >= 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
-              resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
-              onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
+            {width >= 768 ? (
+              <BundleContents
+                contents={page.bundleContents}
+                pending={pageQuery.isSelectionStale}
+                resolveImage={(image) => (image.fileId ? resolveImage?.(image.fileId) : undefined)}
+                onPressComponent={(component) =>
+                  router.push(buildHref(component.productSlug, component.variantId, undefined))
+                }
+              />
+            ) : null}
           </View>
           <View className="min-w-0 gap-space-24 px-space-16 md:px-0 md:pt-2 md:w-[29em]">
             <ProductIdentity
@@ -309,8 +333,16 @@ export default function CanonicalProductPageScreen() {
 
             {pageQuery.isError ? (
               <View testID="product-update-error" className="gap-space-8">
-                <Text accessibilityRole="alert" className="text-shop-bodySmall text-text-secondary">{t('product.loadError')}</Text>
-                <Button appearance="outline" tone="neutral" onPress={() => void pageQuery.refetch()}>{t('common.tryAgain')}</Button>
+                <Text accessibilityRole="alert" className="text-shop-bodySmall text-text-secondary">
+                  {t('product.loadError')}
+                </Text>
+                <Button
+                  appearance="outline"
+                  tone="neutral"
+                  onPress={() => void pageQuery.refetch()}
+                >
+                  {t('common.tryAgain')}
+                </Button>
               </View>
             ) : null}
 
@@ -334,9 +366,16 @@ export default function CanonicalProductPageScreen() {
               </Text>
             ) : null}
 
-            {width < 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
-              resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
-              onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
+            {width < 768 ? (
+              <BundleContents
+                contents={page.bundleContents}
+                pending={pageQuery.isSelectionStale}
+                resolveImage={(image) => (image.fileId ? resolveImage?.(image.fileId) : undefined)}
+                onPressComponent={(component) =>
+                  router.push(buildHref(component.productSlug, component.variantId, undefined))
+                }
+              />
+            ) : null}
             <ReviewSummaryCard
               embedded
               scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
@@ -347,7 +386,10 @@ export default function CanonicalProductPageScreen() {
               reviews={reviews.data?.data ?? []}
               isLoading={reviews.isLoading}
               onReadMore={() => setReviewsOpen(true)}
-              onReviewPress={(id) => { setInitialReviewId(id); setReviewsOpen(true); }}
+              onReviewPress={(id) => {
+                setInitialReviewId(id);
+                setReviewsOpen(true);
+              }}
             />
           </View>
         </View>
@@ -416,9 +458,11 @@ export default function CanonicalProductPageScreen() {
             <View className="gap-space-8">
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={productSave.isError
-                  ? t('common.tryAgain')
-                  : t(saved ? 'product.save.removeProductA11y' : 'product.save.productA11y')}
+                accessibilityLabel={
+                  productSave.isError
+                    ? t('common.tryAgain')
+                    : t(saved ? 'product.save.removeProductA11y' : 'product.save.productA11y')
+                }
                 accessibilityState={{ disabled: savePending, selected: saved }}
                 aria-pressed={saved}
                 disabled={savePending}
@@ -438,9 +482,11 @@ export default function CanonicalProductPageScreen() {
                 className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
               >
                 <Text className="text-shop-buttonMedium text-text">
-                  {productSave.isError ? t('common.tryAgain') : savePending
-                    ? t('common.loading')
-                    : t(saved ? 'product.save.productSaved' : 'product.save.product')}
+                  {productSave.isError
+                    ? t('common.tryAgain')
+                    : savePending
+                      ? t('common.loading')
+                      : t(saved ? 'product.save.productSaved' : 'product.save.product')}
                 </Text>
               </Pressable>
               {productSave.isError || toggleProductSave.isError ? (
@@ -488,7 +534,10 @@ export default function CanonicalProductPageScreen() {
           canonicalProductId={page.product.id}
           scope="product"
           initialReviewId={initialReviewId}
-          onClose={() => { setReviewsOpen(false); setInitialReviewId(undefined); }}
+          onClose={() => {
+            setReviewsOpen(false);
+            setInitialReviewId(undefined);
+          }}
         />
       ) : null}
     </ScreenShell>

@@ -1,12 +1,12 @@
-import { useCallback } from "react";
-import type { RatingProps } from "@oxy.so/bloom/rating";
-import { useSharedUiTranslation } from "../i18n/ui-translation";
+import { useCallback } from 'react';
+import type { RatingProps } from '@oxy.so/bloom/rating';
+import { useSharedUiTranslation } from '../i18n/ui-translation';
 import {
   REVIEW_NONE_KEY,
   REVIEW_STARS_A11Y_KEY,
   REVIEW_STARS_SCOPED_A11Y_KEY,
-} from "./marketplace-labels";
-import { useFormatters } from "./use-formatters";
+} from './marketplace-labels';
+import { useFormatters } from './use-formatters';
 
 export interface RatingDisplayInput {
   /** The rating, 0–5. */
@@ -28,7 +28,7 @@ export interface RatingDisplayInput {
    * `fillValue` — the NUMBER — because that string is bidi-isolated (FSI…PDI)
    * and need not parse. Default `compact`, which draws no fill.
    */
-  variant?: "compact" | "stars";
+  variant?: 'compact' | 'stars';
 }
 
 /** One decimal, the precision `formatRating` draws. */
@@ -36,9 +36,9 @@ const RATING_DECIMALS = 10;
 
 /** The part of Bloom's `Rating` props that carries a value and its copy. */
 export type RatingDisplay = Required<
-  Pick<RatingProps, "value" | "newLabel" | "accessibilityLabel">
+  Pick<RatingProps, 'value' | 'newLabel' | 'accessibilityLabel'>
 > &
-  Pick<RatingProps, "count" | "fillValue">;
+  Pick<RatingProps, 'count' | 'fillValue'>;
 
 /**
  * Turns a rating into the props `@oxy.so/bloom/rating`'s `Rating` needs, in the
@@ -70,7 +70,7 @@ export function useRatingDisplay(): (input: RatingDisplayInput) => RatingDisplay
       const figures = { rating: formatRating(rating), reviews: reviews ?? 1 };
       return {
         value: figures.rating,
-        ...(variant === "stars"
+        ...(variant === 'stars'
           ? { fillValue: Math.round(rating * RATING_DECIMALS) / RATING_DECIMALS }
           : {}),
         ...(reviews === undefined ? {} : { count: formatReviewCount(reviews) }),

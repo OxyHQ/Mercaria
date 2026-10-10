@@ -55,10 +55,7 @@ export async function listClaimQueueHandler(req: Request, res: Response): Promis
  */
 export async function getClaimForOperatorHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(
-      res,
-      await getClaimForOperator(routeParam(req, 'id'), catalogOperatorId(req)),
-    );
+    sendSuccess(res, await getClaimForOperator(routeParam(req, 'id'), catalogOperatorId(req)));
   } catch (error) {
     respondWithError(res, error, 'Reading the merchant claim failed');
   }

@@ -140,10 +140,7 @@ export async function claimSupplierCallLease(
   const cutoffParam = sql`${windowCutoff.toISOString()}::timestamptz`;
   const nowParam = sql`${now.toISOString()}::timestamptz`;
 
-  const free = or(
-    isNull(supplierCallLeases.leaseUntil),
-    lte(supplierCallLeases.leaseUntil, now),
-  );
+  const free = or(isNull(supplierCallLeases.leaseUntil), lte(supplierCallLeases.leaseUntil, now));
   const hasBudget = or(
     lte(supplierCallLeases.windowStart, windowCutoff),
     sql`${supplierCallLeases.callsInWindow} < ${supplierCallLeases.windowAllowance}`,
@@ -153,7 +150,11 @@ export async function claimSupplierCallLease(
     .select({ id: supplierCallLeases.id })
     .from(supplierCallLeases)
     .where(
-      and(eq(supplierCallLeases.supplierAccountId, input.budget.supplierAccountId), free, hasBudget),
+      and(
+        eq(supplierCallLeases.supplierAccountId, input.budget.supplierAccountId),
+        free,
+        hasBudget,
+      ),
     )
     .orderBy(supplierCallLeases.slot)
     .limit(1)

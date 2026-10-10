@@ -232,19 +232,10 @@ export const digitalSupplyTerms = pgTable(
       t.permittedFulfilmentCapabilities,
       DIGITAL_FULFILMENT_CAPABILITIES,
     ),
-    check(
-      'digital_supply_terms_territories_check',
-      sql`not ('' = any(${t.permittedTerritories}))`,
-    ),
+    check('digital_supply_terms_territories_check', sql`not ('' = any(${t.permittedTerritories}))`),
     check('digital_supply_terms_brands_check', sql`not ('' = any(${t.excludedBrands}))`),
-    check(
-      'digital_supply_terms_product_refs_check',
-      sql`not ('' = any(${t.excludedProductRefs}))`,
-    ),
-    check(
-      'digital_supply_terms_evidence_check',
-      sql`length(btrim(${t.evidenceLocation})) > 0`,
-    ),
+    check('digital_supply_terms_product_refs_check', sql`not ('' = any(${t.excludedProductRefs}))`),
+    check('digital_supply_terms_evidence_check', sql`length(btrim(${t.evidenceLocation})) > 0`),
     ...currencyChecks('digital_supply_terms', [t.maxOrderCostCurrency]),
     // An optional Money is BOTH columns or NEITHER, and a ceiling of zero is not
     // a ceiling — it is a supplier nothing can be bought from, spelled as a limit.
@@ -432,7 +423,11 @@ export const digitalProcurementOffers = pgTable(
       t.fulfilmentCapability,
       DIGITAL_FULFILMENT_CAPABILITIES,
     ),
-    checkOneOf('digital_procurement_offers_tax_class_check', t.taxClass, DIGITAL_RETAIL_TAX_CLASSES),
+    checkOneOf(
+      'digital_procurement_offers_tax_class_check',
+      t.taxClass,
+      DIGITAL_RETAIL_TAX_CLASSES,
+    ),
     checkOneOf(
       'digital_procurement_offers_availability_check',
       t.availability,
@@ -500,7 +495,10 @@ export const digitalProcurementOffers = pgTable(
       'digital_procurement_offers_first_seen_check',
       sql`${t.lastConfirmedAt} >= ${t.firstSeenAt}`,
     ),
-    uniqueIndex('digital_procurement_offers_account_sku_key').on(t.supplierAccountId, t.supplierSku),
+    uniqueIndex('digital_procurement_offers_account_sku_key').on(
+      t.supplierAccountId,
+      t.supplierSku,
+    ),
     // "Which suppliers can source this variant" — the selector's own read.
     index('digital_procurement_offers_variant_idx')
       .on(t.canonicalVariantId, t.fulfilmentCapability)
@@ -890,7 +888,10 @@ export const digitalPurchaseOrderAttempts = pgTable(
       sql`${t.finishedAt} >= ${t.startedAt}
           and (${t.durationMs} is null or ${t.durationMs} >= 0)`,
     ),
-    uniqueIndex('digital_purchase_order_attempts_number_key').on(t.purchaseOrderId, t.attemptNumber),
+    uniqueIndex('digital_purchase_order_attempts_number_key').on(
+      t.purchaseOrderId,
+      t.attemptNumber,
+    ),
     index('digital_purchase_order_attempts_operation_idx').on(t.operation, t.outcome, t.startedAt),
   ],
 );
@@ -952,7 +953,11 @@ export const digitalFulfilments = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('digital_fulfilments_capability_check', t.capability, DIGITAL_FULFILMENT_CAPABILITIES),
+    checkOneOf(
+      'digital_fulfilments_capability_check',
+      t.capability,
+      DIGITAL_FULFILMENT_CAPABILITIES,
+    ),
     checkOneOf(
       'digital_fulfilments_product_class_check',
       t.productClass,
@@ -961,7 +966,10 @@ export const digitalFulfilments = pgTable(
     checkOneOf('digital_fulfilments_status_check', t.status, DIGITAL_FULFILMENT_STATUSES),
     // The same CHECK `asset_rights.buyer_key` carries: a key belongs to one of
     // exactly two id spaces and says which.
-    check('digital_fulfilments_buyer_key_check', sql`${t.buyerKey} ~ '^(oxy|guest):[^[:space:]]+$'`),
+    check(
+      'digital_fulfilments_buyer_key_check',
+      sql`${t.buyerKey} ~ '^(oxy|guest):[^[:space:]]+$'`,
+    ),
     check(
       'digital_fulfilments_order_refs_check',
       sql`length(btrim(${t.orderId})) > 0 and length(btrim(${t.orderItemId})) > 0`,

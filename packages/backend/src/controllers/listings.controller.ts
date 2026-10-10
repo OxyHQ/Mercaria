@@ -16,10 +16,7 @@ import {
   LEGACY_BINARY_CONDITIONS,
 } from '@mercaria/shared-types';
 import type { ListingQuery, CursorPage, Listing } from '@mercaria/shared-types';
-import {
-  findListingById,
-  type ListingRecord,
-} from '../db/catalog/listingRepository.js';
+import { findListingById, type ListingRecord } from '../db/catalog/listingRepository.js';
 import { searchListingsOffset, searchListingsCursor } from '../services/search.service.js';
 import { hydrateListings } from '../services/catalog-hydration.service.js';
 import { readListingBundleContents } from '../services/catalog-bundle-contents.service.js';
@@ -239,7 +236,11 @@ export async function getListingById(req: Request, res: Response): Promise<void>
      */
     const [canonicalProductId, bundleContentsByVariant, bundlesByVariant] = await Promise.all([
       findCanonicalProductIdForListing(row.id),
-      readListingBundleContents(row.id, dto.variants.map(variant => variant.id), dto.itemCondition.details),
+      readListingBundleContents(
+        row.id,
+        dto.variants.map((variant) => variant.id),
+        dto.itemCondition.details,
+      ),
       readListingBundleRecommendations(dto),
     ]);
     // Emitted AFTER the 404 guard, so a view of something that does not exist

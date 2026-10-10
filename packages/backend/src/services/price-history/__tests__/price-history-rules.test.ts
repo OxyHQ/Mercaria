@@ -123,7 +123,11 @@ describe('the observation digest', () => {
 describe('change reasons', () => {
   it('reports EVERY reason that applies, not the first', () => {
     const before = terms();
-    const after = terms({ itemPriceAmount: 9_000, conditionKey: 'used_good', availability: 'out_of_stock' });
+    const after = terms({
+      itemPriceAmount: 9_000,
+      conditionKey: 'used_good',
+      availability: 'out_of_stock',
+    });
     expect(changeReasonsFor(after, before).sort()).toEqual(
       ['availability', 'condition', 'price'].sort(),
     );
@@ -213,9 +217,9 @@ describe('anomaly detection', () => {
     expect(detectObservationAnomalies(terms({ itemPriceAmount: 100 }), terms())).toContain(
       'price_scale_shift',
     );
-    expect(
-      detectObservationAnomalies(terms({ itemPriceAmount: 1_000_000 }), terms()),
-    ).toContain('price_scale_shift');
+    expect(detectObservationAnomalies(terms({ itemPriceAmount: 1_000_000 }), terms())).toContain(
+      'price_scale_shift',
+    );
   });
 
   it('fires exactly ON the factor, in both directions', () => {
@@ -259,7 +263,9 @@ describe('bucketing', () => {
     // ISO weeks start on MONDAY; `getUTCDay()` is 0 for Sunday, so a naive
     // subtraction of `getUTCDay()` would put the week boundary on Sunday.
     expect(priceHistoryBucketStart(instant, 'week').toISOString()).toBe('2026-03-02T00:00:00.000Z');
-    expect(priceHistoryBucketStart(instant, 'month').toISOString()).toBe('2026-03-01T00:00:00.000Z');
+    expect(priceHistoryBucketStart(instant, 'month').toISOString()).toBe(
+      '2026-03-01T00:00:00.000Z',
+    );
   });
 
   it('puts a SUNDAY in the week that began the Monday before it', () => {
@@ -294,8 +300,18 @@ describe('the derivation', () => {
       measures: ['lowest_item_price'],
       observations: [
         observation({ snapshotId: 'a', conditionKey: 'new', itemPriceAmount: 20_000 }),
-        observation({ snapshotId: 'b', offerId: 'offer-2', conditionKey: 'used_good', itemPriceAmount: 5_000 }),
-        observation({ snapshotId: 'c', offerId: 'offer-3', conditionKey: 'refurbished_seller', itemPriceAmount: 9_000 }),
+        observation({
+          snapshotId: 'b',
+          offerId: 'offer-2',
+          conditionKey: 'used_good',
+          itemPriceAmount: 5_000,
+        }),
+        observation({
+          snapshotId: 'c',
+          offerId: 'offer-3',
+          conditionKey: 'refurbished_seller',
+          itemPriceAmount: 9_000,
+        }),
       ],
     });
 
@@ -331,9 +347,7 @@ describe('the derivation', () => {
     const { points } = derivePriceSeries({
       ...derivationInput,
       measures: ['lowest_known_total'],
-      observations: [
-        observation({ shippingCostAmount: 499, shippingCostCurrency: 'EUR' }),
-      ],
+      observations: [observation({ shippingCostAmount: 499, shippingCostCurrency: 'EUR' })],
     });
     expect(points[0]?.native).toEqual({ amount: 10_499, currency: 'EUR' });
   });
@@ -373,7 +387,7 @@ describe('the derivation', () => {
     expect(same.points[0]?.displayAmount).toBe(same.points[0]?.native.amount);
   });
 
-  it('converts at each currency\'s OWN precision — JPY has no minor unit', () => {
+  it("converts at each currency's OWN precision — JPY has no minor unit", () => {
     // 100 JPY is ¥100, not ¥1. A conversion that assumed two decimals
     // everywhere would be out by a factor of a hundred for exactly one of the
     // currencies in this map, and by 1e6 for FAIR.
@@ -440,7 +454,9 @@ describe('the derivation', () => {
     const { points } = derivePriceSeries({
       ...derivationInput,
       measures: ['native_item_price'],
-      observations: [observation({ offerKind: 'native', offerSourceId: null, offerMerchantId: null })],
+      observations: [
+        observation({ offerKind: 'native', offerSourceId: null, offerMerchantId: null }),
+      ],
     });
     expect(points).toHaveLength(1);
   });
@@ -457,9 +473,9 @@ describe('the derivation', () => {
       observations: [observation(), observation({ offerKind: 'native' })],
     });
     expect(points).toHaveLength(0);
-    expect(exclusions.every((exclusion) => exclusion.reasons.includes('not_mercaria_retail_offer'))).toBe(
-      true,
-    );
+    expect(
+      exclusions.every((exclusion) => exclusion.reasons.includes('not_mercaria_retail_offer')),
+    ).toBe(true);
   });
 
   it('produces an EMPTY official-store series when #55 has verified nobody', () => {

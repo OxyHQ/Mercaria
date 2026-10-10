@@ -65,7 +65,6 @@ function domainFiles(readDir: DirectoryReader = readSrcDirectory): string[] {
   return namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAMED, readDir);
 }
 
-
 /**
  * Every module of the domain, DERIVED as a function of its reader (#460).
  *
@@ -191,12 +190,22 @@ describe('the guest-governance domain cannot fingerprint, rank or correlate (#11
     // re-derived after the final rebase, so a SHRINK stops the build.
     const from = (prefix: string) =>
       sources.filter((source) => source.path.startsWith(prefix)).length;
-    expect(from('services/guest-governance/'), 'the service walk found nothing').toBeGreaterThanOrEqual(6);
-    expect(from('db/guestGovernance/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
-    expect(domainFiles().length, 'the outlying-module derivation found nothing').toBeGreaterThanOrEqual(3);
+    expect(
+      from('services/guest-governance/'),
+      'the service walk found nothing',
+    ).toBeGreaterThanOrEqual(6);
+    expect(from('db/guestGovernance/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(
+      5,
+    );
+    expect(
+      domainFiles().length,
+      'the outlying-module derivation found nothing',
+    ).toBeGreaterThanOrEqual(3);
     expect(sources.length).toBeGreaterThanOrEqual(14);
     for (const source of sources) {
-      expect(statSync(join(SRC_ROOT, source.path)).isFile(), `${source.path} is not a file`).toBe(true);
+      expect(statSync(join(SRC_ROOT, source.path)).isFile(), `${source.path} is not a file`).toBe(
+        true,
+      );
     }
     expect(sources.filter((source) => source.path.includes('__tests__'))).toEqual([]);
     expect(sources.every((source) => source.text.length > 200)).toBe(true);
@@ -238,9 +247,9 @@ describe('the guest-governance domain cannot fingerprint, rank or correlate (#11
     // And a NEGATIVE control: the ordinary vocabulary of this domain must not
     // trip any of them, or the gate is one somebody disables the first time
     // they hit it.
-    expect(DEVICE_REFERENCE.test('const subjectHash = abuseSubjectHash({ scope, axis, value });')).toBe(
-      false,
-    );
+    expect(
+      DEVICE_REFERENCE.test('const subjectHash = abuseSubjectHash({ scope, axis, value });'),
+    ).toBe(false);
     expect(COMMERCIAL_REFERENCE.test('const verdict = await checkGuestAbuse(input);')).toBe(false);
   });
 });
@@ -264,14 +273,13 @@ describe('the abuse vocabulary makes the forbidden signals unrepresentable (#111
     // Rules 11, 12 and 13 name these specifically. A tuple that quietly lost one
     // would leave the disjointness assertions above passing while the thing they
     // exist to forbid became permitted.
-    assertEachOf([
-      'guest_status',
-      'stripe_customer_grouping',
-      'affiliate_commission',
-      'merchant_plan',
-    ], 4, (signal) => {
-      expect(GUEST_FORBIDDEN_ABUSE_SIGNALS).toContain(signal);
-    });
+    assertEachOf(
+      ['guest_status', 'stripe_customer_grouping', 'affiliate_commission', 'merchant_plan'],
+      4,
+      (signal) => {
+        expect(GUEST_FORBIDDEN_ABUSE_SIGNALS).toContain(signal);
+      },
+    );
   });
 
   it('every abuse policy keys on a permitted axis and applies a permitted measure', () => {
@@ -489,6 +497,8 @@ describe('the registers are complete and self-consistent (#111)', () => {
     // whose blocked set only ever grows is one nobody trusts, and a gate that
     // becomes satisfiable must be able to leave it.
     const blocked = GUEST_LAUNCH_GATE_REGISTER.filter((entry) => entry.blockedBy !== undefined);
-    expect(blocked.map((entry) => entry.gate).sort()).toEqual(['transactional_sender_authenticated']);
+    expect(blocked.map((entry) => entry.gate).sort()).toEqual([
+      'transactional_sender_authenticated',
+    ]);
   });
 });

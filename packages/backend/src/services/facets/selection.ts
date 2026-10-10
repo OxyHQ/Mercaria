@@ -122,9 +122,9 @@ function foldCommerce(
       into.markets.push(...values);
       return;
     case 'offer_channel':
-      into.channels.push(...values.filter((v): v is 'native' | 'external' =>
-        v === 'native' || v === 'external',
-      ));
+      into.channels.push(
+        ...values.filter((v): v is 'native' | 'external' => v === 'native' || v === 'external'),
+      );
       return;
     case 'offer_price':
       // The price bound is not a value list; it is carried separately because
@@ -163,7 +163,10 @@ export function partitionSelection(
         continue;
       }
       if (entry.facetKey === 'offer_price') {
-        if (entry.currency !== undefined && (entry.minMinor !== undefined || entry.maxMinor !== undefined)) {
+        if (
+          entry.currency !== undefined &&
+          (entry.minMinor !== undefined || entry.maxMinor !== undefined)
+        ) {
           requestedPrice = {
             currency: entry.currency,
             ...(entry.minMinor === undefined ? {} : { minMinor: entry.minMinor }),

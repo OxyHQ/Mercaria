@@ -68,13 +68,18 @@ function patternMatches(pattern: string, path: string): boolean {
  * May a crawler identifying as `productToken` fetch `path` (with its query)?
  * A site with no robots file (`null`) allows everything, per RFC 9309.
  */
-export function robotsAllows(robotsTxt: string | null, productToken: string, path: string): boolean {
+export function robotsAllows(
+  robotsTxt: string | null,
+  productToken: string,
+  path: string,
+): boolean {
   if (robotsTxt === null) return true;
   const groups = parseGroups(robotsTxt);
   const token = productToken.toLowerCase();
   const group =
-    groups.find((candidate) => candidate.agents.some((agent) => agent !== '*' && token.startsWith(agent))) ??
-    groups.find((candidate) => candidate.agents.includes('*'));
+    groups.find((candidate) =>
+      candidate.agents.some((agent) => agent !== '*' && token.startsWith(agent)),
+    ) ?? groups.find((candidate) => candidate.agents.includes('*'));
   if (group === undefined) return true;
 
   let best: RobotsRule | undefined;

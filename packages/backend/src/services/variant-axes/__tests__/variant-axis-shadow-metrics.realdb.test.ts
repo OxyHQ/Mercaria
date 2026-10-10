@@ -14,10 +14,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { CATALOG_METRICS } from '@mercaria/shared-types';
-import {
-  recordVariantAxisShadow,
-  resetVariantAxisShadowCounters,
-} from '../projection.js';
+import { recordVariantAxisShadow, resetVariantAxisShadowCounters } from '../projection.js';
 import { collectCatalogMetrics } from '../../catalog-observability/metrics.service.js';
 import { closePostgres, connectPostgres } from '../../../db/postgres.js';
 
@@ -57,9 +54,7 @@ describe('the shadow counters are DEFINED as metrics', () => {
     // The registry is what the collector walks, so a definition that is merely
     // produced would never be read. And `unmeasured` would make the pair a
     // documented gap rather than a working instrument.
-    const defined = CATALOG_METRICS.filter((metric) =>
-      metric.key.startsWith('variant_axis_'),
-    );
+    const defined = CATALOG_METRICS.filter((metric) => metric.key.startsWith('variant_axis_'));
     expect(defined.map((metric) => metric.key).sort()).toEqual([
       'variant_axis_shadow_divergence',
       'variant_axis_typed_coverage',

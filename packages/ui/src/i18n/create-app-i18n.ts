@@ -1,11 +1,6 @@
 import { getLocales } from 'expo-localization';
 import { I18n, type TranslateOptions } from 'i18n-js';
-import {
-  DEFAULT_LOCALE,
-  LOCALE_ALIASES,
-  SUPPORTED_LOCALES,
-  type SupportedLocale,
-} from './locales';
+import { DEFAULT_LOCALE, LOCALE_ALIASES, SUPPORTED_LOCALES, type SupportedLocale } from './locales';
 import { registerPluralizers } from './plurals';
 import { SHARED_UI_COPY, SHARED_UI_COPY_NAMESPACE } from './shared-copy';
 
@@ -50,9 +45,9 @@ export function resolveDeviceLocale(): string {
 export function mergeSharedUiCopy(locale: SupportedLocale, appBundle: object): object {
   if (Object.prototype.hasOwnProperty.call(appBundle, SHARED_UI_COPY_NAMESPACE)) {
     throw new Error(
-      `mergeSharedUiCopy: the ${locale} bundle already has a top-level `
-      + `"${SHARED_UI_COPY_NAMESPACE}" key. That namespace is reserved for `
-      + '@mercaria/ui\'s own copy (#437); rename the app key.',
+      `mergeSharedUiCopy: the ${locale} bundle already has a top-level ` +
+        `"${SHARED_UI_COPY_NAMESPACE}" key. That namespace is reserved for ` +
+        "@mercaria/ui's own copy (#437); rename the app key.",
     );
   }
   return { ...appBundle, ...SHARED_UI_COPY[locale] };
@@ -74,8 +69,8 @@ export function mergeSharedUiCopy(locale: SupportedLocale, appBundle: object): o
 export function createAppI18n(bundles: AppLocaleBundles): I18n {
   if (!bundles[DEFAULT_LOCALE]) {
     throw new Error(
-      `createAppI18n: no "${DEFAULT_LOCALE}" bundle. Every other locale falls back to it, `
-      + 'so without one a missing key renders a humanised guess of the key itself.',
+      `createAppI18n: no "${DEFAULT_LOCALE}" bundle. Every other locale falls back to it, ` +
+        'so without one a missing key renders a humanised guess of the key itself.',
     );
   }
 

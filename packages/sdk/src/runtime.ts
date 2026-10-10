@@ -41,7 +41,7 @@ export interface MercariaFetchInit {
    * type can be assignable to all of them without importing one of them, and
    * importing one would force that lib on every consumer.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: must be assignable to every platform's RequestInit.signal (see above)
   signal?: any;
   credentials: 'omit';
   redirect: 'follow';
@@ -51,7 +51,10 @@ export interface MercariaFetchInit {
  * A `fetch` implementation. The global `fetch` of every supported runtime
  * satisfies this, and so does a test double.
  */
-export type MercariaFetch = (url: string, init: MercariaFetchInit) => Promise<MercariaFetchResponse>;
+export type MercariaFetch = (
+  url: string,
+  init: MercariaFetchInit,
+) => Promise<MercariaFetchResponse>;
 
 interface AbortControllerLike {
   readonly signal: MercariaAbortSignal;

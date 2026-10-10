@@ -67,7 +67,10 @@ export function useProductPage(
     queryFn: () => fetchProductPage(handle ?? '', params),
     // Keep identity and gallery mounted while another configuration loads.
     // Never borrow a different product's data; dependent actions check isPlaceholderData.
-    placeholderData: (previous, query) => query !== undefined && query.queryKey[1] === handle && query.state.status !== 'error' ? previous : undefined,
+    placeholderData: (previous, query) =>
+      query !== undefined && query.queryKey[1] === handle && query.state.status !== 'error'
+        ? previous
+        : undefined,
     enabled: Boolean(handle),
     staleTime: PAGE_STALE_TIME,
     retry: (failureCount, error) => {
@@ -81,12 +84,21 @@ export function useProductPage(
   // identity/gallery. This is display state, never another selection's cache data.
   const status = isAxiosError(query.error) ? query.error.response?.status : undefined;
   const terminalError = query.isError && status !== undefined && status < 500 && status !== 429;
-  const [snapshot, setSnapshot] = useState<{ handle: string | undefined; data?: CanonicalProductPage }>({ handle });
+  const [snapshot, setSnapshot] = useState<{
+    handle: string | undefined;
+    data?: CanonicalProductPage;
+  }>({ handle });
   const successful = query.data !== undefined && !query.isPlaceholderData && !query.isError;
-  if (snapshot.handle !== handle || (successful && snapshot.data !== query.data) || (terminalError && snapshot.data !== undefined)) {
+  if (
+    snapshot.handle !== handle ||
+    (successful && snapshot.data !== query.data) ||
+    (terminalError && snapshot.data !== undefined)
+  ) {
     setSnapshot({ handle, data: successful ? query.data : undefined });
   }
-  const displayData = terminalError ? undefined : query.data ?? (snapshot.handle === handle ? snapshot.data : undefined);
+  const displayData = terminalError
+    ? undefined
+    : (query.data ?? (snapshot.handle === handle ? snapshot.data : undefined));
   return {
     ...query,
     displayData,

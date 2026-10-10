@@ -47,7 +47,12 @@ import type { StoreCaller } from '../../../store-access.service.js';
 
 /** A caller in their own session; the store below is owned by `u-owner`. */
 function caller(oxyUserId: string): StoreCaller {
-  return { accountId: oxyUserId, actorAccountId: oxyUserId, delegated: false, accessToken: `bearer-${oxyUserId}` };
+  return {
+    accountId: oxyUserId,
+    actorAccountId: oxyUserId,
+    delegated: false,
+    accessToken: `bearer-${oxyUserId}`,
+  };
 }
 
 beforeEach(() => {

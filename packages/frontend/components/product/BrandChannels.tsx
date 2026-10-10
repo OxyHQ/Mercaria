@@ -89,9 +89,7 @@ function ChannelList({
           key={`${channel.merchantId}:${channel.storefrontId ?? 'all'}`}
           accessibilityRole="link"
           accessibilityLabel={t('product.visitA11y', { name: channel.merchantName })}
-          onPress={() =>
-            router.push(`/merchants/${channel.merchantSlug}`)
-          }
+          onPress={() => router.push(`/merchants/${channel.merchantSlug}`)}
           className="rounded-radius-28 border border-border-secondary p-space-12"
         >
           <Text className="text-shop-bodyTitleSmall text-text">{channel.merchantName}</Text>

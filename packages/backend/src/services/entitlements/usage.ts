@@ -59,11 +59,7 @@ export async function checkCapability(input: CapabilityRequest): Promise<Entitle
 
   let used = 0;
   if (entitlement && entitlement.limitKind !== 'flag' && entitlement.limit !== null) {
-    const periodKey = entitlementPeriodKey(
-      entitlement.limitKind,
-      at,
-      resolved.currentPeriodStart,
-    );
+    const periodKey = entitlementPeriodKey(entitlement.limitKind, at, resolved.currentPeriodStart);
     const counter = await findEntitlementUsage(getDb(), {
       storeId: input.storeId,
       capabilityKey: input.capability,

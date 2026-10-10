@@ -4,7 +4,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { asDate, asNumber, decimalMoney, FactCollector, factKeySegment, gtinDigits, minorMoney, subFeedKey } from '../read.js';
+import {
+  asDate,
+  asNumber,
+  decimalMoney,
+  FactCollector,
+  factKeySegment,
+  gtinDigits,
+  minorMoney,
+  subFeedKey,
+} from '../read.js';
 import { madridTimestamp } from '../providers/miteco-fuel.js';
 
 describe('decimalMoney reads MACHINE decimals, never human grouping', () => {

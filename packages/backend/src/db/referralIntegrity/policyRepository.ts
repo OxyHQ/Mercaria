@@ -17,10 +17,7 @@
  */
 
 import { and, desc, eq, ne } from 'drizzle-orm';
-import type {
-  ReferralDisclosureSurface,
-  ReferralProhibitedConduct,
-} from '@mercaria/shared-types';
+import type { ReferralDisclosureSurface, ReferralProhibitedConduct } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import {
   referralConductPolicies,

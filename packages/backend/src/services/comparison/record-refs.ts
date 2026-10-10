@@ -86,10 +86,10 @@ export class ComparisonRecordIndex {
         ref: existing.ref,
         kind: existing.kind,
         recordId: existing.recordId,
-        ...(existing.canonicalPath ?? input.canonicalPath
+        ...((existing.canonicalPath ?? input.canonicalPath)
           ? { canonicalPath: existing.canonicalPath ?? input.canonicalPath }
           : {}),
-        ...(existing.label ?? input.label ? { label: existing.label ?? input.label } : {}),
+        ...((existing.label ?? input.label) ? { label: existing.label ?? input.label } : {}),
       };
       this.byKey.set(key, upgraded);
       return upgraded.ref;

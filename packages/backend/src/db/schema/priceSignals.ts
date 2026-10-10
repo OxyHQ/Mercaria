@@ -298,7 +298,9 @@ export const priceSignalRuns = pgTable(
       .notNull()
       .references(() => priceSignalPolicyVersions.id, { onDelete: 'restrict' }),
     mode: text({ enum: asEnumValues(PRICE_SIGNAL_RUN_MODES) }).notNull(),
-    status: text({ enum: asEnumValues(PRICE_SIGNAL_RUN_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(PRICE_SIGNAL_RUN_STATUSES) })
+      .notNull()
+      .default('pending'),
 
     // ── The cohort ───────────────────────────────────────────────────────────
     /** The currency every subject in this run was measured in. */
@@ -371,12 +373,8 @@ export const priceSignalRuns = pgTable(
      * caught only by a real server.
      */
     unique('price_signal_runs_identity_key').on(t.id, t.policyVersionId),
-    index('price_signal_runs_pending_idx')
-      .on(t.createdAt)
-      .where(sql`${t.status} = 'pending'`),
-    index('price_signal_runs_reclaim_idx')
-      .on(t.leaseUntil)
-      .where(sql`${t.status} = 'processing'`),
+    index('price_signal_runs_pending_idx').on(t.createdAt).where(sql`${t.status} = 'pending'`),
+    index('price_signal_runs_reclaim_idx').on(t.leaseUntil).where(sql`${t.status} = 'processing'`),
     index('price_signal_runs_policy_created_at_idx').on(t.policyVersionId, t.createdAt.desc()),
   ],
 );
@@ -585,7 +583,11 @@ export const priceSignalEvaluations = pgTable(
     /** A resumed run re-examining a subject converges rather than duplicating. */
     uniqueIndex('price_signal_evaluations_run_subject_key').on(t.runId, t.subjectKey, t.signalKind),
     index('price_signal_evaluations_run_kind_idx').on(t.runId, t.signalKind, t.state),
-    index('price_signal_evaluations_subject_idx').on(t.subjectKey, t.signalKind, t.evaluatedAt.desc()),
+    index('price_signal_evaluations_subject_idx').on(
+      t.subjectKey,
+      t.signalKind,
+      t.evaluatedAt.desc(),
+    ),
   ],
 );
 

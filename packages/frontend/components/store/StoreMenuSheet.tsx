@@ -1,16 +1,10 @@
-import { merchantImageSource } from "@mercaria/ui";
-import type { ReactNode } from "react";
-import { useState } from "react";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  useWindowDimensions,
-  View,
-} from "react-native";
-import { vars } from "nativewind";
-import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { merchantImageSource } from '@mercaria/ui';
+import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import { vars } from 'nativewind';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
   ArrowRight,
@@ -23,33 +17,28 @@ import {
   ShieldCheck,
   Store as StoreIcon,
   X,
-} from "lucide-react-native";
-import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
-import { Button } from "@oxy.so/bloom/button";
-import { useIsRtl } from "@oxy.so/bloom/hooks";
-import { Rating } from "@oxy.so/bloom/rating";
-import { openAccountDialog, useFollowTarget, useOxy } from "@oxy.so/services";
-import {
-  Text,
-  formatDate,
-  useFormatters,
-  useRatingDisplay,
-} from "@mercaria/ui";
-import type { Collection, StoreSummary, Review, ReviewHelpfulness } from "@mercaria/shared-types";
-import { storeThemeVars } from "@/lib/store-theme";
-import { useStoreReviews } from "@/lib/hooks/use-store";
-import { REVIEW_SCOPE_HEADING_KEYS, useReviewHelpfulness } from "@/lib/hooks/use-reviews";
-import { ReviewHelpfulButton } from "@/components/reviews/ReviewHelpfulButton";
-import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
-import { useShareLink } from "@/lib/hooks/use-share-link";
-import { useTranslation } from "@/lib/i18n";
-import { ReviewActionsMenu } from "@/components/reports/ReviewActionsMenu";
-import { AbuseReportDialog } from "@/components/reports/AbuseReportDialog";
+} from 'lucide-react-native';
+import { Dialog, useDialogControl } from '@oxy.so/bloom/dialog';
+import { Button } from '@oxy.so/bloom/button';
+import { useIsRtl } from '@oxy.so/bloom/hooks';
+import { Rating } from '@oxy.so/bloom/rating';
+import { openAccountDialog, useFollowTarget, useOxy } from '@oxy.so/services';
+import { Text, formatDate, useFormatters, useRatingDisplay } from '@mercaria/ui';
+import type { Collection, StoreSummary, Review, ReviewHelpfulness } from '@mercaria/shared-types';
+import { storeThemeVars } from '@/lib/store-theme';
+import { useStoreReviews } from '@/lib/hooks/use-store';
+import { REVIEW_SCOPE_HEADING_KEYS, useReviewHelpfulness } from '@/lib/hooks/use-reviews';
+import { ReviewHelpfulButton } from '@/components/reviews/ReviewHelpfulButton';
+import { useStoreFollowTarget } from '@/lib/hooks/use-store-follow';
+import { useShareLink } from '@/lib/hooks/use-share-link';
+import { useTranslation } from '@/lib/i18n';
+import { ReviewActionsMenu } from '@/components/reports/ReviewActionsMenu';
+import { AbuseReportDialog } from '@/components/reports/AbuseReportDialog';
 
 /** Light text tone over a brand-tinted surface (mirrors the store page). */
-const TONE_LIGHT = "#FFFFFF";
+const TONE_LIGHT = '#FFFFFF';
 /** Dark text tone over a brand-tinted surface (mirrors the store page). */
-const TONE_DARK = "#111111";
+const TONE_DARK = '#111111';
 /** Round logo size (px) in the in-sheet store header. */
 const HEADER_LOGO_SIZE = 56;
 /** Round thumbnail size (px) for each collection row. */
@@ -65,14 +54,14 @@ const CONTROL_ICON_SIZE = 20;
 /** Trailing affordance / policy-row icon size (px). */
 const ROW_ICON_SIZE = 20;
 /** Gold fill for the rated stars (mirrors the store page and MerchantCard). */
-const STAR_COLOR = "#FFB800";
+const STAR_COLOR = '#FFB800';
 /**
  * Hex alpha suffix (~35%) for the unfilled part of each star: the text tone,
  * faded, so the empty stars read over the brand panel.
  */
-const EMPTY_STAR_ALPHA = "59";
+const EMPTY_STAR_ALPHA = '59';
 /** Explicit translucent glass fill for cards over the brand panel. */
-const GLASS_FILL = "rgba(255,255,255,0.2)";
+const GLASS_FILL = 'rgba(255,255,255,0.2)';
 /** Side-sheet width (px) on wide screens. */
 const SHEET_WIDTH = 460;
 /** Nav-rail width (px) = 4.75rem — the overlay starts after it on desktop. */
@@ -100,11 +89,11 @@ const SHEET_START_INSET = 8;
  * store has rehydrated, so a literal here would freeze whichever language
  * loaded first.
  */
-const FALLBACK_AUTHOR_KEY = "store.reviews.fallbackAuthor";
+const FALLBACK_AUTHOR_KEY = 'store.reviews.fallbackAuthor';
 
 /** The pages the sheet can show. The menu is always the root of the stack. */
-type PolicyPage = "privacy" | "returns";
-type SheetPage = "menu" | "reviews" | PolicyPage;
+type PolicyPage = 'privacy' | 'returns';
+type SheetPage = 'menu' | 'reviews' | PolicyPage;
 
 interface StoreMenuSheetProps {
   /** The store whose menu this sheet presents (drives palette + header). */
@@ -261,10 +250,10 @@ function StoreReviewCard({
       {review.product ? (
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={t("store.reviews.viewProduct", {
+          accessibilityLabel={t('store.reviews.viewProduct', {
             product: review.product.title,
           })}
-          onPress={() => onPressProduct(review.product?.id ?? "")}
+          onPress={() => onPressProduct(review.product?.id ?? '')}
           className="overflow-hidden rounded-radius-16"
           style={{
             width: REVIEW_THUMB_SIZE,
@@ -288,7 +277,7 @@ function StoreReviewCard({
 
       <View className="flex-1 gap-space-6">
         <Rating
-          {...ratingDisplay({ rating: review.rating, variant: "stars" })}
+          {...ratingDisplay({ rating: review.rating, variant: 'stars' })}
           variant="stars"
           size="small"
           color={toneColor}
@@ -301,7 +290,11 @@ function StoreReviewCard({
           </Text>
         ) : null}
         {review.purchasedVariantTitle ? (
-          <Text testID="review-purchased-variant" className="text-shop-caption" style={{ color: toneColor }}>
+          <Text
+            testID="review-purchased-variant"
+            className="text-shop-caption"
+            style={{ color: toneColor }}
+          >
             {review.purchasedVariantTitle}
           </Text>
         ) : null}
@@ -343,9 +336,9 @@ function StoreReviewCard({
         </View>
         <Text className="text-shop-caption" style={{ color: toneColor }}>
           {t(
-            review.verification === "verified_purchase"
-              ? "ui.review.verifiedPurchase"
-              : "ui.review.unverifiedPurchase",
+            review.verification === 'verified_purchase'
+              ? 'ui.review.verifiedPurchase'
+              : 'ui.review.unverifiedPurchase',
           )}
         </Text>
       </View>
@@ -372,13 +365,10 @@ function ReviewsPage({
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError, isFetching, refetch } = useStoreReviews(
-    store.handle,
-    page,
-  );
+  const { data, isLoading, isError, isFetching, refetch } = useStoreReviews(store.handle, page);
   const reviews = data?.data ?? [];
-  const helpfulness = useReviewHelpfulness(reviews.map(review => review.id));
-  const votes = new Map(helpfulness.data?.map(vote => [vote.reviewId, vote]));
+  const helpfulness = useReviewHelpfulness(reviews.map((review) => review.id));
+  const votes = new Map(helpfulness.data?.map((vote) => [vote.reviewId, vote]));
   const total = data?.pagination.total ?? store.reviewCount;
 
   return (
@@ -407,7 +397,7 @@ function ReviewsPage({
             rating: store.rating,
             reviews: store.reviewCount,
             subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
-            variant: "stars",
+            variant: 'stars',
           })}
           variant="stars"
           color={toneColor}
@@ -416,7 +406,7 @@ function ReviewsPage({
         />
         <View className="gap-space-4">
           <Text className="text-shop-caption" style={{ color: toneColor }}>
-            {t("store.reviews.ratingsWithScope", {
+            {t('store.reviews.ratingsWithScope', {
               formattedCount: formatReviewCount(store.reviewCount),
               scopeLabel: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
             })}
@@ -429,17 +419,17 @@ function ReviewsPage({
       </Text>
 
       {helpfulness.isError ? (
-        <Button onPress={() => void helpfulness.refetch()}>{t("reviews.helpful.retry")}</Button>
+        <Button onPress={() => void helpfulness.refetch()}>{t('reviews.helpful.retry')}</Button>
       ) : null}
       {isLoading ? (
         <Text className="py-space-24 text-center text-shop-body" style={{ color: toneColor }}>
-          {t("store.reviews.loading")}
+          {t('store.reviews.loading')}
         </Text>
       ) : isError ? (
-        <Button onPress={() => void refetch()}>{t("common.tryAgain")}</Button>
+        <Button onPress={() => void refetch()}>{t('common.tryAgain')}</Button>
       ) : reviews.length === 0 ? (
         <Text className="py-space-24 text-center text-shop-body" style={{ color: toneColor }}>
-          {t("store.reviews.none")}
+          {t('store.reviews.none')}
         </Text>
       ) : (
         reviews.map((review) => (
@@ -454,11 +444,8 @@ function ReviewsPage({
       )}
       {data && data.pagination.pages > 1 ? (
         <View className="gap-space-12">
-          <Text
-            className="text-center text-shop-caption"
-            style={{ color: toneColor }}
-          >
-            {t("common.pagination.pageOf", {
+          <Text className="text-center text-shop-caption" style={{ color: toneColor }}>
+            {t('common.pagination.pageOf', {
               page,
               pages: data.pagination.pages,
             })}
@@ -468,13 +455,13 @@ function ReviewsPage({
               disabled={!data.pagination.hasPreviousPage || isFetching}
               onPress={() => setPage((value) => value - 1)}
             >
-              {t("common.pagination.previous")}
+              {t('common.pagination.previous')}
             </Button>
             <Button
               disabled={!data.pagination.hasNextPage || isFetching}
               onPress={() => setPage((value) => value + 1)}
             >
-              {t("common.pagination.next")}
+              {t('common.pagination.next')}
             </Button>
           </View>
         </View>
@@ -559,7 +546,7 @@ function MenuPage({
       {/* ---- Collections card ---- */}
       <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
         <CollectionRow
-          title={t("store.shopAll")}
+          title={t('store.shopAll')}
           toneColor={toneColor}
           onPress={() => onSelectCollection(undefined)}
         />
@@ -577,7 +564,7 @@ function MenuPage({
       {/* ---- Reviews summary (navigates to the Reviews page) ---- */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("store.reviews.viewA11yLabel")}
+        accessibilityLabel={t('store.reviews.viewA11yLabel')}
         onPress={onOpenReviews}
         className="rounded-radius-16 p-space-16 web:transition-colors web:hover:bg-white/10"
         style={{ backgroundColor: GLASS_FILL }}
@@ -593,7 +580,7 @@ function MenuPage({
                   rating: store.rating,
                   reviews: store.reviewCount,
                   subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
-                  variant: "stars",
+                  variant: 'stars',
                 })}
                 variant="stars"
                 color={toneColor}
@@ -601,7 +588,7 @@ function MenuPage({
                 emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
               />
               <Text className="text-shop-caption" style={{ color: toneColor }}>
-                {t("store.reviews.ratingsCount", {
+                {t('store.reviews.ratingsCount', {
                   formattedCount: formatReviewCount(store.reviewCount),
                 })}
               </Text>
@@ -610,36 +597,33 @@ function MenuPage({
           </View>
         ) : (
           <Text className="mt-space-12 text-shop-body" style={{ color: toneColor }}>
-            {t("store.reviews.none")}
+            {t('store.reviews.none')}
           </Text>
         )}
       </Pressable>
 
       {/* ---- Policies card ---- */}
       {store.privacyPolicy?.trim() || store.refundPolicy?.trim() ? (
-        <View
-          className="overflow-hidden rounded-radius-16"
-          style={{ backgroundColor: GLASS_FILL }}
-        >
+        <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
           <View className="px-space-16 pt-space-16">
             <Text className="text-shop-subtitle" style={{ color: toneColor }}>
-              {t("store.policies.heading")}
+              {t('store.policies.heading')}
             </Text>
           </View>
           {store.privacyPolicy?.trim() ? (
             <PolicyRow
-              label={t("store.policies.privacy")}
+              label={t('store.policies.privacy')}
               toneColor={toneColor}
               icon={<ShieldCheck size={ROW_ICON_SIZE} color={toneColor} />}
-              onPress={() => onOpenPolicy("privacy")}
+              onPress={() => onOpenPolicy('privacy')}
             />
           ) : null}
           {store.refundPolicy?.trim() ? (
             <PolicyRow
-              label={t("store.policies.returns")}
+              label={t('store.policies.returns')}
               toneColor={toneColor}
               icon={<RotateCcw size={ROW_ICON_SIZE} color={toneColor} />}
-              onPress={() => onOpenPolicy("returns")}
+              onPress={() => onOpenPolicy('returns')}
             />
           ) : null}
         </View>
@@ -648,7 +632,7 @@ function MenuPage({
       {/* ---- Report store ---- */}
       <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
         <PolicyRow
-          label={t("store.report")}
+          label={t('store.report')}
           toneColor={toneColor}
           icon={<Flag size={ROW_ICON_SIZE} color={toneColor} />}
           onPress={onReport}
@@ -690,10 +674,7 @@ export function StoreMenuSheet({
 }: StoreMenuSheetProps) {
   const { t } = useTranslation();
   const reportControl = useDialogControl();
-  const shareLink = useShareLink(
-    store.name,
-    `/stores/${encodeURIComponent(store.handle)}`,
-  );
+  const shareLink = useShareLink(store.name, `/stores/${encodeURIComponent(store.handle)}`);
   const router = useRouter();
   // Offset the overlay past the nav rail on desktop so the side-sheet + backdrop
   // sit inside the content shell (not over the rail). On small screens the rail
@@ -713,7 +694,7 @@ export function StoreMenuSheet({
   const railOffset =
     width < NAV_BREAKPOINT
       ? null
-      : Platform.OS !== "web"
+      : Platform.OS !== 'web'
         ? { insetInlineStart: RAIL_WIDTH }
         : rtl
           ? { right: RAIL_WIDTH }
@@ -730,11 +711,11 @@ export function StoreMenuSheet({
         left: SHEET_START_INSET,
       };
   // Internal navigation stack: the menu is always the root.
-  const [stack, setStack] = useState<SheetPage[]>(["menu"]);
+  const [stack, setStack] = useState<SheetPage[]>(['menu']);
   const current = stack[stack.length - 1];
 
-  const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
-  const atRoot = current === "menu";
+  const toneColor = store.textTone === 'light' ? TONE_LIGHT : TONE_DARK;
+  const atRoot = current === 'menu';
 
   // The sheet covers the hero, so its top bar carries its own follow
   // control. It reads and writes the SAME follow-graph state the hero button
@@ -766,42 +747,39 @@ export function StoreMenuSheet({
   // Dismiss the sheet AND reset the internal stack to the menu root, so the
   // next open starts fresh at the menu rather than on a lingering sub-page.
   const handleClose = () => {
-    setStack(["menu"]);
+    setStack(['menu']);
     onClose();
   };
 
   const onPressProduct = (productId: string) => {
     if (!productId) return;
     handleClose();
-    router.push({ pathname: "/products/[id]", params: { id: productId } });
+    router.push({ pathname: '/products/[id]', params: { id: productId } });
   };
 
   return (
     <Dialog
       open={open}
       onClose={handleClose}
-      placement={{ base: "bottom", md: "start" }}
+      placement={{ base: 'bottom', md: 'start' }}
       width={SHEET_WIDTH}
       inset={sheetInset}
       maxHeightRatio={0.9}
       showHandle
       dismissOnBackdrop
       contentPadding={0}
-      containerStyle={[
-        vars(storeThemeVars(store.brandColor, store.textTone)),
-        railOffset,
-      ]}
+      containerStyle={[vars(storeThemeVars(store.brandColor, store.textTone)), railOffset]}
       panelStyle={{ backgroundColor: store.brandColor }}
-      label={t("store.menu.dialogLabel", { store: store.name })}
+      label={t('store.menu.dialogLabel', { store: store.name })}
     >
       {/* Pinned top bar: contextual Close/Back (start), Follow + Share (end). */}
       <View className="flex-row items-center justify-between px-space-16 pb-space-12 pt-space-16">
         {atRoot ? (
-          <ControlButton label={t("store.menu.close", { store: store.name })} onPress={handleClose}>
+          <ControlButton label={t('store.menu.close', { store: store.name })} onPress={handleClose}>
             <X size={CONTROL_ICON_SIZE} color={toneColor} />
           </ControlButton>
         ) : (
-          <ControlButton label={t("common.back")} onPress={pop}>
+          <ControlButton label={t('common.back')} onPress={pop}>
             {rtl ? (
               <ArrowRight size={CONTROL_ICON_SIZE} color={toneColor} />
             ) : (
@@ -813,22 +791,22 @@ export function StoreMenuSheet({
           <ControlButton
             label={
               isFollowing
-                ? t("store.follow.unfollowStore", { store: store.name })
-                : t("store.follow.followStore", { store: store.name })
+                ? t('store.follow.unfollowStore', { store: store.name })
+                : t('store.follow.followStore', { store: store.name })
             }
             onPress={onPressFollow}
           >
             <Heart
               size={CONTROL_ICON_SIZE}
               color={toneColor}
-              fill={isFollowing ? toneColor : "transparent"}
+              fill={isFollowing ? toneColor : 'transparent'}
             />
           </ControlButton>
           <ControlButton
             label={
               shareLink.copied
-                ? t("common.linkCopied")
-                : t("store.menu.share", { store: store.name })
+                ? t('common.linkCopied')
+                : t('store.menu.share', { store: store.name })
             }
             onPress={() => void shareLink.share()}
           >
@@ -843,7 +821,7 @@ export function StoreMenuSheet({
           className="px-space-16 text-shop-caption"
           style={{ color: toneColor }}
         >
-          {t("common.shareError")}
+          {t('common.shareError')}
         </Text>
       ) : null}
       {shareLink.copied ? (
@@ -852,7 +830,7 @@ export function StoreMenuSheet({
           className="px-space-16 text-shop-caption"
           style={{ color: toneColor }}
         >
-          {t("common.linkCopied")}
+          {t('common.linkCopied')}
         </Text>
       ) : null}
 
@@ -864,16 +842,12 @@ export function StoreMenuSheet({
             collections={collections}
             toneColor={toneColor}
             onSelectCollection={onSelectCollection}
-            onOpenReviews={() => push("reviews")}
+            onOpenReviews={() => push('reviews')}
             onOpenPolicy={push}
             onReport={() => reportControl.open()}
           />
-        ) : current === "reviews" ? (
-          <ReviewsPage
-            store={store}
-            toneColor={toneColor}
-            onPressProduct={onPressProduct}
-          />
+        ) : current === 'reviews' ? (
+          <ReviewsPage store={store} toneColor={toneColor} onPressProduct={onPressProduct} />
         ) : (
           <ScrollView
             contentContainerStyle={{
@@ -887,14 +861,10 @@ export function StoreMenuSheet({
               className="text-shop-subtitle"
               style={{ color: toneColor }}
             >
-              {t(
-                current === "privacy"
-                  ? "store.policies.privacy"
-                  : "store.policies.returns",
-              )}
+              {t(current === 'privacy' ? 'store.policies.privacy' : 'store.policies.returns')}
             </Text>
             <Text selectable className="text-shop-body" style={{ color: toneColor }}>
-              {current === "privacy" ? store.privacyPolicy : store.refundPolicy}
+              {current === 'privacy' ? store.privacyPolicy : store.refundPolicy}
             </Text>
           </ScrollView>
         )}

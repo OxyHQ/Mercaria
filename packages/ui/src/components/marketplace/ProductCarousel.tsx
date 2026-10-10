@@ -1,12 +1,12 @@
-import type { ReactNode } from "react";
-import { useWindowDimensions, View } from "react-native";
-import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
-import { SectionHeader } from "./SectionHeader";
-import { ProductCard } from "./ProductCard";
-import type { ProductSummary } from "../../lib/format";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import { CAROUSEL_PRODUCTS_KEY } from "../../lib/marketplace-labels";
-import { uniqueByKey, useShelfCarouselProps } from "../../lib/shelf-carousel";
+import type { ReactNode } from 'react';
+import { useWindowDimensions, View } from 'react-native';
+import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
+import { SectionHeader } from './SectionHeader';
+import { ProductCard } from './ProductCard';
+import type { ProductSummary } from '../../lib/format';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import { CAROUSEL_PRODUCTS_KEY } from '../../lib/marketplace-labels';
+import { uniqueByKey, useShelfCarouselProps } from '../../lib/shelf-carousel';
 
 /** Product-card slot width (px) on phones. */
 const PRODUCT_SLOT_WIDTH = 154;
@@ -16,7 +16,7 @@ const PRODUCT_SLOT_WIDTH_MD = 192;
 const MD_BREAKPOINT = 768;
 
 export interface ProductCarouselProps {
-  cardVariant?: "standard" | "image-only";
+  cardVariant?: 'standard' | 'image-only';
   items: ProductSummary[];
   /** Optional inline heading rendered above the row. */
   title?: string;
@@ -52,7 +52,7 @@ export function ProductCarousel({
     <View>
       <Carousel
         {...shelf}
-        showArrows={cardVariant === "image-only" ? false : shelf.showArrows}
+        showArrows={cardVariant === 'image-only' ? false : shelf.showArrows}
         style={{ gap: 16 }}
         accessibilityLabel={title ?? t(CAROUSEL_PRODUCTS_KEY)}
         header={header ?? (title ? <SectionHeader title={title} inset={false} /> : undefined)}

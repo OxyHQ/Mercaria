@@ -315,7 +315,12 @@ afterAll(async () => {
     // version's fields, and it is doing its job when it does.
     await db
       .update(productTypeDefinitions)
-      .set({ lifecycle: 'draft', publishedAt: null, publishedByOxyUserId: null, deprecatedAt: null })
+      .set({
+        lifecycle: 'draft',
+        publishedAt: null,
+        publishedByOxyUserId: null,
+        deprecatedAt: null,
+      })
       .where(inArray(productTypeDefinitions.id, createdDefinitionIds));
     await db
       .delete(productTypeFields)
@@ -402,27 +407,29 @@ describe('an EDITABLE version is not readable through ?version=', () => {
 });
 
 describe('a RETRIEVABLE version still composes', () => {
-  it.each(RETRIEVABLE_AUTHORING_LIFECYCLES)('serves a %s version at ?version=', async (lifecycle) => {
-    const version = versionByLifecycle.get(lifecycle);
-    expect(version, `no ${lifecycle} fixture`).toBeDefined();
+  it.each(RETRIEVABLE_AUTHORING_LIFECYCLES)(
+    'serves a %s version at ?version=',
+    async (lifecycle) => {
+      const version = versionByLifecycle.get(lifecycle);
+      expect(version, `no ${lifecycle} fixture`).toBeDefined();
 
-    const composition = await composeAt(version);
+      const composition = await composeAt(version);
 
-    // Without this half the fix could be "refuse every named version" and this
-    // file would report the exposure closed while the surface answered nothing.
-    expect(
-      composition.outcome,
-      composition.outcome === 'refused' ? composition.detail : '',
-    ).toBe('composed');
-    if (composition.outcome !== 'composed') return;
-    expect(composition.schema.productType.key).toBe(TYPE_KEY);
-    expect(composition.schema.productType.version).toBe(version);
-    expect(composition.schema.productType.lifecycle).toBe(lifecycle);
-    // The thing the exposure leaked: the field structure. Its presence here is
-    // what makes the refusals above a refusal of something rather than of an
-    // empty answer.
-    expect(composition.schema.fields.length).toBeGreaterThan(0);
-  });
+      // Without this half the fix could be "refuse every named version" and this
+      // file would report the exposure closed while the surface answered nothing.
+      expect(composition.outcome, composition.outcome === 'refused' ? composition.detail : '').toBe(
+        'composed',
+      );
+      if (composition.outcome !== 'composed') return;
+      expect(composition.schema.productType.key).toBe(TYPE_KEY);
+      expect(composition.schema.productType.version).toBe(version);
+      expect(composition.schema.productType.lifecycle).toBe(lifecycle);
+      // The thing the exposure leaked: the field structure. Its presence here is
+      // what makes the refusals above a refusal of something rather than of an
+      // empty answer.
+      expect(composition.schema.fields.length).toBeGreaterThan(0);
+    },
+  );
 
   it('serves the published version when no version is named at all', async () => {
     // The `findPublishedVersionForKey` branch, which already filtered lifecycle

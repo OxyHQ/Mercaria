@@ -87,10 +87,7 @@ import {
   findConditionDetailsForListings,
   type ConditionDetailRecord,
 } from '../db/condition/conditionRepository.js';
-import {
-  flattenConditionNotes,
-  narrowStoredCondition,
-} from './condition/condition-projection.js';
+import { flattenConditionNotes, narrowStoredCondition } from './condition/condition-projection.js';
 import {
   findVariantOptionValues,
   findVariantsByIds,
@@ -106,10 +103,7 @@ import { getCart, clearCart, removeCartLines } from './cart.service.js';
 import type { CommerceActor } from './commerce-actor.js';
 import { cartOwnerForActor } from './cart-owner.js';
 import type { NormalizedCheckoutAddress } from './checkout/contact.js';
-import {
-  resolveCheckoutContract,
-  type ShippingFulfilment,
-} from './checkout/destination.js';
+import { resolveCheckoutContract, type ShippingFulfilment } from './checkout/destination.js';
 import {
   assertSellerGroupsAcceptDestination,
   resolveShippingCostMinor,
@@ -120,10 +114,7 @@ import {
   type ResolvedDigitalLine,
 } from './checkout/digital-lines.js';
 import { assertGuestCheckoutRolloutAllowed } from './checkout/guest-rollout.js';
-import {
-  assertGuestP2PCheckoutAllowed,
-  assertGuestP2PPaymentAllowed,
-} from './guest-p2p/gate.js';
+import { assertGuestP2PCheckoutAllowed, assertGuestP2PPaymentAllowed } from './guest-p2p/gate.js';
 import { prepareGuestCheckoutContact } from './checkout/guest-checkout.service.js';
 import { reserve, release } from './inventory.service.js';
 import { summarizeOrders } from './order-hydration.service.js';
@@ -155,10 +146,7 @@ import {
 } from './checkout/retail.js';
 import { insertRetailProcurementIntents } from '../db/retailCheckout/retailCheckoutRepository.js';
 import { recordRetailFulfilmentPlan } from './retail-fulfilment/order-role.service.js';
-import {
-  resolvePickupForCheckout,
-  type ResolvedPickup,
-} from './pickup/checkout-gate.js';
+import { resolvePickupForCheckout, type ResolvedPickup } from './pickup/checkout-gate.js';
 import { insertOrderPickup } from '../db/pickup/orderPickupRepository.js';
 import { addMoney, multiplyMoney } from '../utils/money.js';
 import { config } from '../config/index.js';
@@ -341,7 +329,13 @@ async function summarizePriorGroup(
   rail: CheckoutRail,
 ): Promise<CheckoutResult> {
   const prior = await findOrdersByCheckoutGroup(checkoutGroupId, checkoutGroupOwner(owner));
-  const payment = await openGatedCheckoutPayment({ actor, owner, rail, checkoutGroupId, orders: prior });
+  const payment = await openGatedCheckoutPayment({
+    actor,
+    owner,
+    rail,
+    checkoutGroupId,
+    orders: prior,
+  });
   return {
     checkoutGroupId,
     orders: await summarizeOrders(prior),
@@ -782,7 +776,9 @@ function buildRetailOrder(input: {
     ],
     paymentStatus: 'unpaid',
     checkoutGroupId: input.checkoutGroupId,
-    ...(input.idempotencyKey ? { idempotencyKey: `${input.idempotencyKey}:${RETAIL_SELLER_KEY}` } : {}),
+    ...(input.idempotencyKey
+      ? { idempotencyKey: `${input.idempotencyKey}:${RETAIL_SELLER_KEY}` }
+      : {}),
     // #88's `mercaria_retail` mode: a NULL fee, never a zero. A zero would read
     // as a schedule that calculated nothing, and `commission_revenue` would
     // then be receiving a figure from a schedule nobody published.
@@ -1170,9 +1166,7 @@ export async function checkout(
         }
         return {
           country: country.toUpperCase(),
-          evidence: declared
-            ? ('buyer_declared' as const)
-            : ('saved_address_country' as const),
+          evidence: declared ? ('buyer_declared' as const) : ('saved_address_country' as const),
           withdrawalBasis: contract.digitalSupplyConsent
             ? ('waived_on_immediate_supply' as const)
             : ('statutory_cooling_off' as const),
@@ -1284,7 +1278,9 @@ export async function checkout(
         // address is present whenever this branch runs — `retailLines.length > 0`
         // implies a physical line, and a physical line implies a destination. The
         // throw states that rather than asserting it.
-        country: shippingCountryForRetail(requireDestinationAddress(shippingAddressSnapshot).country),
+        country: shippingCountryForRetail(
+          requireDestinationAddress(shippingAddressSnapshot).country,
+        ),
         ...(requireDestinationAddress(shippingAddressSnapshot).region
           ? { region: requireDestinationAddress(shippingAddressSnapshot).region as string }
           : {}),
@@ -1353,9 +1349,7 @@ export async function checkout(
   // A checkout whose currencies are all the same then needs no rate at all.
   const presentmentCurrency: CurrencyCode = cart.currency;
   const groupStoreIds = [
-    ...new Set(
-      [...groups.values()].map((g) => g.storeId).filter((s): s is string => Boolean(s)),
-    ),
+    ...new Set([...groups.values()].map((g) => g.storeId).filter((s): s is string => Boolean(s))),
   ];
   const storeRows = await findStoresByIds(groupStoreIds);
   const shopCurrencyByStore = new Map(
@@ -1545,7 +1539,10 @@ export async function checkout(
         // no `buyerGuestCheckoutId` — I1 held by the compiler, not by a comment.
         ...(owner.kind === 'oxy_user'
           ? { buyerOrigin: 'oxy' as const, buyerOxyUserId: owner.oxyUserId }
-          : { buyerOrigin: 'guest' as const, buyerGuestCheckoutId: requireGuestCheckoutId(guestCheckout) }),
+          : {
+              buyerOrigin: 'guest' as const,
+              buyerGuestCheckoutId: requireGuestCheckoutId(guestCheckout),
+            }),
         sellerType: group.sellerType,
         // Every native marketplace checkout order is a connected-marketplace
         // sale (ADR 0004 D1); Mercaria's own lines never reach this loop.

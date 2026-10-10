@@ -6,34 +6,33 @@
  */
 export const queryKeys = {
   stores: {
-    all: ["stores"] as const,
-    detail: (storeId: string) => ["stores", storeId] as const,
+    all: ['stores'] as const,
+    detail: (storeId: string) => ['stores', storeId] as const,
   },
   /** Per-person exceptions to the role map (ADR 0012). */
-  permissionOverrides: (storeId: string) => ["stores", storeId, "permission-overrides"] as const,
+  permissionOverrides: (storeId: string) => ['stores', storeId, 'permission-overrides'] as const,
   /**
    * The Oxy account that owns a store, and its members — read from Oxy with the
    * caller's own session, never from Mercaria. NOT under `stores`: the same
    * account can own several stores, and the answer does not vary by store.
    */
-  oxyAccount: (accountId: string) => ["oxy-account", accountId] as const,
-  oxyAccountMembers: (accountId: string) => ["oxy-account", accountId, "members"] as const,
+  oxyAccount: (accountId: string) => ['oxy-account', accountId] as const,
+  oxyAccountMembers: (accountId: string) => ['oxy-account', accountId, 'members'] as const,
   products: {
-    list: (storeId: string, page: number, search: string, status: string = "all") =>
-      ["stores", storeId, "products", { page, search, status }] as const,
+    list: (storeId: string, page: number, search: string, status: string = 'all') =>
+      ['stores', storeId, 'products', { page, search, status }] as const,
     detail: (storeId: string, productId: string) =>
-      ["stores", storeId, "products", productId] as const,
+      ['stores', storeId, 'products', productId] as const,
     levels: (storeId: string, productId: string, variantId: string) =>
-      ["stores", storeId, "products", productId, "variants", variantId, "levels"] as const,
+      ['stores', storeId, 'products', productId, 'variants', variantId, 'levels'] as const,
   },
   orders: {
     list: (storeId: string, page: number, status: string) =>
-      ["stores", storeId, "orders", { page, status }] as const,
-    detail: (storeId: string, orderId: string) =>
-      ["stores", storeId, "orders", orderId] as const,
+      ['stores', storeId, 'orders', { page, status }] as const,
+    detail: (storeId: string, orderId: string) => ['stores', storeId, 'orders', orderId] as const,
     refunds: (storeId: string, orderId: string) =>
-      ["stores", storeId, "orders", orderId, "refunds"] as const,
-    stats: (storeId: string) => ["stores", storeId, "orders", "stats"] as const,
+      ['stores', storeId, 'orders', orderId, 'refunds'] as const,
+    stats: (storeId: string) => ['stores', storeId, 'orders', 'stats'] as const,
     /**
      * One order's collection and its audited trail (#93).
      *
@@ -44,88 +43,86 @@ export const queryKeys = {
      * other.
      */
     pickup: (storeId: string, orderId: string) =>
-      ["stores", storeId, "orders", orderId, "pickup"] as const,
+      ['stores', storeId, 'orders', orderId, 'pickup'] as const,
   },
   reports: {
-    summary: (storeId: string) => ["stores", storeId, "reports", "summary"] as const,
+    summary: (storeId: string) => ['stores', storeId, 'reports', 'summary'] as const,
     sales: (storeId: string, interval: string) =>
-      ["stores", storeId, "reports", "sales", interval] as const,
-    topProducts: (storeId: string) =>
-      ["stores", storeId, "reports", "top-products"] as const,
+      ['stores', storeId, 'reports', 'sales', interval] as const,
+    topProducts: (storeId: string) => ['stores', storeId, 'reports', 'top-products'] as const,
   },
   collections: {
-    list: (storeId: string) => ["stores", storeId, "collections"] as const,
-    detail: (storeId: string, id: string) =>
-      ["stores", storeId, "collections", id] as const,
+    list: (storeId: string) => ['stores', storeId, 'collections'] as const,
+    detail: (storeId: string, id: string) => ['stores', storeId, 'collections', id] as const,
   },
   discounts: {
-    list: (storeId: string) => ["stores", storeId, "discounts"] as const,
-    detail: (storeId: string, id: string) =>
-      ["stores", storeId, "discounts", id] as const,
+    list: (storeId: string) => ['stores', storeId, 'discounts'] as const,
+    detail: (storeId: string, id: string) => ['stores', storeId, 'discounts', id] as const,
   },
-  taxRates: (storeId: string) => ["stores", storeId, "tax-rates"] as const,
+  taxRates: (storeId: string) => ['stores', storeId, 'tax-rates'] as const,
   // Payment onboarding. A sibling of `channels`, never a child of it: a sales
   // channel is where a catalogue is listed and this is where money is settled.
-  payments: (storeId: string) => ["stores", storeId, "payments"] as const,
+  payments: (storeId: string) => ['stores', storeId, 'payments'] as const,
   // The store's own PLAN, a sibling of `payments` and never a child: one is what
   // Mercaria pays the store for orders, the other what the store pays Mercaria
   // for tooling. Two different directions of money with two different
   // lifecycles.
-  plan: (storeId: string) => ["stores", storeId, "plan"] as const,
-  planCatalog: (storeId: string) => ["stores", storeId, "plan", "catalog"] as const,
+  plan: (storeId: string) => ['stores', storeId, 'plan'] as const,
+  planCatalog: (storeId: string) => ['stores', storeId, 'plan', 'catalog'] as const,
   // What the store pays Mercaria PER ORDER — a third direction again, and a
   // sibling of both above. `plan` is a recurring subscription the store chose;
   // this is the marketplace fee applied to every sale, which the store accepts
   // rather than buys. Keyed on its own so accepting the terms invalidates the
   // schedule view and nothing else.
-  feeSchedule: (storeId: string) => ["stores", storeId, "fee-schedule"] as const,
-  locations: (storeId: string) => ["stores", storeId, "locations"] as const,
+  feeSchedule: (storeId: string) => ['stores', storeId, 'fee-schedule'] as const,
+  locations: (storeId: string) => ['stores', storeId, 'locations'] as const,
   /** One location's commerce publication (#93) — under `locations`, so a location write refreshes it. */
   locationPublication: (storeId: string, locationId: string) =>
-    ["stores", storeId, "locations", locationId, "publication"] as const,
+    ['stores', storeId, 'locations', locationId, 'publication'] as const,
   /** The trust rule's verdict on one location's GoWay place (ADR 0013). */
   locationPlaceLink: (storeId: string, locationId: string) =>
-    ["stores", storeId, "locations", locationId, "place-link"] as const,
+    ['stores', storeId, 'locations', locationId, 'place-link'] as const,
   /**
    * GoWay, read with the merchant's own session (ADR 0013). NOT under `stores`:
    * a place and an account's claims are the same answer whichever store asks.
    */
   goway: {
-    place: (placeId: string, locale: string) => ["goway", "place", placeId, locale] as const,
-    search: (query: string, locale: string) => ["goway", "search", query, locale] as const,
+    place: (placeId: string, locale: string) => ['goway', 'place', placeId, locale] as const,
+    search: (query: string, locale: string) => ['goway', 'search', query, locale] as const,
     /** Every claim query of one account — the prefix a new claim invalidates. */
-    accountClaims: (oxyAccountId: string) => ["goway", "claims", oxyAccountId] as const,
-    placeClaims: (oxyAccountId: string, placeId: string) => ["goway", "claims", oxyAccountId, placeId] as const,
-    hoursExceptions: (placeId: string) => ["goway", "place", placeId, "hours-exceptions"] as const,
+    accountClaims: (oxyAccountId: string) => ['goway', 'claims', oxyAccountId] as const,
+    placeClaims: (oxyAccountId: string, placeId: string) =>
+      ['goway', 'claims', oxyAccountId, placeId] as const,
+    hoursExceptions: (placeId: string) => ['goway', 'place', placeId, 'hours-exceptions'] as const,
   },
-  channels: (storeId: string) => ["stores", storeId, "channels"] as const,
-  channelKeys: (storeId: string) => ["stores", storeId, "channel-keys"] as const,
+  channels: (storeId: string) => ['stores', storeId, 'channels'] as const,
+  channelKeys: (storeId: string) => ['stores', storeId, 'channel-keys'] as const,
   /** The unified sales-channel surface (#87). */
-  channelCatalog: (storeId: string) => ["stores", storeId, "channel-catalog"] as const,
-  channelSummary: (storeId: string) => ["stores", storeId, "channel-summary"] as const,
-  channelReadiness: (storeId: string) => ["stores", storeId, "channel-readiness"] as const,
-  channelAudit: (storeId: string) => ["stores", storeId, "channel-audit"] as const,
+  channelCatalog: (storeId: string) => ['stores', storeId, 'channel-catalog'] as const,
+  channelSummary: (storeId: string) => ['stores', storeId, 'channel-summary'] as const,
+  channelReadiness: (storeId: string) => ['stores', storeId, 'channel-readiness'] as const,
+  channelAudit: (storeId: string) => ['stores', storeId, 'channel-audit'] as const,
   channelRuns: (storeId: string, connectionId: string) =>
-    ["stores", storeId, "channels", connectionId, "runs"] as const,
+    ['stores', storeId, 'channels', connectionId, 'runs'] as const,
   /** WHICH records one run refused, and why (#303) — fetched only on demand. */
   channelRunRecordFailures: (storeId: string, connectionId: string, runId: string) =>
-    ["stores", storeId, "channels", connectionId, "runs", runId, "record-failures"] as const,
+    ['stores', storeId, 'channels', connectionId, 'runs', runId, 'record-failures'] as const,
   channelReconciliation: (storeId: string, connectionId: string) =>
-    ["stores", storeId, "channels", connectionId, "reconciliation"] as const,
+    ['stores', storeId, 'channels', connectionId, 'reconciliation'] as const,
   /** The platform's own collections/categories and the stored mapping's health (#376). */
   channelCollections: (storeId: string, connectionId: string) =>
-    ["stores", storeId, "channels", connectionId, "collections"] as const,
-  channelOnboarding: (storeId: string) => ["stores", storeId, "channel-onboarding"] as const,
+    ['stores', storeId, 'channels', connectionId, 'collections'] as const,
+  channelOnboarding: (storeId: string) => ['stores', storeId, 'channel-onboarding'] as const,
   channelOnboardingSession: (storeId: string, sessionId: string) =>
-    ["stores", storeId, "channel-onboarding", sessionId] as const,
+    ['stores', storeId, 'channel-onboarding', sessionId] as const,
   /** The store's product feeds (#63), which #87 gives screens. */
-  feeds: (storeId: string) => ["stores", storeId, "feeds"] as const,
+  feeds: (storeId: string) => ['stores', storeId, 'feeds'] as const,
   feed: (storeId: string, configurationId: string) =>
-    ["stores", storeId, "feeds", configurationId] as const,
+    ['stores', storeId, 'feeds', configurationId] as const,
   feedStatus: (storeId: string, configurationId: string) =>
-    ["stores", storeId, "feeds", configurationId, "status"] as const,
+    ['stores', storeId, 'feeds', configurationId, 'status'] as const,
   feedReports: (storeId: string, configurationId: string) =>
-    ["stores", storeId, "feeds", configurationId, "reports"] as const,
+    ['stores', storeId, 'feeds', configurationId, 'reports'] as const,
   /**
    * The catalog-authoring schema surface (#367 step 10).
    *
@@ -136,11 +133,11 @@ export const queryKeys = {
    * not vary by one.
    */
   authoring: {
-    availability: (locale: string) => ["catalog-authoring", "availability", locale] as const,
+    availability: (locale: string) => ['catalog-authoring', 'availability', locale] as const,
     categories: (parentId: string | null, locale: string) =>
-      ["catalog-authoring", "categories", { parentId, locale }] as const,
+      ['catalog-authoring', 'categories', { parentId, locale }] as const,
     productTypes: (categoryId: string, locale: string) =>
-      ["catalog-authoring", "product-types", { categoryId, locale }] as const,
+      ['catalog-authoring', 'product-types', { categoryId, locale }] as const,
     schema: (
       productTypeKey: string,
       categoryId: string,
@@ -149,28 +146,27 @@ export const queryKeys = {
       version: number | null,
     ) =>
       [
-        "catalog-authoring",
-        "schemas",
+        'catalog-authoring',
+        'schemas',
         { productTypeKey, categoryId, market, locale, version },
       ] as const,
     canonicalSearch: (query: string, kind: string, canonicalProductId: string | null) =>
-      ["catalog-authoring", "canonical-search", { query, kind, canonicalProductId }] as const,
+      ['catalog-authoring', 'canonical-search', { query, kind, canonicalProductId }] as const,
   },
   /** A store's authoring DRAFTS — store-scoped, unlike the schema surface. */
   productDrafts: {
     list: (storeId: string, status: string) =>
-      ["stores", storeId, "product-drafts", { status }] as const,
+      ['stores', storeId, 'product-drafts', { status }] as const,
     detail: (storeId: string, draftId: string) =>
-      ["stores", storeId, "product-drafts", draftId] as const,
+      ['stores', storeId, 'product-drafts', draftId] as const,
     upgrade: (storeId: string, draftId: string) =>
-      ["stores", storeId, "product-drafts", draftId, "upgrade"] as const,
+      ['stores', storeId, 'product-drafts', draftId, 'upgrade'] as const,
   },
   customers: {
     list: (storeId: string, page: number, search: string) =>
-      ["stores", storeId, "customers", { page, search }] as const,
-    detail: (storeId: string, id: string) =>
-      ["stores", storeId, "customers", id] as const,
+      ['stores', storeId, 'customers', { page, search }] as const,
+    detail: (storeId: string, id: string) => ['stores', storeId, 'customers', id] as const,
     orders: (storeId: string, id: string) =>
-      ["stores", storeId, "customers", id, "orders"] as const,
+      ['stores', storeId, 'customers', id, 'orders'] as const,
   },
 } as const;

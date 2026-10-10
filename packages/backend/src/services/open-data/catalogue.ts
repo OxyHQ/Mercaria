@@ -38,7 +38,9 @@ export function findOpenDataProvider(slug: string): OpenDataProvider | undefined
 }
 
 /** The reviewer-facing description of every provider, and whether it runs here. */
-export function summarizeOpenDataProviders(registered: ReadonlySet<string>): OpenDataProviderSummary[] {
+export function summarizeOpenDataProviders(
+  registered: ReadonlySet<string>,
+): OpenDataProviderSummary[] {
   return OPEN_DATA_PROVIDERS.map((provider) => ({
     slug: provider.slug,
     name: provider.name,

@@ -59,7 +59,9 @@ import { productTypeFieldLocalizations } from '../schema/catalogLocalization.js'
 import { productTypeFields } from '../schema/productTypes.js';
 
 /** One row of `product_type_field_localizations`. */
-export type ProductTypeFieldLocalizationRow = InferSelectModel<typeof productTypeFieldLocalizations>;
+export type ProductTypeFieldLocalizationRow = InferSelectModel<
+  typeof productTypeFieldLocalizations
+>;
 
 /**
  * The four base columns a translation of this grain describes, paired with the
@@ -215,9 +217,7 @@ export async function copyForwardProductTypeFieldLocalizations(
       example: productTypeFields.example,
     })
     .from(productTypeFields)
-    .where(
-      inArray(productTypeFields.productTypeDefinitionId, [supersededVersionId, newVersionId]),
-    );
+    .where(inArray(productTypeFields.productTypeDefinitionId, [supersededVersionId, newVersionId]));
 
   const previous = indexByIdentity(
     fields.filter((field) => field.productTypeDefinitionId === supersededVersionId),
@@ -231,7 +231,10 @@ export async function copyForwardProductTypeFieldLocalizations(
 
   // Only fields that exist on BOTH sides. A field the new version dropped has
   // nowhere for its text to go, and one it added has no text to receive.
-  const matched = new Map<string, { targetFieldId: string; changed: ReadonlySet<TranslatedBaseColumn> }>();
+  const matched = new Map<
+    string,
+    { targetFieldId: string; changed: ReadonlySet<TranslatedBaseColumn> }
+  >();
   for (const [identity, before] of previous) {
     const after = next.get(identity);
     if (after === undefined) continue;
@@ -279,7 +282,10 @@ export async function copyForwardProductTypeFieldLocalizations(
     .insert(productTypeFieldLocalizations)
     .values(values)
     .onConflictDoNothing({
-      target: [productTypeFieldLocalizations.productTypeFieldId, productTypeFieldLocalizations.locale],
+      target: [
+        productTypeFieldLocalizations.productTypeFieldId,
+        productTypeFieldLocalizations.locale,
+      ],
     })
     .returning({ status: productTypeFieldLocalizations.status });
 

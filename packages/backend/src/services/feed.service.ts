@@ -32,10 +32,7 @@ import type {
   CategoryPill,
 } from '@mercaria/shared-types';
 import { findTopActiveStores } from '../db/stores/storeRepository.js';
-import {
-  findActiveCategories,
-  type CategoryRecord,
-} from '../db/catalog/categoryRepository.js';
+import { findActiveCategories, type CategoryRecord } from '../db/catalog/categoryRepository.js';
 import {
   findActiveListingsForStores,
   findListingChildren,
@@ -71,10 +68,7 @@ function buildCategoryPills(topLevel: CategoryRecord[]): CategoryPill[] {
  * Build the "Shop by category" section: each top-level category with up to N
  * subcategory tiles.
  */
-function buildShopByCategory(
-  topLevel: CategoryRecord[],
-  children: CategoryRecord[],
-): Category[] {
+function buildShopByCategory(topLevel: CategoryRecord[], children: CategoryRecord[]): Category[] {
   const childrenByParent = new Map<string, CategoryRecord[]>();
   for (const child of children) {
     if (!child.parentId) {
@@ -131,13 +125,9 @@ async function buildMerchants(): Promise<StoreSummary[]> {
   // The card thumbnails come from the featured listings' galleries, batched once
   // for every store on the shelf rather than per store.
   const images: Map<string, ListingImageRecord[]> =
-    featured.length > 0
-      ? (await findListingChildren(featured.map((l) => l.id))).images
-      : new Map();
+    featured.length > 0 ? (await findListingChildren(featured.map((l) => l.id))).images : new Map();
 
-  return stores.map((store) =>
-    toStoreSummary(store, featuredByStore.get(store.id) ?? [], images),
-  );
+  return stores.map((store) => toStoreSummary(store, featuredByStore.get(store.id) ?? [], images));
 }
 
 /** Assemble the feed from the database (no caching). */

@@ -74,10 +74,7 @@ export async function findSourcePolicyVersion(
     .select()
     .from(catalogSourcePolicies)
     .where(
-      and(
-        eq(catalogSourcePolicies.sourceId, sourceId),
-        eq(catalogSourcePolicies.version, version),
-      ),
+      and(eq(catalogSourcePolicies.sourceId, sourceId), eq(catalogSourcePolicies.version, version)),
     )
     .limit(1);
   return rows[0];
@@ -161,7 +158,9 @@ export async function publishSourcePolicy(
       termsVersion: input.termsVersion,
       termsUrl: input.termsUrl,
       reviewNote:
-        input.reviewNote === null ? null : input.reviewNote.slice(0, CATALOG_SOURCE_MAX_TEXT_LENGTH),
+        input.reviewNote === null
+          ? null
+          : input.reviewNote.slice(0, CATALOG_SOURCE_MAX_TEXT_LENGTH),
       reviewedAt: input.now,
       reviewedByOxyUserId: input.reviewedByOxyUserId,
       activatedAt: input.now,
@@ -170,6 +169,7 @@ export async function publishSourcePolicy(
     .returning();
 
   const row = rows[0];
-  if (!row) throw new Error(`catalog_source_policies insert for ${input.sourceId} returned nothing.`);
+  if (!row)
+    throw new Error(`catalog_source_policies insert for ${input.sourceId} returned nothing.`);
   return row;
 }

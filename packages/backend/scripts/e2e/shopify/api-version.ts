@@ -46,10 +46,10 @@ export async function probeServedApiVersion(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(
-      `https://${shopDomain}/admin/api/${requested}/shop.json`,
-      { method: 'GET', signal: controller.signal },
-    );
+    const response = await fetch(`https://${shopDomain}/admin/api/${requested}/shop.json`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
     const served = response.headers.get('x-shopify-api-version');
     if (!served) {
       return { outcome: 'not_disclosed', requested, httpStatus: response.status };
@@ -82,7 +82,7 @@ export function describeServedApiVersion(probe: ServedApiVersionProbe): string {
       return (
         `The shop answered HTTP ${probe.httpStatus} with no X-Shopify-API-Version header, ` +
         'so an unauthenticated probe cannot settle which version serves this deployment. ' +
-        "The API records the AUTHENTICATED answer itself: grep its log for " +
+        'The API records the AUTHENTICATED answer itself: grep its log for ' +
         '"served a DIFFERENT Admin API version".'
       );
     case 'unreachable':

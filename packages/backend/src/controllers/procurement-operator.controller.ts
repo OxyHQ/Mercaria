@@ -33,7 +33,10 @@
  */
 
 import type { Request, Response } from 'express';
-import type { ProcurementExceptionKind, ProcurementExceptionResolution } from '@mercaria/shared-types';
+import type {
+  ProcurementExceptionKind,
+  ProcurementExceptionResolution,
+} from '@mercaria/shared-types';
 import { getDb } from '../db/postgres.js';
 import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
 import { procurementOperatorId } from '../middleware/procurement-operator-authz.js';
@@ -105,18 +108,27 @@ export async function procurementTraceHandler(req: Request, res: Response): Prom
     return;
   }
 
-  const [lines, transitions, shipments, attempts, events, lineOutcomes, tracking, documents, exceptions] =
-    await Promise.all([
-      findPurchaseOrderLines(purchaseOrderId),
-      findPurchaseOrderTransitions(purchaseOrderId),
-      findPurchaseOrderShipments(purchaseOrderId),
-      listSupplierOrderAttempts(purchaseOrderId),
-      listSupplierProviderEventsForPurchaseOrder(purchaseOrderId),
-      listPurchaseOrderLineOutcomes(purchaseOrderId),
-      listPurchaseOrderTrackingEvents(purchaseOrderId),
-      listSupplierDocuments(purchaseOrderId),
-      listProcurementExceptionsForPurchaseOrder(purchaseOrderId),
-    ]);
+  const [
+    lines,
+    transitions,
+    shipments,
+    attempts,
+    events,
+    lineOutcomes,
+    tracking,
+    documents,
+    exceptions,
+  ] = await Promise.all([
+    findPurchaseOrderLines(purchaseOrderId),
+    findPurchaseOrderTransitions(purchaseOrderId),
+    findPurchaseOrderShipments(purchaseOrderId),
+    listSupplierOrderAttempts(purchaseOrderId),
+    listSupplierProviderEventsForPurchaseOrder(purchaseOrderId),
+    listPurchaseOrderLineOutcomes(purchaseOrderId),
+    listPurchaseOrderTrackingEvents(purchaseOrderId),
+    listSupplierDocuments(purchaseOrderId),
+    listProcurementExceptionsForPurchaseOrder(purchaseOrderId),
+  ]);
 
   sendSuccess(res, {
     purchaseOrder: {

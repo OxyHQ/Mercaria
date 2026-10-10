@@ -99,7 +99,11 @@ function keysOf(value: unknown, where: string): string[] {
   return Object.keys(value as object).sort();
 }
 
-export function exactKeys(value: unknown, expected: readonly string[], where: string): Record<string, unknown> {
+export function exactKeys(
+  value: unknown,
+  expected: readonly string[],
+  where: string,
+): Record<string, unknown> {
   expect(keysOf(value, where), `${where} key set`).toEqual([...expected].sort());
   return value as Record<string, unknown>;
 }
@@ -110,7 +114,11 @@ function checkMoney(value: unknown, where: string): void {
   expect(money['currency'], `${where}.currency`).toBeTypeOf('string');
 }
 
-function checkNullable(value: unknown, where: string, check: (v: unknown, w: string) => void): void {
+function checkNullable(
+  value: unknown,
+  where: string,
+  check: (v: unknown, w: string) => void,
+): void {
   if (value !== null) check(value, where);
 }
 
@@ -120,7 +128,11 @@ function checkImage(value: unknown, where: string): void {
   if (image['alt'] !== null) expect(image['alt']).toBeTypeOf('string');
 }
 
-function checkSummary(value: unknown, where: string, extra: readonly string[] = []): Record<string, unknown> {
+function checkSummary(
+  value: unknown,
+  where: string,
+  extra: readonly string[] = [],
+): Record<string, unknown> {
   const item = exactKeys(value, [...KEYS.summary, ...extra], where);
   exactKeys(item['ref'], KEYS.productRef, `${where}.ref`);
   checkNullable(item['primaryImage'], `${where}.primaryImage`, checkImage);
@@ -146,7 +158,9 @@ function checkSummary(value: unknown, where: string, extra: readonly string[] = 
 
 function checkProduct(value: unknown, where: string): Record<string, unknown> {
   const product = checkSummary(value, where, KEYS.productExtra);
-  (product['images'] as unknown[]).forEach((image, i) => checkImage(image, `${where}.images[${i}]`));
+  (product['images'] as unknown[]).forEach((image, i) =>
+    checkImage(image, `${where}.images[${i}]`),
+  );
   (product['purchaseOptions'] as unknown[]).forEach((option, i) => {
     const o = exactKeys(option, KEYS.purchaseOption, `${where}.purchaseOptions[${i}]`);
     exactKeys(o['ref'], KEYS.variantRef, `${where}.purchaseOptions[${i}].ref`);
@@ -154,7 +168,9 @@ function checkProduct(value: unknown, where: string): Record<string, unknown> {
     checkNullable(o['compareAtPrice'], `${where}.purchaseOptions[${i}].compareAtPrice`, checkMoney);
     expect(['in_stock', 'out_of_stock']).toContain(o['availability']);
   });
-  checkNullable(product['viewer'], `${where}.viewer`, (viewer, w) => exactKeys(viewer, KEYS.viewer, w));
+  checkNullable(product['viewer'], `${where}.viewer`, (viewer, w) =>
+    exactKeys(viewer, KEYS.viewer, w),
+  );
   expect(Number.isNaN(Date.parse(String(product['updatedAt'])))).toBe(false);
   return product;
 }
@@ -330,7 +346,10 @@ export function createPublicApiWorld() {
     readonly createdAt?: Date;
   }
 
-  async function insertListing(db: Database, input: ListingInput): Promise<{ id: string; variantIds: string[] }> {
+  async function insertListing(
+    db: Database,
+    input: ListingInput,
+  ): Promise<{ id: string; variantIds: string[] }> {
     const [row] = await db
       .insert(listings)
       .values({
@@ -458,13 +477,18 @@ export function createPublicApiWorld() {
       publishedAt: published,
       storeId: ids.storeA,
       variants: [
-        { title: 'Small', price: 1_500, compareAt: 2_000, tracked: true, available: 3, sku: SENTINEL.sku, barcode: SENTINEL.barcode },
+        {
+          title: 'Small',
+          price: 1_500,
+          compareAt: 2_000,
+          tracked: true,
+          available: 3,
+          sku: SENTINEL.sku,
+          barcode: SENTINEL.barcode,
+        },
         { title: 'Large', price: 2_500, tracked: true, available: 0 },
       ],
-      images: [
-        { fileId: `img-first-${RUN}`, alt: 'The front' },
-        { fileId: `img-second-${RUN}` },
-      ],
+      images: [{ fileId: `img-first-${RUN}`, alt: 'The front' }, { fileId: `img-second-${RUN}` }],
       privateFacts: { sourceConnectionId: connection.id },
     });
     ids.inStock = inStock.id;

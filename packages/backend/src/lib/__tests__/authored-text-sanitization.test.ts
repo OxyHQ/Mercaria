@@ -192,10 +192,14 @@ describe('the proposal schema sanitizes at the boundary', () => {
     // floor checked only before a shortening transform is a floor with a hole in
     // it, and what walks through this one becomes a controlled value's label on
     // approval.
-    expect(() => submitCatalogProposalSchema.parse(proposalBody({ proposedLabel: '<b></b>' }))).toThrow();
+    expect(() =>
+      submitCatalogProposalSchema.parse(proposalBody({ proposedLabel: '<b></b>' })),
+    ).toThrow();
     // The bound on the RAW input still holds, so markup cannot buy length.
     expect(() =>
-      submitCatalogProposalSchema.parse(proposalBody({ proposedLabel: `<b>${'x'.repeat(200)}</b>` })),
+      submitCatalogProposalSchema.parse(
+        proposalBody({ proposedLabel: `<b>${'x'.repeat(200)}</b>` }),
+      ),
     ).toThrow();
   });
 

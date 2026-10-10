@@ -58,7 +58,10 @@ interface FakeWorld {
   readonly assets: readonly { id: string; storeId: string }[];
   /** kind → value → the `{versionId, fileId}` rows the table holds. */
   readonly signals: Readonly<
-    Record<string, Readonly<Record<string, readonly { versionId: string; fileId: string | null }[]>>>
+    Record<
+      string,
+      Readonly<Record<string, readonly { versionId: string; fileId: string | null }[]>>
+    >
   >;
 }
 
@@ -81,13 +84,13 @@ function readerFor(world: FakeWorld): ProvenanceSweepReader {
               id: found.id,
               assetId: found.assetId,
               state: found.state ?? 'published',
-              publishedAt: found.publishedAt === undefined ? new Date('2026-01-01') : found.publishedAt,
+              publishedAt:
+                found.publishedAt === undefined ? new Date('2026-01-01') : found.publishedAt,
               createdAt: found.createdAt ?? new Date('2025-12-01'),
             },
       );
     },
-    asset: (assetId) =>
-      Promise.resolve(world.assets.find((asset) => asset.id === assetId) ?? null),
+    asset: (assetId) => Promise.resolve(world.assets.find((asset) => asset.id === assetId) ?? null),
   };
 }
 
@@ -273,7 +276,7 @@ describe('#1015 W8 — the evidence a candidate carries', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('#1015 W8 — the false-positive cuts', () => {
-  it("a creator matching their OWN other asset is dropped, and counted", async () => {
+  it('a creator matching their OWN other asset is dropped, and counted', async () => {
     const world: FakeWorld = {
       versions: [
         { id: 'v-subject', assetId: 'a-subject' },
@@ -514,7 +517,11 @@ describe('#1015 W8 — filing goes through the EXISTING abuse-report path', () =
 
   it('refuses a missing operator id — there is no platform principal', async () => {
     await expect(
-      fileProvenanceReview({ operatorOxyUserId: '', listingId: 'l-1', sweep: await matchingSweep() }),
+      fileProvenanceReview({
+        operatorOxyUserId: '',
+        listingId: 'l-1',
+        sweep: await matchingSweep(),
+      }),
     ).rejects.toThrow(/operator id is required/);
     expect(createAbuseReport).not.toHaveBeenCalled();
   });
@@ -534,7 +541,12 @@ describe('#1015 W8 — filing goes through the EXISTING abuse-report path', () =
   });
 
   it('refuses a P2P listing, which a digital asset can never be behind', async () => {
-    findListingById.mockResolvedValue({ id: 'l-3', ownerType: 'user', oxyUserId: 'u-1', storeId: null });
+    findListingById.mockResolvedValue({
+      id: 'l-3',
+      ownerType: 'user',
+      oxyUserId: 'u-1',
+      storeId: null,
+    });
     await expect(
       fileProvenanceReview({
         operatorOxyUserId: 'op-7',

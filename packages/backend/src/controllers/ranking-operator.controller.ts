@@ -162,12 +162,7 @@ export async function canaryRankingPolicyHandler(req: Request, res: Response): P
       actorOxyUserId: actor,
     });
     if (row === null) {
-      sendError(
-        res,
-        ErrorCodes.CONFLICT,
-        'Only a draft or an existing canary can be ramped',
-        409,
-      );
+      sendError(res, ErrorCodes.CONFLICT, 'Only a draft or an existing canary can be ramped', 409);
       return;
     }
     log.general.info(
@@ -232,7 +227,12 @@ export async function archiveRankingPolicyHandler(req: Request, res: Response): 
   try {
     const row = await archiveRankingPolicyVersion(routeParam(req, 'id'));
     if (row === null) {
-      sendError(res, ErrorCodes.CONFLICT, 'Only a draft or superseded version can be archived', 409);
+      sendError(
+        res,
+        ErrorCodes.CONFLICT,
+        'Only a draft or superseded version can be archived',
+        409,
+      );
       return;
     }
     sendSuccess(res, toPolicyView(row));

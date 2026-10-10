@@ -1,6 +1,6 @@
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Persisted selection of the active store the dashboard operates on.
@@ -25,7 +25,7 @@ export const useActiveStore = create<ActiveStoreState>()(
       setActiveStoreId: (storeId) => set({ activeStoreId: storeId }),
     }),
     {
-      name: "mercaria.dashboard.active-store",
+      name: 'mercaria.dashboard.active-store',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ activeStoreId: state.activeStoreId }),
       onRehydrateStorage: () => (state) => {

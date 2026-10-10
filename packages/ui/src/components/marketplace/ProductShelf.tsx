@@ -1,10 +1,10 @@
-import { View } from "react-native";
-import { ProductCarousel } from "./ProductCarousel";
-import { SectionHeader } from "./SectionHeader";
-import type { ProductSummary } from "../../lib/format";
+import { View } from 'react-native';
+import { ProductCarousel } from './ProductCarousel';
+import { SectionHeader } from './SectionHeader';
+import type { ProductSummary } from '../../lib/format';
 
 export interface ProductShelfProps {
-  cardVariant?: "standard" | "image-only";
+  cardVariant?: 'standard' | 'image-only';
   title: string;
   items: ProductSummary[];
   /**
@@ -35,11 +35,19 @@ export function ProductShelf({
   if (!items || items.length === 0) return null;
 
   return (
-    <View className={cardVariant === "image-only" ? "mb-3 md:mb-6" : "mb-10 md:mb-16"}>
+    <View className={cardVariant === 'image-only' ? 'mb-3 md:mb-6' : 'mb-10 md:mb-16'}>
       <ProductCarousel
         title={title}
         cardVariant={cardVariant}
-        header={<SectionHeader title={title} onPress={onPressTitle} showChevron={onPressTitle !== undefined} inset={false} chevronPosition="after-title" />}
+        header={
+          <SectionHeader
+            title={title}
+            onPress={onPressTitle}
+            showChevron={onPressTitle !== undefined}
+            inset={false}
+            chevronPosition="after-title"
+          />
+        }
         items={items}
         onPressItem={onPressItem}
         onToggleSaveItem={onToggleSaveItem}

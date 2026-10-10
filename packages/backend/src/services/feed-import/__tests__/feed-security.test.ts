@@ -108,11 +108,16 @@ describe('size and decompression limits (security 2 and 3)', () => {
     const meter: FeedByteMeter = { compressedBytes: bomb.byteLength, decompressedBytes: 0 };
     await expect(
       drain(
-        decompressBytes(source(), 'gzip', {
-          maxDownloadBytes: 10 * 1024 * 1024,
-          maxDecompressedBytes: 1 * 1024 * 1024,
-          maxCompressionRatio: 100_000,
-        }, meter),
+        decompressBytes(
+          source(),
+          'gzip',
+          {
+            maxDownloadBytes: 10 * 1024 * 1024,
+            maxDecompressedBytes: 1 * 1024 * 1024,
+            maxCompressionRatio: 100_000,
+          },
+          meter,
+        ),
       ),
     ).rejects.toMatchObject({ reason: 'decompressed_too_large' });
   });
@@ -128,11 +133,16 @@ describe('size and decompression limits (security 2 and 3)', () => {
     const meter: FeedByteMeter = { compressedBytes: 128 * 1024, decompressedBytes: 0 };
     await expect(
       drain(
-        decompressBytes(source(), 'gzip', {
-          maxDownloadBytes: 1024 * 1024 * 1024,
-          maxDecompressedBytes: 1024 * 1024 * 1024,
-          maxCompressionRatio: 10,
-        }, meter),
+        decompressBytes(
+          source(),
+          'gzip',
+          {
+            maxDownloadBytes: 1024 * 1024 * 1024,
+            maxDecompressedBytes: 1024 * 1024 * 1024,
+            maxCompressionRatio: 10,
+          },
+          meter,
+        ),
       ),
     ).rejects.toMatchObject({ reason: 'compression_ratio_exceeded' });
   });
@@ -145,11 +155,16 @@ describe('size and decompression limits (security 2 and 3)', () => {
     }
     const meter: FeedByteMeter = { compressedBytes: gz.byteLength, decompressedBytes: 0 };
     const total = await drain(
-      decompressBytes(source(), 'gzip', {
-        maxDownloadBytes: 100 * 1024 * 1024,
-        maxDecompressedBytes: 100 * 1024 * 1024,
-        maxCompressionRatio: 200,
-      }, meter),
+      decompressBytes(
+        source(),
+        'gzip',
+        {
+          maxDownloadBytes: 100 * 1024 * 1024,
+          maxDecompressedBytes: 100 * 1024 * 1024,
+          maxCompressionRatio: 200,
+        },
+        meter,
+      ),
     );
     expect(total).toBe(Buffer.byteLength(csv, 'utf8'));
   });

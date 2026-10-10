@@ -1,56 +1,56 @@
-import React, { useState } from "react";
-import { View } from "react-native";
+import React, { useState } from 'react';
+import { View } from 'react-native';
 import type {
   LocationInventorySource,
   LocationPublicationState,
   MerchantLocationPublication,
   PickupIdentityRequirement,
-} from "@mercaria/shared-types";
-import { PICKUP_IDENTITY_REQUIREMENT_KEYS, Text } from "@mercaria/ui";
-import { Badge } from "@oxy.so/bloom/badge";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import { Button } from "@oxy.so/bloom/button";
-import { Switch } from "@oxy.so/bloom/switch";
+} from '@mercaria/shared-types';
+import { PICKUP_IDENTITY_REQUIREMENT_KEYS, Text } from '@mercaria/ui';
+import { Badge } from '@oxy.so/bloom/badge';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { Button } from '@oxy.so/bloom/button';
+import { Switch } from '@oxy.so/bloom/switch';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { toast } from "@oxy.so/bloom/toast";
+} from '@oxy.so/bloom/segmented-control';
+import { toast } from '@oxy.so/bloom/toast';
 import {
   useSaveLocationPublication,
   useSetLocationPickupPause,
   useSetLocationPublicationState,
-} from "@/lib/hooks/use-location-publication";
-import { publicationErrorKey } from "@/lib/goway/errors";
+} from '@/lib/hooks/use-location-publication';
+import { publicationErrorKey } from '@/lib/goway/errors';
 import {
   publicationDraftOf,
   publicationInputOf,
   type PublicationDraft,
-} from "@/lib/locations/publication-form";
-import { useTranslation } from "@/lib/i18n";
-import { EditorSection } from "./EditorSection";
+} from '@/lib/locations/publication-form';
+import { useTranslation } from '@/lib/i18n';
+import { EditorSection } from './EditorSection';
 
 const IDENTITY_REQUIREMENTS: PickupIdentityRequirement[] = [
-  "collection_code",
-  "collection_code_and_photo_id",
-  "order_number_only",
+  'collection_code',
+  'collection_code_and_photo_id',
+  'order_number_only',
 ];
 
-const INVENTORY_SOURCES: LocationInventorySource[] = ["pos", "connector", "manual"];
+const INVENTORY_SOURCES: LocationInventorySource[] = ['pos', 'connector', 'manual'];
 
 const INVENTORY_SOURCE_KEYS: Record<LocationInventorySource, string> = {
-  pos: "settings.locations.editor.publication.source.pos",
-  connector: "settings.locations.editor.publication.source.connector",
-  manual: "settings.locations.editor.publication.source.manual",
+  pos: 'settings.locations.editor.publication.source.pos',
+  connector: 'settings.locations.editor.publication.source.connector',
+  manual: 'settings.locations.editor.publication.source.manual',
 };
 
 const STATE_KEYS: Record<LocationPublicationState, string> = {
-  draft: "settings.locations.editor.publication.state.draft",
-  published: "settings.locations.editor.publication.state.published",
-  withdrawn: "settings.locations.editor.publication.state.withdrawn",
+  draft: 'settings.locations.editor.publication.state.draft',
+  published: 'settings.locations.editor.publication.state.published',
+  withdrawn: 'settings.locations.editor.publication.state.withdrawn',
 };
 
 /**
@@ -78,9 +78,10 @@ export function PublicationCard({
   const setState = useSetLocationPublicationState(storeId, locationId);
   const setPause = useSetLocationPickupPause(storeId, locationId);
   const [draft, setDraft] = useState<PublicationDraft>(() => publicationDraftOf(publication));
-  const [pauseReason, setPauseReason] = useState("");
+  const [pauseReason, setPauseReason] = useState('');
 
-  const patch = (next: Partial<PublicationDraft>) => setDraft((current) => ({ ...current, ...next }));
+  const patch = (next: Partial<PublicationDraft>) =>
+    setDraft((current) => ({ ...current, ...next }));
 
   const submit = () => {
     const built = publicationInputOf(draft, goWayPlaceId);
@@ -89,46 +90,52 @@ export function PublicationCard({
       return;
     }
     save.mutate(built.input, {
-      onSuccess: () => toast.success(t("settings.locations.editor.publication.saved")),
+      onSuccess: () => toast.success(t('settings.locations.editor.publication.saved')),
       onError: (error) => toast.error(t(publicationErrorKey(error))),
     });
   };
 
   const move = (state: LocationPublicationState) =>
     setState.mutate(state, {
-      onSuccess: () => toast.success(t("settings.locations.editor.publication.stateChanged")),
+      onSuccess: () => toast.success(t('settings.locations.editor.publication.stateChanged')),
       onError: (error) => toast.error(t(publicationErrorKey(error))),
     });
 
   const linkedElsewhere =
-    publication?.goWayPlaceId !== undefined && goWayPlaceId !== undefined && publication.goWayPlaceId !== goWayPlaceId;
+    publication?.goWayPlaceId !== undefined &&
+    goWayPlaceId !== undefined &&
+    publication.goWayPlaceId !== goWayPlaceId;
 
   return (
     <EditorSection
-      title={t("settings.locations.editor.publication.title")}
-      description={t("settings.locations.editor.publication.description")}
+      title={t('settings.locations.editor.publication.title')}
+      description={t('settings.locations.editor.publication.description')}
     >
       {linkedElsewhere ? (
-        <Text className="text-xs text-muted-foreground">{t("settings.locations.editor.publication.unsavedPlace")}</Text>
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.locations.editor.publication.unsavedPlace')}
+        </Text>
       ) : null}
       <View className="flex-row items-center justify-between gap-3">
-        <Text className="text-sm text-foreground">{t("settings.locations.editor.publication.pickupOffered")}</Text>
+        <Text className="text-sm text-foreground">
+          {t('settings.locations.editor.publication.pickupOffered')}
+        </Text>
         <Switch
           checked={draft.pickupOffered}
           onCheckedChange={(pickupOffered) => patch({ pickupOffered })}
-          accessibilityLabel={t("settings.locations.editor.publication.pickupOffered")}
+          accessibilityLabel={t('settings.locations.editor.publication.pickupOffered')}
         />
       </View>
-      <Field label={t("settings.locations.editor.publication.instructions")}>
+      <Field label={t('settings.locations.editor.publication.instructions')}>
         <Textarea
           autoResize
-          accessibilityLabel={t("settings.locations.editor.publication.instructions")}
+          accessibilityLabel={t('settings.locations.editor.publication.instructions')}
           value={draft.pickupInstructions}
           onValueChange={(pickupInstructions) => patch({ pickupInstructions })}
-          placeholder={t("settings.locations.editor.publication.instructionsPlaceholder")}
+          placeholder={t('settings.locations.editor.publication.instructionsPlaceholder')}
         />
       </Field>
-      <Field label={t("settings.locations.editor.publication.identity")}>
+      <Field label={t('settings.locations.editor.publication.identity')}>
         <SegmentedControl
           type="radio"
           value={draft.identityRequirement}
@@ -136,12 +143,14 @@ export function PublicationCard({
         >
           {IDENTITY_REQUIREMENTS.map((requirement) => (
             <SegmentedControlItem key={requirement} value={requirement}>
-              <SegmentedControlItemText>{t(PICKUP_IDENTITY_REQUIREMENT_KEYS[requirement])}</SegmentedControlItemText>
+              <SegmentedControlItemText>
+                {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[requirement])}
+              </SegmentedControlItemText>
             </SegmentedControlItem>
           ))}
         </SegmentedControl>
       </Field>
-      <Field label={t("settings.locations.editor.publication.inventorySource")}>
+      <Field label={t('settings.locations.editor.publication.inventorySource')}>
         <SegmentedControl
           type="radio"
           value={draft.inventorySource}
@@ -149,16 +158,18 @@ export function PublicationCard({
         >
           {INVENTORY_SOURCES.map((source) => (
             <SegmentedControlItem key={source} value={source}>
-              <SegmentedControlItemText>{t(INVENTORY_SOURCE_KEYS[source])}</SegmentedControlItemText>
+              <SegmentedControlItemText>
+                {t(INVENTORY_SOURCE_KEYS[source])}
+              </SegmentedControlItemText>
             </SegmentedControlItem>
           ))}
         </SegmentedControl>
       </Field>
       <View className="flex-row gap-2">
         <View className="flex-1">
-          <Field label={t("settings.locations.editor.publication.interval")}>
+          <Field label={t('settings.locations.editor.publication.interval')}>
             <TextFieldInput
-              label={t("settings.locations.editor.publication.interval")}
+              label={t('settings.locations.editor.publication.interval')}
               keyboardType="number-pad"
               value={draft.stockIntervalMinutes}
               onValueChange={(stockIntervalMinutes) => patch({ stockIntervalMinutes })}
@@ -166,9 +177,9 @@ export function PublicationCard({
           </Field>
         </View>
         <View className="flex-1">
-          <Field label={t("settings.locations.editor.publication.lowStock")}>
+          <Field label={t('settings.locations.editor.publication.lowStock')}>
             <TextFieldInput
-              label={t("settings.locations.editor.publication.lowStock")}
+              label={t('settings.locations.editor.publication.lowStock')}
               keyboardType="number-pad"
               value={draft.lowStockThreshold}
               onValueChange={(lowStockThreshold) => patch({ lowStockThreshold })}
@@ -176,17 +187,26 @@ export function PublicationCard({
           </Field>
         </View>
       </View>
-      <Text className="text-xs text-muted-foreground">{t("settings.locations.editor.publication.intervalHint")}</Text>
+      <Text className="text-xs text-muted-foreground">
+        {t('settings.locations.editor.publication.intervalHint')}
+      </Text>
       <View className="flex-row items-center justify-between gap-3">
-        <Text className="text-sm text-foreground">{t("settings.locations.editor.publication.exactStock")}</Text>
+        <Text className="text-sm text-foreground">
+          {t('settings.locations.editor.publication.exactStock')}
+        </Text>
         <Switch
           checked={draft.disclosesExactStock}
           onCheckedChange={(disclosesExactStock) => patch({ disclosesExactStock })}
-          accessibilityLabel={t("settings.locations.editor.publication.exactStock")}
+          accessibilityLabel={t('settings.locations.editor.publication.exactStock')}
         />
       </View>
-      <Button tone="accent" loading={save.isPending} disabled={goWayPlaceId === undefined} onPress={submit}>
-        {t("settings.locations.editor.publication.save")}
+      <Button
+        tone="accent"
+        loading={save.isPending}
+        disabled={goWayPlaceId === undefined}
+        onPress={submit}
+      >
+        {t('settings.locations.editor.publication.save')}
       </Button>
 
       {publication ? (
@@ -195,7 +215,7 @@ export function PublicationCard({
             <Badge
               size="label-small"
               variant="subtle"
-              color={publication.publicationState === "published" ? "success" : "default"}
+              color={publication.publicationState === 'published' ? 'success' : 'default'}
               content={t(STATE_KEYS[publication.publicationState])}
             />
             {publication.restricted ? (
@@ -203,7 +223,7 @@ export function PublicationCard({
                 size="label-small"
                 variant="subtle"
                 color="error"
-                content={t("settings.locations.editor.publication.restricted")}
+                content={t('settings.locations.editor.publication.restricted')}
               />
             ) : null}
           </View>
@@ -211,18 +231,28 @@ export function PublicationCard({
             <Text className="text-xs text-muted-foreground">{publication.restrictionReason}</Text>
           ) : null}
           <View className="flex-row flex-wrap gap-2">
-            {publication.publicationState === "published" ? (
-              <Button tone="neutral" appearance="outline" loading={setState.isPending} onPress={() => move("withdrawn")}>
-                {t("settings.locations.editor.publication.withdraw")}
+            {publication.publicationState === 'published' ? (
+              <Button
+                tone="neutral"
+                appearance="outline"
+                loading={setState.isPending}
+                onPress={() => move('withdrawn')}
+              >
+                {t('settings.locations.editor.publication.withdraw')}
               </Button>
             ) : (
-              <Button tone="accent" loading={setState.isPending} onPress={() => move("published")}>
-                {t("settings.locations.editor.publication.publish")}
+              <Button tone="accent" loading={setState.isPending} onPress={() => move('published')}>
+                {t('settings.locations.editor.publication.publish')}
               </Button>
             )}
-            {publication.publicationState === "withdrawn" ? (
-              <Button tone="neutral" appearance="outline" loading={setState.isPending} onPress={() => move("draft")}>
-                {t("settings.locations.editor.publication.toDraft")}
+            {publication.publicationState === 'withdrawn' ? (
+              <Button
+                tone="neutral"
+                appearance="outline"
+                loading={setState.isPending}
+                onPress={() => move('draft')}
+              >
+                {t('settings.locations.editor.publication.toDraft')}
               </Button>
             ) : null}
           </View>
@@ -230,8 +260,8 @@ export function PublicationCard({
           {publication.pickupPausedAt ? (
             <View className="gap-2">
               <Text className="text-sm text-foreground">
-                {t("settings.locations.editor.publication.pausedBecause", {
-                  reason: publication.pickupPauseReason ?? "",
+                {t('settings.locations.editor.publication.pausedBecause', {
+                  reason: publication.pickupPauseReason ?? '',
                 })}
               </Text>
               <Button
@@ -245,14 +275,14 @@ export function PublicationCard({
                   )
                 }
               >
-                {t("settings.locations.editor.publication.resume")}
+                {t('settings.locations.editor.publication.resume')}
               </Button>
             </View>
           ) : (
             <View className="gap-2">
-              <Field label={t("settings.locations.editor.publication.pauseReason")}>
+              <Field label={t('settings.locations.editor.publication.pauseReason')}>
                 <TextFieldInput
-                  label={t("settings.locations.editor.publication.pauseReason")}
+                  label={t('settings.locations.editor.publication.pauseReason')}
                   value={pauseReason}
                   onValueChange={setPauseReason}
                 />
@@ -260,19 +290,19 @@ export function PublicationCard({
               <Button
                 tone="neutral"
                 appearance="outline"
-                disabled={pauseReason.trim() === ""}
+                disabled={pauseReason.trim() === ''}
                 loading={setPause.isPending}
                 onPress={() =>
                   setPause.mutate(
                     { paused: true, reason: pauseReason.trim() },
                     {
-                      onSuccess: () => setPauseReason(""),
+                      onSuccess: () => setPauseReason(''),
                       onError: (error) => toast.error(t(publicationErrorKey(error))),
                     },
                   )
                 }
               >
-                {t("settings.locations.editor.publication.pause")}
+                {t('settings.locations.editor.publication.pause')}
               </Button>
             </View>
           )}

@@ -31,15 +31,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { COMPATIBILITY_APPLICABILITIES } from '@mercaria/shared-types';
-import type {
-  AutomotiveFitmentView,
-  CompatibilityApplicability,
-} from '@mercaria/shared-types';
-import {
-  composeProductCompatibility,
-  fitmentSubjects,
-  partitionFitment,
-} from '../compatibility';
+import type { AutomotiveFitmentView, CompatibilityApplicability } from '@mercaria/shared-types';
+import { composeProductCompatibility, fitmentSubjects, partitionFitment } from '../compatibility';
 
 /** One statement, with only the fields the composition reads spelled out. */
 function fitment(
@@ -88,18 +81,12 @@ describe('an exclusion is never grouped with a fit', () => {
   it('keeps `unknown` apart from `does_not_apply` — different sentences', () => {
     // "We have no data for your car" is not "this does not fit your car", and
     // collapsing them either way is a wrong answer with a consequence.
-    const groups = partitionFitment([
-      fitment('f1', 'unknown'),
-      fitment('f2', 'does_not_apply'),
-    ]);
+    const groups = partitionFitment([fitment('f1', 'unknown'), fitment('f2', 'does_not_apply')]);
     expect(groups.map((group) => group.applicability)).toEqual(['does_not_apply', 'unknown']);
   });
 
   it('keeps `partially_applies` apart from `applies` — a caveat is not a yes', () => {
-    const groups = partitionFitment([
-      fitment('f1', 'partially_applies'),
-      fitment('f2', 'applies'),
-    ]);
+    const groups = partitionFitment([fitment('f1', 'partially_applies'), fitment('f2', 'applies')]);
     expect(groups.map((group) => group.applicability)).toEqual(['applies', 'partially_applies']);
   });
 

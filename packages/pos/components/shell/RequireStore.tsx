@@ -1,10 +1,10 @@
-import React from "react";
-import { useRouter } from "expo-router";
-import type { StorePermission } from "@mercaria/shared-types";
-import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { useActiveStoreContext, useMyStores } from "@/lib/hooks/use-stores";
-import { useActiveStore } from "@/lib/stores/active-store";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { useRouter } from 'expo-router';
+import type { StorePermission } from '@mercaria/shared-types';
+import { ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { useActiveStoreContext, useMyStores } from '@/lib/hooks/use-stores';
+import { useActiveStore } from '@/lib/stores/active-store';
+import { useTranslation } from '@/lib/i18n';
 
 interface RequireStoreProps {
   /** Permission the active screen requires. When the caller lacks it, a clean
@@ -38,14 +38,12 @@ export function RequireStore({ permission, children }: RequireStoreProps) {
 
   // No active store, or the persisted store is no longer accessible → picker.
   if (!activeStoreId || !store) {
-    router.replace("/store-setup");
+    router.replace('/store-setup');
     return <ScreenLoading />;
   }
 
   if (permission && !can(permission)) {
-    return (
-      <ScreenMessage title={t("common.noAccess")} body={t("common.noAccessBody")} />
-    );
+    return <ScreenMessage title={t('common.noAccess')} body={t('common.noAccessBody')} />;
   }
 
   return <>{children(activeStoreId)}</>;

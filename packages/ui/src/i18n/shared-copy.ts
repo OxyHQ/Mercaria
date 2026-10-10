@@ -46,19 +46,19 @@
  *     state #434 chose deliberately.
  */
 
-import type { SupportedLocale } from "./locales";
-import ar from "./locales/ar.json";
-import bn from "./locales/bn.json";
-import ca from "./locales/ca.json";
-import de from "./locales/de.json";
-import en from "./locales/en.json";
-import es from "./locales/es.json";
-import fr from "./locales/fr.json";
-import hi from "./locales/hi.json";
-import ja from "./locales/ja.json";
-import ptBR from "./locales/pt-BR.json";
-import ru from "./locales/ru.json";
-import zhHans from "./locales/zh-Hans.json";
+import type { SupportedLocale } from './locales';
+import ar from './locales/ar.json';
+import bn from './locales/bn.json';
+import ca from './locales/ca.json';
+import de from './locales/de.json';
+import en from './locales/en.json';
+import es from './locales/es.json';
+import fr from './locales/fr.json';
+import hi from './locales/hi.json';
+import ja from './locales/ja.json';
+import ptBR from './locales/pt-BR.json';
+import ru from './locales/ru.json';
+import zhHans from './locales/zh-Hans.json';
 
 /**
  * The one top-level key every bundle in this directory has, and the one key an
@@ -70,7 +70,7 @@ import zhHans from "./locales/zh-Hans.json";
  * nothing in either tree to read. `mergeSharedUiCopy` refuses the collision
  * instead, and `validate:i18n-strings` fails the build before it can ship.
  */
-export const SHARED_UI_COPY_NAMESPACE = "ui";
+export const SHARED_UI_COPY_NAMESPACE = 'ui';
 
 /**
  * Every locale's shared copy, keyed exactly as `SUPPORTED_LOCALES` spells it.
@@ -87,7 +87,7 @@ export const SHARED_UI_COPY: Readonly<Record<SupportedLocale, object>> = {
   fr,
   hi,
   ja,
-  "pt-BR": ptBR,
+  'pt-BR': ptBR,
   ru,
-  "zh-Hans": zhHans,
+  'zh-Hans': zhHans,
 };

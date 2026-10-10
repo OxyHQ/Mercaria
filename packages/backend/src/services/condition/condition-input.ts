@@ -128,7 +128,10 @@ export function resolveConditionInput(
  */
 function assertDetailShape(details: readonly ConditionDetailInput[]): void {
   for (const detail of details) {
-    if (detail.severity !== undefined && !CONDITION_DETAIL_KINDS_WITH_SEVERITY.includes(detail.kind)) {
+    if (
+      detail.severity !== undefined &&
+      !CONDITION_DETAIL_KINDS_WITH_SEVERITY.includes(detail.kind)
+    ) {
       throw validationError(`A \`${detail.kind}\` condition detail cannot carry a severity`);
     }
     if (

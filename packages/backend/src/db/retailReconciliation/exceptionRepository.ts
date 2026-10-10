@@ -26,8 +26,7 @@ import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { retailReconciliationExceptions } from '../schema/retailReconciliation.js';
 
 /** One condition a person has to close. */
-export type RetailReconciliationExceptionRow =
-  typeof retailReconciliationExceptions.$inferSelect;
+export type RetailReconciliationExceptionRow = typeof retailReconciliationExceptions.$inferSelect;
 
 /** What one detection states. */
 export interface NewReconciliationException {

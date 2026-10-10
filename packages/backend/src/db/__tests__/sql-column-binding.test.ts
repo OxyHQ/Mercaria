@@ -295,7 +295,9 @@ describe('#313 — a column object in a selection-position sql template', () => 
     const whereClause = db
       .select({ id: listings.id })
       .from(listings)
-      .where(sql`exists (select 1 from listing_condition_photos p where p.listing_id = ${listings.id})`)
+      .where(
+        sql`exists (select 1 from listing_condition_photos p where p.listing_id = ${listings.id})`,
+      )
       .toSQL().sql;
     expect(whereClause, 'a WHERE clause is never rewritten').toContain(
       'p.listing_id = "listings"."id"',

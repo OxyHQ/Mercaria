@@ -110,7 +110,13 @@ import type {
   ListingQuery,
 } from '@mercaria/shared-types';
 import { getDb, type Database, type DatabaseOrTransaction } from '../postgres.js';
-import { inventoryLevels, listingImages, listingOptions, listings, productVariants } from '../schema/catalog.js';
+import {
+  inventoryLevels,
+  listingImages,
+  listingOptions,
+  listings,
+  productVariants,
+} from '../schema/catalog.js';
 import { listingLocalizations } from '../schema/catalogLocalization.js';
 import { connections } from '../schema/connectors.js';
 import { listingCollections } from '../schema/merchandising.js';
@@ -203,7 +209,10 @@ export async function findListingsByIds(
 ): Promise<ListingRecord[]> {
   if (listingIds.length === 0) return [];
 
-  const rows = await db.select().from(listings).where(inArray(listings.id, [...listingIds]));
+  const rows = await db
+    .select()
+    .from(listings)
+    .where(inArray(listings.id, [...listingIds]));
   const byId = new Map(rows.map((row) => [row.id, row]));
   return listingIds.flatMap((id) => {
     const row = byId.get(id);
@@ -441,10 +450,7 @@ export type NewListing = Omit<
  * that produced them. A patch able to carry them is a patch able to say a
  * connector archived a listing a merchant deleted, which is the whole fact.
  */
-export type ListingColumnPatch = Omit<
-  Partial<ListingRecord>,
-  'archivedBy' | 'archivedFromStatus'
->;
+export type ListingColumnPatch = Omit<Partial<ListingRecord>, 'archivedBy' | 'archivedFromStatus'>;
 
 /**
  * `published_at` for a NEW listing: the create instant when it lands `active`,
@@ -1494,10 +1500,7 @@ export async function repinListingProductTypeIfPinned(
     .update(listings)
     .set({ productTypeDefinitionId: targetDefinitionId, updatedAt: new Date() })
     .where(
-      and(
-        eq(listings.id, listingId),
-        eq(listings.productTypeDefinitionId, expectedDefinitionId),
-      ),
+      and(eq(listings.id, listingId), eq(listings.productTypeDefinitionId, expectedDefinitionId)),
     )
     .returning();
   return row ?? null;
@@ -1943,14 +1946,19 @@ export async function findLegacyMediaListingIds(
   options: { after?: string; listingId?: string; limit: number },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<string[]> {
-  const rows = await db.selectDistinct({ id: listingImages.listingId }).from(listingImages)
-    .where(and(
-      sql`${listingImages.fileId} !~ '^[A-Za-z0-9_-]+$'`,
-      options.after ? gt(listingImages.listingId, options.after) : undefined,
-      options.listingId ? eq(listingImages.listingId, options.listingId) : undefined,
-    ))
-    .orderBy(asc(listingImages.listingId)).limit(options.limit);
-  return rows.map(row => row.id);
+  const rows = await db
+    .selectDistinct({ id: listingImages.listingId })
+    .from(listingImages)
+    .where(
+      and(
+        sql`${listingImages.fileId} !~ '^[A-Za-z0-9_-]+$'`,
+        options.after ? gt(listingImages.listingId, options.after) : undefined,
+        options.listingId ? eq(listingImages.listingId, options.listingId) : undefined,
+      ),
+    )
+    .orderBy(asc(listingImages.listingId))
+    .limit(options.limit);
+  return rows.map((row) => row.id);
 }
 
 export interface ListingMediaSnapshot {
@@ -1964,11 +1972,22 @@ export async function findListingMediaSnapshot(
   listingId: string,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ListingMediaSnapshot | null> {
-  const [owner] = await db.select({ storeId: listings.storeId, userId: listings.oxyUserId, accountId: stores.oxyAccountId })
-    .from(listings).leftJoin(stores, eq(stores.id, listings.storeId)).where(eq(listings.id, listingId));
+  const [owner] = await db
+    .select({
+      storeId: listings.storeId,
+      userId: listings.oxyUserId,
+      accountId: stores.oxyAccountId,
+    })
+    .from(listings)
+    .leftJoin(stores, eq(stores.id, listings.storeId))
+    .where(eq(listings.id, listingId));
   if (!owner) return null;
-  return { listingId, storeId: owner.storeId, ownerOxyUserId: owner.storeId ? owner.accountId : owner.userId,
-    images: await findListingGallery(listingId, db) };
+  return {
+    listingId,
+    storeId: owner.storeId,
+    ownerOxyUserId: owner.storeId ? owner.accountId : owner.userId,
+    images: await findListingGallery(listingId, db),
+  };
 }
 
 /** Import runs outside this transaction. Keep gallery row IDs so variant-image
@@ -1982,26 +2001,48 @@ export async function applyListingMediaImport(
   if (fileIds.length !== snapshot.images.length || !fileIds.every(isOxyFileId)) {
     throw new Error('Imported gallery must contain one Oxy file ID per image.');
   }
-  return db.transaction(async tx => {
-    const [listing] = await tx.select({ storeId: listings.storeId, userId: listings.oxyUserId })
-      .from(listings).where(eq(listings.id, snapshot.listingId)).for('update');
+  return db.transaction(async (tx) => {
+    const [listing] = await tx
+      .select({ storeId: listings.storeId, userId: listings.oxyUserId })
+      .from(listings)
+      .where(eq(listings.id, snapshot.listingId))
+      .for('update');
     if (!listing || listing.storeId !== snapshot.storeId) return 'changed';
     let owner = listing.userId;
     if (listing.storeId) {
-      const [store] = await tx.select({ owner: stores.oxyAccountId }).from(stores)
-        .where(eq(stores.id, listing.storeId)).for('share');
+      const [store] = await tx
+        .select({ owner: stores.oxyAccountId })
+        .from(stores)
+        .where(eq(stores.id, listing.storeId))
+        .for('share');
       owner = store?.owner;
     }
     if (owner !== snapshot.ownerOxyUserId) return 'changed';
-    const current = await tx.select().from(listingImages).where(eq(listingImages.listingId, snapshot.listingId))
-      .orderBy(asc(listingImages.position), asc(listingImages.id)).for('update');
-    if (current.length !== snapshot.images.length || current.some((row, index) => {
-      const previous = snapshot.images[index];
-      return row.id !== previous.id || row.fileId !== previous.fileId || row.position !== previous.position || row.alt !== previous.alt;
-    })) return 'changed';
+    const current = await tx
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, snapshot.listingId))
+      .orderBy(asc(listingImages.position), asc(listingImages.id))
+      .for('update');
+    if (
+      current.length !== snapshot.images.length ||
+      current.some((row, index) => {
+        const previous = snapshot.images[index];
+        return (
+          row.id !== previous.id ||
+          row.fileId !== previous.fileId ||
+          row.position !== previous.position ||
+          row.alt !== previous.alt
+        );
+      })
+    )
+      return 'changed';
     for (let index = 0; index < current.length; index++) {
       if (current[index].fileId === fileIds[index]) continue;
-      await tx.update(listingImages).set({ fileId: fileIds[index] }).where(eq(listingImages.id, current[index].id));
+      await tx
+        .update(listingImages)
+        .set({ fileId: fileIds[index] })
+        .where(eq(listingImages.id, current[index].id));
     }
     return 'applied';
   });

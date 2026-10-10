@@ -73,7 +73,9 @@ export async function findProductSaveAggregates(
   const rows = await db
     .select()
     .from(productSaveAggregates)
-    .where(sql`${productSaveAggregates.canonicalProductId} = any(${sql.param([...canonicalProductIds])}::text[])`);
+    .where(
+      sql`${productSaveAggregates.canonicalProductId} = any(${sql.param([...canonicalProductIds])}::text[])`,
+    );
   return new Map(rows.map((row) => [row.canonicalProductId, row]));
 }
 
@@ -131,9 +133,7 @@ export async function findProductSaveCounterDrift(
     })
     .from(productSaveAggregates)
     .where(
-      afterProductId
-        ? gt(productSaveAggregates.canonicalProductId, afterProductId)
-        : undefined,
+      afterProductId ? gt(productSaveAggregates.canonicalProductId, afterProductId) : undefined,
     )
     .orderBy(asc(productSaveAggregates.canonicalProductId))
     .limit(limit);

@@ -58,7 +58,9 @@ describe('Mercaria Oxy service client', () => {
     expect(first).toBe(second);
     expect(mocks.constructed).toHaveBeenCalledTimes(1);
     expect(mocks.constructed).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceAuth: { apiKey: 'application-key', apiSecret: 'application-secret' } }),
+      expect.objectContaining({
+        serviceAuth: { apiKey: 'application-key', apiSecret: 'application-secret' },
+      }),
     );
     await expect(requiredOxyServiceToken()).resolves.toBe('service-token');
     invalidateOxyServiceToken();

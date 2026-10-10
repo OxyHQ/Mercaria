@@ -31,10 +31,7 @@ import {
   revokeNativeStoreLink,
   type NativeStoreLinkRow,
 } from '../../db/commerce-graph/nativeStoreLinkRepository.js';
-import {
-  findMerchantById,
-  type MerchantRow,
-} from '../../db/commerce-graph/merchantRepository.js';
+import { findMerchantById, type MerchantRow } from '../../db/commerce-graph/merchantRepository.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
 import { toMerchantDTO } from './merchant.service.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';

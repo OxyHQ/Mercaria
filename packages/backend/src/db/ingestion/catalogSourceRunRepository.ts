@@ -120,7 +120,9 @@ export async function openSourceRun(
   if (!open) {
     // The insert conflicted, so a row existed — a read that then finds nothing
     // is a real failure, not a race to hide.
-    throw new Error(`catalog_source_runs open row for ${input.sourceId} vanished between claim and read.`);
+    throw new Error(
+      `catalog_source_runs open row for ${input.sourceId} vanished between claim and read.`,
+    );
   }
   return open;
 }
@@ -312,7 +314,11 @@ export async function findSourceRun(
   db: DatabaseOrTransaction,
   id: string,
 ): Promise<CatalogSourceRunRow | undefined> {
-  const rows = await db.select().from(catalogSourceRuns).where(eq(catalogSourceRuns.id, id)).limit(1);
+  const rows = await db
+    .select()
+    .from(catalogSourceRuns)
+    .where(eq(catalogSourceRuns.id, id))
+    .limit(1);
   return rows[0];
 }
 

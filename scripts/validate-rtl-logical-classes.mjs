@@ -92,11 +92,11 @@
  * Usage:  bun scripts/validate-rtl-logical-classes.mjs
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * The tree to scan. Overridable so the self-test can point the REAL guard at a
@@ -104,14 +104,14 @@ import { fileURLToPath } from "node:url";
  */
 const repositoryRoot = process.env.RTL_CLASS_VALIDATOR_ROOT
   ? resolve(process.env.RTL_CLASS_VALIDATOR_ROOT)
-  : resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * Fixture trees are a handful of files, so the real vacuity floor would fail
  * every self-test case for the wrong reason. This lowers it to 1 — it never
  * removes it, so a fixture run still catches a traversal that finds nothing.
  */
-const fixtureFloors = process.env.RTL_CLASS_VALIDATOR_FIXTURE_FLOORS === "1";
+const fixtureFloors = process.env.RTL_CLASS_VALIDATOR_FIXTURE_FLOORS === '1';
 
 /**
  * The mirrored surface: every CLIENT package (#397 the first two, #434 the rest).
@@ -134,16 +134,16 @@ const fixtureFloors = process.env.RTL_CLASS_VALIDATOR_FIXTURE_FLOORS === "1";
  * on the day it appears, and a package cannot be dropped from the wall without
  * being dropped from the product.
  */
-const SCANNED_PREFIXES = readdirSync(join(repositoryRoot, "packages"), { withFileTypes: true })
+const SCANNED_PREFIXES = readdirSync(join(repositoryRoot, 'packages'), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .filter((entry) => {
-    const manifest = join(repositoryRoot, "packages", entry.name, "package.json");
+    const manifest = join(repositoryRoot, 'packages', entry.name, 'package.json');
     if (!existsSync(manifest)) return false;
-    const parsed = JSON.parse(readFileSync(manifest, "utf8"));
+    const parsed = JSON.parse(readFileSync(manifest, 'utf8'));
     return Boolean(
-      parsed.dependencies?.["react-native"]
-      ?? parsed.devDependencies?.["react-native"]
-      ?? parsed.peerDependencies?.["react-native"],
+      parsed.dependencies?.['react-native'] ??
+        parsed.devDependencies?.['react-native'] ??
+        parsed.peerDependencies?.['react-native'],
     );
   })
   .map((entry) => `packages/${entry.name}/`)
@@ -183,38 +183,41 @@ const START = String.raw`(?<![\w./-])`;
  */
 const RULES = [
   {
-    id: "physical-margin",
-    pattern: new RegExp(`${START}${VARIANTS}-?m([lr])-${VALUE}`, "g"),
-    suggestion: "use the logical margin: ml- -> ms-, mr- -> me-",
+    id: 'physical-margin',
+    pattern: new RegExp(`${START}${VARIANTS}-?m([lr])-${VALUE}`, 'g'),
+    suggestion: 'use the logical margin: ml- -> ms-, mr- -> me-',
   },
   {
-    id: "physical-padding",
-    pattern: new RegExp(`${START}${VARIANTS}-?p([lr])-${VALUE}`, "g"),
-    suggestion: "use the logical padding: pl- -> ps-, pr- -> pe-",
+    id: 'physical-padding',
+    pattern: new RegExp(`${START}${VARIANTS}-?p([lr])-${VALUE}`, 'g'),
+    suggestion: 'use the logical padding: pl- -> ps-, pr- -> pe-',
   },
   {
-    id: "physical-inset",
-    pattern: new RegExp(`${START}${VARIANTS}-?(left|right)-${VALUE}`, "g"),
-    suggestion: "use the logical inset: left- -> start-, right- -> end-",
+    id: 'physical-inset',
+    pattern: new RegExp(`${START}${VARIANTS}-?(left|right)-${VALUE}`, 'g'),
+    suggestion: 'use the logical inset: left- -> start-, right- -> end-',
   },
   {
-    id: "physical-border-side",
-    pattern: new RegExp(`${START}${VARIANTS}border-([lr])(?:-[a-z0-9[\\]/.-]+|(?![\\w-]))`, "g"),
+    id: 'physical-border-side',
+    pattern: new RegExp(`${START}${VARIANTS}border-([lr])(?:-[a-z0-9[\\]/.-]+|(?![\\w-]))`, 'g'),
     suggestion:
-      "border-s-/border-e- emit borderInline* which React Native does not support — "
-      + "keep the physical class and add a reasoned KNOWN_EXCEPTIONS entry",
+      'border-s-/border-e- emit borderInline* which React Native does not support — ' +
+      'keep the physical class and add a reasoned KNOWN_EXCEPTIONS entry',
   },
   {
-    id: "physical-text-align",
-    pattern: new RegExp(`${START}${VARIANTS}text-(left|right)(?![\\w-])`, "g"),
+    id: 'physical-text-align',
+    pattern: new RegExp(`${START}${VARIANTS}text-(left|right)(?![\\w-])`, 'g'),
     suggestion:
-      "text-start/text-end are dropped by react-native-css — "
-      + "keep the physical class and add a reasoned KNOWN_EXCEPTIONS entry",
+      'text-start/text-end are dropped by react-native-css — ' +
+      'keep the physical class and add a reasoned KNOWN_EXCEPTIONS entry',
   },
   {
-    id: "physical-corner-radius",
-    pattern: new RegExp(`${START}${VARIANTS}rounded-(l|r|tl|tr|bl|br)(?:-[a-z0-9[\\]/.-]+|(?![\\w-]))`, "g"),
-    suggestion: "use the logical corner: rounded-l- -> rounded-s-, rounded-r- -> rounded-e-",
+    id: 'physical-corner-radius',
+    pattern: new RegExp(
+      `${START}${VARIANTS}rounded-(l|r|tl|tr|bl|br)(?:-[a-z0-9[\\]/.-]+|(?![\\w-]))`,
+      'g',
+    ),
+    suggestion: 'use the logical corner: rounded-l- -> rounded-s-, rounded-r- -> rounded-e-',
   },
 ];
 
@@ -248,40 +251,40 @@ const RULES = [
  */
 const KNOWN_EXCEPTIONS = [
   {
-    file: "packages/frontend/app/(app)/notifications.tsx",
-    pattern: "border-l",
+    file: 'packages/frontend/app/(app)/notifications.tsx',
+    pattern: 'border-l',
     count: 5,
     reason:
-      "Notification priority stripe: the border-l-2 WIDTH on the row, plus the four PRIORITY_COLORS "
-      + "variants (red-500 / orange-400 / blue-400 / muted-foreground) that colour that one stripe. "
-      + "border-s-2 emits borderInlineStartWidth and border-s-red-500 emits borderInlineStartColor, "
-      + "neither of which RN 0.85.3 registers, so converting would remove the stripe entirely on "
-      + "native — width and colour alike. Waiting on upstream support.",
+      'Notification priority stripe: the border-l-2 WIDTH on the row, plus the four PRIORITY_COLORS ' +
+      'variants (red-500 / orange-400 / blue-400 / muted-foreground) that colour that one stripe. ' +
+      'border-s-2 emits borderInlineStartWidth and border-s-red-500 emits borderInlineStartColor, ' +
+      'neither of which RN 0.85.3 registers, so converting would remove the stripe entirely on ' +
+      'native — width and colour alike. Waiting on upstream support.',
   },
   {
-    file: "packages/dashboard/components/catalog-authoring/ReviewPanel.tsx",
-    pattern: "text-right",
+    file: 'packages/dashboard/components/catalog-authoring/ReviewPanel.tsx',
+    pattern: 'text-right',
     count: 2,
     reason:
-      "The wizard review panel's value column, right-aligned against its label. TWO findings, ONE "
-      + "decision: the class on the <Text>, and the comment above it that explains why it is the "
-      + "physical spelling — this guard matches on text and does not strip comments, so a docblock "
-      + "naming the utility it documents counts as an occurrence. text-start is rejected outright by "
-      + "react-native-css's parseTextAlign (auto|left|right|center|justify only), so the logical "
-      + "spelling compiles to nothing at all. Arrived with #367 while #434 was widening this scan; "
-      + "the author had already measured it and said so in that comment.",
+      "The wizard review panel's value column, right-aligned against its label. TWO findings, ONE " +
+      'decision: the class on the <Text>, and the comment above it that explains why it is the ' +
+      'physical spelling — this guard matches on text and does not strip comments, so a docblock ' +
+      'naming the utility it documents counts as an occurrence. text-start is rejected outright by ' +
+      "react-native-css's parseTextAlign (auto|left|right|center|justify only), so the logical " +
+      'spelling compiles to nothing at all. Arrived with #367 while #434 was widening this scan; ' +
+      'the author had already measured it and said so in that comment.',
   },
   {
-    file: "packages/pos/app/(app)/index.tsx",
-    pattern: "border-l",
+    file: 'packages/pos/app/(app)/index.tsx',
+    pattern: 'border-l',
     count: 1,
     reason:
-      "The POS register's cart panel divider — `md:border-l` on the desktop-only right-hand column, "
-      + "one occurrence. The single physical utility left in either app after #434's migration: the "
-      + "other four findings (two ml-auto, one pr-4, one left-2) all converted. border-s emits "
-      + "borderInlineStartWidth, which RN 0.85.3 does not register, so converting would drop the "
-      + "divider entirely on a native till while looking correct on web. Same upstream limitation as "
-      + "the storefront entries above.",
+      "The POS register's cart panel divider — `md:border-l` on the desktop-only right-hand column, " +
+      "one occurrence. The single physical utility left in either app after #434's migration: the " +
+      'other four findings (two ml-auto, one pr-4, one left-2) all converted. border-s emits ' +
+      'borderInlineStartWidth, which RN 0.85.3 does not register, so converting would drop the ' +
+      'divider entirely on a native till while looking correct on web. Same upstream limitation as ' +
+      'the storefront entries above.',
   },
 ];
 
@@ -327,21 +330,21 @@ const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 200;
  * prefix today, so this is belt-and-braces against someone moving them.
  */
 const GUARD_OWN_FILES = new Set([
-  "scripts/validate-rtl-logical-classes.mjs",
-  "scripts/test-validate-rtl-logical-classes.mjs",
+  'scripts/validate-rtl-logical-classes.mjs',
+  'scripts/test-validate-rtl-logical-classes.mjs',
 ]);
 
 /** Every file git tracks, repo-relative — so ignored and generated files cannot count. */
 function trackedFiles() {
-  const listed = spawnSync("git", ["ls-files", "-z"], {
+  const listed = spawnSync('git', ['ls-files', '-z'], {
     cwd: repositoryRoot,
-    encoding: "utf8",
+    encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });
   if (listed.status !== 0) {
     throw new Error(`git ls-files failed in ${repositoryRoot}: ${listed.stderr ?? listed.error}`);
   }
-  return listed.stdout.split("\0").filter(Boolean);
+  return listed.stdout.split('\0').filter(Boolean);
 }
 
 const findings = [];
@@ -360,12 +363,15 @@ const failures = [];
  * actually gated the merge.
  */
 const CONTROL_MUST_MATCH = {
-  "physical-margin": ['<View className="ml-2 mr-4" />', '<View className="-ml-4 md:mr-1.5" />'],
-  "physical-padding": ['<View className="pl-8 pr-space-12" />', '<View className="md:pl-0" />'],
-  "physical-inset": ['<View className="absolute left-4 top-4" />', '<View className="-right-0.5" />'],
-  "physical-border-side": ['<View className="border-l-2 border-r" />'],
-  "physical-text-align": ['<View className="sm:text-left text-right" />'],
-  "physical-corner-radius": ['<View className="rounded-l-2xl rounded-br-md" />'],
+  'physical-margin': ['<View className="ml-2 mr-4" />', '<View className="-ml-4 md:mr-1.5" />'],
+  'physical-padding': ['<View className="pl-8 pr-space-12" />', '<View className="md:pl-0" />'],
+  'physical-inset': [
+    '<View className="absolute left-4 top-4" />',
+    '<View className="-right-0.5" />',
+  ],
+  'physical-border-side': ['<View className="border-l-2 border-r" />'],
+  'physical-text-align': ['<View className="sm:text-left text-right" />'],
+  'physical-corner-radius': ['<View className="rounded-l-2xl rounded-br-md" />'],
 };
 
 /**
@@ -375,7 +381,7 @@ const CONTROL_MUST_MATCH = {
  */
 const CONTROL_MUST_NOT_MATCH = [
   " * A left-anchored, brand-themed store-menu sheet mirroring Shopify's store",
-  " /** Items rendered left-to-right in the horizontal scroller. */",
+  ' /** Items rendered left-to-right in the horizontal scroller. */',
   '<View className="ms-1 me-2 ps-3 pe-4 ms-auto -ms-4" />',
   '<View className="absolute start-4 end-2 -end-0.5 start-space-12" />',
   '<View className="border-s-2 rounded-s-2xl text-start" />',
@@ -388,8 +394,8 @@ for (const rule of RULES) {
     rule.pattern.lastIndex = 0;
     if (!rule.pattern.test(sample)) {
       failures.push(
-        `positive control failed: rule ${rule.id} did not match ${JSON.stringify(sample)} — `
-        + "the matcher is broken, and a broken matcher reports a clean tree",
+        `positive control failed: rule ${rule.id} did not match ${JSON.stringify(sample)} — ` +
+          'the matcher is broken, and a broken matcher reports a clean tree',
       );
     }
   }
@@ -399,8 +405,8 @@ for (const sample of CONTROL_MUST_NOT_MATCH) {
     rule.pattern.lastIndex = 0;
     if (rule.pattern.test(sample)) {
       failures.push(
-        `negative control failed: rule ${rule.id} matched ${JSON.stringify(sample)}, which is not a `
-        + "physical directional utility — the matcher is too broad and would be disabled by whoever hit it",
+        `negative control failed: rule ${rule.id} matched ${JSON.stringify(sample)}, which is not a ` +
+          'physical directional utility — the matcher is too broad and would be disabled by whoever hit it',
       );
     }
   }
@@ -415,11 +421,11 @@ for (const sample of CONTROL_MUST_NOT_MATCH) {
  */
 async function readTrackedFile(path) {
   try {
-    return await readFile(resolve(repositoryRoot, path), "utf8");
+    return await readFile(resolve(repositoryRoot, path), 'utf8');
   } catch (error) {
     failures.push(
-      `${path} is tracked by git but could not be read (${error.code ?? error.message}) — `
-      + "the working tree disagrees with the index, so this scan was incomplete",
+      `${path} is tracked by git but could not be read (${error.code ?? error.message}) — ` +
+        'the working tree disagrees with the index, so this scan was incomplete',
     );
     return null;
   }
@@ -427,16 +433,16 @@ async function readTrackedFile(path) {
 
 const sources = trackedFiles().filter(
   (path) =>
-    SOURCE_FILE.test(path)
-    && SCANNED_PREFIXES.some((prefix) => path.startsWith(prefix))
-    && !GUARD_OWN_FILES.has(path),
+    SOURCE_FILE.test(path) &&
+    SCANNED_PREFIXES.some((prefix) => path.startsWith(prefix)) &&
+    !GUARD_OWN_FILES.has(path),
 );
 
 for (const path of sources) {
   const text = await readTrackedFile(path);
   if (text === null) continue;
 
-  for (const [index, line] of text.split("\n").entries()) {
+  for (const [index, line] of text.split('\n').entries()) {
     for (const rule of RULES) {
       rule.pattern.lastIndex = 0;
       for (const match of line.matchAll(rule.pattern)) {
@@ -464,9 +470,9 @@ for (const path of sources) {
 for (const entry of KNOWN_EXCEPTIONS) {
   if (Number.isInteger(entry.count) && entry.count >= 1) continue;
   failures.push(
-    `KNOWN_EXCEPTIONS entry "${entry.pattern}" in ${entry.file} declares no integer count >= 1 `
-    + `(got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of its shape in `
-    + "that file, which is the hole #448 closed — declare exactly how many findings it covers.",
+    `KNOWN_EXCEPTIONS entry "${entry.pattern}" in ${entry.file} declares no integer count >= 1 ` +
+      `(got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of its shape in ` +
+      'that file, which is the hole #448 closed — declare exactly how many findings it covers.',
   );
 }
 
@@ -486,28 +492,28 @@ for (const entry of KNOWN_EXCEPTIONS) {
 
   if (actual === 0) {
     failures.push(
-      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), which no `
-      + "longer matches anything — the count went DOWN to 0. Either the class was migrated or the file "
-      + "moved: delete the entry so the list keeps describing the tree, and so its standing positive "
-      + "control keeps standing.",
+      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), which no ` +
+        'longer matches anything — the count went DOWN to 0. Either the class was migrated or the file ' +
+        'moved: delete the entry so the list keeps describing the tree, and so its standing positive ' +
+        'control keeps standing.',
     );
     continue;
   }
 
   if (actual < entry.count) {
     failures.push(
-      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), but only `
-      + `${actual} matched — the count went DOWN. Part of what it excused is gone, so the entry has `
-      + `stopped describing the tree: lower the count to ${actual}, or restore what was removed.`,
+      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), but only ` +
+        `${actual} matched — the count went DOWN. Part of what it excused is gone, so the entry has ` +
+        `stopped describing the tree: lower the count to ${actual}, or restore what was removed.`,
     );
     continue;
   }
 
   failures.push(
-    `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), but ${actual} `
-    + "finding(s) matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so "
-    + "a NEW physical utility of the same shape in the same file would otherwise ride in behind the "
-    + "reasoned one. Fix the new occurrence, or raise the count with a reason covering it too.",
+    `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), but ${actual} ` +
+      'finding(s) matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so ' +
+      'a NEW physical utility of the same shape in the same file would otherwise ride in behind the ' +
+      'reasoned one. Fix the new occurrence, or raise the count with a reason covering it too.',
   );
 }
 
@@ -517,9 +523,9 @@ for (const entry of KNOWN_EXCEPTIONS) {
 // discovery broke, and every surviving prefix would still pass its own floor.
 if (SCANNED_PREFIXES.length < MINIMUM_CLIENT_PACKAGES) {
   failures.push(
-    `${SCANNED_PREFIXES.length} client packages discovered (floor ${MINIMUM_CLIENT_PACKAGES}) — `
-    + "the derivation over packages/*/package.json is broken, so the mirrored surface is smaller "
-    + "than the product and every per-prefix floor below would still pass",
+    `${SCANNED_PREFIXES.length} client packages discovered (floor ${MINIMUM_CLIENT_PACKAGES}) — ` +
+      'the derivation over packages/*/package.json is broken, so the mirrored surface is smaller ' +
+      'than the product and every per-prefix floor below would still pass',
   );
 }
 
@@ -536,9 +542,9 @@ const perPrefix = new Map(
 for (const [prefix, count] of perPrefix) {
   if (count < MINIMUM_FILES_PER_PREFIX) {
     failures.push(
-      `${prefix} contributed ${count} scanned files (floor ${MINIMUM_FILES_PER_PREFIX}) — `
-      + "that package is no longer being scanned for physical directional utilities, and its "
-      + "screens would half-mirror in Arabic with every job green",
+      `${prefix} contributed ${count} scanned files (floor ${MINIMUM_FILES_PER_PREFIX}) — ` +
+        'that package is no longer being scanned for physical directional utilities, and its ' +
+        'screens would half-mirror in Arabic with every job green',
     );
   }
 }
@@ -546,33 +552,35 @@ for (const [prefix, count] of perPrefix) {
 // The weaker net: the whole listing collapsing.
 if (sources.length < MINIMUM_SOURCE_FILES) {
   failures.push(
-    `${sources.length} source files scanned is below the ${MINIMUM_SOURCE_FILES} floor — `
-    + "the file listing is probably broken, and a broken listing reports a clean tree",
+    `${sources.length} source files scanned is below the ${MINIMUM_SOURCE_FILES} floor — ` +
+      'the file listing is probably broken, and a broken listing reports a clean tree',
   );
 }
 
 // ------------------------------------------------------------------ verdict ---
 
 if (unexcused.length > 0 || failures.length > 0) {
-  console.error("RTL logical-class guard failed:\n");
+  console.error('RTL logical-class guard failed:\n');
   for (const finding of unexcused) {
-    console.error(`  ${finding.file}:${finding.line}: physical directional utility "${finding.match}"`);
+    console.error(
+      `  ${finding.file}:${finding.line}: physical directional utility "${finding.match}"`,
+    );
     console.error(`    ${finding.context}`);
     console.error(`    ${finding.suggestion}\n`);
   }
   for (const failure of failures) console.error(`  ${failure}\n`);
   console.error(
-    "  The storefront ships an Arabic bundle (#396) and mirrors its layout from logical utilities (#397).\n"
-    + "  A physical directional class half-mirrors the screen it is on, which no build job can see.\n",
+    '  The storefront ships an Arabic bundle (#396) and mirrors its layout from logical utilities (#397).\n' +
+      '  A physical directional class half-mirrors the screen it is on, which no build job can see.\n',
   );
   process.exit(1);
 }
 
 console.log(
-  `RTL logical-class guard passed — ${sources.length} source files scanned across `
-  + `${[...perPrefix].map(([prefix, count]) => `${prefix} ${count}`).join(", ")} `
-  + `(floor ${MINIMUM_FILES_PER_PREFIX} per prefix, ${MINIMUM_SOURCE_FILES} overall); `
-  + `${RULES.length} rules positively controlled; `
-  + `${KNOWN_EXCEPTIONS.length} known exceptions each matched their exact declared count `
-  + `(${findings.length - unexcused.length} findings excused in total).`,
+  `RTL logical-class guard passed — ${sources.length} source files scanned across ` +
+    `${[...perPrefix].map(([prefix, count]) => `${prefix} ${count}`).join(', ')} ` +
+    `(floor ${MINIMUM_FILES_PER_PREFIX} per prefix, ${MINIMUM_SOURCE_FILES} overall); ` +
+    `${RULES.length} rules positively controlled; ` +
+    `${KNOWN_EXCEPTIONS.length} known exceptions each matched their exact declared count ` +
+    `(${findings.length - unexcused.length} findings excused in total).`,
 );

@@ -48,10 +48,10 @@ import { sourceRecords } from './provenance';
  */
 export function canonicalLifecycleColumns() {
   return {
-    status: text({ enum: asEnumValues(CANONICAL_ENTITY_STATUSES) }).notNull().default('active'),
-    firstSeenAt: timestamptz()
+    status: text({ enum: asEnumValues(CANONICAL_ENTITY_STATUSES) })
       .notNull()
-      .default(sql`date_trunc('milliseconds', now())`),
+      .default('active'),
+    firstSeenAt: timestamptz().notNull().default(sql`date_trunc('milliseconds', now())`),
     lastSeenAt: timestamptz(),
     lastReviewedAt: timestamptz(),
     /** Field names operator-corrected and PINNED against source re-application. */
@@ -85,9 +85,7 @@ export function aliasColumns() {
   return {
     /** The alias exactly as observed — display form, never normalized away. */
     alias: text().notNull(),
-    normalizedAlias: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim("alias"))`),
+    normalizedAlias: text().notNull().generatedAlwaysAs(sql`lower(btrim("alias"))`),
     kind: text({ enum: asEnumValues(CANONICAL_ALIAS_KINDS) }).notNull(),
     /** BCP-47 language tag for a `localized_name`, when known. */
     language: text(),
@@ -132,7 +130,9 @@ export function sourceLinkColumns() {
      * imported/machine-matched links, and never substitutes for evidence.
      */
     confidence: doublePrecision(),
-    status: text({ enum: asEnumValues(SOURCE_LINK_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(SOURCE_LINK_STATUSES) })
+      .notNull()
+      .default('active'),
     /** An Oxy account id — no foreign key; ledgered in `deferredForeignKeys.ts`. */
     decidedByOxyUserId: text(),
     createdAt: createdAt(),

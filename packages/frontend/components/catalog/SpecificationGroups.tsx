@@ -1,10 +1,7 @@
 import { View } from 'react-native';
 import { ProductSpecificationGrid, Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
-import type {
-  SpecificationGroup,
-  SpecificationTable,
-} from '@/lib/catalog/specifications';
+import type { SpecificationGroup, SpecificationTable } from '@/lib/catalog/specifications';
 
 /**
  * A product's specification table (#367 workstream 9 §"Product detail pages").
@@ -40,10 +37,7 @@ export interface SpecificationGroupsProps {
   definitionsUnavailable: boolean;
 }
 
-export function SpecificationGroups({
-  table,
-  definitionsUnavailable,
-}: SpecificationGroupsProps) {
+export function SpecificationGroups({ table, definitionsUnavailable }: SpecificationGroupsProps) {
   const { t } = useTranslation();
 
   if (table.groups.length === 0) return null;
@@ -83,11 +77,13 @@ function SpecificationGroupBlock({ group }: { group: SpecificationGroup }) {
       <Text className="text-shop-caption text-text-secondary" accessibilityRole="header">
         {heading}
       </Text>
-      <ProductSpecificationGrid entries={group.entries.map((entry) => ({
-        key: entry.rowKey,
-        label: entry.label,
-        value: entry.displayValue,
-      }))} />
+      <ProductSpecificationGrid
+        entries={group.entries.map((entry) => ({
+          key: entry.rowKey,
+          label: entry.label,
+          value: entry.displayValue,
+        }))}
+      />
     </View>
   );
 }

@@ -1,30 +1,30 @@
-import React, { useState } from "react";
-import { View } from "react-native";
-import type { PlaceClaim, PlaceClaimRole } from "@goway.to/sdk";
-import { Text } from "@mercaria/ui";
-import { Badge } from "@oxy.so/bloom/badge";
-import { Button } from "@oxy.so/bloom/button";
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import type { PlaceClaim, PlaceClaimRole } from '@goway.to/sdk';
+import { Text } from '@mercaria/ui';
+import { Badge } from '@oxy.so/bloom/badge';
+import { Button } from '@oxy.so/bloom/button';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { toast } from "@oxy.so/bloom/toast";
-import { useClaimGoWayPlace } from "@/lib/goway/hooks";
-import { goWayErrorKey } from "@/lib/goway/errors";
-import { CLAIM_STATE_KEYS, canFileClaim } from "@/lib/goway/place-link";
-import { useTranslation } from "@/lib/i18n";
-import { EditorSection } from "./EditorSection";
+} from '@oxy.so/bloom/segmented-control';
+import { toast } from '@oxy.so/bloom/toast';
+import { useClaimGoWayPlace } from '@/lib/goway/hooks';
+import { goWayErrorKey } from '@/lib/goway/errors';
+import { CLAIM_STATE_KEYS, canFileClaim } from '@/lib/goway/place-link';
+import { useTranslation } from '@/lib/i18n';
+import { EditorSection } from './EditorSection';
 
 /** The roles a store files under, as KEYS. A chain claiming each branch is `brand`. */
 const CLAIM_ROLE_KEYS: Record<PlaceClaimRole, string> = {
-  owner: "settings.locations.editor.claim.role.owner",
-  operator: "settings.locations.editor.claim.role.operator",
-  manager: "settings.locations.editor.claim.role.manager",
-  brand: "settings.locations.editor.claim.role.brand",
+  owner: 'settings.locations.editor.claim.role.owner',
+  operator: 'settings.locations.editor.claim.role.operator',
+  manager: 'settings.locations.editor.claim.role.manager',
+  brand: 'settings.locations.editor.claim.role.brand',
 };
 
-const CLAIM_ROLES: PlaceClaimRole[] = ["owner", "operator", "manager", "brand"];
+const CLAIM_ROLES: PlaceClaimRole[] = ['owner', 'operator', 'manager', 'brand'];
 
 /**
  * The store's claim on its GoWay place, filed FOR the store's owning Oxy
@@ -49,29 +49,39 @@ export function PlaceClaimCard({
 }) {
   const { t } = useTranslation();
   const file = useClaimGoWayPlace(placeId);
-  const [role, setRole] = useState<PlaceClaimRole>("owner");
+  const [role, setRole] = useState<PlaceClaimRole>('owner');
 
   return (
     <EditorSection
-      title={t("settings.locations.editor.claim.title")}
-      description={t("settings.locations.editor.claim.description")}
+      title={t('settings.locations.editor.claim.title')}
+      description={t('settings.locations.editor.claim.description')}
     >
       {claimsUnreadable ? (
-        <Text className="text-sm text-muted-foreground">{t("settings.locations.editor.claim.unreadable")}</Text>
+        <Text className="text-sm text-muted-foreground">
+          {t('settings.locations.editor.claim.unreadable')}
+        </Text>
       ) : null}
       {claim ? (
         <View className="flex-row items-center gap-2">
           <Badge
             size="label-small"
             variant="subtle"
-            color={claim.state === "approved" ? "success" : claim.state === "pending" ? "warning" : "error"}
+            color={
+              claim.state === 'approved'
+                ? 'success'
+                : claim.state === 'pending'
+                  ? 'warning'
+                  : 'error'
+            }
             content={t(CLAIM_STATE_KEYS[claim.state])}
           />
           <Text className="text-xs text-muted-foreground">{t(CLAIM_ROLE_KEYS[claim.role])}</Text>
         </View>
       ) : null}
-      {claim?.state === "pending" ? (
-        <Text className="text-xs text-muted-foreground">{t("settings.locations.editor.claim.pendingNote")}</Text>
+      {claim?.state === 'pending' ? (
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.locations.editor.claim.pendingNote')}
+        </Text>
       ) : null}
       {canFileClaim(claim) ? (
         <View className="gap-2">
@@ -89,13 +99,13 @@ export function PlaceClaimCard({
               file.mutate(
                 { oxyAccountId, role },
                 {
-                  onSuccess: () => toast.success(t("settings.locations.editor.claim.filed")),
+                  onSuccess: () => toast.success(t('settings.locations.editor.claim.filed')),
                   onError: (error) => toast.error(t(goWayErrorKey(error))),
                 },
               )
             }
           >
-            {t("settings.locations.editor.claim.file")}
+            {t('settings.locations.editor.claim.file')}
           </Button>
         </View>
       ) : null}

@@ -34,8 +34,8 @@ import type {
   AuthoringSchema,
   CurrencyCode,
   ProductTypeFieldRequirement,
-} from "@mercaria/shared-types";
-import type { DraftFieldPayload, PatchDraftPayload } from "./api";
+} from '@mercaria/shared-types';
+import type { DraftFieldPayload, PatchDraftPayload } from './api';
 import {
   composeFieldPayload,
   hasAnswer,
@@ -43,8 +43,8 @@ import {
   initialEntries,
   ruleValuesFor,
   type DraftFieldEntries,
-} from "./answers";
-import { effectiveRequirement } from "./visibility";
+} from './answers';
+import { effectiveRequirement } from './visibility';
 import {
   axisDedupeKey,
   controlledValueStrings,
@@ -55,9 +55,9 @@ import {
   variantCapableFields,
   type MatrixAxis,
   type VariantRow,
-} from "./matrix";
-import { toMajorString, toMinorUnits } from "../money";
-import type { WizardStepId } from "./findings";
+} from './matrix';
+import { toMajorString, toMinorUnits } from '../money';
+import type { WizardStepId } from './findings';
 
 /** Everything the author has entered, for one open draft. */
 export interface WizardFormState {
@@ -71,7 +71,7 @@ export interface WizardFormState {
 }
 
 /** The default presentment currency a fresh row prices in. */
-export const DEFAULT_DRAFT_CURRENCY: CurrencyCode = "FAIR";
+export const DEFAULT_DRAFT_CURRENCY: CurrencyCode = 'FAIR';
 
 /** Every field of the schema, by its stable machine key. */
 export function fieldsByKey(schema: AuthoringSchema): ReadonlyMap<string, AuthoringField> {
@@ -80,9 +80,7 @@ export function fieldsByKey(schema: AuthoringSchema): ReadonlyMap<string, Author
 
 /** The product-scope fields a form asks for: `identity` and `product`. */
 export function productScopeFields(schema: AuthoringSchema): readonly AuthoringField[] {
-  return schema.fields.filter(
-    (field) => field.scope === "identity" || field.scope === "product",
-  );
+  return schema.fields.filter((field) => field.scope === 'identity' || field.scope === 'product');
 }
 
 /**
@@ -104,7 +102,7 @@ export function effectiveRequirements(
 
 /** Whether a field is one this flow shows at all. */
 export function isVisible(requirement: ProductTypeFieldRequirement): boolean {
-  return requirement !== "hidden" && requirement !== "forbidden";
+  return requirement !== 'hidden' && requirement !== 'forbidden';
 }
 
 /* -------------------------------------------------------------------------- */
@@ -135,15 +133,15 @@ export function hydrateForm(draft: AuthoringDraft, schema: AuthoringSchema): Wiz
       key: nextRowKey(),
       axes: hydrateEntries(draft.values, variant.id),
       enabled: true,
-      sku: variant.sku ?? "",
-      barcode: variant.barcode ?? "",
+      sku: variant.sku ?? '',
+      barcode: variant.barcode ?? '',
       priceMajor:
         variant.priceAmount === null || variant.priceCurrency === null
-          ? ""
+          ? ''
           : toMajorString(variant.priceAmount, variant.priceCurrency),
       compareAtMajor:
         variant.compareAtPriceAmount === null || variant.compareAtPriceCurrency === null
-          ? ""
+          ? ''
           : toMajorString(variant.compareAtPriceAmount, variant.compareAtPriceCurrency),
       currency: variant.priceCurrency ?? DEFAULT_DRAFT_CURRENCY,
       inventoryTracked: variant.inventoryTracked,
@@ -172,8 +170,8 @@ export function hydrateForm(draft: AuthoringDraft, schema: AuthoringSchema): Wiz
   }
 
   return {
-    title: draft.title ?? "",
-    description: draft.description ?? "",
+    title: draft.title ?? '',
+    description: draft.description ?? '',
     tags: draft.tags,
     selectedCanonicalProductId: draft.selectedCanonicalProductId,
     productEntries,
@@ -246,24 +244,24 @@ export function stepCompleteness(
   schema: AuthoringSchema,
 ): StepCompleteness {
   switch (step) {
-    case "classification":
+    case 'classification':
       // The category and the product type are PINNED on the draft, so this step
       // is complete the moment the draft exists. It stays a step because it is
       // what the author reads back to check they picked the right regional
       // model, and because the canonical selection lives beside it.
       return { answered: 1, total: 1, blocked: 0 };
-    case "details":
+    case 'details':
       return detailsCompleteness(form, schema);
-    case "variants":
+    case 'variants':
       return variantsCompleteness(form, schema);
-    case "pricing":
+    case 'pricing':
       return pricingCompleteness(form);
-    case "listing": {
+    case 'listing': {
       const answered =
         (form.title.trim().length > 0 ? 1 : 0) + (form.description.trim().length > 0 ? 1 : 0);
       return { answered, total: 2, blocked: 2 - answered };
     }
-    case "review":
+    case 'review':
     default:
       return EMPTY;
   }
@@ -280,7 +278,7 @@ function detailsCompleteness(form: WizardFormState, schema: AuthoringSchema): St
     total += 1;
     const filled = hasAnswer(form.productEntries[field.key]);
     if (filled) answered += 1;
-    else if (requirement === "required") blocked += 1;
+    else if (requirement === 'required') blocked += 1;
   }
   return { answered, total, blocked };
 }
@@ -290,9 +288,7 @@ function variantsCompleteness(form: WizardFormState, schema: AuthoringSchema): S
   const valueStrings = controlledValueStrings(schema);
   const enabled = form.rows.filter((row) => row.enabled);
   const duplicates = duplicateRowKeys(form.rows, byKey, valueStrings);
-  const required = variantCapableFields(schema).filter(
-    (field) => field.requirement === "required",
-  );
+  const required = variantCapableFields(schema).filter((field) => field.requirement === 'required');
 
   let blocked = duplicates.size;
   if (enabled.length === 0) blocked += 1;

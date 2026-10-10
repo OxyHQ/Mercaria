@@ -1,8 +1,8 @@
-import { I18n } from "i18n-js";
-import { createContext, useContext, useMemo, type ReactNode } from "react";
-import type { Translate } from "./create-app-i18n";
-import { DEFAULT_LOCALE } from "./locales";
-import { SHARED_UI_COPY } from "./shared-copy";
+import { I18n } from 'i18n-js';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import type { Translate } from './create-app-i18n';
+import { DEFAULT_LOCALE } from './locales';
+import { SHARED_UI_COPY } from './shared-copy';
 
 /**
  * How a component in `@mercaria/ui` translates its own copy (#437).

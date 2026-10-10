@@ -70,7 +70,9 @@ async function expectRefusal(run: Promise<unknown>, pattern: RegExp, what: strin
   }
   expect(raised, `${what}: the statement SUCCEEDED — nothing refused it`).toBeDefined();
   const cause = String(((raised as { cause?: { message?: string } }).cause ?? {}).message ?? '');
-  expect(cause, `${what}: refused, but not by the expected rule (cause: ${cause})`).toMatch(pattern);
+  expect(cause, `${what}: refused, but not by the expected rule (cause: ${cause})`).toMatch(
+    pattern,
+  );
 }
 
 /** Write one label directly, bypassing the repository's settlement contract. */
@@ -112,7 +114,9 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await db.execute(sql`delete from attribute_labels where attribute_definition_id = ${definition.id}`);
+  await db.execute(
+    sql`delete from attribute_labels where attribute_definition_id = ${definition.id}`,
+  );
   await db.execute(sql`delete from attribute_definitions where id = ${definition.id}`);
 }, 180_000);
 

@@ -36,13 +36,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Button } from "@oxy.so/bloom/button";
+import { Button } from '@oxy.so/bloom/button';
 import { View } from 'react-native';
-import {
-  PaymentSheetError,
-  StripeProvider,
-  useStripe,
-} from '@stripe/stripe-react-native';
+import { PaymentSheetError, StripeProvider, useStripe } from '@stripe/stripe-react-native';
 import { Text } from '@mercaria/ui';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/config';
 import { track } from '@/lib/analytics';
@@ -80,12 +76,7 @@ export function CardPaymentStep({
 }
 
 /** Prepares the sheet on mount, then shows it when the buyer asks. */
-function PaymentSheetButton({
-  payment,
-  onCompleted,
-  onCancelled,
-  onFailed,
-}: CardPaymentStepProps) {
+function PaymentSheetButton({ payment, onCompleted, onCancelled, onFailed }: CardPaymentStepProps) {
   const { t } = useTranslation();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [ready, setReady] = useState(false);
@@ -106,9 +97,16 @@ function PaymentSheetButton({
         // A wallet the server withheld has no configuration here to render
         // from, which is what makes the eligibility server-authoritative rather
         // than advisory.
-        ...(payment.methods.includes('apple_pay') ? { applePay: { merchantCountryCode: 'ES' } } : {}),
+        ...(payment.methods.includes('apple_pay')
+          ? { applePay: { merchantCountryCode: 'ES' } }
+          : {}),
         ...(payment.methods.includes('google_pay')
-          ? { googlePay: { merchantCountryCode: 'ES', testEnv: !payment.publishableKey?.startsWith('pk_live_') } }
+          ? {
+              googlePay: {
+                merchantCountryCode: 'ES',
+                testEnv: !payment.publishableKey?.startsWith('pk_live_'),
+              },
+            }
           : {}),
         // Where a bank app returns to. UX only and carrying no credential: the
         // sheet resolves, the screen polls, and a verified webhook is what makes

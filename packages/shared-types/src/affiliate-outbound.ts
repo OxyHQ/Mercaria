@@ -354,12 +354,7 @@ export const OUTBOUND_LINK_REL = 'sponsored nofollow noopener';
  * commission is a claim the network may still decline, and booking one would be
  * the invented sale trust principle 4 forbids.
  */
-export type AffiliateTransactionState =
-  | 'pending'
-  | 'approved'
-  | 'declined'
-  | 'reversed'
-  | 'paid';
+export type AffiliateTransactionState = 'pending' | 'approved' | 'declined' | 'reversed' | 'paid';
 
 /** {@link AffiliateTransactionState} as the tuple the columns and CHECKs read. */
 export const AFFILIATE_TRANSACTION_STATES: readonly AffiliateTransactionState[] = [

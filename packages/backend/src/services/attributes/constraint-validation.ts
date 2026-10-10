@@ -91,16 +91,17 @@ const OPERATORS_BY_TYPE: Readonly<Record<AttributeValueType, readonly AttributeP
   });
 
 /** The value types each {@link ConstraintValue} discriminant may satisfy. */
-const VALUE_TYPE_COMPATIBILITY: Readonly<Record<ConstraintValue['type'], readonly AttributeValueType[]>> =
-  Object.freeze({
-    string: ['string', 'enum'],
-    boolean: ['boolean'],
-    integer: ['integer', 'decimal'],
-    decimal: ['decimal'],
-    date: ['date'],
-    money: ['money'],
-    measurement: ['measurement', 'structured'],
-  });
+const VALUE_TYPE_COMPATIBILITY: Readonly<
+  Record<ConstraintValue['type'], readonly AttributeValueType[]>
+> = Object.freeze({
+  string: ['string', 'enum'],
+  boolean: ['boolean'],
+  integer: ['integer', 'decimal'],
+  decimal: ['decimal'],
+  date: ['date'],
+  money: ['money'],
+  measurement: ['measurement', 'structured'],
+});
 
 /**
  * Check a constraint set against the registry and partition it.

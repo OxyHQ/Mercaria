@@ -254,7 +254,6 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
     return ids.length === 0 ? ['__none__'] : [...ids];
   }
 
-
   beforeAll(async () => {
     db = await connectPostgres();
 
@@ -465,9 +464,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
         variantIds: createdVariantIds,
         productIds: createdProductIds,
       });
-      await db
-        .delete(storefronts)
-        .where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
+      await db.delete(storefronts).where(inArray(storefronts.id, safeIds(createdStorefrontIds)));
       await db
         .delete(merchants)
         .where(inArray(merchants.id, safeIds([...createdMerchantIds, ...sellerMerchantIds])));
@@ -584,16 +581,15 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
         const contended = /match_policy_versions_active_key/u.test(describeError(error));
         if (!contended || Date.now() > deadline) throw error;
         // 1 s, not 100 ms. Each retry is a failing INSERT — an aborted
-      // transaction — and the suite runs on a deliberately small pool (four
-      // connections per worker, see `vitest.pg.globalSetup.ts`). Three files
-      // polling ten times a second is a thundering herd that starves the very
-      // pool the HOLDER needs to finish and release. Measured: at 100 ms the
-      // queue never drains.
-      await new Promise((resolve) => setTimeout(resolve, 1_000));
+        // transaction — and the suite runs on a deliberately small pool (four
+        // connections per worker, see `vitest.pg.globalSetup.ts`). Three files
+        // polling ten times a second is a thundering herd that starves the very
+        // pool the HOLDER needs to finish and release. Measured: at 100 ms the
+        // queue never drains.
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
       }
     }
   }
-
 
   /**
    * Hand the global slot back.
@@ -875,7 +871,10 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
   // ── 1. Stable external ids, and 5. replaying a page creates no duplicates ──
   it('converges on ONE object across deliveries and mints no second observation', async () => {
     const source = await bringUpSource('stable', { queries: [{ value: '9355' }] });
-    source.fake.items.set('v1|1|0', ebayItem({ id: 'v1|1|0', title: 'Stable widget', seller: 's1' }));
+    source.fake.items.set(
+      'v1|1|0',
+      ebayItem({ id: 'v1|1|0', title: 'Stable widget', seller: 's1' }),
+    );
     source.fake.searchPages.set('9355', [['v1|1|0']]);
 
     await ingestToCompletion(source.sourceId);
@@ -943,7 +942,10 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
     // reject it against its external id — dropping it would leave a page whose
     // counters disagree with what eBay sent.
     source.fake.items.set('v1|bad|0', ebayItem({ id: 'v1|bad|0', seller: 's' }));
-    source.fake.items.set('v1|ok2|0', ebayItem({ id: 'v1|ok2|0', title: 'Also fine', seller: 's' }));
+    source.fake.items.set(
+      'v1|ok2|0',
+      ebayItem({ id: 'v1|ok2|0', title: 'Also fine', seller: 's' }),
+    );
     source.fake.searchPages.set('625', [['v1|ok1|0', 'v1|bad|0', 'v1|ok2|0']]);
 
     await ingestToCompletion(source.sourceId);
@@ -1294,7 +1296,9 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
 
       // The attribution header really was sent — the whole of Mercaria's part in
       // EPN attribution is deciding to send it.
-      const searchUrl = source.fake.requestedUrls.find((url) => url.includes('item_summary/search'));
+      const searchUrl = source.fake.requestedUrls.find((url) =>
+        url.includes('item_summary/search'),
+      );
       expect(searchUrl).toBeDefined();
     });
     it('runs unattributed with no affiliate metadata at all, and reports nothing lost', async () => {
@@ -1727,10 +1731,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
     });
   });
 
-
-
   // ── 9. Affiliate disabled and enabled ─────────────────────────────────────
-
 
   it('reports a page that requested attribution and got none', async () => {
     const before = attributionLossCount;
@@ -1745,7 +1746,6 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
   });
 
   // ── 10. The deletion obligation, and 11. only a COMPLETE pass may retire ──
-
 
   // ── 12. Rights withdrawn ─────────────────────────────────────────────────
   it('refuses to refresh a source whose rights were withdrawn, keeping the audit', async () => {

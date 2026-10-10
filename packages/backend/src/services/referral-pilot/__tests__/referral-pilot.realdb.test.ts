@@ -85,9 +85,7 @@ afterAll(async () => {
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
   if (trackedProgramIds.length > 0) {
-    await db
-      .delete(referralPrograms)
-      .where(inArray(referralPrograms.programId, trackedProgramIds));
+    await db.delete(referralPrograms).where(inArray(referralPrograms.programId, trackedProgramIds));
   }
   await closePostgres();
 });

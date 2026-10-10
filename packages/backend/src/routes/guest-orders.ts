@@ -295,12 +295,7 @@ async function readPortal(req: Request, res: Response): Promise<void> {
     return;
   }
   if (!grantHasScope(grant.scopes, 'orders:read')) {
-    sendError(
-      res,
-      ErrorCodes.FORBIDDEN,
-      'Confirm your email address to see the full order',
-      403,
-    );
+    sendError(res, ErrorCodes.FORBIDDEN, 'Confirm your email address to see the full order', 403);
     return;
   }
   const view = await readGuestOrderPortalView(grant, new Date());

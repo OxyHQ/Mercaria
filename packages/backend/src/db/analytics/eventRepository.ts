@@ -12,7 +12,18 @@
  * backend.
  */
 
-import { and, count, countDistinct, eq, exists, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  countDistinct,
+  eq,
+  exists,
+  gte,
+  inArray,
+  isNotNull,
+  lt,
+  sql,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type {
   AnalyticsActorKind,
@@ -136,9 +147,7 @@ export async function countEventsByDimension(input: {
     lt(analyticsEvents.occurredAt, input.to),
   ];
   if (input.humanOnly) {
-    conditions.push(
-      inArray(analyticsEvents.trafficClass, [...ANALYTICS_HUMAN_TRAFFIC_CLASSES]),
-    );
+    conditions.push(inArray(analyticsEvents.trafficClass, [...ANALYTICS_HUMAN_TRAFFIC_CLASSES]));
   }
 
   const rows = await getDb()

@@ -55,7 +55,10 @@ import {
   rotateCollectionCode,
   type CollectionOrderFacts,
 } from '../../services/pickup/collection.service.js';
-import { findOrderPickup, listOpenPickupsAtLocation } from '../../db/pickup/orderPickupRepository.js';
+import {
+  findOrderPickup,
+  listOpenPickupsAtLocation,
+} from '../../db/pickup/orderPickupRepository.js';
 import { sendSuccess } from '../../utils/api-response.js';
 import { routeParam } from '../../utils/request.js';
 
@@ -76,7 +79,10 @@ export async function listPublicationsHandler(req: Request, res: Response): Prom
 /** GET /admin/stores/:storeId/locations/:id/publication. */
 export async function getPublicationHandler(req: Request, res: Response): Promise<void> {
   try {
-    const publication = await readPublication({ storeId: storeId(req), locationId: routeParam(req, 'id') });
+    const publication = await readPublication({
+      storeId: storeId(req),
+      locationId: routeParam(req, 'id'),
+    });
     if (!publication) throw notFound('Location not found');
     sendSuccess(res, { publication });
   } catch (err) {
@@ -172,7 +178,10 @@ export async function publicationTrailHandler(req: Request, res: Response): Prom
 /** GET /admin/stores/:storeId/locations/:id/pickups — one branch's own queue. */
 export async function locationPickupQueueHandler(req: Request, res: Response): Promise<void> {
   try {
-    const publication = await readPublication({ storeId: storeId(req), locationId: routeParam(req, 'id') });
+    const publication = await readPublication({
+      storeId: storeId(req),
+      locationId: routeParam(req, 'id'),
+    });
     if (!publication) throw notFound('Location not found');
     const rows = await listOpenPickupsAtLocation({
       locationId: routeParam(req, 'id'),

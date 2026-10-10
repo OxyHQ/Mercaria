@@ -23,7 +23,12 @@
  */
 
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
-import type { OpenDataItem, OpenDataPage, OpenDataPageContext, OpenDataProvider } from '../provider.js';
+import type {
+  OpenDataItem,
+  OpenDataPage,
+  OpenDataPageContext,
+  OpenDataProvider,
+} from '../provider.js';
 import { OpenDataConfigurationError, OpenDataSchemaError } from '../provider.js';
 import type { OpenDataHttp } from '../http.js';
 import { asArray, asNumber, asObject, asText, decimalMoney, FactCollector } from '../read.js';
@@ -93,9 +98,16 @@ async function fetchCheapSharkPage(context: OpenDataPageContext): Promise<OpenDa
 }
 
 /** Store id → name, for ACTIVE stores. Cached for a day; it changes yearly. */
-async function storeNames(http: OpenDataHttp, signal: AbortSignal | undefined): Promise<ReadonlyMap<string, string>> {
-  if (storesCache !== undefined && Date.now() - storesCache.at < STORES_MAX_AGE_MS) return storesCache.names;
-  const response = await http.getJson(`${BASE_URL}/stores`, { minIntervalMs: INTERVAL_MS, ...(signal ? { signal } : {}) });
+async function storeNames(
+  http: OpenDataHttp,
+  signal: AbortSignal | undefined,
+): Promise<ReadonlyMap<string, string>> {
+  if (storesCache !== undefined && Date.now() - storesCache.at < STORES_MAX_AGE_MS)
+    return storesCache.names;
+  const response = await http.getJson(`${BASE_URL}/stores`, {
+    minIntervalMs: INTERVAL_MS,
+    ...(signal ? { signal } : {}),
+  });
   if (response === null || !Array.isArray(response.body)) {
     throw new OpenDataSchemaError('the stores response is not an array.');
   }
@@ -104,13 +116,18 @@ async function storeNames(http: OpenDataHttp, signal: AbortSignal | undefined): 
     const store = asObject(entry);
     const id = asText(store?.storeID);
     const name = asText(store?.storeName);
-    if (id !== undefined && name !== undefined && asNumber(store?.isActive) === 1) names.set(id, name);
+    if (id !== undefined && name !== undefined && asNumber(store?.isActive) === 1)
+      names.set(id, name);
   }
   storesCache = { at: Date.now(), names };
   return names;
 }
 
-export function toItem(deal: Readonly<Record<string, unknown>>, storeId: string, storeName: string): OpenDataItem | null {
+export function toItem(
+  deal: Readonly<Record<string, unknown>>,
+  storeId: string,
+  storeName: string,
+): OpenDataItem | null {
   const gameId = asText(deal.gameID);
   const title = asText(deal.title);
   const price = decimalMoney(deal.salePrice, 'USD');
@@ -129,14 +146,22 @@ export function toItem(deal: Readonly<Record<string, unknown>>, storeId: string,
     .text('steam_app_id', deal.steamAppID)
     .text('internal_name', deal.internalName)
     .number('metacritic_score', deal.metacriticScore)
-    .text('metacritic_url', metacriticLink === undefined ? undefined : `https://www.metacritic.com${metacriticLink}`)
+    .text(
+      'metacritic_url',
+      metacriticLink === undefined ? undefined : `https://www.metacritic.com${metacriticLink}`,
+    )
     .text('steam_rating_text', deal.steamRatingText)
     .number('steam_rating_percent', deal.steamRatingPercent, '%')
     .number('steam_rating_count', deal.steamRatingCount)
     .number('deal_rating', deal.dealRating)
     .number('savings_percent', deal.savings, '%')
     .add('is_on_sale', asText(deal.isOnSale) === '1')
-    .add('release_date', releaseDate === undefined || releaseDate === 0 ? undefined : new Date(releaseDate * 1_000).toISOString().slice(0, 10))
+    .add(
+      'release_date',
+      releaseDate === undefined || releaseDate === 0
+        ? undefined
+        : new Date(releaseDate * 1_000).toISOString().slice(0, 10),
+    )
     .toArray();
 
   const normalized: NormalizedSourceRecord = {
@@ -150,8 +175,12 @@ export function toItem(deal: Readonly<Record<string, unknown>>, storeId: string,
     conditionLabel: 'new',
     categoryKey: 'video_games/pc',
     // `dealID` arrives already URL-encoded; re-encoding it would break the link.
-    ...(dealId === undefined ? {} : { sourceUrl: `https://www.cheapshark.com/redirect?dealID=${dealId}` }),
-    ...(lastChange === undefined ? {} : { sourceUpdatedAt: new Date(lastChange * 1_000).toISOString() }),
+    ...(dealId === undefined
+      ? {}
+      : { sourceUrl: `https://www.cheapshark.com/redirect?dealID=${dealId}` }),
+    ...(lastChange === undefined
+      ? {}
+      : { sourceUpdatedAt: new Date(lastChange * 1_000).toISOString() }),
     facts,
   };
 
@@ -160,6 +189,11 @@ export function toItem(deal: Readonly<Record<string, unknown>>, storeId: string,
     externalId: gameId,
     normalized,
     ...(lastChange === undefined ? {} : { sourceUpdatedAt: new Date(lastChange * 1_000) }),
-    raw: { gameId, dealId: dealId ?? null, salePrice: asText(deal.salePrice) ?? null, lastChange: lastChange ?? null },
+    raw: {
+      gameId,
+      dealId: dealId ?? null,
+      salePrice: asText(deal.salePrice) ?? null,
+      lastChange: lastChange ?? null,
+    },
   };
 }

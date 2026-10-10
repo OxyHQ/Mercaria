@@ -24,10 +24,7 @@
  * the fields for ONE flow, because a field set is genuinely per flow.
  */
 
-import type {
-  AuthoringUpgradeChange,
-  ProductTypeFieldRequirement,
-} from '@mercaria/shared-types';
+import type { AuthoringUpgradeChange, ProductTypeFieldRequirement } from '@mercaria/shared-types';
 
 /** As much of a `product_type_fields` row as the comparison reads. */
 export interface UpgradeComparableField {

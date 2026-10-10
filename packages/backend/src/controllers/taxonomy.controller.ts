@@ -175,7 +175,8 @@ export async function taxonomyCategoryByKeyHandler(req: Request, res: Response):
       res.status(400).json({
         success: false,
         error: 'VALIDATION_ERROR',
-        message: 'a category is named by its stable machine key (ADR 0007 D1); a label is not a key',
+        message:
+          'a category is named by its stable machine key (ADR 0007 D1); a label is not a key',
       });
       return;
     }

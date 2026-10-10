@@ -1,4 +1,4 @@
-import { isolateBidi } from "./bidi";
+import { isolateBidi } from './bidi';
 
 /**
  * Dates rendered in the APP's locale (#488).
@@ -54,16 +54,15 @@ import { isolateBidi } from "./bidi";
 const FORMATTER_CACHE = new Map<string, Intl.DateTimeFormat | null>();
 
 /** The three presentations this module offers. See each exported function. */
-const STYLE_OPTIONS: Readonly<
-  Record<"date" | "dateTime" | "weekday", Intl.DateTimeFormatOptions>
-> = {
-  date: { dateStyle: "medium" },
-  dateTime: { dateStyle: "medium", timeStyle: "short" },
-  // `timeZone: "UTC"` is load-bearing, not tidiness: the reference instants
-  // below are UTC midnights, so a reader east of UTC would otherwise be shown
-  // the PREVIOUS day's name for every weekday in the table.
-  weekday: { weekday: "long", timeZone: "UTC" },
-};
+const STYLE_OPTIONS: Readonly<Record<'date' | 'dateTime' | 'weekday', Intl.DateTimeFormatOptions>> =
+  {
+    date: { dateStyle: 'medium' },
+    dateTime: { dateStyle: 'medium', timeStyle: 'short' },
+    // `timeZone: "UTC"` is load-bearing, not tidiness: the reference instants
+    // below are UTC midnights, so a reader east of UTC would otherwise be shown
+    // the PREVIOUS day's name for every weekday in the table.
+    weekday: { weekday: 'long', timeZone: 'UTC' },
+  };
 
 /**
  * Build a formatter, degrading rather than throwing — and never degrading to
@@ -91,7 +90,7 @@ const STYLE_OPTIONS: Readonly<
  */
 function formatterFor(
   locale: string,
-  style: "date" | "dateTime" | "weekday",
+  style: 'date' | 'dateTime' | 'weekday',
 ): Intl.DateTimeFormat | null {
   const key = `${style} ${locale}`;
   const cached = FORMATTER_CACHE.get(key);
@@ -137,7 +136,7 @@ function toValidDate(value: Date | string | number): Date | null {
 function render(
   value: Date | string | number,
   locale: string,
-  style: "date" | "dateTime",
+  style: 'date' | 'dateTime',
 ): string | null {
   const parsed = toValidDate(value);
   if (parsed === null) {
@@ -169,7 +168,7 @@ function render(
  * one drops the line instead.
  */
 export function formatDate(value: Date | string | number, locale: string): string | null {
-  return render(value, locale, "date");
+  return render(value, locale, 'date');
 }
 
 /**
@@ -182,7 +181,7 @@ export function formatDate(value: Date | string | number, locale: string): strin
  * divergence this pair exists to remove.
  */
 export function formatDateTime(value: Date | string | number, locale: string): string | null {
-  return render(value, locale, "dateTime");
+  return render(value, locale, 'dateTime');
 }
 
 /**
@@ -220,11 +219,11 @@ const WEEKDAYS_IN_WEEK = 7;
  */
 export function formatWeekday(weekday: number, locale: string): string {
   if (!Number.isInteger(weekday) || weekday < 0 || weekday >= WEEKDAYS_IN_WEEK) {
-    return "";
+    return '';
   }
-  const formatter = formatterFor(locale, "weekday");
+  const formatter = formatterFor(locale, 'weekday');
   if (formatter === null) {
-    return "";
+    return '';
   }
   return isolateBidi(formatter.format(new Date(Date.UTC(WEEKDAY_REFERENCE_YEAR, 0, 1 + weekday))));
 }

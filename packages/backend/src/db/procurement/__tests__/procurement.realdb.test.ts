@@ -28,14 +28,8 @@ import {
   supplierAgreements,
   suppliers,
 } from '../../schema/procurement.js';
-import {
-  createSupplier,
-  mergeSuppliers,
-} from '../supplierRepository.js';
-import {
-  createSupplierAccount,
-  type SupplierAccountRecord,
-} from '../supplierAccountRepository.js';
+import { createSupplier, mergeSuppliers } from '../supplierRepository.js';
+import { createSupplierAccount, type SupplierAccountRecord } from '../supplierAccountRepository.js';
 import {
   approveAgreement,
   createAgreementVersion,
@@ -65,7 +59,10 @@ afterAll(async () => {
  * `schema.realdb.test.ts` helper, because "it threw" alone would also pass
  * when the WRONG constraint fired.
  */
-async function expectRefused(write: () => Promise<unknown>, kind: 'check' | 'unique'): Promise<void> {
+async function expectRefused(
+  write: () => Promise<unknown>,
+  kind: 'check' | 'unique',
+): Promise<void> {
   let caught: unknown;
   try {
     await write();
@@ -192,7 +189,10 @@ describe('agreement versions', () => {
   it('one row per (supplier, version)', async () => {
     const supplier = await makeSupplier();
     await createAgreementVersion({ supplierId: supplier.id, version: 1 });
-    await expectRefused(() => createAgreementVersion({ supplierId: supplier.id, version: 1 }), 'unique');
+    await expectRefused(
+      () => createAgreementVersion({ supplierId: supplier.id, version: 1 }),
+      'unique',
+    );
   });
 
   it('refuses an approval whose record is incomplete — the CHECK, not the service', async () => {
@@ -333,7 +333,10 @@ describe('the immutability triggers (#118 consistency rules 6 and 7)', () => {
 
     await expectRefused(
       () =>
-        db.update(purchaseOrderLines).set({ quantity: 99 }).where(eq(purchaseOrderLines.id, line.id)),
+        db
+          .update(purchaseOrderLines)
+          .set({ quantity: 99 })
+          .where(eq(purchaseOrderLines.id, line.id)),
       'check',
     );
     await expectRefused(
@@ -394,7 +397,10 @@ describe('the immutability triggers (#118 consistency rules 6 and 7)', () => {
     // From here the cost snapshot is frozen…
     await expectRefused(
       () =>
-        db.update(purchaseOrders).set({ itemsAmount: 1 }).where(eq(purchaseOrders.id, purchaseOrder.id)),
+        db
+          .update(purchaseOrders)
+          .set({ itemsAmount: 1 })
+          .where(eq(purchaseOrders.id, purchaseOrder.id)),
       'check',
     );
     // …and so is the destination snapshot.

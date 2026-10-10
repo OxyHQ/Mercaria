@@ -62,10 +62,7 @@ import {
   recordLocalizedResolution,
   resetLocalizationReadCounters,
 } from '../../catalog-localization/read-observation.js';
-import {
-  observeCatalogRoute,
-  resetCatalogRouteObservations,
-} from '../route-observations.js';
+import { observeCatalogRoute, resetCatalogRouteObservations } from '../route-observations.js';
 
 const db: Database = await connectPostgres();
 
@@ -216,7 +213,9 @@ function expectBucketsSumToReading(entry: CatalogMetricReading | undefined): num
     denominator += bucket.denominator;
   }
   expect(numerator, `${entry.key}: buckets do not sum to the numerator`).toBe(entry.numerator);
-  expect(denominator, `${entry.key}: buckets do not sum to the denominator`).toBe(entry.denominator);
+  expect(denominator, `${entry.key}: buckets do not sum to the denominator`).toBe(
+    entry.denominator,
+  );
   return entry.by.length;
 }
 
@@ -243,14 +242,14 @@ describe('collectCatalogMetrics', () => {
     // facts, and the run log is where a later reader sees which one this was.
     // `process.stdout.write` rather than `console`, which vitest intercepts.
     process.stdout.write(
-      `\ncatalog metrics collection (${String(baseline.readings.length)} readings, `
-        + `${String(baseline.awaitingSeams.length)} seams):\n`
-        + `${baseline.readings
+      `\ncatalog metrics collection (${String(baseline.readings.length)} readings, ` +
+        `${String(baseline.awaitingSeams.length)} seams):\n` +
+        `${baseline.readings
           .map((entry) =>
             entry.state === 'measured'
-              ? `  ${entry.key.padEnd(42)} ${entry.kind.padEnd(12)} `
-                + `${String(entry.numerator)}`
-                + `${entry.denominator === undefined ? '' : ` / ${String(entry.denominator)}`}`
+              ? `  ${entry.key.padEnd(42)} ${entry.kind.padEnd(12)} ` +
+                `${String(entry.numerator)}` +
+                `${entry.denominator === undefined ? '' : ` / ${String(entry.denominator)}`}`
               : `  ${entry.key.padEnd(42)} ${entry.kind.padEnd(12)} unmeasured (${entry.reason})`,
           )
           .join('\n')}\n\n`,
@@ -319,8 +318,8 @@ describe('collectCatalogMetrics', () => {
     // asserted is that every one of them names the closed reason, and the list is
     // printed so a run's blind spots are visible rather than implied.
     process.stdout.write(
-      `catalog metrics: ${String(notMounted.length)} metric(s) unmeasured because their route is `
-        + `not mounted here${notMounted.length === 0 ? '' : ` (${notMounted.join(', ')})`}\n`,
+      `catalog metrics: ${String(notMounted.length)} metric(s) unmeasured because their route is ` +
+        `not mounted here${notMounted.length === 0 ? '' : ` (${notMounted.join(', ')})`}\n`,
     );
   });
 
@@ -416,8 +415,8 @@ describe('collectCatalogMetrics', () => {
     // case covers every OTHER breakdown metric on whatever the shared database
     // happens to hold, which is a superset and not a substitute.
     process.stdout.write(
-      `catalog metrics: ${String(withBreakdown.length)} readings carry a breakdown, `
-        + `${String(buckets)} buckets in total\n`,
+      `catalog metrics: ${String(withBreakdown.length)} readings carry a breakdown, ` +
+        `${String(buckets)} buckets in total\n`,
     );
     expect(withBreakdown.length, 'no metric carries a breakdown at all').toBeGreaterThanOrEqual(5);
   });
@@ -839,9 +838,10 @@ describe('the collector really reads the publication and localization counters',
       expect(by.get('unavailable')?.numerator, 'an unanswerable field read as a fallback').toBe(0);
       expect(by.get('unavailable')?.denominator).toBe(1);
       // THE IDENTITY: the buckets sum to the reading, both halves.
-      expect(expectBucketsSumToReading(fallback), 'the step breakdown is empty').toBeGreaterThanOrEqual(
-        4,
-      );
+      expect(
+        expectBucketsSumToReading(fallback),
+        'the step breakdown is empty',
+      ).toBeGreaterThanOrEqual(4);
     }
 
     expect(after.mustStayZero.metricCollectionFailures).toBe(
@@ -915,38 +915,38 @@ describe('the collector really reads Postgres', () => {
       // A DELTA of exactly one, never an absolute: these aggregates have no
       // tenant predicate and siblings hold proposals of their own.
       expect(
-        measuredNumerator(after, 'proposal_creation_count')
-          - measuredNumerator(before, 'proposal_creation_count'),
+        measuredNumerator(after, 'proposal_creation_count') -
+          measuredNumerator(before, 'proposal_creation_count'),
         'proposal_creation_count did not see the inserted rows',
       ).toBe(2);
       expect(
-        measuredNumerator(after, 'proposal_backlog_count')
-          - measuredNumerator(before, 'proposal_backlog_count'),
+        measuredNumerator(after, 'proposal_backlog_count') -
+          measuredNumerator(before, 'proposal_backlog_count'),
         'proposal_backlog_count did not see the inserted row',
       ).toBe(1);
       // The decided row moves the service rate and NOTHING in the backlog: a
       // metric that counted every row with a `decided_at` column rather than one
       // stamped in the window would move by whatever the database already held.
       expect(
-        measuredNumerator(after, 'proposal_decision_count')
-          - measuredNumerator(before, 'proposal_decision_count'),
+        measuredNumerator(after, 'proposal_decision_count') -
+          measuredNumerator(before, 'proposal_decision_count'),
         'proposal_decision_count did not see the decided row',
       ).toBe(1);
       // Only the open state the submitted row is in moves. The other two are the
       // control: a producer reading the wrong bucket, or the whole backlog into
       // each of them, fails exactly here.
       expect(
-        measuredNumerator(after, 'proposal_backlog_awaiting_operator_count')
-          - measuredNumerator(before, 'proposal_backlog_awaiting_operator_count'),
+        measuredNumerator(after, 'proposal_backlog_awaiting_operator_count') -
+          measuredNumerator(before, 'proposal_backlog_awaiting_operator_count'),
       ).toBe(1);
       expect(
-        measuredNumerator(after, 'proposal_backlog_awaiting_submitter_count')
-          - measuredNumerator(before, 'proposal_backlog_awaiting_submitter_count'),
+        measuredNumerator(after, 'proposal_backlog_awaiting_submitter_count') -
+          measuredNumerator(before, 'proposal_backlog_awaiting_submitter_count'),
         'a submitted proposal moved the needs_information count',
       ).toBe(0);
       expect(
-        measuredNumerator(after, 'proposal_backlog_deferred_count')
-          - measuredNumerator(before, 'proposal_backlog_deferred_count'),
+        measuredNumerator(after, 'proposal_backlog_deferred_count') -
+          measuredNumerator(before, 'proposal_backlog_deferred_count'),
         'a submitted proposal moved the deferred count',
       ).toBe(0);
 
@@ -969,9 +969,9 @@ describe('the collector really reads Postgres', () => {
         ['after', after],
       ] as const) {
         expect(
-          measuredNumerator(report, 'proposal_backlog_awaiting_operator_count')
-            + measuredNumerator(report, 'proposal_backlog_awaiting_submitter_count')
-            + measuredNumerator(report, 'proposal_backlog_deferred_count'),
+          measuredNumerator(report, 'proposal_backlog_awaiting_operator_count') +
+            measuredNumerator(report, 'proposal_backlog_awaiting_submitter_count') +
+            measuredNumerator(report, 'proposal_backlog_deferred_count'),
           `${label}: the three open states do not account for the backlog`,
         ).toBe(measuredNumerator(report, 'proposal_backlog_count'));
         conservationChecked += 1;
@@ -1009,13 +1009,13 @@ describe('the collector really reads Postgres', () => {
       // producer building its `by` list from a second statement fails here.
       const zeroResults = reading(after, 'search_zero_result_rate_by_market');
       expect(
-        measuredNumerator(after, 'search_zero_result_rate_by_market')
-          - measuredNumerator(before, 'search_zero_result_rate_by_market'),
+        measuredNumerator(after, 'search_zero_result_rate_by_market') -
+          measuredNumerator(before, 'search_zero_result_rate_by_market'),
         'the zero-result numerator did not see the inserted searches',
       ).toBe(2);
       expect(
-        measuredDenominator(after, 'search_zero_result_rate_by_market')
-          - measuredDenominator(before, 'search_zero_result_rate_by_market'),
+        measuredDenominator(after, 'search_zero_result_rate_by_market') -
+          measuredDenominator(before, 'search_zero_result_rate_by_market'),
         'the zero-result denominator did not see the inserted searches',
       ).toBe(3);
       expect(
@@ -1040,9 +1040,9 @@ describe('the collector really reads Postgres', () => {
       ).toBe(before.mustStayZero.metricCollectionFailures);
 
       process.stdout.write(
-        `catalog metrics Postgres control: proposals `
-          + `${String(measuredNumerator(before, 'proposal_backlog_count'))} -> `
-          + `${String(measuredNumerator(after, 'proposal_backlog_count'))} open\n`,
+        `catalog metrics Postgres control: proposals ` +
+          `${String(measuredNumerator(before, 'proposal_backlog_count'))} -> ` +
+          `${String(measuredNumerator(after, 'proposal_backlog_count'))} open\n`,
       );
     });
   });
@@ -1059,7 +1059,9 @@ describe('the collector really reads Postgres', () => {
       select count(*)::int as total
       from analytics_search_queries where id like ${`${FIXTURE_PREFIX}-%`}
     `);
-    expect(Number(proposals[0]?.total ?? 0), 'the fixture transaction committed a proposal').toBe(0);
+    expect(Number(proposals[0]?.total ?? 0), 'the fixture transaction committed a proposal').toBe(
+      0,
+    );
     expect(Number(searches[0]?.total ?? 0), 'the fixture transaction committed a search').toBe(0);
   });
 });

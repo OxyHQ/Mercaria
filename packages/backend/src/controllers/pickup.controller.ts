@@ -137,7 +137,12 @@ export async function nearbyP2pHandler(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const query = req.query as unknown as { latitude: number; longitude: number; country?: string; limit?: number };
+  const query = req.query as unknown as {
+    latitude: number;
+    longitude: number;
+    country?: string;
+    limit?: number;
+  };
   try {
     const listings = await findNearbyP2pListings({
       origin: assertUsableCoordinate(query.latitude, query.longitude),

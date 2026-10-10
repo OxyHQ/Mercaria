@@ -94,10 +94,15 @@ type CardinalRule = (count: number | string) => PluralCategory;
  * categories (they differ in ORDINALS, which nothing here uses), and `zh` has a
  * single rule for both scripts.
  */
-const CARDINAL: Readonly<Record<SupportedLocale, {
-  rule: CardinalRule;
-  categories: readonly PluralCategory[];
-}>> = {
+const CARDINAL: Readonly<
+  Record<
+    SupportedLocale,
+    {
+      rule: CardinalRule;
+      categories: readonly PluralCategory[];
+    }
+  >
+> = {
   ar: { rule: ar, categories: arCategories.cardinal },
   bn: { rule: bn, categories: bnCategories.cardinal },
   ca: { rule: ca, categories: caCategories.cardinal },
@@ -200,7 +205,8 @@ export function pluralRuleLocaleFor(
   const exact = shipped.find((locale) => locale.toLowerCase() === normalised);
   if (exact) return exact;
   const aliased = shipped.find((locale) =>
-    (LOCALE_ALIASES[locale] ?? []).some((alias) => alias.toLowerCase() === normalised));
+    (LOCALE_ALIASES[locale] ?? []).some((alias) => alias.toLowerCase() === normalised),
+  );
   if (aliased) return aliased;
   const language = normalised.split('-')[0];
   const byLanguage = shipped.find((locale) => locale.toLowerCase().split('-')[0] === language);
@@ -248,7 +254,8 @@ export function registerPluralizers(
   i18n: { locale: string; pluralization: { register: (locale: string, fn: Pluralizer) => void } },
   shipped: readonly SupportedLocale[],
 ): void {
-  const pluralizerFor = (locale: SupportedLocale): Pluralizer =>
+  const pluralizerFor =
+    (locale: SupportedLocale): Pluralizer =>
     (_i18n, count) => [...pluralCategoryChain(locale, count)];
 
   for (const locale of shipped) {
@@ -261,6 +268,7 @@ export function registerPluralizers(
   // Reads `i18n.locale` at CALL time rather than closing over it: the store
   // reassigns it on every locale change, and a captured value would leave every
   // screen pluralising in the language the app booted in.
-  i18n.pluralization.register('default', (_i18n, count) =>
-    [...pluralCategoryChain(pluralRuleLocaleFor(i18n.locale, shipped), count)]);
+  i18n.pluralization.register('default', (_i18n, count) => [
+    ...pluralCategoryChain(pluralRuleLocaleFor(i18n.locale, shipped), count),
+  ]);
 }

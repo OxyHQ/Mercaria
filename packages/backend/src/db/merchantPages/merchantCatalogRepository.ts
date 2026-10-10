@@ -64,7 +64,6 @@ import { stores } from '../schema/stores.js';
  */
 const UNPRICED_SORT_KEY = MAX_MONEY_MINOR_UNITS;
 
-
 /**
  * The offer predicates a scope and its filters produce.
  *
@@ -183,7 +182,13 @@ export async function countMerchantOfferCensus(
         }),
       ),
     )
-    .groupBy(offers.kind, offers.condition, offers.country, offers.merchantId, storefronts.merchantId);
+    .groupBy(
+      offers.kind,
+      offers.condition,
+      offers.country,
+      offers.merchantId,
+      storefronts.merchantId,
+    );
   return rows.map((row) => ({
     kind: row.kind,
     condition: row.condition,
@@ -249,7 +254,8 @@ function productPredicates(filters?: MerchantCatalogFilters): SQL[] {
   const predicates: SQL[] = [
     inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
   ];
-  if (filters?.brandId !== undefined) predicates.push(eq(canonicalProducts.brandId, filters.brandId));
+  if (filters?.brandId !== undefined)
+    predicates.push(eq(canonicalProducts.brandId, filters.brandId));
   if (filters?.categoryId !== undefined) {
     predicates.push(eq(canonicalProducts.categoryId, filters.categoryId));
   }
@@ -519,7 +525,9 @@ export async function countMerchantBrandOffers(
     .limit(input.limit);
 
   return rows.flatMap((row) =>
-    row.brandId === null ? [] : [{ brandId: row.brandId, currentOfferCount: row.currentOfferCount }],
+    row.brandId === null
+      ? []
+      : [{ brandId: row.brandId, currentOfferCount: row.currentOfferCount }],
   );
 }
 
@@ -573,12 +581,7 @@ export async function rankScopedProductOfferIds(
     })
     .from(offers)
     .innerJoin(canonicalVariants, eq(canonicalVariants.id, offers.canonicalVariantId))
-    .where(
-      and(
-        ...predicates,
-        inArray(canonicalVariants.productId, [...input.canonicalProductIds]),
-      ),
-    )
+    .where(and(...predicates, inArray(canonicalVariants.productId, [...input.canonicalProductIds])))
     .as('ranked');
 
   const rows = await db

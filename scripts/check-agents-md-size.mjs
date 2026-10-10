@@ -53,10 +53,10 @@
  * every rule and both floors.
  */
 
-import { readFile } from "node:fs/promises";
-import { execFileSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const KIB = 1024;
 
@@ -77,19 +77,19 @@ const ISSUE_HEADING = /^#{1,6} .*#\d{2,4}\b/;
 function assertScanSawSomething(paths) {
   if (paths.length === 0) {
     throw new Error(
-      "check-agents-md-size: found NO tracked AGENTS.md. The file listing is broken — this is a failure, not a clean tree.",
+      'check-agents-md-size: found NO tracked AGENTS.md. The file listing is broken — this is a failure, not a clean tree.',
     );
   }
-  if (!paths.includes("AGENTS.md")) {
+  if (!paths.includes('AGENTS.md')) {
     throw new Error(
-      "check-agents-md-size: the root AGENTS.md is not in the tracked file listing. The file listing is broken, or the repo lost the one file this gate exists for.",
+      'check-agents-md-size: the root AGENTS.md is not in the tracked file listing. The file listing is broken, or the repo lost the one file this gate exists for.',
     );
   }
 }
 
 export function issueHeadings(contents) {
   return contents
-    .split("\n")
+    .split('\n')
     .map((line, index) => ({ line, number: index + 1 }))
     .filter(({ line }) => ISSUE_HEADING.test(line));
 }
@@ -100,20 +100,20 @@ export async function checkAgentsMdSize({
   nestedBudgetBytes = NESTED_BUDGET_BYTES,
   enforceIssueHeadings = true,
 } = {}) {
-  const repositoryRoot = root ?? resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const repositoryRoot = root ?? resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-  const listing = execFileSync("git", ["ls-files", "-z", "AGENTS.md", "**/AGENTS.md"], {
+  const listing = execFileSync('git', ['ls-files', '-z', 'AGENTS.md', '**/AGENTS.md'], {
     cwd: repositoryRoot,
-    encoding: "utf8",
+    encoding: 'utf8',
   });
-  const paths = listing.split("\0").filter(Boolean).sort();
+  const paths = listing.split('\0').filter(Boolean).sort();
 
   assertScanSawSomething(paths);
 
   const failures = [];
 
   for (const path of paths) {
-    const contents = await readFile(resolve(repositoryRoot, path), "utf8");
+    const contents = await readFile(resolve(repositoryRoot, path), 'utf8');
     // BYTES, never `contents.length`. The two agree only on pure ASCII, and this
     // repository's prose is not: the root file's em-dashes, middle-dots and
     // en-dash put it 51 bytes above its character count today, which is more
@@ -121,8 +121,8 @@ export async function checkAgentsMdSize({
     // would therefore raise the real budget by however much punctuation the file
     // happens to carry, silently and in the direction nobody checks. Pinned by
     // the straddling fixtures in `test-check-agents-md-size.mjs`.
-    const bytes = Buffer.byteLength(contents, "utf8");
-    const budget = path === "AGENTS.md" ? rootBudgetBytes : nestedBudgetBytes;
+    const bytes = Buffer.byteLength(contents, 'utf8');
+    const budget = path === 'AGENTS.md' ? rootBudgetBytes : nestedBudgetBytes;
 
     if (bytes > budget) {
       failures.push(
@@ -148,10 +148,10 @@ if (import.meta.main) {
   const { paths, failures } = await checkAgentsMdSize();
 
   if (failures.length > 0) {
-    console.error("AGENTS.md budget check FAILED:\n");
+    console.error('AGENTS.md budget check FAILED:\n');
     for (const failure of failures) console.error(`  - ${failure}\n`);
     process.exit(1);
   }
 
-  console.log(`AGENTS.md budget check passed (${paths.length} file(s): ${paths.join(", ")}).`);
+  console.log(`AGENTS.md budget check passed (${paths.length} file(s): ${paths.join(', ')}).`);
 }

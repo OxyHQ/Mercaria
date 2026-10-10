@@ -314,8 +314,7 @@ export function explainSnapshot(row: OrderFeeSnapshotRecord): string {
       external_referral:
         'This is an external referral: no marketplace fee applies. Any affiliate ' +
         'economics are recorded elsewhere and never through the fee schedule.',
-      informational:
-        'This record is informational: no transaction, no fee.',
+      informational: 'This record is informational: no transaction, no fee.',
     };
     return row.commercialMode === 'connected_marketplace'
       ? 'Not applicable.'

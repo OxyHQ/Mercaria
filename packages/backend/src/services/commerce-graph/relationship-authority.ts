@@ -126,7 +126,9 @@ export function findSufficientEvidence(
 }
 
 /** What kinds of proof WOULD have been enough — for an honest refusal message. */
-export function acceptableEvidenceKinds(kind: RelationshipKind): readonly RelationshipEvidenceKind[] {
+export function acceptableEvidenceKinds(
+  kind: RelationshipKind,
+): readonly RelationshipEvidenceKind[] {
   return SUFFICIENT_EVIDENCE_KINDS[kind];
 }
 
@@ -184,6 +186,4 @@ export function canTransition(
  * Derived from the table above so the two can never disagree.
  */
 export const TERMINAL_RELATIONSHIP_STATES: readonly RelationshipVerificationState[] =
-  RELATIONSHIP_VERIFICATION_STATES.filter(
-    (state) => RELATIONSHIP_TRANSITIONS[state].length === 0,
-  );
+  RELATIONSHIP_VERIFICATION_STATES.filter((state) => RELATIONSHIP_TRANSITIONS[state].length === 0);

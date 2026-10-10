@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
-import type { StyleProp, ViewStyle } from "react-native";
-import { Platform, View } from "react-native";
-import { useBottomEdgeInset } from "@oxy.so/bloom/layout";
-import { cn } from "../../lib/cn";
-import { ViewportScrollView } from "./ViewportScrollView";
+import type { ReactNode } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { Platform, View } from 'react-native';
+import { useBottomEdgeInset } from '@oxy.so/bloom/layout';
+import { cn } from '../../lib/cn';
+import { ViewportScrollView } from './ViewportScrollView';
 
 export interface ScreenShellProps {
   children: ReactNode;
@@ -54,9 +54,9 @@ export function ScreenShell({
 }: ScreenShellProps) {
   const bottomInset = useBottomEdgeInset();
 
-  if (Platform.OS !== "web") {
+  if (Platform.OS !== 'web') {
     return (
-      <View className={cn("flex-1", surfaceClassName)} style={surfaceStyle}>
+      <View className={cn('flex-1', surfaceClassName)} style={surfaceStyle}>
         {scroll ? (
           <ViewportScrollView
             className="flex-1"
@@ -66,15 +66,15 @@ export function ScreenShell({
             <View className={contentClassName}>{children}</View>
           </ViewportScrollView>
         ) : (
-          <View className={cn("flex-1", contentClassName)}>{children}</View>
+          <View className={cn('flex-1', contentClassName)}>{children}</View>
         )}
       </View>
     );
   }
 
   return (
-    <View className={cn("grow", surfaceClassName)} style={surfaceStyle}>
-      <View className={cn("web:mx-auto web:w-full web:max-w-[2000px]", contentClassName)}>
+    <View className={cn('grow', surfaceClassName)} style={surfaceStyle}>
+      <View className={cn('web:mx-auto web:w-full web:max-w-[2000px]', contentClassName)}>
         {children}
       </View>
     </View>

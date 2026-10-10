@@ -21,11 +21,7 @@
  *    lost outright; clamping applies every delta and refuses only to go negative.
  */
 
-import type {
-  Listing as ListingDTO,
-  ListingSaveIntent,
-  Pagination,
-} from '@mercaria/shared-types';
+import type { Listing as ListingDTO, ListingSaveIntent, Pagination } from '@mercaria/shared-types';
 import {
   deleteFavorite,
   favoriteExists,

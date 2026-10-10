@@ -1,13 +1,17 @@
-import React from "react";
-import { View } from "react-native";
-import type { AuthoringField, AuthoringSchema } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
-import { initialEntries, type DraftFieldEntries, type DraftFieldEntry } from "@/lib/authoring/answers";
-import { findingsForProductField, type LocatedFinding } from "@/lib/authoring/findings";
-import { effectiveRequirements, isVisible, productScopeFields } from "@/lib/authoring/wizard-state";
-import { authoringLabel } from "@/lib/authoring/untranslated";
-import { SchemaField } from "./SchemaField";
+import React from 'react';
+import { View } from 'react-native';
+import type { AuthoringField, AuthoringSchema } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
+import {
+  initialEntries,
+  type DraftFieldEntries,
+  type DraftFieldEntry,
+} from '@/lib/authoring/answers';
+import { findingsForProductField, type LocatedFinding } from '@/lib/authoring/findings';
+import { effectiveRequirements, isVisible, productScopeFields } from '@/lib/authoring/wizard-state';
+import { authoringLabel } from '@/lib/authoring/untranslated';
+import { SchemaField } from './SchemaField';
 
 interface ProductFieldsProps {
   readonly schema: AuthoringSchema;
@@ -55,9 +59,7 @@ export function ProductFields({
   );
   if (visible.length === 0) {
     return (
-      <Text className="text-sm text-muted-foreground">
-        {t("products.wizard.details.noFields")}
-      </Text>
+      <Text className="text-sm text-muted-foreground">{t('products.wizard.details.noFields')}</Text>
     );
   }
 
@@ -97,7 +99,7 @@ export function ProductFields({
         // groups would otherwise render several identical section headings.
         const label = authoringLabel(
           schema.text.groups[group.id]?.label,
-          { kind: "key", key: group.key },
+          { kind: 'key', key: group.key },
           t,
         ).text;
         return (

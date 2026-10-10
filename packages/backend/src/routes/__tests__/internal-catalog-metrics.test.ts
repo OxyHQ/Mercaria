@@ -51,11 +51,7 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {},
-  optionalAuth: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
     next();
   },
 }));
@@ -222,8 +218,8 @@ describe('/internal/catalog-metrics authorization', () => {
     }
     expect(checked).toBe(WRITE_METHODS.length * PATHS.length);
     process.stdout.write(
-      `[routes] /internal/catalog-metrics: ${String(PATHS.length)} GET paths, `
-        + `${String(checked)} write attempts all 404\n`,
+      `[routes] /internal/catalog-metrics: ${String(PATHS.length)} GET paths, ` +
+        `${String(checked)} write attempts all 404\n`,
     );
   });
 
@@ -232,9 +228,7 @@ describe('/internal/catalog-metrics authorization', () => {
     // Neither `merchant` nor `store` nor `email` is a handle kind. Refused at the
     // controller before any read, so an invented kind leaks nothing.
     for (const kind of ['merchant', 'store', 'email', 'oxy_user']) {
-      const response = await fetch(
-        `${enabledUrl}/internal/catalog-metrics/trace/${kind}/whatever`,
-      );
+      const response = await fetch(`${enabledUrl}/internal/catalog-metrics/trace/${kind}/whatever`);
       expect(response.status, `trace/${kind} was accepted`).toBe(400);
     }
   });

@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Pressable, View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
-import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
-import { Text } from "../ui/text";
-import { SectionHeader } from "./SectionHeader";
-import { useShelfCarouselProps } from "../../lib/shelf-carousel";
-import { categoryImageSource } from "../../lib/shop-category-images";
+import { useState } from 'react';
+import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Image } from 'expo-image';
+import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
+import { Text } from '../ui/text';
+import { SectionHeader } from './SectionHeader';
+import { useShelfCarouselProps } from '../../lib/shelf-carousel';
+import { categoryImageSource } from '../../lib/shop-category-images';
 
 export interface CategoryMosaicItem {
   key: string;
@@ -54,7 +54,7 @@ export function CategoryMosaicShelf({
       >
         {groups.map((group) => (
           <CarouselItem key={group.key} width={tileWidth}>
-            <View className={large ? "gap-space-16 pb-[38px]" : "gap-space-12 pb-space-32"}>
+            <View className={large ? 'gap-space-16 pb-[38px]' : 'gap-space-12 pb-space-32'}>
               <SectionHeader
                 title={group.label}
                 onPress={group.onPress}
@@ -64,18 +64,15 @@ export function CategoryMosaicShelf({
               />
               <View
                 testID="category-mosaic"
-                className={`overflow-hidden bg-card web:shadow-md ${large ? "rounded-radius-28" : "rounded-radius-20"}`}
+                className={`overflow-hidden bg-card web:shadow-md ${large ? 'rounded-radius-28' : 'rounded-radius-20'}`}
                 style={{ aspectRatio: large ? 374 / 340 : 1 }}
               >
                 <View
                   pointerEvents="none"
-                  className={`absolute inset-0 z-10 border-[0.5px] border-black/10 dark:border-white/15 ${large ? "rounded-radius-28" : "rounded-radius-20"}`}
+                  className={`absolute inset-0 z-10 border-[0.5px] border-black/10 dark:border-white/15 ${large ? 'rounded-radius-28' : 'rounded-radius-20'}`}
                 />
                 {[0, 1].map((row) => (
-                  <View
-                    key={row}
-                    className={`flex-1 flex-row gap-0.5 ${row ? "mt-0.5" : ""}`}
-                  >
+                  <View key={row} className={`flex-1 flex-row gap-0.5 ${row ? 'mt-0.5' : ''}`}>
                     {group.children.slice(row * 2, row * 2 + 2).map((item) => (
                       <Pressable
                         key={item.key}
@@ -91,9 +88,15 @@ export function CategoryMosaicShelf({
                             className="absolute inset-0 h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-110 web:motion-reduce:transition-none web:motion-reduce:transform-none"
                           />
                         ) : null}
-                        <Text className={`text-white web:drop-shadow-sm ${extraLarge
-                          ? "m-[18px] text-shop-bodyTitleLarge"
-                          : large ? "m-space-12 text-[14px] font-semibold leading-tight" : "m-space-8 text-shop-captionBold leading-tight"}`}>
+                        <Text
+                          className={`text-white web:drop-shadow-sm ${
+                            extraLarge
+                              ? 'm-[18px] text-shop-bodyTitleLarge'
+                              : large
+                                ? 'm-space-12 text-[14px] font-semibold leading-tight'
+                                : 'm-space-8 text-shop-captionBold leading-tight'
+                          }`}
+                        >
                           {item.label}
                         </Text>
                       </Pressable>

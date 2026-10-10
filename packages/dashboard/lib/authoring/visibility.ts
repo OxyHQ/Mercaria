@@ -41,7 +41,7 @@ import type {
   ProductTypeRuleValues,
   ProductTypeVisibilityOutcome,
   ProductTypeVisibilityRule,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 
 /**
  * One field's answer, as the interpreter sees it.
@@ -51,9 +51,9 @@ import type {
  * without a cast.
  */
 type FieldAnswer =
-  | { state: "absent" }
-  | { state: "scalar"; value: ProductTypeRuleScalar }
-  | { state: "list"; values: readonly ProductTypeRuleScalar[] };
+  | { state: 'absent' }
+  | { state: 'scalar'; value: ProductTypeRuleScalar }
+  | { state: 'list'; values: readonly ProductTypeRuleScalar[] };
 
 /**
  * `null` and `undefined` are both "unanswered" and are indistinguishable on
@@ -68,11 +68,11 @@ function readAnswer(values: ProductTypeRuleValues, field: string): FieldAnswer {
   const raw: ProductTypeRuleFieldValue = Object.prototype.hasOwnProperty.call(values, field)
     ? values[field]
     : undefined;
-  if (raw === undefined || raw === null) return { state: "absent" };
-  if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
-    return { state: "scalar", value: raw };
+  if (raw === undefined || raw === null) return { state: 'absent' };
+  if (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean') {
+    return { state: 'scalar', value: raw };
   }
-  return { state: "list", values: raw };
+  return { state: 'list', values: raw };
 }
 
 function evaluateNode(
@@ -80,75 +80,75 @@ function evaluateNode(
   values: ProductTypeRuleValues,
 ): ProductTypeVisibilityOutcome {
   switch (rule.node) {
-    case "all": {
+    case 'all': {
       // Kleene conjunction: a definite failure beats an unknown, so a rule whose
       // other half is already false does not report itself unanswerable.
       let sawUnknown = false;
       for (const branch of rule.rules) {
         const outcome = evaluateNode(branch, values);
-        if (outcome === "unsatisfied") return "unsatisfied";
-        if (outcome === "unknown") sawUnknown = true;
+        if (outcome === 'unsatisfied') return 'unsatisfied';
+        if (outcome === 'unknown') sawUnknown = true;
       }
-      return sawUnknown ? "unknown" : "satisfied";
+      return sawUnknown ? 'unknown' : 'satisfied';
     }
-    case "any": {
+    case 'any': {
       let sawUnknown = false;
       for (const branch of rule.rules) {
         const outcome = evaluateNode(branch, values);
-        if (outcome === "satisfied") return "satisfied";
-        if (outcome === "unknown") sawUnknown = true;
+        if (outcome === 'satisfied') return 'satisfied';
+        if (outcome === 'unknown') sawUnknown = true;
       }
-      return sawUnknown ? "unknown" : "unsatisfied";
+      return sawUnknown ? 'unknown' : 'unsatisfied';
     }
-    case "not": {
+    case 'not': {
       const inner = evaluateNode(rule.rule, values);
-      if (inner === "satisfied") return "unsatisfied";
-      if (inner === "unsatisfied") return "satisfied";
-      return "unknown";
+      if (inner === 'satisfied') return 'unsatisfied';
+      if (inner === 'unsatisfied') return 'satisfied';
+      return 'unknown';
     }
-    case "presence": {
+    case 'presence': {
       // The one pair of operators that is DEFINITE on an unanswered field, which
       // is what they are for.
-      const present = readAnswer(values, rule.field).state !== "absent";
-      return (rule.op === "is_present") === present ? "satisfied" : "unsatisfied";
+      const present = readAnswer(values, rule.field).state !== 'absent';
+      return (rule.op === 'is_present') === present ? 'satisfied' : 'unsatisfied';
     }
-    case "compare": {
+    case 'compare': {
       const answer = readAnswer(values, rule.field);
-      if (answer.state === "absent") return "unknown";
+      if (answer.state === 'absent') return 'unknown';
       // A list answer compared against a scalar is a question this rule cannot
       // answer; coercing it would report a definite `unsatisfied` for a
       // mis-declared schema.
-      if (answer.state === "list") return "unknown";
-      if (rule.op === "eq") return answer.value === rule.value ? "satisfied" : "unsatisfied";
-      if (rule.op === "ne") return answer.value === rule.value ? "unsatisfied" : "satisfied";
+      if (answer.state === 'list') return 'unknown';
+      if (rule.op === 'eq') return answer.value === rule.value ? 'satisfied' : 'unsatisfied';
+      if (rule.op === 'ne') return answer.value === rule.value ? 'unsatisfied' : 'satisfied';
       // Ordering is numeric on BOTH sides and nothing is coerced: deciding that
       // a numeric-looking string is a number would make `'010' < '9'` a fact
       // about a product.
-      if (typeof rule.value !== "number") return "unknown";
-      if (typeof answer.value !== "number") return "unknown";
-      if (rule.op === "gt") return answer.value > rule.value ? "satisfied" : "unsatisfied";
-      if (rule.op === "gte") return answer.value >= rule.value ? "satisfied" : "unsatisfied";
-      if (rule.op === "lt") return answer.value < rule.value ? "satisfied" : "unsatisfied";
-      return answer.value <= rule.value ? "satisfied" : "unsatisfied";
+      if (typeof rule.value !== 'number') return 'unknown';
+      if (typeof answer.value !== 'number') return 'unknown';
+      if (rule.op === 'gt') return answer.value > rule.value ? 'satisfied' : 'unsatisfied';
+      if (rule.op === 'gte') return answer.value >= rule.value ? 'satisfied' : 'unsatisfied';
+      if (rule.op === 'lt') return answer.value < rule.value ? 'satisfied' : 'unsatisfied';
+      return answer.value <= rule.value ? 'satisfied' : 'unsatisfied';
     }
-    case "membership": {
+    case 'membership': {
       const answer = readAnswer(values, rule.field);
-      if (answer.state === "absent") return "unknown";
-      if (rule.op === "includes_any") {
-        if (answer.state !== "list") return "unknown";
+      if (answer.state === 'absent') return 'unknown';
+      if (rule.op === 'includes_any') {
+        if (answer.state !== 'list') return 'unknown';
         return answer.values.some((entry) => rule.values.includes(entry))
-          ? "satisfied"
-          : "unsatisfied";
+          ? 'satisfied'
+          : 'unsatisfied';
       }
-      if (answer.state !== "scalar") return "unknown";
+      if (answer.state !== 'scalar') return 'unknown';
       const member = rule.values.includes(answer.value);
-      return (rule.op === "in") === member ? "satisfied" : "unsatisfied";
+      return (rule.op === 'in') === member ? 'satisfied' : 'unsatisfied';
     }
     default:
       // Unreachable for a rule the shared union describes, and the only honest
       // answer for one that somehow is not: an outcome this interpreter cannot
       // produce must never read as `satisfied`.
-      return "unknown";
+      return 'unknown';
   }
 }
 
@@ -173,5 +173,5 @@ export function effectiveRequirement(
   values: ProductTypeRuleValues,
 ): ProductTypeFieldRequirement {
   if (rule === null) return declared;
-  return evaluateNode(rule, values) === "satisfied" ? declared : "hidden";
+  return evaluateNode(rule, values) === 'satisfied' ? declared : 'hidden';
 }

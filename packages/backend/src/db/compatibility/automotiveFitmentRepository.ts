@@ -103,8 +103,12 @@ function openFitmentFilter(filter: FitmentLookupFilter) {
     clauses.push(inArray(automotiveFitments.applicability, [...filter.applicabilities]));
   }
   if (filter.year !== undefined) {
-    clauses.push(or(isNull(automotiveFitments.yearFrom), lte(automotiveFitments.yearFrom, filter.year)));
-    clauses.push(or(isNull(automotiveFitments.yearTo), gte(automotiveFitments.yearTo, filter.year)));
+    clauses.push(
+      or(isNull(automotiveFitments.yearFrom), lte(automotiveFitments.yearFrom, filter.year)),
+    );
+    clauses.push(
+      or(isNull(automotiveFitments.yearTo), gte(automotiveFitments.yearTo, filter.year)),
+    );
   }
   return and(...clauses);
 }
@@ -162,22 +166,24 @@ export async function listFitmentsForVehicle(
       ),
     );
   }
-  return db
-    .select()
-    .from(automotiveFitments)
-    .where(and(or(...scopeClauses), openFitmentFilter(filter)))
-    // Narrowest scope first — `array_position` over the ladder rather than an
-    // alphabetical sort on the scope column, which would order
-    // `vehicle_configuration` BEFORE `vehicle_generation` by accident and read
-    // as correct.
-    .orderBy(
-      desc(
-        sql`array_position(array['vehicle_make','vehicle_model','vehicle_generation','vehicle_configuration'], ${automotiveFitments.scope})`,
-      ),
-      desc(automotiveFitments.createdAt),
-      automotiveFitments.id,
-    )
-    .limit(boundedLimit(filter.limit));
+  return (
+    db
+      .select()
+      .from(automotiveFitments)
+      .where(and(or(...scopeClauses), openFitmentFilter(filter)))
+      // Narrowest scope first — `array_position` over the ladder rather than an
+      // alphabetical sort on the scope column, which would order
+      // `vehicle_configuration` BEFORE `vehicle_generation` by accident and read
+      // as correct.
+      .orderBy(
+        desc(
+          sql`array_position(array['vehicle_make','vehicle_model','vehicle_generation','vehicle_configuration'], ${automotiveFitments.scope})`,
+        ),
+        desc(automotiveFitments.createdAt),
+        automotiveFitments.id,
+      )
+      .limit(boundedLimit(filter.limit))
+  );
 }
 
 /** The subject predicate. A `switch` over a union with no common id field. */
@@ -200,7 +206,11 @@ export async function listFitmentsForSubject(
     .select()
     .from(automotiveFitments)
     .where(and(subjectFilter(subject), openFitmentFilter(filter)))
-    .orderBy(automotiveFitments.vehicleMakeId, automotiveFitments.vehicleModelId, automotiveFitments.id)
+    .orderBy(
+      automotiveFitments.vehicleMakeId,
+      automotiveFitments.vehicleModelId,
+      automotiveFitments.id,
+    )
     .limit(boundedLimit(filter.limit));
 }
 

@@ -36,10 +36,7 @@ import {
   listSplitAssignments,
   listSplitJobs,
 } from '../db/curation/jobRepository.js';
-import {
-  findRevisionsForEntity,
-  findRevisionsForJob,
-} from '../db/curation/curationRepository.js';
+import { findRevisionsForEntity, findRevisionsForJob } from '../db/curation/curationRepository.js';
 import {
   approveMerge,
   cancelMerge,
@@ -340,7 +337,9 @@ export async function cancelMergeHandler(req: Request, res: Response): Promise<v
     const input = body<{ reason: string }>(req);
     sendSuccess(
       res,
-      toMergeJobView(await cancelMerge(routeParam(req, 'id'), catalogOperatorId(req), input.reason)),
+      toMergeJobView(
+        await cancelMerge(routeParam(req, 'id'), catalogOperatorId(req), input.reason),
+      ),
     );
   } catch (err) {
     respondWithError(res, err, 'Failed to cancel the merge job');
@@ -352,7 +351,9 @@ export async function approveMergeHandler(req: Request, res: Response): Promise<
     const input = body<{ reason: string }>(req);
     sendSuccess(
       res,
-      toMergeJobView(await approveMerge(routeParam(req, 'id'), catalogOperatorId(req), input.reason)),
+      toMergeJobView(
+        await approveMerge(routeParam(req, 'id'), catalogOperatorId(req), input.reason),
+      ),
     );
   } catch (err) {
     respondWithError(res, err, 'Failed to approve the merge job');
@@ -361,7 +362,9 @@ export async function approveMergeHandler(req: Request, res: Response): Promise<
 
 export async function resolveConflictHandler(req: Request, res: Response): Promise<void> {
   try {
-    const input = body<{ resolution: 'keep_winner' | 'keep_loser' | 'merge_pair'; reason: string }>(req);
+    const input = body<{ resolution: 'keep_winner' | 'keep_loser' | 'merge_pair'; reason: string }>(
+      req,
+    );
     sendSuccess(
       res,
       await resolveMergeConflict({
@@ -459,7 +462,9 @@ export async function cancelSplitHandler(req: Request, res: Response): Promise<v
     const input = body<{ reason: string }>(req);
     sendSuccess(
       res,
-      toSplitJobView(await cancelSplit(routeParam(req, 'id'), catalogOperatorId(req), input.reason)),
+      toSplitJobView(
+        await cancelSplit(routeParam(req, 'id'), catalogOperatorId(req), input.reason),
+      ),
     );
   } catch (err) {
     respondWithError(res, err, 'Failed to cancel the split job');
@@ -471,7 +476,9 @@ export async function approveSplitHandler(req: Request, res: Response): Promise<
     const input = body<{ reason: string }>(req);
     sendSuccess(
       res,
-      toSplitJobView(await approveSplit(routeParam(req, 'id'), catalogOperatorId(req), input.reason)),
+      toSplitJobView(
+        await approveSplit(routeParam(req, 'id'), catalogOperatorId(req), input.reason),
+      ),
     );
   } catch (err) {
     respondWithError(res, err, 'Failed to approve the split job');
@@ -543,7 +550,9 @@ export async function suppressEntityHandler(req: Request, res: Response): Promis
 
 export async function liftSuppressionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const input = body<{ entityType: CatalogSuppressibleType; entityId: string; reason: string }>(req);
+    const input = body<{ entityType: CatalogSuppressibleType; entityId: string; reason: string }>(
+      req,
+    );
     await liftEntitySuppression({ ...input, actorOxyUserId: catalogOperatorId(req) });
     sendSuccess(res, { lifted: true });
   } catch (err) {
@@ -563,7 +572,12 @@ export async function listRevisionsHandler(req: Request, res: Response): Promise
     };
     const db = getDb();
     sendSuccess(res, {
-      revisions: await findRevisionsForEntity(query.entityType, query.entityId, query.limit ?? 100, db),
+      revisions: await findRevisionsForEntity(
+        query.entityType,
+        query.entityId,
+        query.limit ?? 100,
+        db,
+      ),
       suppressions:
         query.entityType === 'offer' ||
         query.entityType === 'organization' ||

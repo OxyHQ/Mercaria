@@ -29,11 +29,7 @@
  */
 
 import { eq } from 'drizzle-orm';
-import type {
-  ConditionGroup,
-  ProductSave,
-  ProductSaveSourceContext,
-} from '@mercaria/shared-types';
+import type { ConditionGroup, ProductSave, ProductSaveSourceContext } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
 import { merchants } from '../../db/schema/merchants.js';
@@ -317,9 +313,7 @@ export function toProductSaveDTO(
   splitTargetByJobId?: ReadonlyMap<string, string>,
 ): ProductSave {
   const splitTarget =
-    row.ambiguousSplitJobId !== null
-      ? splitTargetByJobId?.get(row.ambiguousSplitJobId)
-      : undefined;
+    row.ambiguousSplitJobId !== null ? splitTargetByJobId?.get(row.ambiguousSplitJobId) : undefined;
   return {
     id: row.id,
     canonicalProductId: row.canonicalProductId,

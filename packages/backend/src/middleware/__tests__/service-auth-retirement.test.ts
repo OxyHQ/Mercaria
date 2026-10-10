@@ -86,14 +86,12 @@ const HANDROLLED_BEARER_COMPARE_REFERENCE =
 
 /** Every tracked TypeScript file under the backend's `src`. */
 function trackedBackendSources(): string[] {
-  const listing = execFileSync(
-    'git',
-    ['ls-files', '-z', '--', 'packages/backend/src'],
-    { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 },
-  );
-  return listing
-    .split('\0')
-    .filter((path) => path.endsWith('.ts') && !SELF_DOCUMENTING.has(path));
+  const listing = execFileSync('git', ['ls-files', '-z', '--', 'packages/backend/src'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  return listing.split('\0').filter((path) => path.endsWith('.ts') && !SELF_DOCUMENTING.has(path));
 }
 
 /** Source with comments removed — what every detector below reads. */
@@ -161,7 +159,9 @@ describe('the legacy service-auth surface is gone and stays gone (#164)', () => 
   });
 
   it('the middleware layer hand-rolls no credential verification', () => {
-    const middleware = sources.filter((path) => path.startsWith('packages/backend/src/middleware/'));
+    const middleware = sources.filter((path) =>
+      path.startsWith('packages/backend/src/middleware/'),
+    );
     expect(middleware.length, 'no middleware files scanned').toBeGreaterThan(5);
     const offenders = middleware.filter((path) =>
       HANDROLLED_BEARER_COMPARE_REFERENCE.test(readCode(path)),
@@ -211,10 +211,12 @@ describe('the legacy service-auth surface is gone and stays gone (#164)', () => 
 
     expect(RETIRED_MIDDLEWARE_REFERENCE.test('router.use(authenticateTokenOrApiKey);')).toBe(true);
     expect(RETIRED_MIDDLEWARE_REFERENCE.test('router.use(oxyServiceAuth);')).toBe(true);
-    expect(RETIRED_MIDDLEWARE_REFERENCE.test('await authenticateTelegramBot(req, res, next);')).toBe(
+    expect(
+      RETIRED_MIDDLEWARE_REFERENCE.test('await authenticateTelegramBot(req, res, next);'),
+    ).toBe(true);
+    expect(RETIRED_MIDDLEWARE_REFERENCE.test("router.use(requireScope('files:write'));")).toBe(
       true,
     );
-    expect(RETIRED_MIDDLEWARE_REFERENCE.test("router.use(requireScope('files:write'));")).toBe(true);
     // The SDK's own scope guard is a METHOD on the client and is permitted —
     // that is the sanctioned mechanism arriving, not the local one returning.
     expect(RETIRED_MIDDLEWARE_REFERENCE.test("oxyClient.requireScope('files:write')")).toBe(false);
@@ -226,7 +228,7 @@ describe('the legacy service-auth surface is gone and stays gone (#164)', () => 
     // `system` as an ACTOR KIND is a real, widely-used value and must not trip.
     expect(SYNTHETIC_PRINCIPAL_REFERENCE.test("actorKind: 'system',")).toBe(false);
     expect(SYNTHETIC_PRINCIPAL_REFERENCE.test("initiator: 'system',")).toBe(false);
-    expect(SYNTHETIC_PRINCIPAL_REFERENCE.test("req.userId = getRequiredOxyUserId(req);")).toBe(
+    expect(SYNTHETIC_PRINCIPAL_REFERENCE.test('req.userId = getRequiredOxyUserId(req);')).toBe(
       false,
     );
 

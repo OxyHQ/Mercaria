@@ -148,9 +148,7 @@ function deriveFinality(input: {
 }): string | undefined {
   if (!input.deliveredAt || input.ceilingDays === null) return undefined;
   if (input.openExceptions > 0 || input.openAdjustment) return undefined;
-  const ceiling = new Date(
-    input.deliveredAt.getTime() + input.ceilingDays * 24 * 60 * 60 * 1_000,
-  );
+  const ceiling = new Date(input.deliveredAt.getTime() + input.ceilingDays * 24 * 60 * 60 * 1_000);
   return ceiling.getTime() <= Date.now() ? ceiling.toISOString() : undefined;
 }
 
@@ -295,7 +293,9 @@ export async function readRetailReconciliationMetrics(input: {
   const currency = revisions[0]?.accountingCurrency;
 
   const missingEvidence = openExceptions
-    .filter((entry) => entry.kind.startsWith('missing_') || entry.kind === 'unlinked_supplier_credit')
+    .filter(
+      (entry) => entry.kind.startsWith('missing_') || entry.kind === 'unlinked_supplier_credit',
+    )
     .reduce((total, entry) => total + entry.open, 0);
   const duplicates = openExceptions
     .filter((entry) => entry.kind.startsWith('duplicate_'))
@@ -326,26 +326,69 @@ export async function readRetailReconciliationMetrics(input: {
     : 0;
 
   return [
-    metric('orders_reconciled_exactly', exact.length, complete.length,
-      'Completed revisions whose customer amount before subsidy equalled the final attributable cost EXACTLY. Rounded-off orders are counted under the tolerance and not here.'),
-    metric('positive_adjustment_variance', sumVariance(positive), positive.length,
-      'Total surplus owed back to buyers across completed revisions with a material positive variance, in the accounting currency’s minor units.', currency),
-    metric('negative_absorbed_variance', Math.abs(sumVariance(absorbed)), absorbed.length,
-      'Total shortfall Mercaria absorbed across completed revisions with a material negative variance, in minor units. Never recharged to a buyer.', currency),
-    metric('quote_to_invoice_variance', varianceBps, complete.length,
-      'Mean ABSOLUTE cost variance as basis points of the customer amount, over completed revisions. A share rather than an amount, so a small order and a large one are comparable.'),
-    metric('supplier_credit_latency', creditLatencyHours, credits.length,
-      'Mean hours between a supplier ISSUING a credit note and Mercaria recording it, over the window.'),
-    metric('missing_evidence', missingEvidence, revisions.length,
-      'Open exceptions whose condition is an absent invoice, fee, tax determination, quote, refund record or unlinked credit. Each one is a term of the equation with no evidence behind it.'),
-    metric('duplicate_charge_or_credit', duplicates, revisions.length,
-      'Open exceptions reporting a purchase order with two invoices, or a refund or credit counted more than once.'),
-    metric('adjustment_refund_success', adjustmentOutcomes.settled, adjustmentOutcomes.created,
-      'Customer adjustments created in the window whose refund has SETTLED, against how many were created. `refund_committed` is deliberately not counted: it is a promise the rail has not kept yet, and a gap between the two is money owed and not yet moved.'),
-    metric('cost_quote_accuracy_percentile', percentile95(complete), complete.length,
-      'The 95th percentile of absolute cost variance in basis points of the customer amount. The tail is the number that matters: a mean hides the orders whose cost model was wrong.'),
-    metric('mercaria_subsidy_spend', subsidyMinor, complete.length,
-      'Total Mercaria-funded promotion subsidy on reconciled retail orders, in minor units, summed from the promotion component of each completed revision. A marketing expense — it is why the equation’s customer term is the amount BEFORE subsidy.', currency),
+    metric(
+      'orders_reconciled_exactly',
+      exact.length,
+      complete.length,
+      'Completed revisions whose customer amount before subsidy equalled the final attributable cost EXACTLY. Rounded-off orders are counted under the tolerance and not here.',
+    ),
+    metric(
+      'positive_adjustment_variance',
+      sumVariance(positive),
+      positive.length,
+      'Total surplus owed back to buyers across completed revisions with a material positive variance, in the accounting currency’s minor units.',
+      currency,
+    ),
+    metric(
+      'negative_absorbed_variance',
+      Math.abs(sumVariance(absorbed)),
+      absorbed.length,
+      'Total shortfall Mercaria absorbed across completed revisions with a material negative variance, in minor units. Never recharged to a buyer.',
+      currency,
+    ),
+    metric(
+      'quote_to_invoice_variance',
+      varianceBps,
+      complete.length,
+      'Mean ABSOLUTE cost variance as basis points of the customer amount, over completed revisions. A share rather than an amount, so a small order and a large one are comparable.',
+    ),
+    metric(
+      'supplier_credit_latency',
+      creditLatencyHours,
+      credits.length,
+      'Mean hours between a supplier ISSUING a credit note and Mercaria recording it, over the window.',
+    ),
+    metric(
+      'missing_evidence',
+      missingEvidence,
+      revisions.length,
+      'Open exceptions whose condition is an absent invoice, fee, tax determination, quote, refund record or unlinked credit. Each one is a term of the equation with no evidence behind it.',
+    ),
+    metric(
+      'duplicate_charge_or_credit',
+      duplicates,
+      revisions.length,
+      'Open exceptions reporting a purchase order with two invoices, or a refund or credit counted more than once.',
+    ),
+    metric(
+      'adjustment_refund_success',
+      adjustmentOutcomes.settled,
+      adjustmentOutcomes.created,
+      'Customer adjustments created in the window whose refund has SETTLED, against how many were created. `refund_committed` is deliberately not counted: it is a promise the rail has not kept yet, and a gap between the two is money owed and not yet moved.',
+    ),
+    metric(
+      'cost_quote_accuracy_percentile',
+      percentile95(complete),
+      complete.length,
+      'The 95th percentile of absolute cost variance in basis points of the customer amount. The tail is the number that matters: a mean hides the orders whose cost model was wrong.',
+    ),
+    metric(
+      'mercaria_subsidy_spend',
+      subsidyMinor,
+      complete.length,
+      'Total Mercaria-funded promotion subsidy on reconciled retail orders, in minor units, summed from the promotion component of each completed revision. A marketing expense — it is why the equation’s customer term is the amount BEFORE subsidy.',
+      currency,
+    ),
   ];
 }
 

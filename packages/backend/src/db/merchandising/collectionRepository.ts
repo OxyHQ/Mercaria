@@ -464,18 +464,16 @@ export async function reconcileAutomatedMembership(
         });
     }
 
-    await tx
-      .delete(listingCollections)
-      .where(
-        and(
-          eq(listingCollections.collectionId, collectionId),
-          // `notInArray` and not `<> all(array)`: the latter binds a TUPLE and
-          // Postgres raises `op ANY/ALL (array) requires array on right side`.
-          ...(shouldHave.length > 0
-            ? [notInArray(listingCollections.listingId, [...shouldHave])]
-            : []),
-        ),
-      );
+    await tx.delete(listingCollections).where(
+      and(
+        eq(listingCollections.collectionId, collectionId),
+        // `notInArray` and not `<> all(array)`: the latter binds a TUPLE and
+        // Postgres raises `op ANY/ALL (array) requires array on right side`.
+        ...(shouldHave.length > 0
+          ? [notInArray(listingCollections.listingId, [...shouldHave])]
+          : []),
+      ),
+    );
 
     await tx
       .update(listingCollections)
@@ -643,9 +641,7 @@ export async function findCollectionProductsSlice(
     .select({ listing: listings })
     .from(listingCollections)
     .innerJoin(listings, eq(listings.id, listingCollections.listingId))
-    .where(
-      and(eq(listingCollections.collectionId, collectionId), eq(listings.status, 'active')),
-    )
+    .where(and(eq(listingCollections.collectionId, collectionId), eq(listings.status, 'active')))
     .orderBy(...collectionOrder(sortOrder, manual))
     .limit(limit + 1)
     .offset(offset);

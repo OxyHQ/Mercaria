@@ -10,7 +10,6 @@ import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
 import { registerSizeSystemConceptRegistry } from './services/canonical/size-system-registry.js';
 
-
 // Socket.io
 import { initSocket } from './socket.js';
 
@@ -41,12 +40,15 @@ const app = createApp();
 const PORT = parseInt(process.env.PORT || '4160', 10);
 
 // Create HTTP server with optimized settings
-const server = http.createServer({
-  // Increase max header size for long authentication tokens
-  maxHeaderSize: 16384,
-  keepAlive: true,
-  keepAliveTimeout: 65000, // Slightly higher than default
-}, app);
+const server = http.createServer(
+  {
+    // Increase max header size for long authentication tokens
+    maxHeaderSize: 16384,
+    keepAlive: true,
+    keepAliveTimeout: 65000, // Slightly higher than default
+  },
+  app,
+);
 
 // Handle HTTP server errors (e.g. EADDRINUSE)
 server.on('error', (error: NodeJS.ErrnoException) => {
@@ -89,7 +91,10 @@ process.on('unhandledRejection', (reason) => {
   }
 
   // Everything else: log as error but keep running
-  log.general.error({ reason: reason instanceof Error ? reason : String(reason) }, '[Process] Unhandled promise rejection');
+  log.general.error(
+    { reason: reason instanceof Error ? reason : String(reason) },
+    '[Process] Unhandled promise rejection',
+  );
 });
 
 process.on('uncaughtException', (error) => {
@@ -116,16 +121,24 @@ connectPostgres()
     server.listen(PORT, '0.0.0.0', () => {
       log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
       // Verify Redis connectivity (non-blocking)
-      import('./lib/redis.js').then(({ getRedisClient }) => {
-        const redis = getRedisClient();
-        if (redis) {
-          redis.ping()
-            .then(() => log.general.info('Redis readiness check passed'))
-            .catch((err) => log.general.warn({ err }, 'Redis readiness check failed — rate limiting will fail-open'));
-        } else {
-          log.general.info('Redis not configured (REDIS_URL not set) — rate limiting disabled');
-        }
-      }).catch((err) => log.general.error({ err }, 'Redis readiness import failed'));
+      import('./lib/redis.js')
+        .then(({ getRedisClient }) => {
+          const redis = getRedisClient();
+          if (redis) {
+            redis
+              .ping()
+              .then(() => log.general.info('Redis readiness check passed'))
+              .catch((err) =>
+                log.general.warn(
+                  { err },
+                  'Redis readiness check failed — rate limiting will fail-open',
+                ),
+              );
+          } else {
+            log.general.info('Redis not configured (REDIS_URL not set) — rate limiting disabled');
+          }
+        })
+        .catch((err) => log.general.error({ err }, 'Redis readiness import failed'));
 
       // Drain the moderation outbox. Started on EVERY task, not just a leader:
       // a claim is a `FOR UPDATE SKIP LOCKED` lease with an owner check, so N
@@ -134,9 +147,7 @@ connectPostgres()
       // reports taken while it is disabled deliver once it is switched on.
       import('./services/moderation/outbox-dispatcher.js')
         .then(({ startModerationOutboxDispatcher }) => startModerationOutboxDispatcher())
-        .catch((err) =>
-          log.general.error({ err }, 'Moderation outbox dispatcher import failed'),
-        );
+        .catch((err) => log.general.error({ err }, 'Moderation outbox dispatcher import failed'));
 
       // Drain the payment outbox. Started on EVERY task, for the same reason
       // the moderation one is: claims are Postgres leases with an owner check,
@@ -145,9 +156,7 @@ connectPostgres()
       // off deliver once it is switched on.
       import('./services/payments/outbox-dispatcher.js')
         .then(({ startPaymentOutboxDispatcher }) => startPaymentOutboxDispatcher())
-        .catch((err) =>
-          log.general.error({ err }, 'Payment outbox dispatcher import failed'),
-        );
+        .catch((err) => log.general.error({ err }, 'Payment outbox dispatcher import failed'));
 
       // Converge native offers (#57). The third dispatcher, on the same lease
       // shape as the two above and gated the same way — a catalogue write keeps
@@ -345,7 +354,9 @@ connectPostgres()
         .then(({ registerOpenDataAdapters }) => {
           registerOpenDataAdapters();
         })
-        .catch((err: unknown) => log.general.error({ err }, 'Open-data adapter registration failed'));
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Open-data adapter registration failed'),
+        );
 
       // Hand back lapsed supplier holds, release lapsed quotes and evaluate
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
@@ -638,9 +649,7 @@ connectPostgres()
       // it against the clock — so a deployment that never runs this loop still
       // downgrades on time; what the loop adds is the record.
       import('./services/billing/reconciler.js')
-        .then(({ startMerchantSubscriptionReconciler }) =>
-          startMerchantSubscriptionReconciler(),
-        )
+        .then(({ startMerchantSubscriptionReconciler }) => startMerchantSubscriptionReconciler())
         .catch((err) =>
           log.general.error({ err }, 'Merchant subscription reconciler import failed'),
         );
@@ -736,14 +745,19 @@ connectPostgres()
 
       // Start marketplace queue workers when Redis is configured; otherwise
       // async jobs run inline via the producers.
-      import('./queue/connection.js').then(({ isQueueEnabled }) => {
-        if (isQueueEnabled()) {
-          import('./queue/workers.js').then(({ startWorkers }) => startWorkers())
-            .catch((err) => log.general.error({ err }, 'startWorkers import failed'));
-        } else {
-          log.general.info('Marketplace queue disabled (REDIS_URL not set) — async jobs run inline');
-        }
-      }).catch((err) => log.general.error({ err }, 'Queue connection import failed'));
+      import('./queue/connection.js')
+        .then(({ isQueueEnabled }) => {
+          if (isQueueEnabled()) {
+            import('./queue/workers.js')
+              .then(({ startWorkers }) => startWorkers())
+              .catch((err) => log.general.error({ err }, 'startWorkers import failed'));
+          } else {
+            log.general.info(
+              'Marketplace queue disabled (REDIS_URL not set) — async jobs run inline',
+            );
+          }
+        })
+        .catch((err) => log.general.error({ err }, 'Queue connection import failed'));
     });
 
     // Graceful shutdown handler
@@ -834,9 +848,7 @@ connectPostgres()
           './services/ingestion/ingest-dispatcher.js'
         );
         stopCatalogIngestionDispatcher();
-        const { stopCatalogAutopilot } = await import(
-          './services/catalog-autopilot/autopilot.js'
-        );
+        const { stopCatalogAutopilot } = await import('./services/catalog-autopilot/autopilot.js');
         stopCatalogAutopilot();
         const { stopFeedStageSweeper } = await import('./services/feed-import/register.js');
         stopFeedStageSweeper();

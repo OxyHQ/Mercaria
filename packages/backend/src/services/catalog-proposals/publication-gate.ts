@@ -99,10 +99,13 @@ export function pendingProposalFindings(
  * not any more. That is exactly the case a submission-time check cannot cover,
  * and it is why the code exists at validation as well.
  */
-export function proposalNotPermittedFinding(path: string, about: {
-  readonly fieldId: string;
-  readonly attributeKey: string;
-}): AuthoringValidationFinding {
+export function proposalNotPermittedFinding(
+  path: string,
+  about: {
+    readonly fieldId: string;
+    readonly attributeKey: string;
+  },
+): AuthoringValidationFinding {
   return {
     code: 'proposal_not_permitted',
     severity: 'error',

@@ -88,7 +88,9 @@ function hash32(value: string): number {
 export function fixtureGtinBody(runToken: string, sequence: number): string {
   if (runToken === '') throw new Error('fixtureGtinBody needs a non-empty run token');
   if (!Number.isInteger(sequence) || sequence < 0 || sequence > MAX_SEQUENCE) {
-    throw new Error(`fixtureGtin sequence must be an integer in 0..${MAX_SEQUENCE}, got ${sequence}`);
+    throw new Error(
+      `fixtureGtin sequence must be an integer in 0..${MAX_SEQUENCE}, got ${sequence}`,
+    );
   }
   const run = `${hash32(runToken) % 100_000_000}`.padStart(8, '0');
   const seq = `${sequence}`.padStart(3, '0');

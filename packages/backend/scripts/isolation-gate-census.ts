@@ -171,20 +171,24 @@ for (const file of gateFiles(SRC).sort()) {
       if (ts.isAsExpression(i)) i = i.expression;
       if (ts.isArrayLiteralExpression(i)) {
         const lits = i.elements.filter(ts.isStringLiteralLike).map((e) => e.text);
-        const objs = i.elements
-          .filter(ts.isObjectLiteralExpression)
-          .flatMap((o) =>
-            o.properties
-              .filter(ts.isPropertyAssignment)
-              .map((property) => property.initializer)
-              .filter(ts.isStringLiteralLike)
-              .map((literal) => literal.text),
-          );
+        const objs = i.elements.filter(ts.isObjectLiteralExpression).flatMap((o) =>
+          o.properties
+            .filter(ts.isPropertyAssignment)
+            .map((property) => property.initializer)
+            .filter(ts.isStringLiteralLike)
+            .map((literal) => literal.text),
+        );
         const paths = [...lits, ...objs].filter((s) => FILEISH.test(s));
         if (paths.length >= 2) {
           const name = n.name.text;
           const iterated = new RegExp(`for\\s*\\(\\s*const\\s+\\w+\\s+of\\s+${name}\\b`).test(src);
-          rows.push({ rel, name, line: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1, paths, iterated });
+          rows.push({
+            rel,
+            name,
+            line: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1,
+            paths,
+            iterated,
+          });
         }
       }
     }
@@ -206,7 +210,10 @@ const B: Classified[] = [];
 const C: Classified[] = [];
 for (const row of rows) {
   if (!row.iterated) {
-    C.push({ ...row, why: 'never iterated as a scan subject — an exception, alias or identity list' });
+    C.push({
+      ...row,
+      why: 'never iterated as a scan subject — an exception, alias or identity list',
+    });
     continue;
   }
   if (row.paths.some((p) => !isFile(p))) {
@@ -214,19 +221,42 @@ for (const row of rows) {
     continue;
   }
   const owned = [...new Set(row.paths.map((p) => p.split('/').slice(0, 2).join('/')))].filter(
-    (d) => !SHARED_DIRS.has(d) && d.includes('/') && (() => { try { return statSync(join(SRC, d)).isDirectory(); } catch { return false; } })(),
+    (d) =>
+      !SHARED_DIRS.has(d) &&
+      d.includes('/') &&
+      (() => {
+        try {
+          return statSync(join(SRC, d)).isDirectory();
+        } catch {
+          return false;
+        }
+      })(),
   );
   if (owned.length === 0) {
-    C.push({ ...row, why: 'every entry sits in a flat shared directory — no domain directory to walk' });
+    C.push({
+      ...row,
+      why: 'every entry sits in a flat shared directory — no domain directory to walk',
+    });
     continue;
   }
   const slugs = slugsFor(owned);
-  const flat = [...new Set(SHARED_FLAT_DIRS.flatMap((d) => slugs.flatMap((s) => namedIn(d, new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')))))];
+  const flat = [
+    ...new Set(
+      SHARED_FLAT_DIRS.flatMap((d) =>
+        slugs.flatMap((s) => namedIn(d, new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))),
+      ),
+    ),
+  ];
   const derived = [...new Set([...owned.flatMap(walk), ...flat])];
   const missing = row.paths.filter((p) => !derived.includes(p));
   const added = derived.filter((p) => !row.paths.includes(p));
   if (missing.length > 0) {
-    C.push({ ...row, why: `the walk misses ${missing.length} listed entr(ies) — the list spans more than its own directories: ${missing.slice(0, 3).join(', ')}`, derived, missing });
+    C.push({
+      ...row,
+      why: `the walk misses ${missing.length} listed entr(ies) — the list spans more than its own directories: ${missing.slice(0, 3).join(', ')}`,
+      derived,
+      missing,
+    });
   } else if (added.length > 0) {
     A.push({ ...row, derived, added, owned });
   } else {
@@ -257,4 +287,6 @@ show('BUCKET B — a POPULATION, derivable, COMPLETE today (undefended)', B, (r)
 show('BUCKET C — not a population, or not derivable (a legitimate hand list)', C, (r) => {
   console.log(`   ${r.why}`);
 });
-console.log(`\n\nA=${A.length}  B=${B.length}  C=${C.length}   (${rows.length} arrays over ${gateFiles(SRC).length} gates)`);
+console.log(
+  `\n\nA=${A.length}  B=${B.length}  C=${C.length}   (${rows.length} arrays over ${gateFiles(SRC).length} gates)`,
+);

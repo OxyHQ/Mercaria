@@ -188,11 +188,7 @@ describe('#431: the reward-refusal backfill and the CHECK that follows it', () =
         const rows = await tx.execute(
           sql`select subject_id, reward_refusal_reason from referral_events order by subject_id`,
         );
-        expect(rows.map((row) => row.subject_id)).toEqual([
-          'bf-a-cap',
-          'bf-b-budget',
-          'bf-c-zero',
-        ]);
+        expect(rows.map((row) => row.subject_id)).toEqual(['bf-a-cap', 'bf-b-budget', 'bf-c-zero']);
         expect(rows.map((row) => row.reward_refusal_reason)).toEqual([
           'cap_reached',
           'budget_exhausted',

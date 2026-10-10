@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Platform } from 'react-native';
 
 /**
  * Centralized API + Oxy SSO configuration for the Mercaria dashboard.
@@ -11,12 +11,11 @@ import { Platform } from "react-native";
  */
 
 // Default API URLs for different environments.
-export const DEV_API_BASE_URL = "http://localhost:4160";
-export const PROD_API_BASE_URL = "https://api.mercaria.co";
+export const DEV_API_BASE_URL = 'http://localhost:4160';
+export const PROD_API_BASE_URL = 'https://api.mercaria.co';
 
 // Oxy IdP API base URL (the SSO provider that mints/validates sessions).
-export const OXY_API_URL =
-  process.env.EXPO_PUBLIC_OXY_API_URL ?? "https://api.oxy.so";
+export const OXY_API_URL = process.env.EXPO_PUBLIC_OXY_API_URL ?? 'https://api.oxy.so';
 
 /**
  * Oxy SSO client id for the Mercaria dashboard (registered via the Oxy console).
@@ -27,7 +26,7 @@ export const OXY_API_URL =
  */
 export const OXY_CLIENT_ID =
   process.env.EXPO_PUBLIC_OXY_CLIENT_ID ??
-  "oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c";
+  'oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c';
 
 /**
  * GoWay's API origin (ADR 0013): the location editor reads and edits a store's
@@ -54,7 +53,7 @@ function getEnvVars(): { apiUrl: string } {
   }
 
   // Web in development always talks to localhost.
-  if (Platform.OS === "web") {
+  if (Platform.OS === 'web') {
     return { apiUrl: DEV_API_BASE_URL };
   }
 

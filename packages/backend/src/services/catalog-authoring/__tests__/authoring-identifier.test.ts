@@ -14,10 +14,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  IDENTIFIER_SCHEME_REGISTRY,
-  type IdentifierScheme,
-} from '@mercaria/shared-types';
+import { IDENTIFIER_SCHEME_REGISTRY, type IdentifierScheme } from '@mercaria/shared-types';
 import { gs1CheckDigit } from '../../canonical/identifiers.js';
 import {
   GTIN_SCHEME_BY_LENGTH,

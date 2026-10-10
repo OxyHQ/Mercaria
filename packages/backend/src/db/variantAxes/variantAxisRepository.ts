@@ -162,34 +162,36 @@ export async function listVariantAxesForListings(
   listingIds: readonly string[],
 ): Promise<NativeVariantAxisWithLabel[]> {
   if (listingIds.length === 0) return [];
-  return db
-    .select({
-      id: nativeListingVariantAxes.id,
-      listingId: nativeListingVariantAxes.listingId,
-      attributeKey: nativeListingVariantAxes.attributeKey,
-      attributeDefinitionId: nativeListingVariantAxes.attributeDefinitionId,
-      attributeDefinitionVersion: nativeListingVariantAxes.attributeDefinitionVersion,
-      label: attributeDefinitions.label,
-      legacyOptionName: nativeListingVariantAxes.legacyOptionName,
-      position: nativeListingVariantAxes.position,
-    })
-    .from(nativeListingVariantAxes)
-    // INNER join: `attribute_definition_id` is NOT NULL with an `ON DELETE
-    // restrict` edge, so a definition a live axis cites cannot be deleted and a
-    // missing row is unrepresentable. A left join would add a `null` branch
-    // whose only reachable meaning is "the database broke its own constraint",
-    // and the honest handling of that is a loud absence rather than a listing
-    // rendered with a blank option name.
-    .innerJoin(
-      attributeDefinitions,
-      eq(attributeDefinitions.id, nativeListingVariantAxes.attributeDefinitionId),
-    )
-    .where(inArray(nativeListingVariantAxes.listingId, [...listingIds]))
-    .orderBy(
-      asc(nativeListingVariantAxes.listingId),
-      asc(nativeListingVariantAxes.position),
-      asc(nativeListingVariantAxes.attributeKey),
-    );
+  return (
+    db
+      .select({
+        id: nativeListingVariantAxes.id,
+        listingId: nativeListingVariantAxes.listingId,
+        attributeKey: nativeListingVariantAxes.attributeKey,
+        attributeDefinitionId: nativeListingVariantAxes.attributeDefinitionId,
+        attributeDefinitionVersion: nativeListingVariantAxes.attributeDefinitionVersion,
+        label: attributeDefinitions.label,
+        legacyOptionName: nativeListingVariantAxes.legacyOptionName,
+        position: nativeListingVariantAxes.position,
+      })
+      .from(nativeListingVariantAxes)
+      // INNER join: `attribute_definition_id` is NOT NULL with an `ON DELETE
+      // restrict` edge, so a definition a live axis cites cannot be deleted and a
+      // missing row is unrepresentable. A left join would add a `null` branch
+      // whose only reachable meaning is "the database broke its own constraint",
+      // and the honest handling of that is a loud absence rather than a listing
+      // rendered with a blank option name.
+      .innerJoin(
+        attributeDefinitions,
+        eq(attributeDefinitions.id, nativeListingVariantAxes.attributeDefinitionId),
+      )
+      .where(inArray(nativeListingVariantAxes.listingId, [...listingIds]))
+      .orderBy(
+        asc(nativeListingVariantAxes.listingId),
+        asc(nativeListingVariantAxes.position),
+        asc(nativeListingVariantAxes.attributeKey),
+      )
+  );
 }
 
 /**
@@ -199,10 +201,7 @@ export async function listVariantAxesForListings(
  * transaction; the deferred count constraint refuses the commit otherwise, which
  * is the point of it being deferred rather than immediate.
  */
-export async function retireVariantAxis(
-  db: DatabaseOrTransaction,
-  axisId: string,
-): Promise<void> {
+export async function retireVariantAxis(db: DatabaseOrTransaction, axisId: string): Promise<void> {
   await db.delete(nativeListingVariantAxes).where(eq(nativeListingVariantAxes.id, axisId));
 }
 

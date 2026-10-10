@@ -52,8 +52,7 @@ export type RetailOrderRoleSnapshotRow = typeof retailOrderRoleSnapshots.$inferS
 /** One supplier's fulfilment intent for one retail order. */
 export type RetailFulfilmentIntentRow = typeof retailFulfilmentIntents.$inferSelect;
 /** Which units of which customer line one intent covers. */
-export type RetailFulfilmentLineAllocationRow =
-  typeof retailFulfilmentLineAllocations.$inferSelect;
+export type RetailFulfilmentLineAllocationRow = typeof retailFulfilmentLineAllocations.$inferSelect;
 /** One delivery-promise observation. */
 export type RetailDeliveryPromiseRow = typeof retailDeliveryPromises.$inferSelect;
 
@@ -447,7 +446,10 @@ export async function listRetailFulfilmentLineAllocations(
     .select()
     .from(retailFulfilmentLineAllocations)
     .where(inArray(retailFulfilmentLineAllocations.fulfilmentIntentId, [...intentIds]))
-    .orderBy(asc(retailFulfilmentLineAllocations.orderItemId), asc(retailFulfilmentLineAllocations.id));
+    .orderBy(
+      asc(retailFulfilmentLineAllocations.orderItemId),
+      asc(retailFulfilmentLineAllocations.id),
+    );
 }
 
 /** One customer line, what was ordered, and what is allocated against it. */
@@ -528,10 +530,7 @@ export async function chooseRetailFulfilmentMode(input: {
     .update(retailFulfilmentIntents)
     .set({ fulfilmentMode: input.mode })
     .where(
-      and(
-        eq(retailFulfilmentIntents.id, input.id),
-        isNull(retailFulfilmentIntents.fulfilmentMode),
-      ),
+      and(eq(retailFulfilmentIntents.id, input.id), isNull(retailFulfilmentIntents.fulfilmentMode)),
     )
     .returning();
   return row;

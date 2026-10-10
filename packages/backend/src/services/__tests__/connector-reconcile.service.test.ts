@@ -52,7 +52,10 @@ vi.mock('../catalog-write.service.js', () => ({
   updateListing: vi.fn(),
   updateVariant: vi.fn(),
 }));
-vi.mock('../../lib/connector-crypto.js', () => ({ encryptSecret: vi.fn(), decryptSecret: vi.fn() }));
+vi.mock('../../lib/connector-crypto.js', () => ({
+  encryptSecret: vi.fn(),
+  decryptSecret: vi.fn(),
+}));
 vi.mock('../../connectors/registry.js', () => ({ getConnectorProvider: vi.fn() }));
 vi.mock('../../queue/producers.js', () => ({
   enqueueConnectionBackfill: (...a: unknown[]) => enqueueConnectionBackfill(...a),

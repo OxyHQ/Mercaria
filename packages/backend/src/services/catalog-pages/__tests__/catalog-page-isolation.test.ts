@@ -208,7 +208,9 @@ describe('#72 a catalogue page infers nothing and writes nothing', () => {
     const modules = domainModules();
     // A floor on the SCAN itself: a renamed directory would otherwise walk an
     // empty list and every assertion below would pass vacuously.
-    expect(modules.length, 'the catalog-pages domain looks empty — did it move?').toBeGreaterThan(8);
+    expect(modules.length, 'the catalog-pages domain looks empty — did it move?').toBeGreaterThan(
+      8,
+    );
     for (const module of modules) {
       expect(module.source.length, `${module.relative} looks empty`).toBeGreaterThan(200);
     }
@@ -275,24 +277,26 @@ describe('#72 a catalogue page infers nothing and writes nothing', () => {
 
 describe('#72 every detector actually detects — the mutation self-tests', () => {
   it('catches a resemblance inference', () => {
-    expect(RESEMBLANCE_INFERENCE.test('if (brand.normalizedName === merchant.normalizedName) {')).toBe(
-      true,
-    );
-    expect(RESEMBLANCE_INFERENCE.test('if (brand.observedDomains.includes(host)) badge = true;')).toBe(
-      true,
-    );
+    expect(
+      RESEMBLANCE_INFERENCE.test('if (brand.normalizedName === merchant.normalizedName) {'),
+    ).toBe(true);
+    expect(
+      RESEMBLANCE_INFERENCE.test('if (brand.observedDomains.includes(host)) badge = true;'),
+    ).toBe(true);
     expect(
       RESEMBLANCE_INFERENCE.test(
         "import { findMerchantDomainsByDomain } from '../../db/commerce-graph/merchantRepository.js';",
       ),
     ).toBe(true);
-    expect(RESEMBLANCE_INFERENCE.test('const channels = await listBrandChannels({ brandId });')).toBe(
-      false,
-    );
+    expect(
+      RESEMBLANCE_INFERENCE.test('const channels = await listBrandChannels({ brandId });'),
+    ).toBe(false);
     // The negative that matters most: a product count is legitimate here and
     // must NOT fire, or the gate gets loosened by whoever hits it next.
     expect(
-      RESEMBLANCE_INFERENCE.test('if (input.productCount < BRAND_INDEXABLE_MIN_PRODUCTS) return "thin";'),
+      RESEMBLANCE_INFERENCE.test(
+        'if (input.productCount < BRAND_INDEXABLE_MIN_PRODUCTS) return "thin";',
+      ),
     ).toBe(false);
   });
 
@@ -308,14 +312,16 @@ describe('#72 every detector actually detects — the mutation self-tests', () =
       ),
     ).toBe(true);
     expect(
-      CANONICAL_WRITE_REFERENCE.test("import { findBrandById } from '../../db/canonical/brandRepository.js';"),
+      CANONICAL_WRITE_REFERENCE.test(
+        "import { findBrandById } from '../../db/canonical/brandRepository.js';",
+      ),
     ).toBe(false);
   });
 
   it('catches a commercial reference', () => {
-    expect(COMMERCIAL_REFERENCE.test("import { planFee } from '../fees/order-fees.service.js';")).toBe(
-      true,
-    );
+    expect(
+      COMMERCIAL_REFERENCE.test("import { planFee } from '../fees/order-fees.service.js';"),
+    ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('const rate = offer.commissionRate;')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
@@ -323,15 +329,17 @@ describe('#72 every detector actually detects — the mutation self-tests', () =
   it('catches an entity rating', () => {
     expect(ENTITY_RATING_REFERENCE.test('const stars = page.brandRating;')).toBe(true);
     expect(ENTITY_RATING_REFERENCE.test('select rating from brands')).toBe(false);
-    expect(ENTITY_RATING_REFERENCE.test('rating: { value: row.rating, count: row.ratingCount }')).toBe(
-      false,
-    );
+    expect(
+      ENTITY_RATING_REFERENCE.test('rating: { value: row.rating, count: row.ratingCount }'),
+    ).toBe(false);
   });
 
   it('catches a storefront reference', () => {
     expect(STOREFRONT_REFERENCE.test("import { addToCart } from '../cart.service.js';")).toBe(true);
     expect(
-      STOREFRONT_REFERENCE.test("import { listOffersForComparison } from '../../db/offers/offerRepository.js';"),
+      STOREFRONT_REFERENCE.test(
+        "import { listOffersForComparison } from '../../db/offers/offerRepository.js';",
+      ),
     ).toBe(false);
   });
 });

@@ -3,7 +3,11 @@ import type { CatalogBackfillRunStatus, CatalogBackfillStage } from '@mercaria/s
 import { CATALOG_BACKFILL_STAGES } from '@mercaria/shared-types';
 import { AUTOPILOT_STAGE_SEQUENCE, planNextStage, type StageRunFacts } from '../stage-plan.js';
 
-const SEQUENCE: readonly CatalogBackfillStage[] = ['store_merchants', 'reference_products', 'reference_promotion'];
+const SEQUENCE: readonly CatalogBackfillStage[] = [
+  'store_merchants',
+  'reference_products',
+  'reference_promotion',
+];
 const INTERVAL_MS = 30 * 60 * 1_000;
 const T0 = new Date('2025-06-02T10:00:00.000Z');
 
@@ -11,7 +15,11 @@ function at(minutes: number): Date {
   return new Date(T0.getTime() + minutes * 60 * 1_000);
 }
 
-function run(status: CatalogBackfillRunStatus, created: number, finished: number | null = null): StageRunFacts {
+function run(
+  status: CatalogBackfillRunStatus,
+  created: number,
+  finished: number | null = null,
+): StageRunFacts {
   return {
     status,
     createdAt: at(created),
@@ -20,7 +28,10 @@ function run(status: CatalogBackfillRunStatus, created: number, finished: number
   };
 }
 
-function plan(entries: readonly [CatalogBackfillStage, StageRunFacts][], now: Date): CatalogBackfillStage | null {
+function plan(
+  entries: readonly [CatalogBackfillStage, StageRunFacts][],
+  now: Date,
+): CatalogBackfillStage | null {
   return planNextStage(new Map(entries), now, SEQUENCE, INTERVAL_MS);
 }
 
@@ -31,13 +42,27 @@ describe('planNextStage', () => {
 
   it('waits while any stage of the cycle is open', () => {
     expect(plan([['store_merchants', run('running', 0)]], at(1))).toBeNull();
-    expect(plan([['store_merchants', run('completed', 0, 1)], ['reference_products', run('paused', 2)]], at(3))).toBeNull();
+    expect(
+      plan(
+        [
+          ['store_merchants', run('completed', 0, 1)],
+          ['reference_products', run('paused', 2)],
+        ],
+        at(3),
+      ),
+    ).toBeNull();
   });
 
   it('opens each stage once its predecessor finished, in order', () => {
-    const first: [CatalogBackfillStage, StageRunFacts] = ['store_merchants', run('completed', 0, 1)];
+    const first: [CatalogBackfillStage, StageRunFacts] = [
+      'store_merchants',
+      run('completed', 0, 1),
+    ];
     expect(plan([first], at(2))).toBe('reference_products');
-    const second: [CatalogBackfillStage, StageRunFacts] = ['reference_products', run('completed', 2, 3)];
+    const second: [CatalogBackfillStage, StageRunFacts] = [
+      'reference_products',
+      run('completed', 2, 3),
+    ];
     expect(plan([first, second], at(4))).toBe('reference_promotion');
   });
 

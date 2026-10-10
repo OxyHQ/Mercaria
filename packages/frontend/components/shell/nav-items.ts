@@ -1,5 +1,5 @@
-import type { ShopNavigationIconName } from "@mercaria/ui";
-import type { RoutePath } from "expo-router";
+import type { ShopNavigationIconName } from '@mercaria/ui';
+import type { RoutePath } from 'expo-router';
 
 /**
  * Canonical navigation model for the storefront shell, shared by the desktop
@@ -49,10 +49,10 @@ export type NavItem =
 
 export const NAV_ITEMS: readonly NavItem[] = [
   {
-    key: "home",
-    labelKey: "nav.home",
-    icon: "home",
-    href: "/",
+    key: 'home',
+    labelKey: 'nav.home',
+    icon: 'home',
+    href: '/',
     available: true,
   },
   // The SEO decision `docs/storefront-catalog.md` §Seams was waiting on is
@@ -60,31 +60,31 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // `category_index`, and the hub renders the published navigation trees. See
   // the `PublicRouteId` member for the reasoning.
   {
-    key: "explore",
-    labelKey: "nav.explore",
-    icon: "explore",
-    href: "/explore",
+    key: 'explore',
+    labelKey: 'nav.explore',
+    icon: 'explore',
+    href: '/explore',
     available: true,
   },
   {
-    key: "cart",
-    labelKey: "nav.cart",
-    icon: "cart",
-    href: "/cart",
+    key: 'cart',
+    labelKey: 'nav.cart',
+    icon: 'cart',
+    href: '/cart',
     available: true,
   },
   {
-    key: "deals",
-    labelKey: "nav.deals",
-    icon: "deals",
-    href: "/deals",
+    key: 'deals',
+    labelKey: 'nav.deals',
+    icon: 'deals',
+    href: '/deals',
     available: true,
   },
   {
-    key: "orders",
-    labelKey: "settings.sections.orders",
-    icon: "orders",
-    href: "/orders",
+    key: 'orders',
+    labelKey: 'settings.sections.orders',
+    icon: 'orders',
+    href: '/orders',
     available: true,
     desktopOnly: true,
   },
@@ -95,21 +95,21 @@ export const NAV_ITEMS: readonly NavItem[] = [
  * given nav item as active. Home matches the root / group-index variants.
  */
 export function isNavItemActive(item: NavItem, pathname: string): boolean {
-  if (item.key === "home") {
+  if (item.key === 'home') {
     return (
-      pathname === "/" ||
-      pathname === "/(app)" ||
-      (pathname.startsWith("/(app)") && pathname.replace("/(app)", "") === "")
+      pathname === '/' ||
+      pathname === '/(app)' ||
+      (pathname.startsWith('/(app)') && pathname.replace('/(app)', '') === '')
     );
   }
   // An item with no route can never be the one you are on.
   if (!item.available) return false;
   if (
-    item.key === "explore" &&
-    (pathname === "/3d" ||
-      pathname.startsWith("/3d/") ||
-      pathname.startsWith("/categories/") ||
-      pathname.startsWith("/curations/"))
+    item.key === 'explore' &&
+    (pathname === '/3d' ||
+      pathname.startsWith('/3d/') ||
+      pathname.startsWith('/categories/') ||
+      pathname.startsWith('/curations/'))
   )
     return true;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -123,10 +123,10 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
  */
 export function isAuthTabActive(pathname: string): boolean {
   return (
-    pathname === "/profile" ||
-    pathname === "/saved" ||
-    pathname.startsWith("/orders") ||
-    pathname.startsWith("/settings") ||
-    pathname.startsWith("/@")
+    pathname === '/profile' ||
+    pathname === '/saved' ||
+    pathname.startsWith('/orders') ||
+    pathname.startsWith('/settings') ||
+    pathname.startsWith('/@')
   );
 }

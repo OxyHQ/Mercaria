@@ -135,9 +135,7 @@ async function processClaimedEvent(input: {
   } catch (error: unknown) {
     const retryable = isRetryableProviderError(error);
     const deadLetter = !retryable || row.attempts >= config.payments.peable.eventMaxAttempts;
-    const message = redactProviderMessage(
-      error instanceof Error ? error.message : String(error),
-    );
+    const message = redactProviderMessage(error instanceof Error ? error.message : String(error));
     await failProviderEvent(db, {
       eventId: row.id,
       leaseOwner,
@@ -249,9 +247,7 @@ export async function drainPeableEvents(
  * this process dies first the poller picks it up. It exists only so a payment's
  * consequences are not held up by a poll interval.
  */
-export async function processStoredPeableEvent(input: {
-  storedEventId: string;
-}): Promise<void> {
+export async function processStoredPeableEvent(input: { storedEventId: string }): Promise<void> {
   const db = getDb();
   const leaseOwner = `peable-ingress:${String(process.pid)}:${randomUUID()}`;
   const row = await claimProviderEvent(db, {

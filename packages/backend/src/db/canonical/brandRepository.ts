@@ -15,7 +15,11 @@
  */
 
 import { and, arrayContains, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
-import type { CanonicalAliasKind, SourceLinkMethod, SourceLinkStatus } from '@mercaria/shared-types';
+import type {
+  CanonicalAliasKind,
+  SourceLinkMethod,
+  SourceLinkStatus,
+} from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { brandAliases, brands, brandSourceLinks } from '../schema/organizations.js';
 
@@ -102,7 +106,10 @@ export async function findBrandsByIds(
   ids: readonly string[],
 ): Promise<BrandRow[]> {
   if (ids.length === 0) return [];
-  return db.select().from(brands).where(inArray(brands.id, [...ids]));
+  return db
+    .select()
+    .from(brands)
+    .where(inArray(brands.id, [...ids]));
 }
 
 /** Exact-normalization candidates — equality on the service-maintained column. */
@@ -148,7 +155,10 @@ export async function findBrandsByObservedDomain(
   db: DatabaseOrTransaction,
   domain: string,
 ): Promise<BrandRow[]> {
-  return db.select().from(brands).where(arrayContains(brands.observedDomains, [domain]));
+  return db
+    .select()
+    .from(brands)
+    .where(arrayContains(brands.observedDomains, [domain]));
 }
 
 export interface InsertBrandAliasInput {
@@ -209,7 +219,10 @@ export async function listBrandAliasesForBrands(
   brandIds: readonly string[],
 ): Promise<BrandAliasRow[]> {
   if (brandIds.length === 0) return [];
-  return db.select().from(brandAliases).where(inArray(brandAliases.brandId, [...brandIds]));
+  return db
+    .select()
+    .from(brandAliases)
+    .where(inArray(brandAliases.brandId, [...brandIds]));
 }
 
 /** Distinct brand ids any alias with this normalization points at. */
@@ -320,9 +333,7 @@ export async function repointBrandAliases(
   if (taken.length > 0) {
     await db
       .delete(brandAliases)
-      .where(
-        and(eq(brandAliases.brandId, loserId), inArray(brandAliases.normalizedAlias, taken)),
-      );
+      .where(and(eq(brandAliases.brandId, loserId), inArray(brandAliases.normalizedAlias, taken)));
   }
   await db.update(brandAliases).set({ brandId: winnerId }).where(eq(brandAliases.brandId, loserId));
 }

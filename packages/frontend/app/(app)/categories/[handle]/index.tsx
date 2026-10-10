@@ -159,9 +159,7 @@ export default function CategoryScreen() {
           href={alternate.href}
         />
       ))}
-      {document?.robots === undefined ? null : (
-        <meta name="robots" content={document.robots} />
-      )}
+      {document?.robots === undefined ? null : <meta name="robots" content={document.robots} />}
       {/*
         The registry's own JSON-LD, composed from normalized facts and EMPTY
         whenever the document is not indexable (#75's contract). This renders
@@ -171,7 +169,7 @@ export default function CategoryScreen() {
       {jsonLd === undefined ? null : (
         <script
           type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: a JSON-LD script body from the structured-data serialiser, not markup
           dangerouslySetInnerHTML={{ __html: jsonLd }}
         />
       )}

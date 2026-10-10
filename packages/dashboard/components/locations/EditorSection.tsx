@@ -1,6 +1,6 @@
-import React from "react";
-import { View } from "react-native";
-import { Text } from "@mercaria/ui";
+import React from 'react';
+import { View } from 'react-native';
+import { Text } from '@mercaria/ui';
 
 /** One card of the location editor: a title, an optional explanation, its body. */
 export function EditorSection({

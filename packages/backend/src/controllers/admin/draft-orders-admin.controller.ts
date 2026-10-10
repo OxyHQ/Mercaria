@@ -134,7 +134,11 @@ export async function updateStoreDraftLine(req: Request, res: Response): Promise
 /** DELETE /admin/stores/:storeId/draft-orders/:id/lines/:variantId — remove a line. */
 export async function removeStoreDraftLine(req: Request, res: Response): Promise<void> {
   try {
-    const draft = await removeLine(storeId(req), routeParam(req, 'id'), routeParam(req, 'variantId'));
+    const draft = await removeLine(
+      storeId(req),
+      routeParam(req, 'id'),
+      routeParam(req, 'variantId'),
+    );
     sendSuccess(res, toDraftOrderDTO(draft));
   } catch (err) {
     log.general.error({ err, draftId: req.params.id }, 'Failed to remove draft order line');

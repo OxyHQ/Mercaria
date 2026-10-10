@@ -88,11 +88,7 @@ import { merchantDemandSnapshots } from './schema/merchantDemand';
 import { affiliateOutboundClicks } from './schema/affiliateOutbound.js';
 import { catalogSourceRejections } from './schema/ingestion';
 import { syncRunRecordFailures } from './schema/connectors';
-import {
-  feedImportReportEntries,
-  feedImportReports,
-  feedUploads,
-} from './schema/feedImport';
+import { feedImportReportEntries, feedImportReports, feedUploads } from './schema/feedImport';
 import {
   guestAbuseCounters,
   guestAbuseInterventions,
@@ -632,7 +628,7 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
     retentionSeconds: 0,
     reason:
       'A staged feed upload (#63), seven days after it was received. The bytes it names live ' +
-      'on one task\'s disk and do not survive a deployment, so a long-lived row here would ' +
+      "on one task's disk and do not survive a deployment, so a long-lived row here would " +
       'only ever be a `missing` refusal with a plausible-looking date on it.',
   },
   {
@@ -806,7 +802,7 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'stamped at creation from `CATALOG_AUTHORING_DRAFT_TTL_SECONDS`, so a later change to ' +
       'that window cannot retroactively shorten a form somebody is still filling in. It is ' +
       'NULL exactly when the draft was PUBLISHED — `catalog_authoring_drafts_expiry_check` ' +
-      'states the biconditional — so the sweep\'s unconditional predicate selects precisely ' +
+      "states the biconditional — so the sweep's unconditional predicate selects precisely " +
       'the abandoned set and never the audit record of a listing that exists. The ' +
       '`notifications.dismissed_at` device: a condition the sweep cannot express, turned ' +
       'into a column it can.',

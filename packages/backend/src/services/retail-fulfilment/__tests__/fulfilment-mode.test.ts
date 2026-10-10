@@ -11,10 +11,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  chooseFulfilmentMode,
-  determinePermittedFulfilmentMode,
-} from '../fulfilment-mode.js';
+import { chooseFulfilmentMode, determinePermittedFulfilmentMode } from '../fulfilment-mode.js';
 
 describe('determinePermittedFulfilmentMode', () => {
   it('refuses an agreement that is not in force, whatever it grants', () => {

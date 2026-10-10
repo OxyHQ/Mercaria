@@ -101,12 +101,28 @@ describe('selectSourcingOrder', () => {
   it('refuses rather than penalizes: suppression, inactivity, capability, concentration', () => {
     const { ordered, skipped } = selectSourcingOrder(
       [
-        candidate({ procurementOfferId: 'suppressed', suppression: 'supplier', landedCostMinor: 1 }),
+        candidate({
+          procurementOfferId: 'suppressed',
+          suppression: 'supplier',
+          landedCostMinor: 1,
+        }),
         candidate({ procurementOfferId: 'market', suppression: 'market', landedCostMinor: 1 }),
         candidate({ procurementOfferId: 'inactive', accountActive: false, landedCostMinor: 1 }),
-        candidate({ procurementOfferId: 'ineligible', destinationEligible: false, landedCostMinor: 1 }),
-        candidate({ procurementOfferId: 'incapable', declaredCapabilities: [], landedCostMinor: 1 }),
-        candidate({ procurementOfferId: 'concentrated', currentShareBps: 10_000, landedCostMinor: 1 }),
+        candidate({
+          procurementOfferId: 'ineligible',
+          destinationEligible: false,
+          landedCostMinor: 1,
+        }),
+        candidate({
+          procurementOfferId: 'incapable',
+          declaredCapabilities: [],
+          landedCostMinor: 1,
+        }),
+        candidate({
+          procurementOfferId: 'concentrated',
+          currentShareBps: 10_000,
+          landedCostMinor: 1,
+        }),
         candidate({ procurementOfferId: 'fine', landedCostMinor: 9_999 }),
       ],
       POLICY,
@@ -144,7 +160,9 @@ describe('selectSourcingOrder', () => {
  * actually failing to compile. Reading the property through `in` is the form
  * that works in both modes.
  */
-function refusalsOf(decision: ReturnType<typeof assertSubstitutionPermitted>): readonly string[] | null {
+function refusalsOf(
+  decision: ReturnType<typeof assertSubstitutionPermitted>,
+): readonly string[] | null {
   return 'refusals' in decision ? [...decision.refusals] : null;
 }
 
@@ -200,11 +218,9 @@ describe('assertSubstitutionPermitted', () => {
     expect(assertSubstitutionPermitted(locked, pricier, { termsLocked: false })).toEqual({
       permitted: true,
     });
-    expect(refusalsOf(assertSubstitutionPermitted(locked, pricier, { termsLocked: true }))).toEqual([
-      'higher_total_price',
-      'slower_delivery_commitment',
-      'weaker_return_capability',
-    ]);
+    expect(refusalsOf(assertSubstitutionPermitted(locked, pricier, { termsLocked: true }))).toEqual(
+      ['higher_total_price', 'slower_delivery_commitment', 'weaker_return_capability'],
+    );
   });
 
   it('treats WITHDRAWING a delivery promise as slower', () => {
@@ -243,13 +259,21 @@ describe('grouping', () => {
       line({ procurementOfferId: 'e' }),
     ]);
     expect(groups).toHaveLength(4);
-    const spanish = groups.find((group) => group.key.includes('acct-a') && group.key.includes('ES'));
+    const spanish = groups.find(
+      (group) => group.key.includes('acct-a') && group.key.includes('ES'),
+    );
     expect(spanish?.lines.map((entry) => entry.procurementOfferId)).toEqual(['a', 'e']);
   });
 
   it('decomposes identically however the lines were ordered', () => {
-    const forward = groupRetailLines([line({ procurementOfferId: 'a' }), line({ procurementOfferId: 'b' })]);
-    const backward = groupRetailLines([line({ procurementOfferId: 'b' }), line({ procurementOfferId: 'a' })]);
+    const forward = groupRetailLines([
+      line({ procurementOfferId: 'a' }),
+      line({ procurementOfferId: 'b' }),
+    ]);
+    const backward = groupRetailLines([
+      line({ procurementOfferId: 'b' }),
+      line({ procurementOfferId: 'a' }),
+    ]);
     expect(forward.map((group) => group.key)).toEqual(backward.map((group) => group.key));
     expect(forward[0]?.lines.map((entry) => entry.procurementOfferId)).toEqual(
       backward[0]?.lines.map((entry) => entry.procurementOfferId),
@@ -293,7 +317,12 @@ describe('grouping', () => {
           key: 'g1',
           currency: EUR,
           itemSubtotalMinor: 1_000,
-          shipping: { basis: 'basket', cost: { amount: 500, currency: EUR }, serviceCode: 's', guaranteed: true },
+          shipping: {
+            basis: 'basket',
+            cost: { amount: 500, currency: EUR },
+            serviceCode: 's',
+            guaranteed: true,
+          },
           taxMinor: null,
           dutyMinor: null,
           complete: true,
@@ -324,7 +353,12 @@ describe('grouping', () => {
           key: 'g1',
           currency: EUR,
           itemSubtotalMinor: 1_000,
-          shipping: { basis: 'basket', cost: { amount: 500, currency: EUR }, serviceCode: 's', guaranteed: true },
+          shipping: {
+            basis: 'basket',
+            cost: { amount: 500, currency: EUR },
+            serviceCode: 's',
+            guaranteed: true,
+          },
           taxMinor: 210,
           dutyMinor: null,
           complete: true,
@@ -346,7 +380,12 @@ describe('grouping', () => {
           key: 'usd',
           currency: 'USD',
           itemSubtotalMinor: 1_000,
-          shipping: { basis: 'basket', cost: { amount: 500, currency: 'USD' }, serviceCode: 's', guaranteed: true },
+          shipping: {
+            basis: 'basket',
+            cost: { amount: 500, currency: 'USD' },
+            serviceCode: 's',
+            guaranteed: true,
+          },
           taxMinor: null,
           dutyMinor: null,
           complete: true,
@@ -365,7 +404,13 @@ describe('grouping', () => {
     ]);
     expect(group).toBeDefined();
     const violations = findGroupQuantityViolations(
-      group ?? { key: '', supplierAccountId: '', fulfilmentOriginCountry: null, currency: EUR, lines: [] },
+      group ?? {
+        key: '',
+        supplierAccountId: '',
+        fulfilmentOriginCountry: null,
+        currency: EUR,
+        lines: [],
+      },
     );
     expect(violations.map((entry) => entry.procurementOfferId).sort()).toEqual(['odd', 'small']);
   });

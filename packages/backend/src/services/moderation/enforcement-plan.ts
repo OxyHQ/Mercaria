@@ -65,42 +65,41 @@ export interface PlannedEnforcementAction {
  * rather than silently falling through to a default. Deciding what a new
  * recommendation means is a policy question, and it should be answered on purpose.
  */
-const RECOMMENDATION_TO_ACTION: Readonly<
-  Record<RecommendedAction, ModerationEnforcementAction>
-> = Object.freeze({
-  remove: 'restrict',
-  remove_or_restrict: 'restrict',
-  hide: 'restrict',
+const RECOMMENDATION_TO_ACTION: Readonly<Record<RecommendedAction, ModerationEnforcementAction>> =
+  Object.freeze({
+    remove: 'restrict',
+    remove_or_restrict: 'restrict',
+    hide: 'restrict',
 
-  /** The commerce levers, real here for the first time. */
-  request_changes: 'request_changes',
-  freeze_transaction: 'freeze_transaction',
+    /** The commerce levers, real here for the first time. */
+    request_changes: 'request_changes',
+    freeze_transaction: 'freeze_transaction',
 
-  allow: 'none',
-  no_action: 'none',
-  no_global_effect: 'none',
-  restore: 'restore',
+    allow: 'none',
+    no_action: 'none',
+    no_global_effect: 'none',
+    restore: 'restore',
 
-  /**
-   * Asks for a middle setting Mercaria does not have. A human decides, and the
-   * row records which recommendation they are answering.
-   */
-  label: 'manual_review',
-  allow_with_label: 'manual_review',
-  age_gate: 'manual_review',
-  reduce_distribution: 'manual_review',
+    /**
+     * Asks for a middle setting Mercaria does not have. A human decides, and the
+     * row records which recommendation they are answering.
+     */
+    label: 'manual_review',
+    allow_with_label: 'manual_review',
+    age_gate: 'manual_review',
+    reduce_distribution: 'manual_review',
 
-  /** Levers Mercaria does not hold at all. `suspend_user` is Oxy's. */
-  suspend_user: 'manual_review',
-  request_more_context: 'manual_review',
-  hold: 'manual_review',
-  local_manual_review: 'manual_review',
-  keep_restricted_temporarily: 'manual_review',
-  escalate: 'manual_review',
-  specialist_queue: 'manual_review',
-  legal_queue: 'manual_review',
-  safety_queue: 'manual_review',
-});
+    /** Levers Mercaria does not hold at all. `suspend_user` is Oxy's. */
+    suspend_user: 'manual_review',
+    request_more_context: 'manual_review',
+    hold: 'manual_review',
+    local_manual_review: 'manual_review',
+    keep_restricted_temporarily: 'manual_review',
+    escalate: 'manual_review',
+    specialist_queue: 'manual_review',
+    legal_queue: 'manual_review',
+    safety_queue: 'manual_review',
+  });
 
 /**
  * The action a violation gets when the decision recommended nothing.
@@ -112,13 +111,12 @@ const RECOMMENDATION_TO_ACTION: Readonly<
  * removal driven by a webhook is not that. The difference is a policy decision
  * with legal weight, and a mapping table is the wrong place to make it.
  */
-const SEVERITY_FALLBACK: Readonly<Record<Severity, ModerationEnforcementAction>> =
-  Object.freeze({
-    critical: 'manual_review',
-    high: 'restrict',
-    medium: 'request_changes',
-    low: 'manual_review',
-  });
+const SEVERITY_FALLBACK: Readonly<Record<Severity, ModerationEnforcementAction>> = Object.freeze({
+  critical: 'manual_review',
+  high: 'restrict',
+  medium: 'request_changes',
+  low: 'manual_review',
+});
 
 const SEVERITY_ORDER: readonly Severity[] = ['low', 'medium', 'high', 'critical'];
 
@@ -157,10 +155,7 @@ function withRestoreForNoViolation(
 ): readonly PlannedEnforcementAction[] {
   if (decision.outcome !== 'no_violation') return planned;
   if (planned.some((entry) => entry.action === 'restore')) return planned;
-  return [
-    ...planned,
-    { action: 'restore', reason: 'No violation: undo any earlier restriction' },
-  ];
+  return [...planned, { action: 'restore', reason: 'No violation: undo any earlier restriction' }];
 }
 
 /**
@@ -181,9 +176,7 @@ function withRestoreForNoViolation(
  * because something else was also done is how a `suspend_user` recommendation gets
  * lost.
  */
-function collapse(
-  actions: readonly PlannedEnforcementAction[],
-): PlannedEnforcementAction[] {
+function collapse(actions: readonly PlannedEnforcementAction[]): PlannedEnforcementAction[] {
   const byAction = new Map<ModerationEnforcementAction, PlannedEnforcementAction>();
   for (const planned of actions) {
     if (!byAction.has(planned.action)) byAction.set(planned.action, planned);

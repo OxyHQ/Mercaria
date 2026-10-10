@@ -142,12 +142,12 @@ describe('every subscribed type has a handler', () => {
 });
 
 describe('isWrongScope', () => {
-  it('refuses the other endpoint\'s types, at both endpoints', () => {
+  it("refuses the other endpoint's types, at both endpoints", () => {
     expect(isWrongScope('platform', 'payout.paid')).toBe(true);
     expect(isWrongScope('connect', 'payment_intent.succeeded')).toBe(true);
   });
 
-  it('accepts an endpoint\'s own types', () => {
+  it("accepts an endpoint's own types", () => {
     expect(isWrongScope('platform', 'payment_intent.succeeded')).toBe(false);
     expect(isWrongScope('connect', 'account.updated')).toBe(false);
   });

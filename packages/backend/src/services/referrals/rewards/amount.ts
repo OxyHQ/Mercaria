@@ -73,7 +73,9 @@ function roundHalfEven(numerator: bigint, denominator: bigint): bigint {
  */
 export function percentageOfRealizedBase(baseMinor: number, rateBps: number): number {
   if (!Number.isInteger(baseMinor) || baseMinor < 0) {
-    throw new RangeError(`A realized base must be a non-negative integer, got ${String(baseMinor)}`);
+    throw new RangeError(
+      `A realized base must be a non-negative integer, got ${String(baseMinor)}`,
+    );
   }
   if (!Number.isInteger(rateBps) || rateBps <= 0 || rateBps > REWARD_RATE_BPS_DENOMINATOR) {
     throw new RangeError(
@@ -129,7 +131,9 @@ export interface ClampedReward {
  */
 export function clampReward(amountMinor: number, ceilings: RewardCeilings): ClampedReward {
   if (!Number.isInteger(amountMinor) || amountMinor < 0) {
-    throw new RangeError(`A reward amount must be a non-negative integer, got ${String(amountMinor)}`);
+    throw new RangeError(
+      `A reward amount must be a non-negative integer, got ${String(amountMinor)}`,
+    );
   }
   const candidates: { limit: number; applied: RewardCeilingApplied }[] = [
     { limit: ceilings.realizedFundingMinor, applied: 'realized_funding' },

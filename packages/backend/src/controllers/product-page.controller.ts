@@ -45,7 +45,10 @@ import type {
 import { config } from '../config/index.js';
 import { getDb } from '../db/postgres.js';
 import { countActiveNativeListingsForCanonicalVariants } from '../db/productPage/productPageRepository.js';
-import { canonicalReadPermitted, resolveOfferComparisonMode } from '../services/backfill/read-mode.js';
+import {
+  canonicalReadPermitted,
+  resolveOfferComparisonMode,
+} from '../services/backfill/read-mode.js';
 import { readCanonicalProductPage } from '../services/product-page/product-page.service.js';
 import { recordProductPageShadow } from '../services/product-page/shadow.js';
 import {

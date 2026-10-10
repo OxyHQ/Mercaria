@@ -179,7 +179,11 @@ export const merchantClaims = pgTable(
       'merchant_claims_subject_domain_normalized_check',
       sql`${t.subjectKind} <> 'domain' or ${t.subjectRef} = lower(btrim(${t.subjectRef}))`,
     ),
-    checkOneOf('merchant_claims_revoke_reason_check', t.revokeReason, MERCHANT_CLAIM_REVOKE_REASONS),
+    checkOneOf(
+      'merchant_claims_revoke_reason_check',
+      t.revokeReason,
+      MERCHANT_CLAIM_REVOKE_REASONS,
+    ),
     // A verification nobody can date is not a verification anybody can audit —
     // the `merchant_domains_verified_state_check` shape.
     check(
@@ -223,9 +227,7 @@ export const merchantClaims = pgTable(
     index('merchant_claims_state_created_at_idx').on(t.state, t.createdAt),
     // The lazy expiry CAS narrows on this; partial because a terminal claim
     // carries no deadline at all.
-    index('merchant_claims_expires_at_idx')
-      .on(t.expiresAt)
-      .where(sql`${t.expiresAt} is not null`),
+    index('merchant_claims_expires_at_idx').on(t.expiresAt).where(sql`${t.expiresAt} is not null`),
     // The per-DOMAIN issuance budget joins challenges to their claim and counts
     // by subject; this is the side of that join that narrows.
     index('merchant_claims_subject_idx')

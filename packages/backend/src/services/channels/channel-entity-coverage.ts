@@ -244,8 +244,7 @@ export const PROVIDER_NON_ENTITY_MEMBERS: Readonly<Record<string, string>> = {
   credentialStrategy: 'How the platform is authorized.',
   webhookSecretStrategy: 'How inbound deliveries are authenticated.',
   capabilities: 'The declaration the carried half is derived FROM.',
-  externalTaxonomyNoun:
-    "Names the collection taxonomy in the platform's own word; moves no data.",
+  externalTaxonomyNoun: "Names the collection taxonomy in the platform's own word; moves no data.",
   orderHistoryHorizon: 'How far back orders reach — a bound on an entity already covered.',
   buildAuthorizeUrl: 'OAuth handshake.',
   exchangeCode: 'OAuth handshake.',

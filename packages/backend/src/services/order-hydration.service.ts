@@ -112,7 +112,7 @@ function toSeller(
     oxyUserId,
     displayName: oxyProfile?.displayName ?? oxyUserId,
     username: oxyProfile?.username ?? oxyUserId,
-    avatar: oxyProfile?.avatar ? resolveMedia(oxyProfile.avatar) : oxyProfile?.avatar ?? null,
+    avatar: oxyProfile?.avatar ? resolveMedia(oxyProfile.avatar) : (oxyProfile?.avatar ?? null),
     isVerified: profile?.isVerified ?? false,
   };
   if (profile && profile.reviewCount > 0) {
@@ -443,9 +443,7 @@ async function loadSellerContext(
 
   const [sellerProfileRows, storeDocs, oxyProfiles] = await Promise.all([
     findSellerProfilesByUserIds(userSellerIds),
-    storeIds.length > 0
-      ? findStoresByIds(storeIds)
-      : Promise.resolve([] as StoreRow[]),
+    storeIds.length > 0 ? findStoresByIds(storeIds) : Promise.resolve([] as StoreRow[]),
     getProfiles([...userSellerIds, ...extraOxyUserIds]),
   ]);
 
@@ -555,9 +553,13 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
       // `shippingAddress` key at all instead of an explicit `undefined` — the
       // treatment `buyerOxyUserId` above already gets, for the same reason: a key
       // present with no value reads to a client as "unknown", and this is "none".
-      ...(toAddressSnapshot(order) ? { shippingAddress: toAddressSnapshot(order) as AddressSnapshot } : {}),
+      ...(toAddressSnapshot(order)
+        ? { shippingAddress: toAddressSnapshot(order) as AddressSnapshot }
+        : {}),
       shipping: toShippingInfo(order),
-      ...(toDigitalSupply(order) ? { digitalSupply: toDigitalSupply(order) as OrderDigitalSupply } : {}),
+      ...(toDigitalSupply(order)
+        ? { digitalSupply: toDigitalSupply(order) as OrderDigitalSupply }
+        : {}),
       totals: {
         subtotal: dual(
           order.totalsSubtotalShopAmount,
@@ -624,7 +626,11 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
     if (order.sellerType === 'user' && order.sellerOxyUserId) {
       const oxyUserId = order.sellerOxyUserId;
       dto.sellerOxyUserId = oxyUserId;
-      dto.seller = toSeller(oxyUserId, sellerProfileByUser.get(oxyUserId), oxyProfiles.get(oxyUserId));
+      dto.seller = toSeller(
+        oxyUserId,
+        sellerProfileByUser.get(oxyUserId),
+        oxyProfiles.get(oxyUserId),
+      );
     } else if (order.sellerType === 'store' && order.storeId) {
       const storeId = order.storeId;
       dto.storeId = storeId;
@@ -782,9 +788,9 @@ export async function summarizeOrders(orders: OrderRecord[]): Promise<OrderSumma
         order.totalsGrandTotalPresentmentCurrency,
       ),
       itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
-      images: order.items.flatMap(item => item.imageUrl
-        ? [{ url: item.imageUrl, alt: item.title }]
-        : []),
+      images: order.items.flatMap((item) =>
+        item.imageUrl ? [{ url: item.imageUrl, alt: item.title }] : [],
+      ),
       sellerType: order.sellerType,
       createdAt: order.createdAt.toISOString(),
     };

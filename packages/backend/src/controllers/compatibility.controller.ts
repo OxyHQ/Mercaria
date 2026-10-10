@@ -131,7 +131,12 @@ export async function compatibilityRelationsHandler(req: Request, res: Response)
       const page = await readCompatibilityRelationPage({ lookup: 'subject', subject }, options);
       sendSuccess(
         res,
-        projectCompatibilityRelations('subject', page.relations, page.examinedLimit, page.truncated),
+        projectCompatibilityRelations(
+          'subject',
+          page.relations,
+          page.examinedLimit,
+          page.truncated,
+        ),
       );
       return;
     }

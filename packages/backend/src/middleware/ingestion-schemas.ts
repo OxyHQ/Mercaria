@@ -44,10 +44,23 @@ export const configureSourceSchema = z
     sourceAccountRef: z.string().trim().min(1).max(200).optional(),
     merchantId: z.string().trim().min(1).optional(),
     storefrontId: z.string().trim().min(1).optional(),
-    territories: z.array(z.string().regex(/^[A-Z]{2}$/u)).max(64).optional(),
+    territories: z
+      .array(z.string().regex(/^[A-Z]{2}$/u))
+      .max(64)
+      .optional(),
     credentialRef: credentialRef.optional(),
-    fetchCadenceSeconds: z.number().int().min(60).max(30 * 24 * 60 * 60).optional(),
-    freshnessTtlSeconds: z.number().int().min(60).max(90 * 24 * 60 * 60).optional(),
+    fetchCadenceSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(30 * 24 * 60 * 60)
+      .optional(),
+    freshnessTtlSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(90 * 24 * 60 * 60)
+      .optional(),
     rateLimitPerMinute: z.number().int().min(1).max(100_000).optional(),
     rateLimitConcurrency: z.number().int().min(1).max(64).optional(),
     rateLimitMinIntervalMs: z.number().int().min(0).max(60_000).optional(),
@@ -78,7 +91,12 @@ export const publishPolicySchema = z
     mayDisplay: z.boolean(),
     mayStore: z.boolean(),
     mayCache: z.boolean(),
-    cacheTtlSeconds: z.number().int().min(0).max(365 * 24 * 60 * 60).optional(),
+    cacheTtlSeconds: z
+      .number()
+      .int()
+      .min(0)
+      .max(365 * 24 * 60 * 60)
+      .optional(),
     mayDisplayPrice: z.boolean(),
     mayDisplayMedia: z.boolean(),
     mayLinkOut: z.boolean(),

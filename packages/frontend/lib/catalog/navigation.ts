@@ -78,9 +78,7 @@ function toMenuEntry(node: NavigationNodeView): CatalogMenuEntry {
   return {
     key: node.key,
     label: presentation.label,
-    ...(presentation.description === undefined
-      ? {}
-      : { description: presentation.description }),
+    ...(presentation.description === undefined ? {} : { description: presentation.description }),
     ...(presentation.accessibilityLabel === undefined
       ? {}
       : { accessibilityLabel: presentation.accessibilityLabel }),
@@ -124,9 +122,7 @@ function categoryNodeToEntry(node: CategoryNode): CatalogMenuEntry {
  * ONE synthetic tree rather than one per root: v1 has no surfaces, and minting
  * five would be inventing a structure the source does not have.
  */
-export function navigationFromCategoryTree(
-  categories: readonly CategoryNode[],
-): CatalogNavigation {
+export function navigationFromCategoryTree(categories: readonly CategoryNode[]): CatalogNavigation {
   return {
     source: 'category_tree_fallback',
     trees: [
@@ -185,12 +181,10 @@ export async function resolveCatalogNavigation(input: {
     // `then(onFulfilled, onRejected)` rather than a `try`/`catch` with an empty
     // block: the rejection handler is a value-producing branch and reads as one,
     // where an empty `catch` reads as an error somebody forgot to handle.
-    const trees = await input
-      .readTrees(input.market, input.locale, input.surface)
-      .then(
-        (response) => (response.trees.length > 0 ? navigationFromTrees(response) : undefined),
-        () => undefined,
-      );
+    const trees = await input.readTrees(input.market, input.locale, input.surface).then(
+      (response) => (response.trees.length > 0 ? navigationFromTrees(response) : undefined),
+      () => undefined,
+    );
     if (trees !== undefined) return trees;
   }
   return navigationFromCategoryTree(await input.readCategoryTree());

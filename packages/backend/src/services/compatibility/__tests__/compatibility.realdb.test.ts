@@ -248,7 +248,10 @@ describe('unknown is not false', () => {
       assertedByKind: 'operator',
     });
     const rows = await db
-      .select({ id: genericCompatibilityRelations.id, a: genericCompatibilityRelations.applicability })
+      .select({
+        id: genericCompatibilityRelations.id,
+        a: genericCompatibilityRelations.applicability,
+      })
       .from(genericCompatibilityRelations)
       .where(inArray(genericCompatibilityRelations.id, [`r-unknown-${RUN}`, `r-no-${RUN}`]));
     expect(rows.map((row) => row.a).sort()).toEqual(['does_not_apply', 'unknown']);

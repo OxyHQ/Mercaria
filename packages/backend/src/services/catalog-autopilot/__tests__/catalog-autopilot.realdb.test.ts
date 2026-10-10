@@ -17,9 +17,18 @@ import { catalogSourceConfigs, catalogSourcePolicies } from '../../../db/schema/
 import { matchPolicyVersions } from '../../../db/schema/matching.js';
 import { merchants } from '../../../db/schema/merchants.js';
 import { catalogSources } from '../../../db/schema/provenance.js';
-import { changeIngestionSourceStatus, publishIngestionSourcePolicy } from '../../ingestion/source.service.js';
-import { acquireActivePolicySlot, type ActivePolicySlot } from '../../ingestion/__tests__/active-policy-slot.js';
-import { DECLARED_OPEN_DATA_SOURCES, type DeclaredOpenDataSource } from '../../open-data/sources.js';
+import {
+  changeIngestionSourceStatus,
+  publishIngestionSourcePolicy,
+} from '../../ingestion/source.service.js';
+import {
+  acquireActivePolicySlot,
+  type ActivePolicySlot,
+} from '../../ingestion/__tests__/active-policy-slot.js';
+import {
+  DECLARED_OPEN_DATA_SOURCES,
+  type DeclaredOpenDataSource,
+} from '../../open-data/sources.js';
 import { CATALOG_AUTOPILOT_ACTOR } from '../actor.js';
 import { BASELINE_MATCH_POLICY_KEY, ensureActiveMatchPolicy } from '../match-policy.js';
 import { reconcileDeclaredSources } from '../sources.js';
@@ -34,7 +43,9 @@ let policySlot: ActivePolicySlot | undefined;
 
 /** One real catalogue declaration and one real chain, renamed into this file's namespace. */
 function declarations(): DeclaredOpenDataSource[] {
-  const catalogue = DECLARED_OPEN_DATA_SOURCES.find((source) => source.provider === 'open_food_facts');
+  const catalogue = DECLARED_OPEN_DATA_SOURCES.find(
+    (source) => source.provider === 'open_food_facts',
+  );
   const chain = DECLARED_OPEN_DATA_SOURCES.find((source) => source.accountRef === 'mercadona');
   if (catalogue === undefined || chain === undefined || chain.merchant === null) {
     throw new Error('the declarations this test copies are missing');
@@ -58,19 +69,31 @@ async function sourceIdsOfRun(): Promise<string[]> {
 }
 
 async function policiesOf(sourceId: string) {
-  return db.select().from(catalogSourcePolicies).where(eq(catalogSourcePolicies.sourceId, sourceId));
+  return db
+    .select()
+    .from(catalogSourcePolicies)
+    .where(eq(catalogSourcePolicies.sourceId, sourceId));
 }
 
 async function configOf(sourceId: string) {
-  const [config] = await db.select().from(catalogSourceConfigs).where(eq(catalogSourceConfigs.sourceId, sourceId));
+  const [config] = await db
+    .select()
+    .from(catalogSourceConfigs)
+    .where(eq(catalogSourceConfigs.sourceId, sourceId));
   return config;
 }
 
 async function deleteBaselinePolicy(): Promise<void> {
   await withTriggerToggleLock(db, async (tx) => {
-    await tx.execute(sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`);
-    await tx.delete(matchPolicyVersions).where(eq(matchPolicyVersions.versionKey, BASELINE_MATCH_POLICY_KEY));
-    await tx.execute(sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`);
+    await tx.execute(
+      sql`alter table match_policy_versions disable trigger match_policy_versions_immutable`,
+    );
+    await tx
+      .delete(matchPolicyVersions)
+      .where(eq(matchPolicyVersions.versionKey, BASELINE_MATCH_POLICY_KEY));
+    await tx.execute(
+      sql`alter table match_policy_versions enable trigger match_policy_versions_immutable`,
+    );
   });
 }
 
@@ -87,9 +110,13 @@ afterAll(async () => {
     const safe = sourceIds.length === 0 ? ['00000000-0000-0000-0000-000000000000'] : sourceIds;
     await db.delete(catalogSourceConfigs).where(inArray(catalogSourceConfigs.sourceId, safe));
     await withTriggerToggleLock(db, async (tx) => {
-      await tx.execute(sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`);
+      await tx.execute(
+        sql`alter table catalog_source_policies disable trigger catalog_source_policies_immutable`,
+      );
       await tx.delete(catalogSourcePolicies).where(inArray(catalogSourcePolicies.sourceId, safe));
-      await tx.execute(sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`);
+      await tx.execute(
+        sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
+      );
     });
     await db.delete(catalogSources).where(inArray(catalogSources.id, safe));
     await db.delete(merchants).where(sql`${merchants.slug} like ${`%-${RUN}`}`);
@@ -112,7 +139,10 @@ describe('the baseline matching policy', () => {
     expect(active?.createdByOxyUserId).toBe(CATALOG_AUTOPILOT_ACTOR);
     expect(active?.semanticEnabled).toBe(false);
     expect(await ensureActiveMatchPolicy()).toBe(false);
-    const rows = await db.select().from(matchPolicyVersions).where(eq(matchPolicyVersions.versionKey, BASELINE_MATCH_POLICY_KEY));
+    const rows = await db
+      .select()
+      .from(matchPolicyVersions)
+      .where(eq(matchPolicyVersions.versionKey, BASELINE_MATCH_POLICY_KEY));
     expect(rows).toHaveLength(1);
   });
 });
@@ -134,7 +164,10 @@ describe('reconciling the declared sources', () => {
     expect(chainConfig?.status).toBe('active');
     expect(chainConfig?.sourceAccountRef).toBe('mercadona');
     expect(chainConfig?.territories).toEqual(['ES']);
-    const [merchant] = await db.select().from(merchants).where(eq(merchants.slug, chain?.merchant?.slug ?? ''));
+    const [merchant] = await db
+      .select()
+      .from(merchants)
+      .where(eq(merchants.slug, chain?.merchant?.slug ?? ''));
     expect(merchant?.id).toBe(chainConfig?.merchantId);
     expect(merchant?.merchantType).toBe('retailer');
 
@@ -148,19 +181,29 @@ describe('reconciling the declared sources', () => {
 
   it('is idempotent: a second pass publishes and activates nothing', async () => {
     const results = await reconcileDeclaredSources(declarations());
-    expect(results.map((result) => [result.error, result.policyPublished, result.activated])).toEqual([
+    expect(
+      results.map((result) => [result.error, result.policyPublished, result.activated]),
+    ).toEqual([
       [null, false, false],
       [null, false, false],
     ]);
     for (const result of results) expect(await policiesOf(result.sourceId ?? '')).toHaveLength(1);
-    const merchantRows = await db.select().from(merchants).where(sql`${merchants.slug} like ${`%-${RUN}`}`);
+    const merchantRows = await db
+      .select()
+      .from(merchants)
+      .where(sql`${merchants.slug} like ${`%-${RUN}`}`);
     expect(merchantRows).toHaveLength(1);
   });
 
   it("leaves a source an operator paused paused, and an operator's policy in force", async () => {
     const [first] = await reconcileDeclaredSources(declarations());
     const sourceId = first?.sourceId ?? '';
-    await changeIngestionSourceStatus({ sourceId, status: 'paused', actorOxyUserId: `operator-${RUN}`, reason: 'incident' });
+    await changeIngestionSourceStatus({
+      sourceId,
+      status: 'paused',
+      actorOxyUserId: `operator-${RUN}`,
+      reason: 'incident',
+    });
     const declared = declarations()[0];
     if (declared === undefined) throw new Error('no declaration');
     await publishIngestionSourcePolicy({
@@ -179,10 +222,16 @@ describe('reconciling the declared sources', () => {
   });
 
   it('publishes a robots-respecting extraction policy for a Shopify store, and activates it', async () => {
-    const store = DECLARED_OPEN_DATA_SOURCES.find((source) => source.provider === 'shopify_storefront');
+    const store = DECLARED_OPEN_DATA_SOURCES.find(
+      (source) => source.provider === 'shopify_storefront',
+    );
     if (store === undefined || store.merchant === null) throw new Error('no Shopify declaration');
     const [result] = await reconcileDeclaredSources([
-      { ...store, name: `${store.name} ${RUN}`, merchant: { slug: `${store.merchant.slug}-${RUN}`, name: store.merchant.name } },
+      {
+        ...store,
+        name: `${store.name} ${RUN}`,
+        merchant: { slug: `${store.merchant.slug}-${RUN}`, name: store.merchant.name },
+      },
     ]);
     expect(result?.error).toBeNull();
     const [policy] = await policiesOf(result?.sourceId ?? '');
@@ -195,14 +244,21 @@ describe('reconciling the declared sources', () => {
   it('republishes its own policy when the declaration changes', async () => {
     const [, chain] = declarations();
     if (chain === undefined) throw new Error('no declaration');
-    const changed = { ...chain, rights: { ...chain.rights, cacheTtlSeconds: chain.rights.cacheTtlSeconds + 60 } };
+    const changed = {
+      ...chain,
+      rights: { ...chain.rights, cacheTtlSeconds: chain.rights.cacheTtlSeconds + 60 },
+    };
     const [result] = await reconcileDeclaredSources([changed]);
     expect(result?.policyPublished).toBe(true);
     const policies = await policiesOf(result?.sourceId ?? '');
     expect(policies).toHaveLength(2);
     const active = policies.filter((policy) => policy.status === 'active');
-    expect(active.map((policy) => policy.cacheTtlSeconds)).toEqual([changed.rights.cacheTtlSeconds]);
+    expect(active.map((policy) => policy.cacheTtlSeconds)).toEqual([
+      changed.rights.cacheTtlSeconds,
+    ]);
     const superseded = policies.filter((policy) => policy.status !== 'active');
-    expect(superseded.every((policy) => policy.reviewedByOxyUserId === CATALOG_AUTOPILOT_ACTOR)).toBe(true);
+    expect(
+      superseded.every((policy) => policy.reviewedByOxyUserId === CATALOG_AUTOPILOT_ACTOR),
+    ).toBe(true);
   });
 });

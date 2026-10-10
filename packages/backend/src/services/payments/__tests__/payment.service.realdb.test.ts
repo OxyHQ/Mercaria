@@ -40,11 +40,7 @@ import { paymentAttempts, payments } from '../../../db/schema/payments.js';
 import { listings } from '../../../db/schema/catalog.js';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { insertVariants, findVariantById } from '../../../db/catalog/variantRepository.js';
-import {
-  findOrderById,
-  insertOrder,
-  nextOrderNumber,
-} from '../../../db/orders/orderRepository.js';
+import { findOrderById, insertOrder, nextOrderNumber } from '../../../db/orders/orderRepository.js';
 import {
   ensureSellerProfile,
   findSellerProfile,
@@ -166,7 +162,9 @@ async function seedOrder(
     status: 'pending_payment',
     paymentStatus: 'unpaid',
     checkoutGroupId,
-    statusHistory: [{ status: 'pending_payment', at: new Date(), actorKind: 'oxy', byOxyUserId: who.buyer }],
+    statusHistory: [
+      { status: 'pending_payment', at: new Date(), actorKind: 'oxy', byOxyUserId: who.buyer },
+    ],
     appliedDiscounts: [],
     taxLines: [],
   });
@@ -194,7 +192,11 @@ async function counts(
       .from(paymentAttempts)
       .where(sql`${paymentAttempts.paymentId} = ${paymentId}`),
   ]);
-  return { transactions: Number(t?.n ?? 0), entries: Number(e?.n ?? 0), attempts: Number(a?.n ?? 0) };
+  return {
+    transactions: Number(t?.n ?? 0),
+    entries: Number(e?.n ?? 0),
+    attempts: Number(a?.n ?? 0),
+  };
 }
 
 describe('a duplicate success converges on ONE state', () => {
@@ -319,7 +321,10 @@ describe('a failed payment leaks no reservation', () => {
 
     const { transition } = await import('../../order.service.js');
     if (!order) throw new Error('order vanished');
-    await transition(order, 'cancelled', { actor: { kind: 'system' }, note: 'reservation expired' });
+    await transition(order, 'cancelled', {
+      actor: { kind: 'system' },
+      note: 'reservation expired',
+    });
 
     const released = await findVariantById(variantId);
     expect(released?.inventoryAvailable).toBe(SEEDED_AVAILABLE);

@@ -57,9 +57,7 @@ describe('the negative controls — each breaks exactly one contract', () => {
     const adapter = createSandboxAdapter();
     const crippled: DigitalSupplierAdapter = {
       ...adapter,
-      capabilities: adapter.capabilities.filter(
-        (capability) => capability !== 'purchase_recovery',
-      ),
+      capabilities: adapter.capabilities.filter((capability) => capability !== 'purchase_recovery'),
     };
     const findings = await runAdapterConformance(crippled, OPTIONS);
     expect(failures(findings)).toContain('required-capability');
@@ -74,7 +72,10 @@ describe('the negative controls — each breaks exactly one contract', () => {
         // A fresh key per call is exactly what a provider that ignores the
         // idempotency header does, and it is the failure that costs a key.
         call += 1;
-        return inner.purchase({ ...request, idempotencyKey: `${request.idempotencyKey}-${call}` }, context);
+        return inner.purchase(
+          { ...request, idempotencyKey: `${request.idempotencyKey}-${call}` },
+          context,
+        );
       },
     };
     const findings = await runAdapterConformance(doubleBuying, OPTIONS);
@@ -86,7 +87,10 @@ describe('the negative controls — each breaks exactly one contract', () => {
     const absorbing: DigitalSupplierAdapter = {
       ...inner,
       async purchase(request, context) {
-        return inner.purchase({ ...request, maxAcceptedCostAmount: Number.MAX_SAFE_INTEGER }, context);
+        return inner.purchase(
+          { ...request, maxAcceptedCostAmount: Number.MAX_SAFE_INTEGER },
+          context,
+        );
       },
     };
     const findings = await runAdapterConformance(absorbing, OPTIONS);
@@ -174,7 +178,9 @@ describe('the port’s own safety rails', () => {
 
   it('redacts what is key-shaped and leaves the sentence readable', () => {
     expect(redactProviderMessage('key ABCD-EFGH-IJKL rejected')).toBe('key [redacted] rejected');
-    expect(redactProviderMessage('out of stock, order rejected')).toBe('out of stock, order rejected');
+    expect(redactProviderMessage('out of stock, order rejected')).toBe(
+      'out of stock, order rejected',
+    );
     expect(redactProviderMessage('sku SKU12345678 unknown')).toBe('sku [redacted] unknown');
   });
 

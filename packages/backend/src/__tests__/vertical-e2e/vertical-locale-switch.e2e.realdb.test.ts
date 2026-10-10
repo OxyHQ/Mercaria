@@ -46,9 +46,18 @@ import { listDraftValues } from '../../db/catalogAuthoring/draftRepository.js';
 import { upsertCategoryLocalization } from '../../db/catalogLocalization/categoryLocalizationRepository.js';
 import { readLocalizedCategories } from '../../services/catalog-localization/read.service.js';
 import { localeFallbackChain } from '../../services/catalog-localization/resolve.js';
-import { createDraft, patchDraft, readDraft, validateStoreDraft } from '../../services/catalog-authoring/draft.service.js';
+import {
+  createDraft,
+  patchDraft,
+  readDraft,
+  validateStoreDraft,
+} from '../../services/catalog-authoring/draft.service.js';
 import { composeAuthoringSchemaForDefinitionId } from '../../services/catalog-authoring/schema.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../scripts/seed-verticals/apply.js';
 import { FOOTWEAR_PACKAGE } from '../../scripts/seed-verticals/footwear.js';
 import {
   createTestStore,
@@ -372,7 +381,10 @@ describe('the two fingerprints the locale claim rests on', () => {
     const requirementMoved: AuthoringSchema = {
       ...schema,
       fields: [
-        { ...firstField, requirement: firstField.requirement === 'required' ? 'optional' : 'required' },
+        {
+          ...firstField,
+          requirement: firstField.requirement === 'required' ? 'optional' : 'required',
+        },
         ...schema.fields.slice(1),
       ],
     };
@@ -383,7 +395,12 @@ describe('the two fingerprints the locale claim rests on', () => {
       ...schema,
       text: {
         ...schema.text,
-        productTypeName: { value: 'mutated', effectiveLocale: 'en', step: 'exact', status: 'approved' },
+        productTypeName: {
+          value: 'mutated',
+          effectiveLocale: 'en',
+          step: 'exact',
+          status: 'approved',
+        },
       },
     };
     expect(textFingerprint(labelMoved)).not.toBe(textFingerprint(schema));
@@ -397,7 +414,10 @@ describe('the two fingerprints the locale claim rests on', () => {
     expect(Object.keys(schema.text.fields).length).toBeGreaterThan(1);
     const reordered: AuthoringSchema = {
       ...schema,
-      text: { ...schema.text, fields: Object.fromEntries(Object.entries(schema.text.fields).reverse()) },
+      text: {
+        ...schema.text,
+        fields: Object.fromEntries(Object.entries(schema.text.fields).reverse()),
+      },
     };
     expect(textFingerprint(reordered)).toBe(textFingerprint(schema));
   });

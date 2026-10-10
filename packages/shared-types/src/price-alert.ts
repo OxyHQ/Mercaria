@@ -109,11 +109,7 @@ export const PRICE_ALERT_EVALUABLE_STATES: readonly PriceAlertState[] = ['enable
  *   notifications. It still cannot repeat for one OBSERVATION, because the
  *   trigger key names the observed-price version.
  */
-export type PriceAlertRepeatPolicy =
-  | 'once'
-  | 'reset_threshold'
-  | 'cooldown_better_low'
-  | 'always';
+export type PriceAlertRepeatPolicy = 'once' | 'reset_threshold' | 'cooldown_better_low' | 'always';
 
 export const PRICE_ALERT_REPEAT_POLICIES: readonly PriceAlertRepeatPolicy[] = [
   'once',
@@ -142,11 +138,7 @@ export const PRICE_ALERT_MATERIAL_IMPROVEMENT_BPS = 100;
  * and never a name, a logo or a domain — there is no member for those because
  * `commerce_relationships` has no verification method that could produce one.
  */
-export type PriceAlertSellerScope =
-  | 'any'
-  | 'native_only'
-  | 'external_only'
-  | 'official_only';
+export type PriceAlertSellerScope = 'any' | 'native_only' | 'external_only' | 'official_only';
 
 export const PRICE_ALERT_SELLER_SCOPES: readonly PriceAlertSellerScope[] = [
   'any',

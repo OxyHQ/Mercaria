@@ -54,11 +54,7 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {},
-  optionalAuth: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
     next();
   },
 }));
@@ -284,15 +280,11 @@ describe('the operator allow-list', () => {
     // makes an attempt to a 400 rather than a silently-ignored parameter that
     // returns somebody else's payment.
     currentUser = OPERATOR;
-    const byEmail = await fetch(
-      `${enabledUrl}/internal/payments/trace?email=buyer%40example.com`,
-    );
+    const byEmail = await fetch(`${enabledUrl}/internal/payments/trace?email=buyer%40example.com`);
     expect(byEmail.status).toBe(400);
 
     // …and exactly one handle, never two.
-    const byTwo = await fetch(
-      `${enabledUrl}/internal/payments/trace?paymentId=p1&orderId=o1`,
-    );
+    const byTwo = await fetch(`${enabledUrl}/internal/payments/trace?paymentId=p1&orderId=o1`);
     expect(byTwo.status).toBe(400);
 
     // …and never none.

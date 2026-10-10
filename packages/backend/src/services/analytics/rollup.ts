@@ -37,10 +37,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { AnalyticsMetricDefinition } from '@mercaria/shared-types';
-import {
-  ANALYTICS_METRICS,
-  ANALYTICS_SEARCH_SUCCESS_WINDOW_SECONDS,
-} from '@mercaria/shared-types';
+import { ANALYTICS_METRICS, ANALYTICS_SEARCH_SUCCESS_WINDOW_SECONDS } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import {

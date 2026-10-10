@@ -8,10 +8,10 @@ import type {
   SetLocationPickupPauseInput,
   UpdateLocationInput,
   UpsertLocationPublicationInput,
-} from "@mercaria/shared-types";
-import axios from "axios";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import axios from 'axios';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/locations`;
 

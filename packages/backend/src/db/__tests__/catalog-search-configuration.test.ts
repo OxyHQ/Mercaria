@@ -105,7 +105,8 @@ describe('an unsupported locale is never analysed as English', () => {
     // Bengali, Japanese and Chinese, measured against `pg_ts_config` on
     // `postgis/postgis:17-3.5` rather than remembered.
     const unanalysed = SUPPORTED_LOCALES.filter(
-      (locale) => LOCALE_TEXT_SEARCH_CONFIGURATIONS[locale] === UNANALYZED_TEXT_SEARCH_CONFIGURATION,
+      (locale) =>
+        LOCALE_TEXT_SEARCH_CONFIGURATIONS[locale] === UNANALYZED_TEXT_SEARCH_CONFIGURATION,
     );
     expect([...new Set(unanalysed.map(language))].sort()).toEqual(['bn', 'ja', 'zh']);
     expect(UNANALYZED_TEXT_SEARCH_CONFIGURATION).not.toBe(LISTING_BASE_TEXT_SEARCH_CONFIGURATION);
@@ -145,7 +146,8 @@ describe('the DDL rendering is a partition, and it is deterministic', () => {
     // Derive the EXCLUSION rather than restating the inclusion: whatever is not
     // in an arm must be exactly what the map sends to the `ELSE`.
     const elseBranch = SUPPORTED_LOCALES.filter(
-      (locale) => LOCALE_TEXT_SEARCH_CONFIGURATIONS[locale] === UNANALYZED_TEXT_SEARCH_CONFIGURATION,
+      (locale) =>
+        LOCALE_TEXT_SEARCH_CONFIGURATIONS[locale] === UNANALYZED_TEXT_SEARCH_CONFIGURATION,
     );
     expect([...inArms].sort()).toEqual(
       SUPPORTED_LOCALES.filter((locale) => !elseBranch.includes(locale)).sort(),

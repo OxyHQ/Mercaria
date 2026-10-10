@@ -108,7 +108,7 @@ describe('every declared coverage domain gets a figure', () => {
       .sort();
     expect(
       varying,
-      "these domains report a different `owed` per locale, so the denominator is counting " +
+      'these domains report a different `owed` per locale, so the denominator is counting ' +
         'localization rows rather than the entity population — the vacuous ratio the desk ' +
         'exists to avoid.',
     ).toEqual([]);

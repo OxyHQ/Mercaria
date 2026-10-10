@@ -82,9 +82,7 @@ const CONTACT_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware'] as co
  */
 function httpSurface(readDir: DirectoryReader = readDirectory): string[] {
   return CONTACT_SHARED_DIRECTORIES.flatMap((directory) =>
-    walk(directory, readDir).filter((path) =>
-      (path.split('/').pop() ?? '').startsWith('checkout'),
-    ),
+    walk(directory, readDir).filter((path) => (path.split('/').pop() ?? '').startsWith('checkout')),
   );
 }
 
@@ -157,10 +155,7 @@ const NOT_THE_CONTACT_PATH = [
  * hand list with an EXACT count and a comment claiming only what the list IS
  * (#460's other sanctioned resolution).
  */
-const UNDERIVABLE_CONTACT_PATHS = [
-  'db/guests/guestCheckoutRepository.ts',
-  'lib/guest-pii.ts',
-];
+const UNDERIVABLE_CONTACT_PATHS = ['db/guests/guestCheckoutRepository.ts', 'lib/guest-pii.ts'];
 
 /**
  * Every module of the inline contact and destination path, WALKED (#460).
@@ -292,10 +287,16 @@ describe('the checkout contact and destination path cannot reach what it must no
       CONTACT_PATHS.filter((path) => path.startsWith('services/checkout/')).length,
       'the checkout walk found nothing',
     ).toBeGreaterThanOrEqual(7);
-    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(2);
+    expect(
+      httpSurface().length,
+      'the HTTP surface derivation found nothing',
+    ).toBeGreaterThanOrEqual(2);
     // EXACT: the two out-of-tree modules are an identity, not a predicate (#448).
     expect(UNDERIVABLE_CONTACT_PATHS.length, 'the underivable list changed size').toBe(2);
-    expect(CONTACT_PATHS.length, 'the contact path derivation found nothing').toBeGreaterThanOrEqual(11);
+    expect(
+      CONTACT_PATHS.length,
+      'the contact path derivation found nothing',
+    ).toBeGreaterThanOrEqual(11);
     for (const path of CONTACT_PATHS) {
       expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
     }
@@ -332,7 +333,7 @@ describe('the checkout contact and destination path cannot reach what it must no
     expect(
       swept.filter((path) => !population.has(path) && !excluded.has(path)),
       'names checkout but sits outside BOTH the population and the exclusion list — add its ' +
-        'directory to CONTACT_SHARED_DIRECTORIES if it is part of #105\'s contact path, or add ' +
+        "directory to CONTACT_SHARED_DIRECTORIES if it is part of #105's contact path, or add " +
         'it to NOT_THE_CONTACT_PATH with the domain that owns it and move the count',
     ).toEqual([]);
 
@@ -362,7 +363,10 @@ describe('the checkout contact and destination path cannot reach what it must no
     const planted = 'lib/checkout-cache.ts';
     const seeded = checkoutNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'checkout-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'checkout-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -379,18 +383,22 @@ describe('the checkout contact and destination path cannot reach what it must no
     // outside a correct one. Two of these are in the exclusion list above, so
     // this clause is also what stops a widening quietly satisfying the sweep by
     // absorbing the modules it was told to excuse.
-    assertEachOf([
-      'services/checkout.service.ts',
-      'services/payments/checkout-payment.service.ts',
-      'controllers/orders.controller.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(CONTACT_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'services/checkout.service.ts',
+        'services/payments/checkout-payment.service.ts',
+        'controllers/orders.controller.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(CONTACT_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
@@ -399,7 +407,10 @@ describe('the checkout contact and destination path cannot reach what it must no
     const seededWith = (directory: string, added: string): string[] =>
       httpSurface((relative) =>
         relative === directory
-          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(relative),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(relative),
       );
 
@@ -422,7 +433,10 @@ describe('the checkout contact and destination path cannot reach what it must no
     expect(
       httpSurface((relative) =>
         relative === 'routes'
-          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          ? [
+              ...readDirectory(relative),
+              { name: 'admin', isDirectory: () => true, isFile: () => false },
+            ]
           : relative === 'routes/admin'
             ? [{ name: 'checkout-admin.ts', isDirectory: () => false, isFile: () => true }]
             : readDirectory(relative),
@@ -492,7 +506,9 @@ describe('the checkout contact and destination path cannot reach what it must no
     expect(GEOCODING_REFERENCE.test("const r = await safeFetch('https://geocode…');")).toBe(true);
     expect(GEOCODING_REFERENCE.test("import axios from 'axios';")).toBe(true);
     expect(ADDRESS_BOOK_WRITE_REFERENCE.test('await insertAddress(oxyUserId, input);')).toBe(true);
-    expect(CONTACT_LOOKUP_REFERENCE.test('const prior = await findOrdersByEmail(hash);')).toBe(true);
+    expect(CONTACT_LOOKUP_REFERENCE.test('const prior = await findOrdersByEmail(hash);')).toBe(
+      true,
+    );
     // …and the one thing that must NOT trip the currency detector: FAIR the
     // currency code, which the checkout path legitimately names.
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test("const currency: CurrencyCode = 'FAIR';")).toBe(false);

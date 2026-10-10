@@ -1,23 +1,23 @@
-import { useState } from "react";
-import { Pressable, View } from "react-native";
-import { Field } from "@oxy.so/bloom/field";
-import { Loading } from "@oxy.so/bloom/loading";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Text } from "@mercaria/ui";
-import type { ItemConditionKey, SellerDraftBlockReason } from "@mercaria/shared-types";
-import { ITEM_CONDITION_KEYS } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { InheritedFact } from "@/components/sell/InheritedFact";
-import { PriceGuidancePanel } from "@/components/sell/PriceGuidancePanel";
-import { useTranslation } from "@/lib/i18n";
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { Field } from '@oxy.so/bloom/field';
+import { Loading } from '@oxy.so/bloom/loading';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import Head from 'expo-router/head';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Text } from '@mercaria/ui';
+import type { ItemConditionKey, SellerDraftBlockReason } from '@mercaria/shared-types';
+import { ITEM_CONDITION_KEYS } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { InheritedFact } from '@/components/sell/InheritedFact';
+import { PriceGuidancePanel } from '@/components/sell/PriceGuidancePanel';
+import { useTranslation } from '@/lib/i18n';
 import {
   usePatchSellerDraft,
   usePublishSellerDraft,
   useSellerDraftPreview,
-} from "@/lib/hooks/use-sell-yours";
+} from '@/lib/hooks/use-sell-yours';
 
 /**
  * The sell form — one screen over the server's own step state (#91 UX 1–8).
@@ -47,26 +47,26 @@ import {
  */
 
 const BLOCK_MESSAGE_KEYS: Record<SellerDraftBlockReason, string> = {
-  title_missing: "sell.draft.blocked.titleMissing",
-  description_missing: "sell.draft.blocked.descriptionMissing",
-  category_missing: "sell.draft.blocked.categoryMissing",
-  condition_missing: "sell.draft.blocked.conditionMissing",
-  item_photos_missing: "sell.draft.blocked.itemPhotosMissing",
-  defects_not_acknowledged: "sell.draft.blocked.defectsNotAcknowledged",
-  refurbisher_not_named: "sell.draft.blocked.refurbisherNotNamed",
-  price_missing: "sell.draft.blocked.priceMissing",
-  quantity_invalid: "sell.draft.blocked.quantityInvalid",
-  match_variant_missing: "sell.draft.blocked.matchVariantMissing",
-  match_review_required: "sell.draft.blocked.matchReviewRequired",
-  pickup_not_supported: "sell.draft.blocked.pickupNotSupported",
-  category_forbids_condition: "sell.draft.blocked.categoryForbidsCondition",
-  already_published: "sell.draft.blocked.alreadyPublished",
-  draft_discarded: "sell.draft.blocked.draftDiscarded",
+  title_missing: 'sell.draft.blocked.titleMissing',
+  description_missing: 'sell.draft.blocked.descriptionMissing',
+  category_missing: 'sell.draft.blocked.categoryMissing',
+  condition_missing: 'sell.draft.blocked.conditionMissing',
+  item_photos_missing: 'sell.draft.blocked.itemPhotosMissing',
+  defects_not_acknowledged: 'sell.draft.blocked.defectsNotAcknowledged',
+  refurbisher_not_named: 'sell.draft.blocked.refurbisherNotNamed',
+  price_missing: 'sell.draft.blocked.priceMissing',
+  quantity_invalid: 'sell.draft.blocked.quantityInvalid',
+  match_variant_missing: 'sell.draft.blocked.matchVariantMissing',
+  match_review_required: 'sell.draft.blocked.matchReviewRequired',
+  pickup_not_supported: 'sell.draft.blocked.pickupNotSupported',
+  category_forbids_condition: 'sell.draft.blocked.categoryForbidsCondition',
+  already_published: 'sell.draft.blocked.alreadyPublished',
+  draft_discarded: 'sell.draft.blocked.draftDiscarded',
 };
 
 const WARNING_MESSAGE_KEYS: Record<string, string> = {
-  price_far_above_guidance: "sell.draft.warning.priceFarAboveGuidance",
-  price_far_below_guidance: "sell.draft.warning.priceFarBelowGuidance",
+  price_far_above_guidance: 'sell.draft.warning.priceFarAboveGuidance',
+  price_far_below_guidance: 'sell.draft.warning.priceFarBelowGuidance',
 };
 
 export default function SellDraftScreen() {
@@ -94,9 +94,9 @@ export default function SellDraftScreen() {
     return (
       <ScreenShell>
         <View className="items-center gap-3 py-16">
-          <Text className="text-lg font-medium">{t("sell.draft.loadError.title")}</Text>
+          <Text className="text-lg font-medium">{t('sell.draft.loadError.title')}</Text>
           <Text className="text-center text-muted-foreground">
-            {preview.error?.message ?? t("sell.draft.loadError.body")}
+            {preview.error?.message ?? t('sell.draft.loadError.body')}
           </Text>
         </View>
       </ScreenShell>
@@ -109,26 +109,26 @@ export default function SellDraftScreen() {
     <ScreenShell>
       <Head>
         <title>
-          {t("sell.draft.documentTitle", { title: draft.title ?? t("sell.draft.untitled") })}
+          {t('sell.draft.documentTitle', { title: draft.title ?? t('sell.draft.untitled') })}
         </title>
       </Head>
 
       <View className="gap-6 py-6">
         {draft.prefill ? (
           <View className="gap-1 rounded-2xl border border-border p-4">
-            <Text className="text-base font-medium">{t("sell.draft.product.heading")}</Text>
+            <Text className="text-base font-medium">{t('sell.draft.product.heading')}</Text>
             <Text className="text-xs text-muted-foreground">
-              {t("sell.draft.product.explanation")}
+              {t('sell.draft.product.explanation')}
             </Text>
             <InheritedFact
-              label={t("sell.draft.product.titleLabel")}
+              label={t('sell.draft.product.titleLabel')}
               value={draft.prefill.title.value}
               origin={draft.prefill.title.origin}
               confirmed={draft.prefill.title.confirmed}
             />
             {draft.prefill.brand ? (
               <InheritedFact
-                label={t("sell.draft.product.brandLabel")}
+                label={t('sell.draft.product.brandLabel')}
                 value={draft.prefill.brand.value}
                 origin={draft.prefill.brand.origin}
                 confirmed={draft.prefill.brand.confirmed}
@@ -136,7 +136,7 @@ export default function SellDraftScreen() {
             ) : null}
             {draft.prefill.model ? (
               <InheritedFact
-                label={t("sell.draft.product.modelLabel")}
+                label={t('sell.draft.product.modelLabel')}
                 value={draft.prefill.model.value}
                 origin={draft.prefill.model.origin}
                 confirmed={draft.prefill.model.confirmed}
@@ -156,24 +156,24 @@ export default function SellDraftScreen() {
               className="mt-2 self-start rounded-full border border-border px-4 py-2"
               onPress={() => patch.mutate({ canonicalProductId: null })}
             >
-              <Text className="text-sm">{t("sell.draft.product.notMine")}</Text>
+              <Text className="text-sm">{t('sell.draft.product.notMine')}</Text>
             </Pressable>
           </View>
         ) : null}
 
         <View className="gap-4 rounded-2xl border border-border p-4">
-          <Text className="text-base font-medium">{t("sell.draft.item.heading")}</Text>
+          <Text className="text-base font-medium">{t('sell.draft.item.heading')}</Text>
 
           <Field
-            label={t("sell.draft.item.titleLabel")}
+            label={t('sell.draft.item.titleLabel')}
             description={
-              draft.titleOverridesCanonical ? t("sell.draft.item.titleOverrideNote") : undefined
+              draft.titleOverridesCanonical ? t('sell.draft.item.titleOverrideNote') : undefined
             }
           >
             <TextFieldInput
-              label={t("sell.draft.item.titleLabel")}
+              label={t('sell.draft.item.titleLabel')}
               placeholder={null}
-              value={title ?? draft.title ?? ""}
+              value={title ?? draft.title ?? ''}
               onValueChange={setTitle}
               onBlur={() => {
                 if (title !== null && title !== draft.title) patch.mutate({ title });
@@ -181,11 +181,11 @@ export default function SellDraftScreen() {
             />
           </Field>
 
-          <Field label={t("sell.draft.item.descriptionLabel")}>
+          <Field label={t('sell.draft.item.descriptionLabel')}>
             <Textarea
               rows={4}
               autoResize
-              value={description ?? draft.description ?? ""}
+              value={description ?? draft.description ?? ''}
               onValueChange={setDescription}
               onBlur={() => {
                 if (description !== null && description !== draft.description) {
@@ -196,7 +196,7 @@ export default function SellDraftScreen() {
           </Field>
 
           <View className="gap-2">
-            <Text className="text-sm font-medium">{t("sell.draft.item.conditionLabel")}</Text>
+            <Text className="text-sm font-medium">{t('sell.draft.item.conditionLabel')}</Text>
             <View className="flex-row flex-wrap gap-2">
               {ITEM_CONDITION_KEYS.map((key: ItemConditionKey) => (
                 <Pressable
@@ -204,22 +204,24 @@ export default function SellDraftScreen() {
                   accessibilityRole="button"
                   className={
                     draft.conditionKey === key
-                      ? "rounded-full bg-primary px-3 py-2"
-                      : "rounded-full border border-border px-3 py-2"
+                      ? 'rounded-full bg-primary px-3 py-2'
+                      : 'rounded-full border border-border px-3 py-2'
                   }
                   onPress={() => patch.mutate({ conditionKey: key })}
                 >
                   <Text
-                    className={draft.conditionKey === key ? "text-primary-foreground text-sm" : "text-sm"}
+                    className={
+                      draft.conditionKey === key ? 'text-primary-foreground text-sm' : 'text-sm'
+                    }
                   >
-                    {key.replace(/_/g, " ")}
+                    {key.replace(/_/g, ' ')}
                   </Text>
                 </Pressable>
               ))}
             </View>
             {readiness.requiredItemPhotos > 0 ? (
               <Text className="text-xs text-muted-foreground">
-                {t("sell.draft.item.photoRequirement", {
+                {t('sell.draft.item.photoRequirement', {
                   count: readiness.requiredItemPhotos,
                 })}
               </Text>
@@ -230,17 +232,17 @@ export default function SellDraftScreen() {
         {guidance ? <PriceGuidancePanel guidance={guidance} /> : null}
 
         <View className="gap-2 rounded-2xl border border-border p-4">
-          <Text className="text-base font-medium">{t("sell.draft.placement.heading")}</Text>
+          <Text className="text-base font-medium">{t('sell.draft.placement.heading')}</Text>
           <Text className="text-sm text-muted-foreground">
             {placement.onCanonicalProduct
-              ? t("sell.draft.placement.onProductPage")
-              : t("sell.draft.placement.ownSurfacesOnly")}
+              ? t('sell.draft.placement.onProductPage')
+              : t('sell.draft.placement.ownSurfacesOnly')}
           </Text>
         </View>
 
         {readiness.warnings.map((warning) => (
           <Text key={warning} className="text-sm text-muted-foreground">
-            {WARNING_MESSAGE_KEYS[warning] ? t(WARNING_MESSAGE_KEYS[warning]) : ""}
+            {WARNING_MESSAGE_KEYS[warning] ? t(WARNING_MESSAGE_KEYS[warning]) : ''}
           </Text>
         ))}
 
@@ -255,8 +257,8 @@ export default function SellDraftScreen() {
           disabled={!readiness.publishable || publish.isPending}
           className={
             readiness.publishable
-              ? "items-center rounded-full bg-primary px-5 py-4"
-              : "items-center rounded-full bg-muted px-5 py-4"
+              ? 'items-center rounded-full bg-primary px-5 py-4'
+              : 'items-center rounded-full bg-muted px-5 py-4'
           }
           onPress={() =>
             publish.mutate(draftId, {
@@ -264,8 +266,10 @@ export default function SellDraftScreen() {
             })
           }
         >
-          <Text className={readiness.publishable ? "text-primary-foreground" : "text-muted-foreground"}>
-            {publish.isPending ? t("sell.draft.publishing") : t("sell.draft.publish")}
+          <Text
+            className={readiness.publishable ? 'text-primary-foreground' : 'text-muted-foreground'}
+          >
+            {publish.isPending ? t('sell.draft.publishing') : t('sell.draft.publish')}
           </Text>
         </Pressable>
 

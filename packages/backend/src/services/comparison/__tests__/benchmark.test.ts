@@ -99,9 +99,7 @@ function solveAll(
     candidates,
     channelPolicy: request.channelPolicy,
     excludedMerchantIds: request.excludedMerchantIds ?? [],
-    ...(request.conditionGroups === undefined
-      ? {}
-      : { conditionGroups: request.conditionGroups }),
+    ...(request.conditionGroups === undefined ? {} : { conditionGroups: request.conditionGroups }),
   });
   const solved: SolvedObjective[] = [];
   for (const objective of [
@@ -333,10 +331,40 @@ describe('scenario 5 — multi-merchant shipping thresholds', () => {
     // Delivered: A = 80.00 + 0 = 80.00, B = 76.00 + 6.00 = 82.00 → A wins.
     const request = basketRequest([line('l1'), line('l2')]);
     const candidates = [
-      candidate({ lineId: 'l1', offerId: 'a1', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(4000), delivery: eur(600), deliveryFreeOver: eur(7000) }),
-      candidate({ lineId: 'l2', offerId: 'a2', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(4000), delivery: eur(600), deliveryFreeOver: eur(7000) }),
-      candidate({ lineId: 'l1', offerId: 'b1', merchantKey: 'B', merchantRef: 'B', unitItemPrice: eur(3800), delivery: eur(600) }),
-      candidate({ lineId: 'l2', offerId: 'b2', merchantKey: 'B', merchantRef: 'B', unitItemPrice: eur(3800), delivery: eur(600) }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'a1',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(4000),
+        delivery: eur(600),
+        deliveryFreeOver: eur(7000),
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'a2',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(4000),
+        delivery: eur(600),
+        deliveryFreeOver: eur(7000),
+      }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'b1',
+        merchantKey: 'B',
+        merchantRef: 'B',
+        unitItemPrice: eur(3800),
+        delivery: eur(600),
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'b2',
+        merchantKey: 'B',
+        merchantRef: 'B',
+        unitItemPrice: eur(3800),
+        delivery: eur(600),
+      }),
     ];
     const { results } = solveAll(request, candidates);
 
@@ -358,9 +386,28 @@ describe('scenario 6 — official versus cheapest', () => {
   it('names both, and the official plan is refused when any line is not official', () => {
     const request = basketRequest([line('l1'), line('l2')]);
     const { results } = solveAll(request, [
-      candidate({ lineId: 'l1', offerId: 'a1', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(9000) }),
-      candidate({ lineId: 'l1', offerId: 'o1', merchantKey: 'O', merchantRef: 'O', unitItemPrice: eur(11000), relationship: 'official_channel' }),
-      candidate({ lineId: 'l2', offerId: 'a2', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(9000) }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'a1',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(9000),
+      }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'o1',
+        merchantKey: 'O',
+        merchantRef: 'O',
+        unitItemPrice: eur(11000),
+        relationship: 'official_channel',
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'a2',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(9000),
+      }),
     ]);
     const cheapest = resultFor(results, 'cheapest_known_item_prices');
     if (cheapest.state !== 'produced') throw new Error('expected a plan');
@@ -400,8 +447,22 @@ describe('scenario 7 — mixed native and external plans', () => {
         nativeCheckoutEligible: true,
         productVariantId: 'var-1',
       }),
-      candidate({ lineId: 'l2', offerId: 'e1', merchantKey: 'A', merchantRef: 'A', merchantLabel: 'Alpha Retail', destinationHost: 'alpha.example' }),
-      candidate({ lineId: 'l3', offerId: 'e2', merchantKey: 'B', merchantRef: 'B', merchantLabel: 'Beta Retail', destinationHost: 'beta.example' }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'e1',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        merchantLabel: 'Alpha Retail',
+        destinationHost: 'alpha.example',
+      }),
+      candidate({
+        lineId: 'l3',
+        offerId: 'e2',
+        merchantKey: 'B',
+        merchantRef: 'B',
+        merchantLabel: 'Beta Retail',
+        destinationHost: 'beta.example',
+      }),
     ];
     const { pruned, results } = solveAll(request, candidates);
     const cheapest = resultFor(results, 'cheapest_known_item_prices');
@@ -601,7 +662,10 @@ describe('scenario 10 — no complete feasible plan', () => {
       'best_nearby_pickup',
       'used_or_refurbished_value',
     ]) {
-      expect(results.some((entry) => entry.kind === kind), kind).toBe(true);
+      expect(
+        results.some((entry) => entry.kind === kind),
+        kind,
+      ).toBe(true);
     }
   });
 });

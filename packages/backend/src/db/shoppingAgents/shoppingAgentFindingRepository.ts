@@ -124,9 +124,7 @@ export async function insertShoppingAgentFinding(
   input: NewShoppingAgentFinding,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ShoppingAgentFindingRow | undefined> {
-  const write = async (
-    tx: DatabaseOrTransaction,
-  ): Promise<ShoppingAgentFindingRow | undefined> => {
+  const write = async (tx: DatabaseOrTransaction): Promise<ShoppingAgentFindingRow | undefined> => {
     const inserted = await tx
       .insert(shoppingAgentFindings)
       .values({
@@ -235,7 +233,10 @@ export async function findLatestQualifiedFinding(
     .select()
     .from(shoppingAgentFindings)
     .where(
-      and(eq(shoppingAgentFindings.agentId, agentId), eq(shoppingAgentFindings.outcome, 'qualified')),
+      and(
+        eq(shoppingAgentFindings.agentId, agentId),
+        eq(shoppingAgentFindings.outcome, 'qualified'),
+      ),
     )
     .orderBy(desc(shoppingAgentFindings.createdAt), desc(shoppingAgentFindings.id))
     .limit(1);

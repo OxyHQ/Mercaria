@@ -31,10 +31,7 @@
  * item.
  */
 
-import {
-  CONDITION_DISCLOSURE_KINDS,
-  conditionEvidencePolicy,
-} from '@mercaria/shared-types';
+import { CONDITION_DISCLOSURE_KINDS, conditionEvidencePolicy } from '@mercaria/shared-types';
 import type { ConditionDetailKind, ItemConditionKey } from '@mercaria/shared-types';
 import { conflict, validationError } from '../../lib/errors/error-codes.js';
 import { countEvidentialConditionPhotos } from '../../db/condition/conditionRepository.js';
@@ -108,7 +105,9 @@ export async function assertConditionEvidence(
         'Confirm that you have described the defects and missing parts of this item before publishing it',
       );
     }
-    const disclosed = facts.disclosedKinds.some((kind) => CONDITION_DISCLOSURE_KINDS.includes(kind));
+    const disclosed = facts.disclosedKinds.some((kind) =>
+      CONDITION_DISCLOSURE_KINDS.includes(kind),
+    );
     if (!disclosed) {
       throw validationError(
         'Describe the wear, faults or missing parts of this item — or say there are none by ' +

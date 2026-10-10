@@ -178,7 +178,12 @@ function alertsForRow(row: LocaleDomainCompleteness): readonly LocalizationAlert
 
   if (row.completeness.kind === 'no_population') {
     const rows =
-      row.missing + row.machineTranslated + row.reviewed + row.approved + row.stale + row.deprecated;
+      row.missing +
+      row.machineTranslated +
+      row.reviewed +
+      row.approved +
+      row.stale +
+      row.deprecated;
     if (rows > 0) {
       found.push({
         kind: 'unmeasurable',

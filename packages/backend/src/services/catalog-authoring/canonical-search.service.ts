@@ -29,7 +29,10 @@
  * authoring search would be the auto-promotion D9 exists to refuse.
  */
 
-import type { AuthoringCanonicalCandidate, AuthoringCanonicalSearchResult } from '@mercaria/shared-types';
+import type {
+  AuthoringCanonicalCandidate,
+  AuthoringCanonicalSearchResult,
+} from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   findCanonicalProductsByIdentifier,
@@ -59,7 +62,9 @@ export interface CanonicalSearchInput {
  * ruling, one table over — so an MPN that "matched" would be steering an author
  * onto whichever manufacturer used that part number first.
  */
-function normalizeIdentifier(query: string): { normalized: string; canonical: string | null } | null {
+function normalizeIdentifier(
+  query: string,
+): { normalized: string; canonical: string | null } | null {
   const digits = query.replace(/[\s-]/gu, '');
   if (!/^[0-9]{8,14}$/u.test(digits)) return null;
   // A GTIN-8, UPC-12, EAN-13 and GTIN-14 all collapse to a zero-padded 14 —

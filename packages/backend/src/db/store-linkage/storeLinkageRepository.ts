@@ -157,10 +157,7 @@ export async function findStoreLinkageRequestById(
   db: DatabaseOrTransaction,
   id: string,
 ): Promise<StoreLinkageRequestRow | undefined> {
-  const [row] = await db
-    .select()
-    .from(storeLinkageRequests)
-    .where(eq(storeLinkageRequests.id, id));
+  const [row] = await db.select().from(storeLinkageRequests).where(eq(storeLinkageRequests.id, id));
   return row;
 }
 
@@ -416,10 +413,7 @@ export async function updateRequestImpact(
   requestId: string,
   impact: StoreLinkageImpactCounts,
 ): Promise<void> {
-  await db
-    .update(storeLinkageRequests)
-    .set(impact)
-    .where(eq(storeLinkageRequests.id, requestId));
+  await db.update(storeLinkageRequests).set(impact).where(eq(storeLinkageRequests.id, requestId));
 }
 
 // ── Candidates ──────────────────────────────────────────────────────────────
@@ -563,10 +557,7 @@ export async function recordOfferOverlap(
     .insert(storeLinkageOfferOverlaps)
     .values(input)
     .onConflictDoUpdate({
-      target: [
-        storeLinkageOfferOverlaps.requestId,
-        storeLinkageOfferOverlaps.duplicateOfferId,
-      ],
+      target: [storeLinkageOfferOverlaps.requestId, storeLinkageOfferOverlaps.duplicateOfferId],
       set: {
         primaryOfferId: input.primaryOfferId,
         rule: input.rule,

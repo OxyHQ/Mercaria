@@ -131,7 +131,12 @@ export interface SupplierAdapterInvocation {
  * one to a retry.
  */
 export type SupplierProviderCallResult<T> =
-  | { outcome: 'succeeded'; answer: T; attempt: PublicSupplierOrderAttempt; adapter: SupplierOrderAdapter }
+  | {
+      outcome: 'succeeded';
+      answer: T;
+      attempt: PublicSupplierOrderAttempt;
+      adapter: SupplierOrderAdapter;
+    }
   | {
       outcome: 'failed';
       attempt: PublicSupplierOrderAttempt;
@@ -243,7 +248,8 @@ export async function callSupplierProvider<T>(
     const message = redactSupplierOrderMessage(failure.message);
     // The ambiguity rule, in ONE place: anything that is not a definite
     // "nothing was written" is ambiguous. See `provider-error.ts`.
-    const ambiguous = failure.afterWriteFlag !== 'no' && !READ_ONLY_OPERATIONS.includes(input.operation);
+    const ambiguous =
+      failure.afterWriteFlag !== 'no' && !READ_ONLY_OPERATIONS.includes(input.operation);
     const closed = await closeSupplierOrderAttempt({
       attemptId: attempt.id,
       outcome: ambiguous ? 'ambiguous' : 'failed',
@@ -322,7 +328,9 @@ export function resolveOrderAdapter(provider: string): SupplierOrderAdapter | un
 }
 
 /** Whether a registered preflight adapter also carries the order contract. */
-function isSupplierOrderAdapter(adapter: SupplierPreflightAdapter): adapter is SupplierOrderAdapter {
+function isSupplierOrderAdapter(
+  adapter: SupplierPreflightAdapter,
+): adapter is SupplierOrderAdapter {
   const mapState: unknown = Reflect.get(adapter, 'mapProviderState');
   const version: unknown = Reflect.get(adapter, 'stateMappingVersion');
   return typeof mapState === 'function' && typeof version === 'number';

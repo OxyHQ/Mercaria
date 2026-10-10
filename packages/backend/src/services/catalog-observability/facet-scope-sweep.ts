@@ -283,9 +283,9 @@ export const FACET_SCOPE_INVALID_UNMEASURED: FacetScopeInvalidUnmeasured = Objec
   state: 'unmeasured',
   reason: 'dimension_absent_from_source' as CatalogUnmeasuredReason,
   seam:
-    'The facets domain has no invalid-facet verdict: every FacetSuppressionReason says a facet '
-    + 'was WITHHELD, which is the rail declining to render rather than a broken facet. Closing it '
-    + 'is a verdict in services/facets, not a derivation here.',
+    'The facets domain has no invalid-facet verdict: every FacetSuppressionReason says a facet ' +
+    'was WITHHELD, which is the rail declining to render rather than a broken facet. Closing it ' +
+    'is a verdict in services/facets, not a derivation here.',
 });
 
 /* -------------------------------------------------------------------------- */

@@ -33,10 +33,9 @@ export async function fetchStore(
   handle: string,
   params?: { page?: number; limit?: number },
 ): Promise<StoreDetailResponse> {
-  const { data } = await apiClient.get<ApiResponse<StoreDetailResponse>>(
-    `/stores/${handle}`,
-    { params },
-  );
+  const { data } = await apiClient.get<ApiResponse<StoreDetailResponse>>(`/stores/${handle}`, {
+    params,
+  });
   if (!data.success || !data.data) {
     throw new Error(data.error ?? data.message ?? 'Failed to load store');
   }
@@ -45,9 +44,7 @@ export async function fetchStore(
 
 /** Fetch all collections for a store. */
 export async function fetchStoreCollections(handle: string): Promise<Collection[]> {
-  const { data } = await apiClient.get<ApiResponse<Collection[]>>(
-    `/stores/${handle}/collections`,
-  );
+  const { data } = await apiClient.get<ApiResponse<Collection[]>>(`/stores/${handle}/collections`);
   if (!data.success || !data.data) {
     throw new Error(data.error ?? data.message ?? 'Failed to load collections');
   }
@@ -65,9 +62,7 @@ export async function fetchStoreCollection(
     { params },
   );
   if (!data.success || !data.data) {
-    throw new Error(
-      data.error ?? data.message ?? 'Failed to load collection',
-    );
+    throw new Error(data.error ?? data.message ?? 'Failed to load collection');
   }
   return data.data;
 }

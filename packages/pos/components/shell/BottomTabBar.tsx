@@ -1,15 +1,15 @@
-import React, { useCallback, useMemo } from "react";
-import { Platform } from "react-native";
-import { usePathname, useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { BottomBar, type BottomBarProps } from "@oxy.so/bloom/bottom-bar";
-import { LucideGlyph } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
-import { NAV_ITEMS, isNavItemActive } from "./nav-items";
+import React, { useCallback, useMemo } from 'react';
+import { Platform } from 'react-native';
+import { usePathname, useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { BottomBar, type BottomBarProps } from '@oxy.so/bloom/bottom-bar';
+import { LucideGlyph } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { NAV_ITEMS, isNavItemActive } from './nav-items';
 
 function triggerHaptic() {
-  if (Platform.OS === "web") return;
+  if (Platform.OS === 'web') return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
 
@@ -28,7 +28,7 @@ export function BottomTabBar() {
 
   const visible = useMemo(() => NAV_ITEMS.filter((item) => can(item.permission)), [can]);
 
-  const items = useMemo<BottomBarProps["items"]>(
+  const items = useMemo<BottomBarProps['items']>(
     () =>
       visible.map((item) => ({
         name: item.key,
@@ -39,7 +39,7 @@ export function BottomTabBar() {
   );
 
   // No matching destination (a pushed screen) selects no tab.
-  const value = visible.find((item) => isNavItemActive(item, pathname))?.key ?? "";
+  const value = visible.find((item) => isNavItemActive(item, pathname))?.key ?? '';
 
   const onValueChange = useCallback(
     (name: string) => {

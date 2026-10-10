@@ -59,24 +59,62 @@ import type {
   CatalogGovernanceReferenceDisposition,
 } from '@mercaria/shared-types';
 
-import { attributeDefinitions, attributeDefinitionCategories, attributeEnumValues, attributeLabels, attributeReindexRequests, attributeValueAliases } from '../../db/schema/attributeRegistry.js';
-import { canonicalAttributeValues, canonicalProductFamilies, canonicalProducts, canonicalVariantAttributes } from '../../db/schema/canonicalCatalog.js';
+import {
+  attributeDefinitions,
+  attributeDefinitionCategories,
+  attributeEnumValues,
+  attributeLabels,
+  attributeReindexRequests,
+  attributeValueAliases,
+} from '../../db/schema/attributeRegistry.js';
+import {
+  canonicalAttributeValues,
+  canonicalProductFamilies,
+  canonicalProducts,
+  canonicalVariantAttributes,
+} from '../../db/schema/canonicalCatalog.js';
 import { categories, listings } from '../../db/schema/catalog.js';
-import { catalogAuthoringDraftValues, catalogAuthoringDrafts } from '../../db/schema/catalogAuthoring.js';
+import {
+  catalogAuthoringDraftValues,
+  catalogAuthoringDrafts,
+} from '../../db/schema/catalogAuthoring.js';
 import { catalogExternalMappings } from '../../db/schema/catalogExternalMappings.js';
-import { categoryLocalizations, categoryLocalizedSlugs, productTypeLocalizations } from '../../db/schema/catalogLocalization.js';
+import {
+  categoryLocalizations,
+  categoryLocalizedSlugs,
+  productTypeLocalizations,
+} from '../../db/schema/catalogLocalization.js';
 import { catalogProposals } from '../../db/schema/catalogProposals.js';
 import {
   canonicalProductSecondaryCategories,
   listingSecondaryCategories,
 } from '../../db/schema/taxonomyClassification.js';
 import { conditionCategoryPolicies } from '../../db/schema/condition.js';
-import { navigationNodes, navigationSavedQueries, navigationTrees } from '../../db/schema/navigation.js';
-import { productTypeAliases, productTypeCategoryScopes, productTypeFieldGroups, productTypeFields, productTypeDefinitions } from '../../db/schema/productTypes.js';
+import {
+  navigationNodes,
+  navigationSavedQueries,
+  navigationTrees,
+} from '../../db/schema/navigation.js';
+import {
+  productTypeAliases,
+  productTypeCategoryScopes,
+  productTypeFieldGroups,
+  productTypeFields,
+  productTypeDefinitions,
+} from '../../db/schema/productTypes.js';
 import { retailServicePolicyExceptions } from '../../db/schema/retailServiceRequests.js';
 import { sellerListingDrafts } from '../../db/schema/sellYours.js';
-import { categoryAliases, categoryExternalMappings, categoryRedirects } from '../../db/schema/taxonomy.js';
-import { nativeListingAttributeClaims, nativeListingVariantAxes, nativeVariantAttributeClaims, nativeVariantAxisAssignments } from '../../db/schema/variantAxes.js';
+import {
+  categoryAliases,
+  categoryExternalMappings,
+  categoryRedirects,
+} from '../../db/schema/taxonomy.js';
+import {
+  nativeListingAttributeClaims,
+  nativeListingVariantAxes,
+  nativeVariantAttributeClaims,
+  nativeVariantAxisAssignments,
+} from '../../db/schema/variantAxes.js';
 
 /**
  * Where a `rewired_by_domain` claim's rewiring actually HAPPENS (#739).
@@ -322,8 +360,7 @@ const CATEGORY_REFERENCES: readonly GovernedReference[] = [
   {
     column: categoryLocalizedSlugs.categoryId,
     disposition: 'rewire_path_missing',
-    note:
-      'MEASURED (#739): issueCategoryLocalizedSlug does supersede the current row in one transaction — and NOTHING in this repository calls it. Its only references outside its own module were this note and its tests, so a category rename leaves every localized slug pointing at the old name with no superseded chain minted. It stays `rewire_path_missing` rather than being relabelled to make the gate pass, because building the writer is a separate change: the entry point is owed by whoever gives a taxonomy rename a localized-slug re-issue, and until then an operator reading the preview needs to see the gap',
+    note: 'MEASURED (#739): issueCategoryLocalizedSlug does supersede the current row in one transaction — and NOTHING in this repository calls it. Its only references outside its own module were this note and its tests, so a category rename leaves every localized slug pointing at the old name with no superseded chain minted. It stays `rewire_path_missing` rather than being relabelled to make the gate pass, because building the writer is a separate change: the entry point is owed by whoever gives a taxonomy rename a localized-slug re-issue, and until then an operator reading the preview needs to see the gap',
   },
   {
     column: categoryAliases.categoryId,
@@ -392,20 +429,17 @@ const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
   {
     column: productTypeFields.productTypeDefinitionId,
     disposition: 'cascades',
-    note:
-      'ON DELETE cascade — the version own fields. The count is what a diff is a diff OF, so it is the first number an operator reads before publishing. NOTE the second-order gap this census cannot see: product_type_field_localizations hangs off a FIELD rather than off a definition, so it is out of this population by construction, it cascades away with the fields, and copyForwardProductTypeLocalizations carries only the VERSION-level text. #650 CLOSED that second-order gap with copyForwardProductTypeFieldLocalizations, joined on (flow, scope, attribute_key) because a field row id is minted per version; the census cannot see it from here either way, since the table is out of this population by construction',
+    note: 'ON DELETE cascade — the version own fields. The count is what a diff is a diff OF, so it is the first number an operator reads before publishing. NOTE the second-order gap this census cannot see: product_type_field_localizations hangs off a FIELD rather than off a definition, so it is out of this population by construction, it cascades away with the fields, and copyForwardProductTypeLocalizations carries only the VERSION-level text. #650 CLOSED that second-order gap with copyForwardProductTypeFieldLocalizations, joined on (flow, scope, attribute_key) because a field row id is minted per version; the census cannot see it from here either way, since the table is out of this population by construction',
   },
   {
     column: productTypeAliases.productTypeDefinitionId,
     disposition: 'rewire_path_missing',
-    note:
-      'ON DELETE cascade. An alias is per VERSION, so publishing a new version leaves every alias on the OLD one and nothing carries them forward — copyForwardProductTypeLocalizations covers the localizations beside them and deliberately not these. The failure mode is silent and is the reason this is not `cascades`: nothing errors, a shopper search simply stops resolving "movil" to the live version. The entry point #367 workstream 2 owes is a copy-forward in publishProductTypeVersion',
+    note: 'ON DELETE cascade. An alias is per VERSION, so publishing a new version leaves every alias on the OLD one and nothing carries them forward — copyForwardProductTypeLocalizations covers the localizations beside them and deliberately not these. The failure mode is silent and is the reason this is not `cascades`: nothing errors, a shopper search simply stops resolving "movil" to the live version. The entry point #367 workstream 2 owes is a copy-forward in publishProductTypeVersion',
   },
   {
     column: productTypeLocalizations.productTypeDefinitionId,
     disposition: 'rewired_by_domain',
-    note:
-      'copyForwardProductTypeLocalizations carries translations onto the new version and marks them stale when the change is semantic. This claim was FALSE until #650: the function had zero production callers and publishProductTypeVersion copied nothing, so every bump shipped every market untranslated. It is called from the publish transaction now, which is what makes this disposition true rather than intended',
+    note: 'copyForwardProductTypeLocalizations carries translations onto the new version and marks them stale when the change is semantic. This claim was FALSE until #650: the function had zero production callers and publishProductTypeVersion copied nothing, so every bump shipped every market untranslated. It is called from the publish transaction now, which is what makes this disposition true rather than intended',
     entryPoint: {
       kind: 'function',
       symbol: 'copyForwardProductTypeLocalizations',
@@ -484,8 +518,7 @@ const ATTRIBUTE_REFERENCES: readonly GovernedReference[] = [
   {
     column: canonicalVariantAttributes.attributeDefinitionId,
     disposition: 'rewired_by_domain',
-    note:
-      'publishAttributeDefinition enqueues one attribute_reindex_requests row per affected entity, which is the durable re-normalization path — and NOTHING DRAINS IT. The enqueue is real and committed; the rows are never processed, because no code path writes processed_at (catalog-observability/queries.ts and trace.service.ts both record it, and the reindex hop reports `unreachable` rather than `pending` for that reason). So this is a rewire that STARTS and does not finish, which the impact report surfaces as `rewiresAwaitingDrain` rather than folding into the rewired total',
+    note: 'publishAttributeDefinition enqueues one attribute_reindex_requests row per affected entity, which is the durable re-normalization path — and NOTHING DRAINS IT. The enqueue is real and committed; the rows are never processed, because no code path writes processed_at (catalog-observability/queries.ts and trace.service.ts both record it, and the reindex hop reports `unreachable` rather than `pending` for that reason). So this is a rewire that STARTS and does not finish, which the impact report surfaces as `rewiresAwaitingDrain` rather than folding into the rewired total',
     entryPoint: {
       kind: 'function',
       symbol: 'publishAttributeDefinition',
@@ -499,8 +532,7 @@ const ATTRIBUTE_REFERENCES: readonly GovernedReference[] = [
   {
     column: canonicalAttributeValues.attributeDefinitionId,
     disposition: 'rewired_by_domain',
-    note:
-      'the same reindex queue, and the same undrained gap — it named no symbol at all until #739, which is the other way a prose path escapes checking. This is the high-cardinality one (one row per product per attribute), so its count is the number that decides whether a publication is a small change, and it is also the count with the most rows sitting behind a queue nothing empties',
+    note: 'the same reindex queue, and the same undrained gap — it named no symbol at all until #739, which is the other way a prose path escapes checking. This is the high-cardinality one (one row per product per attribute), so its count is the number that decides whether a publication is a small change, and it is also the count with the most rows sitting behind a queue nothing empties',
     entryPoint: {
       kind: 'function',
       symbol: 'publishAttributeDefinition',
@@ -629,9 +661,7 @@ export function rewireEntryPoint(reference: GovernedReference): RewireEntryPoint
  * It is DERIVED from the same declarations the census checks, so a queue that
  * gains a consumer leaves this list in the edit that names the consumer.
  */
-export function rewiresAwaitingDrain(
-  kind: CatalogGovernanceCountedSubjectKind,
-): readonly string[] {
+export function rewiresAwaitingDrain(kind: CatalogGovernanceCountedSubjectKind): readonly string[] {
   return GOVERNED_REFERENCE_PLAN[kind]
     .filter((reference) => {
       const entryPoint = rewireEntryPoint(reference);

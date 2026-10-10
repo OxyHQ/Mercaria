@@ -227,10 +227,7 @@ export function derivedCategoryPath(category: CategoryFacts): readonly string[] 
 }
 
 /** Two paths, compared as ORDERED sequences — the array is a path, not a set. */
-export function categoryPathsAgree(
-  stored: readonly string[],
-  derived: readonly string[],
-): boolean {
+export function categoryPathsAgree(stored: readonly string[], derived: readonly string[]): boolean {
   if (stored.length !== derived.length) return false;
   return stored.every((slug, index) => slug === derived[index]);
 }

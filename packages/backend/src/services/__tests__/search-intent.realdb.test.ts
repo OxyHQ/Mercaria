@@ -431,9 +431,9 @@ describe('the deterministic path is the FLOOR', () => {
     if (plan.status !== 'planned') return;
     expect(plan.result.interpretation.budget?.basis).toBe('known_total');
     expect(plan.result.filters.price).toBeUndefined();
-    expect(
-      plan.result.enforcement.find((entry) => entry.constraintId === 'budget')?.site,
-    ).toBe('constraint_evaluation');
+    expect(plan.result.enforcement.find((entry) => entry.constraintId === 'budget')?.site).toBe(
+      'constraint_evaluation',
+    );
   });
 
   it('answers `parser_disabled` when the shopper asked for plain text search', async () => {

@@ -52,9 +52,7 @@ export interface CancellationRequestWithLines {
 }
 
 /** Load a request and its lines together. */
-async function withLines(
-  request: CancellationRequestRow,
-): Promise<CancellationRequestWithLines> {
+async function withLines(request: CancellationRequestRow): Promise<CancellationRequestWithLines> {
   return { request, lines: await listCancellationRequestLines(request.id) };
 }
 

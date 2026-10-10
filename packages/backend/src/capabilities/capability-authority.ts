@@ -87,18 +87,18 @@ export async function introspectMercariaCapabilityTicket(
   const envelope = introspectionEnvelopeSchema.parse(
     await authorityRequest('/capabilities/tickets/introspect', { ticket: token }),
   );
-  const claims = envelope.claims === undefined
-    ? undefined
-    : capabilityTicketClaimsSchema.parse(envelope.claims);
-  const decision = envelope.decision === undefined
-    ? undefined
-    : policyDecisionSchema.parse(envelope.decision);
-  return envelope.active === true
-    && decision?.allowed === true
-    && claims?.jti === localClaims.jti
-    && claims.aud === localClaims.aud
-    && claims.tool === localClaims.tool
-    && claims.resource.effectiveAccountId === localClaims.resource.effectiveAccountId;
+  const claims =
+    envelope.claims === undefined ? undefined : capabilityTicketClaimsSchema.parse(envelope.claims);
+  const decision =
+    envelope.decision === undefined ? undefined : policyDecisionSchema.parse(envelope.decision);
+  return (
+    envelope.active === true &&
+    decision?.allowed === true &&
+    claims?.jti === localClaims.jti &&
+    claims.aud === localClaims.aud &&
+    claims.tool === localClaims.tool &&
+    claims.resource.effectiveAccountId === localClaims.resource.effectiveAccountId
+  );
 }
 
 export async function auditMercariaCapabilityTicket(input: {

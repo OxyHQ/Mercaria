@@ -124,7 +124,9 @@ afterAll(async () => {
       await db
         .delete(conditionSourceMappings)
         .where(inArray(conditionSourceMappings.rulesetId, draftIds));
-      await db.delete(conditionMappingRulesets).where(inArray(conditionMappingRulesets.id, draftIds));
+      await db
+        .delete(conditionMappingRulesets)
+        .where(inArray(conditionMappingRulesets.id, draftIds));
     }
   }
   if (createdImageIds.length > 0) {
@@ -146,9 +148,7 @@ afterAll(async () => {
   await closePostgres();
 });
 
-async function seedListing(
-  overrides: Partial<typeof listings.$inferInsert> = {},
-): Promise<string> {
+async function seedListing(overrides: Partial<typeof listings.$inferInsert> = {}): Promise<string> {
   const [row] = await db
     .insert(listings)
     .values({
@@ -169,7 +169,6 @@ async function seedListing(
   createdListingIds.push(row.id);
   return row.id;
 }
-
 
 const createdVariantIds: string[] = [];
 const createdMerchantIds: string[] = [];
@@ -244,7 +243,9 @@ async function seedMerchant(): Promise<string> {
 }
 
 /** A DRAFT mapping ruleset, so its rules stay editable within one test. */
-async function seedRuleset(provider: 'shopify' | 'woocommerce' | 'etsy' | 'prestashop'): Promise<string> {
+async function seedRuleset(
+  provider: 'shopify' | 'woocommerce' | 'etsy' | 'prestashop',
+): Promise<string> {
   const [row] = await db
     .insert(conditionMappingRulesets)
     .values({ provider, version: 100_000 + Math.floor(Math.random() * 500_000) })
@@ -561,24 +562,27 @@ describe('#90 acceptance 5 — a sub-floor mapping never carries a key', () => {
     conditionMappingRulesetId?: string;
   }): Promise<unknown> {
     const now = new Date();
-    const inserted = await db.insert(offers).values({
-      kind: 'external',
-      status: 'active',
-      canonicalVariantId: await seedCanonicalVariant(),
-      merchantId: await seedMerchant(),
-      // `offers_kind_shape_check` demands all three of an `external` offer, and
-      // a fixture that skipped them would fail on the WRONG constraint — which
-      // is exactly the trap the repo's `expectRefused` helper exists to avoid.
-      sourceRecordId: await seedSourceRecord(),
-      destinationUrl: 'https://example.test/product',
-      provider: 'test-feed',
-      externalOfferId: `cond-offer-${uuidv7().slice(-10)}`,
-      observedAt: now,
-      firstSeenAt: now,
-      lastSeenAt: now,
-      staleAt: new Date(now.getTime() + 86_400_000),
-      ...condition,
-    }).returning({ id: offers.id });
+    const inserted = await db
+      .insert(offers)
+      .values({
+        kind: 'external',
+        status: 'active',
+        canonicalVariantId: await seedCanonicalVariant(),
+        merchantId: await seedMerchant(),
+        // `offers_kind_shape_check` demands all three of an `external` offer, and
+        // a fixture that skipped them would fail on the WRONG constraint — which
+        // is exactly the trap the repo's `expectRefused` helper exists to avoid.
+        sourceRecordId: await seedSourceRecord(),
+        destinationUrl: 'https://example.test/product',
+        provider: 'test-feed',
+        externalOfferId: `cond-offer-${uuidv7().slice(-10)}`,
+        observedAt: now,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        staleAt: new Date(now.getTime() + 86_400_000),
+        ...condition,
+      })
+      .returning({ id: offers.id });
     for (const row of inserted) createdOfferIds.push(row.id);
     return inserted;
   }
@@ -723,7 +727,11 @@ describe('#90 acceptance 5 — a sub-floor mapping never carries a key', () => {
       .returning({ id: conditionMappingRulesets.id });
     createdRulesetIds.push(...rows.map((row) => row.id));
 
-    const publish = { state: 'active' as const, publishedAt: new Date(), publishedByOxyUserId: `op-${RUN}` };
+    const publish = {
+      state: 'active' as const,
+      publishedAt: new Date(),
+      publishedByOxyUserId: `op-${RUN}`,
+    };
     await db
       .update(conditionMappingRulesets)
       .set(publish)
@@ -896,7 +904,11 @@ describe('#90 policy rule 5 — a category may refuse a condition', () => {
   it('records one restriction per (category, condition) and replaces rather than duplicates', async () => {
     const [category] = await db
       .insert(categories)
-      .values({ key: `cond-cat-${RUN}`, name: `Condition category ${RUN}`, slug: `cond-cat-${RUN}` })
+      .values({
+        key: `cond-cat-${RUN}`,
+        name: `Condition category ${RUN}`,
+        slug: `cond-cat-${RUN}`,
+      })
       .returning({ id: categories.id });
     createdCategoryIds.push(category.id);
 

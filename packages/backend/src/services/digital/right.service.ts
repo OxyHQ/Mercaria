@@ -37,10 +37,7 @@ import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { assetVersions, digitalAssets } from '../../db/schema/digitalAssets.js';
 import { assetLicenceVersions, assetLicences } from '../../db/schema/digitalRights.js';
 import { orderItems } from '../../db/schema/orders.js';
-import {
-  findPackageFilesAtVersion,
-  findAssetPackage,
-} from '../../db/digital/assetRepository.js';
+import { findPackageFilesAtVersion, findAssetPackage } from '../../db/digital/assetRepository.js';
 import {
   findRightsForBuyer,
   findRightsForOrder,

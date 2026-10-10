@@ -60,7 +60,11 @@ interface Options {
 }
 
 function flag(argv: readonly string[], name: string): string | undefined {
-  return argv.find((argument) => argument.startsWith(`--${name}=`))?.split('=').slice(1).join('=');
+  return argv
+    .find((argument) => argument.startsWith(`--${name}=`))
+    ?.split('=')
+    .slice(1)
+    .join('=');
 }
 
 function parseOptions(argv: readonly string[]): Options {

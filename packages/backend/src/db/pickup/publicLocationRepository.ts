@@ -120,7 +120,9 @@ export async function findPublicLocationById(
 }
 
 /** Which published shop fronts a list read is about. */
-export type PublishedLocationScope = { readonly storeId: string } | { readonly goWayPlaceId: string };
+export type PublishedLocationScope =
+  | { readonly storeId: string }
+  | { readonly goWayPlaceId: string };
 
 /**
  * One OFFSET slice of the published, unrestricted, active locations of a live
@@ -138,7 +140,9 @@ export async function findPublishedLocationsSlice(
     isNull(locationPublications.restrictedAt),
     eq(locations.isActive, true),
     eq(stores.status, 'active'),
-    'storeId' in scope ? eq(locations.storeId, scope.storeId) : eq(locations.goWayPlaceId, scope.goWayPlaceId),
+    'storeId' in scope
+      ? eq(locations.storeId, scope.storeId)
+      : eq(locations.goWayPlaceId, scope.goWayPlaceId),
   ];
   const rows = await selectPublicLocations(db)
     .innerJoin(stores, eq(stores.id, locations.storeId))
@@ -165,7 +169,12 @@ export async function findLocationStockLevels(
       updatedAt: inventoryLevels.updatedAt,
     })
     .from(inventoryLevels)
-    .where(and(eq(inventoryLevels.locationId, locationId), inArray(inventoryLevels.listingId, [...listingIds])));
+    .where(
+      and(
+        eq(inventoryLevels.locationId, locationId),
+        inArray(inventoryLevels.listingId, [...listingIds]),
+      ),
+    );
   return rows.map((row) => ({
     listingId: row.listingId,
     variantId: row.variantId,

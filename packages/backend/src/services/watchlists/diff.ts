@@ -57,10 +57,7 @@ export interface DiffLine {
 }
 
 /** Which item deltas, largest absolute movement first. */
-function byMagnitude(
-  left: WatchlistSnapshotItemDelta,
-  right: WatchlistSnapshotItemDelta,
-): number {
+function byMagnitude(left: WatchlistSnapshotItemDelta, right: WatchlistSnapshotItemDelta): number {
   return Math.abs(right.deltaMinor ?? 0) - Math.abs(left.deltaMinor ?? 0);
 }
 

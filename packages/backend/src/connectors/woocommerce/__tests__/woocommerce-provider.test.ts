@@ -10,7 +10,12 @@
 import { describe, it, expect } from 'vitest';
 import { createWooCommerceProvider } from '../index.js';
 import type { WooCommerceHttpResponse, WooCommerceTransport } from '../http.js';
-import type { ConnectorAuth, ConnectorCredentials, NormalizedProduct, NormalizedVariant } from '../../types.js';
+import type {
+  ConnectorAuth,
+  ConnectorCredentials,
+  NormalizedProduct,
+  NormalizedVariant,
+} from '../../types.js';
 import { getConnectorProvider, isImplementedProvider } from '../../registry.js';
 
 interface RecordedCall {
@@ -232,7 +237,9 @@ describe('woocommerce pagination completeness (#259)', () => {
     ['fractional', { 'x-wp-totalpages': '2.5' }],
     ['zero', { 'x-wp-totalpages': '0' }],
   ])('case 5: a FULL page whose header is %s keeps paging', async (_label, headers) => {
-    const { transport } = routingTransport(() => ok(fullPage(100), headers as Record<string, string>));
+    const { transport } = routingTransport(() =>
+      ok(fullPage(100), headers as Record<string, string>),
+    );
     const provider = createWooCommerceProvider(transport);
 
     const page = await provider.fetchProducts(CREDS);
@@ -408,8 +415,12 @@ describe('woocommerce provider registry', () => {
   it('throws for the OAuth + PUSH methods WooCommerce does not support', async () => {
     const provider = getConnectorProvider('woocommerce');
     // OAuth connect (api_key strategy) — buildAuthorizeUrl is sync (throws), exchangeCode rejects.
-    expect(() => provider.buildAuthorizeUrl({ shopDomain: 'x', redirectUri: 'y', state: 's', scopes: [] })).toThrow();
-    await expect(provider.exchangeCode({ shopDomain: 'x', code: 'c', redirectUri: 'y' })).rejects.toThrow();
+    expect(() =>
+      provider.buildAuthorizeUrl({ shopDomain: 'x', redirectUri: 'y', state: 's', scopes: [] }),
+    ).toThrow();
+    await expect(
+      provider.exchangeCode({ shopDomain: 'x', code: 'c', redirectUri: 'y' }),
+    ).rejects.toThrow();
     // Outbound push (owned by the WordPress plugin's push_in path, not this connector).
     await expect(
       provider.pushProduct(AUTH, {

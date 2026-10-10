@@ -257,9 +257,7 @@ async function examineObservation(
       catalogSourceId: observation.catalogSourceId,
       dimension: observation.dimension,
       externalKey: observation.externalKey,
-      ...(observation.observedRawValue === null
-        ? {}
-        : { rawValue: observation.observedRawValue }),
+      ...(observation.observedRawValue === null ? {} : { rawValue: observation.observedRawValue }),
       at: now,
     },
     db,
@@ -271,9 +269,8 @@ async function examineObservation(
   const next =
     resolution.outcome === 'unresolved'
       ? null
-      : ((resolution.outcome === 'resolved'
-          ? resolution.resolved
-          : resolution.resolved[0]) ?? null);
+      : ((resolution.outcome === 'resolved' ? resolution.resolved : resolution.resolved[0]) ??
+        null);
   const nextMappingId = next !== null && next.origin === 'governed' ? next.mappingId : null;
 
   if (run.mode === 'apply') {

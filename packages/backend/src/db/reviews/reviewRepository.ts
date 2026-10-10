@@ -491,7 +491,13 @@ export async function findReviewsPage(
   filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(withReviewFilters(publishedTargetFilter(target), filters), page, limit, filters, db);
+  return pageOf(
+    withReviewFilters(publishedTargetFilter(target), filters),
+    page,
+    limit,
+    filters,
+    db,
+  );
 }
 
 /** A page of a SCOPED target's PUBLISHED reviews, newest first by default, plus the total. */
@@ -502,7 +508,13 @@ export async function findScopedReviewsPage(
   filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(withReviewFilters(publishedScopedFilter(target), filters), page, limit, filters, db);
+  return pageOf(
+    withReviewFilters(publishedScopedFilter(target), filters),
+    page,
+    limit,
+    filters,
+    db,
+  );
 }
 
 /** Literal title/body search and star selection, scoped before count and pagination. */
@@ -523,10 +535,14 @@ async function pageOf(
   db: DatabaseOrTransaction,
 ): Promise<ReviewPageRows> {
   const byDate = [desc(reviews.createdAt), desc(reviews.id)];
-  const order = filters.sortBy === 'oldest' ? [asc(reviews.createdAt), asc(reviews.id)]
-    : filters.sortBy === 'rating_asc' ? [asc(reviews.rating), ...byDate]
-    : filters.sortBy === 'rating_desc' ? [desc(reviews.rating), ...byDate]
-    : byDate;
+  const order =
+    filters.sortBy === 'oldest'
+      ? [asc(reviews.createdAt), asc(reviews.id)]
+      : filters.sortBy === 'rating_asc'
+        ? [asc(reviews.rating), ...byDate]
+        : filters.sortBy === 'rating_desc'
+          ? [desc(reviews.rating), ...byDate]
+          : byDate;
   const [rows, [totals]] = await Promise.all([
     db
       .select()
@@ -535,10 +551,7 @@ async function pageOf(
       .orderBy(...order)
       .limit(limit)
       .offset((page - 1) * limit),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(reviews)
-      .where(where),
+    db.select({ count: sql<number>`count(*)::int` }).from(reviews).where(where),
   ]);
 
   return { rows, total: totals?.count ?? 0 };
@@ -561,11 +574,14 @@ export async function findListingReviewsPage(
   if (listingIds.length === 0) return { rows: [], total: 0 };
 
   return pageOf(
-    withReviewFilters(and(
-      eq(reviews.targetType, 'listing'),
-      inArray(reviews.listingId, [...listingIds]),
-      eq(reviews.status, 'published'),
-    ) as SQL, filters),
+    withReviewFilters(
+      and(
+        eq(reviews.targetType, 'listing'),
+        inArray(reviews.listingId, [...listingIds]),
+        eq(reviews.status, 'published'),
+      ) as SQL,
+      filters,
+    ),
     page,
     limit,
     filters,

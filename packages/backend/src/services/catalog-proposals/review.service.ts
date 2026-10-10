@@ -123,12 +123,7 @@ export async function approveProposal(
 
   const proposal = await db.transaction(async (tx) => {
     const row = await requireOpenProposal(tx, context.proposalId, context.operatorOxyUserId);
-    const resolvedEntityId = await mintForProposal(
-      tx,
-      row,
-      approval,
-      context.operatorOxyUserId,
-    );
+    const resolvedEntityId = await mintForProposal(tx, row, approval, context.operatorOxyUserId);
     const moved = await transitionProposal(tx, row.id, row.state, {
       toState: 'approved',
       decidedByOxyUserId: context.operatorOxyUserId,
@@ -430,8 +425,7 @@ export async function redirectProposal(
     if (input.toType === row.type) {
       throw validationError('A redirect changes the proposal type; this one is already that type.');
     }
-    const attributeDefinitionId =
-      input.attributeDefinitionId ?? row.attributeDefinitionId ?? null;
+    const attributeDefinitionId = input.attributeDefinitionId ?? row.attributeDefinitionId ?? null;
     const attributeDefinitionVersion =
       input.attributeDefinitionVersion ?? row.attributeDefinitionVersion ?? null;
     if (

@@ -25,9 +25,9 @@
  * delete each other's rows. Restating that here is how two answers drift.
  */
 
-import React, { useMemo, useState } from "react";
-import { View, Pressable, ScrollView } from "react-native";
-import { CircleAlert, FolderTree, Link2Off } from "lucide-react-native";
+import React, { useMemo, useState } from 'react';
+import { View, Pressable, ScrollView } from 'react-native';
+import { CircleAlert, FolderTree, Link2Off } from 'lucide-react-native';
 import type {
   ChannelCollectionMappingState,
   ChannelCollectionsUnavailableReason,
@@ -36,13 +36,13 @@ import type {
   Connection,
   ExternalCollection,
   ExternalTaxonomyNoun,
-} from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
-import { toast } from "@oxy.so/bloom/toast";
-import { useTranslation } from "@/lib/i18n";
-import { useChannelCollections, useUpdateChannelSettings } from "@/lib/hooks/use-channels";
+} from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { Dialog, useDialogControl } from '@oxy.so/bloom/dialog';
+import { toast } from '@oxy.so/bloom/toast';
+import { useTranslation } from '@/lib/i18n';
+import { useChannelCollections, useUpdateChannelSettings } from '@/lib/hooks/use-channels';
 
 /**
  * The platform's word for a grouping, singular and plural — as translation KEYS
@@ -51,12 +51,12 @@ import { useChannelCollections, useUpdateChannelSettings } from "@/lib/hooks/use
  */
 const NOUN_COPY_KEYS: Record<ExternalTaxonomyNoun, { one: string; many: string }> = {
   collection: {
-    one: "channels.collectionMapping.noun.collection.singular",
-    many: "channels.collectionMapping.noun.collection.plural",
+    one: 'channels.collectionMapping.noun.collection.singular',
+    many: 'channels.collectionMapping.noun.collection.plural',
   },
   category: {
-    one: "channels.collectionMapping.noun.category.singular",
-    many: "channels.collectionMapping.noun.category.plural",
+    one: 'channels.collectionMapping.noun.category.singular',
+    many: 'channels.collectionMapping.noun.category.plural',
   },
 };
 
@@ -66,16 +66,16 @@ const NOUN_COPY_KEYS: Record<ExternalTaxonomyNoun, { one: string; many: string }
  * Each names the REMEDY, because "this row is broken" without one is a message
  * that cannot be acted on. `ok` has no copy: a working row says nothing.
  */
-const STATE_COPY_KEYS: Record<Exclude<ChannelCollectionMappingState, "ok">, string> = {
-  external_missing: "channels.collectionMapping.state.externalMissing",
-  target_missing: "channels.collectionMapping.state.targetMissing",
-  target_automated: "channels.collectionMapping.state.targetAutomated",
+const STATE_COPY_KEYS: Record<Exclude<ChannelCollectionMappingState, 'ok'>, string> = {
+  external_missing: 'channels.collectionMapping.state.externalMissing',
+  target_missing: 'channels.collectionMapping.state.targetMissing',
+  target_automated: 'channels.collectionMapping.state.targetAutomated',
 };
 
 const UNAVAILABLE_COPY_KEYS: Record<ChannelCollectionsUnavailableReason, string> = {
-  push_in_connection: "channels.collectionMapping.unavailable.pushInConnection",
-  disconnected: "channels.collectionMapping.unavailable.disconnected",
-  platform_unavailable: "channels.collectionMapping.unavailable.platformUnavailable",
+  push_in_connection: 'channels.collectionMapping.unavailable.pushInConnection',
+  disconnected: 'channels.collectionMapping.unavailable.disconnected',
+  platform_unavailable: 'channels.collectionMapping.unavailable.platformUnavailable',
 };
 
 export function CollectionMapping({
@@ -115,7 +115,7 @@ export function CollectionMapping({
       {
         onSuccess: () => {
           pickerControl.close();
-          toast.success(t("channels.toast.collectionMappingSaved"));
+          toast.success(t('channels.toast.collectionMappingSaved'));
         },
         // The server refuses a target it cannot honour (an automated collection,
         // a deleted one, another store's) and its message names which. Surfacing
@@ -125,7 +125,7 @@ export function CollectionMapping({
           const message =
             err instanceof Error && err.message
               ? err.message
-              : t("channels.toast.collectionMappingSaveFailed");
+              : t('channels.toast.collectionMappingSaveFailed');
           toast.error(message);
         },
       },
@@ -146,9 +146,9 @@ export function CollectionMapping({
     return (
       <View className="rounded-2xl border border-border bg-surface p-4">
         <Text className="text-sm font-semibold text-foreground">
-          {t("channels.collectionMapping.title")}
+          {t('channels.collectionMapping.title')}
         </Text>
-        <Text className="mt-1 text-xs text-muted-foreground">{t("common.loading")}</Text>
+        <Text className="mt-1 text-xs text-muted-foreground">{t('common.loading')}</Text>
       </View>
     );
   }
@@ -156,17 +156,17 @@ export function CollectionMapping({
     return (
       <View className="rounded-2xl border border-border bg-surface p-4">
         <Text className="text-sm font-semibold text-foreground">
-          {t("channels.collectionMapping.title")}
+          {t('channels.collectionMapping.title')}
         </Text>
         <Text className="mt-1 text-xs text-muted-foreground">
-          {t("channels.collectionMapping.loadFailed")}
+          {t('channels.collectionMapping.loadFailed')}
         </Text>
       </View>
     );
   }
 
   const noun = NOUN_COPY_KEYS[data.noun];
-  const listed = data.external.outcome === "listed" ? data.external.collections : [];
+  const listed = data.external.outcome === 'listed' ? data.external.collections : [];
   const byExternalId = new Map(listed.map((c) => [c.externalId, c]));
   // Rows the platform no longer publishes still have to be editable, or a
   // merchant cannot remove the mapping the screen is warning them about.
@@ -177,14 +177,14 @@ export function CollectionMapping({
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <View className="gap-1">
         <Text className="text-sm font-semibold text-foreground">
-          {t("channels.collectionMapping.title")}
+          {t('channels.collectionMapping.title')}
         </Text>
         <Text className="text-xs text-muted-foreground">
-          {t("channels.collectionMapping.body", { many: t(noun.many), one: t(noun.one) })}
+          {t('channels.collectionMapping.body', { many: t(noun.many), one: t(noun.one) })}
         </Text>
       </View>
 
-      {data.external.outcome === "unavailable" ? (
+      {data.external.outcome === 'unavailable' ? (
         <View className="flex-row gap-2 rounded-xl bg-muted p-3">
           <CircleAlert size={16} className="mt-0.5 text-muted-foreground" />
           <Text className="flex-1 text-xs text-muted-foreground">
@@ -197,7 +197,7 @@ export function CollectionMapping({
         <View className="flex-row gap-2 rounded-xl bg-muted p-3">
           <FolderTree size={16} className="mt-0.5 text-muted-foreground" />
           <Text className="flex-1 text-xs text-muted-foreground">
-            {t("channels.collectionMapping.noManualCollections")}
+            {t('channels.collectionMapping.noManualCollections')}
           </Text>
         </View>
       ) : null}
@@ -232,8 +232,8 @@ export function CollectionMapping({
 
       <Dialog
         control={pickerControl}
-        title={t("channels.collectionMapping.pickTitle")}
-        description={t("channels.collectionMapping.pickBody")}
+        title={t('channels.collectionMapping.pickTitle')}
+        description={t('channels.collectionMapping.pickBody')}
         onClose={() => setPicking(undefined)}
       >
         <ScrollView className="max-h-80">
@@ -258,7 +258,7 @@ export function CollectionMapping({
           disabled={update.isPending}
           onPress={() => picking !== undefined && setTarget(picking, undefined)}
         >
-          {t("channels.collectionMapping.dontMap")}
+          {t('channels.collectionMapping.dontMap')}
         </Button>
       </Dialog>
     </View>
@@ -276,8 +276,8 @@ function MappingRow({
   onPress,
   onClear,
 }: {
-  external: Pick<ExternalCollection, "externalId" | "title"> &
-    Partial<Pick<ExternalCollection, "productCount" | "parentExternalId">>;
+  external: Pick<ExternalCollection, 'externalId' | 'title'> &
+    Partial<Pick<ExternalCollection, 'productCount' | 'parentExternalId'>>;
   noun: ExternalTaxonomyNoun;
   targets: readonly ChannelCollectionTarget[];
   state: ChannelCollectionMappingState | undefined;
@@ -288,7 +288,7 @@ function MappingRow({
 }) {
   const { t } = useTranslation();
   const target = targets.find((candidate) => candidate.id === mappedTo);
-  const problem = state !== undefined && state !== "ok" ? t(STATE_COPY_KEYS[state]) : undefined;
+  const problem = state !== undefined && state !== 'ok' ? t(STATE_COPY_KEYS[state]) : undefined;
 
   return (
     <View className="gap-2 rounded-xl border border-border p-3">
@@ -297,26 +297,20 @@ function MappingRow({
           <Text className="text-sm font-medium text-foreground">{external.title}</Text>
           <Text className="text-xs text-muted-foreground">
             {external.productCount === undefined
-              ? t("channels.collectionMapping.channelNoun", {
+              ? t('channels.collectionMapping.channelNoun', {
                   noun: t(NOUN_COPY_KEYS[noun].one),
                 })
-              : t("channels.collectionMapping.productsOnChannel", {
+              : t('channels.collectionMapping.productsOnChannel', {
                   count: external.productCount,
                 })}
           </Text>
         </View>
-        <Button
-          appearance="outline"
-          tone="neutral"
-          size="sm"
-          disabled={disabled}
-          onPress={onPress}
-        >
+        <Button appearance="outline" tone="neutral" size="sm" disabled={disabled} onPress={onPress}>
           {target
             ? target.title
             : mappedTo
-              ? t("channels.collectionMapping.fixMapping")
-              : t("channels.collectionMapping.map")}
+              ? t('channels.collectionMapping.fixMapping')
+              : t('channels.collectionMapping.map')}
         </Button>
       </View>
 
@@ -329,7 +323,7 @@ function MappingRow({
         >
           <Link2Off size={14} className="text-muted-foreground" />
           <Text className="text-xs text-muted-foreground underline">
-            {t("channels.collectionMapping.removeMapping")}
+            {t('channels.collectionMapping.removeMapping')}
           </Text>
         </Pressable>
       ) : null}

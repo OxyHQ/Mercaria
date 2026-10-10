@@ -27,7 +27,10 @@ import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { getDb } from '../db/postgres.js';
 import { listAuditEvents } from '../db/catalogGovernance/auditRepository.js';
-import { governanceActor, type CatalogGovernanceActor } from '../services/catalog-governance/actor.js';
+import {
+  governanceActor,
+  type CatalogGovernanceActor,
+} from '../services/catalog-governance/actor.js';
 import {
   applyChangeRequest,
   approveChangeRequest,
@@ -244,7 +247,12 @@ export async function withdrawChangeHandler(req: Request, res: Response): Promis
     const { reason } = req.body as { reason: string };
     sendSuccess(
       res,
-      await withdrawChangeRequest(getDb(), await actorFor(req), routeParam(req, 'changeId'), reason),
+      await withdrawChangeRequest(
+        getDb(),
+        await actorFor(req),
+        routeParam(req, 'changeId'),
+        reason,
+      ),
     );
   } catch (error) {
     respondWithError(res, error, 'Failed to withdraw the change request');
@@ -488,10 +496,7 @@ export async function reviewExternalMappingHandler(req: Request, res: Response):
 /** POST /internal/catalog-governance/reviews/compatibility-claims/:claimId */
 export async function reviewCompatibilityClaimHandler(req: Request, res: Response): Promise<void> {
   try {
-    const body = req.body as Omit<
-      Parameters<typeof reviewCompatibilityClaim>[2],
-      'claimId'
-    >;
+    const body = req.body as Omit<Parameters<typeof reviewCompatibilityClaim>[2], 'claimId'>;
     await reviewCompatibilityClaim(getDb(), await actorFor(req), {
       claimId: routeParam(req, 'claimId'),
       state: body.state,
@@ -577,10 +582,7 @@ export async function settleAttributeClaimHandler(req: Request, res: Response): 
  * `compatibility-claim.service.ts`'s header for the four mechanisms that keep it
  * that way.
  */
-export async function promoteCompatibilityClaimHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function promoteCompatibilityClaimHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as Omit<PromoteCompatibilityClaimInput, 'claimId'>;
     const fitment = await promoteCompatibilityClaimToFitment(getDb(), await actorFor(req), {

@@ -119,7 +119,9 @@ export async function replaceRulesetMappings(
   mappings: readonly NewConditionSourceMapping[],
 ): Promise<ConditionSourceMappingRecord[]> {
   return getDb().transaction(async (tx) => {
-    await tx.delete(conditionSourceMappings).where(eq(conditionSourceMappings.rulesetId, rulesetId));
+    await tx
+      .delete(conditionSourceMappings)
+      .where(eq(conditionSourceMappings.rulesetId, rulesetId));
 
     if (mappings.length === 0) return [];
 

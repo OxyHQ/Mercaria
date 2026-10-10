@@ -1,12 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AcceptFeeScheduleInput,
   FeePreview,
   FeePreviewInput,
   StoreFeeScheduleView,
-} from "@mercaria/shared-types";
-import { acceptFeeSchedule, fetchFeeSchedule, previewFee } from "../api/fees";
-import { queryKeys } from "../queryKeys";
+} from '@mercaria/shared-types';
+import { acceptFeeSchedule, fetchFeeSchedule, previewFee } from '../api/fees';
+import { queryKeys } from '../queryKeys';
 
 /** The schedule applicable to this store right now, and whether it accepted it. */
 export function useFeeSchedule(storeId: string) {
@@ -32,8 +32,7 @@ export function useAcceptFeeSchedule(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: AcceptFeeScheduleInput) => acceptFeeSchedule(storeId, input),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.feeSchedule(storeId) }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.feeSchedule(storeId) }),
   });
 }
 

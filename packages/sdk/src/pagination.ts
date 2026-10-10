@@ -26,7 +26,9 @@ export async function* iterateMercariaPages<T>(
     yield page;
     if (page.nextCursor === null) return;
     if (page.nextCursor === cursor) {
-      throw new MercariaResponseError('Mercaria returned the same page cursor twice; pagination stopped');
+      throw new MercariaResponseError(
+        'Mercaria returned the same page cursor twice; pagination stopped',
+      );
     }
     cursor = page.nextCursor;
   }

@@ -92,7 +92,9 @@ export function watchlistContentDigest(basket: WatchlistBasket): string {
     ].join(':');
   });
 
-  return createHash('sha256').update(`${header}\n${lines.join('\n')}`).digest('hex');
+  return createHash('sha256')
+    .update(`${header}\n${lines.join('\n')}`)
+    .digest('hex');
 }
 
 /**

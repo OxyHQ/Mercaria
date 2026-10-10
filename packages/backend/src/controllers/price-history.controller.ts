@@ -25,7 +25,10 @@ import {
   readPriceHistoryMetrics,
   tracePriceHistoryForOffer,
 } from '../services/price-history/metrics.service.js';
-import { clampPriceHistoryRange, readPriceHistory } from '../services/price-history/read.service.js';
+import {
+  clampPriceHistoryRange,
+  readPriceHistory,
+} from '../services/price-history/read.service.js';
 import { routeParam } from '../utils/request.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';

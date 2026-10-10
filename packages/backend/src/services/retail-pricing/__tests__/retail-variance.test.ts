@@ -14,10 +14,7 @@ import {
   RETAIL_DEFAULT_ROUNDING_TOLERANCE_MINOR,
   RETAIL_MAX_ROUNDING_TOLERANCE_MINOR,
 } from '@mercaria/shared-types';
-import {
-  classifyRetailCostVariance,
-  projectRetailAccountingOutputs,
-} from '../retail-variance.js';
+import { classifyRetailCostVariance, projectRetailAccountingOutputs } from '../retail-variance.js';
 
 function component(kind: RetailCostComponent['kind'], amount: number): RetailCostComponent {
   return {
@@ -49,9 +46,9 @@ describe('retail cost variance', () => {
     });
     const outputs = entries.map((entry) => entry.output);
     expect(outputs).toContain('customer_adjustment_payable');
-    expect(
-      entries.find((entry) => entry.output === 'customer_adjustment_payable')?.amount,
-    ).toEqual({ amount: 200, currency: 'EUR' });
+    expect(entries.find((entry) => entry.output === 'customer_adjustment_payable')?.amount).toEqual(
+      { amount: 200, currency: 'EUR' },
+    );
     // The whole point: nothing recognized it as income.
     expect(outputs).not.toContain('absorbed_variance');
   });

@@ -82,7 +82,12 @@ async function cleanup(): Promise<void> {
   await pg
     .getDb()
     .delete(moderationOutboxes)
-    .where(inArray(moderationOutboxes.id, eventIds.map((id) => `moderation:decision.apply:${id}`)));
+    .where(
+      inArray(
+        moderationOutboxes.id,
+        eventIds.map((id) => `moderation:decision.apply:${id}`),
+      ),
+    );
   await pg.getDb().delete(moderationEvents).where(inArray(moderationEvents.id, eventIds));
 }
 

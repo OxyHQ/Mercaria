@@ -222,10 +222,7 @@ interface Wall {
  * does not.
  */
 function forbiddenDomainImport(...directories: readonly string[]): RegExp {
-  return new RegExp(
-    `from\\s+['"](?:[^'"]*\\/)?(?:${directories.join('|')})\\/[^'"]*['"]`,
-    'u',
-  );
+  return new RegExp(`from\\s+['"](?:[^'"]*\\/)?(?:${directories.join('|')})\\/[^'"]*['"]`, 'u');
 }
 
 const WALLS: readonly Wall[] = [
@@ -274,7 +271,7 @@ const WALLS: readonly Wall[] = [
     ],
   },
   {
-    name: 'no module here may write #367 step 4\'s tables with its own spelling',
+    name: "no module here may write #367 step 4's tables with its own spelling",
     // The publish path writes typed axes, assignments, signatures and claims —
     // through `services/variant-axes/`, whose `writeVariantAxisValues` computes
     // the digest `native_variant_signatures` stores. A direct insert here would
@@ -311,7 +308,8 @@ const WALLS: readonly Wall[] = [
     // out deliberately rather than forgotten: none of the three has a rule of
     // its own that this domain could break, so adding them would widen the wall
     // without a decision behind it.
-    pattern: /\.\s*(insert|update|delete)\s*\(\s*(attributeDefinitions|attributeLabels|attributeEnumValues|categories|productTypeDefinitions|productTypeFields|productTypeFieldGroups|productTypeCategoryScopes|canonicalProducts|canonicalVariants|canonicalAttributeValues|brands|productIdentifiers|listings|productVariants)\s*\)/u,
+    pattern:
+      /\.\s*(insert|update|delete)\s*\(\s*(attributeDefinitions|attributeLabels|attributeEnumValues|categories|productTypeDefinitions|productTypeFields|productTypeFieldGroups|productTypeCategoryScopes|canonicalProducts|canonicalVariants|canonicalAttributeValues|brands|productIdentifiers|listings|productVariants)\s*\)/u,
     reads: 'stripped',
     mutations: [
       '  await db.update(categories).set({ name: 1 });',
@@ -383,10 +381,10 @@ const WALLS: readonly Wall[] = [
       {
         path: 'services/catalog-authoring/schema.service.ts',
         why:
-          'The wall\'s prediction arriving a SECOND time, and this is the case it describes: ' +
+          "The wall's prediction arriving a SECOND time, and this is the case it describes: " +
           '"if a legitimate bound ever moves from the controller into a service". #367 line 405 ' +
           'publishes the matrix rules on `AuthoringSchema`, and one of the three — the PUBLISHED ' +
-          'product\'s variant ceiling — is `config.catalog.maxVariantsPerProduct` ' +
+          "product's variant ceiling — is `config.catalog.maxVariantsPerProduct` " +
           '(`MAX_VARIANTS_PER_PRODUCT`), the number `createStoreProductWithin` refuses above. ' +
           'It is a BOUND and not a lever: it cannot refuse a draft somebody already saved, ' +
           'because nothing here branches on it — it is copied into the response. Passing it in ' +
@@ -414,7 +412,7 @@ describe('the catalog authoring domain is scanned, not sampled', () => {
     expect(bytes).toBeGreaterThan(60_000);
   });
 
-  it('POSITIVE CONTROL — the publish path DOES reach step 4\'s service', () => {
+  it("POSITIVE CONTROL — the publish path DOES reach step 4's service", () => {
     // The wall above says "not with its own spelling"; this says the writes
     // happen at all. Without it, deleting the typed-axis write entirely would
     // turn every wall green — the strongest version of the failure a
@@ -443,7 +441,8 @@ describe('the catalog authoring domain is scanned, not sampled', () => {
   });
 
   it('POSITIVE CONTROL — comment stripping removes a comment and keeps code', () => {
-    const sample = "const a = 1; // import { x } from 'services/ranking/y.js';\n/* services/fees */\nconst b = 2;";
+    const sample =
+      "const a = 1; // import { x } from 'services/ranking/y.js';\n/* services/fees */\nconst b = 2;";
     const stripped = stripComments(sample);
     expect(stripped).toContain('const a = 1;');
     expect(stripped).toContain('const b = 2;');
@@ -469,9 +468,10 @@ describe.each(WALLS)('$name', (wall) => {
       ).toBe(populationDirectories(SOURCES).length - exemptDirs.length);
       // A floor that is NOT derived from the list it defends: whatever the
       // exemptions do, most of the domain's directories must still be seeded.
-      expect(victims.length, 'almost every directory is exempt from this wall').toBeGreaterThanOrEqual(
-        4,
-      );
+      expect(
+        victims.length,
+        'almost every directory is exempt from this wall',
+      ).toBeGreaterThanOrEqual(4);
 
       for (const victim of victims) {
         const mutatedRaw = `${victim.raw}\n${mutation}\n`;
@@ -633,9 +633,7 @@ describe('the population the seven walls above are applied to (#460)', () => {
 });
 
 describe('every per-wall exemption is real, in BOTH directions (#448)', () => {
-  const exemptions = WALLS.flatMap((wall) =>
-    (wall.exempt ?? []).map((entry) => ({ wall, entry })),
-  );
+  const exemptions = WALLS.flatMap((wall) => (wall.exempt ?? []).map((entry) => ({ wall, entry })));
 
   it('there are some, and they are exactly the three the domain has argued for', () => {
     // The vacuity floor on the checks below. An empty list would make every one

@@ -217,7 +217,10 @@ describe('the guest-P2P policy cannot reach what it must not', () => {
       GUEST_P2P_PATHS.filter((path) => path.startsWith('services/guest-p2p/')).length,
       'the domain walk found nothing',
     ).toBeGreaterThanOrEqual(5);
-    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(1);
+    expect(
+      httpSurface().length,
+      'the HTTP surface derivation found nothing',
+    ).toBeGreaterThanOrEqual(1);
     expect(GUEST_P2P_PATHS.length).toBeGreaterThanOrEqual(6);
     for (const path of GUEST_P2P_PATHS) {
       expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
@@ -268,7 +271,10 @@ describe('the guest-P2P policy cannot reach what it must not', () => {
     const planted = 'db/schema/guestP2p.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'db/schema'
-        ? [...readDirectory(relative), { name: 'guestP2p.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'guestP2p.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -287,18 +293,22 @@ describe('the guest-P2P policy cannot reach what it must not', () => {
     // and the one the plant cannot see, since a plant absent from the real
     // sweep is reported outside a population built FROM that sweep exactly as
     // it is outside a correct one.
-    assertEachOf([
-      'controllers/checkout.controller.ts',
-      'routes/cart.ts',
-      'services/checkout.service.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(GUEST_P2P_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'controllers/checkout.controller.ts',
+        'routes/cart.ts',
+        'services/checkout.service.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(GUEST_P2P_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
@@ -307,7 +317,10 @@ describe('the guest-P2P policy cannot reach what it must not', () => {
     const seededWith = (directory: string, added: string): string[] =>
       httpSurface((relative) =>
         relative === directory
-          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(relative),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(relative),
       );
 
@@ -325,7 +338,10 @@ describe('the guest-P2P policy cannot reach what it must not', () => {
     expect(
       httpSurface((relative) =>
         relative === 'routes'
-          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          ? [
+              ...readDirectory(relative),
+              { name: 'admin', isDirectory: () => true, isFile: () => false },
+            ]
           : relative === 'routes/admin'
             ? [{ name: 'guest-p2p.ts', isDirectory: () => false, isFile: () => true }]
             : readDirectory(relative),
@@ -398,28 +414,34 @@ describe('the guest-P2P policy cannot reach what it must not', () => {
   it('each detector actually detects (mutation self-test)', () => {
     expect(STORAGE_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(true);
     expect(STORAGE_REFERENCE.test('const rows = await findListingById(id);')).toBe(true);
-    expect(BUYER_REFERENCE.test('if (actor.guestSessionId === session.id) return true;')).toBe(true);
+    expect(BUYER_REFERENCE.test('if (actor.guestSessionId === session.id) return true;')).toBe(
+      true,
+    );
     expect(BUYER_REFERENCE.test('where(eq(guestCheckouts.emailHash, hash))')).toBe(true);
     // The KIND is a class of caller and identifies nobody; the ID identifies
     // one person. The gate legitimately reads the first and never the second.
     expect(BUYER_REFERENCE.test("case 'guest_session':")).toBe(false);
     expect(ACCOUNT_CREATION_REFERENCE.test('await createOxyAccount(contact.email);')).toBe(true);
     expect(ACCOUNT_CREATION_REFERENCE.test('await issueGuestActor(req, res);')).toBe(true);
-    expect(RANKING_OR_COMMERCIAL_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(
+    expect(
+      RANKING_OR_COMMERCIAL_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';"),
+    ).toBe(true);
+    expect(RANKING_OR_COMMERCIAL_REFERENCE.test('const fee = commission * bps;')).toBe(true);
+    expect(DEFAULTED_SIGNAL_REFERENCE.test('x ? known(row.tier ?? "new") : known("new")')).toBe(
       true,
     );
-    expect(RANKING_OR_COMMERCIAL_REFERENCE.test('const fee = commission * bps;')).toBe(true);
-    expect(DEFAULTED_SIGNAL_REFERENCE.test('x ? known(row.tier ?? "new") : known("new")')).toBe(true);
 
     // …and the things that must NOT trip a detector: the domain's own
     // vocabulary, and the one legitimate coalesce in `facts.ts` (a stored
     // counter that is NOT NULL in the schema and defaults to zero there).
     expect(STORAGE_REFERENCE.test('const verdict = deriveVerdict(criteria);')).toBe(false);
-    expect(BUYER_REFERENCE.test("const sellerKey = `user:${sellerOxyUserId}`;")).toBe(false);
-    expect(ACCOUNT_CREATION_REFERENCE.test('const authorization = readGuestP2PAuthorization();')).toBe(
+    expect(BUYER_REFERENCE.test('const sellerKey = `user:${sellerOxyUserId}`;')).toBe(false);
+    expect(
+      ACCOUNT_CREATION_REFERENCE.test('const authorization = readGuestP2PAuthorization();'),
+    ).toBe(false);
+    expect(RANKING_OR_COMMERCIAL_REFERENCE.test('const scope = GUEST_P2P_BOUNDED_SCOPE;')).toBe(
       false,
     );
-    expect(RANKING_OR_COMMERCIAL_REFERENCE.test('const scope = GUEST_P2P_BOUNDED_SCOPE;')).toBe(false);
     expect(DEFAULTED_SIGNAL_REFERENCE.test('known(profiles[0]?.salesCount ?? 0)')).toBe(false);
   });
 });

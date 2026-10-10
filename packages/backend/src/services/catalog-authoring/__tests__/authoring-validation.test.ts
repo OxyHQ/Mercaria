@@ -315,10 +315,18 @@ describe('values are checked against the CITED registry version', () => {
       unit: 'in',
     };
     expect(
-      codes(validateDraft(input({ schema: schema([measured]), values: [value({ ...base, valueNumber: 5 })] }))),
+      codes(
+        validateDraft(
+          input({ schema: schema([measured]), values: [value({ ...base, valueNumber: 5 })] }),
+        ),
+      ),
     ).toContain('value_below_minimum');
     expect(
-      codes(validateDraft(input({ schema: schema([measured]), values: [value({ ...base, valueNumber: 50 })] }))),
+      codes(
+        validateDraft(
+          input({ schema: schema([measured]), values: [value({ ...base, valueNumber: 50 })] }),
+        ),
+      ),
     ).toContain('value_above_maximum');
   });
 
@@ -372,7 +380,12 @@ describe('values are checked against the CITED registry version', () => {
       key: 'screen_size',
       attributeDefinitionId: 'attr-screen',
       valuePolicy: 'typed_scalar',
-      validation: { ...field().validation, valueType: 'measurement', unitFamily: 'length', baseUnit: 'mm' },
+      validation: {
+        ...field().validation,
+        valueType: 'measurement',
+        unitFamily: 'length',
+        baseUnit: 'mm',
+      },
       controlledValues: [],
     });
     const result = validateDraft(
@@ -564,9 +577,7 @@ describe('values are checked against the CITED registry version', () => {
   });
 
   it('a `single` cardinality refuses a second answer', () => {
-    const result = validateDraft(
-      input({ values: [value(), value({ ordinal: 1 })] }),
-    );
+    const result = validateDraft(input({ values: [value(), value({ ordinal: 1 })] }));
     expect(codes(result)).toContain('cardinality_exceeded');
   });
 
@@ -721,11 +732,13 @@ describe('variants', () => {
 
   it('a variant with no price is refused, and a missing currency is a different code', () => {
     expect(
-      codes(validateDraft(input({ variants: [variant({ priceAmount: null, priceCurrency: null })] }))),
+      codes(
+        validateDraft(input({ variants: [variant({ priceAmount: null, priceCurrency: null })] })),
+      ),
     ).toContain('price_missing');
-    expect(
-      codes(validateDraft(input({ variants: [variant({ priceCurrency: null })] }))),
-    ).toContain('price_currency_missing');
+    expect(codes(validateDraft(input({ variants: [variant({ priceCurrency: null })] })))).toContain(
+      'price_currency_missing',
+    );
   });
 
   it('two variants with the same axis signature are refused, naming the SECOND', () => {
@@ -754,9 +767,7 @@ describe('variants', () => {
   // for order-independence at three grains against a real server.
 
   it('an answer on a field the schema does not mark variant-capable is refused', () => {
-    const result = validateDraft(
-      input({ values: [value({ draftVariantId: 'dv-1' })] }),
-    );
+    const result = validateDraft(input({ values: [value({ draftVariantId: 'dv-1' })] }));
     expect(codes(result)).toContain('variant_axis_not_permitted');
   });
 
@@ -1137,11 +1148,15 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
         ),
       }),
       unknown_unit: input({
-        schema: schema([numeric({ valueType: 'measurement', unitFamily: 'length', baseUnit: 'mm' })]),
+        schema: schema([
+          numeric({ valueType: 'measurement', unitFamily: 'length', baseUnit: 'mm' }),
+        ]),
         values: [numberValue({ unit: null })],
       }),
       unit_not_in_family: input({
-        schema: schema([numeric({ valueType: 'measurement', unitFamily: 'length', baseUnit: 'mm' })]),
+        schema: schema([
+          numeric({ valueType: 'measurement', unitFamily: 'length', baseUnit: 'mm' }),
+        ]),
         values: [numberValue({ unit: 'kg' })],
       }),
       currency_mismatch: input({
@@ -1149,7 +1164,9 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
         values: [numberValue()],
       }),
       canonical_reference_not_permitted: input({
-        values: [value({ kind: 'canonical_reference', valueEnumValueId: null, canonicalRefId: 'cp-1' })],
+        values: [
+          value({ kind: 'canonical_reference', valueEnumValueId: null, canonicalRefId: 'cp-1' }),
+        ],
       }),
       range_bounds_inverted: input({
         schema: schema([numeric({ cardinality: 'range' })]),
@@ -1194,7 +1211,12 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
       duplicate_variant_barcode: input({
         variants: [
           variant({ barcode: '5901234123457' }),
-          variant({ id: 'dv-2', position: 1, axisSignature: 'b'.repeat(64), barcode: '5901234123457' }),
+          variant({
+            id: 'dv-2',
+            position: 1,
+            axisSignature: 'b'.repeat(64),
+            barcode: '5901234123457',
+          }),
         ],
       }),
       draft_not_open: input({ status: 'published' }),
@@ -1384,9 +1406,9 @@ describe('cardinality bounds every member of the vocabulary', () => {
 describe('a barcode is measured against the canonical GTIN rules', () => {
   /** A payload of `length - 1` digits, plus the check digit it really needs. */
   const validGtin = (length: number): string => {
-    const payload = Array.from({ length: length - 1 }, (_, index) =>
-      String((index * 7) % 10),
-    ).join('');
+    const payload = Array.from({ length: length - 1 }, (_, index) => String((index * 7) % 10)).join(
+      '',
+    );
     return `${payload}${gs1CheckDigit(payload)}`;
   };
 
@@ -1478,7 +1500,9 @@ describe('a barcode is measured against the canonical GTIN rules', () => {
         ],
       }),
     );
-    const duplicates = result.findings.filter((entry) => entry.code === 'duplicate_variant_barcode');
+    const duplicates = result.findings.filter(
+      (entry) => entry.code === 'duplicate_variant_barcode',
+    );
     // The FIRST occurrence is not the mistake — one finding, on position 1.
     expect(duplicates.map((entry) => ({ severity: entry.severity, path: entry.path }))).toEqual([
       { severity: 'warning', path: 'variants[1].barcode' },
@@ -1601,7 +1625,9 @@ describe('listing media is validated separately from canonical facts', () => {
     // The pair is the test. Reporting only the p2p half would pass against a
     // validator that reported an empty gallery on all five flows.
     for (const flow of PRODUCT_TYPE_AUTHORING_FLOWS) {
-      const result = validateDraft(input({ imageFileIds: [], flow, itemConditionKey: 'used_good' }));
+      const result = validateDraft(
+        input({ imageFileIds: [], flow, itemConditionKey: 'used_good' }),
+      );
       const expected = MEDIA_EXPECTED_AUTHORING_FLOWS.includes(flow) ? ['media_missing'] : [];
       expect({ flow, findings: codes(result) }).toEqual({ flow, findings: expected });
     }

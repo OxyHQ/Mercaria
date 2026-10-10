@@ -84,9 +84,7 @@ export async function projectRetailServiceRequestForCustomer(
 ): Promise<RetailServiceRequestView> {
   const returnCase = await findRetailReturnCaseForRequest(record.id);
   const totals =
-    returnCase === undefined
-      ? undefined
-      : await summariseRetailReturnDispositions(returnCase.id);
+    returnCase === undefined ? undefined : await summariseRetailReturnDispositions(returnCase.id);
 
   const deadlineAt =
     record.commercialDeadlineAt !== null &&
@@ -227,9 +225,7 @@ export async function projectRetailServiceRequestForOperator(
     ...(row.supplierReturnAuthorizationId === null
       ? {}
       : { supplierReturnAuthorizationId: row.supplierReturnAuthorizationId }),
-    ...(row.creditNoteReference === null
-      ? {}
-      : { creditNoteReference: row.creditNoteReference }),
+    ...(row.creditNoteReference === null ? {} : { creditNoteReference: row.creditNoteReference }),
     openedAt: row.openedAt.toISOString(),
     ...(row.closedAt === null ? {} : { closedAt: row.closedAt.toISOString() }),
   }));

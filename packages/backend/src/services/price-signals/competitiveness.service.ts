@@ -251,7 +251,9 @@ export async function countMerchantComparableSubjects(input: {
       now,
     });
 
-    if (buildSubjectRows(context, policy, input.merchantId).some((row) => row.state === 'measured')) {
+    if (
+      buildSubjectRows(context, policy, input.merchantId).some((row) => row.state === 'measured')
+    ) {
       comparable += 1;
     }
   }
@@ -491,7 +493,8 @@ function cheapestRow(
   if (shortfall !== undefined) return unmeasuredRow(kind, subject, built.sample, shortfall);
 
   const cheapestOther = built.kept[0];
-  const reference = cheapestOther === undefined ? undefined : context.input.values.get(cheapestOther.id);
+  const reference =
+    cheapestOther === undefined ? undefined : context.input.values.get(cheapestOther.id);
   if (cheapestOther === undefined || reference === undefined) {
     return unmeasuredRow(kind, subject, built.sample, 'no_comparable_history');
   }

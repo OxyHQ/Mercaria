@@ -483,7 +483,10 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         conflictPolicy: options?.conflictPolicy ?? 'respect_overrides',
         targetLocationId: location.id,
       });
-      expect(configured, 'the connection this fixture just created must be readable').not.toBeNull();
+      expect(
+        configured,
+        'the connection this fixture just created must be readable',
+      ).not.toBeNull();
 
       return {
         storeId: store.id,
@@ -554,7 +557,11 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
       it('DISCONNECT clears every credential column, and the row survives', async () => {
         const fixture = await makeFixture();
 
-        const disconnected = await disconnect(fixture.storeId, fixture.connection.id, 'keep_listings');
+        const disconnected = await disconnect(
+          fixture.storeId,
+          fixture.connection.id,
+          'keep_listings',
+        );
 
         expect(disconnected.status).toBe('disconnected');
         expect(disconnected.hasCredentials).toBe(false);
@@ -780,7 +787,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           // second secret nothing verifies with. Both halves are measured so a
           // provider that changed strategy cannot report the same green.
           expect(envelope).toBeNull();
-          expect(fixture.world.webhooks.every((webhook) => webhook.secret === undefined)).toBe(true);
+          expect(fixture.world.webhooks.every((webhook) => webhook.secret === undefined)).toBe(
+            true,
+          );
           return;
         }
 
@@ -935,10 +944,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         };
         fixture.world.webhooks.push(orphan);
         const stored = await findConnection(fixture.storeId, fixture.connection.id);
-        expect(
-          stored?.webhookIds,
-          'the premise: Mercaria must NOT hold this id',
-        ).not.toContain(orphan.id);
+        expect(stored?.webhookIds, 'the premise: Mercaria must NOT hold this id').not.toContain(
+          orphan.id,
+        );
         fixture.world.deletedWebhookIds.splice(0, fixture.world.deletedWebhookIds.length);
 
         await disconnect(fixture.storeId, fixture.connection.id, 'keep_listings');
@@ -1025,7 +1033,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
 
         await disconnect(fixture.storeId, fixture.connection.id, 'keep_listings');
 
-        expect(fixture.world.deletedWebhookIds.sort()).toEqual([...(stored?.webhookIds ?? [])].sort());
+        expect(fixture.world.deletedWebhookIds.sort()).toEqual(
+          [...(stored?.webhookIds ?? [])].sort(),
+        );
       });
 
       it('ENUMERATES the platform subscription list across every PAGE', async () => {
@@ -1059,8 +1069,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // three-way merge could drop, and losing it must turn this case RED
         // rather than quietly green.
         const listReads =
-          fixture.world.callsMatching(harness.webhookPathFragment).filter((call) => call.method === 'GET')
-            .length - listReadsBefore;
+          fixture.world
+            .callsMatching(harness.webhookPathFragment)
+            .filter((call) => call.method === 'GET').length - listReadsBefore;
         expect(
           listReads,
           'the fake served the whole list on one page — this case measured nothing',
@@ -1075,7 +1086,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // dropped one subscription and created another in its place.
         expect(
           fixture.world.webhooks.map((webhook) => webhook.topic),
-          'the subscription on page two must still be the shop\'s only one for its topic',
+          "the subscription on page two must still be the shop's only one for its topic",
         ).toContain(beyondFirstPage.topic);
         expect([...(stored?.webhookIds ?? [])].sort()).toEqual(
           fixture.world.webhooks.map((webhook) => webhook.id).sort(),
@@ -1182,11 +1193,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         const refusedTopic = await leaveOneTopicRefused(fixture, 500);
         expect(fixture.world.webhooks.map((webhook) => webhook.topic)).not.toContain(refusedTopic);
 
-        const outcome = await reregisterConnectionWebhooks(
-          fixture.storeId,
-          fixture.connection.id,
-          { countsAsAttempt: true },
-        );
+        const outcome = await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+          countsAsAttempt: true,
+        });
 
         expect(outcome).toBe('registered');
         // The refused topic is now live, exactly once, and the connection holds
@@ -1242,11 +1251,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // grant does.
         fixture.world.fail(harness.webhookPathFragment, 403, 99, {}, 'POST');
 
-        const outcome = await reregisterConnectionWebhooks(
-          fixture.storeId,
-          fixture.connection.id,
-          { countsAsAttempt: true },
-        );
+        const outcome = await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+          countsAsAttempt: true,
+        });
 
         expect(outcome).toBe('dead_lettered');
         const stored = await findConnection(fixture.storeId, fixture.connection.id);
@@ -1270,10 +1277,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // 401 until the swap lands. Recreating with the SAME secret leaves the
         // stored envelope verifying survivors and recreations alike.
         const fixture = await makeFixture();
-        const before = await findConnectionWebhookSecret(
-          fixture.connection.id,
-          harness.providerId,
-        );
+        const before = await findConnectionWebhookSecret(fixture.connection.id, harness.providerId);
         if (harness.webhookSecretStrategy !== 'per_connection') {
           // An `app_secret` provider mints none and must go on storing none, so a
           // provider that changed strategy cannot report the same green.
@@ -1334,9 +1338,10 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         createdStoreIds.push(siblingStore.id);
         const siblingConnection = await connectStore(siblingStore.id);
         const siblingBefore = await findConnection(siblingStore.id, siblingConnection.id);
-        expect(siblingBefore?.webhookIds.length, 'the premise: the sibling holds ids').toBeGreaterThan(
-          0,
-        );
+        expect(
+          siblingBefore?.webhookIds.length,
+          'the premise: the sibling holds ids',
+        ).toBeGreaterThan(0);
         const addressIsShared =
           deliveryUrlFor(siblingConnection.id) === deliveryUrlFor(fixture.connection.id);
         expect(
@@ -1404,20 +1409,17 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         const callsBefore = fixture.world.calls.length;
         const subscriptionsBefore = fixture.world.webhooks.map((webhook) => webhook.id).sort();
 
-        const refused = await reregisterConnectionWebhooks(
-          fixture.storeId,
-          fixture.connection.id,
-          { countsAsAttempt: true },
-        );
+        const refused = await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+          countsAsAttempt: true,
+        });
 
         expect(refused).toBe('not_claimed');
         // THE property, and the one the returned enum alone does not establish: a
         // pass that could not claim must not have touched the merchant's platform
         // at all. Counting the fake's own request log is what says so.
-        expect(
-          fixture.world.calls.length,
-          'an unclaimed pass must not call the platform',
-        ).toBe(callsBefore);
+        expect(fixture.world.calls.length, 'an unclaimed pass must not call the platform').toBe(
+          callsBefore,
+        );
         expect(fixture.world.webhooks.map((webhook) => webhook.id).sort()).toEqual(
           subscriptionsBefore,
         );
@@ -1436,11 +1438,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           'the premise: the held lease was released by its owner',
         ).toBe(true);
 
-        const allowed = await reregisterConnectionWebhooks(
-          fixture.storeId,
-          fixture.connection.id,
-          { countsAsAttempt: true },
-        );
+        const allowed = await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+          countsAsAttempt: true,
+        });
 
         expect(allowed).toBe('registered');
         expect(
@@ -1462,11 +1462,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         await disconnect(fixture.storeId, fixture.connection.id, 'keep_listings');
         fixture.world.webhooks.splice(0, fixture.world.webhooks.length);
 
-        const outcome = await reregisterConnectionWebhooks(
-          fixture.storeId,
-          fixture.connection.id,
-          { countsAsAttempt: true },
-        );
+        const outcome = await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+          countsAsAttempt: true,
+        });
 
         // The credentials are gone, so there is nothing to authenticate with —
         // and re-subscribing a channel a merchant disconnected would be the
@@ -1746,17 +1744,14 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         };
         fixture.world.webhooks.push(stranger);
         const stored = await findConnection(fixture.storeId, fixture.connection.id);
-        expect(
-          stored?.webhookIds,
-          'the premise: Mercaria must NOT hold this id',
-        ).not.toContain(stranger.id);
+        expect(stored?.webhookIds, 'the premise: Mercaria must NOT hold this id').not.toContain(
+          stranger.id,
+        );
 
         // Re-register for real, which is the path that would delete it.
-        const outcome = await reregisterConnectionWebhooks(
-          fixture.storeId,
-          fixture.connection.id,
-          { countsAsAttempt: false },
-        );
+        const outcome = await reregisterConnectionWebhooks(fixture.storeId, fixture.connection.id, {
+          countsAsAttempt: false,
+        });
 
         expect(outcome).toBe('registered');
         expect(fixture.world.deletedWebhookIds).not.toContain(stranger.id);
@@ -1787,7 +1782,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         const children = await findListingChildren([listing.id]);
         const images = children.images.get(listing.id) ?? [];
         expect(images).toHaveLength(source.imageUrls.length);
-        expect(images.every(image => /^oxy-file-[a-f0-9]{64}$/.test(image.fileId))).toBe(true);
+        expect(images.every((image) => /^oxy-file-[a-f0-9]{64}$/.test(image.fileId))).toBe(true);
 
         const variants = await findVariantsByListing(listing.id);
         expect(variants).toHaveLength(source.variants.length);
@@ -1967,9 +1962,10 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         await runBackfill(fixture.storeId, fixture.connection.id);
 
         const variants = await findVariantsByListing(listing.id);
-        expect(variants.length, 'the price assertion below is vacuous with no variants').toBeGreaterThan(
-          0,
-        );
+        expect(
+          variants.length,
+          'the price assertion below is vacuous with no variants',
+        ).toBeGreaterThan(0);
         for (const variant of variants) {
           expect(variant.priceAmount, 'a pinned price must survive').not.toBe(9900);
         }
@@ -2106,10 +2102,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
       it('is IDEMPOTENT — a re-run creates no second listing and no second variant', async () => {
         const fixture = await makeFixture();
         const first = await runBackfill(fixture.storeId, fixture.connection.id);
-        const before = await findListingsBySourceConnection(
-          fixture.storeId,
-          fixture.connection.id,
-        );
+        const before = await findListingsBySourceConnection(fixture.storeId, fixture.connection.id);
 
         const second = await runBackfill(fixture.storeId, fixture.connection.id);
 
@@ -2122,8 +2115,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         expect(after.map((row) => row.id).sort()).toEqual(before.map((row) => row.id).sort());
         for (const listing of after) {
           expect(await findVariantsByListing(listing.id)).toHaveLength(
-            fixture.world.products.find((product) => product.externalId === listing.sourceExternalId)
-              ?.variants.length,
+            fixture.world.products.find(
+              (product) => product.externalId === listing.sourceExternalId,
+            )?.variants.length,
           );
         }
         // NOT asserted: that the second run reports `skipped`. `toUpdatePatch`
@@ -2563,7 +2557,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           // changed nothing and reported success is indistinguishable from a
           // quiet day.
           expect(run.countsFailed).toBeGreaterThan(0);
-          expect(retry.countsFailed, 'a retry must converge on the same refusal').toBeGreaterThan(0);
+          expect(retry.countsFailed, 'a retry must converge on the same refusal').toBeGreaterThan(
+            0,
+          );
         },
       );
     });
@@ -2848,7 +2844,10 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         const bare = fixture.world.orders.filter(
           (order) => order.discounts.length === 0 && order.taxLines.length === 0,
         );
-        expect(bare.length, 'the fixture order book must carry an un-itemized order').toBeGreaterThan(0);
+        expect(
+          bare.length,
+          'the fixture order book must carry an un-itemized order',
+        ).toBeGreaterThan(0);
 
         await syncOrders(fixture.storeId, fixture.connection.id);
 
@@ -2948,7 +2947,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           payload: harness.webhookProductPayload(fixture.world, source.externalId),
         });
 
-        expect((await importedListing(fixture, source.externalId)).title).toBe('Changed by webhook');
+        expect((await importedListing(fixture, source.externalId)).title).toBe(
+          'Changed by webhook',
+        );
       });
 
       it('ARCHIVES on a delete webhook, and a RE-DELIVERY is a no-op', async () => {
@@ -3486,7 +3487,9 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         expect((await importedListing(fixture, source.externalId)).status).toBe('restricted');
         // And the restore an appeal would run still succeeds — the property the
         // status assertion above exists to protect, asserted rather than implied.
-        expect(await setListingStatusIfIn(listing.id, 'active', ['restricted', 'draft'])).toBe(true);
+        expect(await setListingStatusIfIn(listing.id, 'active', ['restricted', 'draft'])).toBe(
+          true,
+        );
       });
 
       it('imports EVERY variant of a MULTI-VARIANT product first seen through a webhook', async () => {
@@ -3545,10 +3548,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
             // rather than pass, which is what makes this an assertion about the
             // delivery rather than a case that skips.
             const deadProvider = harness.createProvider(harness.createWorld());
-            const untouched = harness.webhookProductPayload(
-              fixture.world,
-              multiVariant.externalId,
-            );
+            const untouched = harness.webhookProductPayload(fixture.world, multiVariant.externalId);
             expect(
               await deadProvider.expandWebhookProduct(
                 { accessToken: 'unused', shopDomain: harness.shopDomain },
@@ -3635,10 +3635,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           // rule out.
           const fixture = await makeFixture({ products: 'bidirectional' });
           await runBackfill(fixture.storeId, fixture.connection.id);
-          const imported = await importedListing(
-            fixture,
-            fixture.world.products[0].externalId,
-          );
+          const imported = await importedListing(fixture, fixture.world.products[0].externalId);
           await updateListingColumns(imported.id, {
             sourceConnectionId: null,
             sourceExternalId: null,

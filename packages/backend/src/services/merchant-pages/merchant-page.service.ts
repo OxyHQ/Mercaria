@@ -66,7 +66,10 @@ import {
   findLinkedStoreIdentity,
   findMerchantNames,
 } from '../../db/merchantPages/merchantCatalogRepository.js';
-import { getMerchantPublic, getNativeCheckoutEligibility } from '../commerce-graph/merchant.service.js';
+import {
+  getMerchantPublic,
+  getNativeCheckoutEligibility,
+} from '../commerce-graph/merchant.service.js';
 import { toStorefrontDTO } from '../commerce-graph/storefront.service.js';
 import { listMerchantBrandRelationships } from '../commerce-graph/relationship-resolution.js';
 import { getClaimEligibility } from '../merchant-claims/merchant-claim.service.js';
@@ -232,8 +235,7 @@ async function resolveBrandStandings(
       };
     })
     .sort(
-      (a, b) =>
-        b.currentOfferCount - a.currentOfferCount || a.brandName.localeCompare(b.brandName),
+      (a, b) => b.currentOfferCount - a.currentOfferCount || a.brandName.localeCompare(b.brandName),
     );
 }
 
@@ -275,7 +277,10 @@ function resolveContact(input: {
  * so an old merchant URL keeps answering with its winner here exactly as it
  * does on the identity route.
  */
-export async function getMerchantPage(idOrSlug: string, now: Date = new Date()): Promise<MerchantPage> {
+export async function getMerchantPage(
+  idOrSlug: string,
+  now: Date = new Date(),
+): Promise<MerchantPage> {
   const profile = await getMerchantPublic(idOrSlug);
   const merchant: Merchant = profile.merchant;
   const db = getDb();

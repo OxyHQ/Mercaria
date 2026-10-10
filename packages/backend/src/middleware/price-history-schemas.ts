@@ -31,7 +31,10 @@ import {
 
 const CURRENCY_VALUES = ALL_CURRENCY_CODES as readonly [CurrencyCode, ...CurrencyCode[]];
 const SEGMENT_VALUES = CONDITION_GROUPS as readonly [ConditionGroup, ...ConditionGroup[]];
-const MEASURE_VALUES = PRICE_SERIES_MEASURES as readonly [PriceSeriesMeasure, ...PriceSeriesMeasure[]];
+const MEASURE_VALUES = PRICE_SERIES_MEASURES as readonly [
+  PriceSeriesMeasure,
+  ...PriceSeriesMeasure[],
+];
 const GRANULARITY_VALUES = PRICE_SERIES_GRANULARITIES as readonly [
   PriceSeriesGranularity,
   ...PriceSeriesGranularity[],
@@ -39,7 +42,11 @@ const GRANULARITY_VALUES = PRICE_SERIES_GRANULARITIES as readonly [
 
 const entityId = z.string().trim().min(1).max(64);
 /** ISO 3166-1 alpha-2, matching `offer_price_series_market_check` rather than approximating it. */
-const market = z.string().trim().length(2).regex(/^[A-Za-z]{2}$/);
+const market = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/);
 const isoInstant = z.string().trim().datetime();
 
 /**
@@ -82,10 +89,9 @@ export const priceHistoryQuerySchema = z
     allowCurrentRateReinterpretation: z.enum(['true', 'false']).optional(),
   })
   .strict()
-  .refine(
-    (value) => Boolean(value.canonicalProductId) !== Boolean(value.canonicalVariantId),
-    { message: 'Provide exactly one of canonicalProductId or canonicalVariantId.' },
-  )
+  .refine((value) => Boolean(value.canonicalProductId) !== Boolean(value.canonicalVariantId), {
+    message: 'Provide exactly one of canonicalProductId or canonicalVariantId.',
+  })
   .refine((value) => !(value.merchantId && value.storefrontId), {
     message: 'Provide at most one of merchantId or storefrontId.',
   })
@@ -116,7 +122,6 @@ export const priceHistoryRebuildSchema = z
     granularity: z.enum(GRANULARITY_VALUES).default('day'),
   })
   .strict()
-  .refine(
-    (value) => Boolean(value.canonicalProductId) !== Boolean(value.canonicalVariantId),
-    { message: 'Provide exactly one of canonicalProductId or canonicalVariantId.' },
-  );
+  .refine((value) => Boolean(value.canonicalProductId) !== Boolean(value.canonicalVariantId), {
+    message: 'Provide exactly one of canonicalProductId or canonicalVariantId.',
+  });

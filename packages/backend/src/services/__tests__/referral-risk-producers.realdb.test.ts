@@ -511,8 +511,12 @@ describe('repeated_cap_attempt — counting the refusals the reward domain wrote
     // The positive control: the refusal IS counted for the partner it belongs
     // to, so a zero below means scoping rather than a query that matches
     // nothing.
-    expect((await collectRiskSignalFacts(db, { partnerId: theirs.partnerId, at })).capRefusalCount).toBe(1);
-    expect((await collectRiskSignalFacts(db, { partnerId: mine.partnerId, at })).capRefusalCount).toBe(0);
+    expect(
+      (await collectRiskSignalFacts(db, { partnerId: theirs.partnerId, at })).capRefusalCount,
+    ).toBe(1);
+    expect(
+      (await collectRiskSignalFacts(db, { partnerId: mine.partnerId, at })).capRefusalCount,
+    ).toBe(0);
   });
 
   it('reports ZERO as a measurement, and fires no signal for it', async () => {

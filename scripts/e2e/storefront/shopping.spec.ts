@@ -3,20 +3,27 @@ import { expect, test } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale: 'en' }, version: 0 }));
-    localStorage.setItem('mercaria.bloom.theme', JSON.stringify({ mode: 'light', colorPreset: 'mono' }));
+    localStorage.setItem(
+      'mercaria.bloom.theme',
+      JSON.stringify({ mode: 'light', colorPreset: 'mono' }),
+    );
   });
 });
 
 test('composer opens a shopping thread from text and catalog suggestions', async ({ page }) => {
   const errors: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   const input = page.locator('[data-testid="shopping-composer"]:visible').getByRole('textbox');
   await input.fill('linen');
   await input.press('Enter');
   await expect(page).toHaveURL(/\/thread\?q=linen$/);
   await expect(page.getByTestId('shopping-thread')).toContainText('linen');
-  await expect(page.getByText('The shopping assistant is not available yet. You can still search the catalogue.')).toBeVisible();
+  await expect(
+    page.getByText(
+      'The shopping assistant is not available yet. You can still search the catalogue.',
+    ),
+  ).toBeVisible();
 
   await page.goto('/');
   await input.click();
@@ -36,7 +43,9 @@ test('composer opens a shopping thread from text and catalog suggestions', async
   expect(errors).toEqual([]);
 });
 
-test('Bloom rail navigates and composer dismisses suggestions outside its bounds', async ({ page }) => {
+test('Bloom rail navigates and composer dismisses suggestions outside its bounds', async ({
+  page,
+}) => {
   await page.goto('/');
   const input = page.locator('[data-testid="shopping-composer"]:visible').getByRole('textbox');
   await input.click();
@@ -72,7 +81,10 @@ test('dark Arabic layout and reduced motion retain a usable composer', async ({ 
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
   await page.addInitScript(() => {
     localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale: 'ar' }, version: 0 }));
-    localStorage.setItem('mercaria.bloom.theme', JSON.stringify({ mode: 'dark', colorPreset: 'mono' }));
+    localStorage.setItem(
+      'mercaria.bloom.theme',
+      JSON.stringify({ mode: 'dark', colorPreset: 'mono' }),
+    );
   });
   await page.goto('/');
   const composer = page.locator('[data-testid="shopping-composer"]:visible');
@@ -86,7 +98,10 @@ test('dark Arabic layout and reduced motion retain a usable composer', async ({ 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440);
 });
 
-test('seeded product variants and guest cart work through the real API', async ({ page, request }) => {
+test('seeded product variants and guest cart work through the real API', async ({
+  page,
+  request,
+}) => {
   const response = await request.get('http://localhost:4160/feed');
   expect(response.ok()).toBeTruthy();
   const feed = await response.json();
@@ -107,16 +122,22 @@ test('seeded product variants and guest cart work through the real API', async (
   await expect(quantity.getByText('1', { exact: true })).toHaveCSS('font-weight', '600');
   const quantityValue = quantity.getByRole('slider');
   expect((await quantityValue.boundingBox())!.width).toBeCloseTo(44.8, 1);
-  await expect(quantity.getByRole('button', { name: 'Decrease quantity', exact: true })).toBeDisabled();
+  await expect(
+    quantity.getByRole('button', { name: 'Decrease quantity', exact: true }),
+  ).toBeDisabled();
   await quantityValue.focus();
   await quantityValue.press('ArrowUp');
   await expect(quantityValue).toHaveAttribute('aria-valuenow', '2');
   await quantityValue.press('ArrowDown');
   await expect(quantityValue).toHaveAttribute('aria-valuenow', '1');
-  const added = page.waitForResponse(response => response.url().endsWith('/cart/items')
-    && response.request().method() === 'POST');
+  const added = page.waitForResponse(
+    (response) => response.url().endsWith('/cart/items') && response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
-  expect((await added).ok(), 'Local API needs GUEST_COMMERCE_ENABLED and its two configured keys').toBeTruthy();
+  expect(
+    (await added).ok(),
+    'Local API needs GUEST_COMMERCE_ENABLED and its two configured keys',
+  ).toBeTruthy();
   const cartNavigation = page.getByRole('button', { name: 'Cart', exact: true });
   const badge = cartNavigation.getByText(/^\d+$/);
   await expect(badge).toBeVisible();
@@ -136,7 +157,6 @@ test('seeded product variants and guest cart work through the real API', async (
   await expect(badge).toHaveCount(0);
 });
 
-
 test('document footer stays in the content column after scroll and resize', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('New arrivals', { exact: true })).toBeVisible();
@@ -153,7 +173,9 @@ test('document footer stays in the content column after scroll and resize', asyn
   expect(box!.y + box!.height).toBeLessThan(1000);
   expect(box!.x).toBeGreaterThan(76);
   await page.setViewportSize({ width: 1050, height: 780 });
-  await expect.poll(async () => (await composer.boundingBox())!.y + (await composer.boundingBox())!.height).toBeLessThan(780);
+  await expect
+    .poll(async () => (await composer.boundingBox())!.y + (await composer.boundingBox())!.height)
+    .toBeLessThan(780);
   box = await composer.boundingBox();
   expect(box!.x + box!.width).toBeLessThanOrEqual(1050);
   await composer.getByRole('textbox').fill('');
@@ -162,9 +184,14 @@ test('document footer stays in the content column after scroll and resize', asyn
   await expect(page.getByRole('option')).toHaveCount(0);
 });
 
-test('explicit local thread preview supports follow-ups, cancellation and a new conversation', async ({ page }) => {
+test('explicit local thread preview supports follow-ups, cancellation and a new conversation', async ({
+  page,
+}) => {
   const inference: string[] = [];
-  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/shopping-thread')) inference.push(request.url()); });
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().endsWith('/shopping-thread'))
+      inference.push(request.url());
+  });
   await page.goto('/thread?q=linen&preview=1');
   await expect(page.getByText('Preview · Example responses, no AI connected')).toBeVisible();
   await expect(page.getByTestId('thread-preview-products')).toHaveCount(1);
@@ -184,15 +211,18 @@ test('explicit local thread preview supports follow-ups, cancellation and a new 
   expect(inference).toEqual([]);
 });
 
-
-test('compact hero animates, responds to the pointer and opens the visible product', async ({ page }) => {
+test('compact hero animates, responds to the pointer and opens the visible product', async ({
+  page,
+}) => {
   await page.goto('/');
   const hero = page.getByTestId('home-hero');
   const card = page.getByTestId('hero-card-0');
   await expect(card.getByRole('link')).toBeVisible();
   expect((await hero.boundingBox())!.height).toBeLessThan(650);
-  const first = await card.evaluate(element => getComputedStyle(element).transform);
-  await expect.poll(() => card.evaluate(element => getComputedStyle(element).transform)).not.toBe(first);
+  const first = await card.evaluate((element) => getComputedStyle(element).transform);
+  await expect
+    .poll(() => card.evaluate((element) => getComputedStyle(element).transform))
+    .not.toBe(first);
   const target = await card.boundingBox();
   await page.mouse.move(target!.x + target!.width / 2, target!.y + target!.height / 2);
   const label = await card.getByRole('link').getAttribute('aria-label');
@@ -210,7 +240,10 @@ test('Explore owns 3D and editorial cards open their product collections', async
   await page.getByRole('link', { name: '3D', exact: true }).click();
   await expect(page).toHaveURL(/\/3d$/);
   await page.getByRole('button', { name: 'Explore', exact: true }).click();
-  await page.getByTestId('curation-highlights').getByRole('link', { name: 'Everyday finds' }).click();
+  await page
+    .getByTestId('curation-highlights')
+    .getByRole('link', { name: 'Everyday finds' })
+    .click();
   await expect(page).toHaveURL(/\/curations\/everyday-finds$/);
   await expect(page.getByTestId('curation-header')).toContainText('Everyday finds');
   const product = page.getByTestId('curation-products').getByRole('link').first();
@@ -221,23 +254,36 @@ test('Explore owns 3D and editorial cards open their product collections', async
 });
 
 test('Profile is reachable on desktop and mobile and owns Saved', async ({ page }) => {
-  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 390, height: 844 },
+  ]) {
     await page.setViewportSize(viewport);
     await page.goto('/');
-    await page.getByRole(viewport.width < 768 ? 'tab' : 'button', { name: 'Profile', exact: true }).click();
+    await page
+      .getByRole(viewport.width < 768 ? 'tab' : 'button', { name: 'Profile', exact: true })
+      .click();
     await expect(page).toHaveURL(/\/profile$/);
     await expect(page.getByTestId('shopping-profile')).toContainText('Your saved finds');
     await expect(page.getByTestId('shopping-composer')).toHaveCount(0);
-    await page.getByTestId('shopping-profile').getByRole('button', { name: 'Saved', exact: true }).click();
+    await page
+      .getByTestId('shopping-profile')
+      .getByRole('button', { name: 'Saved', exact: true })
+      .click();
     await expect(page).toHaveURL(/\/saved$/);
     await expect(page.getByText('Sign in to save things', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
   }
 });
 
-test('saving a product as a guest opens sign-in without pretending it was saved', async ({ page }) => {
+test('saving a product as a guest opens sign-in without pretending it was saved', async ({
+  page,
+}) => {
   await page.goto('/curations/everyday-finds');
-  const save = page.getByTestId('curation-products').getByRole('button', { name: 'Add to saved items', exact: true }).first();
+  const save = page
+    .getByTestId('curation-products')
+    .getByRole('button', { name: 'Add to saved items', exact: true })
+    .first();
   await expect(save).toHaveAttribute('aria-pressed', 'false');
   await save.click();
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -246,7 +292,9 @@ test('saving a product as a guest opens sign-in without pretending it was saved'
   await expect(save).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('thread composer measures its real width and shrinks after clearing multiline input', async ({ page }) => {
+test('thread composer measures its real width and shrinks after clearing multiline input', async ({
+  page,
+}) => {
   await page.goto('/thread?preview=1');
   const composer = page.getByTestId('shopping-composer');
   const input = composer.getByRole('textbox');
@@ -259,13 +307,17 @@ test('thread composer measures its real width and shrinks after clearing multili
   // NativeWind's viewport subscription and the input's content-size update
   // settle independently. A collapsed height does not yet imply mobile width.
   await expect.poll(async () => (await composer.boundingBox())?.x).toBeGreaterThanOrEqual(0);
-  await expect.poll(async () => {
-    const box = await composer.boundingBox();
-    return box ? box.x + box.width : Infinity;
-  }).toBeLessThanOrEqual(390);
+  await expect
+    .poll(async () => {
+      const box = await composer.boundingBox();
+      return box ? box.x + box.width : Infinity;
+    })
+    .toBeLessThanOrEqual(390);
 });
 
-test('editorial curation matches the reference cover, reading column and mobile composition', async ({ page }) => {
+test('editorial curation matches the reference cover, reading column and mobile composition', async ({
+  page,
+}) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/curations/01a0e9b7-5414-7e69-a529-85a3f6c3dc47');
   const cover = page.getByTestId('editorial-cover');
@@ -273,7 +325,7 @@ test('editorial curation matches the reference cover, reading column and mobile 
   await expect(page.getByTestId('curation-header')).toContainText('The Courtney Grow Edit');
   await expect.poll(async () => (await cover.boundingBox())!.width).toBe(1140);
   let box = (await cover.boundingBox())!;
-  expect(box.height).toBeCloseTo(1140 * 9 / 16, 1);
+  expect(box.height).toBeCloseTo((1140 * 9) / 16, 1);
   expect(box.x).toBeCloseTo(184, 0);
   expect(box.y).toBeCloseTo(316, 0);
   const grid = page.getByTestId('editorial-product-grid').first();
@@ -296,14 +348,23 @@ test('editorial scroll fades the pinned title and scales the cover', async ({ pa
   const cover = page.getByTestId('editorial-cover');
   await expect(cover).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 400));
-  await expect.poll(() => page.getByTestId('editorial-heading').evaluate(e => Number(getComputedStyle(e).opacity))).toBeLessThan(0.02);
-  await expect.poll(() => cover.evaluate(e => getComputedStyle(e).transform)).toMatch(/matrix\(0\.95/);
+  await expect
+    .poll(() =>
+      page.getByTestId('editorial-heading').evaluate((e) => Number(getComputedStyle(e).opacity)),
+    )
+    .toBeLessThan(0.02);
+  await expect
+    .poll(() => cover.evaluate((e) => getComputedStyle(e).transform))
+    .toMatch(/matrix\(0\.95/);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect.poll(() => cover.evaluate(e => getComputedStyle(e).transform)).toBe('none');
+  await expect.poll(() => cover.evaluate((e) => getComputedStyle(e).transform)).toBe('none');
 });
 
 test('Orders opens from the rail and mobile profile and offers real sign-in', async ({ page }) => {
-  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 390, height: 844 },
+  ]) {
     await page.setViewportSize(viewport);
     await page.goto(viewport.width < 768 ? '/profile' : '/');
     await page.getByRole('button', { name: 'Orders', exact: true }).click();
@@ -316,7 +377,11 @@ test('Orders opens from the rail and mobile profile and offers real sign-in', as
     await expect(page.getByText('Use your Oxy account', { exact: true })).toBeVisible();
     await expect(page.getByTestId('app-content-boundary')).toHaveAttribute('inert', '');
     await expect(page.getByTestId('app-content-boundary')).toHaveAttribute('aria-hidden', 'true');
-    expect(await page.getByText('Use your Oxy account', { exact: true }).evaluate(node => node.closest('[inert]'))).toBeNull();
+    expect(
+      await page
+        .getByText('Use your Oxy account', { exact: true })
+        .evaluate((node) => node.closest('[inert]')),
+    ).toBeNull();
   }
 });
 
@@ -332,12 +397,20 @@ test('editorial body inherits the panel surface in both themes', async ({ page }
   }
 });
 
-test('home cart shelf matches the merchant layout and checks out only its group', async ({ page, request }) => {
+test('home cart shelf matches the merchant layout and checks out only its group', async ({
+  page,
+  request,
+}) => {
   const feed = await (await request.get('http://localhost:4160/feed')).json();
-  const product = feed.data.sections.filter((s: { kind: string }) => s.kind === 'products').flatMap((s: { products: { id: string; title: string }[] }) => s.products).find((p: { title: string }) => p.title === 'Brilliant Eye Brightener');
+  const product = feed.data.sections
+    .filter((s: { kind: string }) => s.kind === 'products')
+    .flatMap((s: { products: { id: string; title: string }[] }) => s.products)
+    .find((p: { title: string }) => p.title === 'Brilliant Eye Brightener');
   await page.goto(`/products/${product.id}`);
   await page.getByRole('button', { name: 'Shade: Stella', exact: true }).click();
-  const response = page.waitForResponse(r => r.url().endsWith('/cart/items') && r.request().method() === 'POST');
+  const response = page.waitForResponse(
+    (r) => r.url().endsWith('/cart/items') && r.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
   const payload = await (await response).json();
   const group = payload.data.groups[0];
@@ -353,7 +426,9 @@ test('home cart shelf matches the merchant layout and checks out only its group'
   await expect(page).toHaveURL(/\/cart$/);
   await page.goto('/');
   await card.getByRole('button', { name: 'Continue to checkout', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`),
+  );
 });
 
 test('Keep shopping resumes a persisted conversation including its follow-up', async ({ page }) => {
@@ -363,8 +438,13 @@ test('Keep shopping resumes a persisted conversation including its follow-up', a
   await composer.fill('Something under 50');
   await composer.press('Enter');
   await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-  await page.getByTestId('thread-header').getByRole('button', { name: 'Home', exact: true }).click();
-  const card = page.getByTestId('thread-shelf').getByRole('link', { name: 'Dinner party gifts', exact: true });
+  await page
+    .getByTestId('thread-header')
+    .getByRole('button', { name: 'Home', exact: true })
+    .click();
+  const card = page
+    .getByTestId('thread-shelf')
+    .getByRole('link', { name: 'Dinner party gifts', exact: true });
   await expect(card).toBeVisible();
   expect((await card.boundingBox())!.width).toBe(289);
   expect((await card.boundingBox())!.height).toBe(56);
@@ -378,9 +458,14 @@ test('Keep shopping resumes a persisted conversation including its follow-up', a
   await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
 });
 
-test('Recently viewed keeps one image-only card per product and opens its full history', async ({ page, request }) => {
+test('Recently viewed keeps one image-only card per product and opens its full history', async ({
+  page,
+  request,
+}) => {
   const feed = await (await request.get('http://localhost:4160/feed')).json();
-  const product = feed.data.sections.filter((s: { kind: string }) => s.kind === 'products').flatMap((s: { products: { id: string; title: string }[] }) => s.products)[0];
+  const product = feed.data.sections
+    .filter((s: { kind: string }) => s.kind === 'products')
+    .flatMap((s: { products: { id: string; title: string }[] }) => s.products)[0];
   await page.goto(`/products/${product.id}`);
   await expect(page.getByText(product.title, { exact: true }).first()).toBeVisible();
   await page.goto('/');
@@ -398,7 +483,9 @@ test('Recently viewed keeps one image-only card per product and opens its full h
   await expect(page.getByTestId('recently-viewed-products')).toContainText(product.title);
 });
 
-test('category mosaics show four independently navigable published categories', async ({ page }) => {
+test('category mosaics show four independently navigable published categories', async ({
+  page,
+}) => {
   await page.goto('/');
   const chips = page.getByTestId('category-pills');
   await expect(chips).toBeVisible();
@@ -406,11 +493,28 @@ test('category mosaics show four independently navigable published categories', 
   const chipsBox = (await chips.boundingBox())!;
   expect(chipsBox.y).toBeGreaterThanOrEqual(heroBox.y + heroBox.height);
   expect(chipsBox.y - heroBox.y - heroBox.height).toBeLessThan(32);
-  await expect(chips.getByRole('link').first()).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(chips.getByRole('link').first()).not.toHaveCSS(
+    'background-color',
+    'rgba(0, 0, 0, 0)',
+  );
   const chipCount = await chips.getByRole('link').count();
   await expect(chips.getByTestId('category-pill-image')).toHaveCount(chipCount);
-  await expect.poll(() => chips.locator('img').evaluateAll(images => images.filter(image => image.complete && image.naturalWidth > 0).length)).toBe(chipCount);
-  expect(await chips.locator('img').evaluateAll(images => images.every(image => new URL(image.src).origin === location.origin))).toBe(true);
+  await expect
+    .poll(() =>
+      chips
+        .locator('img')
+        .evaluateAll(
+          (images) => images.filter((image) => image.complete && image.naturalWidth > 0).length,
+        ),
+    )
+    .toBe(chipCount);
+  expect(
+    await chips
+      .locator('img')
+      .evaluateAll((images) =>
+        images.every((image) => new URL(image.src).origin === location.origin),
+      ),
+  ).toBe(true);
   const shelf = page.getByTestId('category-mosaic-shelf');
   const first = shelf.getByTestId('category-mosaic').first();
   await expect(first).toBeVisible();
@@ -420,16 +524,22 @@ test('category mosaics show four independently navigable published categories', 
   await expect(page).toHaveURL(/\/categories\/dresses$/);
 });
 
-test('category chips retain a visible fallback and navigation when an image fails', async ({ page }) => {
-  await page.route('**/automotive.jpg*', route => route.abort());
+test('category chips retain a visible fallback and navigation when an image fails', async ({
+  page,
+}) => {
+  await page.route('**/automotive.jpg*', (route) => route.abort());
   await page.goto('/');
-  const automotive = page.getByTestId('category-pills').getByRole('link', { name: 'Automotive', exact: true });
+  const automotive = page
+    .getByTestId('category-pills')
+    .getByRole('link', { name: 'Automotive', exact: true });
   await expect(automotive.getByTestId('category-pill-image-fallback')).toBeVisible();
   await automotive.click();
   await expect(page).toHaveURL(/\/categories\/brake-pad-automotive$/);
 });
 
-test('category arrows overlay the track, scroll both ways and disappear on mobile', async ({ page }) => {
+test('category arrows overlay the track, scroll both ways and disappear on mobile', async ({
+  page,
+}) => {
   await page.goto('/');
   const carousel = page.getByTestId('home-category-carousel');
   await carousel.scrollIntoViewIfNeeded();
@@ -444,22 +554,29 @@ test('category arrows overlay the track, scroll both ways and disappear on mobil
   await expect(next.locator('svg')).toHaveAttribute('width', '20');
   const frameBox = (await frame.boundingBox())!;
   const arrowBox = (await next.boundingBox())!;
-  expect(Math.abs(arrowBox.y + arrowBox.height / 2 - frameBox.y - frameBox.height / 2)).toBeLessThan(2);
+  expect(
+    Math.abs(arrowBox.y + arrowBox.height / 2 - frameBox.y - frameBox.height / 2),
+  ).toBeLessThan(2);
   await next.click();
-  await expect.poll(() => track.evaluate(element => element.scrollLeft)).toBeGreaterThan(300);
+  await expect.poll(() => track.evaluate((element) => element.scrollLeft)).toBeGreaterThan(300);
   await expect(previous).toBeEnabled();
   await previous.click();
-  await expect.poll(() => track.evaluate(element => element.scrollLeft)).toBeLessThan(2);
+  await expect.poll(() => track.evaluate((element) => element.scrollLeft)).toBeLessThan(2);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId('home-category-carousel-overlay-arrows')).toHaveCount(0);
   await expect(carousel.getByTestId('category-mosaic').first()).toBeVisible();
 });
 
-test('dark Arabic category arrows mirror direction and relinquish focus at the final item', async ({ page }) => {
+test('dark Arabic category arrows mirror direction and relinquish focus at the final item', async ({
+  page,
+}) => {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
   await page.addInitScript(() => {
     localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale: 'ar' }, version: 0 }));
-    localStorage.setItem('mercaria.bloom.theme', JSON.stringify({ mode: 'dark', colorPreset: 'mono' }));
+    localStorage.setItem(
+      'mercaria.bloom.theme',
+      JSON.stringify({ mode: 'dark', colorPreset: 'mono' }),
+    );
   });
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
@@ -474,20 +591,48 @@ test('dark Arabic category arrows mirror direction and relinquish focus at the f
   await expect(next).toHaveCSS('width', '40px');
   const frameBox = (await carousel.boundingBox())!;
   expect((await next.boundingBox())!.x).toBeLessThan(frameBox.x + frameBox.width / 2);
-  for (let step = 0; step < 12 && await next.count(); step++) {
-    const before = await track.evaluate(element => element.scrollLeft);
+  for (let step = 0; step < 12 && (await next.count()); step++) {
+    const before = await track.evaluate((element) => element.scrollLeft);
     await next.press('Enter');
-    await expect.poll(() => track.evaluate(element => element.scrollLeft)).toBeLessThan(before - 1);
+    await expect
+      .poll(() => track.evaluate((element) => element.scrollLeft))
+      .toBeLessThan(before - 1);
   }
   await expect(next).toHaveCount(0);
   await expect(previous).toBeVisible();
   await expect(track).toBeFocused();
-  await expect.poll(() => track.evaluate(element => Math.abs(element.scrollLeft) + element.clientWidth - element.scrollWidth)).toBeGreaterThan(-2);
+  await expect
+    .poll(() =>
+      track.evaluate(
+        (element) => Math.abs(element.scrollLeft) + element.clientWidth - element.scrollWidth,
+      ),
+    )
+    .toBeGreaterThan(-2);
 });
 
-test('local shopping history never exposes a different account conversation to a guest', async ({ page }) => {
+test('local shopping history never exposes a different account conversation to a guest', async ({
+  page,
+}) => {
   await page.addInitScript(() => {
-    localStorage.setItem('mercaria.shopping-history', JSON.stringify({ version: 0, state: { products: [], threads: [{ id: 'private-thread', owner: 'another-oxy-account', title: 'Private shopping question', updatedAt: new Date().toISOString(), preview: true, messages: [{ role: 'user', content: 'Private shopping question' }] }] } }));
+    localStorage.setItem(
+      'mercaria.shopping-history',
+      JSON.stringify({
+        version: 0,
+        state: {
+          products: [],
+          threads: [
+            {
+              id: 'private-thread',
+              owner: 'another-oxy-account',
+              title: 'Private shopping question',
+              updatedAt: new Date().toISOString(),
+              preview: true,
+              messages: [{ role: 'user', content: 'Private shopping question' }],
+            },
+          ],
+        },
+      }),
+    );
   });
   await page.goto('/');
   await expect(page.getByTestId('home-hero')).toBeVisible();
@@ -497,19 +642,25 @@ test('local shopping history never exposes a different account conversation to a
   await expect(page.getByText('Private shopping question')).toHaveCount(0);
 });
 
-test('store offer headers show fixed savings with their qualifying subtotal and navigate to the store', async ({ page }) => {
-  await page.route('**/discovery/feed?*', async route => {
+test('store offer headers show fixed savings with their qualifying subtotal and navigate to the store', async ({
+  page,
+}) => {
+  await page.route('**/discovery/feed?*', async (route) => {
     const response = await route.fetch();
     if (new URL(route.request().url()).searchParams.get('scope') !== 'deals') {
       await route.fulfill({ response });
       return;
     }
     const body = await response.json();
-    const section = body.data.sections.find((item: { kind: string }) => item.kind === 'store-offer');
+    const section = body.data.sections.find(
+      (item: { kind: string }) => item.kind === 'store-offer',
+    );
     expect(section).toBeTruthy();
     section.discount = {
-      id: 'visual-fixed-offer', amountOff: { amount: 1500, currency: 'USD' },
-      minimumSubtotal: { amount: 7500, currency: 'USD' }, exclusive: false,
+      id: 'visual-fixed-offer',
+      amountOff: { amount: 1500, currency: 'USD' },
+      minimumSubtotal: { amount: 7500, currency: 'USD' },
+      exclusive: false,
     };
     body.data.sections = [section];
     await route.fulfill({ response, json: body });
@@ -521,37 +672,47 @@ test('store offer headers show fixed savings with their qualifying subtotal and 
   await expect(header).toContainText('$75.00');
   await expect(header).not.toContainText('% off');
   await expect(header.getByText('Visit store', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Go to the next item', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Go to the next item', exact: true }),
+  ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-  await expect(page.getByRole('button', { name: 'Go to the next item', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Go to the next item', exact: true })).toHaveCount(
+    0,
+  );
   await header.click();
   await expect(page).toHaveURL(/\/stores\/[^/]+$/);
 });
 
 for (const rate of [20, 20.25]) {
-test(`percentage offer headers preserve a ${rate}% rate and its qualifying subtotal`, async ({ page }) => {
-  await page.route('**/discovery/feed?*', async route => {
-    const response = await route.fetch();
-    if (new URL(route.request().url()).searchParams.get('scope') !== 'deals') {
-      await route.fulfill({ response });
-      return;
-    }
-    const body = await response.json();
-    const section = body.data.sections.find((item: { kind: string }) => item.kind === 'store-offer');
-    expect(section).toBeTruthy();
-    section.discount = {
-      id: 'visual-percent-offer', percentOff: rate,
-      minimumSubtotal: { amount: 5000, currency: 'USD' }, exclusive: true,
-    };
-    body.data.sections = [section];
-    await route.fulfill({ response, json: body });
+  test(`percentage offer headers preserve a ${rate}% rate and its qualifying subtotal`, async ({
+    page,
+  }) => {
+    await page.route('**/discovery/feed?*', async (route) => {
+      const response = await route.fetch();
+      if (new URL(route.request().url()).searchParams.get('scope') !== 'deals') {
+        await route.fulfill({ response });
+        return;
+      }
+      const body = await response.json();
+      const section = body.data.sections.find(
+        (item: { kind: string }) => item.kind === 'store-offer',
+      );
+      expect(section).toBeTruthy();
+      section.discount = {
+        id: 'visual-percent-offer',
+        percentOff: rate,
+        minimumSubtotal: { amount: 5000, currency: 'USD' },
+        exclusive: true,
+      };
+      body.data.sections = [section];
+      await route.fulfill({ response, json: body });
+    });
+    await page.goto('/deals');
+    const header = page.getByTestId('store-offer-header');
+    await expect(header).toContainText(`${rate}%`);
+    await expect(header).toContainText('off');
+    await expect(header).toContainText('$50.00');
+    await expect(header).toContainText('on orders of');
   });
-  await page.goto('/deals');
-  const header = page.getByTestId('store-offer-header');
-  await expect(header).toContainText(`${rate}%`);
-  await expect(header).toContainText('off');
-  await expect(header).toContainText('$50.00');
-  await expect(header).toContainText('on orders of');
-});
 }

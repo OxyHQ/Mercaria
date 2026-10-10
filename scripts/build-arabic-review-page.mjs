@@ -31,138 +31,176 @@
 const raw = await Bun.stdin.text();
 const report = JSON.parse(raw);
 
-const escape = (value) => String(value ?? "")
-  .replace(/&/gu, "&amp;")
-  .replace(/</gu, "&lt;")
-  .replace(/>/gu, "&gt;")
-  .replace(/"/gu, "&quot;");
+// biome-ignore lint/suspicious/noShadowRestrictedNames: a deliberate local HTML escaper; the deprecated global escape() is never wanted here
+const escape = (value) =>
+  String(value ?? '')
+    .replace(/&/gu, '&amp;')
+    .replace(/</gu, '&lt;')
+    .replace(/>/gu, '&gt;')
+    .replace(/"/gu, '&quot;');
 
 /** Latin-script content: key, file, placeholder, English. Isolated LTR. */
-const ltr = (value, cls = "") =>
-  `<span class="ltr ${cls}" dir="ltr">${escape(value)}</span>`;
+const ltr = (value, cls = '') => `<span class="ltr ${cls}" dir="ltr">${escape(value)}</span>`;
 
 /** Arabic content. Isolated RTL, and sized up — the script needs the room. */
 const rtl = (value) => `<span class="ar" dir="rtl">${escape(value)}</span>`;
 
-const forms = (value, render) => typeof value === "string"
-  ? render(value)
-  : Object.entries(value)
-    .map(([category, text]) =>
-      `<span class="form"><span class="cat" dir="ltr">${escape(category)}</span>${render(text)}</span>`)
-    .join("");
+const forms = (value, render) =>
+  typeof value === 'string'
+    ? render(value)
+    : Object.entries(value)
+        .map(
+          ([category, text]) =>
+            `<span class="form"><span class="cat" dir="ltr">${escape(category)}</span>${render(text)}</span>`,
+        )
+        .join('');
 
 const totals = (name) => report.packages.reduce((n, p) => n + p.groups[name].length, 0);
 const allKeys = report.packages.reduce((n, p) => n + p.bundleKeys, 0);
 
 const DOMAIN_TERMS = [
-  ["product feed", "خلاصة المنتجات", "موجز / تغذية"],
-  ["variant", "متغيّر", "التكوين — the storefront's word for configuration"],
-  ["register (the till)", "الصندوق", "نقطة البيع — used for the channel name"],
-  ["tender", "طريقة الدفع", "—"],
-  ["payouts", "التحويلات المالية", "المدفوعات — collides with payments"],
-  ["webhooks", "Webhooks (kept Latin)", "خطافات الويب"],
-  ["charge (verb)", "تحصيل", "—"],
-  ["combination (wizard)", "تركيبة", "تكوين for a canonical configuration"],
-  ["collection", "مجموعة", "—"],
-  ["fulfilment", "التنفيذ", "—"],
-  ["pickup / collection", "الاستلام", "—"],
-  ["override (handover)", "تجاوز", "—"],
+  ['product feed', 'خلاصة المنتجات', 'موجز / تغذية'],
+  ['variant', 'متغيّر', "التكوين — the storefront's word for configuration"],
+  ['register (the till)', 'الصندوق', 'نقطة البيع — used for the channel name'],
+  ['tender', 'طريقة الدفع', '—'],
+  ['payouts', 'التحويلات المالية', 'المدفوعات — collides with payments'],
+  ['webhooks', 'Webhooks (kept Latin)', 'خطافات الويب'],
+  ['charge (verb)', 'تحصيل', '—'],
+  ['combination (wizard)', 'تركيبة', 'تكوين for a canonical configuration'],
+  ['collection', 'مجموعة', '—'],
+  ['fulfilment', 'التنفيذ', '—'],
+  ['pickup / collection', 'الاستلام', '—'],
+  ['override (handover)', 'تجاوز', '—'],
 ];
 
 const RTL_CHOICES = [
-  ["Arrow direction is flipped",
-    "<code>channels.direction.pull</code> reads <span class=\"ar\" dir=\"rtl\">منصّتك ← Mercaria</span>. "
-    + "The bidi algorithm does not mirror arrow glyphs, so inside an RTL run “forward” points left. "
-    + "The <span class=\"ar\" dir=\"rtl\">WooCommerce ← الإعدادات</span> breadcrumb does the same.",
-    "Does the flipped arrow read as “from Mercaria to your platform”?"],
-  ["The joining waw is spaced on both sides",
-    "<code>channels.andJoin</code> is <span class=\"ar\" dir=\"rtl\">\" و \"</span>, which is not "
-    + "idiomatic — the waw normally attaches to the word after it. It is spaced because the values "
-    + "it joins are raw Latin identifiers (#485).",
-    "Is the spaced waw the right compromise beside Latin text, or worse than attaching it?"],
-  ["Example values stay Latin, following ru and ja",
-    "Coupon codes, <code>Acme Supply Co.</code>, URLs and CSV column names stay Latin; names, "
-    + "phones and titles are localized. The phone example <code>+971 50 123 4567</code> is an "
-    + "arbitrary Gulf pick.",
-    "Is +971 the right market to exemplify, and should the company name be localized?"],
+  [
+    'Arrow direction is flipped',
+    '<code>channels.direction.pull</code> reads <span class="ar" dir="rtl">منصّتك ← Mercaria</span>. ' +
+      'The bidi algorithm does not mirror arrow glyphs, so inside an RTL run “forward” points left. ' +
+      'The <span class="ar" dir="rtl">WooCommerce ← الإعدادات</span> breadcrumb does the same.',
+    'Does the flipped arrow read as “from Mercaria to your platform”?',
+  ],
+  [
+    'The joining waw is spaced on both sides',
+    '<code>channels.andJoin</code> is <span class="ar" dir="rtl">" و "</span>, which is not ' +
+      'idiomatic — the waw normally attaches to the word after it. It is spaced because the values ' +
+      'it joins are raw Latin identifiers (#485).',
+    'Is the spaced waw the right compromise beside Latin text, or worse than attaching it?',
+  ],
+  [
+    'Example values stay Latin, following ru and ja',
+    'Coupon codes, <code>Acme Supply Co.</code>, URLs and CSV column names stay Latin; names, ' +
+      'phones and titles are localized. The phone example <code>+971 50 123 4567</code> is an ' +
+      'arbitrary Gulf pick.',
+    'Is +971 the right market to exemplify, and should the company name be localized?',
+  ],
 ];
 
 const SECTIONS = [
   {
-    id: "read", group: "complete", tone: "read",
-    title: "Needs a native read",
-    ask: "Does this say what it means, in Arabic, on this screen?",
-    note: "The ordinary case. Grouped by screen, because tone and length depend on where a "
-      + "string sits — a column header and a confirmation dialog are not the same register.",
+    id: 'read',
+    group: 'complete',
+    tone: 'read',
+    title: 'Needs a native read',
+    ask: 'Does this say what it means, in Arabic, on this screen?',
+    note:
+      'The ordinary case. Grouped by screen, because tone and length depend on where a ' +
+      'string sits — a column header and a confirmation dialog are not the same register.',
   },
   {
-    id: "plural", group: "plural", tone: "stop",
-    title: "Plural — do not review, do not supply",
-    ask: "Nothing. These are listed so they are not approved.",
-    note: "Knowingly wrong for 3–10 and owned by #436. Each writes the singular in BOTH slots "
-      + "deliberately: right for 11–99, wrong for 3–10, and no single form is right for both. "
-      + "Arabic forms written now could not be shipped — the runtime pluralizer and the parity "
-      + "guard have to land together. <strong>missing</strong> names the categories Arabic selects "
-      + "that the bundle does not carry.",
+    id: 'plural',
+    group: 'plural',
+    tone: 'stop',
+    title: 'Plural — do not review, do not supply',
+    ask: 'Nothing. These are listed so they are not approved.',
+    note:
+      'Knowingly wrong for 3–10 and owned by #436. Each writes the singular in BOTH slots ' +
+      'deliberately: right for 11–99, wrong for 3–10, and no single form is right for both. ' +
+      'Arabic forms written now could not be shipped — the runtime pluralizer and the parity ' +
+      'guard have to land together. <strong>missing</strong> names the categories Arabic selects ' +
+      'that the bundle does not carry.',
   },
   {
-    id: "interpolated", group: "interpolated", tone: "care",
-    title: "Interpolated — the placeholders must survive",
-    ask: "Does it read well, and is every placeholder still present and spelled the same?",
-    note: "The failure here is a renamed or dropped placeholder, not wording. Word ORDER around "
-      + "them is free, and in Arabic it is usually what needs to change.",
+    id: 'interpolated',
+    group: 'interpolated',
+    tone: 'care',
+    title: 'Interpolated — the placeholders must survive',
+    ask: 'Does it read well, and is every placeholder still present and spelled the same?',
+    note:
+      'The failure here is a renamed or dropped placeholder, not wording. Word ORDER around ' +
+      'them is free, and in Arabic it is usually what needs to change.',
   },
   {
-    id: "latin", group: "latinByDesign", tone: "confirm",
-    title: "Identical to English by design",
-    ask: "Is the policy right — should these stay Latin?",
-    note: "Brand names, URLs, coupon codes and example values, following what ru and ja already "
-      + "do. These are not misses. Same question as RTL choice 3.",
+    id: 'latin',
+    group: 'latinByDesign',
+    tone: 'confirm',
+    title: 'Identical to English by design',
+    ask: 'Is the policy right — should these stay Latin?',
+    note:
+      'Brand names, URLs, coupon codes and example values, following what ru and ja already ' +
+      'do. These are not misses. Same question as RTL choice 3.',
   },
 ];
 
-const rows = (entries, group) => entries.map((e) => {
-  const extra = group === "plural"
-    ? `<td class="meta">${e.missingCategories.map((c) => `<span class="chip">${escape(c)}</span>`).join("")}</td>`
-    : group === "interpolated"
-      ? `<td class="meta">${e.placeholders.map((p) => `<code>%{${escape(p)}}</code>`).join(" ")}</td>`
-      : "";
-  const file = e.files[0] ?? "—";
-  const more = e.files.length > 1 ? ` +${e.files.length - 1}` : "";
-  return `<tr data-search="${escape(`${e.key} ${typeof e.en === "string" ? e.en : Object.values(e.en).join(" ")}`.toLowerCase())}">`
-    + `<td class="tick"><input type="checkbox" aria-label="Mark reviewed" data-key="${escape(e.key)}"></td>`
-    + `<td class="key">${ltr(e.key, "mono")}<span class="file">${ltr(file + more, "mono")}</span></td>`
-    + `<td class="en">${forms(e.en, (t) => ltr(t))}</td>`
-    + `<td class="arcell">${forms(e.ar, (t) => rtl(t))}</td>`
-    + extra
-    + "</tr>";
-}).join("");
+const rows = (entries, group) =>
+  entries
+    .map((e) => {
+      const extra =
+        group === 'plural'
+          ? `<td class="meta">${e.missingCategories.map((c) => `<span class="chip">${escape(c)}</span>`).join('')}</td>`
+          : group === 'interpolated'
+            ? `<td class="meta">${e.placeholders.map((p) => `<code>%{${escape(p)}}</code>`).join(' ')}</td>`
+            : '';
+      const file = e.files[0] ?? '—';
+      const more = e.files.length > 1 ? ` +${e.files.length - 1}` : '';
+      return (
+        `<tr data-search="${escape(`${e.key} ${typeof e.en === 'string' ? e.en : Object.values(e.en).join(' ')}`.toLowerCase())}">` +
+        `<td class="tick"><input type="checkbox" aria-label="Mark reviewed" data-key="${escape(e.key)}"></td>` +
+        `<td class="key">${ltr(e.key, 'mono')}<span class="file">${ltr(file + more, 'mono')}</span></td>` +
+        `<td class="en">${forms(e.en, (t) => ltr(t))}</td>` +
+        `<td class="arcell">${forms(e.ar, (t) => rtl(t))}</td>` +
+        extra +
+        '</tr>'
+      );
+    })
+    .join('');
 
 const sectionHtml = (section) => {
-  const perPackage = report.packages.map((p) => {
-    const entries = p.groups[section.group];
-    if (entries.length === 0) return "";
-    const byScreen = new Map();
-    for (const entry of entries) {
-      const label = entry.screens.length > 0 ? entry.screens.join(", ") : "(unplaced)";
-      if (!byScreen.has(label)) byScreen.set(label, []);
-      byScreen.get(label).push(entry);
-    }
-    const screens = [...byScreen].sort((a, b) => a[0].localeCompare(b[0])).map(([screen, list]) => `
+  const perPackage = report.packages
+    .map((p) => {
+      const entries = p.groups[section.group];
+      if (entries.length === 0) return '';
+      const byScreen = new Map();
+      for (const entry of entries) {
+        const label = entry.screens.length > 0 ? entry.screens.join(', ') : '(unplaced)';
+        if (!byScreen.has(label)) byScreen.set(label, []);
+        byScreen.get(label).push(entry);
+      }
+      const screens = [...byScreen]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(
+          ([screen, list]) => `
       <details class="screen">
-        <summary><span class="screen-name">${ltr(screen, "mono")}</span><span class="count">${list.length}</span></summary>
+        <summary><span class="screen-name">${ltr(screen, 'mono')}</span><span class="count">${list.length}</span></summary>
         <div class="scroll">
           <table>
             <thead><tr><th></th><th>key</th><th>English</th><th>Arabic</th>${
-              section.group === "plural" ? "<th>missing</th>"
-                : section.group === "interpolated" ? "<th>placeholders</th>" : ""
+              section.group === 'plural'
+                ? '<th>missing</th>'
+                : section.group === 'interpolated'
+                  ? '<th>placeholders</th>'
+                  : ''
             }</tr></thead>
             <tbody>${rows(list, section.group)}</tbody>
           </table>
         </div>
-      </details>`).join("");
-    return `<h3 class="pkg">${escape(p.name)} <span class="count">${entries.length}</span></h3>${screens}`;
-  }).join("");
+      </details>`,
+        )
+        .join('');
+      return `<h3 class="pkg">${escape(p.name)} <span class="count">${entries.length}</span></h3>${screens}`;
+    })
+    .join('');
 
   return `
   <section id="${section.id}" class="band band-${section.tone}">
@@ -336,10 +374,10 @@ const html = `<title>Mercaria Arabic Review</title>
     <p class="sub">Generated from <code>${escape(report.generatedFor)}</code> · ${allKeys} strings ·
       no native speaker has read this copy yet</p>
     <div class="stats">
-      <div class="stat"><b>${totals("complete")}</b><span>native read</span></div>
-      <div class="stat stop"><b>${totals("plural")}</b><span>do not touch</span></div>
-      <div class="stat"><b>${totals("interpolated")}</b><span>interpolated</span></div>
-      <div class="stat"><b>${totals("latinByDesign")}</b><span>confirm policy</span></div>
+      <div class="stat"><b>${totals('complete')}</b><span>native read</span></div>
+      <div class="stat stop"><b>${totals('plural')}</b><span>do not touch</span></div>
+      <div class="stat"><b>${totals('interpolated')}</b><span>interpolated</span></div>
+      <div class="stat"><b>${totals('latinByDesign')}</b><span>confirm policy</span></div>
       <div class="stat"><b>12 + 3</b><span>start here</span></div>
     </div>
   </div>
@@ -385,27 +423,36 @@ const html = `<title>Mercaria Arabic Review</title>
       <table class="terms">
         <thead><tr><th>term</th><th>chosen</th><th>alternative considered</th><th>appearances</th><th>reachable from</th></tr></thead>
         <tbody>${DOMAIN_TERMS.map(([term, chosen, alternative]) => {
-          const hits = report.packages.flatMap((p) => p.groups.domain.filter((d) => d.term === term));
+          const hits = report.packages.flatMap((p) =>
+            p.groups.domain.filter((d) => d.term === term),
+          );
           const screens = [...new Set(hits.flatMap((h) => h.screens))].sort();
-          return `<tr><td>${ltr(term)}</td><td>${/[؀-ۿ]/u.test(chosen) ? rtl(chosen) : ltr(chosen)}</td>`
-            + `<td>${/[؀-ۿ]/u.test(alternative) ? rtl(alternative) : ltr(alternative)}</td>`
-            + `<td style="font-variant-numeric:tabular-nums">${hits.length}</td>`
-            + `<td>${screens.slice(0, 4).map((s) => ltr(s, "mono")).join(" ")}`
-            + `${screens.length > 4 ? ` <span class="count">+${screens.length - 4}</span>` : ""}</td></tr>`;
-        }).join("")}</tbody>
+          return (
+            `<tr><td>${ltr(term)}</td><td>${/[؀-ۿ]/u.test(chosen) ? rtl(chosen) : ltr(chosen)}</td>` +
+            `<td>${/[؀-ۿ]/u.test(alternative) ? rtl(alternative) : ltr(alternative)}</td>` +
+            `<td style="font-variant-numeric:tabular-nums">${hits.length}</td>` +
+            `<td>${screens
+              .slice(0, 4)
+              .map((s) => ltr(s, 'mono'))
+              .join(' ')}` +
+            `${screens.length > 4 ? ` <span class="count">+${screens.length - 4}</span>` : ''}</td></tr>`
+          );
+        }).join('')}</tbody>
       </table>
     </div>
     <p class="note" style="margin-top:10px">“Reachable from” is not “appears on”: a string in a
       shared component lists every screen that mounts it, which is the useful reading — changing
       it changes all of them.</p>
     <h3 class="pkg">The three RTL authoring choices</h3>
-    ${RTL_CHOICES.map(([what, detail, question]) =>
-      `<div class="choice"><h4>${escape(what)}</h4><p>${detail}</p><p class="q">${escape(question)}</p></div>`).join("")}
+    ${RTL_CHOICES.map(
+      ([what, detail, question]) =>
+        `<div class="choice"><h4>${escape(what)}</h4><p>${detail}</p><p class="q">${escape(question)}</p></div>`,
+    ).join('')}
   </section>
 
-  ${SECTIONS.map(sectionHtml).join("")}
+  ${SECTIONS.map(sectionHtml).join('')}
 
-  <p class="note" style="margin-top:34px">${totals("compositionOnly")} further strings are in no
+  <p class="note" style="margin-top:34px">${totals('compositionOnly')} further strings are in no
     section: they contain no letters outside their placeholders, so there is nothing to translate.</p>
 </div>
 

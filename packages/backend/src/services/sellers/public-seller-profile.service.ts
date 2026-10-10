@@ -196,17 +196,18 @@ export async function getPublicSellerProfile(
     return projectSellerProfile({ access, marketplace: null, transactionReviews: null });
   }
 
-  const [activeListingCount, sellerSince, sellerProfileRows, transactionReviews] = await Promise.all([
-    countActiveSellerListings(oxyUserId),
-    findSellerFirstPublishedAt(oxyUserId),
-    findSellerProfilesByUserIds([oxyUserId]),
-    // The #76 aggregate for THIS scope, built on the spot when the seller has
-    // no row yet — the same `getOrBuildScopedAggregate` a product page uses, so
-    // the stars a seller page shows and the stars a review page shows are one
-    // number derived one way, and a seller with no reviews gets a zero that
-    // names its own scope rather than a borrowed figure.
-    getOrBuildScopedAggregate('p2p_seller', oxyUserId),
-  ]);
+  const [activeListingCount, sellerSince, sellerProfileRows, transactionReviews] =
+    await Promise.all([
+      countActiveSellerListings(oxyUserId),
+      findSellerFirstPublishedAt(oxyUserId),
+      findSellerProfilesByUserIds([oxyUserId]),
+      // The #76 aggregate for THIS scope, built on the spot when the seller has
+      // no row yet — the same `getOrBuildScopedAggregate` a product page uses, so
+      // the stars a seller page shows and the stars a review page shows are one
+      // number derived one way, and a seller with no reviews gets a zero that
+      // names its own scope rather than a borrowed figure.
+      getOrBuildScopedAggregate('p2p_seller', oxyUserId),
+    ]);
 
   const [sellerProfileRow] = sellerProfileRows;
 

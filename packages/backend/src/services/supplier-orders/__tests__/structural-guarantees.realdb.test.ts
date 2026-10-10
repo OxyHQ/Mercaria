@@ -236,7 +236,9 @@ describe('the attempt log is append-only, from BELOW', () => {
     expect(closed?.outcome).toBe('succeeded');
 
     // A second close matches nothing at the SERVICE layer…
-    expect(await closeSupplierOrderAttempt({ attemptId: attempt.id, outcome: 'failed' })).toBeUndefined();
+    expect(
+      await closeSupplierOrderAttempt({ attemptId: attempt.id, outcome: 'failed' }),
+    ).toBeUndefined();
     // …and the trigger refuses it from below, so a caller that bypassed the
     // repository entirely still cannot edit the evidence.
     await expectRefusedBy(

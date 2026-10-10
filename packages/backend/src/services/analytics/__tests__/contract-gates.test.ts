@@ -35,11 +35,7 @@ import {
   ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES,
 } from '@mercaria/shared-types';
 import * as analyticsSchema from '../../../db/schema/analytics.js';
-import {
-  findFinancialSourceViolations,
-  metricByKey,
-  metricKeyClaimsMoney,
-} from '../metrics.js';
+import { findFinancialSourceViolations, metricByKey, metricKeyClaimsMoney } from '../metrics.js';
 import { assignVariant, assignmentBucket, findForbiddenTreatmentKinds } from '../experiments.js';
 import { ALL_EVENT_TYPES, eventClassFor } from '../envelope.js';
 import { ANALYTICS_SEAMS, DEFERRED_EVENT_TYPES, NEVER_EMITTED_EVENT_TYPES } from '../seams.js';
@@ -93,41 +89,45 @@ describe('#77 acceptance 6 — every metric names its denominator, window and fr
     // #111's guest funnel measures. The comment here read "eighteen" while the
     // list below held twenty-two, which is the shape a count claimed from
     // memory takes — count the array, never the sentence beside it.
-    assertEachOf([
-      'search_success_rate',
-      'zero_result_rate',
-      'duplicate_product_rate',
-      'search_to_product_click_rate',
-      'product_to_offer_selection_rate',
-      'external_click_through_rate',
-      'native_add_to_cart_rate',
-      'native_checkout_conversion',
-      'authenticated_checkout_funnel',
-      'guest_checkout_funnel',
-      'guest_verified_payment_conversion',
-      'order_portal_delivery_success',
-      'oxy_claim_funnel',
-      'saved_intent_return_rate',
-      'source_coverage_gap',
-      'query_latency_and_freshness',
-      'merchant_claim_funnel',
-      'native_gmv',
-      'marketplace_revenue',
-      'affiliate_commission',
-      'guest_post_purchase_demand',
-      'guest_eligibility_coverage',
-    ], 22, (key) => {
-      expect(metricByKey(key), `#77 names ${key} and it is missing`).toBeDefined();
-    });
+    assertEachOf(
+      [
+        'search_success_rate',
+        'zero_result_rate',
+        'duplicate_product_rate',
+        'search_to_product_click_rate',
+        'product_to_offer_selection_rate',
+        'external_click_through_rate',
+        'native_add_to_cart_rate',
+        'native_checkout_conversion',
+        'authenticated_checkout_funnel',
+        'guest_checkout_funnel',
+        'guest_verified_payment_conversion',
+        'order_portal_delivery_success',
+        'oxy_claim_funnel',
+        'saved_intent_return_rate',
+        'source_coverage_gap',
+        'query_latency_and_freshness',
+        'merchant_claim_funnel',
+        'native_gmv',
+        'marketplace_revenue',
+        'affiliate_commission',
+        'guest_post_purchase_demand',
+        'guest_eligibility_coverage',
+      ],
+      22,
+      (key) => {
+        expect(metricByKey(key), `#77 names ${key} and it is missing`).toBeDefined();
+      },
+    );
   });
 
   it('no money metric is sourced from telemetry — identity rule 8', () => {
     expect(findFinancialSourceViolations()).toEqual([]);
     // The vacuity floor: a marker list matching nothing would return `[]` for
     // the best possible reason and the worst possible cause.
-    expect(ANALYTICS_METRICS.filter((m) => metricKeyClaimsMoney(m.key)).length).toBeGreaterThanOrEqual(
-      5,
-    );
+    expect(
+      ANALYTICS_METRICS.filter((m) => metricKeyClaimsMoney(m.key)).length,
+    ).toBeGreaterThanOrEqual(5);
   });
 
   it('the financial detector actually detects — the mutation self-test', () => {
@@ -298,55 +298,63 @@ describe('#77 — the analytics schema can hold no identity beyond a pseudonym',
     // Every name the old regex could not see, plus the ones it could. These are
     // SQL identifiers, which is what the traversal now yields — the old
     // self-test fed the pattern snake_case literals the scan never received.
-    assertEachOf([
-      'shipping_address',
-      'full_name',
-      'latitude',
-      'longitude',
-      'subject_hash',
-      'identity_hash',
-      'access_token',
-      'guest_session_id',
-      'buyer_email',
-      'card_fingerprint',
-      'stripe_customer_id',
-      'ip_address',
-      'device_id',
-      'client_secret_ciphertext',
-      'user_agent',
-      'order_note',
-      'page_payload',
-      'geo_cell_index',
-    ], 18, (probe) => {
-      expect(
-        analyticsColumnProhibition(`analytics_events.${probe}`),
-        `${probe} should be refused`,
-      ).not.toBeNull();
-    });
+    assertEachOf(
+      [
+        'shipping_address',
+        'full_name',
+        'latitude',
+        'longitude',
+        'subject_hash',
+        'identity_hash',
+        'access_token',
+        'guest_session_id',
+        'buyer_email',
+        'card_fingerprint',
+        'stripe_customer_id',
+        'ip_address',
+        'device_id',
+        'client_secret_ciphertext',
+        'user_agent',
+        'order_note',
+        'page_payload',
+        'geo_cell_index',
+      ],
+      18,
+      (probe) => {
+        expect(
+          analyticsColumnProhibition(`analytics_events.${probe}`),
+          `${probe} should be refused`,
+        ).not.toBeNull();
+      },
+    );
 
     // And the real columns that must NOT trip it, including the two the
     // exemptions carry and the two nearest misses a segment matcher exists for:
     // `latency_ms` is not a latitude and `oxy_user_id` is not a user agent.
-    assertEachOf([
-      'salt',
-      'pseudonymous_session_id',
-      'checkout_group_id',
-      'normalized_tokens',
-      'latency_ms',
-      'oxy_user_id',
-      'payment_method_category',
-      'normalized_query',
-      'redacted_text',
-      'assignment_salt',
-      'lease_owner',
-      'primary_metric_key',
-    ], 12, (probe) => {
-      const qualified =
-        probe === 'normalized_tokens'
-          ? `analytics_search_queries.${probe}`
-          : `analytics_events.${probe}`;
-      expect(analyticsColumnProhibition(qualified), `${probe} must be permitted`).toBeNull();
-    });
+    assertEachOf(
+      [
+        'salt',
+        'pseudonymous_session_id',
+        'checkout_group_id',
+        'normalized_tokens',
+        'latency_ms',
+        'oxy_user_id',
+        'payment_method_category',
+        'normalized_query',
+        'redacted_text',
+        'assignment_salt',
+        'lease_owner',
+        'primary_metric_key',
+      ],
+      12,
+      (probe) => {
+        const qualified =
+          probe === 'normalized_tokens'
+            ? `analytics_search_queries.${probe}`
+            : `analytics_events.${probe}`;
+        expect(analyticsColumnProhibition(qualified), `${probe} must be permitted`).toBeNull();
+      },
+    );
   });
 
   it('the gate fires on an INNOCUOUS unlisted column too — which is the whole inversion', () => {
@@ -380,7 +388,16 @@ describe('#77 — the analytics schema can hold no identity beyond a pseudonym',
         groups: [
           {
             reason: 'a synthetic allowance naming a column this table has never had',
-            columns: ['id', 'created_at', 'expires_at', 'epoch', 'active_from', 'active_until', 'salt', 'retired_salt'],
+            columns: [
+              'id',
+              'created_at',
+              'expires_at',
+              'epoch',
+              'active_from',
+              'active_until',
+              'salt',
+              'retired_salt',
+            ],
           },
         ],
       },
@@ -403,8 +420,8 @@ describe('#77 — the analytics schema can hold no identity beyond a pseudonym',
     // Mutation self-test — both the declaration and the import that enables it.
     expect(JSONB_COLUMN.test('payload: jsonb().notNull(),')).toBe(true);
     expect(JSONB_COLUMN.test('a docblock mentioning jsonb in prose')).toBe(false);
-    expect(source.includes("jsonb }")).toBe(false);
-    expect(source.includes("jsonb,")).toBe(false);
+    expect(source.includes('jsonb }')).toBe(false);
+    expect(source.includes('jsonb,')).toBe(false);
   });
 });
 
@@ -468,7 +485,12 @@ describe('#77 experimentation rules 3, 5 and 9 — coercive treatments are unrep
   it('a one-armed experiment assigns nothing', () => {
     expect(
       assignVariant(
-        { experimentKey: 'x', assignmentSalt: 's', variants: ['only'], trafficAllocationBps: 10_000 },
+        {
+          experimentKey: 'x',
+          assignmentSalt: 's',
+          variants: ['only'],
+          trafficAllocationBps: 10_000,
+        },
         'unit-1',
       ),
     ).toBeUndefined();
@@ -584,14 +606,16 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
     );
     // And the CLOSED direction, which the count alone cannot state: the six
     // types #111 now emits must not be readable as an offence any more.
-    assertEachOf([
-      'guest_claim_completed',
-      'guest_claim_declined',
-      'guest_payment_methods_shown',
-    ], 3, (closed) => {
-      const line = `emitAnalyticsEvent(req, { eventType: '${closed}' });`;
-      expect(NEVER_EMITTED_EVENT_TYPES.some((t) => line.includes(`eventType: '${t}'`))).toBe(false);
-    });
+    assertEachOf(
+      ['guest_claim_completed', 'guest_claim_declined', 'guest_payment_methods_shown'],
+      3,
+      (closed) => {
+        const line = `emitAnalyticsEvent(req, { eventType: '${closed}' });`;
+        expect(NEVER_EMITTED_EVENT_TYPES.some((t) => line.includes(`eventType: '${t}'`))).toBe(
+          false,
+        );
+      },
+    );
   });
 
   it('every deferred type names an owning issue, and every seam is documented', () => {

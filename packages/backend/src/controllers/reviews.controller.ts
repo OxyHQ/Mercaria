@@ -40,7 +40,10 @@ const ELIGIBILITY_PAGE_LIMIT = 50;
 export async function listReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {
   try {
     res.setHeader('Cache-Control', 'private, no-store');
-    sendSuccess(res, await listReviewHelpfulness(getRequiredOxyUserId(req), parseReviewHelpfulnessIds(req.query)));
+    sendSuccess(
+      res,
+      await listReviewHelpfulness(getRequiredOxyUserId(req), parseReviewHelpfulnessIds(req.query)),
+    );
   } catch (err) {
     respondWithError(res, err, 'Failed to load review votes');
   }
@@ -49,7 +52,14 @@ export async function listReviewHelpfulnessHandler(req: Request, res: Response):
 export async function updateReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {
   try {
     res.setHeader('Cache-Control', 'private, no-store');
-    sendSuccess(res, await updateReviewHelpfulness(getRequiredOxyUserId(req), routeParam(req, 'id'), req.body.helpful));
+    sendSuccess(
+      res,
+      await updateReviewHelpfulness(
+        getRequiredOxyUserId(req),
+        routeParam(req, 'id'),
+        req.body.helpful,
+      ),
+    );
   } catch (err) {
     respondWithError(res, err, 'Failed to update review vote');
   }

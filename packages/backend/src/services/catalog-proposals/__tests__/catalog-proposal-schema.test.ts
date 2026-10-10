@@ -217,9 +217,10 @@ describe('the staging SQL carries every trigger this domain claims', () => {
         new RegExp(`create or replace function ${name}\\(\\)`, 'i').test(source),
         `${name} has no function body`,
       ).toBe(true);
-      expect(new RegExp(`create trigger ${name}\\b`, 'i').test(source), `${name} has no trigger`).toBe(
-        true,
-      );
+      expect(
+        new RegExp(`create trigger ${name}\\b`, 'i').test(source),
+        `${name} has no trigger`,
+      ).toBe(true);
     }
     // EXACT, not containment. A list that only ever grows would let a trigger be
     // added with nothing saying what it enforces — and the count is what makes
@@ -317,7 +318,9 @@ describe('the staging SQL carries every trigger this domain claims', () => {
     }
     // A vacuity floor on the TOTAL: a walk that sliced nothing would pass the
     // loop above by measuring nothing at all.
-    expect(totalSeparators, 'no statement separators found — did the walk work?').toBeGreaterThan(3);
+    expect(totalSeparators, 'no statement separators found — did the walk work?').toBeGreaterThan(
+      3,
+    );
   });
 });
 
@@ -344,7 +347,9 @@ function assertFreezePartition(input: {
   const body = region.slice(from, to);
   // A vacuity floor on the SLICE: an empty body would report every column
   // unclassified, which is loud, but a SHORT one could silently match a few.
-  expect(body.length, `${input.functionName}'s body looks too short to be real`).toBeGreaterThan(400);
+  expect(body.length, `${input.functionName}'s body looks too short to be real`).toBeGreaterThan(
+    400,
+  );
 
   const columns = getTableColumns(input.table);
   const unclassified: string[] = [];

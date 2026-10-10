@@ -24,9 +24,7 @@ import {
 import { findLatestProgramVersion } from '../../db/referrals/programRepository.js';
 
 /** The stored or defaulted levers for a program, as an operator reads them. */
-export async function readProgramControls(
-  programId: string,
-): Promise<ReferralProgramControlsView> {
+export async function readProgramControls(programId: string): Promise<ReferralProgramControlsView> {
   const db = getDb();
   const program = await findLatestProgramVersion(db, programId);
   if (!program) throw notFound('Referral program not found');

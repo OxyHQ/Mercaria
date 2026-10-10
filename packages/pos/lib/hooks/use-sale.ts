@@ -1,15 +1,15 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-import type { ApiResponse, Order } from "@mercaria/shared-types";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import type { ApiResponse, Order } from '@mercaria/shared-types';
 import {
   createDraftOrder,
   addDraftLine,
   applyDraftDiscounts,
   completeDraftOrder,
   cancelDraftOrder,
-} from "../api/draft-orders";
-import { queryKeys } from "../queryKeys";
-import type { RegisterCartLine } from "../stores/register-cart";
+} from '../api/draft-orders';
+import { queryKeys } from '../queryKeys';
+import type { RegisterCartLine } from '../stores/register-cart';
 
 /** Input the charge orchestration needs to take a sale. */
 export interface ChargeSaleInput {
@@ -35,14 +35,14 @@ export interface ChargeSaleInput {
 function extractServerMessage(error: unknown): string {
   if (axios.isAxiosError<ApiResponse<unknown>>(error)) {
     const body: unknown = error.response?.data;
-    if (typeof body === "object" && body !== null) {
+    if (typeof body === 'object' && body !== null) {
       const { message, error: code } = body as { message?: unknown; error?: unknown };
-      if (typeof message === "string" && message !== "") return message;
-      if (typeof code === "string" && code !== "") return code;
+      if (typeof message === 'string' && message !== '') return message;
+      if (typeof code === 'string' && code !== '') return code;
     }
   }
   if (error instanceof Error) return error.message;
-  return "Charge failed";
+  return 'Charge failed';
 }
 
 /**
@@ -85,14 +85,14 @@ export function useChargeSale(storeId: string) {
       } catch (error) {
         await cancelDraftOrder(storeId, draft.id).catch((cleanupErr: unknown) => {
           if (__DEV__) {
-            console.warn("useChargeSale: failed to cancel draft after error", cleanupErr);
+            console.warn('useChargeSale: failed to cancel draft after error', cleanupErr);
           }
         });
         throw new Error(extractServerMessage(error));
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stores", storeId, "orders"] });
+      queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'orders'] });
     },
   });
 }

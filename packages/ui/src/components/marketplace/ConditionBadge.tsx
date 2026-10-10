@@ -1,14 +1,14 @@
-import { View } from "react-native";
-import { Badge } from "@oxy.so/bloom/badge";
-import { Text } from "../ui/text";
+import { View } from 'react-native';
+import { Badge } from '@oxy.so/bloom/badge';
+import { Text } from '../ui/text';
 import {
   CONDITION_A11Y_LABEL_KEY,
   CONDITION_SELLER_WORDING_KEY,
   conditionExplanationKey,
   conditionLabelKey,
-} from "../../lib/condition";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import type { ItemConditionDTO } from "@mercaria/shared-types";
+} from '../../lib/condition';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import type { ItemConditionDTO } from '@mercaria/shared-types';
 
 export interface ConditionBadgeProps {
   /** The listing's authoritative condition (#90). */

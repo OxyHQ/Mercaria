@@ -83,10 +83,7 @@ export interface RefundExecutionLimits {
   maximumPresentmentAmountMinor?: number;
 }
 
-function assertRefundAmountAllowed(
-  amountMinor: number,
-  limits: RefundExecutionLimits,
-): void {
+function assertRefundAmountAllowed(amountMinor: number, limits: RefundExecutionLimits): void {
   const maximum = limits.maximumPresentmentAmountMinor;
   if (maximum === undefined) return;
   if (!Number.isSafeInteger(maximum) || maximum < 0) {
@@ -404,11 +401,7 @@ export async function process(
     // The NAMED index, so a duplicate on any other constraint stays a real
     // failure rather than silently returning someone else's refund.
     if (isUniqueViolation(err, 'refunds_idempotency_key_key') && input.idempotencyKey) {
-      const converged = await findRefundForStoreOrderReplay(
-        storeId,
-        orderId,
-        input.idempotencyKey,
-      );
+      const converged = await findRefundForStoreOrderReplay(storeId, orderId, input.idempotencyKey);
       if (converged) {
         log.general.warn(
           { orderId, storeId },

@@ -63,10 +63,7 @@ import {
   resolveCorrelationId,
   runWithCorrelationId,
 } from '../services/catalog-observability/correlation.js';
-import {
-  catalogLogDebug,
-  catalogLogWarn,
-} from '../services/catalog-observability/catalog-log.js';
+import { catalogLogDebug, catalogLogWarn } from '../services/catalog-observability/catalog-log.js';
 import {
   CATALOG_OBSERVED_ROUTES,
   observeCatalogRoute,

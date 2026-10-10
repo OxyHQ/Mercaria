@@ -344,18 +344,20 @@ describe('the authoring surface traverses a real population', () => {
     // 14 on the tree this landed against. A floor, not a pin: components get
     // added. It fires if a glob breaks or the surface is moved out from under
     // this file, which are the two ways "clean" and "nothing examined" converge.
-    expect(files.length, `only ${String(files.length)} .tsx files traversed`).toBeGreaterThanOrEqual(
-      14,
-    );
+    expect(
+      files.length,
+      `only ${String(files.length)} .tsx files traversed`,
+    ).toBeGreaterThanOrEqual(14);
   });
 
   it('finds controls, and finds each kind the surface actually uses', () => {
     const controls = everyControl();
     // 62 when this landed. A tag regex that stopped matching finds zero and
     // reports zero failures, which is the shape of a gate measuring nothing.
-    expect(controls.length, `only ${String(controls.length)} controls found`).toBeGreaterThanOrEqual(
-      55,
-    );
+    expect(
+      controls.length,
+      `only ${String(controls.length)} controls found`,
+    ).toBeGreaterThanOrEqual(55);
     // And per kind, so losing ONE arm of the alternation cannot hide behind the
     // total. Only the kinds in use are floored; the other four are guards with
     // no instances, and are driven in the self-test instead.
@@ -445,19 +447,23 @@ describe('the detector, driven (self-test)', () => {
     }
   });
 
-  it('reads `label=` as a name on Bloom\'s text controls, and ONLY there', () => {
+  it("reads `label=` as a name on Bloom's text controls, and ONLY there", () => {
     for (const element of LABEL_NAMED_ELEMENTS) {
       const [named] = controlsIn('x.tsx', `<${element} label={t("a.b")} value={v} />`);
       expect(declaresLabel(named.tag), `label= on <${element}> did not read as a name`).toBe(true);
       const [empty] = controlsIn('x.tsx', `<${element} label="" value={v} />`);
-      expect(declaresLabel(empty.tag), `an empty label= on <${element}> read as a name`).toBe(false);
+      expect(declaresLabel(empty.tag), `an empty label= on <${element}> read as a name`).toBe(
+        false,
+      );
     }
     // A `label` prop on a Pressable names nothing, and `accessibilityLabel`'s
     // tail must not be read as a bare `label=` on a label-named element.
     const [pressable] = controlsIn('x.tsx', '<Pressable label={t("a.b")} onPress={go} />');
     expect(declaresLabel(pressable.tag), 'label= on a Pressable read as a name').toBe(false);
     const [emptyA11y] = controlsIn('x.tsx', '<TextFieldInput accessibilityLabel="" value={v} />');
-    expect(declaresLabel(emptyA11y.tag), 'an empty accessibilityLabel read as a label=').toBe(false);
+    expect(declaresLabel(emptyA11y.tag), 'an empty accessibilityLabel read as a label=').toBe(
+      false,
+    );
   });
 
   it('treats an EMPTY label as no label', () => {
@@ -509,7 +515,11 @@ describe('the detector, driven (self-test)', () => {
     // not claimed to — no control name is a prefix of `Text`, so those pass on
     // the tuple's contents instead. Measured: dropping the lookahead left them
     // green.
-    for (const wrapper of ['<ButtonRow>x</ButtonRow>', '<InputGroup>x</InputGroup>', '<SwitchRail />']) {
+    for (const wrapper of [
+      '<ButtonRow>x</ButtonRow>',
+      '<InputGroup>x</InputGroup>',
+      '<SwitchRail />',
+    ]) {
       expect(controlsIn('x.tsx', wrapper).length, `${wrapper} read as a control`).toBe(0);
     }
     // The same names, whole, still match — so this is not passing by the

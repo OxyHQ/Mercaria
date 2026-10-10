@@ -114,12 +114,7 @@ function stateList(states: readonly string[]): string {
  * expression rendered five times rather than five hand-written ones: written out
  * per table, the fifth copy is where somebody permits both.
  */
-function actorShapeCheck(
-  name: string,
-  kind: PgColumn,
-  oxyUserId: PgColumn,
-  grantId: PgColumn,
-) {
+function actorShapeCheck(name: string, kind: PgColumn, oxyUserId: PgColumn, grantId: PgColumn) {
   return check(
     name,
     sql`(${kind} = 'oxy' and ${oxyUserId} is not null and ${grantId} is null)
@@ -308,14 +303,8 @@ export const retailServiceRequests = pgTable(
       'retail_service_requests_decider_identity_check',
       sql`(${t.deciderKind} in ('oxy', 'operator')) = (${t.deciderOxyUserId} is not null)`,
     ),
-    check(
-      'retail_service_requests_market_check',
-      sql`${t.policyMarket} ~ '^[A-Z]{2}$'`,
-    ),
-    check(
-      'retail_service_requests_terms_check',
-      sql`length(btrim(${t.customerTermsVersion})) > 0`,
-    ),
+    check('retail_service_requests_market_check', sql`${t.policyMarket} ~ '^[A-Z]{2}$'`),
+    check('retail_service_requests_terms_check', sql`length(btrim(${t.customerTermsVersion})) > 0`),
     check(
       'retail_service_requests_note_check',
       sql`${t.customerNote} is null
@@ -449,11 +438,7 @@ export const retailServiceRequestEvidence = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf(
-      'retail_service_request_evidence_kind_check',
-      t.kind,
-      RETAIL_SERVICE_EVIDENCE_KINDS,
-    ),
+    checkOneOf('retail_service_request_evidence_kind_check', t.kind, RETAIL_SERVICE_EVIDENCE_KINDS),
     check('retail_service_request_evidence_file_check', sql`length(btrim(${t.fileId})) > 0`),
     /**
      * A `mercaria.co` reference is refused at the row. The service refuses one
@@ -599,10 +584,7 @@ export const retailServicePolicyExceptions = pgTable(
             `array[${RETAIL_SERVICE_REQUEST_KINDS.map((k) => `'${k}'`).join(', ')}]::text[]`,
           )}`,
     ),
-    check(
-      'retail_service_policy_exceptions_basis_check',
-      sql`length(btrim(${t.legalBasis})) > 0`,
-    ),
+    check('retail_service_policy_exceptions_basis_check', sql`length(btrim(${t.legalBasis})) > 0`),
     check(
       'retail_service_policy_exceptions_four_eyes_check',
       sql`${t.reviewedByOxyUserId} <> ${t.requestedByOxyUserId}`,
@@ -693,11 +675,7 @@ export const retailReturnCases = pgTable(
   },
   (t) => [
     checkOneOf('retail_return_cases_state_check', t.state, RETAIL_RETURN_CASE_STATES),
-    checkOneOf(
-      'retail_return_cases_destination_check',
-      t.destination,
-      RETAIL_RETURN_DESTINATIONS,
-    ),
+    checkOneOf('retail_return_cases_destination_check', t.destination, RETAIL_RETURN_DESTINATIONS),
     checkOneOf(
       'retail_return_cases_label_source_check',
       t.labelSource,
@@ -734,9 +712,7 @@ export const retailReturnCases = pgTable(
       sql`${t.shipBackDeadlineAt} is null or ${t.instructionsKey} is not null`,
     ),
     uniqueIndex('retail_return_cases_request_key').on(t.requestId),
-    index('retail_return_cases_open_idx')
-      .on(t.createdAt)
-      .where(sql`${t.closedAt} is null`),
+    index('retail_return_cases_open_idx').on(t.createdAt).where(sql`${t.closedAt} is null`),
   ],
 );
 
@@ -827,10 +803,7 @@ export const retailReturnLineDispositions = pgTable(
       t.actorGrantId,
     ),
     check('retail_return_line_dispositions_quantity_check', sql`${t.quantity} >= 1`),
-    check(
-      'retail_return_line_dispositions_key_check',
-      sql`length(btrim(${t.idempotencyKey})) > 0`,
-    ),
+    check('retail_return_line_dispositions_key_check', sql`length(btrim(${t.idempotencyKey})) > 0`),
     uniqueIndex('retail_return_line_dispositions_key').on(t.idempotencyKey),
     index('retail_return_line_dispositions_line_idx').on(t.returnCaseLineId, t.observedAt),
   ],
@@ -917,10 +890,7 @@ export const retailWarrantyCases = pgTable(
      * domain over.
      */
     check('retail_warranty_cases_months_check', sql`${t.guaranteeMonths} >= 1`),
-    check(
-      'retail_warranty_cases_expiry_check',
-      sql`${t.guaranteeExpiresAt} > ${t.reportedAt}`,
-    ),
+    check('retail_warranty_cases_expiry_check', sql`${t.guaranteeExpiresAt} > ${t.reportedAt}`),
     check('retail_warranty_cases_repeat_check', sql`${t.repeatFailureCount} >= 0`),
     check(
       'retail_warranty_cases_supplier_response_shape_check',
@@ -936,9 +906,7 @@ export const retailWarrantyCases = pgTable(
           and (${t.safetyEscalatedAt} is null or ${t.state} = 'escalated_safety')`,
     ),
     uniqueIndex('retail_warranty_cases_request_key').on(t.requestId),
-    index('retail_warranty_cases_open_idx')
-      .on(t.reportedAt)
-      .where(sql`${t.resolvedAt} is null`),
+    index('retail_warranty_cases_open_idx').on(t.reportedAt).where(sql`${t.resolvedAt} is null`),
     /** The safety queue: everything escalated, newest first. */
     index('retail_warranty_cases_safety_idx')
       .on(t.safetyEscalatedAt.desc())
@@ -979,7 +947,9 @@ export const supplierReturnAuthorizations = pgTable(
     purchaseOrderId: text()
       .notNull()
       .references(() => purchaseOrders.id, { onDelete: 'restrict' }),
-    state: text({ enum: asEnumValues(SUPPLIER_RETURN_STATES) }).notNull().default('requested'),
+    state: text({ enum: asEnumValues(SUPPLIER_RETURN_STATES) })
+      .notNull()
+      .default('requested'),
     /** The supplier's own RMA reference, once they gave one. PROTECTED. */
     providerReference: text(),
     /**
@@ -1005,19 +975,9 @@ export const supplierReturnAuthorizations = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf(
-      'supplier_return_authorizations_state_check',
-      t.state,
-      SUPPLIER_RETURN_STATES,
-    ),
-    check(
-      'supplier_return_authorizations_reason_check',
-      sql`length(btrim(${t.reasonCode})) > 0`,
-    ),
-    check(
-      'supplier_return_authorizations_key_check',
-      sql`length(btrim(${t.idempotencyKey})) > 0`,
-    ),
+    checkOneOf('supplier_return_authorizations_state_check', t.state, SUPPLIER_RETURN_STATES),
+    check('supplier_return_authorizations_reason_check', sql`length(btrim(${t.reasonCode})) > 0`),
+    check('supplier_return_authorizations_key_check', sql`length(btrim(${t.idempotencyKey})) > 0`),
     /**
      * An `authorized` RMA has a provider reference and an instant; anything else
      * has neither. Without this, a case could claim a supplier authorized a
@@ -1080,7 +1040,9 @@ export const supplierRecoveries = pgTable(
   {
     id: generatedId(),
     kind: text({ enum: asEnumValues(SUPPLIER_RECOVERY_KINDS) }).notNull(),
-    state: text({ enum: asEnumValues(SUPPLIER_RECOVERY_STATES) }).notNull().default('claimed'),
+    state: text({ enum: asEnumValues(SUPPLIER_RECOVERY_STATES) })
+      .notNull()
+      .default('claimed'),
     purchaseOrderId: text()
       .notNull()
       .references(() => purchaseOrders.id, { onDelete: 'restrict' }),
@@ -1167,9 +1129,7 @@ export const supplierRecoveries = pgTable(
       .on(t.serviceRequestId)
       .where(sql`${t.serviceRequestId} is not null`),
     /** The operator queue: what is still outstanding, oldest first. */
-    index('supplier_recoveries_open_idx')
-      .on(t.openedAt)
-      .where(sql`${t.closedAt} is null`),
+    index('supplier_recoveries_open_idx').on(t.openedAt).where(sql`${t.closedAt} is null`),
   ],
 );
 
@@ -1268,4 +1228,3 @@ export const retailDisputeCoordinations = pgTable(
       .where(sql`${t.suspension} = 'suspended'`),
   ],
 );
-

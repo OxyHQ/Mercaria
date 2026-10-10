@@ -272,7 +272,11 @@ export const merchantDemandMetrics = pgTable(
       t.storefrontId,
       t.sourceId,
     ),
-    checkOneOf('merchant_demand_metrics_metric_key_check', t.metricKey, MERCHANT_DEMAND_METRIC_KEYS),
+    checkOneOf(
+      'merchant_demand_metrics_metric_key_check',
+      t.metricKey,
+      MERCHANT_DEMAND_METRIC_KEYS,
+    ),
     checkOneOf('merchant_demand_metrics_kind_check', t.kind, MERCHANT_DEMAND_METRIC_KINDS),
     checkOneOf(
       'merchant_demand_metrics_aggregate_basis_check',

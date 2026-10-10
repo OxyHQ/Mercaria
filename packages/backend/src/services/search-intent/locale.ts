@@ -195,8 +195,8 @@ const UNAMBIGUOUS_CURRENCY_SYMBOLS: Readonly<Record<string, CurrencyCode>> = Obj
   '£': 'GBP',
   '₹': 'INR',
   '⊜': 'FAIR',
-  'zł': 'PLN',
-  'R$': 'BRL',
+  zł: 'PLN',
+  R$: 'BRL',
   // `¥` names both the yen and the yuan and BOTH are in Mercaria's set, so it
   // belongs with `$` and `kr` among the ambiguous ones rather than here.
 });

@@ -1,12 +1,12 @@
-import React from "react";
-import { Pressable, ScrollView, View } from "react-native";
-import { Check, CloudOff, RefreshCw, TriangleAlert } from "lucide-react-native";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
-import type { WizardStepId } from "@/lib/authoring/findings";
-import { STEP_LABEL_KEYS } from "@/lib/authoring/labels";
-import type { StepCompleteness } from "@/lib/authoring/wizard-state";
-import type { SaveState } from "@/lib/authoring/use-draft-wizard";
+import React from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Check, CloudOff, RefreshCw, TriangleAlert } from 'lucide-react-native';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
+import type { WizardStepId } from '@/lib/authoring/findings';
+import { STEP_LABEL_KEYS } from '@/lib/authoring/labels';
+import type { StepCompleteness } from '@/lib/authoring/wizard-state';
+import type { SaveState } from '@/lib/authoring/use-draft-wizard';
 
 interface StepNavProps {
   readonly steps: readonly WizardStepId[];
@@ -48,15 +48,15 @@ export function StepNav({ steps, current, onSelect, completeness }: StepNavProps
             accessibilityLabel={t(STEP_LABEL_KEYS[step])}
             onPress={() => onSelect(step)}
             className={[
-              "flex-row items-center gap-2 rounded-full border px-3 py-2",
-              isCurrent ? "border-primary bg-muted" : "border-border",
-            ].join(" ")}
+              'flex-row items-center gap-2 rounded-full border px-3 py-2',
+              isCurrent ? 'border-primary bg-muted' : 'border-border',
+            ].join(' ')}
           >
             <Text
               className={
                 isCurrent
-                  ? "text-sm font-semibold text-foreground"
-                  : "text-sm text-muted-foreground"
+                  ? 'text-sm font-semibold text-foreground'
+                  : 'text-sm text-muted-foreground'
               }
             >
               {index + 1}. {t(STEP_LABEL_KEYS[step])}
@@ -92,56 +92,56 @@ export function SaveStateBadge({ state, onRetry, onReload }: SaveStateBadgeProps
   const { t } = useTranslation();
   const { colors } = useColorScheme();
 
-  if (state === "conflict") {
+  if (state === 'conflict') {
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("products.wizard.save.reload")}
+        accessibilityLabel={t('products.wizard.save.reload')}
         onPress={onReload}
         className="flex-row items-center gap-1.5 active:opacity-70"
       >
         <TriangleAlert size={14} color={colors.mutedForeground} />
         <Text className="text-xs font-medium text-destructive">
-          {t("products.wizard.save.conflict")}
+          {t('products.wizard.save.conflict')}
         </Text>
       </Pressable>
     );
   }
-  if (state === "failed") {
+  if (state === 'failed') {
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("products.wizard.save.retry")}
+        accessibilityLabel={t('products.wizard.save.retry')}
         onPress={onRetry}
         className="flex-row items-center gap-1.5 active:opacity-70"
       >
         <CloudOff size={14} color={colors.mutedForeground} />
         <Text className="text-xs font-medium text-destructive">
-          {t("products.wizard.save.failed")}
+          {t('products.wizard.save.failed')}
         </Text>
       </Pressable>
     );
   }
-  if (state === "saving") {
+  if (state === 'saving') {
     return (
       <View className="flex-row items-center gap-1.5">
         <RefreshCw size={14} color={colors.mutedForeground} />
-        <Text className="text-xs text-muted-foreground">{t("products.wizard.save.saving")}</Text>
+        <Text className="text-xs text-muted-foreground">{t('products.wizard.save.saving')}</Text>
       </View>
     );
   }
-  if (state === "unsaved") {
+  if (state === 'unsaved') {
     return (
-      <Text className="text-xs text-muted-foreground">{t("products.wizard.save.unsaved")}</Text>
+      <Text className="text-xs text-muted-foreground">{t('products.wizard.save.unsaved')}</Text>
     );
   }
-  if (state === "saved") {
+  if (state === 'saved') {
     return (
       <View className="flex-row items-center gap-1.5">
         <Check size={14} color={colors.primary} />
-        <Text className="text-xs text-muted-foreground">{t("products.wizard.save.saved")}</Text>
+        <Text className="text-xs text-muted-foreground">{t('products.wizard.save.saved')}</Text>
       </View>
     );
   }
-  return <Text className="text-xs text-muted-foreground">{t("products.wizard.save.idle")}</Text>;
+  return <Text className="text-xs text-muted-foreground">{t('products.wizard.save.idle')}</Text>;
 }

@@ -61,7 +61,11 @@ router.use(authenticateToken);
 router.use(requireCatalogOperator);
 
 /** Product families. Creation is EXPLICIT; no source path mints one (#56). */
-router.post('/product-families', validateBody(productFamilyCreateSchema), createProductFamilyHandler);
+router.post(
+  '/product-families',
+  validateBody(productFamilyCreateSchema),
+  createProductFamilyHandler,
+);
 
 /** Canonical products. */
 router.post('/products', validateBody(canonicalProductCreateSchema), createCanonicalProductHandler);

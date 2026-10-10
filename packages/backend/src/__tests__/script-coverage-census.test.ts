@@ -141,10 +141,40 @@ const LOCALE_BUNDLES = join(PACKAGES_ROOT, 'ui', 'src', 'i18n', 'locales');
  * scripts" are the same reading otherwise.
  */
 const CANDIDATE_SCRIPTS = [
-  'Latin', 'Cyrillic', 'Greek', 'Arabic', 'Hebrew', 'Devanagari', 'Bengali', 'Gurmukhi',
-  'Gujarati', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Oriya', 'Sinhala', 'Thai', 'Lao',
-  'Khmer', 'Myanmar', 'Tibetan', 'Mongolian', 'Hiragana', 'Katakana', 'Han', 'Hangul',
-  'Armenian', 'Georgian', 'Ethiopic', 'Cherokee', 'Syriac', 'Thaana', 'Adlam', 'Vai', 'Yi',
+  'Latin',
+  'Cyrillic',
+  'Greek',
+  'Arabic',
+  'Hebrew',
+  'Devanagari',
+  'Bengali',
+  'Gurmukhi',
+  'Gujarati',
+  'Tamil',
+  'Telugu',
+  'Kannada',
+  'Malayalam',
+  'Oriya',
+  'Sinhala',
+  'Thai',
+  'Lao',
+  'Khmer',
+  'Myanmar',
+  'Tibetan',
+  'Mongolian',
+  'Hiragana',
+  'Katakana',
+  'Han',
+  'Hangul',
+  'Armenian',
+  'Georgian',
+  'Ethiopic',
+  'Cherokee',
+  'Syriac',
+  'Thaana',
+  'Adlam',
+  'Vai',
+  'Yi',
 ] as const;
 
 /**
@@ -277,7 +307,8 @@ const CONTENT_FOLDS = {
   codepoint_range:
     /\[\s*\\u\{?[0-9A-Fa-f]{2,6}\}?\s*-\s*\\u\{?[0-9A-Fa-f]{2,6}\}?|\[[^\]\n]*\P{ASCII}-\P{ASCII}[^\]\n]*\]/u,
   /** Postgres full text — the analyser is per-language by construction (#826). */
-  text_search_config: /to_tsvector\s*\(|to_tsquery\s*\(|websearch_to_tsquery\s*\(|plainto_tsquery\s*\(/,
+  text_search_config:
+    /to_tsvector\s*\(|to_tsquery\s*\(|websearch_to_tsquery\s*\(|plainto_tsquery\s*\(/,
 } as const;
 
 type FoldKind = keyof typeof CONTENT_FOLDS;
@@ -290,7 +321,12 @@ type FoldKind = keyof typeof CONTENT_FOLDS;
  * nothing saying so. It costs two entries today.
  */
 const WALKED_ROOTS = [
-  'backend/src', 'shared-types/src', 'ui/src', 'frontend', 'dashboard', 'pos',
+  'backend/src',
+  'shared-types/src',
+  'ui/src',
+  'frontend',
+  'dashboard',
+  'pos',
 ] as const;
 
 const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', '.expo', 'android', 'ios', '.git']);
@@ -377,7 +413,8 @@ const RELATIVE_IMPORT = /\b(?:import|export)\b[^;]*?\bfrom\s*['"](\.[^'"]+)['"]/
  * only the module that DECLARES the imported name is credited. This is
  * `import-closure.ts`'s "the unit is module#symbol" applied to coverage.
  */
-const WORKSPACE_IMPORT = /\bimport\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]@mercaria\/([a-z-]+)['"]/g;
+const WORKSPACE_IMPORT =
+  /\bimport\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"]@mercaria\/([a-z-]+)['"]/g;
 
 /** Symbol → the module declaring it, for one workspace package's `src/`. */
 function declaredSymbols(packageName: string): Map<string, string> {
@@ -386,7 +423,8 @@ function declaredSymbols(packageName: string): Map<string, string> {
   for (const id of walkPackage(root, '', [])) {
     if (isTestScoped(id)) continue;
     const source = readFileSync(absolute(id), 'utf8');
-    const declaration = /^export\s+(?:declare\s+)?(?:async\s+)?(?:function|const|class|type|interface|enum)\s+(\w+)/gm;
+    const declaration =
+      /^export\s+(?:declare\s+)?(?:async\s+)?(?:function|const|class|type|interface|enum)\s+(\w+)/gm;
     let match: RegExpExecArray | null;
     while ((match = declaration.exec(source)) !== null) {
       if (!index.has(match[1])) index.set(match[1], id);
@@ -429,7 +467,11 @@ function directImporters(): Map<string, string[]> {
         symbolIndex.set(packageName, index);
       }
       for (const raw of match[1].split(',')) {
-        const name = raw.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0].trim();
+        const name = raw
+          .trim()
+          .replace(/^type\s+/, '')
+          .split(/\s+as\s+/)[0]
+          .trim();
         const target = name === '' ? undefined : index.get(name);
         if (target !== undefined) credit(target, id);
       }
@@ -597,26 +639,29 @@ const SCRIPT_COVERAGE_EXEMPTIONS: readonly ScriptCoverageExemption[] = [
     module: 'backend/src/services/digital-retail/secrets.ts',
     reason: 'machine_alphabet',
     construct: "replace(/[^A-Za-z0-9]/g, '_')",
-    note: 'Folds a SECRET-STORE PATH SEGMENT into the environment-variable name it maps to. '
-      + 'The input is `/oxy/mercaria/digital-retail/seal/<name>` and the column it comes from '
-      + 'carries a CHECK admitting only `[A-Za-z0-9/_.-]`, so a non-Latin character cannot '
-      + 'reach it; a reference outside that prefix THROWS before this line runs.',
+    note:
+      'Folds a SECRET-STORE PATH SEGMENT into the environment-variable name it maps to. ' +
+      'The input is `/oxy/mercaria/digital-retail/seal/<name>` and the column it comes from ' +
+      'carries a CHECK admitting only `[A-Za-z0-9/_.-]`, so a non-Latin character cannot ' +
+      'reach it; a reference outside that prefix THROWS before this line runs.',
   },
   {
     module: 'backend/src/services/digital/inspection/threemf.ts',
     reason: 'machine_alphabet',
-    construct: "const unitKey = (unit ?? DEFAULT_THREEMF_UNIT).toLowerCase();",
-    note: 'Folds 3MF SPEC TOKENS — the `unit` attribute, XML tag names, and archive '
-      + 'part paths. All are ASCII identifiers the format defines; an unrecognised unit '
-      + 'is refused as corrupt rather than folded onto a default.',
+    construct: 'const unitKey = (unit ?? DEFAULT_THREEMF_UNIT).toLowerCase();',
+    note:
+      'Folds 3MF SPEC TOKENS — the `unit` attribute, XML tag names, and archive ' +
+      'part paths. All are ASCII identifiers the format defines; an unrecognised unit ' +
+      'is refused as corrupt rather than folded onto a default.',
   },
   {
     module: 'backend/src/services/digital/profiles/apply.ts',
     reason: 'machine_alphabet',
     construct: ".replace(/[^a-z0-9]+/gu, '_')",
-    note: 'Folds a TEST-RUN NAMESPACE TOKEN into `[a-z0-9_]`, the alphabet '
-      + '`product_type_definitions_key_shape_check` permits, and throws rather than '
-      + 'folding when nothing survives. Same shape as the supplier-preflight entry.',
+    note:
+      'Folds a TEST-RUN NAMESPACE TOKEN into `[a-z0-9_]`, the alphabet ' +
+      '`product_type_definitions_key_shape_check` permits, and throws rather than ' +
+      'folding when nothing survives. Same shape as the supplier-preflight entry.',
   },
   {
     module: 'backend/src/services/feed-import/mapping.ts',
@@ -687,7 +732,8 @@ const SCRIPT_COVERAGE_EXEMPTIONS: readonly ScriptCoverageExemption[] = [
   {
     module: 'dashboard/app/(app)/collections/index.tsx',
     reason: 'runner_cannot_reach',
-    construct: 'replace(/[^a-z0-9]+/g, "-")',
+    // Up to the replacement string only, whose quote style is the formatter's.
+    construct: 'replace(/[^a-z0-9]+/g, ',
     note: 'An inline slug in a SCREEN; the dashboard runner is lib-only with no renderer (#469).',
   },
 ];
@@ -739,16 +785,15 @@ describe('the required script families are derived from the shipped locale bundl
     const bundles = localeBundleNames();
     // A derivation over no bundles produces no requirement and passes every
     // assertion below it.
-    expect(bundles.length, 'no locale bundles found — did the path move?')
-      .toBeGreaterThanOrEqual(8);
+    expect(bundles.length, 'no locale bundles found — did the path move?').toBeGreaterThanOrEqual(
+      8,
+    );
 
     const required = requiredScriptFamilies();
-    expect(required.length, 'the derivation produced almost no scripts')
-      .toBeGreaterThanOrEqual(6);
+    expect(required.length, 'the derivation produced almost no scripts').toBeGreaterThanOrEqual(6);
     // Latin alone is what a Latin-only product would produce, and is exactly the
     // state #833 exists to make impossible.
-    expect(required.filter((script) => script !== 'Latin').length)
-      .toBeGreaterThanOrEqual(5);
+    expect(required.filter((script) => script !== 'Latin').length).toBeGreaterThanOrEqual(5);
   });
 
   it('classifies every letter in every bundle — the residual is the vacuity floor', () => {
@@ -774,16 +819,18 @@ describe('the required script families are derived from the shipped locale bundl
     const anyModuleNamesGreek = allSourceFiles().some(
       (id) => !isTestScoped(id) && /\p{Script=Greek}/u.test(readFileSync(absolute(id), 'utf8')),
     );
-    expect(anyModuleNamesGreek, 'the control is vacuous — no module contains Greek at all')
-      .toBe(true);
+    expect(anyModuleNamesGreek, 'the control is vacuous — no module contains Greek at all').toBe(
+      true,
+    );
   });
 
   it('the classifier fires on each required script and not on the others', () => {
     // The mutation self-test for the instrument itself.
     for (const sample of SCRIPT_CORPUS) {
       const present = scriptsPresentIn(sample.noun);
-      expect(present, `${sample.script} sample does not read as ${sample.script}`)
-        .toContain(sample.script);
+      expect(present, `${sample.script} sample does not read as ${sample.script}`).toContain(
+        sample.script,
+      );
     }
     expect(scriptsPresentIn('plain ascii')).toEqual(new Set(['Latin']));
     expect(scriptsPresentIn('')).toEqual(new Set());
@@ -802,8 +849,10 @@ describe('the fold surface is derived from a source walk', () => {
   it('finds a non-trivial number of folds across the packages', () => {
     const surface = foldSurface();
     // A walk that reached nothing passes every coverage assertion below.
-    expect(surface.size, 'the fold walk found almost nothing — did the roots move?')
-      .toBeGreaterThanOrEqual(30);
+    expect(
+      surface.size,
+      'the fold walk found almost nothing — did the roots move?',
+    ).toBeGreaterThanOrEqual(30);
     for (const id of surface.keys()) {
       expect(existsSync(absolute(id)), `${id} is in the surface but does not exist`).toBe(true);
     }
@@ -811,8 +860,10 @@ describe('the fold surface is derived from a source walk', () => {
     // silently broken and the surface would look healthy on the remaining four.
     for (const kind of Object.keys(CONTENT_FOLDS) as FoldKind[]) {
       const found = [...surface.values()].filter((kinds) => kinds.includes(kind)).length;
-      expect(found, `no module matched the ${kind} detector — is it broken?`)
-        .toBeGreaterThanOrEqual(1);
+      expect(
+        found,
+        `no module matched the ${kind} detector — is it broken?`,
+      ).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -854,7 +905,9 @@ describe('the fold surface is derived from a source walk', () => {
     expect(fires('codepoint_range', String.raw`/[̀-ͯ]/`)).toBe(true);
     expect(fires('codepoint_range', String.raw`/[\u{300}-\u{36F}]/gu`)).toBe(true);
     // The rewrite/validate line, which is what keeps the surface at 45 and not 126.
-    expect(fires('ascii_alphabet_rewrite', String.raw`value.replace(/[^a-z0-9]+/g, '-')`)).toBe(true);
+    expect(fires('ascii_alphabet_rewrite', String.raw`value.replace(/[^a-z0-9]+/g, '-')`)).toBe(
+      true,
+    );
     expect(fires('ascii_alphabet_rewrite', String.raw`/^[A-Z]{3}$/.test(code)`)).toBe(false);
     expect(fires('ascii_alphabet_rewrite', String.raw`z.string().regex(/^[a-z-]+$/)`)).toBe(false);
   });
@@ -867,7 +920,7 @@ describe('the fold surface is derived from a source walk', () => {
     RELATIVE_IMPORT.lastIndex = 0;
     expect([...multiline.matchAll(RELATIVE_IMPORT)].map((m) => m[1])).toEqual(['../thing.js']);
     RELATIVE_IMPORT.lastIndex = 0;
-    expect([...("import x from 'vitest';".matchAll(RELATIVE_IMPORT))]).toEqual([]);
+    expect([..."import x from 'vitest';".matchAll(RELATIVE_IMPORT)]).toEqual([]);
   });
 });
 
@@ -929,12 +982,17 @@ describe('every fold has fixture coverage for every required script', () => {
     // non-Latin corpus in the MODULE, and a test-file-only census scored it zero.
     const importers = directImporters();
     const moduleOnly = scriptsPresentIn(
-      stripComments(readFileSync(absolute('backend/src/services/graph-benchmark/folding.ts'), 'utf8')),
+      stripComments(
+        readFileSync(absolute('backend/src/services/graph-benchmark/folding.ts'), 'utf8'),
+      ),
     );
-    expect(moduleOnly.size, 'the module-corpus case no longer carries a corpus')
-      .toBeGreaterThanOrEqual(5);
-    expect(coveringText('backend/src/services/graph-benchmark/folding.ts', importers).length)
-      .toBeGreaterThan(0);
+    expect(
+      moduleOnly.size,
+      'the module-corpus case no longer carries a corpus',
+    ).toBeGreaterThanOrEqual(5);
+    expect(
+      coveringText('backend/src/services/graph-benchmark/folding.ts', importers).length,
+    ).toBeGreaterThan(0);
   });
 
   it('does not count a script that appears only in a comment', () => {
@@ -942,8 +1000,9 @@ describe('every fold has fixture coverage for every required script', () => {
     // the stripped text must LOSE the prose script and KEEP a fixture one.
     const source = `// Devanagari example: साइकिल\nconst fixture = 'велосипед';`;
     const scripts = scriptsPresentIn(stripComments(source));
-    expect(scripts.has('Devanagari'), 'a script named in a comment counted as coverage')
-      .toBe(false);
+    expect(scripts.has('Devanagari'), 'a script named in a comment counted as coverage').toBe(
+      false,
+    );
     expect(scripts.has('Cyrillic'), 'the stripper ate a real fixture').toBe(true);
   });
 });
@@ -983,8 +1042,7 @@ describe('the exemption register is exact in both directions', () => {
     for (const entry of unreachable) {
       const packageDirectory = entry.module.split('/')[0];
       const globs = runnerIncludeGlobs(packageDirectory);
-      expect(globs.length, `${packageDirectory} has no readable vitest include`)
-        .toBeGreaterThan(0);
+      expect(globs.length, `${packageDirectory} has no readable vitest include`).toBeGreaterThan(0);
       const within = entry.module.slice(packageDirectory.length + 1);
       for (const glob of globs) {
         expect(
@@ -997,7 +1055,9 @@ describe('the exemption register is exact in both directions', () => {
     // config could not be read, which is indistinguishable from one that cannot
     // reach the module.
     expect(globPrefix('lib/**/__tests__/**/*.test.ts')).toBe('lib/');
-    expect('app/(app)/collections/index.tsx'.startsWith(globPrefix('app/**/*.test.tsx'))).toBe(true);
+    expect('app/(app)/collections/index.tsx'.startsWith(globPrefix('app/**/*.test.tsx'))).toBe(
+      true,
+    );
   });
 
   it('the canonical_composition_only exemption cannot go stale either', () => {

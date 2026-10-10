@@ -21,10 +21,7 @@
  * guest-shaped left to fork (ADR 0003 I9).
  */
 
-import type {
-  RetailServiceEvidenceKind,
-  RetailServiceRequestKind,
-} from '@mercaria/shared-types';
+import type { RetailServiceEvidenceKind, RetailServiceRequestKind } from '@mercaria/shared-types';
 import {
   RETAIL_SERVICE_EVIDENCE_MAX_COUNT,
   RETAIL_SERVICE_NOTE_MAX_LENGTH,

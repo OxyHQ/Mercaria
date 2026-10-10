@@ -47,15 +47,16 @@ export const STEAM_MAX_RESULTS = 10_000;
 const INTERVAL_MS = 1_500;
 
 /** Market → the store's currency there and its language. */
-const MARKETS: Readonly<Record<string, { readonly currency: string; readonly language: string }>> = {
-  ES: { currency: 'EUR', language: 'spanish' },
-  PT: { currency: 'EUR', language: 'portuguese' },
-  FR: { currency: 'EUR', language: 'french' },
-  IT: { currency: 'EUR', language: 'italian' },
-  DE: { currency: 'EUR', language: 'german' },
-  GB: { currency: 'GBP', language: 'english' },
-  US: { currency: 'USD', language: 'english' },
-};
+const MARKETS: Readonly<Record<string, { readonly currency: string; readonly language: string }>> =
+  {
+    ES: { currency: 'EUR', language: 'spanish' },
+    PT: { currency: 'EUR', language: 'portuguese' },
+    FR: { currency: 'EUR', language: 'french' },
+    IT: { currency: 'EUR', language: 'italian' },
+    DE: { currency: 'EUR', language: 'german' },
+    GB: { currency: 'GBP', language: 'english' },
+    US: { currency: 'USD', language: 'english' },
+  };
 
 export const steamStoreProvider: OpenDataProvider = {
   slug: STEAM_STORE_PROVIDER,
@@ -76,7 +77,8 @@ export const steamStoreProvider: OpenDataProvider = {
 async function fetchSteamPage(context: OpenDataPageContext): Promise<OpenDataPage> {
   const country = (context.territories[0] ?? 'ES').toUpperCase();
   const market = MARKETS[country];
-  if (market === undefined) throw new OpenDataConfigurationError(`Steam market ${country} is not mapped to a currency.`);
+  if (market === undefined)
+    throw new OpenDataConfigurationError(`Steam market ${country} is not mapped to a currency.`);
   const start = typeof context.cursor?.s === 'number' ? context.cursor.s : 0;
 
   if (start === 0) {
@@ -86,7 +88,9 @@ async function fetchSteamPage(context: OpenDataPageContext): Promise<OpenDataPag
       ...(context.signal ? { signal: context.signal } : {}),
     });
     if (!robotsAllows(robots, 'Mercaria', SEARCH_PATH)) {
-      throw new OpenDataConfigurationError(`${ORIGIN}/robots.txt disallows ${SEARCH_PATH}; Steam is not read.`);
+      throw new OpenDataConfigurationError(
+        `${ORIGIN}/robots.txt disallows ${SEARCH_PATH}; Steam is not read.`,
+      );
     }
   }
 
@@ -155,7 +159,9 @@ function firstGroup(pattern: RegExp, text: string): string | undefined {
 /** Split the fragment into rows and read each. Pure, so the fixture tests it. */
 export function searchRows(html: string): SteamSearchRow[] {
   const rows: SteamSearchRow[] = [];
-  for (const match of html.matchAll(/<a href="([^"]+)"([^>]*?)class="search_result_row[\s\S]*?<\/a>/gu)) {
+  for (const match of html.matchAll(
+    /<a href="([^"]+)"([^>]*?)class="search_result_row[\s\S]*?<\/a>/gu,
+  )) {
     const [row, href, attributes] = match;
     const tagIds = firstGroup(/data-ds-tagids="\[([^\]]*)\]"/u, attributes ?? '');
     const price = firstGroup(/data-price-final="(\d+)"/u, row);
@@ -170,8 +176,13 @@ export function searchRows(html: string): SteamSearchRow[] {
       originalPrice: firstGroup(/<div class="discount_original_price">([^<]+)<\/div>/u, row),
       discountPercent: discount === undefined ? undefined : Number(discount),
       review: firstGroup(/data-tooltip-html="([^"]+)"/u, row)?.replace(/<br>[\s\S]*$/u, ''),
-      platforms: [...row.matchAll(/platform_img (\w+)/gu)].map((platform) => platform[1] ?? '').filter((name) => name !== ''),
-      tagIds: (tagIds ?? '').split(',').map((id) => Number(id.trim())).filter((id) => Number.isInteger(id) && id > 0),
+      platforms: [...row.matchAll(/platform_img (\w+)/gu)]
+        .map((platform) => platform[1] ?? '')
+        .filter((name) => name !== ''),
+      tagIds: (tagIds ?? '')
+        .split(',')
+        .map((id) => Number(id.trim()))
+        .filter((id) => Number.isInteger(id) && id > 0),
     });
   }
   return rows;
@@ -186,14 +197,21 @@ function formattedMinor(text: string | undefined): number | undefined {
   return Number(match[1]) * 100 + Number(match[2] ?? '0');
 }
 
-export function toItem(row: SteamSearchRow, market: { readonly country: string; readonly currency: string }): OpenDataItem | null {
-  if (row.appId === undefined || row.title === undefined || row.priceFinalMinor === undefined) return null;
+export function toItem(
+  row: SteamSearchRow,
+  market: { readonly country: string; readonly currency: string },
+): OpenDataItem | null {
+  if (row.appId === undefined || row.title === undefined || row.priceFinalMinor === undefined)
+    return null;
   // Free to play, or no price in this market.
   if (row.priceFinalMinor === 0) return null;
   const price = minorMoney(row.priceFinalMinor, market.currency);
   if (price === undefined) return null;
   const originalMinor = formattedMinor(row.originalPrice);
-  const compareAt = originalMinor === undefined || originalMinor <= price.amount ? undefined : minorMoney(originalMinor, market.currency);
+  const compareAt =
+    originalMinor === undefined || originalMinor <= price.amount
+      ? undefined
+      : minorMoney(originalMinor, market.currency);
 
   const facts = new FactCollector('steam')
     .add('app_id', row.appId)

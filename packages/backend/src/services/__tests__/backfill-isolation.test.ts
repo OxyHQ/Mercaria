@@ -109,26 +109,77 @@ function backfillPopulation(readDir: DirectoryReader = readSrcDirectory): string
 const NOT_THIS_BACKFILL = [
   // #61's catalogue classification backfill, gated by
   // `services/catalog-backfill/__tests__/catalog-backfill-isolation.test.ts`.
-  { path: 'services/catalog-backfill/classification.ts', why: "#61's catalogue classification backfill, which has its own gate" },
-  { path: 'services/catalog-backfill/classify.service.ts', why: "#61's catalogue classification backfill, which has its own gate" },
-  { path: 'services/catalog-backfill/cohort-argument.ts', why: "#61's catalogue classification backfill, which has its own gate" },
-  { path: 'services/catalog-backfill/mapping-matrix.ts', why: "#61's catalogue classification backfill, which has its own gate" },
-  { path: 'services/catalog-backfill/product-type-text.ts', why: "#61's catalogue classification backfill, which has its own gate" },
-  { path: 'services/catalog-backfill/reconciliation.service.ts', why: "#61's catalogue classification backfill, which has its own gate" },
-  { path: 'services/catalog-backfill/repair.service.ts', why: "#61's catalogue classification backfill, which has its own gate" },
-  { path: 'db/catalogBackfill/legacyCatalogRepository.ts', why: "#61's catalogue classification backfill, its repository" },
+  {
+    path: 'services/catalog-backfill/classification.ts',
+    why: "#61's catalogue classification backfill, which has its own gate",
+  },
+  {
+    path: 'services/catalog-backfill/classify.service.ts',
+    why: "#61's catalogue classification backfill, which has its own gate",
+  },
+  {
+    path: 'services/catalog-backfill/cohort-argument.ts',
+    why: "#61's catalogue classification backfill, which has its own gate",
+  },
+  {
+    path: 'services/catalog-backfill/mapping-matrix.ts',
+    why: "#61's catalogue classification backfill, which has its own gate",
+  },
+  {
+    path: 'services/catalog-backfill/product-type-text.ts',
+    why: "#61's catalogue classification backfill, which has its own gate",
+  },
+  {
+    path: 'services/catalog-backfill/reconciliation.service.ts',
+    why: "#61's catalogue classification backfill, which has its own gate",
+  },
+  {
+    path: 'services/catalog-backfill/repair.service.ts',
+    why: "#61's catalogue classification backfill, which has its own gate",
+  },
+  {
+    path: 'db/catalogBackfill/legacyCatalogRepository.ts',
+    why: "#61's catalogue classification backfill, its repository",
+  },
   // Two other domains that each own a module called `backfill.service.ts`.
-  { path: 'services/catalog-proposals/backfill.service.ts', why: "the catalog-proposals domain's own backfill, gated by its own isolation test" },
-  { path: 'db/catalogProposals/backfillRepository.ts', why: "the catalog-proposals domain's own backfill repository" },
-  { path: 'services/variant-axes/backfill.service.ts', why: "the variant-axes domain's own backfill, gated by its own isolation test" },
-  { path: 'services/catalog-media/backfill.ts', why: 'legacy listing image import through Oxy; preserves gallery identity, not the canonical catalogue migration' },
+  {
+    path: 'services/catalog-proposals/backfill.service.ts',
+    why: "the catalog-proposals domain's own backfill, gated by its own isolation test",
+  },
+  {
+    path: 'db/catalogProposals/backfillRepository.ts',
+    why: "the catalog-proposals domain's own backfill repository",
+  },
+  {
+    path: 'services/variant-axes/backfill.service.ts',
+    why: "the variant-axes domain's own backfill, gated by its own isolation test",
+  },
+  {
+    path: 'services/catalog-media/backfill.ts',
+    why: 'legacy listing image import through Oxy; preserves gallery identity, not the canonical catalogue migration',
+  },
   // One-off operator scripts, in no domain and behind no gate. They are not
   // silently excused: they are named, so a person decided they are scripts.
-  { path: 'scripts/backfill-catalog-classify.ts', why: 'a one-off operator script, not a module of any service domain' },
-  { path: 'scripts/backfill-catalog-paths.ts', why: 'a one-off operator script, not a module of any service domain' },
-  { path: 'scripts/backfill-catalog-reconcile.ts', why: 'a one-off operator script, not a module of any service domain' },
-  { path: 'scripts/backfill-variant-axes.ts', why: 'a one-off operator script, not a module of any service domain' },
-  { path: 'scripts/backfill-listing-media.ts', why: 'operator CLI for legacy listing image import, not the flag-gated canonical catalogue migration' },
+  {
+    path: 'scripts/backfill-catalog-classify.ts',
+    why: 'a one-off operator script, not a module of any service domain',
+  },
+  {
+    path: 'scripts/backfill-catalog-paths.ts',
+    why: 'a one-off operator script, not a module of any service domain',
+  },
+  {
+    path: 'scripts/backfill-catalog-reconcile.ts',
+    why: 'a one-off operator script, not a module of any service domain',
+  },
+  {
+    path: 'scripts/backfill-variant-axes.ts',
+    why: 'a one-off operator script, not a module of any service domain',
+  },
+  {
+    path: 'scripts/backfill-listing-media.ts',
+    why: 'operator CLI for legacy listing image import, not the flag-gated canonical catalogue migration',
+  },
 ];
 
 /**
@@ -140,7 +191,6 @@ const NOT_THIS_BACKFILL = [
  * rather than `> 0` so a broken traversal cannot pass by scanning one file.
  */
 const MINIMUM_DOMAIN_FILES = 16;
-
 
 const DOMAIN_SOURCES: readonly { path: string; source: string }[] = backfillPopulation().map(
   (path) => ({ path, source: readFileSync(join(SRC_ROOT, path), 'utf8') }),
@@ -180,7 +230,8 @@ const REVIEW_WRITE_REFERENCE =
  * collections continue to reference native listings until a separate
  * product-level collection migration is designed."
  */
-const COLLECTION_REFERENCE = /collection\.service|collectionRepository|collectionIds|db\/merchandising\//;
+const COLLECTION_REFERENCE =
+  /collection\.service|collectionRepository|collectionIds|db\/merchandising\//;
 
 /**
  * The hard exclusion this repo states in `AGENTS.md`: no OxyPay and no FairCoin
@@ -226,7 +277,9 @@ describe('the backfill cannot reach the domains it must not', () => {
     expect(from('db/backfill/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(3);
     expect(from('controllers/'), 'no backfill controller was derived').toBeGreaterThanOrEqual(1);
     expect(from('routes/'), 'no backfill route was derived').toBeGreaterThanOrEqual(1);
-    expect(from('middleware/'), 'no backfill middleware module was derived').toBeGreaterThanOrEqual(1);
+    expect(from('middleware/'), 'no backfill middleware module was derived').toBeGreaterThanOrEqual(
+      1,
+    );
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
     expect(DOMAIN_SOURCES.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
     expect(STAGE_SOURCES.length).toBeGreaterThanOrEqual(6);
@@ -338,26 +391,32 @@ describe('the backfill cannot reach the domains it must not', () => {
    */
   it('each detector actually detects (mutation self-test)', () => {
     expect(
-      ORDER_OR_MONEY_REFERENCE.test("import { insertOrder } from '../../db/orders/orderRepository.js';"),
+      ORDER_OR_MONEY_REFERENCE.test(
+        "import { insertOrder } from '../../db/orders/orderRepository.js';",
+      ),
     ).toBe(true);
-    expect(ORDER_OR_MONEY_REFERENCE.test("import { postLedger } from './ledgerRepository.js';")).toBe(
+    expect(
+      ORDER_OR_MONEY_REFERENCE.test("import { postLedger } from './ledgerRepository.js';"),
+    ).toBe(true);
+    expect(FAVORITE_REFERENCE.test("import { addFavorite } from '../favorite.service.js';")).toBe(
       true,
     );
-    expect(FAVORITE_REFERENCE.test("import { addFavorite } from '../favorite.service.js';")).toBe(true);
     expect(
       // The known-positive is `assignReviewOnSplit`, chosen because it is the
       // review write RETIRED LAST: it is #76 migration rule 5's operator path,
       // which #59's split job drives and nothing supersedes. Repoint this the
       // day that function moves — a control naming code that no longer exists
       // keeps passing for the wrong reason.
-      REVIEW_WRITE_REFERENCE.test("import { assignReviewOnSplit } from '../reviews/review-migration.service.js';"),
+      REVIEW_WRITE_REFERENCE.test(
+        "import { assignReviewOnSplit } from '../reviews/review-migration.service.js';",
+      ),
     ).toBe(true);
     expect(COLLECTION_REFERENCE.test('const ids = listing.collectionIds;')).toBe(true);
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test("provider: 'oxy_pay'")).toBe(true);
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test('// FairCoin support coming soon')).toBe(true);
-    expect(CANONICAL_WRITE_REFERENCE.test('const p = await createCanonicalProduct({ name });')).toBe(
-      true,
-    );
+    expect(
+      CANONICAL_WRITE_REFERENCE.test('const p = await createCanonicalProduct({ name });'),
+    ).toBe(true);
 
     // …and the four things that must NOT trip a detector.
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test("const currency: CurrencyCode = 'FAIR';")).toBe(false);
@@ -404,15 +463,26 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../payments/thing.service.js';"),
       "a module here reaches payments as '../payments/…' and that must not pass",
     ).toBe(true);
-    expect(ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../../services/payments/thing.service.js';")).toBe(true);
+    expect(
+      ORDER_OR_MONEY_REFERENCE.test(
+        "import { helper } from '../../services/payments/thing.service.js';",
+      ),
+    ).toBe(true);
     expect(
       ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../fees/thing.service.js';"),
       "a module here reaches fees as '../fees/…' and that must not pass",
     ).toBe(true);
-    expect(ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../../services/fees/thing.service.js';")).toBe(true);
+    expect(
+      ORDER_OR_MONEY_REFERENCE.test(
+        "import { helper } from '../../services/fees/thing.service.js';",
+      ),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../payments-display/format.js';")).toBe(false);
-    expect(ORDER_OR_MONEY_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
+    expect(
+      ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../payments-display/format.js';"),
+    ).toBe(false);
+    expect(ORDER_OR_MONEY_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(
+      false,
+    );
   });
-
 });

@@ -184,7 +184,10 @@ function summariseValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     const members = value
       .slice(0, MAX_SUMMARY_ARRAY_LENGTH)
-      .filter((member): member is string | number => typeof member === 'string' || typeof member === 'number')
+      .filter(
+        (member): member is string | number =>
+          typeof member === 'string' || typeof member === 'number',
+      )
       .map((member) =>
         typeof member === 'string'
           ? redactSupplierOrderMessage(member).slice(0, MAX_SUMMARY_SCALAR_LENGTH)

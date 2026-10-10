@@ -1,17 +1,17 @@
-import React, { useMemo } from "react";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { useBottomEdgeInset } from "@oxy.so/bloom/layout";
-import { Text, PriceDisplay } from "@mercaria/ui";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
-import { RequirePos } from "@/components/shell/RequirePos";
-import { CatalogPane } from "@/components/register/CatalogPane";
-import { CartPanel } from "@/components/register/CartPanel";
-import { useRegisterCart, useRegisterCartCount } from "@/lib/stores/register-cart";
-import { computeCartSubtotal } from "@/lib/cart-totals";
-import { ChargeButton } from "@/components/register/ChargeButton";
-import { useTranslation } from "@/lib/i18n";
+import React, { useMemo } from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { useBottomEdgeInset } from '@oxy.so/bloom/layout';
+import { Text, PriceDisplay } from '@mercaria/ui';
+import { StoreSwitcher } from '@/components/shell/StoreSwitcher';
+import { RequirePos } from '@/components/shell/RequirePos';
+import { CatalogPane } from '@/components/register/CatalogPane';
+import { CartPanel } from '@/components/register/CartPanel';
+import { useRegisterCart, useRegisterCartCount } from '@/lib/stores/register-cart';
+import { computeCartSubtotal } from '@/lib/cart-totals';
+import { ChargeButton } from '@/components/register/ChargeButton';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The Mercaria register — a Shopify-POS two-pane layout. Wide (`md:`+) shows the
@@ -25,7 +25,7 @@ export default function RegisterScreen() {
   return (
     <>
       <Head>
-        <title>{t("register.documentTitle")}</title>
+        <title>{t('register.documentTitle')}</title>
       </Head>
       <RequirePos permission="draft_orders:write">
         {(storeId) => <Register storeId={storeId} />}
@@ -40,7 +40,7 @@ function Register({ storeId }: { storeId: string }) {
     <View className="flex-1 bg-background">
       {/* Full-width header (StoreSwitcher action kept accessible). */}
       <View className="flex-row items-center justify-between gap-4 border-b border-border px-4 py-3 md:px-6">
-        <Text className="text-xl font-bold text-foreground">{t("nav.register")}</Text>
+        <Text className="text-xl font-bold text-foreground">{t('nav.register')}</Text>
         <StoreSwitcher />
       </View>
 
@@ -85,13 +85,13 @@ function NarrowChargeBar() {
     >
       <View className="flex-row items-center justify-between gap-3">
         <Pressable
-          onPress={() => router.push("/cart")}
+          onPress={() => router.push('/cart')}
           accessibilityRole="button"
-          accessibilityLabel={t("register.reviewCart")}
+          accessibilityLabel={t('register.reviewCart')}
           className="flex-1 active:opacity-80"
         >
           <Text className="text-xs text-muted-foreground">
-            {t("register.reviewCartWithCount", { count })}
+            {t('register.reviewCartWithCount', { count })}
           </Text>
           <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" />
         </Pressable>

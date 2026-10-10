@@ -82,7 +82,9 @@ const SCHEMA_CONDITION: Readonly<Record<ItemConditionKey, string>> = {
 export function formatSchemaPrice(amount: number, currency: CurrencyCode): string {
   const precision = CURRENCY_PRECISION[currency];
   const negative = amount < 0;
-  const digits = Math.abs(amount).toString().padStart(precision + 1, '0');
+  const digits = Math.abs(amount)
+    .toString()
+    .padStart(precision + 1, '0');
   const whole = digits.slice(0, digits.length - precision);
   const fraction = precision === 0 ? '' : `.${digits.slice(digits.length - precision)}`;
   return `${negative ? '-' : ''}${whole}${fraction}`;
@@ -231,10 +233,7 @@ export function organizationNode(
 }
 
 /** The `BreadcrumbList`, or `undefined` when the page renders no trail. */
-export function breadcrumbNode(
-  facts: SeoVisibleFacts,
-  origin: string,
-): SeoJsonLdNode | undefined {
+export function breadcrumbNode(facts: SeoVisibleFacts, origin: string): SeoJsonLdNode | undefined {
   if (facts.breadcrumbs.length === 0) return undefined;
   return {
     '@context': SCHEMA_CONTEXT,

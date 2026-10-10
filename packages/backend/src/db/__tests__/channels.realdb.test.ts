@@ -296,9 +296,7 @@ describe('the terminal-state CHECKs', () => {
       .catch((err: unknown) => err);
 
     expect(isCheckViolation(failure)).toBe(true);
-    expect(constraintNameOf(failure)).toBe(
-      'channel_onboarding_sessions_activated_target_check',
-    );
+    expect(constraintNameOf(failure)).toBe('channel_onboarding_sessions_activated_target_check');
   });
 
   it('REFUSES an activated session naming BOTH', async () => {

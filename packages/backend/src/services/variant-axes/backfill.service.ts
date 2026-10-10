@@ -110,9 +110,10 @@ function emptyRefusalCounts(): {
     attribute: Object.fromEntries(
       VARIANT_AXIS_ATTRIBUTE_REFUSALS.map((refusal) => [refusal, 0]),
     ) as Record<VariantAxisAttributeRefusal, number>,
-    value: Object.fromEntries(
-      VARIANT_AXIS_VALUE_REFUSALS.map((refusal) => [refusal, 0]),
-    ) as Record<VariantAxisValueRefusal, number>,
+    value: Object.fromEntries(VARIANT_AXIS_VALUE_REFUSALS.map((refusal) => [refusal, 0])) as Record<
+      VariantAxisValueRefusal,
+      number
+    >,
   };
 }
 
@@ -311,7 +312,9 @@ async function backfillOneListing(
     // agree about why. `unmapped` otherwise, which is the honest answer for a
     // variant value naming an option the listing never declared.
     const attributeRefusal =
-      axis === undefined ? ((key === null ? undefined : refusalByKey.get(key)) ?? 'unmapped') : null;
+      axis === undefined
+        ? ((key === null ? undefined : refusalByKey.get(key)) ?? 'unmapped')
+        : null;
 
     const claim = await recordVariantAttributeClaim(tx, {
       variantId: value.variantId,

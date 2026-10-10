@@ -85,7 +85,9 @@ function storeWithTaxSettings(settings: {
 }
 
 /** Build a priced line. */
-function line(overrides: Partial<PricingLine> & { listingId: string; amount: number; quantity: number }): PricingLine {
+function line(
+  overrides: Partial<PricingLine> & { listingId: string; amount: number; quantity: number },
+): PricingLine {
   return {
     listingId: overrides.listingId,
     variantId: `v-${overrides.listingId}`,
@@ -207,11 +209,17 @@ function assertReconciled(
   const perLineSum = result.perLineDiscount.reduce((s, m) => s + m.shop.amount, 0);
   expect(perLineSum).toBe(result.discountTotal.shop.amount);
   // Per-line (lineTotal − discount) must sum to subtotal − discountTotal.
-  const discountedSum = lineTotals.reduce((s, t, i) => s + (t - result.perLineDiscount[i].shop.amount), 0);
+  const discountedSum = lineTotals.reduce(
+    (s, t, i) => s + (t - result.perLineDiscount[i].shop.amount),
+    0,
+  );
   expect(discountedSum).toBe(result.subtotal.shop.amount - result.discountTotal.shop.amount);
   // grandTotal = subtotal − discount + tax + shipping (shipping always 0 here).
   expect(result.grandTotal.shop.amount).toBe(
-    result.subtotal.shop.amount - result.discountTotal.shop.amount + result.tax.shop.amount + result.shipping.shop.amount,
+    result.subtotal.shop.amount -
+      result.discountTotal.shop.amount +
+      result.tax.shop.amount +
+      result.shipping.shop.amount,
   );
 }
 
@@ -295,7 +303,14 @@ describe('calculateTotals — presentment vs shop (multi-currency)', () => {
       ttlSeconds: 300,
     };
     const result = await calculateTotals({
-      lines: [{ listingId: L1, variantId: 'v-eur', unitPrice: { amount: 4500, currency: 'EUR' }, quantity: 1 }],
+      lines: [
+        {
+          listingId: L1,
+          variantId: 'v-eur',
+          unitPrice: { amount: 4500, currency: 'EUR' },
+          quantity: 1,
+        },
+      ],
       currency: 'EUR',
       presentmentCurrency: 'FAIR',
       rates,
@@ -312,7 +327,9 @@ describe('calculateTotals — presentment vs shop (multi-currency)', () => {
 
 describe('calculateTotals — percentage order-level discount', () => {
   it('applies 15% off the subtotal with exact reconciliation', async () => {
-    findActiveDiscounts.mockResolvedValue([discount({ _id: 'd1', valueType: 'percentage', value: 1500, appliesTo: { scope: 'order' } })]);
+    findActiveDiscounts.mockResolvedValue([
+      discount({ _id: 'd1', valueType: 'percentage', value: 1500, appliesTo: { scope: 'order' } }),
+    ]);
     const lines = [
       line({ listingId: L1, amount: 1000, quantity: 3 }), // 3000
       line({ listingId: L2, amount: 700, quantity: 1 }), // 700
@@ -332,7 +349,14 @@ describe('calculateTotals — percentage order-level discount', () => {
 
 describe('calculateTotals — fixed_amount clamped to base', () => {
   it('clamps a fixed_amount discount to the subtotal', async () => {
-    findActiveDiscounts.mockResolvedValue([discount({ _id: 'd1', valueType: 'fixed_amount', value: 999999, appliesTo: { scope: 'order' } })]);
+    findActiveDiscounts.mockResolvedValue([
+      discount({
+        _id: 'd1',
+        valueType: 'fixed_amount',
+        value: 999999,
+        appliesTo: { scope: 'order' },
+      }),
+    ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 2 })]; // 2000
     const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
@@ -345,7 +369,9 @@ describe('calculateTotals — fixed_amount clamped to base', () => {
 describe('calculateTotals — order-level proportional allocation', () => {
   it('reconciles the residual onto the largest line', async () => {
     // 10% off an uneven split that does not divide evenly.
-    findActiveDiscounts.mockResolvedValue([discount({ _id: 'd1', valueType: 'percentage', value: 1000, appliesTo: { scope: 'order' } })]);
+    findActiveDiscounts.mockResolvedValue([
+      discount({ _id: 'd1', valueType: 'percentage', value: 1000, appliesTo: { scope: 'order' } }),
+    ]);
     const lines = [
       line({ listingId: L1, amount: 333, quantity: 1 }), // 333
       line({ listingId: L2, amount: 1000, quantity: 1 }), // 1000
@@ -363,13 +389,13 @@ describe('calculateTotals — order-level proportional allocation', () => {
 describe('calculateTotals — product-level discount', () => {
   it('attributes only to matching lines (by collection)', async () => {
     findActiveDiscounts.mockResolvedValue([
-        discount({
-          _id: 'd1',
-          valueType: 'percentage',
-          value: 2000, // 20%
-          appliesTo: { scope: 'collections', collectionIds: [COLLECTION_A] },
-        }),
-      ]);
+      discount({
+        _id: 'd1',
+        valueType: 'percentage',
+        value: 2000, // 20%
+        appliesTo: { scope: 'collections', collectionIds: [COLLECTION_A] },
+      }),
+    ]);
     const lines = [
       line({ listingId: L1, amount: 1000, quantity: 1, collectionIds: [COLLECTION_A] }), // matches
       line({ listingId: L2, amount: 500, quantity: 1 }), // no collection → no discount
@@ -386,15 +412,15 @@ describe('calculateTotals — product-level discount', () => {
 describe('calculateTotals — BOGO', () => {
   it('buy 2 get 1 free discounts the cheapest qualifying unit', async () => {
     findActiveDiscounts.mockResolvedValue([
-        discount({
-          _id: 'd1',
-          valueType: 'free_item',
-          value: 0,
-          appliesTo: { scope: 'products', productIds: [L1] },
-          buy: { quantity: 2, scope: 'products', productIds: [L1] },
-          get: { quantity: 1, scope: 'products', productIds: [L1] },
-        }),
-      ]);
+      discount({
+        _id: 'd1',
+        valueType: 'free_item',
+        value: 0,
+        appliesTo: { scope: 'products', productIds: [L1] },
+        buy: { quantity: 2, scope: 'products', productIds: [L1] },
+        get: { quantity: 1, scope: 'products', productIds: [L1] },
+      }),
+    ]);
     // 3 units at 500 each → buy 2 get 1 free → one unit free (500 off).
     const lines = [line({ listingId: L1, amount: 500, quantity: 3 })];
     const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
@@ -408,14 +434,14 @@ describe('calculateTotals — BOGO', () => {
 describe('calculateTotals — gating', () => {
   it('does not apply when the subtotal is below the minimum requirement', async () => {
     findActiveDiscounts.mockResolvedValue([
-        discount({
-          _id: 'd1',
-          valueType: 'percentage',
-          value: 1000,
-          appliesTo: { scope: 'order' },
-          minimumRequirement: { type: 'subtotal', value: 5000 },
-        }),
-      ]);
+      discount({
+        _id: 'd1',
+        valueType: 'percentage',
+        value: 1000,
+        appliesTo: { scope: 'order' },
+        minimumRequirement: { type: 'subtotal', value: 5000 },
+      }),
+    ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })]; // 1000 < 5000
     const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
@@ -425,16 +451,16 @@ describe('calculateTotals — gating', () => {
 
   it('does not apply when the total usage ceiling is reached', async () => {
     findActiveDiscounts.mockResolvedValue([
-        discount({
-          _id: 'd1',
-          method: 'code',
-          codes: [{ code: 'PROMO', usageCount: 5 }],
-          valueType: 'percentage',
-          value: 1000,
-          appliesTo: { scope: 'order' },
-          usageLimits: { totalMax: 5 },
-        }),
-      ]);
+      discount({
+        _id: 'd1',
+        method: 'code',
+        codes: [{ code: 'PROMO', usageCount: 5 }],
+        valueType: 'percentage',
+        value: 1000,
+        appliesTo: { scope: 'order' },
+        usageLimits: { totalMax: 5 },
+      }),
+    ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({
       storeId: STORE_ID,
@@ -449,9 +475,9 @@ describe('calculateTotals — gating', () => {
 describe('calculateTotals — combinability', () => {
   it('applies only the better of two non-combinable order-level discounts', async () => {
     findActiveDiscounts.mockResolvedValue([
-        discount({ _id: 'd1', valueType: 'percentage', value: 1000, appliesTo: { scope: 'order' } }), // 10%
-        discount({ _id: 'd2', valueType: 'percentage', value: 2000, appliesTo: { scope: 'order' } }), // 20% (better)
-      ]);
+      discount({ _id: 'd1', valueType: 'percentage', value: 1000, appliesTo: { scope: 'order' } }), // 10%
+      discount({ _id: 'd2', valueType: 'percentage', value: 2000, appliesTo: { scope: 'order' } }), // 20% (better)
+    ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({ storeId: STORE_ID, lines, currency: 'FAIR' });
 
@@ -462,21 +488,21 @@ describe('calculateTotals — combinability', () => {
 
   it('coexists a product + order discount when both permit the other class', async () => {
     findActiveDiscounts.mockResolvedValue([
-        discount({
-          _id: 'd1',
-          valueType: 'percentage',
-          value: 1000, // 10% order
-          appliesTo: { scope: 'order' },
-          combinesWith: { orderDiscounts: false, productDiscounts: true, shippingDiscounts: false },
-        }),
-        discount({
-          _id: 'd2',
-          valueType: 'percentage',
-          value: 2000, // 20% product (line L1)
-          appliesTo: { scope: 'products', productIds: [L1] },
-          combinesWith: { orderDiscounts: true, productDiscounts: false, shippingDiscounts: false },
-        }),
-      ]);
+      discount({
+        _id: 'd1',
+        valueType: 'percentage',
+        value: 1000, // 10% order
+        appliesTo: { scope: 'order' },
+        combinesWith: { orderDiscounts: false, productDiscounts: true, shippingDiscounts: false },
+      }),
+      discount({
+        _id: 'd2',
+        valueType: 'percentage',
+        value: 2000, // 20% product (line L1)
+        appliesTo: { scope: 'products', productIds: [L1] },
+        combinesWith: { orderDiscounts: true, productDiscounts: false, shippingDiscounts: false },
+      }),
+    ]);
     const lines = [
       line({ listingId: L1, amount: 1000, quantity: 1 }), // product+order
       line({ listingId: L2, amount: 1000, quantity: 1 }), // order only
@@ -495,7 +521,9 @@ describe('calculateTotals — combinability', () => {
 
 describe('calculateTotals — taxes', () => {
   it('adds exclusive tax to the grand total', async () => {
-    findActiveTaxRates.mockResolvedValue([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]);
+    findActiveTaxRates.mockResolvedValue([
+      taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } }),
+    ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({
       storeId: STORE_ID,
@@ -511,8 +539,12 @@ describe('calculateTotals — taxes', () => {
   });
 
   it('backs out inclusive tax informationally without changing the grand total', async () => {
-    findStoreById.mockResolvedValue(storeWithTaxSettings({ pricesIncludeTax: true, chargeTaxOnProducts: true }));
-    findActiveTaxRates.mockResolvedValue([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]);
+    findStoreById.mockResolvedValue(
+      storeWithTaxSettings({ pricesIncludeTax: true, chargeTaxOnProducts: true }),
+    );
+    findActiveTaxRates.mockResolvedValue([
+      taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } }),
+    ]);
     const lines = [line({ listingId: L1, amount: 1080, quantity: 1 })];
     const result = await priceGroup({
       storeId: STORE_ID,
@@ -529,8 +561,12 @@ describe('calculateTotals — taxes', () => {
   });
 
   it('emits no tax lines when chargeTaxOnProducts is false', async () => {
-    findStoreById.mockResolvedValue(storeWithTaxSettings({ pricesIncludeTax: false, chargeTaxOnProducts: false }));
-    findActiveTaxRates.mockResolvedValue([taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } })]);
+    findStoreById.mockResolvedValue(
+      storeWithTaxSettings({ pricesIncludeTax: false, chargeTaxOnProducts: false }),
+    );
+    findActiveTaxRates.mockResolvedValue([
+      taxRate({ _id: 't1', rateBps: 800, region: { country: 'US' } }),
+    ]);
     const lines = [line({ listingId: L1, amount: 1000, quantity: 1 })];
     const result = await priceGroup({
       storeId: STORE_ID,

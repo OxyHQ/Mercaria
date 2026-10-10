@@ -62,14 +62,14 @@
  * Usage:  bun scripts/validate-route-targets.mjs
  */
 
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = process.env.ROUTE_TARGET_VALIDATOR_ROOT
   ? resolve(process.env.ROUTE_TARGET_VALIDATOR_ROOT)
-  : resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * Fixture trees are three files, not three apps, so the production floors would
@@ -77,13 +77,13 @@ const repositoryRoot = process.env.ROUTE_TARGET_VALIDATOR_ROOT
  * The self-test runs the real floors in the one case that exists to see them
  * fire.
  */
-const fixtureFloors = process.env.ROUTE_TARGET_VALIDATOR_FIXTURE_FLOORS === "1";
+const fixtureFloors = process.env.ROUTE_TARGET_VALIDATOR_FIXTURE_FLOORS === '1';
 
 /** The three Expo apps. `@mercaria/ui` is deliberately absent — see below. */
 const APPS = [
-  { name: "frontend", prefix: "packages/frontend" },
-  { name: "dashboard", prefix: "packages/dashboard" },
-  { name: "pos", prefix: "packages/pos" },
+  { name: 'frontend', prefix: 'packages/frontend' },
+  { name: 'dashboard', prefix: 'packages/dashboard' },
+  { name: 'pos', prefix: 'packages/pos' },
 ];
 
 /**
@@ -95,7 +95,7 @@ const APPS = [
  * navigation target ever appears in `ui`, this guard says so rather than
  * silently not covering it.
  */
-const UI_PREFIX = "packages/ui";
+const UI_PREFIX = 'packages/ui';
 
 /**
  * Routes expo-router synthesises for every project whatever the tree contains.
@@ -103,7 +103,7 @@ const UI_PREFIX = "packages/ui";
  * tree that still contains these is reporting a fact about the walker rather
  * than about the app.
  */
-const SYNTHETIC_ROUTES = ["/_sitemap", "/+not-found"];
+const SYNTHETIC_ROUTES = ['/_sitemap', '/+not-found'];
 
 /**
  * Exemptions, each with a reason AND an exact count (#448 / PR #451): an
@@ -173,7 +173,7 @@ const MINIMUM_ROUTES_TOTAL = fixtureFloors ? 1 : 40;
 const MINIMUM_TARGETS_TOTAL = fixtureFloors ? 1 : 90;
 
 /** Marks the position an `${…}` occupied once the template is flattened. */
-const HOLE = "\u0000";
+const HOLE = '\u0000';
 
 const failures = [];
 
@@ -181,15 +181,15 @@ const failures = [];
 
 /** Every file git tracks, repo-relative — so ignored and generated files cannot count. */
 function trackedFiles() {
-  const listed = spawnSync("git", ["ls-files", "-z"], {
+  const listed = spawnSync('git', ['ls-files', '-z'], {
     cwd: repositoryRoot,
-    encoding: "utf8",
+    encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });
   if (listed.status !== 0) {
     throw new Error(`git ls-files failed in ${repositoryRoot}: ${listed.stderr ?? listed.error}`);
   }
-  return listed.stdout.split("\0").filter(Boolean);
+  return listed.stdout.split('\0').filter(Boolean);
 }
 
 const SOURCE_FILE = /\.(?:tsx?|jsx?)$/;
@@ -221,7 +221,7 @@ function isWebHtmlShell(file) {
  * comment. Template bodies are KEPT — they are the subject.
  */
 function blankComments(text) {
-  let out = "";
+  let out = '';
   let index = 0;
   let state = null; // null | '"' | "'" | '`' | '//' | '/*'
   let templateDepth = 0;
@@ -230,33 +230,33 @@ function blankComments(text) {
     const char = text[index];
     const next = text[index + 1];
 
-    if (state === "//") {
-      if (char === "\n") {
+    if (state === '//') {
+      if (char === '\n') {
         state = null;
         out += char;
       } else {
-        out += " ";
+        out += ' ';
       }
       index += 1;
       continue;
     }
 
-    if (state === "/*") {
-      if (char === "*" && next === "/") {
+    if (state === '/*') {
+      if (char === '*' && next === '/') {
         state = null;
-        out += "  ";
+        out += '  ';
         index += 2;
         continue;
       }
-      out += char === "\n" ? "\n" : " ";
+      out += char === '\n' ? '\n' : ' ';
       index += 1;
       continue;
     }
 
     if (state === '"' || state === "'") {
       out += char;
-      if (char === "\\") {
-        out += next ?? "";
+      if (char === '\\') {
+        out += next ?? '';
         index += 2;
         continue;
       }
@@ -265,48 +265,48 @@ function blankComments(text) {
       continue;
     }
 
-    if (state === "`") {
+    if (state === '`') {
       out += char;
-      if (char === "\\") {
-        out += next ?? "";
+      if (char === '\\') {
+        out += next ?? '';
         index += 2;
         continue;
       }
       // `${` opens an ordinary expression context in which comments are legal
       // again; track it so a nested backtick does not close the outer template.
-      if (char === "$" && next === "{") {
+      if (char === '$' && next === '{') {
         out += next;
         templateDepth += 1;
         state = null;
         index += 2;
         continue;
       }
-      if (char === "`") state = null;
+      if (char === '`') state = null;
       index += 1;
       continue;
     }
 
-    if (char === "/" && next === "/") {
-      state = "//";
-      out += "  ";
+    if (char === '/' && next === '/') {
+      state = '//';
+      out += '  ';
       index += 2;
       continue;
     }
-    if (char === "/" && next === "*") {
-      state = "/*";
-      out += "  ";
+    if (char === '/' && next === '*') {
+      state = '/*';
+      out += '  ';
       index += 2;
       continue;
     }
-    if (char === '"' || char === "'" || char === "`") {
+    if (char === '"' || char === "'" || char === '`') {
       state = char;
       out += char;
       index += 1;
       continue;
     }
-    if (char === "}" && templateDepth > 0) {
+    if (char === '}' && templateDepth > 0) {
       templateDepth -= 1;
-      state = "`";
+      state = '`';
       out += char;
       index += 1;
       continue;
@@ -322,15 +322,15 @@ function blankComments(text) {
 // ------------------------------------------------------------- route trees ---
 
 function isGroupSegment(segment) {
-  return segment.startsWith("(") && segment.endsWith(")");
+  return segment.startsWith('(') && segment.endsWith(')');
 }
 
 function isCatchAllSegment(segment) {
-  return segment.startsWith("[...") && segment.endsWith("]");
+  return segment.startsWith('[...') && segment.endsWith(']');
 }
 
 function isParamSegment(segment) {
-  return segment.startsWith("[") && segment.endsWith("]");
+  return segment.startsWith('[') && segment.endsWith(']');
 }
 
 /**
@@ -343,18 +343,18 @@ function isParamSegment(segment) {
  * except `+not-found`, which is one.
  */
 function routeForFile(relativeToApp) {
-  const withoutExtension = relativeToApp.replace(SOURCE_FILE, "");
-  const parts = withoutExtension.split("/");
+  const withoutExtension = relativeToApp.replace(SOURCE_FILE, '');
+  const parts = withoutExtension.split('/');
   const base = parts[parts.length - 1];
 
-  if (parts.some((part) => part.startsWith("_"))) return null;
-  if (base.includes("+api")) return null;
-  if (base.startsWith("+") && base !== "+not-found") return null;
+  if (parts.some((part) => part.startsWith('_'))) return null;
+  if (base.includes('+api')) return null;
+  if (base.startsWith('+') && base !== '+not-found') return null;
   // `foo+html.tsx`, `foo+native-intent.ts` and friends are not screens.
   if (/\+(?:html|native-intent|ssr)$/.test(base)) return null;
 
   const segments = parts.filter((part) => !isGroupSegment(part));
-  if (segments.length > 0 && segments[segments.length - 1] === "index") segments.pop();
+  if (segments.length > 0 && segments[segments.length - 1] === 'index') segments.pop();
   return segments;
 }
 
@@ -368,12 +368,12 @@ function buildRouteTree(app, files) {
     if (segments === null) continue;
     routes.push(segments);
   }
-  for (const synthetic of SYNTHETIC_ROUTES) routes.push(synthetic.slice(1).split("/"));
+  for (const synthetic of SYNTHETIC_ROUTES) routes.push(synthetic.slice(1).split('/'));
   // `+not-found` is both walked and synthesised; dedupe so the reported count is
   // a count of ROUTES rather than of the ways one was arrived at.
   const seen = new Set();
   return routes.filter((segments) => {
-    const key = segments.join("/");
+    const key = segments.join('/');
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -414,21 +414,22 @@ function resolvesAgainst(routes, targetSegments) {
  * would fail a target that is entirely correct.
  */
 function parseTarget(skeleton) {
-  const cut = [skeleton.indexOf("?"), skeleton.indexOf("#")].filter((at) => at >= 0);
+  const cut = [skeleton.indexOf('?'), skeleton.indexOf('#')].filter((at) => at >= 0);
   const path = cut.length > 0 ? skeleton.slice(0, Math.min(...cut)) : skeleton;
 
-  if (path.startsWith(HOLE)) return { kind: "unresolvable", why: "path begins with an interpolation" };
-  if (path.startsWith(".")) return { kind: "relative" };
-  if (path.startsWith("//")) return { kind: "external" };
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(path)) return { kind: "external" };
-  if (!path.startsWith("/")) return { kind: "unresolvable", why: "not an absolute path" };
+  if (path.startsWith(HOLE))
+    return { kind: 'unresolvable', why: 'path begins with an interpolation' };
+  if (path.startsWith('.')) return { kind: 'relative' };
+  if (path.startsWith('//')) return { kind: 'external' };
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(path)) return { kind: 'external' };
+  if (!path.startsWith('/')) return { kind: 'unresolvable', why: 'not an absolute path' };
 
   const segments = path
     .slice(1)
-    .split("/")
+    .split('/')
     .filter((segment) => !isGroupSegment(segment));
-  if (segments.length > 0 && segments[segments.length - 1] === "") segments.pop();
-  return { kind: "route", segments };
+  if (segments.length > 0 && segments[segments.length - 1] === '') segments.pop();
+  return { kind: 'route', segments };
 }
 
 // -------------------------------------------------------- target extraction ---
@@ -436,16 +437,16 @@ function parseTarget(skeleton) {
 function readStringLiteral(source, start) {
   const quote = source[start];
   let index = start + 1;
-  let value = "";
+  let value = '';
   while (index < source.length) {
     const char = source[index];
-    if (char === "\\") {
-      value += source[index + 1] ?? "";
+    if (char === '\\') {
+      value += source[index + 1] ?? '';
       index += 2;
       continue;
     }
     if (char === quote) return { value, end: index + 1 };
-    if (char === "\n") return null;
+    if (char === '\n') return null;
     value += char;
     index += 1;
   }
@@ -455,21 +456,21 @@ function readStringLiteral(source, start) {
 /** Flatten a template literal, replacing each `${…}` with a single HOLE. */
 function readTemplateLiteral(source, start) {
   let index = start + 1;
-  let value = "";
+  let value = '';
   while (index < source.length) {
     const char = source[index];
-    if (char === "\\") {
-      value += source[index + 1] ?? "";
+    if (char === '\\') {
+      value += source[index + 1] ?? '';
       index += 2;
       continue;
     }
-    if (char === "`") return { value, end: index + 1 };
-    if (char === "$" && source[index + 1] === "{") {
+    if (char === '`') return { value, end: index + 1 };
+    if (char === '$' && source[index + 1] === '{') {
       let depth = 1;
       index += 2;
       while (index < source.length && depth > 0) {
-        if (source[index] === "{") depth += 1;
-        else if (source[index] === "}") depth -= 1;
+        if (source[index] === '{') depth += 1;
+        else if (source[index] === '}') depth -= 1;
         index += 1;
       }
       value += HOLE;
@@ -524,19 +525,19 @@ function readLiterals(source, index) {
       at = literal.end;
       continue;
     }
-    if (char === "`") {
+    if (char === '`') {
       const literal = readTemplateLiteral(source, at);
       if (!literal) return literals;
       literals.push(literal.value);
       at = literal.end;
       continue;
     }
-    if (char === "(" || char === "[" || char === "{") {
+    if (char === '(' || char === '[' || char === '{') {
       depth += 1;
       at += 1;
       continue;
     }
-    if (char === ")" || char === "]" || char === "}") {
+    if (char === ')' || char === ']' || char === '}') {
       if (depth === 0) return literals;
       depth -= 1;
       at += 1;
@@ -544,11 +545,11 @@ function readLiterals(source, index) {
     }
     // A statement boundary at depth 0 means the expression ended without a
     // closer of its own (a bare `href="/x"` attribute, a property value).
-    if (depth === 0 && (char === ";" || char === "\n")) {
+    if (depth === 0 && (char === ';' || char === '\n')) {
       const next = skipSpace(source, at);
       if (next >= source.length) return literals;
       const following = source[next];
-      if (following !== "?" && following !== ":" && following !== "|" && following !== "&") {
+      if (following !== '?' && following !== ':' && following !== '|' && following !== '&') {
         return literals;
       }
       at = next;
@@ -571,8 +572,8 @@ function readLiterals(source, index) {
  */
 function enclosingTagName(source, index) {
   for (let at = index - 1; at >= 0 && index - at < 4096; at -= 1) {
-    if (source[at] === ">") return null;
-    if (source[at] !== "<") continue;
+    if (source[at] === '>') return null;
+    if (source[at] !== '<') continue;
     const match = /^<\s*([A-Za-z_$][\w$.]*)/.exec(source.slice(at, at + 64));
     return match ? match[1] : null;
   }
@@ -606,7 +607,7 @@ const ROUTER_BINDING = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*useRouter\s
 function lineOf(source, index) {
   let line = 1;
   for (let at = 0; at < index && at < source.length; at += 1) {
-    if (source[at] === "\n") line += 1;
+    if (source[at] === '\n') line += 1;
   }
   return line;
 }
@@ -622,28 +623,24 @@ function extractTargets(source, file) {
       const line = lineOf(source, match.index);
       const literals = readLiterals(source, match.index + match[0].length);
       if (literals.length === 0) {
-        found.push({ file, line, position, kind: "unresolvable" });
+        found.push({ file, line, position, kind: 'unresolvable' });
         continue;
       }
       for (const skeleton of literals) {
-        found.push({ file, line, position, kind: "static", skeleton });
+        found.push({ file, line, position, kind: 'static', skeleton });
       }
     }
   };
 
-  collect(NAVIGATION_CALL, "call");
-  collect(
-    HREF_ATTRIBUTE,
-    "attribute",
-    (match) => {
-      const tag = enclosingTagName(source, match.index);
-      // No enclosing tag means this is an object property spelled `href =`,
-      // which the property scan already covers; a lowercase tag is a DOM
-      // element whose href is not a route.
-      return tag === null || /^[a-z]/.test(tag);
-    },
-  );
-  collect(TARGET_PROPERTY, "property");
+  collect(NAVIGATION_CALL, 'call');
+  collect(HREF_ATTRIBUTE, 'attribute', (match) => {
+    const tag = enclosingTagName(source, match.index);
+    // No enclosing tag means this is an object property spelled `href =`,
+    // which the property scan already covers; a lowercase tag is a DOM
+    // element whose href is not a route.
+    return tag === null || /^[a-z]/.test(tag);
+  });
+  collect(TARGET_PROPERTY, 'property');
   return found;
 }
 
@@ -676,11 +673,11 @@ for (const app of APPS) {
   for (const file of appFiles) {
     let raw;
     try {
-      raw = readFileSync(resolve(repositoryRoot, file), "utf8");
+      raw = readFileSync(resolve(repositoryRoot, file), 'utf8');
     } catch (error) {
       failures.push(
-        `${file} is tracked but could not be read (${error.code ?? error.message}) — an unreadable `
-        + "file makes every assertion over it vacuous",
+        `${file} is tracked but could not be read (${error.code ?? error.message}) — an unreadable ` +
+          'file makes every assertion over it vacuous',
       );
       continue;
     }
@@ -694,9 +691,9 @@ for (const app of APPS) {
       NAVIGATION_CALL.lastIndex = 0;
       if (NAVIGATION_CALL.test(source)) {
         failures.push(
-          `${file} is the web HTML shell, which this guard skips because its href attributes address `
-          + "static assets rather than routes — but it calls router.push/replace. The shell renders "
-          + "before the router exists and cannot navigate, so that call is dead on its own terms.",
+          `${file} is the web HTML shell, which this guard skips because its href attributes address ` +
+            'static assets rather than routes — but it calls router.push/replace. The shell renders ' +
+            'before the router exists and cannot navigate, so that call is dead on its own terms.',
         );
       }
       NAVIGATION_CALL.lastIndex = 0;
@@ -715,29 +712,29 @@ for (const app of APPS) {
     let binding;
     while ((binding = ROUTER_BINDING.exec(source)) !== null) {
       counts.routerBindings += 1;
-      if (binding[1] === "router") continue;
+      if (binding[1] === 'router') continue;
       failures.push(
-        `${file}:${lineOf(source, binding.index)} binds useRouter() to \`${binding[1]}\` rather than `
-        + "`router`. This guard anchors navigation calls on the receiver `router` — a bare `.push(` "
-        + "would report every `out.push(` and `parts.push(` in the tree as a dead route — so a "
-        + "differently named binding removes this file's navigation from the scan silently. Name it "
-        + "`router`, as all the others are.",
+        `${file}:${lineOf(source, binding.index)} binds useRouter() to \`${binding[1]}\` rather than ` +
+          '`router`. This guard anchors navigation calls on the receiver `router` — a bare `.push(` ' +
+          'would report every `out.push(` and `parts.push(` in the tree as a dead route — so a ' +
+          "differently named binding removes this file's navigation from the scan silently. Name it " +
+          '`router`, as all the others are.',
       );
     }
     ROUTER_BINDING.lastIndex = 0;
 
     for (const target of extractTargets(source, file)) {
-      if (target.kind === "unresolvable") {
+      if (target.kind === 'unresolvable') {
         counts.unresolvable += 1;
         continue;
       }
 
       const parsed = parseTarget(target.skeleton);
-      if (parsed.kind === "relative" || parsed.kind === "external") {
+      if (parsed.kind === 'relative' || parsed.kind === 'external') {
         counts.offsite += 1;
         continue;
       }
-      if (parsed.kind === "unresolvable") {
+      if (parsed.kind === 'unresolvable') {
         counts.unresolvable += 1;
         continue;
       }
@@ -746,7 +743,7 @@ for (const app of APPS) {
       counts.targets += 1;
       if (resolvesAgainst(routes, parsed.segments)) continue;
 
-      const rendered = `/${parsed.segments.join("/")}`.replaceAll(HOLE, "${…}");
+      const rendered = `/${parsed.segments.join('/')}`.replaceAll(HOLE, '${…}');
       const excused = KNOWN_EXCEPTIONS.findIndex(
         (entry) => entry.file === target.file && entry.target === rendered,
       );
@@ -756,10 +753,10 @@ for (const app of APPS) {
       }
 
       failures.push(
-        `${target.file}:${target.line} navigates to ${rendered}, which matches no route in the `
-        + `${app.name} app. tsc does NOT catch this when a dynamic route sits above the mistyped `
-        + "segment — that is #456, and it is why this guard exists. Fix the target, or use the "
-        + "OBJECT form ({ pathname: '/real/[param]', params }), which tsc checks completely.",
+        `${target.file}:${target.line} navigates to ${rendered}, which matches no route in the ` +
+          `${app.name} app. tsc does NOT catch this when a dynamic route sits above the mistyped ` +
+          'segment — that is #456, and it is why this guard exists. Fix the target, or use the ' +
+          "OBJECT form ({ pathname: '/real/[param]', params }), which tsc checks completely.",
       );
     }
   }
@@ -771,23 +768,23 @@ for (const app of APPS) {
 
   if (appFiles.length < MINIMUM_FILES_PER_APP) {
     failures.push(
-      `the ${app.name} app contributed ${appFiles.length} scanned file(s), below ${MINIMUM_FILES_PER_APP}. `
-      + `Its prefix ${app.prefix}/ matched nothing, so this guard is not covering that app at all — `
-      + "and a scan that reads nothing reports a clean tree.",
+      `the ${app.name} app contributed ${appFiles.length} scanned file(s), below ${MINIMUM_FILES_PER_APP}. ` +
+        `Its prefix ${app.prefix}/ matched nothing, so this guard is not covering that app at all — ` +
+        'and a scan that reads nothing reports a clean tree.',
     );
   }
   if (routes.length < MINIMUM_ROUTES_PER_APP + SYNTHETIC_ROUTES.length) {
     failures.push(
-      `the ${app.name} app produced ${routes.length} route(s) including the ${SYNTHETIC_ROUTES.length} `
-      + "synthetic ones — its app/ directory matched nothing, so every target in it would resolve "
-      + "against an empty tree and be reported as dead, or the walker is broken.",
+      `the ${app.name} app produced ${routes.length} route(s) including the ${SYNTHETIC_ROUTES.length} ` +
+        'synthetic ones — its app/ directory matched nothing, so every target in it would resolve ' +
+        'against an empty tree and be reported as dead, or the walker is broken.',
     );
   }
   if (appTargets < MINIMUM_TARGETS_PER_APP) {
     failures.push(
-      `the ${app.name} app produced ${appTargets} resolvable navigation target(s), below `
-      + `${MINIMUM_TARGETS_PER_APP}. Every app navigates; zero means the extractor stopped matching `
-      + "rather than that the app stopped navigating.",
+      `the ${app.name} app produced ${appTargets} resolvable navigation target(s), below ` +
+        `${MINIMUM_TARGETS_PER_APP}. Every app navigates; zero means the extractor stopped matching ` +
+        'rather than that the app stopped navigating.',
     );
   }
 
@@ -802,9 +799,9 @@ for (const app of APPS) {
     const asTarget = route.map((segment) => (isParamSegment(segment) ? HOLE : segment));
     if (resolvesAgainst(routes, asTarget)) continue;
     failures.push(
-      `POSITIVE CONTROL FAILED in ${app.name}: the real route /${route.join("/")} does not resolve `
-      + "against its own tree. The matcher is broken, so every 'resolves fine' answer above it is "
-      + "worthless.",
+      `POSITIVE CONTROL FAILED in ${app.name}: the real route /${route.join('/')} does not resolve ` +
+        "against its own tree. The matcher is broken, so every 'resolves fine' answer above it is " +
+        'worthless.',
     );
   }
 
@@ -832,9 +829,9 @@ for (const app of APPS) {
   const canBeAbsorbed = (prefixSegments) =>
     routes.some(
       (route) =>
-        route.length > prefixSegments.length
-        && isParamSegment(route[prefixSegments.length])
-        && prefixSegments.every((segment, index) => segment === route[index]),
+        route.length > prefixSegments.length &&
+        isParamSegment(route[prefixSegments.length]) &&
+        prefixSegments.every((segment, index) => segment === route[index]),
     );
 
   for (const route of routes) {
@@ -848,10 +845,10 @@ for (const app of APPS) {
     negativesRun += 1;
     if (!resolvesAgainst(routes, mistyped)) continue;
     failures.push(
-      `NEGATIVE CONTROL FAILED in ${app.name}: /${mistyped.join("/")} resolved, but no such route `
-      + "exists and no dynamic route sits at that position to absorb it. The matcher admits a "
-      + "mistyped segment, which is the entire class of bug this guard was written to catch — it is "
-      + "now reporting clean because it cannot fail.",
+      `NEGATIVE CONTROL FAILED in ${app.name}: /${mistyped.join('/')} resolved, but no such route ` +
+        'exists and no dynamic route sits at that position to absorb it. The matcher admits a ' +
+        'mistyped segment, which is the entire class of bug this guard was written to catch — it is ' +
+        'now reporting clean because it cannot fail.',
     );
   }
 
@@ -866,55 +863,55 @@ for (const app of APPS) {
     if (route.some(isCatchAllSegment)) continue;
     const overlong = [
       ...route.map((segment) => (isParamSegment(segment) ? HOLE : segment)),
-      "mercaria-not-a-route",
+      'mercaria-not-a-route',
     ];
     negativesRun += 1;
     if (!resolvesAgainst(routes, overlong)) continue;
     failures.push(
-      `NEGATIVE CONTROL FAILED in ${app.name}: /${overlong.join("/")} resolved, but it is one segment `
-      + `longer than the longest route in the app (${longest}) and no catch-all declares it. The `
-      + "matcher is accepting targets past the end of a route.",
+      `NEGATIVE CONTROL FAILED in ${app.name}: /${overlong.join('/')} resolved, but it is one segment ` +
+        `longer than the longest route in the app (${longest}) and no catch-all declares it. The ` +
+        'matcher is accepting targets past the end of a route.',
     );
   }
 
   if (negativesRun < 1) {
     failures.push(
-      `no negative control ran for ${app.name}: every route was either absorbable or a catch-all, so `
-      + "the controls above assert nothing about the matcher.",
+      `no negative control ran for ${app.name}: every route was either absorbable or a catch-all, so ` +
+        'the controls above assert nothing about the matcher.',
     );
   }
 }
 
 // --------------------------------------- the shared package must stay clear ---
 
-const uiNavigation = files.filter(
-  (file) => file.startsWith(`${UI_PREFIX}/`) && SOURCE_FILE.test(file),
-).filter((file) => {
-  let source;
-  try {
-    source = readFileSync(resolve(repositoryRoot, file), "utf8");
-  } catch (error) {
-    // Reading `false` here would answer "no navigation found" for a file nobody
-    // could read, which is the permissive direction and the whole failure mode
-    // this file is written against.
-    failures.push(
-      `${file} is tracked but could not be read (${error.code ?? error.message}), so whether the `
-      + `shared package spells a route is UNKNOWN rather than no.`,
-    );
-    return false;
-  }
-  NAVIGATION_CALL.lastIndex = 0;
-  const navigates = NAVIGATION_CALL.test(blankComments(source));
-  NAVIGATION_CALL.lastIndex = 0;
-  return navigates;
-});
+const uiNavigation = files
+  .filter((file) => file.startsWith(`${UI_PREFIX}/`) && SOURCE_FILE.test(file))
+  .filter((file) => {
+    let source;
+    try {
+      source = readFileSync(resolve(repositoryRoot, file), 'utf8');
+    } catch (error) {
+      // Reading `false` here would answer "no navigation found" for a file nobody
+      // could read, which is the permissive direction and the whole failure mode
+      // this file is written against.
+      failures.push(
+        `${file} is tracked but could not be read (${error.code ?? error.message}), so whether the ` +
+          `shared package spells a route is UNKNOWN rather than no.`,
+      );
+      return false;
+    }
+    NAVIGATION_CALL.lastIndex = 0;
+    const navigates = NAVIGATION_CALL.test(blankComments(source));
+    NAVIGATION_CALL.lastIndex = 0;
+    return navigates;
+  });
 
 if (uiNavigation.length > 0) {
   failures.push(
-    `${uiNavigation.join(", ")} calls router.push/replace inside ${UI_PREFIX}, which this guard does `
-    + "NOT scan: a shared component is consumed by three apps with three different route trees, so a "
-    + "literal there has no single tree to be resolved against. Take the target as an `Href` prop and "
-    + "let the app that owns the route spell it.",
+    `${uiNavigation.join(', ')} calls router.push/replace inside ${UI_PREFIX}, which this guard does ` +
+      'NOT scan: a shared component is consumed by three apps with three different route trees, so a ' +
+      'literal there has no single tree to be resolved against. Take the target as an `Href` prop and ' +
+      'let the app that owns the route spell it.',
   );
 }
 
@@ -922,21 +919,21 @@ if (uiNavigation.length > 0) {
 
 if (counts.files < MINIMUM_FILES_TOTAL) {
   failures.push(
-    `scanned ${counts.files} source file(s) across the three apps, below the floor of `
-    + `${MINIMUM_FILES_TOTAL}. A traversal that read nothing reports a clean tree.`,
+    `scanned ${counts.files} source file(s) across the three apps, below the floor of ` +
+      `${MINIMUM_FILES_TOTAL}. A traversal that read nothing reports a clean tree.`,
   );
 }
 if (counts.routes < MINIMUM_ROUTES_TOTAL) {
   failures.push(
-    `built ${counts.routes} route(s) across the three apps, below the floor of `
-    + `${MINIMUM_ROUTES_TOTAL}. An empty route tree makes every target dead, or the walker is broken.`,
+    `built ${counts.routes} route(s) across the three apps, below the floor of ` +
+      `${MINIMUM_ROUTES_TOTAL}. An empty route tree makes every target dead, or the walker is broken.`,
   );
 }
 if (counts.targets < MINIMUM_TARGETS_TOTAL) {
   failures.push(
-    `found ${counts.targets} resolvable navigation target(s), below the floor of `
-    + `${MINIMUM_TARGETS_TOTAL}. The subject of this guard is the targets, and finding none is `
-    + "indistinguishable from finding none wrong.",
+    `found ${counts.targets} resolvable navigation target(s), below the floor of ` +
+      `${MINIMUM_TARGETS_TOTAL}. The subject of this guard is the targets, and finding none is ` +
+      'indistinguishable from finding none wrong.',
   );
 }
 
@@ -946,31 +943,31 @@ for (const [at, hits] of exceptionHits) {
   const entry = KNOWN_EXCEPTIONS[at];
   if (hits === entry.count) continue;
   failures.push(
-    `KNOWN_EXCEPTIONS[${at}] (${entry.file} -> ${entry.target}) covered ${hits} finding(s) but `
-    + `declares ${entry.count}. An excusing entry is a predicate, not an identity: if it now covers `
-    + "more than it says, it is excusing something nobody agreed to, and if it covers fewer the site "
-    + "it was written for is gone and the entry should be deleted.",
+    `KNOWN_EXCEPTIONS[${at}] (${entry.file} -> ${entry.target}) covered ${hits} finding(s) but ` +
+      `declares ${entry.count}. An excusing entry is a predicate, not an identity: if it now covers ` +
+      'more than it says, it is excusing something nobody agreed to, and if it covers fewer the site ' +
+      'it was written for is gone and the entry should be deleted.',
   );
 }
 
 // ---------------------------------------------------------------- verdict ---
 
 if (failures.length > 0) {
-  console.error("Route-target guard failed:\n");
+  console.error('Route-target guard failed:\n');
   for (const failure of failures) console.error(`  ${failure}\n`);
   console.error(
-    "  typedRoutes checks the OBJECT form completely and a template literal only when no dynamic\n"
-    + "  route sits above the mistyped segment (#456). This guard covers the rest by resolving each\n"
-    + "  target's static skeleton against the real route tree on disk.\n",
+    '  typedRoutes checks the OBJECT form completely and a template literal only when no dynamic\n' +
+      '  route sits above the mistyped segment (#456). This guard covers the rest by resolving each\n' +
+      "  target's static skeleton against the real route tree on disk.\n",
   );
   process.exit(1);
 }
 
 console.log(
-  `Route-target guard passed — ${counts.targets} navigation target(s) resolved against `
-  + `${counts.routes} route(s) across ${APPS.length} apps, ${counts.files} files scanned. `
-  + `${counts.unresolvable} target(s) carry no static prefix and ${counts.offsite} are relative or `
-  + "external; neither is checkable here and neither is claimed to be. Positive and negative "
-  + `controls ran against the real trees. Per app: ${perApp.join(" · ")}; `
-  + `${counts.shells} web HTML shell(s) skipped.`,
+  `Route-target guard passed — ${counts.targets} navigation target(s) resolved against ` +
+    `${counts.routes} route(s) across ${APPS.length} apps, ${counts.files} files scanned. ` +
+    `${counts.unresolvable} target(s) carry no static prefix and ${counts.offsite} are relative or ` +
+    'external; neither is checkable here and neither is claimed to be. Positive and negative ' +
+    `controls ran against the real trees. Per app: ${perApp.join(' · ')}; ` +
+    `${counts.shells} web HTML shell(s) skipped.`,
 );

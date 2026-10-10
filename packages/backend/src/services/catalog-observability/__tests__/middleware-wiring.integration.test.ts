@@ -116,14 +116,16 @@ describe('#367 W16/W17 — the observability middleware is mounted in the real a
     // if the middleware is mounted below the routers: `res.setHeader` would have
     // thrown after the handler replied.
     const correlationId = response.headers.get(CORRELATION_HEADER);
-    expect(correlationId, 'no correlation header — is the middleware mounted above the routers?')
-      .toBeTruthy();
+    expect(
+      correlationId,
+      'no correlation header — is the middleware mounted above the routers?',
+    ).toBeTruthy();
 
     const observed = readRouteObservation('GET', OBSERVED_TEMPLATE);
     expect(
       observed,
-      'the real app served a budgeted route and filed no observation — '
-        + 'is `app.use(catalogObservability)` still mounted, and above the routers?',
+      'the real app served a budgeted route and filed no observation — ' +
+        'is `app.use(catalogObservability)` still mounted, and above the routers?',
     ).toBeDefined();
     expect(observed?.requests).toBe(1);
 
@@ -138,10 +140,10 @@ describe('#367 W16/W17 — the observability middleware is mounted in the real a
     expect(observed?.latency?.observations).toBe(1);
 
     process.stdout.write(
-      `[wiring] GET ${OBSERVED_PATH} -> ${String(response.status)}, `
-        + `observed under '${OBSERVED_TEMPLATE}' with `
-        + `${String(observed?.latency?.observations ?? 0)} latency sample(s), `
-        + `correlation id ${correlationId === null ? 'absent' : 'present'}\n`,
+      `[wiring] GET ${OBSERVED_PATH} -> ${String(response.status)}, ` +
+        `observed under '${OBSERVED_TEMPLATE}' with ` +
+        `${String(observed?.latency?.observations ?? 0)} latency sample(s), ` +
+        `correlation id ${correlationId === null ? 'absent' : 'present'}\n`,
     );
   }, 60_000);
 

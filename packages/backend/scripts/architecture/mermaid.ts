@@ -163,10 +163,16 @@ export function parseEntities(markdown: string): ReadonlySet<string> {
  */
 export function relationshipAgrees(parsed: ParsedRelationship, edge: CardinalityEdge): boolean {
   if (edge.parent === parsed.left && edge.child === parsed.right) {
-    return parsed.leftMarker === PARENT_LEFT[edge.parentSide] && parsed.rightMarker === CHILD_RIGHT[edge.childSide];
+    return (
+      parsed.leftMarker === PARENT_LEFT[edge.parentSide] &&
+      parsed.rightMarker === CHILD_RIGHT[edge.childSide]
+    );
   }
   if (edge.child === parsed.left && edge.parent === parsed.right) {
-    return parsed.leftMarker === CHILD_LEFT[edge.childSide] && parsed.rightMarker === PARENT_RIGHT[edge.parentSide];
+    return (
+      parsed.leftMarker === CHILD_LEFT[edge.childSide] &&
+      parsed.rightMarker === PARENT_RIGHT[edge.parentSide]
+    );
   }
   return false;
 }

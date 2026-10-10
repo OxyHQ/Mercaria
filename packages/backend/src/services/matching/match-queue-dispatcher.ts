@@ -61,7 +61,10 @@ async function handleJob(job: MatchQueueRow, now: Date): Promise<JobOutcome> {
   try {
     const result =
       job.subjectKind === 'native_variant' && job.productVariantId !== null
-        ? await runMatch({ kind: 'native_variant', productVariantId: job.productVariantId }, { now })
+        ? await runMatch(
+            { kind: 'native_variant', productVariantId: job.productVariantId },
+            { now },
+          )
         : job.sourceRecordId !== null
           ? await runMatch({ kind: 'source_record', sourceRecordId: job.sourceRecordId }, { now })
           : null;
@@ -167,9 +170,7 @@ async function tick(): Promise<void> {
 export function startMatchQueueDispatcher(): void {
   if (timer !== undefined) return;
   if (!config.matching.pipelineEnabled) {
-    log.general.info(
-      '[Matching] pipeline disabled; requests are stored and will run once enabled',
-    );
+    log.general.info('[Matching] pipeline disabled; requests are stored and will run once enabled');
     return;
   }
   timer = setInterval(() => {

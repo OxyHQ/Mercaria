@@ -30,7 +30,11 @@ vi.mock('../../middleware/auth.js', () => ({
 const servers: Server[] = [];
 
 afterEach(async () => {
-  await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
+  await Promise.all(
+    servers
+      .splice(0)
+      .map((server) => new Promise<void>((resolve) => server.close(() => resolve()))),
+  );
 });
 
 async function serve(limiter: express.RequestHandler): Promise<string> {
@@ -62,11 +66,17 @@ async function expectRateLimitedJson(url: string): Promise<void> {
 describe('the 429 body', () => {
   it('is the convention’s JSON error from makeRateLimiter (createOxyRateLimit)', async () => {
     const { makeRateLimiter } = await import('../rate-limit.js');
-    await expectRateLimitedJson(await serve(makeRateLimiter('public-api', { anonymousMax: 1, windowMs: 60_000 })));
+    await expectRateLimitedJson(
+      await serve(makeRateLimiter('public-api', { anonymousMax: 1, windowMs: 60_000 })),
+    );
   });
 
   it('is the same body from makeActorRateLimiter', async () => {
     const { makeActorRateLimiter } = await import('../rate-limit.js');
-    await expectRateLimitedJson(await serve(makeActorRateLimiter('cart', { identifiedMax: 1, anonymousMax: 1, windowMs: 60_000 })));
+    await expectRateLimitedJson(
+      await serve(
+        makeActorRateLimiter('cart', { identifiedMax: 1, anonymousMax: 1, windowMs: 60_000 }),
+      ),
+    );
   });
 });

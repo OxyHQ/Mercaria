@@ -1,4 +1,4 @@
-import type { ConnectorProviderId, PinnableConnectorField } from "@mercaria/shared-types";
+import type { ConnectorProviderId, PinnableConnectorField } from '@mercaria/shared-types';
 
 /**
  * Merchant-facing copy for connector provenance and field pins
@@ -50,15 +50,15 @@ import type { ConnectorProviderId, PinnableConnectorField } from "@mercaria/shar
  * translator can see it rather than being unavailable to them.
  */
 export const CONNECTOR_PROVIDER_LABEL_KEYS: Record<ConnectorProviderId, string> = {
-  shopify: "ui.connector.provider.shopify",
-  woocommerce: "ui.connector.provider.woocommerce",
-  etsy: "ui.connector.provider.etsy",
-  prestashop: "ui.connector.provider.prestashop",
-  magento: "ui.connector.provider.magento",
+  shopify: 'ui.connector.provider.shopify',
+  woocommerce: 'ui.connector.provider.woocommerce',
+  etsy: 'ui.connector.provider.etsy',
+  prestashop: 'ui.connector.provider.prestashop',
+  magento: 'ui.connector.provider.magento',
 };
 
 /** "Synced from %{provider}" — the whole sentence, never a `${}` around a name. */
-export const CONNECTOR_SYNCED_FROM_KEY = "ui.connector.syncedFrom";
+export const CONNECTOR_SYNCED_FROM_KEY = 'ui.connector.syncedFrom';
 
 /**
  * What a merchant calls each pinnable field.
@@ -68,17 +68,17 @@ export const CONNECTOR_SYNCED_FROM_KEY = "ui.connector.syncedFrom";
  * covers both columns because the connector writes them together.
  */
 export const CONNECTOR_PIN_LABEL_KEYS: Record<PinnableConnectorField, string> = {
-  title: "ui.connector.pinField.title",
-  description: "ui.connector.pinField.description",
-  images: "ui.connector.pinField.images",
-  vendor: "ui.connector.pinField.vendor",
-  productType: "ui.connector.pinField.productType",
-  handle: "ui.connector.pinField.handle",
-  seo: "ui.connector.pinField.seo",
+  title: 'ui.connector.pinField.title',
+  description: 'ui.connector.pinField.description',
+  images: 'ui.connector.pinField.images',
+  vendor: 'ui.connector.pinField.vendor',
+  productType: 'ui.connector.pinField.productType',
+  handle: 'ui.connector.pinField.handle',
+  seo: 'ui.connector.pinField.seo',
 };
 
 /** Heading for the pinned-field notice — the switch's phrase, verbatim. */
-export const CONNECTOR_PIN_TITLE_KEY = "ui.connector.pinTitle";
+export const CONNECTOR_PIN_TITLE_KEY = 'ui.connector.pinTitle';
 
 /**
  * Whether the pins on a listing are currently in force.
@@ -88,13 +88,13 @@ export const CONNECTOR_PIN_TITLE_KEY = "ui.connector.pinTitle";
  * genuinely cannot be told, and saying so is better than picking whichever of
  * the other two reads better.
  */
-export type ConnectorPinEffect = "honoured" | "channel_wins" | "unknown";
+export type ConnectorPinEffect = 'honoured' | 'channel_wins' | 'unknown';
 
 /** What the pins mean right now, one sentence per state. */
 export const CONNECTOR_PIN_EFFECT_KEYS: Record<ConnectorPinEffect, string> = {
-  honoured: "ui.connector.pinEffect.honoured",
-  channel_wins: "ui.connector.pinEffect.channelWins",
-  unknown: "ui.connector.pinEffect.unknown",
+  honoured: 'ui.connector.pinEffect.honoured',
+  channel_wins: 'ui.connector.pinEffect.channelWins',
+  unknown: 'ui.connector.pinEffect.unknown',
 };
 
 /**
@@ -109,7 +109,7 @@ export const CONNECTOR_PIN_EFFECT_KEYS: Record<ConnectorPinEffect, string> = {
  *
  * See the module note for where the "must not promise a restore" assertion went.
  */
-export const CONNECTOR_PIN_RELEASE_KEY = "ui.connector.pinRelease";
+export const CONNECTOR_PIN_RELEASE_KEY = 'ui.connector.pinRelease';
 
 /**
  * A key held against sync that this surface has no name for.
@@ -124,4 +124,4 @@ export const CONNECTOR_PIN_RELEASE_KEY = "ui.connector.pinRelease";
  * plural rule only English and a handful of others have — and, worse, was copy
  * no extraction scan could find, because neither sentence was a map entry.
  */
-export const CONNECTOR_PIN_UNNAMED_KEY = "ui.connector.pinUnnamed";
+export const CONNECTOR_PIN_UNNAMED_KEY = 'ui.connector.pinUnnamed';

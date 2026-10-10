@@ -104,7 +104,9 @@ describe('redactProviderPayload', () => {
     expect(String(result.id)).toHaveLength(257);
     expect(String(result.id).endsWith('…')).toBe(true);
 
-    const many = redactProviderPayload({ data: Array.from({ length: 50 }, (_, i) => ({ id: `o_${String(i)}` })) });
+    const many = redactProviderPayload({
+      data: Array.from({ length: 50 }, (_, i) => ({ id: `o_${String(i)}` })),
+    });
     const list = (many.data ?? []) as unknown[];
     expect(list).toHaveLength(21);
     expect(String(list[20])).toContain('30 more');

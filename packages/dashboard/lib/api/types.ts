@@ -1,4 +1,4 @@
-import type { Money, OrderStatus } from "@mercaria/shared-types";
+import type { Money, OrderStatus } from '@mercaria/shared-types';
 
 /**
  * Dashboard order stats returned by `GET /admin/stores/:storeId/orders/stats`.

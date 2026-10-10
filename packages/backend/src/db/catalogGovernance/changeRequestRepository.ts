@@ -41,8 +41,7 @@ import {
   catalogGovernanceImpactCounts,
 } from '../schema/catalogGovernance.js';
 
-export type CatalogGovernanceChangeRequestRow =
-  typeof catalogGovernanceChangeRequests.$inferSelect;
+export type CatalogGovernanceChangeRequestRow = typeof catalogGovernanceChangeRequests.$inferSelect;
 export type CatalogGovernanceImpactCountRow = typeof catalogGovernanceImpactCounts.$inferSelect;
 
 /** One measured relation, as the plan hands it to the writer. */
@@ -101,9 +100,13 @@ export async function insertChangeRequest(
         )} declared relations were counted. A partial count reads exactly like a small change.`,
       );
     }
-    const keys = new Set(input.counts.map((entry) => `${entry.referenceTable}.${entry.referenceColumn}`));
+    const keys = new Set(
+      input.counts.map((entry) => `${entry.referenceTable}.${entry.referenceColumn}`),
+    );
     if (keys.size !== input.counts.length) {
-      throw conflict('Impact measurement counted one relation twice, which doubles it into the total.');
+      throw conflict(
+        'Impact measurement counted one relation twice, which doubles it into the total.',
+      );
     }
   } else if (input.counts.length > 0) {
     throw conflict('An unmeasured impact report cannot carry counts.');
@@ -191,7 +194,10 @@ export async function listImpactCounts(
     .select()
     .from(catalogGovernanceImpactCounts)
     .where(eq(catalogGovernanceImpactCounts.changeRequestId, changeRequestId))
-    .orderBy(asc(catalogGovernanceImpactCounts.referenceTable), asc(catalogGovernanceImpactCounts.referenceColumn));
+    .orderBy(
+      asc(catalogGovernanceImpactCounts.referenceTable),
+      asc(catalogGovernanceImpactCounts.referenceColumn),
+    );
 }
 
 /** The measured relations behind several requests, for a queue read. */

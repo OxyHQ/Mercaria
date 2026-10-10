@@ -260,9 +260,7 @@ describe('processConnectorWebhook — products/delete → archive', () => {
 
 describe('processConnectorWebhook — direction + status guards', () => {
   it('ignores the webhook when product pull is disabled (no SyncRun, no write)', async () => {
-    findConnectionById.mockResolvedValue(
-      connectedPullConnection({ syncSettingsProducts: 'off' }),
-    );
+    findConnectionById.mockResolvedValue(connectedPullConnection({ syncSettingsProducts: 'off' }));
 
     await processConnectorWebhook({
       connectionId: 'conn-1',

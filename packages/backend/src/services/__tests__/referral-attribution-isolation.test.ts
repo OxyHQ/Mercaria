@@ -274,15 +274,35 @@ const REQUEST_DERIVED_DESTINATION =
 function assertReferralDomainIsWhole(): void {
   const from = (prefix: string) =>
     REFERRAL_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
-  expect(from('services/referrals/'), 'the referral service walk found too few modules').toBeGreaterThanOrEqual(48);
-  expect(from('services/referral-pilot/'), 'the pilot walk found too few modules').toBeGreaterThanOrEqual(4);
-  expect(from('db/referrals/'), 'the referral repository walk found too few modules').toBeGreaterThanOrEqual(17);
-  expect(from('db/referralEarnings/'), 'the earnings repository walk found too few modules').toBeGreaterThanOrEqual(5);
-  expect(from('db/referralIntegrity/'), 'the integrity repository walk found too few modules').toBeGreaterThanOrEqual(3);
-  expect(from('db/referralPilot/'), 'the pilot repository walk found too few modules').toBeGreaterThanOrEqual(2);
+  expect(
+    from('services/referrals/'),
+    'the referral service walk found too few modules',
+  ).toBeGreaterThanOrEqual(48);
+  expect(
+    from('services/referral-pilot/'),
+    'the pilot walk found too few modules',
+  ).toBeGreaterThanOrEqual(4);
+  expect(
+    from('db/referrals/'),
+    'the referral repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(17);
+  expect(
+    from('db/referralEarnings/'),
+    'the earnings repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(5);
+  expect(
+    from('db/referralIntegrity/'),
+    'the integrity repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(3);
+  expect(
+    from('db/referralPilot/'),
+    'the pilot repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(2);
   expect(from('controllers/'), 'no referral controller was derived').toBeGreaterThanOrEqual(7);
   expect(from('routes/'), 'no referral route was derived').toBeGreaterThanOrEqual(5);
-  expect(from('middleware/'), 'no referral middleware module was derived').toBeGreaterThanOrEqual(5);
+  expect(from('middleware/'), 'no referral middleware module was derived').toBeGreaterThanOrEqual(
+    5,
+  );
   expect(from('db/schema/'), 'no referral schema module was derived').toBeGreaterThanOrEqual(5);
   // No test file may enter the scanned set: a gate that scans its own probes
   // reports violations it wrote itself.
@@ -359,7 +379,10 @@ describe('the referral edge cannot reach the money path', () => {
     const planted = 'lib/referral-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'referral-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'referral-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -375,18 +398,24 @@ describe('the referral edge cannot reach the money path', () => {
     // is reported outside a population built FROM that sweep exactly as it is
     // outside a correct one. It is what stops a widening satisfying the sweep by
     // absorbing the payout rail it was told to excuse.
-    assertEachOf([
-      'services/referral-payouts/rail.ts',
-      'controllers/orders.controller.ts',
-      'db/schema/orders.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(REFERRAL_DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'services/referral-payouts/rail.ts',
+        'controllers/orders.controller.ts',
+        'db/schema/orders.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(REFERRAL_DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(
+          foreign,
+        );
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
@@ -395,7 +424,10 @@ describe('the referral edge cannot reach the money path', () => {
     const seededWith = (directory: string, added: string): string[] =>
       referralNamed(directory, (relative) =>
         relative === directory
-          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(relative),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(relative),
       );
 
@@ -418,7 +450,10 @@ describe('the referral edge cannot reach the money path', () => {
     expect(
       referralNamed('routes', (relative) =>
         relative === 'routes'
-          ? [...readDirectory(relative), { name: 'internal', isDirectory: () => true, isFile: () => false }]
+          ? [
+              ...readDirectory(relative),
+              { name: 'internal', isDirectory: () => true, isFile: () => false },
+            ]
           : relative === 'routes/internal'
             ? [{ name: 'referral-audit.ts', isDirectory: () => false, isFile: () => true }]
             : readDirectory(relative),
@@ -456,7 +491,8 @@ describe('the referral edge cannot reach the money path', () => {
   it('the earnings exemption excuses exactly the modules that really post', () => {
     const excused = REFERRAL_DOMAIN_PATHS.filter(
       (relative) =>
-        relative.startsWith(LEDGER_POSTING_DIRECTORY) && PAYMENT_REFERENCE.test(readEdgeCode(relative)),
+        relative.startsWith(LEDGER_POSTING_DIRECTORY) &&
+        PAYMENT_REFERENCE.test(readEdgeCode(relative)),
     );
     expect(
       excused.sort(),
@@ -639,14 +675,14 @@ describe('each detector actually detects (mutation self-test)', () => {
   it('does NOT fire on the things this domain legitimately does', () => {
     // A referral link resolving to a Mercaria path, the classifier reading the
     // one header it may, and the actor union — none of which is a violation.
-    expect(PAYMENT_REFERENCE.test("const path = referralDestinationPath(destination);")).toBe(
+    expect(PAYMENT_REFERENCE.test('const path = referralDestinationPath(destination);')).toBe(
       false,
     );
     expect(RANKING_REFERENCE.test('const winner = await attributeTouch(touch.id);')).toBe(false);
     expect(GUEST_ISSUANCE_REFERENCE.test("return { kind: 'guest_session', ref: id };")).toBe(false);
-    expect(COMMERCE_WRITE_REFERENCE.test('const claims = await findClaimsByClaimant(db, id, 50);')).toBe(
-      false,
-    );
+    expect(
+      COMMERCE_WRITE_REFERENCE.test('const claims = await findClaimsByClaimant(db, id, 50);'),
+    ).toBe(false);
     expect(ANALYTICS_EMISSION_REFERENCE.test('config.analytics.internalTrafficToken')).toBe(false);
     expect(REQUEST_DERIVED_DESTINATION.test("headerValue(req, 'user-agent')")).toBe(false);
     expect(REQUEST_DERIVED_DESTINATION.test('const origin = referralRedirectOrigin();')).toBe(

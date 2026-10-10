@@ -45,12 +45,7 @@ import type {
  * row is a tombstone that keeps its slug forever and points at its winner;
  * `suppressed` is the operator's "do not show" that destroys nothing.
  */
-export type CanonicalCatalogStatus =
-  | 'draft'
-  | 'active'
-  | 'discontinued'
-  | 'merged'
-  | 'suppressed';
+export type CanonicalCatalogStatus = 'draft' | 'active' | 'discontinued' | 'merged' | 'suppressed';
 
 export const CANONICAL_CATALOG_STATUSES: readonly CanonicalCatalogStatus[] = [
   'draft',

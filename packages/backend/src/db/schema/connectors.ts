@@ -120,7 +120,9 @@ export const connections = pgTable(
       .references(() => stores.id, { onDelete: 'cascade' }),
     provider: text({ enum: asEnumValues(CONNECTOR_PROVIDER_IDS) }).notNull(),
     mode: text({ enum: asEnumValues(CONNECTION_MODES) }).notNull(),
-    status: text({ enum: asEnumValues(CONNECTION_STATUSES) }).notNull().default('disconnected'),
+    status: text({ enum: asEnumValues(CONNECTION_STATUSES) })
+      .notNull()
+      .default('disconnected'),
 
     // `credentials` — the encrypted access token. Absent until authorized.
     credentialsCiphertext: text(),
@@ -269,22 +271,14 @@ export const connections = pgTable(
     checkOneOf('connections_provider_check', t.provider, CONNECTOR_PROVIDER_IDS),
     checkOneOf('connections_mode_check', t.mode, CONNECTION_MODES),
     checkOneOf('connections_status_check', t.status, CONNECTION_STATUSES),
-    checkOneOf(
-      'connections_sync_products_check',
-      t.syncSettingsProducts,
-      SYNC_RESOURCE_DIRECTIONS,
-    ),
+    checkOneOf('connections_sync_products_check', t.syncSettingsProducts, SYNC_RESOURCE_DIRECTIONS),
     checkOneOf(
       'connections_sync_inventory_check',
       t.syncSettingsInventory,
       SYNC_RESOURCE_DIRECTIONS,
     ),
     checkOneOf('connections_sync_orders_check', t.syncSettingsOrders, SYNC_RESOURCE_DIRECTIONS),
-    checkOneOf(
-      'connections_rounding_check',
-      t.syncSettingsPriceRulesRounding,
-      ROUNDING_STRATEGIES,
-    ),
+    checkOneOf('connections_rounding_check', t.syncSettingsPriceRulesRounding, ROUNDING_STRATEGIES),
     checkOneOf(
       'connections_conflict_policy_check',
       t.syncSettingsConflictPolicy,
@@ -400,7 +394,9 @@ export const syncRuns = pgTable(
       .notNull()
       .references(() => connections.id, { onDelete: 'cascade' }),
     kind: text({ enum: asEnumValues(SYNC_RUN_KINDS) }).notNull(),
-    status: text({ enum: asEnumValues(SYNC_RUN_STATUSES) }).notNull().default('running'),
+    status: text({ enum: asEnumValues(SYNC_RUN_STATUSES) })
+      .notNull()
+      .default('running'),
     countsCreated: integer().notNull().default(0),
     countsUpdated: integer().notNull().default(0),
     countsSkipped: integer().notNull().default(0),
@@ -593,10 +589,7 @@ export const channelApiKeys = pgTable(
     /** The non-secret leading characters, for display and coarse lookup. */
     prefix: text().notNull(),
     label: text().notNull(),
-    scopes: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    scopes: text().array().notNull().default(sql`'{}'::text[]`),
     /** An Oxy account id — no foreign key. */
     createdBy: text().notNull(),
     lastUsedAt: timestamptz(),

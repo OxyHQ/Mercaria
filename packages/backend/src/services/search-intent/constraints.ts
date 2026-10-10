@@ -147,7 +147,10 @@ export function buildConstraintSet(input: BuildConstraintsInput): BuiltConstrain
     );
   }
 
-  if (input.draft.officialChannelOnly === true || input.selectedFilters?.officialChannelOnly === true) {
+  if (
+    input.draft.officialChannelOnly === true ||
+    input.selectedFilters?.officialChannelOnly === true
+  ) {
     push(
       {
         kind: 'commerce',

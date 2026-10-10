@@ -68,7 +68,10 @@ function partitionGaps(realColumnKeys: readonly string[]): {
   stale: string[];
 } {
   const real = new Set(realColumnKeys);
-  const decided = new Set([...mappedKeys(), ...Object.keys(LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT)]);
+  const decided = new Set([
+    ...mappedKeys(),
+    ...Object.keys(LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT),
+  ]);
   return {
     undecided: [...real].filter((key) => !decided.has(key)).sort(),
     stale: [...decided].filter((key) => !real.has(key)).sort(),
@@ -82,8 +85,10 @@ describe('the legacy column partition', () => {
     // every assertion below would pass on it — an empty partition is trivially
     // complete. The floor is printed on SUCCESS by being the assertion itself.
     const keys = legacyCatalogColumnKeys();
-    expect(keys.length, 'the column walk found almost nothing — did the schema move?')
-      .toBeGreaterThan(40);
+    expect(
+      keys.length,
+      'the column walk found almost nothing — did the schema move?',
+    ).toBeGreaterThan(40);
     expect(Object.keys(LEGACY_CATALOG_TABLES)).toEqual([
       'listings',
       'listing_options',
@@ -176,13 +181,16 @@ describe('the legacy column partition', () => {
       expect(entry.note.trim().length, `${where} has no note`).toBeGreaterThan(30);
 
       if (entry.target.kind === 'not_carried') {
-        expect(entry.target.because.trim().length, `${where} says why it is not carried`)
-          .toBeGreaterThan(20);
+        expect(
+          entry.target.because.trim().length,
+          `${where} says why it is not carried`,
+        ).toBeGreaterThan(20);
         continue;
       }
 
-      expect(entry.target.refs.length, `${where} is carried nowhere in particular`)
-        .toBeGreaterThan(0);
+      expect(entry.target.refs.length, `${where} is carried nowhere in particular`).toBeGreaterThan(
+        0,
+      );
       for (const ref of entry.target.refs) {
         // `renderTargetRef` throws on a column the table does not have, which is
         // what a `as never` cast past the type gate would leave behind.

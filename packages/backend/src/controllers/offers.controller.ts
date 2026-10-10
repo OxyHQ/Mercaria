@@ -50,7 +50,10 @@ export async function listOffersHandler(req: Request, res: Response): Promise<vo
       ...(query.availability ? { availability: query.availability } : {}),
       ...(query.conditions ? { conditions: query.conditions } : {}),
       includeStale: query.includeStale === 'true',
-      limit: Math.min(query.limit ?? config.pagination.defaultPageSize, config.pagination.maxPageSize),
+      limit: Math.min(
+        query.limit ?? config.pagination.defaultPageSize,
+        config.pagination.maxPageSize,
+      ),
       ...(query.cursor ? { cursor: query.cursor } : {}),
     });
 

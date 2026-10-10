@@ -77,10 +77,7 @@ import {
   resolveCanonicalProductSelection,
   resolveCanonicalVariantSelection,
 } from '../../db/catalogAuthoring/canonicalSearchRepository.js';
-import {
-  createStoreProductWithin,
-  finishStoreProductCreation,
-} from '../catalog-write.service.js';
+import { createStoreProductWithin, finishStoreProductCreation } from '../catalog-write.service.js';
 import { enqueueOfferConvergence } from '../../db/offers/offerOutboxRepository.js';
 import {
   findVariantAttributeClaim,
@@ -302,7 +299,8 @@ async function settlePublication(
     const resolvedProductId =
       draft.selectedCanonicalProductId === null
         ? null
-        : (await resolveCanonicalProductSelection(tx, draft.selectedCanonicalProductId))?.id ?? null;
+        : ((await resolveCanonicalProductSelection(tx, draft.selectedCanonicalProductId))?.id ??
+          null);
 
     for (const variant of variants) {
       if (variant.selectedCanonicalVariantId === null) continue;

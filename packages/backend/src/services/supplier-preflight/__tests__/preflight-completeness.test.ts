@@ -54,7 +54,10 @@ function healthy(overrides: Partial<SupplierPreflightAnswer> = {}): SupplierPref
   };
 }
 
-function derive(answer: SupplierPreflightAnswer, overrides: Partial<Parameters<typeof deriveSupplierPreflightCompleteness>[0]> = {}) {
+function derive(
+  answer: SupplierPreflightAnswer,
+  overrides: Partial<Parameters<typeof deriveSupplierPreflightCompleteness>[0]> = {},
+) {
   return deriveSupplierPreflightCompleteness({
     answer,
     requestedQuantity: 1,

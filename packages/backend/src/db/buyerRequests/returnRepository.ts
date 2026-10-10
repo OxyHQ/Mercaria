@@ -293,10 +293,7 @@ export async function recordReturnCompletionFailure(
     .update(returnRequests)
     .set({ completionFailure: failure, updatedAt: sql`now()` })
     .where(
-      and(
-        eq(returnRequests.id, id),
-        inArray(returnRequests.state, ['received', 'refund_pending']),
-      ),
+      and(eq(returnRequests.id, id), inArray(returnRequests.state, ['received', 'refund_pending'])),
     );
 }
 

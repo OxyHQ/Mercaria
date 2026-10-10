@@ -1,9 +1,9 @@
-import { View } from "react-native";
-import { Badge } from "@oxy.so/bloom/badge";
-import { RiShieldCheckLine } from "@oxy.so/bloom/icons/RiShieldCheckLine";
-import { RiVerifiedBadgeLine } from "@oxy.so/bloom/icons/RiVerifiedBadgeLine";
-import type { PublicRelationshipBadge } from "@mercaria/shared-types";
-import { cn } from "../../lib/cn";
+import { View } from 'react-native';
+import { Badge } from '@oxy.so/bloom/badge';
+import { RiShieldCheckLine } from '@oxy.so/bloom/icons/RiShieldCheckLine';
+import { RiVerifiedBadgeLine } from '@oxy.so/bloom/icons/RiVerifiedBadgeLine';
+import type { PublicRelationshipBadge } from '@mercaria/shared-types';
+import { cn } from '../../lib/cn';
 
 /**
  * The label for one VERIFIED brand relationship (#72 official-channel rule 2,
@@ -24,8 +24,8 @@ import { cn } from "../../lib/cn";
 
 /** What each badge SAYS. Separate strings on purpose — see the module doc. */
 const BADGE_TEXT: Readonly<Record<PublicRelationshipBadge, string>> = Object.freeze({
-  official_store: "Official store",
-  authorized_reseller: "Authorized reseller",
+  official_store: 'Official store',
+  authorized_reseller: 'Authorized reseller',
 });
 
 /**
@@ -37,7 +37,7 @@ const BADGE_TEXT: Readonly<Record<PublicRelationshipBadge, string>> = Object.fre
  */
 const BADGE_EXPLANATION: Readonly<Record<PublicRelationshipBadge, string>> = Object.freeze({
   official_store: "Verified as this brand's own sales channel",
-  authorized_reseller: "Verified by this brand as an authorized reseller",
+  authorized_reseller: 'Verified by this brand as an authorized reseller',
 });
 
 export interface OfficialChannelBadgeProps {
@@ -57,20 +57,19 @@ export function OfficialChannelBadge({
   territories = [],
   className,
 }: OfficialChannelBadgeProps) {
-  const scope =
-    territories.length === 0 ? "Worldwide" : `In ${[...territories].sort().join(", ")}`;
+  const scope = territories.length === 0 ? 'Worldwide' : `In ${[...territories].sort().join(', ')}`;
 
   return (
     <View
       accessibilityRole="text"
       accessibilityLabel={`${BADGE_TEXT[badge]}. ${BADGE_EXPLANATION[badge]}. ${scope}.`}
-      className={cn("self-start", className)}
+      className={cn('self-start', className)}
     >
       <Badge
         size="label-medium"
         variant="subtle"
-        color={badge === "official_store" ? "primary" : "default"}
-        icon={badge === "official_store" ? RiVerifiedBadgeLine : RiShieldCheckLine}
+        color={badge === 'official_store' ? 'primary' : 'default'}
+        icon={badge === 'official_store' ? RiVerifiedBadgeLine : RiShieldCheckLine}
         content={`${BADGE_TEXT[badge]} · ${scope}`}
       />
     </View>

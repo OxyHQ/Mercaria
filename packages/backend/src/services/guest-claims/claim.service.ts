@@ -85,10 +85,7 @@ import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { RETENTION_SECONDS } from '../../db/expiryTargets.js';
 import type { GuestOrderAccessGrantRow } from '../../db/guestPortal/grantRepository.js';
-import {
-  grantIsStillLive,
-  revokeGroupGrants,
-} from '../../db/guestPortal/grantRepository.js';
+import { grantIsStillLive, revokeGroupGrants } from '../../db/guestPortal/grantRepository.js';
 import { carryRightsToClaimant } from '../digital/right.service.js';
 import { findGuestCheckoutByGroupForUpdate } from '../../db/guests/guestCheckoutRepository.js';
 import {
@@ -158,9 +155,7 @@ export interface GuestClaimInput {
 }
 
 /** The proofs that can be judged without touching the database. */
-function refusalFromProofs(
-  grant: GuestOrderAccessGrantRow,
-): GuestClaimRefusal | null {
+function refusalFromProofs(grant: GuestOrderAccessGrantRow): GuestClaimRefusal | null {
   if (!config.guest.claim.enabled) return 'claiming_unavailable';
   if (!grantHasScope(grant.scopes, 'claim:write')) return 'claim_scope_missing';
   // `email_verified_at` and not a derived boolean: D17 puts claiming firmly on
@@ -193,8 +188,7 @@ export async function previewGuestClaim(input: {
   if (orders.length === 0) return null;
 
   const existing = await findActiveClaimForGroup(db, input.grant.checkoutGroupId);
-  const alreadyClaimedByYou =
-    existing !== null && existing.claimedByOxyUserId === input.oxyUserId;
+  const alreadyClaimedByYou = existing !== null && existing.claimedByOxyUserId === input.oxyUserId;
   const refusal = refusalFromProofs(input.grant);
 
   const blockReason =
@@ -240,9 +234,7 @@ export async function previewGuestClaim(input: {
  * ONE transaction for everything durable, and the ORDER of the statements
  * inside it is load-bearing — see the inline notes.
  */
-export async function claimGuestCheckoutGroup(
-  input: GuestClaimInput,
-): Promise<GuestClaimOutcome> {
+export async function claimGuestCheckoutGroup(input: GuestClaimInput): Promise<GuestClaimOutcome> {
   const proofRefusal = refusalFromProofs(input.grant);
   if (proofRefusal !== null) return { status: 'refused', refusal: proofRefusal };
 
@@ -421,9 +413,7 @@ async function runClaim(
 
   // (9) The durable follow-up work, committed WITH the claim. Deterministic
   // ids, so a retried transaction queues nothing twice.
-  const expiresAt = new Date(
-    input.now.getTime() + RETENTION_SECONDS.guestClaimOutbox * 1_000,
-  );
+  const expiresAt = new Date(input.now.getTime() + RETENTION_SECONDS.guestClaimOutbox * 1_000);
   for (const type of ['review_eligibility', 'claim_notification'] as const) {
     await enqueueGuestClaimJob(tx, {
       claimId: claim.id,

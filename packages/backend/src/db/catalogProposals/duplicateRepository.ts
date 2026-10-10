@@ -202,7 +202,16 @@ export async function probeNamedEntities(
 ): Promise<DuplicateProbe> {
   switch (type) {
     case 'category':
-      return probeTable(db, categories, categories.id, categories.name, lowerBtrim(categories.name), normalizedLabel, searchLabel, nearLimit);
+      return probeTable(
+        db,
+        categories,
+        categories.id,
+        categories.name,
+        lowerBtrim(categories.name),
+        normalizedLabel,
+        searchLabel,
+        nearLimit,
+      );
     case 'product_type':
       return probeTable(
         db,
@@ -215,7 +224,16 @@ export async function probeNamedEntities(
         nearLimit,
       );
     case 'brand':
-      return probeTable(db, brands, brands.id, brands.name, asText(brands.normalizedName), normalizedLabel, searchLabel, nearLimit);
+      return probeTable(
+        db,
+        brands,
+        brands.id,
+        brands.name,
+        asText(brands.normalizedName),
+        normalizedLabel,
+        searchLabel,
+        nearLimit,
+      );
     case 'product_family':
       return probeTable(
         db,

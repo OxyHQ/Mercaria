@@ -145,8 +145,7 @@ const TRAFFIC_NETWORK = `outbnet-${RUN}`;
 const HUMAN_USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
 /** A crawler that declares itself, which is the only basis #143's classifier has. */
-const BOT_USER_AGENT =
-  'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+const BOT_USER_AGENT = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
 
 const createdSourceIds: string[] = [];
 const createdMerchantIds: string[] = [];
@@ -290,7 +289,9 @@ afterAll(async () => {
     variantIds: createdVariantIds,
     productIds: createdProductIds,
   });
-  await db.delete(schema.merchants).where(inArray(schema.merchants.id, safeIds(createdMerchantIds)));
+  await db
+    .delete(schema.merchants)
+    .where(inArray(schema.merchants.id, safeIds(createdMerchantIds)));
   await closePostgres();
 });
 
@@ -385,7 +386,10 @@ interface Source {
  * which is what proof 7 withdraws.
  */
 async function bringUpSource(label: string): Promise<Source> {
-  const provider = `outb-${label}-${RUN}`.toLowerCase().replace(/[^a-z0-9_-]/gu, '').slice(0, 64);
+  const provider = `outb-${label}-${RUN}`
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/gu, '')
+    .slice(0, 64);
   const merchantId = await mintMerchant(label);
   const resolved = await configureIngestionSource({
     name: `Outbound source ${label} ${RUN}`,
@@ -496,8 +500,7 @@ interface DriveInput {
  */
 async function drive(input: DriveInput): Promise<OutboundRedirectDecision> {
   const token =
-    input.token ??
-    mintAffiliateOutboundToken({ offerId: input.offerId ?? 'no-offer-id-supplied' });
+    input.token ?? mintAffiliateOutboundToken({ offerId: input.offerId ?? 'no-offer-id-supplied' });
   return resolveOutboundRedirect(
     {
       token,
@@ -796,9 +799,7 @@ describe('acceptance 6 — a native offer never enters the outbound path', () =>
      * COLUMN cannot hold one — against every writer, `psql` included.
      */
     const message = await rejectionMessage(() =>
-      db
-        .insert(schema.offers)
-        .values({ ...base, destinationUrl: `https://native-${RUN}.test/x` }),
+      db.insert(schema.offers).values({ ...base, destinationUrl: `https://native-${RUN}.test/x` }),
     );
     expect(message).toContain('offers_kind_shape_check');
 
@@ -843,7 +844,10 @@ describe('acceptance 6 — a native offer never enters the outbound path', () =>
     const decision = refused(await drive({ offerId: written.id }));
     expect(decision.reason).toBe('native_offer');
 
-    const clicks = await listAffiliateOutboundClicksForOffer({ offerId: written.id, limit: 10 }, db);
+    const clicks = await listAffiliateOutboundClicksForOffer(
+      { offerId: written.id, limit: 10 },
+      db,
+    );
     expect(clicks).toHaveLength(1);
     expect(clicks[0]?.refusalReason).toBe('native_offer');
     expect(clicks[0]?.destinationHost).toBeNull();
@@ -866,7 +870,8 @@ describe('the click record is written on BOTH paths', () => {
     });
     const refusal = refused(await drive({ offerId: refusedOfferId }));
     expect(refusal.reason).toBe('destination_host_not_allowlisted');
-    if (refusal.clickId === undefined) throw new Error('a refusal past the token must record a click');
+    if (refusal.clickId === undefined)
+      throw new Error('a refusal past the token must record a click');
 
     const refusalRow = await findAffiliateOutboundClickById(refusal.clickId, db);
     expect(refusalRow?.disposition).toBe('refused');
@@ -1395,9 +1400,9 @@ describe('the token names an offer and cannot name anything else', () => {
     expect(row?.offerId).toBe(offerA);
     // B was never touched — the token is the WHOLE of what selects an offer,
     // and it names exactly one.
-    expect(await listAffiliateOutboundClicksForOffer({ offerId: offerB, limit: 10 }, db)).toHaveLength(
-      0,
-    );
+    expect(
+      await listAffiliateOutboundClicksForOffer({ offerId: offerB, limit: 10 }, db),
+    ).toHaveLength(0);
   });
 });
 
@@ -1715,7 +1720,9 @@ describe('the disclosure names the merchant while the redirect hands over the ne
     // A Mercaria path and never the merchant's address, so a crawler scraping
     // the page cannot follow the tracked destination with no click record
     // behind it.
-    expect(disclosure.redirectPath.startsWith(`/out/${AFFILIATE_OUTBOUND_TOKEN_PREFIX}`)).toBe(true);
+    expect(disclosure.redirectPath.startsWith(`/out/${AFFILIATE_OUTBOUND_TOKEN_PREFIX}`)).toBe(
+      true,
+    );
     expect(disclosure.redirectPath).not.toContain(retailerHost);
     expect(disclosure.rel).toBe('sponsored nofollow noopener');
 

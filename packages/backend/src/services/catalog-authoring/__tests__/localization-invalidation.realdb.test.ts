@@ -50,7 +50,11 @@ import { readAuthoringSchemaRevisions } from '../../../db/catalogAuthoring/schem
 import { governanceActor, type CatalogGovernanceActor } from '../../catalog-governance/actor.js';
 import { reviewLocalization } from '../../catalog-governance/review.service.js';
 import { clearAuthoringSchemaMemo, composeAuthoringSchema } from '../schema.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
   seedVerticalForTest,

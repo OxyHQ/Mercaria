@@ -109,7 +109,11 @@ describe('each requirement refuses on its own fact', () => {
       facts: { merchant: { id: 'm1', claimState: 'disputed' } },
       reason: 'merchant_claim_not_verified',
     },
-    { requirement: 'native_store_link_valid', facts: { merchant: null }, reason: 'no_linked_merchant' },
+    {
+      requirement: 'native_store_link_valid',
+      facts: { merchant: null },
+      reason: 'no_linked_merchant',
+    },
     {
       requirement: 'support_contact_complete',
       facts: { settings: { supportEmail: null, supportUrl: null } },
@@ -120,8 +124,16 @@ describe('each requirement refuses on its own fact', () => {
       facts: { store: { policiesRefundPolicy: '  ' } },
       reason: 'store_policies_incomplete',
     },
-    { requirement: 'payment_provider_ready', facts: { railEnabled: false }, reason: 'payment_rail_disabled' },
-    { requirement: 'payment_provider_ready', facts: { paymentsReady: false }, reason: 'payments_not_ready' },
+    {
+      requirement: 'payment_provider_ready',
+      facts: { railEnabled: false },
+      reason: 'payment_rail_disabled',
+    },
+    {
+      requirement: 'payment_provider_ready',
+      facts: { paymentsReady: false },
+      reason: 'payments_not_ready',
+    },
     {
       requirement: 'market_currency_supported',
       facts: { presentmentCurrencies: ['USD'] },
@@ -143,14 +155,26 @@ describe('each requirement refuses on its own fact', () => {
       },
       reason: 'fee_schedule_version_superseded',
     },
-    { requirement: 'no_platform_hold', facts: { settings: { platformHeld: true } }, reason: 'platform_hold' },
+    {
+      requirement: 'no_platform_hold',
+      facts: { settings: { platformHeld: true } },
+      reason: 'platform_hold',
+    },
     {
       requirement: 'native_checkout_not_paused',
       facts: { settings: { nativeCheckoutIntent: 'paused' } },
       reason: 'merchant_paused_checkout',
     },
-    { requirement: 'test_order_completed', facts: { completedOrderCount: 0 }, reason: 'no_completed_test_order' },
-    { requirement: 'native_checkout_ready', facts: { nativeSatisfied: false }, reason: 'native_checkout_not_ready' },
+    {
+      requirement: 'test_order_completed',
+      facts: { completedOrderCount: 0 },
+      reason: 'no_completed_test_order',
+    },
+    {
+      requirement: 'native_checkout_ready',
+      facts: { nativeSatisfied: false },
+      reason: 'native_checkout_not_ready',
+    },
     {
       requirement: 'guest_commerce_enabled',
       facts: { guest: { cartEnabled: false } },
@@ -260,7 +284,9 @@ describe('the fulfilment-mode registry', () => {
       'pickup_fulfilment_available',
     );
     expect(outcome?.state).toBe('unsatisfied');
-    expect(outcome?.state === 'unsatisfied' && outcome.reason).toBe('no_collectable_pickup_location');
+    expect(outcome?.state === 'unsatisfied' && outcome.reason).toBe(
+      'no_collectable_pickup_location',
+    );
   });
 
   it('answers shipping from the SHIPPING methods and pickup from the PICKUP facts', () => {

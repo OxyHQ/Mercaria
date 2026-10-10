@@ -42,7 +42,12 @@ export const productPageQuerySchema = z
   .object({
     canonicalVariantId: z.string().trim().min(1).max(64).optional(),
     currency: z.enum(tuple(ALL_CURRENCY_CODES as readonly CurrencyCode[])).optional(),
-    market: z.string().trim().length(2).regex(/^[A-Za-z]{2}$/).optional(),
+    market: z
+      .string()
+      .trim()
+      .length(2)
+      .regex(/^[A-Za-z]{2}$/)
+      .optional(),
     intent: z.enum(tuple(OFFER_COMPARISON_INTENTS as readonly OfferComparisonIntent[])).optional(),
     experience: z
       .enum(tuple(OFFER_COMPARISON_EXPERIENCES as readonly OfferComparisonExperience[]))

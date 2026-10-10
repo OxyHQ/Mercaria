@@ -17,9 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  deriveProductTypeSemanticChange,
-} from '../catalogLocalization/productTypeLocalizationRepository.js';
+import { deriveProductTypeSemanticChange } from '../catalogLocalization/productTypeLocalizationRepository.js';
 import { productTypeFieldIdentity } from '../catalogLocalization/productTypeFieldLocalizationRepository.js';
 import { diffProductTypeVersions } from '../../services/catalog-governance/diff.js';
 
@@ -93,9 +91,7 @@ describe('deriveProductTypeSemanticChange', () => {
     // `{ kind: 'unknown' }`. `unknown` stales every locale on every bump,
     // including one holding nothing but a name that demonstrably did not move.
     const change = deriveProductTypeSemanticChange(v1, { ...v1 });
-    expect(change.kind === 'diffed' ? change.changedFields : []).not.toContain(
-      'product_type.name',
-    );
+    expect(change.kind === 'diffed' ? change.changedFields : []).not.toContain('product_type.name');
   });
 
   it('reports a renamed version and a rewritten description', () => {

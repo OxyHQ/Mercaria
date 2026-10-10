@@ -48,7 +48,9 @@ export async function ensureCollectionCredential(
 
   const existing = await findCollectionCredential(input.orderId, db);
   if (!existing) {
-    throw new Error(`pickup_collection_credentials row for ${input.orderId} vanished after a conflict`);
+    throw new Error(
+      `pickup_collection_credentials row for ${input.orderId} vanished after a conflict`,
+    );
   }
   return existing;
 }

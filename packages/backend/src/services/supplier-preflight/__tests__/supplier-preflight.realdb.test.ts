@@ -28,7 +28,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
-import { createSupplier, transitionSupplierStatus } from '../../../db/procurement/supplierRepository.js';
+import {
+  createSupplier,
+  transitionSupplierStatus,
+} from '../../../db/procurement/supplierRepository.js';
 import {
   createSupplierAccount,
   transitionAccountState,
@@ -105,7 +108,10 @@ function quoteInput(
   overrides: Partial<NewSupplierQuote> = {},
 ): NewSupplierQuote {
   const now = new Date();
-  const fingerprint = uuidv7().replace(/[^a-f0-9]/g, '').padEnd(64, '0').slice(0, 64);
+  const fingerprint = uuidv7()
+    .replace(/[^a-f0-9]/g, '')
+    .padEnd(64, '0')
+    .slice(0, 64);
   return {
     idempotencyKey: `key-${uuidv7()}`,
     requestFingerprint: fingerprint,
@@ -113,7 +119,11 @@ function quoteInput(
     supplierAccountId: ids.supplierAccountId,
     environment: 'test',
     provider: 'test-platform',
-    declaredCapabilities: ['live_stock_lookup', 'destination_shipping_quote', 'inventory_reservation'],
+    declaredCapabilities: [
+      'live_stock_lookup',
+      'destination_shipping_quote',
+      'inventory_reservation',
+    ],
     procurementOfferId: null,
     canonicalProductId: null,
     canonicalVariantId: null,
@@ -185,7 +195,6 @@ function quoteInput(
   };
 }
 
-
 /**
  * Assert a database refusal, matching against the WHOLE error chain.
  *
@@ -227,72 +236,109 @@ describe('supplier quote constraints', () => {
 
   it('refuses a COMPLETE quote whose availability is unknown', async () => {
     const ids = await makeAccount();
-    await expectRefusal(() => insertSupplierQuote(quoteInput(ids, { availability: 'unknown' }), db), /supplier_quotes_complete_requirements_check/);
+    await expectRefusal(
+      () => insertSupplierQuote(quoteInput(ids, { availability: 'unknown' }), db),
+      /supplier_quotes_complete_requirements_check/,
+    );
   });
 
   it('refuses a COMPLETE quote with no shipping cost', async () => {
     // #122's closing rule, in the database: a missing required shipping cost
     // cannot pass checkout, and the quote that would let it cannot be stored.
     const ids = await makeAccount();
-    await expectRefusal(() => insertSupplierQuote(
-        quoteInput(ids, {
-          shippingCostAmount: null,
-          shippingBasis: 'unknown',
-          selectedShippingServiceCode: null,
-          shippingOptions: [],
-        }),
-        db,
-      ), /supplier_quotes_complete_requirements_check/);
+    await expectRefusal(
+      () =>
+        insertSupplierQuote(
+          quoteInput(ids, {
+            shippingCostAmount: null,
+            shippingBasis: 'unknown',
+            selectedShippingServiceCode: null,
+            shippingOptions: [],
+          }),
+          db,
+        ),
+      /supplier_quotes_complete_requirements_check/,
+    );
   });
 
   it('refuses a complete quote carrying a block reason, and a blocked one carrying none', async () => {
     // Both directions of the biconditional, because a one-directional CHECK
     // would let a blocked quote read as clean.
     const ids = await makeAccount();
-    await expectRefusal(() => insertSupplierQuote(quoteInput(ids, { blockReasons: ['provider_timeout'] }), db), /supplier_quotes_block_reason_presence_check/);
-    await expectRefusal(() => insertSupplierQuote(quoteInput(ids, { status: 'partial', blockReasons: [] }), db), /supplier_quotes_block_reason_presence_check/);
+    await expectRefusal(
+      () => insertSupplierQuote(quoteInput(ids, { blockReasons: ['provider_timeout'] }), db),
+      /supplier_quotes_block_reason_presence_check/,
+    );
+    await expectRefusal(
+      () => insertSupplierQuote(quoteInput(ids, { status: 'partial', blockReasons: [] }), db),
+      /supplier_quotes_block_reason_presence_check/,
+    );
   });
 
   it('refuses an INVALID quote with no exception kind, and a partial one carrying one', async () => {
     const ids = await makeAccount();
-    await expectRefusal(() => insertSupplierQuote(
-        quoteInput(ids, {
-          status: 'invalid',
-          blockReasons: ['provider_contract_violation'],
-          exceptionKind: null,
-          availability: 'unknown',
-        }),
-        db,
-      ), /supplier_quotes_exception_presence_check/);
+    await expectRefusal(
+      () =>
+        insertSupplierQuote(
+          quoteInput(ids, {
+            status: 'invalid',
+            blockReasons: ['provider_contract_violation'],
+            exceptionKind: null,
+            availability: 'unknown',
+          }),
+          db,
+        ),
+      /supplier_quotes_exception_presence_check/,
+    );
   });
 
   it('refuses a headline shipping figure that names no offered service', async () => {
     // The cross-row invariant no CHECK can see — refused by the single writer,
     // before any SQL is issued.
     const ids = await makeAccount();
-    await expectRefusal(() => insertSupplierQuote(
-        quoteInput(ids, { selectedShippingServiceCode: 'express-not-offered' }),
-        db,
-      ), /not among the services it recorded/);
+    await expectRefusal(
+      () =>
+        insertSupplierQuote(
+          quoteInput(ids, { selectedShippingServiceCode: 'express-not-offered' }),
+          db,
+        ),
+      /not among the services it recorded/,
+    );
   });
 
   it('refuses a shipping cost that disagrees with the selected service', async () => {
     const ids = await makeAccount();
-    await expectRefusal(() => insertSupplierQuote(quoteInput(ids, { shippingCostAmount: 12_345 }), db), /does not match the selected service/);
+    await expectRefusal(
+      () => insertSupplierQuote(quoteInput(ids, { shippingCostAmount: 12_345 }), db),
+      /does not match the selected service/,
+    );
   });
 
   it('refuses a second quote under one idempotency key', async () => {
     const ids = await makeAccount();
     const key = `key-${uuidv7()}`;
     await insertSupplierQuote(quoteInput(ids, { idempotencyKey: key }), db);
-    await expectRefusal(() => insertSupplierQuote(quoteInput(ids, { idempotencyKey: key }), db), /supplier_quotes_idempotency_key_key/);
+    await expectRefusal(
+      () => insertSupplierQuote(quoteInput(ids, { idempotencyKey: key }), db),
+      /supplier_quotes_idempotency_key_key/,
+    );
   });
 
   it('is IMMUTABLE and undeletable', async () => {
     const ids = await makeAccount();
     const quote = await insertSupplierQuote(quoteInput(ids), db);
-    await expectRefusal(() => db.update(supplierQuotes).set({ availability: 'unavailable' }).where(eq(supplierQuotes.id, quote.id)), /immutable/);
-    await expectRefusal(() => db.delete(supplierQuotes).where(eq(supplierQuotes.id, quote.id)), /cannot be deleted/);
+    await expectRefusal(
+      () =>
+        db
+          .update(supplierQuotes)
+          .set({ availability: 'unavailable' })
+          .where(eq(supplierQuotes.id, quote.id)),
+      /immutable/,
+    );
+    await expectRefusal(
+      () => db.delete(supplierQuotes).where(eq(supplierQuotes.id, quote.id)),
+      /cannot be deleted/,
+    );
   });
 
   it('refuses UPDATE and DELETE on the shipping-option trail', async () => {
@@ -300,9 +346,13 @@ describe('supplier quote constraints', () => {
     const quote = await insertSupplierQuote(quoteInput(ids), db);
     const [option] = await listSupplierQuoteShippingOptions(quote.id, db);
     expect(option).toBeDefined();
-    await expectRefusal(() => db.execute(
-        `update supplier_quote_shipping_options set cost_amount = 1 where id = '${option?.id ?? ''}'`,
-      ), /append-only/);
+    await expectRefusal(
+      () =>
+        db.execute(
+          `update supplier_quote_shipping_options set cost_amount = 1 where id = '${option?.id ?? ''}'`,
+        ),
+      /append-only/,
+    );
   });
 });
 
@@ -331,23 +381,31 @@ describe('supplier quote usage', () => {
       }),
       db,
     );
-    expect(await consumeSupplierQuote({ quoteId: quote.id, checkoutGroupId: 'g' }, db)).toBeUndefined();
+    expect(
+      await consumeSupplierQuote({ quoteId: quote.id, checkoutGroupId: 'g' }, db),
+    ).toBeUndefined();
   });
 
   it('releases idempotently', async () => {
     const ids = await makeAccount();
     const quote = await insertSupplierQuote(quoteInput(ids), db);
-    expect(await releaseSupplierQuote({ quoteId: quote.id, reason: 'checkout_abandoned' }, db)).toBe(true);
+    expect(
+      await releaseSupplierQuote({ quoteId: quote.id, reason: 'checkout_abandoned' }, db),
+    ).toBe(true);
     // The second call converges rather than failing — a release that finds
     // nothing to do has succeeded.
-    expect(await releaseSupplierQuote({ quoteId: quote.id, reason: 'checkout_abandoned' }, db)).toBe(false);
+    expect(
+      await releaseSupplierQuote({ quoteId: quote.id, reason: 'checkout_abandoned' }, db),
+    ).toBe(false);
   });
 
   it('refuses to consume a RELEASED quote', async () => {
     const ids = await makeAccount();
     const quote = await insertSupplierQuote(quoteInput(ids), db);
     await releaseSupplierQuote({ quoteId: quote.id, reason: 'checkout_abandoned' }, db);
-    expect(await consumeSupplierQuote({ quoteId: quote.id, checkoutGroupId: 'g' }, db)).toBeUndefined();
+    expect(
+      await consumeSupplierQuote({ quoteId: quote.id, checkoutGroupId: 'g' }, db),
+    ).toBeUndefined();
   });
 });
 
@@ -388,33 +446,41 @@ describe('supplier reservations — the honesty rule', () => {
     // no row to land in.
     const ids = await makeAccount();
     const quote = await insertSupplierQuote(quoteInput(ids), db);
-    await expectRefusal(() => db.insert(supplierReservations).values({
-        quoteId: quote.id,
-        supplierId: ids.supplierId,
-        supplierAccountId: ids.supplierAccountId,
-        providerReservationId: `hold-${uuidv7()}`,
-        declaredCapabilities: ['live_stock_lookup'],
-        supplierSku: 'SKU-A',
-        quantity: 1,
-        reservedAt: new Date(),
-        providerExpiresAt: new Date(Date.now() + 600_000),
-      }), /supplier_reservations_capability_declared_check/);
+    await expectRefusal(
+      () =>
+        db.insert(supplierReservations).values({
+          quoteId: quote.id,
+          supplierId: ids.supplierId,
+          supplierAccountId: ids.supplierAccountId,
+          providerReservationId: `hold-${uuidv7()}`,
+          declaredCapabilities: ['live_stock_lookup'],
+          supplierSku: 'SKU-A',
+          quantity: 1,
+          reservedAt: new Date(),
+          providerExpiresAt: new Date(Date.now() + 600_000),
+        }),
+      /supplier_reservations_capability_declared_check/,
+    );
   });
 
   it('refuses a hold with a blank provider reservation id', async () => {
     const ids = await makeAccount();
     const quote = await insertSupplierQuote(quoteInput(ids), db);
-    await expectRefusal(() => db.insert(supplierReservations).values({
-        quoteId: quote.id,
-        supplierId: ids.supplierId,
-        supplierAccountId: ids.supplierAccountId,
-        providerReservationId: '   ',
-        declaredCapabilities: ['inventory_reservation'],
-        supplierSku: 'SKU-A',
-        quantity: 1,
-        reservedAt: new Date(),
-        providerExpiresAt: new Date(Date.now() + 600_000),
-      }), /supplier_reservations_provider_id_check/);
+    await expectRefusal(
+      () =>
+        db.insert(supplierReservations).values({
+          quoteId: quote.id,
+          supplierId: ids.supplierId,
+          supplierAccountId: ids.supplierAccountId,
+          providerReservationId: '   ',
+          declaredCapabilities: ['inventory_reservation'],
+          supplierSku: 'SKU-A',
+          quantity: 1,
+          reservedAt: new Date(),
+          providerExpiresAt: new Date(Date.now() + 600_000),
+        }),
+      /supplier_reservations_provider_id_check/,
+    );
   });
 
   it('cannot be consumed twice, concurrently', async () => {
@@ -442,7 +508,7 @@ describe('supplier reservations — the honesty rule', () => {
     expect(outcomes.filter(Boolean)).toHaveLength(1);
   });
 
-  it('refuses to consume a hold past the SUPPLIER\'s own deadline', async () => {
+  it("refuses to consume a hold past the SUPPLIER's own deadline", async () => {
     const ids = await makeAccount();
     const quote = await insertSupplierQuote(quoteInput(ids), db);
     const reservation = await recordSupplierReservation(
@@ -485,8 +551,12 @@ describe('supplier reservations — the honesty rule', () => {
       },
       db,
     );
-    expect(await releaseSupplierReservation({ reservationId: reservation.id, reason: 'expired' }, db)).toBe(true);
-    expect(await releaseSupplierReservation({ reservationId: reservation.id, reason: 'expired' }, db)).toBe(false);
+    expect(
+      await releaseSupplierReservation({ reservationId: reservation.id, reason: 'expired' }, db),
+    ).toBe(true);
+    expect(
+      await releaseSupplierReservation({ reservationId: reservation.id, reason: 'expired' }, db),
+    ).toBe(false);
     expect(
       await consumeSupplierReservation({ reservationId: reservation.id, checkoutGroupId: 'a' }, db),
     ).toBe(false);
@@ -532,7 +602,10 @@ describe('supplier reservations — the honesty rule', () => {
 describe('the sourcing trail', () => {
   it('converges when a run is replayed, instead of doubling the trail', async () => {
     const ids = await makeAccount();
-    const fingerprint = uuidv7().replace(/[^a-f0-9]/g, '').padEnd(64, '0').slice(0, 64);
+    const fingerprint = uuidv7()
+      .replace(/[^a-f0-9]/g, '')
+      .padEnd(64, '0')
+      .slice(0, 64);
     const attempts = [0, 1].map((sequence) => ({
       requestFingerprint: fingerprint,
       sequence,
@@ -555,28 +628,35 @@ describe('the sourcing trail', () => {
 
   it('refuses a `selected` attempt with no quote, and a skipped one carrying one', async () => {
     const ids = await makeAccount();
-    const fingerprint = uuidv7().replace(/[^a-f0-9]/g, '').padEnd(64, '0').slice(0, 64);
-    await expectRefusal(() => recordSupplierSourcingAttempts(
-        [
-          {
-            requestFingerprint: fingerprint,
-            sequence: 0,
-            checkoutGroupId: null,
-            supplierId: ids.supplierId,
-            supplierAccountId: ids.supplierAccountId,
-            procurementOfferId: null,
-            sourcingPolicyId: null,
-            sourcingPolicyKey: null,
-            sourcingPolicyVersion: null,
-            rank: 0,
-            outcome: 'selected',
-            reason: 'selected_by_policy',
-            quoteId: null,
-            at: new Date(),
-          },
-        ],
-        db,
-      ), /supplier_sourcing_attempts_selected_quote_check/);
+    const fingerprint = uuidv7()
+      .replace(/[^a-f0-9]/g, '')
+      .padEnd(64, '0')
+      .slice(0, 64);
+    await expectRefusal(
+      () =>
+        recordSupplierSourcingAttempts(
+          [
+            {
+              requestFingerprint: fingerprint,
+              sequence: 0,
+              checkoutGroupId: null,
+              supplierId: ids.supplierId,
+              supplierAccountId: ids.supplierAccountId,
+              procurementOfferId: null,
+              sourcingPolicyId: null,
+              sourcingPolicyKey: null,
+              sourcingPolicyVersion: null,
+              rank: 0,
+              outcome: 'selected',
+              reason: 'selected_by_policy',
+              quoteId: null,
+              at: new Date(),
+            },
+          ],
+          db,
+        ),
+      /supplier_sourcing_attempts_selected_quote_check/,
+    );
   });
 });
 
@@ -589,9 +669,7 @@ describe('the provider call lease', () => {
       maxCallsPerMinute: 100,
     };
     const claims = await Promise.all(
-      ['a', 'b', 'c'].map((owner) =>
-        claimSupplierCallLease({ budget, leaseOwner: owner }, db),
-      ),
+      ['a', 'b', 'c'].map((owner) => claimSupplierCallLease({ budget, leaseOwner: owner }, db)),
     );
     expect(claims.filter((claim) => claim.granted)).toHaveLength(2);
     const refused = claims.find((claim) => !claim.granted);
@@ -608,10 +686,16 @@ describe('the provider call lease', () => {
       maxCallsPerMinute: 2,
     };
     for (let call = 0; call < 2; call += 1) {
-      const claim = await claimSupplierCallLease({ budget, leaseOwner: `owner-${String(call)}` }, db);
+      const claim = await claimSupplierCallLease(
+        { budget, leaseOwner: `owner-${String(call)}` },
+        db,
+      );
       expect(claim.granted).toBe(true);
       if (claim.granted) {
-        await releaseSupplierCallLease({ leaseId: claim.leaseId, leaseOwner: `owner-${String(call)}` }, db);
+        await releaseSupplierCallLease(
+          { leaseId: claim.leaseId, leaseOwner: `owner-${String(call)}` },
+          db,
+        );
       }
     }
     const spent = await claimSupplierCallLease({ budget, leaseOwner: 'owner-3' }, db);
@@ -631,8 +715,12 @@ describe('the provider call lease', () => {
     const claim = await claimSupplierCallLease({ budget, leaseOwner: 'mine' }, db);
     expect(claim.granted).toBe(true);
     if (!claim.granted) return;
-    expect(await releaseSupplierCallLease({ leaseId: claim.leaseId, leaseOwner: 'theirs' }, db)).toBe(false);
-    expect(await releaseSupplierCallLease({ leaseId: claim.leaseId, leaseOwner: 'mine' }, db)).toBe(true);
+    expect(
+      await releaseSupplierCallLease({ leaseId: claim.leaseId, leaseOwner: 'theirs' }, db),
+    ).toBe(false);
+    expect(await releaseSupplierCallLease({ leaseId: claim.leaseId, leaseOwner: 'mine' }, db)).toBe(
+      true,
+    );
   });
 });
 
@@ -707,41 +795,49 @@ describe('health counters and suppressions', () => {
     // The CHECK that keeps an operator's power an operator's: the health loop
     // cannot file a kill switch.
     const ids = await makeAccount();
-    await expectRefusal(() => raiseSupplierPreflightSuppression(
-        {
-          scope: 'supplier_account',
-          supplierId: null,
-          supplierAccountId: ids.supplierAccountId,
-          marketCountry: null,
-          kind: 'kill_switch',
-          origin: 'automatic_health',
-          reason: 'should not be storable',
-          sourcingPolicyId: null,
-          raisedByOxyUserId: null,
-          effectiveFrom: new Date(),
-          expiresAt: new Date(Date.now() + 600_000),
-        },
-        db,
-      ), /check|violat|constraint/i);
+    await expectRefusal(
+      () =>
+        raiseSupplierPreflightSuppression(
+          {
+            scope: 'supplier_account',
+            supplierId: null,
+            supplierAccountId: ids.supplierAccountId,
+            marketCountry: null,
+            kind: 'kill_switch',
+            origin: 'automatic_health',
+            reason: 'should not be storable',
+            sourcingPolicyId: null,
+            raisedByOxyUserId: null,
+            effectiveFrom: new Date(),
+            expiresAt: new Date(Date.now() + 600_000),
+          },
+          db,
+        ),
+      /check|violat|constraint/i,
+    );
   });
 
   it('refuses a market stop that also names an account', async () => {
     const ids = await makeAccount();
-    await expectRefusal(() => raiseSupplierPreflightSuppression(
-        {
-          scope: 'market',
-          supplierId: null,
-          supplierAccountId: ids.supplierAccountId,
-          marketCountry: 'ES',
-          kind: 'kill_switch',
-          origin: 'operator',
-          reason: 'scope confusion',
-          sourcingPolicyId: null,
-          raisedByOxyUserId: 'oxy-op-1',
-          effectiveFrom: new Date(),
-          expiresAt: null,
-        },
-        db,
-      ), /check|violat|constraint/i);
+    await expectRefusal(
+      () =>
+        raiseSupplierPreflightSuppression(
+          {
+            scope: 'market',
+            supplierId: null,
+            supplierAccountId: ids.supplierAccountId,
+            marketCountry: 'ES',
+            kind: 'kill_switch',
+            origin: 'operator',
+            reason: 'scope confusion',
+            sourcingPolicyId: null,
+            raisedByOxyUserId: 'oxy-op-1',
+            effectiveFrom: new Date(),
+            expiresAt: null,
+          },
+          db,
+        ),
+      /check|violat|constraint/i,
+    );
   });
 });

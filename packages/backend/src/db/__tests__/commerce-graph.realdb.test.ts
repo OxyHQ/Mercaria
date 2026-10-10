@@ -23,12 +23,7 @@ import { NATIVE_STORE_LINK_METHODS } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { stores } from '../schema/stores.js';
 import { deleteTestStores } from './store-teardown.js';
-import {
-  merchantDomains,
-  merchants,
-  nativeStoreLinks,
-  storefronts,
-} from '../schema/merchants.js';
+import { merchantDomains, merchants, nativeStoreLinks, storefronts } from '../schema/merchants.js';
 import {
   findMerchantById,
   insertMerchant,
@@ -119,7 +114,6 @@ async function mintStore(): Promise<string> {
   createdStoreIds.push(row.id);
   return row.id;
 }
-
 
 describe('source upsert (acceptance 6.1)', () => {
   it('converges a re-delivered source observation on one row, refreshing observation fields only', async () => {
@@ -297,9 +291,7 @@ describe('marketplace seller identity (acceptance 6.3)', () => {
     expect(amazonDe.merchantId).toBe(amazonId);
 
     const profile = await getMerchantPublic(amazonId);
-    expect(profile.storefronts.map((s) => s.id).sort()).toEqual(
-      [amazonEs.id, amazonDe.id].sort(),
-    );
+    expect(profile.storefronts.map((s) => s.id).sort()).toEqual([amazonEs.id, amazonDe.id].sort());
   });
 });
 
@@ -499,10 +491,7 @@ describe('merge, suppression and redirect substrate', () => {
 
     let liveWinner: unknown;
     try {
-      await db
-        .update(merchants)
-        .set({ mergedIntoId: otherId })
-        .where(eq(merchants.id, merchantId));
+      await db.update(merchants).set({ mergedIntoId: otherId }).where(eq(merchants.id, merchantId));
     } catch (error) {
       liveWinner = error;
     }
@@ -511,10 +500,7 @@ describe('merge, suppression and redirect substrate', () => {
 
   it('hides a suppressed merchant from public reads and redirects storefront tombstones', async () => {
     const merchantId = await mintMerchant(`Suppressed ${RUN}`);
-    await db
-      .update(merchants)
-      .set({ status: 'suppressed' })
-      .where(eq(merchants.id, merchantId));
+    await db.update(merchants).set({ status: 'suppressed' }).where(eq(merchants.id, merchantId));
     await expect(getMerchantPublic(merchantId)).rejects.toSatisfy(
       (error: unknown) => isMercariaError(error) && error.httpStatus === 404,
       'expected a 404 MercariaError',

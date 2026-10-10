@@ -123,10 +123,7 @@ export async function findAddress(
 }
 
 /** Whether the buyer has any address at all — what makes the next one their first. */
-async function userHasAddress(
-  oxyUserId: string,
-  db: DatabaseOrTransaction,
-): Promise<boolean> {
+async function userHasAddress(oxyUserId: string, db: DatabaseOrTransaction): Promise<boolean> {
   const rows = await db
     .select({ id: addresses.id })
     .from(addresses)

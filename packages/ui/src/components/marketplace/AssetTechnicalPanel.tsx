@@ -1,8 +1,8 @@
-import { View } from "react-native";
-import type { AssetInspectionVerdict } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
-import { formatDate } from "../../lib/date";
+import { View } from 'react-native';
+import type { AssetInspectionVerdict } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
+import { formatDate } from '../../lib/date';
 import {
   ASSET_FACTS_CLAIMED_BADGE_KEY,
   ASSET_FACTS_CLAIMED_NOTE_KEY,
@@ -13,7 +13,7 @@ import {
   ASSET_FACTS_MEASURED_TITLE_KEY,
   ASSET_FACTS_NOT_MEASURED_KEY,
   ASSET_INSPECTION_VERDICT_KEYS,
-} from "../../lib/digital-asset-labels";
+} from '../../lib/digital-asset-labels';
 
 /**
  * A digital work's technical metadata, WITH ITS PROVENANCE (ADR 0010 D12,
@@ -197,15 +197,7 @@ export function AssetTechnicalPanel({ measured, claims }: AssetTechnicalPanelPro
  * with the value rather than sitting in a separate focus stop that reads as
  * another control.
  */
-function FactRow({
-  label,
-  value,
-  badge,
-}: {
-  label: string;
-  value: string;
-  badge: string;
-}) {
+function FactRow({ label, value, badge }: { label: string; value: string; badge: string }) {
   return (
     <View
       className="flex-row items-start justify-between gap-space-16 border-b border-border-secondary py-space-8"

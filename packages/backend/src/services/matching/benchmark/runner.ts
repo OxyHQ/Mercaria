@@ -168,11 +168,7 @@ export async function runBenchmark(
    * to be safe.
    */
   const tallies = new Map<string, { categoryKey: string; sourceKey: string; tally: Tally }>();
-  const bump = (
-    categoryKey: string,
-    sourceKey: string,
-    apply: (tally: Tally) => void,
-  ): void => {
+  const bump = (categoryKey: string, sourceKey: string, apply: (tally: Tally) => void): void => {
     const key = JSON.stringify([categoryKey, sourceKey]);
     const entry = tallies.get(key) ?? { categoryKey, sourceKey, tally: emptyTally() };
     apply(entry.tally);

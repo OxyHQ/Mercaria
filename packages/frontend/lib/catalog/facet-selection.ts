@@ -251,9 +251,7 @@ export function parseFacetSelection(raw: string | string[] | undefined): FacetSe
         (lower === undefined || Number.isFinite(lower)) &&
         (upper === undefined || Number.isFinite(upper)) &&
         !(lower === undefined && upper === undefined);
-      const entry = usable
-        ? boundedEntry(origin, facetKey, lower, upper, currencyPart)
-        : undefined;
+      const entry = usable ? boundedEntry(origin, facetKey, lower, upper, currencyPart) : undefined;
       if (entry === undefined) {
         droppedEntryCount += 1;
         continue;
@@ -288,9 +286,7 @@ export function toggleFacetValue(
   const others = entries.filter(
     (entry) => !(entry.origin === origin && entry.facetKey === facetKey),
   );
-  const current = entries.find(
-    (entry) => entry.origin === origin && entry.facetKey === facetKey,
-  );
+  const current = entries.find((entry) => entry.origin === origin && entry.facetKey === facetKey);
   const selected = current?.values ?? [];
   const isSelected = selected.includes(valueKey);
 

@@ -77,7 +77,12 @@ vi.mock('../fx.service.js', () => {
   const unavailable = (): never => {
     throw new Error('order.service must not consult FX during a lifecycle transition');
   };
-  return { getRates: unavailable, convert: unavailable, pairRate: unavailable, toDualMoney: unavailable };
+  return {
+    getRates: unavailable,
+    convert: unavailable,
+    pairRate: unavailable,
+    toDualMoney: unavailable,
+  };
 });
 
 vi.mock('../../queue/producers.js', () => ({
@@ -385,7 +390,6 @@ describe('order.service.transition — atomic CAS (side effects run at most once
   });
 });
 
-
 describe('buyer history view queries', () => {
   it.each([
     ['active', ['pending_payment', 'paid', 'processing', 'shipped']],
@@ -393,13 +397,21 @@ describe('buyer history view queries', () => {
   ] as const)('applies the %s bucket inside the buyer/claimant query', async (view, statuses) => {
     vi.mocked(findOrdersPage).mockResolvedValue({ rows: [], total: 17 });
     const result = await getBuyerOrders('buyer-view-test', { view, page: 2, limit: 3 });
-    expect(findOrdersPage).toHaveBeenLastCalledWith({ buyerOrClaimantOxyUserId: 'buyer-view-test', statuses }, 2, 3);
+    expect(findOrdersPage).toHaveBeenLastCalledWith(
+      { buyerOrClaimantOxyUserId: 'buyer-view-test', statuses },
+      2,
+      3,
+    );
     expect(result.total).toBe(17);
   });
 
   it('preserves unfiltered history for clients that omit the view', async () => {
     vi.mocked(findOrdersPage).mockResolvedValue({ rows: [], total: 0 });
     await getBuyerOrders('buyer-view-test', { page: 1, limit: 20 });
-    expect(findOrdersPage).toHaveBeenLastCalledWith({ buyerOrClaimantOxyUserId: 'buyer-view-test' }, 1, 20);
+    expect(findOrdersPage).toHaveBeenLastCalledWith(
+      { buyerOrClaimantOxyUserId: 'buyer-view-test' },
+      1,
+      20,
+    );
   });
 });

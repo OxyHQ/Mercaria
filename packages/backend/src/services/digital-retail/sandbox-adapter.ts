@@ -83,7 +83,9 @@ interface SandboxOrder {
 const DEFAULT_COST = 1_000;
 
 /** Build a sandbox adapter with its own private ledger. */
-export function createSandboxAdapter(options: SandboxAdapterOptions = {}): DigitalSupplierAdapter & {
+export function createSandboxAdapter(
+  options: SandboxAdapterOptions = {},
+): DigitalSupplierAdapter & {
   /** Every order the sandbox believes it has sold. Test-only. */
   readonly orders: ReadonlyMap<string, SandboxOrder>;
 } {

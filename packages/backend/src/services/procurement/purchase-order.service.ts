@@ -73,7 +73,9 @@ export function assertLegalPurchaseOrderTransition(
   to: PurchaseOrderStatus,
 ): void {
   if (!PURCHASE_ORDER_LEGAL_TRANSITIONS[from].includes(to)) {
-    throw new Error(`purchase order transition ${from} -> ${to} is not a legal edge (ADR 0004 D9.2)`);
+    throw new Error(
+      `purchase order transition ${from} -> ${to} is not a legal edge (ADR 0004 D9.2)`,
+    );
   }
 }
 
@@ -486,7 +488,9 @@ export interface PurchaseOrderOperatorView {
  * account repository's explicit opt-in), and no customer data beyond the
  * order id handle. Field-by-field so a new column cannot leak by spread.
  */
-export function projectPurchaseOrderOperatorView(po: PurchaseOrderRecord): PurchaseOrderOperatorView {
+export function projectPurchaseOrderOperatorView(
+  po: PurchaseOrderRecord,
+): PurchaseOrderOperatorView {
   return {
     id: po.id,
     status: po.status,

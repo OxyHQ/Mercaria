@@ -152,9 +152,7 @@ export async function readSourceMetrics(
     healthState: resolved.source.config.healthState,
     rights: resolved.rights,
     policyVersion: resolved.policy?.version ?? null,
-    adapterRegistered: registeredCatalogSourceProviders().includes(
-      resolved.source.config.provider,
-    ),
+    adapterRegistered: registeredCatalogSourceProviders().includes(resolved.source.config.provider),
     ...totals,
     matchRate: totals.stored === 0 ? null : totals.matched / totals.stored,
     reviewBacklog: byState.review_required ?? 0,

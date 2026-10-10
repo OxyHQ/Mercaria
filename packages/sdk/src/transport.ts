@@ -80,7 +80,11 @@ export function pathSegment(id: string, what: string): string {
   return encodeURIComponent(id);
 }
 
-export function buildUrl(apiBaseUrl: string, path: string, query: Readonly<Record<string, QueryValue>>): string {
+export function buildUrl(
+  apiBaseUrl: string,
+  path: string,
+  query: Readonly<Record<string, QueryValue>>,
+): string {
   const serialized = serializeQuery(query);
   return `${apiBaseUrl}${MERCARIA_PUBLIC_API_BASE_PATH}${path}${serialized === '' ? '' : `?${serialized}`}`;
 }
@@ -91,7 +95,7 @@ const MAX_SERVER_MESSAGE_LENGTH = 200;
 /** A server message made safe to put in an error: a string, one line, bounded. */
 function safeServerMessage(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: flattening control characters out of a server message is the purpose of this pattern
   const flattened = value.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
   if (flattened === '') return null;
   return flattened.length > MAX_SERVER_MESSAGE_LENGTH
@@ -115,7 +119,10 @@ const DELTA_SECONDS = /^\d+$/;
  * or HTTP-date), then `RateLimit-Reset`, then the `reset=` member of a combined
  * `RateLimit` header. `null` when none is present and parseable.
  */
-export function parseRetryAfterSeconds(headers: MercariaHeadersLike | undefined, now = Date.now()): number | null {
+export function parseRetryAfterSeconds(
+  headers: MercariaHeadersLike | undefined,
+  now = Date.now(),
+): number | null {
   const retryAfter = readHeader(headers, 'retry-after');
   if (retryAfter) {
     if (DELTA_SECONDS.test(retryAfter)) return Number(retryAfter);
@@ -170,7 +177,11 @@ const ERROR_CLASS_BY_CODE: Record<MercariaPublicErrorCode, ErrorClass> = {
  * product no longer exists" may delete a reference on the strength of it; only
  * Mercaria itself can say that.
  */
-export function errorForResponse(status: number, headers: MercariaHeadersLike | undefined, body: unknown): MercariaError {
+export function errorForResponse(
+  status: number,
+  headers: MercariaHeadersLike | undefined,
+  body: unknown,
+): MercariaError {
   const parsed = MercariaErrorBodySchema.safeParse(body);
   if (parsed.success) {
     const { code, details } = parsed.data.error;
@@ -196,15 +207,22 @@ export function errorForResponse(status: number, headers: MercariaHeadersLike | 
   if (status === 409) return new MercariaConflictError(message, { status });
   if (status === 422) return new MercariaValidationError(message, { status });
   if (status === 429) {
-    return new MercariaRateLimitError(message, { status, retryAfterSeconds: parseRetryAfterSeconds(headers) });
-  }
-  if (status === 404 || status === 410) {
-    return new MercariaApiError(`Mercaria API responded with HTTP ${status} without a Mercaria error body`, {
+    return new MercariaRateLimitError(message, {
       status,
+      retryAfterSeconds: parseRetryAfterSeconds(headers),
     });
   }
+  if (status === 404 || status === 410) {
+    return new MercariaApiError(
+      `Mercaria API responded with HTTP ${status} without a Mercaria error body`,
+      {
+        status,
+      },
+    );
+  }
   if (status === 408) return new MercariaApiError(message, { status, retryable: true });
-  if (status >= 500 && status !== 501 && status !== 505) return new MercariaUnavailableError(message, { status });
+  if (status >= 500 && status !== 501 && status !== 505)
+    return new MercariaUnavailableError(message, { status });
   return new MercariaApiError(message, { status });
 }
 
@@ -225,9 +243,14 @@ function issuePath(path: readonly PropertyKey[]): string {
  * each offending field and what was expected — never the value received, which
  * may be arbitrary server data.
  */
-function malformedMessage(issues: readonly { path: readonly PropertyKey[]; message: string }[]): string {
-  const named = issues.slice(0, MAX_REPORTED_ISSUES).map((issue) => `${issuePath(issue.path)}: ${issue.message}`);
-  const more = issues.length > MAX_REPORTED_ISSUES ? ` (and ${issues.length - MAX_REPORTED_ISSUES} more)` : '';
+function malformedMessage(
+  issues: readonly { path: readonly PropertyKey[]; message: string }[],
+): string {
+  const named = issues
+    .slice(0, MAX_REPORTED_ISSUES)
+    .map((issue) => `${issuePath(issue.path)}: ${issue.message}`);
+  const more =
+    issues.length > MAX_REPORTED_ISSUES ? ` (and ${issues.length - MAX_REPORTED_ISSUES} more)` : '';
   return `Mercaria returned a malformed response: ${named.join('; ')}${more}`;
 }
 
@@ -251,11 +274,17 @@ export function interpretResponse<T>(
   if (status < 200 || status >= 300) throw errorForResponse(status, headers, body);
 
   if (body === undefined) {
-    throw new MercariaResponseError(`Mercaria returned HTTP ${status} with a body that is not JSON`, { status });
+    throw new MercariaResponseError(
+      `Mercaria returned HTTP ${status} with a body that is not JSON`,
+      { status },
+    );
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    throw new MercariaResponseError(malformedMessage(parsed.error.issues), { status, cause: parsed.error });
+    throw new MercariaResponseError(malformedMessage(parsed.error.issues), {
+      status,
+      cause: parsed.error,
+    });
   }
   return parsed.data;
 }
@@ -282,7 +311,9 @@ export async function request<T>(
 
   const fetchImpl = config.fetch ?? globalFetch();
   if (!fetchImpl) {
-    throw new TypeError('No fetch implementation is available; pass `fetch` to createMercariaClient');
+    throw new TypeError(
+      'No fetch implementation is available; pass `fetch` to createMercariaClient',
+    );
   }
   const url = buildUrl(config.apiBaseUrl, path, query);
 
@@ -332,7 +363,9 @@ export async function request<T>(
       );
     } catch (error) {
       if (cancellation !== undefined) throw cancellationError(cancellation, config.timeoutMs);
-      throw new MercariaNetworkError('The request to Mercaria could not be completed', { cause: error });
+      throw new MercariaNetworkError('The request to Mercaria could not be completed', {
+        cause: error,
+      });
     }
 
     let text: string;

@@ -244,7 +244,9 @@ function imageRow(listingId: string, fileId: string): ListingImageRecord {
 
 /** A full store row with explicit public presentation overrides. */
 function storeRow(
-  media: Partial<Pick<StoreRow, 'coverFileId' | 'logoFileId' | 'policiesRefundPolicy' | 'policiesPrivacyPolicy'>>,
+  media: Partial<
+    Pick<StoreRow, 'coverFileId' | 'logoFileId' | 'policiesRefundPolicy' | 'policiesPrivacyPolicy'>
+  >,
 ): StoreRow {
   return {
     oxyAccountId: 'oxy-account-fixture',

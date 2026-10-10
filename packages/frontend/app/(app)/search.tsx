@@ -1,18 +1,18 @@
-import { useCallback, useEffect, useMemo } from "react";
-import { View } from "react-native";
-import { Loading } from "@oxy.so/bloom/loading";
-import Head from "expo-router/head";
-import { useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo } from 'react';
+import { View } from 'react-native';
+import { Loading } from '@oxy.so/bloom/loading';
+import Head from 'expo-router/head';
+import { useLocalSearchParams } from 'expo-router';
 import {
   SearchClarification,
   SearchInterpretation,
   Text,
   type InterpretationChip,
-} from "@mercaria/ui";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { useTranslation } from "@/lib/i18n";
-import { useSearchIntent } from "@/lib/hooks/use-search-intent";
-import { SearchResultRow } from "@/components/search/SearchResultRow";
+} from '@mercaria/ui';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { useTranslation } from '@/lib/i18n';
+import { useSearchIntent } from '@/lib/hooks/use-search-intent';
+import { SearchResultRow } from '@/components/search/SearchResultRow';
 
 /**
  * `/search` — natural-language shopping search (#95 "Client experience").
@@ -41,7 +41,7 @@ import { SearchResultRow } from "@/components/search/SearchResultRow";
 export default function SearchScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ q?: string }>();
-  const initialQuery = typeof params.q === "string" ? params.q : "";
+  const initialQuery = typeof params.q === 'string' ? params.q : '';
   const { term, setTerm, interpret, interpretation, removed, removeChip, dismiss, results } =
     useSearchIntent();
 
@@ -49,13 +49,13 @@ export default function SearchScreen() {
   // query take the same path. `interpret` is a mutation rather than a query
   // precisely so this is the ONLY place it fires — a query keyed on the term
   // would re-parse on every focus, and a parse may call a provider.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `interpret` is stable per mutation instance; the URL's query is the only real input
   useEffect(() => {
     if (initialQuery.trim().length === 0) return;
     setTerm(initialQuery);
     interpret.mutate({ query: initialQuery });
     // `interpret` is stable per mutation instance and re-running on it would
     // re-parse on every render; the URL's query is the only real input.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
   const answer = useCallback(
@@ -87,12 +87,12 @@ export default function SearchScreen() {
       .map((constraint) => ({
         id: constraint.id,
         label: constraint.explanation,
-        origin: interpretation.interpretation.origins[constraint.id] ?? "deterministic_rule",
+        origin: interpretation.interpretation.origins[constraint.id] ?? 'deterministic_rule',
         strength: constraint.strength,
         // A filter the shopper selected themselves is removed where they
         // selected it; a second control for one fact is how two views of it
         // start disagreeing.
-        editable: interpretation.interpretation.origins[constraint.id] !== "user_explicit",
+        editable: interpretation.interpretation.origins[constraint.id] !== 'user_explicit',
       }));
   }, [interpretation, removed]);
 
@@ -121,12 +121,15 @@ export default function SearchScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>{t("search.headTitle")}</title>
+        <title>{t('search.headTitle')}</title>
       </Head>
 
       <View className="w-full max-w-3xl gap-4 self-center px-4 py-6">
-        <Text accessibilityRole="header" className="text-center text-shop-headerBold text-foreground">
-          {initialQuery || t("search.box.label")}
+        <Text
+          accessibilityRole="header"
+          className="text-center text-shop-headerBold text-foreground"
+        >
+          {initialQuery || t('search.box.label')}
         </Text>
 
         {interpret.isPending ? (
@@ -141,9 +144,7 @@ export default function SearchScreen() {
                 not narrow by, because the remedy is to drop or loosen that
                 specific one — a code would leave a shopper with nothing to
                 act on. */}
-            {interpret.error instanceof Error
-              ? interpret.error.message
-              : t("search.readError")}
+            {interpret.error instanceof Error ? interpret.error.message : t('search.readError')}
           </Text>
         ) : null}
 
@@ -155,7 +156,7 @@ export default function SearchScreen() {
             mode={interpretation.mode}
             onRemove={removeChip}
             onDismiss={dismiss}
-            dismissLabel={t("search.dismissLabel")}
+            dismissLabel={t('search.dismissLabel')}
           />
         ) : null}
 
@@ -165,7 +166,7 @@ export default function SearchScreen() {
             options={clarification.options}
             onAnswer={(optionId) => answer(clarification.id, optionId)}
             onSkip={() => undefined}
-            skipLabel={t("search.skipLabel")}
+            skipLabel={t('search.skipLabel')}
           />
         ) : null}
 
@@ -176,25 +177,25 @@ export default function SearchScreen() {
         ) : null}
 
         {results.isError ? (
-          <Text className="text-sm text-muted-foreground">{t("search.resultsUnavailable")}</Text>
+          <Text className="text-sm text-muted-foreground">{t('search.resultsUnavailable')}</Text>
         ) : null}
 
         {results.data !== undefined ? (
           <View className="gap-3">
             {results.data.results.length === 0 ? (
-              <Text className="text-sm text-muted-foreground">{t("search.noMatches")}</Text>
+              <Text className="text-sm text-muted-foreground">{t('search.noMatches')}</Text>
             ) : null}
             {results.data.results.map((result) => (
               <SearchResultRow
                 result={result}
                 key={`${result.kind}-${
-                  result.kind === "product"
+                  result.kind === 'product'
                     ? result.canonicalProductId
-                    : result.kind === "brand"
+                    : result.kind === 'brand'
                       ? result.brandId
-                      : result.kind === "product_family"
+                      : result.kind === 'product_family'
                         ? result.productFamilyId
-                        : result.kind === "merchant"
+                        : result.kind === 'merchant'
                           ? result.merchantId
                           : result.storefrontId
                 }`}

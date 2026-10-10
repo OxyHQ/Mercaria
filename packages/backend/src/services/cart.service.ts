@@ -190,7 +190,11 @@ async function buildGroups(
     } else if (listing.ownerType === 'user' && listing.oxyUserId) {
       const oxyUserId = listing.oxyUserId;
       vendorKey = `user:${oxyUserId}`;
-      vendor = toSellerVendor(oxyUserId, sellerProfileByUser.get(oxyUserId), oxyProfiles.get(oxyUserId));
+      vendor = toSellerVendor(
+        oxyUserId,
+        sellerProfileByUser.get(oxyUserId),
+        oxyProfiles.get(oxyUserId),
+      );
     }
 
     if (!vendorKey || !vendor) {
@@ -304,7 +308,9 @@ function toSellerVendor(
 
 /** Clamp a requested quantity to `[1, maxQuantityPerItem]` and the live ceiling. */
 function clampQuantity(requested: number, tracked: boolean, available: number): number {
-  const ceiling = tracked ? Math.min(config.cart.maxQuantityPerItem, available) : config.cart.maxQuantityPerItem;
+  const ceiling = tracked
+    ? Math.min(config.cart.maxQuantityPerItem, available)
+    : config.cart.maxQuantityPerItem;
   return Math.max(0, Math.min(requested, ceiling));
 }
 
@@ -341,7 +347,13 @@ async function buildCartDTO(cart: CartRecord, view: CartView): Promise<CartDTO> 
   const currency = await resolvePresentmentCurrencyForOwner(view.owner, view.requestedCurrency);
 
   if (cart.items.length === 0) {
-    const empty: CartDTO = { id, items: [], groups: [], currency, subtotal: { amount: 0, currency } };
+    const empty: CartDTO = {
+      id,
+      items: [],
+      groups: [],
+      currency,
+      subtotal: { amount: 0, currency },
+    };
     if (pendingDiscountCodes.length > 0) {
       empty.pendingDiscountCodes = pendingDiscountCodes;
     }
@@ -788,9 +800,7 @@ export async function discountCodeAppliesToCart(
   // The distinct store ids of the cart's store-owned listings.
   const listings = await findListingsByIds(cart.items.map((i) => i.listingId));
   const storeIds = [
-    ...new Set(
-      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
-    ),
+    ...new Set(listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : []))),
   ];
   if (storeIds.length === 0) {
     return 'no_store_lines';

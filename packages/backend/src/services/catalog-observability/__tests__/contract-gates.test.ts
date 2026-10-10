@@ -258,7 +258,9 @@ describe('#367 W17 — every metric states its numerator, denominator, window an
       expect(metric.numerator.length, `${metric.key} has no numerator`).toBeGreaterThan(10);
       expect(metric.denominator.length, `${metric.key} has no denominator`).toBeGreaterThan(10);
       expect(metric.attributionLimit.length, `${metric.key} states no limit`).toBeGreaterThan(20);
-      expect(CATALOG_METRIC_WINDOWS, `${metric.key} has an unknown window`).toContain(metric.window);
+      expect(CATALOG_METRIC_WINDOWS, `${metric.key} has an unknown window`).toContain(
+        metric.window,
+      );
       expect(CATALOG_METRIC_SOURCES, `${metric.key} names an unknown source`).toContain(
         metric.source,
       );
@@ -266,12 +268,11 @@ describe('#367 W17 — every metric states its numerator, denominator, window an
       // `>= 0` rather than `> 0`, because the in-process counters legitimately
       // declare zero staleness. The biconditional below is what stops that
       // relaxation admitting a database-sourced metric claiming the same.
+      expect(metric.freshnessSeconds, `${metric.key} has no freshness`).toBeGreaterThanOrEqual(0);
       expect(
-        metric.freshnessSeconds,
-        `${metric.key} has no freshness`,
-      ).toBeGreaterThanOrEqual(0);
-      expect(Number.isFinite(metric.freshnessSeconds), `${metric.key} freshness is not a number`)
-        .toBe(true);
+        Number.isFinite(metric.freshnessSeconds),
+        `${metric.key} freshness is not a number`,
+      ).toBe(true);
     }
   });
 
@@ -335,9 +336,10 @@ describe('#367 W17 — every metric states its numerator, denominator, window an
     // Floors on the two shapes the read surface renders differently. Without
     // them a registry of thirty-eight counts would satisfy "every metric has a
     // kind" and there would be no percentage and no percentile anywhere.
-    expect(tally.ratio, 'no ratio metrics — a percentage cannot be rendered').toBeGreaterThanOrEqual(
-      5,
-    );
+    expect(
+      tally.ratio,
+      'no ratio metrics — a percentage cannot be rendered',
+    ).toBeGreaterThanOrEqual(5);
     expect(tally.latency, 'no latency metrics — no budget has a numerator').toBeGreaterThanOrEqual(
       2,
     );
@@ -346,12 +348,12 @@ describe('#367 W17 — every metric states its numerator, denominator, window an
     }
 
     process.stdout.write(
-      `\ncatalog metric registry: ${String(CATALOG_METRICS.length)} definitions `
-        + `(${Object.entries(tally)
+      `\ncatalog metric registry: ${String(CATALOG_METRICS.length)} definitions ` +
+        `(${Object.entries(tally)
           .map(([kind, total]) => `${kind} ${String(total)}`)
-          .join(', ')}), `
-        + `${String(EXPECTED_UNMEASURED_METRIC_KEYS.length)} unmeasured, `
-        + `${String(CATALOG_METRIC_SOURCES.length)} sources declared\n`,
+          .join(', ')}), ` +
+        `${String(EXPECTED_UNMEASURED_METRIC_KEYS.length)} unmeasured, ` +
+        `${String(CATALOG_METRIC_SOURCES.length)} sources declared\n`,
     );
   });
 });
@@ -399,7 +401,9 @@ describe('#367 W17 — `unmeasured` carries BOTH halves, and the set is a decisi
     // And the expected keys name metrics that EXIST, so a rename reads as a
     // rename rather than only as a set mismatch.
     for (const key of EXPECTED_UNMEASURED_METRIC_KEYS) {
-      expect(CATALOG_METRIC_KEYS, `${key} is expected unmeasured and is not defined`).toContain(key);
+      expect(CATALOG_METRIC_KEYS, `${key} is expected unmeasured and is not defined`).toContain(
+        key,
+      );
     }
   });
 
@@ -447,9 +451,9 @@ describe('#367 W17 — the producer census, both directions', () => {
     expect(census.definitions - census.producers).toBe(EXPECTED_UNMEASURED_METRIC_KEYS.length);
 
     process.stdout.write(
-      `catalog producer census: ${String(census.definitions)} definitions / `
-        + `${String(census.producers)} producers / `
-        + `${String(EXPECTED_UNMEASURED_METRIC_KEYS.length)} seams\n`,
+      `catalog producer census: ${String(census.definitions)} definitions / ` +
+        `${String(census.producers)} producers / ` +
+        `${String(EXPECTED_UNMEASURED_METRIC_KEYS.length)} seams\n`,
     );
   });
 });
@@ -622,8 +626,8 @@ describe('#367 W16 — a budget names a route the API actually serves', () => {
     if (leftSegments.length !== rightSegments.length) return false;
     return leftSegments.every(
       (segment, index) =>
-        segment === rightSegments[index]
-        || (segment.startsWith(':') && rightSegments[index].startsWith(':')),
+        segment === rightSegments[index] ||
+        (segment.startsWith(':') && rightSegments[index].startsWith(':')),
     );
   }
 
@@ -656,8 +660,7 @@ describe('#367 W16 — a budget names a route the API actually serves', () => {
       const method = key.slice(0, separator);
       const template = key.slice(separator + 1);
       const mount = MOUNTS.find(
-        (candidate) =>
-          template === candidate.prefix || template.startsWith(`${candidate.prefix}/`),
+        (candidate) => template === candidate.prefix || template.startsWith(`${candidate.prefix}/`),
       );
       // A template whose prefix nothing in this map covers FAILS here rather
       // than being skipped — a gate that silently ignores what its map omits is
@@ -666,8 +669,8 @@ describe('#367 W16 — a budget names a route the API actually serves', () => {
       if (
         !served.some(
           (candidate) =>
-            candidate.startsWith(`${method} `)
-            && sameShape(candidate.slice(candidate.indexOf(' ') + 1), template),
+            candidate.startsWith(`${method} `) &&
+            sameShape(candidate.slice(candidate.indexOf(' ') + 1), template),
         )
       ) {
         unserved.push(key);
@@ -679,14 +682,14 @@ describe('#367 W16 — a budget names a route the API actually serves', () => {
     // is the template or the route — never an entry here.
     expect(
       [...unserved].sort(),
-      'a latency budget names a route no router serves, so its metric is permanently blind '
-        + '— see UNSERVED_TEMPLATES for the three that did this and how each was fixed',
+      'a latency budget names a route no router serves, so its metric is permanently blind ' +
+        '— see UNSERVED_TEMPLATES for the three that did this and how each was fixed',
     ).toEqual([...UNSERVED_TEMPLATES].sort());
 
     process.stdout.write(
-      `catalog latency budgets: ${String(CATALOG_OBSERVED_ROUTES.length)} observed templates, `
-        + `${String(CATALOG_OBSERVED_ROUTES.length - unserved.length)} served, `
-        + `${String(unserved.length)} naming no route (${unserved.join('; ')})\n`,
+      `catalog latency budgets: ${String(CATALOG_OBSERVED_ROUTES.length)} observed templates, ` +
+        `${String(CATALOG_OBSERVED_ROUTES.length - unserved.length)} served, ` +
+        `${String(unserved.length)} naming no route (${unserved.join('; ')})\n`,
     );
   });
 
@@ -809,7 +812,10 @@ describe('#367 W6 — the percentile floor is DERIVED, not chosen', () => {
     // Below the floor, always the maximum. `assertEachOf` rather than a bare
     // loop: the population list is the thing under test and an empty one would
     // make this assert nothing.
-    const below = Array.from({ length: CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION - 1 }, (_, i) => i + 1);
+    const below = Array.from(
+      { length: CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION - 1 },
+      (_, i) => i + 1,
+    );
     assertEachOf(below, CATALOG_PROPOSAL_WAIT_AGE_MIN_POPULATION - 1, (n) => {
       expect(rankIsMax(n), `p${String(highest)} over ${String(n)} samples is not the maximum`).toBe(
         true,
@@ -881,8 +887,8 @@ describe('#367 W6 — there is no SLA target, and none is representable', () => 
       );
       expect(
         thresholdIdentifiers(source),
-        `${path} declares a review-time threshold — that belongs in the same change as the `
-          + 'policy decision and the second CatalogProposalSlaVisibility member',
+        `${path} declares a review-time threshold — that belongs in the same change as the ` +
+          'policy decision and the second CatalogProposalSlaVisibility member',
       ).toEqual([]);
     });
   });
@@ -907,7 +913,9 @@ describe('#367 W6 — there is no SLA target, and none is representable', () => 
     // this gate is about a NUMBER, and refusing the vocabulary that states the
     // gap would make the gap unstateable.
     expect(
-      thresholdIdentifiers('export function describeCatalogProposalSla(): CatalogProposalSlaVisibility {'),
+      thresholdIdentifiers(
+        'export function describeCatalogProposalSla(): CatalogProposalSlaVisibility {',
+      ),
     ).toEqual([]);
   });
 });

@@ -175,72 +175,72 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
     it.skipIf(!supports('authorize') || !supports('capture') || !supports('refund'))(
       'runs authorize → capture → refund to a fully refunded payment',
       async () => {
-      const provider = options.createProvider();
-      const created = await provider.createPayment(create());
-      expect(created.providerObjectId).toBeTruthy();
-      expect(created.status).toBe('created');
+        const provider = options.createProvider();
+        const created = await provider.createPayment(create());
+        expect(created.providerObjectId).toBeTruthy();
+        expect(created.status).toBe('created');
 
-      const authorized = await provider.authorize({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        idempotencyKey: `auth:${paymentId}`,
-      });
-      expect(authorized.status).toBe('processing');
+        const authorized = await provider.authorize({
+          paymentId,
+          providerObjectId: created.providerObjectId,
+          idempotencyKey: `auth:${paymentId}`,
+        });
+        expect(authorized.status).toBe('processing');
 
-      const captured = await provider.capture({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        idempotencyKey: `cap:${paymentId}`,
-      });
-      expect(captured.status).toBe('succeeded');
+        const captured = await provider.capture({
+          paymentId,
+          providerObjectId: created.providerObjectId,
+          idempotencyKey: `cap:${paymentId}`,
+        });
+        expect(captured.status).toBe('succeeded');
 
-      const refunded = await provider.refund({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        refundId: 'refund-1',
-        amount: AMOUNT,
-        idempotencyKey: 're:refund-1',
-        metadata: REFUND_METADATA,
-      });
-      expect(refunded.status).toBe('refunded');
-      expect(refunded.providerObjectId).toBeTruthy();
-      expect(refunded.state).toBe('succeeded');
+        const refunded = await provider.refund({
+          paymentId,
+          providerObjectId: created.providerObjectId,
+          refundId: 'refund-1',
+          amount: AMOUNT,
+          idempotencyKey: 're:refund-1',
+          metadata: REFUND_METADATA,
+        });
+        expect(refunded.status).toBe('refunded');
+        expect(refunded.providerObjectId).toBeTruthy();
+        expect(refunded.state).toBe('succeeded');
       },
     );
 
     it.skipIf(!supports('refund'))(
       'lands a PARTIAL refund on partially_refunded, not refunded',
       async () => {
-      const provider = options.createProvider();
-      const created = await provider.createPayment(create());
-      // `settle`, not `capture` — this arm is reachable by a rail that refunds
-      // but has NO capture step (a card rail captures on the buyer's
-      // confirmation, ADR 0001 D3). Calling `capture` directly here made the arm
-      // pass only for rails that happened to have both, which is exactly the
-      // false green a contract suite must not produce.
-      await settle(provider, created.providerObjectId);
+        const provider = options.createProvider();
+        const created = await provider.createPayment(create());
+        // `settle`, not `capture` — this arm is reachable by a rail that refunds
+        // but has NO capture step (a card rail captures on the buyer's
+        // confirmation, ADR 0001 D3). Calling `capture` directly here made the arm
+        // pass only for rails that happened to have both, which is exactly the
+        // false green a contract suite must not produce.
+        await settle(provider, created.providerObjectId);
 
-      const partial = await provider.refund({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        refundId: 'refund-partial',
-        amount: { amount: 1_000, currency: 'EUR' },
-        idempotencyKey: 're:refund-partial',
-        metadata: REFUND_METADATA,
-      });
-      expect(partial.status).toBe('partially_refunded');
+        const partial = await provider.refund({
+          paymentId,
+          providerObjectId: created.providerObjectId,
+          refundId: 'refund-partial',
+          amount: { amount: 1_000, currency: 'EUR' },
+          idempotencyKey: 're:refund-partial',
+          metadata: REFUND_METADATA,
+        });
+        expect(partial.status).toBe('partially_refunded');
 
-      // The remainder still refunds, and only then is it fully refunded — the
-      // property that makes a two-step refund reach the same place as a one-step.
-      const rest = await provider.refund({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        refundId: 'refund-rest',
-        amount: { amount: 1_500, currency: 'EUR' },
-        idempotencyKey: 're:refund-rest',
-        metadata: REFUND_METADATA,
-      });
-      expect(rest.status).toBe('refunded');
+        // The remainder still refunds, and only then is it fully refunded — the
+        // property that makes a two-step refund reach the same place as a one-step.
+        const rest = await provider.refund({
+          paymentId,
+          providerObjectId: created.providerObjectId,
+          refundId: 'refund-rest',
+          amount: { amount: 1_500, currency: 'EUR' },
+          idempotencyKey: 're:refund-rest',
+          metadata: REFUND_METADATA,
+        });
+        expect(rest.status).toBe('refunded');
       },
     );
 
@@ -255,38 +255,38 @@ export function runPaymentProviderContract(options: PaymentProviderContractOptio
     it.skipIf(!supports('capture'))(
       'is idempotent: repeating capture does not move a captured payment',
       async () => {
-      const provider = options.createProvider();
-      const created = await provider.createPayment(create());
-      const first = await provider.capture({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        idempotencyKey: `cap:${paymentId}`,
-      });
-      const second = await provider.capture({
-        paymentId,
-        providerObjectId: created.providerObjectId,
-        idempotencyKey: `cap:${paymentId}`,
-      });
-      expect(second.status).toBe(first.status);
-      expect(second.status).toBe('succeeded');
+        const provider = options.createProvider();
+        const created = await provider.createPayment(create());
+        const first = await provider.capture({
+          paymentId,
+          providerObjectId: created.providerObjectId,
+          idempotencyKey: `cap:${paymentId}`,
+        });
+        const second = await provider.capture({
+          paymentId,
+          providerObjectId: created.providerObjectId,
+          idempotencyKey: `cap:${paymentId}`,
+        });
+        expect(second.status).toBe(first.status);
+        expect(second.status).toBe('succeeded');
       },
     );
 
     it.skipIf(!supports('refund'))(
       'refuses to refund a payment that was never captured',
       async () => {
-      const provider = options.createProvider();
-      const created = await provider.createPayment(create());
-      await expect(
-        provider.refund({
-          paymentId,
-          providerObjectId: created.providerObjectId,
-          refundId: 'refund-early',
-          amount: AMOUNT,
-          idempotencyKey: 're:refund-early',
-          metadata: REFUND_METADATA,
-        }),
-      ).rejects.toBeInstanceOf(PaymentProviderError);
+        const provider = options.createProvider();
+        const created = await provider.createPayment(create());
+        await expect(
+          provider.refund({
+            paymentId,
+            providerObjectId: created.providerObjectId,
+            refundId: 'refund-early',
+            amount: AMOUNT,
+            idempotencyKey: 're:refund-early',
+            metadata: REFUND_METADATA,
+          }),
+        ).rejects.toBeInstanceOf(PaymentProviderError);
       },
     );
 

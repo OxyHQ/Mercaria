@@ -594,8 +594,12 @@ function applyModelAttempt(
       : {
           basis: validated.budget.basis,
           currency: validated.budget.currency,
-          ...(validated.budget.minMinor === undefined ? {} : { minMinor: validated.budget.minMinor }),
-          ...(validated.budget.maxMinor === undefined ? {} : { maxMinor: validated.budget.maxMinor }),
+          ...(validated.budget.minMinor === undefined
+            ? {}
+            : { minMinor: validated.budget.minMinor }),
+          ...(validated.budget.maxMinor === undefined
+            ? {}
+            : { maxMinor: validated.budget.maxMinor }),
           origin: 'model_inferred',
           sourcePhrase: boundedPhrase(validated.budget.sourcePhrase),
         });

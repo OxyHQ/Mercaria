@@ -38,10 +38,10 @@
  * is the function whose whole subject is that flag.
  */
 
-import type { VariantRow } from "./matrix";
+import type { VariantRow } from './matrix';
 
 /** The separator between an author's prefix and the row's position. */
-const SKU_SEPARATOR = "-";
+const SKU_SEPARATOR = '-';
 
 /**
  * Give every sold combination a distinct SKU built from one prefix.
@@ -50,10 +50,7 @@ const SKU_SEPARATOR = "-";
  * no-op rather than a way to erase every SKU in the matrix — the author pressed
  * "apply", which is not the same as asking for a clear.
  */
-export function applySkuPrefix(
-  rows: readonly VariantRow[],
-  prefix: string,
-): readonly VariantRow[] {
+export function applySkuPrefix(rows: readonly VariantRow[], prefix: string): readonly VariantRow[] {
   const trimmed = prefix.trim();
   if (trimmed.length === 0) return rows;
 
@@ -87,9 +84,6 @@ export function applyBarcodeToAll(
  * the whole point of that switch is that an excluded combination stays on
  * screen so the author can see what they excluded. Nothing here deletes a row.
  */
-export function setAllSold(
-  rows: readonly VariantRow[],
-  sold: boolean,
-): readonly VariantRow[] {
+export function setAllSold(rows: readonly VariantRow[], sold: boolean): readonly VariantRow[] {
   return rows.map((row) => (row.enabled === sold ? row : { ...row, enabled: sold }));
 }

@@ -41,10 +41,7 @@
 
 import { uuidv7 } from '@oxy.so/db';
 import { sql } from 'drizzle-orm';
-import {
-  CONDITION_DISCLOSURE_KINDS,
-  conditionEvidencePolicy,
-} from '@mercaria/shared-types';
+import { CONDITION_DISCLOSURE_KINDS, conditionEvidencePolicy } from '@mercaria/shared-types';
 import type {
   CreateStoreProductInput,
   DualMoney,
@@ -137,14 +134,22 @@ function variantPrice(variant: VariantRecord): Money {
 
 /** Product imagery reused from the mock feed. */
 const IMG = {
-  palomaMopit: 'https://cdn.shopify.com/s/files/1/0401/8048/2198/files/top_MOPIT_MARRON_1183_d6008e8f-8239-424f-90e5-4596aacfe399.jpg?width=256',
-  palomaFranny: 'https://cdn.shopify.com/s/files/1/0401/8048/2198/files/Franny-DROP-5-63066.jpg?width=256',
-  palomaBeni: 'https://cdn.shopify.com/s/files/1/0401/8048/2198/files/top_BENI_NEGRO46243.jpg?width=256',
-  nililotanJenna: 'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/WRTW_00285_W12_JENNA_STONE_29b9bec8-0794-442c-90e7-8381a0cd218a.jpg?width=256',
-  nililotanShon: 'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/S26_WRTW_10193_W12_SHONPANT_VINTAGEWASHEDADMIRALBLUE_aa00f7ac-4cb7-4052-bdd4-c5e145a74955.jpg?width=256',
-  nililotanBalletFlat: 'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/C06_WRTW_12550_L142_BALLETFLAT_BLACK_4a_ad6ed509-d285-441c-858a-d1aac216a16d.jpg?width=256',
-  lakeKimono: 'https://cdn.shopify.com/s/files/1/0505/6125/files/LAKE_Webcrop_Spring2025_KimonoSet_Fog_1200x1800_469e4421-1758-44c8-a953-905daec8b878.jpg?width=384',
-  huhaBikini: 'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=384',
+  palomaMopit:
+    'https://cdn.shopify.com/s/files/1/0401/8048/2198/files/top_MOPIT_MARRON_1183_d6008e8f-8239-424f-90e5-4596aacfe399.jpg?width=256',
+  palomaFranny:
+    'https://cdn.shopify.com/s/files/1/0401/8048/2198/files/Franny-DROP-5-63066.jpg?width=256',
+  palomaBeni:
+    'https://cdn.shopify.com/s/files/1/0401/8048/2198/files/top_BENI_NEGRO46243.jpg?width=256',
+  nililotanJenna:
+    'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/WRTW_00285_W12_JENNA_STONE_29b9bec8-0794-442c-90e7-8381a0cd218a.jpg?width=256',
+  nililotanShon:
+    'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/S26_WRTW_10193_W12_SHONPANT_VINTAGEWASHEDADMIRALBLUE_aa00f7ac-4cb7-4052-bdd4-c5e145a74955.jpg?width=256',
+  nililotanBalletFlat:
+    'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/C06_WRTW_12550_L142_BALLETFLAT_BLACK_4a_ad6ed509-d285-441c-858a-d1aac216a16d.jpg?width=256',
+  lakeKimono:
+    'https://cdn.shopify.com/s/files/1/0505/6125/files/LAKE_Webcrop_Spring2025_KimonoSet_Fog_1200x1800_469e4421-1758-44c8-a953-905daec8b878.jpg?width=384',
+  huhaBikini:
+    'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=384',
   // A SECOND gallery entry for each P2P item, and what it is NOT is worth
   // stating. #90 requires two seller-owned photographs before a used listing may
   // be published, and this repository holds exactly one real asset per P2P item
@@ -154,8 +159,10 @@ const IMG = {
   // two distinct file ids for one real item, which is what the evidence gate
   // counts. A real listing's second photo shows the wear its disclosure names,
   // and these deliberately do not pretend to.
-  lakeKimonoSecondView: 'https://cdn.shopify.com/s/files/1/0505/6125/files/LAKE_Webcrop_Spring2025_KimonoSet_Fog_1200x1800_469e4421-1758-44c8-a953-905daec8b878.jpg?width=768',
-  huhaBikiniSecondView: 'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=768',
+  lakeKimonoSecondView:
+    'https://cdn.shopify.com/s/files/1/0505/6125/files/LAKE_Webcrop_Spring2025_KimonoSet_Fog_1200x1800_469e4421-1758-44c8-a953-905daec8b878.jpg?width=768',
+  huhaBikiniSecondView:
+    'https://cdn.shopify.com/s/files/1/0053/2244/0790/files/HUHA-Ecomm-1594-WebRes.jpg?width=768',
 } as const;
 
 /** The single option axis name for the multi-variant beauty product. */
@@ -273,21 +280,60 @@ const SECONDARY_REVIEW_DISTRIBUTIONS: Readonly<
  * reviews by index, so each review reads like a real short product review.
  */
 const REVIEW_SNIPPETS: readonly { title: string; body: string }[] = [
-  { title: 'Gorgeous everyday glow', body: 'Blends in seconds with my fingertips and lasts all day. My new go-to.' },
-  { title: 'Brightens tired eyes', body: 'Instantly makes me look more awake. A little goes a long way.' },
-  { title: 'Buttery and natural', body: 'Creamy formula that never looks cakey or settles into fine lines.' },
-  { title: 'Perfect inner-corner pop', body: 'The shimmer is subtle but noticeable — great for a no-makeup makeup look.' },
-  { title: 'Holy grail highlighter', body: "I've repurchased three times. Works on eyes, cheeks, and brow bone." },
-  { title: 'Lit-from-within finish', body: 'Catches the light beautifully without any chunky glitter. Love it.' },
+  {
+    title: 'Gorgeous everyday glow',
+    body: 'Blends in seconds with my fingertips and lasts all day. My new go-to.',
+  },
+  {
+    title: 'Brightens tired eyes',
+    body: 'Instantly makes me look more awake. A little goes a long way.',
+  },
+  {
+    title: 'Buttery and natural',
+    body: 'Creamy formula that never looks cakey or settles into fine lines.',
+  },
+  {
+    title: 'Perfect inner-corner pop',
+    body: 'The shimmer is subtle but noticeable — great for a no-makeup makeup look.',
+  },
+  {
+    title: 'Holy grail highlighter',
+    body: "I've repurchased three times. Works on eyes, cheeks, and brow bone.",
+  },
+  {
+    title: 'Lit-from-within finish',
+    body: 'Catches the light beautifully without any chunky glitter. Love it.',
+  },
   { title: 'So easy to use', body: 'No brushes needed. Swipe, blend, done. Travels great too.' },
-  { title: 'Lovely on mature skin', body: 'Doesn’t emphasize texture at all, which most highlighters do on me.' },
-  { title: 'Wears all day', body: 'Still glowing after a 10-hour shift. Impressive staying power.' },
+  {
+    title: 'Lovely on mature skin',
+    body: 'Doesn’t emphasize texture at all, which most highlighters do on me.',
+  },
+  {
+    title: 'Wears all day',
+    body: 'Still glowing after a 10-hour shift. Impressive staying power.',
+  },
   { title: 'Beautiful shade range', body: 'Found my exact match. Pigment is true to the swatch.' },
-  { title: 'Subtle but effective', body: 'Just the right amount of shine for the office. Not over the top.' },
-  { title: 'Good, not life-changing', body: 'Nice glow but I expected a touch more pigment for the price.' },
-  { title: 'Creased a little on me', body: 'Pretty color, but it moved into my crease by midday. Primer helped.' },
-  { title: 'Not for me', body: 'The shimmer was too sheer for what I wanted. Might suit others though.' },
-  { title: 'Disappointed', body: 'Arrived fine but the formula felt drier than I remembered. Wouldn’t reorder.' },
+  {
+    title: 'Subtle but effective',
+    body: 'Just the right amount of shine for the office. Not over the top.',
+  },
+  {
+    title: 'Good, not life-changing',
+    body: 'Nice glow but I expected a touch more pigment for the price.',
+  },
+  {
+    title: 'Creased a little on me',
+    body: 'Pretty color, but it moved into my crease by midday. Primer helped.',
+  },
+  {
+    title: 'Not for me',
+    body: 'The shimmer was too sheer for what I wanted. Might suit others though.',
+  },
+  {
+    title: 'Disappointed',
+    body: 'Arrived fine but the formula felt drier than I remembered. Wouldn’t reorder.',
+  },
 ] as const;
 
 /**
@@ -367,8 +413,10 @@ const STORES: StoreSpec[] = [
     description: 'Independent Barcelona label of playful, sculptural knitwear and ready-to-wear.',
     brandColor: 'rgb(132,112,93)',
     textTone: 'light',
-    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1773914536/logo.png?format=webp&width=64',
-    coverFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1773914305/PWSS26_B-12.jpeg?width=800',
+    logoFileId:
+      'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1773914536/logo.png?format=webp&width=64',
+    coverFileId:
+      'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1773914305/PWSS26_B-12.jpeg?width=800',
     rating: 4.9,
     reviewCount: 1400,
     products: [
@@ -405,8 +453,10 @@ const STORES: StoreSpec[] = [
     description: 'New York atelier known for elevated, effortless wardrobe staples.',
     brandColor: 'rgb(126,122,112)',
     textTone: 'light',
-    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1784834046/logo.png?format=webp&width=64',
-    coverFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1783446974/Slice111.jpg.jpeg?width=800',
+    logoFileId:
+      'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1784834046/logo.png?format=webp&width=64',
+    coverFileId:
+      'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1783446974/Slice111.jpg.jpeg?width=800',
     rating: 4.7,
     reviewCount: 128,
     products: [
@@ -443,7 +493,8 @@ const STORES: StoreSpec[] = [
     description: 'Clean, vegan, cruelty-free beauty made for life on the go.',
     brandColor: 'rgb(214,71,107)',
     textTone: 'light',
-    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/milkmakeup21.myshopify.com/1699543597/logo.png?format=webp&width=64',
+    logoFileId:
+      'https://cdn.shopify.com/shop-assets/shopify_brokers/milkmakeup21.myshopify.com/1699543597/logo.png?format=webp&width=64',
     rating: 4.8,
     reviewCount: 5200,
     products: [
@@ -515,9 +566,7 @@ const P2P_LISTINGS: P2PSpec[] = [
       // severity instead of a mandatory note — the honest shape for an item
       // whose only fault is having been worn.
       details: [{ kind: 'cosmetic_wear', severity: 'light' }],
-      photoAnnotations: [
-        { fileId: IMG.lakeKimonoSecondView, showsDefect: true, detailIndex: 0 },
-      ],
+      photoAnnotations: [{ fileId: IMG.lakeKimonoSecondView, showsDefect: true, detailIndex: 0 }],
     },
   },
   {
@@ -700,9 +749,7 @@ function toStoreProductInput(
     variants: product.variants.map((spec) => ({
       optionValues: spec.optionValues.map((o) => ({ name: o.name, value: o.value })),
       price: fair(spec.price),
-      ...(spec.compareAtPrice !== undefined
-        ? { compareAtPrice: fair(spec.compareAtPrice) }
-        : {}),
+      ...(spec.compareAtPrice !== undefined ? { compareAtPrice: fair(spec.compareAtPrice) } : {}),
       sku: skuFor(storeSpec.handle, product.title, spec),
       inventory: { tracked: true, available: spec.available },
     })),

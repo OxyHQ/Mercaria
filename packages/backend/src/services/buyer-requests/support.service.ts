@@ -86,9 +86,7 @@ function authorColumns(writer: SupportWriter): {
     // distinguishes them, in the two protected columns below.
     return {
       authorKind: 'buyer',
-      ...(writer.actor.oxyUserId === undefined
-        ? {}
-        : { authorOxyUserId: writer.actor.oxyUserId }),
+      ...(writer.actor.oxyUserId === undefined ? {} : { authorOxyUserId: writer.actor.oxyUserId }),
       ...(writer.actor.grantId === undefined ? {} : { authorGrantId: writer.actor.grantId }),
     };
   }

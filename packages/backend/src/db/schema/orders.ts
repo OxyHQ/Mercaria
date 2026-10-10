@@ -216,7 +216,9 @@ export const orders = pgTable(
      * and must never rewrite this one, so "who placed it" and "who owns it now"
      * stay two facts (I7).
      */
-    buyerOrigin: text({ enum: asEnumValues(ORDER_BUYER_ORIGINS) }).notNull().default('oxy'),
+    buyerOrigin: text({ enum: asEnumValues(ORDER_BUYER_ORIGINS) })
+      .notNull()
+      .default('oxy'),
     /**
      * The contact identity for a guest-origin order (ADR 0003 D4). Set iff
      * `buyer_origin = 'guest'`.
@@ -402,7 +404,9 @@ export const orders = pgTable(
      */
     digitalSupplyConsentAt: timestamptz(),
 
-    status: text({ enum: asEnumValues(ORDER_STATUSES) }).notNull().default('pending_payment'),
+    status: text({ enum: asEnumValues(ORDER_STATUSES) })
+      .notNull()
+      .default('pending_payment'),
 
     // `payment` — the buyer-safe projection, flattened. `reference` is the
     // provider's own transaction id and is a PROTECTED column. Everything else a
@@ -931,7 +935,9 @@ export const orderStatusHistory = pgTable(
      * EXPLICITLY; a new writer leaning on the default would silently attribute
      * a person's action to the system.
      */
-    actorKind: text({ enum: asEnumValues(ORDER_ACTOR_KINDS) }).notNull().default('system'),
+    actorKind: text({ enum: asEnumValues(ORDER_ACTOR_KINDS) })
+      .notNull()
+      .default('system'),
     /** An Oxy account id — no foreign key. Set iff `actor_kind` is oxy/operator. */
     byOxyUserId: text(),
     /**
@@ -1114,8 +1120,12 @@ export const refunds = pgTable(
     storeId: text().references(() => stores.id, { onDelete: 'restrict' }),
     /** An Oxy account id — no foreign key. */
     sellerOxyUserId: text(),
-    type: text({ enum: asEnumValues(REFUND_TYPES) }).notNull().default('refund'),
-    status: text({ enum: asEnumValues(REFUND_STATUSES) }).notNull().default('refunded'),
+    type: text({ enum: asEnumValues(REFUND_TYPES) })
+      .notNull()
+      .default('refund'),
+    status: text({ enum: asEnumValues(REFUND_STATUSES) })
+      .notNull()
+      .default('refunded'),
     reason: text(),
     /** All four absent together when no shipping was refunded. */
     ...optionalDualMoney('refundShipping'),

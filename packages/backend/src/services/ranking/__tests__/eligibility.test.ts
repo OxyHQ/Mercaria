@@ -23,7 +23,10 @@ import { buildFacts, buildOffer, expiredAssessment } from './offer-fixtures.js';
  * that half has its own case at the bottom of this file rather than being
  * repeated in thirty assertions about reason codes.
  */
-function reasonsFor(offer: Parameters<typeof evaluateOfferEligibility>[0], ctx: OfferEligibilityContext) {
+function reasonsFor(
+  offer: Parameters<typeof evaluateOfferEligibility>[0],
+  ctx: OfferEligibilityContext,
+) {
   return evaluateOfferEligibility(offer, ctx).reasons;
 }
 
@@ -46,29 +49,24 @@ describe('the ten eligibility rules', () => {
   });
 
   it('1 — a retired offer is refused', () => {
-    expect(reasonsFor(buildOffer({ status: 'retired' }), context())).toContain(
-      'offer_retired',
-    );
+    expect(reasonsFor(buildOffer({ status: 'retired' }), context())).toContain('offer_retired');
   });
 
   it('2 — an offer on another canonical variant is refused', () => {
-    expect(
-      reasonsFor(buildOffer({ canonicalVariantId: 'variant-other' }), context()),
-    ).toContain('wrong_canonical_variant');
+    expect(reasonsFor(buildOffer({ canonicalVariantId: 'variant-other' }), context())).toContain(
+      'wrong_canonical_variant',
+    );
   });
 
   it('3 — an expired observation is refused, with the level named', () => {
-    const reasons = reasonsFor(
-      buildOffer({ freshness: expiredAssessment() }),
-      context(),
-    );
+    const reasons = reasonsFor(buildOffer({ freshness: expiredAssessment() }), context());
     expect(reasons).toContain('observation_expired');
   });
 
   it('4 — an offer published for another market is refused', () => {
-    expect(
-      reasonsFor(buildOffer({ country: 'DE' }), context({ market: 'ES' })),
-    ).toContain('market_not_served');
+    expect(reasonsFor(buildOffer({ country: 'DE' }), context({ market: 'ES' }))).toContain(
+      'market_not_served',
+    );
   });
 
   it('4 — an offer published for NO market is admitted everywhere', () => {
@@ -78,9 +76,9 @@ describe('the ten eligibility rules', () => {
   });
 
   it('4 — a trade-only offer is refused for a shopper who has proved nothing', () => {
-    expect(
-      reasonsFor(buildOffer({ customerEligibility: 'business_only' }), context()),
-    ).toContain('customer_not_eligible');
+    expect(reasonsFor(buildOffer({ customerEligibility: 'business_only' }), context())).toContain(
+      'customer_not_eligible',
+    );
   });
 
   it('4 — and admitted for a shopper who HAS established that class', () => {
@@ -93,19 +91,17 @@ describe('the ten eligibility rules', () => {
   });
 
   it('5 — `buy_now` refuses what the source DECLARED unbuyable', () => {
-    expect(
-      reasonsFor(buildOffer({ availability: 'out_of_stock' }), context()),
-    ).toContain('availability_unsupported');
+    expect(reasonsFor(buildOffer({ availability: 'out_of_stock' }), context())).toContain(
+      'availability_unsupported',
+    );
   });
 
   it('5 — `browse` keeps an out-of-stock offer and still refuses an unavailable one', () => {
     const browsing = context({ experience: 'browse' });
-    expect(reasonsFor(buildOffer({ availability: 'out_of_stock' }), browsing)).toEqual(
-      [],
+    expect(reasonsFor(buildOffer({ availability: 'out_of_stock' }), browsing)).toEqual([]);
+    expect(reasonsFor(buildOffer({ availability: 'unavailable' }), browsing)).toContain(
+      'availability_unsupported',
     );
-    expect(
-      reasonsFor(buildOffer({ availability: 'unavailable' }), browsing),
-    ).toContain('availability_unsupported');
   });
 
   it('5 — an UNKNOWN availability is admitted under both experiences', () => {
@@ -120,9 +116,7 @@ describe('the ten eligibility rules', () => {
 
   it('6 — a condition outside the filter is refused, and one inside it is not', () => {
     const filtered = context({ conditionGroups: ['used'] });
-    expect(reasonsFor(buildOffer({ condition: 'new' }), filtered)).toContain(
-      'condition_excluded',
-    );
+    expect(reasonsFor(buildOffer({ condition: 'new' }), filtered)).toContain('condition_excluded');
     expect(reasonsFor(buildOffer({ condition: 'used_good' }), filtered)).toEqual([]);
   });
 
@@ -149,17 +143,14 @@ describe('the ten eligibility rules', () => {
   });
 
   it('8 — an external offer with no destination is refused', () => {
-    expect(
-      reasonsFor(buildOffer({ destinationUrl: null }), context()),
-    ).toContain('destination_missing');
+    expect(reasonsFor(buildOffer({ destinationUrl: null }), context())).toContain(
+      'destination_missing',
+    );
   });
 
   it('8 — an INFORMATIONAL offer needs no destination', () => {
     expect(
-      reasonsFor(
-        buildOffer({ kind: 'informational', destinationUrl: null }),
-        context(),
-      ),
+      reasonsFor(buildOffer({ kind: 'informational', destinationUrl: null }), context()),
     ).toEqual([]);
   });
 

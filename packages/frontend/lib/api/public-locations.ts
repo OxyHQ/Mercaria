@@ -33,7 +33,8 @@ export async function fetchStoreLocations(storeId: string): Promise<MercariaLoca
       `${config.apiUrl}${MERCARIA_PUBLIC_API_BASE_PATH}/stores/${encodeURIComponent(storeId)}/locations?${query.toString()}`,
       { headers: { Accept: 'application/json' }, credentials: 'omit' },
     );
-    if (!response.ok) throw new Error(`The store's locations could not be read (${response.status})`);
+    if (!response.ok)
+      throw new Error(`The store's locations could not be read (${response.status})`);
     const body = MercariaLocationPageSchema.parse(await response.json());
     locations.push(...body.items);
     cursor = body.nextCursor;

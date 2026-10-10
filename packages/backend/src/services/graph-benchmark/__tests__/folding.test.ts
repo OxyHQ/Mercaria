@@ -167,10 +167,9 @@ describe('the folding corpus', () => {
   it('states an expectation for all three spaces on every probe', () => {
     for (const probe of FOLDING_PROBES) {
       for (const space of FOLDING_SPACES) {
-        expect(
-          probe.expected[space],
-          `${probe.id} states nothing for ${space}`,
-        ).toMatch(/^(match|no_match)$/);
+        expect(probe.expected[space], `${probe.id} states nothing for ${space}`).toMatch(
+          /^(match|no_match)$/,
+        );
       }
     }
   });

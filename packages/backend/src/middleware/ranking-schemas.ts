@@ -35,7 +35,8 @@ import {
 
 function tuple<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
   const [first, ...rest] = values;
-  if (first === undefined) throw new Error('An empty enum accepts nothing and types every value never');
+  if (first === undefined)
+    throw new Error('An empty enum accepts nothing and types every value never');
   return [first, ...rest];
 }
 
@@ -52,13 +53,22 @@ const CUSTOMER_CLASS_VALUES = tuple(
 const METRIC_KEY_VALUES = tuple(ANALYTICS_METRIC_KEYS);
 
 const entityId = z.string().trim().min(1).max(64);
-const country = z.string().trim().length(2).regex(/^[A-Za-z]{2}$/);
+const country = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/);
 
 /** A comma-separated query value, as a browser and a fetch client both send it. */
 function commaList<T extends string>(values: readonly [T, ...T[]]) {
   return z
     .string()
-    .transform((raw) => raw.split(',').map((part) => part.trim()).filter((part) => part !== ''))
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part !== ''),
+    )
     .pipe(z.array(z.enum(values)).min(1).max(values.length));
 }
 
@@ -92,8 +102,7 @@ export const offerComparisonQuerySchema = z
     { message: 'Provide exactly one of canonicalVariantId or canonicalProductId' },
   )
   .refine(
-    (query) =>
-      (query.viewerLatitude === undefined) === (query.viewerLongitude === undefined),
+    (query) => (query.viewerLatitude === undefined) === (query.viewerLongitude === undefined),
     { message: 'Provide both viewerLatitude and viewerLongitude, or neither' },
   );
 
@@ -138,10 +147,9 @@ export const rankingPolicyCreateSchema = z
     guardrailMetricKeys: z.array(z.enum(METRIC_KEY_VALUES)).min(1).max(METRIC_KEY_VALUES.length),
   })
   .strict()
-  .refine(
-    (body) => Object.values(body.weights).some((value) => value > 0),
-    { message: 'At least one weight must be positive' },
-  );
+  .refine((body) => Object.values(body.weights).some((value) => value > 0), {
+    message: 'At least one weight must be positive',
+  });
 
 /** `POST /internal/ranking/policies/:id/canary` — start or ramp one. */
 export const rankingPolicyCanarySchema = z

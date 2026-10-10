@@ -26,7 +26,11 @@ import type { FeedFieldTransform } from '@mercaria/shared-types';
  * currency's precision and this function has no currency. A transform that
  * guessed one would produce a price in a denomination nobody published.
  */
-export function applyFeedTransform(value: string, transform: FeedFieldTransform, listSeparator: string): string {
+export function applyFeedTransform(
+  value: string,
+  transform: FeedFieldTransform,
+  listSeparator: string,
+): string {
   switch (transform) {
     case 'trim':
       return value.trim();
@@ -126,7 +130,5 @@ export function decodeHtmlEntities(value: string): string {
  * why `sanitizeAuthoredText` decodes FIRST and does not reuse this function.
  */
 function stripHtml(value: string): string {
-  return decodeHtmlEntities(stripHtmlTags(value))
-    .replace(/\s+/gu, ' ')
-    .trim();
+  return decodeHtmlEntities(stripHtmlTags(value)).replace(/\s+/gu, ' ').trim();
 }

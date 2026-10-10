@@ -10,11 +10,7 @@
 import { sql } from 'drizzle-orm';
 import { boolean, check, index, jsonb, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
-import {
-  asEnumValues,
-  checkEveryElementOf,
-  checkOneOf,
-} from './columns';
+import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
 
 /** `Notification.type`. */
 export const NOTIFICATION_TYPES = [
@@ -141,8 +137,12 @@ export const notifications = pgTable(
       .$type<Record<string, 'pending' | 'sent' | 'failed'>>()
       .notNull()
       .default({}),
-    status: text({ enum: asEnumValues(NOTIFICATION_STATUSES) }).notNull().default('pending'),
-    priority: text({ enum: asEnumValues(NOTIFICATION_PRIORITIES) }).notNull().default('normal'),
+    status: text({ enum: asEnumValues(NOTIFICATION_STATUSES) })
+      .notNull()
+      .default('pending'),
+    priority: text({ enum: asEnumValues(NOTIFICATION_PRIORITIES) })
+      .notNull()
+      .default('normal'),
     /** An opaque conversation reference from another Oxy service — no foreign key. */
     conversationId: text(),
     expiresAt: timestamptz(),
@@ -231,5 +231,7 @@ export const webPushSubscriptions = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [uniqueIndex('web_push_subscriptions_oxy_user_id_endpoint_key').on(t.oxyUserId, t.endpoint)],
+  (t) => [
+    uniqueIndex('web_push_subscriptions_oxy_user_id_endpoint_key').on(t.oxyUserId, t.endpoint),
+  ],
 );

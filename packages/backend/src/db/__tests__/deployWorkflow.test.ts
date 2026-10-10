@@ -84,9 +84,7 @@ describe('the deploy workflow and the migrator agree', () => {
 
     expect(workflow).toContain("--query 'imageDetails[0].imageDigest'");
     expect(register?.run).toContain('aws ecs register-task-definition');
-    expect(register?.run).toContain(
-      '{family, taskRoleArn, executionRoleArn, networkMode,',
-    );
+    expect(register?.run).toContain('{family, taskRoleArn, executionRoleArn, networkMode,');
     expect(register?.run).toContain('runtimePlatform, enableFaultInjection}');
     expect(register?.run).not.toContain('del(.taskDefinitionArn');
     expect(register?.run).toContain('.image = $image');
@@ -97,12 +95,14 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
     // No GoWay client means no location can be published (ADR 0013).
     expect(register?.run).toContain('{name: "GOWAY_API_URL", value: $goway_api_url}');
-    expect(register?.env?.GOWAY_API_URL).toBe("${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}");
+    expect(register?.env?.GOWAY_API_URL).toBe(
+      "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
+    );
     expect(rollout?.run).toContain('--task-definition');
     expect(catalog?.run).toContain('packages/backend/dist/register-capability-catalog.js');
     expect(catalog?.env?.TASK_DEFINITION).toBe('${{ steps.ecs.outputs.task_definition }}');
-    expect(ecsTaskScript).toContain("--task-definition \"$TASK_DEFINITION\"");
-    expect(ecsTaskScript).toContain("EXIT_CODE");
+    expect(ecsTaskScript).toContain('--task-definition "$TASK_DEFINITION"');
+    expect(ecsTaskScript).toContain('EXIT_CODE');
   });
 
   it('verifies the exact ECS candidate before destructive migrations or catalog publication', () => {
@@ -282,13 +282,17 @@ describe('the deploy reads runtime secrets from SSM and writes none', () => {
   it('never writes an SSM parameter', () => {
     const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
     for (const step of steps) {
-      expect(step.run ?? '', `step "${step.name ?? '?'}" writes SSM`).not.toMatch(/ssm\s+put-parameter/);
+      expect(step.run ?? '', `step "${step.name ?? '?'}" writes SSM`).not.toMatch(
+        /ssm\s+put-parameter/,
+      );
     }
   });
 
   it('reads no repo secret but the job token, and never the whole context', () => {
     expect(workflow).not.toMatch(/\$\{\{[^}]*toJSON\s*\(\s*secrets\s*\)/);
-    const named = [...workflow.matchAll(/\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}/g)].map((match) => match[1]);
+    const named = [...workflow.matchAll(/\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}/g)].map(
+      (match) => match[1],
+    );
     expect(named.length, 'the job token is still read, so the matcher works').toBeGreaterThan(0);
     expect([...new Set(named)]).toEqual(['GITHUB_TOKEN']);
   });

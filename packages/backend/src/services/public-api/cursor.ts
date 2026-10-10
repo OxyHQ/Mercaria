@@ -55,7 +55,10 @@ const CURSOR_VERSION = 1;
 export type PublicCursorScope = Readonly<Record<string, string | boolean | undefined>>;
 
 /** A stable digest of a list kind plus its scope. Key order does not matter. */
-export function publicCursorFingerprint(kind: MercariaPublicCursorKind, scope: PublicCursorScope): string {
+export function publicCursorFingerprint(
+  kind: MercariaPublicCursorKind,
+  scope: PublicCursorScope,
+): string {
   const entries = Object.entries(scope)
     .filter((entry): entry is [string, string | boolean] => entry[1] !== undefined)
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
@@ -70,7 +73,11 @@ const payloadSchema = z
     v: z.literal(CURSOR_VERSION),
     k: z.enum(MERCARIA_PUBLIC_CURSOR_KINDS),
     f: z.string().min(1).max(64),
-    o: z.number().int().min(1).max(MERCARIA_PUBLIC_LIST_MAX_OFFSET - 1),
+    o: z
+      .number()
+      .int()
+      .min(1)
+      .max(MERCARIA_PUBLIC_LIST_MAX_OFFSET - 1),
   })
   .strict();
 

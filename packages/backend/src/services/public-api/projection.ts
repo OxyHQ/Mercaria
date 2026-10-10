@@ -43,7 +43,10 @@ import type {
 } from '@mercaria/contracts';
 import type { StoreRow } from '../../db/stores/storeRepository.js';
 import type { CollectionRow } from '../../db/merchandising/collectionRepository.js';
-import type { LocationStockLevel, PublicLocationRow } from '../../db/pickup/publicLocationRepository.js';
+import type {
+  LocationStockLevel,
+  PublicLocationRow,
+} from '../../db/pickup/publicLocationRepository.js';
 import { inventoryBlockers, locationAvailabilityState } from '../pickup/eligibility.js';
 import { collectionWebUrl, locationWebUrl, productWebUrl, storeWebUrl } from './urls.js';
 
@@ -85,10 +88,7 @@ export function productAvailability(listing: Listing): MercariaProductAvailabili
  * One purchase option. A SOLD product's options are all `out_of_stock`: the
  * item is never buyable again, whatever a variant's stale counter says.
  */
-function purchaseOption(
-  listing: Listing,
-  variant: ProductVariantDTO,
-): MercariaPurchaseOption {
+function purchaseOption(listing: Listing, variant: ProductVariantDTO): MercariaPurchaseOption {
   return {
     ref: { kind: 'variant', productId: listing.id, variantId: variant.id },
     title: variant.title,
@@ -116,7 +116,8 @@ export function projectSeller(
   resolveMedia: MediaResolver,
 ): MercariaSeller {
   if (listing.ownerType === 'store') {
-    if (!store) throw new Error(`public projection: store-owned listing ${listing.id} has no store`);
+    if (!store)
+      throw new Error(`public projection: store-owned listing ${listing.id} has no store`);
     return {
       kind: 'store',
       store: { kind: 'store', id: store.id },
@@ -126,7 +127,8 @@ export function projectSeller(
     };
   }
   const seller = listing.seller;
-  if (!seller) throw new Error(`public projection: person-owned listing ${listing.id} has no seller`);
+  if (!seller)
+    throw new Error(`public projection: person-owned listing ${listing.id} has no seller`);
   return {
     kind: 'person',
     oxyUserId: seller.oxyUserId,
@@ -149,8 +151,7 @@ export function projectProductSummary(
   const [first] = listing.images;
   const range = listing.priceRange;
   const flatRange =
-    !range ||
-    (range.min.amount === range.max.amount && range.min.currency === range.max.currency);
+    !range || (range.min.amount === range.max.amount && range.min.currency === range.max.currency);
   return {
     ref: { kind: 'product', id: listing.id },
     title: listing.title,
@@ -307,11 +308,16 @@ export function projectLocation(
 export function projectLocationProduct(
   summary: MercariaProductSummary,
   levels: readonly LocationStockLevel[],
-  location: Pick<PublicLocationRow, 'disclosesExactStock' | 'lowStockThreshold' | 'stockConfirmationIntervalSeconds'>,
+  location: Pick<
+    PublicLocationRow,
+    'disclosesExactStock' | 'lowStockThreshold' | 'stockConfirmationIntervalSeconds'
+  >,
   at: Date,
 ): MercariaLocationProduct {
   if (levels.length === 0) {
-    throw new Error(`public projection: product ${summary.ref.id} has no stock level at the location`);
+    throw new Error(
+      `public projection: product ${summary.ref.id} has no stock level at the location`,
+    );
   }
   let units = 0;
   let oldestFresh: Date | undefined;

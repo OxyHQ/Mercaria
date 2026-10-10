@@ -57,12 +57,54 @@ describe('per-merchant delivery couples the lines', () => {
     // per-line minimum picks three merchants and pays three deliveries.
     const lines = [line('l1'), line('l2'), line('l3')];
     const candidates = [
-      candidate({ lineId: 'l1', offerId: 'a1', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(10001), delivery: eur(400) }),
-      candidate({ lineId: 'l2', offerId: 'a2', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(10001), delivery: eur(400) }),
-      candidate({ lineId: 'l3', offerId: 'a3', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(10001), delivery: eur(400) }),
-      candidate({ lineId: 'l1', offerId: 'b1', merchantKey: 'B', merchantRef: 'B', unitItemPrice: eur(10000), delivery: eur(400) }),
-      candidate({ lineId: 'l2', offerId: 'c1', merchantKey: 'C', merchantRef: 'C', unitItemPrice: eur(10000), delivery: eur(400) }),
-      candidate({ lineId: 'l3', offerId: 'd1', merchantKey: 'D', merchantRef: 'D', unitItemPrice: eur(10000), delivery: eur(400) }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'a1',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(10001),
+        delivery: eur(400),
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'a2',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(10001),
+        delivery: eur(400),
+      }),
+      candidate({
+        lineId: 'l3',
+        offerId: 'a3',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(10001),
+        delivery: eur(400),
+      }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'b1',
+        merchantKey: 'B',
+        merchantRef: 'B',
+        unitItemPrice: eur(10000),
+        delivery: eur(400),
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'c1',
+        merchantKey: 'C',
+        merchantRef: 'C',
+        unitItemPrice: eur(10000),
+        delivery: eur(400),
+      }),
+      candidate({
+        lineId: 'l3',
+        offerId: 'd1',
+        merchantKey: 'D',
+        merchantRef: 'D',
+        unitItemPrice: eur(10000),
+        delivery: eur(400),
+      }),
     ];
 
     const cheapestTotal = solve(lines, candidates, { objective: 'cheapest_known_total' });
@@ -115,8 +157,23 @@ describe('a shipping threshold is applied to the MERCHANT subtotal', () => {
   it('a threshold met only by ANOTHER merchant’s items does not apply', () => {
     const lines = [line('l1'), line('l2')];
     const candidates = [
-      candidate({ lineId: 'l1', offerId: 'a1', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(3000), delivery: eur(500), deliveryFreeOver: eur(5000) }),
-      candidate({ lineId: 'l2', offerId: 'b1', merchantKey: 'B', merchantRef: 'B', unitItemPrice: eur(3000), delivery: eur(500) }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'a1',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(3000),
+        delivery: eur(500),
+        deliveryFreeOver: eur(5000),
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'b1',
+        merchantKey: 'B',
+        merchantRef: 'B',
+        unitItemPrice: eur(3000),
+        delivery: eur(500),
+      }),
     ];
     const plan = composeBasketPlan({
       assignments: [
@@ -137,8 +194,20 @@ describe('a shipping threshold is applied to the MERCHANT subtotal', () => {
     // know which applies to a combined order. Picking one would invent it.
     const lines = [line('l1'), line('l2')];
     const candidates = [
-      candidate({ lineId: 'l1', offerId: 'a1', merchantKey: 'A', merchantRef: 'A', delivery: eur(400) }),
-      candidate({ lineId: 'l2', offerId: 'a2', merchantKey: 'A', merchantRef: 'A', delivery: eur(900) }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'a1',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        delivery: eur(400),
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'a2',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        delivery: eur(900),
+      }),
     ];
     const plan = composeBasketPlan({
       assignments: [
@@ -182,8 +251,20 @@ describe('unknown costs never become a known total', () => {
   it('two merchants disagreeing about tax inclusion answer unknown, never one of them', () => {
     const lines = [line('l1'), line('l2')];
     const outcome = solve(lines, [
-      candidate({ lineId: 'l1', offerId: 'a1', merchantKey: 'A', merchantRef: 'A', taxInclusion: 'inclusive' }),
-      candidate({ lineId: 'l2', offerId: 'b1', merchantKey: 'B', merchantRef: 'B', taxInclusion: 'exclusive' }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'a1',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        taxInclusion: 'inclusive',
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'b1',
+        merchantKey: 'B',
+        merchantRef: 'B',
+        taxInclusion: 'exclusive',
+      }),
     ]);
     expect(outcome.plan.taxInclusion).toBe('unknown');
   });
@@ -210,7 +291,12 @@ describe('pruning never removes a distinct option', () => {
       unitItemPrice: eur(11000),
       conditionGroup: 'refurbished',
     });
-    const fresh = candidate({ lineId: 'l1', offerId: 'a2', unitItemPrice: eur(9000), conditionGroup: 'new' });
+    const fresh = candidate({
+      lineId: 'l1',
+      offerId: 'a2',
+      unitItemPrice: eur(9000),
+      conditionGroup: 'new',
+    });
     expect(distinctionKeyOf(used)).not.toBe(distinctionKeyOf(fresh));
     expect(dominates(fresh, used)).toBe(false);
     const pruned = pruneBasketCandidates({
@@ -224,7 +310,12 @@ describe('pruning never removes a distinct option', () => {
 
   it('an offer with an UNKNOWN delivery is a different bucket from one that quoted it', () => {
     const quoted = candidate({ lineId: 'l1', offerId: 'a1', unitItemPrice: eur(9000) });
-    const silent = candidate({ lineId: 'l1', offerId: 'a2', unitItemPrice: eur(11000), delivery: unknownMoney() });
+    const silent = candidate({
+      lineId: 'l1',
+      offerId: 'a2',
+      unitItemPrice: eur(11000),
+      delivery: unknownMoney(),
+    });
     expect(dominates(quoted, silent)).toBe(false);
     const pruned = pruneBasketCandidates({
       lines: [line('l1')],
@@ -236,7 +327,12 @@ describe('pruning never removes a distinct option', () => {
   });
 
   it('an unquoted delivery WINDOW is incomparable in both directions', () => {
-    const withWindow = candidate({ lineId: 'l1', offerId: 'a1', unitItemPrice: eur(9000), deliveryMaxDays: 2 });
+    const withWindow = candidate({
+      lineId: 'l1',
+      offerId: 'a1',
+      unitItemPrice: eur(9000),
+      deliveryMaxDays: 2,
+    });
     const without = candidate({ lineId: 'l1', offerId: 'a2', unitItemPrice: eur(11000) });
     expect(dominates(withWindow, without)).toBe(false);
     expect(dominates(without, withWindow)).toBe(false);
@@ -343,8 +439,20 @@ describe('coverage, limits and honesty about them', () => {
   it('a plan covering more lines beats a cheaper plan covering fewer', () => {
     const lines = [line('l1'), line('l2')];
     const outcome = solve(lines, [
-      candidate({ lineId: 'l1', offerId: 'a1', merchantKey: 'A', merchantRef: 'A', unitItemPrice: eur(100) }),
-      candidate({ lineId: 'l2', offerId: 'b1', merchantKey: 'B', merchantRef: 'B', unitItemPrice: eur(90000) }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'a1',
+        merchantKey: 'A',
+        merchantRef: 'A',
+        unitItemPrice: eur(100),
+      }),
+      candidate({
+        lineId: 'l2',
+        offerId: 'b1',
+        merchantKey: 'B',
+        merchantRef: 'B',
+        unitItemPrice: eur(90000),
+      }),
     ]);
     expect(outcome.plan.coveredLineIds).toHaveLength(2);
   });
@@ -610,7 +718,13 @@ describe('quantity is never split across offers', () => {
     const lines = [line('l1', 5)];
     const outcome = solve(lines, [
       candidate({ lineId: 'l1', offerId: 'a1', unitItemPrice: eur(1000) }),
-      candidate({ lineId: 'l1', offerId: 'b1', merchantKey: 'B', merchantRef: 'B', unitItemPrice: eur(900) }),
+      candidate({
+        lineId: 'l1',
+        offerId: 'b1',
+        merchantKey: 'B',
+        merchantRef: 'B',
+        unitItemPrice: eur(900),
+      }),
     ]);
     expect(outcome.plan.lines).toHaveLength(1);
     expect(outcome.plan.lines[0].quantity).toBe(5);

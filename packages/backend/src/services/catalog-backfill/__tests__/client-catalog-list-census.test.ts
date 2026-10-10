@@ -73,10 +73,7 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'
  * `validate-storefront-catalog-driven.mjs` since #478, and `packages/ui/src`
  * under the authoring validator too.
  */
-const CENSUSED_CLIENT_ROOTS = [
-  join('packages', 'pos'),
-  join('packages', 'ui', 'src'),
-];
+const CENSUSED_CLIENT_ROOTS = [join('packages', 'pos'), join('packages', 'ui', 'src')];
 
 /** Every client source file under the censused roots, as `{relative path → text}`. */
 function censusedClientSources(): Map<string, string> {

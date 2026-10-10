@@ -106,7 +106,11 @@ const DEFINITIONS: Readonly<Record<string, { label: string; decimalPlaces: numbe
 };
 
 vi.mock('../../middleware/auth.js', () => ({
-  authenticateToken: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+  authenticateToken: (
+    _req: express.Request,
+    _res: express.Response,
+    next: express.NextFunction,
+  ) => {
     next();
   },
   oxyClient: {},
@@ -281,9 +285,7 @@ describe('the public values route composes a display unit', () => {
     // `.strict()` on the schema, reached through the real route. A query able to
     // carry a unit or a magnitude is where one would eventually be trusted.
     for (const query of ['?normalizedNumber=999', '?unit=in', '?unitSystem=imperial']) {
-      const response = await fetch(
-        `${baseUrl}/catalog-attributes/values/product/prod-1${query}`,
-      );
+      const response = await fetch(`${baseUrl}/catalog-attributes/values/product/prod-1${query}`);
       expect(response.status, `${query} was accepted`).toBe(400);
     }
   });

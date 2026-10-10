@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { capabilityLabel, capabilityValueLabel, type Place, type PlaceHoursException, type PlaceMedia } from '@goway.to/sdk';
+import {
+  capabilityLabel,
+  capabilityValueLabel,
+  type Place,
+  type PlaceHoursException,
+  type PlaceMedia,
+} from '@goway.to/sdk';
 import {
   calendarDate,
   orderLocations,
@@ -14,7 +20,11 @@ import {
 
 const OBSERVED = '2026-09-01T00:00:00.000Z';
 
-function capability(key: string, value: Place['capabilities'][number]['value'], verification = 'business_asserted') {
+function capability(
+  key: string,
+  value: Place['capabilities'][number]['value'],
+  verification = 'business_asserted',
+) {
   const separator = key.lastIndexOf('.');
   return {
     namespace: key.slice(0, separator),
@@ -48,7 +58,9 @@ function exception(
 /** Weekdays 09:00–20:00 in Madrid. */
 const SCHEDULE = {
   timezone: 'Europe/Madrid',
-  openingHours: { intervals: ([1, 2, 3, 4, 5] as const).map((day) => ({ day, opens: '09:00', closes: '20:00' })) },
+  openingHours: {
+    intervals: ([1, 2, 3, 4, 5] as const).map((day) => ({ day, opens: '09:00', closes: '20:00' })),
+  },
   hoursExceptions: [] as PlaceHoursException[],
 };
 
@@ -70,15 +82,22 @@ describe('orderLocations', () => {
 
 describe('placeAddressLine', () => {
   it('prefers GoWay’s own formatting', () => {
-    expect(placeAddressLine({ address: { formatted: 'Carrer de Mallorca 401, Barcelona', city: 'X' } })).toBe(
-      'Carrer de Mallorca 401, Barcelona',
-    );
+    expect(
+      placeAddressLine({ address: { formatted: 'Carrer de Mallorca 401, Barcelona', city: 'X' } }),
+    ).toBe('Carrer de Mallorca 401, Barcelona');
   });
 
   it('joins only the parts GoWay publishes, and is empty for none', () => {
-    expect(placeAddressLine({ address: { street: 'Carrer de Mallorca', houseNumber: '401', postalCode: '08013', city: 'Barcelona' } })).toBe(
-      'Carrer de Mallorca 401, 08013 Barcelona',
-    );
+    expect(
+      placeAddressLine({
+        address: {
+          street: 'Carrer de Mallorca',
+          houseNumber: '401',
+          postalCode: '08013',
+          city: 'Barcelona',
+        },
+      }),
+    ).toBe('Carrer de Mallorca 401, 08013 Barcelona');
     expect(placeAddressLine({ address: { city: 'Barcelona' } })).toBe('Barcelona');
     expect(placeAddressLine({})).toBe('');
   });
@@ -86,16 +105,29 @@ describe('placeAddressLine', () => {
 
 describe('placeOpenState — GoWay’s evaluation', () => {
   it('reads open, and when that changes today', () => {
-    expect(placeOpenState(SCHEDULE, MONDAY_MORNING)).toEqual({ known: true, open: true, changesAt: '20:00' });
+    expect(placeOpenState(SCHEDULE, MONDAY_MORNING)).toEqual({
+      known: true,
+      open: true,
+      changesAt: '20:00',
+    });
   });
 
   it('answers unknown without a zone rather than guessing one', () => {
-    expect(placeOpenState({ ...SCHEDULE, timezone: undefined }, MONDAY_MORNING)).toEqual({ known: false });
+    expect(placeOpenState({ ...SCHEDULE, timezone: undefined }, MONDAY_MORNING)).toEqual({
+      known: false,
+    });
   });
 
   it('lets a dated closure decide the day, and carries its note', () => {
-    const closed = { ...SCHEDULE, hoursExceptions: [exception('2026-10-05', '2026-10-05', { note: 'Stocktake' })] };
-    expect(placeOpenState(closed, MONDAY_MORNING)).toMatchObject({ known: true, open: false, exceptionNote: 'Stocktake' });
+    const closed = {
+      ...SCHEDULE,
+      hoursExceptions: [exception('2026-10-05', '2026-10-05', { note: 'Stocktake' })],
+    };
+    expect(placeOpenState(closed, MONDAY_MORNING)).toMatchObject({
+      known: true,
+      open: false,
+      exceptionNote: 'Stocktake',
+    });
   });
 });
 
@@ -130,8 +162,14 @@ describe('upcomingExceptions', () => {
       {
         hoursExceptions: [
           exception('2026-09-01', '2026-09-02'),
-          exception('2026-12-25', '2026-12-25', { verification: 'community_reported', note: 'rumour' }),
-          exception('2026-12-25', '2026-12-25', { verification: 'business_asserted', note: 'Christmas' }),
+          exception('2026-12-25', '2026-12-25', {
+            verification: 'community_reported',
+            note: 'rumour',
+          }),
+          exception('2026-12-25', '2026-12-25', {
+            verification: 'business_asserted',
+            note: 'Christmas',
+          }),
           exception('2026-10-05', '2026-10-12'),
           exception('2027-01-01', '2027-01-01'),
           exception('2027-01-06', '2027-01-06'),
@@ -186,7 +224,9 @@ describe('visitAttributes', () => {
   });
 
   it('leaves out an enum value that says the place does NOT have it', () => {
-    expect(visitAttributes({ capabilities: [capability('accessibility.wheelchair', 'no')] }, 'en')).toEqual([]);
+    expect(
+      visitAttributes({ capabilities: [capability('accessibility.wheelchair', 'no')] }, 'en'),
+    ).toEqual([]);
   });
 });
 
@@ -214,6 +254,8 @@ describe('visitPhotos', () => {
   });
 
   it('stops at eight', () => {
-    expect(visitPhotos(Array.from({ length: 12 }, (_, i) => media(`p${i}`, 'photo', i)))).toHaveLength(8);
+    expect(
+      visitPhotos(Array.from({ length: 12 }, (_, i) => media(`p${i}`, 'photo', i))),
+    ).toHaveLength(8);
   });
 });

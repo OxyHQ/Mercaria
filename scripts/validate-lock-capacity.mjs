@@ -59,14 +59,14 @@
  * @see packages/backend/vitest.pg.globalSetup.ts
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** The tree under test. Overridable so the self-test can drive real fixtures. */
 const repositoryRoot =
   process.env.LOCK_CAPACITY_VALIDATOR_ROOT ??
-  resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * Where the measurement rows live, for the remedy line.
@@ -75,7 +75,7 @@ const repositoryRoot =
  * `repositoryRoot`: under the self-test's env override those two are different
  * trees, and the "relative" path came out as a `../..` walk into the tmpdir.
  */
-const GUARD_PATH = "scripts/validate-lock-capacity.mjs";
+const GUARD_PATH = 'scripts/validate-lock-capacity.mjs';
 
 /**
  * Concurrent-migration capacity, MEASURED, one row per ceiling.
@@ -99,10 +99,10 @@ const MEASUREMENTS = [
     /** Peak `pg_locks` held by ONE full-chain migration, at `journalEntries`. */
     locksPerMigration: 5986,
     journalEntries: 133,
-    measuredOn: "2026-08-21",
-    measuredAtCommit: "9b18057",
-    image: "postgis/postgis:17-3.5",
-    serverVersion: "17.5",
+    measuredOn: '2026-08-21',
+    measuredAtCommit: '9b18057',
+    image: 'postgis/postgis:17-3.5',
+    serverVersion: '17.5',
     maxConnections: 100,
   },
   /**
@@ -119,10 +119,10 @@ const MEASUREMENTS = [
     firstExhausted: 32,
     locksPerMigration: 5986,
     journalEntries: 133,
-    measuredOn: "2026-08-21",
-    measuredAtCommit: "9b18057",
-    image: "postgis/postgis:17-3.5",
-    serverVersion: "17.5",
+    measuredOn: '2026-08-21',
+    measuredAtCommit: '9b18057',
+    image: 'postgis/postgis:17-3.5',
+    serverVersion: '17.5',
     maxConnections: 100,
   },
 ];
@@ -165,7 +165,7 @@ const SHARED_GLOBAL_SETUP_DATABASES = 1;
  * suffix is a convention and the cost is not — a plain `.test.ts` that called
  * this would migrate a database and be invisible to a census keyed on the name.
  */
-const PRIVATE_DATABASE_MARKER = "createMercariaTestDatabase";
+const PRIVATE_DATABASE_MARKER = 'createMercariaTestDatabase';
 
 /**
  * The module that DEFINES the marker, recognised by its export rather than by
@@ -182,24 +182,24 @@ const MARKER_DEFINITION = `export async function ${PRIVATE_DATABASE_MARKER}`;
  * gate fires on a file that is innocent and the fix is to weaken the gate.
  */
 function stripComments(source) {
-  return source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 }
 
 /** Where the three statements of the ceiling live, and how each is spelled. */
 const CEILING_SITES = [
   {
-    path: "docker-compose.postgres.yml",
-    what: "the compose server argument",
+    path: 'docker-compose.postgres.yml',
+    what: 'the compose server argument',
     pattern: /command:\s*postgres\s+-c\s+max_locks_per_transaction=(\d+)/,
   },
   {
-    path: ".github/workflows/ci.yml",
-    what: "the CI service-container ALTER SYSTEM",
+    path: '.github/workflows/ci.yml',
+    what: 'the CI service-container ALTER SYSTEM',
     pattern: /ALTER SYSTEM SET max_locks_per_transaction\s*=\s*(\d+)/,
   },
   {
-    path: "packages/backend/vitest.pg.globalSetup.ts",
-    what: "the floor the harness asserts on whatever server it is handed",
+    path: 'packages/backend/vitest.pg.globalSetup.ts',
+    what: 'the floor the harness asserts on whatever server it is handed',
     pattern: /const REQUIRED_MAX_LOCKS_PER_TRANSACTION\s*=\s*(\d+)/,
   },
 ];
@@ -213,7 +213,7 @@ function fail(message) {
 
 function readIfPresent(relativePath) {
   try {
-    return readFileSync(join(repositoryRoot, relativePath), "utf8");
+    return readFileSync(join(repositoryRoot, relativePath), 'utf8');
   } catch {
     return null;
   }
@@ -227,7 +227,7 @@ function readIfPresent(relativePath) {
  * with no realdb files.
  */
 function findSourceFiles() {
-  const root = join(repositoryRoot, "packages/backend/src");
+  const root = join(repositoryRoot, 'packages/backend/src');
   const tests = [];
   const others = [];
 
@@ -241,10 +241,10 @@ function findSourceFiles() {
     for (const entry of entries) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === "node_modules") continue;
+        if (entry.name === 'node_modules') continue;
         walk(full);
-      } else if (entry.isFile() && entry.name.endsWith(".ts")) {
-        (entry.name.endsWith(".test.ts") ? tests : others).push(full);
+      } else if (entry.isFile() && entry.name.endsWith('.ts')) {
+        (entry.name.endsWith('.test.ts') ? tests : others).push(full);
       }
     }
   }
@@ -288,7 +288,7 @@ function resolveEnforcedCeiling() {
   if (distinct.length !== 1) {
     fail(
       `The three statements of max_locks_per_transaction disagree:\n` +
-        readings.map((r) => `    ${String(r.value).padStart(5)}  ${r.path}`).join("\n") +
+        readings.map((r) => `    ${String(r.value).padStart(5)}  ${r.path}`).join('\n') +
         `\n  They are three mechanisms for one fact — a compose argument, an ALTER SYSTEM ` +
         `plus restart, and the floor the harness asserts — and the drift that matters is ` +
         `silent: lock exhaustion reproducing in one environment only.`,
@@ -315,7 +315,7 @@ function main() {
   }
 
   const privateDatabaseFiles = testFiles.filter((file) =>
-    stripComments(readFileSync(file, "utf8")).includes(PRIVATE_DATABASE_MARKER),
+    stripComments(readFileSync(file, 'utf8')).includes(PRIVATE_DATABASE_MARKER),
   );
   if (testFiles.length > 0 && privateDatabaseFiles.length === 0) {
     fail(
@@ -332,7 +332,7 @@ function main() {
   // silent zero — the definition itself excepted, recognised by its export so
   // that renaming the file does not turn it into a twelfth database.
   for (const file of nonTestFiles) {
-    const source = stripComments(readFileSync(file, "utf8"));
+    const source = stripComments(readFileSync(file, 'utf8'));
     if (!source.includes(PRIVATE_DATABASE_MARKER)) continue;
     if (source.includes(MARKER_DEFINITION)) continue;
     fail(
@@ -343,7 +343,7 @@ function main() {
     );
   }
 
-  const journalRaw = readIfPresent("packages/backend/drizzle/meta/_journal.json");
+  const journalRaw = readIfPresent('packages/backend/drizzle/meta/_journal.json');
   let journalEntries = 0;
   if (journalRaw === null) {
     fail(`packages/backend/drizzle/meta/_journal.json is missing, so the chain length is unknown.`);
@@ -374,7 +374,7 @@ function main() {
     fail(
       `max_locks_per_transaction is set to ${String(enforcedCeiling)} and nobody has ` +
         `measured what that carries. Recorded ceilings: ` +
-        `${MEASUREMENTS.map((m) => String(m.ceiling)).join(", ")}.\n` +
+        `${MEASUREMENTS.map((m) => String(m.ceiling)).join(', ')}.\n` +
         `  Raising the ceiling without measuring at it leaves this guard comparing the ` +
         `suite against a capacity it inferred, which is the defect #849 is about rather ` +
         `than a smaller version of it. Run:\n` +
@@ -439,7 +439,7 @@ function main() {
       `max_locks_per_transaction=${String(enforcedCeiling)} ` +
       `(measured ${String(measurement ? measurement.capacity : 0)} at ` +
       `${String(measurement ? measurement.journalEntries : 0)} entries on ` +
-      `${measurement ? measurement.measuredOn : "never"}, chain now ` +
+      `${measurement ? measurement.measuredOn : 'never'}, chain now ` +
       `${String(journalEntries)}). Headroom: ${String(projectedCapacity - required)} file(s).\n`,
   );
 }

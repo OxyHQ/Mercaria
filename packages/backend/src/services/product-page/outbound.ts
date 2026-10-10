@@ -41,11 +41,7 @@
  * pointing at a 404 is worse than a disclosed refusal.
  */
 
-import {
-  OUTBOUND_LINK_REL,
-  type Offer,
-  type ProductPageOutbound,
-} from '@mercaria/shared-types';
+import { OUTBOUND_LINK_REL, type Offer, type ProductPageOutbound } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { affiliateOutboundPath } from '../outbound/disclosure.js';
 

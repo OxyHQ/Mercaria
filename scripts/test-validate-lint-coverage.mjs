@@ -3,14 +3,15 @@
 /**
  * Mutation-tests `validate-lint-coverage.mjs`.
  *
- * That guard's whole subject is a set of things that are ABSENT — three packages
- * with no `lint` script, two whose script lints nothing — so it fails in the
- * quiet direction by construction: a `packages/` walk that returns nothing
- * satisfies all three expected sets at once, a `RUNS_A_LINTER` that matched
- * nothing files every package as a placeholder, and a workflow matcher that
- * matched nothing reports a CI file with no lint steps as one whose lint steps
- * are all correct. Each case below breaks exactly one of those and requires the
- * guard to fail with words naming the right one.
+ * That guard's subject is coverage that can leave QUIETLY — a package's `lint`
+ * script becoming a placeholder, a path joining Biome's exclusions, the root
+ * script narrowing, a CI step disappearing, an Expo app dropping out of the
+ * env-var ESLint — so it fails in the quiet direction by construction: a
+ * `packages/` walk that returns nothing satisfies empty expected sets, a
+ * `RUNS_A_LINTER` that matched nothing files every package as a placeholder,
+ * and a workflow matcher that matched nothing reports a CI file with no lint
+ * steps as one whose lint steps are all correct. Each case below breaks exactly
+ * one of those and requires the guard to fail with words naming the right one.
  *
  * The must-PASS cases matter as much: this gate deliberately does NOT demand a
  * linter from anybody, so it must stay silent about every change that is not a
@@ -21,17 +22,17 @@
  * the guard's logic and then measuring the re-implementation.
  */
 
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const validator = resolve(repositoryRoot, "scripts/validate-lint-coverage.mjs");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const validator = resolve(repositoryRoot, 'scripts/validate-lint-coverage.mjs');
 
 /** Run the REAL guard against a scratch tree. */
 async function runAgainst(files) {
-  const root = await mkdtemp(join(tmpdir(), "lint-coverage-validator-"));
+  const root = await mkdtemp(join(tmpdir(), 'lint-coverage-validator-'));
   try {
     for (const [path, contents] of Object.entries(files)) {
       if (contents === null) continue;
@@ -39,95 +40,148 @@ async function runAgainst(files) {
       await mkdir(dirname(full), { recursive: true });
       await writeFile(
         full,
-        typeof contents === "string" ? contents : `${JSON.stringify(contents, null, 2)}\n`,
+        typeof contents === 'string' ? contents : `${JSON.stringify(contents, null, 2)}\n`,
       );
     }
     const proc = Bun.spawnSync({
-      cmd: ["bun", validator],
+      cmd: ['bun', validator],
       cwd: repositoryRoot,
       env: { ...process.env, LINT_COVERAGE_VALIDATOR_ROOT: root },
-      stdout: "pipe",
-      stderr: "pipe",
+      stdout: 'pipe',
+      stderr: 'pipe',
     });
-    return { exitCode: proc.exitCode, output: `${proc.stdout.toString()}${proc.stderr.toString()}` };
+    return {
+      exitCode: proc.exitCode,
+      output: `${proc.stdout.toString()}${proc.stderr.toString()}`,
+    };
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 }
 
-/** A workflow carrying the gating job and the five real lint steps. */
-const CI_YML = "name: CI\n"
-  + "on: [push, pull_request]\n"
-  + "jobs:\n"
-  + "  lint-and-test:\n"
-  + "    runs-on: ubuntu-latest\n"
-  + "    steps:\n"
-  + "      - name: Lint the backend\n"
-  + "        run: bun run --filter @mercaria/backend lint\n"
-  + "      - name: Lint contracts\n"
-  + "        run: bun run --filter @mercaria/contracts lint\n"
-  + "      - name: Lint Storefront\n"
-  + "        run: bun run --filter @mercaria/frontend lint\n"
-  + "      - name: Lint Dashboard\n"
-  + "        run: bun run --filter @mercaria/dashboard lint\n"
-  + "      - name: Lint POS\n"
-  + "        run: bun run --filter @mercaria/pos lint\n"
-  + "      - name: Lint SDK\n"
-  + "        run: bun run --filter @mercaria.co/sdk lint\n"
-  + "      - name: Test the backend\n"
-  + "        run: bun run --filter @mercaria/backend test\n";
+/** A workflow carrying the gating job, the Biome step and the three Expo steps. */
+const CI_YML =
+  'name: CI\n' +
+  'on: [push, pull_request]\n' +
+  'jobs:\n' +
+  '  lint-and-test:\n' +
+  '    runs-on: ubuntu-latest\n' +
+  '    steps:\n' +
+  '      - name: Biome (format and lint, every package)\n' +
+  '        run: bunx biome ci .\n' +
+  '      - name: Expo env-var lint (Storefront)\n' +
+  '        run: bun run --filter @mercaria/frontend lint:expo\n' +
+  '      - name: Expo env-var lint (Dashboard)\n' +
+  '        run: bun run --filter @mercaria/dashboard lint:expo\n' +
+  '      - name: Expo env-var lint (POS)\n' +
+  '        run: bun run --filter @mercaria/pos lint:expo\n' +
+  '      - name: Test the backend\n' +
+  '        run: bun run --filter @mercaria/backend test\n';
 
 /**
- * The repository as it stands: SIX real linters, two placeholders, and no
- * package without a `lint` script at all (#496 moved the three Expo apps into
- * the first group; #1017 added the SDK, whose manifest name is NOT
- * `@mercaria/<directory>`, and then `contracts`).
+ * The real config's shape, comments and a trailing comma INCLUDED: the guard
+ * reads JSONC through TypeScript's parser, and a fixture written as plain JSON
+ * would never exercise that.
+ */
+const EXCLUSIONS = [
+  '!**/node_modules',
+  '!.worktrees',
+  '!**/dist',
+  '!**/coverage',
+  '!**/.expo',
+  '!**/.next',
+  '!**/drizzle/meta',
+  '!**/*.generated.*',
+  '!packages/contracts/openapi.json',
+  '!docs/audits',
+  '!.github/scripts/reviewed-images.json',
+  '!packages/ui/src/theme/global.css',
+];
+
+function biomeConfig({
+  includes = ['**', ...EXCLUSIONS],
+  schema = '2.5.15',
+  linter = {},
+  formatter = {},
+  overrides = [],
+} = {}) {
+  return (
+    '{\n' +
+    `  "$schema": "https://biomejs.dev/schemas/${schema}/schema.json",\n` +
+    '  // a comment, as the real file carries\n' +
+    `  "files": { "ignoreUnknown": true, "includes": ${JSON.stringify(includes)} },\n` +
+    `  "formatter": ${JSON.stringify({ enabled: true, ...formatter })},\n` +
+    `  "linter": ${JSON.stringify({ enabled: true, rules: { preset: 'recommended' }, ...linter })},\n` +
+    `  "overrides": ${JSON.stringify(overrides)},\n` +
+    '}\n'
+  );
+}
+
+const BIOME = 'biome check .';
+const APP_DEV = {
+  '@typescript-eslint/parser': '^8.64.0',
+  eslint: '^9.39.5',
+  'eslint-plugin-expo': '^1.2.1',
+};
+
+function app(name, extra = {}) {
+  return {
+    name,
+    scripts: {
+      typecheck: 'tsc --noEmit',
+      test: 'vitest run',
+      lint: `${BIOME} && bun run lint:expo`,
+      'lint:expo': 'eslint .',
+    },
+    devDependencies: APP_DEV,
+    ...extra,
+  };
+}
+
+/**
+ * The repository as it stands: all EIGHT packages lint with Biome, the three
+ * Expo apps additionally run the env-var ESLint, nothing is a placeholder. The
+ * SDK's manifest name is NOT `@mercaria/<directory>` (#1017).
  *
- * Every package also carries an unrelated script or two, so a case can change one
- * without touching `lint` and prove the gate stays silent.
+ * Every package also carries an unrelated script or two, so a case can change
+ * one without touching `lint` and prove the gate stays silent.
  */
 function tree(extra = {}) {
   return {
-    "package.json": { name: "mercaria", scripts: { lint: "bun run --filter '*' lint" } },
-    "packages/backend/package.json": {
-      name: "@mercaria/backend",
-      scripts: { lint: "eslint src scripts build.ts", test: "vitest run" },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
+    'package.json': {
+      name: 'mercaria',
+      scripts: {
+        lint: 'biome check . && bun run lint:expo',
+        'lint:expo':
+          'bun run --filter @mercaria/frontend --filter @mercaria/dashboard --filter @mercaria/pos lint:expo',
+      },
+      devDependencies: { '@biomejs/biome': '2.5.15', typescript: '^5.9.3' },
     },
-    "packages/contracts/package.json": {
-      name: "@mercaria/contracts",
-      scripts: { lint: "eslint src test", test: "vitest run", build: "tsc -p tsconfig.json" },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
+    'biome.jsonc': biomeConfig(),
+    'packages/backend/package.json': {
+      name: '@mercaria/backend',
+      scripts: { lint: BIOME, test: 'vitest run' },
     },
-    "packages/ui/package.json": {
-      name: "@mercaria/ui",
-      scripts: { lint: 'echo "No lint configured for ui" && exit 0', typecheck: "tsc --noEmit" },
+    'packages/contracts/package.json': {
+      name: '@mercaria/contracts',
+      scripts: { lint: BIOME, test: 'vitest run', build: 'tsc -p tsconfig.json' },
     },
-    "packages/shared-types/package.json": {
-      name: "@mercaria/shared-types",
-      scripts: { lint: 'echo "No lint configured for shared-types" && exit 0', build: "tsc" },
+    'packages/ui/package.json': {
+      name: '@mercaria/ui',
+      scripts: { lint: BIOME, typecheck: 'tsc --noEmit' },
     },
-    "packages/frontend/package.json": {
-      name: "@mercaria/frontend",
-      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
+    'packages/shared-types/package.json': {
+      name: '@mercaria/shared-types',
+      scripts: { lint: BIOME, build: 'tsc' },
     },
-    "packages/dashboard/package.json": {
-      name: "@mercaria/dashboard",
-      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
+    'packages/sdk/package.json': {
+      name: '@mercaria.co/sdk',
+      scripts: { lint: BIOME, test: 'vitest run', typecheck: 'tsc --noEmit' },
     },
-    "packages/pos/package.json": {
-      name: "@mercaria/pos",
-      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
-    },
-    "packages/sdk/package.json": {
-      name: "@mercaria.co/sdk",
-      scripts: { lint: "eslint src test scripts", test: "vitest run", typecheck: "tsc --noEmit" },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
-    },
-    ".github/workflows/ci.yml": CI_YML,
+    'packages/frontend/package.json': app('@mercaria/frontend'),
+    'packages/dashboard/package.json': app('@mercaria/dashboard'),
+    'packages/pos/package.json': app('@mercaria/pos'),
+    '.github/workflows/ci.yml': CI_YML,
     ...extra,
   };
 }
@@ -137,272 +191,374 @@ function withPackage(directory, manifest, extra = {}) {
   return tree({ [`packages/${directory}/package.json`]: manifest, ...extra });
 }
 
+const ALL_EIGHT = 'backend, contracts, dashboard, frontend, pos, sdk, shared-types, ui';
+
 const cases = [
   {
-    name: "the repository as it stands passes",
+    name: 'the repository as it stands passes',
     files: tree(),
     expectExit: 0,
-    expectOutput: "lint coverage guard passed",
+    expectOutput: 'lint coverage guard passed',
   },
 
-  // ------------------------------------------- coverage moving, both ways ---
-  // The two directions the brief asked for: a package GAINING a script and a
-  // package LOSING one. Both are changes of coverage and both must fail.
-  //
-  // The GAINING case was DELETED by #496 rather than updated, because it lost
-  // its subject: `EXPECTED_NO_SCRIPT` is now empty, so no package can gain a
-  // script from it, and the case as written mutated `frontend` into a state the
-  // baseline already has — it passed vacuously. The direction is still covered
-  // from the other side by "a package LOSING its lint script" immediately below
-  // and by "a NEW package with no lint script", which is the same transition
-  // with a package that does not exist yet.
+  // ------------------------------------------- per-package lint scripts ---
   {
-    name: "a package LOSING its lint script fails",
-    files: withPackage("backend", { name: "@mercaria/backend", scripts: { test: "vitest run" } }),
+    name: 'a package LOSING its lint script fails',
+    files: withPackage('backend', { name: '@mercaria/backend', scripts: { test: 'vitest run' } }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [contracts, dashboard, frontend, pos, sdk], expected "
-      + "[backend, contracts, dashboard, frontend, pos, sdk]",
+    expectOutput: 'packages with NO lint script are [backend], expected []',
   },
   {
     // The silent one: the script survives, the linting does not. A name-keyed
     // detector would keep calling this package linted.
-    name: "a real linter QUIETLY becoming a placeholder fails",
-    files: withPackage("backend", {
-      name: "@mercaria/backend",
-      scripts: { lint: 'echo "skip for now" && exit 0', test: "vitest run" },
+    name: 'a real linter QUIETLY becoming a placeholder fails',
+    files: withPackage('ui', {
+      name: '@mercaria/ui',
+      scripts: { lint: 'echo "No lint configured for ui" && exit 0' },
     }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [contracts, dashboard, frontend, pos, sdk], expected "
-      + "[backend, contracts, dashboard, frontend, pos, sdk]",
-  },
-  {
-    name: "a placeholder becoming a real linter fails, because that is coverage too",
-    files: withPackage("ui", { name: "@mercaria/ui", scripts: { lint: "eslint src" } }),
-    expectExit: 1,
-    expectOutput: "packages whose lint script is a PLACEHOLDER are [shared-types], expected "
-      + "[shared-types, ui]",
+    expectOutput: 'packages whose lint script is a PLACEHOLDER are [ui], expected []',
   },
   {
     // A package that exists on disk and in nobody's git index yet. The guard
     // walks the filesystem precisely so this is caught the day it appears.
-    name: "a NEW package with no lint script fails",
+    name: 'a NEW package with no lint script fails',
     files: tree({
-      "packages/kiosk/package.json": { name: "@mercaria/kiosk", scripts: { test: "vitest run" } },
+      'packages/kiosk/package.json': { name: '@mercaria/kiosk', scripts: { test: 'vitest run' } },
     }),
     expectExit: 1,
-    expectOutput: "packages with NO lint script are [kiosk], expected []",
+    expectOutput: 'packages with NO lint script are [kiosk], expected []',
   },
   {
-    // Aimed at `ui` rather than at an app: since #496 all three apps already run
-    // a real linter, so swapping one of them to biome changes nothing the guard
-    // can see and the case would pass without measuring the detector at all.
-    name: "a non-eslint linter still counts as real coverage",
-    files: withPackage("ui", {
-      name: "@mercaria/ui",
-      scripts: { lint: "biome check .", typecheck: "tsc --noEmit" },
-    }),
-    expectExit: 1,
-    expectOutput: "packages running a REAL linter are [backend, contracts, dashboard, frontend, pos, sdk, ui], "
-      + "expected [backend, contracts, dashboard, frontend, pos, sdk]",
-  },
-
-  // ------------------------------------------------------- the root script ---
-
-  {
-    name: "the root script dropping the wildcard fails",
-    files: tree({
-      "package.json": {
-        name: "mercaria",
-        scripts: { lint: "bun run --filter @mercaria/backend lint" },
-      },
-    }),
-    expectExit: 1,
-    expectOutput: "no longer contains \"--filter '*'\"",
-  },
-  {
-    name: "the root script disappearing fails",
-    files: tree({ "package.json": { name: "mercaria", scripts: { build: "tsc" } } }),
-    expectExit: 1,
-    expectOutput: "the root package.json has no `lint` script",
-  },
-
-  // ----------------------------------------------------------- the workflow ---
-
-  {
-    name: "CI losing its lint step fails",
-    files: tree({
-      ".github/workflows/ci.yml": CI_YML
-        .replace("      - name: Lint the backend\n        run: bun run --filter @mercaria/backend lint\n", "")
-        .replace("      - name: Lint Storefront\n        run: bun run --filter @mercaria/frontend lint\n", "")
-        .replace("      - name: Lint Dashboard\n        run: bun run --filter @mercaria/dashboard lint\n", "")
-        .replace("      - name: Lint POS\n        run: bun run --filter @mercaria/pos lint\n", "")
-        .replace("      - name: Lint SDK\n        run: bun run --filter @mercaria.co/sdk lint\n", "")
-        .replace("      - name: Lint contracts\n        run: bun run --filter @mercaria/contracts lint\n", ""),
-    }),
-    expectExit: 1,
-    expectOutput: "no `--filter <pkg> lint` step was found in ci.yml at all",
-  },
-  {
-    name: "CI linting a package that has no linter fails",
-    files: tree({
-      ".github/workflows/ci.yml": `${CI_YML}      - run: bun run --filter @mercaria/ui lint\n`,
-    }),
-    expectExit: 1,
-    expectOutput: "ci.yml runs `--filter @mercaria/ui lint` but that package has no script running "
-      + "a real linter",
-  },
-  {
-    // #1017. The published package's name is not `@mercaria/<directory>`, so a
-    // guard that derived CI target names from directories would call the real
-    // `--filter @mercaria.co/sdk lint` step unlinted and wave through a step
-    // naming `@mercaria/sdk`, which does not exist and exits 1 in CI.
-    name: "a CI lint target is matched against the manifest NAME, not the directory",
-    files: tree({
-      ".github/workflows/ci.yml": CI_YML.replace("--filter @mercaria.co/sdk lint", "--filter @mercaria/sdk lint"),
-    }),
-    expectExit: 1,
-    expectOutput: "ci.yml runs `--filter @mercaria/sdk lint` but that package has no script running "
-      + "a real linter",
-  },
-  {
-    name: "the gating job being renamed fails",
-    files: tree({ ".github/workflows/ci.yml": CI_YML.replace("lint-and-test:", "checks:") }),
-    expectExit: 1,
-    expectOutput: "no longer declares the `lint-and-test` job",
-  },
-
-  // ------------------------------------------------------- the vacuity floor ---
-
-  {
-    // MEASURED, by disabling the floor and re-running this case: the tree still
-    // exits 1 without it, because an empty walk mismatches three NON-empty
-    // expected sets. So this case does not prove the floor decides anything —
-    // it pins the DIAGNOSTIC, that the failure names the walk rather than
-    // leaving three set mismatches to be misread as three unlinted packages.
-    name: "a packages/ walk that finds nothing names the WALK, not just the sets",
-    files: {
-      "package.json": { name: "mercaria", scripts: { lint: "bun run --filter '*' lint" } },
-      ".github/workflows/ci.yml": CI_YML,
-    },
-    expectExit: 1,
-    expectOutput: "0 workspace packages found under packages/, below the 8 floor",
-  },
-  {
-    // #494's shape, aimed at this gate: `validate-rtl-logical-classes.mjs` has a
-    // GLOBAL floor (392) against a live 487, so deleting the whole of
-    // `packages/pos/` leaves 420 and the guard PASSES. The equivalent attack
-    // here is a package disappearing, and it must not survive it.
-    //
-    // What stops it is that the categories are EXACT SETS rather than a total:
-    // `pos` leaving drops it out of EXPECTED_REAL, which no other package can
-    // make up for. A single global count would have exactly #494's hole.
-    name: "a whole package disappearing fails — the #494 shape",
+    // #494's shape: a whole package disappearing must not be absorbed by a
+    // total. The sets are EXACT, so `pos` leaving cannot be made up for.
+    name: 'a whole package disappearing fails — the #494 shape',
     files: (() => {
       const files = tree();
-      delete files["packages/pos/package.json"];
+      delete files['packages/pos/package.json'];
       return files;
     })(),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [backend, contracts, dashboard, frontend, sdk], expected "
-      + "[backend, contracts, dashboard, frontend, pos, sdk]",
+    expectOutput:
+      'packages running a REAL linter are [backend, contracts, dashboard, frontend, sdk, shared-types, ui], ' +
+      `expected [${ALL_EIGHT}]`,
   },
   {
-    name: "a package whose manifest is not valid JSON fails loudly",
-    files: tree({ "packages/pos/package.json": "{ not json\n" }),
+    name: 'a package whose manifest is not valid JSON fails loudly',
+    files: tree({ 'packages/pos/package.json': '{ not json\n' }),
     expectExit: 1,
-    expectOutput: "packages/pos/package.json could not be read as JSON",
+    expectOutput: 'packages/pos/package.json could not be read as JSON',
+  },
+  {
+    // MEASURED on the predecessor of this guard: an empty walk still exits 1
+    // without the floor, because it mismatches a NON-empty expected set. The
+    // case pins the DIAGNOSTIC — the failure names the walk.
+    name: 'a packages/ walk that finds nothing names the WALK, not just the sets',
+    files: {
+      'package.json': tree()['package.json'],
+      'biome.jsonc': biomeConfig(),
+      '.github/workflows/ci.yml': CI_YML,
+    },
+    expectExit: 1,
+    expectOutput: '0 workspace packages found under packages/, below the 8 floor',
+  },
+
+  // ------------------------------------------------------- the root script ---
+  {
+    name: 'the root script narrowing Biome to one package fails',
+    files: tree({
+      'package.json': {
+        ...tree()['package.json'],
+        scripts: { lint: 'biome check packages/backend && bun run lint:expo' },
+      },
+    }),
+    expectExit: 1,
+    expectOutput: 'which does not run `biome check .` over the whole tree',
+  },
+  {
+    name: 'the root script dropping lint:expo fails',
+    files: tree({
+      'package.json': { ...tree()['package.json'], scripts: { lint: 'biome check .' } },
+    }),
+    expectExit: 1,
+    expectOutput: 'which no longer runs `lint:expo`',
+  },
+  {
+    name: 'the root script disappearing fails',
+    files: tree({ 'package.json': { ...tree()['package.json'], scripts: { build: 'tsc' } } }),
+    expectExit: 1,
+    expectOutput: 'the root package.json has no `lint` script',
+  },
+
+  // ------------------------------------------------------- Biome declared ---
+  {
+    name: 'Biome declared as a RANGE fails',
+    files: tree({
+      'package.json': {
+        ...tree()['package.json'],
+        devDependencies: { '@biomejs/biome': '^2.5.15' },
+      },
+    }),
+    expectExit: 1,
+    expectOutput: 'declares @biomejs/biome ^2.5.15, expected EXACTLY 2.5.15',
+  },
+  {
+    name: 'Biome missing from the root fails',
+    files: tree({ 'package.json': { ...tree()['package.json'], devDependencies: {} } }),
+    expectExit: 1,
+    expectOutput: 'declares @biomejs/biome nowhere',
+  },
+  {
+    name: 'a package declaring its own Biome fails',
+    files: withPackage('ui', {
+      name: '@mercaria/ui',
+      scripts: { lint: BIOME },
+      devDependencies: { '@biomejs/biome': '2.5.15' },
+    }),
+    expectExit: 1,
+    expectOutput: 'packages/ui declares its own @biomejs/biome 2.5.15',
+  },
+
+  // ------------------------------------------------------- the Biome config ---
+  {
+    name: 'a NEW exclusion in biome.jsonc fails',
+    files: tree({
+      'biome.jsonc': biomeConfig({ includes: ['**', ...EXCLUSIONS, '!packages/backend/src'] }),
+    }),
+    expectExit: 1,
+    expectOutput: 'biome.jsonc excludes [',
+  },
+  {
+    name: 'an exclusion REMOVED from biome.jsonc fails too — it is a decision either way',
+    files: tree({
+      'biome.jsonc': biomeConfig({
+        includes: ['**', ...EXCLUSIONS.filter((entry) => entry !== '!docs/audits')],
+      }),
+    }),
+    expectExit: 1,
+    expectOutput: 'biome.jsonc excludes [',
+  },
+  {
+    name: 'includes that no longer start at the whole tree fail',
+    files: tree({
+      'biome.jsonc': biomeConfig({ includes: ['packages/backend/**', ...EXCLUSIONS] }),
+    }),
+    expectExit: 1,
+    expectOutput: 'does not start with "**"',
+  },
+  {
+    name: 'the linter switched off fails',
+    files: tree({ 'biome.jsonc': biomeConfig({ linter: { enabled: false } }) }),
+    expectExit: 1,
+    expectOutput: 'sets `linter.enabled: false`',
+  },
+  {
+    name: 'the formatter switched off fails',
+    files: tree({ 'biome.jsonc': biomeConfig({ formatter: { enabled: false } }) }),
+    expectExit: 1,
+    expectOutput: 'sets `formatter.enabled: false`',
+  },
+  {
+    // The exclusion list cannot see this one, which is exactly why it is checked.
+    name: 'an override switching the linter off for a path fails',
+    files: tree({
+      'biome.jsonc': biomeConfig({
+        overrides: [{ includes: ['packages/sdk/**'], linter: { enabled: false } }],
+      }),
+    }),
+    expectExit: 1,
+    expectOutput: 'override #0 (["packages/sdk/**"]) sets `linter.enabled: false`',
+  },
+  {
+    name: 'a $schema naming another Biome fails',
+    files: tree({ 'biome.jsonc': biomeConfig({ schema: '2.4.0' }) }),
+    expectExit: 1,
+    expectOutput: 'which does not name 2.5.15',
+  },
+  {
+    name: 'an unparseable biome.jsonc fails loudly',
+    files: tree({ 'biome.jsonc': '{ "files": [ \n' }),
+    expectExit: 1,
+    expectOutput: 'biome.jsonc could not be parsed',
+  },
+  {
+    name: 'a missing biome.jsonc fails loudly',
+    files: tree({ 'biome.jsonc': null }),
+    expectExit: 1,
+    expectOutput: 'biome.jsonc could not be read',
+  },
+
+  // ---------------------------------------------------- the Expo ESLint ---
+  {
+    name: 'an app losing lint:expo fails',
+    files: withPackage('pos', app('@mercaria/pos', { scripts: { lint: BIOME } })),
+    expectExit: 1,
+    expectOutput:
+      'packages whose `lint:expo` runs ESLint are [dashboard, frontend], expected [dashboard, frontend, pos]',
+  },
+  {
+    name: 'an app whose lint stops running lint:expo fails',
+    files: withPackage(
+      'frontend',
+      app('@mercaria/frontend', { scripts: { lint: BIOME, 'lint:expo': 'eslint .' } }),
+    ),
+    expectExit: 1,
+    expectOutput: 'packages/frontend\'s `lint` script ("biome check .") does not run `lint:expo`',
+  },
+  {
+    // The state of every package on `main` before #607.
+    name: 'an app running eslint but DECLARING none fails',
+    files: withPackage(
+      'dashboard',
+      app('@mercaria/dashboard', { devDependencies: { 'eslint-plugin-expo': '^1.2.1' } }),
+    ),
+    expectExit: 1,
+    expectOutput: 'packages/dashboard runs eslint in its lint scripts but DECLARES no eslint',
+  },
+  {
+    name: "one app's eslint range drifting from its siblings fails",
+    files: withPackage(
+      'frontend',
+      app('@mercaria/frontend', { devDependencies: { ...APP_DEV, eslint: '^9.0.0' } }),
+    ),
+    expectExit: 1,
+    expectOutput: 'packages/frontend declares eslint ^9.0.0, expected ^9.39.5',
+  },
+  {
+    // The skew #607 MEASURED on main.
+    name: '@eslint/js skewed from the eslint beside it fails',
+    files: withPackage(
+      'dashboard',
+      app('@mercaria/dashboard', { devDependencies: { ...APP_DEV, '@eslint/js': '^9.39.4' } }),
+    ),
+    expectExit: 1,
+    expectOutput: 'packages/dashboard declares @eslint/js ^9.39.4 beside eslint ^9.39.5',
+  },
+  {
+    // A package going back to eslint wholesale is still asked to declare it.
+    name: 'a non-app package linting with eslint must declare it',
+    files: withPackage('backend', {
+      name: '@mercaria/backend',
+      scripts: { lint: 'eslint src', test: 'vitest run' },
+    }),
+    expectExit: 1,
+    expectOutput: 'packages/backend runs eslint in its lint scripts but DECLARES no eslint',
+  },
+  {
+    // The negative direction: Biome-only packages are NOT asked for eslint.
+    name: 'a package running only Biome is NOT asked to declare eslint',
+    files: tree(),
+    expectExit: 0,
+    expectOutput: 'lint coverage guard passed',
+    rejectOutput: 'DECLARES no eslint',
+  },
+
+  // ----------------------------------------------------------- the workflow ---
+  {
+    name: 'CI losing its Biome step fails',
+    files: tree({
+      '.github/workflows/ci.yml': CI_YML.replace(
+        '        run: bunx biome ci .\n',
+        '        run: echo skipped\n',
+      ),
+    }),
+    expectExit: 1,
+    expectOutput: 'no `run: bunx biome ci .` step was found in ci.yml',
+  },
+  {
+    name: "CI's Biome step narrowed to a path fails",
+    files: tree({
+      '.github/workflows/ci.yml': CI_YML.replace(
+        'bunx biome ci .',
+        'bunx biome ci packages/backend',
+      ),
+    }),
+    expectExit: 1,
+    expectOutput: 'no `run: bunx biome ci .` step was found in ci.yml',
+  },
+  {
+    name: "CI losing one app's Expo step fails",
+    files: tree({
+      '.github/workflows/ci.yml': CI_YML.replace(
+        '      - name: Expo env-var lint (POS)\n        run: bun run --filter @mercaria/pos lint:expo\n',
+        '',
+      ),
+    }),
+    expectExit: 1,
+    expectOutput: 'ci.yml runs lint:expo for [@mercaria/dashboard, @mercaria/frontend], expected',
+  },
+  {
+    // A multi-filter step: the measured silent skip. It names all three, so the
+    // target SET still matches — but the guard must not read it as three steps.
+    name: 'CI folding the three Expo steps into one multi-filter step fails',
+    files: tree({
+      '.github/workflows/ci.yml': CI_YML.replace(
+        '      - name: Expo env-var lint (Storefront)\n        run: bun run --filter @mercaria/frontend lint:expo\n',
+        '',
+      )
+        .replace(
+          '      - name: Expo env-var lint (Dashboard)\n        run: bun run --filter @mercaria/dashboard lint:expo\n',
+          '',
+        )
+        .replace(
+          '--filter @mercaria/pos lint:expo',
+          '--filter @mercaria/frontend --filter @mercaria/dashboard --filter @mercaria/pos lint:expo',
+        ),
+    }),
+    expectExit: 1,
+    expectOutput: 'ci.yml runs lint:expo for [@mercaria/pos], expected',
+  },
+  {
+    // #1017. The published package's name is not `@mercaria/<directory>`.
+    name: 'a CI lint target is matched against the manifest NAME, not the directory',
+    files: tree({
+      '.github/workflows/ci.yml': `${CI_YML}      - run: bun run --filter @mercaria/sdk lint\n`,
+    }),
+    expectExit: 1,
+    expectOutput:
+      'ci.yml runs `--filter @mercaria/sdk lint` but that package has no script running a real linter',
+  },
+  {
+    name: 'CI running lint:expo for a package without it fails',
+    files: tree({
+      '.github/workflows/ci.yml': `${CI_YML}      - run: bun run --filter @mercaria/ui lint:expo\n`,
+    }),
+    expectExit: 1,
+    expectOutput:
+      'ci.yml runs `--filter @mercaria/ui lint:expo` but that package has no `lint:expo` running eslint',
+  },
+  {
+    name: 'the gating job being renamed fails',
+    files: tree({ '.github/workflows/ci.yml': CI_YML.replace('lint-and-test:', 'checks:') }),
+    expectExit: 1,
+    expectOutput: 'no longer declares the `lint-and-test` job',
   },
 
   // ---------------------------------------------------- the must-NOT-fire ---
-
   {
-    // The gate describes lint coverage and nothing else. A repo where somebody
-    // changes a test script, adds a typecheck, or renames a job that is not the
-    // gating one must stay silent — a gate that fires on unrelated edits is one
-    // whose expected sets get updated without being read.
-    name: "changes to scripts that are not `lint` do NOT fire",
-    files: withPackage("frontend", {
-      name: "@mercaria/frontend",
-      // `lint` is preserved deliberately: dropping it would BE a coverage
-      // change, and the case would fire for the reason it exists to rule out.
-      scripts: {
-        lint: "eslint .",
-        test: "vitest run --coverage",
-        typecheck: "tsc --noEmit",
-        build: "expo export",
-      },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
+    name: 'changes to scripts that are not lint scripts do NOT fire',
+    files: withPackage(
+      'frontend',
+      app('@mercaria/frontend', {
+        scripts: {
+          lint: `${BIOME} && bun run lint:expo`,
+          'lint:expo': 'eslint .',
+          test: 'vitest run --coverage',
+          typecheck: 'tsc --noEmit',
+          build: 'expo export',
+        },
+      }),
+    ),
+    expectExit: 0,
+    expectOutput: 'lint coverage guard passed',
+  },
+  {
+    name: 'a named per-package lint step that IS real does not fire',
+    files: tree({
+      '.github/workflows/ci.yml': `${CI_YML}      - run: bun run --filter @mercaria.co/sdk lint\n`,
     }),
     expectExit: 0,
-    expectOutput: "lint coverage guard passed",
-  },
-  {
-    name: "a lint script that merely MENTIONS a linter in a comment-ish string still counts",
-    // `RUNS_A_LINTER` is a word match on the command, which is the honest read:
-    // a script invoking eslint through a wrapper is still linting.
-    files: withPackage("backend", {
-      name: "@mercaria/backend",
-      scripts: { lint: "bun run eslint src", test: "vitest run" },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
-    }),
-    expectExit: 0,
-    expectOutput: "lint coverage guard passed",
-  },
-
-  // --------------------------------------------- the linter is declared -----
-  // #607. All four of these mutate the state `main` was actually in, or a
-  // neighbouring one, and none of them is a red BUILD in real life — which is
-  // the point: an undeclared or drifting linter changes which findings appear,
-  // and fewer findings exits 0.
-  {
-    // The exact state of every package on `main` before #607.
-    name: "a package running eslint but DECLARING none fails",
-    files: withPackage("backend", {
-      name: "@mercaria/backend",
-      scripts: { lint: "eslint src scripts build.ts", test: "vitest run" },
-      devDependencies: { "@eslint/js": "^9.39.5" },
-    }),
-    expectExit: 1,
-    expectOutput: "packages/backend runs eslint in its lint script but DECLARES no eslint",
-  },
-  {
-    // Divergent ranges are how a workspace resolves TWO linters and lints half
-    // its packages with each — invisible in every manifest read on its own.
-    name: "one package's eslint range drifting from its siblings fails",
-    files: withPackage("frontend", {
-      name: "@mercaria/frontend",
-      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
-      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.0.0" },
-    }),
-    expectExit: 1,
-    expectOutput: "packages/frontend declares eslint ^9.0.0, expected ^9.39.5",
-  },
-  {
-    // The skew #607 MEASURED on main: @eslint/js 9.39.5 over an eslint 9.39.4
-    // nobody declared, so the two halves of the linter's own ruleset ran on
-    // different versions by accident.
-    name: "@eslint/js skewed from the eslint beside it fails",
-    files: withPackage("dashboard", {
-      name: "@mercaria/dashboard",
-      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
-      devDependencies: { "@eslint/js": "^9.39.4", eslint: "^9.39.5" },
-    }),
-    expectExit: 1,
-    expectOutput: "packages/dashboard declares @eslint/js ^9.39.4 beside eslint ^9.39.5",
-  },
-  {
-    // The negative direction, and the reason `RUNS_ESLINT` is narrower than
-    // `RUNS_A_LINTER`: a package that migrated to biome must not be told to
-    // declare a linter it does not run. `ui` moving into the real set is the
-    // expected failure here; the eslint demand must NOT be among the reasons.
-    name: "a package running biome is NOT asked to declare eslint",
-    files: withPackage("ui", {
-      name: "@mercaria/ui",
-      scripts: { lint: "biome check .", typecheck: "tsc --noEmit" },
-    }),
-    expectExit: 1,
-    expectOutput: "packages running a REAL linter are [backend, contracts, dashboard, frontend, pos, sdk, ui]",
-    rejectOutput: "packages/ui runs eslint",
+    expectOutput: 'lint coverage guard passed',
   },
 ];
 
@@ -412,21 +568,25 @@ const cases = [
  * otherwise leave every case green, since none depends on one existing.
  */
 async function assertGuardSource() {
-  const source = await readFile(validator, "utf8");
+  const source = await readFile(validator, 'utf8');
   const required = [
-    "LINTER_CONTROL_MUST_MATCH",
-    "LINTER_CONTROL_MUST_NOT_MATCH",
+    'LINTER_CONTROL_MUST_MATCH',
+    'LINTER_CONTROL_MUST_NOT_MATCH',
     // #607's pair. `RUNS_ESLINT` decides the population every declaration check
     // examines, so one that matched nothing would leave all of them vacuously
     // true — and the guard would print a tidy summary saying so.
-    "ESLINT_CONTROL_MUST_MATCH",
-    "ESLINT_CONTROL_MUST_NOT_MATCH",
-    "positive control failed",
-    "negative control failed",
+    'ESLINT_CONTROL_MUST_MATCH',
+    'ESLINT_CONTROL_MUST_NOT_MATCH',
+    // The whole-tree detector: a root script narrowed to one directory still
+    // READS as running Biome, so this pair is what keeps "covers all eight" true.
+    'BIOME_TREE_CONTROL_MUST_MATCH',
+    'BIOME_TREE_CONTROL_MUST_NOT_MATCH',
+    'positive control failed',
+    'negative control failed',
   ];
   const missing = required.filter((token) => !source.includes(token));
   return missing.length > 0
-    ? `guard source no longer carries ${missing.join(", ")} — its self-controls were removed`
+    ? `guard source no longer carries ${missing.join(', ')} — its self-controls were removed`
     : null;
 }
 
@@ -451,7 +611,7 @@ for (const testCase of cases) {
     failed += 1;
     console.error(`FAIL  ${testCase.name}`);
     for (const problem of problems) console.error(`        ${problem}`);
-    console.error(`        --- guard output ---\n${output.replace(/^/gm, "        ")}`);
+    console.error(`        --- guard output ---\n${output.replace(/^/gm, '        ')}`);
   } else {
     console.log(`ok    ${testCase.name}`);
   }
@@ -462,7 +622,7 @@ if (sourceProblem) {
   failed += 1;
   console.error(`FAIL  the guard keeps its own controls\n        ${sourceProblem}`);
 } else {
-  console.log("ok    the guard keeps its own controls");
+  console.log('ok    the guard keeps its own controls');
 }
 
 if (failed > 0) {

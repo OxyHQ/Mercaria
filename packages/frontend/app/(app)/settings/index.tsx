@@ -1,10 +1,10 @@
-import { View, ScrollView } from "react-native";
-import { useEffect } from "react";
-import { useOxy } from "@oxy.so/services";
-import { useRouter } from "expo-router";
-import { useTranslation } from "@/lib/i18n";
-import { AccountSection } from "@/components/settings/account-section";
-import { SettingsHeader } from "@/components/settings/settings-header";
+import { View, ScrollView } from 'react-native';
+import { useEffect } from 'react';
+import { useOxy } from '@oxy.so/services';
+import { useRouter } from 'expo-router';
+import { useTranslation } from '@/lib/i18n';
+import { AccountSection } from '@/components/settings/account-section';
+import { SettingsHeader } from '@/components/settings/settings-header';
 
 export default function SettingsAccountScreen() {
   const router = useRouter();
@@ -13,13 +13,13 @@ export default function SettingsAccountScreen() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.replace("/(app)");
+      router.replace('/(app)');
     }
   }, [isAuthenticated]);
 
   return (
     <View className="flex-1 bg-background">
-      <SettingsHeader title={t("settings.sections.account")} />
+      <SettingsHeader title={t('settings.sections.account')} />
       <ScrollView className="flex-1" contentContainerClassName="p-5 max-w-2xl">
         <AccountSection />
       </ScrollView>

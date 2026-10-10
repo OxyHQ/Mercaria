@@ -41,10 +41,7 @@ import {
   type ReferralRewardRuleRow,
 } from '../../../db/referrals/rewardRuleRepository.js';
 import { assertNoForbiddenReferralFunding } from './forbidden-funding.js';
-import {
-  referralRewardRuleDraftSchema,
-  type ReferralRewardRuleDraftBody,
-} from './rule-schema.js';
+import { referralRewardRuleDraftSchema, type ReferralRewardRuleDraftBody } from './rule-schema.js';
 
 /**
  * Validate a raw draft body: the forbidden-funding ANSWER first, then the
@@ -235,9 +232,7 @@ export async function activateRewardRuleVersion(input: {
         at,
       });
       if (!ended) {
-        throw conflict(
-          `Rule ${draft.ruleId}'s active version changed while publishing. Retry.`,
-        );
+        throw conflict(`Rule ${draft.ruleId}'s active version changed while publishing. Retry.`);
       }
       await appendReferralEvent(tx, {
         subjectType: 'reward_rule',
@@ -257,7 +252,9 @@ export async function activateRewardRuleVersion(input: {
       approvedByOxyUserId: input.approvedByOxyUserId,
     });
     if (!activated) {
-      throw conflict(`Rule version ${draft.ruleId}@v${String(draft.version)} changed while publishing.`);
+      throw conflict(
+        `Rule version ${draft.ruleId}@v${String(draft.version)} changed while publishing.`,
+      );
     }
     await appendReferralEvent(tx, {
       subjectType: 'reward_rule',

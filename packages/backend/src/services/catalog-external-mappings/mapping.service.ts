@@ -110,7 +110,8 @@ export async function proposeExternalMapping(
   }
 
   const transformRule = input.transformRule ?? 'identity';
-  const transformRuleVersion = input.transformRuleVersion ?? latestTransformRuleVersion(transformRule);
+  const transformRuleVersion =
+    input.transformRuleVersion ?? latestTransformRuleVersion(transformRule);
   if (!isTransformRuleRegistered(transformRule, transformRuleVersion)) {
     // Storable, reviewable and permanently unresolvable is worse than refused:
     // the row would look like work somebody had done.

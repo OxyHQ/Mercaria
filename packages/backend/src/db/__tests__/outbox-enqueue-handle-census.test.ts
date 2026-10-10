@@ -297,7 +297,9 @@ describe('the census can actually see the defect it forbids', () => {
   });
 
   it('passes a required handle', () => {
-    const source = fixture(`  input: { id: string },\n  db: ${HANDLE_TYPE},\n  now: Date = new Date(),`);
+    const source = fixture(
+      `  input: { id: string },\n  db: ${HANDLE_TYPE},\n  now: Date = new Date(),`,
+    );
     const [declaration] = enqueueDeclarations('fixture.ts', source);
     expect(takesHandle(declaration?.params ?? '')).toBe(true);
     expect(handleIsOptional(declaration?.params ?? '')).toBe(false);

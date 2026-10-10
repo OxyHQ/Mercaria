@@ -67,13 +67,7 @@ import {
   resetAssetMalwareScanner,
 } from '../scanner.js';
 import { MAX_INSPECTED_FILE_BYTES } from '../limits.js';
-import {
-  BLEND_BYTES,
-  CLOSED_TETRAHEDRON,
-  binaryStl,
-  objFile,
-  zipArchive,
-} from './fixtures.js';
+import { BLEND_BYTES, CLOSED_TETRAHEDRON, binaryStl, objFile, zipArchive } from './fixtures.js';
 
 /** A file row as `findVersionFiles` returns it, with only what this module reads. */
 function fileRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -129,9 +123,7 @@ describe('the ports ship refusing, and the refusals are the safe direction', () 
   });
 
   it('answers `error` for a scan, which is NOT a publishable verdict', async () => {
-    const result = await (
-      await import('../scanner.js')
-    ).assetMalwareScanner().scan({
+    const result = await (await import('../scanner.js')).assetMalwareScanner().scan({
       fileId: 'file_1',
       fileName: 'x.stl',
       declaredMediaType: 'model/stl',
@@ -298,7 +290,12 @@ describe('inspectAssetFile — the composition', () => {
     const archive = zipArchive([{ path: 'readme.txt', data: 'fine' }]);
     serveBytes(archive);
     findVersionFiles.mockResolvedValue([
-      fileRow({ fileName: 'extras.zip', format: 'zip', mediaType: 'application/zip', byteSize: archive.length }),
+      fileRow({
+        fileName: 'extras.zip',
+        format: 'zip',
+        mediaType: 'application/zip',
+        byteSize: archive.length,
+      }),
     ]);
     const report = await inspectAssetFile({ versionId: 'ver_1', fileId: 'file_1' });
     // A safe archive: nothing measured, nothing refused, and the safety checks ran.
@@ -373,7 +370,7 @@ describe('inspectAssetFile — the composition', () => {
     expect(report.kind === 'recorded' && report.verdict).toBe('failed');
   });
 
-  it('SKIPS a file that is not one of the version\'s, and writes nothing', async () => {
+  it("SKIPS a file that is not one of the version's, and writes nothing", async () => {
     findVersionFiles.mockResolvedValue([fileRow({ id: 'someone_elses' })]);
     const report = await inspectAssetFile({ versionId: 'ver_1', fileId: 'file_1' });
     expect(report.kind).toBe('skipped');

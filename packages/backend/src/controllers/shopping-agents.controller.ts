@@ -183,12 +183,8 @@ export async function updateShoppingAgentHandler(req: Request, res: Response): P
       ...(body.notificationChannels === undefined
         ? {}
         : { notificationChannels: body.notificationChannels }),
-      ...(body.constraints === undefined
-        ? {}
-        : { constraints: { constraints: body.constraints } }),
-      ...(body.constraintDigest === undefined
-        ? {}
-        : { constraintDigest: body.constraintDigest }),
+      ...(body.constraints === undefined ? {} : { constraints: { constraints: body.constraints } }),
+      ...(body.constraintDigest === undefined ? {} : { constraintDigest: body.constraintDigest }),
     });
     sendSuccess(res, { agent });
   } catch (err) {
@@ -220,10 +216,7 @@ export async function runShoppingAgentHandler(req: Request, res: Response): Prom
   }
 }
 
-export async function resolveShoppingAgentSplitHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function resolveShoppingAgentSplitHandler(req: Request, res: Response): Promise<void> {
   try {
     const oxyUserId = getRequiredOxyUserId(req);
     const body = req.body as { readonly resolution: ShoppingAgentSplitResolution };
@@ -239,10 +232,7 @@ export async function resolveShoppingAgentSplitHandler(
   }
 }
 
-export async function listShoppingAgentFindingsHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function listShoppingAgentFindingsHandler(req: Request, res: Response): Promise<void> {
   try {
     const oxyUserId = getRequiredOxyUserId(req);
     const limit = typeof req.query.limit === 'number' ? req.query.limit : undefined;

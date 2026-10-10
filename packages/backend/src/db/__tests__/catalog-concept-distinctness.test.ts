@@ -98,8 +98,16 @@ const GLOSSARY = join(
  */
 const CATALOG_CONCEPTS = [
   { concept: 'taxonomy category', table: 'categories', glossaryTerm: 'Taxonomy category' },
-  { concept: 'product type', table: 'product_type_definitions', glossaryTerm: 'Product type / profile' },
-  { concept: 'product family', table: 'canonical_product_families', glossaryTerm: 'Product family' },
+  {
+    concept: 'product type',
+    table: 'product_type_definitions',
+    glossaryTerm: 'Product type / profile',
+  },
+  {
+    concept: 'product family',
+    table: 'canonical_product_families',
+    glossaryTerm: 'Product family',
+  },
   { concept: 'product', table: 'canonical_products', glossaryTerm: 'Canonical product' },
   { concept: 'variant', table: 'canonical_variants', glossaryTerm: 'Canonical variant' },
   { concept: 'listing', table: 'listings', glossaryTerm: 'Native listing' },
@@ -120,7 +128,7 @@ const CONCEPT_TABLES: readonly string[] = CATALOG_CONCEPTS.map((c) => c.table);
 const CONCEPT_NEAR_NAMES: readonly { table: string; why: string }[] = [
   {
     table: 'product_variants',
-    why: 'A NATIVE listing\'s variant row, the child of `listings`. The canonical concept is `canonical_variants`; an offer names BOTH, which is the join a comparison surface is built on.',
+    why: "A NATIVE listing's variant row, the child of `listings`. The canonical concept is `canonical_variants`; an offer names BOTH, which is the join a comparison surface is built on.",
   },
   {
     table: 'collections',
@@ -158,7 +166,13 @@ const CONCEPT_NEAR_NAMES: readonly { table: string; why: string }[] = [
 const UNTYPED_CONCEPT_NAMED_COLUMNS: readonly {
   table: string;
   column: string;
-  kind: 'derived_count' | 'attribute_keys' | 'presentation' | 'mirrored_platform_field' | 'external_identity' | 'merchant_text';
+  kind:
+    | 'derived_count'
+    | 'attribute_keys'
+    | 'presentation'
+    | 'mirrored_platform_field'
+    | 'external_identity'
+    | 'merchant_text';
   why: string;
 }[] = [
   {
@@ -177,13 +191,13 @@ const UNTYPED_CONCEPT_NAMED_COLUMNS: readonly {
     table: 'canonical_products',
     column: 'variant_defining_attribute_keys',
     kind: 'attribute_keys',
-    why: 'Attribute registry KEYS naming which attributes differentiate this product\'s variants (ADR 0007 D6). Registry keys, never variant ids.',
+    why: "Attribute registry KEYS naming which attributes differentiate this product's variants (ADR 0007 D6). Registry keys, never variant ids.",
   },
   {
     table: 'listings',
     column: 'variant_count',
     kind: 'derived_count',
-    why: 'A rollup of the listing\'s own `product_variants` rows \u2014 the NATIVE variant table, not `canonical_variants`. An integer, not a reference.',
+    why: "A rollup of the listing's own `product_variants` rows \u2014 the NATIVE variant table, not `canonical_variants`. An integer, not a reference.",
   },
   {
     table: 'listings',
@@ -195,19 +209,19 @@ const UNTYPED_CONCEPT_NAMED_COLUMNS: readonly {
     table: 'listings',
     column: 'product_type',
     kind: 'mirrored_platform_field',
-    why: 'Shopify\'s and WooCommerce\'s own free-text `product_type`, mirrored verbatim for store browse. It is NOT #367\'s product type: that is `product_type_definitions`, cited by id from `product_type_definition_id` in this same table. Only one of the two is versioned, and a reader who takes this string for a schema version takes an import artefact for a decision.',
+    why: "Shopify's and WooCommerce's own free-text `product_type`, mirrored verbatim for store browse. It is NOT #367's product type: that is `product_type_definitions`, cited by id from `product_type_definition_id` in this same table. Only one of the two is versioned, and a reader who takes this string for a schema version takes an import artefact for a decision.",
   },
   {
     table: 'offers',
     column: 'external_offer_id',
     kind: 'external_identity',
-    why: 'The id the SOURCE platform gave its own offer. Another system\'s namespace, so it is not a Mercaria concept id at all.',
+    why: "The id the SOURCE platform gave its own offer. Another system's namespace, so it is not a Mercaria concept id at all.",
   },
   {
     table: 'offers',
     column: 'merchant_variant_text',
     kind: 'merchant_text',
-    why: 'The merchant\'s own words for the configuration, retained verbatim beside the typed `canonical_variant_id`. A claim, in ADR 0007 D7\'s sense, not a reference.',
+    why: "The merchant's own words for the configuration, retained verbatim beside the typed `canonical_variant_id`. A claim, in ADR 0007 D7's sense, not a reference.",
   },
 ] as const;
 
@@ -265,32 +279,174 @@ const CONCEPT_SPANNING_DISCRIMINATORS: readonly {
   concepts: readonly string[];
   why: string;
 }[] = [
-  { table: 'attribute_reindex_requests', column: 'entity_kind', concepts: ['canonical_products', 'canonical_variants'], why: 'A reindex queue row; `entity_id` is the product or variant it asks to be re-read.' },
-  { table: 'attribute_value_reviews', column: 'entity_kind', concepts: ['canonical_products', 'canonical_variants'], why: 'An operator review queue row over one attribute of one product or variant.' },
-  { table: 'catalog_authoring_draft_values', column: 'canonical_ref_kind', concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants'], why: 'A draft value that IS another canonical entity; `canonical_ref_id` names it while the draft is unpublished.' },
-  { table: 'catalog_authoring_draft_values', column: 'scope', concepts: ['canonical_products', 'canonical_variants'], why: 'A GRAIN. The one member that names a row, `variant`, has its OWN typed column: `draft_variant_id` is a real foreign key, tied by `catalog_authoring_draft_values_variant_scope_check` — `(scope = \'variant\') = (draft_variant_id is not null)`. `identity` and `compatibility` name no row at all.' },
-  { table: 'catalog_authoring_schema_invalidations', column: 'subject', concepts: ['categories', 'product_type_definitions'], why: 'A cache-invalidation row naming which definition changed.' },
-  { table: 'catalog_backfill_records', column: 'subject_kind', concepts: ['canonical_products', 'listings', 'offers'], why: '#60 backfill evidence. The subject is a composite `subject_key` spelled `<kind>:<id>`, and one of its kinds, `vendor_value`, is a normalized brand-candidate STRING that names no row anywhere. The canonical OUTCOME beside it is typed.' },
-  { table: 'catalog_consistency_findings', column: 'subject_kind', concepts: ['canonical_products', 'listings', 'offers'], why: 'The backfill sweep\'s finding rows, keyed on the same composite `<kind>:<id>` `subject_key`, with the same `vendor_value` member that names no row. It repairs nothing.' },
-  { table: 'catalog_entity_suppressions', column: 'entity_type', concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'offers'], why: 'An operator suppression over one graph entity, ledgered rather than joined.' },
-  { table: 'catalog_governance_audit_events', column: 'subject_kind', concepts: ['categories', 'product_type_definitions'], why: 'The append-only governance trail, and MIXED: `operator_role` writes an OXY account id and `vertical_package` writes `<package>:<namespace>`, so two of its ten members address no Mercaria row at all.' },
-  { table: 'catalog_governance_change_requests', column: 'subject_kind', concepts: ['categories', 'product_type_definitions'], why: 'A requested governance change, over the same vocabulary as the trail above.' },
-  { table: 'catalog_localization_revisions', column: 'entity_kind', concepts: ['canonical_product_families', 'canonical_products', 'categories', 'listings', 'product_type_definitions'], why: 'The localization REVISION ledger. ADR 0007 D4 keeps the strings themselves in per-entity tables; only the revision trail is polymorphic, and it names five of the seven.' },
-  { table: 'catalog_merge_jobs', column: 'entity_type', concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants'], why: '#59\'s merge job; `entity_type` decides which of seven tables `winner_id` and `loser_id` live in.' },
-  { table: 'catalog_proposals', column: 'type', concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'categories', 'product_type_definitions'], why: 'The proposal\'s subject. Its typed columns (`category_id`, `product_type_definition_id`, `attribute_definition_id`) are CONTEXT PINS naming what the proposal was made UNDER — a different fact from what it became; `resolved_entity_id` is the approved entity, in whichever table `type` names.' },
-  { table: 'catalog_review_items', column: 'subject_type', concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'offers'], why: '#59\'s review inbox, deliberately wider than the mergeable set — a match decision and an identifier assertion are subjects and neither is an entity.' },
-  { table: 'catalog_review_items', column: 'counterpart_type', concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'offers'], why: 'The other side of a review pair, over the same vocabulary.' },
-  { table: 'catalog_revisions', column: 'entity_type', concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'offers'], why: 'The append-only curation timeline; a compensating correction names the revision it undoes.' },
-  { table: 'catalog_split_assignments', column: 'item_type', concepts: ['canonical_variants', 'offers'], why: 'One row a split reassigns; `item_ref` is its id in whichever table the pair `(job.entity_type, item_type)` selects.' },
-  { table: 'catalog_split_jobs', column: 'entity_type', concepts: ['canonical_products', 'canonical_variants'], why: '#59\'s split job, CHECK-restricted to a canonical product or variant.' },
-  { table: 'catalog_source_objects', column: 'external_type', concepts: ['canonical_products', 'categories', 'offers'], why: 'What the SOURCE says its object is, beside an `external_id` in the source\'s own namespace. Its members include `merchant` and `relationship`, which are not concepts here either.' },
-  { table: 'catalog_source_rejections', column: 'external_type', concepts: ['canonical_products', 'categories', 'offers'], why: 'The residual of a rejected external record, over the same vocabulary.' },
-  { table: 'navigation_nodes', column: 'target_kind', concepts: ['canonical_product_families', 'categories', 'product_type_definitions'], why: 'Six of its seven pointers ARE typed foreign keys; `product_type_key` alone is a stable machine key, because `product_type_definitions` has no single-column unique on `key` and an id would pin one VERSION of a menu entry.' },
-  { table: 'product_type_fields', column: 'scope', concepts: ['canonical_products', 'canonical_variants'], why: 'A GRAIN, and it governs no id: `attribute_definition_id` beside it is an unconditional foreign key present on every row whatever the scope. `identity` and `compatibility` name no row at all.' },
-  { table: 'retail_suppressions', column: 'scope', concepts: ['canonical_products', 'canonical_variants', 'categories'], why: 'FIVE scopes are typed columns (supplier, supplier account, canonical product, canonical variant, brand) and three are not (`category`, `market`, `supplier_sku`, which have no table to reference). `scope_ref` is NOT NULL on every row and `retail_suppressions_reference_agreement_check` forces it equal to whichever typed column is present.' },
-  { table: 'review_target_migrations', column: 'from_target_type', concepts: ['canonical_products', 'listings'], why: '#76\'s append-only reclassification trail, and MIXED: one of its six target types is `seller`, whose column on `reviews` is `seller_oxy_user_id` — an Oxy account id, not a Mercaria row.' },
-  { table: 'review_target_migrations', column: 'to_target_type', concepts: ['canonical_products', 'listings'], why: 'The same trail\'s new side, over the same mixed vocabulary. `to_target_ref` is NULL for a `refuse_ambiguous` outcome, by `review_target_migrations_destination_check`.' },
-  { table: 'source_records', column: 'external_type', concepts: ['canonical_products', 'categories', 'offers'], why: 'One observation of an external object, beside the source\'s own `external_id`.' },
+  {
+    table: 'attribute_reindex_requests',
+    column: 'entity_kind',
+    concepts: ['canonical_products', 'canonical_variants'],
+    why: 'A reindex queue row; `entity_id` is the product or variant it asks to be re-read.',
+  },
+  {
+    table: 'attribute_value_reviews',
+    column: 'entity_kind',
+    concepts: ['canonical_products', 'canonical_variants'],
+    why: 'An operator review queue row over one attribute of one product or variant.',
+  },
+  {
+    table: 'catalog_authoring_draft_values',
+    column: 'canonical_ref_kind',
+    concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants'],
+    why: 'A draft value that IS another canonical entity; `canonical_ref_id` names it while the draft is unpublished.',
+  },
+  {
+    table: 'catalog_authoring_draft_values',
+    column: 'scope',
+    concepts: ['canonical_products', 'canonical_variants'],
+    why: "A GRAIN. The one member that names a row, `variant`, has its OWN typed column: `draft_variant_id` is a real foreign key, tied by `catalog_authoring_draft_values_variant_scope_check` — `(scope = 'variant') = (draft_variant_id is not null)`. `identity` and `compatibility` name no row at all.",
+  },
+  {
+    table: 'catalog_authoring_schema_invalidations',
+    column: 'subject',
+    concepts: ['categories', 'product_type_definitions'],
+    why: 'A cache-invalidation row naming which definition changed.',
+  },
+  {
+    table: 'catalog_backfill_records',
+    column: 'subject_kind',
+    concepts: ['canonical_products', 'listings', 'offers'],
+    why: '#60 backfill evidence. The subject is a composite `subject_key` spelled `<kind>:<id>`, and one of its kinds, `vendor_value`, is a normalized brand-candidate STRING that names no row anywhere. The canonical OUTCOME beside it is typed.',
+  },
+  {
+    table: 'catalog_consistency_findings',
+    column: 'subject_kind',
+    concepts: ['canonical_products', 'listings', 'offers'],
+    why: "The backfill sweep's finding rows, keyed on the same composite `<kind>:<id>` `subject_key`, with the same `vendor_value` member that names no row. It repairs nothing.",
+  },
+  {
+    table: 'catalog_entity_suppressions',
+    column: 'entity_type',
+    concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'offers'],
+    why: 'An operator suppression over one graph entity, ledgered rather than joined.',
+  },
+  {
+    table: 'catalog_governance_audit_events',
+    column: 'subject_kind',
+    concepts: ['categories', 'product_type_definitions'],
+    why: 'The append-only governance trail, and MIXED: `operator_role` writes an OXY account id and `vertical_package` writes `<package>:<namespace>`, so two of its ten members address no Mercaria row at all.',
+  },
+  {
+    table: 'catalog_governance_change_requests',
+    column: 'subject_kind',
+    concepts: ['categories', 'product_type_definitions'],
+    why: 'A requested governance change, over the same vocabulary as the trail above.',
+  },
+  {
+    table: 'catalog_localization_revisions',
+    column: 'entity_kind',
+    concepts: [
+      'canonical_product_families',
+      'canonical_products',
+      'categories',
+      'listings',
+      'product_type_definitions',
+    ],
+    why: 'The localization REVISION ledger. ADR 0007 D4 keeps the strings themselves in per-entity tables; only the revision trail is polymorphic, and it names five of the seven.',
+  },
+  {
+    table: 'catalog_merge_jobs',
+    column: 'entity_type',
+    concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants'],
+    why: "#59's merge job; `entity_type` decides which of seven tables `winner_id` and `loser_id` live in.",
+  },
+  {
+    table: 'catalog_proposals',
+    column: 'type',
+    concepts: [
+      'canonical_product_families',
+      'canonical_products',
+      'canonical_variants',
+      'categories',
+      'product_type_definitions',
+    ],
+    why: "The proposal's subject. Its typed columns (`category_id`, `product_type_definition_id`, `attribute_definition_id`) are CONTEXT PINS naming what the proposal was made UNDER — a different fact from what it became; `resolved_entity_id` is the approved entity, in whichever table `type` names.",
+  },
+  {
+    table: 'catalog_review_items',
+    column: 'subject_type',
+    concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'offers'],
+    why: "#59's review inbox, deliberately wider than the mergeable set — a match decision and an identifier assertion are subjects and neither is an entity.",
+  },
+  {
+    table: 'catalog_review_items',
+    column: 'counterpart_type',
+    concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'offers'],
+    why: 'The other side of a review pair, over the same vocabulary.',
+  },
+  {
+    table: 'catalog_revisions',
+    column: 'entity_type',
+    concepts: ['canonical_product_families', 'canonical_products', 'canonical_variants', 'offers'],
+    why: 'The append-only curation timeline; a compensating correction names the revision it undoes.',
+  },
+  {
+    table: 'catalog_split_assignments',
+    column: 'item_type',
+    concepts: ['canonical_variants', 'offers'],
+    why: 'One row a split reassigns; `item_ref` is its id in whichever table the pair `(job.entity_type, item_type)` selects.',
+  },
+  {
+    table: 'catalog_split_jobs',
+    column: 'entity_type',
+    concepts: ['canonical_products', 'canonical_variants'],
+    why: "#59's split job, CHECK-restricted to a canonical product or variant.",
+  },
+  {
+    table: 'catalog_source_objects',
+    column: 'external_type',
+    concepts: ['canonical_products', 'categories', 'offers'],
+    why: "What the SOURCE says its object is, beside an `external_id` in the source's own namespace. Its members include `merchant` and `relationship`, which are not concepts here either.",
+  },
+  {
+    table: 'catalog_source_rejections',
+    column: 'external_type',
+    concepts: ['canonical_products', 'categories', 'offers'],
+    why: 'The residual of a rejected external record, over the same vocabulary.',
+  },
+  {
+    table: 'navigation_nodes',
+    column: 'target_kind',
+    concepts: ['canonical_product_families', 'categories', 'product_type_definitions'],
+    why: 'Six of its seven pointers ARE typed foreign keys; `product_type_key` alone is a stable machine key, because `product_type_definitions` has no single-column unique on `key` and an id would pin one VERSION of a menu entry.',
+  },
+  {
+    table: 'product_type_fields',
+    column: 'scope',
+    concepts: ['canonical_products', 'canonical_variants'],
+    why: 'A GRAIN, and it governs no id: `attribute_definition_id` beside it is an unconditional foreign key present on every row whatever the scope. `identity` and `compatibility` name no row at all.',
+  },
+  {
+    table: 'retail_suppressions',
+    column: 'scope',
+    concepts: ['canonical_products', 'canonical_variants', 'categories'],
+    why: 'FIVE scopes are typed columns (supplier, supplier account, canonical product, canonical variant, brand) and three are not (`category`, `market`, `supplier_sku`, which have no table to reference). `scope_ref` is NOT NULL on every row and `retail_suppressions_reference_agreement_check` forces it equal to whichever typed column is present.',
+  },
+  {
+    table: 'review_target_migrations',
+    column: 'from_target_type',
+    concepts: ['canonical_products', 'listings'],
+    why: "#76's append-only reclassification trail, and MIXED: one of its six target types is `seller`, whose column on `reviews` is `seller_oxy_user_id` — an Oxy account id, not a Mercaria row.",
+  },
+  {
+    table: 'review_target_migrations',
+    column: 'to_target_type',
+    concepts: ['canonical_products', 'listings'],
+    why: "The same trail's new side, over the same mixed vocabulary. `to_target_ref` is NULL for a `refuse_ambiguous` outcome, by `review_target_migrations_destination_check`.",
+  },
+  {
+    table: 'source_records',
+    column: 'external_type',
+    concepts: ['canonical_products', 'categories', 'offers'],
+    why: "One observation of an external object, beside the source's own `external_id`.",
+  },
 ] as const;
 
 /**
@@ -311,7 +467,7 @@ const CONCEPT_DEPENDENCY_EXEMPTIONS: readonly {
     child: 'offers',
     column: 'source_record_id',
     parent: 'source_records',
-    why: 'Provenance, and the id `source_records.external_type` governs is `external_id` — the SOURCE platform\'s own key, in a namespace Mercaria neither defines nor controls. So the label on that row cannot mistype a Mercaria concept id, because there is no Mercaria concept id on it to mistype: what it classifies is what the source said it was looking at, not which canonical entity a link later attached it to.',
+    why: "Provenance, and the id `source_records.external_type` governs is `external_id` — the SOURCE platform's own key, in a namespace Mercaria neither defines nor controls. So the label on that row cannot mistype a Mercaria concept id, because there is no Mercaria concept id on it to mistype: what it classifies is what the source said it was looking at, not which canonical entity a link later attached it to.",
   },
 ] as const;
 
@@ -357,7 +513,12 @@ function walkForeignKeys(tables: ReadonlyMap<string, PgTable>): readonly Foreign
 function walkDiscriminators(
   tables: ReadonlyMap<string, PgTable>,
 ): { table: string; column: string; concepts: ReadonlySet<string>; enumSize: number }[] {
-  const found: { table: string; column: string; concepts: ReadonlySet<string>; enumSize: number }[] = [];
+  const found: {
+    table: string;
+    column: string;
+    concepts: ReadonlySet<string>;
+    enumSize: number;
+  }[] = [];
   for (const [name, table] of tables) {
     for (const column of getTableConfig(table).columns) {
       const members = (column as unknown as { enumValues?: readonly string[] }).enumValues;
@@ -367,7 +528,12 @@ function walkDiscriminators(
           DISCRIMINATOR_MEMBER_TO_TABLE[member] ? [DISCRIMINATOR_MEMBER_TO_TABLE[member]] : [],
         ),
       );
-      found.push({ table: name, column: sqlColumnName(column), concepts, enumSize: members.length });
+      found.push({
+        table: name,
+        column: sqlColumnName(column),
+        concepts,
+        enumSize: members.length,
+      });
     }
   }
   return found;
@@ -438,7 +604,10 @@ const SPLIT = ((): {
 } => {
   const conceptsByChild = new Map<string, Set<string>>();
   for (const edge of conceptForeignKeys) {
-    conceptsByChild.set(edge.child, (conceptsByChild.get(edge.child) ?? new Set<string>()).add(edge.parent));
+    conceptsByChild.set(
+      edge.child,
+      (conceptsByChild.get(edge.child) ?? new Set<string>()).add(edge.parent),
+    );
   }
   const spanning = discriminators.filter((entry) => entry.concepts.size >= 2);
   const typed: string[] = [];
@@ -473,7 +642,10 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
     const typed = conceptForeignKeys.filter(
       (edge) => edge.child === 'listings' && edge.columns.join() === 'category_id',
     );
-    expect(typed, '`listings.category_id` no longer resolves as a foreign key to `categories`').toHaveLength(1);
+    expect(
+      typed,
+      '`listings.category_id` no longer resolves as a foreign key to `categories`',
+    ).toHaveLength(1);
     expect(typed[0].parent).toBe('categories');
 
     expect(tables.size).toBeGreaterThanOrEqual(MINIMUM_TABLES);
@@ -508,7 +680,10 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
     // loudly, but naming the wrong cause.
     expect(terms.size, 'the glossary term table did not parse').toBeGreaterThanOrEqual(15);
     for (const { concept, table, glossaryTerm } of CATALOG_CONCEPTS) {
-      expect(terms.get(glossaryTerm), `the glossary no longer defines "${glossaryTerm}" (${concept})`).toBe(table);
+      expect(
+        terms.get(glossaryTerm),
+        `the glossary no longer defines "${glossaryTerm}" (${concept})`,
+      ).toBe(table);
     }
   });
 
@@ -544,7 +719,10 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
     expect(shared, 'a single column carries foreign keys to two different concepts').toEqual([]);
 
     const perConcept = Object.fromEntries(
-      CONCEPT_TABLES.map((table) => [table, conceptForeignKeys.filter((e) => e.parent === table).length]),
+      CONCEPT_TABLES.map((table) => [
+        table,
+        conceptForeignKeys.filter((e) => e.parent === table).length,
+      ]),
     );
     // Every one of the seven is REACHED by at least one typed reference. A
     // concept nothing points at is one nothing is using, and the count reaching
@@ -552,7 +730,9 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
     for (const [table, count] of Object.entries(perConcept)) {
       expect(count, `nothing references \`${table}\` by a foreign key`).toBeGreaterThan(0);
     }
-    console.log(`[concept-distinctness] typed references per concept: ${JSON.stringify(perConcept)}`);
+    console.log(
+      `[concept-distinctness] typed references per concept: ${JSON.stringify(perConcept)}`,
+    );
   });
 
   it('CLAUSE 3 — on a concept row, a concept-named column is typed or dispositioned', () => {
@@ -583,7 +763,8 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
         const parents = fkByColumn.get(key) ?? new Set<string>();
         if (CONCEPT_WORD_TO_TABLES[word].some((table) => parents.has(table))) continue;
         found.add(key);
-        if (!dispositioned.has(key)) offenders.push(`${key} names \`${word}\` and carries no foreign key to it`);
+        if (!dispositioned.has(key))
+          offenders.push(`${key} names \`${word}\` and carries no foreign key to it`);
       }
     }
     expect(columnsWalked).toBeGreaterThanOrEqual(MINIMUM_CONCEPT_TABLE_COLUMNS);
@@ -627,10 +808,13 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
           ? []
           : [`${entry.table}.${entry.column}: recorded [${recorded}] but addresses [${live}]`];
       });
-    expect(drift, 'a declared discriminator can now address a different set of concepts').toEqual([]);
+    expect(drift, 'a declared discriminator can now address a different set of concepts').toEqual(
+      [],
+    );
     expect(spanning.length).toBeGreaterThanOrEqual(30);
     expect(typed.length).toBeGreaterThanOrEqual(6);
-    for (const entry of CONCEPT_SPANNING_DISCRIMINATORS) expect(entry.why.length).toBeGreaterThan(40);
+    for (const entry of CONCEPT_SPANNING_DISCRIMINATORS)
+      expect(entry.why.length).toBeGreaterThan(40);
     console.log(
       `[concept-distinctness] ${spanning.length} discriminators name two or more of the seven: ${typed.length} carry a typed column per concept, ${needsDeclaration.length} declared.`,
     );
@@ -652,7 +836,9 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
     expect(untypedTables.size).toBeGreaterThanOrEqual(20);
 
     const exempt = new Set(
-      CONCEPT_DEPENDENCY_EXEMPTIONS.map((entry) => `${entry.child}.${entry.column} -> ${entry.parent}`),
+      CONCEPT_DEPENDENCY_EXEMPTIONS.map(
+        (entry) => `${entry.child}.${entry.column} -> ${entry.parent}`,
+      ),
     );
     const dependencies = foreignKeys
       .filter((edge) => CONCEPT_TABLES.includes(edge.child) && untypedTables.has(edge.parent))
@@ -727,9 +913,12 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
       CONCEPT_SPANNING_DISCRIMINATORS.map((entry) => `${entry.table}.${entry.column}`),
     );
     for (const set of sites.values()) {
-      for (const key of set) expect(declaredKeys.has(key), `${key} is a matrix site but is not declared`).toBe(true);
+      for (const key of set)
+        expect(declaredKeys.has(key), `${key} is a matrix site but is not declared`).toBe(true);
     }
-    console.log(`[concept-distinctness] pairwise matrix, 42 ordered pairs:\n  ${rows.join('\n  ')}`);
+    console.log(
+      `[concept-distinctness] pairwise matrix, 42 ordered pairs:\n  ${rows.join('\n  ')}`,
+    );
   });
 
   describe('mutation self-tests — each clause, against schema shapes the walk never produces', () => {
@@ -752,8 +941,16 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
       // it from the planted shape above would be narrowed under pressure, and
       // the narrowing is always the permissive direction.
       const legitimate: ForeignKeyEdge[] = [
-        { child: 'canonical_attribute_values', parent: 'canonical_products', columns: ['product_id'] },
-        { child: 'canonical_attribute_values', parent: 'canonical_variants', columns: ['variant_id'] },
+        {
+          child: 'canonical_attribute_values',
+          parent: 'canonical_products',
+          columns: ['product_id'],
+        },
+        {
+          child: 'canonical_attribute_values',
+          parent: 'canonical_variants',
+          columns: ['variant_id'],
+        },
       ];
       const byColumn = new Map<string, Set<string>>();
       for (const edge of legitimate) {
@@ -798,12 +995,19 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
       const untypedTwin = foreignKeys.filter(
         (edge) => edge.child === 'listings' && edge.columns.join() === 'product_type',
       );
-      expect(untypedTwin, '`listings.product_type` acquired a foreign key — retire its entry above').toEqual([]);
+      expect(
+        untypedTwin,
+        '`listings.product_type` acquired a foreign key — retire its entry above',
+      ).toEqual([]);
     });
 
     it('CLAUSE 4 fires on a planted label-plus-bare-id, and not on a typed pair', () => {
       const conceptsFor = (members: readonly string[]) =>
-        new Set(members.flatMap((m) => (DISCRIMINATOR_MEMBER_TO_TABLE[m] ? [DISCRIMINATOR_MEMBER_TO_TABLE[m]] : [])));
+        new Set(
+          members.flatMap((m) =>
+            DISCRIMINATOR_MEMBER_TO_TABLE[m] ? [DISCRIMINATOR_MEMBER_TO_TABLE[m]] : [],
+          ),
+        );
       // The realistic violation: a new queue row addressing a product OR a
       // variant through one untyped column.
       const planted = conceptsFor(['product', 'variant']);
@@ -823,7 +1027,9 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
         ['canonical_product', 'canonical_variant'].map((m) => DISCRIMINATOR_MEMBER_TO_TABLE[m]),
       );
       const after = new Set(
-        ['canonical_product', 'canonical_variant', 'listing'].map((m) => DISCRIMINATOR_MEMBER_TO_TABLE[m]),
+        ['canonical_product', 'canonical_variant', 'listing'].map(
+          (m) => DISCRIMINATOR_MEMBER_TO_TABLE[m],
+        ),
       );
       const typedColumns = new Set(['canonical_products', 'canonical_variants']);
       expect([...before].filter((c) => !typedColumns.has(c))).toEqual([]);

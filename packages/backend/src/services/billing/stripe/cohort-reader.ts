@@ -9,9 +9,11 @@ import type { BillingCohort } from '../peable/adapter.js';
  */
 export function createBillingCohortStripeReader(cohort: BillingCohort) {
   const key = config.payments.stripe.secretKey;
-  if (!/^sk_(?:live|test)_[A-Za-z0-9]+$/.test(key) ||
-      key.startsWith('sk_live_') !== cohort.livemode ||
-      cohort.livemode !== (cohort.environment === 'production')) {
+  if (
+    !/^sk_(?:live|test)_[A-Za-z0-9]+$/.test(key) ||
+    key.startsWith('sk_live_') !== cohort.livemode ||
+    cohort.livemode !== (cohort.environment === 'production')
+  ) {
     throw new Error('Merchant billing reader key or mode differs from the cohort.');
   }
   const stripe = new Stripe(key, {
@@ -30,17 +32,22 @@ export function createBillingCohortStripeReader(cohort: BillingCohort) {
       return (await stripe.accounts.retrieve(null)).id;
     },
     async invoice(ref: string, customerId: string): Promise<Stripe.Invoice> {
-      if (!/^in_[A-Za-z0-9]+$/.test(ref)) throw new Error('Invalid merchant billing invoice reference.');
+      if (!/^in_[A-Za-z0-9]+$/.test(ref))
+        throw new Error('Invalid merchant billing invoice reference.');
       await verifyAccount();
-      const invoice = await stripe.invoices.retrieve(ref, { expand: ['payments.data.payment.payment_intent'] });
-      const customer = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+      const invoice = await stripe.invoices.retrieve(ref, {
+        expand: ['payments.data.payment.payment_intent'],
+      });
+      const customer =
+        typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
       if (invoice.id !== ref || invoice.livemode !== cohort.livemode || customer !== customerId) {
         throw new Error('Merchant billing invoice differs from the cohort customer or mode.');
       }
       return invoice;
     },
     async charge(ref: string, customerId: string): Promise<Stripe.Charge> {
-      if (!/^ch_[A-Za-z0-9]+$/.test(ref)) throw new Error('Invalid merchant billing charge reference.');
+      if (!/^ch_[A-Za-z0-9]+$/.test(ref))
+        throw new Error('Invalid merchant billing charge reference.');
       await verifyAccount();
       const charge = await stripe.charges.retrieve(ref, { expand: ['balance_transaction'] });
       const customer = typeof charge.customer === 'string' ? charge.customer : charge.customer?.id;

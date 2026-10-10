@@ -251,8 +251,7 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
     id: 'Q10',
     workloadItem: 10,
     title: 'Search candidate generation — trigram similarity over product names',
-    reader:
-      'db/canonical/canonicalProductRepository.ts::searchCanonicalProductsByNameSimilarity',
+    reader: 'db/canonical/canonicalProductRepository.ts::searchCanonicalProductsByNameSimilarity',
     /**
      * NO index requirement and NO forbidden node, and that is the measurement
      * rather than a gap in it.
@@ -324,7 +323,12 @@ export const WORKLOAD_SHAPES: readonly WorkloadShape[] = [
     expectation: { minRowsReturned: 1 },
     run: (db) =>
       findNearbyLocalListings(
-        { latIndex: Math.floor(41.38 / 0.1), lonIndex: Math.floor(2.17 / 0.1), ringCells: 1, limit: PAGE },
+        {
+          latIndex: Math.floor(41.38 / 0.1),
+          lonIndex: Math.floor(2.17 / 0.1),
+          ringCells: 1,
+          limit: PAGE,
+        },
         db,
       ),
   },

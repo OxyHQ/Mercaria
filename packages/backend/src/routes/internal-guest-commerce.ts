@@ -81,10 +81,7 @@ router.get('/consistency', guestCommerceConsistencyHandler);
  * below, so this surface cannot be asked what an inbox has ever accessed.
  */
 router.get('/portal/checkouts/:checkoutGroupId', traceGuestPortalHandler);
-router.post(
-  '/portal/checkouts/:checkoutGroupId/resend-access-link',
-  resendGuestAccessLinkHandler,
-);
+router.post('/portal/checkouts/:checkoutGroupId/resend-access-link', resendGuestAccessLinkHandler);
 router.post('/portal/checkouts/:checkoutGroupId/revoke-access', revokeGuestGroupAccessHandler);
 
 /**

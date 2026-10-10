@@ -1,7 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SellerPaymentSettings } from "@mercaria/shared-types";
-import { createOnboardingLink, fetchPaymentSettings } from "../api/payments";
-import { queryKeys } from "../queryKeys";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { SellerPaymentSettings } from '@mercaria/shared-types';
+import { createOnboardingLink, fetchPaymentSettings } from '../api/payments';
+import { queryKeys } from '../queryKeys';
 
 /** The store's payment standing, plus what this deployment can onboard. */
 export function usePaymentSettings(storeId: string) {

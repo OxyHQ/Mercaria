@@ -98,7 +98,12 @@ async function main(): Promise<void> {
   for (const probe of report.probes) {
     if (probe.diverged === 0) continue;
     log.general.warn(
-      { probe: probe.probe, examined: probe.examined, diverged: probe.diverged, sample: probe.sample },
+      {
+        probe: probe.probe,
+        examined: probe.examined,
+        diverged: probe.diverged,
+        sample: probe.sample,
+      },
       'Legacy and new reads disagree',
     );
   }

@@ -37,11 +37,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
-import { brands, brandAliases, brandSourceLinks, organizations } from '../../db/schema/organizations.js';
 import {
-  canonicalProductFamilies,
-  canonicalProducts,
-} from '../../db/schema/canonicalCatalog.js';
+  brands,
+  brandAliases,
+  brandSourceLinks,
+  organizations,
+} from '../../db/schema/organizations.js';
+import { canonicalProductFamilies, canonicalProducts } from '../../db/schema/canonicalCatalog.js';
 import { commerceRelationships } from '../../db/schema/relationships.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
 import { merchants } from '../../db/schema/merchants.js';
@@ -87,7 +89,9 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await db.delete(catalogReviewItems).where(inArray(catalogReviewItems.id, safeIds(createdReviewItemIds)));
+  await db
+    .delete(catalogReviewItems)
+    .where(inArray(catalogReviewItems.id, safeIds(createdReviewItemIds)));
   await db.delete(offers).where(inArray(offers.id, safeIds(createdOfferIds)));
   await db
     .delete(commerceRelationships)
@@ -101,7 +105,9 @@ afterAll(async () => {
     .delete(canonicalProductFamilies)
     .where(inArray(canonicalProductFamilies.id, safeIds(createdFamilyIds)));
   await db.delete(brandAliases).where(inArray(brandAliases.brandId, safeIds(createdBrandIds)));
-  await db.delete(brandSourceLinks).where(inArray(brandSourceLinks.brandId, safeIds(createdBrandIds)));
+  await db
+    .delete(brandSourceLinks)
+    .where(inArray(brandSourceLinks.brandId, safeIds(createdBrandIds)));
   // Tombstones point at their winners, so the losers must go first.
   for (const id of [...createdBrandIds].reverse()) {
     await db.delete(brands).where(inArray(brands.id, [id]));
@@ -185,7 +191,10 @@ async function mintMerchant(label: string): Promise<string> {
 
 /** A VERIFIED relationship written directly — #55 owns the gates on verifying. */
 async function mintVerifiedRelationship(input: {
-  kind: 'merchant_official_channel_for_brand' | 'merchant_authorized_reseller_for_brand' | 'organization_owns_brand';
+  kind:
+    | 'merchant_official_channel_for_brand'
+    | 'merchant_authorized_reseller_for_brand'
+    | 'organization_owns_brand';
   brandId: string;
   merchantId?: string;
   organizationId?: string;
@@ -279,8 +288,20 @@ describe('acceptance 1, 2 and 5 — a brand page lists channels, never sellers',
     // merchants — and holds no relationship at all. That is the NORMAL state
     // (ADR 0002 D10) and the whole of acceptance 1.
     const sourceId = await mintSource('offers', { mayDisplay: true });
-    await mintOffer({ sourceId, merchantId: ordinaryMerchantId, variantId, externalOfferId: 'o1', amount: 99_900 });
-    await mintOffer({ sourceId, merchantId: officialMerchantId, variantId, externalOfferId: 'o2', amount: 109_900 });
+    await mintOffer({
+      sourceId,
+      merchantId: ordinaryMerchantId,
+      variantId,
+      externalOfferId: 'o1',
+      amount: 99_900,
+    });
+    await mintOffer({
+      sourceId,
+      merchantId: officialMerchantId,
+      variantId,
+      externalOfferId: 'o2',
+      amount: 109_900,
+    });
 
     const page = await readBrandPage({ handle: brandId, offerContext: 'included' }, db);
     expect(page).toBeDefined();
@@ -343,8 +364,14 @@ describe('acceptance 3 — market-scoped channels differ between two countries',
       territories: [],
     });
 
-    const spain = await readBrandPage({ handle: brandId, market: 'ES', offerContext: 'included' }, db);
-    const germany = await readBrandPage({ handle: brandId, market: 'DE', offerContext: 'included' }, db);
+    const spain = await readBrandPage(
+      { handle: brandId, market: 'ES', offerContext: 'included' },
+      db,
+    );
+    const germany = await readBrandPage(
+      { handle: brandId, market: 'DE', offerContext: 'included' },
+      db,
+    );
 
     expect(spain?.channels.officialStores.map((entry) => entry.merchantId)).toEqual([
       spanishMerchantId,
@@ -402,7 +429,11 @@ describe('acceptance 4 — a lapsed or revoked claim stops producing a badge', (
     await mintProduct({ label: 'owned-product', brandId });
     const [organization] = await db
       .insert(organizations)
-      .values({ name: `Pages Holdings ${RUN}`, slug: `pages-holdings-${RUN}`, normalizedName: `pages holdings ${RUN}` })
+      .values({
+        name: `Pages Holdings ${RUN}`,
+        slug: `pages-holdings-${RUN}`,
+        normalizedName: `pages holdings ${RUN}`,
+      })
       .returning({ id: organizations.id });
     if (!organization) throw new Error('the organization was not written');
     createdOrganizationIds.push(organization.id);
@@ -444,7 +475,10 @@ describe('acceptance 6 — brand and family routes survive a merge', () => {
   it('answers an old brand handle with the winner and reports the redirect', async () => {
     const winnerId = await mintBrand('merge-winner');
     const loserId = await mintBrand('merge-loser');
-    const loser = await db.select().from(brands).where(inArray(brands.id, [loserId]));
+    const loser = await db
+      .select()
+      .from(brands)
+      .where(inArray(brands.id, [loserId]));
     const loserSlug = loser[0]?.slug ?? '';
 
     await db
@@ -545,7 +579,9 @@ describe('#72 brand rule 10 — an empty state that says which emptiness it is',
       db,
     );
     expect(withdrawn?.offerContext).toBe('withdrawn');
-    expect(withdrawn?.products.find((card) => card.canonicalProductId === productId)?.offers).toBeUndefined();
+    expect(
+      withdrawn?.products.find((card) => card.canonicalProductId === productId)?.offers,
+    ).toBeUndefined();
 
     // #72 product-browse rule 4: a product with NO offer still appears when it
     // has meaningful canonical data — its absence of a summary is the answer.
@@ -810,7 +846,10 @@ describe('#72 product-browse rule 6 — the cursor is stable', () => {
 describe('#72 identity rule 2 — a correction enters the review queue and edits nothing', () => {
   it('raises one review item and converges on a second submission', async () => {
     const brandId = await mintBrand('corrections');
-    const before = await db.select().from(brands).where(inArray(brands.id, [brandId]));
+    const before = await db
+      .select()
+      .from(brands)
+      .where(inArray(brands.id, [brandId]));
 
     const first = await submitCatalogCorrection(
       { subject: 'brand', handle: brandId, field: 'logo' },
@@ -841,7 +880,10 @@ describe('#72 identity rule 2 — a correction enters the review queue and edits
 
     // And nothing about the brand moved. Submitting a correction confers no
     // edit — there is no write path from this domain to the entity at all.
-    const after = await db.select().from(brands).where(inArray(brands.id, [brandId]));
+    const after = await db
+      .select()
+      .from(brands)
+      .where(inArray(brands.id, [brandId]));
     expect(after[0]?.name).toBe(before[0]?.name);
     expect(after[0]?.updatedAt.getTime()).toBe(before[0]?.updatedAt.getTime());
   });

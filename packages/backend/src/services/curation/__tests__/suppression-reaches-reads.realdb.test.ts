@@ -564,15 +564,24 @@ describe('a merged loser still reaches its winner', () => {
     const winnerTerm = `Suppression search-winner ${RUN}`;
 
     // Both directions before anything is merged.
-    expect(await found(loserTerm, loser.productId), 'the loser was not searchable to begin with').toBe(true);
-    expect(await found(winnerTerm, winner.productId), 'the winner was not searchable to begin with').toBe(true);
+    expect(
+      await found(loserTerm, loser.productId),
+      'the loser was not searchable to begin with',
+    ).toBe(true);
+    expect(
+      await found(winnerTerm, winner.productId),
+      'the winner was not searchable to begin with',
+    ).toBe(true);
 
     await db
       .update(canonicalProducts)
       .set({ status: 'merged', mergedIntoId: winner.productId })
       .where(eq(canonicalProducts.id, loser.productId));
 
-    expect(await found(loserTerm, loser.productId), 'a merged tombstone was returned by search').toBe(false);
+    expect(
+      await found(loserTerm, loser.productId),
+      'a merged tombstone was returned by search',
+    ).toBe(false);
     expect(
       await found(winnerTerm, winner.productId),
       'the winner stopped being searchable, so the assertion above measures nothing',

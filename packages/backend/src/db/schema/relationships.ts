@@ -131,22 +131,14 @@ export const commerceRelationships = pgTable(
      * one graph is precisely the disagreement these conventions exist to prevent,
      * and the shape check is what rejects `Spain`, `es` and `ESP` alike.
      */
-    territories: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    territories: text().array().notNull().default(sql`'{}'::text[]`),
     /** Lowercased language subtags; `'{}'` = every language. Display scope only. */
-    languages: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    languages: text().array().notNull().default(sql`'{}'::text[]`),
     /** Narrowed to ONE channel of the merchant; NULL = all of them. */
     storefrontId: text().references(() => storefronts.id, { onDelete: 'restrict' }),
 
     // ── Temporal validity (issue field 7) ────────────────────────────────────
-    validFrom: timestamptz()
-      .notNull()
-      .default(sql`date_trunc('milliseconds', now())`),
+    validFrom: timestamptz().notNull().default(sql`date_trunc('milliseconds', now())`),
     /** NULL = still open. A closed row is history and is never deleted. */
     validTo: timestamptz(),
 
@@ -415,9 +407,7 @@ export const relationshipEvidence = pgTable(
     locale: text(),
     /** When the fact was observed in the world — may predate this row. */
     observedAt: timestamptz().notNull(),
-    collectedAt: timestamptz()
-      .notNull()
-      .default(sql`date_trunc('milliseconds', now())`),
+    collectedAt: timestamptz().notNull().default(sql`date_trunc('milliseconds', now())`),
     /** An Oxy account id — no foreign key. NULL for machine collection. */
     collectedByOxyUserId: text(),
     reviewerNote: text(),
@@ -469,10 +459,7 @@ export const relationshipEvidence = pgTable(
       'relationship_evidence_expired_state_check',
       sql`${t.status} <> 'expired' or ${t.expiresAt} is not null`,
     ),
-    check(
-      'relationship_evidence_observed_fact_check',
-      sql`btrim(${t.observedFact}) <> ''`,
-    ),
+    check('relationship_evidence_observed_fact_check', sql`btrim(${t.observedFact}) <> ''`),
     index('relationship_evidence_relationship_idx').on(t.relationshipId, t.status),
     index('relationship_evidence_source_record_idx')
       .on(t.sourceRecordId)

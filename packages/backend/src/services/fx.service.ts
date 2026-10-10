@@ -303,7 +303,10 @@ async function resolveProviderBaseRates(quotes: CurrencyCode[]): Promise<FxRates
         ttlSeconds,
       };
     } catch (staticErr) {
-      log.general.error({ err: staticErr, base }, 'Static FX fallback failed; returning empty rates');
+      log.general.error(
+        { err: staticErr, base },
+        'Static FX fallback failed; returning empty rates',
+      );
       return {
         base,
         rates: {},
@@ -330,7 +333,10 @@ async function resolveProviderBaseRates(quotes: CurrencyCode[]): Promise<FxRates
  * `pivot→base` rate itself is unavailable NO derived rate can be formed and the
  * result is empty; `quote === base` is always 1 and needs no rate.
  */
-async function resolveDerivedBaseRates(base: CurrencyCode, quotes: CurrencyCode[]): Promise<FxRates> {
+async function resolveDerivedBaseRates(
+  base: CurrencyCode,
+  quotes: CurrencyCode[],
+): Promise<FxRates> {
   // Everything derives from `pivot→base` and `pivot→quote`, so request the pivot
   // rate for the base plus each distinct non-pivot, non-base quote.
   const pivotQuotes: CurrencyCode[] = [base];

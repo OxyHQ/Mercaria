@@ -60,7 +60,9 @@ export function DigitalVersionHistory({ versions }: DigitalVersionHistoryProps) 
             <Text className="text-shop-bodyTitleSmall text-text">{version.label}</Text>
             {version.current ? (
               <View className="rounded-radius-max bg-bg-fill-secondary px-space-8 py-space-4">
-                <Text className="text-shop-badge text-text">{t('digital.asset.currentVersion')}</Text>
+                <Text className="text-shop-badge text-text">
+                  {t('digital.asset.currentVersion')}
+                </Text>
               </View>
             ) : null}
           </View>

@@ -32,7 +32,12 @@ export async function productTypeSpecificationLayoutHandler(
   try {
     const layout = await readPublicSpecificationLayout(getDb(), routeParam(req, 'key'));
     if (layout === null) {
-      sendError(res, ErrorCodes.NOT_FOUND, 'No published specification layout for this product type', 404);
+      sendError(
+        res,
+        ErrorCodes.NOT_FOUND,
+        'No published specification layout for this product type',
+        404,
+      );
       return;
     }
     sendSuccess(res, layout);

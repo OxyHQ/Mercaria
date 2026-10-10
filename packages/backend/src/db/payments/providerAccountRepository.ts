@@ -259,7 +259,10 @@ export async function applyProviderAccountState(
         // The compare-and-swap. `<=` and not `<` so a re-application of the same
         // observation is a write that changes nothing rather than a refusal the
         // caller has to distinguish from a real conflict.
-        or(isNull(providerAccounts.lastSyncedAt), lte(providerAccounts.lastSyncedAt, state.syncedAt)),
+        or(
+          isNull(providerAccounts.lastSyncedAt),
+          lte(providerAccounts.lastSyncedAt, state.syncedAt),
+        ),
         // A revoked account is CLOSED to observations, and the timestamp guard
         // alone does not close it: a sync that read Stripe BEFORE the
         // deauthorization arrived still stamps `synced_at` after it, so its CAS

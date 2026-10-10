@@ -76,7 +76,12 @@ export async function resendGuestAccessLinkHandler(req: Request, res: Response):
   const checkoutGroupId = routeParam(req, 'checkoutGroupId');
   const parsed = operatorActionSchema.safeParse(req.body);
   if (!parsed.success) {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, 'A reason of at least 3 characters is required', 400);
+    sendError(
+      res,
+      ErrorCodes.VALIDATION_ERROR,
+      'A reason of at least 3 characters is required',
+      400,
+    );
     return;
   }
 
@@ -115,7 +120,12 @@ export async function revokeGuestGroupAccessHandler(req: Request, res: Response)
   const checkoutGroupId = routeParam(req, 'checkoutGroupId');
   const parsed = operatorActionSchema.safeParse(req.body);
   if (!parsed.success) {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, 'A reason of at least 3 characters is required', 400);
+    sendError(
+      res,
+      ErrorCodes.VALIDATION_ERROR,
+      'A reason of at least 3 characters is required',
+      400,
+    );
     return;
   }
 

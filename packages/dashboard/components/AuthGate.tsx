@@ -1,11 +1,11 @@
-import React from "react";
-import { View } from "react-native";
-import { useOxy, openAccountDialog } from "@oxy.so/services";
-import { Text } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { Logo } from "@/components/Logo";
-import { ScreenLoading } from "@/components/shell/Screen";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { View } from 'react-native';
+import { useOxy, openAccountDialog } from '@oxy.so/services';
+import { Text } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { Logo } from '@/components/Logo';
+import { ScreenLoading } from '@/components/shell/Screen';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * Auth gate for the whole dashboard. The admin panel has NO anonymous surface:
@@ -43,13 +43,13 @@ function SignInScreen() {
           <Logo size={36} />
         </View>
         <Text className="text-center text-2xl font-bold text-foreground">
-          {t("auth.signInTitle")}
+          {t('auth.signInTitle')}
         </Text>
         <Text className="mt-2 text-center text-sm text-muted-foreground">
-          {t("auth.signInBody")}
+          {t('auth.signInBody')}
         </Text>
         <Button tone="accent" className="mt-8 w-full" onPress={() => openAccountDialog()}>
-          {t("auth.signInAction")}
+          {t('auth.signInAction')}
         </Button>
       </View>
     </View>

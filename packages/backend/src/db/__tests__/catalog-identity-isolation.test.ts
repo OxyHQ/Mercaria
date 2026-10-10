@@ -167,13 +167,37 @@ const NON_ID_TARGET_EXEMPTIONS: readonly { table: string; column: string; why: s
 const LEGACY_BARE_IDENTITY_FIELDS: readonly { file: string; field: string; why: string }[] = [
   { file: 'middleware/schemas.ts', field: 'category', why: 'createP2PListingSchema (v1)' },
   { file: 'middleware/schemas.ts', field: 'category', why: 'updateListingSchema (v1)' },
-  { file: 'middleware/schemas.ts', field: 'productType', why: 'updateListingSchema — the Shopify free-text field, not a product type definition' },
+  {
+    file: 'middleware/schemas.ts',
+    field: 'productType',
+    why: 'updateListingSchema — the Shopify free-text field, not a product type definition',
+  },
   { file: 'middleware/schemas.ts', field: 'category', why: 'createStoreProductSchema (v1)' },
-  { file: 'middleware/schemas.ts', field: 'productType', why: 'createStoreProductSchema — the Shopify free-text field' },
-  { file: 'middleware/schemas.ts', field: 'productType', why: 'ingestProductSchema — the plugin push contract, mirrors the platform field' },
-  { file: 'middleware/sell-yours-schemas.ts', field: 'category', why: 'patchSellerDraftSchema — beside a real canonicalProductId' },
-  { file: 'controllers/listings.controller.ts', field: 'category', why: 'listingQuerySchema (v1) — the browse filter, matched against the GIN-indexed listings.category_slugs' },
-  { file: 'controllers/listings.controller.ts', field: 'productType', why: 'listingQuerySchema — filters on the mirrored platform string, not a product type definition' },
+  {
+    file: 'middleware/schemas.ts',
+    field: 'productType',
+    why: 'createStoreProductSchema — the Shopify free-text field',
+  },
+  {
+    file: 'middleware/schemas.ts',
+    field: 'productType',
+    why: 'ingestProductSchema — the plugin push contract, mirrors the platform field',
+  },
+  {
+    file: 'middleware/sell-yours-schemas.ts',
+    field: 'category',
+    why: 'patchSellerDraftSchema — beside a real canonicalProductId',
+  },
+  {
+    file: 'controllers/listings.controller.ts',
+    field: 'category',
+    why: 'listingQuerySchema (v1) — the browse filter, matched against the GIN-indexed listings.category_slugs',
+  },
+  {
+    file: 'controllers/listings.controller.ts',
+    field: 'productType',
+    why: 'listingQuerySchema — filters on the mirrored platform string, not a product type definition',
+  },
 ];
 
 /** Field names that must never be a bare string in a request schema. */
@@ -298,7 +322,10 @@ describe('catalog identity: a foreign key never points at presentation (ADR 0007
       const stillPresent = single.some(
         (t) => t.table === exemption.table && t.column === exemption.column,
       );
-      expect(stillPresent, `${exemption.table}.${exemption.column} is excused but no longer exists`).toBe(true);
+      expect(
+        stillPresent,
+        `${exemption.table}.${exemption.column} is excused but no longer exists`,
+      ).toBe(true);
     }
   });
 
@@ -346,7 +373,8 @@ describe('catalog identity: a foreign key never points at presentation (ADR 0007
 
     const asKey = (entry: { file: string; field: string }) => `${entry.file}:${entry.field}`;
     const foundCounts = new Map<string, number>();
-    for (const entry of found) foundCounts.set(asKey(entry), (foundCounts.get(asKey(entry)) ?? 0) + 1);
+    for (const entry of found)
+      foundCounts.set(asKey(entry), (foundCounts.get(asKey(entry)) ?? 0) + 1);
     const expectedCounts = new Map<string, number>();
     for (const entry of LEGACY_BARE_IDENTITY_FIELDS) {
       expectedCounts.set(asKey(entry), (expectedCounts.get(asKey(entry)) ?? 0) + 1);
@@ -404,7 +432,8 @@ describe('catalog identity: a foreign key never points at presentation (ADR 0007
       const composed = collectForeignKeyTargets([
         {
           file: 'synthetic.ts',
-          source: 'foreignKey({ columns: [t.a, t.b], foreignColumns: [categories.id, categories.name] })',
+          source:
+            'foreignKey({ columns: [t.a, t.b], foreignColumns: [categories.id, categories.name] })',
         },
       ]);
       expect(composed).toHaveLength(2);

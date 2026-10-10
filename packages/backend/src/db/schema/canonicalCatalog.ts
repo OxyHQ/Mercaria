@@ -724,9 +724,7 @@ export const canonicalImages = pgTable(
     /** The image's address at its source, when Mercaria holds no copy of it. */
     sourceUrl: text(),
     /** The convergence key: whichever address this image actually has. */
-    imageRef: text()
-      .notNull()
-      .generatedAlwaysAs(sql`coalesce("file_id", "source_url")`),
+    imageRef: text().notNull().generatedAlwaysAs(sql`coalesce("file_id", "source_url")`),
     /**
      * The observation that supplied this image. RESTRICT and NOT NULL — see the
      * doc comment: provenance is the precondition, not an annotation.
@@ -738,7 +736,9 @@ export const canonicalImages = pgTable(
     /** BCP-47 tag when the asset is locale-specific (a localized box shot). */
     locale: text(),
     position: integer().notNull().default(0),
-    status: text({ enum: asEnumValues(CANONICAL_IMAGE_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(CANONICAL_IMAGE_STATUSES) })
+      .notNull()
+      .default('active'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -889,7 +889,9 @@ export const canonicalAttributeValues = pgTable(
     /** When the source observed it. Distinct from when Mercaria wrote the row. */
     observedAt: timestamptz(),
     /** How the value was attached — the `SOURCE_LINK_METHODS` vocabulary, reused. */
-    method: text({ enum: asEnumValues(SOURCE_LINK_METHODS) }).notNull().default('connector_declared'),
+    method: text({ enum: asEnumValues(SOURCE_LINK_METHODS) })
+      .notNull()
+      .default('connector_declared'),
     /** The normalization ruleset that produced the columns above (#94 value rule 10). */
     normalizationRuleVersion: text().notNull().default('nr-1'),
     /** 0–1; NULL for a deterministic or human assertion, which outranks numbers. */
@@ -1152,7 +1154,9 @@ export const productIdentifiers = pgTable(
     canonicalScheme: text({ enum: asEnumValues(CANONICAL_IDENTIFIER_SCHEMES) }),
     /** Zero-padded GTIN-14 digits, check digit validated. Immutable after insert. */
     canonicalValue: text(),
-    status: text({ enum: asEnumValues(IDENTIFIER_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(IDENTIFIER_STATUSES) })
+      .notNull()
+      .default('active'),
     /** The active row this assertion collides with. Present exactly when disputed. */
     conflictsWithIdentifierId: text().references((): AnyPgColumn => productIdentifiers.id, {
       onDelete: 'restrict',

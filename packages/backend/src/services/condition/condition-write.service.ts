@@ -60,10 +60,7 @@ export interface ConditionColumns {
  * record a `new` listing's seller as having acknowledged defects they were never
  * asked about, which is the kind of row that reads as consent in a dispute.
  */
-export function conditionColumnsFor(
-  resolved: ResolvedConditionInput,
-  now: Date,
-): ConditionColumns {
+export function conditionColumnsFor(resolved: ResolvedConditionInput, now: Date): ConditionColumns {
   const policy = conditionEvidencePolicy(resolved.key);
   const acknowledged = policy.requiresDefectAcknowledgement && resolved.defectsAcknowledged;
 
@@ -235,7 +232,6 @@ export async function writeListingConditionEvidence(
     toAssertion: input.resolved.assertion,
     actorKind: input.actor.kind,
     actorOxyUserId: uploader ?? null,
-    reason:
-      input.reason?.trim() || (input.previous ? 'Condition updated' : 'Listing created'),
+    reason: input.reason?.trim() || (input.previous ? 'Condition updated' : 'Listing created'),
   });
 }

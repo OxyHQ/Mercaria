@@ -476,24 +476,27 @@ beforeAll(async () => {
   if (!nativeVariant) throw new Error('native variant insert returned no row');
 
   const restrictedVariantId = await insertVariant(phoneProId);
-  const [restrictedOffer] = await db.insert(offers).values({
-    kind: 'native',
-    status: 'active',
-    canonicalVariantId: restrictedVariantId,
-    listingId: listing.id,
-    productVariantId: nativeVariant.id,
-    ...declaredOfferCondition('new'),
-    // CHEAPER than every other offer on this product, deliberately: if the live
-    // derivation admitted a restricted listing, the summary's lowest price
-    // would become this number. A fixture priced in the middle of the range
-    // would make the assertion pass whether or not the rule worked.
-    priceAmount: 10_000,
-    priceCurrency: 'EUR',
-    observedAt: NOW,
-    firstSeenAt: NOW,
-    lastSeenAt: NOW,
-    staleAt: new Date(NOW.getTime() + 86_400_000),
-  }).returning({ id: offers.id });
+  const [restrictedOffer] = await db
+    .insert(offers)
+    .values({
+      kind: 'native',
+      status: 'active',
+      canonicalVariantId: restrictedVariantId,
+      listingId: listing.id,
+      productVariantId: nativeVariant.id,
+      ...declaredOfferCondition('new'),
+      // CHEAPER than every other offer on this product, deliberately: if the live
+      // derivation admitted a restricted listing, the summary's lowest price
+      // would become this number. A fixture priced in the middle of the range
+      // would make the assertion pass whether or not the rule worked.
+      priceAmount: 10_000,
+      priceCurrency: 'EUR',
+      observedAt: NOW,
+      firstSeenAt: NOW,
+      lastSeenAt: NOW,
+      staleAt: new Date(NOW.getTime() + 86_400_000),
+    })
+    .returning({ id: offers.id });
   if (!restrictedOffer) throw new Error('restricted offer insert returned no row');
   created.offers.push(restrictedOffer.id);
 
@@ -554,7 +557,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.delete(offers).where(inArray(offers.id, safeIds(created.offers)));
-  await db.delete(productIdentifiers).where(inArray(productIdentifiers.variantId, safeIds(created.variants)));
+  await db
+    .delete(productIdentifiers)
+    .where(inArray(productIdentifiers.variantId, safeIds(created.variants)));
   await db
     .delete(canonicalVariantAttributes)
     .where(inArray(canonicalVariantAttributes.variantId, safeIds(created.variants)));
@@ -987,7 +992,13 @@ describe('offer economics cannot change organic relevance (case 12, behavioural 
 describe('the applied query is echoed, and the raw term never is', () => {
   it('reports the normalization, the tokens and how an identifier was read', async () => {
     const outcome = await runCanonicalSearch(
-      { term: `  Zyphone   ${RUN}   16 Pro  `, kinds: ['product'], filters: {}, limit: 5, now: NOW },
+      {
+        term: `  Zyphone   ${RUN}   16 Pro  `,
+        kinds: ['product'],
+        filters: {},
+        limit: 5,
+        now: NOW,
+      },
       db,
     );
     expect(outcome.response.applied.normalized).toBe(`zyphone ${RUN} 16 pro`);

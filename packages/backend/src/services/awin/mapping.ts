@@ -22,11 +22,7 @@
  * anything.
  */
 
-import type {
-  AwinFeedColumn,
-  FeedFieldMapping,
-  FeedFieldRole,
-} from '@mercaria/shared-types';
+import type { AwinFeedColumn, FeedFieldMapping, FeedFieldRole } from '@mercaria/shared-types';
 import { AWIN_FEED_COLUMNS, AWIN_IDENTITY_COLUMNS } from '@mercaria/shared-types';
 import type { ResolvedFeedMapping } from '../feed-import/mapping.js';
 import { AWIN_COLUMN_ROLES, AWIN_OPTION_AXIS_NAMES, AWIN_VALUE_MAPPINGS } from './constants.js';

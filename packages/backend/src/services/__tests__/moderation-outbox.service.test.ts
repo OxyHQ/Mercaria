@@ -122,7 +122,11 @@ describe('enqueueModerationOutboxEvent', () => {
 
   it('conflicts with DO NOTHING, never DO UPDATE', async () => {
     await enqueueModerationOutboxEvent(
-      { eventId: 'moderation:report.submit:abc', kind: 'report.submit', payload: { reportId: 'abc' } },
+      {
+        eventId: 'moderation:report.submit:abc',
+        kind: 'report.submit',
+        payload: { reportId: 'abc' },
+      },
       fakeTransaction(),
     );
 

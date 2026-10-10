@@ -129,10 +129,13 @@ vi.mock('../client.js', () => ({
     if (intent.status === 'succeeded') {
       // Stripe's real refusal, and the one the sweep depends on reading: a
       // capture that beat the cancellation is information, not an obstacle.
-      throw Object.assign(new Error('You cannot cancel this PaymentIntent because it has a status of succeeded.'), {
-        type: 'StripeInvalidRequestError',
-        code: 'payment_intent_unexpected_state',
-      });
+      throw Object.assign(
+        new Error('You cannot cancel this PaymentIntent because it has a status of succeeded.'),
+        {
+          type: 'StripeInvalidRequestError',
+          code: 'payment_intent_unexpected_state',
+        },
+      );
     }
     intent.status = 'canceled';
     return Promise.resolve(intent);

@@ -236,15 +236,15 @@ export function describeCatalogProposalSla(): CatalogProposalSlaVisibility {
   return {
     state: 'undefined_target',
     statement:
-      'No review-time target is defined for catalogue proposals. The queue depth and the '
-      + 'waiting-age distribution below are measured; whether any of them is acceptable is a '
-      + 'policy decision nobody has made, so this surface states none.',
+      'No review-time target is defined for catalogue proposals. The queue depth and the ' +
+      'waiting-age distribution below are measured; whether any of them is acceptable is a ' +
+      'policy decision nobody has made, so this surface states none.',
     seam:
-      'Closing it is a decision recorded on #367 Workstream 6 naming a target per open state '
-      + '(a proposal awaiting an operator and one awaiting a submitter are not the same wait), '
-      + 'plus a second member on CatalogProposalSlaVisibility and the breach metric '
-      + 'proposal_sla_breach_count, which is defined and declared unmeasured for exactly this '
-      + 'reason.',
+      'Closing it is a decision recorded on #367 Workstream 6 naming a target per open state ' +
+      '(a proposal awaiting an operator and one awaiting a submitter are not the same wait), ' +
+      'plus a second member on CatalogProposalSlaVisibility and the breach metric ' +
+      'proposal_sla_breach_count, which is defined and declared unmeasured for exactly this ' +
+      'reason.',
   };
 }
 

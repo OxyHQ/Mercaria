@@ -26,10 +26,7 @@
 
 import { asc, eq } from 'drizzle-orm';
 import { publicColumns } from '@oxy.so/db/assert';
-import type {
-  BuyerRequestActorKind,
-  BuyerRequestEventKind,
-} from '@mercaria/shared-types';
+import type { BuyerRequestActorKind, BuyerRequestEventKind } from '@mercaria/shared-types';
 import { buyerRequestEvents } from '../schema/buyerRequests.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';

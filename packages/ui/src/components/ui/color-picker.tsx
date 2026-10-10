@@ -1,17 +1,17 @@
-import React from "react";
-import { View, Pressable } from "react-native";
-import { Text } from "./text";
-import { cn } from "../../lib/cn";
+import React from 'react';
+import { View, Pressable } from 'react-native';
+import { Text } from './text';
+import { cn } from '../../lib/cn';
 
 const COLOR_OPTIONS = [
-  "#3b82f6", // blue
-  "#8b5cf6", // purple
-  "#ec4899", // pink
-  "#f59e0b", // amber
-  "#10b981", // green
-  "#06b6d4", // cyan
-  "#f97316", // orange
-  "#ef4444", // red
+  '#3b82f6', // blue
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#f59e0b', // amber
+  '#10b981', // green
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#ef4444', // red
 ];
 
 interface ColorPickerProps {
@@ -25,7 +25,7 @@ export function ColorPicker({
   colors = COLOR_OPTIONS,
   selected,
   onSelect,
-  label = "Color",
+  label = 'Color',
 }: ColorPickerProps) {
   return (
     <View className="gap-2">
@@ -36,10 +36,8 @@ export function ColorPicker({
             key={color}
             onPress={() => onSelect(color)}
             className={cn(
-              "h-10 w-10 rounded-full border-2 overflow-hidden",
-              selected === color
-                ? "border-foreground scale-110"
-                : "border-transparent"
+              'h-10 w-10 rounded-full border-2 overflow-hidden',
+              selected === color ? 'border-foreground scale-110' : 'border-transparent',
             )}
           >
             <View style={{ backgroundColor: color, flex: 1 }} />

@@ -28,9 +28,22 @@
 
 import { readFile } from 'node:fs/promises';
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
-import type { OpenDataItem, OpenDataPage, OpenDataPageContext, OpenDataProvider } from '../provider.js';
+import type {
+  OpenDataItem,
+  OpenDataPage,
+  OpenDataPageContext,
+  OpenDataProvider,
+} from '../provider.js';
 import { OpenDataSchemaError } from '../provider.js';
-import { asArray, asNumber, asObject, asText, decimalMoney, FactCollector, subFeedKey } from '../read.js';
+import {
+  asArray,
+  asNumber,
+  asObject,
+  asText,
+  decimalMoney,
+  FactCollector,
+  subFeedKey,
+} from '../read.js';
 
 export const MITECO_FUEL_PROVIDER = 'miteco_fuel';
 
@@ -40,31 +53,40 @@ const LIST_URL =
 const LIST_MAX_AGE_MS = 30 * 60 * 1_000;
 
 /** The `Precio …` columns, and the unit each is priced in. */
-const FUELS: readonly { readonly column: string; readonly name: string; readonly unit: string }[] = [
-  { column: 'Precio Gasolina 95 E5', name: 'Gasolina 95 E5', unit: 'EUR/l' },
-  { column: 'Precio Gasolina 95 E10', name: 'Gasolina 95 E10', unit: 'EUR/l' },
-  { column: 'Precio Gasolina 95 E25', name: 'Gasolina 95 E25', unit: 'EUR/l' },
-  { column: 'Precio Gasolina 95 E5 Premium', name: 'Gasolina 95 E5 Premium', unit: 'EUR/l' },
-  { column: 'Precio Gasolina 95 E85', name: 'Gasolina 95 E85', unit: 'EUR/l' },
-  { column: 'Precio Gasolina 98 E5', name: 'Gasolina 98 E5', unit: 'EUR/l' },
-  { column: 'Precio Gasolina 98 E10', name: 'Gasolina 98 E10', unit: 'EUR/l' },
-  { column: 'Precio Gasolina Renovable', name: 'Gasolina renovable', unit: 'EUR/l' },
-  { column: 'Precio Gasoleo A', name: 'Gasóleo A', unit: 'EUR/l' },
-  { column: 'Precio Gasoleo B', name: 'Gasóleo B', unit: 'EUR/l' },
-  { column: 'Precio Gasoleo Premium', name: 'Gasóleo Premium', unit: 'EUR/l' },
-  { column: 'Precio Diésel Renovable', name: 'Diésel renovable', unit: 'EUR/l' },
-  { column: 'Precio Biodiesel', name: 'Biodiésel', unit: 'EUR/l' },
-  { column: 'Precio Bioetanol', name: 'Bioetanol', unit: 'EUR/l' },
-  { column: 'Precio Gases licuados del petróleo', name: 'GLP (autogás)', unit: 'EUR/l' },
-  { column: 'Precio Gas Natural Comprimido', name: 'Gas natural comprimido (GNC)', unit: 'EUR/kg' },
-  { column: 'Precio Gas Natural Licuado', name: 'Gas natural licuado (GNL)', unit: 'EUR/kg' },
-  { column: 'Precio Biogas Natural Comprimido', name: 'Biogás natural comprimido', unit: 'EUR/kg' },
-  { column: 'Precio Biogas Natural Licuado', name: 'Biogás natural licuado', unit: 'EUR/kg' },
-  { column: 'Precio Hidrogeno', name: 'Hidrógeno', unit: 'EUR/kg' },
-  { column: 'Precio Adblue', name: 'AdBlue', unit: 'EUR/l' },
-  { column: 'Precio Amoniaco', name: 'Amoniaco', unit: 'EUR/kg' },
-  { column: 'Precio Metanol', name: 'Metanol', unit: 'EUR/l' },
-];
+const FUELS: readonly { readonly column: string; readonly name: string; readonly unit: string }[] =
+  [
+    { column: 'Precio Gasolina 95 E5', name: 'Gasolina 95 E5', unit: 'EUR/l' },
+    { column: 'Precio Gasolina 95 E10', name: 'Gasolina 95 E10', unit: 'EUR/l' },
+    { column: 'Precio Gasolina 95 E25', name: 'Gasolina 95 E25', unit: 'EUR/l' },
+    { column: 'Precio Gasolina 95 E5 Premium', name: 'Gasolina 95 E5 Premium', unit: 'EUR/l' },
+    { column: 'Precio Gasolina 95 E85', name: 'Gasolina 95 E85', unit: 'EUR/l' },
+    { column: 'Precio Gasolina 98 E5', name: 'Gasolina 98 E5', unit: 'EUR/l' },
+    { column: 'Precio Gasolina 98 E10', name: 'Gasolina 98 E10', unit: 'EUR/l' },
+    { column: 'Precio Gasolina Renovable', name: 'Gasolina renovable', unit: 'EUR/l' },
+    { column: 'Precio Gasoleo A', name: 'Gasóleo A', unit: 'EUR/l' },
+    { column: 'Precio Gasoleo B', name: 'Gasóleo B', unit: 'EUR/l' },
+    { column: 'Precio Gasoleo Premium', name: 'Gasóleo Premium', unit: 'EUR/l' },
+    { column: 'Precio Diésel Renovable', name: 'Diésel renovable', unit: 'EUR/l' },
+    { column: 'Precio Biodiesel', name: 'Biodiésel', unit: 'EUR/l' },
+    { column: 'Precio Bioetanol', name: 'Bioetanol', unit: 'EUR/l' },
+    { column: 'Precio Gases licuados del petróleo', name: 'GLP (autogás)', unit: 'EUR/l' },
+    {
+      column: 'Precio Gas Natural Comprimido',
+      name: 'Gas natural comprimido (GNC)',
+      unit: 'EUR/kg',
+    },
+    { column: 'Precio Gas Natural Licuado', name: 'Gas natural licuado (GNL)', unit: 'EUR/kg' },
+    {
+      column: 'Precio Biogas Natural Comprimido',
+      name: 'Biogás natural comprimido',
+      unit: 'EUR/kg',
+    },
+    { column: 'Precio Biogas Natural Licuado', name: 'Biogás natural licuado', unit: 'EUR/kg' },
+    { column: 'Precio Hidrogeno', name: 'Hidrógeno', unit: 'EUR/kg' },
+    { column: 'Precio Adblue', name: 'AdBlue', unit: 'EUR/l' },
+    { column: 'Precio Amoniaco', name: 'Amoniaco', unit: 'EUR/kg' },
+    { column: 'Precio Metanol', name: 'Metanol', unit: 'EUR/l' },
+  ];
 
 interface BrandCut {
   readonly items: readonly OpenDataItem[];
@@ -81,7 +103,8 @@ export const mitecoFuelProvider: OpenDataProvider = {
   role: 'prices',
   kind: 'feed',
   licence: 'es_public_sector_reuse',
-  attribution: 'Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico (Geoportal Gasolineras)',
+  attribution:
+    'Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico (Geoportal Gasolineras)',
   accountRefMeaning: 'the station brand, as the fold of its "Rótulo" (e.g. "repsol", "ballenoil")',
   accountRefRequired: true,
   refreshModes: ['full_snapshot', 'incremental'],
@@ -111,7 +134,8 @@ async function fetchMitecoPage(context: OpenDataPageContext): Promise<OpenDataPa
     }
   }
 
-  const offset = context.cursor?.d === cut.digest && typeof context.cursor.o === 'number' ? context.cursor.o : 0;
+  const offset =
+    context.cursor?.d === cut.digest && typeof context.cursor.o === 'number' ? context.cursor.o : 0;
   const slice = cut.items.slice(offset, offset + context.pageSize);
   const next = offset + slice.length;
   const done = next >= cut.items.length;
@@ -146,16 +170,24 @@ async function cutBrand(path: string, brand: string): Promise<OpenDataItem[]> {
     if (asText(station['Tipo Venta']) !== 'P') continue;
     items.push(...toItems(station, label, timestamp));
   }
-  return items.sort((left, right) => (left.externalId < right.externalId ? -1 : left.externalId > right.externalId ? 1 : 0));
+  return items.sort((left, right) =>
+    left.externalId < right.externalId ? -1 : left.externalId > right.externalId ? 1 : 0,
+  );
 }
 
-export function toItems(station: Readonly<Record<string, unknown>>, label: string, timestamp: Date | undefined): OpenDataItem[] {
+export function toItems(
+  station: Readonly<Record<string, unknown>>,
+  label: string,
+  timestamp: Date | undefined,
+): OpenDataItem[] {
   const stationId = asText(station.IDEESS);
   if (stationId === undefined) return [];
   const address = asText(station['Dirección']);
   const locality = asText(station.Localidad);
   const province = asText(station.Provincia);
-  const storefront = [address, locality].filter((part): part is string => part !== undefined).join(', ');
+  const storefront = [address, locality]
+    .filter((part): part is string => part !== undefined)
+    .join(', ');
 
   const items: OpenDataItem[] = [];
   for (const fuel of FUELS) {
@@ -224,7 +256,14 @@ export function madridTimestamp(text: string | undefined): Date | undefined {
   const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}):(\d{2})$/u.exec(text);
   if (match === null) return undefined;
   const [, day, month, year, hour, minute, second] = match.map(Number);
-  if (day === undefined || month === undefined || year === undefined || hour === undefined || minute === undefined || second === undefined) {
+  if (
+    day === undefined ||
+    month === undefined ||
+    year === undefined ||
+    hour === undefined ||
+    minute === undefined ||
+    second === undefined
+  ) {
     return undefined;
   }
   const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
@@ -239,6 +278,13 @@ export function madridTimestamp(text: string | undefined): Date | undefined {
     second: '2-digit',
   }).formatToParts(new Date(asUtc));
   const part = (type: string) => asNumber(madrid.find((entry) => entry.type === type)?.value) ?? 0;
-  const shown = Date.UTC(part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second'));
+  const shown = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second'),
+  );
   return new Date(asUtc - (shown - asUtc));
 }

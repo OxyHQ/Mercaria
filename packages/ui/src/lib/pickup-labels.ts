@@ -7,8 +7,8 @@ import {
   type PickupDistanceBand,
   type PickupIdentityRequirement,
   type PickupPaymentRequirement,
-} from "@mercaria/shared-types";
-import type { Translate } from "../i18n/create-app-i18n";
+} from '@mercaria/shared-types';
+import type { Translate } from '../i18n/create-app-i18n';
 
 /**
  * Reader-facing copy for location publication, nearby discovery and collection
@@ -50,21 +50,19 @@ import type { Translate } from "../i18n/create-app-i18n";
  * "3 left" reads a property that is usually absent. These three sentences are
  * what every other case renders.
  */
-export const LOCATION_AVAILABILITY_KEYS: Readonly<
-  Record<LocationAvailabilityState, string>
-> = {
-  in_stock: "ui.pickup.availability.text.in_stock",
-  low_stock: "ui.pickup.availability.text.low_stock",
-  out_of_stock: "ui.pickup.availability.text.out_of_stock",
+export const LOCATION_AVAILABILITY_KEYS: Readonly<Record<LocationAvailabilityState, string>> = {
+  in_stock: 'ui.pickup.availability.text.in_stock',
+  low_stock: 'ui.pickup.availability.text.low_stock',
+  out_of_stock: 'ui.pickup.availability.text.out_of_stock',
 };
 
 /** One sentence each, phrased as what the SHOP last confirmed — never a promise. */
 export const LOCATION_AVAILABILITY_EXPLANATION_KEYS: Readonly<
   Record<LocationAvailabilityState, string>
 > = {
-  in_stock: "ui.pickup.availability.explanation.in_stock",
-  low_stock: "ui.pickup.availability.explanation.low_stock",
-  out_of_stock: "ui.pickup.availability.explanation.out_of_stock",
+  in_stock: 'ui.pickup.availability.explanation.in_stock',
+  low_stock: 'ui.pickup.availability.explanation.low_stock',
+  out_of_stock: 'ui.pickup.availability.explanation.out_of_stock',
 };
 
 /* -------------------------------------------------------------------------- */
@@ -79,12 +77,12 @@ export const LOCATION_AVAILABILITY_EXPLANATION_KEYS: Readonly<
  * screen reader use; `formatDistance` renders the figure beside it.
  */
 export const PICKUP_DISTANCE_BAND_KEYS: Readonly<Record<PickupDistanceBand, string>> = {
-  under_1km: "ui.pickup.distanceBand.under_1km",
-  under_5km: "ui.pickup.distanceBand.under_5km",
-  under_10km: "ui.pickup.distanceBand.under_10km",
-  under_25km: "ui.pickup.distanceBand.under_25km",
-  under_50km: "ui.pickup.distanceBand.under_50km",
-  beyond_50km: "ui.pickup.distanceBand.beyond_50km",
+  under_1km: 'ui.pickup.distanceBand.under_1km',
+  under_5km: 'ui.pickup.distanceBand.under_5km',
+  under_10km: 'ui.pickup.distanceBand.under_10km',
+  under_25km: 'ui.pickup.distanceBand.under_25km',
+  under_50km: 'ui.pickup.distanceBand.under_50km',
+  beyond_50km: 'ui.pickup.distanceBand.beyond_50km',
 };
 
 /* -------------------------------------------------------------------------- */
@@ -92,13 +90,12 @@ export const PICKUP_DISTANCE_BAND_KEYS: Readonly<Record<PickupDistanceBand, stri
 /* -------------------------------------------------------------------------- */
 
 /** What the shop will ask for at the counter. */
-export const PICKUP_IDENTITY_REQUIREMENT_KEYS: Readonly<
-  Record<PickupIdentityRequirement, string>
-> = {
-  order_number_only: "ui.pickup.identityRequirement.order_number_only",
-  collection_code: "ui.pickup.identityRequirement.collection_code",
-  collection_code_and_photo_id: "ui.pickup.identityRequirement.collection_code_and_photo_id",
-};
+export const PICKUP_IDENTITY_REQUIREMENT_KEYS: Readonly<Record<PickupIdentityRequirement, string>> =
+  {
+    order_number_only: 'ui.pickup.identityRequirement.order_number_only',
+    collection_code: 'ui.pickup.identityRequirement.collection_code',
+    collection_code_and_photo_id: 'ui.pickup.identityRequirement.collection_code_and_photo_id',
+  };
 
 /**
  * How a collection is paid for.
@@ -107,10 +104,8 @@ export const PICKUP_IDENTITY_REQUIREMENT_KEYS: Readonly<
  * every Mercaria collection is paid before you go, and "pay in store" is not a
  * rail this roadmap has (`pickup.ts` §`PICKUP_PAYMENT_REQUIREMENTS`).
  */
-export const PICKUP_PAYMENT_REQUIREMENT_KEYS: Readonly<
-  Record<PickupPaymentRequirement, string>
-> = {
-  prepaid: "ui.pickup.paymentRequirement.prepaid",
+export const PICKUP_PAYMENT_REQUIREMENT_KEYS: Readonly<Record<PickupPaymentRequirement, string>> = {
+  prepaid: 'ui.pickup.paymentRequirement.prepaid',
 };
 
 /* -------------------------------------------------------------------------- */
@@ -126,20 +121,18 @@ export const PICKUP_PAYMENT_REQUIREMENT_KEYS: Readonly<
  * on each differently.
  */
 export const ORDER_PICKUP_STATE_KEYS: Readonly<Record<OrderPickupState, string>> = {
-  awaiting_preparation: "ui.pickup.orderState.text.awaiting_preparation",
-  ready_for_pickup: "ui.pickup.orderState.text.ready_for_pickup",
-  collected: "ui.pickup.orderState.text.collected",
-  pickup_cancelled: "ui.pickup.orderState.text.pickup_cancelled",
+  awaiting_preparation: 'ui.pickup.orderState.text.awaiting_preparation',
+  ready_for_pickup: 'ui.pickup.orderState.text.ready_for_pickup',
+  collected: 'ui.pickup.orderState.text.collected',
+  pickup_cancelled: 'ui.pickup.orderState.text.pickup_cancelled',
 };
 
 /** One sentence each, telling the buyer what to do next. */
-export const ORDER_PICKUP_STATE_EXPLANATION_KEYS: Readonly<
-  Record<OrderPickupState, string>
-> = {
-  awaiting_preparation: "ui.pickup.orderState.explanation.awaiting_preparation",
-  ready_for_pickup: "ui.pickup.orderState.explanation.ready_for_pickup",
-  collected: "ui.pickup.orderState.explanation.collected",
-  pickup_cancelled: "ui.pickup.orderState.explanation.pickup_cancelled",
+export const ORDER_PICKUP_STATE_EXPLANATION_KEYS: Readonly<Record<OrderPickupState, string>> = {
+  awaiting_preparation: 'ui.pickup.orderState.explanation.awaiting_preparation',
+  ready_for_pickup: 'ui.pickup.orderState.explanation.ready_for_pickup',
+  collected: 'ui.pickup.orderState.explanation.collected',
+  pickup_cancelled: 'ui.pickup.orderState.explanation.pickup_cancelled',
 };
 
 /* -------------------------------------------------------------------------- */
@@ -159,26 +152,26 @@ export const ORDER_PICKUP_STATE_EXPLANATION_KEYS: Readonly<
  * takes the same list and answers with one sentence.
  */
 export const PICKUP_BLOCK_REASON_KEYS: Readonly<Record<PickupBlockReason, string>> = {
-  location_not_published: "ui.pickup.blockReason.location_not_published",
-  location_not_active: "ui.pickup.blockReason.location_not_active",
-  pickup_paused: "ui.pickup.blockReason.pickup_paused",
-  pickup_not_offered: "ui.pickup.blockReason.pickup_not_offered",
-  place_not_linked: "ui.pickup.blockReason.place_not_linked",
-  place_unavailable: "ui.pickup.blockReason.place_unavailable",
-  place_link_unverified: "ui.pickup.blockReason.place_link_unverified",
-  place_incomplete: "ui.pickup.blockReason.place_incomplete",
-  location_restricted: "ui.pickup.blockReason.location_restricted",
-  store_unavailable: "ui.pickup.blockReason.store_unavailable",
-  listing_unavailable: "ui.pickup.blockReason.listing_unavailable",
-  no_collectable_stock: "ui.pickup.blockReason.no_collectable_stock",
-  inventory_stale: "ui.pickup.blockReason.inventory_stale",
-  location_closed: "ui.pickup.blockReason.location_closed",
-  seller_not_payment_ready: "ui.pickup.blockReason.seller_not_payment_ready",
-  guest_pickup_disabled: "ui.pickup.blockReason.guest_pickup_disabled",
-  guest_seller_not_activated: "ui.pickup.blockReason.guest_seller_not_activated",
-  guest_notifications_unavailable: "ui.pickup.blockReason.guest_notifications_unavailable",
-  store_pickup_disabled: "ui.pickup.blockReason.store_pickup_disabled",
-  p2p_pickup_not_available: "ui.pickup.blockReason.p2p_pickup_not_available",
+  location_not_published: 'ui.pickup.blockReason.location_not_published',
+  location_not_active: 'ui.pickup.blockReason.location_not_active',
+  pickup_paused: 'ui.pickup.blockReason.pickup_paused',
+  pickup_not_offered: 'ui.pickup.blockReason.pickup_not_offered',
+  place_not_linked: 'ui.pickup.blockReason.place_not_linked',
+  place_unavailable: 'ui.pickup.blockReason.place_unavailable',
+  place_link_unverified: 'ui.pickup.blockReason.place_link_unverified',
+  place_incomplete: 'ui.pickup.blockReason.place_incomplete',
+  location_restricted: 'ui.pickup.blockReason.location_restricted',
+  store_unavailable: 'ui.pickup.blockReason.store_unavailable',
+  listing_unavailable: 'ui.pickup.blockReason.listing_unavailable',
+  no_collectable_stock: 'ui.pickup.blockReason.no_collectable_stock',
+  inventory_stale: 'ui.pickup.blockReason.inventory_stale',
+  location_closed: 'ui.pickup.blockReason.location_closed',
+  seller_not_payment_ready: 'ui.pickup.blockReason.seller_not_payment_ready',
+  guest_pickup_disabled: 'ui.pickup.blockReason.guest_pickup_disabled',
+  guest_seller_not_activated: 'ui.pickup.blockReason.guest_seller_not_activated',
+  guest_notifications_unavailable: 'ui.pickup.blockReason.guest_notifications_unavailable',
+  store_pickup_disabled: 'ui.pickup.blockReason.store_pickup_disabled',
+  p2p_pickup_not_available: 'ui.pickup.blockReason.p2p_pickup_not_available',
 };
 
 /**
@@ -190,9 +183,9 @@ export const PICKUP_BLOCK_REASON_KEYS: Readonly<Record<PickupBlockReason, string
  * true rather than a growth prompt wearing a helpful sentence.
  */
 const GUEST_ONLY_BLOCK_REASONS: readonly PickupBlockReason[] = [
-  "guest_pickup_disabled",
-  "guest_seller_not_activated",
-  "guest_notifications_unavailable",
+  'guest_pickup_disabled',
+  'guest_seller_not_activated',
+  'guest_notifications_unavailable',
 ];
 
 /** What a buyer is told when collection is refused, and whether to offer sign-in. */
@@ -231,12 +224,12 @@ export function describeBuyerPickupBlock(
     reasons.length > 0 && reasons.every((reason) => GUEST_ONLY_BLOCK_REASONS.includes(reason));
   if (guestOnly) {
     return {
-      sentence: t("ui.pickup.buyerBlock.guestSignIn"),
+      sentence: t('ui.pickup.buyerBlock.guestSignIn'),
       offerSignIn: true,
     };
   }
   return {
-    sentence: t("ui.pickup.buyerBlock.unavailable"),
+    sentence: t('ui.pickup.buyerBlock.unavailable'),
     offerSignIn: false,
   };
 }
@@ -258,21 +251,21 @@ export function describeBuyerPickupBlock(
  * thing the shop said about today, so it is what the sentence carries.
  */
 export function describeOpenState(t: Translate, state: LocationOpenState): string {
-  if (!state.known) return t("ui.pickup.openState.hoursNotPublished");
+  if (!state.known) return t('ui.pickup.openState.hoursNotPublished');
   if (state.open) {
     if (state.exceptionNote !== undefined) {
-      return t("ui.pickup.openState.openNote", { note: state.exceptionNote });
+      return t('ui.pickup.openState.openNote', { note: state.exceptionNote });
     }
     return state.changesAt === undefined
-      ? t("ui.pickup.openState.openNow")
-      : t("ui.pickup.openState.openUntil", { time: state.changesAt });
+      ? t('ui.pickup.openState.openNow')
+      : t('ui.pickup.openState.openUntil', { time: state.changesAt });
   }
   if (state.exceptionNote !== undefined) {
-    return t("ui.pickup.openState.closedNote", { note: state.exceptionNote });
+    return t('ui.pickup.openState.closedNote', { note: state.exceptionNote });
   }
   return state.changesAt === undefined
-    ? t("ui.pickup.openState.closedNow")
-    : t("ui.pickup.openState.closedOpensAt", { time: state.changesAt });
+    ? t('ui.pickup.openState.closedNow')
+    : t('ui.pickup.openState.closedOpensAt', { time: state.changesAt });
 }
 
 /**
@@ -280,9 +273,9 @@ export function describeOpenState(t: Translate, state: LocationOpenState): strin
  * everything else about the building live (ADR 0013). A link, never an
  * embedded map: this package holds no map provider.
  */
-export const GOWAY_PLACE_LINK_KEY = "ui.pickup.viewOnGoWay";
+export const GOWAY_PLACE_LINK_KEY = 'ui.pickup.viewOnGoWay';
 /** Its accessibility label, naming the place. */
-export const GOWAY_PLACE_LINK_A11Y_KEY = "ui.pickup.viewOnGoWayA11y";
+export const GOWAY_PLACE_LINK_A11Y_KEY = 'ui.pickup.viewOnGoWayA11y';
 
 /** Seconds, minutes and hours, for the relative-time helper below. */
 const SECOND_MS = 1000;
@@ -304,20 +297,20 @@ const DAY_MS = 24 * HOUR_MS;
  */
 export function describeStockConfirmed(t: Translate, isoInstant: string, now: number): string {
   const at = Date.parse(isoInstant);
-  if (Number.isNaN(at)) return t("ui.pickup.stockConfirmed.unknown");
+  if (Number.isNaN(at)) return t('ui.pickup.stockConfirmed.unknown');
   const elapsed = now - at;
   // A future instant is clock skew, not a fact about the shop. Saying "just
   // now" is the honest floor; "in 3 minutes" would read as a prediction.
-  if (elapsed < MINUTE_MS) return t("ui.pickup.stockConfirmed.justNow");
+  if (elapsed < MINUTE_MS) return t('ui.pickup.stockConfirmed.justNow');
   // `count` drives i18n-js's pluralisation, so the singular/plural split comes
   // from the BUNDLE rather than from an English ternary no other language shares.
   if (elapsed < HOUR_MS) {
-    return t("ui.pickup.stockConfirmed.minutes", { count: Math.floor(elapsed / MINUTE_MS) });
+    return t('ui.pickup.stockConfirmed.minutes', { count: Math.floor(elapsed / MINUTE_MS) });
   }
   if (elapsed < DAY_MS) {
-    return t("ui.pickup.stockConfirmed.hours", { count: Math.floor(elapsed / HOUR_MS) });
+    return t('ui.pickup.stockConfirmed.hours', { count: Math.floor(elapsed / HOUR_MS) });
   }
-  return t("ui.pickup.stockConfirmed.days", { count: Math.floor(elapsed / DAY_MS) });
+  return t('ui.pickup.stockConfirmed.days', { count: Math.floor(elapsed / DAY_MS) });
 }
 
 /**
@@ -331,7 +324,14 @@ export function describeStockConfirmed(t: Translate, isoInstant: string, now: nu
  * country code.
  */
 export function formatPublicAddress(address: PickupAddress): string {
-  return [address.line1, address.line2, address.postalCode, address.city, address.region, address.country]
+  return [
+    address.line1,
+    address.line2,
+    address.postalCode,
+    address.city,
+    address.region,
+    address.country,
+  ]
     .filter((part): part is string => part !== undefined && part.trim().length > 0)
-    .join(", ");
+    .join(', ');
 }

@@ -1,40 +1,40 @@
-import React, { useState } from "react";
-import { Pressable, View } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { ChevronRight, Sparkles } from "lucide-react-native";
+import React, { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { ChevronRight, Sparkles } from 'lucide-react-native';
 import type {
   AuthoringCanonicalCandidate,
   AuthoringCategoryOption,
   AuthoringProductTypeOption,
-} from "@mercaria/shared-types";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import * as Skeleton from "@oxy.so/bloom/skeleton";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { CanonicalSearchPanel } from "@/components/catalog-authoring/CanonicalSearchPanel";
-import { CategoryBrowser } from "@/components/catalog-authoring/CategoryBrowser";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/shared-types';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { CanonicalSearchPanel } from '@/components/catalog-authoring/CanonicalSearchPanel';
+import { CategoryBrowser } from '@/components/catalog-authoring/CategoryBrowser';
+import { useTranslation } from '@/lib/i18n';
 import {
   useAuthoringAvailability,
   useAuthoringProductTypes,
   useCreateProductDraft,
   useProductDrafts,
-} from "@/lib/authoring/hooks";
-import { patchProductDraft } from "@/lib/authoring/api";
-import { deviceMarket, isValidMarket, normalizeMarket } from "@/lib/authoring/market";
-import { authoringLabel } from "@/lib/authoring/untranslated";
+} from '@/lib/authoring/hooks';
+import { patchProductDraft } from '@/lib/authoring/api';
+import { deviceMarket, isValidMarket, normalizeMarket } from '@/lib/authoring/market';
+import { authoringLabel } from '@/lib/authoring/untranslated';
 
 export default function ProductWizardStartScreen() {
   const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>{t("products.wizard.start.documentTitle")}</title>
+        <title>{t('products.wizard.start.documentTitle')}</title>
       </Head>
       <RequireStore permission="products:write">
         {(storeId) => <StartBody storeId={storeId} />}
@@ -72,7 +72,7 @@ function StartBody({ storeId }: { storeId: string }) {
   const { colors } = useColorScheme();
 
   const availability = useAuthoringAvailability(locale);
-  const drafts = useProductDrafts(storeId, "open");
+  const drafts = useProductDrafts(storeId, 'open');
   const createDraft = useCreateProductDraft(storeId);
 
   const [candidate, setCandidate] = useState<AuthoringCanonicalCandidate | null>(null);
@@ -84,7 +84,7 @@ function StartBody({ storeId }: { storeId: string }) {
 
   if (availability.isPending) {
     return (
-      <Screen title={t("products.wizard.start.title")}>
+      <Screen title={t('products.wizard.start.title')}>
         <View className="gap-3">
           <Skeleton.Box width="100%" height={96} borderRadius={16} />
           <Skeleton.Box width="100%" height={96} borderRadius={16} />
@@ -97,15 +97,19 @@ function StartBody({ storeId }: { storeId: string }) {
   // The legacy form is still there and is where the merchant is sent, which is
   // what makes turning the wizard on a deployment decision rather than a
   // release.
-  if (availability.data?.outcome === "unavailable") {
+  if (availability.data?.outcome === 'unavailable') {
     return (
-      <Screen title={t("products.wizard.start.title")}>
+      <Screen title={t('products.wizard.start.title')}>
         <ScreenMessage
-          title={t("products.wizard.start.unavailableTitle")}
-          body={t("products.wizard.start.unavailableBody")}
+          title={t('products.wizard.start.unavailableTitle')}
+          body={t('products.wizard.start.unavailableBody')}
         />
-        <Button tone="accent" className="self-center" onPress={() => router.replace("/products/new")}>
-          {t("products.wizard.start.useLegacy")}
+        <Button
+          tone="accent"
+          className="self-center"
+          onPress={() => router.replace('/products/new')}
+        >
+          {t('products.wizard.start.useLegacy')}
         </Button>
       </Screen>
     );
@@ -113,11 +117,8 @@ function StartBody({ storeId }: { storeId: string }) {
 
   if (availability.isError) {
     return (
-      <Screen title={t("products.wizard.start.title")}>
-        <ScreenMessage
-          title={t("common.somethingWentWrong")}
-          body={t("common.pleaseTryAgain")}
-        />
+      <Screen title={t('products.wizard.start.title')}>
+        <ScreenMessage title={t('common.somethingWentWrong')} body={t('common.pleaseTryAgain')} />
       </Screen>
     );
   }
@@ -147,33 +148,33 @@ function StartBody({ storeId }: { storeId: string }) {
         market: normalizeMarket(market),
       });
     } catch {
-      toast.error(t("products.wizard.start.createFailed"));
+      toast.error(t('products.wizard.start.createFailed'));
       return;
     }
 
     if (candidate !== null) {
       const canonicalProductId =
-        candidate.kind === "canonical_product" ? candidate.id : candidate.canonicalProductId;
+        candidate.kind === 'canonical_product' ? candidate.id : candidate.canonicalProductId;
       if (canonicalProductId !== null) {
         const outcome = await patchProductDraft(storeId, draft.id, {
           version: draft.version,
           selectedCanonicalProductId: canonicalProductId,
         }).catch(() => null);
-        if (outcome === null || outcome.outcome !== "saved") {
-          toast.error(t("products.wizard.start.linkFailed"));
+        if (outcome === null || outcome.outcome !== 'saved') {
+          toast.error(t('products.wizard.start.linkFailed'));
         }
       }
     }
-    router.push({ pathname: "/products/wizard/[draftId]", params: { draftId: draft.id } });
+    router.push({ pathname: '/products/wizard/[draftId]', params: { draftId: draft.id } });
   };
 
   return (
-    <Screen title={t("products.wizard.start.title")} subtitle={t("products.wizard.start.subtitle")}>
+    <Screen title={t('products.wizard.start.title')} subtitle={t('products.wizard.start.subtitle')}>
       <View className="gap-6">
         {(drafts.data ?? []).length > 0 ? (
           <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
             <Text className="text-sm font-semibold text-foreground">
-              {t("products.wizard.start.resumeTitle")}
+              {t('products.wizard.start.resumeTitle')}
             </Text>
             {(drafts.data ?? []).slice(0, 5).map((draft) => (
               <Pressable
@@ -181,12 +182,12 @@ function StartBody({ storeId }: { storeId: string }) {
                 accessibilityRole="link"
                 accessibilityLabel={
                   draft.title === null || draft.title.length === 0
-                    ? t("products.wizard.start.untitledDraft")
+                    ? t('products.wizard.start.untitledDraft')
                     : draft.title
                 }
                 onPress={() =>
                   router.push({
-                    pathname: "/products/wizard/[draftId]",
+                    pathname: '/products/wizard/[draftId]',
                     params: { draftId: draft.id },
                   })
                 }
@@ -194,7 +195,7 @@ function StartBody({ storeId }: { storeId: string }) {
               >
                 <Text className="flex-1 text-sm text-foreground" numberOfLines={1}>
                   {draft.title === null || draft.title.length === 0
-                    ? t("products.wizard.start.untitledDraft")
+                    ? t('products.wizard.start.untitledDraft')
                     : draft.title}
                 </Text>
                 <ChevronRight size={16} color={colors.mutedForeground} />
@@ -207,11 +208,11 @@ function StartBody({ storeId }: { storeId: string }) {
           <View className="flex-row items-center gap-2">
             <Sparkles size={16} color={colors.primary} />
             <Text className="flex-1 text-sm font-semibold text-foreground">
-              {t("products.wizard.start.findTitle")}
+              {t('products.wizard.start.findTitle')}
             </Text>
           </View>
           <Text className="text-xs text-muted-foreground">
-            {t("products.wizard.start.findBody")}
+            {t('products.wizard.start.findBody')}
           </Text>
           <CanonicalSearchPanel
             selectedId={candidate?.id ?? null}
@@ -220,14 +221,14 @@ function StartBody({ storeId }: { storeId: string }) {
           />
           {candidate === null ? null : (
             <Text className="text-xs text-muted-foreground">
-              {t("products.wizard.start.classifyAnyway")}
+              {t('products.wizard.start.classifyAnyway')}
             </Text>
           )}
         </View>
 
         <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
           <Text className="text-sm font-semibold text-foreground">
-            {t("products.wizard.start.categoryTitle")}
+            {t('products.wizard.start.categoryTitle')}
           </Text>
           <CategoryBrowser
             locale={locale}
@@ -242,12 +243,14 @@ function StartBody({ storeId }: { storeId: string }) {
         {category === null ? null : (
           <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
             <Text className="text-sm font-semibold text-foreground">
-              {t("products.wizard.start.typeTitle")}
+              {t('products.wizard.start.typeTitle')}
             </Text>
-            {productTypes.isPending ? <Skeleton.Box width="100%" height={44} borderRadius={12} /> : null}
+            {productTypes.isPending ? (
+              <Skeleton.Box width="100%" height={44} borderRadius={12} />
+            ) : null}
             {productTypes.data !== undefined && productTypes.data.length === 0 ? (
               <Text className="text-sm text-muted-foreground">
-                {t("products.wizard.start.noProductTypes")}
+                {t('products.wizard.start.noProductTypes')}
               </Text>
             ) : null}
             <View className="gap-2">
@@ -256,7 +259,7 @@ function StartBody({ storeId }: { storeId: string }) {
                 // #740. Derived ONCE: the visible text and the accessibility
                 // label are the same fact, and two `??` chains for one fact is
                 // how they drift.
-                const name = authoringLabel(option.name, { kind: "key", key: option.key }, t).text;
+                const name = authoringLabel(option.name, { kind: 'key', key: option.key }, t).text;
                 return (
                   <Pressable
                     key={option.definitionId}
@@ -265,9 +268,9 @@ function StartBody({ storeId }: { storeId: string }) {
                     accessibilityState={{ selected: isSelected }}
                     onPress={() => setProductType(option)}
                     className={[
-                      "rounded-xl border px-3 py-3 active:opacity-80",
-                      isSelected ? "border-primary bg-muted" : "border-border",
-                    ].join(" ")}
+                      'rounded-xl border px-3 py-3 active:opacity-80',
+                      isSelected ? 'border-primary bg-muted' : 'border-border',
+                    ].join(' ')}
                   >
                     <Text className="text-base text-foreground">{name}</Text>
                   </Pressable>
@@ -279,16 +282,18 @@ function StartBody({ storeId }: { storeId: string }) {
 
         <View className="rounded-2xl border border-border bg-surface p-4">
           <Field
-            label={t("products.wizard.start.marketLabel")}
-            description={t("products.wizard.start.marketHelp")}
-            error={market.length > 0 && !marketValid ? t("products.wizard.start.marketInvalid") : null}
+            label={t('products.wizard.start.marketLabel')}
+            description={t('products.wizard.start.marketHelp')}
+            error={
+              market.length > 0 && !marketValid ? t('products.wizard.start.marketInvalid') : null
+            }
           >
             <View className="w-24">
               <TextFieldInput
-                label={t("products.wizard.start.marketLabel")}
+                label={t('products.wizard.start.marketLabel')}
                 value={market}
                 onValueChange={setMarket}
-                placeholder={t("products.wizard.start.marketPlaceholder")}
+                placeholder={t('products.wizard.start.marketPlaceholder')}
                 autoCapitalize="characters"
                 maxLength={2}
               />
@@ -304,7 +309,7 @@ function StartBody({ storeId }: { storeId: string }) {
           disabled={!canCreate}
           loading={createDraft.isPending}
         >
-          {t("products.wizard.start.begin")}
+          {t('products.wizard.start.begin')}
         </Button>
       </View>
     </Screen>

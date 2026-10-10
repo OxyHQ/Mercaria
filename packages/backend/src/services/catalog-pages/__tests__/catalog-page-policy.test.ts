@@ -84,9 +84,9 @@ describe('#72 indexability', () => {
     const one = { merged: false, mayIndex: true, productCount: 1 };
     expect(brandIndexability(one)).toBe('indexable');
     expect(familyIndexability(one)).toBe('thin');
-    expect(
-      familyIndexability({ ...one, productCount: FAMILY_PUBLISHABLE_MIN_PRODUCTS }),
-    ).toBe('indexable');
+    expect(familyIndexability({ ...one, productCount: FAMILY_PUBLISHABLE_MIN_PRODUCTS })).toBe(
+      'indexable',
+    );
   });
 });
 
@@ -142,7 +142,11 @@ describe('#72 structured data asserts only what the page shows', () => {
       canonicalUrl,
       indexability: 'indexable',
     });
-    expect(data).toMatchObject({ kind: 'organization', name: 'Acme Holdings SA', brandName: 'Acme' });
+    expect(data).toMatchObject({
+      kind: 'organization',
+      name: 'Acme Holdings SA',
+      brandName: 'Acme',
+    });
   });
 
   it('emits nothing at all for a page that may not be indexed', () => {
@@ -165,11 +169,14 @@ describe('#72 breadcrumbs', () => {
       { kind: 'brand', id: 'b1', slug: 'acme', name: 'Acme' },
     ]);
     expect(
-      familyBreadcrumbs({ id: 'f1', slug: 'widget', name: 'Widget' }, {
-        id: 'b1',
-        slug: 'acme',
-        name: 'Acme',
-      }),
+      familyBreadcrumbs(
+        { id: 'f1', slug: 'widget', name: 'Widget' },
+        {
+          id: 'b1',
+          slug: 'acme',
+          name: 'Acme',
+        },
+      ),
     ).toEqual([
       { kind: 'brand', id: 'b1', slug: 'acme', name: 'Acme' },
       { kind: 'product_family', id: 'f1', slug: 'widget', name: 'Widget' },

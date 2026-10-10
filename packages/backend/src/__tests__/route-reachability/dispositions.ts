@@ -107,7 +107,7 @@ export const ROUTE_DISPOSITIONS: Readonly<
         'Should /watchlists/[watchlistId] offer "Compare this list"? The screen accepts ' +
         '?watchlist=<id>, which strongly implies that entry, and /watchlists/[watchlistId] is ' +
         'reachable — so this is a one-line edge. But the control carries an objective and ' +
-        'channel-policy picker, and #42\'s multi-store optimization is still deferred, so ' +
+        "channel-policy picker, and #42's multi-store optimization is still deferred, so " +
         'whether the surface is meant to be live is a rollout question rather than a nav bug.',
       recordedIn: '#42 (open epic); measured in #366',
     },

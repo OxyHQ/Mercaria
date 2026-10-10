@@ -39,10 +39,7 @@ import {
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
-import {
-  OFFER_FORBIDDEN_RANKING_SIGNALS,
-  OFFER_RANKING_SIGNALS,
-} from '@mercaria/shared-types';
+import { OFFER_FORBIDDEN_RANKING_SIGNALS, OFFER_RANKING_SIGNALS } from '@mercaria/shared-types';
 import { rankingPolicyVersions } from '../../../db/schema/ranking.js';
 import { buildFacts } from './offer-fixtures.js';
 import { assertEachOf } from '../../../__tests__/assert-each-of.js';
@@ -177,7 +174,9 @@ describe('the ranking domain has real modules — the vacuity floor', () => {
     // every scan below pass against an empty list.
     expectEveryShapeFoundSomething();
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
     for (const relative of OUTER_PATHS) {
       const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
@@ -225,10 +224,16 @@ describe('WALL 1: ranking cannot read commercial standing', () => {
 
   it('the commercial detector actually detects — the mutation self-test', () => {
     expect(
-      COMMERCIAL_REFERENCE.test("import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';"),
+      COMMERCIAL_REFERENCE.test(
+        "import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';",
+      ),
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { attribute } from '../referrals/attribution.service.js';")).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { quote } from '../retail-pricing/cost.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test("import { attribute } from '../referrals/attribution.service.js';"),
+    ).toBe(true);
+    expect(COMMERCIAL_REFERENCE.test("import { quote } from '../retail-pricing/cost.js';")).toBe(
+      true,
+    );
     expect(COMMERCIAL_REFERENCE.test('select * from order_fee_snapshots')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('const commissionRate = 0.1;')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
@@ -249,18 +254,22 @@ describe('WALL 2: the two vocabularies are disjoint', () => {
   it('every prohibition the issue names is present as a VALUE', () => {
     // The issue's seven, by name. A prohibition dropped from the tuple would
     // make the disjointness check above pass while permitting the thing.
-    assertEachOf([
-      'affiliate_commission_rate',
-      'commercial_agreement_margin',
-      'fair_acceptance',
-      'merchant_subscription_plan',
-      'native_offer_preference',
-      'brand_popularity',
-      'sensitive_personal_attribute',
-      'sponsored_placement',
-    ], 8, (forbidden) => {
-      expect(OFFER_FORBIDDEN_RANKING_SIGNALS).toContain(forbidden);
-    });
+    assertEachOf(
+      [
+        'affiliate_commission_rate',
+        'commercial_agreement_margin',
+        'fair_acceptance',
+        'merchant_subscription_plan',
+        'native_offer_preference',
+        'brand_popularity',
+        'sensitive_personal_attribute',
+        'sponsored_placement',
+      ],
+      8,
+      (forbidden) => {
+        expect(OFFER_FORBIDDEN_RANKING_SIGNALS).toContain(forbidden);
+      },
+    );
   });
 });
 
@@ -270,7 +279,9 @@ describe('WALL 3: a forbidden signal has nowhere to live', () => {
     // The floor: a builder returning `{}` would pass every assertion below.
     expect(fields.length).toBeGreaterThanOrEqual(6);
     const suspicious = fields.filter((name) =>
-      /commission|fee|plan|subscription|margin|profit|sponsor|boost|bid|popularity|fair/i.test(name),
+      /commission|fee|plan|subscription|margin|profit|sponsor|boost|bid|popularity|fair/i.test(
+        name,
+      ),
     );
     expect(suspicious, 'a forbidden signal acquired a fact field').toEqual([]);
   });
@@ -320,7 +331,9 @@ describe('WALL 4: the domain names no currency', () => {
     expect(CURRENCY_NAME_REFERENCE.test("const fallback: CurrencyCode = 'FAIR';")).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('import { oxyPayClient } from "./x.js";')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('import { peableClient } from "./x.js";')).toBe(true);
-    expect(CURRENCY_NAME_REFERENCE.test('const currency = request.comparisonCurrency;')).toBe(false);
+    expect(CURRENCY_NAME_REFERENCE.test('const currency = request.comparisonCurrency;')).toBe(
+      false,
+    );
   });
 });
 
@@ -328,9 +341,9 @@ describe('WALL 5: the operator surface cannot sell a position', () => {
   const router = readFileSync(join(SRC_ROOT, 'routes/internal-ranking.ts'), 'utf8');
 
   it('registers exactly the routes it declares, and nothing that moves an offer', () => {
-    const registered = [...router.matchAll(/router\.(get|post|delete|patch|put)\(\s*'([^']+)'/g)].map(
-      (match) => `${match[1]} ${match[2]}`,
-    );
+    const registered = [
+      ...router.matchAll(/router\.(get|post|delete|patch|put)\(\s*'([^']+)'/g),
+    ].map((match) => `${match[1]} ${match[2]}`);
     // The floor AND the enumeration: a route added without a reviewer noticing
     // fails here, and an empty match set fails here too.
     expect(registered.sort()).toEqual(
@@ -348,7 +361,8 @@ describe('WALL 5: the operator surface cannot sell a position', () => {
   });
 
   it('has no boost, pin, hide or set-rank path anywhere in the domain', () => {
-    const forbiddenPath = /['"][^'"]*(boost|pin|promote-offer|sponsor|hide|set-rank|rank-override)[^'"]*['"]/i;
+    const forbiddenPath =
+      /['"][^'"]*(boost|pin|promote-offer|sponsor|hide|set-rank|rank-override)[^'"]*['"]/i;
     for (const file of [
       { relative: 'routes/internal-ranking.ts', source: router },
       {
@@ -364,7 +378,8 @@ describe('WALL 5: the operator surface cannot sell a position', () => {
   });
 
   it('the path detector actually detects — the mutation self-test', () => {
-    const forbiddenPath = /['"][^'"]*(boost|pin|promote-offer|sponsor|hide|set-rank|rank-override)[^'"]*['"]/i;
+    const forbiddenPath =
+      /['"][^'"]*(boost|pin|promote-offer|sponsor|hide|set-rank|rank-override)[^'"]*['"]/i;
     expect(forbiddenPath.test("router.post('/offers/:id/boost', handler);")).toBe(true);
     expect(forbiddenPath.test("router.post('/offers/:id/pin', handler);")).toBe(true);
     expect(forbiddenPath.test("router.post('/policies/:id/activate', handler);")).toBe(false);

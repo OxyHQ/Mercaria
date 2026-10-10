@@ -49,9 +49,8 @@ function assertOk(body: ApiResponse<unknown>, fallback: string): void {
 }
 
 export async function fetchShoppingAgents(): Promise<ShoppingAgent[]> {
-  const { data } = await apiClient.get<ApiResponse<{ agents: ShoppingAgent[] }>>(
-    '/shopping-agents',
-  );
+  const { data } =
+    await apiClient.get<ApiResponse<{ agents: ShoppingAgent[] }>>('/shopping-agents');
   return unwrap(data, 'Failed to load your shopping agents').agents;
 }
 
@@ -62,9 +61,7 @@ export async function fetchShoppingAgent(agentId: string): Promise<ShoppingAgent
   return unwrap(data, 'Failed to load that shopping agent').agent;
 }
 
-export async function fetchShoppingAgentFindings(
-  agentId: string,
-): Promise<ShoppingAgentFinding[]> {
+export async function fetchShoppingAgentFindings(agentId: string): Promise<ShoppingAgentFinding[]> {
   const { data } = await apiClient.get<ApiResponse<{ findings: ShoppingAgentFinding[] }>>(
     `/shopping-agents/${agentId}/findings`,
   );

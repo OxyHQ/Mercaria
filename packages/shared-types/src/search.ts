@@ -167,8 +167,7 @@ export const SEARCH_FORBIDDEN_RELEVANCE_SIGNALS = [
 ] as const;
 
 /** One of {@link SEARCH_FORBIDDEN_RELEVANCE_SIGNALS}. */
-export type SearchForbiddenRelevanceSignal =
-  (typeof SEARCH_FORBIDDEN_RELEVANCE_SIGNALS)[number];
+export type SearchForbiddenRelevanceSignal = (typeof SEARCH_FORBIDDEN_RELEVANCE_SIGNALS)[number];
 
 /**
  * The version of the relevance policy in force.

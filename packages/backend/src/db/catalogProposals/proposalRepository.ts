@@ -498,7 +498,9 @@ export async function insertReviewEvent(
     // Unreachable for a plain insert that did not raise, and the only honest
     // answer if it somehow were: an audit trail that silently did not record is
     // worse than a failure nobody can miss.
-    throw new Error(`catalog_review_events: insert for proposal ${input.proposalId} returned no row.`);
+    throw new Error(
+      `catalog_review_events: insert for proposal ${input.proposalId} returned no row.`,
+    );
   }
   return row;
 }

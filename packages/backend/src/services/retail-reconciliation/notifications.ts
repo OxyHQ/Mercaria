@@ -50,12 +50,15 @@ export interface AdjustableOrder {
 export function notifyRetailCostAdjustment(order: AdjustableOrder, adjustmentId: string): void {
   const checkoutGroupId = order.checkoutGroupId;
   if (checkoutGroupId === null) return;
-  void enqueueGuestMessage({
-    checkoutGroupId,
-    kind: 'cost_adjustment_issued',
-    orderId: order.id,
-    dedupeSuffix: adjustmentId,
-  }, getDb()).catch((err: unknown) => {
+  void enqueueGuestMessage(
+    {
+      checkoutGroupId,
+      kind: 'cost_adjustment_issued',
+      orderId: order.id,
+      dedupeSuffix: adjustmentId,
+    },
+    getDb(),
+  ).catch((err: unknown) => {
     log.guest.error(
       { err, orderId: order.id, adjustmentId },
       '[RetailReconciliation] failed to enqueue the cost-adjustment message; the refund stands',

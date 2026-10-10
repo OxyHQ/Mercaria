@@ -47,7 +47,11 @@ import { and, asc, eq, gt, inArray, type SQL } from 'drizzle-orm';
 import type { IdentifierScheme } from '@mercaria/shared-types';
 import { CATALOG_SOURCE_DISPLAYABLE_STATUSES } from '@mercaria/shared-types';
 import { getDb } from '../../../db/postgres.js';
-import { catalogSourceConfigs, catalogSourceObjects, catalogSourcePolicies } from '../../../db/schema/ingestion.js';
+import {
+  catalogSourceConfigs,
+  catalogSourceObjects,
+  catalogSourcePolicies,
+} from '../../../db/schema/ingestion.js';
 import { findSourceRecordById } from '../../../db/canonical/provenanceRepository.js';
 import { findMatchDecisionById } from '../../../db/matching/matchDecisionRepository.js';
 import { findCanonicalProductById } from '../../../db/canonical/canonicalProductRepository.js';
@@ -87,7 +91,8 @@ const GTIN_PAYLOAD_KEYS = ['gtin', 'ean', 'upc', 'isbn'] as const;
 
 export async function runReferenceProductsPage(context: StageContext): Promise<StagePageResult> {
   const db = getDb();
-  const keyset: SQL | undefined = context.cursor === null ? undefined : gt(catalogSourceObjects.id, context.cursor);
+  const keyset: SQL | undefined =
+    context.cursor === null ? undefined : gt(catalogSourceObjects.id, context.cursor);
 
   // Rule 1, as the page predicate: an object is examined only while its
   // source's ACTIVE policy grants `seed_catalog` (and the `may_store` it
@@ -100,16 +105,22 @@ export async function runReferenceProductsPage(context: StageContext): Promise<S
       lastMatchDecisionId: catalogSourceObjects.lastMatchDecisionId,
     })
     .from(catalogSourceObjects)
-    .innerJoin(catalogSourcePolicies, and(
-      eq(catalogSourcePolicies.sourceId, catalogSourceObjects.sourceId),
-      eq(catalogSourcePolicies.status, 'active'),
-      eq(catalogSourcePolicies.maySeedCatalog, true),
-      eq(catalogSourcePolicies.mayStore, true),
-    ))
-    .innerJoin(catalogSourceConfigs, and(
-      eq(catalogSourceConfigs.sourceId, catalogSourceObjects.sourceId),
-      inArray(catalogSourceConfigs.status, [...CATALOG_SOURCE_DISPLAYABLE_STATUSES]),
-    ))
+    .innerJoin(
+      catalogSourcePolicies,
+      and(
+        eq(catalogSourcePolicies.sourceId, catalogSourceObjects.sourceId),
+        eq(catalogSourcePolicies.status, 'active'),
+        eq(catalogSourcePolicies.maySeedCatalog, true),
+        eq(catalogSourcePolicies.mayStore, true),
+      ),
+    )
+    .innerJoin(
+      catalogSourceConfigs,
+      and(
+        eq(catalogSourceConfigs.sourceId, catalogSourceObjects.sourceId),
+        inArray(catalogSourceConfigs.status, [...CATALOG_SOURCE_DISPLAYABLE_STATUSES]),
+      ),
+    )
     .where(and(inArray(catalogSourceObjects.state, ['unmatched', 'review_required']), keyset))
     .orderBy(asc(catalogSourceObjects.id))
     .limit(context.limit);
@@ -129,19 +140,34 @@ async function decideObject(context: StageContext, object: ObjectRow): Promise<S
   // Rule 2. `unmatched` and `review_required` carry a decision by
   // `catalog_source_objects`' own shape CHECK; reading it anyway costs one row
   // and keeps the verdict honest.
-  const decision = object.lastMatchDecisionId === null ? undefined : await findMatchDecisionById(db, object.lastMatchDecisionId);
+  const decision =
+    object.lastMatchDecisionId === null
+      ? undefined
+      : await findMatchDecisionById(db, object.lastMatchDecisionId);
   if (decision === undefined) {
-    return { reasonCode: 'awaiting_match_decision', detail: `object ${object.id} has no match decision yet` };
+    return {
+      reasonCode: 'awaiting_match_decision',
+      detail: `object ${object.id} has no match decision yet`,
+    };
   }
   if (decision.outcome === 'automatic_match') {
-    return { reasonCode: 'awaiting_match_decision', detail: `object ${object.id}: automatic_match awaiting attachment` };
+    return {
+      reasonCode: 'awaiting_match_decision',
+      detail: `object ${object.id}: automatic_match awaiting attachment`,
+    };
   }
 
-  const observation = object.currentSourceRecordId === null ? undefined : await findSourceRecordById(db, object.currentSourceRecordId);
+  const observation =
+    object.currentSourceRecordId === null
+      ? undefined
+      : await findSourceRecordById(db, object.currentSourceRecordId);
   const payload = (observation?.payload ?? {}) as Readonly<Record<string, unknown>>;
   const title = typeof payload.title === 'string' ? payload.title.trim() : '';
   const gtin = readGtin(payload);
-  const groupKey = typeof payload.productGroupKey === 'string' && payload.productGroupKey.trim() !== '' ? payload.productGroupKey.trim() : undefined;
+  const groupKey =
+    typeof payload.productGroupKey === 'string' && payload.productGroupKey.trim() !== ''
+      ? payload.productGroupKey.trim()
+      : undefined;
 
   // Rule 3: a GTIN that validates, or the source's own product key, or nothing.
   if (observation === undefined || title === '' || (gtin === undefined && groupKey === undefined)) {
@@ -157,7 +183,10 @@ async function decideObject(context: StageContext, object: ObjectRow): Promise<S
     return { reasonCode: 'blocked_by_decision', detail: `object ${object.id}: manual_review` };
   }
   if (gtin === undefined) {
-    return { reasonCode: 'reference_no_identifier', detail: `object ${object.id} asserts no valid GTIN` };
+    return {
+      reasonCode: 'reference_no_identifier',
+      detail: `object ${object.id} asserts no valid GTIN`,
+    };
   }
 
   const reused = await previousProductFor(context, object.id);
@@ -297,22 +326,38 @@ async function decideAnchored(
   };
 }
 
-function canonicalIdsOf(productId: string, variantId: string): { canonicalProductId?: string; canonicalVariantId?: string } {
+function canonicalIdsOf(
+  productId: string,
+  variantId: string,
+): { canonicalProductId?: string; canonicalVariantId?: string } {
   if (isDryRunId(productId)) return {};
-  return { canonicalProductId: productId, ...(isDryRunId(variantId) ? {} : { canonicalVariantId: variantId }) };
+  return {
+    canonicalProductId: productId,
+    ...(isDryRunId(variantId) ? {} : { canonicalVariantId: variantId }),
+  };
 }
 
 function readDescription(payload: Readonly<Record<string, unknown>>): string | undefined {
-  return typeof payload.description === 'string' && payload.description.trim() !== '' ? payload.description.trim() : undefined;
+  return typeof payload.description === 'string' && payload.description.trim() !== ''
+    ? payload.description.trim()
+    : undefined;
 }
 
 /** The record's option values (`redact.ts` stores them as `attributes`), as variant options. */
-function readOptions(payload: Readonly<Record<string, unknown>>): { key: string; value: string; position: number }[] {
+function readOptions(
+  payload: Readonly<Record<string, unknown>>,
+): { key: string; value: string; position: number }[] {
   const attributes = payload.attributes;
   if (attributes === null || typeof attributes !== 'object' || Array.isArray(attributes)) return [];
   return Object.entries(attributes as Record<string, unknown>)
-    .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim() !== '')
-    .map(([key, value], position) => ({ key: normalizeAttributeKey(key), value: value.trim(), position }));
+    .filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim() !== '',
+    )
+    .map(([key, value], position) => ({
+      key: normalizeAttributeKey(key),
+      value: value.trim(),
+      position,
+    }));
 }
 
 /** Ten hex digits of sha-256 over (source, key) — the slug suffix of an anchored product. */
@@ -321,12 +366,16 @@ function anchorDigest(sourceId: string, groupKey: string): string {
 }
 
 /** The first stored GTIN-family assertion whose check digit validates. */
-function readGtin(payload: Readonly<Record<string, unknown>>): { scheme: IdentifierScheme; value: string } | undefined {
+function readGtin(
+  payload: Readonly<Record<string, unknown>>,
+): { scheme: IdentifierScheme; value: string } | undefined {
   for (const key of GTIN_PAYLOAD_KEYS) {
     const raw = payload[key];
     if (typeof raw !== 'string' || raw.trim() === '') continue;
     const value = raw.trim();
-    const scheme = GTIN_SCHEMES.find((candidate) => normalizeIdentifier(candidate, value).kind !== 'invalid');
+    const scheme = GTIN_SCHEMES.find(
+      (candidate) => normalizeIdentifier(candidate, value).kind !== 'invalid',
+    );
     if (scheme !== undefined) return { scheme, value };
   }
   return undefined;
@@ -338,7 +387,10 @@ function readGtin(payload: Readonly<Record<string, unknown>>): { scheme: Identif
  * operator has since merged or suppressed must not send the stage attaching an
  * identifier to a row that has moved on.
  */
-async function previousProductFor(context: StageContext, sourceObjectId: string): Promise<string | undefined> {
+async function previousProductFor(
+  context: StageContext,
+  sourceObjectId: string,
+): Promise<string | undefined> {
   const record = await findBackfillRecord({
     mappingVersion: context.mappingVersion,
     mode: context.mode,

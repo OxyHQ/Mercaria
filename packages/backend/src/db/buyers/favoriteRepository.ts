@@ -195,9 +195,7 @@ export async function findSavedListingIds(
   const rows = await db
     .select({ listingId: favorites.listingId })
     .from(favorites)
-    .where(
-      and(eq(favorites.oxyUserId, oxyUserId), inArray(favorites.listingId, [...listingIds])),
-    );
+    .where(and(eq(favorites.oxyUserId, oxyUserId), inArray(favorites.listingId, [...listingIds])));
   return new Set(rows.map((row) => row.listingId));
 }
 

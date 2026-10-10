@@ -145,13 +145,16 @@ const DOMAIN_FILES = walkOwnedDirectory('services/supplier-orders').map(absolute
 const ADAPTER_FILES = walkOwnedDirectory(ADAPTERS_DIRECTORY).map(absolute);
 const REPOSITORY_FILES = walkOwnedDirectory('db/supplierOrders').map(absolute);
 /** The modules serving this domain from a shared directory. */
-const SHARED_FILES = namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN).map(absolute);
+const SHARED_FILES = namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN).map(
+  absolute,
+);
 
 const WALLS: Wall[] = [
   {
     name: 'a database, repository or service, from inside an adapter',
     files: ADAPTER_FILES,
-    pattern: /from\s+['"][^'"]*(db\/|repository|Repository|\.service|postgres|config\/index)[^'"]*['"]/,
+    pattern:
+      /from\s+['"][^'"]*(db\/|repository|Repository|\.service|postgres|config\/index)[^'"]*['"]/,
   },
   {
     name: 'the adapter registry, from anywhere but the provider-call chokepoint',
@@ -192,7 +195,8 @@ const WALLS: Wall[] = [
   {
     name: 'a refund, ledger or inventory writer',
     files: [...DOMAIN_FILES, ...REPOSITORY_FILES, ...SHARED_FILES],
-    pattern: /from\s+['"][^'"]*(refund\.service|ledgerRepository|inventory\.service|inventoryRepository)[^'"]*['"]/,
+    pattern:
+      /from\s+['"][^'"]*(refund\.service|ledgerRepository|inventory\.service|inventoryRepository)[^'"]*['"]/,
   },
   {
     name: 'OxyPay or FairCoin',
@@ -259,14 +263,20 @@ describe('supplier order isolation (static)', () => {
 
     // And the neighbours the pattern must NOT drag in, or these walls fire at
     // whoever edits #122 or #118.
-    assertEachOf([
-      'services/supplier-preflight/preflight.service.ts',
-      'db/procurement/supplierRepository.ts',
-      'db/supplierPreflight/quoteRepository.ts',
-    ], 3, (foreign) => {
-      expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
-      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
-    });
+    assertEachOf(
+      [
+        'services/supplier-preflight/preflight.service.ts',
+        'db/procurement/supplierRepository.ts',
+        'db/supplierPreflight/quoteRepository.ts',
+      ],
+      3,
+      (foreign) => {
+        expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(
+          false,
+        );
+        expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+      },
+    );
   });
 
   for (const wall of WALLS) {
@@ -349,7 +359,8 @@ describe('supplier order vocabularies', () => {
     // A shape check beside the set checks above, because disjointness only
     // catches an EXACT duplicate. A capability called `preferred_placement`
     // would pass that and fail this.
-    const forbidden = /commission|affiliate|referral|rank|sponsor|placement|stripe|oxypay|faircoin/i;
+    const forbidden =
+      /commission|affiliate|referral|rank|sponsor|placement|stripe|oxypay|faircoin/i;
     expect(SUPPLIER_ORDER_CAPABILITIES.filter((entry) => forbidden.test(entry))).toEqual([]);
   });
 });

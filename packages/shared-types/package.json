@@ -15,7 +15,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
-    "lint": "echo \"No lint configured for shared-types\" && exit 0",
+    "lint": "biome check .",
     "test": "echo \"No tests specified\" && exit 0",
     "prepublishOnly": "bun run build"
   },

@@ -90,7 +90,12 @@ async function withCodes(
   const codeRows = await db
     .select()
     .from(discountCodes)
-    .where(inArray(discountCodes.discountId, rows.map((row) => row.id)))
+    .where(
+      inArray(
+        discountCodes.discountId,
+        rows.map((row) => row.id),
+      ),
+    )
     // Insertion order is what the embedded array had; `code` is the stable
     // tiebreaker so the admin list does not reorder between requests.
     .orderBy(asc(discountCodes.createdAt), asc(discountCodes.code));

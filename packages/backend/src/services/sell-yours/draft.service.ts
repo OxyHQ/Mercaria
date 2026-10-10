@@ -234,7 +234,9 @@ export async function patchSellerDraft(
   const result = await getDb().transaction(async (tx) => {
     if (input.conditionDetails !== undefined) {
       const details = input.conditionDetails.map((detail) => {
-        if (!CONDITION_DETAIL_KINDS.includes(detail.kind as (typeof CONDITION_DETAIL_KINDS)[number])) {
+        if (
+          !CONDITION_DETAIL_KINDS.includes(detail.kind as (typeof CONDITION_DETAIL_KINDS)[number])
+        ) {
           throw validationError(`Unknown condition detail kind: ${detail.kind}`);
         }
         return {
@@ -289,7 +291,7 @@ export async function patchSellerDraft(
        * the only reading that can be correct for a list the seller is still
        * editing.
        */
-      const { details } = await findSellerDraftWithChildren(draftId, oxyUserId, tx) ?? {
+      const { details } = (await findSellerDraftWithChildren(draftId, oxyUserId, tx)) ?? {
         details: [],
       };
       const links = new Map<string, string>();
@@ -449,9 +451,7 @@ export async function previewSellerDraft(
       canonicalVariantId: draft.canonicalVariantId,
     }),
     findLatestGateRefusal(draft.id),
-    draft.categoryId
-      ? findApplicablePolicies(getDb(), draft.categoryId, [])
-      : Promise.resolve([]),
+    draft.categoryId ? findApplicablePolicies(getDb(), draft.categoryId, []) : Promise.resolve([]),
     draft.categoryId ? findCategoryById(draft.categoryId) : Promise.resolve(null),
   ]);
 
@@ -474,8 +474,7 @@ export async function previewSellerDraft(
     // A refusal only stands while the draft still names the product it was
     // about. Changing the match is the documented remedy, so a stale refusal
     // must not keep blocking a declaration nobody has judged.
-    matchRefused:
-      refusal !== null && refusal.canonicalProductId === draft.canonicalProductId,
+    matchRefused: refusal !== null && refusal.canonicalProductId === draft.canonicalProductId,
     ...(guidance ? { guidance } : {}),
   });
 
@@ -573,7 +572,9 @@ export function toSellerDraftDTO(
  */
 export function assertNoProofFields(body: Record<string, unknown>): void {
   const offending = SELLER_PROOF_FIELD_KINDS.filter((kind) =>
-    Object.keys(body).some((key) => key.toLowerCase().replace(/[^a-z]/g, '') === kind.replace(/_/g, '')),
+    Object.keys(body).some(
+      (key) => key.toLowerCase().replace(/[^a-z]/g, '') === kind.replace(/_/g, ''),
+    ),
   );
   if (offending.length > 0) {
     throw validationError(

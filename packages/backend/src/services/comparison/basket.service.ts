@@ -51,11 +51,7 @@ import { validationError } from '../../lib/errors/error-codes.js';
 import { resolveOfferSellers } from '../product-page/sellers.js';
 import { rankOfferComparison } from '../ranking/comparison.service.js';
 import { composePlanActions } from './basket/actions.js';
-import {
-  comparisonRates,
-  sellerLabelOf,
-  toCandidate,
-} from './basket/candidate-source.js';
+import { comparisonRates, sellerLabelOf, toCandidate } from './basket/candidate-source.js';
 import { pruneBasketCandidates, type BasketCandidate } from './basket/candidates.js';
 import { composeBasketResults, type SolvedObjective } from './basket/results.js';
 import { buildBasketSnapshot } from './basket/snapshot.js';
@@ -120,9 +116,7 @@ export async function solveBasketRequest(input: SolveBasketRequest): Promise<Bas
     candidates: gathered.candidates,
     channelPolicy: request.channelPolicy,
     excludedMerchantIds: request.excludedMerchantIds ?? [],
-    ...(request.conditionGroups === undefined
-      ? {}
-      : { conditionGroups: request.conditionGroups }),
+    ...(request.conditionGroups === undefined ? {} : { conditionGroups: request.conditionGroups }),
   });
 
   const refusals = new Map<string, readonly BasketReasonCode[]>(pruned.refusals);
@@ -262,4 +256,3 @@ async function gatherCandidates(
 
   return { candidates, rankingPolicyVersion };
 }
-

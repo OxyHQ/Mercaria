@@ -199,16 +199,28 @@ describe('the order status CAS', () => {
     // is locked for the statement, so the loser's predicate is re-checked against
     // the winner's write and matches nothing.
     const [first, second] = await Promise.all([
-      transitionOrderStatus(order.id, 'pending_payment', 'paid', { paymentStatus: 'paid' }, {
-        status: 'paid',
-        at: new Date(),
-        actorKind: 'system',
-      }),
-      transitionOrderStatus(order.id, 'pending_payment', 'paid', { paymentStatus: 'paid' }, {
-        status: 'paid',
-        at: new Date(),
-        actorKind: 'system',
-      }),
+      transitionOrderStatus(
+        order.id,
+        'pending_payment',
+        'paid',
+        { paymentStatus: 'paid' },
+        {
+          status: 'paid',
+          at: new Date(),
+          actorKind: 'system',
+        },
+      ),
+      transitionOrderStatus(
+        order.id,
+        'pending_payment',
+        'paid',
+        { paymentStatus: 'paid' },
+        {
+          status: 'paid',
+          at: new Date(),
+          actorKind: 'system',
+        },
+      ),
     ]);
 
     const winners = [first, second].filter((result) => result !== null);
@@ -227,16 +239,28 @@ describe('the order status CAS', () => {
     const storeId = await makeStore();
     const order = await insertOrder(await orderInput(storeId));
 
-    await transitionOrderStatus(order.id, 'pending_payment', 'paid', {}, {
-      status: 'paid',
-      at: new Date(),
-      actorKind: 'system',
-    });
-    const stale = await transitionOrderStatus(order.id, 'pending_payment', 'cancelled', {}, {
-      status: 'cancelled',
-      at: new Date(),
-      actorKind: 'system',
-    });
+    await transitionOrderStatus(
+      order.id,
+      'pending_payment',
+      'paid',
+      {},
+      {
+        status: 'paid',
+        at: new Date(),
+        actorKind: 'system',
+      },
+    );
+    const stale = await transitionOrderStatus(
+      order.id,
+      'pending_payment',
+      'cancelled',
+      {},
+      {
+        status: 'cancelled',
+        at: new Date(),
+        actorKind: 'system',
+      },
+    );
 
     expect(stale).toBeNull();
     expect((await findOrderById(order.id))?.status).toBe('paid');

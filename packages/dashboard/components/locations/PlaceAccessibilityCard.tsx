@@ -1,17 +1,17 @@
-import React, { useState } from "react";
-import { View } from "react-native";
-import type { Place } from "@goway.to/sdk";
-import { Text } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { Button } from "@oxy.so/bloom/button";
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import type { Place } from '@goway.to/sdk';
+import { Text } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { Button } from '@oxy.so/bloom/button';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { toast } from "@oxy.so/bloom/toast";
-import { useApplyCapabilityOperations } from "@/lib/goway/hooks";
-import { goWayErrorKey } from "@/lib/goway/errors";
+} from '@oxy.so/bloom/segmented-control';
+import { toast } from '@oxy.so/bloom/toast';
+import { useApplyCapabilityOperations } from '@/lib/goway/hooks';
+import { goWayErrorKey } from '@/lib/goway/errors';
 import {
   ACCESSIBILITY_FLAGS,
   ACCESSIBILITY_FLAG_LABEL_KEYS,
@@ -20,18 +20,18 @@ import {
   type AccessibilityChoices,
   type FlagChoice,
   type WheelchairChoice,
-} from "@/lib/goway/place-form";
-import { useTranslation } from "@/lib/i18n";
-import { EditorSection } from "./EditorSection";
+} from '@/lib/goway/place-form';
+import { useTranslation } from '@/lib/i18n';
+import { EditorSection } from './EditorSection';
 
-const FLAG_CHOICES: FlagChoice[] = ["yes", "no", "unset"];
-const WHEELCHAIR_CHOICES: WheelchairChoice[] = ["yes", "limited", "no", "unset"];
+const FLAG_CHOICES: FlagChoice[] = ['yes', 'no', 'unset'];
+const WHEELCHAIR_CHOICES: WheelchairChoice[] = ['yes', 'limited', 'no', 'unset'];
 
 const CHOICE_LABEL_KEYS: Record<WheelchairChoice, string> = {
-  yes: "settings.locations.editor.accessibility.yes",
-  limited: "settings.locations.editor.accessibility.limited",
-  no: "settings.locations.editor.accessibility.no",
-  unset: "settings.locations.editor.accessibility.unset",
+  yes: 'settings.locations.editor.accessibility.yes',
+  limited: 'settings.locations.editor.accessibility.limited',
+  no: 'settings.locations.editor.accessibility.no',
+  unset: 'settings.locations.editor.accessibility.unset',
 };
 
 /**
@@ -52,17 +52,17 @@ export function PlaceAccessibilityCard({ place }: { place: Place }) {
     const operations = accessibilityOperations(current, desired);
     if (operations.length === 0) return;
     apply.mutate(operations, {
-      onSuccess: () => toast.success(t("settings.locations.editor.accessibility.saved")),
+      onSuccess: () => toast.success(t('settings.locations.editor.accessibility.saved')),
       onError: (error) => toast.error(t(goWayErrorKey(error))),
     });
   };
 
   return (
     <EditorSection
-      title={t("settings.locations.editor.accessibility.title")}
-      description={t("settings.locations.editor.accessibility.description")}
+      title={t('settings.locations.editor.accessibility.title')}
+      description={t('settings.locations.editor.accessibility.description')}
     >
-      <Field label={t("settings.locations.editor.accessibility.wheelchair")}>
+      <Field label={t('settings.locations.editor.accessibility.wheelchair')}>
         <SegmentedControl
           type="radio"
           value={desired.wheelchair}
@@ -93,9 +93,11 @@ export function PlaceAccessibilityCard({ place }: { place: Place }) {
         </Field>
       ))}
       <View className="gap-2">
-        <Text className="text-xs text-muted-foreground">{t("settings.locations.editor.accessibility.hint")}</Text>
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.locations.editor.accessibility.hint')}
+        </Text>
         <Button tone="accent" loading={apply.isPending} onPress={save}>
-          {t("settings.locations.editor.accessibility.save")}
+          {t('settings.locations.editor.accessibility.save')}
         </Button>
       </View>
     </EditorSection>

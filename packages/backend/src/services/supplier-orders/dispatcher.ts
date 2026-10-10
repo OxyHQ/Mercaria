@@ -122,7 +122,10 @@ export function startProcurementDispatchers(): void {
   if (timers.length > 0) return;
 
   if (config.procurement.orchestrationEnabled) {
-    const timer = setInterval(() => void tickOrchestration(), config.procurement.outboxPollIntervalMs);
+    const timer = setInterval(
+      () => void tickOrchestration(),
+      config.procurement.outboxPollIntervalMs,
+    );
     timer.unref?.();
     timers.push(timer);
   } else {

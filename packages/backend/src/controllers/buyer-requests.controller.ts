@@ -187,7 +187,6 @@ function requestsAreOpen(res: Response): boolean {
   return false;
 }
 
-
 /**
  * Zod's parse guarantee is invisible to this compiler.
  *
@@ -271,143 +270,166 @@ function handleAs(
 /* -------------------------------------------------------------------------- */
 
 /** `GET /orders/:id/request-options` — what may this buyer ask for right now. */
-export const getRequestOptions = handleAs('Failed to read what may be requested', async (req, res) => {
-  const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'request:read');
-  if (!authorized) return;
-  // Whether the credential could WRITE into a support thread is a scope
-  // question, answered by asking the authorizer rather than by re-reading the
-  // grant here — one source for a scope decision.
-  const credential = buyerCredential(req);
-  const supportAvailable =
-    credential !== null &&
-    authorizeBuyerRequest({
-      credential,
-      order: authorized.context.access,
-      action: 'support:write',
-      now: new Date(),
-    }).outcome === 'authorized';
-  sendSuccess(
-    res,
-    await readBuyerOrderRequestOptions(authorized.context, { supportAvailable }, new Date()),
-  );
-});
+export const getRequestOptions = handleAs(
+  'Failed to read what may be requested',
+  async (req, res) => {
+    const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'request:read');
+    if (!authorized) return;
+    // Whether the credential could WRITE into a support thread is a scope
+    // question, answered by asking the authorizer rather than by re-reading the
+    // grant here — one source for a scope decision.
+    const credential = buyerCredential(req);
+    const supportAvailable =
+      credential !== null &&
+      authorizeBuyerRequest({
+        credential,
+        order: authorized.context.access,
+        action: 'support:write',
+        now: new Date(),
+      }).outcome === 'authorized';
+    sendSuccess(
+      res,
+      await readBuyerOrderRequestOptions(authorized.context, { supportAvailable }, new Date()),
+    );
+  },
+);
 
 /** `POST /orders/:id/cancellation-requests` — ask for an order to be undone. */
-export const createCancellationRequest = handleAs('Failed to file the cancellation request', async (req, res) => {
-  if (!requestsAreOpen(res)) return;
-  const parsed = buyerRequestBodySchemas.submitCancellation.safeParse(req.body);
-  if (!parsed.success) {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, 'A valid reason is required', 400);
-    return;
-  }
-  const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'cancellation:submit');
-  if (!authorized) return;
+export const createCancellationRequest = handleAs(
+  'Failed to file the cancellation request',
+  async (req, res) => {
+    if (!requestsAreOpen(res)) return;
+    const parsed = buyerRequestBodySchemas.submitCancellation.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(res, ErrorCodes.VALIDATION_ERROR, 'A valid reason is required', 400);
+      return;
+    }
+    const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'cancellation:submit');
+    if (!authorized) return;
 
-  const reason = required(parsed.data.reason, res, 'A valid reason is required');
-  if (reason === null) return;
-  const key = idempotencyKey(req);
-  const result = await submitCancellationRequest({
-    context: authorized.context,
-    actor: authorized.actor,
-    body: {
-      reason,
-      ...(parsed.data.note === undefined ? {} : { note: parsed.data.note }),
-      ...(parsed.data.lines === undefined ? {} : { lines: requiredLines(parsed.data.lines) }),
-    },
-    ...(key === undefined ? {} : { idempotencyKey: key }),
-    now: new Date(),
-  });
-  // AFTER the write succeeded, so the metric counts requests that were FILED
-  // rather than requests that were attempted — `guest_post_purchase_demand`'s
-  // numerator is demand, and a refused submission is not demand this domain
-  // met.
-  emitAnalyticsEvent(req, {
-    eventType: 'guest_cancellation_requested',
-    buyerOrigin: authorized.actor.kind === 'guest' ? 'guest' : 'authenticated',
-    orderId: authorized.context.order.id,
-  });
-  sendSuccess(res, toCancellationRequestView(result.request, result.lines), 201);
-});
+    const reason = required(parsed.data.reason, res, 'A valid reason is required');
+    if (reason === null) return;
+    const key = idempotencyKey(req);
+    const result = await submitCancellationRequest({
+      context: authorized.context,
+      actor: authorized.actor,
+      body: {
+        reason,
+        ...(parsed.data.note === undefined ? {} : { note: parsed.data.note }),
+        ...(parsed.data.lines === undefined ? {} : { lines: requiredLines(parsed.data.lines) }),
+      },
+      ...(key === undefined ? {} : { idempotencyKey: key }),
+      now: new Date(),
+    });
+    // AFTER the write succeeded, so the metric counts requests that were FILED
+    // rather than requests that were attempted — `guest_post_purchase_demand`'s
+    // numerator is demand, and a refused submission is not demand this domain
+    // met.
+    emitAnalyticsEvent(req, {
+      eventType: 'guest_cancellation_requested',
+      buyerOrigin: authorized.actor.kind === 'guest' ? 'guest' : 'authenticated',
+      orderId: authorized.context.order.id,
+    });
+    sendSuccess(res, toCancellationRequestView(result.request, result.lines), 201);
+  },
+);
 
 /** `POST /orders/:id/cancellation-requests/:requestId/withdraw`. */
-export const withdrawCancellation = handleAs('Failed to withdraw the cancellation request', async (req, res) => {
-  const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'cancellation:withdraw');
-  if (!authorized) return;
-  const requestId = await scopedRequestId(req, res, 'cancellation');
-  if (requestId === null) return;
-  const result = await withdrawCancellationRequest({
-    requestId,
-    actor: authorized.actor,
-    now: new Date(),
-  });
-  sendSuccess(res, toCancellationRequestView(result.request, result.lines));
-});
+export const withdrawCancellation = handleAs(
+  'Failed to withdraw the cancellation request',
+  async (req, res) => {
+    const authorized = await authorizedBuyer(
+      req,
+      res,
+      pathParam(req, 'id'),
+      'cancellation:withdraw',
+    );
+    if (!authorized) return;
+    const requestId = await scopedRequestId(req, res, 'cancellation');
+    if (requestId === null) return;
+    const result = await withdrawCancellationRequest({
+      requestId,
+      actor: authorized.actor,
+      now: new Date(),
+    });
+    sendSuccess(res, toCancellationRequestView(result.request, result.lines));
+  },
+);
 
 /** `GET /orders/:id/cancellation-requests`. */
-export const listCancellations = handleAs('Failed to list cancellation requests', async (req, res) => {
-  const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'request:read');
-  if (!authorized) return;
-  const requests = await listCancellationRequests(authorized.context.order.id);
-  sendSuccess(
-    res,
-    requests.map((entry) => toCancellationRequestView(entry.request, entry.lines)),
-  );
-});
+export const listCancellations = handleAs(
+  'Failed to list cancellation requests',
+  async (req, res) => {
+    const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'request:read');
+    if (!authorized) return;
+    const requests = await listCancellationRequests(authorized.context.order.id);
+    sendSuccess(
+      res,
+      requests.map((entry) => toCancellationRequestView(entry.request, entry.lines)),
+    );
+  },
+);
 
 /** `POST /orders/:id/return-requests` — ask to send goods back. */
-export const createReturnRequest = handleAs('Failed to file the return request', async (req, res) => {
-  if (!requestsAreOpen(res)) return;
-  const parsed = buyerRequestBodySchemas.submitReturn.safeParse(req.body);
-  if (!parsed.success) {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, 'A valid return request is required', 400);
-    return;
-  }
-  const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'return:submit');
-  if (!authorized) return;
+export const createReturnRequest = handleAs(
+  'Failed to file the return request',
+  async (req, res) => {
+    if (!requestsAreOpen(res)) return;
+    const parsed = buyerRequestBodySchemas.submitReturn.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(res, ErrorCodes.VALIDATION_ERROR, 'A valid return request is required', 400);
+      return;
+    }
+    const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'return:submit');
+    if (!authorized) return;
 
-  const reason = required(parsed.data.reason, res, 'A valid reason is required');
-  if (reason === null) return;
-  const resolution = required(parsed.data.resolution, res, 'A resolution is required');
-  if (resolution === null) return;
-  const lines = required(parsed.data.lines, res, 'A return must name at least one line');
-  if (lines === null) return;
-  const key = idempotencyKey(req);
-  const result = await submitReturnRequest({
-    context: authorized.context,
-    actor: authorized.actor,
-    body: {
-      reason,
-      resolution,
-      lines: requiredLines(lines),
-      ...(parsed.data.note === undefined ? {} : { note: parsed.data.note }),
-      ...(parsed.data.evidence === undefined
-        ? {}
-        : { evidence: requiredEvidence(parsed.data.evidence) }),
-    },
-    ...(key === undefined ? {} : { idempotencyKey: key }),
-    now: new Date(),
-  });
-  emitAnalyticsEvent(req, {
-    eventType: 'guest_return_requested',
-    buyerOrigin: authorized.actor.kind === 'guest' ? 'guest' : 'authenticated',
-    orderId: authorized.context.order.id,
-  });
-  sendSuccess(res, toReturnRequestView(result.request, result.lines, result.evidence), 201);
-});
+    const reason = required(parsed.data.reason, res, 'A valid reason is required');
+    if (reason === null) return;
+    const resolution = required(parsed.data.resolution, res, 'A resolution is required');
+    if (resolution === null) return;
+    const lines = required(parsed.data.lines, res, 'A return must name at least one line');
+    if (lines === null) return;
+    const key = idempotencyKey(req);
+    const result = await submitReturnRequest({
+      context: authorized.context,
+      actor: authorized.actor,
+      body: {
+        reason,
+        resolution,
+        lines: requiredLines(lines),
+        ...(parsed.data.note === undefined ? {} : { note: parsed.data.note }),
+        ...(parsed.data.evidence === undefined
+          ? {}
+          : { evidence: requiredEvidence(parsed.data.evidence) }),
+      },
+      ...(key === undefined ? {} : { idempotencyKey: key }),
+      now: new Date(),
+    });
+    emitAnalyticsEvent(req, {
+      eventType: 'guest_return_requested',
+      buyerOrigin: authorized.actor.kind === 'guest' ? 'guest' : 'authenticated',
+      orderId: authorized.context.order.id,
+    });
+    sendSuccess(res, toReturnRequestView(result.request, result.lines, result.evidence), 201);
+  },
+);
 
 /** `POST /orders/:id/return-requests/:requestId/withdraw`. */
-export const withdrawReturn = handleAs('Failed to withdraw the return request', async (req, res) => {
-  const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'return:withdraw');
-  if (!authorized) return;
-  const requestId = await scopedRequestId(req, res, 'return');
-  if (requestId === null) return;
-  const result = await withdrawReturnRequest({
-    requestId,
-    actor: authorized.actor,
-    now: new Date(),
-  });
-  sendSuccess(res, toReturnRequestView(result.request, result.lines, result.evidence));
-});
+export const withdrawReturn = handleAs(
+  'Failed to withdraw the return request',
+  async (req, res) => {
+    const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'return:withdraw');
+    if (!authorized) return;
+    const requestId = await scopedRequestId(req, res, 'return');
+    if (requestId === null) return;
+    const result = await withdrawReturnRequest({
+      requestId,
+      actor: authorized.actor,
+      now: new Date(),
+    });
+    sendSuccess(res, toReturnRequestView(result.request, result.lines, result.evidence));
+  },
+);
 
 /** `GET /orders/:id/return-requests`. */
 export const listReturns = handleAs('Failed to list return requests', async (req, res) => {
@@ -421,43 +443,49 @@ export const listReturns = handleAs('Failed to list return requests', async (req
 });
 
 /** `GET /orders/:id/support` — the order's support thread, if there is one. */
-export const readBuyerSupportThread = handleAs('Failed to read the support thread', async (req, res) => {
-  const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'request:read');
-  if (!authorized) return;
-  const thread = await readSupportThread({ orderId: authorized.context.order.id });
-  sendSuccess(res, thread === null ? null : toSupportThreadView(thread.thread, thread.messages));
-});
+export const readBuyerSupportThread = handleAs(
+  'Failed to read the support thread',
+  async (req, res) => {
+    const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'request:read');
+    if (!authorized) return;
+    const thread = await readSupportThread({ orderId: authorized.context.order.id });
+    sendSuccess(res, thread === null ? null : toSupportThreadView(thread.thread, thread.messages));
+  },
+);
 
 /** `POST /orders/:id/support` — write into it. */
-export const postBuyerSupportMessage = handleAs('Failed to post the support message', async (req, res) => {
-  if (!requestsAreOpen(res)) return;
-  const parsed = buyerRequestBodySchemas.supportMessage.safeParse(req.body);
-  if (!parsed.success) {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, 'A message body is required', 400);
-    return;
-  }
-  const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'support:write');
-  if (!authorized) return;
+export const postBuyerSupportMessage = handleAs(
+  'Failed to post the support message',
+  async (req, res) => {
+    if (!requestsAreOpen(res)) return;
+    const parsed = buyerRequestBodySchemas.supportMessage.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(res, ErrorCodes.VALIDATION_ERROR, 'A message body is required', 400);
+      return;
+    }
+    const authorized = await authorizedBuyer(req, res, pathParam(req, 'id'), 'support:write');
+    if (!authorized) return;
 
-  const messageBody = required(parsed.data.body, res, 'A message body is required');
-  if (messageBody === null) return;
-  const result = await postSupportMessage({
-    subject: {
+    const messageBody = required(parsed.data.body, res, 'A message body is required');
+    if (messageBody === null) return;
+    const result = await postSupportMessage({
+      subject: {
+        orderId: authorized.context.order.id,
+        ...(parsed.data.returnRequestId === undefined
+          ? {}
+          : { returnRequestId: parsed.data.returnRequestId }),
+      },
+      writer: { side: 'buyer', actor: authorized.actor },
+      body: messageBody,
+    });
+    emitAnalyticsEvent(req, {
+      eventType: 'guest_support_request_created',
+      buyerOrigin: authorized.actor.kind === 'guest' ? 'guest' : 'authenticated',
       orderId: authorized.context.order.id,
-      ...(parsed.data.returnRequestId === undefined
-        ? {}
-        : { returnRequestId: parsed.data.returnRequestId }),
-    },
-    writer: { side: 'buyer', actor: authorized.actor },
-    body: messageBody,
-  });
-  emitAnalyticsEvent(req, {
-    eventType: 'guest_support_request_created',
-    buyerOrigin: authorized.actor.kind === 'guest' ? 'guest' : 'authenticated',
-    orderId: authorized.context.order.id,
-  });
-  sendSuccess(res, toSupportThreadView(result.thread, result.messages), 201);
-});
+    });
+    sendSuccess(res, toSupportThreadView(result.thread, result.messages), 201);
+  },
+);
 
 /**
  * The request id from the path, checked to belong to the order in the path.
@@ -537,40 +565,46 @@ export const listMerchantRequests = handleAs('Failed to list buyer requests', as
 });
 
 /** `POST …/cancellation-requests/:requestId/decision`. */
-export const decideCancellation = handleAs('Failed to decide the cancellation request', async (req, res) => {
-  const parsed = buyerRequestBodySchemas.decision.safeParse(req.body);
-  if (!parsed.success) {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, 'A decision is required', 400);
-    return;
-  }
-  const merchant = await merchantContext(req, res, 'cancellation:decide');
-  if (!merchant) return;
-  const requestId = await scopedRequestId(req, res, 'cancellation');
-  if (requestId === null) return;
-  const body = decisionBody(parsed.data, res);
-  if (body === null) return;
-  const result = await decideCancellationRequest({
-    requestId,
-    decider: merchant.decider,
-    body,
-    now: new Date(),
-  });
-  sendSuccess(res, toMerchantCancellationRequestView(result.request, result.lines));
-});
+export const decideCancellation = handleAs(
+  'Failed to decide the cancellation request',
+  async (req, res) => {
+    const parsed = buyerRequestBodySchemas.decision.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(res, ErrorCodes.VALIDATION_ERROR, 'A decision is required', 400);
+      return;
+    }
+    const merchant = await merchantContext(req, res, 'cancellation:decide');
+    if (!merchant) return;
+    const requestId = await scopedRequestId(req, res, 'cancellation');
+    if (requestId === null) return;
+    const body = decisionBody(parsed.data, res);
+    if (body === null) return;
+    const result = await decideCancellationRequest({
+      requestId,
+      decider: merchant.decider,
+      body,
+      now: new Date(),
+    });
+    sendSuccess(res, toMerchantCancellationRequestView(result.request, result.lines));
+  },
+);
 
 /** `POST …/cancellation-requests/:requestId/complete` — retry a failed completion. */
-export const completeCancellation = handleAs('Failed to complete the cancellation', async (req, res) => {
-  const merchant = await merchantContext(req, res, 'cancellation:complete');
-  if (!merchant) return;
-  const requestId = await scopedRequestId(req, res, 'cancellation');
-  if (requestId === null) return;
-  const result = await completeCancellationRequest({
-    requestId,
-    decider: merchant.decider,
-    now: new Date(),
-  });
-  sendSuccess(res, toMerchantCancellationRequestView(result.request, result.lines));
-});
+export const completeCancellation = handleAs(
+  'Failed to complete the cancellation',
+  async (req, res) => {
+    const merchant = await merchantContext(req, res, 'cancellation:complete');
+    if (!merchant) return;
+    const requestId = await scopedRequestId(req, res, 'cancellation');
+    if (requestId === null) return;
+    const result = await completeCancellationRequest({
+      requestId,
+      decider: merchant.decider,
+      now: new Date(),
+    });
+    sendSuccess(res, toMerchantCancellationRequestView(result.request, result.lines));
+  },
+);
 
 /** `POST …/return-requests/:requestId/decision`. */
 export const decideReturn = handleAs('Failed to decide the return request', async (req, res) => {
@@ -620,18 +654,21 @@ export const instructReturn = handleAs('Failed to issue return instructions', as
 });
 
 /** `POST …/return-requests/:requestId/received`. */
-export const receiveReturn = handleAs('Failed to record the return as received', async (req, res) => {
-  const merchant = await merchantContext(req, res, 'return:receive');
-  if (!merchant) return;
-  const requestId = await scopedRequestId(req, res, 'return');
-  if (requestId === null) return;
-  const result = await markReturnReceived({
-    requestId,
-    decider: merchant.decider,
-    now: new Date(),
-  });
-  sendSuccess(res, toMerchantReturnRequestView(result.request, result.lines, result.evidence));
-});
+export const receiveReturn = handleAs(
+  'Failed to record the return as received',
+  async (req, res) => {
+    const merchant = await merchantContext(req, res, 'return:receive');
+    if (!merchant) return;
+    const requestId = await scopedRequestId(req, res, 'return');
+    if (requestId === null) return;
+    const result = await markReturnReceived({
+      requestId,
+      decider: merchant.decider,
+      now: new Date(),
+    });
+    sendSuccess(res, toMerchantReturnRequestView(result.request, result.lines, result.evidence));
+  },
+);
 
 /** `POST …/return-requests/:requestId/refund` — commit the money. */
 export const refundReturn = handleAs('Failed to refund the return', async (req, res) => {
@@ -668,42 +705,48 @@ export const cancelReturn = handleAs('Failed to cancel the return', async (req, 
 });
 
 /** `POST /admin/stores/:storeId/orders/:id/support` — the seller replies. */
-export const postMerchantSupportMessage = handleAs('Failed to post the support message', async (req, res) => {
-  const parsed = buyerRequestBodySchemas.supportMessage.safeParse(req.body);
-  if (!parsed.success) {
-    sendError(res, ErrorCodes.VALIDATION_ERROR, 'A message body is required', 400);
-    return;
-  }
-  const merchant = await merchantContext(req, res, 'support:reply');
-  if (!merchant) return;
-  const messageBody = required(parsed.data.body, res, 'A message body is required');
-  if (messageBody === null) return;
-  const writer: SupportWriter = { side: 'seller', decider: merchant.decider };
-  const result = await postSupportMessage({
-    subject: {
-      orderId: merchant.orderId,
-      ...(parsed.data.returnRequestId === undefined
-        ? {}
-        : { returnRequestId: parsed.data.returnRequestId }),
-    },
-    writer,
-    body: messageBody,
-  });
-  sendSuccess(res, toSupportThreadView(result.thread, result.messages), 201);
-});
+export const postMerchantSupportMessage = handleAs(
+  'Failed to post the support message',
+  async (req, res) => {
+    const parsed = buyerRequestBodySchemas.supportMessage.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(res, ErrorCodes.VALIDATION_ERROR, 'A message body is required', 400);
+      return;
+    }
+    const merchant = await merchantContext(req, res, 'support:reply');
+    if (!merchant) return;
+    const messageBody = required(parsed.data.body, res, 'A message body is required');
+    if (messageBody === null) return;
+    const writer: SupportWriter = { side: 'seller', decider: merchant.decider };
+    const result = await postSupportMessage({
+      subject: {
+        orderId: merchant.orderId,
+        ...(parsed.data.returnRequestId === undefined
+          ? {}
+          : { returnRequestId: parsed.data.returnRequestId }),
+      },
+      writer,
+      body: messageBody,
+    });
+    sendSuccess(res, toSupportThreadView(result.thread, result.messages), 201);
+  },
+);
 
 /** `POST /admin/stores/:storeId/orders/:id/support/close`. */
-export const closeMerchantSupportThread = handleAs('Failed to close the support thread', async (req, res) => {
-  const merchant = await merchantContext(req, res, 'support:reply');
-  if (!merchant) return;
-  const thread = await readSupportThread({ orderId: merchant.orderId });
-  if (thread === null) {
-    sendError(res, ErrorCodes.NOT_FOUND, 'Support thread not found', 404);
-    return;
-  }
-  const result = await closeSupportThread({ threadId: thread.thread.id, now: new Date() });
-  sendSuccess(res, toSupportThreadView(result.thread, result.messages));
-});
+export const closeMerchantSupportThread = handleAs(
+  'Failed to close the support thread',
+  async (req, res) => {
+    const merchant = await merchantContext(req, res, 'support:reply');
+    if (!merchant) return;
+    const thread = await readSupportThread({ orderId: merchant.orderId });
+    if (thread === null) {
+      sendError(res, ErrorCodes.NOT_FOUND, 'Support thread not found', 404);
+      return;
+    }
+    const result = await closeSupportThread({ threadId: thread.thread.id, now: new Date() });
+    sendSuccess(res, toSupportThreadView(result.thread, result.messages));
+  },
+);
 
 /* -------------------------------------------------------------------------- */
 /*  Operator handlers                                                          */
@@ -717,42 +760,45 @@ export const closeMerchantSupportThread = handleAs('Failed to close the support 
  * for" is not a question this surface can be asked, which is the shape #50's
  * five handles and #77's two already have.
  */
-export const traceBuyerRequests = handleAs('Failed to trace the buyer requests', async (req, res) => {
-  const orderId = pathParam(req, 'orderId');
-  const context = await loadBuyerRequestOrder(orderId);
-  if (!context) {
-    sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
-    return;
-  }
-  const [cancellations, returns, support] = await Promise.all([
-    listCancellationRequests(orderId),
-    listReturnRequests(orderId),
-    readSupportThread({ orderId }),
-  ]);
-  const timelines = await Promise.all([
-    ...cancellations.map(async (entry) => ({
-      requestId: entry.request.id,
-      kind: 'cancellation' as const,
-      events: await listBuyerRequestEvents({ cancellationRequestId: entry.request.id }),
-    })),
-    ...returns.map(async (entry) => ({
-      requestId: entry.request.id,
-      kind: 'return' as const,
-      events: await listBuyerRequestEvents({ returnRequestId: entry.request.id }),
-    })),
-  ]);
-  sendSuccess(res, {
-    orderId,
-    cancellations: cancellations.map((entry) =>
-      toMerchantCancellationRequestView(entry.request, entry.lines),
-    ),
-    returns: returns.map((entry) =>
-      toMerchantReturnRequestView(entry.request, entry.lines, entry.evidence),
-    ),
-    support: support === null ? null : toSupportThreadView(support.thread, support.messages),
-    timelines,
-  });
-});
+export const traceBuyerRequests = handleAs(
+  'Failed to trace the buyer requests',
+  async (req, res) => {
+    const orderId = pathParam(req, 'orderId');
+    const context = await loadBuyerRequestOrder(orderId);
+    if (!context) {
+      sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+      return;
+    }
+    const [cancellations, returns, support] = await Promise.all([
+      listCancellationRequests(orderId),
+      listReturnRequests(orderId),
+      readSupportThread({ orderId }),
+    ]);
+    const timelines = await Promise.all([
+      ...cancellations.map(async (entry) => ({
+        requestId: entry.request.id,
+        kind: 'cancellation' as const,
+        events: await listBuyerRequestEvents({ cancellationRequestId: entry.request.id }),
+      })),
+      ...returns.map(async (entry) => ({
+        requestId: entry.request.id,
+        kind: 'return' as const,
+        events: await listBuyerRequestEvents({ returnRequestId: entry.request.id }),
+      })),
+    ]);
+    sendSuccess(res, {
+      orderId,
+      cancellations: cancellations.map((entry) =>
+        toMerchantCancellationRequestView(entry.request, entry.lines),
+      ),
+      returns: returns.map((entry) =>
+        toMerchantReturnRequestView(entry.request, entry.lines, entry.evidence),
+      ),
+      support: support === null ? null : toSupportThreadView(support.thread, support.messages),
+      timelines,
+    });
+  },
+);
 
 /**
  * `POST /internal/guest-commerce/buyer-requests/:requestId/reconcile`.
@@ -762,18 +808,18 @@ export const traceBuyerRequests = handleAs('Failed to trace the buyer requests',
  * new way to move money. There is deliberately no "set this request completed",
  * no "override this decision" and no "delete this thread".
  */
-export const reconcileBuyerRequest = handleAs('Failed to reconcile the return refund', async (req, res) => {
-  const operator = operatorDecisionActor(
-    getRequiredOxyUserId(req),
-    'return:refund',
-  );
-  const result = await reconcileReturnRefund({
-    requestId: pathParam(req, 'requestId'),
-    now: new Date(),
-  });
-  log.general.info(
-    { actor: operator.oxyUserId, requestId: result.request.id, state: result.request.state },
-    '[BuyerRequests] operator reconciled a return refund',
-  );
-  sendSuccess(res, toMerchantReturnRequestView(result.request, result.lines, result.evidence));
-});
+export const reconcileBuyerRequest = handleAs(
+  'Failed to reconcile the return refund',
+  async (req, res) => {
+    const operator = operatorDecisionActor(getRequiredOxyUserId(req), 'return:refund');
+    const result = await reconcileReturnRefund({
+      requestId: pathParam(req, 'requestId'),
+      now: new Date(),
+    });
+    log.general.info(
+      { actor: operator.oxyUserId, requestId: result.request.id, state: result.request.state },
+      '[BuyerRequests] operator reconciled a return refund',
+    );
+    sendSuccess(res, toMerchantReturnRequestView(result.request, result.lines, result.evidence));
+  },
+);

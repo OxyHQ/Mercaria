@@ -158,14 +158,18 @@ describe('the audit folds the way the reader folds', () => {
   it('agrees with normalizeOptionValue on every spelling', async () => {
     // The vacuity floor. `FOLD_CASES` is a `const` somebody could shorten, and a
     // loop over an empty list asserts nothing while passing.
-    expect(FOLD_CASES.length, `${String(FOLD_CASES.length)} spellings compared`).toBeGreaterThan(10);
+    expect(FOLD_CASES.length, `${String(FOLD_CASES.length)} spellings compared`).toBeGreaterThan(
+      10,
+    );
 
     const mismatches: string[] = [];
     for (const input of FOLD_CASES) {
       const inSql = await foldInSql(input);
       const inJs = normalizeOptionValue(input);
       if (inSql !== inJs) {
-        mismatches.push(`${JSON.stringify(input)}: sql=${JSON.stringify(inSql)} js=${JSON.stringify(inJs)}`);
+        mismatches.push(
+          `${JSON.stringify(input)}: sql=${JSON.stringify(inSql)} js=${JSON.stringify(inJs)}`,
+        );
       }
     }
     expect(
@@ -238,9 +242,10 @@ describe('the detector detects', () => {
     ).toBe(1);
     // Monotone: planting a collision can only make this false, whatever the
     // baseline was.
-    expect(after.migrationSafe, 'the audit reports the migration safe with a collision present').toBe(
-      false,
-    );
+    expect(
+      after.migrationSafe,
+      'the audit reports the migration safe with a collision present',
+    ).toBe(false);
 
     const group = after.aliases.collisionGroups.find(
       (entry) => entry.attributeDefinitionId === definition.id && entry.foldedKey === 'fast port',
@@ -268,9 +273,10 @@ describe('the detector detects', () => {
       after.aliases.unreachableRows - before.aliases.unreachableRows,
       'the audit did not see an alias stored under a key the reader cannot produce',
     ).toBe(1);
-    expect(after.aliases.collisionRows - before.aliases.collisionRows, 'it collided with something').toBe(
-      0,
-    );
+    expect(
+      after.aliases.collisionRows - before.aliases.collisionRows,
+      'it collided with something',
+    ).toBe(0);
 
     const row = after.aliases.unreachable.find(
       (entry) => entry.attributeDefinitionId === definition.id && entry.stored === 'Type  C',
@@ -288,7 +294,10 @@ describe('the detector detects', () => {
     // "whitespace-collapsed". A canonical value is its own alias, so this lands
     // on the value every assignment stores.
     const planted = await insertAttributeEnumValue(db, definition.id, 'usb  micro', 'USB micro', 9);
-    expect(planted, 'the CHECK now refuses an interior run; this case measures a rule that changed').toBeDefined();
+    expect(
+      planted,
+      'the CHECK now refuses an interior run; this case measures a rule that changed',
+    ).toBeDefined();
 
     const after = await audit();
     expect(

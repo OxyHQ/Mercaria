@@ -42,15 +42,7 @@
  */
 
 import { sql } from 'drizzle-orm';
-import {
-  bigint,
-  check,
-  index,
-  integer,
-  pgTable,
-  text,
-  uniqueIndex,
-} from 'drizzle-orm/pg-core';
+import { bigint, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   GUEST_ABUSE_AXES,
@@ -640,11 +632,7 @@ export const guestSecuritySignalCounters = pgTable(
     updatedAt: updatedAt(),
   },
   (table) => [
-    checkOneOf(
-      'guest_security_signal_counters_signal_check',
-      table.signal,
-      GUEST_SECURITY_SIGNALS,
-    ),
+    checkOneOf('guest_security_signal_counters_signal_check', table.signal, GUEST_SECURITY_SIGNALS),
     check('guest_security_signal_counters_count_check', sql`${table.observationCount} >= 0`),
     uniqueIndex('guest_security_signal_counters_window_key').on(
       table.signal,
@@ -705,11 +693,7 @@ export const guestLaunchGateSignoffs = pgTable(
       'guest_launch_gate_signoffs_note_length_check',
       sql`${table.note} is null or length(${table.note}) <= ${sql.raw(String(MAX_GOVERNANCE_REASON_LENGTH))}`,
     ),
-    index('guest_launch_gate_signoffs_stage_gate_idx').on(
-      table.stage,
-      table.gate,
-      table.createdAt,
-    ),
+    index('guest_launch_gate_signoffs_stage_gate_idx').on(table.stage, table.gate, table.createdAt),
   ],
 );
 
@@ -817,10 +801,7 @@ export const guestDataClassDispositions = pgTable(
       'guest_data_class_dispositions_reason_shape_check',
       sql`(${table.disposition} = 'retained_under_obligation') = (${table.retainedReason} is not null)`,
     ),
-    check(
-      'guest_data_class_dispositions_rows_check',
-      sql`${table.affectedRowCount} >= 0`,
-    ),
+    check('guest_data_class_dispositions_rows_check', sql`${table.affectedRowCount} >= 0`),
     /** One disposition per class per request. A second is a bug, not a correction. */
     uniqueIndex('guest_data_class_dispositions_request_class_key').on(
       table.requestId,

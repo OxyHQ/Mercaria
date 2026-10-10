@@ -55,10 +55,7 @@ import {
   readSrcDirectory,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
-import {
-  INTENT_CANDIDATE_ELEMENTS,
-  INTENT_FORBIDDEN_MODEL_OUTPUTS,
-} from '@mercaria/shared-types';
+import { INTENT_CANDIDATE_ELEMENTS, INTENT_FORBIDDEN_MODEL_OUTPUTS } from '@mercaria/shared-types';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -242,9 +239,7 @@ describe('the natural-language intent domain cannot reach what it must not', () 
     // Floored PER SHAPE: a total lets one directory collapse to zero behind
     // another's number, and every detector then runs over a domain missing a
     // layer while reporting exactly what a clean run reports.
-    const inDirectories = SCANNED_DIRECTORIES.flatMap((relative) =>
-      walk(join(SRC_ROOT, relative)),
-    );
+    const inDirectories = SCANNED_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative)));
     const inOuter = outerPaths();
     expect(
       inDirectories.length,
@@ -274,9 +269,9 @@ describe('the natural-language intent domain cannot reach what it must not', () 
   it('every detector actually detects — the mutation self-test', () => {
     const positives: Readonly<Record<string, string>> = {
       catalogue_text: "const hint = listing.description ?? '';",
-      shopper_private_data: "const saved = await findAddress(oxyUserId, addressId);",
+      shopper_private_data: 'const saved = await findAddress(oxyUserId, addressId);',
       ranking: "import { rankOffers } from '../ranking/rank.js';",
-      commercial_signal: "const cut = await readAffiliateReport(offer).commission;",
+      commercial_signal: 'const cut = await readAffiliateReport(offer).commission;',
       provider_sdk_or_credential: "import OpenAI from 'openai';",
     };
     // An ordinary line from this domain: it reads the registry and the unit
@@ -376,9 +371,9 @@ describe('the natural-language intent domain cannot reach what it must not', () 
 
   it('the comment stripper does not hide code from the scan', () => {
     expect(stripComments('const x = listing.description;')).toContain('listing.description');
-    expect(stripComments('// nothing here reads a listing.description\nconst x = 1;')).not.toContain(
-      'listing.description',
-    );
+    expect(
+      stripComments('// nothing here reads a listing.description\nconst x = 1;'),
+    ).not.toContain('listing.description');
     expect(stripComments('/** never imports openai */\nconst x = 1;')).not.toContain('openai');
   });
 
@@ -435,7 +430,9 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
   it('the relative population really is the one the walls scan', () => {
     // Two spellings of one population can disagree, so this pins them together:
     // every absolute path the detectors run over has a relative twin here.
-    const absolute = scannedPaths().map((path) => path.slice(SRC_ROOT.length + 1)).sort();
+    const absolute = scannedPaths()
+      .map((path) => path.slice(SRC_ROOT.length + 1))
+      .sort();
     expect(relativePopulation(readSrcDirectory).sort()).toEqual(absolute);
   });
 });

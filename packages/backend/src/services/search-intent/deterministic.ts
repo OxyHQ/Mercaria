@@ -111,7 +111,10 @@ export interface InterpretationDraft {
   readonly nearby?: boolean;
   readonly useTags: readonly ShoppingUseTag[];
   /** Brand and merchant WORDS. Resolved by the caller, or reported unresolved. */
-  readonly entityMentions: readonly { readonly kind: 'brand' | 'merchant'; readonly text: string }[];
+  readonly entityMentions: readonly {
+    readonly kind: 'brand' | 'merchant';
+    readonly text: string;
+  }[];
   readonly unresolved: readonly IntentUnresolvedPhrase[];
   /** Ambiguities that would materially change the answer, as clarification kinds. */
   readonly ambiguities: readonly IntentClarificationKind[];
@@ -333,7 +336,10 @@ function definitionNamedNear(
       for (const spelling of spellings) {
         const distance = nearestDistance(prefix, suffix, spelling);
         if (distance === undefined) continue;
-        if (distance < bestDistance || (distance === bestDistance && spelling.length > bestLength)) {
+        if (
+          distance < bestDistance ||
+          (distance === bestDistance && spelling.length > bestLength)
+        ) {
           best = definition;
           bestDistance = distance;
           bestLength = spelling.length;
@@ -351,11 +357,7 @@ function definitionNamedNear(
  * last ones) and the suffix from its START. A spelling appearing on both sides
  * takes the nearer.
  */
-function nearestDistance(
-  prefix: string,
-  suffix: string,
-  spelling: string,
-): number | undefined {
+function nearestDistance(prefix: string, suffix: string, spelling: string): number | undefined {
   const inPrefix = prefix.lastIndexOf(spelling);
   const inSuffix = suffix.indexOf(spelling);
   const distances: number[] = [];
@@ -581,19 +583,19 @@ export function interpretDeterministically(
           ambiguities.push('attribute_disambiguation');
           attributeAmbiguities.push({
             phrase: boundedPhrase(magnitude.whole),
-            candidates: candidates
-              .slice(0, 3)
-              .map((candidate) => ({
-                key: candidate.row.key,
-                label: labelForLocale(candidate.row.label, candidate.labels, input.locale),
-              })),
+            candidates: candidates.slice(0, 3).map((candidate) => ({
+              key: candidate.row.key,
+              label: labelForLocale(candidate.row.label, candidate.labels, input.locale),
+            })),
           });
           unresolved.push({
             kind: 'ambiguous_phrase',
             phrase: boundedPhrase(magnitude.whole),
             explanation: `"${boundedPhrase(magnitude.whole)}" could describe ${candidates
               .slice(0, 3)
-              .map((candidate) => labelForLocale(candidate.row.label, candidate.labels, input.locale))
+              .map((candidate) =>
+                labelForLocale(candidate.row.label, candidate.labels, input.locale),
+              )
               .join(', ')}, so we did not pick one.`,
           });
           continue;

@@ -156,9 +156,7 @@ function presentationPopulation(readDir: DirectoryReader = readSrcDirectory): st
   ];
 }
 
-const PRESENTATION_PATHS = [
-  ...presentationPopulation(),
-];
+const PRESENTATION_PATHS = [...presentationPopulation()];
 
 /** The client trees this surface can live in, relative to `packages/`. */
 const STOREFRONT_ROOTS = ['frontend/app', 'frontend/components', 'ui/src'] as const;
@@ -418,8 +416,7 @@ const RANKING_REFERENCE = /\/ranking\/|rankOffers|rankOfferComparison|rankingPol
  * directions below, because an exception-shaped pattern that matches nothing is
  * indistinguishable from one that matches the right thing.
  */
-const SELLER_FROM_ORDER_PRESENTATION =
-  /commercialSellerLabel\((?:[^)]*,\s*)?order\.commercial\b/;
+const SELLER_FROM_ORDER_PRESENTATION = /commercialSellerLabel\((?:[^)]*,\s*)?order\.commercial\b/;
 
 /**
  * The `@mercaria/ui` modules that compose what a buyer reads on the commercial
@@ -517,7 +514,13 @@ function readSource(root: string, relative: string): string {
   const source = readFileSync(join(root, relative), 'utf8');
   // Route components can be short delegates; inspect their AST instead of
   // a character floor, and scan the shared OrdersScreen in the population too.
-  const syntax = ts.createSourceFile(relative, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const syntax = ts.createSourceFile(
+    relative,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
   expect(syntax.statements.length, `${relative} looks empty — did it move?`).toBeGreaterThan(0);
   return source;
 }
@@ -529,9 +532,9 @@ function readCode(root: string, relative: string): string {
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/(^|[^:])\/\/.*$/gm, '$1')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ');
-  const statements = (text: string) => ts.createSourceFile(
-    relative, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX,
-  ).statements.length;
+  const statements = (text: string) =>
+    ts.createSourceFile(relative, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX).statements
+      .length;
   expect(
     statements(stripped),
     `${relative} lost code statements during comment stripping — check the stripper`,
@@ -876,7 +879,9 @@ describe('a customer commercial surface cannot reach what it must not', () => {
         const missing = locales
           .filter((bundle) => !bundle.leaves.some((leaf) => leaf.key === key))
           .map((bundle) => bundle.locale);
-        expect(missing, `${key} is missing from ${label} locales ${missing.join(', ')}`).toEqual([]);
+        expect(missing, `${key} is missing from ${label} locales ${missing.join(', ')}`).toEqual(
+          [],
+        );
       }
     }
     // At least one leaf per key per locale; fewer means the namespace derivation
@@ -927,7 +932,7 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     const orderDetail = readCode(REPO_PACKAGES, 'frontend/app/(app)/orders/[id].tsx');
     expect(
       SELLER_FROM_ORDER_PRESENTATION.test(orderDetail),
-      'the order page no longer derives its seller from the order\'s commercial presentation',
+      "the order page no longer derives its seller from the order's commercial presentation",
     ).toBe(true);
     expect(
       /order\.store\?\.name\s*\?\?\s*order\.seller\?\.displayName/.test(orderDetail),
@@ -948,7 +953,9 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     expect(PROCUREMENT_ECONOMICS_REFERENCE.test('carrierAccount: acct')).toBe(true);
     expect(REFERRAL_REFERENCE.test("from '../referral/attribution.js'")).toBe(true);
     expect(REFERRAL_REFERENCE.test('const referralPartner = load();')).toBe(true);
-    expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test('label: "Pay with FairCoin (coming soon)"')).toBe(true);
+    expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test('label: "Pay with FairCoin (coming soon)"')).toBe(
+      true,
+    );
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test('await payWithOxyPay(order)')).toBe(true);
     expect(MODE_INFERENCE_REFERENCE.test('const mode = vendor.name === "Mercaria" ? a : b;')).toBe(
       true,
@@ -968,16 +975,18 @@ describe('a customer commercial surface cannot reach what it must not', () => {
       true,
     );
     expect(
-      SELLER_FROM_ORDER_PRESENTATION.test('const n = order.store?.name ?? order.seller?.displayName;'),
+      SELLER_FROM_ORDER_PRESENTATION.test(
+        'const n = order.store?.name ?? order.seller?.displayName;',
+      ),
     ).toBe(false);
     // A DIFFERENT subject must not satisfy it — this is the half a `[^)]*`
     // pattern gets wrong, by letting anything at all sit before the comma.
     expect(SELLER_FROM_ORDER_PRESENTATION.test('commercialSellerLabel(t, vendor.commercial)')).toBe(
       false,
     );
-    expect(SELLER_FROM_ORDER_PRESENTATION.test('commercialSellerLabel(t, order.commercialish)')).toBe(
-      false,
-    );
+    expect(
+      SELLER_FROM_ORDER_PRESENTATION.test('commercialSellerLabel(t, order.commercialish)'),
+    ).toBe(false);
   });
 
   /**
@@ -1093,8 +1102,9 @@ describe('the commercial vocabulary is closed and disjoint', () => {
   });
 
   it('an affiliate destination owes a paid-relationship disclosure and a plain one does not', () => {
-    expect(commercialDisclosureKeys({ mode: 'external_referral', affiliateDisclosureRequired: true }))
-      .toEqual(['external_checkout', 'affiliate_disclosure']);
+    expect(
+      commercialDisclosureKeys({ mode: 'external_referral', affiliateDisclosureRequired: true }),
+    ).toEqual(['external_checkout', 'affiliate_disclosure']);
     expect(
       commercialDisclosureKeys({ mode: 'external_referral', affiliateDisclosureRequired: false }),
     ).toEqual(['external_checkout']);

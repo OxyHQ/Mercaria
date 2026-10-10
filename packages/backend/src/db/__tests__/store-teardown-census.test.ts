@@ -108,7 +108,9 @@ describe('the store teardown census', () => {
     // The vacuity floor. A broken walk, a moved directory or an extension
     // filter that stopped matching all report the same clean zero as a correct
     // scan, and the offender assertion below would pass on every one of them.
-    expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(300);
+    expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(
+      300,
+    );
 
     const offenders = [...sources]
       .filter(([, source]) => DIRECT_STORE_DELETE.test(source))
@@ -137,9 +139,7 @@ describe('the store teardown census', () => {
 
     const callers = [...sources].filter(
       ([path, source]) =>
-        path !== TEARDOWN_HELPER &&
-        path !== THIS_CENSUS &&
-        source.includes('deleteTestStores('),
+        path !== TEARDOWN_HELPER && path !== THIS_CENSUS && source.includes('deleteTestStores('),
     );
 
     // A floor rather than an exact count, because a file that stops owning

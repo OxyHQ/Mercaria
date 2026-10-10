@@ -32,7 +32,9 @@ describe('request URLs', () => {
         return ok(pageWire([]));
       }
       if (url.includes('/stores/store_1/collections') || url.includes('/locations')) {
-        return url.includes('/locations/loc_1') && !url.includes('/products') ? ok(locationWire()) : ok(pageWire([]));
+        return url.includes('/locations/loc_1') && !url.includes('/products')
+          ? ok(locationWire())
+          : ok(pageWire([]));
       }
       if (url.includes('/collections/')) return ok(collectionWire());
       if (url.includes('/stores/')) return ok(storeWire());
@@ -138,12 +140,18 @@ describe('request URLs', () => {
   });
 
   it('sends extra non-auth headers and refuses to let them carry authorization', async () => {
-    const { client, requests } = fakeClient(() => ok(productWire()), { headers: { 'X-Request-Id': 'r1' } });
+    const { client, requests } = fakeClient(() => ok(productWire()), {
+      headers: { 'X-Request-Id': 'r1' },
+    });
     await client.products.get('prod_1');
     expect(requests[0]?.init.headers).toEqual({ 'X-Request-Id': 'r1', Accept: 'application/json' });
 
-    expect(() => createMercariaClient({ headers: { authorization: 'Bearer x' } })).toThrow(TypeError);
-    expect(() => createMercariaClient({ headers: { AUTHORIZATION: 'Bearer x' } })).toThrow(TypeError);
+    expect(() => createMercariaClient({ headers: { authorization: 'Bearer x' } })).toThrow(
+      TypeError,
+    );
+    expect(() => createMercariaClient({ headers: { AUTHORIZATION: 'Bearer x' } })).toThrow(
+      TypeError,
+    );
     expect(() => createMercariaClient({ headers: { Accept: 'text/html' } })).toThrow(TypeError);
   });
 
@@ -165,15 +173,24 @@ describe('client-side validation sends no request', () => {
     ['dot-dot product id', () => client.products.get('..')],
     ['dot product id', () => client.stores.get('.')],
     ['wrong ref kind', () => client.products.get(storeRef('s') as never)],
-    ['a ref with extra keys', () => client.products.get({ kind: 'product', id: 'p', title: 'x' } as never)],
+    [
+      'a ref with extra keys',
+      () => client.products.get({ kind: 'product', id: 'p', title: 'x' } as never),
+    ],
     ['resolveRef given an id', () => client.products.resolveRef('prod_1' as never)],
-    ['resolveVariant given a product ref', () => client.products.resolveVariant(productRef('p') as never)],
+    [
+      'resolveVariant given a product ref',
+      () => client.products.resolveVariant(productRef('p') as never),
+    ],
     ['limit 0', () => client.products.search({ limit: 0 })],
     ['limit 51', () => client.products.search({ limit: 51 })],
     ['empty cursor', () => client.collections.products('c', { cursor: '' })],
     ['unknown sort', () => client.products.search({ sort: 'cheapest' as never })],
     ['relevance without query', () => client.products.search({ sort: 'relevance' })],
-    ['relevance with a blank query', () => client.stores.products('s', { sort: 'relevance', query: '  ' })],
+    [
+      'relevance with a blank query',
+      () => client.stores.products('s', { sort: 'relevance', query: '  ' }),
+    ],
     ['bad locale', () => client.products.search({ locale: 'x y' })],
     ['non-boolean inStock', () => client.stores.products('s', { inStock: 'yes' as never })],
     ['empty handle', () => client.stores.lookup({ handle: '' })],
@@ -230,7 +247,9 @@ describe('auth injection', () => {
   });
 
   it('supports a synchronous getter', async () => {
-    const { client, requests } = fakeClient(() => ok(productWire()), { getAccessToken: () => 'sync' });
+    const { client, requests } = fakeClient(() => ok(productWire()), {
+      getAccessToken: () => 'sync',
+    });
     await client.products.get('prod_1');
     expect(requests[0]?.init.headers.Authorization).toBe('Bearer sync');
   });
@@ -260,9 +279,12 @@ describe('auth injection', () => {
 
 describe('locale context', () => {
   it('applies the client default to the list reads that take one, and lets each call override it', async () => {
-    const { client, requests } = fakeClient(({ url }) => (url.includes('/products/') ? ok(productWire()) : ok(pageWire([]))), {
-      locale: 'es',
-    });
+    const { client, requests } = fakeClient(
+      ({ url }) => (url.includes('/products/') ? ok(productWire()) : ok(pageWire([]))),
+      {
+        locale: 'es',
+      },
+    );
     await client.products.search({ query: 'x' });
     await client.products.search({ query: 'x', locale: 'fr-CA' });
     await client.stores.products('store_1');
@@ -288,11 +310,14 @@ describe('locale context', () => {
     // The server answers 400 to any query parameter it does not name on a
     // detail route, so a default locale leaking onto one would break every
     // hydration for every client that set one.
-    const { client, requests } = fakeClient(({ url }) => {
-      if (url.includes('/stores/')) return ok(storeWire());
-      if (url.includes('/collections/')) return ok(collectionWire());
-      return ok(productWire());
-    }, { locale: 'es' });
+    const { client, requests } = fakeClient(
+      ({ url }) => {
+        if (url.includes('/stores/')) return ok(storeWire());
+        if (url.includes('/collections/')) return ok(collectionWire());
+        return ok(productWire());
+      },
+      { locale: 'es' },
+    );
     await client.products.get('prod_1');
     await client.products.resolveRef(productRef('prod_1'));
     await client.products.resolveVariant(variantRef('prod_1', 'var_ps5'));
@@ -315,13 +340,18 @@ describe('locale context', () => {
 describe('pagination', () => {
   it('passes the cursor through verbatim and returns nextCursor', async () => {
     const { client, requests } = fakeClient(({ url }) =>
-      url.includes('cursor=') ? ok(pageWire([productSummaryWire('p3')], null)) : ok(pageWire([productSummaryWire('p1'), productSummaryWire('p2')], 'opaque+/=')),
+      url.includes('cursor=')
+        ? ok(pageWire([productSummaryWire('p3')], null))
+        : ok(pageWire([productSummaryWire('p1'), productSummaryWire('p2')], 'opaque+/=')),
     );
     const first = await client.stores.products('store_1', { limit: 2 });
     expect(first.items.map((item) => item.ref.id)).toEqual(['p1', 'p2']);
     expect(first.nextCursor).toBe('opaque+/=');
 
-    const second = await client.stores.products('store_1', { limit: 2, cursor: first.nextCursor ?? undefined });
+    const second = await client.stores.products('store_1', {
+      limit: 2,
+      cursor: first.nextCursor ?? undefined,
+    });
     expect(requests[1]?.url).toBe(`${API}/stores/store_1/products?cursor=opaque%2B%2F%3D&limit=2`);
     expect(second.nextCursor).toBeNull();
   });
@@ -332,9 +362,13 @@ describe('pagination', () => {
       k2: pageWire([collectionWire('c2')], 'k3'),
       k3: pageWire([collectionWire('c3')], null),
     };
-    const { client } = fakeClient(({ url }) => ok(pages[/cursor=([^&]+)/.exec(url)?.[1] ?? 'start']));
+    const { client } = fakeClient(({ url }) =>
+      ok(pages[/cursor=([^&]+)/.exec(url)?.[1] ?? 'start']),
+    );
     const seen: string[] = [];
-    for await (const page of iterateMercariaPages((cursor) => client.stores.collections('store_1', { cursor }))) {
+    for await (const page of iterateMercariaPages((cursor) =>
+      client.stores.collections('store_1', { cursor }),
+    )) {
       seen.push(...page.items.map((item) => item.ref.id));
     }
     expect(seen).toEqual(['c1', 'c2', 'c3']);
@@ -342,7 +376,9 @@ describe('pagination', () => {
 
   it('stops a cursor that does not advance', async () => {
     const { client } = fakeClient(() => ok(pageWire([], 'same')));
-    const pages = iterateMercariaPages((cursor) => client.collections.products('col_1', { cursor }));
+    const pages = iterateMercariaPages((cursor) =>
+      client.collections.products('col_1', { cursor }),
+    );
     const error = await rejection(
       (async () => {
         for await (const page of pages) void page;
@@ -370,7 +406,9 @@ describe('refs and variants', () => {
 
   it('resolves a variant to its product and option', async () => {
     const { client, requests } = fakeClient(() => ok(productWire('prod_1')));
-    const { product, option } = await client.products.resolveVariant(variantRef('prod_1', 'var_xbox'));
+    const { product, option } = await client.products.resolveVariant(
+      variantRef('prod_1', 'var_xbox'),
+    );
     expect(requests[0]?.url).toBe(`${API}/products/prod_1`);
     expect(product.ref.id).toBe('prod_1');
     expect(option.title).toBe('Xbox');
@@ -421,8 +459,12 @@ describe('locations', () => {
     const page = await client.locations.list({ goWayPlaceId: ' plc 1 ', limit: 5 });
     expect(page.items[0]).toEqual(locationWire());
     expect(requests[0]?.url).toBe(`${API}/locations?goWayPlaceId=plc%201&limit=5`);
-    await expect(client.locations.list({} as never)).rejects.toBeInstanceOf(MercariaBadRequestError);
-    await expect(client.locations.list({ goWayPlaceId: '  ' })).rejects.toBeInstanceOf(MercariaValidationError);
+    await expect(client.locations.list({} as never)).rejects.toBeInstanceOf(
+      MercariaBadRequestError,
+    );
+    await expect(client.locations.list({ goWayPlaceId: '  ' })).rejects.toBeInstanceOf(
+      MercariaValidationError,
+    );
     expect(requests).toHaveLength(1);
   });
 
@@ -430,8 +472,13 @@ describe('locations', () => {
     const { client, requests } = fakeClient(() => ok(locationWire()));
     expect(await client.locations.get(locationRef('loc_1'))).toEqual(locationWire());
     expect(await client.locations.resolveRef(locationRef('loc_1'))).toEqual(locationWire());
-    await expect(client.locations.get(storeRef('loc_1') as never)).rejects.toBeInstanceOf(MercariaValidationError);
-    expect(requests.map((request) => request.url)).toEqual([`${API}/locations/loc_1`, `${API}/locations/loc_1`]);
+    await expect(client.locations.get(storeRef('loc_1') as never)).rejects.toBeInstanceOf(
+      MercariaValidationError,
+    );
+    expect(requests.map((request) => request.url)).toEqual([
+      `${API}/locations/loc_1`,
+      `${API}/locations/loc_1`,
+    ]);
   });
 
   it('lists a location’s products with the store-list filters, and walks every page', async () => {

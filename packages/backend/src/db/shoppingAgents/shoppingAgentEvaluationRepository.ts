@@ -321,9 +321,7 @@ export async function readShoppingAgentEvaluationSummary(
       qualified: sql<number>`count(*) filter (where ${shoppingAgentEvaluations.lastOutcome} = 'qualified')::int`,
       notQualified: sql<number>`count(*) filter (where ${shoppingAgentEvaluations.lastOutcome} = 'not_qualified')::int`,
       incomplete: sql<number>`count(*) filter (where ${shoppingAgentEvaluations.lastOutcome} = 'incomplete')::int`,
-      oldestPending: sql<
-        Date | null
-      >`min(${shoppingAgentEvaluations.availableAt}) filter (where ${shoppingAgentEvaluations.state} = 'pending')`,
+      oldestPending: sql<Date | null>`min(${shoppingAgentEvaluations.availableAt}) filter (where ${shoppingAgentEvaluations.state} = 'pending')`,
     })
     .from(shoppingAgentEvaluations);
   const row = rows[0];

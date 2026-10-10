@@ -91,9 +91,6 @@ export function resolveExchangeScopes(): GuestOrderScope[] {
 }
 
 /** Whether a live credential's scope set permits an action. */
-export function grantHasScope(
-  scopes: readonly string[],
-  required: GuestOrderScope,
-): boolean {
+export function grantHasScope(scopes: readonly string[], required: GuestOrderScope): boolean {
   return scopes.includes(required);
 }

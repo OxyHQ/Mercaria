@@ -92,9 +92,10 @@ describe('normalizeSearchQuery', () => {
     const long = `${'a'.repeat(SEARCH_QUERY_MAX_LENGTH + 100)}`;
     expect(normalizeSearchQuery(long).bounded.length).toBe(SEARCH_QUERY_MAX_LENGTH);
 
-    const many = Array.from({ length: SEARCH_QUERY_MAX_TOKENS + 10 }, (_, index) => `w${index}`).join(
-      ' ',
-    );
+    const many = Array.from(
+      { length: SEARCH_QUERY_MAX_TOKENS + 10 },
+      (_, index) => `w${index}`,
+    ).join(' ');
     expect(normalizeSearchQuery(many).tokens.length).toBe(SEARCH_QUERY_MAX_TOKENS);
   });
 

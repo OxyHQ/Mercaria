@@ -57,7 +57,11 @@ const TARGET_TYPE_VALUES = TYPED_COMPATIBILITY_TARGET_TYPES as readonly [
 const entityId = z.string().trim().min(1).max(64);
 
 /** ISO 3166-1 alpha-2, matching the relation table's own market CHECK. */
-const market = z.string().trim().length(2).regex(/^[A-Za-z]{2}$/);
+const market = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/);
 
 /**
  * A model year, bounded by the SAME constants the schema's CHECK is rendered from.
@@ -73,7 +77,12 @@ const modelYear = z.coerce.number().int().min(VEHICLE_MIN_YEAR).max(VEHICLE_MAX_
 function commaList<T extends string>(values: readonly [T, ...T[]]) {
   return z
     .string()
-    .transform((raw) => raw.split(',').map((part) => part.trim()).filter((part) => part !== ''))
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part !== ''),
+    )
     .pipe(z.array(z.enum(values)).min(1).max(values.length));
 }
 
@@ -148,10 +157,9 @@ export const partFitmentsQuerySchema = z
     limit: fitmentLimit.optional(),
   })
   .strict()
-  .refine(
-    (query) => (query.subjectProductId ? 1 : 0) + (query.subjectVariantId ? 1 : 0) === 1,
-    { message: 'Provide exactly one of subjectProductId or subjectVariantId' },
-  );
+  .refine((query) => (query.subjectProductId ? 1 : 0) + (query.subjectVariantId ? 1 : 0) === 1, {
+    message: 'Provide exactly one of subjectProductId or subjectVariantId',
+  });
 
 /**
  * `GET /compatibility/fitments/verdict` — does this part fit this car.
@@ -176,12 +184,9 @@ export const fitmentVerdictQuerySchema = z
     year: modelYear.optional(),
   })
   .strict()
-  .refine(
-    (query) => (query.subjectProductId ? 1 : 0) + (query.subjectVariantId ? 1 : 0) === 1,
-    { message: 'Provide exactly one of subjectProductId or subjectVariantId' },
-  );
+  .refine((query) => (query.subjectProductId ? 1 : 0) + (query.subjectVariantId ? 1 : 0) === 1, {
+    message: 'Provide exactly one of subjectProductId or subjectVariantId',
+  });
 
 /** `GET /compatibility/vehicles/generations/:generationId/configurations?year=`. */
-export const vehicleConfigurationsQuerySchema = z
-  .object({ year: modelYear.optional() })
-  .strict();
+export const vehicleConfigurationsQuerySchema = z.object({ year: modelYear.optional() }).strict();

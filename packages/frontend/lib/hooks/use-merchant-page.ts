@@ -1,16 +1,12 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import type {
-  MerchantCatalogPage,
-  MerchantOfferPage,
-  MerchantPage,
-} from "@mercaria/shared-types";
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import type { MerchantCatalogPage, MerchantOfferPage, MerchantPage } from '@mercaria/shared-types';
 import {
   fetchMerchantCatalog,
   fetchMerchantOffers,
   fetchMerchantPage,
   type MerchantBrowseParams,
-} from "../api/merchants";
-import { queryKeys } from "./query-keys";
+} from '../api/merchants';
+import { queryKeys } from './query-keys';
 
 /** Two minutes — a merchant's identity is stable within a browsing session. */
 const STALE_TIME = 1000 * 60 * 2;
@@ -24,8 +20,8 @@ const STALE_TIME = 1000 * 60 * 2;
  */
 export function useMerchantPage(idOrSlug: string | undefined) {
   return useQuery<MerchantPage>({
-    queryKey: queryKeys.merchants.page(idOrSlug ?? ""),
-    queryFn: () => fetchMerchantPage(idOrSlug ?? ""),
+    queryKey: queryKeys.merchants.page(idOrSlug ?? ''),
+    queryFn: () => fetchMerchantPage(idOrSlug ?? ''),
     enabled: Boolean(idOrSlug),
     staleTime: STALE_TIME,
     retry: 1,
@@ -52,12 +48,12 @@ export function useMerchantCatalog(
     readonly unknown[],
     string | undefined
   >({
-    queryKey: queryKeys.merchants.catalog(idOrSlug ?? "", params),
+    queryKey: queryKeys.merchants.catalog(idOrSlug ?? '', params),
     enabled: Boolean(idOrSlug) && enabled,
     staleTime: STALE_TIME,
     initialPageParam: undefined,
     queryFn: ({ pageParam }) =>
-      fetchMerchantCatalog(idOrSlug ?? "", {
+      fetchMerchantCatalog(idOrSlug ?? '', {
         ...params,
         ...(pageParam ? { cursor: pageParam } : {}),
       }),
@@ -79,12 +75,12 @@ export function useMerchantOffers(
     readonly unknown[],
     string | undefined
   >({
-    queryKey: queryKeys.merchants.offers(idOrSlug ?? "", params),
+    queryKey: queryKeys.merchants.offers(idOrSlug ?? '', params),
     enabled: Boolean(idOrSlug) && enabled,
     staleTime: STALE_TIME,
     initialPageParam: undefined,
     queryFn: ({ pageParam }) =>
-      fetchMerchantOffers(idOrSlug ?? "", {
+      fetchMerchantOffers(idOrSlug ?? '', {
         ...params,
         ...(pageParam ? { cursor: pageParam } : {}),
       }),

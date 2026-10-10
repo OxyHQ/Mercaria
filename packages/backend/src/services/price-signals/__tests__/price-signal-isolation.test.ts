@@ -458,9 +458,9 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     // own self-test recording the hole as intended behaviour, which is what kept
     // it green. It is the spelling a module in `services/price-signals/` would
     // actually write, `services/fees` being one `../` away.
-    expect(
-      COMMERCIAL_REFERENCE.test("import { planFees } from '../fees/fee.service.js';"),
-    ).toBe(true);
+    expect(COMMERCIAL_REFERENCE.test("import { planFees } from '../fees/fee.service.js';")).toBe(
+      true,
+    );
     expect(
       COMMERCIAL_REFERENCE.test("import { planFees } from '../../services/fees/fee.service.js';"),
     ).toBe(true);
@@ -511,15 +511,21 @@ describe('the detectors actually detect — the mutation self-tests', () => {
       RANKING_SCORING_REFERENCE.test("import { rankOffers } from '../ranking/ranking.js';"),
     ).toBe(true);
     expect(
-      RANKING_SCORING_REFERENCE.test("import { resolveRankingPolicy } from '../ranking/policy.service.js';"),
+      RANKING_SCORING_REFERENCE.test(
+        "import { resolveRankingPolicy } from '../ranking/policy.service.js';",
+      ),
     ).toBe(true);
     // The three permitted modules must NOT trip it, or the narrowing would be a
     // prohibition on the thing this domain is required to reuse.
     expect(
-      RANKING_SCORING_REFERENCE.test("import { selectEligibleOffers } from '../ranking/eligibility.js';"),
+      RANKING_SCORING_REFERENCE.test(
+        "import { selectEligibleOffers } from '../ranking/eligibility.js';",
+      ),
     ).toBe(false);
     expect(
-      RANKING_SCORING_REFERENCE.test("import { buildOfferRankingFacts } from '../ranking/facts.js';"),
+      RANKING_SCORING_REFERENCE.test(
+        "import { buildOfferRankingFacts } from '../ranking/facts.js';",
+      ),
     ).toBe(false);
     expect(
       RANKING_SCORING_REFERENCE.test("import { convertOfferMoney } from '../ranking/money.js';"),
@@ -533,23 +539,23 @@ describe('the detectors actually detect — the mutation self-tests', () => {
       ),
     ).toBe(true);
     expect(PRICE_SIGNAL_REFERENCE.test('const competitivenessBoost = 0.2;')).toBe(true);
-    expect(PRICE_SIGNAL_REFERENCE.test("import { listOffers } from '../offers/offer.service.js';")).toBe(
-      false,
-    );
+    expect(
+      PRICE_SIGNAL_REFERENCE.test("import { listOffers } from '../offers/offer.service.js';"),
+    ).toBe(false);
   });
 
   it('the evaluation-read detector sees a select and not a write', () => {
     expect(EVALUATION_READ_REFERENCE.test('await listEvaluationsForSubject(key, 10);')).toBe(true);
     expect(EVALUATION_READ_REFERENCE.test('select * from price_signal_evaluations')).toBe(true);
-    expect(EVALUATION_READ_REFERENCE.test('const signals = derivePriceSignals(input);')).toBe(false);
+    expect(EVALUATION_READ_REFERENCE.test('const signals = derivePriceSignals(input);')).toBe(
+      false,
+    );
   });
 
   it('the comment stripper does not hide a real reference on the same line', () => {
     // The stripper is itself load-bearing: if it removed too much, every scan
     // above would pass vacuously.
-    const stripped = stripComments(
-      "import { x } from '../../services/fees/y.js'; // a note",
-    );
+    const stripped = stripComments("import { x } from '../../services/fees/y.js'; // a note");
     expect(COMMERCIAL_REFERENCE.test(stripped)).toBe(true);
     expect(stripComments('/* services/fees/ */').trim()).toBe('');
   });
@@ -593,9 +599,11 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
   it('the relative population really is the one the walls scan', () => {
     // Two spellings of one population can disagree, so this pins them together:
     // every absolute path the detectors run over has a relative twin here.
-    expect(enumerateDomain().map((absolute) => absolute.slice(SRC_ROOT.length + 1)).sort()).toEqual(
-      domainRelativePaths().sort(),
-    );
+    expect(
+      enumerateDomain()
+        .map((absolute) => absolute.slice(SRC_ROOT.length + 1))
+        .sort(),
+    ).toEqual(domainRelativePaths().sort());
   });
 });
 

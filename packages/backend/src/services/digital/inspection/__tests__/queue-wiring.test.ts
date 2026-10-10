@@ -103,7 +103,10 @@ import {
   MARKETPLACE_DIGITAL_QUEUE,
   MARKETPLACE_SYNC_QUEUE,
 } from '../../../../queue/constants.js';
-import { enqueueAssetFileInspection, enqueueAssetVersionInspection } from '../../../../queue/producers.js';
+import {
+  enqueueAssetFileInspection,
+  enqueueAssetVersionInspection,
+} from '../../../../queue/producers.js';
 import { startWorkers } from '../../../../queue/workers.js';
 
 beforeEach(() => {

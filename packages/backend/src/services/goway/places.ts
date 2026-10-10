@@ -98,7 +98,10 @@ export interface PlaceReadOptions {
  * cached. If GoWay cannot answer, a last-good `found` stands in, marked stale;
  * with none, the answer is `unavailable`. Never throws.
  */
-export async function readPlace(placeId: string, options: PlaceReadOptions = {}): Promise<PlaceLookup> {
+export async function readPlace(
+  placeId: string,
+  options: PlaceReadOptions = {},
+): Promise<PlaceLookup> {
   if (!isPlaceIdShape(placeId)) return { kind: 'not_found' };
   const key = placeCacheKey(placeId, options.locale);
   const cached = await readCachedPlace(key);
@@ -172,7 +175,11 @@ export async function readPlaces(
           results.set(miss.placeId, lastGood(miss.cached, now));
           continue;
         }
-        await writeCachedPlace(miss.key, { outcome, fetchedAt: now }, config.goway.placeStaleTtlSeconds);
+        await writeCachedPlace(
+          miss.key,
+          { outcome, fetchedAt: now },
+          config.goway.placeStaleTtlSeconds,
+        );
         results.set(miss.placeId, fromCache(outcome, false));
       }
     }),
@@ -265,7 +272,12 @@ export async function findStorePlacesNear(input: {
     const link = facts.storeLink;
     if (link === undefined) continue;
     if (link.verification !== 'business_asserted' && link.verification !== 'oxy_verified') continue;
-    items.push({ placeId: place.id, locationId: link.locationId, distanceMetres: place.distanceMeters, place: facts });
+    items.push({
+      placeId: place.id,
+      locationId: link.locationId,
+      distanceMetres: place.distanceMeters,
+      place: facts,
+    });
   }
   return { items, nextCursor: page.nextCursor };
 }
@@ -362,9 +374,13 @@ async function askForPlaces(
     const batch = await client.places.getMany(placeIds, locale === undefined ? {} : { locale });
     const outcomes = new Map<string, CachedPlaceOutcome>();
     for (const place of batch.items) {
-      outcomes.set(place.id, { kind: 'found', place: placeFactsOf(place, client.links.place(place)) });
+      outcomes.set(place.id, {
+        kind: 'found',
+        place: placeFactsOf(place, client.links.place(place)),
+      });
     }
-    for (const gone of batch.gone) outcomes.set(gone.id, { kind: 'gone', mergedInto: gone.mergedInto ?? null });
+    for (const gone of batch.gone)
+      outcomes.set(gone.id, { kind: 'gone', mergedInto: gone.mergedInto ?? null });
     for (const id of batch.missing) outcomes.set(id, { kind: 'not_found' });
     return outcomes;
   } catch (error) {
@@ -382,7 +398,10 @@ function listFailure(error: unknown, read: 'nearby' | 'towns'): Error {
     return validationError('That page cursor or search is not one this surface can resume.');
   }
   // The CODE only — see the module docblock for why never the error itself.
-  log.general.warn({ read, code: isGoWayError(error) ? error.code : 'unexpected' }, '[GoWay] a list read failed');
+  log.general.warn(
+    { read, code: isGoWayError(error) ? error.code : 'unexpected' },
+    '[GoWay] a list read failed',
+  );
   return new GoWayUnavailableError();
 }
 
@@ -393,7 +412,11 @@ function isFresh(cached: CachedPlace | null, now: number): cached is CachedPlace
 
 /** What to answer when GoWay could not: a recent enough `found`, marked stale, or `unavailable`. */
 function lastGood(cached: CachedPlace | null, now: number): PlaceLookup {
-  if (cached && cached.outcome.kind === 'found' && now - cached.fetchedAt < config.goway.placeStaleTtlSeconds * 1_000) {
+  if (
+    cached &&
+    cached.outcome.kind === 'found' &&
+    now - cached.fetchedAt < config.goway.placeStaleTtlSeconds * 1_000
+  ) {
     return fromCache(cached.outcome, true);
   }
   return { kind: 'unavailable' };

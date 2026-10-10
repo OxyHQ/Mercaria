@@ -1,10 +1,10 @@
-import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
-import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
-import type { CurrencyCode, MerchantCatalogEntry, Money } from "@mercaria/shared-types";
-import { PriceDisplay, Text } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
+import { Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
+import type { CurrencyCode, MerchantCatalogEntry, Money } from '@mercaria/shared-types';
+import { PriceDisplay, Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * An offer's price, only when Mercaria can actually display it.
@@ -57,16 +57,14 @@ export function MerchantProductCard({
   const { t } = useTranslation();
   const resolveImage = useImageResolver();
   const fileId = entry.image?.fileId ?? null;
-  const imageUri = fileId
-    ? resolveImage?.(fileId, "thumb")
-    : undefined;
+  const imageUri = fileId ? resolveImage?.(fileId, 'thumb') : undefined;
   const offerPrice = entry.representativeOffer?.price;
   const price = displayablePrice(offerPrice);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${entry.name}${entry.brand ? `, ${entry.brand.name}` : ""}`}
+      accessibilityLabel={`${entry.name}${entry.brand ? `, ${entry.brand.name}` : ''}`}
       onPress={() => onPress(entry.canonicalProductId)}
       className="gap-2"
     >
@@ -75,7 +73,7 @@ export function MerchantProductCard({
           <Image
             source={{ uri: imageUri }}
             contentFit="cover"
-            style={{ width: "100%", height: "100%" }}
+            style={{ width: '100%', height: '100%' }}
             transition={150}
           />
         ) : null}
@@ -97,19 +95,19 @@ export function MerchantProductCard({
         // cannot convert — and neither is a zero.
         <Text className="text-sm text-muted-foreground">
           {offerPrice === undefined
-            ? t("merchants.card.priceNotPublished")
-            : t("merchants.card.priceUnconvertible", { currency: offerPrice.currency })}
+            ? t('merchants.card.priceNotPublished')
+            : t('merchants.card.priceUnconvertible', { currency: offerPrice.currency })}
         </Text>
       ) : null}
 
       <Text numberOfLines={1} className="text-xs text-muted-foreground">
         {entry.eligibleChannelCount > 1
-          ? t("merchants.card.offersAcrossChannels", {
+          ? t('merchants.card.offersAcrossChannels', {
               count: entry.currentOfferCount,
               channels: entry.eligibleChannelCount,
             })
-          : t("merchants.card.offerCount", { count: entry.currentOfferCount })}
-        {entry.hasOtherSellers ? ` ${t("merchants.card.otherSellers")}` : ""}
+          : t('merchants.card.offerCount', { count: entry.currentOfferCount })}
+        {entry.hasOtherSellers ? ` ${t('merchants.card.otherSellers')}` : ''}
       </Text>
     </Pressable>
   );

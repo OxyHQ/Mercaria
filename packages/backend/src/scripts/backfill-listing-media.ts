@@ -1,5 +1,8 @@
 import { closePostgres, connectPostgres } from '../db/postgres.js';
-import { backfillListingMedia, type MediaBackfillOptions } from '../services/catalog-media/backfill.js';
+import {
+  backfillListingMedia,
+  type MediaBackfillOptions,
+} from '../services/catalog-media/backfill.js';
 
 /** Read-only preview by default. Execute from the repo root with Bun. */
 async function main() {
@@ -18,8 +21,10 @@ async function main() {
   if (report.retryListingIds.length) process.exitCode = 1;
 }
 
-main().catch(() => {
-  // Do not print database errors containing the source URL/credentials.
-  process.stderr.write('Media backfill failed. Check arguments and database availability.\n');
-  process.exitCode = 1;
-}).finally(closePostgres);
+main()
+  .catch(() => {
+    // Do not print database errors containing the source URL/credentials.
+    process.stderr.write('Media backfill failed. Check arguments and database availability.\n');
+    process.exitCode = 1;
+  })
+  .finally(closePostgres);

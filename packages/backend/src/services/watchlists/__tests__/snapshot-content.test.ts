@@ -129,8 +129,14 @@ function prior(
 
 describe('watchlistContentDigest', () => {
   it('is stable for two identical evaluations', () => {
-    const one = basket([{ id: 'a', unit: 1000 }, { id: 'b', unit: 2000 }]);
-    const two = basket([{ id: 'a', unit: 1000 }, { id: 'b', unit: 2000 }]);
+    const one = basket([
+      { id: 'a', unit: 1000 },
+      { id: 'b', unit: 2000 },
+    ]);
+    const two = basket([
+      { id: 'a', unit: 1000 },
+      { id: 'b', unit: 2000 },
+    ]);
     expect(watchlistContentDigest(one)).toBe(watchlistContentDigest(two));
   });
 
@@ -138,8 +144,14 @@ describe('watchlistContentDigest', () => {
     // The case the digest exists for. A digest over the total alone would
     // deduplicate this and the buyer's history would show one flat line through
     // the week both their prices moved.
-    const before = basket([{ id: 'a', unit: 1000 }, { id: 'b', unit: 2000 }]);
-    const after = basket([{ id: 'a', unit: 1100 }, { id: 'b', unit: 1900 }]);
+    const before = basket([
+      { id: 'a', unit: 1000 },
+      { id: 'b', unit: 2000 },
+    ]);
+    const after = basket([
+      { id: 'a', unit: 1100 },
+      { id: 'b', unit: 1900 },
+    ]);
     expect(before.total).toMatchObject({ amount: { amount: 3000 } });
     expect(after.total).toMatchObject({ amount: { amount: 3000 } });
     expect(watchlistContentDigest(before)).not.toBe(watchlistContentDigest(after));
@@ -169,8 +181,14 @@ describe('deriveMaterialChanges', () => {
     // The offsetting-move case again, from the other side: without
     // `item_price_moved` this would be empty and the CHECK would refuse the row.
     const changes = deriveMaterialChanges(
-      basket([{ id: 'a', unit: 1100 }, { id: 'b', unit: 1900 }]),
-      prior([{ id: 'a', unit: 1000 }, { id: 'b', unit: 2000 }]),
+      basket([
+        { id: 'a', unit: 1100 },
+        { id: 'b', unit: 1900 },
+      ]),
+      prior([
+        { id: 'a', unit: 1000 },
+        { id: 'b', unit: 2000 },
+      ]),
     );
     expect(changes).toContain('item_price_moved');
     expect(changes.length).toBeGreaterThanOrEqual(1);
@@ -197,12 +215,21 @@ describe('deriveMaterialChanges', () => {
   it('reports an added and a removed item as membership', () => {
     expect(
       deriveMaterialChanges(
-        basket([{ id: 'a', unit: 1000 }, { id: 'b', unit: 500 }]),
+        basket([
+          { id: 'a', unit: 1000 },
+          { id: 'b', unit: 500 },
+        ]),
         prior([{ id: 'a', unit: 1000 }]),
       ),
     ).toContain('membership_changed');
     expect(
-      deriveMaterialChanges(basket([{ id: 'a', unit: 1000 }]), prior([{ id: 'a', unit: 1000 }, { id: 'b', unit: 500 }])),
+      deriveMaterialChanges(
+        basket([{ id: 'a', unit: 1000 }]),
+        prior([
+          { id: 'a', unit: 1000 },
+          { id: 'b', unit: 500 },
+        ]),
+      ),
     ).toContain('membership_changed');
   });
 

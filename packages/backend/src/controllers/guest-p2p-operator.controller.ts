@@ -28,10 +28,7 @@ import type { GuestP2PPolicyPublication } from '@mercaria/shared-types';
 import { GUEST_P2P_FORBIDDEN_CRITERIA } from '@mercaria/shared-types';
 import { GUEST_P2P_DECISION } from '../services/guest-p2p/authorization.js';
 import { deriveGuestP2PEligibility } from '../services/guest-p2p/eligibility.js';
-import {
-  GUEST_P2P_BEST_CASE_CONTEXT,
-  readGuestP2PFacts,
-} from '../services/guest-p2p/facts.js';
+import { GUEST_P2P_BEST_CASE_CONTEXT, readGuestP2PFacts } from '../services/guest-p2p/facts.js';
 import {
   GUEST_P2P_BOUNDED_SCOPE,
   GUEST_P2P_POLICY_VERSION,

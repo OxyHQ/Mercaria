@@ -91,13 +91,14 @@ vi.mock('../../middleware/auth.js', () => {
           }),
       },
     },
-    authenticateToken: (
-      _req: express.Request,
-      res: express.Response,
-    ): void => {
+    authenticateToken: (_req: express.Request, res: express.Response): void => {
       res.status(401).json({ success: false, error: 'UNAUTHORIZED', message: 'Unauthorized' });
     },
-    optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction): void => {
+    optionalAuth: (
+      req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction,
+    ): void => {
       const actor = actorOf(req);
       if (actor !== undefined) {
         (req as unknown as { user: { id: string } }).user = { id: actor };
@@ -166,7 +167,11 @@ function expectFailure(answer: Answer, status: number, code: MercariaPublicError
   expect(answer.headers.get('content-type') ?? '').toContain('application/json');
   exactKeys(answer.body, ['error'], 'error body');
   const error = answer.body['error'] as Record<string, unknown>;
-  exactKeys(error, 'details' in error ? ['code', 'details', 'message'] : ['code', 'message'], 'error');
+  exactKeys(
+    error,
+    'details' in error ? ['code', 'details', 'message'] : ['code', 'message'],
+    'error',
+  );
   expect(error['code']).toBe(code);
   expect(error['message']).toBeTypeOf('string');
   if ('details' in error) {
@@ -217,7 +222,9 @@ afterAll(async () => {
 
 describe('GET /public/v1/products', () => {
   it('searches by term and serves only publicly live products — never a suspended store’s', async () => {
-    const answer = await call(api(`/products?q=${TERM}&limit=50`), { shape: 'page:productSummary' });
+    const answer = await call(api(`/products?q=${TERM}&limit=50`), {
+      shape: 'page:productSummary',
+    });
     expect(answer.status, answer.text).toBe(200);
     const found = itemIds(answer);
     const live = [ids.inStock, ids.outOfStock, ...ids.extraActive, ids.person];
@@ -332,7 +339,11 @@ describe('GET /public/v1/products', () => {
 
   it('gates a store or collection filter before searching: 410 and 404, never an empty page', async () => {
     expectFailure(await call(api(`/products?storeId=${ids.storeSuspended}`)), 410, 'gone');
-    expectFailure(await call(api(`/products?collectionId=${ids.unpublishedNever}`)), 404, 'not_found');
+    expectFailure(
+      await call(api(`/products?collectionId=${ids.unpublishedNever}`)),
+      404,
+      'not_found',
+    );
     expectFailure(await call(api(`/products?collectionId=${ids.unpublishedAfter}`)), 410, 'gone');
   });
 });
@@ -351,7 +362,10 @@ describe('GET /public/v1/products/:id', () => {
       max: { amount: 2_500, currency: 'EUR' },
     });
     expect(product['condition']).toEqual({ key: 'used_good', group: 'used' });
-    expect(product['primaryImage']).toEqual({ url: mediaUrl(`img-first-${RUN}`), alt: 'The front' });
+    expect(product['primaryImage']).toEqual({
+      url: mediaUrl(`img-first-${RUN}`),
+      alt: 'The front',
+    });
     expect(product['images']).toEqual([
       { url: mediaUrl(`img-first-${RUN}`), alt: 'The front' },
       { url: mediaUrl(`img-second-${RUN}`), alt: null },
@@ -553,7 +567,11 @@ describe('the error shape at the edges', () => {
     expectFailure(await call(api('/x')), 404, 'unknown_route');
     expectFailure(await call(MERCARIA_PUBLIC_API_BASE_PATH), 404, 'unknown_route');
     expectFailure(await call(api('/products'), { method: 'POST' }), 404, 'unknown_route');
-    expectFailure(await call(api(`/products/${ids.inStock}`), { method: 'DELETE' }), 404, 'unknown_route');
+    expectFailure(
+      await call(api(`/products/${ids.inStock}`), { method: 'DELETE' }),
+      404,
+      'unknown_route',
+    );
   });
 
   it('answers a body that will not parse with a JSON bad_request, from the global handler', async () => {
@@ -565,11 +583,15 @@ describe('the error shape at the edges', () => {
     const text = await response.text();
     BODIES.push(text);
     expect(response.status).toBe(400);
-    expect(JSON.parse(text)).toEqual({ error: { code: 'bad_request', message: 'The request could not be read' } });
+    expect(JSON.parse(text)).toEqual({
+      error: { code: 'bad_request', message: 'The request could not be read' },
+    });
   });
 
   it('serves its own OpenAPI document — the committed one — describing every registry operation', async () => {
-    const answer = await call(api('/openapi.json'), { headers: { origin: 'https://mention.earth' } });
+    const answer = await call(api('/openapi.json'), {
+      headers: { origin: 'https://mention.earth' },
+    });
     expect(answer.status, answer.text).toBe(200);
     expect(answer.headers.get('access-control-allow-origin')).toBe('*');
     expect(answer.body['openapi']).toBe('3.1.0');
@@ -579,7 +601,9 @@ describe('the error shape at the edges', () => {
     );
     expect(answer.body).toEqual(JSON.parse(committed));
     const paths = answer.body['paths'] as Record<string, Record<string, { operationId: string }>>;
-    const served = Object.values(paths).flatMap((item) => Object.values(item).map((op) => op.operationId));
+    const served = Object.values(paths).flatMap((item) =>
+      Object.values(item).map((op) => op.operationId),
+    );
     expect(served.sort()).toEqual(MERCARIA_PUBLIC_ROUTES.map((route) => route.operationId).sort());
     expectFailure(await call(api('/openapi.json?x=1')), 400, 'bad_request');
   });

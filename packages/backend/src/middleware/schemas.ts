@@ -68,8 +68,9 @@ function conditionEnumValues<T extends string>(values: readonly T[]): readonly [
 const ITEM_CONDITION_KEY_VALUES = conditionEnumValues<ItemConditionKey>(ITEM_CONDITION_KEYS);
 const CONDITION_DETAIL_KIND_VALUES =
   conditionEnumValues<ConditionDetailKind>(CONDITION_DETAIL_KINDS);
-const CONDITION_DETAIL_SEVERITY_VALUES =
-  conditionEnumValues<ConditionDetailSeverity>(CONDITION_DETAIL_SEVERITIES);
+const CONDITION_DETAIL_SEVERITY_VALUES = conditionEnumValues<ConditionDetailSeverity>(
+  CONDITION_DETAIL_SEVERITIES,
+);
 const LEGACY_BINARY_CONDITION_VALUES =
   conditionEnumValues<LegacyBinaryCondition>(LEGACY_BINARY_CONDITIONS);
 
@@ -127,7 +128,6 @@ const seoSchema = z.object({
 // ---------------------------------------------------------------------------
 // P2P listing
 // ---------------------------------------------------------------------------
-
 
 /**
  * The #90 condition statement a client may send.
@@ -806,9 +806,7 @@ export const checkoutSchema = z
     sellerKeys: z.array(z.string().trim().min(1)).optional(),
     shippingSelections: z.record(z.string(), shippingMethodSchema).optional(),
     discountCodes: z.array(z.string().trim().min(1)).optional(),
-    paymentMethod: z
-      .enum(CHECKOUT_PAYMENT_METHODS as unknown as [string, ...string[]])
-      .optional(),
+    paymentMethod: z.enum(CHECKOUT_PAYMENT_METHODS as unknown as [string, ...string[]]).optional(),
     /**
      * The consumer's country for a digital supply (#1015 W11, ADR 0010 D10).
      *
@@ -1369,10 +1367,7 @@ export const ingestInventorySchema = z.object({
  * interchangeable — a body field refused by zod produces the same 400 with the
  * field named, which is what a creator's dashboard needs to highlight.
  */
-const digitalRowIdSchema = z
-  .string()
-  .trim()
-  .refine(isLiveEntityId, 'Must be a valid id');
+const digitalRowIdSchema = z.string().trim().refine(isLiveEntityId, 'Must be a valid id');
 
 /** The closed value sets, narrowed to the non-empty tuple `z.enum` requires. */
 const DIGITAL_VERTICAL_VALUES = conditionEnumValues<DigitalVertical>(DIGITAL_VERTICALS);

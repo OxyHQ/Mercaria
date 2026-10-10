@@ -100,9 +100,7 @@ describe('the gate is default CLOSED and refuses only the P2P groups', () => {
 
   it('leaves an Oxy buyer and an anonymous caller alone (acceptance 9)', () => {
     for (const actor of [OXY, ANONYMOUS]) {
-      expect(() =>
-        assertGuestP2PCheckoutAllowed({ actor, groups: [PERSON, STORE] }),
-      ).not.toThrow();
+      expect(() => assertGuestP2PCheckoutAllowed({ actor, groups: [PERSON, STORE] })).not.toThrow();
     }
   });
 

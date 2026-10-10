@@ -65,10 +65,7 @@ import {
   findListingsByIds,
   type ListingImageRecord,
 } from '../db/catalog/listingRepository.js';
-import {
-  findVariantById,
-  findVariantOptionValues,
-} from '../db/catalog/variantRepository.js';
+import { findVariantById, findVariantOptionValues } from '../db/catalog/variantRepository.js';
 import { findStoreById } from '../db/stores/storeRepository.js';
 import { findLocation } from '../db/stores/locationRepository.js';
 import { reserve, release } from './inventory.service.js';
@@ -605,20 +602,12 @@ export async function listDraftOrders(
   storeId: string,
   { page, limit, status }: ListDraftsParams,
 ): Promise<DraftPage> {
-  const { rows, total } = await findDraftOrdersPage(
-    storeId,
-    status ? { status } : {},
-    page,
-    limit,
-  );
+  const { rows, total } = await findDraftOrdersPage(storeId, status ? { status } : {}, page, limit);
   return { data: rows, total };
 }
 
 /** Load one draft scoped to its store, or throw NOT_FOUND. */
-export async function getDraftOrder(
-  storeId: string,
-  draftId: string,
-): Promise<DraftOrderRecord> {
+export async function getDraftOrder(storeId: string, draftId: string): Promise<DraftOrderRecord> {
   const draft = await findDraftOrder(storeId, draftId);
   if (!draft) {
     throw notFound('Draft order not found');
@@ -790,7 +779,8 @@ export async function completeDraftOrder(
     // 5. Shipping snapshot: draft's captured address, else a synthetic pickup.
     const location = locationId ? await resolveLocationAddress(storeId, locationId) : undefined;
     const shippingAddress =
-      toAddressSnapshotDTO(draft) ?? buildPickupSnapshot(customer?.displayName ?? undefined, location);
+      toAddressSnapshotDTO(draft) ??
+      buildPickupSnapshot(customer?.displayName ?? undefined, location);
 
     // POS: shop == presentment (same currency), so the snapshot rate is 1 and no
     // provider quoted anything — the snapshot records that this sale's two money
@@ -843,7 +833,12 @@ export async function completeDraftOrder(
       // guest credential (ADR 0003 D7); nothing on this path can produce a
       // guest actor.
       statusHistory: [
-        { status: 'pending_payment', at: new Date(), actorKind: 'oxy', byOxyUserId: actorOxyUserId },
+        {
+          status: 'pending_payment',
+          at: new Date(),
+          actorKind: 'oxy',
+          byOxyUserId: actorOxyUserId,
+        },
       ],
       // No `paymentProvider` here: it is stamped by the `manual_pos` payment
       // recorded below, which is what actually moves this order to `paid`.

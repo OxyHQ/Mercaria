@@ -139,7 +139,10 @@ function demandNamedSharedModules(readDir: DirectoryReader = readSrcDirectory): 
  * database from a gate about one domain.
  */
 function outerPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
-  return [...walkOwnedDirectory('db/merchantDemand', readDir), ...demandNamedSharedModules(readDir)];
+  return [
+    ...walkOwnedDirectory('db/merchantDemand', readDir),
+    ...demandNamedSharedModules(readDir),
+  ];
 }
 
 const OUTER_PATHS = outerPaths();
@@ -183,7 +186,8 @@ const TRANSPORT_REFERENCE =
   /nodemailer|@aws-sdk\/client-ses|sendMail|sendEmail|registerGuestMessageTransport|registerPriceAlertEmailTransport|notification\.service|notifications\/|safeFetch|axios|node-fetch|\bfetch\(/;
 
 /** A contact value, by column or field name. */
-const CONTACT_FIELD = /email|phone|mobile|contact_name|contactName|contact_value|contactValue|address|postal|recipient/i;
+const CONTACT_FIELD =
+  /email|phone|mobile|contact_name|contactName|contact_value|contactValue|address|postal|recipient/i;
 
 describe('the merchant demand domain has real modules — the vacuity floor', () => {
   it('scans a domain that exists and is not empty', () => {
@@ -194,19 +198,23 @@ describe('the merchant demand domain has real modules — the vacuity floor', ()
     // rather than make every scan below pass against an empty list.
     const outerFrom = (prefix: string) =>
       OUTER_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(domain.length, 'the merchant-demand service walk found too few modules').toBeGreaterThanOrEqual(
-      8,
-    );
-    expect(outerFrom('db/merchantDemand/'), 'the repository walk found too few modules').toBeGreaterThanOrEqual(
-      3,
-    );
-    expect(outerFrom('controllers/'), 'no demand-named controller was derived').toBeGreaterThanOrEqual(
-      2,
-    );
+    expect(
+      domain.length,
+      'the merchant-demand service walk found too few modules',
+    ).toBeGreaterThanOrEqual(8);
+    expect(
+      outerFrom('db/merchantDemand/'),
+      'the repository walk found too few modules',
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      outerFrom('controllers/'),
+      'no demand-named controller was derived',
+    ).toBeGreaterThanOrEqual(2);
     expect(outerFrom('routes/'), 'no demand-named route was derived').toBeGreaterThanOrEqual(2);
-    expect(outerFrom('middleware/'), 'no demand-named schema module was derived').toBeGreaterThanOrEqual(
-      1,
-    );
+    expect(
+      outerFrom('middleware/'),
+      'no demand-named schema module was derived',
+    ).toBeGreaterThanOrEqual(1);
     // No test file may enter the scanned set: a gate that scans its own probes
     // reports violations it wrote itself.
     expect(
@@ -216,7 +224,9 @@ describe('the merchant demand domain has real modules — the vacuity floor', ()
     ).toEqual([]);
 
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
       expect(statSync(join(SRC_ROOT, file.relative)).isFile()).toBe(true);
     }
     for (const relative of OUTER_PATHS) {
@@ -267,7 +277,9 @@ describe('WALL 1: acquisition scoring and organic ranking cannot see each other'
 
   it('both detectors actually detect — the mutation self-test', () => {
     expect(RANKING_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(true);
-    expect(RANKING_REFERENCE.test("import { x } from '../../db/ranking/rankingPolicyRepository.js';")).toBe(true);
+    expect(
+      RANKING_REFERENCE.test("import { x } from '../../db/ranking/rankingPolicyRepository.js';"),
+    ).toBe(true);
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
     expect(
       MERCHANT_DEMAND_REFERENCE.test(
@@ -277,9 +289,9 @@ describe('WALL 1: acquisition scoring and organic ranking cannot see each other'
     expect(
       MERCHANT_DEMAND_REFERENCE.test("import { x } from '../merchant-demand/metrics.js';"),
     ).toBe(true);
-    expect(MERCHANT_DEMAND_REFERENCE.test("import { merchants } from '../schema/merchants.js';")).toBe(
-      false,
-    );
+    expect(
+      MERCHANT_DEMAND_REFERENCE.test("import { merchants } from '../schema/merchants.js';"),
+    ).toBe(false);
   });
 });
 
@@ -339,9 +351,9 @@ describe('WALL 2: this domain defines no second authority', () => {
     expect(SECOND_AUTHORITY_REFERENCE.test('const MERCHANT_DEMAND_TTL_SECONDS = 3600;')).toBe(true);
     expect(SECOND_AUTHORITY_REFERENCE.test('if (isStale(offer)) return;')).toBe(true);
     expect(SECOND_AUTHORITY_REFERENCE.test('const SAVE_COUNT_FLOOR = 10;')).toBe(true);
-    expect(SECOND_AUTHORITY_REFERENCE.test('const floor = MERCHANT_DEMAND_PRODUCT_MIN_COUNT;')).toBe(
-      false,
-    );
+    expect(
+      SECOND_AUTHORITY_REFERENCE.test('const floor = MERCHANT_DEMAND_PRODUCT_MIN_COUNT;'),
+    ).toBe(false);
   });
 });
 
@@ -446,9 +458,9 @@ describe('WALL 6: the operator surface is read plus a CLOSED write set', () => {
   const router = readFileSync(join(SRC_ROOT, 'routes/internal-merchant-demand.ts'), 'utf8');
 
   it('registers exactly the routes it declares, and nothing that sets a fact', () => {
-    const registered = [...router.matchAll(/router\.(get|post|delete|patch|put)\(\s*'([^']+)'/g)].map(
-      (match) => `${match[1]} ${match[2]}`,
-    );
+    const registered = [
+      ...router.matchAll(/router\.(get|post|delete|patch|put)\(\s*'([^']+)'/g),
+    ].map((match) => `${match[1]} ${match[2]}`);
     // The floor AND the enumeration: a route added without a reviewer noticing
     // fails here, and an empty match set fails here too.
     expect(registered.sort()).toEqual(
@@ -488,7 +500,10 @@ describe('WALL 6: the operator surface is read plus a CLOSED write set', () => {
       { relative: 'routes/internal-merchant-demand.ts', source: router },
       {
         relative: 'controllers/merchant-acquisition.controller.ts',
-        source: readFileSync(join(SRC_ROOT, 'controllers/merchant-acquisition.controller.ts'), 'utf8'),
+        source: readFileSync(
+          join(SRC_ROOT, 'controllers/merchant-acquisition.controller.ts'),
+          'utf8',
+        ),
       },
     ]) {
       expect(

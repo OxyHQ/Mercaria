@@ -1,5 +1,5 @@
-import { View } from "react-native";
-import { Badge } from "@oxy.so/bloom/badge";
+import { View } from 'react-native';
+import { Badge } from '@oxy.so/bloom/badge';
 
 export interface DemandPillProps {
   /** Static social-proof copy (e.g. "100K+ bought in past month"). */

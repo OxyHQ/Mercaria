@@ -54,7 +54,10 @@ export const OPEN_DATA_LICENCE_LABELS: Readonly<Record<OpenDataLicence, string>>
 };
 
 /** Licences whose terms require a derivative database to be shared alike. */
-export const SHARE_ALIKE_OPEN_DATA_LICENCES: readonly OpenDataLicence[] = ['odbl_1_0', 'cc_by_sa_4_0'];
+export const SHARE_ALIKE_OPEN_DATA_LICENCES: readonly OpenDataLicence[] = [
+  'odbl_1_0',
+  'cc_by_sa_4_0',
+];
 
 /** What a provider DOES for the comparator, for an operator choosing sources. */
 export type OpenDataProviderRole = 'prices' | 'catalogue' | 'catalogue_and_prices';

@@ -83,9 +83,7 @@ export async function findActiveLinkByMerchant(
   const [row] = await db
     .select()
     .from(nativeStoreLinks)
-    .where(
-      and(eq(nativeStoreLinks.merchantId, merchantId), eq(nativeStoreLinks.status, 'active')),
-    );
+    .where(and(eq(nativeStoreLinks.merchantId, merchantId), eq(nativeStoreLinks.status, 'active')));
   return row;
 }
 

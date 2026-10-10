@@ -164,12 +164,19 @@ export async function advancePriceSignalRun(
       signalsNotPresent: sql`${priceSignalRuns.signalsNotPresent} + ${input.signalsNotPresent}`,
       signalsUnmeasured: sql`${priceSignalRuns.signalsUnmeasured} + ${input.signalsUnmeasured}`,
       ...(input.finished
-        ? { status: 'done' as const, finishedAt: input.finishedAt ?? new Date(), leaseOwner: null, leaseUntil: null }
+        ? {
+            status: 'done' as const,
+            finishedAt: input.finishedAt ?? new Date(),
+            leaseOwner: null,
+            leaseUntil: null,
+          }
         : input.leaseUntil === undefined
           ? {}
           : { leaseUntil: input.leaseUntil }),
     })
-    .where(and(eq(priceSignalRuns.id, input.runId), eq(priceSignalRuns.leaseOwner, input.leaseOwner)))
+    .where(
+      and(eq(priceSignalRuns.id, input.runId), eq(priceSignalRuns.leaseOwner, input.leaseOwner)),
+    )
     .returning();
   return rows[0];
 }
@@ -183,7 +190,12 @@ export async function failPriceSignalRun(
 ): Promise<void> {
   await db
     .update(priceSignalRuns)
-    .set({ status: 'failed', leaseOwner: null, leaseUntil: null, lastError: lastError.slice(0, 500) })
+    .set({
+      status: 'failed',
+      leaseOwner: null,
+      leaseUntil: null,
+      lastError: lastError.slice(0, 500),
+    })
     .where(and(eq(priceSignalRuns.id, runId), eq(priceSignalRuns.leaseOwner, leaseOwner)));
 }
 

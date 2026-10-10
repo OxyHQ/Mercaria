@@ -139,7 +139,11 @@ describe('connectWithApiKey', () => {
 
   it('rejects an unsupported shop currency (no upsert)', async () => {
     findConnectionByProvider.mockResolvedValue(null);
-    verifyConnection.mockResolvedValue({ externalShopId: SITE, shopDomain: SITE, shopCurrency: 'ZZZ' });
+    verifyConnection.mockResolvedValue({
+      externalShopId: SITE,
+      shopDomain: SITE,
+      shopCurrency: 'ZZZ',
+    });
 
     await expect(
       connectWithApiKey(STORE, 'woocommerce', { shopDomain: SITE, ...KEYS }),

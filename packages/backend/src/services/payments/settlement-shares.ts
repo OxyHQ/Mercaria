@@ -133,10 +133,7 @@ export function allocateSellerShares(input: {
  * whole total goes to the FIRST part rather than dividing by zero — a zero-
  * weight split is a pricing bug upstream, and losing the total would hide it.
  */
-export function apportion(input: {
-  totalMinor: bigint;
-  weights: readonly bigint[];
-}): bigint[] {
+export function apportion(input: { totalMinor: bigint; weights: readonly bigint[] }): bigint[] {
   const { totalMinor, weights } = input;
   if (weights.length === 0) return [];
 

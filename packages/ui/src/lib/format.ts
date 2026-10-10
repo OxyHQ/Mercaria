@@ -3,8 +3,8 @@ import {
   CURRENCY_SYMBOLS,
   type Money,
   type OfferMoney,
-} from "@mercaria/shared-types";
-import { isolateBidi } from "./bidi";
+} from '@mercaria/shared-types';
+import { isolateBidi } from './bidi';
 
 /**
  * Product cards consume the canonical server-serialized `ProductSummary` DTO
@@ -12,7 +12,7 @@ import { isolateBidi } from "./bidi";
  * view-model duplication. Re-exported here so marketplace components import the
  * card type from a single place alongside their formatting helpers.
  */
-export type { ProductSummary } from "@mercaria/shared-types";
+export type { ProductSummary } from '@mercaria/shared-types';
 
 /** Radix used to derive minor units from a currency's decimal precision. */
 const DECIMAL_RADIX = 10;
@@ -147,7 +147,7 @@ export function formatMoney(money: Money, locale: string): string {
   const figure = formatNumber(
     major,
     locale,
-    "money",
+    'money',
     {
       minimumFractionDigits: DISPLAY_FRACTION_DIGITS,
       maximumFractionDigits: DISPLAY_FRACTION_DIGITS,
@@ -174,13 +174,13 @@ export function formatMoney(money: Money, locale: string): string {
  * statement that Mercaria cannot express this price.
  */
 export function formatSourceMoney(money: OfferMoney, locale: string): string | null {
-  const precision = CURRENCY_PRECISION[money.currency as Money["currency"]];
+  const precision = CURRENCY_PRECISION[money.currency as Money['currency']];
   if (precision === undefined) return null;
   const major = money.amount / DECIMAL_RADIX ** precision;
   const figure = formatNumber(
     major,
     locale,
-    "money",
+    'money',
     {
       minimumFractionDigits: DISPLAY_FRACTION_DIGITS,
       maximumFractionDigits: DISPLAY_FRACTION_DIGITS,
@@ -221,8 +221,8 @@ export function formatDistance(metres: number, locale: string): string {
       formatNumber(
         whole,
         locale,
-        "metres",
-        { style: "unit", unit: "meter", unitDisplay: "short", maximumFractionDigits: 0 },
+        'metres',
+        { style: 'unit', unit: 'meter', unitDisplay: 'short', maximumFractionDigits: 0 },
         () => `${whole} m`,
       ),
     );
@@ -232,8 +232,8 @@ export function formatDistance(metres: number, locale: string): string {
     formatNumber(
       kilometres,
       locale,
-      "kilometres",
-      { style: "unit", unit: "kilometer", unitDisplay: "short", maximumFractionDigits: 1 },
+      'kilometres',
+      { style: 'unit', unit: 'kilometer', unitDisplay: 'short', maximumFractionDigits: 1 },
       () => `${kilometres.toFixed(1)} km`,
     ),
   );
@@ -261,8 +261,8 @@ export function formatReviewCount(n: number, locale: string): string {
     formatNumber(
       n,
       locale,
-      "count",
-      { notation: "compact", compactDisplay: "short", maximumFractionDigits: 1 },
+      'count',
+      { notation: 'compact', compactDisplay: 'short', maximumFractionDigits: 1 },
       () => {
         if (n < THOUSAND) return `${n}`;
         const thousands = n / THOUSAND;
@@ -312,11 +312,7 @@ const BASIS_POINTS_PER_PERCENT = 100;
  * ask for more precision. So the digits are the caller's, pinned at the call
  * site to the precision that value actually carries (#544).
  */
-export function formatPercent(
-  deltaBps: number,
-  locale: string,
-  fractionDigits = 1,
-): string {
+export function formatPercent(deltaBps: number, locale: string, fractionDigits = 1): string {
   const magnitude = Math.abs(deltaBps);
   return isolateBidi(
     formatNumber(
@@ -331,7 +327,7 @@ export function formatPercent(
       // cached by a 1-digit caller.
       `percent:${fractionDigits}`,
       {
-        style: "percent",
+        style: 'percent',
         minimumFractionDigits: fractionDigits,
         maximumFractionDigits: fractionDigits,
       },
@@ -359,7 +355,7 @@ export function formatRating(rating: number, locale: string): string {
     formatNumber(
       rating,
       locale,
-      "rating",
+      'rating',
       { minimumFractionDigits: 1, maximumFractionDigits: 1 },
       () => rating.toFixed(1),
     ),
@@ -396,20 +392,20 @@ const SECONDS_PER_DAY = SECONDS_PER_HOUR * HOURS_PER_DAY;
  * Intl lacks `style: "unit"` renders what shipped before rather than a key.
  */
 export function formatDuration(seconds: number, locale: string): string {
-  const [value, unit, fallbackWord]: [number, Intl.NumberFormatOptions["unit"], string] =
+  const [value, unit, fallbackWord]: [number, Intl.NumberFormatOptions['unit'], string] =
     seconds < SECONDS_PER_MINUTE
-      ? [Math.round(seconds), "second", "seconds"]
+      ? [Math.round(seconds), 'second', 'seconds']
       : seconds < SECONDS_PER_HOUR
-        ? [Math.round(seconds / SECONDS_PER_MINUTE), "minute", "minutes"]
+        ? [Math.round(seconds / SECONDS_PER_MINUTE), 'minute', 'minutes']
         : seconds < SECONDS_PER_DAY
-          ? [Math.round(seconds / SECONDS_PER_HOUR), "hour", "hours"]
-          : [Math.round(seconds / SECONDS_PER_DAY), "day", "days"];
+          ? [Math.round(seconds / SECONDS_PER_HOUR), 'hour', 'hours']
+          : [Math.round(seconds / SECONDS_PER_DAY), 'day', 'days'];
   return isolateBidi(
     formatNumber(
       value,
       locale,
       `duration:${unit}`,
-      { style: "unit", unit, unitDisplay: "long", maximumFractionDigits: 0 },
+      { style: 'unit', unit, unitDisplay: 'long', maximumFractionDigits: 0 },
       () => `${value} ${fallbackWord}`,
     ),
   );

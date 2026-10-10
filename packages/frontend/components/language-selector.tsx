@@ -32,8 +32,9 @@ export function LanguageSelector() {
   // the row in force is matched on the LANGUAGE SUBTAG; comparing whole tags
   // would leave every regional locale showing no selection at all.
   const activeLanguage = (locale.split('-')[0] ?? '').toLowerCase();
-  const currentLocale =
-    STOREFRONT_LOCALES.find((code) => (code.split('-')[0] ?? '').toLowerCase() === activeLanguage);
+  const currentLocale = STOREFRONT_LOCALES.find(
+    (code) => (code.split('-')[0] ?? '').toLowerCase() === activeLanguage,
+  );
 
   return (
     <View className="gap-2">
@@ -41,9 +42,7 @@ export function LanguageSelector() {
         <Globe2 size={20} className="text-primary" />
         <Text className="text-base font-semibold">{t('settings.appLanguage.title')}</Text>
       </View>
-      <Text className="text-sm text-muted-foreground">
-        {t('settings.appLanguage.description')}
-      </Text>
+      <Text className="text-sm text-muted-foreground">{t('settings.appLanguage.description')}</Text>
       <DropdownMenu>
         <DropdownMenuTrigger asChild label={t('settings.appLanguage.title')}>
           <Pressable className="border border-border rounded-lg px-4 py-3 bg-background flex-row items-center justify-between">

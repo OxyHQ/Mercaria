@@ -158,10 +158,7 @@ export async function listMyClaimsHandler(req: Request, res: Response): Promise<
 /** GET /merchant-claims/:id — state polling; no evidence, ever. */
 export async function getMyClaimHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(
-      res,
-      await getClaimForClaimant(routeParam(req, 'id'), getRequiredOxyUserId(req)),
-    );
+    sendSuccess(res, await getClaimForClaimant(routeParam(req, 'id'), getRequiredOxyUserId(req)));
   } catch (error) {
     respondWithError(res, error, 'Reading the merchant claim failed');
   }

@@ -57,7 +57,12 @@ import { ErrorCodes } from '../../../utils/api-response.js';
 const UNIFORM = 'You cannot review your own listing, store, merchant or sale';
 
 /** The author, in their own session. */
-const ME: StoreCaller = { accountId: 'me', actorAccountId: 'me', delegated: false, accessToken: 'bearer-me' };
+const ME: StoreCaller = {
+  accountId: 'me',
+  actorAccountId: 'me',
+  delegated: false,
+  accessToken: 'bearer-me',
+};
 
 /** A store owned by an organization; whether the author belongs is Oxy's answer. */
 const STORE = { id: 'store-1', oxyAccountId: 'org-1' };

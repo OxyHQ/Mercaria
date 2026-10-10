@@ -169,8 +169,10 @@ describe('every bare reference to a mergeable entity has a decision (#695)', () 
     // reconciliation directions.
     for (const reason of MERCARIA_ROW_ID_REASONS) {
       const covered = ID_COLUMNS_WITHOUT_FOREIGN_KEY.filter((entry) => entry.reason === reason);
-      expect(covered.length, `no ledger entry carries this reason any more: ${reason}`)
-        .toBeGreaterThan(0);
+      expect(
+        covered.length,
+        `no ledger entry carries this reason any more: ${reason}`,
+      ).toBeGreaterThan(0);
     }
   });
 

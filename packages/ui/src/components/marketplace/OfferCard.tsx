@@ -1,6 +1,6 @@
-import { Pressable, View } from "react-native";
-import { ChevronRight, Sparkles } from "lucide-react-native";
-import { Text } from "../ui/text";
+import { Pressable, View } from 'react-native';
+import { ChevronRight, Sparkles } from 'lucide-react-native';
+import { Text } from '../ui/text';
 
 /** Leading badge + trailing chevron icon size (px). */
 const OFFER_ICON_SIZE = 18;

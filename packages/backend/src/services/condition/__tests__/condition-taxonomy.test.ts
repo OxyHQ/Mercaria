@@ -55,7 +55,13 @@ describe('the v1 binary contract (#90 propagation rule 8)', () => {
     // And the columns then carry no acknowledgement timestamp, so nothing in the
     // record reads as consent the seller never gave.
     const columns = conditionColumnsFor(
-      resolved ?? { key: 'used_good', assertion: 'legacy_client_binary', details: [], photoAnnotations: [], defectsAcknowledged: false },
+      resolved ?? {
+        key: 'used_good',
+        assertion: 'legacy_client_binary',
+        details: [],
+        photoAnnotations: [],
+        defectsAcknowledged: false,
+      },
       new Date('2026-01-01T00:00:00Z'),
     );
     expect(columns.conditionAcknowledgedAt).toBeNull();

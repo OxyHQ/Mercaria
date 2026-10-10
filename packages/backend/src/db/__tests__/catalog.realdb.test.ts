@@ -66,7 +66,11 @@ import {
   updateVariant as updateVariantColumns,
 } from '../catalog/variantRepository.js';
 import { upsertConnection } from '../connectors/connectionRepository.js';
-import { insertLevels, reserveAtLocation, setLevelAvailable } from '../catalog/inventoryLevelRepository.js';
+import {
+  insertLevels,
+  reserveAtLocation,
+  setLevelAvailable,
+} from '../catalog/inventoryLevelRepository.js';
 import {
   findCollectionProductsPage,
   insertCollection,
@@ -284,7 +288,12 @@ describe('the guarded stock decrement', () => {
     expect(rolled.inventoryAvailable).toBe(10);
     expect(rolled.inventoryCommitted).toBe(3);
 
-    await setLevelAvailable({ variantId: variant.id, listingId, locationId: second.id, available: 1 });
+    await setLevelAvailable({
+      variantId: variant.id,
+      listingId,
+      locationId: second.id,
+      available: 1,
+    });
     await recomputeVariantRollup(variant.id);
     const [after] = await findVariantsByListing(listingId);
     expect(after.inventoryAvailable).toBe(5);
@@ -420,7 +429,9 @@ describe('the automated-rule translator', () => {
       hasInventory: false,
     });
 
-    expect(await matching(storeId, [{ field: 'vendor', operator: 'equals', value: 'Acme' }])).toEqual([acme]);
+    expect(
+      await matching(storeId, [{ field: 'vendor', operator: 'equals', value: 'Acme' }]),
+    ).toEqual([acme]);
     // `not_equals` must include the row whose vendor is NULL — Mongo's `$ne`
     // matched an absent field, and a bare `<>` evaluates to NULL and drops it.
     expect(
@@ -432,17 +443,27 @@ describe('the automated-rule translator', () => {
     expect(
       await matching(storeId, [{ field: 'title', operator: 'ends_with', value: 'TRAILER' }]),
     ).toEqual([unbranded]);
-    expect(await matching(storeId, [{ field: 'tag', operator: 'equals', value: 'road' }])).toEqual([acme]);
+    expect(await matching(storeId, [{ field: 'tag', operator: 'equals', value: 'road' }])).toEqual([
+      acme,
+    ]);
     expect(
       await matching(storeId, [{ field: 'tag', operator: 'not_equals', value: 'road' }]),
     ).toEqual([unbranded]);
     expect(
       await matching(storeId, [{ field: 'categorySlug', operator: 'contains', value: 'sports' }]),
     ).toHaveLength(2);
-    expect(await matching(storeId, [{ field: 'price', operator: 'gt', value: '10000' }])).toEqual([unbranded]);
-    expect(await matching(storeId, [{ field: 'price', operator: 'lte', value: '5000' }])).toEqual([acme]);
-    expect(await matching(storeId, [{ field: 'inventory', operator: 'gt', value: '0' }])).toEqual([acme]);
-    expect(await matching(storeId, [{ field: 'inventory', operator: 'equals', value: '0' }])).toEqual([unbranded]);
+    expect(await matching(storeId, [{ field: 'price', operator: 'gt', value: '10000' }])).toEqual([
+      unbranded,
+    ]);
+    expect(await matching(storeId, [{ field: 'price', operator: 'lte', value: '5000' }])).toEqual([
+      acme,
+    ]);
+    expect(await matching(storeId, [{ field: 'inventory', operator: 'gt', value: '0' }])).toEqual([
+      acme,
+    ]);
+    expect(
+      await matching(storeId, [{ field: 'inventory', operator: 'equals', value: '0' }]),
+    ).toEqual([unbranded]);
 
     // AND narrows, OR widens — the same two rules, both ways round.
     const both = [
@@ -747,7 +768,9 @@ describe('collection membership', () => {
 
     // Idempotent: reconciling to the same set again changes nothing.
     await reconcileAutomatedMembership(collection.id, [b, c]);
-    expect((await findCollectionProductsPage(collection.id, 'created_desc', false, 1, 10)).total).toBe(2);
+    expect(
+      (await findCollectionProductsPage(collection.id, 'created_desc', false, 1, 10)).total,
+    ).toBe(2);
   });
 
   it('NEVER deletes a hand-picked membership, whatever scope the caller passes', async () => {
@@ -808,7 +831,10 @@ describe('collection membership', () => {
 
 describe('stable variant identity (#259)', () => {
   /** A connected `pull` connection for `storeId`, to stamp variants against. */
-  async function makeConnection(storeId: string, provider: 'shopify' | 'woocommerce' = 'woocommerce') {
+  async function makeConnection(
+    storeId: string,
+    provider: 'shopify' | 'woocommerce' = 'woocommerce',
+  ) {
     return upsertConnection(storeId, provider, {
       mode: 'pull',
       status: 'connected',
@@ -870,7 +896,11 @@ describe('stable variant identity (#259)', () => {
     await updateVariantColumns(
       listingId,
       variants[0].id,
-      { sourceConnectionId: conn.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '3001' },
+      {
+        sourceConnectionId: conn.id,
+        sourceProvider: 'woocommerce',
+        sourceExternalVariantId: '3001',
+      },
       undefined,
     );
 
@@ -879,7 +909,11 @@ describe('stable variant identity (#259)', () => {
       await updateVariantColumns(
         listingId,
         variants[1].id,
-        { sourceConnectionId: conn.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '3001' },
+        {
+          sourceConnectionId: conn.id,
+          sourceProvider: 'woocommerce',
+          sourceExternalVariantId: '3001',
+        },
         undefined,
       );
     } catch (error) {
@@ -902,13 +936,21 @@ describe('stable variant identity (#259)', () => {
     await updateVariantColumns(
       listingId,
       variants[0].id,
-      { sourceConnectionId: woo.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '3001' },
+      {
+        sourceConnectionId: woo.id,
+        sourceProvider: 'woocommerce',
+        sourceExternalVariantId: '3001',
+      },
       undefined,
     );
     const second = await updateVariantColumns(
       listingId,
       variants[1].id,
-      { sourceConnectionId: shopify.id, sourceProvider: 'shopify', sourceExternalVariantId: '3001' },
+      {
+        sourceConnectionId: shopify.id,
+        sourceProvider: 'shopify',
+        sourceExternalVariantId: '3001',
+      },
       undefined,
     );
 
@@ -925,18 +967,29 @@ describe('stable variant identity (#259)', () => {
     const storeId = await makeStore();
     const conn = await makeConnection(storeId);
     const { listingId: simpleListing, variants: simpleVariants } = await makeVariants(storeId, 1);
-    const { listingId: variableListing, variants: variableVariants } = await makeVariants(storeId, 1);
+    const { listingId: variableListing, variants: variableVariants } = await makeVariants(
+      storeId,
+      1,
+    );
 
     await updateVariantColumns(
       simpleListing,
       simpleVariants[0].id,
-      { sourceConnectionId: conn.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '111' },
+      {
+        sourceConnectionId: conn.id,
+        sourceProvider: 'woocommerce',
+        sourceExternalVariantId: '111',
+      },
       undefined,
     );
     const variable = await updateVariantColumns(
       variableListing,
       variableVariants[0].id,
-      { sourceConnectionId: conn.id, sourceProvider: 'woocommerce', sourceExternalVariantId: '3001' },
+      {
+        sourceConnectionId: conn.id,
+        sourceProvider: 'woocommerce',
+        sourceExternalVariantId: '3001',
+      },
       undefined,
     );
 
@@ -985,15 +1038,13 @@ describe("migration 0071's collapse of pre-existing violators", () => {
   /** The two halves of the migration, as SHIPPED, with the comments stripped. */
   function migrationStatements(): { collapse: string; createIndex: string } {
     const sql = readFileSync('drizzle/0071_lively_joseph.sql', 'utf8');
-    const [collapse, createIndex] = sql
-      .split('--> statement-breakpoint')
-      .map((half) =>
-        half
-          .split('\n')
-          .filter((line) => !line.trimStart().startsWith('--'))
-          .join('\n')
-          .trim(),
-      );
+    const [collapse, createIndex] = sql.split('--> statement-breakpoint').map((half) =>
+      half
+        .split('\n')
+        .filter((line) => !line.trimStart().startsWith('--'))
+        .join('\n')
+        .trim(),
+    );
     // A floor on the extraction itself: a split that matched nothing would hand
     // both assertions an empty string, and an empty string runs without error.
     expect(collapse.startsWith('UPDATE "product_variants"')).toBe(true);
@@ -1184,7 +1235,11 @@ describe('SKU and barcode identity (#296)', () => {
   /** Read the two identity columns back off the stored rows. */
   async function storedIdentity(variantIds: readonly string[]) {
     const rows = await db
-      .select({ id: productVariants.id, sku: productVariants.sku, barcode: productVariants.barcode })
+      .select({
+        id: productVariants.id,
+        sku: productVariants.sku,
+        barcode: productVariants.barcode,
+      })
       .from(productVariants)
       .where(inArray(productVariants.id, [...variantIds]));
     return rows;
@@ -1254,9 +1309,7 @@ describe('SKU and barcode identity (#296)', () => {
     // And the reader that used to be able to assume one answer now returns both,
     // which is what makes the refusal above possible rather than merely intended.
     const candidates = await findVariantsByListingAndSku(listingId, SHARED_SKU);
-    expect(candidates.map((row) => row.id).sort()).toEqual(
-      written.map((row) => row.id).sort(),
-    );
+    expect(candidates.map((row) => row.id).sort()).toEqual(written.map((row) => row.id).sort());
   });
 
   it('writes an EMPTY sku and barcode as NULL, and lets many NULLs coexist', async () => {
@@ -1697,9 +1750,9 @@ describe('variant-scoped images (#850)', () => {
     await replaceVariantImages(listingId, variantId, [], db);
     const cleared = await findVariantImages([variantId], db);
     expect(cleared.has(variantId)).toBe(false);
-    expect(resolveVariantImages(cleared.get(variantId) ?? [], [{ fileId: 'g', position: 0 }])).toEqual(
-      { source: 'listing_fallback', images: [{ fileId: 'g', position: 0 }] },
-    );
+    expect(
+      resolveVariantImages(cleared.get(variantId) ?? [], [{ fileId: 'g', position: 0 }]),
+    ).toEqual({ source: 'listing_fallback', images: [{ fileId: 'g', position: 0 }] });
   });
 
   it("REFUSES to attach another listing's photograph through the writer (#850)", async () => {

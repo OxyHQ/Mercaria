@@ -186,9 +186,7 @@ export function nextRunDelayMs(input: {
 }): number {
   const cadenceMs = (input.cadenceSeconds ?? 3_600) * 1_000;
   if (input.consecutiveFailures === 0) {
-    return input.retryAfterMs !== undefined
-      ? Math.max(cadenceMs, input.retryAfterMs)
-      : cadenceMs;
+    return input.retryAfterMs !== undefined ? Math.max(cadenceMs, input.retryAfterMs) : cadenceMs;
   }
   // 2^n minutes, capped. `n` is bounded before the shift so a long outage
   // cannot overflow it into a negative delay.

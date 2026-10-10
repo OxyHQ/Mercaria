@@ -201,7 +201,12 @@ export interface EbayConditionRule {
  */
 export const EBAY_RECOMMENDED_CONDITION_RULES: readonly EbayConditionRule[] = [
   { conditionId: '1000', name: 'New', conditionKey: 'new', confidence: 0.99 },
-  { conditionId: '1500', name: 'New other (see details)', conditionKey: 'open_box', confidence: 0.6 },
+  {
+    conditionId: '1500',
+    name: 'New other (see details)',
+    conditionKey: 'open_box',
+    confidence: 0.6,
+  },
   {
     conditionId: '2000',
     name: 'Certified - Refurbished',

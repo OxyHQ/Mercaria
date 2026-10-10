@@ -141,8 +141,12 @@ export function subjectFor(scope: PriceSignalScope, kind: PriceSignalKind): Pric
   const measure = PRICE_SIGNAL_MEASURE[kind];
   return {
     scopeKind: scope.scopeKind,
-    ...(scope.canonicalProductId === undefined ? {} : { canonicalProductId: scope.canonicalProductId }),
-    ...(scope.canonicalVariantId === undefined ? {} : { canonicalVariantId: scope.canonicalVariantId }),
+    ...(scope.canonicalProductId === undefined
+      ? {}
+      : { canonicalProductId: scope.canonicalProductId }),
+    ...(scope.canonicalVariantId === undefined
+      ? {}
+      : { canonicalVariantId: scope.canonicalVariantId }),
     segment: scope.segment,
     ...(scope.market === undefined ? {} : { market: scope.market }),
     currency: scope.currency,
@@ -238,7 +242,13 @@ function currentVersusRecentMedian(
   const subject = subjectFor(input.scope, kind);
   const focus = input.focusItemPrice;
   if (focus === undefined) {
-    return unmeasured(kind, subject, EMPTY_PRICE_SIGNAL_SAMPLE, 'no_eligible_current_offer', policy);
+    return unmeasured(
+      kind,
+      subject,
+      EMPTY_PRICE_SIGNAL_SAMPLE,
+      'no_eligible_current_offer',
+      policy,
+    );
   }
   if (input.historyItemPrice.length === 0) {
     return unmeasured(kind, subject, EMPTY_PRICE_SIGNAL_SAMPLE, 'no_comparable_history', policy);
@@ -275,7 +285,13 @@ function materialPriceDrop(
   const subject = subjectFor(input.scope, kind);
   const focus = input.focusItemPrice;
   if (focus === undefined) {
-    return unmeasured(kind, subject, EMPTY_PRICE_SIGNAL_SAMPLE, 'no_eligible_current_offer', policy);
+    return unmeasured(
+      kind,
+      subject,
+      EMPTY_PRICE_SIGNAL_SAMPLE,
+      'no_eligible_current_offer',
+      policy,
+    );
   }
   if (input.historyItemPrice.length === 0) {
     return unmeasured(kind, subject, EMPTY_PRICE_SIGNAL_SAMPLE, 'no_comparable_history', policy);
@@ -297,12 +313,24 @@ function materialPriceDrop(
   );
   const previous = byTimeDesc.find((entry) => entry.amount !== focus.amount);
   if (previous === undefined) {
-    return { kind, state: 'not_present', subject, sample: built.sample, policyVersion: policy.version };
+    return {
+      kind,
+      state: 'not_present',
+      subject,
+      sample: built.sample,
+      policyVersion: policy.version,
+    };
   }
 
   const deltaBps = priceDeltaBps(focus.amount, previous.amount);
   if (deltaBps > -policy.materialDropBps) {
-    return { kind, state: 'not_present', subject, sample: built.sample, policyVersion: policy.version };
+    return {
+      kind,
+      state: 'not_present',
+      subject,
+      sample: built.sample,
+      policyVersion: policy.version,
+    };
   }
 
   const current = input.values.get(focus.id);
@@ -354,7 +382,12 @@ function typicalRecentRange(
   const highEntry = highIndex === undefined ? undefined : built.kept[highIndex];
   const low = lowEntry === undefined ? undefined : input.values.get(lowEntry.id);
   const high = highEntry === undefined ? undefined : input.values.get(highEntry.id);
-  if (lowEntry === undefined || highEntry === undefined || low === undefined || high === undefined) {
+  if (
+    lowEntry === undefined ||
+    highEntry === undefined ||
+    low === undefined ||
+    high === undefined
+  ) {
     return unmeasured(kind, subject, built.sample, 'no_comparable_history', policy);
   }
 
@@ -410,7 +443,13 @@ function officialStorePosition(
   if (official.length === 0) {
     // MEASURED and absent: #55 has verified nobody as an official channel for
     // this brand, which is the ordinary state and a fact rather than a gap.
-    return { kind, state: 'not_present', subject, sample: built.sample, policyVersion: policy.version };
+    return {
+      kind,
+      state: 'not_present',
+      subject,
+      sample: built.sample,
+      policyVersion: policy.version,
+    };
   }
 
   const shortfall = priceSampleShortfall(built.sample, policy);
@@ -443,7 +482,13 @@ function priceQualityLabel(
   const subject = subjectFor(input.scope, kind);
   const focus = input.focusItemPrice;
   if (focus === undefined) {
-    return unmeasured(kind, subject, EMPTY_PRICE_SIGNAL_SAMPLE, 'no_eligible_current_offer', policy);
+    return unmeasured(
+      kind,
+      subject,
+      EMPTY_PRICE_SIGNAL_SAMPLE,
+      'no_eligible_current_offer',
+      policy,
+    );
   }
 
   const built = buildSample(input.currentItemPrice, {

@@ -54,7 +54,12 @@ const STORE_REVIEWS_PAGE_LIMIT = 20;
  * Returns the paginated envelope (each `Review` hydrated with `product` context)
  * so the store menu sheet's Reviews page can render product-thumbnail cards.
  */
-export function useStoreReviews(handle: string, page = 1, limit = STORE_REVIEWS_PAGE_LIMIT, query = '') {
+export function useStoreReviews(
+  handle: string,
+  page = 1,
+  limit = STORE_REVIEWS_PAGE_LIMIT,
+  query = '',
+) {
   return useQuery<PaginatedResponse<Review>>({
     queryKey: queryKeys.stores.reviews(handle, page, limit, query),
     queryFn: () => fetchStoreReviews(handle, { page, limit, query }),

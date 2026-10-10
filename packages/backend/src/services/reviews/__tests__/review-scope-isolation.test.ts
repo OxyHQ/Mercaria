@@ -212,9 +212,10 @@ describe('#76 wall 1 — a brand rating is unrepresentable', () => {
       REVIEW_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
     expect(from('services/reviews/'), 'the service walk found nothing').toBeGreaterThanOrEqual(5);
     expect(from('db/reviews/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
-    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(
-      2,
-    );
+    expect(
+      httpSurface().length,
+      'the HTTP surface derivation found nothing',
+    ).toBeGreaterThanOrEqual(2);
     // EXACT: the one hand list left is an identity, not a predicate (#448).
     expect(LEGACY_REVIEW_PATHS.length, 'the legacy review list changed size').toBe(1);
 
@@ -304,21 +305,25 @@ describe('#76 wall 3 — no forbidden signal can be an evidence type', () => {
   it('names every source the issue calls out by name', () => {
     // A list that lost an entry would still be "disjoint" and would stop
     // refusing the thing it was written for, so the entries are pinned.
-    assertEachOf([
-      'email_match',
-      'stripe_customer',
-      'stripe_link',
-      'wallet',
-      'card_fingerprint',
-      'payment_method',
-      'affiliate_click',
-      'conversion_report',
-      'portal_token',
-      'checkout_token',
-      'guest_session_possession',
-    ], 11, (named) => {
-      expect(REVIEW_FORBIDDEN_EVIDENCE_SOURCES).toContain(named);
-    });
+    assertEachOf(
+      [
+        'email_match',
+        'stripe_customer',
+        'stripe_link',
+        'wallet',
+        'card_fingerprint',
+        'payment_method',
+        'affiliate_click',
+        'conversion_report',
+        'portal_token',
+        'checkout_token',
+        'guest_session_possession',
+      ],
+      11,
+      (named) => {
+        expect(REVIEW_FORBIDDEN_EVIDENCE_SOURCES).toContain(named);
+      },
+    );
   });
 
   it('both evidence types are a PURCHASE', () => {
@@ -397,8 +402,10 @@ describe('#76 — the scope/dimension vocabulary keeps product and service apart
     // A scope with an empty list would pass every exclusion above by having
     // nothing to exclude.
     for (const scope of REVIEW_SCOPES) {
-      expect(REVIEW_SCOPE_DIMENSION_KEYS[scope].length, `${scope} declares no dimensions`)
-        .toBeGreaterThan(0);
+      expect(
+        REVIEW_SCOPE_DIMENSION_KEYS[scope].length,
+        `${scope} declares no dimensions`,
+      ).toBeGreaterThan(0);
     }
   });
 });

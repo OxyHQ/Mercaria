@@ -369,10 +369,7 @@ export const ATTRIBUTE_SELECTION_STATES: readonly AttributeSelectionState[] = [
  * same value; `operator_verified` means a person decided. Neither is derivable
  * from a confidence number, which is why both exist.
  */
-export type AttributeVerificationState =
-  | 'unverified'
-  | 'corroborated'
-  | 'operator_verified';
+export type AttributeVerificationState = 'unverified' | 'corroborated' | 'operator_verified';
 
 export const ATTRIBUTE_VERIFICATION_STATES: readonly AttributeVerificationState[] = [
   'unverified',
@@ -433,10 +430,7 @@ export const ATTRIBUTE_EVIDENCE_POLICIES: readonly AttributeEvidencePolicy[] = [
  */
 export type AttributeObjectivity = 'objective' | 'subjective';
 
-export const ATTRIBUTE_OBJECTIVITIES: readonly AttributeObjectivity[] = [
-  'objective',
-  'subjective',
-];
+export const ATTRIBUTE_OBJECTIVITIES: readonly AttributeObjectivity[] = ['objective', 'subjective'];
 
 /**
  * Attribute keys the registry REFUSES to define, because each names a fact that

@@ -174,11 +174,7 @@ router.post(
 router.get('/suppressions', listRetailSuppressionsHandler);
 
 /** POST — THE emergency stop. A committed row blocks the next derivation. */
-router.post(
-  '/suppressions',
-  validateBody(retailSuppressionSchema),
-  raiseRetailSuppressionHandler,
-);
+router.post('/suppressions', validateBody(retailSuppressionSchema), raiseRetailSuppressionHandler);
 
 /** POST — put a subject back on sale. The row survives; the lift is audited. */
 router.post(

@@ -544,9 +544,10 @@ describe('a variant-level filter set is answered by ONE variant (#567)', () => {
     // The two `exists` therefore both have to correlate to the SAME `cv`, which
     // is #567's property surviving #616 rather than being traded for it.
     const search = await searchIds(RED_AND_43);
-    expect(search, 'the MIXED control is missing — the cross-table filter matches NOTHING').toContain(
-      mixedGenuineProductId,
-    );
+    expect(
+      search,
+      'the MIXED control is missing — the cross-table filter matches NOTHING',
+    ).toContain(mixedGenuineProductId);
     expect(
       search,
       'the cross-table CROSSED product was returned: colour from one variant, size from another',

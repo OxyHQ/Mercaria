@@ -347,7 +347,10 @@ export async function transitionPurchaseOrder(
         updatedAt: at,
       })
       .where(
-        and(eq(purchaseOrders.id, input.purchaseOrderId), eq(purchaseOrders.status, input.expected)),
+        and(
+          eq(purchaseOrders.id, input.purchaseOrderId),
+          eq(purchaseOrders.status, input.expected),
+        ),
       )
       .returning();
     if (!row) return undefined;

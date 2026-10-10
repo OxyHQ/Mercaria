@@ -208,9 +208,7 @@ function assertReportSums(input: {
 }
 
 /** What #367 step 4 has left unresolved, quoted rather than recomputed. */
-async function readRetainedClaims(
-  db: DatabaseOrTransaction,
-): Promise<LegacyRetainedClaimSummary> {
+async function readRetainedClaims(db: DatabaseOrTransaction): Promise<LegacyRetainedClaimSummary> {
   const queued = await countQueuedClaims(db);
   return {
     queued: queued.queued,
@@ -332,28 +330,30 @@ export async function runLegacyCatalogClassification(
   });
 
   const bySubject = Object.fromEntries(
-    LEGACY_CATALOG_SUBJECT_KINDS.map((subject): [LegacyCatalogSubjectKind, LegacyCatalogSubjectResult] => {
-      const classifier = LEGACY_CATALOG_SUBJECT_CLASSIFIERS[subject];
-      if (classifier !== 'catalog_backfill') {
-        return [subject, { state: 'classified_elsewhere', classifier }];
-      }
-      const tally = tallies.get(subject);
-      if (tally === undefined) {
-        return [
-          subject,
-          {
-            state: 'not_in_this_pass',
-            note:
-              `a whole-catalogue subject runs on the FIRST page of the 'all' cohort only, and ` +
-              `this pass is ${firstPage ? '' : 'a later page of '}cohort '${cohortLabel(cohort)}'. ` +
-              'A paged or cohort-scoped aggregate produces groups that are not the real groups. ' +
-              "Today that is the vendor pass, whose grain is the normalized value rather than " +
-              'the listing',
-          },
-        ];
-      }
-      return [subject, { state: 'tallied', tally: tally.freeze() }];
-    }),
+    LEGACY_CATALOG_SUBJECT_KINDS.map(
+      (subject): [LegacyCatalogSubjectKind, LegacyCatalogSubjectResult] => {
+        const classifier = LEGACY_CATALOG_SUBJECT_CLASSIFIERS[subject];
+        if (classifier !== 'catalog_backfill') {
+          return [subject, { state: 'classified_elsewhere', classifier }];
+        }
+        const tally = tallies.get(subject);
+        if (tally === undefined) {
+          return [
+            subject,
+            {
+              state: 'not_in_this_pass',
+              note:
+                `a whole-catalogue subject runs on the FIRST page of the 'all' cohort only, and ` +
+                `this pass is ${firstPage ? '' : 'a later page of '}cohort '${cohortLabel(cohort)}'. ` +
+                'A paged or cohort-scoped aggregate produces groups that are not the real groups. ' +
+                'Today that is the vendor pass, whose grain is the normalized value rather than ' +
+                'the listing',
+            },
+          ];
+        }
+        return [subject, { state: 'tallied', tally: tally.freeze() }];
+      },
+    ),
   ) as Record<LegacyCatalogSubjectKind, LegacyCatalogSubjectResult>;
 
   return {

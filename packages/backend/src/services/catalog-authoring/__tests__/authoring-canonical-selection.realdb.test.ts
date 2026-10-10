@@ -257,9 +257,11 @@ async function authorDraft(options: {
 }
 
 /** The findings `validateStoreDraft` answers for one authored draft. */
-async function validateWith(
-  options: Parameters<typeof authorDraft>[0],
-): Promise<{ codes: string[]; findings: readonly { code: string; severity: string; path: string }[]; publishable: boolean }> {
+async function validateWith(options: Parameters<typeof authorDraft>[0]): Promise<{
+  codes: string[];
+  findings: readonly { code: string; severity: string; path: string }[];
+  publishable: boolean;
+}> {
   const draftId = await authorDraft(options);
   const result = await validateStoreDraft(db, {
     storeId,

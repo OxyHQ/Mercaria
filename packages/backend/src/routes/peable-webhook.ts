@@ -30,7 +30,10 @@
  */
 
 import express, { Router, type Request, type Response } from 'express';
-import { ingestPeableDelivery, type PeableIngressResult } from '../services/payments/peable/ingress.js';
+import {
+  ingestPeableDelivery,
+  type PeableIngressResult,
+} from '../services/payments/peable/ingress.js';
 
 const router: Router = Router();
 

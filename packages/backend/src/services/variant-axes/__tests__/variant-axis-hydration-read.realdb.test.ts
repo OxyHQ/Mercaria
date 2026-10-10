@@ -51,10 +51,7 @@ import {
   draftAttributeDefinition,
   publishAttributeDefinition,
 } from '../../attributes/definition-registry.service.js';
-import {
-  declareListingVariantAxes,
-  writeVariantAxisValues,
-} from '../variant-axes.service.js';
+import { declareListingVariantAxes, writeVariantAxisValues } from '../variant-axes.service.js';
 import { projectTypedListingAxes } from '../projection.js';
 
 let db: Database;

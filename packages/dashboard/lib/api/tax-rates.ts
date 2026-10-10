@@ -3,9 +3,9 @@ import type {
   TaxRate,
   CreateTaxRateInput,
   UpdateTaxRateInput,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/tax-rates`;
 
@@ -16,10 +16,7 @@ export async function fetchTaxRates(storeId: string): Promise<TaxRate[]> {
 }
 
 /** POST a new tax rate. */
-export async function createTaxRate(
-  storeId: string,
-  input: CreateTaxRateInput,
-): Promise<TaxRate> {
+export async function createTaxRate(storeId: string, input: CreateTaxRateInput): Promise<TaxRate> {
   const { data } = await apiClient.post<ApiResponse<TaxRate>>(base(storeId), input);
   return unwrap(data);
 }

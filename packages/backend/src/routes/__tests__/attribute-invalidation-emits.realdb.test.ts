@@ -57,7 +57,10 @@ import { uuidv7 } from '@oxy.so/db';
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import type { AttributeReindexReason } from '@mercaria/shared-types';
 import type { Database } from '../../db/postgres.js';
-import { attributeReindexRequests, attributeSourceMappings } from '../../db/schema/attributeRegistry.js';
+import {
+  attributeReindexRequests,
+  attributeSourceMappings,
+} from '../../db/schema/attributeRegistry.js';
 import { canonicalAttributeValues } from '../../db/schema/canonicalCatalog.js';
 import { catalogRevisions } from '../../db/schema/curation.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
@@ -87,11 +90,7 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {},
-  optionalAuth: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
     next();
   },
 }));
@@ -173,7 +172,9 @@ beforeAll(async () => {
       externalType: 'product',
       externalId: `emit-${RUN}`,
       observedAt: new Date(),
-      contentHash: RUN.padEnd(64, '0').slice(0, 64).replace(/[^0-9a-f]/gu, '0'),
+      contentHash: RUN.padEnd(64, '0')
+        .slice(0, 64)
+        .replace(/[^0-9a-f]/gu, '0'),
     })
     .returning();
   if (!record) throw new Error('source record insert returned no row');
@@ -421,7 +422,9 @@ describe('POST /internal/catalog-attributes/source-mappings emits a reindex', ()
     // And the previous key is still covered — the under-enqueue direction is the
     // bug, so this is asserted on the key the mapping just stopped pointing at.
     expect(
-      (await reindexRows(KEY_MAPPED, 'normalization_rules_changed')).map((row) => row.entityId).sort(),
+      (await reindexRows(KEY_MAPPED, 'normalization_rules_changed'))
+        .map((row) => row.entityId)
+        .sort(),
       'the OLD key lost its coverage',
     ).toEqual([productId, variantAbsentProductId].sort());
 

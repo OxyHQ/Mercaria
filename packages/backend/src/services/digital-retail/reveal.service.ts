@@ -38,7 +38,11 @@ import {
   readSealedArtifact,
   recordReveal,
 } from '../../db/digitalRetail/digitalFulfilmentRepository.js';
-import { environmentKeyResolver, unsealArtifactSecret, type SealingKeyResolver } from './secrets.js';
+import {
+  environmentKeyResolver,
+  unsealArtifactSecret,
+  type SealingKeyResolver,
+} from './secrets.js';
 
 /** Why a reveal did not happen. Closed, and every member is actionable. */
 export type RevealRefusalReason =

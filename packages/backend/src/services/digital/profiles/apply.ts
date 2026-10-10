@@ -296,7 +296,7 @@ export async function applyThreeDProfilePackage(
         agrees
           ? undefined
           : `stored (name='${existing.name}', slug='${existing.slug}', selectable=${existing.selectable}) ` +
-            `differs from the package (name='${category.name}', slug='${slug}', selectable=${category.selectable})`,
+              `differs from the package (name='${category.name}', slug='${slug}', selectable=${category.selectable})`,
       );
       continue;
     }
@@ -375,7 +375,7 @@ export async function applyThreeDProfilePackage(
         agrees
           ? undefined
           : `stored (valueType='${active.row.valueType}', variantDefining=${active.row.variantDefining}) ` +
-            `differs from the package (valueType='${attribute.valueType}', variantDefining=${attribute.variantDefining ?? false})`,
+              `differs from the package (valueType='${attribute.valueType}', variantDefining=${attribute.variantDefining ?? false})`,
       );
       continue;
     }
@@ -461,7 +461,11 @@ export async function applyThreeDProfilePackage(
       // plan that stopped there would tell an operator a profile is one row when
       // it is one row plus up to twenty fields.
       for (const field of profile.fields) {
-        rec.record('product_type_field', `${profile.key}/${field.flow}/${field.attributeKey}`, 'create');
+        rec.record(
+          'product_type_field',
+          `${profile.key}/${field.flow}/${field.attributeKey}`,
+          'create',
+        );
       }
       continue;
     }
@@ -585,7 +589,8 @@ export async function applyThreeDProfilePackage(
 
   /* -------------------------------------------------------------- licences */
   const licences = await applyReferenceLicences(pkg, { apply: options.apply }, db);
-  for (const step of licences.steps) rec.record(step.entity, step.identity, step.outcome, step.detail);
+  for (const step of licences.steps)
+    rec.record(step.entity, step.identity, step.outcome, step.detail);
 
   return {
     report: {
@@ -624,7 +629,8 @@ export function profileVocabularyFingerprint(pkg: ThreeDProfilePackage): string 
   const material = [
     ...pkg.categories.map((category) => `c:${category.key}`),
     ...pkg.attributes.map(
-      (attribute) => `a:${attribute.key}:${attribute.valueType}:${attribute.variantDefining ?? false}`,
+      (attribute) =>
+        `a:${attribute.key}:${attribute.valueType}:${attribute.variantDefining ?? false}`,
     ),
     ...pkg.profiles.flatMap((profile) => [
       `p:${profile.key}@${profile.version}`,
@@ -650,7 +656,9 @@ export function disagreementsWithPublishedVocabulary(pkg: ThreeDProfilePackage):
   const declared = pkg.profiles.map((profile) => profile.key);
   for (const key of THREE_D_PROFILE_KEYS) {
     if (!declared.includes(key)) {
-      problems.push(`THREE_D_PROFILE_KEYS names '${key}' and the package declares no profile for it.`);
+      problems.push(
+        `THREE_D_PROFILE_KEYS names '${key}' and the package declares no profile for it.`,
+      );
     }
   }
   const slugs = MERCARIA_REFERENCE_LICENCES.map((licence) => licence.slug);

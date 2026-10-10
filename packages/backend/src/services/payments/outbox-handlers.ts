@@ -78,9 +78,7 @@ function readPayload(event: PaymentOutboxRow): PaymentEventPayload {
       : {}),
     ...(typeof record.orderId === 'string' ? { orderId: record.orderId } : {}),
     ...(typeof record.sellerKey === 'string' ? { sellerKey: record.sellerKey } : {}),
-    ...(typeof record.releasedStatus === 'string'
-      ? { releasedStatus: record.releasedStatus }
-      : {}),
+    ...(typeof record.releasedStatus === 'string' ? { releasedStatus: record.releasedStatus } : {}),
     ...(typeof record.guestCheckoutId === 'string'
       ? { guestCheckoutId: record.guestCheckoutId }
       : {}),
@@ -185,7 +183,10 @@ async function handlePaymentSucceeded(event: PaymentOutboxRow): Promise<void> {
   // sellers. A rail that is refusing transfers must not also be the reason a
   // buyer cannot find their purchase — the same ordering, and the same reason,
   // as paying the orders before settling them.
-  await requestGuestPortalInitialization(checkoutGroupId, orders.map((order) => order.id));
+  await requestGuestPortalInitialization(
+    checkoutGroupId,
+    orders.map((order) => order.id),
+  );
 
   // ADR 0004 D4 step 4: the paid transition of a retail order is the ONE moment
   // supplier procurement may begin, because the customer's money is now fully
@@ -229,7 +230,6 @@ async function handleRetailOutboxEvent(event: PaymentOutboxRow): Promise<void> {
     '[Retail] outbox row handled by the retail-checkout consumer',
   );
 }
-
 
 /**
  * A guest-origin group's payment is verified: hand #108 the durable, idempotent
@@ -325,7 +325,13 @@ async function handleGuestPortalInitialization(event: PaymentOutboxRow): Promise
   );
 
   log.general.info(
-    { eventId: event.id, checkoutGroupId, guestCheckoutId, orders: orderIds?.length ?? 0, enqueued },
+    {
+      eventId: event.id,
+      checkoutGroupId,
+      guestCheckoutId,
+      orders: orderIds?.length ?? 0,
+      enqueued,
+    },
     enqueued
       ? '[Payments] guest order confirmation enqueued for a verified guest payment'
       : '[Payments] guest order confirmation was already owed for this group; nothing enqueued',
@@ -557,7 +563,15 @@ async function handleTransferChanged(event: PaymentOutboxRow): Promise<void> {
  */
 async function handlePayoutChanged(event: PaymentOutboxRow): Promise<void> {
   const { payoutId, sellerKey, status, amountMinor, currency, failureCode } = readPayload(event);
-  const details = { eventId: event.id, payoutId, sellerKey, status, amountMinor, currency, failureCode };
+  const details = {
+    eventId: event.id,
+    payoutId,
+    sellerKey,
+    status,
+    amountMinor,
+    currency,
+    failureCode,
+  };
   if (status === 'failed') {
     log.general.error(
       details,

@@ -56,7 +56,11 @@ const CORRECTION_SUBJECT_VALUES = CATALOG_CORRECTION_SUBJECTS as readonly [
 
 const entityId = z.string().trim().min(1).max(64);
 /** ISO 3166-1 alpha-2, matching `offers_country_check` rather than approximating it. */
-const market = z.string().trim().length(2).regex(/^[A-Za-z]{2}$/);
+const market = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/);
 /** A category SLUG, not an id: what a URL carries and what a shopper can read. */
 const categorySlug = z.string().trim().min(1).max(128);
 

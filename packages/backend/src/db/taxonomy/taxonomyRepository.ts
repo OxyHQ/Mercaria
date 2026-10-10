@@ -670,7 +670,9 @@ export async function resolveCategoryRedirect(
       subject.kind === 'category_id'
         ? await findCategoryRow(subject.categoryId, db)
         : await findCategoryBySlugRow(subject.slug, db);
-    return row ? { outcome: 'current', category: toTaxonomyCategory(row) } : { outcome: 'unresolved' };
+    return row
+      ? { outcome: 'current', category: toTaxonomyCategory(row) }
+      : { outcome: 'unresolved' };
   }
 
   let targetId = first.targetCategoryId;

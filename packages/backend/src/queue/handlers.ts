@@ -11,10 +11,7 @@
  */
 
 import type { NotificationType } from '../db/schema/notifications.js';
-import {
-  findOrderById,
-  findStalePendingOrders,
-} from '../db/orders/orderRepository.js';
+import { findOrderById, findStalePendingOrders } from '../db/orders/orderRepository.js';
 import { findStoreById } from '../db/stores/storeRepository.js';
 import { findPublishedReviewTargets } from '../db/reviews/reviewRepository.js';
 import { SYSTEM_ACTOR, transition } from '../services/order.service.js';
@@ -52,7 +49,10 @@ const EVENT_TO_BUYER_TYPE: Record<OrderEvent, NotificationType> = {
 /** Human title/body for the buyer notification per event. */
 const BUYER_COPY: Record<OrderEvent, { title: string; body: string }> = {
   placed: { title: 'Order placed', body: 'Your order has been placed.' },
-  paid: { title: 'Payment received', body: 'Your payment was received and your order is confirmed.' },
+  paid: {
+    title: 'Payment received',
+    body: 'Your payment was received and your order is confirmed.',
+  },
   shipped: { title: 'Order shipped', body: 'Your order is on its way.' },
   delivered: { title: 'Order delivered', body: 'Your order has been delivered.' },
   cancelled: { title: 'Order cancelled', body: 'Your order has been cancelled.' },
@@ -98,7 +98,10 @@ export async function handleRecomputeAggregates(job: RecomputeAggregatesJob): Pr
 export async function handleOrderEventNotification(job: OrderEventNotificationJob): Promise<void> {
   const order = await findOrderById(job.orderId);
   if (!order) {
-    log.general.warn({ orderId: job.orderId, event: job.event }, 'Order-event notification: order not found');
+    log.general.warn(
+      { orderId: job.orderId, event: job.event },
+      'Order-event notification: order not found',
+    );
     return;
   }
 
@@ -207,10 +210,7 @@ export async function handleExpireReservations(): Promise<void> {
         releasedGroups.add(order.checkoutGroupId);
       }
     } catch (err) {
-      log.general.warn(
-        { err, orderId: order.id },
-        'Failed to expire reservation (skipping order)',
-      );
+      log.general.warn({ err, orderId: order.id }, 'Failed to expire reservation (skipping order)');
     }
   }
 
@@ -272,7 +272,10 @@ export async function handleAggregateSweep(): Promise<void> {
       await recomputeAggregate(targetType, targetId);
       recomputed += 1;
     } catch (err) {
-      log.general.warn({ err, targetType, targetId }, 'Aggregate sweep: recompute failed (skipping)');
+      log.general.warn(
+        { err, targetType, targetId },
+        'Aggregate sweep: recompute failed (skipping)',
+      );
     }
   }
 
@@ -308,9 +311,7 @@ export async function handleScopedAggregateSweep(): Promise<void> {
   const drifted: { scope: string; targetId: string }[] = [];
 
   for (let pass = 0; pass < MAX_SWEEP_PASSES; pass += 1) {
-    const report = await rebuildReviewAggregates(
-      cursor === null ? {} : { afterTargetKey: cursor },
-    );
+    const report = await rebuildReviewAggregates(cursor === null ? {} : { afterTargetKey: cursor });
     scanned += report.scanned;
     for (const drift of report.drifted) {
       drifted.push({ scope: drift.scope, targetId: drift.targetId });
@@ -346,9 +347,7 @@ export async function handleScopedAggregateSweep(): Promise<void> {
  * re-runs with `includeAmbiguous` after landing the facts.
  */
 export async function handleReviewClassificationSweep(): Promise<void> {
-  const { classifyLegacyReviews } = await import(
-    '../services/reviews/review-migration.service.js'
-  );
+  const { classifyLegacyReviews } = await import('../services/reviews/review-migration.service.js');
 
   let scanned = 0;
   let classified = 0;
@@ -420,9 +419,7 @@ export async function handleConnectionWebhookReregister(
  * Delegates by dynamic import — same cycle-breaking reason as
  * {@link handleConnectionBackfill}.
  */
-export async function handleConnectionWebhookAudit(
-  job: ConnectionWebhookAuditJob,
-): Promise<void> {
+export async function handleConnectionWebhookAudit(job: ConnectionWebhookAuditJob): Promise<void> {
   const { auditConnectionWebhooks } = await import('../services/connector-sync.service.js');
   await auditConnectionWebhooks(job.storeId, job.connectionId);
 }

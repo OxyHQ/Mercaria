@@ -1,9 +1,4 @@
-import type {
-  Listing,
-  ListingQuery,
-  PaginatedResponse,
-  ApiResponse,
-} from '@mercaria/shared-types';
+import type { Listing, ListingQuery, PaginatedResponse, ApiResponse } from '@mercaria/shared-types';
 import apiClient from './client';
 
 /**

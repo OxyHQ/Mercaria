@@ -59,13 +59,19 @@ import { MercariaLocationRefSchema, MercariaStoreRefSchema } from './refs';
  */
 export const MERCARIA_LOCATION_AVAILABILITIES = LOCATION_AVAILABILITY_STATES;
 export const MercariaLocationAvailabilitySchema = z.enum(
-  MERCARIA_LOCATION_AVAILABILITIES as readonly [LocationAvailabilityState, ...LocationAvailabilityState[]],
+  MERCARIA_LOCATION_AVAILABILITIES as readonly [
+    LocationAvailabilityState,
+    ...LocationAvailabilityState[],
+  ],
 );
 export type MercariaLocationAvailability = z.infer<typeof MercariaLocationAvailabilitySchema>;
 
 /** What a person must present to collect an order here. */
 export const MercariaPickupIdentityRequirementSchema = z.enum(
-  PICKUP_IDENTITY_REQUIREMENTS as readonly [PickupIdentityRequirement, ...PickupIdentityRequirement[]],
+  PICKUP_IDENTITY_REQUIREMENTS as readonly [
+    PickupIdentityRequirement,
+    ...PickupIdentityRequirement[],
+  ],
 );
 
 /** How a collection is paid for. Every Mercaria collection is paid at checkout. */
@@ -77,7 +83,10 @@ export const MercariaPickupPaymentRequirementSchema = z.enum(
 export const MercariaLocationPickupSchema = z.object({
   identityRequirement: MercariaPickupIdentityRequirementSchema,
   paymentRequirement: MercariaPickupPaymentRequirementSchema,
-  instructions: z.string().nullable().describe('What to do on arrival, in the merchant’s words, or null.'),
+  instructions: z
+    .string()
+    .nullable()
+    .describe('What to do on arrival, in the merchant’s words, or null.'),
 });
 export type MercariaLocationPickup = z.infer<typeof MercariaLocationPickupSchema>;
 
@@ -107,7 +116,9 @@ export const MercariaLocationSchema = z.object({
       'Whether Mercaria’s own nearby search and collection checkout route shoppers here right now. ' +
         'False says nothing about why.',
     ),
-  url: MercariaHttpUrlSchema.describe('The canonical Mercaria web URL for this location: its store’s page, opened on it.'),
+  url: MercariaHttpUrlSchema.describe(
+    'The canonical Mercaria web URL for this location: its store’s page, opened on it.',
+  ),
 });
 export type MercariaLocation = z.infer<typeof MercariaLocationSchema>;
 

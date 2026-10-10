@@ -17,8 +17,8 @@ import {
   type PlaceCreateInput,
   type PlaceHoursExceptionInput,
   type SearchResult,
-} from "@goway.to/sdk";
-import { parseRanges } from "./hours";
+} from '@goway.to/sdk';
+import { parseRanges } from './hours';
 
 /** The "create a place" form, as text. */
 export interface PlaceDraft {
@@ -34,15 +34,15 @@ export interface PlaceDraft {
 }
 
 export const EMPTY_PLACE_DRAFT: PlaceDraft = {
-  name: "",
-  street: "",
-  houseNumber: "",
-  postalCode: "",
-  city: "",
-  region: "",
-  countryCode: "",
-  latitude: "",
-  longitude: "",
+  name: '',
+  street: '',
+  houseNumber: '',
+  postalCode: '',
+  city: '',
+  region: '',
+  countryCode: '',
+  latitude: '',
+  longitude: '',
 };
 
 /**
@@ -54,12 +54,12 @@ export function draftFromSearchResult(result: SearchResult, name: string): Place
   const address = result.address ?? {};
   return {
     name,
-    street: address.street ?? "",
-    houseNumber: address.houseNumber ?? "",
-    postalCode: address.postalCode ?? "",
-    city: address.city ?? result.context?.city ?? "",
-    region: address.region ?? result.context?.region ?? "",
-    countryCode: address.countryCode ?? result.context?.countryCode ?? "",
+    street: address.street ?? '',
+    houseNumber: address.houseNumber ?? '',
+    postalCode: address.postalCode ?? '',
+    city: address.city ?? result.context?.city ?? '',
+    region: address.region ?? result.context?.region ?? '',
+    countryCode: address.countryCode ?? result.context?.countryCode ?? '',
     latitude: String(result.coordinate.latitude),
     longitude: String(result.coordinate.longitude),
   };
@@ -67,7 +67,7 @@ export function draftFromSearchResult(result: SearchResult, name: string): Place
 
 function nonEmpty(value: string): string | undefined {
   const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed;
+  return trimmed === '' ? undefined : trimmed;
 }
 
 /**
@@ -81,25 +81,26 @@ export function placeCreateInputOf(
   draft: PlaceDraft,
 ): { ok: true; input: PlaceCreateInput } | { ok: false; errorKey: string } {
   const name = nonEmpty(draft.name);
-  if (name === undefined) return { ok: false, errorKey: "settings.locations.editor.create.nameRequired" };
+  if (name === undefined)
+    return { ok: false, errorKey: 'settings.locations.editor.create.nameRequired' };
 
   const countryCode = nonEmpty(draft.countryCode);
   if (countryCode === undefined || !/^[A-Za-z]{2}$/.test(countryCode)) {
-    return { ok: false, errorKey: "settings.locations.editor.create.countryRequired" };
+    return { ok: false, errorKey: 'settings.locations.editor.create.countryRequired' };
   }
 
   const latitude = Number(draft.latitude.trim());
   const longitude = Number(draft.longitude.trim());
   if (
-    draft.latitude.trim() === "" ||
-    draft.longitude.trim() === "" ||
+    draft.latitude.trim() === '' ||
+    draft.longitude.trim() === '' ||
     !Number.isFinite(latitude) ||
     !Number.isFinite(longitude) ||
     Math.abs(latitude) > 90 ||
     Math.abs(longitude) > 180 ||
     (latitude === 0 && longitude === 0)
   ) {
-    return { ok: false, errorKey: "settings.locations.editor.create.positionRequired" };
+    return { ok: false, errorKey: 'settings.locations.editor.create.positionRequired' };
   }
 
   const street = nonEmpty(draft.street);
@@ -132,11 +133,19 @@ export interface ContactDraft {
 }
 
 export function contactDraftOf(contact: PlaceContact | undefined): ContactDraft {
-  return { phone: contact?.phone ?? "", email: contact?.email ?? "", website: contact?.website ?? "" };
+  return {
+    phone: contact?.phone ?? '',
+    email: contact?.email ?? '',
+    website: contact?.website ?? '',
+  };
 }
 
 /** The `contact` part of a GoWay merge patch: absent leaves a part alone, `null` clears it. */
-export type ContactPatch = { phone?: string | null; email?: string | null; website?: string | null };
+export type ContactPatch = {
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+};
 
 /**
  * The `contact` update a draft says, as a merge patch (`PATCH /places/{id}`).
@@ -152,42 +161,42 @@ export function contactInputOf(
 ): { ok: true; contact: ContactPatch } | { ok: false; errorKey: string } {
   const website = nonEmpty(draft.website);
   if (website !== undefined && !/^https?:\/\//i.test(website)) {
-    return { ok: false, errorKey: "settings.locations.editor.contact.websiteInvalid" };
+    return { ok: false, errorKey: 'settings.locations.editor.contact.websiteInvalid' };
   }
   const email = nonEmpty(draft.email);
   if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { ok: false, errorKey: "settings.locations.editor.contact.emailInvalid" };
+    return { ok: false, errorKey: 'settings.locations.editor.contact.emailInvalid' };
   }
   const phone = nonEmpty(draft.phone);
   const part = (key: keyof ContactDraft, value: string | undefined): ContactPatch => {
     const patch: ContactPatch = {};
     const held = current?.[key];
     if (value !== undefined) patch[key] = value;
-    else if (typeof held === "string" && held.trim() !== "") patch[key] = null;
+    else if (typeof held === 'string' && held.trim() !== '') patch[key] = null;
     return patch;
   };
   return {
     ok: true,
-    contact: { ...part("phone", phone), ...part("email", email), ...part("website", website) },
+    contact: { ...part('phone', phone), ...part('email', email), ...part('website', website) },
   };
 }
 
 /** The four GoWay accessibility flags that absorbed Mercaria's own four, in display order. */
 export const ACCESSIBILITY_FLAGS = [
-  "accessibility.step_free_entrance",
-  "accessibility.toilets_wheelchair",
-  "accessibility.parking_accessible",
-  "accessibility.hearing_loop",
+  'accessibility.step_free_entrance',
+  'accessibility.toilets_wheelchair',
+  'accessibility.parking_accessible',
+  'accessibility.hearing_loop',
 ] as const;
 
 export type AccessibilityFlag = (typeof ACCESSIBILITY_FLAGS)[number];
 
 /** The three-valued wheelchair key GoWay reads from OpenStreetMap. */
-export const WHEELCHAIR_KEY = "accessibility.wheelchair" as const;
+export const WHEELCHAIR_KEY = 'accessibility.wheelchair' as const;
 
 /** What the editor shows per key: the place's strongest assertion, or none. */
-export type FlagChoice = "yes" | "no" | "unset";
-export type WheelchairChoice = "yes" | "limited" | "no" | "unset";
+export type FlagChoice = 'yes' | 'no' | 'unset';
+export type WheelchairChoice = 'yes' | 'limited' | 'no' | 'unset';
 
 export interface AccessibilityChoices {
   flags: Record<AccessibilityFlag, FlagChoice>;
@@ -195,31 +204,35 @@ export interface AccessibilityChoices {
 }
 
 export const ACCESSIBILITY_FLAG_LABEL_KEYS: Record<AccessibilityFlag, string> = {
-  "accessibility.step_free_entrance": "settings.locations.editor.accessibility.stepFree",
-  "accessibility.toilets_wheelchair": "settings.locations.editor.accessibility.toilet",
-  "accessibility.parking_accessible": "settings.locations.editor.accessibility.parking",
-  "accessibility.hearing_loop": "settings.locations.editor.accessibility.hearingLoop",
+  'accessibility.step_free_entrance': 'settings.locations.editor.accessibility.stepFree',
+  'accessibility.toilets_wheelchair': 'settings.locations.editor.accessibility.toilet',
+  'accessibility.parking_accessible': 'settings.locations.editor.accessibility.parking',
+  'accessibility.hearing_loop': 'settings.locations.editor.accessibility.hearingLoop',
 };
 
 /** The choices a place's strongest assertions add up to. */
-export function accessibilityChoicesOf(place: Pick<Place, "capabilities">): AccessibilityChoices {
+export function accessibilityChoicesOf(place: Pick<Place, 'capabilities'>): AccessibilityChoices {
   const flags = {} as Record<AccessibilityFlag, FlagChoice>;
   for (const key of ACCESSIBILITY_FLAGS) {
     const strongest = strongestCapability(place, key);
-    flags[key] = strongest === undefined ? "unset" : strongest.value === true ? "yes" : "no";
+    flags[key] = strongest === undefined ? 'unset' : strongest.value === true ? 'yes' : 'no';
   }
   const wheelchair = strongestCapability(place, WHEELCHAIR_KEY);
   const value = wheelchair?.value;
   return {
     flags,
-    wheelchair: value === "yes" || value === "limited" || value === "no" ? value : "unset",
+    wheelchair: value === 'yes' || value === 'limited' || value === 'no' ? value : 'unset',
   };
 }
 
 /** One write the accessibility form needs: assert a value, or withdraw the business's own. */
 export type CapabilityOperation =
-  | { kind: "put"; key: AccessibilityFlag | typeof WHEELCHAIR_KEY; assertion: PlaceCapabilityAssertion }
-  | { kind: "delete"; key: AccessibilityFlag | typeof WHEELCHAIR_KEY };
+  | {
+      kind: 'put';
+      key: AccessibilityFlag | typeof WHEELCHAIR_KEY;
+      assertion: PlaceCapabilityAssertion;
+    }
+  | { kind: 'delete'; key: AccessibilityFlag | typeof WHEELCHAIR_KEY };
 
 /**
  * The writes that take a place from `current` to `desired`, and only those —
@@ -235,13 +248,17 @@ export function accessibilityOperations(
   for (const key of ACCESSIBILITY_FLAGS) {
     const next = desired.flags[key];
     if (next === current.flags[key]) continue;
-    operations.push(next === "unset" ? { kind: "delete", key } : { kind: "put", key, assertion: { value: next === "yes" } });
+    operations.push(
+      next === 'unset'
+        ? { kind: 'delete', key }
+        : { kind: 'put', key, assertion: { value: next === 'yes' } },
+    );
   }
   if (desired.wheelchair !== current.wheelchair) {
     operations.push(
-      desired.wheelchair === "unset"
-        ? { kind: "delete", key: WHEELCHAIR_KEY }
-        : { kind: "put", key: WHEELCHAIR_KEY, assertion: { value: desired.wheelchair } },
+      desired.wheelchair === 'unset'
+        ? { kind: 'delete', key: WHEELCHAIR_KEY }
+        : { kind: 'put', key: WHEELCHAIR_KEY, assertion: { value: desired.wheelchair } },
     );
   }
   return operations;
@@ -256,7 +273,13 @@ export interface ExceptionDraft {
   note: string;
 }
 
-export const EMPTY_EXCEPTION_DRAFT: ExceptionDraft = { startsOn: "", endsOn: "", closed: true, hours: "", note: "" };
+export const EMPTY_EXCEPTION_DRAFT: ExceptionDraft = {
+  startsOn: '',
+  endsOn: '',
+  closed: true,
+  hours: '',
+  note: '',
+};
 
 const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -269,18 +292,25 @@ export function hoursExceptionInputOf(
   draft: ExceptionDraft,
 ): { ok: true; input: PlaceHoursExceptionInput } | { ok: false; errorKey: string } {
   const startsOn = draft.startsOn.trim();
-  const endsOn = draft.endsOn.trim() === "" ? startsOn : draft.endsOn.trim();
+  const endsOn = draft.endsOn.trim() === '' ? startsOn : draft.endsOn.trim();
   if (!LOCAL_DATE.test(startsOn) || !LOCAL_DATE.test(endsOn)) {
-    return { ok: false, errorKey: "settings.locations.editor.exceptions.datesInvalid" };
+    return { ok: false, errorKey: 'settings.locations.editor.exceptions.datesInvalid' };
   }
-  if (endsOn < startsOn) return { ok: false, errorKey: "settings.locations.editor.exceptions.datesInvalid" };
+  if (endsOn < startsOn)
+    return { ok: false, errorKey: 'settings.locations.editor.exceptions.datesInvalid' };
   const note = nonEmpty(draft.note);
   if (draft.closed) {
-    return { ok: true, input: { startsOn, endsOn, closed: true, ...(note === undefined ? {} : { note }) } };
+    return {
+      ok: true,
+      input: { startsOn, endsOn, closed: true, ...(note === undefined ? {} : { note }) },
+    };
   }
   const intervals = parseRanges(draft.hours);
   if (intervals === null || intervals.length === 0) {
-    return { ok: false, errorKey: "settings.locations.editor.exceptions.hoursInvalid" };
+    return { ok: false, errorKey: 'settings.locations.editor.exceptions.hoursInvalid' };
   }
-  return { ok: true, input: { startsOn, endsOn, closed: false, intervals, ...(note === undefined ? {} : { note }) } };
+  return {
+    ok: true,
+    input: { startsOn, endsOn, closed: false, intervals, ...(note === undefined ? {} : { note }) },
+  };
 }

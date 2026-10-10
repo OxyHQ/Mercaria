@@ -25,7 +25,9 @@ describe('canonical product save state', () => {
     client.get.mockResolvedValueOnce({ data: { success: false, error: 'AUTH_REQUIRED' } });
     await expect(fetchProductSave('product-a')).rejects.toThrow('AUTH_REQUIRED');
     client.get.mockResolvedValueOnce({ data: { success: true } });
-    await expect(fetchProductSave('product-a')).rejects.toThrow('Failed to read that saved product');
+    await expect(fetchProductSave('product-a')).rejects.toThrow(
+      'Failed to read that saved product',
+    );
   });
 
   it('keeps save and remove as explicit idempotent operations on the canonical id', async () => {

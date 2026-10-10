@@ -81,7 +81,10 @@ export type ComposeRetailOfferResult =
  * tried.
  */
 export async function composeDigitalRetailOffer(
-  candidates: readonly { candidate: DigitalProcurementCandidate; eligibility: DigitalProcurementEligibility }[],
+  candidates: readonly {
+    candidate: DigitalProcurementCandidate;
+    eligibility: DigitalProcurementEligibility;
+  }[],
   market: string,
   tx?: DatabaseOrTransaction,
 ): Promise<ComposeRetailOfferResult> {

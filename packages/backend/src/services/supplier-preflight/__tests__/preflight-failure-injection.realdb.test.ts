@@ -34,7 +34,10 @@ vi.hoisted(() => {
   process.env.SUPPLIER_PREFLIGHT_FINGERPRINT_KEY = 'a'.repeat(64);
 });
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
-import { createSupplier, transitionSupplierStatus } from '../../../db/procurement/supplierRepository.js';
+import {
+  createSupplier,
+  transitionSupplierStatus,
+} from '../../../db/procurement/supplierRepository.js';
 import {
   createSupplierAccount,
   transitionAccountState,
@@ -53,10 +56,7 @@ import {
   FAKE_SUPPLIER_PROVIDER,
 } from '../fake-adapter.js';
 import { clearSupplierAdapters, registerSupplierAdapter } from '../registry.js';
-import {
-  runSupplierPreflight,
-  SUPPLIER_SOURCING_POLICY_KEY,
-} from '../preflight.service.js';
+import { runSupplierPreflight, SUPPLIER_SOURCING_POLICY_KEY } from '../preflight.service.js';
 import { assertPreflightSatisfiesCheckout } from '../checkout-contract.js';
 import { authorizeSupplierFulfilment } from '../../supplier-orders/fulfilment-authorization.js';
 

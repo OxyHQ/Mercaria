@@ -143,10 +143,7 @@ export function resolveProvenScope(params: {
  * and, failing that, a channel on the shop's own host. Scope rule 2 is exactly
  * this narrowness: the proof says "I run this shop", not "I own these brands".
  */
-function storefrontIsCovered(
-  storefront: ScopeStorefrontFacts,
-  proof: ClaimProofSubject,
-): boolean {
+function storefrontIsCovered(storefront: ScopeStorefrontFacts, proof: ClaimProofSubject): boolean {
   if (proof.kind === 'domain') {
     return storefront.domain !== null && domainIsCoveredBy(storefront.domain, proof.domain);
   }

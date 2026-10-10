@@ -334,10 +334,7 @@ function sumTotals(
  */
 export function planDigestOf(assignments: readonly Assignment[]): string {
   const body = assignments
-    .map(
-      ({ line, candidate }) =>
-        `${line.lineId}:${candidate.offerId}:${String(line.quantity)}`,
-    )
+    .map(({ line, candidate }) => `${line.lineId}:${candidate.offerId}:${String(line.quantity)}`)
     .sort()
     .join('|');
   return createHash('sha256').update(body).digest('hex');

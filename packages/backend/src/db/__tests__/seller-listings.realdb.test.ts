@@ -200,9 +200,7 @@ describe('keyset pagination is stable', () => {
     const base = Date.now() - 10 * 60_000;
     const seeded: string[] = [];
     for (let i = 0; i < 5; i += 1) {
-      seeded.push(
-        await makeSellerListing(oxyUserId, { publishedAt: new Date(base + i * 60_000) }),
-      );
+      seeded.push(await makeSellerListing(oxyUserId, { publishedAt: new Date(base + i * 60_000) }));
     }
     const newestFirst = [...seeded].reverse();
 
@@ -212,7 +210,9 @@ describe('keyset pagination is stable', () => {
     // The insert that breaks an offset: a NEWER listing arrives, shifting every
     // row's position by one. A keyset cursor names a ROW, so page two is
     // unaffected; an offset would re-serve the row already shown.
-    const interloper = await makeSellerListing(oxyUserId, { publishedAt: new Date(base + 6 * 60_000) });
+    const interloper = await makeSellerListing(oxyUserId, {
+      publishedAt: new Date(base + 6 * 60_000),
+    });
 
     const last = first[first.length - 1];
     const second = await findActiveSellerListingsKeyset(oxyUserId, 2, {

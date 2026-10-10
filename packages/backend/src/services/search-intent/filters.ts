@@ -126,7 +126,11 @@ export function deriveSearchFilters(input: DeriveFiltersInput): DerivedFilters {
       ? {}
       : { brandIds: dedupe([...brandIds, ...(selected?.brandIds ?? [])]) }),
     ...(market === undefined ? {} : { market }),
-    ...(price === undefined ? (selected?.price === undefined ? {} : { price: selected.price }) : { price }),
+    ...(price === undefined
+      ? selected?.price === undefined
+        ? {}
+        : { price: selected.price }
+      : { price }),
     ...(conditionGroups.length === 0 ? {} : { conditionGroups: dedupe(conditionGroups) }),
     ...(availability.length === 0 && selected?.availability === undefined
       ? {}
@@ -170,7 +174,10 @@ interface FilterSink {
  * branch RETURNS a site, so there is no path that applies nothing and reports
  * nothing — which is the shape that would reintroduce the silent weakening.
  */
-function applyHardConstraint(constraint: ProductConstraint, sink: FilterSink): IntentEnforcement['site'] {
+function applyHardConstraint(
+  constraint: ProductConstraint,
+  sink: FilterSink,
+): IntentEnforcement['site'] {
   switch (constraint.kind) {
     case 'attribute': {
       const filter = attributeFilterFor(constraint);
@@ -356,7 +363,8 @@ function attributeFilterFor(
         : { key: constraint.attributeKey, maxNumber: magnitude };
     }
     case 'between': {
-      if (predicate.lower.inclusive !== true || predicate.upper.inclusive !== true) return undefined;
+      if (predicate.lower.inclusive !== true || predicate.upper.inclusive !== true)
+        return undefined;
       const lower = baseMagnitudeOf(predicate.lower.value);
       const upper = baseMagnitudeOf(predicate.upper.value);
       if (lower === undefined || upper === undefined) return undefined;

@@ -259,12 +259,7 @@ if (config.sellYours.enabled) {
     patchDraft,
   );
   router.delete('/drafts/:id', makeRateLimiter('listings'), validateId('id'), deleteDraft);
-  router.post(
-    '/drafts/:id/publish',
-    makeRateLimiter('listings'),
-    validateId('id'),
-    publishDraft,
-  );
+  router.post('/drafts/:id/publish', makeRateLimiter('listings'), validateId('id'), publishDraft);
 }
 // Local discovery (#93 P2P) — a coarse AREA, opted into per listing. The write
 // accepts a precise position and the server rounds it to a cell before storing;
@@ -285,7 +280,12 @@ router.put(
 );
 
 // Seller orders (incoming P2P orders + fulfilment).
-router.get('/orders', makeRateLimiter('orders'), validateQuery(orderListQuerySchema), listSellerOrders);
+router.get(
+  '/orders',
+  makeRateLimiter('orders'),
+  validateQuery(orderListQuerySchema),
+  listSellerOrders,
+);
 router.patch(
   '/orders/:id/fulfill',
   makeRateLimiter('orders'),

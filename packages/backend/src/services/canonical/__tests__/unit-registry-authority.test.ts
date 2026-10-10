@@ -92,16 +92,60 @@ const UNIT_IMPORT = /from\s+'[^']*\/units\.js'/;
  * values, and this is where somebody finds that out.
  */
 const SNAPSHOT_UNIT_KEYS: readonly string[] = [
-  'mm', 'cm', 'm', 'km', 'in', 'ft',
-  'mg', 'g', 'kg', 'lb', 'oz',
-  'ml', 'cl', 'dl', 'l', 'fl_oz', 'gal',
-  'B', 'kB', 'MB', 'GB', 'TB', 'KiB', 'MiB', 'GiB', 'TiB',
-  'ms', 's', 'min', 'h', 'd',
-  'mW', 'W', 'kW', 'mWh', 'Wh', 'kWh',
-  'Hz', 'kHz', 'MHz', 'GHz',
-  'bit_s', 'kbit_s', 'Mbit_s', 'Gbit_s',
-  'px', 'MP', 'cd_m2', 'mAh', 'Ah', 'count',
-  'pct', 'ratio', 'rating_point',
+  'mm',
+  'cm',
+  'm',
+  'km',
+  'in',
+  'ft',
+  'mg',
+  'g',
+  'kg',
+  'lb',
+  'oz',
+  'ml',
+  'cl',
+  'dl',
+  'l',
+  'fl_oz',
+  'gal',
+  'B',
+  'kB',
+  'MB',
+  'GB',
+  'TB',
+  'KiB',
+  'MiB',
+  'GiB',
+  'TiB',
+  'ms',
+  's',
+  'min',
+  'h',
+  'd',
+  'mW',
+  'W',
+  'kW',
+  'mWh',
+  'Wh',
+  'kWh',
+  'Hz',
+  'kHz',
+  'MHz',
+  'GHz',
+  'bit_s',
+  'kbit_s',
+  'Mbit_s',
+  'Gbit_s',
+  'px',
+  'MP',
+  'cd_m2',
+  'mAh',
+  'Ah',
+  'count',
+  'pct',
+  'ratio',
+  'rating_point',
 ];
 
 function stripComments(source: string): string {
@@ -206,8 +250,10 @@ describe('every unit reader reads the one registry', () => {
       10,
     );
     expect(users).toContain('services/canonical/units.ts');
-    expect(strangers, `these name a unit symbol without importing it: ${strangers.join(', ')}`)
-      .toEqual([]);
+    expect(
+      strangers,
+      `these name a unit symbol without importing it: ${strangers.join(', ')}`,
+    ).toEqual([]);
   });
 
   it('the symbol and import patterns each fire on their own fixture', () => {
@@ -238,8 +284,10 @@ describe('unit keys are stable identifiers', () => {
     // Additions are reported, never refused: widening the table is free and a
     // rename is what this test exists to make expensive.
     const added = [...current].filter((key) => !SNAPSHOT_UNIT_KEYS.includes(key));
-    expect(current.size, `unit table carries ${current.size} keys; new since the snapshot: ${added.join(', ') || 'none'}`)
-      .toBeGreaterThanOrEqual(SNAPSHOT_UNIT_KEYS.length);
+    expect(
+      current.size,
+      `unit table carries ${current.size} keys; new since the snapshot: ${added.join(', ') || 'none'}`,
+    ).toBeGreaterThanOrEqual(SNAPSHOT_UNIT_KEYS.length);
   });
 
   it('resolves every key to ITSELF, which is what a stored value round-trips through', () => {

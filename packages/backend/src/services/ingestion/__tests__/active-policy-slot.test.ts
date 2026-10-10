@@ -256,10 +256,7 @@ const ACTIVE_POLICY_ROUTES: readonly RegExp[] = [
  * would say so. So the shape is `= await <call>`, which every claimant spells
  * and which prose describing the mutex does not.
  */
-const ACQUIRES_SLOT = new RegExp(
-  `=\\s*await\\s+${'acquire'}${'ActivePolicySlot'}\\s*\\(`,
-  'u',
-);
+const ACQUIRES_SLOT = new RegExp(`=\\s*await\\s+${'acquire'}${'ActivePolicySlot'}\\s*\\(`, 'u');
 
 /**
  * Touchers that are exempt, each with a reason a reader can check.
@@ -439,10 +436,10 @@ describe('the global active-matching-policy slot', () => {
     // Then the exact size, whose only failure mode is that the population moved.
     expect(
       touchers.length,
-      'the number of files the detectors match has CHANGED. If you added one, classify it: make '
-        + 'it take the slot (a holder), or add it to SLOT_EXEMPT if it touches but cannot contend, '
-        + "or to SLOT_EXEMPT with kind 'route_literal_only' if a route detector matched a file "
-        + 'that reaches no matching code — then update TOUCHER_COUNT. Do not just bump the number.',
+      'the number of files the detectors match has CHANGED. If you added one, classify it: make ' +
+        'it take the slot (a holder), or add it to SLOT_EXEMPT if it touches but cannot contend, ' +
+        "or to SLOT_EXEMPT with kind 'route_literal_only' if a route detector matched a file " +
+        'that reaches no matching code — then update TOUCHER_COUNT. Do not just bump the number.',
     ).toBe(TOUCHER_COUNT);
 
     const exempt = SLOT_EXEMPT.map((entry) => entry.file);
@@ -468,7 +465,9 @@ describe('the global active-matching-policy slot', () => {
     // The floor is what stops this test passing over an empty selection — with the
     // filter returning nothing, every assertion in the loop below is vacuous and
     // reads exactly like a clean estate.
-    expect(routeLiteral.length, 'no route-literal exemption was selected').toBeGreaterThanOrEqual(1);
+    expect(routeLiteral.length, 'no route-literal exemption was selected').toBeGreaterThanOrEqual(
+      1,
+    );
     for (const entry of routeLiteral) {
       const source = read(entry.file);
       expect(
@@ -523,10 +522,13 @@ describe('the global active-matching-policy slot', () => {
     expect(dataset).toMatch(new RegExp(`${'status'}:\\s*'${'active'}'`, 'u'));
     // The link between the two, so "the control seeds that dataset" is read
     // rather than assumed. The import carries the runtime `.js` specifier.
-    expect(control).toContain(PRIVATE_DATABASE_CONTROL.dataset.replace(/^services\//u, '').replace(/\.ts$/u, '.js'));
-    expect(USES_PRIVATE_DATABASE.test(control), 'the control stopped minting its own database').toBe(
-      true,
+    expect(control).toContain(
+      PRIVATE_DATABASE_CONTROL.dataset.replace(/^services\//u, '').replace(/\.ts$/u, '.js'),
     );
+    expect(
+      USES_PRIVATE_DATABASE.test(control),
+      'the control stopped minting its own database',
+    ).toBe(true);
     expect(usesSharedDatabase(control), 'the control now opens the SHARED database').toBe(false);
     expect(shared).not.toContain(PRIVATE_DATABASE_CONTROL.file);
   });
@@ -585,21 +587,21 @@ describe('the global active-matching-policy slot', () => {
     expect(touchesActivePolicy(`import { ${table} } from '../schema/matching.js';`)).toBe(false);
     // The prose this gate deliberately does not detect: five in-scope files
     // mention the index by name while touching nothing.
-    expect(touchesActivePolicy(`// ${'match_policy'}${'_versions_active_key'} is a partial unique`)).toBe(
-      false,
-    );
+    expect(
+      touchesActivePolicy(`// ${'match_policy'}${'_versions_active_key'} is a partial unique`),
+    ).toBe(false);
 
-    expect(touchesActivePolicy(`await fetch(\`\${base}${'/internal'}${'/matching'}/policies\`);`)).toBe(
-      true,
-    );
+    expect(
+      touchesActivePolicy(`await fetch(\`\${base}${'/internal'}${'/matching'}/policies\`);`),
+    ).toBe(true);
     expect(
       touchesActivePolicy(`await fetch(\`\${base}${'/internal'}${'/ingestion'}${'/drain'}\`);`),
     ).toBe(true);
     // The rest of the ingestion operator surface configures sources and must
     // not be read as reaching the matcher.
-    expect(touchesActivePolicy(`await fetch(\`\${base}${'/internal'}${'/ingestion'}/sources\`);`)).toBe(
-      false,
-    );
+    expect(
+      touchesActivePolicy(`await fetch(\`\${base}${'/internal'}${'/ingestion'}/sources\`);`),
+    ).toBe(false);
   });
 
   it('detects a toucher that does not hold the slot, and only a real call', () => {

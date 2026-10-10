@@ -158,9 +158,7 @@ async function requireStorePackage(
  * rule applied even to a table with no protected column, because the habit is
  * what keeps the gate meaningful.
  */
-async function requireStoreLicence(
-  req: Request,
-): Promise<{ id: string; storeId: string | null }> {
+async function requireStoreLicence(req: Request): Promise<{ id: string; storeId: string | null }> {
   const licenceId = routeParam(req, 'licenceId');
   const [row] = await getDb()
     .select({ id: assetLicences.id, storeId: assetLicences.storeId })
@@ -481,10 +479,7 @@ export async function createAssetLicenceHandler(req: Request, res: Response): Pr
  * licence behind a unique index, so two tabs both sending `2` would be a
  * constraint violation rather than a decision anybody made.
  */
-export async function createAssetLicenceVersionHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function createAssetLicenceVersionHandler(req: Request, res: Response): Promise<void> {
   try {
     const licence = await requireStoreLicence(req);
     const body = req.body as {
@@ -567,10 +562,7 @@ export async function publishAssetLicenceVersionHandler(
  *
  * This licence version, over this package, with this update policy.
  */
-export async function createAssetLicenceOptionHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function createAssetLicenceOptionHandler(req: Request, res: Response): Promise<void> {
   try {
     const asset = await requireStoreAsset(req);
     const body = req.body as {

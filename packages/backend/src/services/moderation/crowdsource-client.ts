@@ -32,9 +32,7 @@ export function getCrowdSourceClient(): CrowdSource | undefined {
   if (client === undefined) {
     client = new CrowdSource({
       serviceKey: config.crowdSource.serviceKey,
-      ...(config.crowdSource.baseUrl === undefined
-        ? {}
-        : { baseUrl: config.crowdSource.baseUrl }),
+      ...(config.crowdSource.baseUrl === undefined ? {} : { baseUrl: config.crowdSource.baseUrl }),
     });
   }
   return client;

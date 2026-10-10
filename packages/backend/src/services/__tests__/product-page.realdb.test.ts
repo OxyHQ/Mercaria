@@ -18,7 +18,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
-import { bundleComponents, canonicalImages, canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
+import {
+  bundleComponents,
+  canonicalImages,
+  canonicalProducts,
+  canonicalVariants,
+} from '../../db/schema/canonicalCatalog.js';
 import { merchants } from '../../db/schema/merchants.js';
 import { storefronts } from '../../db/schema/merchants.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
@@ -62,9 +67,15 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await db.delete(bundleComponents).where(inArray(bundleComponents.bundleVariantId, safeIds(createdVariantIds)));
-  await db.delete(canonicalImages).where(inArray(canonicalImages.productId, safeIds(createdProductIds)));
-  await db.delete(canonicalImages).where(inArray(canonicalImages.variantId, safeIds(createdVariantIds)));
+  await db
+    .delete(bundleComponents)
+    .where(inArray(bundleComponents.bundleVariantId, safeIds(createdVariantIds)));
+  await db
+    .delete(canonicalImages)
+    .where(inArray(canonicalImages.productId, safeIds(createdProductIds)));
+  await db
+    .delete(canonicalImages)
+    .where(inArray(canonicalImages.variantId, safeIds(createdVariantIds)));
   await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
   await db.delete(offers).where(inArray(offers.listingId, safeIds(createdListingIds)));
   await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
@@ -235,20 +246,50 @@ function pageRequest(handle: string, overrides: Record<string, unknown> = {}) {
 }
 
 async function mintNativeBundleListing(label: string, canonicalVariantIds: readonly string[]) {
-  const [listing] = await db.insert(listings).values({
-    ownerType: 'user', oxyUserId: `bundle-owner-${RUN}`, title: label,
-    description: 'Bundle fixture', condition: 'new', conditionAssertion: 'seller_declared', status: 'active',
-  }).returning({ id: listings.id });
+  const [listing] = await db
+    .insert(listings)
+    .values({
+      ownerType: 'user',
+      oxyUserId: `bundle-owner-${RUN}`,
+      title: label,
+      description: 'Bundle fixture',
+      condition: 'new',
+      conditionAssertion: 'seller_declared',
+      status: 'active',
+    })
+    .returning({ id: listings.id });
   createdListingIds.push(listing.id);
-  const variants = await db.insert(productVariants).values(canonicalVariantIds.map((_, position) => ({
-    listingId: listing.id, title: `Pack ${position}`, position, priceAmount: 1200, priceCurrency: 'EUR' as const,
-  }))).returning({ id: productVariants.id, position: productVariants.position });
+  const variants = await db
+    .insert(productVariants)
+    .values(
+      canonicalVariantIds.map((_, position) => ({
+        listingId: listing.id,
+        title: `Pack ${position}`,
+        position,
+        priceAmount: 1200,
+        priceCurrency: 'EUR' as const,
+      })),
+    )
+    .returning({ id: productVariants.id, position: productVariants.position });
   variants.sort((a, b) => a.position - b.position);
-  const links = await db.insert(nativeListingLinks).values(variants.map((variant, index) => ({
-    listingId: listing.id, productVariantId: variant.id, canonicalVariantId: canonicalVariantIds[index],
-    method: 'operator' as const, matchRule: 'bundle-fixture', decidedByOxyUserId: `operator-${RUN}`,
-  }))).returning({ id: nativeListingLinks.id });
-  return { listingId: listing.id, variantIds: variants.map(variant => variant.id), linkIds: links.map(link => link.id) };
+  const links = await db
+    .insert(nativeListingLinks)
+    .values(
+      variants.map((variant, index) => ({
+        listingId: listing.id,
+        productVariantId: variant.id,
+        canonicalVariantId: canonicalVariantIds[index],
+        method: 'operator' as const,
+        matchRule: 'bundle-fixture',
+        decidedByOxyUserId: `operator-${RUN}`,
+      })),
+    )
+    .returning({ id: nativeListingLinks.id });
+  return {
+    listingId: listing.id,
+    variantIds: variants.map((variant) => variant.id),
+    linkIds: links.map((link) => link.id),
+  };
 }
 
 describe('listing bundle contents', () => {
@@ -257,80 +298,196 @@ describe('listing bundle contents', () => {
     const singlePack = await mintProduct('recommend-single');
     const configurablePack = await mintProduct('recommend-configurable', 2);
     await db.insert(bundleComponents).values([
-      { bundleVariantId: singlePack.variantIds[0], componentVariantId: component.variantIds[0], quantity: 2 },
-      ...configurablePack.variantIds.map((id, index) => ({ bundleVariantId: id, componentVariantId: component.variantIds[index], quantity: 1 })),
+      {
+        bundleVariantId: singlePack.variantIds[0],
+        componentVariantId: component.variantIds[0],
+        quantity: 2,
+      },
+      ...configurablePack.variantIds.map((id, index) => ({
+        bundleVariantId: id,
+        componentVariantId: component.variantIds[index],
+        quantity: 1,
+      })),
     ]);
     const source = await mintNativeBundleListing('Recommendation source', component.variantIds);
     const single = await mintNativeBundleListing('Single pack', singlePack.variantIds);
-    const configurable = await mintNativeBundleListing('Configurable pack', configurablePack.variantIds);
+    const configurable = await mintNativeBundleListing(
+      'Configurable pack',
+      configurablePack.variantIds,
+    );
     const foreign = await mintNativeBundleListing('Other seller pack', singlePack.variantIds);
-    await db.update(listings).set({ oxyUserId: `other-bundle-owner-${RUN}` }).where(eq(listings.id, foreign.listingId));
-    await db.update(productVariants).set({ inventoryAvailable: 5 }).where(inArray(productVariants.id, [...single.variantIds, ...configurable.variantIds, ...foreign.variantIds]));
-    await db.update(productVariants).set({ priceAmount: 900, compareAtPriceAmount: 1500, compareAtPriceCurrency: 'EUR' }).where(eq(productVariants.id, single.variantIds[0]));
-    const read = () => readListingBundleRecommendations({ id: source.listingId, variants: source.variantIds.map(id => ({ id })) });
+    await db
+      .update(listings)
+      .set({ oxyUserId: `other-bundle-owner-${RUN}` })
+      .where(eq(listings.id, foreign.listingId));
+    await db
+      .update(productVariants)
+      .set({ inventoryAvailable: 5 })
+      .where(
+        inArray(productVariants.id, [
+          ...single.variantIds,
+          ...configurable.variantIds,
+          ...foreign.variantIds,
+        ]),
+      );
+    await db
+      .update(productVariants)
+      .set({ priceAmount: 900, compareAtPriceAmount: 1500, compareAtPriceCurrency: 'EUR' })
+      .where(eq(productVariants.id, single.variantIds[0]));
+    const read = () =>
+      readListingBundleRecommendations({
+        id: source.listingId,
+        variants: source.variantIds.map((id) => ({ id })),
+      });
     const result = await read();
     expect(result[source.variantIds[0]]).toHaveLength(2);
     expect(result[source.variantIds[1]]).toHaveLength(1);
-    expect(result[source.variantIds[0]]).toContainEqual(expect.objectContaining({
-      listingId: single.listingId, variantId: single.variantIds[0], action: 'add_to_cart',
-      price: { amount: 900, currency: 'EUR' }, compareAtPrice: { amount: 1500, currency: 'EUR' },
-    }));
-    expect(result[source.variantIds[1]][0]).toMatchObject({ listingId: configurable.listingId, variantId: configurable.variantIds[1], action: 'view_bundle' });
-    expect(Object.values(result).flat().some(row => row.listingId === foreign.listingId)).toBe(false);
-    await db.update(nativeListingLinks).set({ status: 'superseded' }).where(eq(nativeListingLinks.id, source.linkIds[0]));
+    expect(result[source.variantIds[0]]).toContainEqual(
+      expect.objectContaining({
+        listingId: single.listingId,
+        variantId: single.variantIds[0],
+        action: 'add_to_cart',
+        price: { amount: 900, currency: 'EUR' },
+        compareAtPrice: { amount: 1500, currency: 'EUR' },
+      }),
+    );
+    expect(result[source.variantIds[1]][0]).toMatchObject({
+      listingId: configurable.listingId,
+      variantId: configurable.variantIds[1],
+      action: 'view_bundle',
+    });
+    expect(
+      Object.values(result)
+        .flat()
+        .some((row) => row.listingId === foreign.listingId),
+    ).toBe(false);
+    await db
+      .update(nativeListingLinks)
+      .set({ status: 'superseded' })
+      .where(eq(nativeListingLinks.id, source.linkIds[0]));
     expect(Object.keys(await read())).toEqual([source.variantIds[1]]);
-    await db.update(nativeListingLinks).set({ status: 'active' }).where(eq(nativeListingLinks.id, source.linkIds[0]));
+    await db
+      .update(nativeListingLinks)
+      .set({ status: 'active' })
+      .where(eq(nativeListingLinks.id, source.linkIds[0]));
 
-    await db.update(productVariants).set({ inventoryAvailable: 0 }).where(eq(productVariants.id, single.variantIds[0]));
+    await db
+      .update(productVariants)
+      .set({ inventoryAvailable: 0 })
+      .where(eq(productVariants.id, single.variantIds[0]));
     expect((await read())[source.variantIds[0]]).toHaveLength(1);
-    await db.update(productVariants).set({ inventoryAvailable: 5 }).where(eq(productVariants.id, single.variantIds[0]));
-    await db.insert(listingConditionDetails).values({ listingId: single.listingId, kind: 'missing_accessory', note: 'One component missing' });
+    await db
+      .update(productVariants)
+      .set({ inventoryAvailable: 5 })
+      .where(eq(productVariants.id, single.variantIds[0]));
+    await db.insert(listingConditionDetails).values({
+      listingId: single.listingId,
+      kind: 'missing_accessory',
+      note: 'One component missing',
+    });
     expect((await read())[source.variantIds[0]]).toHaveLength(1);
-    await db.update(canonicalVariants).set({ status: 'suppressed' }).where(eq(canonicalVariants.id, component.variantIds[0]));
+    await db
+      .update(canonicalVariants)
+      .set({ status: 'suppressed' })
+      .where(eq(canonicalVariants.id, component.variantIds[0]));
     expect(Object.keys(await read())).toEqual([source.variantIds[1]]);
-    await db.update(listings).set({ status: 'draft' }).where(eq(listings.id, configurable.listingId));
+    await db
+      .update(listings)
+      .set({ status: 'draft' })
+      .where(eq(listings.id, configurable.listingId));
     expect(await read()).toEqual({});
   });
 
   it('maps exact configurations and drops revoked, superseded and foreign native attachments', async () => {
     const pack = await mintProduct('native-bundle', 2);
     const child = await mintProduct('native-bundle-child');
-    await db.insert(bundleComponents).values(pack.variantIds.map((variantId, index) => ({
-      bundleVariantId: variantId, componentVariantId: child.variantIds[0], quantity: index + 1,
-    })));
+    await db.insert(bundleComponents).values(
+      pack.variantIds.map((variantId, index) => ({
+        bundleVariantId: variantId,
+        componentVariantId: child.variantIds[0],
+        quantity: index + 1,
+      })),
+    );
     const native = await mintNativeBundleListing('Native bundle', pack.variantIds);
     const foreign = await mintNativeBundleListing('Foreign bundle', [pack.variantIds[0]]);
     // A denormalized listing id alone does not prove the native variant belongs to it.
-    await db.update(nativeListingLinks).set({ listingId: native.listingId }).where(eq(nativeListingLinks.id, foreign.linkIds[0]));
+    await db
+      .update(nativeListingLinks)
+      .set({ listingId: native.listingId })
+      .where(eq(nativeListingLinks.id, foreign.linkIds[0]));
     const read = () => readListingBundleContents(native.listingId, native.variantIds, []);
     const contents = await read();
     expect(Object.keys(contents)).toHaveLength(2);
-    expect(contents[native.variantIds[0]]).toMatchObject({ variantId: pack.variantIds[0], components: [{ quantity: 1 }] });
-    expect(contents[native.variantIds[1]]).toMatchObject({ variantId: pack.variantIds[1], components: [{ quantity: 2 }] });
+    expect(contents[native.variantIds[0]]).toMatchObject({
+      variantId: pack.variantIds[0],
+      components: [{ quantity: 1 }],
+    });
+    expect(contents[native.variantIds[1]]).toMatchObject({
+      variantId: pack.variantIds[1],
+      components: [{ quantity: 2 }],
+    });
     expect(contents[foreign.variantIds[0]]).toBeUndefined();
-    expect(await readListingBundleContents(native.listingId, native.variantIds, [{ kind: 'missing_accessory' }]))
-      .toEqual(Object.fromEntries(native.variantIds.map((id, index) => [id, { status: 'withheld', variantId: pack.variantIds[index] }])));
-    await revokeNativeListingLink(db, { id: native.linkIds[0], revokedByOxyUserId: `operator-${RUN}`, reason: 'fixture' });
+    expect(
+      await readListingBundleContents(native.listingId, native.variantIds, [
+        { kind: 'missing_accessory' },
+      ]),
+    ).toEqual(
+      Object.fromEntries(
+        native.variantIds.map((id, index) => [
+          id,
+          { status: 'withheld', variantId: pack.variantIds[index] },
+        ]),
+      ),
+    );
+    await revokeNativeListingLink(db, {
+      id: native.linkIds[0],
+      revokedByOxyUserId: `operator-${RUN}`,
+      reason: 'fixture',
+    });
     expect(Object.keys(await read())).toEqual([native.variantIds[1]]);
-    await db.update(nativeListingLinks).set({ status: 'superseded' }).where(eq(nativeListingLinks.id, native.linkIds[1]));
+    await db
+      .update(nativeListingLinks)
+      .set({ status: 'superseded' })
+      .where(eq(nativeListingLinks.id, native.linkIds[1]));
     expect(await read()).toEqual({});
   });
 
   it('hides unpublished parents and withholds the pack when a component is hidden', async () => {
     const pack = await mintProduct('native-hidden-pack');
     const child = await mintProduct('native-hidden-child');
-    await db.insert(bundleComponents).values({ bundleVariantId: pack.variantIds[0], componentVariantId: child.variantIds[0], quantity: 1 });
+    await db.insert(bundleComponents).values({
+      bundleVariantId: pack.variantIds[0],
+      componentVariantId: child.variantIds[0],
+      quantity: 1,
+    });
     const native = await mintNativeBundleListing('Hidden pack', pack.variantIds);
     const read = () => readListingBundleContents(native.listingId, native.variantIds, []);
     expect(Object.keys(await read())).toHaveLength(1);
-    await db.update(canonicalVariants).set({ status: 'draft' }).where(eq(canonicalVariants.id, pack.variantIds[0]));
+    await db
+      .update(canonicalVariants)
+      .set({ status: 'draft' })
+      .where(eq(canonicalVariants.id, pack.variantIds[0]));
     expect(await read()).toEqual({});
-    await db.update(canonicalVariants).set({ status: 'active' }).where(eq(canonicalVariants.id, pack.variantIds[0]));
-    await db.update(canonicalProducts).set({ status: 'suppressed' }).where(eq(canonicalProducts.id, pack.productId));
+    await db
+      .update(canonicalVariants)
+      .set({ status: 'active' })
+      .where(eq(canonicalVariants.id, pack.variantIds[0]));
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'suppressed' })
+      .where(eq(canonicalProducts.id, pack.productId));
     expect(await read()).toEqual({});
-    await db.update(canonicalProducts).set({ status: 'active' }).where(eq(canonicalProducts.id, pack.productId));
-    await db.update(canonicalVariants).set({ status: 'suppressed' }).where(eq(canonicalVariants.id, child.variantIds[0]));
-    expect(await read()).toEqual({ [native.variantIds[0]]: { status: 'withheld', variantId: pack.variantIds[0] } });
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'active' })
+      .where(eq(canonicalProducts.id, pack.productId));
+    await db
+      .update(canonicalVariants)
+      .set({ status: 'suppressed' })
+      .where(eq(canonicalVariants.id, child.variantIds[0]));
+    expect(await read()).toEqual({
+      [native.variantIds[0]]: { status: 'withheld', variantId: pack.variantIds[0] },
+    });
   });
 });
 
@@ -340,37 +497,86 @@ describe('public bundle contents', () => {
     const first = await mintProduct('bundle-first');
     const second = await mintProduct('bundle-second');
     await db.insert(bundleComponents).values([
-      { bundleVariantId: pack.variantIds[0], componentVariantId: first.variantIds[0], quantity: 2, position: 1 },
-      { bundleVariantId: pack.variantIds[0], componentVariantId: second.variantIds[0], quantity: 1, position: 0 },
-      { bundleVariantId: pack.variantIds[1], componentVariantId: second.variantIds[0], quantity: 3, position: 0 },
+      {
+        bundleVariantId: pack.variantIds[0],
+        componentVariantId: first.variantIds[0],
+        quantity: 2,
+        position: 1,
+      },
+      {
+        bundleVariantId: pack.variantIds[0],
+        componentVariantId: second.variantIds[0],
+        quantity: 1,
+        position: 0,
+      },
+      {
+        bundleVariantId: pack.variantIds[1],
+        componentVariantId: second.variantIds[0],
+        quantity: 3,
+        position: 0,
+      },
     ]);
-    const request = (canonicalVariantId?: string) => readCanonicalProductPage(pageRequest(pack.slug, { canonicalVariantId, offerComparisonPermitted: false }));
+    const request = (canonicalVariantId?: string) =>
+      readCanonicalProductPage(
+        pageRequest(pack.slug, { canonicalVariantId, offerComparisonPermitted: false }),
+      );
     expect((await request())?.page.bundleContents).toBeUndefined();
     expect((await request(pack.variantIds[0]))?.page.bundleContents).toMatchObject({
-      status: 'available', variantId: pack.variantIds[0], components: [
-        { productId: second.productId, productSlug: second.slug, variantId: second.variantIds[0], quantity: 1 },
-        { productId: first.productId, productSlug: first.slug, variantId: first.variantIds[0], quantity: 2 },
+      status: 'available',
+      variantId: pack.variantIds[0],
+      components: [
+        {
+          productId: second.productId,
+          productSlug: second.slug,
+          variantId: second.variantIds[0],
+          quantity: 1,
+        },
+        {
+          productId: first.productId,
+          productSlug: first.slug,
+          variantId: first.variantIds[0],
+          quantity: 2,
+        },
       ],
     });
     expect((await request(pack.variantIds[1]))?.page.bundleContents).toMatchObject({
-      status: 'available', components: [{ variantId: second.variantIds[0], quantity: 3 }],
+      status: 'available',
+      components: [{ variantId: second.variantIds[0], quantity: 3 }],
     });
   });
 
   it('withholds the entire composition for hidden children, and restores it immediately on lifting', async () => {
     const pack = await mintProduct('bundle-visibility');
     const child = await mintProduct('bundle-hidden');
-    await db.insert(bundleComponents).values({ bundleVariantId: pack.variantIds[0], componentVariantId: child.variantIds[0], quantity: 1 });
-    const read = async () => (await readCanonicalProductPage(pageRequest(pack.slug, { offerComparisonPermitted: false })))?.page.bundleContents;
+    await db.insert(bundleComponents).values({
+      bundleVariantId: pack.variantIds[0],
+      componentVariantId: child.variantIds[0],
+      quantity: 1,
+    });
+    const read = async () =>
+      (await readCanonicalProductPage(pageRequest(pack.slug, { offerComparisonPermitted: false })))
+        ?.page.bundleContents;
     for (const status of ['draft', 'suppressed'] as const) {
-      await db.update(canonicalVariants).set({ status }).where(eq(canonicalVariants.id, child.variantIds[0]));
+      await db
+        .update(canonicalVariants)
+        .set({ status })
+        .where(eq(canonicalVariants.id, child.variantIds[0]));
       expect(await read()).toEqual({ status: 'withheld', variantId: pack.variantIds[0] });
     }
-    await db.update(canonicalVariants).set({ status: 'discontinued' }).where(eq(canonicalVariants.id, child.variantIds[0]));
+    await db
+      .update(canonicalVariants)
+      .set({ status: 'discontinued' })
+      .where(eq(canonicalVariants.id, child.variantIds[0]));
     expect(await read()).toMatchObject({ status: 'available' });
-    await db.update(canonicalProducts).set({ status: 'suppressed' }).where(eq(canonicalProducts.id, child.productId));
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'suppressed' })
+      .where(eq(canonicalProducts.id, child.productId));
     expect(await read()).toEqual({ status: 'withheld', variantId: pack.variantIds[0] });
-    await db.update(canonicalProducts).set({ status: 'active' }).where(eq(canonicalProducts.id, child.productId));
+    await db
+      .update(canonicalProducts)
+      .set({ status: 'active' })
+      .where(eq(canonicalProducts.id, child.productId));
     expect(await read()).toMatchObject({ status: 'available' });
   });
 
@@ -378,20 +584,44 @@ describe('public bundle contents', () => {
     const pack = await mintProduct('bundle-images');
     const child = await mintProduct('bundle-image-child');
     const source = await mintObservation('bundle-image-source');
-    await db.insert(bundleComponents).values({ bundleVariantId: pack.variantIds[0], componentVariantId: child.variantIds[0], quantity: 1 });
+    await db.insert(bundleComponents).values({
+      bundleVariantId: pack.variantIds[0],
+      componentVariantId: child.variantIds[0],
+      quantity: 1,
+    });
     await db.insert(canonicalImages).values([
-      { productId: child.productId, sourceRecordId: source.recordId, sourceUrl: 'https://example.com/product.png', position: 0 },
-      { variantId: child.variantIds[0], sourceRecordId: source.recordId, sourceUrl: 'https://example.com/variant.png', position: 2 },
+      {
+        productId: child.productId,
+        sourceRecordId: source.recordId,
+        sourceUrl: 'https://example.com/product.png',
+        position: 0,
+      },
+      {
+        variantId: child.variantIds[0],
+        sourceRecordId: source.recordId,
+        sourceUrl: 'https://example.com/variant.png',
+        position: 2,
+      },
     ]);
-    const read = async () => (await readCanonicalProductPage(pageRequest(pack.slug, { offerComparisonPermitted: false })))?.page.bundleContents;
-    expect(await read()).toMatchObject({ status: 'available', components: [{ image: { sourceUrl: 'https://example.com/variant.png' } }] });
+    const read = async () =>
+      (await readCanonicalProductPage(pageRequest(pack.slug, { offerComparisonPermitted: false })))
+        ?.page.bundleContents;
+    expect(await read()).toMatchObject({
+      status: 'available',
+      components: [{ image: { sourceUrl: 'https://example.com/variant.png' } }],
+    });
     await db.delete(canonicalImages).where(eq(canonicalImages.variantId, child.variantIds[0]));
-    expect(await read()).toMatchObject({ status: 'available', components: [{ image: { sourceUrl: 'https://example.com/product.png' } }] });
+    expect(await read()).toMatchObject({
+      status: 'available',
+      components: [{ image: { sourceUrl: 'https://example.com/product.png' } }],
+    });
   });
 
   it('adds no bundle section to an ordinary single item', async () => {
     const product = await mintProduct('not-a-bundle');
-    const result = await readCanonicalProductPage(pageRequest(product.slug, { offerComparisonPermitted: false }));
+    const result = await readCanonicalProductPage(
+      pageRequest(product.slug, { offerComparisonPermitted: false }),
+    );
     expect(result?.page.bundleContents).toBeUndefined();
   });
 });
@@ -483,7 +713,7 @@ describe('the composed read (#71 route rules 3 and 5)', () => {
     }
   });
 
-  it('scopes the comparison to ONE configuration, and refuses another product\'s', async () => {
+  it("scopes the comparison to ONE configuration, and refuses another product's", async () => {
     const product = await mintProduct('scope', 2);
     const other = await mintProduct('scope-other', 1);
     const merchant = await mintMerchant('scope');
@@ -726,9 +956,7 @@ describe('seller identity spans two identity systems', () => {
     // The listing-first half reads ATTACHMENTS, not offers — a product with no
     // attachment counts zero however many external offers it carries, which is
     // what makes the two halves of the comparison independent.
-    expect(
-      await countActiveNativeListingsForCanonicalVariants(db, product.variantIds),
-    ).toBe(0);
+    expect(await countActiveNativeListingsForCanonicalVariants(db, product.variantIds)).toBe(0);
     expect(await countActiveNativeListingsForCanonicalVariants(db, [])).toBe(0);
   });
 });

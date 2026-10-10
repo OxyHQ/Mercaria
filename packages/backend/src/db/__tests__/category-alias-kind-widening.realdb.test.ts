@@ -188,7 +188,11 @@ describe('category_aliases_kind_check — the widening reached the server', () =
     // The end-to-end proof, through the one production writer. A CHECK that
     // permits the value and a writer that can emit it are different facts.
     const categoryId = await makeCategory('accepts');
-    const added: readonly CategoryAliasKind[] = ['transliteration', 'abbreviation', 'regional_term'];
+    const added: readonly CategoryAliasKind[] = [
+      'transliteration',
+      'abbreviation',
+      'regional_term',
+    ];
 
     for (const kind of added) {
       const row = await insertCategoryAlias({

@@ -178,10 +178,7 @@ export function optionalDualMoney<P extends string>(prefix: P): OptionalDualMone
 
 /** The nine fields of a postal address, all NOT NULL where the source requires them. */
 export type AddressColumns<P extends string> = Record<
-  | `${P}Label`
-  | `${P}Line2`
-  | `${P}Region`
-  | `${P}Phone`,
+  `${P}Label` | `${P}Line2` | `${P}Region` | `${P}Phone`,
   ReturnType<typeof text>
 > &
   Record<

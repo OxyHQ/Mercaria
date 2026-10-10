@@ -27,22 +27,18 @@
  * thrown away by the machine.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform } from "react-native";
-import { nanoid } from "nanoid/non-secure";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import { nanoid } from 'nanoid/non-secure';
 import type {
   AuthoringDraft,
   AuthoringSchema,
   AuthoringValidationResult,
-} from "@mercaria/shared-types";
-import type { DraftPublishOutcome } from "./api";
-import {
-  usePublishProductDraft,
-  useSaveProductDraft,
-  useValidateProductDraft,
-} from "./hooks";
-import { composePatch, formSignature, hydrateForm, type WizardFormState } from "./wizard-state";
-import { locateFindings, type LocatedFinding } from "./findings";
+} from '@mercaria/shared-types';
+import type { DraftPublishOutcome } from './api';
+import { usePublishProductDraft, useSaveProductDraft, useValidateProductDraft } from './hooks';
+import { composePatch, formSignature, hydrateForm, type WizardFormState } from './wizard-state';
+import { locateFindings, type LocatedFinding } from './findings';
 
 /** How long the wizard waits after the last keystroke before saving. */
 export const AUTOSAVE_DELAY_MS = 1200;
@@ -54,11 +50,13 @@ export const AUTOSAVE_DELAY_MS = 1200;
  * and could not" are different things to tell somebody who is about to close
  * the tab.
  */
-export type SaveState = "idle" | "unsaved" | "saving" | "saved" | "conflict" | "failed";
+export type SaveState = 'idle' | 'unsaved' | 'saving' | 'saved' | 'conflict' | 'failed';
 
 export interface DraftWizard {
   readonly form: WizardFormState;
-  readonly setForm: (next: WizardFormState | ((current: WizardFormState) => WizardFormState)) => void;
+  readonly setForm: (
+    next: WizardFormState | ((current: WizardFormState) => WizardFormState),
+  ) => void;
   readonly version: number;
   readonly saveState: SaveState;
   readonly dirty: boolean;
@@ -88,7 +86,7 @@ export function useDraftWizard(params: {
   const [savedSignature, setSavedSignature] = useState<string>(() =>
     formSignature(hydrateForm(draft, schema), schema, draft.version),
   );
-  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveState, setSaveState] = useState<SaveState>('idle');
   const [validation, setValidation] = useState<AuthoringValidationResult | null>(null);
 
   /**
@@ -107,25 +105,22 @@ export function useDraftWizard(params: {
   const validateDraft = useValidateProductDraft(storeId, draftId);
   const publishDraft = usePublishProductDraft(storeId, draftId);
 
-  const signature = useMemo(
-    () => formSignature(form, schema, version),
-    [form, schema, version],
-  );
+  const signature = useMemo(() => formSignature(form, schema, version), [form, schema, version]);
   const dirty = signature !== savedSignature;
-  const conflicted = saveState === "conflict";
+  const conflicted = saveState === 'conflict';
 
   const saveNow = useCallback(async (): Promise<boolean> => {
     if (!canEdit || conflicted) return false;
-    setSaveState("saving");
+    setSaveState('saving');
     try {
       const outcome = await saveDraft.mutateAsync(composePatch(form, schema, version));
-      if (outcome.outcome === "conflict") {
-        setSaveState("conflict");
+      if (outcome.outcome === 'conflict') {
+        setSaveState('conflict');
         return false;
       }
       setVersion(outcome.draft.version);
       setSavedSignature(formSignature(form, schema, outcome.draft.version));
-      setSaveState("saved");
+      setSaveState('saved');
       return true;
     } catch {
       // A transport failure. The local state is untouched and the debounce does
@@ -134,7 +129,7 @@ export function useDraftWizard(params: {
       // That is deliberate: a timer that kept retrying a failing request would
       // hammer an outage, and the author would have no way to tell a slow save
       // from a broken one.
-      setSaveState("failed");
+      setSaveState('failed');
       return false;
     }
   }, [canEdit, conflicted, form, saveDraft, schema, version]);
@@ -228,25 +223,25 @@ export function useDraftWizard(params: {
    * in flight, a failure to retry, and a conflict to re-read.
    */
   const displayedSaveState: SaveState =
-    dirty && saveState !== "saving" && saveState !== "failed" && saveState !== "conflict"
-      ? "unsaved"
+    dirty && saveState !== 'saving' && saveState !== 'failed' && saveState !== 'conflict'
+      ? 'unsaved'
       : saveState;
 
   // The browser's own "are you sure" — the only place an unsaved change can be
   // lost without the wizard being told first. Native has no equivalent event and
   // needs none: the app is not unloaded by a back gesture.
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (Platform.OS !== 'web') return;
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       // Setting `returnValue` is what makes Safari and older Chrome prompt at
       // all; the browser composes the sentence and ignores any string given, so
       // there is nothing here for a translator to own.
-      event.returnValue = "";
+      event.returnValue = '';
     };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
   const validate = useCallback(async () => {
@@ -261,7 +256,7 @@ export function useDraftWizard(params: {
   const publish = useCallback(async (): Promise<DraftPublishOutcome | null> => {
     if (dirty && !(await saveNow())) return null;
     const outcome = await publishDraft.mutateAsync({ idempotencyKey });
-    if (outcome.outcome === "refused") setValidation(outcome.validation);
+    if (outcome.outcome === 'refused') setValidation(outcome.validation);
     return outcome;
   }, [dirty, idempotencyKey, publishDraft, saveNow]);
 

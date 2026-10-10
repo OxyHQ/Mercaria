@@ -109,19 +109,37 @@ function nearby(fake: FakeGoWay, query: URLSearchParams) {
   const longitude = Number(query.get('longitude'));
   const radius = Number(query.get('radiusMeters'));
   const limit = Number(query.get('limit') ?? '50');
-  const offset = query.get('cursor') ? Number(Buffer.from(query.get('cursor') ?? '', 'base64url').toString()) : 0;
+  const offset = query.get('cursor')
+    ? Number(Buffer.from(query.get('cursor') ?? '', 'base64url').toString())
+    : 0;
   const wanted = (query.get('capabilities') ?? '').split(',').filter((key) => key !== '');
 
   const matches = [...fake.places.values()]
-    .filter((place) => wanted.every((key) => key !== 'commerce.mercaria.store' || (place.storeLinks ?? []).length > 0))
-    .map((place) => ({ place, distance: metresBetween(latitude, longitude, place.latitude, place.longitude) }))
+    .filter((place) =>
+      wanted.every(
+        (key) => key !== 'commerce.mercaria.store' || (place.storeLinks ?? []).length > 0,
+      ),
+    )
+    .map((place) => ({
+      place,
+      distance: metresBetween(latitude, longitude, place.latitude, place.longitude),
+    }))
     .filter((entry) => entry.distance <= radius)
-    .sort((left, right) => left.distance - right.distance || left.place.id.localeCompare(right.place.id));
+    .sort(
+      (left, right) =>
+        left.distance - right.distance || left.place.id.localeCompare(right.place.id),
+    );
 
   const page = matches.slice(offset, offset + limit);
-  const next = offset + limit < matches.length ? Buffer.from(String(offset + limit)).toString('base64url') : null;
+  const next =
+    offset + limit < matches.length
+      ? Buffer.from(String(offset + limit)).toString('base64url')
+      : null;
   return {
-    items: page.map((entry) => ({ ...placeJson(entry.place, false), distanceMeters: entry.distance })),
+    items: page.map((entry) => ({
+      ...placeJson(entry.place, false),
+      distanceMeters: entry.distance,
+    })),
     nextCursor: next,
   };
 }
@@ -154,7 +172,10 @@ function geocode(fake: FakeGoWay, query: URLSearchParams) {
         displayName: town.name,
         kind: town.kind ?? 'locality',
         coordinate: { latitude: town.latitude, longitude: town.longitude },
-        context: { city: town.name, ...(town.countryCode ? { countryCode: town.countryCode } : {}) },
+        context: {
+          city: town.name,
+          ...(town.countryCode ? { countryCode: town.countryCode } : {}),
+        },
         source: 'photon',
       })),
     nextCursor: null,
@@ -164,8 +185,12 @@ function geocode(fake: FakeGoWay, query: URLSearchParams) {
 
 function placeJson(place: FakePlace, single: boolean) {
   const capabilities = [
-    ...(place.storeLinks ?? []).map((link) => capability('commerce.mercaria.store', link.locationId, link.verification)),
-    ...(place.capabilities ?? []).map(([key, value, verification]) => capability(key, value, verification)),
+    ...(place.storeLinks ?? []).map((link) =>
+      capability('commerce.mercaria.store', link.locationId, link.verification),
+    ),
+    ...(place.capabilities ?? []).map(([key, value, verification]) =>
+      capability(key, value, verification),
+    ),
   ];
   return {
     id: place.id,
@@ -218,7 +243,9 @@ function respond(status: number, body: unknown) {
   const text = JSON.stringify(body);
   return Promise.resolve({
     status,
-    headers: { get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/json' : null) },
+    headers: {
+      get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/json' : null),
+    },
     text: () => Promise.resolve(text),
   });
 }
@@ -228,6 +255,8 @@ function metresBetween(lat1: number, lon1: number, lat2: number, lon2: number): 
   const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
   const a =
     Math.sin(toRadians(lat2 - lat1) / 2) ** 2 +
-    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(toRadians(lon2 - lon1) / 2) ** 2;
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(toRadians(lon2 - lon1) / 2) ** 2;
   return Math.round(2 * 6_371_008.8 * Math.asin(Math.min(1, Math.sqrt(a))));
 }

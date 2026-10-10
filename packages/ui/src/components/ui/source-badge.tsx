@@ -1,14 +1,14 @@
-import { View } from "react-native";
-import { RefreshCw } from "lucide-react-native";
-import type { ConnectorProviderId } from "@mercaria/shared-types";
-import { cn } from "../../lib/cn";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { View } from 'react-native';
+import { RefreshCw } from 'lucide-react-native';
+import type { ConnectorProviderId } from '@mercaria/shared-types';
+import { cn } from '../../lib/cn';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   CONNECTOR_PROVIDER_LABEL_KEYS,
   CONNECTOR_SYNCED_FROM_KEY,
-} from "../../lib/connector-labels";
-import { Text } from "./text";
-import { Icon } from "./icon";
+} from '../../lib/connector-labels';
+import { Text } from './text';
+import { Icon } from './icon';
 
 export interface SourceBadgeProps {
   /** External platform this listing was imported/synced from. */
@@ -28,7 +28,7 @@ export function SourceBadge({ provider, className }: SourceBadgeProps) {
   return (
     <View
       className={cn(
-        "flex-row items-center gap-1 self-start rounded-full bg-muted px-2 py-1",
+        'flex-row items-center gap-1 self-start rounded-full bg-muted px-2 py-1',
         className,
       )}
     >

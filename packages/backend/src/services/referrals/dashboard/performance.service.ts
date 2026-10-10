@@ -44,7 +44,10 @@ export const MAX_PERFORMANCE_WINDOW_DAYS = 366;
 const LABEL_LOOKUP_LIMIT = 200;
 
 /** The two figures every breakdown publishes, so a client renders their definitions. */
-const PERFORMANCE_METRIC_KEYS = ['referral_human_clicks', 'referral_qualified_conversions'] as const;
+const PERFORMANCE_METRIC_KEYS = [
+  'referral_human_clicks',
+  'referral_qualified_conversions',
+] as const;
 
 export function performanceMetricDefinitions(): ReferralMetricDefinition[] {
   return PERFORMANCE_METRIC_KEYS.map((key) => REFERRAL_METRIC_DEFINITIONS[key]);
@@ -180,9 +183,7 @@ export async function readPartnerPerformance(
     rows: disclosed.rows,
     totals: { humanClicks: clickTotal, qualifiedConversions: conversionTotal },
     withheldRowCount: disclosed.withheldRowCount,
-    ...(disclosed.withheldReason !== undefined
-      ? { withheldReason: disclosed.withheldReason }
-      : {}),
+    ...(disclosed.withheldReason !== undefined ? { withheldReason: disclosed.withheldReason } : {}),
     metrics: performanceMetricDefinitions(),
   };
 }

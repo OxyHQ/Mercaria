@@ -79,10 +79,7 @@ export const MERCHANDISING_COLLECTION_MODULES = [
 export const MERCHANDISING_COLLECTION_SERVICE = String.raw`(?<!pickup\/)collection\.service`;
 
 /** The three tables ADR 0007 D3 names, as they appear in raw SQL. */
-export const MERCHANDISING_COLLECTION_TABLES = [
-  'listing_collections',
-  'collection_rules',
-] as const;
+export const MERCHANDISING_COLLECTION_TABLES = ['listing_collections', 'collection_rules'] as const;
 
 /**
  * A module reaching the merchandising collection domain.

@@ -174,7 +174,11 @@ describe('facets are generated from metadata, never from a list', () => {
 describe('a selection lands at the grain its facet binds at', () => {
   const lookup = {
     levelOf: (key: string) =>
-      key === 'colour' ? ('variant' as const) : key === 'material' ? ('product' as const) : undefined,
+      key === 'colour'
+        ? ('variant' as const)
+        : key === 'material'
+          ? ('product' as const)
+          : undefined,
   };
 
   it('partitions attribute selections by level', () => {
@@ -301,7 +305,12 @@ describe('suppression never withdraws what the shopper chose', () => {
     expect(single).toBe('single_value');
     expect(FACET_MIN_DISTINCT_VALUES).toBe(2);
 
-    const none = suppressFacet({ key: 'colour', shape: 'buckets', buckets: [], hasSelection: false });
+    const none = suppressFacet({
+      key: 'colour',
+      shape: 'buckets',
+      buckets: [],
+      hasSelection: false,
+    });
     expect(none).toBe('no_values');
 
     const degenerate = suppressFacet({

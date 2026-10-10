@@ -60,7 +60,8 @@ export async function readCachedPlace(key: string): Promise<CachedPlace | null> 
       const raw = await withRedisTimeout(redis.get(key));
       if (raw) {
         const parsed = JSON.parse(raw) as CachedPlace;
-        if (typeof parsed?.fetchedAt === 'number' && typeof parsed?.outcome?.kind === 'string') return parsed;
+        if (typeof parsed?.fetchedAt === 'number' && typeof parsed?.outcome?.kind === 'string')
+          return parsed;
       }
     } catch (err) {
       log.general.warn({ err }, '[GoWay] could not read the place cache from Redis');
@@ -70,7 +71,11 @@ export async function readCachedPlace(key: string): Promise<CachedPlace | null> 
 }
 
 /** Keep one entry for the stale window, in both stores. */
-export async function writeCachedPlace(key: string, entry: CachedPlace, keepSeconds: number): Promise<void> {
+export async function writeCachedPlace(
+  key: string,
+  entry: CachedPlace,
+  keepSeconds: number,
+): Promise<void> {
   if (inProcess.size >= MAX_IN_PROCESS_ENTRIES && !inProcess.has(key)) {
     // Oldest-inserted first: a Map iterates in insertion order.
     const oldest = inProcess.keys().next().value;

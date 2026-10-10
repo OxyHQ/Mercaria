@@ -1,24 +1,19 @@
-import React from "react";
-import { RiStore2Line } from "@oxy.so/bloom/icons/RiStore2Line";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import {
-  Check,
-  ChevronLeft,
-  MapPin,
-  Store as StoreIcon,
-} from "lucide-react-native";
-import type { Location, Store } from "@mercaria/shared-types";
-import { Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { useMyStores } from "@/lib/hooks/use-stores";
-import { useLocations } from "@/lib/hooks/use-locations";
-import { useActiveStore } from "@/lib/stores/active-store";
-import { useTranslation } from "@/lib/i18n";
-import { LOCATION_TYPE_LABEL_KEYS } from "@/lib/order-labels";
+import React from 'react';
+import { RiStore2Line } from '@oxy.so/bloom/icons/RiStore2Line';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { Check, ChevronLeft, MapPin, Store as StoreIcon } from 'lucide-react-native';
+import type { Location, Store } from '@mercaria/shared-types';
+import { Text, toBloomIcon, useColorScheme } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { useMyStores } from '@/lib/hooks/use-stores';
+import { useLocations } from '@/lib/hooks/use-locations';
+import { useActiveStore } from '@/lib/stores/active-store';
+import { useTranslation } from '@/lib/i18n';
+import { LOCATION_TYPE_LABEL_KEYS } from '@/lib/order-labels';
 
 /**
  * Store + register picker. The operator first picks the store they're working
@@ -33,7 +28,7 @@ export default function StoreSetupScreen() {
   return (
     <>
       <Head>
-        <title>{t("storeSetup.documentTitle")}</title>
+        <title>{t('storeSetup.documentTitle')}</title>
       </Head>
       {activeStoreId ? <LocationStep storeId={activeStoreId} /> : <StoreStep />}
     </>
@@ -52,11 +47,11 @@ function StoreStep() {
   };
 
   return (
-    <Screen title={t("storeSetup.chooseStoreTitle")} subtitle={t("storeSetup.chooseStoreSubtitle")}>
+    <Screen title={t('storeSetup.chooseStoreTitle')} subtitle={t('storeSetup.chooseStoreSubtitle')}>
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title={t("storeSetup.storesLoadFailed")} body={t("common.pleaseTryAgain")} />
+        <ScreenMessage title={t('storeSetup.storesLoadFailed')} body={t('common.pleaseTryAgain')} />
       ) : stores && stores.length > 0 ? (
         <View className="gap-3">
           {stores.map((store) => (
@@ -74,7 +69,7 @@ function StoreStep() {
               <View className="flex-1">
                 <Text className="text-base font-semibold text-foreground">{store.name}</Text>
                 <Text className="text-sm text-muted-foreground">
-                  {t("storeSetup.storeMeta", {
+                  {t('storeSetup.storeMeta', {
                     handle: store.handle,
                     count: store.productCount,
                   })}
@@ -87,8 +82,8 @@ function StoreStep() {
         <View className="rounded-2xl border border-dashed border-border">
           <EmptyState
             icon={RiStore2Line}
-            title={t("storeSetup.noStoresTitle")}
-            description={t("storeSetup.noStoresBody")}
+            title={t('storeSetup.noStoresTitle')}
+            description={t('storeSetup.noStoresBody')}
           />
         </View>
       )}
@@ -102,15 +97,11 @@ function LocationStep({ storeId }: { storeId: string }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   const { data: locations, isPending, isError } = useLocations(storeId);
-  const {
-    activeLocationId,
-    setActiveLocationId,
-    setActiveStoreId,
-  } = useActiveStore();
+  const { activeLocationId, setActiveLocationId, setActiveStoreId } = useActiveStore();
 
   const onSelect = (location: Location) => {
     setActiveLocationId(location.id);
-    router.replace("/");
+    router.replace('/');
   };
 
   const changeStore = () => {
@@ -125,22 +116,22 @@ function LocationStep({ storeId }: { storeId: string }) {
       leadingIcon={toBloomIcon(ChevronLeft)}
       onPress={changeStore}
     >
-      {t("storeSetup.changeStore")}
+      {t('storeSetup.changeStore')}
     </Button>
   );
 
   return (
     <Screen
-      title={t("storeSetup.chooseRegisterTitle")}
-      subtitle={t("storeSetup.chooseRegisterSubtitle")}
+      title={t('storeSetup.chooseRegisterTitle')}
+      subtitle={t('storeSetup.chooseRegisterSubtitle')}
       action={action}
     >
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
         <ScreenMessage
-          title={t("storeSetup.locationsLoadFailed")}
-          body={t("common.pleaseTryAgain")}
+          title={t('storeSetup.locationsLoadFailed')}
+          body={t('common.pleaseTryAgain')}
         />
       ) : locations && locations.length > 0 ? (
         <View className="gap-3">
@@ -159,7 +150,7 @@ function LocationStep({ storeId }: { storeId: string }) {
                   {location.isDefault ? (
                     <View className="rounded-full bg-muted px-2 py-0.5">
                       <Text className="text-xs font-medium text-muted-foreground">
-                        {t("storeSetup.defaultLocation")}
+                        {t('storeSetup.defaultLocation')}
                       </Text>
                     </View>
                   ) : null}
@@ -168,16 +159,14 @@ function LocationStep({ storeId }: { storeId: string }) {
                   {t(LOCATION_TYPE_LABEL_KEYS[location.type])}
                 </Text>
               </View>
-              {activeLocationId === location.id ? (
-                <Check size={20} color={colors.primary} />
-              ) : null}
+              {activeLocationId === location.id ? <Check size={20} color={colors.primary} /> : null}
             </Pressable>
           ))}
         </View>
       ) : (
         <ScreenMessage
-          title={t("storeSetup.noLocationsTitle")}
-          body={t("storeSetup.noLocationsBody")}
+          title={t('storeSetup.noLocationsTitle')}
+          body={t('storeSetup.noLocationsBody')}
         />
       )}
     </Screen>

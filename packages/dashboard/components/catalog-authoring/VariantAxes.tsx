@@ -1,17 +1,17 @@
-import React from "react";
-import { Pressable, View } from "react-native";
-import { Plus, X } from "lucide-react-native";
-import type { AuthoringField, AuthoringSchema } from "@mercaria/shared-types";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Switch } from "@oxy.so/bloom/switch";
-import { useTranslation } from "@/lib/i18n";
-import { emptyEntry, type DraftFieldEntry } from "@/lib/authoring/answers";
-import { axisValueSupport, unitAffordance } from "@/lib/authoring/controls";
-import { variantCapableFields, type MatrixAxis } from "@/lib/authoring/matrix";
-import { authoringLabel } from "@/lib/authoring/untranslated";
-import { ValuePicker, type PickerOption } from "./ValuePicker";
+import React from 'react';
+import { Pressable, View } from 'react-native';
+import { Plus, X } from 'lucide-react-native';
+import type { AuthoringField, AuthoringSchema } from '@mercaria/shared-types';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Switch } from '@oxy.so/bloom/switch';
+import { useTranslation } from '@/lib/i18n';
+import { emptyEntry, type DraftFieldEntry } from '@/lib/authoring/answers';
+import { axisValueSupport, unitAffordance } from '@/lib/authoring/controls';
+import { variantCapableFields, type MatrixAxis } from '@/lib/authoring/matrix';
+import { authoringLabel } from '@/lib/authoring/untranslated';
+import { ValuePicker, type PickerOption } from './ValuePicker';
 
 interface VariantAxesProps {
   readonly schema: AuthoringSchema;
@@ -52,7 +52,7 @@ export function VariantAxes({
     return (
       <View className="rounded-2xl border border-border bg-surface p-4">
         <Text className="text-sm text-muted-foreground">
-          {t("products.wizard.variants.noAxesAvailable")}
+          {t('products.wizard.variants.noAxesAvailable')}
         </Text>
       </View>
     );
@@ -70,9 +70,7 @@ export function VariantAxes({
   };
 
   const setValues = (field: AuthoringField, values: readonly DraftFieldEntry[]) => {
-    onChange(
-      axes.map((axis) => (axis.attributeKey === field.key ? { ...axis, values } : axis)),
-    );
+    onChange(axes.map((axis) => (axis.attributeKey === field.key ? { ...axis, values } : axis)));
   };
 
   return (
@@ -84,7 +82,7 @@ export function VariantAxes({
         // but it is no longer rendered as though it were the attribute's name.
         const label = authoringLabel(
           schema.text.fields[field.id]?.label,
-          { kind: "key", key: field.key },
+          { kind: 'key', key: field.key },
           t,
         ).text;
         return (
@@ -123,7 +121,7 @@ export function VariantAxes({
                     {axis.values.length > 1 ? (
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={t("products.wizard.variants.removeAxisValue")}
+                        accessibilityLabel={t('products.wizard.variants.removeAxisValue')}
                         disabled={disabled}
                         onPress={() =>
                           setValues(
@@ -140,16 +138,14 @@ export function VariantAxes({
                 ))}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t("products.wizard.variants.addAxisValue")}
+                  accessibilityLabel={t('products.wizard.variants.addAxisValue')}
                   disabled={disabled}
-                  onPress={() =>
-                    setValues(field, [...axis.values, emptyEntry(field, 0)])
-                  }
+                  onPress={() => setValues(field, [...axis.values, emptyEntry(field, 0)])}
                   className="flex-row items-center gap-1.5 self-start active:opacity-70"
                 >
                   <Plus size={14} color={colors.primary} />
                   <Text className="text-sm font-medium text-primary">
-                    {t("products.wizard.variants.addAxisValue")}
+                    {t('products.wizard.variants.addAxisValue')}
                   </Text>
                 </Pressable>
               </View>
@@ -165,12 +161,12 @@ export function VariantAxes({
         disabled={disabled}
         className="self-start"
       >
-        {t("products.wizard.variants.generate")}
+        {t('products.wizard.variants.generate')}
       </Button>
 
       {truncated ? (
         <Text className="text-xs text-destructive">
-          {t("products.wizard.variants.tooManyCombinations")}
+          {t('products.wizard.variants.tooManyCombinations')}
         </Text>
       ) : null}
     </View>
@@ -219,11 +215,14 @@ function AxisValueControl({
   const { t } = useTranslation();
   const support = axisValueSupport(field);
 
-  if (support === "controlled_value" && entry.kind === "controlled_value") {
+  if (support === 'controlled_value' && entry.kind === 'controlled_value') {
     const options: readonly PickerOption[] = field.controlledValues.map((value) => ({
       id: value.id,
-      label: authoringLabel(schema.text.values[value.id]?.label, { kind: "key", key: value.value }, t)
-        .text,
+      label: authoringLabel(
+        schema.text.values[value.id]?.label,
+        { kind: 'key', key: value.value },
+        t,
+      ).text,
       detail: value.value,
     }));
     return (
@@ -231,14 +230,14 @@ function AxisValueControl({
         options={options}
         selectedId={entry.enumValueId.length === 0 ? null : entry.enumValueId}
         onSelect={(id) => onChange({ ...entry, enumValueId: id })}
-        placeholder={t("products.wizard.values.choose")}
+        placeholder={t('products.wizard.values.choose')}
         title={label}
         disabled={disabled}
       />
     );
   }
 
-  if (support === "number" && entry.kind === "number") {
+  if (support === 'number' && entry.kind === 'number') {
     // The unit box is the SAME decision `SchemaField` makes, taken from the
     // same function. It was missing here, which left `storage_capacity` — a
     // `digital_storage` measurement that is `variantCapable` in the shipped
@@ -261,8 +260,8 @@ function AxisValueControl({
         {!unit.present ? null : (
           <View className="w-24">
             <TextFieldInput
-              label={t("products.wizard.fields.unitLabel")}
-              value={entry.unit ?? ""}
+              label={t('products.wizard.fields.unitLabel')}
+              value={entry.unit ?? ''}
               onValueChange={(unitText) => onChange({ ...entry, unit: unitText })}
               placeholder={unit.placeholder || null}
               disabled={disabled}
@@ -273,7 +272,7 @@ function AxisValueControl({
     );
   }
 
-  if (entry.kind === "text") {
+  if (entry.kind === 'text') {
     return (
       <TextFieldInput
         label={label}
@@ -287,7 +286,7 @@ function AxisValueControl({
 
   return (
     <Text className="py-2 text-sm text-muted-foreground">
-      {t("products.wizard.variants.unsupportedAxisValue")}
+      {t('products.wizard.variants.unsupportedAxisValue')}
     </Text>
   );
 }

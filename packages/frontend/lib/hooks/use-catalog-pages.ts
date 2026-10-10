@@ -87,10 +87,7 @@ export function useProductFamilyPage(
 }
 
 /** A family's generations, paged by KEYSET. */
-export function useProductFamilyProducts(
-  handle: string | undefined,
-  params?: CatalogBrowseParams,
-) {
+export function useProductFamilyProducts(handle: string | undefined, params?: CatalogBrowseParams) {
   return useInfiniteQuery<
     CatalogProductBrowsePage,
     Error,

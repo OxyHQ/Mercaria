@@ -135,7 +135,10 @@ export function deriveProcurementEligibility(input: EligibilityInput): Procureme
     if (!agreementGrantsRetailDropship(agreement)) {
       reasons.add('agreement_rights_insufficient');
     }
-    if (input.destinationCountry && !agreementPermitsDestination(agreement, input.destinationCountry)) {
+    if (
+      input.destinationCountry &&
+      !agreementPermitsDestination(agreement, input.destinationCountry)
+    ) {
       reasons.add('destination_not_permitted');
     }
     if (input.channel && !agreementPermitsChannel(agreement, input.channel)) {
@@ -148,10 +151,7 @@ export function deriveProcurementEligibility(input: EligibilityInput): Procureme
   if (freshness === 'expired') reasons.add('offer_expired');
   if (freshness === 'stale') reasons.add('offer_quote_stale');
   if (input.offer.canonicalVariantId === null) reasons.add('offer_unmapped');
-  if (
-    input.offer.availability === 'out_of_stock' ||
-    input.offer.availability === 'discontinued'
-  ) {
+  if (input.offer.availability === 'out_of_stock' || input.offer.availability === 'discontinued') {
     reasons.add('offer_out_of_stock');
   }
   if (

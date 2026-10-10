@@ -32,12 +32,19 @@ describe('publicationDraftOf', () => {
       lowStockThreshold: 2,
       updatedAt: '2026-10-01T00:00:00.000Z',
     };
-    expect(publicationDraftOf(saved)).toMatchObject({ stockIntervalMinutes: '15', lowStockThreshold: '2' });
+    expect(publicationDraftOf(saved)).toMatchObject({
+      stockIntervalMinutes: '15',
+      lowStockThreshold: '2',
+    });
   });
 });
 
 describe('publicationInputOf', () => {
-  const draft = { ...publicationDraftOf(null), stockIntervalMinutes: '15', pickupInstructions: '  Ring the bell ' };
+  const draft = {
+    ...publicationDraftOf(null),
+    stockIntervalMinutes: '15',
+    pickupInstructions: '  Ring the bell ',
+  };
 
   it('sends the place, the commerce fields and the interval in seconds', () => {
     expect(publicationInputOf(draft, 'gw_1')).toEqual({
@@ -62,8 +69,12 @@ describe('publicationInputOf', () => {
     expect(publicationInputOf({ ...draft, stockIntervalMinutes: '' }, 'gw_1')).toMatchObject({
       errorKey: 'settings.locations.editor.publication.intervalInvalid',
     });
-    expect(publicationInputOf({ ...draft, stockIntervalMinutes: '0.5' }, 'gw_1')).toMatchObject({ ok: false });
-    expect(publicationInputOf({ ...draft, stockIntervalMinutes: '43201' }, 'gw_1')).toMatchObject({ ok: false });
+    expect(publicationInputOf({ ...draft, stockIntervalMinutes: '0.5' }, 'gw_1')).toMatchObject({
+      ok: false,
+    });
+    expect(publicationInputOf({ ...draft, stockIntervalMinutes: '43201' }, 'gw_1')).toMatchObject({
+      ok: false,
+    });
     expect(publicationInputOf({ ...draft, lowStockThreshold: '-1' }, 'gw_1')).toMatchObject({
       errorKey: 'settings.locations.editor.publication.thresholdInvalid',
     });

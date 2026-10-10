@@ -290,7 +290,9 @@ async function mintVariant(listingId: string): Promise<string> {
   return row.id;
 }
 
-async function mintCanonicalProduct(label: string): Promise<{ productId: string; variantId: string }> {
+async function mintCanonicalProduct(
+  label: string,
+): Promise<{ productId: string; variantId: string }> {
   const [product] = await db
     .insert(canonicalProducts)
     .values({
@@ -346,9 +348,7 @@ async function attach(
  * which is harmless, and it can never exclude one created later.
  */
 async function migrationFloor(): Promise<string> {
-  const [row] = await db
-    .select({ id: sql<string | null>`max(${favorites.id})` })
-    .from(favorites);
+  const [row] = await db.select({ id: sql<string | null>`max(${favorites.id})` }).from(favorites);
   return row?.id ?? '0';
 }
 
@@ -728,21 +728,13 @@ describe('the migration record is append-only, and idempotence does not depend o
     await runFavoriteMigrationPage({ limit: 500, cursor: floor, dryRun: false });
 
     expect(
-      await findRepresentedFavoriteIds(
-        [favorite.favoriteId],
-        PRODUCT_SAVE_MIGRATION_VERSION,
-        db,
-      ),
+      await findRepresentedFavoriteIds([favorite.favoriteId], PRODUCT_SAVE_MIGRATION_VERSION, db),
     ).toEqual(new Set([favorite.favoriteId]));
 
     await deleteProductSave(BUYER, productId, db);
 
     expect(
-      await findRepresentedFavoriteIds(
-        [favorite.favoriteId],
-        PRODUCT_SAVE_MIGRATION_VERSION,
-        db,
-      ),
+      await findRepresentedFavoriteIds([favorite.favoriteId], PRODUCT_SAVE_MIGRATION_VERSION, db),
     ).toEqual(new Set());
   });
 });
@@ -816,7 +808,9 @@ describe('ACCEPTANCE 4: a merge rehomes saves automatically', () => {
     );
     expect(claimed.map((row) => row.id)).toEqual([job.id]);
     const result = await runMergeJob(job.id, `worker-${RUN}`);
-    expect(result.blocked, 'the merge blocked on a conflict this fixture did not intend').toBe(false);
+    expect(result.blocked, 'the merge blocked on a conflict this fixture did not intend').toBe(
+      false,
+    );
     expect(result.finalPhase).toBe('done');
 
     const buyerSaves = await db
@@ -917,7 +911,9 @@ describe('ACCEPTANCE 4: a split marks saves for resolution rather than picking a
     const [save] = await db
       .select({ id: productSaves.id })
       .from(productSaves)
-      .where(sql`${productSaves.canonicalProductId} = ${productId} and ${productSaves.oxyUserId} = ${BUYER}`);
+      .where(
+        sql`${productSaves.canonicalProductId} = ${productId} and ${productSaves.oxyUserId} = ${BUYER}`,
+      );
     if (!save) throw new Error('no save to resolve');
     expect(await clearProductSaveAmbiguity(save.id, db)).toBe(true);
     expect(await clearProductSaveAmbiguity(save.id, db)).toBe(false);

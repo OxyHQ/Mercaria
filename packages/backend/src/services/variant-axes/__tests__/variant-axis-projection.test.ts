@@ -92,10 +92,7 @@ describe('projectTypedListingAxes', () => {
     // though it varied along one. Unique-per-listing is the KEY, never the word.
     const projected = projectTypedListingAxes(
       [axis('phone_color', 'Color', 0), axis('case_color', 'Color', 1)],
-      [
-        assignment('v1', 'phone_color', 'Black'),
-        assignment('v1', 'case_color', 'Clear'),
-      ],
+      [assignment('v1', 'phone_color', 'Black'), assignment('v1', 'case_color', 'Clear')],
       ['v1'],
     );
     expect(projected?.options).toEqual([
@@ -174,9 +171,9 @@ describe('classifyVariantAxisShadow', () => {
   it('is typed_absent when legacy has options and no typed axis exists', () => {
     // The migration backlog, measured on live traffic. Expected today for the
     // whole catalogue.
-    expect(
-      classifyVariantAxisShadow(null, legacy({ v1: [{ name: 'Color', value: 'Ice' }] })),
-    ).toBe('typed_absent');
+    expect(classifyVariantAxisShadow(null, legacy({ v1: [{ name: 'Color', value: 'Ice' }] }))).toBe(
+      'typed_absent',
+    );
   });
 
   it('is legacy_absent when typed axes exist and legacy carries nothing', () => {

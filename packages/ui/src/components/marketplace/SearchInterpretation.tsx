@@ -1,15 +1,15 @@
-import { Pressable, Text, View } from "react-native";
-import { X } from "lucide-react-native";
-import { useColorScheme } from "../../lib/useColorScheme";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { Pressable, Text, View } from 'react-native';
+import { X } from 'lucide-react-native';
+import { useColorScheme } from '../../lib/useColorScheme';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   SEARCH_CHIP_KEY,
   SEARCH_CHIP_PREFERENCE_KEY,
   SEARCH_CHIP_REMOVE_KEY,
   SEARCH_MODE_MODEL_KEY,
   SEARCH_MODE_RULES_KEY,
-} from "../../lib/marketplace-labels";
-import { cn } from "../../lib/cn";
+} from '../../lib/marketplace-labels';
+import { cn } from '../../lib/cn';
 
 /**
  * What Mercaria understood from a natural-language search (#95 client rules
@@ -38,10 +38,7 @@ import { cn } from "../../lib/cn";
  */
 
 /** Where one interpreted element came from. Mirrors `IntentElementOrigin`. */
-export type InterpretationOrigin =
-  | "user_explicit"
-  | "deterministic_rule"
-  | "model_inferred";
+export type InterpretationOrigin = 'user_explicit' | 'deterministic_rule' | 'model_inferred';
 
 /** One interpreted element, as a chip. */
 export interface InterpretationChip {
@@ -51,7 +48,7 @@ export interface InterpretationChip {
   readonly label: string;
   readonly origin: InterpretationOrigin;
   /** Whether this element excludes products, or only leans. */
-  readonly strength: "hard" | "preference";
+  readonly strength: 'hard' | 'preference';
   /** Whether the shopper may drop it in one tap. */
   readonly editable: boolean;
 }
@@ -67,12 +64,16 @@ export interface InterpretationGap {
 
 export interface SearchInterpretationProps {
   /** The paraphrase lines, in the order the server composed them. */
-  readonly paraphrase: readonly { readonly id: string; readonly text: string; readonly origin: InterpretationOrigin }[];
+  readonly paraphrase: readonly {
+    readonly id: string;
+    readonly text: string;
+    readonly origin: InterpretationOrigin;
+  }[];
   readonly chips: readonly InterpretationChip[];
   /** Phrases reported unresolved — never hidden (#95 client rule 4). */
   readonly gaps: readonly InterpretationGap[];
   /** Which interpreter produced this. Shown, because the two differ in kind. */
-  readonly mode: "model" | "deterministic";
+  readonly mode: 'model' | 'deterministic';
   /** Remove one interpreted element. */
   readonly onRemove: (chipId: string) => void;
   /** Drop the whole interpretation and search the raw text (#95 client rule 5). */
@@ -83,16 +84,16 @@ export interface SearchInterpretationProps {
 
 /** The chip styling for each origin. See the module docblock. */
 const ORIGIN_CLASSES: Readonly<Record<InterpretationOrigin, string>> = {
-  user_explicit: "bg-primary/10 border-primary/30",
-  deterministic_rule: "bg-muted border-border",
-  model_inferred: "border-dashed bg-muted/50 border-border",
+  user_explicit: 'bg-primary/10 border-primary/30',
+  deterministic_rule: 'bg-muted border-border',
+  model_inferred: 'border-dashed bg-muted/50 border-border',
 };
 
 /** One word naming the voice, so the distinction survives a screen reader. */
 const ORIGIN_LABELS: Readonly<Record<InterpretationOrigin, string>> = {
-  user_explicit: "you asked for",
-  deterministic_rule: "we read",
-  model_inferred: "we guessed",
+  user_explicit: 'you asked for',
+  deterministic_rule: 'we read',
+  model_inferred: 'we guessed',
 };
 
 export function SearchInterpretation({
@@ -118,8 +119,8 @@ export function SearchInterpretation({
           <Text
             key={line.id}
             className={cn(
-              "text-sm",
-              line.origin === "model_inferred" ? "text-muted-foreground" : "text-foreground",
+              'text-sm',
+              line.origin === 'model_inferred' ? 'text-muted-foreground' : 'text-foreground',
             )}
           >
             {line.text}
@@ -133,7 +134,7 @@ export function SearchInterpretation({
             <View
               key={chip.id}
               className={cn(
-                "flex-row items-center gap-1.5 rounded-full border px-3 py-1.5",
+                'flex-row items-center gap-1.5 rounded-full border px-3 py-1.5',
                 ORIGIN_CLASSES[chip.origin],
               )}
             >
@@ -143,10 +144,9 @@ export function SearchInterpretation({
                     requirements is actually narrowing the results. Two WHOLE
                     frames rather than a glued ` · preference`, whose separator
                     was inside the fragment. */}
-                {t(
-                  chip.strength === "preference" ? SEARCH_CHIP_PREFERENCE_KEY : SEARCH_CHIP_KEY,
-                  { label: chip.label },
-                )}
+                {t(chip.strength === 'preference' ? SEARCH_CHIP_PREFERENCE_KEY : SEARCH_CHIP_KEY, {
+                  label: chip.label,
+                })}
               </Text>
               {chip.editable ? (
                 <Pressable
@@ -178,7 +178,7 @@ export function SearchInterpretation({
 
       <View className="mt-3 flex-row items-center justify-between">
         <Text className="text-[11px] text-muted-foreground">
-          {t(mode === "model" ? SEARCH_MODE_MODEL_KEY : SEARCH_MODE_RULES_KEY)}
+          {t(mode === 'model' ? SEARCH_MODE_MODEL_KEY : SEARCH_MODE_RULES_KEY)}
         </Text>
         <Pressable accessibilityRole="button" onPress={onDismiss} hitSlop={8}>
           <Text className="text-xs font-medium text-primary">{dismissLabel}</Text>

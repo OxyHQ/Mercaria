@@ -1,13 +1,13 @@
-import { useSyncExternalStore } from "react";
-import { Platform } from "react-native";
+import { useSyncExternalStore } from 'react';
+import { Platform } from 'react-native';
 
-const IS_WEB = Platform.OS === "web";
+const IS_WEB = Platform.OS === 'web';
 
 /** Subscribe to window scroll (web only). No-op on native. */
 function subscribe(onChange: () => void): () => void {
   if (!IS_WEB) return () => undefined;
-  window.addEventListener("scroll", onChange, { passive: true });
-  return () => window.removeEventListener("scroll", onChange);
+  window.addEventListener('scroll', onChange, { passive: true });
+  return () => window.removeEventListener('scroll', onChange);
 }
 
 /** Current vertical document scroll offset (px). 0 on native / SSR. */

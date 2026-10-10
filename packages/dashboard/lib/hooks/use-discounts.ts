@@ -1,17 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type {
-  Discount,
-  CreateDiscountInput,
-  UpdateDiscountInput,
-} from "@mercaria/shared-types";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { Discount, CreateDiscountInput, UpdateDiscountInput } from '@mercaria/shared-types';
 import {
   fetchDiscounts,
   fetchDiscount,
   createDiscount,
   updateDiscount,
   deleteDiscount,
-} from "../api/discounts";
-import { queryKeys } from "../queryKeys";
+} from '../api/discounts';
+import { queryKeys } from '../queryKeys';
 
 /** The store's discounts. */
 export function useDiscounts(storeId: string) {

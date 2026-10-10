@@ -46,9 +46,7 @@ describe('the membership floor comes first (existing-store rule 1)', () => {
   it('drops it even when the claim proved its domain', () => {
     const candidates = discoverLinkageCandidates({
       claim: { ...NO_CLAIM, verifiedDomains: ['shop.example'] },
-      stores: [
-        store({ storeId: 's1', hasStoreManage: false, connectedDomains: ['shop.example'] }),
-      ],
+      stores: [store({ storeId: 's1', hasStoreManage: false, connectedDomains: ['shop.example'] })],
     });
     expect(candidates).toEqual([]);
   });
@@ -90,7 +88,12 @@ describe('domain evidence is LABEL-wise, never a substring', () => {
     // Still a candidate — the claimant manages it — but on MEMBERSHIP evidence,
     // never on the domain proof, which is the whole distinction.
     expect(candidates).toEqual([
-      { storeId: 'impostor', source: 'claimant_store_membership', evidenceRef: null, autoLinkable: true },
+      {
+        storeId: 'impostor',
+        source: 'claimant_store_membership',
+        evidenceRef: null,
+        autoLinkable: true,
+      },
     ]);
   });
 });

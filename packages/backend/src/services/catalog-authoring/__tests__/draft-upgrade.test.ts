@@ -105,7 +105,9 @@ vi.mock('../schema.service.js', () => ({
     composeAuthoringSchemaForDefinitionId(...args),
 }));
 
-vi.mock('../validation.js', () => ({ validateDraft: vi.fn(() => ({ publishable: true, findings: [], schemaEtag: 'etag' })) }));
+vi.mock('../validation.js', () => ({
+  validateDraft: vi.fn(() => ({ publishable: true, findings: [], schemaEtag: 'etag' })),
+}));
 
 vi.mock('../../variant-axes/signature.js', () => ({
   normalizeAxisValue: vi.fn(),
@@ -257,7 +259,7 @@ describe('the comparison is per (flow, attribute key) and not per row id', () =>
     expect(preview.losesAnswers).toBe(false);
   });
 
-  it('asks the repository only for the DRAFT\'s own flow', async () => {
+  it("asks the repository only for the DRAFT's own flow", async () => {
     await previewDraftUpgrade(db, DRAFT.storeId, DRAFT.id);
 
     // Both calls name `merchant`. Comparing across flows would report the P2P
@@ -344,9 +346,7 @@ describe('a newer attribute version can narrow a set, so it is reported as a ris
 
     expect(preview.outcome).toBe('upgrade_available');
     if (preview.outcome !== 'upgrade_available') return;
-    expect(preview.changes.map((change) => change.effect)).toEqual([
-      'attribute_version_changed',
-    ]);
+    expect(preview.changes.map((change) => change.effect)).toEqual(['attribute_version_changed']);
   });
 });
 
@@ -376,7 +376,14 @@ describe('a requirement move and a new field are reported without claiming a los
   it('reports `field_added` for a key only the newer version declares', async () => {
     fieldsByVersion(
       [field()],
-      [field(), field({ id: 'ptf_new', attributeDefinitionId: 'ad_storage', attributeKey: 'storage_capacity' })],
+      [
+        field(),
+        field({
+          id: 'ptf_new',
+          attributeDefinitionId: 'ad_storage',
+          attributeKey: 'storage_capacity',
+        }),
+      ],
     );
 
     const preview = await previewDraftUpgrade(db, DRAFT.storeId, DRAFT.id);
@@ -404,7 +411,7 @@ describe('applying an upgrade re-pins and rewrites NOTHING', () => {
     listDraftValues.mockResolvedValue([]);
   });
 
-  it('re-pins to the TARGET version with the target\'s hash and snapshot', async () => {
+  it("re-pins to the TARGET version with the target's hash and snapshot", async () => {
     await applyDraftUpgrade(db, {
       storeId: DRAFT.storeId,
       draftId: DRAFT.id,

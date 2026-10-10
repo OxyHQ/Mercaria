@@ -58,10 +58,7 @@ function subjectKindParam(req: Request): ClassificationSubjectKind {
 }
 
 /** GET — the primary plus every secondary for one subject. */
-export async function getProductClassificationHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function getProductClassificationHandler(req: Request, res: Response): Promise<void> {
   try {
     const subjectKind = subjectKindParam(req);
     const subjectId = routeParam(req, 'subjectId');

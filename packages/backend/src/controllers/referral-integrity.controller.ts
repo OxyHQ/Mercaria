@@ -215,10 +215,7 @@ export async function evaluateReferralRiskHandler(req: Request, res: Response): 
 }
 
 /** Record one observation an operator made by hand, attributably. */
-export async function recordReferralRiskSignalHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function recordReferralRiskSignalHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as {
       subjectType: ReferralRiskSubjectType;
@@ -243,10 +240,7 @@ export async function recordReferralRiskSignalHandler(
 // ─── Operator: enforcement ──────────────────────────────────────────────────
 
 /** Impose one scoped action. */
-export async function imposeReferralEnforcementHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function imposeReferralEnforcementHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as {
       action: ReferralEnforcementAction;
@@ -320,10 +314,7 @@ export async function decideReferralAppealHandler(req: Request, res: Response): 
  * requirement unmeetable by construction. `undefined` when nothing is
  * published, which is an honest absence rather than an invented policy.
  */
-export async function getReferralConductPolicyHandler(
-  _req: Request,
-  res: Response,
-): Promise<void> {
+export async function getReferralConductPolicyHandler(_req: Request, res: Response): Promise<void> {
   try {
     sendSuccess(res, { policy: (await readActiveConductPolicy()) ?? null });
   } catch (error) {
@@ -351,9 +342,10 @@ export async function getReferralDisclosuresHandler(req: Request, res: Response)
  * the store-permission question NOWHERE, which is what its isolation gate
  * asserts.
  */
-async function requireOwnPartnerId(
-  owner: { ownerType: 'user' | 'store'; ownerId: string },
-): Promise<string> {
+async function requireOwnPartnerId(owner: {
+  ownerType: 'user' | 'store';
+  ownerId: string;
+}): Promise<string> {
   const partner = await findPartnerByOwner(getDb(), owner);
   if (!partner) throw notFound('You are not a referral partner');
   return partner.id;

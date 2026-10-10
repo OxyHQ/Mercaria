@@ -281,7 +281,7 @@ export const LOCALE_SCOPED_TABLES_WITHOUT_LOCALIZED_COPY: Readonly<Record<string
     referral_terms_acceptances:
       'A signed acceptance. `locale` records which rendering of the terms was shown.',
     relationship_evidence:
-      'Evidence quoted to a reviewer (#55), whose `locale` is the source document\'s. Kept ' +
+      "Evidence quoted to a reviewer (#55), whose `locale` is the source document's. Kept " +
       'verbatim on purpose — the same ruling `abuse_reports` takes, and for the same reason.',
     reviews:
       'Buyer-authored review copy (#76), rendered to shoppers and governed by CrowdSource ' +
@@ -411,7 +411,10 @@ export const LOCALIZED_TEXT_FIELDS: Readonly<
     'helpText',
   ),
   // The label beside one input. One line, always.
-  'product_type_field_localizations.label': describe('product_type_field_localizations.label', NONE),
+  'product_type_field_localizations.label': describe(
+    'product_type_field_localizations.label',
+    NONE,
+  ),
   'product_type_field_localizations.help_text': describe(
     'product_type_field_localizations.help_text',
     BLOCK,
@@ -494,9 +497,7 @@ export const RICH_LOCALIZED_TEXT_COLUMN_KEYS: readonly LocalizedTextColumnKey[] 
   LOCALIZED_TEXT_COLUMN_KEYS.filter((key) => LOCALIZED_TEXT_FIELDS[key].format === 'rich');
 
 /** The declared columns of one table, by SQL table name. */
-export function localizedTextFieldsOfTable(
-  table: string,
-): readonly LocalizedTextFieldDescriptor[] {
+export function localizedTextFieldsOfTable(table: string): readonly LocalizedTextFieldDescriptor[] {
   return LOCALIZED_TEXT_COLUMN_KEYS.filter((key) => LOCALIZED_TEXT_FIELDS[key].table === table).map(
     (key) => LOCALIZED_TEXT_FIELDS[key],
   );

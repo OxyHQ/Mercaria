@@ -3,7 +3,7 @@ module.exports = function (api) {
   return {
     presets: [
       [
-        "babel-preset-expo",
+        'babel-preset-expo',
         {
           unstable_transformImportMeta: true,
         },
@@ -11,16 +11,16 @@ module.exports = function (api) {
     ],
     plugins: [
       [
-        "module-resolver",
+        'module-resolver',
         {
-          root: ["./"],
-          alias: { "@": "./" },
-          extensions: [".ts", ".tsx", ".js", ".jsx", ".json", ".svg"],
+          root: ['./'],
+          alias: { '@': './' },
+          extensions: ['.ts', '.tsx', '.js', '.jsx', '.json', '.svg'],
         },
       ],
-      "@babel/plugin-syntax-dynamic-import",
-      "@babel/plugin-transform-export-namespace-from",
-      "react-native-worklets/plugin",
+      '@babel/plugin-syntax-dynamic-import',
+      '@babel/plugin-transform-export-namespace-from',
+      'react-native-worklets/plugin',
     ],
   };
 };

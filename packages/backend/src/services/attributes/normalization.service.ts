@@ -100,7 +100,9 @@ export function normalizeAttributeObservation(
 ): NormalizedAttributeFact[] {
   const trimmed = input.displayValue.trim();
   if (trimmed.length === 0) {
-    return [{ normalizationState: 'unparsed', sourceDisplayValue: input.displayValue, position: 0 }];
+    return [
+      { normalizationState: 'unparsed', sourceDisplayValue: input.displayValue, position: 0 },
+    ];
   }
   if (!input.definition) {
     return [
@@ -150,10 +152,7 @@ function splitMultiValue(display: string): string[] {
   return parts.length === 0 ? [display] : parts;
 }
 
-function withPosition(
-  fact: NormalizedAttributeFact,
-  position: number,
-): NormalizedAttributeFact {
+function withPosition(fact: NormalizedAttributeFact, position: number): NormalizedAttributeFact {
   return { ...fact, position };
 }
 
@@ -172,7 +171,8 @@ function normalizeStructured(
   input: NormalizeAttributeInput,
 ): NormalizedAttributeFact[] {
   const definition = input.definition;
-  if (!definition) return [{ normalizationState: 'unparsed', sourceDisplayValue: display, position: 0 }];
+  if (!definition)
+    return [{ normalizationState: 'unparsed', sourceDisplayValue: display, position: 0 }];
   const axes = definition.row.componentAxes;
 
   const parts = display
@@ -197,9 +197,8 @@ function normalizeStructured(
 
   return parts.map((part, index) => {
     const axis = axes[index] as AttributeComponentAxis;
-    const withUnit = unitOf(part) === undefined && trailingUnit !== undefined
-      ? `${part} ${trailingUnit}`
-      : part;
+    const withUnit =
+      unitOf(part) === undefined && trailingUnit !== undefined ? `${part} ${trailingUnit}` : part;
     const fact = normalizeScalar(withUnit, { ...input, displayValue: withUnit });
     return { ...fact, sourceDisplayValue: part, componentAxis: axis, position: index };
   });
@@ -259,10 +258,7 @@ function normalizeRangeValue(
 }
 
 /** One scalar value of the definition's declared type. */
-function normalizeScalar(
-  display: string,
-  input: NormalizeAttributeInput,
-): NormalizedAttributeFact {
+function normalizeScalar(display: string, input: NormalizeAttributeInput): NormalizedAttributeFact {
   const definition = input.definition;
   const unread: NormalizedAttributeFact = {
     normalizationState: 'unparsed',
@@ -446,7 +442,11 @@ function normalizeEnum(
  */
 function normalizeDate(display: string): NormalizedAttributeFact {
   const trimmed = display.trim();
-  if (!/^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/u.test(trimmed)) {
+  if (
+    !/^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/u.test(
+      trimmed,
+    )
+  ) {
     return { normalizationState: 'unparsed', sourceDisplayValue: display, position: 0 };
   }
   const parsed = new Date(trimmed.length === 10 ? `${trimmed}T00:00:00.000Z` : trimmed);
@@ -651,9 +651,7 @@ export function normalizedFactsAgree(
   if ((left.normalizedUnit ?? null) !== (right.normalizedUnit ?? null)) return false;
   if ((left.normalizedCurrency ?? null) !== (right.normalizedCurrency ?? null)) return false;
   if ((left.normalizedAmountMinor ?? null) !== (right.normalizedAmountMinor ?? null)) return false;
-  if (
-    (left.normalizedDate?.getTime() ?? null) !== (right.normalizedDate?.getTime() ?? null)
-  ) {
+  if ((left.normalizedDate?.getTime() ?? null) !== (right.normalizedDate?.getTime() ?? null)) {
     return false;
   }
   if (
@@ -671,7 +669,11 @@ export function normalizedFactsAgree(
   );
 }
 
-function numbersAgree(left: number | undefined, right: number | undefined, decimals: number): boolean {
+function numbersAgree(
+  left: number | undefined,
+  right: number | undefined,
+  decimals: number,
+): boolean {
   if (left === undefined || right === undefined) return left === right;
   const tolerance = 0.5 * 10 ** -Math.max(0, Math.min(12, decimals));
   return Math.abs(left - right) <= tolerance;

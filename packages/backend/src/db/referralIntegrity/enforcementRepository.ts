@@ -143,10 +143,7 @@ export async function liftEnforcementAction(
       liftReason: input.liftReason,
     })
     .where(
-      and(
-        eq(referralEnforcementActions.id, input.id),
-        isNull(referralEnforcementActions.liftedAt),
-      ),
+      and(eq(referralEnforcementActions.id, input.id), isNull(referralEnforcementActions.liftedAt)),
     )
     .returning();
   return row;

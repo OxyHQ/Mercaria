@@ -43,7 +43,11 @@ import {
   ensureCatalogSource,
   type CatalogSourceRow,
 } from '../../db/canonical/provenanceRepository.js';
-import { insertBrandAlias, listBrandAliases, listBrandSourceLinks } from '../../db/canonical/brandRepository.js';
+import {
+  insertBrandAlias,
+  listBrandAliases,
+  listBrandSourceLinks,
+} from '../../db/canonical/brandRepository.js';
 import {
   applyBrandSourceObservation,
   createBrand,
@@ -95,13 +99,17 @@ afterEach(async () => {
   // Aliases and links CASCADE from their entity; tombstones reference their
   // winner RESTRICT, so they go first.
   if (brandIds.length > 0) {
-    await db.delete(brands).where(and(inArray(brands.id, brandIds), isNotNull(brands.mergedIntoId)));
+    await db
+      .delete(brands)
+      .where(and(inArray(brands.id, brandIds), isNotNull(brands.mergedIntoId)));
     await db.delete(brands).where(inArray(brands.id, brandIds));
   }
   if (organizationIds.length > 0) {
     await db
       .delete(organizations)
-      .where(and(inArray(organizations.id, organizationIds), isNotNull(organizations.mergedIntoId)));
+      .where(
+        and(inArray(organizations.id, organizationIds), isNotNull(organizations.mergedIntoId)),
+      );
     await db.delete(organizations).where(inArray(organizations.id, organizationIds));
   }
   if (vendorExternalIds.length > 0) {
@@ -230,7 +238,9 @@ describe('aliases (generated column + compound unique)', () => {
     const rows = await db
       .select({ n: count() })
       .from(brandAliases)
-      .where(and(eq(brandAliases.brandId, brand.id), eq(brandAliases.normalizedAlias, `lumen-x-${RUN}`)));
+      .where(
+        and(eq(brandAliases.brandId, brand.id), eq(brandAliases.normalizedAlias, `lumen-x-${RUN}`)),
+      );
     expect(rows[0]?.n).toBe(1);
   });
 
@@ -238,7 +248,11 @@ describe('aliases (generated column + compound unique)', () => {
     const one = trackBrand(await createBrand({ name: `Meridian ${RUN}` }));
     const two = trackBrand(await createBrand({ name: `Meridian Two ${RUN}` }));
 
-    await insertBrandAlias(db, { brandId: one.id, alias: `unique-mark-${RUN}`, kind: 'name_variant' });
+    await insertBrandAlias(db, {
+      brandId: one.id,
+      alias: `unique-mark-${RUN}`,
+      kind: 'name_variant',
+    });
     expect(await resolveBrandAlias(`Unique-Mark-${RUN}`)).toEqual({
       kind: 'resolved',
       id: one.id,
@@ -246,7 +260,11 @@ describe('aliases (generated column + compound unique)', () => {
 
     // The SAME alias on a second brand: per-entity uniqueness permits it, and
     // resolution must now say so out loud rather than picking a winner.
-    await insertBrandAlias(db, { brandId: two.id, alias: `unique-mark-${RUN}`, kind: 'name_variant' });
+    await insertBrandAlias(db, {
+      brandId: two.id,
+      alias: `unique-mark-${RUN}`,
+      kind: 'name_variant',
+    });
     expect(await resolveBrandAlias(`unique-mark-${RUN}`)).toEqual({
       kind: 'ambiguous',
       candidateIds: [one.id, two.id].sort(),
@@ -259,7 +277,9 @@ describe('aliases (generated column + compound unique)', () => {
 describe('normalization generates candidates, never merges (acceptance 1)', () => {
   it('keeps two brands with colliding normalized names as two rows and surfaces both as candidates', async () => {
     const plain = trackBrand(await createBrand({ name: `Apfel ${RUN}` }));
-    const suffixed = trackBrand(await createBrand({ name: `Apfel ${RUN} Inc.`, slug: `apfel-${RUN}-inc` }));
+    const suffixed = trackBrand(
+      await createBrand({ name: `Apfel ${RUN} Inc.`, slug: `apfel-${RUN}-inc` }),
+    );
 
     // The collapse happened (both normalize identically)…
     expect(plain.normalizedName).toBe(suffixed.normalizedName);
@@ -270,7 +290,10 @@ describe('normalization generates candidates, never merges (acceptance 1)', () =
     expect(ids).toContain(plain.id);
     expect(ids).toContain(suffixed.id);
 
-    const rows = await db.select().from(brands).where(inArray(brands.id, [plain.id, suffixed.id]));
+    const rows = await db
+      .select()
+      .from(brands)
+      .where(inArray(brands.id, [plain.id, suffixed.id]));
     expect(rows).toHaveLength(2);
     expect(rows.every((row) => row.status === 'active')).toBe(true);
   });
@@ -388,7 +411,10 @@ describe('provenance (acceptance 2) and the source-upsert rules', () => {
     const source = await makeTestSource('feed-gamma');
     const brand = trackBrand(await createBrand({ name: `Cobalt ${RUN}` }));
 
-    await updateBrand(brand.id, { description: 'Operator wrote this.', actorOxyUserId: 'oxy-op-1' });
+    await updateBrand(brand.id, {
+      description: 'Operator wrote this.',
+      actorOxyUserId: 'oxy-op-1',
+    });
 
     const applied = await applyBrandSourceObservation({
       brandId: brand.id,
@@ -558,7 +584,9 @@ describe('vendor extraction (#53 migration, D23 phase 1)', () => {
       .select({ vendor: listings.vendor })
       .from(listings)
       .where(inArray(listings.id, [...createdListingIds]));
-    expect(vendorsBack.map((row) => row.vendor).sort()).toEqual([vendorA, vendorB, vendorSolo].sort());
+    expect(vendorsBack.map((row) => row.vendor).sort()).toEqual(
+      [vendorA, vendorB, vendorSolo].sort(),
+    );
 
     // The durable evidence exists under the registered backfill source…
     const backfill = await db

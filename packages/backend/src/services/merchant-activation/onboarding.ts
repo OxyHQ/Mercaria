@@ -89,10 +89,13 @@ const STEP_REQUIREMENTS: Readonly<
 export const STEPLESS_REQUIREMENTS: Readonly<
   Partial<Record<MerchantActivationRequirementKey, string>>
 > = {
-  no_platform_hold: 'An operator decision. A merchant cannot act on it and must not be sent to try.',
-  native_checkout_ready: 'The native conjunction itself; every step above already covers a part of it.',
+  no_platform_hold:
+    'An operator decision. A merchant cannot act on it and must not be sent to try.',
+  native_checkout_ready:
+    'The native conjunction itself; every step above already covers a part of it.',
   guest_commerce_enabled: 'A deployment flag. No merchant screen changes it.',
-  guest_market_currency_allowed: 'Deployment configuration — which markets and currencies are charged.',
+  guest_market_currency_allowed:
+    'Deployment configuration — which markets and currencies are charged.',
   guest_payment_method_available: 'Deployment configuration — which Stripe surfaces are enabled.',
   guest_inline_destination_supported: 'A deployment flag (#105).',
   guest_merchant_order_access: 'Structural (#106). Nothing to configure.',
@@ -124,7 +127,12 @@ export function deriveOnboarding(
     // outcome is a capability nobody built. Rendering that the same as
     // `incomplete` makes a merchant press a button that cannot work.
     const blocked = unmet.some((requirement) => outcomes.get(requirement)?.state === 'unevaluable');
-    return { step, state: blocked ? ('blocked' as const) : ('incomplete' as const), requirements, unmet };
+    return {
+      step,
+      state: blocked ? ('blocked' as const) : ('incomplete' as const),
+      requirements,
+      unmet,
+    };
   });
 }
 

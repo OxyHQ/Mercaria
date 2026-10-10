@@ -45,7 +45,10 @@ export const VISIT_PHOTO_KINDS = ['photo', 'exterior', 'interior'] as const;
 export const VISIT_PHOTO_LIMIT = 8;
 
 /** Order a store's locations, the one a `?location=` link named first. */
-export function orderLocations<T extends { ref: { id: string } }>(locations: readonly T[], focusId?: string): T[] {
+export function orderLocations<T extends { ref: { id: string } }>(
+  locations: readonly T[],
+  focusId?: string,
+): T[] {
   if (focusId === undefined) return [...locations];
   const focused = locations.filter((location) => location.ref.id === focusId);
   return [...focused, ...locations.filter((location) => location.ref.id !== focusId)];
@@ -58,14 +61,20 @@ export function orderLocations<T extends { ref: { id: string } }>(locations: rea
 export function placeAddressLine(place: Pick<Place, 'address'>): string {
   const address = place.address;
   if (address === undefined) return '';
-  if (address.formatted !== undefined && address.formatted.trim() !== '') return address.formatted.trim();
+  if (address.formatted !== undefined && address.formatted.trim() !== '')
+    return address.formatted.trim();
   const street = [address.street, address.houseNumber].filter(present).join(' ');
   const town = [address.postalCode, address.city].filter(present).join(' ');
-  return [street, address.locality, town, address.region, address.country].filter(present).join(', ');
+  return [street, address.locality, town, address.region, address.country]
+    .filter(present)
+    .join(', ');
 }
 
 /** Open right now, and when that changes today — GoWay's evaluation, as the shared wording reads it. */
-export function placeOpenState(place: Pick<Place, 'openingHours' | 'timezone' | 'hoursExceptions'>, now: Date): LocationOpenState {
+export function placeOpenState(
+  place: Pick<Place, 'openingHours' | 'timezone' | 'hoursExceptions'>,
+  now: Date,
+): LocationOpenState {
   const status = openingStatusAt(place, now);
   if (status.state === 'unknown') return { known: false };
   const changesAt =
@@ -130,7 +139,10 @@ export function upcomingExceptions(
 }
 
 /** Today in the place's own calendar when GoWay can say, else the UTC date. */
-export function placeToday(place: Pick<Place, 'openingHours' | 'timezone' | 'hoursExceptions'>, now: Date): string {
+export function placeToday(
+  place: Pick<Place, 'openingHours' | 'timezone' | 'hoursExceptions'>,
+  now: Date,
+): string {
   const status = openingStatusAt(place, now);
   return status.state === 'unknown' ? now.toISOString().slice(0, 10) : status.localDate;
 }
@@ -161,7 +173,10 @@ export interface VisitAttribute {
  * out rather than shown as a negative chip. Labels are GoWay's registry's, in
  * the locale when GoWay has it and in English otherwise.
  */
-export function visitAttributes(place: Pick<Place, 'capabilities'>, locale: string): VisitAttribute[] {
+export function visitAttributes(
+  place: Pick<Place, 'capabilities'>,
+  locale: string,
+): VisitAttribute[] {
   const attributes: VisitAttribute[] = [];
   for (const key of CAPABILITY_KEYS) {
     const group = capabilityGroupOf(key);

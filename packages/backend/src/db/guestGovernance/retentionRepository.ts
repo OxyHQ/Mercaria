@@ -161,10 +161,7 @@ export async function readHeldCheckoutGroups(
     .select({ checkoutGroupId: guestLegalHolds.checkoutGroupId })
     .from(guestLegalHolds)
     .where(
-      and(
-        eq(guestLegalHolds.retentionClass, retentionClass),
-        isNull(guestLegalHolds.liftedAt),
-      ),
+      and(eq(guestLegalHolds.retentionClass, retentionClass), isNull(guestLegalHolds.liftedAt)),
     );
   return rows.map((row) => row.checkoutGroupId);
 }
@@ -381,10 +378,7 @@ export async function readPolicyCoverage(
  * than silently counting nothing — which is the failure mode this counter
  * exists to make impossible everywhere else.
  */
-export async function countOverdueGuestRows(
-  db: DatabaseOrTransaction,
-  now: Date,
-): Promise<number> {
+export async function countOverdueGuestRows(db: DatabaseOrTransaction, now: Date): Promise<number> {
   const [row] = await db.execute<{ overdue: string }>(sql`
     select (
       (select count(*) from guest_sessions

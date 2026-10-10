@@ -1,26 +1,21 @@
-import React, { useCallback, useMemo } from "react";
-import { Platform, View } from "react-native";
-import { usePathname, useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { Avatar } from "@oxy.so/bloom/avatar";
-import { BottomBar, type BottomBarProps } from "@oxy.so/bloom/bottom-bar";
-import { useOxy } from "@oxy.so/services";
-import { CartFlightTarget, ShopNavigationIcon, Text } from "@mercaria/ui";
+import React, { useCallback, useMemo } from 'react';
+import { Platform, View } from 'react-native';
+import { usePathname, useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { Avatar } from '@oxy.so/bloom/avatar';
+import { BottomBar, type BottomBarProps } from '@oxy.so/bloom/bottom-bar';
+import { useOxy } from '@oxy.so/services';
+import { CartFlightTarget, ShopNavigationIcon, Text } from '@mercaria/ui';
 
-import { useCart } from "@/lib/hooks/use-cart";
-import { useTranslation } from "@/lib/i18n";
-import {
-  NAV_ITEMS,
-  isNavItemActive,
-  isAuthTabActive,
-  type NavItem,
-} from "./nav-items";
+import { useCart } from '@/lib/hooks/use-cart';
+import { useTranslation } from '@/lib/i18n';
+import { NAV_ITEMS, isNavItemActive, isAuthTabActive, type NavItem } from './nav-items';
 
 /** The destinations that have a screen; an unbuilt one has no route to push. */
 type AvailableNavItem = Extract<NavItem, { available: true }>;
 
 /** The trailing account tab's value — not a {@link NAV_ITEMS} key. */
-const ACCOUNT_TAB = "account";
+const ACCOUNT_TAB = 'account';
 
 /** Maximum badge count shown numerically; above this threshold "9+" is shown. */
 const MAX_BADGE_COUNT = 9;
@@ -28,7 +23,7 @@ const MAX_BADGE_COUNT = 9;
 const AVATAR_SIZE = 26;
 
 function triggerHaptic() {
-  if (Platform.OS === "web") return;
+  if (Platform.OS === 'web') return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
 
@@ -38,9 +33,7 @@ function triggerHaptic() {
  */
 function AccountAvatar() {
   const { user, oxyServices } = useOxy();
-  const avatarUrl = user?.avatar
-    ? oxyServices.assets.publicUrl(user.avatar, "thumb")
-    : undefined;
+  const avatarUrl = user?.avatar ? oxyServices.assets.publicUrl(user.avatar, 'thumb') : undefined;
   return (
     <Avatar
       uri={avatarUrl}
@@ -89,20 +82,17 @@ export function BottomTabBar() {
   const cartCount = cart?.items.reduce((n, i) => n + i.quantity, 0) ?? 0;
 
   const available = useMemo(
-    () =>
-      NAV_ITEMS.filter(
-        (item): item is AvailableNavItem => item.available && !item.desktopOnly,
-      ),
+    () => NAV_ITEMS.filter((item): item is AvailableNavItem => item.available && !item.desktopOnly),
     [],
   );
 
-  const items = useMemo<BottomBarProps["items"]>(
+  const items = useMemo<BottomBarProps['items']>(
     () => [
       ...available.map((item) => ({
         name: item.key,
         label: t(item.labelKey),
         icon:
-          item.key === "cart" ? (
+          item.key === 'cart' ? (
             <CartGlyph count={cartCount} />
           ) : (
             <ShopNavigationIcon name={item.icon} />
@@ -112,12 +102,8 @@ export function BottomTabBar() {
         name: ACCOUNT_TAB,
         // Resolved through `t` rather than held as a literal: the i18n guard
         // reads JSX positions and cannot follow a string through a local.
-        label: t("profile.title"),
-        icon: isAuthenticated ? (
-          <AccountAvatar />
-        ) : (
-          <ShopNavigationIcon name="profile" />
-        ),
+        label: t('profile.title'),
+        icon: isAuthenticated ? <AccountAvatar /> : <ShopNavigationIcon name="profile" />,
       },
     ],
     [available, cartCount, isAuthenticated, t],
@@ -127,13 +113,13 @@ export function BottomTabBar() {
   // `/@profile` route, or no tab at all on a pushed screen with no home here.
   const value =
     available.find((item) => isNavItemActive(item, pathname))?.key ??
-    (isAuthTabActive(pathname) ? ACCOUNT_TAB : "");
+    (isAuthTabActive(pathname) ? ACCOUNT_TAB : '');
 
   const onValueChange = useCallback(
     (name: string) => {
       triggerHaptic();
       if (name === ACCOUNT_TAB) {
-        router.push("/profile");
+        router.push('/profile');
         return;
       }
       // The route is read from the typed table, never from the tab's name.
@@ -144,6 +130,11 @@ export function BottomTabBar() {
   );
 
   return (
-    <BottomBar testID="storefront-bottom-bar" items={items} value={value} onValueChange={onValueChange} />
+    <BottomBar
+      testID="storefront-bottom-bar"
+      items={items}
+      value={value}
+      onValueChange={onValueChange}
+    />
   );
 }

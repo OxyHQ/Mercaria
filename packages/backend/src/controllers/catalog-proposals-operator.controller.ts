@@ -56,7 +56,10 @@ export async function catalogProposalQueueHandler(req: Request, res: Response): 
       ...(query.state === undefined ? {} : { states: [query.state] }),
       ...(query.type === undefined ? {} : { types: [query.type] }),
       ...(query.storeId === undefined ? {} : { storeId: query.storeId }),
-      limit: Math.min(query.limit ?? config.catalogProposals.pageSize, config.catalogProposals.pageSize),
+      limit: Math.min(
+        query.limit ?? config.catalogProposals.pageSize,
+        config.catalogProposals.pageSize,
+      ),
       offset: query.offset ?? 0,
     });
     sendSuccess(res, await projectProposals(getDb(), rows));

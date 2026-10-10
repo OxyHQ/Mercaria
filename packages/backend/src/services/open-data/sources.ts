@@ -119,9 +119,15 @@ const OPEN_FACTS_SITES = [
  * each format keeps its own prices and history. Measured against the dump on
  * 2026-10-10; a chain with no current price simply yields an empty pass.
  */
-const SPANISH_CHAINS: readonly { readonly merchant: DeclaredMerchant; readonly chains: readonly string[] }[] = [
+const SPANISH_CHAINS: readonly {
+  readonly merchant: DeclaredMerchant;
+  readonly chains: readonly string[];
+}[] = [
   { merchant: { slug: 'mercadona', name: 'Mercadona' }, chains: ['mercadona'] },
-  { merchant: { slug: 'carrefour', name: 'Carrefour' }, chains: ['carrefour', 'carrefour_express', 'carrefour_market'] },
+  {
+    merchant: { slug: 'carrefour', name: 'Carrefour' },
+    chains: ['carrefour', 'carrefour_express', 'carrefour_market'],
+  },
   { merchant: { slug: 'lidl', name: 'Lidl' }, chains: ['lidl'] },
   { merchant: { slug: 'alcampo', name: 'Alcampo' }, chains: ['alcampo', 'mi_alcampo'] },
   { merchant: { slug: 'supeco', name: 'Supeco' }, chains: ['supeco'] },
@@ -152,7 +158,8 @@ const SPANISH_CHAINS: readonly { readonly merchant: DeclaredMerchant; readonly c
 
 function providerName(slug: string): string {
   const provider = findOpenDataProvider(slug);
-  if (provider === undefined) throw new Error(`Declared open-data source names unknown provider ${slug}.`);
+  if (provider === undefined)
+    throw new Error(`Declared open-data source names unknown provider ${slug}.`);
   return provider.name;
 }
 
@@ -195,7 +202,9 @@ const priceSources: DeclaredOpenDataSource[] = SPANISH_CHAINS.flatMap(({ merchan
  * What a provider's OWN terms grant (`provider_terms`): the same uses, with a
  * shorter cache, and the terms page as the reference.
  */
-function providerTermsRights(termsUrl: string): Omit<DeclaredSourceRights, 'mayDisplayPrice' | 'mayLinkOut' | 'maySeedCatalog'> {
+function providerTermsRights(
+  termsUrl: string,
+): Omit<DeclaredSourceRights, 'mayDisplayPrice' | 'mayLinkOut' | 'maySeedCatalog'> {
   return { ...ODBL_RIGHTS, cacheTtlSeconds: 2 * DAY, termsVersion: 'provider_terms', termsUrl };
 }
 
@@ -216,7 +225,12 @@ const selfPricedSources: DeclaredOpenDataSource[] = [
     fetchCadenceSeconds: DAY,
     freshnessTtlSeconds: 3 * DAY,
     pageSize: 175,
-    rights: { ...providerTermsRights('https://scryfall.com/docs/api'), mayDisplayPrice: true, mayLinkOut: false, maySeedCatalog: true },
+    rights: {
+      ...providerTermsRights('https://scryfall.com/docs/api'),
+      mayDisplayPrice: true,
+      mayLinkOut: false,
+      maySeedCatalog: true,
+    },
   },
   {
     name: 'TCGdex · Pokémon TCG (es)',
@@ -227,7 +241,12 @@ const selfPricedSources: DeclaredOpenDataSource[] = [
     fetchCadenceSeconds: DAY,
     freshnessTtlSeconds: 3 * DAY,
     pageSize: 50,
-    rights: { ...providerTermsRights('https://tcgdex.dev'), mayDisplayPrice: true, mayLinkOut: false, maySeedCatalog: true },
+    rights: {
+      ...providerTermsRights('https://tcgdex.dev'),
+      mayDisplayPrice: true,
+      mayLinkOut: false,
+      maySeedCatalog: true,
+    },
   },
   {
     name: 'YGOPRODeck · Yu-Gi-Oh! (ES)',
@@ -238,7 +257,12 @@ const selfPricedSources: DeclaredOpenDataSource[] = [
     fetchCadenceSeconds: DAY,
     freshnessTtlSeconds: 3 * DAY,
     pageSize: 100,
-    rights: { ...providerTermsRights('https://ygoprodeck.com/api-guide/'), mayDisplayPrice: true, mayLinkOut: false, maySeedCatalog: true },
+    rights: {
+      ...providerTermsRights('https://ygoprodeck.com/api-guide/'),
+      mayDisplayPrice: true,
+      mayLinkOut: false,
+      maySeedCatalog: true,
+    },
   },
   {
     name: 'Steam (ES)',
@@ -270,7 +294,12 @@ const selfPricedSources: DeclaredOpenDataSource[] = [
     fetchCadenceSeconds: DAY,
     freshnessTtlSeconds: 3 * DAY,
     pageSize: 48,
-    rights: { ...providerTermsRights('https://www.gog.com/en/support_policy'), mayDisplayPrice: true, mayLinkOut: true, maySeedCatalog: true },
+    rights: {
+      ...providerTermsRights('https://www.gog.com/en/support_policy'),
+      mayDisplayPrice: true,
+      mayLinkOut: true,
+      maySeedCatalog: true,
+    },
   },
 ];
 

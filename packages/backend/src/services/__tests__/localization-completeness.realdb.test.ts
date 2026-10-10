@@ -100,7 +100,13 @@ async function addCategory(
 ): Promise<string> {
   const [row] = await db
     .insert(categories)
-    .values({ key, name, slug: key.replace(/\./gu, '-'), lifecycle, isActive: lifecycle === 'published' })
+    .values({
+      key,
+      name,
+      slug: key.replace(/\./gu, '-'),
+      lifecycle,
+      isActive: lifecycle === 'published',
+    })
     .returning();
   return row.id;
 }
@@ -242,10 +248,7 @@ describe('the denominator is the entity population', () => {
     // the figure is measured, not asserted.
     const before = rowFor(await readLocalizationCompleteness('launch', db), 'category', 'fr');
     expect(before.approved).toBe(1);
-    await db
-      .update(categories)
-      .set({ name: 'Footwear' })
-      .where(eq(categories.id, publishedIds[0]));
+    await db.update(categories).set({ name: 'Footwear' }).where(eq(categories.id, publishedIds[0]));
     const after = rowFor(await readLocalizationCompleteness('launch', db), 'category', 'fr');
     expect(after.stale).toBe(before.stale + 1);
     expect(after.approved).toBe(before.approved - 1);
@@ -270,7 +273,13 @@ describe('product types are owed per published VERSION', () => {
     // must carry BOTH publication audit columns.
     const publishedAudit = { publishedByOxyUserId: 'desk-publisher', publishedAt: new Date() };
     await db.insert(productTypeDefinitions).values([
-      { key: 'desk.phone', version: 1, lifecycle: 'published', name: 'Smartphone', ...publishedAudit },
+      {
+        key: 'desk.phone',
+        version: 1,
+        lifecycle: 'published',
+        name: 'Smartphone',
+        ...publishedAudit,
+      },
       { key: 'desk.tablet', version: 1, lifecycle: 'published', name: 'Tablet', ...publishedAudit },
       // Draft and superseded versions of a published key — owed by nobody.
       { key: 'desk.phone', version: 2, lifecycle: 'draft', name: 'Smartphone v2' },

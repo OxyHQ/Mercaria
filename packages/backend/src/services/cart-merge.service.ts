@@ -226,7 +226,9 @@ export async function mergeGuestCart(input: {
 }): Promise<CartMergeResult> {
   const view: CartView = {
     owner: { kind: 'oxy_user', oxyUserId: input.oxyUserId },
-    ...(input.requestedCurrency === undefined ? {} : { requestedCurrency: input.requestedCurrency }),
+    ...(input.requestedCurrency === undefined
+      ? {}
+      : { requestedCurrency: input.requestedCurrency }),
   };
 
   const verdict = await getDb().transaction((tx) => runMerge(tx, input));
@@ -467,11 +469,7 @@ async function carryDiscountCodes(
 
   if (kept.length > 0) {
     counts.discountCodesAdded = kept.length;
-    await setPendingDiscountCodes(
-      targetCart.id,
-      [...targetCart.pendingDiscountCodes, ...kept],
-      tx,
-    );
+    await setPendingDiscountCodes(targetCart.id, [...targetCart.pendingDiscountCodes, ...kept], tx);
   }
 }
 

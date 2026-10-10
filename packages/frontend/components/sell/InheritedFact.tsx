@@ -1,7 +1,7 @@
-import { View } from "react-native";
-import { Text } from "@mercaria/ui";
-import type { SellerFieldOrigin } from "@mercaria/shared-types";
-import { useTranslation } from "@/lib/i18n";
+import { View } from 'react-native';
+import { Text } from '@mercaria/ui';
+import type { SellerFieldOrigin } from '@mercaria/shared-types';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * One fact on the sell form, labelled with WHOSE it is (#91 UX rule 3).
@@ -27,17 +27,17 @@ export interface InheritedFactProps {
 
 export function InheritedFact({ label, value, origin, confirmed }: InheritedFactProps) {
   const { t } = useTranslation();
-  const inherited = origin === "canonical";
+  const inherited = origin === 'canonical';
   return (
     <View className="gap-1 py-2">
       <Text className="text-xs uppercase text-muted-foreground">{label}</Text>
-      <Text className={inherited ? "text-base text-muted-foreground" : "text-base"}>{value}</Text>
+      <Text className={inherited ? 'text-base text-muted-foreground' : 'text-base'}>{value}</Text>
       <Text className="text-xs text-muted-foreground">
         {inherited
-          ? t("sell.fact.fromProduct")
+          ? t('sell.fact.fromProduct')
           : confirmed
-            ? t("sell.fact.yourAnswer")
-            : t("sell.fact.yourAnswerNotConfirmed")}
+            ? t('sell.fact.yourAnswer')
+            : t('sell.fact.yourAnswerNotConfirmed')}
       </Text>
     </View>
   );

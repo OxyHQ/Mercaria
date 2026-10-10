@@ -1,12 +1,12 @@
-import { Pressable, View } from "react-native";
+import { Pressable, View } from 'react-native';
 import {
   DOWNLOAD_AUTHORIZING_ASSET_RIGHT_STATUSES,
   type BuyerAssetRightSummary,
-} from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
-import { formatByteSize } from "../../lib/byte-size";
-import { formatDate } from "../../lib/date";
+} from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
+import { formatByteSize } from '../../lib/byte-size';
+import { formatDate } from '../../lib/date';
 import {
   ASSET_LIBRARY_AVAILABLE_VERSION_KEY,
   ASSET_LIBRARY_DOWNLOADS_PAUSED_KEY,
@@ -19,7 +19,7 @@ import {
   ASSET_LIBRARY_PURCHASED_VERSION_KEY,
   ASSET_LIBRARY_UPDATE_AVAILABLE_KEY,
   ASSET_RIGHT_STATUS_KEYS,
-} from "../../lib/digital-asset-labels";
+} from '../../lib/digital-asset-labels';
 
 /**
  * One line of the buyer's digital library (#1015 Workstream 9).
@@ -81,11 +81,7 @@ export interface BuyerAssetRightCardProps {
   onOpenAsset?: (assetId: string) => void;
 }
 
-export function BuyerAssetRightCard({
-  right,
-  onDownload,
-  onOpenAsset,
-}: BuyerAssetRightCardProps) {
+export function BuyerAssetRightCard({ right, onDownload, onOpenAsset }: BuyerAssetRightCardProps) {
   const t = useSharedUiTranslation();
   const locale = useSharedUiLocale();
 
@@ -126,7 +122,9 @@ export function BuyerAssetRightCard({
         </View>
         {right.updateAvailable ? (
           <View className="rounded-radius-max bg-bg-fill-secondary px-space-8 py-space-4">
-            <Text className="text-shop-badge text-text">{t(ASSET_LIBRARY_UPDATE_AVAILABLE_KEY)}</Text>
+            <Text className="text-shop-badge text-text">
+              {t(ASSET_LIBRARY_UPDATE_AVAILABLE_KEY)}
+            </Text>
           </View>
         ) : null}
       </View>

@@ -354,7 +354,11 @@ export async function clearCartForOwner(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<void> {
   const run = async (tx: DatabaseOrTransaction): Promise<void> => {
-    const [row] = await tx.select({ id: carts.id }).from(carts).where(ownerPredicate(owner)).limit(1);
+    const [row] = await tx
+      .select({ id: carts.id })
+      .from(carts)
+      .where(ownerPredicate(owner))
+      .limit(1);
     if (!row) return;
     await tx.delete(cartItems).where(eq(cartItems.cartId, row.id));
     await tx

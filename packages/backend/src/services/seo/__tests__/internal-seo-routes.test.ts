@@ -51,7 +51,10 @@ describe('the operator surface is a CLOSED set of reads', () => {
     // because these are the four somebody will actually reach for.
     const routes = registeredRoutes(internalSeoRouter as unknown as { stack: unknown[] });
     for (const forbidden of ['POST', 'PATCH', 'PUT', 'DELETE']) {
-      expect(routes.some((route) => route.startsWith(forbidden)), forbidden).toBe(false);
+      expect(
+        routes.some((route) => route.startsWith(forbidden)),
+        forbidden,
+      ).toBe(false);
     }
   });
 

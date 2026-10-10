@@ -81,7 +81,9 @@ describe('applyPriceRules — rounding strategies (USD, 2dp)', () => {
 
   it('composes markup THEN rounding', () => {
     // 2000 * 1.15 = 2300 → nearest whole → 2300; charm → 2299.
-    expect(applyPriceRules(usd(2000), { markupPercent: 15, rounding: 'nearest' })).toEqual(usd(2300));
+    expect(applyPriceRules(usd(2000), { markupPercent: 15, rounding: 'nearest' })).toEqual(
+      usd(2300),
+    );
     expect(applyPriceRules(usd(2000), { markupPercent: 15, rounding: 'charm' })).toEqual(usd(2299));
   });
 });
@@ -127,7 +129,7 @@ describe('assertSafeMoneyAmount — the representability limit', () => {
     expect(() => assertSafeMoneyAmount(1.5, 'pricing.grandTotal')).toThrow(/pricing\.grandTotal/);
   });
 
-  it('is the boundary FAIR\'s eight decimals actually approach', () => {
+  it("is the boundary FAIR's eight decimals actually approach", () => {
     // FAIR is the only supported currency whose minor unit is small enough for a
     // plausible amount to reach the limit: the ceiling is ~90.07 million ⊜, but
     // ~90.07 TRILLION units of a 2-decimal fiat. That asymmetry is why the limit

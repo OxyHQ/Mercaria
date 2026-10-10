@@ -62,10 +62,7 @@ function measured(kind: CatalogGovernanceQueueKind, total: number): CatalogGover
 }
 
 /** A depth this deployment cannot answer. */
-function unmeasured(
-  kind: CatalogGovernanceQueueKind,
-  reason: string,
-): CatalogGovernanceQueueDepth {
+function unmeasured(kind: CatalogGovernanceQueueKind, reason: string): CatalogGovernanceQueueDepth {
   return { kind, coverage: 'unmeasured', unmeasuredReason: reason };
 }
 
@@ -117,9 +114,7 @@ export async function readGovernanceQueues(
   // translation is a human sentence that has drifted from its source and needs
   // re-reading, and a missing one has never been written. Collapsing them
   // reports one number that no translator can act on.
-  depths.push(
-    await safeCount('stale_translation', async () => countLocalizations(db, ['stale'])),
-  );
+  depths.push(await safeCount('stale_translation', async () => countLocalizations(db, ['stale'])));
   depths.push(
     await safeCount('missing_translation', async () => countLocalizations(db, ['missing'])),
   );
@@ -174,9 +169,7 @@ export async function readGovernanceQueues(
     }),
   );
 
-  depths.push(
-    await safeCount('pending_change_request', async () => countOpenChangeRequests(db)),
-  );
+  depths.push(await safeCount('pending_change_request', async () => countOpenChangeRequests(db)));
 
   return depths;
 }

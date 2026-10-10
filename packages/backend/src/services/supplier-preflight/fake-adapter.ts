@@ -147,7 +147,9 @@ const fakeAdapter: SupplierPreflightAdapter = {
 
     const available = scenario === 'stock_loss' ? 0 : baseline.availableQuantity;
     const unitCostMinor =
-      scenario === 'cost_change' ? Math.round(baseline.unitCostMinor * 1.25) : baseline.unitCostMinor;
+      scenario === 'cost_change'
+        ? Math.round(baseline.unitCostMinor * 1.25)
+        : baseline.unitCostMinor;
     const currency = baseline.currency;
     const serviceCode = 'fake-standard';
 

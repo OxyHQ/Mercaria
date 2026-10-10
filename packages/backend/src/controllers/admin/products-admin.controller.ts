@@ -43,7 +43,12 @@ import { hydrateListings } from '../../services/catalog-hydration.service.js';
 import { enqueueProductPush } from '../../queue/producers.js';
 import { parsePagination, buildPagination } from '../../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../../utils/api-response.js';
-import { respondWithError, forbidden, notFound, validationError } from '../../lib/errors/error-codes.js';
+import {
+  respondWithError,
+  forbidden,
+  notFound,
+  validationError,
+} from '../../lib/errors/error-codes.js';
 import { routeParam } from '../../utils/request.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
@@ -120,7 +125,10 @@ export async function listProducts(req: Request, res: Response): Promise<void> {
     const { page, limit } = parsePagination(req.query);
 
     const { status, search } = req.query;
-    if (status !== undefined && (typeof status !== 'string' || !ALL_LISTING_STATUSES.includes(status as ListingStatus))) {
+    if (
+      status !== undefined &&
+      (typeof status !== 'string' || !ALL_LISTING_STATUSES.includes(status as ListingStatus))
+    ) {
       throw validationError('Invalid product status');
     }
     if (search !== undefined && (typeof search !== 'string' || search.length > 200)) {
@@ -248,7 +256,10 @@ export async function previewProductTypeUpgrade(req: Request, res: Response): Pr
       preview: await previewListingProductTypeUpgrade(getDb(), storeId, listingId),
     });
   } catch (err) {
-    log.general.error({ err, storeId, listingId }, 'Failed to preview a listing product-type upgrade');
+    log.general.error(
+      { err, storeId, listingId },
+      'Failed to preview a listing product-type upgrade',
+    );
     respondWithError(res, err, 'Failed to preview that upgrade');
   }
 }
@@ -266,7 +277,10 @@ export async function applyProductTypeUpgrade(req: Request, res: Response): Prom
     });
     sendSuccess(res, result);
   } catch (err) {
-    log.general.error({ err, storeId, listingId }, 'Failed to apply a listing product-type upgrade');
+    log.general.error(
+      { err, storeId, listingId },
+      'Failed to apply a listing product-type upgrade',
+    );
     respondWithError(res, err, 'Failed to apply that upgrade');
   }
 }
@@ -355,7 +369,10 @@ async function assertVariantInListing(variantId: string, listingId: string): Pro
 }
 
 /** Build the per-location `InventoryLevelDTO[]` for a variant (joins location names). */
-async function variantLevelDTOs(variantId: string, storeIdValue: string): Promise<InventoryLevelDTO[]> {
+async function variantLevelDTOs(
+  variantId: string,
+  storeIdValue: string,
+): Promise<InventoryLevelDTO[]> {
   const levels = await findLevelsByVariant(variantId);
   if (levels.length === 0) {
     return [];

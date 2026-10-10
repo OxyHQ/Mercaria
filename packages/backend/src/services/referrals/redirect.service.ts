@@ -60,11 +60,7 @@ import { ALLOWED_ORIGINS } from '../../lib/allowed-origins.js';
 import { config } from '../../config/index.js';
 import { resolveProgramControls } from '../../db/referrals/programControlRepository.js';
 import type { CommerceActor } from '../commerce-actor.js';
-import {
-  claimReferralLinkClick,
-  registerLinkTouch,
-  resolveReferralLink,
-} from './touch.service.js';
+import { claimReferralLinkClick, registerLinkTouch, resolveReferralLink } from './touch.service.js';
 import { attributeRecordedTouch, touchActorFor } from './binding.service.js';
 import { mintReferralState } from './referral-state.js';
 import { trafficMayAttribute } from './traffic.js';
@@ -120,7 +116,11 @@ export function composeReferralDestination(relativePath: string): string {
       `A referral destination resolved off-origin (${target.origin}); the relative path was rejected.`,
     );
   }
-  if (REFERRAL_ROUTE_PREFIXES.some((prefix) => target.pathname === prefix || target.pathname.startsWith('/r/'))) {
+  if (
+    REFERRAL_ROUTE_PREFIXES.some(
+      (prefix) => target.pathname === prefix || target.pathname.startsWith('/r/'),
+    )
+  ) {
     throw new Error(
       `A referral destination resolved back onto the referral route (${target.pathname}); that is a loop.`,
     );

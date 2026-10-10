@@ -55,7 +55,11 @@
  * transform moves geometry, it does not add triangles.
  */
 
-import { MAX_REPORTED_TRIANGLES, MAX_REPORTED_VERTICES, MAX_TEXT_DOCUMENT_BYTES } from './limits.js';
+import {
+  MAX_REPORTED_TRIANGLES,
+  MAX_REPORTED_VERTICES,
+  MAX_TEXT_DOCUMENT_BYTES,
+} from './limits.js';
 import { censusHaltOutcome, startMeshCensus } from './mesh.js';
 import { corruptFile, measured, refusedTooLarge, type InspectionOutcome } from './result.js';
 import {
@@ -257,14 +261,18 @@ function measureModelPart(
       const v2 = indexAttribute(attributes, 'v2', declared);
       const v3 = indexAttribute(attributes, 'v3', declared);
       if (v1 === null || v2 === null || v3 === null) {
-        return corruptFile(
-          `a triangle names a vertex outside the ${declared} its object declares`,
-        );
+        return corruptFile(`a triangle names a vertex outside the ${declared} its object declares`);
       }
       const halt = census.add(
-        positions[v1 * 3], positions[v1 * 3 + 1], positions[v1 * 3 + 2],
-        positions[v2 * 3], positions[v2 * 3 + 1], positions[v2 * 3 + 2],
-        positions[v3 * 3], positions[v3 * 3 + 1], positions[v3 * 3 + 2],
+        positions[v1 * 3],
+        positions[v1 * 3 + 1],
+        positions[v1 * 3 + 2],
+        positions[v2 * 3],
+        positions[v2 * 3 + 1],
+        positions[v2 * 3 + 2],
+        positions[v3 * 3],
+        positions[v3 * 3 + 1],
+        positions[v3 * 3 + 2],
       );
       if (halt) return censusHaltOutcome(halt, MAX_REPORTED_TRIANGLES);
       continue;

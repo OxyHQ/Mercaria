@@ -157,7 +157,10 @@ export class SyntheticPaymentProvider implements PaymentProvider {
     if (state.status === 'created' || state.status === 'requires_action') {
       state.status = 'processing';
     }
-    return await Promise.resolve({ providerObjectId: state.providerObjectId, status: state.status });
+    return await Promise.resolve({
+      providerObjectId: state.providerObjectId,
+      status: state.status,
+    });
   }
 
   async capture(request: PaymentOperationRequest): Promise<ProviderPaymentResult> {
@@ -175,7 +178,10 @@ export class SyntheticPaymentProvider implements PaymentProvider {
     if (state.status !== 'refunded' && state.status !== 'partially_refunded') {
       state.status = 'succeeded';
     }
-    return await Promise.resolve({ providerObjectId: state.providerObjectId, status: state.status });
+    return await Promise.resolve({
+      providerObjectId: state.providerObjectId,
+      status: state.status,
+    });
   }
 
   async cancel(request: PaymentOperationRequest): Promise<ProviderPaymentResult> {
@@ -191,7 +197,10 @@ export class SyntheticPaymentProvider implements PaymentProvider {
       });
     }
     state.status = 'canceled';
-    return await Promise.resolve({ providerObjectId: state.providerObjectId, status: state.status });
+    return await Promise.resolve({
+      providerObjectId: state.providerObjectId,
+      status: state.status,
+    });
   }
 
   async refund(request: RefundRequest): Promise<ProviderRefundResult> {

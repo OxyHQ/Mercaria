@@ -68,8 +68,7 @@ const PRODUCT_IMAGES = {
     'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/S26_WRTW_10193_W12_SHONPANT_VINTAGEWASHEDADMIRALBLUE_aa00f7ac-4cb7-4052-bdd4-c5e145a74955.jpg?width=256',
   nililotanBalletFlat:
     'https://cdn.shopify.com/s/files/1/0021/7595/9158/files/C06_WRTW_12550_L142_BALLETFLAT_BLACK_4a_ad6ed509-d285-441c-858a-d1aac216a16d.jpg?width=256',
-  jwpeiLexi:
-    'https://cdn.shopify.com/s/files/1/0150/6292/5412/files/1SDS04-7Side.jpg?width=256',
+  jwpeiLexi: 'https://cdn.shopify.com/s/files/1/0150/6292/5412/files/1SDS04-7Side.jpg?width=256',
   jwpeiSaraWhite:
     'https://cdn.shopify.com/s/files/1/0150/6292/5412/products/2MS01-2-1_7ff57dd7-f159-43a0-896e-180e66587a98.jpg?width=256',
   jwpeiSaraBlack:
@@ -78,14 +77,12 @@ const PRODUCT_IMAGES = {
     'https://cdn.shopify.com/s/files/1/0880/7204/files/TELFAR-INFINITY-BOLERO-JEEP-FRONT.jpg?width=256',
   telfarTank:
     'https://cdn.shopify.com/s/files/1/0880/7204/files/Pieced-Rib-Tank-WHITE___Short-Work-Skirt-KHAKI_9x16-R.jpg?width=256',
-  telfarMabel:
-    'https://cdn.shopify.com/s/files/1/0880/7204/files/MABEL_BLACK_2.jpg?width=256',
+  telfarMabel: 'https://cdn.shopify.com/s/files/1/0880/7204/files/MABEL_BLACK_2.jpg?width=256',
   agAdria:
     'https://cdn.shopify.com/s/files/1/0664/9036/8232/files/adria-cinched-low-rise-wide-leg-das1g75coph_1_250915110354.jpg?width=256',
   agHattie:
     'https://cdn.shopify.com/s/files/1/0664/9036/8232/files/FPD1F93VNSLSPKR_9.jpg?width=256',
-  agAngel:
-    'https://cdn.shopify.com/s/files/1/0664/9036/8232/files/EMP1F27HVNA_9.jpg?width=256',
+  agAngel: 'https://cdn.shopify.com/s/files/1/0664/9036/8232/files/EMP1F27HVNA_9.jpg?width=256',
 } as const;
 
 /** Newly listed items — a mix of full-price and discounted products. */
@@ -250,7 +247,11 @@ const WORTH_THE_HYPE_MERCHANTS: StoreSummary[] = [
     products: [
       { id: 'mer-2-p1', title: 'Jenna Cotton Pant', imageUrl: PRODUCT_IMAGES.nililotanJenna },
       { id: 'mer-2-p2', title: 'Shon Cotton Pant', imageUrl: PRODUCT_IMAGES.nililotanShon },
-      { id: 'mer-2-p3', title: 'Leather Ballet Flat', imageUrl: PRODUCT_IMAGES.nililotanBalletFlat },
+      {
+        id: 'mer-2-p3',
+        title: 'Leather Ballet Flat',
+        imageUrl: PRODUCT_IMAGES.nililotanBalletFlat,
+      },
     ],
   },
   {
@@ -275,8 +276,7 @@ const WORTH_THE_HYPE_MERCHANTS: StoreSummary[] = [
     id: 'mer-4',
     handle: 'telfar',
     name: 'Telfar',
-    coverImageUrl:
-      'https://cdn.shopify.com/s/files/1/0880/7204/files/MABEL_BLACK_2.jpg?width=800',
+    coverImageUrl: 'https://cdn.shopify.com/s/files/1/0880/7204/files/MABEL_BLACK_2.jpg?width=800',
     logoUrl:
       'https://cdn.shopify.com/shop-assets/shopify_brokers/shop-telfar.myshopify.com/1762383097/TELFAR_LOGOScopy.png?width=480',
     brandColor: 'rgb(155,144,122)',
@@ -321,10 +321,30 @@ const SHOP_CATEGORIES: Category[] = [
     name: 'Women',
     slug: 'women',
     subcategories: [
-      { id: 'cat-women-dresses', name: 'Dresses', slug: 'dresses', imageUrl: categoryAsset('20260326_27_L2_womenswear_dresses') },
-      { id: 'cat-women-shirts', name: 'Shirts', slug: 'shirts', imageUrl: categoryAsset('20260326_314_L3_womenswear_shirts_tops_shirts') },
-      { id: 'cat-women-sneakers', name: 'Sneakers', slug: 'sneakers', imageUrl: categoryAsset('20260326_188_L3_womenswear_shoes_sneakers') },
-      { id: 'cat-women-pants', name: 'Pants', slug: 'pants', imageUrl: categoryAsset('20260326_26_L2_womenswear_pants') },
+      {
+        id: 'cat-women-dresses',
+        name: 'Dresses',
+        slug: 'dresses',
+        imageUrl: categoryAsset('20260326_27_L2_womenswear_dresses'),
+      },
+      {
+        id: 'cat-women-shirts',
+        name: 'Shirts',
+        slug: 'shirts',
+        imageUrl: categoryAsset('20260326_314_L3_womenswear_shirts_tops_shirts'),
+      },
+      {
+        id: 'cat-women-sneakers',
+        name: 'Sneakers',
+        slug: 'sneakers',
+        imageUrl: categoryAsset('20260326_188_L3_womenswear_shoes_sneakers'),
+      },
+      {
+        id: 'cat-women-pants',
+        name: 'Pants',
+        slug: 'pants',
+        imageUrl: categoryAsset('20260326_26_L2_womenswear_pants'),
+      },
     ],
   },
   {
@@ -332,10 +352,30 @@ const SHOP_CATEGORIES: Category[] = [
     name: 'Men',
     slug: 'men',
     subcategories: [
-      { id: 'cat-men-hoodies', name: 'Hoodies', slug: 'hoodies', imageUrl: categoryAsset('20260326_318_L3_menswear_shirts_tops_hoodies') },
-      { id: 'cat-men-pants', name: 'Pants', slug: 'pants', imageUrl: categoryAsset('20260326_17_L2_menswear_pants') },
-      { id: 'cat-men-t-shirts', name: 'T-shirts', slug: 't-shirts', imageUrl: categoryAsset('20260326_317_L3_menswear_shirts_tops_t_shirts') },
-      { id: 'cat-men-sneakers', name: 'Sneakers', slug: 'sneakers', imageUrl: categoryAsset('20260326_205_L3_menswear_shoes_sneakers') },
+      {
+        id: 'cat-men-hoodies',
+        name: 'Hoodies',
+        slug: 'hoodies',
+        imageUrl: categoryAsset('20260326_318_L3_menswear_shirts_tops_hoodies'),
+      },
+      {
+        id: 'cat-men-pants',
+        name: 'Pants',
+        slug: 'pants',
+        imageUrl: categoryAsset('20260326_17_L2_menswear_pants'),
+      },
+      {
+        id: 'cat-men-t-shirts',
+        name: 'T-shirts',
+        slug: 't-shirts',
+        imageUrl: categoryAsset('20260326_317_L3_menswear_shirts_tops_t_shirts'),
+      },
+      {
+        id: 'cat-men-sneakers',
+        name: 'Sneakers',
+        slug: 'sneakers',
+        imageUrl: categoryAsset('20260326_205_L3_menswear_shoes_sneakers'),
+      },
     ],
   },
   {
@@ -374,8 +414,18 @@ const SHOP_CATEGORIES: Category[] = [
     name: 'Home',
     slug: 'home',
     subcategories: [
-      { id: 'cat-home-blankets', name: 'Blankets', slug: 'blankets', imageUrl: categoryAsset('20260326_90_L3_home_bedding_blankets') },
-      { id: 'cat-home-rugs', name: 'Rugs', slug: 'rugs', imageUrl: categoryAsset('20260326_77_L3_home_decor_rugs') },
+      {
+        id: 'cat-home-blankets',
+        name: 'Blankets',
+        slug: 'blankets',
+        imageUrl: categoryAsset('20260326_90_L3_home_bedding_blankets'),
+      },
+      {
+        id: 'cat-home-rugs',
+        name: 'Rugs',
+        slug: 'rugs',
+        imageUrl: categoryAsset('20260326_77_L3_home_decor_rugs'),
+      },
       {
         id: 'cat-home-home-fragrances',
         name: 'Home fragrances',
@@ -405,7 +455,9 @@ const SHOP_CATEGORIES: Category[] = [
         id: 'cat-fitness-nutrition-supplements',
         name: 'Supplements',
         slug: 'supplements',
-        imageUrl: categoryAsset('20260326_242_L3_fitness_nutrition_vitamins_supplements_supplements'),
+        imageUrl: categoryAsset(
+          '20260326_242_L3_fitness_nutrition_vitamins_supplements_supplements',
+        ),
       },
       {
         id: 'cat-fitness-nutrition-vitamins',
@@ -426,15 +478,30 @@ const SHOP_CATEGORIES: Category[] = [
     name: 'Baby & toddler',
     slug: 'baby-toddler',
     subcategories: [
-      { id: 'cat-baby-toddler-formula', name: 'Formula', slug: 'formula', imageUrl: categoryAsset('20260326_219_L3_baby_toddler_nursing_feeding_formula') },
+      {
+        id: 'cat-baby-toddler-formula',
+        name: 'Formula',
+        slug: 'formula',
+        imageUrl: categoryAsset('20260326_219_L3_baby_toddler_nursing_feeding_formula'),
+      },
       {
         id: 'cat-baby-toddler-strollers-travel',
         name: 'Strollers & travel',
         slug: 'strollers-travel',
         imageUrl: categoryAsset('20260326_225_L2_baby_toddler_strollers_travel'),
       },
-      { id: 'cat-baby-toddler-diapers', name: 'Diapers', slug: 'diapers', imageUrl: categoryAsset('20260326_224_L2_baby_toddler_diapers') },
-      { id: 'cat-baby-toddler-outfits', name: 'Outfits', slug: 'outfits', imageUrl: categoryAsset('20260326_211_L3_baby_toddler_clothing_outfits') },
+      {
+        id: 'cat-baby-toddler-diapers',
+        name: 'Diapers',
+        slug: 'diapers',
+        imageUrl: categoryAsset('20260326_224_L2_baby_toddler_diapers'),
+      },
+      {
+        id: 'cat-baby-toddler-outfits',
+        name: 'Outfits',
+        slug: 'outfits',
+        imageUrl: categoryAsset('20260326_211_L3_baby_toddler_clothing_outfits'),
+      },
     ],
   },
   {
@@ -442,15 +509,30 @@ const SHOP_CATEGORIES: Category[] = [
     name: 'Food & drinks',
     slug: 'food-drinks',
     subcategories: [
-      { id: 'cat-food-drinks-coffee', name: 'Coffee', slug: 'coffee', imageUrl: categoryAsset('20260326_252_L2_food_drinks_coffee') },
-      { id: 'cat-food-drinks-tea', name: 'Tea', slug: 'tea', imageUrl: categoryAsset('20260326_253_L2_food_drinks_tea') },
+      {
+        id: 'cat-food-drinks-coffee',
+        name: 'Coffee',
+        slug: 'coffee',
+        imageUrl: categoryAsset('20260326_252_L2_food_drinks_coffee'),
+      },
+      {
+        id: 'cat-food-drinks-tea',
+        name: 'Tea',
+        slug: 'tea',
+        imageUrl: categoryAsset('20260326_253_L2_food_drinks_tea'),
+      },
       {
         id: 'cat-food-drinks-candy-chocolate',
         name: 'Candy & chocolate',
         slug: 'candy-chocolate',
         imageUrl: categoryAsset('20260417_254_L2_food_drinks_candy_chocolate'),
       },
-      { id: 'cat-food-drinks-snacks', name: 'Snacks', slug: 'snacks', imageUrl: categoryAsset('20260326_255_L2_food_drinks_snacks') },
+      {
+        id: 'cat-food-drinks-snacks',
+        name: 'Snacks',
+        slug: 'snacks',
+        imageUrl: categoryAsset('20260326_255_L2_food_drinks_snacks'),
+      },
     ],
   },
 ];
@@ -461,10 +543,30 @@ const SHOP_CATEGORIES: Category[] = [
  * category, and each pill uses the real Shopify L1 category pill image.
  */
 const CATEGORY_PILLS: CategoryPill[] = [
-  { id: 'cat-women', name: 'Women', slug: 'women', imageUrl: categoryAsset('20260326_1_L1_womenswear_pill') },
-  { id: 'cat-men', name: 'Men', slug: 'men', imageUrl: categoryAsset('20260326_2_L1_menswear_pill') },
-  { id: 'cat-beauty', name: 'Beauty', slug: 'beauty', imageUrl: categoryAsset('20260326_5_L1_beauty_pill') },
-  { id: 'cat-home', name: 'Home', slug: 'home', imageUrl: categoryAsset('20260326_6_L1_home_pill') },
+  {
+    id: 'cat-women',
+    name: 'Women',
+    slug: 'women',
+    imageUrl: categoryAsset('20260326_1_L1_womenswear_pill'),
+  },
+  {
+    id: 'cat-men',
+    name: 'Men',
+    slug: 'men',
+    imageUrl: categoryAsset('20260326_2_L1_menswear_pill'),
+  },
+  {
+    id: 'cat-beauty',
+    name: 'Beauty',
+    slug: 'beauty',
+    imageUrl: categoryAsset('20260326_5_L1_beauty_pill'),
+  },
+  {
+    id: 'cat-home',
+    name: 'Home',
+    slug: 'home',
+    imageUrl: categoryAsset('20260326_6_L1_home_pill'),
+  },
   {
     id: 'cat-fitness-nutrition',
     name: 'Fitness & nutrition',

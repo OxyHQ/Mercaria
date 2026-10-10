@@ -1,24 +1,36 @@
-import { View, ScrollView, Pressable, Platform } from "react-native";
-import { Text } from "@mercaria/ui";
-import { Switch } from "@oxy.so/bloom/switch";
-import { useRouter } from "expo-router";
-import { ArrowLeft, ArrowRight, Bell, BellOff, CheckCheck, Zap, Clock, Eye, AlertTriangle, MessageSquare, X } from "lucide-react-native";
-import { useIsRtl } from "@oxy.so/bloom/hooks";
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@oxy.so/services";
-import { RiNotification3Line } from "@oxy.so/bloom/icons/RiNotification3Line";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import * as ExpoNotifications from "expo-notifications";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { View, ScrollView, Pressable, Platform } from 'react-native';
+import { Text } from '@mercaria/ui';
+import { Switch } from '@oxy.so/bloom/switch';
+import { useRouter } from 'expo-router';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Bell,
+  BellOff,
+  CheckCheck,
+  Zap,
+  Clock,
+  Eye,
+  AlertTriangle,
+  MessageSquare,
+  X,
+} from 'lucide-react-native';
+import { useIsRtl } from '@oxy.so/bloom/hooks';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@oxy.so/services';
+import { RiNotification3Line } from '@oxy.so/bloom/icons/RiNotification3Line';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import * as ExpoNotifications from 'expo-notifications';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation } from '@/lib/i18n';
 import {
   useNotifications,
   useMarkAsRead,
   useMarkAllAsRead,
   useDismissNotification,
   type Notification,
-} from "@/lib/hooks/use-notifications";
+} from '@/lib/hooks/use-notifications';
 
 const TYPE_ICONS: Record<string, typeof Zap> = {
   trigger_result: Zap,
@@ -45,7 +57,10 @@ const PRIORITY_COLORS: Record<string, string> = {
  * used to return was invisible to the i18n guard, whose check A reads JSX
  * positions and user-facing property names and never a `return`.
  */
-function timeAgo(dateStr: string, t: (key: string, options?: Record<string, unknown>) => string): string {
+function timeAgo(
+  dateStr: string,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return t('notifications.timeAgo.justNow');
@@ -73,7 +88,7 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.replace("/(app)");
+      router.replace('/(app)');
     }
   }, [isAuthenticated]);
 
@@ -90,9 +105,9 @@ export default function NotificationsScreen() {
     try {
       const { status } = await ExpoNotifications.getPermissionsAsync();
       setPermissionStatus(status);
-      setPushEnabled(status === "granted");
+      setPushEnabled(status === 'granted');
     } catch {
-      setPermissionStatus("unavailable");
+      setPermissionStatus('unavailable');
     } finally {
       setPushLoading(false);
     }
@@ -103,7 +118,7 @@ export default function NotificationsScreen() {
     if (value) {
       const { status } = await ExpoNotifications.requestPermissionsAsync();
       setPermissionStatus(status);
-      setPushEnabled(status === "granted");
+      setPushEnabled(status === 'granted');
     } else {
       setPushEnabled(false);
     }
@@ -112,18 +127,21 @@ export default function NotificationsScreen() {
   // Pressing a notification marks it read and navigates NOWHERE. See
   // `useNotificationSetup` for why a server-supplied destination is not
   // followed, and what would bring deep-linking back.
-  const handleNotificationPress = useCallback((notification: Notification) => {
-    if (notification.status !== 'read') {
-      markAsRead.mutate(notification._id);
-    }
-  }, [markAsRead]);
+  const handleNotificationPress = useCallback(
+    (notification: Notification) => {
+      if (notification.status !== 'read') {
+        markAsRead.mutate(notification._id);
+      }
+    },
+    [markAsRead],
+  );
 
   const notifications = data?.notifications || [];
   const unreadCount = data?.unreadCount || 0;
   // `"denied"` is expo-notifications' own permission value, not copy. Compared
   // here rather than inline in the JSX so it is nowhere near a user-facing
   // position — translating it would silently break the permission check.
-  const permissionDenied = permissionStatus === "denied";
+  const permissionDenied = permissionStatus === 'denied';
 
   const StatusIcon = pushEnabled ? Bell : BellOff;
   // Back points against the reading direction, so it flips with it.
@@ -138,13 +156,15 @@ export default function NotificationsScreen() {
             <BackArrow size={16} className="text-muted-foreground me-2" />
             <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
           </Pressable>
-          <Pressable onPress={() => setShowSettings(s => !s)} className="p-2">
+          <Pressable onPress={() => setShowSettings((s) => !s)} className="p-2">
             <Bell size={18} className="text-muted-foreground" />
           </Pressable>
         </View>
         <View className="flex-row items-center justify-between">
           <View>
-            <Text className="text-2xl font-semibold text-foreground">{t('notifications.title')}</Text>
+            <Text className="text-2xl font-semibold text-foreground">
+              {t('notifications.title')}
+            </Text>
             {unreadCount > 0 && (
               <Text className="text-sm text-muted-foreground mt-1">
                 {t('notifications.unreadCount', { count: unreadCount })}
@@ -157,7 +177,9 @@ export default function NotificationsScreen() {
               className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted active:bg-muted/80"
             >
               <CheckCheck size={14} className="text-muted-foreground" />
-              <Text className="text-xs text-muted-foreground">{t('notifications.markAllRead')}</Text>
+              <Text className="text-xs text-muted-foreground">
+                {t('notifications.markAllRead')}
+              </Text>
             </Pressable>
           )}
         </View>
@@ -171,7 +193,9 @@ export default function NotificationsScreen() {
               <View className="flex-row items-center gap-3 flex-1">
                 <StatusIcon size={20} className="text-muted-foreground" />
                 <View className="flex-1">
-                  <Text className="text-sm font-medium text-foreground">{t('notifications.pushNotifications')}</Text>
+                  <Text className="text-sm font-medium text-foreground">
+                    {t('notifications.pushNotifications')}
+                  </Text>
                   <Text className="text-xs text-muted-foreground mt-0.5">
                     {t('notifications.pushDescription')}
                   </Text>
@@ -225,7 +249,10 @@ export default function NotificationsScreen() {
                   </View>
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between mb-1">
-                      <Text className={`text-sm ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'}`} numberOfLines={1}>
+                      <Text
+                        className={`text-sm ${isUnread ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'}`}
+                        numberOfLines={1}
+                      >
                         {notification.title}
                       </Text>
                       <View className="flex-row items-center gap-2">

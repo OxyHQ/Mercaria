@@ -19,7 +19,10 @@ import {
   type OpenDataProvider,
 } from '../provider.js';
 
-function transport(responder: (url: string, init: RequestInit) => Response, clockStart = 1_000_000) {
+function transport(
+  responder: (url: string, init: RequestInit) => Response,
+  clockStart = 1_000_000,
+) {
   let now = clockStart;
   const sleeps: number[] = [];
   const calls: { url: string; headers: Record<string, string> }[] = [];
@@ -45,7 +48,9 @@ function transport(responder: (url: string, init: RequestInit) => Response, cloc
 describe('the open-data transport', () => {
   it('identifies Mercaria on every request and asks for JSON', async () => {
     const { http, calls } = transport(() => Response.json({ ok: true }));
-    await expect(http.getJson('https://example.org/a')).resolves.toMatchObject({ body: { ok: true } });
+    await expect(http.getJson('https://example.org/a')).resolves.toMatchObject({
+      body: { ok: true },
+    });
     expect(calls[0]?.headers['user-agent']).toBe('Mercaria-test/1.0 (test@example.com)');
     expect(calls[0]?.headers.accept).toBe('application/json');
   });
@@ -64,8 +69,10 @@ describe('the open-data transport', () => {
     expect(sleeps).toEqual([4_000]);
   });
 
-  it('classifies a 429 as a rate limit carrying the host\'s Retry-After', async () => {
-    const { http } = transport(() => new Response('slow down', { status: 429, headers: { 'retry-after': '30' } }));
+  it("classifies a 429 as a rate limit carrying the host's Retry-After", async () => {
+    const { http } = transport(
+      () => new Response('slow down', { status: 429, headers: { 'retry-after': '30' } }),
+    );
     const error = await http.getJson('https://a.example/x').catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(CatalogSourceFetchError);
     expect((error as CatalogSourceFetchError).kind).toBe('rate_limit');
@@ -74,18 +81,20 @@ describe('the open-data transport', () => {
 
   it('classifies a refusal as auth_failure and does not retry it', async () => {
     const { http } = transport(() => new Response('', { status: 403 }));
-    const error = (await http.getJson('https://a.example/x').catch((caught: unknown) => caught)) as CatalogSourceFetchError;
+    const error = (await http
+      .getJson('https://a.example/x')
+      .catch((caught: unknown) => caught)) as CatalogSourceFetchError;
     expect(error.kind).toBe('auth_failure');
     expect(error.retryable).toBe(false);
   });
 
   it('classifies a 5xx and a non-JSON 200 as retryable', async () => {
-    const outage = (await transport(() => new Response('', { status: 503 })).http
-      .getJson('https://a.example/x')
+    const outage = (await transport(() => new Response('', { status: 503 }))
+      .http.getJson('https://a.example/x')
       .catch((caught: unknown) => caught)) as CatalogSourceFetchError;
     expect([outage.kind, outage.retryable]).toEqual(['source_outage', true]);
-    const html = (await transport(() => new Response('<html>maintenance</html>')).http
-      .getJson('https://a.example/x')
+    const html = (await transport(() => new Response('<html>maintenance</html>'))
+      .http.getJson('https://a.example/x')
       .catch((caught: unknown) => caught)) as CatalogSourceFetchError;
     expect([html.kind, html.retryable]).toEqual(['parse_failure', true]);
   });
@@ -93,7 +102,9 @@ describe('the open-data transport', () => {
   it('answers a 404 with null only when the caller can read it as a removal', async () => {
     const { http } = transport(() => new Response('', { status: 404 }));
     await expect(http.getJson('https://a.example/x', { allowNotFound: true })).resolves.toBeNull();
-    await expect(http.getJson('https://a.example/x')).rejects.toBeInstanceOf(CatalogSourceFetchError);
+    await expect(http.getJson('https://a.example/x')).rejects.toBeInstanceOf(
+      CatalogSourceFetchError,
+    );
   });
 
   it('caches a dump, serves it while fresh, and revalidates conditionally after', async () => {
@@ -102,7 +113,9 @@ describe('the open-data transport', () => {
       served += 1;
       const headers = init.headers as Record<string, string>;
       if (headers['if-none-match'] === '"v1"') return new Response(null, { status: 304 });
-      return new Response('dump-bytes', { headers: { etag: '"v1"', 'last-modified': 'Fri, 09 Oct 2026 23:08:21 GMT' } });
+      return new Response('dump-bytes', {
+        headers: { etag: '"v1"', 'last-modified': 'Fri, 09 Oct 2026 23:08:21 GMT' },
+      });
     });
     const first = await http.download('https://a.example/dump.gz', { maxAgeMs: 60_000 });
     const second = await http.download('https://a.example/dump.gz', { maxAgeMs: 60_000 });
@@ -119,7 +132,9 @@ describe('the open-data transport', () => {
 
   it('refuses a dump over the byte bound rather than truncating it', async () => {
     const { http } = transport(() => new Response('x'.repeat(2_000)));
-    const error = (await http.download('https://a.example/big', { maxAgeMs: 0 }).catch((caught: unknown) => caught)) as CatalogSourceFetchError;
+    const error = (await http
+      .download('https://a.example/big', { maxAgeMs: 0 })
+      .catch((caught: unknown) => caught)) as CatalogSourceFetchError;
     expect(error).toBeInstanceOf(CatalogSourceFetchError);
     expect(error.retryable).toBe(false);
   });
@@ -145,7 +160,10 @@ describe('the generic open-data adapter', () => {
     externalIds: [],
     ...overrides,
   });
-  function provider(fetchPage: (context: OpenDataPageContext) => Promise<OpenDataPage>, accountRefRequired = true): OpenDataProvider {
+  function provider(
+    fetchPage: (context: OpenDataPageContext) => Promise<OpenDataPage>,
+    accountRefRequired = true,
+  ): OpenDataProvider {
     return {
       slug: 'test_provider',
       name: 'Test',
@@ -203,32 +221,51 @@ describe('the generic open-data adapter', () => {
   });
 
   it('refuses a source that does not name the required sub-feed', async () => {
-    const adapter = createOpenDataAdapter(provider(async () => ({ items: [], next: null, complete: true })), { http });
-    const error = (await adapter.fetchPage(request({ sourceAccountRef: ' ' })).catch((caught: unknown) => caught)) as CatalogSourceFetchError;
+    const adapter = createOpenDataAdapter(
+      provider(async () => ({ items: [], next: null, complete: true })),
+      { http },
+    );
+    const error = (await adapter
+      .fetchPage(request({ sourceAccountRef: ' ' }))
+      .catch((caught: unknown) => caught)) as CatalogSourceFetchError;
     expect(error.kind).toBe('auth_failure');
     expect(error.retryable).toBe(false);
   });
 
-  it('translates a provider\'s refusals into the closed failure vocabulary', async () => {
+  it("translates a provider's refusals into the closed failure vocabulary", async () => {
     const configuration = createOpenDataAdapter(
       provider(async () => {
         throw new OpenDataConfigurationError('bad ref');
       }),
       { http },
     );
-    await expect(configuration.fetchPage(request())).rejects.toMatchObject({ kind: 'auth_failure', retryable: false });
+    await expect(configuration.fetchPage(request())).rejects.toMatchObject({
+      kind: 'auth_failure',
+      retryable: false,
+    });
     const drift = createOpenDataAdapter(
       provider(async () => {
         throw new OpenDataSchemaError('renamed field');
       }),
       { http },
     );
-    await expect(drift.fetchPage(request())).rejects.toMatchObject({ kind: 'schema_drift', retryable: false });
+    await expect(drift.fetchPage(request())).rejects.toMatchObject({
+      kind: 'schema_drift',
+      retryable: false,
+    });
   });
 
   it('carries positive removals with the page instant', async () => {
     const adapter = createOpenDataAdapter(
-      provider(async () => ({ items: [], removed: [{ externalType: 'product', externalId: 'gone' }], next: null, complete: false }), false),
+      provider(
+        async () => ({
+          items: [],
+          removed: [{ externalType: 'product', externalId: 'gone' }],
+          next: null,
+          complete: false,
+        }),
+        false,
+      ),
       { http, clock: () => new Date('2025-10-10T00:00:00Z') },
     );
     const page = await adapter.fetchPage(request({ sourceAccountRef: null }));

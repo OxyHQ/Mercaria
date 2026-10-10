@@ -53,14 +53,8 @@
  * confused and neither is something to guess at.
  */
 
-import type {
-  PurchaseOrderStatus,
-  SupplierOrderNormalizedState,
-} from '@mercaria/shared-types';
-import {
-  SUPPLIER_ORDER_STATE_RANK,
-  SUPPLIER_ORDER_TERMINAL_STATES,
-} from '@mercaria/shared-types';
+import type { PurchaseOrderStatus, SupplierOrderNormalizedState } from '@mercaria/shared-types';
+import { SUPPLIER_ORDER_STATE_RANK, SUPPLIER_ORDER_TERMINAL_STATES } from '@mercaria/shared-types';
 
 /**
  * Which purchase-order status one normalized provider state implies.
@@ -134,7 +128,9 @@ export function isStateRegression(input: {
 }): boolean {
   if (input.appliedState === null) return false;
   if (input.observedState === 'unknown') return false;
-  return SUPPLIER_ORDER_STATE_RANK[input.observedState] < SUPPLIER_ORDER_STATE_RANK[input.appliedState];
+  return (
+    SUPPLIER_ORDER_STATE_RANK[input.observedState] < SUPPLIER_ORDER_STATE_RANK[input.appliedState]
+  );
 }
 
 /**

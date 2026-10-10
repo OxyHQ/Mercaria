@@ -200,9 +200,7 @@ describe('the vocabularies are the shared-types tuples, not a hand-copied list',
   });
 
   it('refuses an assertion outside the tuple, by CONSTRAINT NAME', async () => {
-    const message = await refusal(() =>
-      insertDraft({ key: 'used_good', assertion: 'vibes' }),
-    );
+    const message = await refusal(() => insertDraft({ key: 'used_good', assertion: 'vibes' }));
     expect(message).toContain('catalog_authoring_drafts_item_condition_assertion_check');
   });
 });

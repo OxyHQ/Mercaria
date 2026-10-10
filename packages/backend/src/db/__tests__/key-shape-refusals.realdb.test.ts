@@ -73,7 +73,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (definitionIds.length > 0) {
-    await db.delete(productTypeDefinitions).where(inArray(productTypeDefinitions.id, definitionIds));
+    await db
+      .delete(productTypeDefinitions)
+      .where(inArray(productTypeDefinitions.id, definitionIds));
   }
   await closePostgres();
 });
@@ -144,4 +146,3 @@ describe('product_type_definitions_key_shape_check', () => {
     expect(row.key).toBe(scoped);
   });
 });
-

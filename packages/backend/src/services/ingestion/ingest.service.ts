@@ -70,7 +70,10 @@ import {
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
-import { findSourceRecordById, recordSourceObservation } from '../../db/canonical/provenanceRepository.js';
+import {
+  findSourceRecordById,
+  recordSourceObservation,
+} from '../../db/canonical/provenanceRepository.js';
 import { insertCanonicalProductSourceLink } from '../../db/canonical/canonicalProductRepository.js';
 import { insertCanonicalVariantSourceLink } from '../../db/canonical/canonicalVariantRepository.js';
 import {
@@ -315,7 +318,6 @@ export async function runIngestionPage(input: {
     { config: resolved.source.config, rights: resolved.policy },
     db,
   );
-
 
   /**
    * The rights gate, BEFORE the fetch.
@@ -831,7 +833,11 @@ async function persistOneRecord(args: {
       : { amount: object.lastPriceAmount, currency: object.lastPriceCurrency };
   if (
     upserted.outcome !== 'inserted' &&
-    isAnomalousPriceChange(previousPrice, normalized.price, config.catalogIngestion.anomalyPriceFactor)
+    isAnomalousPriceChange(
+      previousPrice,
+      normalized.price,
+      config.catalogIngestion.anomalyPriceFactor,
+    )
   ) {
     intake.quarantined += 1;
     await quarantineSourceObject(db, {
@@ -1087,7 +1093,8 @@ export async function readvanceSourceObject(
   // `review_required` too: a source-anchored product (ADR 0016) is seeded for
   // an object the matcher sent to review only because a sibling's title
   // resembled it, and re-asking is how the anchor link is then found.
-  const readvanceable = object !== undefined && (object.state === 'unmatched' || object.state === 'review_required');
+  const readvanceable =
+    object !== undefined && (object.state === 'unmatched' || object.state === 'review_required');
   if (object === undefined || !readvanceable || object.currentSourceRecordId === null) {
     return { outcome: 'not_readvanceable', offerId: null };
   }
@@ -1104,7 +1111,12 @@ export async function readvanceSourceObject(
     return { outcome: 'not_readvanceable', offerId: null };
   }
 
-  const pipeline: PipelineTally = { matched: 0, reviewRequired: 0, unmatched: 0, offersUpserted: 0 };
+  const pipeline: PipelineTally = {
+    matched: 0,
+    reviewRequired: 0,
+    unmatched: 0,
+    offersUpserted: 0,
+  };
   await advanceObject({
     object,
     observationId: observation.id,
@@ -1234,7 +1246,9 @@ async function materializeOffer(args: {
                 : { maxDays: normalized.delivery.maxDays }),
             },
           }),
-      ...(normalized.returnPolicy === undefined ? {} : { returnPolicy: { ...normalized.returnPolicy } }),
+      ...(normalized.returnPolicy === undefined
+        ? {}
+        : { returnPolicy: { ...normalized.returnPolicy } }),
       observedAt: object.currentObservedAt,
       staleAt: object.staleAt,
       ...(args.confidence === null ? {} : { confidence: args.confidence }),
@@ -1291,7 +1305,9 @@ async function closeRun(args: {
   // baseline should record.
   let knownObjects = 0;
   let knownObjectsCounted = false;
-  if (mayRetireUnseen({ enumerationComplete: args.run.enumerationComplete, outcome: args.outcome })) {
+  if (
+    mayRetireUnseen({ enumerationComplete: args.run.enumerationComplete, outcome: args.outcome })
+  ) {
     const seenSince = args.run.startedAt ?? args.now;
     const unseen = await listUnseenSourceObjects(db, {
       sourceId: args.run.sourceId,

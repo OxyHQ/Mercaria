@@ -1,9 +1,9 @@
-import React from "react";
-import { View } from "react-native";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { Loading } from "@oxy.so/bloom/loading";
-import { ScreenShell, Text, cn } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { View } from 'react-native';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { Loading } from '@oxy.so/bloom/loading';
+import { ScreenShell, Text, cn } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 interface ScreenProps {
   title: string;
@@ -28,9 +28,7 @@ export function Screen({ title, subtitle, action, children, scroll = true }: Scr
     <View className="mb-6 flex-row items-start justify-between gap-4">
       <View className="flex-1">
         <Text className="text-2xl font-bold text-foreground">{title}</Text>
-        {subtitle ? (
-          <Text className="mt-1 text-sm text-muted-foreground">{subtitle}</Text>
-        ) : null}
+        {subtitle ? <Text className="mt-1 text-sm text-muted-foreground">{subtitle}</Text> : null}
       </View>
       {action ? <View>{action}</View> : null}
     </View>
@@ -38,7 +36,7 @@ export function Screen({ title, subtitle, action, children, scroll = true }: Scr
 
   return (
     <ScreenShell surfaceClassName="bg-background" scroll={scroll}>
-      <View className={cn("mx-auto w-full max-w-5xl px-4 pt-6 md:px-8", !scroll && "flex-1")}>
+      <View className={cn('mx-auto w-full max-w-5xl px-4 pt-6 md:px-8', !scroll && 'flex-1')}>
         {header}
         {children}
       </View>
@@ -55,7 +53,7 @@ export function ScreenLoading() {
   const { t } = useTranslation();
   return (
     <View className="items-center justify-center py-20">
-      <Loading variant="inline" size="sm" accessibilityLabel={t("common.loading")} />
+      <Loading variant="inline" size="sm" accessibilityLabel={t('common.loading')} />
     </View>
   );
 }

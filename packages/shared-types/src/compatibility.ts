@@ -440,7 +440,8 @@ export const TYPED_COMPATIBILITY_TARGET_TYPES: readonly TypedCompatibilityTarget
  * the old one (D1 rule 2), which is why the correction is a NEW key plus a
  * superseding relation rather than an UPDATE.
  */
-export const TYPED_COMPATIBILITY_TARGET_KEY_PATTERN = '^[a-z0-9]+(_[a-z0-9]+)*(\\.[a-z0-9]+(_[a-z0-9]+)*)+$';
+export const TYPED_COMPATIBILITY_TARGET_KEY_PATTERN =
+  '^[a-z0-9]+(_[a-z0-9]+)*(\\.[a-z0-9]+(_[a-z0-9]+)*)+$';
 
 /** {@link TYPED_COMPATIBILITY_TARGET_KEY_PATTERN}, compiled once. */
 export const TYPED_COMPATIBILITY_TARGET_KEY_REGEX = new RegExp(

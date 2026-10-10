@@ -74,8 +74,7 @@ import type { DeferredForeignKey } from '@oxy.so/db/assert';
  * columns stay permanently unconstrained below — they are snapshots, a
  * different decision about a different row.
  */
-export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
-];
+export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [];
 
 /** Oxy owns identity; there is no `users` table and there must never be one. */
 const OXY_ACCOUNT = 'An Oxy account id. Oxy owns identity over HTTP; there is no users table.';
@@ -589,7 +588,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   {
     column: 'return_request_evidence.file_id',
     reason:
-      "An Oxy file id the buyer already uploaded to their OWN Oxy storage — the `abuse_reports` " +
+      'An Oxy file id the buyer already uploaded to their OWN Oxy storage — the `abuse_reports` ' +
       'posture, and a bare id rather than a URL for the same reason moderation gives: a URL on ' +
       'this host would tell Mercaria when a seller looked at the photograph. Mercaria holds no ' +
       'Oxy service credential, so it cannot read the file, compute a digest or scan it, and ' +
@@ -1260,7 +1259,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
     column: 'catalog_localization_revisions.credited_oxy_user_id',
     reason:
       OXY_ACCOUNT +
-      ' Written by a trigger from the row\'s own reviewed_by_oxy_user_id, so it is who the ' +
+      " Written by a trigger from the row's own reviewed_by_oxy_user_id, so it is who the " +
       'translation CREDITS and never who ran the statement.',
   },
   {
@@ -1473,7 +1472,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
     reason:
       "A CONNECTED PLATFORM's own id for the record a sync refused (#303) — Shopify's, " +
       "WooCommerce's — so it is a foreign key space, exactly as `listings.source_external_id` " +
-      'is. And it is `catalog_source_rejections.external_id`\'s argument one domain over: the ' +
+      "is. And it is `catalog_source_rejections.external_id`'s argument one domain over: the " +
       'record was refused, so there is no listing, variant or order row for it to reference, ' +
       'which is the whole reason a row exists here. NULL is a real state — the platform ' +
       'published no id — and the writer maps an empty string to it so "absent" has one spelling.',
@@ -1696,10 +1695,10 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   {
     column: 'merchant_demand_metrics.storefront_id',
     reason:
-      'A reporting DIMENSION, `\'\'` when the figure is not sliced by one — the ' +
+      "A reporting DIMENSION, `''` when the figure is not sliced by one — the " +
       '`analytics_rollups` convention, which a foreign key cannot express (the empty string is ' +
       'not a storefront). A snapshot also outlives the storefronts it describes: a channel ' +
-      'retired last month is still what last month\'s demand arrived through.',
+      "retired last month is still what last month's demand arrived through.",
   },
   {
     column: 'merchant_demand_metrics.source_id',
@@ -1719,7 +1718,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'The audit is the record of what an operator TRIED, and it has to outlive the thing they ' +
       'tried it on. A cascade would delete the trail when a merchant is merged away, and a ' +
       'RESTRICT would make the trail block the merge — so the column is a plain id and a ' +
-      'tombstoned merchant\'s audits stay readable under the id somebody acted on.',
+      "tombstoned merchant's audits stay readable under the id somebody acted on.",
   },
 
   // ── The canonical "Sell yours" flow (#91) ────────────────────────────────
@@ -1735,7 +1734,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
     reason:
       'An Oxy media file id, like every other `file_id` in this schema — Oxy owns the asset and ' +
       'this database has no table to reference. The guarantee that matters here is not a foreign ' +
-      "key but the reverse: `mercaria_seller_draft_reject_borrowed_photo` refuses a file id the " +
+      'key but the reverse: `mercaria_seller_draft_reject_borrowed_photo` refuses a file id the ' +
       "catalogue or another seller's listing already claims.",
   },
   // ── Guest-commerce governance (#111) ──────────────────────────────────────

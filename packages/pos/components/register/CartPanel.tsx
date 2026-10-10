@@ -1,21 +1,21 @@
-import React, { useMemo } from "react";
-import { View, Pressable, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { RiShoppingCartLine } from "@oxy.so/bloom/icons/RiShoppingCartLine";
-import { ChevronRight, Tag, Trash2, User as UserIcon, X } from "lucide-react-native";
-import { Stepper } from "@oxy.so/bloom/stepper";
-import { Text, PriceDisplay, toBloomFieldIcon, useColorScheme } from "@mercaria/ui";
-import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
-import { useCustomers } from "@/lib/hooks/use-customers";
+import React, { useMemo } from 'react';
+import { View, Pressable, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { RiShoppingCartLine } from '@oxy.so/bloom/icons/RiShoppingCartLine';
+import { ChevronRight, Tag, Trash2, User as UserIcon, X } from 'lucide-react-native';
+import { Stepper } from '@oxy.so/bloom/stepper';
+import { Text, PriceDisplay, toBloomFieldIcon, useColorScheme } from '@mercaria/ui';
+import { TextField, TextFieldIcon, TextFieldInput } from '@oxy.so/bloom/text-field';
+import { useCustomers } from '@/lib/hooks/use-customers';
 import {
   useRegisterCart,
   useRegisterCartCount,
   type RegisterCartLine,
-} from "@/lib/stores/register-cart";
-import { computeCartSubtotal } from "@/lib/cart-totals";
-import { useTranslation } from "@/lib/i18n";
-import { ChargeButton } from "./ChargeButton";
+} from '@/lib/stores/register-cart';
+import { computeCartSubtotal } from '@/lib/cart-totals';
+import { useTranslation } from '@/lib/i18n';
+import { ChargeButton } from './ChargeButton';
 
 /**
  * The register cart: a header with the item count and a Clear action, an
@@ -39,11 +39,11 @@ export function CartPanel({ storeId }: { storeId: string }) {
   const isEmpty = lines.length === 0;
 
   // Resolve the attached customer's display name (best-effort, from the list cache).
-  const { data: customerPage } = useCustomers(storeId, "");
+  const { data: customerPage } = useCustomers(storeId, '');
   const customerName = useMemo(() => {
     if (!customerId) return null;
     const match = customerPage?.data.find((c) => c.id === customerId);
-    return match?.displayName ?? t("customer.fallbackName");
+    return match?.displayName ?? t('customer.fallbackName');
   }, [customerId, customerPage, t]);
 
   return (
@@ -51,27 +51,25 @@ export function CartPanel({ storeId }: { storeId: string }) {
       {/* Header. */}
       <View className="flex-row items-center justify-between gap-3 border-b border-border px-4 py-3">
         <View>
-          <Text className="text-lg font-bold text-foreground">{t("cart.title")}</Text>
-          <Text className="text-xs text-muted-foreground">
-            {t("cart.itemCount", { count })}
-          </Text>
+          <Text className="text-lg font-bold text-foreground">{t('cart.title')}</Text>
+          <Text className="text-xs text-muted-foreground">{t('cart.itemCount', { count })}</Text>
         </View>
         {isEmpty ? null : (
           <Pressable
             onPress={clear}
             accessibilityRole="button"
-            accessibilityLabel={t("cart.clearCart")}
+            accessibilityLabel={t('cart.clearCart')}
             className="h-9 flex-row items-center gap-1.5 rounded-lg px-2 active:bg-accent"
           >
             <Trash2 size={16} color="#ef4444" />
-            <Text className="text-sm font-medium text-destructive">{t("cart.clear")}</Text>
+            <Text className="text-sm font-medium text-destructive">{t('cart.clear')}</Text>
           </Pressable>
         )}
       </View>
 
       {/* Customer row. */}
       <Pressable
-        onPress={() => router.push("/customer")}
+        onPress={() => router.push('/customer')}
         accessibilityRole="button"
         className="flex-row items-center gap-3 border-b border-border px-4 py-3 active:bg-accent"
       >
@@ -80,10 +78,10 @@ export function CartPanel({ storeId }: { storeId: string }) {
         </View>
         <View className="flex-1">
           <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-            {customerName ?? t("cart.addCustomer")}
+            {customerName ?? t('cart.addCustomer')}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {customerName ? t("cart.customerAttached") : t("common.optional")}
+            {customerName ? t('cart.customerAttached') : t('common.optional')}
           </Text>
         </View>
         <ChevronRight size={18} color={colors.mutedForeground} />
@@ -95,8 +93,8 @@ export function CartPanel({ storeId }: { storeId: string }) {
           <EmptyState
             icon={RiShoppingCartLine}
             variant="compact"
-            title={t("cart.emptyTitle")}
-            description={t("cart.emptyBody")}
+            title={t('cart.emptyTitle')}
+            description={t('cart.emptyBody')}
           />
         </View>
       ) : (
@@ -112,14 +110,14 @@ export function CartPanel({ storeId }: { storeId: string }) {
         <TextField style={{ height: 44 }}>
           <TextFieldIcon icon={toBloomFieldIcon(Tag)} />
           <TextFieldInput
-            label={t("cart.discountCodePlaceholder")}
-            value={discountCode ?? ""}
-            onValueChange={(text) => setDiscountCode(text.trim() === "" ? null : text)}
+            label={t('cart.discountCodePlaceholder')}
+            value={discountCode ?? ''}
+            onValueChange={(text) => setDiscountCode(text.trim() === '' ? null : text)}
             autoCapitalize="characters"
           />
         </TextField>
         <View className="flex-row items-center justify-between">
-          <Text className="text-sm text-muted-foreground">{t("cart.subtotal")}</Text>
+          <Text className="text-sm text-muted-foreground">{t('cart.subtotal')}</Text>
           <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" />
         </View>
         <ChargeButton total={subtotal} disabled={isEmpty} style={{ height: 56 }} />
@@ -163,7 +161,7 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
         <Pressable
           onPress={() => removeLine(line.variantId)}
           accessibilityRole="button"
-          accessibilityLabel={t("cart.removeItem")}
+          accessibilityLabel={t('cart.removeItem')}
           className="h-9 w-9 items-center justify-center rounded-lg active:bg-accent"
         >
           <X size={16} color={colors.mutedForeground} />
@@ -176,9 +174,9 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
           max={Math.max(1, line.available)}
           onValueChange={(quantity) => setQuantity(line.variantId, quantity)}
           onRemove={() => removeLine(line.variantId)}
-          removeLabel={t("cart.removeItem")}
-          decrementLabel={t("cart.decreaseQuantity")}
-          incrementLabel={t("cart.increaseQuantity")}
+          removeLabel={t('cart.removeItem')}
+          decrementLabel={t('cart.decreaseQuantity')}
+          incrementLabel={t('cart.increaseQuantity')}
           accessibilityLabel={line.title}
           size="sm"
         />

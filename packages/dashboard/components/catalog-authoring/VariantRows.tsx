@@ -1,23 +1,23 @@
-import React, { useState } from "react";
-import { Pressable, View } from "react-native";
-import type { AuthoringSchema } from "@mercaria/shared-types";
-import { Text, type Translate } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Switch } from "@oxy.so/bloom/switch";
-import { useTranslation } from "@/lib/i18n";
-import { useCanonicalVariants } from "@/lib/authoring/hooks";
-import { applyBarcodeToAll, applySkuPrefix, setAllSold } from "@/lib/authoring/bulk";
-import { ValuePicker, type PickerOption } from "./ValuePicker";
-import { findingMessageKey, findingsForVariant, type LocatedFinding } from "@/lib/authoring/findings";
+import React, { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import type { AuthoringSchema } from '@mercaria/shared-types';
+import { Text, type Translate } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Switch } from '@oxy.so/bloom/switch';
+import { useTranslation } from '@/lib/i18n';
+import { useCanonicalVariants } from '@/lib/authoring/hooks';
+import { applyBarcodeToAll, applySkuPrefix, setAllSold } from '@/lib/authoring/bulk';
+import { ValuePicker, type PickerOption } from './ValuePicker';
 import {
-  controlledValueStrings,
-  duplicateRowKeys,
-  type VariantRow,
-} from "@/lib/authoring/matrix";
-import { fieldsByKey } from "@/lib/authoring/wizard-state";
-import { authoringLabel } from "@/lib/authoring/untranslated";
+  findingMessageKey,
+  findingsForVariant,
+  type LocatedFinding,
+} from '@/lib/authoring/findings';
+import { controlledValueStrings, duplicateRowKeys, type VariantRow } from '@/lib/authoring/matrix';
+import { fieldsByKey } from '@/lib/authoring/wizard-state';
+import { authoringLabel } from '@/lib/authoring/untranslated';
 
 interface VariantRowsProps {
   readonly schema: AuthoringSchema;
@@ -67,8 +67,8 @@ export function VariantRows({
   disabled = false,
 }: VariantRowsProps) {
   const { t } = useTranslation();
-  const [skuPrefix, setSkuPrefix] = useState("");
-  const [bulkBarcode, setBulkBarcode] = useState("");
+  const [skuPrefix, setSkuPrefix] = useState('');
+  const [bulkBarcode, setBulkBarcode] = useState('');
   const byKey = fieldsByKey(schema);
   const valueStrings = controlledValueStrings(schema);
   const duplicates = duplicateRowKeys(rows, byKey, valueStrings);
@@ -91,7 +91,8 @@ export function VariantRows({
   const variantOptions: readonly PickerOption[] = (canonicalVariants.data?.candidates ?? []).map(
     (candidate) => ({
       id: candidate.id,
-      label: candidate.name.length > 0 ? candidate.name : t("products.wizard.canonical.unnamedVariant"),
+      label:
+        candidate.name.length > 0 ? candidate.name : t('products.wizard.canonical.unnamedVariant'),
     }),
   );
 
@@ -102,9 +103,7 @@ export function VariantRows({
   // The POSITION a finding names is the position among the rows that were SENT,
   // which is the enabled ones in order. A disabled row does not shift it.
   const positionByKey = new Map<string, number>();
-  rows
-    .filter((row) => row.enabled)
-    .forEach((row, index) => positionByKey.set(row.key, index));
+  rows.filter((row) => row.enabled).forEach((row, index) => positionByKey.set(row.key, index));
 
   const soldCount = rows.filter((row) => row.enabled).length;
 
@@ -113,14 +112,14 @@ export function VariantRows({
       {rows.length > 1 ? (
         <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
           <Text className="text-sm font-semibold text-foreground">
-            {t("products.wizard.variants.bulkTitle")}
+            {t('products.wizard.variants.bulkTitle')}
           </Text>
 
           <View className="flex-row flex-wrap items-end gap-3">
             <View className="min-w-[10rem] flex-1">
-              <Field label={t("products.wizard.variants.bulkSkuPrefix")}>
+              <Field label={t('products.wizard.variants.bulkSkuPrefix')}>
                 <TextFieldInput
-                  label={t("products.wizard.variants.bulkSkuPrefix")}
+                  label={t('products.wizard.variants.bulkSkuPrefix')}
                   placeholder={null}
                   value={skuPrefix}
                   onValueChange={setSkuPrefix}
@@ -134,7 +133,7 @@ export function VariantRows({
               disabled={disabled || soldCount === 0}
               onPress={() => onChange(applySkuPrefix(rows, skuPrefix))}
             >
-              {t("products.wizard.variants.bulkSkuApply")}
+              {t('products.wizard.variants.bulkSkuApply')}
             </Button>
           </View>
           {/* Says what the control DOES rather than only naming it: a merchant
@@ -142,14 +141,14 @@ export function VariantRows({
               expect the same code everywhere, which is the thing it must not
               do. */}
           <Text className="text-xs text-muted-foreground">
-            {t("products.wizard.variants.bulkSkuHelp")}
+            {t('products.wizard.variants.bulkSkuHelp')}
           </Text>
 
           <View className="flex-row flex-wrap items-end gap-3">
             <View className="min-w-[10rem] flex-1">
-              <Field label={t("products.wizard.variants.barcode")}>
+              <Field label={t('products.wizard.variants.barcode')}>
                 <TextFieldInput
-                  label={t("products.wizard.variants.barcode")}
+                  label={t('products.wizard.variants.barcode')}
                   placeholder={null}
                   value={bulkBarcode}
                   onValueChange={setBulkBarcode}
@@ -163,7 +162,7 @@ export function VariantRows({
               disabled={disabled || soldCount === 0}
               onPress={() => onChange(applyBarcodeToAll(rows, bulkBarcode))}
             >
-              {t("products.wizard.variants.bulkBarcodeApply")}
+              {t('products.wizard.variants.bulkBarcodeApply')}
             </Button>
           </View>
 
@@ -174,7 +173,7 @@ export function VariantRows({
               disabled={disabled}
               onPress={() => onChange(setAllSold(rows, true))}
             >
-              {t("products.wizard.variants.markAllSold")}
+              {t('products.wizard.variants.markAllSold')}
             </Button>
             <Button
               appearance="outline"
@@ -182,7 +181,7 @@ export function VariantRows({
               disabled={disabled}
               onPress={() => onChange(setAllSold(rows, false))}
             >
-              {t("products.wizard.variants.markNoneSold")}
+              {t('products.wizard.variants.markNoneSold')}
             </Button>
           </View>
         </View>
@@ -200,40 +199,40 @@ export function VariantRows({
             key={row.key}
             nativeID={position === null ? undefined : variantAnchorId(position)}
             className={[
-              "gap-3 rounded-2xl border bg-surface p-4",
-              isDuplicate ? "border-destructive" : "border-border",
-              row.enabled ? "" : "opacity-60",
-            ].join(" ")}
+              'gap-3 rounded-2xl border bg-surface p-4',
+              isDuplicate ? 'border-destructive' : 'border-border',
+              row.enabled ? '' : 'opacity-60',
+            ].join(' ')}
           >
             <View className="flex-row items-start justify-between gap-3">
               <View className="flex-1">
                 <Text className="text-sm font-semibold text-foreground">
-                  {summary.length > 0 ? summary : t("products.wizard.variants.singleVariant")}
+                  {summary.length > 0 ? summary : t('products.wizard.variants.singleVariant')}
                 </Text>
                 {isDuplicate ? (
                   <Text className="mt-0.5 text-xs text-destructive">
-                    {t("products.wizard.variants.duplicate")}
+                    {t('products.wizard.variants.duplicate')}
                   </Text>
                 ) : null}
               </View>
               <View className="flex-row items-center gap-2">
                 <Text className="text-xs text-muted-foreground">
-                  {t("products.wizard.variants.sold")}
+                  {t('products.wizard.variants.sold')}
                 </Text>
                 <Switch
                   checked={row.enabled}
                   onCheckedChange={(enabled: boolean) => update(row.key, { enabled })}
                   disabled={disabled}
-                  accessibilityLabel={t("products.wizard.variants.sold")}
+                  accessibilityLabel={t('products.wizard.variants.sold')}
                 />
               </View>
             </View>
 
             <View className="flex-row flex-wrap gap-3">
               <View className="min-w-[10rem] flex-1">
-                <Field label={t("products.wizard.variants.sku")}>
+                <Field label={t('products.wizard.variants.sku')}>
                   <TextFieldInput
-                    label={t("products.wizard.variants.sku")}
+                    label={t('products.wizard.variants.sku')}
                     placeholder={null}
                     value={row.sku}
                     onValueChange={(sku) => update(row.key, { sku })}
@@ -243,9 +242,9 @@ export function VariantRows({
                 </Field>
               </View>
               <View className="min-w-[10rem] flex-1">
-                <Field label={t("products.wizard.variants.barcode")}>
+                <Field label={t('products.wizard.variants.barcode')}>
                   <TextFieldInput
-                    label={t("products.wizard.variants.barcode")}
+                    label={t('products.wizard.variants.barcode')}
                     placeholder={null}
                     value={row.barcode}
                     onValueChange={(barcode) => update(row.key, { barcode })}
@@ -257,26 +256,26 @@ export function VariantRows({
             </View>
 
             {canonicalProductId === null || variantOptions.length === 0 ? null : (
-              <Field label={t("products.wizard.canonical.variantLabel")} multiple>
+              <Field label={t('products.wizard.canonical.variantLabel')} multiple>
                 <ValuePicker
                   options={variantOptions}
                   selectedId={row.selectedCanonicalVariantId}
                   onSelect={(selectedCanonicalVariantId) =>
                     update(row.key, { selectedCanonicalVariantId })
                   }
-                  placeholder={t("products.wizard.canonical.variantPlaceholder")}
-                  title={t("products.wizard.canonical.variantLabel")}
+                  placeholder={t('products.wizard.canonical.variantPlaceholder')}
+                  title={t('products.wizard.canonical.variantLabel')}
                   disabled={disabled || !row.enabled}
                 />
                 {row.selectedCanonicalVariantId === null ? null : (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={t("products.wizard.canonical.clearVariant")}
+                    accessibilityLabel={t('products.wizard.canonical.clearVariant')}
                     onPress={() => update(row.key, { selectedCanonicalVariantId: null })}
                     className="self-start active:opacity-70"
                   >
                     <Text className="text-xs text-primary">
-                      {t("products.wizard.canonical.clearVariant")}
+                      {t('products.wizard.canonical.clearVariant')}
                     </Text>
                   </Pressable>
                 )}
@@ -302,14 +301,18 @@ export function VariantRows({
  * the author chose them. It is presentation only: what identifies the row to
  * the server is the axis answers themselves.
  */
-export function axisSummary(row: VariantRow, schema: AuthoringSchema, translate: Translate): string {
+export function axisSummary(
+  row: VariantRow,
+  schema: AuthoringSchema,
+  translate: Translate,
+): string {
   const byKey = fieldsByKey(schema);
   const parts: string[] = [];
   for (const [key, entries] of Object.entries(row.axes)) {
     const field = byKey.get(key);
     if (field === undefined) continue;
     for (const entry of entries) {
-      if (entry.kind === "controlled_value") {
+      if (entry.kind === 'controlled_value') {
         const value = field.controlledValues.find((option) => option.id === entry.enumValueId);
         if (value === undefined) continue;
         // #740: marked per PART rather than once for the whole summary. A
@@ -318,14 +321,17 @@ export function axisSummary(row: VariantRow, schema: AuthoringSchema, translate:
         // that matters. `translate` is threaded rather than read from a hook
         // because this stays a pure function every caller can execute.
         parts.push(
-          authoringLabel(schema.text.values[value.id]?.label, { kind: "key", key: value.value }, translate)
-            .text,
+          authoringLabel(
+            schema.text.values[value.id]?.label,
+            { kind: 'key', key: value.value },
+            translate,
+          ).text,
         );
         continue;
       }
-      if (entry.kind === "text" && entry.text.trim().length > 0) parts.push(entry.text.trim());
-      if (entry.kind === "number" && entry.raw.trim().length > 0) parts.push(entry.raw.trim());
+      if (entry.kind === 'text' && entry.text.trim().length > 0) parts.push(entry.text.trim());
+      if (entry.kind === 'number' && entry.raw.trim().length > 0) parts.push(entry.raw.trim());
     }
   }
-  return parts.join(" · ");
+  return parts.join(' · ');
 }

@@ -46,7 +46,11 @@ import type {
 } from '@mercaria/shared-types';
 import { SEO_SITEMAP_COLLECTIONS } from '@mercaria/shared-types';
 import type { SeoSitemapCandidateRow } from '../../db/seo/seoRepository.js';
-import { assessCatalogueContent, assessVisibleContent, decideIndexability } from './indexability.js';
+import {
+  assessCatalogueContent,
+  assessVisibleContent,
+  decideIndexability,
+} from './indexability.js';
 import type { SeoIdentityQuality, SeoModerationState } from './indexability.js';
 import { buildRoutePath, publicRoute } from './routes.js';
 

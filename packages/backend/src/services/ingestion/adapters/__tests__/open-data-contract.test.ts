@@ -57,7 +57,9 @@ describeCatalogSourceAdapterContract({
           externalType: record.externalType,
           externalId: record.externalId,
           normalized: record.normalized,
-          ...(record.sourceUpdatedAt === undefined ? {} : { sourceUpdatedAt: record.sourceUpdatedAt }),
+          ...(record.sourceUpdatedAt === undefined
+            ? {}
+            : { sourceUpdatedAt: record.sourceUpdatedAt }),
           raw: record.raw,
         }));
         return {
@@ -74,7 +76,9 @@ describeCatalogSourceAdapterContract({
       // The suite's scenarios state their instants; the adapter's page clock
       // stands at the latest one the scenario's records carry.
       clock: () => {
-        const instants = pages.flatMap((page) => page.records.map((record) => record.observedAt.getTime()));
+        const instants = pages.flatMap((page) =>
+          page.records.map((record) => record.observedAt.getTime()),
+        );
         return instants.length === 0 ? SUITE_INSTANT : new Date(Math.max(...instants));
       },
     });

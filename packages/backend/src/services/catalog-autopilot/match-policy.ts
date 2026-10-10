@@ -19,7 +19,10 @@
  * module does nothing, so it never supersedes a human decision.
  */
 
-import { findActiveMatchPolicyVersion, insertMatchPolicyVersion } from '../../db/matching/matchPolicyRepository.js';
+import {
+  findActiveMatchPolicyVersion,
+  insertMatchPolicyVersion,
+} from '../../db/matching/matchPolicyRepository.js';
 import { getDb } from '../../db/postgres.js';
 import { log } from '../../lib/logger.js';
 import { CATALOG_AUTOPILOT_ACTOR } from './actor.js';
@@ -60,6 +63,9 @@ export async function ensureActiveMatchPolicy(now: Date = new Date()): Promise<b
     if ((await findActiveMatchPolicyVersion(db)) !== undefined) return false;
     throw error;
   }
-  log.general.info({ versionKey: BASELINE_MATCH_POLICY_KEY }, '[CatalogAutopilot] baseline match policy published');
+  log.general.info(
+    { versionKey: BASELINE_MATCH_POLICY_KEY },
+    '[CatalogAutopilot] baseline match policy published',
+  );
   return true;
 }

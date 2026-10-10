@@ -8,9 +8,9 @@ import {
   Plug,
   Settings,
   type LucideIcon,
-} from "lucide-react-native";
-import type { RoutePath } from "expo-router";
-import type { StorePermission } from "@mercaria/shared-types";
+} from 'lucide-react-native';
+import type { RoutePath } from 'expo-router';
+import type { StorePermission } from '@mercaria/shared-types';
 
 /**
  * Canonical navigation model for the dashboard shell, shared by the desktop
@@ -43,14 +43,62 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, href: "/", permission: "stats:read" },
-  { key: "orders", labelKey: "nav.orders", icon: ShoppingBag, href: "/orders", permission: "orders:read" },
-  { key: "products", labelKey: "nav.products", icon: Package, href: "/products", permission: "products:read" },
-  { key: "customers", labelKey: "nav.customers", icon: Users, href: "/customers", permission: "customers:read" },
-  { key: "discounts", labelKey: "nav.discounts", icon: Tag, href: "/discounts", permission: "discounts:write" },
-  { key: "collections", labelKey: "nav.collections", icon: FolderTree, href: "/collections", permission: "collections:write" },
-  { key: "channels", labelKey: "nav.channels", icon: Plug, href: "/channels", permission: "channels:write" },
-  { key: "settings", labelKey: "nav.settings", icon: Settings, href: "/settings", permission: "settings:write" },
+  {
+    key: 'dashboard',
+    labelKey: 'nav.dashboard',
+    icon: LayoutDashboard,
+    href: '/',
+    permission: 'stats:read',
+  },
+  {
+    key: 'orders',
+    labelKey: 'nav.orders',
+    icon: ShoppingBag,
+    href: '/orders',
+    permission: 'orders:read',
+  },
+  {
+    key: 'products',
+    labelKey: 'nav.products',
+    icon: Package,
+    href: '/products',
+    permission: 'products:read',
+  },
+  {
+    key: 'customers',
+    labelKey: 'nav.customers',
+    icon: Users,
+    href: '/customers',
+    permission: 'customers:read',
+  },
+  {
+    key: 'discounts',
+    labelKey: 'nav.discounts',
+    icon: Tag,
+    href: '/discounts',
+    permission: 'discounts:write',
+  },
+  {
+    key: 'collections',
+    labelKey: 'nav.collections',
+    icon: FolderTree,
+    href: '/collections',
+    permission: 'collections:write',
+  },
+  {
+    key: 'channels',
+    labelKey: 'nav.channels',
+    icon: Plug,
+    href: '/channels',
+    permission: 'channels:write',
+  },
+  {
+    key: 'settings',
+    labelKey: 'nav.settings',
+    icon: Settings,
+    href: '/settings',
+    permission: 'settings:write',
+  },
 ] as const;
 
 /**
@@ -59,11 +107,11 @@ export const NAV_ITEMS: readonly NavItem[] = [
  * match their route prefix.
  */
 export function isNavItemActive(item: NavItem, pathname: string): boolean {
-  if (item.key === "dashboard") {
+  if (item.key === 'dashboard') {
     return (
-      pathname === "/" ||
-      pathname === "/(app)" ||
-      (pathname.startsWith("/(app)") && pathname.replace("/(app)", "") === "")
+      pathname === '/' ||
+      pathname === '/(app)' ||
+      (pathname.startsWith('/(app)') && pathname.replace('/(app)', '') === '')
     );
   }
   return pathname === item.href || pathname.startsWith(`${item.href}/`);

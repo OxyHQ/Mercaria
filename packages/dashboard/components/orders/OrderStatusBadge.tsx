@@ -1,8 +1,8 @@
-import React from "react";
-import { Badge } from "@oxy.so/bloom/badge";
-import type { AccentTone } from "@oxy.so/bloom/theme";
-import type { OrderStatus } from "@mercaria/shared-types";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { Badge } from '@oxy.so/bloom/badge';
+import type { AccentTone } from '@oxy.so/bloom/theme';
+import type { OrderStatus } from '@mercaria/shared-types';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * Translation KEYS per status, not sentences (#398).
@@ -17,30 +17,30 @@ import { useTranslation } from "@/lib/i18n";
  * spelled one way across the whole area.
  */
 export const ORDER_STATUS_LABEL_KEYS: Record<OrderStatus, string> = {
-  pending_payment: "orders.status.pendingPayment",
-  paid: "orders.status.paid",
-  processing: "orders.status.processing",
-  shipped: "orders.status.shipped",
-  delivered: "orders.status.delivered",
-  digitally_delivered: "orders.status.digitallyDelivered",
-  cancelled: "orders.status.cancelled",
-  refunded: "orders.status.refunded",
-  partially_refunded: "orders.status.partiallyRefunded",
+  pending_payment: 'orders.status.pendingPayment',
+  paid: 'orders.status.paid',
+  processing: 'orders.status.processing',
+  shipped: 'orders.status.shipped',
+  delivered: 'orders.status.delivered',
+  digitally_delivered: 'orders.status.digitallyDelivered',
+  cancelled: 'orders.status.cancelled',
+  refunded: 'orders.status.refunded',
+  partially_refunded: 'orders.status.partiallyRefunded',
 };
 
 /** Bloom accent tone per status, painted as a `subtle` Bloom `Badge`. */
 const TONES: Record<OrderStatus, AccentTone> = {
-  pending_payment: "default",
-  paid: "primary",
-  processing: "primary",
-  shipped: "primary",
-  delivered: "primary",
+  pending_payment: 'default',
+  paid: 'primary',
+  processing: 'primary',
+  shipped: 'primary',
+  delivered: 'primary',
   // The same pill as `delivered`: both mean the buyer has what they paid for, and
   // a different colour would imply a difference a merchant has to act on.
-  digitally_delivered: "primary",
-  cancelled: "default",
-  refunded: "error",
-  partially_refunded: "error",
+  digitally_delivered: 'primary',
+  cancelled: 'default',
+  refunded: 'error',
+  partially_refunded: 'error',
 };
 
 /** Small pill rendering an order's lifecycle status. */

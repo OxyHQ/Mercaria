@@ -30,7 +30,10 @@ import {
 import { CONDITION_KEY_GROUP } from '@mercaria/shared-types';
 
 /** A `current` source-backed freshness verdict with a bounded deadline. */
-export function freshAssessment(elapsedSeconds = 60, lifetimeSeconds = 3_600): OfferFreshnessAssessment {
+export function freshAssessment(
+  elapsedSeconds = 60,
+  lifetimeSeconds = 3_600,
+): OfferFreshnessAssessment {
   const lastSeen = new Date(Date.UTC(2026, 7, 10, 12, 0, 0) - elapsedSeconds * 1_000);
   return {
     level: 'current',
@@ -167,7 +170,9 @@ export function knownPrice(minor: number, currency: CurrencyCode = 'EUR'): Offer
 }
 
 /** An unknown comparison price. Carries no amount, which is the whole point. */
-export function unknownPrice(reason: 'not_published' | 'not_convertible' = 'not_published'): OfferComparisonPrice {
+export function unknownPrice(
+  reason: 'not_published' | 'not_convertible' = 'not_published',
+): OfferComparisonPrice {
   return { known: false, reason };
 }
 
@@ -194,14 +199,21 @@ export function buildFacts(overrides: FactOverrides = {}): OfferRankingFacts {
       : knownPrice(overrides.itemPriceMinor ?? 10_000);
   const deliveryCost =
     overrides.deliveryMinor === null ? unknownPrice() : knownPrice(overrides.deliveryMinor ?? 500);
-  const group = overrides.condition === undefined ? undefined : CONDITION_KEY_GROUP[overrides.condition];
+  const group =
+    overrides.condition === undefined ? undefined : CONDITION_KEY_GROUP[overrides.condition];
 
   return {
     itemPrice,
     deliveryCost,
     total:
       itemPrice.known && deliveryCost.known
-        ? { known: true, amount: { amount: itemPrice.amount.amount + deliveryCost.amount.amount, currency: itemPrice.amount.currency } }
+        ? {
+            known: true,
+            amount: {
+              amount: itemPrice.amount.amount + deliveryCost.amount.amount,
+              currency: itemPrice.amount.currency,
+            },
+          }
         : {
             known: false,
             missing: [
@@ -210,7 +222,9 @@ export function buildFacts(overrides: FactOverrides = {}): OfferRankingFacts {
             ],
           },
     taxInclusion: 'unknown',
-    ...(overrides.deliveryMaxDays === undefined ? {} : { deliveryMaxDays: overrides.deliveryMaxDays }),
+    ...(overrides.deliveryMaxDays === undefined
+      ? {}
+      : { deliveryMaxDays: overrides.deliveryMaxDays }),
     ...(overrides.condition === undefined ? {} : { condition: overrides.condition }),
     ...(group === undefined ? {} : { conditionGroup: group }),
     ...(overrides.merchantRating === undefined ? {} : { merchantRating: overrides.merchantRating }),

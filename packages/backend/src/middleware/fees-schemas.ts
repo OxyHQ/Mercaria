@@ -48,7 +48,10 @@ const minorUnits = z
     try {
       assertSafeMoneyAmount(value, 'fees.request');
     } catch (err) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: err instanceof Error ? err.message : String(err) });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   });
 
@@ -131,13 +134,19 @@ export const feeScheduleCreateSchema = z
       body.maxFeeMinor !== undefined &&
       body.minFeeMinor > body.maxFeeMinor
     ) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'minFeeMinor must not exceed maxFeeMinor.' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'minFeeMinor must not exceed maxFeeMinor.',
+      });
     }
     if (
       body.effectiveEnd !== undefined &&
       new Date(body.effectiveEnd).getTime() <= new Date(body.effectiveStart).getTime()
     ) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'effectiveEnd must be after effectiveStart.' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'effectiveEnd must be after effectiveStart.',
+      });
     }
   });
 

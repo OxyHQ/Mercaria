@@ -137,10 +137,20 @@ const ORDER_COUNTING_READER = 'services/curation/impact.ts';
 function assertCurationDomainIsWhole(): void {
   const from = (prefix: string) =>
     CURATION_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
-  expect(from('services/curation/'), 'the curation service walk found too few modules').toBeGreaterThanOrEqual(11);
-  expect(from('db/curation/'), 'the curation repository walk found too few modules').toBeGreaterThanOrEqual(4);
-  expect(from('controllers/'), 'no curation-named controller was derived').toBeGreaterThanOrEqual(1);
-  expect(from('middleware/'), 'no curation-named schema module was derived').toBeGreaterThanOrEqual(1);
+  expect(
+    from('services/curation/'),
+    'the curation service walk found too few modules',
+  ).toBeGreaterThanOrEqual(11);
+  expect(
+    from('db/curation/'),
+    'the curation repository walk found too few modules',
+  ).toBeGreaterThanOrEqual(4);
+  expect(from('controllers/'), 'no curation-named controller was derived').toBeGreaterThanOrEqual(
+    1,
+  );
+  expect(from('middleware/'), 'no curation-named schema module was derived').toBeGreaterThanOrEqual(
+    1,
+  );
   // No test file may enter the scanned set: a gate that scans its own probes
   // reports violations it wrote itself.
   expect(CURATION_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
@@ -289,22 +299,26 @@ describe('curation cannot become a ranking signal', () => {
 describe('no HTTP caller can post a job end state', () => {
   it('the operator schemas carry no status, phase, tombstone or impact field', () => {
     const schemas = readDomainFile('middleware/curation-schemas.ts');
-    assertEachOf([
-      'status:',
-      'phase:',
-      'mergedIntoId',
-      'appliedAt',
-      'impactTotalMoving',
-      'requiresSecondApproval',
-      'approvedByOxyUserId',
-      'leaseOwner',
-    ], 8, (forbidden) => {
-      expect(
-        schemas.includes(forbidden),
-        `curation-schemas.ts accepts '${forbidden}'; a route that can post a job's end state is a ` +
-          'route around the conflict gate and the four-eyes threshold.',
-      ).toBe(false);
-    });
+    assertEachOf(
+      [
+        'status:',
+        'phase:',
+        'mergedIntoId',
+        'appliedAt',
+        'impactTotalMoving',
+        'requiresSecondApproval',
+        'approvedByOxyUserId',
+        'leaseOwner',
+      ],
+      8,
+      (forbidden) => {
+        expect(
+          schemas.includes(forbidden),
+          `curation-schemas.ts accepts '${forbidden}'; a route that can post a job's end state is a ` +
+            'route around the conflict gate and the four-eyes threshold.',
+        ).toBe(false);
+      },
+    );
     // Every schema is CLOSED, so an unknown key is a 400 rather than a drop.
     const strictCount = (schemas.match(/\.strict\(\)/gu) ?? []).length;
     expect(strictCount).toBeGreaterThanOrEqual(14);
@@ -336,9 +350,9 @@ describe('the split contract and the split runner name the same items', () => {
 
 describe('the scanner itself is not vacuous', () => {
   it('every detector fires on a seeded positive', () => {
-    expect(CURATION_REFERENCE.test("import { requestMerge } from '../curation/merge.service.js';")).toBe(
-      true,
-    );
+    expect(
+      CURATION_REFERENCE.test("import { requestMerge } from '../curation/merge.service.js';"),
+    ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { x } from '../fees/fee.service.js';")).toBe(true);
     expect(NATIVE_COMMERCE_REFERENCE.test('await db.update(orderItems).set({});')).toBe(true);
     expect(/\.delete\(/.test('await db.delete(catalogRevisions);')).toBe(true);

@@ -1,8 +1,4 @@
-import type {
-  CreateRefundInput,
-  OrderStatus,
-  RefundLineInput,
-} from '@mercaria/shared-types';
+import type { CreateRefundInput, OrderStatus, RefundLineInput } from '@mercaria/shared-types';
 import type { CatalogToolHandlers } from '@oxy.so/mcp';
 
 import { config } from '../config/index.js';
@@ -34,10 +30,7 @@ function optionalPositiveInteger(
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
-function requiredNonNegativeInteger(
-  input: Readonly<Record<string, unknown>>,
-  key: string,
-): number {
+function requiredNonNegativeInteger(input: Readonly<Record<string, unknown>>, key: string): number {
   const value = input[key];
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     throw validationError(`${key} must be non-negative safe minor units`);
@@ -77,7 +70,8 @@ export async function executeMercariaCatalogTool(
 ): Promise<Record<string, unknown>> {
   switch (toolName) {
     case 'searchProducts': {
-      if (config.canonicalRollout.search !== 'on') throw notFound('Canonical search is not available');
+      if (config.canonicalRollout.search !== 'on')
+        throw notFound('Canonical search is not available');
       const outcome = await runCanonicalSearch({
         term: requiredString(input, 'query'),
         kinds: [],
@@ -100,7 +94,7 @@ export async function executeMercariaCatalogTool(
     case 'listStoreOrders': {
       const page = optionalPositiveInteger(input, 'page', 1);
       const limit = optionalPositiveInteger(input, 'limit', 20);
-      const status = typeof input.status === 'string' ? input.status as OrderStatus : undefined;
+      const status = typeof input.status === 'string' ? (input.status as OrderStatus) : undefined;
       const result = await getStoreOrders(requiredString(input, 'storeId'), {
         page,
         limit,

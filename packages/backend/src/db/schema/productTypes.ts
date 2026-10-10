@@ -115,7 +115,9 @@ export const productTypeDefinitions = pgTable(
     key: text().notNull(),
     /** Monotonic per key, assigned by the operator drafting the version. */
     version: integer().notNull().default(1),
-    lifecycle: text({ enum: asEnumValues(PRODUCT_TYPE_LIFECYCLES) }).notNull().default('draft'),
+    lifecycle: text({ enum: asEnumValues(PRODUCT_TYPE_LIFECYCLES) })
+      .notNull()
+      .default('draft'),
     /** The base-locale name. Localized names live in the D4 localization family. */
     name: text().notNull(),
     description: text(),
@@ -365,10 +367,17 @@ export const productTypeFields = pgTable(
       t.requirement,
       PRODUCT_TYPE_FIELD_REQUIREMENTS,
     ),
-    checkOneOf('product_type_fields_value_policy_check', t.valuePolicy, PRODUCT_TYPE_VALUE_POLICIES),
+    checkOneOf(
+      'product_type_fields_value_policy_check',
+      t.valuePolicy,
+      PRODUCT_TYPE_VALUE_POLICIES,
+    ),
     // The same anchored shape `attribute_definitions_key_shape_check` uses, so a
     // citation that could never resolve is refused before the trigger looks.
-    check('product_type_fields_attribute_key_shape_check', sql`${t.attributeKey} ~ '^[a-z][a-z0-9_]*$'`),
+    check(
+      'product_type_fields_attribute_key_shape_check',
+      sql`${t.attributeKey} ~ '^[a-z][a-z0-9_]*$'`,
+    ),
     check('product_type_fields_attribute_version_check', sql`${t.attributeDefinitionVersion} >= 1`),
     check('product_type_fields_position_check', sql`${t.position} >= 0`),
     // An override is ABSENT or it is text. An empty string is neither: it would

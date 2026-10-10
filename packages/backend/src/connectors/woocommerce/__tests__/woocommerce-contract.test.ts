@@ -269,7 +269,14 @@ function wooOrderJson(order: ContractOrder, currency: string): Record<string, un
     shipping_lines:
       order.shippingLabel === undefined
         ? []
-        : [{ id: 700, method_title: order.shippingLabel, method_id: 'flat_rate', total: order.shipping }],
+        : [
+            {
+              id: 700,
+              method_title: order.shippingLabel,
+              method_id: 'flat_rate',
+              total: order.shipping,
+            },
+          ],
     refunds: [],
   };
 }
@@ -519,20 +526,32 @@ describeConnectorContract({
 });
 
 // External image servers and Oxy storage are fake; the media importer and DB are real.
-vi.mock('@oxy.so/core/server', async importOriginal => ({
-  ...await importOriginal<typeof import('@oxy.so/core/server')>(),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   safeFetch: async (url: string) => ({
-    status: 200, headers: { 'content-type': 'image/png' },
+    status: 200,
+    headers: { 'content-type': 'image/png' },
     response: Readable.from([Buffer.from(url)]),
   }),
 }));
 vi.mock('../../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.test', serviceToken: async () => 'fixture-token' }),
+  oxyServiceClient: () => ({
+    baseURL: 'https://api.oxy.test',
+    serviceToken: async () => 'fixture-token',
+  }),
 }));
 const originalMediaFetch = globalThis.fetch;
-beforeEach(() => vi.stubGlobal('fetch', async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
-  if (String(input) !== 'https://api.oxy.test/assets/service/user-media') return originalMediaFetch(input, init);
-  const hash = createHash('sha256').update(init?.body as Uint8Array).digest('hex');
-  return Response.json({ data: { file: { id: `oxy-file-${hash}`, visibility: 'public' } } });
-}));
+beforeEach(() =>
+  vi.stubGlobal(
+    'fetch',
+    async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+      if (String(input) !== 'https://api.oxy.test/assets/service/user-media')
+        return originalMediaFetch(input, init);
+      const hash = createHash('sha256')
+        .update(init?.body as Uint8Array)
+        .digest('hex');
+      return Response.json({ data: { file: { id: `oxy-file-${hash}`, visibility: 'public' } } });
+    },
+  ),
+);
 afterEach(() => vi.unstubAllGlobals());

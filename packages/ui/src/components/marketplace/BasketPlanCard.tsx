@@ -1,12 +1,8 @@
-import { Pressable, View } from "react-native";
-import type {
-  BasketPlanActions,
-  BasketResult,
-  BasketTotal,
-} from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import type { Translate } from "../../i18n/create-app-i18n";
+import { Pressable, View } from 'react-native';
+import type { BasketPlanActions, BasketResult, BasketTotal } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import type { Translate } from '../../i18n/create-app-i18n';
 import {
   BASKET_CARD_ADD_TO_CART_A11Y_KEY,
   BASKET_CARD_ADD_TO_CART_KEY,
@@ -32,7 +28,7 @@ import {
   basketReasonTextKey,
   basketResultDefinitionKey,
   basketResultTextKey,
-} from "../../lib/comparison-labels";
+} from '../../lib/comparison-labels';
 
 export interface BasketPlanCardProps {
   result: BasketResult;
@@ -91,7 +87,7 @@ export function BasketPlanCard({
         </Text>
       </View>
 
-      {result.state === "refused" ? (
+      {result.state === 'refused' ? (
         <View className="gap-space-4">
           <Text className="text-shop-caption text-text">{t(BASKET_CARD_REFUSED_KEY)}</Text>
           {result.reasons.map((reason) => (
@@ -126,14 +122,14 @@ export function BasketPlanCard({
               them" join with an em dash in English and with nothing like it in
               several of the other eleven. */}
           <Text className="text-shop-caption text-text-secondary">
-            {result.optimality.status === "proven_optimal"
+            {result.optimality.status === 'proven_optimal'
               ? t(BASKET_OPTIMALITY_PROVEN_KEY)
               : t(BASKET_OPTIMALITY_APPROXIMATE_KEY, {
                   reason: t(basketApproximationTextKey(result.optimality.reason)),
                 })}
           </Text>
 
-          {result.plan.freshness === "current" ? null : (
+          {result.plan.freshness === 'current' ? null : (
             <Text className="text-shop-caption text-text-secondary">
               {t(BASKET_CARD_STALE_PRICES_KEY)}
             </Text>
@@ -146,7 +142,7 @@ export function BasketPlanCard({
               </Text>
               {result.plan.unresolved.map((unresolved) => (
                 <Text key={unresolved.lineId} className="text-shop-caption text-text-secondary">
-                  ·{" "}
+                  ·{' '}
                   {unresolved.reasons
                     .map((reason) => t(basketReasonTextKey(reason)))
                     .join(t(COMPARISON_LIST_SEPARATOR_KEY))}
@@ -248,15 +244,15 @@ function PlanActions({
  * screen as anything the tally line renders.
  */
 function totalText(t: Translate, total: BasketTotal, merchantCount: number): string {
-  if (total.state === "known") return total.rendered;
+  if (total.state === 'known') return total.rendered;
   const missing: string[] = [];
-  if (total.missing.includes("delivery_cost")) {
+  if (total.missing.includes('delivery_cost')) {
     missing.push(
       t(merchantCount === 1 ? BASKET_CARD_DELIVERY_ONE_KEY : BASKET_CARD_DELIVERY_MULTIPLE_KEY),
     );
   }
-  if (total.missing.includes("tax_inclusion")) missing.push(t(BASKET_CARD_TAX_UNKNOWN_KEY));
-  if (total.missing.includes("item_price")) missing.push(t(BASKET_CARD_PRICES_UNKNOWN_KEY));
+  if (total.missing.includes('tax_inclusion')) missing.push(t(BASKET_CARD_TAX_UNKNOWN_KEY));
+  if (total.missing.includes('item_price')) missing.push(t(BASKET_CARD_PRICES_UNKNOWN_KEY));
   return missing.length === 0
     ? t(BASKET_CARD_AT_LEAST_KEY, { floor: total.renderedFloor })
     : t(BASKET_CARD_AT_LEAST_MISSING_KEY, {

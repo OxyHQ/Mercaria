@@ -14,8 +14,8 @@
  * missing key.
  */
 
-import type { AttributeComponentAxis, ProductTypeFieldRequirement } from "@mercaria/shared-types";
-import type { WizardStepId } from "./findings";
+import type { AttributeComponentAxis, ProductTypeFieldRequirement } from '@mercaria/shared-types';
+import type { WizardStepId } from './findings';
 
 /**
  * The axes a `structured` attribute declares.
@@ -26,33 +26,33 @@ import type { WizardStepId } from "./findings";
  * that definition asked for.
  */
 export const COMPONENT_AXIS_LABEL_KEYS: Record<AttributeComponentAxis, string> = {
-  width: "products.wizard.axes.width",
-  height: "products.wizard.axes.height",
-  depth: "products.wizard.axes.depth",
-  diagonal: "products.wizard.axes.diagonal",
-  circumference: "products.wizard.axes.circumference",
-  waist: "products.wizard.axes.waist",
-  inseam: "products.wizard.axes.inseam",
-  chest: "products.wizard.axes.chest",
-  sleeve: "products.wizard.axes.sleeve",
-  neck: "products.wizard.axes.neck",
+  width: 'products.wizard.axes.width',
+  height: 'products.wizard.axes.height',
+  depth: 'products.wizard.axes.depth',
+  diagonal: 'products.wizard.axes.diagonal',
+  circumference: 'products.wizard.axes.circumference',
+  waist: 'products.wizard.axes.waist',
+  inseam: 'products.wizard.axes.inseam',
+  chest: 'products.wizard.axes.chest',
+  sleeve: 'products.wizard.axes.sleeve',
+  neck: 'products.wizard.axes.neck',
 };
 
 /** How hard the schema asks for a field, in this flow. */
 export const REQUIREMENT_LABEL_KEYS: Record<ProductTypeFieldRequirement, string> = {
-  required: "products.wizard.fields.required",
-  recommended: "products.wizard.fields.recommended",
-  optional: "products.wizard.fields.optional",
-  hidden: "products.wizard.fields.hidden",
-  forbidden: "products.wizard.fields.forbidden",
+  required: 'products.wizard.fields.required',
+  recommended: 'products.wizard.fields.recommended',
+  optional: 'products.wizard.fields.optional',
+  hidden: 'products.wizard.fields.hidden',
+  forbidden: 'products.wizard.fields.forbidden',
 };
 
 /** The wizard's own steps. */
 export const STEP_LABEL_KEYS: Record<WizardStepId, string> = {
-  classification: "products.wizard.steps.classification",
-  details: "products.wizard.steps.details",
-  variants: "products.wizard.steps.variants",
-  pricing: "products.wizard.steps.pricing",
-  listing: "products.wizard.steps.listing",
-  review: "products.wizard.steps.review",
+  classification: 'products.wizard.steps.classification',
+  details: 'products.wizard.steps.details',
+  variants: 'products.wizard.steps.variants',
+  pricing: 'products.wizard.steps.pricing',
+  listing: 'products.wizard.steps.listing',
+  review: 'products.wizard.steps.review',
 };

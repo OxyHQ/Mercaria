@@ -273,7 +273,6 @@ export function routeServesDocument(routeId: PublicRouteId): boolean {
   return ROUTE_RESOLVERS[routeId] !== null;
 }
 
-
 /** The home page. Static facts, and indexable whenever indexing is on at all. */
 function resolveHome(origin: string): SeoDiagnosis {
   const facts = homeFacts(HOME_TAGLINE);
@@ -696,7 +695,9 @@ async function resolveBrandPage(
   let brand = requested;
   if (requested.status === 'merged') {
     const winner =
-      requested.mergedIntoId === undefined ? undefined : await getPublicBrand(requested.mergedIntoId);
+      requested.mergedIntoId === undefined
+        ? undefined
+        : await getPublicBrand(requested.mergedIntoId);
     if (!winner || winner.status === 'suppressed') return { resolution: { outcome: 'not_found' } };
     brand = winner;
   }

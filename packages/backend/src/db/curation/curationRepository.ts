@@ -101,7 +101,9 @@ export async function findRevisionsForEntity(
   return db
     .select()
     .from(catalogRevisions)
-    .where(and(eq(catalogRevisions.entityType, entityType), eq(catalogRevisions.entityId, entityId)))
+    .where(
+      and(eq(catalogRevisions.entityType, entityType), eq(catalogRevisions.entityId, entityId)),
+    )
     .orderBy(desc(catalogRevisions.createdAt), desc(catalogRevisions.id))
     .limit(limit);
 }
@@ -298,7 +300,11 @@ export async function findReviewItemById(
   id: string,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<CatalogReviewItemRow | undefined> {
-  const rows = await db.select().from(catalogReviewItems).where(eq(catalogReviewItems.id, id)).limit(1);
+  const rows = await db
+    .select()
+    .from(catalogReviewItems)
+    .where(eq(catalogReviewItems.id, id))
+    .limit(1);
   return rows[0];
 }
 
@@ -402,17 +408,22 @@ export async function closeReviewItem(
       resolvedAt: now,
     })
     .where(
-      and(eq(catalogReviewItems.id, input.id), inArray(catalogReviewItems.state, ['open', 'in_review'])),
+      and(
+        eq(catalogReviewItems.id, input.id),
+        inArray(catalogReviewItems.state, ['open', 'in_review']),
+      ),
     )
     .returning();
   return rows[0];
 }
 
 /** Queue health, in one round trip: depth per kind and the oldest open item. */
-export async function summarizeReviewQueue(
-  db: DatabaseOrTransaction = getDb(),
-): Promise<
-  readonly { readonly kind: CurationReviewKind; readonly open: number; readonly oldestAgeSeconds: number | null }[]
+export async function summarizeReviewQueue(db: DatabaseOrTransaction = getDb()): Promise<
+  readonly {
+    readonly kind: CurationReviewKind;
+    readonly open: number;
+    readonly oldestAgeSeconds: number | null;
+  }[]
 > {
   const rows = await db
     .select({

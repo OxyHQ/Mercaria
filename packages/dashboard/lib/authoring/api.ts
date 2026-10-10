@@ -32,7 +32,7 @@
  * that use has nothing to do with HTTP caching.
  */
 
-import axios from "axios";
+import axios from 'axios';
 import type {
   AttributeComponentAxis,
   AuthoringCanonicalSearchResult,
@@ -46,9 +46,9 @@ import type {
   AuthoringValidationResult,
   CurrencyCode,
   ProductTypeAuthoringFlow,
-} from "@mercaria/shared-types";
-import apiClient from "../api/client";
-import { unwrap } from "../api/unwrap";
+} from '@mercaria/shared-types';
+import apiClient from '../api/client';
+import { unwrap } from '../api/unwrap';
 
 /* -------------------------------------------------------------------------- */
 /* Request shapes                                                              */
@@ -80,7 +80,7 @@ export interface DraftAnswerPayload {
   readonly boolean?: boolean;
   readonly enumValueId?: string;
   readonly canonicalRef?: {
-    readonly kind: "canonical_product" | "canonical_variant" | "canonical_product_family" | "brand";
+    readonly kind: 'canonical_product' | 'canonical_variant' | 'canonical_product_family' | 'brand';
     readonly id: string;
   };
   readonly unit?: string;
@@ -140,8 +140,8 @@ export interface CreateDraftPayload {
  * `draft` — so a caller cannot render a saved draft it did not receive.
  */
 export type DraftSaveOutcome =
-  | { readonly outcome: "saved"; readonly draft: AuthoringDraft }
-  | { readonly outcome: "conflict" };
+  | { readonly outcome: 'saved'; readonly draft: AuthoringDraft }
+  | { readonly outcome: 'conflict' };
 
 /**
  * What a publish did. The refused branch carries no listing id.
@@ -154,12 +154,12 @@ export type DraftSaveOutcome =
  */
 export type DraftPublishOutcome =
   | {
-      readonly outcome: "published" | "converged";
+      readonly outcome: 'published' | 'converged';
       readonly listingId: string;
       readonly draft: AuthoringDraft;
       readonly publication: AuthoringPublicationResult;
     }
-  | { readonly outcome: "refused"; readonly validation: AuthoringValidationResult };
+  | { readonly outcome: 'refused'; readonly validation: AuthoringValidationResult };
 
 /**
  * Whether the authoring surface is mounted on this deployment at all.
@@ -172,8 +172,8 @@ export type DraftPublishOutcome =
  * does not exist.
  */
 export type AuthoringAvailability =
-  | { readonly outcome: "available"; readonly categories: readonly AuthoringCategoryOption[] }
-  | { readonly outcome: "unavailable" };
+  | { readonly outcome: 'available'; readonly categories: readonly AuthoringCategoryOption[] }
+  | { readonly outcome: 'unavailable' };
 
 /** The HTTP status of an axios rejection, or `null` for a transport failure. */
 function statusOf(error: unknown): number | null {
@@ -191,7 +191,9 @@ function statusOf(error: unknown): number | null {
  */
 function validationFromError(error: unknown): AuthoringValidationResult | null {
   if (!axios.isAxiosError(error)) return null;
-  const body = error.response?.data as { data?: { validation?: AuthoringValidationResult } } | undefined;
+  const body = error.response?.data as
+    | { data?: { validation?: AuthoringValidationResult } }
+    | undefined;
   const validation = body?.data?.validation;
   if (validation === undefined || !Array.isArray(validation.findings)) return null;
   return validation;
@@ -201,7 +203,7 @@ function validationFromError(error: unknown): AuthoringValidationResult | null {
 /* The schema surface                                                          */
 /* -------------------------------------------------------------------------- */
 
-const AUTHORING = "/catalog-authoring";
+const AUTHORING = '/catalog-authoring';
 const drafts = (storeId: string) => `/stores/${storeId}/product-drafts`;
 
 /**
@@ -219,7 +221,7 @@ export async function fetchAuthoringCategories(params: {
   const { data } = await apiClient.get(`${AUTHORING}/categories`, {
     params: {
       ...(params.parentId === undefined ? {} : { parentId: params.parentId }),
-      ...(params.roots === true ? { roots: "true" } : {}),
+      ...(params.roots === true ? { roots: 'true' } : {}),
       locale: params.locale,
       ...(params.limit === undefined ? {} : { limit: params.limit }),
     },
@@ -238,9 +240,9 @@ export async function fetchAuthoringCategories(params: {
 export async function probeAuthoringAvailability(locale: string): Promise<AuthoringAvailability> {
   try {
     const categories = await fetchAuthoringCategories({ roots: true, locale });
-    return { outcome: "available", categories };
+    return { outcome: 'available', categories };
   } catch (error) {
-    if (statusOf(error) === 404) return { outcome: "unavailable" };
+    if (statusOf(error) === 404) return { outcome: 'unavailable' };
     throw error;
   }
 }
@@ -271,7 +273,7 @@ export async function fetchAuthoringSchema(params: {
 
 export async function searchCanonicalCatalog(params: {
   q: string;
-  kind?: "canonical_product" | "brand";
+  kind?: 'canonical_product' | 'brand';
   canonicalProductId?: string;
   limit?: number;
 }): Promise<AuthoringCanonicalSearchResult> {
@@ -319,9 +321,9 @@ export async function patchProductDraft(
 ): Promise<DraftSaveOutcome> {
   try {
     const { data } = await apiClient.patch(`${drafts(storeId)}/${draftId}`, payload);
-    return { outcome: "saved", draft: unwrap<{ draft: AuthoringDraft }>(data).draft };
+    return { outcome: 'saved', draft: unwrap<{ draft: AuthoringDraft }>(data).draft };
   } catch (error) {
-    if (statusOf(error) === 409) return { outcome: "conflict" };
+    if (statusOf(error) === 409) return { outcome: 'conflict' };
     throw error;
   }
 }
@@ -377,7 +379,7 @@ export async function publishProductDraft(
     const { data } = await apiClient.post(
       `${drafts(storeId)}/${draftId}/publish`,
       {},
-      { headers: { "Idempotency-Key": idempotencyKey } },
+      { headers: { 'Idempotency-Key': idempotencyKey } },
     );
     const body = unwrap<{
       listingId: string;
@@ -395,7 +397,7 @@ export async function publishProductDraft(
   } catch (error) {
     const validation = validationFromError(error);
     if (statusOf(error) === 422 && validation !== null) {
-      return { outcome: "refused", validation };
+      return { outcome: 'refused', validation };
     }
     throw error;
   }

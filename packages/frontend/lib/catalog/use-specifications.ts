@@ -73,9 +73,7 @@ export interface SpecificationTableState {
  * own — which the server already falls back to the stable KEY on — so a surface
  * can decline to present machine keys as words a shopper should read.
  */
-export function useSpecificationTable(
-  input: UseSpecificationTableInput,
-): SpecificationTableState {
+export function useSpecificationTable(input: UseSpecificationTableInput): SpecificationTableState {
   const context = useCatalogContext();
   const definitions = useAttributeDefinitions(input.categoryId);
   const productValues = useAttributeValues('product', input.canonicalProductId);

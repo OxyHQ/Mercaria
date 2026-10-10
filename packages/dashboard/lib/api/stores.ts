@@ -5,13 +5,13 @@ import type {
   UpdateStoreInput,
   UpdateStoreSettingsInput,
   TransferStoreOwnerAccountInput,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 /** GET /admin/stores — every store the caller's Oxy accounts reach. */
 export async function fetchMyStores(): Promise<Store[]> {
-  const { data } = await apiClient.get<ApiResponse<Store[]>>("/admin/stores");
+  const { data } = await apiClient.get<ApiResponse<Store[]>>('/admin/stores');
   return unwrap(data);
 }
 
@@ -26,7 +26,7 @@ export async function fetchStore(storeId: string): Promise<Store> {
  * unless `oxyAccountId` names another account they own or administer.
  */
 export async function createStore(input: CreateStoreInput): Promise<Store> {
-  const { data } = await apiClient.post<ApiResponse<Store>>("/admin/stores", input);
+  const { data } = await apiClient.post<ApiResponse<Store>>('/admin/stores', input);
   return unwrap(data);
 }
 

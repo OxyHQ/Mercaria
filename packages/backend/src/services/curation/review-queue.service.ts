@@ -165,7 +165,10 @@ export async function scanIdentifierConflicts(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ScanResult> {
   const rows = await db
-    .select({ id: productIdentifiers.id, conflictsWith: productIdentifiers.conflictsWithIdentifierId })
+    .select({
+      id: productIdentifiers.id,
+      conflictsWith: productIdentifiers.conflictsWithIdentifierId,
+    })
     .from(productIdentifiers)
     .where(eq(productIdentifiers.status, 'disputed'))
     .orderBy(productIdentifiers.createdAt)
@@ -204,7 +207,10 @@ export async function scanAttributeDisagreements(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ScanResult> {
   const rows = await db
-    .select({ id: canonicalAttributeValues.id, sourceRecordId: canonicalAttributeValues.sourceRecordId })
+    .select({
+      id: canonicalAttributeValues.id,
+      sourceRecordId: canonicalAttributeValues.sourceRecordId,
+    })
     .from(canonicalAttributeValues)
     .where(eq(canonicalAttributeValues.selectionState, 'conflicting'))
     .orderBy(canonicalAttributeValues.createdAt)
@@ -234,7 +240,9 @@ export async function scanRelationshipCandidates(
   const rows = await db
     .select({ id: commerceRelationships.id, confidence: commerceRelationships.confidence })
     .from(commerceRelationships)
-    .where(and(eq(commerceRelationships.status, 'candidate'), isNull(commerceRelationships.validTo)))
+    .where(
+      and(eq(commerceRelationships.status, 'candidate'), isNull(commerceRelationships.validTo)),
+    )
     .orderBy(commerceRelationships.createdAt)
     .limit(limit);
 
@@ -321,7 +329,9 @@ export async function scanDuplicateNames(
     )
     .where(and(ne(brands.status, 'merged'), ne(brands.normalizedName, '')))
     .limit(limit);
-  results.push(await raisePairs('entity_collision', 'brand', brandPairs, db, 'normalized_name_collision'));
+  results.push(
+    await raisePairs('entity_collision', 'brand', brandPairs, db, 'normalized_name_collision'),
+  );
 
   /**
    * A merchant collision is detected on a SHARED DOMAIN, not on a name.
@@ -346,7 +356,9 @@ export async function scanDuplicateNames(
       ),
     )
     .limit(limit);
-  results.push(await raisePairs('entity_collision', 'merchant', merchantPairs, db, 'shared_domain'));
+  results.push(
+    await raisePairs('entity_collision', 'merchant', merchantPairs, db, 'shared_domain'),
+  );
 
   const productRight = alias(canonicalProducts, 'product_right');
   const productPairs = await db
@@ -363,7 +375,13 @@ export async function scanDuplicateNames(
     .where(and(ne(canonicalProducts.status, 'merged'), ne(canonicalProducts.normalizedName, '')))
     .limit(limit);
   results.push(
-    await raisePairs('suspected_duplicate', 'canonical_product', productPairs, db, 'normalized_name_collision'),
+    await raisePairs(
+      'suspected_duplicate',
+      'canonical_product',
+      productPairs,
+      db,
+      'normalized_name_collision',
+    ),
   );
 
   return results;
@@ -441,7 +459,9 @@ export async function scanPolicyRegressions(
 }
 
 /** Run every detector once, bounded. The operator surface's "refresh" button. */
-export async function runAllDetectors(limit: number = DEFAULT_SCAN_LIMIT): Promise<readonly ScanResult[]> {
+export async function runAllDetectors(
+  limit: number = DEFAULT_SCAN_LIMIT,
+): Promise<readonly ScanResult[]> {
   const db = getDb();
   return [
     await scanAmbiguousMatches(limit, db),
@@ -547,7 +567,10 @@ export async function claimItem(id: string, actorOxyUserId: string): Promise<Cat
 }
 
 /** Hand an item back. Only its own claimant may. */
-export async function releaseItem(id: string, actorOxyUserId: string): Promise<CatalogReviewItemRow> {
+export async function releaseItem(
+  id: string,
+  actorOxyUserId: string,
+): Promise<CatalogReviewItemRow> {
   const released = await releaseReviewItem(id, actorOxyUserId, getDb());
   if (!released) throw conflict(`Review item ${id} is not claimed by you.`);
   return released;

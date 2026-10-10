@@ -103,7 +103,11 @@ export function buildExplanationPackage(input: ComparisonInput): ExplanationPack
       const rendered = renderCellForModel(cell);
       cells[subjectRef] = rendered;
       collect(values, rendered);
-      if (cell.state === 'source_backed' || cell.state === 'inferred' || cell.state === 'conflicting') {
+      if (
+        cell.state === 'source_backed' ||
+        cell.state === 'inferred' ||
+        cell.state === 'conflicting'
+      ) {
         for (const ref of cell.recordRefs) refs.add(ref);
       }
     }
@@ -216,7 +220,11 @@ function renderCellForModel(cell: ComparisonCell): string {
 
 /** The lowest rendered amount among a set of money facts, when any is known. */
 function lowestRendered(
-  facts: readonly { readonly state: string; readonly amount?: { readonly amount: number }; readonly rendered?: string }[],
+  facts: readonly {
+    readonly state: string;
+    readonly amount?: { readonly amount: number };
+    readonly rendered?: string;
+  }[],
 ): string | undefined {
   let best: { amount: number; rendered: string } | undefined;
   for (const fact of facts) {

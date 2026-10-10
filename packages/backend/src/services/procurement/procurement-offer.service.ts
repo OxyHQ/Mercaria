@@ -40,7 +40,9 @@ export async function ingestProcurementOffer(
 
   const account = await findSupplierAccountById(input.supplierAccountId);
   if (!account) {
-    throw new Error(`ingestProcurementOffer: supplier account ${input.supplierAccountId} not found`);
+    throw new Error(
+      `ingestProcurementOffer: supplier account ${input.supplierAccountId} not found`,
+    );
   }
   if (account.supplierId !== input.supplierId) {
     throw new Error(

@@ -47,11 +47,7 @@ describe('search-query redaction', () => {
     });
 
     it('destroys a plus-tagged address with a multi-label domain', () => {
-      expectRedacted(
-        'order under maria+shop@mail.co.uk',
-        'maria+shop@mail.co.uk',
-        'email',
-      );
+      expectRedacted('order under maria+shop@mail.co.uk', 'maria+shop@mail.co.uk', 'email');
     });
 
     it('leaves an at-sign that is not an address alone', () => {
@@ -122,7 +118,11 @@ describe('search-query redaction', () => {
     });
 
     it('destroys an API key', () => {
-      expectRedacted('key sk_live_51H8xQpLmNoPqRsTuVwXyZ', 'sk_live_51H8xQpLmNoPqRsTuVwXyZ', 'secret_token');
+      expectRedacted(
+        'key sk_live_51H8xQpLmNoPqRsTuVwXyZ',
+        'sk_live_51H8xQpLmNoPqRsTuVwXyZ',
+        'secret_token',
+      );
     });
 
     it('destroys a Mercaria guest token', () => {

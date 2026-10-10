@@ -16,7 +16,9 @@ const WRITE = /^router\.(post|patch|put|delete)\s*\(([\s\S]*?)\);$/gm;
 
 let total = 0;
 const perFile = [];
-for (const name of readdirSync(ROUTES).filter((f) => f.endsWith('.ts')).sort()) {
+for (const name of readdirSync(ROUTES)
+  .filter((f) => f.endsWith('.ts'))
+  .sort()) {
   const src = readFileSync(join(ROUTES, name), 'utf8');
   if (!GATE.test(src)) continue;
   const rows = [];

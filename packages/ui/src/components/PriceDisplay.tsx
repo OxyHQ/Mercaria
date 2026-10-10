@@ -1,35 +1,28 @@
-import { useCallback } from "react";
-import { View } from "react-native";
-import {
-  CURRENCY_PRECISION,
-  type CurrencyCode,
-  type Money,
-} from "@mercaria/shared-types";
-import { Text } from "./ui/text";
-import { cn } from "../lib/cn";
-import { useFormatters } from "../lib/use-formatters";
-import { useFx } from "./FxContext";
+import { useCallback } from 'react';
+import { View } from 'react-native';
+import { CURRENCY_PRECISION, type CurrencyCode, type Money } from '@mercaria/shared-types';
+import { Text } from './ui/text';
+import { cn } from '../lib/cn';
+import { useFormatters } from '../lib/use-formatters';
+import { useFx } from './FxContext';
 
 /** Radix used to convert between a currency's major value and its minor units. */
 const DECIMAL_RADIX = 10;
 /** Prefix marking the secondary figure as an approximate conversion. */
-const APPROX_PREFIX = "≈ ";
+const APPROX_PREFIX = '≈ ';
 /**
  * The pivot this DISPLAY conversion uses, matching how the `/rates` endpoint
  * quotes by default (per 1 FAIR). It is a property of the rate map this
  * component is handed, not a claim about how anything is stored or settled.
  */
-const FAIR: CurrencyCode = "FAIR";
+const FAIR: CurrencyCode = 'FAIR';
 
 /**
  * FAIR-pivot rate for `currency`: the number of units of `currency` per 1 FAIR.
  * FAIR is itself the pivot, so its rate is exactly 1; every other code is looked
  * up in the display-side `rates` map. Returns `undefined` when no rate is known.
  */
-function fairPivotRate(
-  currency: CurrencyCode,
-  rates: Record<string, number>,
-): number | undefined {
+function fairPivotRate(currency: CurrencyCode, rates: Record<string, number>): number | undefined {
   return currency === FAIR ? 1 : rates[currency];
 }
 
@@ -139,14 +132,12 @@ export function PriceDisplay({
   const { primary, secondary } = usePriceText()(price);
 
   return (
-    <View className={cn("flex-row items-baseline gap-1", className)}>
-      <Text className={cn("text-sm font-semibold text-foreground", primaryClassName)}>
+    <View className={cn('flex-row items-baseline gap-1', className)}>
+      <Text className={cn('text-sm font-semibold text-foreground', primaryClassName)}>
         {primary}
       </Text>
       {secondary !== null ? (
-        <Text className={cn("text-xs text-muted-foreground", secondaryClassName)}>
-          {secondary}
-        </Text>
+        <Text className={cn('text-xs text-muted-foreground', secondaryClassName)}>{secondary}</Text>
       ) : null}
     </View>
   );

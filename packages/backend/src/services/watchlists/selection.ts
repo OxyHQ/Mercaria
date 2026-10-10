@@ -66,9 +66,7 @@ export type WatchlistOfferSelection =
  * to nothing reports the preference, and only a set that survived it can report
  * an unusable price.
  */
-export function selectWatchlistOffer(
-  input: WatchlistOfferSelectionInput,
-): WatchlistOfferSelection {
+export function selectWatchlistOffer(input: WatchlistOfferSelectionInput): WatchlistOfferSelection {
   const preferredMerchantId = input.preferredMerchantId ?? undefined;
 
   const matching = input.ranked.filter((ranked) => {

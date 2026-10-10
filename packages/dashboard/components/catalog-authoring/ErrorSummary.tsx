@@ -1,10 +1,10 @@
-import React from "react";
-import { Pressable, View } from "react-native";
-import { AlertTriangle, CircleAlert } from "lucide-react-native";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
-import { findingMessageKey, type LocatedFinding } from "@/lib/authoring/findings";
-import { STEP_LABEL_KEYS } from "@/lib/authoring/labels";
+import React from 'react';
+import { Pressable, View } from 'react-native';
+import { AlertTriangle, CircleAlert } from 'lucide-react-native';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
+import { findingMessageKey, type LocatedFinding } from '@/lib/authoring/findings';
+import { STEP_LABEL_KEYS } from '@/lib/authoring/labels';
 
 interface ErrorSummaryProps {
   readonly findings: readonly LocatedFinding[];
@@ -43,8 +43,8 @@ export function ErrorSummary({ findings, onNavigate }: ErrorSummaryProps) {
   const { colors } = useColorScheme();
   if (findings.length === 0) return null;
 
-  const errors = findings.filter((finding) => finding.severity === "error");
-  const warnings = findings.filter((finding) => finding.severity === "warning");
+  const errors = findings.filter((finding) => finding.severity === 'error');
+  const warnings = findings.filter((finding) => finding.severity === 'warning');
 
   return (
     <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
@@ -54,13 +54,10 @@ export function ErrorSummary({ findings, onNavigate }: ErrorSummaryProps) {
         ) : (
           <AlertTriangle size={16} color={colors.mutedForeground} />
         )}
-        <Text
-          accessibilityRole="alert"
-          className="flex-1 text-sm font-semibold text-foreground"
-        >
+        <Text accessibilityRole="alert" className="flex-1 text-sm font-semibold text-foreground">
           {errors.length > 0
-            ? t("products.wizard.summary.errors", { count: errors.length })
-            : t("products.wizard.summary.warnings", { count: warnings.length })}
+            ? t('products.wizard.summary.errors', { count: errors.length })
+            : t('products.wizard.summary.warnings', { count: warnings.length })}
         </Text>
       </View>
 
@@ -75,9 +72,9 @@ export function ErrorSummary({ findings, onNavigate }: ErrorSummaryProps) {
           >
             <Text
               className={
-                finding.severity === "error"
-                  ? "text-xs font-semibold text-destructive"
-                  : "text-xs font-semibold text-muted-foreground"
+                finding.severity === 'error'
+                  ? 'text-xs font-semibold text-destructive'
+                  : 'text-xs font-semibold text-muted-foreground'
               }
             >
               {t(STEP_LABEL_KEYS[finding.step])}

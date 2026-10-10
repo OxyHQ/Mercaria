@@ -39,7 +39,11 @@ const OPEN_LOCATION: PickupLocationFacts = {
   opening: {
     timezone: 'Europe/Madrid',
     openingHours: {
-      intervals: ([1, 2, 3, 4, 5] as const).map((day) => ({ day, opens: '09:00', closes: '20:00' })),
+      intervals: ([1, 2, 3, 4, 5] as const).map((day) => ({
+        day,
+        opens: '09:00',
+        closes: '20:00',
+      })),
     },
     hoursExceptions: [],
   },
@@ -82,7 +86,11 @@ describe('deriveLocationDiscoverability', () => {
       { placeLinkGaps: ['store_link_names_other_location'] },
       'place_link_unverified',
     ],
-    ['a back-reference only the community made', { placeLinkGaps: ['store_link_unverified'] }, 'place_link_unverified'],
+    [
+      'a back-reference only the community made',
+      { placeLinkGaps: ['store_link_unverified'] },
+      'place_link_unverified',
+    ],
     ['a place with no country', { placeLinkGaps: ['place_country_missing'] }, 'place_incomplete'],
     ['collection not offered', { pickupOffered: false }, 'pickup_not_offered'],
     ['a merchant pause', { pickupPaused: true }, 'pickup_paused'],
@@ -188,9 +196,16 @@ describe('deriveLocationDiscoverability', () => {
 
 describe('the stock half, on its own', () => {
   it('is exactly the inventory clauses of discoverability', () => {
-    const stale = { ...IN_STOCK, availableQuantity: 0, stockConfirmedAt: new Date('2026-08-10T08:00:00Z') };
+    const stale = {
+      ...IN_STOCK,
+      availableQuantity: 0,
+      stockConfirmedAt: new Date('2026-08-10T08:00:00Z'),
+    };
     expect(inventoryBlockers(IN_STOCK, NOW)).toEqual([]);
-    expect([...inventoryBlockers(stale, NOW)].sort()).toEqual(['inventory_stale', 'no_collectable_stock']);
+    expect([...inventoryBlockers(stale, NOW)].sort()).toEqual([
+      'inventory_stale',
+      'no_collectable_stock',
+    ]);
     expect(deriveLocationDiscoverability(OPEN_LOCATION, stale, NOW)).toEqual(
       [...inventoryBlockers(stale, NOW)].sort(),
     );
@@ -244,7 +259,11 @@ describe('derivePickupEligibility', () => {
   it('refuses a GUEST when only the guest lever is off, leaving Oxy alone', () => {
     const levers = { ...LEVERS_ON, guestPickupEnabled: false };
     expect(
-      derivePickupEligibility({ ...base, levers, actor: { actorKind: 'guest', sellerType: 'store' } }),
+      derivePickupEligibility({
+        ...base,
+        levers,
+        actor: { actorKind: 'guest', sellerType: 'store' },
+      }),
     ).toEqual({ verdict: 'blocked', reasons: ['guest_pickup_disabled'] });
     // The direction #93 operations rule 10 needs: withdrawing guest collection
     // leaves authenticated collection working.
@@ -296,9 +315,9 @@ describe('derivePickupEligibility', () => {
     ).toEqual({ verdict: 'blocked', reasons: ['seller_not_payment_ready'] });
     // `undefined` means the question was not asked — a public browse does not
     // spend an indexed read per location on it — and must not block.
-    expect(
-      derivePickupEligibility({ ...base, actor: { ...OXY_STORE_BUYER } }),
-    ).toEqual({ verdict: 'eligible' });
+    expect(derivePickupEligibility({ ...base, actor: { ...OXY_STORE_BUYER } })).toEqual({
+      verdict: 'eligible',
+    });
   });
 
   it('is a SUPERSET of discoverability, never a different answer', () => {

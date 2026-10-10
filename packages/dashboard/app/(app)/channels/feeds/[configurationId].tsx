@@ -19,13 +19,13 @@
  *    file, so the index is what they need.
  */
 
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { Badge } from "@oxy.so/bloom/badge";
-import React, { useMemo, useState } from "react";
-import { View, Pressable } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { ChevronLeft, RefreshCw } from "lucide-react-native";
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { Badge } from '@oxy.so/bloom/badge';
+import React, { useMemo, useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { ChevronLeft, RefreshCw } from 'lucide-react-native';
 import type {
   CatalogSourceHealthState,
   CatalogSourceRunKind,
@@ -35,22 +35,22 @@ import type {
   FeedFieldRole,
   FeedFormat,
   FeedImportReportMode,
-} from "@mercaria/shared-types";
-import { Text, toBloomIcon, useColorScheme } from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
+} from '@mercaria/shared-types';
+import { Text, toBloomIcon, useColorScheme } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { formatWhen } from "@/components/channels/channel-presentation";
-import { useTranslation } from "@/lib/i18n";
-import type { FeedPreview, FeedVersion } from "@/lib/api/feeds";
+} from '@oxy.so/bloom/segmented-control';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { formatWhen } from '@/components/channels/channel-presentation';
+import { useTranslation } from '@/lib/i18n';
+import type { FeedPreview, FeedVersion } from '@/lib/api/feeds';
 import {
   useActivateFeedVersion,
   useDraftFeedVersion,
@@ -60,7 +60,7 @@ import {
   usePreviewFeedVersion,
   useSyncFeed,
   useValidateFeedVersion,
-} from "@/lib/hooks/use-feeds";
+} from '@/lib/hooks/use-feeds';
 
 /**
  * The six closed vocabularies this screen renders (#560).
@@ -85,55 +85,55 @@ import {
  * have produced "Active · auth_failure", which is worse than either half.
  */
 const SOURCE_STATUS_LABEL_KEYS: Record<CatalogSourceStatus, string> = {
-  draft: "feeds.source.status.draft",
-  active: "feeds.source.status.active",
-  paused: "feeds.source.status.paused",
-  revoked: "feeds.source.status.revoked",
-  failed: "feeds.source.status.failed",
+  draft: 'feeds.source.status.draft',
+  active: 'feeds.source.status.active',
+  paused: 'feeds.source.status.paused',
+  revoked: 'feeds.source.status.revoked',
+  failed: 'feeds.source.status.failed',
 };
 
 const SOURCE_HEALTH_LABEL_KEYS: Record<CatalogSourceHealthState, string> = {
-  unknown: "feeds.source.health.unknown",
-  full_feed_success: "feeds.source.health.full_feed_success",
-  partial_feed: "feeds.source.health.partial_feed",
-  auth_failure: "feeds.source.health.auth_failure",
-  rate_limit: "feeds.source.health.rate_limit",
-  source_outage: "feeds.source.health.source_outage",
-  schema_drift: "feeds.source.health.schema_drift",
-  rights_suspended: "feeds.source.health.rights_suspended",
-  parse_failure: "feeds.source.health.parse_failure",
-  matching_ambiguity: "feeds.source.health.matching_ambiguity",
-  anomalous_change: "feeds.source.health.anomalous_change",
+  unknown: 'feeds.source.health.unknown',
+  full_feed_success: 'feeds.source.health.full_feed_success',
+  partial_feed: 'feeds.source.health.partial_feed',
+  auth_failure: 'feeds.source.health.auth_failure',
+  rate_limit: 'feeds.source.health.rate_limit',
+  source_outage: 'feeds.source.health.source_outage',
+  schema_drift: 'feeds.source.health.schema_drift',
+  rights_suspended: 'feeds.source.health.rights_suspended',
+  parse_failure: 'feeds.source.health.parse_failure',
+  matching_ambiguity: 'feeds.source.health.matching_ambiguity',
+  anomalous_change: 'feeds.source.health.anomalous_change',
 };
 
 const RUN_KIND_LABEL_KEYS: Record<CatalogSourceRunKind, string> = {
-  backfill: "feeds.run.kind.backfill",
-  incremental: "feeds.run.kind.incremental",
-  webhook: "feeds.run.kind.webhook",
-  manual: "feeds.run.kind.manual",
+  backfill: 'feeds.run.kind.backfill',
+  incremental: 'feeds.run.kind.incremental',
+  webhook: 'feeds.run.kind.webhook',
+  manual: 'feeds.run.kind.manual',
 };
 
 const RUN_STATUS_LABEL_KEYS: Record<CatalogSourceRunStatus, string> = {
-  pending: "feeds.run.status.pending",
-  running: "feeds.run.status.running",
-  completed: "feeds.run.status.completed",
-  failed: "feeds.run.status.failed",
+  pending: 'feeds.run.status.pending',
+  running: 'feeds.run.status.running',
+  completed: 'feeds.run.status.completed',
+  failed: 'feeds.run.status.failed',
 };
 
-const VERSION_STATUS_LABEL_KEYS: Record<FeedVersion["status"], string> = {
-  draft: "feeds.versions.status.draft",
-  active: "feeds.versions.status.active",
-  superseded: "feeds.versions.status.superseded",
+const VERSION_STATUS_LABEL_KEYS: Record<FeedVersion['status'], string> = {
+  draft: 'feeds.versions.status.draft',
+  active: 'feeds.versions.status.active',
+  superseded: 'feeds.versions.status.superseded',
 };
 
 const REPORT_MODE_LABEL_KEYS: Record<FeedImportReportMode, string> = {
-  preview: "feeds.reports.mode.preview",
-  validation: "feeds.reports.mode.validation",
-  import: "feeds.reports.mode.import",
+  preview: 'feeds.reports.mode.preview',
+  validation: 'feeds.reports.mode.validation',
+  import: 'feeds.reports.mode.import',
 };
 
 /** The formats the importer parses. */
-const FORMATS: readonly FeedFormat[] = ["csv", "tsv", "xml", "json", "jsonl"];
+const FORMATS: readonly FeedFormat[] = ['csv', 'tsv', 'xml', 'json', 'jsonl'];
 
 /**
  * The roles a merchant maps their columns onto, in the order they matter.
@@ -145,18 +145,18 @@ const FORMATS: readonly FeedFormat[] = ["csv", "tsv", "xml", "json", "jsonl"];
  * given a wrong mapping.
  */
 const COMMON_ROLES: readonly FeedFieldRole[] = [
-  "title",
-  "description",
-  "brand",
-  "gtin",
-  "mpn",
-  "sku",
-  "price",
-  "price_currency",
-  "availability",
-  "condition",
-  "image",
-  "destination_url",
+  'title',
+  'description',
+  'brand',
+  'gtin',
+  'mpn',
+  'sku',
+  'price',
+  'price_currency',
+  'availability',
+  'condition',
+  'image',
+  'destination_url',
 ];
 
 export default function FeedScreen() {
@@ -165,7 +165,7 @@ export default function FeedScreen() {
   return (
     <>
       <Head>
-        <title>{t("feeds.detail.documentTitle")}</title>
+        <title>{t('feeds.detail.documentTitle')}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => <FeedBody storeId={storeId} configurationId={configurationId} />}
@@ -188,52 +188,49 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
     </Pressable>
   );
 
   if (feed.isPending) {
     return (
-      <Screen title={t("feeds.detail.title")} action={back}>
+      <Screen title={t('feeds.detail.title')} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (feed.isError || !feed.data) {
     return (
-      <Screen title={t("feeds.detail.title")} action={back}>
-        <ScreenMessage
-          title={t("feeds.detail.notFound")}
-          body={t("feeds.detail.notFoundBody")}
-        />
+      <Screen title={t('feeds.detail.title')} action={back}>
+        <ScreenMessage title={t('feeds.detail.notFound')} body={t('feeds.detail.notFoundBody')} />
       </Screen>
     );
   }
 
   const { configuration, versions } = feed.data;
-  const active = versions.find((version) => version.status === "active");
+  const active = versions.find((version) => version.status === 'active');
 
   return (
-    <Screen title={configuration.label} subtitle={t("feeds.detail.title")} action={back}>
+    <Screen title={configuration.label} subtitle={t('feeds.detail.title')} action={back}>
       <View className="gap-8">
         <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-          <Text className="text-sm font-semibold text-foreground">{t("common.status")}</Text>
+          <Text className="text-sm font-semibold text-foreground">{t('common.status')}</Text>
           {status.data?.source ? (
             <View className="gap-1">
               <Text className="text-xs text-muted-foreground">
-                {t(SOURCE_STATUS_LABEL_KEYS[status.data.source.status])} ·{" "}
+                {t(SOURCE_STATUS_LABEL_KEYS[status.data.source.status])} ·{' '}
                 {t(SOURCE_HEALTH_LABEL_KEYS[status.data.source.healthState])}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {t("feeds.detail.readSchedule", {
+                {t('feeds.detail.readSchedule', {
                   last: formatWhen(
                     status.data.source.lastAttemptAt ?? undefined,
-                    t("feeds.never"),
+                    t('feeds.never'),
                     locale,
                   ),
                   next: formatWhen(
                     status.data.source.nextRunAt ?? undefined,
-                    t("feeds.unscheduled"),
+                    t('feeds.unscheduled'),
                     locale,
                   ),
                 })}
@@ -243,11 +240,11 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
               ) : null}
             </View>
           ) : (
-            <Text className="text-xs text-muted-foreground">{t("feeds.detail.neverRead")}</Text>
+            <Text className="text-xs text-muted-foreground">{t('feeds.detail.neverRead')}</Text>
           )}
           <Text className="text-xs text-muted-foreground">
-            {t("feeds.detail.identityColumns", {
-              columns: configuration.identityKeyFields.join(", "),
+            {t('feeds.detail.identityColumns', {
+              columns: configuration.identityKeyFields.join(', '),
             })}
           </Text>
           <Button
@@ -258,33 +255,33 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
             disabled={active === undefined}
             onPress={() =>
               sync.mutate(undefined, {
-                onSuccess: () => toast.success(t("feeds.toast.syncStarted")),
-                onError: () => toast.error(t("feeds.toast.syncStartFailed")),
+                onSuccess: () => toast.success(t('feeds.toast.syncStarted')),
+                onError: () => toast.error(t('feeds.toast.syncStartFailed')),
               })
             }
           >
             {active === undefined
-              ? t("feeds.detail.activateMappingFirst")
-              : t("feeds.detail.syncNow")}
+              ? t('feeds.detail.activateMappingFirst')
+              : t('feeds.detail.syncNow')}
           </Button>
         </View>
 
         {status.data && status.data.runs.length > 0 ? (
           <View className="gap-3">
             <Text className="text-sm font-semibold text-muted-foreground">
-              {t("feeds.detail.recentRuns")}
+              {t('feeds.detail.recentRuns')}
             </Text>
             {status.data.runs.map((run) => (
               <View key={run.id} className="rounded-2xl border border-border bg-surface p-4">
                 <Text className="text-sm font-semibold text-foreground">
                   {t(RUN_KIND_LABEL_KEYS[run.kind])} · {t(RUN_STATUS_LABEL_KEYS[run.status])}
-                  {run.outcome ? ` · ${t(SOURCE_HEALTH_LABEL_KEYS[run.outcome])}` : ""}
+                  {run.outcome ? ` · ${t(SOURCE_HEALTH_LABEL_KEYS[run.outcome])}` : ''}
                 </Text>
                 <Text className="mt-0.5 text-xs text-muted-foreground">
-                  {formatWhen(run.startedAt, t("common.unknown"), locale)}
+                  {formatWhen(run.startedAt, t('common.unknown'), locale)}
                 </Text>
                 <Text className="mt-1 text-xs text-muted-foreground">
-                  {t("feeds.detail.runCounts", {
+                  {t('feeds.detail.runCounts', {
                     fetched: run.fetched,
                     stored: run.stored,
                     unchanged: run.unchanged,
@@ -329,8 +326,8 @@ function Versions({
       <View className="rounded-2xl border border-dashed border-border">
         <EmptyState
           variant="compact"
-          title={t("feeds.versions.empty")}
-          description={t("feeds.versions.emptyBody")}
+          title={t('feeds.versions.empty')}
+          description={t('feeds.versions.emptyBody')}
         />
       </View>
     );
@@ -339,42 +336,42 @@ function Versions({
   return (
     <View className="gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("feeds.versions.title")}
+        {t('feeds.versions.title')}
       </Text>
       {versions.map((version) => (
         <View key={version.id} className="gap-3 rounded-2xl border border-border bg-surface p-4">
           <View className="flex-row items-center gap-2">
             <Text className="text-sm font-semibold text-foreground">
-              {t("feeds.versions.version", { version: version.version })}
+              {t('feeds.versions.version', { version: version.version })}
             </Text>
             <Badge
               size="label-small"
               variant="subtle"
-              color={version.status === "active" ? "primary" : "default"}
+              color={version.status === 'active' ? 'primary' : 'default'}
               content={t(VERSION_STATUS_LABEL_KEYS[version.status])}
             />
           </View>
           <Text className="text-xs text-muted-foreground">
-            {t("feeds.versions.summary", {
+            {t('feeds.versions.summary', {
               format: version.format.toUpperCase(),
               delivery:
-                version.deliveryMode === "snapshot"
-                  ? t("feeds.versions.deliveryFullSnapshot")
-                  : t("feeds.versions.deliveryChangesOnly"),
+                version.deliveryMode === 'snapshot'
+                  ? t('feeds.versions.deliveryFullSnapshot')
+                  : t('feeds.versions.deliveryChangesOnly'),
               fetch:
-                version.fetchMode === "url"
-                  ? t("feeds.versions.fetchedOverHttps")
-                  : t("feeds.versions.uploaded"),
+                version.fetchMode === 'url'
+                  ? t('feeds.versions.fetchedOverHttps')
+                  : t('feeds.versions.uploaded'),
             })}
           </Text>
 
           {previewed?.versionId === version.id ? (
             <View className="gap-2 rounded-xl bg-muted p-3">
               <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-                {t("feeds.versions.preview")}
+                {t('feeds.versions.preview')}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {t("feeds.versions.previewCounts", {
+                {t('feeds.versions.previewCounts', {
                   scanned: previewed.result.counts.scanned,
                   valid: previewed.result.counts.valid,
                   invalid: previewed.result.counts.invalid,
@@ -385,15 +382,15 @@ function Versions({
               </Text>
               {previewed.result.counts.scanned === 0 ? (
                 <Text className="text-xs text-destructive">
-                  {t("feeds.versions.previewReadNothing")}
+                  {t('feeds.versions.previewReadNothing')}
                 </Text>
               ) : null}
               {previewed.result.suggestions.length > 0 ? (
                 <Text className="text-xs text-muted-foreground">
-                  {t("feeds.versions.suggestedColumns", {
+                  {t('feeds.versions.suggestedColumns', {
                     columns: previewed.result.suggestions
                       .map((suggestion) => `${suggestion.sourceField} → ${suggestion.role}`)
-                      .join(", "),
+                      .join(', '),
                   })}
                 </Text>
               ) : null}
@@ -409,11 +406,11 @@ function Versions({
               onPress={() =>
                 preview.mutate(version.id, {
                   onSuccess: (result) => setPreviewed({ versionId: version.id, result }),
-                  onError: () => toast.error(t("feeds.toast.previewFailed")),
+                  onError: () => toast.error(t('feeds.toast.previewFailed')),
                 })
               }
             >
-              {t("feeds.versions.preview")}
+              {t('feeds.versions.preview')}
             </Button>
             <Button
               appearance="outline"
@@ -424,18 +421,18 @@ function Versions({
                 validate.mutate(version.id, {
                   onSuccess: (report) =>
                     toast.success(
-                      t("feeds.toast.checked", {
+                      t('feeds.toast.checked', {
                         scanned: report.scanned,
                         invalid: report.invalid,
                       }),
                     ),
-                  onError: () => toast.error(t("feeds.toast.checkFailed")),
+                  onError: () => toast.error(t('feeds.toast.checkFailed')),
                 })
               }
             >
-              {t("feeds.versions.checkWholeFeed")}
+              {t('feeds.versions.checkWholeFeed')}
             </Button>
-            {version.status === "draft" ? (
+            {version.status === 'draft' ? (
               <Button
                 tone="accent"
                 size="sm"
@@ -446,15 +443,15 @@ function Versions({
                   activate.mutate(
                     { versionId: version.id, reportId: version.validatedReportId },
                     {
-                      onSuccess: () => toast.success(t("feeds.toast.mappingActivated")),
-                      onError: () => toast.error(t("feeds.toast.mappingActivateFailed")),
+                      onSuccess: () => toast.success(t('feeds.toast.mappingActivated')),
+                      onError: () => toast.error(t('feeds.toast.mappingActivateFailed')),
                     },
                   );
                 }}
               >
                 {version.validatedReportId === null
-                  ? t("feeds.versions.checkItFirst")
-                  : t("feeds.versions.activate")}
+                  ? t('feeds.versions.checkItFirst')
+                  : t('feeds.versions.activate')}
               </Button>
             ) : null}
           </View>
@@ -465,17 +462,11 @@ function Versions({
 }
 
 /** Describe the file and map its columns — the draft form. */
-function DraftVersion({
-  storeId,
-  configurationId,
-}: {
-  storeId: string;
-  configurationId: string;
-}) {
+function DraftVersion({ storeId, configurationId }: { storeId: string; configurationId: string }) {
   const { t } = useTranslation();
   const draft = useDraftFeedVersion(storeId, configurationId);
-  const [feedUrl, setFeedUrl] = useState("");
-  const [format, setFormat] = useState<FeedFormat>("csv");
+  const [feedUrl, setFeedUrl] = useState('');
+  const [format, setFormat] = useState<FeedFormat>('csv');
   const [deliveryMode, setDeliveryMode] = useState<FeedDeliveryMode | null>(null);
   const [columns, setColumns] = useState<Record<string, string>>({});
 
@@ -489,21 +480,21 @@ function DraftVersion({
   );
 
   const submit = () => {
-    if (!feedUrl.trim().startsWith("https://")) {
-      toast.error(t("feeds.toast.urlMustBeHttps"));
+    if (!feedUrl.trim().startsWith('https://')) {
+      toast.error(t('feeds.toast.urlMustBeHttps'));
       return;
     }
     if (deliveryMode === null) {
-      toast.error(t("feeds.toast.deliveryModeRequired"));
+      toast.error(t('feeds.toast.deliveryModeRequired'));
       return;
     }
-    if (!fieldMappings.some((mapping) => mapping.role === "title")) {
-      toast.error(t("feeds.toast.titleMappingRequired"));
+    if (!fieldMappings.some((mapping) => mapping.role === 'title')) {
+      toast.error(t('feeds.toast.titleMappingRequired'));
       return;
     }
     draft.mutate(
       {
-        fetchMode: "url",
+        fetchMode: 'url',
         feedUrl: feedUrl.trim(),
         format,
         deliveryMode,
@@ -511,37 +502,32 @@ function DraftVersion({
       },
       {
         onSuccess: () => {
-          toast.success(t("feeds.toast.mappingSaved"));
+          toast.success(t('feeds.toast.mappingSaved'));
           setColumns({});
         },
-        onError: () => toast.error(t("feeds.toast.mappingSaveFailed")),
+        onError: () => toast.error(t('feeds.toast.mappingSaveFailed')),
       },
     );
   };
 
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">{t("feeds.draft.title")}</Text>
+      <Text className="text-sm font-semibold text-foreground">{t('feeds.draft.title')}</Text>
 
-      <Field label={t("feeds.draft.urlLabel")} description={t("feeds.draft.urlHint")}>
+      <Field label={t('feeds.draft.urlLabel')} description={t('feeds.draft.urlHint')}>
         <TextFieldInput
-          label={t("feeds.draft.urlLabel")}
+          label={t('feeds.draft.urlLabel')}
           value={feedUrl}
           onValueChange={setFeedUrl}
-          placeholder={t("feeds.draft.urlPlaceholder")}
+          placeholder={t('feeds.draft.urlPlaceholder')}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
       </Field>
 
-      <Field label={t("feeds.draft.formatLabel")}>
-        <SegmentedControl
-          type="radio"
-          size="sm"
-          value={format}
-          onValueChange={setFormat}
-        >
+      <Field label={t('feeds.draft.formatLabel')}>
+        <SegmentedControl type="radio" size="sm" value={format} onValueChange={setFormat}>
           {FORMATS.map((option) => (
             <SegmentedControlItem key={option} value={option}>
               <SegmentedControlItemText>{option.toUpperCase()}</SegmentedControlItemText>
@@ -550,40 +536,37 @@ function DraftVersion({
         </SegmentedControl>
       </Field>
 
-      <Field
-        label={t("feeds.draft.deliveryLabel")}
-        description={t("feeds.draft.deliveryHint")}
-      >
+      <Field label={t('feeds.draft.deliveryLabel')} description={t('feeds.draft.deliveryHint')}>
         <SegmentedControl
           type="radio"
           size="sm"
-          value={deliveryMode ?? ""}
+          value={deliveryMode ?? ''}
           onValueChange={(next) => {
-            if (next !== "") setDeliveryMode(next);
+            if (next !== '') setDeliveryMode(next);
           }}
         >
           <SegmentedControlItem value="snapshot">
-            <SegmentedControlItemText>{t("feeds.draft.deliverySnapshot")}</SegmentedControlItemText>
+            <SegmentedControlItemText>{t('feeds.draft.deliverySnapshot')}</SegmentedControlItemText>
           </SegmentedControlItem>
           <SegmentedControlItem value="delta">
-            <SegmentedControlItemText>{t("feeds.draft.deliveryDelta")}</SegmentedControlItemText>
+            <SegmentedControlItemText>{t('feeds.draft.deliveryDelta')}</SegmentedControlItemText>
           </SegmentedControlItem>
         </SegmentedControl>
       </Field>
 
-      <Field label={t("feeds.draft.columnsLabel")} multiple>
+      <Field label={t('feeds.draft.columnsLabel')} multiple>
         <View className="gap-2">
           {COMMON_ROLES.map((role) => (
             <View key={role} className="gap-1">
               <Text className="text-xs font-medium text-muted-foreground">
-                {role.replace(/_/g, " ")}
-                {role === "title" ? t("feeds.draft.requiredSuffix") : ""}
+                {role.replace(/_/g, ' ')}
+                {role === 'title' ? t('feeds.draft.requiredSuffix') : ''}
               </Text>
               <TextFieldInput
-                label={role.replace(/_/g, " ")}
-                value={columns[role] ?? ""}
+                label={role.replace(/_/g, ' ')}
+                value={columns[role] ?? ''}
                 onValueChange={(value) => setColumns((prev) => ({ ...prev, [role]: value }))}
-                placeholder={t("feeds.draft.columnPlaceholder")}
+                placeholder={t('feeds.draft.columnPlaceholder')}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -593,7 +576,7 @@ function DraftVersion({
       </Field>
 
       <Button tone="accent" onPress={submit} loading={draft.isPending}>
-        {t("feeds.draft.save")}
+        {t('feeds.draft.save')}
       </Button>
     </View>
   );
@@ -608,7 +591,7 @@ function Reports({ storeId, configurationId }: { storeId: string; configurationI
   return (
     <View className="gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("feeds.reports.title")}
+        {t('feeds.reports.title')}
       </Text>
       {(reports.data ?? []).map((report) => (
         <View key={report.id} className="rounded-2xl border border-border bg-surface p-4">
@@ -616,18 +599,16 @@ function Reports({ storeId, configurationId }: { storeId: string; configurationI
             {t(REPORT_MODE_LABEL_KEYS[report.mode])}
           </Text>
           <Text className="mt-0.5 text-xs text-muted-foreground">
-            {formatWhen(report.createdAt, t("common.unknown"), locale)}
+            {formatWhen(report.createdAt, t('common.unknown'), locale)}
           </Text>
           <Text className="mt-1 text-xs text-muted-foreground">
-            {t("feeds.reports.counts", {
+            {t('feeds.reports.counts', {
               scanned: report.scanned,
               valid: report.valid,
               invalid: report.invalid,
             })}
           </Text>
-          <Text className="mt-1 text-[11px] text-muted-foreground">
-            {t("feeds.reports.note")}
-          </Text>
+          <Text className="mt-1 text-[11px] text-muted-foreground">{t('feeds.reports.note')}</Text>
         </View>
       ))}
     </View>

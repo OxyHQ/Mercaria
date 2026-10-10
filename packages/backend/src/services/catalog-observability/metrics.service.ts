@@ -484,7 +484,10 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
   /* ---- Authoring schema -------------------------------------------------- */
   authoring_schema_fetch_latency: async (definition, { mounted }) => {
     if (!mounted.catalogAuthoring) return notMounted(definition, 'CATALOG_AUTHORING_ENABLED');
-    return latency(definition, readRouteObservation('GET', '/catalog-authoring/schemas/:productTypeKey')?.latency);
+    return latency(
+      definition,
+      readRouteObservation('GET', '/catalog-authoring/schemas/:productTypeKey')?.latency,
+    );
   },
 
   authoring_schema_error_rate: async (definition, { mounted }) => {
@@ -607,8 +610,7 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
   },
 
   /* ---- Translation ------------------------------------------------------- */
-  translation_coverage: async (definition, { shared }) =>
-    deskCoverage(definition, shared),
+  translation_coverage: async (definition, { shared }) => deskCoverage(definition, shared),
 
   translation_machine_share: async (definition, { shared }) => {
     if (!shared.localization) return unavailable(definition);
@@ -631,8 +633,7 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
     );
   },
 
-  translation_missing_count: async (definition, { shared }) =>
-    deskAbsentCount(definition, shared),
+  translation_missing_count: async (definition, { shared }) => deskAbsentCount(definition, shared),
 
   /* ---- Search ------------------------------------------------------------ */
   search_zero_result_rate_by_market: async (definition, { db }) => {
@@ -915,20 +916,17 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
  * authoring route. Two routes, two flags, four metrics. An operator reading it is
  * told which variable to set rather than left to wonder why a surface looks idle.
  */
-function notMounted(
-  definition: CatalogMetricDefinition,
-  flag: string,
-): CatalogMetricReading {
+function notMounted(definition: CatalogMetricDefinition, flag: string): CatalogMetricReading {
   return {
     state: 'unmeasured',
     key: definition.key,
     kind: definition.kind,
     reason: 'surface_not_mounted',
     seam:
-      `The route this metric observes is not mounted: ${flag} is off in this deployment, so the `
-      + 'surface cannot be served and a population of zero would be a statement about traffic '
-      + 'rather than about the deployment. Setting it makes this metric measure immediately; no '
-      + 'code change is owed.',
+      `The route this metric observes is not mounted: ${flag} is off in this deployment, so the ` +
+      'surface cannot be served and a population of zero would be a statement about traffic ' +
+      'rather than about the deployment. Setting it makes this metric measure immediately; no ' +
+      'code change is owed.',
   };
 }
 
@@ -939,9 +937,9 @@ function unavailable(definition: CatalogMetricDefinition): CatalogMetricReading 
     kind: definition.kind,
     reason: 'source_unavailable',
     seam:
-      `This metric is normally produced from ${definition.source}; that read failed on this `
-      + 'collection. See the metricCollectionFailures counter, which is non-zero for the same '
-      + 'reason, and the error log line at the failure site.',
+      `This metric is normally produced from ${definition.source}; that read failed on this ` +
+      'collection. See the metricCollectionFailures counter, which is non-zero for the same ' +
+      'reason, and the error log line at the failure site.',
   };
 }
 
@@ -1035,8 +1033,8 @@ export async function collectCatalogMetrics(
     // vacuity this domain exists to prevent, so it fails the read instead of
     // reporting a clean catalogue.
     throw new Error(
-      `catalog metrics have no producer: ${census.missingProducers.join(', ')} `
-        + `(${String(census.definitions)} definitions, ${String(census.producers)} producers)`,
+      `catalog metrics have no producer: ${census.missingProducers.join(', ')} ` +
+        `(${String(census.definitions)} definitions, ${String(census.producers)} producers)`,
     );
   }
 
@@ -1080,15 +1078,15 @@ export async function collectCatalogMetrics(
   return {
     collectedAt: new Date().toISOString(),
     readings,
-    awaitingSeams: CATALOG_METRICS.filter(
-      (definition) => definition.unmeasured !== undefined,
-    ).map((definition) => ({
-      key: definition.key,
-      // Non-null-safe without an assertion: the filter above is the narrowing,
-      // and `strict: false` means the compiler accepts the read either way — so
-      // the fallback is written out rather than asserted away.
-      seam: definition.unmeasured ? definition.unmeasured.seam : '',
-    })),
+    awaitingSeams: CATALOG_METRICS.filter((definition) => definition.unmeasured !== undefined).map(
+      (definition) => ({
+        key: definition.key,
+        // Non-null-safe without an assertion: the filter above is the narrowing,
+        // and `strict: false` means the compiler accepts the read either way — so
+        // the fallback is written out rather than asserted away.
+        seam: definition.unmeasured ? definition.unmeasured.seam : '',
+      }),
+    ),
     mustStayZero: catalogObservabilityCounters(),
   };
 }

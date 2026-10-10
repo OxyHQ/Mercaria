@@ -26,7 +26,7 @@ import type {
   AuthoringValidationCode,
   AuthoringValidationFinding,
   AuthoringValidationSeverity,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 
 /**
  * Where a finding points, in the wizard's own terms.
@@ -38,16 +38,20 @@ import type {
  * nobody is told.
  */
 export type FindingTarget =
-  | { readonly kind: "classification" }
-  | { readonly kind: "listing"; readonly field: "title" | "description" | "imageFileIds" }
-  | { readonly kind: "product_field"; readonly attributeKey: string; readonly ordinal: number | null }
-  | { readonly kind: "variants" }
-  | { readonly kind: "variant"; readonly position: number; readonly part: VariantPart }
-  | { readonly kind: "variant_field"; readonly position: number; readonly attributeKey: string }
-  | { readonly kind: "draft" }
-  | { readonly kind: "unknown" };
+  | { readonly kind: 'classification' }
+  | { readonly kind: 'listing'; readonly field: 'title' | 'description' | 'imageFileIds' }
+  | {
+      readonly kind: 'product_field';
+      readonly attributeKey: string;
+      readonly ordinal: number | null;
+    }
+  | { readonly kind: 'variants' }
+  | { readonly kind: 'variant'; readonly position: number; readonly part: VariantPart }
+  | { readonly kind: 'variant_field'; readonly position: number; readonly attributeKey: string }
+  | { readonly kind: 'draft' }
+  | { readonly kind: 'unknown' };
 
-export type VariantPart = "row" | "price" | "inventory";
+export type VariantPart = 'row' | 'price' | 'inventory';
 
 /**
  * The wizard step a finding belongs to — what the summary link jumps to.
@@ -60,21 +64,21 @@ export type VariantPart = "row" | "price" | "inventory";
  * `inventory` land on one `pricing` step here.
  */
 export type WizardStepId =
-  | "classification"
-  | "details"
-  | "variants"
-  | "pricing"
-  | "listing"
-  | "review";
+  | 'classification'
+  | 'details'
+  | 'variants'
+  | 'pricing'
+  | 'listing'
+  | 'review';
 
 /** In the order the wizard presents them. */
 export const WIZARD_STEPS: readonly WizardStepId[] = [
-  "classification",
-  "details",
-  "variants",
-  "pricing",
-  "listing",
-  "review",
+  'classification',
+  'details',
+  'variants',
+  'pricing',
+  'listing',
+  'review',
 ];
 
 const VARIANT_PATH = /^variants\[(\d+)\](?:\.(.+))?$/u;
@@ -83,11 +87,11 @@ const VARIANT_FIELD_PATH = /^fields\.([a-z][a-z0-9_]*)$/u;
 
 /** Parse one path into the control it names. */
 export function parseFindingPath(path: string): FindingTarget {
-  if (path === "classification.categoryId" || path === "classification.productType") {
-    return { kind: "classification" };
+  if (path === 'classification.categoryId' || path === 'classification.productType') {
+    return { kind: 'classification' };
   }
-  if (path === "listing.title") return { kind: "listing", field: "title" };
-  if (path === "listing.description") return { kind: "listing", field: "description" };
+  if (path === 'listing.title') return { kind: 'listing', field: 'title' };
+  if (path === 'listing.description') return { kind: 'listing', field: 'description' };
   // `listing.imageFileIds`, and `listing.imageFileIds[2]` for a duplicate at one
   // gallery position. Both land on the LISTING step, which is where the
   // `products.wizard.listing.mediaUnavailable` notice renders — so a media
@@ -98,64 +102,64 @@ export function parseFindingPath(path: string): FindingTarget {
   // media control in this wizard to anchor to, so a slot index would be a
   // number pointing at nothing. When a picker lands, the index is what a jump
   // target would use and this is the line that carries it.
-  if (path === "listing.imageFileIds" || path.startsWith("listing.imageFileIds[")) {
-    return { kind: "listing", field: "imageFileIds" };
+  if (path === 'listing.imageFileIds' || path.startsWith('listing.imageFileIds[')) {
+    return { kind: 'listing', field: 'imageFileIds' };
   }
-  if (path === "variants") return { kind: "variants" };
-  if (path.startsWith("draft.")) return { kind: "draft" };
+  if (path === 'variants') return { kind: 'variants' };
+  if (path.startsWith('draft.')) return { kind: 'draft' };
 
   const variant = VARIANT_PATH.exec(path);
   if (variant !== null) {
-    const position = Number.parseInt(variant[1] ?? "", 10);
-    if (!Number.isFinite(position)) return { kind: "unknown" };
+    const position = Number.parseInt(variant[1] ?? '', 10);
+    if (!Number.isFinite(position)) return { kind: 'unknown' };
     const rest = variant[2];
-    if (rest === undefined) return { kind: "variant", position, part: "row" };
-    if (rest === "price") return { kind: "variant", position, part: "price" };
-    if (rest === "inventory") return { kind: "variant", position, part: "inventory" };
+    if (rest === undefined) return { kind: 'variant', position, part: 'row' };
+    if (rest === 'price') return { kind: 'variant', position, part: 'price' };
+    if (rest === 'inventory') return { kind: 'variant', position, part: 'inventory' };
     const nested = VARIANT_FIELD_PATH.exec(rest);
     if (nested !== null) {
       const attributeKey = nested[1];
-      if (attributeKey !== undefined) return { kind: "variant_field", position, attributeKey };
+      if (attributeKey !== undefined) return { kind: 'variant_field', position, attributeKey };
     }
-    return { kind: "variant", position, part: "row" };
+    return { kind: 'variant', position, part: 'row' };
   }
 
   const product = PRODUCT_FIELD_PATH.exec(path);
   if (product !== null) {
     const attributeKey = product[1];
-    if (attributeKey === undefined) return { kind: "unknown" };
+    if (attributeKey === undefined) return { kind: 'unknown' };
     const raw = product[2];
     const ordinal = raw === undefined ? null : Number.parseInt(raw, 10);
     return {
-      kind: "product_field",
+      kind: 'product_field',
       attributeKey,
       ordinal: ordinal === null || !Number.isFinite(ordinal) ? null : ordinal,
     };
   }
-  return { kind: "unknown" };
+  return { kind: 'unknown' };
 }
 
 /** The step a target belongs to. */
 export function stepForTarget(target: FindingTarget): WizardStepId {
   switch (target.kind) {
-    case "classification":
-      return "classification";
-    case "product_field":
-      return "details";
-    case "listing":
-      return "listing";
-    case "variant":
+    case 'classification':
+      return 'classification';
+    case 'product_field':
+      return 'details';
+    case 'listing':
+      return 'listing';
+    case 'variant':
       // A money or a stock complaint belongs on the screen that asks for money
       // and stock. A complaint about the ROW itself — a duplicate combination —
       // belongs where the combinations are built.
-      return target.part === "row" ? "variants" : "pricing";
-    case "variants":
-    case "variant_field":
-      return "variants";
-    case "draft":
-    case "unknown":
+      return target.part === 'row' ? 'variants' : 'pricing';
+    case 'variants':
+    case 'variant_field':
+      return 'variants';
+    case 'draft':
+    case 'unknown':
     default:
-      return "review";
+      return 'review';
   }
 }
 
@@ -168,49 +172,49 @@ export function stepForTarget(target: FindingTarget): WizardStepId {
  * key that reads, in review, like a translation somebody wrote.
  */
 const MESSAGE_KEYS: Record<AuthoringValidationCode, string> = {
-  category_not_selectable: "products.wizard.finding.categoryNotSelectable",
-  category_not_in_product_type_scope: "products.wizard.finding.categoryNotInScope",
-  product_type_not_published: "products.wizard.finding.productTypeNotPublished",
-  schema_version_superseded: "products.wizard.finding.schemaSuperseded",
-  required_field_missing: "products.wizard.finding.requiredFieldMissing",
-  unknown_field: "products.wizard.finding.unknownField",
-  field_forbidden_in_flow: "products.wizard.finding.fieldForbidden",
-  value_type_mismatch: "products.wizard.finding.valueTypeMismatch",
-  value_not_in_controlled_set: "products.wizard.finding.valueNotInSet",
-  value_below_minimum: "products.wizard.finding.valueBelowMinimum",
-  value_above_maximum: "products.wizard.finding.valueAboveMaximum",
-  value_too_long: "products.wizard.finding.valueTooLong",
-  too_many_decimal_places: "products.wizard.finding.tooManyDecimals",
-  value_implausible: "products.wizard.finding.valueImplausible",
-  cardinality_exceeded: "products.wizard.finding.cardinalityExceeded",
-  range_bounds_inverted: "products.wizard.finding.rangeBoundsInverted",
-  structured_component_missing: "products.wizard.finding.componentMissing",
-  unknown_component_axis: "products.wizard.finding.unknownComponentAxis",
-  unknown_unit: "products.wizard.finding.unknownUnit",
-  unit_not_in_family: "products.wizard.finding.unitNotInFamily",
-  currency_mismatch: "products.wizard.finding.currencyMismatch",
-  canonical_reference_not_permitted: "products.wizard.finding.canonicalRefNotPermitted",
-  canonical_reference_not_selectable: "products.wizard.finding.canonicalRefNotSelectable",
-  proposal_not_permitted: "products.wizard.finding.proposalNotPermitted",
-  no_variant_declared: "products.wizard.finding.noVariantDeclared",
-  variant_axis_not_permitted: "products.wizard.finding.axisNotPermitted",
-  variant_missing_axis_value: "products.wizard.finding.axisValueMissing",
-  duplicate_variant_signature: "products.wizard.finding.duplicateVariant",
-  duplicate_variant_sku: "products.wizard.finding.duplicateVariantSku",
-  identifier_check_digit_invalid: "products.wizard.finding.identifierCheckDigitInvalid",
-  duplicate_variant_barcode: "products.wizard.finding.duplicateVariantBarcode",
-  identifier_collision: "products.wizard.finding.identifierCollision",
-  price_missing: "products.wizard.finding.priceMissing",
-  price_currency_missing: "products.wizard.finding.priceCurrencyMissing",
-  inventory_negative: "products.wizard.finding.inventoryNegative",
-  title_missing: "products.wizard.finding.titleMissing",
-  description_missing: "products.wizard.finding.descriptionMissing",
-  condition_missing: "products.wizard.finding.conditionMissing",
-  media_missing: "products.wizard.finding.mediaMissing",
-  duplicate_media_file: "products.wizard.finding.duplicateMediaFile",
-  proposal_pending_blocks_publication: "products.wizard.finding.proposalPending",
-  approved_value_not_published: "products.wizard.finding.approvedValueNotPublished",
-  draft_not_open: "products.wizard.finding.draftNotOpen",
+  category_not_selectable: 'products.wizard.finding.categoryNotSelectable',
+  category_not_in_product_type_scope: 'products.wizard.finding.categoryNotInScope',
+  product_type_not_published: 'products.wizard.finding.productTypeNotPublished',
+  schema_version_superseded: 'products.wizard.finding.schemaSuperseded',
+  required_field_missing: 'products.wizard.finding.requiredFieldMissing',
+  unknown_field: 'products.wizard.finding.unknownField',
+  field_forbidden_in_flow: 'products.wizard.finding.fieldForbidden',
+  value_type_mismatch: 'products.wizard.finding.valueTypeMismatch',
+  value_not_in_controlled_set: 'products.wizard.finding.valueNotInSet',
+  value_below_minimum: 'products.wizard.finding.valueBelowMinimum',
+  value_above_maximum: 'products.wizard.finding.valueAboveMaximum',
+  value_too_long: 'products.wizard.finding.valueTooLong',
+  too_many_decimal_places: 'products.wizard.finding.tooManyDecimals',
+  value_implausible: 'products.wizard.finding.valueImplausible',
+  cardinality_exceeded: 'products.wizard.finding.cardinalityExceeded',
+  range_bounds_inverted: 'products.wizard.finding.rangeBoundsInverted',
+  structured_component_missing: 'products.wizard.finding.componentMissing',
+  unknown_component_axis: 'products.wizard.finding.unknownComponentAxis',
+  unknown_unit: 'products.wizard.finding.unknownUnit',
+  unit_not_in_family: 'products.wizard.finding.unitNotInFamily',
+  currency_mismatch: 'products.wizard.finding.currencyMismatch',
+  canonical_reference_not_permitted: 'products.wizard.finding.canonicalRefNotPermitted',
+  canonical_reference_not_selectable: 'products.wizard.finding.canonicalRefNotSelectable',
+  proposal_not_permitted: 'products.wizard.finding.proposalNotPermitted',
+  no_variant_declared: 'products.wizard.finding.noVariantDeclared',
+  variant_axis_not_permitted: 'products.wizard.finding.axisNotPermitted',
+  variant_missing_axis_value: 'products.wizard.finding.axisValueMissing',
+  duplicate_variant_signature: 'products.wizard.finding.duplicateVariant',
+  duplicate_variant_sku: 'products.wizard.finding.duplicateVariantSku',
+  identifier_check_digit_invalid: 'products.wizard.finding.identifierCheckDigitInvalid',
+  duplicate_variant_barcode: 'products.wizard.finding.duplicateVariantBarcode',
+  identifier_collision: 'products.wizard.finding.identifierCollision',
+  price_missing: 'products.wizard.finding.priceMissing',
+  price_currency_missing: 'products.wizard.finding.priceCurrencyMissing',
+  inventory_negative: 'products.wizard.finding.inventoryNegative',
+  title_missing: 'products.wizard.finding.titleMissing',
+  description_missing: 'products.wizard.finding.descriptionMissing',
+  condition_missing: 'products.wizard.finding.conditionMissing',
+  media_missing: 'products.wizard.finding.mediaMissing',
+  duplicate_media_file: 'products.wizard.finding.duplicateMediaFile',
+  proposal_pending_blocks_publication: 'products.wizard.finding.proposalPending',
+  approved_value_not_published: 'products.wizard.finding.approvedValueNotPublished',
+  draft_not_open: 'products.wizard.finding.draftNotOpen',
 };
 
 export function findingMessageKey(code: AuthoringValidationCode): string {
@@ -255,7 +259,8 @@ export function findingsForProductField(
   attributeKey: string,
 ): readonly LocatedFinding[] {
   return located.filter(
-    (finding) => finding.target.kind === "product_field" && finding.target.attributeKey === attributeKey,
+    (finding) =>
+      finding.target.kind === 'product_field' && finding.target.attributeKey === attributeKey,
   );
 }
 
@@ -266,12 +271,12 @@ export function findingsForVariant(
 ): readonly LocatedFinding[] {
   return located.filter(
     (finding) =>
-      (finding.target.kind === "variant" || finding.target.kind === "variant_field") &&
+      (finding.target.kind === 'variant' || finding.target.kind === 'variant_field') &&
       finding.target.position === position,
   );
 }
 
 /** Whether any finding blocks publication. */
 export function hasBlockingFinding(located: readonly LocatedFinding[]): boolean {
-  return located.some((finding) => finding.severity === "error");
+  return located.some((finding) => finding.severity === 'error');
 }

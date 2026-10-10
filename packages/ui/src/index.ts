@@ -17,7 +17,7 @@
 // ---------------------------------------------------------------------------
 // Helpers / hooks
 // ---------------------------------------------------------------------------
-export { cn } from "./lib/cn";
+export { cn } from './lib/cn';
 
 // ---------------------------------------------------------------------------
 // The locale registry (#398). ONE supported-locale tuple, ONE alias policy and
@@ -29,7 +29,7 @@ export {
   LOCALE_ENDONYMS,
   SUPPORTED_LOCALES,
   type SupportedLocale,
-} from "./i18n/locales";
+} from './i18n/locales';
 export {
   createAppI18n,
   mergeSharedUiCopy,
@@ -37,12 +37,12 @@ export {
   shippedLocales,
   type AppLocaleBundles,
   type Translate,
-} from "./i18n/create-app-i18n";
+} from './i18n/create-app-i18n';
 export {
   createI18nStore,
   type CreateI18nStoreOptions,
   type I18nStoreState,
-} from "./i18n/create-i18n-store";
+} from './i18n/create-i18n-store';
 // ---------------------------------------------------------------------------
 // This package's OWN reader-facing copy (#437). The bundles are merged into
 // each app's i18n instance under the reserved `ui` namespace; the provider
@@ -56,7 +56,7 @@ export {
   useSharedUiLocale,
   useSharedUiTranslation,
   type SharedUiTranslationProviderProps,
-} from "./i18n/ui-translation";
+} from './i18n/ui-translation';
 // `./i18n/shared-copy`'s `SHARED_UI_COPY` is deliberately NOT exported here.
 // It is the DATA `mergeSharedUiCopy` merges, and an app that could reach it
 // could read a sentence out of it directly — which is the per-screen use that
@@ -76,11 +76,11 @@ export {
 // never unioned, so an app can neither gain a locale it cannot mirror nor mirror
 // one it does not ship.
 // ---------------------------------------------------------------------------
-export { isRtlLocale, languageOf, RTL_LANGUAGE_CODES } from "./i18n/rtl-locales";
-export { syncLayoutDirection, type DirectionSyncResult } from "./i18n/layout-direction";
-export { useShopControlClassName } from "./lib/useShopControlClassName";
-export { useColorScheme } from "./lib/useColorScheme";
-export { useSidebarCollapse } from "./lib/useSidebarCollapse";
+export { isRtlLocale, languageOf, RTL_LANGUAGE_CODES } from './i18n/rtl-locales';
+export { syncLayoutDirection, type DirectionSyncResult } from './i18n/layout-direction';
+export { useShopControlClassName } from './lib/useShopControlClassName';
+export { useColorScheme } from './lib/useColorScheme';
+export { useSidebarCollapse } from './lib/useSidebarCollapse';
 
 // `./lib/bidi`'s `isolateBidi` is deliberately NOT exported from this BARREL,
 // and #740 gave it a consumer without changing that. The reason is now sharper
@@ -112,15 +112,15 @@ export {
   formatReviewCount,
   formatSourceMoney,
   type ProductSummary,
-} from "./lib/format";
-export { useFormatters, type Formatters } from "./lib/use-formatters";
+} from './lib/format';
+export { useFormatters, type Formatters } from './lib/use-formatters';
 
 // Dates (#488) and country names (#489) are their OWN modules rather than part
 // of `./lib/format`, split by subject — see each module's note. They are
 // re-exported from the same barrel, so no consumer's import changed when they
 // moved out of `format.ts`.
-export { formatDate, formatDateTime, formatWeekday } from "./lib/date";
-export { formatRegionName } from "./lib/region";
+export { formatDate, formatDateTime, formatWeekday } from './lib/date';
+export { formatRegionName } from './lib/region';
 
 // ---------------------------------------------------------------------------
 // Item condition (#90) — the TRANSLATION KEYS for the shared taxonomy's copy.
@@ -140,7 +140,7 @@ export {
   conditionExplanationKey,
   conditionGroupLabelKey,
   conditionLabelKey,
-} from "./lib/condition";
+} from './lib/condition';
 
 // ---------------------------------------------------------------------------
 // Facet rail copy (#367) — the half of `FacetLabel` the SERVER deliberately
@@ -167,7 +167,7 @@ export {
   isFacetStableTitle,
   type FacetChannelBucket,
   type FacetStableTitle,
-} from "./lib/facet-labels";
+} from './lib/facet-labels';
 
 // ---------------------------------------------------------------------------
 // Offer comparison labels (#74) — the reader-facing copy for the labels and
@@ -184,7 +184,7 @@ export {
   OFFER_LABEL_TEXT_KEYS,
   offerLabelExplanationKey,
   offerLabelTextKey,
-} from "./lib/offer-labels";
+} from './lib/offer-labels';
 
 // ---------------------------------------------------------------------------
 // Price signals (#82) — the reader-facing copy for the signals, the quality
@@ -207,7 +207,7 @@ export {
   PRICE_SIGNAL_UNMEASURED_KEYS,
   priceSignalAccessibleSummary,
   priceSignalBadgeTextKey,
-} from "./lib/price-signal-labels";
+} from './lib/price-signal-labels';
 
 // ---------------------------------------------------------------------------
 // Saved shopping agents (#97) — the reader-facing copy for what an agent
@@ -240,7 +240,7 @@ export {
   SHOPPING_AGENT_TRIGGER_SOURCE_LABEL_KEYS,
   shoppingAgentJobExplanation,
   shoppingAgentJobLabel,
-} from "./lib/shopping-agent-labels";
+} from './lib/shopping-agent-labels';
 
 // ---------------------------------------------------------------------------
 // Commercial disclosures (#129) — the reader-facing copy for who is selling,
@@ -262,7 +262,7 @@ export {
   commercialSellerLabel,
   retailOrderProgressExplanation,
   retailOrderProgressLabel,
-} from "./lib/commercial-copy";
+} from './lib/commercial-copy';
 
 // ---------------------------------------------------------------------------
 // App shell — the per-page wrapper, and lucide glyphs in Bloom's chrome. The
@@ -272,14 +272,17 @@ export {
 export {
   ScreenShell,
   type ScreenShellProps,
-} from "./components/shell/ScreenShell";
-export { ViewportScrollView, type ViewportScrollViewProps } from "./components/shell/ViewportScrollView";
+} from './components/shell/ScreenShell';
+export {
+  ViewportScrollView,
+  type ViewportScrollViewProps,
+} from './components/shell/ViewportScrollView';
 export {
   toBloomIcon,
   toBloomFieldIcon,
   LucideGlyph,
   type LucideGlyphProps,
-} from "./lib/bloom-icon";
+} from './lib/bloom-icon';
 
 // ---------------------------------------------------------------------------
 // Dual-currency display
@@ -289,22 +292,22 @@ export {
   usePriceText,
   type PriceDisplayProps,
   type PriceText,
-} from "./components/PriceDisplay";
+} from './components/PriceDisplay';
 export {
   FxProvider,
   useFx,
   type FxContextValue,
   type FxProviderProps,
-} from "./components/FxContext";
+} from './components/FxContext';
 
 // ---------------------------------------------------------------------------
 // UI primitives
 // ---------------------------------------------------------------------------
-export { Text, type TextProps } from "./components/ui/text";
-export { Avatar, AvatarFallback, AvatarImage } from "./components/ui/avatar";
-export { Icon } from "./components/ui/icon";
-export { ColorPicker } from "./components/ui/color-picker";
-export { SourceBadge, type SourceBadgeProps } from "./components/ui/source-badge";
+export { Text, type TextProps } from './components/ui/text';
+export { Avatar, AvatarFallback, AvatarImage } from './components/ui/avatar';
+export { Icon } from './components/ui/icon';
+export { ColorPicker } from './components/ui/color-picker';
+export { SourceBadge, type SourceBadgeProps } from './components/ui/source-badge';
 // Connector provenance's other half (#420): which fields a merchant's own edits
 // pinned against a later sync, and what that means while the channel's
 // "Keep my local edits" switch is where it is. Read-only by design — see the
@@ -312,7 +315,7 @@ export { SourceBadge, type SourceBadgeProps } from "./components/ui/source-badge
 export {
   ConnectorPinNotice,
   type ConnectorPinNoticeProps,
-} from "./components/ui/connector-pin-notice";
+} from './components/ui/connector-pin-notice';
 export {
   CONNECTOR_PIN_EFFECT_KEYS,
   CONNECTOR_PIN_LABEL_KEYS,
@@ -322,73 +325,80 @@ export {
   CONNECTOR_PROVIDER_LABEL_KEYS,
   CONNECTOR_SYNCED_FROM_KEY,
   type ConnectorPinEffect,
-} from "./lib/connector-labels";
+} from './lib/connector-labels';
 
 // ---------------------------------------------------------------------------
 // Marketplace presentational components
 // ---------------------------------------------------------------------------
-export { ProductCard, type ProductCardProps } from "./components/marketplace/ProductCard";
+export { ProductCard, type ProductCardProps } from './components/marketplace/ProductCard';
 // Every rating renders `@oxy.so/bloom/rating` through `useRatingDisplay`; over a
 // brand colour the caller passes Bloom's `color` / `starColor` / `emptyStarColor`.
 export {
   useRatingDisplay,
   type RatingDisplay,
   type RatingDisplayInput,
-} from "./lib/rating-display";
+} from './lib/rating-display';
 export {
   ProductCarousel,
   type ProductCarouselProps,
-} from "./components/marketplace/ProductCarousel";
-export { ProductShelf, type ProductShelfProps } from "./components/marketplace/ProductShelf";
-export { CategoryTileGrid, type CategoryShortcut } from "./components/marketplace/CategoryTileGrid";
-export { CurationCard, CurationImage } from "./components/marketplace/CurationCard";
-export { EditorialCuration, type EditorialStory } from "./components/marketplace/EditorialCuration";
-export { ShopNavigationIcon, shopNavigationIcon, type ShopNavigationIconName } from "./components/marketplace/ShopNavigationIcon";
-export { ShopDetailIcon } from "./components/marketplace/ShopDetailIcon";
-export { useShelfCarouselProps } from "./lib/shelf-carousel";
-export { ListingSaveProvider } from "./components/marketplace/ListingSaveProvider";
-export { CategoryPills, type CategoryPillsProps } from "./components/marketplace/CategoryPills";
-export { MerchantCard, type MerchantCardProps } from "./components/marketplace/MerchantCard";
+} from './components/marketplace/ProductCarousel';
+export { ProductShelf, type ProductShelfProps } from './components/marketplace/ProductShelf';
+export { CategoryTileGrid, type CategoryShortcut } from './components/marketplace/CategoryTileGrid';
+export { CurationCard, CurationImage } from './components/marketplace/CurationCard';
+export { EditorialCuration, type EditorialStory } from './components/marketplace/EditorialCuration';
+export {
+  ShopNavigationIcon,
+  shopNavigationIcon,
+  type ShopNavigationIconName,
+} from './components/marketplace/ShopNavigationIcon';
+export { ShopDetailIcon } from './components/marketplace/ShopDetailIcon';
+export { useShelfCarouselProps } from './lib/shelf-carousel';
+export { ListingSaveProvider } from './components/marketplace/ListingSaveProvider';
+export { CategoryPills, type CategoryPillsProps } from './components/marketplace/CategoryPills';
+export { MerchantCard, type MerchantCardProps } from './components/marketplace/MerchantCard';
 export {
   MerchantCarousel,
   type MerchantCarouselProps,
-} from "./components/marketplace/MerchantCarousel";
+} from './components/marketplace/MerchantCarousel';
 export {
   SectionHeader,
   type SectionHeaderProps,
-} from "./components/marketplace/SectionHeader";
+} from './components/marketplace/SectionHeader';
 export {
   CartLineItem,
   type CartLineItemProps,
-} from "./components/marketplace/CartLineItem";
+} from './components/marketplace/CartLineItem';
 export {
   MerchantCartCard,
   type MerchantCartCardProps,
-} from "./components/marketplace/MerchantCartCard";
-export { CartShelf, type CartShelfProps } from "./components/marketplace/CartShelf";
-export { ThreadShelf, type ThreadShelfItem } from "./components/marketplace/ThreadShelf";
-export { CategoryMosaicShelf, type CategoryMosaicGroup } from "./components/marketplace/CategoryMosaicShelf";
+} from './components/marketplace/MerchantCartCard';
+export { CartShelf, type CartShelfProps } from './components/marketplace/CartShelf';
+export { ThreadShelf, type ThreadShelfItem } from './components/marketplace/ThreadShelf';
+export {
+  CategoryMosaicShelf,
+  type CategoryMosaicGroup,
+} from './components/marketplace/CategoryMosaicShelf';
 
 // ---------------------------------------------------------------------------
 // Product detail page (PDP) presentational components
 // ---------------------------------------------------------------------------
-export { IncentiveHalo, type IncentiveHaloProps } from "./components/marketplace/IncentiveHalo";
+export { IncentiveHalo, type IncentiveHaloProps } from './components/marketplace/IncentiveHalo';
 export {
   MerchantHeader,
   type MerchantHeaderProps,
-} from "./components/marketplace/MerchantHeader";
-export { DemandPill, type DemandPillProps } from "./components/marketplace/DemandPill";
-export { OfferCard, type OfferCardProps } from "./components/marketplace/OfferCard";
+} from './components/marketplace/MerchantHeader';
+export { DemandPill, type DemandPillProps } from './components/marketplace/DemandPill';
+export { OfferCard, type OfferCardProps } from './components/marketplace/OfferCard';
 // One row of the saved list (#80) — a canonical PRODUCT save or an exact
 // LISTING save, rendered as visibly different things because they are.
 export {
   SavedItemCard,
   type SavedItemCardProps,
-} from "./components/marketplace/SavedItemCard";
+} from './components/marketplace/SavedItemCard';
 export {
   PriceAlertCard,
   type PriceAlertCardProps,
-} from "./components/marketplace/PriceAlertCard";
+} from './components/marketplace/PriceAlertCard';
 // One saved shopping agent (#97) and one of its appended observations. Two
 // components rather than one, because a superseded finding is still rendered
 // under an agent that has since moved on — the card says what is being watched,
@@ -396,53 +406,64 @@ export {
 export {
   ShoppingAgentCard,
   type ShoppingAgentCardProps,
-} from "./components/marketplace/ShoppingAgentCard";
+} from './components/marketplace/ShoppingAgentCard';
 export {
   ShoppingAgentFindingCard,
   type ShoppingAgentFindingCardProps,
-} from "./components/marketplace/ShoppingAgentFindingCard";
+} from './components/marketplace/ShoppingAgentFindingCard';
 export {
   ProductGallery,
   type ProductGalleryImage,
   type ProductGalleryProps,
   type ProductGalleryHandle,
-} from "./components/marketplace/ProductGallery";
+} from './components/marketplace/ProductGallery';
 export { BundleContents, type BundleContentsProps } from './components/marketplace/BundleContents';
-export { BundleRecommendations, type BundleRecommendationsProps } from './components/marketplace/BundleRecommendations';
+export {
+  BundleRecommendations,
+  type BundleRecommendationsProps,
+} from './components/marketplace/BundleRecommendations';
 export {
   VariantSwatches,
   type VariantSwatchesProps,
-} from "./components/marketplace/VariantSwatches";
+} from './components/marketplace/VariantSwatches';
 export {
   PurchaseOptions,
   type PurchaseOptionsProps,
-} from "./components/marketplace/PurchaseOptions";
+} from './components/marketplace/PurchaseOptions';
 export {
   PurchasePlanPicker,
   type PurchasePlan,
   type PurchasePlanPickerProps,
   type PurchasePlanSelection,
-} from "./components/marketplace/PurchasePlanPicker";
-export { ReviewCard, type ReviewCardProps } from "./components/marketplace/ReviewCard";
-export { ProductSpecificationGrid, type ProductSpecification } from "./components/marketplace/ProductSpecificationGrid";
-export { CartFlightProvider, CartFlightTarget, useCartFlight, type CartFlightRect } from "./components/marketplace/CartFlight";
+} from './components/marketplace/PurchasePlanPicker';
+export { ReviewCard, type ReviewCardProps } from './components/marketplace/ReviewCard';
+export {
+  ProductSpecificationGrid,
+  type ProductSpecification,
+} from './components/marketplace/ProductSpecificationGrid';
+export {
+  CartFlightProvider,
+  CartFlightTarget,
+  useCartFlight,
+  type CartFlightRect,
+} from './components/marketplace/CartFlight';
 export {
   ReviewSummaryCard,
   type RatingDistribution,
   type ReviewSummaryCardProps,
-} from "./components/marketplace/ReviewSummaryCard";
-export { ReviewAccordionAccessory } from "./components/marketplace/ReviewAccordionAccessory";
+} from './components/marketplace/ReviewSummaryCard';
+export { ReviewAccordionAccessory } from './components/marketplace/ReviewAccordionAccessory';
 export {
   ConditionBadge,
   type ConditionBadgeProps,
-} from "./components/marketplace/ConditionBadge";
+} from './components/marketplace/ConditionBadge';
 // An OFFER's condition, which may be `unknown` — a different type and a
 // different sentence from a listing's, because most external feeds publish no
 // condition at all and "New" is what a shared fallback would render for them.
 export {
   OfferConditionBadge,
   type OfferConditionBadgeProps,
-} from "./components/marketplace/OfferConditionBadge";
+} from './components/marketplace/OfferConditionBadge';
 // One #74 comparison label, rendered from the award that earned it. Here rather
 // than in an app because the COPY it reads already lives here (`offer-labels`),
 // and a badge whose words and whose component sit in different packages is a
@@ -450,7 +471,7 @@ export {
 export {
   OfferLabelBadge,
   type OfferLabelBadgeProps,
-} from "./components/marketplace/OfferLabelBadge";
+} from './components/marketplace/OfferLabelBadge';
 
 // ---------------------------------------------------------------------------
 // Natural-language search interpretation (#95). Presentational only: the three
@@ -467,7 +488,7 @@ export {
   type InterpretationOrigin,
   type SearchClarificationProps,
   type SearchInterpretationProps,
-} from "./components/marketplace/SearchInterpretation";
+} from './components/marketplace/SearchInterpretation';
 
 // #96's grounded comparison and basket surfaces. Here rather than in an app
 // because the COPY they read (`comparison-labels`) lives here, and because all
@@ -477,15 +498,15 @@ export {
 export {
   ComparisonTableView,
   type ComparisonTableViewProps,
-} from "./components/marketplace/ComparisonTableView";
+} from './components/marketplace/ComparisonTableView';
 export {
   ComparisonExplanationBlock,
   type ComparisonExplanationBlockProps,
-} from "./components/marketplace/ComparisonExplanationBlock";
+} from './components/marketplace/ComparisonExplanationBlock';
 export {
   BasketPlanCard,
   type BasketPlanCardProps,
-} from "./components/marketplace/BasketPlanCard";
+} from './components/marketplace/BasketPlanCard';
 export {
   BASKET_OPTIMALITY_APPROXIMATE_KEY,
   BASKET_OPTIMALITY_PROVEN_KEY,
@@ -502,7 +523,7 @@ export {
   comparisonUnavailableTextKey,
   comparisonUnknownTextKey,
   explanationRejectionTextKey,
-} from "./lib/comparison-labels";
+} from './lib/comparison-labels';
 // ---------------------------------------------------------------------------
 // Brand and product-family pages (#72) — a CANONICAL product card and the
 // verified-relationship badge. Separate from `ProductCard`, which renders one
@@ -513,11 +534,11 @@ export {
 export {
   CanonicalProductCard,
   type CanonicalProductCardProps,
-} from "./components/marketplace/CanonicalProductCard";
+} from './components/marketplace/CanonicalProductCard';
 export {
   OfficialChannelBadge,
   type OfficialChannelBadgeProps,
-} from "./components/marketplace/OfficialChannelBadge";
+} from './components/marketplace/OfficialChannelBadge';
 
 // ---------------------------------------------------------------------------
 // Commercial disclosures (#129) — the disclosure list a screen renders
@@ -530,7 +551,7 @@ export {
 export {
   CommercialDisclosure,
   type CommercialDisclosureProps,
-} from "./components/marketplace/CommercialDisclosure";
+} from './components/marketplace/CommercialDisclosure';
 
 // ---------------------------------------------------------------------------
 // Location publication, nearby discovery and collection (#93) — the copy and
@@ -562,7 +583,7 @@ export {
   describeStockConfirmed,
   formatPublicAddress,
   type BuyerPickupBlockCopy,
-} from "./lib/pickup-labels";
+} from './lib/pickup-labels';
 // The referral partner dashboard's reader-facing copy (#147). Labels and
 // sentences only — no colour map, because #147 accessibility rule 2 asks that
 // a financial state not depend on one, and a surface wanting colour writes it
@@ -575,15 +596,15 @@ export {
   describeMetric,
   describeRewardBasis,
   describeWithheldRows,
-} from "./lib/referral-labels";
+} from './lib/referral-labels';
 export {
   NearbyLocationCard,
   type NearbyLocationCardProps,
-} from "./components/marketplace/NearbyLocationCard";
+} from './components/marketplace/NearbyLocationCard';
 export {
   PickupCollectionPanel,
   type PickupCollectionPanelProps,
-} from "./components/marketplace/PickupCollectionPanel";
+} from './components/marketplace/PickupCollectionPanel';
 
 // ---------------------------------------------------------------------------
 // The discovery feed (explore, category and deals) renders through the
@@ -598,7 +619,7 @@ export {
 // grid the "see all" page (`/categories/:handle/s/:signal`) lays its product
 // cards out in, and that screen is its only caller.
 // ---------------------------------------------------------------------------
-export { FeedGrid, type FeedGridProps } from "./components/marketplace/FeedGrid";
+export { FeedGrid, type FeedGridProps } from './components/marketplace/FeedGrid';
 
 // ---------------------------------------------------------------------------
 // Digital commerce (#1015, ADR 0010) — the 3D preview, the technical panel, the
@@ -628,35 +649,35 @@ export {
   type AssetPreviewCandidate,
   type AssetPreviewRefusalReason,
   type AssetPreviewSource,
-} from "./lib/asset-preview";
+} from './lib/asset-preview';
 export {
   AssetPreviewViewer,
   type AssetModelRenderer,
   type AssetPreviewViewerProps,
   type AssetViewerViewState,
-} from "./components/marketplace/AssetPreviewViewer";
+} from './components/marketplace/AssetPreviewViewer';
 export {
   AssetTechnicalPanel,
   type AssetMeasuredFactRow,
   type AssetMeasuredFacts,
   type AssetSellerClaimRow,
   type AssetTechnicalPanelProps,
-} from "./components/marketplace/AssetTechnicalPanel";
+} from './components/marketplace/AssetTechnicalPanel';
 export {
   AssetLicenceSummary,
   type AssetLicenceSummaryProps,
-} from "./components/marketplace/AssetLicenceSummary";
+} from './components/marketplace/AssetLicenceSummary';
 export {
   BuyerAssetRightCard,
   type BuyerAssetRightCardProps,
-} from "./components/marketplace/BuyerAssetRightCard";
+} from './components/marketplace/BuyerAssetRightCard';
 // A file size and a bare count, each spelled for the reader's locale and each
 // bidi-isolated (#429/#500). Their own modules rather than `./lib/format`,
 // because `validate:bidi-isolation` censuses that file function-by-function and
 // fails on one it has no case for — which this change cannot add. Both are
 // therefore OUTSIDE that census: a stated residual, not a gap nobody noticed.
-export { formatByteSize } from "./lib/byte-size";
-export { formatWholeNumber } from "./lib/plain-number";
+export { formatByteSize } from './lib/byte-size';
+export { formatWholeNumber } from './lib/plain-number';
 // The digital copy maps, exported for the same reason the condition and pickup
 // maps are: an app resolves one with its own `t`, and `validate:facet-label-copy`'s
 // sibling rule — a client never renders a machine key — needs somewhere to
@@ -715,12 +736,21 @@ export {
   DIGITAL_LICENCE_AUTHORSHIP_KEYS,
   DIGITAL_LICENCE_RIGHT_KEYS,
   DIGITAL_LICENCE_UPDATE_POLICY_KEYS,
-} from "./lib/digital-asset-labels";
+} from './lib/digital-asset-labels';
 
-export { merchantImageSource } from "./lib/shop-merchant-images";
+export { merchantImageSource } from './lib/shop-merchant-images';
 
-export { StoreOfferHeader, type StoreOfferHeaderProps } from "./components/marketplace/StoreOfferHeader";
+export {
+  StoreOfferHeader,
+  type StoreOfferHeaderProps,
+} from './components/marketplace/StoreOfferHeader';
 
-export { MarketplaceSheet, type MarketplaceSheetProps } from "./components/marketplace/MarketplaceSheet";
-export { ProductRichText, type ProductRichTextProps } from "./components/marketplace/ProductRichText";
-export { prepareProductDescription } from "./lib/product-description";
+export {
+  MarketplaceSheet,
+  type MarketplaceSheetProps,
+} from './components/marketplace/MarketplaceSheet';
+export {
+  ProductRichText,
+  type ProductRichTextProps,
+} from './components/marketplace/ProductRichText';
+export { prepareProductDescription } from './lib/product-description';

@@ -318,7 +318,9 @@ describe('mutation idempotency is explicit (route requirement 9)', () => {
       headers: { 'content-type': 'application/json', origin: ALLOWED_ORIGIN, cookie },
       body: JSON.stringify({ listingId, variantId, quantity: 1 }),
     });
-    const afterTwoPosts = await fetch(`${baseUrl}/cart`, { headers: { origin: ALLOWED_ORIGIN, cookie } });
+    const afterTwoPosts = await fetch(`${baseUrl}/cart`, {
+      headers: { origin: ALLOWED_ORIGIN, cookie },
+    });
     expect(((await afterTwoPosts.json()) as CartBody).data.items[0].quantity).toBe(2);
 
     // PATCH is absolute, so twice is the same as once — the mutation a native

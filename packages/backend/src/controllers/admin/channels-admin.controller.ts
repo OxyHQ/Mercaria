@@ -98,7 +98,10 @@ export async function connectKeyChannelHandler(req: Request, res: Response): Pro
     });
     sendSuccess(res, await toConnectionDTOWithWebhookFailures(conn));
   } catch (err) {
-    log.general.error({ err, provider: req.params.provider }, 'Failed to connect channel with API key');
+    log.general.error(
+      { err, provider: req.params.provider },
+      'Failed to connect channel with API key',
+    );
     respondWithError(res, err, 'Failed to connect channel');
   }
 }
@@ -135,7 +138,10 @@ export async function patchChannelSettingsHandler(req: Request, res: Response): 
     );
     sendSuccess(res, await toConnectionDTOWithWebhookFailures(conn));
   } catch (err) {
-    log.general.error({ err, connectionId: req.params.connectionId }, 'Failed to update channel settings');
+    log.general.error(
+      { err, connectionId: req.params.connectionId },
+      'Failed to update channel settings',
+    );
     respondWithError(res, err, 'Failed to update channel settings');
   }
 }
@@ -174,10 +180,7 @@ export async function syncChannelHandler(req: Request, res: Response): Promise<v
  * `webhookFailures` names the topics that still will not arrive and
  * `webhookRegistration` says whether Mercaria is still retrying.
  */
-export async function reregisterChannelWebhooksHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function reregisterChannelWebhooksHandler(req: Request, res: Response): Promise<void> {
   try {
     const connectionId = routeParam(req, 'connectionId');
     await requestWebhookReregistration(storeId(req), connectionId);
@@ -210,7 +213,10 @@ export async function disconnectChannelHandler(req: Request, res: Response): Pro
     const conn = await disconnect(storeId(req), routeParam(req, 'connectionId'), 'keep_listings');
     sendSuccess(res, { id: conn.id, status: conn.status });
   } catch (err) {
-    log.general.error({ err, connectionId: req.params.connectionId }, 'Failed to disconnect channel');
+    log.general.error(
+      { err, connectionId: req.params.connectionId },
+      'Failed to disconnect channel',
+    );
     respondWithError(res, err, 'Failed to disconnect channel');
   }
 }

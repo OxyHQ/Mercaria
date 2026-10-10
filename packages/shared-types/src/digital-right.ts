@@ -188,7 +188,12 @@ export type AssetDownloadRefusalReason = (typeof ASSET_DOWNLOAD_REFUSAL_REASONS)
  * nullable finish, so a transfer that never finishes is visible as an absence
  * rather than as a `NULL` that could equally mean "not recorded yet".
  */
-export const ASSET_DOWNLOAD_EVENT_KINDS = ['authorized', 'started', 'completed', 'refused'] as const;
+export const ASSET_DOWNLOAD_EVENT_KINDS = [
+  'authorized',
+  'started',
+  'completed',
+  'refused',
+] as const;
 
 /** One of {@link ASSET_DOWNLOAD_EVENT_KINDS}. */
 export type AssetDownloadEventKind = (typeof ASSET_DOWNLOAD_EVENT_KINDS)[number];

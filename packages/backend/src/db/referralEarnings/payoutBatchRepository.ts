@@ -24,10 +24,7 @@ import type {
   ReferralPayoutFailureReason,
 } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
-import {
-  referralPayoutBatchItems,
-  referralPayoutBatches,
-} from '../schema/referralEarnings.js';
+import { referralPayoutBatchItems, referralPayoutBatches } from '../schema/referralEarnings.js';
 
 /** A batch row as the services read it back. */
 export type ReferralPayoutBatchRow = typeof referralPayoutBatches.$inferSelect;

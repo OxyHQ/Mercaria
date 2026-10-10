@@ -1,12 +1,12 @@
-import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
-import { useOxy } from "@oxy.so/services";
-import type { Seller } from "@mercaria/shared-types";
-import { Rating } from "@oxy.so/bloom/rating";
-import { Text, useRatingDisplay } from "@mercaria/ui";
-import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
-import { useTranslation } from "@/lib/i18n";
-import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
+import { Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useOxy } from '@oxy.so/services';
+import type { Seller } from '@mercaria/shared-types';
+import { Rating } from '@oxy.so/bloom/rating';
+import { Text, useRatingDisplay } from '@mercaria/ui';
+import { SellerFollowButton } from '@/components/seller/SellerFollowButton';
+import { useTranslation } from '@/lib/i18n';
+import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 
 /** Avatar edge length (px) on the card. */
 const AVATAR_SIZE = 44;
@@ -34,25 +34,17 @@ const AVATAR_SIZE = 44;
  * rating and NOT the product's quality rating, both of which can appear
  * elsewhere on the same page, so the label travels with the stars.
  */
-export function SellerLinkCard({
-  seller,
-  onPress,
-}: {
-  seller: Seller;
-  onPress: () => void;
-}) {
+export function SellerLinkCard({ seller, onPress }: { seller: Seller; onPress: () => void }) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
   const { oxyServices } = useOxy();
-  const avatarUrl = seller.avatar
-    ? oxyServices.assets.publicUrl(seller.avatar, "thumb")
-    : null;
+  const avatarUrl = seller.avatar ? oxyServices.assets.publicUrl(seller.avatar, 'thumb') : null;
 
   return (
     <View className="gap-space-12 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={t("sellers.linkCard.viewProfile", { name: seller.displayName })}
+        accessibilityLabel={t('sellers.linkCard.viewProfile', { name: seller.displayName })}
         onPress={onPress}
         className="flex-row items-center gap-3"
       >

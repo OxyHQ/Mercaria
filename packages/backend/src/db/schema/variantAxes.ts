@@ -208,7 +208,10 @@ export const nativeListingVariantAxes = pgTable(
     // would distinguish them (it hashes the definition id) and a shopper would
     // see the same word twice. The citation trigger makes key and id agree, so
     // this also refuses the same version twice.
-    uniqueIndex('native_listing_variant_axes_listing_attribute_key').on(t.listingId, t.attributeKey),
+    uniqueIndex('native_listing_variant_axes_listing_attribute_key').on(
+      t.listingId,
+      t.attributeKey,
+    ),
     index('native_listing_variant_axes_listing_position_idx').on(t.listingId, t.position),
     // Reverse lookup for #367 step 5's schema resolution and for the operator
     // surface: which listings declare an axis on this exact definition version?
@@ -375,7 +378,10 @@ export const nativeVariantSignatures = pgTable(
     // A signature that is not a sha-256 hex digest is not one this codebase
     // produced, and it would silently occupy key space in the collision gate
     // below without colliding with anything.
-    check('native_variant_signatures_signature_shape_check', sql`${t.signature} ~ '^[0-9a-f]{64}$'`),
+    check(
+      'native_variant_signatures_signature_shape_check',
+      sql`${t.signature} ~ '^[0-9a-f]{64}$'`,
+    ),
     check('native_variant_signatures_axis_count_check', sql`${t.axisCount} >= 0`),
     uniqueIndex('native_variant_signatures_variant_key').on(t.variantId),
     // THE order-independence gate. `canonical_variants_product_signature_key`,
@@ -453,8 +459,16 @@ function claimResolutionChecks(
   t: ClaimResolutionColumns,
 ): ReturnType<typeof check>[] {
   return [
-    checkOneOf(`${table}_attribute_resolution_check`, t.attributeResolution, NATIVE_CLAIM_RESOLUTIONS),
-    checkOneOf(`${table}_attribute_refusal_check`, t.attributeRefusal, VARIANT_AXIS_ATTRIBUTE_REFUSALS),
+    checkOneOf(
+      `${table}_attribute_resolution_check`,
+      t.attributeResolution,
+      NATIVE_CLAIM_RESOLUTIONS,
+    ),
+    checkOneOf(
+      `${table}_attribute_refusal_check`,
+      t.attributeRefusal,
+      VARIANT_AXIS_ATTRIBUTE_REFUSALS,
+    ),
     checkOneOf(`${table}_value_resolution_check`, t.valueResolution, NATIVE_CLAIM_RESOLUTIONS),
     checkOneOf(`${table}_value_refusal_check`, t.valueRefusal, VARIANT_AXIS_VALUE_REFUSALS),
     // A blocked or refused half names its cause; an unresolved or resolved one
@@ -602,18 +616,14 @@ export const nativeListingAttributeClaims = pgTable(
      * disagree — the `attribute_value_aliases.normalized_alias` device. Both
      * functions are IMMUTABLE.
      */
-    rawNameNormalized: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim("raw_name"))`),
+    rawNameNormalized: text().notNull().generatedAlwaysAs(sql`lower(btrim("raw_name"))`),
     /**
      * The value half of the convergence key. `coalesce` to `''` rather than
      * leaving it NULL, because Postgres treats NULLs as DISTINCT in a unique
      * index and two identical axis declarations would both be admitted — the
      * `canonical_attribute_values.value_slot` reasoning.
      */
-    rawValueKey: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim(coalesce("raw_value", '')))`),
+    rawValueKey: text().notNull().generatedAlwaysAs(sql`lower(btrim(coalesce("raw_value", '')))`),
     ...claimProvenanceColumns(),
     ...claimResolutionColumns(),
     createdAt: createdAt(),
@@ -688,12 +698,8 @@ export const nativeVariantAttributeClaims = pgTable(
     rawName: text().notNull(),
     /** NOT NULL here: a variant claim is always a value. See the doc above. */
     rawValue: text().notNull(),
-    rawNameNormalized: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim("raw_name"))`),
-    rawValueKey: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim("raw_value"))`),
+    rawNameNormalized: text().notNull().generatedAlwaysAs(sql`lower(btrim("raw_name"))`),
+    rawValueKey: text().notNull().generatedAlwaysAs(sql`lower(btrim("raw_value"))`),
     ...claimProvenanceColumns(),
     ...claimResolutionColumns(),
     createdAt: createdAt(),

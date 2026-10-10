@@ -1,11 +1,7 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import type {
-  PaginatedResponse,
-  Listing,
-  CategoryNode,
-} from "@mercaria/shared-types";
-import { fetchCatalog, fetchCategories } from "../api/catalog";
-import { queryKeys } from "../queryKeys";
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import type { PaginatedResponse, Listing, CategoryNode } from '@mercaria/shared-types';
+import { fetchCatalog, fetchCategories } from '../api/catalog';
+import { queryKeys } from '../queryKeys';
 
 /** Filters applied to the register catalog grid. */
 export interface CatalogFilters {
@@ -20,12 +16,7 @@ export interface CatalogFilters {
 /** The store's catalog page, scoped + filtered for the register grid. */
 export function useCatalog(storeId: string, filters: CatalogFilters) {
   return useQuery<PaginatedResponse<Listing>>({
-    queryKey: queryKeys.catalog.list(
-      storeId,
-      filters.q,
-      filters.category,
-      filters.inStock,
-    ),
+    queryKey: queryKeys.catalog.list(storeId, filters.q, filters.category, filters.inStock),
     queryFn: () =>
       fetchCatalog({
         storeId,

@@ -16,10 +16,7 @@ import {
   RETAIL_COST_COMPONENT_KINDS,
   RETAIL_FORBIDDEN_COMPONENT_KINDS,
 } from '@mercaria/shared-types';
-import {
-  composeRetailCostOnlyTotal,
-  explainRetailCostOnlyTotal,
-} from '../retail-cost-formula.js';
+import { composeRetailCostOnlyTotal, explainRetailCostOnlyTotal } from '../retail-cost-formula.js';
 
 /** A same-currency component: source and presentment are the same figure. */
 function component(

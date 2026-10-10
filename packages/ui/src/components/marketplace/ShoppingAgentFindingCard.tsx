@@ -1,16 +1,16 @@
-import { Pressable, View } from "react-native";
+import { Pressable, View } from 'react-native';
 import type {
   Money,
   ShoppingAgentFinding,
   ShoppingAgentSelectedLine,
-} from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { PriceDisplay } from "../PriceDisplay";
-import type { Translate } from "../../i18n/create-app-i18n";
-import { conditionGroupLabelKey } from "../../lib/condition";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
-import { formatDateTime } from "../../lib/date";
-import { formatMoney } from "../../lib/format";
+} from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { PriceDisplay } from '../PriceDisplay';
+import type { Translate } from '../../i18n/create-app-i18n';
+import { conditionGroupLabelKey } from '../../lib/condition';
+import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
+import { formatDateTime } from '../../lib/date';
+import { formatMoney } from '../../lib/format';
 import {
   SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS,
   SHOPPING_AGENT_DELIVERY_FAILURE_KEYS,
@@ -37,7 +37,7 @@ import {
   SHOPPING_AGENT_UNKNOWN_VERDICT_KEY,
   SHOPPING_AGENT_UNNAMED_REQUIREMENT_KEY,
   SHOPPING_AGENT_WHAT_IT_LOOKED_AT_KEY,
-} from "../../lib/shopping-agent-labels";
+} from '../../lib/shopping-agent-labels';
 
 export interface ShoppingAgentFindingCardProps {
   finding: ShoppingAgentFinding;
@@ -98,7 +98,7 @@ export function ShoppingAgentFindingCard({
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
       <View className="gap-space-4">
         <Text className="text-shop-bodyTitleSmall text-text">
-          {t(SHOPPING_AGENT_OUTCOME_LABEL_KEYS[finding.outcome])} ·{" "}
+          {t(SHOPPING_AGENT_OUTCOME_LABEL_KEYS[finding.outcome])} ·{' '}
           {t(SHOPPING_AGENT_LIFECYCLE_LABEL_KEYS[finding.lifecycle])}
         </Text>
         {/* The trigger source is a complete phrase on its own, so an
@@ -112,7 +112,7 @@ export function ShoppingAgentFindingCard({
           {t(SHOPPING_AGENT_OUTCOME_EXPLANATION_KEYS[finding.outcome])}
         </Text>
         {/* UX rule 3 — a superseded or invalidated observation says so itself. */}
-        {finding.lifecycle === "current" ? null : (
+        {finding.lifecycle === 'current' ? null : (
           <Text className="text-shop-caption text-text-tertiary">
             {t(SHOPPING_AGENT_LIFECYCLE_EXPLANATION_KEYS[finding.lifecycle])}
           </Text>
@@ -185,9 +185,11 @@ export function ShoppingAgentFindingCard({
       ) : null}
 
       <Text className="text-shop-caption text-text-tertiary">
-        {t(SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS[finding.completeness])} ·{" "}
+        {t(SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS[finding.completeness])} ·{' '}
         {t(SHOPPING_AGENT_FRESHNESS_LABEL_KEYS[finding.freshness])}
-        {finding.optimality ? ` · ${t(SHOPPING_AGENT_OPTIMALITY_LABEL_KEYS[finding.optimality])}` : ""}
+        {finding.optimality
+          ? ` · ${t(SHOPPING_AGENT_OPTIMALITY_LABEL_KEYS[finding.optimality])}`
+          : ''}
       </Text>
 
       {finding.selection.length > 0 ? (
@@ -210,14 +212,14 @@ export function ShoppingAgentFindingCard({
         <View className="gap-space-4">
           {finding.notifications.map((notification) => (
             <Text key={notification.id} className="text-shop-caption text-text-tertiary">
-              {t(SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS[notification.channel])}:{" "}
+              {t(SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS[notification.channel])}:{' '}
               {t(SHOPPING_AGENT_NOTIFICATION_STATE_LABEL_KEYS[notification.state])}
               {notification.suppressionReason
                 ? ` — ${t(SHOPPING_AGENT_SUPPRESSION_REASON_KEYS[notification.suppressionReason])}`
-                : ""}
+                : ''}
               {notification.failureReason
                 ? ` — ${t(SHOPPING_AGENT_DELIVERY_FAILURE_KEYS[notification.failureReason])}`
-                : ""}
+                : ''}
             </Text>
           ))}
         </View>
@@ -280,7 +282,10 @@ function SelectedLineRow({
  */
 function describeDelta(t: Translate, delta: Money, locale: string): string {
   if (delta.amount === 0) return t(SHOPPING_AGENT_DELTA_UNCHANGED_KEY);
-  const magnitude = formatMoney({ amount: Math.abs(delta.amount), currency: delta.currency }, locale);
+  const magnitude = formatMoney(
+    { amount: Math.abs(delta.amount), currency: delta.currency },
+    locale,
+  );
   // The whole sentence is one key with an `%{amount}` slot rather than a
   // translated tail appended to the figure: the amount does not sit at the same
   // end of the clause in every one of the twelve.

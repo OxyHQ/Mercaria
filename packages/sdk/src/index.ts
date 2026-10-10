@@ -68,7 +68,11 @@ export {
   MercariaUnknownRouteError,
   MercariaValidationError,
 } from './errors';
-export type { MercariaErrorCode, MercariaErrorOptions, MercariaRateLimitErrorOptions } from './errors';
+export type {
+  MercariaErrorCode,
+  MercariaErrorOptions,
+  MercariaRateLimitErrorOptions,
+} from './errors';
 
 export type { MercariaAccessTokenGetter } from './transport';
 export type {

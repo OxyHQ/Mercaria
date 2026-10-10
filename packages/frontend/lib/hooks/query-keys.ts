@@ -1,11 +1,17 @@
-import type { BuyerOrderView, DiscoveryScope, DiscoverySignal, ListingQuery, ReviewListFilters } from '@mercaria/shared-types';
+import type {
+  BuyerOrderView,
+  DiscoveryScope,
+  DiscoverySignal,
+  ListingQuery,
+  ReviewListFilters,
+} from '@mercaria/shared-types';
 
 export const queryKeys = {
   notifications: {
-    all: ["notifications"] as const,
+    all: ['notifications'] as const,
   },
   feed: {
-    all: ["feed"] as const,
+    all: ['feed'] as const,
   },
   /**
    * The discovery feed — explore, category and deals, one contract with
@@ -18,10 +24,10 @@ export const queryKeys = {
    * `root` and `deals` already do not share one.
    */
   discovery: {
-    feed: (scope: DiscoveryScope) => ["discovery", "feed", scope] as const,
+    feed: (scope: DiscoveryScope) => ['discovery', 'feed', scope] as const,
     /** The `/categories/:handle/s/:signal` offset-paged listing for one signal. */
     signalPage: (scope: DiscoveryScope, signal: DiscoverySignal) =>
-      ["discovery", "signalPage", scope, signal] as const,
+      ['discovery', 'signalPage', scope, signal] as const,
   },
   /**
    * Natural-language search (#95). The RESULTS key carries the filters, so
@@ -29,21 +35,21 @@ export const queryKeys = {
    * makes editing an interpretation re-run the search without re-parsing it.
    */
   searchIntent: {
-    all: ["search-intent"] as const,
+    all: ['search-intent'] as const,
     results: (term: string, filters: unknown) =>
-      ["search-intent", "results", term, filters] as const,
+      ['search-intent', 'results', term, filters] as const,
   },
   cart: {
-    all: ["cart"] as const,
+    all: ['cart'] as const,
     /**
      * The guest→Oxy merge (#104). A separate key so React Query's own
      * once-per-`enabled`-transition semantics can stand in for the sign-in
      * effect that would otherwise watch the auth state.
      */
-    merge: ["cart", "merge"] as const,
+    merge: ['cart', 'merge'] as const,
   },
   addresses: {
-    all: ["addresses"] as const,
+    all: ['addresses'] as const,
   },
   /**
    * Price alerts (#79).
@@ -53,11 +59,11 @@ export const queryKeys = {
    * would show a buyer a target in a currency they did not ask for.
    */
   priceAlerts: {
-    all: ["price-alerts"] as const,
+    all: ['price-alerts'] as const,
     forProduct: (canonicalProductId: string) =>
-      ["price-alerts", "product", canonicalProductId] as const,
+      ['price-alerts', 'product', canonicalProductId] as const,
     suggestion: (canonicalProductId: string, currency: string) =>
-      ["price-alerts", "suggestion", canonicalProductId, currency] as const,
+      ['price-alerts', 'suggestion', canonicalProductId, currency] as const,
   },
   /**
    * Saved shopping agents (#97).
@@ -69,9 +75,9 @@ export const queryKeys = {
    * make a pause leave a stale timeline open on screen.
    */
   shoppingAgents: {
-    all: ["shopping-agents"] as const,
-    detail: (agentId: string) => ["shopping-agents", "detail", agentId] as const,
-    findings: (agentId: string) => ["shopping-agents", "findings", agentId] as const,
+    all: ['shopping-agents'] as const,
+    detail: (agentId: string) => ['shopping-agents', 'detail', agentId] as const,
+    findings: (agentId: string) => ['shopping-agents', 'findings', agentId] as const,
   },
   /**
    * The guest order PORTAL (#108). Its own namespace rather than a branch of
@@ -79,12 +85,10 @@ export const queryKeys = {
    * shared key would let a sign-out clear one buyer's cache and not the other's.
    */
   guestPortal: {
-    all: ["guest-portal"] as const,
-    session: ["guest-portal", "session"] as const,
-    view: (checkoutGroupId: string) =>
-      ["guest-portal", "view", checkoutGroupId] as const,
-    status: (checkoutGroupId: string) =>
-      ["guest-portal", "status", checkoutGroupId] as const,
+    all: ['guest-portal'] as const,
+    session: ['guest-portal', 'session'] as const,
+    view: (checkoutGroupId: string) => ['guest-portal', 'view', checkoutGroupId] as const,
+    status: (checkoutGroupId: string) => ['guest-portal', 'status', checkoutGroupId] as const,
   },
   /**
    * Claiming a guest checkout group into an Oxy account (#109).
@@ -96,25 +100,25 @@ export const queryKeys = {
    * only the first is true on a sign-out.
    */
   guestClaim: {
-    all: ["guest-claim"] as const,
-    preview: (checkoutGroupId: string) =>
-      ["guest-claim", "preview", checkoutGroupId] as const,
+    all: ['guest-claim'] as const,
+    preview: (checkoutGroupId: string) => ['guest-claim', 'preview', checkoutGroupId] as const,
   },
   orders: {
-    all: ["orders"] as const,
-    list: (page: number, view: BuyerOrderView, userId: string) => ["orders", "list", userId, view, page] as const,
-    detail: (id: string) => ["orders", "detail", id] as const,
+    all: ['orders'] as const,
+    list: (page: number, view: BuyerOrderView, userId: string) =>
+      ['orders', 'list', userId, view, page] as const,
+    detail: (id: string) => ['orders', 'detail', id] as const,
   },
   stores: {
-    detail: (handle: string) => ["stores", handle] as const,
-    collections: (handle: string) => ["stores", handle, "collections"] as const,
+    detail: (handle: string) => ['stores', handle] as const,
+    collections: (handle: string) => ['stores', handle, 'collections'] as const,
     collection: (handle: string, collectionHandle: string) =>
-      ["stores", handle, "collections", collectionHandle] as const,
-    reviews: (handle: string, page: number, limit = 20, query = "") =>
-      ["stores", handle, "reviews", page, { limit, query }] as const,
+      ['stores', handle, 'collections', collectionHandle] as const,
+    reviews: (handle: string, page: number, limit = 20, query = '') =>
+      ['stores', handle, 'reviews', page, { limit, query }] as const,
     // Keyed on the store ID, not the handle like its siblings: the follow
     // target is identified by the immutable id (see `lib/follow-graph.ts`).
-    followTarget: (storeId: string) => ["stores", "follow-target", storeId] as const,
+    followTarget: (storeId: string) => ['stores', 'follow-target', storeId] as const,
   },
   /**
    * The store page's "Visit us" section: the store's shop fronts (Mercaria's
@@ -122,9 +126,9 @@ export const queryKeys = {
    * is keyed on its locale too, because its display name is resolved in it.
    */
   visitUs: {
-    locations: (storeId: string) => ["visit-us", "locations", storeId] as const,
-    place: (placeId: string, locale: string) => ["visit-us", "place", placeId, locale] as const,
-    photos: (placeId: string) => ["visit-us", "photos", placeId] as const,
+    locations: (storeId: string) => ['visit-us', 'locations', storeId] as const,
+    place: (placeId: string, locale: string) => ['visit-us', 'place', placeId, locale] as const,
+    photos: (placeId: string) => ['visit-us', 'photos', placeId] as const,
   },
   /**
    * The PUBLIC P2P seller profile (#92). Keyed on the Oxy account id, which is
@@ -137,18 +141,17 @@ export const queryKeys = {
    * cached id.
    */
   sellers: {
-    profile: (oxyUserId: string) => ["sellers", oxyUserId] as const,
-    listings: (oxyUserId: string) => ["sellers", oxyUserId, "listings"] as const,
-    followTarget: (oxyUserId: string) => ["sellers", "follow-target", oxyUserId] as const,
+    profile: (oxyUserId: string) => ['sellers', oxyUserId] as const,
+    listings: (oxyUserId: string) => ['sellers', oxyUserId, 'listings'] as const,
+    followTarget: (oxyUserId: string) => ['sellers', 'follow-target', oxyUserId] as const,
   },
   listings: {
-    list: (query: ListingQuery & { page?: number; limit?: number }) =>
-      ["listings", query] as const,
-    detail: (id: string) => ["listings", id] as const,
-    reviews: (id: string, page: number, limit = 12, query = "") =>
-      ["listings", id, "reviews", page, { limit, query }] as const,
+    list: (query: ListingQuery & { page?: number; limit?: number }) => ['listings', query] as const,
+    detail: (id: string) => ['listings', id] as const,
+    reviews: (id: string, page: number, limit = 12, query = '') =>
+      ['listings', id, 'reviews', page, { limit, query }] as const,
     infiniteReviews: (id: string, limit: number, filters: ReviewListFilters) =>
-      ["listings", id, "reviews", "infinite", { limit, ...filters }] as const,
+      ['listings', id, 'reviews', 'infinite', { limit, ...filters }] as const,
   },
   /**
    * Saves (#80). Filed under their own key rather than under `listings`,
@@ -162,11 +165,11 @@ export const queryKeys = {
    * entry, so a save or an un-save invalidates the whole list in one call.
    */
   saves: {
-    all: ["saves"] as const,
-    productContext: (productId: string) => ["saves", "product", productId] as const,
-    savedItems: ["saved-items"] as const,
+    all: ['saves'] as const,
+    productContext: (productId: string) => ['saves', 'product', productId] as const,
+    savedItems: ['saved-items'] as const,
     /** The two-button context of one listing page. */
-    listingContext: (listingId: string) => ["saves", "listing", listingId] as const,
+    listingContext: (listingId: string) => ['saves', 'listing', listingId] as const,
   },
   /**
    * Private watchlists (#81), and the BASKET is a key of its own beside the
@@ -179,10 +182,10 @@ export const queryKeys = {
    * exactly what #81 acceptance 7 forbids.
    */
   watchlists: {
-    all: ["watchlists"] as const,
-    detail: (watchlistId: string) => ["watchlists", "detail", watchlistId] as const,
-    basket: (watchlistId: string) => ["watchlists", "basket", watchlistId] as const,
-    snapshots: (watchlistId: string) => ["watchlists", "snapshots", watchlistId] as const,
+    all: ['watchlists'] as const,
+    detail: (watchlistId: string) => ['watchlists', 'detail', watchlistId] as const,
+    basket: (watchlistId: string) => ['watchlists', 'basket', watchlistId] as const,
+    snapshots: (watchlistId: string) => ['watchlists', 'snapshots', watchlistId] as const,
   },
   /**
    * The SCOPED review reads (#76). Deliberately keyed under `reviews` rather
@@ -196,18 +199,17 @@ export const queryKeys = {
    * are for the legacy reads.
    */
   reviews: {
-    helpfulnessAll: (userId: string) => ["review-helpfulness", userId] as const,
-    helpfulness: (userId: string, ids: string[]) => ["review-helpfulness", userId, ids] as const,
-    productAll: (canonicalProductId: string) =>
-      ["reviews", "product", canonicalProductId] as const,
-    product: (canonicalProductId: string, page: number, limit = 12, query = "") =>
-      ["reviews", "product", canonicalProductId, page, { limit, query }] as const,
+    helpfulnessAll: (userId: string) => ['review-helpfulness', userId] as const,
+    helpfulness: (userId: string, ids: string[]) => ['review-helpfulness', userId, ids] as const,
+    productAll: (canonicalProductId: string) => ['reviews', 'product', canonicalProductId] as const,
+    product: (canonicalProductId: string, page: number, limit = 12, query = '') =>
+      ['reviews', 'product', canonicalProductId, page, { limit, query }] as const,
     productInfinite: (canonicalProductId: string, limit: number, filters: ReviewListFilters) =>
-      ["reviews", "product", canonicalProductId, "infinite", { limit, ...filters }] as const,
-    merchantAll: (merchantId: string) => ["reviews", "merchant", merchantId] as const,
-    merchant: (merchantId: string, page: number, limit = 12, query = "") =>
-      ["reviews", "merchant", merchantId, page, { limit, query }] as const,
-    eligibilities: ["reviews", "eligibilities"] as const,
+      ['reviews', 'product', canonicalProductId, 'infinite', { limit, ...filters }] as const,
+    merchantAll: (merchantId: string) => ['reviews', 'merchant', merchantId] as const,
+    merchant: (merchantId: string, page: number, limit = 12, query = '') =>
+      ['reviews', 'merchant', merchantId, page, { limit, query }] as const,
+    eligibilities: ['reviews', 'eligibilities'] as const,
   },
   /**
    * The canonical product page (#71). Its own namespace rather than a branch of
@@ -222,9 +224,9 @@ export const queryKeys = {
    */
   productPage: {
     detail: (handle: string, params: Readonly<Record<string, string | number | undefined>>) =>
-      ["product-page", handle, params] as const,
+      ['product-page', handle, params] as const,
     priceHistory: (canonicalProductId: string, segment: string, currency: string) =>
-      ["product-page", canonicalProductId, "price-history", segment, currency] as const,
+      ['product-page', canonicalProductId, 'price-history', segment, currency] as const,
   },
   /**
    * The merchant page and its two browses (#73).
@@ -235,11 +237,11 @@ export const queryKeys = {
    * from one scope be replayed into another.
    */
   merchants: {
-    page: (idOrSlug: string) => ["merchants", "page", idOrSlug] as const,
+    page: (idOrSlug: string) => ['merchants', 'page', idOrSlug] as const,
     catalog: (idOrSlug: string, params: unknown) =>
-      ["merchants", "catalog", idOrSlug, params] as const,
+      ['merchants', 'catalog', idOrSlug, params] as const,
     offers: (idOrSlug: string, params: unknown) =>
-      ["merchants", "offers", idOrSlug, params] as const,
+      ['merchants', 'offers', idOrSlug, params] as const,
   },
   /**
    * Grounded comparison and basket plans (#96).
@@ -256,9 +258,9 @@ export const queryKeys = {
    */
   comparison: {
     compare: (params: Readonly<Record<string, string | number | undefined>>) =>
-      ["comparison", "compare", params] as const,
+      ['comparison', 'compare', params] as const,
     basket: (params: Readonly<Record<string, string | number | undefined>>) =>
-      ["comparison", "basket", params] as const,
+      ['comparison', 'basket', params] as const,
   },
   /**
    * The composed brand and family PAGES (#72).
@@ -273,13 +275,12 @@ export const queryKeys = {
    * cursor.
    */
   catalogPages: {
-    brand: (handle: string, market: string) => ["catalogPages", "brand", handle, market] as const,
+    brand: (handle: string, market: string) => ['catalogPages', 'brand', handle, market] as const,
     brandProducts: (handle: string, filters: string) =>
-      ["catalogPages", "brand", handle, "products", filters] as const,
-    family: (handle: string, params: string) =>
-      ["catalogPages", "family", handle, params] as const,
+      ['catalogPages', 'brand', handle, 'products', filters] as const,
+    family: (handle: string, params: string) => ['catalogPages', 'family', handle, params] as const,
     familyProducts: (handle: string, filters: string) =>
-      ["catalogPages", "family", handle, "products", filters] as const,
+      ['catalogPages', 'family', handle, 'products', filters] as const,
   },
   /**
    * The "Sell yours" flow (#91).
@@ -290,12 +291,12 @@ export const queryKeys = {
    * `…Root` prefix is what a mutation invalidates, so a saved step drops every
    * currency's preview rather than only the one the screen happens to hold.
    */
-  sellerDrafts: () => ["seller-drafts"] as const,
-  sellerDraftPreviewRoot: (draftId: string) => ["seller-drafts", draftId] as const,
+  sellerDrafts: () => ['seller-drafts'] as const,
+  sellerDraftPreviewRoot: (draftId: string) => ['seller-drafts', draftId] as const,
   sellerDraftPreview: (draftId: string, params?: { currency?: string; market?: string }) =>
-    ["seller-drafts", draftId, params?.currency ?? "", params?.market ?? ""] as const,
+    ['seller-drafts', draftId, params?.currency ?? '', params?.market ?? ''] as const,
   sellerMatchCandidates: (params: { identifier?: string; q?: string }) =>
-    ["seller-drafts", "candidates", params.identifier ?? "", params.q ?? ""] as const,
+    ['seller-drafts', 'candidates', params.identifier ?? '', params.q ?? ''] as const,
   /**
    * Nearby availability and its manual fallback (#93).
    *
@@ -312,11 +313,11 @@ export const queryKeys = {
    * has.
    */
   nearby: {
-    all: ["nearby"] as const,
+    all: ['nearby'] as const,
     availability: (subject: string, cell: string | null, locale: string) =>
-      ["nearby", "availability", subject, cell ?? "", locale] as const,
+      ['nearby', 'availability', subject, cell ?? '', locale] as const,
     places: (subject: string, term: string, locale: string) =>
-      ["nearby", "places", subject, term, locale] as const,
+      ['nearby', 'places', subject, term, locale] as const,
   },
   /**
    * An order's collection snapshot and its code (#93).
@@ -331,10 +332,10 @@ export const queryKeys = {
    * order DTO that support tooling and logs forward on.
    */
   collection: {
-    all: ["collection"] as const,
-    byOrder: (orderId: string) => ["collection", "order", orderId] as const,
+    all: ['collection'] as const,
+    byOrder: (orderId: string) => ['collection', 'order', orderId] as const,
     byGuestOrder: (checkoutGroupId: string, orderId: string) =>
-      ["collection", "guest", checkoutGroupId, orderId] as const,
+      ['collection', 'guest', checkoutGroupId, orderId] as const,
   },
   /**
    * The referral partner's own dashboard (#147).
@@ -348,12 +349,12 @@ export const queryKeys = {
    * signing out clears the client.
    */
   referralPartner: {
-    all: ["referral-partner"] as const,
-    dashboard: ["referral-partner", "dashboard"] as const,
-    earnings: ["referral-partner", "earnings"] as const,
-    instruments: ["referral-partner", "instruments"] as const,
+    all: ['referral-partner'] as const,
+    dashboard: ['referral-partner', 'dashboard'] as const,
+    earnings: ['referral-partner', 'earnings'] as const,
+    instruments: ['referral-partner', 'instruments'] as const,
     performance: (dimension: string, from: string, through: string) =>
-      ["referral-partner", "performance", dimension, from, through] as const,
+      ['referral-partner', 'performance', dimension, from, through] as const,
   },
   /**
    * The universal catalog surfaces the storefront reads (#367 workstream 9).
@@ -370,20 +371,20 @@ export const queryKeys = {
    * fallback two cache entries that can never both be right.
    */
   catalog: {
-    all: ["catalog"] as const,
+    all: ['catalog'] as const,
     navigation: (market: string, locale: string, surface: string) =>
-      ["catalog", "navigation", market, locale, surface] as const,
+      ['catalog', 'navigation', market, locale, surface] as const,
     facets: (scope: string, selection: string, locale: string, currency: string) =>
-      ["catalog", "facets", scope, selection, locale, currency] as const,
+      ['catalog', 'facets', scope, selection, locale, currency] as const,
     attributeDefinitions: (categoryId: string) =>
-      ["catalog", "attribute-definitions", categoryId] as const,
+      ['catalog', 'attribute-definitions', categoryId] as const,
     attributeValues: (entityKind: string, entityId: string) =>
-      ["catalog", "attribute-values", entityKind, entityId] as const,
+      ['catalog', 'attribute-values', entityKind, entityId] as const,
     /**
      * `GET /seo/resolve`. Keyed on the PATH and nothing else: the answer is a
      * property of the address, and the endpoint takes no other input.
      */
-    seoPath: (path: string) => ["catalog", "seo", path] as const,
+    seoPath: (path: string) => ['catalog', 'seo', path] as const,
     /**
      * `GET /compatibility/fitments`, keyed on the whole SUBJECT LIST.
      *
@@ -394,6 +395,6 @@ export const queryKeys = {
      * happened to share a value cannot collide into one key.
      */
     partFitments: (subjects: readonly string[]) =>
-      ["catalog", "part-fitments", ...subjects] as const,
+      ['catalog', 'part-fitments', ...subjects] as const,
   },
 } as const;

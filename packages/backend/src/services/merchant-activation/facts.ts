@@ -23,7 +23,11 @@
  */
 
 import { and, count, eq, inArray } from 'drizzle-orm';
-import type { ChannelReadiness, CurrencyCode, MerchantActivationPolicyKey } from '@mercaria/shared-types';
+import type {
+  ChannelReadiness,
+  CurrencyCode,
+  MerchantActivationPolicyKey,
+} from '@mercaria/shared-types';
 import { MERCHANT_ACTIVATION_POLICIES } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
@@ -218,7 +222,9 @@ export async function readMerchantActivationFacts(
   // GoWay outage reads as `place_unavailable` — not collectable — which is the
   // direction a readiness answer must fail in.
   const places = await readPlaces(
-    pickupLocations.flatMap((location) => (location.goWayPlaceId === null ? [] : [location.goWayPlaceId])),
+    pickupLocations.flatMap((location) =>
+      location.goWayPlaceId === null ? [] : [location.goWayPlaceId],
+    ),
   );
   const collectableLocationCount = pickupLocations.filter(
     (location) =>
@@ -227,7 +233,8 @@ export async function readMerchantActivationFacts(
         placeLinkGaps: placeLinkGaps({
           locationId: location.locationId,
           goWayPlaceId: location.goWayPlaceId,
-          lookup: location.goWayPlaceId === null ? null : (places.get(location.goWayPlaceId) ?? null),
+          lookup:
+            location.goWayPlaceId === null ? null : (places.get(location.goWayPlaceId) ?? null),
         }),
       }).length === 0,
   ).length;
@@ -271,7 +278,9 @@ export async function readMerchantActivationFacts(
     // field stays separate because #88 can supersede a schedule between the two
     // reads, and collapsing them would make that race read as "accepted".
     feeScheduleAcceptedVersionCurrent:
-      acceptance !== undefined && schedule !== undefined && acceptance.scheduleVersion === schedule.version,
+      acceptance !== undefined &&
+      schedule !== undefined &&
+      acceptance.scheduleVersion === schedule.version,
     acceptedPolicies: indexAcceptances(acceptanceRows),
     completedOrderCount,
     fulfilment,
@@ -356,7 +365,11 @@ function indexAcceptances(
     const existing = byPolicy[key];
     // A current acceptance always wins; otherwise the most recent one is what
     // the merchant last agreed to.
-    if (!existing || (current && !existing.current) || (current === existing.current && row.createdAt > existing.acceptedAt)) {
+    if (
+      !existing ||
+      (current && !existing.current) ||
+      (current === existing.current && row.createdAt > existing.acceptedAt)
+    ) {
       byPolicy[key] = {
         policyVersion: row.policyVersion,
         acceptedByOxyUserId: row.acceptedByOxyUserId,
@@ -396,4 +409,3 @@ async function countCompletedOrders(storeId: string): Promise<number> {
     );
   return row?.total ?? 0;
 }
-

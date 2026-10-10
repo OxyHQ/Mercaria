@@ -116,7 +116,10 @@ afterAll(async () => {
   });
   await db.delete(locations).where(inArray(locations.id, safeIds(createdLocationIds)));
   await deleteTestStores(db, createdStoreIds);
-  await deleteTestCanonicalRows(db, { productIds: createdProductIds, variantIds: createdVariantIds });
+  await deleteTestCanonicalRows(db, {
+    productIds: createdProductIds,
+    variantIds: createdVariantIds,
+  });
   await closePostgres();
 });
 
@@ -138,7 +141,11 @@ async function mintStore(label: string): Promise<string> {
 }
 
 /** A location, published, naming `placeId` (or no place). */
-async function mintPublishedLocation(storeId: string, label: string, placeId: string | null): Promise<string> {
+async function mintPublishedLocation(
+  storeId: string,
+  label: string,
+  placeId: string | null,
+): Promise<string> {
   const [row] = await db
     .insert(locations)
     .values({ storeId, name: `${label} ${RUN}`, type: 'retail', goWayPlaceId: placeId })
@@ -155,7 +162,9 @@ async function mintPublishedLocation(storeId: string, label: string, placeId: st
   return row.id;
 }
 
-async function mintCanonicalVariant(label: string): Promise<{ productId: string; variantId: string }> {
+async function mintCanonicalVariant(
+  label: string,
+): Promise<{ productId: string; variantId: string }> {
   const [product] = await db
     .insert(canonicalProducts)
     .values({
@@ -179,7 +188,11 @@ async function mintCanonicalVariant(label: string): Promise<{ productId: string;
 }
 
 /** One store listing stocked at each of `locationIds`, attached to a canonical variant. */
-async function mintStock(storeId: string, locationIds: readonly string[], canonicalVariantId: string): Promise<string> {
+async function mintStock(
+  storeId: string,
+  locationIds: readonly string[],
+  canonicalVariantId: string,
+): Promise<string> {
   const [listing] = await db
     .insert(listings)
     .values({
@@ -205,7 +218,9 @@ async function mintStock(storeId: string, locationIds: readonly string[], canoni
     })
     .returning({ id: productVariants.id });
   for (const locationId of locationIds) {
-    await db.insert(inventoryLevels).values({ variantId: variant.id, listingId: listing.id, locationId, available: 5 });
+    await db
+      .insert(inventoryLevels)
+      .values({ variantId: variant.id, listingId: listing.id, locationId, available: 5 });
   }
   await db.insert(nativeListingLinks).values({
     productVariantId: variant.id,
@@ -219,7 +234,10 @@ async function mintStock(storeId: string, locationIds: readonly string[], canoni
 }
 
 /** A GoWay place a fixture location trades from, vouched for by its business unless told otherwise. */
-function placeFor(locationId: string | null, overrides: Partial<FakePlace> & { id: string }): FakePlace {
+function placeFor(
+  locationId: string | null,
+  overrides: Partial<FakePlace> & { id: string },
+): FakePlace {
   return {
     name: 'Llibreria Central',
     latitude: 41.4036,
@@ -232,7 +250,9 @@ function placeFor(locationId: string | null, overrides: Partial<FakePlace> & { i
       countryCode: 'ES',
     },
     timezone: 'Europe/Madrid',
-    openingHours: { intervals: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, opens: '00:00', closes: '00:00' })) },
+    openingHours: {
+      intervals: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ day, opens: '00:00', closes: '00:00' })),
+    },
     storeLinks: locationId === null ? [] : [{ locationId, verification: 'business_asserted' }],
     ...overrides,
   };
@@ -252,7 +272,11 @@ async function placeIdOf(locationId: string): Promise<string | null> {
   return row?.goWayPlaceId ?? null;
 }
 
-async function expectMercariaError(run: () => Promise<unknown>, httpStatus: number, message?: RegExp): Promise<void> {
+async function expectMercariaError(
+  run: () => Promise<unknown>,
+  httpStatus: number,
+  message?: RegExp,
+): Promise<void> {
   let thrown: unknown;
   try {
     await run();
@@ -276,8 +300,17 @@ describe('the place link and the trust rule', () => {
     const locationId = await mintPublishedLocation(storeId, 'linked', `place-linked-${RUN}`);
     goway.places.set(`place-linked-${RUN}`, placeFor(locationId, { id: `place-linked-${RUN}` }));
 
-    const link = await verifyLocationPlaceLink({ storeId, locationId, actorOxyUserId: 'merchant-1', at: new Date() });
-    expect(link).toMatchObject({ verdict: 'linked', missing: [], goWayPlaceId: `place-linked-${RUN}` });
+    const link = await verifyLocationPlaceLink({
+      storeId,
+      locationId,
+      actorOxyUserId: 'merchant-1',
+      at: new Date(),
+    });
+    expect(link).toMatchObject({
+      verdict: 'linked',
+      missing: [],
+      goWayPlaceId: `place-linked-${RUN}`,
+    });
     expect(link.place?.url).toBe(`https://goway.to/place/place-linked-${RUN}`);
     expect(link.storeLink).toEqual({ locationId, verification: 'business_asserted' });
   });
@@ -285,10 +318,15 @@ describe('the place link and the trust rule', () => {
   const failing: readonly [string, (locationId: string, placeId: string) => void, string][] = [
     ['names no place', () => undefined, 'place_not_set'],
     ['names a place GoWay never heard of', () => undefined, 'place_not_found'],
-    ['names a place GoWay removed', (_location, placeId) => goway.gone.set(placeId, null), 'place_gone'],
+    [
+      'names a place GoWay removed',
+      (_location, placeId) => goway.gone.set(placeId, null),
+      'place_gone',
+    ],
     [
       'names a closed place',
-      (locationId, placeId) => goway.places.set(placeId, placeFor(locationId, { id: placeId, status: 'closed' })),
+      (locationId, placeId) =>
+        goway.places.set(placeId, placeFor(locationId, { id: placeId, status: 'closed' })),
       'place_not_active',
     ],
     [
@@ -298,7 +336,8 @@ describe('the place link and the trust rule', () => {
     ],
     [
       'names a place that names ANOTHER location',
-      (_location, placeId) => goway.places.set(placeId, placeFor('location-elsewhere', { id: placeId })),
+      (_location, placeId) =>
+        goway.places.set(placeId, placeFor('location-elsewhere', { id: placeId })),
       'store_link_names_other_location',
     ],
     [
@@ -306,7 +345,10 @@ describe('the place link and the trust rule', () => {
       (locationId, placeId) =>
         goway.places.set(
           placeId,
-          placeFor(null, { id: placeId, storeLinks: [{ locationId, verification: 'community_reported' }] }),
+          placeFor(null, {
+            id: placeId,
+            storeLinks: [{ locationId, verification: 'community_reported' }],
+          }),
         ),
       'store_link_unverified',
     ],
@@ -317,7 +359,12 @@ describe('the place link and the trust rule', () => {
       const placeId = gap === 'place_not_set' ? null : `place-${slug}-${RUN}`;
       const locationId = await mintPublishedLocation(storeId, slug, placeId);
       if (placeId !== null) arrange(locationId, placeId);
-      const link = await verifyLocationPlaceLink({ storeId, locationId, actorOxyUserId: null, at: new Date() });
+      const link = await verifyLocationPlaceLink({
+        storeId,
+        locationId,
+        actorOxyUserId: null,
+        at: new Date(),
+      });
       expect(link.verdict).toBe('unlinked');
       expect(link.missing).toEqual([gap]);
     });
@@ -327,7 +374,12 @@ describe('the place link and the trust rule', () => {
     const locationId = await mintPublishedLocation(storeId, 'down', `place-down-${RUN}`);
     goway.places.set(`place-down-${RUN}`, placeFor(locationId, { id: `place-down-${RUN}` }));
     goway.down = true;
-    const link = await verifyLocationPlaceLink({ storeId, locationId, actorOxyUserId: null, at: new Date() });
+    const link = await verifyLocationPlaceLink({
+      storeId,
+      locationId,
+      actorOxyUserId: null,
+      at: new Date(),
+    });
     expect(link.missing).toEqual(['goway_unavailable']);
   });
 
@@ -338,8 +390,17 @@ describe('the place link and the trust rule', () => {
     goway.gone.set(absorbed, survivor);
     goway.places.set(survivor, placeFor(locationId, { id: survivor }));
 
-    const link = await verifyLocationPlaceLink({ storeId, locationId, actorOxyUserId: 'merchant-1', at: new Date() });
-    expect(link).toMatchObject({ verdict: 'linked', goWayPlaceId: survivor, followedMergeFrom: absorbed });
+    const link = await verifyLocationPlaceLink({
+      storeId,
+      locationId,
+      actorOxyUserId: 'merchant-1',
+      at: new Date(),
+    });
+    expect(link).toMatchObject({
+      verdict: 'linked',
+      goWayPlaceId: survivor,
+      followedMergeFrom: absorbed,
+    });
     expect(await placeIdOf(locationId)).toBe(survivor);
 
     const trail = await db
@@ -349,7 +410,10 @@ describe('the place link and the trust rule', () => {
         next: locationPublicationEvents.nextGoWayPlaceId,
       })
       .from(locationPublicationEvents)
-      .innerJoin(locationPublications, eq(locationPublications.id, locationPublicationEvents.publicationId))
+      .innerJoin(
+        locationPublications,
+        eq(locationPublications.id, locationPublicationEvents.publicationId),
+      )
       .where(eq(locationPublications.locationId, locationId));
     expect(trail).toEqual([{ kind: 'place_merge_followed', previous: absorbed, next: survivor }]);
   });
@@ -357,11 +421,21 @@ describe('the place link and the trust rule', () => {
   it('refuses to PUBLISH a location the rule refuses, naming what is missing, and publishes it once linked', async () => {
     const placeId = `place-publish-${RUN}`;
     const locationId = await mintPublishedLocation(storeId, 'publish', placeId);
-    await db.update(locationPublications).set({ publicationState: 'draft' }).where(eq(locationPublications.locationId, locationId));
+    await db
+      .update(locationPublications)
+      .set({ publicationState: 'draft' })
+      .where(eq(locationPublications.locationId, locationId));
     goway.places.set(placeId, placeFor(null, { id: placeId }));
 
     await expectMercariaError(
-      () => changePublicationState({ storeId, locationId, actorOxyUserId: 'm', at: new Date(), body: { state: 'published' } }),
+      () =>
+        changePublicationState({
+          storeId,
+          locationId,
+          actorOxyUserId: 'm',
+          at: new Date(),
+          body: { state: 'published' },
+        }),
       400,
       /store_link_missing/,
     );
@@ -387,7 +461,13 @@ describe('the place link and the trust rule', () => {
       stockConfirmationIntervalSeconds: 3_600,
     };
     const save = (goWayPlaceId: string) =>
-      upsertPublication({ storeId, locationId, actorOxyUserId: 'm', at: new Date(), body: { ...body, goWayPlaceId } });
+      upsertPublication({
+        storeId,
+        locationId,
+        actorOxyUserId: 'm',
+        at: new Date(),
+        body: { ...body, goWayPlaceId },
+      });
 
     await expectMercariaError(() => save(`place-nowhere-${RUN}`), 400, /no such place/i);
 
@@ -413,7 +493,12 @@ describe('the place link and the trust rule', () => {
           locationId: second,
           actorOxyUserId: 'm',
           at: new Date(),
-          body: { goWayPlaceId: placeId, pickupOffered: true, inventorySource: 'pos', stockConfirmationIntervalSeconds: 3_600 },
+          body: {
+            goWayPlaceId: placeId,
+            pickupOffered: true,
+            inventorySource: 'pos',
+            stockConfirmationIntervalSeconds: 3_600,
+          },
         }),
       409,
     );
@@ -436,7 +521,11 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
     nearId = await mintPublishedLocation(storeId, 'near', `place-near-${RUN}`);
     fartherId = await mintPublishedLocation(storeId, 'farther', `place-farther-${RUN}`);
     communityId = await mintPublishedLocation(storeId, 'community', `place-community-${RUN}`);
-    mergedAwayId = await mintPublishedLocation(storeId, 'merged-away', `place-absorbed-near-${RUN}`);
+    mergedAwayId = await mintPublishedLocation(
+      storeId,
+      'merged-away',
+      `place-absorbed-near-${RUN}`,
+    );
     await mintStock(storeId, [nearId, fartherId, communityId, mergedAwayId], canonical.variantId);
   });
 
@@ -446,7 +535,12 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
     goway.places.set(`place-near-${RUN}`, placeFor(nearId, { id: `place-near-${RUN}` }));
     goway.places.set(
       `place-farther-${RUN}`,
-      placeFor(fartherId, { id: `place-farther-${RUN}`, name: 'Llibreria Gràcia', latitude: 41.43, longitude: 2.16 }),
+      placeFor(fartherId, {
+        id: `place-farther-${RUN}`,
+        name: 'Llibreria Gràcia',
+        latitude: 41.43,
+        longitude: 2.16,
+      }),
     );
     goway.places.set(
       `place-community-${RUN}`,
@@ -460,7 +554,11 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
     goway.gone.set(`place-absorbed-near-${RUN}`, `place-survivor-near-${RUN}`);
     goway.places.set(
       `place-survivor-near-${RUN}`,
-      placeFor(mergedAwayId, { id: `place-survivor-near-${RUN}`, latitude: 41.395, longitude: 2.17 }),
+      placeFor(mergedAwayId, {
+        id: `place-survivor-near-${RUN}`,
+        latitude: 41.395,
+        longitude: 2.17,
+      }),
     );
   });
 
@@ -479,7 +577,7 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
       new Date(),
     );
 
-  it('answers with the vouched-for locations, nearest first, from the PLACE\'s facts', async () => {
+  it("answers with the vouched-for locations, nearest first, from the PLACE's facts", async () => {
     const page = await ask();
     expect(page.results.map((result) => result.location.locationId)).toEqual([nearId, fartherId]);
 
@@ -487,7 +585,12 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
     expect(near.location).toMatchObject({
       goWayPlaceId: `place-near-${RUN}`,
       displayName: 'Llibreria Central',
-      address: { line1: 'Carrer de Mallorca 401', city: 'Barcelona', postalCode: '08013', country: 'ES' },
+      address: {
+        line1: 'Carrer de Mallorca 401',
+        city: 'Barcelona',
+        postalCode: '08013',
+        country: 'ES',
+      },
       timezone: 'Europe/Madrid',
       openState: { known: true, open: true },
     });
@@ -505,7 +608,9 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
         id: `place-near-${RUN}`,
         // Yesterday to tomorrow in the place's calendar: closed NOW, open again
         // within the discoverability horizon.
-        hoursExceptions: [{ startsOn: madridDate(-1), endsOn: madridDate(1), closed: true, note: 'Refit' }],
+        hoursExceptions: [
+          { startsOn: madridDate(-1), endsOn: madridDate(1), closed: true, note: 'Refit' },
+        ],
       }),
     );
     const page = await ask({ locale: 'ca' });
@@ -514,7 +619,11 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
     expect(goway.requests[0]).toContain('locale=ca');
     const near = page.results.find((result) => result.location.locationId === nearId);
     // Closed by the exception the LIST carried — what a second read used to be for.
-    expect(near?.location.openState).toMatchObject({ known: true, open: false, exceptionNote: 'Refit' });
+    expect(near?.location.openState).toMatchObject({
+      known: true,
+      open: false,
+      exceptionNote: 'Refit',
+    });
   });
 
   it('omits a place only the community vouches for, and one GoWay merged until verify follows it', async () => {
@@ -524,7 +633,7 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
     expect(served).not.toContain(mergedAwayId);
   });
 
-  it('pages with GoWay\'s own cursor, and never repeats a location', async () => {
+  it("pages with GoWay's own cursor, and never repeats a location", async () => {
     const first = await ask({ limit: 1 });
     expect(first.nextCursor).toBeDefined();
     const seen = first.results.map((result) => result.location.locationId);
@@ -558,15 +667,23 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
       { name: 'Barcelona', latitude: 41.3874, longitude: 2.1686, countryCode: 'ES' },
       { name: 'Barbastro', latitude: 42.0356, longitude: 0.1265, countryCode: 'ES' },
     );
-    const towns = await suggestNearbyPlaces({ canonicalVariantId: canonical.variantId, term: 'Bar', limit: 5 });
+    const towns = await suggestNearbyPlaces({
+      canonicalVariantId: canonical.variantId,
+      term: 'Bar',
+      limit: 5,
+    });
     expect(towns.map((town) => town.label)).toEqual(['Barcelona']);
     expect(towns[0].locationCount).toBe(2);
     // No term, nothing to resolve: no gazetteer enumeration.
-    expect(await suggestNearbyPlaces({ canonicalVariantId: canonical.variantId, limit: 5 })).toEqual([]);
+    expect(
+      await suggestNearbyPlaces({ canonicalVariantId: canonical.variantId, limit: 5 }),
+    ).toEqual([]);
   });
 
-  it('PRIVACY: the shopper\'s coordinate reaches GoWay and is never logged or cached', async () => {
-    const spies = (['debug', 'info', 'warn', 'error'] as const).map((level) => vi.spyOn(log.general, level));
+  it("PRIVACY: the shopper's coordinate reaches GoWay and is never logged or cached", async () => {
+    const spies = (['debug', 'info', 'warn', 'error'] as const).map((level) =>
+      vi.spyOn(log.general, level),
+    );
     try {
       await ask({ withCheckoutEligibility: true });
       goway.down = true;
@@ -581,14 +698,16 @@ describe('nearby availability, GoWay places × Mercaria stock', () => {
     // Positive control: it WAS forwarded, for the length of the request.
     expect(goway.requests.some((url) => digits.every((digit) => url.includes(digit)))).toBe(true);
     for (const digit of digits) {
-      expect(logged, 'a log line carries the shopper\'s coordinate').not.toContain(digit);
+      expect(logged, "a log line carries the shopper's coordinate").not.toContain(digit);
       for (const [key, entry] of inProcessPlaceCacheForTests()) {
         expect(key).not.toContain(digit);
         expect(JSON.stringify(entry)).not.toContain(digit);
       }
     }
     // The cache holds place reads by id, and only those.
-    expect([...inProcessPlaceCacheForTests().keys()].every((key) => key.startsWith('goway:place:'))).toBe(true);
+    expect(
+      [...inProcessPlaceCacheForTests().keys()].every((key) => key.startsWith('goway:place:')),
+    ).toBe(true);
   });
 });
 
@@ -614,12 +733,14 @@ describe('a collection checkout reads its snapshot from the GoWay place', () => 
   const resolve = () =>
     resolvePickupForCheckout({
       locationId,
-      actor: { kind: 'oxy', oxyUserId: `buyer-${RUN}` } as Parameters<typeof resolvePickupForCheckout>[0]['actor'],
+      actor: { kind: 'oxy', oxyUserId: `buyer-${RUN}` } as Parameters<
+        typeof resolvePickupForCheckout
+      >[0]['actor'],
       lines: [{ sellerKey: `store:${storeId}`, sellerType: 'store', variantId, quantity: 1 }],
       at: new Date(),
     });
 
-  it('freezes the place\'s name, address, timezone and id', async () => {
+  it("freezes the place's name, address, timezone and id", async () => {
     const pickup = await resolve();
     expect(pickup).toMatchObject({
       locationId,
@@ -641,7 +762,11 @@ describe('a collection checkout reads its snapshot from the GoWay place', () => 
 
   it('GoWay DOWN with nothing cached: pickup fails CLOSED with a clear, retryable 503', async () => {
     goway.down = true;
-    await expectMercariaError(() => resolve(), 503, /Collection in person cannot be confirmed right now/);
+    await expectMercariaError(
+      () => resolve(),
+      503,
+      /Collection in person cannot be confirmed right now/,
+    );
   });
 
   it('GoWay DOWN with a last-good place cached: the collection still resolves from it', async () => {

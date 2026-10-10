@@ -208,7 +208,10 @@ async function ensureGuestCheckout(checkoutGroupId: string): Promise<string> {
 /** A submitted cancellation request against one order. */
 async function fileCancellation(
   orderId: string,
-  extra: { idempotencyKey?: string; lines?: { variantId: string; requestedQuantity: number }[] } = {},
+  extra: {
+    idempotencyKey?: string;
+    lines?: { variantId: string; requestedQuantity: number }[];
+  } = {},
 ): Promise<string | null> {
   const created = await db.transaction(async (tx) =>
     insertCancellationRequest(tx, {
@@ -278,16 +281,22 @@ afterAll(async () => {
       await tx
         .delete(buyerRequestEvents)
         .where(inArray(buyerRequestEvents.returnRequestId, returnIds));
-      await tx.delete(returnRequestEvidence).where(inArray(returnRequestEvidence.requestId, returnIds));
+      await tx
+        .delete(returnRequestEvidence)
+        .where(inArray(returnRequestEvidence.requestId, returnIds));
       await tx.delete(returnRequestLines).where(inArray(returnRequestLines.requestId, returnIds));
     }
-    if (threadIds.length > 0) await tx.delete(supportThreads).where(inArray(supportThreads.id, threadIds));
-    if (returnIds.length > 0) await tx.delete(returnRequests).where(inArray(returnRequests.id, returnIds));
+    if (threadIds.length > 0)
+      await tx.delete(supportThreads).where(inArray(supportThreads.id, threadIds));
+    if (returnIds.length > 0)
+      await tx.delete(returnRequests).where(inArray(returnRequests.id, returnIds));
     if (cancellationIds.length > 0) {
       await tx
         .delete(cancellationRequestLines)
         .where(inArray(cancellationRequestLines.requestId, cancellationIds));
-      await tx.delete(cancellationRequests).where(inArray(cancellationRequests.id, cancellationIds));
+      await tx
+        .delete(cancellationRequests)
+        .where(inArray(cancellationRequests.id, cancellationIds));
     }
     await tx.delete(orders).where(inArray(orders.id, createdOrderIds));
     if (createdGuestCheckoutIds.length > 0) {
@@ -524,10 +533,7 @@ describe('the return state machine', () => {
     const order = await seedOrder({});
     const id = await fileReturn(order.id, order.variantId);
     await expect(
-      db
-        .update(returnRequests)
-        .set({ refundId: uuidv7() })
-        .where(eq(returnRequests.id, id)),
+      db.update(returnRequests).set({ refundId: uuidv7() }).where(eq(returnRequests.id, id)),
     ).rejects.toSatisfy(isRefusal);
   });
 
@@ -903,18 +909,20 @@ describe('a refused transition is recorded (#765)', () => {
   }
 
   async function trailFor(subject: { cancellationRequestId?: string; returnRequestId?: string }) {
-    return db
-      .select({ kind: buyerRequestEvents.kind, detail: buyerRequestEvents.detail })
-      .from(buyerRequestEvents)
-      .where(
-        subject.cancellationRequestId === undefined
-          ? eq(buyerRequestEvents.returnRequestId, subject.returnRequestId ?? '')
-          : eq(buyerRequestEvents.cancellationRequestId, subject.cancellationRequestId),
-      )
-      // The reader's own ordering (`listBuyerRequestEvents`), so the timeline
-      // case below asserts the order an operator actually sees rather than
-      // whatever order the server happened to return rows in.
-      .orderBy(asc(buyerRequestEvents.at), asc(buyerRequestEvents.id));
+    return (
+      db
+        .select({ kind: buyerRequestEvents.kind, detail: buyerRequestEvents.detail })
+        .from(buyerRequestEvents)
+        .where(
+          subject.cancellationRequestId === undefined
+            ? eq(buyerRequestEvents.returnRequestId, subject.returnRequestId ?? '')
+            : eq(buyerRequestEvents.cancellationRequestId, subject.cancellationRequestId),
+        )
+        // The reader's own ordering (`listBuyerRequestEvents`), so the timeline
+        // case below asserts the order an operator actually sees rather than
+        // whatever order the server happened to return rows in.
+        .orderBy(asc(buyerRequestEvents.at), asc(buyerRequestEvents.id))
+    );
   }
 
   it('records `completion_refused` when a completion is driven on an undecided request', async () => {
@@ -1081,8 +1089,11 @@ describe('a refused transition is recorded (#765)', () => {
       }),
     ).rejects.toThrow();
 
-    expect(
-      (await trailFor({ returnRequestId: requestId })).map((row) => row.kind),
-    ).toEqual(['accepted', 'instructions_issued', 'item_received', 'instructions_refused']);
+    expect((await trailFor({ returnRequestId: requestId })).map((row) => row.kind)).toEqual([
+      'accepted',
+      'instructions_issued',
+      'item_received',
+      'instructions_refused',
+    ]);
   });
 });

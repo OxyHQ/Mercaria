@@ -35,7 +35,11 @@
 import { request as httpsRequest } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { safeFetch, assertSafePublicUrl, SsrfRejection, UpstreamError } from '@oxy.so/core/server';
-import { EBAY_ALLOWED_HOSTS, EBAY_MAX_RESPONSE_BYTES, EBAY_REQUEST_TIMEOUT_MS } from './constants.js';
+import {
+  EBAY_ALLOWED_HOSTS,
+  EBAY_MAX_RESPONSE_BYTES,
+  EBAY_REQUEST_TIMEOUT_MS,
+} from './constants.js';
 
 /** A normalized provider response: status, lower-cased headers, buffered body. */
 export interface EbayHttpResponse {

@@ -31,33 +31,33 @@ import { observeEdgeRequest } from '@oxy.so/telemetry/edge';
  */
 
 const STATIC_EXTENSIONS = new Set([
-  ".css",
-  ".js",
-  ".mjs",
-  ".json",
-  ".map",
-  ".wasm",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".svg",
-  ".ico",
-  ".webp",
-  ".avif",
-  ".woff",
-  ".woff2",
-  ".ttf",
-  ".otf",
-  ".eot",
-  ".mp3",
-  ".mp4",
-  ".webm",
-  ".ogg",
-  ".wav",
-  ".pdf",
-  ".xml",
-  ".txt",
+  '.css',
+  '.js',
+  '.mjs',
+  '.json',
+  '.map',
+  '.wasm',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.svg',
+  '.ico',
+  '.webp',
+  '.avif',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.otf',
+  '.eot',
+  '.mp3',
+  '.mp4',
+  '.webm',
+  '.ogg',
+  '.wav',
+  '.pdf',
+  '.xml',
+  '.txt',
 ]);
 
 /** How long the worker waits for the API before serving the shell unchanged. */
@@ -71,15 +71,15 @@ const SEO_TIMEOUT_MS = 1500;
  * hop to another host is a hop some crawlers do not take.
  */
 const CRAWL_ARTEFACTS = new Map([
-  ["/robots.txt", "/seo/robots.txt"],
-  ["/sitemap.xml", "/seo/sitemap.xml"],
+  ['/robots.txt', '/seo/robots.txt'],
+  ['/sitemap.xml', '/seo/sitemap.xml'],
 ]);
 
-const SITEMAP_PREFIX = "/sitemaps/";
+const SITEMAP_PREFIX = '/sitemaps/';
 
 function getExtension(pathname) {
-  const lastDot = pathname.lastIndexOf(".");
-  return lastDot === -1 ? "" : pathname.slice(lastDot).toLowerCase();
+  const lastDot = pathname.lastIndexOf('.');
+  return lastDot === -1 ? '' : pathname.slice(lastDot).toLowerCase();
 }
 
 /**
@@ -92,10 +92,10 @@ function getExtension(pathname) {
  * Exported for the backend's tests.
  */
 export function isDocumentRequest(request, pathname) {
-  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  if (request.method !== 'GET' && request.method !== 'HEAD') return false;
   if (STATIC_EXTENSIONS.has(getExtension(pathname))) return false;
-  const accept = request.headers.get("accept") || "";
-  return accept.includes("text/html");
+  const accept = request.headers.get('accept') || '';
+  return accept.includes('text/html');
 }
 
 /**
@@ -109,12 +109,12 @@ export function isDocumentRequest(request, pathname) {
  */
 function stripReplacedTags(html) {
   return html
-    .replace(/<title\b[^>]*>[\s\S]*?<\/title>/gi, "")
-    .replace(/<meta\b[^>]*>/gi, (tag) => (isReplacedMeta(tag) ? "" : tag))
-    .replace(/<link\b[^>]*>/gi, (tag) => (isReplacedLink(tag) ? "" : tag))
+    .replace(/<title\b[^>]*>[\s\S]*?<\/title>/gi, '')
+    .replace(/<meta\b[^>]*>/gi, (tag) => (isReplacedMeta(tag) ? '' : tag))
+    .replace(/<link\b[^>]*>/gi, (tag) => (isReplacedLink(tag) ? '' : tag))
     .replace(
       /<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi,
-      "",
+      '',
     );
 }
 
@@ -145,17 +145,17 @@ function isReplacedLink(tag) {
  * function over the exact fragment the API produces.
  */
 export function injectSeoHead(html, head) {
-  if (typeof html !== "string" || typeof head !== "string" || head === "") return html;
+  if (typeof html !== 'string' || typeof head !== 'string' || head === '') return html;
   const stripped = stripReplacedTags(html);
-  const closing = stripped.toLowerCase().lastIndexOf("</head>");
+  const closing = stripped.toLowerCase().lastIndexOf('</head>');
   if (closing === -1) return html;
   return stripped.slice(0, closing) + head + stripped.slice(closing);
 }
 
 /** The API URL that answers what one storefront path is. */
 function resolveEndpoint(apiOrigin, url) {
-  const endpoint = new URL("/seo/resolve", apiOrigin);
-  endpoint.searchParams.set("path", url.pathname + url.search);
+  const endpoint = new URL('/seo/resolve', apiOrigin);
+  endpoint.searchParams.set('path', url.pathname + url.search);
   return endpoint;
 }
 
@@ -168,7 +168,7 @@ function resolveEndpoint(apiOrigin, url) {
 async function fetchResolution(apiOrigin, url) {
   try {
     const response = await fetch(resolveEndpoint(apiOrigin, url), {
-      headers: { accept: "application/json" },
+      headers: { accept: 'application/json' },
       signal: AbortSignal.timeout(SEO_TIMEOUT_MS),
       // The API sets `Cache-Control` on this response; letting Cloudflare hold
       // it is what stops a crawl becoming one API request per page view.
@@ -177,7 +177,7 @@ async function fetchResolution(apiOrigin, url) {
     if (!response.ok) return null;
     const body = await response.json();
     const payload = body && body.data;
-    return payload && typeof payload.outcome === "string" ? payload : null;
+    return payload && typeof payload.outcome === 'string' ? payload : null;
   } catch {
     return null;
   }
@@ -201,7 +201,7 @@ const assetWorker = {
     const url = new URL(request.url);
     const pathname = url.pathname;
     const extension = getExtension(pathname);
-    const apiOrigin = (env && env.SEO_API_ORIGIN) || "";
+    const apiOrigin = (env && env.SEO_API_ORIGIN) || '';
 
     /**
      * `robots.txt` and the sitemaps come from the API, which renders them from
@@ -210,7 +210,7 @@ const assetWorker = {
      * assets the app ships are served instead. Those are the flag-off floor,
      * and a backend test keeps their rules in step with the rendered ones.
      */
-    if (apiOrigin !== "") {
+    if (apiOrigin !== '') {
       const artefact = CRAWL_ARTEFACTS.get(pathname);
       if (artefact !== undefined) {
         const proxied = await fetchCrawlArtefact(apiOrigin, artefact);
@@ -220,7 +220,7 @@ const assetWorker = {
         if (proxied) return proxied;
         // A sitemap page has no static fallback. Answering 404 is honest: the
         // index that named it came from the same API.
-        return new Response("Not Found", { status: 404 });
+        return new Response('Not Found', { status: 404 });
       }
     }
 
@@ -229,43 +229,47 @@ const assetWorker = {
      * be preceded by rendering the page it redirects away from.
      */
     let resolution = null;
-    if (apiOrigin !== "" && isDocumentRequest(request, pathname)) {
+    if (apiOrigin !== '' && isDocumentRequest(request, pathname)) {
       resolution = await fetchResolution(apiOrigin, url);
-      if (resolution && resolution.outcome === "redirect" && resolution.redirect) {
+      if (resolution && resolution.outcome === 'redirect' && resolution.redirect) {
         const location = resolution.redirect.location;
         const status = resolution.redirect.status;
         // Composed by the API from a REGISTERED route and never from anything a
         // caller supplied, and re-checked here for the one property this file
         // can check on its own: it is a path on this origin.
-        if (typeof location === "string" && location.startsWith("/") && !location.startsWith("//")) {
+        if (
+          typeof location === 'string' &&
+          location.startsWith('/') &&
+          !location.startsWith('//')
+        ) {
           return new Response(null, {
             status: status === 308 ? 308 : 301,
-            headers: { location, "cache-control": "public, max-age=3600" },
+            headers: { location, 'cache-control': 'public, max-age=3600' },
           });
         }
       }
     }
 
     const assetResponse = await env.ASSETS.fetch(request);
-    const contentType = assetResponse.headers.get("content-type") || "";
+    const contentType = assetResponse.headers.get('content-type') || '';
 
     // The platform returned an HTML fallback for a static-asset URL, so the
     // file does not exist (a stale hashed bundle from a previous deploy).
-    if (STATIC_EXTENSIONS.has(extension) && contentType.includes("text/html")) {
-      return new Response("Not Found", { status: 404 });
+    if (STATIC_EXTENSIONS.has(extension) && contentType.includes('text/html')) {
+      return new Response('Not Found', { status: 404 });
     }
 
     // Content-addressed bundles are immutable.
-    if (pathname.startsWith("/_expo/static/") && !contentType.includes("text/html")) {
+    if (pathname.startsWith('/_expo/static/') && !contentType.includes('text/html')) {
       const headers = new Headers(assetResponse.headers);
-      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
       return new Response(assetResponse.body, {
         status: assetResponse.status,
         headers,
       });
     }
 
-    if (!resolution || !contentType.includes("text/html") || assetResponse.status !== 200) {
+    if (!resolution || !contentType.includes('text/html') || assetResponse.status !== 200) {
       return assetResponse;
     }
 
@@ -275,14 +279,14 @@ const assetWorker = {
      * collecting a soft 404, and it is set only for an address the API matched
      * against a live route.
      */
-    if (resolution.outcome === "not_found") {
+    if (resolution.outcome === 'not_found') {
       return new Response(assetResponse.body, {
         status: 404,
         headers: assetResponse.headers,
       });
     }
 
-    if (resolution.outcome !== "document" || typeof resolution.head !== "string") {
+    if (resolution.outcome !== 'document' || typeof resolution.head !== 'string') {
       return assetResponse;
     }
 
@@ -291,8 +295,8 @@ const assetWorker = {
     // The body is now per-URL rather than the shared shell, so it must not be
     // cached under the shell's key. The API's own metadata response is what is
     // cached; this document is composed per request from it.
-    headers.set("Cache-Control", "public, max-age=0, must-revalidate");
-    headers.delete("content-length");
+    headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+    headers.delete('content-length');
     return new Response(injectSeoHead(html, resolution.head), {
       status: 200,
       headers,
@@ -302,6 +306,12 @@ const assetWorker = {
 
 export default {
   fetch(request, env, ctx) {
-    return observeEdgeRequest({ service: 'mercaria', request, env, ctx, next: () => assetWorker.fetch(request, env, ctx) });
+    return observeEdgeRequest({
+      service: 'mercaria',
+      request,
+      env,
+      ctx,
+      next: () => assetWorker.fetch(request, env, ctx),
+    });
   },
 };

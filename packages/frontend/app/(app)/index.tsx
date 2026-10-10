@@ -1,19 +1,19 @@
-import { useState } from "react";
-import { View, Pressable, Platform } from "react-native";
-import Head from "expo-router/head";
-import { useRouter } from "expo-router";
-import { CartShelf, CategoryPills, ProductShelf, MerchantCarousel, Text } from "@mercaria/ui";
-import * as Skeleton from "@oxy.so/bloom/skeleton";
-import type { CartVendor, CartGroup } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { HeroSearch } from "@/components/shell/HeroSearch";
-import { Footer } from "@/components/shell/Footer";
-import { useTranslation } from "@/lib/i18n";
-import { useFeed } from "@/lib/hooks/use-feed";
-import { useCart } from "@/lib/hooks/use-cart";
-import { categoryHref } from "@/lib/catalog/routes";
-import { ShoppingHistoryShelves } from "@/components/discovery/ShoppingHistoryShelves";
-import { HomeCategoryMosaics } from "@/components/discovery/HomeCategoryMosaics";
+import { useState } from 'react';
+import { View, Pressable, Platform } from 'react-native';
+import Head from 'expo-router/head';
+import { useRouter } from 'expo-router';
+import { CartShelf, CategoryPills, ProductShelf, MerchantCarousel, Text } from '@mercaria/ui';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
+import type { CartVendor, CartGroup } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { HeroSearch } from '@/components/shell/HeroSearch';
+import { Footer } from '@/components/shell/Footer';
+import { useTranslation } from '@/lib/i18n';
+import { useFeed } from '@/lib/hooks/use-feed';
+import { useCart } from '@/lib/hooks/use-cart';
+import { categoryHref } from '@/lib/catalog/routes';
+import { ShoppingHistoryShelves } from '@/components/discovery/ShoppingHistoryShelves';
+import { HomeCategoryMosaics } from '@/components/discovery/HomeCategoryMosaics';
 
 /** Number of placeholder shelves shown while the feed loads. */
 const SKELETON_SHELF_COUNT = 2;
@@ -23,7 +23,7 @@ const SKELETON_CARD_COUNT = 3;
 function FeedSkeleton() {
   const { t } = useTranslation();
   return (
-    <View accessibilityLabel={t("home.loadingProducts")} aria-busy>
+    <View accessibilityLabel={t('home.loadingProducts')} aria-busy>
       {Array.from({ length: SKELETON_SHELF_COUNT }).map((_, shelfIndex) => (
         <View key={shelfIndex} className="mb-6">
           {/* Heading placeholder */}
@@ -50,21 +50,21 @@ function FeedError({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation();
   return (
     <View className="items-center px-8 py-16">
-      <Text className="text-center text-base text-muted-foreground">{t("home.loadError")}</Text>
+      <Text className="text-center text-base text-muted-foreground">{t('home.loadError')}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("common.tryAgain")}
+        accessibilityLabel={t('common.tryAgain')}
         onPress={onRetry}
         className="mt-4 rounded-full border border-border px-5 py-2"
       >
-        <Text className="text-sm font-semibold text-foreground">{t("common.tryAgain")}</Text>
+        <Text className="text-sm font-semibold text-foreground">{t('common.tryAgain')}</Text>
       </Pressable>
     </View>
   );
 }
 
 interface FeedBodyProps {
-  data: ReturnType<typeof useFeed>["data"];
+  data: ReturnType<typeof useFeed>['data'];
   isLoading: boolean;
   isError: boolean;
   refetch: () => void;
@@ -77,34 +77,54 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
   const { data: cart } = useCart();
 
   const onPressVendor = (vendor: CartVendor) => {
-    if (vendor.kind === "store" && vendor.handle) {
-      router.push({ pathname: "/stores/[handle]", params: { handle: vendor.handle } });
-    } else if (vendor.kind === "user") {
-      router.push({ pathname: "/sellers/[oxyUserId]", params: { oxyUserId: vendor.id } });
+    if (vendor.kind === 'store' && vendor.handle) {
+      router.push({ pathname: '/stores/[handle]', params: { handle: vendor.handle } });
+    } else if (vendor.kind === 'user') {
+      router.push({ pathname: '/sellers/[oxyUserId]', params: { oxyUserId: vendor.id } });
     }
   };
 
   const onCheckout = (group: CartGroup) => {
-    router.push(group.guestCheckout?.status === "blocked" ? "/cart" : { pathname: "/checkout", params: { seller: group.sellerKey } });
+    router.push(
+      group.guestCheckout?.status === 'blocked'
+        ? '/cart'
+        : { pathname: '/checkout', params: { seller: group.sellerKey } },
+    );
   };
 
   const onPressProduct = (id: string) => {
-    router.push({ pathname: "/products/[id]", params: { id } });
+    router.push({ pathname: '/products/[id]', params: { id } });
   };
 
   return (
     <>
       {/* Hero search header (provides branding — replaces the old top bar) */}
-      <HeroSearch merchants={(data?.sections ?? []).flatMap(section => section.kind === "merchants" ? section.merchants : [])} products={(data?.sections ?? []).flatMap(section => section.kind === "products" ? section.products : []).filter((product, index, all) => all.findIndex(item => item.id === product.id) === index)} onVisibilityChange={onHeroVisibilityChange} />
-      {(data?.sections ?? []).filter(section => section.kind === "category-pills").map(section => (
-        <CategoryPills key={section.id} pills={section.pills ?? []} onPressPill={(id, slug) => router.push(categoryHref(slug.length > 0 ? slug : id))} />
-      ))}
+      <HeroSearch
+        merchants={(data?.sections ?? []).flatMap((section) =>
+          section.kind === 'merchants' ? section.merchants : [],
+        )}
+        products={(data?.sections ?? [])
+          .flatMap((section) => (section.kind === 'products' ? section.products : []))
+          .filter(
+            (product, index, all) => all.findIndex((item) => item.id === product.id) === index,
+          )}
+        onVisibilityChange={onHeroVisibilityChange}
+      />
+      {(data?.sections ?? [])
+        .filter((section) => section.kind === 'category-pills')
+        .map((section) => (
+          <CategoryPills
+            key={section.id}
+            pills={section.pills ?? []}
+            onPressPill={(id, slug) => router.push(categoryHref(slug.length > 0 ? slug : id))}
+          />
+        ))}
 
       <CartShelf
         groups={cart?.groups ?? []}
         onPressVendor={onPressVendor}
         onCheckout={onCheckout}
-        onPressCart={() => router.push("/cart")}
+        onPressCart={() => router.push('/cart')}
       />
       <ShoppingHistoryShelves />
       <HomeCategoryMosaics />
@@ -117,7 +137,7 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
           older cached payload) must never crash the home. Guard the section
           list and each section's items against undefined. */}
       {(data?.sections ?? []).map((section) => {
-        if (section.kind === "products") {
+        if (section.kind === 'products') {
           return (
             <ProductShelf
               key={section.id}
@@ -127,10 +147,18 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
             />
           );
         }
-        if (section.kind === "merchants") {
-          return <MerchantCarousel key={section.id} title={section.title} merchants={section.merchants}
-            onPressMerchant={handle => router.push({ pathname: "/stores/[handle]", params: { handle } })}
-            onPressProduct={onPressProduct} />;
+        if (section.kind === 'merchants') {
+          return (
+            <MerchantCarousel
+              key={section.id}
+              title={section.title}
+              merchants={section.merchants}
+              onPressMerchant={(handle) =>
+                router.push({ pathname: '/stores/[handle]', params: { handle } })
+              }
+              onPressProduct={onPressProduct}
+            />
+          );
         }
         return null;
       })}
@@ -147,13 +175,13 @@ export default function HomeScreen() {
   const [heroVisible, setHeroVisible] = useState(true);
 
   return (
-    <ScreenShell hideComposer={Platform.OS === "web" && heroVisible} surfaceClassName="bg-[#fbfbfb] dark:bg-background">
+    <ScreenShell
+      hideComposer={Platform.OS === 'web' && heroVisible}
+      surfaceClassName="bg-[#fbfbfb] dark:bg-background"
+    >
       <Head>
-        <title>{t("home.title")}</title>
-        <meta
-          name="description"
-          content="Mercaria — buy and sell new and secondhand items."
-        />
+        <title>{t('home.title')}</title>
+        <meta name="description" content="Mercaria — buy and sell new and secondhand items." />
       </Head>
       <FeedBody
         onHeroVisibilityChange={setHeroVisible}

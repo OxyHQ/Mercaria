@@ -18,7 +18,9 @@ describe('the four cell states are kept apart', () => {
       subject('p1', { declared: new Map([['warranty_months', declared()]]) }),
       subject('p2', {
         declared: new Map([['warranty_months', declared()]]),
-        facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(24) })]]),
+        facts: new Map([
+          ['warranty_months', fact({ key: 'warranty_months', value: numberValue(24) })],
+        ]),
       }),
     ]);
     const row = table.rows.find((entry) => entry.key === 'warranty_months');
@@ -117,11 +119,15 @@ describe('a larger number is not always better', () => {
     const table = buildComparisonTable([
       subject('p1', {
         declared: new Map([['weight_grams', declared()]]),
-        facts: new Map([['weight_grams', fact({ key: 'weight_grams', value: numberValue(1200, 'g') })]]),
+        facts: new Map([
+          ['weight_grams', fact({ key: 'weight_grams', value: numberValue(1200, 'g') })],
+        ]),
       }),
       subject('p2', {
         declared: new Map([['weight_grams', declared()]]),
-        facts: new Map([['weight_grams', fact({ key: 'weight_grams', value: numberValue(1600, 'g') })]]),
+        facts: new Map([
+          ['weight_grams', fact({ key: 'weight_grams', value: numberValue(1600, 'g') })],
+        ]),
       }),
     ]);
 
@@ -134,11 +140,15 @@ describe('a larger number is not always better', () => {
     const table = buildComparisonTable([
       subject('p1', {
         declared: new Map([['warranty_months', declared()]]),
-        facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(12) })]]),
+        facts: new Map([
+          ['warranty_months', fact({ key: 'warranty_months', value: numberValue(12) })],
+        ]),
       }),
       subject('p2', {
         declared: new Map([['warranty_months', declared()]]),
-        facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(36) })]]),
+        facts: new Map([
+          ['warranty_months', fact({ key: 'warranty_months', value: numberValue(36) })],
+        ]),
       }),
     ]);
     const tradeoff = table.tradeoffs.find((entry) => entry.rowKey === 'warranty_months');
@@ -152,11 +162,15 @@ describe('a larger number is not always better', () => {
     const table = buildComparisonTable([
       subject('p1', {
         declared: new Map([['charging_time', declared()]]),
-        facts: new Map([['charging_time', fact({ key: 'charging_time', value: numberValue(90, 'min') })]]),
+        facts: new Map([
+          ['charging_time', fact({ key: 'charging_time', value: numberValue(90, 'min') })],
+        ]),
       }),
       subject('p2', {
         declared: new Map([['charging_time', declared()]]),
-        facts: new Map([['charging_time', fact({ key: 'charging_time', value: numberValue(45, 'min') })]]),
+        facts: new Map([
+          ['charging_time', fact({ key: 'charging_time', value: numberValue(45, 'min') })],
+        ]),
       }),
     ]);
     expect(
@@ -211,7 +225,9 @@ describe('the commerce rows', () => {
 
   it('an unknown lowest total is an unknown cell rather than a zero', () => {
     const table = buildComparisonTable([
-      subject('p1', { commerce: commerce({ lowestKnownTotal: unknownMoney('component_missing') }) }),
+      subject('p1', {
+        commerce: commerce({ lowestKnownTotal: unknownMoney('component_missing') }),
+      }),
       subject('p2'),
     ]);
     const row = table.rows.find((entry) => entry.key === 'known_total');
@@ -233,12 +249,16 @@ describe('determinism', () => {
   it('the same subjects in a different order produce the same rows and tradeoffs', () => {
     const first = subject('p1', {
       declared: new Map([['warranty_months', declared()]]),
-      facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(12) })]]),
+      facts: new Map([
+        ['warranty_months', fact({ key: 'warranty_months', value: numberValue(12) })],
+      ]),
       commerce: commerce({ lowestItemPrice: eur(20000) }),
     });
     const second = subject('p2', {
       declared: new Map([['warranty_months', declared()]]),
-      facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(24) })]]),
+      facts: new Map([
+        ['warranty_months', fact({ key: 'warranty_months', value: numberValue(24) })],
+      ]),
       commerce: commerce({ lowestItemPrice: eur(30000) }),
     });
 
@@ -255,11 +275,15 @@ describe('determinism', () => {
     const table = buildComparisonTable([
       subject('p1', {
         declared: new Map([['warranty_months', declared()]]),
-        facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(24) })]]),
+        facts: new Map([
+          ['warranty_months', fact({ key: 'warranty_months', value: numberValue(24) })],
+        ]),
       }),
       subject('p2', {
         declared: new Map([['warranty_months', declared()]]),
-        facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(24) })]]),
+        facts: new Map([
+          ['warranty_months', fact({ key: 'warranty_months', value: numberValue(24) })],
+        ]),
       }),
     ]);
     expect(table.tradeoffs.some((entry) => entry.rowKey === 'warranty_months')).toBe(false);

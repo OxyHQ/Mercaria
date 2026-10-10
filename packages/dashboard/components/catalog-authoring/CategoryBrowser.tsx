@@ -1,13 +1,13 @@
-import React, { useState } from "react";
-import { Pressable, View } from "react-native";
-import { ChevronRight } from "lucide-react-native";
-import type { AuthoringCategoryOption } from "@mercaria/shared-types";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import * as Skeleton from "@oxy.so/bloom/skeleton";
-import { useTranslation } from "@/lib/i18n";
-import { useAuthoringCategories } from "@/lib/authoring/hooks";
-import { authoringLabel } from "@/lib/authoring/untranslated";
+import React, { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
+import type { AuthoringCategoryOption } from '@mercaria/shared-types';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
+import { useTranslation } from '@/lib/i18n';
+import { useAuthoringCategories } from '@/lib/authoring/hooks';
+import { authoringLabel } from '@/lib/authoring/untranslated';
 
 interface CategoryBrowserProps {
   readonly locale: string;
@@ -51,25 +51,23 @@ export function CategoryBrowser({ locale, selectedId, onSelect }: CategoryBrowse
   // #740: the category KEY is what a merchant browses by when a locale has no
   // name for a node, so it is kept — marked, never passed off as the name.
   const nameOf = (category: AuthoringCategoryOption) =>
-    authoringLabel(category.name, { kind: "key", key: category.key }, t).text;
+    authoringLabel(category.name, { kind: 'key', key: category.key }, t).text;
 
   return (
     <View className="gap-3">
       <View className="flex-row flex-wrap items-center gap-1">
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("products.wizard.category.allCategories")}
+          accessibilityLabel={t('products.wizard.category.allCategories')}
           onPress={() => setTrail([])}
           className="active:opacity-70"
         >
           <Text
             className={
-              trail.length === 0
-                ? "text-sm font-semibold text-foreground"
-                : "text-sm text-primary"
+              trail.length === 0 ? 'text-sm font-semibold text-foreground' : 'text-sm text-primary'
             }
           >
-            {t("products.wizard.category.allCategories")}
+            {t('products.wizard.category.allCategories')}
           </Text>
         </Pressable>
         {trail.map((crumb, index) => (
@@ -84,8 +82,8 @@ export function CategoryBrowser({ locale, selectedId, onSelect }: CategoryBrowse
               <Text
                 className={
                   index === trail.length - 1
-                    ? "text-sm font-semibold text-foreground"
-                    : "text-sm text-primary"
+                    ? 'text-sm font-semibold text-foreground'
+                    : 'text-sm text-primary'
                 }
               >
                 {crumb.name}
@@ -104,14 +102,12 @@ export function CategoryBrowser({ locale, selectedId, onSelect }: CategoryBrowse
       ) : null}
 
       {categories.isError ? (
-        <Text className="text-sm text-destructive">
-          {t("products.wizard.category.loadFailed")}
-        </Text>
+        <Text className="text-sm text-destructive">{t('products.wizard.category.loadFailed')}</Text>
       ) : null}
 
       {categories.data !== undefined && categories.data.length === 0 ? (
         <Text className="text-sm text-muted-foreground">
-          {t("products.wizard.category.noChildren")}
+          {t('products.wizard.category.noChildren')}
         </Text>
       ) : null}
 
@@ -123,9 +119,9 @@ export function CategoryBrowser({ locale, selectedId, onSelect }: CategoryBrowse
             <View
               key={category.id}
               className={[
-                "flex-row items-center justify-between gap-2 rounded-xl border px-3 py-2",
-                isSelected ? "border-primary bg-muted" : "border-border",
-              ].join(" ")}
+                'flex-row items-center justify-between gap-2 rounded-xl border px-3 py-2',
+                isSelected ? 'border-primary bg-muted' : 'border-border',
+              ].join(' ')}
             >
               <Pressable
                 accessibilityRole="button"
@@ -139,14 +135,14 @@ export function CategoryBrowser({ locale, selectedId, onSelect }: CategoryBrowse
               {category.selectable ? (
                 <Button
                   size="sm"
-                  appearance={isSelected ? "solid" : "outline"}
-                  tone={isSelected ? "accent" : "neutral"}
+                  appearance={isSelected ? 'solid' : 'outline'}
+                  tone={isSelected ? 'accent' : 'neutral'}
                   pressed={isSelected}
                   onPress={() => onSelect(category)}
                 >
                   {isSelected
-                    ? t("products.wizard.category.chosen")
-                    : t("products.wizard.category.choose")}
+                    ? t('products.wizard.category.chosen')
+                    : t('products.wizard.category.choose')}
                 </Button>
               ) : null}
             </View>

@@ -200,15 +200,19 @@ describe('the enumeration itself', () => {
     // the assertion: the number this compares is the population every wall was
     // measured against.
     const files = domainFiles();
-    expect(files.length, 'the domain scan found almost nothing — did the walk work?')
-      .toBeGreaterThanOrEqual(9);
+    expect(
+      files.length,
+      'the domain scan found almost nothing — did the walk work?',
+    ).toBeGreaterThanOrEqual(9);
     for (const file of files) {
       expect(readFileSync(file, 'utf8').length, `${file} is empty`).toBeGreaterThan(200);
     }
     // The three scripts specifically, because they live outside the two scanned
     // directories and a glob that stopped matching them would take a third of
     // the domain out of every wall with no other symptom.
-    const scripts = files.filter((file) => file.includes(`${join('scripts', 'backfill-catalog-')}`));
+    const scripts = files.filter((file) =>
+      file.includes(`${join('scripts', 'backfill-catalog-')}`),
+    );
     expect(scripts).toHaveLength(3);
   });
 });
@@ -226,22 +230,30 @@ describe('wall 1 — no similarity metric, distance or threshold', () => {
   });
 
   it('has a detector that fires on the shapes it claims to', () => {
-    assertEachOf([
-      'const score = similarity(a, b);',
-      "import Fuse from 'fuse.js';",
-      'sql`select * from brands order by name <-> ${q}`',
-      'const best = closestMatch(text, keys);',
-      'const rows = await findBrandNameCandidates(db, name);',
-    ], 5, (positive) => {
-      expect(FUZZY_REFERENCE.test(positive), `detector missed: ${positive}`).toBe(true);
-    });
-    assertEachOf([
-      "const folded = raw.trim().toLowerCase().replace(/[\\s-]+/gu, '_');",
-      'const brands = await findBrandsByNormalizedName(db, normalized);',
-      "if (candidateBrandIds.length > 1) return { reason: 'vendor_brand_multiple_candidates' };",
-    ], 3, (negative) => {
-      expect(FUZZY_REFERENCE.test(negative), `detector over-matched: ${negative}`).toBe(false);
-    });
+    assertEachOf(
+      [
+        'const score = similarity(a, b);',
+        "import Fuse from 'fuse.js';",
+        'sql`select * from brands order by name <-> ${q}`',
+        'const best = closestMatch(text, keys);',
+        'const rows = await findBrandNameCandidates(db, name);',
+      ],
+      5,
+      (positive) => {
+        expect(FUZZY_REFERENCE.test(positive), `detector missed: ${positive}`).toBe(true);
+      },
+    );
+    assertEachOf(
+      [
+        "const folded = raw.trim().toLowerCase().replace(/[\\s-]+/gu, '_');",
+        'const brands = await findBrandsByNormalizedName(db, normalized);',
+        "if (candidateBrandIds.length > 1) return { reason: 'vendor_brand_multiple_candidates' };",
+      ],
+      3,
+      (negative) => {
+        expect(FUZZY_REFERENCE.test(negative), `detector over-matched: ${negative}`).toBe(false);
+      },
+    );
   });
 });
 
@@ -263,7 +275,9 @@ describe('wall 2 — one write, through the sanctioned writer', () => {
 
   it('has a detector that fires on the import shape', () => {
     expect(
-      LISTING_REPOSITORY_IMPORT.test("import { updateListingColumns } from '../../db/catalog/listingRepository.js';"),
+      LISTING_REPOSITORY_IMPORT.test(
+        "import { updateListingColumns } from '../../db/catalog/listingRepository.js';",
+      ),
     ).toBe(true);
     expect(LISTING_REPOSITORY_IMPORT.test("import { listings } from '../schema/catalog.js';")).toBe(
       false,
@@ -284,24 +298,32 @@ describe('wall 3 — no write to any catalog authority', () => {
   });
 
   it('has a detector that fires on both the builder and the raw spellings', () => {
-    assertEachOf([
-      'await db.insert(categories).values({});',
-      'await tx\n  .update(listings)\n  .set({ categorySlugs });',
-      'await db.delete(brandAliases).where(eq(x, y));',
-      'await db.execute(sql`update categories set ancestor_slugs = x`);',
-      'await db.execute(sql`insert into product_type_definitions (id) values (1)`);',
-    ], 5, (positive) => {
-      expect(FORBIDDEN_TABLE_WRITE.test(positive), `detector missed: ${positive}`).toBe(true);
-    });
-    assertEachOf([
-      'const rows = await db.select().from(categories);',
-      "import { listings } from '../schema/catalog.js';",
-      'await updateListingColumns(listingId, { categorySlugs }, tx);',
-    ], 3, (negative) => {
-      expect(FORBIDDEN_TABLE_WRITE.test(negative), `detector over-matched: ${negative}`).toBe(
-        false,
-      );
-    });
+    assertEachOf(
+      [
+        'await db.insert(categories).values({});',
+        'await tx\n  .update(listings)\n  .set({ categorySlugs });',
+        'await db.delete(brandAliases).where(eq(x, y));',
+        'await db.execute(sql`update categories set ancestor_slugs = x`);',
+        'await db.execute(sql`insert into product_type_definitions (id) values (1)`);',
+      ],
+      5,
+      (positive) => {
+        expect(FORBIDDEN_TABLE_WRITE.test(positive), `detector missed: ${positive}`).toBe(true);
+      },
+    );
+    assertEachOf(
+      [
+        'const rows = await db.select().from(categories);',
+        "import { listings } from '../schema/catalog.js';",
+        'await updateListingColumns(listingId, { categorySlugs }, tx);',
+      ],
+      3,
+      (negative) => {
+        expect(FORBIDDEN_TABLE_WRITE.test(negative), `detector over-matched: ${negative}`).toBe(
+          false,
+        );
+      },
+    );
   });
 });
 
@@ -335,9 +357,9 @@ describe('wall 3b — only #60’s cohort, never its internals', () => {
     expect(probe.exec("import { ALL_COHORT } from '../backfill/cohort.js';")?.[1]).toBe(
       'cohort.js',
     );
-    expect(
-      probe.exec("import { x } from '../../services/backfill/cohort.js';")?.[1],
-    ).toBe('cohort.js');
+    expect(probe.exec("import { x } from '../../services/backfill/cohort.js';")?.[1]).toBe(
+      'cohort.js',
+    );
     expect(
       probe.exec("import { runCatalogBackfillPage } from '../backfill/backfill.service.js';")?.[1],
     ).toBe('backfill.service.js');
@@ -374,13 +396,18 @@ describe('walls 4, 5 and 6 — canonical minting, step 4’s resolver, and the n
 
   it('has detectors that fire on the shapes they claim to', () => {
     expect(CANONICAL_MINT_REFERENCE.test('await createBrand({ name });')).toBe(true);
-    expect(CANONICAL_MINT_REFERENCE.test("import { runMatch } from '../matching/match.service.js';"))
-      .toBe(false);
     expect(
-      CANONICAL_MINT_REFERENCE.test("import { x } from '../../services/matching/match.service.js';"),
+      CANONICAL_MINT_REFERENCE.test("import { runMatch } from '../matching/match.service.js';"),
+    ).toBe(false);
+    expect(
+      CANONICAL_MINT_REFERENCE.test(
+        "import { x } from '../../services/matching/match.service.js';",
+      ),
     ).toBe(true);
 
-    expect(STEP_FOUR_RESOLVER_REFERENCE.test('const key = legacyOptionNameToKey(name);')).toBe(true);
+    expect(STEP_FOUR_RESOLVER_REFERENCE.test('const key = legacyOptionNameToKey(name);')).toBe(
+      true,
+    );
     expect(
       STEP_FOUR_RESOLVER_REFERENCE.test(
         "import { countQueuedClaims } from '../../db/variantAxes/attributeClaimRepository.js';",
@@ -388,7 +415,9 @@ describe('walls 4, 5 and 6 — canonical minting, step 4’s resolver, and the n
       'the quote must stay permitted — it is how the option backlog reaches the report',
     ).toBe(false);
 
-    expect(COMMERCIAL_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(true);
+    expect(COMMERCIAL_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(
+      true,
+    );
     expect(COMMERCIAL_REFERENCE.test('const ranked = listings.sort();')).toBe(false);
   });
 });
@@ -420,22 +449,33 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       COMMERCIAL_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
       "a module here reaches ranking as '../ranking/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test(
+        "import { helper } from '../../services/ranking/thing.service.js';",
+      ),
+    ).toBe(true);
     expect(
       COMMERCIAL_REFERENCE.test("import { helper } from '../fees/thing.service.js';"),
       "a module here reaches fees as '../fees/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { helper } from '../../services/fees/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test("import { helper } from '../../services/fees/thing.service.js';"),
+    ).toBe(true);
     expect(
       COMMERCIAL_REFERENCE.test("import { helper } from '../payments/thing.service.js';"),
       "a module here reaches payments as '../payments/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { helper } from '../../services/payments/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test(
+        "import { helper } from '../../services/payments/thing.service.js';",
+      ),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(COMMERCIAL_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(false);
+    expect(
+      COMMERCIAL_REFERENCE.test("import { helper } from '../ranking-display/format.js';"),
+    ).toBe(false);
     expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
-
 });
 
 describe('the population the six walls above are applied to (#460)', () => {
@@ -461,9 +501,10 @@ describe('the population the six walls above are applied to (#460)', () => {
     const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
     const shared = namedInSharedDirectories(SHARED_DIRECTORIES, CATALOG_BACKFILL_NAME_PATTERN);
     expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(6);
-    expect(shared.length, 'the shared-directory name sweep reached no script').toBeGreaterThanOrEqual(
-      3,
-    );
+    expect(
+      shared.length,
+      'the shared-directory name sweep reached no script',
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it('the three operator scripts arrive through the NAME pattern, not a prefix rule', () => {
@@ -489,20 +530,26 @@ describe('the population the six walls above are applied to (#460)', () => {
     // `backfill` would pull in a whole other domain that has its own gate, and
     // the walls here are not the walls there.
     const population = domainRelativePaths();
-    assertEachOf([
-      'services/backfill/backfill.service.ts',
-      'db/schema/backfill.ts',
-      'routes/internal-backfill.ts',
-      'scripts/backfill-variant-axes.ts',
-      'services/catalog-proposals/backfill.service.ts',
-    ], 5, (foreign) => {
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(CATALOG_BACKFILL_NAME_PATTERN.test(foreign), `${foreign} matches the name`).toBe(false);
-    });
+    assertEachOf(
+      [
+        'services/backfill/backfill.service.ts',
+        'db/schema/backfill.ts',
+        'routes/internal-backfill.ts',
+        'scripts/backfill-variant-axes.ts',
+        'services/catalog-proposals/backfill.service.ts',
+      ],
+      5,
+      (foreign) => {
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+        expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(CATALOG_BACKFILL_NAME_PATTERN.test(foreign), `${foreign} matches the name`).toBe(
+          false,
+        );
+      },
+    );
   });
 
   it('both spellings of the NAME pattern are load-bearing', () => {
@@ -513,8 +560,8 @@ describe('the population the six walls above are applied to (#460)', () => {
     expect(/backfill-catalog/i.test('db/catalogBackfill/legacyCatalogRepository.ts')).toBe(false);
     expect(/catalog-backfill/.test('db/catalogBackfill/legacyCatalogRepository.ts')).toBe(false);
     expect(CATALOG_BACKFILL_NAME_PATTERN.test('scripts/backfill-catalog-paths.ts')).toBe(true);
-    expect(CATALOG_BACKFILL_NAME_PATTERN.test('db/catalogBackfill/legacyCatalogRepository.ts')).toBe(
-      true,
-    );
+    expect(
+      CATALOG_BACKFILL_NAME_PATTERN.test('db/catalogBackfill/legacyCatalogRepository.ts'),
+    ).toBe(true);
   });
 });

@@ -24,7 +24,12 @@ vi.mock('../../../db/digital/assetRepository.js', () => ({
 }));
 vi.mock('../../../lib/logger.js', () => ({
   log: {
-    general: { info: vi.fn(), debug: vi.fn(), error: vi.fn(), warn: (...a: unknown[]) => logWarn(...a) },
+    general: {
+      info: vi.fn(),
+      debug: vi.fn(),
+      error: vi.fn(),
+      warn: (...a: unknown[]) => logWarn(...a),
+    },
   },
 }));
 
@@ -100,7 +105,7 @@ describe('the happy path, which is the control for every absence below', () => {
 
   it('reassembles a CHUNKED body in order', async () => {
     // The cap is applied chunk by chunk, so the reassembly is real code rather
-        // than a single-buffer passthrough, and a wrong offset would be invisible
+    // than a single-buffer passthrough, and a wrong offset would be invisible
     // against a one-chunk body.
     const { storageAssetByteSource } = await import('../byte-source.js');
     answerWith({
@@ -202,7 +207,12 @@ describe('the RETRYABLE failures throw, so BullMQ can see them', () => {
 
   it('throws on a transport failure', async () => {
     const { storageAssetByteSource } = await import('../byte-source.js');
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('ECONNRESET'); }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('ECONNRESET');
+      }),
+    );
 
     await expect(storageAssetByteSource.read(FILE_ID, CEILING)).rejects.toThrow();
   });

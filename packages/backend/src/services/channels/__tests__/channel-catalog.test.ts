@@ -61,9 +61,9 @@ describe('the catalog reads the provider rather than restating it', () => {
     expect(wooCommerceProvider.capabilities.retriesRateLimit).toBe(true);
 
     for (const channelType of ['shopify', 'woocommerce'] as const) {
-      expect(describeChannel(channelType).limitations.map((limitation) => limitation.code)).not.toContain(
-        'no_rate_limit_retry',
-      );
+      expect(
+        describeChannel(channelType).limitations.map((limitation) => limitation.code),
+      ).not.toContain('no_rate_limit_retry');
     }
   });
 
@@ -71,9 +71,7 @@ describe('the catalog reads the provider rather than restating it', () => {
     // Two different questions: what a form may offer, and what a merchant should
     // know before choosing the channel. A merchant who sees only the absence
     // concludes the option is coming soon.
-    const codes = describeChannel('woocommerce').limitations.map(
-      (limitation) => limitation.code,
-    );
+    const codes = describeChannel('woocommerce').limitations.map((limitation) => limitation.code);
     expect(codes).toContain('no_product_push');
     expect(codes).toContain('no_fulfilment_push');
     expect(codes).toContain('no_inventory_webhook');
@@ -149,9 +147,7 @@ describe('native checkout support', () => {
 
   it('says so in a limitation a merchant can read', () => {
     const feed = describeChannel('product_feed');
-    expect(feed.limitations.map((limitation) => limitation.code)).toContain(
-      'external_offers_only',
-    );
+    expect(feed.limitations.map((limitation) => limitation.code)).toContain('external_offers_only');
     expect(feed.resources.orders).toEqual([]);
     expect(feed.resources.inventory).toEqual([]);
   });

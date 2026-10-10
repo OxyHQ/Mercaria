@@ -92,7 +92,7 @@ function signalHref(handle: string, signal: DiscoverySignal): Href {
  * `/categories/[handle]` sits directly above `/s/[signal]`.
  */
 export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: DiscoveryFeedProps) {
-  const firstCategorySection = sections.find(section => section.kind === 'category-tiles');
+  const firstCategorySection = sections.find((section) => section.kind === 'category-tiles');
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -210,9 +210,15 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
         return null;
 
       case 'category-tiles':
-        return <CategoryTileGrid key={section.id} tiles={section.tiles} onPressTile={onPressCategoryTile}
-          title={section === firstCategorySection ? categoryTitle : undefined}
-          shortcuts={section === firstCategorySection ? categoryShortcuts : undefined} />;
+        return (
+          <CategoryTileGrid
+            key={section.id}
+            tiles={section.tiles}
+            onPressTile={onPressCategoryTile}
+            title={section === firstCategorySection ? categoryTitle : undefined}
+            shortcuts={section === firstCategorySection ? categoryShortcuts : undefined}
+          />
+        );
 
       case 'pills':
         return renderCategoryTiles(section.id, section.tiles);
@@ -250,15 +256,22 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
        */
       case 'card-group':
         return (
-          <View key={section.id}>
-            {section.cards.map((nested) => renderProductsShelf(nested))}
-          </View>
+          <View key={section.id}>{section.cards.map((nested) => renderProductsShelf(nested))}</View>
         );
     }
   }
 
-  return <View>
-    {!firstCategorySection ? <CategoryTileGrid tiles={[]} title={categoryTitle} shortcuts={categoryShortcuts} onPressTile={onPressCategoryTile} /> : null}
-    {sections.map((section) => renderSection(section))}
-  </View>;
+  return (
+    <View>
+      {!firstCategorySection ? (
+        <CategoryTileGrid
+          tiles={[]}
+          title={categoryTitle}
+          shortcuts={categoryShortcuts}
+          onPressTile={onPressCategoryTile}
+        />
+      ) : null}
+      {sections.map((section) => renderSection(section))}
+    </View>
+  );
 }

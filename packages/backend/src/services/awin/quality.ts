@@ -38,11 +38,7 @@
 import type { AwinDestinationSwapExample, AwinQualityCounts } from '@mercaria/shared-types';
 import type { FeedRawRecord } from '../feed-import/parse/index.js';
 import type { MappedFeedRecord } from '../feed-import/mapping.js';
-import {
-  assessAwinDestination,
-  destinationHost,
-  type AwinTrackingAssessment,
-} from './tracking.js';
+import { assessAwinDestination, destinationHost, type AwinTrackingAssessment } from './tracking.js';
 
 /**
  * The running measurement.
@@ -116,11 +112,7 @@ const MONEY_FAULT_CODES: ReadonlySet<string> = new Set([
   'missing_currency',
 ]);
 
-const MONEY_ROLES: ReadonlySet<string> = new Set([
-  'price',
-  'sale_price',
-  'delivery_cost',
-]);
+const MONEY_ROLES: ReadonlySet<string> = new Set(['price', 'sale_price', 'delivery_cost']);
 
 /**
  * Observe one mapped record.

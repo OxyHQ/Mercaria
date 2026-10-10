@@ -2,10 +2,51 @@ import type { MerchantEntitlementCapability } from '@mercaria/shared-types';
 
 /** Product designs, not published billing plans or grants. Nothing here authorizes checkout. */
 export const MERCHANT_PLAN_DESIGNS = [
-  { key: 'go', nameKey: 'settings.plan.design.go', summaryKey: 'settings.plan.design.goSummary', capabilities: ['automation_rules', 'scheduled_exports'] },
-  { key: 'plus', nameKey: 'settings.plan.design.plus', summaryKey: 'settings.plan.design.plusSummary', capabilities: ['automation_rules', 'scheduled_exports', 'advanced_demand_analytics', 'advanced_merchandising_rules', 'replenishment_planning'] },
-  { key: 'creator', nameKey: 'settings.plan.design.creator', summaryKey: 'settings.plan.design.creatorSummary', capabilities: ['automation_rules', 'scheduled_exports', 'advanced_demand_analytics', 'advanced_merchandising_rules', 'ai_catalog_assistance'] },
-  { key: 'ultra', nameKey: 'settings.plan.design.ultra', summaryKey: 'settings.plan.design.ultraSummary', capabilities: ['automation_rules', 'scheduled_exports', 'advanced_demand_analytics', 'advanced_merchandising_rules', 'replenishment_planning', 'competitive_price_analytics', 'expanded_pos_registers', 'ai_catalog_assistance'] },
+  {
+    key: 'go',
+    nameKey: 'settings.plan.design.go',
+    summaryKey: 'settings.plan.design.goSummary',
+    capabilities: ['automation_rules', 'scheduled_exports'],
+  },
+  {
+    key: 'plus',
+    nameKey: 'settings.plan.design.plus',
+    summaryKey: 'settings.plan.design.plusSummary',
+    capabilities: [
+      'automation_rules',
+      'scheduled_exports',
+      'advanced_demand_analytics',
+      'advanced_merchandising_rules',
+      'replenishment_planning',
+    ],
+  },
+  {
+    key: 'creator',
+    nameKey: 'settings.plan.design.creator',
+    summaryKey: 'settings.plan.design.creatorSummary',
+    capabilities: [
+      'automation_rules',
+      'scheduled_exports',
+      'advanced_demand_analytics',
+      'advanced_merchandising_rules',
+      'ai_catalog_assistance',
+    ],
+  },
+  {
+    key: 'ultra',
+    nameKey: 'settings.plan.design.ultra',
+    summaryKey: 'settings.plan.design.ultraSummary',
+    capabilities: [
+      'automation_rules',
+      'scheduled_exports',
+      'advanced_demand_analytics',
+      'advanced_merchandising_rules',
+      'replenishment_planning',
+      'competitive_price_analytics',
+      'expanded_pos_registers',
+      'ai_catalog_assistance',
+    ],
+  },
 ] as const satisfies readonly {
   key: string;
   nameKey: string;

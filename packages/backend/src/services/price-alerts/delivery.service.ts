@@ -131,21 +131,30 @@ export async function deliverPriceAlertNotification(
     // the same statement — so this is unreachable in practice and is answered
     // rather than thrown, because a worker holding a lease on a row that no
     // longer exists must release it rather than retry forever.
-    await markPriceAlertNotificationSuppressed(
-      { id: row.id, leaseOwner, reason: 'alert_deleted', now },
-    );
+    await markPriceAlertNotificationSuppressed({
+      id: row.id,
+      leaseOwner,
+      reason: 'alert_deleted',
+      now,
+    });
     return { outcome: 'suppressed' };
   }
   if (alert.state === 'deleted') {
-    await markPriceAlertNotificationSuppressed(
-      { id: row.id, leaseOwner, reason: 'alert_deleted', now },
-    );
+    await markPriceAlertNotificationSuppressed({
+      id: row.id,
+      leaseOwner,
+      reason: 'alert_deleted',
+      now,
+    });
     return { outcome: 'suppressed' };
   }
   if (alert.state === 'paused') {
-    await markPriceAlertNotificationSuppressed(
-      { id: row.id, leaseOwner, reason: 'alert_paused', now },
-    );
+    await markPriceAlertNotificationSuppressed({
+      id: row.id,
+      leaseOwner,
+      reason: 'alert_paused',
+      now,
+    });
     return { outcome: 'suppressed' };
   }
 
@@ -189,9 +198,12 @@ export async function deliverPriceAlertNotification(
   }
 
   if (!(await destinationStillEligible(trigger.offerId, trigger.amountCurrency, now))) {
-    await markPriceAlertNotificationSuppressed(
-      { id: row.id, leaseOwner, reason: 'destination_no_longer_eligible', now },
-    );
+    await markPriceAlertNotificationSuppressed({
+      id: row.id,
+      leaseOwner,
+      reason: 'destination_no_longer_eligible',
+      now,
+    });
     return { outcome: 'suppressed' };
   }
 

@@ -62,7 +62,10 @@ import { listPurchaseOrderTrackingEvents } from '../../../db/supplierOrders/evid
 import { listProcurementExceptionsForPurchaseOrder } from '../../../db/supplierOrders/exceptionRepository.js';
 import { listSupplierProviderEventsForPurchaseOrder } from '../../../db/supplierOrders/providerEventRepository.js';
 import { createPurchaseOrderForOrder } from '../../procurement/purchase-order.service.js';
-import { clearSupplierAdapters, registerSupplierAdapter } from '../../supplier-preflight/registry.js';
+import {
+  clearSupplierAdapters,
+  registerSupplierAdapter,
+} from '../../supplier-preflight/registry.js';
 import type { SupplierOrderAdapter } from '../adapter.js';
 import { deriveSupplierClientReference } from '../client-reference.js';
 import {
@@ -76,7 +79,10 @@ import {
   resetProcurementPaymentAuthorizationReader,
 } from '../payment-authorization.port.js';
 import { submitPurchaseOrderToSupplier } from '../submission.service.js';
-import { requestSupplierCancellation, sendPurchaseOrderCancellation } from '../cancellation.service.js';
+import {
+  requestSupplierCancellation,
+  sendPurchaseOrderCancellation,
+} from '../cancellation.service.js';
 
 /** Every scenario a harness must be able to produce. */
 export type ConformanceScenario =
@@ -309,13 +315,14 @@ export function runSupplierAdapterConformanceSuite(
     // Authorized by construction: #123 owns the real reader, and every case
     // below is about what happens AFTER a paid retail order — so the suite
     // registers an authorizing one rather than leaving every case refused.
-    registerProcurementPaymentAuthorizationReader(async () =>
-      await Promise.resolve({
-        authorized: true,
-        orderId: order.id,
-        paymentId: `pay-${suffix}`,
-        capturedAt: new Date().toISOString(),
-      }),
+    registerProcurementPaymentAuthorizationReader(
+      async () =>
+        await Promise.resolve({
+          authorized: true,
+          orderId: order.id,
+          paymentId: `pay-${suffix}`,
+          capturedAt: new Date().toISOString(),
+        }),
     );
 
     return {
@@ -627,7 +634,9 @@ export function runSupplierAdapterConformanceSuite(
       await expect(submitPurchaseOrderToSupplier(purchaseOrderId)).rejects.toThrow();
 
       const attempts = await listSupplierOrderAttempts(purchaseOrderId);
-      expect(attempts.find((entry) => entry.operation === 'submit')?.providerErrorClass).toBe('quota');
+      expect(attempts.find((entry) => entry.operation === 'submit')?.providerErrorClass).toBe(
+        'quota',
+      );
       expect(harness.hasOrder(clientReference)).toBe(false);
     });
 

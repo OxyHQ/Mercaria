@@ -159,11 +159,7 @@ router.post(
 );
 
 /** GET — what changed between two product type versions. */
-router.get(
-  '/diff/product-types/:key',
-  validateQuery(diffQuerySchema),
-  productTypeDiffHandler,
-);
+router.get('/diff/product-types/:key', validateQuery(diffQuerySchema), productTypeDiffHandler);
 
 /** GET — what changed between two attribute definition versions. */
 router.get('/diff/attributes/:key', validateQuery(diffQuerySchema), attributeDiffHandler);

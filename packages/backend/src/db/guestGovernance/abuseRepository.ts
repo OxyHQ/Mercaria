@@ -203,9 +203,7 @@ export async function listRecentInterventions(
     })
     .from(guestAbuseInterventions)
     .where(
-      input.pattern === undefined
-        ? undefined
-        : eq(guestAbuseInterventions.pattern, input.pattern),
+      input.pattern === undefined ? undefined : eq(guestAbuseInterventions.pattern, input.pattern),
     )
     .orderBy(desc(guestAbuseInterventions.createdAt))
     .limit(input.limit);

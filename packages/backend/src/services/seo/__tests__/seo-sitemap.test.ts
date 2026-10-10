@@ -158,9 +158,9 @@ describe('a catalogue page is judged by its catalogue', () => {
     // #73 shipped `/merchants/:handle`, so this collection now emits URLs and
     // the content rule is exercised against a live route rather than argued
     // about in the abstract.
-    expect(sitemapEntriesFor('merchants', [brandRow({ slug: 'acme' })], ORIGIN, INDEXING_ON)).toEqual([
-      { loc: 'https://mercaria.co/merchants/acme', lastmod: LASTMOD.toISOString() },
-    ]);
+    expect(
+      sitemapEntriesFor('merchants', [brandRow({ slug: 'acme' })], ORIGIN, INDEXING_ON),
+    ).toEqual([{ loc: 'https://mercaria.co/merchants/acme', lastmod: LASTMOD.toISOString() }]);
   });
 
   it('drops a merchant whose catalogue is too small to be its own result', () => {
@@ -195,9 +195,9 @@ describe('a catalogue page is judged by its catalogue', () => {
         INDEXING_ON,
       ),
     ).toEqual([]);
-    expect(sitemapEntriesFor('brands', [brandRow({ catalogueEntryCount: 2 })], ORIGIN, INDEXING_ON)).toEqual([
-      { loc: 'https://mercaria.co/brands/apple', lastmod: LASTMOD.toISOString() },
-    ]);
+    expect(
+      sitemapEntriesFor('brands', [brandRow({ catalogueEntryCount: 2 })], ORIGIN, INDEXING_ON),
+    ).toEqual([{ loc: 'https://mercaria.co/brands/apple', lastmod: LASTMOD.toISOString() }]);
   });
 });
 
@@ -265,7 +265,12 @@ describe('the indexing lever', () => {
 
 describe('lastmod', () => {
   it('is omitted rather than invented when nothing dateable is known', () => {
-    const [entry] = sitemapEntriesFor('products', [productRow({ lastmod: null })], ORIGIN, INDEXING_ON);
+    const [entry] = sitemapEntriesFor(
+      'products',
+      [productRow({ lastmod: null })],
+      ORIGIN,
+      INDEXING_ON,
+    );
     expect(entry?.lastmod).toBeUndefined();
     expect(renderUrlset([entry ?? { loc: '' }])).not.toContain('<lastmod>');
   });
@@ -276,7 +281,9 @@ describe('rendering', () => {
     const xml = renderUrlset([{ loc: 'https://mercaria.co/p/a', lastmod: LASTMOD.toISOString() }]);
     expect(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
     expect(xml).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
-    expect(xml).toContain('<url><loc>https://mercaria.co/p/a</loc><lastmod>2026-08-01T10:00:00.000Z</lastmod></url>');
+    expect(xml).toContain(
+      '<url><loc>https://mercaria.co/p/a</loc><lastmod>2026-08-01T10:00:00.000Z</lastmod></url>',
+    );
     expect(xml.endsWith('</urlset>')).toBe(true);
   });
 

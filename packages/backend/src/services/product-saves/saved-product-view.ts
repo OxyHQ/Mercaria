@@ -90,7 +90,10 @@ export async function projectSavedProducts(
     const product = productById.get(save.canonicalProductId);
     if (!product || product.status === 'merged') continue;
 
-    const offer = offers.get(save.id) ?? { state: 'none' as const, reason: 'no_offers_recorded' as const };
+    const offer = offers.get(save.id) ?? {
+      state: 'none' as const,
+      reason: 'no_offers_recorded' as const,
+    };
     const summary: SavedProductSummary = {
       id: product.id,
       slug: product.slug,
@@ -204,7 +207,9 @@ async function readSplitTargets(
  * true one.
  */
 export function derivePriceChange(
-  reference: { readonly amount: number; readonly currency: string; readonly observedAt: string } | undefined,
+  reference:
+    | { readonly amount: number; readonly currency: string; readonly observedAt: string }
+    | undefined,
   offer: SavedProductOffer,
 ): SavedProductPriceChange {
   if (offer.state !== 'available' || !offer.price) {

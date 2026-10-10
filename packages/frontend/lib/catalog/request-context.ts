@@ -108,12 +108,12 @@ export const CATALOG_REQUEST_DIMENSION_EXEMPTIONS = [
   {
     dimension: 'timeZone',
     reason:
-      'Nothing in the storefront renders a date or time in a REQUESTED zone: the two date '
-      + 'formatters take a locale and use the device zone, and no catalogue endpoint accepts a '
-      + 'time-zone parameter. Carrying it here would be a seventh field with no source and no '
-      + 'consumer. It arrives with the first surface that renders a scheduled instant — a '
-      + 'navigation tree publication window or a pickup slot — together with the endpoint '
-      + 'parameter that makes it mean something.',
+      'Nothing in the storefront renders a date or time in a REQUESTED zone: the two date ' +
+      'formatters take a locale and use the device zone, and no catalogue endpoint accepts a ' +
+      'time-zone parameter. Carrying it here would be a seventh field with no source and no ' +
+      'consumer. It arrives with the first surface that renders a scheduled instant — a ' +
+      'navigation tree publication window or a pickup slot — together with the endpoint ' +
+      'parameter that makes it mean something.',
   },
 ] as const;
 
@@ -215,4 +215,3 @@ export function resolveCatalogRequestContext(
     sizeSystem: 'unspecified',
   };
 }
-

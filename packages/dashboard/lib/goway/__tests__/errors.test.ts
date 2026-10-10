@@ -29,10 +29,18 @@ function httpError(status: number): AxiosError {
 
 describe('goWayErrorKey', () => {
   it('names a pending claim, an outage and a refused input', () => {
-    expect(goWayErrorKey(new GoWayForbiddenError('no'))).toBe('settings.locations.editor.errors.gowayForbidden');
-    expect(goWayErrorKey(new GoWayUnavailableError('down'))).toBe('settings.locations.editor.errors.gowayUnavailable');
-    expect(goWayErrorKey(new GoWayNetworkError('offline'))).toBe('settings.locations.editor.errors.gowayUnavailable');
-    expect(goWayErrorKey(new GoWayValidationError('bad'))).toBe('settings.locations.editor.errors.gowayInvalid');
+    expect(goWayErrorKey(new GoWayForbiddenError('no'))).toBe(
+      'settings.locations.editor.errors.gowayForbidden',
+    );
+    expect(goWayErrorKey(new GoWayUnavailableError('down'))).toBe(
+      'settings.locations.editor.errors.gowayUnavailable',
+    );
+    expect(goWayErrorKey(new GoWayNetworkError('offline'))).toBe(
+      'settings.locations.editor.errors.gowayUnavailable',
+    );
+    expect(goWayErrorKey(new GoWayValidationError('bad'))).toBe(
+      'settings.locations.editor.errors.gowayInvalid',
+    );
     expect(goWayErrorKey(new Error('?'))).toBe('settings.locations.editor.errors.gowayFailed');
   });
 });

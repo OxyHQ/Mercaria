@@ -20,7 +20,10 @@ export const GOWAY_WEB_URL: string | undefined = process.env.EXPO_PUBLIC_GOWAY_W
 
 /** A client on the given origins; the configured ones by default. */
 export function createStorefrontGoWayClient(
-  origins: { apiBaseUrl?: string; webBaseUrl?: string } = { apiBaseUrl: GOWAY_API_URL, webBaseUrl: GOWAY_WEB_URL },
+  origins: { apiBaseUrl?: string; webBaseUrl?: string } = {
+    apiBaseUrl: GOWAY_API_URL,
+    webBaseUrl: GOWAY_WEB_URL,
+  },
 ): GoWayClient {
   return createGoWayClient({
     ...(origins.apiBaseUrl === undefined ? {} : { apiBaseUrl: origins.apiBaseUrl }),

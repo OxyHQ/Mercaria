@@ -1,11 +1,11 @@
-import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
-import { Bell, Heart, Package, TrendingDown, TrendingUp } from "lucide-react-native";
-import { ALL_CURRENCY_CODES, type CurrencyCode, type SavedItem } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { PriceDisplay } from "../PriceDisplay";
-import { conditionGroupLabelKey } from "../../lib/condition";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { Pressable, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Bell, Heart, Package, TrendingDown, TrendingUp } from 'lucide-react-native';
+import { ALL_CURRENCY_CODES, type CurrencyCode, type SavedItem } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { PriceDisplay } from '../PriceDisplay';
+import { conditionGroupLabelKey } from '../../lib/condition';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   SAVED_ITEM_CHEAPER_KEY,
   SAVED_ITEM_DEARER_KEY,
@@ -23,7 +23,7 @@ import {
   SAVED_ITEM_SPLIT_CHOOSE_KEY,
   SAVED_ITEM_UNAVAILABLE_KEY,
   savedItemNoOfferKey,
-} from "../../lib/saved-item-labels";
+} from '../../lib/saved-item-labels';
 
 /** Icon size for the row's leading and trailing affordances. */
 const ICON_SIZE = 18;
@@ -76,25 +76,20 @@ export function SavedItemCard({
   onCreatePriceAlert,
 }: SavedItemCardProps) {
   const t = useSharedUiTranslation();
-  const imageSource =
-    item.kind === "product"
-      ? item.product.imageFileId
-      : item.imageFileId;
+  const imageSource = item.kind === 'product' ? item.product.imageFileId : item.imageFileId;
 
   return (
     <View className="flex-row gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={
-          item.kind === "product" ? item.product.name : item.title
-        }
+        accessibilityLabel={item.kind === 'product' ? item.product.name : item.title}
         onPress={() => onPress?.(item)}
         className="size-space-64 overflow-hidden rounded-radius-12 bg-bg-fill-secondary"
       >
         {imageSource ? (
           <Image
             source={{ uri: resolveImage ? resolveImage(imageSource) : imageSource }}
-            style={{ width: "100%", height: "100%" }}
+            style={{ width: '100%', height: '100%' }}
             contentFit="cover"
           />
         ) : (
@@ -105,7 +100,7 @@ export function SavedItemCard({
       </Pressable>
 
       <View className="flex-1 gap-space-4">
-        {item.kind === "product" ? (
+        {item.kind === 'product' ? (
           <ProductBody
             item={item}
             onResolveSplit={onResolveSplit}
@@ -119,7 +114,7 @@ export function SavedItemCard({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t(
-          item.kind === "product" ? SAVED_ITEM_REMOVE_PRODUCT_KEY : SAVED_ITEM_REMOVE_LISTING_KEY,
+          item.kind === 'product' ? SAVED_ITEM_REMOVE_PRODUCT_KEY : SAVED_ITEM_REMOVE_LISTING_KEY,
         )}
         onPress={() => onRemove?.(item)}
         className="size-space-32 items-center justify-center rounded-radius-max"
@@ -135,7 +130,7 @@ function ProductBody({
   onResolveSplit,
   onCreatePriceAlert,
 }: {
-  item: Extract<SavedItem, { kind: "product" }>;
+  item: Extract<SavedItem, { kind: 'product' }>;
   onResolveSplit?: (item: SavedItem) => void;
   onCreatePriceAlert?: (item: SavedItem) => void;
 }) {
@@ -150,7 +145,7 @@ function ProductBody({
         {t(SAVED_ITEM_SAVED_PRODUCT_KEY)}
       </Text>
 
-      {item.offer.state === "available" ? (
+      {item.offer.state === 'available' ? (
         <View className="flex-row items-center gap-space-8">
           <OfferPrice price={item.offer.price} />
           {item.offer.conditionGroup ? (
@@ -167,16 +162,16 @@ function ProductBody({
         </Text>
       )}
 
-      {item.priceChange.known && item.priceChange.direction !== "unchanged" ? (
+      {item.priceChange.known && item.priceChange.direction !== 'unchanged' ? (
         <View className="flex-row items-center gap-space-4">
-          {item.priceChange.direction === "down" ? (
+          {item.priceChange.direction === 'down' ? (
             <TrendingDown size={ICON_SIZE} className="text-text-brand" />
           ) : (
             <TrendingUp size={ICON_SIZE} className="text-text-tertiary" />
           )}
           <Text className="text-shop-caption text-text-tertiary">
             {t(
-              item.priceChange.direction === "down"
+              item.priceChange.direction === 'down'
                 ? SAVED_ITEM_CHEAPER_KEY
                 : SAVED_ITEM_DEARER_KEY,
             )}
@@ -190,7 +185,7 @@ function ProductBody({
         </Text>
       ) : null}
 
-      {item.save.resolution.state === "ambiguous_after_split" ? (
+      {item.save.resolution.state === 'ambiguous_after_split' ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(SAVED_ITEM_SPLIT_CHOOSE_A11Y_KEY)}
@@ -227,7 +222,7 @@ function ProductBody({
   );
 }
 
-function ListingBody({ item }: { item: Extract<SavedItem, { kind: "listing" }> }) {
+function ListingBody({ item }: { item: Extract<SavedItem, { kind: 'listing' }> }) {
   const t = useSharedUiTranslation();
   return (
     <>
@@ -236,14 +231,16 @@ function ListingBody({ item }: { item: Extract<SavedItem, { kind: "listing" }> }
       </Text>
       <Text className="text-shop-caption text-text-tertiary">
         {t(
-          item.intent === "listing_pin"
+          item.intent === 'listing_pin'
             ? SAVED_ITEM_PINNED_LISTING_KEY
             : SAVED_ITEM_SAVED_LISTING_KEY,
         )}
       </Text>
       <PriceDisplay price={item.price} primaryClassName="text-shop-bodyTitleSmall text-text" />
       {item.available ? null : (
-        <Text className="text-shop-caption text-text-tertiary">{t(SAVED_ITEM_UNAVAILABLE_KEY)}</Text>
+        <Text className="text-shop-caption text-text-tertiary">
+          {t(SAVED_ITEM_UNAVAILABLE_KEY)}
+        </Text>
       )}
     </>
   );
@@ -294,4 +291,3 @@ function OfferPrice({ price }: { price?: { amount: number; currency: string } })
     />
   );
 }
-

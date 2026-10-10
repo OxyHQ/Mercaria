@@ -444,11 +444,12 @@ describe('a cost adjustment cannot outrun a chargeback', () => {
 describe('no margin, profit or markup exists anywhere in the domain', () => {
   it('names no forbidden component in any of the ten tables', () => {
     const tables = Object.values(schema).filter((value): value is PgTable => is(value, PgTable));
-    const domainTables = tables.filter((table) =>
-      getTableName(table).startsWith('retail_reconciliation') ||
-      getTableName(table) === 'retail_customer_adjustments' ||
-      getTableName(table) === 'retail_supplier_credits' ||
-      getTableName(table) === 'retail_ledger_recognitions',
+    const domainTables = tables.filter(
+      (table) =>
+        getTableName(table).startsWith('retail_reconciliation') ||
+        getTableName(table) === 'retail_customer_adjustments' ||
+        getTableName(table) === 'retail_supplier_credits' ||
+        getTableName(table) === 'retail_ledger_recognitions',
     );
     // A vacuity floor on the table set as well as on the columns: a filter that
     // matched nothing would report a clean schema.
@@ -477,8 +478,9 @@ describe('no margin, profit or markup exists anywhere in the domain', () => {
   });
 
   it('refuses a forbidden output BY NAME rather than as an unrecognized key', () => {
-    expect(() => assertNoForbiddenAccountingOutput(['marginTargetBps'], 'reconciliation policy'))
-      .toThrow(/planned_margin/);
+    expect(() =>
+      assertNoForbiddenAccountingOutput(['marginTargetBps'], 'reconciliation policy'),
+    ).toThrow(/planned_margin/);
     expect(() =>
       assertNoForbiddenAccountingOutput(['unclaimedAdjustmentRevenue'], 'reconciliation policy'),
     ).toThrow(/unclaimed_adjustment_revenue/);
@@ -515,9 +517,9 @@ describe('no margin, profit or markup exists anywhere in the domain', () => {
 describe('the operator surface is a CLOSED set', () => {
   it('registers exactly the routes #128 grants and no others', () => {
     const source = code(ROUTE_FILE);
-    const registered = [...source.matchAll(/router\.(get|post|put|patch|delete)\(\s*'([^']+)'/g)].map(
-      (match) => `${match[1]?.toUpperCase() ?? ''} ${match[2] ?? ''}`,
-    );
+    const registered = [
+      ...source.matchAll(/router\.(get|post|put|patch|delete)\(\s*'([^']+)'/g),
+    ].map((match) => `${match[1]?.toUpperCase() ?? ''} ${match[2] ?? ''}`);
     // EXACT, not a superset. The four shapes a sponsored-placement surface takes
     // in #74 have their analogue here: "set this variance", "waive this
     // adjustment", "override this cost" and "delete this record" are all one
@@ -559,8 +561,7 @@ describe('the operator surface is a CLOSED set', () => {
    */
   const appliesProcurementGate = (source: string): boolean =>
     /router\.use\(\s*requireProcurementOperator\s*\)/.test(source);
-  const reachesComplianceGate = (source: string): boolean =>
-    /requireRetailOperator/.test(source);
+  const reachesComplianceGate = (source: string): boolean => /requireRetailOperator/.test(source);
 
   it('APPLIES the procurement operator gate as middleware', () => {
     expect(appliesProcurementGate(code(ROUTE_FILE))).toBe(true);
@@ -688,14 +689,20 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     expect(/retail-reconciliation/i.test('db/schema/retailReconciliation.ts')).toBe(false);
     expect(DOMAIN_NAME_PATTERN.test('db/schema/retailReconciliation.ts')).toBe(true);
     // The bare word this pattern must NOT be widened to: ten other domains.
-    assertEachOf([
-      'services/payments/reconciliation/runner.ts',
-      'services/ebay/reconciliation.ts',
-      'services/retail-service-requests/reconciler.ts',
-    ], 3, (foreign) => {
-      expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
-      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
-    });
+    assertEachOf(
+      [
+        'services/payments/reconciliation/runner.ts',
+        'services/ebay/reconciliation.ts',
+        'services/retail-service-requests/reconciler.ts',
+      ],
+      3,
+      (foreign) => {
+        expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(
+          false,
+        );
+        expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+      },
+    );
   });
 
   it('the derived population really is the one the walls scan', () => {

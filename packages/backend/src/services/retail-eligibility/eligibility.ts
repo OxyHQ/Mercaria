@@ -358,10 +358,7 @@ export function deriveRetailEligibility(
   if (!policy.permittedDestinationCountries.includes(destination)) {
     reasons.add('destination_not_permitted');
   }
-  if (
-    offer.fulfilmentOriginCountries.length > 0 &&
-    fulfilmentOriginCountry === null
-  ) {
+  if (offer.fulfilmentOriginCountries.length > 0 && fulfilmentOriginCountry === null) {
     // The offer said where it ships from and the policy permits none of them —
     // ADR 0004 D2.9's "any supplier shipping from outside the EU is ineligible",
     // as data on a policy version rather than a constant in code.
@@ -403,12 +400,18 @@ export function deriveRetailEligibility(
   // ── Resale authorization ─────────────────────────────────────────────────
   const agreement = input.agreement;
   if (agreement) {
-    if (agreement.excludedBrands.length > 0 && offer.brandKey !== null &&
-        agreement.excludedBrands.includes(offer.brandKey)) {
+    if (
+      agreement.excludedBrands.length > 0 &&
+      offer.brandKey !== null &&
+      agreement.excludedBrands.includes(offer.brandKey)
+    ) {
       reasons.add('brand_excluded_by_agreement');
     }
-    if (agreement.excludedCategories.length > 0 && offer.categoryKey !== null &&
-        agreement.excludedCategories.includes(offer.categoryKey)) {
+    if (
+      agreement.excludedCategories.length > 0 &&
+      offer.categoryKey !== null &&
+      agreement.excludedCategories.includes(offer.categoryKey)
+    ) {
       reasons.add('category_excluded_by_agreement');
     }
     if (agreement.excludedProductRefs.includes(offer.supplierSku)) {
@@ -440,7 +443,9 @@ export function deriveRetailEligibility(
       reasons.add('resale_evidence_missing');
       continue;
     }
-    const inScope = ofKind.filter((row) => resaleEvidenceCoversQuery(row, offer, agreement, destination));
+    const inScope = ofKind.filter((row) =>
+      resaleEvidenceCoversQuery(row, offer, agreement, destination),
+    );
     if (inScope.length === 0) {
       reasons.add('resale_evidence_out_of_scope');
       continue;
@@ -476,13 +481,15 @@ export function deriveRetailEligibility(
   // A MAP restriction whose acknowledgement is merely absent is a question, not
   // a refusal — so it reports as an unresolved pricing restriction rather than
   // as missing resale evidence, which would send an operator after a contract.
-  if (agreement?.mapRestricted &&
-      !input.resaleEvidence.some(
-        (row) =>
-          row.kind === 'pricing_policy_acknowledgement' &&
-          deriveEvidenceState(row, now) === 'verified' &&
-          resaleEvidenceCoversQuery(row, offer, agreement, destination),
-      )) {
+  if (
+    agreement?.mapRestricted &&
+    !input.resaleEvidence.some(
+      (row) =>
+        row.kind === 'pricing_policy_acknowledgement' &&
+        deriveEvidenceState(row, now) === 'verified' &&
+        resaleEvidenceCoversQuery(row, offer, agreement, destination),
+    )
+  ) {
     reasons.add('pricing_restriction_unresolved');
   }
 
@@ -493,8 +500,10 @@ export function deriveRetailEligibility(
     // A machine mapping. It is ambiguous when the policy demands a
     // deterministic one, or when its score is below the floor — either way it
     // is #59's to review, and it stays ineligible until then.
-    if (policy.requireDeterministicProductMatch ||
-        offer.mappingConfidence < policy.minimumMatchConfidence) {
+    if (
+      policy.requireDeterministicProductMatch ||
+      offer.mappingConfidence < policy.minimumMatchConfidence
+    ) {
       reasons.add('product_mapping_ambiguous');
     }
   }
@@ -512,8 +521,10 @@ export function deriveRetailEligibility(
   if (policy.requireResponsibleOperator && input.traceability.responsibleOperator === undefined) {
     reasons.add('responsible_operator_missing');
   }
-  if (input.categoryRule?.requiresBatchTraceability &&
-      input.traceability.batchTraceabilitySupported !== true) {
+  if (
+    input.categoryRule?.requiresBatchTraceability &&
+    input.traceability.batchTraceabilitySupported !== true
+  ) {
     reasons.add('traceability_capability_missing');
   }
 
@@ -611,8 +622,10 @@ export function deriveRetailEligibility(
     }
     if (capability.vatTreatment === 'not_determined') reasons.add('tax_treatment_unknown');
     if (!capability.sellerRegistrationRecorded) reasons.add('tax_registration_missing');
-    if (capability.importerOfRecord === 'undetermined') reasons.add('importer_of_record_unresolved');
-    if (capability.dutyResponsibility === 'undetermined') reasons.add('duty_responsibility_unresolved');
+    if (capability.importerOfRecord === 'undetermined')
+      reasons.add('importer_of_record_unresolved');
+    if (capability.dutyResponsibility === 'undetermined')
+      reasons.add('duty_responsibility_unresolved');
     tax = {
       vatTreatment: capability.vatTreatment,
       importerOfRecord: capability.importerOfRecord,
@@ -651,8 +664,7 @@ function finish(
     exception &&
     input.policy?.manualExceptionsPermitted === true &&
     exception.expiresAt.getTime() > input.now.getTime() &&
-    (!input.policy.exceptionDualApprovalRequired ||
-      exception.secondApprovedByOxyUserId !== null) &&
+    (!input.policy.exceptionDualApprovalRequired || exception.secondApprovedByOxyUserId !== null) &&
     scopeCovers(exception.scopeDestinationCountries, upper(input.query.destinationCountry)) &&
     (exception.canonicalVariantId === null ||
       exception.canonicalVariantId === input.offer.canonicalVariantId)
@@ -698,7 +710,9 @@ function combineVerdict(reasons: readonly RetailEligibilityReason[]): RetailElig
 function pickAction(reasons: readonly RetailEligibilityReason[]): RetailEligibilityAction {
   if (reasons.length === 0) return 'none';
   const actions = new Set(reasons.map((reason) => RETAIL_ELIGIBILITY_REASON_ACTION[reason]));
-  return RETAIL_ELIGIBILITY_ACTION_PRIORITY.find((action) => actions.has(action)) ?? 'operator_review';
+  return (
+    RETAIL_ELIGIBILITY_ACTION_PRIORITY.find((action) => actions.has(action)) ?? 'operator_review'
+  );
 }
 
 /**

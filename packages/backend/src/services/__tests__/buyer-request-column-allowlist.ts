@@ -40,7 +40,11 @@
  * make harder, so it is written down rather than left to be assumed.
  */
 
-import type { ColumnExemption, ColumnProhibition, TableAllowance } from '../../db/__tests__/column-allowlist.js';
+import type {
+  ColumnExemption,
+  ColumnProhibition,
+  TableAllowance,
+} from '../../db/__tests__/column-allowlist.js';
 
 /**
  * The three column shapes that repeat across this domain, spelled once.
@@ -72,7 +76,7 @@ export const BUYER_REQUEST_COLUMN_ALLOWLIST: readonly TableAllowance[] = [
       { reason: IDENTITY_REASON, columns: ['id', 'order_id', 'created_at', 'updated_at'] },
       {
         reason:
-          'What was asked for: the lifecycle state, a bounded reason code, the buyer\'s own note, and whether the whole order was meant. A cancellation refunds delivery, which is why `whole_order` is a stored fact rather than derived from the lines.',
+          "What was asked for: the lifecycle state, a bounded reason code, the buyer's own note, and whether the whole order was meant. A cancellation refunds delivery, which is why `whole_order` is a stored fact rather than derived from the lines.",
         columns: ['state', 'reason', 'note', 'whole_order'],
       },
       {
@@ -89,7 +93,7 @@ export const BUYER_REQUEST_COLUMN_ALLOWLIST: readonly TableAllowance[] = [
       },
       {
         reason:
-          'The convergence key. One client\'s retry after its request was decided converges here; two concurrent racers converge on the partial unique over the OPEN states instead, and neither index covers the other.',
+          "The convergence key. One client's retry after its request was decided converges here; two concurrent racers converge on the partial unique over the OPEN states instead, and neither index covers the other.",
         columns: ['idempotency_key'],
       },
     ],
@@ -117,7 +121,7 @@ export const BUYER_REQUEST_COLUMN_ALLOWLIST: readonly TableAllowance[] = [
       { reason: IDENTITY_REASON, columns: ['id', 'order_id', 'created_at', 'updated_at'] },
       {
         reason:
-          'What was asked for and what shape of answer it wants: the lifecycle state, a bounded reason code, the requested resolution, and the buyer\'s own note. `replacement` is representable and refused at submit, which is why the resolution is stored rather than assumed.',
+          "What was asked for and what shape of answer it wants: the lifecycle state, a bounded reason code, the requested resolution, and the buyer's own note. `replacement` is representable and refused at submit, which is why the resolution is stored rather than assumed.",
         columns: ['state', 'reason', 'resolution', 'note'],
       },
       {
@@ -130,7 +134,7 @@ export const BUYER_REQUEST_COLUMN_ALLOWLIST: readonly TableAllowance[] = [
       },
       {
         reason:
-          'How the goods come back: instructions the merchant wrote, the window the buyer has, the deadline to send it, and when it ARRIVED. `received_at` is why `received` is a state at all — a return cannot restock at approval, because the units are still in a parcel. No carrier, tracking or label column: return transport is Moovo\'s (#159).',
+          "How the goods come back: instructions the merchant wrote, the window the buyer has, the deadline to send it, and when it ARRIVED. `received_at` is why `received` is a state at all — a return cannot restock at approval, because the units are still in a parcel. No carrier, tracking or label column: return transport is Moovo's (#159).",
         columns: [
           'return_instructions',
           'return_window_ends_at',

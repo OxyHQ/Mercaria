@@ -353,8 +353,10 @@ function priceChangeFor(
   prior: WatchlistPriorSnapshot | undefined,
 ): WatchlistItemPriceChange {
   if (prior === undefined) return { known: false, reason: 'no_prior_snapshot' };
-  if (prior.displayCurrency !== displayCurrency) return { known: false, reason: 'currency_changed' };
-  if (evaluation.state !== 'priced') return { known: false, reason: 'not_priced_in_prior_snapshot' };
+  if (prior.displayCurrency !== displayCurrency)
+    return { known: false, reason: 'currency_changed' };
+  if (evaluation.state !== 'priced')
+    return { known: false, reason: 'not_priced_in_prior_snapshot' };
 
   const line = prior.lines.find((candidate) => candidate.watchlistItemId === itemId);
   if (line === undefined || line.state !== 'priced' || line.unitItemPriceAmount === null) {

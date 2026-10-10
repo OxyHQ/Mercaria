@@ -102,7 +102,8 @@ function realdbFiles(): string[] {
         walk(full);
         continue;
       }
-      if (entry.endsWith('.realdb.test.ts')) found.push(relative(SRC_ROOT, full).split(sep).join('/'));
+      if (entry.endsWith('.realdb.test.ts'))
+        found.push(relative(SRC_ROOT, full).split(sep).join('/'));
     }
   };
   walk(SRC_ROOT);
@@ -135,7 +136,9 @@ describe('the reconciliation sweep slot', () => {
 
     // The floor that stops a broken detector reading as a clean estate. Two
     // files touch this table today and both must be found.
-    expect(touchers, 'the detectors matched nothing, so this gate measured nothing').toHaveLength(2);
+    expect(touchers, 'the detectors matched nothing, so this gate measured nothing').toHaveLength(
+      2,
+    );
     expect(touchers).toEqual(holders);
   });
 

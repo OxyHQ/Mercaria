@@ -25,7 +25,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { BUYER_ORDER_VIEW_BY_STATUS, ORDER_STATUSES } from '@mercaria/shared-types';
-import type { OrderAccessFacts, OrderAccessSubject } from '../../../services/orders/order-access.service.js';
+import type {
+  OrderAccessFacts,
+  OrderAccessSubject,
+} from '../../../services/orders/order-access.service.js';
 
 const RUN = Math.random().toString(36).slice(2, 10);
 const NOW = new Date('2026-05-06T07:08:09.000Z');
@@ -277,7 +280,10 @@ describe('the widened immutability trigger — a claim is not a rewrite (D6/D14/
       checkoutGroupId: contact.checkoutGroupId,
     });
     await expectPgRejection(
-      db.update(schema.orders).set({ buyerOrigin: 'oxy' }).where(eq(schema.orders.id, guestOrderId)),
+      db
+        .update(schema.orders)
+        .set({ buyerOrigin: 'oxy' })
+        .where(eq(schema.orders.id, guestOrderId)),
       /buyer_origin is immutable/,
     );
     await expectPgRejection(
@@ -353,7 +359,13 @@ describe('order_status_history_actor_check — invariant I1 in an audit row (D16
       checkoutGroupId: contact.checkoutGroupId,
     });
     await db.insert(schema.orderStatusHistory).values([
-      { orderId, status: 'pending_payment', at: NOW, actorKind: 'guest', actorGuestSessionId: `gs-${RUN}` },
+      {
+        orderId,
+        status: 'pending_payment',
+        at: NOW,
+        actorKind: 'guest',
+        actorGuestSessionId: `gs-${RUN}`,
+      },
       { orderId, status: 'paid', at: NOW, actorKind: 'oxy', byOxyUserId: `staff-${RUN}` },
       { orderId, status: 'processing', at: NOW, actorKind: 'system' },
     ] as never);
@@ -420,11 +432,7 @@ describe('two representations of buyer access, driven through both (ADR 0003 D7)
     });
 
     // (1) The SQL predicate: what the buyer's own order list returns.
-    const { rows } = await repo.findOrdersPage(
-      { buyerOrClaimantOxyUserId: claimant },
-      1,
-      50,
-    );
+    const { rows } = await repo.findOrdersPage({ buyerOrClaimantOxyUserId: claimant }, 1, 50);
     const visible = new Set(rows.map((row) => row.id));
     expect(visible.has(boughtId)).toBe(true);
     expect(visible.has(claimedId)).toBe(true);
@@ -545,7 +553,6 @@ describe('the index the claim-aware read is built for', () => {
   });
 });
 
-
 describe('buyer history views filter before counting and paginating', () => {
   it('keeps active/past status buckets, claimed guests and other accounts isolated', async () => {
     const buyer = `history-${uuidv7()}`;
@@ -558,25 +565,37 @@ describe('buyer history views filter before counting and paginating', () => {
     }
     for (const status of ['processing', 'delivered'] as const) {
       const contact = await makeGuestContact();
-      const id = await insertRawOrder({ buyerOrigin: 'guest', buyerGuestCheckoutId: contact.id,
-        checkoutGroupId: contact.checkoutGroupId, claimedByOxyUserId: buyer, claimedAt: new Date(), status });
+      const id = await insertRawOrder({
+        buyerOrigin: 'guest',
+        buyerGuestCheckoutId: contact.id,
+        checkoutGroupId: contact.checkoutGroupId,
+        claimedByOxyUserId: buyer,
+        claimedAt: new Date(),
+        status,
+      });
       expected[BUYER_ORDER_VIEW_BY_STATUS[status]].push(id);
       const unclaimed = await makeGuestContact();
-      await insertRawOrder({ buyerOrigin: 'guest', buyerGuestCheckoutId: unclaimed.id,
-        checkoutGroupId: unclaimed.checkoutGroupId, status });
+      await insertRawOrder({
+        buyerOrigin: 'guest',
+        buyerGuestCheckoutId: unclaimed.id,
+        checkoutGroupId: unclaimed.checkoutGroupId,
+        status,
+      });
     }
     expect(expected.active).toHaveLength(5);
     expect(expected.past).toHaveLength(6);
     for (const view of ['active', 'past'] as const) {
-      const filter = { buyerOrClaimantOxyUserId: buyer,
-        statuses: ORDER_STATUSES.filter(status => BUYER_ORDER_VIEW_BY_STATUS[status] === view) };
+      const filter = {
+        buyerOrClaimantOxyUserId: buyer,
+        statuses: ORDER_STATUSES.filter((status) => BUYER_ORDER_VIEW_BY_STATUS[status] === view),
+      };
       const ids: string[] = [];
       for (let page = 1; page <= Math.ceil(expected[view].length / 2); page++) {
         const result = await repo.findOrdersPage(filter, page, 2);
         expect(result.total).toBe(expected[view].length);
         expect(result.rows.length).toBeGreaterThan(0);
         expect(result.rows.length).toBeLessThanOrEqual(2);
-        ids.push(...result.rows.map(row => row.id));
+        ids.push(...result.rows.map((row) => row.id));
       }
       expect(new Set(ids).size).toBe(ids.length);
       expect([...ids].sort()).toEqual([...expected[view]].sort());
