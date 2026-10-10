@@ -2740,7 +2740,7 @@ in ADR 0001 — so this list is also the record of what "live" will require.
 
 **Secrets**
 
-- [ ] `STRIPE_SECRET_KEY` is an `sk_live_` key, in GitHub repo secrets → SSM
+- [ ] `STRIPE_SECRET_KEY` is an `sk_live_` key, in SSM
       `/oxy/mercaria/*`, never a placeholder (`-`, empty, `TODO`).
 - [ ] `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` are set and are
       DIFFERENT from each other. Swapping them makes every delivery fail

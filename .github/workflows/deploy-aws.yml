@@ -116,7 +116,7 @@ env:
   # VERIFIED, not assumed: provisioned 2026-08-08 via oxy-infra runbook 30 — role
   # `mercaria` owns database `mercaria` on oxy-postgres, with PostGIS installed by
   # oxyadmin (it is not a trusted extension, so database ownership alone cannot
-  # install it). The matching DATABASE_URL is already live: GitHub secret → SSM
+  # install it). The matching DATABASE_URL is already live in SSM
   # /oxy/mercaria/DATABASE_URL → task definition oxy-mercaria:2.
   PG_DATABASE: mercaria
 
@@ -209,160 +209,14 @@ jobs:
           role-to-assume: arn:aws:iam::237343248947:role/oxy-github-deploy
           aws-region: ${{ env.AWS_REGION }}
 
-      # An EXPLICIT allowlist — never `toJSON(secrets)`.
-      #
-      # This step used to enumerate every secret the repo can see and pipe the
-      # lot through `jq` into `aws ssm put-parameter`. That shape is
-      # indistinguishable from a secret-exfiltration payload, and GitHub's
-      # malicious-workflow detection matches it: every run was then created as
-      # `action_required` with ZERO jobs — no environment protection, nothing to
-      # approve in `pending_deployments` — waiting for a human to press "Approve
-      # and run" in the UI. Measured across the org on 2026-08-08: the three
-      # repos whose deploy workflow contained `toJSON(secrets)` (Mercaria, Syra,
-      # Homiio) were all held, and the two without it (Mention, OxyHQServices)
-      # deployed unheld. The gate re-fires whenever the workflow file changes,
-      # which is why it looked like it "started" on a particular day here — this
-      # file had just been edited. That red herring already cost one wrong
-      # diagnosis, recorded on the `deploy` job's `runs-on` above.
-      #
-      # So the allowlist is not tidiness: it is the property that keeps
-      # automated deploys running at all. `src/db/__tests__/deployWorkflow.test.ts`
-      # fails if `toJSON(secrets)` comes back.
-      #
-      # The SYNC_ prefix is load-bearing for a second, unrelated reason. The OIDC
-      # step above exports AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY into the job
-      # environment, so binding a secret to an env var under its raw name would
-      # shadow the assumed role and fail this step with
-      # UnrecognizedClientException. The old loop never bound a secret to an env
-      # var at all, which is how it sidestepped that; an allowlist has to avoid
-      # it deliberately. Same reason oxy-api's sync step carries the prefix.
-      - name: Sync GitHub secrets -> SSM (GitHub is the source of truth)
-        env:
-          SYNC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SYNC_REDIS_URL: ${{ secrets.REDIS_URL }}
-          SYNC_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-          SYNC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
-          SYNC_VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
-          SYNC_SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
-          SYNC_SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
-          SYNC_CONNECTOR_ENCRYPTION_KEY: ${{ secrets.CONNECTOR_ENCRYPTION_KEY }}
-          SYNC_CONNECTOR_OAUTH_STATE_SECRET: ${{ secrets.CONNECTOR_OAUTH_STATE_SECRET }}
-          SYNC_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          SYNC_STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          SYNC_STRIPE_CONNECT_WEBHOOK_SECRET: ${{ secrets.STRIPE_CONNECT_WEBHOOK_SECRET }}
-          SYNC_STRIPE_ONBOARDING_STATE_SECRET: ${{ secrets.STRIPE_ONBOARDING_STATE_SECRET }}
-        run: |
-          # WHAT THIS REPO OWNS AND CONSUMES — deliberately NOT a mirror of the
-          # live task definition, in BOTH directions.
-          #
-          # It is SHORTER by SERVICE_SECRET, which oxy-mercaria:3 still names and
-          # which nothing here reads any more (see below). It is LONGER by the
-          # four connector parameters, which nothing names YET: measured on
-          # oxy-mercaria:3 on 2026-08-16, the live revision reads exactly
-          # SERVICE_SECRET, the three VAPID_*, REDIS_URL, the two AWS_* and
-          # DATABASE_URL.
-          #
-          # That direction is the SAFE one and the order is the whole point. A
-          # task definition naming an SSM parameter that does not exist fails at
-          # task START with ResourceInitializationError — on the next scale-up or
-          # deploy rather than immediately — so the parameter has to be written
-          # BEFORE anything reads it. Syncing a value nothing consumes is inert;
-          # naming a value nothing wrote is an outage. So:
-          #
-          #   1. (this PR) the four land in /oxy/mercaria/ on the next deploy and
-          #      NOTHING reads them. Nothing can fail.
-          #   2. (oxy-infra) add the four to Mercaria's task definition in
-          #      terraform-uswest2/app-services.tf, apply, roll out. Only now does
-          #      the container read them, and by then they exist.
-          #
-          # The consumers are in this repo already: SHOPIFY_CLIENT_ID and
-          # SHOPIFY_CLIENT_SECRET in connectors/shopify/config.ts,
-          # CONNECTOR_OAUTH_STATE_SECRET in connectors/config.ts, and
-          # CONNECTOR_ENCRYPTION_KEY in lib/connector-crypto.ts.
-          #
-          # CONNECTOR_OAUTH_REDIRECT_BASE_URL and CONNECTOR_DEFAULT_CATEGORY_SLUG
-          # are deliberately ABSENT: they are configuration, not secrets, and land
-          # as plain `environment` entries in the task definition — oxy-infra's
-          # half. Adding them here would write a public URL into SecureString and
-          # give the deployment two places to change it.
-          #
-          # SERVICE_SECRET is RETIRED (#164). No code reads it: the middleware
-          # that did is deleted, and it had no mounted route before that. It is
-          # off this list so a deploy stops re-writing a live credential nothing
-          # consumes — which is a narrower change than it looks, and the order
-          # is what keeps it safe:
-          #
-          #   1. (this PR) the app stops reading it and the sync stops writing
-          #      it. /oxy/mercaria/SERVICE_SECRET KEEPS its current value and
-          #      oxy-mercaria:3 keeps injecting it into an env var nobody reads.
-          #      Nothing can fail.
-          #   2. (oxy-infra) drop the SERVICE_SECRET entry from Mercaria's task
-          #      definition in terraform-uswest2/app-services.tf, apply, roll
-          #      out. Only now does the container stop naming the parameter.
-          #   3. (after that rollout) delete the SSM parameter and the GitHub
-          #      repo secret, and rotate the value anywhere else it was pasted.
-          #
-          # Doing 3 before 2 is an OUTAGE, not a cleanup: a task definition that
-          # names a parameter which no longer exists fails at task START with
-          # ResourceInitializationError, and it fails on the next scale-up or
-          # deploy rather than immediately, so the tasks running now keep
-          # serving while the deployment that discovers it looks unrelated.
-          #
-          # Do NOT re-add SERVICE_SECRET here to "match the live task
-          # definition" — until step 2 lands, the live task definition naming it
-          # is exactly the state being retired. src/db/__tests__/deployWorkflow.test.ts
-          # pins this list.
-          # The four STRIPE_* names are the payment rail's secret half (#35).
-          # `STRIPE_ENABLED` and every URL, country and currency list beside it
-          # are plain CONFIGURATION and belong in the task definition's
-          # `environment`, not here — and so does STRIPE_PUBLISHABLE_KEY, which
-          # is `pk_live_…`: the checkout handoff serves it to every browser
-          # (`services/payments/checkout-payment.service.ts:240`), so storing it
-          # as a SecureString would only make it harder to read, never safer.
-          #
-          # `config/index.ts:571` refuses to arm the rail unless the secret key
-          # and BOTH webhook secrets are present, so these four land or the rail
-          # stays off — there is no half-configured state to leak through.
-          #
-          # STRIPE_WEBHOOK_SECRET_PREVIOUS and its connect twin are deliberately
-          # ABSENT. They exist only inside a rotation window, and a name on this
-          # list with no value behind it warns on EVERY deploy forever, which is
-          # how a real warning stops being read. A rotation adds the name here
-          # AND to the task definition in the same pair of PRs, in that order,
-          # and removes both when the window closes.
-          SHARED_SECRETS="REDIS_URL"
-          APP_SECRETS="DATABASE_URL VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT SHOPIFY_CLIENT_ID SHOPIFY_CLIENT_SECRET CONNECTOR_ENCRYPTION_KEY CONNECTOR_OAUTH_STATE_SECRET STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_CONNECT_WEBHOOK_SECRET STRIPE_ONBOARDING_STATE_SECRET"
-
-          # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are deliberately absent,
-          # though oxy-mercaria:3 reads both from /oxy/_shared/. Mercaria
-          # CONSUMES those two; it does not own them — the repos that hold them
-          # as secrets (OxyHQServices, Syra) are what write them. This repo holds
-          # neither, so leaving them out stops nothing that was being synced, and
-          # a key added here later would otherwise overwrite the shared
-          # credential every other backend reads.
-          #
-          # REDIS_URL is in the same position today — unset here, so it warns and
-          # leaves /oxy/_shared/REDIS_URL alone on every run, the same no-op the
-          # old loop performed silently. It stays on the list because it is the
-          # one shared parameter this repo could legitimately come to own, and
-          # the endpoint guard below is what would make setting it safe.
-          for k in $SHARED_SECRETS $APP_SECRETS; do
-            v=$(printenv "SYNC_$k" || true)
-            # A secret left empty, or set to a single dash, is a mistake — not an
-            # instruction to overwrite production with garbage. Skipping the sync
-            # preserves whatever SSM already holds.
-            if [ -z "$v" ] || [ "$v" = "-" ]; then
-              echo "::warning::skip empty/placeholder secret $k; SSM unchanged"
-              continue
-            fi
-            if [ "$k" = "REDIS_URL" ] && ! printf '%s' "$v" | grep -q '\.usw2\.cache\.amazonaws\.com'; then
-              echo "::warning::skip REDIS_URL because it does not point at the us-west-2 Valkey endpoint; SSM unchanged"
-              continue
-            fi
-            case " $SHARED_SECRETS " in *" $k "*) path="/oxy/_shared/$k";; *) path="/oxy/$APP/$k";; esac
-            aws ssm put-parameter --name "$path" --value "$v" --type SecureString --overwrite >/dev/null && echo "synced -> $path"
-          done
-
+      # Runtime secrets are NOT in GitHub. SSM Parameter Store (/oxy/mercaria/*,
+      # SecureString) is their single source of truth: the task definition reads
+      # them at task start, and nothing in this workflow writes one. Setting or
+      # rotating a value is `aws ssm put-parameter --overwrite` by its owner
+      # (oxy-infra docs/runbooks/45-shared-ssm-parameters.md and the app
+      # secrets runbook), never a repo secret. Until 2026-10-10 a step here
+      # copied GitHub repo secrets into SSM on every deploy; that made GitHub the
+      # source of truth for production credentials and is gone.
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
