@@ -8,6 +8,7 @@ import type {
   Listing,
   ProductVariantDTO,
   SellerSettableListingStatus,
+  UpdateListingInput,
 } from "@mercaria/shared-types";
 import {
   Text,
@@ -144,8 +145,10 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
       onError: () => toast.error(t("products.detail.pins.releaseFailed")),
     });
 
-  const [title, setTitle] = useState(product.title);
-  const [description, setDescription] = useState(product.description);
+  const [titleDraft, setTitle] = useState<string>();
+  const [descriptionDraft, setDescription] = useState<string>();
+  const title = titleDraft ?? product.title;
+  const description = descriptionDraft ?? product.description;
   const [organizationDraft, setOrganization] = useState<ProductOrganizationValue>({ vendor: product.vendor ?? "", productType: product.productType ?? "", tags: product.tags ?? [] });
   const [editedOrganization, setEditedOrganization] = useState({ vendor: false, productType: false, tags: false });
   // Untouched fields follow a refreshed DTO; an in-progress edit stays local.
@@ -165,20 +168,27 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   const restricted = isRestricted(product);
   // Falls back to `draft` only so the control has a valid value while disabled —
   // it is never submitted, because `save` is unreachable for a restricted listing.
-  const [status, setStatus] = useState<SellerSettableListingStatus>(
-    restricted ? "draft" : (product.status as SellerSettableListingStatus),
-  );
+  const [statusDraft, setStatus] = useState<SellerSettableListingStatus>();
+  const status = restricted ? "draft" : statusDraft ?? (product.status as SellerSettableListingStatus);
 
+  const changes: UpdateListingInput = {
+    ...(titleDraft !== undefined && title.trim() !== product.title ? { title: title.trim() } : {}),
+    ...(descriptionDraft !== undefined && description.trim() !== product.description ? { description: description.trim() } : {}),
+    ...(statusDraft !== undefined && status !== product.status ? { status } : {}),
+    ...(editedOrganization.vendor && organization.vendor.trim() !== (product.vendor ?? "") ? { vendor: organization.vendor.trim() } : {}),
+    ...(editedOrganization.productType && organization.productType.trim() !== (product.productType ?? "") ? { productType: organization.productType.trim() } : {}),
+    ...(editedOrganization.tags && JSON.stringify(organization.tags) !== JSON.stringify(product.tags ?? []) ? { tags: organization.tags } : {}),
+  };
+  const hasChanges = Object.keys(changes).length > 0;
   const save = () => {
-    if (restricted || organizationErrors.vendor || organizationErrors.productType) return;
+    if (!canWrite || updateProduct.isPending || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType) return;
     updateProduct.mutate(
-      { title: title.trim(), description: description.trim(), status,
-        ...(editedOrganization.vendor && organization.vendor.trim() !== (product.vendor ?? "") ? { vendor: organization.vendor.trim() } : {}),
-        ...(editedOrganization.productType && organization.productType.trim() !== (product.productType ?? "") ? { productType: organization.productType.trim() } : {}),
-        ...(editedOrganization.tags && JSON.stringify(organization.tags) !== JSON.stringify(product.tags ?? []) ? { tags: organization.tags } : {}),
-      },
+      changes,
       {
         onSuccess: () => {
+          setTitle(undefined);
+          setDescription(undefined);
+          setStatus(undefined);
           setEditedOrganization({ vendor: false, productType: false, tags: false });
           toast.success(t("products.detail.saved"));
         },
@@ -262,14 +272,14 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             placeholder={null}
             value={title}
             onValueChange={setTitle}
-            disabled={!canWrite || restricted}
+            disabled={!canWrite || restricted || updateProduct.isPending}
           />
         </Field>
         <Textarea
           label={t("common.description")}
           value={description}
           onValueChange={setDescription}
-          disabled={!canWrite || restricted}
+          disabled={!canWrite || restricted || updateProduct.isPending}
         />
         <ProductMedia images={product.images} title={product.title} />
         <Field
@@ -280,7 +290,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             type="radio"
             value={status}
             onValueChange={setStatus}
-            disabled={!canWrite || restricted}
+            disabled={!canWrite || restricted || updateProduct.isPending}
           >
             {STATUSES.map((s) => (
               <SegmentedControlItem key={s} value={s}>
@@ -292,7 +302,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         {canWrite ? (
           <View className="flex-row gap-3">
-            <Button tone="accent" className="flex-1" onPress={save} disabled={restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
+            <Button tone="accent" className="flex-1" onPress={save} disabled={!hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
               {t("products.detail.saveChanges")}
             </Button>
             <Button tone="danger" onPress={archive} disabled={restricted} loading={archiveProduct.isPending}>

@@ -16,9 +16,11 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     const product = { id: 'price-product', title: 'Linen studio shirt', description: 'A linen shirt.', category: 'clothing', status: 'draft', tags: [], images: [],
       variants: [variant], options: [], quantity: 5, overriddenFields: [], price: variant.price };
     let readError = false;
-    await page.route('**/admin/stores/*/products/price-product', route => route.request().method() === 'GET' && readError
-      ? route.fulfill({ status: 502, json: { success: false, message: 'Fixture read failure' } })
-      : route.fulfill({ json: { success: true, data: product } }));
+    await page.route('**/admin/stores/*/products/price-product', route => {
+      if (route.request().method() === 'GET' && readError) return route.fulfill({ status: 502, json: { success: false, message: 'Fixture read failure' } });
+      if (route.request().method() === 'PATCH') Object.assign(product, route.request().postDataJSON());
+      return route.fulfill({ json: { success: true, data: product } });
+    });
     let fail = true;
     let release: (() => void) | undefined;
     const writes: unknown[] = [];
@@ -34,15 +36,20 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     const input = editor.getByRole('textbox');
     const save = editor.getByRole('button', { name: copy.common.save, exact: true });
     const saveProduct = page.getByRole('button', { name: copy.products.detail.saveChanges, exact: true });
+    let productEdit = 0;
+    const refreshProduct = async () => {
+      await page.getByRole('textbox', { name: copy.common.title, exact: true }).fill(`Edited product ${++productEdit}`);
+      await saveProduct.click();
+    };
     const retry = page.getByRole('button', { name: copy.common.retry, exact: true });
     await expect(input).toHaveValue('49'); await expect(save).toBeDisabled();
     // A normal product save invalidates the detail. The fixture now returns a
     // price changed by another editor; the untouched variant input must follow.
     variant.price.amount = 5500;
-    await saveProduct.click(); await expect(input).toHaveValue('55');
+    await refreshProduct(); await expect(input).toHaveValue('55');
     const node = await input.elementHandle();
     await input.fill('12.34'); variant.price.amount = 6000;
-    await saveProduct.click(); await expect(input).toHaveValue('12.34');
+    await refreshProduct(); await expect(input).toHaveValue('12.34');
     expect(await node!.evaluate(element => element.isConnected)).toBe(true);
     await input.fill('1e300'); await expect(save).toBeDisabled();
     await input.fill('12.34'); await save.click();
@@ -59,7 +66,7 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await retry.click(); await expect(input).toHaveValue('70');
     // An unsaved amount remains denominated in its original currency if a
     // remote editor changes currency; there must be no accidental conversion.
-    await input.fill('80'); readError = true; await saveProduct.click();
+    await input.fill('80'); readError = true; await refreshProduct();
     await expect(page.getByText(copy.products.detail.loadFailed, { exact: true })).toBeVisible();
     variant.price = { amount: 123456789, currency: 'FAIR' }; product.price = variant.price; readError = false;
     await retry.click();

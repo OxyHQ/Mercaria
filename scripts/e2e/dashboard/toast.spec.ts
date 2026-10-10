@@ -18,17 +18,24 @@ for (const width of [390, 1440]) {
       : route.fulfill({ json: { success: true, data: product } }));
     await page.route('**/variants/toast-variant/levels', route => route.fulfill({ json: { success: true, data: [] } }));
     await page.goto('/products/toast-product');
+    await page.getByRole('textbox', { name: en.common.title, exact: true }).fill('Edited toast title');
     await page.getByRole('button', { name: en.products.detail.saveChanges, exact: true }).click();
     const toast = page.locator('#bloom-portal-root [aria-live]').filter({ hasText: en.products.detail.saveFailed });
     await expect(toast).toBeVisible();
     const target = page.getByRole('button', { name: en.products.variants.inventory.manage, exact: true });
-    await target.scrollIntoViewIfNeeded();
-    const rect = await target.boundingBox();
-    expect(rect).not.toBeNull();
+    // Being just inside the viewport can leave the target beneath the visible
+    // toast card. Place it centrally so this is actually an outside click.
+    await target.evaluate(element => element.scrollIntoView({ block: 'center' }));
     await toast.hover();
+    const rect = await target.boundingBox();
+    const toastRect = await toast.boundingBox();
+    expect(rect).not.toBeNull(); expect(toastRect).not.toBeNull();
+    const point = { x: rect!.x + rect!.width / 2, y: rect!.y + rect!.height / 2 };
+    expect(point.x >= toastRect!.x && point.x <= toastRect!.x + toastRect!.width &&
+      point.y >= toastRect!.y && point.y <= toastRect!.y + toastRect!.height).toBe(false);
     // One physical click: locator.click retries interception and would mask
     // the lost first click that users experienced with Bloom's old backdrop.
-    await page.mouse.click(rect!.x + rect!.width / 2, rect!.y + rect!.height / 2);
+    await page.mouse.click(point.x, point.y);
     await expect(target).toHaveAttribute('aria-expanded', 'true', { timeout: 2000 });
     await expect(page.getByTestId('merchant-variant-inventory')).toContainText(en.products.variants.inventory.empty);
   });

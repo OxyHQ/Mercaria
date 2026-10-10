@@ -19,9 +19,11 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     const product = { id: 'identifier-product', title: 'Linen studio shirt', description: 'A linen shirt.', category: 'clothing', status: 'draft', tags: [], images: [],
       variants: [variant, other], options: [], quantity: 10, overriddenFields: [], price: variant.price };
     let readError = false;
-    await page.route('**/admin/stores/*/products/identifier-product', route => route.request().method() === 'GET' && readError
-      ? route.fulfill({ status: 502, json: { success: false, message: 'Fixture read failure' } })
-      : route.fulfill({ json: { success: true, data: product } }));
+    await page.route('**/admin/stores/*/products/identifier-product', route => {
+      if (route.request().method() === 'GET' && readError) return route.fulfill({ status: 502, json: { success: false, message: 'Fixture read failure' } });
+      if (route.request().method() === 'PATCH') Object.assign(product, route.request().postDataJSON());
+      return route.fulfill({ json: { success: true, data: product } });
+    });
     let fail = true;
     let release: (() => void) | undefined;
     const writes: unknown[] = [];
@@ -39,12 +41,17 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     const save = editor.getByRole('button', { name: copy.common.save, exact: true });
     const cancel = editor.getByRole('button', { name: copy.common.cancel, exact: true });
     const saveProduct = page.getByRole('button', { name: copy.products.detail.saveChanges, exact: true });
+    let productEdit = 0;
+    const refreshProduct = async () => {
+      await page.getByRole('textbox', { name: copy.common.title, exact: true }).fill(`Edited product ${++productEdit}`);
+      await saveProduct.click();
+    };
     const retry = page.getByRole('button', { name: copy.common.retry, exact: true });
     await expect(sku).toHaveValue('FIRST-SKU'); await expect(barcode).toHaveValue('0000123'); await expect(save).toBeDisabled();
-    variant.sku = 'REMOTE-SKU'; await saveProduct.click(); await expect(sku).toHaveValue('REMOTE-SKU');
+    variant.sku = 'REMOTE-SKU'; await refreshProduct(); await expect(sku).toHaveValue('REMOTE-SKU');
     const node = await sku.elementHandle();
     await sku.fill('SAME-SKU'); variant.barcode = '0000999';
-    await saveProduct.click(); await expect(sku).toHaveValue('SAME-SKU'); await expect(barcode).toHaveValue('0000999');
+    await refreshProduct(); await expect(sku).toHaveValue('SAME-SKU'); await expect(barcode).toHaveValue('0000999');
     expect(await node!.evaluate(element => element.isConnected)).toBe(true);
     await sku.fill('   '); await expect(save).toBeDisabled();
     await expect(editor.getByText(copy.products.variants.identifiers.cannotClear, { exact: true })).toBeVisible(); expect(writes).toEqual([]);
