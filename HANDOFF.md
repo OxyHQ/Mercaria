@@ -1352,3 +1352,27 @@ product-menu/report SVG strokes match their theme text. Pixel8a screenshots
 the previously black ellipsis and destructive report glyph now have theme color.
 Wholesale's existing toBloomIcon adapters were independently checked against
 Bloom's documented contract and in both browser themes; no replacement needed.
+
+## Bloom7.30 adoption waiting for public registry — 2026-10-10 13:26UTC
+
+Icon correction4507df39 is complete and running on both local Metros. BloomPR311
+merged as d7d4f5e7bda631ff8d7eeec917c2edcbda7c7621; the agent reports bun publish
+exit0 at13:19:32UTC, expected SHA1 b5c9c5f9d6a30629ce02d459f49523011bf3ce3c
+(30,859,430bytes). At13:26:07, independent public version and packument reads
+still omit730/return404, including no-cache/fresh-query reads. Installed packages
+remain729/Services1115; do not use a local tarball or republish to bypass this.
+Bloom agent watchers37973/8287 own publication and verification; Services1116
+waits for public730 (forward-port1626 merged19c0308f). No production approval
+has arrived for Oxy1625 or GoWay110.
+
+Two new browser cases in scripts/e2e/storefront/product-video.spec.ts are an
+UNCOMMITTED regression test for the pending overlay integration. Both fail on729
+at the expected missing fullscreen alert, at390/1440px:
+/tmp/mercaria-open-video-before.log. Preserve this work and complete it after
+verified official730/1116 adoption: pass renderVideoStatus through Bloom's new
+renderVideoOverlay, render inline status only for the active non-fullscreen
+surface, rerun the five video cases. Retry intentionally disposes the viewer
+snapshot and returns to the same inline slot; Bloom has no public replacement
+API for an already-open snapshot. Do not add timed reopening or mutate internals.
+Then update docs/catalog-media.md and all app/UI pins, validate types and doctor,
+restart Metros and commit the tested implementation with these cases.

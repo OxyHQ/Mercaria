@@ -29,6 +29,11 @@ schema decision. `HANDOFF.md` holds deferred work.
   and adapting it into `style` would mix RN Web's compiled CSS marker with raw
   absolute-fill values during Expo's style flattening. A browser regression
   checks the merchant cover's 330×397 geometry and absence of `styleq` errors.
+  Lucide icons with utility classes use the shared `Icon` export. Its public
+  NativeWind `nativeStyleMapping` delivers resolved text color to Lucide's
+  `color` prop; raw Lucide `className` does not paint native strokes. Icons in
+  Bloom slots use the documented `toBloomIcon` adapter or the component's
+  `renderLeadingIcon`/`renderTrailingIcon` size/color callbacks.
   Shared `useColorScheme` reads both colors and resolved light/dark mode from
   Bloom's `useTheme()`. It delegates preference changes to `useBloomTheme()`;
   it does not resolve the system preference a second time through NativeWind.
