@@ -64,6 +64,13 @@ schema decision. `HANDOFF.md` holds deferred work.
   Filter drafts open in a 300px Bloom `Popover` on web from 768px and a bottom
   `Dialog` below it or on native. Apply commits the draft; dismissal discards it.
   Search and clear controls remain owned by Bloom's `Search`.
+  Product descriptions and full reviews share `MarketplaceSheet`: a full-width
+  end drawer below 976px and a 500px panel with 16px insets above it. Bloom owns
+  its gradient backdrop, 300ms transition, reduced-motion behavior and focus
+  restoration. The translucent panel and scroll fade are marketplace recipes.
+  `ViewportScrollView` binds native scroll events and portaled sheet scrolling
+  to Bloom's viewport observer; rating bars reveal once when fully visible,
+  while their accessible values always expose the actual server distribution.
 - Buyer history has `/orders` (Active) and `/orders/past` (Past). The shared
   `BUYER_ORDER_VIEW_BY_STATUS` maps every lifecycle status to exactly one view;
   the buyer API filters before counting and paginating, including claimed guest
