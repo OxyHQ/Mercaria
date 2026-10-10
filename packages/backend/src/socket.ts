@@ -1,7 +1,7 @@
 import { observeEcosystemSocket } from './ecosystemActivity';
 import { Server, type Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import http from 'http';
+import type http from 'http';
 import { isLiveEntityId } from '@oxy.so/db';
 import { getSocketAdapterClients } from './lib/redis.js';
 import { oxyClient } from './middleware/auth.js';

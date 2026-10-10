@@ -46,7 +46,7 @@ import {
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { findOnSaleListings, type ListingRecord } from '../catalog/listingRepository.js';
-import { type DiscountRow } from '../merchandising/discountRepository.js';
+import type { DiscountRow } from '../merchandising/discountRepository.js';
 import { getDb } from '../postgres.js';
 import { listings } from '../schema/catalog.js';
 import { discoverySignals } from '../schema/discovery.js';

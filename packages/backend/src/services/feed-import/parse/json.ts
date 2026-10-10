@@ -30,7 +30,7 @@
 
 import { FeedImportRefusal } from '../errors.js';
 import { flattenJsonRecord } from './flatten.js';
-import { type FeedParseOptions, type FeedRawRecord } from './types.js';
+import type { FeedParseOptions, FeedRawRecord } from './types.js';
 
 /** A frame of the container stack. `key` is `null` for an array's elements. */
 interface JsonFrame {
@@ -221,7 +221,6 @@ export async function* parseJsonFeed(
       }
       if (character === ',') {
         pendingKey = null;
-        continue;
       }
     }
 

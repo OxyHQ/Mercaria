@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { TextInput } from 'react-native';
+import type { TextInput } from 'react-native';
 import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { ChatComposer } from '@oxy.so/bloom/chat-composer';
 import { PageFooter } from '@oxy.so/bloom/page-footer';

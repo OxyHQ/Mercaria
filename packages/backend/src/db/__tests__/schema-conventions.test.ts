@@ -184,7 +184,7 @@ describe('schema conventions (static)', () => {
     for (const table of tables) {
       const config = getTableConfig(table);
       // The CHECK's rendered SQL, which is where the column reference lives.
-      const checkedSql = config.checks.map((entry) => entry.value.queryChunks).flat();
+      const checkedSql = config.checks.flatMap((entry) => entry.value.queryChunks);
       const checkedColumns = new Set(
         checkedSql
           .filter(

@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { View } from 'react-native';
 import type { AuthoringDraft, AuthoringSchema } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';

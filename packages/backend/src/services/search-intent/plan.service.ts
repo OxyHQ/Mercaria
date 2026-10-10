@@ -724,7 +724,6 @@ function composeClarificationCandidates(
                 { id: 'any', label: 'Anything' },
               ],
       });
-      continue;
     }
     // The remaining kinds — `missing_unit`, `requirement_strength`,
     // `entity_disambiguation`, `condition` — are DEFINED and are not produced by

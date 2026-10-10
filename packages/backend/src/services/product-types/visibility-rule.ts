@@ -106,7 +106,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function own(source: Record<string, unknown>, key: string): unknown {
-  return Object.prototype.hasOwnProperty.call(source, key) ? source[key] : undefined;
+  return Object.hasOwn(source, key) ? source[key] : undefined;
 }
 
 /** A scalar leaf: a bounded string, a finite number, or a boolean. */
@@ -278,7 +278,7 @@ type FieldAnswer =
  * exactly the products it describes.
  */
 function readAnswer(values: ProductTypeRuleValues, field: string): FieldAnswer {
-  const raw = Object.prototype.hasOwnProperty.call(values, field) ? values[field] : undefined;
+  const raw = Object.hasOwn(values, field) ? values[field] : undefined;
   if (raw === undefined || raw === null) return { state: 'absent' };
   // Scalars are eliminated by `typeof` BEFORE the array case, rather than the
   // array being detected first: `Array.isArray` is typed `arg is any[]`, so it

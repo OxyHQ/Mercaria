@@ -38,7 +38,7 @@ import {
   redactErrorText,
   redactIdentifier,
   selfTest,
-  SecretRegistry,
+  type SecretRegistry,
   type ScanReport,
 } from './redact.js';
 

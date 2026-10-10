@@ -211,7 +211,12 @@ import { getShopifyCredentials } from '../connectors/shopify/config.js';
 import { classifyShopifyWebhookTopic } from '../connectors/shopify/webhook.js';
 import { classifyWooCommerceWebhookTopic } from '../connectors/woocommerce/webhook.js';
 import { getIO } from '../socket.js';
-import { conflict, notFound, validationError, MercariaError } from '../lib/errors/error-codes.js';
+import {
+  conflict,
+  notFound,
+  validationError,
+  type MercariaError,
+} from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Product-delete webhook payload (Shopify sends only `{ id }` on delete). */

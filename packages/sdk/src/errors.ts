@@ -95,6 +95,7 @@ export class MercariaError extends Error {
     const lineage: string[] = [];
     let current: typeof MercariaError | null = target;
     while (current !== null) {
+      // biome-ignore lint/suspicious/noPrototypeBuiltins: the SDK compiles to ES2020 (tsconfig `lib`) for older runtimes; `Object.hasOwn` is ES2022.
       if (Object.prototype.hasOwnProperty.call(current, 'errorName'))
         lineage.push(current.errorName);
       if (current === MercariaError) break;

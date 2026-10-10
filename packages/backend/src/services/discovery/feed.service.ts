@@ -151,7 +151,7 @@ import {
   type ListingRecord,
 } from '../../db/catalog/listingRepository.js';
 import { findStoresByIds, type StoreRow } from '../../db/stores/storeRepository.js';
-import { type DiscountRow } from '../../db/merchandising/discountRepository.js';
+import type { DiscountRow } from '../../db/merchandising/discountRepository.js';
 import { toProductSummaries, toStoreSummary } from '../catalog-hydration.service.js';
 import { notFound } from '../../lib/errors/error-codes.js';
 import { config } from '../../config/index.js';

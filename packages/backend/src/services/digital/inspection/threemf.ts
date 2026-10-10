@@ -285,7 +285,6 @@ function measureModelPart(
       hasUvMapping = true;
       const path = attributeOf(match[0], 'path');
       if (path !== null) texturePaths.push(path);
-      continue;
     }
   }
 

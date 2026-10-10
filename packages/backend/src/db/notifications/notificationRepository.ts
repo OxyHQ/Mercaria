@@ -47,8 +47,8 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import {
-  NOTIFICATION_CHANNELS,
-  NOTIFICATION_PRIORITIES,
+  type NOTIFICATION_CHANNELS,
+  type NOTIFICATION_PRIORITIES,
   NOTIFICATION_STATUSES,
   NOTIFICATION_TYPES,
   notifications,

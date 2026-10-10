@@ -972,7 +972,7 @@ export function censusProducers(): ProducerCensus {
   const missingProducers: string[] = [];
   const unexpectedProducers: string[] = [];
   for (const definition of CATALOG_METRICS) {
-    const hasProducer = Object.prototype.hasOwnProperty.call(PRODUCERS, definition.key);
+    const hasProducer = Object.hasOwn(PRODUCERS, definition.key);
     if (definition.unmeasured === undefined && !hasProducer) {
       missingProducers.push(definition.key);
     }

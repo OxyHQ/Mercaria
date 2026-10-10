@@ -48,7 +48,7 @@
 import { and, asc, eq, gt, lte, or, sql } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { RETENTION_SECONDS } from '../expiryTargets.js';
-import { MODERATION_OUTBOX_KINDS, moderationOutboxes } from '../schema/moderation.js';
+import { type MODERATION_OUTBOX_KINDS, moderationOutboxes } from '../schema/moderation.js';
 import { requireTransaction } from './transactionGuard.js';
 
 /** What kind of work an event represents. */

@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { type NearbyLocationResult } from '@mercaria/shared-types';
+import type { NearbyLocationResult } from '@mercaria/shared-types';
 import { Text } from '../ui/text';
 import { useFormatters } from '../../lib/use-formatters';
 import { conditionLabelKey } from '../../lib/condition';

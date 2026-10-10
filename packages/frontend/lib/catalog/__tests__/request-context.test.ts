@@ -113,7 +113,7 @@ describe('the dimensions are resolved from separate sources', () => {
     // Absent, not `'ES'` off the locale and not a placeholder. A market decides
     // assortment and tax treatment, so an invented one shows somebody else's shop.
     expect(context.market).toBeUndefined();
-    expect(Object.prototype.hasOwnProperty.call(context, 'market')).toBe(false);
+    expect(Object.hasOwn(context, 'market')).toBe(false);
   });
 
   it('refuses a device region that is not two letters', () => {

@@ -145,10 +145,7 @@ const RULES = [
   },
   {
     id: 'hand-rolled-minor-units',
-    pattern: new RegExp(
-      String.raw`(?:\?\.|\.)amount\s*[/*]\s*(?:10\s*\*\*|1e-?\d+|0\.0*1\b|\d{2,})`,
-      'g',
-    ),
+    pattern: /(?:\?\.|\.)amount\s*[/*]\s*(?:10\s*\*\*|1e-?\d+|0\.0*1\b|\d{2,})/g,
     suggestion:
       'converting minor units by hand is a second answer to CURRENCY_PRECISION — ' +
       'call formatMoney/formatSourceMoney, which already read it',
@@ -159,7 +156,7 @@ const RULES = [
     // decimal that reaches a reader without passing a formatter. The `[^{}\n]*`
     // spans deliberately refuse to cross a brace, so a nested template is left
     // alone rather than matched by accident.
-    pattern: new RegExp(String.raw`(?<![=\w$])(\$?)\{[^{}\n]*\.toFixed\s*\([^{}\n]*\}`, 'g'),
+    pattern: /(?<![=\w$])(\$?)\{[^{}\n]*\.toFixed\s*\([^{}\n]*\}/g,
     suggestion:
       '`toFixed` always emits an ASCII `.`, which is the wrong decimal separator in eight of the ' +
       'twelve shipped locales — render it through useFormatters() (formatRating, formatPercent, ' +
@@ -167,10 +164,7 @@ const RULES = [
   },
   {
     id: 'amount-beside-currency',
-    pattern: new RegExp(
-      String.raw`(?<![=\w$])(\$?)\{[^{}\n]*\}\s+\1\{[^{}\n]*[Cc]urrency[^{}\n]*\}`,
-      'g',
-    ),
+    pattern: /(?<![=\w$])(\$?)\{[^{}\n]*\}\s+\1\{[^{}\n]*[Cc]urrency[^{}\n]*\}/g,
     suggestion:
       'a figure rendered beside a bare currency code is what a bypass looks like — ' +
       'formatMoney supplies the symbol, and formatSourceMoney supplies the `1234.00 RON` form',

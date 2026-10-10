@@ -27,19 +27,19 @@
  * build on any of the three.
  */
 
-import {
-  type AttributeComponentAxis,
-  type AuthoringCanonicalRefKind,
-  type AuthoringDraft,
-  type AuthoringDraftStatus,
-  type AuthoringDraftValue,
-  type AuthoringDraftVariant,
-  type AuthoringSchema,
-  type AuthoringPermissionContext,
-  type AuthoringUpgradePreview,
-  type AuthoringValidationResult,
-  type CurrencyCode,
-  type ProductTypeAuthoringFlow,
+import type {
+  AttributeComponentAxis,
+  AuthoringCanonicalRefKind,
+  AuthoringDraft,
+  AuthoringDraftStatus,
+  AuthoringDraftValue,
+  AuthoringDraftVariant,
+  AuthoringSchema,
+  AuthoringPermissionContext,
+  AuthoringUpgradePreview,
+  AuthoringValidationResult,
+  CurrencyCode,
+  ProductTypeAuthoringFlow,
 } from '@mercaria/shared-types';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import type { Database, DatabaseOrTransaction } from '../../db/postgres.js';

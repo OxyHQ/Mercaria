@@ -23,7 +23,7 @@
 
 import { and, count, eq, ilike, isNotNull, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
-import { type SelectedRow } from '@oxy.so/db';
+import type { SelectedRow } from '@oxy.so/db';
 import { publicColumns } from '@oxy.so/db/assert';
 import type { AddressSnapshot, CurrencyCode, Money } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';

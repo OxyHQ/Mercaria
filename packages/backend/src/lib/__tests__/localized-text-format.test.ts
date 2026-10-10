@@ -727,10 +727,7 @@ describe('the writer census — a new writer of an in-scope table fails the buil
   it('MUTATION SELF-TEST — the detector notices a writer, and notices its removal', () => {
     // Two directions, because a detector that matches nothing reports "no
     // writers" for every table and passes the two empty entries above.
-    const withWriter = new RegExp(
-      `\\.(insert|update|delete)\\(\\s*listingLocalizations\\s*[,)]`,
-      'u',
-    );
+    const withWriter = /\.(insert|update|delete)\(\s*listingLocalizations\s*[,)]/u;
     expect(withWriter.test('await db.insert(listingLocalizations).values(row)')).toBe(true);
     expect(withWriter.test('await db.insert(\n  listingLocalizations,\n).values(row)')).toBe(true);
     expect(withWriter.test('await db.select().from(listingLocalizations)')).toBe(false);
