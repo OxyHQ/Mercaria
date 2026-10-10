@@ -1,3 +1,4 @@
+import type { ListingMedia } from '@mercaria/shared-types';
 import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
@@ -66,7 +67,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
    */
   const { store } = useActiveStoreContext();
 
-  const [photoIds, setPhotoIds] = useState<string[]>([]);
+  const [media, setMedia] = useState<ListingMedia[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -135,7 +136,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
       title: title.trim(),
       description: description.trim(),
       category: category.trim(),
-      imageFileIds: photoIds,
+      mediaFileIds: media.map(item => item.fileId),
       options,
       variants: builtVariants,
       ...(vendor.trim() ? { vendor: vendor.trim() } : {}),
@@ -191,8 +192,8 @@ function NewProductBody({ storeId }: { storeId: string }) {
           </View>
         </View>
 
-        <ProductPhotoEditor storeId={storeId} images={photoIds.map((fileId, position) => ({ fileId, position }))} title={title}
-          disabled={createProduct.isPending} onChange={setPhotoIds} onBusyChange={setUploadingPhoto} />
+        <ProductPhotoEditor storeId={storeId} images={media.filter(item => item.kind === 'image')} media={media} onMediaChange={setMedia} title={title}
+          disabled={createProduct.isPending} onBusyChange={setUploadingPhoto} />
         <View className="rounded-2xl border border-border bg-surface p-4">
           <Text className="mb-3 text-sm font-semibold text-foreground">
             {t("products.new.optionsHeading")}

@@ -1405,6 +1405,21 @@
       "notice": "As fotos são públicas e pertencem à sua loja. Removê-las aqui exclui apenas a referência ao salvar.",
       "position": "Foto %{position}",
       "remove": "Remover foto %{position}"
+    },
+    "media": {
+      "add": "Adicionar mídia",
+      "prompt": "Selecione uma foto ou um vídeo",
+      "uploading": "Enviando mídia",
+      "uploaded": "Mídia enviada",
+      "invalid": "Fotos de até 20 MB; vídeos MP4 de até 40 MB.",
+      "failed": "Não foi possível adicionar a mídia. Verifique o arquivo e tente novamente.",
+      "notice": "As mídias são públicas e pertencem à sua loja. Remover um item apenas desfaz seu vínculo ao salvar.",
+      "position": "Mídia %{position}",
+      "remove": "Remover mídia %{position}",
+      "viewVideo": "Ver vídeo %{position}",
+      "video": "Vídeo",
+      "unavailable": "Não foi possível carregar este vídeo.",
+      "title": "Fotos e vídeos"
     }
   },
   "settings": {

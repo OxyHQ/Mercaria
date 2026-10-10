@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { uploadProductPhoto, validProductPhoto, PRODUCT_PHOTO_MAX_BYTES } from '../product-photo-upload';
+import { uploadProductPhoto, validProductPhoto, PRODUCT_PHOTO_MAX_BYTES, uploadProductMedia, validProductMedia, PRODUCT_VIDEO_MAX_BYTES } from '../product-photo-upload';
 import apiClient from '../api/client';
 vi.mock('../api/client', () => ({ default: { post: vi.fn() } }));
 beforeEach(() => vi.mocked(apiClient.post).mockReset());
@@ -23,4 +23,16 @@ it('does not convert failed uploads or malformed metadata into success', async (
     vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { success: true, data: { fileId } } });
     await expect(uploadProductPhoto('store-one', bytes, vi.fn(), signal)).rejects.toThrow('Invalid uploaded');
   }
+});
+
+it('validates image and MP4 limits independently and checks returned media kind', async () => {
+  expect(validProductMedia('video/mp4', PRODUCT_VIDEO_MAX_BYTES)).toBe(true);
+  expect(validProductMedia('image/png', PRODUCT_PHOTO_MAX_BYTES + 1)).toBe(false);
+  expect(validProductMedia('video/mp4', PRODUCT_VIDEO_MAX_BYTES + 1)).toBe(false);
+  expect(validProductMedia('video/webm', 50)).toBe(false);
+  const bytes = new Blob(['isolated bytes'], { type: 'video/mp4' }); const signal = new AbortController().signal;
+  vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { success: true, data: { fileId: 'video-id', kind: 'image' } } });
+  await expect(uploadProductMedia('store-one', bytes, vi.fn(), signal)).rejects.toThrow(/metadata/);
+  vi.mocked(apiClient.post).mockResolvedValueOnce({ data: { success: true, data: { fileId: 'video-id', kind: 'video' } } });
+  expect(await uploadProductMedia('store-one', bytes, vi.fn(), signal)).toEqual({ fileId: 'video-id', kind: 'video', position: 0 });
 });

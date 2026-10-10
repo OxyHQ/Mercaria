@@ -1,3 +1,4 @@
+import type { ListingMedia } from '@mercaria/shared-types';
 import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -150,9 +151,10 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
       onError: () => toast.error(t("products.detail.pins.releaseFailed")),
     });
 
-  const [photoDraft, setPhotos] = useState<string[]>();
+  const [photoDraft, setPhotos] = useState<ListingMedia[]>();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const photos = photoDraft?.map((fileId, position) => ({ fileId, position })) ?? product.images;
+  const media: readonly ListingMedia[] = photoDraft ?? product.media ?? product.images.map(image => ({ ...image, kind: 'image' }));
+  const photos = media.filter(item => item.kind === 'image');
   const [titleDraft, setTitle] = useState<string>();
   const [descriptionDraft, setDescription] = useState<string>();
   const title = titleDraft ?? product.title;
@@ -180,7 +182,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   const status = restricted ? "draft" : statusDraft ?? (product.status as SellerSettableListingStatus);
 
   const changes: UpdateListingInput = {
-    ...(photoDraft !== undefined && JSON.stringify(photoDraft) !== JSON.stringify(product.images.map(image => image.fileId)) ? { imageFileIds: photoDraft } : {}),
+    ...(photoDraft !== undefined && JSON.stringify(photoDraft.map(item => item.fileId)) !== JSON.stringify((product.media ?? product.images).map(item => item.fileId)) ? { mediaFileIds: photoDraft.map(item => item.fileId) } : {}),
     ...(titleDraft !== undefined && title.trim() !== product.title ? { title: title.trim() } : {}),
     ...(descriptionDraft !== undefined && description.trim() !== product.description ? { description: description.trim() } : {}),
     ...(statusDraft !== undefined && status !== product.status ? { status } : {}),
@@ -291,8 +293,8 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
           onValueChange={setDescription}
           disabled={!canWrite || restricted || busy}
         />
-        <ProductPhotoEditor storeId={storeId} images={photos} title={product.title} disabled={!canWrite || restricted || busy}
-          onChange={setPhotos} onBusyChange={setUploadingPhoto} />
+        <ProductPhotoEditor storeId={storeId} images={photos} media={media} onMediaChange={setPhotos} title={product.title} disabled={!canWrite || restricted || busy}
+          onBusyChange={setUploadingPhoto} />
         <Field
           label={t("common.status")}
           description={restricted ? t("products.detail.restrictedNotice") : undefined}
