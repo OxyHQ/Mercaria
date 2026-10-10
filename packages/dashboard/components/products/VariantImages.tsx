@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { View } from "react-native";
 import { isOxyFileId, type ListingImage, type ProductVariantDTO } from "@mercaria/shared-types";
 import { Button } from "@oxy.so/bloom/button";
 import { Checkbox } from "@oxy.so/bloom/checkbox";
+import { Collapsible } from "@oxy.so/bloom/collapsible";
 import { Loading } from "@oxy.so/bloom/loading";
 import { Text, useSharedUiTranslation } from "@mercaria/ui";
 import { useVariantImages, useReplaceVariantImages } from "@/lib/hooks/use-products";
@@ -16,6 +17,8 @@ export function VariantImages({ storeId, productId, variant, gallery, canWrite }
   const { t } = useTranslation();
   const uiT = useSharedUiTranslation();
   const [open, setOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
+  const panelId = useId();
   const [draft, setDraft] = useState<readonly string[]>();
   const query = useVariantImages(storeId, productId, variant.id, canWrite && open);
   const mutation = useReplaceVariantImages(storeId, productId, variant.id);
@@ -41,9 +44,9 @@ export function VariantImages({ storeId, productId, variant, gallery, canWrite }
       <OxyProductImage fileId={variant.images.images[0]?.fileId} alt={variant.title} size={48} />
       <Text className="min-w-0 flex-1 text-xs text-muted-foreground">{variant.images.source === "listing_fallback" ? t("products.variants.media.fallback") : t("products.variants.media.selected", { count: variant.images.images.length })}</Text>
     </View> : null}
-    {canWrite ? <Button size="sm" appearance="outline" material="flat" disabled={mutation.isPending} aria-expanded={open}
-      onPress={() => { setOpen(value => !value); setDraft(undefined); mutation.reset(); }}>{t("products.variants.media.manage")}</Button> : null}
-    {open && canWrite ? <View testID="merchant-variant-image-picker" className="gap-3 rounded-lg border border-border p-3">
+    {canWrite ? <Button size="sm" appearance="outline" material="flat" aria-expanded={open} aria-controls={panelId}
+      onPress={() => { setHasOpened(true); setOpen(value => !value); }}>{t("products.variants.media.manage")}</Button> : null}
+    {canWrite && hasOpened ? <Collapsible open={open} nativeID={panelId} testID="merchant-variant-image-picker" contentClassName="gap-3 rounded-lg border border-border p-3">
       <View className="min-h-6" accessibilityLiveRegion="polite">
         {query.isFetching ? <Loading variant="inline" size="sm" accessibilityLabel={t("common.loading")} />
           : query.isError ? <Text className="text-sm text-destructive">{t("products.variants.media.loadFailed")}</Text>
@@ -71,6 +74,6 @@ export function VariantImages({ storeId, productId, variant, gallery, canWrite }
         <Button size="sm" onPress={save} disabled={disabled || !changed || invalid} loading={mutation.isPending}>{t("common.save")}</Button>
         <Button size="sm" appearance="outline" material="flat" disabled={mutation.isPending} onPress={() => { setDraft(undefined); setOpen(false); mutation.reset(); }}>{t("common.cancel")}</Button>
       </View>
-    </View> : null}
+    </Collapsible> : null}
   </View>;
 }

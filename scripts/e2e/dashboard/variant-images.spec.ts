@@ -48,7 +48,9 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await page.goto('/products/gallery-product');
     const editor = page.getByTestId('merchant-variant-images');
     const manage = editor.getByRole('button', { name: copy.products.variants.media.manage, exact: true });
-    await expect(editor.getByText(copy.products.variants.media.fallback, { exact: true })).toBeVisible(); await manage.click();
+    await expect(editor.getByText(copy.products.variants.media.fallback, { exact: true }).first()).toBeVisible();
+    await expect(editor.getByTestId('merchant-variant-image-picker')).toHaveCount(0); expect(reads).toBe(0);
+    await manage.click();
     const picker = page.getByTestId('merchant-variant-image-picker');
     const save = picker.getByRole('button', { name: copy.common.save, exact: true });
     const cancel = picker.getByRole('button', { name: copy.common.cancel, exact: true });
@@ -61,26 +63,55 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await picker.getByRole('checkbox', { name: 'Back photograph', exact: true }).check();
     await choices.first().getByRole('button', { name: copy.products.variants.media.later, exact: true }).click();
     await expect(choices.first().getByRole('checkbox')).toHaveAccessibleName('Back photograph');
+    // Folding is navigation, not cancellation: retain ordering and selection,
+    // while Bloom excludes hidden controls from keyboard/accessibility access.
+    await manage.click();
+    await expect(picker).toHaveAttribute('inert'); await expect(picker).toHaveAttribute('aria-hidden', 'true');
+    await expect(choices).toHaveCount(2); await expect(picker.getByRole('checkbox')).toHaveCount(0);
+    await manage.focus(); await page.keyboard.press('Tab');
+    expect(await picker.evaluate(element => element.contains(document.activeElement))).toBe(false);
+    await manage.click();
+    await expect(choices.first().getByRole('checkbox')).toHaveAccessibleName('Back photograph');
+    await expect(picker.getByRole('checkbox', { name: 'Front photograph', exact: true })).toBeChecked();
+    await expect(picker.getByRole('checkbox', { name: 'Back photograph', exact: true })).toBeChecked();
+    expect(writes).toEqual([]);
+    // Only explicit Cancel discards the draft without writing; reopening follows
+    // the latest server selection, including a change made while folded.
+    await cancel.click(); await expect(picker).toHaveAttribute('inert');
+    selections = [gallery[0]];
+    await manage.click();
+    await expect(picker.getByRole('checkbox', { name: 'Front photograph', exact: true })).toBeChecked();
+    await expect(picker.getByRole('checkbox', { name: 'Back photograph', exact: true })).not.toBeChecked();
+    await expect(save).toBeDisabled(); expect(writes).toEqual([]);
+    await picker.getByRole('checkbox', { name: 'Back photograph', exact: true }).check();
+    await choices.first().getByRole('button', { name: copy.products.variants.media.later, exact: true }).click();
     await save.click(); await expect(picker.getByText(copy.products.variants.media.saveFailed, { exact: true })).toBeVisible();
     const expected = { id: 'gallery-variant', method: 'PUT', body: { fileIds: ['unavailable-variant-back', 'unavailable-variant-front'] } };
     expect(writes).toEqual([expected]); await expect(choices.first().getByRole('checkbox')).toBeChecked();
+    await manage.click(); await expect(picker).toHaveAttribute('inert'); await manage.click();
+    await expect(picker.getByText(copy.products.variants.media.saveFailed, { exact: true })).toBeVisible();
+    await expect(choices.first().getByRole('checkbox')).toHaveAccessibleName('Back photograph');
+    await expect(choices.first().getByRole('checkbox')).toBeChecked();
     await expect.poll(() => failedMedia.some(url => url.includes('unavailable-variant-front') && !new URL(url).search)).toBe(true);
     await expect.poll(() => choices.locator('img').count()).toBe(0); // Failed originals become stable placeholders, not fabricated images.
     await picker.scrollIntoViewIfNeeded(); await page.screenshot({ path: `/tmp/mercaria-variant-images-${width}-${locale}-${mode}.png`, fullPage: true });
     fail = false; await save.click(); await expect.poll(() => writes.length).toBe(2);
-    await expect(save).toBeDisabled(); await expect(cancel).toBeDisabled(); await expect(manage).toBeDisabled();
+    await expect(save).toBeDisabled(); await expect(cancel).toBeDisabled(); await expect(manage).toBeEnabled();
+    await manage.click(); await expect(picker).toHaveAttribute('inert'); await manage.click();
+    await expect(save).toBeDisabled(); await expect(cancel).toBeDisabled();
+    await expect(choices.first().getByRole('checkbox')).toHaveAccessibleName('Back photograph');
     await expect(choices.first().getByRole('checkbox')).toBeDisabled();
-    readError = true; productReadError = true; release!(); await expect(picker).toHaveCount(0);
+    readError = true; productReadError = true; release!(); await expect(picker).toHaveAttribute('inert');
     await expect(editor.getByText(copy.products.variants.media.selected.replace('%{count}', '2'), { exact: true })).toBeVisible();
     await manage.click(); await expect(picker.getByText(copy.products.variants.media.loadFailed, { exact: true })).toBeVisible(); await expect(save).toBeDisabled();
     readError = false; await picker.getByRole('button', { name: copy.common.retry, exact: true }).click();
     await expect(choices.first().getByRole('checkbox')).toHaveAccessibleName('Back photograph'); await expect(choices.first().getByRole('checkbox')).toBeChecked();
     await picker.getByRole('button', { name: copy.products.variants.media.useGallery, exact: true }).click();
-    hold = false; await save.click(); await expect(picker).toHaveCount(0);
-    await expect(editor.getByText(copy.products.variants.media.fallback, { exact: true })).toBeVisible();
+    hold = false; await save.click(); await expect(picker).toHaveAttribute('inert');
+    await expect(editor.getByText(copy.products.variants.media.fallback, { exact: true }).first()).toBeVisible();
     expect(writes).toEqual([expected, expected, { id: 'gallery-variant', method: 'PUT', body: { fileIds: [] } }]);
     productReadError = false; writable = false; const priorReads = reads; await page.reload();
-    await expect(editor.getByText(copy.products.variants.media.fallback, { exact: true })).toBeVisible(); await expect(manage).toHaveCount(0); expect(reads).toBe(priorReads);
+    await expect(editor.getByText(copy.products.variants.media.fallback, { exact: true }).first()).toBeVisible(); await expect(manage).toHaveCount(0); expect(reads).toBe(priorReads);
     writable = true; product.images = []; variant.images = { source: 'listing_fallback', images: [] }; await page.reload(); await manage.click();
     await expect(picker.getByText(copy.products.variants.media.empty, { exact: true })).toBeVisible(); await expect(choices).toHaveCount(0); await expect(save).toBeDisabled();
     expect(external).toEqual([]); expect(errors).toEqual([]); expect(writes).toHaveLength(3);
