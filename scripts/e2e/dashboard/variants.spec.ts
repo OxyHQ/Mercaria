@@ -67,7 +67,7 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await page.screenshot({ path: `/tmp/mercaria-create-variant-${width}-${locale}-${mode}.png`, fullPage: true });
     fail = false;
     await save.click(); await expect.poll(() => writes.length).toBe(2);
-    await expect(color).toBeDisabled(); await expect(size).toBeDisabled(); await expect(material).toBeDisabled();
+    await expect(save).toBeDisabled(); await expect(color).toBeDisabled(); await expect(size).toBeDisabled(); await expect(material).toBeDisabled();
     await expect(form.getByRole('button', { name: copy.common.cancel, exact: true })).toBeDisabled();
     readError = true; release!();
     await expect(form).toHaveCount(0);

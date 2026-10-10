@@ -1024,7 +1024,6 @@
       "priceInvalid": "أدخل سعرًا صالحًا",
       "removeFailed": "تعذّرت إزالة المتغيّر",
       "removeVariant": "إزالة المتغيّر",
-      "removed": "تمت إزالة المتغيّر",
       "saveVariant": "حفظ المتغيّر",
       "set": "تعيين",
       "updateFailed": "تعذّر تحديث المتغيّر",
@@ -1039,7 +1038,9 @@
       },
       "optionRequired": "اختر قيمة لكل خيار.",
       "duplicateCombination": "مجموعة الخيارات هذه موجودة بالفعل.",
-      "currencyChanged": "تغيّرت العملة. ألغِ هذا التعديل لاستخدام السعر الحالي."
+      "currencyChanged": "تغيّرت العملة. ألغِ هذا التعديل لاستخدام السعر الحالي.",
+      "removeConfirmation": "هل تريد إزالة «%{variant}» من هذا المنتج؟",
+      "keepOneVariant": "يجب أن يحتفظ المنتج بمتغيّر واحد على الأقل."
     },
     "wizard": {
       "documentTitle": "إنشاء منتج",

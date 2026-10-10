@@ -1024,7 +1024,6 @@
       "priceInvalid": "Enter a valid price",
       "removeFailed": "Couldn't remove the variant",
       "removeVariant": "Remove variant",
-      "removed": "Variant removed",
       "saveVariant": "Save variant",
       "set": "Set",
       "updateFailed": "Couldn't update the variant",
@@ -1039,7 +1038,9 @@
       },
       "optionRequired": "Choose a value for every option.",
       "duplicateCombination": "This option combination already exists.",
-      "currencyChanged": "The currency changed. Cancel this edit to use the current price."
+      "currencyChanged": "The currency changed. Cancel this edit to use the current price.",
+      "removeConfirmation": "Remove “%{variant}” from this product?",
+      "keepOneVariant": "A product must keep at least one variant."
     },
     "wizard": {
       "documentTitle": "Create a product",

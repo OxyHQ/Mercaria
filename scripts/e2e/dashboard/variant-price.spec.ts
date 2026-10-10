@@ -50,7 +50,7 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await expect(input).toHaveValue('12.34');
     expect(writes).toEqual([{ id: 'price-variant', body: { price: { amount: 1234, currency: 'EUR' } } }]);
     fail = false; await save.click(); await expect.poll(() => writes.length).toBe(2);
-    await expect(input).toBeDisabled();
+    await expect(input).toBeDisabled(); await expect(save).toBeDisabled();
     await expect(editor.getByRole('button', { name: copy.common.cancel, exact: true })).toBeDisabled();
     readError = true; release!();
     await expect(page.getByText(copy.products.detail.loadFailed, { exact: true })).toBeVisible();

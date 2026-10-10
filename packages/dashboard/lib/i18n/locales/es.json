@@ -1042,7 +1042,6 @@
       "priceInvalid": "Introduce un precio válido",
       "removeFailed": "No se ha podido quitar la variante",
       "removeVariant": "Quitar variante",
-      "removed": "Variante quitada",
       "saveVariant": "Guardar variante",
       "set": "Fijar",
       "updateFailed": "No se ha podido actualizar la variante",
@@ -1057,7 +1056,9 @@
       },
       "optionRequired": "Elige un valor para cada opción.",
       "duplicateCombination": "Esta combinación de opciones ya existe.",
-      "currencyChanged": "La moneda ha cambiado. Cancela esta edición para usar el precio actual."
+      "currencyChanged": "La moneda ha cambiado. Cancela esta edición para usar el precio actual.",
+      "removeConfirmation": "¿Eliminar «%{variant}» de este producto?",
+      "keepOneVariant": "El producto debe conservar al menos una variante."
     },
     "wizard": {
       "documentTitle": "Crear un producto",

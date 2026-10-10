@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { Trash2, Boxes } from "lucide-react-native";
+import { Boxes } from "lucide-react-native";
 import { partitionPinnedFields } from "@mercaria/shared-types";
 import type {
   Listing,
@@ -31,6 +31,7 @@ import { canRetainDetailData } from "@/lib/detail-query-state";
 import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
 import { VariantInventory } from "@/components/products/VariantInventory";
 import { VariantPrice } from "@/components/products/VariantPrice";
+import { RemoveVariantButton } from "@/components/products/RemoveVariantButton";
 import { CreateVariantForm } from "@/components/products/CreateVariantForm";
 import { ProductMedia } from "@/components/products/ProductMedia";
 import { DetailContent } from "@/components/shell/DetailContent";
@@ -39,7 +40,6 @@ import {
   useProduct,
   useUpdateProduct,
   useArchiveProduct,
-  useDeleteVariant,
   useReleaseProductPins,
 } from "@/lib/hooks/use-products";
 import { useConnection } from "@/lib/hooks/use-channels";
@@ -369,16 +369,7 @@ function VariantRow({
   canInventory: boolean;
   removable: boolean;
 }) {
-  const { t } = useTranslation();
   const { colors } = useColorScheme();
-  const deleteVariant = useDeleteVariant(storeId, productId);
-
-  const remove = () => {
-    deleteVariant.mutate(variant.id, {
-      onSuccess: () => toast.success(t("products.variants.removed")),
-      onError: () => toast.error(t("products.variants.removeFailed")),
-    });
-  };
 
   return (
     <View className="rounded-xl border border-border p-3">
@@ -391,12 +382,7 @@ function VariantRow({
       </View>
       <VariantPrice storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
       <VariantInventory storeId={storeId} productId={productId} variantId={variant.id} available={variant.available} canWrite={canInventory} />
-      {canWrite && removable ? (
-        <Pressable onPress={remove} className="mt-2 flex-row items-center gap-1 self-end active:opacity-70">
-          <Trash2 size={14} color={colors.mutedForeground} />
-          <Text className="text-xs text-muted-foreground">{t("products.variants.removeVariant")}</Text>
-        </Pressable>
-      ) : null}
+      <RemoveVariantButton storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} removable={removable} />
     </View>
   );
 }

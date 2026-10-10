@@ -125,8 +125,8 @@ export async function deleteVariant(
   storeId: string,
   id: string,
   variantId: string,
-): Promise<ProductVariantDTO> {
-  const { data } = await apiClient.delete<ApiResponse<ProductVariantDTO>>(
+): Promise<Listing> {
+  const { data } = await apiClient.delete<ApiResponse<Listing>>(
     `${base(storeId)}/${id}/variants/${variantId}`,
   );
   return unwrap(data);

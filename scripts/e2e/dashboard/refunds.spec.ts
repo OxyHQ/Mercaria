@@ -80,7 +80,7 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await page.screenshot({ path: `/tmp/mercaria-refund-${width}-${locale}-${mode}.png`, fullPage: true });
     writeMode = 'replay'; await submit.click(); await expect.poll(() => writes.length).toBe(3);
     expect(writes[2]).toEqual(writes[1]);
-    await expect(quantity).toBeDisabled(); await expect(reason).toBeDisabled();
+    await expect(submit).toBeDisabled(); await expect(quantity).toBeDisabled(); await expect(reason).toBeDisabled();
     await page.keyboard.press('Escape'); await expect(form).toBeVisible();
     await expect(form.getByRole('button', { name: copy.common.cancel, exact: true })).toBeDisabled();
     release!(); await expect(form).toHaveCount(0); expect(committed.size).toBe(1);

@@ -1042,7 +1042,6 @@
       "priceInvalid": "Introdueix un preu vàlid",
       "removeFailed": "No s'ha pogut eliminar la variant",
       "removeVariant": "Elimina la variant",
-      "removed": "Variant eliminada",
       "saveVariant": "Desa la variant",
       "set": "Estableix",
       "updateFailed": "No s'ha pogut actualitzar la variant",
@@ -1057,7 +1056,9 @@
       },
       "optionRequired": "Tria un valor per a cada opció.",
       "duplicateCombination": "Aquesta combinació d’opcions ja existeix.",
-      "currencyChanged": "La moneda ha canviat. Cancel·la aquesta edició per utilitzar el preu actual."
+      "currencyChanged": "La moneda ha canviat. Cancel·la aquesta edició per utilitzar el preu actual.",
+      "removeConfirmation": "Vols eliminar «%{variant}» d’aquest producte?",
+      "keepOneVariant": "El producte ha de conservar almenys una variant."
     },
     "wizard": {
       "documentTitle": "Crear un producte",

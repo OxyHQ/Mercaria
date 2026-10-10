@@ -145,7 +145,10 @@ export function useDeleteVariant(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (variantId: string) => deleteVariant(storeId, productId, variantId),
-    onSuccess: () => invalidateProducts(queryClient, storeId),
+    onSuccess: (product) => {
+      queryClient.setQueryData(queryKeys.products.detail(storeId, productId), product);
+      invalidateProducts(queryClient, storeId);
+    },
   });
 }
 
