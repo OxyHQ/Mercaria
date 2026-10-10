@@ -1,13 +1,13 @@
 import { View, Platform, Pressable } from "react-native";
 import { Button } from "@oxy.so/bloom/button";
 import { KeyboardAwareScrollView } from "@/lib/keyboard";
-import { Text } from "@mercaria/ui";
+import { Icon, Text } from "@mercaria/ui";
 import { Textarea } from "@oxy.so/bloom/textarea";
 import { useState } from "react";
 import { useOxy } from "@oxy.so/services";
 import { useRouter } from "expo-router";
 import { generateAPIUrl } from "@/lib/generate-api-url";
-import { MessageSquare, Bug, Lightbulb, Sparkles, Star } from "lucide-react-native";
+import { MessageSquare, Bug, Lightbulb, Sparkles, Star, type LucideIcon } from "lucide-react-native";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { toast } from "@oxy.so/bloom/toast";
 import { useTranslation } from "@/lib/i18n";
@@ -19,7 +19,7 @@ interface FeedbackTypeOption {
   type: FeedbackType;
   labelKey: string;
   descriptionKey: string;
-  icon: React.ElementType;
+  icon: LucideIcon;
 }
 
 const feedbackTypes: FeedbackTypeOption[] = [
@@ -125,7 +125,7 @@ export default function FeedbackScreen() {
             </Text>
             <View className="gap-2">
               {feedbackTypes.map((option) => {
-                const Icon = option.icon;
+                const FeedbackIcon = option.icon;
                 const isSelected = selectedType === option.type;
                 return (
                   <Pressable
@@ -142,7 +142,7 @@ export default function FeedbackScreen() {
                       "p-2 rounded-full",
                       isSelected ? "bg-foreground/10" : "bg-muted"
                     )}>
-                      <Icon size={20} className={isSelected ? "text-foreground" : "text-muted-foreground"} />
+                      <Icon as={FeedbackIcon} size={20} className={isSelected ? "text-foreground" : "text-muted-foreground"} />
                     </View>
                     <View className="flex-1">
                       <Text className="font-medium text-foreground">
@@ -170,7 +170,7 @@ export default function FeedbackScreen() {
                   onPress={() => setRating(rating === star ? null : star)}
                   className="p-1.5 active:opacity-70"
                 >
-                  <Star
+                  <Icon as={Star}
                     size={24}
                     className={rating && star <= rating ? "text-yellow-500" : "text-muted-foreground"}
                     fill={rating && star <= rating ? "#eab308" : "transparent"}

@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@oxy.so/bloom/dropdown-menu";
 import { useDialogControl } from "@oxy.so/bloom/dialog";
-import { ShopDetailIcon, Text } from "@mercaria/ui";
+import { Icon, ShopDetailIcon, Text } from "@mercaria/ui";
 import { StoreContactDialog } from "@/components/store/StoreContactDialog";
 import { useStoreLocations } from "@/lib/hooks/use-visit-us";
 import { AbuseReportDialog } from "@/components/reports/AbuseReportDialog";
@@ -35,7 +35,7 @@ export function ProductActionsMenu({ listingId, title, store, outlined = false }
             hitSlop={8}
             className={`min-h-11 min-w-11 items-center justify-center rounded-full web:hover:bg-muted active:bg-muted ${outlined ? "border border-border-image bg-bg-fill" : "-my-1.5"}`}
           >
-            <MoreHorizontal size={24} className="text-text-tertiary" />
+            <Icon as={MoreHorizontal} size={24} className="text-text-tertiary" />
           </Pressable>
         </DropdownMenuTrigger>
         <DropdownMenuContent label={t("product.moreActions")} align="end" minWidth={224}>
@@ -45,7 +45,7 @@ export function ProductActionsMenu({ listingId, title, store, outlined = false }
           </DropdownMenuItem> : null}
           <DropdownMenuItem
             variant="destructive"
-            leading={<CircleAlert size={24} className="text-destructive" />}
+            leading={<Icon as={CircleAlert} size={24} className="text-destructive" />}
             accessibilityLabel={t("product.reportProduct")}
             onPress={reportControl.open}
           >

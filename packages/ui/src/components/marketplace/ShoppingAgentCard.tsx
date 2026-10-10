@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icon";
 import { Pressable, View } from "react-native";
 import { Bell, BellOff, ChevronDown, ChevronRight, RefreshCw, Trash2 } from "lucide-react-native";
 import type {
@@ -182,9 +183,9 @@ export function ShoppingAgentCard({
           </Text>
         </View>
         {expanded ? (
-          <ChevronDown size={CHEVRON_SIZE} className="text-text-tertiary" />
+          <Icon as={ChevronDown} size={CHEVRON_SIZE} className="text-text-tertiary" />
         ) : (
-          <ChevronRight size={CHEVRON_SIZE} className="text-text-tertiary" />
+          <Icon as={ChevronRight} size={CHEVRON_SIZE} className="text-text-tertiary" />
         )}
       </Pressable>
 
@@ -306,7 +307,7 @@ export function ShoppingAgentCard({
             label={t(SHOPPING_AGENT_CARD_RUN_NOW_A11Y_KEY, { name: agent.name })}
             text={t(SHOPPING_AGENT_CARD_RUN_NOW_KEY)}
             disabled={busy}
-            icon={<RefreshCw size={ICON_SIZE} className="text-text-secondary" />}
+            icon={<Icon as={RefreshCw} size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onRunNow?.(agent)}
           />
         ) : null}
@@ -315,7 +316,7 @@ export function ShoppingAgentCard({
             label={t(SHOPPING_AGENT_CARD_PAUSE_A11Y_KEY, { name: agent.name })}
             text={t(SHOPPING_AGENT_CARD_PAUSE_KEY)}
             disabled={busy}
-            icon={<BellOff size={ICON_SIZE} className="text-text-secondary" />}
+            icon={<Icon as={BellOff} size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onPause?.(agent)}
           />
         ) : null}
@@ -325,7 +326,7 @@ export function ShoppingAgentCard({
             label={t(SHOPPING_AGENT_CARD_RESUME_A11Y_KEY, { name: agent.name })}
             text={t(SHOPPING_AGENT_CARD_RESUME_KEY)}
             disabled={busy}
-            icon={<Bell size={ICON_SIZE} className="text-text-secondary" />}
+            icon={<Icon as={Bell} size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onResume?.(agent)}
           />
         ) : null}
@@ -333,7 +334,7 @@ export function ShoppingAgentCard({
           label={t(SHOPPING_AGENT_CARD_REMOVE_A11Y_KEY, { name: agent.name })}
           text={t(SHOPPING_AGENT_CARD_REMOVE_KEY)}
           disabled={busy}
-          icon={<Trash2 size={ICON_SIZE} className="text-text-secondary" />}
+          icon={<Icon as={Trash2} size={ICON_SIZE} className="text-text-secondary" />}
           onPress={() => onDelete?.(agent)}
         />
       </View>

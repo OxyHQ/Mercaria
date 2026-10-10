@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icon";
 import { Pressable, View } from "react-native";
 import { ChevronRight, Sparkles } from "lucide-react-native";
 import { Text } from "../ui/text";
@@ -29,13 +30,13 @@ export function OfferCard({ label, caption, onPress }: OfferCardProps) {
       className="flex-row items-center gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill py-space-12 ps-space-16 pe-space-12"
     >
       <View className="size-space-32 items-center justify-center rounded-radius-max bg-bg-fill-brand/10">
-        <Sparkles size={OFFER_ICON_SIZE} className="text-text-brand" />
+        <Icon as={Sparkles} size={OFFER_ICON_SIZE} className="text-text-brand" />
       </View>
       <View className="flex-1">
         <Text className="text-shop-bodyTitleSmall text-text-brand">{label}</Text>
         <Text className="text-shop-caption text-text-tertiary">{caption}</Text>
       </View>
-      <ChevronRight size={OFFER_ICON_SIZE} className="text-text-brand" />
+      <Icon as={ChevronRight} size={OFFER_ICON_SIZE} className="text-text-brand" />
     </Pressable>
   );
 }

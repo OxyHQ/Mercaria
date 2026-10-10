@@ -1334,3 +1334,21 @@ OxyPR1625 now has all remote CI green. A NEW asynchronous approval question asks
 whether to merge/deploy it; API changes trigger production deploy via Oxy's
 .github/workflows/deploy-aws.yml. No answer yet. This is separate from the still
 pending GoWayPR110 approval; do not deploy either on elapsed time alone.
+
+## Native Lucide token delivery — 2026-10-10
+
+Shared Icon now uses NativeWind's public nativeStyleMapping to deliver resolved
+text color to Lucide's color prop (and currentColor fills); explicit colors do
+not acquire a competing default foreground class. Direct Lucide className uses
+in storefront, shared marketplace and Wholesale collection mapping now use it,
+including dynamic notification/feedback glyphs. ProductGallery's expand button
+uses Bloom's public renderLeadingIcon size/color contract.
+
+All four client typechecks pass. Eight existing policy/theme browser checks
+pass; the theme compiler checks still do NOT establish native serialized alpha
+acceptance (see upstream464 above). Separate actual-page light/dark probes show
+product-menu/report SVG strokes match their theme text. Pixel8a screenshots
+/tmp/mercaria-native-icon-after.png and /tmp/mercaria-native-icon-menu.png confirm
+the previously black ellipsis and destructive report glyph now have theme color.
+Wholesale's existing toBloomIcon adapters were independently checked against
+Bloom's documented contract and in both browser themes; no replacement needed.

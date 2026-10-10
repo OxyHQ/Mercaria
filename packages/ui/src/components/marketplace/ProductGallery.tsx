@@ -240,7 +240,7 @@ export function ProductGallery({ images, media, title, ref, className, onIndexCh
             <View ref={frame => { frames.current[position] = frame; }} style={{ width: imageWidth, height: frameHeight, overflow: "hidden", borderRadius: 28 }}>
               <MediaSurface content={image} detached={viewerOpen || position !== activeIndex} nativeControls contentFit="contain" accessibilityLabel={image.alt ?? title} style={{ width: "100%", height: "100%" }} />
               <View className="absolute top-3 end-3">
-                <Button iconOnly icon={Expand} appearance="outline" material="flat" accessibilityLabel={t("ui.gallery.openVideo", { title })} onPress={() => void openViewer(position)} />
+                <Button iconOnly renderLeadingIcon={({ size, color }) => <Expand size={size} color={color} />} appearance="outline" material="flat" accessibilityLabel={t("ui.gallery.openVideo", { title })} onPress={() => void openViewer(position)} />
               </View>
               {renderVideoStatus?.(image)}
             </View>

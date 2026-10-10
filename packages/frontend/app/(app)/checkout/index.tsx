@@ -19,7 +19,7 @@ import type {
   Money,
 } from "@mercaria/shared-types";
 import {
-  SectionHeader,
+  Icon, SectionHeader,
   Text,
   formatRegionName,
   useFormatters,
@@ -100,7 +100,7 @@ function AddressOption({
           selected ? "border-primary bg-primary" : "border-border"
         }`}
       >
-        {selected ? <Check size={12} className="text-primary-foreground" /> : null}
+        {selected ? <Icon as={Check} size={12} className="text-primary-foreground" /> : null}
       </View>
       <View className="min-w-0 flex-1">
         <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>

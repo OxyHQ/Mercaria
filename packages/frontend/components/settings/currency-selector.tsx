@@ -6,7 +6,7 @@ import {
   CURRENCY_SYMBOLS,
   type CurrencyCode,
 } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
+import { Icon, Text } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { toast } from "@oxy.so/bloom/toast";
@@ -47,7 +47,7 @@ export function CurrencySelector() {
   return (
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
-        <Coins size={20} className="text-primary" />
+        <Icon as={Coins} size={20} className="text-primary" />
         <Text className="text-base font-semibold">{t("settings.currency.title")}</Text>
       </View>
       <Text className="text-sm text-muted-foreground">
@@ -79,7 +79,7 @@ export function CurrencySelector() {
                 >
                   {`${CURRENCY_SYMBOLS[code]} ${code}`}
                 </Text>
-                {isSelected ? <Check size={14} className="text-primary" /> : null}
+                {isSelected ? <Icon as={Check} size={14} className="text-primary" /> : null}
               </Pressable>
             );
           })}

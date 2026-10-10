@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icon";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "../../lib/shop-merchant-images";
 import type { ReactElement, ReactNode } from "react";
@@ -205,7 +206,7 @@ export function MerchantHeader({
           hitSlop={8}
           className="rounded-radius-max p-space-6"
         >
-          <MoreHorizontal size={OVERFLOW_ICON_SIZE} className="text-text-tertiary" />
+          <Icon as={MoreHorizontal} size={OVERFLOW_ICON_SIZE} className="text-text-tertiary" />
         </Pressable>
       ) : null)}
     </View>

@@ -1,6 +1,6 @@
 import { renderListingLink } from "@/lib/catalog/product-links";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { merchantImageSource, resolveCatalogImage } from "@mercaria/ui";
+import { Icon, merchantImageSource, resolveCatalogImage } from "@mercaria/ui";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Rating } from "@oxy.so/bloom/rating";
@@ -500,9 +500,9 @@ function StoreBody({
                 accessibilityLabel={t("store.sort.label")}
                 className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4"
               >
-                <SlidersHorizontal size={15} className="text-foreground" />
+                <Icon as={SlidersHorizontal} size={15} className="text-foreground" />
                 <Text className="text-sm font-medium text-foreground">{t(activeSortLabelKey)}</Text>
-                <ChevronDown size={16} className="text-muted-foreground" />
+                <Icon as={ChevronDown} size={16} className="text-muted-foreground" />
               </Pressable>
             </DropdownMenuTrigger>
             <DropdownMenuContent label={t("store.sort.label")}>
@@ -517,7 +517,7 @@ function StoreBody({
                   <DropdownMenuRadioItem
                     key={option.value}
                     value={option.value}
-                    indicator={<Check size={16} className="text-foreground" />}
+                    indicator={<Icon as={Check} size={16} className="text-foreground" />}
                   >
                     {t(option.labelKey)}
                   </DropdownMenuRadioItem>
