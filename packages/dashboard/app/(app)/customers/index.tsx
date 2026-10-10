@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { Link } from "expo-router";
 import Head from "expo-router/head";
-import { ChevronLeft, ChevronRight, User } from "lucide-react-native";
+import { User } from "lucide-react-native";
 import type { Customer } from "@mercaria/shared-types";
 import { Text, PriceDisplay, useColorScheme } from "@mercaria/ui";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { ListPagination } from "@/components/lists/ResourceList";
 import { useCustomers } from "@/lib/hooks/use-customers";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { useTranslation } from "@/lib/i18n";
@@ -20,20 +21,18 @@ export default function CustomersScreen() {
         <title>{t("customers.documentTitle")}</title>
       </Head>
       <RequireStore permission="customers:read">
-        {(storeId) => <CustomersBody storeId={storeId} />}
+        {(storeId) => <CustomersBody key={storeId} storeId={storeId} />}
       </RequireStore>
     </>
   );
 }
 
 function CustomersBody({ storeId }: { storeId: string }) {
-  const router = useRouter();
-  const { colors } = useColorScheme();
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 350);
-  const { data, isPending, isError } = useCustomers(storeId, page, debouncedSearch);
+  const { data, isPending, isError, isFetching, isPlaceholderData } = useCustomers(storeId, page, debouncedSearch);
 
   return (
     <Screen
@@ -65,46 +64,26 @@ function CustomersBody({ storeId }: { storeId: string }) {
             <CustomerRow
               key={customer.id}
               customer={customer}
-              onPress={() => router.push(`/customers/${customer.id}`)}
+              disabled={isPlaceholderData}
             />
           ))}
         </View>
       )}
 
-      {data && data.pagination.pages > 1 ? (
-        <View className="mt-4 flex-row items-center justify-center gap-4">
-          <Pressable
-            onPress={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="h-9 w-9 items-center justify-center rounded-lg border border-border active:opacity-70 disabled:opacity-40"
-          >
-            <ChevronLeft size={18} color={colors.foreground} />
-          </Pressable>
-          <Text className="text-sm text-muted-foreground">
-            {t("common.pageOf", {
-              current: data.pagination.page,
-              total: data.pagination.pages,
-            })}
-          </Text>
-          <Pressable
-            onPress={() => setPage((p) => p + 1)}
-            disabled={page >= data.pagination.pages}
-            className="h-9 w-9 items-center justify-center rounded-lg border border-border active:opacity-70 disabled:opacity-40"
-          >
-            <ChevronRight size={18} color={colors.foreground} />
-          </Pressable>
-        </View>
-      ) : null}
+      {data && !isError ? <ListPagination page={data.pagination.page} pages={data.pagination.pages}
+        busy={isFetching} onPage={setPage} /> : null}
     </Screen>
   );
 }
 
-function CustomerRow({ customer, onPress }: { customer: Customer; onPress: () => void }) {
+function CustomerRow({ customer, disabled }: { customer: Customer; disabled: boolean }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
-  return (
+  const name = customer.displayName ?? customer.email ?? (customer.isWalkIn ? t("customers.walkIn") : t("customers.fallbackName"));
+  const content = (
     <Pressable
-      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={name}
       className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3 active:opacity-80 web:hover:border-primary"
     >
       <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
@@ -112,9 +91,7 @@ function CustomerRow({ customer, onPress }: { customer: Customer; onPress: () =>
       </View>
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-          {customer.displayName ??
-            customer.email ??
-            (customer.isWalkIn ? t("customers.walkIn") : t("customers.fallbackName"))}
+          {name}
         </Text>
         <Text className="text-xs text-muted-foreground">
           {t("customers.orderCount", { count: customer.stats.orderCount })}
@@ -123,4 +100,5 @@ function CustomerRow({ customer, onPress }: { customer: Customer; onPress: () =>
       <PriceDisplay price={customer.stats.totalSpent} primaryClassName="text-sm font-semibold" />
     </Pressable>
   );
+  return disabled ? content : <Link href={{ pathname: "/customers/[id]", params: { id: customer.id } }} asChild>{content}</Link>;
 }

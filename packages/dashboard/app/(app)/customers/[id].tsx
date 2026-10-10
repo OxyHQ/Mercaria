@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Pressable } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft, User } from "lucide-react-native";
 import type { Customer, OrderSummary } from "@mercaria/shared-types";
@@ -8,6 +8,7 @@ import { Text, PriceDisplay, formatDate, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
+import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { useCustomer, useCustomerOrders } from "@/lib/hooks/use-customers";
 import { useTranslation } from "@/lib/i18n";
 
@@ -30,11 +31,13 @@ function CustomerDetailBody({ storeId, customerId }: { storeId: string; customer
   const router = useRouter();
   const { colors } = useColorScheme();
   const { t } = useTranslation();
+  const { can } = useActiveStoreContext();
   const customer = useCustomer(storeId, customerId);
   const orders = useCustomerOrders(storeId, customerId);
 
   const back = (
     <Pressable
+      accessibilityRole="button"
       onPress={() => router.back()}
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
@@ -82,7 +85,7 @@ function CustomerDetailBody({ storeId, customerId }: { storeId: string; customer
           ) : (
             <View className="gap-2">
               {orders.data?.map((order) => (
-                <OrderRow key={order.id} order={order} onPress={() => router.push(`/orders/${order.id}`)} />
+                <OrderRow key={order.id} order={order} canOpen={can("orders:read")} />
               ))}
             </View>
           )}
@@ -129,11 +132,12 @@ function CustomerCard({ customer, name }: { customer: Customer; name: string }) 
   );
 }
 
-function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
+function OrderRow({ order, canOpen }: { order: OrderSummary; canOpen: boolean }) {
   const { locale } = useTranslation();
-  return (
+  const content = (
     <Pressable
-      onPress={onPress}
+      disabled={!canOpen}
+      accessibilityLabel={order.orderNumber}
       className="flex-row items-center justify-between gap-3 rounded-xl border border-border p-3 active:opacity-80"
     >
       <View className="flex-1">
@@ -149,4 +153,5 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
       <OrderStatusBadge status={order.status} />
     </Pressable>
   );
+  return canOpen ? <Link href={{ pathname: "/orders/[id]", params: { id: order.id } }} asChild>{content}</Link> : content;
 }
