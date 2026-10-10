@@ -56,7 +56,8 @@ for (const [width, locale] of [[1440, 'en'], [390, 'ar']] as const) {
     await expect(panel).toContainText('Unimported policy image');
     const heading = panel.getByRole('heading', { name: copy.store.policies.privacy, exact: true });
     await expect(heading).toHaveCSS('font-size', '36px');
-    await expect(heading).toHaveCSS('line-height', '42px');
+    // Chromium serializes a relative line height with minor decimal rounding.
+    await expect.poll(() => heading.evaluate(node => parseFloat(getComputedStyle(node).lineHeight))).toBeCloseTo(42, 2);
     await expect(heading).toHaveCSS('font-weight', '600');
     await expect(heading).toHaveCSS('color', foreground);
     await expect(panel.locator('strong')).toHaveCSS('color', foreground);
