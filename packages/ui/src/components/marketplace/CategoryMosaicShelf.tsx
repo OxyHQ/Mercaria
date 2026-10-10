@@ -11,6 +11,7 @@ export interface CategoryMosaicItem {
   key: string;
   label: string;
   imageUrl?: string;
+  imageFileId?: string;
   renderLink: (child: ReactElement) => ReactNode;
 }
 export interface CategoryMosaicGroup {
@@ -85,6 +86,7 @@ export function CategoryMosaicShelf({
                             className="group relative flex-1 justify-end overflow-hidden bg-muted"
                           >
                             <CatalogImage
+                              fileId={item.imageFileId}
                               legacyUrl={item.imageUrl}
                               accessibilityLabel={item.label}
                               contentFit="cover"

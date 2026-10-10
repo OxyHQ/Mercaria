@@ -113,7 +113,10 @@ schema decision. `HANDOFF.md` holds deferred work.
   stores now expose their Oxy image IDs too; the home hero and shared cards use
   the same client resolver. Feed cache v3 expires old URL-only projections.
   New listing history retains IDs; legacy URLs render only when they exactly
-  match the configured resolver. Categories prefer their stored file ID.
+  match the configured resolver. Category trees, chips and Explore tiles retain their stored file IDs too.
+  Child preview images pass through the same internal-media verifier; unimported
+  supplier URLs never reach an image source. Home cache v4 and discovery cache v2
+  expire the older category projections.
   The hero and product cards share `CatalogImage`: failed Oxy requests show
   the missing-image state, and changing the source resets only the image's
   instance and failure state. The animated hero card stays mounted. Hero hover,

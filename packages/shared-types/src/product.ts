@@ -127,6 +127,8 @@ export interface StoreSummary {
 
 /** A single subcategory tile inside a category card's 2×2 grid. */
 export interface CategoryTile {
+  /** Oxy file ID, resolved by the client; never a supplier URL. */
+  imageFileId?: string;
   /** Stable tile id. */
   id: string;
   /** Display name (e.g. "Dresses"). */
@@ -158,6 +160,8 @@ export interface CategoryTile {
    * carries this field unset because nothing reads it there.
    */
   sampleImageUrls?: string[];
+  /** Up to two Oxy file IDs from this category’s children, in display order. */
+  sampleImageFileIds?: string[];
 }
 
 /** A top-level category with a small grid of featured subcategories. */
@@ -205,6 +209,8 @@ export interface CategoryFeedSection {
 
 /** A small round category "pill" (circular image + label) shown above the feed. */
 export interface CategoryPill {
+  /** Oxy file ID, resolved by the client; never a supplier URL. */
+  imageFileId?: string;
   /** Category id this pill links to. */
   id: string;
   /** Display name (e.g. "Women"). */

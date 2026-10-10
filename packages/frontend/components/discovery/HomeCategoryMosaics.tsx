@@ -29,6 +29,7 @@ export function HomeCategoryMosaics() {
           key: child.key,
           label: child.label,
           imageUrl: child.imageUrl,
+          imageFileId: child.imageFileId,
           renderLink: (content: ReactElement) => <Link href={child.href!} asChild>{content}</Link>,
         })),
     }));

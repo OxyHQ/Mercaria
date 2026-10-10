@@ -38,6 +38,7 @@ export interface CatalogMenuEntry {
   readonly key: string;
   readonly label: string;
   readonly imageUrl?: string;
+  readonly imageFileId?: string;
   readonly description?: string;
   readonly accessibilityLabel?: string;
   /** Where pressing it goes. Absent means this entry is a heading. */
@@ -111,6 +112,7 @@ function categoryNodeToEntry(node: CategoryNode): CatalogMenuEntry {
     key: node.id,
     label: node.name,
     ...(node.imageUrl ? { imageUrl: node.imageUrl } : {}),
+    ...(node.imageFileId ? { imageFileId: node.imageFileId } : {}),
     // The slug is the pretty spelling and the id is always legal, so a category
     // with no slug is still addressable rather than dropped.
     href: categoryHref(node.slug.length > 0 ? node.slug : node.id),

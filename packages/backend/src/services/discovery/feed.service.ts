@@ -24,23 +24,12 @@
  * have nothing in the feed itself to resolve that page's own heading's name
  * from.
  *
- * ## The browse-category tile's sample images, which NO CLIENT READS TODAY
+ * ## The browse-category tile's sample images
  *
- * A `category-tiles` tile carries two sample images drawn from the category's
- * own CHILDREN — never its own `imageUrl` (that would be the category's own
- * picture, not a preview of what it contains). `buildCategoryTilesSection`
- * reads them off `allCategories`, the same array already loaded for the tiles
- * themselves, so this costs no extra query.
- *
- * The tile that previewed them is gone: the storefront renders every
- * tile-bearing section through `CategoryPills`, the component the home feed
- * already used, and a pill shows one image, not a preview strip. So
- * `sampleImageUrls` is currently emitted and read by nobody. It is left in
- * place rather than removed because the richer treatment this section wants —
- * a category above a 2x2 grid of its named subcategories (the storefront once
- * had one, `CategoryCard`, deleted unused) — needs strictly MORE than this
- * field carries (names and slugs, not bare URLs), and that is the shape this
- * section wants to grow into rather than shrink away from.
+ * CategoryTileGrid previews up to two imported child images. Projection retains
+ * Oxy file IDs and compatibility URLs from the same media verifier as products;
+ * supplier references are absent until imported. The existing category read
+ * supplies the children, so this costs no additional query.
  *
  * ## `category-images` is gone: it could only ever repeat `pills`
  *
@@ -152,14 +141,14 @@ import {
 } from '../../db/catalog/listingRepository.js';
 import { findStoresByIds, type StoreRow } from '../../db/stores/storeRepository.js';
 import { type DiscountRow } from '../../db/merchandising/discountRepository.js';
-import { toProductSummaries, toStoreSummary } from '../catalog-hydration.service.js';
+import { toCategoryImage, toProductSummaries, toStoreSummary } from '../catalog-hydration.service.js';
 import { notFound } from '../../lib/errors/error-codes.js';
 import { config } from '../../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../../lib/redis.js';
 import { log } from '../../lib/logger.js';
 
 /** Bump when the assembled feed shape changes so stale cache entries are ignored. */
-const DISCOVERY_FEED_CACHE_VERSION = 'v1';
+const DISCOVERY_FEED_CACHE_VERSION = 'v2';
 
 /**
  * The two signals a category page renders as compact two-per-row cards —
@@ -235,34 +224,23 @@ export function activeSubtreeIds(activeCategories: CategoryRecord[], subjectId: 
 /** A category record projected to the wire `CategoryTile` shape. */
 function toCategoryTile(category: CategoryRecord): CategoryTile {
   const tile: CategoryTile = { id: category.id, name: category.name, slug: category.slug };
-  if (category.imageUrl) {
-    tile.imageUrl = category.imageUrl;
-  }
+  Object.assign(tile, toCategoryImage(category));
   return tile;
 }
 
-/**
- * Up to {@link CATEGORY_SAMPLE_SLOTS} image URLs drawn from `categoryId`'s own
- * CHILDREN, in their existing order — a preview of what is inside the
- * category. See this file's own docblock for why nothing renders it today.
- *
- * A child with no image is skipped rather than represented by `''`: the
- * result is a SHORTER array, never a hole standing in for a missing sample —
- * `CategoryTile.sampleImageUrls`'s own docstring states the same rule every
- * other image field in that file follows.
- */
-function sampleImageUrlsFor(categoryId: string, allCategories: CategoryRecord[]): string[] {
+/** Preview only this category's own imported child images, in display order. */
+function sampleImagesFor(categoryId: string, allCategories: CategoryRecord[]): Pick<CategoryTile, 'sampleImageFileIds' | 'sampleImageUrls'> {
+  const ids: string[] = [];
   const urls: string[] = [];
   for (const candidate of allCategories) {
-    if (candidate.parentId !== categoryId || !candidate.imageUrl) {
-      continue;
-    }
-    urls.push(candidate.imageUrl);
-    if (urls.length === CATEGORY_SAMPLE_SLOTS) {
-      break;
-    }
+    if (candidate.parentId !== categoryId) continue;
+    const image = toCategoryImage(candidate);
+    if (!image.imageFileId || !image.imageUrl) continue;
+    ids.push(image.imageFileId);
+    urls.push(image.imageUrl);
+    if (ids.length === CATEGORY_SAMPLE_SLOTS) break;
   }
-  return urls;
+  return ids.length ? { sampleImageFileIds: ids, sampleImageUrls: urls } : {};
 }
 
 /**
@@ -386,7 +364,7 @@ async function buildStoresSection(input: {
 /**
  * The root scope's "browse by category" row — each tile carrying up to
  * {@link CATEGORY_SAMPLE_SLOTS} preview images drawn from ITS OWN children
- * (see {@link sampleImageUrlsFor}), so a top-level category with none gets no
+ * (see {@link sampleImagesFor}), so a top-level category with none gets no
  * `sampleImageUrls` at all, same "absent field, not an empty one" rule as
  * every other tile image.
  */
@@ -396,10 +374,7 @@ function buildCategoryTilesSection(
 ): CategoryTilesSection | null {
   const tiles = topLevel.map((category) => {
     const tile = toCategoryTile(category);
-    const samples = sampleImageUrlsFor(category.id, allCategories);
-    if (samples.length > 0) {
-      tile.sampleImageUrls = samples;
-    }
+    Object.assign(tile, sampleImagesFor(category.id, allCategories));
     return tile;
   });
   if (tiles.length === 0) {

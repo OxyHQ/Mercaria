@@ -59,7 +59,7 @@ const LIB_CATALOG = join(dirname(fileURLToPath(import.meta.url)), '..');
  * ever send.
  */
 const CATEGORY_TREE: readonly CategoryNode[] = [
-  { id: 'cat-root', name: 'Electronics', slug: 'electronics', parentId: null, children: [] },
+  { id: 'cat-root', name: 'Electronics', slug: 'electronics', parentId: null, imageFileId: 'category-art', children: [] },
 ];
 
 /** One published navigation tree, which is what taxonomy v2 returns. */
@@ -134,6 +134,7 @@ describe('the fallback — three different failures, one answer', () => {
       readCategoryTree: io.readCategoryTree,
     });
     expect(navigation.source).toBe('category_tree_fallback');
+    expect(navigation.trees[0]?.entries[0]?.imageFileId).toBe('category-art');
     expect(navigation.trees).toHaveLength(1);
     expect(io.categoryCalls()).toBe(1);
   });

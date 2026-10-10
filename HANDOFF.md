@@ -771,3 +771,14 @@ retains its own canonical migration ledger. Local dump, restore log and per-tabl
 verification are under `/tmp/mercaria-local-db-preserved-20261010/`; they are not
 repository fixtures. Only the ignored backend `.env` database path changed.
 No production migration or data write was performed.
+
+## Category media boundary — 2026-10-10
+
+CategoryNode, CategoryPill and CategoryTile now carry `imageFileId`; Explore
+child previews carry `sampleImageFileIds`. Both feeds and the tree use the
+product hydration media verifier. This closes Explore's raw `imageUrl`
+passthrough and the chips/grid's arbitrary-URI fallback. Verified old Oxy URLs
+retain compatibility; supplier URLs are withheld until imported. Real database
+projection and negative media-reference tests do not prove file upload or image
+byte availability. The local catalog still needs authorized Oxy media imports;
+the existing illustrated-category acceptance test remains unchanged.

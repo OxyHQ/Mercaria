@@ -5,7 +5,8 @@ import { Text } from "../ui/text";
 import type { CategoryPill } from "@mercaria/shared-types";
 import { ShopNavigationIcon } from "./ShopNavigationIcon";
 import { useColorScheme } from "../../lib/useColorScheme";
-import { categoryImageSource } from "../../lib/shop-category-images";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { resolveCatalogImage } from "../../lib/stored-image-url";
 
 /** Horizontal gap (px) between adjacent chips. */
 const CHIP_GAP = 8;
@@ -56,7 +57,7 @@ interface CategoryPillChipProps {
 function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
   const { colors } = useColorScheme();
   const [failedUri, setFailedUri] = useState<string>();
-  const imageUrl = pill.imageUrl?.trim();
+  const imageUrl = resolveCatalogImage(pill.imageFileId, pill.imageUrl, useImageResolver(), "thumb");
   const showImage = Boolean(imageUrl && imageUrl !== failedUri);
   return (
     <Pressable
@@ -70,7 +71,7 @@ function CategoryPillChip({ pill, onPressPill }: CategoryPillChipProps) {
         {showImage && imageUrl ? (
           <Image
             testID="category-pill-image"
-            source={categoryImageSource(imageUrl)}
+            source={{ uri: imageUrl }}
             contentFit="cover"
             className="h-8 w-8 rounded-full"
             onError={() => setFailedUri(imageUrl)}

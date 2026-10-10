@@ -33,6 +33,7 @@
 
 import type { OxyServices } from '@oxy.so/core';
 import type {
+  CategoryTile,
   Listing,
   ListingImage,
   ListingOption,
@@ -121,6 +122,18 @@ export function resolveStoredMediaUrl(value: string | null | undefined): string 
   } catch {
     return undefined;
   }
+}
+
+/** Category projections share the same internal-media boundary as products. */
+export function toCategoryImage(category: { imageFileId: string; imageUrl: string | null }): Pick<CategoryTile, 'imageFileId' | 'imageUrl'> {
+  if (isOxyFileId(category.imageFileId)) {
+    return { imageFileId: category.imageFileId, imageUrl: resolveMedia(category.imageFileId) };
+  }
+  const imageUrl = resolveStoredMediaUrl(category.imageUrl);
+  if (!imageUrl || !category.imageUrl) return {};
+  // The existing URL verifier has checked the configured Oxy namespace and ID.
+  const imageFileId = new URL(category.imageUrl).pathname.split('/').at(-1);
+  return isOxyFileId(imageFileId) ? { imageFileId, imageUrl } : {};
 }
 
 /**

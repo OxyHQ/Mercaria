@@ -54,6 +54,8 @@ export interface CategoryNode {
   slug: string;
   /** Parent category id, or `null` for a top-level category. */
   parentId: string | null;
+  /** Oxy file ID, resolved by the client; never a supplier URL. */
+  imageFileId?: string;
   /** Optional resolvable image URL for the category. */
   imageUrl?: string;
   /** Direct child categories (omitted/empty for leaf nodes). */

@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { Pressable, View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
+import { CatalogImage } from "./CatalogImage";
 import type { CategoryTile } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { categoryImageSource } from "../../lib/shop-category-images";
 
 export interface CategoryShortcut {
   key: string;
@@ -78,22 +77,18 @@ export function CategoryTileGrid({
             tile.name,
             () => onPressTile(tile.id, tile.slug),
             <View className="flex-row gap-3">
-              {(tile.sampleImageUrls?.length
-                ? tile.sampleImageUrls.slice(0, 2)
-                : tile.imageUrl
-                  ? [tile.imageUrl]
-                  : []
-              ).map((uri, index) => (
-                <View
-                  key={`${uri}-${index}`}
-                  className="aspect-square flex-1 overflow-hidden rounded-xl bg-background"
-                >
-                  <Image
-                    source={categoryImageSource(uri)}
-                    contentFit="cover"
-                    className="h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none"
-                  />
-                </View>
+              {(tile.sampleImageFileIds?.length
+                ? tile.sampleImageFileIds.slice(0, 2).map((fileId) => ({ fileId, legacyUrl: undefined }))
+                : tile.sampleImageUrls?.length
+                  ? tile.sampleImageUrls.slice(0, 2).map((legacyUrl) => ({ fileId: undefined, legacyUrl }))
+                  : [{ fileId: tile.imageFileId, legacyUrl: tile.imageUrl }]
+              ).map((image, index) => (
+                <CatalogImage
+                  key={`${image.fileId ?? image.legacyUrl ?? "missing"}-${index}`}
+                  {...image}
+                  accessibilityLabel={tile.name}
+                  className="aspect-square flex-1 overflow-hidden rounded-xl bg-background web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none"
+                />
               ))}
             </View>,
           ),

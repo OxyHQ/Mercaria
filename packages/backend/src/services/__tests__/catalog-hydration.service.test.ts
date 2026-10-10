@@ -84,7 +84,7 @@ vi.mock('../../lib/logger.js', () => ({
   log: { general: { warn: vi.fn(), error: vi.fn() } },
 }));
 
-import { hydrateListings, resolveMedia, resolveStoredMediaUrl, toProductSummary, toStoreSummary } from '../catalog-hydration.service.js';
+import { hydrateListings, toCategoryImage, resolveMedia, resolveStoredMediaUrl, toProductSummary, toStoreSummary } from '../catalog-hydration.service.js';
 import { projectSeller } from '../public-api/projection.js';
 
 /** The empty batch `findListingChildren` returns for listings with no children. */
@@ -407,5 +407,23 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
     expect(summary).not.toHaveProperty('coverFileId');
     expect(summary.products[0]).not.toHaveProperty('imageFileId');
     expect(summary.products[0]).not.toHaveProperty('imageUrl');
+  });
+});
+
+
+describe('category media projection', () => {
+  it('retains the imported ID even when an older supplier URL exists', () => {
+    expect(toCategoryImage({ imageFileId: 'category-file', imageUrl: 'https://supplier.example/category.jpg' }))
+      .toEqual({ imageFileId: 'category-file', imageUrl: 'media:category-file:full' });
+  });
+  it('recovers the ID only from the verified legacy Oxy namespace', () => {
+    expect(toCategoryImage({ imageFileId: '', imageUrl: 'https://cloud.oxy.so/legacy-file?variant=thumb' }))
+      .toEqual({ imageFileId: 'legacy-file', imageUrl: 'media:legacy-file:thumb' });
+  });
+  it.each(['https://supplier.example/image.jpg', 'data:image/png;base64,AA==', 'https://cloud.oxy.so.evil.example/file', 'https://cloud.oxy.so/folder/file', 'https://cloud.oxy.so/file?redirect=elsewhere'])('withholds unsynced reference %s', imageUrl => {
+    expect(toCategoryImage({ imageFileId: imageUrl, imageUrl })).toEqual({});
+  });
+  it('omits both fields while category media is absent', () => {
+    expect(toCategoryImage({ imageFileId: '', imageUrl: null })).toEqual({});
   });
 });
