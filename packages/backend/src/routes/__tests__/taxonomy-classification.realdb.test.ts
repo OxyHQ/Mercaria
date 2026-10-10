@@ -121,7 +121,7 @@ async function request(method: string, path: string, body?: unknown): Promise<Js
 }
 
 function data(body: Record<string, unknown>): Record<string, unknown> {
-  return (body['data'] ?? {}) as Record<string, unknown>;
+  return (body.data ?? {}) as Record<string, unknown>;
 }
 
 /** The message a refusal carried, wherever this app's envelope puts it. */
@@ -387,8 +387,8 @@ describe('the surface is mounted and gated', () => {
     const body = data(response.body);
     // A seeded FIELD by name, not merely a 2xx: a 200 with an empty envelope is
     // what a missing handler and a real answer both look like.
-    expect(body['state']).toBe('classified');
-    expect((body['primary'] as Record<string, unknown>)['categoryId']).toBe(CAT.phones);
+    expect(body.state).toBe('classified');
+    expect((body.primary as Record<string, unknown>).categoryId).toBe(CAT.phones);
   });
 
   it('404s a subject that does not exist, distinguishably from the mount being absent', async () => {
@@ -418,11 +418,11 @@ describe('filing a secondary classification over HTTP', () => {
     );
     expect(response.status).toBe(201);
     const body = data(response.body);
-    expect(body['categoryId']).toBe(CAT.cameras);
-    expect(body['reason']).toBe('multi_function_product');
+    expect(body.categoryId).toBe(CAT.cameras);
+    expect(body.reason).toBe('multi_function_product');
     // The AUTHOR comes from the credential, never the body.
-    expect(body['justifiedBy']).toBe(OPERATOR);
-    expect(body['schemeRef']).toBeUndefined();
+    expect(body.justifiedBy).toBe(OPERATOR);
+    expect(body.schemeRef).toBeUndefined();
   });
 
   it('shows the filing on the composed read, beside the primary', async () => {
@@ -431,9 +431,9 @@ describe('filing a secondary classification over HTTP', () => {
       `/internal/taxonomy/classifications/listing/${LISTING_ID}`,
     );
     const body = data(response.body);
-    const secondary = body['secondary'] as Array<Record<string, unknown>>;
-    expect(secondary.map((row) => row['categoryId'])).toContain(CAT.cameras);
-    expect((body['primary'] as Record<string, unknown>)['categoryId']).toBe(CAT.phones);
+    const secondary = body.secondary as Array<Record<string, unknown>>;
+    expect(secondary.map((row) => row.categoryId)).toContain(CAT.cameras);
+    expect((body.primary as Record<string, unknown>).categoryId).toBe(CAT.phones);
   });
 
   it('refuses a SECOND filing under the same category, rather than silently keeping either', async () => {
@@ -492,7 +492,7 @@ describe('filing a secondary classification over HTTP', () => {
       validBody(CAT.suppressed, { justification: 'Holding pen is suppressed but assignable.' }),
     );
     expect(response.status).toBe(201);
-    expect(data(response.body)['categoryId']).toBe(CAT.suppressed);
+    expect(data(response.body).categoryId).toBe(CAT.suppressed);
   });
 
   /**
@@ -607,7 +607,7 @@ describe('“justified” is enforced, not decorative', () => {
       }),
     );
     expect(response.status).toBe(201);
-    expect(data(response.body)['schemeRef']).toBe('EU-2023/1542');
+    expect(data(response.body).schemeRef).toBe('EU-2023/1542');
   });
 });
 
@@ -669,8 +669,8 @@ describe('the category usage read, and withdrawal', () => {
     const response = await request('GET', `/internal/taxonomy/categories/${CAT.cameras}/usage`);
     expect(response.status).toBe(200);
     const body = data(response.body);
-    expect(body['listings']).toBe(1);
-    expect(body['canonicalProducts']).toBe(1);
+    expect(body.listings).toBe(1);
+    expect(body.canonicalProducts).toBe(1);
   });
 
   it('withdraws one, and the count follows', async () => {
@@ -681,9 +681,9 @@ describe('the category usage read, and withdrawal', () => {
     expect(removed.status).toBe(200);
 
     const usage = await request('GET', `/internal/taxonomy/categories/${CAT.cameras}/usage`);
-    expect(data(usage.body)['canonicalProducts']).toBe(0);
+    expect(data(usage.body).canonicalProducts).toBe(0);
     // The listing side is untouched — a withdrawal is scoped to its subject.
-    expect(data(usage.body)['listings']).toBe(1);
+    expect(data(usage.body).listings).toBe(1);
   });
 
   it('404s withdrawing one that is not there', async () => {

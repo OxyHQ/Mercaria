@@ -64,14 +64,14 @@ describe('GET /discovery/feed', () => {
   it('serves the root feed to an anonymous caller', async () => {
     const { status, body } = await get('?scope=root');
     expect(status).toBe(200);
-    const data = body['data'] as { sections: unknown[] };
+    const data = body.data as { sections: unknown[] };
     expect(data.sections).toBeInstanceOf(Array);
   });
 
   it('serves the deals feed too — the same route, a different scope', async () => {
     const { status, body } = await get('?scope=deals');
     expect(status).toBe(200);
-    const data = body['data'] as { sections: unknown[] };
+    const data = body.data as { sections: unknown[] };
     expect(data.sections).toBeInstanceOf(Array);
   });
 

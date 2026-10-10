@@ -429,17 +429,17 @@ const fakeOrderAdapter: SupplierOrderAdapter = {
     } catch {
       return { verified: false, reason: 'unparseable body' };
     }
-    if (typeof parsed['secret'] !== 'string' || parsed['secret'] !== input.secret) {
+    if (typeof parsed.secret !== 'string' || parsed.secret !== input.secret) {
       return { verified: false, reason: 'shared secret mismatch' };
     }
-    const providerState = typeof parsed['status'] === 'string' ? parsed['status'] : '';
+    const providerState = typeof parsed.status === 'string' ? parsed.status : '';
     const clientReference =
-      typeof parsed['clientReference'] === 'string' ? parsed['clientReference'] : null;
+      typeof parsed.clientReference === 'string' ? parsed.clientReference : null;
     const externalOrderId =
-      typeof parsed['externalOrderId'] === 'string' ? parsed['externalOrderId'] : null;
-    const eventId = typeof parsed['eventId'] === 'string' ? parsed['eventId'] : randomUUID();
+      typeof parsed.externalOrderId === 'string' ? parsed.externalOrderId : null;
+    const eventId = typeof parsed.eventId === 'string' ? parsed.eventId : randomUUID();
     const observedAt =
-      typeof parsed['observedAt'] === 'string' ? new Date(parsed['observedAt']) : new Date();
+      typeof parsed.observedAt === 'string' ? new Date(parsed.observedAt) : new Date();
     return {
       verified: true,
       verification: 'shared_secret',

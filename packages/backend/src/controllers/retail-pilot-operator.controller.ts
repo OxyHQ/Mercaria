@@ -111,24 +111,24 @@ export async function createRetailPilotCohortHandler(
     const body = req.body as Record<string, unknown>;
     const cohort = await createRetailPilotCohortDraft({
       cohortKey: RETAIL_PILOT_COHORT_KEY,
-      version: Number(body['version']),
-      supplierId: String(body['supplierId']),
-      supplierAccountId: String(body['supplierAccountId']),
-      marketCountry: String(body['marketCountry']),
-      currency: oneOf<CurrencyCode>(ALL_CURRENCY_CODES, body['currency'], 'currency'),
-      audience: oneOf<RetailPilotAudience>(RETAIL_PILOT_AUDIENCES, body['audience'], 'audience'),
+      version: Number(body.version),
+      supplierId: String(body.supplierId),
+      supplierAccountId: String(body.supplierAccountId),
+      marketCountry: String(body.marketCountry),
+      currency: oneOf<CurrencyCode>(ALL_CURRENCY_CODES, body.currency, 'currency'),
+      audience: oneOf<RetailPilotAudience>(RETAIL_PILOT_AUDIENCES, body.audience, 'audience'),
       audiencePercentageBps:
-        body['audiencePercentageBps'] === undefined ? null : Number(body['audiencePercentageBps']),
-      maxItemTotalMinor: Number(body['maxItemTotalMinor']),
-      maxOrderTotalMinor: Number(body['maxOrderTotalMinor']),
-      minOrderTotalMinor: Number(body['minOrderTotalMinor']),
-      maxLineQuantity: Number(body['maxLineQuantity']),
-      permittedShippingServiceCodes: (body['permittedShippingServiceCodes'] as string[]) ?? [],
-      fundingFloorMinor: Number(body['fundingFloorMinor']),
-      fundingAlertMinor: Number(body['fundingAlertMinor']),
-      monthlySpendCapMinor: Number(body['monthlySpendCapMinor']),
-      fundingObservationMaxAgeSeconds: Number(body['fundingObservationMaxAgeSeconds']),
-      rationale: String(body['rationale']),
+        body.audiencePercentageBps === undefined ? null : Number(body.audiencePercentageBps),
+      maxItemTotalMinor: Number(body.maxItemTotalMinor),
+      maxOrderTotalMinor: Number(body.maxOrderTotalMinor),
+      minOrderTotalMinor: Number(body.minOrderTotalMinor),
+      maxLineQuantity: Number(body.maxLineQuantity),
+      permittedShippingServiceCodes: (body.permittedShippingServiceCodes as string[]) ?? [],
+      fundingFloorMinor: Number(body.fundingFloorMinor),
+      fundingAlertMinor: Number(body.fundingAlertMinor),
+      monthlySpendCapMinor: Number(body.monthlySpendCapMinor),
+      fundingObservationMaxAgeSeconds: Number(body.fundingObservationMaxAgeSeconds),
+      rationale: String(body.rationale),
     });
     sendSuccess(res, cohort, 201);
   } catch (error) {
@@ -146,11 +146,11 @@ export async function addRetailPilotSkuHandler(
     const body = req.body as Record<string, unknown>;
     await addRetailPilotSku({
       cohortId: requiredParam(req, 'cohortId'),
-      supplierSku: String(body['supplierSku']),
+      supplierSku: String(body.supplierSku),
       procurementOfferId:
-        body['procurementOfferId'] === undefined ? null : String(body['procurementOfferId']),
+        body.procurementOfferId === undefined ? null : String(body.procurementOfferId),
       addedByOxyUserId: procurementOperatorId(req),
-      note: String(body['note']),
+      note: String(body.note),
     });
     sendSuccess(res, { added: true }, 201);
   } catch (error) {
@@ -168,11 +168,11 @@ export async function addRetailPilotThresholdHandler(
     const body = req.body as Record<string, unknown>;
     await addRetailPilotThreshold({
       cohortId: requiredParam(req, 'cohortId'),
-      metric: oneOf<RetailPilotStopMetric>(RETAIL_PILOT_STOP_METRICS, body['metric'], 'metric'),
-      unit: oneOf<RetailPilotThresholdUnit>(RETAIL_PILOT_THRESHOLD_UNITS, body['unit'], 'unit'),
-      thresholdValue: Number(body['thresholdValue']),
-      windowHours: Number(body['windowHours']),
-      scope: oneOf<RetailPilotStopScope>(RETAIL_PILOT_STOP_SCOPES, body['scope'], 'scope'),
+      metric: oneOf<RetailPilotStopMetric>(RETAIL_PILOT_STOP_METRICS, body.metric, 'metric'),
+      unit: oneOf<RetailPilotThresholdUnit>(RETAIL_PILOT_THRESHOLD_UNITS, body.unit, 'unit'),
+      thresholdValue: Number(body.thresholdValue),
+      windowHours: Number(body.windowHours),
+      scope: oneOf<RetailPilotStopScope>(RETAIL_PILOT_STOP_SCOPES, body.scope, 'scope'),
     });
     sendSuccess(res, { added: true }, 201);
   } catch (error) {
@@ -246,20 +246,18 @@ export async function recordSupplierFundingHandler(
 ): Promise<void> {
   try {
     const body = req.body as Record<string, unknown>;
-    const source = oneOf<SupplierFundingSource>(SUPPLIER_FUNDING_SOURCES, body['source'], 'source');
+    const source = oneOf<SupplierFundingSource>(SUPPLIER_FUNDING_SOURCES, body.source, 'source');
     await recordSupplierFundingObservation({
-      supplierAccountId: String(body['supplierAccountId']),
-      balanceMinor: Number(body['balanceMinor']),
-      currency: oneOf<CurrencyCode>(ALL_CURRENCY_CODES, body['currency'], 'currency'),
+      supplierAccountId: String(body.supplierAccountId),
+      balanceMinor: Number(body.balanceMinor),
+      currency: oneOf<CurrencyCode>(ALL_CURRENCY_CODES, body.currency, 'currency'),
       source,
-      ...(body['observedAt'] === undefined
-        ? {}
-        : { observedAt: new Date(String(body['observedAt'])) }),
+      ...(body.observedAt === undefined ? {} : { observedAt: new Date(String(body.observedAt)) }),
       // An operator-entered figure NAMES the operator; a provider reading does
       // not, because attributing an API's answer to a person makes the trail
       // say something false. The CHECK enforces the pairing.
       recordedByOxyUserId: source === 'operator_entry' ? procurementOperatorId(req) : null,
-      ...(body['note'] === undefined ? {} : { note: String(body['note']) }),
+      ...(body.note === undefined ? {} : { note: String(body.note) }),
     });
     sendSuccess(res, { recorded: true }, 201);
   } catch (error) {
@@ -276,11 +274,11 @@ export async function raiseRetailPilotStopHandler(
   try {
     const body = req.body as Record<string, unknown>;
     const result = await raiseRetailPilotStop({
-      metric: oneOf<RetailPilotStopMetric>(RETAIL_PILOT_STOP_METRICS, body['metric'], 'metric'),
-      scope: oneOf<RetailPilotStopScope>(RETAIL_PILOT_STOP_SCOPES, body['scope'], 'scope'),
-      scopeRef: String(body['scopeRef'] ?? ''),
+      metric: oneOf<RetailPilotStopMetric>(RETAIL_PILOT_STOP_METRICS, body.metric, 'metric'),
+      scope: oneOf<RetailPilotStopScope>(RETAIL_PILOT_STOP_SCOPES, body.scope, 'scope'),
+      scopeRef: String(body.scopeRef ?? ''),
       raisedByOxyUserId: procurementOperatorId(req),
-      detail: String(body['detail']),
+      detail: String(body.detail),
     });
     sendSuccess(res, result, result.raised ? 201 : 200);
   } catch (error) {
@@ -298,7 +296,7 @@ export async function liftRetailPilotStopHandler(
     const lifted = await liftRetailPilotStop({
       stopId: requiredParam(req, 'stopId'),
       liftedByOxyUserId: procurementOperatorId(req),
-      liftReason: String((req.body as Record<string, unknown>)['liftReason']),
+      liftReason: String((req.body as Record<string, unknown>).liftReason),
     });
     if (!lifted) {
       sendError(res, ErrorCodes.NOT_FOUND, 'Not found', 404);

@@ -82,7 +82,7 @@ export default function FeedbackScreen() {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (token) headers.Authorization = `Bearer ${token}`;
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers,

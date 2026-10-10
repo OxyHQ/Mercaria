@@ -44,12 +44,11 @@ export const LOCATION_KEYS = {
 /** A location body's key set EQUALS the contract's, recursively. */
 export function checkLocation(value: unknown, where: string): Record<string, unknown> {
   const location = exactKeys(value, LOCATION_KEYS.location, where);
-  exactKeys(location['ref'], LOCATION_KEYS.locationRef, `${where}.ref`);
-  const store = exactKeys(location['store'], LOCATION_KEYS.locationStore, `${where}.store`);
-  exactKeys(store['ref'], KEYS.storeRef, `${where}.store.ref`);
-  if (location['pickup'] !== null)
-    exactKeys(location['pickup'], LOCATION_KEYS.pickup, `${where}.pickup`);
-  expect(location['discoverable']).toBeTypeOf('boolean');
+  exactKeys(location.ref, LOCATION_KEYS.locationRef, `${where}.ref`);
+  const store = exactKeys(location.store, LOCATION_KEYS.locationStore, `${where}.store`);
+  exactKeys(store.ref, KEYS.storeRef, `${where}.store.ref`);
+  if (location.pickup !== null) exactKeys(location.pickup, LOCATION_KEYS.pickup, `${where}.pickup`);
+  expect(location.discoverable).toBeTypeOf('boolean');
   return location;
 }
 
@@ -60,9 +59,9 @@ export function checkLocationProduct(value: unknown, where: string): Record<stri
       ? [...LOCATION_KEYS.locationProduct, 'exactQuantity']
       : LOCATION_KEYS.locationProduct;
   const item = exactKeys(value, keys, where);
-  exactKeys(item['product'], KEYS.summary, `${where}.product`);
-  expect(['in_stock', 'low_stock', 'out_of_stock']).toContain(item['availability']);
-  expect(Number.isNaN(Date.parse(String(item['stockConfirmedAt'])))).toBe(false);
+  exactKeys(item.product, KEYS.summary, `${where}.product`);
+  expect(['in_stock', 'low_stock', 'out_of_stock']).toContain(item.availability);
+  expect(Number.isNaN(Date.parse(String(item.stockConfirmedAt)))).toBe(false);
   return item;
 }
 

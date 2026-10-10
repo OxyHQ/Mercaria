@@ -110,8 +110,8 @@ export function exactKeys(
 
 function checkMoney(value: unknown, where: string): void {
   const money = exactKeys(value, KEYS.money, where);
-  expect(Number.isSafeInteger(money['amount']), `${where}.amount`).toBe(true);
-  expect(money['currency'], `${where}.currency`).toBeTypeOf('string');
+  expect(Number.isSafeInteger(money.amount), `${where}.amount`).toBe(true);
+  expect(money.currency, `${where}.currency`).toBeTypeOf('string');
 }
 
 function checkNullable(
@@ -124,8 +124,8 @@ function checkNullable(
 
 function checkImage(value: unknown, where: string): void {
   const image = exactKeys(value, KEYS.image, where);
-  expect(String(image['url']), `${where}.url is absolute`).toMatch(/^https?:\/\//u);
-  if (image['alt'] !== null) expect(image['alt']).toBeTypeOf('string');
+  expect(String(image.url), `${where}.url is absolute`).toMatch(/^https?:\/\//u);
+  if (image.alt !== null) expect(image.alt).toBeTypeOf('string');
 }
 
 function checkSummary(
@@ -134,58 +134,56 @@ function checkSummary(
   extra: readonly string[] = [],
 ): Record<string, unknown> {
   const item = exactKeys(value, [...KEYS.summary, ...extra], where);
-  exactKeys(item['ref'], KEYS.productRef, `${where}.ref`);
-  checkNullable(item['primaryImage'], `${where}.primaryImage`, checkImage);
-  checkMoney(item['price'], `${where}.price`);
-  checkNullable(item['compareAtPrice'], `${where}.compareAtPrice`, checkMoney);
-  checkNullable(item['priceRange'], `${where}.priceRange`, (range, w) => {
+  exactKeys(item.ref, KEYS.productRef, `${where}.ref`);
+  checkNullable(item.primaryImage, `${where}.primaryImage`, checkImage);
+  checkMoney(item.price, `${where}.price`);
+  checkNullable(item.compareAtPrice, `${where}.compareAtPrice`, checkMoney);
+  checkNullable(item.priceRange, `${where}.priceRange`, (range, w) => {
     const r = exactKeys(range, KEYS.priceRange, w);
-    checkMoney(r['min'], `${w}.min`);
-    checkMoney(r['max'], `${w}.max`);
+    checkMoney(r.min, `${w}.min`);
+    checkMoney(r.max, `${w}.max`);
   });
-  expect(['in_stock', 'out_of_stock', 'sold']).toContain(item['availability']);
-  exactKeys(item['condition'], KEYS.condition, `${where}.condition`);
-  const seller = item['seller'] as Record<string, unknown>;
-  if (seller['kind'] === 'store') {
+  expect(['in_stock', 'out_of_stock', 'sold']).toContain(item.availability);
+  exactKeys(item.condition, KEYS.condition, `${where}.condition`);
+  const seller = item.seller as Record<string, unknown>;
+  if (seller.kind === 'store') {
     exactKeys(seller, KEYS.sellerStore, `${where}.seller`);
-    exactKeys(seller['store'], KEYS.storeRef, `${where}.seller.store`);
+    exactKeys(seller.store, KEYS.storeRef, `${where}.seller.store`);
   } else {
     exactKeys(seller, KEYS.sellerPerson, `${where}.seller`);
   }
-  expect(item['url']).toBeTypeOf('string');
+  expect(item.url).toBeTypeOf('string');
   return item;
 }
 
 function checkProduct(value: unknown, where: string): Record<string, unknown> {
   const product = checkSummary(value, where, KEYS.productExtra);
-  (product['images'] as unknown[]).forEach((image, i) =>
-    checkImage(image, `${where}.images[${i}]`),
-  );
-  (product['purchaseOptions'] as unknown[]).forEach((option, i) => {
+  (product.images as unknown[]).forEach((image, i) => checkImage(image, `${where}.images[${i}]`));
+  (product.purchaseOptions as unknown[]).forEach((option, i) => {
     const o = exactKeys(option, KEYS.purchaseOption, `${where}.purchaseOptions[${i}]`);
-    exactKeys(o['ref'], KEYS.variantRef, `${where}.purchaseOptions[${i}].ref`);
-    checkMoney(o['price'], `${where}.purchaseOptions[${i}].price`);
-    checkNullable(o['compareAtPrice'], `${where}.purchaseOptions[${i}].compareAtPrice`, checkMoney);
-    expect(['in_stock', 'out_of_stock']).toContain(o['availability']);
+    exactKeys(o.ref, KEYS.variantRef, `${where}.purchaseOptions[${i}].ref`);
+    checkMoney(o.price, `${where}.purchaseOptions[${i}].price`);
+    checkNullable(o.compareAtPrice, `${where}.purchaseOptions[${i}].compareAtPrice`, checkMoney);
+    expect(['in_stock', 'out_of_stock']).toContain(o.availability);
   });
-  checkNullable(product['viewer'], `${where}.viewer`, (viewer, w) =>
+  checkNullable(product.viewer, `${where}.viewer`, (viewer, w) =>
     exactKeys(viewer, KEYS.viewer, w),
   );
-  expect(Number.isNaN(Date.parse(String(product['updatedAt'])))).toBe(false);
+  expect(Number.isNaN(Date.parse(String(product.updatedAt)))).toBe(false);
   return product;
 }
 
 function checkStore(value: unknown, where: string): Record<string, unknown> {
   const store = exactKeys(value, KEYS.store, where);
-  exactKeys(store['ref'], KEYS.storeRef, `${where}.ref`);
+  exactKeys(store.ref, KEYS.storeRef, `${where}.ref`);
   return store;
 }
 
 function checkCollection(value: unknown, where: string): Record<string, unknown> {
   const collection = exactKeys(value, KEYS.collection, where);
-  exactKeys(collection['ref'], KEYS.collectionRef, `${where}.ref`);
-  exactKeys(collection['store'], KEYS.storeRef, `${where}.store`);
-  checkNullable(collection['image'], `${where}.image`, checkImage);
+  exactKeys(collection.ref, KEYS.collectionRef, `${where}.ref`);
+  exactKeys(collection.store, KEYS.storeRef, `${where}.store`);
+  checkNullable(collection.image, `${where}.image`, checkImage);
   return collection;
 }
 
@@ -206,8 +204,8 @@ export function checkShape(data: unknown, shape: Shape, where: string): void {
     case 'page:productSummary':
     case 'page:collection': {
       const page = exactKeys(data, KEYS.page, where);
-      expect(page['nextCursor'] === null || typeof page['nextCursor'] === 'string').toBe(true);
-      (page['items'] as unknown[]).forEach((item, i) =>
+      expect(page.nextCursor === null || typeof page.nextCursor === 'string').toBe(true);
+      (page.items as unknown[]).forEach((item, i) =>
         shape === 'page:productSummary'
           ? checkSummary(item, `${where}.items[${i}]`)
           : checkCollection(item, `${where}.items[${i}]`),

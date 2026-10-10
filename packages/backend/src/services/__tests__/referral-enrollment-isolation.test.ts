@@ -606,7 +606,7 @@ describe('enrollment grants nothing and reaches no money', () => {
    */
   it('the merchant-claim exemption covers exactly one module, and it still reads', () => {
     const readers = ENROLLMENT_PATHS.filter((path) =>
-      GRANT_DETECTORS['merchant_claim']?.test(readEnrollmentCode(path)),
+      GRANT_DETECTORS.merchant_claim?.test(readEnrollmentCode(path)),
     );
     expect(
       readers,

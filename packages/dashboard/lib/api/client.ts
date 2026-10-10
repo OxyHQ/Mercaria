@@ -28,7 +28,7 @@ apiClient.interceptors.request.use(
     if (getAccessToken) {
       const token = getAccessToken();
       if (token) {
-        request.headers['Authorization'] = `Bearer ${token}`;
+        request.headers.Authorization = `Bearer ${token}`;
       }
     }
     return request;

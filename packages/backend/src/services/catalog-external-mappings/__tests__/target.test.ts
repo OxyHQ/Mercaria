@@ -82,7 +82,7 @@ describe('every dimension round-trips', () => {
     // require re-approving every source mapping. Which version an operator was
     // looking at is `reviewed_product_type_definition_id` on the ROW — provenance
     // that is never applied — and it is deliberately absent from this union.
-    const target = SAMPLES['product_type'] as CatalogExternalTarget;
+    const target = SAMPLES.product_type as CatalogExternalTarget;
     expect(columnsToTarget('product_type', targetToColumns(target))).toEqual({
       dimension: 'product_type',
       productTypeKey: 'smartphone',
@@ -93,7 +93,7 @@ describe('every dimension round-trips', () => {
 
 describe('a row whose columns contradict its dimension reads as unresolvable', () => {
   it('returns null rather than throwing or picking a column', () => {
-    const columns = targetToColumns(SAMPLES['attribute'] as CatalogExternalTarget);
+    const columns = targetToColumns(SAMPLES.attribute as CatalogExternalTarget);
     // A `unit` row carrying a category id cannot exist through the repository —
     // the shape CHECK refuses it — but a future migration widening that CHECK
     // must produce an unresolvable read rather than crashing the page that found

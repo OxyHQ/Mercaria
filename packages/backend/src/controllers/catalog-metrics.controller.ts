@@ -111,8 +111,8 @@ export function catalogLatencyHandler(req: Request, res: Response): void {
  * `tracePayment` rule.
  */
 export async function catalogPublicationTraceHandler(req: Request, res: Response): Promise<void> {
-  const kind = req.params['handleKind'];
-  const handle = req.params['handle'];
+  const kind = req.params.handleKind;
+  const handle = req.params.handle;
   if (kind !== 'draft' && kind !== 'listing') {
     sendError(
       res,

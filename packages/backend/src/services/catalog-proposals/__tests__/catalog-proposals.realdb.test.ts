@@ -841,7 +841,7 @@ describe.skipIf(!ready)('convergence under a genuine race', () => {
   let probe: Solo;
 
   async function openSolo(): Promise<Solo> {
-    const databaseUrl = process.env['DATABASE_URL'];
+    const databaseUrl = process.env.DATABASE_URL;
     if (databaseUrl === undefined) {
       throw new Error('vitest.pg.globalSetup did not publish DATABASE_URL');
     }

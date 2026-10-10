@@ -35,8 +35,8 @@ import {
 
 /** Server to create the throwaway on — the same variable `globalSetup` reads. */
 const ADMIN_URL =
-  process.env['TEST_DATABASE_URL'] ??
-  process.env['DATABASE_URL'] ??
+  process.env.TEST_DATABASE_URL ??
+  process.env.DATABASE_URL ??
   'postgres://mercaria:mercaria@127.0.0.1:5435/mercaria_dev';
 
 /** The last migration production holds before this release. */

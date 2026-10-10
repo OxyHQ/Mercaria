@@ -166,16 +166,16 @@ function expectFailure(answer: Answer, status: number, code: MercariaPublicError
   expect(answer.status, answer.text).toBe(status);
   expect(answer.headers.get('content-type') ?? '').toContain('application/json');
   exactKeys(answer.body, ['error'], 'error body');
-  const error = answer.body['error'] as Record<string, unknown>;
+  const error = answer.body.error as Record<string, unknown>;
   exactKeys(
     error,
     'details' in error ? ['code', 'details', 'message'] : ['code', 'message'],
     'error',
   );
-  expect(error['code']).toBe(code);
-  expect(error['message']).toBeTypeOf('string');
+  expect(error.code).toBe(code);
+  expect(error.message).toBeTypeOf('string');
   if ('details' in error) {
-    for (const value of Object.values(error['details'] as Record<string, unknown>)) {
+    for (const value of Object.values(error.details as Record<string, unknown>)) {
       expect(['string', 'number', 'boolean']).toContain(typeof value);
     }
   }
@@ -186,7 +186,7 @@ function dataOf(answer: Answer): Record<string, unknown> {
 }
 
 function itemIds(answer: Answer): string[] {
-  return ((dataOf(answer)['items'] ?? []) as { ref: { id: string } }[]).map((item) => item.ref.id);
+  return ((dataOf(answer).items ?? []) as { ref: { id: string } }[]).map((item) => item.ref.id);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -240,7 +240,7 @@ describe('GET /public/v1/products', () => {
     ]) {
       expect(found).not.toContain(hidden);
     }
-    expect(dataOf(answer)['nextCursor']).toBeNull();
+    expect(dataOf(answer).nextCursor).toBeNull();
   });
 
   it('paginates a store-scoped list across pages with an opaque cursor: no duplicate, no gap', async () => {
@@ -252,7 +252,7 @@ describe('GET /public/v1/products', () => {
       const answer = await call(api(query), { shape: 'page:productSummary' });
       expect(answer.status, answer.text).toBe(200);
       seen.push(...itemIds(answer));
-      cursor = dataOf(answer)['nextCursor'] as string | null;
+      cursor = dataOf(answer).nextCursor as string | null;
       pages += 1;
       expect(pages).toBeLessThan(10);
     } while (cursor !== null);
@@ -266,8 +266,8 @@ describe('GET /public/v1/products', () => {
   it('is deterministic — the same request mints the same cursor', async () => {
     const first = await call(api(`/products?storeId=${ids.storeA}&limit=2`));
     const second = await call(api(`/products?storeId=${ids.storeA}&limit=2`));
-    expect(dataOf(first)['nextCursor']).toBeTypeOf('string');
-    expect(dataOf(first)['nextCursor']).toBe(dataOf(second)['nextCursor']);
+    expect(dataOf(first).nextCursor).toBeTypeOf('string');
+    expect(dataOf(first).nextCursor).toBe(dataOf(second).nextCursor);
     expect(itemIds(first)).toEqual(itemIds(second));
   });
 
@@ -275,7 +275,7 @@ describe('GET /public/v1/products', () => {
     const answer = await call(api(`/products?storeId=${ids.storeA}&sort=price_asc&limit=50`), {
       shape: 'page:productSummary',
     });
-    const prices = ((dataOf(answer)['items'] as { price: { amount: number } }[]) ?? []).map(
+    const prices = ((dataOf(answer).items as { price: { amount: number } }[]) ?? []).map(
       (item) => item.price.amount,
     );
     expect(prices.length).toBeGreaterThanOrEqual(7);
@@ -293,7 +293,7 @@ describe('GET /public/v1/products', () => {
 
   it('refuses a cursor minted under different filters, and a malformed one', async () => {
     const first = await call(api(`/products?storeId=${ids.storeA}&limit=2`));
-    const cursor = dataOf(first)['nextCursor'] as string;
+    const cursor = dataOf(first).nextCursor as string;
     expect(cursor).toBeTypeOf('string');
     expectFailure(
       await call(api(`/products?storeId=${ids.storeA}&limit=2&sort=price_desc&cursor=${cursor}`)),
@@ -317,7 +317,7 @@ describe('GET /public/v1/products', () => {
     ] as const) {
       const answer = await call(api(`/products${query}`));
       expectFailure(answer, 400, 'bad_request');
-      expect((answer.body['error'] as { details: unknown }).details).toEqual({ field });
+      expect((answer.body.error as { details: unknown }).details).toEqual({ field });
     }
   });
 
@@ -333,7 +333,7 @@ describe('GET /public/v1/products', () => {
     ] as const) {
       const answer = await call(api(`/products${query}`));
       expectFailure(answer, 422, 'validation_failed');
-      expect((answer.body['error'] as { details: unknown }).details).toEqual({ field });
+      expect((answer.body.error as { details: unknown }).details).toEqual({ field });
     }
   });
 
@@ -353,24 +353,24 @@ describe('GET /public/v1/products/:id', () => {
     const answer = await call(api(`/products/${ids.inStock}`), { shape: 'product' });
     expect(answer.status, answer.text).toBe(200);
     const product = dataOf(answer);
-    expect(product['ref']).toEqual({ kind: 'product', id: ids.inStock });
-    expect(product['availability']).toBe('in_stock');
-    expect(product['price']).toEqual({ amount: 1_500, currency: 'EUR' });
-    expect(product['compareAtPrice']).toEqual({ amount: 2_000, currency: 'EUR' });
-    expect(product['priceRange']).toEqual({
+    expect(product.ref).toEqual({ kind: 'product', id: ids.inStock });
+    expect(product.availability).toBe('in_stock');
+    expect(product.price).toEqual({ amount: 1_500, currency: 'EUR' });
+    expect(product.compareAtPrice).toEqual({ amount: 2_000, currency: 'EUR' });
+    expect(product.priceRange).toEqual({
       min: { amount: 1_500, currency: 'EUR' },
       max: { amount: 2_500, currency: 'EUR' },
     });
-    expect(product['condition']).toEqual({ key: 'used_good', group: 'used' });
-    expect(product['primaryImage']).toEqual({
+    expect(product.condition).toEqual({ key: 'used_good', group: 'used' });
+    expect(product.primaryImage).toEqual({
       url: mediaUrl(`img-first-${RUN}`),
       alt: 'The front',
     });
-    expect(product['images']).toEqual([
+    expect(product.images).toEqual([
       { url: mediaUrl(`img-first-${RUN}`), alt: 'The front' },
       { url: mediaUrl(`img-second-${RUN}`), alt: null },
     ]);
-    expect(product['purchaseOptions']).toEqual([
+    expect(product.purchaseOptions).toEqual([
       {
         ref: { kind: 'variant', productId: ids.inStock, variantId: ids.inStockVariants[0] },
         title: 'Small',
@@ -386,38 +386,38 @@ describe('GET /public/v1/products/:id', () => {
         availability: 'out_of_stock',
       },
     ]);
-    expect(product['seller']).toEqual({
+    expect(product.seller).toEqual({
       kind: 'store',
       store: { kind: 'store', id: ids.storeA },
       handle: storeAHandle,
       name: `Public API a ${RUN}`,
       logoUrl: mediaUrl(`logo-${RUN}`),
     });
-    expect(product['url']).toBe(`${webOrigin}/products/${ids.inStock}`);
-    expect(product['description']).toBe('Description of instock');
-    expect(product['viewer']).toBeNull();
+    expect(product.url).toBe(`${webOrigin}/products/${ids.inStock}`);
+    expect(product.description).toBe('Description of instock');
+    expect(product.viewer).toBeNull();
   });
 
   it('reports out_of_stock and sold, and flattens a single-price range to null', async () => {
     const out = dataOf(await call(api(`/products/${ids.outOfStock}`), { shape: 'product' }));
-    expect(out['availability']).toBe('out_of_stock');
-    expect(out['priceRange']).toBeNull();
-    expect(out['primaryImage']).toBeNull();
-    expect(out['compareAtPrice']).toBeNull();
+    expect(out.availability).toBe('out_of_stock');
+    expect(out.priceRange).toBeNull();
+    expect(out.primaryImage).toBeNull();
+    expect(out.compareAtPrice).toBeNull();
 
     const sold = await call(api(`/products/${ids.sold}`), { shape: 'product' });
     expect(sold.status).toBe(200);
-    expect(dataOf(sold)['availability']).toBe('sold');
+    expect(dataOf(sold).availability).toBe('sold');
     // A sold item is never buyable, whatever its variant's counter says.
     expect(
-      (dataOf(sold)['purchaseOptions'] as { availability: string }[]).map((o) => o.availability),
+      (dataOf(sold).purchaseOptions as { availability: string }[]).map((o) => o.availability),
     ).toEqual(['out_of_stock']);
   });
 
   it('projects a person seller from their Oxy identity', async () => {
     const answer = await call(api(`/products/${ids.person}`), { shape: 'product' });
     expect(answer.status, answer.text).toBe(200);
-    expect(dataOf(answer)['seller']).toEqual({
+    expect(dataOf(answer).seller).toEqual({
       kind: 'person',
       oxyUserId: PERSON,
       displayName: 'Pat Seller',
@@ -443,14 +443,14 @@ describe('GET /public/v1/products/:id', () => {
 
   it('forwards the caller’s authority: viewer is null anonymously and { saved } for a session', async () => {
     const saver = await call(api(`/products/${ids.inStock}`), { actor: VIEWER, shape: 'product' });
-    expect(dataOf(saver)['viewer']).toEqual({ saved: true });
+    expect(dataOf(saver).viewer).toEqual({ saved: true });
     const other = await call(api(`/products/${ids.inStock}`), {
       actor: `oxy-user-pubapi-other-${RUN}`,
       shape: 'product',
     });
-    expect(dataOf(other)['viewer']).toEqual({ saved: false });
+    expect(dataOf(other).viewer).toEqual({ saved: false });
     const anonymous = await call(api(`/products/${ids.inStock}`), { shape: 'product' });
-    expect(dataOf(anonymous)['viewer']).toBeNull();
+    expect(dataOf(anonymous).viewer).toBeNull();
     expect(anonymous.headers.get('vary') ?? '').toMatch(/authorization/iu);
   });
 });
@@ -499,7 +499,7 @@ describe('stores', () => {
       const answer = await call(api(query), { shape: 'page:productSummary' });
       expect(answer.status, answer.text).toBe(200);
       seen.push(...itemIds(answer));
-      cursor = dataOf(answer)['nextCursor'] as string | null;
+      cursor = dataOf(answer).nextCursor as string | null;
       pages += 1;
     } while (cursor !== null && pages < 10);
     expect(pages).toBe(2);
@@ -514,13 +514,13 @@ describe('stores', () => {
     });
     expect(answer.status, answer.text).toBe(200);
     const first = itemIds(answer);
-    const cursor = dataOf(answer)['nextCursor'] as string;
+    const cursor = dataOf(answer).nextCursor as string;
     expect(cursor).toBeTypeOf('string');
     const second = await call(api(`/stores/${ids.storeA}/collections?limit=1&cursor=${cursor}`), {
       shape: 'page:collection',
     });
     const all = [...first, ...itemIds(second)];
-    expect(dataOf(second)['nextCursor']).toBeNull();
+    expect(dataOf(second).nextCursor).toBeNull();
     expect(new Set(all)).toEqual(new Set([ids.manual, ids.automated]));
     expectFailure(await call(api(`/stores/${ids.storeSuspended}/collections`)), 410, 'gone');
   });
@@ -594,13 +594,13 @@ describe('the error shape at the edges', () => {
     });
     expect(answer.status, answer.text).toBe(200);
     expect(answer.headers.get('access-control-allow-origin')).toBe('*');
-    expect(answer.body['openapi']).toBe('3.1.0');
+    expect(answer.body.openapi).toBe('3.1.0');
     const committed = readFileSync(
       fileURLToPath(new URL('../../../../contracts/openapi.json', import.meta.url)),
       'utf8',
     );
     expect(answer.body).toEqual(JSON.parse(committed));
-    const paths = answer.body['paths'] as Record<string, Record<string, { operationId: string }>>;
+    const paths = answer.body.paths as Record<string, Record<string, { operationId: string }>>;
     const served = Object.values(paths).flatMap((item) =>
       Object.values(item).map((op) => op.operationId),
     );
