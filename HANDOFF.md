@@ -753,3 +753,21 @@ catalogue autopilot converges them and cycles the backfill stages.
   button plus a "Data: {name} · {licence}" line. Still to do: a public
   `/data-sources` page linking each provider, and the ODbL subset export.
   Both need legal review before production.
+
+## Local integration database — 2026-10-10
+
+The published `origin/main` migration `0165_youthful_rictor` is authoritative.
+The unpublished review-media migration was regenerated after it as
+`0166_faulty_inertia` (pre, derived), with shared types rebuilt first. Do not
+apply this sequence over a developer database that already applied the old
+`0165_brave_johnny_blaze` / `0166_typical_kid_colt` sequence or rewrite its ledger.
+
+This session's backend now uses local `mercaria_dev_canonical_20261010` on
+Postgres port 5435. It was created through the canonical migration runner and
+received a data-only restore of all 482 application tables after stopping the
+local API. All 6,379 rows and sorted JSON row checksums matched before restart;
+the original `mercaria_dev` remains untouched as a backup. The restored database
+retains its own canonical migration ledger. Local dump, restore log and per-table
+verification are under `/tmp/mercaria-local-db-preserved-20261010/`; they are not
+repository fixtures. Only the ignored backend `.env` database path changed.
+No production migration or data write was performed.
