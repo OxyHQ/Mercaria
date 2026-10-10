@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'expo-router';
 import type { SidebarProps } from '@oxy.so/bloom/sidebar';
 import { ProfileButton, openAccountDialog, useAuth } from '@oxy.so/services';

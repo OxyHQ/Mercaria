@@ -24,7 +24,7 @@
  * the activation gate — is the same for every channel.
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Head from 'expo-router/head';

@@ -12,7 +12,6 @@
  * different things (#87 UX 2).
  */
 
-import React from 'react';
 import { View } from 'react-native';
 import { AlertTriangle, Info, ShieldAlert } from 'lucide-react-native';
 import { Badge } from '@oxy.so/bloom/badge';

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Check, ChevronDown, Search as SearchIcon } from 'lucide-react-native';
 import { Dialog, useDialogControl } from '@oxy.so/bloom/dialog';

@@ -25,12 +25,7 @@
  * checkout.
  */
 
-import type {
-  PaymentProviderId,
-  ProviderAccountOwnerType,
-  ProviderAccountStatus,
-} from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
+import type { ProviderAccountOwnerType, ProviderAccountStatus } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   findProviderAccountByOwner,

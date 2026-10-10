@@ -1,4 +1,3 @@
-import React from 'react';
 import { Badge } from '@oxy.so/bloom/badge';
 import type { AccentTone } from '@oxy.so/bloom/theme';
 import type { OrderStatus } from '@mercaria/shared-types';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Pressable } from 'react-native';
 import { Dialog, type DialogControlProps } from '@oxy.so/bloom/dialog';
 import type { Listing, ProductVariantDTO } from '@mercaria/shared-types';

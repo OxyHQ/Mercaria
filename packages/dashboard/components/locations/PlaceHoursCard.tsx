@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import type { Place } from '@goway.to/sdk';
 import { Text } from '@mercaria/ui';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import type { PickupCollectionEventKind } from '@mercaria/shared-types';

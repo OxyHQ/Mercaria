@@ -42,7 +42,6 @@ import {
   updateProductFamily as updateFamilyRow,
   type ProductFamilyRow,
 } from '../../db/canonical/productFamilyRepository.js';
-import {} from '../../db/canonical/canonicalProductRepository.js';
 import { recordFieldProvenance } from '../../db/canonical/attributeRepository.js';
 import {
   findCatalogSourceById,

@@ -25,14 +25,13 @@
  * delete each other's rows. Restating that here is how two answers drift.
  */
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Pressable, ScrollView } from 'react-native';
 import { CircleAlert, FolderTree, Link2Off } from 'lucide-react-native';
 import type {
   ChannelCollectionMappingState,
   ChannelCollectionsUnavailableReason,
   ChannelCollectionTarget,
-  ChannelCollectionsView,
   Connection,
   ExternalCollection,
   ExternalTaxonomyNoun,

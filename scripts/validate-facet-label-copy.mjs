@@ -80,7 +80,6 @@ const repositoryRoot = resolve(here, '..');
 const ts = createRequire(resolve(here, '../package.json'))('typescript');
 
 import {
-  FACET_AVAILABILITY_LABEL_KEYS,
   FACET_CHANNEL_LABEL_KEYS,
   FACET_MARKET_ANY_BUCKET,
   FACET_TITLE_LABEL_KEYS,
