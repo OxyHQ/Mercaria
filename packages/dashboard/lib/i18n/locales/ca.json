@@ -781,7 +781,9 @@
     "reportsError": "No s'han pogut carregar els informes",
     "sales": {
       "empty": "Encara no hi ha vendes en aquest període.",
-      "title": "Vendes (últim període)"
+      "title": "Vendes",
+      "point": "%{date}: %{revenue}, %{count} comandes",
+      "inspect": "Selecciona un dia per veure vendes i comandes."
     },
     "stats": {
       "averageOrder": "Comanda mitjana",
@@ -802,7 +804,11 @@
         "other": "%{count} venuts",
         "many": "%{count} de venuts"
       }
-    }
+    },
+    "allTime": "Des del principi",
+    "performance": "Rendiment de la botiga",
+    "lastDays": "Últims %{days} dies",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Canals de venda",
@@ -818,7 +824,10 @@
     "collapseSidebar": "Redueix la barra lateral",
     "expandSidebar": "Amplia la barra lateral",
     "closeSidebar": "Tanca la barra lateral",
-    "closeNavigation": "Tanca la navegació"
+    "closeNavigation": "Tanca la navegació",
+    "searchNavigation": "Cerca a la navegació",
+    "clearSearch": "Esborra la cerca de navegació",
+    "noResults": "No hi ha pàgines coincidents"
   },
   "orders": {
     "detail": {

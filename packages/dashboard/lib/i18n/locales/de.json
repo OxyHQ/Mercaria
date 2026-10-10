@@ -768,7 +768,9 @@
     "reportsError": "Berichte konnten nicht geladen werden",
     "sales": {
       "empty": "In diesem Zeitraum noch keine Verkäufe.",
-      "title": "Umsatz (letzter Zeitraum)"
+      "title": "Umsatz",
+      "point": "%{date}: %{revenue}, %{count} Bestellungen",
+      "inspect": "Wähle einen Tag, um Umsatz und Bestellungen anzuzeigen."
     },
     "stats": {
       "averageOrder": "Ø Bestellwert",
@@ -788,7 +790,11 @@
         "one": "%{count} verkauft",
         "other": "%{count} verkauft"
       }
-    }
+    },
+    "allTime": "Gesamter Zeitraum",
+    "performance": "Shop-Leistung",
+    "lastDays": "Letzte %{days} Tage",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Vertriebskanäle",
@@ -804,7 +810,10 @@
     "collapseSidebar": "Seitenleiste einklappen",
     "expandSidebar": "Seitenleiste ausklappen",
     "closeSidebar": "Seitenleiste schließen",
-    "closeNavigation": "Navigation schließen"
+    "closeNavigation": "Navigation schließen",
+    "searchNavigation": "Navigation durchsuchen",
+    "clearSearch": "Navigationssuche löschen",
+    "noResults": "Keine passenden Seiten"
   },
   "orders": {
     "detail": {

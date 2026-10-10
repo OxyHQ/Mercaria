@@ -794,7 +794,9 @@
     "reportsError": "Не удалось загрузить отчёты",
     "sales": {
       "empty": "За этот период продаж пока нет.",
-      "title": "Продажи (последний период)"
+      "title": "Продажи",
+      "point": "%{date}: %{revenue}, заказов: %{count}",
+      "inspect": "Выберите день, чтобы увидеть продажи и заказы."
     },
     "stats": {
       "averageOrder": "Средний чек",
@@ -816,7 +818,11 @@
         "many": "продано: %{count}",
         "few": "продано: %{count}"
       }
-    }
+    },
+    "allTime": "За всё время",
+    "performance": "Показатели магазина",
+    "lastDays": "Последние %{days} дней",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Каналы продаж",
@@ -832,7 +838,10 @@
     "collapseSidebar": "Свернуть боковую панель",
     "expandSidebar": "Развернуть боковую панель",
     "closeSidebar": "Закрыть боковую панель",
-    "closeNavigation": "Закрыть навигацию"
+    "closeNavigation": "Закрыть навигацию",
+    "searchNavigation": "Поиск по навигации",
+    "clearSearch": "Очистить поиск по навигации",
+    "noResults": "Подходящих страниц нет"
   },
   "orders": {
     "detail": {

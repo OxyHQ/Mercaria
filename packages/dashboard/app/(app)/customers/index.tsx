@@ -7,7 +7,6 @@ import type { Customer } from "@mercaria/shared-types";
 import { Text, PriceDisplay, useColorScheme } from "@mercaria/ui";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useCustomers } from "@/lib/hooks/use-customers";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
@@ -40,7 +39,7 @@ function CustomersBody({ storeId }: { storeId: string }) {
     <Screen
       title={t("nav.customers")}
       subtitle={t("customers.subtitle")}
-      action={<StoreSwitcher />}
+
     >
       <View className="mb-4">
         <TextFieldInput

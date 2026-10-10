@@ -6,7 +6,6 @@ import { ChevronLeft, ChevronRight, ShoppingBag } from "lucide-react-native";
 import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
 import { Text, PriceDisplay, formatDate, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { OrderStatusBadge, ORDER_STATUS_LABEL_KEYS } from "@/components/orders/OrderStatusBadge";
 import { useOrders } from "@/lib/hooks/use-orders";
@@ -50,7 +49,7 @@ function OrdersBody({ storeId }: { storeId: string }) {
   const { data, isPending, isError } = useOrders(storeId, page, status);
 
   return (
-    <Screen title={t("orders.title")} subtitle={t("orders.subtitle")} action={<StoreSwitcher />}>
+    <Screen title={t("orders.title")} subtitle={t("orders.subtitle")}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
         <View className="flex-row gap-2">
           {FILTERS.map((f) => {

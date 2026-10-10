@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   PaginatedResponse,
   Listing,
@@ -32,7 +32,8 @@ export function useProducts(storeId: string, page: number, search: string) {
     queryKey: queryKeys.products.list(storeId, page, search),
     queryFn: () => fetchProducts(storeId, { page, limit: PAGE_LIMIT }),
     enabled: Boolean(storeId),
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, query) =>
+      query?.queryKey[1] === storeId ? previous : undefined,
   });
 }
 

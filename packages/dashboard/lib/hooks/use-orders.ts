@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   PaginatedResponse,
   MerchantOrder,
@@ -40,7 +40,8 @@ export function useOrders(storeId: string, page: number, status: OrderStatus | "
         ...(status !== "all" ? { status } : {}),
       }),
     enabled: Boolean(storeId),
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, query) =>
+      query?.queryKey[1] === storeId ? previous : undefined,
   });
 }
 

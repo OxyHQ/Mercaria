@@ -768,7 +768,9 @@
     "reportsError": "レポートを読み込めませんでした",
     "sales": {
       "empty": "この期間の売上はまだありません。",
-      "title": "売上（前期間）"
+      "title": "売上",
+      "point": "%{date}：%{revenue}、注文%{count}件",
+      "inspect": "日付を選択して売上と注文を確認します。"
     },
     "stats": {
       "averageOrder": "平均注文額",
@@ -788,7 +790,11 @@
         "one": "%{count}点販売",
         "other": "%{count}点販売"
       }
-    }
+    },
+    "allTime": "全期間",
+    "performance": "ストアの実績",
+    "lastDays": "過去%{days}日間",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "販売チャネル",
@@ -804,7 +810,10 @@
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開",
     "closeSidebar": "サイドバーを閉じる",
-    "closeNavigation": "ナビゲーションを閉じる"
+    "closeNavigation": "ナビゲーションを閉じる",
+    "searchNavigation": "ナビゲーションを検索",
+    "clearSearch": "ナビゲーション検索をクリア",
+    "noResults": "一致するページはありません"
   },
   "orders": {
     "detail": {

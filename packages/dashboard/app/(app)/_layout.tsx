@@ -1,10 +1,11 @@
 import { Slot, Stack } from "expo-router";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AppShell, AppShellMenuButton } from "@oxy.so/bloom/app-shell";
 import { AppErrorBoundary } from "@/components/error-boundary";
 import { AuthGate } from "@/components/AuthGate";
 import { useDashboardSidebar } from "@/components/shell/useDashboardSidebar";
+import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { BottomTabBar } from "@/components/shell/BottomTabBar";
 import { useTranslation } from "@/lib/i18n";
 
@@ -34,13 +35,19 @@ function Shell() {
   return (
     <AppShell
       variant="dashboard"
+      testID="merchant-shell"
       // WEB scrolls the DOCUMENT (sticky navigation, scroll restoration);
       // NATIVE is one fixed frame and each page owns its scroller (`Screen`).
       scroll={IS_WEB ? "document" : "fixed"}
       sidebar={sidebar}
       // The drawer carries the account footer, which the bottom bar does not,
       // so below `md` the header keeps its menu button — ours, for its label.
-      header={<AppShellMenuButton accessibilityLabel={t("nav.openNavigation")} />}
+      header={
+        <View className="flex-row items-center justify-between gap-3 px-4 py-2 md:hidden">
+          <AppShellMenuButton accessibilityLabel={t("nav.openNavigation")} />
+          <StoreSwitcher />
+        </View>
+      }
       bottomBar={<BottomTabBar />}
       navFrom="md"
       drawerCloseLabel={t("nav.closeNavigation")}

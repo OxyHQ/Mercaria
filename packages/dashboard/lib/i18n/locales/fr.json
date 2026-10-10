@@ -781,7 +781,9 @@
     "reportsError": "Impossible de charger les rapports",
     "sales": {
       "empty": "Aucune vente sur cette période pour l’instant.",
-      "title": "Ventes (période précédente)"
+      "title": "Ventes",
+      "point": "%{date} : %{revenue}, %{count} commandes",
+      "inspect": "Sélectionnez un jour pour voir les ventes et commandes."
     },
     "stats": {
       "averageOrder": "Panier moyen",
@@ -802,7 +804,11 @@
         "other": "%{count} vendus",
         "many": "%{count} de vendus"
       }
-    }
+    },
+    "allTime": "Depuis le début",
+    "performance": "Performances de la boutique",
+    "lastDays": "%{days} derniers jours",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Canaux de vente",
@@ -818,7 +824,10 @@
     "collapseSidebar": "Réduire le menu latéral",
     "expandSidebar": "Déployer le menu latéral",
     "closeSidebar": "Fermer la barre latérale",
-    "closeNavigation": "Fermer la navigation"
+    "closeNavigation": "Fermer la navigation",
+    "searchNavigation": "Rechercher dans la navigation",
+    "clearSearch": "Effacer la recherche de navigation",
+    "noResults": "Aucune page correspondante"
   },
   "orders": {
     "detail": {

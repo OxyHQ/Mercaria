@@ -119,7 +119,7 @@ function RootLayout() {
           locale={locale}
           scrollAdapter={expoRouterScrollAdapter}
           defaultMode="system"
-          defaultColorPreset="blue"
+          defaultColorPreset="mono"
           persistKey={BLOOM_THEME_PERSIST_KEY}
           storage={BLOOM_THEME_STORAGE}
           fonts={false}

@@ -768,7 +768,9 @@
     "reportsError": "无法加载报告",
     "sales": {
       "empty": "本期尚无销售。",
-      "title": "销售额（上一周期）"
+      "title": "销售额",
+      "point": "%{date}：%{revenue}，%{count} 个订单",
+      "inspect": "选择一天以查看销售额和订单。"
     },
     "stats": {
       "averageOrder": "平均订单额",
@@ -788,7 +790,11 @@
         "one": "已售 %{count} 件",
         "other": "已售 %{count} 件"
       }
-    }
+    },
+    "allTime": "全部时间",
+    "performance": "店铺表现",
+    "lastDays": "最近 %{days} 天",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "销售渠道",
@@ -804,7 +810,10 @@
     "collapseSidebar": "收起侧边栏",
     "expandSidebar": "展开侧边栏",
     "closeSidebar": "关闭侧边栏",
-    "closeNavigation": "关闭导航"
+    "closeNavigation": "关闭导航",
+    "searchNavigation": "搜索导航",
+    "clearSearch": "清除导航搜索",
+    "noResults": "没有匹配的页面"
   },
   "orders": {
     "detail": {

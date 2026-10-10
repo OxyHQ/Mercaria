@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   PaginatedResponse,
   Customer,
@@ -28,7 +28,8 @@ export function useCustomers(storeId: string, page: number, search: string) {
         ...(search ? { search } : {}),
       }),
     enabled: Boolean(storeId),
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, query) =>
+      query?.queryKey[1] === storeId ? previous : undefined,
   });
 }
 

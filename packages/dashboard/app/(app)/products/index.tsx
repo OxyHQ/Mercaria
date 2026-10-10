@@ -12,7 +12,6 @@ import { Text, PriceDisplay, SourceBadge, toBloomFieldIcon, toBloomIcon, useColo
 import { Button } from "@oxy.so/bloom/button";
 import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useTranslation } from "@/lib/i18n";
 import { useProducts } from "@/lib/hooks/use-products";
@@ -90,14 +89,11 @@ function ProductsBody({ storeId }: { storeId: string }) {
   const action =
     can("products:write") ? (
       <View className="flex-row items-center gap-2">
-        <StoreSwitcher />
         <Button tone="accent" leadingIcon={toBloomIcon(Plus)} onPress={() => router.push(createHref)}>
           {t("products.addProduct")}
         </Button>
       </View>
-    ) : (
-      <StoreSwitcher />
-    );
+    ) : null;
 
   return (
     <Screen title={t("products.title")} subtitle={t("products.subtitle")} action={action}>

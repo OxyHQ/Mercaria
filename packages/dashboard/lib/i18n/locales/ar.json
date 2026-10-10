@@ -768,7 +768,9 @@
     "reportsError": "تعذّر تحميل التقارير",
     "sales": {
       "empty": "لا توجد مبيعات في هذه الفترة بعد.",
-      "title": "المبيعات (الفترة الأخيرة)"
+      "title": "المبيعات",
+      "point": "%{date}: %{revenue}، %{count} طلبات",
+      "inspect": "اختر يوماً لعرض المبيعات والطلبات."
     },
     "stats": {
       "averageOrder": "متوسط الطلب",
@@ -788,7 +790,11 @@
         "one": "%{count} مباع",
         "other": "%{count} مباع"
       }
-    }
+    },
+    "allTime": "كل الأوقات",
+    "performance": "أداء المتجر",
+    "lastDays": "آخر %{days} أيام",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "قنوات البيع",
@@ -804,7 +810,10 @@
     "collapseSidebar": "طيّ الشريط الجانبي",
     "expandSidebar": "توسيع الشريط الجانبي",
     "closeSidebar": "إغلاق الشريط الجانبي",
-    "closeNavigation": "إغلاق التنقل"
+    "closeNavigation": "إغلاق التنقل",
+    "searchNavigation": "البحث في التنقل",
+    "clearSearch": "مسح بحث التنقل",
+    "noResults": "لا توجد صفحات مطابقة"
   },
   "orders": {
     "detail": {

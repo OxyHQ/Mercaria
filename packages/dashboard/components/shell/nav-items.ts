@@ -44,8 +44,8 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, href: "/", permission: "stats:read" },
-  { key: "products", labelKey: "nav.products", icon: Package, href: "/products", permission: "products:read" },
   { key: "orders", labelKey: "nav.orders", icon: ShoppingBag, href: "/orders", permission: "orders:read" },
+  { key: "products", labelKey: "nav.products", icon: Package, href: "/products", permission: "products:read" },
   { key: "customers", labelKey: "nav.customers", icon: Users, href: "/customers", permission: "customers:read" },
   { key: "discounts", labelKey: "nav.discounts", icon: Tag, href: "/discounts", permission: "discounts:write" },
   { key: "collections", labelKey: "nav.collections", icon: FolderTree, href: "/collections", permission: "collections:write" },
