@@ -884,3 +884,33 @@ Gràcia 43, Barcelona returned two candidates from photon/goway; no real public
 place, claim or publication was created. Authenticated merchant writes remain
 unverified live. The installed headless SDK does not provide a map renderer;
 this editor does not invent one.
+
+## Description image imports — 2026-10-10
+
+Pull connectors, push channels and canonical source observations now import
+description image bytes through the same durable Oxy importer as galleries.
+`parse5` handles the HTML tree and decoded attributes; standard HTML `src` values
+use the SDK's public URL, while file-ID columns remain IDs. External responsive
+candidates are removed after importing their fallback. Unsupported source-only
+markup is refused, not silently dropped. Direct catalog writers reject
+unprepared external description images and never import inside transactions.
+The storefront's existing sanitized renderer remains the rendering boundary.
+
+Canonical observations retain the supplier's original HTML as provenance and
+enforce media rights before IO. Pinned descriptions and merchant overrides cause
+no image fetch. Import failures cannot replace existing facts or restore archived
+products. Local read-only inspection found zero descriptions requiring import in
+12 listings and 4,918 canonical products; no historical or production catalog
+backfill was performed.
+
+Validation: the full backend suite passed 815 files / 12,782 tests (five skipped),
+then the final description/canonical suites passed 52 tests, including added
+pin and description-only rights cases. Backend types pass; lint has zero errors
+and ten warnings in unchanged files. A real importer call downloaded supplier
+bytes, uploaded through the authorized Oxy account and fetched the resulting
+public JPEG successfully (HTTP 200, 19,828 bytes). Two desktop/mobile browser
+cases load actual Oxy description images with positive natural dimensions and
+no supplier requests. Only description metadata is varied in those browser
+cases; image requests and bytes are not intercepted. This closes the description
+import prerequisite above, not the still-open full Shop parity or real
+author-owned review-media acceptance.

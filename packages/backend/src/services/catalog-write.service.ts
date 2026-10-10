@@ -37,6 +37,7 @@
  *    `insertVariants` for what that breaks.
  */
 
+import { assertDescriptionImagesStored } from './catalog-media/description.js';
 import type {
   CreateP2PListingInput,
   CreateStoreProductInput,
@@ -508,6 +509,7 @@ export async function insertP2PListingWithin(
   input: CreateP2PListingInput,
   now: Date,
 ): Promise<string> {
+  assertDescriptionImagesStored(input.description);
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
 
   const quantity = input.quantity ?? 1;
@@ -1024,6 +1026,7 @@ export async function createStoreProductWithin(
     productTypeDefinitionId?: string | null;
   } = {},
 ): Promise<ListingRecord> {
+  assertDescriptionImagesStored(input.description);
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
   const variants = resolveStoreVariants(input, opts.variantSources);
 
@@ -1148,7 +1151,10 @@ export async function updateListing(
     (actor.kind === 'seller' || actor.kind === 'operator') && listing.sourceConnectionId !== null;
 
   if (patch.title !== undefined) columns.title = patch.title;
-  if (patch.description !== undefined) columns.description = patch.description;
+  if (patch.description !== undefined) {
+    assertDescriptionImagesStored(patch.description);
+    columns.description = patch.description;
+  }
   if (patch.tags !== undefined) columns.tags = [...patch.tags];
   /**
    * A moderation restriction is not the seller's to lift.

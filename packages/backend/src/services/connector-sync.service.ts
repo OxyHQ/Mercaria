@@ -51,6 +51,7 @@
  */
 
 import { synchronizeStoreImages } from './catalog-media/sync.js';
+import { synchronizeStoreDescription } from './catalog-media/description.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type {
@@ -2898,6 +2899,7 @@ async function importProduct(
     try {
       const input = toCreateInput(product, opts.categorySlug, opts.priceRules);
       input.imageFileIds = await synchronizeStoreImages(conn.storeId, input.imageFileIds ?? []);
+      input.description = await synchronizeStoreDescription(conn.storeId, input.description);
       createdListingId = await createStoreProduct(
         conn.storeId,
         input,
@@ -2964,6 +2966,9 @@ async function importProduct(
   const listingId = existing.id;
   const overridden = opts.respectOverrides ? new Set(existing.overriddenFields) : new Set<string>();
   const patch = toUpdatePatch(product, overridden);
+  if (patch.description !== undefined) {
+    patch.description = await synchronizeStoreDescription(conn.storeId, patch.description);
+  }
   if (patch.imageFileIds !== undefined) {
     patch.imageFileIds = await synchronizeStoreImages(conn.storeId, patch.imageFileIds);
   }

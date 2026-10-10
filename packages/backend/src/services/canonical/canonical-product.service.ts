@@ -95,6 +95,7 @@ import { ensureDefaultVariant, listVariantOptions } from './canonical-variant.se
 import { isPubliclyVisibleIdentifier } from './product-identifier.service.js';
 import { resolveIdentifier } from './product-identifier.service.js';
 import { synchronizeAccountImages } from '../catalog-media/sync.js';
+import { assertDescriptionImagesStored, descriptionNeedsMediaImport, synchronizeAccountDescription } from '../catalog-media/description.js';
 
 /** How many redirect hops resolution tolerates before calling the data corrupt. */
 const MAX_MERGE_HOPS = 10;
@@ -156,6 +157,7 @@ export interface CreateCanonicalProductInput {
 export async function createCanonicalProduct(
   input: CreateCanonicalProductInput,
 ): Promise<CanonicalProductRow> {
+  assertDescriptionImagesStored(input.description);
   const name = input.name.trim();
   if (name.length === 0) {
     throw validationError('createCanonicalProduct: name must be a non-empty string.');
@@ -269,6 +271,7 @@ export async function updateCanonicalProduct(
   productId: string,
   input: UpdateCanonicalProductInput,
 ): Promise<CanonicalProductRow> {
+  assertDescriptionImagesStored(input.description);
   return getDb().transaction(async (tx) => {
     const product = await findCanonicalProductById(tx, productId);
     if (!product) throw notFound(`Canonical product ${productId} does not exist.`);
@@ -412,15 +415,18 @@ export async function applyProductSourceObservation(
 
   const images = input.images ?? [];
   let imageFileIds: string[] = [];
-  if (images.length > 0) {
+  let description = input.fields.description;
+  let importsDescription = descriptionNeedsMediaImport(description);
+  if (images.length > 0 || importsDescription) {
     // Validate catalogue ownership/rights before network IO. Re-read inside the
     // transaction too, since a product may merge or a source's rights may change.
     const loaded = await findCanonicalProductById(getDb(), input.productId);
     if (!loaded) throw notFound(`Canonical product ${input.productId} does not exist.`);
-    await resolveProductRow(getDb(), loaded);
+    const resolved = await resolveProductRow(getDb(), loaded);
+    if (resolved.pinnedFields.includes('description')) importsDescription = false;
     const source = await findCatalogSourceById(getDb(), input.sourceId);
     if (!source) throw notFound(`Catalog source ${input.sourceId} does not exist.`);
-    if (!source.mayStore || !source.mayDisplay) {
+    if ((images.length > 0 || importsDescription) && (!source.mayStore || !source.mayDisplay)) {
       throw validationError('Canonical image synchronization requires source storage and display rights.');
     }
     const references = images.map(image => {
@@ -431,6 +437,9 @@ export async function applyProductSourceObservation(
     // No transaction is held across supplier downloads or Oxy uploads. A
     // refused import cannot partially apply scalar facts or attach source URLs.
     imageFileIds = await synchronizeAccountImages(input.decidedByOxyUserId, references);
+    if (importsDescription && description !== undefined) {
+      description = await synchronizeAccountDescription(input.decidedByOxyUserId, description);
+    }
   }
 
   return getDb().transaction(async (tx) => {
@@ -442,7 +451,7 @@ export async function applyProductSourceObservation(
 
     const source = await findCatalogSourceById(tx, input.sourceId);
     if (!source) throw notFound(`Catalog source ${input.sourceId} does not exist.`);
-    if (images.length > 0 && (!source.mayStore || !source.mayDisplay)) {
+    if ((images.length > 0 || importsDescription) && (!source.mayStore || !source.mayDisplay)) {
       throw validationError('Canonical image synchronization requires source storage and display rights.');
     }
 
@@ -529,21 +538,22 @@ export async function applyProductSourceObservation(
       value: string | undefined;
       current: string | null;
     }[] = [
-      { field: 'description', value: input.fields.description, current: product.description },
+      { field: 'description', value: description, current: product.description },
       { field: 'modelCode', value: input.fields.modelCode, current: product.modelCode },
     ];
     for (const { field, value, current } of scalarFields) {
       if (value === undefined || value === current) continue;
       if (pinned.has(field)) {
-        conflicts.push({ field, reason: 'pinned', sourceValue: value });
+        conflicts.push({ field, reason: 'pinned', sourceValue: field === 'description' ? input.fields.description! : value });
         continue;
       }
       // Filling absence is not overwriting; replacing a value needs at least the
       // strength of what put it there.
       if (current !== null && incomingStrength < existingStrength) {
-        conflicts.push({ field, reason: 'lower_confidence', sourceValue: value });
+        conflicts.push({ field, reason: 'lower_confidence', sourceValue: field === 'description' ? input.fields.description! : value });
         continue;
       }
+      if (field === 'description') assertDescriptionImagesStored(value);
       Object.assign(patch, { [field]: value });
       applied.push(field);
     }

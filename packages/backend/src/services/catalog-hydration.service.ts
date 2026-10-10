@@ -93,36 +93,12 @@ import {
 } from './variant-axes/projection.js';
 import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
-import { oxyClient } from '../middleware/auth.js';
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { getFavoritedListingIds } from './favorite.service.js';
 import { resolveVariantCommercialPresentations } from './commercial-presentation/variant-commercial.service.js';
 
-/**
- * THE media chokepoint. Unimported/invalid references are absent, never supplier
- * hotlinks or URL-shaped file IDs encoded into an Oxy URL. Callers retain their
- * contract's ordinary missing-image shape (omitted field, null, or empty list).
- */
-export function resolveMedia(value: string, variant?: string): string | undefined {
-  return isOxyFileId(value) ? oxyClient.assets.publicUrl(value, variant) : undefined;
-}
-
-/** Legacy URL-valued columns (category art and immutable order snapshots) may
- * already name Oxy media. Resolve only that SDK-configured public namespace;
- * supplier URLs still require a backend import. Never rewrite order history. */
-export function resolveStoredMediaUrl(value: string | null | undefined): string | undefined {
-  if (!value) return undefined;
-  try {
-    const source = new URL(value);
-    const cloud = new URL(oxyClient.cloudURL);
-    const prefix = `${cloud.pathname.replace(/\/+$/, '')}/`;
-    if (source.origin !== cloud.origin || source.username || source.password || source.hash || !source.pathname.startsWith(prefix)) return undefined;
-    if ([...source.searchParams.keys()].some(key => key !== 'variant') || source.searchParams.getAll('variant').length > 1) return undefined;
-    return resolveMedia(source.pathname.slice(prefix.length), source.searchParams.get('variant') ?? undefined);
-  } catch {
-    return undefined;
-  }
-}
+import { resolveMedia, resolveStoredMediaUrl } from './catalog-media/urls.js';
+export { resolveMedia, resolveStoredMediaUrl } from './catalog-media/urls.js';
 
 /** Category projections share the same internal-media boundary as products. */
 export function toCategoryImage(category: { imageFileId: string; imageUrl: string | null }): Pick<CategoryTile, 'imageFileId' | 'imageUrl'> {

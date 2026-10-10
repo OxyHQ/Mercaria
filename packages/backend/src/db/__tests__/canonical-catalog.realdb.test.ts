@@ -70,6 +70,7 @@ import {
   findCanonicalProductByIdentifier,
   getPublicCanonicalProduct,
   resolveCanonicalProduct,
+  updateCanonicalProduct,
 } from '../../services/canonical/canonical-product.service.js';
 import {
   createVariant,
@@ -959,16 +960,54 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     expect(records).toHaveLength(1);
   });
 
-  it('refuses source media without storage rights before any external IO', async () => {
-    const productId = await mintProduct({ label: 'Nonstorable Image Product' });
+  it('imports description-only images before applying facts, keeping the original source observation', async () => {
+    const productId = await mintProduct({ label: 'Description Media Product' });
+    const original = '<p>Materials</p><img src="https://supplier.example/chart.png" alt="Size chart">';
+    const observation = {
+      productId, sourceId, externalId: `description-${RUN}`, observedAt: new Date(),
+      method: 'connector_declared' as const, matchRule: 'test.description', decidedByOxyUserId: OPERATOR,
+      fields: { description: original },
+    };
+    const result = await applyProductSourceObservation(observation);
+    expect(result.product.description).toContain('https://cloud.oxy.so/oxy-canonical-file');
+    expect(result.product.description).not.toContain('supplier.example');
+    expect(result.applied).toContain('description');
+    const [record] = await db.select().from(sourceRecords).where(eq(sourceRecords.id, result.sourceRecordId));
+    expect(record.payload).toMatchObject({ description: original });
+    uploadImage.mockImplementation(async () => new Response('denied', { status: 403 }));
+    await expect(applyProductSourceObservation({ ...observation, fields: { description: '<img src="https://supplier.example/replacement.png">' } })).rejects.toThrow(/not authorized/);
+    const stored = await getPublicCanonicalProduct(productId);
+    expect(stored?.description).toBe(result.product.description);
+    const records = await db.select().from(sourceRecords).where(eq(sourceRecords.externalId, observation.externalId));
+    expect(records).toHaveLength(1);
+  });
+
+  it('does not import an ignored pinned description', async () => {
+    const productId = await mintProduct({ label: 'Pinned Description Media Product' });
+    await updateCanonicalProduct(productId, { description: 'Operator correction', actorOxyUserId: OPERATOR });
+    const original = '<img src="https://supplier.example/chart.png">';
+    const result = await applyProductSourceObservation({
+      productId, sourceId, externalId: `pinned-description-${RUN}`, observedAt: new Date(),
+      method: 'connector_declared', matchRule: 'test.pinned-description', decidedByOxyUserId: OPERATOR,
+      fields: { description: original },
+    });
+    expect(result.product.description).toBe('Operator correction');
+    expect(result.conflicts).toContainEqual({ field: 'description', reason: 'pinned', sourceValue: original });
+    expect(downloadImage).not.toHaveBeenCalled();
+    expect(uploadImage).not.toHaveBeenCalled();
+  });
+
+  it.each(['gallery', 'description'] as const)('refuses source %s media without storage rights before any external IO', async media => {
+    const productId = await mintProduct({ label: `Nonstorable ${media} Product` });
     const restrictedSource = await ensureCatalogSource(db, {
-      kind: 'feed', name: `nonstorable-images-${RUN}`, mayDisplay: true, mayStore: false, attributionRequired: false,
+      kind: 'feed', name: `nonstorable-${media}-${RUN}`, mayDisplay: true, mayStore: false, attributionRequired: false,
     });
     createdSourceIds.push(restrictedSource.id);
     await expect(applyProductSourceObservation({
-      productId, sourceId: restrictedSource.id, externalId: `nonstorable-${RUN}`, observedAt: new Date(),
+      productId, sourceId: restrictedSource.id, externalId: `nonstorable-${media}-${RUN}`, observedAt: new Date(),
       method: 'connector_declared', matchRule: 'test.media-rights', decidedByOxyUserId: OPERATOR,
-      fields: {}, images: [{ sourceUrl: 'https://supplier.example/new.png' }],
+      fields: media === 'description' ? { description: '<img src="https://supplier.example/new.png">' } : {},
+      images: media === 'gallery' ? [{ sourceUrl: 'https://supplier.example/new.png' }] : [],
     })).rejects.toThrow(/storage and display rights/);
     expect(downloadImage).not.toHaveBeenCalled();
     expect(uploadImage).not.toHaveBeenCalled();

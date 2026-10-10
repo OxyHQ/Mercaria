@@ -695,6 +695,31 @@ describe('ingestProducts — synchronized media boundary', () => {
     expect(findVariantsByListing).not.toHaveBeenCalled();
   });
 
+  it('imports description images before an existing product is updated', async () => {
+    findConnection.mockResolvedValue(pushInConnection());
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('existing', []));
+    await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct({ description: '<img src="https://supplier.example/chart.png" alt="Sizing">' })]));
+    expect(synchronizeStoreImages).toHaveBeenCalledWith(STORE_ID, ['https://supplier.example/chart.png']);
+    expect(updateListing.mock.calls[0][1].description).toContain('https://cloud.oxy.so/oxy-imported-image');
+    expect(updateListing.mock.calls[0][1].description).not.toContain('supplier.example');
+  });
+
+  it('preserves existing facts when description media fails, and respects a description override', async () => {
+    findConnection.mockResolvedValue(pushInConnection({ conflictPolicy: 'respect_overrides' }));
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('existing', ['images']));
+    synchronizeStoreImages.mockRejectedValueOnce(new Error('Description image unavailable'));
+    const payload = productsBody([ingestProduct({ description: '<img src="https://supplier.example/chart.png">' })]);
+    const failed = await ingestProducts(STORE_ID, CONNECTION_ID, payload);
+    expect(failed.results[0].action).toBe('failed');
+    expect(updateListing).not.toHaveBeenCalled();
+    expect(updateListingColumns).not.toHaveBeenCalled();
+    synchronizeStoreImages.mockClear();
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('existing', ['images', 'description']));
+    await ingestProducts(STORE_ID, CONNECTION_ID, payload);
+    expect(synchronizeStoreImages).not.toHaveBeenCalled();
+    expect(updateListing.mock.calls[0][1]).not.toHaveProperty('description');
+  });
+
   it('does not download images protected by the merchant override', async () => {
     findConnection.mockResolvedValue(pushInConnection({ conflictPolicy: 'respect_overrides' }));
     findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('existing', ['images']));

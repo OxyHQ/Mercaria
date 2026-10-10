@@ -945,6 +945,18 @@ describe('runBackfill — synchronized media boundary', () => {
     expect(updateListingColumns).not.toHaveBeenCalled();
   });
 
+  it('does not relist an archived product when its description image import fails', async () => {
+    findConnection.mockResolvedValue(mockConnection('respect_overrides'));
+    findListingBySourceExternalId.mockResolvedValue(listingRow('existing', { status: 'archived', overriddenFields: ['images'] }));
+    fetchProducts.mockResolvedValue({ products: [product({ description: '<img src="https://supplier.example/chart.png">' })] });
+    synchronizeStoreImages.mockRejectedValueOnce(new Error('Description image unavailable'));
+    const run = await runBackfill(STORE_ID, CONNECTION_ID);
+    expect(run.countsFailed).toBe(1);
+    expect(setListingStatusIfIn).not.toHaveBeenCalled();
+    expect(updateListing).not.toHaveBeenCalled();
+    expect(updateListingColumns).not.toHaveBeenCalled();
+  });
+
   it('does not download images protected by the merchant override', async () => {
     findConnection.mockResolvedValue(mockConnection('respect_overrides'));
     findListingBySourceExternalId.mockResolvedValue(listingRow('existing', { overriddenFields: ['images'] }));
