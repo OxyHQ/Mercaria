@@ -338,7 +338,15 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // verdict, the merchant's publication read), and `location.ts` gained a
     // `goWayPlaceId` — +21 property signatures. None is identity-shaped: a
     // place is named by an opaque `goWayPlaceId`. 133/2352/7832.
-    "walked 133 contract module(s), 2352 exported type(s), 7832 property signature(s)",
+    // Three modules JOINED: `open-data.ts` (keyless open-data providers: the
+    // licence vocabulary and the provider summary), `media.ts` (Oxy file-id
+    // media references) and `shopping-thread.ts`; `product-page.ts` gained the
+    // row's open-data `source`, `ingestion.ts` the typed source `facts`, and
+    // `backfill.ts`, `listing.ts`, `order.ts`, `product.ts`, `review.ts` and
+    // `seo.ts` gained fields. The guard's verdict on all of it is GREEN — none of
+    // the new names is identity-shaped (a provider is a `slug`, media an Oxy
+    // file id). 136/2369/7899, READ OFF the guard's own output line.
+    "walked 136 contract module(s), 2369 exported type(s), 7899 property signature(s)",
     "check A arms exercised by real declarations: 6/9",
   ],
 });
