@@ -1,4 +1,5 @@
 import { renderListingLink } from "@/lib/catalog/product-links";
+import { listingGalleryMedia } from "@/lib/catalog/product-media";
 import { ProductReviewMedia } from "@/components/product/ProductReviewMedia";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
@@ -409,11 +410,12 @@ function ProductBody({ listing }: ProductBodyProps) {
 
   const images = useMemo(
     () =>
-      (selectedVariant?.images?.images ?? listing.images).flatMap((image) => {
+      listingGalleryMedia(listing, selectedVariant?.images).flatMap((image) => {
+        if (image.kind !== 'image') return [];
         const uri = resolveImage?.(image.fileId);
         return uri ? [{ uri, alt: image.alt }] : [];
       }),
-    [listing.images, selectedVariant?.images, resolveImage],
+    [listing, selectedVariant?.images, resolveImage],
   );
 
   const identity = useMemo(() => merchantIdentity(listing), [listing]);

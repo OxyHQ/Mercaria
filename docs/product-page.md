@@ -263,6 +263,11 @@ makes `variant_selected` a number nobody can act on. They belong to #111 with
   and non-toggle Space/Enter activation. Availability remains visible text.
   Bloom owns those interactions; the page retains selection in its URL without
   pushing a history entry or remounting its gallery.
+  The listing gallery prepends the selected variant's assigned photos, retains
+  common product photos, and excludes photos assigned to other configurations.
+  Only `source: 'variant'` establishes an assignment; a `listing_fallback` does
+  not claim every product photo. The shared variant-resolution contract remains
+  unchanged. Browser checks cover retained gallery identity at 390px and 1440px.
 - Every badge is text on neutral chrome — never colour alone (#71 UX rule 4,
   #90 policy rule 3), and never a colour scale, which would additionally read as
   a quality verdict on a correctly-labelled for-parts item.

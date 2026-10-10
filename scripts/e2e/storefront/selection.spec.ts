@@ -154,6 +154,7 @@ for (const width of [390, 1440]) {
     expect(listing.images.length, "Requires real synchronized catalog images").toBeGreaterThan(0);
     expect(listing.images.every(image => isOxyFileId(image.fileId)), "Import the seed images through the backend before this integration test").toBe(true);
     const [first, second] = listing.variants;
+    first.images = { source: 'variant', images: [listing.images[0]] };
     second.images = { source: 'variant', images: [listing.images[1]] };
     listing.bundleContentsByVariant = Object.fromEntries([first, second].map((variant, index) => [variant.id, {
       status: 'available' as const, variantId: variant.id,
@@ -171,8 +172,15 @@ for (const width of [390, 1440]) {
     await page.getByRole('button', { name: `Shade: ${second.title}`, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`variantId=${second.id}`));
     await expect(page.getByTestId('bundle-quantity')).toHaveText('×2');
-    await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveCount(1);
-    await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveAttribute('src', `https://cloud.oxy.so/${listing.images[1].fileId}`);
+    const photos = page.getByTestId('product-gallery-carousel').locator('img');
+    // Selected configuration first, followed by shared detail photos. The
+    // previous configuration's assigned photo must disappear, not all photos.
+    await expect(photos).toHaveCount(listing.images.length - 1);
+    await expect(photos.first()).toHaveAttribute('src', `https://cloud.oxy.so/${listing.images[1].fileId}`);
+    await expect.poll(() => photos.evaluateAll(nodes => nodes.map(node => node.getAttribute('src')))).toEqual([
+      listing.images[1], ...listing.images.slice(2),
+    ].map(image => `https://cloud.oxy.so/${image.fileId}`));
+    await expect(page.getByTestId('product-gallery-carousel').locator(`img[src="https://cloud.oxy.so/${listing.images[0].fileId}"]`)).toHaveCount(0);
     await page.waitForTimeout(300);
     const result = await audit.evaluate(value => { value.running = false; return value; });
     expect(result).toMatchObject({ missing: 0, replaced: 0, faded: 0 });
