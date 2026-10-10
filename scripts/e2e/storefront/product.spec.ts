@@ -1199,7 +1199,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await page.goto(`/products/${product.id}`);
     const preview = page.getByTestId("product-description");
     await expect(preview.getByText(ending, { exact: false })).toHaveCount(0);
-    await preview.getByRole("button", { name: "View more", exact: true }).click();
+    await preview.getByRole("button", { name: "Read more", exact: true }).click();
     const sheet = page.getByTestId("product-description-dialog");
     await expect(sheet.getByText(description, { exact: true })).toBeVisible();
     const panel = page.getByRole("dialog", { name: "Description", exact: true });
@@ -1225,7 +1225,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     }).toBe(true);
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
-    await expect(preview.getByRole("button", { name: "View more", exact: true })).toBeVisible();
+    await expect(preview.getByRole("button", { name: "Read more", exact: true })).toBeVisible();
   });
 }
 
@@ -1280,7 +1280,7 @@ test("short product descriptions are complete without a redundant read-more cont
   await page.goto(`/products/${product.id}`);
   const preview = page.getByTestId("product-description");
   await expect(preview.getByText(description, { exact: true })).toBeVisible();
-  await expect(preview.getByRole("button", { name: "View more", exact: true })).toHaveCount(0);
+  await expect(preview.getByRole("button", { name: "Read more", exact: true })).toHaveCount(0);
 });
 
 test("a deep-linked option beyond the preview stays selected and visible before expanding", async ({ page, request }) => {

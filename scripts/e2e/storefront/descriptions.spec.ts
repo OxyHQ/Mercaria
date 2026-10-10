@@ -31,7 +31,23 @@ for (const width of [390, 1440]) {
     const preview = page.getByTestId("product-description");
     await expect(preview).not.toContainText("<p>");
     await expect(preview).not.toContainText("Second paragraph");
-    const more = preview.getByRole("button", { name: "View more", exact: true });
+    const more = preview.getByRole("button", { name: "Read more", exact: true });
+    const fade = preview.getByTestId("pdp-description-peek-fade");
+    await expect(fade).toHaveCSS("height", "40px");
+    await expect(fade).toHaveCSS("pointer-events", "none");
+    await expect(fade).toHaveAttribute("aria-hidden", "true");
+    await expect(more).toHaveCSS("min-height", "32px");
+    await expect(more).toHaveCSS("font-size", "14px");
+    await expect(more).toHaveCSS("line-height", "16px");
+    await expect(more).toHaveCSS("background-color", "rgb(242, 244, 245)");
+    await more.hover();
+    await expect(more).toHaveCSS("background-color", "rgb(225, 228, 229)");
+    await expect(preview.getByTestId("product-description-peek")).not.toContainText("...");
+    await expect.poll(async () => {
+      const button = await more.boundingBox();
+      const text = await preview.getByTestId("product-description-peek").boundingBox();
+      return button && text ? { sameWidth: Math.abs(button.width - text.width) < 1, gap: Math.round(button.y - text.y - text.height) } : null;
+    }).toEqual({ sameWidth: true, gap: 12 });
     await more.click();
     const sheet = page.getByTestId("product-description-dialog");
     await expect(sheet.getByRole("heading", { name: "Material & care" })).toHaveCSS("font-size", "16px");
@@ -72,7 +88,8 @@ test("a short rich description renders formatting without an unnecessary sheet l
   const preview = page.getByTestId("product-description");
   await expect(preview.locator("strong")).toHaveText("Soft & comfortable.");
   await expect(preview).toContainText("Wash gently. 🧵");
-  await expect(preview.getByRole("button", { name: "View more", exact: true })).toHaveCount(0);
+  await expect(preview.getByRole("button", { name: "Read more", exact: true })).toHaveCount(0);
+  await expect(preview.getByTestId("pdp-description-peek-fade")).toHaveCount(0);
 });
 
 test("merchant HTML cannot execute code or inject page styles", async ({ page, request }) => {
@@ -85,11 +102,38 @@ test("merchant HTML cannot execute code or inject page styles", async ({ page, r
   });
   await page.route("https://example.com/broken.png", route => route.abort());
   await page.goto(`/products/${id}`);
-  await page.getByTestId("product-description").getByRole("button", { name: "View more", exact: true }).click();
+  await page.getByTestId("product-description").getByRole("button", { name: "Read more", exact: true }).click();
   const sheet = page.getByTestId("product-description-dialog");
   await expect(sheet).toBeVisible();
   await expect(sheet.getByText("Blocked link", { exact: true })).toBeVisible();
   await expect(sheet.getByRole("link", { name: "Blocked link" })).toHaveCount(0);
   await expect(sheet.locator("script, style, [onerror], [onclick]")).toHaveCount(0);
   await expect(page.locator("body")).not.toHaveAttribute("data-executed");
+});
+
+
+test("description peek follows dark theme and reduced motion while retaining keyboard access", async ({ page, request }) => {
+  const id = await productId(request);
+  await page.addInitScript(() => localStorage.setItem("mercaria.bloom.theme", JSON.stringify({ mode: "dark", colorPreset: "mono" })));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route(`**/listings/${id}`, async route => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.description = "A carefully made product for everyday use. ".repeat(15);
+    await route.fulfill({ response, json: body });
+  });
+  await page.goto(`/products/${id}`);
+  const preview = page.getByTestId("product-description");
+  const more = preview.getByRole("button", { name: "Read more", exact: true });
+  const fade = preview.getByTestId("pdp-description-peek-fade");
+  await expect.poll(() => fade.evaluate(node => getComputedStyle(node).backgroundImage)).toContain("rgb(53, 53, 53)");
+  await expect(more).toHaveCSS("transition-duration", "0s");
+  await expect(more).toHaveCSS("background-color", "rgb(42, 42, 42)");
+  await more.hover();
+  await expect(more).toHaveCSS("background-color", "rgb(64, 64, 64)");
+  await more.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("product-description-dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(more).toBeFocused();
 });

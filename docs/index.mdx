@@ -40,7 +40,10 @@ schema decision. `HANDOFF.md` holds deferred work.
 - Imported product descriptions retain safe authored HTML instead of displaying
   markup as plain text. `prepareProductDescription` uses the browser-compatible
   HTML5 parser (`parse5`) to build an allow-listed tree and truncate the preview
-  at 340 decoded characters. `ProductRichText` renders that tree as semantic HTML
+  at 340 decoded characters. The accordion uses Shop’s peek presentation: a
+  decorative 40px fade and a full-width 32px Bloom button, separated by 12px,
+  with neither shown for a complete short description. `ProductRichText` renders
+  that tree as semantic HTML
   on web and native text/layout plus Bloom tables on devices; scripts, author CSS
   and executable links never reach either renderer. All apps import the shared
   `shop-rich-text.css` reading recipe for paragraphs, headings, lists and tables.

@@ -16,6 +16,19 @@
     transition-property: background-color, transform, box-shadow;
     transition-duration: 150ms;
   }
+  .shop-control-tertiary {
+    height: auto;
+    min-height: 32px;
+    min-width: 72px;
+    padding: 8px;
+    border-width: 0;
+    background-color: #f2f4f5;
+    color: #000;
+    box-shadow: none;
+  }
+  .shop-control-tertiary-dark { background-color: #2a2a2a; color: #fff; }
+  .shop-control-tertiary-interactive:hover { background-color: #e1e4e5; }
+  .shop-control-tertiary-dark-interactive:hover { background-color: #404040; }
   .shop-control-compact { height: 44px; min-height: 44px; }
   .shop-control-primary {
     background-color: #5433eb;
