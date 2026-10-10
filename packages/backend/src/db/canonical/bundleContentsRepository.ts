@@ -1,10 +1,16 @@
 import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { bundleComponents, canonicalImages, canonicalProducts, canonicalVariants } from '../schema/canonicalCatalog.js';
 
 /** Keep all relationships here so the service can distinguish withheld from empty. */
-export async function readBundleIdentities(db: DatabaseOrTransaction, variantId: string) {
+export async function readBundleIdentities(db: DatabaseOrTransaction, variantIds: readonly string[]) {
+  if (variantIds.length === 0) return [];
+  const parentVariant = alias(canonicalVariants, 'bundle_parent_variant');
+  const parentProduct = alias(canonicalProducts, 'bundle_parent_product');
   return db.select({
+    bundleVariantId: bundleComponents.bundleVariantId,
     productId: canonicalProducts.id,
     productSlug: canonicalProducts.slug,
     productStatus: canonicalProducts.status,
@@ -14,9 +20,15 @@ export async function readBundleIdentities(db: DatabaseOrTransaction, variantId:
     variantName: canonicalVariants.name,
     quantity: bundleComponents.quantity,
   }).from(bundleComponents)
+    .innerJoin(parentVariant, eq(parentVariant.id, bundleComponents.bundleVariantId))
+    .innerJoin(parentProduct, eq(parentProduct.id, parentVariant.productId))
     .innerJoin(canonicalVariants, eq(canonicalVariants.id, bundleComponents.componentVariantId))
     .innerJoin(canonicalProducts, eq(canonicalProducts.id, canonicalVariants.productId))
-    .where(eq(bundleComponents.bundleVariantId, variantId))
+    .where(and(
+      inArray(bundleComponents.bundleVariantId, [...variantIds]),
+      inArray(parentVariant.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
+      inArray(parentProduct.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
+    ))
     .orderBy(asc(bundleComponents.position), asc(bundleComponents.id));
 }
 

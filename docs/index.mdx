@@ -78,8 +78,12 @@ schema decision. `HANDOFF.md` holds deferred work.
   images come from the catalog. The read is scoped to an explicit configuration
   or the product's sole public configuration, and withholds the entire list if
   any component is not shopper-visible. It never calculates pack price or stock
-  from the components. Seller listings still need their own exact-variant
-  attachment before this composition can appear on that surface.
+  from the components. Seller listing details expose the same composition per
+  native variant through active `native_listing_links`, in batched reads; a
+  product-level barcode match is insufficient. Missing, revoked or superseded
+  attachments render no section. Hidden parents are omitted; hidden components
+  or a seller's disclosed missing accessories withhold the composition. Feed
+  and search cards do not pay for this detail-only read.
 - Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
   Shop's public CSS; product columns switch independently at 768px. Product
   thumbnails appear in a horizontal 48px strip from 768–975px, then move to a

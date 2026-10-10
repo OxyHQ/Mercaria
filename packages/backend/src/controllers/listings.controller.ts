@@ -22,6 +22,7 @@ import {
 } from '../db/catalog/listingRepository.js';
 import { searchListingsOffset, searchListingsCursor } from '../services/search.service.js';
 import { hydrateListings } from '../services/catalog-hydration.service.js';
+import { readListingBundleContents } from '../services/catalog-bundle-contents.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../utils/api-response.js';
 import { respondWithError, notFound, validationError } from '../lib/errors/error-codes.js';
@@ -235,7 +236,10 @@ export async function getListingById(req: Request, res: Response): Promise<void>
      * honest answer for a listing with no barcode, an unclaimed one, or variants
      * that disagree.
      */
-    const canonicalProductId = await findCanonicalProductIdForListing(row.id);
+    const [canonicalProductId, bundleContentsByVariant] = await Promise.all([
+      findCanonicalProductIdForListing(row.id),
+      readListingBundleContents(row.id, dto.variants.map(variant => variant.id), dto.itemCondition.details),
+    ]);
     // Emitted AFTER the 404 guard, so a view of something that does not exist
     // is not counted as a product view — `product_page_view` is the denominator
     // of two metrics, and inflating it with misses would deflate both. It
@@ -249,7 +253,11 @@ export async function getListingById(req: Request, res: Response): Promise<void>
         ...(canonicalProductId === null ? {} : { canonicalProductId }),
       },
     });
-    sendSuccess(res, canonicalProductId ? { ...dto, canonicalProductId } : dto);
+    sendSuccess(res, {
+      ...dto,
+      ...(canonicalProductId ? { canonicalProductId } : {}),
+      ...(Object.keys(bundleContentsByVariant).length ? { bundleContentsByVariant } : {}),
+    });
   } catch (err) {
     log.general.error({ err, listingId: id }, 'Failed to load listing');
     respondWithError(res, err, 'Failed to load listing');

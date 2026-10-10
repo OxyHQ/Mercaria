@@ -15,6 +15,7 @@ import type { Money } from './money';
 import type { Seller } from './seller';
 import type { StoreSummary } from './product';
 import type { ProductVariantDTO } from './variant';
+import type { ProductBundleContents } from './product-page';
 import type { ConnectorProviderId } from './integration';
 import type {
   ConditionDetailKind,
@@ -346,6 +347,9 @@ export interface Listing extends Timestamps {
    * blended star average that answers neither question.
    */
   canonicalProductId?: string;
+  /** Detail only: exact active catalog attachments, keyed by native variant id.
+   * No entry means no known composition; product-level identity is insufficient. */
+  bundleContentsByVariant?: Record<string, ProductBundleContents>;
   /** Lifecycle status. */
   status: ListingStatus;
   /**

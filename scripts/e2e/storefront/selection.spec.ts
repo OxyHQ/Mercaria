@@ -74,7 +74,7 @@ for (const width of [390, 1440]) {
     expect(result).toMatchObject({ missing: 0, replaced: 0, faded: 0 });
   });
 
-  test(`listing swatches change media without remounting the gallery at ${width}px`, async ({ page, request }) => {
+  test(`listing swatches update bundle contents and media without remounting the gallery at ${width}px`, async ({ page, request }) => {
     const feed = await (await request.get('http://localhost:4160/feed')).json();
     const summary = feed.data.sections.flatMap((section: { products?: Listing[] }) => section.products ?? [])
       .find((listing: Listing) => listing.title === 'Brilliant Eye Brightener');
@@ -82,14 +82,22 @@ for (const width of [390, 1440]) {
     const listing: Listing = (await (await request.get(`http://localhost:4160/listings/${summary.id}`)).json()).data;
     const [first, second] = listing.variants;
     second.images = { source: 'variant', images: [listing.images[1]] };
+    listing.bundleContentsByVariant = Object.fromEntries([first, second].map((variant, index) => [variant.id, {
+      status: 'available' as const, variantId: variant.id,
+      components: [{ productId: listing.id, productSlug: 'bundle-component-preview', variantId: first.id,
+        name: listing.title, quantity: index + 1, image: { sourceUrl: listing.images[0].fileId } }],
+    }]));
     await page.route(`**/listings/${listing.id}`, route => route.fulfill({ json: { success: true, data: listing } }));
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(`/products/${listing.id}?variantId=${first.id}`);
     await expect(page.getByRole('button', { name: `Shade: ${second.title}`, exact: true })).toBeVisible();
+    await expect(page.getByTestId('bundled-product-card')).toHaveCount(1);
+    await expect(page.getByTestId('bundle-quantity')).toHaveCount(0);
     const audit = await observeGallery(page);
     if (width >= 768) await page.getByRole('button', { name: 'View image 3', exact: true }).click();
     await page.getByRole('button', { name: `Shade: ${second.title}`, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`variantId=${second.id}`));
+    await expect(page.getByTestId('bundle-quantity')).toHaveText('×2');
     await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveCount(1);
     await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveAttribute('src', listing.images[1].fileId);
     await page.waitForTimeout(300);

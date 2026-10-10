@@ -20,6 +20,7 @@ import {
 } from "@oxy.so/bloom/accordion";
 import { Stepper } from "@oxy.so/bloom/stepper";
 import {
+  BundleContents,
   CommercialDisclosure,
   ConditionBadge,
   MerchantHeader,
@@ -244,7 +245,7 @@ interface ProductBodyProps {
 
 /** The two-column PDP body (gallery + buy column) plus the full-width shelves. */
 function ProductBody({ listing }: ProductBodyProps) {
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, oxyServices } = useOxy();
   const controlClassName = useShopControlClassName();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { width, height } = useWindowDimensions();
@@ -306,6 +307,16 @@ function ProductBody({ listing }: ProductBodyProps) {
   const { variantId, purchasePreview } = useLocalSearchParams<{ variantId?: string; purchasePreview?: string }>();
   const previewScenario = resolvePurchasePreview(purchasePreview, __DEV__);
   const selectedVariant = resolveListingVariant(listing.variants, variantId);
+  const bundle = (
+    <BundleContents
+      contents={selectedVariant ? listing.bundleContentsByVariant?.[selectedVariant.id] : undefined}
+      resolveImage={image => image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined)}
+      onPressComponent={component => router.push({
+        pathname: "/p/[handle]",
+        params: { handle: component.productSlug, variant: component.variantId },
+      })}
+    />
+  );
   const selection = Object.fromEntries(
     selectedVariant?.optionValues.map((option) => [
       option.name,
@@ -485,11 +496,15 @@ function ProductBody({ listing }: ProductBodyProps) {
 
         {/* Top two-column region: large gallery (flex-1) + fixed buy column. */}
         <View className="flex-col gap-space-16 md:mt-6 md:flex-row md:gap-space-40 md:px-4">
-          <ProductGallery
-            ref={gallery}
-            images={images}
-            title={listing.title}
-          />
+          <View className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8">
+            <ProductGallery
+              className="md:w-full md:flex-none web:md:static web:md:top-auto"
+              ref={gallery}
+              images={images}
+              title={listing.title}
+            />
+            {width >= 768 ? bundle : null}
+          </View>
 
           {/* Buy column. */}
           <View
@@ -821,6 +836,8 @@ function ProductBody({ listing }: ProductBodyProps) {
                 {t("common.shareError")}
               </Text>
             ) : null}
+
+            {width < 768 ? bundle : null}
 
             <Accordion
               type="multiple"
