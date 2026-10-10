@@ -518,6 +518,34 @@
       "action": "%{title}を削除",
       "title": "コレクションを削除",
       "confirmation": "「%{title}」を削除しますか？商品はカタログに残ります。この操作は取り消せません。"
+    },
+    "editor": {
+      "automated": "このコレクションの商品はルールに従って管理されます。",
+      "details": "コレクションの詳細",
+      "handle": "URLハンドル",
+      "handleRequired": "URLハンドルを入力してください。",
+      "published": "公開済み",
+      "save": "コレクションを保存",
+      "saveFailed": "コレクションを保存できませんでした。",
+      "saved": "コレクションを保存しました",
+      "sortLabel": "商品の並び順",
+      "browse": "商品を探す",
+      "earlier": "%{title}を前へ移動",
+      "emptyProducts": "商品が選択されていません。",
+      "later": "%{title}を後ろへ移動",
+      "productUnavailable": "この商品を読み込めませんでした。",
+      "productsFailed": "商品を保存できませんでした。",
+      "productsSaved": "商品を保存しました",
+      "remove": "%{title}を削除",
+      "saveProducts": "商品を保存",
+      "sort": {
+        "manual": "手動",
+        "bestSelling": "売上順",
+        "priceAscending": "価格の低い順",
+        "priceDescending": "価格の高い順",
+        "newest": "新しい順",
+        "title": "タイトル：A–Z"
+      }
     }
   },
   "common": {

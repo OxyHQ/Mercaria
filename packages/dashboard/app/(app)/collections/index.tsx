@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View } from "react-native";
+import { View, Pressable } from "react-native";
+import { Link } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, FolderTree } from "lucide-react-native";
 import type { Collection, CollectionType } from "@mercaria/shared-types";
@@ -26,6 +27,7 @@ import {
 } from "@/lib/hooks/use-collections";
 import { RemoveCollectionButton } from "@/components/collections/RemoveCollectionButton";
 import { canRetainDetailData } from "@/lib/detail-query-state";
+import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { useTranslation } from "@/lib/i18n";
 
 /** Slugify a title into a URL-safe handle. */
@@ -44,7 +46,7 @@ export default function CollectionsScreen() {
       <Head>
         <title>{t("collections.documentTitle")}</title>
       </Head>
-      <RequireStore permission="collections:write">
+      <RequireStore permission="products:read">
         {(storeId) => <CollectionsBody key={storeId} storeId={storeId} />}
       </RequireStore>
     </>
@@ -53,6 +55,8 @@ export default function CollectionsScreen() {
 
 function CollectionsBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
+  const { can } = useActiveStoreContext();
+  const canWrite = can("collections:write");
   const query = useCollections(storeId);
   const { isPending, isError, isFetching, refetch } = query;
   const data = canRetainDetailData(query.error) ? query.data : undefined;
@@ -71,7 +75,7 @@ function CollectionsBody({ storeId }: { storeId: string }) {
   );
 
   return (
-    <Screen title={t("nav.collections")} subtitle={t("collections.subtitle")} action={action}>
+    <Screen title={t("nav.collections")} subtitle={t("collections.subtitle")} action={canWrite ? action : undefined}>
       {isError ? <View className="mb-4 gap-2" accessibilityLiveRegion="polite">
         <Text className="text-sm text-destructive">{t("collections.loadError")}</Text>
         <Button size="sm" appearance="outline" material="flat" disabled={isFetching} onPress={() => { void refetch(); }}>{t("common.retry")}</Button>
@@ -87,12 +91,13 @@ function CollectionsBody({ storeId }: { storeId: string }) {
               key={collection.id}
               collection={collection}
               storeId={storeId}
+              canWrite={canWrite}
             />
           ))}
         </View>
       )}
 
-      <CreateCollectionDialog storeId={storeId} control={createControl} />
+      {canWrite ? <CreateCollectionDialog storeId={storeId} control={createControl} /> : null}
     </Screen>
   );
 }
@@ -100,9 +105,11 @@ function CollectionsBody({ storeId }: { storeId: string }) {
 function CollectionRow({
   collection,
   storeId,
+  canWrite,
 }: {
   collection: Collection;
   storeId: string;
+  canWrite: boolean;
 }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
@@ -125,7 +132,7 @@ function CollectionRow({
       <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
         <FolderTree size={18} color={colors.mutedForeground} />
       </View>
-      <View className="flex-1">
+      <Link href={{ pathname: "/collections/[id]", params: { id: collection.id } }} asChild><Pressable accessibilityLabel={collection.title} className="min-w-0 flex-1 rounded-lg py-2 active:opacity-70 web:hover:opacity-70">
         <Text className="text-sm font-semibold text-foreground">{collection.title}</Text>
         <Text className="text-xs text-muted-foreground">
           {t("collections.rowMeta", {
@@ -134,8 +141,8 @@ function CollectionRow({
             state: stateLabel,
           })}
         </Text>
-      </View>
-      <RemoveCollectionButton storeId={storeId} collection={collection} />
+      </Pressable></Link>
+      {canWrite ? <RemoveCollectionButton storeId={storeId} collection={collection} /> : null}
     </View>
   );
 }

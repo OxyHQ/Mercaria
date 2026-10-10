@@ -518,6 +518,34 @@
       "action": "%{title} মুছুন",
       "title": "সংগ্রহ মুছুন",
       "confirmation": "“%{title}” মুছবেন? পণ্যগুলি আপনার ক্যাটালগে থাকবে। এটি পূর্বাবস্থায় ফেরানো যাবে না।"
+    },
+    "editor": {
+      "automated": "এই সংগ্রহের পণ্যগুলি এর নিয়ম অনুযায়ী পরিচালিত হয়।",
+      "details": "সংগ্রহের বিবরণ",
+      "handle": "URL পরিচিতি",
+      "handleRequired": "একটি URL পরিচিতি লিখুন।",
+      "published": "প্রকাশিত",
+      "save": "সংগ্রহ সংরক্ষণ করুন",
+      "saveFailed": "সংগ্রহ সংরক্ষণ করা যায়নি।",
+      "saved": "সংগ্রহ সংরক্ষিত",
+      "sortLabel": "পণ্য সাজান",
+      "browse": "পণ্য দেখুন",
+      "earlier": "%{title} আগে সরান",
+      "emptyProducts": "কোনো পণ্য নির্বাচিত হয়নি।",
+      "later": "%{title} পরে সরান",
+      "productUnavailable": "এই পণ্যটি লোড করা যায়নি।",
+      "productsFailed": "পণ্যগুলি সংরক্ষণ করা যায়নি।",
+      "productsSaved": "পণ্যগুলি সংরক্ষিত",
+      "remove": "%{title} সরান",
+      "saveProducts": "পণ্য সংরক্ষণ করুন",
+      "sort": {
+        "manual": "ম্যানুয়াল",
+        "bestSelling": "সর্বাধিক বিক্রিত",
+        "priceAscending": "দাম: কম থেকে বেশি",
+        "priceDescending": "দাম: বেশি থেকে কম",
+        "newest": "নতুনগুলি আগে",
+        "title": "শিরোনাম: A–Z"
+      }
     }
   },
   "common": {

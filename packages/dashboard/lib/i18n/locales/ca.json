@@ -529,6 +529,34 @@
       "action": "Suprimeix %{title}",
       "title": "Suprimeix la col·lecció",
       "confirmation": "Vols suprimir «%{title}»? Els productes es conservaran al catàleg. Aquesta acció no es pot desfer."
+    },
+    "editor": {
+      "automated": "Els productes d’aquesta col·lecció es gestionen mitjançant les seves regles.",
+      "details": "Detalls de la col·lecció",
+      "handle": "Identificador d’URL",
+      "handleRequired": "Introdueix un identificador d’URL.",
+      "published": "Publicada",
+      "save": "Desa la col·lecció",
+      "saveFailed": "No s’ha pogut desar la col·lecció.",
+      "saved": "Col·lecció desada",
+      "sortLabel": "Ordena els productes",
+      "browse": "Explora els productes",
+      "earlier": "Mou %{title} abans",
+      "emptyProducts": "No hi ha productes seleccionats.",
+      "later": "Mou %{title} després",
+      "productUnavailable": "No s’ha pogut carregar aquest producte.",
+      "productsFailed": "No s’han pogut desar els productes.",
+      "productsSaved": "Productes desats",
+      "remove": "Treu %{title}",
+      "saveProducts": "Desa els productes",
+      "sort": {
+        "manual": "Manual",
+        "bestSelling": "Més venuts",
+        "priceAscending": "Preu: de menor a major",
+        "priceDescending": "Preu: de major a menor",
+        "newest": "Més recents primer",
+        "title": "Títol: A–Z"
+      }
     }
   },
   "common": {

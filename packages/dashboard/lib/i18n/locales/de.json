@@ -518,6 +518,34 @@
       "action": "%{title} löschen",
       "title": "Kollektion löschen",
       "confirmation": "„%{title}“ löschen? Die Produkte bleiben in deinem Katalog. Dies kann nicht rückgängig gemacht werden."
+    },
+    "editor": {
+      "automated": "Die Produkte dieser Kollektion werden durch ihre Regeln verwaltet.",
+      "details": "Kollektionsdetails",
+      "handle": "URL-Kennung",
+      "handleRequired": "Gib eine URL-Kennung ein.",
+      "published": "Veröffentlicht",
+      "save": "Kollektion speichern",
+      "saveFailed": "Die Kollektion konnte nicht gespeichert werden.",
+      "saved": "Kollektion gespeichert",
+      "sortLabel": "Produkte sortieren",
+      "browse": "Produkte durchsuchen",
+      "earlier": "%{title} nach vorne verschieben",
+      "emptyProducts": "Keine Produkte ausgewählt.",
+      "later": "%{title} nach hinten verschieben",
+      "productUnavailable": "Dieses Produkt konnte nicht geladen werden.",
+      "productsFailed": "Die Produkte konnten nicht gespeichert werden.",
+      "productsSaved": "Produkte gespeichert",
+      "remove": "%{title} entfernen",
+      "saveProducts": "Produkte speichern",
+      "sort": {
+        "manual": "Manuell",
+        "bestSelling": "Meistverkauft",
+        "priceAscending": "Preis: aufsteigend",
+        "priceDescending": "Preis: absteigend",
+        "newest": "Neueste zuerst",
+        "title": "Titel: A–Z"
+      }
     }
   },
   "common": {

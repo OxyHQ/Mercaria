@@ -529,6 +529,34 @@
       "action": "Excluir %{title}",
       "title": "Excluir coleção",
       "confirmation": "Excluir “%{title}”? Os produtos permanecerão no seu catálogo. Esta ação não pode ser desfeita."
+    },
+    "editor": {
+      "automated": "Os produtos desta coleção são gerenciados pelas regras dela.",
+      "details": "Detalhes da coleção",
+      "handle": "Identificador de URL",
+      "handleRequired": "Insira um identificador de URL.",
+      "published": "Publicada",
+      "save": "Salvar coleção",
+      "saveFailed": "Não foi possível salvar a coleção.",
+      "saved": "Coleção salva",
+      "sortLabel": "Ordenar produtos",
+      "browse": "Explorar produtos",
+      "earlier": "Mover %{title} para antes",
+      "emptyProducts": "Nenhum produto selecionado.",
+      "later": "Mover %{title} para depois",
+      "productUnavailable": "Não foi possível carregar este produto.",
+      "productsFailed": "Não foi possível salvar os produtos.",
+      "productsSaved": "Produtos salvos",
+      "remove": "Remover %{title}",
+      "saveProducts": "Salvar produtos",
+      "sort": {
+        "manual": "Manual",
+        "bestSelling": "Mais vendidos",
+        "priceAscending": "Preço: menor para maior",
+        "priceDescending": "Preço: maior para menor",
+        "newest": "Mais recentes primeiro",
+        "title": "Título: A–Z"
+      }
     }
   },
   "common": {

@@ -48,7 +48,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: "products", labelKey: "nav.products", icon: Package, href: "/products", permission: "products:read" },
   { key: "customers", labelKey: "nav.customers", icon: Users, href: "/customers", permission: "customers:read" },
   { key: "discounts", labelKey: "nav.discounts", icon: Tag, href: "/discounts", permission: "discounts:write" },
-  { key: "collections", labelKey: "nav.collections", icon: FolderTree, href: "/collections", permission: "collections:write" },
+  { key: "collections", labelKey: "nav.collections", icon: FolderTree, href: "/collections", permission: "products:read" },
   { key: "channels", labelKey: "nav.channels", icon: Plug, href: "/channels", permission: "channels:write" },
   { key: "settings", labelKey: "nav.settings", icon: Settings, href: "/settings", permission: "settings:write" },
 ] as const;

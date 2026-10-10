@@ -518,6 +518,34 @@
       "action": "Delete %{title}",
       "title": "Delete collection",
       "confirmation": "Delete “%{title}”? Products will remain in your catalog. This cannot be undone."
+    },
+    "editor": {
+      "automated": "Products in this collection are managed by its rules.",
+      "details": "Collection details",
+      "handle": "URL handle",
+      "handleRequired": "Enter a URL handle.",
+      "published": "Published",
+      "save": "Save collection",
+      "saveFailed": "Couldn't save the collection.",
+      "saved": "Collection saved",
+      "sortLabel": "Sort products",
+      "browse": "Browse products",
+      "earlier": "Move %{title} earlier",
+      "emptyProducts": "No products selected.",
+      "later": "Move %{title} later",
+      "productUnavailable": "Couldn't load this product.",
+      "productsFailed": "Couldn't save the products.",
+      "productsSaved": "Products saved",
+      "remove": "Remove %{title}",
+      "saveProducts": "Save products",
+      "sort": {
+        "manual": "Manual",
+        "bestSelling": "Best selling",
+        "priceAscending": "Price: low to high",
+        "priceDescending": "Price: high to low",
+        "newest": "Newest first",
+        "title": "Title: A–Z"
+      }
     }
   },
   "common": {

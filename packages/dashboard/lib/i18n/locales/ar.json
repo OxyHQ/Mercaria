@@ -518,6 +518,34 @@
       "action": "حذف %{title}",
       "title": "حذف المجموعة",
       "confirmation": "هل تريد حذف «%{title}»؟ ستبقى المنتجات في الكتالوج. لا يمكن التراجع عن هذا الإجراء."
+    },
+    "editor": {
+      "automated": "تُدار منتجات هذه المجموعة وفقًا لقواعدها.",
+      "details": "تفاصيل المجموعة",
+      "handle": "معرّف الرابط",
+      "handleRequired": "أدخل معرّفًا للرابط.",
+      "published": "منشورة",
+      "save": "حفظ المجموعة",
+      "saveFailed": "تعذّر حفظ المجموعة.",
+      "saved": "تم حفظ المجموعة",
+      "sortLabel": "ترتيب المنتجات",
+      "browse": "تصفح المنتجات",
+      "earlier": "تقديم %{title}",
+      "emptyProducts": "لم يتم اختيار منتجات.",
+      "later": "تأخير %{title}",
+      "productUnavailable": "تعذّر تحميل هذا المنتج.",
+      "productsFailed": "تعذّر حفظ المنتجات.",
+      "productsSaved": "تم حفظ المنتجات",
+      "remove": "إزالة %{title}",
+      "saveProducts": "حفظ المنتجات",
+      "sort": {
+        "manual": "يدوي",
+        "bestSelling": "الأكثر مبيعًا",
+        "priceAscending": "السعر: من الأقل إلى الأعلى",
+        "priceDescending": "السعر: من الأعلى إلى الأقل",
+        "newest": "الأحدث أولًا",
+        "title": "العنوان: أبجديًا"
+      }
     }
   },
   "common": {

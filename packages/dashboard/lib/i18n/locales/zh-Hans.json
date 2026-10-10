@@ -518,6 +518,34 @@
       "action": "删除%{title}",
       "title": "删除系列",
       "confirmation": "删除“%{title}”？商品将保留在你的目录中。此操作无法撤销。"
+    },
+    "editor": {
+      "automated": "此系列的商品由其规则管理。",
+      "details": "系列详情",
+      "handle": "URL 标识",
+      "handleRequired": "请输入 URL 标识。",
+      "published": "已发布",
+      "save": "保存系列",
+      "saveFailed": "无法保存系列。",
+      "saved": "系列已保存",
+      "sortLabel": "商品排序",
+      "browse": "浏览商品",
+      "earlier": "将%{title}向前移动",
+      "emptyProducts": "尚未选择商品。",
+      "later": "将%{title}向后移动",
+      "productUnavailable": "无法加载此商品。",
+      "productsFailed": "无法保存商品。",
+      "productsSaved": "商品已保存",
+      "remove": "移除%{title}",
+      "saveProducts": "保存商品",
+      "sort": {
+        "manual": "手动",
+        "bestSelling": "畅销商品",
+        "priceAscending": "价格从低到高",
+        "priceDescending": "价格从高到低",
+        "newest": "最新优先",
+        "title": "标题：A–Z"
+      }
     }
   },
   "common": {

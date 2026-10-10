@@ -8,9 +8,9 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     const copy = locale === 'ar' ? ar : en;
     await fixture(page, locale, mode); await page.setViewportSize({ width, height: 1100 });
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-    let writable = true;
+    let writable = true; let readable = true;
     await page.route('**/admin/stores', route => route.fulfill({ json: { success: true, data: [{ id: 'store-preview', name: 'Demo Atelier', handle: 'demo-atelier', defaultCurrency: 'EUR',
-      access: { permissions: writable ? ['collections:write'] : ['products:read'] } }] } }));
+      access: { permissions: [...(readable ? ['products:read'] : []), ...(writable ? ['collections:write'] : [])] } }] } }));
     const collection = { id: 'summer-collection', storeId: 'store-preview', title: 'Summer essentials', handle: 'summer', type: 'manual', isPublished: false, productIds: ['product-one'], sortOrder: 'manual' };
     const other = { ...collection, id: 'winter-collection', title: 'Winter essentials', handle: 'winter' };
     let collections = [collection, other]; let reads = 0; let readError = false;
@@ -53,9 +53,11 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     readError = false; await page.getByRole('button', { name: copy.common.retry, exact: true }).click();
     await expect(page.getByText(copy.collections.loadError, { exact: true })).toHaveCount(0);
     await expect(page.getByText(other.title, { exact: true })).toBeVisible();
-    writable = false; const previousReads = reads; await page.reload();
-    await expect(page.getByText(copy.common.noAccess, { exact: true })).toBeVisible();
+    writable = false; await page.reload();
+    await expect(page.getByText(other.title, { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: copy.collections.remove.action.replace('%{title}', other.title), exact: true })).toHaveCount(0);
+    readable = false; const previousReads = reads; await page.reload();
+    await expect(page.getByText(copy.common.noAccess, { exact: true })).toBeVisible();
     expect(reads).toBe(previousReads); expect(writes).toHaveLength(2); expect(errors).toEqual([]);
   });
 }

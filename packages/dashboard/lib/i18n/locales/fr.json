@@ -529,6 +529,34 @@
       "action": "Supprimer %{title}",
       "title": "Supprimer la collection",
       "confirmation": "Supprimer « %{title} » ? Les produits resteront dans votre catalogue. Cette action est irréversible."
+    },
+    "editor": {
+      "automated": "Les produits de cette collection sont gérés par ses règles.",
+      "details": "Détails de la collection",
+      "handle": "Identifiant d’URL",
+      "handleRequired": "Saisissez un identifiant d’URL.",
+      "published": "Publiée",
+      "save": "Enregistrer la collection",
+      "saveFailed": "Impossible d’enregistrer la collection.",
+      "saved": "Collection enregistrée",
+      "sortLabel": "Trier les produits",
+      "browse": "Parcourir les produits",
+      "earlier": "Avancer %{title}",
+      "emptyProducts": "Aucun produit sélectionné.",
+      "later": "Reculer %{title}",
+      "productUnavailable": "Impossible de charger ce produit.",
+      "productsFailed": "Impossible d’enregistrer les produits.",
+      "productsSaved": "Produits enregistrés",
+      "remove": "Retirer %{title}",
+      "saveProducts": "Enregistrer les produits",
+      "sort": {
+        "manual": "Manuel",
+        "bestSelling": "Meilleures ventes",
+        "priceAscending": "Prix croissant",
+        "priceDescending": "Prix décroissant",
+        "newest": "Les plus récents",
+        "title": "Titre : A–Z"
+      }
     }
   },
   "common": {
