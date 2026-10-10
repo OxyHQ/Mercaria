@@ -11,7 +11,7 @@
  * ONLY place order DTOs are built; controllers never hand-assemble order shapes.
  */
 
-import { deriveOrderItemCondition } from '@mercaria/shared-types';
+import { deriveOrderItemCondition, isOxyFileId } from '@mercaria/shared-types';
 import type {
   BuyerContactProjection,
   CurrencyCode,
@@ -112,7 +112,7 @@ function toSeller(
     oxyUserId,
     displayName: oxyProfile?.displayName ?? oxyUserId,
     username: oxyProfile?.username ?? oxyUserId,
-    avatar: oxyProfile?.avatar ? resolveMedia(oxyProfile.avatar) ?? null : null,
+    avatar: isOxyFileId(oxyProfile?.avatar) ? oxyProfile.avatar : null,
     isVerified: profile?.isVerified ?? false,
   };
   if (profile && profile.reviewCount > 0) {

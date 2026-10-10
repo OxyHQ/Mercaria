@@ -685,7 +685,8 @@
       "actionLabel": "%{name}-কে ফলো করুন"
     },
     "linkCard": {
-      "viewProfile": "%{name}-এর প্রোফাইল দেখুন"
+      "viewProfile": "%{name}-এর প্রোফাইল দেখুন",
+      "visitProfile": "প্রোফাইল দেখুন"
     },
     "report": {
       "action": "রিপোর্ট",

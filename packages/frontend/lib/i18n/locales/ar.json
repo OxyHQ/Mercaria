@@ -685,7 +685,8 @@
       "actionLabel": "متابعة %{name}"
     },
     "linkCard": {
-      "viewProfile": "عرض ملف %{name} الشخصي"
+      "viewProfile": "عرض ملف %{name} الشخصي",
+      "visitProfile": "عرض الملف الشخصي"
     },
     "report": {
       "action": "إبلاغ",

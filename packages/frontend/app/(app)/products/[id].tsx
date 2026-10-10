@@ -10,7 +10,7 @@ import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Link, type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { Button } from "@oxy.so/bloom/button";
 import { Rating } from "@oxy.so/bloom/rating";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
@@ -112,6 +112,7 @@ function brandLabel(listing: Listing): string {
 interface MerchantIdentity {
   name: string;
   logoUrl?: string;
+  logoFileId?: string;
   rating?: number;
   reviewCount?: number;
 }
@@ -121,7 +122,9 @@ function merchantIdentity(listing: Listing): MerchantIdentity {
   const store: StoreSummary | undefined = listing.store;
   const seller: Seller | undefined = listing.seller;
   const identity: MerchantIdentity = { name: brandLabel(listing) };
-  const logoUrl = store?.logoUrl ?? seller?.avatar ?? undefined;
+  const logoFileId = store?.logoFileId ?? (isOxyFileId(seller?.avatar) ? seller.avatar : undefined);
+  if (logoFileId) identity.logoFileId = logoFileId;
+  const logoUrl = store ? store.logoUrl : (!logoFileId ? seller?.avatar ?? undefined : undefined);
   if (logoUrl) identity.logoUrl = logoUrl;
   const rating = store?.rating ?? seller?.rating;
   if (rating !== undefined) identity.rating = rating;
@@ -133,10 +136,8 @@ function merchantIdentity(listing: Listing): MerchantIdentity {
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
 function StoreLinkCard({
   store,
-  onPress,
 }: {
   store: StoreSummary;
-  onPress: () => void;
 }) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
@@ -149,10 +150,9 @@ function StoreLinkCard({
       className="overflow-hidden rounded-radius-28 web:shadow-sm"
       style={{ backgroundColor: store.brandColor }}
     >
-      <Pressable
+      <Link href={{ pathname: "/stores/[handle]", params: { handle: store.handle } }} asChild><Pressable
         accessibilityRole="link"
         accessibilityLabel={t("product.visitA11y", { name: store.name })}
-        onPress={onPress}
         className="relative h-[120px] items-center justify-center"
       >
         {coverSource ? (
@@ -185,7 +185,7 @@ function StoreLinkCard({
             {store.name}
           </Text>
         )}
-      </Pressable>
+      </Pressable></Link>
       <View className="flex-row items-center justify-between p-space-16">
         <View>
           <Text
@@ -430,26 +430,18 @@ function ProductBody({ listing }: ProductBodyProps) {
     addToCart.reset();
   };
 
-  const onPressStore = () => {
-    if (listing.store?.handle) {
-      router.push({
-        pathname: "/stores/[handle]",
-        params: { handle: listing.store.handle },
-      });
-    }
-  };
-
   // Keyed on the OXY ACCOUNT ID, never on the handle: a handle can change and a
   // renamed seller's every inbound link would 404, while the account id never
   // moves. Same reasoning as the follow target's URI.
-  const onPressSeller = () => {
-    if (listing.seller?.oxyUserId) {
-      router.push({
-        pathname: "/sellers/[oxyUserId]",
-        params: { oxyUserId: listing.seller.oxyUserId },
-      });
-    }
-  };
+  const merchantHref: Href | undefined = listing.store?.handle
+    ? { pathname: "/stores/[handle]", params: { handle: listing.store.handle } }
+    : listing.seller?.oxyUserId
+      ? { pathname: "/sellers/[oxyUserId]", params: { oxyUserId: listing.seller.oxyUserId } }
+      : undefined;
+  const renderMerchantLink = merchantHref
+    ? (child: React.ReactElement) => <Link href={merchantHref} asChild>{child}</Link>
+    : undefined;
+  const visitLabel = listing.seller ? t("sellers.linkCard.visitProfile") : undefined;
 
   const onAddToCart = () => {
     if (!selectedVariant) return;
@@ -496,9 +488,11 @@ function ProductBody({ listing }: ProductBodyProps) {
           <MerchantHeader
             name={identity.name}
             logoUrl={identity.logoUrl}
+            logoFileId={identity.logoFileId}
             rating={identity.rating}
             reviewCount={identity.reviewCount}
-            onPress={onPressStore}
+            renderLink={renderMerchantLink}
+            visitLabel={visitLabel}
             size="large"
           />
         </View> : null}
@@ -526,9 +520,11 @@ function ProductBody({ listing }: ProductBodyProps) {
                 <MerchantHeader
                   name={identity.name}
                   logoUrl={identity.logoUrl}
+                  logoFileId={identity.logoFileId}
                   rating={identity.rating}
                   reviewCount={identity.reviewCount}
-                  onPress={onPressStore}
+                  renderLink={renderMerchantLink}
+                  visitLabel={visitLabel}
                   moreAction={<ProductActionsMenu listingId={listing.id} title={listing.title} />}
                   size="compact"
                 />
@@ -947,7 +943,7 @@ function ProductBody({ listing }: ProductBodyProps) {
 
             {/* Store link card. */}
             {listing.store ? (
-              <StoreLinkCard store={listing.store} onPress={onPressStore} />
+              <StoreLinkCard store={listing.store} />
             ) : null}
 
             {/* Seller link card (#92). Mutually exclusive with the store card
@@ -957,7 +953,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 control serving both would be one edit from registering a human
                 being under a marketplace's namespace (#26). */}
             {listing.seller ? (
-              <SellerLinkCard seller={listing.seller} onPress={onPressSeller} />
+              <SellerLinkCard seller={listing.seller} />
             ) : null}
           </View>
         </View>

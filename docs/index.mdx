@@ -121,6 +121,13 @@ schema decision. `HANDOFF.md` holds deferred work.
   leaving with the mouse cannot release a keyboard-focused product.
   Hero product/store cards use Expo Router links, including actual web anchors
   for Enter activation and browser open-in-new-tab behavior.
+  Product merchant headers and identity cards do too: stores use their handle,
+  people their stable Oxy account ID. The mobile person action says “Visit
+  profile”. The shared header receives its router link from the app and carries
+  no route strings. `Seller.avatar` remains an Oxy file ID in both listing and
+  order hydration; only the public SDK's `avatarUrl` projection resolves it to
+  a URL. Seller cards/profiles and order rows use the shared image resolver;
+  older cached avatar URLs must match that resolver before they can render.
   Existing Oxy URLs in legacy category/order snapshot columns are validated
   against the SDK namespace, without rewriting immutable order history.
   Changing a variant keeps the gallery mounted: only a different set of image

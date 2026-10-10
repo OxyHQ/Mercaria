@@ -1,9 +1,10 @@
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { useOxy } from "@oxy.so/services";
-import type { Seller } from "@mercaria/shared-types";
+import { Link } from "expo-router";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { isOxyFileId, type Seller } from "@mercaria/shared-types";
 import { Rating } from "@oxy.so/bloom/rating";
-import { Text, useRatingDisplay } from "@mercaria/ui";
+import { Text, useRatingDisplay, resolveCatalogImage } from "@mercaria/ui";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
 import { useTranslation } from "@/lib/i18n";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
@@ -36,24 +37,19 @@ const AVATAR_SIZE = 44;
  */
 export function SellerLinkCard({
   seller,
-  onPress,
 }: {
   seller: Seller;
-  onPress: () => void;
 }) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
-  const { oxyServices } = useOxy();
-  const avatarUrl = seller.avatar
-    ? oxyServices.assets.publicUrl(seller.avatar, "thumb")
-    : null;
+  const avatarUrl = resolveCatalogImage(isOxyFileId(seller.avatar) ? seller.avatar : undefined,
+    seller.avatar ?? undefined, useImageResolver(), "thumb");
 
   return (
     <View className="gap-space-12 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
-      <Pressable
+      <Link href={{ pathname: "/sellers/[oxyUserId]", params: { oxyUserId: seller.oxyUserId } }} asChild><Pressable
         accessibilityRole="link"
         accessibilityLabel={t("sellers.linkCard.viewProfile", { name: seller.displayName })}
-        onPress={onPress}
         className="flex-row items-center gap-3"
       >
         <View
@@ -82,7 +78,7 @@ export function SellerLinkCard({
             {`@${seller.username}`}
           </Text>
         </View>
-      </Pressable>
+      </Pressable></Link>
 
       {seller.rating !== undefined && seller.reviewCount !== undefined && seller.reviewCount > 0 ? (
         <View className="flex-row items-center gap-2">

@@ -691,7 +691,8 @@
       "actionLabel": "Подписаться на %{name}"
     },
     "linkCard": {
-      "viewProfile": "Открыть профиль %{name}"
+      "viewProfile": "Открыть профиль %{name}",
+      "visitProfile": "Посмотреть профиль"
     },
     "report": {
       "action": "Пожаловаться",

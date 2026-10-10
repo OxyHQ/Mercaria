@@ -1,6 +1,6 @@
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "../../lib/shop-merchant-images";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MoreHorizontal } from "lucide-react-native";
@@ -29,6 +29,8 @@ export interface MerchantHeaderProps {
   name: string;
   /** Resolvable logo/avatar URL, when present. */
   logoUrl?: string;
+  /** Preferred synchronized Oxy ID; the URL is only a compatibility projection. */
+  logoFileId?: string;
   /** Aggregate rating (0–5), when the merchant has reviews. */
   rating?: number;
   /**
@@ -39,7 +41,6 @@ export interface MerchantHeaderProps {
   scopeLabel?: string;
   /** Number of reviews contributing to `rating`. */
   reviewCount?: number;
-  /** Tap the identity (logo + name) — typically navigates to the store. */
   /**
    * A store-wide discount, in WHOLE percent. Rendered in the same words
    * `ProductCard` uses for a product's own sale badge, so a shopper meets one
@@ -48,7 +49,10 @@ export interface MerchantHeaderProps {
   discountPercent?: number;
   /** Catalog-confirmed exclusive offer; ordinary stores have no incentive ring. */
   exclusiveOffer?: boolean;
-  onPress: () => void;
+  /** App-owned router link around each pressable; absent identities are plain text. */
+  renderLink?: (child: ReactElement) => ReactNode;
+  /** A person has a profile, while the default action names a store. */
+  visitLabel?: string;
   onMore?: () => void;
   /** Anchored action control supplied by the consuming app, for example a Bloom menu. */
   moreAction?: ReactNode;
@@ -93,13 +97,14 @@ function HeaderRating({
 const BASIS_POINTS_PER_PERCENT = 100;
 
 /** Merchant logos only receive the incentive ring for a confirmed exclusive offer. */
-function HeaderLogo({ logoUrl, size, exclusiveOffer }: {
+function HeaderLogo({ logoUrl, logoFileId, size, exclusiveOffer }: {
   logoUrl?: string;
+  logoFileId?: string;
   size: number;
   exclusiveOffer: boolean;
 }) {
   const resolveImage = useImageResolver();
-  const logoSource = merchantImageSource(logoUrl, resolveImage);
+  const logoSource = merchantImageSource(logoUrl, resolveImage, logoFileId);
   const logo = (
     <View
       className="overflow-hidden rounded-radius-max bg-bg-fill-secondary border-[0.5px] border-border-image"
@@ -119,14 +124,16 @@ function HeaderLogo({ logoUrl, size, exclusiveOffer }: {
  * logo with an optional exclusive-offer ring + name + optional rating, with a trailing action that depends on `size`:
  * the `large` variant ends in an outlined "Visit store" link; the `compact`
  * variant ends in an overflow (…) button. Purely presentational — the caller
- * owns navigation via `onPress`.
+ * owns navigation through `renderLink`, including web anchors and native routing.
  */
 export function MerchantHeader({
   name,
   logoUrl,
+  logoFileId,
   rating,
   reviewCount,
-  onPress,
+  renderLink,
+  visitLabel,
   onMore,
   moreAction,
   size = "compact",
@@ -137,16 +144,17 @@ export function MerchantHeader({
   const isLarge = size === "large";
   const t = useSharedUiTranslation();
   const locale = useSharedUiLocale();
+  const wrapLink = (child: ReactElement) => renderLink ? renderLink(child) : child;
 
   return (
     <View className="flex-row items-center gap-space-8">
-      <Pressable
-        accessibilityRole="link"
+      {wrapLink(<Pressable
+        accessibilityRole={renderLink ? "link" : undefined}
         accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name })}
-        onPress={onPress}
+        disabled={!renderLink}
         className="flex-1 flex-row items-center gap-space-8"
       >
-        <HeaderLogo logoUrl={logoUrl} size={isLarge ? LARGE_LOGO_SIZE : COMPACT_LOGO_SIZE} exclusiveOffer={exclusiveOffer} />
+        <HeaderLogo logoUrl={logoUrl} logoFileId={logoFileId} size={isLarge ? LARGE_LOGO_SIZE : COMPACT_LOGO_SIZE} exclusiveOffer={exclusiveOffer} />
         <View className="flex-1">
           <Text
             numberOfLines={1}
@@ -177,20 +185,19 @@ export function MerchantHeader({
             </Text>
           ) : null}
         </View>
-      </Pressable>
+      </Pressable>)}
 
-      {isLarge ? (
+      {isLarge ? (renderLink ? renderLink(
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name })}
-          onPress={onPress}
           className="rounded-radius-max border-[1.5px] border-border-secondary px-space-16 py-space-8"
         >
           <Text className="text-shop-buttonMedium text-text">
-            {t(MERCHANT_HEADER_VISIT_STORE_KEY)}
+            {visitLabel ?? t(MERCHANT_HEADER_VISIT_STORE_KEY)}
           </Text>
         </Pressable>
-      ) : moreAction ?? (onMore ? (
+      ) : null) : moreAction ?? (onMore ? (
         <Pressable
           onPress={onMore}
           accessibilityRole="button"

@@ -685,7 +685,8 @@
       "actionLabel": "Follow %{name}"
     },
     "linkCard": {
-      "viewProfile": "View %{name}'s profile"
+      "viewProfile": "View %{name}'s profile",
+      "visitProfile": "Visit profile"
     },
     "report": {
       "action": "Report",

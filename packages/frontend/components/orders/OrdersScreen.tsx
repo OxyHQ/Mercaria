@@ -7,7 +7,7 @@ import Head from "expo-router/head";
 import { Link, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { BUYER_ORDER_VIEWS, type BuyerOrderView, type OrderSummary } from "@mercaria/shared-types";
+import { BUYER_ORDER_VIEWS, isOxyFileId, type BuyerOrderView, type OrderSummary } from "@mercaria/shared-types";
 import {
   shopNavigationIcon,
   Text,
@@ -15,6 +15,7 @@ import {
   formatDate,
   useFormatters,
   resolveStoredImageUrl,
+  resolveCatalogImage,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { ReviewEligibilityPrompts } from "@/components/reviews/ReviewEligibilityPrompts";
@@ -31,7 +32,10 @@ function OrderRow({ order, view }: { order: OrderSummary; view: BuyerOrderView }
     const url = resolveStoredImageUrl(image.url, resolveImage);
     return url && !failedImages.has(url) ? [{ ...image, url }] : [];
   }) ?? [];
-  const logo = resolveStoredImageUrl(order.store?.logoUrl ?? order.seller?.avatar ?? undefined, resolveImage);
+  const logo = order.store
+    ? resolveCatalogImage(order.store.logoFileId, order.store.logoUrl, resolveImage)
+    : resolveCatalogImage(isOxyFileId(order.seller?.avatar) ? order.seller.avatar : undefined,
+      order.seller?.avatar ?? undefined, resolveImage, "thumb");
   // From the order's own commercial presentation (#129): a `platform` order has
   // neither `store` nor `seller`, so the old coalesce left Mercaria's own sales
   // with no seller in the list at all.

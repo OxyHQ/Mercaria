@@ -685,7 +685,8 @@
       "actionLabel": "%{name} さんをフォロー"
     },
     "linkCard": {
-      "viewProfile": "%{name} さんのプロフィールを見る"
+      "viewProfile": "%{name} さんのプロフィールを見る",
+      "visitProfile": "プロフィールを見る"
     },
     "report": {
       "action": "報告",

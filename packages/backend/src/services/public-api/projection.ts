@@ -137,7 +137,7 @@ export function projectSeller(
     oxyUserId: seller.oxyUserId,
     displayName: seller.displayName,
     username: seller.username,
-    avatarUrl: nullIfBlank(seller.avatar),
+    avatarUrl: seller.avatar ? resolveMedia(seller.avatar) ?? null : null,
     isVerified: seller.isVerified,
   };
 }

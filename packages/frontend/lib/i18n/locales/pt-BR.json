@@ -688,7 +688,8 @@
       "actionLabel": "Seguir %{name}"
     },
     "linkCard": {
-      "viewProfile": "Ver o perfil de %{name}"
+      "viewProfile": "Ver o perfil de %{name}",
+      "visitProfile": "Ver perfil"
     },
     "report": {
       "action": "Denunciar",

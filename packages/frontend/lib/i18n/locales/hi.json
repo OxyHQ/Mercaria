@@ -685,7 +685,8 @@
       "actionLabel": "%{name} को फ़ॉलो करें"
     },
     "linkCard": {
-      "viewProfile": "%{name} की प्रोफ़ाइल देखें"
+      "viewProfile": "%{name} की प्रोफ़ाइल देखें",
+      "visitProfile": "प्रोफ़ाइल देखें"
     },
     "report": {
       "action": "रिपोर्ट करें",

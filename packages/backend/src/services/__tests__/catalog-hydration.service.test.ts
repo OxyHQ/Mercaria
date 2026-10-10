@@ -85,6 +85,7 @@ vi.mock('../../lib/logger.js', () => ({
 }));
 
 import { hydrateListings, resolveMedia, resolveStoredMediaUrl, toProductSummary, toStoreSummary } from '../catalog-hydration.service.js';
+import { projectSeller } from '../public-api/projection.js';
 
 /** The empty batch `findListingChildren` returns for listings with no children. */
 function noChildren() {
@@ -174,6 +175,16 @@ beforeEach(() => {
 });
 
 describe('catalog-hydration.service.hydrateListings — connector provenance', () => {
+  it.each(['seller-avatar-id', 'https://supplier.example/avatar.jpg', 'https://cloud.oxy.so/old-avatar'])('keeps seller avatar IDs separate from public API URLs: %s', async avatar => {
+    getProfiles.mockResolvedValue(new Map([['person-1', { displayName: 'Seller', username: 'seller', avatar }]]));
+    const [dto] = await hydrateListings([listingRow({ ownerType: 'user', oxyUserId: 'person-1', storeId: null })]);
+    const expected = avatar === 'seller-avatar-id' ? avatar : null;
+    expect(dto.seller?.avatar).toBe(expected);
+    expect(projectSeller(dto, undefined, resolveMedia)).toMatchObject({
+      kind: 'person', avatarUrl: expected ? `media:${expected}:full` : null,
+    });
+  });
+
   it('preserves file IDs so authoring can round-trip gallery selections', async () => {
     const listing = listingRow();
     const children = noChildren();

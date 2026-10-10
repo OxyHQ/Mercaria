@@ -685,7 +685,8 @@
       "actionLabel": "关注 %{name}"
     },
     "linkCard": {
-      "viewProfile": "查看 %{name} 的主页"
+      "viewProfile": "查看 %{name} 的主页",
+      "visitProfile": "查看个人资料"
     },
     "report": {
       "action": "举报",
