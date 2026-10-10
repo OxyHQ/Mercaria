@@ -964,7 +964,8 @@
       },
       "trail": "Registre de la recollida",
       "trailEmpty": "Encara no ha passat res al taulell.",
-      "viewPlace": "Veure el lloc a GoWay"
+      "viewPlace": "Veure el lloc a GoWay",
+      "loadFailed": "No s’ha pogut carregar la recollida. Torna-ho a provar abans de lliurar la comanda."
     },
     "refund": {
       "dialogTitle": "Reemborsa la comanda",

@@ -964,7 +964,8 @@
       },
       "trail": "Historial de la recogida",
       "trailEmpty": "Todavía no ha pasado nada en el mostrador.",
-      "viewPlace": "Ver el lugar en GoWay"
+      "viewPlace": "Ver el lugar en GoWay",
+      "loadFailed": "No se pudo cargar la recogida. Reinténtalo antes de entregar el pedido."
     },
     "refund": {
       "dialogTitle": "Reembolsar el pedido",

@@ -950,7 +950,8 @@
       },
       "trail": "Collection trail",
       "trailEmpty": "Nothing has happened at the counter yet.",
-      "viewPlace": "View the place on GoWay"
+      "viewPlace": "View the place on GoWay",
+      "loadFailed": "Couldn’t load the collection. Retry before handing over the order."
     },
     "refund": {
       "dialogTitle": "Refund order",

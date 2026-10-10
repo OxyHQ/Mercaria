@@ -950,7 +950,8 @@
       },
       "trail": "受け取り履歴",
       "trailEmpty": "カウンターではまだ何も行われていません。",
-      "viewPlace": "GoWay で場所を見る"
+      "viewPlace": "GoWay で場所を見る",
+      "loadFailed": "受け取り情報を読み込めませんでした。注文を引き渡す前に再試行してください。"
     },
     "refund": {
       "dialogTitle": "注文を返金",

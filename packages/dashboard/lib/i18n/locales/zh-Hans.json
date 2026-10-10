@@ -950,7 +950,8 @@
       },
       "trail": "自提记录",
       "trailEmpty": "柜台还没有任何操作记录。",
-      "viewPlace": "在 GoWay 上查看场所"
+      "viewPlace": "在 GoWay 上查看场所",
+      "loadFailed": "无法加载自提信息。请在交付订单前重试。"
     },
     "refund": {
       "dialogTitle": "订单退款",

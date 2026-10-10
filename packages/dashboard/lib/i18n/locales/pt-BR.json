@@ -964,7 +964,8 @@
       },
       "trail": "Histórico da retirada",
       "trailEmpty": "Ainda não aconteceu nada no balcão.",
-      "viewPlace": "Ver o lugar no GoWay"
+      "viewPlace": "Ver o lugar no GoWay",
+      "loadFailed": "Não foi possível carregar a retirada. Tente novamente antes de entregar o pedido."
     },
     "refund": {
       "dialogTitle": "Reembolsar pedido",

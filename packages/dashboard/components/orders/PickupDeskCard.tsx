@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 import { View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import type { PickupCollectionEventKind } from "@mercaria/shared-types";
@@ -12,6 +13,9 @@ import {
 } from "@mercaria/ui";
 import { Field } from "@oxy.so/bloom/field";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
+import { Loading } from "@oxy.so/bloom/loading";
+import { canRetainDetailData } from "@/lib/detail-query-state";
+import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import {
@@ -81,6 +85,8 @@ const EVENT_TEXT_KEYS: Record<PickupCollectionEventKind, string> = {
 export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId: string }) {
   const { t, locale } = useTranslation();
   const desk = useOrderPickup(storeId, orderId);
+  const { can } = useActiveStoreContext();
+  const canFulfill = can("orders:fulfill");
   const act = usePickupDeskAction(storeId, orderId);
   const rotate = useRotateCollectionCode(storeId, orderId);
 
@@ -91,24 +97,36 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
   /** The NEW code, shown once after a rotation so staff can read it out. */
   const [rotatedCode, setRotatedCode] = useState<string | null>(null);
 
-  // A 404 is the ordinary answer for a delivery order. Rendering nothing is
-  // right; an error box would tell every merchant that something is broken
-  // about the majority of their orders.
-  if (desk.data === undefined) return null;
-
-  const { pickup, events } = desk.data;
+  // A delivery order has no collection; only the endpoint's 404 means absent.
+  // Transient failures retain this order's snapshot and drafts, but never make
+  // stale handover controls actionable. Permission failures conceal cached data.
+  if (axios.isAxiosError(desk.error) && desk.error.response?.status === 404) return null;
+  const data = canRetainDetailData(desk.error) ? desk.data : undefined;
+  const disabled = !canFulfill || desk.isFetching || desk.isError || act.isPending || rotate.isPending;
+  const readStatus = <View testID="merchant-pickup-status" accessibilityLiveRegion="polite">
+    {desk.isFetching ? <Loading variant="inline" size="sm" accessibilityLabel={t("common.loading")} />
+      : desk.isError ? <View className="gap-2"><Text className="text-sm text-destructive">{t("orders.pickup.loadFailed")}</Text>
+        <Button size="sm" appearance="outline" onPress={() => { void desk.refetch(); }}>{t("common.retry")}</Button></View> : null}
+  </View>;
+  if (!data) return <View testID="merchant-pickup-desk" className="gap-3 rounded-2xl border border-border bg-card p-4">
+    <Text className="text-base font-semibold text-foreground">{t("orders.pickup.title")}</Text>{readStatus}
+  </View>;
+  const { pickup, events } = data;
   const settled = pickup.state === "collected" || pickup.state === "pickup_cancelled";
   const address = formatPublicAddress(pickup.address);
 
-  const run = (action: Parameters<typeof act.mutate>[0], success: string) =>
+  const run = (action: Parameters<typeof act.mutate>[0], success: string) => {
+    if (disabled) return;
     act.mutate(action, {
       onSuccess: () => toast.success(success),
       onError: (error: Error) => toast.error(error.message),
     });
+  };
 
   return (
-    <View className="gap-3 rounded-2xl border border-border bg-card p-4">
+    <View testID="merchant-pickup-desk" className="gap-3 rounded-2xl border border-border bg-card p-4">
       <Text className="text-base font-semibold text-foreground">{t("orders.pickup.title")}</Text>
+      {readStatus}
 
       <View className="gap-1">
         <Text className="text-sm font-semibold text-foreground">
@@ -130,12 +148,12 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
         {pickup.goWayPlaceId ? <PlaceOnGoWay placeId={pickup.goWayPlaceId} /> : null}
       </View>
 
-      {settled ? null : (
+      {settled || !canFulfill ? null : (
         <View className="gap-3">
           {pickup.state === "awaiting_preparation" ? (
             <Button
               tone="accent"
-              disabled={act.isPending}
+              disabled={disabled}
               onPress={() => run({ kind: "ready" }, t("orders.pickup.toast.markedReady"))}
             >
               {t("orders.pickup.markReady")}
@@ -147,6 +165,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               <TextFieldInput
                 label={t("orders.pickup.codeLabel")}
                 value={code}
+                disabled={disabled}
                 onValueChange={setCode}
                 placeholder={t("orders.pickup.codePlaceholder")}
                 autoCapitalize="characters"
@@ -156,7 +175,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             <Button
               appearance="outline"
               tone="neutral"
-              disabled={act.isPending || code.trim().length === 0}
+              disabled={disabled || code.trim().length === 0}
               onPress={() =>
                 run({ kind: "collect", code: code.trim() }, t("orders.pickup.toast.collected"))
               }
@@ -176,6 +195,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               <TextFieldInput
                 label={t("orders.pickup.overrideLabel")}
                 value={overrideReason}
+                disabled={disabled}
                 onValueChange={setOverrideReason}
                 placeholder={t("orders.pickup.overridePlaceholder")}
               />
@@ -183,7 +203,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             <Button
               appearance="outline"
               tone="neutral"
-              disabled={act.isPending || overrideReason.trim().length === 0}
+              disabled={disabled || overrideReason.trim().length === 0}
               onPress={() =>
                 run(
                   { kind: "collect", overrideReason: overrideReason.trim() },
@@ -203,6 +223,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               <TextFieldInput
                 label={t("orders.pickup.rotateLabel")}
                 value={rotateReason}
+                disabled={disabled}
                 onValueChange={setRotateReason}
                 placeholder={t("orders.pickup.rotatePlaceholder")}
               />
@@ -210,16 +231,17 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             <Button
               appearance="outline"
               tone="neutral"
-              disabled={rotate.isPending || rotateReason.trim().length === 0}
-              onPress={() =>
+              disabled={disabled || rotateReason.trim().length === 0}
+              onPress={() => {
+                if (disabled) return;
                 rotate.mutate(rotateReason.trim(), {
                   onSuccess: (issued) => {
                     setRotatedCode(issued.code);
                     toast.success(t("orders.pickup.toast.codeIssued"));
                   },
                   onError: (error: Error) => toast.error(error.message),
-                })
-              }
+                });
+              }}
             >
               {t("orders.pickup.rotate")}
             </Button>
@@ -246,6 +268,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               <TextFieldInput
                 label={t("orders.pickup.cancelLabel")}
                 value={cancelReason}
+                disabled={disabled}
                 onValueChange={setCancelReason}
                 placeholder={t("orders.pickup.cancelPlaceholder")}
               />
@@ -253,7 +276,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             <Button
               appearance="outline"
               tone="neutral"
-              disabled={act.isPending || cancelReason.trim().length === 0}
+              disabled={disabled || cancelReason.trim().length === 0}
               onPress={() =>
                 run(
                   { kind: "cancel", reason: cancelReason.trim() },

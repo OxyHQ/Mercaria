@@ -950,7 +950,8 @@
       },
       "trail": "Abholprotokoll",
       "trailEmpty": "Am Schalter ist noch nichts passiert.",
-      "viewPlace": "Ort auf GoWay ansehen"
+      "viewPlace": "Ort auf GoWay ansehen",
+      "loadFailed": "Die Abholung konnte nicht geladen werden. Versuche es erneut, bevor du die Bestellung übergibst."
     },
     "refund": {
       "dialogTitle": "Bestellung erstatten",

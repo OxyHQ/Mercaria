@@ -964,7 +964,8 @@
       },
       "trail": "Historique du retrait",
       "trailEmpty": "Rien ne s’est encore passé au comptoir.",
-      "viewPlace": "Voir le lieu sur GoWay"
+      "viewPlace": "Voir le lieu sur GoWay",
+      "loadFailed": "Impossible de charger le retrait. Réessayez avant de remettre la commande."
     },
     "refund": {
       "dialogTitle": "Rembourser la commande",
