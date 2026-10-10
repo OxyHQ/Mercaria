@@ -19,9 +19,11 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
       variants: [existing], options: [{ name: 'Color', values: ['Red', 'Blue'] }, { name: 'Size', values: ['M', 'L'] }, { name: 'Material', values: ['Linen', 'Cotton'] }],
       quantity: 5, overriddenFields: [], price: existing.price };
     let readError = false;
-    await page.route('**/admin/stores/*/products/variant-product', route => readError
-      ? route.fulfill({ status: 502, json: { success: false, message: 'Fixture read failure' } })
-      : route.fulfill({ json: { success: true, data: product } }));
+    await page.route('**/admin/stores/*/products/variant-product', route => {
+      if (route.request().method() === 'PATCH') Object.assign(product, route.request().postDataJSON());
+      else if (readError) return route.fulfill({ status: 502, json: { success: false, message: 'Fixture read failure' } });
+      return route.fulfill({ json: { success: true, data: product } });
+    });
     const writes: unknown[] = [];
     let fail = true;
     let release: (() => void) | undefined;
@@ -36,13 +38,36 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await page.goto('/products/variant-product');
     await page.getByRole('button', { name: copy.products.variants.add, exact: true }).click();
     const form = page.getByTestId('merchant-create-variant');
+    let refreshNumber = 0;
+    const refreshProduct = async (currency: string) => {
+      existing.price.currency = currency;
+      await page.getByRole('textbox', { name: copy.common.title, exact: true }).fill(`Updated product ${++refreshNumber}`);
+      await page.getByRole('button', { name: copy.products.detail.saveChanges, exact: true }).click();
+      await expect(page.getByTestId('merchant-variant-price').first().getByRole('textbox')).toHaveAccessibleName(`${copy.resourceList.price} (${currency})`);
+    };
     const color = form.getByRole('textbox', { name: 'Color', exact: true });
     const size = form.getByRole('textbox', { name: 'Size', exact: true });
     const material = form.getByRole('textbox', { name: 'Material', exact: true });
     const price = form.getByRole('textbox', { name: `${copy.resourceList.price} (EUR)`, exact: true });
     const stock = form.getByRole('textbox', { name: copy.products.stockLabel, exact: true });
     const save = form.getByRole('button', { name: copy.products.variants.saveVariant, exact: true });
+    // An empty form follows the current suggestion without assigning a price.
+    await refreshProduct('FAIR');
+    await expect(form.getByRole('textbox', { name: `${copy.resourceList.price} (FAIR)`, exact: true })).toHaveValue('');
+    await refreshProduct('EUR');
+    await expect(price).toHaveValue('');
     await color.fill('Blue'); await price.fill('12.34');
+    // A nonempty draft keeps both the typed number and its native monetary unit.
+    const priceNode = await price.elementHandle();
+    await refreshProduct('FAIR');
+    await expect(price).toHaveValue('12.34'); await expect(color).toHaveValue('Blue');
+    expect(await priceNode!.evaluate(element => element.isConnected)).toBe(true);
+    // Clearing just the price accepts the latest suggestion and keeps the options.
+    await price.fill('');
+    await expect(form.getByRole('textbox', { name: `${copy.resourceList.price} (FAIR)`, exact: true })).toHaveValue('');
+    await expect(color).toHaveValue('Blue');
+    await refreshProduct('EUR'); await price.fill('12.34'); await refreshProduct('FAIR');
+    await expect(price).toHaveValue('12.34');
     await save.click();
     await expect(form.getByText(copy.products.variants.optionRequired, { exact: true })).toHaveCount(2);
     expect(writes).toEqual([]);
