@@ -88,7 +88,7 @@ export const READ_SIDE_FOLD_SQL =
   JS_ONLY_SPACES +
   String.raw`'), '[\s` +
   JS_ONLY_SPACE_CLASS +
-  String.raw`]+', ' ', 'g'))`;
+  `]+', ' ', 'g'))`;
 
 /** The fold applied to one column, as raw SQL. */
 export function readSideFold(column: string): string {

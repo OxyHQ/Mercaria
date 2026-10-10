@@ -67,7 +67,9 @@ export class MercariaError extends Error {
   static readonly errorName: string = 'MercariaError';
 
   static override [Symbol.hasInstance](value: unknown): boolean {
+    // biome-ignore lint/complexity/noThisInStatic: `this` is the subclass `instanceof` was called on (`x instanceof NotFoundError`); naming MercariaError would match every SDK error.
     if (Function.prototype[Symbol.hasInstance].call(this, value)) return true;
+    // biome-ignore lint/complexity/noThisInStatic: the subclass's own `errorName`, for the same reason as above.
     return lineageOf(value)?.includes(this.errorName) ?? false;
   }
 
