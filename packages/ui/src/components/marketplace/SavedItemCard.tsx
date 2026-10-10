@@ -1,5 +1,7 @@
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { resolveCatalogImage } from "../../lib/stored-image-url";
 import { Bell, Heart, Package, TrendingDown, TrendingUp } from "lucide-react-native";
 import { ALL_CURRENCY_CODES, type CurrencyCode, type SavedItem } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
@@ -76,10 +78,12 @@ export function SavedItemCard({
   onCreatePriceAlert,
 }: SavedItemCardProps) {
   const t = useSharedUiTranslation();
+  const imageResolver = useImageResolver();
   const imageSource =
     item.kind === "product"
       ? item.product.imageFileId
       : item.imageFileId;
+  const imageUrl = resolveCatalogImage(imageSource ?? undefined, undefined, resolveImage ?? imageResolver);
 
   return (
     <View className="flex-row gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
@@ -91,9 +95,9 @@ export function SavedItemCard({
         onPress={() => onPress?.(item)}
         className="size-space-64 overflow-hidden rounded-radius-12 bg-bg-fill-secondary"
       >
-        {imageSource ? (
+        {imageUrl ? (
           <Image
-            source={{ uri: resolveImage ? resolveImage(imageSource) : imageSource }}
+            source={{ uri: imageUrl }}
             style={{ width: "100%", height: "100%" }}
             contentFit="cover"
           />
