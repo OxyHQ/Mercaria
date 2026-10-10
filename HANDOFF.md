@@ -1438,3 +1438,14 @@ first review, and eight upward swipes reach Page1of2/Next. Screenshot before:
 cases pass and frontend types pass. The toolbar currently still scrolls with the
 body on native; moving it to Bloom Dialog's official header.left/right slots is
 remaining work (avoid claiming pinned-header acceptance).
+
+Bloom Button release continuation: PR312
+https://github.com/OxyHQ/Bloom/pull/312 headc4cb4d692ee384ad9212b77a7edaf49a16c80e08
+is in CI38057179679 (build+nine shards, no failure reported). Local17 Yoga cases
+pass on RN0.83.2 and0.85.3,225 other tests and16 Chromium cases pass, source and
+consumer types/build/package/freshness pass. Agent-owned publisher73259 waits for
+merge/rebuild; watcher87953 waits for official7.30.1 metadata/tgz verification.
+Services11.1.16 already admits the patch. Do not adopt unpublished bits or start
+another publisher. After public verification, pin all3apps and UIpeer floor, bun
+install, repeat affected checks and Pixel grid136dp acceptance. Main is local
+118commits ahead of origin at8df62ecb; do not treat that as a production rollout.

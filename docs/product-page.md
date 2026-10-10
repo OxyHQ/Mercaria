@@ -471,7 +471,12 @@ for reduced-motion users. The Dialog and header stay mounted. Its public
 bottom sheet's natural height; Mercaria does not measure or resize the panel.
 Browser acceptance covers both directions, retained dialog identity, bounded
 movement, mobile height interpolation, Escape focus restoration and reduced
-motion at desktop English and mobile Arabic. Device acceptance remains pending.
+motion at desktop English and mobile Arabic. On Pixel8a, the combined slide/fade
+initially hid review contents inside nested ScrollViews. The three menu pages now
+render ordinary Views: Bloom Dialog owns scrolling and natural-height measurement.
+The complete animation now reveals reviews on the device and the list scrolls to
+its pagination controls. Native RTL/reduced-motion timing acceptance remains
+pending, as does moving the custom toolbar into Bloom's sticky header slots.
 
 A selected connected-store offer exposes its published return policy through a
 40px Bloom button and an opaque `MarketplaceSheet`, matching the policy action
