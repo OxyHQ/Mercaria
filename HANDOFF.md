@@ -1592,3 +1592,12 @@ contact cases pass. Agent finishes physical scroll/Back andEnglish restoration;
 manifest/lock/native-runtime docs commit remains agent-owned until final report.
 Native alpha serialization and real video/media acceptance remain separate open
 items; this does not claim full Shop parity or resolve production approvals.
+
+fc4e76c2 completes official Reanimated4.3.4 adoption and native verification.
+Pixel real EN/AR cold-start reviews, scrolling to pagination and Back PASS; final
+English restored through UI+cold start (/tmp/bloom434-restored-en.xml). Root
+independently inspected Arabic screenshot and XML pagination/Back evidence;
+installed version4.3.4 confirmed. Probes gone, clean worktree. Metro8160/8161
+sessions51598/11958 are active. Oxy cold-boot application-classification timeout
+still appears in native logs/LogBox and is NOT fixed by this animation patch.
+Next native audits must keep it and the alpha-serialization defect distinct.
