@@ -41,7 +41,7 @@ export interface MercariaFetchInit {
    * type can be assignable to all of them without importing one of them, and
    * importing one would force that lib on every consumer.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: must be assignable to every platform's RequestInit.signal (see above)
   signal?: any;
   credentials: 'omit';
   redirect: 'follow';

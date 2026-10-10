@@ -107,7 +107,7 @@ export default function BrandPageScreen() {
           // the derivation is the server's and this is its rendering.
           <script
             type="application/ld+json"
-            // eslint-disable-next-line react/no-danger
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: a JSON-LD script body from the structured-data serialiser, not markup
             dangerouslySetInnerHTML={{
               __html: toJsonLd(brand.structuredData, brand.canonicalPath),
             }}

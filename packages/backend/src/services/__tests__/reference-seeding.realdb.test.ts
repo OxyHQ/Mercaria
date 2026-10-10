@@ -341,6 +341,7 @@ describe('ADR 0014: a reference catalogue seeds the product a price attaches to'
     // The structured facts survived into the stored payload.
     const reference = await objectOf(referenceSourceId);
     const [observation] = await db.select().from(sourceRecords).where(eq(sourceRecords.id, reference?.currentSourceRecordId ?? ''));
+    // biome-ignore lint/correctness/noUnsafeOptionalChaining: in a test, a missing row throwing here is the failure we want
     expect((observation?.payload as { facts?: unknown }).facts).toEqual([{ key: 'openfacts.nutriscore_grade', value: 'b' }]);
   });
 

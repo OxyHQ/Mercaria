@@ -20,13 +20,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/* eslint-disable react-hooks/rules-of-hooks -- useQuery is mocked above to capture options; these calls invoke no React hooks. */
 const hooks = [
   { name: 'products', read: (store: string, page: number) => useProducts(store, page, '') },
   { name: 'orders', read: (store: string, page: number) => useOrders(store, page, 'all') },
   { name: 'customers', read: (store: string, page: number) => useCustomers(store, page, '') },
 ];
-/* eslint-enable react-hooks/rules-of-hooks */
 
 describe.each(hooks)('$name pagination', ({ read }) => {
   it('retains the same store while paging, clears on store change, and ignores late prior-store responses', async () => {
@@ -69,13 +67,11 @@ describe.each(hooks)('$name pagination', ({ read }) => {
   });
 });
 
-/* eslint-disable react-hooks/rules-of-hooks -- mocked useQuery only captures production query options. */
 const filterCases = [
   { name: 'product search', read: (changed: boolean) => useProducts('store-a', 1, changed ? 'jacket' : '') },
   { name: 'product status', read: (changed: boolean) => useProducts('store-a', 1, '', changed ? 'active' : 'all') },
   { name: 'order status', read: (changed: boolean) => useOrders('store-a', 1, changed ? 'paid' : 'all') },
 ];
-/* eslint-enable react-hooks/rules-of-hooks */
 
 describe.each(filterCases)('$name filter', ({ read }) => {
   it('clears rows immediately while a different filter is pending', async () => {

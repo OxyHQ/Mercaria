@@ -49,13 +49,13 @@ export default function SearchScreen() {
   // query take the same path. `interpret` is a mutation rather than a query
   // precisely so this is the ONLY place it fires — a query keyed on the term
   // would re-parse on every focus, and a parse may call a provider.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `interpret` is stable per mutation instance; the URL's query is the only real input
   useEffect(() => {
     if (initialQuery.trim().length === 0) return;
     setTerm(initialQuery);
     interpret.mutate({ query: initialQuery });
     // `interpret` is stable per mutation instance and re-running on it would
     // re-parse on every render; the URL's query is the only real input.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
   const answer = useCallback(

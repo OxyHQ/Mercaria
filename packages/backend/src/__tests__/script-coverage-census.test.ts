@@ -687,7 +687,8 @@ const SCRIPT_COVERAGE_EXEMPTIONS: readonly ScriptCoverageExemption[] = [
   {
     module: 'dashboard/app/(app)/collections/index.tsx',
     reason: 'runner_cannot_reach',
-    construct: 'replace(/[^a-z0-9]+/g, "-")',
+    // Up to the replacement string only, whose quote style is the formatter's.
+    construct: 'replace(/[^a-z0-9]+/g, ',
     note: 'An inline slug in a SCREEN; the dashboard runner is lib-only with no renderer (#469).',
   },
 ];

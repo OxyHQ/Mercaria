@@ -21,7 +21,7 @@
  * the shape `catalog-identity-isolation.test.ts` works around by splitting its
  * forbidden names into fragments; keeping the scanner outside the scanned tree
  * removes the problem instead of dodging it. `scripts/**` is typechecked
- * (tsconfig `include`), linted (`eslint src scripts build.ts`) and carries
+ * (tsconfig `include`), linted (Biome, `biome check .`) and carries
  * vitest cases (`vitest.config.ts` `include`), so nothing is given up.
  */
 

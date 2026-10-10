@@ -25,7 +25,7 @@ bun install
 bun run build:shared-types                # ALWAYS before db:generate
 bun run --cwd packages/backend test        # vitest, incl. the *.realdb.test.ts suites
 bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,frontend,dashboard,pos}
-bun run --filter @mercaria/backend lint
+bun run lint
 bun run validate:agents-md                # budget
 bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ```

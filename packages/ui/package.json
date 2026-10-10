@@ -1,7 +1,7 @@
 {
   "name": "@mercaria/ui",
   "version": "1.0.0",
-  "description": "Shared Mercaria UI: presentational components, primitives and theme \u2014 consumed from SOURCE (no dist build)",
+  "description": "Shared Mercaria UI: presentational components, primitives and theme — consumed from SOURCE (no dist build)",
   "private": true,
   "main": "src/index.ts",
   "exports": {
@@ -18,7 +18,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "echo \"No lint configured for ui\" && exit 0",
+    "lint": "biome check .",
     "test": "echo \"No tests specified\" && exit 0"
   },
   "keywords": [

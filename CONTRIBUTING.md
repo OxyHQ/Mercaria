@@ -77,7 +77,7 @@ bun run validate:authoring-schema
 bun run validate:money-formatting
 bun run validate:storefront-catalog
 bun run validate:route-targets
-bun run --filter @mercaria/backend lint
+bun run lint                       # Biome (every package) + Expo env-var ESLint
 bun run --filter @mercaria/backend typecheck
 bun run --filter @mercaria/ui typecheck
 bun run --filter @mercaria/dashboard typecheck

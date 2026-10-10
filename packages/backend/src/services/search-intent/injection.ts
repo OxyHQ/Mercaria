@@ -60,8 +60,9 @@ import {
 // silenced at exactly this line and nowhere wider —
 // `services/checkout/contact.ts` carries the same exemption for the same
 // reason.
-// eslint-disable-next-line no-control-regex
-const CONTROL_AND_INVISIBLE = /[\u{0}-\u{8}\u{B}\u{C}\u{E}-\u{1F}\u{7F}-\u{9F}\u{200B}-\u{200F}\u{2028}\u{2029}\u{202A}-\u{202E}\u{2066}-\u{2069}\u{FEFF}]/gu;
+const CONTROL_AND_INVISIBLE =
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters is the purpose of this pattern
+  /[\u{0}-\u{8}\u{B}\u{C}\u{E}-\u{1F}\u{7F}-\u{9F}\u{200B}-\u{200F}\u{2028}\u{2029}\u{202A}-\u{202E}\u{2066}-\u{2069}\u{FEFF}]/gu;
 
 /**
  * Markup and fencing a query has no reason to carry.

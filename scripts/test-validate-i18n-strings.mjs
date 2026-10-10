@@ -1354,12 +1354,15 @@ async function assertCheckFCatchesTheRealDefect() {
   const target = resolve(
     repositoryRoot, "packages/dashboard/app/(app)/channels/[connectionId].tsx",
   );
-  const FIXED = '{t("channels.disconnect.intro")}';
-  const REGRESSED = '{t("channels.disconnect.intro", {\n'
+  const original = await readFile(target, "utf8");
+  // The screen's quote style is the formatter's decision (Biome: single), so the
+  // premise and the mutation follow whichever one the file spells.
+  const q = original.includes("{t('channels.disconnect.intro')}") ? "'" : '"';
+  const FIXED = `{t(${q}channels.disconnect.intro${q})}`;
+  const REGRESSED = `{t(${q}channels.disconnect.intro${q}, {\n`
     + "            policy: t(DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase(),\n"
     + "          })}";
 
-  const original = await readFile(target, "utf8");
   // Measure the premise before relying on it: if the screen no longer spells the
   // fixed form, this test would "pass" by mutating nothing.
   if (!original.includes(FIXED)) {

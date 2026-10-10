@@ -171,7 +171,7 @@ export default function CategoryScreen() {
       {jsonLd === undefined ? null : (
         <script
           type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: a JSON-LD script body from the structured-data serialiser, not markup
           dangerouslySetInnerHTML={{ __html: jsonLd }}
         />
       )}

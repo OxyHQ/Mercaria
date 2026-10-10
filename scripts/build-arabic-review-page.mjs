@@ -31,6 +31,7 @@
 const raw = await Bun.stdin.text();
 const report = JSON.parse(raw);
 
+// biome-ignore lint/suspicious/noShadowRestrictedNames: a deliberate local HTML escaper; the deprecated global escape() is never wanted here
 const escape = (value) => String(value ?? "")
   .replace(/&/gu, "&amp;")
   .replace(/</gu, "&lt;")

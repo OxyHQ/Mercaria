@@ -92,7 +92,7 @@ export function detectUploadContainer(prefix: Buffer): FeedCompression {
 export function sanitizeUploadFilename(raw: string): string {
   const basename = raw.split(/[/\\]/u).pop() ?? '';
   const cleaned = basename
-    // eslint-disable-next-line no-control-regex -- control characters in a filename are the point
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters in a filename are the point
     .replace(/[\u0000-\u001f\u007f]/gu, '')
     .replace(/[^A-Za-z0-9 _.-]/gu, '_')
     .replace(/^[^A-Za-z0-9]+/u, '')
