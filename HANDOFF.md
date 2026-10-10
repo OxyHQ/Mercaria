@@ -1139,3 +1139,13 @@ on reads. No new image transport or browser supplier fallback was introduced.
 Forty service/HTML-import tests and 37 storage-port/real-Postgres repository tests
 pass, with backend types and lint. The new service tests use the real HTML parser
 and replace the byte-storage port; they do not establish a new live upload run.
+
+## Native appearance dependency — 2026-10-10
+
+Added Expo SDK 56's `expo-system-ui` 56.0.5 to all three apps. Each declares
+automatic appearance, which Android otherwise ignores. Official prebuild now
+emits `expo_system_ui_user_interface_style=automatic` without the missing-module
+warning; all three app typechecks pass. Local native build directories stay
+ignored. A connected Pixel 8a loaded the JavaScript bundle in Expo Go, but its
+unsupported native notifications stopped startup. A real development build is
+being prepared; that failed Expo Go launch is not native UI acceptance.
