@@ -19,8 +19,12 @@
  *
  * - `targeted` re-reads named GTINs through the product endpoint; a 404 is a
  *   positive statement the product was deleted, reported as a removal.
- * - `query_driven` walks the search endpoint for the source's countries,
- *   newest edit first, and stops at the run's watermark.
+ * - `query_driven` first reads the catalogue's DEMAND — GTINs other sources
+ *   priced that nothing identifies yet (`OpenDataDemand`) — through the
+ *   product endpoint, then walks the search endpoint for the source's
+ *   countries, newest edit first, stopping at the run's watermark. A demanded
+ *   GTIN the database does not have is simply absent: it is not this source's
+ *   object, so there is nothing to remove.
  *
  * Neither is a complete enumeration — the full database is only complete in a
  * multi-gigabyte nightly dump — so this provider never retires by omission.
@@ -156,6 +160,32 @@ async function fetchTargeted(site: OpenFactsSite, context: OpenDataPageContext):
 }
 
 async function fetchSearch(site: OpenFactsSite, context: OpenDataPageContext): Promise<OpenDataPage> {
+  // Phase 1: demand. A cursor with `w` is mid-demand; a cursor with `p` is in
+  // the search; no cursor starts with demand when there is any.
+  if (context.demand !== null && (context.cursor === null || 'w' in context.cursor)) {
+    const after = typeof context.cursor?.w === 'string' ? context.cursor.w : null;
+    const wanted = await context.demand.gtins(after, Math.min(context.pageSize, TARGETED_PAGE_CAP));
+    if (wanted.length > 0) {
+      const language = preferredLanguage(context.territories);
+      const items: OpenDataItem[] = [];
+      for (const gtin of wanted) {
+        const code = gtinDigits(gtin);
+        if (code === undefined) continue;
+        const response = await context.http.getJson(
+          `https://${site.host}/api/v2/product/${code}.json?fields=${FIELDS}`,
+          { minIntervalMs: PRODUCT_INTERVAL_MS, allowNotFound: true, ...(context.signal ? { signal: context.signal } : {}) },
+        );
+        const body = asObject(response?.body);
+        const product = asObject(body?.product);
+        if (product === undefined || body?.status === 0) continue;
+        const item = toItem(site, product, language);
+        if (item !== null) items.push(item);
+      }
+      return { items, next: { w: wanted[wanted.length - 1] ?? null }, complete: false };
+    }
+    // Demand exhausted: the search starts on the next page.
+    if (after !== null) return { items: [], next: { p: 1 }, complete: false };
+  }
   const page = typeof context.cursor?.p === 'number' ? context.cursor.p : 1;
   const pageSize = Math.min(Math.max(context.pageSize, 1), SEARCH_PAGE_CAP);
   const params = new URLSearchParams({

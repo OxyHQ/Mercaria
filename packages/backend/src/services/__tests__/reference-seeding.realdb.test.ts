@@ -31,6 +31,7 @@ import { closePostgres, connectPostgres, type Database } from '../../db/postgres
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
 import { openSourceRun } from '../../db/ingestion/catalogSourceRunRepository.js';
+import { listGtinDemand } from '../../db/ingestion/catalogSourceObjectRepository.js';
 import { insertMatchPolicyVersion } from '../../db/matching/matchPolicyRepository.js';
 import { catalogBackfillRecords, catalogBackfillRuns } from '../../db/schema/backfill.js';
 import {
@@ -335,6 +336,16 @@ describe('ADR 0014: a reference catalogue seeds the product a price attaches to'
     const reference = await objectOf(referenceSourceId);
     const [observation] = await db.select().from(sourceRecords).where(eq(sourceRecords.id, reference?.currentSourceRecordId ?? ''));
     expect((observation?.payload as { facts?: unknown }).facts).toEqual([{ key: 'openfacts.nutriscore_grade', value: 'b' }]);
+  });
+
+  it('reads the unmatched GTIN as DEMAND for any source that does not hold it', async () => {
+    // Just below this file's GTIN, so siblings' demand cannot push it past the limit.
+    const after = (BigInt(GTIN) - 1n).toString().padStart(GTIN.length, '0');
+    const forStranger = await listGtinDemand(db, { askingSourceId: `nobody-${RUN}`, after, limit: 50 });
+    expect(forStranger).toContain(GTIN);
+    // The reference source already holds an object under it: no demand for it.
+    const forReference = await listGtinDemand(db, { askingSourceId: referenceSourceId, after, limit: 50 });
+    expect(forReference).not.toContain(GTIN);
   });
 
   it('a DRY RUN reports the mint and writes nothing', async () => {

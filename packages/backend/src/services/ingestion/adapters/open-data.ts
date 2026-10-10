@@ -28,12 +28,15 @@ import {
   OpenDataConfigurationError,
   OpenDataSchemaError,
   type OpenDataCursor,
+  type OpenDataDemand,
   type OpenDataProvider,
 } from '../../open-data/provider.js';
 
 /** What the composition root hands every open-data adapter. */
 export interface OpenDataAdapterDependencies {
   readonly http: OpenDataHttp;
+  /** The catalogue's demand for one source, or absent where none is wired. */
+  readonly demandFor?: (sourceId: string) => OpenDataDemand;
   /** Injected for tests; the dispatcher's own clock otherwise. */
   readonly clock?: () => Date;
 }
@@ -75,6 +78,7 @@ export function createOpenDataAdapter(
           since: request.since,
           externalIds: request.externalIds,
           http: dependencies.http,
+          demand: dependencies.demandFor?.(request.sourceId) ?? null,
           now,
           ...(request.signal === undefined ? {} : { signal: request.signal }),
         });

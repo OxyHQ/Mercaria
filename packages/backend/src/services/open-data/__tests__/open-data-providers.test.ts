@@ -19,7 +19,7 @@ import type { CatalogRefreshMode, NormalizedSourceFact } from '@mercaria/shared-
 import { canonicalizeNormalizedRecord } from '../../ingestion/normalization.js';
 import { buildStoredPayload, normalizedFromStoredPayload, redactSourceObservation } from '../../ingestion/redact.js';
 import type { OpenDataDownload, OpenDataHttp, OpenDataJsonResponse } from '../http.js';
-import type { OpenDataCursor, OpenDataItem, OpenDataPage, OpenDataProvider } from '../provider.js';
+import type { OpenDataCursor, OpenDataDemand, OpenDataItem, OpenDataPage, OpenDataProvider } from '../provider.js';
 import { cheapSharkProvider } from '../providers/cheapshark.js';
 import { gogProvider } from '../providers/gog.js';
 import { mitecoFuelProvider } from '../providers/miteco-fuel.js';
@@ -62,7 +62,7 @@ function fakeHttp(routes: {
 async function page(
   provider: OpenDataProvider,
   http: OpenDataHttp,
-  options: { accountRef?: string | null; territories?: string[]; mode?: CatalogRefreshMode; externalIds?: string[]; cursor?: OpenDataCursor | null; pageSize?: number; since?: Date | null } = {},
+  options: { accountRef?: string | null; territories?: string[]; mode?: CatalogRefreshMode; externalIds?: string[]; cursor?: OpenDataCursor | null; pageSize?: number; since?: Date | null; demand?: OpenDataDemand | null } = {},
 ): Promise<OpenDataPage> {
   return provider.fetchPage({
     cursor: options.cursor ?? null,
@@ -73,6 +73,7 @@ async function page(
     since: options.since ?? null,
     externalIds: options.externalIds ?? [],
     http,
+    demand: options.demand ?? null,
     now: NOW,
   });
 }
@@ -227,6 +228,38 @@ describe('the Open Facts family', () => {
     expect(result.next).toBeNull();
     expect(result.complete).toBe(false);
     expect(http.requested[0]).toContain('countries_tags=en%3Aspain');
+  });
+
+  it('fetches the catalogue\'s demanded GTINs first, then hands over to the search', async () => {
+    const product = (fixture('open-food-facts-product.json') as { product: Record<string, unknown> }).product;
+    const asked: (string | null)[] = [];
+    const demand: OpenDataDemand = {
+      gtins: async (after) => {
+        asked.push(after);
+        return after === null ? ['8480000160164', '4056489000000'] : [];
+      },
+    };
+    const http = fakeHttp({
+      // The second demanded GTIN is unknown to the database: absent, not removed.
+      json: (url) => (url.includes('8480000160164') ? { body: { status: 1, product } } : null),
+    });
+    const first = await page(food, http, { mode: 'query_driven', demand });
+    expect(first.items.map((item) => item.externalId)).toEqual(['8480000160164']);
+    expect(first.removed).toBeUndefined();
+    expect(first.next).toEqual({ w: '4056489000000' });
+
+    const handover = await page(food, http, { mode: 'query_driven', demand, cursor: first.next });
+    expect(handover.items).toEqual([]);
+    expect(handover.next).toEqual({ p: 1 });
+    expect(asked).toEqual([null, '4056489000000']);
+  });
+
+  it('goes straight to the search when nothing is demanded', async () => {
+    const product = (fixture('open-food-facts-product.json') as { product: Record<string, unknown> }).product;
+    const http = fakeHttp({ json: () => ({ body: { count: 1, products: [product] } }) });
+    const result = await page(food, http, { mode: 'query_driven', demand: { gtins: async () => [] } });
+    expect(result.items.map((item) => item.externalId)).toEqual(['8480000160164']);
+    expect(http.requested[0]).toContain('/api/v2/search?');
   });
 
   it('is four providers with four hosts', () => {

@@ -35,12 +35,14 @@ function withoutComments(source: string): string {
 
 describe('an open-data module reaches nothing in the commerce graph', () => {
   it('no provider, reader or transport imports a repository, a database, a canonical write, an offer or the matcher', () => {
+    // `register.ts` is the composition root: it supplies the demand read as a
+    // function and is the one module here that may reach Postgres.
     const files = [
-      ...readdirSync(OPEN_DATA_ROOT).filter((entry) => entry.endsWith('.ts')).map((entry) => entry),
+      ...readdirSync(OPEN_DATA_ROOT).filter((entry) => entry.endsWith('.ts') && entry !== 'register.ts'),
       ...readdirSync(join(OPEN_DATA_ROOT, 'providers')).filter((entry) => entry.endsWith('.ts')).map((entry) => `providers/${entry}`),
     ];
     // The floor, read off the real tree: an empty walk passes vacuously.
-    expect(files.length).toBeGreaterThanOrEqual(12);
+    expect(files.length).toBeGreaterThanOrEqual(11);
     for (const file of files) {
       const source = withoutComments(readFileSync(join(OPEN_DATA_ROOT, file), 'utf8'));
       for (const { name, pattern } of FORBIDDEN) {

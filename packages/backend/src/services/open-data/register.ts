@@ -10,9 +10,16 @@
  * One transport is shared by every provider, so its per-host request spacing
  * holds across all the sources of a provider in this process — twenty Open
  * Prices chains are one client of `prices.openfoodfacts.org`, not twenty.
+ *
+ * This file is the composition root and the ONE module of the domain that
+ * reaches Postgres: it supplies the catalogue's demand (`listGtinDemand`) as a
+ * function, so the providers themselves never do. `open-data-isolation.test.ts`
+ * names it as the only exemption.
  */
 
 import { config } from '../../config/index.js';
+import { getDb } from '../../db/postgres.js';
+import { listGtinDemand } from '../../db/ingestion/catalogSourceObjectRepository.js';
 import { log } from '../../lib/logger.js';
 import { createOpenDataAdapter } from '../ingestion/adapters/open-data.js';
 import { registerCatalogSourceAdapter } from '../ingestion/registry.js';
@@ -56,7 +63,14 @@ export function registerOpenDataAdapters(): void {
       continue;
     }
     if (registered.has(slug)) continue;
-    registerCatalogSourceAdapter(createOpenDataAdapter(provider, { http }));
+    registerCatalogSourceAdapter(
+      createOpenDataAdapter(provider, {
+        http,
+        demandFor: (sourceId) => ({
+          gtins: (after, limit) => listGtinDemand(getDb(), { askingSourceId: sourceId, after, limit }),
+        }),
+      }),
+    );
     registered.add(slug);
   }
   log.general.info({ providers: [...registered] }, '[OpenData] open-data adapters registered');

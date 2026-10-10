@@ -58,13 +58,25 @@ later, reviewable step; adapters never do it.
 | Slug | What | Prices | Licence | `sourceAccountRef` | Modes |
 |---|---|---|---|---|---|
 | `open_prices` | Crowd-sourced shelf/receipt prices by GTIN, shop and date (daily dumps) | EUR, per chain | ODbL | chain: fold of the OSM brand (`mercadona`, `lidl`, `supeco`…) | snapshot, incremental |
-| `open_food_facts` | Food catalogue: GTIN, name, brand, photos, ingredients, allergens, nutrition, Nutri-Score/NOVA/Eco-Score | — | ODbL (images CC BY-SA) | — | query_driven (country search), targeted (by GTIN) |
+| `open_food_facts` | Food catalogue: GTIN, name, brand, photos, ingredients, allergens, nutrition, Nutri-Score/NOVA/Eco-Score | — | ODbL (images CC BY-SA) | — | query_driven (DEMAND first, then country search), targeted (by GTIN) |
 | `open_products_facts` · `open_beauty_facts` · `open_pet_food_facts` | The same database for general products, cosmetics and pet food | — | ODbL | — | as above |
 | `miteco_fuel` | Every fuel at every public service station in Spain, refreshed every 30 min | EUR/l (exact in a fact) | Spanish public-sector reuse | station brand: fold of `Rótulo` (`repsol`, `ballenoil`…) | snapshot, incremental |
 | `cheapshark` | PC game prices across ~15 digital stores | USD | provider terms | CheapShark `storeID` (`1` Steam, `7` GOG…) | incremental |
 | `gog_catalog` | GOG.com's full catalogue (games, DLC, packs, extras) | EUR for ES | provider terms | — | incremental |
 | `scryfall` | Every priced paper Magic card, one offer per finish | EUR (Cardmarket trend) | provider terms | — | incremental |
 | `tcgdex` | Every Pokémon TCG card, localized, one offer per finish | EUR (Cardmarket trend) | provider terms | card language (`es` default) | incremental |
+
+### Demand: the reference source fetches what the prices need
+
+A catalogue provider's `query_driven` pass first reads the catalogue's
+**demand**: the GTINs that other sources observed `unmatched` and that this
+source holds no object for (`listGtinDemand`). It fetches those through the
+product endpoint, 12 per page at the published pace, and only then walks the
+country search. So a Mercadona price seen by Open Prices makes Open Food Facts
+fetch exactly that product. Then ADR 0014's `reference_products` has a reference
+record to mint from, and `source_readvance` attaches the price. The demand is a
+Postgres read, so `register.ts` (the composition root, the domain's only module
+that reaches the database) supplies it as a function.
 
 ### Rules every descriptor follows
 

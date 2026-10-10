@@ -55,9 +55,32 @@ export interface OpenDataPageContext {
   /** The ids to re-read, for a `targeted` refresh only. */
   readonly externalIds: readonly string[];
   readonly http: OpenDataHttp;
+  /**
+   * What the catalogue is asking for, or `null` where this deployment wired no
+   * demand. A catalogue provider reads it to fetch exactly the products other
+   * sources priced and nothing identifies yet — see {@link OpenDataDemand}.
+   */
+  readonly demand: OpenDataDemand | null;
   /** One instant for the whole page, taken before the provider was called. */
   readonly now: Date;
   readonly signal?: AbortSignal;
+}
+
+/**
+ * The catalogue's demand, scoped to the source asking.
+ *
+ * Without it a reference catalogue is read by country search, newest edit
+ * first, and the products a price feed actually priced arrive by luck. With
+ * it, the reference source fetches those GTINs first — Open Prices sees a
+ * Mercadona price for a GTIN, Open Food Facts is asked for that GTIN, and
+ * ADR 0014's seeding has a reference record to mint from.
+ *
+ * A FUNCTION rather than a list: the demand is a read of Postgres, which a
+ * provider may not make, so the composition root supplies it.
+ */
+export interface OpenDataDemand {
+  /** GTINs other sources observed unmatched and this source holds no object for, ascending after `after`. */
+  gtins(after: string | null, limit: number): Promise<readonly string[]>;
 }
 
 /** A provider's cursor: any JSON object. The adapter encodes it opaquely. */
