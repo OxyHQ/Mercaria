@@ -14,7 +14,8 @@
  * and never writes one.
  */
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { isOxyFileId } from '@mercaria/shared-types';
 import { assertLocalizedRow } from '../../lib/localized-text.js';
 import type {
   AttributeComponentAxis,
@@ -405,6 +406,21 @@ export async function listCanonicalImages(
     .from(canonicalImages)
     .where(owner)
     .orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
+}
+
+/** Retain the source observation, row identity and variant grain when importing
+ * legacy source-hosted imagery. A concurrent replacement must win. */
+export async function attachImportedCanonicalImage(
+  db: DatabaseOrTransaction,
+  imageId: string,
+  sourceUrl: string,
+  fileId: string,
+): Promise<boolean> {
+  if (!isOxyFileId(fileId)) throw new Error('Expected an Oxy file ID.');
+  const rows = await db.update(canonicalImages).set({ fileId }).where(and(
+    eq(canonicalImages.id, imageId), eq(canonicalImages.sourceUrl, sourceUrl), isNull(canonicalImages.fileId),
+  )).returning({ id: canonicalImages.id });
+  return rows.length === 1;
 }
 
 export interface RecordFieldProvenanceInput {

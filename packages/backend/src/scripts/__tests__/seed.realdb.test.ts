@@ -245,3 +245,12 @@ describe('the dev seed runs to completion against an empty migrated database', (
     expect(counts.get('store') ?? 0, 'and the store half is untouched').toBeGreaterThan(0);
   });
 });
+
+
+it('stores synchronized Oxy IDs for every seeded product and category image', async () => {
+  const rows = await db.execute(sql`select file_id as id from listing_images union all select image_file_id from categories where image_file_id is not null union all select logo_file_id from stores where logo_file_id is not null union all select cover_file_id from stores where cover_file_id is not null`);
+  expect(rows.length).toBeGreaterThan(30);
+  for (const row of rows) expect(row.id).toMatch(/^[A-Za-z0-9_-]+$/);
+  const sourceReferences = await db.execute(sql`select id from categories where image_url is not null`);
+  expect(sourceReferences).toHaveLength(0);
+});

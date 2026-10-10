@@ -45,6 +45,7 @@ import type {
   UpdateListingInput,
 } from '@mercaria/shared-types';
 import {
+  isOxyFileId,
   MERCHANT_ARCHIVABLE_LISTING_STATUSES,
   SELLER_SETTABLE_LISTING_STATUSES,
 } from '@mercaria/shared-types';
@@ -405,6 +406,9 @@ export async function repinListingProductTypeVersion(
 
 /** Map input image file ids to the `listing_images` rows they expand into. */
 function toListingImages(imageFileIds: string[]): ListingImageInput[] {
+  if (!imageFileIds.every(isOxyFileId)) {
+    throw validationError('Listing images must be synchronized Oxy file IDs.');
+  }
   if (imageFileIds.length > config.catalog.maxImagesPerListing) {
     throw validationError(
       `A listing may have at most ${config.catalog.maxImagesPerListing} images`,

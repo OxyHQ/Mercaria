@@ -105,7 +105,7 @@ async function synchronizeImages(references: readonly string[], resolveOwner: ()
         await response.body?.cancel();
         throw new CatalogMediaSyncError(response.status === 401 || response.status === 403
           ? 'Oxy has not authorized catalog image synchronization.'
-          : 'Oxy could not store the catalog image.');
+          : `Oxy could not store the catalog image (HTTP ${response.status}).`);
       }
       const payload = await response.json() as { data?: { file?: { id?: unknown; visibility?: unknown } } };
       const file = payload.data?.file;

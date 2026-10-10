@@ -55,6 +55,7 @@ import {
   productIdentifiers,
 } from '../schema/canonicalCatalog.js';
 import {
+  attachImportedCanonicalImage,
   listAttributeValues,
   setAttributeValueSelectionState,
 } from '../canonical/attributeRepository.js';
@@ -838,6 +839,23 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     expect(publicProduct?.images[0]?.freshness?.observedAt).toBe(observedAt.toISOString());
     expect(publicProduct?.images[0]?.fileId).toBe('oxy-canonical-file');
     expect(uploadImage.mock.calls[0]?.[1].headers['x-owner-user-id']).toBe(OPERATOR);
+  });
+
+  it('imports a legacy image without replacing its identity or overwriting a concurrent import', async () => {
+    const productId = await mintProduct({ label: 'Legacy media import' });
+    const result = await applyProductSourceObservation({
+      productId, sourceId, externalId: `legacy-media-${RUN}`, observedAt: new Date(),
+      method: 'connector_declared', matchRule: 'test.legacy-media', decidedByOxyUserId: OPERATOR,
+      fields: {}, images: [{ fileId: 'before-import', sourceUrl: 'https://supplier.example/legacy.jpg', alt: 'Front' }],
+    });
+    const [before] = await db.update(canonicalImages).set({ fileId: null })
+      .where(eq(canonicalImages.sourceRecordId, result.sourceRecordId)).returning();
+    expect(await attachImportedCanonicalImage(db, before.id, 'https://supplier.example/changed.jpg', 'new-file')).toBe(false);
+    expect(await attachImportedCanonicalImage(db, before.id, before.sourceUrl!, 'new-file')).toBe(true);
+    expect(await attachImportedCanonicalImage(db, before.id, before.sourceUrl!, 'stale-file')).toBe(false);
+    const [after] = await db.select().from(canonicalImages).where(eq(canonicalImages.id, before.id));
+    expect(after).toEqual({ ...before, fileId: 'new-file', imageRef: 'new-file', updatedAt: expect.any(Date) });
+    expect(after.updatedAt.getTime()).toBeGreaterThanOrEqual(before.updatedAt.getTime());
   });
 
   it('makes an image without an observation UNWRITABLE, not merely discouraged', async () => {

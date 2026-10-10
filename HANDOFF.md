@@ -782,3 +782,32 @@ retain compatibility; supplier URLs are withheld until imported. Real database
 projection and negative media-reference tests do not prove file upload or image
 byte availability. The local catalog still needs authorized Oxy media imports;
 the existing illustrated-category acceptance test remains unchanged.
+
+## Catalog media recovery — 2026-10-10
+
+The explicitly approved Oxy application + existing service credential scope grant
+`files:user-media:write` was applied atomically, preserving the six existing scopes
+and keys. The ECS operator receipt is task
+`9fb8c20091f34199ae2e16293cbc955d` in `/oxy/ecs`; both temporary maintenance tasks
+were stopped after completion. A fresh service token confirmed the new scope.
+No production Mercaria catalog rows were changed.
+
+The local `mercaria_dev_canonical_20261010` catalog now has real imported Oxy files:
+66 source references covering 27 listing images, 6 canonical images, 39 category
+images and store logos/covers (sources shared between rows). Local demo images
+were imported under the verified Oxy seed operator account, without rewriting
+fake fixture store/seller ownership. Listing row IDs, variant-image links,
+canonical source observations and ordering were retained. The public source→file
+mapping is `packages/backend/src/scripts/seed-media-manifest.json`; it contains
+actual returned IDs, not image test doubles. Future dev seeds use that manifest
+and validate all references before clearing tables. Add new fixture imagery by
+importing it into Oxy first and recording the returned ID; never fabricate IDs.
+The local ignored backend environment has the authorized application credentials.
+
+The listing create/update service and HTTP schemas now reject URLs as file IDs.
+Connector/channel and canonical import services already synchronize sources before
+writes. Live browser acceptance is `scripts/e2e/storefront/live-catalog-media.spec.ts`:
+1440/390 px, no request interception, actual loaded image dimensions and no supplier
+CDN requests. Both passed. Successful byte delivery was also verified directly
+from `cloud.oxy.so`. This closes the earlier live-media import prerequisite;
+negative fixture tests remain error-boundary tests only.
