@@ -159,6 +159,7 @@ export function buildStoredPayload(record: NormalizedSourceRecord): StoredSource
     affiliateUrl: record.affiliateUrl,
     sourceCreatedAt: record.sourceCreatedAt,
     sourceUpdatedAt: record.sourceUpdatedAt,
+    facts: record.facts !== undefined && record.facts.length > 0 ? record.facts : undefined,
   });
 
   /**

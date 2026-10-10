@@ -542,3 +542,26 @@ registers between deploys keeps it. `NEARBY_DISCOVERY_ENABLED` and
   merged is undiscoverable until its merchant's next verify (the dashboard
   runs one on opening the location). A sweep could do it; nothing does yet.
 
+
+# Open-data providers — what is built and what is next
+
+Keyless catalogue and price providers (`services/open-data/`, doc
+`docs/catalog-sources/open-data-providers.md`) are built, tested against
+recorded responses and #62's contract suite, and exercised live. They are
+**inert**: `OPEN_DATA_PROVIDERS` is empty and `OPEN_DATA_USER_AGENT` unset on
+every deployment.
+
+- **Reference seeding is the missing piece.** The matcher never mints, so an
+  open-data offer materializes only for a GTIN some store listing already put
+  in the canonical catalogue. A backfill stage that mints DRAFT canonical
+  products from a source whose policy grants a new `may_seed_catalog` right
+  (Open Food Facts first), plus a promotion stage, closes it — ADR amending
+  ADR 0002 D23.
+- **Re-advance.** An object stored `unmatched` before its GTIN was seeded is
+  never matched again (the `unchanged` branch returns before `advanceObject`);
+  an operator re-advance of a source's `unmatched` objects is needed with it.
+- **Non-GTIN sources** (games, cards, fuel) need a stable cross-source
+  identity before they can match; Wikidata QIDs are the candidate.
+- **Storefront** renders no attribution and shows an `informational` offer as
+  "outbound not available"; Open Prices needs "seen at {chain} on {date}" and
+  the provider's attribution line. The ODbL subset export is deferred.

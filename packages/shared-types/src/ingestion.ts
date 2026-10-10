@@ -405,6 +405,38 @@ export interface NormalizedSourceMoney {
 }
 
 /**
+ * The value of one {@link NormalizedSourceFact}: a scalar or a short list.
+ *
+ * No nested objects. A fact a provider expresses as a structure is flattened
+ * into several namespaced keys (`nutrition.energy_kcal_100g`,
+ * `nutrition.sugars_100g`) by its adapter, so every stored fact is queryable by
+ * key alone and no reader has to know a provider's tree.
+ */
+export type NormalizedSourceFactValue = string | number | boolean | readonly string[];
+
+/**
+ * One structured fact a source published about the object, beyond the fifteen
+ * normalization groups.
+ *
+ * Distinct from {@link NormalizedSourceOption} on purpose. An option is a
+ * VARIANT AXIS ("Colour: Black") and #58's matcher compares options across
+ * sources; a fact is a DESCRIPTION ("Nutri-Score: a", "rarity: mythic",
+ * "fuel: diesel") that two sources describing one product may state
+ * differently without being two products. Folding facts into options would
+ * make every extra fact a matching dimension and split identical products.
+ *
+ * `key` is lower-case, dot-namespaced (`[a-z0-9_]+(\.[a-z0-9_]+)*`), and in the
+ * PROVIDER's vocabulary — mapping it to Mercaria's attribute registry is a
+ * later, reviewable step, never the adapter's.
+ */
+export interface NormalizedSourceFact {
+  readonly key: string;
+  readonly value: NormalizedSourceFactValue;
+  /** A unit for a numeric value, in the source's words (`g`, `kcal`, `l`, `EUR/kg`). */
+  readonly unit?: string;
+}
+
+/**
  * What every adapter must produce, and the whole of issue §"Normalization".
  *
  * Fifteen groups, every one optional except the title, because a feed that does
@@ -466,6 +498,13 @@ export interface NormalizedSourceRecord {
   /** ISO-8601, the source's own timestamps. */
   readonly sourceCreatedAt?: string;
   readonly sourceUpdatedAt?: string;
+  /**
+   * Everything else the source published that is worth keeping, as typed facts.
+   *
+   * Optional so every adapter written before it is unchanged, and so a record
+   * with none stores exactly the payload — and the content hash — it always did.
+   */
+  readonly facts?: readonly NormalizedSourceFact[];
 }
 
 /**
@@ -515,6 +554,7 @@ export const CATALOG_SOURCE_PAYLOAD_FIELDS = [
   'affiliateUrl',
   'sourceCreatedAt',
   'sourceUpdatedAt',
+  'facts',
 ] as const;
 
 export type CatalogSourcePayloadField = (typeof CATALOG_SOURCE_PAYLOAD_FIELDS)[number];

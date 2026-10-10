@@ -1,0 +1,224 @@
+{
+ "pages": 5000,
+ "productCount": 12902,
+ "products": [
+  {
+   "id": "1511212118",
+   "slug": "drive_rally",
+   "features": [
+    {
+     "name": "Achievements",
+     "slug": "achievements"
+    },
+    {
+     "name": "Cloud saves",
+     "slug": "cloud_saves"
+    },
+    {
+     "name": "Controller support",
+     "slug": "controller_support"
+    },
+    {
+     "name": "Overlay",
+     "slug": "overlay"
+    },
+    {
+     "name": "Single-player",
+     "slug": "single"
+    }
+   ],
+   "screenshots": [
+    "https://images.gog-statics.com/e7148f0f9465e0e405122c0cdd4386ae166de8c08aee548b21dded5af47a3396_{formatter}.jpg",
+    "https://images.gog-statics.com/7ffa9da0312e3bc89aff6a1ee7b2c06057c13e52242378db3d42ad4ae892d632_{formatter}.jpg",
+    "https://images.gog-statics.com/6c239fbf9c803ee6d6cd025493862aa5a1f7876a86a2507cb9810e56f198d340_{formatter}.jpg",
+    "https://images.gog-statics.com/9cb138293fd9585d127aa6e4f105b06ad8add7ede9f3bc9c59e1713035069b91_{formatter}.jpg",
+    "https://images.gog-statics.com/82d8b3ff471278f1bb3dbd5bccbdcd5617b504c06fddbbfad2b9a1cb3eaf269d_{formatter}.jpg",
+    "https://images.gog-statics.com/651c3539178be497c21e9b8e4ac8377cb5d56a3dd4cde790fc15dd0648827005_{formatter}.jpg",
+    "https://images.gog-statics.com/3dbb43dee5554c2143cbd107750d0e898a6862087f95c8ee0522c664cfe7e976_{formatter}.jpg",
+    "https://images.gog-statics.com/8d19bcd8ec13f6e3cdccc435a286329f9e1af21b13a0bcd9f46a835d51472a51_{formatter}.jpg",
+    "https://images.gog-statics.com/ce0f403be2272385d8f3d95c6f0c95c3e9f38b09d5d8e0ba33c6e9a855eaac86_{formatter}.jpg",
+    "https://images.gog-statics.com/6da3b9ea24c58ee747752a5f97593190edcf19115fdc4190a12ac4e9c0f362bd_{formatter}.jpg",
+    "https://images.gog-statics.com/f1cd453d34422a4c97fe2133ac65d205f37bafebfe51ec0a1f2df8fd355fe945_{formatter}.jpg",
+    "https://images.gog-statics.com/f369f36ba32b0ec6f23a247a07af2c510b3807d9976d7123f9d6c8c1736f7d4b_{formatter}.jpg",
+    "https://images.gog-statics.com/4364af234964a3880be508583a93a769e7d5652e19d050af5538c01870ce7463_{formatter}.jpg",
+    "https://images.gog-statics.com/70966a5713b86f68f6994f709e48b76d522c4dfd766c1701faa912be531bb3e1_{formatter}.jpg",
+    "https://images.gog-statics.com/b06bc82a1061151e50299848ea8483b28b5ec0aeede08f14d22c34dbb3ec1a4f_{formatter}.jpg"
+   ],
+   "userPreferredLanguage": {
+    "code": "es",
+    "inAudio": false,
+    "inText": true
+   },
+   "releaseDate": "2025.04.16",
+   "storeReleaseDate": "2024.09.25",
+   "productType": "game",
+   "title": "#DRIVE Rally",
+   "coverHorizontal": "https://images.gog-statics.com/7f92348005ac8bfeb1eecebd0f41889f011a217668369692f855063e6eada255.png",
+   "coverVertical": "https://images.gog-statics.com/f339d70317d2a69898829fc48237d792e7d9a5ed7f98e5a94ae7c472cc6a1b5e.jpg",
+   "logo": "https://images.gog-statics.com/c3450b010218253282c155c0043b706cb2372961731df5ed2891c6a6a132e566.png",
+   "galaxyBackgroundImage": "https://images.gog-statics.com/da0f5f3551b13d3b6129e25b1605ba0b9bfb13e43176c452539ad5df5c94fd8b.jpg",
+   "developers": [
+    "Pixel Perfect Dude"
+   ],
+   "publishers": [
+    "Pixel Perfect Dude"
+   ],
+   "operatingSystems": [
+    "windows",
+    "osx"
+   ],
+   "price": {
+    "final": "18,99 €",
+    "base": "18,99 €",
+    "discount": null,
+    "finalMoney": {
+     "amount": "18.99",
+     "currency": "EUR",
+     "discount": "0.00"
+    },
+    "baseMoney": {
+     "amount": "18.99",
+     "currency": "EUR"
+    }
+   },
+   "productState": "default",
+   "genres": [
+    {
+     "name": "Racing",
+     "slug": "racing"
+    },
+    {
+     "name": "Arcade",
+     "slug": "arcade"
+    },
+    {
+     "name": "Rally",
+     "slug": "rally"
+    }
+   ],
+   "tags": [
+    {
+     "name": "Indie",
+     "slug": "indie"
+    },
+    {
+     "name": "Retro",
+     "slug": "retro"
+    },
+    {
+     "name": "Cartoony",
+     "slug": "cartoony"
+    },
+    {
+     "name": "Arcade",
+     "slug": "arcade"
+    },
+    {
+     "name": "Racing",
+     "slug": "racing"
+    },
+    {
+     "name": "Rally",
+     "slug": "rally"
+    }
+   ],
+   "reviewsRating": 38,
+   "reviewsCount": 33,
+   "editions": [],
+   "ratings": [],
+   "storeLink": "https://www.gog.com/en/game/drive_rally"
+  },
+  {
+   "id": "2071181157",
+   "slug": "1000xresist",
+   "features": [
+    {
+     "name": "Overlay",
+     "slug": "overlay"
+    },
+    {
+     "name": "Single-player",
+     "slug": "single"
+    }
+   ],
+   "screenshots": [
+    "https://images.gog-statics.com/4984c0ef319d1be1a3e016a6d519787099cef69afe858a0f78deae11ed295b62_{formatter}.jpg",
+    "https://images.gog-statics.com/4b55d5d48b3b61733b8bbdcf39fb1513106e38cd5da3ebf92aa7fe5db9628aba_{formatter}.jpg",
+    "https://images.gog-statics.com/e7c22cd725121a4bae2aabd0329a598bd4cf6d98aa45488bc3ebef62d3a0233d_{formatter}.jpg",
+    "https://images.gog-statics.com/ffd775ac0e402db22c7b9bb652a16cab827a900bb7dd3cc390462ec8b9b20d5c_{formatter}.jpg",
+    "https://images.gog-statics.com/bb22ef14866ffe956e964c9ee6bb905c8c3e11c484989a351fc1d70e000d8ca2_{formatter}.jpg",
+    "https://images.gog-statics.com/52bc0889a6af66ea8ebaa9b1693b9e79fc15e4d9a75fcbe08b33947bd7b47dfe_{formatter}.jpg",
+    "https://images.gog-statics.com/8b133c5ebe1633127990125e9052a1b39cb094cca657dce0ab61d4c61adfb860_{formatter}.jpg",
+    "https://images.gog-statics.com/a4133a70cd5f4dd4c9b370645f7636db4253511a823ba139880691b98859eb9c_{formatter}.jpg",
+    "https://images.gog-statics.com/9dc99de72e923470759a19e621b8274bfd79761d030b79e10440ed5dc5b3cdfb_{formatter}.jpg",
+    "https://images.gog-statics.com/ae288b39354a04c1f95edc33341dd376d5826b5939a0ac144a9fe05e60ea9250_{formatter}.jpg"
+   ],
+   "userPreferredLanguage": null,
+   "releaseDate": "2024.05.09",
+   "storeReleaseDate": "2024.05.09",
+   "productType": "game",
+   "title": "1000xRESIST",
+   "coverHorizontal": "https://images.gog-statics.com/64d0d6c24fb9bd162e1593f93f9a44a6367d1da218f0f6809c0404a0bcf9762e.png",
+   "coverVertical": "https://images.gog-statics.com/40a4a372597a67c68a68262fdeadeeb514cb08dc2648f1b7e961e500964acff9.jpg",
+   "logo": "https://images.gog-statics.com/e410f655cb9993a60c66cb8a2514313a4c17737d926e3e683adb7f97de42ced7.png",
+   "galaxyBackgroundImage": "https://images.gog-statics.com/76bb9d647b0a114cd88a744db440574bbbfdadee023dc81e13aea813b36faec7.jpg",
+   "developers": [
+    "sunset visitor"
+   ],
+   "publishers": [
+    "Fellow Traveller"
+   ],
+   "operatingSystems": [
+    "windows"
+   ],
+   "price": {
+    "final": "11,69 €",
+    "base": "19,50 €",
+    "discount": "-40%",
+    "finalMoney": {
+     "amount": "11.69",
+     "currency": "EUR",
+     "discount": "7.81"
+    },
+    "baseMoney": {
+     "amount": "19.50",
+     "currency": "EUR"
+    }
+   },
+   "productState": "default",
+   "genres": [
+    {
+     "name": "Adventure",
+     "slug": "adventure"
+    },
+    {
+     "name": "Puzzle",
+     "slug": "puzzle"
+    },
+    {
+     "name": "Narrative",
+     "slug": "narrative"
+    }
+   ],
+   "tags": [
+    {
+     "name": "Adventure",
+     "slug": "adventure"
+    },
+    {
+     "name": "Puzzle",
+     "slug": "puzzle"
+    },
+    {
+     "name": "Narrative",
+     "slug": "narrative"
+    }
+   ],
+   "reviewsRating": 43,
+   "reviewsCount": 93,
+   "editions": [],
+   "ratings": [],
+   "storeLink": "https://www.gog.com/en/game/1000xresist"
+  }
+ ]
+}
