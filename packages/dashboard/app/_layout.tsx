@@ -19,7 +19,7 @@ import { SharedUiTranslationProvider, useColorScheme } from "@mercaria/ui";
 import { AppFxProvider } from "@/lib/fx";
 import { setTokenGetter } from "@/lib/api/client";
 import { OXY_CLIENT_ID, OXY_API_URL } from "@/lib/config";
-import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from "@/lib/themePersistence";
+import { BLOOM_DEFAULT_COLOR_PRESET, BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from "@/lib/themePersistence";
 import "react-native-reanimated";
 import "../global.css";
 // Imported at the ROOT for its side effect as much as for the binding: building
@@ -121,7 +121,8 @@ function RootLayout() {
           locale={locale}
           scrollAdapter={expoRouterScrollAdapter}
           defaultMode="system"
-          defaultColorPreset="mono"
+          colorPreset={BLOOM_DEFAULT_COLOR_PRESET}
+          defaultColorPreset={BLOOM_DEFAULT_COLOR_PRESET}
           persistKey={BLOOM_THEME_PERSIST_KEY}
           storage={BLOOM_THEME_STORAGE}
           fonts={false}

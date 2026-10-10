@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "Inicia la sessió",
     "signInBody": "Inicia la sessió amb el teu compte d'Oxy per gestionar la teva botiga: productes, comandes, inventari, clients, descomptes i informes.",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "Afegeix un canal",
@@ -95,7 +95,7 @@
       },
       "title": "Desconnexió"
     },
-    "documentTitle": "Canals de venda | Mercaria Dashboard",
+    "documentTitle": "Canals de venda | Wholesale by Mercaria",
     "empty": {
       "body": "Connecta una botiga o un feed de productes a sota per portar-hi un catàleg existent.",
       "title": "Només el teu catàleg de Mercaria"
@@ -270,7 +270,7 @@
     "settings": {
       "autoPublish": "Publicació automàtica",
       "autoPublishHint": "Publica immediatament els productes importats. Si està desactivat, arriben com a esborranys per revisar.",
-      "documentTitle": "Configuració del canal | Mercaria Dashboard",
+      "documentTitle": "Configuració del canal | Wholesale by Mercaria",
       "inventoryHint": "Nivells d'estoc a la ubicació que sincronitzes.",
       "inventoryLabel": "Inventari",
       "keepLocalEdits": "Conserva les meves edicions locals",
@@ -405,7 +405,7 @@
       "canAndCannot": "Què pot fer i què no pot fer aquest canal",
       "chooseWhatToImport": "Tria què vols importar",
       "connectedTitle": "%{channel} connectat",
-      "documentTitle": "Connecta un canal | Mercaria Dashboard",
+      "documentTitle": "Connecta un canal | Wholesale by Mercaria",
       "everythingChecksOut": "Tot és correcte. En activar-lo comença la primera sincronització.",
       "feed": {
         "body": "Un feed de productes es configura a la seva pròpia pantalla, on assignes les columnes del fitxer als camps de Mercaria i en veus una vista prèvia abans que res es publiqui.",
@@ -499,7 +499,7 @@
     },
     "deleteError": "No s'ha pogut suprimir la col·lecció",
     "deleted": "Col·lecció suprimida",
-    "documentTitle": "Col·leccions | Mercaria Dashboard",
+    "documentTitle": "Col·leccions | Wholesale by Mercaria",
     "empty": {
       "body": "Crea'n una per organitzar el teu catàleg.",
       "title": "Encara no hi ha col·leccions"
@@ -618,7 +618,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "Client | Mercaria Dashboard",
+      "documentTitle": "Client | Wholesale by Mercaria",
       "lifetimeSpend": "Despesa total",
       "loadError": "No s'ha pogut carregar el client",
       "noOrders": "Encara no hi ha comandes.",
@@ -626,7 +626,7 @@
       "subtitle": "Detall del client",
       "title": "Client"
     },
-    "documentTitle": "Clients | Mercaria Dashboard",
+    "documentTitle": "Clients | Wholesale by Mercaria",
     "empty": {
       "body": "Els clients apareixen aquí després de la seva primera comanda.",
       "title": "Cap client"
@@ -665,7 +665,7 @@
     },
     "deleteError": "No s'ha pogut suprimir el descompte",
     "deleted": "Descompte suprimit",
-    "documentTitle": "Descomptes | Mercaria Dashboard",
+    "documentTitle": "Descomptes | Wholesale by Mercaria",
     "empty": {
       "body": "Crea un descompte amb codi o automàtic.",
       "title": "Encara no hi ha descomptes"
@@ -686,13 +686,13 @@
     "boundaryBody": "S'ha produït un error inesperat. Pots tornar-ho a provar i, si el problema continua, el nostre equip ja n'està informat.",
     "notFoundAction": "Ves al tauler",
     "notFoundBody": "Aquesta pantalla no existeix.",
-    "notFoundDocumentTitle": "404 - No s'ha trobat | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 - No s'ha trobat | Wholesale by Mercaria",
     "notFoundHeading": "Vaja!"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "Primer activa una assignació",
-      "documentTitle": "Feed de productes | Mercaria Dashboard",
+      "documentTitle": "Feed de productes | Wholesale by Mercaria",
       "identityColumns": "Columnes d'identitat: %{columns} — fixes durant tota la vida d'aquest feed.",
       "neverRead": "Aquest feed encara no s'ha llegit.",
       "notFound": "No s'ha trobat el feed",
@@ -721,7 +721,7 @@
     "never": "mai",
     "new": {
       "create": "Crea el feed",
-      "documentTitle": "Feed de productes nou | Mercaria Dashboard",
+      "documentTitle": "Feed de productes nou | Wholesale by Mercaria",
       "identityColumnsHint": "Separades per comes, fins a quatre. Després no es poden canviar: són la manera com Mercaria reconeix el mateix producte d'un fitxer al següent, així que canviar-les semblaria que has substituït tot el catàleg. Si necessites columnes diferents, crea un feed nou.",
       "identityColumnsLabel": "Columnes que identifiquen cada producte",
       "identityColumnsPlaceholder": "id, sku",
@@ -824,7 +824,7 @@
     }
   },
   "home": {
-    "documentTitle": "Tauler | Mercaria",
+    "documentTitle": "Tauler | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "%{count} variant amb seguiment és al llindar d'estoc baix o per sota.",
@@ -898,7 +898,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "Comanda | Mercaria Dashboard",
+      "documentTitle": "Comanda | Wholesale by Mercaria",
       "fulfilment": "Preparació",
       "history": "Historial",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -919,7 +919,7 @@
       "trackingPlaceholder": "1Z…",
       "updateFailed": "No s'ha pogut actualitzar la comanda"
     },
-    "documentTitle": "Comandes | Mercaria Dashboard",
+    "documentTitle": "Comandes | Wholesale by Mercaria",
     "empty": {
       "body": "Les comandes apareixeran aquí quan els clients comprin.",
       "title": "Cap comanda"
@@ -1019,7 +1019,7 @@
       "archiveFailed": "No s'ha pogut arxivar el producte",
       "archived": "Producte arxivat",
       "channelSettings": "Configuració del canal",
-      "documentTitle": "Producte | Mercaria Dashboard",
+      "documentTitle": "Producte | Wholesale by Mercaria",
       "loadFailed": "No s'ha pogut carregar el producte",
       "pins": {
         "release": "Allibera",
@@ -1049,7 +1049,7 @@
         "removeTag": "Elimina %{tag}"
       }
     },
-    "documentTitle": "Productes | Mercaria Dashboard",
+    "documentTitle": "Productes | Wholesale by Mercaria",
     "empty": {
       "action": "Afegeix el teu primer producte",
       "title": "Encara no hi ha productes"
@@ -1063,7 +1063,7 @@
       "createFailed": "No s'ha pogut crear el producte",
       "created": "Producte creat",
       "descriptionPlaceholder": "Descriu el producte",
-      "documentTitle": "Producte nou | Mercaria Dashboard",
+      "documentTitle": "Producte nou | Wholesale by Mercaria",
       "optionNameLabel": "Nom de l'opció (opcional, p. ex. Talla)",
       "optionNamePlaceholder": "Talla",
       "optionValueLabel": "Valor de %{option}",
@@ -1145,11 +1145,11 @@
       }
     },
     "wizard": {
-      "documentTitle": "Crear un producte",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "Crear un producte",
       "readOnly": "Aquest esborrany ja no es pot editar.",
       "start": {
-        "documentTitle": "Què vols vendre?",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "Què vols vendre?",
         "subtitle": "Cerca'l al catàleg o descriu-ne un de nou.",
         "unavailableTitle": "La creació guiada no està disponible aquí",
@@ -1405,9 +1405,9 @@
     }
   },
   "settings": {
-    "documentTitle": "Configuració | Mercaria Dashboard",
+    "documentTitle": "Configuració | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "Comissions del marketplace | Tauler de Mercaria",
+      "documentTitle": "Comissions del marketplace | Wholesale by Mercaria",
       "title": "Comissions del marketplace",
       "subtitle": "El que Mercaria cobra per cada venda i les condicions que acceptes.",
       "loadFailed": "No s'han pogut carregar les teves condicions de comissió",
@@ -1456,7 +1456,7 @@
       "defaultFlag": " · predeterminada",
       "deleteFailed": "No s'ha pogut suprimir la ubicació",
       "deleted": "Ubicació suprimida",
-      "documentTitle": "Ubicacions | Mercaria Dashboard",
+      "documentTitle": "Ubicacions | Wholesale by Mercaria",
       "inactiveFlag": " · inactiva",
       "loadFailed": "No s'han pogut carregar les ubicacions",
       "namePlaceholder": "Magatzem principal",
@@ -1473,7 +1473,7 @@
       "placeFlag": " · lloc de GoWay assignat",
       "noPlaceFlag": " · encara sense lloc de GoWay",
       "editor": {
-        "documentTitle": "Edita la ubicació | Mercaria Dashboard",
+        "documentTitle": "Edita la ubicació | Wholesale by Mercaria",
         "title": "Ubicació",
         "subtitle": "El seu lloc a GoWay i com ven a Mercaria",
         "loadFailed": "No s'ha pogut carregar aquesta ubicació",
@@ -1716,7 +1716,7 @@
         "usernameLabel": "Nom d'usuari de l'organització",
         "warning": "Les persones que abans podien actuar per aquesta botiga i no són a l'organització ja no hi tenen accés."
       },
-      "documentTitle": "Membres | Mercaria Dashboard",
+      "documentTitle": "Membres | Wholesale by Mercaria",
       "loadFailed": "No s'han pogut carregar les persones d'aquesta botiga",
       "noAccess": "Sense accés",
       "organizationBody": "Qui pot actuar per aquesta botiga ho decideix la pertinença a l'organització a Oxy. Mercaria només guarda excepcions als permisos de cada rol.",
@@ -1768,7 +1768,7 @@
     },
     "payments": {
       "beingReviewed": "En revisió",
-      "documentTitle": "Pagaments i liquidacions | Mercaria Dashboard",
+      "documentTitle": "Pagaments i liquidacions | Wholesale by Mercaria",
       "dueBy": "Data límit",
       "itemCount": {
         "one": "%{count} element",
@@ -1832,7 +1832,7 @@
       "cancelPlan": "Cancel·la el pla",
       "capabilityWithLimit": "%{name} · fins a %{limit}",
       "choosePlan": "Tria %{plan}",
-      "documentTitle": "Pla i facturació | Mercaria Dashboard",
+      "documentTitle": "Pla i facturació | Wholesale by Mercaria",
       "endsOn": "Acaba el %{date}.",
       "free": "Gratuït",
       "graceEndsOn": "Els extres d'aquest pla s'aturen el %{date} si el pagament no es fa efectiu.",
@@ -1906,7 +1906,7 @@
       }
     },
     "policies": {
-      "documentTitle": "Polítiques | Mercaria Dashboard",
+      "documentTitle": "Polítiques | Wholesale by Mercaria",
       "loadFailed": "No s'ha pogut carregar la configuració",
       "lowStockAlerts": "Alertes d'estoc baix",
       "notifications": "Notificacions",
@@ -1964,7 +1964,7 @@
     },
     "store": {
       "brandColorLabel": "Color de marca",
-      "documentTitle": "Perfil de la botiga | Mercaria Dashboard",
+      "documentTitle": "Perfil de la botiga | Wholesale by Mercaria",
       "loadFailed": "No s'ha pogut carregar la botiga",
       "nameLabel": "Nom de la botiga",
       "nameRequired": "El nom de la botiga és obligatori",
@@ -1982,7 +1982,7 @@
       "created": "Tipus impositiu creat",
       "deleteFailed": "No s'ha pogut suprimir el tipus",
       "deleted": "Tipus impositiu suprimit",
-      "documentTitle": "Impostos | Mercaria Dashboard",
+      "documentTitle": "Impostos | Wholesale by Mercaria",
       "emptyBody": "Afegeix un tipus per cobrar impostos en finalitzar la compra.",
       "emptyTitle": "Cap tipus impositiu",
       "inactive": "inactiu",
@@ -2011,7 +2011,7 @@
       "success": "Botiga creada"
     },
     "createStore": "Crea la botiga",
-    "documentTitle": "Botigues | Mercaria Dashboard",
+    "documentTitle": "Botigues | Wholesale by Mercaria",
     "empty": {
       "body": "Crea la teva primera botiga per començar a vendre a Mercaria.",
       "title": "Encara no hi ha botigues"
@@ -2036,5 +2036,9 @@
     "price": "Preu",
     "date": "Data",
     "customer": "Client"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

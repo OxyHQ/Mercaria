@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "Войти",
     "signInBody": "Войдите с аккаунтом Oxy, чтобы управлять магазином — товары, заказы, запасы, клиенты, скидки и отчёты.",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "Добавить канал",
@@ -98,7 +98,7 @@
       },
       "title": "Отключение"
     },
-    "documentTitle": "Каналы продаж | Mercaria Dashboard",
+    "documentTitle": "Каналы продаж | Wholesale by Mercaria",
     "empty": {
       "body": "Подключите ниже магазин или товарный фид, чтобы перенести существующий каталог.",
       "title": "Только ваш каталог Mercaria"
@@ -277,7 +277,7 @@
     "settings": {
       "autoPublish": "Автопубликация",
       "autoPublishHint": "Публиковать полученные товары сразу. Если выключено, они попадают в черновики на проверку.",
-      "documentTitle": "Настройки канала | Mercaria Dashboard",
+      "documentTitle": "Настройки канала | Wholesale by Mercaria",
       "inventoryHint": "Остатки в вашей синхронизируемой локации.",
       "inventoryLabel": "Запасы",
       "keepLocalEdits": "Сохранять мои правки",
@@ -414,7 +414,7 @@
       "canAndCannot": "Что этот канал может и чего не может",
       "chooseWhatToImport": "Выберите, что импортировать",
       "connectedTitle": "%{channel} подключён",
-      "documentTitle": "Подключение канала | Mercaria Dashboard",
+      "documentTitle": "Подключение канала | Wholesale by Mercaria",
       "everythingChecksOut": "Всё в порядке. Активация запустит первую синхронизацию.",
       "feed": {
         "body": "Товарный фид настраивается на отдельном экране, где вы сопоставляете столбцы файла с полями Mercaria и смотрите результат до того, как что-то станет активным.",
@@ -508,7 +508,7 @@
     },
     "deleteError": "Не удалось удалить коллекцию",
     "deleted": "Коллекция удалена",
-    "documentTitle": "Коллекции | Mercaria Dashboard",
+    "documentTitle": "Коллекции | Wholesale by Mercaria",
     "empty": {
       "body": "Создайте коллекцию, чтобы упорядочить каталог.",
       "title": "Коллекций пока нет"
@@ -629,7 +629,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "Клиент | Mercaria Dashboard",
+      "documentTitle": "Клиент | Wholesale by Mercaria",
       "lifetimeSpend": "Всего потрачено",
       "loadError": "Не удалось загрузить клиента",
       "noOrders": "Заказов пока нет.",
@@ -637,7 +637,7 @@
       "subtitle": "Карточка клиента",
       "title": "Клиент"
     },
-    "documentTitle": "Клиенты | Mercaria Dashboard",
+    "documentTitle": "Клиенты | Wholesale by Mercaria",
     "empty": {
       "body": "Клиенты появляются здесь после первого заказа.",
       "title": "Нет клиентов"
@@ -677,7 +677,7 @@
     },
     "deleteError": "Не удалось удалить скидку",
     "deleted": "Скидка удалена",
-    "documentTitle": "Скидки | Mercaria Dashboard",
+    "documentTitle": "Скидки | Wholesale by Mercaria",
     "empty": {
       "body": "Создайте скидку по коду или автоматическую.",
       "title": "Скидок пока нет"
@@ -698,13 +698,13 @@
     "boundaryBody": "Произошла непредвиденная ошибка. Попробуйте ещё раз — если проблема повторится, наша команда уже уведомлена.",
     "notFoundAction": "Перейти в панель управления",
     "notFoundBody": "Такого экрана не существует.",
-    "notFoundDocumentTitle": "404 — Страница не найдена | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 — Страница не найдена | Wholesale by Mercaria",
     "notFoundHeading": "Упс!"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "Сначала активируйте сопоставление",
-      "documentTitle": "Товарный фид | Mercaria Dashboard",
+      "documentTitle": "Товарный фид | Wholesale by Mercaria",
       "identityColumns": "Столбцы идентификации: %{columns} — закреплены на всё время жизни этого фида.",
       "neverRead": "Этот фид ещё ни разу не читали.",
       "notFound": "Фид не найден",
@@ -733,7 +733,7 @@
     "never": "никогда",
     "new": {
       "create": "Создать фид",
-      "documentTitle": "Новый товарный фид | Mercaria Dashboard",
+      "documentTitle": "Новый товарный фид | Wholesale by Mercaria",
       "identityColumnsHint": "Через запятую, не больше четырёх. Позже изменить их нельзя: именно по ним Mercaria узнаёт один и тот же товар в разных файлах, поэтому их смена выглядела бы как полная замена каталога. Если нужны другие столбцы, создайте новый фид.",
       "identityColumnsLabel": "Столбцы, определяющие каждый товар",
       "identityColumnsPlaceholder": "id, sku",
@@ -836,7 +836,7 @@
     }
   },
   "home": {
-    "documentTitle": "Панель управления | Mercaria",
+    "documentTitle": "Панель управления | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "%{count} отслеживаемый вариант с остатком на уровне порога или ниже.",
@@ -912,7 +912,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "Заказ | Mercaria Dashboard",
+      "documentTitle": "Заказ | Wholesale by Mercaria",
       "fulfilment": "Выполнение",
       "history": "История",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -933,7 +933,7 @@
       "trackingPlaceholder": "1Z…",
       "updateFailed": "Не удалось обновить заказ"
     },
-    "documentTitle": "Заказы | Mercaria Dashboard",
+    "documentTitle": "Заказы | Wholesale by Mercaria",
     "empty": {
       "body": "Заказы появятся здесь, когда клиенты начнут покупать.",
       "title": "Нет заказов"
@@ -1034,7 +1034,7 @@
       "archiveFailed": "Не удалось архивировать товар",
       "archived": "Товар архивирован",
       "channelSettings": "Настройки канала",
-      "documentTitle": "Товар | Mercaria Dashboard",
+      "documentTitle": "Товар | Wholesale by Mercaria",
       "loadFailed": "Не удалось загрузить товар",
       "pins": {
         "release": "Открепить",
@@ -1066,7 +1066,7 @@
         "removeTag": "Удалить %{tag}"
       }
     },
-    "documentTitle": "Товары | Mercaria Dashboard",
+    "documentTitle": "Товары | Wholesale by Mercaria",
     "empty": {
       "action": "Добавьте первый товар",
       "title": "Товаров пока нет"
@@ -1080,7 +1080,7 @@
       "createFailed": "Не удалось создать товар",
       "created": "Товар создан",
       "descriptionPlaceholder": "Опишите товар",
-      "documentTitle": "Новый товар | Mercaria Dashboard",
+      "documentTitle": "Новый товар | Wholesale by Mercaria",
       "optionNameLabel": "Название опции (необязательно, например «Размер»)",
       "optionNamePlaceholder": "Размер",
       "optionValueLabel": "Значение: %{option}",
@@ -1163,11 +1163,11 @@
       }
     },
     "wizard": {
-      "documentTitle": "Создание товара",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "Создание товара",
       "readOnly": "Этот черновик больше нельзя редактировать.",
       "start": {
-        "documentTitle": "Что вы продаёте?",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "Что вы продаёте?",
         "subtitle": "Найдите товар в каталоге или опишите что-то новое.",
         "unavailableTitle": "Пошаговое создание здесь недоступно",
@@ -1423,9 +1423,9 @@
     }
   },
   "settings": {
-    "documentTitle": "Настройки | Mercaria Dashboard",
+    "documentTitle": "Настройки | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "Комиссии маркетплейса | Панель Mercaria",
+      "documentTitle": "Комиссии маркетплейса | Wholesale by Mercaria",
       "title": "Комиссии маркетплейса",
       "subtitle": "Сколько Mercaria берёт с каждой продажи и какие условия вы принимаете.",
       "loadFailed": "Не удалось загрузить условия комиссии",
@@ -1474,7 +1474,7 @@
       "defaultFlag": " · по умолчанию",
       "deleteFailed": "Не удалось удалить локацию",
       "deleted": "Локация удалена",
-      "documentTitle": "Локации | Mercaria Dashboard",
+      "documentTitle": "Локации | Wholesale by Mercaria",
       "inactiveFlag": " · неактивна",
       "loadFailed": "Не удалось загрузить локации",
       "namePlaceholder": "Основной склад",
@@ -1491,7 +1491,7 @@
       "placeFlag": " · место в GoWay указано",
       "noPlaceFlag": " · места в GoWay пока нет",
       "editor": {
-        "documentTitle": "Редактирование локации | Mercaria Dashboard",
+        "documentTitle": "Редактирование локации | Wholesale by Mercaria",
         "title": "Локация",
         "subtitle": "Её место в GoWay и то, как она продаёт на Mercaria",
         "loadFailed": "Не удалось загрузить эту локацию",
@@ -1734,7 +1734,7 @@
         "usernameLabel": "Имя пользователя организации",
         "warning": "Люди, которые раньше могли действовать от имени магазина и не входят в организацию, больше не имеют к нему доступа."
       },
-      "documentTitle": "Участники | Mercaria Dashboard",
+      "documentTitle": "Участники | Wholesale by Mercaria",
       "loadFailed": "Не удалось загрузить людей этого магазина",
       "noAccess": "Нет доступа",
       "organizationBody": "Кто может действовать от имени магазина, определяет состав организации в Oxy. Mercaria хранит только исключения из прав каждой роли.",
@@ -1786,7 +1786,7 @@
     },
     "payments": {
       "beingReviewed": "На проверке",
-      "documentTitle": "Платежи и выплаты | Mercaria Dashboard",
+      "documentTitle": "Платежи и выплаты | Wholesale by Mercaria",
       "dueBy": "Срок до",
       "itemCount": {
         "one": "%{count} пункт",
@@ -1852,7 +1852,7 @@
       "cancelPlan": "Отменить тариф",
       "capabilityWithLimit": "%{name} · до %{limit}",
       "choosePlan": "Выбрать %{plan}",
-      "documentTitle": "Тариф и оплата | Mercaria Dashboard",
+      "documentTitle": "Тариф и оплата | Wholesale by Mercaria",
       "endsOn": "Заканчивается %{date}.",
       "free": "Бесплатно",
       "graceEndsOn": "Дополнительные возможности этого тарифа отключатся %{date}, если платёж не пройдёт.",
@@ -1927,7 +1927,7 @@
       }
     },
     "policies": {
-      "documentTitle": "Правила | Mercaria Dashboard",
+      "documentTitle": "Правила | Wholesale by Mercaria",
       "loadFailed": "Не удалось загрузить настройки",
       "lowStockAlerts": "Оповещения о низком остатке",
       "notifications": "Уведомления",
@@ -1985,7 +1985,7 @@
     },
     "store": {
       "brandColorLabel": "Фирменный цвет",
-      "documentTitle": "Профиль магазина | Mercaria Dashboard",
+      "documentTitle": "Профиль магазина | Wholesale by Mercaria",
       "loadFailed": "Не удалось загрузить магазин",
       "nameLabel": "Название магазина",
       "nameRequired": "Укажите название магазина",
@@ -2003,7 +2003,7 @@
       "created": "Налоговая ставка создана",
       "deleteFailed": "Не удалось удалить ставку",
       "deleted": "Налоговая ставка удалена",
-      "documentTitle": "Налоги | Mercaria Dashboard",
+      "documentTitle": "Налоги | Wholesale by Mercaria",
       "emptyBody": "Добавьте ставку, чтобы начислять налог при оформлении заказа.",
       "emptyTitle": "Нет налоговых ставок",
       "inactive": "неактивна",
@@ -2032,7 +2032,7 @@
       "success": "Магазин создан"
     },
     "createStore": "Создать магазин",
-    "documentTitle": "Магазины | Mercaria Dashboard",
+    "documentTitle": "Магазины | Wholesale by Mercaria",
     "empty": {
       "body": "Создайте первый магазин, чтобы начать продавать на Mercaria.",
       "title": "Магазинов пока нет"
@@ -2058,5 +2058,9 @@
     "price": "Цена",
     "date": "Дата",
     "customer": "Покупатель"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

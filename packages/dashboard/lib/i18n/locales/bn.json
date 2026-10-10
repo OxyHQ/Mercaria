@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "সাইন ইন",
     "signInBody": "আপনার স্টোর পরিচালনা করতে Oxy অ্যাকাউন্ট দিয়ে সাইন ইন করুন — পণ্য, অর্ডার, ইনভেন্টরি, গ্রাহক, ডিসকাউন্ট ও রিপোর্ট।",
-    "signInTitle": "Mercaria ড্যাশবোর্ড"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "একটি চ্যানেল যোগ করুন",
@@ -92,7 +92,7 @@
       },
       "title": "ডিসকানেক্ট"
     },
-    "documentTitle": "সেলস চ্যানেল | Mercaria ড্যাশবোর্ড",
+    "documentTitle": "সেলস চ্যানেল | Wholesale by Mercaria",
     "empty": {
       "body": "বিদ্যমান ক্যাটালগ আনতে নিচে একটি স্টোর বা প্রোডাক্ট ফিড কানেক্ট করুন।",
       "title": "শুধু আপনার Mercaria ক্যাটালগ"
@@ -263,7 +263,7 @@
     "settings": {
       "autoPublish": "অটো-পাবলিশ",
       "autoPublishHint": "পুল করা পণ্য সঙ্গে সঙ্গে প্রকাশ করুন। বন্ধ থাকলে সেগুলো রিভিউয়ের জন্য ড্রাফট হিসেবে আসে।",
-      "documentTitle": "চ্যানেল সেটিংস | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "চ্যানেল সেটিংস | Wholesale by Mercaria",
       "inventoryHint": "আপনার সিঙ্ক করা লোকেশনের স্টকের পরিমাণ।",
       "inventoryLabel": "ইনভেন্টরি",
       "keepLocalEdits": "আমার লোকাল সম্পাদনা রাখুন",
@@ -396,7 +396,7 @@
       "canAndCannot": "এই চ্যানেল যা পারে আর যা পারে না",
       "chooseWhatToImport": "কী ইমপোর্ট হবে বেছে নিন",
       "connectedTitle": "%{channel} কানেক্ট হয়েছে",
-      "documentTitle": "একটি চ্যানেল কানেক্ট করুন | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "একটি চ্যানেল কানেক্ট করুন | Wholesale by Mercaria",
       "everythingChecksOut": "সবকিছু ঠিক আছে। সক্রিয় করলেই প্রথম সিঙ্ক শুরু হবে।",
       "feed": {
         "body": "প্রোডাক্ট ফিড নিজের আলাদা স্ক্রিনে কনফিগার করা হয়, যেখানে আপনি ফাইলের কলামগুলো Mercaria-র ফিল্ডে ম্যাপ করেন এবং লাইভ হওয়ার আগে ফলাফল প্রিভিউ করেন।",
@@ -490,7 +490,7 @@
     },
     "deleteError": "কালেকশন মুছে ফেলা যায়নি",
     "deleted": "কালেকশন মুছে ফেলা হয়েছে",
-    "documentTitle": "কালেকশন | Mercaria ড্যাশবোর্ড",
+    "documentTitle": "কালেকশন | Wholesale by Mercaria",
     "empty": {
       "body": "ক্যাটালগ গুছিয়ে রাখতে একটি তৈরি করুন।",
       "title": "এখনো কোনো কালেকশন নেই"
@@ -607,7 +607,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "গ্রাহক | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "গ্রাহক | Wholesale by Mercaria",
       "lifetimeSpend": "মোট খরচ",
       "loadError": "গ্রাহক লোড করা যায়নি",
       "noOrders": "এখনো কোনো অর্ডার নেই।",
@@ -615,7 +615,7 @@
       "subtitle": "গ্রাহকের বিস্তারিত",
       "title": "গ্রাহক"
     },
-    "documentTitle": "গ্রাহক | Mercaria ড্যাশবোর্ড",
+    "documentTitle": "গ্রাহক | Wholesale by Mercaria",
     "empty": {
       "body": "প্রথম অর্ডারের পর গ্রাহকেরা এখানে দেখা যাবে।",
       "title": "কোনো গ্রাহক নেই"
@@ -653,7 +653,7 @@
     },
     "deleteError": "ডিসকাউন্ট মুছে ফেলা যায়নি",
     "deleted": "ডিসকাউন্ট মুছে ফেলা হয়েছে",
-    "documentTitle": "ডিসকাউন্ট | Mercaria ড্যাশবোর্ড",
+    "documentTitle": "ডিসকাউন্ট | Wholesale by Mercaria",
     "empty": {
       "body": "একটি কোড বা অটোমেটিক ডিসকাউন্ট তৈরি করুন।",
       "title": "এখনো কোনো ডিসকাউন্ট নেই"
@@ -674,13 +674,13 @@
     "boundaryBody": "অপ্রত্যাশিত একটি ত্রুটি ঘটেছে। আপনি আবার চেষ্টা করতে পারেন; সমস্যা চলতে থাকলে আমাদের টিমকে জানানো হয়েছে।",
     "notFoundAction": "ড্যাশবোর্ডে যান",
     "notFoundBody": "এই স্ক্রিনটি নেই।",
-    "notFoundDocumentTitle": "404 - পাওয়া যায়নি | Mercaria ড্যাশবোর্ড",
+    "notFoundDocumentTitle": "404 - পাওয়া যায়নি | Wholesale by Mercaria",
     "notFoundHeading": "ওহো!"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "আগে একটি ম্যাপিং সক্রিয় করুন",
-      "documentTitle": "প্রোডাক্ট ফিড | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "প্রোডাক্ট ফিড | Wholesale by Mercaria",
       "identityColumns": "শনাক্তকারী কলাম: %{columns} — এই ফিডের সারা জীবনের জন্য নির্দিষ্ট।",
       "neverRead": "এই ফিড এখনো পড়া হয়নি।",
       "notFound": "ফিড পাওয়া যায়নি",
@@ -709,7 +709,7 @@
     "never": "কখনো নয়",
     "new": {
       "create": "ফিড তৈরি করুন",
-      "documentTitle": "নতুন প্রোডাক্ট ফিড | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "নতুন প্রোডাক্ট ফিড | Wholesale by Mercaria",
       "identityColumnsHint": "কমা দিয়ে আলাদা করে, সর্বোচ্চ চারটি। পরে এগুলো বদলানো যায় না: এক ফাইল থেকে পরের ফাইলে Mercaria একই পণ্যকে এগুলো দিয়েই চেনে, তাই বদলালে মনে হবে আপনি পুরো ক্যাটালগ বদলে ফেলেছেন। অন্য কলাম দরকার হলে নতুন একটি ফিড তৈরি করুন।",
       "identityColumnsLabel": "যে কলামগুলো প্রতিটি পণ্যকে শনাক্ত করে",
       "identityColumnsPlaceholder": "id, sku",
@@ -812,7 +812,7 @@
     }
   },
   "home": {
-    "documentTitle": "ড্যাশবোর্ড | Mercaria",
+    "documentTitle": "ড্যাশবোর্ড | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "%{count}টি ট্র্যাক করা ভ্যারিয়েন্ট কম-স্টকের সীমায় বা তার নিচে আছে।",
@@ -884,7 +884,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "অর্ডার | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "অর্ডার | Wholesale by Mercaria",
       "fulfilment": "ফুলফিলমেন্ট",
       "history": "ইতিহাস",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -905,7 +905,7 @@
       "trackingPlaceholder": "1Z…",
       "updateFailed": "অর্ডার আপডেট করা যায়নি"
     },
-    "documentTitle": "অর্ডার | Mercaria ড্যাশবোর্ড",
+    "documentTitle": "অর্ডার | Wholesale by Mercaria",
     "empty": {
       "body": "গ্রাহকেরা কেনা শুরু করলে অর্ডার এখানে দেখা যাবে।",
       "title": "কোনো অর্ডার নেই"
@@ -1004,7 +1004,7 @@
       "archiveFailed": "পণ্যটি আর্কাইভ করা যায়নি",
       "archived": "পণ্য আর্কাইভ হয়েছে",
       "channelSettings": "চ্যানেল সেটিংস",
-      "documentTitle": "পণ্য | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "পণ্য | Wholesale by Mercaria",
       "loadFailed": "পণ্য লোড করা যায়নি",
       "pins": {
         "release": "রিলিজ করুন",
@@ -1032,7 +1032,7 @@
         "removeTag": "%{tag} সরান"
       }
     },
-    "documentTitle": "পণ্য | Mercaria ড্যাশবোর্ড",
+    "documentTitle": "পণ্য | Wholesale by Mercaria",
     "empty": {
       "action": "আপনার প্রথম পণ্য যোগ করুন",
       "title": "এখনো কোনো পণ্য নেই"
@@ -1046,7 +1046,7 @@
       "createFailed": "পণ্যটি তৈরি করা যায়নি",
       "created": "পণ্য তৈরি হয়েছে",
       "descriptionPlaceholder": "পণ্যটির বিবরণ দিন",
-      "documentTitle": "নতুন পণ্য | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "নতুন পণ্য | Wholesale by Mercaria",
       "optionNameLabel": "অপশনের নাম (ঐচ্ছিক, যেমন সাইজ)",
       "optionNamePlaceholder": "সাইজ",
       "optionValueLabel": "%{option} মান",
@@ -1127,11 +1127,11 @@
       }
     },
     "wizard": {
-      "documentTitle": "পণ্য তৈরি করুন",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "পণ্য তৈরি করুন",
       "readOnly": "এই খসড়াটি আর সম্পাদনা করা যাবে না।",
       "start": {
-        "documentTitle": "আপনি কী বিক্রি করছেন?",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "আপনি কী বিক্রি করছেন?",
         "subtitle": "ক্যাটালগে খুঁজে নিন, অথবা নতুন কিছুর বর্ণনা দিন।",
         "unavailableTitle": "এখানে ধাপে ধাপে তৈরি করা যাচ্ছে না",
@@ -1387,9 +1387,9 @@
     }
   },
   "settings": {
-    "documentTitle": "সেটিংস | Mercaria ড্যাশবোর্ড",
+    "documentTitle": "সেটিংস | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "মার্কেটপ্লেস ফি | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "মার্কেটপ্লেস ফি | Wholesale by Mercaria",
       "title": "মার্কেটপ্লেস ফি",
       "subtitle": "প্রতিটি বিক্রিতে Mercaria যা নেয়, এবং আপনি যে শর্তগুলো মেনে নেন।",
       "loadFailed": "আপনার ফি-শর্ত লোড করা যায়নি",
@@ -1438,7 +1438,7 @@
       "defaultFlag": " · ডিফল্ট",
       "deleteFailed": "লোকেশন মুছে ফেলা যায়নি",
       "deleted": "লোকেশন মুছে ফেলা হয়েছে",
-      "documentTitle": "লোকেশন | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "লোকেশন | Wholesale by Mercaria",
       "inactiveFlag": " · নিষ্ক্রিয়",
       "loadFailed": "লোকেশন লোড করা যায়নি",
       "namePlaceholder": "প্রধান গুদাম",
@@ -1455,7 +1455,7 @@
       "placeFlag": " · GoWay স্থান সেট করা আছে",
       "noPlaceFlag": " · এখনো কোনো GoWay স্থান নেই",
       "editor": {
-        "documentTitle": "লোকেশন এডিট করুন | Mercaria ড্যাশবোর্ড",
+        "documentTitle": "লোকেশন এডিট করুন | Wholesale by Mercaria",
         "title": "লোকেশন",
         "subtitle": "GoWay-তে এর স্থান, আর Mercaria-তে এটি কীভাবে বিক্রি করে",
         "loadFailed": "এই লোকেশনটি লোড করা যায়নি",
@@ -1698,7 +1698,7 @@
         "usernameLabel": "সংগঠনের ইউজারনেম",
         "warning": "যারা আগে এই স্টোরের হয়ে কাজ করতে পারতেন এবং সংগঠনে নেই, তাদের আর অ্যাক্সেস নেই।"
       },
-      "documentTitle": "মেম্বার | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "মেম্বার | Wholesale by Mercaria",
       "loadFailed": "এই স্টোরের মানুষদের লোড করা যায়নি",
       "noAccess": "অ্যাক্সেস নেই",
       "organizationBody": "এই স্টোরের হয়ে কে কাজ করতে পারে তা Oxy-তে সংগঠনের সদস্যপদ ঠিক করে। Mercaria শুধু প্রতিটি ভূমিকার অনুমতির ব্যতিক্রম রাখে।",
@@ -1750,7 +1750,7 @@
     },
     "payments": {
       "beingReviewed": "পর্যালোচনা চলছে",
-      "documentTitle": "পেমেন্ট ও পেআউট | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "পেমেন্ট ও পেআউট | Wholesale by Mercaria",
       "dueBy": "শেষ সময়",
       "itemCount": {
         "one": "%{count}টি আইটেম",
@@ -1812,7 +1812,7 @@
       "cancelPlan": "প্ল্যান বাতিল করুন",
       "capabilityWithLimit": "%{name} · সর্বোচ্চ %{limit}",
       "choosePlan": "%{plan} বেছে নিন",
-      "documentTitle": "প্ল্যান ও বিলিং | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "প্ল্যান ও বিলিং | Wholesale by Mercaria",
       "endsOn": "%{date}-এ শেষ হবে।",
       "free": "ফ্রি",
       "graceEndsOn": "পেমেন্ট সফল না হলে এই প্ল্যানের বাড়তি সুবিধাগুলো %{date}-এ বন্ধ হয়ে যাবে।",
@@ -1885,7 +1885,7 @@
       }
     },
     "policies": {
-      "documentTitle": "পলিসি | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "পলিসি | Wholesale by Mercaria",
       "loadFailed": "সেটিংস লোড করা যায়নি",
       "lowStockAlerts": "কম-স্টকের সতর্কতা",
       "notifications": "নোটিফিকেশন",
@@ -1943,7 +1943,7 @@
     },
     "store": {
       "brandColorLabel": "ব্র্যান্ড রং",
-      "documentTitle": "স্টোর প্রোফাইল | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "স্টোর প্রোফাইল | Wholesale by Mercaria",
       "loadFailed": "স্টোর লোড করা যায়নি",
       "nameLabel": "স্টোরের নাম",
       "nameRequired": "স্টোরের নাম দিতে হবে",
@@ -1961,7 +1961,7 @@
       "created": "ট্যাক্স রেট তৈরি হয়েছে",
       "deleteFailed": "রেট মুছে ফেলা যায়নি",
       "deleted": "ট্যাক্স রেট মুছে ফেলা হয়েছে",
-      "documentTitle": "ট্যাক্স | Mercaria ড্যাশবোর্ড",
+      "documentTitle": "ট্যাক্স | Wholesale by Mercaria",
       "emptyBody": "চেকআউটে ট্যাক্স নিতে একটি রেট যোগ করুন।",
       "emptyTitle": "কোনো ট্যাক্স রেট নেই",
       "inactive": "নিষ্ক্রিয়",
@@ -1990,7 +1990,7 @@
       "success": "স্টোর তৈরি হয়েছে"
     },
     "createStore": "স্টোর তৈরি করুন",
-    "documentTitle": "স্টোর | Mercaria ড্যাশবোর্ড",
+    "documentTitle": "স্টোর | Wholesale by Mercaria",
     "empty": {
       "body": "Mercaria-তে বিক্রি শুরু করতে আপনার প্রথম স্টোর তৈরি করুন।",
       "title": "এখনো কোনো স্টোর নেই"
@@ -2014,5 +2014,9 @@
     "price": "মূল্য",
     "date": "তারিখ",
     "customer": "ক্রেতা"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

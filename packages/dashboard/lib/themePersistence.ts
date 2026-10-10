@@ -1,6 +1,9 @@
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { webLocalStorage, type BloomThemeStorage } from "@oxy.so/bloom/theme";
+import { webLocalStorage, type AppColorName, type BloomThemeStorage } from "@oxy.so/bloom/theme";
+
+// Wholesale has a fixed brand palette; Bloom still persists the chosen mode.
+export const BLOOM_DEFAULT_COLOR_PRESET: AppColorName = "orange";
 
 /**
  * Single source of truth for where Bloom persists the active theme

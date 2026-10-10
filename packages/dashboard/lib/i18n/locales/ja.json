@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "サインイン",
     "signInBody": "Oxyアカウントでサインインしてストアを管理します。商品、注文、在庫、顧客、割引、レポートを扱えます。",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "チャネルを追加",
@@ -92,7 +92,7 @@
       },
       "title": "接続解除"
     },
-    "documentTitle": "販売チャネル | Mercaria Dashboard",
+    "documentTitle": "販売チャネル | Wholesale by Mercaria",
     "empty": {
       "body": "下からストアまたは商品フィードを接続すると、既存のカタログを取り込めます。",
       "title": "Mercariaのカタログのみ"
@@ -263,7 +263,7 @@
     "settings": {
       "autoPublish": "自動公開",
       "autoPublishHint": "取り込んだ商品をすぐに公開します。オフの場合は、確認用の下書きとして取り込まれます。",
-      "documentTitle": "チャネル設定 | Mercaria Dashboard",
+      "documentTitle": "チャネル設定 | Wholesale by Mercaria",
       "inventoryHint": "同期先ロケーションの在庫数。",
       "inventoryLabel": "在庫",
       "keepLocalEdits": "Mercariaでの編集を保持",
@@ -396,7 +396,7 @@
       "canAndCannot": "このチャネルにできること・できないこと",
       "chooseWhatToImport": "インポートする対象を選択",
       "connectedTitle": "%{channel}に接続しました",
-      "documentTitle": "チャネルを接続 | Mercaria Dashboard",
+      "documentTitle": "チャネルを接続 | Wholesale by Mercaria",
       "everythingChecksOut": "問題ありません。有効化すると最初の同期が始まります。",
       "feed": {
         "body": "商品フィードは専用の画面で設定します。そこでファイルの列をMercariaの項目に対応付け、公開前に結果をプレビューできます。",
@@ -490,7 +490,7 @@
     },
     "deleteError": "コレクションを削除できませんでした",
     "deleted": "コレクションを削除しました",
-    "documentTitle": "コレクション | Mercaria Dashboard",
+    "documentTitle": "コレクション | Wholesale by Mercaria",
     "empty": {
       "body": "コレクションを作成してカタログを整理しましょう。",
       "title": "コレクションがまだありません"
@@ -607,7 +607,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "顧客 | Mercaria Dashboard",
+      "documentTitle": "顧客 | Wholesale by Mercaria",
       "lifetimeSpend": "累計購入額",
       "loadError": "顧客を読み込めませんでした",
       "noOrders": "注文はまだありません。",
@@ -615,7 +615,7 @@
       "subtitle": "顧客の詳細",
       "title": "顧客"
     },
-    "documentTitle": "顧客 | Mercaria Dashboard",
+    "documentTitle": "顧客 | Wholesale by Mercaria",
     "empty": {
       "body": "初回の注文のあと、顧客がここに表示されます。",
       "title": "顧客がいません"
@@ -653,7 +653,7 @@
     },
     "deleteError": "割引を削除できませんでした",
     "deleted": "割引を削除しました",
-    "documentTitle": "割引 | Mercaria Dashboard",
+    "documentTitle": "割引 | Wholesale by Mercaria",
     "empty": {
       "body": "コード割引または自動割引を作成しましょう。",
       "title": "割引がまだありません"
@@ -674,13 +674,13 @@
     "boundaryBody": "予期しないエラーが発生しました。もう一度お試しください。問題が解決しない場合も、担当チームに通知済みです。",
     "notFoundAction": "ダッシュボードへ移動",
     "notFoundBody": "この画面は存在しません。",
-    "notFoundDocumentTitle": "404 - ページが見つかりません | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 - ページが見つかりません | Wholesale by Mercaria",
     "notFoundHeading": "ページが見つかりません"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "先にマッピングを有効化してください",
-      "documentTitle": "商品フィード | Mercaria Dashboard",
+      "documentTitle": "商品フィード | Wholesale by Mercaria",
       "identityColumns": "識別用の列：%{columns} — このフィードでは変更できません。",
       "neverRead": "このフィードはまだ読み取られていません。",
       "notFound": "フィードが見つかりません",
@@ -709,7 +709,7 @@
     "never": "なし",
     "new": {
       "create": "フィードを作成",
-      "documentTitle": "新規商品フィード | Mercaria Dashboard",
+      "documentTitle": "新規商品フィード | Wholesale by Mercaria",
       "identityColumnsHint": "カンマ区切りで最大4つ。あとから変更できません。これはMercariaが前回のファイルと今回のファイルで同じ商品を見分ける手がかりであり、変更するとカタログをすべて入れ替えたように見えてしまいます。別の列が必要な場合は、新しいフィードを作成してください。",
       "identityColumnsLabel": "各商品を識別する列",
       "identityColumnsPlaceholder": "id, sku",
@@ -812,7 +812,7 @@
     }
   },
   "home": {
-    "documentTitle": "ダッシュボード | Mercaria",
+    "documentTitle": "ダッシュボード | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "在庫を管理しているバリエーションのうち%{count}件が、在庫僅少のしきい値以下です。",
@@ -884,7 +884,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "注文 | Mercaria Dashboard",
+      "documentTitle": "注文 | Wholesale by Mercaria",
       "fulfilment": "フルフィルメント",
       "history": "履歴",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -905,7 +905,7 @@
       "trackingPlaceholder": "1Z…",
       "updateFailed": "注文を更新できませんでした"
     },
-    "documentTitle": "注文 | Mercaria Dashboard",
+    "documentTitle": "注文 | Wholesale by Mercaria",
     "empty": {
       "body": "顧客が購入すると、注文がここに表示されます。",
       "title": "注文がありません"
@@ -1004,7 +1004,7 @@
       "archiveFailed": "商品をアーカイブできませんでした",
       "archived": "商品をアーカイブしました",
       "channelSettings": "チャネル設定",
-      "documentTitle": "商品 | Mercaria Dashboard",
+      "documentTitle": "商品 | Wholesale by Mercaria",
       "loadFailed": "商品を読み込めませんでした",
       "pins": {
         "release": "解除",
@@ -1032,7 +1032,7 @@
         "removeTag": "%{tag}を削除"
       }
     },
-    "documentTitle": "商品 | Mercaria Dashboard",
+    "documentTitle": "商品 | Wholesale by Mercaria",
     "empty": {
       "action": "最初の商品を追加",
       "title": "商品がまだありません"
@@ -1046,7 +1046,7 @@
       "createFailed": "商品を作成できませんでした",
       "created": "商品を作成しました",
       "descriptionPlaceholder": "商品の説明を入力",
-      "documentTitle": "新規商品 | Mercaria Dashboard",
+      "documentTitle": "新規商品 | Wholesale by Mercaria",
       "optionNameLabel": "オプション名（任意、例：サイズ）",
       "optionNamePlaceholder": "サイズ",
       "optionValueLabel": "%{option}の値",
@@ -1127,11 +1127,11 @@
       }
     },
     "wizard": {
-      "documentTitle": "商品を作成",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "商品を作成",
       "readOnly": "この下書きはもう編集できません。",
       "start": {
-        "documentTitle": "何を販売しますか？",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "何を販売しますか？",
         "subtitle": "カタログから探すか、新しいものを説明してください。",
         "unavailableTitle": "ガイド付き作成はここでは利用できません",
@@ -1387,9 +1387,9 @@
     }
   },
   "settings": {
-    "documentTitle": "設定 | Mercaria Dashboard",
+    "documentTitle": "設定 | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "マーケットプレイス手数料 | Mercaria ダッシュボード",
+      "documentTitle": "マーケットプレイス手数料 | Wholesale by Mercaria",
       "title": "マーケットプレイス手数料",
       "subtitle": "Mercaria が各販売で請求する金額と、承諾いただく条件です。",
       "loadFailed": "手数料条件を読み込めませんでした",
@@ -1438,7 +1438,7 @@
       "defaultFlag": " · デフォルト",
       "deleteFailed": "ロケーションを削除できませんでした",
       "deleted": "ロケーションを削除しました",
-      "documentTitle": "ロケーション | Mercaria Dashboard",
+      "documentTitle": "ロケーション | Wholesale by Mercaria",
       "inactiveFlag": " · 無効",
       "loadFailed": "ロケーションを読み込めませんでした",
       "namePlaceholder": "メイン倉庫",
@@ -1455,7 +1455,7 @@
       "placeFlag": " · GoWay の場所を設定済み",
       "noPlaceFlag": " · GoWay の場所が未設定",
       "editor": {
-        "documentTitle": "ロケーションを編集 | Mercaria Dashboard",
+        "documentTitle": "ロケーションを編集 | Wholesale by Mercaria",
         "title": "ロケーション",
         "subtitle": "GoWay 上の場所と、Mercaria での販売方法",
         "loadFailed": "このロケーションを読み込めませんでした",
@@ -1698,7 +1698,7 @@
         "usernameLabel": "組織のユーザー名",
         "warning": "これまでこのストアを操作できた人で、組織に含まれない人はアクセスできなくなります。"
       },
-      "documentTitle": "メンバー | Mercaria Dashboard",
+      "documentTitle": "メンバー | Wholesale by Mercaria",
       "loadFailed": "このストアのメンバーを読み込めませんでした",
       "noAccess": "アクセス権なし",
       "organizationBody": "このストアで操作できる人は、Oxy の組織メンバーによって決まります。Mercaria は各ロールの権限に対する例外だけを保存します。",
@@ -1750,7 +1750,7 @@
     },
     "payments": {
       "beingReviewed": "審査中",
-      "documentTitle": "決済と入金 | Mercaria Dashboard",
+      "documentTitle": "決済と入金 | Wholesale by Mercaria",
       "dueBy": "期限",
       "itemCount": {
         "one": "%{count}件",
@@ -1812,7 +1812,7 @@
       "cancelPlan": "プランを解約",
       "capabilityWithLimit": "%{name} · %{limit}まで",
       "choosePlan": "%{plan}を選択",
-      "documentTitle": "プランと請求 | Mercaria Dashboard",
+      "documentTitle": "プランと請求 | Wholesale by Mercaria",
       "endsOn": "%{date}に終了します。",
       "free": "無料",
       "graceEndsOn": "支払いが完了しない場合、このプランの追加機能は%{date}に停止します。",
@@ -1885,7 +1885,7 @@
       }
     },
     "policies": {
-      "documentTitle": "ポリシー | Mercaria Dashboard",
+      "documentTitle": "ポリシー | Wholesale by Mercaria",
       "loadFailed": "設定を読み込めませんでした",
       "lowStockAlerts": "在庫僅少アラート",
       "notifications": "通知",
@@ -1943,7 +1943,7 @@
     },
     "store": {
       "brandColorLabel": "ブランドカラー",
-      "documentTitle": "ストアプロフィール | Mercaria Dashboard",
+      "documentTitle": "ストアプロフィール | Wholesale by Mercaria",
       "loadFailed": "ストアを読み込めませんでした",
       "nameLabel": "ストア名",
       "nameRequired": "ストア名は必須です",
@@ -1961,7 +1961,7 @@
       "created": "税率を作成しました",
       "deleteFailed": "税率を削除できませんでした",
       "deleted": "税率を削除しました",
-      "documentTitle": "税金 | Mercaria Dashboard",
+      "documentTitle": "税金 | Wholesale by Mercaria",
       "emptyBody": "チェックアウトで税を課すには、税率を追加してください。",
       "emptyTitle": "税率がありません",
       "inactive": "無効",
@@ -1990,7 +1990,7 @@
       "success": "ストアを作成しました"
     },
     "createStore": "ストアを作成",
-    "documentTitle": "ストア | Mercaria Dashboard",
+    "documentTitle": "ストア | Wholesale by Mercaria",
     "empty": {
       "body": "最初のストアを作成して、Mercariaで販売を始めましょう。",
       "title": "ストアがまだありません"
@@ -2014,5 +2014,9 @@
     "price": "価格",
     "date": "日付",
     "customer": "顧客"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

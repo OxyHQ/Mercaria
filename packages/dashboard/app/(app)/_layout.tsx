@@ -8,6 +8,8 @@ import { useDashboardSidebar } from "@/components/shell/useDashboardSidebar";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { BottomTabBar } from "@/components/shell/BottomTabBar";
 import { useTranslation } from "@/lib/i18n";
+import { Logo } from "@/components/Logo";
+import { BrandWordmark } from "@/components/BrandWordmark";
 
 const SCREEN_OPTIONS = { headerShown: false } as const;
 
@@ -43,9 +45,12 @@ function Shell() {
       // The drawer carries the account footer, which the bottom bar does not,
       // so below `md` the header keeps its menu button — ours, for its label.
       header={
-        <View className="flex-row items-center justify-between gap-3 px-4 py-2 md:hidden">
-          <AppShellMenuButton accessibilityLabel={t("nav.openNavigation")} />
-          <StoreSwitcher />
+        <View className="gap-2 px-4 py-2 md:hidden">
+          <View className="flex-row items-center justify-between gap-3">
+            <AppShellMenuButton accessibilityLabel={t("nav.openNavigation")} />
+            <View testID="wholesale-mobile-brand" className="flex-row items-center gap-2"><Logo size={28} /><BrandWordmark /></View>
+          </View>
+          <View className="items-end"><StoreSwitcher /></View>
         </View>
       }
       bottomBar={<BottomTabBar />}

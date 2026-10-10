@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "تسجيل الدخول",
     "signInBody": "سجّل الدخول بحساب Oxy لإدارة متجرك — المنتجات والطلبات والمخزون والعملاء والخصومات والتقارير.",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "إضافة قناة",
@@ -92,7 +92,7 @@
       },
       "title": "فصل"
     },
-    "documentTitle": "قنوات البيع | Mercaria Dashboard",
+    "documentTitle": "قنوات البيع | Wholesale by Mercaria",
     "empty": {
       "body": "اربط متجرًا أو خلاصة منتجات أدناه لجلب كتالوج موجود.",
       "title": "كتالوج Mercaria الخاص بك فقط"
@@ -263,7 +263,7 @@
     "settings": {
       "autoPublish": "النشر التلقائي",
       "autoPublishHint": "انشر المنتجات المسحوبة فورًا. عند الإيقاف، تصل كمسودات للمراجعة.",
-      "documentTitle": "إعدادات القناة | Mercaria Dashboard",
+      "documentTitle": "إعدادات القناة | Wholesale by Mercaria",
       "inventoryHint": "مستويات المخزون في موقعك المتزامن.",
       "inventoryLabel": "المخزون",
       "keepLocalEdits": "احتفظ بتعديلاتي المحلية",
@@ -396,7 +396,7 @@
       "canAndCannot": "ما تستطيعه هذه القناة وما لا تستطيعه",
       "chooseWhatToImport": "اختر ما تريد استيراده",
       "connectedTitle": "تم ربط %{channel}",
-      "documentTitle": "ربط قناة | Mercaria Dashboard",
+      "documentTitle": "ربط قناة | Wholesale by Mercaria",
       "everythingChecksOut": "كل شيء سليم. التفعيل يبدأ أول مزامنة.",
       "feed": {
         "body": "تُعد خلاصة المنتجات في شاشتها الخاصة، حيث تعيّن أعمدة الملف على حقول Mercaria وتعاين النتيجة قبل أن يصبح أي شيء مباشرًا.",
@@ -490,7 +490,7 @@
     },
     "deleteError": "تعذّر حذف المجموعة",
     "deleted": "تم حذف المجموعة",
-    "documentTitle": "المجموعات | Mercaria Dashboard",
+    "documentTitle": "المجموعات | Wholesale by Mercaria",
     "empty": {
       "body": "أنشئ واحدة لتنظيم الكتالوج الخاص بك.",
       "title": "لا توجد مجموعات بعد"
@@ -607,7 +607,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "العميل | Mercaria Dashboard",
+      "documentTitle": "العميل | Wholesale by Mercaria",
       "lifetimeSpend": "إجمالي الإنفاق",
       "loadError": "تعذّر تحميل العميل",
       "noOrders": "لا توجد طلبات بعد.",
@@ -615,7 +615,7 @@
       "subtitle": "تفاصيل العميل",
       "title": "العميل"
     },
-    "documentTitle": "العملاء | Mercaria Dashboard",
+    "documentTitle": "العملاء | Wholesale by Mercaria",
     "empty": {
       "body": "يظهر العملاء هنا بعد أول طلب لهم.",
       "title": "لا يوجد عملاء"
@@ -653,7 +653,7 @@
     },
     "deleteError": "تعذّر حذف الخصم",
     "deleted": "تم حذف الخصم",
-    "documentTitle": "الخصومات | Mercaria Dashboard",
+    "documentTitle": "الخصومات | Wholesale by Mercaria",
     "empty": {
       "body": "أنشئ خصمًا برمز أو خصمًا تلقائيًا.",
       "title": "لا توجد خصومات بعد"
@@ -674,13 +674,13 @@
     "boundaryBody": "حدث خطأ غير متوقع. يمكنك إعادة المحاولة، وإذا استمرت المشكلة فقد أُبلغ فريقنا بها.",
     "notFoundAction": "الذهاب إلى لوحة التحكم",
     "notFoundBody": "هذه الشاشة غير موجودة.",
-    "notFoundDocumentTitle": "404 - غير موجود | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 - غير موجود | Wholesale by Mercaria",
     "notFoundHeading": "عذرًا!"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "فعّل تعيينًا أولًا",
-      "documentTitle": "خلاصة المنتجات | Mercaria Dashboard",
+      "documentTitle": "خلاصة المنتجات | Wholesale by Mercaria",
       "identityColumns": "أعمدة التعريف: %{columns} — ثابتة طوال عمر هذه الخلاصة.",
       "neverRead": "لم تُقرأ هذه الخلاصة بعد.",
       "notFound": "لم يُعثر على الخلاصة",
@@ -709,7 +709,7 @@
     "never": "أبدًا",
     "new": {
       "create": "إنشاء الخلاصة",
-      "documentTitle": "خلاصة منتجات جديدة | Mercaria Dashboard",
+      "documentTitle": "خلاصة منتجات جديدة | Wholesale by Mercaria",
       "identityColumnsHint": "مفصولة بفواصل، حتى أربعة أعمدة. لا يمكن تغييرها لاحقًا: فهي الطريقة التي تتعرّف بها Mercaria على المنتج نفسه بين ملف وآخر، وتغييرها سيبدو كأنك استبدلت كتالوجك بالكامل. إذا احتجت أعمدة مختلفة، فأنشئ خلاصة جديدة.",
       "identityColumnsLabel": "الأعمدة التي تُعرّف كل منتج",
       "identityColumnsPlaceholder": "id, sku",
@@ -812,7 +812,7 @@
     }
   },
   "home": {
-    "documentTitle": "لوحة التحكم | Mercaria",
+    "documentTitle": "لوحة التحكم | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "%{count} متغيّر متتبَّع عند حد انخفاض المخزون أو دونه.",
@@ -884,7 +884,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "الطلب | Mercaria Dashboard",
+      "documentTitle": "الطلب | Wholesale by Mercaria",
       "fulfilment": "التنفيذ",
       "history": "السجل",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -905,7 +905,7 @@
       "trackingPlaceholder": "1Z…",
       "updateFailed": "تعذّر تحديث الطلب"
     },
-    "documentTitle": "الطلبات | Mercaria Dashboard",
+    "documentTitle": "الطلبات | Wholesale by Mercaria",
     "empty": {
       "body": "ستظهر الطلبات هنا بمجرد أن يشتري العملاء.",
       "title": "لا توجد طلبات"
@@ -1004,7 +1004,7 @@
       "archiveFailed": "تعذّرت أرشفة المنتج",
       "archived": "تمت أرشفة المنتج",
       "channelSettings": "إعدادات القناة",
-      "documentTitle": "المنتج | Mercaria Dashboard",
+      "documentTitle": "المنتج | Wholesale by Mercaria",
       "loadFailed": "تعذّر تحميل المنتج",
       "pins": {
         "release": "تحرير",
@@ -1032,7 +1032,7 @@
         "removeTag": "إزالة %{tag}"
       }
     },
-    "documentTitle": "المنتجات | Mercaria Dashboard",
+    "documentTitle": "المنتجات | Wholesale by Mercaria",
     "empty": {
       "action": "أضف منتجك الأول",
       "title": "لا توجد منتجات بعد"
@@ -1046,7 +1046,7 @@
       "createFailed": "تعذّر إنشاء المنتج",
       "created": "تم إنشاء المنتج",
       "descriptionPlaceholder": "صِف المنتج",
-      "documentTitle": "منتج جديد | Mercaria Dashboard",
+      "documentTitle": "منتج جديد | Wholesale by Mercaria",
       "optionNameLabel": "اسم الخيار (اختياري، مثل المقاس)",
       "optionNamePlaceholder": "المقاس",
       "optionValueLabel": "قيمة %{option}",
@@ -1127,11 +1127,11 @@
       }
     },
     "wizard": {
-      "documentTitle": "إنشاء منتج",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "إنشاء منتج",
       "readOnly": "لم يعد بالإمكان تعديل هذه المسودة.",
       "start": {
-        "documentTitle": "ما الذي تبيعه؟",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "ما الذي تبيعه؟",
         "subtitle": "اعثر عليه في الكتالوج، أو صِف شيئًا جديدًا.",
         "unavailableTitle": "الإنشاء الموجّه غير متاح هنا",
@@ -1387,9 +1387,9 @@
     }
   },
   "settings": {
-    "documentTitle": "الإعدادات | Mercaria Dashboard",
+    "documentTitle": "الإعدادات | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "عمولات السوق | لوحة تحكم Mercaria",
+      "documentTitle": "عمولات السوق | Wholesale by Mercaria",
       "title": "عمولات السوق",
       "subtitle": "ما تتقاضاه Mercaria على كل عملية بيع، والشروط التي توافق عليها.",
       "loadFailed": "تعذّر تحميل شروط العمولة الخاصة بك",
@@ -1438,7 +1438,7 @@
       "defaultFlag": " · افتراضي",
       "deleteFailed": "تعذّر حذف الموقع",
       "deleted": "تم حذف الموقع",
-      "documentTitle": "المواقع | Mercaria Dashboard",
+      "documentTitle": "المواقع | Wholesale by Mercaria",
       "inactiveFlag": " · غير نشط",
       "loadFailed": "تعذّر تحميل المواقع",
       "namePlaceholder": "المستودع الرئيسي",
@@ -1455,7 +1455,7 @@
       "placeFlag": " · تم تعيين مكان على GoWay",
       "noPlaceFlag": " · لا يوجد مكان على GoWay بعد",
       "editor": {
-        "documentTitle": "تعديل الموقع | Mercaria Dashboard",
+        "documentTitle": "تعديل الموقع | Wholesale by Mercaria",
         "title": "الموقع",
         "subtitle": "مكانه على GoWay، وكيف يبيع على Mercaria",
         "loadFailed": "تعذّر تحميل هذا الموقع",
@@ -1698,7 +1698,7 @@
         "usernameLabel": "اسم مستخدم المؤسسة",
         "warning": "لم يعد للأشخاص الذين كان بإمكانهم العمل نيابةً عن هذا المتجر وليسوا في المؤسسة أي وصول إليه."
       },
-      "documentTitle": "الأعضاء | Mercaria Dashboard",
+      "documentTitle": "الأعضاء | Wholesale by Mercaria",
       "loadFailed": "تعذّر تحميل أشخاص هذا المتجر",
       "noAccess": "لا وصول",
       "organizationBody": "تحدد عضوية المؤسسة في Oxy من يمكنه العمل نيابةً عن هذا المتجر. لا يحتفظ Mercaria إلا بالاستثناءات من أذونات كل دور.",
@@ -1750,7 +1750,7 @@
     },
     "payments": {
       "beingReviewed": "قيد المراجعة",
-      "documentTitle": "المدفوعات والتحويلات | Mercaria Dashboard",
+      "documentTitle": "المدفوعات والتحويلات | Wholesale by Mercaria",
       "dueBy": "مستحق بحلول",
       "itemCount": {
         "one": "%{count} عنصر",
@@ -1812,7 +1812,7 @@
       "cancelPlan": "إلغاء الخطة",
       "capabilityWithLimit": "%{name} · حتى %{limit}",
       "choosePlan": "اختر %{plan}",
-      "documentTitle": "الخطة والفوترة | Mercaria Dashboard",
+      "documentTitle": "الخطة والفوترة | Wholesale by Mercaria",
       "endsOn": "تنتهي في %{date}.",
       "free": "مجانية",
       "graceEndsOn": "تتوقف مزايا هذه الخطة في %{date} ما لم تنجح عملية الدفع.",
@@ -1885,7 +1885,7 @@
       }
     },
     "policies": {
-      "documentTitle": "السياسات | Mercaria Dashboard",
+      "documentTitle": "السياسات | Wholesale by Mercaria",
       "loadFailed": "تعذّر تحميل الإعدادات",
       "lowStockAlerts": "تنبيهات انخفاض المخزون",
       "notifications": "الإشعارات",
@@ -1943,7 +1943,7 @@
     },
     "store": {
       "brandColorLabel": "لون العلامة التجارية",
-      "documentTitle": "ملف المتجر | Mercaria Dashboard",
+      "documentTitle": "ملف المتجر | Wholesale by Mercaria",
       "loadFailed": "تعذّر تحميل المتجر",
       "nameLabel": "اسم المتجر",
       "nameRequired": "اسم المتجر مطلوب",
@@ -1961,7 +1961,7 @@
       "created": "تم إنشاء معدل الضريبة",
       "deleteFailed": "تعذّر حذف المعدل",
       "deleted": "تم حذف معدل الضريبة",
-      "documentTitle": "الضرائب | Mercaria Dashboard",
+      "documentTitle": "الضرائب | Wholesale by Mercaria",
       "emptyBody": "أضف معدلًا لتحصيل الضريبة عند الدفع.",
       "emptyTitle": "لا توجد معدلات ضريبة",
       "inactive": "غير نشط",
@@ -1990,7 +1990,7 @@
       "success": "تم إنشاء المتجر"
     },
     "createStore": "إنشاء متجر",
-    "documentTitle": "المتاجر | Mercaria Dashboard",
+    "documentTitle": "المتاجر | Wholesale by Mercaria",
     "empty": {
       "body": "أنشئ متجرك الأول لتبدأ البيع على Mercaria.",
       "title": "لا توجد متاجر بعد"
@@ -2014,5 +2014,9 @@
     "price": "السعر",
     "date": "التاريخ",
     "customer": "العميل"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

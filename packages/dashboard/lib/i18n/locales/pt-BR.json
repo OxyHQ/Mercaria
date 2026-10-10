@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "Entrar",
     "signInBody": "Entre com sua conta Oxy para gerenciar sua loja — produtos, pedidos, estoque, clientes, descontos e relatórios.",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "Adicionar um canal",
@@ -95,7 +95,7 @@
       },
       "title": "Desconectar"
     },
-    "documentTitle": "Canais de venda | Mercaria Dashboard",
+    "documentTitle": "Canais de venda | Wholesale by Mercaria",
     "empty": {
       "body": "Conecte uma loja ou um feed de produtos abaixo para trazer um catálogo já existente.",
       "title": "Apenas o seu catálogo da Mercaria"
@@ -270,7 +270,7 @@
     "settings": {
       "autoPublish": "Publicação automática",
       "autoPublishHint": "Publicar imediatamente os produtos importados. Quando desativado, eles entram como rascunhos para revisão.",
-      "documentTitle": "Configurações do canal | Mercaria Dashboard",
+      "documentTitle": "Configurações do canal | Wholesale by Mercaria",
       "inventoryHint": "Níveis de estoque no local sincronizado.",
       "inventoryLabel": "Estoque",
       "keepLocalEdits": "Manter minhas edições locais",
@@ -405,7 +405,7 @@
       "canAndCannot": "O que este canal faz e o que não faz",
       "chooseWhatToImport": "Escolha o que importar",
       "connectedTitle": "%{channel} conectado",
-      "documentTitle": "Conectar um canal | Mercaria Dashboard",
+      "documentTitle": "Conectar um canal | Wholesale by Mercaria",
       "everythingChecksOut": "Está tudo certo. Ativar inicia a primeira sincronização.",
       "feed": {
         "body": "Um feed de produtos é configurado em uma tela própria, onde você mapeia as colunas do arquivo para os campos da Mercaria e vê uma prévia do resultado antes de qualquer coisa entrar no ar.",
@@ -499,7 +499,7 @@
     },
     "deleteError": "Não foi possível excluir a coleção",
     "deleted": "Coleção excluída",
-    "documentTitle": "Coleções | Mercaria Dashboard",
+    "documentTitle": "Coleções | Wholesale by Mercaria",
     "empty": {
       "body": "Crie uma para organizar seu catálogo.",
       "title": "Nenhuma coleção ainda"
@@ -618,7 +618,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "Cliente | Mercaria Dashboard",
+      "documentTitle": "Cliente | Wholesale by Mercaria",
       "lifetimeSpend": "Total gasto",
       "loadError": "Não foi possível carregar o cliente",
       "noOrders": "Nenhum pedido ainda.",
@@ -626,7 +626,7 @@
       "subtitle": "Detalhes do cliente",
       "title": "Cliente"
     },
-    "documentTitle": "Clientes | Mercaria Dashboard",
+    "documentTitle": "Clientes | Wholesale by Mercaria",
     "empty": {
       "body": "Os clientes aparecem aqui depois do primeiro pedido.",
       "title": "Nenhum cliente"
@@ -665,7 +665,7 @@
     },
     "deleteError": "Não foi possível excluir o desconto",
     "deleted": "Desconto excluído",
-    "documentTitle": "Descontos | Mercaria Dashboard",
+    "documentTitle": "Descontos | Wholesale by Mercaria",
     "empty": {
       "body": "Crie um desconto por código ou automático.",
       "title": "Nenhum desconto ainda"
@@ -686,13 +686,13 @@
     "boundaryBody": "Ocorreu um erro inesperado. Você pode tentar novamente e, se o problema continuar, nossa equipe já foi avisada.",
     "notFoundAction": "Ir para o painel",
     "notFoundBody": "Esta tela não existe.",
-    "notFoundDocumentTitle": "404 - Não encontrado | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 - Não encontrado | Wholesale by Mercaria",
     "notFoundHeading": "Ops!"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "Ative um mapeamento primeiro",
-      "documentTitle": "Feed de produtos | Mercaria Dashboard",
+      "documentTitle": "Feed de produtos | Wholesale by Mercaria",
       "identityColumns": "Colunas de identidade: %{columns} — fixas por toda a vida deste feed.",
       "neverRead": "Este feed ainda não foi lido.",
       "notFound": "Feed não encontrado",
@@ -721,7 +721,7 @@
     "never": "nunca",
     "new": {
       "create": "Criar feed",
-      "documentTitle": "Novo feed de produtos | Mercaria Dashboard",
+      "documentTitle": "Novo feed de produtos | Wholesale by Mercaria",
       "identityColumnsHint": "Separadas por vírgula, até quatro. Elas não podem ser alteradas depois: é assim que a Mercaria reconhece o mesmo produto de um arquivo para o outro, então mudá-las pareceria que você trocou o catálogo inteiro. Se precisar de outras colunas, crie um novo feed.",
       "identityColumnsLabel": "Colunas que identificam cada produto",
       "identityColumnsPlaceholder": "id, sku",
@@ -824,7 +824,7 @@
     }
   },
   "home": {
-    "documentTitle": "Painel | Mercaria",
+    "documentTitle": "Painel | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "%{count} variante monitorada está no limite de estoque baixo ou abaixo dele.",
@@ -898,7 +898,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "Pedido | Mercaria Dashboard",
+      "documentTitle": "Pedido | Wholesale by Mercaria",
       "fulfilment": "Processamento",
       "history": "Histórico",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -919,7 +919,7 @@
       "trackingPlaceholder": "1Z…",
       "updateFailed": "Não foi possível atualizar o pedido"
     },
-    "documentTitle": "Pedidos | Mercaria Dashboard",
+    "documentTitle": "Pedidos | Wholesale by Mercaria",
     "empty": {
       "body": "Os pedidos aparecerão aqui quando os clientes comprarem.",
       "title": "Nenhum pedido"
@@ -1019,7 +1019,7 @@
       "archiveFailed": "Não foi possível arquivar o produto",
       "archived": "Produto arquivado",
       "channelSettings": "Configurações do canal",
-      "documentTitle": "Produto | Mercaria Dashboard",
+      "documentTitle": "Produto | Wholesale by Mercaria",
       "loadFailed": "Não foi possível carregar o produto",
       "pins": {
         "release": "Liberar",
@@ -1049,7 +1049,7 @@
         "removeTag": "Remover %{tag}"
       }
     },
-    "documentTitle": "Produtos | Mercaria Dashboard",
+    "documentTitle": "Produtos | Wholesale by Mercaria",
     "empty": {
       "action": "Adicione seu primeiro produto",
       "title": "Nenhum produto ainda"
@@ -1063,7 +1063,7 @@
       "createFailed": "Não foi possível criar o produto",
       "created": "Produto criado",
       "descriptionPlaceholder": "Descreva o produto",
-      "documentTitle": "Novo produto | Mercaria Dashboard",
+      "documentTitle": "Novo produto | Wholesale by Mercaria",
       "optionNameLabel": "Nome da opção (opcional, ex.: Tamanho)",
       "optionNamePlaceholder": "Tamanho",
       "optionValueLabel": "Valor de %{option}",
@@ -1145,11 +1145,11 @@
       }
     },
     "wizard": {
-      "documentTitle": "Criar um produto",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "Criar um produto",
       "readOnly": "Este rascunho não pode mais ser editado.",
       "start": {
-        "documentTitle": "O que você vai vender?",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "O que você vai vender?",
         "subtitle": "Encontre no catálogo ou descreva algo novo.",
         "unavailableTitle": "A criação guiada não está disponível aqui",
@@ -1405,9 +1405,9 @@
     }
   },
   "settings": {
-    "documentTitle": "Configurações | Mercaria Dashboard",
+    "documentTitle": "Configurações | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "Comissões do marketplace | Painel da Mercaria",
+      "documentTitle": "Comissões do marketplace | Wholesale by Mercaria",
       "title": "Comissões do marketplace",
       "subtitle": "O que a Mercaria cobra em cada venda e os termos que você aceita.",
       "loadFailed": "Não foi possível carregar seus termos de comissão",
@@ -1456,7 +1456,7 @@
       "defaultFlag": " · padrão",
       "deleteFailed": "Não foi possível excluir o local",
       "deleted": "Local excluído",
-      "documentTitle": "Locais | Mercaria Dashboard",
+      "documentTitle": "Locais | Wholesale by Mercaria",
       "inactiveFlag": " · inativo",
       "loadFailed": "Não foi possível carregar os locais",
       "namePlaceholder": "Depósito principal",
@@ -1473,7 +1473,7 @@
       "placeFlag": " · lugar do GoWay definido",
       "noPlaceFlag": " · ainda sem lugar do GoWay",
       "editor": {
-        "documentTitle": "Editar local | Mercaria Dashboard",
+        "documentTitle": "Editar local | Wholesale by Mercaria",
         "title": "Local",
         "subtitle": "Seu lugar no GoWay e como ele vende no Mercaria",
         "loadFailed": "Não foi possível carregar este local",
@@ -1716,7 +1716,7 @@
         "usernameLabel": "Nome de usuário da organização",
         "warning": "Pessoas que antes podiam agir por esta loja e não estão na organização não têm mais acesso a ela."
       },
-      "documentTitle": "Membros | Mercaria Dashboard",
+      "documentTitle": "Membros | Wholesale by Mercaria",
       "loadFailed": "Não foi possível carregar as pessoas desta loja",
       "noAccess": "Sem acesso",
       "organizationBody": "Quem pode agir por esta loja é definido pelos membros da organização no Oxy. O Mercaria guarda apenas exceções às permissões de cada papel.",
@@ -1768,7 +1768,7 @@
     },
     "payments": {
       "beingReviewed": "Em análise",
-      "documentTitle": "Pagamentos e repasses | Mercaria Dashboard",
+      "documentTitle": "Pagamentos e repasses | Wholesale by Mercaria",
       "dueBy": "Prazo",
       "itemCount": {
         "one": "%{count} item",
@@ -1832,7 +1832,7 @@
       "cancelPlan": "Cancelar plano",
       "capabilityWithLimit": "%{name} · até %{limit}",
       "choosePlan": "Escolher %{plan}",
-      "documentTitle": "Plano e cobrança | Mercaria Dashboard",
+      "documentTitle": "Plano e cobrança | Wholesale by Mercaria",
       "endsOn": "Termina em %{date}.",
       "free": "Grátis",
       "graceEndsOn": "Os extras deste plano param em %{date} se o pagamento não for aprovado.",
@@ -1906,7 +1906,7 @@
       }
     },
     "policies": {
-      "documentTitle": "Políticas | Mercaria Dashboard",
+      "documentTitle": "Políticas | Wholesale by Mercaria",
       "loadFailed": "Não foi possível carregar as configurações",
       "lowStockAlerts": "Alertas de estoque baixo",
       "notifications": "Notificações",
@@ -1964,7 +1964,7 @@
     },
     "store": {
       "brandColorLabel": "Cor da marca",
-      "documentTitle": "Perfil da loja | Mercaria Dashboard",
+      "documentTitle": "Perfil da loja | Wholesale by Mercaria",
       "loadFailed": "Não foi possível carregar a loja",
       "nameLabel": "Nome da loja",
       "nameRequired": "O nome da loja é obrigatório",
@@ -1982,7 +1982,7 @@
       "created": "Alíquota criada",
       "deleteFailed": "Não foi possível excluir a alíquota",
       "deleted": "Alíquota excluída",
-      "documentTitle": "Impostos | Mercaria Dashboard",
+      "documentTitle": "Impostos | Wholesale by Mercaria",
       "emptyBody": "Adicione uma alíquota para cobrar imposto no checkout.",
       "emptyTitle": "Nenhuma alíquota de imposto",
       "inactive": "inativa",
@@ -2011,7 +2011,7 @@
       "success": "Loja criada"
     },
     "createStore": "Criar loja",
-    "documentTitle": "Lojas | Mercaria Dashboard",
+    "documentTitle": "Lojas | Wholesale by Mercaria",
     "empty": {
       "body": "Crie sua primeira loja para começar a vender na Mercaria.",
       "title": "Nenhuma loja ainda"
@@ -2036,5 +2036,9 @@
     "price": "Preço",
     "date": "Data",
     "customer": "Cliente"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }
