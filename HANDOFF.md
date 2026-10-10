@@ -988,3 +988,23 @@ passes. Frontend/UI types, frontend lint, 153 frontend unit tests and i18n/RTL/
 route gates pass. Policy metadata alone is varied; catalog images remain actual
 Oxy delivery. Separate nested-contact focus validation is being investigated;
 this policy validation does not establish full Shop parity.
+
+## Official Bloom 7.26.1 and Wholesale archive — 2026-10-10
+
+All three apps now pin published Bloom 7.26.1 with Services 11.1.12. The public
+npm tarball SHA1 is `0de148e516354069b467b51cc743ded94311cecf`; installation
+uses the registry and yields one physical Bloom copy. Bloom PR305 fixes empty
+focus traps and focusable chat fallback panels. No dependency files were patched.
+
+Wholesale archive is committed in `187250f1`: cancel/error preserve drafts,
+pending edits and archive exclude each other, and failures remain retryable.
+With official Bloom, dashboard types, 13 hook tests and both desktop/mobile
+archive browser scenarios pass, including focus retention while all actions are
+disabled. Browser archive transport is isolated; no real product was archived.
+All other app/UI typechecks and 153 frontend unit tests also pass.
+
+The expanded storefront run passes descriptions/policy cases and Arabic mobile
+contact, but desktop nested contact failed to return focus to its parent menu
+row once. The Bloom agent is isolating the focus lifecycle before classifying a
+regression or publishing another fix. Preserve that assertion and do not treat
+the dependency update as complete acceptance of all dialogs.
