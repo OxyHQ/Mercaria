@@ -1,11 +1,12 @@
 import { renderListingLink } from "@/lib/catalog/product-links";
+import { renderCartVendorLink } from "@/lib/catalog/cart-vendor-links";
 import { useState } from "react";
 import { View, Pressable, Platform } from "react-native";
 import Head from "expo-router/head";
 import { Link, useRouter } from "expo-router";
 import { CartShelf, CategoryPills, ProductShelf, MerchantCarousel, Text } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
-import type { CartVendor, CartGroup } from "@mercaria/shared-types";
+import type { CartGroup } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { HeroSearch } from "@/components/shell/HeroSearch";
 import { Footer } from "@/components/shell/Footer";
@@ -77,14 +78,6 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
   const router = useRouter();
   const { data: cart } = useCart();
 
-  const onPressVendor = (vendor: CartVendor) => {
-    if (vendor.kind === "store" && vendor.handle) {
-      router.push({ pathname: "/stores/[handle]", params: { handle: vendor.handle } });
-    } else if (vendor.kind === "user") {
-      router.push({ pathname: "/sellers/[oxyUserId]", params: { oxyUserId: vendor.id } });
-    }
-  };
-
   const onCheckout = (group: CartGroup) => {
     router.push(group.guestCheckout?.status === "blocked" ? "/cart" : { pathname: "/checkout", params: { seller: group.sellerKey } });
   };
@@ -103,7 +96,7 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
 
       <CartShelf
         groups={cart?.groups ?? []}
-        onPressVendor={onPressVendor}
+        renderVendorLink={renderCartVendorLink}
         onCheckout={onCheckout}
         renderCartLink={(child) => <Link href="/cart" asChild>{child}</Link>}
       />

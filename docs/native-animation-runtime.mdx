@@ -52,3 +52,22 @@ intentional Reanimated patch mismatch). No checks are excluded.
 This patch does not address those unrelated findings or the separate
 react-native-css dynamic color-mix serialization defect. A later SDK migration
 needs its own compatibility checks; this change does not migrate to SDK 57.
+
+## Separate cold-boot timing investigation
+
+The observed `Application classification timed out` comes from Services 11.1.16's
+five-second public application-registry lookup, before session restoration. That
+lookup decides whether the registered app may use the device-session lane; its
+failure must not be bypassed by assuming Mercaria is trusted.
+
+On the same Pixel after the Reanimated update, two instrumented cold starts
+resolved the real public registry successfully. Direct fetch and the installed
+SDK took 3581/3590 ms on one start and 4299/4236 ms on the other. The latter run
+also recorded a 2259 ms JavaScript interval gap; the same uncached SDK lookup
+twelve seconds into that run took 316 ms. The workstation's public request took
+623 ms. This establishes startup scheduling pressure and successful connectivity
+on those runs, not the exact cause of the earlier timeout or a fix for it.
+Temporary instrumentation logged only timings, status and public application
+type, and was removed. Next investigation should profile native startup work;
+neither extending the classification deadline nor suppressing the error has
+been accepted as a correction.

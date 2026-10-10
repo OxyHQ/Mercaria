@@ -15,7 +15,7 @@ export interface CartShelfProps {
   /** Heading; defaults to the translated "In your cart". */
   title?: string;
   groups: CartGroup[];
-  onPressVendor: (vendor: CartVendor) => void;
+  renderVendorLink: (vendor: CartVendor, child: ReactElement) => ReactNode;
   onCheckout: (group: CartGroup) => void;
   renderCartLink: (child: ReactElement) => ReactNode;
 }
@@ -28,7 +28,7 @@ export interface CartShelfProps {
 export function CartShelf({
   title,
   groups,
-  onPressVendor,
+  renderVendorLink,
   onCheckout,
   renderCartLink,
 }: CartShelfProps) {
@@ -60,7 +60,7 @@ export function CartShelf({
           <CarouselItem key={group.sellerKey} width={CART_SLOT_WIDTH}>
             <MerchantCartCard
               group={group}
-              onPressVendor={onPressVendor}
+              renderVendorLink={renderVendorLink}
               onCheckout={onCheckout}
             />
           </CarouselItem>

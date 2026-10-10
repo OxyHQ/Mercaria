@@ -333,7 +333,8 @@ test('editorial body inherits the panel surface in both themes', async ({ page }
   }
 });
 
-test('home cart shelf matches the merchant layout and checks out only its group', async ({ page, request }) => {
+for (const width of [390, 1440]) test(`home cart shelf links to its merchant and checks out only its group at ${width}px`, async ({ page, request, context }) => {
+  await page.setViewportSize({ width, height: 1000 });
   const feed = await (await request.get('http://localhost:4160/feed')).json();
   const product = feed.data.sections.filter((s: { kind: string }) => s.kind === 'products').flatMap((s: { products: { id: string; title: string }[] }) => s.products).find((p: { title: string }) => p.title === 'Brilliant Eye Brightener');
   await page.goto(`/products/${product.id}`);
@@ -350,10 +351,27 @@ test('home cart shelf matches the merchant layout and checks out only its group'
   await expect(card).toHaveCSS('border-radius', '28px');
   expect((await card.getByTestId('cart-card-thumbnail-column').boundingBox())!.width).toBe(72);
   await expect(card.getByTestId('cart-card-count')).toHaveText('1');
+  const vendorPath = `/stores/${group.vendor.handle}`;
+  const vendorLinks = card.getByRole('link');
+  await expect(vendorLinks).toHaveCount(2);
+  for (const link of await vendorLinks.all()) await expect(link).toHaveAttribute('href', vendorPath);
+  const popupPromise = context.waitForEvent('page');
+  await vendorLinks.first().click({ modifiers: ['ControlOrMeta'] });
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL(new RegExp(`${vendorPath}$`));
+  await expect(page).toHaveURL(/\/$/);
+  await popup.close();
+  await vendorLinks.last().focus(); await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`${vendorPath}$`));
+  await page.goto('/');
   const cartHeading = shelf.getByRole('link', { name: 'In your cart', exact: true });
   await expect(cartHeading).toHaveAttribute('href', '/cart');
   await cartHeading.focus(); await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/cart$/);
+  const cartVendor = page.getByRole('link', { name: `Visit ${group.commercial.sellerLabel}`, exact: true });
+  await expect(cartVendor).toHaveAttribute('href', vendorPath);
+  await cartVendor.focus(); await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`${vendorPath}$`));
   await page.goto('/');
   await card.getByRole('button', { name: 'Continue to checkout', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`));

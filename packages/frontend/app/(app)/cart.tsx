@@ -1,3 +1,4 @@
+import { renderCartVendorLink } from "@/lib/catalog/cart-vendor-links";
 import { renderListingLink } from "@/lib/catalog/product-links";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
@@ -21,7 +22,7 @@ import {
   useRatingDisplay,
   type ProductSummary,
 } from "@mercaria/ui";
-import type { CartGroup, CartVendor, Money } from "@mercaria/shared-types";
+import type { CartGroup, Money } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useCart, useUpdateCartItem, useRemoveCartItem } from "@/lib/hooks/use-cart";
@@ -113,13 +114,11 @@ function GuestStorageWarning() {
 /** One merchant's cart card: vendor header, its lines, its subtotal + checkout. */
 function CartGroupCard({
   group,
-  onPressVendor,
   onChangeQuantity,
   onRemove,
   onCheckout,
 }: {
   group: CartGroup;
-  onPressVendor: (vendor: CartVendor) => void;
   onChangeQuantity: (variantId: string, qty: number) => void;
   onRemove: (variantId: string) => void;
   onCheckout: (group: CartGroup) => void;
@@ -141,48 +140,55 @@ function CartGroupCard({
   // relabelled.
   const showRating = vendor.rating !== undefined && commercial.mode === "connected_marketplace";
   const linksToVendor = commercial.mode === "connected_marketplace";
+  const headerContent = (
+    <>
+      <View
+        className="overflow-hidden rounded-full bg-muted"
+        style={{ width: VENDOR_LOGO_SIZE, height: VENDOR_LOGO_SIZE }}
+      >
+        {logoSource ? (
+          <Image source={logoSource} contentFit="cover" style={StyleSheet.absoluteFill} />
+        ) : null}
+      </View>
+      <View className="min-w-0 flex-1">
+        <Text numberOfLines={1} className="text-base font-bold text-foreground">
+          {sellerName}
+        </Text>
+        {showRating ? (
+          // Named scope (#76 UI rule 6): this is the SELLER's service
+          // rating, not a rating of what is in the basket.
+          <Rating
+            {...ratingDisplay({
+              rating: vendor.rating ?? 0,
+              reviews: vendor.reviewCount ?? 0,
+              subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
+            })}
+            size="small"
+            style={{ marginTop: 2 }}
+          />
+        ) : null}
+      </View>
+    </>
+  );
 
   return (
     <View className="mb-4 overflow-hidden rounded-3xl border border-border bg-card p-4 web:shadow">
       {/* Header: the seller, linked to the vendor page only when they are one. */}
-      <Pressable
-        accessibilityRole={linksToVendor ? "link" : "text"}
-        accessibilityLabel={
-          linksToVendor
-            ? t("cart.group.visitSellerA11yLabel", { seller: sellerName })
-            : t("cart.group.soldByA11yLabel", { seller: sellerName })
-        }
-        disabled={!linksToVendor}
-        onPress={() => onPressVendor(vendor)}
-        className="flex-row items-center gap-3"
-      >
-        <View
-          className="overflow-hidden rounded-full bg-muted"
-          style={{ width: VENDOR_LOGO_SIZE, height: VENDOR_LOGO_SIZE }}
+      {(linksToVendor ? renderCartVendorLink(vendor, (
+        <Pressable
+          accessibilityLabel={t("cart.group.visitSellerA11yLabel", { seller: sellerName })}
+          className="flex-row items-center gap-3"
         >
-          {logoSource ? (
-            <Image source={logoSource} contentFit="cover" style={StyleSheet.absoluteFill} />
-          ) : null}
+          {headerContent}
+        </Pressable>
+      )) : null) ?? (
+        <View
+          accessibilityLabel={t("cart.group.soldByA11yLabel", { seller: sellerName })}
+          className="flex-row items-center gap-3"
+        >
+          {headerContent}
         </View>
-        <View className="min-w-0 flex-1">
-          <Text numberOfLines={1} className="text-base font-bold text-foreground">
-            {sellerName}
-          </Text>
-          {showRating ? (
-            // Named scope (#76 UI rule 6): this is the SELLER's service
-            // rating, not a rating of what is in the basket.
-            <Rating
-              {...ratingDisplay({
-                rating: vendor.rating ?? 0,
-                reviews: vendor.reviewCount ?? 0,
-                subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
-              })}
-              size="small"
-              style={{ marginTop: 2 }}
-            />
-          ) : null}
-        </View>
-      </Pressable>
+      )}
 
       {/* What this group's commercial mode means, from the server's own list. */}
       <View className="mt-3">
@@ -269,12 +275,6 @@ function CartBody() {
 
   const updateItem = useUpdateCartItem();
   const removeItem = useRemoveCartItem();
-
-  const onPressVendor = (vendor: CartVendor) => {
-    if (vendor.kind === "store" && vendor.handle) {
-      router.push(`/stores/${vendor.handle}`);
-    }
-  };
 
   const onChangeQuantity = (variantId: string, qty: number) => {
     updateItem.mutate({ variantId, input: { quantity: qty } });
@@ -378,7 +378,6 @@ function CartBody() {
             <CartGroupCard
               key={`${group.vendor.kind}:${group.vendor.id}`}
               group={group}
-              onPressVendor={onPressVendor}
               onChangeQuantity={onChangeQuantity}
               onRemove={onRemove}
               onCheckout={onCheckout}

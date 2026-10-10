@@ -1601,3 +1601,23 @@ installed version4.3.4 confirmed. Probes gone, clean worktree. Metro8160/8161
 sessions51598/11958 are active. Oxy cold-boot application-classification timeout
 still appears in native logs/LogBox and is NOT fixed by this animation patch.
 Next native audits must keep it and the alpha-serialization defect distinct.
+
+## Cart vendor navigation and native follow-up — 2026-10-10
+
+Home's cart shelf now supplies real Expo links for the catalogue logo and, when
+seller and vendor are the same, the seller name. The full cart uses the same
+route renderer for store handles and stable Oxy seller ids. Missing store handles
+render ordinary content; a Mercaria-retail seller label never links to its
+catalogue vendor. Checkout remains a group-scoped action. Browser regressions
+cover keyboard/new-tab navigation and checkout at 390/1440px, plus the retail,
+missing-handle and person projections without substituting image transport.
+
+Rechecking react-native-css found no published correction for serialized alpha:
+PR464 remains open and the installed resolver still fails after JSON serialization.
+The settings miniature's variable warning is a separate upstream false positive:
+the real renderer preserves its child identity when inline vars exist throughout.
+Do not add `will-change-variable` merely to hide that warning. Root made no
+runtime/library changes for either issue. Public Oxy classification succeeded on
+two measured native cold starts but approached its deadline; see
+`docs/native-animation-runtime.mdx` for measured JS pressure and the remaining
+profiling task. All temporary boot instrumentation was removed.
