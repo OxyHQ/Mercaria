@@ -50,6 +50,7 @@
 import type { CurrencyCode, FxRateSnapshot } from './money';
 import type { CanonicalProduct, CanonicalVariant } from './canonical-product';
 import type { Offer } from './offer';
+import type { OpenDataLicence } from './open-data';
 import type {
   OfferComparisonExperience,
   OfferComparisonIntent,
@@ -353,11 +354,35 @@ export interface ProductPageHighlight {
  * renders as nothing at all — and doing it once, server-side, at the instant
  * both were read, is the only place it cannot.
  */
+/**
+ * The open-data source a row's facts came from, named because its licence
+ * requires it (ADR 0014 D5, `docs/catalog-sources/open-data-providers.md`).
+ *
+ * Present only for an offer ingested from a keyless open-data provider. The
+ * LABEL of the licence travels as data: "ODbL 1.0" is a proper noun in every
+ * language, and the sentence around it is the client's to translate.
+ */
+export interface ProductPageOfferSource {
+  readonly name: string;
+  readonly homepage: string;
+  readonly licence: OpenDataLicence;
+  /** Empty for a provider whose own terms govern rather than an open licence. */
+  readonly licenceLabel: string;
+  /**
+   * When the SOURCE observed these terms — for a crowd-sourced price, the day
+   * somebody saw it on the shelf. Not when Mercaria read it, which is the
+   * freshness block's `observedAt`.
+   */
+  readonly observedAt?: string;
+}
+
 export interface ProductPageOfferRow {
   readonly offer: Offer;
   readonly ranked: RankedOffer;
   readonly seller: ProductPageSeller;
   readonly outbound: ProductPageOutbound;
+  /** Present when the offer came from an open-data provider. */
+  readonly source?: ProductPageOfferSource;
   /**
    * The configuration this offer prices, named.
    *

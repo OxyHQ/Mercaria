@@ -1277,6 +1277,9 @@
     "noLinkPublished": "कोई लिंक नहीं दिया गया",
     "noDestination": "इस विक्रेता ने कीमत दी है पर कोई लिंक नहीं.",
     "outboundNotAvailable": "दूसरी साइटों के ऑफ़र खोलना अभी उपलब्ध नहीं है.",
+    "seenOn": "कीमत %{date} को देखी गई",
+    "dataSource": "डेटा: %{name}",
+    "dataSourceLicensed": "डेटा: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "इस विक्रेता के पास स्टॉक नहीं है.",
       "notPaymentReady": "यह विक्रेता अभी भुगतान नहीं ले सकता.",

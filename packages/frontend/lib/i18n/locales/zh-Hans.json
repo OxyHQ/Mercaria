@@ -1277,6 +1277,9 @@
     "noLinkPublished": "未公布链接",
     "noDestination": "该卖家公布了价格，但未提供链接。",
     "outboundNotAvailable": "暂时无法打开其他网站上的报价。",
+    "seenOn": "%{date} 记录的价格",
+    "dataSource": "数据：%{name}",
+    "dataSourceLicensed": "数据：%{name} · %{licence}",
     "blocked": {
       "outOfStock": "该卖家已缺货。",
       "notPaymentReady": "该卖家暂时无法收款。",

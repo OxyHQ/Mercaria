@@ -1277,6 +1277,9 @@
     "noLinkPublished": "لا يوجد رابط منشور",
     "noDestination": "نشر هذا البائع سعرًا دون رابط.",
     "outboundNotAvailable": "فتح العروض على مواقع أخرى غير متاح بعد.",
+    "seenOn": "شوهد السعر في %{date}",
+    "dataSource": "البيانات: %{name}",
+    "dataSourceLicensed": "البيانات: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "لا يتوفر مخزون لدى هذا البائع.",
       "notPaymentReady": "لا يستطيع هذا البائع قبول المدفوعات بعد.",

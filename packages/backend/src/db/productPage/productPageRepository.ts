@@ -28,6 +28,7 @@ import { listings } from '../schema/catalog.js';
 import { merchants } from '../schema/merchants.js';
 import { nativeListingLinks } from '../schema/offers.js';
 import { stores } from '../schema/stores.js';
+import { sourceRecords } from '../schema/provenance.js';
 
 /** A canonical merchant, as an offer row names it. */
 export interface ProductPageMerchantRow {
@@ -127,4 +128,25 @@ export async function countActiveNativeListingsForCanonicalVariants(
   // aggregate, and the arithmetic that follows is a comparison. Coerced at the
   // boundary rather than trusted from the inferred type.
   return Number(rows[0]?.total ?? 0);
+}
+
+/**
+ * When each SOURCE observed the terms an offer carries (`source_records.
+ * source_updated_at`), for the rows a page names its open-data source on.
+ * Absent from the map when the source published no timestamp.
+ */
+export async function findSourceRecordUpdatedAt(
+  db: DatabaseOrTransaction,
+  sourceRecordIds: readonly string[],
+): Promise<Map<string, Date>> {
+  if (sourceRecordIds.length === 0) return new Map();
+  const rows = await db
+    .select({ id: sourceRecords.id, sourceUpdatedAt: sourceRecords.sourceUpdatedAt })
+    .from(sourceRecords)
+    .where(inArray(sourceRecords.id, [...new Set(sourceRecordIds)]));
+  const result = new Map<string, Date>();
+  for (const row of rows) {
+    if (row.sourceUpdatedAt !== null) result.set(row.id, row.sourceUpdatedAt);
+  }
+  return result;
 }

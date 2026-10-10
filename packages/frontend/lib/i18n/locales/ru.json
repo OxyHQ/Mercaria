@@ -1305,6 +1305,9 @@
     "noLinkPublished": "Ссылка не опубликована",
     "noDestination": "Этот продавец указал цену, но не указал ссылку.",
     "outboundNotAvailable": "Открывать предложения на других сайтах пока нельзя.",
+    "seenOn": "Цена замечена %{date}",
+    "dataSource": "Данные: %{name}",
+    "dataSourceLicensed": "Данные: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "У этого продавца нет товара в наличии.",
       "notPaymentReady": "Этот продавец пока не может принимать оплату.",

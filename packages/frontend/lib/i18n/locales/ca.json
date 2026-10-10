@@ -1291,6 +1291,9 @@
     "noLinkPublished": "Sense enllaç publicat",
     "noDestination": "Aquest venedor ha publicat un preu però cap enllaç.",
     "outboundNotAvailable": "Encara no es poden obrir ofertes en altres llocs.",
+    "seenOn": "Preu vist el %{date}",
+    "dataSource": "Dades: %{name}",
+    "dataSourceLicensed": "Dades: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "Aquest venedor no té estoc.",
       "notPaymentReady": "Aquest venedor encara no pot acceptar pagaments.",

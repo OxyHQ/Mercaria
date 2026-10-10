@@ -140,6 +140,20 @@ that reaches the database) supplies it as a function.
   It is one price source among many, not a catalogue.
 - **CheapShark prices are USD** for the US storefront. GOG publishes EUR for Spain.
 
+## On the storefront
+
+A product-page row from an open-data provider carries `source` (`ProductPageOfferSource`):
+- the provider's name and homepage, from its descriptor;
+- the licence, with its label as data ("ODbL 1.0" is a proper noun in every
+  language);
+- `observedAt`, the source's own timestamp from the offer's source record. For a
+  crowd-sourced price that is the day somebody saw it on the shelf.
+
+`OfferRow` renders "Price seen on {date}" where an informational offer would
+otherwise show a disabled button, and a "Data: {name} · {licence}" line under
+every such row. The line is text, not a link: this surface opens nothing outside
+Mercaria except through the outbound union.
+
 ## ODbL and share-alike
 
 Open Food Facts, Open Prices and OpenStreetMap-derived facts are ODbL.

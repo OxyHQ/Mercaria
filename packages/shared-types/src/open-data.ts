@@ -40,6 +40,19 @@ export const OPEN_DATA_LICENCES: readonly OpenDataLicence[] = [
   'provider_terms',
 ];
 
+/**
+ * How each licence is NAMED on a surface — a proper noun, the same in every
+ * language, so it is data rather than translated copy.
+ */
+export const OPEN_DATA_LICENCE_LABELS: Readonly<Record<OpenDataLicence, string>> = {
+  odbl_1_0: 'ODbL 1.0',
+  cc0_1_0: 'CC0 1.0',
+  cc_by_4_0: 'CC BY 4.0',
+  cc_by_sa_4_0: 'CC BY-SA 4.0',
+  es_public_sector_reuse: 'Ley 37/2007',
+  provider_terms: '',
+};
+
 /** Licences whose terms require a derivative database to be shared alike. */
 export const SHARE_ALIKE_OPEN_DATA_LICENCES: readonly OpenDataLicence[] = ['odbl_1_0', 'cc_by_sa_4_0'];
 

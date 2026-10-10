@@ -561,6 +561,9 @@ every deployment.
   Facts are stored, not yet mapped onto the attribute registry (#94).
 - **Non-GTIN sources** (games, cards, fuel) need a stable cross-source
   identity before they can match; Wikidata QIDs are the candidate.
-- **Storefront** renders no attribution and shows an `informational` offer as
-  "outbound not available"; Open Prices needs "seen at {chain} on {date}" and
-  the provider's attribution line. The ODbL subset export is deferred.
+- **Storefront attribution is BUILT.** A product-page row from an open-data
+  provider carries `source` (name, licence label, the day the source saw the
+  price), and `OfferRow` renders "Price seen on {date}" in place of a dead
+  button plus a "Data: {name} · {licence}" line. Still to do: a public
+  `/data-sources` page linking each provider, and the ODbL subset export.
+  Both need legal review before production.

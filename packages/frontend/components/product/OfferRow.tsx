@@ -5,6 +5,7 @@ import type {
   OfferFreshnessAssessment,
   OfferMoney,
   ProductPageOfferRow,
+  ProductPageOfferSource,
   ProductPageSeller,
 } from '@mercaria/shared-types';
 import {
@@ -131,10 +132,47 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false, isUpdatin
         </View>
       ) : outbound.kind === 'outbound' ? (
         <OutboundAction outbound={outbound} disabled={isUpdating} />
+      ) : outbound.reason === 'no_destination' && row.source?.observedAt !== undefined ? (
+        // A crowd-sourced shelf price has no page to send anyone to, and a
+        // disabled "no link" button would read as a defect. What the shopper
+        // needs instead is WHEN somebody saw it — the honest qualifier on a
+        // price nobody is selling online.
+        <SeenOnLine observedAt={row.source.observedAt} />
       ) : (
         <UnavailableAction row={row} />
       )}
+
+      {row.source ? <SourceLine source={row.source} /> : null}
     </View>
+  );
+}
+
+/** When the source saw this price, in the shopper's locale. */
+function SeenOnLine({ observedAt }: { observedAt: string }) {
+  const { t, locale } = useTranslation();
+  return (
+    <Text className="text-shop-caption text-text-secondary">
+      {t('offer.seenOn', { date: formatDate(observedAt, locale) })}
+    </Text>
+  );
+}
+
+/**
+ * The open-data source this row's facts came from (ADR 0014 D5).
+ *
+ * Its licence requires naming it wherever its data is shown. The licence LABEL
+ * arrives as data — "ODbL 1.0" is a proper noun in every language — and only
+ * the sentence around it is translated. Text, not a link: this surface opens
+ * nothing outside Mercaria except through the outbound union.
+ */
+function SourceLine({ source }: { source: ProductPageOfferSource }) {
+  const { t } = useTranslation();
+  return (
+    <Text className="text-shop-caption text-text-secondary">
+      {source.licenceLabel === ''
+        ? t('offer.dataSource', { name: source.name })
+        : t('offer.dataSourceLicensed', { name: source.name, licence: source.licenceLabel })}
+    </Text>
   );
 }
 
