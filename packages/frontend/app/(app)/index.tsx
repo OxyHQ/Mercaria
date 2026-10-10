@@ -1,7 +1,8 @@
+import { renderListingLink } from "@/lib/catalog/product-links";
 import { useState } from "react";
 import { View, Pressable, Platform } from "react-native";
 import Head from "expo-router/head";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { CartShelf, CategoryPills, ProductShelf, MerchantCarousel, Text } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
 import type { CartVendor, CartGroup } from "@mercaria/shared-types";
@@ -104,7 +105,7 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
         groups={cart?.groups ?? []}
         onPressVendor={onPressVendor}
         onCheckout={onCheckout}
-        onPressCart={() => router.push("/cart")}
+        renderCartLink={(child) => <Link href="/cart" asChild>{child}</Link>}
       />
       <ShoppingHistoryShelves />
       <HomeCategoryMosaics />
@@ -123,7 +124,7 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
               key={section.id}
               title={section.title}
               items={section.products ?? []}
-              onPressItem={onPressProduct}
+              renderProductLink={renderListingLink}
             />
           );
         }

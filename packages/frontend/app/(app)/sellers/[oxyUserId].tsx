@@ -1,9 +1,10 @@
+import { renderListingLink } from "@/lib/catalog/product-links";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { useDialogControl } from "@oxy.so/bloom/dialog";
 import { Rating } from "@oxy.so/bloom/rating";
@@ -257,7 +258,6 @@ function WithheldNotice({ profile }: { profile: PublicSellerProfile }) {
 
 export default function SellerScreen() {
   const { oxyUserId } = useLocalSearchParams<{ oxyUserId: string }>();
-  const router = useRouter();
   const { t } = useTranslation();
   const { data: profile, isLoading, isError } = useSellerProfile(oxyUserId);
 
@@ -346,9 +346,7 @@ export default function SellerScreen() {
                   <View key={product.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
                     <ProductCard
                       product={product}
-                      onPress={(id) =>
-                        router.push(`/products/${id}`)
-                      }
+                      renderLink={renderListingLink}
                     />
                   </View>
                 ))}

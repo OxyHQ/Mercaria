@@ -1,3 +1,4 @@
+import { renderListingLink } from "@/lib/catalog/product-links";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import Head from "expo-router/head";
@@ -329,12 +330,7 @@ function ShoppingThreadBody({
                     <View key={product.id} className="w-[47%] sm:w-[23%]">
                       <ProductCard
                         product={product}
-                        onPress={(id) =>
-                          router.push({
-                            pathname: "/products/[id]",
-                            params: { id },
-                          })
-                        }
+                        renderLink={renderListingLink}
                       />
                     </View>
                   ))}

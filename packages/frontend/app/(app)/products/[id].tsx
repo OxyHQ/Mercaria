@@ -1,3 +1,4 @@
+import { renderListingLink } from "@/lib/catalog/product-links";
 import { ProductReviewMedia } from "@/components/product/ProductReviewMedia";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
@@ -219,7 +220,6 @@ function RelatedFromStore({
   store: StoreSummary;
   excludeId: string;
 }) {
-  const router = useRouter();
   const { t } = useTranslation();
   const { data } = useListings({ storeId: store.id, limit: RELATED_LIMIT });
 
@@ -239,9 +239,7 @@ function RelatedFromStore({
     <ProductCarousel
       title={t("product.moreFromStore", { name: store.name })}
       items={items}
-      onPressItem={(id) =>
-        router.push({ pathname: "/products/[id]", params: { id } })
-      }
+      renderProductLink={renderListingLink}
     />
   );
 }

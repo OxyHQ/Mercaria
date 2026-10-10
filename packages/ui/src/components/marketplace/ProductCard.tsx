@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { Button } from "@oxy.so/bloom/button";
 import { CatalogImage } from "./CatalogImage";
@@ -25,6 +25,9 @@ const ON_IMAGE_LIGHT = "#FFFFFF";
 /** Heart icon size for the favorite button. */
 const HEART_SIZE = 18;
 
+/** The consuming app owns routing; the card owns its separate image/text links. */
+export type ProductLinkRenderer = (id: string, child: ReactElement) => ReactNode;
+
 export interface ProductCardProps {
   variant?: "standard" | "image-only";
   product: ProductSummary;
@@ -33,7 +36,7 @@ export interface ProductCardProps {
    * otherwise the card seeds from the DTO's `saved` flag.
    */
   saved?: boolean;
-  onPress?: (id: string) => void;
+  renderLink: ProductLinkRenderer;
   onToggleSave?: SaveListing;
 }
 
@@ -50,7 +53,7 @@ function isOnSale(product: ProductSummary): boolean {
 export function ProductCard({
   product,
   saved,
-  onPress,
+  renderLink,
   onToggleSave,
   variant = "standard",
 }: ProductCardProps) {
@@ -98,20 +101,21 @@ export function ProductCard({
         style={{ boxShadow: "0px 2px 8px rgba(0,0,0,0.06)" }}
       >
         {/* Image navigation link — fills the block, sits beneath the favorite. */}
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={product.title}
-          onPress={() => onPress?.(product.id)}
-          className="absolute inset-0"
-        >
-          <CatalogImage
-            fileId={product.imageFileId}
-            legacyUrl={product.imageUrl}
+        {renderLink(product.id,
+          <Pressable
+            accessibilityRole="link"
             accessibilityLabel={product.title}
-            contentFit="cover"
-            className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105 web:motion-reduce:transition-none web:motion-reduce:transform-none"
-          />
-        </Pressable>
+            className="absolute inset-0"
+          >
+            <CatalogImage
+              fileId={product.imageFileId}
+              legacyUrl={product.imageUrl}
+              accessibilityLabel={product.title}
+              contentFit="cover"
+              className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105 web:motion-reduce:transition-none web:motion-reduce:transform-none"
+            />
+          </Pressable>,
+        )}
 
         {/* Subtle dark wash over the image (Shop bg-bg-overlay-inverse-04). */}
         {variant !== "image-only" ? (
@@ -191,11 +195,10 @@ export function ProductCard({
       </View>
 
       {/* Text block — its own separate navigation link. */}
-      {variant !== "image-only" ? (
+      {variant !== "image-only" ? renderLink(product.id,
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={product.title}
-          onPress={() => onPress?.(product.id)}
           className="flex flex-col ps-1 leading-[16px]"
         >
           <Text numberOfLines={1} className="text-xs text-muted-foreground">

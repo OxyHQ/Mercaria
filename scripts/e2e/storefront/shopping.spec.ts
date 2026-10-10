@@ -349,7 +349,9 @@ test('home cart shelf matches the merchant layout and checks out only its group'
   await expect(card).toHaveCSS('border-radius', '28px');
   expect((await card.getByTestId('cart-card-thumbnail-column').boundingBox())!.width).toBe(72);
   await expect(card.getByTestId('cart-card-count')).toHaveText('1');
-  await shelf.getByRole('link', { name: 'In your cart', exact: true }).click();
+  const cartHeading = shelf.getByRole('link', { name: 'In your cart', exact: true });
+  await expect(cartHeading).toHaveAttribute('href', '/cart');
+  await cartHeading.focus(); await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/cart$/);
   await page.goto('/');
   await card.getByRole('button', { name: 'Continue to checkout', exact: true }).click();

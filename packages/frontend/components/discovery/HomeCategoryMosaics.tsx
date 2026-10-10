@@ -1,35 +1,35 @@
-import { useRouter } from "expo-router";
+import type { ReactElement } from "react";
+import { Link } from "expo-router";
 import { CategoryMosaicShelf } from "@mercaria/ui";
 import { useCatalogNavigation } from "@/lib/catalog/use-navigation";
 import { useTranslation } from "@/lib/i18n";
 
 export function HomeCategoryMosaics() {
   const { data } = useCatalogNavigation();
-  const router = useRouter();
   const { t } = useTranslation();
-  // This visual shelf needs four illustrated destinations. All other published
-  // categories remain available from Explore; no local category list is invented.
+  // Keep published destinations usable while their media is missing or importing.
+  // Smaller category groups remain available from Explore.
   const groups = (data?.trees ?? [])
     .flatMap((tree) =>
       tree.entries.map((entry) => ({ treeKey: tree.key, entry })),
     )
     .filter(
       ({ entry }) =>
-        entry.children.filter((child) => child.href && child.imageUrl).length >=
+        entry.children.filter((child) => child.href).length >=
         4,
     )
     .map(({ treeKey, entry }) => ({
       key: `${treeKey}:${entry.key}`,
       label: entry.label,
-      onPress: entry.href ? () => router.push(entry.href!) : undefined,
+      renderLink: entry.href ? (child: ReactElement) => <Link href={entry.href!} asChild>{child}</Link> : undefined,
       children: entry.children
-        .filter((child) => child.href && child.imageUrl)
+        .filter((child) => child.href)
         .slice(0, 4)
         .map((child) => ({
           key: child.key,
           label: child.label,
           imageUrl: child.imageUrl,
-          onPress: () => router.push(child.href!),
+          renderLink: (content: ReactElement) => <Link href={child.href!} asChild>{content}</Link>,
         })),
     }));
   return (

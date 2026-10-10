@@ -1,3 +1,4 @@
+import { renderListingLink } from "@/lib/catalog/product-links";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import { useMemo, useState } from "react";
@@ -8,7 +9,7 @@ import { vars } from "nativewind";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { Check, ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
 import {
   ProductCard,
@@ -214,7 +215,6 @@ function StoreBody({
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
-  const router = useRouter();
   const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
   // Scoped shadcn theme tokens derived from the store's palette. Applied to the
   // page wrapper so every shared component below (cards, inputs, pills, buttons)
@@ -224,10 +224,6 @@ function StoreBody({
     [store.brandColor, store.textTone],
   );
   const { data: collections } = useStoreCollections(handle);
-
-  const onPressProduct = (id: string) => {
-    router.push(`/products/${id}`);
-  };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCollectionId, setActiveCollectionId] = useState<string | undefined>(
@@ -571,7 +567,7 @@ function StoreBody({
           <View className="flex-row flex-wrap px-2">
             {products.map((product) => (
               <View key={product.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
-                <ProductCard product={product} onPress={onPressProduct} />
+                <ProductCard product={product} renderLink={renderListingLink} />
               </View>
             ))}
           </View>

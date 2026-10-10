@@ -1,3 +1,4 @@
+import { renderListingLink } from "@/lib/catalog/product-links";
 import { View } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
@@ -36,9 +37,7 @@ export default function RecentlyViewedScreen() {
           <View key={product.id} className="w-[47%] md:w-48">
             <ProductCard
               product={product}
-              onPress={(id) =>
-                router.push({ pathname: "/products/[id]", params: { id } })
-              }
+              renderLink={renderListingLink}
             />
           </View>
         ))}

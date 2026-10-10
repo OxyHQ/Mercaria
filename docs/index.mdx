@@ -121,6 +121,13 @@ schema decision. `HANDOFF.md` holds deferred work.
   leaving with the mouse cannot release a keyboard-focused product.
   Hero product/store cards use Expo Router links, including actual web anchors
   for Enter activation and browser open-in-new-tab behavior.
+  Shared product cards require an app-owned link renderer, propagated through
+  carousels, shelves and editorial curations. The storefront supplies one typed
+  listing link adapter, including cart recommendations. Image and text links
+  remain separate siblings of the save button; shelf headings also accept real
+  links. Category mosaics keep published destinations visible while imagery is
+  absent and use the same verified Oxy resolver; image availability never gates
+  their navigation. The shared UI has no router dependency.
   Product merchant headers and identity cards do too: stores use their handle,
   people their stable Oxy account ID. The mobile person action says “Visit
   profile”. The shared header receives its router link from the app and carries

@@ -1,3 +1,4 @@
+import { renderListingLink } from "@/lib/catalog/product-links";
 import type { ProductSummary } from '@mercaria/shared-types';
 import { FeedGrid, ProductCard } from '@mercaria/ui';
 
@@ -26,11 +27,10 @@ const PRODUCT_GRID_ROW_GAP_CLASS = 'gap-y-space-8 md:gap-y-space-16';
 
 export interface SignalGridProps {
   products: ProductSummary[];
-  onPressProduct: (id: string) => void;
   onToggleSaveProduct?: (id: string, nextSaved: boolean) => void;
 }
 
-export function SignalGrid({ products, onPressProduct, onToggleSaveProduct }: SignalGridProps) {
+export function SignalGrid({ products, onToggleSaveProduct }: SignalGridProps) {
   return (
     <FeedGrid
       items={products}
@@ -40,7 +40,7 @@ export function SignalGrid({ products, onPressProduct, onToggleSaveProduct }: Si
       renderItem={(product) => (
         <ProductCard
           product={product}
-          onPress={onPressProduct}
+          renderLink={renderListingLink}
           onToggleSave={onToggleSaveProduct}
         />
       )}

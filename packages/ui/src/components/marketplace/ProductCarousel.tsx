@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
 import { SectionHeader } from "./SectionHeader";
-import { ProductCard } from "./ProductCard";
+import { ProductCard, type ProductLinkRenderer } from "./ProductCard";
 import type { ProductSummary } from "../../lib/format";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import { CAROUSEL_PRODUCTS_KEY } from "../../lib/marketplace-labels";
@@ -22,7 +22,7 @@ export interface ProductCarouselProps {
   title?: string;
   /** Heading sharing Bloom's carousel control row. */
   header?: ReactNode;
-  onPressItem?: (id: string) => void;
+  renderProductLink: ProductLinkRenderer;
   onToggleSaveItem?: (id: string, nextSaved: boolean) => void;
 }
 
@@ -36,7 +36,7 @@ export function ProductCarousel({
   items,
   title,
   header,
-  onPressItem,
+  renderProductLink,
   onToggleSaveItem,
   cardVariant,
 }: ProductCarouselProps) {
@@ -62,7 +62,7 @@ export function ProductCarousel({
             <ProductCard
               product={product}
               variant={cardVariant}
-              onPress={onPressItem}
+              renderLink={renderProductLink}
               onToggleSave={onToggleSaveItem}
             />
           </CarouselItem>

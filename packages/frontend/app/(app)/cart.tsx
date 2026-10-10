@@ -1,3 +1,4 @@
+import { renderListingLink } from "@/lib/catalog/product-links";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import { useMemo } from "react";
@@ -430,7 +431,7 @@ function CartBody() {
       {recommendations.length > 0 ? (
         <View className="mt-6">
           {/* Heading of the bottom recommendation shelf. */}
-          <ProductShelf title={t("cart.recommendations.title")} items={recommendations} />
+          <ProductShelf title={t("cart.recommendations.title")} items={recommendations} renderProductLink={renderListingLink} />
         </View>
       ) : null}
 

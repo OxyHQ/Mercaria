@@ -1,3 +1,4 @@
+import type { ReactElement, ReactNode } from "react";
 import { View } from "react-native";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
@@ -16,7 +17,7 @@ export interface CartShelfProps {
   groups: CartGroup[];
   onPressVendor: (vendor: CartVendor) => void;
   onCheckout: (group: CartGroup) => void;
-  onPressCart: () => void;
+  renderCartLink: (child: ReactElement) => ReactNode;
 }
 
 /**
@@ -29,7 +30,7 @@ export function CartShelf({
   groups,
   onPressVendor,
   onCheckout,
-  onPressCart,
+  renderCartLink,
 }: CartShelfProps) {
   const t = useSharedUiTranslation();
   const shelf = useShelfCarouselProps();
@@ -50,7 +51,7 @@ export function CartShelf({
             title={heading}
             inset={false}
             showChevron
-            onPress={onPressCart}
+            renderLink={renderCartLink}
             chevronPosition="after-title"
           />
         }

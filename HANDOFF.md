@@ -615,6 +615,13 @@ The audit and current implementation:
   local feed still has zero usable file IDs across its 16 product entries.
   Product/store hero cards now use actual Expo Router links; the previous
   `Pressable` with `role="link"` but no `href` did not activate with Enter on web.
+- Home category mosaics no longer discard published destinations when artwork
+  is absent; labels and real links remain visible through the shared missing-image
+  state. Their image URLs must match the current Oxy resolver. The original
+  `shopping.spec.ts` illustrated-category acceptance case still fails its image
+  count precondition against the unsynchronized local seed; it was not weakened
+  or replaced by successful image interceptors. Keyboard/link coverage is separate
+  from that outstanding successful-media acceptance.
 - Local preview seeds also put external URLs into image fields. Some category
   and merchant artwork is already bundled locally; this does not prove all
   catalog media is synchronized.
