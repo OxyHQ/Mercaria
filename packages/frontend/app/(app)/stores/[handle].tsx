@@ -1,6 +1,6 @@
 import { renderListingLink } from "@/lib/catalog/product-links";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { merchantImageSource } from "@mercaria/ui";
+import { merchantImageSource, resolveCatalogImage } from "@mercaria/ui";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Rating } from "@oxy.so/bloom/rating";
@@ -134,6 +134,7 @@ function glassStyle(store: StoreSummary) {
 function CollectionPill({
   title,
   imageUrl,
+  imageFileId,
   active,
   toneColor,
   store,
@@ -141,11 +142,13 @@ function CollectionPill({
 }: {
   title: string;
   imageUrl?: string;
+  imageFileId?: string;
   active: boolean;
   toneColor: string;
   store: StoreSummary;
   onPress: () => void;
 }) {
+  const resolvedImage = resolveCatalogImage(imageFileId, imageUrl, useImageResolver());
   return (
     <Pressable
       accessibilityRole="button"
@@ -156,9 +159,9 @@ function CollectionPill({
       }`}
       style={glassStyle(store)}
     >
-      {imageUrl ? (
+      {resolvedImage ? (
         <View className="h-8 w-8 overflow-hidden rounded-full bg-muted">
-          <Image source={{ uri: imageUrl }} contentFit="cover" className="h-8 w-8 rounded-full" />
+          <Image source={{ uri: resolvedImage }} contentFit="cover" className="h-8 w-8 rounded-full" />
         </View>
       ) : null}
       <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: toneColor }}>
@@ -430,6 +433,7 @@ function StoreBody({
                 key={collection.id}
                 title={collection.title}
                 imageUrl={collection.imageUrl}
+                imageFileId={collection.imageFileId}
                 active={activeCollectionId === collection.id}
                 toneColor={toneColor}
                 store={store}
@@ -446,6 +450,7 @@ function StoreBody({
             <View className="flex-row flex-wrap px-2">
               {publishedCollections.map((collection) => {
                 const isActive = activeCollectionId === collection.id;
+                const image = resolveCatalogImage(collection.imageFileId, collection.imageUrl, resolveImage);
                 return (
                   <View key={collection.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
                     <Pressable
@@ -457,9 +462,9 @@ function StoreBody({
                       }`}
                     >
                       <View className="relative aspect-[4/3] w-full">
-                        {collection.imageUrl ? (
+                        {image ? (
                           <Image
-                            source={{ uri: collection.imageUrl }}
+                            source={{ uri: image }}
                             contentFit="cover"
                             style={StyleSheet.absoluteFill}
                             className="web:transition-transform web:duration-300 web:group-hover:scale-105"

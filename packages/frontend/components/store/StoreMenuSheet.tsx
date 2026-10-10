@@ -1,5 +1,5 @@
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { merchantImageSource, resolveStoredImageUrl } from "@mercaria/ui";
+import { merchantImageSource, resolveStoredImageUrl, resolveCatalogImage } from "@mercaria/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import {
@@ -159,15 +159,17 @@ function ControlButton({
 function CollectionRow({
   title,
   imageUrl,
+  imageFileId,
   toneColor,
   onPress,
 }: {
   title: string;
   imageUrl?: string;
+  imageFileId?: string;
   toneColor: string;
   onPress: () => void;
 }) {
-  const resolvedImage = resolveStoredImageUrl(imageUrl, useImageResolver());
+  const resolvedImage = resolveCatalogImage(imageFileId, imageUrl, useImageResolver());
   return (
     <Pressable
       accessibilityRole="button"
@@ -575,6 +577,7 @@ function MenuPage({
             key={collection.id}
             title={collection.title}
             imageUrl={collection.imageUrl}
+            imageFileId={collection.imageFileId}
             toneColor={toneColor}
             onPress={() => onSelectCollection(collection.id)}
           />

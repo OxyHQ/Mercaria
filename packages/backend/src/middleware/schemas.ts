@@ -375,7 +375,7 @@ export const createCollectionSchema = z.object({
   title: z.string().trim().min(1).max(200),
   handle: z.string().trim().min(1).max(120),
   description: z.string().max(5_000).optional(),
-  imageFileId: z.string().trim().min(1).optional(),
+  imageFileId: z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID').optional(),
   type: z.enum(['manual', 'automated']),
   productIds: z.array(z.string().trim().min(1)).optional(),
   rules: z

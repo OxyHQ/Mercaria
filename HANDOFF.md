@@ -949,3 +949,20 @@ The extra bidi guard exposed a stale test assumption: ICU 78.3 resolves bare
 now covers exact Arabic-Indic output for `ar-EG` and `ar-u-nu-arab`, exact Latin
 output for `ar-u-nu-latn`, and the runtime's CLDR default for bare `ar`, retaining
 isolation assertions. No production formatter behavior was changed.
+
+## Store collection image identity — 2026-10-10
+
+Store collection chips, grid tiles and menu rows now resolve `imageFileId`
+through the shared Bloom/Oxy resolver. An invalid present ID cannot fall back to
+`imageUrl`; older URL-only DTOs are accepted only when the current resolver
+produces that exact Oxy URL. External URLs never become image requests.
+Collection create/update request schemas and the service boundary reject URL
+values in `imageFileId`, including direct service calls. The DTO documentation
+now describes an opaque ID rather than permitting absolute URLs.
+
+Validation: 18 service tests and six request-schema tests, frontend/backend
+checks of types and lint (zero errors; existing warnings), plus two real-image
+browser cases at 390/1440px pass. Browser tests vary only collection metadata;
+the synchronized file ID and delivered image bytes come from the real local
+catalog. Local read-only census found two collections, neither carrying an
+image; no historical data or production database was rewritten.
