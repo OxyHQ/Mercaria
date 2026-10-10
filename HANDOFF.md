@@ -1477,3 +1477,39 @@ regenerating its adoption matrix. Merge-group38057973742 is still running; agent
 owns publisher37872 and public watcher87953. Installed Bloom remains official
 7.30.0 until7.30.1 is published and independently verified. Native alpha remains
 separately blocked on upstream react-native-css PR464 (still open).
+
+Wholesale f3b0caa0 distinguishes pending/failed/empty GoWay claim reads. A failed
+read offers SDK refetch, preserves cached claim data, and does not expose the
+claim-creation form; only a confirmed successful eligible state does. Dashboard
+types/lint and two browser cases (1440EN/390AR) pass, without real GoWay writes or
+deployment. Logs /tmp/mercaria-merchant-claims-{types,lint,browser}.log.
+
+68c268b2 fixes native locale persistence: the provisional device locale could
+write the opposite next-launch direction, then hydration skipped restoring the
+saved locale because the RUNNING process's isRTL already matched. Always persist
+forceRTL; only the restart-required result compares the running constant. Three
+new boundary cases fail before/four pass after, direction guard/frontend types
+pass and lint has0errors/5existingwarnings. Pixel Arabic picker + repeated cold
+launches now leave forceRTL=true and mirror merchant and bottom navigation.
+English was restored through the real picker afterward (forceRTL=false).
+
+dc0d60b4 adopts PUBLIC Bloom7.30.1 in all3apps/UIpeer; Services11.1.16 unchanged.
+Metadata/tarball independently verified SHA1
+3e76f0787baeb604acc6f596e1f0afdaf752ee42,30861406bytes. Four client typechecks,
+Oxy Doctor (existing Core/Contracts upgrade warnings only) and13browser cases
+(selection + merchant motion/stickyheader, EN/AR) pass. Local Metro PIDs now
+1845054 storefront8160 (session93826),1845043 dashboard8161 (session94139).
+
+Cold-start Arabic revealed merchant review body still invisible while header
+works. /tmp/mercaria-rtl-reviews.png and /tmp/mercaria-7301-rtl-reviews.xml expose
+no body text. Temporary logs report incoming progress1,rtltrue,width411.43,
+height4286.86,x0,y0. Removing page overflow:hidden appeared to help after Fast
+Refresh (25visibletextnodes), but FAILED cold-start acceptance, so that change
+and all transition probes were restored. Do NOT claim it fixed. Bloom agent
+investigates read-only; suggested next control is Dialog morph={false} (not
+useDialogFrame morph:false, which keeps its fade). No dependency patch is allowed.
+
+Official7.30.1 Pixel acceptance: temporary onLayout on the unmodified swatch grid
+reports Shade height136,width379.4286,y26.2857 (before568dp). Probe was restored
+from /tmp/mercaria-variant-before-7301-measure.tsx. Evidence line BLOOM_7301_GRID
+in /tmp/mercaria-metro.log and /tmp/mercaria-7301-product.png. No sizing override.
