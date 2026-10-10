@@ -996,6 +996,12 @@
         "revoked_for_policy": "مسحوب لأسباب قانونية",
         "superseded": "مستبدل بشراء لاحق"
       }
+    },
+    "bundle": {
+      "title": "محتويات المجموعة",
+      "unavailable": "تفاصيل محتويات هذه المجموعة غير متاحة حاليًا.",
+      "open": "عرض %{name}، %{variant}، الكمية %{quantity}",
+      "quantity": "×%{quantity}"
     }
   }
 }

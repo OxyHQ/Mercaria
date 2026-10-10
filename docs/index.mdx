@@ -71,6 +71,15 @@ schema decision. `HANDOFF.md` holds deferred work.
   exact-listing pin remains available below. Unmatched listings keep their
   listing save. State and mutations remain account-owned, and the copy promises
   no restock notification. Missing option selection still asks for options.
+- Canonical product pages render real `bundle_components` as “What's included”:
+  a three-item Bloom carousel below the purchase controls on phones and a
+  four/five-column grid beneath the gallery on larger screens. Each card opens
+  its exact canonical configuration; quantities and active variant/product
+  images come from the catalog. The read is scoped to an explicit configuration
+  or the product's sole public configuration, and withholds the entire list if
+  any component is not shopper-visible. It never calculates pack price or stock
+  from the components. Seller listings still need their own exact-variant
+  attachment before this composition can appear on that surface.
 - Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
   Shop's public CSS; product columns switch independently at 768px. Product
   thumbnails appear in a horizontal 48px strip from 768–975px, then move to a
@@ -80,6 +89,12 @@ schema decision. `HANDOFF.md` holds deferred work.
   numeric `navFrom` owns the rail/bottom-bar switch. Tablet arrows share Bloom's
   carousel footer with the thumbnail strip; desktop arrows overlay the photo
   with a 16px inset. Both wrap between the first and last photo.
+  Changing a variant keeps the gallery mounted: only a different set of image
+  URLs resets its index. Canonical reads retain the same product's prior page
+  while the new configuration loads, report the offers region as busy, and
+  disable prior purchase, outbound and bundle-component actions until it arrives.
+  They never retain another product's page. Clearing a configuration removes
+  the query constraint rather than sending an empty variant id to the API.
 - Full product reviews use a flat Bloom `Dialog`, with search above the filters.
   Filter drafts open in a 300px Bloom `Popover` on web from 768px and a bottom
   `Dialog` below it or on native. Apply commits the draft; dismissal discards it.

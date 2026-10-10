@@ -996,6 +996,12 @@
         "revoked_for_policy": "法的な理由により取り消し",
         "superseded": "後の購入で置き換え"
       }
+    },
+    "bundle": {
+      "title": "セット内容",
+      "unavailable": "現在、このセットの内容を表示できません。",
+      "open": "%{name}、%{variant}、数量%{quantity}を表示",
+      "quantity": "×%{quantity}"
     }
   }
 }

@@ -108,6 +108,22 @@ export interface ProductPageVariant {
   readonly offerCount?: number;
 }
 
+/** Public identities inside one pack; these do not price or fulfil it. */
+export interface ProductBundleComponent {
+  readonly productId: string;
+  readonly productSlug: string;
+  readonly variantId: string;
+  readonly name: string;
+  readonly variantName?: string;
+  readonly quantity: number;
+  readonly image?: { readonly sourceUrl?: string; readonly fileId?: string; readonly alt?: string };
+}
+
+/** A withheld component makes the whole composition unavailable, never partial. */
+export type ProductBundleContents =
+  | { readonly status: 'available'; readonly variantId: string; readonly components: readonly ProductBundleComponent[] }
+  | { readonly status: 'withheld'; readonly variantId: string };
+
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Seller identity                                                            */
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -451,6 +467,8 @@ export interface ProductPageBrandChannel {
  */
 export interface CanonicalProductPage {
   readonly product: CanonicalProduct;
+  /** Only for an explicit configuration, or the product's sole public configuration. */
+  readonly bundleContents?: ProductBundleContents;
   /** Present exactly when the requested handle was not the product's own. */
   readonly redirect?: ProductPageRedirect;
   readonly variants: readonly ProductPageVariant[];

@@ -44,9 +44,10 @@ export interface OfferRowProps {
   /** Called for a native, purchasable offer. Never reachable for an external one. */
   onAddToCart?: (input: { listingId: string; productVariantId: string }) => void;
   addToCartPending?: boolean;
+  isUpdating?: boolean;
 }
 
-export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRowProps) {
+export function OfferRow({ row, onAddToCart, addToCartPending = false, isUpdating = false }: OfferRowProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const { offer, ranked, seller, outbound } = row;
@@ -103,8 +104,8 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('offer.buyOnMercaria')}
-            accessibilityState={{ disabled: addToCartPending }}
-            disabled={addToCartPending}
+            accessibilityState={{ disabled: addToCartPending || isUpdating }}
+            disabled={addToCartPending || isUpdating}
             onPress={() =>
               onAddToCart?.({
                 listingId: outbound.listingId,
@@ -118,8 +119,10 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
           <Pressable
             accessibilityRole="link"
             accessibilityLabel={t('offer.openSellerListingA11y')}
+            disabled={isUpdating}
+            accessibilityState={{ disabled: isUpdating }}
             onPress={() =>
-              router.push(`/products/${outbound.listingId}`)
+              router.push({ pathname: '/products/[id]', params: { id: outbound.listingId, variantId: outbound.productVariantId } })
             }
             className="items-center rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
@@ -127,7 +130,7 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
           </Pressable>
         </View>
       ) : outbound.kind === 'outbound' ? (
-        <OutboundAction outbound={outbound} />
+        <OutboundAction outbound={outbound} disabled={isUpdating} />
       ) : (
         <UnavailableAction row={row} />
       )}
@@ -385,8 +388,10 @@ const AVAILABILITY_UNKNOWN_KEY = 'offer.availability.notPublished';
  */
 function OutboundAction({
   outbound,
+  disabled,
 }: {
   outbound: Extract<ProductPageOfferRow['outbound'], { kind: 'outbound' }>;
+  disabled: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -395,6 +400,8 @@ function OutboundAction({
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={t('offer.goToHost', { host: outbound.destinationHost })}
+        disabled={disabled}
+        accessibilityState={{ disabled }}
         onPress={() => {
           void Linking.openURL(`${config.apiUrl}${outbound.redirectPath}`);
         }}

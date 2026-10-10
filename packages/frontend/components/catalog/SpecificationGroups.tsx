@@ -84,7 +84,7 @@ function SpecificationGroupBlock({ group }: { group: SpecificationGroup }) {
         {heading}
       </Text>
       <ProductSpecificationGrid entries={group.entries.map((entry) => ({
-        key: entry.attributeKey,
+        key: entry.rowKey,
         label: entry.label,
         value: entry.displayValue,
       }))} />

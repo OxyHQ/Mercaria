@@ -59,6 +59,9 @@ export function useProductPage(
       limit: params?.limit,
     }),
     queryFn: () => fetchProductPage(handle ?? '', params),
+    // Keep identity and gallery mounted while another configuration loads.
+    // Never borrow a different product's data; dependent actions check isPlaceholderData.
+    placeholderData: (previous, query) => query?.queryKey[1] === handle ? previous : undefined,
     enabled: Boolean(handle),
     staleTime: PAGE_STALE_TIME,
     retry: 1,

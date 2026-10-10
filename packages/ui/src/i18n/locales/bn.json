@@ -996,6 +996,12 @@
         "revoked_for_policy": "আইনি কারণে প্রত্যাহার করা",
         "superseded": "পরের কেনা দিয়ে প্রতিস্থাপিত"
       }
+    },
+    "bundle": {
+      "title": "প্যাকে যা রয়েছে",
+      "unavailable": "এই প্যাকের সামগ্রীর বিবরণ এখন উপলব্ধ নয়।",
+      "open": "%{name}, %{variant}, পরিমাণ %{quantity} দেখুন",
+      "quantity": "×%{quantity}"
     }
   }
 }

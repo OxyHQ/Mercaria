@@ -1003,6 +1003,12 @@
         "revoked_for_policy": "Retirada por motivos legais",
         "superseded": "Substituída por uma compra posterior"
       }
+    },
+    "bundle": {
+      "title": "O que está incluído",
+      "unavailable": "O conteúdo deste kit está indisponível no momento.",
+      "open": "Ver %{name}, %{variant}, quantidade %{quantity}",
+      "quantity": "×%{quantity}"
     }
   }
 }

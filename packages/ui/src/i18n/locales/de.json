@@ -996,6 +996,12 @@
         "revoked_for_policy": "Aus rechtlichen Gründen zurückgezogen",
         "superseded": "Durch einen späteren Kauf ersetzt"
       }
+    },
+    "bundle": {
+      "title": "Im Set enthalten",
+      "unavailable": "Der Inhalt dieses Sets ist derzeit nicht verfügbar.",
+      "open": "%{name}, %{variant}, Menge %{quantity} ansehen",
+      "quantity": "×%{quantity}"
     }
   }
 }

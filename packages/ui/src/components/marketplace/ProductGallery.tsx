@@ -10,6 +10,7 @@ import {
   type MeasuredRect,
 } from "@oxy.so/bloom/zoomable-media-gallery";
 import { Text } from "../ui/text";
+import { cn } from "../../lib/cn";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import { useReducedMotion } from "react-native-reanimated";
 import { SHOP_CAROUSEL_ARROW_CLASS_NAME } from "../../lib/shelf-carousel";
@@ -27,6 +28,7 @@ export interface ProductGalleryImage {
 export interface ProductGalleryProps {
   images: ProductGalleryImage[];
   title: string;
+  className?: string;
   ref?: Ref<ProductGalleryHandle>;
 }
 export interface ProductGalleryHandle {
@@ -50,12 +52,19 @@ const TABLET_ARROW_BUTTON_PROPS = {
 
 /** Product media uses Bloom's controlled carousel in both the page and viewer.
  * Arrows, swipe and thumbnails update the same index. Bloom owns fullscreen
- * zoom/pan and media transitions. Variant owners remount this on variant id. */
-export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
+ * zoom/pan and media transitions. A changed media set resets the index without
+ * remounting the gallery or blanking images shared by two configurations. */
+export function ProductGallery({ images, title, ref, className }: ProductGalleryProps) {
   const { width, height } = useWindowDimensions();
   const rtl = useIsRtl();
   const t = useSharedUiTranslation();
   const [index, setIndex] = useState(0);
+  const mediaKey = images.map(image => image.uri).join('\u0000');
+  const [previousMediaKey, setPreviousMediaKey] = useState(mediaKey);
+  if (previousMediaKey !== mediaKey) {
+    setPreviousMediaKey(mediaKey);
+    setIndex(0);
+  }
   const viewer = useRef<ZoomableMediaGalleryHandle>(null);
   const thumbnailRail = useRef<ScrollView>(null);
   const thumbnailOffset = useRef(0);
@@ -244,7 +253,7 @@ export function ProductGallery({ images, title, ref }: ProductGalleryProps) {
 
   return (
     <View
-      className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8"
+      className={cn("min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8", className)}
       testID="product-gallery"
       onLayout={(event) => setPanelWidth(event.nativeEvent.layout.width)}
     >

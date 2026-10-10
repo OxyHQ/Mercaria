@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import type {
@@ -8,7 +8,7 @@ import type {
   ProductPageSeller,
 } from '@mercaria/shared-types';
 import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
-import { OfferLabelBadge, ProductGallery, ReviewSummaryCard, Text } from '@mercaria/ui';
+import { BundleContents, OfferLabelBadge, ProductGallery, ReviewSummaryCard, Text } from '@mercaria/ui';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
 import { ScreenShell } from '@/components/shell/ScreenShell';
@@ -70,9 +70,10 @@ export default function CanonicalProductPageScreen() {
   const router = useRouter();
   const { oxyServices, canUsePrivateApi } = useOxy();
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
   const params = useLocalSearchParams<{ handle: string; variant?: string; intent?: string }>();
   const handle = params.handle ?? '';
-  const selectedVariantId = params.variant;
+  const selectedVariantId = params.variant || undefined;
   const intent = readIntent(params.intent);
 
   const pageQuery = useProductPage(handle, {
@@ -226,11 +227,16 @@ export default function CanonicalProductPageScreen() {
       {head}
       <View className="web:mx-auto web:w-full web:max-w-[1600px] gap-space-32 md:px-5">
         <View className="flex-col gap-space-16 md:flex-row md:gap-space-40 md:px-4">
-          <ProductGallery
-            key={selectedVariantId ?? page.product.id}
-            images={images}
-            title={page.product.name}
-          />
+          <View className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8">
+            <ProductGallery
+              className="md:w-full md:flex-none web:md:static web:md:top-auto"
+              images={images}
+              title={page.product.name}
+            />
+            {width >= 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isPlaceholderData}
+              resolveImage={image => image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined)}
+              onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
+          </View>
           <View className="min-w-0 gap-space-24 px-space-16 md:px-0 md:pt-2 md:w-[29em]">
             <ProductIdentity
               product={page.product}
@@ -299,6 +305,7 @@ export default function CanonicalProductPageScreen() {
 
             <OfferGroups
               offers={page.offers}
+              isUpdating={pageQuery.isPlaceholderData}
               addToCartPending={addToCart.isPending}
               onAddToCart={(input) =>
                 addToCart.mutate({
@@ -315,6 +322,9 @@ export default function CanonicalProductPageScreen() {
               </Text>
             ) : null}
 
+            {width < 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isPlaceholderData}
+              resolveImage={image => image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined)}
+              onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
             <ReviewSummaryCard
               embedded
               scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}

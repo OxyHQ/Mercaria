@@ -996,6 +996,12 @@
         "revoked_for_policy": "因法律原因撤回",
         "superseded": "已被后来的购买取代"
       }
+    },
+    "bundle": {
+      "title": "包含商品",
+      "unavailable": "暂时无法查看此套装的内容。",
+      "open": "查看%{name}，%{variant}，数量%{quantity}",
+      "quantity": "×%{quantity}"
     }
   }
 }

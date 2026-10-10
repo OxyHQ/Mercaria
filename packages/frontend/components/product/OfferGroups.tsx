@@ -61,9 +61,20 @@ export interface OfferGroupsProps {
   offers: ProductPageOffers;
   onAddToCart: (input: { listingId: string; productVariantId: string }) => void;
   addToCartPending: boolean;
+  isUpdating?: boolean;
 }
 
-export function OfferGroups({ offers, onAddToCart, addToCartPending }: OfferGroupsProps) {
+export function OfferGroups(props: OfferGroupsProps) {
+  const { t } = useTranslation();
+  return (
+    <View testID="product-offers" aria-busy={props.isUpdating} accessibilityState={{ busy: props.isUpdating }} className="relative">
+      {props.isUpdating ? <Text accessibilityLiveRegion="polite" className="absolute -top-space-20 text-shop-caption text-text-tertiary">{t('common.loading')}</Text> : null}
+      <OfferGroupsContent {...props} />
+    </View>
+  );
+}
+
+function OfferGroupsContent({ offers, onAddToCart, addToCartPending, isUpdating = false }: OfferGroupsProps) {
   const { t } = useTranslation();
 
   if (offers.available === false) {
@@ -110,6 +121,7 @@ export function OfferGroups({ offers, onAddToCart, addToCartPending }: OfferGrou
               .filter((row): row is OfferRowDTO => row !== undefined)}
             onAddToCart={onAddToCart}
             addToCartPending={addToCartPending}
+            isUpdating={isUpdating}
           />
         );
       })}
@@ -132,12 +144,14 @@ function OfferGroupSection({
   rows,
   onAddToCart,
   addToCartPending,
+  isUpdating,
 }: {
   title: string;
   explanation?: string;
   rows: readonly OfferRowDTO[];
   onAddToCart: (input: { listingId: string; productVariantId: string }) => void;
   addToCartPending: boolean;
+  isUpdating: boolean;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -161,6 +175,7 @@ function OfferGroupSection({
           row={row}
           onAddToCart={onAddToCart}
           addToCartPending={addToCartPending}
+          isUpdating={isUpdating}
         />
       ))}
 

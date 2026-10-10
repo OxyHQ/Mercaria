@@ -407,6 +407,7 @@ export {
   type ProductGalleryProps,
   type ProductGalleryHandle,
 } from "./components/marketplace/ProductGallery";
+export { BundleContents, type BundleContentsProps } from './components/marketplace/BundleContents';
 export {
   VariantSwatches,
   type VariantSwatchesProps,

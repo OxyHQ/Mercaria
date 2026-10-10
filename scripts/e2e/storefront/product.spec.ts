@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import type { Listing, PublicAttributeValue, Review } from "../../../packages/shared-types/src";
 
 async function seededProduct(request: APIRequestContext): Promise<Listing> {
@@ -33,6 +33,13 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+async function expectSoldOutActions(page: Page) {
+  await expect(page.getByTestId("sold-out-save")).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Add to cart", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Buy now", exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("product-purchase-actions")).toContainText("This option is sold out.");
+}
+
 test("variant deep links survive reload and sold-out choices cannot be bought", async ({
   page,
   request,
@@ -54,9 +61,7 @@ test("variant deep links survive reload and sold-out choices cannot be bought", 
     .getByRole("button", { name: `Shade: ${soldOut.title}, Sold out`, exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`variantId=${soldOut.id}$`));
-  await expect(
-    page.getByRole("button", { name: "Sold out", exact: true }),
-  ).toBeDisabled();
+  await expectSoldOutActions(page);
   await expect(
     page.getByRole("button", { name: "Buy now", exact: true }),
   ).toHaveCount(0);
@@ -108,7 +113,7 @@ test("option availability follows the selected color and size instead of stock i
   await expect(medium.locator("img").last()).toHaveAttribute("src", product.images[1].fileId);
   await medium.click();
   await expect(page).toHaveURL(new RegExp(`variantId=${variants[1].id}$`));
-  await expect(page.getByRole("button", { name: "Sold out", exact: true })).toBeDisabled();
+  await expectSoldOutActions(page);
 
   await page.getByRole("button", { name: "Color: Blue", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`variantId=${variants[3].id}$`));
@@ -128,7 +133,7 @@ test("option availability follows the selected color and size instead of stock i
   await expect(medium).toHaveCSS("background-color", "rgb(242, 244, 245)");
   await expect(medium.getByText("M", { exact: true })).toHaveCSS("font-size", "12px");
   await expect(medium.getByText("M", { exact: true })).toHaveCSS("color", "rgba(0, 0, 0, 0.4)");
-  await expect(page.getByRole("button", { name: "Sold out", exact: true })).toBeDisabled();
+  await expectSoldOutActions(page);
 });
 
 test("variant-owned photos and price replace listing fallbacks without inheriting a discount", async ({
@@ -1000,6 +1005,8 @@ test("canonical products use the complete gallery and keep purchase availability
   const reviewsDialog = page.getByTestId("product-reviews-dialog");
   await expect(reviewsDialog.getByTestId(`review-${unverified.id}`)).toBeVisible();
   await expect(reviewsDialog.getByTestId("review-rating-average")).toHaveCount(0);
+  // Search owns Escape; test the drawer's dismissal from its close control.
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).focus();
   await page.keyboard.press("Escape");
   await expect(reviewsDialog).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1012,7 +1019,7 @@ test("canonical products use the complete gallery and keep purchase availability
   const save = page.getByRole("button", { name: "Save this product", exact: true, includeHidden: true });
   await expect(save).toHaveAttribute("aria-pressed", "false");
   await save.click();
-  await expect(page.getByText("Continue with Oxy", { exact: true })).toBeVisible();
+  await expect(page.getByText("Use your Oxy account", { exact: true })).toBeVisible();
   await expect(save).toHaveAttribute("aria-pressed", "false");
   expect(saveWrites).toBe(0);
 });
@@ -1522,14 +1529,14 @@ for (const mode of ["light", "dark"] as const) {
     await page.mouse.move(0, 0);
     await page.mouse.up();
     await page.getByRole("button", { name: `Shade: ${soldOut.title}, Sold out`, exact: true }).click();
-    const unavailable = page.getByRole("button", { name: "Sold out", exact: true });
-    await expect(unavailable).toBeDisabled();
-    await expect(unavailable).toHaveCSS("background-color", mode === "light" ? "rgb(238, 240, 241)" : "rgb(64, 64, 64)");
+    await expectSoldOutActions(page);
+    const unavailable = page.getByTestId("sold-out-save");
+    await expect(unavailable).toHaveCSS("background-color", mode === "light" ? "rgb(18, 18, 18)" : "rgb(255, 255, 255)");
     await expect(unavailable).toHaveCSS("box-shadow", "none");
     await unavailable.hover({ force: true });
-    await expect(unavailable).toHaveCSS("background-color", mode === "light" ? "rgb(238, 240, 241)" : "rgb(64, 64, 64)");
+    await expect(unavailable).toHaveCSS("background-color", mode === "light" ? "rgb(42, 42, 42)" : "rgb(201, 203, 204)");
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(unavailable).toHaveCSS("height", "52px");
+    await expect(unavailable).toHaveCSS("height", "44px");
     await expect(share).toHaveCSS("height", "44px");
   });
 }
@@ -1588,7 +1595,7 @@ test("option pills keep Shop states and truncate long values in dark desktop and
   }
   await unavailable.click();
   await expect(unavailable).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Sold out", exact: true })).toBeDisabled();
+  await expectSoldOutActions(page);
 });
 
 

@@ -18,7 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
-import { canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
+import { bundleComponents, canonicalImages, canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
 import { merchants } from '../../db/schema/merchants.js';
 import { storefronts } from '../../db/schema/merchants.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
@@ -58,6 +58,9 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
+  await db.delete(bundleComponents).where(inArray(bundleComponents.bundleVariantId, safeIds(createdVariantIds)));
+  await db.delete(canonicalImages).where(inArray(canonicalImages.productId, safeIds(createdProductIds)));
+  await db.delete(canonicalImages).where(inArray(canonicalImages.variantId, safeIds(createdVariantIds)));
   await db.delete(offers).where(inArray(offers.canonicalVariantId, safeIds(createdVariantIds)));
   await db.delete(offers).where(inArray(offers.listingId, safeIds(createdListingIds)));
   await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, safeIds(createdSourceIds)));
@@ -226,6 +229,68 @@ function pageRequest(handle: string, overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe('public bundle contents', () => {
+  it('uses the exact configuration, quantities and catalog order without exposing another pack', async () => {
+    const pack = await mintProduct('bundle-configurations', 2);
+    const first = await mintProduct('bundle-first');
+    const second = await mintProduct('bundle-second');
+    await db.insert(bundleComponents).values([
+      { bundleVariantId: pack.variantIds[0], componentVariantId: first.variantIds[0], quantity: 2, position: 1 },
+      { bundleVariantId: pack.variantIds[0], componentVariantId: second.variantIds[0], quantity: 1, position: 0 },
+      { bundleVariantId: pack.variantIds[1], componentVariantId: second.variantIds[0], quantity: 3, position: 0 },
+    ]);
+    const request = (canonicalVariantId?: string) => readCanonicalProductPage(pageRequest(pack.slug, { canonicalVariantId, offerComparisonPermitted: false }));
+    expect((await request())?.page.bundleContents).toBeUndefined();
+    expect((await request(pack.variantIds[0]))?.page.bundleContents).toMatchObject({
+      status: 'available', variantId: pack.variantIds[0], components: [
+        { productId: second.productId, productSlug: second.slug, variantId: second.variantIds[0], quantity: 1 },
+        { productId: first.productId, productSlug: first.slug, variantId: first.variantIds[0], quantity: 2 },
+      ],
+    });
+    expect((await request(pack.variantIds[1]))?.page.bundleContents).toMatchObject({
+      status: 'available', components: [{ variantId: second.variantIds[0], quantity: 3 }],
+    });
+  });
+
+  it('withholds the entire composition for hidden children, and restores it immediately on lifting', async () => {
+    const pack = await mintProduct('bundle-visibility');
+    const child = await mintProduct('bundle-hidden');
+    await db.insert(bundleComponents).values({ bundleVariantId: pack.variantIds[0], componentVariantId: child.variantIds[0], quantity: 1 });
+    const read = async () => (await readCanonicalProductPage(pageRequest(pack.slug, { offerComparisonPermitted: false })))?.page.bundleContents;
+    for (const status of ['draft', 'suppressed'] as const) {
+      await db.update(canonicalVariants).set({ status }).where(eq(canonicalVariants.id, child.variantIds[0]));
+      expect(await read()).toEqual({ status: 'withheld', variantId: pack.variantIds[0] });
+    }
+    await db.update(canonicalVariants).set({ status: 'discontinued' }).where(eq(canonicalVariants.id, child.variantIds[0]));
+    expect(await read()).toMatchObject({ status: 'available' });
+    await db.update(canonicalProducts).set({ status: 'suppressed' }).where(eq(canonicalProducts.id, child.productId));
+    expect(await read()).toEqual({ status: 'withheld', variantId: pack.variantIds[0] });
+    await db.update(canonicalProducts).set({ status: 'active' }).where(eq(canonicalProducts.id, child.productId));
+    expect(await read()).toMatchObject({ status: 'available' });
+  });
+
+  it('prefers the active variant image and falls back to an active product image', async () => {
+    const pack = await mintProduct('bundle-images');
+    const child = await mintProduct('bundle-image-child');
+    const source = await mintObservation('bundle-image-source');
+    await db.insert(bundleComponents).values({ bundleVariantId: pack.variantIds[0], componentVariantId: child.variantIds[0], quantity: 1 });
+    await db.insert(canonicalImages).values([
+      { productId: child.productId, sourceRecordId: source.recordId, sourceUrl: 'https://example.com/product.png', position: 0 },
+      { variantId: child.variantIds[0], sourceRecordId: source.recordId, sourceUrl: 'https://example.com/variant.png', position: 2 },
+    ]);
+    const read = async () => (await readCanonicalProductPage(pageRequest(pack.slug, { offerComparisonPermitted: false })))?.page.bundleContents;
+    expect(await read()).toMatchObject({ status: 'available', components: [{ image: { sourceUrl: 'https://example.com/variant.png' } }] });
+    await db.delete(canonicalImages).where(eq(canonicalImages.variantId, child.variantIds[0]));
+    expect(await read()).toMatchObject({ status: 'available', components: [{ image: { sourceUrl: 'https://example.com/product.png' } }] });
+  });
+
+  it('adds no bundle section to an ordinary single item', async () => {
+    const product = await mintProduct('not-a-bundle');
+    const result = await readCanonicalProductPage(pageRequest(product.slug, { offerComparisonPermitted: false }));
+    expect(result?.page.bundleContents).toBeUndefined();
+  });
+});
 
 describe('the composed read (#71 route rules 3 and 5)', () => {
   it('serves identity, configurations, ranked rows, sellers and a partition in ONE read', async () => {

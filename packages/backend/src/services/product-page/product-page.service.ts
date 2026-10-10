@@ -50,6 +50,7 @@ import {
   getVariantOptionAssignments,
 } from '../canonical/canonical-product.service.js';
 import { listVariants } from '../canonical/canonical-variant.service.js';
+import { readPublicBundleContents } from '../canonical/bundle-contents.service.js';
 import { listBrandChannels } from '../commerce-graph/relationship-resolution.js';
 import { findProductPageMerchants } from '../../db/productPage/productPageRepository.js';
 import { findStorefrontsByIds } from '../../db/commerce-graph/storefrontRepository.js';
@@ -129,8 +130,11 @@ export async function readCanonicalProductPage(
   // one sentence the withheld branch exists to prevent.
   const countsAreMeaningful = offers.available === true;
 
+  const bundleVariantId = request.canonicalVariantId ?? (variants.length === 1 ? variants[0].id : undefined);
+  const bundleContents = bundleVariantId ? await readPublicBundleContents(bundleVariantId) : undefined;
   const page: CanonicalProductPage = {
     product,
+    ...(bundleContents ? { bundleContents } : {}),
     ...(product.id === request.handle || product.slug === request.handle
       ? {}
       : {

@@ -996,6 +996,12 @@
         "revoked_for_policy": "Withdrawn for legal reasons",
         "superseded": "Replaced by a later purchase"
       }
+    },
+    "bundle": {
+      "title": "What's included",
+      "unavailable": "The contents of this pack are currently unavailable.",
+      "open": "View %{name}, %{variant}, quantity %{quantity}",
+      "quantity": "×%{quantity}"
     }
   }
 }

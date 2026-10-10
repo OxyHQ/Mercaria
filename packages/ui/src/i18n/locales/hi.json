@@ -996,6 +996,12 @@
         "revoked_for_policy": "कानूनी कारणों से वापस लिया गया",
         "superseded": "बाद की खरीद से बदला गया"
       }
+    },
+    "bundle": {
+      "title": "पैक में क्या शामिल है",
+      "unavailable": "इस पैक की सामग्री की जानकारी अभी उपलब्ध नहीं है।",
+      "open": "%{name}, %{variant}, मात्रा %{quantity} देखें",
+      "quantity": "×%{quantity}"
     }
   }
 }

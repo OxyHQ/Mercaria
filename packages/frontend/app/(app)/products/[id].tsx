@@ -45,7 +45,7 @@ import type { Listing, StoreSummary, Seller } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { ProductDescription } from "@/components/product/ProductDescription";
-import { PurchasePlanPreview } from "@/components/product/PurchasePlanPreview";
+import { PurchasePlanPreview } from "@/components/listing/PurchasePlanPreview";
 import { resolvePurchasePreview } from "@/lib/catalog/purchase-preview";
 import { ProductReviewsDialog } from "@/components/product/ProductReviewsDialog";
 import { Footer } from "@/components/shell/Footer";
@@ -487,7 +487,6 @@ function ProductBody({ listing }: ProductBodyProps) {
         <View className="flex-col gap-space-16 md:mt-6 md:flex-row md:gap-space-40 md:px-4">
           <ProductGallery
             ref={gallery}
-            key={selectedVariant?.id ?? listing.id}
             images={images}
             title={listing.title}
           />
