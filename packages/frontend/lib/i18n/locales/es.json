@@ -475,6 +475,17 @@
       "count": "A %{formattedCount} les resultó útil",
       "error": "No se pudo actualizar tu voto. Inténtalo de nuevo.",
       "retry": "Volver a cargar los votos"
+    },
+    "media": {
+      "add": "Añadir foto o vídeo",
+      "prompt": "Arrastra un archivo aquí o",
+      "uploading": "Subiendo…",
+      "uploaded": "Subida completada",
+      "invalid": "Hasta 10 archivos: imágenes JPG, PNG, WebP, GIF o AVIF de hasta 20 MB; vídeos MP4 o WebM de hasta 100 MB.",
+      "publicNotice": "Los archivos subidos son públicos. Quitar un adjunto aquí no lo elimina de tus archivos de Oxy.",
+      "failed": "No se pudo verificar la subida. Inténtalo de nuevo.",
+      "remove": "Quitar %{filename}",
+      "removeAction": "Quitar"
     }
   },
   "search": {

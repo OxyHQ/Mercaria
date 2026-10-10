@@ -584,6 +584,19 @@ The audit and current implementation:
   history and open its thread/product without any supplier image request; no
   image or API interception is used in those cases. This validates withholding
   stale hotlinks, not a completed media import.
+- Order history and cart lines now apply the same resolver check to projected
+  or cached image URLs. Saved items resolve only valid file IDs, using their
+  supplied resolver or the shared Bloom provider; there is no raw-ID/URL
+  fallback. Historical order snapshots themselves remain unchanged. Review avatars and
+  store-menu collection/review thumbnails now use this same boundary; three
+  browser viewer cases reject an injected old external avatar URL. Rich product
+  descriptions apply the same check on web and native, preserving image alt text
+  when the URL is external. Importing those embedded HTML images is still pending;
+  hiding an external source is not a successful synchronization.
+  The remaining successful SVG image interceptors in storefront orders and
+  dashboard list/gallery tests were removed. Their replacement coverage uses
+  missing-file responses and checks usable rows, placeholders and zero requests
+  to supplier origins; successful real-media rendering remains unverified.
 - The home hero now resolves `ProductSummary.imageFileId`; feed/store
   hydration exposes image/logo/cover IDs and cache v3 invalidates URL-only
   payloads. Shared product and merchant cards use the same resolver boundary,
@@ -656,9 +669,9 @@ public hydration excludes hidden parents and private transaction targets.
 Eligibility consumption, review, dimensions and attachments commit atomically.
 Focused tests include a real PostgreSQL rollback through `createReview`, the
 public media DTO and separately mocked Oxy validation failures; these do not
-prove live uploads. The complete backend run passed 800 files and exposed five
-new-table governance failures; all five were corrected and their 93 tests passed.
-Backend, shared UI and all three app typechecks passed; backend lint has no errors.
+prove live uploads. The complete integrated backend run passes 809 files (12,716 tests; five
+skipped), including the new-table governance checks. Backend, shared UI and all
+three app typechecks passed; backend lint has no errors.
 
 Product-wide media reads now page attachments through
 `/reviews/product/:canonicalProductId/media` and `/listings/:id/reviews/media`,
@@ -678,11 +691,29 @@ The current live PDP returned Shop's error shell, so this is not a claim of
 fresh live interaction parity. Browser cases use deliberate missing files and
 503/404 failures, never replacement image bytes or successful-upload fixtures.
 
-Still missing: the creation form's upload flow and successful acceptance with
-real author-owned Oxy files, plus cross-device/native playback validation.
-The existing Oxy FileManagement surface supports selection, upload and public
-default visibility; use that user-authenticated path rather than inventing an
-uploader or weakening ownership validation. Keep purchase verification and
+The creation form now uploads new product/listing attachments through Oxy's
+authenticated `useUploadFile` and a controlled Bloom FileUpload (native selection
+uses Expo DocumentPicker). It discloses public visibility before selection,
+checks returned metadata and accepts only verified author-owned file IDs.
+The general Oxy FileManagement picker is deliberately unsuitable here: in
+Services 11.1.10 selecting or deselecting an existing file changes its visibility
+before confirmation. This flow never selects or promotes existing private files.
+Eligibility queries and form identity are scoped to the active account; upload
+and publish failures preserve the review draft. Private transaction prompts
+have no public-media uploader.
+
+The three apps now pin published Bloom 7.24.1 and Services 11.1.11. Bloom fixes
+first-click star activation and hidden uploader status accessibility at source
+(PR 301); the Services maintenance release verifies the compatible peer range.
+All apps, shared UI and Services resolve one physical Bloom copy. Two real
+browser refusal cases (390/1440px) pass against those official packages, including
+actual star selection, pending upload, transport failure, private-file rejection,
+retry and preservation of the draft. Three hero and two order cases also pass.
+These intentionally do not provide synthetic successful image/upload responses.
+
+Still missing: successful acceptance with real author-owned Oxy files and
+cross-device/native playback validation. Unit tests with metadata and browser
+transport-refusal cases do not prove live uploads. Keep purchase verification and
 moderation intact; supplier URLs or synthetic file IDs are not review media.
 Full Shop parity remains unproven.
 

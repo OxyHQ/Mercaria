@@ -182,18 +182,18 @@ export function useMerchantReviews(merchantId: string | undefined, page = 1, lim
  * no fake author to invent.
  */
 export function useReviewEligibilities() {
-  const { isAuthenticated } = useOxy();
+  const { user, canUsePrivateApi } = useOxy();
 
   return useQuery<ReviewEligibility[]>({
-    queryKey: queryKeys.reviews.eligibilities,
-    queryFn: async () => {
-      const response = await fetchReviewEligibilities();
+    queryKey: queryKeys.reviews.eligibilities(user?.id ?? ''),
+    queryFn: async ({ signal }) => {
+      const response = await fetchReviewEligibilities(signal);
       if (!response.success || !response.data) {
         throw new Error(response.error ?? response.message ?? 'Failed to load review options');
       }
-      return response.data;
+      return response.data.filter(eligibility => eligibility.oxyUserId === user?.id && eligibility.state === 'open');
     },
-    enabled: isAuthenticated,
+    enabled: canUsePrivateApi && !!user?.id,
     staleTime: STALE_TIME,
     retry: 1,
   });
@@ -210,17 +210,20 @@ export function useReviewEligibilities() {
  */
 export function useCreateReview() {
   const queryClient = useQueryClient();
+  const { user, canUsePrivateApi } = useOxy();
 
   return useMutation({
     mutationFn: async (input: CreateReviewInput) => {
+      if (!user?.id || !canUsePrivateApi) throw new Error('Sign in to publish a review');
+      const account = user.id;
       const response = await createReview(input);
       if (!response.success || !response.data) {
         throw new Error(response.error ?? response.message ?? 'Failed to publish review');
       }
-      return response.data;
+      return { account, review: response.data };
     },
-    onSuccess: (review) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.eligibilities });
+    onSuccess: ({ account, review }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.eligibilities(account) });
       if (review.canonicalProductId) {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.reviews.productAll(review.canonicalProductId),

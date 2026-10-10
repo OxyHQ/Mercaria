@@ -128,6 +128,23 @@ The entire selection is checked before durable Mercaria asset links are created.
 This path never promotes a private file to public. Private transaction reviews
 cannot accept these public attachments.
 
+The product/listing review form uses Bloom FileUpload with controlled file and
+progress state, backed by Oxy's authenticated `useUploadFile`. Expo DocumentPicker
+provides native selection. New uploads are explicitly public; the form discloses
+this before selection. Removing an attachment does not delete the Oxy file.
+The client checks returned metadata before accepting an ID and the backend
+independently checks it again at publication. Shared `reviewMediaKind` enforces
+the same MIME and size limits at both boundaries. The form disables publication
+during upload and retains its draft on upload/publication failures.
+
+Eligibility cache keys include the active Oxy account; prompts exclude another
+account's or consumed grants, and account changes remount the form. Late upload
+callbacks cannot append to an unmounted form. Private transaction reviews have
+no uploader. The general Oxy FileManagement selector is not used: Services
+11.1.10 changes existing file visibility during selection, before confirmation.
+Live acceptance with an actual author's Oxy upload remains to be verified;
+metadata unit tests and browser refusal tests are not evidence of that path.
+
 `review_media` stores ordered child rows, with unique positions and file IDs per
 review. It has no independent moderation state: public hydration joins the parent
 and excludes hidden reviews and transaction targets. Deleting a review cascades

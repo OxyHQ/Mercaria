@@ -475,6 +475,17 @@
       "count": "%{formattedCount} ont trouvé cet avis utile",
       "error": "Impossible de mettre à jour votre vote. Réessayez.",
       "retry": "Recharger les votes utiles"
+    },
+    "media": {
+      "add": "Ajouter une photo ou une vidéo",
+      "prompt": "Déposez un fichier ici ou",
+      "uploading": "Envoi en cours…",
+      "uploaded": "Envoi terminé",
+      "invalid": "Jusqu’à 10 fichiers : images JPG, PNG, WebP, GIF ou AVIF de 20 Mo maximum ; vidéos MP4 ou WebM de 100 Mo maximum.",
+      "publicNotice": "Les fichiers envoyés sont publics. Retirer une pièce jointe ici ne la supprime pas de vos fichiers Oxy.",
+      "failed": "Impossible de vérifier l’envoi. Réessayez.",
+      "remove": "Retirer %{filename}",
+      "removeAction": "Retirer"
     }
   },
   "search": {

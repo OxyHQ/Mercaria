@@ -472,6 +472,17 @@
       "count": "%{formattedCount}人が役に立ったと評価",
       "error": "評価を更新できませんでした。もう一度お試しください。",
       "retry": "評価を再読み込み"
+    },
+    "media": {
+      "add": "写真や動画を追加",
+      "prompt": "ここにファイルをドロップするか、",
+      "uploading": "アップロード中…",
+      "uploaded": "アップロード完了",
+      "invalid": "最大10ファイル：JPG・PNG・WebP・GIF・AVIF画像は20 MBまで、MP4・WebM動画は100 MBまで。",
+      "publicNotice": "アップロードしたファイルは公開されます。ここで添付を外しても、Oxyのファイルからは削除されません。",
+      "failed": "アップロードを確認できませんでした。もう一度お試しください。",
+      "remove": "%{filename}を外す",
+      "removeAction": "外す"
     }
   },
   "search": {

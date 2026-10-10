@@ -472,6 +472,17 @@
       "count": "%{formattedCount} fanden dies hilfreich",
       "error": "Deine Stimme konnte nicht aktualisiert werden. Versuche es erneut.",
       "retry": "Hilfreich-Stimmen erneut laden"
+    },
+    "media": {
+      "add": "Foto oder Video hinzufügen",
+      "prompt": "Datei hier ablegen oder",
+      "uploading": "Wird hochgeladen…",
+      "uploaded": "Upload abgeschlossen",
+      "invalid": "Bis zu 10 Dateien: JPG-, PNG-, WebP-, GIF- oder AVIF-Bilder bis 20 MB; MP4- oder WebM-Videos bis 100 MB.",
+      "publicNotice": "Hochgeladene Dateien sind öffentlich. Das Entfernen eines Anhangs hier löscht ihn nicht aus deinen Oxy-Dateien.",
+      "failed": "Der Upload konnte nicht überprüft werden. Versuche es erneut.",
+      "remove": "%{filename} entfernen",
+      "removeAction": "Entfernen"
     }
   },
   "search": {

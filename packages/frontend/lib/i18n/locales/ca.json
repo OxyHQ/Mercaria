@@ -475,6 +475,17 @@
       "count": "A %{formattedCount} els ha resultat útil",
       "error": "No s’ha pogut actualitzar el vot. Torna-ho a provar.",
       "retry": "Torna a carregar els vots"
+    },
+    "media": {
+      "add": "Afegeix una foto o un vídeo",
+      "prompt": "Arrossega un fitxer aquí o",
+      "uploading": "S’està pujant…",
+      "uploaded": "Pujada completada",
+      "invalid": "Fins a 10 fitxers: imatges JPG, PNG, WebP, GIF o AVIF de fins a 20 MB; vídeos MP4 o WebM de fins a 100 MB.",
+      "publicNotice": "Els fitxers pujats són públics. Treure un adjunt aquí no l’elimina dels teus fitxers d’Oxy.",
+      "failed": "No s’ha pogut verificar la pujada. Torna-ho a provar.",
+      "remove": "Treu %{filename}",
+      "removeAction": "Treu"
     }
   },
   "search": {

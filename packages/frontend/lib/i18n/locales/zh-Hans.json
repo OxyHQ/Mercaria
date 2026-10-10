@@ -472,6 +472,17 @@
       "count": "%{formattedCount}人觉得有帮助",
       "error": "无法更新你的投票。请重试。",
       "retry": "重新加载投票"
+    },
+    "media": {
+      "add": "添加照片或视频",
+      "prompt": "将文件拖到此处或",
+      "uploading": "正在上传…",
+      "uploaded": "上传完成",
+      "invalid": "最多10个文件：JPG、PNG、WebP、GIF或AVIF图片不超过20 MB；MP4或WebM视频不超过100 MB。",
+      "publicNotice": "上传的文件是公开的。在此移除附件不会将其从你的Oxy文件中删除。",
+      "failed": "无法验证上传，请重试。",
+      "remove": "移除%{filename}",
+      "removeAction": "移除"
     }
   },
   "search": {

@@ -475,6 +475,17 @@
       "count": "%{formattedCount} acharam útil",
       "error": "Não foi possível atualizar seu voto. Tente novamente.",
       "retry": "Recarregar votos de útil"
+    },
+    "media": {
+      "add": "Adicionar foto ou vídeo",
+      "prompt": "Arraste um arquivo aqui ou",
+      "uploading": "Enviando…",
+      "uploaded": "Envio concluído",
+      "invalid": "Até 10 arquivos: imagens JPG, PNG, WebP, GIF ou AVIF de até 20 MB; vídeos MP4 ou WebM de até 100 MB.",
+      "publicNotice": "Os arquivos enviados são públicos. Remover um anexo aqui não o exclui dos seus arquivos do Oxy.",
+      "failed": "Não foi possível verificar o envio. Tente novamente.",
+      "remove": "Remover %{filename}",
+      "removeAction": "Remover"
     }
   },
   "search": {

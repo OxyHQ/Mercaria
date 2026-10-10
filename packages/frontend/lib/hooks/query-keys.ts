@@ -210,7 +210,7 @@ export const queryKeys = {
     merchantAll: (merchantId: string) => ["reviews", "merchant", merchantId] as const,
     merchant: (merchantId: string, page: number, limit = 12, query = "") =>
       ["reviews", "merchant", merchantId, page, { limit, query }] as const,
-    eligibilities: ["reviews", "eligibilities"] as const,
+    eligibilities: (userId: string) => ["reviews", "eligibilities", userId] as const,
   },
   /**
    * The canonical product page (#71). Its own namespace rather than a branch of

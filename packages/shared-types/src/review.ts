@@ -417,6 +417,16 @@ export type ReviewMediaKind = typeof REVIEW_MEDIA_KINDS[number];
 export const REVIEW_MEDIA_LIMIT = 10;
 export const REVIEW_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 export const REVIEW_VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+export const REVIEW_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'] as const;
+export const REVIEW_VIDEO_MIME_TYPES = ['video/mp4', 'video/webm'] as const;
+
+/** Shared picker/server limits; ownership and public visibility remain server checks. */
+export function reviewMediaKind(mime: string, size: number): ReviewMediaKind | undefined {
+  if (!Number.isSafeInteger(size) || size <= 0) return undefined;
+  if ((REVIEW_IMAGE_MIME_TYPES as readonly string[]).includes(mime) && size <= REVIEW_IMAGE_MAX_BYTES) return 'image';
+  if ((REVIEW_VIDEO_MIME_TYPES as readonly string[]).includes(mime) && size <= REVIEW_VIDEO_MAX_BYTES) return 'video';
+  return undefined;
+}
 export interface ReviewMedia {
   id: string;
   fileId: string;

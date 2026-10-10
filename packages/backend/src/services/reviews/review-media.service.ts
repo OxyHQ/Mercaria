@@ -1,13 +1,10 @@
 import { OxyApiError, OxyServices } from '@oxy.so/core';
 import {
-  isOxyFileId, REVIEW_MEDIA_LIMIT, REVIEW_IMAGE_MAX_BYTES, REVIEW_VIDEO_MAX_BYTES,
+  isOxyFileId, REVIEW_MEDIA_LIMIT, reviewMediaKind,
   type ReviewMediaKind, type ReviewScope,
 } from '@mercaria/shared-types';
 import type { StoreCaller } from '../store-access.service.js';
 import { forbidden, serviceUnavailable, validationError } from '../../lib/errors/error-codes.js';
-
-const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']);
-const VIDEO_TYPES = new Set(['video/mp4', 'video/webm']);
 
 /** Uses the author's bearer on a fresh client, never the shared singleton.
  * The caller may reference their own public upload but may not promote private
@@ -34,8 +31,8 @@ export async function prepareReviewMedia(author: StoreCaller, scope: ReviewScope
     if (file.id !== fileId || file.ownerUserId !== author.accountId || file.status !== 'active' || file.visibility !== 'public') {
       throw forbidden('Review attachments must be active public files owned by their author');
     }
-    const kind = IMAGE_TYPES.has(file.mime) ? 'image' : VIDEO_TYPES.has(file.mime) ? 'video' : undefined;
-    if (!kind || !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > (kind === 'image' ? REVIEW_IMAGE_MAX_BYTES : REVIEW_VIDEO_MAX_BYTES)) {
+    const kind = reviewMediaKind(file.mime, file.size);
+    if (!kind) {
       throw validationError('Review attachments must be supported images or videos within the size limit');
     }
     media.push({ fileId, kind });

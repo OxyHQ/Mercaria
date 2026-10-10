@@ -110,8 +110,8 @@ export async function fetchMerchantReviews(
  * TYPE — and no contact or payment identifier, because `ReviewEligibility` has
  * no field for one (#76 privacy rule 3).
  */
-export async function fetchReviewEligibilities(): Promise<ApiResponse<ReviewEligibility[]>> {
-  const { data } = await apiClient.get<ApiResponse<ReviewEligibility[]>>('/reviews/eligibilities');
+export async function fetchReviewEligibilities(signal?: AbortSignal): Promise<ApiResponse<ReviewEligibility[]>> {
+  const { data } = await apiClient.get<ApiResponse<ReviewEligibility[]>>('/reviews/eligibilities', { signal });
   return data;
 }
 
