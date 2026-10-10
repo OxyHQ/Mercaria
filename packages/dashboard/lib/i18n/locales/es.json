@@ -1046,7 +1046,14 @@
       "set": "Fijar",
       "updateFailed": "No se ha podido actualizar la variante",
       "updated": "Variante actualizada",
-      "valuePlaceholder": "valor"
+      "valuePlaceholder": "valor",
+      "inventory": {
+        "total": "Disponible en todas las ubicaciones: %{quantity}",
+        "manage": "Inventario por ubicación",
+        "loadFailed": "No se pudo cargar el inventario",
+        "empty": "Sin ubicaciones con existencias",
+        "invalid": "Introduce una cantidad entera válida."
+      }
     },
     "wizard": {
       "documentTitle": "Crear un producto",

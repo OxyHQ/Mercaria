@@ -50,11 +50,11 @@ export function useProduct(storeId: string, productId: string) {
 }
 
 /** Multi-location inventory levels for a variant. */
-export function useVariantLevels(storeId: string, productId: string, variantId: string) {
+export function useVariantLevels(storeId: string, productId: string, variantId: string, enabled = true) {
   return useQuery<InventoryLevelDTO[]>({
     queryKey: queryKeys.products.levels(storeId, productId, variantId),
     queryFn: () => fetchVariantLevels(storeId, productId, variantId),
-    enabled: Boolean(storeId) && Boolean(productId) && Boolean(variantId),
+    enabled: enabled && Boolean(storeId) && Boolean(productId) && Boolean(variantId),
   });
 }
 
@@ -166,7 +166,8 @@ export function useSetVariantLevelInventory(storeId: string, productId: string) 
       locationId: string;
       available: number;
     }) => setVariantLevelInventory(storeId, productId, variantId, locationId, available),
-    onSuccess: (_data, variables) => {
+    onSuccess: (levels, variables) => {
+      queryClient.setQueryData(queryKeys.products.levels(storeId, productId, variables.variantId), levels);
       invalidateProducts(queryClient, storeId);
       queryClient.invalidateQueries({
         queryKey: queryKeys.products.levels(storeId, productId, variables.variantId),

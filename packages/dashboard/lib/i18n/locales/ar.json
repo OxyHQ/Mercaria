@@ -1028,7 +1028,14 @@
       "set": "تعيين",
       "updateFailed": "تعذّر تحديث المتغيّر",
       "updated": "تم تحديث المتغيّر",
-      "valuePlaceholder": "القيمة"
+      "valuePlaceholder": "القيمة",
+      "inventory": {
+        "total": "المتاح في جميع المواقع: %{quantity}",
+        "manage": "المخزون حسب الموقع",
+        "loadFailed": "تعذر تحميل المخزون",
+        "empty": "لا توجد مواقع بها مخزون",
+        "invalid": "أدخل كمية صحيحة صالحة."
+      }
     },
     "wizard": {
       "documentTitle": "إنشاء منتج",

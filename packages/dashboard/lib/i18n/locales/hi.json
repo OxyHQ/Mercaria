@@ -1028,7 +1028,14 @@
       "set": "सेट करें",
       "updateFailed": "वेरिएंट अपडेट नहीं हो सका",
       "updated": "वेरिएंट अपडेट हो गया",
-      "valuePlaceholder": "वैल्यू"
+      "valuePlaceholder": "वैल्यू",
+      "inventory": {
+        "total": "सभी स्थानों पर उपलब्ध: %{quantity}",
+        "manage": "स्थान के अनुसार स्टॉक",
+        "loadFailed": "स्टॉक लोड नहीं हो सका",
+        "empty": "किसी स्थान पर स्टॉक नहीं है",
+        "invalid": "मान्य पूर्ण संख्या में मात्रा दर्ज करें।"
+      }
     },
     "wizard": {
       "documentTitle": "उत्पाद बनाएँ",

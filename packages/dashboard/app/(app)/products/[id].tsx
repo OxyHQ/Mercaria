@@ -29,6 +29,8 @@ import { toast } from "@oxy.so/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { canRetainDetailData } from "@/lib/detail-query-state";
 import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
+import { VariantInventory } from "@/components/products/VariantInventory";
+import { parseInventoryQuantity } from "@/lib/inventory-quantity";
 import { ProductMedia } from "@/components/products/ProductMedia";
 import { DetailContent } from "@/components/shell/DetailContent";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -39,7 +41,6 @@ import {
   useCreateVariant,
   useUpdateVariant,
   useDeleteVariant,
-  useSetVariantInventory,
   useReleaseProductPins,
 } from "@/lib/hooks/use-products";
 import { useConnection } from "@/lib/hooks/use-channels";
@@ -342,7 +343,8 @@ function VariantsSection({
       toast.error(t("products.variants.priceInvalid"));
       return;
     }
-    const available = Math.max(0, Number.parseInt(newStock || "0", 10) || 0);
+    const available = parseInventoryQuantity(newStock);
+    if (available === null) { toast.error(t("products.variants.inventory.invalid")); return; }
     createVariant.mutate(
       {
         optionValues:
@@ -396,9 +398,9 @@ function VariantsSection({
           ) : null}
           <View className="flex-row gap-2">
             <View className="flex-1">
-              <Field label={t("products.priceLabel")}>
+              <Field label={`${t("resourceList.price")} (${currency ?? ""})`}>
                 <TextFieldInput
-                  label={t("products.priceLabel")}
+                  label={`${t("resourceList.price")} (${currency ?? ""})`}
                   value={newPrice}
                   onValueChange={setNewPrice}
                   keyboardType="decimal-pad"
@@ -466,7 +468,6 @@ function VariantRow({
   const { colors } = useColorScheme();
   const updateVariant = useUpdateVariant(storeId, productId);
   const deleteVariant = useDeleteVariant(storeId, productId);
-  const setInventory = useSetVariantInventory(storeId, productId);
 
   /**
    * The variant's OWN currency (#927) — a stored price already names its
@@ -476,7 +477,6 @@ function VariantRow({
    */
   const currency = variant.price.currency;
   const [price, setPrice] = useState(toMajorString(variant.price.amount, currency));
-  const [stock, setStock] = useState(String(variant.available));
 
   const savePrice = () => {
     const priceMinor = toMinorUnits(price, currency);
@@ -489,17 +489,6 @@ function VariantRow({
       {
         onSuccess: () => toast.success(t("products.variants.updated")),
         onError: () => toast.error(t("products.variants.updateFailed")),
-      },
-    );
-  };
-
-  const saveStock = () => {
-    const available = Math.max(0, Number.parseInt(stock || "0", 10) || 0);
-    setInventory.mutate(
-      { variantId: variant.id, available },
-      {
-        onSuccess: () => toast.success(t("products.variants.inventoryUpdated")),
-        onError: () => toast.error(t("products.variants.inventoryUpdateFailed")),
       },
     );
   };
@@ -522,9 +511,9 @@ function VariantRow({
       </View>
       <View className="flex-row items-end gap-2">
         <View className="flex-1">
-          <Field label={t("products.priceLabel")}>
+          <Field label={`${t("resourceList.price")} (${currency ?? ""})`}>
             <TextFieldInput
-              label={t("products.priceLabel")}
+              label={`${t("resourceList.price")} (${currency ?? ""})`}
               placeholder={null}
               value={price}
               onValueChange={setPrice}
@@ -545,31 +534,7 @@ function VariantRow({
           </Button>
         ) : null}
       </View>
-      <View className="mt-2 flex-row items-end gap-2">
-        <View className="flex-1">
-          <Field label={t("products.variants.available")}>
-            <TextFieldInput
-              label={t("products.variants.available")}
-              placeholder={null}
-              value={stock}
-              onValueChange={setStock}
-              keyboardType="number-pad"
-              disabled={!canInventory}
-            />
-          </Field>
-        </View>
-        {canInventory ? (
-          <Button
-            appearance="outline"
-            tone="neutral"
-            size="sm"
-            onPress={saveStock}
-            loading={setInventory.isPending}
-          >
-            {t("products.variants.set")}
-          </Button>
-        ) : null}
-      </View>
+      <VariantInventory storeId={storeId} productId={productId} variantId={variant.id} available={variant.available} canWrite={canInventory} />
       {canWrite && removable ? (
         <Pressable onPress={remove} className="mt-2 flex-row items-center gap-1 self-end active:opacity-70">
           <Trash2 size={14} color={colors.mutedForeground} />

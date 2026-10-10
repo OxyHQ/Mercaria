@@ -1028,7 +1028,14 @@
       "set": "設定",
       "updateFailed": "バリエーションを更新できませんでした",
       "updated": "バリエーションを更新しました",
-      "valuePlaceholder": "値"
+      "valuePlaceholder": "値",
+      "inventory": {
+        "total": "全拠点の販売可能数：%{quantity}",
+        "manage": "拠点別の在庫",
+        "loadFailed": "在庫を読み込めませんでした",
+        "empty": "在庫のある拠点はありません",
+        "invalid": "有効な整数の数量を入力してください。"
+      }
     },
     "wizard": {
       "documentTitle": "商品を作成",

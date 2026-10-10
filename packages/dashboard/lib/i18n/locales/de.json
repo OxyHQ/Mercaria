@@ -1028,7 +1028,14 @@
       "set": "Setzen",
       "updateFailed": "Die Variante konnte nicht aktualisiert werden",
       "updated": "Variante aktualisiert",
-      "valuePlaceholder": "Wert"
+      "valuePlaceholder": "Wert",
+      "inventory": {
+        "total": "An allen Standorten verfügbar: %{quantity}",
+        "manage": "Bestand nach Standort",
+        "loadFailed": "Bestand konnte nicht geladen werden",
+        "empty": "Keine Standorte mit Bestand",
+        "invalid": "Gib eine gültige ganze Menge ein."
+      }
     },
     "wizard": {
       "documentTitle": "Produkt anlegen",

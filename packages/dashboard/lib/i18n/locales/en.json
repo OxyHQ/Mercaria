@@ -1028,7 +1028,14 @@
       "set": "Set",
       "updateFailed": "Couldn't update the variant",
       "updated": "Variant updated",
-      "valuePlaceholder": "value"
+      "valuePlaceholder": "value",
+      "inventory": {
+        "total": "Available across locations: %{quantity}",
+        "manage": "Inventory by location",
+        "loadFailed": "Couldn’t load inventory",
+        "empty": "No stocked locations",
+        "invalid": "Enter a valid whole quantity."
+      }
     },
     "wizard": {
       "documentTitle": "Create a product",

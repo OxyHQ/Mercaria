@@ -1046,7 +1046,14 @@
       "set": "Définir",
       "updateFailed": "Impossible de mettre à jour la variante",
       "updated": "Variante mise à jour",
-      "valuePlaceholder": "valeur"
+      "valuePlaceholder": "valeur",
+      "inventory": {
+        "total": "Disponible dans tous les emplacements : %{quantity}",
+        "manage": "Stock par emplacement",
+        "loadFailed": "Impossible de charger le stock",
+        "empty": "Aucun emplacement avec du stock",
+        "invalid": "Saisissez une quantité entière valide."
+      }
     },
     "wizard": {
       "documentTitle": "Créer un produit",

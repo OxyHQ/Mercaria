@@ -1046,7 +1046,14 @@
       "set": "Definir",
       "updateFailed": "Não foi possível atualizar a variante",
       "updated": "Variante atualizada",
-      "valuePlaceholder": "valor"
+      "valuePlaceholder": "valor",
+      "inventory": {
+        "total": "Disponível em todos os locais: %{quantity}",
+        "manage": "Estoque por local",
+        "loadFailed": "Não foi possível carregar o estoque",
+        "empty": "Nenhum local com estoque",
+        "invalid": "Insira uma quantidade inteira válida."
+      }
     },
     "wizard": {
       "documentTitle": "Criar um produto",

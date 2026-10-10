@@ -1028,7 +1028,14 @@
       "set": "设置",
       "updateFailed": "无法更新变体",
       "updated": "变体已更新",
-      "valuePlaceholder": "值"
+      "valuePlaceholder": "值",
+      "inventory": {
+        "total": "所有地点可用库存：%{quantity}",
+        "manage": "按地点查看库存",
+        "loadFailed": "无法加载库存",
+        "empty": "没有存货地点",
+        "invalid": "请输入有效的整数数量。"
+      }
     },
     "wizard": {
       "documentTitle": "创建商品",

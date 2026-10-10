@@ -1028,7 +1028,14 @@
       "set": "সেট করুন",
       "updateFailed": "ভ্যারিয়েন্ট আপডেট করা যায়নি",
       "updated": "ভ্যারিয়েন্ট আপডেট হয়েছে",
-      "valuePlaceholder": "মান"
+      "valuePlaceholder": "মান",
+      "inventory": {
+        "total": "সব স্থানে উপলব্ধ: %{quantity}",
+        "manage": "স্থান অনুযায়ী মজুত",
+        "loadFailed": "মজুত লোড করা যায়নি",
+        "empty": "কোনো স্থানে মজুত নেই",
+        "invalid": "একটি বৈধ পূর্ণসংখ্যার পরিমাণ লিখুন।"
+      }
     },
     "wizard": {
       "documentTitle": "পণ্য তৈরি করুন",
