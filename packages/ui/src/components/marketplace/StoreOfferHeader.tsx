@@ -1,6 +1,6 @@
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import type { DiscountSummary, StoreSummary } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { IncentiveHalo } from "./IncentiveHalo";

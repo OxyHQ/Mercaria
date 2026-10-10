@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { Image, type ImageProps } from "expo-image";
+import { Image, type ImageProps } from "../ui/image";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { resolveCatalogImage } from "../../lib/stored-image-url";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";

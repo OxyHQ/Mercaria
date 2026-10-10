@@ -5,7 +5,7 @@ import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useReducedMotion } from "react-native-reanimated";
 import { cn } from "../../lib/cn";
 import { useColorScheme } from "../../lib/useColorScheme";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import type { ListingOption, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";

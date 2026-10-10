@@ -5,8 +5,8 @@ import { useMemo, useState } from "react";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Rating } from "@oxy.so/bloom/rating";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { vars } from "nativewind";
-import { Image } from "expo-image";
+import { BloomColorScope } from "@oxy.so/bloom/theme";
+import { Image } from "@mercaria/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { useLocalSearchParams } from "expo-router";
@@ -34,7 +34,7 @@ import { ScreenShell } from "@/components/shell/ScreenShell";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
 import { StoreVisitUs } from "@/components/store/StoreVisitUs";
-import { storeThemeVars } from "@/lib/store-theme";
+import { storeThemeTokens } from "@/lib/store-theme";
 import { useStore, useStoreCollections } from "@/lib/hooks/use-store";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useListings } from "@/lib/hooks/use-listings";
@@ -222,8 +222,8 @@ function StoreBody({
   // Scoped shadcn theme tokens derived from the store's palette. Applied to the
   // page wrapper so every shared component below (cards, inputs, pills, buttons)
   // renders in the merchant's brand palette without per-component edits.
-  const themeVars = useMemo(
-    () => vars(storeThemeVars(store.brandColor, store.textTone)),
+  const themeTokens = useMemo(
+    () => storeThemeTokens(store.brandColor, store.textTone),
     [store.brandColor, store.textTone],
   );
   const { data: collections } = useStoreCollections(handle);
@@ -312,14 +312,7 @@ function StoreBody({
     SORT_OPTIONS.find((o) => o.value === sort)?.labelKey ?? SORT_OPTIONS[0].labelKey;
 
   return (
-    // Scopes the store's brand palette to the whole page via `themeVars` (the
-    // shadcn theme tokens are remapped so `bg-background` is the brand color,
-    // `bg-card`/`bg-muted` become glassy translucent fills, and text tokens
-    // take the store's tone). Every shared component below inherits the palette.
-    // The enclosing `ScreenShell` paints the brand color across the page via
-    // `surfaceStyle`, so no surface peeks below the hero — this wrapper only
-    // carries the themed token scope.
-    <View style={themeVars}>
+    <BloomColorScope tokens={themeTokens} mode={store.textTone === "light" ? "dark" : "light"}>
       {/* ---- Hero ---- */}
       <View className="relative w-full overflow-hidden" style={{ height: HERO_HEIGHT }}>
         {store.coverFileId || store.coverImageUrl ? <ParallaxCover uri={store.coverImageUrl} fileId={store.coverFileId} /> : null}
@@ -354,16 +347,6 @@ function StoreBody({
           </Text>
         </Pressable>
 
-        {/* Top-right follow control.
-            Unlike everything else on this page it does NOT take the store's
-            palette: Bloom's `Button` reads its colors from the Bloom theme
-            CONTEXT, not from the shadcn CSS vars `themeVars` scopes, so it
-            renders in the app's own accent whatever the merchant's brand color
-            is. That is a property of the shared component, not something to
-            work around here — and it is defensible, since the relationship it
-            manages belongs to the user's Oxy account rather than to this shop.
-            Tinting it would need Bloom to accept an arbitrary color;
-            `BloomColorScope` takes only a named preset. */}
         <View className="absolute end-4 top-4">
           <StoreFollowButton store={store} />
         </View>
@@ -611,7 +594,7 @@ function StoreBody({
           setMenuOpen(false);
         }}
       />
-    </View>
+    </BloomColorScope>
   );
 }
 

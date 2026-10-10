@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { useState } from "react";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { Text } from "../ui/text";
 
 /** A missing editorial cover falls back to an actual item in the collection. */

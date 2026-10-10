@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import { Rating } from "@oxy.so/bloom/rating";
 import { useOxy } from "@oxy.so/services";
 import { placeDisplayName, type Place } from "@goway.to/sdk";

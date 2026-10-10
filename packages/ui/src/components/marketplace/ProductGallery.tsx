@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Platform, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { Button } from "@oxy.so/bloom/button";
 import { Carousel, CarouselItem, type CarouselProps } from "@oxy.so/bloom/carousel";
 import { useIsRtl } from "@oxy.so/bloom/hooks";

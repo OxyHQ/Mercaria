@@ -2,7 +2,7 @@ import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "../../lib/shop-merchant-images";
 import type { ReactElement, ReactNode } from "react";
 import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { MoreHorizontal } from "lucide-react-native";
 import { Rating } from "@oxy.so/bloom/rating";
 import { Text } from "../ui/text";

@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import type { Listing } from "@mercaria/shared-types";
 import { Text, PriceDisplay } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";

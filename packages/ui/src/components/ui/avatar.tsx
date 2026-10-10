@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { View } from 'react-native';
-import { Image, ImageProps } from 'expo-image';
+import { Image, ImageProps } from './image';
 import { cn } from '../../lib/cn';
 
 interface AvatarProps {

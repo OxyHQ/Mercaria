@@ -2,7 +2,7 @@ import { renderListingLink } from "@/lib/catalog/product-links";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useMemo } from "react";
 import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import Head from "expo-router/head";
 import { useLocalSearchParams } from "expo-router";
 import { EmptyState } from "@oxy.so/bloom/empty-state";

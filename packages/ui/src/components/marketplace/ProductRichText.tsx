@@ -1,6 +1,6 @@
 import { Fragment, useState, type ReactNode } from "react";
 import { Linking, Text as InlineText, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { Table, TableBody, TableCell, TableColumn, TableRow } from "@oxy.so/bloom/table";
 import { useColorScheme } from "../../lib/useColorScheme";
 import type { DescriptionNode } from "../../lib/product-description";

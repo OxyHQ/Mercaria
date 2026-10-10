@@ -1,7 +1,7 @@
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource, resolveStoredImageUrl, resolveCatalogImage, ShopDetailIcon } from "@mercaria/ui";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -9,8 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { vars } from "nativewind";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -32,12 +31,13 @@ import { Rating } from "@oxy.so/bloom/rating";
 import { openAccountDialog, useFollowTarget, useOxy } from "@oxy.so/services";
 import {
   Text,
+  ProductRichText,
+  prepareProductDescription,
   formatDate,
   useFormatters,
   useRatingDisplay,
 } from "@mercaria/ui";
 import type { Collection, StoreSummary, Review, ReviewHelpfulness } from "@mercaria/shared-types";
-import { storeThemeVars } from "@/lib/store-theme";
 import { StoreContactDialog } from "@/components/store/StoreContactDialog";
 import { StoreMenuTransition, type StoreMenuDirection } from "@/components/store/StoreMenuTransition";
 import { useStoreLocations } from "@/lib/hooks/use-visit-us";
@@ -109,6 +109,20 @@ const FALLBACK_AUTHOR_KEY = "store.reviews.fallbackAuthor";
 /** The pages the sheet can show. The menu is always the root of the stack. */
 type PolicyPage = "privacy" | "returns";
 type SheetPage = "menu" | "reviews" | PolicyPage;
+
+/** Preserve authored policy structure using the same safe tree as product
+ * descriptions. Plain text stays selectable and retains its line breaks. */
+function PolicyPageContent({ title, policy }: { title: string; policy: string }) {
+  const { html, full } = useMemo(() => prepareProductDescription(policy), [policy]);
+  return (
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 24 }}>
+      <Text accessibilityRole="header" className="mb-space-24 text-shop-heroNormal text-text">
+        {title}
+      </Text>
+      {html ? <ProductRichText nodes={full} /> : <Text selectable className="text-shop-bodySmall text-text">{policy}</Text>}
+    </ScrollView>
+  );
+}
 
 interface StoreMenuSheetProps {
   /** The store whose menu this sheet presents (drives palette + header). */
@@ -699,9 +713,9 @@ function MenuPage({
  * `Dialog` is controlled here (driven by `open`) and keeps its children mounted
  * across the close transition, so closing also resets the internal stack to the
  * menu root (`handleClose`) — each reopen starts fresh at the menu, with no
- * `useEffect`. The store palette is scoped on the overlay container via
- * `storeThemeVars` + `vars()`, and the panel is explicitly painted with the
- * brand color so glassy `rgba(255,255,255,0.2)` cards read correctly over it.
+ * `useEffect`. The parent BloomColorScope supplies the store palette. Bloom
+ * carries that scope through this dialog and its nested contact/report portals;
+ * the panel uses the merchant's brand background.
  */
 export function StoreMenuSheet({
   store,
@@ -819,10 +833,7 @@ export function StoreMenuSheet({
       showHandle
       dismissOnBackdrop
       contentPadding={0}
-      containerStyle={[
-        vars(storeThemeVars(store.brandColor, store.textTone)),
-        railOffset,
-      ]}
+      containerStyle={railOffset}
       panelStyle={{ backgroundColor: store.brandColor }}
       label={t("store.menu.dialogLabel", { store: store.name })}
     >
@@ -908,28 +919,14 @@ export function StoreMenuSheet({
             onPressProduct={onPressProduct}
           />
         ) : (
-          <ScrollView
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingBottom: 24,
-              gap: 16,
-            }}
-          >
-            <Text
-              accessibilityRole="header"
-              className="text-shop-subtitle"
-              style={{ color: toneColor }}
-            >
-              {t(
-                current === "privacy"
-                  ? "store.policies.privacy"
-                  : "store.policies.returns",
-              )}
-            </Text>
-            <Text selectable className="text-shop-body" style={{ color: toneColor }}>
-              {current === "privacy" ? store.privacyPolicy : store.refundPolicy}
-            </Text>
-          </ScrollView>
+          <PolicyPageContent
+            title={t(
+              current === "privacy"
+                ? "store.policies.privacy"
+                : "store.policies.returns",
+            )}
+            policy={(current === "privacy" ? store.privacyPolicy : store.refundPolicy) ?? ""}
+          />
         )}
       </StoreMenuTransition>
       <StoreContactDialog key={store.id} storeId={store.id} storeName={store.name} open={contactOpen && open} onClose={() => setContactOpen(false)} />

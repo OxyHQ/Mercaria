@@ -2,7 +2,7 @@ import { resolveCatalogImage } from "../../lib/stored-image-url";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "../../lib/shop-merchant-images";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Rating } from "@oxy.so/bloom/rating";
 import { Text } from "../ui/text";

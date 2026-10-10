@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import Animated, {
   cancelAnimation,
   Easing,

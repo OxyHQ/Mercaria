@@ -2,7 +2,7 @@ import { resolveStoredImageUrl } from "../../lib/stored-image-url";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "../../lib/shop-merchant-images";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";

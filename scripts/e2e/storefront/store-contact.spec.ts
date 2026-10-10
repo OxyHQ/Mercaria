@@ -57,6 +57,8 @@ for (const [width, locale] of [[1440, 'en'], [390, 'ar']] as const) {
     await expect(dialog.getByRole('link', { name: place.contact.email, exact: true })).toHaveAttribute('href', 'mailto:support%2Bshop%40example.com');
     await expect(dialog.getByRole('link', { name: copy.store.contact.website, exact: true })).toHaveAttribute('href', place.contact.website);
     await expect(dialog.getByText(place.address.formatted, { exact: true })).toBeVisible();
+    await expect(dialog.getByText(place.address.formatted, { exact: true })).toHaveCSS('font-size', '16px');
+    await expect(dialog.getByText(place.address.formatted, { exact: true })).toHaveCSS('line-height', '22px');
     await dialog.getByRole('button', { name: copy.store.contact.copy.replace('%{value}', place.address.formatted), exact: true }).click();
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(place.address.formatted);
     await expect(dialog.getByText(copy.store.contact.copied, { exact: true })).toBeVisible();
@@ -85,6 +87,7 @@ for (const [width, locale] of [[1440, 'en'], [390, 'ar']] as const) {
     const storeContact = page.getByRole('button', { name: title, exact: true });
     await storeContact.click();
     await expect(dialog.getByRole('link', { name: place.contact.phone, exact: true })).toBeVisible();
+    await expect(dialog.getByText(place.contact.phone, { exact: true })).toHaveCSS('color', store.textTone === 'light' ? 'rgb(255, 255, 255)' : 'rgb(17, 17, 17)');
     await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
     await expect(storeContact).toBeFocused();
     await page.keyboard.press('Escape'); await expect(storeContact).toHaveCount(0);

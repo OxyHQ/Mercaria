@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, Pressable, ScrollView } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { Text } from "../ui/text";
 import type { CategoryPill } from "@mercaria/shared-types";
 import { ShopNavigationIcon } from "./ShopNavigationIcon";

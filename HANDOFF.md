@@ -1167,3 +1167,36 @@ Wholesale accessibility was corrected separately in 6a3821a0: drafts contain
 only explicit flags, retain edits made while a save is pending, and reconcile
 with the authoritative GoWay reread after DELETE204. Forty-four unit tests and
 two isolated browser cases pass; no live writes were made in those checks.
+
+## Official merchant color scope — 2026-10-10
+
+Adopted registry Bloom 7.27.0 (cb6fece83594380464151201872a7ed2d86c53e8)
+and compatible Services 11.1.13 (5271367057682732f542c25572d93bdea0659426)
+in all apps. All resolve one physical Bloom installation. Store pages now use
+public `BloomColorScope` tokens/mode; removed Mercaria's duplicate token aliases,
+parser and portal scope plumbing. Authored policy HTML renders with the shared
+safe rich-text tree. Eight contact/policy/motion browser cases pass, including
+opposite app/store modes, nested contact colors, global-theme preservation and
+RTL/reduced motion. The initial two final assertions captured the global theme
+before app hydration; the test now waits for the visible menu and resolved app
+theme before comparing it across the interaction. All app/UI types pass.
+
+## Native media and routed surfaces — 2026-10-10
+
+The Pixel's blank images were a styling boundary error: raw Expo Image does not
+resolve NativeWind className into its native style. All three apps and shared
+components now consume one shared `Image = styled(ExpoImage, {className: 'style'})`
+adapter. Category chips/mosaics and a product photo/logo are visibly loaded on
+the physical Pixel from actual Oxy files; neither media responses nor file IDs
+were substituted. Seven hero/contact/policy browser cases, all app/UI types,
+frontend lint and i18n/RTL/routes pass. Native nested stacks now have transparent
+scene backgrounds so Bloom's AppShell paints the surface; this fixes dark-mode text
+tokens appearing on React Navigation's default light background. The Pixel
+product screen confirms the dark Bloom surface and readable foreground.
+
+Native typography is still incorrect in installed react-native-css 3.0.7:
+its compiler/runtime multiplies a 20px line height by font size18 to produce360.
+This was reproduced from the actual compiler and native hierarchy. Upstream's
+official NativeWind5.0.0-rc.0/react-native-css3.1.0-rc.0 pair fixes it, but Bloom
+and Services must adopt compatible declarations and pass their checks before
+Mercaria upgrades. That work is in progress; no local runtime patch was applied.

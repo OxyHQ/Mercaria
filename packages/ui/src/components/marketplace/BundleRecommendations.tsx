@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import { Button } from '@oxy.so/bloom/button';
 import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
 import { isImageUrl, useImageResolver } from '@oxy.so/bloom/image-resolver';

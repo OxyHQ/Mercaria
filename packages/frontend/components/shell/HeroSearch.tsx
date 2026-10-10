@@ -3,7 +3,7 @@ import { CatalogImage, merchantImageSource } from "@mercaria/ui";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import { Link, type Href } from "expo-router";
 import Animated, {
   runOnJS,

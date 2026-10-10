@@ -8,7 +8,7 @@ import {
   useShoppingHistoryOwner,
 } from "@/lib/stores/shopping-history";
 import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import Head from "expo-router/head";
 import { Link, type Href, useLocalSearchParams, useRouter } from "expo-router";

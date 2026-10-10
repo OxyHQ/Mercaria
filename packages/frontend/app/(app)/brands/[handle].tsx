@@ -2,7 +2,7 @@ import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import { useEffect } from "react";
 import { View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOxy } from "@oxy.so/services";

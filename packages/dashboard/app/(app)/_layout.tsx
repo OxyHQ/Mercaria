@@ -11,7 +11,11 @@ import { useTranslation } from "@/lib/i18n";
 import { Logo } from "@/components/Logo";
 import { BrandWordmark } from "@/components/BrandWordmark";
 
-const SCREEN_OPTIONS = { headerShown: false } as const;
+// Keep Bloom's AppShell surface visible underneath native routed screens.
+const SCREEN_OPTIONS = {
+  headerShown: false,
+  contentStyle: { backgroundColor: "transparent" },
+} as const;
 
 const GESTURE_ROOT_STYLE = { flex: 1 } as const;
 

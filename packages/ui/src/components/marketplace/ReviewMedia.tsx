@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { Play } from "lucide-react-native";
 import { Button } from "@oxy.so/bloom/button";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";

@@ -18,6 +18,7 @@
 // Helpers / hooks
 // ---------------------------------------------------------------------------
 export { cn } from "./lib/cn";
+export { Image, type ImageProps } from "./components/ui/image";
 
 // ---------------------------------------------------------------------------
 // The locale registry (#398). ONE supported-locale tuple, ONE alias policy and

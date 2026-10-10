@@ -3,7 +3,7 @@ import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";

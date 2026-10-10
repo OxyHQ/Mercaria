@@ -1,5 +1,5 @@
 import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import { Link } from "expo-router";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { isOxyFileId, type Seller } from "@mercaria/shared-types";

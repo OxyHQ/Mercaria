@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import type { Review } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { Rating } from "@oxy.so/bloom/rating";

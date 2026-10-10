@@ -1,5 +1,5 @@
 import { Pressable, View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { resolveCatalogImage } from "../../lib/stored-image-url";
 import { Bell, Heart, Package, TrendingDown, TrendingUp } from "lucide-react-native";

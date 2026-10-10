@@ -1,5 +1,5 @@
 import { Pressable, View, useWindowDimensions } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "../ui/image";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { resolveStoredImageUrl } from "../../lib/stored-image-url";

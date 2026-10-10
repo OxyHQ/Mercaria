@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import { Package } from "lucide-react-native";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { isOxyFileId } from "@mercaria/shared-types";

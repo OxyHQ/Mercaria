@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@oxy.so/bloom/button";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { View, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 import Head from "expo-router/head";
 import { Link, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxy.so/services";

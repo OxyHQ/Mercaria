@@ -1,6 +1,6 @@
 import { type ReactElement } from "react";
 import { View, type ViewStyle } from "react-native";
-import { Image } from "expo-image";
+import { Image } from "@mercaria/ui";
 
 export interface LogoProps {
   size?: number;
