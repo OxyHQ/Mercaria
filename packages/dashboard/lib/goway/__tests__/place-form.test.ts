@@ -12,6 +12,7 @@ import type { PlaceCapability, SearchResult } from '@goway.to/sdk';
 import {
   EMPTY_PLACE_DRAFT,
   accessibilityChoicesOf,
+  accessibilityChoicesWithEdits,
   accessibilityOperations,
   contactInputOf,
   draftFromSearchResult,
@@ -176,5 +177,27 @@ describe('hoursExceptionInputOf', () => {
     expect(
       hoursExceptionInputOf({ startsOn: '2026-12-24', endsOn: '2026-12-01', closed: true, hours: '', note: '' }),
     ).toMatchObject({ ok: false });
+  });
+});
+
+
+describe('accessibility drafts after a remote update', () => {
+  it('never reverts an untouched capability from the latest GoWay read', () => {
+    const remote = accessibilityChoicesOf({ capabilities: [capability('accessibility.step_free_entrance', true)] });
+    const desired = accessibilityChoicesWithEdits(remote, { 'accessibility.hearing_loop': 'yes' });
+    expect(desired.flags['accessibility.step_free_entrance']).toBe('yes');
+    expect(accessibilityOperations(remote, desired)).toEqual([
+      { kind: 'put', key: 'accessibility.hearing_loop', assertion: { value: true } },
+    ]);
+    expect(accessibilityOperations(remote, accessibilityChoicesWithEdits(remote, {}))).toEqual([]);
+  });
+  it('keeps an explicit withdrawal and wheelchair choice while other facts refresh', () => {
+    const remote = accessibilityChoicesOf({ capabilities: [capability('accessibility.hearing_loop', true)] });
+    expect(accessibilityOperations(remote, accessibilityChoicesWithEdits(remote, {
+      'accessibility.hearing_loop': 'unset', 'accessibility.wheelchair': 'limited',
+    }))).toEqual([
+      { kind: 'delete', key: 'accessibility.hearing_loop' },
+      { kind: 'put', key: 'accessibility.wheelchair', assertion: { value: 'limited' } },
+    ]);
   });
 });

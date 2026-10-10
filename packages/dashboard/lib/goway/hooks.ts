@@ -161,19 +161,27 @@ export function useUpdateGoWayPlace(placeId: string) {
 /** Apply the accessibility form's writes, one at a time, in order. */
 export function useApplyCapabilityOperations(placeId: string) {
   const client = useGoWayClient();
-  const invalidate = useInvalidatePlace();
+  const queryClient = useQueryClient();
+  const { locale } = useTranslation();
   return useMutation({
     mutationFn: async (operations: readonly CapabilityOperation[]) => {
-      for (const operation of operations) {
-        if (operation.kind === "put") {
-          await client.places.capabilities.put(placeId, operation.key, operation.assertion);
-        } else {
-          await client.places.capabilities.delete(placeId, operation.key);
+      try {
+        for (const operation of operations) {
+          if (operation.kind === "put") {
+            await client.places.capabilities.put(placeId, operation.key, operation.assertion);
+          } else {
+            await client.places.capabilities.delete(placeId, operation.key);
+          }
         }
+      } finally {
+        // A partial failure still changed something. DELETE returns 204: only
+        // GoWay can say which weaker assertion is now strongest. Wait for the
+        // authoritative read before allowing the editor to acknowledge a draft.
+        await queryClient.invalidateQueries({ queryKey: ["goway", "place", placeId] });
       }
+      const state = queryClient.getQueryState<Place>(queryKeys.goway.place(placeId, locale));
+      return { confirmed: state?.status === "success" && !state.isInvalidated, error: state?.error };
     },
-    // A partial failure still changed something: re-read either way.
-    onSettled: () => invalidate(placeId),
   });
 }
 

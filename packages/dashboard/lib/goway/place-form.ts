@@ -190,6 +190,18 @@ export type AccessibilityFlag = (typeof ACCESSIBILITY_FLAGS)[number];
 /** The three-valued wheelchair key GoWay reads from OpenStreetMap. */
 export const WHEELCHAIR_KEY = "accessibility.wheelchair" as const;
 
+/** Only explicit merchant changes; untouched capabilities always follow GoWay. */
+export type AccessibilityEdits = Partial<Record<AccessibilityFlag, FlagChoice> & Record<typeof WHEELCHAIR_KEY, WheelchairChoice>>;
+
+export function accessibilityChoicesWithEdits(current: AccessibilityChoices, edits: AccessibilityEdits): AccessibilityChoices {
+  const desired = { wheelchair: edits[WHEELCHAIR_KEY] ?? current.wheelchair, flags: { ...current.flags } };
+  for (const key of ACCESSIBILITY_FLAGS) {
+    const choice = edits[key];
+    if (choice !== undefined) desired.flags[key] = choice;
+  }
+  return desired;
+}
+
 /** What the editor shows per key: the place's strongest assertion, or none. */
 export type FlagChoice = "yes" | "no" | "unset";
 export type WheelchairChoice = "yes" | "limited" | "no" | "unset";
