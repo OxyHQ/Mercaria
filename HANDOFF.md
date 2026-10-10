@@ -1209,3 +1209,38 @@ remote main in an isolated worktree for an atomic day-level patch and SDK suppor
 It must preserve opening-day ownership of overnight/24-hour intervals and reject
 partial edits of unknown raw schedules. No production rollout or client use of
 an unavailable endpoint has been authorized by this implementation step.
+
+## Review rail, theme authority and upstream release state — 2026-10-10
+
+853e1ce5 fixes the review viewer's horizontal thumbnail offsets in RTL. The
+new actual-browser regression passed in English and failed in Arabic before
+the fix; afterwards all five review-media cases pass, including resize and
+return to the first attachment. Missing-file fixtures exercise navigation only,
+never successful media delivery. Shared UI types and RTL gates pass.
+489b56fd removes duplicate NativeWind mode resolution from `useColorScheme`;
+Bloom's `theme.mode`/`theme.isDark` now accompany its own color values. Ten browser
+review/policy/theme checks pass, including opposite merchant/app scopes.
+
+Bloom 7.28.0 is prepared in OxyHQ/Bloom#309, with the official NativeWind RC0 /
+react-native-css RC0 pair. At this handoff it is NOT published: eight of nine
+test shards plus build/package/types pass, one shard and merge queue remain.
+The Bloom agent owns that release and compatible Services 11.1.14; the latter
+passed 1040 tests on both SDK56 and SDK57. Mercaria still installs registry
+Bloom7.27.0/Services11.1.13 and must only consume the verified public releases.
+Then restart Metro for the dependency change and verify native line heights on
+the attached Pixel8a; `/tmp/mercaria-autolinking-before-728.json` records the
+current Expo native module graph. Native visual acceptance is still open.
+
+GoWay's atomic weekday update is ready in OxyHQ/GoWay#110 (bcddf0c), with all
+remote CI checks green, 943 backend tests and 192 SDK tests passing. It extends
+the existing authenticated PATCH with `openingHoursDays`, preserves omitted
+days under the existing row lock, rejects partial edits to unknown schedules,
+and checks the resulting weekly interval limit. Current GoWay treats every
+empty week as unknown; the change preserves that contract rather than claiming
+an all-week closure. The isolated worktree is `/tmp/goway-atomic-weekday-hours`.
+An asynchronous user approval question is pending: merging this PR automatically
+deploys the shared production API through GoWay's `.github/workflows/ci.yml`.
+Do not merge/deploy until answered. After rollout, publish the SDK and update
+all Mercaria pins together before using the new field. GoWay main's SDK0.4 has
+taxonomy changes, but the audit found no removed exports in Mercaria's consumers;
+recheck visit-us capability labels because 0.4 translates all twelve locales.
