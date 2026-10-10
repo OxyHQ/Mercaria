@@ -238,11 +238,12 @@ describe('the catalog operator allow-list on the backfill surface', () => {
     const body = (await res.json()) as {
       data: { flags: Record<string, unknown> };
     };
-    // The two WRITE levers default OFF, as ADR 0002 D24 binds; the READ levers
-    // default to today's behaviour. Both halves asserted, because a change to
-    // either default is a rollout decision and not a refactor.
-    expect(body.data.flags.graphEnabled).toBe(false);
-    expect(body.data.flags.writePublicationEnabled).toBe(false);
+    // Every lever defaults ON since ADR 0015 (the catalogue autopilot runs the
+    // backfill); the READ levers default to today's behaviour. Both halves
+    // asserted, because a change to either default is a rollout decision and
+    // not a refactor.
+    expect(body.data.flags.graphEnabled).toBe(true);
+    expect(body.data.flags.writePublicationEnabled).toBe(true);
     expect(body.data.flags.reads).toBe('on');
     expect(body.data.flags.offerComparison).toBe('on');
     expect(body.data.flags.publicRoutesEnabled).toBe(true);

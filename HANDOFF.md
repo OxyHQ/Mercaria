@@ -614,15 +614,16 @@ URLs and proves zero requests to that origin while rendering Oxy images.
 
 Keyless catalogue and price providers (`services/open-data/`, doc
 `docs/catalog-sources/open-data-providers.md`) are built, tested against
-recorded responses and #62's contract suite, and exercised live. They are
-**inert**: `OPEN_DATA_PROVIDERS` is empty and `OPEN_DATA_USER_AGENT` unset on
-every deployment.
+recorded responses and #62's contract suite, and exercised live. They **run by
+default** (ADR 0015): the sources are declared in `services/open-data/sources.ts`
+(the four Open Facts catalogues and the Spanish Open Prices chains) and the
+catalogue autopilot converges them and cycles the backfill stages.
 
-- **Reference seeding is BUILT (ADR 0014)** and inert until an operator grants a
-  source `may_seed_catalog`. The backfill stages are `reference_products` →
-  `source_readvance` → `reference_promotion`, then `search_reindex`. Nothing
-  schedules them: they run when an operator opens a run on
-  `/internal/catalog/backfill`, exactly as #60's stages do. Seeded products carry
+- **Reference seeding runs unattended (ADR 0014, 0015).** The autopilot's cycle
+  includes `reference_products` → `source_readvance` → `reference_promotion`.
+  MITECO fuel, CheapShark, GOG, Scryfall and TCGdex are registered but not yet
+  declared as sources: none carries a GTIN, so nothing they ingest could become
+  a product until the identity below exists. Seeded products carry
   no category, no brand and no images yet. The brand hint and the Open Facts
   photos are in the observation's payload, and mapping them is the next step.
   Facts are stored, not yet mapped onto the attribute registry (#94).

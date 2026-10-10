@@ -518,10 +518,10 @@ describe('the collector really reads the route store', () => {
     observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 200, durationMs: 6 });
     observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 404, durationMs: 2 });
     observeCatalogRoute({ method: 'GET', route: CATEGORIES_ROUTE, statusCode: 500, durationMs: 9 });
-    // `/search`: TWO 404s and no 5xx — the shape a default deployment actually
-    // has, because `CANONICAL_SEARCH` is `off` and every request is a 404. It
-    // must read `0 / 2` and NOT an empty population: mounted and refusing is a
-    // different state from not mounted.
+    // `/search`: TWO 404s and no 5xx — the shape a deployment has with
+    // `CANONICAL_SEARCH=off`, where every request is a 404. It must read `0 / 2`
+    // and NOT an empty population: mounted and refusing is a different state
+    // from not mounted.
     observeCatalogRoute({ method: 'GET', route: SEARCH_ROUTE, statusCode: 404, durationMs: 3 });
     observeCatalogRoute({ method: 'GET', route: SEARCH_ROUTE, statusCode: 404, durationMs: 4 });
 

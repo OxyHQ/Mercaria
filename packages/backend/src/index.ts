@@ -199,6 +199,13 @@ connectPostgres()
       import('./services/ingestion/ingest-dispatcher.js')
         .then(({ startCatalogIngestionDispatcher }) => startCatalogIngestionDispatcher())
         .catch((err) => log.general.error({ err }, 'Catalog ingestion dispatcher import failed'));
+      // Keep the comparator's pipeline running with nobody at the console: the
+      // baseline matching policy, the open-data sources declared in code, and
+      // one whole-catalogue backfill cycle after another. Each half behind the
+      // lever that already governs it (ingestion; the canonical graph).
+      import('./services/catalog-autopilot/autopilot.js')
+        .then(({ startCatalogAutopilot }) => startCatalogAutopilot())
+        .catch((err) => log.general.error({ err }, 'Catalog autopilot import failed'));
 
       // Turn refresh TASKS into ingestion RUNS (#68). On EVERY task, with the
       // same lease shape: a claim is `FOR UPDATE SKIP LOCKED` with an owner
@@ -331,10 +338,9 @@ connectPostgres()
         })
         .catch((err: unknown) => log.general.error({ err }, 'Awin adapter registration failed'));
 
-      // Register the keyless open-data providers `OPEN_DATA_PROVIDERS` lists
-      // (Open Prices, the Open Facts family, MITECO fuel, CheapShark, GOG,
-      // Scryfall, TCGdex…). Gates nothing durable, like Awin's flag, and
-      // registers nothing without `OPEN_DATA_USER_AGENT`.
+      // Register every keyless open-data provider (Open Prices, the Open Facts
+      // family, MITECO fuel, CheapShark, GOG, Scryfall, TCGdex…). Registering
+      // fetches nothing: only an ACTIVE configured source is fetched.
       import('./services/open-data/register.js')
         .then(({ registerOpenDataAdapters }) => {
           registerOpenDataAdapters();
@@ -828,6 +834,10 @@ connectPostgres()
           './services/ingestion/ingest-dispatcher.js'
         );
         stopCatalogIngestionDispatcher();
+        const { stopCatalogAutopilot } = await import(
+          './services/catalog-autopilot/autopilot.js'
+        );
+        stopCatalogAutopilot();
         const { stopFeedStageSweeper } = await import('./services/feed-import/register.js');
         stopFeedStageSweeper();
         stopExpirySweeper();

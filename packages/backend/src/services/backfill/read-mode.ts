@@ -16,7 +16,7 @@
  * | Public canonical routes | `CANONICAL_PUBLIC_ROUTES_ENABLED` | the MOUNT of all of the above |
  * | Cohorts | `CANONICAL_READ_COHORTS` | which objects a permitted read may answer for |
  *
- * ## Why the read levers default ON and the write levers default OFF
+ * ## Why every lever defaults ON
  *
  * ADR 0002 D24's environment block shows `CANONICAL_READS=off`, and that was
  * written in phase 0, when the graph had no tables and no routes. By the time
@@ -31,8 +31,10 @@
  * which is exactly what #60 acceptance 5 asks of them ("**turning off** canonical
  * reads restores the existing listing-first experience"). The `GUEST_INLINE_DESTINATION_ENABLED`
  * precedent: an incident lever defaults true. The WRITE levers —
- * `CANONICAL_GRAPH_ENABLED` and `CANONICAL_WRITE_PUBLICATION_ENABLED` — default
- * OFF as D24 binds, because those are the ones that mutate.
+ * `CANONICAL_GRAPH_ENABLED` and `CANONICAL_WRITE_PUBLICATION_ENABLED` — shipped
+ * OFF as D24 bound, and ADR 0015 turned them ON: the catalogue autopilot runs
+ * the backfill unattended, and a comparator whose graph is never written shows
+ * nothing. They remain the rollback for the writes.
  *
  * ## What `shadow` means, and what it does not
  *
@@ -129,11 +131,11 @@ export function resolveOfferComparisonMode(): CanonicalReadMode {
 /**
  * The canonical SEARCH read mode (#70).
  *
- * Its own lever, `off` by default, and the ONE place in this table where
- * `shadow` does what the docblock above says the mode was invented for: #70's
- * handler computes the canonical answer AND the listing-first one, records the
- * comparison (`services/search/shadow.ts`) and serves neither, because the
- * surface is not public yet. On the other gated routes `shadow` only counts.
+ * Its own lever, `on` by default since ADR 0015, and the ONE place in this
+ * table where `shadow` does what the docblock above says the mode was invented
+ * for: #70's handler computes the canonical answer AND the listing-first one,
+ * records the comparison (`services/search/shadow.ts`) and serves neither. On
+ * the other gated routes `shadow` only counts.
  */
 export function resolveCanonicalSearchMode(): CanonicalReadMode {
   return config.canonicalRollout.search;
