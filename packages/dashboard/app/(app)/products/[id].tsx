@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { ChevronLeft, Trash2, Plus, Boxes } from "lucide-react-native";
+import { Trash2, Plus, Boxes } from "lucide-react-native";
 import { partitionPinnedFields } from "@mercaria/shared-types";
 import type {
   Listing,
@@ -26,7 +26,9 @@ import { Field } from "@oxy.so/bloom/field";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Textarea } from "@oxy.so/bloom/textarea";
 import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
+import { Screen } from "@/components/shell/Screen";
+import { canRetainDetailData } from "@/lib/detail-query-state";
+import { DetailContent } from "@/components/shell/DetailContent";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
   useProduct,
@@ -81,37 +83,30 @@ export default function ProductDetailScreen() {
         <title>{t("products.detail.documentTitle")}</title>
       </Head>
       <RequireStore permission="products:read">
-        {(storeId) => <ProductDetailBody storeId={storeId} productId={String(id)} />}
+        {(storeId) => <ProductDetailBody key={`${storeId}:${id}`} storeId={storeId} productId={String(id)} />}
       </RequireStore>
     </>
   );
 }
 
 function ProductDetailBody({ storeId, productId }: { storeId: string; productId: string }) {
+  const router = useRouter();
   const { t } = useTranslation();
-  const { data, isPending, isError } = useProduct(storeId, productId);
-
-  if (isPending) {
-    return (
-      <Screen title={t("products.detail.title")}>
-        <ScreenLoading />
-      </Screen>
-    );
-  }
-  if (isError || !data) {
-    return (
-      <Screen title={t("products.detail.title")}>
-        <ScreenMessage title={t("products.detail.loadFailed")} body={t("common.pleaseTryAgain")} />
-      </Screen>
-    );
-  }
-  return <ProductEditor storeId={storeId} product={data} />;
+  const { data: cached, error, isPending, isFetching, isError, refetch } = useProduct(storeId, productId);
+  const data = canRetainDetailData(error) ? cached : undefined;
+  return <Screen title={data?.title ?? t("products.detail.title")}
+    subtitle={data ? t("products.detail.variantCount", { count: data.variants.length }) : t(isError ? "common.pleaseTryAgain" : "common.loading")}
+    action={<Button appearance="outline" material="flat" onPress={() => router.replace("/products")}>{t("common.back")}</Button>}>
+    <DetailContent testID="merchant-product-detail" hasData={Boolean(data)} pending={isPending} fetching={isFetching}
+      error={isError} errorTitle={t("products.detail.loadFailed")} onRetry={() => { void refetch(); }}>
+      {data ? <ProductEditor key={`${storeId}:${data.id}`} storeId={storeId} product={data} /> : null}
+    </DetailContent>
+  </Screen>;
 }
 
 function ProductEditor({ storeId, product }: { storeId: string; product: Listing }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
   const { can } = useActiveStoreContext();
   const canWrite = can("products:write");
 
@@ -177,20 +172,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   };
 
   return (
-    <Screen
-      title={product.title}
-      subtitle={t("products.detail.variantCount", { count: product.variants.length })}
-      action={
-        <Pressable
-          onPress={() => router.back()}
-          className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
-        >
-          <ChevronLeft size={16} color={colors.foreground} />
-          <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
-        </Pressable>
-      }
-    >
-      <View className="gap-5">
+      <View className="gap-5 rounded-xl border border-border bg-white p-4 dark:bg-surface">
         {source ? (
           <View className="gap-3">
             <SourceBadge provider={source.provider} />
@@ -293,7 +275,6 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         <VariantsSection storeId={storeId} product={product} canWrite={canWrite} />
       </View>
-    </Screen>
   );
 }
 
