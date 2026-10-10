@@ -1006,6 +1006,14 @@
       "andSave": "组合购买更优惠",
       "view": "查看组合",
       "addFailed": "无法添加此组合，请重试。"
+    },
+    "reviewMedia": {
+      "title": "评价照片和视频",
+      "viewImage": "查看评价照片 %{position}",
+      "viewVideo": "查看评价视频 %{position}",
+      "unavailable": "无法加载此媒体。",
+      "retry": "重试",
+      "more": "加载更多照片和视频"
     }
   }
 }

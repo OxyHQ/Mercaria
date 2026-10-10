@@ -1013,6 +1013,14 @@
       "andSave": "Acheter en lot et économiser",
       "view": "Voir le lot",
       "addFailed": "Impossible d’ajouter ce lot. Réessayez."
+    },
+    "reviewMedia": {
+      "title": "Photos et vidéos des avis",
+      "viewImage": "Voir la photo d’avis %{position}",
+      "viewVideo": "Voir la vidéo d’avis %{position}",
+      "unavailable": "Impossible de charger ce média.",
+      "retry": "Réessayer",
+      "more": "Charger plus de photos et vidéos"
     }
   }
 }

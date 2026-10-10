@@ -633,7 +633,7 @@ The canonical browser gallery test also supplies deliberately external source
 URLs and asserts zero requests to that origin while rendering Oxy images; its
 real-media seed precondition must pass before that case can establish this.
 
-## Storefront product parity — review media still missing (2026-10-10)
+## Storefront product parity — review media upload/acceptance remaining (2026-10-10)
 
 The public Shop [rhode product](https://shop.app/products/8117398765806/peptide-lip-tint-ribbon)
 contains a ten-photo buyer-review strip (`pdp-reviews-media-strip-media-*`). Its
@@ -657,11 +657,24 @@ PostgreSQL tests cover older photos beneath newer text-only reviews, ordering,
 pagination totals, hidden reviews and other-target exclusion; HTTP tests cover
 anonymous access and invalid IDs. The frontend client/cache hook is ready.
 
-Still missing: the creation form's upload flow, the rendered media strips and
-the Bloom viewer with associated review. ReviewCard still renders text, rating and author
-only. Implement and validate these with real author-owned Oxy files. Keep
-purchase verification and moderation intact; supplier URLs or synthetic file
-IDs are not review media. Full Shop parity remains unproven.
+The strip and Bloom viewer now render on listing, canonical and digital PDPs
+and the full review sheet. The viewer includes the associated ReviewCard and
+its helpful/report actions, follows attachment IDs through pagination, and
+handles image/video failures with retry. Expo-video 56.1.4 is a frontend-only
+player dependency; shared UI receives a render slot. Source geometry was
+checked against Shop's public ReviewMediaViewer module (current build
+0f5768e5d9bc8a19d837645055c9402f1961d641) and the previously captured PDP HTML.
+The current live PDP returned Shop's error shell, so this is not a claim of
+fresh live interaction parity. Browser cases use deliberate missing files and
+503/404 failures, never replacement image bytes or successful-upload fixtures.
+
+Still missing: the creation form's upload flow and successful acceptance with
+real author-owned Oxy files, plus cross-device/native playback validation.
+The existing Oxy FileManagement surface supports selection, upload and public
+default visibility; use that user-authenticated path rather than inventing an
+uploader or weakening ownership validation. Keep purchase verification and
+moderation intact; supplier URLs or synthetic file IDs are not review media.
+Full Shop parity remains unproven.
 
 # Open-data providers — what is built and what is next
 

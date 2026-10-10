@@ -725,3 +725,5 @@ export { StoreOfferHeader, type StoreOfferHeaderProps } from "./components/marke
 export { MarketplaceSheet, type MarketplaceSheetProps } from "./components/marketplace/MarketplaceSheet";
 export { ProductRichText, type ProductRichTextProps } from "./components/marketplace/ProductRichText";
 export { prepareProductDescription } from "./lib/product-description";
+
+export { ReviewMediaStrip, ReviewMediaViewer, ReviewMediaImage, type ReviewMediaViewerProps } from "./components/marketplace/ReviewMedia";

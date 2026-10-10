@@ -101,6 +101,24 @@ External file checks finish before this transaction starts.
 
 ### Review attachments
 
+The PDP summary and full review sheet share a separate media query across all
+public review pages. A 60 px thumbnail strip opens a Bloom dialog: a 68 px
+vertical rail and associated review on desktop, a 44 px horizontal rail with
+the review below on mobile. The desktop panel follows Shop's 1159/741 aspect
+ratio and 40 px round corners. Image IDs resolve through the Oxy provider;
+there is no supplier URL fallback. Videos use the Expo SDK 56 player with
+controls and start muted; only the selected clip owns a player.
+
+Selection follows the attachment ID, so overlapping or appended pages do not
+retarget it. Hidden/private/mismatched entries are withheld. The next media page
+prefetches near the loaded end; failures keep the current media and review,
+with retry. Search/rating filters belong to the text query and cannot overwrite
+the media query. Closing the viewer restores focus to its thumbnail and keeps
+the underlying review sheet open. Image/video errors remain explicit and
+retryable. Browser tests cover these **failure paths** using 404 responses,
+not substituted image bytes; they do not establish a successful Oxy upload.
+
+
 `CreateReviewInput.mediaFileIds` accepts up to ten distinct Oxy file IDs, in display
 order. The backend reads each file using the author's bearer on a fresh Oxy client
 and requires the exact ID, owner, active status and public visibility. It accepts

@@ -1006,6 +1006,14 @@
       "andSave": "Bundle and save",
       "view": "View bundle",
       "addFailed": "Could not add this bundle. Please try again."
+    },
+    "reviewMedia": {
+      "title": "Review photos and videos",
+      "viewImage": "View review photo %{position}",
+      "viewVideo": "View review video %{position}",
+      "unavailable": "This media could not be loaded.",
+      "retry": "Try again",
+      "more": "Load more review media"
     }
   }
 }

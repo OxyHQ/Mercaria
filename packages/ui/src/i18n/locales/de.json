@@ -1006,6 +1006,14 @@
       "andSave": "Im Set kaufen und sparen",
       "view": "Set ansehen",
       "addFailed": "Das Set konnte nicht hinzugefügt werden. Bitte erneut versuchen."
+    },
+    "reviewMedia": {
+      "title": "Fotos und Videos aus Bewertungen",
+      "viewImage": "Bewertungsfoto %{position} ansehen",
+      "viewVideo": "Bewertungsvideo %{position} ansehen",
+      "unavailable": "Dieses Medium konnte nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "more": "Weitere Fotos und Videos laden"
     }
   }
 }

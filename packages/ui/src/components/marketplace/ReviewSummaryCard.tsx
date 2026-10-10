@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Button } from "@oxy.so/bloom/button";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
@@ -45,6 +46,8 @@ export interface ReviewSummaryCardProps {
   verifiedOnly?: boolean;
   /** The reviews to render in the horizontal carousel. */
   reviews: Review[];
+  /** Public buyer attachments between the rating summary and text previews. */
+  mediaContent?: ReactNode;
   /** Whether the reviews query is still loading (suppresses the empty state). */
   isLoading: boolean;
   /**
@@ -84,6 +87,7 @@ export function ReviewSummaryCard({
   embedded = false,
   onReadMore,
   onReviewPress,
+  mediaContent,
 }: ReviewSummaryCardProps) {
   const { formatRating, formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
@@ -190,6 +194,8 @@ export function ReviewSummaryCard({
               })}
             </Text>
           ) : null}
+
+          {mediaContent}
 
           {/* Review cards carousel. */}
           {reviews.length > 0 ? (

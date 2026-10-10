@@ -33,6 +33,8 @@ export interface ReviewCardProps {
   review: Review;
   /** Expanded review list: full text and container width. */
   expanded?: boolean;
+  /** Plain review content inside the media viewer. */
+  embedded?: boolean;
   /** Open this preview in the complete review list. Expanded cards are static. */
   onPress?: () => void;
   /** What this review's rating is about (#76 UI rule 6), for the star label. */
@@ -50,6 +52,7 @@ export function ReviewCard({
   review,
   scopeLabel,
   expanded = false,
+  embedded = false,
   onPress,
   footerActions,
 }: ReviewCardProps) {
@@ -128,7 +131,7 @@ export function ReviewCard({
       </View>
     </View>
   );
-  const className = `h-auto min-h-[140px] w-full shrink-0 rounded-radius-20 border-[0.5px] p-space-16 ${expanded
+  const className = embedded ? "w-full" : `h-auto min-h-[140px] w-full shrink-0 rounded-radius-20 border-[0.5px] p-space-16 ${expanded
     ? `bg-transparent shadow-shop-s ${isDarkColorScheme ? "border-white/10" : "border-[#183b4e0f]"}`
     : isDarkColorScheme ? "border-white/20 bg-[#121212]" : "border-black/10 bg-white"}`;
   return onPress && !expanded ? (

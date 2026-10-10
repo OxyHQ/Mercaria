@@ -1,3 +1,4 @@
+import { ProductReviewMedia } from "@/components/product/ProductReviewMedia";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
@@ -338,6 +339,7 @@ export default function CanonicalProductPageScreen() {
               resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
               onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
             <ReviewSummaryCard
+              mediaContent={<ProductReviewMedia scope="product" id={page.product.id} scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)} />}
               embedded
               scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
               average={reviews.data?.aggregate.rating ?? 0}

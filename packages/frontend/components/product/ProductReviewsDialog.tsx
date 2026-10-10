@@ -1,3 +1,4 @@
+import { ProductReviewMedia } from "./ProductReviewMedia";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View, useWindowDimensions, type ScrollView, type TextInput } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -136,6 +137,7 @@ export function ProductReviewsDialog({
         {summary ? (
           <View>
             <ReviewSummaryCard
+              mediaContent={<ProductReviewMedia scope={scope} id={scope === "product" ? canonicalProductId ?? "" : listingId} scopeLabel={title} />}
               embedded
               showHeading={false}
               scopeLabel={title}

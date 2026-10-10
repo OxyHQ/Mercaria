@@ -1013,6 +1013,14 @@
       "andSave": "Compra en pack y ahorra",
       "view": "Ver pack",
       "addFailed": "No se pudo añadir el pack. Inténtalo de nuevo."
+    },
+    "reviewMedia": {
+      "title": "Fotos y vídeos de reseñas",
+      "viewImage": "Ver foto de reseña %{position}",
+      "viewVideo": "Ver vídeo de reseña %{position}",
+      "unavailable": "No se pudo cargar este archivo.",
+      "retry": "Reintentar",
+      "more": "Cargar más fotos y vídeos"
     }
   }
 }

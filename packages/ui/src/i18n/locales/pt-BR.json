@@ -1013,6 +1013,14 @@
       "andSave": "Compre em conjunto e economize",
       "view": "Ver conjunto",
       "addFailed": "Não foi possível adicionar este conjunto. Tente novamente."
+    },
+    "reviewMedia": {
+      "title": "Fotos e vídeos das avaliações",
+      "viewImage": "Ver foto da avaliação %{position}",
+      "viewVideo": "Ver vídeo da avaliação %{position}",
+      "unavailable": "Não foi possível carregar esta mídia.",
+      "retry": "Tentar novamente",
+      "more": "Carregar mais fotos e vídeos"
     }
   }
 }

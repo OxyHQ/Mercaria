@@ -1006,6 +1006,14 @@
       "andSave": "セットでお得に購入",
       "view": "セットを見る",
       "addFailed": "セットを追加できませんでした。もう一度お試しください。"
+    },
+    "reviewMedia": {
+      "title": "レビューの写真と動画",
+      "viewImage": "レビューの写真 %{position} を見る",
+      "viewVideo": "レビューの動画 %{position} を見る",
+      "unavailable": "このメディアを読み込めませんでした。",
+      "retry": "再試行",
+      "more": "写真と動画をさらに読み込む"
     }
   }
 }

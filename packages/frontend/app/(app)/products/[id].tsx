@@ -1,3 +1,4 @@
+import { ProductReviewMedia } from "@/components/product/ProductReviewMedia";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -885,6 +886,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                   <View className="gap-space-16">
                     {listing.canonicalProductId ? (
                       <ReviewSummaryCard
+                        mediaContent={<ProductReviewMedia scope="product" id={listing.canonicalProductId} scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)} />}
                         scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
                         embedded
                         onReadMore={() => setReviewScope("product")}
@@ -909,6 +911,7 @@ function ProductBody({ listing }: ProductBodyProps) {
             */}
                     {hasListingReviews || !listing.canonicalProductId ? (
                       <ReviewSummaryCard
+                        mediaContent={<ProductReviewMedia scope="p2p_listing" id={listing.id} scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)} />}
                         scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)}
                         embedded
                         onReadMore={() => setReviewScope("p2p_listing")}
