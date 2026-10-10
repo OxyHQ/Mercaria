@@ -513,6 +513,11 @@
     "type": {
       "automated": "automated",
       "manual": "manual"
+    },
+    "remove": {
+      "action": "Delete %{title}",
+      "title": "Delete collection",
+      "confirmation": "Delete “%{title}”? Products will remain in your catalog. This cannot be undone."
     }
   },
   "common": {

@@ -513,6 +513,11 @@
     "type": {
       "automated": "自動",
       "manual": "手動"
+    },
+    "remove": {
+      "action": "%{title}を削除",
+      "title": "コレクションを削除",
+      "confirmation": "「%{title}」を削除しますか？商品はカタログに残ります。この操作は取り消せません。"
     }
   },
   "common": {

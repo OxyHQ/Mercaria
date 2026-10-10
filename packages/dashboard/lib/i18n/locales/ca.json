@@ -524,6 +524,11 @@
     "type": {
       "automated": "automàtica",
       "manual": "manual"
+    },
+    "remove": {
+      "action": "Suprimeix %{title}",
+      "title": "Suprimeix la col·lecció",
+      "confirmation": "Vols suprimir «%{title}»? Els productes es conservaran al catàleg. Aquesta acció no es pot desfer."
     }
   },
   "common": {

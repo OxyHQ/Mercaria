@@ -513,6 +513,11 @@
     "type": {
       "automated": "automatisiert",
       "manual": "manuell"
+    },
+    "remove": {
+      "action": "%{title} löschen",
+      "title": "Kollektion löschen",
+      "confirmation": "„%{title}“ löschen? Die Produkte bleiben in deinem Katalog. Dies kann nicht rückgängig gemacht werden."
     }
   },
   "common": {

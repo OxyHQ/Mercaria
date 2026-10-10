@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { View, Pressable } from "react-native";
+import { View } from "react-native";
 import Head from "expo-router/head";
-import { Plus, FolderTree, Trash2 } from "lucide-react-native";
+import { Plus, FolderTree } from "lucide-react-native";
 import type { Collection, CollectionType } from "@mercaria/shared-types";
 import {
   Text,
@@ -23,8 +23,9 @@ import { RequireStore } from "@/components/shell/RequireStore";
 import {
   useCollections,
   useCreateCollection,
-  useDeleteCollection,
 } from "@/lib/hooks/use-collections";
+import { RemoveCollectionButton } from "@/components/collections/RemoveCollectionButton";
+import { canRetainDetailData } from "@/lib/detail-query-state";
 import { useTranslation } from "@/lib/i18n";
 
 /** Slugify a title into a URL-safe handle. */
@@ -44,7 +45,7 @@ export default function CollectionsScreen() {
         <title>{t("collections.documentTitle")}</title>
       </Head>
       <RequireStore permission="collections:write">
-        {(storeId) => <CollectionsBody storeId={storeId} />}
+        {(storeId) => <CollectionsBody key={storeId} storeId={storeId} />}
       </RequireStore>
     </>
   );
@@ -52,8 +53,9 @@ export default function CollectionsScreen() {
 
 function CollectionsBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
-  const { data, isPending, isError } = useCollections(storeId);
-  const deleteCollection = useDeleteCollection(storeId);
+  const query = useCollections(storeId);
+  const { isPending, isError, isFetching, refetch } = query;
+  const data = canRetainDetailData(query.error) ? query.data : undefined;
   const createControl = useDialogControl();
 
   const action = (
@@ -70,11 +72,13 @@ function CollectionsBody({ storeId }: { storeId: string }) {
 
   return (
     <Screen title={t("nav.collections")} subtitle={t("collections.subtitle")} action={action}>
+      {isError ? <View className="mb-4 gap-2" accessibilityLiveRegion="polite">
+        <Text className="text-sm text-destructive">{t("collections.loadError")}</Text>
+        <Button size="sm" appearance="outline" material="flat" disabled={isFetching} onPress={() => { void refetch(); }}>{t("common.retry")}</Button>
+      </View> : null}
       {isPending ? (
         <ScreenLoading />
-      ) : isError ? (
-        <ScreenMessage title={t("collections.loadError")} body={t("common.pleaseTryAgain")} />
-      ) : (data?.length ?? 0) === 0 ? (
+      ) : !data && isError ? null : (data?.length ?? 0) === 0 ? (
         <ScreenMessage title={t("collections.empty.title")} body={t("collections.empty.body")} />
       ) : (
         <View className="gap-2">
@@ -82,12 +86,7 @@ function CollectionsBody({ storeId }: { storeId: string }) {
             <CollectionRow
               key={collection.id}
               collection={collection}
-              onDelete={() =>
-                deleteCollection.mutate(collection.id, {
-                  onSuccess: () => toast.success(t("collections.deleted")),
-                  onError: () => toast.error(t("collections.deleteError")),
-                })
-              }
+              storeId={storeId}
             />
           ))}
         </View>
@@ -100,10 +99,10 @@ function CollectionsBody({ storeId }: { storeId: string }) {
 
 function CollectionRow({
   collection,
-  onDelete,
+  storeId,
 }: {
   collection: Collection;
-  onDelete: () => void;
+  storeId: string;
 }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
@@ -136,9 +135,7 @@ function CollectionRow({
           })}
         </Text>
       </View>
-      <Pressable onPress={onDelete} className="p-2 active:opacity-70">
-        <Trash2 size={16} color={colors.mutedForeground} />
-      </Pressable>
+      <RemoveCollectionButton storeId={storeId} collection={collection} />
     </View>
   );
 }

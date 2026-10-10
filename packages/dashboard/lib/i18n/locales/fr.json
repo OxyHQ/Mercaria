@@ -524,6 +524,11 @@
     "type": {
       "automated": "automatisée",
       "manual": "manuelle"
+    },
+    "remove": {
+      "action": "Supprimer %{title}",
+      "title": "Supprimer la collection",
+      "confirmation": "Supprimer « %{title} » ? Les produits resteront dans votre catalogue. Cette action est irréversible."
     }
   },
   "common": {

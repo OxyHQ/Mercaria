@@ -513,6 +513,11 @@
     "type": {
       "automated": "自动",
       "manual": "手动"
+    },
+    "remove": {
+      "action": "删除%{title}",
+      "title": "删除系列",
+      "confirmation": "删除“%{title}”？商品将保留在你的目录中。此操作无法撤销。"
     }
   },
   "common": {

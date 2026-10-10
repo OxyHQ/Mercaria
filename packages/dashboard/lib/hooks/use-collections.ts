@@ -61,6 +61,15 @@ export function useDeleteCollection(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteCollection(storeId, id),
-    onSuccess: () => invalidate(queryClient, storeId),
+    onSuccess: async (_, id) => {
+      const listKey = queryKeys.collections.list(storeId);
+      const detailKey = queryKeys.collections.detail(storeId, id);
+      // Cancel older list/detail reads before publishing the confirmed deletion.
+      await queryClient.cancelQueries({ queryKey: listKey, exact: true });
+      await queryClient.cancelQueries({ queryKey: detailKey, exact: true });
+      queryClient.setQueryData<Collection[]>(listKey, current => current?.filter(collection => collection.id !== id));
+      queryClient.removeQueries({ queryKey: detailKey, exact: true });
+      invalidate(queryClient, storeId);
+    },
   });
 }
