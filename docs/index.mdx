@@ -25,6 +25,10 @@ schema decision. `HANDOFF.md` holds deferred work.
   `expo-image` className consumers can render with zero size on Android even
   when their Oxy file loads correctly. This adapter does not change media URLs,
   loading/error events, cache behavior or file ownership.
+  The web entry forwards Expo Image directly: Expo already forwards `className`,
+  and adapting it into `style` would mix RN Web's compiled CSS marker with raw
+  absolute-fill values during Expo's style flattening. A browser regression
+  checks the merchant cover's 330×397 geometry and absence of `styleq` errors.
   Shared `useColorScheme` reads both colors and resolved light/dark mode from
   Bloom's `useTheme()`. It delegates preference changes to `useBloomTheme()`;
   it does not resolve the system preference a second time through NativeWind.

@@ -1223,12 +1223,12 @@ review/policy/theme checks pass, including opposite merchant/app scopes.
 
 Bloom 7.28.0 is now published from OxyHQ/Bloom#309, with the official NativeWind
 5.0.0-rc.0 / react-native-css 3.1.0-rc.0 pair. Public tarball SHA1 is
-870befb9be7c22b5e18ed408f541c1146da36eb4. Compatible Services 11.1.14 was accepted
-by npm at 12:22:57 UTC; public verification is pending (expected SHA1
+870befb9be7c22b5e18ed408f541c1146da36eb4. Compatible Services 11.1.14 is publicly verified too (SHA1
 8c705291be418c8a79617cc3c55f3e12ce366e1d). It passed 1040 tests on both SDK56 and
-SDK57. Mercaria still installs Bloom7.27.0/Services11.1.13 until both public
-tarballs are verified. Restart Metro after the dependency change and compare
-`/tmp/mercaria-autolinking-before-728.json` before deciding on a native rebuild.
+SDK57. Commit e5244298 installs Bloom7.28.0/Services11.1.14 with the official RC
+pair in all three apps. Four client typechecks, doctor and nine theme/typography
+checks pass. Metro was restarted. Autolinking differs only in the Services JS
+package version, so the existing Pixel development build remains usable.
 
 The RC fixes alpha-color compilation but DOES NOT fix Tailwind's pixel-valued
 `var(--tw-leading, 20px)` fallback. A real runtime probe still produced360px.
@@ -1238,8 +1238,9 @@ web/native and under font scaling. Three browser cases measure all20 roles.
 After clearing Metro, the physical Pixel8a's Recently viewed text frame shrank
 from945px to58px including native font padding. Evidence:
 `/tmp/mercaria-native-relative-typography-{loaded.png,fresh.xml}`. The price-pill
-background remains broken until the official RC adoption; the new three-app
-alpha compiler regressions are deliberately red on installed3.0.7.
+background remains broken even AFTER RC adoption: the direct compiler tests
+pass, but the actual Metro serialization boundary does not. See the native alpha
+follow-up below; those compiler checks are not native rendering acceptance.
 
 Commit c07201f0 keeps common product detail photos when selecting a variant,
 excludes photos explicitly assigned to other configurations, and prepends the
@@ -1261,3 +1262,40 @@ Do not merge/deploy until answered. After rollout, publish the SDK and update
 all Mercaria pins together before using the new field. GoWay main's SDK0.4 has
 taxonomy changes, but the audit found no removed exports in Mercaria's consumers;
 recheck visit-us capability labels because 0.4 translates all twelve locales.
+
+
+## Native alpha serialization and web image boundary — 2026-10-10
+
+Commit 04a77bfa gives the shared image adapter a web entry that forwards Expo
+Image directly. Adapting web className into style mixed RN Web compiled markers
+with absolute-fill values, producing styleq errors and a zero-sized merchant
+cover. The browser regression verifies the real 330×397 cover and no such errors.
+Metro needed a restart to pick the new platform entry. Commit c0b3bc12 enables
+Bloom AppShell safeArea on native; the physical Pixel home now clears the status
+bar. The nested settings header does not apply safeArea twice.
+
+Native price backgrounds are still unresolved. The actual Android bundle
+`/tmp/mercaria-728-native.bundle` has the current RC runtime, but JSON serializes
+omitted color-mix weights as null. Runtime then rejects that descriptor and
+removes backgroundColor. A temporary native style probe confirmed the missing
+property with valid theme variables; it was removed from ProductCard after the
+diagnosis. JSON-roundtrip native renderer probes reproduce all four failures.
+`bun scripts/probes/native-alpha-serialization.mjs` is a standalone diagnostic
+that currently exits1 for all twelve app/color pairs, using the actual Metro
+inlineVariables:false setting. It does not alter dependencies or hide the error.
+Official fix remains open at https://github.com/nativewind/react-native-css/pull/464
+and the matching issue is https://github.com/nativewind/nativewind/issues/1870.
+No later official release was available when checked. Do not mark native alpha
+fixed based on in-memory compilation, or replace it with a local dependency patch.
+
+Bloom7.29/Services11.1.15 is being released separately for the public gallery
+onOpenChange lifecycle contract (OxyHQ/Bloom#310). This does not fix NativeWind
+serialization. Catalog video integration remains incomplete until backend/editor
+changes and the storefront player lifecycle are integrated and verified.
+
+Wholesale/catalog-media review also found that Oxy GET/assets/:id omits its
+existing visibility field. Draft OxyHQ/oxy#1625 adds the real persisted value,
+with seven route tests and API build passing. It has not been merged/deployed.
+Mercaria continues to require active, public, owner-authorized media; do not
+assume public visibility when absent. Successful live merchant/review uploads
+remain unverified until that upstream contract is deployed and exercised.
