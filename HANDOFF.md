@@ -1022,3 +1022,45 @@ worktree) is now an ancestor of main. The SDK tarball and publisher-census
 `.integration-evidence/` remain in their original worktrees as untracked build/
 verification artifacts; neither was deleted or added to application source.
 This is local integration, not a production deployment.
+
+## Wholesale concurrent drafts and refund reads — 2026-10-10
+
+`13716799` fixes three distinct state bugs. Place contact edits use GoWay SDK
+0.3.0's merge-patch contract: only edited fields are sent, and an explicit empty
+field sends `null`. The acknowledged response updates the query cache before
+clearing only the submitted edits; newer in-flight edits remain. Publication
+forms retain stable location identity across the first persisted ID, combine
+untouched values with the current DTO, retain later edits and remain mounted
+through recoverable refetch errors. Permission/not-found failures still hide
+protected cached data.
+
+Order refund history now distinguishes failed reads from confirmed empty data,
+shows a retry, retains cached history only for recoverable errors, and keeps a
+confirmed empty card hidden during background refresh. Four browser cases pass
+at desktop English/light and mobile Arabic/dark, along with 44 form/cache tests,
+dashboard and E2E types, lint (two existing warnings) and i18n/RTL/routes. Their
+API writes are isolated fixtures, not real GoWay or commercial mutations. The
+refund fixture is a typed physical order with a valid immutable destination;
+absence of an address was an incomplete fixture, not evidence of a production
+address bug under the database's digital-order invariant.
+
+## Bloom rapid-close focus race — in progress, 2026-10-10
+
+The desktop nested-contact failure above is a pre-existing ModalKeyboard race,
+not a regression introduced in 7.26.1: an entry animation-frame callback can
+focus an already-closing child after its opener was restored. Bloom PR307
+(https://github.com/OxyHQ/Bloom/pull/307) adds a closing-state guard to entry focus
+and Tab trapping, with deterministic failing-before/passing-after tests. Local
+validation reports 91 tests and 19 browser scenarios passing; 7.26.2 is not yet
+installed or publicly available. Its publication must include/rebuild the
+concurrent SwipeRow PR306 ahead of it in the queue and verify the public tarball.
+After that, update all three app pins through Bun and rerun nested contact and
+Wholesale archive acceptance. Preserve both focus assertions.
+
+Further store-menu review found that its custom `vars(storeThemeVars(...))`
+wrapper is still separate from Bloom's current scope APIs; the page applies it
+to a plain View. Bloom documents that react-native-css v3 can drop those native
+variables. This needs a measured native/theming audit, not an unverified CSS
+workaround. Store policies also still print their authored body as plain Text,
+and the public Shop merchant bundle uses push/pop transitions for those pages.
+These are further parity work, separate from the validated listing-policy sheet.
