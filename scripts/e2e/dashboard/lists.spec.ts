@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
 import en from '../../../packages/dashboard/lib/i18n/locales/en.json';
 import ar from '../../../packages/dashboard/lib/i18n/locales/ar.json';
+import uiEn from '../../../packages/ui/src/i18n/locales/en.json';
+import uiAr from '../../../packages/ui/src/i18n/locales/ar.json';
 import { fixture } from './fixture';
 
 for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light'], [390, 'ar', 'light'], [390, 'en', 'dark']] as const) {
   test(`merchant lists at ${width}px ${locale} ${mode}`, async ({ page }) => {
     const copy = locale === 'ar' ? ar : en;
+    const uiCopy = locale === 'ar' ? uiAr.ui : uiEn.ui;
     const requests = await fixture(page, locale, mode);
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -21,10 +24,9 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
       const active = url.searchParams.get('status') === 'active';
       const next = url.searchParams.get('page') === '2';
       const empty = search === 'nothing';
-      const product = { id: next ? 'page-two' : 'linen-shirt', title: next ? 'Second page product' : search ? 'Alpine jacket' : 'Linen studio shirt', status: active ? 'active' : 'draft', images: [{ fileId: 'fixture-product-file', alt: 'Linen shirt', position: 0 }], variants: [{ id: 'variant-1' }], quantity: 8, price: { amount: 4900, currency: 'EUR' } };
+      const product = { id: next ? 'page-two' : 'linen-shirt', title: next ? 'Second page product' : search ? 'Alpine jacket' : 'Linen studio shirt', status: active ? 'active' : 'draft', images: [], variants: [{ id: 'variant-1' }], quantity: 8, price: { amount: 4900, currency: 'EUR' } };
       return route.fulfill({ json: { success: true, data: empty ? [] : [product], pagination: { total: empty ? 0 : search || active ? 1 : 21, page: next ? 2 : 1, limit: 20, pages: empty ? 0 : search || active ? 1 : 2 } } });
     });
-    await page.route('**/fixture-product-file**', route => route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#ddd6c9"/><path d="M25 12h30l15 18-12 10-5-7v35H27V33l-5 7-12-10z" fill="#f8f6ef"/></svg>' }));
     await page.route('**/admin/stores/*/orders?**', async route => {
       const url = new URL(route.request().url()); requests.push(url);
       if (pending) await pending;
@@ -35,7 +37,8 @@ for (const [width, locale, mode] of [[1440, 'en', 'light'], [390, 'en', 'light']
     await page.goto('/products');
     const products = page.getByTestId('merchant-products-list');
     await expect(products.getByRole('link', { name: 'Linen studio shirt', exact: true })).toBeVisible();
-    await expect(products.getByRole('img', { name: 'Linen shirt' })).toBeVisible();
+    await expect(products.getByRole('img', { name: uiCopy.marketplace.noImage, exact: true })).toBeVisible();
+    await expect(products.locator('img')).toHaveCount(0);
     await page.screenshot({ path: `/tmp/mercaria-products-${width}-${locale}-${mode}.png`, fullPage: true });
     const before = await products.boundingBox();
     pending = new Promise<void>(resolve => { release = resolve; });
