@@ -275,11 +275,13 @@ describe('listing catalog identities', () => {
       const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/listings/${native.listingId}`;
       const response = await fetch(url);
       expect(response.status).toBe(200);
-      expect((await response.json()).data.catalogIdentityByVariant).toEqual({
+      expect(await response.json()).toHaveProperty('data.catalogIdentityByVariant', {
         [native.variantIds[0]]: { productId: product.productId, variantId: product.variantIds[0] },
       });
       await revokeNativeListingLink(db, { id: native.linkIds[0], revokedByOxyUserId: `operator-${RUN}`, reason: 'Wrong public attachment' });
-      expect((await (await fetch(url)).json()).data).not.toHaveProperty('catalogIdentityByVariant');
+      const revokedResponse = await fetch(url);
+      expect(revokedResponse.status).toBe(200);
+      expect(await revokedResponse.json()).not.toHaveProperty('data.catalogIdentityByVariant');
       await db.update(listings).set({ status: 'draft' }).where(eq(listings.id, native.listingId));
       expect((await fetch(url)).status).toBe(404);
     } finally {
