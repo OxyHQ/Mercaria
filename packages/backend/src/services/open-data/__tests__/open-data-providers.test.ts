@@ -27,6 +27,8 @@ import { OPEN_FACTS_DEMAND_ONLY, openFactsProviders } from '../providers/open-fa
 import { openPricesProvider } from '../providers/open-prices.js';
 import { scryfallProvider } from '../providers/scryfall.js';
 import { htmlText, shopifyStorefrontProvider, storeDomain } from '../providers/shopify-storefront.js';
+import { searchRows, steamStoreProvider, STEAM_MAX_RESULTS } from '../providers/steam-store.js';
+import { ygoprodeckProvider } from '../providers/ygoprodeck.js';
 import { OpenDataConfigurationError } from '../provider.js';
 import { tcgdexProvider } from '../providers/tcgdex.js';
 
@@ -489,5 +491,65 @@ describe('Shopify storefronts (the shops on shop.app)', () => {
   it('turns body_html into text', () => {
     expect(htmlText('<p>Hola&nbsp;<b>mundo</b></p><p>A &amp; B</p>')).toBe('Hola mundo\nA & B');
     expect(htmlText('<p> </p>')).toBeUndefined();
+  });
+});
+
+describe('YGOPRODeck', () => {
+  it('reads one Cardmarket-priced record per card, keyed by the card, with the other markets as facts', async () => {
+    const body = fixture('ygoprodeck-cardinfo.json');
+    const http = fakeHttp({ json: () => ({ body }) });
+    const result = await page(ygoprodeckProvider, http, { pageSize: 2 });
+    expect(http.requested[0]).toBe('https://db.ygoprodeck.com/api/v7/cardinfo.php?num=2&offset=0&misc=yes');
+    expect(result.items.map((item) => item.externalId)).toEqual(['17494901', '21831848']);
+    const [first] = result.items;
+    expect(first?.normalized.productGroupKey).toBe('17494901');
+    expect(first?.normalized.price).toEqual({ amount: 6, currency: 'EUR' });
+    expect(first?.normalized.merchantHint).toBe('Cardmarket');
+    // Their images may not be hotlinked.
+    expect(first?.normalized.media).toEqual([]);
+    const facts = Object.fromEntries((first?.normalized.facts ?? []).map((fact) => [fact.key, fact]));
+    expect(facts['ygoprodeck.formats']?.value).toContain('TCG');
+    expect(facts['ygoprodeck.tcgplayer_price']?.unit).toBe('USD');
+    expect(result.next).toEqual({ o: 5002 });
+  });
+});
+
+describe('Steam store search', () => {
+  const body = fixture('steam-search.json') as { results_html: string; total_count: number };
+
+  it('reads each row of the search fragment', () => {
+    const rows = searchRows(body.results_html);
+    expect(rows).toHaveLength(3);
+    const [first] = rows;
+    expect(first?.appId).toBe('632360');
+    expect(first?.title).toBe('Risk of Rain 2');
+    expect(first?.priceFinalMinor).toBe(824);
+    expect(first?.originalPrice).toBe('24,99€');
+    expect(first?.discountPercent).toBe(67);
+    expect(first?.url).toBe('https://store.steampowered.com/app/632360/Risk_of_Rain_2/');
+  });
+
+  it('checks robots first, then reads games keyed by app id, with the pre-discount price as compare-at', async () => {
+    const http = fakeHttp({
+      text: (url) => (url.endsWith('/robots.txt') ? 'User-Agent: *\nDisallow: /share/\n' : null),
+      json: () => ({ body }),
+    });
+    const result = await page(steamStoreProvider, http, { pageSize: 100 });
+    expect(http.requested[0]).toBe('https://store.steampowered.com/robots.txt');
+    expect(http.requested[1]).toContain('cc=es');
+    expect(http.requested[1]).toContain('category1=998');
+    const [first] = result.items;
+    expect(first?.normalized.productGroupKey).toBe('632360');
+    expect(first?.normalized.price).toEqual({ amount: 824, currency: 'EUR' });
+    expect(first?.normalized.compareAtPrice).toEqual({ amount: 2499, currency: 'EUR' });
+    expect(result.next).toEqual({ s: 3 });
+  });
+
+  it('stops at the pass depth, and refuses when robots.txt disallows the search', async () => {
+    const http = fakeHttp({ json: () => ({ body }) });
+    const last = await page(steamStoreProvider, http, { pageSize: 100, cursor: { s: STEAM_MAX_RESULTS - 3 } });
+    expect(last.next).toBeNull();
+    const refused = fakeHttp({ text: () => 'User-agent: *\nDisallow: /search/\n', json: () => ({ body }) });
+    await expect(page(steamStoreProvider, refused, {})).rejects.toThrow(OpenDataConfigurationError);
   });
 });

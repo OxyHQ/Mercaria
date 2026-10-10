@@ -69,6 +69,8 @@ later, reviewable step; adapters never do it.
 | `scryfall` | Every priced paper Magic card, one offer per finish | EUR (Cardmarket trend) | provider terms | — | incremental |
 | `tcgdex` | Every Pokémon TCG card, localized, one offer per finish | EUR (Cardmarket trend) | provider terms | card language (`es` default) | incremental |
 | `shopify_storefront` | Mercaria's own reader of the Shopify stores behind Shop (shop.app): every product, variant (size, colour), SKU, price, compare-at price, stock, images, type and tags, from the store's `/products.json`. **Extraction**: robots.txt is read and obeyed on every pass | the store's currency (`/meta.json`) | the store's own terms | the store domain (`pompeiibrand.com`) | incremental |
+| `ygoprodeck` | Every Yu-Gi-Oh! card: type, attribute, ATK/DEF, level, archetype, sets, rarities, formats; TCGplayer/eBay/Amazon prices as USD facts | EUR (Cardmarket market price) | provider terms (no image hotlinking: no media stored) | — | incremental |
+| `steam_store` | Mercaria's reader of Steam's store search: the top 10,000 games in relevance order for the market, with release date, review summary, platforms, tags and the discount. **Extraction**, robots.txt checked every pass; free games skipped | EUR for ES (minor units from the store) | provider terms | — | incremental |
 
 ### Demand: the reference source fetches what the prices need
 

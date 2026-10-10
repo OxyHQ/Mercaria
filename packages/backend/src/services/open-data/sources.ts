@@ -33,6 +33,8 @@ import { GOG_PROVIDER } from './providers/gog.js';
 import { OPEN_PRICES_PROVIDER } from './providers/open-prices.js';
 import { SCRYFALL_PROVIDER } from './providers/scryfall.js';
 import { SHOPIFY_STOREFRONT_PROVIDER } from './providers/shopify-storefront.js';
+import { STEAM_STORE_PROVIDER } from './providers/steam-store.js';
+import { YGOPRODECK_PROVIDER } from './providers/ygoprodeck.js';
 import { TCGDEX_PROVIDER } from './providers/tcgdex.js';
 import { OPEN_DATA_USER_AGENT } from './http.js';
 
@@ -226,6 +228,38 @@ const selfPricedSources: DeclaredOpenDataSource[] = [
     freshnessTtlSeconds: 3 * DAY,
     pageSize: 50,
     rights: { ...providerTermsRights('https://tcgdex.dev'), mayDisplayPrice: true, mayLinkOut: false, maySeedCatalog: true },
+  },
+  {
+    name: 'YGOPRODeck · Yu-Gi-Oh! (ES)',
+    provider: YGOPRODECK_PROVIDER,
+    accountRef: null,
+    merchant: cardMarket,
+    territories: ['ES'],
+    fetchCadenceSeconds: DAY,
+    freshnessTtlSeconds: 3 * DAY,
+    pageSize: 100,
+    rights: { ...providerTermsRights('https://ygoprodeck.com/api-guide/'), mayDisplayPrice: true, mayLinkOut: false, maySeedCatalog: true },
+  },
+  {
+    name: 'Steam (ES)',
+    provider: STEAM_STORE_PROVIDER,
+    accountRef: null,
+    merchant: { slug: 'steam', name: 'Steam' },
+    territories: ['ES'],
+    fetchCadenceSeconds: DAY,
+    freshnessTtlSeconds: 3 * DAY,
+    pageSize: 100,
+    rights: {
+      ...providerTermsRights('https://store.steampowered.com/subscriber_agreement/'),
+      mayDisplayPrice: true,
+      // The store's own app page, at the store's own price for Spain.
+      mayLinkOut: true,
+      maySeedCatalog: true,
+      // Mercaria's reader of the store's search: a hundred pages a pass.
+      extractionMode: 'robots_respecting',
+      extractionMaxRequestsPerDay: 300,
+      extractionUserAgent: OPEN_DATA_USER_AGENT,
+    },
   },
   {
     name: 'GOG.com (ES)',
