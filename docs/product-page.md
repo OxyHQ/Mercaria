@@ -355,7 +355,7 @@ listing id. It is available in the desktop merchant header and beside the
 mobile Save/Share controls, including secondhand listings. Guests see the
 existing Oxy sign-in action; no report is submitted without authentication.
 Store policies and **Report store** remain in the store page's own menu.
-**Contact store** reads the store's public locations from `/public/v1`, then
+**Contact store**, also available from the store menu, reads the store's public locations from `/public/v1`, then
 uses the official GoWay SDK to show each place's published phone, email,
 website and formatted address in the shared Bloom marketplace sheet. Opening
 it refreshes both reads and checks the current active place's trusted

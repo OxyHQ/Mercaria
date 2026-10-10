@@ -966,3 +966,9 @@ browser cases at 390/1440px pass. Browser tests vary only collection metadata;
 the synchronized file ID and delivered image bytes come from the real local
 catalog. Local read-only census found two collections, neither carrying an
 image; no historical data or production database was rewritten.
+
+The same public-contact sheet is also reachable from the store menu. Desktop
+English and mobile Arabic browser scenarios now check the nested Bloom sheet:
+Escape closes contact and returns focus to its menu row; a second Escape closes
+the store menu. Both pass, along with frontend types and lint. No second contact
+store or private profile lookup was introduced.

@@ -1,5 +1,5 @@
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { merchantImageSource, resolveStoredImageUrl, resolveCatalogImage } from "@mercaria/ui";
+import { merchantImageSource, resolveStoredImageUrl, resolveCatalogImage, ShopDetailIcon } from "@mercaria/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import {
@@ -38,6 +38,8 @@ import {
 } from "@mercaria/ui";
 import type { Collection, StoreSummary, Review, ReviewHelpfulness } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
+import { StoreContactDialog } from "@/components/store/StoreContactDialog";
+import { useStoreLocations } from "@/lib/hooks/use-visit-us";
 import { useStoreReviews } from "@/lib/hooks/use-store";
 import { REVIEW_SCOPE_HEADING_KEYS, useReviewHelpfulness } from "@/lib/hooks/use-reviews";
 import { ReviewHelpfulButton } from "@/components/reviews/ReviewHelpfulButton";
@@ -501,6 +503,7 @@ function MenuPage({
   onSelectCollection,
   onOpenReviews,
   onOpenPolicy,
+  onContact,
   onReport,
 }: {
   store: StoreSummary;
@@ -509,6 +512,7 @@ function MenuPage({
   onSelectCollection: (id?: string) => void;
   onOpenReviews: () => void;
   onOpenPolicy: (page: PolicyPage) => void;
+  onContact: () => void;
   onReport: () => void;
 }) {
   const resolveImage = useImageResolver();
@@ -519,6 +523,8 @@ function MenuPage({
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
   const hasReviews = store.reviewCount > 0;
+  const locations = useStoreLocations(store.id);
+  const hasContact = locations.isError || (locations.data?.length ?? 0) > 0;
 
   return (
     <ScrollView
@@ -655,6 +661,11 @@ function MenuPage({
         </View>
       ) : null}
 
+      {hasContact ? <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
+        <PolicyRow label={t("store.contact.title", { store: store.name })} toneColor={toneColor}
+          icon={<ShopDetailIcon name="shopChat" size={ROW_ICON_SIZE} color={toneColor} />} onPress={onContact} />
+      </View> : null}
+
       {/* ---- Report store ---- */}
       <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
         <PolicyRow
@@ -700,6 +711,7 @@ export function StoreMenuSheet({
 }: StoreMenuSheetProps) {
   const { t } = useTranslation();
   const reportControl = useDialogControl();
+  const [contactOpen, setContactOpen] = useState(false);
   const shareLink = useShareLink(
     store.name,
     `/stores/${encodeURIComponent(store.handle)}`,
@@ -776,6 +788,7 @@ export function StoreMenuSheet({
   // Dismiss the sheet AND reset the internal stack to the menu root, so the
   // next open starts fresh at the menu rather than on a lingering sub-page.
   const handleClose = () => {
+    setContactOpen(false);
     setStack(["menu"]);
     onClose();
   };
@@ -876,6 +889,7 @@ export function StoreMenuSheet({
             onSelectCollection={onSelectCollection}
             onOpenReviews={() => push("reviews")}
             onOpenPolicy={push}
+            onContact={() => setContactOpen(true)}
             onReport={() => reportControl.open()}
           />
         ) : current === "reviews" ? (
@@ -909,6 +923,7 @@ export function StoreMenuSheet({
           </ScrollView>
         )}
       </View>
+      <StoreContactDialog key={store.id} storeId={store.id} storeName={store.name} open={contactOpen && open} onClose={() => setContactOpen(false)} />
       <AbuseReportDialog
         reportedType="store"
         reportedId={store.id}

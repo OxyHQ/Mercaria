@@ -79,7 +79,16 @@ for (const [width, locale] of [[1440, 'en'], [390, 'ar']] as const) {
     await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
     published = false; await page.reload();
     await trigger.click(); await expect(page.getByRole('menuitem', { name: title, exact: true })).toHaveCount(0);
-    expect(reads).toBeGreaterThanOrEqual(4); expect(reads).toBeLessThan(12);
+    published = true; place.capabilities[0].value = 'contact-location';
+    await page.goto(`/stores/${store.handle}`);
+    await page.getByRole('button', { name: copy.store.menu.openLabel.replace('%{store}', store.name), exact: true }).click();
+    const storeContact = page.getByRole('button', { name: title, exact: true });
+    await storeContact.click();
+    await expect(dialog.getByRole('link', { name: place.contact.phone, exact: true })).toBeVisible();
+    await page.keyboard.press('Escape'); await expect(dialog).toHaveCount(0);
+    await expect(storeContact).toBeFocused();
+    await page.keyboard.press('Escape'); await expect(storeContact).toHaveCount(0);
+    expect(reads).toBeGreaterThanOrEqual(5); expect(reads).toBeLessThan(12);
     expect(writes).toEqual([]); expect(leakedHeaders).toEqual([]); expect(errors).toEqual([]);
   });
 }
