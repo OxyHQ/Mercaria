@@ -67,6 +67,28 @@ export type DatabaseOrTransaction = Database | Transaction;
 let db: Database | null = null;
 let client: postgres.Sql | null = null;
 
+/** `date`, `timestamp` and `timestamptz` — the types a JS `Date` is inferred as. */
+const DATE_TYPE_OIDS = [1082, 1114, 1184] as const;
+
+/**
+ * Send a raw `Date` bound inside a `sql` template as its ISO instant.
+ *
+ * drizzle replaces postgres.js's date serializers with the identity, because its
+ * column mappers already hand the driver strings. A `Date` interpolated straight
+ * into `sql` bypasses those mappers, and postgres.js on Node then throws
+ * (`The "string" argument must be of type string … Received an instance of
+ * Date`) — which stopped the ingestion dispatcher's claim on every tick the
+ * first time it ran in production. A string still passes through untouched, so
+ * every value drizzle maps is sent exactly as before.
+ * `raw-date-params.realdb.test.ts` pins it.
+ */
+function serializeRawDates(sqlClient: postgres.Sql): void {
+  for (const oid of DATE_TYPE_OIDS) {
+    sqlClient.options.serializers[oid] = (value: unknown) =>
+      value instanceof Date ? value.toISOString() : value;
+  }
+}
+
 /**
  * Open the connection pool. Call once during startup, before serving traffic.
  *
@@ -94,6 +116,8 @@ export async function connectPostgres(): Promise<Database> {
       onnotice: (notice) => log.general.debug({ notice: notice.message }, 'Postgres notice'),
     },
   });
+
+  serializeRawDates(instance.client);
 
   // postgres.js connects lazily, so constructing the pool proves nothing. Issue
   // a real round trip here so an unreachable or misconfigured database fails
