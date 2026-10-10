@@ -184,6 +184,9 @@ function LocationEditorBody({ storeId, locationId }: { storeId: string; location
               oxyAccountId={store.oxyAccountId}
               claim={claim}
               claimsUnreadable={claims.isError}
+              claimsPending={claims.isPending}
+              claimsFetching={claims.isFetching}
+              onRetryClaims={() => { void claims.refetch(); }}
             />
             <StoreLinkCard place={place.data} locationId={location.id} />
             <PlaceHoursCard key={`hours-${place.data.id}`} place={place.data} />
