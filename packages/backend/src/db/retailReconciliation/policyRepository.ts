@@ -150,7 +150,7 @@ export async function activateRetailReconciliationPolicy(
     .from(retailReconciliationPolicies)
     .where(eq(retailReconciliationPolicies.id, input.id))
     .limit(1);
-  if (!draft || draft.status !== 'draft') return undefined;
+  if (draft?.status !== 'draft') return undefined;
 
   await db
     .update(retailReconciliationPolicies)

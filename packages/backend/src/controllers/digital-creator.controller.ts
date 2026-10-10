@@ -619,7 +619,7 @@ export async function bindAssetVariantHandler(req: Request, res: Response): Prom
     const variant = await findVariantById(body.variantId);
     if (!variant) throw notFound('No such variant');
     const listing = await findListingById(variant.listingId);
-    if (!listing || listing.ownerType !== 'store' || listing.storeId !== storeId) {
+    if (listing?.ownerType !== 'store' || listing.storeId !== storeId) {
       throw notFound('No such variant');
     }
 

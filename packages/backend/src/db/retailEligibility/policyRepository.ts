@@ -200,7 +200,7 @@ export async function activateRetailEligibilityPolicy(
   const at = input.at ?? new Date();
   return await db.transaction(async (tx) => {
     const draft = await findRetailEligibilityPolicyById(tx, input.id);
-    if (!draft || draft.status !== 'draft') return undefined;
+    if (draft?.status !== 'draft') return undefined;
 
     await tx
       .update(retailEligibilityPolicies)

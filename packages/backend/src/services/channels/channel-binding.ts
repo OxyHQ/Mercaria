@@ -94,7 +94,7 @@ export async function resolveChannelBinding(input: {
     .from(merchants)
     .where(eq(merchants.id, link.merchantId))
     .limit(1);
-  if (!merchant || merchant.claimState !== 'claimed') {
+  if (merchant?.claimState !== 'claimed') {
     return { bound: false, gap: 'merchant_not_claimed' };
   }
 

@@ -74,7 +74,7 @@ function priceWarnings(
   const segment = guidance.segments.find(
     (candidate) => candidate.kind === 'current_same_condition',
   );
-  if (!segment || segment.state !== 'available') return [];
+  if (segment?.state !== 'available') return [];
   // Guidance is composed in a currency the caller asked for; a price in another
   // one is not comparable and produces no warning rather than a wrong one.
   if (draft.priceCurrency !== guidance.currency) return [];

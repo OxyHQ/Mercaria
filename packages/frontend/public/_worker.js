@@ -176,7 +176,7 @@ async function fetchResolution(apiOrigin, url) {
     });
     if (!response.ok) return null;
     const body = await response.json();
-    const payload = body && body.data;
+    const payload = body?.data;
     return payload && typeof payload.outcome === 'string' ? payload : null;
   } catch {
     return null;
@@ -201,7 +201,7 @@ const assetWorker = {
     const url = new URL(request.url);
     const pathname = url.pathname;
     const extension = getExtension(pathname);
-    const apiOrigin = (env && env.SEO_API_ORIGIN) || '';
+    const apiOrigin = env?.SEO_API_ORIGIN || '';
 
     /**
      * `robots.txt` and the sitemaps come from the API, which renders them from

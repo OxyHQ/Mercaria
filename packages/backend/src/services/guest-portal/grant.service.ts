@@ -348,7 +348,7 @@ export async function recordContactVerification(input: {
       .from(guestCheckouts)
       .where(eq(guestCheckouts.checkoutGroupId, input.checkoutGroupId))
       .limit(1);
-    if (!current || current.stage !== 'pending') return;
+    if (current?.stage !== 'pending') return;
 
     await setGuestCheckoutVerificationStage(
       db,

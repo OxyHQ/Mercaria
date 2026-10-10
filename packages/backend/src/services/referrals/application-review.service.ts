@@ -347,7 +347,7 @@ export function enrollmentEarnsProductionRewards(partner: { enrollmentMode: stri
   // An UNRECOGNISED mode blocks. The column's CHECK makes one unreachable, and
   // the fail-closed reading is the only safe one for a question whose `true`
   // sends somebody money.
-  return rule !== undefined && rule.earnsProductionRewards;
+  return rule?.earnsProductionRewards === true;
 }
 
 async function requirePartner(

@@ -169,7 +169,7 @@ async function publicCollectionById(
     throw notFound(COLLECTION_NOT_FOUND);
   }
   const store = await findStoreById(collection.storeId);
-  if (!store || store.status !== 'active') throw gone(COLLECTION_GONE);
+  if (store?.status !== 'active') throw gone(COLLECTION_GONE);
   if (!collection.isPublished) throw gone(COLLECTION_GONE);
   return { collection, store };
 }
@@ -329,7 +329,7 @@ export async function getPublicProduct(
   let store: StoreRow | undefined;
   if (row.ownerType === 'store') {
     store = (row.storeId ? await findStoreById(row.storeId) : null) ?? undefined;
-    if (!store || store.status !== 'active') throw gone(PRODUCT_GONE);
+    if (store?.status !== 'active') throw gone(PRODUCT_GONE);
   }
   if (row.status !== 'active' && row.status !== 'sold') throw gone(PRODUCT_GONE);
 
@@ -454,7 +454,7 @@ async function publicLocationById(
     throw notFound(LOCATION_NOT_FOUND);
   }
   const store = await findStoreById(row.storeId);
-  if (!store || store.status !== 'active') throw gone(LOCATION_GONE);
+  if (store?.status !== 'active') throw gone(LOCATION_GONE);
   if (row.publicationState !== 'published' || row.restricted || !row.locationActive)
     throw gone(LOCATION_GONE);
   const vouched = vouchedLocation(

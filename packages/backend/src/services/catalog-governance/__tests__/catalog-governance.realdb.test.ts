@@ -73,9 +73,7 @@ async function expectTriggerRefusal(
     raised = error;
   }
   expect(raised, `${what}: the statement SUCCEEDED — the trigger did not fire`).toBeDefined();
-  const causeMessage = String(
-    ((raised as { cause?: { message?: string } }).cause ?? {}).message ?? '',
-  );
+  const causeMessage = String((raised as { cause?: { message?: string } }).cause?.message ?? '');
   expect(causeMessage, `${what}: refused, but not by the expected trigger`).toMatch(pattern);
 }
 

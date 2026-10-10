@@ -135,7 +135,7 @@ export async function activatePricingPolicy(
       .from(digitalRetailPricingPolicies)
       .where(eq(digitalRetailPricingPolicies.id, policyId))
       .limit(1);
-    if (!draft || draft.status !== 'draft') return null;
+    if (draft?.status !== 'draft') return null;
 
     await db
       .update(digitalRetailPricingPolicies)

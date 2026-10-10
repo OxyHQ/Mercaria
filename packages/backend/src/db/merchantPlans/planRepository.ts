@@ -166,7 +166,7 @@ export async function activateMerchantPlan(
       .where(eq(merchantPlans.id, input.id))
       .limit(1)
       .for('update');
-    if (!current || current.status !== 'draft') return { outcome: 'not_a_draft' };
+    if (current?.status !== 'draft') return { outcome: 'not_a_draft' };
 
     const postponed = await tx
       .select({ capabilityKey: planEntitlements.capabilityKey })

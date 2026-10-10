@@ -178,7 +178,7 @@ export async function reserve(variantId: string, qty: number, locationId?: strin
 async function maybeAlertLowStock(variantId: string, listingId: string): Promise<void> {
   try {
     const variant = await findVariantById(variantId);
-    if (!variant || !variant.inventoryTracked) {
+    if (!variant?.inventoryTracked) {
       return;
     }
     if (variant.inventoryAvailable > config.orders.lowStockThreshold) {
@@ -186,7 +186,7 @@ async function maybeAlertLowStock(variantId: string, listingId: string): Promise
     }
 
     const listing = await findListingById(listingId);
-    if (!listing || listing.ownerType !== 'store' || !listing.storeId) {
+    if (listing?.ownerType !== 'store' || !listing.storeId) {
       return;
     }
 

@@ -619,7 +619,7 @@ function extractTargets(source, file) {
     pattern.lastIndex = 0;
     let match;
     while ((match = pattern.exec(source)) !== null) {
-      if (skip && skip(match)) continue;
+      if (skip?.(match)) continue;
       const line = lineOf(source, match.index);
       const literals = readLiterals(source, match.index + match[0].length);
       if (literals.length === 0) {

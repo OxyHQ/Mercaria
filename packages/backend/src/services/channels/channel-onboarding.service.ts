@@ -436,7 +436,7 @@ export async function deriveActivationBlockers(
 
   if (row.connectionId !== null) {
     const connection = await findConnection(row.storeId, row.connectionId);
-    if (!connection || connection.status !== 'connected') {
+    if (connection?.status !== 'connected') {
       blockers.push('connection_not_connected');
     } else if (!settingsAreSupported(row.channelType, connection)) {
       blockers.push('unsupported_direction');

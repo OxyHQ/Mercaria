@@ -390,7 +390,7 @@ export async function planRetailCheckout<TLine>(
     // suspended supplier or a withdrawn destination all land here rather than
     // at the supplier's own API.
     const offer = await findProcurementOfferById(binding.procurementOfferId, input.db);
-    if (!offer || offer.status !== 'active') refuseRetail('binding_inactive', binding.id);
+    if (offer?.status !== 'active') refuseRetail('binding_inactive', binding.id);
     if (!offer.eligibleDestinationCountries.includes(destinationCountry)) {
       refuseRetail('destination_unsupported', binding.id);
     }

@@ -69,7 +69,7 @@ async function expectRefusal(run: Promise<unknown>, pattern: RegExp, what: strin
     raised = error;
   }
   expect(raised, `${what}: the statement SUCCEEDED — nothing refused it`).toBeDefined();
-  const cause = String(((raised as { cause?: { message?: string } }).cause ?? {}).message ?? '');
+  const cause = String((raised as { cause?: { message?: string } }).cause?.message ?? '');
   expect(cause, `${what}: refused, but not by the expected rule (cause: ${cause})`).toMatch(
     pattern,
   );

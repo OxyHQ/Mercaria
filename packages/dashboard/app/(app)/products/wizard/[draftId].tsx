@@ -398,9 +398,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                 {t('products.wizard.publish.publish')}
               </Button>
             </View>
-            {wizard.validation !== null &&
-            wizard.validation.publishable &&
-            findings.length === 0 ? (
+            {wizard.validation?.publishable && findings.length === 0 ? (
               <Text className="text-sm text-muted-foreground">
                 {t('products.wizard.publish.readyToPublish')}
               </Text>

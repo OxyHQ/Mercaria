@@ -196,7 +196,7 @@ export async function activateFeeSchedule(
       .where(eq(feeSchedules.id, input.id))
       .limit(1)
       .for('update');
-    if (!current || current.status !== 'draft') return undefined;
+    if (current?.status !== 'draft') return undefined;
 
     await tx
       .update(feeSchedules)
