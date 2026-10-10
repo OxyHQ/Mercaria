@@ -621,14 +621,17 @@ catalogue autopilot converges them and cycles the backfill stages.
 
 - **Reference seeding runs unattended (ADR 0014, 0015).** The autopilot's cycle
   includes `reference_products` → `source_readvance` → `reference_promotion`.
-  MITECO fuel, CheapShark, GOG, Scryfall and TCGdex are registered but not yet
-  declared as sources: none carries a GTIN, so nothing they ingest could become
-  a product until the identity below exists. Seeded products carry
+  Since ADR 0016 a source seeds by its own product key too: Scryfall, TCGdex,
+  GOG and fifteen Spanish Shopify stores (`shopify_storefront`, Mercaria's own
+  robots-respecting extraction provider) are declared. MITECO fuel and
+  CheapShark (USD) are registered but not declared. Products are not joined
+  across sources; that is #59's merge. Seeded products carry
   no category, no brand and no images yet. The brand hint and the Open Facts
   photos are in the observation's payload, and mapping them is the next step.
   Facts are stored, not yet mapped onto the attribute registry (#94).
-- **Non-GTIN sources** (games, cards, fuel) need a stable cross-source
-  identity before they can match; Wikidata QIDs are the candidate.
+- **Cross-source identity for non-GTIN products** (the same game on GOG and
+  Steam) is not built; each source seeds its own product (ADR 0016). Wikidata
+  QIDs are the candidate join key; until then #59 merges by hand.
 - **Storefront attribution is BUILT.** A product-page row from an open-data
   provider carries `source` (name, licence label, the day the source saw the
   price), and `OfferRow` renders "Price seen on {date}" in place of a dead

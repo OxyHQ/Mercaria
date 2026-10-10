@@ -155,6 +155,8 @@ export function toItems(card: Readonly<Record<string, unknown>>, language: strin
       title,
       identifiers: [],
       options: [{ name: 'Finish', value: finish.label }],
+      // One card, its finishes as variants (ADR 0016).
+      productGroupKey: id,
       media: image === undefined ? [] : [`${image}/high.webp`],
       merchantHint: 'Cardmarket',
       brandHint: 'Pokémon TCG',

@@ -141,6 +141,12 @@ export interface OpenDataProvider {
   readonly accountRefMeaning: string | null;
   /** Whether a source of this provider MUST name a sub-feed. */
   readonly accountRefRequired: boolean;
+  /**
+   * True for a provider that READS A SITE rather than an API offered for reuse
+   * (a Shopify store's `/products.json`). #62 then refuses it unless the
+   * source's policy grants extraction, and the provider checks robots.txt.
+   */
+  readonly extraction?: boolean;
   /** The refresh modes this provider can honestly perform (#68 scheduler 1). */
   readonly refreshModes: readonly CatalogRefreshMode[];
   /**
