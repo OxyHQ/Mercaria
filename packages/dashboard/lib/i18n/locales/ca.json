@@ -1405,6 +1405,21 @@
       "notice": "Les fotos són públiques i pertanyen a la teva botiga. Treure-les aquí només elimina la referència en desar.",
       "position": "Foto %{position}",
       "remove": "Treure foto %{position}"
+    },
+    "media": {
+      "add": "Afegeix fitxers",
+      "prompt": "Selecciona una foto o un vídeo",
+      "uploading": "S’està pujant el fitxer",
+      "uploaded": "Fitxer pujat",
+      "invalid": "Fotos de fins a 20 MB; vídeos MP4 de fins a 40 MB.",
+      "failed": "No s’ha pogut afegir el fitxer. Revisa’l i torna-ho a provar.",
+      "notice": "Els fitxers són públics i pertanyen a la teva botiga. Eliminar un element només el desvincula en desar.",
+      "position": "Fitxer %{position}",
+      "remove": "Elimina el fitxer %{position}",
+      "viewVideo": "Mostra el vídeo %{position}",
+      "video": "Vídeo",
+      "unavailable": "No s’ha pogut carregar aquest vídeo.",
+      "title": "Fotos i vídeos"
     }
   },
   "settings": {

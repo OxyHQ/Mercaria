@@ -1387,6 +1387,21 @@
       "notice": "Fotos sind öffentlich und gehören deinem Shop. Entfernen löscht beim Speichern nur den Verweis.",
       "position": "Foto %{position}",
       "remove": "Foto %{position} entfernen"
+    },
+    "media": {
+      "add": "Medien hinzufügen",
+      "prompt": "Foto oder Video auswählen",
+      "uploading": "Medien werden hochgeladen",
+      "uploaded": "Medien hochgeladen",
+      "invalid": "Fotos bis 20 MB; MP4-Videos bis 40 MB.",
+      "failed": "Die Datei konnte nicht hinzugefügt werden. Prüfe sie und versuche es erneut.",
+      "notice": "Medien sind öffentlich und gehören deinem Shop. Das Entfernen eines Elements löst beim Speichern nur seine Verknüpfung.",
+      "position": "Medium %{position}",
+      "remove": "Medium %{position} entfernen",
+      "viewVideo": "Video %{position} ansehen",
+      "video": "Video",
+      "unavailable": "Dieses Video konnte nicht geladen werden.",
+      "title": "Fotos und Videos"
     }
   },
   "settings": {

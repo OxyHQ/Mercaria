@@ -1387,6 +1387,21 @@
       "notice": "写真は公開され、ストアに属します。ここで削除しても、保存時に参照だけが削除されます。",
       "position": "写真 %{position}",
       "remove": "写真 %{position} を削除"
+    },
+    "media": {
+      "add": "メディアを追加",
+      "prompt": "写真または動画を選択",
+      "uploading": "メディアをアップロード中",
+      "uploaded": "メディアをアップロードしました",
+      "invalid": "写真は20 MBまで、MP4動画は40 MBまで。",
+      "failed": "ファイルを追加できませんでした。確認して再試行してください。",
+      "notice": "メディアは公開され、ストアが所有します。削除すると保存時に関連付けのみが解除されます。",
+      "position": "メディア %{position}",
+      "remove": "メディア %{position} を削除",
+      "viewVideo": "動画 %{position} を見る",
+      "video": "動画",
+      "unavailable": "この動画を読み込めませんでした。",
+      "title": "写真と動画"
     }
   },
   "settings": {

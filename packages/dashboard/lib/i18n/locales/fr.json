@@ -1405,6 +1405,21 @@
       "notice": "Les photos sont publiques et appartiennent à votre boutique. Les retirer ici supprime uniquement leur référence à l’enregistrement.",
       "position": "Photo %{position}",
       "remove": "Retirer la photo %{position}"
+    },
+    "media": {
+      "add": "Ajouter un média",
+      "prompt": "Sélectionnez une photo ou une vidéo",
+      "uploading": "Importation du média",
+      "uploaded": "Média importé",
+      "invalid": "Photos jusqu’à 20 Mo ; vidéos MP4 jusqu’à 40 Mo.",
+      "failed": "Impossible d’ajouter le média. Vérifiez le fichier et réessayez.",
+      "notice": "Les médias sont publics et appartiennent à votre boutique. Supprimer un élément retire uniquement son association lors de l’enregistrement.",
+      "position": "Média %{position}",
+      "remove": "Supprimer le média %{position}",
+      "viewVideo": "Voir la vidéo %{position}",
+      "video": "Vidéo",
+      "unavailable": "Impossible de charger cette vidéo.",
+      "title": "Photos et vidéos"
     }
   },
   "settings": {

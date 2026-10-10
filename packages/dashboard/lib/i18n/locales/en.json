@@ -1387,6 +1387,21 @@
       "notice": "Photos are public and belong to your store. Removing a photo here only removes its reference when you save.",
       "position": "Photo %{position}",
       "remove": "Remove photo %{position}"
+    },
+    "media": {
+      "add": "Add media",
+      "prompt": "Select a photo or video",
+      "uploading": "Uploading media",
+      "uploaded": "Media uploaded",
+      "invalid": "Photos up to 20 MB; MP4 videos up to 40 MB.",
+      "failed": "Could not add the media. Check the file and try again.",
+      "notice": "Media is public and belongs to your store. Removing an item only detaches it when you save.",
+      "position": "Media %{position}",
+      "remove": "Remove media %{position}",
+      "viewVideo": "View video %{position}",
+      "video": "Video",
+      "unavailable": "This video could not be loaded.",
+      "title": "Media"
     }
   },
   "settings": {

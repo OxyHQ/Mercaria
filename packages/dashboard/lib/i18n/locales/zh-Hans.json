@@ -1387,6 +1387,21 @@
       "notice": "照片公开且属于您的商店。在此移除仅会在保存时删除引用。",
       "position": "照片 %{position}",
       "remove": "移除照片 %{position}"
+    },
+    "media": {
+      "add": "添加媒体",
+      "prompt": "选择照片或视频",
+      "uploading": "正在上传媒体",
+      "uploaded": "媒体已上传",
+      "invalid": "照片最大 20 MB；MP4 视频最大 40 MB。",
+      "failed": "无法添加媒体。请检查文件后重试。",
+      "notice": "媒体为公开内容，归您的商店所有。移除项目只会在保存时解除关联。",
+      "position": "媒体 %{position}",
+      "remove": "移除媒体 %{position}",
+      "viewVideo": "查看视频 %{position}",
+      "video": "视频",
+      "unavailable": "无法加载此视频。",
+      "title": "照片和视频"
     }
   },
   "settings": {

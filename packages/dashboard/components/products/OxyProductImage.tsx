@@ -7,14 +7,14 @@ import { isOxyFileId } from "@mercaria/shared-types";
 import { useColorScheme, useSharedUiTranslation } from "@mercaria/ui";
 
 /** Product media only enters through an opaque Oxy ID, never a stored URL. */
-export function OxyProductImage({ fileId, alt, size }: { fileId?: string; alt: string; size: number }) {
+export function OxyProductImage({ fileId, alt, size, thumbnailOnly = false }: { fileId?: string; alt: string; size: number; thumbnailOnly?: boolean }) {
   const resolveImage = useImageResolver();
   const { colors } = useColorScheme();
   const uiT = useSharedUiTranslation();
   const [failed, setFailed] = useState<readonly string[]>([]);
   const id = isOxyFileId(fileId) ? fileId : undefined;
   const thumbnail = id ? resolveImage?.(id, "thumb") : undefined;
-  const original = id ? resolveImage?.(id) : undefined;
+  const original = id && !thumbnailOnly ? resolveImage?.(id) : undefined;
   // A missing rendition must not hide a valid original of the SAME Oxy file.
   const uri = [thumbnail, original].find(candidate => candidate && !failed.includes(candidate));
   return <View style={{ width: size, height: size }} className="items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">

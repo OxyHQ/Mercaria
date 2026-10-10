@@ -132,6 +132,7 @@
         "expo-splash-screen": "~56.0.13",
         "expo-status-bar": "~56.0.4",
         "expo-system-ui": "~56.0.5",
+        "expo-video": "~56.1.4",
         "expo-web-browser": "~56.0.5",
         "i18n-js": "^4.5.3",
         "lightningcss": "1.30.1",

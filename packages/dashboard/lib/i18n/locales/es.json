@@ -1405,6 +1405,21 @@
       "notice": "Las fotos son públicas y pertenecen a tu tienda. Quitarlas aquí sólo elimina su referencia al guardar.",
       "position": "Foto %{position}",
       "remove": "Quitar foto %{position}"
+    },
+    "media": {
+      "add": "Añadir medios",
+      "prompt": "Selecciona una foto o un vídeo",
+      "uploading": "Subiendo archivo",
+      "uploaded": "Archivo subido",
+      "invalid": "Fotos de hasta 20 MB; vídeos MP4 de hasta 40 MB.",
+      "failed": "No se pudo añadir el archivo. Revísalo e inténtalo de nuevo.",
+      "notice": "Los archivos son públicos y pertenecen a tu tienda. Eliminar un elemento sólo lo desvincula al guardar.",
+      "position": "Archivo %{position}",
+      "remove": "Eliminar archivo %{position}",
+      "viewVideo": "Ver vídeo %{position}",
+      "video": "Vídeo",
+      "unavailable": "No se pudo cargar este vídeo.",
+      "title": "Fotos y vídeos"
     }
   },
   "settings": {
