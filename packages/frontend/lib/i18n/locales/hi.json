@@ -1220,6 +1220,15 @@
       "collectHere": "ऑनलाइन ऑर्डर करें, यहाँ से लें",
       "placeRatingSubject": "GoWay पर %{place}",
       "photoLabel": "%{place} की फ़ोटो"
+    },
+    "contact": {
+      "title": "%{store} से संपर्क करें",
+      "unavailable": "संपर्क जानकारी लोड नहीं हो सकी।",
+      "empty": "इस स्टोर ने संपर्क जानकारी प्रकाशित नहीं की है।",
+      "website": "वेबसाइट",
+      "copy": "%{value} कॉपी करें",
+      "copied": "कॉपी किया गया",
+      "copyFailed": "कॉपी नहीं हो सका। फिर कोशिश करें।"
     }
   },
   "offer": {

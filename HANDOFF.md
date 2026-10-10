@@ -925,3 +925,27 @@ flexible row. Before the correction an ordinary 83-character title widened a
 including an unbroken option value, full title retention, visible price and zero
 writes. Dashboard types and RTL checks pass. This is independent of the archive
 dialog's pending upstream Bloom keyboard fix.
+
+## Public store contact sheet — 2026-10-10
+
+Listing More actions now exposes contact for stores with published locations.
+The Bloom marketplace sheet reads public Mercaria locations and official GoWay
+SDK place facts, refreshed on each opening. It checks the current active place's
+trusted location backlink before displaying phone, email, website or address;
+a revoked link hides them and an outage offers retry. Person-to-person listings
+and stores without published locations do not gain invented contacts. Clipboard
+success/failure is visible; cancellation reaches both public read transports.
+Private store-admin/Oxy profile data is never a source.
+
+Validation: frontend/UI types, 153 frontend unit tests, frontend lint (zero
+errors/five existing warnings), i18n, RTL and route gates pass. Two browser
+scenarios pass at desktop English/mobile Arabic with actual clipboard reads,
+keyboard focus restoration, an outage/retry and a revoked backlink. Only public
+location/GoWay metadata is varied; listing data and image delivery remain real.
+This does not prove a live merchant's authenticated GoWay contact publication.
+
+The extra bidi guard exposed a stale test assumption: ICU 78.3 resolves bare
+`ar` to Latin digits. The formatter already follows Intl correctly. The guard
+now covers exact Arabic-Indic output for `ar-EG` and `ar-u-nu-arab`, exact Latin
+output for `ar-u-nu-latn`, and the runtime's CLDR default for bare `ar`, retaining
+isolation assertions. No production formatter behavior was changed.

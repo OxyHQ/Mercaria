@@ -523,7 +523,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                   reviewCount={identity.reviewCount}
                   renderLink={renderMerchantLink}
                   visitLabel={visitLabel}
-                  moreAction={<ProductActionsMenu listingId={listing.id} title={listing.title} />}
+                  moreAction={<ProductActionsMenu key={listing.id} listingId={listing.id} title={listing.title} store={listing.store} />}
                   size="compact"
                 />
               </View> : null}
@@ -561,7 +561,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                   ) : null}
                 </View>
                 {!desktopNavigation ? (
-                  <ProductActionsMenu listingId={listing.id} title={listing.title} outlined />
+                  <ProductActionsMenu key={listing.id} listingId={listing.id} title={listing.title} store={listing.store} outlined />
                 ) : null}
               </View>
 

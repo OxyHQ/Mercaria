@@ -23,7 +23,7 @@ const MAX_PAGES = 4;
  * and no credentials — a pair the browser refuses to combine. This read is
  * public and carries nothing of the shopper.
  */
-export async function fetchStoreLocations(storeId: string): Promise<MercariaLocation[]> {
+export async function fetchStoreLocations(storeId: string, signal?: AbortSignal): Promise<MercariaLocation[]> {
   const locations: MercariaLocation[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < MAX_PAGES; page += 1) {
@@ -31,7 +31,7 @@ export async function fetchStoreLocations(storeId: string): Promise<MercariaLoca
     if (cursor !== null) query.set('cursor', cursor);
     const response = await fetch(
       `${config.apiUrl}${MERCARIA_PUBLIC_API_BASE_PATH}/stores/${encodeURIComponent(storeId)}/locations?${query.toString()}`,
-      { headers: { Accept: 'application/json' }, credentials: 'omit' },
+      { headers: { Accept: 'application/json' }, credentials: 'omit', ...(signal ? { signal } : {}) },
     );
     if (!response.ok) throw new Error(`The store's locations could not be read (${response.status})`);
     const body = MercariaLocationPageSchema.parse(await response.json());

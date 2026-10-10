@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Pressable } from "react-native";
 import { CircleAlert, MoreHorizontal } from "lucide-react-native";
 import {
@@ -7,17 +8,22 @@ import {
   DropdownMenuTrigger,
 } from "@oxy.so/bloom/dropdown-menu";
 import { useDialogControl } from "@oxy.so/bloom/dialog";
-import { Text } from "@mercaria/ui";
+import { ShopDetailIcon, Text } from "@mercaria/ui";
+import { StoreContactDialog } from "@/components/store/StoreContactDialog";
+import { useStoreLocations } from "@/lib/hooks/use-visit-us";
 import { AbuseReportDialog } from "@/components/reports/AbuseReportDialog";
 import { useTranslation } from "@/lib/i18n";
 
 /** Actions belong to the displayed listing, including a person's secondhand item.
- * Contact is omitted until the public catalog carries published contact details.
+ * Contact reads published, bidirectionally linked GoWay places through the SDK.
  * Canonical products are not moderation listing subjects and cannot use this menu.
  */
-export function ProductActionsMenu({ listingId, title, outlined = false }: { listingId: string; title: string; outlined?: boolean }) {
+export function ProductActionsMenu({ listingId, title, store, outlined = false }: { listingId: string; title: string; store?: { id: string; name: string }; outlined?: boolean }) {
   const { t } = useTranslation();
   const reportControl = useDialogControl();
+  const [contactOpen, setContactOpen] = useState(false);
+  const locations = useStoreLocations(store?.id ?? '');
+  const hasContact = store && (locations.isError || (locations.data?.length ?? 0) > 0);
 
   return (
     <>
@@ -33,6 +39,10 @@ export function ProductActionsMenu({ listingId, title, outlined = false }: { lis
           </Pressable>
         </DropdownMenuTrigger>
         <DropdownMenuContent label={t("product.moreActions")} align="end" minWidth={224}>
+          {hasContact ? <DropdownMenuItem leading={<ShopDetailIcon name="shopChat" size={24} className="text-text" />}
+            accessibilityLabel={t('store.contact.title', { store: store.name })} onPress={() => setContactOpen(true)}>
+            <Text className="text-base leading-[22px] tracking-[-0.5px] text-text">{t('store.contact.title', { store: store.name })}</Text>
+          </DropdownMenuItem> : null}
           <DropdownMenuItem
             variant="destructive"
             leading={<CircleAlert size={24} className="text-destructive" />}
@@ -45,6 +55,7 @@ export function ProductActionsMenu({ listingId, title, outlined = false }: { lis
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {store ? <StoreContactDialog key={store.id} storeId={store.id} storeName={store.name} open={contactOpen} onClose={() => setContactOpen(false)} /> : null}
       <AbuseReportDialog
         key={listingId}
         reportedType="listing"

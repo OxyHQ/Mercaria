@@ -1220,6 +1220,15 @@
       "collectHere": "Online bestellen, hier abholen",
       "placeRatingSubject": "%{place} auf GoWay",
       "photoLabel": "Foto von %{place}"
+    },
+    "contact": {
+      "title": "%{store} kontaktieren",
+      "unavailable": "Die Kontaktdaten konnten nicht geladen werden.",
+      "empty": "Dieser Shop hat keine Kontaktdaten veröffentlicht.",
+      "website": "Website",
+      "copy": "%{value} kopieren",
+      "copied": "Kopiert",
+      "copyFailed": "Kopieren fehlgeschlagen. Versuche es erneut."
     }
   },
   "offer": {

@@ -23,9 +23,10 @@ const DISPLAY_FRACTION_DIGITS = 2;
  * ## Every formatter below takes an explicit `locale` (#500)
  *
  * `toFixed` emits an ASCII `.` whatever the reader's language is, which is wrong
- * in eight of the twelve locales the registry ships: `es`, `ca`, `de`, `fr`,
- * `pt-BR` and `ru` separate decimals with a comma, and `ar` and `bn` use their
- * own digits. The `K` abbreviation is English — `ja`/`zh-Hans` abbreviate with
+ * in several locales the registry ships: `es`, `ca`, `de`, `fr`,
+ * `pt-BR` and `ru` separate decimals with a comma; `bn` and regional Arabic
+ * locales such as `ar-EG` use non-Latin digits. Bare `ar` follows the runtime
+ * CLDR default, which can be Latin. The `K` abbreviation is English — `ja`/`zh-Hans` abbreviate with
  * 万 and German does not abbreviate at that magnitude at all.
  *
  * The locale is a REQUIRED parameter rather than an optional one defaulting to

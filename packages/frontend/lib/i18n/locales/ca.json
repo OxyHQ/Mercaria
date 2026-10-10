@@ -1231,6 +1231,15 @@
       "collectHere": "Compra en línia i recull aquí",
       "placeRatingSubject": "%{place} a GoWay",
       "photoLabel": "Foto de %{place}"
+    },
+    "contact": {
+      "title": "Contacta amb %{store}",
+      "unavailable": "No s’ha pogut carregar la informació de contacte.",
+      "empty": "Aquesta botiga no ha publicat informació de contacte.",
+      "website": "Lloc web",
+      "copy": "Copia %{value}",
+      "copied": "Copiat",
+      "copyFailed": "No s’ha pogut copiar. Torna-ho a provar."
     }
   },
   "offer": {

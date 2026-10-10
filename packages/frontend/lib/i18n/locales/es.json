@@ -1231,6 +1231,15 @@
       "collectHere": "Compra online y recoge aquí",
       "placeRatingSubject": "%{place} en GoWay",
       "photoLabel": "Foto de %{place}"
+    },
+    "contact": {
+      "title": "Contactar con %{store}",
+      "unavailable": "No se pudo cargar la información de contacto.",
+      "empty": "Esta tienda no ha publicado información de contacto.",
+      "website": "Sitio web",
+      "copy": "Copiar %{value}",
+      "copied": "Copiado",
+      "copyFailed": "No se pudo copiar. Inténtalo de nuevo."
     }
   },
   "offer": {

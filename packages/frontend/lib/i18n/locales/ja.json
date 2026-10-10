@@ -1220,6 +1220,15 @@
       "collectHere": "オンラインで注文して店舗で受け取り",
       "placeRatingSubject": "GoWayの%{place}",
       "photoLabel": "%{place}の写真"
+    },
+    "contact": {
+      "title": "%{store}に問い合わせる",
+      "unavailable": "連絡先情報を読み込めませんでした。",
+      "empty": "このストアは連絡先情報を公開していません。",
+      "website": "ウェブサイト",
+      "copy": "%{value}をコピー",
+      "copied": "コピーしました",
+      "copyFailed": "コピーできませんでした。もう一度お試しください。"
     }
   },
   "offer": {

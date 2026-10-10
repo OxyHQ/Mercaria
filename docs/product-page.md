@@ -355,8 +355,18 @@ listing id. It is available in the desktop merchant header and beside the
 mobile Save/Share controls, including secondhand listings. Guests see the
 existing Oxy sign-in action; no report is submitted without authentication.
 Store policies and **Report store** remain in the store page's own menu.
-Contact information is not shown because `StoreSummary` has no published
-contact fields; private admin or Oxy account fields are not a substitute.
+**Contact store** reads the store's public locations from `/public/v1`, then
+uses the official GoWay SDK to show each place's published phone, email,
+website and formatted address in the shared Bloom marketplace sheet. Opening
+it refreshes both reads and checks the current active place's trusted
+`commerce.mercaria.store` backlink against the location ID. A revoked link
+shows no contact facts; failures offer retry, not stale contact details.
+Phone/email links and copy controls use the published values. Neither a
+private admin profile nor an Oxy account is a contact source. Stores without
+published locations and person-to-person listings have no contact entry.
+The browser regression varies only public location/GoWay response metadata;
+product images continue through actual Oxy delivery. This is not evidence of
+a production merchant's place publication or contact-edit workflow.
 
 ## Specifications on a listing
 

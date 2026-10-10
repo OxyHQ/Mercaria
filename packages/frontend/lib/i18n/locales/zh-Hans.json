@@ -1220,6 +1220,15 @@
       "collectHere": "在线下单，到店自取",
       "placeRatingSubject": "GoWay 上的%{place}",
       "photoLabel": "%{place}的照片"
+    },
+    "contact": {
+      "title": "联系%{store}",
+      "unavailable": "无法加载联系信息。",
+      "empty": "此商店尚未公布联系信息。",
+      "website": "网站",
+      "copy": "复制%{value}",
+      "copied": "已复制",
+      "copyFailed": "无法复制。请重试。"
     }
   },
   "offer": {

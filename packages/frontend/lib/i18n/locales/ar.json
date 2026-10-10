@@ -1220,6 +1220,15 @@
       "collectHere": "اطلب عبر الإنترنت واستلم من هنا",
       "placeRatingSubject": "%{place} على GoWay",
       "photoLabel": "صورة %{place}"
+    },
+    "contact": {
+      "title": "التواصل مع %{store}",
+      "unavailable": "تعذر تحميل معلومات الاتصال.",
+      "empty": "لم ينشر هذا المتجر معلومات الاتصال.",
+      "website": "الموقع الإلكتروني",
+      "copy": "نسخ %{value}",
+      "copied": "تم النسخ",
+      "copyFailed": "تعذر النسخ. حاول مرة أخرى."
     }
   },
   "offer": {

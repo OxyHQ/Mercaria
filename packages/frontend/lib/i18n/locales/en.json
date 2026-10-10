@@ -1220,6 +1220,15 @@
       "collectHere": "Order online, collect here",
       "placeRatingSubject": "%{place} on GoWay",
       "photoLabel": "Photo of %{place}"
+    },
+    "contact": {
+      "title": "Contact %{store}",
+      "unavailable": "Contact information could not be loaded.",
+      "empty": "This store has not published contact information.",
+      "website": "Website",
+      "copy": "Copy %{value}",
+      "copied": "Copied",
+      "copyFailed": "Could not copy. Try again."
     }
   },
   "offer": {
