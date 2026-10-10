@@ -972,3 +972,19 @@ English and mobile Arabic browser scenarios now check the nested Bloom sheet:
 Escape closes contact and returns focus to its menu row; a second Escape closes
 the store menu. Both pass, along with frontend types and lint. No second contact
 store or private profile lookup was introduced.
+
+## Product return-policy sheet — 2026-10-10
+
+The listing's published merchant policy now opens from Shop's 40px tertiary
+action in an opaque Bloom marketplace sheet instead of printing HTML inside an
+accordion. Existing safe rich-text rendering preserves headings, paragraphs,
+lists and links; plain policies remain selectable. Commercial-mode authority is
+unchanged: only the selected connected-store offer supplies this policy.
+
+Validation: two browser cases at 390/1440px check final sheet geometry, opaque
+paint, authored formatting, script exclusion, keyboard open/close and focus,
+and omission for person/retail offers. The existing policy/share journey also
+passes. Frontend/UI types, frontend lint, 153 frontend unit tests and i18n/RTL/
+route gates pass. Policy metadata alone is varied; catalog images remain actual
+Oxy delivery. Separate nested-contact focus validation is being investigated;
+this policy validation does not establish full Shop parity.

@@ -454,3 +454,13 @@ Each is a named contract that fails closed, not a stub that lies:
 - **#73** — the brand page. This page links to `/brands/:id`; whoever builds that
   route owns it.
 - **#95 / #96** — natural-language intent and grounded comparison.
+
+### Merchant return-policy reader
+
+A selected connected-store offer exposes its published return policy through a
+40px Bloom button and an opaque `MarketplaceSheet`, matching the policy action
+in Shop's public product bundle. The complete authored body uses the existing
+safe rich-text parser/renderer; plain text retains its line breaks. Empty
+policies, person-to-person offers and Mercaria-retail offers do not inherit a
+store policy. No return-window or free-return claim is inferred from prose.
+Shipping remains hidden under the logistics boundary.

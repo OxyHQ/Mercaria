@@ -16,6 +16,8 @@ export interface MarketplaceSheetProps extends PropsWithChildren {
   onClose: () => void;
   title: string;
   testID?: string;
+  /** Authored policy documents use a solid reading surface. */
+  opaque?: boolean;
   headingGap?: 12 | 16;
   scrollRef?: Ref<ScrollView>;
   scrollViewProps?: Omit<ScrollViewProps, "children" | "contentContainerStyle">;
@@ -23,7 +25,7 @@ export interface MarketplaceSheetProps extends PropsWithChildren {
 
 /** Shop's product side-sheet geometry, composed through Bloom's public API.
  * The dialog owns dismissal/focus; the single scroller owns viewport tracking. */
-export function MarketplaceSheet({ open, onClose, title, testID, headingGap = 16, scrollRef, scrollViewProps, children }: MarketplaceSheetProps) {
+export function MarketplaceSheet({ open, onClose, title, testID, opaque = false, headingGap = 16, scrollRef, scrollViewProps, children }: MarketplaceSheetProps) {
   const control = useDialogControl();
   const reducedMotion = useReducedMotion();
   const { width } = useWindowDimensions();
@@ -62,11 +64,11 @@ export function MarketplaceSheet({ open, onClose, title, testID, headingGap = 16
       inset={wide ? { top: 16, bottom: 16, left: 16, right: 16 } : { top: 0, bottom: 0, left: 0, right: 0 }}
       material="flat"
       panelStyle={[surfaceStyle({ curve: "round", radius: wide ? 24 : 0 }), {
-        backgroundColor: Platform.OS === "web"
+        backgroundColor: Platform.OS === "web" && !opaque
           ? (isDarkColorScheme ? "rgba(18,18,18,0.9)" : "rgba(255,255,255,0.9)")
           : (isDarkColorScheme ? "#121212" : "#ffffff"),
       }]}
-      panelClassName="web:backdrop-blur-[9px]"
+      panelClassName={opaque ? undefined : "web:backdrop-blur-[9px]"}
       scrollable={false}
       contentPadding={0}
       testID={testID}

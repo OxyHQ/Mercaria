@@ -50,6 +50,7 @@ import { isOxyFileId, type Listing, type StoreSummary, type Seller } from "@merc
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { ProductDescription } from "@/components/product/ProductDescription";
+import { ProductReturnPolicy } from "@/components/product/ProductReturnPolicy";
 import { ListingSpecifications } from "@/components/product/ListingSpecifications";
 import { PurchasePlanPreview } from "@/components/listing/PurchasePlanPreview";
 import { resolvePurchasePreview } from "@/lib/catalog/purchase-preview";
@@ -386,7 +387,7 @@ function ProductBody({ listing }: ProductBodyProps) {
     : 0;
 
   const refundPolicy = selectedVariant?.commercial?.mode === "connected_marketplace" && selectedVariant.commercial.sellerKind === "store"
-    ? listing.store?.refundPolicy : undefined;
+    ? listing.store?.refundPolicy?.trim() : undefined;
   const maxQuantity = selectedVariant?.available;
   const canAddToCart = selectedVariant !== undefined && selectedVariant.inStock;
   const saveInPurchaseActions = !previewScenario && selectedVariant !== undefined && !selectedVariant.inStock;
@@ -862,9 +863,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 </AccordionItem>
               ) : null}
               <ListingSpecifications identity={selectedVariant ? listing.catalogIdentityByVariant?.[selectedVariant.id] : undefined} />
-              <AccordionItem value="reviews" className={refundPolicy
-                ? isDarkColorScheme ? "border-white/10" : "border-[#183b4e0f]"
-                : "border-0"}>
+              <AccordionItem value="reviews" className="border-0">
                 <AccordionTrigger className="px-0 py-space-16">
                   <View className="flex-row items-center">
                     <Text accessibilityRole="header" className="min-w-0 flex-1 text-shop-subtitle text-text">
@@ -923,21 +922,8 @@ function ProductBody({ listing }: ProductBodyProps) {
                   </View>
                 </AccordionContent>
               </AccordionItem>
-              {refundPolicy ? (
-                <AccordionItem value="returns" className="border-0">
-                  <AccordionTrigger className="px-0 py-space-16">
-                    <Text accessibilityRole="header" className="text-shop-subtitle text-text">
-                      {t("product.returnPolicy")}
-                    </Text>
-                  </AccordionTrigger>
-                  <AccordionContent contentClassName="px-0 pb-space-16">
-                    <Text className="text-shop-bodySmall text-text">
-                      {refundPolicy}
-                    </Text>
-                  </AccordionContent>
-                </AccordionItem>
-              ) : null}
             </Accordion>
+            {refundPolicy ? <ProductReturnPolicy key={listing.id} policy={refundPolicy} /> : null}
 
             {/* Store link card. */}
             {listing.store ? (
