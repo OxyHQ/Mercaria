@@ -185,8 +185,12 @@ export function useSetVariantLevelInventory(storeId: string, productId: string) 
       locationId: string;
       available: number;
     }) => setVariantLevelInventory(storeId, productId, variantId, locationId, available),
-    onSuccess: (levels, variables) => {
-      queryClient.setQueryData(queryKeys.products.levels(storeId, productId, variables.variantId), levels);
+    onSuccess: async (levels, variables) => {
+      const levelKey = queryKeys.products.levels(storeId, productId, variables.variantId);
+      // Folding the panel disables its observer: invalidation no longer cancels
+      // an older read. Retire it before exposing the confirmed PATCH result.
+      await queryClient.cancelQueries({ queryKey: levelKey, exact: true });
+      queryClient.setQueryData(levelKey, levels);
       invalidateProducts(queryClient, storeId);
       queryClient.invalidateQueries({
         queryKey: queryKeys.products.levels(storeId, productId, variables.variantId),
