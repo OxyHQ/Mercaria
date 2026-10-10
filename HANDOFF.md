@@ -914,3 +914,14 @@ no supplier requests. Only description metadata is varied in those browser
 cases; image requests and bytes are not intercepted. This closes the description
 import prerequisite above, not the still-open full Shop parity or real
 author-owned review-media acceptance.
+
+## Wholesale variant headings — 2026-10-10
+
+Long variant option titles no longer force a horizontal overflow in the product
+editor. On mobile the price follows the wrapping title; desktop retains a
+flexible row. Before the correction an ordinary 83-character title widened a
+390px viewport to 737px and shifted the Arabic page beyond its left edge.
+`variant-layout.spec.ts` now passes at 390px English/Arabic and 1440px English,
+including an unbroken option value, full title retention, visible price and zero
+writes. Dashboard types and RTL checks pass. This is independent of the archive
+dialog's pending upstream Bloom keyboard fix.
