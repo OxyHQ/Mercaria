@@ -29,6 +29,7 @@ import { scryfallProvider } from '../providers/scryfall.js';
 import { htmlText, shopifyStorefrontProvider, storeDomain } from '../providers/shopify-storefront.js';
 import { searchRows, steamStoreProvider, STEAM_MAX_RESULTS } from '../providers/steam-store.js';
 import { ygoprodeckProvider } from '../providers/ygoprodeck.js';
+import { SCRIPT_CORPUS } from '../../../__tests__/script-corpus.js';
 import { OpenDataConfigurationError } from '../provider.js';
 import { tcgdexProvider } from '../providers/tcgdex.js';
 
@@ -543,6 +544,15 @@ describe('Steam store search', () => {
     expect(first?.normalized.price).toEqual({ amount: 824, currency: 'EUR' });
     expect(first?.normalized.compareAtPrice).toEqual({ amount: 2499, currency: 'EUR' });
     expect(result.next).toEqual({ s: 3 });
+  });
+
+  it('keeps a title in every shipped script intact, entities decoded and marks untouched', () => {
+    for (const sample of SCRIPT_CORPUS) {
+      const title = `${sample.noun} &amp; ${sample.adjective}`;
+      const row = `<a href="https://store.steampowered.com/app/1/x/?snr=1" data-ds-appid="1" class="search_result_row"><span class="title">${title}</span><div class="search_price_discount_combined" data-price-final="999"></div></a>`;
+      const [parsed] = searchRows(row);
+      expect(parsed?.title, sample.script).toBe(`${sample.noun} & ${sample.adjective}`);
+    }
   });
 
   it('stops at the pass depth, and refuses when robots.txt disallows the search', async () => {
