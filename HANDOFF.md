@@ -556,8 +556,12 @@ The audit and current implementation:
   persisted store owner, and accepts only the returned file ID. Failed imports
   preserve the old product/gallery; pinned images skip remote I/O. This needs
   the Oxy application permission below before a live upload can succeed.
-- `canonical-product.service.ts` accepts `sourceUrl` without `fileId`, and
-  several canonical read projections/UI consumers display that URL directly.
+- `canonical-product.service.ts` now imports remote observation images before
+  opening its transaction, under the authenticated operator's Oxy account.
+  Source storage/display rights are checked before upload and again before
+  writing. PostgreSQL coverage proves upload refusal preserves prior facts,
+  provenance and gallery. `sourceUrl` remains provenance; several read
+  projections/UI consumers still display it and need correction.
 - `catalog-hydration.service.ts` and `variant-images.controller.ts` replace
   `fileId` with a resolved URL. The gallery, related cards, recent history and
   public API projection rely on that behavior; they need a coordinated change.
@@ -574,7 +578,7 @@ legacy pair). The federation cache route is an evictable namespace, not a
 substitute for catalog ownership. Resolve the proper authorized upload path
 before migrating stored references.
 
-Remaining work: authorize and verify the live upload path, synchronize canonical ingestion, retain
+Remaining work: authorize and verify the live upload path, retain
 source URLs as provenance only, migrate existing media without dropping gallery
 identity/order, preserve IDs in DTOs, resolve renditions through Oxy in every
 consumer, and verify browser requests never fetch supplier image origins.

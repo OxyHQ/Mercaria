@@ -94,6 +94,7 @@ import { normalizeAttributeKey } from './variant-signature.js';
 import { ensureDefaultVariant, listVariantOptions } from './canonical-variant.service.js';
 import { isPubliclyVisibleIdentifier } from './product-identifier.service.js';
 import { resolveIdentifier } from './product-identifier.service.js';
+import { synchronizeAccountImages } from '../catalog-media/sync.js';
 
 /** How many redirect hops resolution tolerates before calling the data corrupt. */
 const MAX_MERGE_HOPS = 10;
@@ -409,6 +410,29 @@ export async function applyProductSourceObservation(
     throw validationError('applyProductSourceObservation: confidence must be within [0, 1].');
   }
 
+  const images = input.images ?? [];
+  let imageFileIds: string[] = [];
+  if (images.length > 0) {
+    // Validate catalogue ownership/rights before network IO. Re-read inside the
+    // transaction too, since a product may merge or a source's rights may change.
+    const loaded = await findCanonicalProductById(getDb(), input.productId);
+    if (!loaded) throw notFound(`Canonical product ${input.productId} does not exist.`);
+    await resolveProductRow(getDb(), loaded);
+    const source = await findCatalogSourceById(getDb(), input.sourceId);
+    if (!source) throw notFound(`Catalog source ${input.sourceId} does not exist.`);
+    if (!source.mayStore || !source.mayDisplay) {
+      throw validationError('Canonical image synchronization requires source storage and display rights.');
+    }
+    const references = images.map(image => {
+      const reference = image.fileId ?? image.sourceUrl;
+      if (!reference) throw validationError('A canonical image needs a fileId or an HTTPS sourceUrl.');
+      return reference;
+    });
+    // No transaction is held across supplier downloads or Oxy uploads. A
+    // refused import cannot partially apply scalar facts or attach source URLs.
+    imageFileIds = await synchronizeAccountImages(input.decidedByOxyUserId, references);
+  }
+
   return getDb().transaction(async (tx) => {
     const loaded = await findCanonicalProductById(tx, input.productId);
     if (!loaded) throw notFound(`Canonical product ${input.productId} does not exist.`);
@@ -418,6 +442,9 @@ export async function applyProductSourceObservation(
 
     const source = await findCatalogSourceById(tx, input.sourceId);
     if (!source) throw notFound(`Catalog source ${input.sourceId} does not exist.`);
+    if (images.length > 0 && (!source.mayStore || !source.mayDisplay)) {
+      throw validationError('Canonical image synchronization requires source storage and display rights.');
+    }
 
     const payload: JsonValue = {
       ...(input.fields.name === undefined ? {} : { name: input.fields.name }),
@@ -589,14 +616,11 @@ export async function applyProductSourceObservation(
     }
 
     let imagesAdded = 0;
-    for (const [index, image] of (input.images ?? []).entries()) {
-      if (image.fileId === undefined && image.sourceUrl === undefined) {
-        throw validationError('A canonical image needs either a fileId or a sourceUrl.');
-      }
+    for (const [index, image] of images.entries()) {
       const row = await insertCanonicalImage(tx, {
         grain: { kind: 'product', id: product.id },
         sourceRecordId: record.id,
-        ...(image.fileId === undefined ? {} : { fileId: image.fileId }),
+        fileId: imageFileIds[index],
         ...(image.sourceUrl === undefined ? {} : { sourceUrl: image.sourceUrl }),
         ...(image.alt === undefined ? {} : { alt: image.alt }),
         ...(image.locale === undefined ? {} : { locale: image.locale }),

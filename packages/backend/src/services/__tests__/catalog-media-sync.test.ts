@@ -8,7 +8,7 @@ const { safeFetch, findStoreById, oxyServiceClient, serviceToken, upload } = vi.
 vi.mock('@oxy.so/core/server', () => ({ safeFetch }));
 vi.mock('../../db/stores/storeRepository.js', () => ({ findStoreById }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({ oxyServiceClient }));
-import { synchronizeStoreImages } from '../catalog-media/sync.js';
+import { synchronizeAccountImages, synchronizeStoreImages } from '../catalog-media/sync.js';
 
 function download(chunks: Buffer[] = [Buffer.from('image bytes')], headers = { 'content-type': 'image/png' }, status = 200) {
   return { status, headers, response: Readable.from(chunks) };
@@ -28,6 +28,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('catalog image synchronization', () => {
+  it('imports canonical media under the authenticated account without inventing a store owner', async () => {
+    expect(await synchronizeAccountImages('authenticated-operator', ['https://supplier.example/photo.png'])).toEqual(['oxy-file-1']);
+    expect(findStoreById).not.toHaveBeenCalled();
+    expect(upload.mock.calls[0][1].headers['x-owner-user-id']).toBe('authenticated-operator');
+  });
+
+  it('requires an authenticated account before downloading canonical media', async () => {
+    await expect(synchronizeAccountImages(undefined, ['https://supplier.example/photo.png'])).rejects.toThrow(/authenticated owner/);
+    expect(safeFetch).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
   it('passes internal IDs without requesting credentials or touching a network', async () => {
     expect(await synchronizeStoreImages('store', ['file-1', 'file_2'])).toEqual(['file-1', 'file_2']);
     expect(findStoreById).not.toHaveBeenCalled();

@@ -18,6 +18,23 @@ export class CatalogMediaSyncError extends Error {
  * Store ownership comes from Mercaria's persisted Oxy account reference.
  * Oxy authorizes the upload and owns the durable public file. */
 export async function synchronizeStoreImages(storeId: string, references: readonly string[]): Promise<string[]> {
+  return synchronizeImages(references, async () => {
+    const store = await findStoreById(storeId);
+    if (!store) throw new CatalogMediaSyncError('The image owner store does not exist.');
+    return store.oxyAccountId;
+  });
+}
+
+/** The account must come from authenticated server context, never request data.
+ * Canonical operators own the durable media they import into the catalogue. */
+export async function synchronizeAccountImages(ownerOxyUserId: string | undefined, references: readonly string[]): Promise<string[]> {
+  return synchronizeImages(references, async () => {
+    if (!ownerOxyUserId) throw new CatalogMediaSyncError('Catalog image synchronization needs an authenticated owner.');
+    return ownerOxyUserId;
+  });
+}
+
+async function synchronizeImages(references: readonly string[], resolveOwner: () => Promise<string>): Promise<string[]> {
   if (references.length > 64) throw new CatalogMediaSyncError('Too many catalog images.');
   if (references.every(value => FILE_ID.test(value))) return [...references];
 
@@ -31,8 +48,7 @@ export async function synchronizeStoreImages(storeId: string, references: readon
       throw new CatalogMediaSyncError('A catalog image source must use HTTPS without embedded credentials.');
     }
   }
-  const store = await findStoreById(storeId);
-  if (!store) throw new CatalogMediaSyncError('The image owner store does not exist.');
+  const ownerOxyUserId = await resolveOwner();
   const client = oxyServiceClient();
   if (!client) throw new CatalogMediaSyncError('Catalog image synchronization needs Oxy application credentials.');
 
@@ -76,7 +92,7 @@ export async function synchronizeStoreImages(storeId: string, references: readon
           Authorization: `Bearer ${await client.serviceToken()}`,
           'Content-Type': mime,
           'Content-Length': String(size),
-          'x-owner-user-id': store.oxyAccountId,
+          'x-owner-user-id': ownerOxyUserId,
           'x-original-name': 'catalog-image',
           Accept: 'application/json',
         },
