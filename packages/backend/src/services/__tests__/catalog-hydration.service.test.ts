@@ -173,6 +173,16 @@ beforeEach(() => {
 });
 
 describe('catalog-hydration.service.hydrateListings — connector provenance', () => {
+  it('preserves file IDs so authoring can round-trip gallery selections', async () => {
+    const listing = listingRow();
+    const children = noChildren();
+    children.images.set(listing.id, [imageRow(listing.id, 'oxy-gallery-file')]);
+    findListingChildren.mockResolvedValue(children);
+    const [dto] = await hydrateListings([listing]);
+    expect(dto.images).toEqual([{ fileId: 'oxy-gallery-file', position: 0 }]);
+    expect(dto.images[0]?.fileId).not.toContain('media:');
+  });
+
   it('emits Listing.source on the admin path (includeSource) and serializes externalUpdatedAt to ISO', async () => {
     const [dto] = await hydrateListings([listingRow(SYNCED_SOURCE)], {
       includeSource: true,

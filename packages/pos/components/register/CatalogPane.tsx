@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { View, ScrollView } from "react-native";
-import { useOxy } from "@oxy.so/services";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { Barcode, Search } from "lucide-react-native";
 import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
 import { toBloomFieldIcon } from "@mercaria/ui";
@@ -45,7 +45,7 @@ function lineFromVariant(
  * variants exist; scanning/entering a code looks the SKU up and adds it.
  */
 export function CatalogPane({ storeId }: { storeId: string }) {
-  const { oxyServices } = useOxy();
+  const resolveImage = useImageResolver();
   const { t } = useTranslation();
   const addLine = useRegisterCart((s) => s.addLine);
 
@@ -72,11 +72,9 @@ export function CatalogPane({ storeId }: { storeId: string }) {
   const resolveUri = useCallback(
     (value: string | undefined): string | undefined => {
       if (!value) return undefined;
-      if (value.startsWith("http")) return value;
-      const url = oxyServices.assets.publicUrl(value, "thumb");
-      return url && url.startsWith("http") ? url : undefined;
+      return resolveImage?.(value, "thumb");
     },
-    [oxyServices],
+    [resolveImage],
   );
 
   const addListing = useCallback(

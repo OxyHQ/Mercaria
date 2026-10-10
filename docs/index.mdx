@@ -105,6 +105,9 @@ schema decision. `HANDOFF.md` holds deferred work.
   numeric `navFrom` owns the rail/bottom-bar switch. Tablet arrows share Bloom's
   carousel footer with the thumbnail strip; desktop arrows overlay the photo
   with a 16px inset. Both wrap between the first and last photo.
+  Listing and variant image DTOs retain Oxy file IDs; each client resolves the
+  requested rendition through Bloom's image resolver. Public integration
+  `image.url` fields are resolved separately at the public API projection.
   Changing a variant keeps the gallery mounted: only a different set of image
   URLs resets its index. Canonical reads retain the same product's prior page
   while the new configuration loads, report the offers region as busy, and

@@ -1,3 +1,4 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
@@ -59,13 +60,13 @@ const TRUST_TIER_LABEL_KEYS: Readonly<Record<string, string>> = {
 Object.freeze(TRUST_TIER_LABEL_KEYS);
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
-function toProductSummary(listing: Listing, sellerName: string): ProductSummary {
+function toProductSummary(listing: Listing, sellerName: string, resolveImage: ReturnType<typeof useImageResolver>): ProductSummary {
   const firstImage = listing.images[0];
   return {
     id: listing.id,
     title: listing.title,
     brand: sellerName,
-    imageUrl: firstImage?.fileId ?? "",
+    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, "thumb") : undefined,
     // A LISTING's own rating, not the seller's. Zero here means "this page does
     // not carry per-item ratings", which is honest: the seller's reputation is
     // rendered once, above, under its own scope label.
@@ -269,10 +270,11 @@ export default function SellerScreen() {
     isFetchingNextPage,
   } = useSellerListings(oxyUserId, isVisible);
 
+  const resolveImage = useImageResolver();
   const sellerName = profile?.identity?.displayName ?? t("sellers.fallbackName");
   const products = useMemo(
-    () => (pages ?? []).flatMap((page) => page.listings.map((l) => toProductSummary(l, sellerName))),
-    [pages, sellerName],
+    () => (pages ?? []).flatMap((page) => page.listings.map((l) => toProductSummary(l, sellerName, resolveImage))),
+    [pages, sellerName, resolveImage],
   );
 
   const head = (

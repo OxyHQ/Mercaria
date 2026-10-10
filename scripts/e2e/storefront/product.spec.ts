@@ -1,3 +1,4 @@
+import { isOxyFileId } from "../../../packages/shared-types/src";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import type { Listing, PublicAttributeValue, Review } from "../../../packages/shared-types/src";
 
@@ -13,11 +14,18 @@ async function seededProduct(request: APIRequestContext): Promise<Listing> {
       (item: { title: string }) => item.title === "Brilliant Eye Brightener",
     );
   expect(summary, "Requires the documented local storefront seed").toBeTruthy();
-  return (
+  const listing: Listing = (
     await (
       await request.get(`http://localhost:4160/listings/${summary.id}`)
     ).json()
   ).data;
+  expect(listing.images.length, "Requires real synchronized catalog images").toBeGreaterThan(0);
+  expect(listing.images.every(image => isOxyFileId(image.fileId)), "Import the seed images through the backend before running browser integration tests; external URLs are not file IDs").toBe(true);
+  const image = await request.get(`https://cloud.oxy.so/${listing.images[0].fileId}?variant=thumb`);
+  expect(image.ok(), 'The imported Oxy thumbnail must actually exist').toBe(true);
+  expect(image.headers()['content-type']).toMatch(/^image\//);
+  expect((await image.body()).length).toBeGreaterThan(0);
+  return listing;
 }
 
 test.beforeEach(async ({ page }) => {
@@ -110,7 +118,7 @@ test("option availability follows the selected color and size instead of stock i
   await expect(medium).toHaveCSS("background-color", "rgb(242, 244, 245)");
   await expect(medium.getByText("M", { exact: true })).toHaveCSS("font-size", "12px");
   await expect(medium.getByText("M", { exact: true })).toHaveCSS("color", "rgba(0, 0, 0, 0.4)");
-  await expect(medium.locator("img").last()).toHaveAttribute("src", product.images[1].fileId);
+  await expect(medium.locator("img").last()).toHaveAttribute("src", `https://cloud.oxy.so/${product.images[1].fileId}?variant=thumb`);
   await medium.click();
   await expect(page).toHaveURL(new RegExp(`variantId=${variants[1].id}$`));
   await expectSoldOutActions(page);
@@ -122,7 +130,7 @@ test("option availability follows the selected color and size instead of stock i
   await expect(medium.getByText("M", { exact: true })).toHaveCSS("text-decoration-line", "none");
   await expect(medium.getByText("M", { exact: true })).toHaveCSS("color", "rgb(0, 0, 0)");
   await expect(medium).toHaveCSS("opacity", "1");
-  await expect(medium.locator("img").last()).toHaveAttribute("src", product.images[3].fileId);
+  await expect(medium.locator("img").last()).toHaveAttribute("src", `https://cloud.oxy.so/${product.images[3].fileId}?variant=thumb`);
   await expect(page.getByRole("button", { name: "Add to cart", exact: true })).toBeEnabled();
   // Returning to red preserves M, including its sold-out state.
   await page.getByRole("button", { name: "Color: Red, Sold out", exact: true }).click();
@@ -957,10 +965,6 @@ test("canonical products use the complete gallery and keep purchase availability
   page.on('request', request => {
     if (request.url().includes('supplier-provenance.example.test')) supplierRequests.push(request.url());
   });
-  await page.route('https://cloud.oxy.so/canonical-gallery-*', route => route.fulfill({
-    contentType: 'image/png',
-    body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'),
-  }));
   const id = "00000000-0000-4000-8000-000000000001";
   const now = new Date().toISOString();
   const existingReviews = await (await request.get(`http://localhost:4160/listings/${listing.id}/reviews?limit=1`)).json();
@@ -986,7 +990,7 @@ test("canonical products use the complete gallery and keep purchase availability
         description: "A catalogue product with a complete photo gallery.",
         aliases: [], searchTokens: [], variantDefiningAttributeKeys: [],
         images: [...listing.images.map((image, position) => ({
-          id: String(position), fileId: `canonical-gallery-${position}`,
+          id: String(position), fileId: image.fileId,
           sourceUrl: `https://supplier-provenance.example.test/${position}.png`, alt: `Catalogue photo ${position + 1}`,
           position, status: "active",
         })), { id: 'unsynchronized', sourceUrl: 'https://supplier-provenance.example.test/unsynchronized.png', position: 99, status: 'active' }],
@@ -1376,7 +1380,7 @@ test("pictured Arabic options fit four rows and expand without horizontal overfl
     await expect.poll(() => grid.getByRole("button").evaluateAll(elements =>
       new Set(elements.map(element => Math.round(element.getBoundingClientRect().top))).size)).toBe(4);
     await expect(selected).toHaveAttribute("aria-pressed", "true");
-    await expect(selected.locator("img").last()).toHaveAttribute("src", product.images[31 % product.images.length].fileId);
+    await expect(selected.locator("img").last()).toHaveAttribute("src", `https://cloud.oxy.so/${product.images[31 % product.images.length].fileId}?variant=thumb`);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   }
   await grid.getByRole("button").last().click();

@@ -82,13 +82,13 @@ const REVIEW_PAGE_LIMIT = 12;
 const ICON_SIZE = 20;
 
 /** Project a catalog `Listing` into the `ProductSummary` shape the cards consume. */
-function toProductSummary(listing: Listing, brand: string): ProductSummary {
+function toProductSummary(listing: Listing, brand: string, resolveImage: ReturnType<typeof useImageResolver>): ProductSummary {
   const firstImage = listing.images[0];
   const summary: ProductSummary = {
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage?.fileId ?? "",
+    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, "thumb") : undefined,
     rating: 0,
     reviewCount: 0,
     price: listing.price,
@@ -217,13 +217,14 @@ function RelatedFromStore({
   const router = useRouter();
   const { t } = useTranslation();
   const { data } = useListings({ storeId: store.id, limit: RELATED_LIMIT });
+  const resolveImage = useImageResolver();
 
   const items = useMemo(
     () =>
       (data?.data ?? [])
         .filter((listing) => listing.id !== excludeId)
-        .map((listing) => toProductSummary(listing, store.name)),
-    [data, excludeId, store.name],
+        .map((listing) => toProductSummary(listing, store.name, resolveImage)),
+    [data, excludeId, store.name, resolveImage],
   );
 
   if (items.length === 0) {
@@ -404,11 +405,11 @@ function ProductBody({ listing }: ProductBodyProps) {
 
   const images = useMemo(
     () =>
-      (selectedVariant?.images?.images ?? listing.images).map((image) => ({
-        uri: image.fileId,
-        alt: image.alt,
-      })),
-    [listing.images, selectedVariant?.images],
+      (selectedVariant?.images?.images ?? listing.images).flatMap((image) => {
+        const uri = resolveImage?.(image.fileId);
+        return uri ? [{ uri, alt: image.alt }] : [];
+      }),
+    [listing.images, selectedVariant?.images, resolveImage],
   );
 
   const identity = useMemo(() => merchantIdentity(listing), [listing]);
@@ -1013,6 +1014,7 @@ export default function ProductScreen() {
   const { t } = useTranslation();
   const { data: listing, isLoading, isError } = useProduct(id ?? "");
   const historyOwner = useShoppingHistoryOwner();
+  const resolveImage = useImageResolver();
   const historyReady = useShoppingHistory((state) => state.hydrated);
   useEffect(() => {
     if (listing && historyReady)
@@ -1020,9 +1022,9 @@ export default function ProductScreen() {
         .getState()
         .viewProduct(
           historyOwner,
-          toProductSummary(listing, brandLabel(listing)),
+          toProductSummary(listing, brandLabel(listing), resolveImage),
         );
-  }, [listing, historyOwner, historyReady]);
+  }, [listing, historyOwner, historyReady, resolveImage]);
 
   const head = (
     <Head>

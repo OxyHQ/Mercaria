@@ -1,3 +1,4 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
@@ -91,13 +92,13 @@ function toQuerySort(sort: SortValue): "newest" | "price_asc" | "price_desc" | u
 }
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
-function toProductSummary(listing: Listing, brand: string): ProductSummary {
+function toProductSummary(listing: Listing, brand: string, resolveImage: ReturnType<typeof useImageResolver>): ProductSummary {
   const firstImage = listing.images[0];
   return {
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage?.fileId ?? "",
+    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, "thumb") : undefined,
     rating: 0,
     reviewCount: 0,
     price: listing.price,
@@ -298,9 +299,10 @@ function StoreBody({
     limit: PAGE_LIMIT,
   });
 
+  const resolveImage = useImageResolver();
   const products = useMemo(
-    () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name)),
-    [data, store.name],
+    () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name, resolveImage)),
+    [data, store.name, resolveImage],
   );
 
   const hasNextPage = data?.pagination.hasNextPage ?? false;

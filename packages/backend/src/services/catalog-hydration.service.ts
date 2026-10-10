@@ -10,10 +10,11 @@
  *   5. (optional) batch-load the viewer's favorites to set `saved`,
  *   6. assemble each DTO with derived price fields + owner identity + media.
  *
- * Media resolution is funneled through ONE chokepoint (`resolveMedia`): absolute
+ * URL-valued presentation fields use ONE chokepoint (`resolveMedia`): absolute
  * URLs pass through unchanged (e.g. seeded Shopify CDN assets), everything else
  * is treated as an Oxy media file id and resolved via `getFileDownloadUrl` — the
- * only sanctioned media resolver.
+ * only sanctioned media resolver. ListingImage.fileId always retains the
+ * stored reference; resolving a rendition must never rewrite that identity.
  *
  * ## Ported to Postgres
  *
@@ -197,15 +198,11 @@ function toVariantDTO(
 }
 
 /**
- * Map one variant-selected gallery row through the media chokepoint.
- *
- * The same `resolveMedia` hop `toListingImages` makes, and it has to be made
- * here too: these rows come off `listing_images` by a different query, so a
- * variant's gallery would otherwise carry raw file ids while the listing's
- * carried resolved URLs — one screen, two spellings of one address.
+ * Preserve the same file identity in variant and listing galleries. Clients
+ * choose the Oxy rendition, and authoring can round-trip these IDs unchanged.
  */
 function toVariantImageDTO(row: VariantImageRecord): ListingImage {
-  const dto: ListingImage = { fileId: resolveMedia(row.fileId), position: row.position };
+  const dto: ListingImage = { fileId: row.fileId, position: row.position };
   if (row.alt) {
     dto.alt = row.alt;
   }
@@ -231,10 +228,10 @@ function cheapestVariant(variants: VariantRecord[]): VariantRecord | undefined {
   }, undefined);
 }
 
-/** Map listing image rows through the media chokepoint into `ListingImage` DTOs. */
+/** Preserve stored file IDs in listing image DTOs. */
 function toListingImages(images: ListingImageRecord[]): ListingImage[] {
   return images.map((img) => {
-    const dto: ListingImage = { fileId: resolveMedia(img.fileId), position: img.position };
+    const dto: ListingImage = { fileId: img.fileId, position: img.position };
     if (img.alt) {
       dto.alt = img.alt;
     }

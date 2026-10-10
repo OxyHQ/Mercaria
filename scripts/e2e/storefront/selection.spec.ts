@@ -1,3 +1,4 @@
+import { isOxyFileId } from "../../../packages/shared-types/src";
 import { expect, test, type Page } from '@playwright/test';
 import type { CanonicalProductPage, Listing } from '../../../packages/shared-types/src';
 
@@ -150,12 +151,14 @@ for (const width of [390, 1440]) {
       .find((listing: Listing) => listing.title === 'Brilliant Eye Brightener');
     expect(summary, 'Requires the local storefront seed').toBeTruthy();
     const listing: Listing = (await (await request.get(`http://localhost:4160/listings/${summary.id}`)).json()).data;
+    expect(listing.images.length, "Requires real synchronized catalog images").toBeGreaterThan(0);
+    expect(listing.images.every(image => isOxyFileId(image.fileId)), "Import the seed images through the backend before this integration test").toBe(true);
     const [first, second] = listing.variants;
     second.images = { source: 'variant', images: [listing.images[1]] };
     listing.bundleContentsByVariant = Object.fromEntries([first, second].map((variant, index) => [variant.id, {
       status: 'available' as const, variantId: variant.id,
       components: [{ productId: listing.id, productSlug: 'bundle-component-preview', variantId: first.id,
-        name: listing.title, quantity: index + 1, image: { sourceUrl: listing.images[0].fileId } }],
+        name: listing.title, quantity: index + 1, image: { fileId: listing.images[0].fileId } }],
     }]));
     await page.route(`**/listings/${listing.id}`, route => route.fulfill({ json: { success: true, data: listing } }));
     await page.setViewportSize({ width, height: 1000 });
@@ -169,7 +172,7 @@ for (const width of [390, 1440]) {
     await expect(page).toHaveURL(new RegExp(`variantId=${second.id}`));
     await expect(page.getByTestId('bundle-quantity')).toHaveText('×2');
     await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveCount(1);
-    await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveAttribute('src', listing.images[1].fileId);
+    await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveAttribute('src', `https://cloud.oxy.so/${listing.images[1].fileId}`);
     await page.waitForTimeout(300);
     const result = await audit.evaluate(value => { value.running = false; return value; });
     expect(result).toMatchObject({ missing: 0, replaced: 0, faded: 0 });

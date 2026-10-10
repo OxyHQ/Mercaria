@@ -273,7 +273,7 @@ export type ListingOwnerType = 'user' | 'store';
 
 /** A single image attached to a listing. */
 export interface ListingImage {
-  /** Oxy media file id (or absolute URL), resolvable via the media CDN. */
+  /** Oxy media file ID. Resolve a rendition when displaying; never replace the ID with its URL. */
   fileId: string;
   /** Optional alt text for accessibility. */
   alt?: string;

@@ -564,9 +564,11 @@ The audit and current implementation:
   bundle contents, merchant cards, swatches and SEO no longer use that URL as
   an image fallback. All three Bloom resolver providers reject non-ID input;
   `isOxyFileId` is shared with the backend importer.
-- `catalog-hydration.service.ts` and `variant-images.controller.ts` replace
-  `fileId` with a resolved URL. The gallery, related cards, recent history and
-  public API projection rely on that behavior; they need a coordinated change.
+- `catalog-hydration.service.ts` and `variant-images.controller.ts` now preserve
+  stored `fileId` values. Listing galleries, related/store/seller cards, recent
+  history and POS resolve them through Bloom/Oxy. Public `/public/v1` image
+  `url` fields still resolve at their projection boundary, preserving the SDK
+  contract. Legacy rows whose stored value is already a URL still need import.
 - Local preview seeds also put external URLs into image fields. Some category
   and merchant artwork is already bundled locally; this does not prove all
   catalog media is synchronized.
@@ -582,8 +584,14 @@ before migrating stored references.
 
 Remaining work: authorize and verify the live upload path, retain
 source URLs as provenance only, migrate existing media without dropping gallery
-identity/order, preserve IDs in DTOs, resolve renditions through Oxy in every
-consumer, and verify browser requests never fetch supplier image origins.
+identity/order, remove the legacy URL pass-through in `resolveMedia` together
+with its remaining feed/cart/store/SEO consumers, and verify all browser
+requests never fetch supplier image origins. Existing unsynchronized listing
+gallery rows now show the normal placeholder instead of fetching the supplier.
+The temporary browser image interceptor was removed after user review: browser
+integration now requires actual imported file IDs in the seed data. Do not count
+earlier synthetic-media browser passes as proof of live synchronization. Oxy
+transport mocks remain in isolated backend tests for error/atomicity coverage.
 New dashboard list rows and bundle recommendation cards already reject URL
 values in `fileId`; this is not a claim that other surfaces are corrected.
 The canonical browser gallery test also supplies deliberately external source

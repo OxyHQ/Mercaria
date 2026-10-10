@@ -62,17 +62,6 @@ vi.mock('@oxy.so/core/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   getRequiredOxyUserId: () => SELLER,
 }));
-/**
- * What a resolved file id looks like in this file's responses.
- *
- * Deliberately NOT the identity function. `resolveMedia` is THE media
- * chokepoint, and a projection that forgot to make that hop would return a bare
- * file id — which under an identity stub is indistinguishable from a correct
- * one. Prefixing makes every response assertion below also a check that the hop
- * happened.
- */
-const mediaUrl = (fileId: string): string => `https://media.test.invalid/${fileId}`;
-
 vi.mock('../../middleware/auth.js', () => ({
   // `loadStore` reads `req.userId` and the bearer to resolve the caller's role,
   // so a pass-through that only calls `next()` would 401 the store half in a
@@ -83,9 +72,8 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {
-    // `resolveMedia` calls this for every non-absolute file id. The real SDK is
-    // not reachable here and this surface renders images, so an empty object
-    // makes every 200 a 500.
+    // URL-valued presentation fields use this resolver. Gallery fileId fields
+    // must remain raw IDs, even though this mock produces a different URL.
     assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },
   },
   optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -359,18 +347,17 @@ describe('a P2P seller choosing photographs for their own variant', () => {
     // Positions are assigned from the caller's array, never taken from the body.
     expect(stored.map((r) => r.position)).toEqual([0, 1]);
 
-    // And the response says the same thing, in the same order — through the
-    // media chokepoint, which the prefix is what proves.
+    // The response retains those same IDs, so it can be submitted unchanged.
     expect(data(reply)).toHaveLength(2);
-    expect((data(reply)[0] as { fileId: string }).fileId).toBe(mediaUrl(own.fileIds[2]));
+    expect((data(reply)[0] as { fileId: string }).fileId).toBe(own.fileIds[2]);
   });
 
   it('GET reads back exactly what was selected, and no fallback', async () => {
     const reply = await call('GET', url(own, 0));
     expect(reply.status).toBe(200);
     expect((data(reply) as { fileId: string }[]).map((i) => i.fileId)).toEqual([
-      mediaUrl(own.fileIds[2]),
-      mediaUrl(own.fileIds[0]),
+      own.fileIds[2],
+      own.fileIds[0],
     ]);
 
     // The OTHER variant has selected nothing and must read as EMPTY here, not as
@@ -662,8 +649,8 @@ describe('a variant selection survives the listing gallery being rewritten', () 
       `/seller/listings/${own.listingId}/variants/${own.variantIds[0]}/images`,
     );
     expect((data(read) as { fileId: string }[]).map((i) => i.fileId)).toEqual([
-      mediaUrl(own.fileIds[0]),
-      mediaUrl(own.fileIds[2]),
+      own.fileIds[0],
+      own.fileIds[2],
     ]);
   });
 

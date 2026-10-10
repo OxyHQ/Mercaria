@@ -144,8 +144,8 @@ export function projectProductSummary(
   webOrigin: string,
   resolveMedia: MediaResolver,
 ): MercariaProductSummary {
-  // `Listing.images` is already in gallery position order and already resolved
-  // through the media chokepoint by hydration.
+  // Hydration preserves file IDs and gallery order. This public contract names
+  // its field `url`, so resolve the rendition at this projection boundary.
   const [first] = listing.images;
   const range = listing.priceRange;
   const flatRange =
@@ -154,7 +154,7 @@ export function projectProductSummary(
   return {
     ref: { kind: 'product', id: listing.id },
     title: listing.title,
-    primaryImage: first ? image(first.fileId, first.alt) : null,
+    primaryImage: first ? image(resolveMedia(first.fileId), first.alt) : null,
     price: money(listing.price),
     compareAtPrice: listing.compareAtPrice ? money(listing.compareAtPrice) : null,
     priceRange: flatRange ? null : { min: money(range.min), max: money(range.max) },
@@ -190,7 +190,7 @@ export function projectProduct(
     seller: summary.seller,
     url: summary.url,
     description: listing.description,
-    images: listing.images.map((entry) => image(entry.fileId, entry.alt)),
+    images: listing.images.map((entry) => image(resolveMedia(entry.fileId), entry.alt)),
     purchaseOptions: listing.variants.map((variant) => purchaseOption(listing, variant)),
     updatedAt: listing.updatedAt,
     viewer: viewerSaved === undefined ? null : { saved: viewerSaved },

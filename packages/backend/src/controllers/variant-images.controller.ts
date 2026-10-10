@@ -62,7 +62,6 @@ import {
 } from '../db/catalog/variantRepository.js';
 import { validateBody } from '../middleware/validate.js';
 import { replaceVariantImagesSchema } from '../middleware/variant-image-schemas.js';
-import { resolveMedia } from '../services/catalog-hydration.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError, notFound, validationError } from '../lib/errors/error-codes.js';
 import { routeParam } from '../utils/request.js';
@@ -148,12 +147,8 @@ async function resolveGalleryRowIds(
 }
 
 /**
- * One variant's selections, through the media chokepoint.
- *
- * `resolveMedia` for the reason `toVariantImageDTO` makes the same hop in
- * hydration: these rows come off `listing_images` by a different query, so a
- * variant's gallery would otherwise carry raw file ids while the listing's
- * carried resolved URLs — one screen, two spellings of one address.
+ * One variant's selected file IDs, unchanged from the listing gallery. The
+ * authoring client can submit these same IDs back to the selection endpoint.
  *
  * The listing-gallery FALLBACK is deliberately NOT applied here. Hydration owns
  * that rule and this is an AUTHORING view: a seller needs to see that this
@@ -162,7 +157,7 @@ async function resolveGalleryRowIds(
  */
 function projectSelections(rows: readonly { fileId: string; alt: string | null; position: number }[]): ListingImage[] {
   return rows.map((row) => {
-    const dto: ListingImage = { fileId: resolveMedia(row.fileId), position: row.position };
+    const dto: ListingImage = { fileId: row.fileId, position: row.position };
     if (row.alt) {
       dto.alt = row.alt;
     }
