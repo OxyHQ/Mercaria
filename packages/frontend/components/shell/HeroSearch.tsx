@@ -1,5 +1,6 @@
 import { STOREFRONT_NAV_FROM } from "@/lib/layout";
-import { merchantImageSource } from "@mercaria/ui";
+import { merchantImageSource, resolveCatalogImage, useSharedUiTranslation } from "@mercaria/ui";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
@@ -121,6 +122,8 @@ export function HeroSearch({
   onVisibilityChange: (visible: boolean) => void;
 }) {
   const router = useRouter();
+  const resolveImage = useImageResolver();
+  const uiT = useSharedUiTranslation();
   const { width: viewport, height: windowHeight } = useWindowDimensions();
   const [width, setWidth] = useState(viewport);
   const [cycle, setCycle] = useState(0);
@@ -230,6 +233,7 @@ export function HeroSearch({
       >
         {desktop
           ? current.map((product, index) => {
+              const imageUrl = resolveCatalogImage(product.imageFileId, product.imageUrl, resolveImage);
               const coordinates = position(index, false) ?? {
                 x: width * (index === 1 ? 0.4 : 0.59),
                 y: collageHeight * (index === 1 ? 0.28 : 0.22),
@@ -256,11 +260,17 @@ export function HeroSearch({
                   }
                 >
                   <View className="gap-2 p-2 md:p-3">
-                    <Image
-                      source={{ uri: product.imageUrl }}
-                      className="aspect-square w-full rounded-2xl bg-muted"
-                      contentFit="cover"
-                    />
+                    {imageUrl ? (
+                      <Image
+                        source={{ uri: imageUrl }}
+                        className="aspect-square w-full rounded-2xl bg-muted"
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View className="aspect-square w-full items-center justify-center rounded-2xl bg-muted">
+                        <Text className="text-xs text-muted-foreground">{uiT("ui.marketplace.noImage")}</Text>
+                      </View>
+                    )}
                     <View className="gap-1 px-1 pb-1">
                       <Text
                         numberOfLines={1}
@@ -280,6 +290,8 @@ export function HeroSearch({
           : null}
         {desktop
           ? merchants.slice(0, 4).map((merchant, index) => {
+              const coverSource = merchantImageSource(merchant.coverImageUrl, resolveImage, merchant.coverFileId);
+              const logoSource = merchantImageSource(merchant.logoUrl, resolveImage, merchant.logoFileId);
               const coordinates = position(index, true);
               if (!coordinates) return null;
               return (
@@ -307,16 +319,16 @@ export function HeroSearch({
                     className="aspect-square items-center justify-center"
                     style={{ backgroundColor: merchant.brandColor }}
                   >
-                    {merchant.coverImageUrl ? (
+                    {coverSource ? (
                       <Image
-                        source={merchantImageSource(merchant.coverImageUrl)}
+                        source={coverSource}
                         className="absolute inset-0"
                         contentFit="cover"
                       />
                     ) : null}
-                    {merchant.logoUrl ? (
+                    {logoSource ? (
                       <Image
-                        source={merchantImageSource(merchant.logoUrl)}
+                        source={logoSource}
                         className="h-16 w-[75%]"
                         contentFit="contain"
                       />

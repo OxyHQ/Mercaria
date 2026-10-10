@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { Button } from "@oxy.so/bloom/button";
 import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { resolveStoredImageUrl } from "../../lib/stored-image-url";
+import { resolveCatalogImage } from "../../lib/stored-image-url";
 import { ShopDetailIcon } from "./ShopDetailIcon";
 import { Text } from "../ui/text";
 import {
@@ -57,7 +57,7 @@ export function ProductCard({
   onToggleSave,
   variant = "standard",
 }: ProductCardProps) {
-  const imageUrl = resolveStoredImageUrl(product.imageUrl, useImageResolver());
+  const imageUrl = resolveCatalogImage(product.imageFileId, product.imageUrl, useImageResolver());
   const priceText = usePriceText()(product.price);
   const t = useSharedUiTranslation();
   const [isSaved, setIsSaved] = useState(saved ?? product.saved ?? false);

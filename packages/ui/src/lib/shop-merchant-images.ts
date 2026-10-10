@@ -1,3 +1,5 @@
+import { resolveCatalogImage } from "./stored-image-url";
+
 /** Public Shop merchant artwork downloaded 2026-10-09 from /m/palomawool,
  * /m/nililotan and /m/milkmakeup. Exact URL lookup preserves future catalogue updates. */
 const downloadedImages: Record<string, number> = {
@@ -8,6 +10,12 @@ const downloadedImages: Record<string, number> = {
   "https://cdn.shopify.com/shop-assets/shopify_brokers/milkmakeup21.myshopify.com/1699543597/logo.png?format=webp&width=64": require("../assets/shop-merchants/milk-logo.webp"),
 };
 
-export function merchantImageSource(uri: string) {
-  return downloadedImages[uri] ?? { uri };
+export function merchantImageSource(
+  uri: string | undefined,
+  resolveImage: ((fileId: string, variant?: string) => string | undefined) | null,
+  fileId?: string,
+) {
+  if (fileId === undefined && uri && downloadedImages[uri]) return downloadedImages[uri];
+  const resolved = resolveCatalogImage(fileId, uri, resolveImage);
+  return resolved ? { uri: resolved } : undefined;
 }

@@ -718,6 +718,7 @@ export {
 } from "./lib/digital-asset-labels";
 
 export { merchantImageSource } from "./lib/shop-merchant-images";
+export { resolveCatalogImage } from "./lib/stored-image-url";
 
 export { StoreOfferHeader, type StoreOfferHeaderProps } from "./components/marketplace/StoreOfferHeader";
 

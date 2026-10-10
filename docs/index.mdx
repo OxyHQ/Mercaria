@@ -109,7 +109,11 @@ schema decision. `HANDOFF.md` holds deferred work.
   requested rendition through Bloom's image resolver. Public integration
   `image.url` fields are resolved separately at the public API projection.
   Unimported URL-valued file references have the normal missing-image shape;
-  they never become supplier hotlinks. Categories prefer their stored file ID.
+  they never become supplier hotlinks. Feed products, featured thumbnails and
+  stores now expose their Oxy image IDs too; the home hero and shared cards use
+  the same client resolver. Feed cache v3 expires old URL-only projections.
+  New listing history retains IDs; legacy URLs render only when they exactly
+  match the configured resolver. Categories prefer their stored file ID.
   Existing Oxy URLs in legacy category/order snapshot columns are validated
   against the SDK namespace, without rewriting immutable order history.
   Changing a variant keeps the gallery mounted: only a different set of image

@@ -44,7 +44,7 @@ import {
   type ProductSummary,
 } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
-import type { Listing, StoreSummary, Seller } from "@mercaria/shared-types";
+import { isOxyFileId, type Listing, type StoreSummary, type Seller } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { ProductDescription } from "@/components/product/ProductDescription";
@@ -82,13 +82,13 @@ const REVIEW_PAGE_LIMIT = 12;
 const ICON_SIZE = 20;
 
 /** Project a catalog `Listing` into the `ProductSummary` shape the cards consume. */
-function toProductSummary(listing: Listing, brand: string, resolveImage: ReturnType<typeof useImageResolver>): ProductSummary {
-  const firstImage = listing.images[0];
+function toProductSummary(listing: Listing, brand: string): ProductSummary {
+  const firstImage = listing.images.find(image => isOxyFileId(image.fileId));
   const summary: ProductSummary = {
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, "thumb") : undefined,
+    imageFileId: firstImage?.fileId,
     rating: 0,
     reviewCount: 0,
     price: listing.price,
@@ -138,6 +138,9 @@ function StoreLinkCard({
 }) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
+  const resolveImage = useImageResolver();
+  const coverSource = merchantImageSource(store.coverImageUrl, resolveImage, store.coverFileId);
+  const logoSource = merchantImageSource(store.logoUrl, resolveImage, store.logoFileId);
   const toneColor = store.textTone === "light" ? "#FFFFFF" : "#111111";
   return (
     <View
@@ -150,9 +153,9 @@ function StoreLinkCard({
         onPress={onPress}
         className="relative h-[120px] items-center justify-center"
       >
-        {store.coverImageUrl ? (
+        {coverSource ? (
           <Image
-            source={merchantImageSource(store.coverImageUrl)}
+            source={coverSource}
             contentFit="cover"
             style={StyleSheet.absoluteFill}
           />
@@ -165,9 +168,9 @@ function StoreLinkCard({
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {store.logoUrl ? (
+        {logoSource ? (
           <Image
-            source={merchantImageSource(store.logoUrl)}
+            source={logoSource}
             contentFit="contain"
             style={{ height: 48, width: "60%", maxWidth: 220 }}
           />
@@ -217,14 +220,13 @@ function RelatedFromStore({
   const router = useRouter();
   const { t } = useTranslation();
   const { data } = useListings({ storeId: store.id, limit: RELATED_LIMIT });
-  const resolveImage = useImageResolver();
 
   const items = useMemo(
     () =>
       (data?.data ?? [])
         .filter((listing) => listing.id !== excludeId)
-        .map((listing) => toProductSummary(listing, store.name, resolveImage)),
-    [data, excludeId, store.name, resolveImage],
+        .map((listing) => toProductSummary(listing, store.name)),
+    [data, excludeId, store.name],
   );
 
   if (items.length === 0) {
@@ -1014,7 +1016,6 @@ export default function ProductScreen() {
   const { t } = useTranslation();
   const { data: listing, isLoading, isError } = useProduct(id ?? "");
   const historyOwner = useShoppingHistoryOwner();
-  const resolveImage = useImageResolver();
   const historyReady = useShoppingHistory((state) => state.hydrated);
   useEffect(() => {
     if (listing && historyReady)
@@ -1022,9 +1023,9 @@ export default function ProductScreen() {
         .getState()
         .viewProduct(
           historyOwner,
-          toProductSummary(listing, brandLabel(listing), resolveImage),
+          toProductSummary(listing, brandLabel(listing)),
         );
-  }, [listing, historyOwner, historyReady, resolveImage]);
+  }, [listing, historyOwner, historyReady]);
 
   const head = (
     <Head>

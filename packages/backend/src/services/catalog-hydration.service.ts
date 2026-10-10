@@ -316,6 +316,7 @@ export function toStoreSummary(
       const firstImage = (imagesByListing.get(listing.id) ?? []).find(image => isOxyFileId(image.fileId));
       const thumbnail: ProductThumbnail = { id: listing.id, title: listing.title };
       if (firstImage) {
+        thumbnail.imageFileId = firstImage.fileId;
         thumbnail.imageUrl = resolveMedia(firstImage.fileId, 'thumb');
       }
       return thumbnail;
@@ -332,9 +333,11 @@ export function toStoreSummary(
     products,
   };
   if (isOxyFileId(store.coverFileId)) {
+    summary.coverFileId = store.coverFileId;
     summary.coverImageUrl = resolveMedia(store.coverFileId);
   }
   if (isOxyFileId(store.logoFileId)) {
+    summary.logoFileId = store.logoFileId;
     summary.logoUrl = resolveMedia(store.logoFileId);
   }
   if (options.includePolicies && store.policiesRefundPolicy?.trim()) {
@@ -373,6 +376,7 @@ export function toProductSummary(
     price,
   };
   if (firstImage) {
+    summary.imageFileId = firstImage.fileId;
     summary.imageUrl = resolveMedia(firstImage.fileId);
   }
   const compareAt = cheapest ? variantCompareAtPrice(cheapest) : null;

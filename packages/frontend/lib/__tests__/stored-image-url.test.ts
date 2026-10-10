@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { resolveStoredImageUrl } from '../../../ui/src/lib/stored-image-url';
+import { resolveCatalogImage, resolveStoredImageUrl } from '../../../ui/src/lib/stored-image-url';
 
 const resolveImage = (id: string, variant?: string) =>
   `https://cloud.oxy.so/${id}${variant ? `?variant=${encodeURIComponent(variant)}` : ''}`;
@@ -37,5 +37,32 @@ describe('persisted marketplace image URLs', () => {
   it('withholds media when no resolver or rendition is available', () => {
     expect(resolveStoredImageUrl('https://cloud.oxy.so/file-1', null)).toBeUndefined();
     expect(resolveStoredImageUrl('https://cloud.oxy.so/file-1', () => undefined)).toBeUndefined();
+  });
+});
+
+
+describe('catalog image IDs', () => {
+  it('resolves the ID with the requested rendition instead of the legacy URL', () => {
+    const resolver = vi.fn(resolveImage);
+    expect(resolveCatalogImage('new-file', 'https://supplier.example/photo.jpg', resolver, 'thumb'))
+      .toBe('https://cloud.oxy.so/new-file?variant=thumb');
+    expect(resolver).toHaveBeenCalledWith('new-file', 'thumb');
+  });
+
+  it.each(['', 'https://cloud.oxy.so/file-1', 'https://supplier.example/photo.jpg', '/photo.jpg'])(
+    'refuses a malformed present ID even when the old URL is valid: %s', (fileId) => {
+      const resolver = vi.fn(resolveImage);
+      expect(resolveCatalogImage(fileId, resolveImage('old-file'), resolver)).toBeUndefined();
+      expect(resolver).not.toHaveBeenCalled();
+    });
+
+  it('supports old persisted DTOs only within the current resolver namespace', () => {
+    expect(resolveCatalogImage(undefined, resolveImage('old-file'), resolveImage)).toBe(resolveImage('old-file'));
+    expect(resolveCatalogImage(undefined, 'https://supplier.example/photo.jpg', resolveImage)).toBeUndefined();
+  });
+
+  it('withholds an ID when its provider or rendition is unavailable', () => {
+    expect(resolveCatalogImage('file-1', undefined, null)).toBeUndefined();
+    expect(resolveCatalogImage('file-1', undefined, () => undefined)).toBeUndefined();
   });
 });

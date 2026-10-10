@@ -310,6 +310,7 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
 
     expect('imageUrl' in summary).toBe(false);
     expect(summary.imageUrl).toBeUndefined();
+    expect(summary).not.toHaveProperty('imageFileId');
   });
 
   it('emits ProductSummary.imageUrl when the listing HAS one', () => {
@@ -319,24 +320,29 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
     ]);
 
     expect(summary.imageUrl).toBe('media:file-1:full');
+    expect(summary.imageFileId).toBe('file-1');
   });
 
   it('omits StoreSummary.coverImageUrl when the store has no cover file', () => {
     const summary = toStoreSummary(storeRow({ coverFileId: null, logoFileId: null }), []);
 
     expect('coverImageUrl' in summary).toBe(false);
+    expect(summary).not.toHaveProperty('coverFileId');
+    expect(summary).not.toHaveProperty('logoFileId');
   });
 
   it('emits StoreSummary.coverImageUrl when the store HAS one', () => {
     const summary = toStoreSummary(
       storeRow({
         coverFileId: 'cover-1',
-        logoFileId: null,
+        logoFileId: 'logo-1',
       }),
       [],
     );
 
+    expect(summary.logoFileId).toBe('logo-1');
     expect(summary.coverImageUrl).toBe('media:cover-1:full');
+    expect(summary.coverFileId).toBe('cover-1');
   });
 
   it('omits imageUrl on a featured thumbnail whose listing has no images', () => {
@@ -345,6 +351,7 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
 
     expect(summary.products).toHaveLength(1);
     expect('imageUrl' in summary.products[0]).toBe(false);
+    expect(summary.products[0]).not.toHaveProperty('imageFileId');
   });
 
   it('emits imageUrl on a featured thumbnail whose listing HAS one', () => {
@@ -356,6 +363,7 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
     );
 
     expect(summary.products[0].imageUrl).toBe('media:thumb-1:thumb');
+    expect(summary.products[0].imageFileId).toBe('thumb-1');
   });
 
   it.each(['https://supplier.example/image.png', 'http://supplier.example/image.png', 'https://cloud.oxy.so/file-1', 'data:image/png;base64,abc', '/image.png', '', 'not an ID'])('does not resolve an unimported reference: %s', reference => {
@@ -378,10 +386,15 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
     const listing = listingRow();
     const external = imageRow(listing.id, 'https://supplier.example/image.png');
     expect(toProductSummary(listing, [], 'Acme', [external])).not.toHaveProperty('imageUrl');
+    expect(toProductSummary(listing, [], 'Acme', [external])).not.toHaveProperty('imageFileId');
+    expect(toProductSummary(listing, [], 'Acme', [external, imageRow(listing.id, 'imported')]).imageFileId).toBe('imported');
     expect(toProductSummary(listing, [], 'Acme', [external, imageRow(listing.id, 'imported')]).imageUrl).toBe('media:imported:full');
     const summary = toStoreSummary(storeRow({ coverFileId: external.fileId, logoFileId: external.fileId }), [listing], new Map([[listing.id, [external]]]));
     expect(summary).not.toHaveProperty('coverImageUrl');
     expect(summary).not.toHaveProperty('logoUrl');
+    expect(summary).not.toHaveProperty('logoFileId');
+    expect(summary).not.toHaveProperty('coverFileId');
+    expect(summary.products[0]).not.toHaveProperty('imageFileId');
     expect(summary.products[0]).not.toHaveProperty('imageUrl');
   });
 });

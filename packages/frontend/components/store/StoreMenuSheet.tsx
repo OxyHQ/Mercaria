@@ -1,3 +1,4 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -504,6 +505,8 @@ function MenuPage({
   onOpenPolicy: (page: PolicyPage) => void;
   onReport: () => void;
 }) {
+  const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(store.logoUrl, resolveImage, store.logoFileId);
   // The review row's chevron points the reading direction.
   const Chevron = useIsRtl() ? ChevronLeft : ChevronRight;
   const { t } = useTranslation();
@@ -530,9 +533,9 @@ function MenuPage({
             backgroundColor: GLASS_FILL,
           }}
         >
-          {store.logoUrl ? (
+          {logoSource ? (
             <Image
-              source={merchantImageSource(store.logoUrl)}
+              source={logoSource}
               contentFit="cover"
               style={{ width: HEADER_LOGO_SIZE, height: HEADER_LOGO_SIZE }}
             />

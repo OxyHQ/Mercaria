@@ -50,7 +50,7 @@ import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
 
 /** v2 invalidates supplier URLs cached before internal-only media hydration. */
-const FEED_CACHE_VERSION = 'v2';
+const FEED_CACHE_VERSION = 'v3';
 
 function feedCacheKey(viewerId: string | undefined): string {
   return `feed:home:${FEED_CACHE_VERSION}:${viewerId ?? 'anon'}`;

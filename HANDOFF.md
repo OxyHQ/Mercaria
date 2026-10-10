@@ -584,6 +584,14 @@ The audit and current implementation:
   history and open its thread/product without any supplier image request; no
   image or API interception is used in those cases. This validates withholding
   stale hotlinks, not a completed media import.
+- The home hero now resolves `ProductSummary.imageFileId`; feed/store
+  hydration exposes image/logo/cover IDs and cache v3 invalidates URL-only
+  payloads. Shared product and merchant cards use the same resolver boundary,
+  and new listing history stores IDs rather than projected URLs. Merchant
+  artwork permits bundled files or verified Oxy URLs, without the former
+  arbitrary `{ uri }` fallback. A browser regression injects malformed feed
+  metadata and checks zero supplier requests plus preserved product navigation;
+  it does not intercept image responses or demonstrate a successful upload.
 - Local preview seeds also put external URLs into image fields. Some category
   and merchant artwork is already bundled locally; this does not prove all
   catalog media is synchronized.

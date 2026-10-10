@@ -1,3 +1,5 @@
+import { resolveStoredImageUrl } from "../../lib/stored-image-url";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "../../lib/shop-merchant-images";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
@@ -25,6 +27,8 @@ export function MerchantCartCard({
   onCheckout,
 }: MerchantCartCardProps) {
   const t = useSharedUiTranslation();
+  const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(group.vendor.logoUrl, resolveImage);
   const totalQuantity = group.items.reduce((n, item) => n + item.quantity, 0);
   const thumbnails = group.items.slice(0, 2);
   const sellerName = commercialSellerLabel(t, group.commercial);
@@ -45,9 +49,9 @@ export function MerchantCartCard({
             className="self-start"
           >
             <View className="h-8 w-8 overflow-hidden rounded-full border border-border bg-muted">
-              {group.vendor.logoUrl ? (
+              {logoSource ? (
                 <Image
-                  source={merchantImageSource(group.vendor.logoUrl)}
+                  source={logoSource}
                   contentFit="contain"
                   style={StyleSheet.absoluteFill}
                 />
@@ -81,7 +85,9 @@ export function MerchantCartCard({
           testID="cart-card-thumbnail-column"
           className="relative h-16 w-[72px] shrink-0"
         >
-          {thumbnails.map((item, index) => (
+          {thumbnails.map((item, index) => {
+            const imageUrl = resolveStoredImageUrl(item.imageUrl, resolveImage);
+            return (
             <View
               key={item.variantId}
               className={`absolute top-0 h-16 w-16 overflow-hidden rounded-[20px] border border-border bg-card web:shadow-sm ${index ? "start-2" : "start-0"}`}
@@ -99,16 +105,17 @@ export function MerchantCartCard({
                 ],
               }}
             >
-              {item.imageUrl ? (
+              {imageUrl ? (
                 <Image
-                  source={{ uri: item.imageUrl }}
+                  source={{ uri: imageUrl }}
                   accessibilityLabel={item.title}
                   contentFit="cover"
                   style={StyleSheet.absoluteFill}
                 />
               ) : null}
             </View>
-          ))}
+          );
+          })}
           <View
             testID="cart-card-count"
             className="absolute -start-1.5 top-1 z-10 min-w-[18px] items-center justify-center rounded-full bg-black p-0.5"

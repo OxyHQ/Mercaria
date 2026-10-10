@@ -1,3 +1,4 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "../../lib/shop-merchant-images";
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
@@ -97,13 +98,15 @@ function HeaderLogo({ logoUrl, size, exclusiveOffer }: {
   size: number;
   exclusiveOffer: boolean;
 }) {
+  const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(logoUrl, resolveImage);
   const logo = (
     <View
       className="overflow-hidden rounded-radius-max bg-bg-fill-secondary border-[0.5px] border-border-image"
       style={{ height: size, width: size }}
     >
-      {logoUrl ? (
-        <Image source={merchantImageSource(logoUrl)} contentFit="cover"
+      {logoSource ? (
+        <Image source={logoSource} contentFit="cover"
           style={{ height: size, width: size }} />
       ) : null}
     </View>

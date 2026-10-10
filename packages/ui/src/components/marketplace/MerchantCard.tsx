@@ -1,3 +1,5 @@
+import { resolveCatalogImage } from "../../lib/stored-image-url";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "../../lib/shop-merchant-images";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
@@ -59,6 +61,9 @@ export function MerchantCard({
   onPressMerchant,
   onPressProduct,
 }: MerchantCardProps) {
+  const resolveImage = useImageResolver();
+  const coverSource = merchantImageSource(merchant.coverImageUrl, resolveImage, merchant.coverFileId);
+  const logoSource = merchantImageSource(merchant.logoUrl, resolveImage, merchant.logoFileId);
   const ratingDisplay = useRatingDisplay();
   const t = useSharedUiTranslation();
   const toneColor = merchant.textTone === "light" ? TONE_LIGHT : TONE_DARK;
@@ -69,9 +74,9 @@ export function MerchantCard({
       style={{ height: CARD_HEIGHT, borderRadius: CARD_RADIUS, backgroundColor: merchant.brandColor }}
     >
       {/* Layer 1 — cover image, bleeds the whole card (the visual anchor). */}
-      {merchant.coverImageUrl ? (
+      {coverSource ? (
         <Image
-          source={merchantImageSource(merchant.coverImageUrl)}
+          source={coverSource}
           contentFit="cover"
           pointerEvents="none"
           className="web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none web:motion-reduce:transform-none"
@@ -106,9 +111,9 @@ export function MerchantCard({
             onPress={() => onPressMerchant?.(merchant.handle)}
             className="absolute inset-0 items-center justify-center"
           >
-            {merchant.logoUrl ? (
+            {logoSource ? (
               <Image
-                source={merchantImageSource(merchant.logoUrl)}
+                source={logoSource}
                 contentFit="contain"
                 style={{ maxHeight: 74, maxWidth: 195, width: "70%", height: 74 }}
               />
@@ -148,7 +153,9 @@ export function MerchantCard({
             link). Each cell has an explicit square size so the cover image
             (which fills it) always has a sized parent to render into. */}
         <View className="mt-3 flex-row justify-center gap-1.5">
-          {(merchant.products ?? []).map((thumb) => (
+          {(merchant.products ?? []).map((thumb) => {
+            const imageUrl = resolveCatalogImage(thumb.imageFileId, thumb.imageUrl, resolveImage, "thumb");
+            return (
             <Pressable
               key={thumb.id}
               accessibilityRole="link"
@@ -157,9 +164,9 @@ export function MerchantCard({
               className="overflow-hidden bg-muted web:shadow-sm"
               style={{ width: THUMB_SIZE, height: THUMB_SIZE, borderRadius: THUMB_RADIUS }}
             >
-              {thumb.imageUrl ? (
+              {imageUrl ? (
                 <Image
-                  source={{ uri: thumb.imageUrl }}
+                  source={{ uri: imageUrl }}
                   contentFit="cover"
                   style={StyleSheet.absoluteFill}
                 />
@@ -170,7 +177,8 @@ export function MerchantCard({
                 style={{ borderRadius: THUMB_RADIUS }}
               />
             </Pressable>
-          ))}
+          );
+          })}
         </View>
       </View>
 

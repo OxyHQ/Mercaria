@@ -1,3 +1,4 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
@@ -125,6 +126,8 @@ function CartGroupCard({
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
   const { vendor, commercial } = group;
+  const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(vendor.logoUrl, resolveImage);
   // #129 cart rules 1-3: the SELLER a buyer reads comes from the group's
   // commercial presentation, never from `vendor.name`. `vendor` names whose
   // CATALOGUE the lines came from, which is what the logo and the storefront
@@ -156,8 +159,8 @@ function CartGroupCard({
           className="overflow-hidden rounded-full bg-muted"
           style={{ width: VENDOR_LOGO_SIZE, height: VENDOR_LOGO_SIZE }}
         >
-          {vendor.logoUrl ? (
-            <Image source={merchantImageSource(vendor.logoUrl)} contentFit="cover" style={StyleSheet.absoluteFill} />
+          {logoSource ? (
+            <Image source={logoSource} contentFit="cover" style={StyleSheet.absoluteFill} />
           ) : null}
         </View>
         <View className="min-w-0 flex-1">

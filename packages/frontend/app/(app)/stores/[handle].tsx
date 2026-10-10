@@ -28,7 +28,7 @@ import {
 } from "@oxy.so/bloom/dropdown-menu";
 import { Switch } from "@oxy.so/bloom/switch";
 import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
-import type { Listing, StoreSummary } from "@mercaria/shared-types";
+import { isOxyFileId, type Listing, type StoreSummary } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
@@ -92,13 +92,13 @@ function toQuerySort(sort: SortValue): "newest" | "price_asc" | "price_desc" | u
 }
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
-function toProductSummary(listing: Listing, brand: string, resolveImage: ReturnType<typeof useImageResolver>): ProductSummary {
-  const firstImage = listing.images[0];
+function toProductSummary(listing: Listing, brand: string): ProductSummary {
+  const firstImage = listing.images.find(image => isOxyFileId(image.fileId));
   return {
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, "thumb") : undefined,
+    imageFileId: firstImage?.fileId,
     rating: 0,
     reviewCount: 0,
     price: listing.price,
@@ -176,12 +176,14 @@ function CollectionPill({
  * (top stays ≤ 0, bottom stays ≥ hero height). On native the offset is 0 — a
  * static, fully-covering hero.
  */
-function ParallaxCover({ uri }: { uri: string }) {
+function ParallaxCover({ uri, fileId }: { uri?: string; fileId?: string }) {
+  const resolveImage = useImageResolver();
+  const source = merchantImageSource(uri, resolveImage, fileId);
   const scrollY = useWindowScrollY();
   const translateY = Math.min(scrollY * PARALLAX_FACTOR, PARALLAX_EXTRA);
   return (
     <Image
-      source={merchantImageSource(uri)}
+      source={source}
       contentFit="cover"
       style={{
         position: "absolute",
@@ -300,9 +302,10 @@ function StoreBody({
   });
 
   const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(store.logoUrl, resolveImage, store.logoFileId);
   const products = useMemo(
-    () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name, resolveImage)),
-    [data, store.name, resolveImage],
+    () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name)),
+    [data, store.name],
   );
 
   const hasNextPage = data?.pagination.hasNextPage ?? false;
@@ -320,7 +323,7 @@ function StoreBody({
     <View style={themeVars}>
       {/* ---- Hero ---- */}
       <View className="relative w-full overflow-hidden" style={{ height: HERO_HEIGHT }}>
-        {store.coverImageUrl ? <ParallaxCover uri={store.coverImageUrl} /> : null}
+        {store.coverFileId || store.coverImageUrl ? <ParallaxCover uri={store.coverImageUrl} fileId={store.coverFileId} /> : null}
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: COVER_DARK_OVERLAY }]} />
         {/* Brand-color scrim fading up from the bottom into the page tint. */}
         <LinearGradient
@@ -340,9 +343,9 @@ function StoreBody({
           className="absolute start-4 top-4 flex-row items-center gap-2 rounded-full border border-white/30 px-3 py-2 web:shadow"
           style={glassStyle(store)}
         >
-          {store.logoUrl ? (
+          {logoSource ? (
             <Image
-              source={merchantImageSource(store.logoUrl)}
+              source={logoSource}
               contentFit="contain"
               style={{ width: 22, height: 22 }}
             />
@@ -368,9 +371,9 @@ function StoreBody({
 
         {/* Centered wordmark + rating. */}
         <View className="absolute inset-x-0 bottom-6 items-center px-6">
-          {store.logoUrl ? (
+          {logoSource ? (
             <Image
-              source={merchantImageSource(store.logoUrl)}
+              source={logoSource}
               contentFit="contain"
               style={{ height: WORDMARK_HEIGHT, width: "70%", maxWidth: 320 }}
             />

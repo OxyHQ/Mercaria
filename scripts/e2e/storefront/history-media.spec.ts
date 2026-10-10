@@ -17,12 +17,12 @@ for (const width of [390, 1440]) {
       localStorage.setItem('mercaria.shopping-history', JSON.stringify({
         version: 0,
         state: {
-          products: [{ owner: 'guest', product: { ...product, imageUrl: `${supplierOrigin}/recent-product.jpg` } }],
+          products: [{ owner: 'guest', product: { ...product, imageFileId: undefined, imageUrl: `${supplierOrigin}/recent-product.jpg` } }],
           threads: [{ id: 'legacy-history', owner: 'guest', title, preview: false,
             updatedAt: new Date().toISOString(), messages: [
               { role: 'user', content: title },
               { role: 'assistant', content: 'Your previous results', examples: [
-                { ...product, imageUrl: `${supplierOrigin}/thread-product.jpg` },
+                { ...product, imageFileId: undefined, imageUrl: `${supplierOrigin}/thread-product.jpg` },
               ] },
             ] }],
         },

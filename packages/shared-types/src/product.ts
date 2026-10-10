@@ -20,6 +20,8 @@ export interface ProductSummary {
   title: string;
   /** Brand / seller short name shown above the title. */
   brand: string;
+  /** Primary synchronized Oxy image. Resolve through the app's image provider. */
+  imageFileId?: string;
   /**
    * Resolvable image URL, ABSENT when the subject has no image.
    *
@@ -42,6 +44,8 @@ export interface ProductSummary {
 
 /** A compact product reference shown as a thumbnail inside a merchant card. */
 export interface ProductThumbnail {
+  /** Synchronized Oxy image resolved by the app provider. */
+  imageFileId?: string;
   /** Stable product id (links to the product). */
   id: string;
   /** Product title (for accessibility / alt text). */
@@ -85,6 +89,9 @@ export interface StoreSummary {
   handle: string;
   /** Display name of the shop. */
   name: string;
+  /** Synchronized Oxy assets; URLs below are compatibility projections. */
+  logoFileId?: string;
+  coverFileId?: string;
   /** Optional white logo/wordmark PNG (resolvable URL) shown over the cover. */
   logoUrl?: string;
   /** Cover image filling the card background (object-cover). */
