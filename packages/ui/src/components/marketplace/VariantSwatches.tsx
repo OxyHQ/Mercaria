@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { Button } from "@oxy.so/bloom/button";
-import { isImageUrl, useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useReducedMotion } from "react-native-reanimated";
 import { cn } from "../../lib/cn";
 import { useColorScheme } from "../../lib/useColorScheme";
@@ -85,7 +85,7 @@ export function VariantSwatches({
     const fileId = target?.images?.source === "variant"
       ? target.images.images[0]?.fileId : undefined;
     const image = fileId
-      ? isImageUrl(fileId) ? fileId : resolveImage?.(fileId, "thumb")
+      ? resolveImage?.(fileId, "thumb")
       : undefined;
     return { value, image, inStock: target?.inStock ?? false, measureKey: `${value}\0${image ? 1 : 0}` };
   });

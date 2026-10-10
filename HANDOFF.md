@@ -560,8 +560,10 @@ The audit and current implementation:
   opening its transaction, under the authenticated operator's Oxy account.
   Source storage/display rights are checked before upload and again before
   writing. PostgreSQL coverage proves upload refusal preserves prior facts,
-  provenance and gallery. `sourceUrl` remains provenance; several read
-  projections/UI consumers still display it and need correction.
+  provenance and gallery. `sourceUrl` remains provenance. The canonical page,
+  bundle contents, merchant cards, swatches and SEO no longer use that URL as
+  an image fallback. All three Bloom resolver providers reject non-ID input;
+  `isOxyFileId` is shared with the backend importer.
 - `catalog-hydration.service.ts` and `variant-images.controller.ts` replace
   `fileId` with a resolved URL. The gallery, related cards, recent history and
   public API projection rely on that behavior; they need a coordinated change.
@@ -584,6 +586,8 @@ identity/order, preserve IDs in DTOs, resolve renditions through Oxy in every
 consumer, and verify browser requests never fetch supplier image origins.
 New dashboard list rows and bundle recommendation cards already reject URL
 values in `fileId`; this is not a claim that other surfaces are corrected.
+The canonical browser gallery test also supplies deliberately external source
+URLs and proves zero requests to that origin while rendering Oxy images.
 
 # Open-data providers — what is built and what is next
 

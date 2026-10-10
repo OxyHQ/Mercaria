@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { useOxy } from "@oxy.so/services";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
 import type { CurrencyCode, MerchantCatalogEntry, Money } from "@mercaria/shared-types";
 import { PriceDisplay, Text } from "@mercaria/ui";
@@ -55,11 +55,11 @@ export function MerchantProductCard({
   onPress: (canonicalProductId: string) => void;
 }) {
   const { t } = useTranslation();
-  const { oxyServices } = useOxy();
+  const resolveImage = useImageResolver();
   const fileId = entry.image?.fileId ?? null;
   const imageUri = fileId
-    ? oxyServices.assets.publicUrl(fileId, "thumb")
-    : (entry.image?.sourceUrl ?? null);
+    ? resolveImage?.(fileId, "thumb")
+    : undefined;
   const offerPrice = entry.representativeOffer?.price;
   const price = displayablePrice(offerPrice);
 

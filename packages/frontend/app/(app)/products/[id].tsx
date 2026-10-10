@@ -1,3 +1,4 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { merchantImageSource } from "@mercaria/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -246,7 +247,8 @@ interface ProductBodyProps {
 
 /** The two-column PDP body (gallery + buy column) plus the full-width shelves. */
 function ProductBody({ listing }: ProductBodyProps) {
-  const { canUsePrivateApi, oxyServices } = useOxy();
+  const { canUsePrivateApi } = useOxy();
+  const resolveImage = useImageResolver();
   const controlClassName = useShopControlClassName();
   const { colors, isDarkColorScheme } = useColorScheme();
   const { width, height } = useWindowDimensions();
@@ -312,7 +314,7 @@ function ProductBody({ listing }: ProductBodyProps) {
   const bundle = (
     <BundleContents
       contents={selectedVariant ? listing.bundleContentsByVariant?.[selectedVariant.id] : undefined}
-      resolveImage={image => image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined)}
+      resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
       onPressComponent={component => router.push({
         pathname: "/p/[handle]",
         params: { handle: component.productSlug, variant: component.variantId },

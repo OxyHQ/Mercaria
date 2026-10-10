@@ -953,6 +953,14 @@ test('a product without photographs keeps an accessible empty gallery and workin
 
 test("canonical products use the complete gallery and keep purchase availability explicit", async ({ page, request }) => {
   const listing = await seededProduct(request);
+  const supplierRequests: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('supplier-provenance.example.test')) supplierRequests.push(request.url());
+  });
+  await page.route('https://cloud.oxy.so/canonical-gallery-*', route => route.fulfill({
+    contentType: 'image/png',
+    body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64'),
+  }));
   const id = "00000000-0000-4000-8000-000000000001";
   const now = new Date().toISOString();
   const existingReviews = await (await request.get(`http://localhost:4160/listings/${listing.id}/reviews?limit=1`)).json();
@@ -977,10 +985,11 @@ test("canonical products use the complete gallery and keep purchase availability
         id, slug: "gallery-preview", status: "active", name: "Gallery preview",
         description: "A catalogue product with a complete photo gallery.",
         aliases: [], searchTokens: [], variantDefiningAttributeKeys: [],
-        images: listing.images.map((image, position) => ({
-          id: String(position), sourceUrl: image.fileId, alt: `Catalogue photo ${position + 1}`,
+        images: [...listing.images.map((image, position) => ({
+          id: String(position), fileId: `canonical-gallery-${position}`,
+          sourceUrl: `https://supplier-provenance.example.test/${position}.png`, alt: `Catalogue photo ${position + 1}`,
           position, status: "active",
-        })),
+        })), { id: 'unsynchronized', sourceUrl: 'https://supplier-provenance.example.test/unsynchronized.png', position: 99, status: 'active' }],
         attributes: [], identifiers: [], fieldProvenance: [],
         rating: 0, ratingCount: 0, variantCount: 0,
         firstSeenAt: now, createdAt: now, updatedAt: now,
@@ -1022,6 +1031,7 @@ test("canonical products use the complete gallery and keep purchase availability
   await expect(page.getByText("Use your Oxy account", { exact: true })).toBeVisible();
   await expect(save).toHaveAttribute("aria-pressed", "false");
   expect(saveWrites).toBe(0);
+  expect(supplierRequests).toEqual([]);
 });
 
 for (const [layout, value] of [

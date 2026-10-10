@@ -1,3 +1,4 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import Head from 'expo-router/head';
@@ -69,7 +70,8 @@ import { useTranslation } from '@/lib/i18n';
 
 export default function CanonicalProductPageScreen() {
   const router = useRouter();
-  const { oxyServices, canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi } = useOxy();
+  const resolveImage = useImageResolver();
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const params = useLocalSearchParams<{ handle: string; variant?: string; intent?: string }>();
@@ -85,7 +87,7 @@ export default function CanonicalProductPageScreen() {
   const media = page?.product.images ?? [];
   const images = media.flatMap((image) => {
     const uri =
-      image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined);
+      image.fileId ? resolveImage?.(image.fileId) : undefined;
     return uri
       ? [{ uri, alt: image.alt ?? t('product.imageFromCatalogueA11y', { name: page?.product.name }) }]
       : [];
@@ -236,7 +238,7 @@ export default function CanonicalProductPageScreen() {
               title={page.product.name}
             />
             {width >= 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
-              resolveImage={image => image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined)}
+              resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
               onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
           </View>
           <View className="min-w-0 gap-space-24 px-space-16 md:px-0 md:pt-2 md:w-[29em]">
@@ -333,7 +335,7 @@ export default function CanonicalProductPageScreen() {
             ) : null}
 
             {width < 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
-              resolveImage={image => image.sourceUrl ?? (image.fileId ? oxyServices.assets.publicUrl(image.fileId) : undefined)}
+              resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
               onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
             <ReviewSummaryCard
               embedded

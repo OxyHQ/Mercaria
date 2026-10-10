@@ -902,3 +902,4 @@ export * from './catalog-governance';
 // nobody measured cannot be rendered as a number rather than merely should not be.
 export * from './catalog-metrics';
 export * from './shopping-thread';
+export * from './media';

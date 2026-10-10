@@ -1,10 +1,10 @@
 import { safeFetch } from '@oxy.so/core/server';
+import { isOxyFileId } from '@mercaria/shared-types';
 import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const TIMEOUT_MS = 20_000;
-const FILE_ID = /^[A-Za-z0-9_-]+$/;
 
 /** No source URL, signed query or credential reaches a sync-run error. */
 export class CatalogMediaSyncError extends Error {
@@ -36,11 +36,11 @@ export async function synchronizeAccountImages(ownerOxyUserId: string | undefine
 
 async function synchronizeImages(references: readonly string[], resolveOwner: () => Promise<string>): Promise<string[]> {
   if (references.length > 64) throw new CatalogMediaSyncError('Too many catalog images.');
-  if (references.every(value => FILE_ID.test(value))) return [...references];
+  if (references.every((value): boolean => isOxyFileId(value))) return [...references];
 
   // Refuse invalid references before uploading any image from this gallery.
   for (const value of references) {
-    if (FILE_ID.test(value)) continue;
+    if (isOxyFileId(value)) continue;
     let url: URL;
     try { url = new URL(value); }
     catch { throw new CatalogMediaSyncError('A catalog image must be an Oxy file ID or an HTTPS source.'); }
@@ -55,7 +55,7 @@ async function synchronizeImages(references: readonly string[], resolveOwner: ()
   const imported = new Map<string, string>();
   const ids: string[] = [];
   for (const reference of references) {
-    if (FILE_ID.test(reference)) { ids.push(reference); continue; }
+    if (isOxyFileId(reference)) { ids.push(reference); continue; }
     const existing = imported.get(reference);
     if (existing) { ids.push(existing); continue; }
     let downloaded: Awaited<ReturnType<typeof safeFetch>> | undefined;
@@ -108,7 +108,7 @@ async function synchronizeImages(references: readonly string[], resolveOwner: ()
       }
       const payload = await response.json() as { data?: { file?: { id?: unknown; visibility?: unknown } } };
       const file = payload.data?.file;
-      if (typeof file?.id !== 'string' || !FILE_ID.test(file.id) || file.visibility !== 'public') {
+      if (!isOxyFileId(file?.id) || file.visibility !== 'public') {
         throw new CatalogMediaSyncError('Oxy did not return a public catalog image file ID.');
       }
       imported.set(reference, file.id);

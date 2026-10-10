@@ -1,3 +1,4 @@
+import { isOxyFileId } from "@mercaria/shared-types";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import { Slot, Stack } from 'expo-router';
@@ -53,6 +54,7 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
   // No rendition means the original; Avatar explicitly requests its thumbnail.
   const resolveImageSource = useCallback(
     (fileId: string, variant?: string): string | undefined => {
+      if (!isOxyFileId(fileId)) return undefined;
       const url = oxyServices.assets.publicUrl(fileId, variant);
       return url && url.startsWith('http') ? url : undefined;
     },
