@@ -289,6 +289,18 @@ export interface ListingOption {
   values: string[];
 }
 
+/** An available pack sold by the same seller, containing the exact selected
+ * configuration. Prices and the action refer to the pack's own native variant. */
+export interface ListingBundleRecommendation {
+  listingId: string;
+  variantId: string;
+  title: string;
+  image?: ListingImage;
+  price: Money;
+  compareAtPrice?: Money;
+  action: 'add_to_cart' | 'view_bundle';
+}
+
 /**
  * A marketplace listing: an item put up for sale by a user or a store.
  *
@@ -350,6 +362,8 @@ export interface Listing extends Timestamps {
   /** Detail only: exact active catalog attachments, keyed by native variant id.
    * No entry means no known composition; product-level identity is insufficient. */
   bundleContentsByVariant?: Record<string, ProductBundleContents>;
+  /** Detail only: available packs containing each native configuration. */
+  bundlesByVariant?: Record<string, ListingBundleRecommendation[]>;
   /** Lifecycle status. */
   status: ListingStatus;
   /**

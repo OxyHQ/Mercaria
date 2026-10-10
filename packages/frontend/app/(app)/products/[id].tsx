@@ -21,6 +21,7 @@ import {
 import { Stepper } from "@oxy.so/bloom/stepper";
 import {
   BundleContents,
+  BundleRecommendations,
   CommercialDisclosure,
   ConditionBadge,
   MerchantHeader,
@@ -257,6 +258,7 @@ function ProductBody({ listing }: ProductBodyProps) {
   const { formatMoney } = useFormatters();
   const ratingDisplay = useRatingDisplay();
   const addToCart = useAddCartItem();
+  const addBundleToCart = useAddCartItem();
   useEffect(() => {
     if (!addToCart.isSuccess) return;
     const timer = setTimeout(addToCart.reset, 3000);
@@ -949,6 +951,14 @@ function ProductBody({ listing }: ProductBodyProps) {
             ) : null}
           </View>
         </View>
+
+        <BundleRecommendations
+          bundles={selectedVariant ? listing.bundlesByVariant?.[selectedVariant.id] ?? [] : []}
+          onView={bundle => router.push({ pathname: "/products/[id]", params: { id: bundle.listingId, variantId: bundle.variantId } })}
+          onAddToCart={async bundle => {
+            await addBundleToCart.mutateAsync({ listingId: bundle.listingId, variantId: bundle.variantId, quantity: 1 });
+          }}
+        />
 
         {/* Full-width related shelves. */}
         {listing.store ? (

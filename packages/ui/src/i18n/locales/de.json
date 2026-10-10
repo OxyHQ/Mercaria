@@ -1001,7 +1001,11 @@
       "title": "Im Set enthalten",
       "unavailable": "Der Inhalt dieses Sets ist derzeit nicht verfügbar.",
       "open": "%{name}, %{variant}, Menge %{quantity} ansehen",
-      "quantity": "×%{quantity}"
+      "quantity": "×%{quantity}",
+      "together": "Im Set kaufen",
+      "andSave": "Im Set kaufen und sparen",
+      "view": "Set ansehen",
+      "addFailed": "Das Set konnte nicht hinzugefügt werden. Bitte erneut versuchen."
     }
   }
 }

@@ -1001,7 +1001,11 @@
       "title": "セット内容",
       "unavailable": "現在、このセットの内容を表示できません。",
       "open": "%{name}、%{variant}、数量%{quantity}を表示",
-      "quantity": "×%{quantity}"
+      "quantity": "×%{quantity}",
+      "together": "セットで購入",
+      "andSave": "セットでお得に購入",
+      "view": "セットを見る",
+      "addFailed": "セットを追加できませんでした。もう一度お試しください。"
     }
   }
 }

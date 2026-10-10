@@ -1008,7 +1008,11 @@
       "title": "Qué incluye",
       "unavailable": "El contenido de este pack no está disponible en este momento.",
       "open": "Ver %{name}, %{variant}, cantidad %{quantity}",
-      "quantity": "×%{quantity}"
+      "quantity": "×%{quantity}",
+      "together": "Compra en pack",
+      "andSave": "Compra en pack y ahorra",
+      "view": "Ver pack",
+      "addFailed": "No se pudo añadir el pack. Inténtalo de nuevo."
     }
   }
 }

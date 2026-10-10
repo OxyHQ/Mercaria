@@ -1001,7 +1001,11 @@
       "title": "包含商品",
       "unavailable": "暂时无法查看此套装的内容。",
       "open": "查看%{name}，%{variant}，数量%{quantity}",
-      "quantity": "×%{quantity}"
+      "quantity": "×%{quantity}",
+      "together": "组合购买",
+      "andSave": "组合购买更优惠",
+      "view": "查看组合",
+      "addFailed": "无法添加此组合，请重试。"
     }
   }
 }

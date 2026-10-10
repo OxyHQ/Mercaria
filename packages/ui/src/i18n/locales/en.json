@@ -1001,7 +1001,11 @@
       "title": "What's included",
       "unavailable": "The contents of this pack are currently unavailable.",
       "open": "View %{name}, %{variant}, quantity %{quantity}",
-      "quantity": "×%{quantity}"
+      "quantity": "×%{quantity}",
+      "together": "Bundle together",
+      "andSave": "Bundle and save",
+      "view": "View bundle",
+      "addFailed": "Could not add this bundle. Please try again."
     }
   }
 }

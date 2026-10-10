@@ -1008,7 +1008,11 @@
       "title": "Què inclou",
       "unavailable": "El contingut d’aquest pack no està disponible en aquest moment.",
       "open": "Veure %{name}, %{variant}, quantitat %{quantity}",
-      "quantity": "×%{quantity}"
+      "quantity": "×%{quantity}",
+      "together": "Compra en paquet",
+      "andSave": "Compra en paquet i estalvia",
+      "view": "Veure paquet",
+      "addFailed": "No s’ha pogut afegir el paquet. Torna-ho a provar."
     }
   }
 }

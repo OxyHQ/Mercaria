@@ -84,6 +84,16 @@ schema decision. `HANDOFF.md` holds deferred work.
   attachments render no section. Hidden parents are omitted; hidden components
   or a seller's disclosed missing accessories withhold the composition. Feed
   and search cards do not pay for this detail-only read.
+- Seller product details also offer “Bundle together” for packs containing the
+  selected exact configuration. Candidates come from the reverse bundle graph
+  and active native attachments, stay within the same seller, and require the
+  pack's own published price and stock. Hydration and visibility checks run in
+  batches, with at most twelve candidates per source variant. A one-variant
+  pack uses the existing cart mutation; a configurable pack opens its exact
+  listing variant. The shelf displays the pack's own discount, never a price
+  calculated by adding its components. Bloom renders the responsive carousel,
+  pending actions and retryable errors; below 360px a full card keeps translated
+  actions readable beside the fixed-size image.
 - Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
   Shop's public CSS; product columns switch independently at 768px. Product
   thumbnails appear in a horizontal 48px strip from 768–975px, then move to a

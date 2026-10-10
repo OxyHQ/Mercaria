@@ -1008,7 +1008,11 @@
       "title": "Ce qui est inclus",
       "unavailable": "Le contenu de ce lot est actuellement indisponible.",
       "open": "Voir %{name}, %{variant}, quantité %{quantity}",
-      "quantity": "×%{quantity}"
+      "quantity": "×%{quantity}",
+      "together": "Acheter en lot",
+      "andSave": "Acheter en lot et économiser",
+      "view": "Voir le lot",
+      "addFailed": "Impossible d’ajouter ce lot. Réessayez."
     }
   }
 }

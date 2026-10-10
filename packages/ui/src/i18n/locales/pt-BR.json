@@ -1008,7 +1008,11 @@
       "title": "O que está incluído",
       "unavailable": "O conteúdo deste kit está indisponível no momento.",
       "open": "Ver %{name}, %{variant}, quantidade %{quantity}",
-      "quantity": "×%{quantity}"
+      "quantity": "×%{quantity}",
+      "together": "Compre em conjunto",
+      "andSave": "Compre em conjunto e economize",
+      "view": "Ver conjunto",
+      "addFailed": "Não foi possível adicionar este conjunto. Tente novamente."
     }
   }
 }
