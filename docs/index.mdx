@@ -54,6 +54,23 @@ schema decision. `HANDOFF.md` holds deferred work.
   reduced-motion preferences skip the flight. The purchase button keeps its
   content mounted through loading, slides to its success label, then resets
   after three seconds; this requires Bloom's stable loading-content contract.
+- `PurchasePlanPicker` composes Bloom's rich `RadioGroup`, `Collapsible` and
+  `Select` for one-time/subscription panels. The caller supplies prices, savings
+  and terms; the component never derives a charge from a discount badge.
+  Changing purchase mode preserves the selected delivery frequency. Interactive
+  bodies are siblings of the radio, and closed bodies leave the focus order.
+  Consumer subscriptions remain excluded by the commerce capability registry:
+  the storefront exposes sample allocations only in development, through
+  `?purchasePreview=subscription|required|prepaid|introductory|unavailable` on a
+  product URL (choose one value). Those purchase actions simulate loading and
+  confirmation without calling cart, checkout or order APIs. Production ignores
+  the parameter and uses the real listing purchase flow.
+- A selected sold-out variant promotes the existing saved-item action into the
+  purchase area, using Shop's plain 44px button and availability caption. A
+  canonical product save still follows the product across sellers; the separate
+  exact-listing pin remains available below. Unmatched listings keep their
+  listing save. State and mutations remain account-owned, and the copy promises
+  no restock notification. Missing option selection still asks for options.
 - Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
   Shop's public CSS; product columns switch independently at 768px. Product
   thumbnails appear in a horizontal 48px strip from 768–975px, then move to a

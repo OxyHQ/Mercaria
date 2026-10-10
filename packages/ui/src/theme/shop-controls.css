@@ -40,6 +40,7 @@
   .shop-control-primary-interactive:hover { background-color: #4524db; }
   .shop-control-secondary {
     height: auto;
+    white-space: normal;
     padding: 16px;
     background-color: #121212;
     color: #fff;
@@ -49,6 +50,15 @@
   .shop-control-secondary-dark { background-color: #fff; color: #000; border-color: #fff; }
   .shop-control-secondary-interactive:hover { background-color: #2a2a2a; }
   .shop-control-secondary-dark-interactive:hover { background-color: #c9cbcc; }
+  /* Shop Button size=l without the purchase buttons' "juicy" treatment. */
+  .shop-control-flat {
+    height: auto;
+    min-height: 44px;
+    padding: 12px;
+    border-width: 0;
+    box-shadow: none;
+    white-space: normal;
+  }
   .shop-control-outline {
     background-color: #fff;
     color: #000;

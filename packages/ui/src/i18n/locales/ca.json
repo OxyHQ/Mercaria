@@ -1,6 +1,8 @@
 {
   "ui": {
-    "sheet": { "close": "Tanca" },
+    "sheet": {
+      "close": "Tanca"
+    },
     "condition": {
       "label": {
         "new": "Nou",
@@ -805,7 +807,16 @@
       "selectOptions": "Tria les opcions",
       "buyNow": "Compra ara",
       "soldOut": "Esgotat",
-      "added": "Afegit a la cistella"
+      "added": "Afegit a la cistella",
+      "subscribeNow": "Subscriu-te ara",
+      "oneTime": "Compra única",
+      "subscriptionRequired": "Subscripció obligatòria",
+      "subscribeAndSave": "Subscriu-te i estalvia",
+      "subscription": "Subscripció",
+      "deliveryFrequency": "Freqüència de lliurament",
+      "options": "Opcions de compra",
+      "soldOutSave": "Aquesta opció està esgotada. Desa aquest article per trobar-lo més endavant.",
+      "soldOutSaved": "Aquesta opció està esgotada. Pots trobar aquest article als elements desats."
     },
     "marketplace": {
       "visitMerchant": "Visita %{name}",

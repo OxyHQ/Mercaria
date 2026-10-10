@@ -1,6 +1,8 @@
 {
   "ui": {
-    "sheet": { "close": "बंद करें" },
+    "sheet": {
+      "close": "बंद करें"
+    },
     "condition": {
       "label": {
         "new": "नया",
@@ -798,7 +800,16 @@
       "selectOptions": "विकल्प चुनें",
       "buyNow": "अभी खरीदें",
       "soldOut": "स्टॉक खत्म",
-      "added": "कार्ट में जोड़ा गया"
+      "added": "कार्ट में जोड़ा गया",
+      "subscribeNow": "अभी सदस्यता लें",
+      "oneTime": "एक बार की खरीदारी",
+      "subscriptionRequired": "सदस्यता आवश्यक है",
+      "subscribeAndSave": "सदस्यता लें और बचाएँ",
+      "subscription": "सदस्यता",
+      "deliveryFrequency": "डिलीवरी की आवृत्ति",
+      "options": "खरीदारी के विकल्प",
+      "soldOutSave": "यह विकल्प स्टॉक में नहीं है। इसे बाद में ढूँढ़ने के लिए सेव करें।",
+      "soldOutSaved": "यह विकल्प स्टॉक में नहीं है। यह आपको सेव किए गए आइटम में मिलेगा।"
     },
     "marketplace": {
       "visitMerchant": "%{name} पर जाएँ",

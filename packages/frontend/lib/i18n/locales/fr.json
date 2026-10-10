@@ -206,7 +206,17 @@
       "notFullyBuilt": "Une partie de cette période n'a pas encore été constituée.",
       "conversionDisplayOnly": "Les montants convertis sont donnés à titre indicatif."
     },
-    "reviews": "Avis"
+    "reviews": "Avis",
+    "purchasePreview": {
+      "notice": "Aperçu avec des prix et des offres fictifs. Les actions sont simulées, sans commande ni débit.",
+      "save": "Économisez %{percent}",
+      "monthly": "Livraison chaque mois",
+      "bimonthly": "Livraison tous les 2 mois",
+      "prepaid": "%{price} par livraison. Trois livraisons payées à l’avance.",
+      "introductory": "Prix de lancement pour la première livraison, puis %{price} par livraison.",
+      "cartResult": "Simulation : ajouté au panier. Votre panier n’a pas changé.",
+      "checkoutResult": "Paiement simulé terminé. Aucune commande ni aucun paiement n’a été créé."
+    }
   },
   "catalog": {
     "breadcrumbs": {

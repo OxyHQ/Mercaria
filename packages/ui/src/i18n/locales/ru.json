@@ -1,6 +1,8 @@
 {
   "ui": {
-    "sheet": { "close": "Закрыть" },
+    "sheet": {
+      "close": "Закрыть"
+    },
     "condition": {
       "label": {
         "new": "Новый",
@@ -812,7 +814,16 @@
       "selectOptions": "Выбрать параметры",
       "buyNow": "Купить сейчас",
       "soldOut": "Нет в наличии",
-      "added": "Добавлено в корзину"
+      "added": "Добавлено в корзину",
+      "subscribeNow": "Подписаться",
+      "oneTime": "Разовая покупка",
+      "subscriptionRequired": "Требуется подписка",
+      "subscribeAndSave": "Подпишитесь и экономьте",
+      "subscription": "Подписка",
+      "deliveryFrequency": "Частота доставки",
+      "options": "Варианты покупки",
+      "soldOutSave": "Этот вариант распродан. Сохраните товар, чтобы найти его позже.",
+      "soldOutSaved": "Этот вариант распродан. Вы можете найти товар в сохранённых."
     },
     "marketplace": {
       "visitMerchant": "Перейти к %{name}",

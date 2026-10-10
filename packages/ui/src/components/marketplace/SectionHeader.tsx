@@ -33,8 +33,8 @@ export function SectionHeader({
   if (!onPress && !showChevron) {
     return (
       <Text
+        accessibilityRole="header"
         className={`${inset ? "px-4 pb-3 md:px-5" : ""} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
-        numberOfLines={1}
       >
         {title}
       </Text>
@@ -44,8 +44,8 @@ export function SectionHeader({
   const inner = (
     <>
       <Text
+        accessibilityRole="header"
         className={`${chevronPosition === "end" ? "flex-1" : "shrink"} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
-        numberOfLines={1}
       >
         {title}
       </Text>

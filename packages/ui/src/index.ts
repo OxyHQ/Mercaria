@@ -415,6 +415,12 @@ export {
   PurchaseOptions,
   type PurchaseOptionsProps,
 } from "./components/marketplace/PurchaseOptions";
+export {
+  PurchasePlanPicker,
+  type PurchasePlan,
+  type PurchasePlanPickerProps,
+  type PurchasePlanSelection,
+} from "./components/marketplace/PurchasePlanPicker";
 export { ReviewCard, type ReviewCardProps } from "./components/marketplace/ReviewCard";
 export { ProductSpecificationGrid, type ProductSpecification } from "./components/marketplace/ProductSpecificationGrid";
 export { CartFlightProvider, CartFlightTarget, useCartFlight, type CartFlightRect } from "./components/marketplace/CartFlight";

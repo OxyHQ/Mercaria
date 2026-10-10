@@ -1,6 +1,8 @@
 {
   "ui": {
-    "sheet": { "close": "閉じる" },
+    "sheet": {
+      "close": "閉じる"
+    },
     "condition": {
       "label": {
         "new": "新品",
@@ -798,7 +800,16 @@
       "selectOptions": "オプションを選ぶ",
       "buyNow": "今すぐ購入",
       "soldOut": "売り切れ",
-      "added": "カートに追加しました"
+      "added": "カートに追加しました",
+      "subscribeNow": "今すぐ定期購入",
+      "oneTime": "通常購入",
+      "subscriptionRequired": "定期購入が必要です",
+      "subscribeAndSave": "定期購入でお得に",
+      "subscription": "定期購入",
+      "deliveryFrequency": "お届け頻度",
+      "options": "購入方法",
+      "soldOutSave": "このオプションは売り切れです。後で見つけられるように、この商品を保存してください。",
+      "soldOutSaved": "このオプションは売り切れです。保存した商品から確認できます。"
     },
     "marketplace": {
       "visitMerchant": "%{name} を見る",

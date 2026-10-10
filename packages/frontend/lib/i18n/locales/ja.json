@@ -204,7 +204,17 @@
       "notFullyBuilt": "この期間の一部はまだ作成されていません。",
       "conversionDisplayOnly": "換算後の金額は表示用です。"
     },
-    "reviews": "レビュー"
+    "reviews": "レビュー",
+    "purchasePreview": {
+      "notice": "サンプルの価格とプランを使ったプレビューです。操作はシミュレーションで、注文や請求は発生しません。",
+      "save": "%{percent}割引",
+      "monthly": "毎月お届け",
+      "bimonthly": "2か月ごとにお届け",
+      "prepaid": "1回のお届けにつき%{price}。3回分を前払い。",
+      "introductory": "初回お届けは特別価格、2回目以降は1回につき%{price}。",
+      "cartResult": "シミュレーション：カートに追加しました。実際のカートは変更されていません。",
+      "checkoutResult": "購入シミュレーションが完了しました。注文や支払いは作成されていません。"
+    }
   },
   "catalog": {
     "breadcrumbs": {

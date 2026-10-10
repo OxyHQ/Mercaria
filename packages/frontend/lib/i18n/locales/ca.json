@@ -206,7 +206,17 @@
       "notFullyBuilt": "Una part d'aquest període encara no s'ha calculat.",
       "conversionDisplayOnly": "Les xifres convertides són només informatives."
     },
-    "reviews": "Ressenyes"
+    "reviews": "Ressenyes",
+    "purchasePreview": {
+      "notice": "Vista prèvia amb preus i plans de mostra. Les accions són simulades; no es creen comandes ni cobraments.",
+      "save": "Estalvia %{percent}",
+      "monthly": "Lliurament cada mes",
+      "bimonthly": "Lliurament cada 2 mesos",
+      "prepaid": "%{price} per lliurament. Tres lliuraments pagats per avançat.",
+      "introductory": "Preu inicial per al primer lliurament; després, %{price} per lliurament.",
+      "cartResult": "Simulació: afegit al carretó. El carretó no ha canviat.",
+      "checkoutResult": "Compra simulada completada. No s’ha creat cap comanda ni pagament."
+    }
   },
   "catalog": {
     "breadcrumbs": {

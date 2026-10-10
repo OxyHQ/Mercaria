@@ -66,7 +66,7 @@ export interface Formatters {
   /** A review count, abbreviated as the locale abbreviates: `10.3K`, `1万`. */
   formatReviewCount: (n: number) => string;
   /** Basis points as a positive percentage: `8.2%` in `en`, `8,2 %` in `fr`. */
-  formatPercent: (deltaBps: number) => string;
+  formatPercent: (deltaBps: number, fractionDigits?: number) => string;
   /** A star rating to one decimal: `4.5` in `en`, `4,5` in `de`. */
   formatRating: (rating: number) => string;
   /** A coarse duration in its largest whole unit: `5 minutes`, `5 минут`. */
@@ -84,7 +84,7 @@ export function useFormatters(): Formatters {
       formatSourceMoney: (money) => formatSourceMoney(money, locale),
       formatDistance: (metres) => formatDistance(metres, locale),
       formatReviewCount: (n) => formatReviewCount(n, locale),
-      formatPercent: (deltaBps) => formatPercent(deltaBps, locale),
+      formatPercent: (deltaBps, fractionDigits) => formatPercent(deltaBps, locale, fractionDigits),
       formatRating: (rating) => formatRating(rating, locale),
       formatDuration: (seconds) => formatDuration(seconds, locale),
     }),

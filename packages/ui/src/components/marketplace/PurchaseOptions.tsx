@@ -3,9 +3,11 @@ import { View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { Button } from "@oxy.so/bloom/button";
+import { ShopDetailIcon } from "./ShopDetailIcon";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import { useShopControlClassName } from "../../lib/useShopControlClassName";
+import { useColorScheme } from "../../lib/useColorScheme";
 
 export interface PurchaseOptionsProps {
   canBuy: boolean;
@@ -13,6 +15,18 @@ export interface PurchaseOptionsProps {
   /** A selected unavailable variant is sold out, not an incomplete selection. */
   hasSelection?: boolean;
   added?: boolean;
+  /** Selling-plan panels place the two actions on one row. */
+  horizontal?: boolean;
+  purchaseKind?: "one-time" | "subscription";
+  /** Real saved-item state and action owned by the caller. Only shown for a
+   * selected sold-out variant; never substitutes for choosing an option. */
+  unavailableSaveAction?: {
+    saved: boolean;
+    pending: boolean;
+    label: string;
+    accessibilityLabel: string;
+    onPress: () => void;
+  };
   onAddToCart: () => void;
   onBuyNow: () => void;
 }
@@ -60,16 +74,49 @@ export function PurchaseOptions({
   isPending,
   hasSelection = true,
   added = false,
+  horizontal = false,
+  purchaseKind = "one-time",
+  unavailableSaveAction,
   onAddToCart,
   onBuyNow,
 }: PurchaseOptionsProps) {
   const t = useSharedUiTranslation();
   const controlClassName = useShopControlClassName();
+  const { colors } = useColorScheme();
+  const checkoutLabel = t(purchaseKind === "subscription" ? "ui.purchase.subscribeNow" : "ui.purchase.buyNow");
   const label = !canBuy
     ? t(hasSelection ? "ui.purchase.soldOut" : "ui.purchase.selectOptions")
     : t(added ? "ui.purchase.added" : "ui.purchase.addToCart");
+  if (!canBuy && hasSelection && unavailableSaveAction) {
+    const action = unavailableSaveAction;
+    return (
+      <View testID="product-purchase-actions" className="gap-space-16">
+        <Button
+          testID="sold-out-save"
+          material="flat"
+          pressed={action.saved}
+          disabled={action.pending}
+          loading={action.pending}
+          accessibilityLabel={action.accessibilityLabel}
+          onPress={action.onPress}
+          className={controlClassName(action.saved ? "primary-flat" : "secondary-flat", action.pending, action.pending)}
+          textStyle={{ flexShrink: 1, textAlign: "center" }}
+        >
+          {action.label}
+        </Button>
+        <View className="flex-row gap-space-8">
+          <View aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <ShopDetailIcon name="about" size={16} color={colors.foreground} />
+          </View>
+          <Text className="flex-1 text-shop-caption text-foreground">
+            {t(action.saved ? "ui.purchase.soldOutSaved" : "ui.purchase.soldOutSave")}
+          </Text>
+        </View>
+      </View>
+    );
+  }
   return (
-    <View className="gap-space-8" testID="product-purchase-actions">
+    <View className={horizontal ? "flex-row-reverse gap-space-8" : "gap-space-8"} testID="product-purchase-actions">
       <Button
         material="flat"
         accessibilityLabel={label}
@@ -77,18 +124,21 @@ export function PurchaseOptions({
         loading={isPending}
         onPress={onAddToCart}
         className={controlClassName("primary", !canBuy, isPending)}
+        style={horizontal ? (canBuy ? { width: "50%", flexShrink: 0 } : { flex: 1 }) : undefined}
       >
         {canBuy ? <AddToCartLabel added={added} /> : label}
       </Button>
       {canBuy ? (
         <Button
           material="flat"
-          accessibilityLabel={t("ui.purchase.buyNow")}
+          accessibilityLabel={checkoutLabel}
           disabled={isPending}
           onPress={onBuyNow}
           className={controlClassName("secondary", isPending)}
+          style={horizontal ? { flex: 1 } : undefined}
+          textStyle={{ flexShrink: 1, textAlign: "center" }}
         >
-          {t("ui.purchase.buyNow")}
+          {checkoutLabel}
         </Button>
       ) : null}
       <Text accessibilityLiveRegion="polite" className="sr-only">

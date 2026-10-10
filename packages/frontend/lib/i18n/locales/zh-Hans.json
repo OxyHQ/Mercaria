@@ -204,7 +204,17 @@
       "notFullyBuilt": "该时间段的一部分尚未生成。",
       "conversionDisplayOnly": "换算金额仅供显示参考。"
     },
-    "reviews": "评价"
+    "reviews": "评价",
+    "purchasePreview": {
+      "notice": "使用示例价格和方案进行预览。所有操作均为模拟，不会创建订单或扣款。",
+      "save": "节省 %{percent}",
+      "monthly": "每月配送",
+      "bimonthly": "每2个月配送",
+      "prepaid": "每次配送 %{price}。预付三次配送的费用。",
+      "introductory": "首次配送享优惠价，此后每次配送 %{price}。",
+      "cartResult": "模拟：已加入购物车。您的实际购物车未更改。",
+      "checkoutResult": "模拟结账完成。未创建订单或付款。"
+    }
   },
   "catalog": {
     "breadcrumbs": {

@@ -1,4 +1,4 @@
-import Svg, { Path } from "react-native-svg";
+import Svg, { Path, Rect } from "react-native-svg";
 import { styled } from "nativewind";
 
 const StyledSvg = styled(Svg, {
@@ -6,6 +6,7 @@ const StyledSvg = styled(Svg, {
 });
 
 const PATHS = {
+  about: "M11 11H12V16M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z",
   cross: "M6 6L18 18M18 6L6 18",
   chevron: "M10 16L14 12L10 8",
   thread: "M15 10H9M12 14H9M3 20H16C18.7614 20 21 17.7614 21 15V9C21 6.23858 18.7614 4 16 4H8C5.23858 4 3 6.23858 3 9V20Z",
@@ -39,10 +40,13 @@ export function ShopDetailIcon({
       <Path
         d={PATHS[name]}
         stroke={color ?? "currentColor"}
-        strokeWidth={name === "thread" || name === "share" ? 2 : 2.67}
+        strokeWidth={name === "thread" || name === "share" || name === "about" ? 2 : 2.67}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      {name === "about" ? (
+        <Rect x={11.25} y={7.25} width={1.5} height={1.5} rx={0.75} fill={color ?? "currentColor"} stroke={color ?? "currentColor"} strokeWidth={0.5} />
+      ) : null}
     </StyledSvg>
   );
 }

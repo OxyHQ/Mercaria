@@ -1,6 +1,8 @@
 {
   "ui": {
-    "sheet": { "close": "关闭" },
+    "sheet": {
+      "close": "关闭"
+    },
     "condition": {
       "label": {
         "new": "全新",
@@ -798,7 +800,16 @@
       "selectOptions": "选择规格",
       "buyNow": "立即购买",
       "soldOut": "已售罄",
-      "added": "已加入购物车"
+      "added": "已加入购物车",
+      "subscribeNow": "立即订阅",
+      "oneTime": "单次购买",
+      "subscriptionRequired": "需要订阅",
+      "subscribeAndSave": "订阅优惠",
+      "subscription": "订阅",
+      "deliveryFrequency": "配送频率",
+      "options": "购买选项",
+      "soldOutSave": "此选项已售罄。收藏此商品，方便稍后查找。",
+      "soldOutSaved": "此选项已售罄。你可以在收藏中找到此商品。"
     },
     "marketplace": {
       "visitMerchant": "访问 %{name}",

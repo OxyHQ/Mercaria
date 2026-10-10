@@ -1,6 +1,8 @@
 {
   "ui": {
-    "sheet": { "close": "Cerrar" },
+    "sheet": {
+      "close": "Cerrar"
+    },
     "condition": {
       "label": {
         "new": "Nuevo",
@@ -805,7 +807,16 @@
       "selectOptions": "Elegir opciones",
       "buyNow": "Comprar ahora",
       "soldOut": "Agotado",
-      "added": "Añadido a la cesta"
+      "added": "Añadido a la cesta",
+      "subscribeNow": "Suscribirse ahora",
+      "oneTime": "Compra única",
+      "subscriptionRequired": "Suscripción obligatoria",
+      "subscribeAndSave": "Suscríbete y ahorra",
+      "subscription": "Suscripción",
+      "deliveryFrequency": "Frecuencia de entrega",
+      "options": "Opciones de compra",
+      "soldOutSave": "Esta opción está agotada. Guarda este artículo para encontrarlo más tarde.",
+      "soldOutSaved": "Esta opción está agotada. Puedes encontrar este artículo en tus guardados."
     },
     "marketplace": {
       "visitMerchant": "Visitar %{name}",

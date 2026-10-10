@@ -45,6 +45,8 @@ import type { Listing, StoreSummary, Seller } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { STOREFRONT_NAV_FROM } from "@/lib/layout";
 import { ProductDescription } from "@/components/product/ProductDescription";
+import { PurchasePlanPreview } from "@/components/product/PurchasePlanPreview";
+import { resolvePurchasePreview } from "@/lib/catalog/purchase-preview";
 import { ProductReviewsDialog } from "@/components/product/ProductReviewsDialog";
 import { Footer } from "@/components/shell/Footer";
 import { ProductActionsMenu } from "@/components/product/ProductActionsMenu";
@@ -301,7 +303,8 @@ function ProductBody({ listing }: ProductBodyProps) {
   const hasListingReviews = listingReviewTotal > 0;
 
   const options = listing.options ?? [];
-  const { variantId } = useLocalSearchParams<{ variantId?: string }>();
+  const { variantId, purchasePreview } = useLocalSearchParams<{ variantId?: string; purchasePreview?: string }>();
+  const previewScenario = resolvePurchasePreview(purchasePreview, __DEV__);
   const selectedVariant = resolveListingVariant(listing.variants, variantId);
   const selection = Object.fromEntries(
     selectedVariant?.optionValues.map((option) => [
@@ -368,6 +371,21 @@ function ProductBody({ listing }: ProductBodyProps) {
     ? listing.store?.refundPolicy : undefined;
   const maxQuantity = selectedVariant?.available;
   const canAddToCart = selectedVariant !== undefined && selectedVariant.inStock;
+  const saveInPurchaseActions = !previewScenario && selectedVariant !== undefined && !selectedVariant.inStock;
+  const primarySaved = canonicalProductId ? productSaved : listingSaved;
+  const primarySaveLabel = saveStatusLabel ?? (canonicalProductId
+    ? t(productSaved ? "product.save.productSaved" : "product.save.product")
+    : t(listingSaved ? "product.save.saved" : "product.save.save"));
+  const primarySaveA11y = saveStatusLabel ?? (canonicalProductId
+    ? t(productSaved ? "product.save.removeProductA11y" : "product.save.productA11y")
+    : t(listingSaved ? "product.save.removeListingA11y" : "product.save.listing"));
+  const onPrimarySave = () => withSaveContext(() => {
+    if (canonicalProductId) {
+      toggleProductSave.mutate({ canonicalProductId, saved: productSaved, sourceContext: "listing_page", listingId: listing.id });
+    } else {
+      toggleListingSave.mutate({ listingId: listing.id, saved: listingSaved });
+    }
+  });
 
   const images = useMemo(
     () =>
@@ -655,15 +673,22 @@ function ProductBody({ listing }: ProductBodyProps) {
               </View>
             </View>
 
-            {/* Real purchase actions for the selected configuration. */}
-            <PurchaseOptions
+            {/* Preview actions are isolated from the real commerce callbacks. */}
+            {previewScenario ? <PurchasePlanPreview key={`${previewScenario}:${selectedVariant?.id ?? "unselected"}`} scenario={previewScenario} /> : <PurchaseOptions
               hasSelection={selectedVariant !== undefined}
               added={addToCart.isSuccess && addToCart.variables.variantId === selectedVariant?.id}
               canBuy={canAddToCart}
               isPending={addToCart.isPending}
               onAddToCart={onAddToCart}
               onBuyNow={onBuyNow}
-            />
+              unavailableSaveAction={{
+                saved: primarySaved,
+                pending: savePending,
+                label: primarySaveLabel,
+                accessibilityLabel: primarySaveA11y,
+                onPress: onPrimarySave,
+              }}
+            />}
 
             {/*
               Add-to-cart had NO error surface at all: signed out, the button was
@@ -700,43 +725,21 @@ function ProductBody({ listing }: ProductBodyProps) {
             >
               {canonicalProductId ? (
                 <View className="flex-row gap-space-8">
-                  <Button
+                  {!saveInPurchaseActions ? <Button
                     material="flat"
                     accessibilityRole="button"
                     disabled={savePending}
-                    pressed={productSaved}
-                    accessibilityLabel={
-                      saveStatusLabel ??
-                      (productSaved
-                        ? t("product.save.removeProductA11y")
-                        : t("product.save.productA11y"))
-                    }
-                    onPress={() =>
-                      withSaveContext(() =>
-                        toggleProductSave.mutate({
-                          canonicalProductId,
-                          saved: productSaved,
-                          sourceContext: "listing_page",
-                          listingId: listing.id,
-                        }),
-                      )
-                    }
+                    pressed={primarySaved}
+                    accessibilityLabel={primarySaveA11y}
+                    onPress={onPrimarySave}
                     className={`${controlClassName("outline", savePending)} flex-1 gap-space-4`}
                     iconSize={ICON_SIZE}
                     renderLeadingIcon={({ size, color }) => (
-                      <ShopDetailIcon
-                        name="heart"
-                        size={size}
-                        color={color}
-                        filled={productSaved}
-                      />
+                      <ShopDetailIcon name="heart" size={size} color={color} filled={primarySaved} />
                     )}
                   >
-                    {saveStatusLabel ??
-                      (productSaved
-                        ? t("product.save.productSaved")
-                        : t("product.save.product"))}
-                  </Button>
+                    {primarySaveLabel}
+                  </Button> : null}
                   <Button
                     material="flat"
                     accessibilityRole="button"
@@ -769,43 +772,23 @@ function ProductBody({ listing }: ProductBodyProps) {
                         : t("product.save.listing"))}
                   </Button>
                 </View>
-              ) : (
+              ) : !saveInPurchaseActions ? (
                 <Button
                   material="flat"
                   accessibilityRole="button"
                   disabled={savePending}
-                  pressed={listingSaved}
-                  accessibilityLabel={
-                    saveStatusLabel ??
-                    (listingSaved
-                      ? t("product.save.removeListingA11y")
-                      : t("product.save.listing"))
-                  }
-                  onPress={() =>
-                    withSaveContext(() =>
-                      toggleListingSave.mutate({
-                        listingId: listing.id,
-                        saved: listingSaved,
-                      }),
-                    )
-                  }
+                  pressed={primarySaved}
+                  accessibilityLabel={primarySaveA11y}
+                  onPress={onPrimarySave}
                   className={`${controlClassName("outline", savePending)} flex-1 gap-space-4`}
                   iconSize={ICON_SIZE}
                   renderLeadingIcon={({ size, color }) => (
-                    <ShopDetailIcon
-                      name="heart"
-                      size={size}
-                      color={color}
-                      filled={listingSaved}
-                    />
+                    <ShopDetailIcon name="heart" size={size} color={color} filled={primarySaved} />
                   )}
                 >
-                  {saveStatusLabel ??
-                    (listingSaved
-                      ? t("product.save.saved")
-                      : t("product.save.save"))}
+                  {primarySaveLabel}
                 </Button>
-              )}
+              ) : null}
               <Button
                 material="flat"
                 accessibilityRole="button"

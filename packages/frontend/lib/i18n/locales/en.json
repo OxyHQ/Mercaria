@@ -204,7 +204,17 @@
       "notFullyBuilt": "Part of this window has not been built yet.",
       "conversionDisplayOnly": "Converted figures are for display only."
     },
-    "reviews": "Reviews"
+    "reviews": "Reviews",
+    "purchasePreview": {
+      "notice": "Preview with sample prices and plans. Actions are simulated; no order or charge is created.",
+      "save": "Save %{percent}",
+      "monthly": "Deliver every month",
+      "bimonthly": "Deliver every 2 months",
+      "prepaid": "%{price} per delivery. Three deliveries paid in advance.",
+      "introductory": "Introductory price for the first delivery, then %{price} per delivery.",
+      "cartResult": "Simulated: added to cart. Your cart has not changed.",
+      "checkoutResult": "Simulated checkout complete. No order or payment was created."
+    }
   },
   "catalog": {
     "breadcrumbs": {

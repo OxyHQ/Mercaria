@@ -1,6 +1,8 @@
 {
   "ui": {
-    "sheet": { "close": "إغلاق" },
+    "sheet": {
+      "close": "إغلاق"
+    },
     "condition": {
       "label": {
         "new": "جديد",
@@ -798,7 +800,16 @@
       "selectOptions": "اختر الخيارات",
       "buyNow": "اشترِ الآن",
       "soldOut": "نفدت الكمية",
-      "added": "تمت الإضافة إلى السلة"
+      "added": "تمت الإضافة إلى السلة",
+      "subscribeNow": "اشترك الآن",
+      "oneTime": "شراء لمرة واحدة",
+      "subscriptionRequired": "الاشتراك مطلوب",
+      "subscribeAndSave": "اشترك ووفّر",
+      "subscription": "اشتراك",
+      "deliveryFrequency": "وتيرة التوصيل",
+      "options": "خيارات الشراء",
+      "soldOutSave": "هذا الخيار غير متوفر. احفظ هذا المنتج للعثور عليه لاحقًا.",
+      "soldOutSaved": "هذا الخيار غير متوفر. يمكنك العثور على هذا المنتج في العناصر المحفوظة."
     },
     "marketplace": {
       "visitMerchant": "زيارة %{name}",

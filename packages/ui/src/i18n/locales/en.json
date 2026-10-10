@@ -1,6 +1,8 @@
 {
   "ui": {
-    "sheet": { "close": "Close" },
+    "sheet": {
+      "close": "Close"
+    },
     "condition": {
       "label": {
         "new": "New",
@@ -798,7 +800,16 @@
       "selectOptions": "Select options",
       "buyNow": "Buy now",
       "soldOut": "Sold out",
-      "added": "Added to cart"
+      "added": "Added to cart",
+      "subscribeNow": "Subscribe now",
+      "oneTime": "One time purchase",
+      "subscriptionRequired": "Subscription required",
+      "subscribeAndSave": "Subscribe & save",
+      "subscription": "Subscription",
+      "deliveryFrequency": "Delivery frequency",
+      "options": "Purchase options",
+      "soldOutSave": "This option is sold out. Save this item to find it later.",
+      "soldOutSaved": "This option is sold out. You can find this item in your saved items."
     },
     "marketplace": {
       "visitMerchant": "Visit %{name}",
