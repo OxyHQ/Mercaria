@@ -26,9 +26,34 @@ import {
   listOpenEligibilities,
 } from '../services/reviews/review-eligibility.service.js';
 import { log } from '../lib/logger.js';
+import { parseReviewListFilters } from '../services/reviews/review-list-query.js';
+import {
+  listReviewHelpfulness,
+  parseReviewHelpfulnessIds,
+  updateReviewHelpfulness,
+} from '../services/reviews/review-helpfulness.service.js';
 
 /** How many open eligibilities one order-history page asks for. */
 const ELIGIBILITY_PAGE_LIMIT = 50;
+
+/** Personal vote state is never mixed into cacheable public review pages. */
+export async function listReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {
+  try {
+    res.setHeader('Cache-Control', 'private, no-store');
+    sendSuccess(res, await listReviewHelpfulness(getRequiredOxyUserId(req), parseReviewHelpfulnessIds(req.query)));
+  } catch (err) {
+    respondWithError(res, err, 'Failed to load review votes');
+  }
+}
+
+export async function updateReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {
+  try {
+    res.setHeader('Cache-Control', 'private, no-store');
+    sendSuccess(res, await updateReviewHelpfulness(getRequiredOxyUserId(req), routeParam(req, 'id'), req.body.helpful));
+  } catch (err) {
+    respondWithError(res, err, 'Failed to update review vote');
+  }
+}
 
 /** POST /reviews — write a scoped review. */
 export async function createReviewHandler(req: Request, res: Response): Promise<void> {
@@ -55,12 +80,19 @@ export async function listProductReviews(req: Request, res: Response): Promise<v
   const canonicalProductId = routeParam(req, 'canonicalProductId');
   try {
     const { page, limit } = parsePagination(req.query);
-    const { data, total, aggregate } = await listScopedReviewsWithAggregate(
+    const { data, total, aggregate, ratingSummary } = await listScopedReviewsWithAggregate(
       'product',
       canonicalProductId,
-      { page, limit },
+      {
+        page,
+        limit,
+        ...parseReviewListFilters(req.query),
+      },
     );
-    sendPaginated(res, data, buildPagination(page, limit, total), { aggregate });
+    sendPaginated(res, data, buildPagination(page, limit, total), {
+      aggregate,
+      ratingSummary,
+    });
   } catch (err) {
     log.general.error({ err, canonicalProductId }, 'Failed to list product reviews');
     respondWithError(res, err, 'Failed to load reviews');
@@ -72,12 +104,19 @@ export async function listMerchantReviews(req: Request, res: Response): Promise<
   const merchantId = routeParam(req, 'merchantId');
   try {
     const { page, limit } = parsePagination(req.query);
-    const { data, total, aggregate } = await listScopedReviewsWithAggregate(
+    const { data, total, aggregate, ratingSummary } = await listScopedReviewsWithAggregate(
       'merchant',
       merchantId,
-      { page, limit },
+      {
+        page,
+        limit,
+        ...parseReviewListFilters(req.query),
+      },
     );
-    sendPaginated(res, data, buildPagination(page, limit, total), { aggregate });
+    sendPaginated(res, data, buildPagination(page, limit, total), {
+      aggregate,
+      ratingSummary,
+    });
   } catch (err) {
     log.general.error({ err, merchantId }, 'Failed to list merchant reviews');
     respondWithError(res, err, 'Failed to load reviews');
@@ -120,8 +159,13 @@ export async function listListingReviews(req: Request, res: Response): Promise<v
   const id = routeParam(req, 'id');
   try {
     const { page, limit } = parsePagination(req.query);
-    const { data, total } = await listReviews({ targetType: 'listing', targetId: id }, { page, limit });
-    sendPaginated(res, data, buildPagination(page, limit, total));
+    const { data, total, ratingSummary } = await listReviews(
+      { targetType: 'listing', targetId: id },
+      { page, limit, ...parseReviewListFilters(req.query) },
+    );
+    sendPaginated(res, data, buildPagination(page, limit, total), {
+      ratingSummary,
+    });
   } catch (err) {
     log.general.error({ err, listingId: id }, 'Failed to list listing reviews');
     respondWithError(res, err, 'Failed to load reviews');
@@ -133,7 +177,11 @@ export async function listStoreReviews(req: Request, res: Response): Promise<voi
   const handle = routeParam(req, 'handle');
   try {
     const { page, limit } = parsePagination(req.query);
-    const { data, total } = await listReviewsForStoreHandle(handle, { page, limit });
+    const { data, total } = await listReviewsForStoreHandle(handle, {
+      page,
+      limit,
+      ...parseReviewListFilters(req.query),
+    });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {
     log.general.error({ err, handle }, 'Failed to list store reviews');

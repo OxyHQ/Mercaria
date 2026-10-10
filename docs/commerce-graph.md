@@ -183,3 +183,14 @@ load-bearing:
   their ATTACHMENT (`canonical_*_source_links`) belongs to the ingestion path
   that owns the observation, not to the matcher.
 
+## Canonical image imports
+
+Source observations synchronize remote images into durable Oxy public files
+before opening the catalog transaction. The authenticated catalog operator is
+the owner of that media; a request body cannot nominate another owner. Sources
+must permit storage and display, and both rights are rechecked in the catalog
+transaction. A failed download or upload applies no scalar facts, observation
+or gallery changes. Imported rows keep their source URL for provenance beside
+the actual Oxy file ID. Existing unsynchronized rows still need migration; a
+source URL is not a display fallback.
+

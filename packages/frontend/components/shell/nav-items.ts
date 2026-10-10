@@ -1,12 +1,4 @@
-import {
-  Box,
-  Home,
-  LayoutGrid,
-  ShoppingCart,
-  Tag,
-  Heart,
-  type LucideIcon,
-} from "lucide-react-native";
+import type { ShopNavigationIconName } from "@mercaria/ui";
 import type { RoutePath } from "expo-router";
 
 /**
@@ -19,6 +11,7 @@ import type { RoutePath } from "expo-router";
  */
 interface NavItemBase {
   key: string;
+  desktopOnly?: boolean;
   /**
    * i18n KEY for the accessible label / tooltip text, resolved with `t()` at
    * the render site.
@@ -30,7 +23,7 @@ interface NavItemBase {
    * guard's referential check see these leaves at all, since they are literals.
    */
   labelKey: string;
-  icon: LucideIcon;
+  icon: ShopNavigationIconName;
 }
 
 /**
@@ -55,44 +48,46 @@ export type NavItem =
   | (NavItemBase & { available: false });
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: "home", labelKey: "nav.home", icon: Home, href: "/", available: true },
+  {
+    key: "home",
+    labelKey: "nav.home",
+    icon: "home",
+    href: "/",
+    available: true,
+  },
   // The SEO decision `docs/storefront-catalog.md` §Seams was waiting on is
-  // made: `/categories` is a public indexable route, registered as
+  // made: `/explore` is a public indexable route, registered as
   // `category_index`, and the hub renders the published navigation trees. See
   // the `PublicRouteId` member for the reasoning.
   {
     key: "explore",
     labelKey: "nav.explore",
-    icon: LayoutGrid,
-    href: "/categories",
-    available: true,
-  },
-  // #1015 Workstream 5's storefront surface. A top-level destination rather than
-  // a category row, because it is a VERTICAL with its own refinements
-  // (`/3d/printable`, `/3d/game-assets`) and its own product page shape — and
-  // because an unlinked screen is the one defect with no symptom:
-  // `route-reachability.test.ts` computes reachability transitively from the app
-  // root, so `/3d` being here is what makes the four digital routes reachable at
-  // all. Everything the page shows is still the server's (`lib/digital/`).
-  {
-    key: "threeD",
-    labelKey: "nav.threeD",
-    icon: Box,
-    href: "/3d",
+    icon: "explore",
+    href: "/explore",
     available: true,
   },
   {
     key: "cart",
     labelKey: "nav.cart",
-    icon: ShoppingCart,
+    icon: "cart",
     href: "/cart",
     available: true,
   },
-  { key: "deals", labelKey: "nav.deals", icon: Tag, href: "/deals", available: true },
-  // #80 shipped `app/(app)/saved.tsx`, so this is navigable now. It stays a
-  // real route rather than a modal because a saved list is a place a buyer
-  // returns to and links to.
-  { key: "saved", labelKey: "nav.saved", icon: Heart, href: "/saved", available: true },
+  {
+    key: "deals",
+    labelKey: "nav.deals",
+    icon: "deals",
+    href: "/deals",
+    available: true,
+  },
+  {
+    key: "orders",
+    labelKey: "settings.sections.orders",
+    icon: "orders",
+    href: "/orders",
+    available: true,
+    desktopOnly: true,
+  },
 ] as const;
 
 /**
@@ -109,6 +104,14 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
   }
   // An item with no route can never be the one you are on.
   if (!item.available) return false;
+  if (
+    item.key === "explore" &&
+    (pathname === "/3d" ||
+      pathname.startsWith("/3d/") ||
+      pathname.startsWith("/categories/") ||
+      pathname.startsWith("/curations/"))
+  )
+    return true;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
@@ -119,5 +122,11 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
  * lives in the nav model alongside {@link isNavItemActive}, not in the bar.
  */
 export function isAuthTabActive(pathname: string): boolean {
-  return pathname.startsWith("/@");
+  return (
+    pathname === "/profile" ||
+    pathname === "/saved" ||
+    pathname.startsWith("/orders") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/@")
+  );
 }

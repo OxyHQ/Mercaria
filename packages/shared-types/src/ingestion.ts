@@ -15,7 +15,7 @@
  *
  * ## The two disjoint unions, and what they make unrepresentable
  *
- * {@link CATALOG_SOURCE_RIGHTS} names the nine things Mercaria may be permitted
+ * {@link CATALOG_SOURCE_RIGHTS} names the ten things Mercaria may be permitted
  * to do with a source's data. {@link CATALOG_SOURCE_PAYLOAD_FIELDS} names every
  * key that may be STORED from a provider payload, and
  * {@link CATALOG_SOURCE_FORBIDDEN_PAYLOAD_FIELDS} names credential-shaped keys
@@ -68,7 +68,10 @@ export const CATALOG_SOURCE_DISPLAYABLE_STATUSES: readonly CatalogSourceStatus[]
 ];
 
 /**
- * The nine rights issue §"Rights and controlled extraction" enumerates.
+ * The nine rights issue §"Rights and controlled extraction" enumerates, plus
+ * `seed_catalog` (ADR 0014): whether this source's observations may MINT draft
+ * canonical products through the `reference_products` backfill stage. Every
+ * source that predates it holds it `false`.
  *
  * They are NAMES rather than booleans in a bag so a refusal can say which one
  * is missing: "this source may not have affiliate parameters appended" is
@@ -84,7 +87,8 @@ export type CatalogSourceRight =
   | 'affiliate_params'
   | 'index'
   | 'automated_refresh'
-  | 'extraction';
+  | 'extraction'
+  | 'seed_catalog';
 
 export const CATALOG_SOURCE_RIGHTS: readonly CatalogSourceRight[] = [
   'store',
@@ -96,6 +100,7 @@ export const CATALOG_SOURCE_RIGHTS: readonly CatalogSourceRight[] = [
   'index',
   'automated_refresh',
   'extraction',
+  'seed_catalog',
 ];
 
 /**
@@ -405,6 +410,38 @@ export interface NormalizedSourceMoney {
 }
 
 /**
+ * The value of one {@link NormalizedSourceFact}: a scalar or a short list.
+ *
+ * No nested objects. A fact a provider expresses as a structure is flattened
+ * into several namespaced keys (`nutrition.energy_kcal_100g`,
+ * `nutrition.sugars_100g`) by its adapter, so every stored fact is queryable by
+ * key alone and no reader has to know a provider's tree.
+ */
+export type NormalizedSourceFactValue = string | number | boolean | readonly string[];
+
+/**
+ * One structured fact a source published about the object, beyond the fifteen
+ * normalization groups.
+ *
+ * Distinct from {@link NormalizedSourceOption} on purpose. An option is a
+ * VARIANT AXIS ("Colour: Black") and #58's matcher compares options across
+ * sources; a fact is a DESCRIPTION ("Nutri-Score: a", "rarity: mythic",
+ * "fuel: diesel") that two sources describing one product may state
+ * differently without being two products. Folding facts into options would
+ * make every extra fact a matching dimension and split identical products.
+ *
+ * `key` is lower-case, dot-namespaced (`[a-z0-9_]+(\.[a-z0-9_]+)*`), and in the
+ * PROVIDER's vocabulary — mapping it to Mercaria's attribute registry is a
+ * later, reviewable step, never the adapter's.
+ */
+export interface NormalizedSourceFact {
+  readonly key: string;
+  readonly value: NormalizedSourceFactValue;
+  /** A unit for a numeric value, in the source's words (`g`, `kcal`, `l`, `EUR/kg`). */
+  readonly unit?: string;
+}
+
+/**
  * What every adapter must produce, and the whole of issue §"Normalization".
  *
  * Fifteen groups, every one optional except the title, because a feed that does
@@ -466,6 +503,13 @@ export interface NormalizedSourceRecord {
   /** ISO-8601, the source's own timestamps. */
   readonly sourceCreatedAt?: string;
   readonly sourceUpdatedAt?: string;
+  /**
+   * Everything else the source published that is worth keeping, as typed facts.
+   *
+   * Optional so every adapter written before it is unchanged, and so a record
+   * with none stores exactly the payload — and the content hash — it always did.
+   */
+  readonly facts?: readonly NormalizedSourceFact[];
 }
 
 /**
@@ -515,6 +559,7 @@ export const CATALOG_SOURCE_PAYLOAD_FIELDS = [
   'affiliateUrl',
   'sourceCreatedAt',
   'sourceUpdatedAt',
+  'facts',
 ] as const;
 
 export type CatalogSourcePayloadField = (typeof CATALOG_SOURCE_PAYLOAD_FIELDS)[number];
@@ -562,7 +607,7 @@ export type CatalogSourceForbiddenPayloadField =
  * The effective rights of one source at one moment — the answer
  * `services/ingestion/rights.ts` computes and every consumer reads.
  *
- * A RECORD over the nine rights rather than nine booleans, so a consumer asking
+ * A RECORD over the ten rights rather than ten booleans, so a consumer asking
  * for a right it forgot to handle is a `tsc` error rather than `undefined`.
  */
 export type CatalogSourceRightsVerdict = Readonly<Record<CatalogSourceRight, boolean>>;

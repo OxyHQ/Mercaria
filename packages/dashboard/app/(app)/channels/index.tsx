@@ -52,7 +52,6 @@ import { Text, useColorScheme } from "@mercaria/ui";
 import { Button } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
   CHANNEL_TYPE_NAME_KEYS,
@@ -129,7 +128,7 @@ function ChannelsBody({ storeId }: { storeId: string }) {
     <Screen
       title={t("channels.title")}
       subtitle={t("channels.subtitle")}
-      action={<StoreSwitcher />}
+
     >
       {pending ? (
         <ScreenLoading />

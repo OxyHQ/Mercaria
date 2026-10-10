@@ -110,7 +110,7 @@ const CANONICAL_PARAMS_BY_ROUTE: Readonly<Record<PublicRouteId, readonly SeoCano
     category_browse: ['page'],
     // The hub renders the whole tree in one document — the taxonomy is a few
     // dozen nodes, not a feed — so there is no second page for `?page=` to
-    // name, and `/categories?page=2` is a duplicate of `/categories`.
+    // name, and `/explore?page=2` is a duplicate of `/explore`.
     category_index: [],
     // One document listing every store currently discounting, for
     // `category_index`'s own reason: no second page for `?page=` to name.

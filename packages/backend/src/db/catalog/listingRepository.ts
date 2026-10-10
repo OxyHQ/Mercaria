@@ -79,6 +79,7 @@ import {
   asc,
   eq,
   getTableColumns,
+  gt,
   gte,
   inArray,
   isNotNull,
@@ -97,6 +98,7 @@ import {
   MERCARIA_BASE_LOCALE,
   asSupportedLocale,
   conditionKeysInGroup,
+  isOxyFileId,
   textSearchConfigurationForLocale,
 } from '@mercaria/shared-types';
 import type {
@@ -107,7 +109,7 @@ import type {
   ListingOwnerType,
   ListingQuery,
 } from '@mercaria/shared-types';
-import { getDb, type DatabaseOrTransaction } from '../postgres.js';
+import { getDb, type Database, type DatabaseOrTransaction } from '../postgres.js';
 import { inventoryLevels, listingImages, listingOptions, listings, productVariants } from '../schema/catalog.js';
 import { listingLocalizations } from '../schema/catalogLocalization.js';
 import { connections } from '../schema/connectors.js';
@@ -1933,4 +1935,74 @@ export function variantExistsPredicate(variantPredicate: SQL): SQL {
     where ${qualified(productVariants.listingId)} = ${qualified(listings.id)}
       and ${variantPredicate}
   )`;
+}
+
+/** Maintenance cursor includes invalid references too: they must be reported,
+ * never silently skipped as if they had already been imported. */
+export async function findLegacyMediaListingIds(
+  options: { after?: string; listingId?: string; limit: number },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<string[]> {
+  const rows = await db.selectDistinct({ id: listingImages.listingId }).from(listingImages)
+    .where(and(
+      sql`${listingImages.fileId} !~ '^[A-Za-z0-9_-]+$'`,
+      options.after ? gt(listingImages.listingId, options.after) : undefined,
+      options.listingId ? eq(listingImages.listingId, options.listingId) : undefined,
+    ))
+    .orderBy(asc(listingImages.listingId)).limit(options.limit);
+  return rows.map(row => row.id);
+}
+
+export interface ListingMediaSnapshot {
+  listingId: string;
+  storeId: string | null;
+  ownerOxyUserId: string;
+  images: ListingImageRecord[];
+}
+
+export async function findListingMediaSnapshot(
+  listingId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingMediaSnapshot | null> {
+  const [owner] = await db.select({ storeId: listings.storeId, userId: listings.oxyUserId, accountId: stores.oxyAccountId })
+    .from(listings).leftJoin(stores, eq(stores.id, listings.storeId)).where(eq(listings.id, listingId));
+  if (!owner) return null;
+  return { listingId, storeId: owner.storeId, ownerOxyUserId: owner.storeId ? owner.accountId : owner.userId,
+    images: await findListingGallery(listingId, db) };
+}
+
+/** Import runs outside this transaction. Keep gallery row IDs so variant-image
+ * foreign keys survive; refuse a stale gallery/owner instead of overwriting an
+ * edit made while the network was in flight. No title, stock or status changes. */
+export async function applyListingMediaImport(
+  snapshot: ListingMediaSnapshot,
+  fileIds: readonly string[],
+  db: Database = getDb(),
+): Promise<'applied' | 'changed'> {
+  if (fileIds.length !== snapshot.images.length || !fileIds.every(isOxyFileId)) {
+    throw new Error('Imported gallery must contain one Oxy file ID per image.');
+  }
+  return db.transaction(async tx => {
+    const [listing] = await tx.select({ storeId: listings.storeId, userId: listings.oxyUserId })
+      .from(listings).where(eq(listings.id, snapshot.listingId)).for('update');
+    if (!listing || listing.storeId !== snapshot.storeId) return 'changed';
+    let owner = listing.userId;
+    if (listing.storeId) {
+      const [store] = await tx.select({ owner: stores.oxyAccountId }).from(stores)
+        .where(eq(stores.id, listing.storeId)).for('share');
+      owner = store?.owner;
+    }
+    if (owner !== snapshot.ownerOxyUserId) return 'changed';
+    const current = await tx.select().from(listingImages).where(eq(listingImages.listingId, snapshot.listingId))
+      .orderBy(asc(listingImages.position), asc(listingImages.id)).for('update');
+    if (current.length !== snapshot.images.length || current.some((row, index) => {
+      const previous = snapshot.images[index];
+      return row.id !== previous.id || row.fileId !== previous.fileId || row.position !== previous.position || row.alt !== previous.alt;
+    })) return 'changed';
+    for (let index = 0; index < current.length; index++) {
+      if (current[index].fileId === fileIds[index]) continue;
+      await tx.update(listingImages).set({ fileId: fileIds[index] }).where(eq(listingImages.id, current[index].id));
+    }
+    return 'applied';
+  });
 }

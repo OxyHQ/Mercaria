@@ -7,7 +7,8 @@
  * can be written the way that image wrote them: a store whose owner is a
  * `store_members` row, a publication with its own name, address, pin, hours
  * and closures, a listing with a Mongo-era point. Then the release is deployed
- * exactly as `deploy-aws.yml` deploys it, through the real entrypoint:
+ * through the real migration runner, with the journal prefix that this release
+ * shipped (later releases must not enter this historical rollout):
  *
  *  1. `--phase=pre` while the previous image still serves;
  *  2. the ROLLOUT WINDOW — the previous image keeps writing (a store created
@@ -27,7 +28,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import postgres from 'postgres';
 import {
-  applyMigrations,
+  applyMigrationsThrough,
   createMercariaTestDatabaseThrough,
   dropMercariaTestDatabase,
 } from '../testDatabase.js';
@@ -146,7 +147,7 @@ beforeAll(async () => {
   `;
 
   // ── Migrate (pre), while the previous image still serves ────────────────────
-  await applyMigrations(databaseUrl, 'pre');
+  await applyMigrationsThrough(databaseUrl, '0162_naive_gauntlet', 'pre');
 
   const publications = await client`select location_id, published_at from location_publications`;
   publishedAtAfterPre = new Map(publications.map((row) => [String(row.location_id), row.published_at as Date | null]));
@@ -180,7 +181,7 @@ beforeAll(async () => {
   await client`update locations set go_way_place_id = 'place-linked' where id = ${LINKED}`;
 
   // ── Migrate (post), once the new image is live ──────────────────────────────
-  await applyMigrations(databaseUrl, 'post');
+  await applyMigrationsThrough(databaseUrl, '0162_naive_gauntlet', 'post');
 }, 300_000);
 
 afterAll(async () => {

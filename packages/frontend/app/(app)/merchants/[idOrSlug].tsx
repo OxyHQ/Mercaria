@@ -325,7 +325,7 @@ export default function MerchantScreen() {
                 <MerchantProductCard
                   entry={entry}
                   onPress={(canonicalProductId) =>
-                    router.push(`/products/${canonicalProductId}`)
+                    router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
                   }
                 />
               </View>

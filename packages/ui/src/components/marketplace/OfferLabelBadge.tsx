@@ -71,7 +71,7 @@ export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBa
         />
       </View>
       {showExplanation ? (
-        <Text className="text-caption text-text-secondary">{t(offerLabelExplanationKey(award))}</Text>
+        <Text className="text-shop-caption text-text-secondary">{t(offerLabelExplanationKey(award))}</Text>
       ) : null}
     </View>
   );

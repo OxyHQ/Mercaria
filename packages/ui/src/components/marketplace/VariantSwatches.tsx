@@ -1,15 +1,42 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { Button } from "@oxy.so/bloom/button";
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { useReducedMotion } from "react-native-reanimated";
+import { cn } from "../../lib/cn";
+import { useColorScheme } from "../../lib/useColorScheme";
+import { Image } from "expo-image";
 import type { ListingOption, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  SWATCH_SHOW_MORE_A11Y_KEY,
-  SWATCH_SHOW_MORE_KEY,
-} from "../../lib/marketplace-labels";
+import { SWATCH_SHOW_MORE_A11Y_KEY, SWATCH_SHOW_MORE_KEY } from "../../lib/marketplace-labels";
+import { chooseListingVariant } from "../../lib/listing-variant-selection";
 
-/** Max values shown before a "+N more" expander appears. */
-const MAX_VISIBLE_VALUES = 24;
+// Shop's option preview reserves four rows, 8px gaps and 90px for the
+// expander. Measure the actual text/artwork on each platform instead of
+// estimating every merchant's label from its character count.
+const INITIAL_VISIBLE_VALUES = 8;
+function previewCount(widths: number[], containerWidth: number, selectedIndex: number) {
+  const available = Math.max(1, containerWidth - 20);
+  for (let count = widths.length; count > 1; count--) {
+    const preview = widths.slice(0, count);
+    // A long deep-linked value must fit in the preview too, not create an
+    // extra row after replacing the last short option.
+    if (selectedIndex >= count) preview[count - 1] = widths[selectedIndex];
+    if (count < widths.length) preview.push(90);
+    let used = 0;
+    let rows = 1;
+    for (const measuredWidth of preview) {
+      const width = Math.min(measuredWidth, available);
+      if (used > 0 && used + 8 + width > available) {
+        rows++;
+        used = width;
+      } else used += (used > 0 ? 8 : 0) + width;
+    }
+    if (rows <= 4) return count;
+  }
+  return Math.min(1, widths.length);
+}
 
 export interface VariantSwatchesProps {
   /** The option being selected (name + allowed values). */
@@ -18,136 +45,169 @@ export interface VariantSwatchesProps {
   variants: ProductVariantDTO[];
   /** Currently selected value for this option, if any. */
   selectedValue?: string;
+  /** Other axes affect which concrete variant this option will select. */
+  selectedVariant?: ProductVariantDTO;
   /** Called with the chosen value when a value is pressed. */
   onSelect: (value: string) => void;
 }
 
-/** Whether a given option value is available in at least one in-stock variant. */
-function valueInStock(
-  variants: ProductVariantDTO[],
-  optionName: string,
-  value: string,
-): boolean {
-  return variants.some(
-    (variant) =>
-      variant.inStock &&
-      variant.optionValues.some((ov) => ov.name === optionName && ov.value === value),
-  );
-}
-
-/**
- * One option row: a label + selectable values, rendered as text pills with a
- * sold-out treatment and a "+N more" expander past 24 values. Presentational —
- * the caller owns selection state and the variant matching that follows from it.
- *
- * ## Why every option renders as a pill, including colour (#478)
- *
- * This component used to render round colour swatches when
- * `ListingOption.name` matched one of `color`, `colour` or `shade`. Two
- * separate things were wrong with that, and only the first is the one the
- * issue title names.
- *
- * 1. **The widget was chosen from three English words.** A seller who names the
- *    option `Tono`, `Farbe` or `色` got pills; one who typed `Colour` got
- *    swatches. `variant-axis.ts` names this exact shape as the thing the typed
- *    axis layer exists to prevent — "`Tono` looking like `Color` is the false
- *    merge #58 is shaped around, and the safe failure is text in a queue" — and
- *    its refusal vocabulary (`unmapped`, `ambiguous`) is how an option name
- *    becomes an attribute: an operator adds an alias, in one versioned
- *    registry, rather than a component learning a fourth language.
- *
- * 2. **The colour it drew was invented, which is the worse half.** Nothing in
- *    this codebase records what colour a value IS. `attribute_enum_values`
- *    carries no hex/swatch column, `ListingOption` has no per-value image and
- *    `ProductVariantDTO` has none either. So a swatch showed one of two
- *    fabrications: a gallery photo cycled by index (`images[i % images.length]`
- *    — the old code called this "faked per-variant art", and swatch #3 simply
- *    got gallery photo #3), or a hue derived by hashing the value string, which
- *    gave `Negro` and `Black` unrelated colours for one colour. Both rendered
- *    under an `accessibilityLabel` naming the value, so a screen reader
- *    announced "Color: Negro" over a hash artefact.
- *
- * Translating the name list would therefore have spread a fabricated fact to
- * more locales rather than fixing one. A pill reading `Negro` is true in every
- * language, so pills are both the smaller change and the honest one.
- *
- * ## What a real swatch needs, and the two are not the same kind of work
- *
- * - **Which attribute this option is** — an existing seam that is merely
- *   unplumbed. `native_listing_variant_axes` (#367 step 4) already cites an
- *   `attribute_definitions` row and its exact version, and the resolver's
- *   refusal vocabulary (`unmapped`, `ambiguous`) is language-neutral by
- *   design: an operator aliases `Tono` to the `color` attribute in one
- *   versioned registry and no component learns a fourth language. What is
- *   missing is delivery — no route serves an axis, so `ListingOption` is still
- *   `{name, values}` and `catalog-hydration.service.ts` maps the legacy
- *   free-text rows straight through.
- * - **What the value looks like** — NOT a seam. There is no dormant column
- *   here to switch on: `attribute_enum_values` holds `value`, `label`,
- *   `position` and bookkeeping, nothing presentational beyond ordering, and no
- *   `displayHint`/`renderAs`/`swatchColor`/`hexColor` concept exists anywhere
- *   in shared-types or the schema. So knowing the attribute would fix the
- *   WIDGET choice and leave the TONE fabricated exactly as before. A real
- *   swatch needs a new schema decision, and it should be made as one.
- */
+/** Stock and artwork describe the configuration that pressing the pill selects.
+ * Free-text names never determine widget type or invent a colour. */
 export function VariantSwatches({
   option,
   variants,
   selectedValue,
+  selectedVariant,
   onSelect,
 }: VariantSwatchesProps) {
   const [expanded, setExpanded] = useState(false);
+  const [hoveredValue, setHoveredValue] = useState<string | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [measuredWidths, setMeasuredWidths] = useState(new Map<string, number>());
   const t = useSharedUiTranslation();
+  const { isDarkColorScheme } = useColorScheme();
+  const reducedMotion = useReducedMotion();
+  const resolveImage = useImageResolver();
 
-  const overflow = option.values.length > MAX_VISIBLE_VALUES && !expanded;
-  const visibleValues = overflow ? option.values.slice(0, MAX_VISIBLE_VALUES) : option.values;
-  const hiddenCount = option.values.length - MAX_VISIBLE_VALUES;
+  // Even an empty pill takes 35px. Probe only enough candidates to exceed
+  // four rows, plus the persisted selection, rather than mounting thousands
+  // of hidden labels for a large merchant option set.
+  const probeLimit = containerWidth > 0
+    ? 4 * Math.ceil(containerWidth / 35) + 1
+    : INITIAL_VISIBLE_VALUES;
+  const previewValues = option.values.slice(0, probeLimit);
+  const choiceValues = expanded ? option.values
+    : selectedValue && option.values.includes(selectedValue) && !previewValues.includes(selectedValue)
+      ? [...previewValues, selectedValue]
+      : previewValues;
+  const choices = choiceValues.map((value) => {
+    const target = chooseListingVariant(variants, selectedVariant, option.name, value);
+    const fileId = target?.images?.source === "variant"
+      ? target.images.images[0]?.fileId : undefined;
+    const image = fileId
+      ? resolveImage?.(fileId, "thumb")
+      : undefined;
+    return { value, image, inStock: target?.inStock ?? false, measureKey: `${value}\0${image ? 1 : 0}` };
+  });
+  const widths = choices.map(({ measureKey }) => measuredWidths.get(measureKey));
+  const measured = containerWidth > 0 && widths.every((width) => width !== undefined);
+  const limit = measured
+    ? previewCount(widths as number[], containerWidth, choiceValues.indexOf(selectedValue ?? ""))
+    : INITIAL_VISIBLE_VALUES;
+  const overflow = option.values.length > limit && !expanded;
+  const initialValues = option.values.slice(0, limit);
+  // A deep link can select a value beyond the collapsed preview. Keep that
+  // choice visible, as Shop does with its persisted swatch, without expanding
+  // a large option matrix or changing the selected configuration.
+  const collapsedValues = selectedValue && option.values.includes(selectedValue) && !initialValues.includes(selectedValue)
+    ? [...initialValues.slice(0, -1), selectedValue]
+    : initialValues;
+  const visibleValues = overflow ? collapsedValues : option.values;
+  const hiddenCount = option.values.length - limit;
+  const displayedValue = hoveredValue ?? selectedValue;
 
   return (
-    <View className="gap-space-8">
-      <View className="flex-row items-center gap-space-8">
-        <Text className="text-captionBold text-text">{option.name}</Text>
-        {selectedValue ? (
-          <Text numberOfLines={1} className="flex-1 text-caption text-text">
-            {selectedValue}
+    <View className="gap-space-8" onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}>
+      {/* Non-interactive text probes stay out of layout, focus and the
+          accessibility tree. Add Shop's 32px padding + 3px border, and the
+          32px thumbnail + 8px gap when present, to the actual label width. */}
+      {!expanded && <View
+        pointerEvents="none"
+        aria-hidden
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        className="absolute h-0 w-full max-w-[344px] overflow-hidden opacity-0"
+      >
+        {choices.map(({ value, image, measureKey }) => (
+          <Text
+            key={measureKey}
+            numberOfLines={1}
+            className="self-start text-shop-buttonSmall"
+            onLayout={(event) => {
+              const labelWidth = event.nativeEvent.layout.width;
+              if (labelWidth <= 0) return;
+              const width = Math.min(344, labelWidth + 35 + (image ? 40 : 0));
+              setMeasuredWidths((previous) => {
+                if (previous.get(measureKey) === width) return previous;
+                return new Map(previous).set(measureKey, width);
+              });
+            }}
+          >
+            {value}
+          </Text>
+        ))}
+      </View>}
+      <View className="flex-row items-center gap-space-4">
+        <Text className="text-shop-captionBold text-text">{option.name}</Text>
+        {displayedValue ? (
+          <Text testID={`variant-option-value-${option.name}`} numberOfLines={1} className="flex-1 text-shop-caption text-text">
+            {displayedValue}
           </Text>
         ) : null}
       </View>
-      <View className="flex-row flex-wrap gap-space-8">
+      <View testID={`variant-option-values-${option.name}`} className="flex-row flex-wrap gap-space-8">
         {visibleValues.map((value) => {
           const selected = selectedValue === value;
-          const inStock = valueInStock(variants, option.name, value);
+          const { inStock, image } = choices.find((choice) => choice.value === value)!;
 
           return (
-            <Pressable
+            <Button
               key={value}
-              accessibilityRole="button"
-              accessibilityLabel={`${option.name}: ${value}`}
-              accessibilityState={{ selected, disabled: !inStock }}
-              disabled={!inStock}
+              accessibilityLabel={`${option.name}: ${value}${inStock ? "" : `, ${t("ui.purchase.soldOut")}`}`}
+              pressed={selected}
+              material="flat"
               onPress={() => onSelect(value)}
-              className={`min-h-space-40 items-center justify-center rounded-radius-max border-[1.5px] px-space-16 ${
-                selected ? "border-border-input-active" : "border-border-secondary"
-              } ${!inStock ? "opacity-40" : ""}`}
+              onHoverIn={() => setHoveredValue(value)}
+              onHoverOut={() => setHoveredValue(null)}
+              className={cn(
+                "shop-option",
+                isDarkColorScheme && "shop-option-dark",
+                selected && inStock && (isDarkColorScheme ? "shop-option-selected-dark" : "shop-option-selected"),
+                !inStock && (isDarkColorScheme ? "shop-option-unavailable-dark" : "shop-option-unavailable"),
+                !inStock && selected && (isDarkColorScheme ? "shop-option-unavailable-selected-dark" : "shop-option-unavailable-selected"),
+                !selected && (isDarkColorScheme ? "shop-option-interactive-dark" : "shop-option-interactive"),
+                !selected && !reducedMotion && "shop-option-pressable",
+                selected && "web:cursor-default",
+              )}
+              leading={
+                image ? (
+                  <Image
+                    source={{ uri: image }}
+                    contentFit="cover"
+                    style={{ width: 32, height: 32, borderRadius: 8 }}
+                  />
+                ) : undefined
+              }
             >
-              <Text className="text-buttonMedium text-text">{value}</Text>
-            </Pressable>
+              <Text numberOfLines={1} className={cn(
+                "shrink text-shop-buttonSmall",
+                inStock ? (isDarkColorScheme ? "text-white" : "text-black")
+                  : isDarkColorScheme ? "text-[#fff6] line-through" : "text-[#0006] line-through",
+              )}>
+                {value}
+              </Text>
+            </Button>
           );
         })}
         {overflow ? (
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            material="flat"
             accessibilityLabel={t(SWATCH_SHOW_MORE_A11Y_KEY, {
               more: hiddenCount,
               option: option.name,
             })}
             onPress={() => setExpanded(true)}
-            className="min-h-space-40 items-center justify-center rounded-radius-max border-[1.5px] border-border-secondary px-space-16"
+            className={cn(
+              "shop-option shop-option-more",
+              isDarkColorScheme && "shop-option-dark",
+              isDarkColorScheme ? "shop-option-interactive-dark" : "shop-option-interactive",
+              !reducedMotion && "shop-option-pressable",
+            )}
           >
-            <Text className="text-buttonMedium text-text">
+            <Text className={cn("text-shop-buttonSmall", isDarkColorScheme ? "text-white" : "text-black")}>
               {t(SWATCH_SHOW_MORE_KEY, { more: hiddenCount })}
             </Text>
-          </Pressable>
+          </Button>
         ) : null}
       </View>
     </View>

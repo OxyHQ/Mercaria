@@ -9,6 +9,7 @@
  */
 
 import type { Request, Response } from 'express';
+import { ALL_LISTING_STATUSES, type ListingStatus } from '@mercaria/shared-types';
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type {
   CreateStoreProductInput,
@@ -42,7 +43,7 @@ import { hydrateListings } from '../../services/catalog-hydration.service.js';
 import { enqueueProductPush } from '../../queue/producers.js';
 import { parsePagination, buildPagination } from '../../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../../utils/api-response.js';
-import { respondWithError, forbidden, notFound } from '../../lib/errors/error-codes.js';
+import { respondWithError, forbidden, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { routeParam } from '../../utils/request.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
@@ -118,7 +119,18 @@ export async function listProducts(req: Request, res: Response): Promise<void> {
     const id = storeId(req);
     const { page, limit } = parsePagination(req.query);
 
-    const { rows, total } = await findStoreListingsPageForAdmin(id, {}, page, limit);
+    const { status, search } = req.query;
+    if (status !== undefined && (typeof status !== 'string' || !ALL_LISTING_STATUSES.includes(status as ListingStatus))) {
+      throw validationError('Invalid product status');
+    }
+    if (search !== undefined && (typeof search !== 'string' || search.length > 200)) {
+      throw validationError('Product search must be a string of at most 200 characters');
+    }
+    const filters = {
+      ...(typeof status === 'string' ? { status: status as ListingStatus } : {}),
+      ...(typeof search === 'string' ? { search: search.trim() } : {}),
+    };
+    const { rows, total } = await findStoreListingsPageForAdmin(id, filters, page, limit);
 
     const data = await hydrateListings(rows, { viewerId: req.userId, includeSource: true });
     sendPaginated(res, data, buildPagination(page, limit, total));

@@ -22,7 +22,7 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * `routes.ts` registers `deals` as `availability: 'live'` and indexable, and
  * `resolveDealsPage` composes a full `SeoDocument` for it — same shape,
  * same reasons, as `resolveCategoryIndex` for `/categories`. This screen
- * consumes it the same way `categories/index.tsx` does.
+ * consumes it the same way `explore.tsx` does.
  */
 export default function DealsScreen() {
   const { t } = useTranslation();
@@ -71,15 +71,15 @@ export default function DealsScreen() {
       {/*
        * Page chrome only — the feed renders below, outside this container, so
        * its carousels get the full scroll width instead of clipping inside a
-       * centred column. `categories/index.tsx` says the same thing at length.
+       * centred column. `explore.tsx` says the same thing at length.
        */}
       <View className="mb-space-32 web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
-        <Text className="text-headerBold text-text" accessibilityRole="header">
+        <Text className="text-center text-[36px] font-bold leading-[40px] tracking-tight text-text" accessibilityRole="header">
           {t('discovery.deals.title')}
         </Text>
 
         {feed.isLoading && feed.data === undefined ? (
-          <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
+          <Text className="text-shop-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
         {/* A FAILED request is not "no active deals" — that is a real state
@@ -88,7 +88,7 @@ export default function DealsScreen() {
             fall through and read as the confident, unrelated claim. */}
         {feed.isError && feed.data === undefined ? (
           <View className="items-center px-8 py-16">
-            <Text className="text-center text-body text-text-tertiary">
+            <Text className="text-center text-shop-body text-text-tertiary">
               {t('discovery.deals.loadError')}
             </Text>
             <Pressable
@@ -103,7 +103,7 @@ export default function DealsScreen() {
         ) : null}
 
         {!feed.isLoading && !feed.isError && sections.length === 0 ? (
-          <Text className="text-body text-text-tertiary">{t('discovery.deals.empty')}</Text>
+          <Text className="text-shop-body text-text-tertiary">{t('discovery.deals.empty')}</Text>
         ) : null}
       </View>
 

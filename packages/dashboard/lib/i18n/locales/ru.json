@@ -794,7 +794,9 @@
     "reportsError": "Не удалось загрузить отчёты",
     "sales": {
       "empty": "За этот период продаж пока нет.",
-      "title": "Продажи (последний период)"
+      "title": "Продажи",
+      "point": "%{date}: %{revenue}, заказов: %{count}",
+      "inspect": "Выберите день, чтобы увидеть продажи и заказы."
     },
     "stats": {
       "averageOrder": "Средний чек",
@@ -816,7 +818,11 @@
         "many": "продано: %{count}",
         "few": "продано: %{count}"
       }
-    }
+    },
+    "allTime": "За всё время",
+    "performance": "Показатели магазина",
+    "lastDays": "Последние %{days} дней",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Каналы продаж",
@@ -832,7 +838,10 @@
     "collapseSidebar": "Свернуть боковую панель",
     "expandSidebar": "Развернуть боковую панель",
     "closeSidebar": "Закрыть боковую панель",
-    "closeNavigation": "Закрыть навигацию"
+    "closeNavigation": "Закрыть навигацию",
+    "searchNavigation": "Поиск по навигации",
+    "clearSearch": "Очистить поиск по навигации",
+    "noResults": "Подходящих страниц нет"
   },
   "orders": {
     "detail": {
@@ -931,7 +940,7 @@
     "status": {
       "cancelled": "Отменён",
       "delivered": "Доставлен",
-      "digitallyDelivered": "Доставлено",
+      "digitallyDelivered": "Доставлено в цифровом виде",
       "paid": "Оплачен",
       "partiallyRefunded": "Част. возврат",
       "pendingPayment": "Ожидает",
@@ -939,7 +948,6 @@
       "refunded": "Возвращён",
       "shipped": "Отправлен"
     },
-    "subtitle": "Выполняйте и отслеживайте свои продажи",
     "title": "Заказы",
     "totals": {
       "discounts": "Скидки",
@@ -981,6 +989,12 @@
         "other": "%{count} вариантов",
         "many": "%{count} вариантов",
         "few": "%{count} варианта"
+      },
+      "organization": {
+        "heading": "Организация товара",
+        "tags": "Метки",
+        "addTag": "Добавить метку",
+        "removeTag": "Удалить %{tag}"
       }
     },
     "documentTitle": "Товары | Mercaria Dashboard",
@@ -1024,7 +1038,7 @@
         "few": "%{count} варианта · %{stock} в наличии"
       }
     },
-    "searchPlaceholder": "Поиск товаров на этой странице…",
+    "searchPlaceholder": "Поиск товаров…",
     "status": {
       "active": "Активен",
       "archived": "В архиве",
@@ -1033,7 +1047,6 @@
       "sold": "Продан"
     },
     "stockLabel": "Остаток",
-    "subtitle": "Каталог вашего магазина",
     "title": "Товары",
     "variants": {
       "add": "Добавить",
@@ -1913,5 +1926,14 @@
     "subtitle": "Выберите магазин для управления",
     "switch": "Сменить магазин",
     "title": "Ваши магазины"
+  },
+  "resourceList": {
+    "noResults": "Нет подходящих результатов",
+    "clearFilters": "Сбросить фильтры",
+    "previous": "Назад",
+    "next": "Далее",
+    "price": "Цена",
+    "date": "Дата",
+    "customer": "Покупатель"
   }
 }

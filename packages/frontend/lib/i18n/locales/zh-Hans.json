@@ -4,12 +4,22 @@
     "cancel": "取消",
     "confirm": "确认",
     "back": "返回",
-    "tryAgain": "重试"
+    "tryAgain": "重试",
+    "linkCopied": "链接已复制",
+    "shareError": "无法分享链接，请重试。",
+    "pagination": {
+      "previous": "上一页",
+      "next": "下一页",
+      "pageOf": "第 %{page} 页，共 %{pages} 页"
+    }
   },
   "home": {
     "title": "Mercaria",
     "loadingProducts": "正在加载商品",
-    "loadError": "无法加载商品。下拉刷新或重试。"
+    "loadError": "无法加载商品。下拉刷新或重试。",
+    "keepShopping": "继续购物",
+    "recentlyViewed": "最近浏览",
+    "recentlyViewedEmpty": "你浏览过的商品会显示在这里。"
   },
   "nav": {
     "home": "首页",
@@ -136,11 +146,6 @@
     "compareOffersA11y": "比较该商品的所有报价",
     "compareOffers": "比较所有报价",
     "percentOff": "省 %{percent}%",
-    "demandCopy": "过去一个月销量超过 10 万",
-    "exclusiveOffer": {
-      "label": "解锁专属价格",
-      "caption": "登录后查看你的专属优惠"
-    },
     "quantity": "数量",
     "decreaseQuantity": "减少数量",
     "increaseQuantity": "增加数量",
@@ -149,6 +154,8 @@
       "removeProductA11y": "从收藏中移除该商品",
       "product": "收藏商品",
       "productSaved": "已收藏商品",
+      "statusError": "无法读取商品的收藏状态。",
+      "updateError": "无法更新已收藏的商品。",
       "exactListingA11y": "收藏这条具体的商品信息",
       "removeListingA11y": "从收藏中移除该商品信息",
       "listing": "收藏该商品信息",
@@ -156,19 +163,17 @@
       "save": "收藏",
       "saved": "已收藏"
     },
+    "moreActions": "更多操作",
+    "reportProduct": "举报商品",
     "shareA11y": "分享该商品",
     "share": "分享",
-    "deliveryAndReturns": "配送与退货",
-    "viewReturnPolicyA11y": "查看退货政策",
     "returnPolicy": "退货政策",
     "description": "商品描述",
-    "viewMore": "展开",
-    "viewLess": "收起",
+    "readMoreDescription": "阅读更多",
     "highlights": "亮点",
     "sortOffersBy": "报价排序方式",
     "reportProblemA11y": "举报该商品信息中的问题",
     "reportProblem": "举报问题",
-    "specifications": "规格参数",
     "modelIdentifiers": "型号标识",
     "imageFromCatalogueA11y": "%{name} — 目录图片",
     "releasedYear": "%{year} 年发布",
@@ -198,6 +203,17 @@
       },
       "notFullyBuilt": "该时间段的一部分尚未生成。",
       "conversionDisplayOnly": "换算金额仅供显示参考。"
+    },
+    "reviews": "评价",
+    "purchasePreview": {
+      "notice": "使用示例价格和方案进行预览。所有操作均为模拟，不会创建订单或扣款。",
+      "save": "节省 %{percent}",
+      "monthly": "每月配送",
+      "bimonthly": "每2个月配送",
+      "prepaid": "每次配送 %{price}。预付三次配送的费用。",
+      "introductory": "首次配送享优惠价，此后每次配送 %{price}。",
+      "cartResult": "模拟：已加入购物车。您的实际购物车未更改。",
+      "checkoutResult": "模拟结账完成。未创建订单或付款。"
     }
   },
   "catalog": {
@@ -304,14 +320,14 @@
     "empty": {
       "title": "还没有订单",
       "subtitle": "下单后会显示在这里。",
-      "signedOutSubtitle": "登录后即可查看订单记录。"
+      "signedOutSubtitle": "登录后即可查看订单记录。",
+      "activeTitle": "暂无进行中的订单",
+      "pastTitle": "暂无历史订单",
+      "pastSubtitle": "已完成、已取消和已退款的订单会显示在这里。"
     },
     "row": {
       "openA11yLabel": "打开订单 %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} 件商品",
-        "other": "%{status} · %{seller} · %{count} 件商品"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "上一页",
@@ -373,6 +389,11 @@
       "basisEstimate": "这是配送合作伙伴的预计，并非承诺。",
       "staleNote": "我们最近未能更新它。",
       "refreshFailing": "我们未能更新这个预计，可能已经过时。"
+    },
+    "loadError": "无法加载你的订单",
+    "tabs": {
+      "active": "进行中",
+      "past": "历史"
     }
   },
   "reviews": {
@@ -420,6 +441,37 @@
       "nativeTransaction": "你对这笔购买的评价",
       "p2pListing": "你对商品描述的评价",
       "p2pSeller": "你对这位卖家的评价"
+    },
+    "search": {
+      "placeholder": "搜索评价",
+      "noResults": "没有符合搜索条件的评价。",
+      "results": "搜索结果：%{results}条"
+    },
+    "filters": {
+      "sort": "排序方式",
+      "newest": "最新",
+      "oldest": "最早",
+      "ratingAscending": "评分从低到高",
+      "ratingDescending": "评分从高到低",
+      "rating": "评分",
+      "stars": "%{count}星",
+      "reset": "重置",
+      "apply": "应用",
+      "noResults": "没有符合这些筛选条件的评论。",
+      "results": "评论：%{results}"
+    },
+    "actions": {
+      "more": "评价操作",
+      "report": "举报评价",
+      "subject": "%{author}的评价"
+    },
+    "helpful": {
+      "label": "有帮助",
+      "mark": "将评价标记为有帮助",
+      "remove": "撤销有帮助的投票",
+      "count": "%{formattedCount}人觉得有帮助",
+      "error": "无法更新你的投票。请重试。",
+      "retry": "重新加载投票"
     }
   },
   "search": {
@@ -965,7 +1017,8 @@
       "body": "已保存的商品会跟踪所有卖家的价格和有货情况，并同步到你的所有设备。",
       "signIn": "登录",
       "title": "登录后可保存内容"
-    }
+    },
+    "actionFailed": "无法更新收藏"
   },
   "watchlists": {
     "atLimit": "已达到 %{count} 个清单的上限",
@@ -1126,13 +1179,12 @@
       "unfollowStore": "取消关注 %{store}"
     },
     "reviews": {
-      "helpful": "有帮助",
       "loading": "正在加载评价…",
       "none": "暂无评价",
       "viewProduct": "查看 %{product}",
       "ratingsCount": "%{formattedCount} 条评分",
       "ratingsWithScope": "%{formattedCount} 条评分 · %{scopeLabel}",
-      "fallbackAuthor": "已验证买家",
+      "fallbackAuthor": "Mercaria 买家",
       "viewA11yLabel": "查看该店铺的服务评价"
     },
     "visit": {
@@ -1225,6 +1277,9 @@
     "noLinkPublished": "未公布链接",
     "noDestination": "该卖家公布了价格，但未提供链接。",
     "outboundNotAvailable": "暂时无法打开其他网站上的报价。",
+    "seenOn": "%{date} 记录的价格",
+    "dataSource": "数据：%{name}",
+    "dataSourceLicensed": "数据：%{name} · %{licence}",
     "blocked": {
       "outOfStock": "该卖家已缺货。",
       "notPaymentReady": "该卖家暂时无法收款。",
@@ -1584,5 +1639,36 @@
       "formatsLabel": "包含 %{formats}",
       "notForSale": "未在售"
     }
+  },
+  "thread": {
+    "title": "购物助手",
+    "thinking": "正在寻找灵感…",
+    "stop": "停止",
+    "unavailable": "购物助手暂不可用。你仍然可以搜索商品目录。",
+    "signIn": "登录后聊天",
+    "retry": "重试",
+    "viewResults": "查看搜索结果",
+    "newConversation": "新对话",
+    "previewAction": "使用示例数据试用",
+    "previewLabel": "预览 · 示例回复，未连接 AI",
+    "previewReply": "这些是本地目录中的示例，用于测试对话布局。打开商品查看详情，或发送另一条消息。"
+  },
+  "profile": {
+    "title": "个人资料",
+    "subtitle": "收藏、订单和账户，尽在一处。"
+  },
+  "curations": {
+    "heading": "精选集",
+    "preview": "预览 · 本地目录中的示例精选",
+    "everyday": "日常好物",
+    "fresh": "全新视角",
+    "pleasures": "小小乐趣",
+    "description": "按自己的节奏发现心仪好物。",
+    "unavailable": "此精选集暂不可用。",
+    "referenceTitle": "Courtney Grow 精选",
+    "referenceSubtitle": "Courtney 近期的时尚与美妆之选",
+    "quoteComfort": "舒适、个性，还有让一件单品属于你的小细节。",
+    "quoteTexture": "一种钟爱的质感，就能改变整套穿搭的感觉。",
+    "quoteEveryday": "把最常用的心爱之物放在触手可及的地方。"
   }
 }

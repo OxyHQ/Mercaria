@@ -294,7 +294,9 @@ There is no write route and no follow route, and neither may be added.
   `{listing.seller ? … : null}` beside the store card's own guard. The route is
   keyed on the Oxy account id, never a handle: a rename would 404 every inbound
   link, the same reason the follow URI is keyed on the id.
-- `components/seller/ReportSellerDialog.tsx` — the report flow above.
+- `components/seller/ReportSellerDialog.tsx` — binds the Oxy seller id to the
+  shared `components/reports/AbuseReportDialog.tsx` form. The store menu uses
+  that same form with `reportedType: 'store'` and the Mercaria store id.
 
 ## Deferred, and to whom
 

@@ -168,6 +168,22 @@ because two different questions are asked — "which orders did this account
 PLACE" (reports, the customer relation) and "which orders may this account SEE".
 Collapsing them would silently widen the first.
 
+Buyer history accepts optional `view=active|past` on `GET /orders`. The exhaustive
+shared `BUYER_ORDER_VIEW_BY_STATUS` map assigns pending payment, paid, processing
+and shipped orders to Active; delivered, digitally delivered, cancelled and both
+refund states belong to Past. These are derived views, not persisted states.
+The status condition is ANDed with the buyer-or-claimant predicate before both
+the count and page query. Invalid views return 400; omitting the parameter keeps
+the all-orders response used by existing clients. Real PostgreSQL coverage walks
+every status, claimed/unclaimed guest orders, a second account and multiple pages.
+
+Order summaries include `images` projected from the purchased lines' frozen URLs
+and titles, in line order. The projection performs no catalog lookup and shares
+the existing batched seller hydration. Lines without a stored photograph add no
+preview; their quantities still contribute to `itemCount`. The storefront shows
+two 32px thumbnails and a remaining-image count, and removes failed images so a
+later valid photograph can take their place.
+
 ---
 
 ## The audit actor (D16)

@@ -1,0 +1,44 @@
+{
+  "kind": "merchant-observed-availability-projection",
+  "evidenceIsHistoricalReadback": true,
+  "mercariaAcceptedSource": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+  "mercariaAcceptedTaskDefinition": "oxy-mercaria:63",
+  "image": "237343248947.dkr.ecr.us-west-2.amazonaws.com/oxy/mercaria@sha256:1eefcd7098eb29ea96b5b78fc8b07972fd42b18a5e20d21eb5dbe54dc17cc8db",
+  "cohort": {
+    "merchantId": "merch_bd106296a0fef49a861ee6b7",
+    "applicationId": "6a37d0cc5d4b5f15482a9340",
+    "environment": "production",
+    "platformAccountId": "acct_1TnXkUQWiCE02OnU",
+    "livemode": true,
+    "storeIds": [
+      "6a39a7d5b5809e55ba556ad0",
+      "6a77367c30650db22f728092"
+    ]
+  },
+  "flags": {
+    "MERCHANT_BILLING_ENABLED": {
+      "explicitEnvironmentValue": null,
+      "sourceDefault": false
+    },
+    "STRIPE_ENABLED": {
+      "explicitEnvironmentValue": null,
+      "sourceDefault": false
+    },
+    "PEABLE_ENABLED": {
+      "explicitEnvironmentValue": null,
+      "sourceDefault": false
+    }
+  },
+  "returnUrlExplicit": null,
+  "commercialInventoryObservedAt": "2026-10-04 06:19:08.008045+00",
+  "commercialCounts": {
+    "stores": 2,
+    "merchant_plans": 0,
+    "merchant_plan_prices": 0,
+    "plan_entitlements": 0,
+    "billing_customers": 0,
+    "merchant_subscriptions": 0,
+    "store_members": 2
+  },
+  "inventoryFreshnessLimit": "Accepted06:19 readback; no new SQL measurement in this audit."
+}

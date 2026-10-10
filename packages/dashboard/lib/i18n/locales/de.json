@@ -768,7 +768,9 @@
     "reportsError": "Berichte konnten nicht geladen werden",
     "sales": {
       "empty": "In diesem Zeitraum noch keine Verkäufe.",
-      "title": "Umsatz (letzter Zeitraum)"
+      "title": "Umsatz",
+      "point": "%{date}: %{revenue}, %{count} Bestellungen",
+      "inspect": "Wähle einen Tag, um Umsatz und Bestellungen anzuzeigen."
     },
     "stats": {
       "averageOrder": "Ø Bestellwert",
@@ -788,7 +790,11 @@
         "one": "%{count} verkauft",
         "other": "%{count} verkauft"
       }
-    }
+    },
+    "allTime": "Gesamter Zeitraum",
+    "performance": "Shop-Leistung",
+    "lastDays": "Letzte %{days} Tage",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Vertriebskanäle",
@@ -804,7 +810,10 @@
     "collapseSidebar": "Seitenleiste einklappen",
     "expandSidebar": "Seitenleiste ausklappen",
     "closeSidebar": "Seitenleiste schließen",
-    "closeNavigation": "Navigation schließen"
+    "closeNavigation": "Navigation schließen",
+    "searchNavigation": "Navigation durchsuchen",
+    "clearSearch": "Navigationssuche löschen",
+    "noResults": "Keine passenden Seiten"
   },
   "orders": {
     "detail": {
@@ -901,7 +910,7 @@
     "status": {
       "cancelled": "Storniert",
       "delivered": "Zugestellt",
-      "digitallyDelivered": "Geliefert",
+      "digitallyDelivered": "Digital zugestellt",
       "paid": "Bezahlt",
       "partiallyRefunded": "Teilw. erstattet",
       "pendingPayment": "Ausstehend",
@@ -909,7 +918,6 @@
       "refunded": "Erstattet",
       "shipped": "Versendet"
     },
-    "subtitle": "Ihre Verkäufe abwickeln und verfolgen",
     "title": "Bestellungen",
     "totals": {
       "discounts": "Rabatte",
@@ -947,6 +955,12 @@
       "variantCount": {
         "one": "%{count} Variante",
         "other": "%{count} Varianten"
+      },
+      "organization": {
+        "heading": "Produktorganisation",
+        "tags": "Schlagwörter",
+        "addTag": "Schlagwort hinzufügen",
+        "removeTag": "%{tag} entfernen"
       }
     },
     "documentTitle": "Produkte | Mercaria Dashboard",
@@ -988,7 +1002,7 @@
         "other": "%{count} Varianten · %{stock} auf Lager"
       }
     },
-    "searchPlaceholder": "Produkte auf dieser Seite suchen…",
+    "searchPlaceholder": "Produkte suchen…",
     "status": {
       "active": "Aktiv",
       "archived": "Archiviert",
@@ -997,7 +1011,6 @@
       "sold": "Verkauft"
     },
     "stockLabel": "Bestand",
-    "subtitle": "Ihr Shop-Katalog",
     "title": "Produkte",
     "variants": {
       "add": "Hinzufügen",
@@ -1869,5 +1882,14 @@
     "subtitle": "Wählen Sie einen Shop zur Verwaltung",
     "switch": "Shop wechseln",
     "title": "Ihre Shops"
+  },
+  "resourceList": {
+    "noResults": "Keine passenden Ergebnisse",
+    "clearFilters": "Filter zurücksetzen",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "price": "Preis",
+    "date": "Datum",
+    "customer": "Kunde"
   }
 }

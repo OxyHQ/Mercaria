@@ -16,8 +16,9 @@ function triggerHaptic() {
 /**
  * The phone navigation: Bloom's `BottomBar` in `AppShell`'s `bottomBar` slot,
  * which pins it, applies the bottom safe area and reserves its measured height
- * under the content. It renders the permission-visible {@link NAV_ITEMS} — the
- * same destinations as the sidebar — and nothing when the caller can see none
+ * under the content. It renders the four primary, permission-visible destinations from
+ * {@link NAV_ITEMS}. Secondary destinations remain in the menu drawer, so
+ * translated tab labels have room on phones. Nothing renders when the caller can see none
  * (Bloom's bar renders null with no items).
  */
 export function BottomTabBar() {
@@ -26,7 +27,8 @@ export function BottomTabBar() {
   const pathname = usePathname();
   const { can } = useActiveStoreContext();
 
-  const visible = useMemo(() => NAV_ITEMS.filter((item) => can(item.permission)), [can]);
+  const visible = useMemo(() => NAV_ITEMS.filter((item) =>
+    ["dashboard", "orders", "products", "customers"].includes(item.key) && can(item.permission)), [can]);
 
   const items = useMemo<BottomBarProps["items"]>(
     () =>

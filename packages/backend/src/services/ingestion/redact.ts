@@ -159,6 +159,7 @@ export function buildStoredPayload(record: NormalizedSourceRecord): StoredSource
     affiliateUrl: record.affiliateUrl,
     sourceCreatedAt: record.sourceCreatedAt,
     sourceUpdatedAt: record.sourceUpdatedAt,
+    facts: record.facts !== undefined && record.facts.length > 0 ? record.facts : undefined,
   });
 
   /**
@@ -210,5 +211,86 @@ export function redactSourceObservation(
     payload,
     contentHash: sha256Hex(serialized),
     rawDigest: rawPayloadDigest(raw),
+  };
+}
+
+/**
+ * Read a stored payload back as the record it was projected from — the
+ * inverse of {@link buildStoredPayload}, used when an observation is RE-ADVANCED
+ * (ADR 0014 D4) long after the adapter's own record was discarded.
+ *
+ * Exact for every field the projection keeps. The one loss is the projection's
+ * own: a record that asserted two values under one identifier scheme kept the
+ * first, so it reads back with the first. A payload that does not have the
+ * shape this module writes reads back as `null` rather than as a guess — it was
+ * stored by a different projection and re-advancing it would invent a record.
+ */
+export function normalizedFromStoredPayload(payload: unknown): NormalizedSourceRecord | null {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const stored = payload as Record<string, unknown>;
+  const text = (key: string): string | undefined =>
+    typeof stored[key] === 'string' ? (stored[key] as string) : undefined;
+  const number = (key: string): number | undefined =>
+    typeof stored[key] === 'number' ? (stored[key] as number) : undefined;
+  const object = <T>(key: string): T | undefined =>
+    stored[key] !== null && typeof stored[key] === 'object' && !Array.isArray(stored[key])
+      ? (stored[key] as T)
+      : undefined;
+
+  const title = text('title');
+  if (title === undefined) return null;
+
+  const identifiers: NormalizedSourceRecord['identifiers'][number][] = [];
+  for (const scheme of ['gtin', 'ean', 'upc', 'isbn', 'mpn'] as const) {
+    const value = text(scheme);
+    if (value !== undefined) identifiers.push({ scheme, value });
+  }
+  const attributes = object<Record<string, unknown>>('attributes') ?? {};
+  const options = Object.entries(attributes)
+    .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+    .map(([name, value]) => ({ name, value }));
+  const price = number('price');
+  const currency = text('currency');
+  const compareAt = number('compareAtPrice');
+  const compareAtCurrency = text('compareAtCurrency');
+  const media = Array.isArray(stored.media)
+    ? stored.media.filter((entry): entry is string => typeof entry === 'string')
+    : [];
+  const facts = Array.isArray(stored.facts) ? (stored.facts as NormalizedSourceRecord['facts']) : undefined;
+  const availability = text('availability') as NormalizedSourceRecord['availability'];
+
+  const optional: Record<string, unknown> = {
+    description: text('description'),
+    brandHint: text('brand'),
+    model: text('model'),
+    merchantSku: text('sku'),
+    categoryKey: text('category'),
+    conditionLabel: text('condition'),
+    merchantHint: text('merchant'),
+    storefrontHint: text('storefront'),
+    price: price !== undefined && currency !== undefined ? { amount: price, currency } : undefined,
+    compareAtPrice:
+      compareAt !== undefined && compareAtCurrency !== undefined
+        ? { amount: compareAt, currency: compareAtCurrency }
+        : undefined,
+    availability,
+    availableQuantity: number('availableQuantity'),
+    delivery: object<NormalizedSourceRecord['delivery']>('delivery'),
+    returnPolicy: object<NormalizedSourceRecord['returnPolicy']>('returnPolicy'),
+    country: text('country'),
+    region: text('region'),
+    language: text('language'),
+    sourceUrl: text('url'),
+    affiliateUrl: text('affiliateUrl'),
+    sourceCreatedAt: text('sourceCreatedAt'),
+    sourceUpdatedAt: text('sourceUpdatedAt'),
+    facts,
+  };
+  return {
+    title,
+    identifiers,
+    options,
+    media,
+    ...(present(optional) as Partial<NormalizedSourceRecord>),
   };
 }

@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
-import { Platform, ScrollView, View } from "react-native";
+import { Platform, View } from "react-native";
 import { useBottomEdgeInset } from "@oxy.so/bloom/layout";
 import { cn } from "../../lib/cn";
+import { ViewportScrollView } from "./ViewportScrollView";
 
 export interface ScreenShellProps {
   children: ReactNode;
@@ -57,13 +58,13 @@ export function ScreenShell({
     return (
       <View className={cn("flex-1", surfaceClassName)} style={surfaceStyle}>
         {scroll ? (
-          <ScrollView
+          <ViewportScrollView
             className="flex-1"
             contentContainerStyle={{ paddingBottom: bottomInset }}
             keyboardShouldPersistTaps="handled"
           >
             <View className={contentClassName}>{children}</View>
-          </ScrollView>
+          </ViewportScrollView>
         ) : (
           <View className={cn("flex-1", contentClassName)}>{children}</View>
         )}

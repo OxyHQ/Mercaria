@@ -15,6 +15,7 @@ import type { Money } from './money';
 import type { Seller } from './seller';
 import type { StoreSummary } from './product';
 import type { ProductVariantDTO } from './variant';
+import type { ProductBundleContents } from './product-page';
 import type { ConnectorProviderId } from './integration';
 import type {
   ConditionDetailKind,
@@ -272,7 +273,7 @@ export type ListingOwnerType = 'user' | 'store';
 
 /** A single image attached to a listing. */
 export interface ListingImage {
-  /** Oxy media file id (or absolute URL), resolvable via the media CDN. */
+  /** Oxy media file ID. Resolve a rendition when displaying; never replace the ID with its URL. */
   fileId: string;
   /** Optional alt text for accessibility. */
   alt?: string;
@@ -286,6 +287,18 @@ export interface ListingOption {
   name: string;
   /** Allowed values for the option (e.g. `['S', 'M', 'L']`). */
   values: string[];
+}
+
+/** An available pack sold by the same seller, containing the exact selected
+ * configuration. Prices and the action refer to the pack's own native variant. */
+export interface ListingBundleRecommendation {
+  listingId: string;
+  variantId: string;
+  title: string;
+  image?: ListingImage;
+  price: Money;
+  compareAtPrice?: Money;
+  action: 'add_to_cart' | 'view_bundle';
 }
 
 /**
@@ -302,7 +315,7 @@ export interface Listing extends Timestamps {
   ownerType: ListingOwnerType;
   /** Short, human-readable title. */
   title: string;
-  /** Full description (plain text or markdown, per product decision). */
+  /** Authored description: plain text for manual listings; may contain HTML from commerce connectors. */
   description: string;
   /** "From" price — the minimum variant price. */
   price: Money;
@@ -346,6 +359,11 @@ export interface Listing extends Timestamps {
    * blended star average that answers neither question.
    */
   canonicalProductId?: string;
+  /** Detail only: exact active catalog attachments, keyed by native variant id.
+   * No entry means no known composition; product-level identity is insufficient. */
+  bundleContentsByVariant?: Record<string, ProductBundleContents>;
+  /** Detail only: available packs containing each native configuration. */
+  bundlesByVariant?: Record<string, ListingBundleRecommendation[]>;
   /** Lifecycle status. */
   status: ListingStatus;
   /**

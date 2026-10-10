@@ -768,7 +768,9 @@
     "reportsError": "تعذّر تحميل التقارير",
     "sales": {
       "empty": "لا توجد مبيعات في هذه الفترة بعد.",
-      "title": "المبيعات (الفترة الأخيرة)"
+      "title": "المبيعات",
+      "point": "%{date}: %{revenue}، %{count} طلبات",
+      "inspect": "اختر يوماً لعرض المبيعات والطلبات."
     },
     "stats": {
       "averageOrder": "متوسط الطلب",
@@ -788,7 +790,11 @@
         "one": "%{count} مباع",
         "other": "%{count} مباع"
       }
-    }
+    },
+    "allTime": "كل الأوقات",
+    "performance": "أداء المتجر",
+    "lastDays": "آخر %{days} أيام",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "قنوات البيع",
@@ -804,7 +810,10 @@
     "collapseSidebar": "طيّ الشريط الجانبي",
     "expandSidebar": "توسيع الشريط الجانبي",
     "closeSidebar": "إغلاق الشريط الجانبي",
-    "closeNavigation": "إغلاق التنقل"
+    "closeNavigation": "إغلاق التنقل",
+    "searchNavigation": "البحث في التنقل",
+    "clearSearch": "مسح بحث التنقل",
+    "noResults": "لا توجد صفحات مطابقة"
   },
   "orders": {
     "detail": {
@@ -901,7 +910,7 @@
     "status": {
       "cancelled": "ملغى",
       "delivered": "تم التسليم",
-      "digitallyDelivered": "تم التسليم",
+      "digitallyDelivered": "تم التسليم الرقمي",
       "paid": "مدفوع",
       "partiallyRefunded": "مُسترد جزئيًا",
       "pendingPayment": "قيد الانتظار",
@@ -909,7 +918,6 @@
       "refunded": "مُسترد",
       "shipped": "تم الشحن"
     },
-    "subtitle": "نفّذ مبيعاتك وتابعها",
     "title": "الطلبات",
     "totals": {
       "discounts": "الخصومات",
@@ -947,6 +955,12 @@
       "variantCount": {
         "one": "%{count} متغيّر",
         "other": "%{count} متغيّر"
+      },
+      "organization": {
+        "heading": "تنظيم المنتج",
+        "tags": "الوسوم",
+        "addTag": "إضافة وسم",
+        "removeTag": "إزالة %{tag}"
       }
     },
     "documentTitle": "المنتجات | Mercaria Dashboard",
@@ -988,7 +1002,7 @@
         "other": "%{count} متغيّر · %{stock} في المخزون"
       }
     },
-    "searchPlaceholder": "ابحث في منتجات هذه الصفحة…",
+    "searchPlaceholder": "البحث عن منتجات…",
     "status": {
       "active": "نشط",
       "archived": "مؤرشف",
@@ -997,7 +1011,6 @@
       "sold": "مباع"
     },
     "stockLabel": "المخزون",
-    "subtitle": "كتالوج متجرك",
     "title": "المنتجات",
     "variants": {
       "add": "إضافة",
@@ -1869,5 +1882,14 @@
     "subtitle": "اختر متجرًا لإدارته",
     "switch": "تبديل المتجر",
     "title": "متاجرك"
+  },
+  "resourceList": {
+    "noResults": "لا توجد نتائج مطابقة",
+    "clearFilters": "مسح عوامل التصفية",
+    "previous": "السابق",
+    "next": "التالي",
+    "price": "السعر",
+    "date": "التاريخ",
+    "customer": "العميل"
   }
 }

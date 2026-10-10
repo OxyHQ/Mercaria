@@ -330,10 +330,11 @@ const OWNERS = [
     // position is a message id on screen with no legitimate spelling.
     minimumRenderableKeyMaps: 40,
     // K (#436). Both EXACT, both fail in both directions.
-    // Missing category forms: ar 68 (zero/two/few/many x17) and nothing else.
-    pluralCategoryResidual: 68,
+    // Missing category forms: ar 64 (zero/two/few/many x16) and nothing else.
+    // Removing the obsolete orders.row.meta sentence removed one plural key.
+    pluralCategoryResidual: 64,
     // The ja and zh-Hans `one` forms — those locales select only `other`.
-    pluralUnreachableForms: 34,
+    pluralUnreachableForms: 32,
     minimumPluralKeys: 10,
   },
   {

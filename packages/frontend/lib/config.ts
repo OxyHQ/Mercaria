@@ -16,7 +16,7 @@ export const PROD_API_BASE_URL = 'https://api.mercaria.co';
 // The oxy_dk_ publicKey is a public client identifier and is safe to commit; it is
 // the committed fallback used when EXPO_PUBLIC_OXY_CLIENT_ID is not injected at build.
 export const OXY_CLIENT_ID =
-  process.env.EXPO_PUBLIC_OXY_CLIENT_ID ??
+  process.env.EXPO_PUBLIC_OXY_CLIENT_ID?.trim() ||
   'oxy_dk_8993efc30f18b2cfd361374634df4099a63a247df675132c';
 
 /**

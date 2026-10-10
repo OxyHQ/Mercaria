@@ -83,6 +83,23 @@ export const ORDER_STATUSES: readonly OrderStatus[] = [
   'partially_refunded',
 ];
 
+/** Buyer history views are derived from lifecycle state, never stored separately. */
+export const BUYER_ORDER_VIEWS = ['active', 'past'] as const;
+export type BuyerOrderView = (typeof BUYER_ORDER_VIEWS)[number];
+
+/** Refund/cancellation states cannot resume fulfilment in Mercaria's lifecycle. */
+export const BUYER_ORDER_VIEW_BY_STATUS: Readonly<Record<OrderStatus, BuyerOrderView>> = {
+  pending_payment: 'active',
+  paid: 'active',
+  processing: 'active',
+  shipped: 'active',
+  delivered: 'past',
+  digitally_delivered: 'past',
+  cancelled: 'past',
+  refunded: 'past',
+  partially_refunded: 'past',
+};
+
 /**
  * The buyer-safe payment projection carried on an order.
  *
@@ -569,6 +586,8 @@ export interface OrderSummary {
   grandTotal: DualMoney;
   /** Total units across all line items. */
   itemCount: number;
+  /** Purchased-line image snapshots, in line order. Never read from the current catalog. */
+  images?: { url: string; alt: string }[];
   /** Whether this order is fulfilled by a user (P2P) or a store. */
   sellerType: OrderSellerType;
   /** Hydrated P2P seller identity, for `sellerType: 'user'`. */

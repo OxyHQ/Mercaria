@@ -1,0 +1,32 @@
+[
+ {
+  "storeID": "1",
+  "storeName": "Steam",
+  "isActive": 1,
+  "images": {
+   "banner": "/img/stores/banners/0.png",
+   "logo": "/img/stores/logos/0.png",
+   "icon": "/img/stores/icons/0.png"
+  }
+ },
+ {
+  "storeID": "4",
+  "storeName": "Amazon",
+  "isActive": 0,
+  "images": {
+   "banner": "/img/stores/banners/3.png",
+   "logo": "/img/stores/logos/3.png",
+   "icon": "/img/stores/icons/3.png"
+  }
+ },
+ {
+  "storeID": "7",
+  "storeName": "GOG",
+  "isActive": 1,
+  "images": {
+   "banner": "/img/stores/banners/6.png",
+   "logo": "/img/stores/logos/6.png",
+   "icon": "/img/stores/icons/6.png"
+  }
+ }
+]

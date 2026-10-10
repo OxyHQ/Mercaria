@@ -3475,6 +3475,37 @@ export interface AwinConfig {
 }
 
 /**
+ * Keyless open-data catalogue and price providers (`services/open-data/`).
+ *
+ * ONE list rather than a flag per provider, because the catalogue of providers
+ * is meant to grow by descriptor: adding the next one is a module and a test,
+ * and a new boolean in this file per provider would make "which sources does
+ * this deployment fetch" a question answered by reading forty variables.
+ *
+ * Like `AWIN_ENABLED`, the list gates REGISTRATION and nothing durable: a
+ * source configured for a provider this deployment does not list is stored,
+ * readable and refused with #62's own `adapter_missing` until it is listed.
+ *
+ * `OPEN_DATA_USER_AGENT` is REQUIRED for any of it to register. Every one of
+ * these providers asks callers to identify themselves with a contact, and the
+ * ones that enforce it (Open Food Facts, Scryfall, MusicBrainz) ban anonymous
+ * clients by IP — which on a shared egress would take every other provider
+ * down with it. A list with no agent registers nothing and says so.
+ */
+export interface OpenDataConfig {
+  /** `OPEN_DATA_PROVIDERS` — comma-separated provider slugs. Empty registers none. */
+  readonly providers: readonly string[];
+  /** `OPEN_DATA_USER_AGENT` — `Product/Version (contact)`. Empty registers none. */
+  readonly userAgent: string;
+  /** Where downloaded dumps are cached between the sources that share them. */
+  readonly cacheDir: string;
+  /** Per-request timeout for an API page or a dump's response headers. */
+  readonly requestTimeoutMs: number;
+  /** A dump larger than this is refused, never truncated. */
+  readonly maxDownloadBytes: number;
+}
+
+/**
  * Affiliate outbound redirects and commission reconciliation (#67).
  *
  * Two independent levers plus tunables, and NEITHER gates a durable record.
@@ -3952,6 +3983,7 @@ export interface AppConfig {
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
+  readonly openData: OpenDataConfig;
   readonly affiliateOutbound: AffiliateOutboundConfig;
   readonly printful: PrintfulConfig;
   readonly moovo: MoovoConfig;
@@ -4474,6 +4506,18 @@ export const config: AppConfig = Object.freeze({
     networkLeaseMs: intEnv('AWIN_NETWORK_LEASE_MS', 120_000),
     listTimeoutMs: intEnv('AWIN_LIST_TIMEOUT_MS', 30_000),
     sampleSize: intEnv('AWIN_SAMPLE_SIZE', 25),
+  }),
+  openData: Object.freeze({
+    providers: Object.freeze(
+      strEnv('OPEN_DATA_PROVIDERS', '')
+        .split(',')
+        .map((slug) => slug.trim().toLowerCase())
+        .filter((slug) => slug.length > 0),
+    ),
+    userAgent: strEnv('OPEN_DATA_USER_AGENT', ''),
+    cacheDir: strEnv('OPEN_DATA_CACHE_DIR', join(tmpdir(), 'mercaria-open-data')),
+    requestTimeoutMs: intEnv('OPEN_DATA_REQUEST_TIMEOUT_MS', 30_000),
+    maxDownloadBytes: intEnv('OPEN_DATA_MAX_DOWNLOAD_BYTES', 256 * 1024 * 1024),
   }),
   affiliateOutbound: Object.freeze({
     redirectEnabled: resolveOutboundRedirectEnabled(),

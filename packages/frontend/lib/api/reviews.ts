@@ -1,8 +1,12 @@
 import type {
   ApiResponse,
+  PaginationParams,
+  ReviewListFilters,
   CreateReviewInput,
   PaginatedResponse,
   Review,
+  ReviewHelpfulness,
+  ReviewRatingSummary,
   ReviewEligibility,
   ScopedRatingAggregate,
 } from '@mercaria/shared-types';
@@ -17,20 +21,22 @@ import apiClient from './client';
  *    page PLUS the aggregate for exactly that scope and target, so a surface
  *    never derives a rating from the page it happens to have;
  *  - the LEGACY reads (`/listings/:id/reviews`, `/stores/:handle/reviews`) are
- *    unchanged through the compatibility window and carry no aggregate — a
- *    listing's own reviews are listing-specific feedback, and the star figures
- *    those surfaces show come from the entity's projected `rating` field.
+ *    listing-specific feedback. Listing pages also carry a full distribution;
+ *    store review cards keep their product scope separate from seller ratings.
  */
+
+export interface ListingReviewPage extends PaginatedResponse<Review> {
+  ratingSummary?: ReviewRatingSummary;
+}
 
 /** Fetch a page of a listing's published reviews. */
 export async function fetchListingReviews(
   listingId: string,
-  params?: { page?: number; limit?: number },
-): Promise<PaginatedResponse<Review>> {
-  const { data } = await apiClient.get<PaginatedResponse<Review>>(
-    `/listings/${listingId}/reviews`,
-    { params },
-  );
+  params?: PaginationParams & ReviewListFilters,
+): Promise<ListingReviewPage> {
+  const { data } = await apiClient.get<ListingReviewPage>(`/listings/${listingId}/reviews`, {
+    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+  });
   return data;
 }
 
@@ -42,12 +48,11 @@ export async function fetchListingReviews(
  */
 export async function fetchStoreReviews(
   handle: string,
-  params?: { page?: number; limit?: number },
+  params?: PaginationParams & ReviewListFilters,
 ): Promise<PaginatedResponse<Review>> {
-  const { data } = await apiClient.get<PaginatedResponse<Review>>(
-    `/stores/${handle}/reviews`,
-    { params },
-  );
+  const { data } = await apiClient.get<PaginatedResponse<Review>>(`/stores/${handle}/reviews`, {
+    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+  });
   return data;
 }
 
@@ -60,29 +65,28 @@ export async function fetchStoreReviews(
  * display a number that is not the target's rating, which is exactly what the
  * product page did before #76.
  */
-export interface ScopedReviewPage extends PaginatedResponse<Review> {
+export interface ScopedReviewPage extends ListingReviewPage {
   aggregate: ScopedRatingAggregate;
 }
 
 /** A canonical product's PRODUCT reviews — quality, durability, value. */
 export async function fetchProductReviews(
   canonicalProductId: string,
-  params?: { page?: number; limit?: number },
+  params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
-  const { data } = await apiClient.get<ScopedReviewPage>(
-    `/reviews/product/${canonicalProductId}`,
-    { params },
-  );
+  const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/product/${canonicalProductId}`, {
+    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+  });
   return data;
 }
 
 /** A merchant's SERVICE reviews — fulfilment, packaging, communication. */
 export async function fetchMerchantReviews(
   merchantId: string,
-  params?: { page?: number; limit?: number },
+  params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/merchant/${merchantId}`, {
-    params,
+    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
   });
   return data;
 }
@@ -103,4 +107,18 @@ export async function fetchReviewEligibilities(): Promise<ApiResponse<ReviewElig
 export async function createReview(input: CreateReviewInput): Promise<ApiResponse<Review>> {
   const { data } = await apiClient.post<ApiResponse<Review>>('/reviews', input);
   return data;
+}
+
+export async function fetchReviewHelpfulness(ids: string[]): Promise<ReviewHelpfulness[]> {
+  const { data } = await apiClient.get<ApiResponse<ReviewHelpfulness[]>>('/reviews/helpfulness', {
+    params: { ids: ids.join(',') },
+  });
+  if (!data.success || !data.data) throw new Error('Failed to load review votes');
+  return data.data;
+}
+
+export async function updateReviewHelpfulness(id: string, helpful: boolean): Promise<ReviewHelpfulness> {
+  const { data } = await apiClient.put<ApiResponse<ReviewHelpfulness>>(`/reviews/${id}/helpfulness`, { helpful });
+  if (!data.success || !data.data) throw new Error('Failed to update review vote');
+  return data.data;
 }

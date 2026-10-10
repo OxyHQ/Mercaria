@@ -768,7 +768,9 @@
     "reportsError": "Couldn't load reports",
     "sales": {
       "empty": "No sales in this period yet.",
-      "title": "Sales (last period)"
+      "title": "Sales",
+      "point": "%{date}: %{revenue} · Orders: %{count}",
+      "inspect": "Select a day to see sales and orders."
     },
     "stats": {
       "averageOrder": "Avg order",
@@ -788,7 +790,11 @@
         "one": "%{count} sold",
         "other": "%{count} sold"
       }
-    }
+    },
+    "allTime": "All time",
+    "performance": "Store performance",
+    "lastDays": "Last %{days} days",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Sales channels",
@@ -804,7 +810,10 @@
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
     "closeSidebar": "Close sidebar",
-    "closeNavigation": "Close navigation"
+    "closeNavigation": "Close navigation",
+    "searchNavigation": "Search navigation",
+    "clearSearch": "Clear navigation search",
+    "noResults": "No matching pages"
   },
   "orders": {
     "detail": {
@@ -901,7 +910,7 @@
     "status": {
       "cancelled": "Cancelled",
       "delivered": "Delivered",
-      "digitallyDelivered": "Delivered",
+      "digitallyDelivered": "Digitally delivered",
       "paid": "Paid",
       "partiallyRefunded": "Part. refunded",
       "pendingPayment": "Pending",
@@ -909,7 +918,6 @@
       "refunded": "Refunded",
       "shipped": "Shipped"
     },
-    "subtitle": "Fulfil and track your sales",
     "title": "Orders",
     "totals": {
       "discounts": "Discounts",
@@ -947,6 +955,12 @@
       "variantCount": {
         "one": "%{count} variant",
         "other": "%{count} variants"
+      },
+      "organization": {
+        "heading": "Product organization",
+        "tags": "Tags",
+        "addTag": "Add tag",
+        "removeTag": "Remove %{tag}"
       }
     },
     "documentTitle": "Products | Mercaria Dashboard",
@@ -988,7 +1002,7 @@
         "other": "%{count} variants · %{stock} in stock"
       }
     },
-    "searchPlaceholder": "Search products on this page…",
+    "searchPlaceholder": "Search products…",
     "status": {
       "active": "Active",
       "archived": "Archived",
@@ -997,7 +1011,6 @@
       "sold": "Sold"
     },
     "stockLabel": "Stock",
-    "subtitle": "Your store catalog",
     "title": "Products",
     "variants": {
       "add": "Add",
@@ -1869,5 +1882,14 @@
     "subtitle": "Pick a store to manage",
     "switch": "Switch store",
     "title": "Your stores"
+  },
+  "resourceList": {
+    "noResults": "No matching results",
+    "clearFilters": "Clear filters",
+    "previous": "Previous",
+    "next": "Next",
+    "price": "Price",
+    "date": "Date",
+    "customer": "Customer"
   }
 }

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { validateBody } from '../middleware/validate.js';
+import { validateBody, validateId } from '../middleware/validate.js';
+import { reviewHelpfulnessBodySchema } from '../services/reviews/review-helpfulness.service.js';
 import { createReviewSchema } from '../middleware/schemas.js';
 import {
   createReviewHandler,
@@ -9,6 +10,8 @@ import {
   listMyReviewEligibilities,
   listOrderReviewEligibilities,
   listProductReviews,
+  listReviewHelpfulnessHandler,
+  updateReviewHelpfulnessHandler,
 } from '../controllers/reviews.controller.js';
 
 /**
@@ -39,6 +42,9 @@ router.get('/product/:canonicalProductId', listProductReviews);
 router.get('/merchant/:merchantId', listMerchantReviews);
 
 router.use(authenticateToken);
+
+router.get('/helpfulness', listReviewHelpfulnessHandler);
+router.put('/:id/helpfulness', makeRateLimiter('reviews'), validateId('id'), validateBody(reviewHelpfulnessBodySchema), updateReviewHelpfulnessHandler);
 
 router.get('/eligibilities', listMyReviewEligibilities);
 router.get('/eligibilities/order/:orderId', listOrderReviewEligibilities);

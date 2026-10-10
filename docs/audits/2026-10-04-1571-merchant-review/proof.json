@@ -1,0 +1,288 @@
+{
+  "schemaVersion": 1,
+  "kind": "1571-mercaria-peable-source-and-accepted-readback-review",
+  "source": [
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/config/index.ts",
+      "sha256": "4d6d420bf74f587afe7a7c65e794825eb4350af5aad350541c6a5acb13c91559",
+      "bytes": 240961
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/billing/register.ts",
+      "sha256": "0fa46260e768189e842c01a25664219e35f9025fb74bab04591a12a1878e1167",
+      "bytes": 2915
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/billing/cohort-access.ts",
+      "sha256": "e915425f00afb6f082146e96edc929c2cfa1f63ddda08a0fc8d610c7aeac2162",
+      "bytes": 2702
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/billing/cohort-config.ts",
+      "sha256": "128fcc06ed0a0358ec1feaa26ae8a9c6753b02c873db791f7faf8eff481e6d72",
+      "bytes": 922
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/billing/subscription.service.ts",
+      "sha256": "637176b08e498858a16deda18a4100fbf3ae2b556c9c6bad8db38401508549da",
+      "bytes": 26243
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/payments/stripe/event-processor.ts",
+      "sha256": "63076f60107b978b47287da9f38f551ffa5b41fe17baf7aa6b93816d69de3e75",
+      "bytes": 12933
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/payments/stripe/event-dispatcher.ts",
+      "sha256": "b32ca0b950f6e2cc0ff12f28cd0d35584a7a5fc76a2ee240aeeb5e95cc8cc595",
+      "bytes": 3337
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/billing/stripe/subscription-events.ts",
+      "sha256": "565a7da20a4507c4fbbb5f6e5917b2fb7b472c6d5cfc5a8c4aa85de9cd940375",
+      "bytes": 15501
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/payments/stripe/client.ts",
+      "sha256": "60a493e2a8a61886e06181e6b4f2445192798d379179872ab8423c50bf5e6ae0",
+      "bytes": 19371
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/payments/peable/peable-provider.ts",
+      "sha256": "4baccf481459f9dd137adc6707abcd6c2b4e75b7b23d03c0fdab7c163c2db103",
+      "bytes": 14208
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/payments/native-rail.ts",
+      "sha256": "dc104c0392d2e1826759c21d901e719ba24e03a1bd1525b86ea21c83f96f2492",
+      "bytes": 6236
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/referral-payouts/rail.ts",
+      "sha256": "d356af2aaa908054d48edd9618162612e281fa9ccd34a95b7db2b1cd7df7c16f",
+      "bytes": 7549
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/entitlements/projection.ts",
+      "sha256": "a0ad489b7510bf24b253fc2a77e8ea4f1444ee655bd06840089d184bcf0fa47c",
+      "bytes": 9172
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/controllers/merchant-plans.controller.ts",
+      "sha256": "9afe03ef225bd8e9e5bcf33aee55baa6792926d8e99f31440ad94e2b922a7697",
+      "bytes": 5786
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "docs/merchant-plans.md",
+      "sha256": "f452a1c7f63d31159c880c907e23d33e1ff35e6804ef4d9df8b1aabdaf7c7232",
+      "bytes": 22586
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "docs/adr/0009-peable-payment-rail.md",
+      "sha256": "cc21f07498f29b4da9b8f275ea24603da3fc83d5f3e8331652e0a89ef9084843",
+      "bytes": 16495
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "docs/integrations/i08-billing-cohort.md",
+      "sha256": "ab64051db9fbe826716461d0b761c5ff16f72413c38ed175a4fc7b96c3e09c81",
+      "bytes": 9144
+    },
+    {
+      "repository": "Mercaria",
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "docs/audits/2026-10-04-clean-cut-billing/prospective-actions-config.json",
+      "sha256": "b2794d2def4510d8730486c8a67a165cecbd0ba2299392a63c0260fca0af8366",
+      "bytes": 1250
+    },
+    {
+      "repository": "Peable",
+      "commit": "b4531498a1281dd3a7d3a6f75bcfb2022efe5931",
+      "path": "docs/integrations/i08-approved-recurring-cohort.md",
+      "sha256": "fb44b9a4e56a72b4d8fc238b4b18eef045f115ad81c9e9a7bb0200dbb452d279",
+      "bytes": 3867
+    },
+    {
+      "repository": "Peable",
+      "commit": "b4531498a1281dd3a7d3a6f75bcfb2022efe5931",
+      "path": "packages/sdk/src/resources/billing.ts",
+      "sha256": "00397db9a364850e6f3d7dbd4ced29f44e774e81a2b8a7676a26aac9194cdb58",
+      "bytes": 1678
+    },
+    {
+      "repository": "Peable",
+      "commit": "b4531498a1281dd3a7d3a6f75bcfb2022efe5931",
+      "path": "packages/sdk/src/resources/connectedAccounts.ts",
+      "sha256": "ca0cb36aaa4142d11067029273277259b1d3c91fd2633e656b3e8cedf8a5e09f",
+      "bytes": 4318
+    },
+    {
+      "repository": "Peable",
+      "commit": "b4531498a1281dd3a7d3a6f75bcfb2022efe5931",
+      "path": "packages/sdk/src/resources/transfers.ts",
+      "sha256": "fcb22ebacfbc8370fa019bc8318e8b24781360a169896c6a03d37ff304e41db7",
+      "bytes": 4190
+    }
+  ],
+  "privateReadbackReferences": [
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-full-completion-20261004/mercaria-promotion/task-after.json",
+      "sha256": "477e90755efa7985e7ed153282e646adeb147393275589aa6d260d1e59daacf4",
+      "bytes": 7989
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-full-completion-20261004/mercaria-promotion/service-after.json",
+      "sha256": "9a730ca5c12945290f6ba273a8800c189682e993054c57a615df11200f369e22",
+      "bytes": 27918
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-full-completion-20261004/mercaria-promotion/accepted-comment.md",
+      "sha256": "33f3a6f82d43e51e82a17cfc4786b660ad365aa84a39ad60f27a41e9c89878f1",
+      "bytes": 822
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-full-completion-20261004/mercaria-promotion/final-review-1049.md",
+      "sha256": "0b55ff2e08e5d74d47789289a8e9cf1107f59231934d039644eefd6b5cf0b458",
+      "bytes": 591
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/i08-fresh-stores/execution/result.private.json",
+      "sha256": "45b379bf329c2734ec9cd22efa4b96c9ecb58f265b4349755856ba59931c45fc",
+      "bytes": 1622
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/i08-fresh-stores/execution/accepted.json",
+      "sha256": "ba4a9d9f0d81de7fb43c0849a19f6be15ec8fa4881cca34f61156e3481097b8c",
+      "bytes": 848
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/i08-peable-cohort/accepted-reconciled.json",
+      "sha256": "d5d293d56ebedcfefecb48b3abbdb7d210ca2386b21e7dbcde87153c03fa46f7",
+      "bytes": 1444
+    },
+    {
+      "path": "/home/nate/Oxy/.agent-evidence/root-1519-20261003/mercaria-scoped-promotion/negative-ingress/accepted.json",
+      "sha256": "20dca1dae6b2ad42a80e1d246b48420b9122ae013911ee8120ba053350b293d6",
+      "bytes": 1036
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-1571-merchant-review/records/mercaria89-current.json",
+      "sha256": "bf1ac6fc406e715f7701cc8e3f435b5c2a94b5733555032aac49a714905927df",
+      "bytes": 6393
+    },
+    {
+      "path": "docs/audits/2026-10-04-1571-merchant-review/records/oxy1571-current.json",
+      "sha256": "84db25a5299a3d1ceb1cf9dc5bcb91f72ae632949958f79de65783bef24fc65c",
+      "bytes": 31357
+    },
+    {
+      "path": "docs/audits/2026-10-04-1571-merchant-review/records/peable87-current.json",
+      "sha256": "42a3667ebd1593334a30601e867e93be1528745341f22d0506eb3780e3b3e7db",
+      "bytes": 32008
+    }
+  ],
+  "projection": {
+    "path": "docs/audits/2026-10-04-1571-merchant-review/observed-state.json",
+    "sha256": "76250cf4273b5b874de28b0b945c202d6ea63de44244b5b38b0b184efb57c571",
+    "bytes": 1417
+  },
+  "criteria": [
+    {
+      "criterion": "#1571 availability of actions",
+      "status": "reviewed; production action flag remains OFF",
+      "evidence": "PR1048 ownSQL/HTTP OFF+ON guards; PR1049 sweep repair and acceptedTD63. Projection and three actions use same store gate before effects.",
+      "remaining": "#89 acceptance8 requires implemented real initial value and readiness before paid activation; no commercial offer or provider binding invented."
+    },
+    {
+      "criterion": "#1571 cohort configuration",
+      "status": "accepted existing two-store cohort preserved",
+      "evidence": "Peable9/Mercaria63 namespace/account/mode/registration and secret aliases/scopes preserved; live negative ingress accepted.",
+      "remaining": "For prospective activation: fresh same namespace/Portal/callback and relevant owner/object readback."
+    },
+    {
+      "criterion": "#1571 retained functions and cleanup",
+      "status": "classified; no additional justified deletion",
+      "evidence": "ADR0009D13/D17/D18 retain marketplace, Connect/referrals and scoped Stripe ingress/reads until replacement verified. Old local payments/peable/client.ts absent; published SDK already used.",
+      "remaining": "No need to complete all Mercaria35/38/39 for this review; further whole marketplace transition has its own ADR gates."
+    },
+    {
+      "criterion": "Peable87 original I08 sandbox/SDK/cohort cutover",
+      "status": "completed per accepted original scope",
+      "evidence": "Five-method sandbox/lifecycle, SDK0.2.2 shipping proof and functional Stripe-offTD62 accepted;1049 addsTD63 sweep repair.",
+      "remaining": "No new live sale or originalI08 obligation introduced."
+    }
+  ],
+  "prospectiveConfig": {
+    "delta": {
+      "MERCHANT_BILLING_ENABLED": "true",
+      "MERCHANT_BILLING_RETURN_URL": "https://dashboard.mercaria.co/settings/plan"
+    },
+    "preserve": [
+      "generalStripeOFF",
+      "generalPeableMarketplaceOFF",
+      "existing2storeCohort",
+      "existingRefs/account/mode/Portal/scopes/count"
+    ],
+    "executeReady": false,
+    "requiredRealFacts": [
+      "implemented initial paid value/readiness (#89 acceptance8)",
+      "checkout active immutable plan+exact price+terms",
+      "Portal existing SQL customer binding",
+      "cancel existing SQL subscription binding"
+    ]
+  },
+  "noNewSourceFailureReproduced": true,
+  "noProductSourceChanges": true,
+  "noNewTests": "No unchanged tests rerun; source/proofs/runtime acceptance audited.",
+  "effects": {
+    "awsCalls": 0,
+    "sqlCalls": 0,
+    "providerCalls": 0,
+    "financialOperations": 0,
+    "credentialsCreated": 0,
+    "grantsChanged": 0,
+    "productsOrPricesCreated": 0,
+    "pushes": 0
+  },
+  "verifiedAbsentFromCurrentGit": [
+    {
+      "commit": "5d24ae189a0b43a5a799820561ac738d8867c64a",
+      "path": "packages/backend/src/services/payments/peable/client.ts"
+    }
+  ]
+}

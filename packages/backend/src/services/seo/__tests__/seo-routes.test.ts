@@ -86,11 +86,18 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/shopping-agents.tsx',
   'app/(app)/cart.tsx',
   'app/(app)/saved.tsx',
+  // Device-local browsing history is personal, not a public catalogue route.
+  'app/(app)/recently-viewed.tsx',
   // Internal search (#70/#95) — infinite, thin and duplicative of the browse
   // pages by construction, which is why `/search` is in
   // `SEO_ROBOTS_DISALLOWED_PATHS`. A crawlable one is a crawl budget spent on
   // result pages nobody links to.
   'app/(app)/search.tsx',
+  // A shopper's conversation, never an indexable catalogue landing page.
+  'app/(app)/thread.tsx',
+  'app/(app)/profile.tsx',
+  // Local editorial previews; no publishing source or indexable edition yet.
+  'app/(app)/curations/[slug].tsx',
   // One category's listings resliced by a signal (the discovery feed's
   // `/categories/:handle/s/:signal`,
   // `docs/superpowers/specs/2026-09-07-discovery-feed-design.md`) — the SAME
@@ -126,6 +133,7 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/guest-orders/recover.tsx',
   'app/(app)/guest-orders/portal.tsx',
   'app/(app)/orders/index.tsx',
+  'app/(app)/orders/past.tsx',
   'app/(app)/orders/[id].tsx',
   'app/(app)/settings/index.tsx',
   'app/(app)/settings/general.tsx',

@@ -1,5 +1,8 @@
 {
   "ui": {
+    "sheet": {
+      "close": "إغلاق"
+    },
     "condition": {
       "label": {
         "new": "جديد",
@@ -793,19 +796,20 @@
       }
     },
     "purchase": {
-      "oneTime": "شراء لمرة واحدة",
-      "subscribe": "اشتراك",
       "addToCart": "أضف إلى السلة",
       "selectOptions": "اختر الخيارات",
       "buyNow": "اشترِ الآن",
+      "soldOut": "نفدت الكمية",
+      "added": "تمت الإضافة إلى السلة",
       "subscribeNow": "اشترك الآن",
-      "frequency": {
-        "monthly": "التسليم كل شهر",
-        "every2Months": "التسليم كل شهرين",
-        "every3Months": "التسليم كل 3 أشهر",
-        "every4Months": "التسليم كل 4 أشهر",
-        "every6Months": "التسليم كل 6 أشهر"
-      }
+      "oneTime": "شراء لمرة واحدة",
+      "subscriptionRequired": "الاشتراك مطلوب",
+      "subscribeAndSave": "اشترك ووفّر",
+      "subscription": "اشتراك",
+      "deliveryFrequency": "وتيرة التوصيل",
+      "options": "خيارات الشراء",
+      "soldOutSave": "هذا الخيار غير متوفر. احفظ هذا المنتج للعثور عليه لاحقًا.",
+      "soldOutSaved": "هذا الخيار غير متوفر. يمكنك العثور على هذا المنتج في العناصر المحفوظة."
     },
     "marketplace": {
       "visitMerchant": "زيارة %{name}",
@@ -850,6 +854,10 @@
       "codeA11y": "رمز الاستلام %{code}",
       "codeNote": "اعرض هذا عند المنضدة. وإذا توقف عن العمل، يمكن للمتجر إصدار رمز جديد — ولا يظل الرمز القديم صالحًا مع الجديد أبدًا."
     },
+    "storeOffer": {
+      "amountOff": "خصم %{amount}",
+      "minimumSubtotal": "على الطلبات بقيمة %{amount} أو أكثر"
+    },
     "productCard": {
       "discount": "خصم %{percent}",
       "save": "أضف إلى العناصر المحفوظة"
@@ -857,7 +865,8 @@
     "gallery": {
       "viewImage": "عرض الصورة %{position}",
       "previous": "الصورة السابقة",
-      "next": "الصورة التالية"
+      "next": "الصورة التالية",
+      "open": "فتح صور %{title}"
     },
     "quantity": {
       "remove": "إزالة العنصر",
@@ -872,7 +881,12 @@
       "verifiedRatings": "التقييمات الموثّقة: %{ratings}",
       "unverified": "غير موثّقة: %{ratings} · %{rating}",
       "readMore": "اقرأ المزيد من المراجعات",
-      "none": "لا توجد مراجعات بعد"
+      "open": "قراءة مراجعة %{author}",
+      "none": "لا توجد مراجعات بعد",
+      "ratings": "%{ratings} تقييمات",
+      "fallbackAuthor": "مشتري من Mercaria",
+      "verifiedPurchase": "عملية شراء موثّقة",
+      "unverifiedPurchase": "غير موثّق"
     },
     "searchInterpretation": {
       "chip": "%{label}",
@@ -982,6 +996,16 @@
         "revoked_for_policy": "مسحوب لأسباب قانونية",
         "superseded": "مستبدل بشراء لاحق"
       }
+    },
+    "bundle": {
+      "title": "محتويات المجموعة",
+      "unavailable": "تفاصيل محتويات هذه المجموعة غير متاحة حاليًا.",
+      "open": "عرض %{name}، %{variant}، الكمية %{quantity}",
+      "quantity": "×%{quantity}",
+      "together": "اشترِ ضمن مجموعة",
+      "andSave": "اشترِ مجموعة ووفّر",
+      "view": "عرض المجموعة",
+      "addFailed": "تعذّرت إضافة هذه المجموعة. حاول مرة أخرى."
     }
   }
 }

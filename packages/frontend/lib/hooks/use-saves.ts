@@ -9,6 +9,7 @@ import type {
 import { useOxy } from '@oxy.so/services';
 import {
   fetchListingSaveContext,
+  fetchProductSave,
   fetchSavedItems,
   resolveSplitAmbiguity,
   saveListing,
@@ -43,11 +44,11 @@ const STALE_TIME = 1000 * 10;
 
 /** The merged saved list, keyset-paginated (#80 API rules 3, 4 and 7). */
 export function useSavedItems(limit = 20) {
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, user } = useOxy();
 
   return useInfiniteQuery<SavedItemsPage>({
-    queryKey: queryKeys.saves.savedItems,
-    enabled: canUsePrivateApi,
+    queryKey: [...queryKeys.saves.savedItems, user?.id ?? null, limit],
+    enabled: canUsePrivateApi && Boolean(user?.id),
     staleTime: STALE_TIME,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) =>
@@ -67,13 +68,24 @@ export function useSavedItems(limit = 20) {
  * consumer of a listing reason about the canonical graph.
  */
 export function useListingSaveContext(listingId: string | undefined) {
-  const { canUsePrivateApi } = useOxy();
+  const { canUsePrivateApi, user } = useOxy();
 
   return useQuery<ListingSaveContext>({
-    queryKey: queryKeys.saves.listingContext(listingId ?? ''),
-    enabled: canUsePrivateApi && Boolean(listingId),
+    queryKey: [...queryKeys.saves.listingContext(listingId ?? ''), user?.id ?? null],
+    enabled: canUsePrivateApi && Boolean(user?.id) && Boolean(listingId),
     staleTime: STALE_TIME,
     queryFn: () => fetchListingSaveContext(listingId ?? ''),
+  });
+}
+
+/** A canonical product's state, isolated by the active Oxy account. */
+export function useProductSave(canonicalProductId: string | undefined) {
+  const { canUsePrivateApi, user } = useOxy();
+  return useQuery({
+    queryKey: [...queryKeys.saves.productContext(canonicalProductId ?? ''), user?.id ?? null],
+    enabled: canUsePrivateApi && Boolean(user?.id) && Boolean(canonicalProductId),
+    staleTime: STALE_TIME,
+    queryFn: () => fetchProductSave(canonicalProductId ?? ''),
   });
 }
 
@@ -107,13 +119,14 @@ export function useToggleProductSave() {
         sourceContext: input.sourceContext,
       });
     },
-    onSuccess: (_result, input) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems });
-      if (input.listingId) {
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.saves.listingContext(input.listingId),
-        });
-      }
+    onSuccess: async () => {
+      // Every listing context can represent this product, not just the listing
+      // from which it was saved. Await fresh truth before allowing another tap.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.saves.all }),
+      ]);
     },
   });
 }
@@ -137,11 +150,12 @@ export function useToggleListingSave() {
       }
       await saveListing(input.listingId, input.pin ? 'listing_pin' : undefined);
     },
-    onSuccess: (_result, input) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.saves.listingContext(input.listingId),
-      });
+    onSuccess: async (_result, input) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.feed.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.saves.listingContext(input.listingId) }),
+      ]);
     },
   });
 }

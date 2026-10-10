@@ -6,6 +6,7 @@ import type {
   TopProduct,
 } from "@mercaria/shared-types";
 import { fetchReportSummary, fetchSalesReport, fetchTopProducts } from "../api/reports";
+import type { ReportRange } from "../report-range";
 import { queryKeys } from "../queryKeys";
 
 /** Single-snapshot report summary. */
@@ -18,19 +19,19 @@ export function useReportSummary(storeId: string) {
 }
 
 /** Sales-over-time report, bucketed by interval (default: day). */
-export function useSalesReport(storeId: string, interval: SalesReportInterval = "day") {
+export function useSalesReport(storeId: string, interval: SalesReportInterval = "day", range?: ReportRange) {
   return useQuery<SalesReportPoint[]>({
-    queryKey: queryKeys.reports.sales(storeId, interval),
-    queryFn: () => fetchSalesReport(storeId, { interval }),
+    queryKey: [...queryKeys.reports.sales(storeId, interval), range],
+    queryFn: () => fetchSalesReport(storeId, { interval, ...range }),
     enabled: Boolean(storeId),
   });
 }
 
 /** Top-products report. */
-export function useTopProducts(storeId: string) {
+export function useTopProducts(storeId: string, range?: ReportRange) {
   return useQuery<TopProduct[]>({
-    queryKey: queryKeys.reports.topProducts(storeId),
-    queryFn: () => fetchTopProducts(storeId, { limit: 10 }),
+    queryKey: [...queryKeys.reports.topProducts(storeId), range],
+    queryFn: () => fetchTopProducts(storeId, { limit: 5, ...range }),
     enabled: Boolean(storeId),
   });
 }

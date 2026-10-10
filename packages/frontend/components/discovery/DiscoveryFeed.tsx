@@ -10,8 +10,10 @@ import type {
 } from '@mercaria/shared-types';
 import {
   CategoryPills,
+  CategoryTileGrid,
+  type CategoryShortcut,
   MerchantCarousel,
-  MerchantHeader,
+  StoreOfferHeader,
   ProductCarousel,
   ProductShelf,
 } from '@mercaria/ui';
@@ -21,12 +23,11 @@ import { useTranslation } from '@/lib/i18n';
 
 /**
  * The heading padding every shelf in the app already uses — `SectionHeader`'s
- * own `px-4 pb-3 md:px-5`. `MerchantHeader` is the one heading here that is
- * not a `SectionHeader` (it is the PDP's merchant identity row), and it
- * carries no padding of its own because on the PDP it sits inside an already
- * padded column. This puts it on the same line as every other shelf heading.
+ * own `px-4 pb-3 md:px-5`. `StoreOfferHeader` is the one heading here that is
+ * not a `SectionHeader`, and has no page padding of its own. This puts it
+ * on the same line as every other shelf heading.
  */
-const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 md:px-5';
+const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 lg:px-12';
 
 /**
  * The shelf-to-shelf rhythm every `@mercaria/ui` shelf owns for itself
@@ -34,10 +35,12 @@ const STORE_OFFER_HEADING_CLASS = 'px-4 pb-3 md:px-5';
  * `mb-6`). The `store-offer` section is assembled here from two
  * components rather than one, so this is the only place that has to spell it.
  */
-const SHELF_RHYTHM_CLASS = 'mb-6';
+const SHELF_RHYTHM_CLASS = 'mb-10 md:mb-16';
 
 export interface DiscoveryFeedProps {
   sections: DiscoverySection[];
+  categoryShortcuts?: readonly CategoryShortcut[];
+  categoryTitle?: string;
 }
 
 interface ShelfHeading {
@@ -59,11 +62,10 @@ function signalHref(handle: string, signal: DiscoverySignal): Href {
  * one reference, so the components that render the home feed ARE that
  * reference already resolved into this app's own widths, card sizes and
  * heading scale: `ProductShelf` (the same call `app/(app)/index.tsx` makes),
- * `CategoryPills`, `MerchantCarousel`, `MerchantHeader` and `ProductCarousel`.
+ * `CategoryPills`, `MerchantCarousel`, `StoreOfferHeader` and `ProductCarousel`.
  * The capture decides WHICH sections appear and in what order; the app decides
- * what they look like. A section kind that cannot be carried by one of those
- * is a gap to report, not a licence to add a tenth card component — the last
- * attempt added nine and produced pages that matched no other screen.
+ * what they look like. StoreOfferHeader supplies the distinct saving and
+ * qualifying-subtotal line for automatic discounts.
  *
  * Because each of those components already owns its own `mb-6`, this file adds
  * no wrapper gap and no max-width: the feed bleeds the full scroll width
@@ -89,7 +91,8 @@ function signalHref(handle: string, signal: DiscoverySignal): Href {
  * when no dynamic route sits above the mistyped segment (#456), and
  * `/categories/[handle]` sits directly above `/s/[signal]`.
  */
-export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
+export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: DiscoveryFeedProps) {
+  const firstCategorySection = sections.find(section => section.kind === 'category-tiles');
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -171,18 +174,8 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
     );
   }
 
-  /**
-   * Category tiles, whatever the kind. `category-tiles` and `pills` both carry
-   * the identical `CategoryTile[]` payload — id, name, slug and an optional
-   * image — and `CategoryPills` is the app's own component for exactly that,
-   * already rendering the home feed's category row.
-   *
-   * A richer card (a category above a 2×2 grid of its NAMED subcategories)
-   * would need subcategories the discovery feed does not send — a
-   * `category-tiles` tile carries at most two bare image URLs with no names or
-   * destinations behind them. The unused `CategoryCard`/`CategoryCarousel`
-   * that drew that shape were deleted from `@mercaria/ui`.
-   */
+  /** Compact pills are reserved for category refinements; root browse uses
+   * the shared CategoryTileGrid and the feed's child preview images. */
   function renderCategoryTiles(id: string, tiles: CategoryTile[]): ReactElement | null {
     if (tiles.length === 0) return null;
     return <CategoryPills key={id} pills={tiles} onPressPill={onPressCategoryTile} />;
@@ -217,6 +210,10 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
         return null;
 
       case 'category-tiles':
+        return <CategoryTileGrid key={section.id} tiles={section.tiles} onPressTile={onPressCategoryTile}
+          title={section === firstCategorySection ? categoryTitle : undefined}
+          shortcuts={section === firstCategorySection ? categoryShortcuts : undefined} />;
+
       case 'pills':
         return renderCategoryTiles(section.id, section.tiles);
 
@@ -226,29 +223,17 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
       case 'stores':
         return renderStoresShelf(section);
 
-      /*
-       * A store's offer: the merchant identity row the PDP already uses, above
-       * the products the discount covers.
-       *
-       * `section.discount` is not rendered. The app has no pre-existing
-       * component that states a store-wide saving, and the per-product badge
-       * `ProductCard` draws describes the item's own markdown, which is a
-       * different claim. Reported as a gap rather than filled with a tenth
-       * bespoke badge.
-       */
+      // The store's automatic saving and qualification remain separate from
+      // ProductCard's per-item markdown.
       case 'store-offer': {
         if (section.products.length === 0) return null;
         return (
           <View key={section.id} className={SHELF_RHYTHM_CLASS}>
             <View className={STORE_OFFER_HEADING_CLASS}>
-              <MerchantHeader
-                name={section.store.name}
-                logoUrl={section.store.logoUrl}
-                rating={section.store.rating}
-                reviewCount={section.store.reviewCount}
+              <StoreOfferHeader
+                store={section.store}
+                discount={section.discount}
                 onPress={() => onPressStore(section.store.handle)}
-                size="large"
-                discountPercent={section.discount.percentOff}
               />
             </View>
             <ProductCarousel items={section.products} onPressItem={onPressProduct} />
@@ -272,5 +257,8 @@ export function DiscoveryFeed({ sections }: DiscoveryFeedProps) {
     }
   }
 
-  return <View>{sections.map((section) => renderSection(section))}</View>;
+  return <View>
+    {!firstCategorySection ? <CategoryTileGrid tiles={[]} title={categoryTitle} shortcuts={categoryShortcuts} onPressTile={onPressCategoryTile} /> : null}
+    {sections.map((section) => renderSection(section))}
+  </View>;
 }

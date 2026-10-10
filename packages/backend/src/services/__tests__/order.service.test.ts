@@ -85,7 +85,8 @@ vi.mock('../../queue/producers.js', () => ({
   enqueueFulfillmentPush: (...args: unknown[]) => enqueueFulfillmentPush(...args),
 }));
 
-import { transition } from '../order.service.js';
+import { transition, getBuyerOrders } from '../order.service.js';
+import { findOrdersPage } from '../../db/orders/orderRepository.js';
 import type { OrderRecord } from '../../db/orders/orderRepository.js';
 import type { OrderStatus } from '@mercaria/shared-types';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
@@ -381,5 +382,24 @@ describe('order.service.transition — atomic CAS (side effects run at most once
     expect(release).toHaveBeenCalledWith('v1', 2, undefined);
     expect(release).toHaveBeenCalledWith('v2', 1, undefined);
     expect(transitionOrderStatus).toHaveBeenCalledTimes(2);
+  });
+});
+
+
+describe('buyer history view queries', () => {
+  it.each([
+    ['active', ['pending_payment', 'paid', 'processing', 'shipped']],
+    ['past', ['delivered', 'digitally_delivered', 'cancelled', 'refunded', 'partially_refunded']],
+  ] as const)('applies the %s bucket inside the buyer/claimant query', async (view, statuses) => {
+    vi.mocked(findOrdersPage).mockResolvedValue({ rows: [], total: 17 });
+    const result = await getBuyerOrders('buyer-view-test', { view, page: 2, limit: 3 });
+    expect(findOrdersPage).toHaveBeenLastCalledWith({ buyerOrClaimantOxyUserId: 'buyer-view-test', statuses }, 2, 3);
+    expect(result.total).toBe(17);
+  });
+
+  it('preserves unfiltered history for clients that omit the view', async () => {
+    vi.mocked(findOrdersPage).mockResolvedValue({ rows: [], total: 0 });
+    await getBuyerOrders('buyer-view-test', { page: 1, limit: 20 });
+    expect(findOrdersPage).toHaveBeenLastCalledWith({ buyerOrClaimantOxyUserId: 'buyer-view-test' }, 1, 20);
   });
 });

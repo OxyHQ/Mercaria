@@ -108,6 +108,10 @@ export interface StoreSummary {
    * figures without the provenance, which is why this is optional.
    */
   ratingSource?: StoreRatingSource;
+  /** Merchant-authored public return policy, on detail reads only. Never inferred. */
+  refundPolicy?: string;
+  /** Merchant-authored public privacy policy, on detail reads only. */
+  privacyPolicy?: string;
   /** Which text tone reads best over this merchant's brand color/cover. */
   textTone: TextTone;
   /** 2–3 featured product thumbnails shown along the bottom of the card. */
@@ -136,10 +140,7 @@ export interface CategoryTile {
    * preview what is INSIDE the category, which is why this is never `imageUrl`
    * (the category's own single image) duplicated into two slots.
    *
-   * NO CLIENT READS THIS TODAY. The storefront renders every tile-bearing
-   * discovery section through `CategoryPills`, which shows one image per
-   * category; `services/discovery/feed.service.ts`'s own docblock records why
-   * the field is kept rather than dropped.
+   * Rendered by the shared CategoryTileGrid on the discovery root.
    *
    * A missing child image is a SHORTER array, never a hole filled with `''`:
    * an empty string is an absent value wearing the type of a present one, the

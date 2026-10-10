@@ -182,7 +182,7 @@ export default function CategoryScreen() {
     return (
       <ScreenShell contentClassName="pt-6">
         {head}
-        <Text className="px-8 py-16 text-body text-text-tertiary">{t('common.loading')}</Text>
+        <Text className="px-8 py-16 text-shop-body text-text-tertiary">{t('common.loading')}</Text>
       </ScreenShell>
     );
   }
@@ -197,7 +197,7 @@ export default function CategoryScreen() {
       <ScreenShell contentClassName="pt-6">
         {head}
         <View className="items-center justify-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">
+          <Text className="text-center text-shop-body text-text-tertiary">
             {t('catalog.category.loadError')}
           </Text>
           <Pressable
@@ -220,7 +220,7 @@ export default function CategoryScreen() {
       <ScreenShell contentClassName="pt-6">
         {head}
         <View className="items-center justify-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">
+          <Text className="text-center text-shop-body text-text-tertiary">
             {t('catalog.category.notFound')}
           </Text>
         </View>
@@ -236,17 +236,17 @@ export default function CategoryScreen() {
       {/*
        * Page chrome only — the feed renders below, outside this container, so
        * its carousels get the full scroll width instead of clipping inside a
-       * centred column. `categories/index.tsx` says the same thing at length.
+       * centred column. `explore.tsx` says the same thing at length.
        */}
       <View className="mb-space-32 web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
         <CatalogBreadcrumbs crumbs={breadcrumbs} hrefForPath={categoryHrefForPath} />
 
-        <Text className="text-headerBold text-text" accessibilityRole="header">
+        <Text className="text-shop-headerBold text-text" accessibilityRole="header">
           {category.name}
         </Text>
 
         {feed.isLoading && feed.data === undefined ? (
-          <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
+          <Text className="text-shop-body text-text-tertiary">{t('common.loading')}</Text>
         ) : null}
 
         {/* A FAILED feed request is not "nothing to show" — checked before
@@ -254,7 +254,7 @@ export default function CategoryScreen() {
             that unrelated, confident claim. */}
         {feed.isError && feed.data === undefined ? (
           <View className="items-center px-8 py-16">
-            <Text className="text-center text-body text-text-tertiary">
+            <Text className="text-center text-shop-body text-text-tertiary">
               {t('discovery.signal.loadError')}
             </Text>
             <Pressable
@@ -269,7 +269,7 @@ export default function CategoryScreen() {
         ) : null}
 
         {!feed.isLoading && !feed.isError && sections.length === 0 ? (
-          <Text className="text-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
+          <Text className="text-shop-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
         ) : null}
       </View>
 

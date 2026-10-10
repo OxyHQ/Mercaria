@@ -25,7 +25,6 @@ import {
 } from "@oxy.so/bloom/segmented-control";
 import { toast } from "@oxy.so/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useDiscounts, useCreateDiscount, useDeleteDiscount } from "@/lib/hooks/use-discounts";
 import { useTranslation } from "@/lib/i18n";
@@ -56,7 +55,6 @@ function DiscountsBody({ storeId }: { storeId: string }) {
 
   const action = (
     <View className="flex-row items-center gap-2">
-      <StoreSwitcher />
       <Button
         tone="accent"
         leadingIcon={toBloomIcon(Plus)}

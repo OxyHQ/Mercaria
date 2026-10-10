@@ -56,53 +56,55 @@ module.exports = {
         "space-64": "64px",
       },
       fontSize: {
-        // Shopify "Shop" type ramp (`text-<key>`). Each token bakes in size +
-        // lineHeight + fontWeight so `text-captionBold` carries weight 700, etc.
+        // Shopify "Shop" type ramp (`text-shop-<key>`). Each token bakes in size +
+        // lineHeight + fontWeight + letterSpacing; mirrored in shop-typography.css.
         // Additive — the default `text-xs`/`text-sm`/`text-base` ramp is untouched.
-        caption: ["12px", { lineHeight: "16px", fontWeight: "400" }],
-        captionMedium: ["12px", { lineHeight: "16px", fontWeight: "500" }],
-        captionBold: ["12px", { lineHeight: "16px", fontWeight: "700" }],
-        badge: ["11px", { lineHeight: "14px", fontWeight: "500" }],
-        badgeBold: ["11px", { lineHeight: "14px", fontWeight: "700" }],
-        bodySmall: ["14px", { lineHeight: "20px", fontWeight: "400" }],
-        body: ["16px", { lineHeight: "24px", fontWeight: "400" }],
-        bodyTitleSmall: ["14px", { lineHeight: "20px", fontWeight: "600" }],
-        bodyTitleLarge: ["18px", { lineHeight: "24px", fontWeight: "700" }],
-        subtitle: ["18px", { lineHeight: "24px", fontWeight: "600" }],
-        sectionTitle: ["22px", { lineHeight: "28px", fontWeight: "700" }],
-        header: ["28px", { lineHeight: "32px", fontWeight: "400" }],
-        headerBold: ["28px", { lineHeight: "32px", fontWeight: "700" }],
-        buttonSmall: ["13px", { lineHeight: "16px", fontWeight: "600" }],
-        buttonMedium: ["14px", { lineHeight: "20px", fontWeight: "600" }],
-        buttonLarge: ["16px", { lineHeight: "20px", fontWeight: "600" }],
+        "shop-caption": ["12px", { lineHeight: "16px", fontWeight: "400", letterSpacing: "-.2px" }],
+        "shop-captionMedium": ["12px", { lineHeight: "16px", fontWeight: "500", letterSpacing: "-.2px" }],
+        "shop-captionBold": ["12px", { lineHeight: "16px", fontWeight: "600", letterSpacing: "-.2px" }],
+        "shop-badge": ["10px", { lineHeight: "13px", fontWeight: "400", letterSpacing: "-.2px" }],
+        "shop-badgeBold": ["10px", { lineHeight: "13px", fontWeight: "600", letterSpacing: "-.2px" }],
+        "shop-bodySmall": ["14px", { lineHeight: "18px", fontWeight: "400", letterSpacing: "-.2px" }],
+        "shop-body": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+        "shop-bodyTitleSmall": ["14px", { lineHeight: "18px", fontWeight: "600", letterSpacing: "-.2px" }],
+        "shop-bodyTitleLarge": ["16px", { lineHeight: "22px", fontWeight: "600", letterSpacing: "-.5px" }],
+        "shop-subtitle": ["18px", { lineHeight: "20px", fontWeight: "600", letterSpacing: "-.5px" }],
+        "shop-sectionTitle": ["20px", { lineHeight: "22px", fontWeight: "600", letterSpacing: "-1px" }],
+        "shop-header": ["28px", { lineHeight: "30px", fontWeight: "700", letterSpacing: "-1.75px" }],
+        "shop-headerBold": ["24px", { lineHeight: "26px", fontWeight: "600", letterSpacing: "-1px" }],
+        "shop-buttonSmall": ["12px", { lineHeight: "16px", fontWeight: "600", letterSpacing: "-.2px" }],
+        "shop-buttonMedium": ["14px", { lineHeight: "16px", fontWeight: "600", letterSpacing: "-.2px" }],
+        "shop-buttonLarge": ["16px", { lineHeight: "20px", fontWeight: "600", letterSpacing: "-.5px" }],
         // The category page's poster headline (md breakpoint up) — bigger than
         // any size the ramp above carries, so it is its own token rather than a
         // variant of `header`.
-        posterXS: ["40px", { lineHeight: "44px", fontWeight: "700" }],
+        "shop-heroBold": ["36px", { lineHeight: "42px", fontWeight: "700", letterSpacing: "-1.5px" }],
+        "shop-posterXS": ["36px", { lineHeight: "38px", fontWeight: "800", letterSpacing: "-1px" }],
       },
       fontWeight: {
-        // Matching `font-<key>` weight tokens so the original's `font-X text-X`
-        // pairs resolve verbatim. Additive — default `font-bold`/`font-semibold`
+        // Matching `font-shop-<key>` weight tokens so the original's `font-X text-X`
+        // pairs stay within the marketplace namespace. Additive — default `font-bold`/`font-semibold`
         // are untouched.
-        caption: "400",
-        captionMedium: "500",
-        captionBold: "700",
-        badge: "500",
-        badgeBold: "700",
-        bodySmall: "400",
-        body: "400",
-        bodyTitleSmall: "600",
-        bodyTitleLarge: "700",
-        subtitle: "600",
-        sectionTitle: "700",
-        header: "400",
-        headerBold: "700",
-        buttonSmall: "600",
-        buttonMedium: "600",
-        buttonLarge: "600",
-        // Matches `fontSize.posterXS` so `font-posterXS text-posterXS` resolves
+        "shop-caption": "400",
+        "shop-captionMedium": "500",
+        "shop-captionBold": "600",
+        "shop-badge": "400",
+        "shop-badgeBold": "600",
+        "shop-bodySmall": "400",
+        "shop-body": "400",
+        "shop-bodyTitleSmall": "600",
+        "shop-bodyTitleLarge": "600",
+        "shop-subtitle": "600",
+        "shop-sectionTitle": "600",
+        "shop-header": "700",
+        "shop-headerBold": "600",
+        "shop-buttonSmall": "600",
+        "shop-buttonMedium": "600",
+        "shop-buttonLarge": "600",
+        // Matches `fontSize["shop-posterXS"]` so `font-shop-posterXS text-shop-posterXS` resolves
         // verbatim, same as every other pair in this block.
-        posterXS: "700",
+        "shop-heroBold": "700",
+        "shop-posterXS": "800",
       },
       colors: {
         // NOT the source of truth under Tailwind v4: colours are generated from
@@ -224,11 +226,10 @@ module.exports = {
         },
       },
       boxShadow: {
-        // The reference names `shadow-s`/`shadow-m`; components here reach for
-        // Tailwind's own `shadow-md`/`shadow-lg` today, which is a different ramp.
-        s: "0 1px 2px rgba(0,0,0,.06)",
-        m: "0 2px 8px rgba(0,0,0,.10)",
-        l: "0 8px 24px rgba(0,0,0,.14)",
+        // Marketplace-only ramp; Bloom owns the unprefixed shadow tokens.
+        "shop-s": "0 2px 8px #0000000f",
+        "shop-m": "0 4px 24px #0000001f",
+        "shop-l": "0 8px 40px #0000003d",
       },
     },
   },

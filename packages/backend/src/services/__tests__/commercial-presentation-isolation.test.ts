@@ -74,6 +74,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import ts from 'typescript';
 import { assertDirectoriesAreFlat } from '../../__tests__/domain-population.js';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -160,7 +161,7 @@ const PRESENTATION_PATHS = [
 ];
 
 /** The client trees this surface can live in, relative to `packages/`. */
-const STOREFRONT_ROOTS = ['frontend/app', 'ui/src'] as const;
+const STOREFRONT_ROOTS = ['frontend/app', 'frontend/components', 'ui/src'] as const;
 
 /** What a file that composes commercial copy NAMES, in either package. */
 const COMMERCIAL_COPY_REFERENCE = /CommercialDisclosure|commercial-copy/;
@@ -189,7 +190,11 @@ const COPY_BARREL = ['ui/src/index.ts'];
  * half and this entry has to go, or it would subtract a scanned file from every
  * wall.
  */
-const SILENT_COMMERCIAL_SURFACES = ['frontend/app/(app)/orders/index.tsx'];
+const SILENT_COMMERCIAL_SURFACES = [
+  'frontend/app/(app)/orders/index.tsx',
+  'frontend/app/(app)/orders/past.tsx',
+  'frontend/components/orders/OrdersScreen.tsx',
+];
 
 type PackageEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
 type PackageTreeReader = (relative: string) => PackageEntry[];
@@ -510,20 +515,27 @@ function buyerCopyBundleLeaves(): { readonly where: string; readonly probe: stri
 /** Read a scanned path, refusing an empty or moved file. */
 function readSource(root: string, relative: string): string {
   const source = readFileSync(join(root, relative), 'utf8');
-  expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+  // Route components can be short delegates; inspect their AST instead of
+  // a character floor, and scan the shared OrdersScreen in the population too.
+  const syntax = ts.createSourceFile(relative, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  expect(syntax.statements.length, `${relative} looks empty — did it move?`).toBeGreaterThan(0);
   return source;
 }
 
 /** The same source with comments removed — what the REACHABILITY detectors scan. */
 function readCode(root: string, relative: string): string {
-  const stripped = readSource(root, relative)
+  const source = readSource(root, relative);
+  const stripped = source
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/(^|[^:])\/\/.*$/gm, '$1')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ');
+  const statements = (text: string) => ts.createSourceFile(
+    relative, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX,
+  ).statements.length;
   expect(
-    stripped.replace(/\s+/g, '').length,
-    `${relative} has almost no code left after comment stripping — check the stripper`,
-  ).toBeGreaterThan(200);
+    statements(stripped),
+    `${relative} lost code statements during comment stripping — check the stripper`,
+  ).toBe(statements(source));
   return stripped;
 }
 
@@ -602,9 +614,8 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     expect(COPY_BARREL.length, 'a second barrel was excluded from the storefront scan').toBe(1);
     expect(
       SILENT_COMMERCIAL_SURFACES.length,
-      'a second silent surface was added by hand — it may be right, but the derivation cannot ' +
-        'compute it and nothing else will notice',
-    ).toBe(1);
+      'the two order entrypoints and their shared screen are the reviewed silent surfaces',
+    ).toBe(3);
     // The storefront half is DERIVED, so it gets floors PER PACKAGE rather than
     // a count of the list: a count of a derived set is satisfied by the set
     // being wrong in two compensating directions.

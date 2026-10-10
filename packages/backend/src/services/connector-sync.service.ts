@@ -50,6 +50,7 @@
  *    `Record`.
  */
 
+import { synchronizeStoreImages } from './catalog-media/sync.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type {
@@ -2895,9 +2896,11 @@ async function importProduct(
     // every later sync of that product failed on `listings_store_id_handle_key`.
     let createdListingId: string | undefined;
     try {
+      const input = toCreateInput(product, opts.categorySlug, opts.priceRules);
+      input.imageFileIds = await synchronizeStoreImages(conn.storeId, input.imageFileIds ?? []);
       createdListingId = await createStoreProduct(
         conn.storeId,
-        toCreateInput(product, opts.categorySlug, opts.priceRules),
+        input,
         {
           locationId: opts.importLocationId,
           source: buildSource(conn, product),
@@ -2959,7 +2962,13 @@ async function importProduct(
   }
 
   const listingId = existing.id;
-  // #390. FIRST, so everything below this line operates on a listing in the
+  const overridden = opts.respectOverrides ? new Set(existing.overriddenFields) : new Set<string>();
+  const patch = toUpdatePatch(product, overridden);
+  if (patch.imageFileIds !== undefined) {
+    patch.imageFileIds = await synchronizeStoreImages(conn.storeId, patch.imageFileIds);
+  }
+  // Validate and synchronize media before changing any catalog state.
+  // #390. Restore before the catalog writes, so they operate on a listing in the
   // status it is going to end the pass in: `updateListing` refuses to move a
   // listing out of `restricted` and reads the CURRENT status to decide, and a
   // relisted listing's facets and collection membership are recomputed by the
@@ -2968,8 +2977,6 @@ async function importProduct(
   // still gone or still unpublished never gets here.
   const relisted = await restoreListingArchivedByThisConnector(existing);
 
-  const overridden = opts.respectOverrides ? new Set(existing.overriddenFields) : new Set<string>();
-  const patch = toUpdatePatch(product, overridden);
   const changed = Object.keys(patch).length > 0;
   if (changed) {
     // #90: a connector sync is a SOURCE assertion, not a seller's. It carries no

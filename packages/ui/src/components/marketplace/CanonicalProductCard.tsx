@@ -106,7 +106,7 @@ export function CanonicalProductCard({
           <Image
             source={{ uri: imageUrl }}
             contentFit="cover"
-            className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105"
+            className="h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none web:motion-reduce:transform-none"
           />
         ) : (
           // A withheld asset and an absent one both land here. The card does

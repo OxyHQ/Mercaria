@@ -75,10 +75,10 @@ export function SellerLinkCard({
         </View>
 
         <View className="flex-1 gap-0.5">
-          <Text numberOfLines={1} className="text-sectionTitle text-text">
+          <Text numberOfLines={1} className="text-shop-sectionTitle text-text">
             {seller.displayName}
           </Text>
-          <Text numberOfLines={1} className="text-bodySmall text-text-secondary">
+          <Text numberOfLines={1} className="text-shop-bodySmall text-text-secondary">
             {`@${seller.username}`}
           </Text>
         </View>
@@ -94,7 +94,7 @@ export function SellerLinkCard({
             })}
             size="small"
           />
-          <Text className="text-bodySmall text-text-secondary">
+          <Text className="text-shop-bodySmall text-text-secondary">
             {t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller)}
           </Text>
         </View>

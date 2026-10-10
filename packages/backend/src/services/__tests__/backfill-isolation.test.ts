@@ -93,7 +93,7 @@ function backfillPopulation(readDir: DirectoryReader = readSrcDirectory): string
 /**
  * Everything else in `src/` that is called a backfill and is NOT this domain.
  *
- * FIFTEEN, which is the finding: this repository has five different things
+ * SEVENTEEN, which is the finding: this repository has six different things
  * called "backfill", and #60's flag-gated catalogue backfill — the one these
  * walls are about — is one of them. An EXACT list of exact paths (#448, and
  * `domain-population.ts`'s rule that a directory-shaped exclusion excuses
@@ -121,12 +121,14 @@ const NOT_THIS_BACKFILL = [
   { path: 'services/catalog-proposals/backfill.service.ts', why: "the catalog-proposals domain's own backfill, gated by its own isolation test" },
   { path: 'db/catalogProposals/backfillRepository.ts', why: "the catalog-proposals domain's own backfill repository" },
   { path: 'services/variant-axes/backfill.service.ts', why: "the variant-axes domain's own backfill, gated by its own isolation test" },
+  { path: 'services/catalog-media/backfill.ts', why: 'legacy listing image import through Oxy; preserves gallery identity, not the canonical catalogue migration' },
   // One-off operator scripts, in no domain and behind no gate. They are not
   // silently excused: they are named, so a person decided they are scripts.
   { path: 'scripts/backfill-catalog-classify.ts', why: 'a one-off operator script, not a module of any service domain' },
   { path: 'scripts/backfill-catalog-paths.ts', why: 'a one-off operator script, not a module of any service domain' },
   { path: 'scripts/backfill-catalog-reconcile.ts', why: 'a one-off operator script, not a module of any service domain' },
   { path: 'scripts/backfill-variant-axes.ts', why: 'a one-off operator script, not a module of any service domain' },
+  { path: 'scripts/backfill-listing-media.ts', why: 'operator CLI for legacy listing image import, not the flag-gated canonical catalogue migration' },
 ];
 
 /**
@@ -201,7 +203,7 @@ const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
  * one.
  */
 const CANONICAL_WRITE_REFERENCE =
-  /(?<![.\w])(createCanonicalProduct|createVariant|createMerchant|linkNativeStore|assignIdentifier|insertNativeListingLink|supersedeNativeListingLink|requestNativeOfferSync|requestNativeVariantMatch)\s*\(/;
+  /(?<![.\w])(createCanonicalProduct|createVariant|createMerchant|linkNativeStore|assignIdentifier|insertNativeListingLink|supersedeNativeListingLink|requestNativeOfferSync|requestNativeVariantMatch|readvanceSourceObject)\s*\(/;
 
 /** Every stage module — the set the writer boundary applies to. */
 const STAGE_SOURCES = DOMAIN_SOURCES.filter((entry) =>
@@ -241,13 +243,13 @@ describe('the backfill cannot reach the domains it must not', () => {
     // module somebody adds next. So the proof is the planted control below
     // rather than a number that grew.
     //
-    // The exclusion list is the other finding: FIFTEEN modules in this
+    // The exclusion list is the other finding: SEVENTEEN modules in this
     // repository are called a backfill and are not this one.
     assertNothingOutsideDomainPopulation({
       population: backfillPopulation,
       pattern: BACKFILL_NAMED,
       notThisDomain: NOT_THIS_BACKFILL,
-      expectedExclusions: 15,
+      expectedExclusions: 17,
       sweepFloor: 30,
       plantIn: 'lib',
       plantName: 'backfill-cache.ts',

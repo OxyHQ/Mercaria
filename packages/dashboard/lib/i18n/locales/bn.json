@@ -768,7 +768,9 @@
     "reportsError": "রিপোর্ট লোড করা যায়নি",
     "sales": {
       "empty": "এই সময়ে এখনো কোনো বিক্রি হয়নি।",
-      "title": "বিক্রয় (গত সময়কাল)"
+      "title": "বিক্রয়",
+      "point": "%{date}: %{revenue}, %{count} অর্ডার",
+      "inspect": "বিক্রয় ও অর্ডার দেখতে একটি দিন বেছে নিন।"
     },
     "stats": {
       "averageOrder": "গড় অর্ডার",
@@ -788,7 +790,11 @@
         "one": "%{count}টি বিক্রি",
         "other": "%{count}টি বিক্রি"
       }
-    }
+    },
+    "allTime": "সর্বকালীন",
+    "performance": "স্টোরের কর্মদক্ষতা",
+    "lastDays": "গত %{days} দিন",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "সেলস চ্যানেল",
@@ -804,7 +810,10 @@
     "collapseSidebar": "সাইডবার সংকুচিত করুন",
     "expandSidebar": "সাইডবার প্রসারিত করুন",
     "closeSidebar": "সাইডবার বন্ধ করুন",
-    "closeNavigation": "নেভিগেশন বন্ধ করুন"
+    "closeNavigation": "নেভিগেশন বন্ধ করুন",
+    "searchNavigation": "নেভিগেশনে খুঁজুন",
+    "clearSearch": "নেভিগেশন অনুসন্ধান মুছুন",
+    "noResults": "কোনো মিল থাকা পৃষ্ঠা নেই"
   },
   "orders": {
     "detail": {
@@ -901,7 +910,7 @@
     "status": {
       "cancelled": "বাতিল",
       "delivered": "ডেলিভার হয়েছে",
-      "digitallyDelivered": "বিতরিত",
+      "digitallyDelivered": "ডিজিটাল ডেলিভারি সম্পন্ন",
       "paid": "পেমেন্ট হয়েছে",
       "partiallyRefunded": "আংশিক রিফান্ড",
       "pendingPayment": "বাকি",
@@ -909,7 +918,6 @@
       "refunded": "রিফান্ড হয়েছে",
       "shipped": "শিপ হয়েছে"
     },
-    "subtitle": "আপনার বিক্রি সম্পন্ন করুন ও ট্র্যাক করুন",
     "title": "অর্ডার",
     "totals": {
       "discounts": "ডিসকাউন্ট",
@@ -947,6 +955,12 @@
       "variantCount": {
         "one": "%{count}টি ভ্যারিয়েন্ট",
         "other": "%{count}টি ভ্যারিয়েন্ট"
+      },
+      "organization": {
+        "heading": "পণ্য সংগঠন",
+        "tags": "ট্যাগ",
+        "addTag": "ট্যাগ যোগ করুন",
+        "removeTag": "%{tag} সরান"
       }
     },
     "documentTitle": "পণ্য | Mercaria ড্যাশবোর্ড",
@@ -988,7 +1002,7 @@
         "other": "%{count}টি ভ্যারিয়েন্ট · %{stock} স্টকে"
       }
     },
-    "searchPlaceholder": "এই পাতায় পণ্য খুঁজুন…",
+    "searchPlaceholder": "পণ্য খুঁজুন…",
     "status": {
       "active": "সক্রিয়",
       "archived": "আর্কাইভ করা",
@@ -997,7 +1011,6 @@
       "sold": "বিক্রি হয়ে গেছে"
     },
     "stockLabel": "স্টক",
-    "subtitle": "আপনার স্টোর ক্যাটালগ",
     "title": "পণ্য",
     "variants": {
       "add": "যোগ করুন",
@@ -1869,5 +1882,14 @@
     "subtitle": "পরিচালনা করার জন্য একটি স্টোর বেছে নিন",
     "switch": "স্টোর বদলান",
     "title": "আপনার স্টোর"
+  },
+  "resourceList": {
+    "noResults": "কোনো মিল পাওয়া যায়নি",
+    "clearFilters": "ফিল্টার মুছুন",
+    "previous": "আগের",
+    "next": "পরের",
+    "price": "মূল্য",
+    "date": "তারিখ",
+    "customer": "ক্রেতা"
   }
 }

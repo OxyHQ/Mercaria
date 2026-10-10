@@ -86,16 +86,16 @@ export function BasketPlanCard({
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary p-space-16">
       <View className="gap-space-2">
         <Text className="text-bodyBold text-text">{t(basketResultTextKey(result.kind))}</Text>
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(basketResultDefinitionKey(result.kind))}
         </Text>
       </View>
 
       {result.state === "refused" ? (
         <View className="gap-space-4">
-          <Text className="text-caption text-text">{t(BASKET_CARD_REFUSED_KEY)}</Text>
+          <Text className="text-shop-caption text-text">{t(BASKET_CARD_REFUSED_KEY)}</Text>
           {result.reasons.map((reason) => (
-            <Text key={reason} className="text-caption text-text-secondary">
+            <Text key={reason} className="text-shop-caption text-text-secondary">
               · {t(basketReasonTextKey(reason))}
             </Text>
           ))}
@@ -103,7 +103,7 @@ export function BasketPlanCard({
       ) : (
         <View className="gap-space-8">
           <View className="gap-space-2">
-            <Text className="text-caption text-text-secondary">
+            <Text className="text-shop-caption text-text-secondary">
               {t(BASKET_CARD_TALLY_KEY, {
                 covered: result.plan.coveredLineIds.length,
                 total: result.plan.coveredLineIds.length + result.plan.unresolved.length,
@@ -113,7 +113,7 @@ export function BasketPlanCard({
             <Text className="text-bodyBold text-text">
               {totalText(t, result.plan.deliveredTotal, result.plan.merchantCount)}
             </Text>
-            <Text className="text-caption text-text-secondary">
+            <Text className="text-shop-caption text-text-secondary">
               {t(BASKET_CARD_ITEM_PRICES_KEY, {
                 total: totalText(t, result.plan.itemSubtotal, result.plan.merchantCount),
               })}
@@ -125,7 +125,7 @@ export function BasketPlanCard({
               fragment: "Best plan found" and "too many offers to examine all of
               them" join with an em dash in English and with nothing like it in
               several of the other eleven. */}
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {result.optimality.status === "proven_optimal"
               ? t(BASKET_OPTIMALITY_PROVEN_KEY)
               : t(BASKET_OPTIMALITY_APPROXIMATE_KEY, {
@@ -134,18 +134,18 @@ export function BasketPlanCard({
           </Text>
 
           {result.plan.freshness === "current" ? null : (
-            <Text className="text-caption text-text-secondary">
+            <Text className="text-shop-caption text-text-secondary">
               {t(BASKET_CARD_STALE_PRICES_KEY)}
             </Text>
           )}
 
           {result.plan.unresolved.length > 0 ? (
             <View className="gap-space-2">
-              <Text className="text-captionBold text-text">
+              <Text className="text-shop-captionBold text-text">
                 {t(BASKET_CARD_NOT_INCLUDED_KEY)}
               </Text>
               {result.plan.unresolved.map((unresolved) => (
-                <Text key={unresolved.lineId} className="text-caption text-text-secondary">
+                <Text key={unresolved.lineId} className="text-shop-caption text-text-secondary">
                   ·{" "}
                   {unresolved.reasons
                     .map((reason) => t(basketReasonTextKey(reason)))
@@ -190,7 +190,7 @@ function PlanActions({
           onPress={onAddNativeToCart}
           className="rounded-radius-max bg-bg-fill-primary px-space-16 py-space-10"
         >
-          <Text className="text-captionBold text-text-inverted">
+          <Text className="text-shop-captionBold text-text-inverted">
             {t(BASKET_CARD_ADD_TO_CART_KEY, { items: actions.nativeCart.lines.length })}
           </Text>
         </Pressable>
@@ -198,10 +198,10 @@ function PlanActions({
 
       {actions.externalMerchants.length === 0 ? null : (
         <View className="gap-space-4">
-          <Text className="text-captionBold text-text">
+          <Text className="text-shop-captionBold text-text">
             {t(BASKET_CARD_OPEN_RETAILERS_KEY)}
           </Text>
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {t(BASKET_CARD_OPEN_RETAILERS_NOTE_KEY)}
           </Text>
           {actions.externalMerchants.map((merchant, index) => (
@@ -215,14 +215,14 @@ function PlanActions({
               onPress={() => onOpenExternalMerchant?.(index)}
               className="rounded-radius-12 border border-border-secondary px-space-12 py-space-8"
             >
-              <Text className="text-caption text-text">
+              <Text className="text-shop-caption text-text">
                 {t(BASKET_CARD_MERCHANT_LINE_KEY, {
                   merchant: merchant.merchantLabel,
                   items: merchant.lineIds.length,
                 })}
               </Text>
               {merchant.destinationHost === undefined ? null : (
-                <Text className="text-caption text-text-secondary">
+                <Text className="text-shop-caption text-text-secondary">
                   {merchant.destinationHost}
                 </Text>
               )}

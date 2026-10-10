@@ -45,6 +45,10 @@ const findListingBySourceExternalId = vi.fn();
 const updateListingColumns = vi.fn();
 const findVariantsByListingAndSku = vi.fn();
 const findVariantsByListing = vi.fn();
+const synchronizeStoreImages = vi.fn();
+vi.mock('../catalog-media/sync.js', () => ({
+  synchronizeStoreImages: (...args: unknown[]) => synchronizeStoreImages(...args),
+}));
 const createStoreProduct = vi.fn();
 const updateListing = vi.fn();
 const setAvailable = vi.fn();
@@ -220,6 +224,8 @@ const productsBody = (products: IngestProduct[]): IngestProductsInput => ({ prod
 
 beforeEach(() => {
   vi.clearAllMocks();
+  synchronizeStoreImages.mockReset().mockImplementation(async (_storeId: string, refs: string[]) =>
+    refs.map(ref => ref.startsWith('https:') ? 'oxy-imported-image' : ref));
   resolveImportCategorySlug.mockResolvedValue('home');
   insertSyncRun.mockImplementation((connectionId: string, kind: string) =>
     Promise.resolve({ id: 'run-1', connectionId, kind }),
@@ -261,6 +267,7 @@ describe('ingestProducts — create path', () => {
     expect(createStoreProduct).toHaveBeenCalledTimes(1);
     const [storeArg, input] = createStoreProduct.mock.calls[0];
     expect(storeArg).toBe(STORE_ID);
+    expect(input.imageFileIds).toEqual(['oxy-imported-image']);
     expect(input.category).toBe('home');
     expect(input.variants[0].price).toEqual({ amount: 2500, currency: 'EUR' });
     expect(input.variants[0].inventory).toEqual({ tracked: true, available: 5 });
@@ -328,7 +335,7 @@ describe('ingestProducts — update path respects overriddenFields', () => {
     expect(listingId).toBe('listing-existing');
     expect(patch.title).toBeUndefined();
     expect(patch.description).toBe('Woo description');
-    expect(patch.imageFileIds).toEqual(['https://cdn.woo.com/img.jpg']);
+    expect(patch.imageFileIds).toEqual(['oxy-imported-image']);
     expect(result.results[0]).toEqual({
       externalId: 'woo-1',
       action: 'updated',
@@ -660,5 +667,39 @@ describe('ingestInventory', () => {
     // meant, so the merchant's fix is to send a SKU; `ambiguous` says the
     // CATALOGUE cannot tell two rows apart, whose fix is to de-duplicate it.
     expect(result.results[0].action).toBe('skipped');
+  });
+});
+
+describe('ingestProducts — synchronized media boundary', () => {
+  it('isolates a failed image import and continues with the next product', async () => {
+    findConnection.mockResolvedValue(pushInConnection());
+    findListingBySourceExternalId.mockResolvedValue(null);
+    createStoreProduct.mockResolvedValue('listing-next');
+    synchronizeStoreImages.mockRejectedValueOnce(new Error('Image storage unavailable'));
+    const result = await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([
+      ingestProduct({ externalId: 'failed' }), ingestProduct({ externalId: 'next' }),
+    ]));
+    expect(result.results.map(row => row.action)).toEqual(['failed', 'created']);
+    expect(createStoreProduct).toHaveBeenCalledTimes(1);
+    expect(createStoreProduct.mock.calls[0][1].imageFileIds).toEqual(['oxy-imported-image']);
+  });
+
+  it('leaves existing catalog and provenance untouched when synchronization fails', async () => {
+    findConnection.mockResolvedValue(pushInConnection());
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('existing', []));
+    synchronizeStoreImages.mockRejectedValueOnce(new Error('Image storage unavailable'));
+    const result = await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
+    expect(result.results[0].action).toBe('failed');
+    expect(updateListing).not.toHaveBeenCalled();
+    expect(updateListingColumns).not.toHaveBeenCalled();
+    expect(findVariantsByListing).not.toHaveBeenCalled();
+  });
+
+  it('does not download images protected by the merchant override', async () => {
+    findConnection.mockResolvedValue(pushInConnection({ conflictPolicy: 'respect_overrides' }));
+    findListingBySourceExternalId.mockResolvedValue(sourcedListingRow('existing', ['images']));
+    await ingestProducts(STORE_ID, CONNECTION_ID, productsBody([ingestProduct()]));
+    expect(synchronizeStoreImages).not.toHaveBeenCalled();
+    expect(updateListing.mock.calls[0][1]).not.toHaveProperty('imageFileIds');
   });
 });

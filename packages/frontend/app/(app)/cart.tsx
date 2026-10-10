@@ -1,3 +1,4 @@
+import { merchantImageSource } from "@mercaria/ui";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
@@ -156,7 +157,7 @@ function CartGroupCard({
           style={{ width: VENDOR_LOGO_SIZE, height: VENDOR_LOGO_SIZE }}
         >
           {vendor.logoUrl ? (
-            <Image source={{ uri: vendor.logoUrl }} contentFit="cover" style={StyleSheet.absoluteFill} />
+            <Image source={merchantImageSource(vendor.logoUrl)} contentFit="cover" style={StyleSheet.absoluteFill} />
           ) : null}
         </View>
         <View className="min-w-0 flex-1">

@@ -606,6 +606,22 @@ export const reviewEligibilities = pgTable(
   ],
 );
 
+/** One current helpful vote per account and review. Counts are derived, never stored.
+ * A vote has no meaning after its review is deleted, hence CASCADE. */
+export const reviewHelpfulVotes = pgTable(
+  'review_helpful_votes',
+  {
+    id: generatedId(),
+    reviewId: text().notNull().references(() => reviews.id, { onDelete: 'cascade' }),
+    /** Oxy owns the voter identity; there is no local users table. */
+    oxyUserId: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('review_helpful_votes_review_user_key').on(t.reviewId, t.oxyUserId),
+  ],
+);
+
 /**
  * `review_aggregates` — the ONE authority for a scoped rating.
  *

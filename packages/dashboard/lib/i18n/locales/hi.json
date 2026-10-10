@@ -768,7 +768,9 @@
     "reportsError": "रिपोर्ट लोड नहीं हो सकीं",
     "sales": {
       "empty": "इस अवधि में अभी कोई बिक्री नहीं।",
-      "title": "बिक्री (पिछली अवधि)"
+      "title": "बिक्री",
+      "point": "%{date}: %{revenue}, %{count} ऑर्डर",
+      "inspect": "बिक्री और ऑर्डर देखने के लिए दिन चुनें।"
     },
     "stats": {
       "averageOrder": "औसत ऑर्डर",
@@ -788,7 +790,11 @@
         "one": "%{count} बिका",
         "other": "%{count} बिके"
       }
-    }
+    },
+    "allTime": "अब तक का",
+    "performance": "स्टोर का प्रदर्शन",
+    "lastDays": "पिछले %{days} दिन",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "सेल्स चैनल",
@@ -804,7 +810,10 @@
     "collapseSidebar": "साइडबार समेटें",
     "expandSidebar": "साइडबार फैलाएँ",
     "closeSidebar": "साइडबार बंद करें",
-    "closeNavigation": "नेविगेशन बंद करें"
+    "closeNavigation": "नेविगेशन बंद करें",
+    "searchNavigation": "नेविगेशन में खोजें",
+    "clearSearch": "नेविगेशन खोज मिटाएँ",
+    "noResults": "कोई मिलते हुए पृष्ठ नहीं"
   },
   "orders": {
     "detail": {
@@ -901,7 +910,7 @@
     "status": {
       "cancelled": "रद्द",
       "delivered": "डिलीवर",
-      "digitallyDelivered": "वितरित",
+      "digitallyDelivered": "डिजिटल डिलीवरी पूरी",
       "paid": "पेमेंट हुआ",
       "partiallyRefunded": "आंशिक रिफंड",
       "pendingPayment": "बाकी",
@@ -909,7 +918,6 @@
       "refunded": "रिफंड",
       "shipped": "भेजा गया"
     },
-    "subtitle": "अपनी बिक्री पूरी करें और उस पर नज़र रखें",
     "title": "ऑर्डर",
     "totals": {
       "discounts": "डिस्काउंट",
@@ -947,6 +955,12 @@
       "variantCount": {
         "one": "%{count} वेरिएंट",
         "other": "%{count} वेरिएंट"
+      },
+      "organization": {
+        "heading": "उत्पाद का संगठन",
+        "tags": "टैग",
+        "addTag": "टैग जोड़ें",
+        "removeTag": "%{tag} हटाएँ"
       }
     },
     "documentTitle": "प्रोडक्ट | Mercaria Dashboard",
@@ -988,7 +1002,7 @@
         "other": "%{count} वेरिएंट · %{stock} स्टॉक में"
       }
     },
-    "searchPlaceholder": "इस पेज पर प्रोडक्ट खोजें…",
+    "searchPlaceholder": "उत्पाद खोजें…",
     "status": {
       "active": "चालू",
       "archived": "आर्काइव",
@@ -997,7 +1011,6 @@
       "sold": "बिक गया"
     },
     "stockLabel": "स्टॉक",
-    "subtitle": "आपके स्टोर का कैटलॉग",
     "title": "प्रोडक्ट",
     "variants": {
       "add": "जोड़ें",
@@ -1869,5 +1882,14 @@
     "subtitle": "संभालने के लिए स्टोर चुनें",
     "switch": "स्टोर बदलें",
     "title": "आपके स्टोर"
+  },
+  "resourceList": {
+    "noResults": "कोई मेल खाता परिणाम नहीं",
+    "clearFilters": "फ़िल्टर हटाएँ",
+    "previous": "पिछला",
+    "next": "अगला",
+    "price": "कीमत",
+    "date": "तारीख",
+    "customer": "ग्राहक"
   }
 }

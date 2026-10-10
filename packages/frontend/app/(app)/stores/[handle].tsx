@@ -1,3 +1,5 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
+import { merchantImageSource } from "@mercaria/ui";
 import { useMemo, useState } from "react";
 import { EmptyState } from "@oxy.so/bloom/empty-state";
 import { Rating } from "@oxy.so/bloom/rating";
@@ -56,8 +58,6 @@ const TONE_DARK = "#111111";
 const GLASS_ALPHA = "D9";
 /** Fixed dark cover overlay (~25%) so the wordmark reads over any cover. */
 const COVER_DARK_OVERLAY = "rgba(0,0,0,0.25)";
-/** Gold star fill (mirrors the MerchantCard constant). */
-const STAR_COLOR = "#FFB800";
 /**
  * Hex alpha suffix (~35%) for the unfilled part of each star: the text tone,
  * faded, so the empty stars read over any brand colour (the theme border the
@@ -92,13 +92,13 @@ function toQuerySort(sort: SortValue): "newest" | "price_asc" | "price_desc" | u
 }
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
-function toProductSummary(listing: Listing, brand: string): ProductSummary {
+function toProductSummary(listing: Listing, brand: string, resolveImage: ReturnType<typeof useImageResolver>): ProductSummary {
   const firstImage = listing.images[0];
   return {
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage?.fileId ?? "",
+    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, "thumb") : undefined,
     rating: 0,
     reviewCount: 0,
     price: listing.price,
@@ -181,7 +181,7 @@ function ParallaxCover({ uri }: { uri: string }) {
   const translateY = Math.min(scrollY * PARALLAX_FACTOR, PARALLAX_EXTRA);
   return (
     <Image
-      source={{ uri }}
+      source={merchantImageSource(uri)}
       contentFit="cover"
       style={{
         position: "absolute",
@@ -299,9 +299,10 @@ function StoreBody({
     limit: PAGE_LIMIT,
   });
 
+  const resolveImage = useImageResolver();
   const products = useMemo(
-    () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name)),
-    [data, store.name],
+    () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name, resolveImage)),
+    [data, store.name, resolveImage],
   );
 
   const hasNextPage = data?.pagination.hasNextPage ?? false;
@@ -341,7 +342,7 @@ function StoreBody({
         >
           {store.logoUrl ? (
             <Image
-              source={{ uri: store.logoUrl }}
+              source={merchantImageSource(store.logoUrl)}
               contentFit="contain"
               style={{ width: 22, height: 22 }}
             />
@@ -369,7 +370,7 @@ function StoreBody({
         <View className="absolute inset-x-0 bottom-6 items-center px-6">
           {store.logoUrl ? (
             <Image
-              source={{ uri: store.logoUrl }}
+              source={merchantImageSource(store.logoUrl)}
               contentFit="contain"
               style={{ height: WORDMARK_HEIGHT, width: "70%", maxWidth: 320 }}
             />
@@ -398,7 +399,6 @@ function StoreBody({
             })}
             variant="stars"
             color={toneColor}
-            starColor={STAR_COLOR}
             emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
             style={{ marginTop: 12 }}
           />

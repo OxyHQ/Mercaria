@@ -1,3 +1,4 @@
+import { merchantImageSource } from "../../lib/shop-merchant-images";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,8 +23,6 @@ const THUMB_SIZE = 92;
 /** Product-thumbnail corner radius (px). */
 const THUMB_RADIUS = 16;
 
-/** Fixed gold star fill (documented allowed constant). */
-const STAR_COLOR = "#FFB800";
 /** Documented dark cover overlay constant (~20%). */
 const COVER_DARK_OVERLAY = "rgba(0,0,0,0.20)";
 /** Light text tone over a merchant cover (documented data-driven exception). */
@@ -49,7 +48,7 @@ export interface MerchantCardProps {
  * bottom brand-color gradient wash → the foreground content (centered wordmark,
  * bottom-left name + rating, and a row of featured product thumbnails) → a 1px
  * inset border. Foreground text follows the merchant's `textTone`
- * (light/dark); the rating star stays gold.
+ * (light/dark), including the rating star.
  *
  * No nested interactives: the store wordmark is one link, and each product
  * thumbnail is its own SIBLING link (never nested inside the store link), so
@@ -72,10 +71,10 @@ export function MerchantCard({
       {/* Layer 1 — cover image, bleeds the whole card (the visual anchor). */}
       {merchant.coverImageUrl ? (
         <Image
-          source={{ uri: merchant.coverImageUrl }}
+          source={merchantImageSource(merchant.coverImageUrl)}
           contentFit="cover"
           pointerEvents="none"
-          className="web:transition-transform web:duration-300 web:group-hover:scale-105"
+          className="web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none web:motion-reduce:transform-none"
           style={StyleSheet.absoluteFill}
         />
       ) : null}
@@ -109,7 +108,7 @@ export function MerchantCard({
           >
             {merchant.logoUrl ? (
               <Image
-                source={{ uri: merchant.logoUrl }}
+                source={merchantImageSource(merchant.logoUrl)}
                 contentFit="contain"
                 style={{ maxHeight: 74, maxWidth: 195, width: "70%", height: 74 }}
               />
@@ -133,14 +132,13 @@ export function MerchantCard({
             >
               {merchant.name}
             </Text>
-            {/* Bloom's compact rating: the gold star, and the localised figure
+            {/* Bloom's compact rating: the star, localised figure
                 and count painted in the cover's text tone so they read over
                 any merchant cover. */}
             <Rating
               {...ratingDisplay({ rating: merchant.rating, reviews: merchant.reviewCount })}
               size="small"
               color={toneColor}
-              starColor={STAR_COLOR}
               style={{ marginTop: 2 }}
             />
           </View>

@@ -22,6 +22,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+vi.mock('../catalog-media/sync.js', () => ({
+  synchronizeStoreImages: async (_store: string, refs: string[]) => refs.map(() => 'oxy-fixture-image'),
+}));
 import type { SyncRunCounts } from '@mercaria/shared-types';
 import type { NormalizedProduct } from '../../connectors/types.js';
 

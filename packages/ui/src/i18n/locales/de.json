@@ -1,5 +1,8 @@
 {
   "ui": {
+    "sheet": {
+      "close": "Schließen"
+    },
     "condition": {
       "label": {
         "new": "Neu",
@@ -793,19 +796,20 @@
       }
     },
     "purchase": {
-      "oneTime": "Einmaliger Kauf",
-      "subscribe": "Abo",
       "addToCart": "In den Warenkorb",
       "selectOptions": "Optionen wählen",
       "buyNow": "Jetzt kaufen",
+      "soldOut": "Ausverkauft",
+      "added": "Zum Warenkorb hinzugefügt",
       "subscribeNow": "Jetzt abonnieren",
-      "frequency": {
-        "monthly": "Lieferung jeden Monat",
-        "every2Months": "Lieferung alle 2 Monate",
-        "every3Months": "Lieferung alle 3 Monate",
-        "every4Months": "Lieferung alle 4 Monate",
-        "every6Months": "Lieferung alle 6 Monate"
-      }
+      "oneTime": "Einmaliger Kauf",
+      "subscriptionRequired": "Abonnement erforderlich",
+      "subscribeAndSave": "Abonnieren und sparen",
+      "subscription": "Abonnement",
+      "deliveryFrequency": "Lieferintervall",
+      "options": "Kaufoptionen",
+      "soldOutSave": "Diese Option ist ausverkauft. Speichere diesen Artikel, um ihn später wiederzufinden.",
+      "soldOutSaved": "Diese Option ist ausverkauft. Du findest diesen Artikel unter deinen gespeicherten Artikeln."
     },
     "marketplace": {
       "visitMerchant": "%{name} besuchen",
@@ -850,6 +854,10 @@
       "codeA11y": "Abholcode %{code}",
       "codeNote": "Zeigen Sie ihn an der Theke. Falls er nicht mehr funktioniert, kann der Shop einen neuen ausstellen — ein alter Code funktioniert nie neben dem neuen weiter."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} Rabatt",
+      "minimumSubtotal": "ab %{amount} Bestellwert"
+    },
     "productCard": {
       "discount": "%{percent} Rabatt",
       "save": "Zu gespeicherten Artikeln hinzufügen"
@@ -857,7 +865,8 @@
     "gallery": {
       "viewImage": "Bild %{position} ansehen",
       "previous": "Vorheriges Bild",
-      "next": "Nächstes Bild"
+      "next": "Nächstes Bild",
+      "open": "Bilder von %{title} öffnen"
     },
     "quantity": {
       "remove": "Artikel entfernen",
@@ -872,7 +881,12 @@
       "verifiedRatings": "Verifizierte Bewertungen: %{ratings}",
       "unverified": "Nicht verifiziert: %{ratings} · %{rating}",
       "readMore": "Mehr Bewertungen lesen",
-      "none": "Noch keine Bewertungen"
+      "open": "Bewertung von %{author} lesen",
+      "none": "Noch keine Bewertungen",
+      "ratings": "%{ratings} Bewertungen",
+      "fallbackAuthor": "Mercaria-Käufer",
+      "verifiedPurchase": "Verifizierter Kauf",
+      "unverifiedPurchase": "Nicht verifiziert"
     },
     "searchInterpretation": {
       "chip": "%{label}",
@@ -982,6 +996,16 @@
         "revoked_for_policy": "Aus rechtlichen Gründen zurückgezogen",
         "superseded": "Durch einen späteren Kauf ersetzt"
       }
+    },
+    "bundle": {
+      "title": "Im Set enthalten",
+      "unavailable": "Der Inhalt dieses Sets ist derzeit nicht verfügbar.",
+      "open": "%{name}, %{variant}, Menge %{quantity} ansehen",
+      "quantity": "×%{quantity}",
+      "together": "Im Set kaufen",
+      "andSave": "Im Set kaufen und sparen",
+      "view": "Set ansehen",
+      "addFailed": "Das Set konnte nicht hinzugefügt werden. Bitte erneut versuchen."
     }
   }
 }

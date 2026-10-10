@@ -45,6 +45,7 @@ import {
   reviewDimensionAggregates,
   reviewDimensions,
   reviewEligibilities,
+  reviewHelpfulVotes,
   reviews,
   reviewTargetMigrations,
 } from '../../../db/schema/reviews.js';
@@ -101,7 +102,7 @@ function reviewDomainPaths(readDir: DirectoryReader = readSrcDirectory): string[
 
 const REVIEW_DOMAIN_PATHS = reviewDomainPaths();
 
-/** The five tables of the domain, with their SQL names for readable failures. */
+/** The tables of the domain, with their SQL names for readable failures. */
 const REVIEW_TABLES = [
   ['reviews', reviews],
   ['review_dimensions', reviewDimensions],
@@ -109,6 +110,7 @@ const REVIEW_TABLES = [
   ['review_aggregates', reviewAggregates],
   ['review_dimension_aggregates', reviewDimensionAggregates],
   ['review_target_migrations', reviewTargetMigrations],
+  ['review_helpful_votes', reviewHelpfulVotes],
 ] as const;
 
 /**
@@ -252,7 +254,8 @@ describe('#76 wall 2 — no buyer contact or payment data in the domain', () => 
       const columns = Object.keys(getTableColumns(table));
       // Per-table vacuity floor: a broken traversal returning nothing would pass
       // the loop below without checking anything at all.
-      expect(columns.length, `${name} reported no columns`).toBeGreaterThan(4);
+      if (name === 'review_helpful_votes') expect(columns).toHaveLength(4);
+      else expect(columns.length, `${name} reported no columns`).toBeGreaterThan(4);
       for (const column of columns) {
         expect(
           FORBIDDEN_COLUMN_SHAPE.test(column),
@@ -261,8 +264,8 @@ describe('#76 wall 2 — no buyer contact or payment data in the domain', () => 
         columnsScanned += 1;
       }
     }
-    // The whole-domain floor: 6 tables of real columns.
-    expect(columnsScanned).toBeGreaterThan(60);
+    // The whole-domain floor: seven tables, including the four-column vote fact.
+    expect(columnsScanned).toBeGreaterThan(64);
   });
 
   it('the column detector actually detects — the mutation self-test', () => {

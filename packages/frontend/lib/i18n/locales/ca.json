@@ -4,12 +4,22 @@
     "cancel": "Cancel·la",
     "confirm": "Confirma",
     "back": "Enrere",
-    "tryAgain": "Torna-ho a provar"
+    "tryAgain": "Torna-ho a provar",
+    "linkCopied": "Enllaç copiat",
+    "shareError": "No s’ha pogut compartir l’enllaç. Torna-ho a provar.",
+    "pagination": {
+      "previous": "Anterior",
+      "next": "Següent",
+      "pageOf": "Pàgina %{page} de %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
     "loadingProducts": "Carregant productes",
-    "loadError": "No s'han pogut carregar els productes. Llisca per actualitzar o torna-ho a provar."
+    "loadError": "No s'han pogut carregar els productes. Llisca per actualitzar o torna-ho a provar.",
+    "keepShopping": "Continua comprant",
+    "recentlyViewed": "Vistos recentment",
+    "recentlyViewedEmpty": "Els productes que visitis apareixeran aquí."
   },
   "nav": {
     "home": "Inici",
@@ -136,11 +146,6 @@
     "compareOffersA11y": "Compara totes les ofertes d'aquest producte",
     "compareOffers": "Compara totes les ofertes",
     "percentOff": "%{percent}% de descompte",
-    "demandCopy": "Més de 100.000 comprats el darrer mes",
-    "exclusiveOffer": {
-      "label": "Aconsegueix preus exclusius",
-      "caption": "Inicia la sessió per veure la teva oferta exclusiva"
-    },
     "quantity": "Quantitat",
     "decreaseQuantity": "Redueix la quantitat",
     "increaseQuantity": "Augmenta la quantitat",
@@ -149,6 +154,8 @@
       "removeProductA11y": "Treu aquest producte dels desats",
       "product": "Desa el producte",
       "productSaved": "Producte desat",
+      "statusError": "No s’ha pogut consultar si està desat.",
+      "updateError": "No s’han pogut actualitzar els elements desats.",
       "exactListingA11y": "Desa aquest anunci concret",
       "removeListingA11y": "Treu aquest anunci dels desats",
       "listing": "Desa aquest anunci",
@@ -156,19 +163,17 @@
       "save": "Desa",
       "saved": "Desat"
     },
+    "moreActions": "Més accions",
+    "reportProduct": "Denuncia el producte",
     "shareA11y": "Comparteix aquest producte",
     "share": "Comparteix",
-    "deliveryAndReturns": "Enviament i devolucions",
-    "viewReturnPolicyA11y": "Consulta la política de devolucions",
     "returnPolicy": "Política de devolucions",
     "description": "Descripció",
-    "viewMore": "Mostra'n més",
-    "viewLess": "Mostra'n menys",
+    "readMoreDescription": "Llegeix més",
     "highlights": "Destacats",
     "sortOffersBy": "Ordena les ofertes per",
     "reportProblemA11y": "Informa d'un problema amb la informació d'aquest producte",
     "reportProblem": "Informa d'un problema",
-    "specifications": "Especificacions",
     "modelIdentifiers": "Identificadors del model",
     "imageFromCatalogueA11y": "%{name} — imatge del catàleg",
     "releasedYear": "Llançat el %{year}",
@@ -200,6 +205,17 @@
       },
       "notFullyBuilt": "Una part d'aquest període encara no s'ha calculat.",
       "conversionDisplayOnly": "Les xifres convertides són només informatives."
+    },
+    "reviews": "Ressenyes",
+    "purchasePreview": {
+      "notice": "Vista prèvia amb preus i plans de mostra. Les accions són simulades; no es creen comandes ni cobraments.",
+      "save": "Estalvia %{percent}",
+      "monthly": "Lliurament cada mes",
+      "bimonthly": "Lliurament cada 2 mesos",
+      "prepaid": "%{price} per lliurament. Tres lliuraments pagats per avançat.",
+      "introductory": "Preu inicial per al primer lliurament; després, %{price} per lliurament.",
+      "cartResult": "Simulació: afegit al carretó. El carretó no ha canviat.",
+      "checkoutResult": "Compra simulada completada. No s’ha creat cap comanda ni pagament."
     }
   },
   "catalog": {
@@ -306,15 +322,14 @@
     "empty": {
       "title": "Encara no hi ha comandes",
       "subtitle": "Quan facis una comanda apareixerà aquí.",
-      "signedOutSubtitle": "Inicia la sessió per veure l'historial de comandes."
+      "signedOutSubtitle": "Inicia la sessió per veure l'historial de comandes.",
+      "activeTitle": "No hi ha comandes actives",
+      "pastTitle": "No hi ha comandes anteriors",
+      "pastSubtitle": "Aquí apareixen les comandes completades, cancel·lades i reemborsades."
     },
     "row": {
       "openA11yLabel": "Obre la comanda %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} article",
-        "other": "%{status} · %{seller} · %{count} articles",
-        "many": "%{status} · %{seller} · %{count} d’articles"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Anterior",
@@ -376,6 +391,11 @@
       "basisEstimate": "Una estimació del nostre soci logístic, no una promesa.",
       "staleNote": "No l'hem pogut actualitzar recentment.",
       "refreshFailing": "No hem pogut actualitzar aquesta estimació. Pot estar desactualitzada."
+    },
+    "loadError": "No s’han pogut carregar les teves comandes",
+    "tabs": {
+      "active": "Actives",
+      "past": "Anteriors"
     }
   },
   "reviews": {
@@ -424,6 +444,37 @@
       "nativeTransaction": "La teva valoració d'aquesta compra",
       "p2pListing": "La teva valoració de la descripció de l'article",
       "p2pSeller": "La teva valoració d'aquest venedor"
+    },
+    "search": {
+      "placeholder": "Cerca ressenyes",
+      "noResults": "No hi ha ressenyes que coincideixin amb la cerca.",
+      "results": "Resultats de cerca: %{results}"
+    },
+    "filters": {
+      "sort": "Ordena per",
+      "newest": "Més recents",
+      "oldest": "Més antigues",
+      "ratingAscending": "Puntuació: de menor a major",
+      "ratingDescending": "Puntuació: de major a menor",
+      "rating": "Puntuació",
+      "stars": "%{count} estrelles",
+      "reset": "Restableix",
+      "apply": "Aplica",
+      "noResults": "Cap ressenya coincideix amb aquests filtres.",
+      "results": "Ressenyes: %{results}"
+    },
+    "actions": {
+      "more": "Accions de la ressenya",
+      "report": "Denuncia la ressenya",
+      "subject": "Ressenya de %{author}"
+    },
+    "helpful": {
+      "label": "Útil",
+      "mark": "Marca la ressenya com a útil",
+      "remove": "Retira el vot d’utilitat",
+      "count": "A %{formattedCount} els ha resultat útil",
+      "error": "No s’ha pogut actualitzar el vot. Torna-ho a provar.",
+      "retry": "Torna a carregar els vots"
     }
   },
   "search": {
@@ -976,7 +1027,8 @@
       "body": "Els productes desats segueixen el preu i la disponibilitat de tots els venedors, a tots els teus dispositius.",
       "signIn": "Inicia la sessió",
       "title": "Inicia la sessió per desar coses"
-    }
+    },
+    "actionFailed": "No s’han pogut actualitzar els teus preferits"
   },
   "watchlists": {
     "atLimit": "Has arribat al màxim de %{count} llistes",
@@ -1138,13 +1190,12 @@
       "unfollowStore": "Deixa de seguir %{store}"
     },
     "reviews": {
-      "helpful": "Útil",
       "loading": "Carregant ressenyes…",
       "none": "Encara no hi ha ressenyes",
       "viewProduct": "Mostra %{product}",
       "ratingsCount": "%{formattedCount} valoracions",
       "ratingsWithScope": "%{formattedCount} valoracions · %{scopeLabel}",
-      "fallbackAuthor": "Comprador verificat",
+      "fallbackAuthor": "Comprador de Mercaria",
       "viewA11yLabel": "Mostra les ressenyes del servei d'aquesta botiga"
     },
     "visit": {
@@ -1240,6 +1291,9 @@
     "noLinkPublished": "Sense enllaç publicat",
     "noDestination": "Aquest venedor ha publicat un preu però cap enllaç.",
     "outboundNotAvailable": "Encara no es poden obrir ofertes en altres llocs.",
+    "seenOn": "Preu vist el %{date}",
+    "dataSource": "Dades: %{name}",
+    "dataSourceLicensed": "Dades: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "Aquest venedor no té estoc.",
       "notPaymentReady": "Aquest venedor encara no pot acceptar pagaments.",
@@ -1601,5 +1655,36 @@
       "formatsLabel": "Inclou %{formats}",
       "notForSale": "No està a la venda"
     }
+  },
+  "thread": {
+    "title": "Assistent de compres",
+    "thinking": "Cercant idees…",
+    "stop": "Atura",
+    "unavailable": "L’assistent de compres encara no està disponible. Pots continuar cercant al catàleg.",
+    "signIn": "Inicia sessió per conversar",
+    "retry": "Torna-ho a provar",
+    "viewResults": "Mostra els resultats de cerca",
+    "newConversation": "Conversa nova",
+    "previewAction": "Provar amb dades de mostra",
+    "previewLabel": "Vista prèvia · Respostes de mostra, sense IA connectada",
+    "previewReply": "Aquests són exemples del catàleg local per provar el disseny de la conversa. Obre un producte per veure’n els detalls o envia un altre missatge."
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Els teus preferits, comandes i compte, en un sol lloc."
+  },
+  "curations": {
+    "heading": "Seleccions",
+    "preview": "Vista prèvia · Seleccions de mostra del catàleg local",
+    "everyday": "Troballes per a cada dia",
+    "fresh": "Noves perspectives",
+    "pleasures": "Petits plaers",
+    "description": "Idees per descobrir al teu ritme.",
+    "unavailable": "Aquesta selecció no està disponible.",
+    "referenceTitle": "La selecció de Courtney Grow",
+    "referenceSubtitle": "La selecció actual de moda i bellesa de Courtney",
+    "quoteComfort": "Comoditat, personalitat i els petits detalls que fan teva una peça.",
+    "quoteTexture": "Una textura que t’encanta pot canviar tot un conjunt.",
+    "quoteEveryday": "Tingues a mà les coses que fas servir més sovint."
   }
 }

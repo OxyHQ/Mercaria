@@ -78,6 +78,7 @@ export {
 // ---------------------------------------------------------------------------
 export { isRtlLocale, languageOf, RTL_LANGUAGE_CODES } from "./i18n/rtl-locales";
 export { syncLayoutDirection, type DirectionSyncResult } from "./i18n/layout-direction";
+export { useShopControlClassName } from "./lib/useShopControlClassName";
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 
@@ -272,6 +273,7 @@ export {
   ScreenShell,
   type ScreenShellProps,
 } from "./components/shell/ScreenShell";
+export { ViewportScrollView, type ViewportScrollViewProps } from "./components/shell/ViewportScrollView";
 export {
   toBloomIcon,
   toBloomFieldIcon,
@@ -338,6 +340,13 @@ export {
   type ProductCarouselProps,
 } from "./components/marketplace/ProductCarousel";
 export { ProductShelf, type ProductShelfProps } from "./components/marketplace/ProductShelf";
+export { CategoryTileGrid, type CategoryShortcut } from "./components/marketplace/CategoryTileGrid";
+export { CurationCard, CurationImage } from "./components/marketplace/CurationCard";
+export { EditorialCuration, type EditorialStory } from "./components/marketplace/EditorialCuration";
+export { ShopNavigationIcon, shopNavigationIcon, type ShopNavigationIconName } from "./components/marketplace/ShopNavigationIcon";
+export { ShopDetailIcon } from "./components/marketplace/ShopDetailIcon";
+export { useShelfCarouselProps } from "./lib/shelf-carousel";
+export { ListingSaveProvider } from "./components/marketplace/ListingSaveProvider";
 export { CategoryPills, type CategoryPillsProps } from "./components/marketplace/CategoryPills";
 export { MerchantCard, type MerchantCardProps } from "./components/marketplace/MerchantCard";
 export {
@@ -357,6 +366,8 @@ export {
   type MerchantCartCardProps,
 } from "./components/marketplace/MerchantCartCard";
 export { CartShelf, type CartShelfProps } from "./components/marketplace/CartShelf";
+export { ThreadShelf, type ThreadShelfItem } from "./components/marketplace/ThreadShelf";
+export { CategoryMosaicShelf, type CategoryMosaicGroup } from "./components/marketplace/CategoryMosaicShelf";
 
 // ---------------------------------------------------------------------------
 // Product detail page (PDP) presentational components
@@ -394,7 +405,10 @@ export {
   ProductGallery,
   type ProductGalleryImage,
   type ProductGalleryProps,
+  type ProductGalleryHandle,
 } from "./components/marketplace/ProductGallery";
+export { BundleContents, type BundleContentsProps } from './components/marketplace/BundleContents';
+export { BundleRecommendations, type BundleRecommendationsProps } from './components/marketplace/BundleRecommendations';
 export {
   VariantSwatches,
   type VariantSwatchesProps,
@@ -403,12 +417,21 @@ export {
   PurchaseOptions,
   type PurchaseOptionsProps,
 } from "./components/marketplace/PurchaseOptions";
+export {
+  PurchasePlanPicker,
+  type PurchasePlan,
+  type PurchasePlanPickerProps,
+  type PurchasePlanSelection,
+} from "./components/marketplace/PurchasePlanPicker";
 export { ReviewCard, type ReviewCardProps } from "./components/marketplace/ReviewCard";
+export { ProductSpecificationGrid, type ProductSpecification } from "./components/marketplace/ProductSpecificationGrid";
+export { CartFlightProvider, CartFlightTarget, useCartFlight, type CartFlightRect } from "./components/marketplace/CartFlight";
 export {
   ReviewSummaryCard,
   type RatingDistribution,
   type ReviewSummaryCardProps,
 } from "./components/marketplace/ReviewSummaryCard";
+export { ReviewAccordionAccessory } from "./components/marketplace/ReviewAccordionAccessory";
 export {
   ConditionBadge,
   type ConditionBadgeProps,
@@ -693,3 +716,11 @@ export {
   DIGITAL_LICENCE_RIGHT_KEYS,
   DIGITAL_LICENCE_UPDATE_POLICY_KEYS,
 } from "./lib/digital-asset-labels";
+
+export { merchantImageSource } from "./lib/shop-merchant-images";
+
+export { StoreOfferHeader, type StoreOfferHeaderProps } from "./components/marketplace/StoreOfferHeader";
+
+export { MarketplaceSheet, type MarketplaceSheetProps } from "./components/marketplace/MarketplaceSheet";
+export { ProductRichText, type ProductRichTextProps } from "./components/marketplace/ProductRichText";
+export { prepareProductDescription } from "./lib/product-description";

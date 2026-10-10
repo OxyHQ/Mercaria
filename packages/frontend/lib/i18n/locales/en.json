@@ -4,12 +4,22 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "back": "Back",
-    "tryAgain": "Try Again"
+    "tryAgain": "Try Again",
+    "linkCopied": "Link copied",
+    "shareError": "Could not share the link. Please try again.",
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page %{page} of %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
     "loadingProducts": "Loading products",
-    "loadError": "Couldn't load products. Pull to refresh or try again."
+    "loadError": "Couldn't load products. Pull to refresh or try again.",
+    "keepShopping": "Keep shopping",
+    "recentlyViewed": "Recently viewed",
+    "recentlyViewedEmpty": "Products you view will appear here."
   },
   "nav": {
     "home": "Home",
@@ -136,11 +146,6 @@
     "compareOffersA11y": "Compare every offer for this product",
     "compareOffers": "Compare all offers",
     "percentOff": "%{percent}% off",
-    "demandCopy": "100K+ bought in past month",
-    "exclusiveOffer": {
-      "label": "Unlock exclusive pricing",
-      "caption": "Sign in to view your exclusive offer"
-    },
     "quantity": "Quantity",
     "decreaseQuantity": "Decrease quantity",
     "increaseQuantity": "Increase quantity",
@@ -149,6 +154,8 @@
       "removeProductA11y": "Remove this product from saved",
       "product": "Save product",
       "productSaved": "Product saved",
+      "statusError": "Could not load your saved status.",
+      "updateError": "Could not update your saved items.",
       "exactListingA11y": "Save this exact listing",
       "removeListingA11y": "Remove this listing from saved",
       "listing": "Save this listing",
@@ -156,19 +163,17 @@
       "save": "Save",
       "saved": "Saved"
     },
+    "moreActions": "More actions",
+    "reportProduct": "Report product",
     "shareA11y": "Share this product",
     "share": "Share",
-    "deliveryAndReturns": "Delivery & Returns",
-    "viewReturnPolicyA11y": "View return policy",
     "returnPolicy": "Return policy",
     "description": "Description",
-    "viewMore": "View more",
-    "viewLess": "View less",
+    "readMoreDescription": "Read more",
     "highlights": "Highlights",
     "sortOffersBy": "Sort offers by",
     "reportProblemA11y": "Report a problem with this product's information",
     "reportProblem": "Report a problem",
-    "specifications": "Specifications",
     "modelIdentifiers": "Model identifiers",
     "imageFromCatalogueA11y": "%{name} — image from the catalogue",
     "releasedYear": "Released %{year}",
@@ -198,6 +203,17 @@
       },
       "notFullyBuilt": "Part of this window has not been built yet.",
       "conversionDisplayOnly": "Converted figures are for display only."
+    },
+    "reviews": "Reviews",
+    "purchasePreview": {
+      "notice": "Preview with sample prices and plans. Actions are simulated; no order or charge is created.",
+      "save": "Save %{percent}",
+      "monthly": "Deliver every month",
+      "bimonthly": "Deliver every 2 months",
+      "prepaid": "%{price} per delivery. Three deliveries paid in advance.",
+      "introductory": "Introductory price for the first delivery, then %{price} per delivery.",
+      "cartResult": "Simulated: added to cart. Your cart has not changed.",
+      "checkoutResult": "Simulated checkout complete. No order or payment was created."
     }
   },
   "catalog": {
@@ -304,14 +320,14 @@
     "empty": {
       "title": "No orders yet",
       "subtitle": "When you place an order it will show up here.",
-      "signedOutSubtitle": "Sign in to see your order history."
+      "signedOutSubtitle": "Sign in to see your order history.",
+      "activeTitle": "No active orders",
+      "pastTitle": "No past orders",
+      "pastSubtitle": "Completed, cancelled and refunded orders appear here."
     },
     "row": {
       "openA11yLabel": "Open order %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} item",
-        "other": "%{status} · %{seller} · %{count} items"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Previous",
@@ -373,6 +389,11 @@
       "basisEstimate": "An estimate from our fulfilment partner, not a promise.",
       "staleNote": "We have not been able to refresh it recently.",
       "refreshFailing": "We have not been able to refresh this estimate. It may be out of date."
+    },
+    "loadError": "Could not load your orders",
+    "tabs": {
+      "active": "Active",
+      "past": "Past"
     }
   },
   "reviews": {
@@ -420,6 +441,37 @@
       "nativeTransaction": "Your review of this purchase",
       "p2pListing": "Your review of the item description",
       "p2pSeller": "Your review of this seller"
+    },
+    "search": {
+      "placeholder": "Search reviews",
+      "noResults": "No reviews match your search.",
+      "results": "Search results: %{results}"
+    },
+    "filters": {
+      "sort": "Sort by",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "ratingAscending": "Rating: low to high",
+      "ratingDescending": "Rating: high to low",
+      "rating": "Rating",
+      "stars": "Stars: %{count}",
+      "reset": "Reset",
+      "apply": "Apply",
+      "noResults": "No reviews match these filters.",
+      "results": "Reviews: %{results}"
+    },
+    "actions": {
+      "more": "Review actions",
+      "report": "Report review",
+      "subject": "Review by %{author}"
+    },
+    "helpful": {
+      "label": "Helpful",
+      "mark": "Mark review as helpful",
+      "remove": "Remove helpful vote",
+      "count": "%{formattedCount} found this helpful",
+      "error": "Could not update your vote. Please try again.",
+      "retry": "Retry loading helpful votes"
     }
   },
   "search": {
@@ -965,7 +1017,8 @@
       "body": "Saved products follow the price and availability across every seller, on all your devices.",
       "signIn": "Sign in",
       "title": "Sign in to save things"
-    }
+    },
+    "actionFailed": "Could not update your saved items"
   },
   "watchlists": {
     "atLimit": "You have the maximum of %{count} lists",
@@ -1126,13 +1179,12 @@
       "unfollowStore": "Unfollow %{store}"
     },
     "reviews": {
-      "helpful": "Helpful",
       "loading": "Loading reviews…",
       "none": "No reviews yet",
       "viewProduct": "View %{product}",
       "ratingsCount": "%{formattedCount} ratings",
       "ratingsWithScope": "%{formattedCount} ratings · %{scopeLabel}",
-      "fallbackAuthor": "Verified buyer",
+      "fallbackAuthor": "Mercaria buyer",
       "viewA11yLabel": "View this store's service reviews"
     },
     "visit": {
@@ -1225,6 +1277,9 @@
     "noLinkPublished": "No link published",
     "noDestination": "This seller published a price but no link.",
     "outboundNotAvailable": "Opening offers on other sites isn't available yet.",
+    "seenOn": "Price seen on %{date}",
+    "dataSource": "Data: %{name}",
+    "dataSourceLicensed": "Data: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "This seller is out of stock.",
       "notPaymentReady": "This seller cannot take payment yet.",
@@ -1584,5 +1639,36 @@
       "formatsLabel": "Includes %{formats}",
       "notForSale": "Not on sale"
     }
+  },
+  "thread": {
+    "title": "Shopping assistant",
+    "thinking": "Looking for ideas…",
+    "stop": "Stop",
+    "unavailable": "The shopping assistant is not available yet. You can still search the catalogue.",
+    "signIn": "Sign in to chat",
+    "retry": "Try again",
+    "viewResults": "View search results",
+    "newConversation": "New conversation",
+    "previewAction": "Preview with sample data",
+    "previewLabel": "Preview · Example responses, no AI connected",
+    "previewReply": "These are examples from the local catalogue for trying the conversation layout. Open a product to see its details, or send another message to try a follow-up."
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Your saved finds, orders and account, all in one place."
+  },
+  "curations": {
+    "heading": "Curations",
+    "preview": "Preview · Sample selections from the local catalogue",
+    "everyday": "Everyday finds",
+    "fresh": "Fresh perspectives",
+    "pleasures": "Little pleasures",
+    "description": "A few finds to explore at your own pace.",
+    "unavailable": "This selection is not available.",
+    "referenceTitle": "The Courtney Grow Edit",
+    "referenceSubtitle": "Courtney’s current fashion and beauty rotation",
+    "quoteComfort": "Comfort, character, and the little details that make a piece your own.",
+    "quoteTexture": "A texture you love can change the whole feeling of an outfit.",
+    "quoteEveryday": "Keep the things you reach for most close at hand."
   }
 }

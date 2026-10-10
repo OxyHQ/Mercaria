@@ -18,7 +18,6 @@ import {
 import type { StorePermission } from "@mercaria/shared-types";
 import { Text, useColorScheme } from "@mercaria/ui";
 import { Screen } from "@/components/shell/Screen";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { LanguagePicker } from "@/components/settings/LanguagePicker";
 import { useTranslation } from "@/lib/i18n";
@@ -140,7 +139,7 @@ export default function SettingsScreen() {
       <Screen
         title={t("settings.title")}
         subtitle={t("settings.subtitle")}
-        action={<StoreSwitcher />}
+
       >
         <RequireStore>{() => <SettingsList />}</RequireStore>
         {/* Outside RequireStore on purpose: the interface language is a property

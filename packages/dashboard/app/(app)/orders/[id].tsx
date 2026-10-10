@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import type { AccentTone } from "@oxy.so/bloom/theme";
 import { Badge } from "@oxy.so/bloom/badge";
-import { View, Pressable } from "react-native";
+import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { ChevronLeft } from "lucide-react-native";
+import { Package, UserRound } from "lucide-react-native";
 import type { MerchantOrder, OrderItem, Refund, RefundProviderState } from "@mercaria/shared-types";
 import {
   Text,
@@ -19,7 +19,9 @@ import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Button } from "@oxy.so/bloom/button";
 import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
 import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
+import { Screen } from "@/components/shell/Screen";
+import { canRetainDetailData } from "@/lib/detail-query-state";
+import { DetailContent } from "@/components/shell/DetailContent";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { OrderStatusBadge, ORDER_STATUS_LABEL_KEYS } from "@/components/orders/OrderStatusBadge";
 import { PickupDeskCard } from "@/components/orders/PickupDeskCard";
@@ -42,7 +44,7 @@ export default function OrderDetailScreen() {
         <title>{t("orders.detail.documentTitle")}</title>
       </Head>
       <RequireStore permission="orders:read">
-        {(storeId) => <OrderDetailBody storeId={storeId} orderId={String(id)} />}
+        {(storeId) => <OrderDetailBody key={`${storeId}:${id}`} storeId={storeId} orderId={String(id)} />}
       </RequireStore>
     </>
   );
@@ -51,97 +53,68 @@ export default function OrderDetailScreen() {
 function OrderDetailBody({ storeId, orderId }: { storeId: string; orderId: string }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
-  const { data, isPending, isError } = useOrder(storeId, orderId);
-
-  const back = (
-    <Pressable
-      onPress={() => router.back()}
-      className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
-    >
-      <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
-    </Pressable>
-  );
-
-  if (isPending) {
-    return (
-      <Screen title={t("orders.detail.title")} action={back}>
-        <ScreenLoading />
-      </Screen>
-    );
-  }
-  if (isError || !data) {
-    return (
-      <Screen title={t("orders.detail.title")} action={back}>
-        <ScreenMessage title={t("orders.detail.loadFailed")} body={t("common.pleaseTryAgain")} />
-      </Screen>
-    );
-  }
-
-  return (
-    <Screen title={data.orderNumber} subtitle={t("orders.detail.subtitle")} action={back}>
-      <OrderContent storeId={storeId} order={data} />
-    </Screen>
-  );
+  const { data: cached, error, isPending, isFetching, isError, refetch } = useOrder(storeId, orderId);
+  const data = canRetainDetailData(error) ? cached : undefined;
+  return <Screen title={data?.orderNumber ?? t("orders.detail.title")} subtitle={t("orders.detail.subtitle")}
+    action={<Button appearance="outline" material="flat" onPress={() => router.replace("/orders")}>{t("common.back")}</Button>}>
+    <DetailContent testID="merchant-order-detail" hasData={Boolean(data)} pending={isPending} fetching={isFetching}
+      error={isError} errorTitle={t("orders.detail.loadFailed")} onRetry={() => { void refetch(); }}>
+      {data ? <OrderContent key={`${storeId}:${data.id}`} storeId={storeId} order={data} /> : null}
+    </DetailContent>
+  </Screen>;
 }
 
 function OrderContent({ storeId, order }: { storeId: string; order: MerchantOrder }) {
-  const { locale } = useTranslation();
-  return (
-    <View className="gap-5">
-      <View className="flex-row items-center justify-between">
-        <OrderStatusBadge status={order.status} />
-        {/* The instant sits alone beside the status badge, so an unformattable
-            one renders nothing rather than "Invalid Date" (#529). */}
-        <Text className="text-xs text-muted-foreground">
-          {formatDateTime(order.createdAt, locale)}
-        </Text>
-      </View>
-
-      <ItemsCard items={order.items} />
-      <TotalsCard order={order} />
-      <ShippingAddressCard order={order} />
-      <StatusHistoryCard order={order} />
-      {/*
-        The collection desk (#93). Renders only for a collection order — the
-        card returns null on the 404 a delivery order answers with — and it is
-        seated ABOVE fulfilment because a parcel handed across a counter was
-        never shipped: the two are different fulfilment paths and the desk is
-        the one that applies here.
-      */}
-      <PickupDeskCard storeId={storeId} orderId={order.id} />
-      <RefundsCard storeId={storeId} order={order} />
-      <FulfillmentCard storeId={storeId} order={order} />
+  const { t, locale } = useTranslation();
+  const { colors } = useColorScheme();
+  return <View className="gap-4">
+    <View className="flex-row flex-wrap items-center justify-between gap-2">
+      <OrderStatusBadge status={order.status} />
+      <Text className="text-xs text-muted-foreground">{formatDateTime(order.createdAt, locale)}</Text>
     </View>
-  );
+    <View className="items-stretch gap-4 lg:flex-row lg:items-start">
+      <View className="min-w-0 gap-4 lg:flex-1" testID="merchant-order-main">
+        <ItemsCard items={order.items} />
+        <TotalsCard order={order} />
+        {/* Collection is an existing handover path; it must remain distinct from shipping. */}
+        <PickupDeskCard storeId={storeId} orderId={order.id} />
+        <RefundsCard storeId={storeId} order={order} />
+        <FulfillmentCard storeId={storeId} order={order} />
+        <StatusHistoryCard order={order} />
+      </View>
+      <View className="min-w-0 gap-4 lg:w-72" testID="merchant-order-customer">
+        <View className="gap-3 rounded-xl border border-border bg-white p-4 dark:bg-surface">
+          <Text className="text-sm font-semibold text-foreground">{t("resourceList.customer")}</Text>
+          <View className="flex-row items-center gap-3">
+            <View className="h-9 w-9 items-center justify-center rounded-full bg-muted"><UserRound size={18} color={colors.mutedForeground} /></View>
+            {/* MerchantBuyerLabel is the complete permitted identity projection. */}
+            <Text className="min-w-0 flex-1 text-sm text-foreground">{order.buyer.displayLabel}</Text>
+          </View>
+        </View>
+        <ShippingAddressCard order={order} />
+      </View>
+    </View>
+  </View>;
 }
 
 function ItemsCard({ items }: { items: OrderItem[] }) {
   const { t } = useTranslation();
-  return (
-    <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.items")}</Text>
-      <View className="gap-3">
-        {items.map((item, idx) => (
-          <View key={`${item.variantId}-${idx}`} className="flex-row items-center justify-between gap-3">
-            <View className="flex-1">
-              <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                {t("orders.detail.itemVariantQuantity", {
-                  variant: item.variantTitle,
-                  quantity: item.quantity,
-                })}
-              </Text>
-            </View>
-            <PriceDisplay price={item.lineTotal.shop} primaryClassName="text-sm font-semibold" />
-          </View>
-        ))}
+  const { colors } = useColorScheme();
+  return <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
+    <Text className="mb-4 text-sm font-semibold text-foreground">{t("orders.detail.items")}</Text>
+    <View className="gap-4">{items.map((item, idx) => <View key={`${item.variantId}-${idx}`} testID="merchant-order-item" className="flex-row items-start gap-3">
+      {/* Legacy snapshot imageUrl is not an Oxy file ID. Keep its space until the media DTO is migrated. */}
+      <View className="h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted"><Package size={22} color={colors.mutedForeground} /></View>
+      <View className="min-w-0 flex-1 gap-1">
+        <Text className="text-sm font-semibold text-foreground">{item.title}</Text>
+        <Text className="text-xs text-muted-foreground">{t("orders.detail.itemVariantQuantity", { variant: item.variantTitle, quantity: item.quantity })}</Text>
+        <View className="flex-row flex-wrap items-center justify-between gap-2">
+          <View className="flex-row items-center gap-1"><Text className="text-xs text-muted-foreground">{t("resourceList.price")}</Text><PriceDisplay price={item.unitPrice.shop} primaryClassName="text-xs text-muted-foreground" /></View>
+          <PriceDisplay price={item.lineTotal.shop} primaryClassName="text-sm font-semibold" />
+        </View>
       </View>
-    </View>
-  );
+    </View>)}</View>
+  </View>;
 }
 
 function TotalRow({ label, amount, bold }: { label: string; amount: React.ReactNode; bold?: boolean }) {
@@ -159,7 +132,7 @@ function TotalsCard({ order }: { order: MerchantOrder }) {
   const { t } = useTranslation();
   const { totals } = order;
   return (
-    <View className="rounded-2xl border border-border bg-surface p-4">
+    <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
       <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.totals.heading")}</Text>
       <View className="gap-2">
         <TotalRow
@@ -201,7 +174,7 @@ function ShippingAddressCard({ order }: { order: MerchantOrder }) {
      * needs to know nothing is missing.
      */
     return (
-      <View className="rounded-2xl border border-border bg-surface p-4">
+      <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
         <Text className="mb-2 text-sm font-semibold text-foreground">
           {t("orders.detail.shipTo")}
         </Text>
@@ -210,7 +183,7 @@ function ShippingAddressCard({ order }: { order: MerchantOrder }) {
     );
   }
   return (
-    <View className="rounded-2xl border border-border bg-surface p-4">
+    <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
       <Text className="mb-2 text-sm font-semibold text-foreground">{t("orders.detail.shipTo")}</Text>
       <Text className="text-sm text-foreground">{a.recipientName}</Text>
       <Text className="text-sm text-muted-foreground">{a.line1}</Text>
@@ -229,21 +202,21 @@ function ShippingAddressCard({ order }: { order: MerchantOrder }) {
 function StatusHistoryCard({ order }: { order: MerchantOrder }) {
   const { t, locale } = useTranslation();
   return (
-    <View className="rounded-2xl border border-border bg-surface p-4">
+    <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
       <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.history")}</Text>
       <View className="gap-2">
         {order.statusHistory.map((event, idx) => (
-          <View key={`${event.status}-${idx}`} className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2">
+          <View key={`${event.status}-${idx}`} className="gap-2 border-b border-border pb-3">
+            <View className="flex-row flex-wrap items-center gap-2">
               <OrderStatusBadge status={event.status} />
               {event.note ? (
-                <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+                <Text className="min-w-0 flex-1 text-xs text-muted-foreground">
                   {event.note}
                 </Text>
               ) : null}
             </View>
             <Text className="text-xs text-muted-foreground">
-              {formatDate(event.at, locale)}
+              {formatDateTime(event.at, locale)}
             </Text>
           </View>
         ))}
@@ -287,7 +260,7 @@ function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder
   }
 
   return (
-    <View className="rounded-2xl border border-border bg-surface p-4">
+    <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
       <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.refunds")}</Text>
       <View className="gap-3">
         {data.map((refund) => (
@@ -388,7 +361,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
   }
 
   return (
-    <View className="rounded-2xl border border-border bg-surface p-4">
+    <View className="rounded-xl border border-border bg-white p-4 dark:bg-surface">
       <Text className="mb-3 text-sm font-semibold text-foreground">
         {t("orders.detail.fulfilment")}
       </Text>

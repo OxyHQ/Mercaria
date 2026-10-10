@@ -1,5 +1,8 @@
 {
   "ui": {
+    "sheet": {
+      "close": "Fechar"
+    },
     "condition": {
       "label": {
         "new": "Novo",
@@ -800,19 +803,20 @@
       }
     },
     "purchase": {
-      "oneTime": "Compra única",
-      "subscribe": "Assinatura",
       "addToCart": "Adicionar ao carrinho",
       "selectOptions": "Escolher opções",
       "buyNow": "Comprar agora",
+      "soldOut": "Esgotado",
+      "added": "Adicionado ao carrinho",
       "subscribeNow": "Assinar agora",
-      "frequency": {
-        "monthly": "Entrega todo mês",
-        "every2Months": "Entrega a cada 2 meses",
-        "every3Months": "Entrega a cada 3 meses",
-        "every4Months": "Entrega a cada 4 meses",
-        "every6Months": "Entrega a cada 6 meses"
-      }
+      "oneTime": "Compra única",
+      "subscriptionRequired": "Assinatura obrigatória",
+      "subscribeAndSave": "Assine e economize",
+      "subscription": "Assinatura",
+      "deliveryFrequency": "Frequência de entrega",
+      "options": "Opções de compra",
+      "soldOutSave": "Esta opção está esgotada. Salve este item para encontrá-lo depois.",
+      "soldOutSaved": "Esta opção está esgotada. Você encontra este item nos seus itens salvos."
     },
     "marketplace": {
       "visitMerchant": "Visitar %{name}",
@@ -857,6 +861,10 @@
       "codeA11y": "Código de retirada %{code}",
       "codeNote": "Mostre isto no balcão. Se parar de funcionar, a loja pode emitir um novo — um código antigo nunca continua funcionando junto com o novo."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} de desconto",
+      "minimumSubtotal": "em pedidos a partir de %{amount}"
+    },
     "productCard": {
       "discount": "%{percent} de desconto",
       "save": "Adicionar aos salvos"
@@ -864,7 +872,8 @@
     "gallery": {
       "viewImage": "Ver a imagem %{position}",
       "previous": "Imagem anterior",
-      "next": "Próxima imagem"
+      "next": "Próxima imagem",
+      "open": "Abrir imagens de %{title}"
     },
     "quantity": {
       "remove": "Remover o item",
@@ -879,7 +888,12 @@
       "verifiedRatings": "Notas verificadas: %{ratings}",
       "unverified": "Não verificadas: %{ratings} · %{rating}",
       "readMore": "Ler mais avaliações",
-      "none": "Ainda não há avaliações"
+      "open": "Ler avaliação de %{author}",
+      "none": "Ainda não há avaliações",
+      "ratings": "%{ratings} avaliações",
+      "fallbackAuthor": "Comprador da Mercaria",
+      "verifiedPurchase": "Compra verificada",
+      "unverifiedPurchase": "Não verificado"
     },
     "searchInterpretation": {
       "chip": "%{label}",
@@ -989,6 +1003,16 @@
         "revoked_for_policy": "Retirada por motivos legais",
         "superseded": "Substituída por uma compra posterior"
       }
+    },
+    "bundle": {
+      "title": "O que está incluído",
+      "unavailable": "O conteúdo deste kit está indisponível no momento.",
+      "open": "Ver %{name}, %{variant}, quantidade %{quantity}",
+      "quantity": "×%{quantity}",
+      "together": "Compre em conjunto",
+      "andSave": "Compre em conjunto e economize",
+      "view": "Ver conjunto",
+      "addFailed": "Não foi possível adicionar este conjunto. Tente novamente."
     }
   }
 }

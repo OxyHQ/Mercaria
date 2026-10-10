@@ -52,7 +52,8 @@
     "seed:verticals": "bun run --cwd packages/backend src/scripts/seed-verticals/index.ts",
     "seed:digital-3d": "bun run --cwd packages/backend src/scripts/seed-digital-3d.ts",
     "postinstall": "bun run --filter @mercaria/shared-types build && bun run --filter @mercaria/contracts build",
-    "test:edge": "bun test scripts/edge-activity.test.ts"
+    "test:edge": "bun test scripts/edge-activity.test.ts",
+    "test:storefront:browser": "playwright test --config scripts/e2e/storefront/playwright.config.ts"
   },
   "keywords": [
     "monorepo",
@@ -64,6 +65,7 @@
   "author": "",
   "devDependencies": {
     "@oxy.so/doctor": "1.1.0",
+    "@playwright/test": "1.64.0",
     "typescript": "^5.9.3"
   },
   "overrides": {

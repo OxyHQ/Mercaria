@@ -4,12 +4,22 @@
     "cancel": "キャンセル",
     "confirm": "確認",
     "back": "戻る",
-    "tryAgain": "再試行"
+    "tryAgain": "再試行",
+    "linkCopied": "リンクをコピーしました",
+    "shareError": "リンクを共有できませんでした。もう一度お試しください。",
+    "pagination": {
+      "previous": "前へ",
+      "next": "次へ",
+      "pageOf": "%{pages} ページ中 %{page} ページ"
+    }
   },
   "home": {
     "title": "Mercaria",
     "loadingProducts": "商品を読み込んでいます",
-    "loadError": "商品を読み込めませんでした。引っ張って更新するか、もう一度お試しください。"
+    "loadError": "商品を読み込めませんでした。引っ張って更新するか、もう一度お試しください。",
+    "keepShopping": "ショッピングを続ける",
+    "recentlyViewed": "最近見た商品",
+    "recentlyViewedEmpty": "閲覧した商品がここに表示されます。"
   },
   "nav": {
     "home": "ホーム",
@@ -136,11 +146,6 @@
     "compareOffersA11y": "この商品のすべての出品を比較する",
     "compareOffers": "すべての出品を比較",
     "percentOff": "%{percent}%オフ",
-    "demandCopy": "先月10万個以上購入",
-    "exclusiveOffer": {
-      "label": "限定価格を見る",
-      "caption": "ログインすると限定オファーを表示できます"
-    },
     "quantity": "数量",
     "decreaseQuantity": "数量を減らす",
     "increaseQuantity": "数量を増やす",
@@ -149,6 +154,8 @@
       "removeProductA11y": "この商品を保存から削除",
       "product": "商品を保存",
       "productSaved": "商品を保存しました",
+      "statusError": "保存状態を読み込めませんでした。",
+      "updateError": "保存した商品を更新できませんでした。",
       "exactListingA11y": "この出品を保存",
       "removeListingA11y": "この出品を保存から削除",
       "listing": "この出品を保存",
@@ -156,19 +163,17 @@
       "save": "保存",
       "saved": "保存済み"
     },
+    "moreActions": "その他の操作",
+    "reportProduct": "商品を報告",
     "shareA11y": "この商品を共有",
     "share": "共有",
-    "deliveryAndReturns": "配送と返品",
-    "viewReturnPolicyA11y": "返品ポリシーを見る",
     "returnPolicy": "返品ポリシー",
     "description": "説明",
-    "viewMore": "もっと見る",
-    "viewLess": "表示を減らす",
+    "readMoreDescription": "続きを読む",
     "highlights": "ハイライト",
     "sortOffersBy": "出品の並び順",
     "reportProblemA11y": "この商品の情報の問題を報告する",
     "reportProblem": "問題を報告",
-    "specifications": "仕様",
     "modelIdentifiers": "型番",
     "imageFromCatalogueA11y": "%{name} — カタログの画像",
     "releasedYear": "%{year}年発売",
@@ -198,6 +203,17 @@
       },
       "notFullyBuilt": "この期間の一部はまだ作成されていません。",
       "conversionDisplayOnly": "換算後の金額は表示用です。"
+    },
+    "reviews": "レビュー",
+    "purchasePreview": {
+      "notice": "サンプルの価格とプランを使ったプレビューです。操作はシミュレーションで、注文や請求は発生しません。",
+      "save": "%{percent}割引",
+      "monthly": "毎月お届け",
+      "bimonthly": "2か月ごとにお届け",
+      "prepaid": "1回のお届けにつき%{price}。3回分を前払い。",
+      "introductory": "初回お届けは特別価格、2回目以降は1回につき%{price}。",
+      "cartResult": "シミュレーション：カートに追加しました。実際のカートは変更されていません。",
+      "checkoutResult": "購入シミュレーションが完了しました。注文や支払いは作成されていません。"
     }
   },
   "catalog": {
@@ -304,14 +320,14 @@
     "empty": {
       "title": "まだ注文はありません",
       "subtitle": "注文するとここに表示されます。",
-      "signedOutSubtitle": "サインインすると注文履歴を確認できます。"
+      "signedOutSubtitle": "サインインすると注文履歴を確認できます。",
+      "activeTitle": "進行中の注文はありません",
+      "pastTitle": "過去の注文はありません",
+      "pastSubtitle": "完了、キャンセル、返金済みの注文がここに表示されます。"
     },
     "row": {
       "openA11yLabel": "注文 %{number} を開く",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} 点",
-        "other": "%{status} · %{seller} · %{count} 点"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "前へ",
@@ -373,6 +389,11 @@
       "basisEstimate": "配送パートナーによる見込みで、お約束ではありません。",
       "staleNote": "最近は更新できていません。",
       "refreshFailing": "この見込みを更新できていません。古い情報の可能性があります。"
+    },
+    "loadError": "注文を読み込めませんでした",
+    "tabs": {
+      "active": "進行中",
+      "past": "過去"
     }
   },
   "reviews": {
@@ -420,6 +441,37 @@
       "nativeTransaction": "この購入についてのレビュー",
       "p2pListing": "商品の説明についてのレビュー",
       "p2pSeller": "この出品者についてのレビュー"
+    },
+    "search": {
+      "placeholder": "レビューを検索",
+      "noResults": "検索に一致するレビューはありません。",
+      "results": "検索結果：%{results}件"
+    },
+    "filters": {
+      "sort": "並べ替え",
+      "newest": "新しい順",
+      "oldest": "古い順",
+      "ratingAscending": "評価の低い順",
+      "ratingDescending": "評価の高い順",
+      "rating": "評価",
+      "stars": "星%{count}つ",
+      "reset": "リセット",
+      "apply": "適用",
+      "noResults": "この条件に一致するレビューはありません。",
+      "results": "レビュー：%{results}"
+    },
+    "actions": {
+      "more": "レビューの操作",
+      "report": "レビューを報告",
+      "subject": "%{author}のレビュー"
+    },
+    "helpful": {
+      "label": "役に立った",
+      "mark": "レビューを役に立ったと評価",
+      "remove": "役に立ったの評価を取り消す",
+      "count": "%{formattedCount}人が役に立ったと評価",
+      "error": "評価を更新できませんでした。もう一度お試しください。",
+      "retry": "評価を再読み込み"
     }
   },
   "search": {
@@ -965,7 +1017,8 @@
       "body": "保存した商品は、すべての出品者の価格と在庫を、どの端末からでも追跡します。",
       "signIn": "ログイン",
       "title": "ログインすると保存できます"
-    }
+    },
+    "actionFailed": "保存した商品を更新できませんでした"
   },
   "watchlists": {
     "atLimit": "リストは最大 %{count} 件までです",
@@ -1126,13 +1179,12 @@
       "unfollowStore": "%{store} のフォローを解除"
     },
     "reviews": {
-      "helpful": "参考になった",
       "loading": "レビューを読み込み中…",
       "none": "まだレビューはありません",
       "viewProduct": "%{product} を見る",
       "ratingsCount": "%{formattedCount} 件の評価",
       "ratingsWithScope": "%{formattedCount} 件の評価 · %{scopeLabel}",
-      "fallbackAuthor": "購入確認済みの購入者",
+      "fallbackAuthor": "Mercariaの購入者",
       "viewA11yLabel": "このストアの対応に関するレビューを見る"
     },
     "visit": {
@@ -1225,6 +1277,9 @@
     "noLinkPublished": "リンクは未公開",
     "noDestination": "この出品者は価格を公開していますが、リンクがありません。",
     "outboundNotAvailable": "他のサイトの出品を開くことはまだできません。",
+    "seenOn": "%{date} に確認された価格",
+    "dataSource": "データ: %{name}",
+    "dataSourceLicensed": "データ: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "この出品者は在庫切れです。",
       "notPaymentReady": "この出品者はまだ支払いを受け取れません。",
@@ -1584,5 +1639,36 @@
       "formatsLabel": "含まれる形式: %{formats}",
       "notForSale": "販売していません"
     }
+  },
+  "thread": {
+    "title": "ショッピングアシスタント",
+    "thinking": "アイデアを探しています…",
+    "stop": "停止",
+    "unavailable": "ショッピングアシスタントはまだ利用できません。カタログの検索は引き続き利用できます。",
+    "signIn": "ログインしてチャット",
+    "retry": "再試行",
+    "viewResults": "検索結果を見る",
+    "newConversation": "新しい会話",
+    "previewAction": "サンプルデータで試す",
+    "previewLabel": "プレビュー · サンプル回答、AI未接続",
+    "previewReply": "会話のレイアウトを試すためのローカルカタログの例です。商品を開いて詳細を確認するか、別のメッセージを送信してください。"
+  },
+  "profile": {
+    "title": "プロフィール",
+    "subtitle": "保存した商品、注文、アカウントをひとつの場所で。"
+  },
+  "curations": {
+    "heading": "セレクション",
+    "preview": "プレビュー · ローカルカタログのサンプルセレクション",
+    "everyday": "日々のすてきな発見",
+    "fresh": "新しい視点",
+    "pleasures": "ささやかな楽しみ",
+    "description": "自分のペースでお気に入りを見つけましょう。",
+    "unavailable": "このセレクションは利用できません。",
+    "referenceTitle": "コートニー・グロウのセレクション",
+    "referenceSubtitle": "コートニーが今選ぶファッションとビューティー",
+    "quoteComfort": "心地よさ、個性、そして自分らしさを生む小さなディテール。",
+    "quoteTexture": "お気に入りの質感が、装い全体の印象を変えてくれます。",
+    "quoteEveryday": "いつも使うお気に入りを、手の届くところに。"
   }
 }

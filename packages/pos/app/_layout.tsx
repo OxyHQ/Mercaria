@@ -1,3 +1,4 @@
+import { isOxyFileId } from "@mercaria/shared-types";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useFonts } from "expo-font";
 import { Slot, Stack } from "expo-router";
@@ -8,6 +9,7 @@ import {
 import { useCallback, useEffect } from "react";
 import { OxyProvider, useOxy } from "@oxy.so/services";
 import { BloomProvider } from "@oxy.so/bloom/provider";
+import { OverlayInertBoundary } from "@oxy.so/bloom/portal";
 import { expoRouterScrollAdapter } from "@oxy.so/bloom/scroll/expo-router";
 import { ImageResolverProvider } from "@oxy.so/bloom/image-resolver";
 import * as Linking from "expo-linking";
@@ -49,11 +51,12 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
 
   setTokenGetter(() => oxyServices.session.accessToken || null);
 
-  // Resolve Oxy file IDs to thumbnail download URLs for any Bloom component
-  // that reads useImageResolver() (e.g. Avatar with a raw file id `source`).
+  // Resolve public Oxy file IDs using the rendition requested by Bloom.
+  // No rendition means the original; Avatar explicitly requests its thumbnail.
   const resolveImageSource = useCallback(
-    (fileId: string): string | undefined => {
-      const url = oxyServices.assets.publicUrl(fileId, "thumb");
+    (fileId: string, variant?: string): string | undefined => {
+      if (!isOxyFileId(fileId)) return undefined;
+      const url = oxyServices.assets.publicUrl(fileId, variant);
       return url && url.startsWith("http") ? url : undefined;
     },
     [oxyServices],
@@ -128,6 +131,7 @@ function RootLayout() {
             expo-router through the module-level adapter) and the bottom-edge
             registry the app shell's bar publishes its height through. */}
         <BloomProvider
+          locale={locale}
           scrollAdapter={expoRouterScrollAdapter}
           defaultMode="system"
           defaultColorPreset="blue"
@@ -144,7 +148,9 @@ function RootLayout() {
             clientId={OXY_CLIENT_ID}
             authRedirectUri={Platform.OS !== "web" ? AUTH_REDIRECT_URI : undefined}
           >
-            <AppContent />
+            <OverlayInertBoundary testID="app-content-boundary">
+              <AppContent />
+            </OverlayInertBoundary>
           </OxyProvider>
         </BloomProvider>
       </SharedUiTranslationProvider>

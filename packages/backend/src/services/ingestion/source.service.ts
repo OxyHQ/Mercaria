@@ -65,6 +65,7 @@ export function toPolicyRights(row: CatalogSourcePolicyRow): SourcePolicyRights 
     mayAppendAffiliateParams: row.mayAppendAffiliateParams,
     mayIndex: row.mayIndex,
     mayRefreshAutomatically: row.mayRefreshAutomatically,
+    maySeedCatalog: row.maySeedCatalog,
     extractionMode: row.extractionMode,
     attributionRequired: row.attributionRequired,
   };
@@ -204,6 +205,8 @@ export interface PublishPolicyInput {
   mayAppendAffiliateParams: boolean;
   mayIndex: boolean;
   mayRefreshAutomatically: boolean;
+  /** ADR 0014. Omitted means `false`: no source seeds the catalogue by silence. */
+  maySeedCatalog?: boolean;
   extractionMode: CatalogSourceExtractionMode;
   extractionMaxRequestsPerDay?: number;
   extractionUserAgent?: string;
@@ -271,6 +274,7 @@ export async function publishIngestionSourcePolicy(
       mayAppendAffiliateParams: input.mayAppendAffiliateParams,
       mayIndex: input.mayIndex,
       mayRefreshAutomatically: input.mayRefreshAutomatically,
+      maySeedCatalog: input.maySeedCatalog ?? false,
       extractionMode: input.extractionMode,
       extractionMaxRequestsPerDay: input.extractionMaxRequestsPerDay ?? null,
       extractionUserAgent: input.extractionUserAgent ?? null,

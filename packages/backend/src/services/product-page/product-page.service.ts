@@ -50,6 +50,7 @@ import {
   getVariantOptionAssignments,
 } from '../canonical/canonical-product.service.js';
 import { listVariants } from '../canonical/canonical-variant.service.js';
+import { readPublicBundleContents } from '../canonical/bundle-contents.service.js';
 import { listBrandChannels } from '../commerce-graph/relationship-resolution.js';
 import { findProductPageMerchants } from '../../db/productPage/productPageRepository.js';
 import { findStorefrontsByIds } from '../../db/commerce-graph/storefrontRepository.js';
@@ -57,6 +58,7 @@ import { rankOfferComparison } from '../ranking/comparison.service.js';
 import { assignOfferGroups, collectHighlights, type GroupableOffer } from './groups.js';
 import { resolveProductPageOutbound } from './outbound.js';
 import { resolveOfferSellers } from './sellers.js';
+import { resolveOfferSources } from './sources.js';
 
 /** What a caller asks a product page for. */
 export interface ProductPageRequest {
@@ -129,8 +131,11 @@ export async function readCanonicalProductPage(
   // one sentence the withheld branch exists to prevent.
   const countsAreMeaningful = offers.available === true;
 
+  const bundleVariantId = request.canonicalVariantId ?? (variants.length === 1 ? variants[0].id : undefined);
+  const bundleContents = bundleVariantId ? await readPublicBundleContents(bundleVariantId) : undefined;
   const page: CanonicalProductPage = {
     product,
+    ...(bundleContents ? { bundleContents } : {}),
     ...(product.id === request.handle || product.slug === request.handle
       ? {}
       : {
@@ -249,6 +254,7 @@ async function readOffers(
   }
 
   const sellers = await resolveOfferSellers(served, getDb());
+  const sources = await resolveOfferSources(served, getDb());
   const variantNames = new Map(variants.map((variant) => [variant.id, variant.name]));
 
   const rows: ProductPageOfferRow[] = [];
@@ -265,6 +271,7 @@ async function readOffers(
       ranked,
       seller: sellers.get(offer.id) ?? { kind: 'unknown' },
       outbound: resolveProductPageOutbound(offer),
+      ...(sources.has(offer.id) ? { source: sources.get(offer.id) } : {}),
       ...(variantName === undefined ? {} : { variantName }),
     });
     groupable.push({

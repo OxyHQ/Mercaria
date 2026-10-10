@@ -1,5 +1,8 @@
 {
   "ui": {
+    "sheet": {
+      "close": "বন্ধ করুন"
+    },
     "condition": {
       "label": {
         "new": "নতুন",
@@ -793,19 +796,20 @@
       }
     },
     "purchase": {
-      "oneTime": "একবারের কেনা",
-      "subscribe": "সাবস্ক্রিপশন",
       "addToCart": "কার্টে যোগ করুন",
       "selectOptions": "বিকল্প বেছে নিন",
       "buyNow": "এখনই কিনুন",
+      "soldOut": "স্টক শেষ",
+      "added": "কার্টে যোগ করা হয়েছে",
       "subscribeNow": "এখনই সাবস্ক্রাইব করুন",
-      "frequency": {
-        "monthly": "প্রতি মাসে ডেলিভারি",
-        "every2Months": "প্রতি 2 মাসে ডেলিভারি",
-        "every3Months": "প্রতি 3 মাসে ডেলিভারি",
-        "every4Months": "প্রতি 4 মাসে ডেলিভারি",
-        "every6Months": "প্রতি 6 মাসে ডেলিভারি"
-      }
+      "oneTime": "এককালীন কেনাকাটা",
+      "subscriptionRequired": "সাবস্ক্রিপশন আবশ্যক",
+      "subscribeAndSave": "সাবস্ক্রাইব করে সাশ্রয় করুন",
+      "subscription": "সাবস্ক্রিপশন",
+      "deliveryFrequency": "ডেলিভারির ব্যবধান",
+      "options": "কেনার বিকল্প",
+      "soldOutSave": "এই বিকল্পটি স্টকে নেই। পরে খুঁজে পেতে এই পণ্যটি সংরক্ষণ করুন।",
+      "soldOutSaved": "এই বিকল্পটি স্টকে নেই। আপনার সংরক্ষিত পণ্যগুলিতে এটি খুঁজে পাবেন।"
     },
     "marketplace": {
       "visitMerchant": "%{name}-এ যান",
@@ -850,6 +854,10 @@
       "codeA11y": "সংগ্রহের কোড %{code}",
       "codeNote": "কাউন্টারে এটি দেখান। কাজ করা বন্ধ করলে দোকান নতুন একটি দিতে পারে — পুরোনো কোড কখনও নতুনটির পাশাপাশি কাজ করে না।"
     },
+    "storeOffer": {
+      "amountOff": "%{amount} ছাড়",
+      "minimumSubtotal": "%{amount} বা তার বেশি অর্ডারে"
+    },
     "productCard": {
       "discount": "%{percent} ছাড়",
       "save": "সংরক্ষিত জিনিসে যোগ করুন"
@@ -857,7 +865,8 @@
     "gallery": {
       "viewImage": "ছবি %{position} দেখুন",
       "previous": "আগের ছবি",
-      "next": "পরের ছবি"
+      "next": "পরের ছবি",
+      "open": "%{title}-এর ছবি খুলুন"
     },
     "quantity": {
       "remove": "পণ্যটি সরান",
@@ -872,7 +881,12 @@
       "verifiedRatings": "যাচাই করা রেটিং: %{ratings}",
       "unverified": "যাচাই না করা: %{ratings} · %{rating}",
       "readMore": "আরও পর্যালোচনা পড়ুন",
-      "none": "এখনও কোনো পর্যালোচনা নেই"
+      "open": "%{author}-এর পর্যালোচনা পড়ুন",
+      "none": "এখনও কোনো পর্যালোচনা নেই",
+      "ratings": "%{ratings} রেটিং",
+      "fallbackAuthor": "Mercaria ক্রেতা",
+      "verifiedPurchase": "যাচাইকৃত ক্রয়",
+      "unverifiedPurchase": "যাচাই করা হয়নি"
     },
     "searchInterpretation": {
       "chip": "%{label}",
@@ -982,6 +996,16 @@
         "revoked_for_policy": "আইনি কারণে প্রত্যাহার করা",
         "superseded": "পরের কেনা দিয়ে প্রতিস্থাপিত"
       }
+    },
+    "bundle": {
+      "title": "প্যাকে যা রয়েছে",
+      "unavailable": "এই প্যাকের সামগ্রীর বিবরণ এখন উপলব্ধ নয়।",
+      "open": "%{name}, %{variant}, পরিমাণ %{quantity} দেখুন",
+      "quantity": "×%{quantity}",
+      "together": "সেট হিসেবে কিনুন",
+      "andSave": "সেট কিনে সাশ্রয় করুন",
+      "view": "সেট দেখুন",
+      "addFailed": "এই সেটটি যোগ করা যায়নি। আবার চেষ্টা করুন।"
     }
   }
 }

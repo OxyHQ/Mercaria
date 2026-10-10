@@ -1,3 +1,5 @@
+import { merchantImageSource } from "../../lib/shop-merchant-images";
+import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MoreHorizontal } from "lucide-react-native";
@@ -14,8 +16,6 @@ import { useRatingDisplay } from "../../lib/rating-display";
 import { formatPercent } from "../../lib/format";
 import { IncentiveHalo } from "./IncentiveHalo";
 
-/** Fixed gold star fill (mirrors the MerchantCard constant). */
-const STAR_COLOR = "#FFB800";
 /** Logo edge length (px) for the `large` (mobile sticky bar) variant. */
 const LARGE_LOGO_SIZE = 44;
 /** Logo edge length (px) for the `compact` (desktop buy column) variant. */
@@ -45,12 +45,17 @@ export interface MerchantHeaderProps {
    * vocabulary for "off" across the page rather than two.
    */
   discountPercent?: number;
+  /** Catalog-confirmed exclusive offer; ordinary stores have no incentive ring. */
+  exclusiveOffer?: boolean;
   onPress: () => void;
+  onMore?: () => void;
+  /** Anchored action control supplied by the consuming app, for example a Bloom menu. */
+  moreAction?: ReactNode;
   /**
    * Visual variant:
-   * - `large` — bigger halo logo, name + rating, and an outlined "Visit store"
+   * - `large` — bigger logo, name + rating, and an outlined "Visit store"
    *   button on the right (the mobile sticky merchant bar).
-   * - `compact` — smaller halo logo, name + rating, and a trailing overflow
+   * - `compact` — smaller logo, name + rating, and a trailing overflow
    *   (…) button (the desktop buy-column header).
    */
   size?: "large" | "compact";
@@ -58,7 +63,7 @@ export interface MerchantHeaderProps {
 
 /**
  * Compact "★ 4.4 (310.6K)" rating row used inside the header — Bloom's
- * `Rating` with the gold star, the localised figure and the count.
+ * `Rating` with a matching foreground star, the localised figure and the count.
  *
  * The accessible name names the SCOPE (#76 UI rule 6). A PDP carries this
  * rating and the product rating side by side, and a reader hearing "4.4" twice
@@ -79,7 +84,6 @@ function HeaderRating({
     <Rating
       {...ratingDisplay({ rating, reviews: reviewCount, subject: scopeLabel })}
       size="small"
-      starColor={STAR_COLOR}
     />
   );
 }
@@ -87,29 +91,29 @@ function HeaderRating({
 /** `formatPercent` reads BASIS POINTS; a whole percent is one hundred of them. */
 const BASIS_POINTS_PER_PERCENT = 100;
 
-/** Halo-wrapped merchant logo at a fixed edge length. */
-function HeaderLogo({ logoUrl, size }: { logoUrl?: string; size: number }) {
-  return (
-    <IncentiveHalo>
-      <View
-        className="overflow-hidden rounded-radius-max bg-bg-fill-secondary"
-        style={{ height: size, width: size }}
-      >
-        {logoUrl ? (
-          <Image
-            source={{ uri: logoUrl }}
-            contentFit="cover"
-            style={{ height: size, width: size }}
-          />
-        ) : null}
-      </View>
-    </IncentiveHalo>
+/** Merchant logos only receive the incentive ring for a confirmed exclusive offer. */
+function HeaderLogo({ logoUrl, size, exclusiveOffer }: {
+  logoUrl?: string;
+  size: number;
+  exclusiveOffer: boolean;
+}) {
+  const logo = (
+    <View
+      className="overflow-hidden rounded-radius-max bg-bg-fill-secondary border-[0.5px] border-border-image"
+      style={{ height: size, width: size }}
+    >
+      {logoUrl ? (
+        <Image source={merchantImageSource(logoUrl)} contentFit="cover"
+          style={{ height: size, width: size }} />
+      ) : null}
+    </View>
   );
+  return exclusiveOffer ? <IncentiveHalo>{logo}</IncentiveHalo> : logo;
 }
 
 /**
- * Merchant identity header used on the PDP buy column. Renders an incentive-halo
- * logo + name + optional rating, with a trailing action that depends on `size`:
+ * Merchant identity header used on the PDP buy column. Renders a
+ * logo with an optional exclusive-offer ring + name + optional rating, with a trailing action that depends on `size`:
  * the `large` variant ends in an outlined "Visit store" link; the `compact`
  * variant ends in an overflow (…) button. Purely presentational — the caller
  * owns navigation via `onPress`.
@@ -120,9 +124,12 @@ export function MerchantHeader({
   rating,
   reviewCount,
   onPress,
+  onMore,
+  moreAction,
   size = "compact",
   scopeLabel = "Seller service",
   discountPercent,
+  exclusiveOffer = false,
 }: MerchantHeaderProps) {
   const isLarge = size === "large";
   const t = useSharedUiTranslation();
@@ -136,14 +143,14 @@ export function MerchantHeader({
         onPress={onPress}
         className="flex-1 flex-row items-center gap-space-8"
       >
-        <HeaderLogo logoUrl={logoUrl} size={isLarge ? LARGE_LOGO_SIZE : COMPACT_LOGO_SIZE} />
+        <HeaderLogo logoUrl={logoUrl} size={isLarge ? LARGE_LOGO_SIZE : COMPACT_LOGO_SIZE} exclusiveOffer={exclusiveOffer} />
         <View className="flex-1">
           <Text
             numberOfLines={1}
             className={
               isLarge
-                ? "text-bodyTitleLarge text-text"
-                : "text-bodyTitleSmall text-text"
+                ? "text-shop-bodyTitleLarge text-text"
+                : "text-shop-bodyTitleSmall text-text"
             }
           >
             {name}
@@ -156,7 +163,7 @@ export function MerchantHeader({
             />
           ) : null}
           {discountPercent !== undefined && discountPercent > 0 ? (
-            <Text className="text-captionBold text-text-brand">
+            <Text className="text-shop-captionBold text-text-brand">
               {t(PRODUCT_CARD_DISCOUNT_KEY, {
                 percent: formatPercent(
                   discountPercent * BASIS_POINTS_PER_PERCENT,
@@ -176,12 +183,13 @@ export function MerchantHeader({
           onPress={onPress}
           className="rounded-radius-max border-[1.5px] border-border-secondary px-space-16 py-space-8"
         >
-          <Text className="text-buttonMedium text-text">
+          <Text className="text-shop-buttonMedium text-text">
             {t(MERCHANT_HEADER_VISIT_STORE_KEY)}
           </Text>
         </Pressable>
-      ) : (
+      ) : moreAction ?? (onMore ? (
         <Pressable
+          onPress={onMore}
           accessibilityRole="button"
           accessibilityLabel={t(MERCHANT_HEADER_MORE_OPTIONS_KEY)}
           hitSlop={8}
@@ -189,7 +197,7 @@ export function MerchantHeader({
         >
           <MoreHorizontal size={OVERFLOW_ICON_SIZE} className="text-text-tertiary" />
         </Pressable>
-      )}
+      ) : null)}
     </View>
   );
 }

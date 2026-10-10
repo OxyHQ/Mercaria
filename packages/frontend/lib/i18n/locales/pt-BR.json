@@ -4,12 +4,22 @@
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "back": "Voltar",
-    "tryAgain": "Tentar de novo"
+    "tryAgain": "Tentar de novo",
+    "linkCopied": "Link copiado",
+    "shareError": "Não foi possível compartilhar o link. Tente novamente.",
+    "pagination": {
+      "previous": "Anterior",
+      "next": "Próxima",
+      "pageOf": "Página %{page} de %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
     "loadingProducts": "Carregando produtos",
-    "loadError": "Não foi possível carregar os produtos. Puxe para atualizar ou tente de novo."
+    "loadError": "Não foi possível carregar os produtos. Puxe para atualizar ou tente de novo.",
+    "keepShopping": "Continue comprando",
+    "recentlyViewed": "Vistos recentemente",
+    "recentlyViewedEmpty": "Os produtos que você visualizar aparecerão aqui."
   },
   "nav": {
     "home": "Início",
@@ -136,11 +146,6 @@
     "compareOffersA11y": "Comparar todas as ofertas deste produto",
     "compareOffers": "Comparar todas as ofertas",
     "percentOff": "%{percent}% de desconto",
-    "demandCopy": "Mais de 100 mil comprados no último mês",
-    "exclusiveOffer": {
-      "label": "Desbloqueie preços exclusivos",
-      "caption": "Entre para ver sua oferta exclusiva"
-    },
     "quantity": "Quantidade",
     "decreaseQuantity": "Diminuir a quantidade",
     "increaseQuantity": "Aumentar a quantidade",
@@ -149,6 +154,8 @@
       "removeProductA11y": "Remover este produto dos salvos",
       "product": "Salvar produto",
       "productSaved": "Produto salvo",
+      "statusError": "Não foi possível verificar se o produto está salvo.",
+      "updateError": "Não foi possível atualizar seus itens salvos.",
       "exactListingA11y": "Salvar exatamente este anúncio",
       "removeListingA11y": "Remover este anúncio dos salvos",
       "listing": "Salvar este anúncio",
@@ -156,19 +163,17 @@
       "save": "Salvar",
       "saved": "Salvo"
     },
+    "moreActions": "Mais ações",
+    "reportProduct": "Denunciar produto",
     "shareA11y": "Compartilhar este produto",
     "share": "Compartilhar",
-    "deliveryAndReturns": "Entrega e devoluções",
-    "viewReturnPolicyA11y": "Ver a política de devolução",
     "returnPolicy": "Política de devolução",
     "description": "Descrição",
-    "viewMore": "Ver mais",
-    "viewLess": "Ver menos",
+    "readMoreDescription": "Ler mais",
     "highlights": "Destaques",
     "sortOffersBy": "Ordenar ofertas por",
     "reportProblemA11y": "Relatar um problema nas informações deste produto",
     "reportProblem": "Relatar um problema",
-    "specifications": "Especificações",
     "modelIdentifiers": "Identificadores do modelo",
     "imageFromCatalogueA11y": "%{name} — imagem do catálogo",
     "releasedYear": "Lançado em %{year}",
@@ -200,6 +205,17 @@
       },
       "notFullyBuilt": "Parte deste período ainda não foi montada.",
       "conversionDisplayOnly": "Os valores convertidos são apenas para exibição."
+    },
+    "reviews": "Avaliações",
+    "purchasePreview": {
+      "notice": "Prévia com preços e planos de exemplo. As ações são simuladas; nenhum pedido ou cobrança é criado.",
+      "save": "Economize %{percent}",
+      "monthly": "Entrega todo mês",
+      "bimonthly": "Entrega a cada 2 meses",
+      "prepaid": "%{price} por entrega. Três entregas pagas antecipadamente.",
+      "introductory": "Preço inicial para a primeira entrega, depois %{price} por entrega.",
+      "cartResult": "Simulação: adicionado ao carrinho. Seu carrinho não mudou.",
+      "checkoutResult": "Compra simulada concluída. Nenhum pedido ou pagamento foi criado."
     }
   },
   "catalog": {
@@ -306,15 +322,14 @@
     "empty": {
       "title": "Nenhum pedido ainda",
       "subtitle": "Quando você fizer um pedido, ele aparecerá aqui.",
-      "signedOutSubtitle": "Entre para ver seu histórico de pedidos."
+      "signedOutSubtitle": "Entre para ver seu histórico de pedidos.",
+      "activeTitle": "Nenhum pedido ativo",
+      "pastTitle": "Nenhum pedido anterior",
+      "pastSubtitle": "Pedidos concluídos, cancelados e reembolsados aparecem aqui."
     },
     "row": {
       "openA11yLabel": "Abrir o pedido %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} item",
-        "other": "%{status} · %{seller} · %{count} itens",
-        "many": "%{status} · %{seller} · %{count} de itens"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Anterior",
@@ -376,6 +391,11 @@
       "basisEstimate": "Uma estimativa do nosso parceiro de logística, não uma promessa.",
       "staleNote": "Não conseguimos atualizá-la recentemente.",
       "refreshFailing": "Não conseguimos atualizar esta estimativa. Ela pode estar desatualizada."
+    },
+    "loadError": "Não foi possível carregar seus pedidos",
+    "tabs": {
+      "active": "Ativos",
+      "past": "Anteriores"
     }
   },
   "reviews": {
@@ -424,6 +444,37 @@
       "nativeTransaction": "Sua avaliação desta compra",
       "p2pListing": "Sua avaliação da descrição do item",
       "p2pSeller": "Sua avaliação deste vendedor"
+    },
+    "search": {
+      "placeholder": "Buscar avaliações",
+      "noResults": "Nenhuma avaliação corresponde à sua busca.",
+      "results": "Resultados da busca: %{results}"
+    },
+    "filters": {
+      "sort": "Ordenar por",
+      "newest": "Mais recentes",
+      "oldest": "Mais antigas",
+      "ratingAscending": "Nota: menor para maior",
+      "ratingDescending": "Nota: maior para menor",
+      "rating": "Nota",
+      "stars": "%{count} estrelas",
+      "reset": "Redefinir",
+      "apply": "Aplicar",
+      "noResults": "Nenhuma avaliação corresponde a esses filtros.",
+      "results": "Avaliações: %{results}"
+    },
+    "actions": {
+      "more": "Ações da avaliação",
+      "report": "Denunciar avaliação",
+      "subject": "Avaliação de %{author}"
+    },
+    "helpful": {
+      "label": "Útil",
+      "mark": "Marcar avaliação como útil",
+      "remove": "Remover voto de útil",
+      "count": "%{formattedCount} acharam útil",
+      "error": "Não foi possível atualizar seu voto. Tente novamente.",
+      "retry": "Recarregar votos de útil"
     }
   },
   "search": {
@@ -976,7 +1027,8 @@
       "body": "Os produtos salvos acompanham o preço e a disponibilidade em todos os vendedores, em todos os seus dispositivos.",
       "signIn": "Entrar",
       "title": "Entre para salvar coisas"
-    }
+    },
+    "actionFailed": "Não foi possível atualizar seus favoritos"
   },
   "watchlists": {
     "atLimit": "Você atingiu o máximo de %{count} listas",
@@ -1138,13 +1190,12 @@
       "unfollowStore": "Deixar de seguir %{store}"
     },
     "reviews": {
-      "helpful": "Útil",
       "loading": "Carregando avaliações…",
       "none": "Ainda não há avaliações",
       "viewProduct": "Ver %{product}",
       "ratingsCount": "%{formattedCount} avaliações",
       "ratingsWithScope": "%{formattedCount} avaliações · %{scopeLabel}",
-      "fallbackAuthor": "Comprador verificado",
+      "fallbackAuthor": "Comprador da Mercaria",
       "viewA11yLabel": "Ver as avaliações do atendimento desta loja"
     },
     "visit": {
@@ -1240,6 +1291,9 @@
     "noLinkPublished": "Nenhum link publicado",
     "noDestination": "Este vendedor publicou um preço, mas nenhum link.",
     "outboundNotAvailable": "Abrir ofertas em outros sites ainda não está disponível.",
+    "seenOn": "Preço visto em %{date}",
+    "dataSource": "Dados: %{name}",
+    "dataSourceLicensed": "Dados: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "Este vendedor está sem estoque.",
       "notPaymentReady": "Este vendedor ainda não pode receber pagamentos.",
@@ -1601,5 +1655,36 @@
       "formatsLabel": "Inclui %{formats}",
       "notForSale": "Não está à venda"
     }
+  },
+  "thread": {
+    "title": "Assistente de compras",
+    "thinking": "Buscando ideias…",
+    "stop": "Parar",
+    "unavailable": "O assistente de compras ainda não está disponível. Você pode continuar pesquisando no catálogo.",
+    "signIn": "Entre para conversar",
+    "retry": "Tentar novamente",
+    "viewResults": "Ver resultados da busca",
+    "newConversation": "Nova conversa",
+    "previewAction": "Testar com dados de exemplo",
+    "previewLabel": "Prévia · Respostas de exemplo, sem IA conectada",
+    "previewReply": "Estes são exemplos do catálogo local para testar a conversa. Abra um produto para ver os detalhes ou envie outra mensagem."
+  },
+  "profile": {
+    "title": "Perfil",
+    "subtitle": "Seus favoritos, pedidos e conta em um só lugar."
+  },
+  "curations": {
+    "heading": "Seleções",
+    "preview": "Prévia · Seleções de exemplo do catálogo local",
+    "everyday": "Achados do dia a dia",
+    "fresh": "Novas perspectivas",
+    "pleasures": "Pequenos prazeres",
+    "description": "Ideias para descobrir no seu ritmo.",
+    "unavailable": "Esta seleção não está disponível.",
+    "referenceTitle": "A seleção de Courtney Grow",
+    "referenceSubtitle": "Os favoritos atuais de moda e beleza de Courtney",
+    "quoteComfort": "Conforto, personalidade e os pequenos detalhes que tornam uma peça sua.",
+    "quoteTexture": "Uma textura que você ama pode transformar um visual inteiro.",
+    "quoteEveryday": "Mantenha por perto as coisas que você mais usa."
   }
 }

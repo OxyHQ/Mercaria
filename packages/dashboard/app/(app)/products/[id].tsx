@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
-import { ChevronLeft, Trash2, Plus, Boxes } from "lucide-react-native";
+import { Trash2, Plus, Boxes } from "lucide-react-native";
 import { partitionPinnedFields } from "@mercaria/shared-types";
 import type {
   Listing,
@@ -26,7 +26,11 @@ import { Field } from "@oxy.so/bloom/field";
 import { TextFieldInput } from "@oxy.so/bloom/text-field";
 import { Textarea } from "@oxy.so/bloom/textarea";
 import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
+import { Screen } from "@/components/shell/Screen";
+import { canRetainDetailData } from "@/lib/detail-query-state";
+import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
+import { ProductMedia } from "@/components/products/ProductMedia";
+import { DetailContent } from "@/components/shell/DetailContent";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
   useProduct,
@@ -81,37 +85,30 @@ export default function ProductDetailScreen() {
         <title>{t("products.detail.documentTitle")}</title>
       </Head>
       <RequireStore permission="products:read">
-        {(storeId) => <ProductDetailBody storeId={storeId} productId={String(id)} />}
+        {(storeId) => <ProductDetailBody key={`${storeId}:${id}`} storeId={storeId} productId={String(id)} />}
       </RequireStore>
     </>
   );
 }
 
 function ProductDetailBody({ storeId, productId }: { storeId: string; productId: string }) {
+  const router = useRouter();
   const { t } = useTranslation();
-  const { data, isPending, isError } = useProduct(storeId, productId);
-
-  if (isPending) {
-    return (
-      <Screen title={t("products.detail.title")}>
-        <ScreenLoading />
-      </Screen>
-    );
-  }
-  if (isError || !data) {
-    return (
-      <Screen title={t("products.detail.title")}>
-        <ScreenMessage title={t("products.detail.loadFailed")} body={t("common.pleaseTryAgain")} />
-      </Screen>
-    );
-  }
-  return <ProductEditor storeId={storeId} product={data} />;
+  const { data: cached, error, isPending, isFetching, isError, refetch } = useProduct(storeId, productId);
+  const data = canRetainDetailData(error) ? cached : undefined;
+  return <Screen title={data?.title ?? t("products.detail.title")}
+    subtitle={data ? t("products.detail.variantCount", { count: data.variants.length }) : t(isError ? "common.pleaseTryAgain" : "common.loading")}
+    action={<Button appearance="outline" material="flat" onPress={() => router.replace("/products")}>{t("common.back")}</Button>}>
+    <DetailContent testID="merchant-product-detail" hasData={Boolean(data)} pending={isPending} fetching={isFetching}
+      error={isError} errorTitle={t("products.detail.loadFailed")} onRetry={() => { void refetch(); }}>
+      {data ? <ProductEditor key={`${storeId}:${data.id}`} storeId={storeId} product={data} /> : null}
+    </DetailContent>
+  </Screen>;
 }
 
 function ProductEditor({ storeId, product }: { storeId: string; product: Listing }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
   const { can } = useActiveStoreContext();
   const canWrite = can("products:write");
 
@@ -148,6 +145,22 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
   const [title, setTitle] = useState(product.title);
   const [description, setDescription] = useState(product.description);
+  const [organizationDraft, setOrganization] = useState<ProductOrganizationValue>({ vendor: product.vendor ?? "", productType: product.productType ?? "", tags: product.tags ?? [] });
+  const [editedOrganization, setEditedOrganization] = useState({ vendor: false, productType: false, tags: false });
+  // Untouched fields follow a refreshed DTO; an in-progress edit stays local.
+  const organization: ProductOrganizationValue = {
+    vendor: editedOrganization.vendor ? organizationDraft.vendor : product.vendor ?? "",
+    productType: editedOrganization.productType ? organizationDraft.productType : product.productType ?? "",
+    tags: editedOrganization.tags ? organizationDraft.tags : product.tags ?? [],
+  };
+  const organizationErrors = {
+    vendor: editedOrganization.vendor && Boolean(product.vendor) && !organization.vendor.trim(),
+    productType: editedOrganization.productType && Boolean(product.productType) && !organization.productType.trim(),
+  };
+  const changeOrganization = (next: ProductOrganizationValue) => {
+    setEditedOrganization(previous => ({ vendor: previous.vendor || next.vendor !== organization.vendor, productType: previous.productType || next.productType !== organization.productType, tags: previous.tags || next.tags !== organization.tags }));
+    setOrganization(next);
+  };
   const restricted = isRestricted(product);
   // Falls back to `draft` only so the control has a valid value while disabled —
   // it is never submitted, because `save` is unreachable for a restricted listing.
@@ -156,11 +169,18 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   );
 
   const save = () => {
-    if (restricted) return;
+    if (restricted || organizationErrors.vendor || organizationErrors.productType) return;
     updateProduct.mutate(
-      { title: title.trim(), description: description.trim(), status },
+      { title: title.trim(), description: description.trim(), status,
+        ...(editedOrganization.vendor && organization.vendor.trim() !== (product.vendor ?? "") ? { vendor: organization.vendor.trim() } : {}),
+        ...(editedOrganization.productType && organization.productType.trim() !== (product.productType ?? "") ? { productType: organization.productType.trim() } : {}),
+        ...(editedOrganization.tags && JSON.stringify(organization.tags) !== JSON.stringify(product.tags ?? []) ? { tags: organization.tags } : {}),
+      },
       {
-        onSuccess: () => toast.success(t("products.detail.saved")),
+        onSuccess: () => {
+          setEditedOrganization({ vendor: false, productType: false, tags: false });
+          toast.success(t("products.detail.saved"));
+        },
         onError: () => toast.error(t("products.detail.saveFailed")),
       },
     );
@@ -177,20 +197,8 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   };
 
   return (
-    <Screen
-      title={product.title}
-      subtitle={t("products.detail.variantCount", { count: product.variants.length })}
-      action={
-        <Pressable
-          onPress={() => router.back()}
-          className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
-        >
-          <ChevronLeft size={16} color={colors.foreground} />
-          <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
-        </Pressable>
-      }
-    >
-      <View className="gap-5">
+      <View className="gap-5 lg:flex-row lg:items-start">
+      <View testID="merchant-product-main" className="min-w-0 flex-1 gap-5 rounded-xl border border-border bg-white p-4 dark:bg-surface">
         {source ? (
           <View className="gap-3">
             <SourceBadge provider={source.provider} />
@@ -253,15 +261,16 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             placeholder={null}
             value={title}
             onValueChange={setTitle}
-            disabled={!canWrite}
+            disabled={!canWrite || restricted}
           />
         </Field>
         <Textarea
           label={t("common.description")}
           value={description}
           onValueChange={setDescription}
-          disabled={!canWrite}
+          disabled={!canWrite || restricted}
         />
+        <ProductMedia images={product.images} title={product.title} />
         <Field
           label={t("common.status")}
           description={restricted ? t("products.detail.restrictedNotice") : undefined}
@@ -282,10 +291,10 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         {canWrite ? (
           <View className="flex-row gap-3">
-            <Button tone="accent" className="flex-1" onPress={save} loading={updateProduct.isPending}>
+            <Button tone="accent" className="flex-1" onPress={save} disabled={restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
               {t("products.detail.saveChanges")}
             </Button>
-            <Button tone="danger" onPress={archive} loading={archiveProduct.isPending}>
+            <Button tone="danger" onPress={archive} disabled={restricted} loading={archiveProduct.isPending}>
               {t("products.detail.archive")}
             </Button>
           </View>
@@ -293,7 +302,8 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         <VariantsSection storeId={storeId} product={product} canWrite={canWrite} />
       </View>
-    </Screen>
+      <View className="w-full lg:w-72"><ProductOrganization category={product.category} value={organization} onChange={changeOrganization} errors={organizationErrors} disabled={!canWrite || restricted} busy={updateProduct.isPending} /></View>
+      </View>
   );
 }
 

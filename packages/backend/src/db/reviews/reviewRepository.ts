@@ -57,7 +57,7 @@
  * the endpoints (#36 completion criterion 4).
  */
 
-import { and, asc, desc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { InferSelectModel, SQL } from 'drizzle-orm';
 import type { PgColumn } from 'drizzle-orm/pg-core';
 import {
@@ -69,6 +69,8 @@ import {
   type ReviewScope,
   type ReviewTargetType,
   type ReviewVerificationState,
+  type ReviewRatingSummary,
+  type ReviewListFilters,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { reviewDimensions, reviews } from '../schema/reviews.js';
@@ -370,6 +372,36 @@ export async function aggregatePublishedReviews(
   return { average: row?.average ?? null, count: row?.count ?? 0 };
 }
 
+/** A bounded five-bucket read, never a histogram of one paginated sample. */
+export async function readReviewRatingSummary(
+  target: ReviewTarget | ScopedReviewTarget,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ReviewRatingSummary> {
+  const verifiedOnly = 'scope' in target;
+  const filter = verifiedOnly
+    ? and(publishedScopedFilter(target), eq(reviews.verification, 'verified_purchase'))
+    : publishedTargetFilter(target);
+  const rows = await db
+    .select({ rating: reviews.rating, count: sql<number>`count(*)::int` })
+    .from(reviews)
+    .where(filter)
+    .groupBy(reviews.rating);
+  const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let reviewCount = 0;
+  let sum = 0;
+  for (const row of rows) {
+    distribution[row.rating] = row.count;
+    reviewCount += row.count;
+    sum += row.rating * row.count;
+  }
+  return {
+    rating: reviewCount ? Math.round((sum / reviewCount) * 10) / 10 : 0,
+    reviewCount,
+    distribution,
+    verifiedOnly,
+  };
+}
+
 /**
  * The verified and unverified halves of a SCOPED target's published reviews,
  * counted apart in ONE pass.
@@ -391,15 +423,11 @@ export async function aggregateScopedReviews(
       verifiedAverage: sql<
         number | null
       >`avg(${reviews.rating}) filter (where ${reviews.verification} = 'verified_purchase')::double precision`,
-      verifiedCount: sql<
-        number
-      >`count(*) filter (where ${reviews.verification} = 'verified_purchase')::int`,
+      verifiedCount: sql<number>`count(*) filter (where ${reviews.verification} = 'verified_purchase')::int`,
       unverifiedAverage: sql<
         number | null
       >`avg(${reviews.rating}) filter (where ${reviews.verification} = 'unverified')::double precision`,
-      unverifiedCount: sql<
-        number
-      >`count(*) filter (where ${reviews.verification} = 'unverified')::int`,
+      unverifiedCount: sql<number>`count(*) filter (where ${reviews.verification} = 'unverified')::int`,
     })
     .from(reviews)
     .where(publishedScopedFilter(target));
@@ -448,7 +476,7 @@ export async function findDimensionsForReviews(
 }
 
 /**
- * A page of a LEGACY target's PUBLISHED reviews, newest first, plus the total.
+ * A page of a LEGACY target's PUBLISHED reviews, newest first by default, plus the total.
  *
  * The `id` tiebreaker is new. Mongo sorted on `createdAt` alone, which leaves
  * reviews written in the same millisecond in an order the server may choose
@@ -460,37 +488,57 @@ export async function findReviewsPage(
   target: ReviewTarget,
   page: number,
   limit: number,
+  filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(publishedTargetFilter(target), page, limit, db);
+  return pageOf(withReviewFilters(publishedTargetFilter(target), filters), page, limit, filters, db);
 }
 
-/** A page of a SCOPED target's PUBLISHED reviews, newest first, plus the total. */
+/** A page of a SCOPED target's PUBLISHED reviews, newest first by default, plus the total. */
 export async function findScopedReviewsPage(
   target: ScopedReviewTarget,
   page: number,
   limit: number,
+  filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(publishedScopedFilter(target), page, limit, db);
+  return pageOf(withReviewFilters(publishedScopedFilter(target), filters), page, limit, filters, db);
 }
 
-/** The shared body of the two paged reads above. */
+/** Literal title/body search and star selection, scoped before count and pagination. */
+function withReviewFilters(target: SQL, { query, ratings }: ReviewListFilters): SQL {
+  if (ratings?.length) target = and(target, inArray(reviews.rating, ratings)) as SQL;
+  const text = query?.trim();
+  if (!text) return target;
+  const pattern = `%${text.replace(/[\\%_]/g, '\\$&')}%`;
+  return and(target, or(ilike(reviews.title, pattern), ilike(reviews.body, pattern))) as SQL;
+}
+
+/** The shared body of all three paged reads. */
 async function pageOf(
   where: SQL,
   page: number,
   limit: number,
+  filters: ReviewListFilters,
   db: DatabaseOrTransaction,
 ): Promise<ReviewPageRows> {
+  const byDate = [desc(reviews.createdAt), desc(reviews.id)];
+  const order = filters.sortBy === 'oldest' ? [asc(reviews.createdAt), asc(reviews.id)]
+    : filters.sortBy === 'rating_asc' ? [asc(reviews.rating), ...byDate]
+    : filters.sortBy === 'rating_desc' ? [desc(reviews.rating), ...byDate]
+    : byDate;
   const [rows, [totals]] = await Promise.all([
     db
       .select()
       .from(reviews)
       .where(where)
-      .orderBy(desc(reviews.createdAt), desc(reviews.id))
+      .orderBy(...order)
       .limit(limit)
       .offset((page - 1) * limit),
-    db.select({ count: sql<number>`count(*)::int` }).from(reviews).where(where),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(reviews)
+      .where(where),
   ]);
 
   return { rows, total: totals?.count ?? 0 };
@@ -507,18 +555,20 @@ export async function findListingReviewsPage(
   listingIds: readonly string[],
   page: number,
   limit: number,
+  filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
   if (listingIds.length === 0) return { rows: [], total: 0 };
 
   return pageOf(
-    and(
+    withReviewFilters(and(
       eq(reviews.targetType, 'listing'),
       inArray(reviews.listingId, [...listingIds]),
       eq(reviews.status, 'published'),
-    ) as SQL,
+    ) as SQL, filters),
     page,
     limit,
+    filters,
     db,
   );
 }
@@ -685,7 +735,11 @@ export async function markReviewAmbiguous(
 ): Promise<boolean> {
   const rows = await db
     .update(reviews)
-    .set({ classificationState: 'ambiguous', ambiguityReason: reason, updatedAt: new Date() })
+    .set({
+      classificationState: 'ambiguous',
+      ambiguityReason: reason,
+      updatedAt: new Date(),
+    })
     .where(and(eq(reviews.id, reviewId), eq(reviews.classificationState, 'unclassified')))
     .returning({ id: reviews.id });
   return rows.length > 0;

@@ -1,5 +1,8 @@
 {
   "ui": {
+    "sheet": {
+      "close": "Close"
+    },
     "condition": {
       "label": {
         "new": "New",
@@ -793,19 +796,20 @@
       }
     },
     "purchase": {
-      "oneTime": "One time purchase",
-      "subscribe": "Subscribe",
       "addToCart": "Add to cart",
       "selectOptions": "Select options",
       "buyNow": "Buy now",
+      "soldOut": "Sold out",
+      "added": "Added to cart",
       "subscribeNow": "Subscribe now",
-      "frequency": {
-        "monthly": "Delivers every month",
-        "every2Months": "Delivers every 2 months",
-        "every3Months": "Delivers every 3 months",
-        "every4Months": "Delivers every 4 months",
-        "every6Months": "Delivers every 6 months"
-      }
+      "oneTime": "One time purchase",
+      "subscriptionRequired": "Subscription required",
+      "subscribeAndSave": "Subscribe & save",
+      "subscription": "Subscription",
+      "deliveryFrequency": "Delivery frequency",
+      "options": "Purchase options",
+      "soldOutSave": "This option is sold out. Save this item to find it later.",
+      "soldOutSaved": "This option is sold out. You can find this item in your saved items."
     },
     "marketplace": {
       "visitMerchant": "Visit %{name}",
@@ -850,6 +854,10 @@
       "codeA11y": "Collection code %{code}",
       "codeNote": "Show this at the counter. If it stops working the shop can issue a new one — an older code never keeps working alongside it."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} off",
+      "minimumSubtotal": "on orders of %{amount}+"
+    },
     "productCard": {
       "discount": "%{percent} off",
       "save": "Add to saved items"
@@ -857,7 +865,8 @@
     "gallery": {
       "viewImage": "View image %{position}",
       "previous": "Previous image",
-      "next": "Next image"
+      "next": "Next image",
+      "open": "Open images of %{title}"
     },
     "quantity": {
       "remove": "Remove item",
@@ -872,7 +881,12 @@
       "verifiedRatings": "Verified ratings: %{ratings}",
       "unverified": "Unverified: %{ratings} · %{rating}",
       "readMore": "Read more reviews",
-      "none": "No reviews yet"
+      "open": "Read review by %{author}",
+      "none": "No reviews yet",
+      "ratings": "%{ratings} ratings",
+      "fallbackAuthor": "Mercaria buyer",
+      "verifiedPurchase": "Verified purchase",
+      "unverifiedPurchase": "Unverified"
     },
     "searchInterpretation": {
       "chip": "%{label}",
@@ -982,6 +996,16 @@
         "revoked_for_policy": "Withdrawn for legal reasons",
         "superseded": "Replaced by a later purchase"
       }
+    },
+    "bundle": {
+      "title": "What's included",
+      "unavailable": "The contents of this pack are currently unavailable.",
+      "open": "View %{name}, %{variant}, quantity %{quantity}",
+      "quantity": "×%{quantity}",
+      "together": "Bundle together",
+      "andSave": "Bundle and save",
+      "view": "View bundle",
+      "addFailed": "Could not add this bundle. Please try again."
     }
   }
 }

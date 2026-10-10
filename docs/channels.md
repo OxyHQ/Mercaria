@@ -906,6 +906,27 @@ answer — a `products/update` delivery carries `status` and fires exactly when 
 merchant drafts or archives a product. If drafts ARE returned, the first sync
 archives every listing whose Shopify source is currently a draft or archived.
 
+### Imported catalog images are synchronized before writes
+
+Both pull connectors and push-in product imports pass their image references
+through `services/catalog-media/sync.ts` before creating or updating a listing.
+HTTPS sources are downloaded using Oxy's DNS-pinned `safeFetch` and uploaded to
+Oxy's durable public user-media endpoint. The owner is the store's persisted
+`oxyAccountId`; the resulting gallery stores only the returned internal file IDs.
+Images protected by a merchant override cause no download.
+
+The importer accepts at most 64 references per gallery, limits each image to
+20 MiB, and bounds download/upload time. A failed download, denied upload or
+non-public file result fails that product without changing its gallery or
+relisting it. Other products in the batch continue. Source URLs and credentials
+are omitted from media error messages. Existing internal IDs pass through.
+
+The backend needs its Oxy application credentials and the staff-granted
+`files:user-media:write` scope. The federation cache endpoint is not a durable
+substitute. Existing stored URLs and canonical catalog ingestion still need the
+coordinated migration recorded in `HANDOFF.md`; this import boundary does not
+assert that every historical image or response DTO has already been converted.
+
 ### A product republished upstream comes back — but only when this connector archived it (#390)
 
 `toUpdatePatch` writes seven fields — title, description, images, vendor,

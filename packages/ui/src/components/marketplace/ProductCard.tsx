@@ -1,30 +1,33 @@
-import { useState } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
-import { BlurView } from "expo-blur";
-import { Heart } from "lucide-react-native";
+import { Button } from "@oxy.so/bloom/button";
+import { ShopDetailIcon } from "./ShopDetailIcon";
 import { Text } from "../ui/text";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  useSharedUiLocale,
+  useSharedUiTranslation,
+} from "../../i18n/ui-translation";
 import {
   MARKETPLACE_NO_IMAGE_KEY,
   PRODUCT_CARD_DISCOUNT_KEY,
   PRODUCT_CARD_SAVE_KEY,
 } from "../../lib/marketplace-labels";
 import { Rating } from "@oxy.so/bloom/rating";
-import { PriceDisplay } from "../PriceDisplay";
+import { PriceDisplay, usePriceText } from "../PriceDisplay";
 import type { ProductSummary } from "../../lib/format";
 import { formatPercent } from "../../lib/format";
 import { useFormatters } from "../../lib/use-formatters";
 import { useRatingDisplay } from "../../lib/rating-display";
+import { useListingSaveAction, type SaveListing } from "./ListingSaveProvider";
 
 /** Light color used for content drawn over the image (badge text, heart). */
 const ON_IMAGE_LIGHT = "#FFFFFF";
-/** Blur intensity for the native favorite-button backdrop. */
-const FAVORITE_BLUR_INTENSITY = 25;
 /** Heart icon size for the favorite button. */
 const HEART_SIZE = 18;
 
 export interface ProductCardProps {
+  variant?: "standard" | "image-only";
   product: ProductSummary;
   /**
    * Initial saved/favorited state. Overrides `product.saved` when provided;
@@ -32,7 +35,7 @@ export interface ProductCardProps {
    */
   saved?: boolean;
   onPress?: (id: string) => void;
-  onToggleSave?: (id: string, nextSaved: boolean) => void;
+  onToggleSave?: SaveListing;
 }
 
 /** `formatPercent` reads BASIS POINTS; a whole percent is one hundred of them. */
@@ -45,23 +48,42 @@ function isOnSale(product: ProductSummary): boolean {
   );
 }
 
-export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCardProps) {
+export function ProductCard({
+  product,
+  saved,
+  onPress,
+  onToggleSave,
+  variant = "standard",
+}: ProductCardProps) {
+  const priceText = usePriceText()(product.price);
   const t = useSharedUiTranslation();
   const [isSaved, setIsSaved] = useState(saved ?? product.saved ?? false);
+  const [saving, setSaving] = useState(false);
+  const defaultSaveAction = useListingSaveAction();
+  const saveAction = onToggleSave ?? defaultSaveAction;
+  useEffect(() => {
+    setIsSaved(saved ?? product.saved ?? false);
+  }, [saved, product.saved, product.id]);
   const { formatMoney } = useFormatters();
   const ratingDisplay = useRatingDisplay();
   const locale = useSharedUiLocale();
   const onSale = isOnSale(product);
   const discountPercent =
     onSale && product.compareAtPrice
-      ? Math.round((1 - product.price.amount / product.compareAtPrice.amount) * 100)
+      ? Math.round(
+          (1 - product.price.amount / product.compareAtPrice.amount) * 100,
+        )
       : 0;
-  const isNativePlatform = Platform.OS !== "web";
 
-  const handleToggleSave = () => {
+  const handleToggleSave = async () => {
+    if (!saveAction || saving) return;
     const next = !isSaved;
-    setIsSaved(next);
-    onToggleSave?.(product.id, next);
+    setSaving(true);
+    try {
+      if ((await saveAction(product.id, next)) !== false) setIsSaved(next);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -72,7 +94,10 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
     // web). `group` is kept here so the image still scales on hover.
     <View className="group flex flex-col gap-2">
       {/* Image block */}
-      <View className="relative aspect-square overflow-hidden rounded-[20px] bg-card web:shadow-sm">
+      <View
+        className="relative aspect-square overflow-hidden rounded-[20px] bg-white"
+        style={{ boxShadow: "0px 2px 8px rgba(0,0,0,0.06)" }}
+      >
         {/* Image navigation link — fills the block, sits beneath the favorite. */}
         <Pressable
           accessibilityRole="link"
@@ -84,29 +109,42 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
             <Image
               source={{ uri: product.imageUrl }}
               contentFit="cover"
-              className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105"
+              className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105 web:motion-reduce:transition-none web:motion-reduce:transform-none"
             />
           ) : (
             <View className="h-full w-full items-center justify-center bg-muted">
-              <Text className="text-xs text-muted-foreground">{t(MARKETPLACE_NO_IMAGE_KEY)}</Text>
+              <Text className="text-xs text-muted-foreground">
+                {t(MARKETPLACE_NO_IMAGE_KEY)}
+              </Text>
             </View>
           )}
         </Pressable>
 
         {/* Subtle dark wash over the image (Shop bg-bg-overlay-inverse-04). */}
-        <View
-          pointerEvents="none"
-          className="absolute inset-0 rounded-[20px] bg-black/[0.04]"
-        />
+        {variant !== "image-only" ? (
+          <View
+            pointerEvents="none"
+            className="absolute inset-0 rounded-[20px] bg-black/[0.04]"
+          />
+        ) : null}
 
         {/* Hairline inner border */}
         <View
           pointerEvents="none"
-          className="absolute inset-0 rounded-[20px] border border-border"
+          className="absolute inset-0 rounded-[20px] border-[0.5px] border-black/10"
         />
 
         {/* Sale badge */}
-        {onSale ? (
+        {variant === "image-only" ? (
+          <View
+            pointerEvents="none"
+            className="absolute start-3 top-3 rounded-full bg-black/30 px-1.5 py-0.5"
+          >
+            <Text className="text-shop-badgeBold text-white">
+              {priceText.primary}
+            </Text>
+          </View>
+        ) : onSale ? (
           <View
             pointerEvents="none"
             className="absolute start-3 top-3 rounded-full bg-black/75 px-1.5 py-0.5"
@@ -116,7 +154,11 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
               style={{ color: ON_IMAGE_LIGHT }}
             >
               {t(PRODUCT_CARD_DISCOUNT_KEY, {
-                percent: formatPercent(discountPercent * BASIS_POINTS_PER_PERCENT, locale, 0),
+                percent: formatPercent(
+                  discountPercent * BASIS_POINTS_PER_PERCENT,
+                  locale,
+                  0,
+                ),
               })}
             </Text>
           </View>
@@ -124,69 +166,77 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
 
         {/* Favorite button — SIBLING of the image link (rendered last so it
             stacks on top and receives presses). Not nested in any link. */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(PRODUCT_CARD_SAVE_KEY)}
-          onPress={handleToggleSave}
-          hitSlop={8}
-          className="absolute bottom-3 end-3 overflow-hidden rounded-full"
-        >
-          {isNativePlatform ? (
-            <BlurView
-              intensity={FAVORITE_BLUR_INTENSITY}
-              tint="dark"
-              className="rounded-full p-2"
-            >
-              <Heart
-                size={HEART_SIZE}
-                color={ON_IMAGE_LIGHT}
-                fill={isSaved ? ON_IMAGE_LIGHT : "transparent"}
-              />
-            </BlurView>
-          ) : (
-            <View className="rounded-full bg-black/40 p-2 web:backdrop-blur-md">
-              <Heart
-                size={HEART_SIZE}
-                color={ON_IMAGE_LIGHT}
-                fill={isSaved ? ON_IMAGE_LIGHT : "transparent"}
-              />
-            </View>
-          )}
-        </Pressable>
+        {saveAction ? (
+          <View className="absolute bottom-3 end-3">
+            <Button
+              iconOnly
+              appearance="plain"
+              tone="neutral"
+              pressed={isSaved}
+              accessibilityLabel={t(PRODUCT_CARD_SAVE_KEY)}
+              disabled={saving}
+              onPress={handleToggleSave}
+              style={{
+                width: variant === "image-only" ? 32 : 36,
+                height: variant === "image-only" ? 32 : 36,
+                minHeight: variant === "image-only" ? 32 : 36,
+                borderRadius: 18,
+                padding: 0,
+                backgroundColor: "rgba(0,0,0,0.4)",
+              }}
+              icon={() => (
+                <ShopDetailIcon
+                  name="heart"
+                  size={variant === "image-only" ? 16 : HEART_SIZE}
+                  color={ON_IMAGE_LIGHT}
+                  filled={isSaved}
+                />
+              )}
+            />
+          </View>
+        ) : null}
       </View>
 
       {/* Text block — its own separate navigation link. */}
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={product.title}
-        onPress={() => onPress?.(product.id)}
-        className="flex flex-col ps-1 leading-4"
-      >
-        <Text numberOfLines={1} className="text-xs text-muted-foreground">
-          {product.brand}
-        </Text>
-        <Text numberOfLines={1} className="text-xs font-bold text-foreground">
-          {product.title}
-        </Text>
+      {variant !== "image-only" ? (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={product.title}
+          onPress={() => onPress?.(product.id)}
+          className="flex flex-col ps-1 leading-[16px]"
+        >
+          <Text numberOfLines={1} className="text-xs text-muted-foreground">
+            {product.brand}
+          </Text>
+          <Text numberOfLines={1} className="text-xs font-bold text-foreground">
+            {product.title}
+          </Text>
 
-        {/* Review row */}
-        <Rating
-          {...ratingDisplay({ rating: product.rating, reviews: product.reviewCount })}
-          size="small"
-        />
+          {/* Review row */}
+          <Rating
+            {...ratingDisplay({
+              rating: product.rating,
+              reviews: product.reviewCount,
+            })}
+            size="small"
+          />
 
-        {/* Price row. The primary FAIR figure (plus the optional dual-currency
+          {/* Price row. The primary FAIR figure (plus the optional dual-currency
             secondary, driven by FxContext) renders via PriceDisplay; the
             compare-at strikethrough stays a plain formatted figure. */}
-        <View className="mt-0.5 flex-row items-center gap-1">
-          <PriceDisplay price={product.price} primaryClassName="text-xs font-bold" />
-          {onSale && product.compareAtPrice ? (
-            <Text className="text-xs font-normal text-muted-foreground line-through">
-              {formatMoney(product.compareAtPrice)}
-            </Text>
-          ) : null}
-        </View>
-      </Pressable>
+          <View className="mt-0.5 flex-row items-center gap-1">
+            <PriceDisplay
+              price={product.price}
+              primaryClassName="text-xs font-bold"
+            />
+            {onSale && product.compareAtPrice ? (
+              <Text className="text-xs font-normal text-muted-foreground line-through">
+                {formatMoney(product.compareAtPrice)}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

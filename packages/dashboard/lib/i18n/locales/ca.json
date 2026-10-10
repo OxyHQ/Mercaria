@@ -781,7 +781,9 @@
     "reportsError": "No s'han pogut carregar els informes",
     "sales": {
       "empty": "Encara no hi ha vendes en aquest període.",
-      "title": "Vendes (últim període)"
+      "title": "Vendes",
+      "point": "%{date}: %{revenue}, %{count} comandes",
+      "inspect": "Selecciona un dia per veure vendes i comandes."
     },
     "stats": {
       "averageOrder": "Comanda mitjana",
@@ -802,7 +804,11 @@
         "other": "%{count} venuts",
         "many": "%{count} de venuts"
       }
-    }
+    },
+    "allTime": "Des del principi",
+    "performance": "Rendiment de la botiga",
+    "lastDays": "Últims %{days} dies",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Canals de venda",
@@ -818,7 +824,10 @@
     "collapseSidebar": "Redueix la barra lateral",
     "expandSidebar": "Amplia la barra lateral",
     "closeSidebar": "Tanca la barra lateral",
-    "closeNavigation": "Tanca la navegació"
+    "closeNavigation": "Tanca la navegació",
+    "searchNavigation": "Cerca a la navegació",
+    "clearSearch": "Esborra la cerca de navegació",
+    "noResults": "No hi ha pàgines coincidents"
   },
   "orders": {
     "detail": {
@@ -916,7 +925,7 @@
     "status": {
       "cancelled": "Cancel·lada",
       "delivered": "Lliurada",
-      "digitallyDelivered": "Lliurat",
+      "digitallyDelivered": "Lliurament digital completat",
       "paid": "Pagada",
       "partiallyRefunded": "Reemb. parcial",
       "pendingPayment": "Pendent",
@@ -924,7 +933,6 @@
       "refunded": "Reemborsada",
       "shipped": "Enviada"
     },
-    "subtitle": "Prepara i fes el seguiment de les teves vendes",
     "title": "Comandes",
     "totals": {
       "discounts": "Descomptes",
@@ -964,6 +972,12 @@
         "one": "%{count} variant",
         "other": "%{count} variants",
         "many": "%{count} de variants"
+      },
+      "organization": {
+        "heading": "Organització del producte",
+        "tags": "Etiquetes",
+        "addTag": "Afegeix una etiqueta",
+        "removeTag": "Elimina %{tag}"
       }
     },
     "documentTitle": "Productes | Mercaria Dashboard",
@@ -1006,7 +1020,7 @@
         "many": "%{count} de variants · %{stock} en estoc"
       }
     },
-    "searchPlaceholder": "Cerca productes en aquesta pàgina…",
+    "searchPlaceholder": "Cerca productes…",
     "status": {
       "active": "Actiu",
       "archived": "Arxivat",
@@ -1015,7 +1029,6 @@
       "sold": "Venut"
     },
     "stockLabel": "Estoc",
-    "subtitle": "El catàleg de la teva botiga",
     "title": "Productes",
     "variants": {
       "add": "Afegeix",
@@ -1891,5 +1904,14 @@
     "subtitle": "Tria una botiga per gestionar-la",
     "switch": "Canvia de botiga",
     "title": "Les teves botigues"
+  },
+  "resourceList": {
+    "noResults": "No hi ha resultats coincidents",
+    "clearFilters": "Esborra els filtres",
+    "previous": "Anterior",
+    "next": "Següent",
+    "price": "Preu",
+    "date": "Data",
+    "customer": "Client"
   }
 }

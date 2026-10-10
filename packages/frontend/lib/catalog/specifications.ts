@@ -67,6 +67,8 @@ export type SpecificationScope = 'product' | 'variant';
 export type SpecificationGrouping = 'entity_scope';
 
 export interface SpecificationEntry {
+  /** One observed slot: multi-value attributes and structured axes share a key. */
+  readonly rowKey: string;
   /** The registry's stable machine key. Identity; never rendered as the label. */
   readonly attributeKey: string;
   readonly label: string;
@@ -194,6 +196,7 @@ function toEntry(
       : localizedLabel(definition, locale);
 
   return {
+    rowKey: JSON.stringify([value.key, value.componentAxis ?? null, value.position]),
     attributeKey: value.key,
     label: label.label,
     labelSource: label.source,

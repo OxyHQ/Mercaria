@@ -75,17 +75,17 @@ export function CompatibilityPanel({ compatibility }: CompatibilityPanelProps) {
 
   return (
     <View className="gap-space-12">
-      <Text className="text-captionBold text-text" accessibilityRole="header">
+      <Text className="text-shop-captionBold text-text" accessibilityRole="header">
         {t('catalog.compatibility.title')}
       </Text>
 
       {compatibility.groups.map((group) => (
         <View key={group.applicability} className="gap-space-4">
-          <Text className="text-captionBold text-text-secondary" accessibilityRole="header">
+          <Text className="text-shop-captionBold text-text-secondary" accessibilityRole="header">
             {t(GROUP_HEADING_KEY[group.applicability])}
           </Text>
           {group.fitments.map((entry) => (
-            <Text key={entry.id} className="text-body text-text-secondary">
+            <Text key={entry.id} className="text-shop-body text-text-secondary">
               {describeFitment(entry)}
             </Text>
           ))}
@@ -93,7 +93,7 @@ export function CompatibilityPanel({ compatibility }: CompatibilityPanelProps) {
       ))}
 
       {compatibility.truncated ? (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t('catalog.compatibility.truncated')}
         </Text>
       ) : null}

@@ -5,6 +5,7 @@ import type {
   OfferFreshnessAssessment,
   OfferMoney,
   ProductPageOfferRow,
+  ProductPageOfferSource,
   ProductPageSeller,
 } from '@mercaria/shared-types';
 import {
@@ -44,9 +45,10 @@ export interface OfferRowProps {
   /** Called for a native, purchasable offer. Never reachable for an external one. */
   onAddToCart?: (input: { listingId: string; productVariantId: string }) => void;
   addToCartPending?: boolean;
+  isUpdating?: boolean;
 }
 
-export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRowProps) {
+export function OfferRow({ row, onAddToCart, addToCartPending = false, isUpdating = false }: OfferRowProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const { offer, ranked, seller, outbound } = row;
@@ -67,7 +69,7 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
             // On a PRODUCT-scoped page a row must say which configuration it
             // prices, or #71 acceptance 4 fails quietly: the shopper reads a
             // price for a variant they did not choose.
-            <Text className="text-caption text-text-secondary">{row.variantName}</Text>
+            <Text className="text-shop-caption text-text-secondary">{row.variantName}</Text>
           ) : null}
         </View>
         <PriceBlock price={ranked.cost.itemPrice} sourcePrice={offer.price} />
@@ -83,7 +85,7 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
       {offer.returnPolicy?.windowDays !== undefined ? (
         // #71 offer row 8: a return-policy summary ONLY when the seller supplied
         // one. Mercaria states no return policy on somebody else's behalf.
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t('offer.returnWindow', { count: offer.returnPolicy.windowDays })}
         </Text>
       ) : null}
@@ -103,8 +105,8 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('offer.buyOnMercaria')}
-            accessibilityState={{ disabled: addToCartPending }}
-            disabled={addToCartPending}
+            accessibilityState={{ disabled: addToCartPending || isUpdating }}
+            disabled={addToCartPending || isUpdating}
             onPress={() =>
               onAddToCart?.({
                 listingId: outbound.listingId,
@@ -113,25 +115,64 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
             }
             className="flex-1 items-center rounded-radius-max bg-bg-fill-inverse p-space-12"
           >
-            <Text className="text-buttonMedium text-text-inverse">{t('offer.buyOnMercaria')}</Text>
+            <Text className="text-shop-buttonMedium text-text-inverse">{t('offer.buyOnMercaria')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="link"
             accessibilityLabel={t('offer.openSellerListingA11y')}
+            disabled={isUpdating}
+            accessibilityState={{ disabled: isUpdating }}
             onPress={() =>
-              router.push(`/products/${outbound.listingId}`)
+              router.push({ pathname: '/products/[id]', params: { id: outbound.listingId, variantId: outbound.productVariantId } })
             }
             className="items-center rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
-            <Text className="text-buttonMedium text-text">{t('offer.viewListing')}</Text>
+            <Text className="text-shop-buttonMedium text-text">{t('offer.viewListing')}</Text>
           </Pressable>
         </View>
       ) : outbound.kind === 'outbound' ? (
-        <OutboundAction outbound={outbound} />
+        <OutboundAction outbound={outbound} disabled={isUpdating} />
+      ) : outbound.reason === 'no_destination' && row.source?.observedAt !== undefined ? (
+        // A crowd-sourced shelf price has no page to send anyone to, and a
+        // disabled "no link" button would read as a defect. What the shopper
+        // needs instead is WHEN somebody saw it — the honest qualifier on a
+        // price nobody is selling online.
+        <SeenOnLine observedAt={row.source.observedAt} />
       ) : (
         <UnavailableAction row={row} />
       )}
+
+      {row.source ? <SourceLine source={row.source} /> : null}
     </View>
+  );
+}
+
+/** When the source saw this price, in the shopper's locale. */
+function SeenOnLine({ observedAt }: { observedAt: string }) {
+  const { t, locale } = useTranslation();
+  return (
+    <Text className="text-shop-caption text-text-secondary">
+      {t('offer.seenOn', { date: formatDate(observedAt, locale) })}
+    </Text>
+  );
+}
+
+/**
+ * The open-data source this row's facts came from (ADR 0014 D5).
+ *
+ * Its licence requires naming it wherever its data is shown. The licence LABEL
+ * arrives as data — "ODbL 1.0" is a proper noun in every language — and only
+ * the sentence around it is translated. Text, not a link: this surface opens
+ * nothing outside Mercaria except through the outbound union.
+ */
+function SourceLine({ source }: { source: ProductPageOfferSource }) {
+  const { t } = useTranslation();
+  return (
+    <Text className="text-shop-caption text-text-secondary">
+      {source.licenceLabel === ''
+        ? t('offer.dataSource', { name: source.name })
+        : t('offer.dataSourceLicensed', { name: source.name, licence: source.licenceLabel })}
+    </Text>
   );
 }
 
@@ -170,10 +211,10 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
             router.push(`/merchants/${seller.slug}`)
           }
         >
-          <Text className="text-bodyTitleSmall text-text">{seller.name}</Text>
+          <Text className="text-shop-bodyTitleSmall text-text">{seller.name}</Text>
         </Pressable>
         {seller.storefront ? (
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {seller.marketplaceSeller
               ? // ADR 0002 D8: a marketplace offer names BOTH, because the
                 // seller of record is who a buyer's warranty is with and the
@@ -195,7 +236,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
           router.push(`/stores/${seller.handle}`)
         }
       >
-        <Text className="text-bodyTitleSmall text-text">{seller.name}</Text>
+        <Text className="text-shop-bodyTitleSmall text-text">{seller.name}</Text>
       </Pressable>
     );
   }
@@ -209,14 +250,14 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
           router.push(`/sellers/${encodeURIComponent(seller.oxyUserId)}`)
         }
       >
-        <Text className="text-bodyTitleSmall text-text">{seller.displayName}</Text>
+        <Text className="text-shop-bodyTitleSmall text-text">{seller.displayName}</Text>
       </Pressable>
     );
   }
 
   // An unresolvable seller names NOBODY rather than naming somebody wrong.
   return (
-    <Text className="text-bodyTitleSmall text-text-secondary">
+    <Text className="text-shop-bodyTitleSmall text-text-secondary">
       {t('offer.sellerNotIdentified')}
     </Text>
   );
@@ -244,9 +285,9 @@ function PriceBlock({
   if (price.known === true) {
     return (
       <View className="items-end gap-space-2">
-        <Text className="text-bodyTitleLarge text-text">{formatMoney(price.amount)}</Text>
+        <Text className="text-shop-bodyTitleLarge text-text">{formatMoney(price.amount)}</Text>
         {source !== null && sourcePrice !== undefined && sourcePrice.currency !== price.amount.currency ? (
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {t('offer.listedAt', { amount: source })}
           </Text>
         ) : null}
@@ -257,13 +298,13 @@ function PriceBlock({
   return (
     <View className="items-end gap-space-2">
       {source === null ? (
-        <Text className="text-bodyTitleSmall text-text-secondary">
+        <Text className="text-shop-bodyTitleSmall text-text-secondary">
           {t('offer.priceNotAvailable')}
         </Text>
       ) : (
-        <Text className="text-bodyTitleSmall text-text">{source}</Text>
+        <Text className="text-shop-bodyTitleSmall text-text">{source}</Text>
       )}
-      <Text className="text-caption text-text-secondary">
+      <Text className="text-shop-caption text-text-secondary">
         {price.reason === 'not_convertible'
           ? t('offer.priceNotConvertible')
           : t('offer.priceNotPublished')}
@@ -280,7 +321,7 @@ function DeliveryLine({ row }: { row: ProductPageOfferRow }) {
 
   if (delivery.known === false) {
     return (
-      <Text className="text-caption text-text-secondary">
+      <Text className="text-shop-caption text-text-secondary">
         {delivery.pickup === 'available'
           ? t('offer.deliveryUnknownWithPickup')
           : t('offer.deliveryUnknown')}
@@ -301,7 +342,7 @@ function DeliveryLine({ row }: { row: ProductPageOfferRow }) {
   };
 
   return (
-    <Text className="text-caption text-text-secondary">
+    <Text className="text-shop-caption text-text-secondary">
       {hasWindow
         ? t(free ? 'offer.freeDeliveryWithWindow' : 'offer.deliveryCostWithWindow', values)
         : t(free ? 'offer.freeDelivery' : 'offer.deliveryCost', values)}
@@ -335,7 +376,7 @@ function AvailabilityLine({
   const values = { availability: availabilityText, date: checked };
 
   return (
-    <Text className="text-caption text-text-secondary">
+    <Text className="text-shop-caption text-text-secondary">
       {checked === null
         ? availabilityText
         : stale
@@ -385,8 +426,10 @@ const AVAILABILITY_UNKNOWN_KEY = 'offer.availability.notPublished';
  */
 function OutboundAction({
   outbound,
+  disabled,
 }: {
   outbound: Extract<ProductPageOfferRow['outbound'], { kind: 'outbound' }>;
+  disabled: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -395,16 +438,18 @@ function OutboundAction({
       <Pressable
         accessibilityRole="link"
         accessibilityLabel={t('offer.goToHost', { host: outbound.destinationHost })}
+        disabled={disabled}
+        accessibilityState={{ disabled }}
         onPress={() => {
           void Linking.openURL(`${config.apiUrl}${outbound.redirectPath}`);
         }}
         className="items-center rounded-radius-max border border-border-secondary p-space-12"
       >
-        <Text className="text-buttonMedium text-text">
+        <Text className="text-shop-buttonMedium text-text">
           {t('offer.goToHost', { host: outbound.destinationHost })}
         </Text>
       </Pressable>
-      <Text className="text-caption text-text-secondary">
+      <Text className="text-shop-caption text-text-secondary">
         {t('offer.continueOnHost', { host: outbound.destinationHost })}
       </Text>
     </View>
@@ -426,7 +471,7 @@ function UnavailableAction({ row }: { row: ProductPageOfferRow }) {
 
   if (outbound.reason === 'native_not_purchasable') {
     return (
-      <Text className="text-caption text-text-secondary" accessibilityRole="text">
+      <Text className="text-shop-caption text-text-secondary" accessibilityRole="text">
         {t(nativeBlockTextKey(offer.checkout.eligible === true ? [] : offer.checkout.reasons))}
       </Text>
     );
@@ -445,13 +490,13 @@ function UnavailableAction({ row }: { row: ProductPageOfferRow }) {
         disabled
         className="items-center rounded-radius-max border border-border-secondary p-space-12 opacity-60"
       >
-        <Text className="text-buttonMedium text-text-secondary">
+        <Text className="text-shop-buttonMedium text-text-secondary">
           {outbound.destinationHost === undefined
             ? t('offer.noLinkPublished')
             : t('offer.goToHost', { host: outbound.destinationHost })}
         </Text>
       </Pressable>
-      <Text className="text-caption text-text-secondary">
+      <Text className="text-shop-caption text-text-secondary">
         {outbound.reason === 'no_destination'
           ? t('offer.noDestination')
           : t('offer.outboundNotAvailable')}

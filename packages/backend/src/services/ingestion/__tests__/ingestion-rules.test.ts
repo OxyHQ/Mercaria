@@ -56,6 +56,7 @@ const FULL: SourcePolicyRights = {
   mayAppendAffiliateParams: true,
   mayIndex: true,
   mayRefreshAutomatically: true,
+  maySeedCatalog: true,
   extractionMode: 'contracted',
   attributionRequired: true,
 };

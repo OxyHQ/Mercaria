@@ -408,3 +408,37 @@ export async function listSourceObjectsWithOffers(
     .orderBy(asc(catalogSourceObjects.lastSeenAt))
     .limit(limit);
 }
+
+/**
+ * The GTINs other sources observed and nothing has identified yet — the
+ * catalogue's DEMAND, which a reference source reads to fetch exactly the
+ * products the comparison is missing (`services/open-data/`, ADR 0014).
+ *
+ * An object is demand while it is `unmatched` in a source other than the asker,
+ * its current observation asserts a GTIN-family value, and the asker holds no
+ * object under that value yet. Paged by the value itself, ascending, so a pass
+ * walks the demand without an offset that shifts as objects match.
+ */
+export async function listGtinDemand(
+  db: DatabaseOrTransaction,
+  input: { askingSourceId: string; after: string | null; limit: number },
+): Promise<string[]> {
+  const result = await db.execute<{ gtin: string }>(sql`
+    select distinct demand.gtin
+    from (
+      select coalesce(sr.payload ->> 'gtin', sr.payload ->> 'ean', sr.payload ->> 'upc') as gtin
+      from ${catalogSourceObjects} o
+      join source_records sr on sr.id = o.current_source_record_id
+      where o.state = 'unmatched' and o.source_id <> ${input.askingSourceId}
+    ) demand
+    where demand.gtin ~ '^[0-9]{8,14}$'
+      and (${input.after}::text is null or demand.gtin > ${input.after}::text)
+      and not exists (
+        select 1 from ${catalogSourceObjects} own
+        where own.source_id = ${input.askingSourceId} and own.external_id = demand.gtin
+      )
+    order by demand.gtin
+    limit ${input.limit}
+  `);
+  return result.map((row) => row.gtin);
+}

@@ -4,12 +4,22 @@
     "cancel": "إلغاء",
     "confirm": "تأكيد",
     "back": "رجوع",
-    "tryAgain": "إعادة المحاولة"
+    "tryAgain": "إعادة المحاولة",
+    "linkCopied": "تم نسخ الرابط",
+    "shareError": "تعذرت مشاركة الرابط. حاول مرة أخرى.",
+    "pagination": {
+      "previous": "السابق",
+      "next": "التالي",
+      "pageOf": "الصفحة %{page} من %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
     "loadingProducts": "جارٍ تحميل المنتجات",
-    "loadError": "تعذّر تحميل المنتجات. اسحب للتحديث أو حاول مرة أخرى."
+    "loadError": "تعذّر تحميل المنتجات. اسحب للتحديث أو حاول مرة أخرى.",
+    "keepShopping": "تابع التسوق",
+    "recentlyViewed": "شوهدت مؤخرًا",
+    "recentlyViewedEmpty": "ستظهر هنا المنتجات التي تشاهدها."
   },
   "nav": {
     "home": "الرئيسية",
@@ -136,11 +146,6 @@
     "compareOffersA11y": "قارن كل العروض لهذا المنتج",
     "compareOffers": "قارن كل العروض",
     "percentOff": "خصم %{percent}%",
-    "demandCopy": "أكثر من 100 ألف عملية شراء خلال الشهر الماضي",
-    "exclusiveOffer": {
-      "label": "افتح أسعارًا حصرية",
-      "caption": "سجّل الدخول لعرض عرضك الحصري"
-    },
     "quantity": "الكمية",
     "decreaseQuantity": "إنقاص الكمية",
     "increaseQuantity": "زيادة الكمية",
@@ -149,6 +154,8 @@
       "removeProductA11y": "إزالة هذا المنتج من المحفوظات",
       "product": "حفظ المنتج",
       "productSaved": "تم حفظ المنتج",
+      "statusError": "تعذر التحقق مما إذا كان المنتج محفوظًا.",
+      "updateError": "تعذر تحديث العناصر المحفوظة.",
       "exactListingA11y": "حفظ هذا الإعلان تحديدًا",
       "removeListingA11y": "إزالة هذا الإعلان من المحفوظات",
       "listing": "حفظ هذا الإعلان",
@@ -156,19 +163,17 @@
       "save": "حفظ",
       "saved": "محفوظ"
     },
+    "moreActions": "المزيد من الإجراءات",
+    "reportProduct": "الإبلاغ عن المنتج",
     "shareA11y": "مشاركة هذا المنتج",
     "share": "مشاركة",
-    "deliveryAndReturns": "الشحن والإرجاع",
-    "viewReturnPolicyA11y": "عرض سياسة الإرجاع",
     "returnPolicy": "سياسة الإرجاع",
     "description": "الوصف",
-    "viewMore": "عرض المزيد",
-    "viewLess": "عرض أقل",
+    "readMoreDescription": "اقرأ المزيد",
     "highlights": "أبرز العروض",
     "sortOffersBy": "ترتيب العروض حسب",
     "reportProblemA11y": "الإبلاغ عن مشكلة في معلومات هذا المنتج",
     "reportProblem": "الإبلاغ عن مشكلة",
-    "specifications": "المواصفات",
     "modelIdentifiers": "معرّفات الطراز",
     "imageFromCatalogueA11y": "%{name} — صورة من الكتالوج",
     "releasedYear": "صدر في %{year}",
@@ -198,6 +203,17 @@
       },
       "notFullyBuilt": "جزء من هذه الفترة لم يُبنَ بعد.",
       "conversionDisplayOnly": "المبالغ المحوّلة لأغراض العرض فقط."
+    },
+    "reviews": "المراجعات",
+    "purchasePreview": {
+      "notice": "معاينة بأسعار وخطط تجريبية. الإجراءات محاكاة ولا تنشئ طلبات أو مدفوعات.",
+      "save": "وفّر %{percent}",
+      "monthly": "توصيل كل شهر",
+      "bimonthly": "توصيل كل شهرين",
+      "prepaid": "%{price} لكل توصيل. تُدفع تكلفة ثلاث توصيلات مقدمًا.",
+      "introductory": "سعر تمهيدي للتوصيل الأول، ثم %{price} لكل توصيل.",
+      "cartResult": "محاكاة: أُضيف إلى السلة. لم تتغير سلتك.",
+      "checkoutResult": "اكتملت محاكاة الشراء. لم يُنشأ أي طلب أو دفع."
     }
   },
   "catalog": {
@@ -304,14 +320,14 @@
     "empty": {
       "title": "لا توجد طلبات بعد",
       "subtitle": "عندما تقوم بطلب سيظهر هنا.",
-      "signedOutSubtitle": "سجّل الدخول لعرض سجل طلباتك."
+      "signedOutSubtitle": "سجّل الدخول لعرض سجل طلباتك.",
+      "activeTitle": "لا توجد طلبات حالية",
+      "pastTitle": "لا توجد طلبات سابقة",
+      "pastSubtitle": "تظهر هنا الطلبات المكتملة والملغاة والمستردة."
     },
     "row": {
       "openA11yLabel": "فتح الطلب %{number}",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} عنصر",
-        "other": "%{status} · %{seller} · %{count} عناصر"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "السابق",
@@ -373,6 +389,11 @@
       "basisEstimate": "تقدير من شريك التوصيل لدينا، وليس وعدًا.",
       "staleNote": "لم نتمكّن من تحديثه مؤخرًا.",
       "refreshFailing": "لم نتمكّن من تحديث هذا التقدير. قد يكون قديمًا."
+    },
+    "loadError": "تعذر تحميل طلباتك",
+    "tabs": {
+      "active": "الحالية",
+      "past": "السابقة"
     }
   },
   "reviews": {
@@ -420,6 +441,37 @@
       "nativeTransaction": "تقييمك لعملية الشراء هذه",
       "p2pListing": "تقييمك لوصف السلعة",
       "p2pSeller": "تقييمك لهذا البائع"
+    },
+    "search": {
+      "placeholder": "البحث في المراجعات",
+      "noResults": "لا توجد مراجعات تطابق بحثك.",
+      "results": "نتائج البحث: %{results}"
+    },
+    "filters": {
+      "sort": "ترتيب حسب",
+      "newest": "الأحدث",
+      "oldest": "الأقدم",
+      "ratingAscending": "التقييم: من الأقل إلى الأعلى",
+      "ratingDescending": "التقييم: من الأعلى إلى الأقل",
+      "rating": "التقييم",
+      "stars": "عدد النجوم: %{count}",
+      "reset": "إعادة تعيين",
+      "apply": "تطبيق",
+      "noResults": "لا توجد مراجعات تطابق هذه الفلاتر.",
+      "results": "المراجعات: %{results}"
+    },
+    "actions": {
+      "more": "إجراءات المراجعة",
+      "report": "الإبلاغ عن المراجعة",
+      "subject": "مراجعة من %{author}"
+    },
+    "helpful": {
+      "label": "مفيد",
+      "mark": "وضع علامة مفيد على التقييم",
+      "remove": "إزالة التصويت كمفيد",
+      "count": "وجده %{formattedCount} مفيدًا",
+      "error": "تعذّر تحديث تصويتك. حاول مرة أخرى.",
+      "retry": "إعادة تحميل التصويتات"
     }
   },
   "search": {
@@ -965,7 +1017,8 @@
       "body": "المنتجات المحفوظة تتابع السعر والتوفر لدى كل البائعين، على جميع أجهزتك.",
       "signIn": "تسجيل الدخول",
       "title": "سجّل الدخول لحفظ العناصر"
-    }
+    },
+    "actionFailed": "تعذّر تحديث محفوظاتك"
   },
   "watchlists": {
     "atLimit": "بلغت الحد الأقصى وهو %{count} قوائم",
@@ -1126,13 +1179,12 @@
       "unfollowStore": "إلغاء متابعة %{store}"
     },
     "reviews": {
-      "helpful": "مفيد",
       "loading": "جارٍ تحميل المراجعات…",
       "none": "لا توجد مراجعات بعد",
       "viewProduct": "عرض %{product}",
       "ratingsCount": "%{formattedCount} تقييم",
       "ratingsWithScope": "%{formattedCount} تقييم · %{scopeLabel}",
-      "fallbackAuthor": "مشترٍ موثّق",
+      "fallbackAuthor": "مشتري من Mercaria",
       "viewA11yLabel": "عرض تقييمات خدمة هذا المتجر"
     },
     "visit": {
@@ -1225,6 +1277,9 @@
     "noLinkPublished": "لا يوجد رابط منشور",
     "noDestination": "نشر هذا البائع سعرًا دون رابط.",
     "outboundNotAvailable": "فتح العروض على مواقع أخرى غير متاح بعد.",
+    "seenOn": "شوهد السعر في %{date}",
+    "dataSource": "البيانات: %{name}",
+    "dataSourceLicensed": "البيانات: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "لا يتوفر مخزون لدى هذا البائع.",
       "notPaymentReady": "لا يستطيع هذا البائع قبول المدفوعات بعد.",
@@ -1584,5 +1639,36 @@
       "formatsLabel": "يشمل %{formats}",
       "notForSale": "ليس للبيع"
     }
+  },
+  "thread": {
+    "title": "مساعد التسوق",
+    "thinking": "جارٍ البحث عن أفكار…",
+    "stop": "إيقاف",
+    "unavailable": "مساعد التسوق غير متاح بعد. يمكنك البحث في الكتالوج.",
+    "signIn": "سجّل الدخول للدردشة",
+    "retry": "المحاولة مجددًا",
+    "viewResults": "عرض نتائج البحث",
+    "newConversation": "محادثة جديدة",
+    "previewAction": "تجربة بيانات نموذجية",
+    "previewLabel": "معاينة · ردود نموذجية دون اتصال بالذكاء الاصطناعي",
+    "previewReply": "هذه أمثلة من الكتالوج المحلي لتجربة تصميم المحادثة. افتح منتجًا لعرض تفاصيله أو أرسل رسالة أخرى."
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "subtitle": "محفوظاتك وطلباتك وحسابك في مكان واحد."
+  },
+  "curations": {
+    "heading": "مختارات",
+    "preview": "معاينة · مختارات تجريبية من الكتالوج المحلي",
+    "everyday": "اكتشافات يومية",
+    "fresh": "آفاق جديدة",
+    "pleasures": "متَع صغيرة",
+    "description": "أفكار تكتشفها على مهل.",
+    "unavailable": "هذه المجموعة غير متاحة.",
+    "referenceTitle": "اختيارات كورتني غرو",
+    "referenceSubtitle": "اختيارات كورتني الحالية في الموضة والجمال",
+    "quoteComfort": "الراحة والشخصية والتفاصيل الصغيرة التي تجعل القطعة خاصة بك.",
+    "quoteTexture": "يمكن لملمس تحبه أن يغيّر إحساسك بالإطلالة بأكملها.",
+    "quoteEveryday": "احتفظ بالأشياء التي تستخدمها كثيرًا في متناول يدك."
   }
 }

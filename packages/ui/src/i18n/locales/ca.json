@@ -1,5 +1,8 @@
 {
   "ui": {
+    "sheet": {
+      "close": "Tanca"
+    },
     "condition": {
       "label": {
         "new": "Nou",
@@ -800,19 +803,20 @@
       }
     },
     "purchase": {
-      "oneTime": "Compra única",
-      "subscribe": "Subscripció",
       "addToCart": "Afegeix al carretó",
       "selectOptions": "Tria les opcions",
       "buyNow": "Compra ara",
-      "subscribeNow": "Subscriu-m'hi ara",
-      "frequency": {
-        "monthly": "S'entrega cada mes",
-        "every2Months": "S'entrega cada 2 mesos",
-        "every3Months": "S'entrega cada 3 mesos",
-        "every4Months": "S'entrega cada 4 mesos",
-        "every6Months": "S'entrega cada 6 mesos"
-      }
+      "soldOut": "Esgotat",
+      "added": "Afegit a la cistella",
+      "subscribeNow": "Subscriu-te ara",
+      "oneTime": "Compra única",
+      "subscriptionRequired": "Subscripció obligatòria",
+      "subscribeAndSave": "Subscriu-te i estalvia",
+      "subscription": "Subscripció",
+      "deliveryFrequency": "Freqüència de lliurament",
+      "options": "Opcions de compra",
+      "soldOutSave": "Aquesta opció està esgotada. Desa aquest article per trobar-lo més endavant.",
+      "soldOutSaved": "Aquesta opció està esgotada. Pots trobar aquest article als elements desats."
     },
     "marketplace": {
       "visitMerchant": "Visita %{name}",
@@ -857,6 +861,10 @@
       "codeA11y": "Codi de recollida %{code}",
       "codeNote": "Mostra'l al taulell. Si deixa de funcionar, la botiga en pot emetre un de nou: un codi antic mai continua funcionant al costat del nou."
     },
+    "storeOffer": {
+      "amountOff": "%{amount} de descompte",
+      "minimumSubtotal": "en comandes de %{amount} o més"
+    },
     "productCard": {
       "discount": "%{percent} de descompte",
       "save": "Afegeix als desats"
@@ -864,7 +872,8 @@
     "gallery": {
       "viewImage": "Mostra la imatge %{position}",
       "previous": "Imatge anterior",
-      "next": "Imatge següent"
+      "next": "Imatge següent",
+      "open": "Obrir imatges de %{title}"
     },
     "quantity": {
       "remove": "Treu l'article",
@@ -879,7 +888,12 @@
       "verifiedRatings": "Valoracions verificades: %{ratings}",
       "unverified": "Sense verificar: %{ratings} · %{rating}",
       "readMore": "Llegeix més ressenyes",
-      "none": "Encara no hi ha ressenyes"
+      "open": "Llegeix la ressenya de %{author}",
+      "none": "Encara no hi ha ressenyes",
+      "ratings": "%{ratings} valoracions",
+      "fallbackAuthor": "Comprador de Mercaria",
+      "verifiedPurchase": "Compra verificada",
+      "unverifiedPurchase": "Sense verificar"
     },
     "searchInterpretation": {
       "chip": "%{label}",
@@ -989,6 +1003,16 @@
         "revoked_for_policy": "Retirada per motius legals",
         "superseded": "Substituïda per una compra posterior"
       }
+    },
+    "bundle": {
+      "title": "Què inclou",
+      "unavailable": "El contingut d’aquest pack no està disponible en aquest moment.",
+      "open": "Veure %{name}, %{variant}, quantitat %{quantity}",
+      "quantity": "×%{quantity}",
+      "together": "Compra en paquet",
+      "andSave": "Compra en paquet i estalvia",
+      "view": "Veure paquet",
+      "addFailed": "No s’ha pogut afegir el paquet. Torna-ho a provar."
     }
   }
 }

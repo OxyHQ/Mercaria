@@ -49,7 +49,7 @@ export function ComparisonExplanationBlock({
   if (explanation.state === "unavailable") {
     return (
       <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-12">
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(COMPARISON_NO_SUMMARY_KEY)}
         </Text>
       </View>
@@ -60,7 +60,7 @@ export function ComparisonExplanationBlock({
     <View className="gap-space-8 rounded-radius-12 bg-bg-fill-secondary p-space-12">
       <View className="gap-space-4">
         {explanation.summary.map((sentence) => (
-          <Text key={sentence.text} className="text-body text-text">
+          <Text key={sentence.text} className="text-shop-body text-text">
             {sentence.text}
           </Text>
         ))}
@@ -69,7 +69,7 @@ export function ComparisonExplanationBlock({
       {explanation.points.length === 0 ? null : (
         <View className="gap-space-2">
           {explanation.points.map((point) => (
-            <Text key={`${point.subjectRef}-${point.text}`} className="text-caption text-text">
+            <Text key={`${point.subjectRef}-${point.text}`} className="text-shop-caption text-text">
               · {point.text}
             </Text>
           ))}
@@ -77,13 +77,13 @@ export function ComparisonExplanationBlock({
       )}
 
       {explanation.state === "template" ? (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY)}
         </Text>
       ) : null}
 
       {showProvenance ? (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(COMPARISON_PROVENANCE_KEYS[explanation.state], {
             policy: explanation.provenance.comparisonPolicyVersion,
           })}

@@ -1,5 +1,6 @@
 import type {
   ApiResponse,
+  BuyerOrderView,
   Order,
   OrderSummary,
   PaginatedResponse,
@@ -16,7 +17,7 @@ import apiClient from './client';
 
 /** Fetch a page of the buyer's order summaries (newest first). */
 export async function fetchOrders(
-  params: { page?: number; limit?: number } = {},
+  params: { page?: number; limit?: number; view?: BuyerOrderView } = {},
 ): Promise<PaginatedResponse<OrderSummary>> {
   const { data } = await apiClient.get<PaginatedResponse<OrderSummary>>('/orders', {
     params,

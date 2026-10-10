@@ -354,7 +354,7 @@ interface StoreSpec {
   brandColor: string;
   textTone: 'light' | 'dark';
   logoFileId: string;
-  coverFileId: string;
+  coverFileId?: string;
   rating: number;
   reviewCount: number;
   products: StoreProductSpec[];
@@ -367,7 +367,7 @@ const STORES: StoreSpec[] = [
     description: 'Independent Barcelona label of playful, sculptural knitwear and ready-to-wear.',
     brandColor: 'rgb(132,112,93)',
     textTone: 'light',
-    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1716557836/paloma-wool-logo-white.png?width=480',
+    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1773914536/logo.png?format=webp&width=64',
     coverFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1773914305/PWSS26_B-12.jpeg?width=800',
     rating: 4.9,
     reviewCount: 1400,
@@ -405,8 +405,8 @@ const STORES: StoreSpec[] = [
     description: 'New York atelier known for elevated, effortless wardrobe staples.',
     brandColor: 'rgb(126,122,112)',
     textTone: 'light',
-    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1738866286/NL_logo_cream1.png?width=480',
-    coverFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1776437673/NILILOTAN_HS26EDITORIAL_LOOK13_99140_NLO_053_02.jpeg?width=800',
+    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1784834046/logo.png?format=webp&width=64',
+    coverFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1783446974/Slice111.jpg.jpeg?width=800',
     rating: 4.7,
     reviewCount: 128,
     products: [
@@ -443,8 +443,7 @@ const STORES: StoreSpec[] = [
     description: 'Clean, vegan, cruelty-free beauty made for life on the go.',
     brandColor: 'rgb(214,71,107)',
     textTone: 'light',
-    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/milkmakeup.myshopify.com/1716557836/milk-makeup-logo-white.png?width=480',
-    coverFileId: 'https://cdn.shopify.com/s/files/1/0270/0589/3681/files/MILK-MAKEUP-Brilliant-Eye-Brightener-Cover_800x.jpg?width=800',
+    logoFileId: 'https://cdn.shopify.com/shop-assets/shopify_brokers/milkmakeup21.myshopify.com/1699543597/logo.png?format=webp&width=64',
     rating: 4.8,
     reviewCount: 5200,
     products: [

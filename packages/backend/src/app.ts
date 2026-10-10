@@ -71,6 +71,7 @@ import internalPickupRouter from './routes/internal-pickup.js';
 import internalSearchRouter from './routes/internal-search.js';
 import productPageRouter from './routes/product-page.js';
 import searchIntentRouter from './routes/search-intent.js';
+import shoppingThreadRouter from './routes/shopping-thread.js';
 import internalSearchIntentRouter from './routes/internal-search-intent.js';
 import priceHistoryRouter from './routes/price-history.js';
 import internalPriceHistoryRouter from './routes/internal-price-history.js';
@@ -679,6 +680,7 @@ export function createApp(): express.Express {
   // and never whether the surface exists. A deployment with it off still has a
   // working natural-language search box.
   app.use('/search-intent', searchIntentRouter);
+  app.use('/shopping-thread', shoppingThreadRouter);
 
   /**
    * The canonical product page (#71): one product's identity, its

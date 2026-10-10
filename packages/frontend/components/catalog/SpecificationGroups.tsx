@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import { Text } from '@mercaria/ui';
+import { ProductSpecificationGrid, Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import type {
   SpecificationGroup,
@@ -50,12 +50,12 @@ export function SpecificationGroups({
 
   return (
     <View className="gap-space-24">
-      <Text className="text-captionBold text-text" accessibilityRole="header">
+      <Text className="text-shop-captionBold text-text" accessibilityRole="header">
         {t('catalog.specs.title')}
       </Text>
 
       {definitionsUnavailable ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t('catalog.specs.definitionsUnavailable')}
         </Text>
       ) : null}
@@ -65,7 +65,7 @@ export function SpecificationGroups({
       ))}
 
       {table.hasUntranslatedLabels ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t('catalog.specs.untranslated')}
         </Text>
       ) : null}
@@ -80,22 +80,14 @@ function SpecificationGroupBlock({ group }: { group: SpecificationGroup }) {
 
   return (
     <View className="gap-space-8">
-      <Text className="text-caption text-text-secondary" accessibilityRole="header">
+      <Text className="text-shop-caption text-text-secondary" accessibilityRole="header">
         {heading}
       </Text>
-      {group.entries.map((entry) => (
-        <View
-          key={`${group.scope}:${entry.attributeKey}`}
-          className="flex-row items-start justify-between gap-space-16 border-b border-border-secondary py-space-8"
-        >
-          <View className="flex-1">
-            <Text className="text-caption text-text-secondary">{entry.label}</Text>
-          </View>
-          <View className="flex-1 items-end">
-            <Text className="text-body text-text">{entry.displayValue}</Text>
-          </View>
-        </View>
-      ))}
+      <ProductSpecificationGrid entries={group.entries.map((entry) => ({
+        key: entry.rowKey,
+        label: entry.label,
+        value: entry.displayValue,
+      }))} />
     </View>
   );
 }

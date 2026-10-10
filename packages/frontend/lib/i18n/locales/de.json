@@ -4,12 +4,22 @@
     "cancel": "Abbrechen",
     "confirm": "Bestätigen",
     "back": "Zurück",
-    "tryAgain": "Erneut versuchen"
+    "tryAgain": "Erneut versuchen",
+    "linkCopied": "Link kopiert",
+    "shareError": "Der Link konnte nicht geteilt werden. Bitte versuche es erneut.",
+    "pagination": {
+      "previous": "Zurück",
+      "next": "Weiter",
+      "pageOf": "Seite %{page} von %{pages}"
+    }
   },
   "home": {
     "title": "Mercaria",
     "loadingProducts": "Produkte werden geladen",
-    "loadError": "Produkte konnten nicht geladen werden. Zum Aktualisieren ziehen oder es erneut versuchen."
+    "loadError": "Produkte konnten nicht geladen werden. Zum Aktualisieren ziehen oder es erneut versuchen.",
+    "keepShopping": "Weiter einkaufen",
+    "recentlyViewed": "Zuletzt angesehen",
+    "recentlyViewedEmpty": "Angesehene Produkte erscheinen hier."
   },
   "nav": {
     "home": "Start",
@@ -136,11 +146,6 @@
     "compareOffersA11y": "Alle Angebote für dieses Produkt vergleichen",
     "compareOffers": "Alle Angebote vergleichen",
     "percentOff": "%{percent}% Rabatt",
-    "demandCopy": "100.000+ im letzten Monat gekauft",
-    "exclusiveOffer": {
-      "label": "Exklusive Preise freischalten",
-      "caption": "Melde dich an, um dein exklusives Angebot zu sehen"
-    },
     "quantity": "Menge",
     "decreaseQuantity": "Menge verringern",
     "increaseQuantity": "Menge erhöhen",
@@ -149,6 +154,8 @@
       "removeProductA11y": "Dieses Produkt aus den Merklisten entfernen",
       "product": "Produkt merken",
       "productSaved": "Produkt gemerkt",
+      "statusError": "Der Speicherstatus konnte nicht geladen werden.",
+      "updateError": "Deine gespeicherten Artikel konnten nicht aktualisiert werden.",
       "exactListingA11y": "Genau dieses Angebot merken",
       "removeListingA11y": "Dieses Angebot aus den Merklisten entfernen",
       "listing": "Dieses Angebot merken",
@@ -156,19 +163,17 @@
       "save": "Merken",
       "saved": "Gemerkt"
     },
+    "moreActions": "Weitere Aktionen",
+    "reportProduct": "Produkt melden",
     "shareA11y": "Dieses Produkt teilen",
     "share": "Teilen",
-    "deliveryAndReturns": "Versand & Rückgabe",
-    "viewReturnPolicyA11y": "Rückgaberichtlinie ansehen",
     "returnPolicy": "Rückgaberichtlinie",
     "description": "Beschreibung",
-    "viewMore": "Mehr anzeigen",
-    "viewLess": "Weniger anzeigen",
+    "readMoreDescription": "Mehr lesen",
     "highlights": "Highlights",
     "sortOffersBy": "Angebote sortieren nach",
     "reportProblemA11y": "Ein Problem mit den Angaben zu diesem Produkt melden",
     "reportProblem": "Problem melden",
-    "specifications": "Technische Daten",
     "modelIdentifiers": "Modellkennungen",
     "imageFromCatalogueA11y": "%{name} — Bild aus dem Katalog",
     "releasedYear": "Erschienen %{year}",
@@ -198,6 +203,17 @@
       },
       "notFullyBuilt": "Ein Teil dieses Zeitraums wurde noch nicht aufgebaut.",
       "conversionDisplayOnly": "Umgerechnete Beträge dienen nur der Anzeige."
+    },
+    "reviews": "Bewertungen",
+    "purchasePreview": {
+      "notice": "Vorschau mit Beispielpreisen und -tarifen. Aktionen werden simuliert; es entstehen keine Bestellungen oder Abbuchungen.",
+      "save": "%{percent} sparen",
+      "monthly": "Lieferung jeden Monat",
+      "bimonthly": "Lieferung alle 2 Monate",
+      "prepaid": "%{price} pro Lieferung. Drei Lieferungen im Voraus bezahlt.",
+      "introductory": "Einführungspreis für die erste Lieferung, danach %{price} pro Lieferung.",
+      "cartResult": "Simulation: zum Warenkorb hinzugefügt. Dein Warenkorb bleibt unverändert.",
+      "checkoutResult": "Simulierter Kauf abgeschlossen. Keine Bestellung oder Zahlung wurde erstellt."
     }
   },
   "catalog": {
@@ -304,14 +320,14 @@
     "empty": {
       "title": "Noch keine Bestellungen",
       "subtitle": "Sobald du etwas bestellst, erscheint es hier.",
-      "signedOutSubtitle": "Melde dich an, um deine Bestellungen zu sehen."
+      "signedOutSubtitle": "Melde dich an, um deine Bestellungen zu sehen.",
+      "activeTitle": "Keine aktiven Bestellungen",
+      "pastTitle": "Keine vergangenen Bestellungen",
+      "pastSubtitle": "Hier erscheinen abgeschlossene, stornierte und erstattete Bestellungen."
     },
     "row": {
       "openA11yLabel": "Bestellung %{number} öffnen",
-      "meta": {
-        "one": "%{status} · %{seller} · %{count} Artikel",
-        "other": "%{status} · %{seller} · %{count} Artikel"
-      }
+      "additionalImages": "+%{images}"
     },
     "pagination": {
       "previous": "Zurück",
@@ -373,6 +389,11 @@
       "basisEstimate": "Eine Schätzung unseres Logistikpartners, keine Zusage.",
       "staleNote": "Wir konnten sie zuletzt nicht aktualisieren.",
       "refreshFailing": "Wir konnten diese Schätzung nicht aktualisieren. Sie ist möglicherweise nicht mehr aktuell."
+    },
+    "loadError": "Deine Bestellungen konnten nicht geladen werden",
+    "tabs": {
+      "active": "Aktiv",
+      "past": "Vergangen"
     }
   },
   "reviews": {
@@ -420,6 +441,37 @@
       "nativeTransaction": "Deine Bewertung dieses Kaufs",
       "p2pListing": "Deine Bewertung der Artikelbeschreibung",
       "p2pSeller": "Deine Bewertung dieser verkaufenden Person"
+    },
+    "search": {
+      "placeholder": "Rezensionen durchsuchen",
+      "noResults": "Keine Rezensionen entsprechen deiner Suche.",
+      "results": "Suchergebnisse: %{results}"
+    },
+    "filters": {
+      "sort": "Sortieren nach",
+      "newest": "Neueste",
+      "oldest": "Älteste",
+      "ratingAscending": "Bewertung aufsteigend",
+      "ratingDescending": "Bewertung absteigend",
+      "rating": "Bewertung",
+      "stars": "%{count} Sterne",
+      "reset": "Zurücksetzen",
+      "apply": "Anwenden",
+      "noResults": "Keine Bewertungen entsprechen diesen Filtern.",
+      "results": "Bewertungen: %{results}"
+    },
+    "actions": {
+      "more": "Rezensionsaktionen",
+      "report": "Rezension melden",
+      "subject": "Rezension von %{author}"
+    },
+    "helpful": {
+      "label": "Hilfreich",
+      "mark": "Bewertung als hilfreich markieren",
+      "remove": "Hilfreich-Markierung entfernen",
+      "count": "%{formattedCount} fanden dies hilfreich",
+      "error": "Deine Stimme konnte nicht aktualisiert werden. Versuche es erneut.",
+      "retry": "Hilfreich-Stimmen erneut laden"
     }
   },
   "search": {
@@ -965,7 +1017,8 @@
       "body": "Gespeicherte Produkte verfolgen Preis und Verfügbarkeit bei allen Verkäufern, auf all deinen Geräten.",
       "signIn": "Anmelden",
       "title": "Melde dich an, um Dinge zu speichern"
-    }
+    },
+    "actionFailed": "Deine Favoriten konnten nicht aktualisiert werden"
   },
   "watchlists": {
     "atLimit": "Du hast das Maximum von %{count} Listen erreicht",
@@ -1126,13 +1179,12 @@
       "unfollowStore": "%{store} nicht mehr folgen"
     },
     "reviews": {
-      "helpful": "Hilfreich",
       "loading": "Bewertungen werden geladen…",
       "none": "Noch keine Bewertungen",
       "viewProduct": "%{product} ansehen",
       "ratingsCount": "%{formattedCount} Bewertungen",
       "ratingsWithScope": "%{formattedCount} Bewertungen · %{scopeLabel}",
-      "fallbackAuthor": "Verifizierter Käufer",
+      "fallbackAuthor": "Mercaria-Käufer",
       "viewA11yLabel": "Bewertungen zum Service dieses Shops ansehen"
     },
     "visit": {
@@ -1225,6 +1277,9 @@
     "noLinkPublished": "Kein Link veröffentlicht",
     "noDestination": "Dieser Verkäufer hat einen Preis, aber keinen Link veröffentlicht.",
     "outboundNotAvailable": "Angebote auf anderen Websites zu öffnen ist noch nicht möglich.",
+    "seenOn": "Preis gesehen am %{date}",
+    "dataSource": "Daten: %{name}",
+    "dataSourceLicensed": "Daten: %{name} · %{licence}",
     "blocked": {
       "outOfStock": "Dieser Verkäufer hat keinen Bestand.",
       "notPaymentReady": "Dieser Verkäufer kann noch keine Zahlungen annehmen.",
@@ -1584,5 +1639,36 @@
       "formatsLabel": "Enthält %{formats}",
       "notForSale": "Nicht im Verkauf"
     }
+  },
+  "thread": {
+    "title": "Einkaufsassistent",
+    "thinking": "Ideen werden gesucht…",
+    "stop": "Stoppen",
+    "unavailable": "Der Einkaufsassistent ist noch nicht verfügbar. Du kannst weiterhin den Katalog durchsuchen.",
+    "signIn": "Zum Chatten anmelden",
+    "retry": "Erneut versuchen",
+    "viewResults": "Suchergebnisse ansehen",
+    "newConversation": "Neues Gespräch",
+    "previewAction": "Mit Beispieldaten testen",
+    "previewLabel": "Vorschau · Beispielantworten, keine KI verbunden",
+    "previewReply": "Dies sind Beispiele aus dem lokalen Katalog zum Testen der Unterhaltung. Öffne ein Produkt für weitere Details oder sende eine weitere Nachricht."
+  },
+  "profile": {
+    "title": "Profil",
+    "subtitle": "Deine Favoriten, Bestellungen und dein Konto an einem Ort."
+  },
+  "curations": {
+    "heading": "Kollektionen",
+    "preview": "Vorschau · Beispielauswahl aus dem lokalen Katalog",
+    "everyday": "Fundstücke für jeden Tag",
+    "fresh": "Neue Perspektiven",
+    "pleasures": "Kleine Freuden",
+    "description": "Entdecke neue Ideen in deinem Tempo.",
+    "unavailable": "Diese Auswahl ist nicht verfügbar.",
+    "referenceTitle": "Die Auswahl von Courtney Grow",
+    "referenceSubtitle": "Courtneys aktuelle Mode- und Beauty-Favoriten",
+    "quoteComfort": "Komfort, Charakter und kleine Details, die ein Stück zu deinem machen.",
+    "quoteTexture": "Eine geliebte Textur kann ein ganzes Outfit verändern.",
+    "quoteEveryday": "Halte die Dinge griffbereit, die du am häufigsten benutzt."
   }
 }

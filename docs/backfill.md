@@ -15,7 +15,7 @@ follows exists to make that particular lie unrepresentable rather than unlikely.
 
 ## The shape
 
-Three tables, eight stages, one runner, one dispatcher, one operator surface.
+Three tables, eleven stages, one runner, one dispatcher, one operator surface.
 
 | Thing | Where |
 |---|---|
@@ -58,6 +58,24 @@ a broken one, because every stage converges on its own input.
    `CANONICAL_SEARCH_INDEXING_ENABLED`. **#61 owns the consumer**; this stage
    builds no index and adds no search dependency (ADR 0002 D21).
 8. **`consistency`** — the two-way sweep. Three passes, one cursor. See below.
+
+The three ADR 0014 stages seed the catalogue from OPEN reference data, so
+open-data prices land on products no store sells
+(`catalog-sources/open-data-providers.md`). All three accept only the `all`
+cohort, because they page over source objects and seeded products, never over
+listings:
+
+9. **`reference_products`** — an `unmatched` object of a source whose ACTIVE
+   policy grants `seed_catalog`, whose matcher verdict is `create_new` and whose
+   observation asserts a valid GTIN nobody owns, mints a DRAFT product, its
+   default variant and the GTIN, citing the observation. It links nothing; the
+   matcher attaches it on the next stage.
+10. **`source_readvance`** — every `unmatched` object whose asserted GTIN an
+    ACTIVE identifier now holds is re-asked of the matcher through #62's own
+    `advanceObject`, which attaches it and materializes its offer.
+11. **`reference_promotion`** — a draft minted by `reference_products` that
+    still holds an active identifier and has at least one active priced offer
+    becomes `active`.
 
 ### The four rules `provisional_products` decides by
 

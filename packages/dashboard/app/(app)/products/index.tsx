@@ -1,61 +1,47 @@
-import React, { useMemo, useState } from "react";
-import type { AccentTone } from "@oxy.so/bloom/theme";
-import { Badge } from "@oxy.so/bloom/badge";
-import { RiBox3Line } from "@oxy.so/bloom/icons/RiBox3Line";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { View, Pressable } from "react-native";
+import React, { useState } from "react";
+import { View, Pressable, useWindowDimensions } from "react-native";
 import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
-import { Plus, Package, ChevronLeft, ChevronRight, Search as SearchIcon } from "lucide-react-native";
-import type { Listing, ListingStatus } from "@mercaria/shared-types";
-import { Text, PriceDisplay, SourceBadge, toBloomFieldIcon, toBloomIcon, useColorScheme } from "@mercaria/ui";
+import { Plus, Search as SearchIcon } from "lucide-react-native";
+import { ALL_LISTING_STATUSES, type Listing, type ListingStatus } from "@mercaria/shared-types";
+import { Badge } from "@oxy.so/bloom/badge";
 import { Button } from "@oxy.so/bloom/button";
+import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell } from "@oxy.so/bloom/table";
 import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
+import { Text, PriceDisplay, SourceBadge, toBloomFieldIcon, toBloomIcon } from "@mercaria/ui";
+import { OxyProductImage } from "@/components/products/OxyProductImage";
+import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { StatusFilter, ResourceList, ResourceState, ListPagination } from "@/components/lists/ResourceList";
 import { useTranslation } from "@/lib/i18n";
 import { useProducts } from "@/lib/hooks/use-products";
+import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { useAuthoringAvailability } from "@/lib/authoring/hooks";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 
-/**
- * Translation KEYS per listing status, not sentences (#398).
- *
- * Evaluated once at import, before the locale store has rehydrated, so a
- * resolved label here would freeze whatever language loaded first. The row
- * resolves `t(STATUS_LABEL_KEYS[status])` instead.
- */
 const STATUS_LABEL_KEYS: Record<ListingStatus, string> = {
-  draft: "products.status.draft",
-  active: "products.status.active",
-  sold: "products.status.sold",
-  archived: "products.status.archived",
-  restricted: "products.status.restricted",
+  draft: "products.status.draft", active: "products.status.active", sold: "products.status.sold",
+  archived: "products.status.archived", restricted: "products.status.restricted",
 };
 
 export default function ProductsScreen() {
   const { t } = useTranslation();
-  return (
-    <>
-      <Head>
-        <title>{t("products.documentTitle")}</title>
-      </Head>
-      <RequireStore permission="products:read">
-        {(storeId) => <ProductsBody storeId={storeId} />}
-      </RequireStore>
-    </>
-  );
+  return <><Head><title>{t("products.documentTitle")}</title></Head>
+    <RequireStore permission="products:read">{storeId => <ProductsBody key={storeId} storeId={storeId} />}</RequireStore></>;
 }
 
 function ProductsBody({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { can } = useActiveStoreContext();
+  const { width } = useWindowDimensions();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const { data, isPending, isError } = useProducts(storeId, page, search);
-
+  const [status, setStatus] = useState<ListingStatus | "all">("all");
+  const query = useDebouncedValue(search.trim(), 250);
+  const { data, isPending, isFetching, isError, isPlaceholderData, refetch } = useProducts(storeId, page, query, status);
+  const changingSearch = query !== search.trim();
+  const busy = isFetching || changingSearch;
   /**
    * Where "Add product" goes (#367 step 10).
    *
@@ -80,156 +66,57 @@ function ProductsBody({ storeId }: { storeId: string }) {
   const createHref: RoutePath =
     authoring.data?.outcome === "available" ? "/products/wizard" : "/products/new";
 
-  const filtered = useMemo(() => {
-    const items = data?.data ?? [];
-    const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((p) => p.title.toLowerCase().includes(q));
-  }, [data, search]);
-
-  const action =
-    can("products:write") ? (
-      <View className="flex-row items-center gap-2">
-        <StoreSwitcher />
-        <Button tone="accent" leadingIcon={toBloomIcon(Plus)} onPress={() => router.push(createHref)}>
-          {t("products.addProduct")}
-        </Button>
+  const filtered = status !== "all" || search.trim() !== "";
+  const products = data?.data ?? [];
+  const clear = () => { setSearch(""); setStatus("all"); setPage(1); };
+  const openProduct = (id: string) => router.push({ pathname: "/products/[id]", params: { id } });
+  const statusOptions = [{ value: "all" as const, label: t("common.all") }, ...ALL_LISTING_STATUSES.map(value => ({ value, label: t(STATUS_LABEL_KEYS[value]) }))];
+  const pending = isPending || changingSearch;
+  const action = can("products:write") ? <Button tone="accent" material="flat" leadingIcon={toBloomIcon(Plus)} onPress={() => router.push(createHref)}>{t("products.addProduct")}</Button> : undefined;
+  return <Screen title={t("products.title")} action={action}>
+    <ResourceList testID="merchant-products-list" busy={busy} toolbar={
+      <View className="gap-3 md:flex-row md:items-center">
+        <StatusFilter value={status} options={statusOptions} onChange={next => { setStatus(next); setPage(1); }} />
+        <View className="md:flex-1"><TextField radius={8}><TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
+          <TextFieldInput label={t("products.searchPlaceholder")} value={search} maxLength={200}
+            onValueChange={value => { setSearch(value); setPage(1); }} returnKeyType="search" />
+        </TextField></View>
       </View>
-    ) : (
-      <StoreSwitcher />
-    );
-
-  return (
-    <Screen title={t("products.title")} subtitle={t("products.subtitle")} action={action}>
-      <View className="mb-4">
-        <TextField radius={999}>
-          <TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
-          <TextFieldInput
-            label={t("products.searchPlaceholder")}
-            value={search}
-            onValueChange={setSearch}
-            returnKeyType="search"
-          />
-        </TextField>
-      </View>
-
-      {isPending ? (
-        <ScreenLoading />
-      ) : isError ? (
-        <ScreenMessage title={t("products.loadFailed")} body={t("common.pleaseTryAgain")} />
-      ) : filtered.length === 0 ? (
-        <EmptyProducts canWrite={can("products:write")} onCreate={() => router.push(createHref)} />
-      ) : (
-        <View className="gap-2">
-          {filtered.map((product) => (
-            <ProductRow
-              key={product.id}
-              product={product}
-              onPress={() => router.push(`/products/${product.id}`)}
-            />
-          ))}
-        </View>
-      )}
-
-      {data && data.pagination.pages > 1 ? (
-        <Pagination
-          page={data.pagination.page}
-          pages={data.pagination.pages}
-          onPrev={() => setPage((p) => Math.max(1, p - 1))}
-          onNext={() => setPage((p) => p + 1)}
-        />
-      ) : null}
-    </Screen>
-  );
+    } footer={data && !pending && !isError ? <ListPagination page={data.pagination.page} pages={data.pagination.pages} busy={busy} onPage={setPage} /> : null}>
+      {pending || isError || !products.length ? <ResourceState loading={pending} error={isError} errorTitle={t("products.loadFailed")} filtered={filtered}
+        emptyTitle={t("products.empty.title")} onRetry={() => { void refetch(); }} onClear={clear}
+        action={can("products:write") ? { label: t("products.empty.action"), onPress: () => router.push(createHref) } : undefined} />
+      : width >= 768 ? <Table accessibilityLabel={t("products.title")} size="sm" minWidth={600}>
+        <TableHeader><TableColumn flex={3}><Text className="text-xs font-semibold text-muted-foreground">{t("common.title")}</Text></TableColumn>
+          <TableColumn width={115}><Text className="text-xs font-semibold text-muted-foreground">{t("common.status")}</Text></TableColumn>
+          <TableColumn flex={2}><Text className="text-xs font-semibold text-muted-foreground">{t("products.stockLabel")}</Text></TableColumn>
+          <TableColumn width={130} align="end"><Text className="text-xs font-semibold text-muted-foreground">{t("resourceList.price")}</Text></TableColumn></TableHeader>
+        <TableBody>{products.map(product => <TableRow key={product.id} testID="merchant-product-row">
+          <TableCell><ProductIdentity product={product} disabled={isPlaceholderData} onPress={() => openProduct(product.id)} /></TableCell>
+          <TableCell><ProductStatus status={product.status} /></TableCell>
+          <TableCell><Text className="text-xs text-muted-foreground">{t("products.row.variantsInStock", { count: product.variants.length, stock: product.quantity })}</Text></TableCell>
+          <TableCell><PriceDisplay price={product.price} primaryClassName="text-sm" /></TableCell>
+        </TableRow>)}</TableBody>
+      </Table> : <View>{products.map(product => <View key={product.id} testID="merchant-product-row" className="gap-3 border-b border-border p-4">
+        <ProductIdentity product={product} disabled={isPlaceholderData} onPress={() => openProduct(product.id)} />
+        <View className="flex-row items-center justify-between gap-2"><ProductStatus status={product.status} /><PriceDisplay price={product.price} primaryClassName="text-sm" /></View>
+        <Text className="text-xs text-muted-foreground">{t("products.row.variantsInStock", { count: product.variants.length, stock: product.quantity })}</Text>
+      </View>)}</View>}
+    </ResourceList>
+  </Screen>;
 }
 
-/** Bloom accent tone per listing status, painted as a `subtle` `Badge`. */
-const STATUS_TONES: Record<ListingStatus, AccentTone> = {
-  active: "primary",
-  draft: "default",
-  archived: "default",
-  sold: "default",
-  restricted: "default",
-};
-
-function ProductRow({ product, onPress }: { product: Listing; onPress: () => void }) {
+function ProductStatus({ status }: { status: ListingStatus }) {
   const { t } = useTranslation();
-  return (
-    <Pressable
-      onPress={onPress}
-      className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3 active:opacity-80 web:hover:border-primary"
-    >
-      <View className="h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-muted">
-        <Package size={20} className="text-muted-foreground" />
-      </View>
-      <View className="flex-1 gap-1">
-        <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-          {product.title}
-        </Text>
-        <Text className="text-xs text-muted-foreground">
-          {t("products.row.variantsInStock", {
-            count: product.variants.length,
-            stock: product.quantity,
-          })}
-        </Text>
-        {product.source ? <SourceBadge provider={product.source.provider} /> : null}
-      </View>
-      <PriceDisplay price={product.price} primaryClassName="text-sm font-semibold" />
-      <Badge
-        size="label-small"
-        variant="subtle"
-        color={STATUS_TONES[product.status]}
-        content={t(STATUS_LABEL_KEYS[product.status])}
-      />
-    </Pressable>
-  );
+  return <Badge size="label-small" variant="subtle" color={status === "active" ? "primary" : "default"} content={t(STATUS_LABEL_KEYS[status])} />;
 }
 
-function EmptyProducts({ canWrite, onCreate }: { canWrite: boolean; onCreate: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <View className="rounded-2xl border border-dashed border-border">
-      <EmptyState
-        icon={RiBox3Line}
-        title={t("products.empty.title")}
-        action={canWrite ? { label: t("products.empty.action"), onPress: onCreate } : undefined}
-      />
+function ProductIdentity({ product, onPress, disabled }: { product: Listing; onPress: () => void; disabled: boolean }) {
+  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={product.title}
+    className="flex-row items-center gap-3 rounded-lg py-1 active:opacity-70 web:hover:opacity-70">
+    <OxyProductImage key={product.images[0]?.fileId} fileId={product.images[0]?.fileId} alt={product.images[0]?.alt || product.title} size={40} />
+    <View className="min-w-0 flex-1 gap-1"><Text className="text-sm font-semibold text-foreground" numberOfLines={2}>{product.title}</Text>
+      {product.source ? <SourceBadge provider={product.source.provider} /> : null}
     </View>
-  );
-}
-
-function Pagination({
-  page,
-  pages,
-  onPrev,
-  onNext,
-}: {
-  page: number;
-  pages: number;
-  onPrev: () => void;
-  onNext: () => void;
-}) {
-  const { t } = useTranslation();
-  const { colors } = useColorScheme();
-  return (
-    <View className="mt-4 flex-row items-center justify-center gap-4">
-      <Pressable
-        onPress={onPrev}
-        disabled={page <= 1}
-        className="h-9 w-9 items-center justify-center rounded-lg border border-border active:opacity-70 disabled:opacity-40"
-      >
-        <ChevronLeft size={18} color={colors.foreground} />
-      </Pressable>
-      <Text className="text-sm text-muted-foreground">
-        {t("common.pageOf", { current: page, total: pages })}
-      </Text>
-      <Pressable
-        onPress={onNext}
-        disabled={page >= pages}
-        className="h-9 w-9 items-center justify-center rounded-lg border border-border active:opacity-70 disabled:opacity-40"
-      >
-        <ChevronRight size={18} color={colors.foreground} />
-      </Pressable>
-    </View>
-  );
+  </Pressable>;
 }

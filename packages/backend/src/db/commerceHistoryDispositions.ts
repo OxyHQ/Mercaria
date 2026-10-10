@@ -959,6 +959,13 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     reason: 'A grant that is consumed: the row records that it was used, so it moves once.',
   },
   {
+    table: 'review_helpful_votes',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: [],
+    reason: 'A reader may add or retract a helpfulness vote; it is mutable feedback, not a transaction snapshot.',
+  },
+  {
     table: 'review_target_migrations',
     rowUpdate: 'refused',
     rowDelete: 'refused',

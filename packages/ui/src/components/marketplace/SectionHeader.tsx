@@ -1,5 +1,5 @@
 import { Pressable, View } from "react-native";
-import { ChevronRight } from "lucide-react-native";
+import { ShopDetailIcon } from "./ShopDetailIcon";
 import { Text } from "../ui/text";
 import { useColorScheme } from "../../lib/useColorScheme";
 
@@ -10,31 +10,31 @@ export interface SectionHeaderProps {
   title: string;
   onPress?: () => void;
   showChevron?: boolean;
+  /** False when Bloom's Carousel header already owns the inset and spacing. */
+  inset?: boolean;
+  chevronPosition?: "end" | "after-title";
 }
 
 /**
- * Shelf section heading. Three modes:
- *
- * 1. Plain (no `onPress`, no `showChevron`): renders the exact same Text node
- *    that existing shelves use — byte-identical layout to the old inline heading
- *    so the refactor is visually safe.
- * 2. Interactive (has `onPress`): wraps the heading row in a Pressable link.
- * 3. With chevron (has `showChevron`): adds a filled disc icon button at the end.
- *
- * When `onPress` or `showChevron` is present the row switches to a `flex-row
- * items-center justify-between` wrapper and the title's own padding moves to the
- * outer View; in the plain branch the padding stays on the Text element itself,
- * matching the existing shelves exactly.
+ * Shared responsive shelf heading, optionally linked with a circular chevron.
+ * The chevron can sit beside the title or at the row's end. Bloom carousel
+ * headers own their padding; standalone headings keep the default inset.
  */
-export function SectionHeader({ title, onPress, showChevron = false }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  onPress,
+  showChevron = false,
+  inset = true,
+  chevronPosition = "end",
+}: SectionHeaderProps) {
   const { colors } = useColorScheme();
 
   // Plain branch — matches the existing shelf heading exactly.
   if (!onPress && !showChevron) {
     return (
       <Text
-        className="px-4 pb-3 text-lg font-semibold text-foreground md:px-5 md:text-[22px] md:font-bold md:leading-7"
-        numberOfLines={1}
+        accessibilityRole="header"
+        className={`${inset ? "px-4 pb-3 md:px-5" : ""} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
       >
         {title}
       </Text>
@@ -44,14 +44,18 @@ export function SectionHeader({ title, onPress, showChevron = false }: SectionHe
   const inner = (
     <>
       <Text
-        className="flex-1 text-lg font-semibold text-foreground md:text-[22px] md:font-bold md:leading-7"
-        numberOfLines={1}
+        accessibilityRole="header"
+        className={`${chevronPosition === "end" ? "flex-1" : "shrink"} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
       >
         {title}
       </Text>
       {showChevron ? (
-        <View className="flex aspect-square h-8 w-8 items-center justify-center overflow-hidden rounded-radius-max bg-bg-fill-secondary">
-          <ChevronRight size={CHEVRON_ICON_SIZE} color={colors.foreground} />
+        <View className="h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black/[0.04] dark:bg-white/[0.06]">
+          <ShopDetailIcon
+            name="chevron"
+            size={CHEVRON_ICON_SIZE}
+            color={colors.foreground}
+          />
         </View>
       ) : null}
     </>
@@ -61,8 +65,9 @@ export function SectionHeader({ title, onPress, showChevron = false }: SectionHe
     return (
       <Pressable
         accessibilityRole="link"
+        accessibilityLabel={title}
         onPress={onPress}
-        className="flex-row items-center justify-between px-4 pb-3 md:px-5"
+        className={`flex-row items-center gap-2 ${inset ? "justify-between px-4 pb-3 md:px-5" : ""}`}
       >
         {inner}
       </Pressable>
@@ -70,7 +75,9 @@ export function SectionHeader({ title, onPress, showChevron = false }: SectionHe
   }
 
   return (
-    <View className="flex-row items-center justify-between px-4 pb-3 md:px-5">
+    <View
+      className={`flex-row items-center gap-2 ${inset ? "justify-between px-4 pb-3 md:px-5" : ""}`}
+    >
       {inner}
     </View>
   );

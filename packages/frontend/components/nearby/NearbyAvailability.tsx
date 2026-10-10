@@ -135,10 +135,10 @@ export function NearbyAvailability({
 
   return (
     <View className="gap-space-12">
-      <Text className="text-sectionTitle text-text" accessibilityRole="header">
+      <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
         {t("nearby.heading")}
       </Text>
-      <Text className="text-caption text-text-secondary">{t("nearby.intro")}</Text>
+      <Text className="text-shop-caption text-text-secondary">{t("nearby.intro")}</Text>
 
       <NearbyOriginControl
         originState={originState}
@@ -147,17 +147,17 @@ export function NearbyAvailability({
       />
 
       {originState.origin === null ? (
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t("nearby.chooseLocationPrompt")}
         </Text>
       ) : nearby.isLoading ? (
-        <Text className="text-caption text-text-tertiary">{t("nearby.loading")}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{t("nearby.loading")}</Text>
       ) : nearby.isError ? (
-        <Text className="text-caption text-text-tertiary" accessibilityRole="alert">
+        <Text className="text-shop-caption text-text-tertiary" accessibilityRole="alert">
           {t("nearby.error")}
         </Text>
       ) : results.length === 0 ? (
-        <Text className="text-caption text-text-tertiary">{t("nearby.empty")}</Text>
+        <Text className="text-shop-caption text-text-tertiary">{t("nearby.empty")}</Text>
       ) : (
         <View className="gap-space-12">
           {/*
@@ -187,8 +187,8 @@ export function NearbyAvailability({
                 <Text
                   className={
                     order === value
-                      ? "text-captionBold text-text-inverse"
-                      : "text-captionBold text-text"
+                      ? "text-shop-captionBold text-text-inverse"
+                      : "text-shop-captionBold text-text"
                   }
                 >
                   {t(labelKey)}
@@ -219,7 +219,7 @@ export function NearbyAvailability({
             make.
           */}
           {hasMore ? (
-            <Text className="text-caption text-text-tertiary">
+            <Text className="text-shop-caption text-text-tertiary">
               {t("nearby.moreBeyond", { count: results.length })}
             </Text>
           ) : null}
@@ -237,7 +237,7 @@ export function NearbyAvailability({
               onPress={onSeeCollectionOptions}
               className="self-start rounded-radius-max bg-bg-fill-inverse px-space-16 py-space-8"
             >
-              <Text className="text-buttonSmall text-text-inverse">
+              <Text className="text-shop-buttonSmall text-text-inverse">
                 {t("nearby.collectInPerson")}
               </Text>
             </Pressable>

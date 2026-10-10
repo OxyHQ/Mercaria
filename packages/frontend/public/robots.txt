@@ -17,6 +17,10 @@ User-agent: BLEXBot
 Disallow: /
 
 User-agent: *
+Disallow: /thread
+Disallow: /profile
+Disallow: /recently-viewed
+Disallow: /curations/
 Allow: /
 Disallow: /search
 Disallow: /categories/*/s/

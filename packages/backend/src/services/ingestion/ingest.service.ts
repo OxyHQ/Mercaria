@@ -17,9 +17,11 @@
  * 1. **Adapters never create canonical products, brands or merchants.** There
  *    is no code path from here into a canonical WRITE service — the matcher is
  *    called, and it never mints either (#58's own rule). A `create_new`
- *    recommendation is RECORDED and the object is left `unmatched`; #60 owns
- *    minting, and `ingestion-isolation.test.ts` fails the build if this domain
- *    imports one.
+ *    recommendation is RECORDED and the object is left `unmatched`; #60's
+ *    backfill owns minting (from a store listing, or — ADR 0014 — from a
+ *    `seed_catalog` source, after which `readvanceSourceObject` below re-asks
+ *    the matcher), and `ingestion-isolation.test.ts` fails the build if this
+ *    domain imports a write service.
  * 2. **An offer is upserted only after canonical variant AND merchant
  *    resolution.** {@link materializeOffer} takes both as required arguments,
  *    and the merchant comes from the source's own binding rather than from a
@@ -68,7 +70,7 @@ import {
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
-import { recordSourceObservation } from '../../db/canonical/provenanceRepository.js';
+import { findSourceRecordById, recordSourceObservation } from '../../db/canonical/provenanceRepository.js';
 import { insertCanonicalProductSourceLink } from '../../db/canonical/canonicalProductRepository.js';
 import { insertCanonicalVariantSourceLink } from '../../db/canonical/canonicalVariantRepository.js';
 import {
@@ -76,6 +78,7 @@ import {
   releaseSourceLease,
 } from '../../db/ingestion/catalogSourceConfigRepository.js';
 import {
+  findSourceObjectById,
   listUnseenSourceObjects,
   quarantineSourceObject,
   retireSourceObject,
@@ -126,7 +129,7 @@ import {
   statusAfterRun,
 } from './health.js';
 import { NORMALIZATION_VERSION, canonicalizeNormalizedRecord } from './normalization.js';
-import { redactSourceObservation } from './redact.js';
+import { normalizedFromStoredPayload, redactSourceObservation } from './redact.js';
 import { resolveCatalogSourceAdapter } from './registry.js';
 import { resolveOfferMerchantId } from './seller-identity.js';
 import { resolveIngestionSource, type ResolvedIngestionSource } from './source.service.js';
@@ -922,8 +925,12 @@ async function advanceObject(args: {
   resolved: ResolvedIngestionSource;
   pipeline: PipelineTally;
   normalized: NormalizedSourceRecord;
-  /** The run this observation was read in (#78) — see the call site. */
-  runId: string;
+  /**
+   * The run this observation was read in (#78) — see the call site. `null`
+   * for a RE-ADVANCE (ADR 0014 D4), which reads no source and so belongs to
+   * no run; the offer's snapshot then names none, which its column permits.
+   */
+  runId: string | null;
   now: Date;
 }): Promise<void> {
   const { object, observationId, resolved, pipeline, normalized, now } = args;
@@ -946,8 +953,9 @@ async function advanceObject(args: {
      * Nothing is linked and no offer is written. `manual_review` goes to #59's
      * queue by way of the decision this object now cites; a `create_new`
      * recommendation is left `unmatched`, because minting a canonical product
-     * is #60's and a matcher recommending one is not the same as anybody having
-     * decided to.
+     * is #60's backfill (ADR 0014 extends it to `seed_catalog` sources) and a
+     * matcher recommending one is not the same as anybody having decided to.
+     * Once one is minted, `readvanceSourceObject` brings the object back here.
      */
     const state = decision.outcome === 'manual_review' ? 'review_required' : 'unmatched';
     if (state === 'review_required') pipeline.reviewRequired += 1;
@@ -1047,6 +1055,67 @@ async function advanceObject(args: {
   });
 }
 
+/** What one re-advance did (ADR 0014 D4). */
+export type ReadvanceOutcome =
+  | 'matched'
+  | 'unmatched'
+  | 'review_required'
+  /** Not `unmatched` any more, its source may not store, or its payload is unreadable. */
+  | 'not_readvanceable';
+
+/**
+ * Re-ask the matcher about ONE `unmatched` object, through the same four steps
+ * a page runs — match, link, materialize — and nothing else (ADR 0014 D4).
+ *
+ * The page loop deliberately skips an observation whose content is unchanged,
+ * so an object stored before its product existed in the catalogue would never
+ * be matched again. This is the way back, and it is `advanceObject` itself
+ * rather than a copy: the manual path and the automatic one cannot drift.
+ *
+ * The record is rebuilt from the STORED payload (`normalizedFromStoredPayload`),
+ * because the adapter's own record was discarded at ingestion. That is the
+ * same information the offer would have been built from: the payload is the
+ * normalized record's projection, and every field the offer reads survives it.
+ */
+export async function readvanceSourceObject(
+  objectId: string,
+  now: Date = new Date(),
+): Promise<{ outcome: ReadvanceOutcome; offerId: string | null }> {
+  const db = getDb();
+  const object = await findSourceObjectById(db, objectId);
+  if (object === undefined || object.state !== 'unmatched' || object.currentSourceRecordId === null) {
+    return { outcome: 'not_readvanceable', offerId: null };
+  }
+  const resolved = await resolveIngestionSource(object.sourceId, db);
+  // The same gate a page applies before persisting anything: a source whose
+  // rights were withdrawn since the object was stored must not produce an
+  // offer now through the back door.
+  if (resolved === undefined || !resolved.rights.store) {
+    return { outcome: 'not_readvanceable', offerId: null };
+  }
+  const observation = await findSourceRecordById(db, object.currentSourceRecordId);
+  const normalized = normalizedFromStoredPayload(observation?.payload);
+  if (observation === undefined || normalized === null) {
+    return { outcome: 'not_readvanceable', offerId: null };
+  }
+
+  const pipeline: PipelineTally = { matched: 0, reviewRequired: 0, unmatched: 0, offersUpserted: 0 };
+  await advanceObject({
+    object,
+    observationId: observation.id,
+    resolved,
+    pipeline,
+    normalized,
+    runId: null,
+    now,
+  });
+  const after = await findSourceObjectById(db, objectId);
+  const offerId = after?.offerId ?? null;
+  if (pipeline.matched > 0) return { outcome: 'matched', offerId };
+  if (pipeline.reviewRequired > 0) return { outcome: 'review_required', offerId: null };
+  return { outcome: 'unmatched', offerId: null };
+}
+
 /**
  * Write the offer, with the rights deciding what it may carry.
  *
@@ -1072,7 +1141,7 @@ async function materializeOffer(args: {
   canonicalVariantId: string;
   confidence: number | null;
   normalized: NormalizedSourceRecord;
-  runId: string;
+  runId: string | null;
   now: Date;
 }): Promise<string> {
   const { object, observationId, resolved, merchantId, canonicalVariantId, normalized, now } = args;
@@ -1095,7 +1164,7 @@ async function materializeOffer(args: {
       // than resolved from the record id — one extra query per ingested record
       // on the hottest write path, for a value this pass already holds.
       sourceId: resolved.source.config.sourceId,
-      sourceRunId: args.runId,
+      ...(args.runId === null ? {} : { sourceRunId: args.runId }),
       provider: resolved.source.config.provider,
       ...(resolved.source.config.sourceAccountRef === null
         ? {}

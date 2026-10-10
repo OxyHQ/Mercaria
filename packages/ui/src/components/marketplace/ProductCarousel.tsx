@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import { useWindowDimensions, View } from "react-native";
 import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
-import { Text } from "../ui/text";
+import { SectionHeader } from "./SectionHeader";
 import { ProductCard } from "./ProductCard";
 import type { ProductSummary } from "../../lib/format";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
@@ -15,9 +16,12 @@ const PRODUCT_SLOT_WIDTH_MD = 192;
 const MD_BREAKPOINT = 768;
 
 export interface ProductCarouselProps {
+  cardVariant?: "standard" | "image-only";
   items: ProductSummary[];
   /** Optional inline heading rendered above the row. */
   title?: string;
+  /** Heading sharing Bloom's carousel control row. */
+  header?: ReactNode;
   onPressItem?: (id: string) => void;
   onToggleSaveItem?: (id: string, nextSaved: boolean) => void;
 }
@@ -31,8 +35,10 @@ export interface ProductCarouselProps {
 export function ProductCarousel({
   items,
   title,
+  header,
   onPressItem,
   onToggleSaveItem,
+  cardVariant,
 }: ProductCarouselProps) {
   const t = useSharedUiTranslation();
   const shelf = useShelfCarouselProps();
@@ -44,17 +50,18 @@ export function ProductCarousel({
 
   return (
     <View>
-      {title ? (
-        <Text className="px-4 pb-3 text-lg font-semibold text-foreground md:px-5 md:text-[22px] md:font-bold md:leading-7">
-          {title}
-        </Text>
-      ) : null}
-
-      <Carousel {...shelf} accessibilityLabel={title ?? t(CAROUSEL_PRODUCTS_KEY)}>
+      <Carousel
+        {...shelf}
+        showArrows={cardVariant === "image-only" ? false : shelf.showArrows}
+        style={{ gap: 16 }}
+        accessibilityLabel={title ?? t(CAROUSEL_PRODUCTS_KEY)}
+        header={header ?? (title ? <SectionHeader title={title} inset={false} /> : undefined)}
+      >
         {products.map((product) => (
           <CarouselItem key={product.id} width={slotWidth}>
             <ProductCard
               product={product}
+              variant={cardVariant}
               onPress={onPressItem}
               onToggleSave={onToggleSaveItem}
             />

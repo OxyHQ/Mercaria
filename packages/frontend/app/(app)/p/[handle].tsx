@@ -1,5 +1,6 @@
+import { useImageResolver } from "@oxy.so/bloom/image-resolver";
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, useWindowDimensions } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import type {
@@ -8,8 +9,10 @@ import type {
   ProductPageSeller,
 } from '@mercaria/shared-types';
 import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
-import { OfferLabelBadge, Text } from '@mercaria/ui';
+import { BundleContents, OfferLabelBadge, ProductGallery, ReviewSummaryCard, Text } from '@mercaria/ui';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
+import { Button } from '@oxy.so/bloom/button';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
 import { NearbyAvailability } from '@/components/nearby/NearbyAvailability';
@@ -17,25 +20,23 @@ import { BrandChannels } from '@/components/product/BrandChannels';
 import { OfferGroups } from '@/components/product/OfferGroups';
 import { PriceHistoryPanel } from '@/components/product/PriceHistoryPanel';
 import { ProductIdentity } from '@/components/product/ProductIdentity';
+import { ProductReviewsDialog } from '@/components/product/ProductReviewsDialog';
 import { VariantSelector } from '@/components/product/VariantSelector';
 import { CompatibilityPanel } from '@/components/catalog/CompatibilityPanel';
 import { SpecificationGroups } from '@/components/catalog/SpecificationGroups';
 import { VariantAxisSelector } from '@/components/catalog/VariantAxisSelector';
 import { useProductCompatibility } from '@/lib/catalog/use-compatibility';
 import { useCatalogContext } from '@/lib/catalog/context';
-import {
-  useAttributeDefinitions,
-  useSpecificationTable,
-} from '@/lib/catalog/use-specifications';
+import { useAttributeDefinitions, useSpecificationTable } from '@/lib/catalog/use-specifications';
 import {
   applyVariantChoice,
   composeVariantMatrix,
   type VariantSelection,
 } from '@/lib/catalog/variant-axes';
 import { OFFER_INTENT_LABEL_KEYS, useProductPage } from '@/lib/hooks/use-product-page';
-import { useProductScopeReviews } from '@/lib/hooks/use-reviews';
+import { useProductScopeReviews, REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useAddCartItem } from '@/lib/hooks/use-cart';
-import { useToggleProductSave } from '@/lib/hooks/use-saves';
+import { useProductSave, useToggleProductSave } from '@/lib/hooks/use-saves';
 import { useTranslation } from '@/lib/i18n';
 
 /**
@@ -69,17 +70,28 @@ import { useTranslation } from '@/lib/i18n';
 
 export default function CanonicalProductPageScreen() {
   const router = useRouter();
+  const { canUsePrivateApi } = useOxy();
+  const resolveImage = useImageResolver();
   const { t } = useTranslation();
+  const { width } = useWindowDimensions();
   const params = useLocalSearchParams<{ handle: string; variant?: string; intent?: string }>();
   const handle = params.handle ?? '';
-  const selectedVariantId = params.variant;
+  const selectedVariantId = params.variant || undefined;
   const intent = readIntent(params.intent);
 
   const pageQuery = useProductPage(handle, {
     ...(selectedVariantId === undefined ? {} : { canonicalVariantId: selectedVariantId }),
     ...(intent === undefined ? {} : { intent }),
   });
-  const page = pageQuery.data;
+  const page = pageQuery.displayData;
+  const media = page?.product.images ?? [];
+  const images = media.flatMap((image) => {
+    const uri =
+      image.fileId ? resolveImage?.(image.fileId) : undefined;
+    return uri
+      ? [{ uri, alt: image.alt ?? t('product.imageFromCatalogueA11y', { name: page?.product.name }) }]
+      : [];
+  });
 
   /**
    * A merged product's old handle answers with the winner, and the URL is
@@ -95,9 +107,15 @@ export default function CanonicalProductPageScreen() {
     router.replace(buildHref(page.redirect.canonicalHandle, selectedVariantId, intent));
   }, [page?.redirect, router, selectedVariantId, intent]);
 
-  const reviews = useProductScopeReviews(page?.product.id, 1, 1);
+  const reviews = useProductScopeReviews(page?.product.id, 1, 12);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [initialReviewId, setInitialReviewId] = useState<string>();
   const addToCart = useAddCartItem();
   const toggleProductSave = useToggleProductSave();
+  const productSave = useProductSave(page?.product.id);
+  const saved = productSave.data?.saved ?? false;
+  const savePending = toggleProductSave.isPending ||
+    (canUsePrivateApi && (productSave.isPending || productSave.isFetching));
 
   /*
     The schema-driven half of the page (#367 workstream 9).
@@ -176,7 +194,11 @@ export default function CanonicalProductPageScreen() {
 
   const head = (
     <Head>
-      <title>{page?.product.name ? t('product.documentTitle', { name: page.product.name }) : t('product.appName')}</title>
+      <title>
+        {page?.product.name
+          ? t('product.documentTitle', { name: page.product.name })
+          : t('product.appName')}
+      </title>
       {page?.product.description ? (
         <meta name="description" content={page.product.description.slice(0, 160)} />
       ) : null}
@@ -185,43 +207,54 @@ export default function CanonicalProductPageScreen() {
 
   if (pageQuery.isLoading && page === undefined) {
     return (
-      <ScreenShell contentClassName="pt-6">
+      <ScreenShell contentClassName="md:pt-6">
         {head}
         <ProductPageSkeleton />
       </ScreenShell>
     );
   }
 
-  if (pageQuery.isError || page === undefined) {
+  if (page === undefined) {
     return (
-      <ScreenShell contentClassName="pt-6">
+      <ScreenShell contentClassName="md:pt-6">
         {head}
-        <View className="items-center justify-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">
-            {t('product.notFound')}
-          </Text>
+        <View className="items-center justify-center gap-space-8 px-8 py-16">
+          <Text className="text-center text-shop-body text-text-tertiary">{t(pageQuery.isNotFound ? 'product.notFound' : 'product.loadError')}</Text>
+          {!pageQuery.isNotFound ? <Button appearance="outline" tone="neutral" onPress={() => void pageQuery.refetch()}>{t('common.tryAgain')}</Button> : null}
         </View>
       </ScreenShell>
     );
   }
 
   return (
-    <ScreenShell contentClassName="pt-6">
+    <ScreenShell contentClassName="md:pt-6">
       {head}
-      <View className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-32 md:px-5">
-        <ProductIdentity
-          product={page.product}
-          {...(reviews.data?.aggregate === undefined
-            ? {}
-            : {
-                rating: {
-                  rating: reviews.data.aggregate.rating,
-                  reviewCount: reviews.data.aggregate.reviewCount,
-                },
-              })}
-        />
+      <View className="web:mx-auto web:w-full web:max-w-[1600px] gap-space-32 md:px-5">
+        <View className="flex-col gap-space-16 md:flex-row md:gap-space-40 md:px-4">
+          <View className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8">
+            <ProductGallery
+              className="md:w-full md:flex-none web:md:static web:md:top-auto"
+              images={images}
+              title={page.product.name}
+            />
+            {width >= 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
+              resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
+              onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
+          </View>
+          <View className="min-w-0 gap-space-24 px-space-16 md:px-0 md:pt-2 md:w-[29em]">
+            <ProductIdentity
+              product={page.product}
+              {...(reviews.data?.aggregate === undefined
+                ? {}
+                : {
+                    rating: {
+                      rating: reviews.data.aggregate.rating,
+                      reviewCount: reviews.data.aggregate.reviewCount,
+                    },
+                  })}
+            />
 
-        {/*
+            {/*
           One control per ACTUAL axis where the product has axes (#367
           workstream 9), and the configuration list where its configurations
           differ on nothing recorded.
@@ -231,68 +264,95 @@ export default function CanonicalProductPageScreen() {
           from, and `VariantSelector` names each configuration by the only thing
           that identifies it — which is the honest selector for that case.
         */}
-        {variantMatrix.axes.length > 0 ? (
-          <VariantAxisSelector
-            matrix={variantMatrix}
-            onChoose={(axisKey, normalizedValue) => {
-              const next = applyVariantChoice(
-                variantMatrix,
-                page.variants,
-                axisKey,
-                normalizedValue,
-              );
-              setAxisSelection(next);
-              const resolved = composeVariantMatrix({
-                product: {
-                  variantDefiningAttributeKeys: page.product.variantDefiningAttributeKeys,
-                },
-                variants: page.variants,
-                definitions: definitions.data ?? [],
-                locale: catalogContext.locale,
-                selection: next,
-              }).selectedVariantId;
-              // `setParams` updates the URL WITHOUT pushing a history entry, so
-              // changing configuration does not bury the page somebody arrived
-              // from under a stack of swatch changes (#71 UX rule 6). A
-              // selection that resolves to no single configuration clears it,
-              // because the page is then showing every configuration's offers.
-              router.setParams({ variant: resolved ?? '' });
-            }}
-          />
-        ) : (
-          <VariantSelector
-            variants={page.variants}
-            {...(selectedVariantId === undefined ? {} : { selectedVariantId })}
-            onSelect={(variantId) => router.setParams({ variant: variantId ?? '' })}
-          />
-        )}
+            {variantMatrix.axes.length > 0 ? (
+              <VariantAxisSelector
+                matrix={variantMatrix}
+                onChoose={(axisKey, normalizedValue) => {
+                  const next = applyVariantChoice(
+                    variantMatrix,
+                    page.variants,
+                    axisKey,
+                    normalizedValue,
+                  );
+                  setAxisSelection(next);
+                  const resolved = composeVariantMatrix({
+                    product: {
+                      variantDefiningAttributeKeys: page.product.variantDefiningAttributeKeys,
+                    },
+                    variants: page.variants,
+                    definitions: definitions.data ?? [],
+                    locale: catalogContext.locale,
+                    selection: next,
+                  }).selectedVariantId;
+                  // `setParams` updates the URL WITHOUT pushing a history entry, so
+                  // changing configuration does not bury the page somebody arrived
+                  // from under a stack of swatch changes (#71 UX rule 6). A
+                  // selection that resolves to no single configuration clears it,
+                  // because the page is then showing every configuration's offers.
+                  router.setParams({ variant: resolved ?? '' });
+                }}
+              />
+            ) : (
+              <VariantSelector
+                variants={page.variants}
+                {...(selectedVariantId === undefined ? {} : { selectedVariantId })}
+                onSelect={(variantId) => router.setParams({ variant: variantId ?? '' })}
+              />
+            )}
 
-        <Highlights page={page} />
+            <Highlights page={page} />
 
-        <IntentPicker
-          intent={intent}
-          onSelect={(next) => router.setParams({ intent: next ?? '' })}
-        />
+            <IntentPicker
+              intent={intent}
+              onSelect={(next) => router.setParams({ intent: next ?? '' })}
+            />
 
-        <OfferGroups
-          offers={page.offers}
-          addToCartPending={addToCart.isPending}
-          onAddToCart={(input) =>
-            addToCart.mutate({
-              listingId: input.listingId,
-              variantId: input.productVariantId,
-              quantity: 1,
-            })
-          }
-        />
+            {pageQuery.isError ? (
+              <View testID="product-update-error" className="gap-space-8">
+                <Text accessibilityRole="alert" className="text-shop-bodySmall text-text-secondary">{t('product.loadError')}</Text>
+                <Button appearance="outline" tone="neutral" onPress={() => void pageQuery.refetch()}>{t('common.tryAgain')}</Button>
+              </View>
+            ) : null}
 
-        {addToCart.isError ? (
-          <Text accessibilityRole="alert" className="text-sm font-medium text-destructive">
-            {addToCart.error.message}
-          </Text>
-        ) : null}
+            <OfferGroups
+              offers={page.offers}
+              isUpdating={pageQuery.isSelectionStale && pageQuery.isFetching}
+              disabled={pageQuery.isSelectionStale}
+              addToCartPending={addToCart.isPending}
+              onAddToCart={(input) =>
+                addToCart.mutate({
+                  listingId: input.listingId,
+                  variantId: input.productVariantId,
+                  quantity: 1,
+                })
+              }
+            />
 
-        {/*
+            {addToCart.isError ? (
+              <Text accessibilityRole="alert" className="text-sm font-medium text-destructive">
+                {addToCart.error.message}
+              </Text>
+            ) : null}
+
+            {width < 768 ? <BundleContents contents={page.bundleContents} pending={pageQuery.isSelectionStale}
+              resolveImage={image => image.fileId ? resolveImage?.(image.fileId) : undefined}
+              onPressComponent={component => router.push(buildHref(component.productSlug, component.variantId, undefined))} /> : null}
+            <ReviewSummaryCard
+              embedded
+              scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
+              average={reviews.data?.aggregate.rating ?? 0}
+              total={reviews.data?.aggregate.reviewCount ?? 0}
+              unverified={reviews.data?.aggregate.unverified}
+              distribution={reviews.data?.ratingSummary?.distribution}
+              reviews={reviews.data?.data ?? []}
+              isLoading={reviews.isLoading}
+              onReadMore={() => setReviewsOpen(true)}
+              onReviewPress={(id) => { setInitialReviewId(id); setReviewsOpen(true); }}
+            />
+          </View>
+        </View>
+        <View className="gap-space-32 px-space-16 lg:px-0">
+          {/*
           Collection (#93), seated after "who sells it" and before "what it used
           to cost": the shopper has just decided WHAT to buy and the next real
           question is whether they can have it today.
@@ -303,27 +363,27 @@ export default function CanonicalProductPageScreen() {
           12, client rule 9). Choosing a place happens at checkout, which is
           where the verdict is asked for and re-validated.
         */}
-        <NearbyAvailability
-          canonicalProductId={page.product.id}
-          {...(selectedVariantId === undefined ? {} : { canonicalVariantId: selectedVariantId })}
-          onSeeCollectionOptions={() =>
-            router.push(buildNearbyHref(page.product.id, selectedVariantId))
-          }
-        />
+          <NearbyAvailability
+            canonicalProductId={page.product.id}
+            {...(selectedVariantId === undefined ? {} : { canonicalVariantId: selectedVariantId })}
+            onSeeCollectionOptions={() =>
+              router.push(buildNearbyHref(page.product.id, selectedVariantId))
+            }
+          />
 
-        {/*
+          {/*
           The specification table (#367 workstream 9), from #94's registry — the
           SAME definitions the authoring wizard composes its form from. Seated
           after the offers because a shopper decides who to buy from before they
           read the spec sheet, and before the price history because the history
           is about a decision they have already made.
         */}
-        <SpecificationGroups
-          table={specifications.table}
-          definitionsUnavailable={specifications.definitionsUnavailable}
-        />
+          <SpecificationGroups
+            table={specifications.table}
+            definitionsUnavailable={specifications.definitionsUnavailable}
+          />
 
-        {/*
+          {/*
           Compatibility and fitment (#367 workstream 5), from its own domain —
           never from this product's title, attributes, family or category.
 
@@ -339,52 +399,58 @@ export default function CanonicalProductPageScreen() {
           and this page calls neither, because that is a cascading interaction
           rather than a read. See `components/catalog/CompatibilityPanel.tsx`.
         */}
-        <CompatibilityPanel compatibility={compatibility.compatibility} />
+          <CompatibilityPanel compatibility={compatibility.compatibility} />
 
-        <PriceHistoryPanel
-          canonicalProductId={page.product.id}
-          segment={historySegment(page)}
-          currency={page.offers.available === true ? page.offers.comparisonCurrency : undefined}
-        />
+          <PriceHistoryPanel
+            canonicalProductId={page.product.id}
+            segment={historySegment(page)}
+            currency={page.offers.available === true ? page.offers.comparisonCurrency : undefined}
+          />
 
-        <BrandChannels
-          officialChannels={page.officialChannels}
-          authorizedResellers={page.authorizedResellers}
-        />
+          <BrandChannels
+            officialChannels={page.officialChannels}
+            authorizedResellers={page.authorizedResellers}
+          />
 
-        <View className="flex-row flex-wrap gap-space-8">
-          {/*
-            Save (#80). A one-way SAVE rather than a toggle, and the reason is a
-            gap stated rather than papered over: #80 publishes a save context
-            for a LISTING (`/product-saves/listing/:id`) and none for a
-            canonical product, so this page cannot know whether the product is
-            already saved. A toggle built on an unknown current state would
-            un-save on the first press for anybody who had saved it elsewhere.
-            The write is idempotent (`ON CONFLICT DO NOTHING`), so pressing it
-            twice creates nothing and changes nothing — including the saved
-            list's ordering key. Whoever adds a per-product read to #80 turns
-            this into a toggle and nothing else here changes.
-          */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('product.save.productA11y')}
-            accessibilityState={{ disabled: toggleProductSave.isPending }}
-            disabled={toggleProductSave.isPending}
-            onPress={() =>
-              toggleProductSave.mutate({
-                canonicalProductId: page.product.id,
-                saved: false,
-                sourceContext: 'product_page',
-              })
-            }
-            className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
-          >
-            <Text className="text-buttonMedium text-text">
-              {toggleProductSave.isSuccess ? t('product.save.saved') : t('product.save.product')}
-            </Text>
-          </Pressable>
+          <View className="flex-row flex-wrap gap-space-8">
+            <View className="gap-space-8">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={productSave.isError
+                  ? t('common.tryAgain')
+                  : t(saved ? 'product.save.removeProductA11y' : 'product.save.productA11y')}
+                accessibilityState={{ disabled: savePending, selected: saved }}
+                aria-pressed={saved}
+                disabled={savePending}
+                onPress={() => {
+                  if (!canUsePrivateApi) {
+                    openAccountDialog();
+                  } else if (productSave.isError) {
+                    void productSave.refetch();
+                  } else if (productSave.data) {
+                    toggleProductSave.mutate({
+                      canonicalProductId: page.product.id,
+                      saved: productSave.data.saved,
+                      sourceContext: 'product_page',
+                    });
+                  }
+                }}
+                className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
+              >
+                <Text className="text-shop-buttonMedium text-text">
+                  {productSave.isError ? t('common.tryAgain') : savePending
+                    ? t('common.loading')
+                    : t(saved ? 'product.save.productSaved' : 'product.save.product')}
+                </Text>
+              </Pressable>
+              {productSave.isError || toggleProductSave.isError ? (
+                <Text accessibilityRole="alert" className="text-shop-caption text-destructive">
+                  {t(productSave.isError ? 'product.save.statusError' : 'product.save.updateError')}
+                </Text>
+              ) : null}
+            </View>
 
-          {/*
+            {/*
             Reporting the PRODUCT DATA goes to feedback, not to abuse reporting,
             and the vocabulary is why: `ABUSE_REPORTED_TYPES` is
             `listing | review | seller | store` and has no `product` member. A
@@ -394,17 +460,17 @@ export default function CanonicalProductPageScreen() {
             page, where the listing is the subject and `POST /reports` has a type
             for it.
           */}
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel={t('product.reportProblemA11y')}
-            onPress={() => router.push('/settings/feedback')}
-            className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
-          >
-            <Text className="text-buttonMedium text-text">{t('product.reportProblem')}</Text>
-          </Pressable>
-        </View>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={t('product.reportProblemA11y')}
+              onPress={() => router.push('/settings/feedback')}
+              className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
+            >
+              <Text className="text-shop-buttonMedium text-text">{t('product.reportProblem')}</Text>
+            </Pressable>
+          </View>
 
-        {/*
+          {/*
           "Sell yours" (#71 actions 4) and the price ALERT (#39/#79) are
           deliberately ABSENT rather than rendered as controls that do nothing.
           #41 owns the P2P sell flow from a canonical product and #79 owns
@@ -413,8 +479,18 @@ export default function CanonicalProductPageScreen() {
           not exist yet.
         */}
 
-        <Footer />
+          <Footer />
+        </View>
       </View>
+      {reviewsOpen ? (
+        <ProductReviewsDialog
+          listingId=""
+          canonicalProductId={page.product.id}
+          scope="product"
+          initialReviewId={initialReviewId}
+          onClose={() => { setReviewsOpen(false); setInitialReviewId(undefined); }}
+        />
+      ) : null}
     </ScreenShell>
   );
 }
@@ -435,7 +511,7 @@ function Highlights({ page }: { page: CanonicalProductPage }) {
 
   return (
     <View className="gap-space-8">
-      <Text className="text-sectionTitle text-text" accessibilityRole="header">
+      <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
         {t('product.highlights')}
       </Text>
       {offers.highlights.map((highlight) => {
@@ -447,7 +523,7 @@ function Highlights({ page }: { page: CanonicalProductPage }) {
             className="flex-row items-center gap-space-8"
           >
             <OfferLabelBadge award={highlight.award} />
-            <Text className="text-caption text-text-secondary">
+            <Text className="text-shop-caption text-text-secondary">
               {sellerName(row.seller) ?? t('offer.sellerNotIdentified')}
             </Text>
           </View>
@@ -490,7 +566,7 @@ function IntentPicker({
       accessibilityRole="radiogroup"
       accessibilityLabel={t('product.sortOffersBy')}
     >
-      <Text className="text-captionBold text-text">{t('product.sortOffersBy')}</Text>
+      <Text className="text-shop-captionBold text-text">{t('product.sortOffersBy')}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         {options.map((option) => (
           <Pressable
@@ -503,7 +579,9 @@ function IntentPicker({
               current === option ? 'border-text bg-bg-fill' : 'border-border-secondary'
             }`}
           >
-            <Text className="text-buttonMedium text-text">{t(OFFER_INTENT_LABEL_KEYS[option])}</Text>
+            <Text className="text-shop-buttonMedium text-text">
+              {t(OFFER_INTENT_LABEL_KEYS[option])}
+            </Text>
           </Pressable>
         ))}
       </View>

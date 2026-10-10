@@ -542,3 +542,95 @@ registers between deploys keeps it. `NEARBY_DISCOVERY_ENABLED` and
   merged is undiscoverable until its merchant's next verify (the dashboard
   runs one on opening the location). A sweep could do it; nothing does yet.
 
+
+## Catalog media synchronization — open (2026-10-10)
+
+The storefront requirement is **internal Oxy file IDs only**: download/import
+remote artwork in the backend before publishing it; never hotlink a supplier
+image as a fallback. This is not yet established across the whole catalog.
+The audit and current implementation:
+
+- `channel-ingest.service.ts` and `connector-sync.service.ts` now call
+  `catalog-media/sync.ts` before catalog writes. It downloads through Oxy
+  `safeFetch`, bounds images to 20 MiB, stores durable public media under the
+  persisted store owner, and accepts only the returned file ID. Failed imports
+  preserve the old product/gallery; pinned images skip remote I/O. This needs
+  the Oxy application permission below before a live upload can succeed.
+- `canonical-product.service.ts` now imports remote observation images before
+  opening its transaction, under the authenticated operator's Oxy account.
+  Source storage/display rights are checked before upload and again before
+  writing. PostgreSQL coverage proves upload refusal preserves prior facts,
+  provenance and gallery. `sourceUrl` remains provenance. The canonical page,
+  bundle contents, merchant cards, swatches and SEO no longer use that URL as
+  an image fallback. All three Bloom resolver providers reject non-ID input;
+  `isOxyFileId` is shared with the backend importer.
+- `catalog-hydration.service.ts` and `variant-images.controller.ts` now preserve
+  stored `fileId` values. Listing galleries, related/store/seller cards, recent
+  history and POS resolve them through Bloom/Oxy. Public `/public/v1` image
+  `url` fields still resolve at their projection boundary, preserving the SDK
+  contract. Legacy rows whose stored value is already a URL still need import.
+- Local preview seeds also put external URLs into image fields. Some category
+  and merchant artwork is already bundled locally; this does not prove all
+  catalog media is synchronized.
+- `src/scripts/backfill-listing-media.ts` now provides a read-only `--preview`
+  (the default) and explicit `--apply` for existing listing galleries. It uses
+  persisted user/store ownership and the real importer. Images update in place
+  only after the whole gallery uploads; row IDs, positions, alt text and variant
+  selections survive. A concurrent gallery or ownership edit produces a retry
+  instead of overwriting it. `--limit=1..500`, `--after=<listingId>` and
+  `--listing=<listingId>` bound/resume the pass. Reports contain source hashes,
+  never signed URLs. A local preview found **27 references across 12 listings**;
+  no apply/upload was run. Canonical images and store/category/collection artwork
+  are outside this listing-only command and still need their own migration.
+  Ten of those local listings use `seed.ts`'s development owner sentinel;
+  live media also needs a genuine local Oxy owner account. Do not solve this by
+  fabricating file IDs or silently importing under an unrelated account.
+
+SSM's existing Mercaria application credential successfully minted an Oxy token
+on 2026-10-10; its scopes contain no `files:*` permissions. No credential values
+were recorded, scopes changed, or production assets uploaded. The existing Oxy
+`/assets/service/user-media` route writes durable public assets under a local
+owner account and requires staff-granted `files:user-media:write` (or the broader
+legacy pair). The federation cache route is an evictable namespace, not a
+substitute for catalog ownership. Resolve the proper authorized upload path
+before migrating stored references.
+
+Remaining work: authorize and verify the live upload path, retain
+source URLs as provenance only, migrate existing media without dropping gallery
+identity/order, remove the legacy URL pass-through in `resolveMedia` together
+with its remaining feed/cart/store/SEO consumers, and verify all browser
+requests never fetch supplier image origins. Existing unsynchronized listing
+gallery rows now show the normal placeholder instead of fetching the supplier.
+The temporary browser image interceptor was removed after user review: browser
+integration now requires actual imported file IDs in the seed data. Do not count
+earlier synthetic-media browser passes as proof of live synchronization. Oxy
+transport mocks remain in isolated backend tests for error/atomicity coverage.
+New dashboard list rows and bundle recommendation cards already reject URL
+values in `fileId`; this is not a claim that other surfaces are corrected.
+The canonical browser gallery test also supplies deliberately external source
+URLs and proves zero requests to that origin while rendering Oxy images.
+
+# Open-data providers — what is built and what is next
+
+Keyless catalogue and price providers (`services/open-data/`, doc
+`docs/catalog-sources/open-data-providers.md`) are built, tested against
+recorded responses and #62's contract suite, and exercised live. They are
+**inert**: `OPEN_DATA_PROVIDERS` is empty and `OPEN_DATA_USER_AGENT` unset on
+every deployment.
+
+- **Reference seeding is BUILT (ADR 0014)** and inert until an operator grants a
+  source `may_seed_catalog`. The backfill stages are `reference_products` →
+  `source_readvance` → `reference_promotion`, then `search_reindex`. Nothing
+  schedules them: they run when an operator opens a run on
+  `/internal/catalog/backfill`, exactly as #60's stages do. Seeded products carry
+  no category, no brand and no images yet. The brand hint and the Open Facts
+  photos are in the observation's payload, and mapping them is the next step.
+  Facts are stored, not yet mapped onto the attribute registry (#94).
+- **Non-GTIN sources** (games, cards, fuel) need a stable cross-source
+  identity before they can match; Wikidata QIDs are the candidate.
+- **Storefront attribution is BUILT.** A product-page row from an open-data
+  provider carries `source` (name, licence label, the day the source saw the
+  price), and `OfferRow` renders "Price seen on {date}" in place of a dead
+  button plus a "Data: {name} · {licence}" line. Still to do: a public
+  `/data-sources` page linking each provider, and the ODbL subset export.
+  Both need legal review before production.

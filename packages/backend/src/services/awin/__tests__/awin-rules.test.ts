@@ -45,6 +45,7 @@ const ALL_RIGHTS: CatalogSourceRightsVerdict = {
   index: true,
   automated_refresh: true,
   extraction: false,
+  seed_catalog: false,
 };
 
 function bytesOf(text: string): AsyncIterable<Uint8Array> {

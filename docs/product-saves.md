@@ -30,6 +30,12 @@ The UI says which is which on every row and on every button (#80 listing rules).
 A listing page with a confident canonical mapping shows BOTH `Save product` and
 `Save this listing`; one without shows the listing button alone.
 
+Storefront save reads are scoped to the Oxy account in their query keys. Guests
+open Oxy sign-in without a write. Both product and listing actions wait for the
+current save context and for successful writes to refresh that context; a failed
+read offers Retry instead of assuming unsaved, and failed writes remain visible.
+
+
 ### `save_intent`, and why a pin is not just a favorite
 
 `favorites.save_intent` is `listing_save | listing_pin`.

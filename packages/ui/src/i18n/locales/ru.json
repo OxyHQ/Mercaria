@@ -1,5 +1,8 @@
 {
   "ui": {
+    "sheet": {
+      "close": "Закрыть"
+    },
     "condition": {
       "label": {
         "new": "Новый",
@@ -807,19 +810,20 @@
       }
     },
     "purchase": {
-      "oneTime": "Разовая покупка",
-      "subscribe": "Подписка",
       "addToCart": "В корзину",
       "selectOptions": "Выбрать параметры",
       "buyNow": "Купить сейчас",
-      "subscribeNow": "Подписаться сейчас",
-      "frequency": {
-        "monthly": "Доставка каждый месяц",
-        "every2Months": "Доставка раз в 2 месяца",
-        "every3Months": "Доставка раз в 3 месяца",
-        "every4Months": "Доставка раз в 4 месяца",
-        "every6Months": "Доставка раз в 6 месяцев"
-      }
+      "soldOut": "Нет в наличии",
+      "added": "Добавлено в корзину",
+      "subscribeNow": "Подписаться",
+      "oneTime": "Разовая покупка",
+      "subscriptionRequired": "Требуется подписка",
+      "subscribeAndSave": "Подпишитесь и экономьте",
+      "subscription": "Подписка",
+      "deliveryFrequency": "Частота доставки",
+      "options": "Варианты покупки",
+      "soldOutSave": "Этот вариант распродан. Сохраните товар, чтобы найти его позже.",
+      "soldOutSaved": "Этот вариант распродан. Вы можете найти товар в сохранённых."
     },
     "marketplace": {
       "visitMerchant": "Перейти к %{name}",
@@ -864,6 +868,10 @@
       "codeA11y": "Код получения %{code}",
       "codeNote": "Покажите его на кассе. Если он перестанет работать, магазин выдаст новый — старый код никогда не продолжает работать вместе с новым."
     },
+    "storeOffer": {
+      "amountOff": "Скидка %{amount}",
+      "minimumSubtotal": "при заказе от %{amount}"
+    },
     "productCard": {
       "discount": "скидка %{percent}",
       "save": "Добавить в сохранённые"
@@ -871,7 +879,8 @@
     "gallery": {
       "viewImage": "Посмотреть изображение %{position}",
       "previous": "Предыдущее изображение",
-      "next": "Следующее изображение"
+      "next": "Следующее изображение",
+      "open": "Открыть изображения %{title}"
     },
     "quantity": {
       "remove": "Убрать товар",
@@ -886,7 +895,12 @@
       "verifiedRatings": "Подтверждённых оценок: %{ratings}",
       "unverified": "Неподтверждённых: %{ratings} · %{rating}",
       "readMore": "Читать больше отзывов",
-      "none": "Отзывов пока нет"
+      "open": "Прочитать отзыв от %{author}",
+      "none": "Отзывов пока нет",
+      "ratings": "%{ratings} оценок",
+      "fallbackAuthor": "Покупатель Mercaria",
+      "verifiedPurchase": "Подтверждённая покупка",
+      "unverifiedPurchase": "Не подтверждено"
     },
     "searchInterpretation": {
       "chip": "%{label}",
@@ -996,6 +1010,16 @@
         "revoked_for_policy": "Отозвано по юридическим основаниям",
         "superseded": "Заменено более поздней покупкой"
       }
+    },
+    "bundle": {
+      "title": "Что входит в комплект",
+      "unavailable": "Состав этого комплекта сейчас недоступен.",
+      "open": "Посмотреть %{name}, %{variant}, количество %{quantity}",
+      "quantity": "×%{quantity}",
+      "together": "Купить набором",
+      "andSave": "Купить набором и сэкономить",
+      "view": "Посмотреть набор",
+      "addFailed": "Не удалось добавить набор. Попробуйте ещё раз."
     }
   }
 }

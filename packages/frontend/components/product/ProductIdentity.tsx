@@ -1,10 +1,10 @@
 import { View } from 'react-native';
-import { Image } from 'expo-image';
 import type { CanonicalProduct, CatalogSourceKind } from '@mercaria/shared-types';
 import { Rating } from '@oxy.so/bloom/rating';
 import { formatDate, Text, useRatingDisplay } from '@mercaria/ui';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useTranslation } from '@/lib/i18n';
+import { ProductDescription } from './ProductDescription';
 
 /**
  * What kind of place a fact came from, in the reader's language.
@@ -28,7 +28,6 @@ const CATALOG_SOURCE_KIND_KEYS: Readonly<Record<CatalogSourceKind, string>> = {
   backfill: 'product.sourceKind.backfill',
 };
 Object.freeze(CATALOG_SOURCE_KIND_KEYS);
-
 
 /**
  * What this product IS (#71 §"Product identity").
@@ -58,8 +57,8 @@ export interface ProductIdentityProps {
 export function ProductIdentity({ product, rating }: ProductIdentityProps) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
-  const images = product.images.filter((image) => image.fileId || image.sourceUrl);
-  const specs = product.attributes.slice(0, 8);
+  // Specifications belong to the registry-backed table on the page. The
+  // identity projection's raw attributes also include superseded candidates.
   // ACTIVE only: a retired or disputed identifier keeps its row (ADR 0002 D14)
   // and showing one would publish a number Mercaria no longer stands behind.
   // Every scheme in the vocabulary is a public product identifier, so there is
@@ -69,40 +68,12 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
 
   return (
     <View className="gap-space-16">
-      {images.length > 0 ? (
-        <View className="flex-row flex-wrap gap-space-8">
-          {images.slice(0, 4).map((image) => (
-            <Image
-              key={image.id}
-              source={{ uri: image.sourceUrl ?? image.fileId }}
-              contentFit="contain"
-              style={{ height: 180, width: 180 }}
-              // Source-aware alt text (#71 identity 4): the source's own words
-              // when it published any, and a plain statement of what the image
-              // is when it did not — never a caption Mercaria composed about a
-              // photograph it did not take.
-              accessibilityLabel={
-                image.alt ?? t('product.imageFromCatalogueA11y', { name: product.name })
-              }
-              alt={image.alt ?? t('product.imageFromCatalogueA11y', { name: product.name })}
-            />
-          ))}
-        </View>
-      ) : null}
-
       <View className="gap-space-8">
-        {/*
-          The brand and the family are NAMED and not linked, because the
-          storefront has no `/brands/:id` or `/product-families/:id` route yet —
-          #72 and #73 own those pages. #71 asks to link an identity "to its
-          public page when available", and a link to a route that does not
-          resolve is worse than the text. That used to be uncatchable —
-          `typedRoutes` was on but inert, so a dead `router.push` compiled and
-          shipped — and #330 closed it: the route union is generated before
-          `tsc`, so whoever adds those pages can turn these into links and is
-          told at once if they got the path wrong.
-        */}
-        <Text className="text-headerBold text-text" accessibilityRole="header">
+        <Text
+          className="text-shop-headerBold leading-[28px] text-text"
+          accessibilityRole="header"
+          numberOfLines={3}
+        >
           {product.name}
         </Text>
 
@@ -115,40 +86,26 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
                 subject: t(REVIEW_SCOPE_HEADING_KEYS.product),
               })}
             />
-            <Text className="text-captionMedium text-text-tertiary">
+            <Text className="text-shop-captionMedium text-text-tertiary">
               {t(REVIEW_SCOPE_HEADING_KEYS.product)}
             </Text>
           </View>
         ) : null}
 
         {product.description ? (
-          <Text className="text-bodySmall text-text">{product.description}</Text>
+          <ProductDescription description={product.description} />
         ) : null}
 
         <LifecycleLine product={product} />
       </View>
 
-      {specs.length > 0 ? (
-        <View className="gap-space-8">
-          <Text className="text-sectionTitle text-text" accessibilityRole="header">
-            {t('product.specifications')}
-          </Text>
-          {specs.map((attribute) => (
-            <View key={attribute.key} className="flex-row justify-between gap-space-12">
-              <Text className="text-caption text-text-secondary">{attribute.key}</Text>
-              <Text className="text-caption text-text">{attribute.displayValue}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
       {identifiers.length > 0 ? (
         <View className="gap-space-4">
-          <Text className="text-sectionTitle text-text" accessibilityRole="header">
+          <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
             {t('product.modelIdentifiers')}
           </Text>
           {identifiers.slice(0, 6).map((identifier) => (
-            <Text key={identifier.id} className="text-caption text-text-secondary">
+            <Text key={identifier.id} className="text-shop-caption text-text-secondary">
               {`${identifier.scheme.toUpperCase()} ${identifier.rawValue}`}
             </Text>
           ))}
@@ -179,7 +136,7 @@ function LifecycleLine({ product }: { product: CanonicalProduct }) {
     parts.push(t('product.discontinued'));
   }
   if (parts.length === 0) return null;
-  return <Text className="text-caption text-text-secondary">{parts.join(' · ')}</Text>;
+  return <Text className="text-shop-caption text-text-secondary">{parts.join(' · ')}</Text>;
 }
 
 /**
@@ -198,7 +155,7 @@ function ProvenanceLine({ product }: { product: CanonicalProduct }) {
   // `[missing "%{date}" value]` marker to a shopper.
   if (observed === null) return null;
   return (
-    <Text className="text-caption text-text-secondary">
+    <Text className="text-shop-caption text-text-secondary">
       {t('product.detailsLastConfirmed', {
         date: observed,
         source: t(CATALOG_SOURCE_KIND_KEYS[product.freshness.sourceKind]),

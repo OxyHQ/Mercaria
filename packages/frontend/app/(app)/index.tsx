@@ -1,9 +1,10 @@
-import { View, Pressable } from "react-native";
+import { useState } from "react";
+import { View, Pressable, Platform } from "react-native";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
-import { CartShelf, CategoryPills, ProductShelf, Text } from "@mercaria/ui";
+import { CartShelf, CategoryPills, ProductShelf, MerchantCarousel, Text } from "@mercaria/ui";
 import * as Skeleton from "@oxy.so/bloom/skeleton";
-import type { CartVendor } from "@mercaria/shared-types";
+import type { CartVendor, CartGroup } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { HeroSearch } from "@/components/shell/HeroSearch";
 import { Footer } from "@/components/shell/Footer";
@@ -11,6 +12,8 @@ import { useTranslation } from "@/lib/i18n";
 import { useFeed } from "@/lib/hooks/use-feed";
 import { useCart } from "@/lib/hooks/use-cart";
 import { categoryHref } from "@/lib/catalog/routes";
+import { ShoppingHistoryShelves } from "@/components/discovery/ShoppingHistoryShelves";
+import { HomeCategoryMosaics } from "@/components/discovery/HomeCategoryMosaics";
 
 /** Number of placeholder shelves shown while the feed loads. */
 const SKELETON_SHELF_COUNT = 2;
@@ -65,37 +68,46 @@ interface FeedBodyProps {
   isLoading: boolean;
   isError: boolean;
   refetch: () => void;
+  onHeroVisibilityChange: (visible: boolean) => void;
 }
 
 /** The feed content — identical on web and native, only its scroll host differs. */
-function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
+function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }: FeedBodyProps) {
   const router = useRouter();
   const { data: cart } = useCart();
 
   const onPressVendor = (vendor: CartVendor) => {
     if (vendor.kind === "store" && vendor.handle) {
-      router.push(`/stores/${vendor.handle}`);
+      router.push({ pathname: "/stores/[handle]", params: { handle: vendor.handle } });
+    } else if (vendor.kind === "user") {
+      router.push({ pathname: "/sellers/[oxyUserId]", params: { oxyUserId: vendor.id } });
     }
   };
 
-  const onCheckout = () => {
-    router.push("/cart");
+  const onCheckout = (group: CartGroup) => {
+    router.push(group.guestCheckout?.status === "blocked" ? "/cart" : { pathname: "/checkout", params: { seller: group.sellerKey } });
   };
 
   const onPressProduct = (id: string) => {
-    router.push(`/products/${id}`);
+    router.push({ pathname: "/products/[id]", params: { id } });
   };
 
   return (
     <>
       {/* Hero search header (provides branding — replaces the old top bar) */}
-      <HeroSearch />
+      <HeroSearch merchants={(data?.sections ?? []).flatMap(section => section.kind === "merchants" ? section.merchants : [])} products={(data?.sections ?? []).flatMap(section => section.kind === "products" ? section.products : []).filter((product, index, all) => all.findIndex(item => item.id === product.id) === index)} onVisibilityChange={onHeroVisibilityChange} />
+      {(data?.sections ?? []).filter(section => section.kind === "category-pills").map(section => (
+        <CategoryPills key={section.id} pills={section.pills ?? []} onPressPill={(id, slug) => router.push(categoryHref(slug.length > 0 ? slug : id))} />
+      ))}
 
       <CartShelf
         groups={cart?.groups ?? []}
         onPressVendor={onPressVendor}
         onCheckout={onCheckout}
+        onPressCart={() => router.push("/cart")}
       />
+      <ShoppingHistoryShelves />
+      <HomeCategoryMosaics />
 
       {isLoading && !data ? <FeedSkeleton /> : null}
 
@@ -105,22 +117,6 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
           older cached payload) must never crash the home. Guard the section
           list and each section's items against undefined. */}
       {(data?.sections ?? []).map((section) => {
-        if (section.kind === "category-pills") {
-          return (
-            <CategoryPills
-              key={section.id}
-              pills={section.pills ?? []}
-              // #367 workstream 9: the pills were inert because `/categories`
-              // did not exist. They now open the category landing page, by the
-              // SLUG where the feed supplies one and by the id otherwise —
-              // `/categories/:handle` resolves either, so a pill whose slug is
-              // empty is still addressable rather than dead.
-              onPressPill={(id, slug) =>
-                router.push(categoryHref(slug.length > 0 ? slug : id))
-              }
-            />
-          );
-        }
         if (section.kind === "products") {
           return (
             <ProductShelf
@@ -131,10 +127,11 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
             />
           );
         }
-        // `shop-by-category` (kind "categories") and `worth-the-hype` (kind
-        // "merchants") duplicate what the explore page now owns. The home
-        // stays a personal feed and no longer renders either — `GET /feed`
-        // still serves both sections; only this screen stops drawing them.
+        if (section.kind === "merchants") {
+          return <MerchantCarousel key={section.id} title={section.title} merchants={section.merchants}
+            onPressMerchant={handle => router.push({ pathname: "/stores/[handle]", params: { handle } })}
+            onPressProduct={onPressProduct} />;
+        }
         return null;
       })}
 
@@ -147,9 +144,10 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useFeed();
   const onRetry = () => refetch();
+  const [heroVisible, setHeroVisible] = useState(true);
 
   return (
-    <ScreenShell>
+    <ScreenShell hideComposer={Platform.OS === "web" && heroVisible} surfaceClassName="bg-[#fbfbfb] dark:bg-background">
       <Head>
         <title>{t("home.title")}</title>
         <meta
@@ -158,6 +156,7 @@ export default function HomeScreen() {
         />
       </Head>
       <FeedBody
+        onHeroVisibilityChange={setHeroVisible}
         data={data}
         isLoading={isLoading}
         isError={isError}

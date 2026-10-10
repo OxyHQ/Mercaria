@@ -20,6 +20,130 @@ schema decision. `HANDOFF.md` holds deferred work.
 - `packages/ui/` — shared components, consumed from source with no dist. Built
   on `@oxy.so/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
   marketplace-specific components; do not duplicate what Bloom already provides.
+  All three apps import `@mercaria/ui/theme/shop-typography.css` for the shared
+  marketplace type scale, measured from Shop's public CSS on 2026-10-09.
+  Its `text-shop-*` and `font-shop-*` utilities define size, line height, weight
+  and tracking without overriding Bloom’s own type tokens. Mercaria keeps Inter as its
+  font family. Use explicit pixel line heights when translating Shop utilities:
+  NativeWind overrides integer `leading-*` utilities with relative multipliers
+  (`leading-7` makes a 24px title 42px high; `leading-[28px]` preserves 28px). The legacy Tailwind preset mirrors these values for v3 consumers.
+  `color-scheme.css` binds Tailwind v4 `dark:` utilities to Bloom’s selected
+  theme: the document `.dark` class on web and Appearance’s color scheme on
+  native. Every app imports it; the legacy preset’s `darkMode` does not
+  configure the v4 CSS pipeline.
+  `shop-shadows.css` supplies the marketplace-only `shadow-shop-s/m/l` ramp;
+  Bloom retains ownership of its unprefixed shadow tokens.
+  `shop-controls.css` paints the purchase/save/share Bloom buttons with Shop’s
+  marketplace recipe via `className`; `useShopControlClassName` selects hover,
+  disabled and reduced-motion classes across platforms. Bloom owns the button
+  semantics and loading state; these recipes require its className authority fix.
+- Imported product descriptions retain safe authored HTML instead of displaying
+  markup as plain text. `prepareProductDescription` uses the browser-compatible
+  HTML5 parser (`parse5`) to build an allow-listed tree and truncate the preview
+  at 340 decoded characters. The accordion uses Shop’s peek presentation: a
+  decorative 40px fade and a full-width 32px Bloom button, separated by 12px,
+  with neither shown for a complete short description. `ProductRichText` renders
+  that tree as semantic HTML
+  on web and native text/layout plus Bloom tables on devices; scripts, author CSS
+  and executable links never reach either renderer. All apps import the shared
+  `shop-rich-text.css` reading recipe for paragraphs, headings, lists and tables.
+  The full description opens in the same marketplace sheet as reviews.
+- Storefront purchase feedback uses `CartFlightProvider` around Bloom's shell.
+  After a successful cart mutation, the active product image flies to the
+  visible cart glyph and the glyph pulses on arrival. Failed mutations and
+  reduced-motion preferences skip the flight. The purchase button keeps its
+  content mounted through loading, slides to its success label, then resets
+  after three seconds; this requires Bloom's stable loading-content contract.
+- `PurchasePlanPicker` composes Bloom's rich `RadioGroup`, `Collapsible` and
+  `Select` for one-time/subscription panels. The caller supplies prices, savings
+  and terms; the component never derives a charge from a discount badge.
+  Changing purchase mode preserves the selected delivery frequency. Interactive
+  bodies are siblings of the radio, and closed bodies leave the focus order.
+  Consumer subscriptions remain excluded by the commerce capability registry:
+  the storefront exposes sample allocations only in development, through
+  `?purchasePreview=subscription|required|prepaid|introductory|unavailable` on a
+  product URL (choose one value). Those purchase actions simulate loading and
+  confirmation without calling cart, checkout or order APIs. Production ignores
+  the parameter and uses the real listing purchase flow.
+- A selected sold-out variant promotes the existing saved-item action into the
+  purchase area, using Shop's plain 44px button and availability caption. A
+  canonical product save still follows the product across sellers; the separate
+  exact-listing pin remains available below. Unmatched listings keep their
+  listing save. State and mutations remain account-owned, and the copy promises
+  no restock notification. Missing option selection still asks for options.
+- Canonical product pages render real `bundle_components` as “What's included”:
+  a three-item Bloom carousel below the purchase controls on phones and a
+  four/five-column grid beneath the gallery on larger screens. Each card opens
+  its exact canonical configuration; quantities and active variant/product
+  images come from the catalog. The read is scoped to an explicit configuration
+  or the product's sole public configuration, and withholds the entire list if
+  any component is not shopper-visible. It never calculates pack price or stock
+  from the components. Seller listing details expose the same composition per
+  native variant through active `native_listing_links`, in batched reads; a
+  product-level barcode match is insufficient. Missing, revoked or superseded
+  attachments render no section. Hidden parents are omitted; hidden components
+  or a seller's disclosed missing accessories withhold the composition. Feed
+  and search cards do not pay for this detail-only read.
+- Seller product details also offer “Bundle together” for packs containing the
+  selected exact configuration. Candidates come from the reverse bundle graph
+  and active native attachments, stay within the same seller, and require the
+  pack's own published price and stock. Hydration and visibility checks run in
+  batches, with at most twelve candidates per source variant. A one-variant
+  pack uses the existing cart mutation; a configurable pack opens its exact
+  listing variant. The shelf displays the pack's own discount, never a price
+  calculated by adding its components. Bloom renders the responsive carousel,
+  pending actions and retryable errors; below 360px a full card keeps translated
+  actions readable beside the fixed-size image. Its arrows advance by one card
+  on phones, two at 768–975px and three from 976px, using Bloom 7.23's public
+  `slidesPerGroup` API; swipes still address individual cards.
+- Storefront navigation switches at 976px (`STOREFRONT_NAV_FROM`), matching
+  Shop's public CSS; product columns switch independently at 768px. Product
+  thumbnails appear in a horizontal 48px strip from 768–975px, then move to a
+  vertical rail at 976px. The gallery frame uses 45vh on phones, 65vh (capped
+  at 760px) in that intermediate layout, and 84vh on desktop. Selecting a photo
+  keeps its thumbnail visible in either direction, including RTL. Bloom's
+  numeric `navFrom` owns the rail/bottom-bar switch. Tablet arrows share Bloom's
+  carousel footer with the thumbnail strip; desktop arrows overlay the photo
+  with a 16px inset. Both wrap between the first and last photo.
+  Listing and variant image DTOs retain Oxy file IDs; each client resolves the
+  requested rendition through Bloom's image resolver. Public integration
+  `image.url` fields are resolved separately at the public API projection.
+  Changing a variant keeps the gallery mounted: only a different set of image
+  URLs resets its index. Canonical reads retain the same product's prior page
+  while the new configuration loads, report the offers region as busy, and
+  disable prior purchase, outbound and bundle-component actions until it arrives.
+  They never retain another product's page. Clearing a configuration removes
+  the query constraint rather than sending an empty variant id to the API.
+  A network failure or transient server error during refinement also retains
+  that mounted product as display state, with stale offer and bundle actions
+  disabled and an inline retry. It never populates the new selection's cache
+  with the prior response. Definitive client errors discard this fallback;
+  only 404/410 show “not found”, while other initial failures offer a retry.
+- Full product reviews use a flat Bloom `Dialog`, with search above the filters.
+  Filter drafts open in a 300px Bloom `Popover` on web from 768px and a bottom
+  `Dialog` below it or on native. Apply commits the draft; dismissal discards it.
+  Search and clear controls remain owned by Bloom's `Search`.
+  Product descriptions and full reviews share `MarketplaceSheet`: a full-width
+  end drawer below 976px and a 500px panel with 16px insets above it. Bloom owns
+  its gradient backdrop, 300ms transition, reduced-motion behavior and focus
+  restoration. The translucent panel and scroll fade are marketplace recipes.
+  `ViewportScrollView` binds native scroll events and portaled sheet scrolling
+  to Bloom's viewport observer; rating bars reveal once when fully visible,
+  while their accessible values always expose the actual server distribution.
+- Buyer history has `/orders` (Active) and `/orders/past` (Past). The shared
+  `BUYER_ORDER_VIEW_BY_STATUS` maps every lifecycle status to exactly one view;
+  the buyer API filters before counting and paginating, including claimed guest
+  orders. Omitting `view` preserves the API's all-orders behavior. Client cache
+  keys include account, view and page, and retain prior pages only within the
+  same account/view.
+- Each app wraps its screens in Bloom `OverlayInertBoundary`, inside Oxy's
+  surface provider so its outlet remains outside. Modal sheets and dialogs
+  remove the underlying screens from keyboard and accessibility navigation.
+  Oxy Services and every app must resolve the same installed Bloom package:
+  an incompatible Services peer range installs a second copy and splits those
+  contexts. The storefront's `bloom-runtime.test.ts` checks all three apps'
+  installed surface/theme module paths; fix the upstream peer contract rather
+  than forcing a version through Metro aliases.
 - `packages/backend/` — Express API (TypeScript, PostgreSQL via drizzle-orm +
   `@oxy.so/db`, Socket.IO)
 - `packages/shared-types/` — DTOs and every closed value set
@@ -64,6 +188,7 @@ automation and the clean-cut migration policy are documented in
 | [0011](adr/0011-authorized-digital-retail.md) | Authorized digital retail — Mercaria is the seller, the supplier is private infrastructure; amends ADR 0010 D16 in one half |
 | [0012](adr/0012-store-ownership-is-an-oxy-account.md) | A store is owned by an Oxy account; Oxy decides who gets in, Mercaria keeps only permission exceptions |
 | [0013](adr/0013-place-facts-live-in-goway.md) | A location's place facts live in GoWay; Mercaria keeps commerce and a `goWayPlaceId`, linked by a verifiable back-reference |
+| [0014](adr/0014-open-reference-data-seeds-the-canonical-catalogue.md) | Open reference data may seed the canonical catalogue, through backfill and a granted `may_seed_catalog` right; amends ADR 0002 D23 phase 1 |
 
 ## Platform
 
@@ -104,6 +229,7 @@ automation and the clean-cut migration policy are documented in
 | Relationships (#55), offers (#57), matching (#58) | [commerce-graph.md](commerce-graph.md) |
 | Curation (#59) · backfill (#60) · ingestion framework (#62) | [curation.md](curation.md) · [backfill.md](backfill.md) · [ingestion.md](ingestion.md) |
 | Feed importer (#63) · eBay (#65) · Awin (#66) · offer freshness (#68) | [feed-importer.md](feed-importer.md) · [catalog-sources/](catalog-sources/) · [offer-freshness.md](offer-freshness.md) |
+| Keyless open-data providers: Open Prices, Open Facts, MITECO fuel, CheapShark, GOG, Scryfall, TCGdex — and structured `facts` | [catalog-sources/open-data-providers.md](catalog-sources/open-data-providers.md) |
 | Attributes (#94) · condition (#90) · reviews (#76) | [attributes.md](attributes.md) · [condition.md](condition.md) · [reviews.md](reviews.md) |
 | **Start here for #367:** the vocabulary bound to the code, and the curated ERD | [catalog-glossary.md](catalog-glossary.md) |
 | Every catalog table, its cardinality and who writes it — generated from the schema, never drawn | [catalog-architecture-diagrams.md](catalog-architecture-diagrams.md) |

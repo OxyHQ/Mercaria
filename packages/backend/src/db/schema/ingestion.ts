@@ -472,6 +472,14 @@ export const catalogSourcePolicies = pgTable(
     mayIndex: boolean().notNull().default(false),
     mayRefreshAutomatically: boolean().notNull().default(false),
     /**
+     * ADR 0014: whether this source's observations may MINT draft canonical
+     * products, through the `reference_products` backfill stage and nothing
+     * else. A reference catalogue (Open Food Facts) is granted it; a price feed
+     * is not. Implies `may_store` by the CHECK below — a source Mercaria may not
+     * keep cannot be the provenance of a product it keeps forever.
+     */
+    maySeedCatalog: boolean().notNull().default(false),
+    /**
      * Extraction is a MODE and not a boolean, because "may we scrape" and
      * "under what constraints" are one decision (issue rights 9). `disallowed`
      * is the default and the only value that needs no constraint beside it.
@@ -524,6 +532,11 @@ export const catalogSourcePolicies = pgTable(
     check(
       'catalog_source_policies_display_implication_check',
       sql`${t.mayDisplay} or (not ${t.mayDisplayPrice} and not ${t.mayDisplayMedia})`,
+    ),
+    /** Seeding the catalogue keeps the source's facts forever; that is storing them. */
+    check(
+      'catalog_source_policies_seed_implication_check',
+      sql`${t.mayStore} or not ${t.maySeedCatalog}`,
     ),
     /** Affiliate parameters are appended to an outbound link; without one there is nothing to append them to. */
     check(

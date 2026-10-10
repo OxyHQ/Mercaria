@@ -106,7 +106,7 @@ export default function ShoppingAgentsScreen() {
       <View className="gap-space-16 px-space-16 py-space-20">
         <Text className="text-2xl font-bold text-foreground">{t("shoppingAgents.title")}</Text>
         <Text className="text-sm text-text-secondary">{t("shoppingAgents.intro")}</Text>
-        <Text className="text-caption text-text-tertiary">
+        <Text className="text-shop-caption text-text-tertiary">
           {t(SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY)}
         </Text>
 
@@ -155,7 +155,7 @@ export default function ShoppingAgentsScreen() {
                         resolveSplit.mutate({ agentId: agent.id, resolution })
                       }
                       onOpenProduct={(canonicalProductId) =>
-                        router.push(`/products/${canonicalProductId}`)
+                        router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
                       }
                     />
 
@@ -167,7 +167,7 @@ export default function ShoppingAgentsScreen() {
                         findings={findings.data ?? []}
                         constraintExplanations={constraintExplanations}
                         onOpenProduct={(canonicalProductId) =>
-                          router.push(`/products/${canonicalProductId}`)
+                          router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
                         }
                       />
                     ) : null}
@@ -208,7 +208,7 @@ function FindingsTimeline({
   const { t } = useTranslation();
   return (
     <View className="gap-space-8 ps-space-12">
-      <Text className="text-caption text-text-tertiary">
+      <Text className="text-shop-caption text-text-tertiary">
         {asking ? t("shoppingAgents.findings.asking") : t("shoppingAgents.findings.intro")}
       </Text>
 
@@ -219,13 +219,13 @@ function FindingsTimeline({
       ) : null}
 
       {failed ? (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t("shoppingAgents.findings.loadError")}
         </Text>
       ) : null}
 
       {!pending && !failed && findings.length === 0 ? (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t("shoppingAgents.findings.empty")}
         </Text>
       ) : null}

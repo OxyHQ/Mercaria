@@ -26,6 +26,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const aggregatePublishedReviews = vi.fn();
 const authorHasReviewedTarget = vi.fn();
 const findDimensionsForReviews = vi.fn();
+const findPurchasedVariantsForReviews = vi.fn();
+const findReviewHelpfulness = vi.fn();
 const findListingReviewsPage = vi.fn();
 const findReviewsPage = vi.fn();
 const findScopedReviewsPage = vi.fn();
@@ -52,6 +54,7 @@ const getProfiles = vi.fn();
 
 vi.mock('../../db/reviews/reviewRepository.js', () => ({
   aggregatePublishedReviews: (...args: unknown[]) => aggregatePublishedReviews(...args),
+  readReviewRatingSummary: vi.fn().mockResolvedValue(undefined),
   authorHasReviewedTarget: (...args: unknown[]) => authorHasReviewedTarget(...args),
   findDimensionsForReviews: (...args: unknown[]) => findDimensionsForReviews(...args),
   findListingReviewsPage: (...args: unknown[]) => findListingReviewsPage(...args),
@@ -62,6 +65,14 @@ vi.mock('../../db/reviews/reviewRepository.js', () => ({
 
 vi.mock('../../db/reviews/reviewEligibilityRepository.js', () => ({
   consumeEligibility: (...args: unknown[]) => consumeEligibility(...args),
+}));
+
+vi.mock('../../db/reviews/reviewPurchaseContextRepository.js', () => ({
+  findPurchasedVariantsForReviews: (...args: unknown[]) => findPurchasedVariantsForReviews(...args),
+}));
+
+vi.mock('../../db/reviews/reviewHelpfulnessRepository.js', () => ({
+  findReviewHelpfulness: (...args: unknown[]) => findReviewHelpfulness(...args),
 }));
 
 vi.mock('../reviews/review-eligibility.service.js', () => ({
@@ -119,7 +130,7 @@ vi.mock('../catalog-hydration.service.js', () => ({
   resolveMedia: (value: string, variant?: string) => (variant ? `${value}:${variant}` : value),
 }));
 
-import { createReview, recomputeAggregate, listReviewsForStoreHandle } from '../review.service.js';
+import { createReview, recomputeAggregate, listReviewsForStoreHandle, listReviews, listScopedReviews } from '../review.service.js';
 import type { StoreCaller } from '../store-access.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
@@ -222,6 +233,8 @@ beforeEach(() => {
   sendNotification.mockResolvedValue(undefined);
   getProfiles.mockResolvedValue(new Map());
   findDimensionsForReviews.mockResolvedValue([]);
+  findPurchasedVariantsForReviews.mockResolvedValue(new Map());
+  findReviewHelpfulness.mockResolvedValue([]);
   rebuildScopedAggregate.mockResolvedValue({ aggregate: {}, drift: null });
   assertNotSelfPurchase.mockResolvedValue(undefined);
   assertNotSelfTarget.mockResolvedValue(undefined);
@@ -598,7 +611,7 @@ describe('review.service.listReviewsForStoreHandle', () => {
     expect(findListingIdsByStore).toHaveBeenCalledWith('store-1');
     // The whole store's listing ids go to the review query in ONE `inArray`; only
     // the listings actually reviewed are hydrated afterwards.
-    expect(findListingReviewsPage).toHaveBeenCalledWith(['listing-1', 'listing-2'], 1, 20);
+    expect(findListingReviewsPage).toHaveBeenCalledWith(['listing-1', 'listing-2'], 1, 20, {});
     expect(findListingChildren).toHaveBeenCalledWith(['listing-1']);
     expect(page.total).toBe(1);
     expect(page.data[0].product).toEqual({
@@ -628,5 +641,39 @@ describe('review.service.listReviewsForStoreHandle', () => {
 
     expect(page).toEqual({ data: [], total: 0 });
     expect(findListingReviewsPage).not.toHaveBeenCalled();
+  });
+});
+
+describe('public purchased variant hydration', () => {
+  it('batches exact review ids and keeps missing purchase evidence absent on both read paths', async () => {
+    const first = reviewRow({ id: 'review-purchased', verification: 'verified_purchase', eligibilityId: 'eligibility-purchased' });
+    const second = reviewRow({ id: 'review-no-evidence' });
+    findPurchasedVariantsForReviews.mockResolvedValue(new Map([[first.id, 'Black / M']]));
+    findReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
+    findScopedReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
+    for (const result of [
+      await listReviews({ targetType: 'listing', targetId: 'listing-1' }, { page: 1, limit: 12 }),
+      await listScopedReviews('p2p_listing', 'listing-1', { page: 1, limit: 12 }),
+    ]) {
+      expect(result.data[0].purchasedVariantTitle).toBe('Black / M');
+      expect(result.data[1]).not.toHaveProperty('purchasedVariantTitle');
+    }
+    expect(findPurchasedVariantsForReviews).toHaveBeenCalledTimes(2);
+    expect(findPurchasedVariantsForReviews).toHaveBeenNthCalledWith(1, [first.id, second.id]);
+    expect(findPurchasedVariantsForReviews).toHaveBeenNthCalledWith(2, [first.id, second.id]);
+  });
+});
+
+describe('public helpfulness counts', () => {
+  it('hydrates counts in one batch without exposing personal vote state', async () => {
+    const first = reviewRow({ id: 'review-helpful' });
+    const second = reviewRow({ id: 'review-no-votes' });
+    findReviewHelpfulness.mockResolvedValue([{ reviewId: first.id, helpfulnessCount: 7, markedAsHelpfulByMe: false, canUpdateHelpfulness: false }]);
+    findReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
+    const result = await listReviews({ targetType: 'listing', targetId: 'listing-1' }, { page: 1, limit: 12 });
+    expect(result.data.map(row => row.helpfulnessCount)).toEqual([7, 0]);
+    expect(result.data[0]).not.toHaveProperty('markedAsHelpfulByMe');
+    expect(result.data[0]).not.toHaveProperty('canUpdateHelpfulness');
+    expect(findReviewHelpfulness).toHaveBeenCalledExactlyOnceWith([first.id, second.id]);
   });
 });

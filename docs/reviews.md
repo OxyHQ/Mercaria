@@ -302,11 +302,100 @@ surface) and from payment disputes (#49). None of the three imports another.
 | `GET /listings/:id/reviews` | public | LEGACY, unchanged |
 | `GET /stores/:handle/reviews` | public | LEGACY, unchanged |
 
+The four public review-list reads accept an optional `query` (up to 200
+characters). It searches published review titles and bodies case-insensitively,
+within the requested target, before pagination. `%`, `_` and backslashes are
+literal search characters. Blank text clears the search; repeated/object query
+values and oversized strings are refused with 400. Pagination counts matching
+reviews, while `ratingSummary` and the scoped aggregate keep describing the
+whole target. Filtering never recalculates the product's headline rating from
+the returned page.
+
+They also accept `sortBy=newest|oldest|rating_asc|rating_desc` (newest by
+default) and `ratings=1,5` (one comma-separated list of up to five whole-star
+ratings). Multiple stars are ORed, then combined with the text query and target.
+Malformed filters return 400. Ordering happens before pagination, with timestamp
+and ID tiebreakers. The storefront exposes these as Bloom radio/checkbox menus;
+Apply commits a draft selection and resets its infinite list; Reset changes
+the draft to the default, and dismissal discards uncommitted choices. There is no recommendation-ranking
+option because the review domain does not have a relevance score.
+
 The scoped reads return the aggregate ALONGSIDE the page, so the stars a page
 shows and the reviews it lists come from one read. A client that averaged the
 twelve reviews it received would display a number that is not the target's
 rating — which is what the product page did before #76, and what #75's
 structured data must not mirror.
+
+The storefront's full product/listing review sheet appends these server pages
+as its own scroll viewport reaches the end. Infinite-list cache keys are separate
+from the PDP preview keys and include scope, target, page size and submitted
+search text, ordering and selected ratings. Enter submits trimmed text; clearing restores the unfiltered list.
+Typing alone does not filter the currently loaded page. A failed continuation
+keeps the loaded reviews and offers a retry. Review IDs prevent duplicated cards
+when offset pages overlap after a new publication.
+
+The search uses Bloom's public field/chrome classes for a 44 px shell with a
+28 px radius, transparent fill and image border. Bloom 7.17 owns return-focus
+timing after a dialog removes its inert background; the storefront does not
+schedule an extra focus timeout or change DOM attributes itself.
+
+Review-preview carousel arrows use Shop's 44 px outlined controls (20 px glyph,
+12 px padding, small shadow), revealed by hover or keyboard focus. Shared feed
+shelves use 40 px controls and a medium shadow, overlaid on the track. Bloom
+hides unavailable controls from the accessibility tree and moves focus to the
+track when activating an arrow reaches that end; phones retain swipe navigation.
+
+The collapsed PDP review accordion shows the authoritative rating and count,
+with a 250 ms linear clip/opacity reveal. It reserves its measured width while
+expanded so the title and chevron do not shift, respects reduced motion, and
+hides the caption from accessibility while expanded. A canonical product's
+caption uses only its verified aggregate; listing ratings and the separate
+unverified product aggregate are never substituted into it.
+
+Full review cards also show a **Helpful** action with Shop's 16 px thumb vector,
+caption label, positive-count badge and 20 px gap before the actions menu.
+Previews remain a single link. Visitors open the existing Oxy account dialog;
+authenticated readers can add or remove their vote, but cannot vote on their own
+review. The button waits for the server response and leaves its previous state
+intact on failure, with a translated retry message.
+
+`review_helpful_votes` stores one row per `(review_id, oxy_user_id)`; the public
+count is derived during batched hydration, never maintained as a second counter.
+`GET /reviews/helpfulness?ids=…` returns personal state for up to 50 published,
+non-private reviews. `PUT /reviews/:id/helpfulness` accepts only `{ helpful:
+boolean }`, reads the Oxy principal and locks the review through the write and
+returned count. Replaying an add/remove is idempotent. Hidden reviews and private
+order-line feedback are excluded from both surfaces; hiding retains previous
+votes, while deleting a review cascades its votes. Both personal responses use
+`Cache-Control: private, no-store`. Frontend batches and cache keys are scoped to
+the account and review IDs; a response begun by one account cannot populate
+another account's cache. Public review pages contain only counts.
+
+Migration `0163_dear_dakota_north` is additive and must run in the `pre` phase
+before deploying the readers. Its derived rollback drops the new vote table and
+therefore discards votes; it is an operator decision, never an automatic rollback.
+
+Full review cards in the product sheet and store review list expose a Bloom
+actions menu with **Report review**. It opens the shared abuse-report form with
+`reportedType: 'review'` and that review's id; the author and product are never
+substituted as the subject. Guests must sign in through Oxy before sending.
+Closing the nested form preserves the review list. Compact PDP previews remain
+single buttons that open the full review sheet, without nested action controls.
+
+Expanded cards can show `purchasedVariantTitle` below the review title. It is a
+read-only projection of the immutable order-line variant title reached through
+the review's eligibility, batched for the requested page. The projection requires
+a published, verified review with matching eligibility author and scope, and an
+order line belonging to the eligibility's order. Missing evidence, blank titles
+and the catalog's `Default Title` sentinel omit the field. Catalog edits or
+deletion cannot change which size/color the review says was purchased. Neither
+the review input nor the public projection carries buyer contact/payment data.
+
+The PDP previews three reviews. Opening a preview centres that review in the
+sheet, using measured content and viewport sizes. A canonical product with no
+verified ratings still shows its separately labelled unverified reviews and
+allows opening the full list; it does not substitute their average for the
+verified aggregate or claim there are no reviews.
 
 `createReviewSchema` is `.strict()`, and that is load-bearing rather than tidy:
 every field a forbidden evidence source would arrive in is refused before any

@@ -59,7 +59,7 @@ export function OfferConditionBadge({
         <Badge size="label-medium" variant="subtle" color="default" content={label} />
       </View>
       {showExplanation && key !== "unknown" ? (
-        <Text className="text-caption text-text-secondary">{t(conditionExplanationKey(key))}</Text>
+        <Text className="text-shop-caption text-text-secondary">{t(conditionExplanationKey(key))}</Text>
       ) : null}
       {condition.sourceLabel ? (
         // The source's own wording beside the normalized key (#90 UI rule 4):
@@ -67,7 +67,7 @@ export function OfferConditionBadge({
         // makes an operator's later correction of the RULE visible as a
         // correction rather than as a silent change of fact. The wording itself
         // is the source's and is never translated.
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(CONDITION_SELLER_WORDING_KEY, { label: condition.sourceLabel })}
         </Text>
       ) : null}

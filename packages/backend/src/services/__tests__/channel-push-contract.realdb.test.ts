@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 /**
  * THE PLUGIN PUSH CONTRACT — issue #69's eight WooCommerce-plugin scenarios, and
  * the Mercaria half of acceptance criterion 4.
@@ -27,7 +28,25 @@
  */
 
 import { STORE_PERMISSIONS } from '@mercaria/shared-types';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+// Only external image transports are replaced. Store ownership, media sync,
+// catalog services, repositories and PostgreSQL constraints remain real.
+const { mediaUpload } = vi.hoisted(() => ({ mediaUpload: vi.fn() }));
+vi.mock('../../capabilities/oxy-service-client.js', () => ({
+  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.test', serviceToken: async () => 'fixture-token' }),
+}));
+const originalFetch = globalThis.fetch;
+beforeEach(() => {
+  mediaUpload.mockReset().mockImplementation(async () => Response.json({
+    data: { file: { id: 'oxy-synchronized-image', visibility: 'public' } },
+  }));
+  vi.stubGlobal('fetch', (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+    String(input) === 'https://api.oxy.test/assets/service/user-media'
+      ? mediaUpload(input, init)
+      : originalFetch(input, init));
+});
+afterEach(() => vi.unstubAllGlobals());
+
 import express from 'express';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
@@ -42,7 +61,13 @@ vi.mock('@oxy.so/core/server', async () => {
   // constant-time compare under test in scenario 5, and stubbing it would make
   // "a revoked key is rejected" pass against a comparison that does not exist.
   const actual = await vi.importActual<typeof import('@oxy.so/core/server')>('@oxy.so/core/server');
-  return { ...actual, getRequiredOxyUserId: () => OWNER_USER };
+  return {
+    ...actual, getRequiredOxyUserId: () => OWNER_USER,
+    safeFetch: async () => ({
+      status: 200, headers: { 'content-type': 'image/png' },
+      response: Readable.from([Buffer.from('fixture image')]),
+    }),
+  };
 });
 
 import { config } from '../../config/index.js';

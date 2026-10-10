@@ -57,7 +57,7 @@ export function ConditionBadge({ condition, showExplanation = false }: Condition
         <Badge size="label-medium" variant="subtle" color="default" content={label} />
       </View>
       {showExplanation ? (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(conditionExplanationKey(condition.key))}
         </Text>
       ) : null}
@@ -67,7 +67,7 @@ export function ConditionBadge({ condition, showExplanation = false }: Condition
         // mapping rather than trust it. The seller's own words are NOT
         // translated — they are evidence, and translating evidence would defeat
         // the comparison this line exists for.
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(CONDITION_SELLER_WORDING_KEY, { label: condition.sourceLabel })}
         </Text>
       ) : null}

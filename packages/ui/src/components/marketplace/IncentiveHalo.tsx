@@ -3,8 +3,8 @@ import { View } from "react-native";
 
 /**
  * Decorative multi-stop "incentive halo" ring (web `boxShadow`). Mirrors Shop's
- * gradient reward ring around a merchant logo — purely visual, no real reward
- * data behind it. The white inner stop reads as a 1.5px gap, then a
+ * gradient reward ring around a merchant logo. Callers render it only when the
+ * catalog confirms an exclusive offer. The white inner stop reads as a 1.5px gap, then a
  * violet→blue gradient ring, then a soft outer glow.
  */
 const INCENTIVE_HALO_SHADOW =

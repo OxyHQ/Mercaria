@@ -782,6 +782,9 @@ export async function summarizeOrders(orders: OrderRecord[]): Promise<OrderSumma
         order.totalsGrandTotalPresentmentCurrency,
       ),
       itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+      images: order.items.flatMap(item => item.imageUrl
+        ? [{ url: item.imageUrl, alt: item.title }]
+        : []),
       sellerType: order.sellerType,
       createdAt: order.createdAt.toISOString(),
     };

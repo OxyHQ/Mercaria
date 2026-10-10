@@ -1,18 +1,20 @@
 import Head from 'expo-router/head';
 import { Pressable, View } from 'react-native';
-import type { Href } from 'expo-router';
-import { Text } from '@mercaria/ui';
+import { useRouter, type Href } from 'expo-router';
+import { Box } from 'lucide-react-native';
+import { Text, LucideGlyph } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
 import { CatalogBreadcrumbs } from '@/components/catalog/CatalogBreadcrumbs';
 import { DiscoveryFeed } from '@/components/discovery/DiscoveryFeed';
+import { CurationHighlights } from '@/components/discovery/CurationHighlights';
 import { useTranslation } from '@/lib/i18n';
 import { useDiscoveryFeed } from '@/lib/hooks/use-discovery-feed';
 import { renderJsonLd } from '@/lib/catalog/structured-data';
 import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
 
 /**
- * The taxonomy index hub — `/categories`.
+ * The taxonomy index hub — `/explore`.
  *
  * ## The SEO decision this page needed, and what was decided
  *
@@ -75,13 +77,14 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * a number on screen that is wrong for every category with more than a page.
  */
 export default function CategoryIndexScreen() {
+  const router = useRouter();
   const { t } = useTranslation();
   const feed = useDiscoveryFeed({ kind: 'root' });
-  const seo = useCatalogSeo('/categories');
+  const seo = useCatalogSeo('/explore');
 
   const document = seo.data?.document;
   const jsonLd = renderJsonLd(document?.structuredData ?? []);
-  const title = document?.title ?? t('catalog.categoryIndex.title');
+  const title = document?.title ?? t('nav.explore');
 
   const head = (
     <Head>
@@ -121,7 +124,7 @@ export default function CategoryIndexScreen() {
     return (
       <ScreenShell contentClassName="pt-6">
         {head}
-        <Text className="px-8 py-16 text-body text-text-tertiary">{t('common.loading')}</Text>
+        <Text className="px-8 py-16 text-shop-body text-text-tertiary">{t('common.loading')}</Text>
       </ScreenShell>
     );
   }
@@ -138,7 +141,7 @@ export default function CategoryIndexScreen() {
       <ScreenShell contentClassName="pt-6">
         {head}
         <View className="items-center px-8 py-16">
-          <Text className="text-center text-body text-text-tertiary">
+          <Text className="text-center text-shop-body text-text-tertiary">
             {t('catalog.categoryIndex.loadError')}
           </Text>
           <Pressable
@@ -174,8 +177,8 @@ export default function CategoryIndexScreen() {
           hrefForPath={hubHrefForPath}
         />
 
-        <Text className="text-headerBold text-text" accessibilityRole="header">
-          {t('catalog.categoryIndex.title')}
+        <Text className="text-center text-[36px] font-bold leading-[40px] tracking-tight text-text" accessibilityRole="header">
+          {t('nav.explore')}
         </Text>
 
         {sections.length === 0 ? (
@@ -187,13 +190,19 @@ export default function CategoryIndexScreen() {
            * caught above, before `sections` is even read, precisely so it
            * cannot fall through and be told apart from this one.
            */
-          <Text className="text-body text-text-tertiary">
+          <Text className="text-shop-body text-text-tertiary">
             {t('catalog.categoryIndex.empty')}
           </Text>
         ) : null}
       </View>
 
-      {sections.length === 0 ? null : <DiscoveryFeed sections={sections} />}
+      <CurationHighlights />
+      <DiscoveryFeed sections={sections} categoryTitle={t('catalog.categoryIndex.title')} categoryShortcuts={[{
+        key: 'three_d',
+        label: t('nav.threeD'),
+        onPress: () => router.push('/3d'),
+        preview: <View className="h-24 items-center justify-center rounded-xl bg-background"><LucideGlyph icon={Box} size={48} /></View>,
+      }]} />
 
       <Footer />
     </ScreenShell>
@@ -213,6 +222,6 @@ export default function CategoryIndexScreen() {
 function hubHrefForPath(path: string): Href | undefined {
   const withoutQuery = path.split('?')[0];
   if (withoutQuery === '/') return { pathname: '/' };
-  if (withoutQuery === '/categories') return { pathname: '/categories' };
+  if (withoutQuery === '/explore') return { pathname: '/explore' };
   return undefined;
 }

@@ -78,26 +78,26 @@ export function DigitalPackagePicker({
             <View className="flex-row items-center justify-between gap-space-12">
               {/* The selected row is SPELLED as well as outlined — never colour
                   alone, which is the house rule every badge here follows. */}
-              <Text className="text-bodyTitleSmall text-text">
+              <Text className="text-shop-bodyTitleSmall text-text">
                 {selected ? `${offer.name} ✓` : offer.name}
               </Text>
               {offer.price === undefined ? (
-                <Text className="text-caption text-text-tertiary">
+                <Text className="text-shop-caption text-text-tertiary">
                   {t('digital.asset.notForSale')}
                 </Text>
               ) : (
-                <PriceDisplay price={offer.price} primaryClassName="text-bodyTitleSmall text-text" />
+                <PriceDisplay price={offer.price} primaryClassName="text-shop-bodyTitleSmall text-text" />
               )}
             </View>
 
             {/* What is in the package — a statement, with no control beside it. */}
-            <Text className="text-caption text-text-secondary">
+            <Text className="text-shop-caption text-text-secondary">
               {t('digital.asset.formatsLabel', { formats: offer.formats.join(' · ') })}
             </Text>
 
             {/* The licence NAME only. Its terms render once, below, for whichever
                 package is selected. */}
-            <Text className="text-caption text-text-tertiary">{offer.licenceName}</Text>
+            <Text className="text-shop-caption text-text-tertiary">{offer.licenceName}</Text>
           </Pressable>
         );
       })}

@@ -1,5 +1,8 @@
 {
   "ui": {
+    "sheet": {
+      "close": "बंद करें"
+    },
     "condition": {
       "label": {
         "new": "नया",
@@ -793,19 +796,20 @@
       }
     },
     "purchase": {
-      "oneTime": "एक बार की खरीद",
-      "subscribe": "सदस्यता",
       "addToCart": "कार्ट में डालें",
       "selectOptions": "विकल्प चुनें",
       "buyNow": "अभी खरीदें",
+      "soldOut": "स्टॉक खत्म",
+      "added": "कार्ट में जोड़ा गया",
       "subscribeNow": "अभी सदस्यता लें",
-      "frequency": {
-        "monthly": "हर महीने डिलीवरी",
-        "every2Months": "हर 2 महीने में डिलीवरी",
-        "every3Months": "हर 3 महीने में डिलीवरी",
-        "every4Months": "हर 4 महीने में डिलीवरी",
-        "every6Months": "हर 6 महीने में डिलीवरी"
-      }
+      "oneTime": "एक बार की खरीदारी",
+      "subscriptionRequired": "सदस्यता आवश्यक है",
+      "subscribeAndSave": "सदस्यता लें और बचाएँ",
+      "subscription": "सदस्यता",
+      "deliveryFrequency": "डिलीवरी की आवृत्ति",
+      "options": "खरीदारी के विकल्प",
+      "soldOutSave": "यह विकल्प स्टॉक में नहीं है। इसे बाद में ढूँढ़ने के लिए सेव करें।",
+      "soldOutSaved": "यह विकल्प स्टॉक में नहीं है। यह आपको सेव किए गए आइटम में मिलेगा।"
     },
     "marketplace": {
       "visitMerchant": "%{name} पर जाएँ",
@@ -850,6 +854,10 @@
       "codeA11y": "पिकअप कोड %{code}",
       "codeNote": "इसे काउंटर पर दिखाएँ। अगर यह काम करना बंद कर दे तो दुकान नया कोड जारी कर सकती है — पुराना कोड नए के साथ कभी काम करता नहीं रहता।"
     },
+    "storeOffer": {
+      "amountOff": "%{amount} की छूट",
+      "minimumSubtotal": "%{amount} या अधिक के ऑर्डर पर"
+    },
     "productCard": {
       "discount": "%{percent} की छूट",
       "save": "सहेजी गई वस्तुओं में जोड़ें"
@@ -857,7 +865,8 @@
     "gallery": {
       "viewImage": "तस्वीर %{position} देखें",
       "previous": "पिछली तस्वीर",
-      "next": "अगली तस्वीर"
+      "next": "अगली तस्वीर",
+      "open": "%{title} की तस्वीरें खोलें"
     },
     "quantity": {
       "remove": "वस्तु हटाएँ",
@@ -872,7 +881,12 @@
       "verifiedRatings": "सत्यापित रेटिंग: %{ratings}",
       "unverified": "असत्यापित: %{ratings} · %{rating}",
       "readMore": "और समीक्षाएँ पढ़ें",
-      "none": "अभी तक कोई समीक्षा नहीं"
+      "open": "%{author} की समीक्षा पढ़ें",
+      "none": "अभी तक कोई समीक्षा नहीं",
+      "ratings": "%{ratings} रेटिंग",
+      "fallbackAuthor": "Mercaria खरीदार",
+      "verifiedPurchase": "सत्यापित खरीद",
+      "unverifiedPurchase": "असत्यापित"
     },
     "searchInterpretation": {
       "chip": "%{label}",
@@ -982,6 +996,16 @@
         "revoked_for_policy": "कानूनी कारणों से वापस लिया गया",
         "superseded": "बाद की खरीद से बदला गया"
       }
+    },
+    "bundle": {
+      "title": "पैक में क्या शामिल है",
+      "unavailable": "इस पैक की सामग्री की जानकारी अभी उपलब्ध नहीं है।",
+      "open": "%{name}, %{variant}, मात्रा %{quantity} देखें",
+      "quantity": "×%{quantity}",
+      "together": "सेट में खरीदें",
+      "andSave": "सेट में खरीदें और बचत करें",
+      "view": "सेट देखें",
+      "addFailed": "यह सेट जोड़ा नहीं जा सका। फिर से कोशिश करें।"
     }
   }
 }

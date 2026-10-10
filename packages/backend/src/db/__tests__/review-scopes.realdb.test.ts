@@ -51,14 +51,22 @@ import {
   reviewDimensionAggregates,
   reviewDimensions,
   reviewEligibilities,
+  reviewHelpfulVotes,
   reviews,
   reviewTargetMigrations,
 } from '../schema/reviews.js';
-import { insertReview, setReviewStatusIfIn } from '../reviews/reviewRepository.js';
 import {
-  consumeEligibility,
-  insertEligibility,
-} from '../reviews/reviewEligibilityRepository.js';
+  insertReview,
+  setReviewStatusIfIn,
+  readReviewRatingSummary,
+  findReviewsPage,
+  findScopedReviewsPage,
+  findListingReviewsPage,
+} from '../reviews/reviewRepository.js';
+import { consumeEligibility, insertEligibility } from '../reviews/reviewEligibilityRepository.js';
+import { findPurchasedVariantsForReviews } from '../reviews/reviewPurchaseContextRepository.js';
+import { findReviewHelpfulness } from '../reviews/reviewHelpfulnessRepository.js';
+import { updateReviewHelpfulness } from '../../services/reviews/review-helpfulness.service.js';
 import { recordTargetMigration } from '../reviews/reviewMigrationRepository.js';
 import { rebuildScopedAggregate } from '../../services/reviews/review-aggregate.service.js';
 import { deleteTestCanonicalRows } from './canonical-teardown.js';
@@ -103,7 +111,11 @@ afterAll(async () => {
   // refuses it with `op ANY/ALL (array) requires array on right side`, and an
   // EMPTY array renders `= any()`, a syntax error — CONVENTIONS.md, Naming.
   const aggregateIds: string[] = [];
-  if (createdProductIds.length > 0 || createdMerchantIds.length > 0 || createdListingIds.length > 0) {
+  if (
+    createdProductIds.length > 0 ||
+    createdMerchantIds.length > 0 ||
+    createdListingIds.length > 0
+  ) {
     const rows = await db
       .select({ id: reviewAggregates.id })
       .from(reviewAggregates)
@@ -215,7 +227,11 @@ async function makeListing(storeId: string): Promise<string> {
 }
 
 /** A paid order with ONE line — the evidence an eligibility points at. */
-async function makeOrderWithLine(storeId: string, buyerOxyUserId: string): Promise<{
+async function makeOrderWithLine(
+  storeId: string,
+  buyerOxyUserId: string,
+  variantTitle = 'Default',
+): Promise<{
   orderId: string;
   lineId: string;
 }> {
@@ -277,7 +293,7 @@ async function makeOrderWithLine(storeId: string, buyerOxyUserId: string): Promi
     listingId: uuidv7(),
     variantId: uuidv7(),
     title: 'A thing',
-    variantTitle: 'Default',
+    variantTitle,
     quantity: 1,
     ...money,
   });
@@ -291,10 +307,15 @@ async function writeReview(values: {
   targetType: 'canonical_product' | 'merchant' | 'listing';
   targetId: string;
   rating: number;
+  title?: string;
+  body?: string;
   verification?: 'verified_purchase' | 'unverified';
   eligibilityId?: string;
   orderId?: string;
-  dimensions?: { key: 'quality' | 'delivery_speed' | 'condition_accuracy'; rating: number }[];
+  dimensions?: {
+    key: 'quality' | 'delivery_speed' | 'condition_accuracy';
+    rating: number;
+  }[];
 }): Promise<string> {
   const row = await insertReview({
     authorOxyUserId: values.authorOxyUserId,
@@ -302,6 +323,8 @@ async function writeReview(values: {
     targetType: values.targetType,
     targetId: values.targetId,
     rating: values.rating,
+    title: values.title,
+    body: values.body,
     verification: values.verification ?? 'unverified',
     incentiveDisclosure: 'none',
     classificationState: 'native',
@@ -378,9 +401,7 @@ describe('the scope and its target cannot disagree', () => {
         classificationState: 'native',
         rating: 5,
       }),
-    ).rejects.toSatisfy((err: unknown) =>
-      isCheckViolation(err, 'reviews_scope_target_type_check'),
-    );
+    ).rejects.toSatisfy((err: unknown) => isCheckViolation(err, 'reviews_scope_target_type_check'));
   });
 
   it('still accepts a LEGACY unscoped row — the compatibility window', async () => {
@@ -739,6 +760,98 @@ describe('verification and its evidence travel together', () => {
 });
 
 describe('aggregates: verified and unverified never blend', () => {
+  it('searches titles and bodies before pagination without widening targets or changing the aggregate', async () => {
+    const storeId = await makeStore();
+    const listingId = await makeListing(storeId);
+    const otherListingId = await makeListing(storeId);
+    const target = { targetType: 'listing' as const, targetId: listingId };
+    const first = await writeReview({ authorOxyUserId: userId('search-a'), scope: 'p2p_listing', ...target, rating: 5, title: 'Lovely GLOW', body: 'Lasts all day.' });
+    const second = await writeReview({ authorOxyUserId: userId('search-b'), scope: 'p2p_listing', ...target, rating: 4, title: 'My favourite', body: 'Soft glow, 100%_coverage\\finish.' });
+    await writeReview({ authorOxyUserId: userId('search-other-text'), scope: 'p2p_listing', ...target, rating: 1, body: 'Wrong shade.' });
+    const hidden = await writeReview({ authorOxyUserId: userId('search-hidden'), scope: 'p2p_listing', ...target, rating: 2, body: 'Glow hidden.' });
+    await setReviewStatusIfIn(hidden, 'hidden', ['published']);
+    await writeReview({ authorOxyUserId: userId('search-other-target'), scope: 'p2p_listing', targetType: 'listing', targetId: otherListingId, rating: 5, body: 'Glow elsewhere.' });
+    const before = await readReviewRatingSummary(target);
+    const page1 = await findReviewsPage(target, 1, 1, { query: 'glow' });
+    const page2 = await findReviewsPage(target, 2, 1, { query: 'glow' });
+    expect(page1.total).toBe(2);
+    expect(page2.total).toBe(2);
+    expect(new Set([...page1.rows, ...page2.rows].map(row => row.id))).toEqual(new Set([first, second]));
+    expect(new Set((await findScopedReviewsPage({ ...target, scope: 'p2p_listing' }, 1, 20, { query: 'GLOW' })).rows.map(row => row.id))).toEqual(new Set([first, second]));
+    expect((await findListingReviewsPage([listingId], 1, 20, { query: 'glow' })).total).toBe(2);
+    for (const query of ['%', '_', '\\', '100%_coverage\\finish']) {
+      const result = await findReviewsPage(target, 1, 20, { query });
+      expect(result.total).toBe(1);
+      expect(result.rows.map(row => row.id)).toEqual([second]);
+    }
+    expect((await findReviewsPage(target, 1, 20, { query: 'not in any review' })).total).toBe(0);
+    expect((await findReviewsPage(target, 1, 20, { query: '   ' })).total).toBe(3);
+    const low = await findReviewsPage(target, 1, 1, { query: 'glow', ratings: [4, 5], sortBy: 'rating_asc' });
+    const high = await findReviewsPage(target, 2, 1, { query: 'glow', ratings: [4, 5], sortBy: 'rating_asc' });
+    expect(low.total).toBe(2);
+    expect(low.rows.map(row => row.id)).toEqual([second]);
+    expect(high.rows.map(row => row.id)).toEqual([first]);
+    expect((await findReviewsPage(target, 1, 20, { ratings: [5, 4], sortBy: 'rating_desc' })).rows.map(row => row.id)).toEqual([first, second]);
+    expect((await findScopedReviewsPage({ ...target, scope: 'p2p_listing' }, 1, 20, { ratings: [4] })).rows.map(row => row.id)).toEqual([second]);
+    expect((await findListingReviewsPage([listingId], 1, 20, { ratings: [4] })).rows.map(row => row.id)).toEqual([second]);
+    expect((await findReviewsPage(target, 1, 20, { ratings: [2] })).total).toBe(0);
+    // Same timestamp makes the UUID tiebreaker observable across pages.
+    await db.update(reviews).set({ createdAt: new Date('2025-01-01T00:00:00Z') }).where(inArray(reviews.id, [first, second]));
+    const orderedIds = [first, second].sort();
+    expect((await findReviewsPage(target, 1, 1, { query: 'glow', sortBy: 'oldest' })).rows[0].id).toBe(orderedIds[0]);
+    expect((await findReviewsPage(target, 2, 1, { query: 'glow', sortBy: 'oldest' })).rows[0].id).toBe(orderedIds[1]);
+    expect((await findReviewsPage(target, 1, 1, { query: 'glow', sortBy: 'newest' })).rows[0].id).toBe(orderedIds[1]);
+    expect(before.reviewCount).toBe(3);
+    expect(await readReviewRatingSummary(target)).toEqual(before);
+  });
+
+  it('reads all published rating buckets independently of pagination and excludes other targets and hidden rows', async () => {
+    const storeId = await makeStore();
+    const listingId = await makeListing(storeId);
+    const otherListingId = await makeListing(storeId);
+    const target = { targetType: 'listing' as const, targetId: listingId };
+    for (let index = 0; index < 14; index++) {
+      await writeReview({
+        authorOxyUserId: userId(`hist-${index}`),
+        scope: 'p2p_listing',
+        ...target,
+        rating: index === 0 ? 1 : 5,
+      });
+    }
+    const hidden = await writeReview({
+      authorOxyUserId: userId('hidden'),
+      scope: 'p2p_listing',
+      ...target,
+      rating: 2,
+    });
+    await setReviewStatusIfIn(hidden, 'hidden', ['published']);
+    await writeReview({
+      authorOxyUserId: userId('unrelated'),
+      scope: 'p2p_listing',
+      targetType: 'listing',
+      targetId: otherListingId,
+      rating: 3,
+    });
+    expect((await findReviewsPage(target, 1, 12)).rows).toHaveLength(12);
+    expect(await readReviewRatingSummary(target)).toEqual({
+      rating: 4.7,
+      reviewCount: 14,
+      verifiedOnly: false,
+      distribution: { 1: 1, 2: 0, 3: 0, 4: 0, 5: 13 },
+    });
+    expect(
+      await readReviewRatingSummary({
+        ...target,
+        targetId: await makeListing(storeId),
+      }),
+    ).toEqual({
+      rating: 0,
+      reviewCount: 0,
+      verifiedOnly: false,
+      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    });
+  });
+
   it('counts them apart, and the headline rating is the VERIFIED one', async () => {
     const storeId = await makeStore();
     const buyer = userId('buyer');
@@ -781,6 +894,18 @@ describe('aggregates: verified and unverified never blend', () => {
     expect(aggregate.reviewCount).toBe(1);
     expect(aggregate.unverified.rating).toBe(1);
     expect(aggregate.unverified.count).toBe(1);
+    expect(
+      await readReviewRatingSummary({
+        scope: 'product',
+        targetType: 'canonical_product',
+        targetId: productId,
+      }),
+    ).toEqual({
+      rating: 5,
+      reviewCount: 1,
+      verifiedOnly: true,
+      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 1 },
+    });
     // And the DTO offers no combined total to reach for.
     expect(Object.keys(aggregate)).not.toContain('totalCount');
   });
@@ -840,7 +965,10 @@ describe('aggregates: verified and unverified never blend', () => {
     await rebuildScopedAggregate('product', productId);
 
     const [row] = await db
-      .select({ rating: canonicalProducts.rating, ratingCount: canonicalProducts.ratingCount })
+      .select({
+        rating: canonicalProducts.rating,
+        ratingCount: canonicalProducts.ratingCount,
+      })
       .from(canonicalProducts)
       .where(eq(canonicalProducts.id, productId));
     expect(row?.rating).toBe(4);
@@ -1101,5 +1229,129 @@ describe('a dimension belongs to exactly one review, once', () => {
     ).rejects.toSatisfy((err: unknown) =>
       isUniqueViolation(err, 'review_dimensions_review_id_key_key'),
     );
+  });
+});
+
+describe('public review purchase context', () => {
+  async function purchasedReview(variantTitle: string, mismatchedAuthor = false) {
+    const buyer = `variant-buyer-${uuidv7()}`;
+    const storeId = await makeStore();
+    const productId = await makeCanonicalProduct();
+    const { orderId, lineId } = await makeOrderWithLine(storeId, buyer, variantTitle);
+    const grant = await insertEligibility({
+      oxyUserId: buyer, orderId, orderItemId: lineId,
+      scope: 'product', targetType: 'canonical_product', targetId: productId,
+      evidenceType: 'authenticated_purchase', policyVersion: 'test',
+    });
+    expect(grant).not.toBeNull();
+    await consumeEligibility(grant!.id);
+    const reviewId = await writeReview({
+      authorOxyUserId: mismatchedAuthor ? `another-${buyer}` : buyer,
+      scope: 'product', targetType: 'canonical_product', targetId: productId,
+      rating: 5, verification: 'verified_purchase', eligibilityId: grant!.id, orderId,
+    });
+    return { reviewId, productId };
+  }
+
+  it('reads each exact purchased variant even when its catalog listing is absent', async () => {
+    const first = await purchasedReview('Black / M');
+    const second = await purchasedReview('Blue / XL');
+    const context = await findPurchasedVariantsForReviews([first.reviewId, second.reviewId]);
+    expect(context.size).toBe(2);
+    expect(context.get(first.reviewId)).toBe('Black / M');
+    expect(context.get(second.reviewId)).toBe('Blue / XL');
+    // A scoped read cannot expose another review's purchase context.
+    expect(await findPurchasedVariantsForReviews([first.reviewId])).toEqual(new Map([[first.reviewId, 'Black / M']]));
+    expect(await findPurchasedVariantsForReviews([])).toEqual(new Map());
+  });
+
+  it('omits missing evidence, hidden reviews and an eligibility owned by another author', async () => {
+    const valid = await purchasedReview('Red / S');
+    const hidden = await purchasedReview('Private / L');
+    await setReviewStatusIfIn(hidden.reviewId, 'hidden', ['published']);
+    const mismatched = await purchasedReview('Other buyer / XL', true);
+    const unverified = await writeReview({
+      authorOxyUserId: `unverified-${uuidv7()}`,
+      scope: 'product', targetType: 'canonical_product', targetId: valid.productId, rating: 4,
+    });
+    const context = await findPurchasedVariantsForReviews([valid.reviewId, hidden.reviewId, mismatched.reviewId, unverified]);
+    expect(context.size).toBe(1);
+    expect(context).toEqual(new Map([[valid.reviewId, 'Red / S']]));
+  });
+
+  it('does not expose blank or no-option variant placeholders', async () => {
+    const blank = await purchasedReview('   ');
+    const defaultVariant = await purchasedReview('Default Title');
+    expect(await findPurchasedVariantsForReviews([blank.reviewId, defaultVariant.reviewId])).toEqual(new Map());
+  });
+});
+
+describe('published review helpfulness', () => {
+  async function voteReview(author = userId('helpful-author')) {
+    return writeReview({ authorOxyUserId: author, scope: 'product', targetType: 'canonical_product',
+      targetId: await makeCanonicalProduct(), rating: 4 });
+  }
+
+  it('concurrent retries create one vote; distinct readers count separately and removal is replay-safe', async () => {
+    const id = await voteReview();
+    const reader = userId('helpful-reader');
+    const other = userId('helpful-other');
+    const replies = await Promise.all(Array.from({ length: 8 }, () => updateReviewHelpfulness(reader, id, true)));
+    expect(replies.every(row => row.helpfulnessCount === 1 && row.markedAsHelpfulByMe)).toBe(true);
+    expect(await updateReviewHelpfulness(other, id, true)).toMatchObject({ helpfulnessCount: 2, markedAsHelpfulByMe: true });
+    expect(await updateReviewHelpfulness(reader, id, false)).toMatchObject({ helpfulnessCount: 1, markedAsHelpfulByMe: false });
+    expect(await updateReviewHelpfulness(reader, id, false)).toMatchObject({ helpfulnessCount: 1, markedAsHelpfulByMe: false });
+    const votes = await db.select({ voter: reviewHelpfulVotes.oxyUserId }).from(reviewHelpfulVotes).where(eq(reviewHelpfulVotes.reviewId, id));
+    expect(votes).toEqual([{ voter: other }]);
+    expect((await findReviewHelpfulness([id], other))[0]).toMatchObject({ markedAsHelpfulByMe: true, helpfulnessCount: 1 });
+    expect((await findReviewHelpfulness([id]))[0]).toMatchObject({ markedAsHelpfulByMe: false, canUpdateHelpfulness: false, helpfulnessCount: 1 });
+  });
+
+  it('keeps votes isolated by review and account and refuses an author voting on their own text', async () => {
+    const author = userId('helpful-self');
+    const first = await voteReview(author);
+    const second = await voteReview();
+    const reader = userId('helpful-scoped');
+    await updateReviewHelpfulness(reader, first, true);
+    const rows = await findReviewHelpfulness([first, second], author);
+    expect(rows).toHaveLength(2);
+    expect(rows.find(row => row.reviewId === first)).toMatchObject({ helpfulnessCount: 1, markedAsHelpfulByMe: false, canUpdateHelpfulness: false });
+    expect(rows.find(row => row.reviewId === second)).toMatchObject({ helpfulnessCount: 0, markedAsHelpfulByMe: false, canUpdateHelpfulness: true });
+    await expect(updateReviewHelpfulness(author, first, true)).rejects.toMatchObject({ httpStatus: 403 });
+    expect((await findReviewHelpfulness([first], reader))[0].helpfulnessCount).toBe(1);
+  });
+
+  it('hidden or missing reviews expose no vote state and reject mutations', async () => {
+    const id = await voteReview();
+    const reader = userId('helpful-moderated');
+    await updateReviewHelpfulness(reader, id, true);
+    await setReviewStatusIfIn(id, 'hidden', ['published']);
+    const missing = uuidv7();
+    expect(await findReviewHelpfulness([id, missing], reader)).toEqual([]);
+    await expect(updateReviewHelpfulness(reader, id, true)).rejects.toMatchObject({ httpStatus: 404 });
+    await expect(updateReviewHelpfulness(reader, missing, false)).rejects.toMatchObject({ httpStatus: 404 });
+    const stored = await db.select({ id: reviewHelpfulVotes.id }).from(reviewHelpfulVotes).where(eq(reviewHelpfulVotes.reviewId, id));
+    expect(stored).toHaveLength(1);
+  });
+
+  it('private transaction reviews have no public helpfulness surface', async () => {
+    const author = userId('helpful-private');
+    const { lineId } = await makeOrderWithLine(await makeStore(), author);
+    const row = await insertReview({ authorOxyUserId: author, scope: 'native_transaction', targetType: 'order_item',
+      targetId: lineId, rating: 5, verification: 'unverified', incentiveDisclosure: 'none', classificationState: 'native' });
+    createdReviewIds.push(row.id);
+    const reader = userId('helpful-private-other');
+    expect(await findReviewHelpfulness([row.id], reader)).toEqual([]);
+    await expect(updateReviewHelpfulness(reader, row.id, true)).rejects.toMatchObject({ httpStatus: 404 });
+  });
+
+  it('the database refuses duplicate votes even outside the service and deletes votes with their review', async () => {
+    const id = await voteReview();
+    const reader = userId('helpful-unique');
+    await updateReviewHelpfulness(reader, id, true);
+    await expect(db.insert(reviewHelpfulVotes).values({ reviewId: id, oxyUserId: reader }))
+      .rejects.toSatisfy((err: unknown) => isUniqueViolation(err, 'review_helpful_votes_review_user_key'));
+    await db.delete(reviews).where(eq(reviews.id, id));
+    expect(await db.select({ id: reviewHelpfulVotes.id }).from(reviewHelpfulVotes).where(eq(reviewHelpfulVotes.reviewId, id))).toEqual([]);
   });
 });

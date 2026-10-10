@@ -44,10 +44,14 @@ import type {
   ReviewScope,
   ReviewTargetType,
   ScopedRatingAggregate,
+  ReviewRatingSummary,
+  ReviewListFilters,
 } from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxy.so/db';
+import { findReviewHelpfulness } from '../db/reviews/reviewHelpfulnessRepository.js';
 import {
   aggregatePublishedReviews,
+  readReviewRatingSummary,
   authorHasReviewedTarget,
   findDimensionsForReviews,
   findListingReviewsPage,
@@ -85,6 +89,7 @@ import {
 import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import type { StoreCaller } from './store-access.service.js';
 import { resolveMedia } from './catalog-hydration.service.js';
+import { findPurchasedVariantsForReviews } from '../db/reviews/reviewPurchaseContextRepository.js';
 import { enqueueRecomputeAggregate } from '../queue/producers.js';
 import { sendNotification } from '../lib/notification-service.js';
 import { conflict, notFound, validationError } from '../lib/errors/error-codes.js';
@@ -156,6 +161,7 @@ function toReviewDTO(
   authorProfiles: Map<string, OxyProfile>,
   dimensions?: Map<string, ReviewDimension[]>,
   products?: Map<string, ReviewProduct>,
+  purchasedVariants?: Map<string, string>,
 ): ReviewDTO {
   const dto: ReviewDTO = {
     id: row.id,
@@ -184,6 +190,8 @@ function toReviewDTO(
   if (row.eligibilityId) dto.eligibilityId = row.eligibilityId;
   if (row.title) dto.title = row.title;
   if (row.body) dto.body = row.body;
+  const purchasedVariantTitle = purchasedVariants?.get(row.id);
+  if (purchasedVariantTitle) dto.purchasedVariantTitle = purchasedVariantTitle;
   if (row.locale) dto.locale = row.locale;
   // DERIVED, not stored: a review has no draft state in Mercaria, so it became
   // visible the moment it was written. See the note on `editedAt` in the schema.
@@ -235,7 +243,10 @@ export async function recomputeAggregate(
   targetType: ReviewTargetType,
   targetId: string,
 ): Promise<RatingAggregate> {
-  const { average, count } = await aggregatePublishedReviews({ targetType, targetId });
+  const { average, count } = await aggregatePublishedReviews({
+    targetType,
+    targetId,
+  });
 
   const reviewCount = count;
   const rating = average !== null && reviewCount > 0 ? roundRating(average) : 0;
@@ -421,37 +432,42 @@ export async function createReview(
 
   await notifyTargetOwner(row, target.scope, target.targetId, authorOxyUserId);
 
-  const authorProfiles = await getProfiles([authorOxyUserId]);
-  const dimensionRows = await findDimensionsForReviews([row.id]);
-  return toReviewDTO(row, authorProfiles, groupDimensions(dimensionRows));
+  return (await hydrate([row], 1)).data[0];
 }
 
 /** Offset-pagination parameters. */
-interface ReviewListParams {
+interface ReviewListParams extends ReviewListFilters {
   page: number;
   limit: number;
 }
 
 /** A page of review DTOs plus the total matching count (controller paginates). */
 interface ReviewPage {
+  ratingSummary?: ReviewRatingSummary;
   data: ReviewDTO[];
   total: number;
 }
 
-/** Hydrate a page of rows: authors + dimensions in two batched reads. */
+/** Hydrate a page with batched author, dimension, purchased-variant and helpful-vote reads. */
 async function hydrate(
   rows: ReviewRecord[],
   total: number,
   products?: Map<string, ReviewProduct>,
 ): Promise<ReviewPage> {
   const authorIds = [...new Set(rows.map((row) => row.authorOxyUserId))];
-  const [authorProfiles, dimensionRows] = await Promise.all([
+  const [authorProfiles, dimensionRows, purchasedVariants, helpfulness] = await Promise.all([
     getProfiles(authorIds),
     findDimensionsForReviews(rows.map((row) => row.id)),
+    findPurchasedVariantsForReviews(rows.map((row) => row.id)),
+    findReviewHelpfulness(rows.map((row) => row.id)),
   ]);
   const dimensions = groupDimensions(dimensionRows);
+  const helpfulCounts = new Map(helpfulness.map(row => [row.reviewId, row.helpfulnessCount]));
   return {
-    data: rows.map((row) => toReviewDTO(row, authorProfiles, dimensions, products)),
+    data: rows.map((row) => ({
+      ...toReviewDTO(row, authorProfiles, dimensions, products, purchasedVariants),
+      helpfulnessCount: helpfulCounts.get(row.id) ?? 0,
+    })),
     total,
   };
 }
@@ -465,20 +481,23 @@ async function hydrate(
  */
 export async function listReviews(
   target: ReviewTarget,
-  { page, limit }: ReviewListParams,
+  { page, limit, ...filters }: ReviewListParams,
 ): Promise<ReviewPage> {
-  const { rows, total } = await findReviewsPage(target, page, limit);
-  return hydrate(rows, total);
+  const [{ rows, total }, ratingSummary] = await Promise.all([
+    findReviewsPage(target, page, limit, filters),
+    readReviewRatingSummary(target),
+  ]);
+  return { ...(await hydrate(rows, total)), ratingSummary };
 }
 
 /** List a SCOPED target's PUBLISHED reviews (newest first). */
 export async function listScopedReviews(
   scope: ReviewScope,
   targetId: string,
-  { page, limit }: ReviewListParams,
+  { page, limit, ...filters }: ReviewListParams,
 ): Promise<ReviewPage> {
   const target = scopedTarget(scope, targetId);
-  const { rows, total } = await findScopedReviewsPage(target, page, limit);
+  const { rows, total } = await findScopedReviewsPage(target, page, limit, filters);
   return hydrate(rows, total);
 }
 
@@ -497,11 +516,12 @@ export async function listScopedReviewsWithAggregate(
   targetId: string,
   params: ReviewListParams,
 ): Promise<ReviewPage & { aggregate: ScopedRatingAggregate }> {
-  const [page, aggregate] = await Promise.all([
+  const [page, aggregate, ratingSummary] = await Promise.all([
     listScopedReviews(scope, targetId, params),
     getOrBuildScopedAggregate(scope, targetId),
+    readReviewRatingSummary(scopedTarget(scope, targetId)),
   ]);
-  return { ...page, aggregate };
+  return { ...page, aggregate, ratingSummary };
 }
 
 /**
@@ -517,7 +537,7 @@ export async function listScopedReviewsWithAggregate(
  */
 export async function listReviewsForStoreHandle(
   handle: string,
-  { page, limit }: ReviewListParams,
+  { page, limit, ...filters }: ReviewListParams,
 ): Promise<ReviewPage> {
   const store = await findStoreByHandle(handle);
   if (!store) {
@@ -530,7 +550,7 @@ export async function listReviewsForStoreHandle(
     return { data: [], total: 0 };
   }
 
-  const { rows, total } = await findListingReviewsPage(listingIds, page, limit);
+  const { rows, total } = await findListingReviewsPage(listingIds, page, limit, filters);
 
   // Every row here has a listing id — the query filtered on `targetType` — but
   // the column is nullable, so the narrowing is done rather than asserted.

@@ -344,6 +344,14 @@ the vocabulary is the reason: `ABUSE_REPORTED_TYPES` is
 product is Mercaria's own catalogue record — a wrong specification is a data
 correction (#59's queue), not somebody's content to be moderated. Reporting a
 LISTING is on that listing's own page, where `POST /reports` has a type for it.
+The listing's **More actions → Report product** menu uses Bloom's dropdown and
+the shared abuse-report dialog with `reportedType: 'listing'` and the displayed
+listing id. It is available in the desktop merchant header and beside the
+mobile Save/Share controls, including secondhand listings. Guests see the
+existing Oxy sign-in action; no report is submitted without authentication.
+Store policies and **Report store** remain in the store page's own menu.
+Contact information is not shown because `StoreSummary` has no published
+contact fields; private admin or Oxy account fields are not a substitute.
 
 ## Reaching the page
 
@@ -395,11 +403,12 @@ Each is a named contract that fails closed, not a stub that lies:
   gated on `PRICE_ALERTS_ENABLED`), so the saved-list affordance exists. This
   page still has no "watch this price" control of its own — that entry point is
   #71's own seam, not #79's.
-- **#80** — a per-product save READ. `/product-saves` publishes a save context
-  for a LISTING and none for a canonical product, so the page's save control is
-  a one-way idempotent SAVE rather than a toggle: a toggle built on an unknown
-  current state would un-save on the first press for anybody who had saved it
-  elsewhere.
+- **#80 — CLOSED.** The canonical page reads the existing authenticated
+  `GET /product-saves/:canonicalProductId` endpoint and toggles explicit save/
+  remove operations. Its query key includes the Oxy account id. A pending read
+  disables the action; a failed read offers Retry instead of assuming unsaved.
+  Successful writes refresh the product and listing contexts and Saved list.
+  Guests open Oxy sign-in without issuing a save request.
 - **#75** — public route migration, the HTTP 301, `rel=canonical`, structured
   data and the sitemap. `/products/:id` (the listing page) is untouched, which is
   #71 acceptance 7.

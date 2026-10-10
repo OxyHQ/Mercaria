@@ -175,10 +175,10 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = Object.freeze([
    */
   {
     id: 'category_index',
-    pattern: '/categories',
+    pattern: '/explore',
     identity: 'none',
     availability: 'live',
-    screen: 'app/(app)/categories/index.tsx',
+    screen: 'app/(app)/explore.tsx',
   },
   /**
    * The deals hub — one `store-offer` section per store with a live automatic

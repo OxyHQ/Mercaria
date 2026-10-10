@@ -66,7 +66,7 @@ export function ComparisonTableView({
       <View className="gap-space-2">
         <View className="flex-row border-b border-border-secondary pb-space-8">
           <View style={{ width: COLUMN_WIDTH }}>
-            <Text className="text-captionBold text-text-secondary">
+            <Text className="text-shop-captionBold text-text-secondary">
               {t(COMPARISON_TABLE_SPECIFICATION_KEY)}
             </Text>
           </View>
@@ -76,7 +76,7 @@ export function ComparisonTableView({
                   KEY rather than the subscript — rendering the ref would put a
                   wire identifier in front of a shopper (#596). The map is keyed
                   by ref and cannot be exhaustive over one. */}
-              <Text className="text-captionBold text-text">
+              <Text className="text-shop-captionBold text-text">
                 {namesByRef[subjectRef] ?? t(COMPARISON_TABLE_UNNAMED_PRODUCT_KEY)}
               </Text>
             </View>
@@ -88,7 +88,7 @@ export function ComparisonTableView({
         ))}
 
         {rows.length === 0 ? (
-          <Text className="py-space-12 text-body text-text-secondary">
+          <Text className="py-space-12 text-shop-body text-text-secondary">
             {t(COMPARISON_TABLE_NO_DIFFERENCES_KEY)}
           </Text>
         ) : null}
@@ -110,17 +110,17 @@ function ComparisonRow({
   return (
     <View className="flex-row border-b border-border-secondary py-space-8">
       <View style={{ width: COLUMN_WIDTH }} className="gap-space-2">
-        <Text className="text-caption text-text">{row.label}</Text>
+        <Text className="text-shop-caption text-text">{row.label}</Text>
         {row.unit === undefined ? null : (
           // ONE frame with a `%{unit}` slot, not a translated word glued to the
           // unit: the preposition inflects and in several of these twelve the
           // unit does not follow it at all.
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {t(COMPARISON_TABLE_IN_UNIT_KEY, { unit: row.unit })}
           </Text>
         )}
         {row.direction === "not_comparable" ? null : (
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {t(
               row.direction === "higher_is_better"
                 ? COMPARISON_TABLE_HIGHER_IS_BETTER_KEY
@@ -163,7 +163,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
     const notRecorded = t(comparisonUnknownTextKey("not_recorded"));
     return (
       <Text
-        className="text-caption text-text-secondary"
+        className="text-shop-caption text-text-secondary"
         accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, { label, value: notRecorded })}
       >
         {notRecorded}
@@ -175,7 +175,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
     case "source_backed":
       return (
         <Text
-          className="text-caption text-text"
+          className="text-shop-caption text-text"
           accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, {
             label,
             value: cell.value.rendered,
@@ -188,7 +188,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
       return (
         <View className="gap-space-2">
           <Text
-            className="text-caption text-text"
+            className="text-shop-caption text-text"
             accessibilityLabel={t(COMPARISON_CELL_INFERRED_A11Y_KEY, {
               label,
               value: cell.value.rendered,
@@ -196,7 +196,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
           >
             {cell.value.rendered}
           </Text>
-          <Text className="text-caption text-text-secondary">
+          <Text className="text-shop-caption text-text-secondary">
             {t(COMPARISON_CELL_INFERRED_NOTE_KEY)}
           </Text>
         </View>
@@ -206,13 +206,13 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
       return (
         <View className="gap-space-2">
           <Text
-            className="text-caption text-text"
+            className="text-shop-caption text-text"
             accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, { label, value: disagree })}
           >
             {disagree}
           </Text>
           {cell.candidates.map((value) => (
-            <Text key={value.rendered} className="text-caption text-text-secondary">
+            <Text key={value.rendered} className="text-shop-caption text-text-secondary">
               {value.rendered}
             </Text>
           ))}
@@ -223,7 +223,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
       const unknown = t(comparisonUnknownTextKey(cell.reason));
       return (
         <Text
-          className="text-caption text-text-secondary"
+          className="text-shop-caption text-text-secondary"
           accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, { label, value: unknown })}
         >
           {unknown}
@@ -234,7 +234,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
       const notApplicable = t(comparisonNotApplicableTextKey(cell.reason));
       return (
         <Text
-          className="text-caption text-text-secondary"
+          className="text-shop-caption text-text-secondary"
           accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, { label, value: notApplicable })}
         >
           {notApplicable}
@@ -247,7 +247,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
       // branch's reason: one fact, one message id, so they cannot be translated
       // into two different claims.
       return (
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {t(comparisonUnknownTextKey("not_recorded"))}
         </Text>
       );

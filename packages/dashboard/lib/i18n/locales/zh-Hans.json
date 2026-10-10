@@ -768,7 +768,9 @@
     "reportsError": "无法加载报告",
     "sales": {
       "empty": "本期尚无销售。",
-      "title": "销售额（上一周期）"
+      "title": "销售额",
+      "point": "%{date}：%{revenue}，%{count} 个订单",
+      "inspect": "选择一天以查看销售额和订单。"
     },
     "stats": {
       "averageOrder": "平均订单额",
@@ -788,7 +790,11 @@
         "one": "已售 %{count} 件",
         "other": "已售 %{count} 件"
       }
-    }
+    },
+    "allTime": "全部时间",
+    "performance": "店铺表现",
+    "lastDays": "最近 %{days} 天",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "销售渠道",
@@ -804,7 +810,10 @@
     "collapseSidebar": "收起侧边栏",
     "expandSidebar": "展开侧边栏",
     "closeSidebar": "关闭侧边栏",
-    "closeNavigation": "关闭导航"
+    "closeNavigation": "关闭导航",
+    "searchNavigation": "搜索导航",
+    "clearSearch": "清除导航搜索",
+    "noResults": "没有匹配的页面"
   },
   "orders": {
     "detail": {
@@ -901,7 +910,7 @@
     "status": {
       "cancelled": "已取消",
       "delivered": "已送达",
-      "digitallyDelivered": "已交付",
+      "digitallyDelivered": "已数字交付",
       "paid": "已付款",
       "partiallyRefunded": "部分退款",
       "pendingPayment": "待付款",
@@ -909,7 +918,6 @@
       "refunded": "已退款",
       "shipped": "已发货"
     },
-    "subtitle": "发货并跟踪你的销售",
     "title": "订单",
     "totals": {
       "discounts": "折扣",
@@ -947,6 +955,12 @@
       "variantCount": {
         "one": "%{count} 个变体",
         "other": "%{count} 个变体"
+      },
+      "organization": {
+        "heading": "商品分类管理",
+        "tags": "标签",
+        "addTag": "添加标签",
+        "removeTag": "移除%{tag}"
       }
     },
     "documentTitle": "商品 | Mercaria Dashboard",
@@ -988,7 +1002,7 @@
         "other": "%{count} 个变体 · 库存 %{stock}"
       }
     },
-    "searchPlaceholder": "在本页中搜索商品…",
+    "searchPlaceholder": "搜索商品…",
     "status": {
       "active": "有效",
       "archived": "已归档",
@@ -997,7 +1011,6 @@
       "sold": "已售出"
     },
     "stockLabel": "库存",
-    "subtitle": "你的店铺商品目录",
     "title": "商品",
     "variants": {
       "add": "添加",
@@ -1869,5 +1882,14 @@
     "subtitle": "选择要管理的店铺",
     "switch": "切换店铺",
     "title": "你的店铺"
+  },
+  "resourceList": {
+    "noResults": "没有匹配的结果",
+    "clearFilters": "清除筛选",
+    "previous": "上一页",
+    "next": "下一页",
+    "price": "价格",
+    "date": "日期",
+    "customer": "客户"
   }
 }

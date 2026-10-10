@@ -20,7 +20,8 @@
  * cannot vanish from under its tombstones).
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { Readable } from 'node:stream';
+import { afterAll, beforeAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
@@ -86,6 +87,24 @@ import {
   publishAttributeDefinition,
 } from '../../services/attributes/definition-registry.service.js';
 import { reviewAggregates } from '../schema/reviews.js';
+
+// Only the external transports are replaced. Catalogue repositories and every
+// transaction below run against the real migrated PostgreSQL database.
+const { downloadImage, uploadImage } = vi.hoisted(() => ({ downloadImage: vi.fn(), uploadImage: vi.fn() }));
+vi.mock('@oxy.so/core/server', async importOriginal => ({
+  ...await importOriginal<typeof import('@oxy.so/core/server')>(), safeFetch: downloadImage,
+}));
+vi.mock('../../capabilities/oxy-service-client.js', () => ({
+  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.so', serviceToken: async () => 'test-service-token' }),
+}));
+beforeEach(() => {
+  downloadImage.mockReset().mockImplementation(async () => ({
+    status: 200, headers: { 'content-type': 'image/png' }, response: Readable.from([Buffer.from('source image')]),
+  }));
+  uploadImage.mockReset().mockImplementation(async () => Response.json({ data: { file: { id: 'oxy-canonical-file', visibility: 'public' } } }));
+  vi.stubGlobal('fetch', uploadImage);
+});
+afterEach(() => vi.unstubAllGlobals());
 
 let db: Database;
 
@@ -787,6 +806,7 @@ describe('acceptance 4 — every selected field and image traces to provenance',
       observedAt,
       method: 'connector_declared',
       matchRule: 'test.provenance',
+      decidedByOxyUserId: OPERATOR,
       confidence: 0.8,
       fields: { description: 'A description the source supplied', modelCode: `MC-${RUN}` },
       images: [{ sourceUrl: `https://example.test/${RUN}.jpg`, alt: 'front' }],
@@ -816,6 +836,8 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     expect(publicProduct?.fieldProvenance[0]?.freshness?.sourceKind).toBe('feed');
     expect(JSON.stringify(publicProduct)).not.toContain(result.sourceRecordId);
     expect(publicProduct?.images[0]?.freshness?.observedAt).toBe(observedAt.toISOString());
+    expect(publicProduct?.images[0]?.fileId).toBe('oxy-canonical-file');
+    expect(uploadImage.mock.calls[0]?.[1].headers['x-owner-user-id']).toBe(OPERATOR);
   });
 
   it('makes an image without an observation UNWRITABLE, not merely discouraged', async () => {
@@ -871,6 +893,7 @@ describe('acceptance 4 — every selected field and image traces to provenance',
       observedAt: new Date('2026-08-03T00:00:00Z'),
       method: 'connector_declared' as const,
       matchRule: 'test.converge',
+      decidedByOxyUserId: OPERATOR,
       fields: { description: 'Stable description' },
       images: [{ sourceUrl: `https://example.test/converge-${RUN}.jpg` }],
     };
@@ -888,11 +911,49 @@ describe('acceptance 4 — every selected field and image traces to provenance',
       .from(canonicalImages)
       .where(eq(canonicalImages.productId, productId));
     expect(images).toHaveLength(1);
+    expect(images[0]?.fileId).toBe('oxy-canonical-file');
+    expect(images[0]?.sourceUrl).toBe(observation.images[0]?.sourceUrl);
     const links = await db
       .select()
       .from(canonicalProductSourceLinks)
       .where(eq(canonicalProductSourceLinks.productId, productId));
     expect(links).toHaveLength(1);
+  });
+
+  it('leaves facts and the previous gallery unchanged when Oxy refuses an import', async () => {
+    const productId = await mintProduct({ label: 'Failed Image Import Product' });
+    const observation = {
+      productId, sourceId, externalId: `media-failure-${RUN}`, observedAt: new Date(),
+      method: 'connector_declared' as const, matchRule: 'test.media-failure', decidedByOxyUserId: OPERATOR,
+      fields: { description: 'Original description' }, images: [{ fileId: 'previous-oxy-file' }],
+    };
+    await applyProductSourceObservation(observation);
+    expect(downloadImage).not.toHaveBeenCalled();
+    uploadImage.mockImplementation(async () => new Response('denied', { status: 403 }));
+    await expect(applyProductSourceObservation({
+      ...observation, fields: { description: 'Must not replace the original' },
+      images: [{ sourceUrl: 'https://supplier.example/new.png' }],
+    })).rejects.toThrow(/not authorized/);
+    const product = await getPublicCanonicalProduct(productId);
+    expect(product?.description).toBe('Original description');
+    expect(product?.images.map(image => image.fileId)).toEqual(['previous-oxy-file']);
+    const records = await db.select().from(sourceRecords).where(eq(sourceRecords.externalId, observation.externalId));
+    expect(records).toHaveLength(1);
+  });
+
+  it('refuses source media without storage rights before any external IO', async () => {
+    const productId = await mintProduct({ label: 'Nonstorable Image Product' });
+    const restrictedSource = await ensureCatalogSource(db, {
+      kind: 'feed', name: `nonstorable-images-${RUN}`, mayDisplay: true, mayStore: false, attributionRequired: false,
+    });
+    createdSourceIds.push(restrictedSource.id);
+    await expect(applyProductSourceObservation({
+      productId, sourceId: restrictedSource.id, externalId: `nonstorable-${RUN}`, observedAt: new Date(),
+      method: 'connector_declared', matchRule: 'test.media-rights', decidedByOxyUserId: OPERATOR,
+      fields: {}, images: [{ sourceUrl: 'https://supplier.example/new.png' }],
+    })).rejects.toThrow(/storage and display rights/);
+    expect(downloadImage).not.toHaveBeenCalled();
+    expect(uploadImage).not.toHaveBeenCalled();
   });
 });
 

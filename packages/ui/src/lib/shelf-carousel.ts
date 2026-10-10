@@ -8,8 +8,8 @@ import {
   CAROUSEL_PREVIOUS_KEY,
 } from "./marketplace-labels";
 
-/** Width (px) from which the web inter-card gap steps up — Tailwind's `sm`. */
-const WIDE_GAP_BREAKPOINT = 640;
+/** Shop's custom `sm` is 480px (Carousel CSS), rather than Tailwind's 640px. */
+const WIDE_GAP_BREAKPOINT = 480;
 /** Inter-card gap on phones and on native. */
 const NARROW_GAP = 8;
 /** Inter-card gap on web from `sm` up. */
@@ -17,9 +17,26 @@ const WIDE_GAP = 16;
 /** The page gutter the shelves have always sat inside. */
 const SHELF_GUTTER = 16;
 
+// Marketplace recipe from Shop's global CSS. Bloom's card colour is a raised
+// surface in dark mode; these outlined controls use the plain page fill.
+export const SHOP_CAROUSEL_ARROW_CLASS_NAME = "min-h-0 min-w-0 rounded-radius-max border-[0.5px] border-border-image bg-white dark:bg-[#121212] hover:bg-[#f2f4f5] dark:hover:bg-[#2a2a2a] active:scale-[0.96] active:opacity-60 motion-reduce:active:scale-100";
+const SHELF_ARROW_BUTTON_PROPS = {
+  material: "flat",
+  appearance: "outline",
+  tone: "neutral",
+  iconSize: 20,
+  className: `${SHOP_CAROUSEL_ARROW_CLASS_NAME} size-space-40 p-space-10 shadow-shop-m`,
+} satisfies NonNullable<CarouselProps["arrowButtonProps"]>;
+
+/** Shop's review-preview controls use 12px padding and a smaller shadow. */
+export const REVIEW_PREVIEW_ARROW_BUTTON_PROPS = {
+  ...SHELF_ARROW_BUTTON_PROPS,
+  className: `${SHOP_CAROUSEL_ARROW_CLASS_NAME} h-[44px] w-[44px] p-space-12 shadow-shop-s`,
+} satisfies NonNullable<CarouselProps["arrowButtonProps"]>;
+
 /** What every card shelf hands Bloom's `Carousel` beyond its own label. */
 export type ShelfCarouselProps = Required<
-  Pick<CarouselProps, "gap" | "showArrows" | "previousLabel" | "nextLabel" | "dotLabel" | "style">
+  Pick<CarouselProps, "gap" | "showArrows" | "showDots" | "inset" | "previousLabel" | "nextLabel" | "dotLabel" | "arrowsPlacement" | "arrowButtonProps" | "hideUnavailableArrows">
 >;
 
 /**
@@ -30,8 +47,10 @@ export type ShelfCarouselProps = Required<
  *
  * - **The copy is ours.** Bloom's arrow and dot names default to English, so
  *   they come from `@mercaria/ui`'s own bundles, in the viewer's language.
- * - **Arrows on web only.** A touch screen swipes; the shelves never drew
- *   arrows on native, and Bloom's would take a row above every shelf there.
+ * - **Overlay arrows from `sm` on web.** Phones and native use swipe. The
+ *   40px flat outlined controls match Shop's Carousel, without a separate
+ *   control row between the section heading and its cards. Bloom owns hiding
+ *   unavailable arrows and moving focus when a focused arrow reaches an edge.
  * - **The gap is 8px, 16px from `sm` on web.** The step is web-only because the
  *   reference it was measured from is a web capture.
  *
@@ -46,13 +65,17 @@ export function useShelfCarouselProps(): ShelfCarouselProps {
   return useMemo(
     () => ({
       gap,
-      showArrows: isWeb,
+      showArrows: isWeb && width >= WIDE_GAP_BREAKPOINT,
+      showDots: false,
+      arrowsPlacement: "overlay",
+      hideUnavailableArrows: true,
+      arrowButtonProps: SHELF_ARROW_BUTTON_PROPS,
+      inset: isWeb && width >= 1024 ? 48 : SHELF_GUTTER,
       previousLabel: t(CAROUSEL_PREVIOUS_KEY),
       nextLabel: t(CAROUSEL_NEXT_KEY),
       dotLabel: (slide: number) => t(CAROUSEL_GO_TO_KEY, { position: slide }),
-      style: { paddingHorizontal: SHELF_GUTTER },
     }),
-    [gap, isWeb, t],
+    [gap, isWeb, width, t],
   );
 }
 

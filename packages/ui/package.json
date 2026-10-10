@@ -1,14 +1,20 @@
 {
   "name": "@mercaria/ui",
   "version": "1.0.0",
-  "description": "Shared Mercaria UI: presentational components, primitives and theme — consumed from SOURCE (no dist build)",
+  "description": "Shared Mercaria UI: presentational components, primitives and theme \u2014 consumed from SOURCE (no dist build)",
   "private": true,
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
     "./lib/bidi": "./src/lib/bidi.ts",
+    "./lib/listing-variant-selection": "./src/lib/listing-variant-selection.ts",
     "./theme/tailwind.preset": "./src/theme/tailwind.preset.js",
-    "./theme/global.css": "./src/theme/global.css"
+    "./theme/global.css": "./src/theme/global.css",
+    "./theme/color-scheme.css": "./src/theme/color-scheme.css",
+    "./theme/shop-typography.css": "./src/theme/shop-typography.css",
+    "./theme/shop-shadows.css": "./src/theme/shop-shadows.css",
+    "./theme/shop-controls.css": "./src/theme/shop-controls.css",
+    "./theme/shop-rich-text.css": "./src/theme/shop-rich-text.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -24,10 +30,11 @@
   ],
   "author": "Oxy",
   "dependencies": {
-    "@mercaria/shared-types": "workspace:*"
+    "@mercaria/shared-types": "workspace:*",
+    "parse5": "8.0.1"
   },
   "peerDependencies": {
-    "@oxy.so/bloom": ">=6.2.1 <6.3.0",
+    "@oxy.so/bloom": ">=7.23.0 <8",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "clsx": "^2.1.1",
     "expo-blur": "~56.0.3",
@@ -41,6 +48,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
+    "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.5",
     "tailwind-merge": "^3.6.0",

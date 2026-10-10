@@ -88,7 +88,7 @@ export function NearbyOriginControl({
   if (origin !== null) {
     return (
       <View className="flex-row flex-wrap items-center gap-space-8">
-        <Text className="text-caption text-text-secondary">
+        <Text className="text-shop-caption text-text-secondary">
           {origin.source === "device"
             ? t("nearby.origin.showingDevice")
             : t("nearby.origin.showingChosen")}
@@ -101,7 +101,7 @@ export function NearbyOriginControl({
             setPickerOpen(true);
           }}
         >
-          <Text className="text-captionBold text-text">{t("nearby.origin.change")}</Text>
+          <Text className="text-shop-captionBold text-text">{t("nearby.origin.change")}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -111,7 +111,7 @@ export function NearbyOriginControl({
             setPickerOpen(false);
           }}
         >
-          <Text className="text-captionBold text-text">{t("nearby.origin.clear")}</Text>
+          <Text className="text-shop-captionBold text-text">{t("nearby.origin.clear")}</Text>
         </Pressable>
       </View>
     );
@@ -135,7 +135,7 @@ export function NearbyOriginControl({
             onPress={requestDeviceOrigin}
             className="rounded-radius-max border border-border-secondary px-space-16 py-space-8"
           >
-            <Text className="text-buttonSmall text-text">
+            <Text className="text-shop-buttonSmall text-text">
               {requesting ? t("nearby.origin.checking") : t("nearby.origin.useMyLocation")}
             </Text>
           </Pressable>
@@ -151,14 +151,14 @@ export function NearbyOriginControl({
           onPress={() => setPickerOpen((open) => !open)}
           className="rounded-radius-max border border-border-secondary px-space-16 py-space-8"
         >
-          <Text className="text-buttonSmall text-text">
+          <Text className="text-shop-buttonSmall text-text">
             {pickerOpen ? t("nearby.origin.hideCityList") : t("nearby.origin.chooseCity")}
           </Text>
         </Pressable>
       </View>
 
       {refusal === null ? null : (
-        <Text className="text-caption text-text-secondary" accessibilityRole="alert">
+        <Text className="text-shop-caption text-text-secondary" accessibilityRole="alert">
           {t(REFUSAL_COPY_KEYS[refusal])}
         </Text>
       )}
@@ -181,19 +181,19 @@ export function NearbyOriginControl({
             becomes a wrong answer.
           */}
           {term.trim().length === 0 ? (
-            <Text className="text-caption text-text-tertiary">
+            <Text className="text-shop-caption text-text-tertiary">
               {t("nearby.origin.typeATown")}
             </Text>
           ) : places.isLoading ? (
-            <Text className="text-caption text-text-tertiary">
+            <Text className="text-shop-caption text-text-tertiary">
               {t("nearby.origin.loadingCities")}
             </Text>
           ) : places.isError ? (
-            <Text className="text-caption text-text-tertiary">
+            <Text className="text-shop-caption text-text-tertiary">
               {t("nearby.origin.cityListError")}
             </Text>
           ) : (places.data ?? []).length === 0 ? (
-            <Text className="text-caption text-text-tertiary">
+            <Text className="text-shop-caption text-text-tertiary">
               {t("nearby.origin.noCityMatch")}
             </Text>
           ) : (
@@ -208,8 +208,8 @@ export function NearbyOriginControl({
                 }}
                 className="rounded-radius-12 border border-border-secondary px-space-12 py-space-8"
               >
-                <Text className="text-bodySmall text-text">{place.label}</Text>
-                <Text className="text-caption text-text-tertiary">
+                <Text className="text-shop-bodySmall text-text">{place.label}</Text>
+                <Text className="text-shop-caption text-text-tertiary">
                   {t("nearby.origin.shopsWithStock", { count: place.locationCount })}
                 </Text>
               </Pressable>

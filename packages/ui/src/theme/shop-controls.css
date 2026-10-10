@@ -1,0 +1,159 @@
+/* Shop's public styleConstants-DxOS3Sd3.css, measured 2026-10-09.
+ * Geometry and paint are separate from text-shop-buttonLarge typography.
+ * Bloom owns interaction semantics; these classes only paint marketplace CTAs.
+ */
+@layer components {
+  .shop-control {
+    height: 52px;
+    min-height: 52px;
+    min-width: 0;
+    border-radius: 9999px;
+    border-width: .5px;
+    border-style: solid;
+    padding: 0;
+    overflow: hidden;
+    opacity: 1;
+    transition-property: background-color, transform, box-shadow;
+    transition-duration: 150ms;
+  }
+  .shop-control-tertiary {
+    height: auto;
+    min-height: 32px;
+    min-width: 72px;
+    padding: 8px;
+    border-width: 0;
+    background-color: #f2f4f5;
+    color: #000;
+    box-shadow: none;
+  }
+  .shop-control-tertiary-dark { background-color: #2a2a2a; color: #fff; }
+  .shop-control-tertiary-interactive:hover { background-color: #e1e4e5; }
+  .shop-control-tertiary-dark-interactive:hover { background-color: #404040; }
+  .shop-control-compact { height: 44px; min-height: 44px; }
+  .shop-control-primary {
+    background-color: #5433eb;
+    color: #fff;
+    border-color: #5433eb;
+    box-shadow: -.5px -.5px 1px #ffffff52 inset, 1px 1px .5px #ffffff52 inset, 0 4px 24px #5433eb3d;
+  }
+  .shop-control-primary-dark { border-color: #9c83f8; }
+  .shop-control-primary-interactive:hover { background-color: #4524db; }
+  .shop-control-secondary {
+    height: auto;
+    white-space: normal;
+    padding: 16px;
+    background-color: #121212;
+    color: #fff;
+    border-color: #000;
+    box-shadow: -.5px -.5px 1px #ffffff52 inset, 1px 1px .5px #ffffff52 inset, 0 4px 24px #0000003d;
+  }
+  .shop-control-secondary-dark { background-color: #fff; color: #000; border-color: #fff; }
+  .shop-control-secondary-interactive:hover { background-color: #2a2a2a; }
+  .shop-control-secondary-dark-interactive:hover { background-color: #c9cbcc; }
+  /* Shop Button size=l without the purchase buttons' "juicy" treatment. */
+  .shop-control-flat {
+    height: auto;
+    min-height: 44px;
+    padding: 12px;
+    border-width: 0;
+    box-shadow: none;
+    white-space: normal;
+  }
+  .shop-control-outline {
+    background-color: #fff;
+    color: #000;
+    border-color: #183b4e0f;
+    box-shadow: 0 2px 8px #0000000f;
+    backdrop-filter: blur(10px);
+  }
+  .shop-control-outline-dark { background-color: #121212; color: #fff; border-color: #ffffff1a; }
+  .shop-control-outline-interactive:hover { background-color: #f2f4f5; }
+  .shop-control-outline-dark-interactive:hover { background-color: #2a2a2a; }
+  .shop-control-pressable:active { transform: scale(.99); }
+  .shop-control-disabled {
+    background-color: #eef0f1;
+    color: #0006;
+    border-width: 0;
+    box-shadow: none;
+  }
+  .shop-control-disabled-dark { background-color: #404040; color: #fff6; }
+  @media (prefers-reduced-motion: reduce) {
+    .shop-control { transition-duration: 0ms; }
+    .shop-control-pressable:active { transform: none; }
+  }
+}
+
+/* Shop's text option picker: useReferralCartAlert-D46LlP2n.js, component Pt.
+ * Unavailable options stay selectable; only their label is struck through.
+ */
+@layer components {
+  .shop-option {
+    height: auto;
+    min-height: 40px;
+    max-width: 344px;
+    min-width: 0;
+    flex-shrink: 1;
+    gap: 8px;
+    padding: 0 16px;
+    border-radius: 9999px;
+    border: 1.5px solid #0000001a;
+    background-color: transparent;
+    color: #000;
+    box-shadow: none;
+    opacity: 1;
+    overflow: hidden;
+    transition-property: border-color;
+    transition-duration: 100ms;
+  }
+  .shop-option-dark { color: #fff; border-color: #fff3; }
+  .shop-option-selected { border-color: #000; }
+  .shop-option-selected-dark { border-color: #fff; }
+  .shop-option-unavailable { background-color: #f2f4f5; border-color: transparent; }
+  .shop-option-unavailable-dark { background-color: #2a2a2a; border-color: transparent; }
+  .shop-option-unavailable-selected { border-color: #0000001a; }
+  .shop-option-unavailable-selected-dark { border-color: #fff3; }
+  .shop-option-interactive:hover { border-color: #000; }
+  .shop-option-interactive-dark:hover { border-color: #fff; }
+  .shop-option-interactive:active, .shop-option-interactive-dark:active { opacity: .5; }
+  .shop-option-pressable:active { transform: scale(.95); }
+  .shop-option-more { border-width: 1px; }
+  .shop-option-more:hover { border-width: 1.5px; margin-left: -.5px; margin-right: -.5px; }
+  @media (prefers-reduced-motion: reduce) {
+    .shop-option { transition-duration: 0ms; }
+    .shop-option-pressable:active { transform: none; }
+  }
+}
+
+/* SideSheet-DzZcd4z7.js: fade scroll content beneath the floating close control. */
+@layer components {
+  .shop-sheet-scroll {
+    mask-image: linear-gradient(to bottom, transparent, black 80px, black calc(100% - 80px), transparent);
+  }
+}
+
+/* Shop IconButton-C6kcxNuh.css + size l (20px glyph + 12px padding).
+ * Border is inset so the 44px hit target does not grow by its hairline. */
+@layer components {
+  .shop-sheet-close {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 9999px;
+    border: .5px solid #183b4e0f;
+    background-color: #fff;
+    box-shadow: 0 4px 24px #0000001f;
+    transition-property: background-color, transform, opacity;
+    transition-duration: 150ms;
+  }
+  .shop-sheet-close:hover { background-color: #f2f4f5; }
+  .shop-sheet-close:active { opacity: .6; }
+  .shop-sheet-close-dark { background-color: #121212; border-color: #ffffff1a; }
+  .shop-sheet-close-dark:hover { background-color: #2a2a2a; }
+  .shop-sheet-close-motion:active { transform: scale(.96); }
+  @media (prefers-reduced-motion: reduce) {
+    .shop-sheet-close { transition-duration: 0ms; }
+    .shop-sheet-close-motion:active { transform: none; }
+  }
+}

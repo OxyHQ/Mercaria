@@ -62,10 +62,10 @@ export default function DigitalLibraryScreen() {
 
       <View className="mb-space-32 gap-space-16 web:mx-auto web:w-full web:max-w-[1200px] md:px-5">
         <View className="gap-space-4">
-          <Text className="text-headerBold text-text" accessibilityRole="header">
+          <Text className="text-shop-headerBold text-text" accessibilityRole="header">
             {t('digital.library.title')}
           </Text>
-          <Text className="text-bodySmall text-text-secondary">
+          <Text className="text-shop-bodySmall text-text-secondary">
             {t('digital.library.description')}
           </Text>
         </View>
@@ -75,7 +75,7 @@ export default function DigitalLibraryScreen() {
         ) : source.kind === 'unavailable' ? (
           <DigitalSurfaceNotice reason={source.reason} />
         ) : source.value.rights.length === 0 ? (
-          <Text className="text-bodySmall text-text-tertiary">{t('digital.library.empty')}</Text>
+          <Text className="text-shop-bodySmall text-text-tertiary">{t('digital.library.empty')}</Text>
         ) : (
           <View className="gap-space-12">
             {source.value.rights.map((right) => (
@@ -111,8 +111,8 @@ function SignedOutInvitation() {
   const { t } = useTranslation();
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
-      <Text className="text-bodyTitleSmall text-text">{t('digital.library.signedOut.title')}</Text>
-      <Text className="text-bodySmall text-text-secondary">
+      <Text className="text-shop-bodyTitleSmall text-text">{t('digital.library.signedOut.title')}</Text>
+      <Text className="text-shop-bodySmall text-text-secondary">
         {t('digital.library.signedOut.body')}
       </Text>
       <Pressable
@@ -121,7 +121,7 @@ function SignedOutInvitation() {
         onPress={() => openAccountDialog()}
         className="items-center rounded-radius-max bg-bg-fill-brand py-space-12"
       >
-        <Text className="text-buttonMedium text-text-inverse">
+        <Text className="text-shop-buttonMedium text-text-inverse">
           {t('digital.library.signedOut.signIn')}
         </Text>
       </Pressable>

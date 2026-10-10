@@ -2,6 +2,7 @@ import type {
   ApiResponse,
   PaginatedResponse,
   Listing,
+  ListingStatus,
   Money,
   CreateStoreProductInput,
   UpdateListingInput,
@@ -30,7 +31,7 @@ const base = (storeId: string) => `/admin/stores/${storeId}/products`;
 /** GET products — paginated store products. */
 export async function fetchProducts(
   storeId: string,
-  params: { page?: number; limit?: number } = {},
+  params: { page?: number; limit?: number; search?: string; status?: ListingStatus } = {},
 ): Promise<PaginatedResponse<Listing>> {
   const { data } = await apiClient.get<PaginatedResponse<Listing>>(base(storeId), { params });
   return data;

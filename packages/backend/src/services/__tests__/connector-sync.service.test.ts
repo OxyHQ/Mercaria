@@ -56,6 +56,10 @@ const upsertExternalRef = vi.fn();
 const categorySlugExists = vi.fn();
 const setListingAutomatedMemberships = vi.fn();
 const findLocation = vi.fn();
+const synchronizeStoreImages = vi.fn();
+vi.mock('../catalog-media/sync.js', () => ({
+  synchronizeStoreImages: (...args: unknown[]) => synchronizeStoreImages(...args),
+}));
 const createStoreProduct = vi.fn();
 const updateListing = vi.fn();
 const updateVariant = vi.fn();
@@ -337,6 +341,8 @@ function createdProvenance(): Record<string, unknown> | undefined {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  synchronizeStoreImages.mockReset().mockImplementation(async (_storeId: string, refs: string[]) =>
+    refs.map(ref => ref.startsWith('https:') ? 'oxy-imported-image' : ref));
   process.env.CONNECTOR_DEFAULT_CATEGORY_SLUG = 'home';
   categorySlugExists.mockResolvedValue(true);
   decryptSecret.mockReturnValue(JSON.stringify({ accessToken: 'shpat_test' }));
@@ -373,6 +379,7 @@ describe('runBackfill — create path', () => {
     expect(createStoreProduct).toHaveBeenCalledTimes(1);
     const [storeArg, input] = createStoreProduct.mock.calls[0];
     expect(storeArg).toBe(STORE_ID);
+    expect(input.imageFileIds).toEqual(['oxy-imported-image']);
     expect(input.category).toBe('home');
     expect(input.variants[0].price).toEqual({ amount: 1999, currency: 'USD' });
 
@@ -560,7 +567,7 @@ describe('runBackfill — update path respects overriddenFields', () => {
     // Pinned title is NOT written; description + images (etc.) are.
     expect(patch.title).toBeUndefined();
     expect(patch.description).toBe('Imported description');
-    expect(patch.imageFileIds).toEqual(['https://cdn.shopify.com/img.jpg']);
+    expect(patch.imageFileIds).toEqual(['oxy-imported-image']);
     expect(run.countsUpdated).toBe(1);
   });
 
@@ -909,5 +916,41 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
     ]);
     expect(run.status).toBe('completed');
     expect(run.countsUpdated).toBe(2);
+  });
+});
+
+describe('runBackfill — synchronized media boundary', () => {
+  it('isolates a failed image import and continues with the next product', async () => {
+    findConnection.mockResolvedValue(mockConnection());
+    findListingBySourceExternalId.mockResolvedValue(null);
+    createStoreProduct.mockResolvedValue('listing-next');
+    fetchProducts.mockResolvedValue({ products: [product({ externalId: 'failed' }), product({ externalId: 'next' })] });
+    synchronizeStoreImages.mockRejectedValueOnce(new Error('Image storage unavailable'));
+    const run = await runBackfill(STORE_ID, CONNECTION_ID);
+    expect(run.countsFailed).toBe(1);
+    expect(run.countsCreated).toBe(1);
+    expect(createStoreProduct).toHaveBeenCalledTimes(1);
+    expect(createStoreProduct.mock.calls[0][1].imageFileIds).toEqual(['oxy-imported-image']);
+  });
+
+  it('does not restore or change an archived product when image synchronization fails', async () => {
+    findConnection.mockResolvedValue(mockConnection());
+    findListingBySourceExternalId.mockResolvedValue(listingRow('existing', { status: 'archived' }));
+    fetchProducts.mockResolvedValue({ products: [product()] });
+    synchronizeStoreImages.mockRejectedValueOnce(new Error('Image storage unavailable'));
+    const run = await runBackfill(STORE_ID, CONNECTION_ID);
+    expect(run.countsFailed).toBe(1);
+    expect(setListingStatusIfIn).not.toHaveBeenCalled();
+    expect(updateListing).not.toHaveBeenCalled();
+    expect(updateListingColumns).not.toHaveBeenCalled();
+  });
+
+  it('does not download images protected by the merchant override', async () => {
+    findConnection.mockResolvedValue(mockConnection('respect_overrides'));
+    findListingBySourceExternalId.mockResolvedValue(listingRow('existing', { overriddenFields: ['images'] }));
+    fetchProducts.mockResolvedValue({ products: [product()] });
+    await runBackfill(STORE_ID, CONNECTION_ID);
+    expect(synchronizeStoreImages).not.toHaveBeenCalled();
+    expect(updateListing.mock.calls[0][1]).not.toHaveProperty('imageFileIds');
   });
 });

@@ -66,10 +66,10 @@ function ChannelList({
 
   return (
     <View className="gap-space-8">
-      <Text className="text-sectionTitle text-text" accessibilityRole="header">
+      <Text className="text-shop-sectionTitle text-text" accessibilityRole="header">
         {title}
       </Text>
-      <Text className="text-caption text-text-secondary">{explanation}</Text>
+      <Text className="text-shop-caption text-text-secondary">{explanation}</Text>
       {/*
         LINKED as of #252, for the reason `OfferRow` states: #73 shipped
         `/merchants/[idOrSlug]`, so the route these channels were named rather
@@ -94,9 +94,9 @@ function ChannelList({
           }
           className="rounded-radius-28 border border-border-secondary p-space-12"
         >
-          <Text className="text-bodyTitleSmall text-text">{channel.merchantName}</Text>
+          <Text className="text-shop-bodyTitleSmall text-text">{channel.merchantName}</Text>
           {channel.storefrontName ? (
-            <Text className="text-caption text-text-secondary">{channel.storefrontName}</Text>
+            <Text className="text-shop-caption text-text-secondary">{channel.storefrontName}</Text>
           ) : null}
         </Pressable>
       ))}

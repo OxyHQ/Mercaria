@@ -781,7 +781,9 @@
     "reportsError": "Não foi possível carregar os relatórios",
     "sales": {
       "empty": "Nenhuma venda neste período ainda.",
-      "title": "Vendas (último período)"
+      "title": "Vendas",
+      "point": "%{date}: %{revenue}, %{count} pedidos",
+      "inspect": "Selecione um dia para ver vendas e pedidos."
     },
     "stats": {
       "averageOrder": "Ticket médio",
@@ -802,7 +804,11 @@
         "other": "%{count} vendidos",
         "many": "%{count} de vendidos"
       }
-    }
+    },
+    "allTime": "Desde o início",
+    "performance": "Desempenho da loja",
+    "lastDays": "Últimos %{days} dias",
+    "utcRange": "%{from} – %{to} (UTC)"
   },
   "nav": {
     "channels": "Canais de venda",
@@ -818,7 +824,10 @@
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral",
     "closeSidebar": "Fechar a barra lateral",
-    "closeNavigation": "Fechar a navegação"
+    "closeNavigation": "Fechar a navegação",
+    "searchNavigation": "Buscar na navegação",
+    "clearSearch": "Limpar busca na navegação",
+    "noResults": "Nenhuma página correspondente"
   },
   "orders": {
     "detail": {
@@ -916,7 +925,7 @@
     "status": {
       "cancelled": "Cancelado",
       "delivered": "Entregue",
-      "digitallyDelivered": "Entregue",
+      "digitallyDelivered": "Entrega digital concluída",
       "paid": "Pago",
       "partiallyRefunded": "Reemb. parcial",
       "pendingPayment": "Pendente",
@@ -924,7 +933,6 @@
       "refunded": "Reembolsado",
       "shipped": "Enviado"
     },
-    "subtitle": "Processe e acompanhe suas vendas",
     "title": "Pedidos",
     "totals": {
       "discounts": "Descontos",
@@ -964,6 +972,12 @@
         "one": "%{count} variante",
         "other": "%{count} variantes",
         "many": "%{count} de variantes"
+      },
+      "organization": {
+        "heading": "Organização do produto",
+        "tags": "Etiquetas",
+        "addTag": "Adicionar etiqueta",
+        "removeTag": "Remover %{tag}"
       }
     },
     "documentTitle": "Produtos | Mercaria Dashboard",
@@ -1006,7 +1020,7 @@
         "many": "%{count} de variantes · %{stock} em estoque"
       }
     },
-    "searchPlaceholder": "Buscar produtos nesta página…",
+    "searchPlaceholder": "Buscar produtos…",
     "status": {
       "active": "Ativo",
       "archived": "Arquivado",
@@ -1015,7 +1029,6 @@
       "sold": "Vendido"
     },
     "stockLabel": "Estoque",
-    "subtitle": "O catálogo da sua loja",
     "title": "Produtos",
     "variants": {
       "add": "Adicionar",
@@ -1891,5 +1904,14 @@
     "subtitle": "Escolha uma loja para gerenciar",
     "switch": "Trocar de loja",
     "title": "Suas lojas"
+  },
+  "resourceList": {
+    "noResults": "Nenhum resultado correspondente",
+    "clearFilters": "Limpar filtros",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "price": "Preço",
+    "date": "Data",
+    "customer": "Cliente"
   }
 }

@@ -8,8 +8,8 @@ import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 
 /**
  * Compact active-store indicator + switcher. Tapping it returns to the store
- * picker (`/stores`) to choose a different store. Rendered in screen headers so
- * the operator always sees which store they're acting on.
+ * picker (`/stores`) to choose a different store. Rendered once in the mobile shell header so
+ * the operator sees the active store on list and detail screens alike.
  */
 export function StoreSwitcher() {
   const router = useRouter();

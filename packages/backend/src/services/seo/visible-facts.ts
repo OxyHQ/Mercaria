@@ -70,7 +70,7 @@ export function mapAvailability(availability: OfferAvailability): SeoOfferAvaila
 function imageUrlsOf(product: CanonicalProduct): string[] {
   return [...product.images]
     .sort((left, right) => left.position - right.position)
-    .map((image) => image.fileId ?? image.sourceUrl)
+    .map((image) => image.fileId)
     .filter((value): value is string => value !== undefined && value !== '')
     .map((value) => resolveMedia(value));
 }
