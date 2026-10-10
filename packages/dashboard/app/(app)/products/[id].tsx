@@ -394,12 +394,12 @@ function VariantRow({
 
   return (
     <View className="rounded-xl border border-border p-3">
-      <View className="mb-2 flex-row items-center justify-between">
-        <View className="flex-row items-center gap-2">
-          <Boxes size={16} color={colors.mutedForeground} />
-          <Text className="text-sm font-semibold text-foreground">{variant.title}</Text>
+      <View testID="merchant-variant-heading" className="mb-2 min-w-0 gap-2 sm:flex-row sm:items-start">
+        <View className="min-w-0 flex-row items-start gap-2 sm:flex-1">
+          <View className="shrink-0"><Boxes size={16} color={colors.mutedForeground} /></View>
+          <Text className="min-w-0 flex-1 text-sm font-semibold text-foreground">{variant.title}</Text>
         </View>
-        <PriceDisplay price={variant.price} primaryClassName="text-sm font-semibold" />
+        <PriceDisplay price={variant.price} className="flex-wrap sm:shrink-0" primaryClassName="text-sm font-semibold" />
       </View>
       <VariantImages storeId={storeId} productId={productId} variant={variant} gallery={gallery} canWrite={canWrite} />
       <VariantPrice storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
