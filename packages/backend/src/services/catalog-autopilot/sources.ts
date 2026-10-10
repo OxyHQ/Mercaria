@@ -85,6 +85,8 @@ export function policyMatchesDeclaration(
     active.mayRefreshAutomatically === declared.mayRefreshAutomatically &&
     active.maySeedCatalog === declared.maySeedCatalog &&
     active.extractionMode === declared.extractionMode &&
+    active.extractionMaxRequestsPerDay === (declared.extractionMaxRequestsPerDay ?? null) &&
+    active.extractionUserAgent === (declared.extractionUserAgent ?? null) &&
     active.attributionRequired === declared.attributionRequired &&
     active.termsVersion === declared.termsVersion &&
     active.termsUrl === declared.termsUrl

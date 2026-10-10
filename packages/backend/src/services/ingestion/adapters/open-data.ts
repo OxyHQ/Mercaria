@@ -50,10 +50,10 @@ export function createOpenDataAdapter(
   return {
     provider: provider.slug,
     kind: provider.kind,
-    // Every provider here publishes an API or a dump for exactly this use.
-    // None is extraction, and a descriptor that needed to crawl would not be
-    // an open-data provider.
-    extraction: false,
+    // An API or a dump offered for reuse is not extraction. A provider that
+    // reads a site (a Shopify store's catalogue) says so, and #62 then needs
+    // the extraction right before it runs.
+    extraction: provider.extraction === true,
     refreshModes: provider.refreshModes,
 
     async fetchPage(request: AdapterFetchRequest): Promise<AdapterFetchPage> {

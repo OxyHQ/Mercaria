@@ -160,6 +160,7 @@ export function buildStoredPayload(record: NormalizedSourceRecord): StoredSource
     sourceCreatedAt: record.sourceCreatedAt,
     sourceUpdatedAt: record.sourceUpdatedAt,
     facts: record.facts !== undefined && record.facts.length > 0 ? record.facts : undefined,
+    productGroupKey: record.productGroupKey,
   });
 
   /**
@@ -285,6 +286,7 @@ export function normalizedFromStoredPayload(payload: unknown): NormalizedSourceR
     sourceCreatedAt: text('sourceCreatedAt'),
     sourceUpdatedAt: text('sourceUpdatedAt'),
     facts,
+    productGroupKey: text('productGroupKey'),
   };
   return {
     title,

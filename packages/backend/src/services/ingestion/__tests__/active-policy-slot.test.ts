@@ -155,8 +155,10 @@ const TOUCHER_FLOOR = 6;
  * 8 since ADR 0014: `reference-seeding.realdb.test.ts` ingests and runs the
  * matcher, and takes the slot as a holder. 9 since ADR 0015:
  * `catalog-autopilot.realdb.test.ts` publishes the baseline policy, a holder.
+ * 10 since ADR 0016: `source-anchored-seeding.realdb.test.ts` ingests and runs
+ * the matcher, a holder.
  */
-const TOUCHER_COUNT = 9;
+const TOUCHER_COUNT = 10;
 
 /**
  * Opening the suite's SHARED handle. See the header: this is the scope rule,

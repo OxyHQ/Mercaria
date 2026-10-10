@@ -30,6 +30,7 @@ import {
 } from '../../db/canonical/canonicalProductRepository.js';
 import {
   findBundleVariantIds,
+  findActiveVariantLinkForSourceObjectOf,
   findCanonicalVariantsByIds,
   listVariantAttributesForVariants,
   listVariantsForProducts,
@@ -78,14 +79,19 @@ export class PostgresCandidateSource implements MatchCandidateSource {
   }
 
   async findExistingAttachment(subject: MatchSubject): Promise<ExistingAttachment | null> {
-    // Only the native side has an attachment to reuse. A source observation's
-    // link lives on `canonical_*_source_links` and points at the OBSERVATION,
-    // which is new on every content change — so reusing it would be reusing a
-    // link to a row nobody is matching.
-    if (subject.kind !== 'native_variant' || subject.productVariantId === undefined) return null;
-    const link = await findActiveLinkForVariant(this.db, subject.productVariantId);
-    if (!link) return null;
-    const variants = await findCanonicalVariantsByIds(this.db, [link.canonicalVariantId]);
+    // A native variant's attachment is its native listing link. A source
+    // observation's lives on `canonical_variant_source_links` and points at
+    // the observation it was decided on; the OBJECT keeps it across new
+    // observations (a price move is a new one), so it is read through any
+    // observation of the same object (ADR 0016).
+    const variantId =
+      subject.kind === 'native_variant' && subject.productVariantId !== undefined
+        ? (await findActiveLinkForVariant(this.db, subject.productVariantId))?.canonicalVariantId
+        : subject.kind === 'source_record' && subject.sourceRecordId !== undefined
+          ? (await findActiveVariantLinkForSourceObjectOf(this.db, subject.sourceRecordId))?.variantId
+          : undefined;
+    if (variantId === undefined) return null;
+    const variants = await findCanonicalVariantsByIds(this.db, [variantId]);
     const variant = variants[0];
     if (!variant) return null;
     return {

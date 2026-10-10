@@ -339,6 +339,7 @@ export function canonicalizeNormalizedRecord(
   const description = cleanText(record.description, NORMALIZATION_LIMITS.description);
   const model = cleanText(record.model, NORMALIZATION_LIMITS.shortText);
   const merchantSku = cleanText(record.merchantSku, NORMALIZATION_LIMITS.shortText);
+  const productGroupKey = cleanText(record.productGroupKey, NORMALIZATION_LIMITS.shortText);
   const conditionLabel = cleanText(record.conditionLabel, NORMALIZATION_LIMITS.shortText);
   const price = cleanMoney(record.price);
   const compareAtPrice = cleanMoney(record.compareAtPrice);
@@ -369,6 +370,7 @@ export function canonicalizeNormalizedRecord(
     ...(description === undefined ? {} : { description }),
     ...(model === undefined ? {} : { model }),
     ...(merchantSku === undefined ? {} : { merchantSku }),
+    ...(productGroupKey === undefined ? {} : { productGroupKey }),
     ...(price === undefined ? {} : { price }),
     ...(compareAtPrice === undefined ? {} : { compareAtPrice }),
     ...(conditionLabel === undefined ? {} : { conditionLabel }),

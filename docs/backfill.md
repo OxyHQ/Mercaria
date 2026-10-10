@@ -70,12 +70,19 @@ listings:
    observation asserts a valid GTIN nobody owns, mints a DRAFT product, its
    default variant and the GTIN, citing the observation. It links nothing; the
    matcher attaches it on the next stage.
+   An object whose record carries no GTIN but names its source product
+   (`productGroupKey`, ADR 0016) mints, or joins, the product of that key: a
+   draft with the record's option names as axes, a variant per option set, and
+   the observation ANCHORED with `connector_declared` source links. The object
+   is then re-advanced, so it attaches and its offer materializes in this stage.
+   Its matcher verdict may be `manual_review`: within one source the key, not a
+   resembling title, is identity.
 10. **`source_readvance`** — every `unmatched` object whose asserted GTIN an
     ACTIVE identifier now holds is re-asked of the matcher through #62's own
     `advanceObject`, which attaches it and materializes its offer.
 11. **`reference_promotion`** — a draft minted by `reference_products` that
-    still holds an active identifier and has at least one active priced offer
-    becomes `active`.
+    still holds an active identifier, or an active source link (ADR 0016), and
+    has at least one active priced offer becomes `active`.
 
 ### The four rules `provisional_products` decides by
 
