@@ -1553,6 +1553,17 @@
       "updateFailed": "Adresse konnte nicht aktualisiert werden",
       "removed": "Adresse entfernt",
       "removeFailed": "Adresse konnte nicht entfernt werden"
+    },
+    "picker": {
+      "search": "Adresse mit GoWay suchen",
+      "help": "Suche nach Straße und Stadt, wähle eine Adresse und überprüfe sie.",
+      "placeholder": "Straße, Hausnummer und Stadt",
+      "loading": "GoWay wird durchsucht…",
+      "error": "Die Adresssuche ist nicht verfügbar. Versuche es erneut oder gib die Adresse manuell ein.",
+      "partial": "Einige Quellen sind nicht verfügbar. Die Ergebnisse können unvollständig sein.",
+      "empty": "Keine Adresse gefunden. Ergänze eine Stadt oder gib die Adresse manuell ein.",
+      "review": "Adressdetails überprüfen",
+      "manual": "Adresse manuell eingeben"
     }
   },
   "shoppingAgents": {

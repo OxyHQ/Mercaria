@@ -1569,6 +1569,17 @@
       "updateFailed": "No se ha podido actualizar la dirección",
       "removed": "Dirección eliminada",
       "removeFailed": "No se ha podido eliminar la dirección"
+    },
+    "picker": {
+      "search": "Buscar una dirección con GoWay",
+      "help": "Busca una calle y ciudad; elige y revisa la dirección.",
+      "placeholder": "Calle, número y ciudad",
+      "loading": "Buscando en GoWay…",
+      "error": "La búsqueda no está disponible. Reintenta o introduce la dirección manualmente.",
+      "partial": "Algunas fuentes no están disponibles. Los resultados pueden estar incompletos.",
+      "empty": "No se encontraron direcciones. Añade una ciudad o introduce la dirección manualmente.",
+      "review": "Revisar los datos de la dirección",
+      "manual": "Introducir dirección manualmente"
     }
   },
   "shoppingAgents": {

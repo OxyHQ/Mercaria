@@ -1569,6 +1569,17 @@
       "updateFailed": "Não foi possível atualizar o endereço",
       "removed": "Endereço removido",
       "removeFailed": "Não foi possível remover o endereço"
+    },
+    "picker": {
+      "search": "Buscar um endereço com GoWay",
+      "help": "Busque uma rua e cidade, depois escolha e confira o endereço.",
+      "placeholder": "Rua, número e cidade",
+      "loading": "Buscando no GoWay…",
+      "error": "A busca está indisponível. Tente novamente ou digite o endereço manualmente.",
+      "partial": "Algumas fontes estão indisponíveis. Os resultados podem estar incompletos.",
+      "empty": "Nenhum endereço encontrado. Adicione uma cidade ou digite o endereço manualmente.",
+      "review": "Conferir detalhes do endereço",
+      "manual": "Digitar endereço manualmente"
     }
   },
   "shoppingAgents": {

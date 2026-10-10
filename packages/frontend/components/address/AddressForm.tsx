@@ -1,3 +1,4 @@
+import { AddressPicker } from "./AddressPicker";
 import { useState } from "react";
 import { Button } from "@oxy.so/bloom/button";
 import { Field } from "@oxy.so/bloom/field";
@@ -13,7 +14,7 @@ function isComplete(draft: CreateAddressInput): boolean {
     draft.line1.trim().length > 0 &&
     draft.city.trim().length > 0 &&
     draft.postalCode.trim().length > 0 &&
-    draft.country.trim().length > 0
+    draft.country.trim().length === 2
   );
 }
 
@@ -24,7 +25,7 @@ function clean(draft: CreateAddressInput): CreateAddressInput {
     line1: draft.line1.trim(),
     city: draft.city.trim(),
     postalCode: draft.postalCode.trim(),
-    country: draft.country.trim(),
+    country: draft.country.trim().toUpperCase(),
   };
   if (draft.label?.trim()) out.label = draft.label.trim();
   if (draft.line2?.trim()) out.line2 = draft.line2.trim();
@@ -84,14 +85,62 @@ export function AddressForm({
           placeholder={t("address.form.recipientNamePlaceholder")}
         />
       </Field>
-      <Field label={t("address.form.line1Label")}>
-        <TextFieldInput
-          label={t("address.form.line1Label")}
-          value={draft.line1}
-          onValueChange={set("line1")}
-          placeholder={t("address.form.line1Placeholder")}
-        />
-      </Field>
+      <AddressPicker value={draft} onChange={(address) => setDraft(previous => ({ ...previous, ...address, line2: "" }))}>
+        <Field label={t("address.form.line1Label")}>
+          <TextFieldInput
+            label={t("address.form.line1Label")}
+            value={draft.line1}
+            onValueChange={set("line1")}
+            placeholder={t("address.form.line1Placeholder")}
+          />
+        </Field>
+
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <Field label={t("address.form.cityLabel")}>
+              <TextFieldInput
+                label={t("address.form.cityLabel")}
+                value={draft.city}
+                onValueChange={set("city")}
+                placeholder={t("address.form.cityPlaceholder")}
+              />
+            </Field>
+          </View>
+          <View className="flex-1">
+            <Field label={t("address.form.regionLabel")}>
+              <TextFieldInput
+                label={t("address.form.regionLabel")}
+                value={draft.region ?? ""}
+                onValueChange={set("region")}
+                placeholder={t("address.form.regionPlaceholder")}
+              />
+            </Field>
+          </View>
+        </View>
+        <View className="flex-row gap-3">
+          <View className="flex-1">
+            <Field label={t("address.form.postalCodeLabel")}>
+              <TextFieldInput
+                label={t("address.form.postalCodeLabel")}
+                value={draft.postalCode}
+                onValueChange={set("postalCode")}
+                placeholder={t("address.form.postalCodePlaceholder")}
+              />
+            </Field>
+          </View>
+          <View className="flex-1">
+            <Field label={t("address.form.countryLabel")}>
+              <TextFieldInput
+                label={t("address.form.countryLabel")}
+                value={draft.country}
+                onValueChange={set("country")}
+                placeholder={t("address.form.countryPlaceholder")}
+                autoCapitalize="characters"
+              />
+            </Field>
+          </View>
+        </View>
+      </AddressPicker>
       <Field label={t("address.form.line2Label")}>
         <TextFieldInput
           label={t("address.form.line2Label")}
@@ -100,51 +149,6 @@ export function AddressForm({
           placeholder={t("address.form.line2Placeholder")}
         />
       </Field>
-      <View className="flex-row gap-3">
-        <View className="flex-1">
-          <Field label={t("address.form.cityLabel")}>
-            <TextFieldInput
-              label={t("address.form.cityLabel")}
-              value={draft.city}
-              onValueChange={set("city")}
-              placeholder={t("address.form.cityPlaceholder")}
-            />
-          </Field>
-        </View>
-        <View className="flex-1">
-          <Field label={t("address.form.regionLabel")}>
-            <TextFieldInput
-              label={t("address.form.regionLabel")}
-              value={draft.region ?? ""}
-              onValueChange={set("region")}
-              placeholder={t("address.form.regionPlaceholder")}
-            />
-          </Field>
-        </View>
-      </View>
-      <View className="flex-row gap-3">
-        <View className="flex-1">
-          <Field label={t("address.form.postalCodeLabel")}>
-            <TextFieldInput
-              label={t("address.form.postalCodeLabel")}
-              value={draft.postalCode}
-              onValueChange={set("postalCode")}
-              placeholder={t("address.form.postalCodePlaceholder")}
-            />
-          </Field>
-        </View>
-        <View className="flex-1">
-          <Field label={t("address.form.countryLabel")}>
-            <TextFieldInput
-              label={t("address.form.countryLabel")}
-              value={draft.country}
-              onValueChange={set("country")}
-              placeholder={t("address.form.countryPlaceholder")}
-              autoCapitalize="characters"
-            />
-          </Field>
-        </View>
-      </View>
       <Field label={t("address.form.phoneLabel")}>
         <TextFieldInput
           label={t("address.form.phoneLabel")}

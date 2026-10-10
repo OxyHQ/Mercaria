@@ -1569,6 +1569,17 @@
       "updateFailed": "Impossible de mettre à jour l'adresse",
       "removed": "Adresse supprimée",
       "removeFailed": "Impossible de supprimer l'adresse"
+    },
+    "picker": {
+      "search": "Rechercher une adresse avec GoWay",
+      "help": "Recherchez une rue et une ville, puis choisissez et vérifiez une adresse.",
+      "placeholder": "Rue, numéro et ville",
+      "loading": "Recherche sur GoWay…",
+      "error": "La recherche est indisponible. Réessayez ou saisissez l’adresse manuellement.",
+      "partial": "Certaines sources sont indisponibles. Les résultats peuvent être incomplets.",
+      "empty": "Aucune adresse trouvée. Ajoutez une ville ou saisissez l’adresse manuellement.",
+      "review": "Vérifier les détails de l’adresse",
+      "manual": "Saisir l’adresse manuellement"
     }
   },
   "shoppingAgents": {

@@ -1553,6 +1553,17 @@
       "updateFailed": "无法更新该地址",
       "removed": "地址已删除",
       "removeFailed": "无法删除该地址"
+    },
+    "picker": {
+      "search": "使用 GoWay 查找地址",
+      "help": "搜索街道和城市，然后选择并核对地址。",
+      "placeholder": "街道、门牌号和城市",
+      "loading": "正在搜索 GoWay…",
+      "error": "暂时无法搜索地址。请重试或手动输入地址。",
+      "partial": "部分地址来源暂不可用，结果可能不完整。",
+      "empty": "未找到地址。请添加城市或手动输入地址。",
+      "review": "核对地址详情",
+      "manual": "手动输入地址"
     }
   },
   "shoppingAgents": {

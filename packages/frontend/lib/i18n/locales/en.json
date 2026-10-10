@@ -1553,6 +1553,17 @@
       "updateFailed": "Couldn't update the address",
       "removed": "Address removed",
       "removeFailed": "Couldn't remove the address"
+    },
+    "picker": {
+      "search": "Find an address with GoWay",
+      "help": "Search for a street and city, then choose and review an address.",
+      "placeholder": "Street, number and city",
+      "loading": "Searching GoWay…",
+      "error": "Address search is unavailable. Try again or enter the address manually.",
+      "partial": "Some address sources are unavailable. Results may be incomplete.",
+      "empty": "No addresses found. Add a city or enter the address manually.",
+      "review": "Review address details",
+      "manual": "Enter address manually"
     }
   },
   "shoppingAgents": {

@@ -1569,6 +1569,17 @@
       "updateFailed": "No s'ha pogut actualitzar l'adreça",
       "removed": "Adreça eliminada",
       "removeFailed": "No s'ha pogut eliminar l'adreça"
+    },
+    "picker": {
+      "search": "Cerca una adreça amb GoWay",
+      "help": "Cerca un carrer i una ciutat; tria i revisa l’adreça.",
+      "placeholder": "Carrer, número i ciutat",
+      "loading": "Cercant a GoWay…",
+      "error": "La cerca no està disponible. Torna-ho a provar o introdueix l’adreça manualment.",
+      "partial": "Algunes fonts no estan disponibles. Els resultats poden ser incomplets.",
+      "empty": "No s’han trobat adreces. Afegeix una ciutat o introdueix l’adreça manualment.",
+      "review": "Revisa les dades de l’adreça",
+      "manual": "Introdueix l’adreça manualment"
     }
   },
   "shoppingAgents": {
