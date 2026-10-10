@@ -1602,7 +1602,8 @@
           "placeTaken": "Una altra de les teves ubicacions ja fa servir aquest lloc",
           "publicationFailed": "No s'ha pogut desar la ubicació"
         }
-      }
+      },
+      "deleteAction": "Suprimeix %{name}"
     },
     "members": {
       "convert": {

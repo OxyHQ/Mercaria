@@ -1584,7 +1584,8 @@
           "placeTaken": "この場所はすでに別のロケーションで使われています",
           "publicationFailed": "ロケーションを保存できませんでした"
         }
-      }
+      },
+      "deleteAction": "%{name} を削除"
     },
     "members": {
       "convert": {

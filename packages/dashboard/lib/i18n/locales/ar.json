@@ -1584,7 +1584,8 @@
           "placeTaken": "يستخدم موقع آخر من مواقعك هذا المكان بالفعل",
           "publicationFailed": "تعذّر حفظ الموقع"
         }
-      }
+      },
+      "deleteAction": "حذف %{name}"
     },
     "members": {
       "convert": {

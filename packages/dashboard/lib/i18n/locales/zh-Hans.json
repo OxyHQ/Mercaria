@@ -1584,7 +1584,8 @@
           "placeTaken": "你的另一个地点已在使用此场所",
           "publicationFailed": "无法保存此地点"
         }
-      }
+      },
+      "deleteAction": "删除 %{name}"
     },
     "members": {
       "convert": {

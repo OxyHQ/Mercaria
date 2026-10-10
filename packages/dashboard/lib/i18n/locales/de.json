@@ -1584,7 +1584,8 @@
           "placeTaken": "Ein anderer Ihrer Standorte nutzt diesen Ort bereits",
           "publicationFailed": "Der Standort konnte nicht gespeichert werden"
         }
-      }
+      },
+      "deleteAction": "%{name} löschen"
     },
     "members": {
       "convert": {

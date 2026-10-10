@@ -1602,7 +1602,8 @@
           "placeTaken": "Un autre de vos emplacements utilise déjà ce lieu",
           "publicationFailed": "Impossible d'enregistrer l'emplacement"
         }
-      }
+      },
+      "deleteAction": "Supprimer %{name}"
     },
     "members": {
       "convert": {

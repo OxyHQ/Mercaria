@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronRight, Sparkles } from "lucide-react-native";
 import type {
@@ -176,19 +176,11 @@ function StartBody({ storeId }: { storeId: string }) {
               {t("products.wizard.start.resumeTitle")}
             </Text>
             {(drafts.data ?? []).slice(0, 5).map((draft) => (
-              <Pressable
-                key={draft.id}
-                accessibilityRole="link"
+              <Link key={draft.id} href={{ pathname: "/products/wizard/[draftId]", params: { draftId: draft.id } }} asChild><Pressable
                 accessibilityLabel={
                   draft.title === null || draft.title.length === 0
                     ? t("products.wizard.start.untitledDraft")
                     : draft.title
-                }
-                onPress={() =>
-                  router.push({
-                    pathname: "/products/wizard/[draftId]",
-                    params: { draftId: draft.id },
-                  })
                 }
                 className="flex-row items-center justify-between gap-3 rounded-xl px-2 py-2 active:bg-muted"
               >
@@ -198,7 +190,7 @@ function StartBody({ storeId }: { storeId: string }) {
                     : draft.title}
                 </Text>
                 <ChevronRight size={16} color={colors.mutedForeground} />
-              </Pressable>
+              </Pressable></Link>
             ))}
           </View>
         ) : null}

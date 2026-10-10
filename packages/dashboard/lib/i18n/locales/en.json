@@ -1584,7 +1584,8 @@
           "placeTaken": "Another of your locations already uses this place",
           "publicationFailed": "Couldn't save the location"
         }
-      }
+      },
+      "deleteAction": "Delete %{name}"
     },
     "members": {
       "convert": {

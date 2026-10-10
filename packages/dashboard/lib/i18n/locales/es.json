@@ -1602,7 +1602,8 @@
           "placeTaken": "Otra de tus ubicaciones ya usa este lugar",
           "publicationFailed": "No se ha podido guardar la ubicación"
         }
-      }
+      },
+      "deleteAction": "Eliminar %{name}"
     },
     "members": {
       "convert": {

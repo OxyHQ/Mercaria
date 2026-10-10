@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Pressable, useWindowDimensions } from "react-native";
-import { useRouter, type RoutePath } from "expo-router";
+import { Link, useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, Search as SearchIcon } from "lucide-react-native";
 import { ALL_LISTING_STATUSES, type Listing, type ListingStatus } from "@mercaria/shared-types";
@@ -69,7 +69,6 @@ function ProductsBody({ storeId }: { storeId: string }) {
   const filtered = status !== "all" || search.trim() !== "";
   const products = data?.data ?? [];
   const clear = () => { setSearch(""); setStatus("all"); setPage(1); };
-  const openProduct = (id: string) => router.push({ pathname: "/products/[id]", params: { id } });
   const statusOptions = [{ value: "all" as const, label: t("common.all") }, ...ALL_LISTING_STATUSES.map(value => ({ value, label: t(STATUS_LABEL_KEYS[value]) }))];
   const pending = isPending || changingSearch;
   const action = can("products:write") ? <Button tone="accent" material="flat" leadingIcon={toBloomIcon(Plus)} onPress={() => router.push(createHref)}>{t("products.addProduct")}</Button> : undefined;
@@ -92,13 +91,13 @@ function ProductsBody({ storeId }: { storeId: string }) {
           <TableColumn flex={2}><Text className="text-xs font-semibold text-muted-foreground">{t("products.stockLabel")}</Text></TableColumn>
           <TableColumn width={130} align="end"><Text className="text-xs font-semibold text-muted-foreground">{t("resourceList.price")}</Text></TableColumn></TableHeader>
         <TableBody>{products.map(product => <TableRow key={product.id} testID="merchant-product-row">
-          <TableCell><ProductIdentity product={product} disabled={isPlaceholderData} onPress={() => openProduct(product.id)} /></TableCell>
+          <TableCell><ProductIdentity product={product} disabled={isPlaceholderData} /></TableCell>
           <TableCell><ProductStatus status={product.status} /></TableCell>
           <TableCell><Text className="text-xs text-muted-foreground">{t("products.row.variantsInStock", { count: product.variants.length, stock: product.quantity })}</Text></TableCell>
           <TableCell><PriceDisplay price={product.price} primaryClassName="text-sm" /></TableCell>
         </TableRow>)}</TableBody>
       </Table> : <View>{products.map(product => <View key={product.id} testID="merchant-product-row" className="gap-3 border-b border-border p-4">
-        <ProductIdentity product={product} disabled={isPlaceholderData} onPress={() => openProduct(product.id)} />
+        <ProductIdentity product={product} disabled={isPlaceholderData} />
         <View className="flex-row items-center justify-between gap-2"><ProductStatus status={product.status} /><PriceDisplay price={product.price} primaryClassName="text-sm" /></View>
         <Text className="text-xs text-muted-foreground">{t("products.row.variantsInStock", { count: product.variants.length, stock: product.quantity })}</Text>
       </View>)}</View>}
@@ -111,12 +110,13 @@ function ProductStatus({ status }: { status: ListingStatus }) {
   return <Badge size="label-small" variant="subtle" color={status === "active" ? "primary" : "default"} content={t(STATUS_LABEL_KEYS[status])} />;
 }
 
-function ProductIdentity({ product, onPress, disabled }: { product: Listing; onPress: () => void; disabled: boolean }) {
-  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel={product.title}
+function ProductIdentity({ product, disabled }: { product: Listing; disabled: boolean }) {
+  const content = <Pressable disabled={disabled} accessibilityLabel={product.title}
     className="flex-row items-center gap-3 rounded-lg py-1 active:opacity-70 web:hover:opacity-70">
     <OxyProductImage key={product.images[0]?.fileId} fileId={product.images[0]?.fileId} alt={product.images[0]?.alt || product.title} size={40} />
     <View className="min-w-0 flex-1 gap-1"><Text className="text-sm font-semibold text-foreground" numberOfLines={2}>{product.title}</Text>
       {product.source ? <SourceBadge provider={product.source.provider} /> : null}
     </View>
   </Pressable>;
+  return disabled ? content : <Link href={{ pathname: "/products/[id]", params: { id: product.id } }} asChild>{content}</Link>;
 }

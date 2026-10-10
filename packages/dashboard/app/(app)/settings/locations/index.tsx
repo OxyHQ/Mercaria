@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft, ChevronRight, Plus, Trash2, MapPin } from "lucide-react-native";
 import type { Location, LocationType } from "@mercaria/shared-types";
@@ -102,9 +102,6 @@ function LocationsBody({ storeId }: { storeId: string }) {
             <LocationRow
               key={location.id}
               location={location}
-              onOpen={() =>
-                router.push({ pathname: "/settings/locations/[id]", params: { id: location.id } })
-              }
               onDelete={() =>
                 deleteLocation.mutate(location.id, {
                   onSuccess: () => toast.success(t("settings.locations.deleted")),
@@ -128,43 +125,42 @@ function LocationsBody({ storeId }: { storeId: string }) {
  */
 function LocationRow({
   location,
-  onOpen,
   onDelete,
 }: {
   location: Location;
-  onOpen: () => void;
   onDelete: () => void;
 }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   return (
-    <Pressable
-      onPress={onOpen}
-      className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3 active:opacity-70"
-    >
-      <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
-        <MapPin size={18} color={colors.mutedForeground} />
-      </View>
-      <View className="flex-1">
-        <Text className="text-sm font-semibold text-foreground">{location.name}</Text>
-        {/*
-          Each flag key carries its own " · " separator, so a translator sees the
-          whole visible fragment rather than a word torn off a punctuation mark.
-        */}
-        <Text className="text-xs capitalize text-muted-foreground">
-          {t(LOCATION_TYPE_LABEL_KEYS[location.type])}
-          {location.isDefault ? t("settings.locations.defaultFlag") : ""}
-          {location.isActive ? "" : t("settings.locations.inactiveFlag")}
-          {location.goWayPlaceId ? t("settings.locations.placeFlag") : t("settings.locations.noPlaceFlag")}
-        </Text>
-      </View>
+    <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
+      <Link href={{ pathname: "/settings/locations/[id]", params: { id: location.id } }} asChild>
+        <Pressable accessibilityLabel={location.name} className="min-w-0 flex-1 flex-row items-center gap-3 rounded-lg active:opacity-70">
+          <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
+            <MapPin size={18} color={colors.mutedForeground} />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-foreground">{location.name}</Text>
+            {/*
+              Each flag key carries its own " · " separator, so a translator sees the
+              whole visible fragment rather than a word torn off a punctuation mark.
+            */}
+            <Text className="text-xs capitalize text-muted-foreground">
+              {t(LOCATION_TYPE_LABEL_KEYS[location.type])}
+              {location.isDefault ? t("settings.locations.defaultFlag") : ""}
+              {location.isActive ? "" : t("settings.locations.inactiveFlag")}
+              {location.goWayPlaceId ? t("settings.locations.placeFlag") : t("settings.locations.noPlaceFlag")}
+            </Text>
+          </View>
+          <ChevronRight size={16} color={colors.mutedForeground} />
+        </Pressable>
+      </Link>
       {!location.isDefault ? (
-        <Pressable onPress={onDelete} className="p-2 active:opacity-70">
+        <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel={t("settings.locations.deleteAction", { name: location.name })} className="p-2 active:opacity-70">
           <Trash2 size={16} color={colors.mutedForeground} />
         </Pressable>
       ) : null}
-      <ChevronRight size={16} color={colors.mutedForeground} />
-    </Pressable>
+    </View>
   );
 }
 

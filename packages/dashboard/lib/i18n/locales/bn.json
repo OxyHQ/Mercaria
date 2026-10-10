@@ -1584,7 +1584,8 @@
           "placeTaken": "আপনার অন্য একটি লোকেশন ইতিমধ্যে এই স্থান ব্যবহার করছে",
           "publicationFailed": "লোকেশনটি সেভ করা যায়নি"
         }
-      }
+      },
+      "deleteAction": "%{name} মুছুন"
     },
     "members": {
       "convert": {

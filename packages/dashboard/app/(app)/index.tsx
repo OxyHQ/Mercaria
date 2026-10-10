@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Link } from "expo-router";
 import { Button } from "@oxy.so/bloom/button";
 import Head from "expo-router/head";
 import type { Money, OrderStatus, ReportSummary, SalesReportPoint, TopProduct } from "@mercaria/shared-types";
@@ -219,7 +219,6 @@ function StatusBreakdown({ byStatus }: { byStatus: Record<OrderStatus, number> }
 
 function TopProductsList({ products }: { products: TopProduct[] }) {
   const { t } = useTranslation();
-  const router = useRouter();
   const { can } = useActiveStoreContext();
   return (
     <View className="rounded-xl border border-border bg-surface p-4">
@@ -230,9 +229,8 @@ function TopProductsList({ products }: { products: TopProduct[] }) {
         <Text className="text-sm text-muted-foreground">{t("home.topProducts.empty")}</Text>
       ) : (
         <View className="gap-2">
-          {products.map((p) => (
-            <Pressable key={p.listingId} accessibilityRole="link" disabled={!can("products:read")}
-              onPress={() => router.push({ pathname: "/products/[id]", params: { id: p.listingId } })}
+          {products.map((p) => {
+            const content = <Pressable disabled={!can("products:read")} accessibilityLabel={p.title}
               className="flex-row items-center justify-between gap-3 rounded-lg py-2 web:hover:bg-muted">
               <Text className="flex-1 text-sm text-foreground" numberOfLines={1}>
                 {p.title}
@@ -241,8 +239,10 @@ function TopProductsList({ products }: { products: TopProduct[] }) {
                 {t("home.topProducts.unitsSold", { count: p.unitsSold })}
               </Text>
               <PriceDisplay price={p.revenue} primaryClassName="text-sm font-semibold" />
-            </Pressable>
-          ))}
+            </Pressable>;
+            return can("products:read") ? <Link key={p.listingId} href={{ pathname: "/products/[id]", params: { id: p.listingId } }} asChild>{content}</Link>
+              : <View key={p.listingId}>{content}</View>;
+          })}
         </View>
       )}
     </View>

@@ -1602,7 +1602,8 @@
           "placeTaken": "Outro dos seus locais já usa este lugar",
           "publicationFailed": "Não foi possível salvar o local"
         }
-      }
+      },
+      "deleteAction": "Excluir %{name}"
     },
     "members": {
       "convert": {

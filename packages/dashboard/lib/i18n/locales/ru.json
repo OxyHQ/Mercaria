@@ -1620,7 +1620,8 @@
           "placeTaken": "Это место уже использует другая ваша локация",
           "publicationFailed": "Не удалось сохранить локацию"
         }
-      }
+      },
+      "deleteAction": "Удалить %{name}"
     },
     "members": {
       "convert": {
