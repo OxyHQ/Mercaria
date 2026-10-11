@@ -1,0 +1,216 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true, "defaultBranch": "main" },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!.worktrees",
+      "!**/dist",
+      "!**/coverage",
+      "!**/.expo",
+      "!**/.next",
+      "!**/drizzle/meta",
+      "!**/*.generated.*",
+      // GENERATED from @mercaria/contracts and byte-compared by
+      // `validate:openapi` (scripts/check-public-openapi.mjs): the committed
+      // bytes must be exactly what `openapi:generate` renders.
+      "!packages/contracts/openapi.json",
+      // Audit evidence. `proof.json` and the records bind source, logs and
+      // installed modules by hash, so these files must stay byte-identical.
+      "!docs/audits",
+      // The reviewed-image recipe read by publish-reviewed-images.yml; a
+      // reviewed artefact, not source, and kept byte-identical.
+      "!.github/scripts/reviewed-images.json",
+      // Its header comment quotes a `@source` glob whose `**/` closes the
+      // comment early, so Biome cannot parse the file (34 parse errors). The
+      // CSS toolchain tolerates it; repairing the comment is a source change,
+      // left to a follow-up rather than made inside a formatting migration.
+      "!packages/ui/src/theme/global.css"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always",
+      "bracketSpacing": true
+    }
+  },
+  "json": { "formatter": { "trailingCommas": "none" } },
+  "css": { "parser": { "tailwindDirectives": true } },
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "off" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      // BASELINE (Biome adoption): every recommended rule below fired on the
+      // existing code and was NOT an ESLint error before, so it is a warning
+      // until a follow-up fixes its sites and tightens it. Counts at adoption
+      // are in the PR that introduced this file.
+      "a11y": { "noSvgWithoutTitle": "warn" },
+      "complexity": {
+        "noImportantStyles": "warn",
+        "noThisInStatic": "warn",
+        "noUselessContinue": "warn",
+        "noUselessFragments": "warn",
+        "noUselessLoneBlockStatements": "warn",
+        "noUselessStringRaw": "warn",
+        "noUselessSwitchCase": "warn",
+        "useArrowFunction": "warn",
+        "useFlatMap": "warn",
+        "useLiteralKeys": "warn",
+        "useOptionalChain": "warn",
+        "useRegexLiterals": "warn"
+      },
+      "style": {
+        "noNonNullAssertion": "warn",
+        "useConst": "warn",
+        "useExponentiationOperator": "warn",
+        "useImportType": "warn",
+        "useNodejsImportProtocol": "warn",
+        "useTemplate": "warn"
+      },
+      "suspicious": {
+        "noApproximativeNumericConstant": "warn",
+        "noArrayIndexKey": "warn",
+        "noAssignInExpressions": "warn",
+        "noConfusingVoidType": "warn",
+        "noExplicitAny": "warn",
+        "noExportsInTest": "warn",
+        "noImplicitAnyLet": "warn",
+        "noPrototypeBuiltins": "warn",
+        "noSelfCompare": "warn",
+        "noTemplateCurlyInString": "warn",
+        "noThenProperty": "warn",
+        "useIterableCallbackReturn": "warn"
+      },
+      "correctness": {
+        "noUnusedFunctionParameters": "warn",
+        "noUnusedImports": "warn",
+        // `ignoreRestSiblings` makes OMIT-BY-REST-DESTRUCTURE lintable, and this
+        // codebase needs it for a security property rather than for tidiness:
+        // `hydrateOrdersForMerchant` (#106) builds a `MerchantOrder` by naming
+        // every buyer-identity field and discarding it into a rest spread, so a
+        // field added to `Order` cannot arrive in a merchant response by being
+        // picked up automatically. A `{...dto}` spread would carry it silently.
+        // The named-and-discarded siblings ARE the enforcement, so flagging them
+        // as unused would push the code back toward the unsafe form.
+        // (`_`-prefixed names are ignored by Biome by default, which is the old
+        // `argsIgnorePattern: "^_"`.)
+        "noUnusedVariables": { "level": "warn", "options": { "ignoreRestSiblings": true } },
+        // React (the three Expo apps and @mercaria/ui). `useHookAtTopLevel` is
+        // the old `react-hooks/rules-of-hooks`: a hook behind a condition is a
+        // runtime crash `tsc` is happy with. `useExhaustiveDependencies` is a
+        // WARNING on purpose — AGENTS.md says to avoid `useEffect` in the first
+        // place, so the remaining ones are deliberate and each wants reading
+        // rather than silencing.
+        "useHookAtTopLevel": "error",
+        "useJsxKeyInIterable": "error",
+        "useExhaustiveDependencies": "warn"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "warn"
+      }
+    }
+  },
+  "overrides": [
+    {
+      // @mercaria/contracts and @mercaria.co/sdk: a schema / parser is the wall
+      // between an untrusted body and a typed value, and `any` is a hole in it.
+      "includes": [
+        "packages/contracts/src/**",
+        "packages/contracts/test/**",
+        "packages/sdk/src/**",
+        "packages/sdk/test/**",
+        "packages/sdk/vitest.config.ts"
+      ],
+      "linter": { "rules": { "suspicious": { "noExplicitAny": "error" } } }
+    },
+    {
+      // `packages/contracts/src` ships inside `@mercaria.co/sdk` to every
+      // runtime: no Node built-ins and no `console`.
+      "includes": ["packages/contracts/src/**"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConsole": "error" },
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["node:*"],
+                    "message": "src/ ships inside the SDK to browsers and React Native."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // `@mercaria.co/sdk` is the one package whose source must run unchanged
+      // on Node, Bun, browsers and React Native.
+      //  - noRestrictedImports refuses Node built-ins in `src/`. `tsc` also
+      //    fails on one (`src/` compiles with `types: []`), but with "cannot
+      //    find module", which reads as a missing dependency to install rather
+      //    than a rule; this says why. The browser and React Native bundles in
+      //    `scripts/smoke.mjs` are the backstop that measures the built output.
+      //  - noConsole: the SDK never logs, so a token can never reach a log line
+      //    through it.
+      "includes": ["packages/sdk/src/**"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConsole": "error" },
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "assert": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "buffer": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "child_process": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "crypto": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "dns": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "events": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "fs": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "fs/promises": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "http": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "https": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "net": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "os": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "path": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "process": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "stream": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "tls": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "url": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "util": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "worker_threads": "src/ ships to browsers and React Native: no Node built-ins.",
+                  "zlib": "src/ ships to browsers and React Native: no Node built-ins."
+                },
+                "patterns": [
+                  {
+                    "group": ["node:*"],
+                    "message": "src/ ships to browsers and React Native: no Node built-ins."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

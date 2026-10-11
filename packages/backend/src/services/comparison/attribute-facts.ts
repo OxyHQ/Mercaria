@@ -81,6 +81,7 @@ export function toAttributeFact(
  * would render "6.1 to 6.7 in" as "6.1 in" — a narrower claim than the record
  * makes, in a table whose whole purpose is comparing them.
  */
+// biome-ignore lint/suspicious/noShadowRestrictedNames: a module-local helper; no global `valueOf` binding is shadowed in use
 function valueOf(row: StoredAttributeValueRow): ComparisonFactValue | undefined {
   if (row.normalizedNumberMax !== null && row.normalizedNumber !== null) {
     const unit = row.normalizedUnit ?? undefined;

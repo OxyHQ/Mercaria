@@ -1,7 +1,7 @@
 {
   "name": "@mercaria.co/sdk",
   "version": "0.2.0",
-  "description": "The canonical, headless TypeScript client for Mercaria's public commerce API \u2014 product, store and collection reads, portable references, typed errors and canonical links for Node, Bun, browsers and React Native.",
+  "description": "The canonical, headless TypeScript client for Mercaria's public commerce API — product, store and collection reads, portable references, typed errors and canonical links for Node, Bun, browsers and React Native.",
   "license": "Apache-2.0",
   "author": "The Oxy Collective, Inc.",
   "homepage": "https://github.com/OxyHQ/Mercaria/tree/main/packages/sdk#readme",
@@ -67,20 +67,16 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "clean": "rm -rf dist",
-    "lint": "eslint src test scripts",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
     "prepublishOnly": "bun run typecheck && bun run test && bun run build && bun run smoke"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
-    "@typescript-eslint/eslint-plugin": "^8.64.0",
-    "@typescript-eslint/parser": "^8.64.0",
     "esbuild": "^0.28.2",
-    "eslint": "^9.39.5",
     "rollup": "^4.59.0",
     "rollup-plugin-dts": "~6.4.1",
     "typescript": "^5.9.3",

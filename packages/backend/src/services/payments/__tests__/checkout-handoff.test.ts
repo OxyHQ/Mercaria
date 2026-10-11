@@ -67,6 +67,7 @@ function orders(): OrderRecord[] {
 /** The metadata the one `createPayment` call carried. */
 function capturedMetadata(): Record<string, string> {
   const [call] = createPayment.mock.calls;
+  // biome-ignore lint/correctness/noUnsafeOptionalChaining: in a test, an absent call throwing here is the failure we want
   return (call?.[0] as { metadata: Record<string, string> }).metadata;
 }
 

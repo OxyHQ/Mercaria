@@ -72,7 +72,6 @@ import type {
 import { feedUploadMetadataSchema } from '../middleware/feed-import-schemas.js';
 
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       /**

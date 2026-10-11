@@ -146,11 +146,11 @@ const POSTAL_CODE_PATTERNS: ReadonlyMap<string, RegExp> = new Map([
  * CHARACTERS, they are the shape of markup, and separating the two refusals is
  * what lets each error message tell the buyer something true.
  */
-// Matching control characters IS the purpose of this pattern. `no-control-regex`
+// Matching control characters IS the purpose of this pattern. `noControlCharactersInRegex`
 // exists to catch one appearing by accident inside a regex that meant something
 // else; here they are the subject, so the rule is silenced at exactly this line
 // and nowhere wider.
-// eslint-disable-next-line no-control-regex
+// biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters is the purpose of this pattern
 const FORBIDDEN_CHARACTERS = /[\u0000-\u001F\u007F-\u009F\u2028\u2029\u202A-\u202E\u2066-\u2069]/u;
 
 /**

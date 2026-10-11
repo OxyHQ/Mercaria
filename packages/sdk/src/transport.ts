@@ -91,7 +91,7 @@ const MAX_SERVER_MESSAGE_LENGTH = 200;
 /** A server message made safe to put in an error: a string, one line, bounded. */
 function safeServerMessage(value: unknown): string | null {
   if (typeof value !== 'string') return null;
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: flattening control characters out of a server message is the purpose of this pattern
   const flattened = value.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
   if (flattened === '') return null;
   return flattened.length > MAX_SERVER_MESSAGE_LENGTH

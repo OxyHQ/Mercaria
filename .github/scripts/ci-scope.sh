@@ -86,7 +86,7 @@ while IFS= read -r path; do
     # The API's container build; the `Build API` job bundles the same source.
     Dockerfile) want[api]=true ;;
     # The lockfile, the root manifest, bunfig, tsconfig, root scripts, app.json,
-    # the eslint configs, .github (this script and ci.yml included), and every
+    # biome.jsonc, the Expo eslint config, .github (this script and ci.yml included), and every
     # path not named above: assume it reaches every build until someone proves
     # otherwise right here.
     *) all "$path is not scoped to one package" ;;

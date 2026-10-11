@@ -483,8 +483,9 @@ describe('the three controls acceptance criterion 7 names are reachable without 
     // real copy in the bundle rather than a typo, which `missingBehavior:
     // 'guess'` would otherwise render to a screen reader as a humanised spelling
     // of the key itself.
-    const label = /accessibilityLabel=\{t\("([^"]+)"\)\}/.exec(banner);
-    const hint = /accessibilityHint=\{t\("([^"]+)"\)\}/.exec(banner);
+    // Either quote style: the formatter, not this test, decides which one.
+    const label = /accessibilityLabel=\{t\(["']([^"']+)["']\)\}/.exec(banner);
+    const hint = /accessibilityHint=\{t\(["']([^"']+)["']\)\}/.exec(banner);
     expect(label, 'the claim button has no translated accessibility label').not.toBeNull();
     expect(hint, 'the claim button has no translated accessibility hint').not.toBeNull();
 

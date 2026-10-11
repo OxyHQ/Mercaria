@@ -16,7 +16,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
-    "lint": "eslint src test",
+    "lint": "biome check .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run"
   },
@@ -25,10 +25,6 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
-    "@typescript-eslint/eslint-plugin": "^8.64.0",
-    "@typescript-eslint/parser": "^8.64.0",
-    "eslint": "^9.39.5",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },

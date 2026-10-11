@@ -84,7 +84,9 @@ bun run dev:backend      # API
 bun run build            # shared-types, then backend, then frontend
 bun run build:dashboard  # Expo web export for the dashboard
 bun run build:pos        # Expo web export for the POS
-bun run lint             # every workspace
+bun run lint             # Biome format+lint (every package) + Expo env-var ESLint
+bun run lint:fix         # Biome safe fixes and formatting
+bun run format           # Biome formatter only
 bun run doctor:oxy       # verify canonical Oxy package versions and scopes
 
 bun run --filter @mercaria/backend test        # Vitest

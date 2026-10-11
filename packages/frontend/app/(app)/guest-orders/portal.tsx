@@ -95,6 +95,7 @@ function PortalBody() {
   // The exchange is a one-shot side effect on arrival and genuinely needs an
   // effect: there is no user event to hang it on, and the token must be taken
   // out of the URL before anything renders a link the browser could follow.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `exchange` is stable and `params.token` is read once by design; re-running would consume a second link
   useEffect(() => {
     if (attempted.current) return;
     attempted.current = true;
@@ -103,7 +104,6 @@ function PortalBody() {
     exchange.mutate(token, { onError: () => setLinkRefused(true) });
     // `exchange` is a stable mutation object and `params.token` is read once by
     // design — re-running this effect would consume a second link.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const session = useGuestPortalSession(!exchange.isPending);
