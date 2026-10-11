@@ -471,13 +471,12 @@ jobs:
 
       # The tests above exercise `src/`; nothing a consumer installs is `src/`.
       # This builds the ESM/CJS bundles and bundled declarations, packs the
-      # tarball exactly as `publish-sdk.yml` publishes it, and uses the
+      # tarball exactly as a release publishes it, and uses the
       # INSTALLED tarball from Node ESM and CJS, Bun, an esbuild browser bundle,
       # a React Native bundle and a no-DOM `nodenext` type-check. It also fails
       # if any shipped file names the private contract package, which the
-      # build bundles and a consumer could never resolve. Here rather than only
-      # in the publish workflow so a change that breaks the artefact is red on
-      # its own pull request, not on the merge that tries to release it.
+      # build bundles and a consumer could never resolve. Here so a change that
+      # breaks the artefact is red on its own pull request, not at release.
       - name: Build and smoke-test SDK
         run: |
           bun run --filter @mercaria.co/sdk build
