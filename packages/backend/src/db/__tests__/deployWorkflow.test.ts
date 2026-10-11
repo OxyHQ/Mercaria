@@ -88,8 +88,10 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(register?.run).toContain('runtimePlatform, enableFaultInjection}');
     expect(register?.run).not.toContain('del(.taskDefinitionArn');
     expect(register?.run).toContain('.image = $image');
-    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_KEY');
-    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
+    // Mercaria attests its task role for Oxy (oxy ADR 0026): a release removes
+    // the application key pair and never injects it again.
+    expect(register?.run).not.toContain('/oxy/$APP/OXY_APPLICATION_KEY');
+    expect(register?.run).not.toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
     expect(register?.run).toContain('.name != "OXY_APPLICATION_KEY"');
     expect(register?.run).toContain('.name != "OXY_APPLICATION_SECRET"');
     expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
