@@ -289,9 +289,18 @@ describe('retail service isolation (static)', () => {
     // zero while the others carried the number. Each is today's count, so a
     // SHRINK stops the build rather than quietly narrowing every assertion here.
     const from = (prefix: string) => DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/retail-service-requests/'), 'the service walk found nothing').toBeGreaterThanOrEqual(18);
-    expect(from('db/retailServiceRequests/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
-    expect(httpSurface().length, 'the shared-directory derivation found nothing').toBeGreaterThanOrEqual(4);
+    expect(
+      from('services/retail-service-requests/'),
+      'the service walk found nothing',
+    ).toBeGreaterThanOrEqual(18);
+    expect(
+      from('db/retailServiceRequests/'),
+      'the repository walk found nothing',
+    ).toBeGreaterThanOrEqual(5);
+    expect(
+      httpSurface().length,
+      'the shared-directory derivation found nothing',
+    ).toBeGreaterThanOrEqual(4);
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
     expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(25);
     expect(CUSTOMER_HALF_PATHS.length).toBeGreaterThanOrEqual(23);
@@ -311,7 +320,9 @@ describe('retail service isolation (static)', () => {
     // module the walk no longer finds excuses nothing while looking like a
     // decision.
     for (const { path } of [...PAYMENT_CROSSINGS, ...SUPPLIER_CROSSINGS]) {
-      expect(DOMAIN_PATHS, `${path} is excluded from a wall but is not in the domain`).toContain(path);
+      expect(DOMAIN_PATHS, `${path} is excluded from a wall but is not in the domain`).toContain(
+        path,
+      );
     }
     for (const path of DOMAIN_PATHS) {
       expect(readSource(path).length).toBeGreaterThan(200);
@@ -353,7 +364,10 @@ describe('retail service isolation (static)', () => {
     const planted = 'lib/retail-service-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'retail-service-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'retail-service-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -392,7 +406,10 @@ describe('retail service isolation (static)', () => {
     const seededWith = (directory: string, added: string): string[] =>
       httpSurface((relative) =>
         relative === directory
-          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(relative),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(relative),
       );
 
@@ -415,7 +432,10 @@ describe('retail service isolation (static)', () => {
     expect(
       httpSurface((relative) =>
         relative === 'routes'
-          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          ? [
+              ...readDirectory(relative),
+              { name: 'admin', isDirectory: () => true, isFile: () => false },
+            ]
           : relative === 'routes/admin'
             ? [{ name: 'retail-service-requests.ts', isDirectory: () => false, isFile: () => true }]
             : readDirectory(relative),
@@ -541,10 +561,9 @@ describe('retail service isolation (static)', () => {
         view.indexOf('export async function projectRetailServiceRequestForCustomer'),
         view.indexOf('export async function projectRetailServiceRequestForOperator'),
       );
-      expect(
-        customerHalf.includes(forbidden),
-        `the customer projection names ${forbidden}`,
-      ).toBe(false);
+      expect(customerHalf.includes(forbidden), `the customer projection names ${forbidden}`).toBe(
+        false,
+      );
     });
   });
 
@@ -581,13 +600,17 @@ describe('retail service isolation (static)', () => {
       PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../payments/payment-outbox.service.js';"),
     ).toBe(true);
     expect(
-      SUPPLIER_REFERENCE.test("import { openSupplierRecovery } from '../supplierRecoveryRepository.js';"),
+      SUPPLIER_REFERENCE.test(
+        "import { openSupplierRecovery } from '../supplierRecoveryRepository.js';",
+      ),
     ).toBe(true);
-    expect(SUPPLIER_REFERENCE.test("import { supplierRmaPort } from './supplier-rma.port.js';")).toBe(
-      true,
-    );
     expect(
-      SUPPLIER_REFERENCE.test("import { findPurchaseOrderById } from '../purchaseOrderRepository.js';"),
+      SUPPLIER_REFERENCE.test("import { supplierRmaPort } from './supplier-rma.port.js';"),
+    ).toBe(true);
+    expect(
+      SUPPLIER_REFERENCE.test(
+        "import { findPurchaseOrderById } from '../purchaseOrderRepository.js';",
+      ),
     ).toBe(true);
     expect(RETAIL_ENTRY_LEVER_REFERENCE.test('if (config.retail.enabled) return;')).toBe(true);
     expect(RETAIL_ENTRY_LEVER_REFERENCE.test("if (account.state === 'killed') return;")).toBe(true);

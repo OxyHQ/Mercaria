@@ -34,11 +34,7 @@ import {
   digitalSupplierCapabilities,
   digitalSupplyTerms,
 } from '../../../db/schema/digitalRetail.js';
-import {
-  supplierAccounts,
-  supplierAgreements,
-  suppliers,
-} from '../../../db/schema/procurement.js';
+import { supplierAccounts, supplierAgreements, suppliers } from '../../../db/schema/procurement.js';
 import {
   findPurchaseOrder,
   findPurchaseOrdersForLine,

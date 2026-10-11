@@ -179,7 +179,12 @@ export async function transitionRetailReturnCase(
       ...(input.inspectedAt === undefined ? {} : { inspectedAt: input.inspectedAt }),
       ...(input.closedAt === undefined ? {} : { closedAt: input.closedAt }),
     })
-    .where(and(eq(retailReturnCases.id, input.id), sql`${retailReturnCases.state} = any(${sql.param([...input.from])}::text[])`))
+    .where(
+      and(
+        eq(retailReturnCases.id, input.id),
+        sql`${retailReturnCases.state} = any(${sql.param([...input.from])}::text[])`,
+      ),
+    )
     .returning();
   return row;
 }

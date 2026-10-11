@@ -189,7 +189,11 @@ async function insertListing(
   scope: string,
   storeId: string,
   categoryId: string,
-  options: { readonly status?: string; readonly variantCount?: number; readonly suffix?: string } = {},
+  options: {
+    readonly status?: string;
+    readonly variantCount?: number;
+    readonly suffix?: string;
+  } = {},
 ): Promise<string> {
   const listingId = id(scope, options.suffix ?? 'listing');
   const status = options.status ?? 'active';
@@ -370,7 +374,10 @@ describe('the trace handle', () => {
         await traceCatalogPublication({ by: 'draft_id', draftId: id('missing', 'draft') }, tx),
       ).toBeUndefined();
       expect(
-        await traceCatalogPublication({ by: 'listing_id', listingId: id('missing', 'listing') }, tx),
+        await traceCatalogPublication(
+          { by: 'listing_id', listingId: id('missing', 'listing') },
+          tx,
+        ),
       ).toBeUndefined();
     });
   });
@@ -544,7 +551,15 @@ describe('a PUBLISHED draft with a complete chain', () => {
       expect(serialized).not.toContain('Trace probe listing');
       expect(serialized).not.toContain('A #367 W17 fixture.');
       expect(serialized).not.toContain('Trace probe store');
-      for (const forbidden of ['oxyUserId', 'createdBy', 'decidedBy', 'revokedBy', 'title', 'description', 'handle']) {
+      for (const forbidden of [
+        'oxyUserId',
+        'createdBy',
+        'decidedBy',
+        'revokedBy',
+        'title',
+        'description',
+        'handle',
+      ]) {
         expect(serialized, `the trace carries ${forbidden}`).not.toContain(forbidden);
       }
 
@@ -613,12 +628,36 @@ describe('the offer convergence hop', () => {
   });
 
   it.each([
-    ['a queued row nobody claimed', { status: 'pending', requestedRevision: 1, claimedRevision: null }, 'never_claimed'],
-    ['a worker holding a lease', { status: 'processing', requestedRevision: 1, claimedRevision: 1 }, 'in_flight'],
-    ['a completed convergence', { status: 'done', requestedRevision: 2, claimedRevision: 2 }, 'converged'],
-    ['a request that arrived mid-run', { status: 'pending', requestedRevision: 3, claimedRevision: 1 }, 'superseded'],
-    ['a claim released without completing', { status: 'pending', requestedRevision: 1, claimedRevision: 1 }, 'retrying'],
-    ['a row given up on', { status: 'dead_letter', requestedRevision: 1, claimedRevision: 1 }, 'dead_letter'],
+    [
+      'a queued row nobody claimed',
+      { status: 'pending', requestedRevision: 1, claimedRevision: null },
+      'never_claimed',
+    ],
+    [
+      'a worker holding a lease',
+      { status: 'processing', requestedRevision: 1, claimedRevision: 1 },
+      'in_flight',
+    ],
+    [
+      'a completed convergence',
+      { status: 'done', requestedRevision: 2, claimedRevision: 2 },
+      'converged',
+    ],
+    [
+      'a request that arrived mid-run',
+      { status: 'pending', requestedRevision: 3, claimedRevision: 1 },
+      'superseded',
+    ],
+    [
+      'a claim released without completing',
+      { status: 'pending', requestedRevision: 1, claimedRevision: 1 },
+      'retrying',
+    ],
+    [
+      'a row given up on',
+      { status: 'dead_letter', requestedRevision: 1, claimedRevision: 1 },
+      'dead_letter',
+    ],
   ])('reads %s as %s — against a REAL row', async (_label, options, expected) => {
     await rolledBack(async (tx) => {
       const scope = `conv-${expected}`;
@@ -882,8 +921,8 @@ describe('the attribute reindex hop', () => {
       expect(trace.attributeReindex.queueWideUndrainedRequests).toBeGreaterThanOrEqual(0);
 
       process.stdout.write(
-        `[census] attribute_reindex_requests undrained (queue-wide, shared database): `
-          + `${trace.attributeReindex.queueWideUndrainedRequests}\n`,
+        `[census] attribute_reindex_requests undrained (queue-wide, shared database): ` +
+          `${trace.attributeReindex.queueWideUndrainedRequests}\n`,
       );
     });
   });
@@ -919,8 +958,8 @@ describe('the attribute reindex hop', () => {
       // insert — at `read committed` a parallel file's row would land between the
       // two readings.
       expect(
-        after.attributeReindex.queueWideUndrainedRequests
-          - before.attributeReindex.queueWideUndrainedRequests,
+        after.attributeReindex.queueWideUndrainedRequests -
+          before.attributeReindex.queueWideUndrainedRequests,
         'the undrained count did not move for a row that was inserted',
       ).toBe(1);
 

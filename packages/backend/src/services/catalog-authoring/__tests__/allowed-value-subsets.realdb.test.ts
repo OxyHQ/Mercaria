@@ -53,10 +53,7 @@ import { uuidv7 } from '@oxy.so/db';
 import type { AuthoringPermissionContext } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { categories } from '../../../db/schema/catalog.js';
-import {
-  attributeDefinitions,
-  attributeEnumValues,
-} from '../../../db/schema/attributeRegistry.js';
+import { attributeDefinitions, attributeEnumValues } from '../../../db/schema/attributeRegistry.js';
 import {
   productTypeCategoryScopes,
   productTypeDefinitions,
@@ -246,10 +243,17 @@ beforeAll(async () => {
     .where(inArray(attributeDefinitions.id, [capacityAttributeId, colourAttributeId]));
 
   /** One version of the type, at a given lifecycle, with both fields. */
-  async function makeVersion(version: number): Promise<{ id: string; capacityFieldId: string; colourFieldId: string }> {
+  async function makeVersion(
+    version: number,
+  ): Promise<{ id: string; capacityFieldId: string; colourFieldId: string }> {
     const [row] = await db
       .insert(productTypeDefinitions)
-      .values({ key: TYPE_KEY, version, name: `Subset vertical ${RUN} v${version}`, lifecycle: 'draft' })
+      .values({
+        key: TYPE_KEY,
+        version,
+        name: `Subset vertical ${RUN} v${version}`,
+        lifecycle: 'draft',
+      })
       .returning();
     createdDefinitionIds.push(row.id);
     await db
@@ -362,7 +366,7 @@ afterAll(async () => {
 });
 
 describe('#367 line 235 — a subset narrows WHICH values, and nothing else', () => {
-  it('a field with NO subset offers every value — today\'s behaviour, unchanged', async () => {
+  it("a field with NO subset offers every value — today's behaviour, unchanged", async () => {
     clearAuthoringSchemaMemo();
     const schema = await compose();
     expect(schema.outcome, 'the fixture does not compose').toBe('composed');
@@ -495,7 +499,9 @@ describe('#367 line 235 — the invariant is a SHAPE, not a service check', () =
       'product_type_field_allowed_values_value_fk',
     ]);
     for (const row of rows) {
-      expect(row.definition, `${row.conname} is not composite`).toContain('attribute_definition_id');
+      expect(row.definition, `${row.conname} is not composite`).toContain(
+        'attribute_definition_id',
+      );
       expect(row.definition).toMatch(/FOREIGN KEY \([^)]+,[^)]+\)/u);
     }
 
@@ -539,7 +545,7 @@ describe('#367 line 235 — the invariant is a SHAPE, not a service check', () =
     expect(caught, 'a duplicate permission was accepted').toBeDefined();
   });
 
-  it('a PUBLISHED version\'s subset is frozen with the rest of its contract', async () => {
+  it("a PUBLISHED version's subset is frozen with the rest of its contract", async () => {
     // `mercaria_product_type_child_frozen`'s own reasoning, one hop further out:
     // "a schema whose field list, groups or category eligibility could change
     // after publication is not a version, it is a mutable document wearing a

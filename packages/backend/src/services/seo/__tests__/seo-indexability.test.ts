@@ -114,7 +114,9 @@ describe('the robots directive', () => {
     // A non-indexable page is still a navigation surface: a legacy listing
     // leads to its canonical product, a tombstone to its winner. `nofollow`
     // would cut those for no benefit.
-    expect(robotsDirectiveFor({ outcome: 'indexable' })).toBe('index,follow,max-image-preview:large');
+    expect(robotsDirectiveFor({ outcome: 'indexable' })).toBe(
+      'index,follow,max-image-preview:large',
+    );
     expect(robotsDirectiveFor({ outcome: 'refused', reason: 'thin_content' })).toBe(
       'noindex,follow',
     );
@@ -172,7 +174,9 @@ describe('assessing what the page DISPLAYS', () => {
     const base = facts({ imageUrls: [], gtins: [] });
     const { description: _dropped, ...rest } = base;
     const stub = rest as SeoVisibleFacts;
-    expect(assessVisibleContent({ ...stub, imageUrls: ['https://cdn.example/a.jpg'] })).toBe('thin');
+    expect(assessVisibleContent({ ...stub, imageUrls: ['https://cdn.example/a.jpg'] })).toBe(
+      'thin',
+    );
     expect(assessVisibleContent({ ...stub, gtins: ['1'] })).toBe('thin');
   });
 

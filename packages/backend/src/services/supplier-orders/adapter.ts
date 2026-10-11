@@ -301,12 +301,17 @@ export function applyDeclaredOrderCapabilities<T extends SupplierOrderSubmission
   // customer's fulfilment expectation, so an invented one is the costliest
   // thing on this list.
   if (
-    (next.state === 'delivered' || next.state === 'partially_shipped' || next.state === 'shipped') &&
+    (next.state === 'delivered' ||
+      next.state === 'partially_shipped' ||
+      next.state === 'shipped') &&
     !declared.has('order_state_read') &&
     !declared.has('shipment_read')
   ) {
     downgrades.push(
-      downgrade('order_state_read', next.state === 'delivered' ? 'assumed_delivery' : 'synthetic_shipment'),
+      downgrade(
+        'order_state_read',
+        next.state === 'delivered' ? 'assumed_delivery' : 'synthetic_shipment',
+      ),
     );
     next = { ...next, state: 'unknown' };
   }

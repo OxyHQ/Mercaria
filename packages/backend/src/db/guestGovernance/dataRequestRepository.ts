@@ -18,10 +18,7 @@ import type {
   GuestDataRequestState,
   GuestDataRetentionReason,
 } from '@mercaria/shared-types';
-import {
-  guestDataClassDispositions,
-  guestDataRequests,
-} from '../schema/guestGovernance.js';
+import { guestDataClassDispositions, guestDataRequests } from '../schema/guestGovernance.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
 /** One class's outcome, as the caller supplies it. */

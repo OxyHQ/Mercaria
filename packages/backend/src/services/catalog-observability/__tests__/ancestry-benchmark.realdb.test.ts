@@ -61,10 +61,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import type postgres from 'postgres';
-import {
-  createMercariaTestDatabase,
-  dropMercariaTestDatabase,
-} from '../../../db/testDatabase.js';
+import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../../../db/testDatabase.js';
 import {
   findRowCountViolations,
   findVacuityViolations,
@@ -554,69 +551,71 @@ describe('the taxonomy ancestry benchmark (ADR 0007 D2)', () => {
   it.runIf(FULL_BENCHMARK)(
     'probes what the planner chooses once the taxonomy outgrows D2’s stated scale',
     async () => {
-    // What turns "the index is not chosen" from a claim into a measurement with
-    // a boundary: grow the table inside a transaction that is rolled back,
-    // re-ANALYZE so the planner is deciding on real statistics rather than on
-    // the ones it had before, and re-plan the SAME recorded statement.
-    //
-    // The filler rows carry a five-deep ancestry over a wide id space, so the
-    // index's element cardinality is not an artefact of the filler; and the
-    // subject id is a REAL one, absent from the filler entirely, so the row
-    // estimate stays at thirty and the comparison is genuinely
-    // "sequential-scan cost against GIN startup cost" rather than a selectivity
-    // difference wearing that name.
-    const comparison = comparisonFor('T2');
-    const statement = comparison.materializedPath.statements[0];
-    if (!statement) throw new Error('T2 recorded no materialized-path statement.');
+      // What turns "the index is not chosen" from a claim into a measurement with
+      // a boundary: grow the table inside a transaction that is rolled back,
+      // re-ANALYZE so the planner is deciding on real statistics rather than on
+      // the ones it had before, and re-plan the SAME recorded statement.
+      //
+      // The filler rows carry a five-deep ancestry over a wide id space, so the
+      // index's element cardinality is not an artefact of the filler; and the
+      // subject id is a REAL one, absent from the filler entirely, so the row
+      // estimate stays at thirty and the comparison is genuinely
+      // "sequential-scan cost against GIN startup cost" rather than a selectivity
+      // difference wearing that name.
+      const comparison = comparisonFor('T2');
+      const statement = comparison.materializedPath.statements[0];
+      if (!statement) throw new Error('T2 recorded no materialized-path statement.');
 
-    // The insert is COUNTED inside the same rolled-back transaction, so the probe
-    // can prove it measured a grown table. Reporting a plan without this is how a
-    // probe announces the planner's choice at 5,010 rows while naming 35,010.
-    let grownRowCount = 0;
-    const grown = await explainInRollback(
-      statement,
-      [
-        `insert into categories (id, key, name, slug, ancestor_ids, ancestor_slugs, position)
+      // The insert is COUNTED inside the same rolled-back transaction, so the probe
+      // can prove it measured a grown table. Reporting a plan without this is how a
+      // probe announces the planner's choice at 5,010 rows while naming 35,010.
+      let grownRowCount = 0;
+      const grown = await explainInRollback(
+        statement,
+        [
+          `insert into categories (id, key, name, slug, ancestor_ids, ancestor_slugs, position)
        select 'fill-' || g::text, 'fill.' || g::text, 'filler ' || g::text, 'fill-' || g::text,
               array['fa-' || (g / 10000)::text, 'fb-' || (g / 1000)::text,
                     'fc-' || (g / 100)::text, 'fd-' || (g / 10)::text, 'fe-' || g::text],
               array['fa-' || (g / 10000)::text],
               0
        from generate_series(1, ${String(SCALE_PROBE_FILLER_ROWS)}) g`,
-        'analyze categories',
-      ],
-      async (tx) => {
-        const rows = await tx<{ rows: string }[]>`select count(*)::bigint as rows from categories`;
-        grownRowCount = Number(rows[0]?.rows ?? 0);
-      },
-    );
+          'analyze categories',
+        ],
+        async (tx) => {
+          const rows = await tx<
+            { rows: string }[]
+          >`select count(*)::bigint as rows from categories`;
+          grownRowCount = Number(rows[0]?.rows ?? 0);
+        },
+      );
 
-    // The positive control. Deterministic — an INSERT either happened or it did
-    // not, and no statistic can move this number.
-    expect(
-      grownRowCount,
-      'the probe did not actually grow the table, so its plan says nothing about scale',
-    ).toBe(result.seed.categoryCount + SCALE_PROBE_FILLER_ROWS);
+      // The positive control. Deterministic — an INSERT either happened or it did
+      // not, and no statistic can move this number.
+      expect(
+        grownRowCount,
+        'the probe did not actually grow the table, so its plan says nothing about scale',
+      ).toBe(result.seed.categoryCount + SCALE_PROBE_FILLER_ROWS);
 
-    // The rollback really rolled back. Without this the crossover would have been
-    // demonstrated by permanently changing the database it was demonstrated on.
-    const after = await capturing.db.execute<{ rows: string | number }>(
-      sql`select count(*)::bigint as rows from categories`,
-    );
-    expect(Number(after[0]?.rows)).toBe(result.seed.categoryCount);
+      // The rollback really rolled back. Without this the crossover would have been
+      // demonstrated by permanently changing the database it was demonstrated on.
+      const after = await capturing.db.execute<{ rows: string | number }>(
+        sql`select count(*)::bigint as rows from categories`,
+      );
+      expect(Number(after[0]?.rows)).toBe(result.seed.categoryCount);
 
-    // REPORTED, not asserted. See the docblock: at the crossover boundary this is
-    // a cost-model preference, and the deterministic index properties are gated
-    // by the two cases above this one.
-    const chose = grown.indexNames.includes('categories_ancestor_ids_idx');
-    process.stdout.write(
-      `\n[ancestry] scale probe at ${String(grownRowCount)} categories `
-        + `(${String(result.seed.categoryCount)} real + ${String(SCALE_PROBE_FILLER_ROWS)} filler): `
-        + `${grown.nodeTypes.join(' / ')} using `
-        + `${grown.indexNames.length === 0 ? 'no index' : grown.indexNames.join(', ')}, `
-        + `${String(grown.rowsScanned)} rows scanned — GIN index `
-        + `${chose ? 'CHOSEN' : 'not chosen'} at this scale\n`,
-    );
+      // REPORTED, not asserted. See the docblock: at the crossover boundary this is
+      // a cost-model preference, and the deterministic index properties are gated
+      // by the two cases above this one.
+      const chose = grown.indexNames.includes('categories_ancestor_ids_idx');
+      process.stdout.write(
+        `\n[ancestry] scale probe at ${String(grownRowCount)} categories ` +
+          `(${String(result.seed.categoryCount)} real + ${String(SCALE_PROBE_FILLER_ROWS)} filler): ` +
+          `${grown.nodeTypes.join(' / ')} using ` +
+          `${grown.indexNames.length === 0 ? 'no index' : grown.indexNames.join(', ')}, ` +
+          `${String(grown.rowsScanned)} rows scanned — GIN index ` +
+          `${chose ? 'CHOSEN' : 'not chosen'} at this scale\n`,
+      );
     },
     180_000,
   );
@@ -675,7 +674,7 @@ describe('the ancestry verdict rule', () => {
 
   it('calls a difference inside the relative tie band a TIE, and still agrees with D2', () => {
     const verdict = deriveAncestryVerdict([
-      comparison('X4', fakeSide(30, 1.000, 40), fakeSide(30, 1.050, 5_000), 30),
+      comparison('X4', fakeSide(30, 1.0, 40), fakeSide(30, 1.05, 5_000), 30),
     ]);
     expect(verdict.adrD2).toBe('agrees');
     const [shape] = verdict.shapes;
@@ -690,7 +689,7 @@ describe('the ancestry verdict rule', () => {
     // still nothing anybody can act on. Without the absolute floor this shape
     // would report "the recursive CTE wins by 2x" and flip the whole verdict.
     const verdict = deriveAncestryVerdict([
-      comparison('X7', fakeSide(5, 0.200, 6), fakeSide(5, 0.100, 24), 5),
+      comparison('X7', fakeSide(5, 0.2, 6), fakeSide(5, 0.1, 24), 5),
     ]);
     expect(verdict.adrD2).toBe('agrees');
     const [shape] = verdict.shapes;
@@ -846,47 +845,51 @@ describe('category index coverage (#367 line 138)', () => {
     CATEGORY_READ_SHAPES.filter((shape) => shape.servableBy !== undefined).map(
       (shape) => [shape.id, shape] as const,
     ),
-  )('%s — its predicate is SERVABLE by the index it names', async (_id, shape) => {
-    const servable = shape.servableBy;
-    if (!servable) throw new Error(`${shape.id} declares no index expectation.`);
-    const read = measured.get(shape.id);
-    const statement = read?.statements[0];
-    if (!statement) throw new Error(`${shape.id} recorded no statement.`);
+  )(
+    '%s — its predicate is SERVABLE by the index it names',
+    async (_id, shape) => {
+      const servable = shape.servableBy;
+      if (!servable) throw new Error(`${shape.id} declares no index expectation.`);
+      const read = measured.get(shape.id);
+      const statement = read?.statements[0];
+      if (!statement) throw new Error(`${shape.id} recorded no statement.`);
 
-    let tableRows = 0;
-    const forced = await explainInRollback(statement, [FORCE_INDEX], async (tx) => {
-      tableRows = await countCategories(tx);
-    });
+      let tableRows = 0;
+      const forced = await explainInRollback(statement, [FORCE_INDEX], async (tx) => {
+        tableRows = await countCategories(tx);
+      });
 
-    expect(
-      forced.indexNames,
-      `${servable.index} cannot serve ${shape.id}'s predicate at all — that is a schema ` +
-        `defect, not a scale fact. ${servable.because}`,
-    ).toContain(servable.index);
-
-    if (servable.narrowOverCategories === 'required') {
-      // "The index is in the plan" and "the index bought something" are
-      // different facts, and only the second is worth having.
       expect(
-        forced.rowsScanned,
-        `${shape.id}: ${servable.index} is in the plan and bought no narrowness — the ` +
-          `executor still looked at a tenth of \`categories\` or more`,
-      ).toBeLessThan(narrowRowCeiling(tableRows));
-    }
+        forced.indexNames,
+        `${servable.index} cannot serve ${shape.id}'s predicate at all — that is a schema ` +
+          `defect, not a scale fact. ${servable.because}`,
+      ).toContain(servable.index);
 
-    const chosen = read.analyses[0];
-    process.stdout.write(
-      `\n[coverage] ${shape.id} forced: ${forced.nodeTypes.join(' / ')} using ` +
-        `${forced.indexNames.join(', ') || 'NO INDEX'}; ${String(forced.rowsScanned)} rows ` +
-        `scanned of ${String(tableRows)} categories in ${forced.executionTimeMs.toFixed(2)} ms` +
-        (chosen
-          ? ` — against ${String(chosen.rowsScanned)} rows in ` +
-            `${chosen.executionTimeMs.toFixed(2)} ms on the CHOSEN plan ` +
-            `(${chosen.indexNames.join(', ') || 'NO INDEX'})`
-          : '') +
-        '\n',
-    );
-  }, 180_000);
+      if (servable.narrowOverCategories === 'required') {
+        // "The index is in the plan" and "the index bought something" are
+        // different facts, and only the second is worth having.
+        expect(
+          forced.rowsScanned,
+          `${shape.id}: ${servable.index} is in the plan and bought no narrowness — the ` +
+            `executor still looked at a tenth of \`categories\` or more`,
+        ).toBeLessThan(narrowRowCeiling(tableRows));
+      }
+
+      const chosen = read.analyses[0];
+      process.stdout.write(
+        `\n[coverage] ${shape.id} forced: ${forced.nodeTypes.join(' / ')} using ` +
+          `${forced.indexNames.join(', ') || 'NO INDEX'}; ${String(forced.rowsScanned)} rows ` +
+          `scanned of ${String(tableRows)} categories in ${forced.executionTimeMs.toFixed(2)} ms` +
+          (chosen
+            ? ` — against ${String(chosen.rowsScanned)} rows in ` +
+              `${chosen.executionTimeMs.toFixed(2)} ms on the CHOSEN plan ` +
+              `(${chosen.indexNames.join(', ') || 'NO INDEX'})`
+            : '') +
+          '\n',
+      );
+    },
+    180_000,
+  );
 
   it('goes red when the index it names is dropped — the mutation self-test', async () => {
     // C1 is the shipped facet scope read, so this mutates the index on the path

@@ -45,7 +45,10 @@ import {
   listEntitlementGrants,
   revokeEntitlementGrant,
 } from '../db/merchantPlans/grantRepository.js';
-import { listSubscriptionEvents, findSubscriptionByStore } from '../db/merchantPlans/subscriptionRepository.js';
+import {
+  listSubscriptionEvents,
+  findSubscriptionByStore,
+} from '../db/merchantPlans/subscriptionRepository.js';
 import { syncEntitlementDefinitions } from '../services/entitlements/catalog.js';
 import {
   invalidateAllMerchantEntitlements,
@@ -136,7 +139,9 @@ export async function createMerchantPlanPriceHandler(req: Request, res: Response
     if (isUniqueViolation(err)) {
       respondWithError(
         res,
-        conflict('That plan version already publishes a price for this mode, cadence and currency.'),
+        conflict(
+          'That plan version already publishes a price for this mode, cadence and currency.',
+        ),
         'Failed to publish the price',
       );
       return;
@@ -327,11 +332,7 @@ export async function revokeEntitlementGrantHandler(req: Request, res: Response)
       revocationReason: body.reason,
     });
     if (!row) {
-      respondWithError(
-        res,
-        notFound('No live grant with that id.'),
-        'Failed to revoke the grant',
-      );
+      respondWithError(res, notFound('No live grant with that id.'), 'Failed to revoke the grant');
       return;
     }
     invalidateMerchantEntitlements(row.storeId);

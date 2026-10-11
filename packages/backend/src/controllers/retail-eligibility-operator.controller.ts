@@ -139,7 +139,10 @@ export async function listRetailEligibilityPoliciesHandler(
 ): Promise<void> {
   try {
     const policyKey = typeof req.query.policyKey === 'string' ? req.query.policyKey : undefined;
-    const rows = await listRetailEligibilityPolicies(getDb(), policyKey ? { policyKey } : undefined);
+    const rows = await listRetailEligibilityPolicies(
+      getDb(),
+      policyKey ? { policyKey } : undefined,
+    );
     sendSuccess(res, { policies: rows.map(policyView) });
   } catch (err) {
     log.general.error({ err }, 'Failed to list retail eligibility policies');

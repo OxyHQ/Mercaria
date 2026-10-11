@@ -1,21 +1,21 @@
-import { Pressable, StyleSheet, View } from "react-native";
-import { Image } from "../ui/image";
-import type { CartItemDTO, CartLineReviewReason } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import { Stepper } from "@oxy.so/bloom/stepper";
-import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { resolveStoredImageUrl } from "../../lib/stored-image-url";
-import { PriceDisplay } from "../PriceDisplay";
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Image } from '../ui/image';
+import type { CartItemDTO, CartLineReviewReason } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import { Stepper } from '@oxy.so/bloom/stepper';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { resolveStoredImageUrl } from '../../lib/stored-image-url';
+import { PriceDisplay } from '../PriceDisplay';
 import {
   CART_SAVE_FOR_LATER_KEY,
   QUANTITY_DECREASE_KEY,
   QUANTITY_INCREASE_KEY,
   QUANTITY_REMOVE_KEY,
-} from "../../lib/marketplace-labels";
+} from '../../lib/marketplace-labels';
 
 /** Tailwind class applied to the outer row when the item is stale. */
-const STALE_OPACITY_CLASS = "opacity-60";
+const STALE_OPACITY_CLASS = 'opacity-60';
 
 /**
  * What a merged line's review flag says to the buyer (#104).
@@ -27,10 +27,10 @@ const STALE_OPACITY_CLASS = "opacity-60";
  * "merge" and "guest session" are our words, not theirs.
  */
 const REVIEW_REASON_MESSAGE: Record<CartLineReviewReason, string> = {
-  quantity_clamped_to_stock: "We reduced the quantity — that is all the seller has left.",
-  quantity_clamped_to_limit: "We reduced the quantity to the maximum per item.",
-  listing_unavailable: "This item is not available right now. Remove it to check out.",
-  listing_remapped: "This item moved to a different listing. Check it still looks right.",
+  quantity_clamped_to_stock: 'We reduced the quantity — that is all the seller has left.',
+  quantity_clamped_to_limit: 'We reduced the quantity to the maximum per item.',
+  listing_unavailable: 'This item is not available right now. Remove it to check out.',
+  listing_remapped: 'This item moved to a different listing. Check it still looks right.',
 };
 
 export interface CartLineItemProps {
@@ -59,7 +59,7 @@ export function CartLineItem({
   const t = useSharedUiTranslation();
   const imageUrl = resolveStoredImageUrl(item.imageUrl, useImageResolver());
   return (
-    <View className={`flex-row gap-3${item.stale ? ` ${STALE_OPACITY_CLASS}` : ""}`}>
+    <View className={`flex-row gap-3${item.stale ? ` ${STALE_OPACITY_CLASS}` : ''}`}>
       {/* Left: image link box */}
       <Pressable
         accessibilityRole="link"
@@ -68,11 +68,7 @@ export function CartLineItem({
         className="h-20 w-20 overflow-hidden rounded-xl bg-card md:h-28 md:w-28"
       >
         {imageUrl ? (
-          <Image
-            source={{ uri: imageUrl }}
-            contentFit="cover"
-            style={StyleSheet.absoluteFill}
-          />
+          <Image source={{ uri: imageUrl }} contentFit="cover" style={StyleSheet.absoluteFill} />
         ) : null}
       </Pressable>
 
@@ -89,10 +85,7 @@ export function CartLineItem({
           // `accessibilityRole="alert"` because this is the one thing on the row
           // the buyer did not do themselves: it says what changed while they
           // were signing in, and it must reach a screen reader as such.
-          <Text
-            accessibilityRole="alert"
-            className="mt-1.5 text-xs font-medium text-destructive"
-          >
+          <Text accessibilityRole="alert" className="mt-1.5 text-xs font-medium text-destructive">
             {REVIEW_REASON_MESSAGE[item.reviewReason]}
           </Text>
         ) : null}

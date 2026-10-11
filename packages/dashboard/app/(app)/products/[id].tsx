@@ -1,59 +1,56 @@
 import type { ListingMedia } from '@mercaria/shared-types';
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { queryKeys } from "@/lib/queryKeys";
-import { useIsMutating } from "@tanstack/react-query";
-import { ArchiveProductButton } from "@/components/products/ArchiveProductButton";
-import { Boxes } from "lucide-react-native";
-import { partitionPinnedFields } from "@mercaria/shared-types";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { queryKeys } from '@/lib/queryKeys';
+import { useIsMutating } from '@tanstack/react-query';
+import { ArchiveProductButton } from '@/components/products/ArchiveProductButton';
+import { Boxes } from 'lucide-react-native';
+import { partitionPinnedFields } from '@mercaria/shared-types';
 import type {
   Listing,
   ProductVariantDTO,
   SellerSettableListingStatus,
   UpdateListingInput,
-} from "@mercaria/shared-types";
-import {
-  Text,
-  ConnectorPinNotice,
-  PriceDisplay,
-  SourceBadge,
-  useColorScheme,
-} from "@mercaria/ui";
+} from '@mercaria/shared-types';
+import { Text, ConnectorPinNotice, PriceDisplay, SourceBadge, useColorScheme } from '@mercaria/ui';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { Button } from "@oxy.so/bloom/button";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen } from "@/components/shell/Screen";
-import { canRetainDetailData } from "@/lib/detail-query-state";
-import { ProductOrganization, type ProductOrganizationValue } from "@/components/products/ProductOrganization";
-import { VariantInventory } from "@/components/products/VariantInventory";
-import { VariantImages } from "@/components/products/VariantImages";
-import { VariantIdentifiers } from "@/components/products/VariantIdentifiers";
-import { VariantPrice } from "@/components/products/VariantPrice";
-import { RemoveVariantButton } from "@/components/products/RemoveVariantButton";
-import { CreateVariantForm } from "@/components/products/CreateVariantForm";
-import { ProductPhotoEditor } from "@/components/products/ProductPhotoEditor";
-import { DetailContent } from "@/components/shell/DetailContent";
-import { RequireStore } from "@/components/shell/RequireStore";
+} from '@oxy.so/bloom/segmented-control';
+import { Button } from '@oxy.so/bloom/button';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen } from '@/components/shell/Screen';
+import { canRetainDetailData } from '@/lib/detail-query-state';
+import {
+  ProductOrganization,
+  type ProductOrganizationValue,
+} from '@/components/products/ProductOrganization';
+import { VariantInventory } from '@/components/products/VariantInventory';
+import { VariantImages } from '@/components/products/VariantImages';
+import { VariantIdentifiers } from '@/components/products/VariantIdentifiers';
+import { VariantPrice } from '@/components/products/VariantPrice';
+import { RemoveVariantButton } from '@/components/products/RemoveVariantButton';
+import { CreateVariantForm } from '@/components/products/CreateVariantForm';
+import { ProductPhotoEditor } from '@/components/products/ProductPhotoEditor';
+import { DetailContent } from '@/components/shell/DetailContent';
+import { RequireStore } from '@/components/shell/RequireStore';
 import {
   useProduct,
   useUpdateProduct,
   useArchiveProduct,
   useReleaseProductPins,
-} from "@/lib/hooks/use-products";
-import { useConnection } from "@/lib/hooks/use-channels";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
-import { useTranslation } from "@/lib/i18n";
+} from '@/lib/hooks/use-products';
+import { useConnection } from '@/lib/hooks/use-channels';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { useTranslation } from '@/lib/i18n';
 
-const STATUSES: SellerSettableListingStatus[] = ["draft", "active", "archived"];
+const STATUSES: SellerSettableListingStatus[] = ['draft', 'active', 'archived'];
 
 /**
  * Translation KEYS per seller-settable status, not sentences (#398) — this module
@@ -62,10 +59,10 @@ const STATUSES: SellerSettableListingStatus[] = ["draft", "active", "archived"];
  * `t(STATUS_LABEL_KEYS[status])`.
  */
 const STATUS_LABEL_KEYS: Record<SellerSettableListingStatus, string> = {
-  draft: "products.status.draft",
-  active: "products.status.active",
-  sold: "products.status.sold",
-  archived: "products.status.archived",
+  draft: 'products.status.draft',
+  active: 'products.status.active',
+  sold: 'products.status.sold',
+  archived: 'products.status.archived',
 };
 
 /**
@@ -79,7 +76,7 @@ const STATUS_LABEL_KEYS: Record<SellerSettableListingStatus, string> = {
  * human in it, not to a product form.
  */
 function isRestricted(listing: Listing): boolean {
-  return listing.status === "restricted";
+  return listing.status === 'restricted';
 }
 
 export default function ProductDetailScreen() {
@@ -88,10 +85,12 @@ export default function ProductDetailScreen() {
   return (
     <>
       <Head>
-        <title>{t("products.detail.documentTitle")}</title>
+        <title>{t('products.detail.documentTitle')}</title>
       </Head>
       <RequireStore permission="products:read">
-        {(storeId) => <ProductDetailBody key={`${storeId}:${id}`} storeId={storeId} productId={String(id)} />}
+        {(storeId) => (
+          <ProductDetailBody key={`${storeId}:${id}`} storeId={storeId} productId={String(id)} />
+        )}
       </RequireStore>
     </>
   );
@@ -100,27 +99,59 @@ export default function ProductDetailScreen() {
 function ProductDetailBody({ storeId, productId }: { storeId: string; productId: string }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const { data: cached, error, isPending, isFetching, isError, refetch } = useProduct(storeId, productId);
+  const {
+    data: cached,
+    error,
+    isPending,
+    isFetching,
+    isError,
+    refetch,
+  } = useProduct(storeId, productId);
   const data = canRetainDetailData(error) ? cached : undefined;
-  return <Screen title={data?.title ?? t("products.detail.title")}
-    subtitle={data ? t("products.detail.variantCount", { count: data.variants.length }) : t(isError ? "common.pleaseTryAgain" : "common.loading")}
-    action={<Button appearance="outline" material="flat" onPress={() => router.replace("/products")}>{t("common.back")}</Button>}>
-    <DetailContent testID="merchant-product-detail" hasData={Boolean(data)} pending={isPending} fetching={isFetching}
-      error={isError} errorTitle={t("products.detail.loadFailed")} onRetry={() => { void refetch(); }}>
-      {data ? <ProductEditor key={`${storeId}:${data.id}`} storeId={storeId} product={data} /> : null}
-    </DetailContent>
-  </Screen>;
+  return (
+    <Screen
+      title={data?.title ?? t('products.detail.title')}
+      subtitle={
+        data
+          ? t('products.detail.variantCount', { count: data.variants.length })
+          : t(isError ? 'common.pleaseTryAgain' : 'common.loading')
+      }
+      action={
+        <Button appearance="outline" material="flat" onPress={() => router.replace('/products')}>
+          {t('common.back')}
+        </Button>
+      }
+    >
+      <DetailContent
+        testID="merchant-product-detail"
+        hasData={Boolean(data)}
+        pending={isPending}
+        fetching={isFetching}
+        error={isError}
+        errorTitle={t('products.detail.loadFailed')}
+        onRetry={() => {
+          void refetch();
+        }}
+      >
+        {data ? (
+          <ProductEditor key={`${storeId}:${data.id}`} storeId={storeId} product={data} />
+        ) : null}
+      </DetailContent>
+    </Screen>
+  );
 }
 
 function ProductEditor({ storeId, product }: { storeId: string; product: Listing }) {
   const router = useRouter();
   const { t } = useTranslation();
   const { can } = useActiveStoreContext();
-  const canWrite = can("products:write");
+  const canWrite = can('products:write');
 
   const updateProduct = useUpdateProduct(storeId, product.id);
   const archiveProduct = useArchiveProduct(storeId);
-  const pendingEdits = useIsMutating({ mutationKey: queryKeys.products.write(storeId, product.id) });
+  const pendingEdits = useIsMutating({
+    mutationKey: queryKeys.products.write(storeId, product.id),
+  });
   const busy = updateProduct.isPending || archiveProduct.isPending;
 
   // #420: a pin is written by an ordinary edit and removed by nothing, so a
@@ -130,7 +161,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   // it is read only when this member can read it, and `undefined` is rendered as
   // "not known" rather than as either policy.
   const source = product.source;
-  const canReadChannels = can("channels:write");
+  const canReadChannels = can('channels:write');
   const connection = useConnection(storeId, source?.connectionId, canReadChannels);
 
   // #427: releasing a pin is gated on `products:write` — the permission an
@@ -147,81 +178,125 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   const unnamedPins = partitionPinnedFields(product.overriddenFields).unnamed;
   const releasePins = (fields: string[]) =>
     releaseProductPins.mutate(fields, {
-      onSuccess: () => toast.success(t("products.detail.pins.released")),
-      onError: () => toast.error(t("products.detail.pins.releaseFailed")),
+      onSuccess: () => toast.success(t('products.detail.pins.released')),
+      onError: () => toast.error(t('products.detail.pins.releaseFailed')),
     });
 
   const [photoDraft, setPhotos] = useState<ListingMedia[]>();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const media: readonly ListingMedia[] = photoDraft ?? product.media ?? product.images.map(image => ({ ...image, kind: 'image' }));
-  const photos = media.filter(item => item.kind === 'image');
+  const media: readonly ListingMedia[] =
+    photoDraft ?? product.media ?? product.images.map((image) => ({ ...image, kind: 'image' }));
+  const photos = media.filter((item) => item.kind === 'image');
   const [titleDraft, setTitle] = useState<string>();
   const [descriptionDraft, setDescription] = useState<string>();
   const title = titleDraft ?? product.title;
   const description = descriptionDraft ?? product.description;
-  const [organizationDraft, setOrganization] = useState<ProductOrganizationValue>({ vendor: product.vendor ?? "", productType: product.productType ?? "", tags: product.tags ?? [] });
-  const [editedOrganization, setEditedOrganization] = useState({ vendor: false, productType: false, tags: false });
+  const [organizationDraft, setOrganization] = useState<ProductOrganizationValue>({
+    vendor: product.vendor ?? '',
+    productType: product.productType ?? '',
+    tags: product.tags ?? [],
+  });
+  const [editedOrganization, setEditedOrganization] = useState({
+    vendor: false,
+    productType: false,
+    tags: false,
+  });
   // Untouched fields follow a refreshed DTO; an in-progress edit stays local.
   const organization: ProductOrganizationValue = {
-    vendor: editedOrganization.vendor ? organizationDraft.vendor : product.vendor ?? "",
-    productType: editedOrganization.productType ? organizationDraft.productType : product.productType ?? "",
-    tags: editedOrganization.tags ? organizationDraft.tags : product.tags ?? [],
+    vendor: editedOrganization.vendor ? organizationDraft.vendor : (product.vendor ?? ''),
+    productType: editedOrganization.productType
+      ? organizationDraft.productType
+      : (product.productType ?? ''),
+    tags: editedOrganization.tags ? organizationDraft.tags : (product.tags ?? []),
   };
   const organizationErrors = {
     vendor: editedOrganization.vendor && Boolean(product.vendor) && !organization.vendor.trim(),
-    productType: editedOrganization.productType && Boolean(product.productType) && !organization.productType.trim(),
+    productType:
+      editedOrganization.productType &&
+      Boolean(product.productType) &&
+      !organization.productType.trim(),
   };
   const changeOrganization = (next: ProductOrganizationValue) => {
-    setEditedOrganization(previous => ({ vendor: previous.vendor || next.vendor !== organization.vendor, productType: previous.productType || next.productType !== organization.productType, tags: previous.tags || next.tags !== organization.tags }));
+    setEditedOrganization((previous) => ({
+      vendor: previous.vendor || next.vendor !== organization.vendor,
+      productType: previous.productType || next.productType !== organization.productType,
+      tags: previous.tags || next.tags !== organization.tags,
+    }));
     setOrganization(next);
   };
   const restricted = isRestricted(product);
   // Falls back to `draft` only so the control has a valid value while disabled —
   // it is never submitted, because `save` is unreachable for a restricted listing.
   const [statusDraft, setStatus] = useState<SellerSettableListingStatus>();
-  const status = restricted ? "draft" : statusDraft ?? (product.status as SellerSettableListingStatus);
+  const status = restricted
+    ? 'draft'
+    : (statusDraft ?? (product.status as SellerSettableListingStatus));
 
   const changes: UpdateListingInput = {
-    ...(photoDraft !== undefined && JSON.stringify(photoDraft.map(item => item.fileId)) !== JSON.stringify((product.media ?? product.images).map(item => item.fileId)) ? { mediaFileIds: photoDraft.map(item => item.fileId) } : {}),
+    ...(photoDraft !== undefined &&
+    JSON.stringify(photoDraft.map((item) => item.fileId)) !==
+      JSON.stringify((product.media ?? product.images).map((item) => item.fileId))
+      ? { mediaFileIds: photoDraft.map((item) => item.fileId) }
+      : {}),
     ...(titleDraft !== undefined && title.trim() !== product.title ? { title: title.trim() } : {}),
-    ...(descriptionDraft !== undefined && description.trim() !== product.description ? { description: description.trim() } : {}),
+    ...(descriptionDraft !== undefined && description.trim() !== product.description
+      ? { description: description.trim() }
+      : {}),
     ...(statusDraft !== undefined && status !== product.status ? { status } : {}),
-    ...(editedOrganization.vendor && organization.vendor.trim() !== (product.vendor ?? "") ? { vendor: organization.vendor.trim() } : {}),
-    ...(editedOrganization.productType && organization.productType.trim() !== (product.productType ?? "") ? { productType: organization.productType.trim() } : {}),
-    ...(editedOrganization.tags && JSON.stringify(organization.tags) !== JSON.stringify(product.tags ?? []) ? { tags: organization.tags } : {}),
+    ...(editedOrganization.vendor && organization.vendor.trim() !== (product.vendor ?? '')
+      ? { vendor: organization.vendor.trim() }
+      : {}),
+    ...(editedOrganization.productType &&
+    organization.productType.trim() !== (product.productType ?? '')
+      ? { productType: organization.productType.trim() }
+      : {}),
+    ...(editedOrganization.tags &&
+    JSON.stringify(organization.tags) !== JSON.stringify(product.tags ?? [])
+      ? { tags: organization.tags }
+      : {}),
   };
   const hasChanges = Object.keys(changes).length > 0;
   const save = () => {
-    if (!canWrite || uploadingPhoto || busy || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType) return;
-    updateProduct.mutate(
-      changes,
-      {
-        onSuccess: () => {
-          setPhotos(undefined);
-          setTitle(undefined);
-          setDescription(undefined);
-          setStatus(undefined);
-          setEditedOrganization({ vendor: false, productType: false, tags: false });
-          toast.success(t("products.detail.saved"));
-        },
-        onError: () => toast.error(t("products.detail.saveFailed")),
+    if (
+      !canWrite ||
+      uploadingPhoto ||
+      busy ||
+      !hasChanges ||
+      restricted ||
+      organizationErrors.vendor ||
+      organizationErrors.productType
+    )
+      return;
+    updateProduct.mutate(changes, {
+      onSuccess: () => {
+        setPhotos(undefined);
+        setTitle(undefined);
+        setDescription(undefined);
+        setStatus(undefined);
+        setEditedOrganization({ vendor: false, productType: false, tags: false });
+        toast.success(t('products.detail.saved'));
       },
-    );
+      onError: () => toast.error(t('products.detail.saveFailed')),
+    });
   };
 
   const archive = () => {
-    if (!canWrite || restricted || uploadingPhoto || archiveProduct.isPending || pendingEdits > 0) return;
+    if (!canWrite || restricted || uploadingPhoto || archiveProduct.isPending || pendingEdits > 0)
+      return;
     archiveProduct.mutate(product.id, {
       onSuccess: () => {
-        toast.success(t("products.detail.archived"));
-        router.replace("/products");
+        toast.success(t('products.detail.archived'));
+        router.replace('/products');
       },
     });
   };
 
   return (
-      <View className="gap-5 lg:flex-row lg:items-start">
-      <View testID="merchant-product-main" className="min-w-0 flex-1 gap-5 rounded-xl border border-border bg-white p-4 dark:bg-surface">
+    <View className="gap-5 lg:flex-row lg:items-start">
+      <View
+        testID="merchant-product-main"
+        className="min-w-0 flex-1 gap-5 rounded-xl border border-border bg-white p-4 dark:bg-surface"
+      >
         {source ? (
           <View className="gap-3">
             <SourceBadge provider={source.provider} />
@@ -231,7 +306,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
               releaseNote={
                 canWrite ? (
                   <Text className="text-xs text-muted-foreground">
-                    {t("products.detail.pins.releaseNote")}
+                    {t('products.detail.pins.releaseNote')}
                   </Text>
                 ) : null
               }
@@ -244,7 +319,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
                         className="active:opacity-70"
                       >
                         <Text className="text-xs font-medium text-primary">
-                          {t("products.detail.pins.release")}
+                          {t('products.detail.pins.release')}
                         </Text>
                       </Pressable>
                     )
@@ -258,7 +333,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
                     className="active:opacity-70"
                   >
                     <Text className="text-xs font-medium text-primary">
-                      {t("products.detail.pins.releaseUnnamed", { count: unnamedPins.length })}
+                      {t('products.detail.pins.releaseUnnamed', { count: unnamedPins.length })}
                     </Text>
                   </Pressable>
                 ) : null
@@ -270,7 +345,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
                     className="self-start active:opacity-70"
                   >
                     <Text className="text-xs font-medium text-primary">
-                      {t("products.detail.channelSettings")}
+                      {t('products.detail.channelSettings')}
                     </Text>
                   </Pressable>
                 ) : null
@@ -278,9 +353,9 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             />
           </View>
         ) : null}
-        <Field label={t("common.title")}>
+        <Field label={t('common.title')}>
           <TextFieldInput
-            label={t("common.title")}
+            label={t('common.title')}
             placeholder={null}
             value={title}
             onValueChange={setTitle}
@@ -288,16 +363,23 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
           />
         </Field>
         <Textarea
-          label={t("common.description")}
+          label={t('common.description')}
           value={description}
           onValueChange={setDescription}
           disabled={!canWrite || restricted || busy}
         />
-        <ProductPhotoEditor storeId={storeId} images={photos} media={media} onMediaChange={setPhotos} title={product.title} disabled={!canWrite || restricted || busy}
-          onBusyChange={setUploadingPhoto} />
+        <ProductPhotoEditor
+          storeId={storeId}
+          images={photos}
+          media={media}
+          onMediaChange={setPhotos}
+          title={product.title}
+          disabled={!canWrite || restricted || busy}
+          onBusyChange={setUploadingPhoto}
+        />
         <Field
-          label={t("common.status")}
-          description={restricted ? t("products.detail.restrictedNotice") : undefined}
+          label={t('common.status')}
+          description={restricted ? t('products.detail.restrictedNotice') : undefined}
         >
           <SegmentedControl
             type="radio"
@@ -315,18 +397,46 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
 
         {canWrite ? (
           <View className="flex-row gap-3">
-            <Button tone="accent" className="flex-1" onPress={save} disabled={archiveProduct.isPending || uploadingPhoto || !hasChanges || restricted || organizationErrors.vendor || organizationErrors.productType} loading={updateProduct.isPending}>
-              {t("products.detail.saveChanges")}
+            <Button
+              tone="accent"
+              className="flex-1"
+              onPress={save}
+              disabled={
+                archiveProduct.isPending ||
+                uploadingPhoto ||
+                !hasChanges ||
+                restricted ||
+                organizationErrors.vendor ||
+                organizationErrors.productType
+              }
+              loading={updateProduct.isPending}
+            >
+              {t('products.detail.saveChanges')}
             </Button>
-            <ArchiveProductButton title={product.title} disabled={restricted || uploadingPhoto || pendingEdits > 0}
-              pending={archiveProduct.isPending} failed={archiveProduct.isError} onOpen={() => archiveProduct.reset()} onConfirm={archive} />
+            <ArchiveProductButton
+              title={product.title}
+              disabled={restricted || uploadingPhoto || pendingEdits > 0}
+              pending={archiveProduct.isPending}
+              failed={archiveProduct.isError}
+              onOpen={() => archiveProduct.reset()}
+              onConfirm={archive}
+            />
           </View>
         ) : null}
 
         <VariantsSection storeId={storeId} product={product} canWrite={canWrite} />
       </View>
-      <View className="w-full lg:w-72"><ProductOrganization category={product.category} value={organization} onChange={changeOrganization} errors={organizationErrors} disabled={!canWrite || restricted} busy={busy} /></View>
+      <View className="w-full lg:w-72">
+        <ProductOrganization
+          category={product.category}
+          value={organization}
+          onChange={changeOrganization}
+          errors={organizationErrors}
+          disabled={!canWrite || restricted}
+          busy={busy}
+        />
       </View>
+    </View>
   );
 }
 
@@ -348,18 +458,29 @@ function VariantsSection({
     <View className="rounded-2xl border border-border bg-surface p-4">
       <View className="mb-3 flex-row items-center justify-between">
         <Text className="text-sm font-semibold text-foreground">
-          {t("products.variants.heading")}
+          {t('products.variants.heading')}
         </Text>
         {canWrite ? (
-          <Button size="sm" appearance="outline" material="flat" disabled={showAdd}
-            onPress={() => setShowAdd(true)}>
-            {t("products.variants.add")}
+          <Button
+            size="sm"
+            appearance="outline"
+            material="flat"
+            disabled={showAdd}
+            onPress={() => setShowAdd(true)}
+          >
+            {t('products.variants.add')}
           </Button>
         ) : null}
       </View>
 
-      {showAdd && canWrite ? <CreateVariantForm storeId={storeId} product={product} currency={currency}
-        onClose={() => setShowAdd(false)} /> : null}
+      {showAdd && canWrite ? (
+        <CreateVariantForm
+          storeId={storeId}
+          product={product}
+          currency={currency}
+          onClose={() => setShowAdd(false)}
+        />
+      ) : null}
 
       <View className="gap-2">
         {product.variants.map((variant) => (
@@ -370,7 +491,7 @@ function VariantsSection({
             variant={variant}
             gallery={product.images}
             canWrite={canWrite}
-            canInventory={can("inventory:write")}
+            canInventory={can('inventory:write')}
             removable={product.variants.length > 1}
           />
         ))}
@@ -393,25 +514,59 @@ function VariantRow({
   variant: ProductVariantDTO;
   canWrite: boolean;
   canInventory: boolean;
-  gallery: Listing["images"];
+  gallery: Listing['images'];
   removable: boolean;
 }) {
   const { colors } = useColorScheme();
 
   return (
     <View className="rounded-xl border border-border p-3">
-      <View testID="merchant-variant-heading" className="mb-2 min-w-0 gap-2 sm:flex-row sm:items-start">
+      <View
+        testID="merchant-variant-heading"
+        className="mb-2 min-w-0 gap-2 sm:flex-row sm:items-start"
+      >
         <View className="min-w-0 flex-row items-start gap-2 sm:flex-1">
-          <View className="shrink-0"><Boxes size={16} color={colors.mutedForeground} /></View>
-          <Text className="min-w-0 flex-1 text-sm font-semibold text-foreground">{variant.title}</Text>
+          <View className="shrink-0">
+            <Boxes size={16} color={colors.mutedForeground} />
+          </View>
+          <Text className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+            {variant.title}
+          </Text>
         </View>
-        <PriceDisplay price={variant.price} className="flex-wrap sm:shrink-0" primaryClassName="text-sm font-semibold" />
+        <PriceDisplay
+          price={variant.price}
+          className="flex-wrap sm:shrink-0"
+          primaryClassName="text-sm font-semibold"
+        />
       </View>
-      <VariantImages storeId={storeId} productId={productId} variant={variant} gallery={gallery} canWrite={canWrite} />
+      <VariantImages
+        storeId={storeId}
+        productId={productId}
+        variant={variant}
+        gallery={gallery}
+        canWrite={canWrite}
+      />
       <VariantPrice storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
-      <VariantIdentifiers storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} />
-      <VariantInventory storeId={storeId} productId={productId} variantId={variant.id} available={variant.available} canWrite={canInventory} />
-      <RemoveVariantButton storeId={storeId} productId={productId} variant={variant} canWrite={canWrite} removable={removable} />
+      <VariantIdentifiers
+        storeId={storeId}
+        productId={productId}
+        variant={variant}
+        canWrite={canWrite}
+      />
+      <VariantInventory
+        storeId={storeId}
+        productId={productId}
+        variantId={variant.id}
+        available={variant.available}
+        canWrite={canInventory}
+      />
+      <RemoveVariantButton
+        storeId={storeId}
+        productId={productId}
+        variant={variant}
+        canWrite={canWrite}
+        removable={removable}
+      />
     </View>
   );
 }

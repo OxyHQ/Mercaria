@@ -122,9 +122,10 @@ async function expectRefusedBy(write: () => Promise<unknown>, constraint: RegExp
     caught = error;
   }
   expect(caught, 'the write SUCCEEDED; the constraint did not fire').toBeDefined();
-  expect(constraintNameOf(caught), `expected ${String(constraint)}; got: ${String(caught)}`).toMatch(
-    constraint,
-  );
+  expect(
+    constraintNameOf(caught),
+    `expected ${String(constraint)}; got: ${String(caught)}`,
+  ).toMatch(constraint);
 }
 
 /** The `constraint_name` a driver error carries, through drizzle's wrapper. */
@@ -334,7 +335,10 @@ describe('envelope field 12 — the buyer-origin dimension', () => {
 
 describe('bounded dimensions', () => {
   it('REFUSES a market that is not a two-letter code', async () => {
-    await expectRefusedBy(() => insertAnalyticsEvents([anEvent({ market: 'Spain' })]), /market_check/);
+    await expectRefusedBy(
+      () => insertAnalyticsEvents([anEvent({ market: 'Spain' })]),
+      /market_check/,
+    );
   });
 
   it('REFUSES prose in the app version', async () => {
@@ -369,7 +373,10 @@ describe('events are APPEND-ONLY — identity rule 5', () => {
     });
     await expectRefusedBy(
       () =>
-        db.update(analyticsEvents).set({ oxyUserId: `oxy-${RUN}` }).where(eq(analyticsEvents.id, id)),
+        db
+          .update(analyticsEvents)
+          .set({ oxyUserId: `oxy-${RUN}` })
+          .where(eq(analyticsEvents.id, id)),
       /append-only/,
     );
   });
@@ -640,12 +647,12 @@ describe('the rollup lease', () => {
 
     // A stale idea of the cursor cannot rewind the task that took over: the
     // owner check refuses the write.
-    expect(await completeRollupRun({ job, leaseOwner: 'b', completedDate: '2020-01-01', now })).toBe(
-      false,
-    );
-    expect(await completeRollupRun({ job, leaseOwner: 'a', completedDate: '2026-01-01', now })).toBe(
-      true,
-    );
+    expect(
+      await completeRollupRun({ job, leaseOwner: 'b', completedDate: '2020-01-01', now }),
+    ).toBe(false);
+    expect(
+      await completeRollupRun({ job, leaseOwner: 'a', completedDate: '2026-01-01', now }),
+    ).toBe(true);
     // Released — the next tick can claim it.
     expect(await claimRollupRun({ job, leaseOwner: 'c', leaseMs: 60_000, now })).toBeDefined();
     await db.execute(sql`delete from analytics_rollup_cursors where id = ${job}`);
@@ -796,4 +803,3 @@ describe('an experiment version is immutable once it runs', () => {
     );
   });
 });
-

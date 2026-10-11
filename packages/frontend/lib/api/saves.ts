@@ -52,7 +52,9 @@ export async function fetchSavedItems(params?: {
 }
 
 /** The authenticated buyer's state; a failed read must never become "not saved". */
-export async function fetchProductSave(canonicalProductId: string): Promise<{ saved: boolean; save?: ProductSave }> {
+export async function fetchProductSave(
+  canonicalProductId: string,
+): Promise<{ saved: boolean; save?: ProductSave }> {
   const { data } = await apiClient.get<ApiResponse<{ saved: boolean; save?: ProductSave }>>(
     `/product-saves/${canonicalProductId}`,
   );
@@ -128,10 +130,7 @@ export async function fetchListingSaveContext(listingId: string): Promise<Listin
  * also on offer — an omitted intent leaves an existing save's intent alone, so
  * this call can never quietly downgrade a pin.
  */
-export async function saveListing(
-  listingId: string,
-  intent?: ListingSaveIntent,
-): Promise<void> {
+export async function saveListing(listingId: string, intent?: ListingSaveIntent): Promise<void> {
   await apiClient.post(`/favorites/${listingId}`, intent ? { intent } : {});
 }
 

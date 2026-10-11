@@ -129,12 +129,14 @@ export async function listPriceObservationsForScope(
   scope: PriceObservationScope,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<PriceObservationRow[]> {
-  const correction = db.$with('corrections').as(
-    db
-      .select({ supersedes: offerPriceSnapshots.supersedesSnapshotId })
-      .from(offerPriceSnapshots)
-      .where(sql`${offerPriceSnapshots.supersedesSnapshotId} is not null`),
-  );
+  const correction = db
+    .$with('corrections')
+    .as(
+      db
+        .select({ supersedes: offerPriceSnapshots.supersedesSnapshotId })
+        .from(offerPriceSnapshots)
+        .where(sql`${offerPriceSnapshots.supersedesSnapshotId} is not null`),
+    );
 
   const scopeFilters = [
     gte(offerPriceSnapshots.observedAt, scope.from),

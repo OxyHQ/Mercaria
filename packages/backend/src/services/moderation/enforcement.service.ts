@@ -273,11 +273,7 @@ async function freezeOrdersForListing(listingId: string): Promise<EffectResult> 
  * recorded as such — evidence that we looked, rather than a silent no-op.
  */
 async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult> {
-  const previous = await findLatestAppliedEnforcement(
-    subject.type,
-    subject.id,
-    REVERSIBLE_ACTIONS,
-  );
+  const previous = await findLatestAppliedEnforcement(subject.type, subject.id, REVERSIBLE_ACTIONS);
 
   if (!previous) {
     return { changed: false, reason: 'Nothing had been enforced against this subject' };
@@ -344,9 +340,7 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
    * get there by a decision anybody made about wanting it gone.
    */
   const restorableFrom: ListingStatus[] =
-    previous.action === 'restrict'
-      ? ['restricted', 'draft', 'archived']
-      : ['restricted', 'draft'];
+    previous.action === 'restrict' ? ['restricted', 'draft', 'archived'] : ['restricted', 'draft'];
   /**
    * `restoredStatus` can be `archived`: moderation may restrict a listing that
    * was ALREADY archived, and this restore writes back what it replaced rather

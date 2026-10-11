@@ -62,15 +62,17 @@ import { listPartnerProgramIds } from '../../../db/referrals/performanceReposito
  * with the previous source's sentence is precisely the mis-statement acceptance
  * 7 exists to prevent.
  */
-const REFERRAL_FUNDING_BASE_COPY: Readonly<Record<ReferralFundingSourceId, string>> = Object.freeze({
-  connected_marketplace:
-    "Mercaria's own marketplace commission actually earned on the referred order, after refunds — never the order total and never what the buyer paid.",
-  affiliate:
-    'Affiliate commission an external network has confirmed for the referred visit — never a click estimate.',
-  subscription:
-    'Recognized Mercaria Pro subscription revenue for the referred merchant — never a booking.',
-  fixed_budget: 'A separately approved marketing budget — not a share of any sale.',
-});
+const REFERRAL_FUNDING_BASE_COPY: Readonly<Record<ReferralFundingSourceId, string>> = Object.freeze(
+  {
+    connected_marketplace:
+      "Mercaria's own marketplace commission actually earned on the referred order, after refunds — never the order total and never what the buyer paid.",
+    affiliate:
+      'Affiliate commission an external network has confirmed for the referred visit — never a click estimate.',
+    subscription:
+      'Recognized Mercaria Pro subscription revenue for the referred merchant — never a booking.',
+    fixed_budget: 'A separately approved marketing budget — not a share of any sale.',
+  },
+);
 
 /** The partner-safe program projection. Every field named. */
 export function projectProgramForPartner(row: ReferralProgramRow): ReferralProgramPartnerView {
@@ -99,7 +101,9 @@ export function projectProgramForPartner(row: ReferralProgramRow): ReferralProgr
  * still a draft, and rendering "0%" or an empty string there would tell a
  * partner they earn nothing rather than that nothing has been published.
  */
-export function describeRewardBasis(rule: ReferralRewardRuleRow | undefined): ReferralRewardBasisCopy {
+export function describeRewardBasis(
+  rule: ReferralRewardRuleRow | undefined,
+): ReferralRewardBasisCopy {
   if (!rule) return { kind: 'not_published' };
   if (rule.formula === 'percentage_of_realized_base' && rule.rateBps !== null) {
     return {
@@ -189,7 +193,9 @@ export async function readProgramOffers(
   // they are an INPUT to the scope: a partner must keep seeing a program that
   // was later closed to their owner type. One extra round trip buys a read that
   // cannot silently drop a program (#392).
-  const enrolledProgramIds = input.partnerId ? await listPartnerProgramIds(db, input.partnerId) : [];
+  const enrolledProgramIds = input.partnerId
+    ? await listPartnerProgramIds(db, input.partnerId)
+    : [];
   const enrolled = new Set(enrolledProgramIds);
 
   // Scoped in SQL, and each row is already the EFFECTIVE version — the active

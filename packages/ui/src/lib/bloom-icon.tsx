@@ -1,7 +1,11 @@
-import React from "react";
-import type { LucideIcon } from "lucide-react-native";
-import { StyleSheet } from "react-native";
-import { sizes, type BloomIconComponent, type Props as BloomSvgIconProps } from "@oxy.so/bloom/icons";
+import React from 'react';
+import type { LucideIcon } from 'lucide-react-native';
+import { StyleSheet } from 'react-native';
+import {
+  sizes,
+  type BloomIconComponent,
+  type Props as BloomSvgIconProps,
+} from '@oxy.so/bloom/icons';
 
 /**
  * Lucide glyphs in Bloom's navigation chrome.
@@ -25,7 +29,7 @@ export function toBloomIcon(Icon: LucideIcon): BloomIconComponent {
   const cached = SIDEBAR_ICON_CACHE.get(Icon);
   if (cached) return cached;
   const Adapted: BloomIconComponent = ({ width, fill }) => <Icon size={width} color={fill} />;
-  Adapted.displayName = `BloomIcon(${Icon.displayName ?? "Lucide"})`;
+  Adapted.displayName = `BloomIcon(${Icon.displayName ?? 'Lucide'})`;
   SIDEBAR_ICON_CACHE.set(Icon, Adapted);
   return Adapted;
 }
@@ -65,13 +69,13 @@ export function toBloomFieldIcon(Icon: LucideIcon): React.ComponentType<BloomSvg
     const color = StyleSheet.flatten(style)?.color;
     return (
       <Icon
-        size={sizes[size ?? "md"]}
-        color={typeof color === "string" ? color : undefined}
+        size={sizes[size ?? 'md']}
+        color={typeof color === 'string' ? color : undefined}
         pointerEvents="none"
       />
     );
   };
-  Adapted.displayName = `BloomFieldIcon(${Icon.displayName ?? "Lucide"})`;
+  Adapted.displayName = `BloomFieldIcon(${Icon.displayName ?? 'Lucide'})`;
   FIELD_ICON_CACHE.set(Icon, Adapted);
   return Adapted;
 }

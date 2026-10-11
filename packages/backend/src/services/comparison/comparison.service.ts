@@ -46,7 +46,10 @@ import {
   type ValidatedConstraintSet,
 } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
-import { listSelectedAttributeValues, listAttributeValues } from '../../db/canonical/attributeRepository.js';
+import {
+  listSelectedAttributeValues,
+  listAttributeValues,
+} from '../../db/canonical/attributeRepository.js';
 import { listOperatorOnlyAttributeKeys } from '../../db/attributes/definitionRepository.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 import { evaluateCandidate } from '../attributes/constraint-evaluation.js';
@@ -114,9 +117,7 @@ export async function compareCanonicalProducts(
     throw validationError('A comparison needs at least two products');
   }
   if (request.subjects.length > MAX_COMPARISON_SUBJECTS) {
-    throw validationError(
-      `A comparison holds at most ${String(MAX_COMPARISON_SUBJECTS)} products`,
-    );
+    throw validationError(`A comparison holds at most ${String(MAX_COMPARISON_SUBJECTS)} products`);
   }
 
   const db = getDb();
@@ -215,10 +216,7 @@ export async function compareCanonicalProducts(
     // ── #94's constraint evaluation ───────────────────────────────────────
     const constraintRefs = new Map<string, string>();
     if (request.constraints !== undefined) {
-      for (const constraint of [
-        ...request.constraints.hard,
-        ...request.constraints.preferences,
-      ]) {
+      for (const constraint of [...request.constraints.hard, ...request.constraints.preferences]) {
         constraintRefs.set(
           constraint.id,
           index.register({ kind: 'constraint', recordId: constraint.id, label: constraint.id }),
@@ -375,7 +373,12 @@ function projectOffer(input: {
     ...(offer.delivery.known === true && offer.delivery.maxDays !== undefined
       ? { deliveryMaxDays: offer.delivery.maxDays }
       : {}),
-    freshness: offer.freshness.level === 'current' ? 'current' : offer.freshness.level === 'unknown' ? 'unknown' : 'ageing',
+    freshness:
+      offer.freshness.level === 'current'
+        ? 'current'
+        : offer.freshness.level === 'unknown'
+          ? 'unknown'
+          : 'ageing',
     ...(destinationHostOf(offer) === undefined
       ? {}
       : { destinationHost: destinationHostOf(offer) }),

@@ -34,7 +34,13 @@ const version = (
   major: number,
   day: number,
   state: CoverableVersion['state'] = 'superseded',
-): CoverableVersion => ({ id, label: `${major}.${day}`, majorVersion: major, state, publishedAt: at(day) });
+): CoverableVersion => ({
+  id,
+  label: `${major}.${day}`,
+  majorVersion: major,
+  state,
+  publishedAt: at(day),
+});
 
 const V1 = version('v1', 1, 1);
 const V1_1 = version('v1_1', 1, 2);
@@ -62,7 +68,11 @@ describe('coveredVersion — what a right currently reaches', () => {
     // a creator's publication schedule able to revoke a purchase — so a buyer who
     // bought the NEWEST version still gets it back under every policy, and so does
     // one whose purchase is the only version that exists.
-    for (const policy of ['purchased_version_only', 'same_major_version', 'all_future_versions'] as const) {
+    for (const policy of [
+      'purchased_version_only',
+      'same_major_version',
+      'all_future_versions',
+    ] as const) {
       expect(coveredVersion(V3, policy, ALL).id, policy).toBe('v3');
       expect(coveredVersion(V1, policy, [V1]).id, policy).toBe('v1');
     }
@@ -95,7 +105,11 @@ describe('coveredVersion — what a right currently reaches', () => {
 
 describe('coversVersion — whether ONE version is reachable', () => {
   it('covers the purchased version under every policy', () => {
-    for (const policy of ['purchased_version_only', 'same_major_version', 'all_future_versions'] as const) {
+    for (const policy of [
+      'purchased_version_only',
+      'same_major_version',
+      'all_future_versions',
+    ] as const) {
       expect(coversVersion(V1, policy, ALL, 'v1'), policy).toBe(true);
     }
   });
@@ -150,8 +164,20 @@ describe('majorVersionOf', () => {
 
   it('makes `same_major_version` degrade to the purchased version for such labels', () => {
     // The consequence of the line above, asserted rather than implied.
-    const a: CoverableVersion = { id: 'a', label: 'spring-2026', majorVersion: 0, state: 'superseded', publishedAt: at(1) };
-    const b: CoverableVersion = { id: 'b', label: 'summer-2026', majorVersion: 0, state: 'published', publishedAt: at(2) };
+    const a: CoverableVersion = {
+      id: 'a',
+      label: 'spring-2026',
+      majorVersion: 0,
+      state: 'superseded',
+      publishedAt: at(1),
+    };
+    const b: CoverableVersion = {
+      id: 'b',
+      label: 'summer-2026',
+      majorVersion: 0,
+      state: 'published',
+      publishedAt: at(2),
+    };
     // Both are major 0, so they ARE the same major — which is the honest reading
     // of "no numbering": the policy cannot distinguish them, so it includes them.
     expect(coveredVersion(a, 'same_major_version', [a, b]).id).toBe('b');

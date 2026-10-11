@@ -43,9 +43,7 @@ describe('the verification contract is total over the closed set', () => {
 
 describe('a low-assurance proof can never complete a claim on its own', () => {
   it('never lets a `low` method auto-verify (issue acceptance 2)', () => {
-    const lowMethods = MERCHANT_CLAIM_METHODS.filter(
-      (method) => methodAssurance(method) === 'low',
-    );
+    const lowMethods = MERCHANT_CLAIM_METHODS.filter((method) => methodAssurance(method) === 'low');
     // The floor: if nothing is `low`, the assertion below passes vacuously and
     // this criterion would be unguarded.
     expect(lowMethods.length).toBeGreaterThan(0);

@@ -1,42 +1,35 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { Link } from "expo-router";
-import Head from "expo-router/head";
-import { Plus, FolderTree } from "lucide-react-native";
-import type { Collection, CollectionType } from "@mercaria/shared-types";
-import {
-  Text,
-  useColorScheme,
-  toBloomIcon,
-} from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { Link } from 'expo-router';
+import Head from 'expo-router/head';
+import { Plus, FolderTree } from 'lucide-react-native';
+import type { Collection, CollectionType } from '@mercaria/shared-types';
+import { Text, useColorScheme, toBloomIcon } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Dialog, useDialogControl, type DialogControlProps } from '@oxy.so/bloom/dialog';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import {
-  useCollections,
-  useCreateCollection,
-} from "@/lib/hooks/use-collections";
-import { RemoveCollectionButton } from "@/components/collections/RemoveCollectionButton";
-import { canRetainDetailData } from "@/lib/detail-query-state";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
-import { useTranslation } from "@/lib/i18n";
+} from '@oxy.so/bloom/segmented-control';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useCollections, useCreateCollection } from '@/lib/hooks/use-collections';
+import { RemoveCollectionButton } from '@/components/collections/RemoveCollectionButton';
+import { canRetainDetailData } from '@/lib/detail-query-state';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { useTranslation } from '@/lib/i18n';
 
 /** Slugify a title into a URL-safe handle. */
 function slugify(value: string): string {
   return value
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 export default function CollectionsScreen() {
@@ -44,7 +37,7 @@ export default function CollectionsScreen() {
   return (
     <>
       <Head>
-        <title>{t("collections.documentTitle")}</title>
+        <title>{t('collections.documentTitle')}</title>
       </Head>
       <RequireStore permission="products:read">
         {(storeId) => <CollectionsBody key={storeId} storeId={storeId} />}
@@ -56,7 +49,7 @@ export default function CollectionsScreen() {
 function CollectionsBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
   const { can } = useActiveStoreContext();
-  const canWrite = can("collections:write");
+  const canWrite = can('collections:write');
   const query = useCollections(storeId);
   const { isPending, isError, isFetching, refetch } = query;
   const data = canRetainDetailData(query.error) ? query.data : undefined;
@@ -64,26 +57,38 @@ function CollectionsBody({ storeId }: { storeId: string }) {
 
   const action = (
     <View className="flex-row items-center gap-2">
-      <Button
-        tone="accent"
-        leadingIcon={toBloomIcon(Plus)}
-        onPress={() => createControl.open()}
-      >
-        {t("common.new")}
+      <Button tone="accent" leadingIcon={toBloomIcon(Plus)} onPress={() => createControl.open()}>
+        {t('common.new')}
       </Button>
     </View>
   );
 
   return (
-    <Screen title={t("nav.collections")} subtitle={t("collections.subtitle")} action={canWrite ? action : undefined}>
-      {isError ? <View className="mb-4 gap-2" accessibilityLiveRegion="polite">
-        <Text className="text-sm text-destructive">{t("collections.loadError")}</Text>
-        <Button size="sm" appearance="outline" material="flat" disabled={isFetching} onPress={() => { void refetch(); }}>{t("common.retry")}</Button>
-      </View> : null}
+    <Screen
+      title={t('nav.collections')}
+      subtitle={t('collections.subtitle')}
+      action={canWrite ? action : undefined}
+    >
+      {isError ? (
+        <View className="mb-4 gap-2" accessibilityLiveRegion="polite">
+          <Text className="text-sm text-destructive">{t('collections.loadError')}</Text>
+          <Button
+            size="sm"
+            appearance="outline"
+            material="flat"
+            disabled={isFetching}
+            onPress={() => {
+              void refetch();
+            }}
+          >
+            {t('common.retry')}
+          </Button>
+        </View>
+      ) : null}
       {isPending ? (
         <ScreenLoading />
       ) : !data && isError ? null : (data?.length ?? 0) === 0 ? (
-        <ScreenMessage title={t("collections.empty.title")} body={t("collections.empty.body")} />
+        <ScreenMessage title={t('collections.empty.title')} body={t('collections.empty.body')} />
       ) : (
         <View className="gap-2">
           {data?.map((collection) => (
@@ -118,30 +123,35 @@ function CollectionRow({
   // `items`, NOT `count`: i18n-js pluralizes any key called with a `count`
   // option, which would look for `one`/`other` under a key that has neither.
   const typeLabel = t(
-    collection.type === "manual" ? "collections.type.manual" : "collections.type.automated",
+    collection.type === 'manual' ? 'collections.type.manual' : 'collections.type.automated',
   );
   const itemsLabel =
-    collection.type === "manual"
-      ? t("collections.productCount", { count: collection.productIds.length })
-      : t("collections.ruleCount", { count: collection.rules?.conditions.length ?? 0 });
+    collection.type === 'manual'
+      ? t('collections.productCount', { count: collection.productIds.length })
+      : t('collections.ruleCount', { count: collection.rules?.conditions.length ?? 0 });
   const stateLabel = t(
-    collection.isPublished ? "collections.state.published" : "collections.state.draft",
+    collection.isPublished ? 'collections.state.published' : 'collections.state.draft',
   );
   return (
     <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
       <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
         <FolderTree size={18} color={colors.mutedForeground} />
       </View>
-      <Link href={{ pathname: "/collections/[id]", params: { id: collection.id } }} asChild><Pressable accessibilityLabel={collection.title} className="min-w-0 flex-1 rounded-lg py-2 active:opacity-70 web:hover:opacity-70">
-        <Text className="text-sm font-semibold text-foreground">{collection.title}</Text>
-        <Text className="text-xs text-muted-foreground">
-          {t("collections.rowMeta", {
-            type: typeLabel,
-            items: itemsLabel,
-            state: stateLabel,
-          })}
-        </Text>
-      </Pressable></Link>
+      <Link href={{ pathname: '/collections/[id]', params: { id: collection.id } }} asChild>
+        <Pressable
+          accessibilityLabel={collection.title}
+          className="min-w-0 flex-1 rounded-lg py-2 active:opacity-70 web:hover:opacity-70"
+        >
+          <Text className="text-sm font-semibold text-foreground">{collection.title}</Text>
+          <Text className="text-xs text-muted-foreground">
+            {t('collections.rowMeta', {
+              type: typeLabel,
+              items: itemsLabel,
+              state: stateLabel,
+            })}
+          </Text>
+        </Pressable>
+      </Link>
       {canWrite ? <RemoveCollectionButton storeId={storeId} collection={collection} /> : null}
     </View>
   );
@@ -156,12 +166,12 @@ function CreateCollectionDialog({
 }) {
   const createCollection = useCreateCollection(storeId);
   const { t } = useTranslation();
-  const [title, setTitle] = useState("");
-  const [type, setType] = useState<CollectionType>("manual");
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState<CollectionType>('manual');
 
   const submit = () => {
     if (!title.trim()) {
-      toast.error(t("collections.create.titleRequired"));
+      toast.error(t('collections.create.titleRequired'));
       return;
     }
     createCollection.mutate(
@@ -169,51 +179,52 @@ function CreateCollectionDialog({
         title: title.trim(),
         handle: slugify(title),
         type,
-        ...(type === "automated"
-          ? { rules: { appliesDisjunctively: false, conditions: [] } }
-          : {}),
+        ...(type === 'automated' ? { rules: { appliesDisjunctively: false, conditions: [] } } : {}),
       },
       {
         onSuccess: () => {
-          toast.success(t("collections.create.success"));
-          setTitle("");
-          setType("manual");
+          toast.success(t('collections.create.success'));
+          setTitle('');
+          setType('manual');
           control.close();
         },
-        onError: () => toast.error(t("collections.create.error")),
+        onError: () => toast.error(t('collections.create.error')),
       },
     );
   };
 
   return (
-    <Dialog control={control} title={t("collections.create.dialogTitle")}>
+    <Dialog control={control} title={t('collections.create.dialogTitle')}>
       <View className="gap-4">
-        <Field label={t("common.title")}>
+        <Field label={t('common.title')}>
           <TextFieldInput
-            label={t("common.title")}
+            label={t('common.title')}
             value={title}
             onValueChange={setTitle}
-            placeholder={t("collections.create.titlePlaceholder")}
+            placeholder={t('collections.create.titlePlaceholder')}
           />
         </Field>
-        <Field label={t("common.type")}>
-          <SegmentedControl
-            type="radio"
-            value={type}
-            onValueChange={setType}
-          >
+        <Field label={t('common.type')}>
+          <SegmentedControl type="radio" value={type} onValueChange={setType}>
             <SegmentedControlItem value="manual">
-              <SegmentedControlItemText>{t("collections.create.typeManual")}</SegmentedControlItemText>
+              <SegmentedControlItemText>
+                {t('collections.create.typeManual')}
+              </SegmentedControlItemText>
             </SegmentedControlItem>
             <SegmentedControlItem value="automated">
               <SegmentedControlItemText>
-                {t("collections.create.typeAutomated")}
+                {t('collections.create.typeAutomated')}
               </SegmentedControlItemText>
             </SegmentedControlItem>
           </SegmentedControl>
         </Field>
-        <Button tone="accent" onPress={submit} loading={createCollection.isPending} className="mt-1">
-          {t("common.create")}
+        <Button
+          tone="accent"
+          onPress={submit}
+          loading={createCollection.isPending}
+          className="mt-1"
+        >
+          {t('common.create')}
         </Button>
       </View>
     </Dialog>

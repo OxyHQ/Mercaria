@@ -36,7 +36,8 @@ export async function fetchReviewMedia(
   id: string,
   params?: PaginationParams,
 ): Promise<PaginatedResponse<ReviewMediaItem>> {
-  const path = scope === 'product' ? `/reviews/product/${id}/media` : `/listings/${id}/reviews/media`;
+  const path =
+    scope === 'product' ? `/reviews/product/${id}/media` : `/listings/${id}/reviews/media`;
   const { data } = await apiClient.get<PaginatedResponse<ReviewMediaItem>>(path, { params });
   return data;
 }
@@ -47,7 +48,9 @@ export async function fetchListingReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ListingReviewPage> {
   const { data } = await apiClient.get<ListingReviewPage>(`/listings/${listingId}/reviews`, {
-    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+    params: params
+      ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined }
+      : undefined,
   });
   return data;
 }
@@ -63,7 +66,9 @@ export async function fetchStoreReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<PaginatedResponse<Review>> {
   const { data } = await apiClient.get<PaginatedResponse<Review>>(`/stores/${handle}/reviews`, {
-    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+    params: params
+      ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined }
+      : undefined,
   });
   return data;
 }
@@ -87,7 +92,9 @@ export async function fetchProductReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/product/${canonicalProductId}`, {
-    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+    params: params
+      ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined }
+      : undefined,
   });
   return data;
 }
@@ -98,7 +105,9 @@ export async function fetchMerchantReviews(
   params?: PaginationParams & ReviewListFilters,
 ): Promise<ScopedReviewPage> {
   const { data } = await apiClient.get<ScopedReviewPage>(`/reviews/merchant/${merchantId}`, {
-    params: params ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined } : undefined,
+    params: params
+      ? { ...params, ratings: params.ratings?.length ? params.ratings.join(',') : undefined }
+      : undefined,
   });
   return data;
 }
@@ -110,8 +119,12 @@ export async function fetchMerchantReviews(
  * TYPE — and no contact or payment identifier, because `ReviewEligibility` has
  * no field for one (#76 privacy rule 3).
  */
-export async function fetchReviewEligibilities(signal?: AbortSignal): Promise<ApiResponse<ReviewEligibility[]>> {
-  const { data } = await apiClient.get<ApiResponse<ReviewEligibility[]>>('/reviews/eligibilities', { signal });
+export async function fetchReviewEligibilities(
+  signal?: AbortSignal,
+): Promise<ApiResponse<ReviewEligibility[]>> {
+  const { data } = await apiClient.get<ApiResponse<ReviewEligibility[]>>('/reviews/eligibilities', {
+    signal,
+  });
   return data;
 }
 
@@ -129,8 +142,14 @@ export async function fetchReviewHelpfulness(ids: string[]): Promise<ReviewHelpf
   return data.data;
 }
 
-export async function updateReviewHelpfulness(id: string, helpful: boolean): Promise<ReviewHelpfulness> {
-  const { data } = await apiClient.put<ApiResponse<ReviewHelpfulness>>(`/reviews/${id}/helpfulness`, { helpful });
+export async function updateReviewHelpfulness(
+  id: string,
+  helpful: boolean,
+): Promise<ReviewHelpfulness> {
+  const { data } = await apiClient.put<ApiResponse<ReviewHelpfulness>>(
+    `/reviews/${id}/helpfulness`,
+    { helpful },
+  );
   if (!data.success || !data.data) throw new Error('Failed to update review vote');
   return data.data;
 }

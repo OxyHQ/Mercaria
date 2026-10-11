@@ -152,9 +152,7 @@ export class InMemoryCandidateSource implements MatchCandidateSource {
     return Promise.resolve(null);
   }
 
-  resolveSubjectIdentifiers(
-    subject: MatchSubject,
-  ): Promise<readonly ResolvedSubjectIdentifier[]> {
+  resolveSubjectIdentifiers(subject: MatchSubject): Promise<readonly ResolvedSubjectIdentifier[]> {
     const resolved: ResolvedSubjectIdentifier[] = [];
     for (const asserted of subject.identifiers) {
       const definition = IDENTIFIER_SCHEME_REGISTRY[asserted.scheme];
@@ -253,9 +251,7 @@ export class InMemoryCandidateSource implements MatchCandidateSource {
   }
 
   loadVariants(productIds: readonly string[]): Promise<readonly CandidateVariant[]> {
-    return Promise.resolve(
-      productIds.flatMap((id) => this.variantsByProduct.get(id) ?? []),
-    );
+    return Promise.resolve(productIds.flatMap((id) => this.variantsByProduct.get(id) ?? []));
   }
 
   loadVariantsByIds(variantIds: readonly string[]): Promise<readonly CandidateVariant[]> {

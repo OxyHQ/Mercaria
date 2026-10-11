@@ -92,8 +92,10 @@ describe('the walls that exclude a service and a digital good', () => {
     // `commerce-type.ts` and not here would leave a wall pinned under a name
     // nothing refers to.
     for (const prerequisite of PINNED_PREREQUISITES) {
-      expect(COMMERCE_TYPE_PREREQUISITES, `${prerequisite} is not a declared prerequisite`)
-        .toContain(prerequisite);
+      expect(
+        COMMERCE_TYPE_PREREQUISITES,
+        `${prerequisite} is not a declared prerequisite`,
+      ).toContain(prerequisite);
     }
   });
 
@@ -105,9 +107,10 @@ describe('the walls that exclude a service and a digital good', () => {
     });
 
     it('accepts one that does, so the refusal above is not a function that always throws', () => {
-      expect(
-        destinationFromInput({ addressId: 'addr_1' } as CheckoutInput),
-      ).toEqual({ type: 'saved_address', addressId: 'addr_1' });
+      expect(destinationFromInput({ addressId: 'addr_1' } as CheckoutInput)).toEqual({
+        type: 'saved_address',
+        addressId: 'addr_1',
+      });
     });
 
     it('admits exactly four destination shapes: three places and one absence', () => {

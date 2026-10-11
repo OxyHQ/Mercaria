@@ -103,7 +103,9 @@ export async function readReferralRiskPartnerPaymentFacts(
   const distinctOrderRefs = [...new Set(orderRefs)];
 
   const disputedOrderIds =
-    distinctOrderRefs.length === 0 ? new Set<string>() : await readDisputedOrderIds(distinctOrderRefs);
+    distinctOrderRefs.length === 0
+      ? new Set<string>()
+      : await readDisputedOrderIds(distinctOrderRefs);
   const declinedAttempts =
     distinctOrderRefs.length === 0 ? 0 : await countDeclinedAttempts(distinctOrderRefs);
 

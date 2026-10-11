@@ -125,46 +125,58 @@ describe('one contact identity per checkout GROUP', () => {
   it('refuses a SECOND row for the same group through the unique index', async () => {
     const groupId = uuidv7();
     await ensureGuestCheckout(db, contactInput(groupId));
-    await expectPgRejection(db.insert(schema.guestCheckouts).values({
+    await expectPgRejection(
+      db.insert(schema.guestCheckouts).values({
         checkoutGroupId: groupId,
         guestSessionId: `gs-other-${RUN}`,
         emailCiphertext: 'v1:iv:tag:other',
         emailHash: `hash-other-${RUN}`,
         emailRedacted: 'o***@example.com',
-      }), /guest_checkouts_checkout_group_id_key/);
+      }),
+      /guest_checkouts_checkout_group_id_key/,
+    );
   });
 });
 
 describe('the contact CHECKs', () => {
   it('refuses a ciphertext with no hash (the pair travels together)', async () => {
-    await expectPgRejection(db.insert(schema.guestCheckouts).values({
+    await expectPgRejection(
+      db.insert(schema.guestCheckouts).values({
         checkoutGroupId: uuidv7(),
         guestSessionId: `gs-${RUN}`,
         emailCiphertext: 'v1:iv:tag:ct',
         emailRedacted: 'j***@example.com',
-      }), /guest_checkouts_email_pair_check/);
+      }),
+      /guest_checkouts_email_pair_check/,
+    );
   });
 
   it('refuses an anonymized stamp beside a readable contact', async () => {
-    await expectPgRejection(db.insert(schema.guestCheckouts).values({
+    await expectPgRejection(
+      db.insert(schema.guestCheckouts).values({
         checkoutGroupId: uuidv7(),
         guestSessionId: `gs-${RUN}`,
         emailCiphertext: 'v1:iv:tag:ct',
         emailHash: 'h',
         emailRedacted: 'j***@example.com',
         anonymizedAt: new Date(),
-      }), /guest_checkouts_anonymization_check/);
+      }),
+      /guest_checkouts_anonymization_check/,
+    );
   });
 
   it('refuses an unknown verification stage', async () => {
-    await expectPgRejection(db.insert(schema.guestCheckouts).values({
+    await expectPgRejection(
+      db.insert(schema.guestCheckouts).values({
         checkoutGroupId: uuidv7(),
         guestSessionId: `gs-${RUN}`,
         emailCiphertext: 'v1:iv:tag:ct',
         emailHash: 'h',
         emailRedacted: 'j***@example.com',
         contactVerificationStage: 'verified_by_vibes' as never,
-      }), /guest_checkouts_contact_verification_stage_check/);
+      }),
+      /guest_checkouts_contact_verification_stage_check/,
+    );
   });
 });
 
@@ -172,23 +184,32 @@ describe('the immutability trigger (ADR 0003 D4)', () => {
   it('refuses re-pointing a placed group at another inbox', async () => {
     const groupId = uuidv7();
     const row = await ensureGuestCheckout(db, contactInput(groupId));
-    await expectPgRejection(db
+    await expectPgRejection(
+      db
         .update(schema.guestCheckouts)
         .set({ emailCiphertext: 'v1:iv:tag:ATTACKER' })
-        .where(eq(schema.guestCheckouts.id, row.id)), /contact may only change to NULL/);
+        .where(eq(schema.guestCheckouts.id, row.id)),
+      /contact may only change to NULL/,
+    );
   });
 
   it('refuses moving the row to another group or another session', async () => {
     const groupId = uuidv7();
     const row = await ensureGuestCheckout(db, contactInput(groupId));
-    await expectPgRejection(db
+    await expectPgRejection(
+      db
         .update(schema.guestCheckouts)
         .set({ checkoutGroupId: uuidv7() })
-        .where(eq(schema.guestCheckouts.id, row.id)), /checkout_group_id is immutable/);
-    await expectPgRejection(db
+        .where(eq(schema.guestCheckouts.id, row.id)),
+      /checkout_group_id is immutable/,
+    );
+    await expectPgRejection(
+      db
         .update(schema.guestCheckouts)
         .set({ guestSessionId: 'gs-someone-else' })
-        .where(eq(schema.guestCheckouts.id, row.id)), /guest_session_id is immutable/);
+        .where(eq(schema.guestCheckouts.id, row.id)),
+      /guest_session_id is immutable/,
+    );
   });
 
   it('PERMITS the anonymization transition and the verification stage move', async () => {
@@ -261,29 +282,38 @@ describe('the buyer identity on orders (ADR 0003 D6)', () => {
   it('refuses a guest order carrying an Oxy id (invariant I1 at the storage layer)', async () => {
     const groupId = uuidv7();
     const contact = await ensureGuestCheckout(db, contactInput(groupId));
-    await expectPgRejection(db.insert(schema.orders).values(
+    await expectPgRejection(
+      db.insert(schema.orders).values(
         orderValues({
           buyerOrigin: 'guest',
           buyerGuestCheckoutId: contact.id,
           buyerOxyUserId: `smuggled-${RUN}`,
         }) as never,
-      ), /orders_buyer_identity_check/);
+      ),
+      /orders_buyer_identity_check/,
+    );
   });
 
   it('refuses an oxy order carrying a guest contact', async () => {
     const groupId = uuidv7();
     const contact = await ensureGuestCheckout(db, contactInput(groupId));
-    await expectPgRejection(db.insert(schema.orders).values(
+    await expectPgRejection(
+      db.insert(schema.orders).values(
         orderValues({
           buyerOrigin: 'oxy',
           buyerOxyUserId: `buyer-${RUN}`,
           buyerGuestCheckoutId: contact.id,
         }) as never,
-      ), /orders_buyer_identity_check/);
+      ),
+      /orders_buyer_identity_check/,
+    );
   });
 
   it('refuses a guest order with NO contact record at all', async () => {
-    await expectPgRejection(db.insert(schema.orders).values(orderValues({ buyerOrigin: 'guest' }) as never), /orders_buyer_identity_check/);
+    await expectPgRejection(
+      db.insert(schema.orders).values(orderValues({ buyerOrigin: 'guest' }) as never),
+      /orders_buyer_identity_check/,
+    );
   });
 
   it('accepts a well-formed guest order and refuses deleting its contact', async () => {
@@ -291,16 +321,17 @@ describe('the buyer identity on orders (ADR 0003 D6)', () => {
     const contact = await ensureGuestCheckout(db, contactInput(groupId));
     const [order] = await db
       .insert(schema.orders)
-      .values(
-        orderValues({ buyerOrigin: 'guest', buyerGuestCheckoutId: contact.id }) as never,
-      )
+      .values(orderValues({ buyerOrigin: 'guest', buyerGuestCheckoutId: contact.id }) as never)
       .returning({ id: schema.orders.id });
     createdOrderIds.push(order.id);
 
     // `ON DELETE restrict`: an order is the record of a sale and cannot be
     // orphaned from the contact it was placed with. Erasure is anonymization,
     // never a delete.
-    await expectPgRejection(db.delete(schema.guestCheckouts).where(eq(schema.guestCheckouts.id, contact.id)), /orders_buyer_guest_checkout_id_guest_checkouts_id_fk/);
+    await expectPgRejection(
+      db.delete(schema.guestCheckouts).where(eq(schema.guestCheckouts.id, contact.id)),
+      /orders_buyer_guest_checkout_id_guest_checkouts_id_fk/,
+    );
   });
 
   it('refuses rewriting a placed order origin, but allows an ordinary status update', async () => {
@@ -308,21 +339,22 @@ describe('the buyer identity on orders (ADR 0003 D6)', () => {
     const contact = await ensureGuestCheckout(db, contactInput(groupId));
     const [order] = await db
       .insert(schema.orders)
-      .values(
-        orderValues({ buyerOrigin: 'guest', buyerGuestCheckoutId: contact.id }) as never,
-      )
+      .values(orderValues({ buyerOrigin: 'guest', buyerGuestCheckoutId: contact.id }) as never)
       .returning({ id: schema.orders.id });
     createdOrderIds.push(order.id);
 
-    await expectPgRejection(db
-        .update(schema.orders)
-        .set({ buyerOrigin: 'oxy' })
-        .where(eq(schema.orders.id, order.id)), /buyer_origin is immutable/);
+    await expectPgRejection(
+      db.update(schema.orders).set({ buyerOrigin: 'oxy' }).where(eq(schema.orders.id, order.id)),
+      /buyer_origin is immutable/,
+    );
 
-    await expectPgRejection(db
+    await expectPgRejection(
+      db
         .update(schema.orders)
         .set({ buyerGuestCheckoutId: null })
-        .where(eq(schema.orders.id, order.id)), /buyer_guest_checkout_id is immutable/);
+        .where(eq(schema.orders.id, order.id)),
+      /buyer_guest_checkout_id is immutable/,
+    );
 
     // The trigger must not break ordinary commerce: an order moves through its
     // lifecycle constantly, and a guard that blocked that would be discovered
@@ -342,15 +374,16 @@ describe('the buyer identity on orders (ADR 0003 D6)', () => {
   it('refuses reassigning a SET buyer_oxy_user_id on an ordinary order', async () => {
     const [order] = await db
       .insert(schema.orders)
-      .values(
-        orderValues({ buyerOrigin: 'oxy', buyerOxyUserId: `buyer-${RUN}` }) as never,
-      )
+      .values(orderValues({ buyerOrigin: 'oxy', buyerOxyUserId: `buyer-${RUN}` }) as never)
       .returning({ id: schema.orders.id });
     createdOrderIds.push(order.id);
 
-    await expectPgRejection(db
+    await expectPgRejection(
+      db
         .update(schema.orders)
         .set({ buyerOxyUserId: `attacker-${RUN}` })
-        .where(eq(schema.orders.id, order.id)), /cannot be reassigned/);
+        .where(eq(schema.orders.id, order.id)),
+      /cannot be reassigned/,
+    );
   });
 });

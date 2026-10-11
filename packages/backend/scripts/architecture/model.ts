@@ -95,7 +95,9 @@ export const DIAGRAM_DOC = join(REPO_ROOT, 'docs', 'catalog-architecture-diagram
 
 /** Every drizzle table the barrel exports, by SQL name. */
 export const tablesByName: ReadonlyMap<string, PgTable> = new Map(
-  Object.values(schema).flatMap((value) => (is(value, PgTable) ? [[getTableName(value), value]] : [])),
+  Object.values(schema).flatMap((value) =>
+    is(value, PgTable) ? [[getTableName(value), value]] : [],
+  ),
 );
 
 /**
@@ -153,7 +155,9 @@ export function epicPopulation(): ReadonlyMap<string, number> {
     if (seen === undefined || entry.idx < seen) first.set(entry.table, entry.idx);
   }
   return new Map(
-    [...first].filter(([, idx]) => idx >= FIRST_EPIC_MIGRATION_IDX).sort(([a], [b]) => a.localeCompare(b)),
+    [...first]
+      .filter(([, idx]) => idx >= FIRST_EPIC_MIGRATION_IDX)
+      .sort(([a], [b]) => a.localeCompare(b)),
   );
 }
 
@@ -184,7 +188,10 @@ export interface ModuleAssignment {
  * names schema files and columns in backticks, and a parse that took every
  * backticked word would put `db/schema/catalog.ts:128` in a diagram.
  */
-export function moduleAssignments(doc: string, known: ReadonlySet<string>): readonly ModuleAssignment[] {
+export function moduleAssignments(
+  doc: string,
+  known: ReadonlySet<string>,
+): readonly ModuleAssignment[] {
   const lines = doc.split('\n');
   const headerAt = lines.findIndex((line) => line.trim() === MODULE_TABLE_HEADER);
   if (headerAt < 0) return [];
@@ -197,7 +204,9 @@ export function moduleAssignments(doc: string, known: ReadonlySet<string>): read
     const moduleName = cells[0].trim();
     const tables = [
       ...new Set(
-        [...cells[3].matchAll(/`([a-z][a-z0-9_]*)`/g)].map((match) => match[1]).filter((name) => known.has(name)),
+        [...cells[3].matchAll(/`([a-z][a-z0-9_]*)`/g)]
+          .map((match) => match[1])
+          .filter((name) => known.has(name)),
       ),
     ];
     if (moduleName.length > 0 && tables.length > 0) found.push({ module: moduleName, tables });
@@ -261,7 +270,9 @@ export function uniqueColumnSets(table: PgTable): readonly ReadonlySet<string>[]
    * (`native_variant_signatures`), which is why the gate beside this asserts
    * that edge by name rather than only counting.
    */
-  const sqlNameByKey = new Map(config.columns.map((column) => [column.name, sqlColumnName(column)]));
+  const sqlNameByKey = new Map(
+    config.columns.map((column) => [column.name, sqlColumnName(column)]),
+  );
 
   for (const constraint of config.uniqueConstraints) {
     sets.push(new Set(constraint.columns.map(sqlColumnName)));
@@ -272,7 +283,9 @@ export function uniqueColumnSets(table: PgTable): readonly ReadonlySet<string>[]
     const names: string[] = [];
     let expression = false;
     for (const column of index.config.columns) {
-      const key = is(column, Column) ? sqlColumnName(column as PgColumn) : sqlNameByKey.get((column as { name?: string })?.name ?? '');
+      const key = is(column, Column)
+        ? sqlColumnName(column as PgColumn)
+        : sqlNameByKey.get((column as { name?: string })?.name ?? '');
       if (key === undefined) expression = true;
       else names.push(key);
     }
@@ -308,7 +321,9 @@ export function cardinalityEdges(): readonly CardinalityEdge[] {
         child: name,
         parent: getTableName(reference.foreignTable),
         columns,
-        parentSide: reference.columns.every((column) => column.notNull) ? 'exactlyOne' : 'zeroOrOne',
+        parentSide: reference.columns.every((column) => column.notNull)
+          ? 'exactlyOne'
+          : 'zeroOrOne',
         // A unique whose columns are a SUBSET of the foreign key's columns pins
         // every one of them for a given parent row, so at most one child can
         // exist. A unique over a SUPERSET does not: `(category_id, locale)`
@@ -459,7 +474,10 @@ export function writeCensus(
   symbols: ReadonlyMap<string, string>,
   known: ReadonlySet<string>,
 ): ReadonlyMap<string, readonly TableWriter[]> {
-  const perTable = new Map<string, Map<string, { files: Set<string>; operations: Set<WriteOperation> }>>();
+  const perTable = new Map<
+    string,
+    Map<string, { files: Set<string>; operations: Set<WriteOperation> }>
+  >();
   const record = (table: string, file: string, operation: WriteOperation): void => {
     if (!known.has(table)) return;
     const directory = dirname(file) === '.' ? '(src root)' : dirname(file).split(sep).join('/');

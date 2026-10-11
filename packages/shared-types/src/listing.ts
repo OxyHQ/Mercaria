@@ -362,11 +362,14 @@ export interface Listing extends Timestamps {
   canonicalProductId?: string;
   /** Detail only: public catalog identities from active attachments, keyed by
    * native variant id. An absent entry never borrows another option's facts. */
-  catalogIdentityByVariant?: Record<string, {
-    productId: string;
-    variantId: string;
-    categoryId?: string;
-  }>;
+  catalogIdentityByVariant?: Record<
+    string,
+    {
+      productId: string;
+      variantId: string;
+      categoryId?: string;
+    }
+  >;
   /** Detail only: exact active catalog attachments, keyed by native variant id.
    * No entry means no known composition; product-level identity is insufficient. */
   bundleContentsByVariant?: Record<string, ProductBundleContents>;

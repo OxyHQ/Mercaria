@@ -83,7 +83,9 @@ function mutableCopy(): ThreeDProfilePackage {
 
 describe('the package has something to measure', () => {
   it('declares the seven profiles the published vocabulary names', () => {
-    expect(PKG.profiles.map((profile) => profile.key).sort()).toEqual([...THREE_D_PROFILE_KEYS].sort());
+    expect(PKG.profiles.map((profile) => profile.key).sort()).toEqual(
+      [...THREE_D_PROFILE_KEYS].sort(),
+    );
     expect(THREE_D_PROFILE_KEYS.length).toBe(7);
   });
 
@@ -313,8 +315,11 @@ describe('the one axis, and the walls under everything else', () => {
     // And the control: the same call at `variant` scope is permitted, so the
     // refusal is about the scope rather than about the key.
     expect(
-      assessVariantAxis({ scope: 'variant', attributeKey: engine.attributeKey, variantCapable: true })
-        .outcome,
+      assessVariantAxis({
+        scope: 'variant',
+        attributeKey: engine.attributeKey,
+        variantCapable: true,
+      }).outcome,
     ).toBe('permitted');
   });
 
@@ -413,7 +418,8 @@ function danglingRuleFields(pkg: ThreeDProfilePackage): string[] {
       for (const field of inFlow) {
         if (field.visibilityRule === undefined) continue;
         for (const key of ruleFields(field.visibilityRule)) {
-          if (!declared.has(key)) dangling.push(`${profile.key}/${flow}/${field.attributeKey} -> ${key}`);
+          if (!declared.has(key))
+            dangling.push(`${profile.key}/${flow}/${field.attributeKey} -> ${key}`);
         }
       }
     }
@@ -434,10 +440,12 @@ describe('the printable block is guarded, and the guard resolves in its own flow
     // And the inverse: no printable field is ever unguarded, in any flow. A
     // single unguarded one would ask a material-pack seller about supports.
     const printableFields = ALL_FIELDS.filter(
-      (field) => THREE_D_CLAIM_KIND_BY_KEY[field.attributeKey as ThreeDClaimAttributeKey] === 'printable',
+      (field) =>
+        THREE_D_CLAIM_KIND_BY_KEY[field.attributeKey as ThreeDClaimAttributeKey] === 'printable',
     );
     expect(printableFields.length).toBeGreaterThan(0);
-    for (const field of printableFields) expect(field.visibilityRule, field.attributeKey).toBeDefined();
+    for (const field of printableFields)
+      expect(field.visibilityRule, field.attributeKey).toBeDefined();
   });
 
   it('never makes a guarded field `required`', () => {
@@ -530,7 +538,9 @@ describe('every profile is authorable by a merchant and by a person', () => {
       for (const field of profile.fields) {
         expect(groups.has(field.groupKey), `${profile.key}/${field.groupKey}`).toBe(true);
         const seen = positions.get(field.flow) ?? new Set<number>();
-        expect(seen.has(field.position), `${profile.key}/${field.flow}@${field.position}`).toBe(false);
+        expect(seen.has(field.position), `${profile.key}/${field.flow}@${field.position}`).toBe(
+          false,
+        );
         seen.add(field.position);
         positions.set(field.flow, seen);
       }
@@ -560,9 +570,13 @@ describe('every profile is authorable by a merchant and by a person', () => {
       key: profile.key,
       size: profile.fields.filter((field) => field.flow === 'merchant').length,
     }));
-    const widest = sizes.reduce((best, candidate) => (candidate.size > best.size ? candidate : best));
+    const widest = sizes.reduce((best, candidate) =>
+      candidate.size > best.size ? candidate : best,
+    );
     expect(['three_d_print_model', 'three_d_character', 'three_d_prop']).toContain(widest.key);
-    const narrowest = sizes.reduce((best, candidate) => (candidate.size < best.size ? candidate : best));
+    const narrowest = sizes.reduce((best, candidate) =>
+      candidate.size < best.size ? candidate : best,
+    );
     expect(narrowest.key).toBe('three_d_material_texture_pack');
   });
 });
@@ -578,10 +592,11 @@ describe('the package agrees with both published vocabularies', () => {
 
   it('is a real test — a missing profile and an unknown licence are both named', () => {
     const withoutProfile = mutableCopy();
-    (withoutProfile as unknown as { profiles: unknown[] }).profiles = withoutProfile.profiles.filter(
-      (profile) => profile.key !== 'three_d_prop',
+    (withoutProfile as unknown as { profiles: unknown[] }).profiles =
+      withoutProfile.profiles.filter((profile) => profile.key !== 'three_d_prop');
+    expect(disagreementsWithPublishedVocabulary(withoutProfile).join(' ')).toContain(
+      'three_d_prop',
     );
-    expect(disagreementsWithPublishedVocabulary(withoutProfile).join(' ')).toContain('three_d_prop');
 
     const withStrangeLicence = mutableCopy();
     (withStrangeLicence as unknown as { licences: unknown[] }).licences = [
@@ -670,7 +685,11 @@ describe('the reference licence seeds', () => {
     // `asset_licence_versions_immutable_once_published` freezes `published_at`
     // itself, so a test cannot manufacture this from a published row at all —
     // driving the decision is the only control there is.
-    const draft = { ...(published as object), state: 'draft', publishedAt: null } as typeof published;
+    const draft = {
+      ...(published as object),
+      state: 'draft',
+      publishedAt: null,
+    } as typeof published;
     expect(decideLicenceVersionStep(draft, reference.terms, reference.summary).action).toBe(
       'publish_existing_draft',
     );

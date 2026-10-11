@@ -139,23 +139,64 @@ function eventBody(overrides: { id?: string; type?: string; intentId?: string })
   const type = overrides.type ?? 'payment_intent.settled';
   const created = new Date().toISOString();
   const paymentIntentId = overrides.intentId ?? 'pi_peable_test_1';
-  const object = type === 'connected_account.updated' ? {
-    id: 'ca_peable_fixture', object: 'connected_account', externalRef: 'store_fixture',
-    country: 'ES', defaultCurrency: 'EUR', payable: false, payoutsEnabled: false,
-    chargesEnabled: false, transfersCapability: 'pending', cardPaymentsCapability: null,
-    requirements: { currentlyDue: 1, eventuallyDue: 1, pastDue: 0, pendingVerification: 0 },
-    disabledReasonCodes: [], lastSyncedAt: null, createdAt: created, updatedAt: created,
-  } : type === 'payment_intent.disputed' || type === 'payment_intent.dispute_closed' ? {
-    id: 'dp_peable_fixture', object: 'dispute', paymentIntentId, amount: '1000', currency: 'EUR',
-    status: type === 'payment_intent.disputed' ? 'needs_response' : 'won', reason: null,
-    evidenceDueAt: null, evidenceSubmittedAt: null, createdAt: created, updatedAt: created,
-  } : {
-    id: paymentIntentId, object: 'payment_intent', status: 'settled', amount: '1000', currency: 'EUR',
-    rail: 'card', network: null, address: null, merchantId: 'merch_fixture', txid: null,
-    confirmations: 0, clientSecret: 'synthetic-client-secret', metadata: {},
-    expiresAt: created, createdAt: created, updatedAt: created,
-  };
-  return JSON.stringify({ id: overrides.id ?? 'evt_peable_1', object: 'event', type, created, data: { object } });
+  const object =
+    type === 'connected_account.updated'
+      ? {
+          id: 'ca_peable_fixture',
+          object: 'connected_account',
+          externalRef: 'store_fixture',
+          country: 'ES',
+          defaultCurrency: 'EUR',
+          payable: false,
+          payoutsEnabled: false,
+          chargesEnabled: false,
+          transfersCapability: 'pending',
+          cardPaymentsCapability: null,
+          requirements: { currentlyDue: 1, eventuallyDue: 1, pastDue: 0, pendingVerification: 0 },
+          disabledReasonCodes: [],
+          lastSyncedAt: null,
+          createdAt: created,
+          updatedAt: created,
+        }
+      : type === 'payment_intent.disputed' || type === 'payment_intent.dispute_closed'
+        ? {
+            id: 'dp_peable_fixture',
+            object: 'dispute',
+            paymentIntentId,
+            amount: '1000',
+            currency: 'EUR',
+            status: type === 'payment_intent.disputed' ? 'needs_response' : 'won',
+            reason: null,
+            evidenceDueAt: null,
+            evidenceSubmittedAt: null,
+            createdAt: created,
+            updatedAt: created,
+          }
+        : {
+            id: paymentIntentId,
+            object: 'payment_intent',
+            status: 'settled',
+            amount: '1000',
+            currency: 'EUR',
+            rail: 'card',
+            network: null,
+            address: null,
+            merchantId: 'merch_fixture',
+            txid: null,
+            confirmations: 0,
+            clientSecret: 'synthetic-client-secret',
+            metadata: {},
+            expiresAt: created,
+            createdAt: created,
+            updatedAt: created,
+          };
+  return JSON.stringify({
+    id: overrides.id ?? 'evt_peable_1',
+    object: 'event',
+    type,
+    created,
+    data: { object },
+  });
 }
 
 /**
@@ -166,7 +207,9 @@ function eventBody(overrides: { id?: string; type?: string; intentId?: string })
  */
 function sign(payload: string, secret: string, timestamp?: number): string {
   const t = timestamp ?? Math.floor(Date.now() / 1000);
-  const signature = createHmac('sha256', secret).update(`${String(t)}.${payload}`).digest('hex');
+  const signature = createHmac('sha256', secret)
+    .update(`${String(t)}.${payload}`)
+    .digest('hex');
   return `t=${String(t)},v1=${signature}`;
 }
 
@@ -211,11 +254,18 @@ describe('Peable webhook raw-body mount', () => {
     const bytes = Buffer.from(text, 'utf8');
     const index = bytes.indexOf(Buffer.from('\uFFFD'));
     expect(index).toBeGreaterThan(0);
-    const malformed = Buffer.concat([bytes.subarray(0, index), Buffer.from([0xff]), bytes.subarray(index + 3)]);
+    const malformed = Buffer.concat([
+      bytes.subarray(0, index),
+      Buffer.from([0xff]),
+      bytes.subarray(index + 3),
+    ]);
     expect(malformed.toString('utf8')).toBe(text);
     const base = await listen(createApp());
     const rejected = await post(base, new Uint8Array(malformed), sign(text, SECRET));
-    expect({ status: rejected.status, storedRows: (await storedEvents(id)).length }).toEqual({ status: 400, storedRows: 0 });
+    expect({ status: rejected.status, storedRows: (await storedEvents(id)).length }).toEqual({
+      status: 400,
+      storedRows: 0,
+    });
     expect((await post(base, text, sign(text, SECRET))).status).toBe(200);
     expect(await storedEvents(id)).toHaveLength(1);
   });
@@ -336,11 +386,18 @@ describe('Peable webhook signature verification', () => {
   });
 });
 
-
 describe('published SDK webhook families and rotation', () => {
-  for (const type of ['payment_intent.refunded', 'payment_intent.partially_refunded',
-    'payment_intent.disputed', 'payment_intent.dispute_closed', 'connected_account.updated']) {
-    for (const [keyName, secret] of [['current', SECRET], ['previous', SECRET_PREVIOUS]]) {
+  for (const type of [
+    'payment_intent.refunded',
+    'payment_intent.partially_refunded',
+    'payment_intent.disputed',
+    'payment_intent.dispute_closed',
+    'connected_account.updated',
+  ]) {
+    for (const [keyName, secret] of [
+      ['current', SECRET],
+      ['previous', SECRET_PREVIOUS],
+    ]) {
       it(`accepts ${type} signed with ${keyName} and persists its verified type once`, async () => {
         const id = `evt_sdk_family_${type}_${keyName}`;
         const payload = eventBody({ id, type });
@@ -354,7 +411,8 @@ describe('published SDK webhook families and rotation', () => {
     }
   }
   it('refuses a signed unknown event before SQL storage', async () => {
-    const id = 'evt_sdk_unknown'; const payload = eventBody({ id, type: 'transfer.invented' });
+    const id = 'evt_sdk_unknown';
+    const payload = eventBody({ id, type: 'transfer.invented' });
     const base = await listen(createApp());
     expect((await post(base, payload, sign(payload, SECRET))).status).toBe(400);
     expect(await storedEvents(id)).toHaveLength(0);
@@ -365,7 +423,8 @@ describe('published SDK webhook families and rotation', () => {
       ['expired_previous', SECRET_PREVIOUS, Math.floor(Date.now() / 1000) - 301],
       ['wrong', 'wrong-secret', Math.floor(Date.now() / 1000)],
     ] as const) {
-      const id = `evt_sdk_${suffix}`; const payload = eventBody({ id, type: 'payment_intent.refunded' });
+      const id = `evt_sdk_${suffix}`;
+      const payload = eventBody({ id, type: 'payment_intent.refunded' });
       expect((await post(base, payload, sign(payload, secret, timestamp))).status).toBe(400);
       expect(await storedEvents(id)).toHaveLength(0);
     }

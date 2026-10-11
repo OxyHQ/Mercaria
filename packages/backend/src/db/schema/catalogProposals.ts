@@ -123,8 +123,12 @@ export const catalogProposals = pgTable(
   {
     id: generatedId(),
     type: text({ enum: asEnumValues(CATALOG_PROPOSAL_TYPES) }).notNull(),
-    origin: text({ enum: asEnumValues(CATALOG_PROPOSAL_ORIGINS) }).notNull().default('merchant'),
-    state: text({ enum: asEnumValues(CATALOG_PROPOSAL_STATES) }).notNull().default('submitted'),
+    origin: text({ enum: asEnumValues(CATALOG_PROPOSAL_ORIGINS) })
+      .notNull()
+      .default('merchant'),
+    state: text({ enum: asEnumValues(CATALOG_PROPOSAL_STATES) })
+      .notNull()
+      .default('submitted'),
 
     /**
      * The store that asked. `restrict`, unlike the authoring draft's `cascade`:

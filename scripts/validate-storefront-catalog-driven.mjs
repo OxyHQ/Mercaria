@@ -131,23 +131,23 @@
  * Usage:  bun scripts/validate-storefront-catalog-driven.mjs
  */
 
-import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 /** Overridable so the self-test points the REAL guard at a scratch checkout. */
 const repositoryRoot = process.env.STOREFRONT_CATALOG_VALIDATOR_ROOT
   ? resolve(process.env.STOREFRONT_CATALOG_VALIDATOR_ROOT)
-  : resolve(here, "..");
+  : resolve(here, '..');
 
 /** Fixture trees are a handful of files; this lowers the floors to 1, never 0. */
-const fixtureFloors = process.env.STOREFRONT_CATALOG_VALIDATOR_FIXTURE_FLOORS === "1";
+const fixtureFloors = process.env.STOREFRONT_CATALOG_VALIDATOR_FIXTURE_FLOORS === '1';
 
-const ts = createRequire(resolve(here, "../package.json"))("typescript");
+const ts = createRequire(resolve(here, '../package.json'))('typescript');
 
 /**
  * The trees that must stay catalog-driven, each with the vocabulary wall 2
@@ -168,18 +168,18 @@ const ts = createRequire(resolve(here, "../package.json"))("typescript");
  */
 const SCANNED_TREES = [
   {
-    prefix: "packages/frontend/",
-    bundle: "packages/frontend/lib/i18n/locales/en.json",
+    prefix: 'packages/frontend/',
+    bundle: 'packages/frontend/lib/i18n/locales/en.json',
     floor: fixtureFloors ? 1 : 120,
   },
   {
-    prefix: "packages/ui/src/",
-    bundle: "packages/ui/src/i18n/locales/en.json",
+    prefix: 'packages/ui/src/',
+    bundle: 'packages/ui/src/i18n/locales/en.json',
     floor: fixtureFloors ? 1 : 60,
   },
   {
-    prefix: "packages/pos/",
-    bundle: "packages/pos/lib/i18n/locales/en.json",
+    prefix: 'packages/pos/',
+    bundle: 'packages/pos/lib/i18n/locales/en.json',
     floor: fixtureFloors ? 1 : 35,
   },
 ];
@@ -198,13 +198,13 @@ const SCANNED_TREES = [
  * wall 1 regardless, which is not gated on this scope.
  */
 const CATALOG_PREFIXES = [
-  { prefix: "packages/frontend/lib/catalog/", floor: fixtureFloors ? 1 : 8 },
-  { prefix: "packages/frontend/components/catalog/", floor: fixtureFloors ? 1 : 4 },
+  { prefix: 'packages/frontend/lib/catalog/', floor: fixtureFloors ? 1 : 8 },
+  { prefix: 'packages/frontend/components/catalog/', floor: fixtureFloors ? 1 : 4 },
   // One file today, so its floor is 1 for real. It stays because dropping a
   // prefix REMOVES wall-2 coverage, and a widening that also quietly narrows is
   // the shape nobody reads a diff closely enough to catch.
-  { prefix: "packages/frontend/app/(app)/categories/", floor: 1 },
-  { prefix: "packages/ui/src/components/marketplace/", floor: fixtureFloors ? 1 : 20 },
+  { prefix: 'packages/frontend/app/(app)/categories/', floor: 1 },
+  { prefix: 'packages/ui/src/components/marketplace/', floor: fixtureFloors ? 1 : 20 },
 ];
 
 /**
@@ -220,24 +220,24 @@ const CATALOG_PREFIXES = [
  * ones that name a CATALOGUE concept.
  */
 const IDENTITY_NAMES = new Set([
-  "attributeDefinitionId",
-  "attributeKey",
-  "attributeName",
-  "brandId",
-  "bucketKey",
-  "canonicalProductId",
-  "canonicalVariantId",
-  "categoryId",
-  "categoryKey",
-  "categorySlug",
-  "controlledValueId",
-  "enumValueId",
-  "facetKey",
-  "optionName",
-  "productFamilyId",
-  "productTypeKey",
-  "rowKey",
-  "valueKey",
+  'attributeDefinitionId',
+  'attributeKey',
+  'attributeName',
+  'brandId',
+  'bucketKey',
+  'canonicalProductId',
+  'canonicalVariantId',
+  'categoryId',
+  'categoryKey',
+  'categorySlug',
+  'controlledValueId',
+  'enumValueId',
+  'facetKey',
+  'optionName',
+  'productFamilyId',
+  'productTypeKey',
+  'rowKey',
+  'valueKey',
 ]);
 
 /**
@@ -251,20 +251,20 @@ const IDENTITY_NAMES = new Set([
  * node's and a facet bucket's are identities the server minted.
  */
 const KEY_RECEIVERS = new Set([
-  "attribute",
-  "axis",
-  "bucket",
-  "category",
-  "definition",
-  "entry",
-  "facet",
-  "field",
-  "node",
-  "option",
-  "productType",
-  "row",
-  "tree",
-  "value",
+  'attribute',
+  'axis',
+  'bucket',
+  'category',
+  'definition',
+  'entry',
+  'facet',
+  'field',
+  'node',
+  'option',
+  'productType',
+  'row',
+  'tree',
+  'value',
 ]);
 
 /**
@@ -274,15 +274,15 @@ const KEY_RECEIVERS = new Set([
  * authored here.
  */
 const IDENTITY_PROPERTIES = new Set([
-  "attributeDefinitionId",
-  "attributeKey",
-  "canonicalProductId",
-  "canonicalVariantId",
-  "categoryId",
-  "categoryKey",
-  "enumValueId",
-  "facetKey",
-  "productTypeKey",
+  'attributeDefinitionId',
+  'attributeKey',
+  'canonicalProductId',
+  'canonicalVariantId',
+  'categoryId',
+  'categoryKey',
+  'enumValueId',
+  'facetKey',
+  'productTypeKey',
 ]);
 
 /**
@@ -312,14 +312,14 @@ const IDENTITY_PROPERTIES = new Set([
  * swatches, `Tono` and `Tamaño` got pills.
  */
 const NAME_RECEIVERS = new Set([
-  "attribute",
-  "axis",
-  "bucket",
-  "category",
-  "definition",
-  "facet",
-  "option",
-  "productType",
+  'attribute',
+  'axis',
+  'bucket',
+  'category',
+  'definition',
+  'facet',
+  'option',
+  'productType',
 ]);
 
 /**
@@ -334,18 +334,18 @@ const NAME_RECEIVERS = new Set([
  * deliberately absent.
  */
 const IDENTITY_NORMALIZERS = new Set([
-  "trim",
-  "trimStart",
-  "trimEnd",
-  "toLowerCase",
-  "toUpperCase",
-  "toLocaleLowerCase",
-  "toLocaleUpperCase",
-  "normalize",
+  'trim',
+  'trimStart',
+  'trimEnd',
+  'toLowerCase',
+  'toUpperCase',
+  'toLocaleLowerCase',
+  'toLocaleUpperCase',
+  'normalize',
 ]);
 
 /** Calls whose subject is a membership test — wall 1's third shape. */
-const MEMBERSHIP_METHODS = new Set(["includes", "has", "startsWith", "endsWith"]);
+const MEMBERSHIP_METHODS = new Set(['includes', 'has', 'startsWith', 'endsWith']);
 
 /** A dotted lowercase machine key, one dot minimum. */
 const NAMESPACED_KEY = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/u;
@@ -414,46 +414,46 @@ export const CATALOG_PATH_LITERAL_COUNT = CATALOG_PATH_LITERALS.length;
  */
 const KNOWN_CONCEPT_BRANCHES = [
   {
-    file: "packages/ui/src/lib/facet-labels.ts",
-    literal: "availability",
+    file: 'packages/ui/src/lib/facet-labels.ts',
+    literal: 'availability',
     count: 1,
     reason:
-      "stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy",
+      'stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy',
   },
   {
-    file: "packages/ui/src/lib/facet-labels.ts",
-    literal: "offer_channel",
+    file: 'packages/ui/src/lib/facet-labels.ts',
+    literal: 'offer_channel',
     count: 1,
     reason:
-      "stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy",
+      'stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy',
   },
   {
-    file: "packages/ui/src/lib/facet-labels.ts",
-    literal: "condition",
+    file: 'packages/ui/src/lib/facet-labels.ts',
+    literal: 'condition',
     count: 1,
     reason:
-      "stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy",
+      'stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy',
   },
   {
-    file: "packages/ui/src/lib/facet-labels.ts",
-    literal: "market",
+    file: 'packages/ui/src/lib/facet-labels.ts',
+    literal: 'market',
     count: 1,
     reason:
-      "stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy",
+      'stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy',
   },
   {
-    file: "packages/ui/src/lib/facet-labels.ts",
-    literal: "*",
+    file: 'packages/ui/src/lib/facet-labels.ts',
+    literal: '*',
     count: 1,
     reason:
-      "FACET_MARKET_ANY_BUCKET, the NULL-region sentinel — the one market bucket that is not a CLDR region code",
+      'FACET_MARKET_ANY_BUCKET, the NULL-region sentinel — the one market bucket that is not a CLDR region code',
   },
 ];
 
 export const KNOWN_CONCEPT_BRANCH_COUNT = KNOWN_CONCEPT_BRANCHES.length;
 
 /** The package a re-listed vocabulary is copied FROM — wall 5. */
-const VOCABULARY_PACKAGE = "@mercaria/shared-types";
+const VOCABULARY_PACKAGE = '@mercaria/shared-types';
 
 /**
  * How many string literals make an array a re-listing rather than a pair.
@@ -482,8 +482,8 @@ const VOCABULARY_RELIST_MINIMUM = 2;
  */
 const KNOWN_VOCABULARY_EXCEPTIONS = [
   {
-    file: "packages/frontend/app/(app)/orders/[id].tsx",
-    declaration: "BUYER_CANCELLABLE",
+    file: 'packages/frontend/app/(app)/orders/[id].tsx',
+    declaration: 'BUYER_CANCELLABLE',
     // EXACTLY how many findings this entry excuses, reconciled both ways below.
     // Without it the entry is a PREDICATE with no bound: matching was
     // `detail.startsWith(declaration + " ")` into a Set, so any number of
@@ -497,11 +497,11 @@ const KNOWN_VOCABULARY_EXCEPTIONS = [
       "a policy subset of OrderStatus, not a catalog vocabulary; closed by reading #110's CancellationEligibility",
   },
   {
-    file: "packages/ui/src/lib/pickup-labels.ts",
-    declaration: "GUEST_ONLY_BLOCK_REASONS",
+    file: 'packages/ui/src/lib/pickup-labels.ts',
+    declaration: 'GUEST_ONLY_BLOCK_REASONS',
     count: 1,
     reason:
-      "a policy subset of PickupBlockReason — the refusals a signed-out shopper could fix by signing in (#93 client rule 10) — not a catalog vocabulary; closed by the server publishing that subset",
+      'a policy subset of PickupBlockReason — the refusals a signed-out shopper could fix by signing in (#93 client rule 10) — not a catalog vocabulary; closed by the server publishing that subset',
   },
 ];
 
@@ -514,8 +514,8 @@ export const KNOWN_VOCABULARY_EXCEPTION_COUNT = KNOWN_VOCABULARY_EXCEPTIONS.leng
 
 /** The guard cannot be its own subject; neither file lives under the prefix anyway. */
 const GUARD_OWN_FILES = new Set([
-  "scripts/validate-storefront-catalog-driven.mjs",
-  "scripts/test-validate-storefront-catalog-driven.mjs",
+  'scripts/validate-storefront-catalog-driven.mjs',
+  'scripts/test-validate-storefront-catalog-driven.mjs',
 ]);
 
 const SOURCE_FILE = /\.tsx?$/;
@@ -545,22 +545,22 @@ const TEST_FILE = /(?:^|\/)__tests__\/|\.test\.tsx?$/;
 
 /** Every file git tracks, repo-relative — so ignored files cannot count. */
 function trackedFiles() {
-  const listed = spawnSync("git", ["ls-files", "-z"], {
+  const listed = spawnSync('git', ['ls-files', '-z'], {
     cwd: repositoryRoot,
-    encoding: "utf8",
+    encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });
   if (listed.status !== 0) {
     throw new Error(`git ls-files failed in ${repositoryRoot}: ${listed.stderr ?? listed.error}`);
   }
-  return listed.stdout.split("\0").filter(Boolean);
+  return listed.stdout.split('\0').filter(Boolean);
 }
 
 /** Every leaf key of a nested bundle, dotted. */
-function bundleKeys(value, prefix = "", out = new Set()) {
+function bundleKeys(value, prefix = '', out = new Set()) {
   for (const [key, entry] of Object.entries(value)) {
     const path = `${prefix}${key}`;
-    if (entry !== null && typeof entry === "object") bundleKeys(entry, `${path}.`, out);
+    if (entry !== null && typeof entry === 'object') bundleKeys(entry, `${path}.`, out);
     else out.add(path);
   }
   return out;
@@ -588,11 +588,11 @@ function namesIdentity(node) {
   const name = accessedName(subject);
   if (name === null) return false;
   if (IDENTITY_NAMES.has(name)) return true;
-  if (name !== "key" && name !== "name") return false;
+  if (name !== 'key' && name !== 'name') return false;
   const receiver = accessReceiver(subject);
   if (receiver === null) return false;
-  const bare = receiver.replace(/^_+/u, "");
-  return name === "key" ? KEY_RECEIVERS.has(bare) : NAME_RECEIVERS.has(bare);
+  const bare = receiver.replace(/^_+/u, '');
+  return name === 'key' ? KEY_RECEIVERS.has(bare) : NAME_RECEIVERS.has(bare);
 }
 
 /**
@@ -627,8 +627,8 @@ function literalText(node) {
 /** Whether a node is a translate call — `t(...)` or `something.t(...)`. */
 const isTranslateCall = (node) =>
   ts.isCallExpression(node) &&
-  ((ts.isIdentifier(node.expression) && node.expression.text === "t") ||
-    (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === "t"));
+  ((ts.isIdentifier(node.expression) && node.expression.text === 't') ||
+    (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 't'));
 
 /** The elements of an array literal or a `new Set([...])`, or `null`. */
 function listElements(node) {
@@ -636,7 +636,7 @@ function listElements(node) {
   if (
     ts.isNewExpression(node) &&
     ts.isIdentifier(node.expression) &&
-    node.expression.text === "Set" &&
+    node.expression.text === 'Set' &&
     node.arguments !== undefined &&
     node.arguments[0] !== undefined &&
     ts.isArrayLiteralExpression(node.arguments[0])
@@ -708,7 +708,7 @@ function isModuleSpecifier(node) {
   if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) return true;
   if (ts.isCallExpression(parent) && parent.arguments[0] === node) {
     const callee = parent.expression;
-    if (ts.isIdentifier(callee) && callee.text === "require") return true;
+    if (ts.isIdentifier(callee) && callee.text === 'require') return true;
     if (callee.kind === ts.SyntaxKind.ImportKeyword) return true;
   }
   return ts.isImportTypeNode(parent) || ts.isExternalModuleReference(parent);
@@ -774,7 +774,7 @@ function vocabularyLiteralCount(node) {
         ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)
           ? property.name.text
           : null;
-      if (name !== "value" && name !== "key" && name !== "id") continue;
+      if (name !== 'value' && name !== 'key' && name !== 'id') continue;
       if (literalText(property.initializer) !== null) {
         count += 1;
         break;
@@ -799,7 +799,7 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
     text,
     ts.ScriptTarget.Latest,
     true,
-    relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    relativePath.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const bindings = collectLiteralBindings(sourceFile);
   const vocabularyTypes = vocabularyTypeNames(sourceFile);
@@ -823,9 +823,9 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
         const left = resolvedLiteral(node.left, bindings);
         const right = resolvedLiteral(node.right, bindings);
         if (right !== null && namesIdentity(node.left)) {
-          report(node, "concept-branch", `compared against "${right}"`);
+          report(node, 'concept-branch', `compared against "${right}"`);
         } else if (left !== null && namesIdentity(node.right)) {
-          report(node, "concept-branch", `compared against "${left}"`);
+          report(node, 'concept-branch', `compared against "${left}"`);
         }
       }
     }
@@ -835,7 +835,7 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
       for (const clause of node.caseBlock.clauses) {
         if (!ts.isCaseClause(clause)) continue;
         const value = literalText(clause.expression);
-        if (value !== null) report(clause, "concept-branch", `switch case "${value}"`);
+        if (value !== null) report(clause, 'concept-branch', `switch case "${value}"`);
       }
     }
 
@@ -849,11 +849,11 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
           namesIdentity(argument) &&
           authoredValueList(node.expression.expression, bindings)
         ) {
-          report(node, "concept-branch", `${method}() over a hardcoded value list`);
+          report(node, 'concept-branch', `${method}() over a hardcoded value list`);
         }
         const value = argument === undefined ? null : resolvedLiteral(argument, bindings);
         if (value !== null && namesIdentity(node.expression.expression)) {
-          report(node, "concept-branch", `${method}("${value}") on a concept identity`);
+          report(node, 'concept-branch', `${method}("${value}") on a concept identity`);
         }
       }
     }
@@ -870,7 +870,7 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
       // the caller, against a FILE and a count, because a finding suppressed
       // inside the detector never exists to be counted — which is what left this
       // list reconcilable in one direction only (#494).
-      report(node, "namespaced-key", `"${asLiteral}"`);
+      report(node, 'namespaced-key', `"${asLiteral}"`);
     }
 
     // WALLS 3 and 4 — an identity property whose value was decided HERE.
@@ -880,10 +880,10 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
       if (name !== null && IDENTITY_PROPERTIES.has(name)) {
         const value = literalText(node.initializer);
         if (value !== null && value.length > 0) {
-          report(node, "hardcoded-identity", `${name}: "${value}"`);
+          report(node, 'hardcoded-identity', `${name}: "${value}"`);
         }
         if (isTranslateCall(node.initializer)) {
-          report(node, "label-as-identity", `${name} was assigned a translated string`);
+          report(node, 'label-as-identity', `${name} was assigned a translated string`);
         }
       }
     }
@@ -898,10 +898,10 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
     ) {
       const count = vocabularyLiteralCount(node.initializer);
       if (count >= VOCABULARY_RELIST_MINIMUM) {
-        const declared = ts.isIdentifier(node.name) ? node.name.text : "a declaration";
+        const declared = ts.isIdentifier(node.name) ? node.name.text : 'a declaration';
         report(
           node,
-          "vocabulary-relisting",
+          'vocabulary-relisting',
           `${declared} re-lists ${count} members of a ${VOCABULARY_PACKAGE} vocabulary`,
         );
       }
@@ -917,16 +917,16 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
 // ------------------------------------------------------------------- main ---
 
 const WALL_TEXT = {
-  "concept-branch":
+  'concept-branch':
     "branches on a catalogue concept's identity. The server decides which categories, attributes and values exist; a client that knows one by name holds truth a data change cannot reach (ADR 0007 D1).",
-  "namespaced-key":
-    "carries a namespaced concept key. A category, product type or attribute key in this tree is per-concept truth even when nothing branches on it yet.",
-  "hardcoded-identity":
-    "hardcodes a concept identity into a payload. Every catalog request here is composed from a server answer or a route parameter.",
-  "label-as-identity":
-    "sends a TRANSLATED string as identity. A label is presentation and is never identity (ADR 0007 D1); send the id or the stable key beside it.",
-  "vocabulary-relisting":
-    "re-lists a server-owned closed set as an ARRAY. Import the tuple and, where copy is needed, put it in a Record over the union — a Record cannot omit a member, an array silently can.",
+  'namespaced-key':
+    'carries a namespaced concept key. A category, product type or attribute key in this tree is per-concept truth even when nothing branches on it yet.',
+  'hardcoded-identity':
+    'hardcodes a concept identity into a payload. Every catalog request here is composed from a server answer or a route parameter.',
+  'label-as-identity':
+    'sends a TRANSLATED string as identity. A label is presentation and is never identity (ADR 0007 D1); send the id or the stable key beside it.',
+  'vocabulary-relisting':
+    're-lists a server-owned closed set as an ARRAY. Import the tuple and, where copy is needed, put it in a Record over the union — a Record cannot omit a member, an array silently can.',
 };
 
 async function main() {
@@ -947,7 +947,7 @@ async function main() {
   for (const tree of SCANNED_TREES) {
     let bundleRaw;
     try {
-      bundleRaw = await readFile(resolve(repositoryRoot, tree.bundle), "utf8");
+      bundleRaw = await readFile(resolve(repositoryRoot, tree.bundle), 'utf8');
     } catch {
       console.error(
         `\n  ${tree.bundle} could not be read; wall 2 cannot tell a concept key from copy in ${tree.prefix}.\n`,
@@ -972,7 +972,7 @@ async function main() {
   for (const path of scanned) {
     let text;
     try {
-      text = await readFile(resolve(repositoryRoot, path), "utf8");
+      text = await readFile(resolve(repositoryRoot, path), 'utf8');
     } catch (error) {
       // A tracked file the working tree lost. Loud, never a silent skip: a
       // traversal that quietly drops files is one that reports a clean tree.
@@ -986,7 +986,7 @@ async function main() {
     })) {
       const excused = KNOWN_VOCABULARY_EXCEPTIONS.find(
         (entry) =>
-          finding.wall === "vocabulary-relisting" &&
+          finding.wall === 'vocabulary-relisting' &&
           entry.file === finding.file &&
           finding.detail.startsWith(`${entry.declaration} `),
       );
@@ -997,7 +997,7 @@ async function main() {
       }
       const excusedLiteral = CATALOG_PATH_LITERALS.find(
         (entry) =>
-          finding.wall === "namespaced-key" &&
+          finding.wall === 'namespaced-key' &&
           entry.file === finding.file &&
           finding.detail === `"${entry.literal}"`,
       );
@@ -1012,7 +1012,7 @@ async function main() {
       // on the same literal in the same file.
       const excusedBranch = KNOWN_CONCEPT_BRANCHES.find(
         (entry) =>
-          finding.wall === "concept-branch" &&
+          finding.wall === 'concept-branch' &&
           entry.file === finding.file &&
           finding.detail === `compared against "${entry.literal}"`,
       );
@@ -1047,9 +1047,9 @@ async function main() {
   ]) {
     if (Number.isInteger(entry.count) && entry.count >= 1) continue;
     failures.push(
-      `exemption entry "${name}" in ${entry.file} declares no integer count >= 1 `
-      + `(got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of its shape in `
-      + "that file, which is the hole #448 closed — declare exactly how many findings it covers",
+      `exemption entry "${name}" in ${entry.file} declares no integer count >= 1 ` +
+        `(got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of its shape in ` +
+        'that file, which is the hole #448 closed — declare exactly how many findings it covers',
     );
   }
 
@@ -1063,27 +1063,27 @@ async function main() {
 
     if (actual === 0) {
       failures.push(
-        `${id} is listed as a non-concept path literal ${entry.count} time(s), which no longer `
-        + "matches anything — the count went DOWN to 0. Remove the entry, or it excuses a finding "
-        + "that cannot occur. Check first that the literal CAN match NAMESPACED_KEY at all: it needs "
-        + "at least one dot and every segment lowercase, and the first draft of this list carried an "
-        + "entry with no dot in it",
+        `${id} is listed as a non-concept path literal ${entry.count} time(s), which no longer ` +
+          'matches anything — the count went DOWN to 0. Remove the entry, or it excuses a finding ' +
+          'that cannot occur. Check first that the literal CAN match NAMESPACED_KEY at all: it needs ' +
+          'at least one dot and every segment lowercase, and the first draft of this list carried an ' +
+          'entry with no dot in it',
       );
       continue;
     }
     if (actual < entry.count) {
       failures.push(
-        `${id} is listed as a non-concept path literal ${entry.count} time(s), but only ${actual} `
-        + "matched — the count went DOWN. Lower the count to what remains, or restore what the entry "
-        + "was covering",
+        `${id} is listed as a non-concept path literal ${entry.count} time(s), but only ${actual} ` +
+          'matched — the count went DOWN. Lower the count to what remains, or restore what the entry ' +
+          'was covering',
       );
       continue;
     }
     failures.push(
-      `${id} is listed as a non-concept path literal ${entry.count} time(s), but ${actual} finding(s) `
-      + "matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW "
-      + "use of the same literal in the same file would otherwise ride in behind the reasoned one. "
-      + "Read the value off the server's answer, or raise the count with a reason covering it too",
+      `${id} is listed as a non-concept path literal ${entry.count} time(s), but ${actual} finding(s) ` +
+        'matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW ' +
+        'use of the same literal in the same file would otherwise ride in behind the reasoned one. ' +
+        "Read the value off the server's answer, or raise the count with a reason covering it too",
     );
   }
   for (const entry of KNOWN_VOCABULARY_EXCEPTIONS) {
@@ -1091,27 +1091,27 @@ async function main() {
     const actual = matchedExceptions.get(id) ?? 0;
     if (actual === 0) {
       failures.push(
-        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), which no longer matches `
-        + "anything — the count went DOWN to 0. Either the re-listing was removed or the file moved: "
-        + "delete the entry so the list keeps describing the tree, and so its standing positive control "
-        + "keeps standing",
+        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), which no longer matches ` +
+          'anything — the count went DOWN to 0. Either the re-listing was removed or the file moved: ' +
+          'delete the entry so the list keeps describing the tree, and so its standing positive control ' +
+          'keeps standing',
       );
       continue;
     }
     if (actual < entry.count) {
       failures.push(
-        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), but only ${actual} `
-        + "finding(s) matched it — the count went DOWN. Lower the count to what remains, or restore what "
-        + "the entry was covering",
+        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), but only ${actual} ` +
+          'finding(s) matched it — the count went DOWN. Lower the count to what remains, or restore what ' +
+          'the entry was covering',
       );
       continue;
     }
     if (actual > entry.count) {
       failures.push(
-        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), but ${actual} finding(s) `
-        + "matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW "
-        + "re-listed vocabulary under the same declaration name in the same file would otherwise ride in "
-        + "behind the reasoned one. Fix the new occurrence, or raise the count with a reason covering it too",
+        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), but ${actual} finding(s) ` +
+          'matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW ' +
+          're-listed vocabulary under the same declaration name in the same file would otherwise ride in ' +
+          'behind the reasoned one. Fix the new occurrence, or raise the count with a reason covering it too',
       );
     }
   }
@@ -1123,25 +1123,25 @@ async function main() {
 
     if (actual === 0) {
       failures.push(
-        `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), which no longer matches `
-        + "anything — the count went DOWN to 0. The branch was removed or the file moved: delete the "
-        + "entry so the list keeps describing the tree",
+        `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), which no longer matches ` +
+          'anything — the count went DOWN to 0. The branch was removed or the file moved: delete the ' +
+          'entry so the list keeps describing the tree',
       );
       continue;
     }
     if (actual < entry.count) {
       failures.push(
-        `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), but only ${actual} `
-        + "matched — the count went DOWN. Lower the count to what remains, or restore what the entry "
-        + "was covering",
+        `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), but only ${actual} ` +
+          'matched — the count went DOWN. Lower the count to what remains, or restore what the entry ' +
+          'was covering',
       );
       continue;
     }
     failures.push(
-      `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), but ${actual} finding(s) `
-      + "matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW "
-      + "branch on the same literal in the same file would otherwise ride in behind the reasoned one. "
-      + "Read the value off the server's answer, or raise the count with a reason covering it too",
+      `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), but ${actual} finding(s) ` +
+        'matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW ' +
+        'branch on the same literal in the same file would otherwise ride in behind the reasoned one. ' +
+        "Read the value off the server's answer, or raise the count with a reason covering it too",
     );
   }
 
@@ -1171,24 +1171,25 @@ async function main() {
   }
 
   if (failures.length > 0) {
-    console.error("\nThe storefront must stay catalog-driven (#367 workstream 9):\n");
+    console.error('\nThe storefront must stay catalog-driven (#367 workstream 9):\n');
     for (const failure of failures) console.error(`  ${failure}`);
     console.error(
-      "\n  The taxonomy, the navigation trees, the attribute registry and the facet rail\n" +
-        "  decide which categories, filters, specifications and values exist. Adding one is\n" +
-        "  a DATA change; anything in these trees that knows a category, product type,\n" +
-        "  attribute or value by name breaks that and breaks it silently — tsc, lint and\n" +
-        "  every build job stay green.\n" +
-        "\n  `packages/ui/src` and `packages/pos` are in scope since #478: every app\n" +
-        "  compiles the shared tree from source, so moving a hardcoded list one package\n" +
-        "  sideways changes nothing about what a shopper sees.\n",
+      '\n  The taxonomy, the navigation trees, the attribute registry and the facet rail\n' +
+        '  decide which categories, filters, specifications and values exist. Adding one is\n' +
+        '  a DATA change; anything in these trees that knows a category, product type,\n' +
+        '  attribute or value by name breaks that and breaks it silently — tsc, lint and\n' +
+        '  every build job stay green.\n' +
+        '\n  `packages/ui/src` and `packages/pos` are in scope since #478: every app\n' +
+        '  compiles the shared tree from source, so moving a hardcoded list one package\n' +
+        '  sideways changes nothing about what a shopper sees.\n',
     );
     process.exit(1);
   }
 
   const perTree = SCANNED_TREES.map(
-    (tree) => `${String(scanned.filter((path) => path.startsWith(tree.prefix)).length)} ${tree.prefix}`,
-  ).join(", ");
+    (tree) =>
+      `${String(scanned.filter((path) => path.startsWith(tree.prefix)).length)} ${tree.prefix}`,
+  ).join(', ');
   const translationKeyTotal = [...translationKeysByTree.values()].reduce(
     (total, keys) => total + keys.size,
     0,
@@ -1201,7 +1202,7 @@ async function main() {
       `${String(CATALOG_PATH_LITERALS.length)} named literals subtracted by wall 2; ` +
       `${String(KNOWN_CONCEPT_BRANCHES.length)} reasoned wall-1 branch(es); ` +
       `${String(KNOWN_VOCABULARY_EXCEPTIONS.length)} reasoned wall-5 exception(s); ` +
-      "every exemption in all three lists matched its exact declared count.",
+      'every exemption in all three lists matched its exact declared count.',
   );
 }
 

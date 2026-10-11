@@ -328,7 +328,9 @@ export async function patchDraft(db: Database, input: PatchDraftInput): Promise<
   const existing = await findDraft(db, input.storeId, input.draftId);
   if (existing === null) throw notFound('No such draft.');
   if (existing.status !== 'open') {
-    throw conflict('This draft has already been published or discarded and can no longer be edited.');
+    throw conflict(
+      'This draft has already been published or discarded and can no longer be edited.',
+    );
   }
 
   const schema = requireComposed(
@@ -626,7 +628,8 @@ export async function previewDraftUpgrade(
   if (row === null) throw notFound('No such draft.');
 
   const current = await findProductTypeDefinitionById(db, row.productTypeDefinitionId);
-  if (current === null) throw notFound('The product type version this draft pins no longer exists.');
+  if (current === null)
+    throw notFound('The product type version this draft pins no longer exists.');
 
   const published = await findPublishedVersionForKey(db, current.key);
   if (published === null || published.id === current.id) {
@@ -692,11 +695,17 @@ export async function applyDraftUpgrade(
     }),
   );
 
-  const updated = await repinDraftIfVersion(db, input.storeId, input.draftId, input.expectedVersion, {
-    productTypeDefinitionId: schema.productType.definitionId,
-    schemaHash: schema.etag,
-    schemaSnapshot: schema,
-  });
+  const updated = await repinDraftIfVersion(
+    db,
+    input.storeId,
+    input.draftId,
+    input.expectedVersion,
+    {
+      productTypeDefinitionId: schema.productType.definitionId,
+      schemaHash: schema.etag,
+      schemaSnapshot: schema,
+    },
+  );
   if (updated === null) {
     throw conflict('This draft is not open, or it changed while you were reading it.');
   }

@@ -196,7 +196,9 @@ describe('catalog proposals reach no commercial or ranking domain', () => {
     const files = domainFiles();
     // The vacuity floor. A scan over an empty file list passes every assertion
     // below and reads exactly like a clean one.
-    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(13);
+    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(
+      13,
+    );
 
     for (const file of files) {
       const found = violations(readFileSync(file.path, 'utf8'), COMMERCIAL_PATTERNS);
@@ -286,7 +288,9 @@ describe('nothing in the domain accepts a submitter-supplied identity', () => {
     expect(from, 'could not find the submission schema').toBeGreaterThan(-1);
     expect(to, 'could not find the slice end').toBeGreaterThan(from);
     const submission = stripped.slice(from, to);
-    expect(submission.length, 'the submission slice looks too short to be real').toBeGreaterThan(200);
+    expect(submission.length, 'the submission slice looks too short to be real').toBeGreaterThan(
+      200,
+    );
     expect(/\bkey\s*:/.test(submission), 'the submission schema declares a key').toBe(false);
     expect(/\bslug\s*:/.test(submission), 'the submission schema declares a slug').toBe(false);
 
@@ -326,7 +330,9 @@ expect(
 describe('the rollout lever gates the MOUNT and never a stored row', () => {
   it('no module in the domain reads `config.catalogProposals.enabled`', () => {
     const files = domainFiles();
-    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(13);
+    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(
+      13,
+    );
     for (const file of files) {
       const found = violations(readFileSync(file.path, 'utf8'), LEVER_PATTERNS);
       expect(found, `${file.name} reads the rollout lever`).toEqual([]);
@@ -532,7 +538,9 @@ describe('the catalogue-write wall survives a one-hop wrapper (#568)', () => {
       (finding) => PERMITTED_TRANSITIVE_MINTS[dispositionKey(finding)] === undefined,
     );
     expect(
-      undispositioned.map((finding) => `${dispositionKey(finding)}  via  ${finding.path.join(' -> ')}`),
+      undispositioned.map(
+        (finding) => `${dispositionKey(finding)}  via  ${finding.path.join(' -> ')}`,
+      ),
       `${CATALOGUE_WRITER} reaches a link-only mint through an undispositioned path`,
     ).toEqual([]);
   });
@@ -564,9 +572,14 @@ describe('the catalogue-write wall survives a one-hop wrapper (#568)', () => {
     const stripped = stripComments(source);
     const start = stripped.indexOf('export async function addControlledValueToAttribute');
     expect(start, 'the seam is gone or renamed').toBeGreaterThan(-1);
-    const signature = stripped.slice(start, stripped.indexOf(')', stripped.indexOf('{', start)) + 1);
+    const signature = stripped.slice(
+      start,
+      stripped.indexOf(')', stripped.indexOf('{', start)) + 1,
+    );
     const parameters = signature.slice(signature.indexOf('('), signature.indexOf(')') + 1);
-    expect.soft(parameters.length, 'the signature slice looks too short to be real').toBeGreaterThan(40);
+    expect
+      .soft(parameters.length, 'the signature slice looks too short to be real')
+      .toBeGreaterThan(40);
     // POSITIVE CONTROL: it DOES take the existing definition's id.
     expect(/existingDefinitionId\s*:\s*string/.test(parameters)).toBe(true);
     // And nothing in it can name a new attribute.
@@ -579,7 +592,8 @@ describe('the catalogue-write wall survives a one-hop wrapper (#568)', () => {
     // the shape that defeated the module-text wall: the guarded module names only
     // the wrapper, and the wrapper names the forbidden symbol.
     const files: Record<string, string> = {
-      '/src/entry.ts': "import { draftForMe } from './wrapper.js';\nexport async function go() { return draftForMe(); }\n",
+      '/src/entry.ts':
+        "import { draftForMe } from './wrapper.js';\nexport async function go() { return draftForMe(); }\n",
       '/src/wrapper.ts':
         "import { insertAttributeDefinition } from './repo.js';\nexport async function draftForMe() { return insertAttributeDefinition(); }\n",
       '/src/repo.ts': 'export async function insertAttributeDefinition() { return 1; }\n',
@@ -608,14 +622,17 @@ describe('the catalogue-write wall survives a one-hop wrapper (#568)', () => {
       "import { listAttributeEnumValues } from './repo.js';\nexport async function draftForMe() { return listAttributeEnumValues(); }\n";
     files['/src/repo.ts'] = 'export async function listAttributeEnumValues() { return []; }\n';
     const clean = crafted('entry.ts');
-    expect.soft(clean.unresolvedBodies, 'the clean walk resolved nothing, so it proves nothing').toBe(0);
+    expect
+      .soft(clean.unresolvedBodies, 'the clean walk resolved nothing, so it proves nothing')
+      .toBe(0);
     expect.soft(clean.bodiesScanned).toBeGreaterThanOrEqual(2);
     expect(clean.findings).toEqual([]);
   });
 
   it('MUTATION SELF-TEST: a comment naming the symbol does not fire', () => {
     const files: Record<string, string> = {
-      '/src/entry.ts': "import { seam } from './wrapper.js';\nexport async function go() { return seam(); }\n",
+      '/src/entry.ts':
+        "import { seam } from './wrapper.js';\nexport async function go() { return seam(); }\n",
       '/src/wrapper.ts':
         '// insertAttributeDefinition is exactly what this must never call.\nexport async function seam() { return 1; }\n',
     };

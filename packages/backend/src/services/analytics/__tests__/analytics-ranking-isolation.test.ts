@@ -88,7 +88,11 @@ function walk(relative: string, readDir: DirectoryReader = readDirectory): strin
  * modules have no directory to walk and stay named, with an EXACT count.
  */
 const OFFER_FLAT_MODULES = ['controllers/offers.controller.ts', 'routes/offers.ts'];
-const OFFER_SURFACE_PATHS = [...walk('services/offers'), ...walk('db/offers'), ...OFFER_FLAT_MODULES];
+const OFFER_SURFACE_PATHS = [
+  ...walk('services/offers'),
+  ...walk('db/offers'),
+  ...OFFER_FLAT_MODULES,
+];
 
 /** Everything this gate scans: the shared ranking surface plus the offer read. */
 const SCANNED_PATHS = [...RANKING_SURFACE_PATHS, ...OFFER_SURFACE_PATHS];
@@ -120,8 +124,14 @@ describe('organic ranking cannot read analytics', () => {
     // collapse while the others carried the number.
     const fromOffers = (prefix: string) =>
       OFFER_SURFACE_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(fromOffers('services/offers/'), 'the offer service walk found nothing').toBeGreaterThanOrEqual(4);
-    expect(fromOffers('db/offers/'), 'the offer repository walk found nothing').toBeGreaterThanOrEqual(3);
+    expect(
+      fromOffers('services/offers/'),
+      'the offer service walk found nothing',
+    ).toBeGreaterThanOrEqual(4);
+    expect(
+      fromOffers('db/offers/'),
+      'the offer repository walk found nothing',
+    ).toBeGreaterThanOrEqual(3);
     // EXACT: a hand list with no count is a predicate, not an identity (#448).
     expect(OFFER_FLAT_MODULES.length).toBe(2);
 
@@ -416,18 +426,22 @@ describe('analytics cannot read commercial standing', () => {
     expect(modules).toContain('controllers/analytics-operator.controller.ts');
     expect(modules).toContain('routes/admin/analytics.ts');
     expect(modules).toContain('db/schema/analytics.ts');
-    assertEachOf([
-      'controllers/orders.controller.ts',
-      'routes/offers.ts',
-      'db/schema/orders.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(modules, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'controllers/orders.controller.ts',
+        'routes/offers.ts',
+        'db/schema/orders.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(modules, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
   });
 
   it('no analytics-named module anywhere in src/ sits outside the population', () => {
@@ -486,8 +500,9 @@ describe('analytics cannot read commercial standing', () => {
       'metrics.ts',
     ].map((file) => ({
       path: `services/digital/analytics/${file}`,
-      why: "#1015 W13's creator analytics — the digital domain, walled from ranking in "
-        + 'both directions by its own boundary gate.',
+      why:
+        "#1015 W13's creator analytics — the digital domain, walled from ranking in " +
+        'both directions by its own boundary gate.',
     }));
     const DIGITAL_CREATOR_ANALYTICS_COUNT = 5;
 
@@ -563,7 +578,10 @@ describe('analytics cannot read commercial standing', () => {
     const seededWith = (directory: string, added: string): string[] =>
       analyticsDomainModules((requested) =>
         requested === directory
-          ? [...readDirectory(requested), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(requested),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(requested),
       );
 
@@ -591,15 +609,16 @@ describe('analytics cannot read commercial standing', () => {
     // that happened to be added under one of those names would make them pass
     // while proving nothing.
     const real = analyticsDomainModules();
-    assertEachOf([
-      'controllers/analytics-demand.controller.ts',
-      'services/analytics/demand.service.ts',
-    ], 2, (seeded) => {
-      expect(
-        real,
-        `${seeded} exists on disk, so the seeded assertions above prove nothing — rename the seed`,
-      ).not.toContain(seeded);
-    });
+    assertEachOf(
+      ['controllers/analytics-demand.controller.ts', 'services/analytics/demand.service.ts'],
+      2,
+      (seeded) => {
+        expect(
+          real,
+          `${seeded} exists on disk, so the seeded assertions above prove nothing — rename the seed`,
+        ).not.toContain(seeded);
+      },
+    );
   });
 
   it('a violation planted in EVERY scanned directory is detected — one victim per directory', () => {
@@ -653,16 +672,20 @@ describe('analytics cannot read commercial standing', () => {
         `${victim} already fails the wall, so it cannot serve as a mutation control`,
       ).toBe(false);
       expect(modules, `${victim} is not in the scanned population`).toContain(victim);
-      assertEachOf([
-        "\nimport { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';\n",
-        "\nimport { readReferralProgram } from '../referrals/program.service.js';\n",
-      ], 2, (violation) => {
-        expect(
-          COMMERCIAL_REFERENCE.test(stripComments(raw + violation)),
-          `a violation planted in ${victim} is not detected, so ${parentOf(victim)} is scanned ` +
-            'by a detector that cannot see a violation in it',
-        ).toBe(true);
-      });
+      assertEachOf(
+        [
+          "\nimport { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';\n",
+          "\nimport { readReferralProgram } from '../referrals/program.service.js';\n",
+        ],
+        2,
+        (violation) => {
+          expect(
+            COMMERCIAL_REFERENCE.test(stripComments(raw + violation)),
+            `a violation planted in ${victim} is not detected, so ${parentOf(victim)} is scanned ` +
+              'by a detector that cannot see a violation in it',
+          ).toBe(true);
+        },
+      );
     }
   });
 
@@ -671,7 +694,9 @@ describe('analytics cannot read commercial standing', () => {
     // self-test in BOTH directions: a mention in prose is removed, and a
     // mention in CODE survives — including on a line that also carries a
     // trailing comment, which is the shape a real violation would hide behind.
-    expect(COMMERCIAL_REFERENCE.test(stripComments('/** the `fee_schedules` shape */'))).toBe(false);
+    expect(COMMERCIAL_REFERENCE.test(stripComments('/** the `fee_schedules` shape */'))).toBe(
+      false,
+    );
     expect(COMMERCIAL_REFERENCE.test(stripComments('// mirrors fee_schedules'))).toBe(false);
     expect(
       COMMERCIAL_REFERENCE.test(stripComments("const t = 'fee_schedules';")),
@@ -718,10 +743,7 @@ describe('analytics cannot read commercial standing', () => {
     // `payments`/`orders` and never from telemetry. Naming the exception here
     // is what keeps it a decision — a second module quietly reaching into the
     // payment domain would fail the scan above without this being stated.
-    const seam = readFileSync(
-      join(SRC_ROOT, 'services/analytics/verified-conversion.ts'),
-      'utf8',
-    );
+    const seam = readFileSync(join(SRC_ROOT, 'services/analytics/verified-conversion.ts'), 'utf8');
     expect(seam.length).toBeGreaterThan(200);
     expect(seam).toContain("from '../../db/schema/payments.js'");
     expect(seam).toContain("from '../../db/schema/orders.js'");

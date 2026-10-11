@@ -213,10 +213,7 @@ export async function runReconciliationJob(
     }
 
     if (outcome.discrepancies > 0) {
-      log.general.warn(
-        { job, ...outcome },
-        '[Reconciliation] a sweep page recorded discrepancies',
-      );
+      log.general.warn({ job, ...outcome }, '[Reconciliation] a sweep page recorded discrepancies');
     }
     return outcome;
   } catch (error: unknown) {
@@ -246,7 +243,11 @@ async function runOnePage(input: {
 
   if (job === 'open_payments') {
     const page = await reconcileOpenPaymentsPage({ cursor: cursor.cursor, limit, now });
-    return { scanned: page.scanned, discrepancies: page.discrepancies, nextCursor: page.nextCursor };
+    return {
+      scanned: page.scanned,
+      discrepancies: page.discrepancies,
+      nextCursor: page.nextCursor,
+    };
   }
 
   if (job === 'provider_objects') {
@@ -269,7 +270,11 @@ async function runOnePage(input: {
 
   if (job === 'ledger_audit') {
     const page = await auditLedgerPage({ cursor: cursor.cursor, limit, now });
-    return { scanned: page.scanned, discrepancies: page.discrepancies, nextCursor: page.nextCursor };
+    return {
+      scanned: page.scanned,
+      discrepancies: page.discrepancies,
+      nextCursor: page.nextCursor,
+    };
   }
 
   if (job === 'account_readiness') {

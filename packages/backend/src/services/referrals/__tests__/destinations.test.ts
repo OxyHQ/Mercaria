@@ -27,9 +27,7 @@ describe('validateReferralDestination', () => {
     expect(() =>
       validateReferralDestination({ destinationType: 'home', destinationRef: 'x' }),
     ).toThrow(/no reference/i);
-    expect(() => validateReferralDestination({ destinationType: 'listing' })).toThrow(
-      /plain id/i,
-    );
+    expect(() => validateReferralDestination({ destinationType: 'listing' })).toThrow(/plain id/i);
   });
 
   it('refuses everything URL- or path-shaped as a reference', () => {
@@ -55,12 +53,12 @@ describe('validateReferralDestination', () => {
 describe('referralDestinationPath', () => {
   it('maps each type to its internal relative route', () => {
     expect(referralDestinationPath({ destinationType: 'home' })).toBe('/');
-    expect(
-      referralDestinationPath({ destinationType: 'listing', destinationRef: 'l1' }),
-    ).toBe('/listings/l1');
-    expect(
-      referralDestinationPath({ destinationType: 'collection', destinationRef: 'c1' }),
-    ).toBe('/collections/c1');
+    expect(referralDestinationPath({ destinationType: 'listing', destinationRef: 'l1' })).toBe(
+      '/listings/l1',
+    );
+    expect(referralDestinationPath({ destinationType: 'collection', destinationRef: 'c1' })).toBe(
+      '/collections/c1',
+    );
     expect(referralDestinationPath({ destinationType: 'store', destinationRef: 's1' })).toBe(
       '/stores/s1',
     );

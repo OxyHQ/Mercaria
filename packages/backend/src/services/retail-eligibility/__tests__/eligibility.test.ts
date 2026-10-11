@@ -714,7 +714,9 @@ describe('the three-valued combination', () => {
     input.query.destinationCountry = 'US';
     const both = deriveRetailEligibility(input);
     expect(both.verdict).toBe('ineligible');
-    expect(both.reasons).toEqual(expect.arrayContaining(['compliance_evidence_missing', 'destination_not_permitted']));
+    expect(both.reasons).toEqual(
+      expect.arrayContaining(['compliance_evidence_missing', 'destination_not_permitted']),
+    );
   });
 
   it('reasons are sorted and deduped, so two derivations serialize identically', () => {

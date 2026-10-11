@@ -113,9 +113,7 @@ export interface TableSubjectInput {
  * insertion-ordered so two runs over the same catalogue produce byte-identical
  * tables — the same reason `ComparisonRecordIndex.all()` sorts.
  */
-export function buildComparisonTable(
-  subjects: readonly TableSubjectInput[],
-): ComparisonTable {
+export function buildComparisonTable(subjects: readonly TableSubjectInput[]): ComparisonTable {
   const subjectRefs = subjects.map((subject) => subject.subjectRef);
   const rows: ComparisonTableRow[] = [
     ...COMMERCE_ROWS.map((row) => buildCommerceRow(row.key, row.label, row.direction, subjects)),
@@ -484,15 +482,16 @@ function hasOrderablePair(row: ComparisonTableRow): boolean {
 }
 
 /** The records behind the named subjects' cells on one row, deduplicated. */
-function rowRecordRefs(
-  row: ComparisonTableRow,
-  subjectRefs: readonly string[],
-): readonly string[] {
+function rowRecordRefs(row: ComparisonTableRow, subjectRefs: readonly string[]): readonly string[] {
   const refs = new Set<string>();
   for (const subjectRef of subjectRefs) {
     const cell = row.cells[subjectRef];
     if (cell === undefined) continue;
-    if (cell.state === 'source_backed' || cell.state === 'inferred' || cell.state === 'conflicting') {
+    if (
+      cell.state === 'source_backed' ||
+      cell.state === 'inferred' ||
+      cell.state === 'conflicting'
+    ) {
       for (const ref of cell.recordRefs) refs.add(ref);
     }
   }

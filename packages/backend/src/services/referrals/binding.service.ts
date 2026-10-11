@@ -57,11 +57,7 @@ import { resolveProgramControls } from '../../db/referrals/programControlReposit
 import { findProgramVersionById } from '../../db/referrals/programRepository.js';
 import type { CommerceActor } from '../commerce-actor.js';
 import { attributeTouch } from './attribution.service.js';
-import {
-  registerCodeTouch,
-  registerLinkTouch,
-  type TouchActor,
-} from './touch.service.js';
+import { registerCodeTouch, registerLinkTouch, type TouchActor } from './touch.service.js';
 import { verifyReferralState, type ReferralStateClaims } from './referral-state.js';
 
 /**
@@ -337,7 +333,11 @@ export async function attributeRecordedTouch(
   const db = getDb();
   const version = await findProgramVersionById(db, programVersionId);
   if (!version) {
-    return { state: 'recorded_not_attributed', reason: 'program_unavailable', disclosureRequired: false };
+    return {
+      state: 'recorded_not_attributed',
+      reason: 'program_unavailable',
+      disclosureRequired: false,
+    };
   }
   const controls = await resolveProgramControls(db, version.programId);
   if (!controls.attributionEnabled) {

@@ -170,10 +170,9 @@ afterAll(async () => {
 
 describe('provision-taxonomy installs the taxonomy into an empty database', () => {
   it('exits 0', () => {
-    expect(
-      firstRun.code,
-      `the first run did not complete. Its output was:\n${firstRun.text}`,
-    ).toBe(0);
+    expect(firstRun.code, `the first run did not complete. Its output was:\n${firstRun.text}`).toBe(
+      0,
+    );
   });
 
   it('writes every category the taxonomy describes, and no others', () => {
@@ -229,7 +228,10 @@ describe('the import holding category is reachable by a write and never by a bro
     // `is_active`-blind on purpose. If this ever starts filtering, an imported
     // product has nowhere to be filed and the connector breaks.
     const resolved = await findCategoryBySlug(IMPORT_HOLDING_CATEGORY_SLUG, db);
-    expect(resolved, 'the catalogue write resolver could not see the holding category').not.toBeNull();
+    expect(
+      resolved,
+      'the catalogue write resolver could not see the holding category',
+    ).not.toBeNull();
   });
 
   it('is ABSENT from the shopper-visible tree, which the browse route serves', async () => {

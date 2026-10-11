@@ -147,9 +147,7 @@ export async function reconcileChannel(
  * offer with no storefront is not on a channel anybody operates, so it reads
  * `false`.
  */
-async function readExternalOffersForMerchant(
-  merchantId: string,
-): Promise<OverlapCandidateOffer[]> {
+async function readExternalOffersForMerchant(merchantId: string): Promise<OverlapCandidateOffer[]> {
   const rows = await getDb()
     .select({
       offerId: offers.id,

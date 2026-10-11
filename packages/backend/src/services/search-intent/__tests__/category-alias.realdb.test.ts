@@ -209,7 +209,10 @@ describe('one alias naming several categories is REFUSED, not picked', () => {
   }, 120_000);
 
   it('applies no category filter and reports the phrase as ambiguous', async () => {
-    const plan = await planShoppingIntent({ request: { query: `${shared} laptop`, locale: 'en-GB' } }, db);
+    const plan = await planShoppingIntent(
+      { request: { query: `${shared} laptop`, locale: 'en-GB' } },
+      db,
+    );
     expect(plan.status).toBe('planned');
     if (plan.status !== 'planned') return;
     expect(plan.result.interpretation.category).toBeUndefined();
@@ -218,7 +221,9 @@ describe('one alias naming several categories is REFUSED, not picked', () => {
     // RESOLVED category name and would be an empty list that
     // `selectClarifications` silently drops.
     expect(
-      plan.result.unresolved.filter((entry) => entry.kind === 'ambiguous_phrase').map((entry) => entry.phrase),
+      plan.result.unresolved
+        .filter((entry) => entry.kind === 'ambiguous_phrase')
+        .map((entry) => entry.phrase),
     ).toContain(shared);
   });
 

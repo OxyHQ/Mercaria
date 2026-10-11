@@ -120,10 +120,7 @@ export function resetMoovoClientMetrics(): void {
  * racers compose byte-identical keys — a value derived at call time would
  * differ between them and defeat the whole mechanism.
  */
-export function moovoIdempotencyKey(
-  operation: MoovoLogisticsOperation,
-  subject: string,
-): string {
+export function moovoIdempotencyKey(operation: MoovoLogisticsOperation, subject: string): string {
   return `mercaria:${operation}:${subject}`;
 }
 

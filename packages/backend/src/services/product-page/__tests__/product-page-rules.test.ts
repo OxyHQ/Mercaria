@@ -104,7 +104,7 @@ describe('the partition — one offer, one group (#71 offer groups)', () => {
     expect(groupForOffer(groupable('g', undefined))).toBe('condition_unknown');
   });
 
-  it('puts an official store\'s REFURBISHED offer under refurbished, badge intact', () => {
+  it("puts an official store's REFURBISHED offer under refurbished, badge intact", () => {
     // Apple's certified refurbished store is the real case. Condition is the
     // primary axis (#90 never blends segments); the badge travels on the row.
     expect(groupForOffer(groupable('h', 'refurbished', [OFFICIAL]))).toBe('refurbished');
@@ -145,9 +145,7 @@ describe('the partition — one offer, one group (#71 offer groups)', () => {
     for (const key of PRODUCT_PAGE_OFFER_GROUP_KEYS) {
       expect(typeof key).toBe('string');
     }
-    expect(new Set(PRODUCT_PAGE_OFFER_GROUP_KEYS).size).toBe(
-      PRODUCT_PAGE_OFFER_GROUP_KEYS.length,
-    );
+    expect(new Set(PRODUCT_PAGE_OFFER_GROUP_KEYS).size).toBe(PRODUCT_PAGE_OFFER_GROUP_KEYS.length);
   });
 });
 

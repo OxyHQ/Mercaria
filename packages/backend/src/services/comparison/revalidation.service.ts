@@ -61,9 +61,7 @@ export interface RevalidateInput {
  * and answering anything at all for that pair would be answering about a basket
  * nobody has.
  */
-export async function revalidateBasketPlan(
-  input: RevalidateInput,
-): Promise<BasketRevalidation> {
+export async function revalidateBasketPlan(input: RevalidateInput): Promise<BasketRevalidation> {
   const revalidatedAt = new Date().toISOString();
   const lines: BasketLineRevalidation[] = [];
   const reasons: BasketReasonCode[] = [];

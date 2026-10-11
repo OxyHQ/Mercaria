@@ -237,7 +237,9 @@ export function rateLimitedBody(_req: Request, res: Response): MercariaErrorBody
   return mercariaErrorBody(
     'rate_limited',
     'Too many requests, please try again later.',
-    Number.isSafeInteger(retryAfterSeconds) && retryAfterSeconds >= 0 ? { retryAfterSeconds } : undefined,
+    Number.isSafeInteger(retryAfterSeconds) && retryAfterSeconds >= 0
+      ? { retryAfterSeconds }
+      : undefined,
   );
 }
 
@@ -314,7 +316,8 @@ export function makeActorRateLimiter(
 
   return rateLimit({
     windowMs: options.windowMs ?? DEFAULT_WINDOW_MS,
-    limit: (req: Request) => (req.commerceActor?.kind === 'anonymous' ? anonymousMax : identifiedMax),
+    limit: (req: Request) =>
+      req.commerceActor?.kind === 'anonymous' ? anonymousMax : identifiedMax,
     keyGenerator: (req: Request) =>
       actorRateKey(req.commerceActor ?? { kind: 'anonymous' }, ipKeyGenerator(req.ip ?? 'unknown')),
     standardHeaders: 'draft-7',

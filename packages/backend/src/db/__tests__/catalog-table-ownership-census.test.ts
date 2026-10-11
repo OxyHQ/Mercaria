@@ -318,7 +318,7 @@ describe('docs/catalog-table-ownership.md names every table the catalogue epic a
     ).toEqual([]);
   });
 
-  it('BOUNDARY ANCHOR: the boundary migration is the epic\'s first, and no mapped table predates it', () => {
+  it("BOUNDARY ANCHOR: the boundary migration is the epic's first, and no mapped table predates it", () => {
     /**
      * Two assertions, and together they are what stops the boundary constant
      * from being raised to make a failure go away.
@@ -348,7 +348,9 @@ describe('docs/catalog-table-ownership.md names every table the catalogue epic a
     }
     const strandedBelow = [...documented]
       .filter((name) => barrelTables.has(name))
-      .filter((name) => (firstCreatedAt.get(name) ?? FIRST_EPIC_MIGRATION_IDX) < FIRST_EPIC_MIGRATION_IDX)
+      .filter(
+        (name) => (firstCreatedAt.get(name) ?? FIRST_EPIC_MIGRATION_IDX) < FIRST_EPIC_MIGRATION_IDX,
+      )
       .filter((name) => !(name in PRE_EPIC_SUBJECTS))
       .sort();
     expect(
@@ -399,7 +401,10 @@ describe('docs/catalog-table-ownership.md names every table the catalogue epic a
 
     // A floor, because a loop over two empty objects passes every assertion in
     // it. PRE_EPIC_SUBJECTS carries six today and NOT_IN_THE_MAP none.
-    expect(checked, 'no hand-written entry was checked; this test measured nothing').toBeGreaterThanOrEqual(6);
+    expect(
+      checked,
+      'no hand-written entry was checked; this test measured nothing',
+    ).toBeGreaterThanOrEqual(6);
   });
 
   it('MUTATION SELF-TEST: a dropped row is caught by name, and an undocumented table is not missed', () => {
@@ -411,15 +416,20 @@ describe('docs/catalog-table-ownership.md names every table the catalogue epic a
      * coverage assertion above just as happily today.
      */
     const victim = 'native_variant_signatures';
-    expect(documented.has(victim), 'the mutation victim is not in the doc to begin with').toBe(true);
+    expect(documented.has(victim), 'the mutation victim is not in the doc to begin with').toBe(
+      true,
+    );
     const mutilated = doc
       .split('\n')
-      .map((line) => (line.trimStart().startsWith('|') ? line.replaceAll(`\`${victim}\`, `, '') : line))
+      .map((line) =>
+        line.trimStart().startsWith('|') ? line.replaceAll(`\`${victim}\`, `, '') : line,
+      )
       .join('\n');
     const afterRemoval = documentedIdentifiers(mutilated);
-    expect(afterRemoval.has(victim), 'the mutation did not apply; the census below proves nothing').toBe(
-      false,
-    );
+    expect(
+      afterRemoval.has(victim),
+      'the mutation did not apply; the census below proves nothing',
+    ).toBe(false);
     expect(undocumented(population, afterRemoval)).toEqual([victim]);
 
     // And the inverse nobody writes: a table the map does not name must be

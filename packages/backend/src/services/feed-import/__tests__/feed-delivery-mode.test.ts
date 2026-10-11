@@ -66,9 +66,10 @@ describe('the rule is reachable only through this ONE function', () => {
     expect(adapter).toContain('feedCompletionVerdict(');
     // The mutation self-test's target: a `complete: true` written literally
     // anywhere in the adapter would bypass the verdict entirely.
-    expect(/complete:\s*true/u.test(adapter), 'the adapter hard-codes a completed enumeration').toBe(
-      false,
-    );
+    expect(
+      /complete:\s*true/u.test(adapter),
+      'the adapter hard-codes a completed enumeration',
+    ).toBe(false);
   });
 
   it('#63 adds no second retiring-outcome list — it feeds #62’s', () => {

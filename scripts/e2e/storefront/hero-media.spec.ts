@@ -3,11 +3,16 @@ import type { Feed, ProductSummary } from '../../../packages/shared-types/src';
 
 // Error-boundary regression: inject malformed metadata, never replace image
 // responses or pretend a supplier image has been synchronized to Oxy.
-test('hero withholds URL-valued file IDs and legacy supplier URLs while preserving product links', async ({ page, request }) => {
+test('hero withholds URL-valued file IDs and legacy supplier URLs while preserving product links', async ({
+  page,
+  request,
+}) => {
   const response = await request.get('http://localhost:4160/feed');
   expect(response.ok()).toBe(true);
   const body: { success: boolean; data: Feed } = await response.json();
-  const products: ProductSummary[] = body.data.sections.flatMap(section => section.kind === 'products' ? section.products : []);
+  const products: ProductSummary[] = body.data.sections.flatMap((section) =>
+    section.kind === 'products' ? section.products : [],
+  );
   expect(products.length).toBeGreaterThan(1);
   const supplierOrigin = 'https://legacy-supplier.example.test';
   const first = products[0];
@@ -30,16 +35,19 @@ test('hero withholds URL-valued file IDs and legacy supplier URLs while preservi
     }
   }
   let injected = false;
-  await page.route(/\/feed(?:\?.*)?$/, route => {
+  await page.route(/\/feed(?:\?.*)?$/, (route) => {
     injected = true;
     return route.fulfill({ json: body });
   });
   await page.addInitScript(() => {
     localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale: 'en' }, version: 0 }));
-    localStorage.setItem('mercaria.bloom.theme', JSON.stringify({ mode: 'light', colorPreset: 'mono' }));
+    localStorage.setItem(
+      'mercaria.bloom.theme',
+      JSON.stringify({ mode: 'light', colorPreset: 'mono' }),
+    );
   });
   const requests: string[] = [];
-  page.on('request', request => {
+  page.on('request', (request) => {
     if (request.url().startsWith(supplierOrigin)) requests.push(request.url());
   });
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -56,24 +64,32 @@ test('hero withholds URL-valued file IDs and legacy supplier URLs while preservi
   expect(requests).toEqual([]);
 });
 
-test('failed Oxy images keep product cards usable and retry a new source when the hero rotates', async ({ page, request }) => {
+test('failed Oxy images keep product cards usable and retry a new source when the hero rotates', async ({
+  page,
+  request,
+}) => {
   const response = await request.get('http://localhost:4160/feed');
   expect(response.ok()).toBe(true);
   const body: { success: boolean; data: Feed } = await response.json();
-  const products = [...new Map(body.data.sections.flatMap(section => section.kind === 'products' ? section.products : [])
-    .map(product => [product.id, product])).values()].slice(0, 8);
+  const products = [
+    ...new Map(
+      body.data.sections
+        .flatMap((section) => (section.kind === 'products' ? section.products : []))
+        .map((product) => [product.id, product]),
+    ).values(),
+  ].slice(0, 8);
   expect(products).toHaveLength(8);
   products.forEach((product, index) => {
     product.imageFileId = `unavailable-hero-media-test-${index}`;
     delete product.imageUrl;
   });
-  const shelf = body.data.sections.find(section => section.kind === 'products');
+  const shelf = body.data.sections.find((section) => section.kind === 'products');
   if (!shelf || shelf.kind !== 'products') throw new Error('The local feed needs a product shelf');
   body.data.sections = [{ ...shelf, products }];
-  await page.route(/\/feed(?:\?.*)?$/, route => route.fulfill({ json: body }));
+  await page.route(/\/feed(?:\?.*)?$/, (route) => route.fulfill({ json: body }));
   // Missing-file boundary only. No successful images or persisted pretend IDs.
   const imageRequests: string[] = [];
-  await page.route('https://cloud.oxy.so/unavailable-hero-media-test-*', route => {
+  await page.route('https://cloud.oxy.so/unavailable-hero-media-test-*', (route) => {
     imageRequests.push(route.request().url());
     return route.fulfill({ status: 404 });
   });
@@ -87,11 +103,15 @@ test('failed Oxy images keep product cards usable and retry a new source when th
   await expect(card.getByRole('link', { name: products[0].title, exact: true })).toBeVisible();
   await expect(card.getByText('No image', { exact: true })).toBeVisible();
   const mountedCard = await card.elementHandle();
-  await expect(card.getByRole('link', { name: products[4].title, exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(card.getByRole('link', { name: products[4].title, exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(card.getByText('No image', { exact: true })).toBeVisible();
-  expect(await mountedCard!.evaluate(node => node.isConnected)).toBe(true);
+  expect(await mountedCard!.evaluate((node) => node.isConnected)).toBe(true);
   // It was requested once for the shelf, and again for the new hero source.
-  expect(imageRequests.filter(url => url.endsWith('/unavailable-hero-media-test-4')).length).toBeGreaterThanOrEqual(2);
+  expect(
+    imageRequests.filter((url) => url.endsWith('/unavailable-hero-media-test-4')).length,
+  ).toBeGreaterThanOrEqual(2);
   const target = card.getByRole('link', { name: products[4].title, exact: true });
   const bounds = (await target.boundingBox())!;
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
@@ -99,7 +119,9 @@ test('failed Oxy images keep product cards usable and retry a new source when th
   await expect(page).toHaveURL(new RegExp(`/products/${products[4].id}$`));
 });
 
-test('keyboard focus keeps the selected hero product stable after the pointer leaves', async ({ page }) => {
+test('keyboard focus keeps the selected hero product stable after the pointer leaves', async ({
+  page,
+}) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
   const card = page.getByTestId('hero-card-0');

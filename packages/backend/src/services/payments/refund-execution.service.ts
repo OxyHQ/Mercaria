@@ -259,7 +259,11 @@ export async function executeRefundAtProvider(refundId: string): Promise<RefundE
     currency: sellerShare.currency,
   });
   if (!executed.refunded) {
-    return { refunded: false, reversal: 'not_required', ...(executed.note ? { note: executed.note } : {}) };
+    return {
+      refunded: false,
+      reversal: 'not_required',
+      ...(executed.note ? { note: executed.note } : {}),
+    };
   }
 
   const reversal = await recoverFromSeller({
@@ -318,16 +322,8 @@ async function sellerShareOfRefund(input: {
   // it: the aggregate is what makes a sequence of partial refunds add up.
   const cumulative = await sumRecoverableRefundedPresentment(order.id);
   const prior = cumulative - refund.totalRefundedPresentmentAmount;
-  const liabilityNow = sellerLiabilityAt(
-    share.netMinor,
-    cumulative,
-    order.presentmentTotalMinor,
-  );
-  const liabilityBefore = sellerLiabilityAt(
-    share.netMinor,
-    prior,
-    order.presentmentTotalMinor,
-  );
+  const liabilityNow = sellerLiabilityAt(share.netMinor, cumulative, order.presentmentTotalMinor);
+  const liabilityBefore = sellerLiabilityAt(share.netMinor, prior, order.presentmentTotalMinor);
 
   return {
     // Never negative: a refund can only ever increase what a seller has borne,
@@ -580,8 +576,7 @@ async function recoverFromSeller(input: {
     if (transfer) {
       await updateTransferFromProvider(tx, {
         transferId: transfer.id,
-        status:
-          reversal.totalReversedMinor >= transfer.amountAmount ? 'reversed' : transfer.status,
+        status: reversal.totalReversedMinor >= transfer.amountAmount ? 'reversed' : transfer.status,
         reversedAmount: reversal.totalReversedMinor,
       });
     }

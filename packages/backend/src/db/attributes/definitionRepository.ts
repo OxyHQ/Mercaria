@@ -169,7 +169,9 @@ export async function findActiveAttributeDefinition(
   const rows = await db
     .select()
     .from(attributeDefinitions)
-    .where(and(eq(attributeDefinitions.key, key), eq(attributeDefinitions.lifecycleState, 'active')))
+    .where(
+      and(eq(attributeDefinitions.key, key), eq(attributeDefinitions.lifecycleState, 'active')),
+    )
     .limit(1);
   return rows[0];
 }

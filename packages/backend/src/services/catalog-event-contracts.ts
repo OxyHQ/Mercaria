@@ -452,7 +452,7 @@ export const CATALOG_EVENT_CONTRACTS: Record<CatalogEventKind, CatalogEventContr
       backoff: 'not_applicable',
       deadLetter: false,
       note:
-        'A bump is an ON CONFLICT DO UPDATE in the writer\'s own transaction. It cannot be ' +
+        "A bump is an ON CONFLICT DO UPDATE in the writer's own transaction. It cannot be " +
         'half-applied and there is nothing to retry: if the write that caused it rolls back, so ' +
         'does the bump, which is the property a delivery queue would not have.',
     },
@@ -494,7 +494,10 @@ export type LocalizedTableTrailCoverage =
   | { readonly coverage: 'not_recorded'; readonly reason: string };
 
 export const LOCALIZED_TABLE_TRAIL_COVERAGE: Record<string, LocalizedTableTrailCoverage> = {
-  attribute_labels: { coverage: 'recorded', trigger: 'mercaria_attribute_labels_localization_revision' },
+  attribute_labels: {
+    coverage: 'recorded',
+    trigger: 'mercaria_attribute_labels_localization_revision',
+  },
   attribute_value_localizations: {
     coverage: 'recorded',
     trigger: 'mercaria_attribute_value_localization_revision',
@@ -507,8 +510,14 @@ export const LOCALIZED_TABLE_TRAIL_COVERAGE: Record<string, LocalizedTableTrailC
     coverage: 'recorded',
     trigger: 'mercaria_canonical_product_localization_revision',
   },
-  category_localizations: { coverage: 'recorded', trigger: 'mercaria_category_localization_revision' },
-  listing_localizations: { coverage: 'recorded', trigger: 'mercaria_listing_localization_revision' },
+  category_localizations: {
+    coverage: 'recorded',
+    trigger: 'mercaria_category_localization_revision',
+  },
+  listing_localizations: {
+    coverage: 'recorded',
+    trigger: 'mercaria_listing_localization_revision',
+  },
   product_type_field_localizations: {
     coverage: 'recorded',
     trigger: 'mercaria_product_type_field_localization_revision',
@@ -539,7 +548,7 @@ export const LOCALIZED_TABLE_TRAIL_COVERAGE: Record<string, LocalizedTableTrailC
     coverage: 'not_recorded',
     reason:
       'Navigation uses a FREEZE model where the rest of the family uses a revision trail: ' +
-      '`mercaria_navigation_published_labels_frozen` refuses any change to a published tree\'s ' +
+      "`mercaria_navigation_published_labels_frozen` refuses any change to a published tree's " +
       'labels outright (docs/navigation.md), so there is no post-publication edit for a trail to ' +
       'record. A new tree version is how a label changes, and the versions ARE the history. ' +
       'Coherent, and the reason "every localized text table records per-field history" is a ' +
@@ -584,7 +593,7 @@ export interface CacheInvalidationPremise {
 export const CACHE_INVALIDATION_PREMISES: readonly CacheInvalidationPremise[] = [
   {
     premise:
-      'A published attribute definition\'s localized LABEL cannot change. `attribute_labels` is ' +
+      "A published attribute definition's localized LABEL cannot change. `attribute_labels` is " +
       'read by the schema composition (db/catalogAuthoring/schemaSourceRepository.ts, keyed on ' +
       '(attributeDefinitionId, locale)) and its only writer is reached from ' +
       '`draftAttributeDefinition`, which mints a NEW definition row and writes labels onto that ' +
@@ -598,7 +607,7 @@ export const CACHE_INVALIDATION_PREMISES: readonly CacheInvalidationPremise[] = 
   },
   {
     premise:
-      'A controlled value\'s localized label has no runtime writer at all. ' +
+      "A controlled value's localized label has no runtime writer at all. " +
       '`attribute_value_localizations` has no repository function; the one production statement ' +
       'that writes it is in the vertical-package seed, which is insert-only and reports a ' +
       'divergent row rather than correcting it. The translation desk therefore cannot translate a ' +
@@ -729,7 +738,7 @@ export const CATALOG_PUBLICATION_INVALIDATION: Record<
     note:
       'A navigation tree is not an input to composeAuthoringSchema — no invalidationRefs subject ' +
       'names one, so there is no register row a bump could move. Navigation freshness is the ' +
-      'navigation domain\'s own question.',
+      "navigation domain's own question.",
   },
   navigation_archive: {
     bumps: null,

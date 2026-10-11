@@ -329,10 +329,14 @@ describe('the scan is not vacuous', () => {
 
     // …and the same, one level down, for the optional hyphen: the HYPHEN-ONLY
     // spelling cannot reach either camelCase half of this domain.
-    for (const camel of ['db/schema/shoppingAgents.ts', 'db/shoppingAgents/shoppingAgentRepository.ts']) {
-      expect(/shopping-agents?/i.test(camel), `${camel} is reached without the optional hyphen`).toBe(
-        false,
-      );
+    for (const camel of [
+      'db/schema/shoppingAgents.ts',
+      'db/shoppingAgents/shoppingAgentRepository.ts',
+    ]) {
+      expect(
+        /shopping-agents?/i.test(camel),
+        `${camel} is reached without the optional hyphen`,
+      ).toBe(false);
       expect(DOMAIN_NAME_PATTERN.test(camel)).toBe(true);
     }
   });
@@ -625,21 +629,23 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     expect(COMMERCE_ACTION_REFERENCE.test("import { getRates } from '../fx.service.js';")).toBe(
       false,
     );
-    expect(
-      COMMERCE_ACTION_SYMBOL.test("import { placeOrders } from '../checkout/x.js';"),
-    ).toBe(true);
+    expect(COMMERCE_ACTION_SYMBOL.test("import { placeOrders } from '../checkout/x.js';")).toBe(
+      true,
+    );
     expect(COMMERCE_ACTION_SYMBOL.test('const evaluated = true;')).toBe(false);
   });
 
   it('the commercial detector sees a fee import and not an innocent one', () => {
-    expect(COMMERCIAL_REFERENCE.test("import { planFee } from '../fees/fee-plan.service.js';")).toBe(
-      true,
-    );
+    expect(
+      COMMERCIAL_REFERENCE.test("import { planFee } from '../fees/fee-plan.service.js';"),
+    ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('select * from fee_schedules')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { x } from '../fees/y.js';")).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { solveBasketRequest } from '../comparison/basket.service.js';")).toBe(
-      false,
-    );
+    expect(
+      COMMERCIAL_REFERENCE.test(
+        "import { solveBasketRequest } from '../comparison/basket.service.js';",
+      ),
+    ).toBe(false);
   });
 
   it('the contact detector sees a real field and not an innocent one', () => {
@@ -659,9 +665,11 @@ describe('the detectors actually detect — the mutation self-tests', () => {
   });
 
   it('the evaluation detector sees a real evaluator and not an innocent one', () => {
-    expect(EVALUATION_REFERENCE.test("import { solveBasketRequest } from '../comparison/basket.service.js';")).toBe(
-      true,
-    );
+    expect(
+      EVALUATION_REFERENCE.test(
+        "import { solveBasketRequest } from '../comparison/basket.service.js';",
+      ),
+    ).toBe(true);
     expect(EVALUATION_REFERENCE.test('const evaluatedAt = new Date();')).toBe(false);
   });
 

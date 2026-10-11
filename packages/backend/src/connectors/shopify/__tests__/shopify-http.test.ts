@@ -15,7 +15,10 @@ const URL = 'https://acme.myshopify.com/admin/api/2024-10/products.json';
 const HEADERS = { 'X-Shopify-Access-Token': 'shpat_test', Accept: 'application/json' };
 
 /** A fake raw transport that returns queued responses per method and records call counts. */
-function queuedRaw(responses: ShopifyHttpResponse[]): { raw: ShopifyTransport; calls: () => number } {
+function queuedRaw(responses: ShopifyHttpResponse[]): {
+  raw: ShopifyTransport;
+  calls: () => number;
+} {
   let index = 0;
   let count = 0;
   const next = (): Promise<ShopifyHttpResponse> => {
@@ -34,7 +37,11 @@ function queuedRaw(responses: ShopifyHttpResponse[]): { raw: ShopifyTransport; c
 }
 
 /** A clock driven by the injected sleep (sleeping advances time), plus the recorded waits. */
-function fakeClock(): { now: () => number; sleep: (ms: number) => Promise<void>; sleeps: number[] } {
+function fakeClock(): {
+  now: () => number;
+  sleep: (ms: number) => Promise<void>;
+  sleeps: number[];
+} {
   let clock = 0;
   const sleeps: number[] = [];
   return {
@@ -48,7 +55,11 @@ function fakeClock(): { now: () => number; sleep: (ms: number) => Promise<void>;
   };
 }
 
-const ok = (headers: Record<string, string> = {}): ShopifyHttpResponse => ({ status: 200, headers, body: '{}' });
+const ok = (headers: Record<string, string> = {}): ShopifyHttpResponse => ({
+  status: 200,
+  headers,
+  body: '{}',
+});
 const rateLimited = (headers: Record<string, string> = {}): ShopifyHttpResponse => ({
   status: 429,
   headers,
@@ -71,7 +82,11 @@ describe('createShopifyTransport — 429 retry', () => {
   it('gives up after maxRetries and surfaces the final 429', async () => {
     const { raw, calls } = queuedRaw([rateLimited({ 'retry-after': '1' })]);
     const clock = fakeClock();
-    const transport = createShopifyTransport(raw, { sleep: clock.sleep, now: clock.now, maxRetries: 3 });
+    const transport = createShopifyTransport(raw, {
+      sleep: clock.sleep,
+      now: clock.now,
+      maxRetries: 3,
+    });
 
     const response = await transport.get(URL, HEADERS);
 

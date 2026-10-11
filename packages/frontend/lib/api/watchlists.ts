@@ -106,10 +106,7 @@ export async function renameWatchlist(
   return unwrap(data, 'Failed to update that watchlist').watchlist;
 }
 
-export async function deleteWatchlist(
-  watchlistId: string,
-  expectedVersion: number,
-): Promise<void> {
+export async function deleteWatchlist(watchlistId: string, expectedVersion: number): Promise<void> {
   const { data } = await apiClient.delete<ApiResponse<{ removed: boolean }>>(
     `/watchlists/${watchlistId}`,
     { data: { expectedVersion } },

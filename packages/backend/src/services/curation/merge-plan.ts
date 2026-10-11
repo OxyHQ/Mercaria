@@ -32,7 +32,11 @@
 
 import { getTableConfig, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { sqlColumnName } from '@oxy.so/db';
-import type { CatalogMergeConflictKind, CatalogMergePhase, MergeableEntityType } from '@mercaria/shared-types';
+import type {
+  CatalogMergeConflictKind,
+  CatalogMergePhase,
+  MergeableEntityType,
+} from '@mercaria/shared-types';
 import {
   bundleComponents,
   canonicalAttributeValues,
@@ -80,7 +84,11 @@ import { nativeListingLinks, offers } from '../../db/schema/offers.js';
 import { storeLinkageOfferOverlaps, storeLinkageRequests } from '../../db/schema/storeLinkage.js';
 import { channelOnboardingSessions } from '../../db/schema/channels.js';
 import { reviewAggregates, reviewEligibilities, reviews } from '../../db/schema/reviews.js';
-import { matchBlockedPairs, matchDecisionCandidates, matchDecisions } from '../../db/schema/matching.js';
+import {
+  matchBlockedPairs,
+  matchDecisionCandidates,
+  matchDecisions,
+} from '../../db/schema/matching.js';
 import { procurementOffers, suppliers } from '../../db/schema/procurement.js';
 import { digitalProcurementOffers } from '../../db/schema/digitalRetail.js';
 import { catalogMergeConflicts } from '../../db/schema/curation.js';
@@ -111,10 +119,7 @@ import {
   merchantDemandSnapshots,
 } from '../../db/schema/merchantDemand.js';
 import { sellerDraftMatchAssertions, sellerListingDrafts } from '../../db/schema/sellYours.js';
-import {
-  catalogSourceConfigs,
-  marketplaceSellerIdentities,
-} from '../../db/schema/ingestion.js';
+import { catalogSourceConfigs, marketplaceSellerIdentities } from '../../db/schema/ingestion.js';
 import { locationPublications } from '../../db/schema/pickup.js';
 import {
   shoppingAgentFindingLines,
@@ -296,7 +301,11 @@ function aliasTarget(column: AnyPgColumn, normalizedAlias: AnyPgColumn): RehomeT
 }
 
 /** The source-link shape every entity shares — one entry, seven times. */
-function sourceLinkTarget(column: AnyPgColumn, sourceRecordId: AnyPgColumn, status: AnyPgColumn): RehomeTarget {
+function sourceLinkTarget(
+  column: AnyPgColumn,
+  sourceRecordId: AnyPgColumn,
+  status: AnyPgColumn,
+): RehomeTarget {
   return {
     column,
     phase: 'source_links',
@@ -331,7 +340,10 @@ function flattenTarget(column: AnyPgColumn): RehomeTarget {
  * retargeted so a hop that pointed AT the loser now points at the winner —
  * which is the append-only record of the flattening above.
  */
-function redirectHistoryTargets(fromColumn: AnyPgColumn, toColumn: AnyPgColumn): readonly RehomeTarget[] {
+function redirectHistoryTargets(
+  fromColumn: AnyPgColumn,
+  toColumn: AnyPgColumn,
+): readonly RehomeTarget[] {
   return [
     {
       column: fromColumn,
@@ -359,7 +371,6 @@ function redirectHistoryTargets(fromColumn: AnyPgColumn, toColumn: AnyPgColumn):
     },
   ];
 }
-
 
 const COMPATIBILITY_RELATION_NOTE =
   "A compatibility claim's endpoint (#367 step 8, ADR 0007 D8). " +
@@ -397,9 +408,9 @@ const COMPATIBILITY_BOTH_ENDS_NOTE =
 const BUNDLE_COLLAPSE_NOTE =
   ' A merge can also make the two ends EQUAL -- a bundle containing the very variant it is ' +
   'being merged with -- which `bundle_components_self_check` refuses with 23514 (#405). ' +
-  'Deliberately NO `distinctFromColumn`: a guard would skip the row and leave the WINNER\'s ' +
+  "Deliberately NO `distinctFromColumn`: a guard would skip the row and leave the WINNER's " +
   'bundle listing a tombstone, silently. The conflict blocks instead, the operator removes the ' +
-  'component through the catalogue\'s own writer, and `resolveMergeConflict` refuses the ' +
+  "component through the catalogue's own writer, and `resolveMergeConflict` refuses the " +
   'decision until they have -- so by the time the phase runs there is nothing left to collide. ' +
   'If somebody re-adds it in that window the repoint raises 23514 and the phase blocks, which ' +
   'is the loud failure and the right one.';
@@ -449,11 +460,11 @@ const MATCH_HISTORY_NOTE =
 
 const CANONICAL_LOCALIZATION_NOTE =
   "#367 L2's localized presentation of this entity. It follows the winner, minus any locale the " +
-  'winner already has: the guard is exactly this table\'s own ' +
+  "winner already has: the guard is exactly this table's own " +
   '`_locale_key` unique, so a loser-side Spanish name whose twin already exists stays on the ' +
   'tombstone rather than aborting the phase — the `product_saves` and `canonical_images` shape. ' +
   'What it deliberately does NOT do is mark the carried rows `stale`. That is a real and stated ' +
-  'cost: a merged product\'s Spanish name may now describe the loser, and no automatic rule can ' +
+  "cost: a merged product's Spanish name may now describe the loser, and no automatic rule can " +
   'tell whether it still describes the winner. Marking every carried row stale would flood a ' +
   'translation desk after any merge and train it to clear the flag without reading; leaving them ' +
   'settled means a wrong name can survive a merge. The desk surfaces the merge through ' +
@@ -503,19 +514,19 @@ const SELL_YOURS_ASSERTION_NOTE =
   '`catalog_merge_conflicts` above: an assertion is the history of a statement a person made ' +
   'about a specific row at a specific time, and rewriting it to be about the surviving row ' +
   'would make the one question this table exists to answer — why is this listing attached to ' +
-  'that product — unanswerable afterwards. The DRAFT is repointed, so the seller\'s live ' +
+  "that product — unanswerable afterwards. The DRAFT is repointed, so the seller's live " +
   'intent follows the merge while the trail of how it got there does not move.';
 
 const PRICE_SERIES_NOTE =
   "#78's derived price series — the `review_aggregates` and `product_save_aggregates` " +
-  'disposition, for their reason plus one of its own. It is a PROJECTION: the loser\'s row ' +
-  'answers a question about the loser and stays with it, and the winner\'s is REBUILT rather ' +
+  "disposition, for their reason plus one of its own. It is a PROJECTION: the loser's row " +
+  "answers a question about the loser and stays with it, and the winner's is REBUILT rather " +
   'than merged, because two series cannot be concatenated — each of their points names the ' +
   'ONE cheapest eligible observation in its bucket, and the cheapest across both is neither ' +
   'list. The rebuild needs no rehoming at all: an observation carries no canonical id, the ' +
   'offers it belongs to have already been repointed by the `offers` phase, and re-running the ' +
-  'derivation therefore picks up the loser\'s whole history under the winner. A rebuild of the ' +
-  'tombstone\'s own series yields zero points for the same reason, so it self-clears rather ' +
+  "derivation therefore picks up the loser's whole history under the winner. A rebuild of the " +
+  "tombstone's own series yields zero points for the same reason, so it self-clears rather " +
   'than sitting as a stale answer forever. `rebuildEntityAggregates` requests both.';
 
 const PRODUCT_SAVE_AGGREGATE_NOTE =
@@ -640,7 +651,11 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
   brand: [
     flattenTarget(brands.mergedIntoId),
     aliasTarget(brandAliases.brandId, brandAliases.normalizedAlias),
-    sourceLinkTarget(brandSourceLinks.brandId, brandSourceLinks.sourceRecordId, brandSourceLinks.status),
+    sourceLinkTarget(
+      brandSourceLinks.brandId,
+      brandSourceLinks.sourceRecordId,
+      brandSourceLinks.status,
+    ),
     {
       column: canonicalProductFamilies.brandId,
       phase: 'children',
@@ -854,9 +869,13 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       column: reviewEligibilities.merchantId,
       phase: 'reviews',
       disposition: 'repoint_if_absent',
-      uniqueWith: [reviewEligibilities.orderItemId, reviewEligibilities.oxyUserId, reviewEligibilities.scope],
+      uniqueWith: [
+        reviewEligibilities.orderItemId,
+        reviewEligibilities.oxyUserId,
+        reviewEligibilities.scope,
+      ],
       note:
-        "The right to review, evidenced by an order line. `UNIQUE(order_item_id, oxy_user_id, " +
+        'The right to review, evidenced by an order line. `UNIQUE(order_item_id, oxy_user_id, ' +
         'scope)` already holds, so a grant the winner carries for the same line stays behind — ' +
         'the buyer keeps exactly one right to review, which is the point of that unique.',
     },
@@ -866,7 +885,7 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'retained_by_tombstone',
       note:
         "#76 makes the aggregate a PROJECTION of the reviews. The loser's row describes what " +
-        'the loser scored and stays with it; the winner\'s is REBUILT from the rehomed reviews ' +
+        "the loser scored and stays with it; the winner's is REBUILT from the rehomed reviews " +
         'in `rollups`, never incremented (#59 merge invariant 6).',
     },
     {
@@ -1006,7 +1025,10 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       note: COMPATIBILITY_RELATION_NOTE,
     },
     flattenTarget(canonicalProductFamilies.mergedIntoId),
-    aliasTarget(canonicalProductFamilyAliases.familyId, canonicalProductFamilyAliases.normalizedAlias),
+    aliasTarget(
+      canonicalProductFamilyAliases.familyId,
+      canonicalProductFamilyAliases.normalizedAlias,
+    ),
     sourceLinkTarget(
       canonicalProductFamilySourceLinks.familyId,
       canonicalProductFamilySourceLinks.sourceRecordId,
@@ -1020,7 +1042,7 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       column: canonicalProducts.familyId,
       phase: 'children',
       disposition: 'repoint',
-      note: 'The line\'s products follow the surviving line. Nothing is unique on (family, product).',
+      note: "The line's products follow the surviving line. Nothing is unique on (family, product).",
     },
     {
       column: canonicalFieldProvenance.familyId,
@@ -1242,7 +1264,11 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       column: reviewEligibilities.canonicalProductId,
       phase: 'reviews',
       disposition: 'repoint_if_absent',
-      uniqueWith: [reviewEligibilities.orderItemId, reviewEligibilities.oxyUserId, reviewEligibilities.scope],
+      uniqueWith: [
+        reviewEligibilities.orderItemId,
+        reviewEligibilities.oxyUserId,
+        reviewEligibilities.scope,
+      ],
       note: 'See the merchant entry — one right to review per order line, per person, per scope.',
     },
     {
@@ -1264,7 +1290,7 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       uniqueWith: [matchDecisionCandidates.decisionId],
       note:
         'A candidate the pipeline considered. `(decision_id, rank)` is unique and the winner may ' +
-        'already be a candidate of the same decision, in which case the loser\'s row stays as ' +
+        "already be a candidate of the same decision, in which case the loser's row stays as " +
         'the record that both were weighed.',
     },
     {
@@ -1357,11 +1383,11 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'retained_by_tombstone',
       note:
         "#79's evaluation QUEUE is one row per subject, and this one is a standing request to " +
-        'look at the LOSER. Repointing it would collide with the winner\'s own row (a unique ' +
+        "look at the LOSER. Repointing it would collide with the winner's own row (a unique " +
         'spans the column) and would say nothing the winner does not already have; leaving it ' +
         'costs one claim that evaluates zero alerts — the loser has none after this phase — and ' +
         'then reads `done` forever. What the WINNER needs is a fresh request, and the phase ' +
-        'runner enqueues one after the move rather than trying to carry the loser\'s across.',
+        "runner enqueues one after the move rather than trying to carry the loser's across.",
     },
     {
       column: watchlistItems.canonicalProductId,
@@ -1568,7 +1594,8 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       uniqueWith: [bundleComponents.componentVariantId],
       note:
         'What this bundle contains. `(bundle, component)` is unique, so a component the winner ' +
-        'already lists stays behind rather than duplicating the bundle.' + BUNDLE_COLLAPSE_NOTE,
+        'already lists stays behind rather than duplicating the bundle.' +
+        BUNDLE_COLLAPSE_NOTE,
     },
     {
       column: bundleComponents.componentVariantId,
@@ -1578,7 +1605,8 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       uniqueWith: [bundleComponents.bundleVariantId],
       note:
         'Which bundles contain this variant — the other side of the same unique, and it must ' +
-        'move too or a bundle would claim to contain a tombstone.' + BUNDLE_COLLAPSE_NOTE,
+        'move too or a bundle would claim to contain a tombstone.' +
+        BUNDLE_COLLAPSE_NOTE,
     },
     {
       column: offers.canonicalVariantId,
@@ -1715,7 +1743,7 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       disposition: 'untouched',
       note:
         'A conflict row is the RECORD of a collision between two specific rows, including this ' +
-        'merge\'s own. Repointing it would rewrite the history of a decision an operator made, ' +
+        "merge's own. Repointing it would rewrite the history of a decision an operator made, " +
         'which is exactly what `catalog_revisions` and this table exist to prevent.',
     },
     {
@@ -1984,7 +2012,7 @@ const OWNER_STORE_OR_OXY_ACCOUNT =
 /** A stable identity shared by that table's own version rows. */
 const STABLE_IDENTITY_SAME_TABLE =
   'A stable identity naming a set of rows in THIS table rather than a row in another one — ' +
-  "the `referral_programs.program_id` / `referral_reward_rules.rule_id` shape, whose parent " +
+  'the `referral_programs.program_id` / `referral_reward_rules.rule_id` shape, whose parent ' +
   'entity deliberately does not exist. Nothing outside the table is referenced, so nothing ' +
   'can be rehomed.';
 
@@ -2045,7 +2073,17 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
   {
     table: 'analytics_events',
     disposition: 'covered_by_bare_entity_census',
-    idColumns: ['canonical_product_id', 'canonical_variant_id', 'listing_id', 'merchant_id', 'offer_id', 'order_id', 'product_variant_id', 'store_id', 'storefront_id'],
+    idColumns: [
+      'canonical_product_id',
+      'canonical_variant_id',
+      'listing_id',
+      'merchant_id',
+      'offer_id',
+      'order_id',
+      'product_variant_id',
+      'store_id',
+      'storefront_id',
+    ],
     reason: BARE_CENSUS_OWNS_IT,
   },
   {
@@ -2156,7 +2194,7 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason:
       'A real bare reference (`entity_type` + `entity_id`), and #694 settled why it stays here. ' +
       'A merge cannot reach one: `requestMerge` REFUSES a suppressed loser or winner outright, ' +
-      'because `suppressEntity` also stamps the entity `status = \'suppressed\'` and every ' +
+      "because `suppressEntity` also stamps the entity `status = 'suppressed'` and every " +
       'catalogue read filters `active` — so merging would LIFT the suppression (loser) or EXTEND ' +
       'it to unexamined content (winner), and both are operator acts. Repointing was rejected: ' +
       'the row on an `active` winner is the record correct, the enforcement missing, and now ' +
@@ -2248,7 +2286,8 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
   {
     table: 'catalog_source_rejections',
     disposition: 'not_an_entity_reference',
-    reason: 'The residual of an ingestion pass. `external_type`/`external_id` are the SOURCE’s, as above.',
+    reason:
+      'The residual of an ingestion pass. `external_type`/`external_id` are the SOURCE’s, as above.',
   },
   {
     table: 'catalog_split_assignments',
@@ -2270,7 +2309,8 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
   {
     table: 'compatibility_claims',
     disposition: 'not_an_entity_reference',
-    reason: '`asserted_by_kind` is an actor role, as in `automotive_fitments`; the subject columns are FK.',
+    reason:
+      '`asserted_by_kind` is an actor role, as in `automotive_fitments`; the subject columns are FK.',
   },
   {
     table: 'discovery_signals',
@@ -2312,7 +2352,8 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
   {
     table: 'feed_configurations',
     disposition: 'not_an_entity_reference',
-    reason: '`owner_kind` is `merchant | operator` — who owns the feed, an actor role rather than a `merchants.id`.',
+    reason:
+      '`owner_kind` is `merchant | operator` — who owns the feed, an actor role rather than a `merchants.id`.',
   },
   {
     table: 'feed_field_mappings',
@@ -2529,7 +2570,8 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
   {
     table: 'price_signal_evaluations',
     disposition: 'discriminates_foreign_keys',
-    reason: '`scope_kind` selects between the FK’d product and variant columns; `subject_key` is GENERATED from them.',
+    reason:
+      '`scope_kind` selects between the FK’d product and variant columns; `subject_key` is GENERATED from them.',
   },
   {
     table: 'price_signal_feedback',
@@ -3068,9 +3110,21 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
     targetEntities: ['storefront'],
     reason: TELEMETRY_UNTOUCHED,
   },
-  { column: 'analytics_events.listing_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'analytics_events.offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'analytics_events.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'analytics_events.listing_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'analytics_events.offer_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'analytics_events.order_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
   {
     column: 'analytics_events.product_variant_id',
     disposition: 'not_a_mergeable_entity',
@@ -3078,15 +3132,27 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
       'A NATIVE `product_variants` row — a seller’s own listing variant, not a `canonical_variant`. ' +
       'The two are one word apart and only one of them merges, which is why this entry exists.',
   },
-  { column: 'analytics_events.store_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'analytics_events.store_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
   {
     column: 'analytics_rollups.merchant_id',
     disposition: 'untouched',
     targetEntities: ['merchant'],
     reason: TELEMETRY_UNTOUCHED,
   },
-  { column: 'analytics_rollups.store_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'analytics_search_queries.category_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'analytics_rollups.store_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'analytics_search_queries.category_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
 
   // ── Authoring drafts (#367 / ADR 0007 D10) ────────────────────────────────
   {
@@ -3115,30 +3181,118 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
   },
 
   // ── Curation’s own trail (#59 / #654) ─────────────────────────────────────
-  { column: 'catalog_entity_suppressions.entity_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
-  { column: 'catalog_merge_jobs.loser_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
-  { column: 'catalog_merge_jobs.winner_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
-  { column: 'catalog_review_items.counterpart_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
-  { column: 'catalog_review_items.subject_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
-  { column: 'catalog_revisions.entity_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
-  { column: 'catalog_split_jobs.source_entity_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
-  { column: 'catalog_split_jobs.target_entity_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+  {
+    column: 'catalog_entity_suppressions.entity_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
+  {
+    column: 'catalog_merge_jobs.loser_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
+  {
+    column: 'catalog_merge_jobs.winner_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
+  {
+    column: 'catalog_review_items.counterpart_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
+  {
+    column: 'catalog_review_items.subject_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
+  {
+    column: 'catalog_revisions.entity_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
+  {
+    column: 'catalog_split_jobs.source_entity_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
+  {
+    column: 'catalog_split_jobs.target_entity_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
 
   // ── Commerce snapshots ────────────────────────────────────────────────────
-  { column: 'cancellation_request_lines.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'cart_merges.guest_session_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'cart_merges.target_cart_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'draft_order_applied_discounts.discount_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'draft_order_line_items.listing_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'draft_order_line_items.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'order_applied_discounts.discount_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'order_items.listing_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'order_items.location_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'order_items.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'order_status_history.actor_guest_session_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'refund_line_items.location_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'refund_line_items.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'return_request_lines.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'cancellation_request_lines.variant_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'cart_merges.guest_session_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'cart_merges.target_cart_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'draft_order_applied_discounts.discount_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'draft_order_line_items.listing_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'draft_order_line_items.variant_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'order_applied_discounts.discount_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'order_items.listing_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'order_items.location_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'order_items.variant_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'order_status_history.actor_guest_session_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'refund_line_items.location_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'refund_line_items.variant_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'return_request_lines.variant_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
 
   // ── Procurement and retail snapshots (#118 / #122 / #123 / #124) ──────────
   {
@@ -3153,23 +3307,51 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
     targetEntities: ['canonical_variant'],
     reason: SNAPSHOT_UNTOUCHED,
   },
-  { column: 'purchase_order_lines.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'purchase_orders.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'purchase_order_lines.procurement_offer_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'purchase_orders.order_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
   // #1016's digital procurement and fulfilment. The same two answers as #118's
   // physical side, for the same reasons: an order correlation names something a
   // merge cannot act on, and a snapshot of what was bought must not be rewritten
   // to name a product the buyer never saw.
-  { column: 'digital_purchase_orders.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'digital_purchase_orders.order_item_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'digital_purchase_orders.digital_procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'digital_purchase_orders.order_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'digital_purchase_orders.order_item_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'digital_purchase_orders.digital_procurement_offer_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
   {
     column: 'digital_purchase_orders.canonical_variant_id',
     disposition: 'untouched',
     targetEntities: ['canonical_variant'],
     reason: SNAPSHOT_UNTOUCHED,
   },
-  { column: 'digital_fulfilments.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'digital_fulfilments.order_item_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'digital_fulfilments.order_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'digital_fulfilments.order_item_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
   {
     column: 'digital_fulfilments.canonical_variant_id',
     disposition: 'untouched',
@@ -3188,14 +3370,22 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
     targetEntities: ['canonical_variant'],
     reason: SNAPSHOT_UNTOUCHED,
   },
-  { column: 'retail_cost_quotes.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'retail_cost_quotes.procurement_offer_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
   {
     column: 'retail_eligibility_decisions.canonical_variant_id',
     disposition: 'untouched',
     targetEntities: ['canonical_variant'],
     reason: SNAPSHOT_UNTOUCHED,
   },
-  { column: 'retail_eligibility_decisions.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'retail_eligibility_decisions.procurement_offer_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
   {
     column: 'retail_eligibility_audits.subject_id',
     disposition: 'not_a_mergeable_entity',
@@ -3216,7 +3406,11 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
     targetEntities: ['canonical_variant'],
     reason: SNAPSHOT_UNTOUCHED,
   },
-  { column: 'retail_reconciliation_operator_actions.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'retail_reconciliation_operator_actions.order_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
   {
     column: 'supplier_quotes.canonical_product_id',
     disposition: 'untouched',
@@ -3229,11 +3423,31 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
     targetEntities: ['canonical_variant'],
     reason: SNAPSHOT_UNTOUCHED,
   },
-  { column: 'supplier_quotes.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'supplier_quotes.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'supplier_reservations.consumed_order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'supplier_reservations.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
-  { column: 'supplier_sourcing_attempts.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'supplier_quotes.order_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'supplier_quotes.procurement_offer_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'supplier_reservations.consumed_order_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'supplier_reservations.procurement_offer_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
+  {
+    column: 'supplier_sourcing_attempts.procurement_offer_id',
+    disposition: 'not_a_mergeable_entity',
+    reason: TARGET_NOT_MERGEABLE,
+  },
 
   // ── Doors 2 to 5: declared here, reachable by NO derivation ───────────────
   // Every entry below is outside `MERCARIA_ROW_ID_REASONS`, so the add-direction
@@ -3275,7 +3489,8 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
     column: 'affiliate_outbound_clicks.storefront_id',
     disposition: 'untouched',
     targetEntities: ['storefront'],
-    reason: 'Door 5. The channel the offer sat on at that instant, beside `merchant_id` and for its reason.',
+    reason:
+      'Door 5. The channel the offer sat on at that instant, beside `merchant_id` and for its reason.',
   },
   {
     column: 'merchant_acquisition_audits.merchant_id',

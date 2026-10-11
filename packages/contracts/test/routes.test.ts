@@ -44,7 +44,9 @@ describe('request errors: shape is bad_request, value is validation_failed', () 
 
   it('a missing required parameter is bad_request; a blank one is validation_failed', () => {
     expect(refusal(MercariaStoreLookupQuerySchema, {}).code).toBe('bad_request');
-    expect(refusal(MercariaStoreLookupQuerySchema, { handle: '  ' }).code).toBe('validation_failed');
+    expect(refusal(MercariaStoreLookupQuerySchema, { handle: '  ' }).code).toBe(
+      'validation_failed',
+    );
   });
 
   it('a cross-field rule and an unknown enum value are validation_failed', () => {
@@ -52,7 +54,9 @@ describe('request errors: shape is bad_request, value is validation_failed', () 
       code: 'validation_failed',
       details: { field: 'sort' },
     });
-    expect(refusal(MercariaProductSearchQuerySchema, { sort: 'cheapest' }).code).toBe('validation_failed');
+    expect(refusal(MercariaProductSearchQuerySchema, { sort: 'cheapest' }).code).toBe(
+      'validation_failed',
+    );
   });
 
   it('shape wins over value when a request has both', () => {
@@ -60,7 +64,9 @@ describe('request errors: shape is bad_request, value is validation_failed', () 
   });
 
   it('parses exact spellings into typed values', () => {
-    expect(MercariaProductSearchQuerySchema.parse({ limit: '050', inStock: 'false', q: ' x ' })).toEqual({
+    expect(
+      MercariaProductSearchQuerySchema.parse({ limit: '050', inStock: 'false', q: ' x ' }),
+    ).toEqual({
       limit: 50,
       inStock: false,
       q: 'x',
@@ -86,13 +92,17 @@ describe('the route registry', () => {
 
   it('answers every 200 with a named schema', () => {
     for (const route of MERCARIA_PUBLIC_ROUTES) {
-      expect(CONTRACT_JSON_SCHEMA_NAMES as readonly string[], route.operationId).toContain(route.response);
+      expect(CONTRACT_JSON_SCHEMA_NAMES as readonly string[], route.operationId).toContain(
+        route.response,
+      );
     }
   });
 
   it('gives every list route its own cursor kind, and every kind a route', () => {
     const lists = MERCARIA_PUBLIC_ROUTES.filter((route) => route.cursorKind !== null);
-    expect(lists.map((route) => route.cursorKind).sort()).toEqual([...MERCARIA_PUBLIC_CURSOR_KINDS].sort());
+    expect(lists.map((route) => route.cursorKind).sort()).toEqual(
+      [...MERCARIA_PUBLIC_CURSOR_KINDS].sort(),
+    );
     for (const route of lists) expect(route.response, route.operationId).toMatch(/Page$/);
   });
 
@@ -103,7 +113,9 @@ describe('the route registry', () => {
 
   it('lets a GoWay consumer ask for a place’s locations, and only by place', () => {
     const route = MERCARIA_PUBLIC_ROUTES.find((entry) => entry.operationId === 'listLocations');
-    expect(route?.query.safeParse({ goWayPlaceId: ' plc_1 ' }).data).toEqual({ goWayPlaceId: 'plc_1' });
+    expect(route?.query.safeParse({ goWayPlaceId: ' plc_1 ' }).data).toEqual({
+      goWayPlaceId: 'plc_1',
+    });
     expect(refusal(route!.query, {}).code).toBe('bad_request');
     expect(refusal(route!.query, { goWayPlaceId: 'x'.repeat(129) })).toMatchObject({
       code: 'validation_failed',
@@ -112,7 +124,9 @@ describe('the route registry', () => {
   });
 
   it('answers service_unavailable — never only gone — on every read that asks GoWay', () => {
-    for (const route of MERCARIA_PUBLIC_ROUTES.filter((entry) => entry.tag === 'locations' || entry.path.endsWith('/locations'))) {
+    for (const route of MERCARIA_PUBLIC_ROUTES.filter(
+      (entry) => entry.tag === 'locations' || entry.path.endsWith('/locations'),
+    )) {
       expect(route.errors as readonly string[], route.operationId).toContain('service_unavailable');
     }
   });

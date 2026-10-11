@@ -37,7 +37,11 @@ import { resolveFacets } from '../../../services/facets/facet.service.js';
 import { runCanonicalSearch } from '../../../services/search/canonical-search.service.js';
 import { readCanonicalProductPage } from '../../../services/product-page/product-page.service.js';
 import { assessVariantAxis } from '../../../services/product-types/variant-axis.js';
-import { createDraft, patchDraft, validateStoreDraft } from '../../../services/catalog-authoring/draft.service.js';
+import {
+  createDraft,
+  patchDraft,
+  validateStoreDraft,
+} from '../../../services/catalog-authoring/draft.service.js';
 import { publishDraft } from '../../../services/catalog-authoring/publish.service.js';
 import { createCanonicalProduct } from '../../../services/canonical/canonical-product.service.js';
 import { submitProposal } from '../../../services/catalog-proposals/proposal.service.js';
@@ -212,11 +216,14 @@ describe('the axis / typed-fact line', () => {
     `);
     const all = [...rows];
     expect(all).toHaveLength(13);
-    expect(all.filter((row) => row.variant_defining).map((row) => row.key).sort()).toEqual([
-      nsKey(ns, 'device_region'),
-      nsKey(ns, 'phone_color'),
-      nsKey(ns, 'storage_capacity'),
-    ].sort());
+    expect(
+      all
+        .filter((row) => row.variant_defining)
+        .map((row) => row.key)
+        .sort(),
+    ).toEqual(
+      [nsKey(ns, 'device_region'), nsKey(ns, 'phone_color'), nsKey(ns, 'storage_capacity')].sort(),
+    );
     expect(all.filter((row) => !row.variant_defining)).toHaveLength(10);
   });
 
@@ -233,9 +240,9 @@ describe('the axis / typed-fact line', () => {
 
   it('refuses a compatibility target as an axis whatever its scope (pure)', () => {
     for (const key of ['vehicle_make', 'year_range', 'fitment', 'compatible_with']) {
-      expect(assessVariantAxis({ scope: 'variant', attributeKey: key, variantCapable: true })).toEqual(
-        { outcome: 'refused', refusal: 'attribute_may_not_be_an_axis', attributeKey: key },
-      );
+      expect(
+        assessVariantAxis({ scope: 'variant', attributeKey: key, variantCapable: true }),
+      ).toEqual({ outcome: 'refused', refusal: 'attribute_may_not_be_an_axis', attributeKey: key });
     }
   });
 
@@ -337,7 +344,11 @@ describe('the axis / typed-fact line', () => {
 
 describe('a measurement axis collapses two spellings of one capacity', () => {
   it('gives `256 GB` and `256GB` the same stored axis value on two products', async () => {
-    const rows = await db.execute<{ slug: string; display_value: string; normalized_value: string }>(
+    const rows = await db.execute<{
+      slug: string;
+      display_value: string;
+      normalized_value: string;
+    }>(
       sql`
         select distinct p.slug, a.display_value, a.normalized_value
         from canonical_variant_attributes a
@@ -354,8 +365,11 @@ describe('a measurement axis collapses two spellings of one capacity', () => {
     expect(spellings).toContain('256 GB');
     expect(spellings).toContain('256GB');
 
-    const normalizedFor = (display: string): string[] =>
-      [...new Set(all.filter((row) => row.display_value === display).map((row) => row.normalized_value))];
+    const normalizedFor = (display: string): string[] => [
+      ...new Set(
+        all.filter((row) => row.display_value === display).map((row) => row.normalized_value),
+      ),
+    ];
     expect(normalizedFor('256 GB')).toEqual(normalizedFor('256GB'));
     expect(normalizedFor('256 GB')).toHaveLength(1);
     // Stored in the family's BASE unit, so it is comparable and sortable rather
@@ -386,7 +400,10 @@ describe('selecting an existing canonical product and publishing by DIRECT LINK'
       where v.product_id = ${productId}
     `);
     const canonicalVariantId = [...variantRows][0]?.id;
-    expect(canonicalVariantId, 'the 256 GB / black / EU configuration did not resolve').toBeDefined();
+    expect(
+      canonicalVariantId,
+      'the 256 GB / black / EU configuration did not resolve',
+    ).toBeDefined();
     if (canonicalVariantId === undefined) return;
 
     const draft = await createDraft(db, {
@@ -412,7 +429,10 @@ describe('selecting an existing canonical product and publishing by DIRECT LINK'
       // The product half of the direct link.
       selectedCanonicalProductId: productId,
       fields: [
-        { attributeKey: nsKey(ns, 'chipset'), values: [{ enumValueId: await enumValueId('chipset', 'snapdragon_8_gen_4') }] },
+        {
+          attributeKey: nsKey(ns, 'chipset'),
+          values: [{ enumValueId: await enumValueId('chipset', 'snapdragon_8_gen_4') }],
+        },
         { attributeKey: nsKey(ns, 'screen_size'), values: [{ number: 6.7, unit: 'in' }] },
       ],
       variants: [
@@ -425,8 +445,14 @@ describe('selecting an existing canonical product and publishing by DIRECT LINK'
           selectedCanonicalVariantId: canonicalVariantId,
           axes: [
             { attributeKey: nsKey(ns, 'storage_capacity'), values: [{ number: 256, unit: 'GB' }] },
-            { attributeKey: nsKey(ns, 'phone_color'), values: [{ enumValueId: await enumValueId('phone_color', 'black') }] },
-            { attributeKey: nsKey(ns, 'device_region'), values: [{ enumValueId: await enumValueId('device_region', 'eu') }] },
+            {
+              attributeKey: nsKey(ns, 'phone_color'),
+              values: [{ enumValueId: await enumValueId('phone_color', 'black') }],
+            },
+            {
+              attributeKey: nsKey(ns, 'device_region'),
+              values: [{ enumValueId: await enumValueId('device_region', 'eu') }],
+            },
           ],
         },
       ],
@@ -611,7 +637,10 @@ describe('localized search aliases', () => {
           returning id
         `);
         removed = [...deleted].length;
-        stagesWithoutTheAlias = await stagesFor('móvil Lumira Axon 9 Pro', tx as unknown as Database);
+        stagesWithoutTheAlias = await stagesFor(
+          'móvil Lumira Axon 9 Pro',
+          tx as unknown as Database,
+        );
         throw new Error(ROLLBACK);
       });
     } catch (error) {

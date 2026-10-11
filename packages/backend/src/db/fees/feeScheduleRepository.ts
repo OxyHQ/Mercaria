@@ -86,10 +86,7 @@ export async function findFeeScheduleVersion(
     .select()
     .from(feeSchedules)
     .where(
-      and(
-        eq(feeSchedules.scheduleKey, input.scheduleKey),
-        eq(feeSchedules.version, input.version),
-      ),
+      and(eq(feeSchedules.scheduleKey, input.scheduleKey), eq(feeSchedules.version, input.version)),
     )
     .limit(1);
   return row;
@@ -205,10 +202,7 @@ export async function activateFeeSchedule(
       .update(feeSchedules)
       .set({ status: 'superseded' })
       .where(
-        and(
-          eq(feeSchedules.scheduleKey, current.scheduleKey),
-          eq(feeSchedules.status, 'active'),
-        ),
+        and(eq(feeSchedules.scheduleKey, current.scheduleKey), eq(feeSchedules.status, 'active')),
       );
 
     const [activated] = await tx

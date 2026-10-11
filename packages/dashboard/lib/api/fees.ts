@@ -5,9 +5,9 @@ import type {
   FeePreviewInput,
   FeeScheduleAcceptanceSummary,
   StoreFeeScheduleView,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/fees`;
 
@@ -54,13 +54,7 @@ export async function acceptFeeSchedule(
  * one fee is exactly the disagreement `services/fees/` exists to prevent, and
  * the one that would drift is the one nothing charges against.
  */
-export async function previewFee(
-  storeId: string,
-  input: FeePreviewInput,
-): Promise<FeePreview> {
-  const { data } = await apiClient.post<ApiResponse<FeePreview>>(
-    `${base(storeId)}/preview`,
-    input,
-  );
+export async function previewFee(storeId: string, input: FeePreviewInput): Promise<FeePreview> {
+  const { data } = await apiClient.post<ApiResponse<FeePreview>>(`${base(storeId)}/preview`, input);
   return unwrap(data);
 }

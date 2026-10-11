@@ -14,7 +14,9 @@ const WRITE = /^router\.(post|patch|put|delete)\s*\(\s*(?:\n\s*)?'([^']+)'/gm;
 
 let totalRoutes = 0;
 const rows = [];
-for (const name of readdirSync(ROUTES).filter((n) => n.endsWith('.ts')).sort()) {
+for (const name of readdirSync(ROUTES)
+  .filter((n) => n.endsWith('.ts'))
+  .sort()) {
   const source = readFileSync(join(ROUTES, name), 'utf8');
   if (!GATE.test(source)) continue;
   const writes = [...source.matchAll(WRITE)].map((m) => `${m[1].toUpperCase()} ${m[2]}`);

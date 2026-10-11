@@ -42,7 +42,10 @@ const DAY_MS = 24 * 60 * 60 * 1_000;
  * daylight-saving boundary into 32 days — which is a rejection from Awin at
  * exactly two moments a year, in one of the two hemispheres.
  */
-export function splitAwinTransactionWindows(from: Date, to: Date): readonly AwinTransactionWindow[] {
+export function splitAwinTransactionWindows(
+  from: Date,
+  to: Date,
+): readonly AwinTransactionWindow[] {
   const start = Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate());
   const end = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate());
   if (Number.isNaN(start) || Number.isNaN(end) || end < start) return [];

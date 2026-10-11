@@ -1,33 +1,29 @@
-import { renderListingLink } from "@/lib/catalog/product-links";
-import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { useMemo } from "react";
-import { Pressable, View } from "react-native";
-import { Image } from "@mercaria/ui";
-import Head from "expo-router/head";
-import { useLocalSearchParams } from "expo-router";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { useDialogControl } from "@oxy.so/bloom/dialog";
-import { Rating } from "@oxy.so/bloom/rating";
-import type {
-  Listing,
-  ProductSummary,
-  PublicSellerProfile,
-} from "@mercaria/shared-types";
-import { isOxyFileId } from "@mercaria/shared-types";
+import { renderListingLink } from '@/lib/catalog/product-links';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { useMemo } from 'react';
+import { Pressable, View } from 'react-native';
+import { Image } from '@mercaria/ui';
+import Head from 'expo-router/head';
+import { useLocalSearchParams } from 'expo-router';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { useDialogControl } from '@oxy.so/bloom/dialog';
+import { Rating } from '@oxy.so/bloom/rating';
+import type { Listing, ProductSummary, PublicSellerProfile } from '@mercaria/shared-types';
+import { isOxyFileId } from '@mercaria/shared-types';
 import {
   ProductCard,
   SectionHeader,
   Text,
   useRatingDisplay,
   resolveCatalogImage,
-} from "@mercaria/ui";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
-import { ReportSellerDialog } from "@/components/seller/ReportSellerDialog";
-import { useTranslation } from "@/lib/i18n";
-import { ProductGridSkeleton } from "@/components/catalog/ProductGridSkeleton";
-import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
-import { useSellerListings, useSellerProfile } from "@/lib/hooks/use-seller";
+} from '@mercaria/ui';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { SellerFollowButton } from '@/components/seller/SellerFollowButton';
+import { ReportSellerDialog } from '@/components/seller/ReportSellerDialog';
+import { useTranslation } from '@/lib/i18n';
+import { ProductGridSkeleton } from '@/components/catalog/ProductGridSkeleton';
+import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
+import { useSellerListings, useSellerProfile } from '@/lib/hooks/use-seller';
 
 /** Avatar edge length (px) in the profile header. */
 const AVATAR_SIZE = 88;
@@ -53,17 +49,17 @@ const SELLER_RATING_LABEL_KEY = REVIEW_SCOPE_HEADING_KEYS.p2p_seller;
  * first. Each key is a literal so the i18n guard can see it is referenced.
  */
 const TRUST_TIER_LABEL_KEYS: Readonly<Record<string, string>> = {
-  restricted: "sellers.trust.tier.restricted",
-  new: "sellers.trust.tier.new",
-  trusted: "sellers.trust.tier.trusted",
-  high_trust: "sellers.trust.tier.highTrust",
-  verified: "sellers.trust.tier.verified",
+  restricted: 'sellers.trust.tier.restricted',
+  new: 'sellers.trust.tier.new',
+  trusted: 'sellers.trust.tier.trusted',
+  high_trust: 'sellers.trust.tier.highTrust',
+  verified: 'sellers.trust.tier.verified',
 };
 Object.freeze(TRUST_TIER_LABEL_KEYS);
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
 function toProductSummary(listing: Listing, sellerName: string): ProductSummary {
-  const firstImage = listing.images.find(image => isOxyFileId(image.fileId));
+  const firstImage = listing.images.find((image) => isOxyFileId(image.fileId));
   return {
     id: listing.id,
     title: listing.title,
@@ -106,8 +102,12 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
 
   if (!identity) return null;
 
-  const avatarUrl = resolveCatalogImage(isOxyFileId(identity.avatar) ? identity.avatar : undefined,
-    identity.avatar ?? undefined, resolveImage, "thumb");
+  const avatarUrl = resolveCatalogImage(
+    isOxyFileId(identity.avatar) ? identity.avatar : undefined,
+    identity.avatar ?? undefined,
+    resolveImage,
+    'thumb',
+  );
 
   return (
     <View className="gap-4 px-4 pt-6">
@@ -138,7 +138,7 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
             {profile.marketplace?.isVerified ? (
               <View className="rounded-full bg-muted px-2 py-0.5">
                 <Text className="text-xs font-semibold text-muted-foreground">
-                  {t("sellers.verifiedBadge")}
+                  {t('sellers.verifiedBadge')}
                 </Text>
               </View>
             ) : null}
@@ -153,19 +153,14 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
         {/* The follow control. Its state, its counts and its optimistic UI all
             belong to Oxy's graph — nothing on this page holds a copy, which is
             why the profile and the product-page seller card always agree. */}
-        <SellerFollowButton
-          oxyUserId={identity.oxyUserId}
-          displayName={identity.displayName}
-        />
+        <SellerFollowButton oxyUserId={identity.oxyUserId} displayName={identity.displayName} />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("sellers.report.title", { name: identity.displayName })}
+          accessibilityLabel={t('sellers.report.title', { name: identity.displayName })}
           onPress={() => reportControl.open()}
           className="rounded-full border border-border px-4 py-2"
         >
-          <Text className="text-sm font-medium text-foreground">
-            {t("sellers.report.action")}
-          </Text>
+          <Text className="text-sm font-medium text-foreground">{t('sellers.report.action')}</Text>
         </Pressable>
       </View>
 
@@ -190,13 +185,13 @@ function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
       {marketplace ? (
         <View className="flex-row flex-wrap gap-6">
           <Stat
-            label={t("sellers.stats.activeListings")}
+            label={t('sellers.stats.activeListings')}
             value={String(marketplace.activeListingCount)}
           />
-          <Stat label={t("sellers.stats.itemsSold")} value={String(marketplace.salesCount)} />
+          <Stat label={t('sellers.stats.itemsSold')} value={String(marketplace.salesCount)} />
           {marketplace.sellerSince ? (
             <Stat
-              label={t("sellers.stats.sellingSince")}
+              label={t('sellers.stats.sellingSince')}
               value={new Date(marketplace.sellerSince).getFullYear().toString()}
             />
           ) : null}
@@ -215,7 +210,7 @@ function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
             />
           ) : (
             <Text className="text-sm font-semibold text-foreground">
-              {t("sellers.reviews.none")}
+              {t('sellers.reviews.none')}
             </Text>
           )}
           {/* The scope, spelled out. A page can carry several ratings and a
@@ -234,7 +229,7 @@ function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
           {/* Named as Oxy's, because it IS Oxy's. Mercaria computes no trust
               score and this figure is passed through, never blended with the
               review rating above or with any activity count. */}
-          <Text className="text-xs text-muted-foreground">{t("sellers.trust.source")}</Text>
+          <Text className="text-xs text-muted-foreground">{t('sellers.trust.source')}</Text>
         </View>
       ) : null}
     </View>
@@ -245,9 +240,9 @@ function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
 function WithheldNotice({ profile }: { profile: PublicSellerProfile }) {
   const { t } = useTranslation();
   const message =
-    profile.withheldReason === "oxy_profile_private"
-      ? t("sellers.withheld.privateProfile")
-      : t("sellers.withheld.unavailable");
+    profile.withheldReason === 'oxy_profile_private'
+      ? t('sellers.withheld.privateProfile')
+      : t('sellers.withheld.unavailable');
 
   return (
     <View className="items-center px-8 py-16">
@@ -261,7 +256,7 @@ export default function SellerScreen() {
   const { t } = useTranslation();
   const { data: profile, isLoading, isError } = useSellerProfile(oxyUserId);
 
-  const isVisible = profile?.visibility === "visible";
+  const isVisible = profile?.visibility === 'visible';
   const {
     data: pages,
     isLoading: listingsLoading,
@@ -270,9 +265,10 @@ export default function SellerScreen() {
     isFetchingNextPage,
   } = useSellerListings(oxyUserId, isVisible);
 
-  const sellerName = profile?.identity?.displayName ?? t("sellers.fallbackName");
+  const sellerName = profile?.identity?.displayName ?? t('sellers.fallbackName');
   const products = useMemo(
-    () => (pages ?? []).flatMap((page) => page.listings.map((l) => toProductSummary(l, sellerName))),
+    () =>
+      (pages ?? []).flatMap((page) => page.listings.map((l) => toProductSummary(l, sellerName))),
     [pages, sellerName],
   );
 
@@ -280,8 +276,8 @@ export default function SellerScreen() {
     <Head>
       <title>
         {profile?.identity
-          ? t("sellers.meta.title", { name: sellerName })
-          : t("sellers.meta.fallbackTitle")}
+          ? t('sellers.meta.title', { name: sellerName })
+          : t('sellers.meta.fallbackTitle')}
       </title>
       {/* Indexability is the SERVER's derivation (#92 privacy rule 7): fully
           visible, and carrying at least one active listing. A thin page about a
@@ -300,7 +296,7 @@ export default function SellerScreen() {
           <View className="h-24 w-24 rounded-full bg-muted" />
         </View>
         <View className="pt-6">
-          <ProductGridSkeleton accessibilityLabel={t("sellers.listings.loadingLabel")} />
+          <ProductGridSkeleton accessibilityLabel={t('sellers.listings.loadingLabel')} />
         </View>
       </ScreenShell>
     );
@@ -315,7 +311,7 @@ export default function SellerScreen() {
         {head}
         <View className="items-center justify-center px-8 py-16 web:min-h-screen">
           <Text className="text-center text-base text-muted-foreground">
-            {t("sellers.unavailable")}
+            {t('sellers.unavailable')}
           </Text>
         </View>
       </ScreenShell>
@@ -332,22 +328,21 @@ export default function SellerScreen() {
           <SellerSignals profile={profile} />
 
           <View className="pt-8">
-            <SectionHeader title={t("sellers.listings.title")} />
+            <SectionHeader title={t('sellers.listings.title')} />
 
-            {listingsLoading && products.length === 0 ? <ProductGridSkeleton accessibilityLabel={t("sellers.listings.loadingLabel")} /> : null}
+            {listingsLoading && products.length === 0 ? (
+              <ProductGridSkeleton accessibilityLabel={t('sellers.listings.loadingLabel')} />
+            ) : null}
 
             {!listingsLoading && products.length === 0 ? (
-              <EmptyState description={t("sellers.listings.empty", { name: sellerName })} />
+              <EmptyState description={t('sellers.listings.empty', { name: sellerName })} />
             ) : null}
 
             {products.length > 0 ? (
               <View className="flex-row flex-wrap px-2">
                 {products.map((product) => (
                   <View key={product.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
-                    <ProductCard
-                      product={product}
-                      renderLink={renderListingLink}
-                    />
+                    <ProductCard product={product} renderLink={renderListingLink} />
                   </View>
                 ))}
               </View>
@@ -357,15 +352,15 @@ export default function SellerScreen() {
               <View className="items-center px-4 py-6">
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t("sellers.listings.loadMoreLabel")}
+                  accessibilityLabel={t('sellers.listings.loadMoreLabel')}
                   disabled={isFetchingNextPage}
                   onPress={() => void fetchNextPage()}
                   className="rounded-full border border-border bg-muted px-6 py-3 web:shadow-sm"
                 >
                   <Text className="text-sm font-semibold text-foreground">
                     {isFetchingNextPage
-                      ? t("sellers.listings.loadingMore")
-                      : t("sellers.listings.loadMore")}
+                      ? t('sellers.listings.loadingMore')
+                      : t('sellers.listings.loadMore')}
                   </Text>
                 </Pressable>
               </View>

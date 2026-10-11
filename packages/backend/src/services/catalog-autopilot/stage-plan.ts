@@ -46,7 +46,11 @@ export interface StageRunFacts {
   readonly lastRunAt: Date | null;
 }
 
-const OPEN_STATUSES: ReadonlySet<CatalogBackfillRunStatus> = new Set(['pending', 'running', 'paused']);
+const OPEN_STATUSES: ReadonlySet<CatalogBackfillRunStatus> = new Set([
+  'pending',
+  'running',
+  'paused',
+]);
 
 /** When a closed run stopped: its completion, else its last page, else its opening. */
 function finishedAt(run: StageRunFacts): Date {
@@ -65,10 +69,12 @@ export function planNextStage(
 ): CatalogBackfillStage | null {
   const first = sequence[0];
   if (first === undefined) return null;
-  if (sequence.some((stage) => {
-    const run = latest.get(stage);
-    return run !== undefined && OPEN_STATUSES.has(run.status);
-  })) {
+  if (
+    sequence.some((stage) => {
+      const run = latest.get(stage);
+      return run !== undefined && OPEN_STATUSES.has(run.status);
+    })
+  ) {
     return null;
   }
 

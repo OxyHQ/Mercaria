@@ -22,10 +22,7 @@ import { closePostgres, connectPostgres, getDb, type Database } from '../../db/p
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { referralPartners, referralTaxProfiles } from '../../db/schema/referrals.js';
 import { providerAccounts } from '../../db/schema/payments.js';
-import {
-  NATIVE_RAIL_PREFERENCE,
-  resolveNativeRail,
-} from '../payments/native-rail.js';
+import { NATIVE_RAIL_PREFERENCE, resolveNativeRail } from '../payments/native-rail.js';
 import { insertPartner } from '../../db/referrals/partnerRepository.js';
 import {
   findLatestTaxProfile,
@@ -148,21 +145,19 @@ describe('the tax questionnaire is the D15 gate 2 record', () => {
   it('refuses a residency country that is not two upper-case letters', async () => {
     const partner = await makePartner('tax3');
     await expectPgRejection(
-      getDb()
-        .insert(referralTaxProfiles)
-        .values({
-          id: uuidv7(),
-          partnerId: partner.id,
-          revision: 1,
-          questionnaireVersion: 'tax-2026-08',
-          participantType: 'individual',
-          // The NULL-island of country codes: three letters is the commonest
-          // wrong answer there is, and a length-only check would take it.
-          residencyCountry: 'ESP',
-          vatStatus: 'exempt',
-          declaredAt: new Date(),
-          declaredByOxyUserId: partner.ownerId,
-        }),
+      getDb().insert(referralTaxProfiles).values({
+        id: uuidv7(),
+        partnerId: partner.id,
+        revision: 1,
+        questionnaireVersion: 'tax-2026-08',
+        participantType: 'individual',
+        // The NULL-island of country codes: three letters is the commonest
+        // wrong answer there is, and a length-only check would take it.
+        residencyCountry: 'ESP',
+        vatStatus: 'exempt',
+        declaredAt: new Date(),
+        declaredByOxyUserId: partner.ownerId,
+      }),
       /residency_country_check/,
     );
   });
@@ -232,19 +227,17 @@ describe('the tax questionnaire is the D15 gate 2 record', () => {
       declaredByOxyUserId: partner.ownerId,
     });
     await expectPgRejection(
-      getDb()
-        .insert(referralTaxProfiles)
-        .values({
-          id: uuidv7(),
-          partnerId: partner.id,
-          revision: 1,
-          questionnaireVersion: 'tax-2026-08',
-          participantType: 'individual',
-          residencyCountry: 'IT',
-          vatStatus: 'not_registered',
-          declaredAt: new Date(),
-          declaredByOxyUserId: partner.ownerId,
-        }),
+      getDb().insert(referralTaxProfiles).values({
+        id: uuidv7(),
+        partnerId: partner.id,
+        revision: 1,
+        questionnaireVersion: 'tax-2026-08',
+        participantType: 'individual',
+        residencyCountry: 'IT',
+        vatStatus: 'not_registered',
+        declaredAt: new Date(),
+        declaredByOxyUserId: partner.ownerId,
+      }),
       /referral_tax_profiles_partner_revision_key/,
     );
   });

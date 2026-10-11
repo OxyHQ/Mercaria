@@ -165,91 +165,91 @@ export async function applyReportedTransaction(
 
   try {
     return await db.transaction(async (tx) => {
-    const created = await insertAffiliateTransactionIfAbsent(tx, observed, input.now);
-    if (created) {
+      const created = await insertAffiliateTransactionIfAbsent(tx, observed, input.now);
+      if (created) {
+        const booked = await bookIfOwed(tx, {
+          transactionId: created.id,
+          revision: 1,
+          observed,
+          now: input.now,
+        });
+        await insertAffiliateTransactionObservation(tx, {
+          transactionId: created.id,
+          reportRunId: input.reportRunId,
+          revision: 1,
+          kind: 'first_observation',
+          observed,
+          observedAt: input.now,
+        });
+        return {
+          outcome: 'applied',
+          kind: 'first_observation',
+          transactionId: created.id,
+          revision: 1,
+          booked,
+        };
+      }
+
+      // The insert was refused by the unique index, so the row exists: either it
+      // was already there or a concurrent pass inserted it a moment ago. Either
+      // way the LOCK is what makes the classification below a comparison against
+      // a snapshot nobody else is mid-way through replacing.
+      const previous = await lockAffiliateTransactionForUpdate(tx, {
+        network: input.network,
+        networkTransactionId: reported.networkTransactionId,
+      });
+      if (!previous) {
+        throw new Error(
+          `The affiliate transaction ${reported.networkTransactionId} could not be inserted and ` +
+            'could not be read; nothing in this domain deletes one, so this is a fault rather ' +
+            'than a race.',
+        );
+      }
+
+      const kind = classifyAffiliateObservation(previous, {
+        state: reported.state,
+        orderValue: reported.orderValue,
+        commission: reported.commission,
+        contentDigest,
+      });
+
+      if (!observationChangedTheRecord(kind)) {
+        await confirmAffiliateTransactionUnchanged(tx, { id: previous.id, now: input.now });
+        return {
+          outcome: 'applied',
+          kind,
+          transactionId: previous.id,
+          revision: null,
+          booked: [],
+        };
+      }
+
+      const applied = await applyChangedAffiliateTransaction(tx, {
+        id: previous.id,
+        observed,
+        now: input.now,
+      });
       const booked = await bookIfOwed(tx, {
-        transactionId: created.id,
-        revision: 1,
+        transactionId: previous.id,
+        revision: applied.revision,
         observed,
         now: input.now,
       });
       await insertAffiliateTransactionObservation(tx, {
-        transactionId: created.id,
+        transactionId: previous.id,
         reportRunId: input.reportRunId,
-        revision: 1,
-        kind: 'first_observation',
+        revision: applied.revision,
+        kind,
         observed,
         observedAt: input.now,
       });
       return {
         outcome: 'applied',
-        kind: 'first_observation',
-        transactionId: created.id,
-        revision: 1,
-        booked,
-      };
-    }
-
-    // The insert was refused by the unique index, so the row exists: either it
-    // was already there or a concurrent pass inserted it a moment ago. Either
-    // way the LOCK is what makes the classification below a comparison against
-    // a snapshot nobody else is mid-way through replacing.
-    const previous = await lockAffiliateTransactionForUpdate(tx, {
-      network: input.network,
-      networkTransactionId: reported.networkTransactionId,
-    });
-    if (!previous) {
-      throw new Error(
-        `The affiliate transaction ${reported.networkTransactionId} could not be inserted and ` +
-          'could not be read; nothing in this domain deletes one, so this is a fault rather ' +
-          'than a race.',
-      );
-    }
-
-    const kind = classifyAffiliateObservation(previous, {
-      state: reported.state,
-      orderValue: reported.orderValue,
-      commission: reported.commission,
-      contentDigest,
-    });
-
-    if (!observationChangedTheRecord(kind)) {
-      await confirmAffiliateTransactionUnchanged(tx, { id: previous.id, now: input.now });
-      return {
-        outcome: 'applied',
         kind,
         transactionId: previous.id,
-        revision: null,
-        booked: [],
+        revision: applied.revision,
+        booked,
       };
-    }
-
-    const applied = await applyChangedAffiliateTransaction(tx, {
-      id: previous.id,
-      observed,
-      now: input.now,
-    });
-    const booked = await bookIfOwed(tx, {
-      transactionId: previous.id,
-      revision: applied.revision,
-      observed,
-      now: input.now,
-    });
-    await insertAffiliateTransactionObservation(tx, {
-      transactionId: previous.id,
-      reportRunId: input.reportRunId,
-      revision: applied.revision,
-      kind,
-      observed,
-      observedAt: input.now,
-    });
-    return {
-      outcome: 'applied',
-      kind,
-      transactionId: previous.id,
-      revision: applied.revision,
-      booked,
-    };
     });
   } catch (err) {
     if (err instanceof AffiliateApplyRefusalError) {

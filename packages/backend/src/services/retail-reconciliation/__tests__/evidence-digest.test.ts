@@ -104,9 +104,7 @@ describe('the digest MOVES when the answer would', () => {
     const reissued: EvidenceDigestInput = {
       ...BASE,
       records: BASE.records.map((record, index) =>
-        index === 0
-          ? { ...record, observedAt: new Date('2026-08-02T10:00:00.000Z') }
-          : record,
+        index === 0 ? { ...record, observedAt: new Date('2026-08-02T10:00:00.000Z') } : record,
       ),
     };
     expect(reconciliationEvidenceDigest(reissued)).not.toBe(reconciliationEvidenceDigest(BASE));
@@ -160,7 +158,13 @@ describe('the preimage is readable', () => {
     const withAmount = serializeReconciliationEvidence({
       ...BASE,
       records: [
-        { kind: 'purchase_order', reference: 'po-1', amountMinor: 0, currency: 'EUR', observedAt: new Date(0) },
+        {
+          kind: 'purchase_order',
+          reference: 'po-1',
+          amountMinor: 0,
+          currency: 'EUR',
+          observedAt: new Date(0),
+        },
       ],
     });
     const withoutAmount = serializeReconciliationEvidence({

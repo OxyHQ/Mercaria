@@ -72,7 +72,11 @@ import { CATALOG_ROLLOUT_DIMENSIONS } from '@mercaria/shared-types';
  */
 export type CatalogRolloutCohort =
   | { readonly kind: 'all' }
-  | { readonly kind: 'dimension'; readonly dimension: CatalogRolloutDimension; readonly value: string };
+  | {
+      readonly kind: 'dimension';
+      readonly dimension: CatalogRolloutDimension;
+      readonly value: string;
+    };
 
 /** The whole deployment. Not exported: `all` is spelled in a config entry, never
  * constructed by a caller, and an exported constant nothing imports is a dead

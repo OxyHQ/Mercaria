@@ -60,7 +60,11 @@ import {
   applyListingProductTypeUpgrade,
   previewListingProductTypeUpgrade,
 } from '../listing-upgrade.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
   createTestStore,
@@ -89,11 +93,19 @@ let plainListingId: string;
 /** The axis answers for the named keys, in the shape `patchDraft` takes. */
 async function axisAnswers(
   keys: readonly ('storage_capacity' | 'phone_color')[],
-): Promise<{ attributeKey: string; values: { number?: number; unit?: string; enumValueId?: string }[] }[]> {
-  const answers: { attributeKey: string; values: { number?: number; unit?: string; enumValueId?: string }[] }[] = [];
+): Promise<
+  { attributeKey: string; values: { number?: number; unit?: string; enumValueId?: string }[] }[]
+> {
+  const answers: {
+    attributeKey: string;
+    values: { number?: number; unit?: string; enumValueId?: string }[];
+  }[] = [];
   for (const key of keys) {
     if (key === 'storage_capacity') {
-      answers.push({ attributeKey: nsKey(ns, 'storage_capacity'), values: [{ number: 256, unit: 'GB' }] });
+      answers.push({
+        attributeKey: nsKey(ns, 'storage_capacity'),
+        values: [{ number: 256, unit: 'GB' }],
+      });
       continue;
     }
     answers.push({
@@ -149,9 +161,10 @@ async function publishListing(
     draftId: draft.id,
     permissions: E2E_PERMISSIONS,
   });
-  expect(validation.publishable, `${title} was not publishable: ${JSON.stringify(validation)}`).toBe(
-    true,
-  );
+  expect(
+    validation.publishable,
+    `${title} was not publishable: ${JSON.stringify(validation)}`,
+  ).toBe(true);
   const published = await publishDraft(db, {
     storeId,
     draftId: draft.id,
@@ -366,9 +379,13 @@ describe('a newer version that keeps every field', () => {
     const axesAfter = await listVariantAxesForListing(db, axisListingId);
     expect(claimsAfter.length, 'a claim disappeared').toBe(claimsBefore.length);
     expect(
-      claimsAfter.map((c) => `${c.id}:${String(c.attributeDefinitionVersion)}:${c.attributeResolution}`).sort(),
+      claimsAfter
+        .map((c) => `${c.id}:${String(c.attributeDefinitionVersion)}:${c.attributeResolution}`)
+        .sort(),
     ).toEqual(
-      claimsBefore.map((c) => `${c.id}:${String(c.attributeDefinitionVersion)}:${c.attributeResolution}`).sort(),
+      claimsBefore
+        .map((c) => `${c.id}:${String(c.attributeDefinitionVersion)}:${c.attributeResolution}`)
+        .sort(),
     );
     expect(
       axesAfter.map((a) => `${a.attributeKey}:${String(a.productTypeDefinitionId)}`).sort(),
@@ -430,7 +447,10 @@ describe('a newer version that no longer authorises a declared axis', () => {
       (field) => field.scope === 'variant' && field.variantCapable === true,
     );
     expect(authorised.map((field) => field.attributeKey)).not.toContain(nsKey(ns, 'phone_color'));
-    expect(authorised.length, 'v3 authorises no axis at all, so the case proves nothing').toBeGreaterThan(0);
+    expect(
+      authorised.length,
+      'v3 authorises no axis at all, so the case proves nothing',
+    ).toBeGreaterThan(0);
   });
 
   it('BLOCKS a listing whose axis it cannot authorise, naming the attribute', async () => {
@@ -488,8 +508,9 @@ describe('a listing under moderation', () => {
         applyListingProductTypeUpgrade(db, {
           storeId,
           listingId: plainListingId,
-          targetDefinitionId: (await findPublishedProductTypeDefinition(db, nsKey(ns, 'smartphone')))
-            ?.id as string,
+          targetDefinitionId: (
+            await findPublishedProductTypeDefinition(db, nsKey(ns, 'smartphone'))
+          )?.id as string,
         }),
       ).rejects.toThrow(/restricted/u);
     } finally {

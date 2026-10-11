@@ -194,7 +194,10 @@ interface ParsedCandidate {
   readonly offerKinds?: readonly OfferKind[];
   readonly officialChannelOnly?: boolean;
   readonly nearby?: boolean;
-  readonly entityMentions: readonly { readonly kind: 'brand' | 'merchant'; readonly text: string }[];
+  readonly entityMentions: readonly {
+    readonly kind: 'brand' | 'merchant';
+    readonly text: string;
+  }[];
   readonly useTags: readonly ShoppingUseTag[];
   readonly unreadablePhrases: readonly string[];
   readonly clarificationKinds: readonly IntentClarificationKind[];
@@ -256,8 +259,14 @@ const candidateSchema = z
       })
       .strict()
       .optional(),
-    conditionGroups: z.array(z.enum(asEnum(CONDITION_GROUPS))).max(CONDITION_GROUPS.length).optional(),
-    offerKinds: z.array(z.enum(asEnum(OFFER_KINDS))).max(OFFER_KINDS.length).optional(),
+    conditionGroups: z
+      .array(z.enum(asEnum(CONDITION_GROUPS)))
+      .max(CONDITION_GROUPS.length)
+      .optional(),
+    offerKinds: z
+      .array(z.enum(asEnum(OFFER_KINDS)))
+      .max(OFFER_KINDS.length)
+      .optional(),
     officialChannelOnly: z.boolean().optional(),
     nearby: z.boolean().optional(),
     entityMentions: z
@@ -333,7 +342,10 @@ export type CandidateValidation =
       readonly officialChannelOnly?: boolean;
       readonly nearby?: boolean;
       readonly useTags: readonly ShoppingUseTag[];
-      readonly entityMentions: readonly { readonly kind: 'brand' | 'merchant'; readonly text: string }[];
+      readonly entityMentions: readonly {
+        readonly kind: 'brand' | 'merchant';
+        readonly text: string;
+      }[];
       readonly clarificationKinds: readonly IntentClarificationKind[];
       readonly unresolved: readonly IntentUnresolvedPhrase[];
       readonly searchText: string;
@@ -453,9 +465,7 @@ function buildRequirement(
 ): BuiltRequirement {
   const phrase = boundedPhrase(requirement.sourcePhrase);
   const strength: ConstraintStrength =
-    requirement.strength === 'hard' && definition.row.hardConstraintCapable
-      ? 'hard'
-      : 'preference';
+    requirement.strength === 'hard' && definition.row.hardConstraintCapable ? 'hard' : 'preference';
 
   if (requirement.operator === 'is') {
     if (definition.row.valueType !== 'boolean' || requirement.booleanValue === undefined) {
@@ -562,13 +572,17 @@ function buildRequirement(
         attributeKey: definition.row.key,
         definitionVersion: definition.row.version,
         strength,
-        predicate: numericPredicate(requirement, {
-          type: 'measurement',
-          magnitude: requirement.numberValue,
-          unit,
-        }, requirement.numberUpperValue === undefined
-          ? undefined
-          : { type: 'measurement', magnitude: requirement.numberUpperValue, unit }),
+        predicate: numericPredicate(
+          requirement,
+          {
+            type: 'measurement',
+            magnitude: requirement.numberValue,
+            unit,
+          },
+          requirement.numberUpperValue === undefined
+            ? undefined
+            : { type: 'measurement', magnitude: requirement.numberUpperValue, unit },
+        ),
         origin: 'model_inferred',
         sourcePhrase: phrase,
         explanation: `${definition.row.label} ${describeOperator(requirement.operator)} ${requirement.numberValue} ${unit}`,
@@ -620,7 +634,8 @@ function buildRequirement(
  */
 function numericPredicate(
   requirement: { readonly operator: 'eq' | 'gte' | 'lte' | 'between' | 'in' | 'is' },
-  lower: { readonly type: 'measurement'; readonly magnitude: number; readonly unit: string }
+  lower:
+    | { readonly type: 'measurement'; readonly magnitude: number; readonly unit: string }
     | { readonly type: 'integer' | 'decimal'; readonly value: number },
   upper?:
     | { readonly type: 'measurement'; readonly magnitude: number; readonly unit: string }

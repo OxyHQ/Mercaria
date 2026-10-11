@@ -7,21 +7,17 @@
  * cases would pass green and ship broken.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
-import { uuidv7 } from "@oxy.so/db";
-import {
-  closePostgres,
-  connectPostgres,
-  type Database,
-} from "../../../db/postgres.js";
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { uuidv7 } from '@oxy.so/db';
+import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import {
   retailPilotCohorts,
   retailPilotStops,
   supplierFundingObservations,
-} from "../../../db/schema/retailPilot.js";
-import { createSupplier } from "../../../db/procurement/supplierRepository.js";
-import { createSupplierAccount } from "../../../db/procurement/supplierAccountRepository.js";
+} from '../../../db/schema/retailPilot.js';
+import { createSupplier } from '../../../db/procurement/supplierRepository.js';
+import { createSupplierAccount } from '../../../db/procurement/supplierAccountRepository.js';
 import {
   addRetailPilotSku,
   addRetailPilotThreshold,
@@ -33,7 +29,7 @@ import {
   publishRetailPilotCohortVersion,
   raiseRetailPilotStopRow,
   recordSupplierFundingObservationRow,
-} from "../../../db/retailPilot/pilotRepository.js";
+} from '../../../db/retailPilot/pilotRepository.js';
 
 /**
  * Assert a write is refused by a SPECIFIC constraint or trigger.
@@ -45,43 +41,32 @@ import {
  * what makes either reachable. `services/supplier-orders/__tests__/structural-guarantees.realdb.test.ts`
  * is the precedent and this is the same helper.
  */
-async function expectRefusedBy(
-  write: () => Promise<unknown>,
-  rule: RegExp,
-): Promise<void> {
+async function expectRefusedBy(write: () => Promise<unknown>, rule: RegExp): Promise<void> {
   let caught: unknown;
   try {
     await write();
   } catch (error) {
     caught = error;
   }
-  expect(caught, "the write SUCCEEDED; the rule did not fire").toBeDefined();
-  expect(
-    refusalTextOf(caught),
-    `expected ${String(rule)}; got: ${String(caught)}`,
-  ).toMatch(rule);
+  expect(caught, 'the write SUCCEEDED; the rule did not fire').toBeDefined();
+  expect(refusalTextOf(caught), `expected ${String(rule)}; got: ${String(caught)}`).toMatch(rule);
 }
 
 /** Every message and constraint name in a wrapped driver error. */
 function refusalTextOf(error: unknown): string {
   const parts: string[] = [];
   let current: unknown = error;
-  for (
-    let depth = 0;
-    depth < 6 && current !== undefined && current !== null;
-    depth += 1
-  ) {
+  for (let depth = 0; depth < 6 && current !== undefined && current !== null; depth += 1) {
     const named = current as {
       constraint_name?: unknown;
       message?: unknown;
       cause?: unknown;
     };
-    if (typeof named.constraint_name === "string")
-      parts.push(named.constraint_name);
-    if (typeof named.message === "string") parts.push(named.message);
+    if (typeof named.constraint_name === 'string') parts.push(named.constraint_name);
+    if (typeof named.message === 'string') parts.push(named.message);
     current = named.cause;
   }
-  return parts.join(" | ");
+  return parts.join(' | ');
 }
 
 /** One supplier plus one account, the pilot's singular supply side. */
@@ -91,22 +76,20 @@ async function makeSupplySide(): Promise<{
 }> {
   const suffix = uuidv7();
   const supplier = await createSupplier({
-    supplierType: "dropship_distributor",
+    supplierType: 'dropship_distributor',
     canonicalName: `Pilot supplier ${suffix}`,
   });
   const account = await createSupplierAccount({
     supplierId: supplier.id,
-    provider: "printful",
-    environment: "test",
+    provider: 'printful',
+    environment: 'test',
     providerAccountId: `store-${suffix}`,
   });
   return { supplierId: supplier.id, accountId: account.id };
 }
 
 /** A complete, publishable cohort draft under a unique key. */
-async function makeCohortDraft(
-  overrides: { cohortKey?: string } = {},
-): Promise<{
+async function makeCohortDraft(overrides: { cohortKey?: string } = {}): Promise<{
   cohortId: string;
   cohortKey: string;
   supplierId: string;
@@ -119,24 +102,24 @@ async function makeCohortDraft(
     version: 1,
     supplierId,
     supplierAccountId: accountId,
-    marketCountry: "ES",
-    currency: "EUR",
-    audience: "staff",
+    marketCountry: 'ES',
+    currency: 'EUR',
+    audience: 'staff',
     maxItemTotalMinor: 5_000,
     maxOrderTotalMinor: 15_000,
     minOrderTotalMinor: 1_500,
     maxLineQuantity: 5,
-    permittedShippingServiceCodes: ["STANDARD"],
+    permittedShippingServiceCodes: ['STANDARD'],
     fundingFloorMinor: 10_000,
     fundingAlertMinor: 25_000,
     monthlySpendCapMinor: 200_000,
     fundingObservationMaxAgeSeconds: 86_400,
-    rationale: "the #119 §10 bounds",
+    rationale: 'the #119 §10 bounds',
   });
   return { cohortId: cohort.id, cohortKey, supplierId, accountId };
 }
 
-describe("the bounded retail pilot, against a real server", () => {
+describe('the bounded retail pilot, against a real server', () => {
   let db: Database;
 
   beforeAll(async () => {
@@ -147,19 +130,19 @@ describe("the bounded retail pilot, against a real server", () => {
     await closePostgres();
   });
 
-  it("freezes a cohort version once it is published", async () => {
+  it('freezes a cohort version once it is published', async () => {
     const { cohortId } = await makeCohortDraft();
     await addRetailPilotSku({
       cohortId,
-      supplierSku: "4012",
-      addedByOxyUserId: "op-1",
-      note: "design-IP screened, EU availability confirmed",
+      supplierSku: '4012',
+      addedByOxyUserId: 'op-1',
+      note: 'design-IP screened, EU availability confirmed',
     });
     const published = await publishRetailPilotCohortVersion({
       cohortId,
-      publishedByOxyUserId: "op-1",
+      publishedByOxyUserId: 'op-1',
     });
-    expect(published?.status).toBe("active");
+    expect(published?.status).toBe('active');
 
     // The bound a pilot ran under has to stay readable after it is widened.
     // Editing it in place would make the record say something that was never
@@ -174,17 +157,17 @@ describe("the bounded retail pilot, against a real server", () => {
     );
   });
 
-  it("refuses to grow a published cohort’s SKU allow-list, and permits narrowing it", async () => {
+  it('refuses to grow a published cohort’s SKU allow-list, and permits narrowing it', async () => {
     const { cohortId } = await makeCohortDraft();
     await addRetailPilotSku({
       cohortId,
-      supplierSku: "4012",
-      addedByOxyUserId: "op-1",
-      note: "screened",
+      supplierSku: '4012',
+      addedByOxyUserId: 'op-1',
+      note: 'screened',
     });
     await publishRetailPilotCohortVersion({
       cohortId,
-      publishedByOxyUserId: "op-1",
+      publishedByOxyUserId: 'op-1',
     });
 
     // THE rule: "no automatic expansion follows from technical success", at the
@@ -193,26 +176,25 @@ describe("the bounded retail pilot, against a real server", () => {
       async () =>
         addRetailPilotSku({
           cohortId,
-          supplierSku: "9999",
-          addedByOxyUserId: "op-1",
-          note: "just one more",
+          supplierSku: '9999',
+          addedByOxyUserId: 'op-1',
+          note: 'just one more',
         }),
       /cannot gain or change/,
     );
   });
 
-  it("permits exactly one active version per pilot key", async () => {
-    const { cohortId, cohortKey, supplierId, accountId } =
-      await makeCohortDraft();
+  it('permits exactly one active version per pilot key', async () => {
+    const { cohortId, cohortKey, supplierId, accountId } = await makeCohortDraft();
     await addRetailPilotSku({
       cohortId,
-      supplierSku: "4012",
-      addedByOxyUserId: "op",
-      note: "x",
+      supplierSku: '4012',
+      addedByOxyUserId: 'op',
+      note: 'x',
     });
     await publishRetailPilotCohortVersion({
       cohortId,
-      publishedByOxyUserId: "op-1",
+      publishedByOxyUserId: 'op-1',
     });
 
     const second = await createRetailPilotCohortDraft({
@@ -220,29 +202,29 @@ describe("the bounded retail pilot, against a real server", () => {
       version: 2,
       supplierId,
       supplierAccountId: accountId,
-      marketCountry: "ES",
-      currency: "EUR",
-      audience: "invited",
+      marketCountry: 'ES',
+      currency: 'EUR',
+      audience: 'invited',
       maxItemTotalMinor: 5_000,
       maxOrderTotalMinor: 20_000,
       minOrderTotalMinor: 1_500,
       maxLineQuantity: 5,
-      permittedShippingServiceCodes: ["STANDARD"],
+      permittedShippingServiceCodes: ['STANDARD'],
       fundingFloorMinor: 10_000,
       fundingAlertMinor: 25_000,
       monthlySpendCapMinor: 200_000,
       fundingObservationMaxAgeSeconds: 86_400,
-      rationale: "widened after the first review",
+      rationale: 'widened after the first review',
     });
     await addRetailPilotSku({
       cohortId: second.id,
-      supplierSku: "4012",
-      addedByOxyUserId: "op",
-      note: "x",
+      supplierSku: '4012',
+      addedByOxyUserId: 'op',
+      note: 'x',
     });
     const published = await publishRetailPilotCohortVersion({
       cohortId: second.id,
-      publishedByOxyUserId: "op-2",
+      publishedByOxyUserId: 'op-2',
     });
     expect(published?.version).toBe(2);
 
@@ -253,7 +235,7 @@ describe("the bounded retail pilot, against a real server", () => {
     expect(active?.version).toBe(2);
   });
 
-  it("refuses to publish a cohort with no permitted shipping service", async () => {
+  it('refuses to publish a cohort with no permitted shipping service', async () => {
     const { supplierId, accountId } = await makeSupplySide();
     // `cardinality`, never `array_length`: on `{}` the latter is NULL and a
     // CHECK reads NULL as SATISFIED, so the obvious spelling would admit
@@ -263,9 +245,9 @@ describe("the bounded retail pilot, against a real server", () => {
       version: 1,
       supplierId,
       supplierAccountId: accountId,
-      marketCountry: "ES",
-      currency: "EUR",
-      audience: "staff",
+      marketCountry: 'ES',
+      currency: 'EUR',
+      audience: 'staff',
       maxItemTotalMinor: 5_000,
       maxOrderTotalMinor: 15_000,
       minOrderTotalMinor: 1_500,
@@ -275,19 +257,19 @@ describe("the bounded retail pilot, against a real server", () => {
       fundingAlertMinor: 25_000,
       monthlySpendCapMinor: 200_000,
       fundingObservationMaxAgeSeconds: 86_400,
-      rationale: "nothing may ship",
+      rationale: 'nothing may ship',
     });
     await expectRefusedBy(
       async () =>
         publishRetailPilotCohortVersion({
           cohortId: draft.id,
-          publishedByOxyUserId: "op",
+          publishedByOxyUserId: 'op',
         }),
       /shipping_services_check/,
     );
   });
 
-  it("refuses a funding alert below the floor", async () => {
+  it('refuses a funding alert below the floor', async () => {
     const { supplierId, accountId } = await makeSupplySide();
     // An alert below the floor fires AFTER checkout has already stopped, which
     // is a notification about an outage rather than a warning before one.
@@ -298,55 +280,55 @@ describe("the bounded retail pilot, against a real server", () => {
           version: 1,
           supplierId,
           supplierAccountId: accountId,
-          marketCountry: "ES",
-          currency: "EUR",
-          audience: "staff",
+          marketCountry: 'ES',
+          currency: 'EUR',
+          audience: 'staff',
           maxItemTotalMinor: 5_000,
           maxOrderTotalMinor: 15_000,
           minOrderTotalMinor: 1_500,
           maxLineQuantity: 5,
-          permittedShippingServiceCodes: ["STANDARD"],
+          permittedShippingServiceCodes: ['STANDARD'],
           fundingFloorMinor: 25_000,
           fundingAlertMinor: 10_000,
           monthlySpendCapMinor: 200_000,
           fundingObservationMaxAgeSeconds: 86_400,
-          rationale: "backwards",
+          rationale: 'backwards',
         }),
       /funding_check/,
     );
   });
 
-  it("converges two evaluations of one breach on ONE stop", async () => {
+  it('converges two evaluations of one breach on ONE stop', async () => {
     const { cohortId } = await makeCohortDraft();
     await addRetailPilotSku({
       cohortId,
-      supplierSku: "4012",
-      addedByOxyUserId: "op",
-      note: "x",
+      supplierSku: '4012',
+      addedByOxyUserId: 'op',
+      note: 'x',
     });
     await addRetailPilotThreshold({
       cohortId,
-      metric: "non_eu_dispatch_origin",
-      unit: "count",
+      metric: 'non_eu_dispatch_origin',
+      unit: 'count',
       thresholdValue: 0,
       windowHours: 0,
-      scope: "pilot",
+      scope: 'pilot',
     });
     await publishRetailPilotCohortVersion({
       cohortId,
-      publishedByOxyUserId: "op",
+      publishedByOxyUserId: 'op',
     });
 
     const raise = {
       cohortId,
-      metric: "non_eu_dispatch_origin" as const,
-      scope: "pilot" as const,
-      scopeRef: "",
-      origin: "automatic" as const,
+      metric: 'non_eu_dispatch_origin' as const,
+      scope: 'pilot' as const,
+      scopeRef: '',
+      origin: 'automatic' as const,
       observedValue: 1,
       thresholdValue: 0,
       raisedByOxyUserId: null,
-      detail: "a parcel dispatched from outside the EU customs territory",
+      detail: 'a parcel dispatched from outside the EU customs territory',
     };
     const first = await raiseRetailPilotStopRow(raise);
     const second = await raiseRetailPilotStopRow(raise);
@@ -357,17 +339,17 @@ describe("the bounded retail pilot, against a real server", () => {
     expect(await listLiveRetailPilotStops(cohortId)).toHaveLength(1);
   });
 
-  it("refuses an automatic stop that names a raiser, and an operator stop that does not", async () => {
+  it('refuses an automatic stop that names a raiser, and an operator stop that does not', async () => {
     const { cohortId } = await makeCohortDraft();
     await addRetailPilotSku({
       cohortId,
-      supplierSku: "4012",
-      addedByOxyUserId: "op",
-      note: "x",
+      supplierSku: '4012',
+      addedByOxyUserId: 'op',
+      note: 'x',
     });
     await publishRetailPilotCohortVersion({
       cohortId,
-      publishedByOxyUserId: "op",
+      publishedByOxyUserId: 'op',
     });
 
     // Attributing a threshold evaluation to a person makes the audit trail say
@@ -377,14 +359,14 @@ describe("the bounded retail pilot, against a real server", () => {
       async () =>
         raiseRetailPilotStopRow({
           cohortId,
-          metric: "late_dispatch",
-          scope: "pilot",
-          scopeRef: "",
-          origin: "automatic",
+          metric: 'late_dispatch',
+          scope: 'pilot',
+          scopeRef: '',
+          origin: 'automatic',
           observedValue: 1,
           thresholdValue: 0,
-          raisedByOxyUserId: "op-who-did-not",
-          detail: "x",
+          raisedByOxyUserId: 'op-who-did-not',
+          detail: 'x',
         }),
       /origin_raiser_check/,
     );
@@ -393,41 +375,41 @@ describe("the bounded retail pilot, against a real server", () => {
       async () =>
         raiseRetailPilotStopRow({
           cohortId,
-          metric: "late_dispatch",
-          scope: "pilot",
-          scopeRef: "",
-          origin: "operator",
+          metric: 'late_dispatch',
+          scope: 'pilot',
+          scopeRef: '',
+          origin: 'operator',
           observedValue: 0,
           thresholdValue: 0,
           raisedByOxyUserId: null,
-          detail: "x",
+          detail: 'x',
         }),
       /origin_raiser_check/,
     );
   });
 
-  it("lifts a stop once, attributably, and refuses to edit or delete it afterwards", async () => {
+  it('lifts a stop once, attributably, and refuses to edit or delete it afterwards', async () => {
     const { cohortId } = await makeCohortDraft();
     await addRetailPilotSku({
       cohortId,
-      supplierSku: "4012",
-      addedByOxyUserId: "op",
-      note: "x",
+      supplierSku: '4012',
+      addedByOxyUserId: 'op',
+      note: 'x',
     });
     await publishRetailPilotCohortVersion({
       cohortId,
-      publishedByOxyUserId: "op",
+      publishedByOxyUserId: 'op',
     });
     await raiseRetailPilotStopRow({
       cohortId,
-      metric: "tracking_failure",
-      scope: "supplier",
-      scopeRef: "supplier-x",
-      origin: "operator",
+      metric: 'tracking_failure',
+      scope: 'supplier',
+      scopeRef: 'supplier-x',
+      origin: 'operator',
       observedValue: 0,
       thresholdValue: 0,
-      raisedByOxyUserId: "op",
-      detail: "carrier outage",
+      raisedByOxyUserId: 'op',
+      detail: 'carrier outage',
     });
     const [stop] = await listLiveRetailPilotStops(cohortId);
     expect(stop).toBeDefined();
@@ -437,13 +419,13 @@ describe("the bounded retail pilot, against a real server", () => {
       .from(retailPilotStops)
       .where(eq(retailPilotStops.cohortId, cohortId))
       .limit(1);
-    const stopId = row?.id ?? "";
+    const stopId = row?.id ?? '';
 
     expect(
       await liftRetailPilotStopRow({
         stopId,
-        liftedByOxyUserId: "op-2",
-        liftReason: "the carrier recovered and ten shipments tracked cleanly",
+        liftedByOxyUserId: 'op-2',
+        liftReason: 'the carrier recovered and ten shipments tracked cleanly',
       }),
     ).toBe(true);
     // A second lift finds nothing to lift — the CAS on it still being live is
@@ -451,16 +433,15 @@ describe("the bounded retail pilot, against a real server", () => {
     expect(
       await liftRetailPilotStopRow({
         stopId,
-        liftedByOxyUserId: "op-3",
-        liftReason: "racing",
+        liftedByOxyUserId: 'op-3',
+        liftReason: 'racing',
       }),
     ).toBe(false);
 
     // A pilot that stopped and was restarted is the most important row in its
     // own history. Nothing may remove it or edit what it observed.
     await expectRefusedBy(
-      async () =>
-        db.delete(retailPilotStops).where(eq(retailPilotStops.id, stopId)),
+      async () => db.delete(retailPilotStops).where(eq(retailPilotStops.id, stopId)),
       /append-only/,
     );
     await expectRefusedBy(
@@ -473,27 +454,27 @@ describe("the bounded retail pilot, against a real server", () => {
     );
   });
 
-  it("records supplier funding append-only, newest first", async () => {
+  it('records supplier funding append-only, newest first', async () => {
     const { accountId } = await makeSupplySide();
-    const earlier = new Date("2026-08-01T00:00:00.000Z");
-    const later = new Date("2026-08-05T00:00:00.000Z");
+    const earlier = new Date('2026-08-01T00:00:00.000Z');
+    const later = new Date('2026-08-05T00:00:00.000Z');
     // EXPLICIT timestamps: uuid v7 is not monotonic within a millisecond, so a
     // test that relied on insertion order would be testing the generator's luck.
     await recordSupplierFundingObservationRow({
       supplierAccountId: accountId,
       balanceMinor: 50_000,
-      currency: "EUR",
-      source: "operator_entry",
+      currency: 'EUR',
+      source: 'operator_entry',
       observedAt: earlier,
-      recordedByOxyUserId: "treasury",
+      recordedByOxyUserId: 'treasury',
     });
     await recordSupplierFundingObservationRow({
       supplierAccountId: accountId,
       balanceMinor: 12_000,
-      currency: "EUR",
-      source: "operator_entry",
+      currency: 'EUR',
+      source: 'operator_entry',
       observedAt: later,
-      recordedByOxyUserId: "treasury",
+      recordedByOxyUserId: 'treasury',
     });
 
     const latest = await findLatestSupplierFunding(accountId);
@@ -520,7 +501,7 @@ describe("the bounded retail pilot, against a real server", () => {
     );
   });
 
-  it("refuses an operator-entered balance with no recorder", async () => {
+  it('refuses an operator-entered balance with no recorder', async () => {
     const { accountId } = await makeSupplySide();
     // A figure a person typed and a figure an API returned are different kinds
     // of evidence and must not be told apart by guessing.
@@ -529,8 +510,8 @@ describe("the bounded retail pilot, against a real server", () => {
         recordSupplierFundingObservationRow({
           supplierAccountId: accountId,
           balanceMinor: 1_000,
-          currency: "EUR",
-          source: "operator_entry",
+          currency: 'EUR',
+          source: 'operator_entry',
           observedAt: new Date(),
           recordedByOxyUserId: null,
         }),

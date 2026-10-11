@@ -1,10 +1,10 @@
-import React from "react";
-import { useRouter } from "expo-router";
-import type { StorePermission } from "@mercaria/shared-types";
-import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { useActiveStoreContext, useMyStores } from "@/lib/hooks/use-stores";
-import { useActiveStore } from "@/lib/stores/active-store";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { useRouter } from 'expo-router';
+import type { StorePermission } from '@mercaria/shared-types';
+import { ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { useActiveStoreContext, useMyStores } from '@/lib/hooks/use-stores';
+import { useActiveStore } from '@/lib/stores/active-store';
+import { useTranslation } from '@/lib/i18n';
 
 interface RequirePosProps {
   /** Permission the register screen requires. When the caller lacks it, a clean
@@ -39,17 +39,12 @@ export function RequirePos({ permission, children }: RequirePosProps) {
 
   // No active store/location, or the persisted store is no longer accessible.
   if (!activeStoreId || !store || !activeLocationId) {
-    router.replace("/store-setup");
+    router.replace('/store-setup');
     return <ScreenLoading />;
   }
 
   if (permission && !can(permission)) {
-    return (
-      <ScreenMessage
-        title={t("common.noAccess")}
-        body={t("errors.noRegisterAccessBody")}
-      />
-    );
+    return <ScreenMessage title={t('common.noAccess')} body={t('errors.noRegisterAccessBody')} />;
   }
 
   return <>{children(activeStoreId, activeLocationId)}</>;

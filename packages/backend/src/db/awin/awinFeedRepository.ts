@@ -99,7 +99,9 @@ export async function findPrimaryAwinFeed(
   const [row] = await db
     .select()
     .from(awinFeeds)
-    .where(and(eq(awinFeeds.advertiserRowId, advertiserRowId), isNotNull(awinFeeds.lastSeenInListAt)))
+    .where(
+      and(eq(awinFeeds.advertiserRowId, advertiserRowId), isNotNull(awinFeeds.lastSeenInListAt)),
+    )
     .orderBy(asc(awinFeeds.feedId))
     .limit(1);
   return row ?? null;

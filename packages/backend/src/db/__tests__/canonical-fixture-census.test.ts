@@ -201,7 +201,7 @@ const PERMITTED: readonly { readonly file: string; readonly reason: string }[] =
       '`expectRefusal(...)` IS the subject — it is the evidence for the "nothing is orphaned" ' +
       'claim its merge-plan entries make. Its teardown goes through the helper, and it was ' +
       'routed there BY this census: the fixture originally deleted canonical rows directly in ' +
-      "`afterAll`, which is exactly the cross-file 23503 the helper exists for.",
+      '`afterAll`, which is exactly the cross-file 23503 the helper exists for.',
   },
 ];
 
@@ -385,7 +385,9 @@ describe('the canonical fixture census', () => {
     // The vacuity floor. A broken walk, a moved directory or an extension
     // filter that stopped matching all report the same clean zero as a correct
     // scan, and every assertion below would pass on each of them.
-    expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(300);
+    expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(
+      300,
+    );
     // Both exclusions have to NAME a file the walk actually read. A stale path —
     // a rename, a moved directory — excludes nothing and reads exactly like a
     // correct run, leaving the floor one file easier to clear than it looks.
@@ -406,7 +408,9 @@ describe('the canonical fixture census', () => {
     // excluded path is a file the walk really read, so the exclusion cannot
     // quietly cover nothing.
     const offenders = [...sources]
-      .filter(([path, source]) => path !== THIS_CENSUS && CANONICAL_DELETE_ANY_SPELLING.test(source))
+      .filter(
+        ([path, source]) => path !== THIS_CENSUS && CANONICAL_DELETE_ANY_SPELLING.test(source),
+      )
       .map(([path]) => path)
       .sort();
 
@@ -449,13 +453,17 @@ describe('the canonical fixture census', () => {
     // fire on correct teardowns, and the cheapest way to green that is to
     // narrow the pattern back to where it started.
     expect(
-      CANONICAL_DELETE_ANY_SPELLING.test('sql`delete from canonical_product_redirects where a = 1`'),
+      CANONICAL_DELETE_ANY_SPELLING.test(
+        'sql`delete from canonical_product_redirects where a = 1`',
+      ),
     ).toBe(false);
     expect(
       CANONICAL_DELETE_ANY_SPELLING.test('sql`delete from canonical_product_aliases where a = 1`'),
     ).toBe(false);
     // A SELECT over the same table is not a deletion.
-    expect(CANONICAL_DELETE_ANY_SPELLING.test('sql`select id from canonical_products`')).toBe(false);
+    expect(CANONICAL_DELETE_ANY_SPELLING.test('sql`select id from canonical_products`')).toBe(
+      false,
+    );
   });
 
   it('pins the permission list, and every permission states why', () => {
@@ -570,24 +578,31 @@ describe('the canonical fixture census', () => {
     ).toEqual([['helper_call', null]]);
     // An IMPORT of the helper is not a call to it.
     expect(
-      canonicalCallSites('probe.ts', "import { deleteTestCanonicalRows } from './canonical-teardown.js';"),
+      canonicalCallSites(
+        'probe.ts',
+        "import { deleteTestCanonicalRows } from './canonical-teardown.js';",
+      ),
     ).toEqual([]);
 
     // A near miss: a sibling table.
     expect(
-      canonicalCallSites('probe.ts', `afterAll(async () => db.delete(${variants}Attributes).where(x));`),
+      canonicalCallSites(
+        'probe.ts',
+        `afterAll(async () => db.delete(${variants}Attributes).where(x));`,
+      ),
     ).toEqual([]);
   });
 
   it('is used by every fixture that owns canonical rows', () => {
     const callers = [...sources].filter(
       ([path, source]) =>
-        path !== TEARDOWN_HELPER && path !== THIS_CENSUS && source.includes('deleteTestCanonicalRows('),
+        path !== TEARDOWN_HELPER &&
+        path !== THIS_CENSUS &&
+        source.includes('deleteTestCanonicalRows('),
     );
-    expect(
-      callers.length,
-      'the fixtures stopped going through the helper',
-    ).toBeGreaterThanOrEqual(CALLER_FLOOR);
+    expect(callers.length, 'the fixtures stopped going through the helper').toBeGreaterThanOrEqual(
+      CALLER_FLOOR,
+    );
   });
 
   it('gives every canonical fixture a name that can differ between runs', () => {
@@ -627,7 +642,8 @@ describe('the canonical fixture census', () => {
         // INSTANCE, so `column.name` is the TypeScript key — it would compare
         // consistently and name columns nobody can grep for. The trap
         // `merge-plan-census.test.ts` records, met again here.
-        for (const column of reference.columns) edges.push(`${config.name}.${sqlColumnName(column)}`);
+        for (const column of reference.columns)
+          edges.push(`${config.name}.${sqlColumnName(column)}`);
       }
     }
 
@@ -651,9 +667,9 @@ describe('the canonical fixture census', () => {
     const variants = `canonical${'Variants'}`;
 
     for (const table of [products, variants]) {
-      expect(DIRECT_CANONICAL_DELETE.test(`await db.delete(${table}).where(eq(${table}.id, id));`)).toBe(
-        true,
-      );
+      expect(
+        DIRECT_CANONICAL_DELETE.test(`await db.delete(${table}).where(eq(${table}.id, id));`),
+      ).toBe(true);
       expect(
         DIRECT_CANONICAL_DELETE.test(
           `await db\n  .delete(${table})\n  .where(inArray(${table}.id, ids));`,
@@ -675,7 +691,9 @@ describe('the canonical fixture census', () => {
     );
     // An UPDATE is not a delete — clearing `mergedIntoId` before a delete is a
     // legitimate statement two fixtures make.
-    expect(DIRECT_CANONICAL_DELETE.test(`await db.update(${products}).set({ status });`)).toBe(false);
+    expect(DIRECT_CANONICAL_DELETE.test(`await db.update(${products}).set({ status });`)).toBe(
+      false,
+    );
 
     const name = `${'normalized'}${'Name'}`;
     expect(LITERAL_NORMALIZED_NAME.test(`${name}: 'emergency path widget',`)).toBe(true);
@@ -691,9 +709,9 @@ describe('the canonical fixture census', () => {
       false,
     );
     // The service spelling, which the direct pattern alone missed.
-    expect(CREATES_CANONICAL_PRODUCT.test('const p = await createCanonicalProduct({ name });')).toBe(
-      true,
-    );
+    expect(
+      CREATES_CANONICAL_PRODUCT.test('const p = await createCanonicalProduct({ name });'),
+    ).toBe(true);
     expect(CREATES_CANONICAL_PRODUCT.test('await createCanonicalProductFamily({ name });')).toBe(
       false,
     );

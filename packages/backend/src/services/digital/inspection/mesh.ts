@@ -46,9 +46,18 @@
  * rather than silently restating an old measurement as a new one.
  */
 
-import { MAX_BOUNDING_BOX_MM, MAX_DEDUPLICATED_VERTEX_TRIANGLES, MAX_WATERTIGHT_TRIANGLES } from './limits.js';
+import {
+  MAX_BOUNDING_BOX_MM,
+  MAX_DEDUPLICATED_VERTEX_TRIANGLES,
+  MAX_WATERTIGHT_TRIANGLES,
+} from './limits.js';
 import type { InspectionBudget } from './budget.js';
-import { corruptFile, refusedTooLarge, type BoundingBoxMm, type InspectionOutcome } from './result.js';
+import {
+  corruptFile,
+  refusedTooLarge,
+  type BoundingBoxMm,
+  type InspectionOutcome,
+} from './result.js';
 
 /**
  * The vertex welding grid, in the file's own coordinate units — 1/10 000.
@@ -195,9 +204,15 @@ export function startMeshCensus(options: {
   return {
     add(ax, ay, az, bx, by, bz, cx, cy, cz): MeshCensusHalt | null {
       if (
-        !Number.isFinite(ax) || !Number.isFinite(ay) || !Number.isFinite(az) ||
-        !Number.isFinite(bx) || !Number.isFinite(by) || !Number.isFinite(bz) ||
-        !Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(cz)
+        !Number.isFinite(ax) ||
+        !Number.isFinite(ay) ||
+        !Number.isFinite(az) ||
+        !Number.isFinite(bx) ||
+        !Number.isFinite(by) ||
+        !Number.isFinite(bz) ||
+        !Number.isFinite(cx) ||
+        !Number.isFinite(cy) ||
+        !Number.isFinite(cz)
       ) {
         // NaN and Infinity reach here from a file, not from arithmetic: they are
         // four bytes an attacker chose. A census that accepted one would poison

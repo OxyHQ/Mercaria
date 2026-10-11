@@ -130,7 +130,10 @@ export async function findSupplierPreflightHealth(
 export async function listSupplierPreflightHealth(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<SupplierPreflightHealthRow[]> {
-  return db.select().from(supplierPreflightHealth).orderBy(supplierPreflightHealth.supplierAccountId);
+  return db
+    .select()
+    .from(supplierPreflightHealth)
+    .orderBy(supplierPreflightHealth.supplierAccountId);
 }
 
 /** The derived verdict a policy version's thresholds produce. */

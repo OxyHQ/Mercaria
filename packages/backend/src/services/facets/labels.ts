@@ -31,11 +31,7 @@
  * closing it deletes this module's one bespoke walk.
  */
 
-import type {
-  FacetLabel,
-  LocalizedResolution,
-  SupportedLocale,
-} from '@mercaria/shared-types';
+import type { FacetLabel, LocalizedResolution, SupportedLocale } from '@mercaria/shared-types';
 import { localeFallbackChain } from '../catalog-localization/resolve.js';
 
 /** The fallback policy every catalog-presentation string in the rail uses. */
@@ -55,10 +51,7 @@ export function facetLocaleChain(requestedLocale: string): readonly SupportedLoc
  * because a machine key rendered beside translated siblings looks like a bug in
  * exactly the place a reader has least context to judge it.
  */
-export function labelFromResolution(
-  resolution: LocalizedResolution,
-  baseText: string,
-): FacetLabel {
+export function labelFromResolution(resolution: LocalizedResolution, baseText: string): FacetLabel {
   if (resolution.outcome === 'resolved') {
     return {
       text: resolution.value,

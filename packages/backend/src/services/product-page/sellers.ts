@@ -79,7 +79,10 @@ export async function resolveOfferSellers(
 
   const sellers = new Map<string, ProductPageSeller>();
   for (const offer of offers) {
-    sellers.set(offer.id, resolveOne(offer, { merchantsById, storefrontsById, listingsById, profiles }));
+    sellers.set(
+      offer.id,
+      resolveOne(offer, { merchantsById, storefrontsById, listingsById, profiles }),
+    );
   }
   return sellers;
 }
@@ -142,7 +145,12 @@ function resolveOne(offer: Offer, context: ResolutionContext): ProductPageSeller
     // populated — the #92 rule: a store's stock must never read as a person's
     // inventory, and this is the read where a widened exclusivity CHECK would
     // otherwise disclose it.
-    if (listing.ownerType === 'store' && listing.storeId && listing.storeName && listing.storeHandle) {
+    if (
+      listing.ownerType === 'store' &&
+      listing.storeId &&
+      listing.storeName &&
+      listing.storeHandle
+    ) {
       return {
         kind: 'native_store',
         storeId: listing.storeId,

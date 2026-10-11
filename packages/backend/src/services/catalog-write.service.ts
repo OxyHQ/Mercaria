@@ -881,7 +881,9 @@ async function insertStoreProductWithin(
   await writeListingConditionEvidence(tx, {
     listingId: row.id,
     actor: spec.conditionActor,
-    galleryFileIds: spec.media ? spec.media.filter(item => item.kind === 'image').map(item => item.fileId) : input.imageFileIds ?? [],
+    galleryFileIds: spec.media
+      ? spec.media.filter((item) => item.kind === 'image').map((item) => item.fileId)
+      : (input.imageFileIds ?? []),
     resolved: spec.resolvedCondition,
     categoryId,
     categorySlugs,
@@ -966,9 +968,7 @@ export async function createStoreProduct(
     // transaction, and two spellings of a product create would have to agree
     // about the condition default, the source default, the variant cap and
     // `published_at` forever.
-    listing = await getDb().transaction((tx) =>
-      createStoreProductWithin(tx, storeId, input, opts),
-    );
+    listing = await getDb().transaction((tx) => createStoreProductWithin(tx, storeId, input, opts));
   } catch (err) {
     // The incumbent is read AFTER the transaction has rolled back, on a fresh
     // connection: one failed statement aborts the whole transaction (`25P02`), so
@@ -1032,8 +1032,14 @@ export async function createStoreProductWithin(
     productTypeDefinitionId?: string | null;
   } = {},
 ): Promise<ListingRecord> {
-  if (input.mediaFileIds !== undefined && opts.media === undefined) throw validationError('Mixed media must be verified before writing');
-  if (opts.media !== undefined && (input.imageFileIds !== undefined || JSON.stringify(input.mediaFileIds) !== JSON.stringify(opts.media.map(item => item.fileId)))) throw validationError('Verified media must exactly match the requested gallery');
+  if (input.mediaFileIds !== undefined && opts.media === undefined)
+    throw validationError('Mixed media must be verified before writing');
+  if (
+    opts.media !== undefined &&
+    (input.imageFileIds !== undefined ||
+      JSON.stringify(input.mediaFileIds) !== JSON.stringify(opts.media.map((item) => item.fileId)))
+  )
+    throw validationError('Verified media must exactly match the requested gallery');
   assertDescriptionImagesStored(input.description);
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
   const variants = resolveStoreVariants(input, opts.variantSources);
@@ -1150,9 +1156,15 @@ export async function updateListing(
   actor: ConditionActor,
   media?: readonly ListingMedia[],
 ): Promise<void> {
-  if (patch.mediaFileIds !== undefined && media === undefined) throw validationError('Mixed media must be verified before writing');
-  if (media !== undefined && JSON.stringify(patch.mediaFileIds) !== JSON.stringify(media.map(item => item.fileId))) throw validationError('Verified media must exactly match the requested gallery');
-  if (patch.mediaFileIds !== undefined && patch.imageFileIds !== undefined) throw validationError('Choose mediaFileIds or imageFileIds');
+  if (patch.mediaFileIds !== undefined && media === undefined)
+    throw validationError('Mixed media must be verified before writing');
+  if (
+    media !== undefined &&
+    JSON.stringify(patch.mediaFileIds) !== JSON.stringify(media.map((item) => item.fileId))
+  )
+    throw validationError('Verified media must exactly match the requested gallery');
+  if (patch.mediaFileIds !== undefined && patch.imageFileIds !== undefined)
+    throw validationError('Choose mediaFileIds or imageFileIds');
   const listing = await findListingById(listingId);
   if (!listing) {
     throw notFound('Listing not found');
@@ -1247,10 +1259,21 @@ export async function updateListing(
   // tightly on purpose: `toUpdatePatch` always sends `imageFileIds`, so reading
   // it unconditionally would add a query per product to every backfill page —
   // and a connector never pins, so it never needs one.
-  const storedChildren = patch.imageFileIds === undefined || pinsApply ? await findListingChildren([listingId]) : undefined;
-  const storedImageFileIds = (storedChildren?.images.get(listingId) ?? []).map(image => image.fileId);
-  const storedMediaFileIds = (storedChildren?.media?.get(listingId) ?? storedChildren?.images.get(listingId) ?? []).map(item => item.fileId);
-  const galleryFileIds = media ? media.filter(item => item.kind === 'image').map(item => item.fileId) : patch.imageFileIds ?? storedImageFileIds;
+  const storedChildren =
+    patch.imageFileIds === undefined || pinsApply
+      ? await findListingChildren([listingId])
+      : undefined;
+  const storedImageFileIds = (storedChildren?.images.get(listingId) ?? []).map(
+    (image) => image.fileId,
+  );
+  const storedMediaFileIds = (
+    storedChildren?.media?.get(listingId) ??
+    storedChildren?.images.get(listingId) ??
+    []
+  ).map((item) => item.fileId);
+  const galleryFileIds = media
+    ? media.filter((item) => item.kind === 'image').map((item) => item.fileId)
+    : (patch.imageFileIds ?? storedImageFileIds);
 
   if (pinsApply) {
     const pins = mergePins(
@@ -1272,7 +1295,13 @@ export async function updateListing(
     if (pins) {
       columns.overriddenFields = pins;
     }
-    if (media && JSON.stringify(media.map(item => item.fileId)) !== JSON.stringify(storedMediaFileIds)) columns.overriddenFields = [...new Set([...(columns.overriddenFields ?? listing.overriddenFields), 'images'])];
+    if (
+      media &&
+      JSON.stringify(media.map((item) => item.fileId)) !== JSON.stringify(storedMediaFileIds)
+    )
+      columns.overriddenFields = [
+        ...new Set([...(columns.overriddenFields ?? listing.overriddenFields), 'images']),
+      ];
   }
 
   try {
@@ -1340,10 +1369,7 @@ export async function updateListing(
   // P2P price/quantity updates flow through the single variant, stored in its
   // NATIVE currency. Both target the FIRST variant by position, which is the one
   // `createP2PListing` made.
-  if (
-    listing.ownerType === 'user' &&
-    (patch.price !== undefined || patch.quantity !== undefined)
-  ) {
+  if (listing.ownerType === 'user' && (patch.price !== undefined || patch.quantity !== undefined)) {
     const [variant] = await findVariantsByListing(listingId);
     if (variant) {
       await updateVariantColumns(
@@ -1558,7 +1584,8 @@ export async function addVariant(
   // `ownerType: 'store'`). Stock the new variant at the caller's location, else
   // the store's default, so the level sum matches the scalar `available` just
   // written.
-  const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(String(listing.storeId)));
+  const stockLocationId =
+    opts.locationId ?? (await resolveDefaultLocationId(String(listing.storeId)));
   await insertLevels([
     {
       variantId: created.id,

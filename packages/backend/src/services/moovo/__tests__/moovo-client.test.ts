@@ -132,17 +132,16 @@ function scriptedTransport(script: readonly ScriptEntry[]) {
     index += 1;
     return outcome;
   };
-  const handle = (context: MoovoCallContext): Promise<MoovoTransportOutcome<MoovoTransportHandle>> =>
-    Promise.resolve(next(context));
+  const handle = (
+    context: MoovoCallContext,
+  ): Promise<MoovoTransportOutcome<MoovoTransportHandle>> => Promise.resolve(next(context));
   const transport: MoovoTransport = {
     registerTrackingOnlyTransport: (_r, c) => handle(c),
     bookTransport: (_r, c) => handle(c),
     requestReturnTransport: (_r, c) => handle(c),
     readTransportProjection: (_i, c) => {
       const outcome = next(c);
-      return Promise.resolve(
-        outcome.kind === 'ok' ? { kind: 'ok', value: PROJECTION } : outcome,
-      );
+      return Promise.resolve(outcome.kind === 'ok' ? { kind: 'ok', value: PROJECTION } : outcome);
     },
     cancelTransport: (_i, c) => {
       const outcome = next(c);
@@ -200,9 +199,9 @@ describe('#156 item 8 — an ambiguous write is never retried blindly', () => {
       'reconcile_before_retry',
     );
     // The same failure on a READ is freely retryable — nothing was written.
-    expect(moovoRetryDisposition('read_transport_projection', 'provider_unavailable', ambiguous)).toBe(
-      'retry_bounded',
-    );
+    expect(
+      moovoRetryDisposition('read_transport_projection', 'provider_unavailable', ambiguous),
+    ).toBe('retry_bounded');
   });
 
   it('a write whose request never left IS retried — the bound is ambiguity, not writes', async () => {
@@ -271,7 +270,11 @@ describe('#156 error policy — retry schedule', () => {
         failure: failure({ status: 429, afterWrite: 'no', retryAfterMs: 999_999 }),
       },
     ]);
-    const client = createMoovoLogisticsClient(scripted.transport, { ...OPTIONS, maxAttempts: 2 }, deps);
+    const client = createMoovoLogisticsClient(
+      scripted.transport,
+      { ...OPTIONS, maxAttempts: 2 },
+      deps,
+    );
 
     await client.readTransportProjection('tr_1');
 
@@ -296,7 +299,9 @@ describe('#156 error policy — retry schedule', () => {
       ['quote_expired', failure({ status: 409, providerCode: 'quote_expired' })],
     ] as const) {
       expect(classifyMoovoFailure(raw)).toBe(failureClass);
-      expect(moovoRetryDisposition('read_transport_projection', failureClass, raw)).toBe('no_retry');
+      expect(moovoRetryDisposition('read_transport_projection', failureClass, raw)).toBe(
+        'no_retry',
+      );
     }
   });
 
@@ -310,9 +315,13 @@ describe('#156 error policy — retry schedule', () => {
   it('a 401 asks for one refresh, which this client does not perform', () => {
     // The disposition is REPORTED and acted on by nothing here: minting and
     // refreshing belong to the SDK client inside the transport (OxyHQ/oxy#878).
-    expect(moovoRetryDisposition('read_transport_projection', 'authentication', failure({ status: 401 }))).toBe(
-      'retry_after_refresh',
-    );
+    expect(
+      moovoRetryDisposition(
+        'read_transport_projection',
+        'authentication',
+        failure({ status: 401 }),
+      ),
+    ).toBe('retry_after_refresh');
   });
 });
 
@@ -420,7 +429,11 @@ describe('#156 item 10 — metrics name an operation and an outcome and nothing 
     const scripted = scriptedTransport([
       { kind: 'failed', failure: failure({ status: 500, afterWrite: 'no' }) },
     ]);
-    const client = createMoovoLogisticsClient(scripted.transport, { ...OPTIONS, maxAttempts: 1 }, deterministicDeps());
+    const client = createMoovoLogisticsClient(
+      scripted.transport,
+      { ...OPTIONS, maxAttempts: 1 },
+      deterministicDeps(),
+    );
 
     await client.readTransportProjection('tr_secret_id');
 
@@ -444,7 +457,11 @@ describe('the coarse reason a caller outside the domain sees', () => {
 
   it('a refused request reads as provider_refused rather than unreachable', () => {
     expect(
-      moovoUnavailableReasonFor('read_transport_projection', 'validation', failure({ status: 422 })),
+      moovoUnavailableReasonFor(
+        'read_transport_projection',
+        'validation',
+        failure({ status: 422 }),
+      ),
     ).toBe('provider_refused');
   });
 });

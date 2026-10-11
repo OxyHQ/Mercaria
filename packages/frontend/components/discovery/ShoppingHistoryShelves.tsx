@@ -1,12 +1,9 @@
-import { renderListingLink } from "@/lib/catalog/product-links";
-import { View } from "react-native";
-import { Link, useRouter } from "expo-router";
-import { ProductShelf, ThreadShelf } from "@mercaria/ui";
-import {
-  useShoppingHistory,
-  useShoppingHistoryOwner,
-} from "@/lib/stores/shopping-history";
-import { useTranslation } from "@/lib/i18n";
+import { renderListingLink } from '@/lib/catalog/product-links';
+import { View } from 'react-native';
+import { Link, useRouter } from 'expo-router';
+import { ProductShelf, ThreadShelf } from '@mercaria/ui';
+import { useShoppingHistory, useShoppingHistoryOwner } from '@/lib/stores/shopping-history';
+import { useTranslation } from '@/lib/i18n';
 
 export function ShoppingHistoryShelves() {
   const owner = useShoppingHistoryOwner();
@@ -23,7 +20,7 @@ export function ShoppingHistoryShelves() {
   return (
     <>
       <ThreadShelf
-        title={t("home.keepShopping")}
+        title={t('home.keepShopping')}
         items={recentThreads.map((thread) => {
           const date = new Date(thread.updatedAt);
           const today = date.toDateString() === new Date().toDateString();
@@ -32,9 +29,7 @@ export function ShoppingHistoryShelves() {
             title: thread.title,
             dateLabel: new Intl.DateTimeFormat(
               locale,
-              today
-                ? { hour: "numeric", minute: "2-digit" }
-                : { month: "long", day: "numeric" },
+              today ? { hour: 'numeric', minute: '2-digit' } : { month: 'long', day: 'numeric' },
             ).format(date),
             imageUrls: thread.messages
               .flatMap((message) =>
@@ -46,16 +41,20 @@ export function ShoppingHistoryShelves() {
           };
         })}
         onPress={(conversationId) =>
-          router.push({ pathname: "/thread", params: { conversationId } })
+          router.push({ pathname: '/thread', params: { conversationId } })
         }
       />
       {recentProducts.length ? (
         <View testID="recently-viewed-shelf">
           <ProductShelf
-            title={t("home.recentlyViewed")}
+            title={t('home.recentlyViewed')}
             items={recentProducts.slice(0, 12)}
             cardVariant="image-only"
-            renderTitleLink={(child) => <Link href="/recently-viewed" asChild>{child}</Link>}
+            renderTitleLink={(child) => (
+              <Link href="/recently-viewed" asChild>
+                {child}
+              </Link>
+            )}
             renderProductLink={renderListingLink}
           />
         </View>

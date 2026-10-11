@@ -126,15 +126,10 @@ interface LeaseHeartbeatResult {
   error?: unknown;
 }
 
-function startLeaseHeartbeat(options: {
-  eventId: string;
-  leaseOwner: string;
-  leaseMs: number;
-}): { stop: () => Promise<LeaseHeartbeatResult> } {
-  const renewIntervalMs = Math.max(
-    MIN_LEASE_RENEW_INTERVAL_MS,
-    Math.floor(options.leaseMs / 3),
-  );
+function startLeaseHeartbeat(options: { eventId: string; leaseOwner: string; leaseMs: number }): {
+  stop: () => Promise<LeaseHeartbeatResult>;
+} {
+  const renewIntervalMs = Math.max(MIN_LEASE_RENEW_INTERVAL_MS, Math.floor(options.leaseMs / 3));
   let stopped = false;
   let lost = false;
   let renewalError: unknown;
@@ -142,11 +137,7 @@ function startLeaseHeartbeat(options: {
 
   const renew = (): void => {
     if (stopped || lost || renewalInFlight) return;
-    const renewal = renewModerationOutboxEvent(
-      options.eventId,
-      options.leaseOwner,
-      options.leaseMs,
-    )
+    const renewal = renewModerationOutboxEvent(options.eventId, options.leaseOwner, options.leaseMs)
       .then((stillOwner) => {
         if (!stillOwner) lost = true;
       })

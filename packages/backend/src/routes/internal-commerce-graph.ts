@@ -170,7 +170,11 @@ router.post(
 // calling the same endpoint twice.
 
 /** GET — the candidate queue, with evidence summary, approvals and conflicts. */
-router.get('/relationships', validateQuery(relationshipQueueQuerySchema), listRelationshipQueueHandler);
+router.get(
+  '/relationships',
+  validateQuery(relationshipQueueQuerySchema),
+  listRelationshipQueueHandler,
+);
 
 /** POST — record a CLAIM. It lands as a candidate whoever asks. */
 router.post('/relationships', validateBody(relationshipAssertSchema), assertRelationshipHandler);
@@ -249,11 +253,7 @@ router.get('/claims', validateQuery(merchantClaimQueueQuerySchema), listClaimQue
 router.get('/claims/:id', getClaimForOperatorHandler);
 
 /** Verify or reject a claim awaiting a decision. */
-router.post(
-  '/claims/:id/decision',
-  validateBody(merchantClaimDecisionSchema),
-  decideClaimHandler,
-);
+router.post('/claims/:id/decision', validateBody(merchantClaimDecisionSchema), decideClaimHandler);
 
 /** Withdraw a verification. The merchant returns to `unclaimed`. */
 router.post('/claims/:id/revoke', validateBody(merchantClaimRevokeSchema), revokeClaimHandler);

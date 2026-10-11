@@ -350,8 +350,7 @@ describe('#737 — which product statuses the page aggregates count', () => {
   it('the brand CATEGORY ROLLUP counts only shopper-visible products', async () => {
     const rows = await listBrandCategoryRollup(db, ROLLUP_BRAND, 50);
     const byCategory = new Map(rows.map((row) => [row.categoryId, row.productCount]));
-    const countFor = (status: Status): number =>
-      byCategory.get(categoryOf.get(status) ?? '') ?? 0;
+    const countFor = (status: Status): number => byCategory.get(categoryOf.get(status) ?? '') ?? 0;
 
     // The floor first: an aggregate over nothing satisfies every zero below.
     expect(countFor('active'), 'CONTROL: an active product was not counted').toBe(1);
@@ -377,7 +376,10 @@ describe('#737 — which product statuses the page aggregates count', () => {
       brandId: ROLLUP_BRAND,
     });
 
-    expect(rollupSum, 'the rollup counted NOTHING — the comparison below is vacuous').toBeGreaterThan(0);
+    expect(
+      rollupSum,
+      'the rollup counted NOTHING — the comparison below is vacuous',
+    ).toBeGreaterThan(0);
     expect(
       rollupSum,
       'the category counts sum to MORE than the brand total rendered above them',
@@ -389,7 +391,7 @@ describe('#737 — which product statuses the page aggregates count', () => {
     const byBrand = new Map(rows.map((row) => [row.brandId, row.currentOfferCount]));
     const countFor = (status: Status): number => byBrand.get(brandOf.get(status) ?? '') ?? 0;
 
-    expect(countFor('active'), 'CONTROL: an active product\'s offer was not counted').toBe(1);
+    expect(countFor('active'), "CONTROL: an active product's offer was not counted").toBe(1);
     expect(countFor('discontinued'), 'a discontinued product should still count').toBe(1);
 
     // These counts do not merely inflate a number: the third brand state —
@@ -404,7 +406,10 @@ describe('#737 — which product statuses the page aggregates count', () => {
     // Control first, and it is doing real work here: it is the shape the
     // subject differs from by exactly one suppressed row.
     const control = await listFamilySharedAttributes(db, FAMILY_CONTROL, 20);
-    expect(control.map((row) => row.key), 'CONTROL: an all-active family lost its attribute').toEqual([KEY]);
+    expect(
+      control.map((row) => row.key),
+      'CONTROL: an all-active family lost its attribute',
+    ).toEqual([KEY]);
 
     // The subject. Every one of its three products carries the attribute; one
     // is suppressed. Before #737 this was `[]` — the denominator counted two

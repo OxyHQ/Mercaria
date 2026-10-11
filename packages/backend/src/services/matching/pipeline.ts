@@ -115,8 +115,7 @@ function prepareSubject(subject: MatchSubject): PreparedSubject {
     declaredPackCount,
   });
 
-  const brand =
-    subject.brandText === undefined ? '' : normalizeEntityName(subject.brandText);
+  const brand = subject.brandText === undefined ? '' : normalizeEntityName(subject.brandText);
   const model = subject.modelText === undefined ? '' : subject.modelText.trim();
 
   const rawTitle =
@@ -326,7 +325,10 @@ async function scoreProducts(input: {
 }
 
 /** Attach the policy's confidence to each candidate as its comparable score. */
-function withScores(candidates: readonly ScoredCandidate[], policy: MatchPolicy): ScoredCandidate[] {
+function withScores(
+  candidates: readonly ScoredCandidate[],
+  policy: MatchPolicy,
+): ScoredCandidate[] {
   return candidates.map((candidate) => {
     let weighted = 0;
     let total = 0;
@@ -489,8 +491,7 @@ export async function evaluateMatch(
       matchedCanonicalVariantId: matchedVariantId,
       reasonCodes: decision.reasonCodes,
       blockers: decision.blockers,
-      positiveIdentifiers:
-        decision.outcome === 'create_new' ? [] : identifiers.positiveLabels,
+      positiveIdentifiers: decision.outcome === 'create_new' ? [] : identifiers.positiveLabels,
       conflictingIdentifiers: conflicting,
       normalizedBrand: prepared.scoring.normalizedBrand,
       normalizedModel: prepared.scoring.normalizedModel,
@@ -554,7 +555,12 @@ export async function evaluateMatch(
     limit: policy.maxCandidates,
   });
   if (normalizedNameIds.length > 0) {
-    return await finish('normalized_attributes', normalizedNameIds, ['model_name_exact'], new Map());
+    return await finish(
+      'normalized_attributes',
+      normalizedNameIds,
+      ['model_name_exact'],
+      new Map(),
+    );
   }
 
   // ── Stage 5: category-aware title and attribute retrieval ──────────────────
@@ -589,7 +595,10 @@ export async function evaluateMatch(
   for (const variant of variants) {
     const product = productsById.get(variant.productId);
     if (!product) continue;
-    texts.set(variant.variantId, `${product.name} ${variant.name === null ? '' : variant.name}`.trim());
+    texts.set(
+      variant.variantId,
+      `${product.name} ${variant.name === null ? '' : variant.name}`.trim(),
+    );
   }
 
   const semanticScores = await scoreSemantically(scorer, {

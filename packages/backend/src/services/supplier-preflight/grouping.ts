@@ -27,7 +27,12 @@
  * a rule the composer has to remember.
  */
 
-import type { CurrencyCode, Money, SupplierGroupDeliveredTotal, SupplierShippingQuote } from '@mercaria/shared-types';
+import type {
+  CurrencyCode,
+  Money,
+  SupplierGroupDeliveredTotal,
+  SupplierShippingQuote,
+} from '@mercaria/shared-types';
 
 /**
  * One retail line awaiting preflight.

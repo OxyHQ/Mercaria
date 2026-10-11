@@ -343,9 +343,14 @@ export async function insertReview(
     }
 
     if (values.media?.length) {
-      await tx.insert(reviewMedia).values(values.media.map((media, position) => ({
-        reviewId: row.id, fileId: media.fileId, kind: media.kind, position,
-      })));
+      await tx.insert(reviewMedia).values(
+        values.media.map((media, position) => ({
+          reviewId: row.id,
+          fileId: media.fileId,
+          kind: media.kind,
+          position,
+        })),
+      );
     }
 
     return row;
@@ -360,14 +365,29 @@ export async function insertReview(
 
 /** Only published, non-private parents can project public attachments. The
  * parent join repeats the visibility check even if a caller passes hidden IDs. */
-export async function findMediaForReviews(ids: readonly string[], db: DatabaseOrTransaction = getDb()) {
+export async function findMediaForReviews(
+  ids: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+) {
   if (!ids.length) return [];
-  return db.select({ id: reviewMedia.id, reviewId: reviewMedia.reviewId,
-    fileId: reviewMedia.fileId, kind: reviewMedia.kind, position: reviewMedia.position })
-    .from(reviewMedia).innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId))
-    .where(and(inArray(reviewMedia.reviewId, [...ids]), eq(reviews.status, 'published'),
-      sql`${reviews.targetType} <> 'order_item'`,
-      or(isNull(reviews.scope), sql`${reviews.scope} <> 'native_transaction'`)))
+  return db
+    .select({
+      id: reviewMedia.id,
+      reviewId: reviewMedia.reviewId,
+      fileId: reviewMedia.fileId,
+      kind: reviewMedia.kind,
+      position: reviewMedia.position,
+    })
+    .from(reviewMedia)
+    .innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId))
+    .where(
+      and(
+        inArray(reviewMedia.reviewId, [...ids]),
+        eq(reviews.status, 'published'),
+        sql`${reviews.targetType} <> 'order_item'`,
+        or(isNull(reviews.scope), sql`${reviews.scope} <> 'native_transaction'`),
+      ),
+    )
     .orderBy(asc(reviewMedia.reviewId), asc(reviewMedia.position));
 }
 
@@ -385,13 +405,27 @@ export async function findReviewMediaPage(
     or(isNull(reviews.scope), sql`${reviews.scope} <> 'native_transaction'`),
   );
   const [rows, [totals]] = await Promise.all([
-    db.select({ review: reviews, media: { id: reviewMedia.id, fileId: reviewMedia.fileId,
-      kind: reviewMedia.kind, position: reviewMedia.position } })
-      .from(reviewMedia).innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId))
-      .where(where).orderBy(desc(reviews.createdAt), desc(reviews.id), asc(reviewMedia.position))
-      .limit(limit).offset((page - 1) * limit),
-    db.select({ count: sql<number>`count(*)::int` })
-      .from(reviewMedia).innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId)).where(where),
+    db
+      .select({
+        review: reviews,
+        media: {
+          id: reviewMedia.id,
+          fileId: reviewMedia.fileId,
+          kind: reviewMedia.kind,
+          position: reviewMedia.position,
+        },
+      })
+      .from(reviewMedia)
+      .innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId))
+      .where(where)
+      .orderBy(desc(reviews.createdAt), desc(reviews.id), asc(reviewMedia.position))
+      .limit(limit)
+      .offset((page - 1) * limit),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(reviewMedia)
+      .innerJoin(reviews, eq(reviews.id, reviewMedia.reviewId))
+      .where(where),
   ]);
   return { rows, total: totals?.count ?? 0 };
 }
@@ -536,7 +570,13 @@ export async function findReviewsPage(
   filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(withReviewFilters(publishedTargetFilter(target), filters), page, limit, filters, db);
+  return pageOf(
+    withReviewFilters(publishedTargetFilter(target), filters),
+    page,
+    limit,
+    filters,
+    db,
+  );
 }
 
 /** A page of a SCOPED target's PUBLISHED reviews, newest first by default, plus the total. */
@@ -547,7 +587,13 @@ export async function findScopedReviewsPage(
   filters: ReviewListFilters = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReviewPageRows> {
-  return pageOf(withReviewFilters(publishedScopedFilter(target), filters), page, limit, filters, db);
+  return pageOf(
+    withReviewFilters(publishedScopedFilter(target), filters),
+    page,
+    limit,
+    filters,
+    db,
+  );
 }
 
 /** Literal title/body search and star selection, scoped before count and pagination. */
@@ -568,10 +614,14 @@ async function pageOf(
   db: DatabaseOrTransaction,
 ): Promise<ReviewPageRows> {
   const byDate = [desc(reviews.createdAt), desc(reviews.id)];
-  const order = filters.sortBy === 'oldest' ? [asc(reviews.createdAt), asc(reviews.id)]
-    : filters.sortBy === 'rating_asc' ? [asc(reviews.rating), ...byDate]
-    : filters.sortBy === 'rating_desc' ? [desc(reviews.rating), ...byDate]
-    : byDate;
+  const order =
+    filters.sortBy === 'oldest'
+      ? [asc(reviews.createdAt), asc(reviews.id)]
+      : filters.sortBy === 'rating_asc'
+        ? [asc(reviews.rating), ...byDate]
+        : filters.sortBy === 'rating_desc'
+          ? [desc(reviews.rating), ...byDate]
+          : byDate;
   const [rows, [totals]] = await Promise.all([
     db
       .select()
@@ -580,10 +630,7 @@ async function pageOf(
       .orderBy(...order)
       .limit(limit)
       .offset((page - 1) * limit),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(reviews)
-      .where(where),
+    db.select({ count: sql<number>`count(*)::int` }).from(reviews).where(where),
   ]);
 
   return { rows, total: totals?.count ?? 0 };
@@ -606,11 +653,14 @@ export async function findListingReviewsPage(
   if (listingIds.length === 0) return { rows: [], total: 0 };
 
   return pageOf(
-    withReviewFilters(and(
-      eq(reviews.targetType, 'listing'),
-      inArray(reviews.listingId, [...listingIds]),
-      eq(reviews.status, 'published'),
-    ) as SQL, filters),
+    withReviewFilters(
+      and(
+        eq(reviews.targetType, 'listing'),
+        inArray(reviews.listingId, [...listingIds]),
+        eq(reviews.status, 'published'),
+      ) as SQL,
+      filters,
+    ),
     page,
     limit,
     filters,

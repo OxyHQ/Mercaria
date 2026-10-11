@@ -19,7 +19,12 @@ import type {
   NormalizedSourceFactValue,
   NormalizedSourceMoney,
 } from '@mercaria/shared-types';
-import { assertSafeMoneyAmount, CURRENCY_PRECISION, foldAccents, wordTokens } from '@mercaria/shared-types';
+import {
+  assertSafeMoneyAmount,
+  CURRENCY_PRECISION,
+  foldAccents,
+  wordTokens,
+} from '@mercaria/shared-types';
 
 /** A JSON object, or `undefined` for anything else. */
 export function asObject(value: unknown): Readonly<Record<string, unknown>> | undefined {
@@ -93,7 +98,7 @@ export function decimalMoney(
   const integer = match[1] ?? '0';
   const fraction = (match[2] ?? '').padEnd(precision + 1, '0');
   const kept = fraction.slice(0, precision);
-  const roundUp = (fraction.charCodeAt(precision) - 48) >= 5;
+  const roundUp = fraction.charCodeAt(precision) - 48 >= 5;
   const amount = Number(`${integer}${kept}`) + (roundUp ? 1 : 0);
   if (!Number.isSafeInteger(amount)) return undefined;
   try {
@@ -105,7 +110,10 @@ export function decimalMoney(
 }
 
 /** An amount already in minor units (Steam's `final: 969`). */
-export function minorMoney(value: unknown, currency: string | undefined): NormalizedSourceMoney | undefined {
+export function minorMoney(
+  value: unknown,
+  currency: string | undefined,
+): NormalizedSourceMoney | undefined {
   const code = currency?.trim().toUpperCase();
   if (code === undefined || !/^[A-Z]{3}$/u.test(code)) return undefined;
   const amount = typeof value === 'number' ? value : asNumber(value);
@@ -127,7 +135,11 @@ export class FactCollector {
     if (value === null || value === undefined) return this;
     if (typeof value === 'string' && value.trim() === '') return this;
     if (Array.isArray(value) && value.length === 0) return this;
-    this.facts.push({ key: `${this.namespace}.${key}`, value, ...(unit === undefined ? {} : { unit }) });
+    this.facts.push({
+      key: `${this.namespace}.${key}`,
+      value,
+      ...(unit === undefined ? {} : { unit }),
+    });
     return this;
   }
 

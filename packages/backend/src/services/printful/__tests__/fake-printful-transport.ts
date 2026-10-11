@@ -147,7 +147,12 @@ export function createFakePrintfulTransport(): FakePrintfulTransport {
         return json(401, { detail: 'Invalid authorization token' });
       }
       if (scenario === 'rate_limited' && request.path.startsWith('/v2/orders')) {
-        return { status: 429, headers: { 'retry-after': '30' }, body: { detail: 'Too many requests' }, parsed: true };
+        return {
+          status: 429,
+          headers: { 'retry-after': '30' },
+          body: { detail: 'Too many requests' },
+          parsed: true,
+        };
       }
 
       // --- Catalogue reads, for the #122 preflight half. ---
@@ -173,7 +178,15 @@ export function createFakePrintfulTransport(): FakePrintfulTransport {
       }
       if (request.path === '/v2/shipping-rates') {
         return json(200, {
-          data: [{ id: 'STANDARD', name: 'Flat Rate', rate: '4.19', minDeliveryDays: 3, maxDeliveryDays: 5 }],
+          data: [
+            {
+              id: 'STANDARD',
+              name: 'Flat Rate',
+              rate: '4.19',
+              minDeliveryDays: 3,
+              maxDeliveryDays: 5,
+            },
+          ],
         });
       }
 

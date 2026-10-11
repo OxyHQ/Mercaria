@@ -251,7 +251,9 @@ class Recorder {
   readonly steps: SeedStep[] = [];
 
   record(entity: string, identity: string, outcome: SeedStepOutcome, detail?: string): void {
-    this.steps.push(detail === undefined ? { entity, identity, outcome } : { entity, identity, outcome, detail });
+    this.steps.push(
+      detail === undefined ? { entity, identity, outcome } : { entity, identity, outcome, detail },
+    );
   }
 }
 
@@ -339,7 +341,7 @@ export async function applyVerticalPackage(
         agrees
           ? undefined
           : `stored (name='${existing.name}', slug='${existing.slug}', selectable=${existing.selectable}) ` +
-            `differs from the package (name='${category.name}', slug='${slug}', selectable=${category.selectable})`,
+              `differs from the package (name='${category.name}', slug='${slug}', selectable=${category.selectable})`,
       );
       continue;
     }
@@ -408,7 +410,8 @@ export async function applyVerticalPackage(
     if (active) {
       attributeIds.set(attribute.key, active.row.id);
       attributeVersions.set(attribute.key, active.row.version);
-      for (const value of active.enumValues) enumValueIds.set(`${attribute.key}:${value.value}`, value.id);
+      for (const value of active.enumValues)
+        enumValueIds.set(`${attribute.key}:${value.value}`, value.id);
       const agrees =
         active.row.valueType === attribute.valueType &&
         active.row.variantDefining === (attribute.variantDefining ?? false);
@@ -419,7 +422,7 @@ export async function applyVerticalPackage(
         agrees
           ? undefined
           : `stored (valueType='${active.row.valueType}', variantDefining=${active.row.variantDefining}) ` +
-            `differs from the package (valueType='${attribute.valueType}', variantDefining=${attribute.variantDefining ?? false})`,
+              `differs from the package (valueType='${attribute.valueType}', variantDefining=${attribute.variantDefining ?? false})`,
       );
       continue;
     }
@@ -461,7 +464,9 @@ export async function applyVerticalPackage(
               ...(value.aliases === undefined ? {} : { aliases: [...value.aliases] }),
             })),
           }),
-      ...(attribute.labels === undefined ? {} : { labels: attribute.labels.map((l) => ({ ...l })) }),
+      ...(attribute.labels === undefined
+        ? {}
+        : { labels: attribute.labels.map((l) => ({ ...l })) }),
       ...(attribute.categoryScopeKeys === undefined
         ? {}
         : {
@@ -611,9 +616,9 @@ export async function applyVerticalPackage(
           // silently offers every value. A typo must stop the seed.
           if (enumValueId === undefined) {
             throw new Error(
-              `Product type '${productType.key}' permits value '${value}' on '${field.attributeKey}', `
-                + 'which that attribute does not define. A permitted value must name a controlled '
-                + 'value the cited definition already carries.',
+              `Product type '${productType.key}' permits value '${value}' on '${field.attributeKey}', ` +
+                'which that attribute does not define. A permitted value must name a controlled ' +
+                'value the cited definition already carries.',
             );
           }
           await insertProductTypeFieldAllowedValue(db, {
@@ -877,7 +882,9 @@ export async function applyVerticalPackage(
             modelId: modelRow.id,
             key: nsKey(ns, generation.key),
             name: generation.name,
-            ...(generation.chassisCode === undefined ? {} : { chassisCode: generation.chassisCode }),
+            ...(generation.chassisCode === undefined
+              ? {}
+              : { chassisCode: generation.chassisCode }),
             ...(generation.producedFromYear === undefined
               ? {}
               : { producedFromYear: generation.producedFromYear }),
@@ -956,7 +963,14 @@ export async function applyVerticalPackage(
         vehicleMakeId: requireHandle(vehicleMakeIds, fitment.makeKey, 'vehicle make', 'fitment'),
         ...(fitment.modelKey === undefined
           ? {}
-          : { vehicleModelId: requireHandle(vehicleModelIds, fitment.modelKey, 'vehicle model', 'fitment') }),
+          : {
+              vehicleModelId: requireHandle(
+                vehicleModelIds,
+                fitment.modelKey,
+                'vehicle model',
+                'fitment',
+              ),
+            }),
         ...(fitment.generationKey === undefined
           ? {}
           : {
@@ -1103,7 +1117,9 @@ function requireHandle(
 ): string {
   const id = map.get(key);
   if (id === undefined) {
-    throw new Error(`'${owner}' names ${kind} '${key}', which the package does not declare before it.`);
+    throw new Error(
+      `'${owner}' names ${kind} '${key}', which the package does not declare before it.`,
+    );
   }
   return id;
 }

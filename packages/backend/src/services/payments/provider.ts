@@ -383,9 +383,7 @@ export interface ProviderTransferReversalResult {
  */
 export interface SettlingPaymentProvider extends PaymentProvider {
   createTransfer(request: CreateTransferRequest): Promise<ProviderTransferResult>;
-  reverseTransfer(
-    request: ReverseTransferRequest,
-  ): Promise<ProviderTransferReversalResult>;
+  reverseTransfer(request: ReverseTransferRequest): Promise<ProviderTransferReversalResult>;
 }
 
 /**
@@ -420,9 +418,7 @@ export function isResumableProvider(
  * one-sided test and then throw `is not a function` from inside a refund that
  * had already paid the buyer.
  */
-export function isSettlingProvider(
-  provider: PaymentProvider,
-): provider is SettlingPaymentProvider {
+export function isSettlingProvider(provider: PaymentProvider): provider is SettlingPaymentProvider {
   const candidate = provider as Partial<SettlingPaymentProvider>;
   return (
     typeof candidate.createTransfer === 'function' &&

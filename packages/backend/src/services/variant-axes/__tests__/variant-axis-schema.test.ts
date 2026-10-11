@@ -95,7 +95,9 @@ function statementRegion(): string {
   // carry a `$$`, or the dollar-quote walks below would toggle on prose.
   for (const line of region.split('\n')) {
     if (!line.trimStart().startsWith('--')) continue;
-    expect(line.includes('$$'), `a comment in the statement region carries $$: ${line}`).toBe(false);
+    expect(line.includes('$$'), `a comment in the statement region carries $$: ${line}`).toBe(
+      false,
+    );
   }
   return region;
 }
@@ -185,10 +187,7 @@ describe('the five tables and their names', () => {
     expect(offending).toEqual([]);
     // The vacuity floor: the walk has to be able to SEE foreign keys, or the
     // assertion above is satisfied by a reader that found none at all.
-    const total = TABLES.reduce(
-      (sum, table) => sum + getTableConfig(table).foreignKeys.length,
-      0,
-    );
+    const total = TABLES.reduce((sum, table) => sum + getTableConfig(table).foreignKeys.length, 0);
     expect(total, 'the foreign-key walk found nothing — did it work?').toBeGreaterThanOrEqual(10);
   });
 
@@ -238,7 +237,9 @@ describe('the constraints each table owes', () => {
       .checks.filter((entry) => entry.name === 'native_listing_variant_axes_forbidden_key_check')
       .map((entry) => renderSql(entry.value))
       .join(' ');
-    expect(rendered, 'the CHECK rendered to nothing — did the walk work?').toContain('attribute_key');
+    expect(rendered, 'the CHECK rendered to nothing — did the walk work?').toContain(
+      'attribute_key',
+    );
     for (const key of PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS) {
       expect(rendered, `${key} is missing from the rendered CHECK`).toContain(key);
     }
@@ -450,8 +451,10 @@ describe('the hand-written statements the migration carries', () => {
     );
     // The vacuity floor: a walk that matched nothing would satisfy the
     // assertion below by having nothing to check.
-    expect(referenced.size, 'no NEW./OLD. references found — did the walk work?')
-      .toBeGreaterThanOrEqual(12);
+    expect(
+      referenced.size,
+      'no NEW./OLD. references found — did the walk work?',
+    ).toBeGreaterThanOrEqual(12);
     expect([...referenced].filter((name) => !known.has(name)).sort()).toEqual([]);
   });
 

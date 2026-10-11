@@ -83,10 +83,7 @@ import {
 } from '../../../db/schema/offerFreshness.js';
 import { openSourceRun } from '../../../db/ingestion/catalogSourceRunRepository.js';
 import { runIngestionPage } from '../ingest.service.js';
-import {
-  registerCatalogSourceAdapter,
-  unregisterCatalogSourceAdapter,
-} from '../registry.js';
+import { registerCatalogSourceAdapter, unregisterCatalogSourceAdapter } from '../registry.js';
 import {
   changeIngestionSourceStatus,
   configureIngestionSource,
@@ -124,7 +121,9 @@ export interface ContractScenario {
 
 /** Read every page in its uniform shape — what a harness calls first. */
 export function normalizeContractPages(scenario: ContractScenario): readonly ContractPage[] {
-  return scenario.pages.map((page) => (Array.isArray(page) ? { records: page } : (page as ContractPage)));
+  return scenario.pages.map((page) =>
+    Array.isArray(page) ? { records: page } : (page as ContractPage),
+  );
 }
 
 /** What a provider package supplies to get all thirteen cases. */
@@ -196,9 +195,13 @@ const FORBIDDEN_IN_ADAPTER = [
   { name: 'a database handle', pattern: /db\/postgres|getDb\(|drizzle-orm/ },
   {
     name: 'a canonical write service',
-    pattern: /canonical-product\.service|canonical-variant\.service|brand\.service|organization\.service|product-identifier\.service/,
+    pattern:
+      /canonical-product\.service|canonical-variant\.service|brand\.service|organization\.service|product-identifier\.service/,
   },
-  { name: 'the offer domain', pattern: /offers\/offer\.service|offerRepository|recordExternalOffer/ },
+  {
+    name: 'the offer domain',
+    pattern: /offers\/offer\.service|offerRepository|recordExternalOffer/,
+  },
   { name: 'the matching pipeline', pattern: /matching\/match\.service|runMatch/ },
 ] as const;
 
@@ -353,7 +356,9 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
             sql`alter table catalog_source_policies enable trigger catalog_source_policies_immutable`,
           );
         });
-        await db.delete(catalogSources).where(inArray(catalogSources.id, safeIds(createdSourceIds)));
+        await db
+          .delete(catalogSources)
+          .where(inArray(catalogSources.id, safeIds(createdSourceIds)));
         await db
           .delete(productIdentifiers)
           .where(inArray(productIdentifiers.variantId, safeIds(createdVariantIds)));
@@ -643,7 +648,12 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
             // mentions the column (`~/Oxy/AGENTS.md`, the `sql`-template traps).
             startedAt: sql`coalesce(${catalogSourceRuns.startedAt}, ${clock.toISOString()}::timestamptz)`,
           })
-          .where(and(eq(catalogSourceRuns.id, run.id), inArray(catalogSourceRuns.status, ['pending', 'running'])));
+          .where(
+            and(
+              eq(catalogSourceRuns.id, run.id),
+              inArray(catalogSourceRuns.status, ['pending', 'running']),
+            ),
+          );
         const result = await runIngestionPage({
           runId: run.id,
           leaseOwner,
@@ -730,7 +740,9 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       expect(run?.fetched).toBe(3);
       // The vacuity floor, observed rather than assumed: the intake partition
       // must ADD UP, and the CHECK would have refused the row otherwise.
-      expect((run?.stored ?? 0) + (run?.unchanged ?? 0) + (run?.rejected ?? 0) + (run?.quarantined ?? 0)).toBe(3);
+      expect(
+        (run?.stored ?? 0) + (run?.unchanged ?? 0) + (run?.rejected ?? 0) + (run?.quarantined ?? 0),
+      ).toBe(3);
     });
 
     // ── 3. Duplicate observation ─────────────────────────────────────────────
@@ -835,7 +847,10 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
           [
             record({ externalId: 'ok-1', title: 'Fine widget' }),
             // No title: the one field with no absent form.
-            { ...record({ externalId: 'bad-1', title: 'x' }), normalized: { title: '   ', identifiers: [], options: [], media: [] } },
+            {
+              ...record({ externalId: 'bad-1', title: 'x' }),
+              normalized: { title: '   ', identifiers: [], options: [], media: [] },
+            },
             record({ externalId: 'ok-2', title: 'Also fine' }),
           ],
         ],
@@ -951,228 +966,244 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
     });
 
     // ── 8. Match ambiguity ───────────────────────────────────────────────────
-    it('routes an unresolvable record to review and writes NO canonical link', async () => {
-      await ensureMatchPolicy();
-      const source = await bringUpSource('ambiguity', {
-        pages: [[record({ externalId: 'amb-1', title: 'Nothing resembles this at all' })]],
-      });
-      await ingestToCompletion(source.sourceId);
+    it(
+      'routes an unresolvable record to review and writes NO canonical link',
+      async () => {
+        await ensureMatchPolicy();
+        const source = await bringUpSource('ambiguity', {
+          pages: [[record({ externalId: 'amb-1', title: 'Nothing resembles this at all' })]],
+        });
+        await ingestToCompletion(source.sourceId);
 
-      const [object] = await db
-        .select()
-        .from(catalogSourceObjects)
-        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
-      // Whatever the matcher decided, it was not an automatic match — so the
-      // object is out of the offer path and cites the decision #59 reads.
-      expect(['review_required', 'unmatched']).toContain(object?.state);
-      expect(object?.offerId).toBeNull();
-      expect(object?.lastMatchDecisionId).not.toBeNull();
+        const [object] = await db
+          .select()
+          .from(catalogSourceObjects)
+          .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+        // Whatever the matcher decided, it was not an automatic match — so the
+        // object is out of the offer path and cites the decision #59 reads.
+        expect(['review_required', 'unmatched']).toContain(object?.state);
+        expect(object?.offerId).toBeNull();
+        expect(object?.lastMatchDecisionId).not.toBeNull();
 
-      const links = await db
-        .select()
-        .from(canonicalVariantSourceLinks)
-        .where(
-          inArray(
-            canonicalVariantSourceLinks.sourceRecordId,
-            safeIds([object?.currentSourceRecordId ?? '__none__']),
-          ),
-        );
-      expect(links).toHaveLength(0);
-    }, POLICY_CASE_TIMEOUT_MS);
+        const links = await db
+          .select()
+          .from(canonicalVariantSourceLinks)
+          .where(
+            inArray(
+              canonicalVariantSourceLinks.sourceRecordId,
+              safeIds([object?.currentSourceRecordId ?? '__none__']),
+            ),
+          );
+        expect(links).toHaveLength(0);
+      },
+      POLICY_CASE_TIMEOUT_MS,
+    );
 
     // ── 9. Offer upsert ──────────────────────────────────────────────────────
-    it('materializes an external offer after a canonical match, and re-upserts it', async () => {
-      await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('offer', fixtureGtinBody(RUN, 1));
-      const gtin = canonical.gtin;
-      expect(gtin).not.toBeNull();
+    it(
+      'materializes an external offer after a canonical match, and re-upserts it',
+      async () => {
+        await ensureMatchPolicy();
+        const canonical = await mintCanonicalVariant('offer', fixtureGtinBody(RUN, 1));
+        const gtin = canonical.gtin;
+        expect(gtin).not.toBeNull();
 
-      const source = await bringUpSource('offerupsert', {
-        pages: [
-          [
-            record({
-              externalId: 'offer-1',
-              title: `Contract product offer ${RUN}`,
-              gtin: gtin ?? undefined,
-              price: 9_900,
-              url: 'https://retailer.example/p/offer-1',
-            }),
-          ],
-        ],
-      });
-      await ingestToCompletion(source.sourceId);
-
-      const [object] = await db
-        .select()
-        .from(catalogSourceObjects)
-        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
-      expect(object?.state).toBe('offer_current');
-      expect(object?.offerId).not.toBeNull();
-
-      const [offer] = await db
-        .select()
-        .from(offers)
-        .where(eq(offers.id, object?.offerId ?? '__none__'));
-      expect(offer?.canonicalVariantId).toBe(canonical.variantId);
-      expect(offer?.merchantId).toBe(source.merchantId);
-      expect(offer?.priceAmount).toBe(9_900);
-      // ISSUE WRITE BOUNDARY 7: an external offer carries no native variant, so
-      // there is no id a cart line could hold, whatever the pipeline did.
-      expect(offer?.productVariantId).toBeNull();
-      expect(offer?.kind).not.toBe('native');
-
-      // And the canonical ATTACHMENT was written — #58's other open seam.
-      const links = await db
-        .select()
-        .from(canonicalVariantSourceLinks)
-        .where(eq(canonicalVariantSourceLinks.variantId, canonical.variantId));
-      expect(links.length).toBeGreaterThanOrEqual(1);
-
-      // A second pass with a changed price re-upserts the SAME offer rather
-      // than minting a second active one — the active source key is unique.
-      unregisterCatalogSourceAdapter(source.provider);
-      registerCatalogSourceAdapter(
-        harness.createAdapter(source.provider, {
+        const source = await bringUpSource('offerupsert', {
           pages: [
             [
               record({
                 externalId: 'offer-1',
                 title: `Contract product offer ${RUN}`,
                 gtin: gtin ?? undefined,
-                price: 8_400,
+                price: 9_900,
                 url: 'https://retailer.example/p/offer-1',
-                observedAt: new Date('2026-08-09T14:00:00.000Z'),
               }),
             ],
           ],
-        }),
-      );
-      await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T14:05:00.000Z') });
+        });
+        await ingestToCompletion(source.sourceId);
 
-      const active = await db
-        .select()
-        .from(offers)
-        .where(
-          and(eq(offers.canonicalVariantId, canonical.variantId), eq(offers.status, 'active')),
+        const [object] = await db
+          .select()
+          .from(catalogSourceObjects)
+          .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+        expect(object?.state).toBe('offer_current');
+        expect(object?.offerId).not.toBeNull();
+
+        const [offer] = await db
+          .select()
+          .from(offers)
+          .where(eq(offers.id, object?.offerId ?? '__none__'));
+        expect(offer?.canonicalVariantId).toBe(canonical.variantId);
+        expect(offer?.merchantId).toBe(source.merchantId);
+        expect(offer?.priceAmount).toBe(9_900);
+        // ISSUE WRITE BOUNDARY 7: an external offer carries no native variant, so
+        // there is no id a cart line could hold, whatever the pipeline did.
+        expect(offer?.productVariantId).toBeNull();
+        expect(offer?.kind).not.toBe('native');
+
+        // And the canonical ATTACHMENT was written — #58's other open seam.
+        const links = await db
+          .select()
+          .from(canonicalVariantSourceLinks)
+          .where(eq(canonicalVariantSourceLinks.variantId, canonical.variantId));
+        expect(links.length).toBeGreaterThanOrEqual(1);
+
+        // A second pass with a changed price re-upserts the SAME offer rather
+        // than minting a second active one — the active source key is unique.
+        unregisterCatalogSourceAdapter(source.provider);
+        registerCatalogSourceAdapter(
+          harness.createAdapter(source.provider, {
+            pages: [
+              [
+                record({
+                  externalId: 'offer-1',
+                  title: `Contract product offer ${RUN}`,
+                  gtin: gtin ?? undefined,
+                  price: 8_400,
+                  url: 'https://retailer.example/p/offer-1',
+                  observedAt: new Date('2026-08-09T14:00:00.000Z'),
+                }),
+              ],
+            ],
+          }),
         );
-      expect(active).toHaveLength(1);
-      expect(active[0]?.priceAmount).toBe(8_400);
-    }, POLICY_CASE_TIMEOUT_MS);
+        await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T14:05:00.000Z') });
+
+        const active = await db
+          .select()
+          .from(offers)
+          .where(
+            and(eq(offers.canonicalVariantId, canonical.variantId), eq(offers.status, 'active')),
+          );
+        expect(active).toHaveLength(1);
+        expect(active[0]?.priceAmount).toBe(8_400);
+      },
+      POLICY_CASE_TIMEOUT_MS,
+    );
 
     // ── 10. Stale / expiry handoff ───────────────────────────────────────────
-    it('retires what a COMPLETE enumeration stopped publishing, and nothing else', async () => {
-      await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('expiry', fixtureGtinBody(RUN, 2));
-      const gtin = canonical.gtin ?? undefined;
+    it(
+      'retires what a COMPLETE enumeration stopped publishing, and nothing else',
+      async () => {
+        await ensureMatchPolicy();
+        const canonical = await mintCanonicalVariant('expiry', fixtureGtinBody(RUN, 2));
+        const gtin = canonical.gtin ?? undefined;
 
-      const source = await bringUpSource('expiry', {
-        pages: [
-          [
-            record({
-              externalId: 'exp-1',
-              title: `Contract product expiry ${RUN}`,
-              gtin,
-              price: 5_000,
-              url: 'https://retailer.example/p/exp-1',
-            }),
+        const source = await bringUpSource('expiry', {
+          pages: [
+            [
+              record({
+                externalId: 'exp-1',
+                title: `Contract product expiry ${RUN}`,
+                gtin,
+                price: 5_000,
+                url: 'https://retailer.example/p/exp-1',
+              }),
+            ],
           ],
-        ],
-      });
-      // Both passes are PINNED, deliberately — the first call used to take the
-      // real wall clock while the second was a literal, so the ordering
-      // between them was an accident of the day the suite happened to run.
-      // Once real time passed the literal the 'before' pass fell AFTER the
-      // 'later' one and this case failed with nothing wrong. Never restore a
-      // bare `ingestToCompletion(source.sourceId)` above a pinned second call.
-      await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T09:00:00.000Z') });
+        });
+        // Both passes are PINNED, deliberately — the first call used to take the
+        // real wall clock while the second was a literal, so the ordering
+        // between them was an accident of the day the suite happened to run.
+        // Once real time passed the literal the 'before' pass fell AFTER the
+        // 'later' one and this case failed with nothing wrong. Never restore a
+        // bare `ingestToCompletion(source.sourceId)` above a pinned second call.
+        await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T09:00:00.000Z') });
 
-      const [before] = await db
-        .select()
-        .from(catalogSourceObjects)
-        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
-      expect(before?.state).toBe('offer_current');
+        const [before] = await db
+          .select()
+          .from(catalogSourceObjects)
+          .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+        expect(before?.state).toBe('offer_current');
 
-      // The next COMPLETE enumeration does not mention it.
-      unregisterCatalogSourceAdapter(source.provider);
-      registerCatalogSourceAdapter(harness.createAdapter(source.provider, { pages: [[]] }));
-      // Derived from the row's OWN observed clock, not a second literal.
-      // `persistOneRecord` clamps the stamped clock to
-      // `max(record.observedAt, now)`, and some adapters under this shared
-      // suite (Awin, the product-feed importer) stamp the REAL wall clock
-      // when they read a staged record — so `before.lastSeenAt` is whatever
-      // instant the suite actually ran at for those cases, not the pinned
-      // `now` above. A literal `later` would need to out-run that real clock
-      // forever, which no fixed date can do; an offset from what was really
-      // stamped keeps the ordering a property of the test rather than of the
-      // day — or the millisecond — it happens to run.
-      const later = new Date((before?.lastSeenAt ?? new Date()).getTime() + 60 * 60 * 1000);
-      const run = await ingestToCompletion(source.sourceId, { now: later });
-      expect(run.outcome).toBe('full_feed_success');
+        // The next COMPLETE enumeration does not mention it.
+        unregisterCatalogSourceAdapter(source.provider);
+        registerCatalogSourceAdapter(harness.createAdapter(source.provider, { pages: [[]] }));
+        // Derived from the row's OWN observed clock, not a second literal.
+        // `persistOneRecord` clamps the stamped clock to
+        // `max(record.observedAt, now)`, and some adapters under this shared
+        // suite (Awin, the product-feed importer) stamp the REAL wall clock
+        // when they read a staged record — so `before.lastSeenAt` is whatever
+        // instant the suite actually ran at for those cases, not the pinned
+        // `now` above. A literal `later` would need to out-run that real clock
+        // forever, which no fixed date can do; an offset from what was really
+        // stamped keeps the ordering a property of the test rather than of the
+        // day — or the millisecond — it happens to run.
+        const later = new Date((before?.lastSeenAt ?? new Date()).getTime() + 60 * 60 * 1000);
+        const run = await ingestToCompletion(source.sourceId, { now: later });
+        expect(run.outcome).toBe('full_feed_success');
 
-      const [after] = await db
-        .select()
-        .from(catalogSourceObjects)
-        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
-      expect(after?.state).toBe('retired');
-      expect(after?.retiredAt).not.toBeNull();
+        const [after] = await db
+          .select()
+          .from(catalogSourceObjects)
+          .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+        expect(after?.state).toBe('retired');
+        expect(after?.retiredAt).not.toBeNull();
 
-      // The offer is RETIRED and never deleted: the row, its source record and
-      // the observation chain behind it all survive.
-      const [offer] = await db
-        .select()
-        .from(offers)
-        .where(eq(offers.id, before?.offerId ?? '__none__'));
-      expect(offer?.status).toBe('retired');
-      expect(offer?.retirementReason).toBe('source_disappeared');
-      expect(offer?.sourceRecordId).not.toBeNull();
-    }, POLICY_CASE_TIMEOUT_MS);
+        // The offer is RETIRED and never deleted: the row, its source record and
+        // the observation chain behind it all survive.
+        const [offer] = await db
+          .select()
+          .from(offers)
+          .where(eq(offers.id, before?.offerId ?? '__none__'));
+        expect(offer?.status).toBe('retired');
+        expect(offer?.retirementReason).toBe('source_disappeared');
+        expect(offer?.sourceRecordId).not.toBeNull();
+      },
+      POLICY_CASE_TIMEOUT_MS,
+    );
 
-    it('retires NOTHING when the enumeration was incomplete', async () => {
-      await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('incomplete', fixtureGtinBody(RUN, 3));
-      const gtin = canonical.gtin ?? undefined;
+    it(
+      'retires NOTHING when the enumeration was incomplete',
+      async () => {
+        await ensureMatchPolicy();
+        const canonical = await mintCanonicalVariant('incomplete', fixtureGtinBody(RUN, 3));
+        const gtin = canonical.gtin ?? undefined;
 
-      const source = await bringUpSource('incomplete', {
-        pages: [
-          [
-            record({
-              externalId: 'inc-1',
-              title: `Contract product incomplete ${RUN}`,
-              gtin,
-              price: 5_000,
-              url: 'https://retailer.example/p/inc-1',
-            }),
+        const source = await bringUpSource('incomplete', {
+          pages: [
+            [
+              record({
+                externalId: 'inc-1',
+                title: `Contract product incomplete ${RUN}`,
+                gtin,
+                price: 5_000,
+                url: 'https://retailer.example/p/inc-1',
+              }),
+            ],
           ],
-        ],
-      });
-      // Pinned for the same reason as the retirement case above: a bare
-      // wall-clock first pass would eventually run AFTER this literal.
-      await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T10:00:00.000Z') });
+        });
+        // Pinned for the same reason as the retirement case above: a bare
+        // wall-clock first pass would eventually run AFTER this literal.
+        await ingestToCompletion(source.sourceId, { now: new Date('2026-08-09T10:00:00.000Z') });
 
-      // A pass that read the feed but never claimed to have finished it.
-      unregisterCatalogSourceAdapter(source.provider);
-      registerCatalogSourceAdapter(
-        harness.createAdapter(source.provider, { pages: [[]], completeOnLastPage: false }),
-      );
-      const run = await ingestToCompletion(source.sourceId, {
-        now: new Date('2026-08-09T11:00:00.000Z'),
-      });
-      expect(run.outcome).toBe('partial_feed');
+        // A pass that read the feed but never claimed to have finished it.
+        unregisterCatalogSourceAdapter(source.provider);
+        registerCatalogSourceAdapter(
+          harness.createAdapter(source.provider, { pages: [[]], completeOnLastPage: false }),
+        );
+        const run = await ingestToCompletion(source.sourceId, {
+          now: new Date('2026-08-09T11:00:00.000Z'),
+        });
+        expect(run.outcome).toBe('partial_feed');
 
-      const [after] = await db
-        .select()
-        .from(catalogSourceObjects)
-        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
-      // "The half I read did not mention it" is not evidence about the half I
-      // did not read. THIS is the case that stops one failed refresh
-      // mass-expiring a healthy catalogue.
-      expect(after?.state).toBe('offer_current');
-      const [offer] = await db
-        .select()
-        .from(offers)
-        .where(eq(offers.id, after?.offerId ?? '__none__'));
-      expect(offer?.status).toBe('active');
-    }, POLICY_CASE_TIMEOUT_MS);
+        const [after] = await db
+          .select()
+          .from(catalogSourceObjects)
+          .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+        // "The half I read did not mention it" is not evidence about the half I
+        // did not read. THIS is the case that stops one failed refresh
+        // mass-expiring a healthy catalogue.
+        expect(after?.state).toBe('offer_current');
+        const [offer] = await db
+          .select()
+          .from(offers)
+          .where(eq(offers.id, after?.offerId ?? '__none__'));
+        expect(offer?.status).toBe('active');
+      },
+      POLICY_CASE_TIMEOUT_MS,
+    );
 
     // ── 11. Rights-disabled source ───────────────────────────────────────────
     it('refuses to refresh a source whose rights were withdrawn, keeping the audit', async () => {
@@ -1251,10 +1282,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       // Two runs of the same page at once. The identity unique is what makes
       // this converge; without it the second insert would mint a second object
       // for one external id.
-      await Promise.all([
-        ingestToCompletion(source.sourceId),
-        ingestToCompletion(source.sourceId),
-      ]);
+      await Promise.all([ingestToCompletion(source.sourceId), ingestToCompletion(source.sourceId)]);
 
       const objects = await db
         .select()
@@ -1271,38 +1299,42 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       expect(runs).toHaveLength(1);
     });
 
-    it('leaves no orphaned queue or decision rows behind a converged object', async () => {
-      await ensureMatchPolicy();
-      const source = await bringUpSource('idempotent', {
-        pages: [[record({ externalId: 'idem-1', title: 'Idempotent widget' })]],
-      });
-      await ingestToCompletion(source.sourceId);
-      await ingestToCompletion(source.sourceId);
-      await ingestToCompletion(source.sourceId);
+    it(
+      'leaves no orphaned queue or decision rows behind a converged object',
+      async () => {
+        await ensureMatchPolicy();
+        const source = await bringUpSource('idempotent', {
+          pages: [[record({ externalId: 'idem-1', title: 'Idempotent widget' })]],
+        });
+        await ingestToCompletion(source.sourceId);
+        await ingestToCompletion(source.sourceId);
+        await ingestToCompletion(source.sourceId);
 
-      const objects = await db
-        .select()
-        .from(catalogSourceObjects)
-        .where(eq(catalogSourceObjects.sourceId, source.sourceId));
-      expect(objects).toHaveLength(1);
+        const objects = await db
+          .select()
+          .from(catalogSourceObjects)
+          .where(eq(catalogSourceObjects.sourceId, source.sourceId));
+        expect(objects).toHaveLength(1);
 
-      const observations = await db
-        .select()
-        .from(sourceRecords)
-        .where(eq(sourceRecords.sourceId, source.sourceId));
-      // Three passes over unchanged content: ONE observation. The convergence
-      // key did its job at every layer.
-      expect(observations).toHaveLength(1);
+        const observations = await db
+          .select()
+          .from(sourceRecords)
+          .where(eq(sourceRecords.sourceId, source.sourceId));
+        // Three passes over unchanged content: ONE observation. The convergence
+        // key did its job at every layer.
+        expect(observations).toHaveLength(1);
 
-      const queued = await db
-        .select()
-        .from(matchQueue)
-        .where(inArray(matchQueue.sourceRecordId, safeIds([observations[0]?.id ?? '__none__'])));
-      // The ingestion path evaluates inline rather than queuing, so nothing is
-      // left owed. A row here would mean two mechanisms were matching the same
-      // subject.
-      expect(queued).toHaveLength(0);
-    }, POLICY_CASE_TIMEOUT_MS);
+        const queued = await db
+          .select()
+          .from(matchQueue)
+          .where(inArray(matchQueue.sourceRecordId, safeIds([observations[0]?.id ?? '__none__'])));
+        // The ingestion path evaluates inline rather than queuing, so nothing is
+        // left owed. A row here would mean two mechanisms were matching the same
+        // subject.
+        expect(queued).toHaveLength(0);
+      },
+      POLICY_CASE_TIMEOUT_MS,
+    );
 
     // ── 13. No direct canonical writes from adapter code ─────────────────────
     it('reaches no repository, database handle, canonical write or offer from adapter code', () => {
@@ -1311,7 +1343,10 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         .filter((entry) => statSync(join(harness.adapterSourceDir, entry)).isFile());
 
       // The vacuity floor: an empty directory would pass every assertion below.
-      expect(files.length, `no adapter modules found in ${harness.adapterSourceDir}`).toBeGreaterThan(0);
+      expect(
+        files.length,
+        `no adapter modules found in ${harness.adapterSourceDir}`,
+      ).toBeGreaterThan(0);
 
       for (const file of files) {
         const source = readFileSync(join(harness.adapterSourceDir, file), 'utf8');
@@ -1333,10 +1368,12 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       positives.forEach((line, index) => {
         const detector = FORBIDDEN_IN_ADAPTER[index];
         expect(detector, `no detector at index ${index}`).toBeDefined();
-        expect(detector?.pattern.test(line), `detector ${index} missed its own positive`).toBe(true);
+        expect(detector?.pattern.test(line), `detector ${index} missed its own positive`).toBe(
+          true,
+        );
       });
       // And an ordinary adapter line trips none of them.
-      const ordinary = "const response = await fetch(`${base}/products?page=${cursor}`);";
+      const ordinary = 'const response = await fetch(`${base}/products?page=${cursor}`);';
       for (const { name, pattern } of FORBIDDEN_IN_ADAPTER) {
         expect(pattern.test(ordinary), `${name} detector fires on an ordinary fetch`).toBe(false);
       }

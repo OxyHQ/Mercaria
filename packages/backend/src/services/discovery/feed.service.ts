@@ -141,7 +141,11 @@ import {
 } from '../../db/catalog/listingRepository.js';
 import { findStoresByIds, type StoreRow } from '../../db/stores/storeRepository.js';
 import { type DiscountRow } from '../../db/merchandising/discountRepository.js';
-import { toCategoryImage, toProductSummaries, toStoreSummary } from '../catalog-hydration.service.js';
+import {
+  toCategoryImage,
+  toProductSummaries,
+  toStoreSummary,
+} from '../catalog-hydration.service.js';
 import { notFound } from '../../lib/errors/error-codes.js';
 import { config } from '../../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../../lib/redis.js';
@@ -229,7 +233,10 @@ function toCategoryTile(category: CategoryRecord): CategoryTile {
 }
 
 /** Preview only this category's own imported child images, in display order. */
-function sampleImagesFor(categoryId: string, allCategories: CategoryRecord[]): Pick<CategoryTile, 'sampleImageFileIds' | 'sampleImageUrls'> {
+function sampleImagesFor(
+  categoryId: string,
+  allCategories: CategoryRecord[],
+): Pick<CategoryTile, 'sampleImageFileIds' | 'sampleImageUrls'> {
   const ids: string[] = [];
   const urls: string[] = [];
   for (const candidate of allCategories) {
@@ -672,7 +679,9 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
 
   const orderScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'order');
   const productScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'products');
-  const collectionScoped = storeDiscounts.filter((d) => d.discount.appliesToScope === 'collections');
+  const collectionScoped = storeDiscounts.filter(
+    (d) => d.discount.appliesToScope === 'collections',
+  );
 
   const [stores, wholeCatalogue, targetedProducts, targetedCollections] = await Promise.all([
     findStoresByIds(storeDiscounts.map((d) => d.storeId)),
@@ -713,7 +722,10 @@ async function buildDealsFeed(): Promise<DiscoveryFeed> {
   const children =
     featured.length > 0
       ? await findListingChildren(featured.map((l) => l.id))
-      : { images: new Map<string, ListingImageRecord[]>(), collectionIds: new Map<string, string[]>() };
+      : {
+          images: new Map<string, ListingImageRecord[]>(),
+          collectionIds: new Map<string, string[]>(),
+        };
 
   const sections: DiscoverySection[] = [];
   for (const { storeId, discount } of storeDiscounts) {

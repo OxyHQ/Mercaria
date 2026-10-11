@@ -125,10 +125,7 @@ const STORE = {
  * are parameters rather than fields a caller spreads over — a spread would let a
  * case silently keep the default and still read as if it had set one.
  */
-function listingRow(
-  condition: ItemConditionKey,
-  categorySlugs: string[],
-): ListingRecord {
+function listingRow(condition: ItemConditionKey, categorySlugs: string[]): ListingRecord {
   return {
     id: uuidv7(),
     ownerType: 'store',
@@ -195,9 +192,7 @@ describe('v1 contract — Listing.condition (read)', () => {
     expect(dtos).toHaveLength(ITEM_CONDITION_KEYS.length);
     for (const [index, key] of ITEM_CONDITION_KEYS.entries()) {
       expect(dtos[index].itemCondition.key, `itemCondition for ${key}`).toBe(key);
-      expect(dtos[index].condition, `v1 projection of ${key}`).toBe(
-        legacyBinaryConditionFor(key),
-      );
+      expect(dtos[index].condition, `v1 projection of ${key}`).toBe(legacyBinaryConditionFor(key));
     }
 
     // The vacuity floor for the loop above, and the mutation guard. A hardcoded

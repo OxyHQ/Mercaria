@@ -131,9 +131,7 @@ export async function readReferralAccountTotals(
       total: sql<string>`sum(${ledgerEntries.amountMinor})`,
     })
     .from(ledgerEntries)
-    .where(
-      sql`${ledgerEntries.account} in ('referral_expense', 'referral_payable')`,
-    )
+    .where(sql`${ledgerEntries.account} in ('referral_expense', 'referral_payable')`)
     .groupBy(ledgerEntries.account, ledgerEntries.currency);
 
   return rows.map((row) => ({

@@ -144,7 +144,10 @@ export async function rankOfferComparison(
   const quotes = [
     ...new Set(
       page.offers.flatMap((offer) => {
-        const currencies = [offer.price?.currency, offer.delivery.known ? offer.delivery.cost.currency : undefined];
+        const currencies = [
+          offer.price?.currency,
+          offer.delivery.known ? offer.delivery.cost.currency : undefined,
+        ];
         return currencies.filter((currency): currency is string => currency !== undefined);
       }),
     ),

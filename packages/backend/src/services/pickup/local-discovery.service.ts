@@ -46,7 +46,13 @@ import {
   upsertLocalDiscovery,
   type ListingLocalDiscoveryRow,
 } from '../../db/pickup/localDiscoveryRepository.js';
-import { assertUsableCoordinate, distanceBandFor, haversineMetres, localAreaCentre, toLocalArea } from './geo.js';
+import {
+  assertUsableCoordinate,
+  distanceBandFor,
+  haversineMetres,
+  localAreaCentre,
+  toLocalArea,
+} from './geo.js';
 import type { Coordinate } from './geo.js';
 
 /** How many cells out a local search looks — three cells ≈ 33 km at 0.1°. */

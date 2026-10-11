@@ -44,7 +44,9 @@ describe('Oxy profile privacy', () => {
   });
 
   it('is private when the account switches the whole account private', () => {
-    expect(oxyProfileIsPrivate(makeUser({ privacySettings: { isPrivateAccount: true } }))).toBe(true);
+    expect(oxyProfileIsPrivate(makeUser({ privacySettings: { isPrivateAccount: true } }))).toBe(
+      true,
+    );
   });
 
   it('is private when the account switches profile visibility OFF', () => {

@@ -72,7 +72,9 @@ describe('HTTP status and error-body mapping', () => {
   });
 
   it('carries the server’s scalar details', async () => {
-    const error = await errorFor(failure(422, 'validation_failed', 'limit: too big', { field: 'limit' }));
+    const error = await errorFor(
+      failure(422, 'validation_failed', 'limit: too big', { field: 'limit' }),
+    );
     expect(error.details).toEqual({ field: 'limit' });
     expect(Object.isFrozen(error.details)).toBe(true);
     expect(error.toJSON()).toMatchObject({ details: { field: 'limit' } });
@@ -121,8 +123,15 @@ describe('HTTP status and error-body mapping', () => {
   it('falls back to RateLimit-Reset, then the combined RateLimit header, then null', () => {
     const headers = (entries: Record<string, string>) => new Headers(entries);
     expect(parseRetryAfterSeconds(headers({ 'RateLimit-Reset': '12' }))).toBe(12);
-    expect(parseRetryAfterSeconds(headers({ RateLimit: 'limit=100, remaining=0, reset=9' }))).toBe(9);
-    expect(parseRetryAfterSeconds(headers({ 'Retry-After': 'Wed, 21 Oct 2015 07:28:10 GMT' }), Date.parse('Wed, 21 Oct 2015 07:28:00 GMT'))).toBe(10);
+    expect(parseRetryAfterSeconds(headers({ RateLimit: 'limit=100, remaining=0, reset=9' }))).toBe(
+      9,
+    );
+    expect(
+      parseRetryAfterSeconds(
+        headers({ 'Retry-After': 'Wed, 21 Oct 2015 07:28:10 GMT' }),
+        Date.parse('Wed, 21 Oct 2015 07:28:00 GMT'),
+      ),
+    ).toBe(10);
     expect(parseRetryAfterSeconds(headers({ 'Retry-After': 'soon' }))).toBeNull();
     expect(parseRetryAfterSeconds(headers({}))).toBeNull();
   });
@@ -136,7 +145,11 @@ describe('HTTP status and error-body mapping', () => {
 
   it('maps a 502 HTML proxy page to unavailable and never copies the body', async () => {
     const html = '<html><body><h1>502 Bad Gateway</h1><p>nginx internal detail</p></body></html>';
-    const error = await errorFor({ status: 502, body: html, headers: { 'content-type': 'text/html' } });
+    const error = await errorFor({
+      status: 502,
+      body: html,
+      headers: { 'content-type': 'text/html' },
+    });
     expect(error).toBeInstanceOf(MercariaUnavailableError);
     expect(error.status).toBe(502);
     expect(error.message).not.toContain('nginx');
@@ -182,13 +195,17 @@ describe('HTTP status and error-body mapping', () => {
   });
 
   it('bounds and flattens a server message', async () => {
-    const error = await errorFor(failure(400, 'bad_request', `line one\nline two ${'x'.repeat(500)}`));
+    const error = await errorFor(
+      failure(400, 'bad_request', `line one\nline two ${'x'.repeat(500)}`),
+    );
     expect(error.message).not.toContain('\n');
     expect(error.message.length).toBeLessThan(300);
   });
 
   it('ignores a body whose message is not a string', async () => {
-    const error = await errorFor(json(400, { error: { code: 'bad_request', message: { stack: 'at x' } } }));
+    const error = await errorFor(
+      json(400, { error: { code: 'bad_request', message: { stack: 'at x' } } }),
+    );
     expect(error.message).toBe('Mercaria API responded with HTTP 400');
   });
 });
@@ -287,7 +304,9 @@ describe('network failure, abort and timeout', () => {
   });
 
   it('times out as a retryable network error', async () => {
-    const { client } = fakeClient(() => new Promise<FakeResponse>(() => undefined), { timeoutMs: 20 });
+    const { client } = fakeClient(() => new Promise<FakeResponse>(() => undefined), {
+      timeoutMs: 20,
+    });
     const error = (await rejection(client.products.get('prod_1'))) as MercariaTimeoutError;
     expect(error).toBeInstanceOf(MercariaTimeoutError);
     expect(error).toBeInstanceOf(MercariaNetworkError);

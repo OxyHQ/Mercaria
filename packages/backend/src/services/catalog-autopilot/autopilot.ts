@@ -61,7 +61,9 @@ export async function reconcileCatalogSources(): Promise<void> {
 }
 
 /** Open the next stage of the cycle, if one is due. Returns the stage opened. */
-export async function advanceCatalogStages(now: Date = new Date()): Promise<CatalogBackfillStage | null> {
+export async function advanceCatalogStages(
+  now: Date = new Date(),
+): Promise<CatalogBackfillStage | null> {
   const runs = await findLatestWholeCatalogueRuns({
     stages: AUTOPILOT_STAGE_SEQUENCE,
     mode: 'apply',
@@ -85,7 +87,10 @@ async function tick(): Promise<void> {
   if (running) return;
   running = true;
   try {
-    if (config.catalogIngestion.enabled && Date.now() - lastSourcesReconciledAt >= SOURCE_RECONCILE_INTERVAL_MS) {
+    if (
+      config.catalogIngestion.enabled &&
+      Date.now() - lastSourcesReconciledAt >= SOURCE_RECONCILE_INTERVAL_MS
+    ) {
       await reconcileCatalogSources();
       lastSourcesReconciledAt = Date.now();
     }
@@ -102,7 +107,9 @@ async function tick(): Promise<void> {
 export function startCatalogAutopilot(): void {
   if (timer !== undefined) return;
   if (!config.catalogIngestion.enabled && !config.canonicalRollout.graphEnabled) {
-    log.general.info('[CatalogAutopilot] ingestion and the canonical graph are both off; not started');
+    log.general.info(
+      '[CatalogAutopilot] ingestion and the canonical graph are both off; not started',
+    );
     return;
   }
   timer = setInterval(() => {

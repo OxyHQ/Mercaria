@@ -106,10 +106,7 @@ check(
 // The three files that did the actual damage were reverted by MODIFICATION, so
 // a deletion filter is silent on all three. Named individually because "54" is
 // a number and these are the reason the number matters.
-for (const path of [
-  'scripts/validate-i18n-strings.mjs',
-  'packages/ui/src/i18n/locales/en.json',
-]) {
+for (const path of ['scripts/validate-i18n-strings.mjs', 'packages/ui/src/i18n/locales/en.json']) {
   check(
     `names ${path}, which the deletion filter cannot see`,
     positive.reverts.some((entry) => entry.path === path),
@@ -264,7 +261,12 @@ try {
       encoding: 'utf8',
       // The env var is CLEARED, or it would acknowledge these for us and every
       // case below would pass for the wrong reason.
-      env: { ...process.env, CONTENT_REVERT_ACKNOWLEDGED: '', REVERT_DETECTOR_BASE: base, REVERT_DETECTOR_HEAD: head },
+      env: {
+        ...process.env,
+        CONTENT_REVERT_ACKNOWLEDGED: '',
+        REVERT_DETECTOR_BASE: base,
+        REVERT_DETECTOR_HEAD: head,
+      },
     });
   }
 

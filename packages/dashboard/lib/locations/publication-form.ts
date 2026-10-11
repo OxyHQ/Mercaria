@@ -12,7 +12,7 @@ import type {
   MerchantLocationPublication,
   PickupIdentityRequirement,
   UpsertLocationPublicationInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 
 /** The bounds the backend's CHECK holds the stock interval to, in seconds. */
 const MIN_INTERVAL_SECONDS = 60;
@@ -34,14 +34,18 @@ export interface PublicationDraft {
   lowStockThreshold: string;
 }
 
-export function publicationDraftOf(publication: MerchantLocationPublication | null): PublicationDraft {
+export function publicationDraftOf(
+  publication: MerchantLocationPublication | null,
+): PublicationDraft {
   return {
     pickupOffered: publication?.pickupOffered ?? false,
-    pickupInstructions: publication?.pickupInstructions ?? "",
-    identityRequirement: publication?.identityRequirement ?? "collection_code",
-    inventorySource: publication?.inventorySource ?? "manual",
+    pickupInstructions: publication?.pickupInstructions ?? '',
+    identityRequirement: publication?.identityRequirement ?? 'collection_code',
+    inventorySource: publication?.inventorySource ?? 'manual',
     stockIntervalMinutes:
-      publication === null ? "" : String(Math.round(publication.stockConfirmationIntervalSeconds / 60)),
+      publication === null
+        ? ''
+        : String(Math.round(publication.stockConfirmationIntervalSeconds / 60)),
     disclosesExactStock: publication?.disclosesExactStock ?? false,
     lowStockThreshold: String(publication?.lowStockThreshold ?? 3),
   };
@@ -52,22 +56,22 @@ export function publicationInputOf(
   draft: PublicationDraft,
   goWayPlaceId: string | undefined,
 ): { ok: true; input: UpsertLocationPublicationInput } | { ok: false; errorKey: string } {
-  if (goWayPlaceId === undefined || goWayPlaceId.trim() === "") {
-    return { ok: false, errorKey: "settings.locations.editor.publication.placeRequired" };
+  if (goWayPlaceId === undefined || goWayPlaceId.trim() === '') {
+    return { ok: false, errorKey: 'settings.locations.editor.publication.placeRequired' };
   }
   const minutes = Number(draft.stockIntervalMinutes.trim());
   const seconds = Math.round(minutes * 60);
   if (
-    draft.stockIntervalMinutes.trim() === "" ||
+    draft.stockIntervalMinutes.trim() === '' ||
     !Number.isFinite(minutes) ||
     seconds < MIN_INTERVAL_SECONDS ||
     seconds > MAX_INTERVAL_SECONDS
   ) {
-    return { ok: false, errorKey: "settings.locations.editor.publication.intervalInvalid" };
+    return { ok: false, errorKey: 'settings.locations.editor.publication.intervalInvalid' };
   }
   const threshold = Number(draft.lowStockThreshold.trim());
   if (!Number.isInteger(threshold) || threshold < 0 || threshold > 1000) {
-    return { ok: false, errorKey: "settings.locations.editor.publication.thresholdInvalid" };
+    return { ok: false, errorKey: 'settings.locations.editor.publication.thresholdInvalid' };
   }
   const instructions = draft.pickupInstructions.trim();
   return {
@@ -75,7 +79,7 @@ export function publicationInputOf(
     input: {
       goWayPlaceId: goWayPlaceId.trim(),
       pickupOffered: draft.pickupOffered,
-      ...(instructions === "" ? {} : { pickupInstructions: instructions }),
+      ...(instructions === '' ? {} : { pickupInstructions: instructions }),
       identityRequirement: draft.identityRequirement,
       inventorySource: draft.inventorySource,
       stockConfirmationIntervalSeconds: seconds,

@@ -34,7 +34,11 @@ export function storeWebUrl(origin: string, storeHandle: string): string {
 }
 
 /** `${origin}/stores/${handle}?collection=${id}` — the store page, opened on one collection. */
-export function collectionWebUrl(origin: string, storeHandle: string, collectionId: string): string {
+export function collectionWebUrl(
+  origin: string,
+  storeHandle: string,
+  collectionId: string,
+): string {
   return `${storeWebUrl(origin, storeHandle)}?collection=${encodeURIComponent(collectionId)}`;
 }
 

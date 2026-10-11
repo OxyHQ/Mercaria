@@ -160,7 +160,9 @@ const navigationLocalizationSchema = z
     accessibilityLabel: localizedText('navigation_node_localizations.accessibility_label', {
       max: 200,
     }).optional(),
-    status: z.enum(tuple(NAVIGATION_LOCALIZATION_STATUSES as readonly NavigationLocalizationStatus[])),
+    status: z.enum(
+      tuple(NAVIGATION_LOCALIZATION_STATUSES as readonly NavigationLocalizationStatus[]),
+    ),
     provenance: z.enum(
       tuple(NAVIGATION_LOCALIZATION_PROVENANCES as readonly NavigationLocalizationProvenance[]),
     ),

@@ -147,7 +147,10 @@ const answer = z
       [value.text, value.number, value.boolean, value.enumValueId, value.canonicalRef].filter(
         (entry) => entry !== undefined,
       ).length === 1,
-    { message: 'an answer carries exactly one of text, number, boolean, enumValueId or canonicalRef' },
+    {
+      message:
+        'an answer carries exactly one of text, number, boolean, enumValueId or canonicalRef',
+    },
   );
 
 /*
@@ -238,9 +241,7 @@ export const upgradeProductDraftSchema = z
  * this listing to whatever version I name", which is a different and much larger
  * power — and one nobody has argued for.
  */
-export const upgradeListingProductTypeSchema = z
-  .object({ targetDefinitionId: entityId })
-  .strict();
+export const upgradeListingProductTypeSchema = z.object({ targetDefinitionId: entityId }).strict();
 
 /** `DELETE /stores/:storeId/product-drafts/:draftId`. */
 export const discardProductDraftQuerySchema = z

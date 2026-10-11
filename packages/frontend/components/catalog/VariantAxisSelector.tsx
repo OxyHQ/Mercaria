@@ -2,10 +2,7 @@ import { View } from 'react-native';
 import { RadioGroup } from '@oxy.so/bloom/radio';
 import { Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
-import type {
-  VariantAxis,
-  VariantMatrix,
-} from '@/lib/catalog/variant-axes';
+import type { VariantAxis, VariantMatrix } from '@/lib/catalog/variant-axes';
 
 /**
  * The variant selector, one control per ACTUAL axis (#367 workstream 9).
@@ -75,12 +72,14 @@ function AxisRow({
         onValueChange={(value) => onChoose(axis.key, value)}
         options={axis.values.map((value) => {
           // Availability stays in the visible label and the accessible name.
-          const suffix = value.availability === 'unavailable'
-            ? t('catalog.variants.unavailable')
-            : value.availability === 'impossible'
-              ? t('catalog.variants.impossible')
-              : undefined;
-          const label = suffix === undefined ? value.displayValue : `${value.displayValue} — ${suffix}`;
+          const suffix =
+            value.availability === 'unavailable'
+              ? t('catalog.variants.unavailable')
+              : value.availability === 'impossible'
+                ? t('catalog.variants.impossible')
+                : undefined;
+          const label =
+            suffix === undefined ? value.displayValue : `${value.displayValue} — ${suffix}`;
           return {
             value: value.normalizedValue,
             label,

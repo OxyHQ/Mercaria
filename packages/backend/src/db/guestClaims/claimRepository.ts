@@ -10,10 +10,7 @@
  */
 
 import { and, desc, eq, sql } from 'drizzle-orm';
-import type {
-  GuestClaimConflictReason,
-  GuestClaimRevocationReason,
-} from '@mercaria/shared-types';
+import type { GuestClaimConflictReason, GuestClaimRevocationReason } from '@mercaria/shared-types';
 import { guestOrderClaims } from '../schema/guestClaims.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
@@ -181,9 +178,7 @@ export async function markClaimRevoked(
       revokedByOxyUserId: input.revokedByOxyUserId,
       revocationReason: input.reason,
     })
-    .where(
-      and(eq(guestOrderClaims.id, input.claimId), eq(guestOrderClaims.state, 'completed')),
-    )
+    .where(and(eq(guestOrderClaims.id, input.claimId), eq(guestOrderClaims.state, 'completed')))
     .returning();
   return rows[0] ?? null;
 }
@@ -222,9 +217,7 @@ const CLAIM_CONSISTENCY_SAMPLE = 20;
  * to hide a mismatch" applies to an ownership record for the same reason it
  * applies to a ledger entry.
  */
-export async function readClaimConsistency(
-  db: DatabaseOrTransaction,
-): Promise<{
+export async function readClaimConsistency(db: DatabaseOrTransaction): Promise<{
   claimOrderDrift: ClaimConsistencyFinding;
   unrecordedClaims: ClaimConsistencyFinding;
 }> {

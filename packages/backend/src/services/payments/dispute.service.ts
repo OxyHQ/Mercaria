@@ -49,7 +49,12 @@
  * network and grow on the rail's schedule.
  */
 
-import type { DisputeOutcome, DisputeStatus, Money, PaymentProviderId } from '@mercaria/shared-types';
+import type {
+  DisputeOutcome,
+  DisputeStatus,
+  Money,
+  PaymentProviderId,
+} from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   claimDisputeOpening,
@@ -126,7 +131,9 @@ export async function recordDispute(
   const db = getDb();
   const payment = await findPaymentById(db, paymentId);
   if (!payment) {
-    throw new Error(`Dispute ${observed.providerDisputeId} names payment ${paymentId}, which does not exist.`);
+    throw new Error(
+      `Dispute ${observed.providerDisputeId} names payment ${paymentId}, which does not exist.`,
+    );
   }
 
   // A single-seller group leaves no ambiguity about which order was disputed, so
@@ -242,7 +249,9 @@ export async function closeDispute(input: {
 
   const payment = await findPaymentById(db, claimed.paymentId);
   if (!payment) {
-    throw new Error(`Dispute ${claimed.id} names payment ${claimed.paymentId}, which does not exist.`);
+    throw new Error(
+      `Dispute ${claimed.id} names payment ${claimed.paymentId}, which does not exist.`,
+    );
   }
 
   if (input.outcome === 'won') {
@@ -265,7 +274,11 @@ export async function closeDispute(input: {
   // group to close the books would be worse than leaving it visible.
   if (!claimed.orderId) {
     log.general.error(
-      { disputeId: claimed.id, paymentId: payment.id, providerDisputeId: claimed.providerDisputeId },
+      {
+        disputeId: claimed.id,
+        paymentId: payment.id,
+        providerDisputeId: claimed.providerDisputeId,
+      },
       '[Payments] a dispute was lost on a multi-seller charge with no order attributed; the ' +
         'principal stays in the disputes account until an operator attributes it (#50)',
     );
@@ -473,7 +486,9 @@ export async function retryDisputeRecovery(disputeId: string): Promise<{
 
   const payment = await findPaymentById(db, dispute.paymentId);
   if (!payment) {
-    throw new Error(`Dispute ${disputeId} names payment ${dispute.paymentId}, which does not exist.`);
+    throw new Error(
+      `Dispute ${disputeId} names payment ${dispute.paymentId}, which does not exist.`,
+    );
   }
   const order = await findLinkedOrder(dispute.orderId);
   if (!order) {

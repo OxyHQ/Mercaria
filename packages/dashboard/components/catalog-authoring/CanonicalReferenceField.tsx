@@ -1,15 +1,15 @@
-import React, { useState } from "react";
-import { Pressable, View } from "react-native";
-import { X } from "lucide-react-native";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { useTranslation } from "@/lib/i18n";
-import { useCanonicalSearch } from "@/lib/authoring/hooks";
-import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
-import type { DraftFieldEntry } from "@/lib/authoring/answers";
+import React, { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { X } from 'lucide-react-native';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { useTranslation } from '@/lib/i18n';
+import { useCanonicalSearch } from '@/lib/authoring/hooks';
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
+import type { DraftFieldEntry } from '@/lib/authoring/answers';
 
 interface CanonicalReferenceFieldProps {
-  readonly entry: Extract<DraftFieldEntry, { kind: "canonical_reference" }>;
+  readonly entry: Extract<DraftFieldEntry, { kind: 'canonical_reference' }>;
   readonly label: string;
   readonly disabled: boolean;
   readonly invalid: boolean;
@@ -43,21 +43,21 @@ export function CanonicalReferenceField({
 }: CanonicalReferenceFieldProps) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const debounced = useDebouncedValue(query, 300);
-  const search = useCanonicalSearch({ query: debounced, kind: "brand" });
+  const search = useCanonicalSearch({ query: debounced, kind: 'brand' });
 
   if (entry.refId.length > 0) {
     return (
       <View className="h-11 flex-row items-center justify-between rounded-xl border border-input bg-background px-3.5">
         <Text className="flex-1 text-base text-foreground" numberOfLines={1}>
-          {entry.refName.length > 0 ? entry.refName : t("products.wizard.canonical.selectedRef")}
+          {entry.refName.length > 0 ? entry.refName : t('products.wizard.canonical.selectedRef')}
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("products.wizard.canonical.clearRef")}
+          accessibilityLabel={t('products.wizard.canonical.clearRef')}
           disabled={disabled}
-          onPress={() => onChange({ ...entry, refId: "", refName: "" })}
+          onPress={() => onChange({ ...entry, refId: '', refName: '' })}
           className="active:opacity-70"
         >
           <X size={16} color={colors.mutedForeground} />
@@ -72,7 +72,7 @@ export function CanonicalReferenceField({
         label={label}
         value={query}
         onValueChange={setQuery}
-        placeholder={t("products.wizard.canonical.searchBrandPlaceholder")}
+        placeholder={t('products.wizard.canonical.searchBrandPlaceholder')}
         disabled={disabled}
         invalid={invalid}
       />
@@ -90,7 +90,7 @@ export function CanonicalReferenceField({
                   refId: candidate.id,
                   refName: candidate.name,
                 });
-                setQuery("");
+                setQuery('');
               }}
               className="rounded-lg px-3 py-2 active:bg-muted"
             >

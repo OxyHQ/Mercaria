@@ -297,10 +297,7 @@ export const assetFiles = pgTable(
      * `asset_versions_published_at_check` reason: a `clean` file with no scan
      * time is a file nobody can prove was scanned.
      */
-    check(
-      'asset_files_scan_at_check',
-      sql`(${t.scanVerdict} = 'pending') = (${t.scanAt} is null)`,
-    ),
+    check('asset_files_scan_at_check', sql`(${t.scanVerdict} = 'pending') = (${t.scanAt} is null)`),
     /**
      * One file name per version. Two files called `model.stl` in one deliverable
      * is a zip a buyer cannot extract, and the collision is the creator's to

@@ -254,11 +254,12 @@ export async function reconcilePartner(
   // not read far enough" is worse than none — it is the vacuous measurement this
   // whole sweep exists to avoid, wearing a discrepancy's name.
   const balances = await readReferralPartnerLedgerBalances(db, input.partnerId);
-  if (rewards.length >= PARTNER_REWARD_PAGE) return {
-    rewardsScanned: rewards.length,
-    batchesScanned: batches.length,
-    findings,
-  };
+  if (rewards.length >= PARTNER_REWARD_PAGE)
+    return {
+      rewardsScanned: rewards.length,
+      batchesScanned: batches.length,
+      findings,
+    };
   for (const balance of balances) {
     if (balance.outstandingMinor >= 0) continue;
     const liabilities = rewards

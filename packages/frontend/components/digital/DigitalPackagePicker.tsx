@@ -86,7 +86,10 @@ export function DigitalPackagePicker({
                   {t('digital.asset.notForSale')}
                 </Text>
               ) : (
-                <PriceDisplay price={offer.price} primaryClassName="text-shop-bodyTitleSmall text-text" />
+                <PriceDisplay
+                  price={offer.price}
+                  primaryClassName="text-shop-bodyTitleSmall text-text"
+                />
               )}
             </View>
 

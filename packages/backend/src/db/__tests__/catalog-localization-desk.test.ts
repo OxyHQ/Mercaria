@@ -43,10 +43,7 @@ import {
 import { categories, listings } from '../schema/catalog';
 import { productTypeDefinitions, productTypeFields } from '../schema/productTypes';
 import { attributeDefinitions, attributeEnumValues } from '../schema/attributeRegistry';
-import {
-  canonicalProductFamilies,
-  canonicalProducts,
-} from '../schema/canonicalCatalog';
+import { canonicalProductFamilies, canonicalProducts } from '../schema/canonicalCatalog';
 import internalCatalogLocalizationRouter from '../../routes/internal-catalog-localization';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -350,7 +347,8 @@ describe('staleness detection is described per domain and matches the SQL', () =
     expect(files.some((text) => staleWrite.test(text))).toBe(false);
     // Positive control: the SAME pattern against a table that IS staled by a
     // trigger must match, or the assertion above is a regex that can never fire.
-    const fieldStaleWrite = /UPDATE "product_type_field_localizations"\s*\n\s*SET status = 'stale'/u;
+    const fieldStaleWrite =
+      /UPDATE "product_type_field_localizations"\s*\n\s*SET status = 'stale'/u;
     expect(files.some((text) => fieldStaleWrite.test(text))).toBe(true);
   });
 
@@ -386,7 +384,9 @@ describe('every registered field states where its base text lives', () => {
   }
 
   it('has an entry for every registered field and no others', () => {
-    expect(Object.keys(LOCALIZED_FIELD_BASE_SOURCES).sort()).toEqual([...LOCALIZED_FIELD_KEYS].sort());
+    expect(Object.keys(LOCALIZED_FIELD_BASE_SOURCES).sort()).toEqual(
+      [...LOCALIZED_FIELD_KEYS].sort(),
+    );
   });
 
   it('names a column that really exists, for every `column` entry', () => {
@@ -435,9 +435,11 @@ describe('every registered field states where its base text lives', () => {
 
 describe('the operator route set is closed', () => {
   function registeredPaths(): string[] {
-    const stack = (internalCatalogLocalizationRouter as unknown as {
-      stack: { route?: { path: string; methods: Record<string, boolean> } }[];
-    }).stack;
+    const stack = (
+      internalCatalogLocalizationRouter as unknown as {
+        stack: { route?: { path: string; methods: Record<string, boolean> } }[];
+      }
+    ).stack;
     return stack
       .filter((layer) => layer.route)
       .map((layer) => `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`)
@@ -455,9 +457,11 @@ describe('the operator route set is closed', () => {
   });
 
   it('registers no write verb at all', () => {
-    const stack = (internalCatalogLocalizationRouter as unknown as {
-      stack: { route?: { methods: Record<string, boolean> } }[];
-    }).stack;
+    const stack = (
+      internalCatalogLocalizationRouter as unknown as {
+        stack: { route?: { methods: Record<string, boolean> } }[];
+      }
+    ).stack;
     const verbs = new Set(
       stack.filter((l) => l.route).flatMap((l) => Object.keys(l.route.methods)),
     );

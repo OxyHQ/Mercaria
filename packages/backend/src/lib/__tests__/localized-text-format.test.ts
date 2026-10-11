@@ -181,16 +181,16 @@ describe('the population is walked, and every walked table has a disposition', (
       .sort();
     expect(expected.length).toBeGreaterThanOrEqual(20);
     // Disjoint, then exhaustive in both directions.
-    expect(excusedColumns.filter((key) => LOCALIZED_TEXT_COLUMN_KEYS.includes(key as never))).toEqual(
-      [],
-    );
+    expect(
+      excusedColumns.filter((key) => LOCALIZED_TEXT_COLUMN_KEYS.includes(key as never)),
+    ).toEqual([]);
     expect([...LOCALIZED_TEXT_COLUMN_KEYS, ...excusedColumns].sort()).toEqual(expected);
     for (const [column, reason] of Object.entries(LOCALIZED_TEXT_COLUMNS_WITHOUT_LOCALIZED_COPY)) {
       expect(reason.length, column).toBeGreaterThan(40);
     }
   });
 
-  it('states each column\'s TypeScript property, checked against the real drizzle table', () => {
+  it("states each column's TypeScript property, checked against the real drizzle table", () => {
     // `assertLocalizedRow` is keyed on the PROPERTY a writer passes. It is
     // STATED rather than folded from the SQL name — a `_x` → `X` derivation is a
     // content fold and `script-coverage-census.test.ts` demanded six scripts of
@@ -325,9 +325,9 @@ describe('the vocabulary is closed and the prohibitions are disjoint from it', (
     // by never running one.
     expect(PLAIN_LOCALIZED_TEXT_COLUMN_KEYS.length).toBeGreaterThanOrEqual(5);
     expect(RICH_LOCALIZED_TEXT_COLUMN_KEYS.length).toBeGreaterThanOrEqual(5);
-    expect(
-      PLAIN_LOCALIZED_TEXT_COLUMN_KEYS.length + RICH_LOCALIZED_TEXT_COLUMN_KEYS.length,
-    ).toBe(LOCALIZED_TEXT_COLUMN_KEYS.length);
+    expect(PLAIN_LOCALIZED_TEXT_COLUMN_KEYS.length + RICH_LOCALIZED_TEXT_COLUMN_KEYS.length).toBe(
+      LOCALIZED_TEXT_COLUMN_KEYS.length,
+    );
   });
 });
 
@@ -406,7 +406,9 @@ describe('the structure detector reports what a value actually carries', () => {
 describe('the refusal is asymmetric, and every declared key is driven through it', () => {
   it.each([...LOCALIZED_TEXT_COLUMN_KEYS])('refuses markup in `%s`', (key) => {
     for (const payload of MARKUP_PAYLOADS) {
-      expect(() => assertLocalizedText(key, `antes ${payload} despues`), payload).toThrow(/markup/u);
+      expect(() => assertLocalizedText(key, `antes ${payload} despues`), payload).toThrow(
+        /markup/u,
+      );
     }
   });
 
@@ -427,7 +429,7 @@ describe('the refusal is asymmetric, and every declared key is driven through it
     expect(assertLocalizedText(key, block)).toBe(block);
   });
 
-  it('NEVER SHORTENS — the caller\'s own .max() still bounds what is stored', () => {
+  it("NEVER SHORTENS — the caller's own .max() still bounds what is stored", () => {
     // `sanitizeAuthoredText` may only shorten; this may not change the value at
     // all. If it did, a `.max()` checked on the raw input would stop being a
     // bound on the stored one.
@@ -460,8 +462,7 @@ describe('the refusal is asymmetric, and every declared key is driven through it
 const SURFACE_PROBES: Readonly<
   Partial<Record<LocalizedTextColumnKey, (value: string) => unknown>>
 > = {
-  'listing_localizations.title': (value) =>
-    upsertListingLocalizationSchema.parse({ title: value }),
+  'listing_localizations.title': (value) => upsertListingLocalizationSchema.parse({ title: value }),
   'listing_localizations.description': (value) =>
     upsertListingLocalizationSchema.parse({ title: 'Titulo', description: value }),
   'category_localizations.name': (value) =>
@@ -542,9 +543,7 @@ function navigationNode(localization: Record<string, unknown>): Record<string, u
     key: 'menu.node',
     position: 0,
     target: { kind: 'category', categoryId: 'cat_1' },
-    localizations: [
-      { locale: 'es', status: 'approved', provenance: 'mercaria', ...localization },
-    ],
+    localizations: [{ locale: 'es', status: 'approved', provenance: 'mercaria', ...localization }],
   };
 }
 
@@ -649,54 +648,53 @@ interface WriterRecord {
   readonly unassertedModules?: Readonly<Record<string, string>>;
 }
 
-const WRITERS: Readonly<Record<string, WriterRecord>> =
-  Object.freeze({
-    category_localizations: {
-      symbol: 'categoryLocalizations',
-      modules: ['db/catalogLocalization/categoryLocalizationRepository.ts'],
+const WRITERS: Readonly<Record<string, WriterRecord>> = Object.freeze({
+  category_localizations: {
+    symbol: 'categoryLocalizations',
+    modules: ['db/catalogLocalization/categoryLocalizationRepository.ts'],
+  },
+  product_type_localizations: {
+    symbol: 'productTypeLocalizations',
+    modules: ['db/catalogLocalization/productTypeLocalizationRepository.ts'],
+  },
+  product_type_field_localizations: {
+    symbol: 'productTypeFieldLocalizations',
+    modules: ['db/catalogLocalization/productTypeFieldLocalizationRepository.ts'],
+    unassertedModules: {
+      'db/catalogLocalization/productTypeFieldLocalizationRepository.ts':
+        '`copyForwardProductTypeFieldLocalizations` is its ONLY writer and it carries rows ' +
+        'that already exist to a new product-type version. No new text enters through it, and ' +
+        'refusing there would fail a version bump on text written before this policy — losing ' +
+        'the translation, which is the opposite of what the policy is for.',
     },
-    product_type_localizations: {
-      symbol: 'productTypeLocalizations',
-      modules: ['db/catalogLocalization/productTypeLocalizationRepository.ts'],
-    },
-    product_type_field_localizations: {
-      symbol: 'productTypeFieldLocalizations',
-      modules: ['db/catalogLocalization/productTypeFieldLocalizationRepository.ts'],
-      unassertedModules: {
-        'db/catalogLocalization/productTypeFieldLocalizationRepository.ts':
-          '`copyForwardProductTypeFieldLocalizations` is its ONLY writer and it carries rows ' +
-          'that already exist to a new product-type version. No new text enters through it, and ' +
-          'refusing there would fail a version bump on text written before this policy — losing ' +
-          'the translation, which is the opposite of what the policy is for.',
-      },
-    },
-    // No writer at all. #367's L2 translation of Mercaria's own catalogue copy
-    // is modelled and nothing populates it yet.
-    canonical_product_localizations: { symbol: 'canonicalProductLocalizations', modules: [] },
-    canonical_product_family_localizations: {
-      symbol: 'canonicalProductFamilyLocalizations',
-      modules: [],
-    },
-    // The vertical-package apply, whose text is a code constant rather than a
-    // request body — so there is no request surface to attach a schema to.
-    attribute_value_localizations: {
-      symbol: 'attributeValueLocalizations',
-      modules: ['scripts/seed-verticals/apply.ts'],
-    },
-    attribute_labels: {
-      symbol: 'attributeLabels',
-      modules: ['db/attributes/definitionRepository.ts'],
-    },
-    navigation_node_localizations: {
-      symbol: 'navigationNodeLocalizations',
-      modules: ['db/navigation/navigationWriteRepository.ts'],
-    },
-    listing_localizations: {
-      symbol: 'listingLocalizations',
-      modules: ['db/catalogLocalization/listingLocalizationRepository.ts'],
-    },
-    canonical_images: { symbol: 'canonicalImages', modules: ['db/canonical/attributeRepository.ts'] },
-  });
+  },
+  // No writer at all. #367's L2 translation of Mercaria's own catalogue copy
+  // is modelled and nothing populates it yet.
+  canonical_product_localizations: { symbol: 'canonicalProductLocalizations', modules: [] },
+  canonical_product_family_localizations: {
+    symbol: 'canonicalProductFamilyLocalizations',
+    modules: [],
+  },
+  // The vertical-package apply, whose text is a code constant rather than a
+  // request body — so there is no request surface to attach a schema to.
+  attribute_value_localizations: {
+    symbol: 'attributeValueLocalizations',
+    modules: ['scripts/seed-verticals/apply.ts'],
+  },
+  attribute_labels: {
+    symbol: 'attributeLabels',
+    modules: ['db/attributes/definitionRepository.ts'],
+  },
+  navigation_node_localizations: {
+    symbol: 'navigationNodeLocalizations',
+    modules: ['db/navigation/navigationWriteRepository.ts'],
+  },
+  listing_localizations: {
+    symbol: 'listingLocalizations',
+    modules: ['db/catalogLocalization/listingLocalizationRepository.ts'],
+  },
+  canonical_images: { symbol: 'canonicalImages', modules: ['db/canonical/attributeRepository.ts'] },
+});
 
 describe('the writer census — a new writer of an in-scope table fails the build', () => {
   const files = walkSource(BACKEND_SRC);
@@ -729,7 +727,10 @@ describe('the writer census — a new writer of an in-scope table fails the buil
   it('MUTATION SELF-TEST — the detector notices a writer, and notices its removal', () => {
     // Two directions, because a detector that matches nothing reports "no
     // writers" for every table and passes the two empty entries above.
-    const withWriter = new RegExp(`\\.(insert|update|delete)\\(\\s*listingLocalizations\\s*[,)]`, 'u');
+    const withWriter = new RegExp(
+      `\\.(insert|update|delete)\\(\\s*listingLocalizations\\s*[,)]`,
+      'u',
+    );
     expect(withWriter.test('await db.insert(listingLocalizations).values(row)')).toBe(true);
     expect(withWriter.test('await db.insert(\n  listingLocalizations,\n).values(row)')).toBe(true);
     expect(withWriter.test('await db.select().from(listingLocalizations)')).toBe(false);
@@ -737,9 +738,7 @@ describe('the writer census — a new writer of an in-scope table fails the buil
     expect(
       withWriter.test(stripComments('// await db.insert(listingLocalizations).values(row)')),
     ).toBe(false);
-    expect(
-      withWriter.test(stripComments('/* db.insert(listingLocalizations) */')),
-    ).toBe(false);
+    expect(withWriter.test(stripComments('/* db.insert(listingLocalizations) */'))).toBe(false);
   });
 
   it('routes every localized-text WRITE through the declaration, at the writer', () => {

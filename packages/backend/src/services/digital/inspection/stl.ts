@@ -233,9 +233,15 @@ function inspectAsciiStl(bytes: Uint8Array, budget: InspectionBudget): Inspectio
         );
       }
       const halt = census.add(
-        corners[0], corners[1], corners[2],
-        corners[3], corners[4], corners[5],
-        corners[6], corners[7], corners[8],
+        corners[0],
+        corners[1],
+        corners[2],
+        corners[3],
+        corners[4],
+        corners[5],
+        corners[6],
+        corners[7],
+        corners[8],
       );
       if (halt) return censusHaltOutcome(halt, MAX_REPORTED_TRIANGLES);
       inFacet = false;

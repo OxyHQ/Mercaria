@@ -49,11 +49,7 @@ export function parsePagination(query: RawPaginationQuery): {
 }
 
 /** Build the `Pagination` metadata object from a page/limit/total. */
-export function buildPagination(
-  page: number,
-  limit: number,
-  total: number,
-): Pagination {
+export function buildPagination(page: number, limit: number, total: number): Pagination {
   const pages = limit > 0 ? Math.ceil(total / limit) : 0;
   return {
     page,

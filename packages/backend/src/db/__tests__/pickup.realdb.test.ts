@@ -203,7 +203,9 @@ async function expectUniqueRefusal(run: () => Promise<unknown>): Promise<void> {
     thrown = error;
   }
   expect(thrown, 'expected a unique violation, but the write succeeded').toBeDefined();
-  expect(isUniqueViolation(thrown), `expected a unique violation, got: ${String(thrown)}`).toBe(true);
+  expect(isUniqueViolation(thrown), `expected a unique violation, got: ${String(thrown)}`).toBe(
+    true,
+  );
 }
 
 async function expectTriggerRefusal(pattern: RegExp, run: () => Promise<unknown>): Promise<void> {
@@ -361,7 +363,9 @@ async function mintOrder(storeId: string): Promise<string> {
 }
 
 /** A canonical product plus one variant — what a nearby query is keyed on. */
-async function mintCanonicalVariant(label: string): Promise<{ productId: string; variantId: string }> {
+async function mintCanonicalVariant(
+  label: string,
+): Promise<{ productId: string; variantId: string }> {
   const [product] = await db
     .insert(canonicalProducts)
     .values({
@@ -496,7 +500,10 @@ describe('the place link (ADR 0013)', () => {
       where table_name = 'location_publications'
     `);
     const names = columns.map((row) => String(row.column_name));
-    expect(names.length, 'read no columns at all — a broken read, not a pass').toBeGreaterThanOrEqual(15);
+    expect(
+      names.length,
+      'read no columns at all — a broken read, not a pass',
+    ).toBeGreaterThanOrEqual(15);
     for (const forbidden of [
       'display_name',
       'public_line1',
@@ -554,7 +561,9 @@ describe('the publication CHECKs', () => {
   it('refuses a pause with no reason', async () => {
     const locationId = await mintLocation(storeId, 'pause');
     await expectCheckRefusal(() =>
-      db.insert(locationPublications).values(publication(locationId, { pickupPausedAt: new Date() })),
+      db
+        .insert(locationPublications)
+        .values(publication(locationId, { pickupPausedAt: new Date() })),
     );
   });
 });
@@ -592,14 +601,12 @@ describe('the collection-state CHECKs', () => {
       db.insert(orderPickups).values(snapshot(await mintOrder(storeId), { state: 'collected' })),
     );
     await expectCheckRefusal(async () =>
-      db
-        .insert(orderPickups)
-        .values(
-          snapshot(await mintOrder(storeId), {
-            state: 'ready_for_pickup',
-            collectedAt: new Date(),
-          }),
-        ),
+      db.insert(orderPickups).values(
+        snapshot(await mintOrder(storeId), {
+          state: 'ready_for_pickup',
+          collectedAt: new Date(),
+        }),
+      ),
     );
   });
 
@@ -613,14 +620,12 @@ describe('the collection-state CHECKs', () => {
 
   it('refuses a cancellation with no reason', async () => {
     await expectCheckRefusal(async () =>
-      db
-        .insert(orderPickups)
-        .values(
-          snapshot(await mintOrder(storeId), {
-            state: 'pickup_cancelled',
-            cancelledAt: new Date(),
-          }),
-        ),
+      db.insert(orderPickups).values(
+        snapshot(await mintOrder(storeId), {
+          state: 'pickup_cancelled',
+          cancelledAt: new Date(),
+        }),
+      ),
     );
   });
 });
@@ -777,10 +782,16 @@ describe('the collectable read over GoWay links', () => {
     });
     expect(rows).toEqual([]);
     // …and no link at all asks no question.
-    expect(await findCollectableAtLocations({ canonicalVariantId: canonical.variantId, links: [] })).toEqual([]);
+    expect(
+      await findCollectableAtLocations({ canonicalVariantId: canonical.variantId, links: [] }),
+    ).toEqual([]);
   });
 
-  const excluded: readonly [string, PublicationOptions, { listingStatus?: 'restricted'; available?: number; confirmedAt?: Date }][] = [
+  const excluded: readonly [
+    string,
+    PublicationOptions,
+    { listingStatus?: 'restricted'; available?: number; confirmedAt?: Date },
+  ][] = [
     ['a DRAFT publication', { state: 'draft' }, {}],
     ['a WITHDRAWN publication', { state: 'withdrawn' }, {}],
     ['a location that does not offer collection', { pickupOffered: false }, {}],
@@ -842,7 +853,9 @@ describe('the collectable read over GoWay links', () => {
       links: [linkOf(linkedLocationId), linkOf(linkedLocationId, 'place-somebody-else')],
     });
     expect(counted).toBe(1);
-    expect(await countCollectableAtLocations({ canonicalVariantId: canonical.variantId, links: [] })).toBe(0);
+    expect(
+      await countCollectableAtLocations({ canonicalVariantId: canonical.variantId, links: [] }),
+    ).toBe(0);
   });
 
   it('answers #74 with the variants collectable per linked location, and #70 with a product set', async () => {
@@ -855,7 +868,11 @@ describe('the collectable read over GoWay links', () => {
       links: [linkOf(linkedLocationId)],
     });
     expect(pairs).toEqual([
-      { variantId: rows[0].variantId, locationId: linkedLocationId, placeId: placeOf(linkedLocationId) },
+      {
+        variantId: rows[0].variantId,
+        locationId: linkedLocationId,
+        placeId: placeOf(linkedLocationId),
+      },
     ]);
 
     const products = await findCanonicalProductsCollectableAtLocations({

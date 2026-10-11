@@ -9,7 +9,13 @@ type IconProps = LucideProps & {
 function IconImpl({ as: IconComponent, color, fill, ...props }: IconProps) {
   // Lucide consumes `color` as its stroke, rather than forwarding it to Svg.
   // Resolve a currentColor fill too so filled glyphs follow the same token.
-  return <IconComponent {...props} color={color} fill={fill === 'currentColor' && color !== undefined ? color : fill} />;
+  return (
+    <IconComponent
+      {...props}
+      color={color}
+      fill={fill === 'currentColor' && color !== undefined ? color : fill}
+    />
+  );
 }
 
 // SVG strokes are props on native, not inherited Text styles. NativeWind's

@@ -43,10 +43,7 @@
  * that caused it — and a `pending` transaction has no posting at all.
  */
 
-import {
-  AFFILIATE_EARNED_STATES,
-  type CurrencyCode,
-} from '@mercaria/shared-types';
+import { AFFILIATE_EARNED_STATES, type CurrencyCode } from '@mercaria/shared-types';
 import { registerAffiliateCommissionReader } from '../referrals/rewards/funding.js';
 import { findAffiliateTransactionById } from '../../db/affiliateOutbound/transactionRepository.js';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';

@@ -46,12 +46,7 @@ const DEFINITION: ProductTypeDefinitionRow = {
   updatedAt: NOW,
 };
 
-function group(
-  id: string,
-  key: string,
-  label: string,
-  position: number,
-): ProductTypeFieldGroupRow {
+function group(id: string, key: string, label: string, position: number): ProductTypeFieldGroupRow {
   return {
     id,
     productTypeDefinitionId: DEFINITION.id,
@@ -151,11 +146,7 @@ describe('the specification layout places what every flow agrees about', () => {
         field('panel_type', DISPLAY.id, 'merchant', 3),
       ],
     );
-    expect(layout.groups[0]?.attributeKeys).toEqual([
-      'screen_size',
-      'panel_type',
-      'refresh_rate',
-    ]);
+    expect(layout.groups[0]?.attributeKeys).toEqual(['screen_size', 'panel_type', 'refresh_rate']);
   });
 
   it('breaks a shared position by attribute key rather than by row order', () => {

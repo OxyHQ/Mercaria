@@ -69,14 +69,31 @@ export interface OfferGroupsProps {
 export function OfferGroups(props: OfferGroupsProps) {
   const { t } = useTranslation();
   return (
-    <View testID="product-offers" aria-busy={props.isUpdating} accessibilityState={{ busy: props.isUpdating }} className="relative">
-      {props.isUpdating ? <Text accessibilityLiveRegion="polite" className="absolute -top-space-20 text-shop-caption text-text-tertiary">{t('common.loading')}</Text> : null}
+    <View
+      testID="product-offers"
+      aria-busy={props.isUpdating}
+      accessibilityState={{ busy: props.isUpdating }}
+      className="relative"
+    >
+      {props.isUpdating ? (
+        <Text
+          accessibilityLiveRegion="polite"
+          className="absolute -top-space-20 text-shop-caption text-text-tertiary"
+        >
+          {t('common.loading')}
+        </Text>
+      ) : null}
       <OfferGroupsContent {...props} isUpdating={props.disabled || props.isUpdating} />
     </View>
   );
 }
 
-function OfferGroupsContent({ offers, onAddToCart, addToCartPending, isUpdating = false }: OfferGroupsProps) {
+function OfferGroupsContent({
+  offers,
+  onAddToCart,
+  addToCartPending,
+  isUpdating = false,
+}: OfferGroupsProps) {
   const { t } = useTranslation();
 
   if (offers.available === false) {

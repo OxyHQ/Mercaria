@@ -196,7 +196,11 @@ export async function listVehicleConfigurations(
     .select()
     .from(vehicleConfigurations)
     .where(and(...clauses))
-    .orderBy(asc(vehicleConfigurations.yearFrom), asc(vehicleConfigurations.name), asc(vehicleConfigurations.id));
+    .orderBy(
+      asc(vehicleConfigurations.yearFrom),
+      asc(vehicleConfigurations.name),
+      asc(vehicleConfigurations.id),
+    );
 }
 
 /**

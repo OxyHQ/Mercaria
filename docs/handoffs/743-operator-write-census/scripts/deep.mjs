@@ -14,7 +14,8 @@ import { ROUTES } from './paths.mjs';
 
 const GATE = /requireCatalogOperator|CATALOG_OPERATOR_OXY_USER_IDS/;
 const WRITE = /^router\.(post|patch|put|delete)\s*\(([\s\S]*?)\);$/gm;
-const TRAIL = /(?<![.\w])(recordAuditEvent|recordRevision|recordCompensation|insertReviewEvent)\s*\(/;
+const TRAIL =
+  /(?<![.\w])(recordAuditEvent|recordRevision|recordCompensation|insertReviewEvent)\s*\(/;
 const ACTOR = /[A-Za-z]+ByOxyUserId/;
 const MAX_DEPTH = 5;
 
@@ -33,7 +34,10 @@ function importMap(file) {
     const target = resolve(dirname(file), m[2].replace(/\.js$/, '.ts'));
     if (!existsSync(target)) continue;
     for (const raw of m[1].split(',')) {
-      const name = raw.replace(/\btype\b/, '').split(/\s+as\s+/)[0].trim();
+      const name = raw
+        .replace(/\btype\b/, '')
+        .split(/\s+as\s+/)[0]
+        .trim();
       if (name) map.set(name, target);
     }
   }
@@ -79,7 +83,9 @@ function reaches(file, symbol, depth, seen) {
 }
 
 const buckets = { trail: [], actor: [], neither: [] };
-for (const name of readdirSync(ROUTES).filter((f) => f.endsWith('.ts')).sort()) {
+for (const name of readdirSync(ROUTES)
+  .filter((f) => f.endsWith('.ts'))
+  .sort()) {
   const file = join(ROUTES, name);
   const src = read(file);
   if (!GATE.test(src)) continue;
@@ -92,7 +98,8 @@ for (const name of readdirSync(ROUTES).filter((f) => f.endsWith('.ts')).sort()) 
     const module = routerImports.get(handler);
     if (!module) continue;
     const r = reaches(module, handler, 1, new Set());
-    const row = name.replace('internal-', '').replace('.ts', '') + '  ' + m[1].toUpperCase() + ' ' + path;
+    const row =
+      name.replace('internal-', '').replace('.ts', '') + '  ' + m[1].toUpperCase() + ' ' + path;
     if (r.trail) buckets.trail.push(row + '   (depth ' + r.depth + ')');
     else if (r.actor) buckets.actor.push(row);
     else buckets.neither.push(row);

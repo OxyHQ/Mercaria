@@ -86,7 +86,11 @@ import {
   releaseSupplierCallLease,
 } from '../../db/supplierPreflight/callLeaseRepository.js';
 import { recordSupplierCallOutcome } from '../../db/supplierPreflight/healthRepository.js';
-import { applyDeclaredCapabilities, unknownAnswer, type SupplierCapabilityDowngrade } from './adapter.js';
+import {
+  applyDeclaredCapabilities,
+  unknownAnswer,
+  type SupplierCapabilityDowngrade,
+} from './adapter.js';
 import { deriveSupplierPreflightCompleteness } from './preflight-completeness.js';
 import { computeSupplierRequestFingerprint } from './request-fingerprint.js';
 import { findSupplierAdapter } from './registry.js';
@@ -444,9 +448,7 @@ async function collectGateReasons(
     db,
   );
   for (const suppression of suppressions) {
-    reasons.push(
-      suppression.scope === 'market' ? 'market_suppressed' : 'supplier_suppressed',
-    );
+    reasons.push(suppression.scope === 'market' ? 'market_suppressed' : 'supplier_suppressed');
   }
 
   return [...new Set(reasons)].sort();
@@ -673,7 +675,10 @@ async function persist(parts: PersistInput): Promise<SupplierPreflightResult> {
  * backstop, and the failure is logged at `error` because a hold Mercaria could
  * not release is stock nobody can sell until it lapses.
  */
-async function releaseOrphanedHold(parts: PersistInput, providerReservationId: string): Promise<void> {
+async function releaseOrphanedHold(
+  parts: PersistInput,
+  providerReservationId: string,
+): Promise<void> {
   if (!parts.releaseOrphanedHold) return;
   try {
     await parts.releaseOrphanedHold(providerReservationId);
@@ -702,10 +707,18 @@ function classifyFailure(err: unknown): SupplierPreflightFailureKind {
   if (!(err instanceof Error)) return 'provider_error';
   const message = err.message.toLowerCase();
   if (message.includes('rate limit') || message.includes('rate_limited')) return 'rate_limited';
-  if (message.includes('unauthor') || message.includes('forbidden') || message.includes('credential')) {
+  if (
+    message.includes('unauthor') ||
+    message.includes('forbidden') ||
+    message.includes('credential')
+  ) {
     return 'authentication_failed';
   }
-  if (message.includes('econnrefused') || message.includes('enotfound') || message.includes('socket')) {
+  if (
+    message.includes('econnrefused') ||
+    message.includes('enotfound') ||
+    message.includes('socket')
+  ) {
     return 'transport_error';
   }
   return 'provider_error';

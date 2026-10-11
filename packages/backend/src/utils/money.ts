@@ -221,7 +221,7 @@ export function allocateProportionally(total: Money, weights: number[]): Money[]
   // Hand out leftover units to the largest remainders; ties → lowest index.
   const order = floored
     .map((part, index) => ({ index, remainder: part.remainder }))
-    .sort((a, b) => (b.remainder - a.remainder) || (a.index - b.index));
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
 
   const amounts = floored.map((part) => part.base);
   for (const entry of order) {

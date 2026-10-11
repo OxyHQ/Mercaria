@@ -159,9 +159,7 @@ afterAll(async () => {
       );
   }
   if (trackedProgramIds.length > 0) {
-    await db
-      .delete(referralPrograms)
-      .where(inArray(referralPrograms.programId, trackedProgramIds));
+    await db.delete(referralPrograms).where(inArray(referralPrograms.programId, trackedProgramIds));
   }
   await closePostgres();
 }, 120_000);
@@ -379,7 +377,7 @@ describe('#147 acceptance 3 — a partner sees their own numbers and nobody else
 });
 
 describe('instrument ownership is decided by reading the instrument, not by listing', () => {
-  it('refuses another partner\'s code and link with the SAME 404', async () => {
+  it("refuses another partner's code and link with the SAME 404", async () => {
     const program = await seedProgram('own');
     const mine = await seedPartner('own-mine');
     const theirs = await seedPartner('own-theirs');
@@ -475,13 +473,28 @@ describe('the disclosure floor over REAL aggregates', () => {
     });
 
     for (let i = 0; i < 25; i += 1) {
-      await seedTouch({ programVersionId: program.id, partnerId: partner.id, codeId: big.id, day: 2 });
+      await seedTouch({
+        programVersionId: program.id,
+        partnerId: partner.id,
+        codeId: big.id,
+        day: 2,
+      });
     }
     for (let i = 0; i < 14; i += 1) {
-      await seedTouch({ programVersionId: program.id, partnerId: partner.id, codeId: mid.id, day: 3 });
+      await seedTouch({
+        programVersionId: program.id,
+        partnerId: partner.id,
+        codeId: mid.id,
+        day: 3,
+      });
     }
     for (let i = 0; i < 2; i += 1) {
-      await seedTouch({ programVersionId: program.id, partnerId: partner.id, codeId: tiny.id, day: 4 });
+      await seedTouch({
+        programVersionId: program.id,
+        partnerId: partner.id,
+        codeId: tiny.id,
+        day: 4,
+      });
     }
 
     const byMarket = await readPartnerPerformance({
@@ -524,7 +537,12 @@ describe('the disclosure floor over REAL aggregates', () => {
     });
 
     for (let i = 0; i < 5; i += 1) {
-      await seedTouch({ programVersionId: program.id, partnerId: partner.id, codeId: code.id, day: 5 });
+      await seedTouch({
+        programVersionId: program.id,
+        partnerId: partner.id,
+        codeId: code.id,
+        day: 5,
+      });
     }
     for (const trafficClass of ['bot', 'preview', 'internal'] as const) {
       await seedTouch({
@@ -698,7 +716,7 @@ describe('the composed dashboard', () => {
   }, 120_000);
 });
 
-describe('the dashboard follows #148\'s enforcement derivation, not the state column', () => {
+describe("the dashboard follows #148's enforcement derivation, not the state column", () => {
   it('reports a scoped payout hold on a partner whose state is still approved', async () => {
     const program = await seedProgram('enf');
     const partner = await seedPartner('enf');

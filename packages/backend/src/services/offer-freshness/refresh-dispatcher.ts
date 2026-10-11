@@ -198,10 +198,7 @@ async function driveTask(task: OfferRefreshTaskRow, now: Date): Promise<'opened'
     // Released whatever happened: a slot held by a task that threw is a slot
     // nobody can prove is free until its lease lapses, and the whole source
     // waits behind it.
-    await releaseSourceRefreshLease(
-      { leaseId: claim.leaseId, leaseOwner: LEASE_OWNER, now },
-      db,
-    );
+    await releaseSourceRefreshLease({ leaseId: claim.leaseId, leaseOwner: LEASE_OWNER, now }, db);
   }
 }
 

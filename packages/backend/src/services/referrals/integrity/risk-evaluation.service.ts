@@ -226,10 +226,9 @@ export async function collectRiskSignalFacts(
   const [conversionRow] = await db
     .select({
       total: sql<string>`count(*)`,
-      reversed: sql<string>`count(*) filter (where ${inArray(
-        referralConversions.state,
-        [...REVERSED_CONVERSION_STATES],
-      )})`,
+      reversed: sql<string>`count(*) filter (where ${inArray(referralConversions.state, [
+        ...REVERSED_CONVERSION_STATES,
+      ])})`,
       orderSourced: sql<string>`count(*) filter (where ${referralConversions.sourceKind} = ${ORDER_CONVERSION_SOURCE})`,
       // Sliced at the bound so an over-large cohort is DETECTABLE rather than
       // silently short: `orderSourced` is counted unsliced, so the two disagree
@@ -242,10 +241,7 @@ export async function collectRiskSignalFacts(
       )}]`,
     })
     .from(referralConversions)
-    .innerJoin(
-      referralAttributions,
-      eq(referralConversions.attributionId, referralAttributions.id),
-    )
+    .innerJoin(referralAttributions, eq(referralConversions.attributionId, referralAttributions.id))
     .where(
       and(
         eq(referralAttributions.partnerId, input.partnerId),

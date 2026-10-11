@@ -265,7 +265,9 @@ export function reportFromStoredRows(
     // same way `rewirePathsMissing` is: a request planned before a queue gained
     // a consumer should be read against what is true now, not against the gap
     // it was planned under.
-    rewiresAwaitingDrain: isCountedSubjectKind(subjectKind) ? rewiresAwaitingDrain(subjectKind) : [],
+    rewiresAwaitingDrain: isCountedSubjectKind(subjectKind)
+      ? rewiresAwaitingDrain(subjectKind)
+      : [],
     unmeasuredReason: unmeasuredReason ?? undefined,
   };
 }

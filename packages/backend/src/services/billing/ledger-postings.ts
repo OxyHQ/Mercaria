@@ -47,9 +47,7 @@ export interface SubscriptionSettlement {
  *   raised against the POSTING rather than the INSERT, so the error names this
  *   builder (`ledgerRepository`'s rule).
  */
-export function subscriptionInvoicePaidEntries(
-  input: SubscriptionSettlement,
-): LedgerEntryInput[] {
+export function subscriptionInvoicePaidEntries(input: SubscriptionSettlement): LedgerEntryInput[] {
   if (!Number.isInteger(input.netMinor) || !Number.isInteger(input.feeMinor)) {
     throw new RangeError(
       'A subscription settlement is minor units and must be whole; received ' +

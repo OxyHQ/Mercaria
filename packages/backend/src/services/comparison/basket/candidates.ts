@@ -285,7 +285,9 @@ export function dominates(left: BasketCandidate, right: BasketCandidate): boolea
   // survivor, so the corruption was silent and total.
   if (left.unitItemPrice.amount.amount > right.unitItemPrice.amount.amount) return false;
 
-  const leftDelivery = hasKnownComparisonMoney(left.delivery) ? left.delivery.amount.amount : undefined;
+  const leftDelivery = hasKnownComparisonMoney(left.delivery)
+    ? left.delivery.amount.amount
+    : undefined;
   const rightDelivery = hasKnownComparisonMoney(right.delivery)
     ? right.delivery.amount.amount
     : undefined;

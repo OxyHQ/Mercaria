@@ -771,42 +771,112 @@ describe('aggregates: verified and unverified never blend', () => {
     const listingId = await makeListing(storeId);
     const otherListingId = await makeListing(storeId);
     const target = { targetType: 'listing' as const, targetId: listingId };
-    const first = await writeReview({ authorOxyUserId: userId('search-a'), scope: 'p2p_listing', ...target, rating: 5, title: 'Lovely GLOW', body: 'Lasts all day.' });
-    const second = await writeReview({ authorOxyUserId: userId('search-b'), scope: 'p2p_listing', ...target, rating: 4, title: 'My favourite', body: 'Soft glow, 100%_coverage\\finish.' });
-    await writeReview({ authorOxyUserId: userId('search-other-text'), scope: 'p2p_listing', ...target, rating: 1, body: 'Wrong shade.' });
-    const hidden = await writeReview({ authorOxyUserId: userId('search-hidden'), scope: 'p2p_listing', ...target, rating: 2, body: 'Glow hidden.' });
+    const first = await writeReview({
+      authorOxyUserId: userId('search-a'),
+      scope: 'p2p_listing',
+      ...target,
+      rating: 5,
+      title: 'Lovely GLOW',
+      body: 'Lasts all day.',
+    });
+    const second = await writeReview({
+      authorOxyUserId: userId('search-b'),
+      scope: 'p2p_listing',
+      ...target,
+      rating: 4,
+      title: 'My favourite',
+      body: 'Soft glow, 100%_coverage\\finish.',
+    });
+    await writeReview({
+      authorOxyUserId: userId('search-other-text'),
+      scope: 'p2p_listing',
+      ...target,
+      rating: 1,
+      body: 'Wrong shade.',
+    });
+    const hidden = await writeReview({
+      authorOxyUserId: userId('search-hidden'),
+      scope: 'p2p_listing',
+      ...target,
+      rating: 2,
+      body: 'Glow hidden.',
+    });
     await setReviewStatusIfIn(hidden, 'hidden', ['published']);
-    await writeReview({ authorOxyUserId: userId('search-other-target'), scope: 'p2p_listing', targetType: 'listing', targetId: otherListingId, rating: 5, body: 'Glow elsewhere.' });
+    await writeReview({
+      authorOxyUserId: userId('search-other-target'),
+      scope: 'p2p_listing',
+      targetType: 'listing',
+      targetId: otherListingId,
+      rating: 5,
+      body: 'Glow elsewhere.',
+    });
     const before = await readReviewRatingSummary(target);
     const page1 = await findReviewsPage(target, 1, 1, { query: 'glow' });
     const page2 = await findReviewsPage(target, 2, 1, { query: 'glow' });
     expect(page1.total).toBe(2);
     expect(page2.total).toBe(2);
-    expect(new Set([...page1.rows, ...page2.rows].map(row => row.id))).toEqual(new Set([first, second]));
-    expect(new Set((await findScopedReviewsPage({ ...target, scope: 'p2p_listing' }, 1, 20, { query: 'GLOW' })).rows.map(row => row.id))).toEqual(new Set([first, second]));
+    expect(new Set([...page1.rows, ...page2.rows].map((row) => row.id))).toEqual(
+      new Set([first, second]),
+    );
+    expect(
+      new Set(
+        (
+          await findScopedReviewsPage({ ...target, scope: 'p2p_listing' }, 1, 20, { query: 'GLOW' })
+        ).rows.map((row) => row.id),
+      ),
+    ).toEqual(new Set([first, second]));
     expect((await findListingReviewsPage([listingId], 1, 20, { query: 'glow' })).total).toBe(2);
     for (const query of ['%', '_', '\\', '100%_coverage\\finish']) {
       const result = await findReviewsPage(target, 1, 20, { query });
       expect(result.total).toBe(1);
-      expect(result.rows.map(row => row.id)).toEqual([second]);
+      expect(result.rows.map((row) => row.id)).toEqual([second]);
     }
     expect((await findReviewsPage(target, 1, 20, { query: 'not in any review' })).total).toBe(0);
     expect((await findReviewsPage(target, 1, 20, { query: '   ' })).total).toBe(3);
-    const low = await findReviewsPage(target, 1, 1, { query: 'glow', ratings: [4, 5], sortBy: 'rating_asc' });
-    const high = await findReviewsPage(target, 2, 1, { query: 'glow', ratings: [4, 5], sortBy: 'rating_asc' });
+    const low = await findReviewsPage(target, 1, 1, {
+      query: 'glow',
+      ratings: [4, 5],
+      sortBy: 'rating_asc',
+    });
+    const high = await findReviewsPage(target, 2, 1, {
+      query: 'glow',
+      ratings: [4, 5],
+      sortBy: 'rating_asc',
+    });
     expect(low.total).toBe(2);
-    expect(low.rows.map(row => row.id)).toEqual([second]);
-    expect(high.rows.map(row => row.id)).toEqual([first]);
-    expect((await findReviewsPage(target, 1, 20, { ratings: [5, 4], sortBy: 'rating_desc' })).rows.map(row => row.id)).toEqual([first, second]);
-    expect((await findScopedReviewsPage({ ...target, scope: 'p2p_listing' }, 1, 20, { ratings: [4] })).rows.map(row => row.id)).toEqual([second]);
-    expect((await findListingReviewsPage([listingId], 1, 20, { ratings: [4] })).rows.map(row => row.id)).toEqual([second]);
+    expect(low.rows.map((row) => row.id)).toEqual([second]);
+    expect(high.rows.map((row) => row.id)).toEqual([first]);
+    expect(
+      (await findReviewsPage(target, 1, 20, { ratings: [5, 4], sortBy: 'rating_desc' })).rows.map(
+        (row) => row.id,
+      ),
+    ).toEqual([first, second]);
+    expect(
+      (
+        await findScopedReviewsPage({ ...target, scope: 'p2p_listing' }, 1, 20, { ratings: [4] })
+      ).rows.map((row) => row.id),
+    ).toEqual([second]);
+    expect(
+      (await findListingReviewsPage([listingId], 1, 20, { ratings: [4] })).rows.map(
+        (row) => row.id,
+      ),
+    ).toEqual([second]);
     expect((await findReviewsPage(target, 1, 20, { ratings: [2] })).total).toBe(0);
     // Same timestamp makes the UUID tiebreaker observable across pages.
-    await db.update(reviews).set({ createdAt: new Date('2025-01-01T00:00:00Z') }).where(inArray(reviews.id, [first, second]));
+    await db
+      .update(reviews)
+      .set({ createdAt: new Date('2025-01-01T00:00:00Z') })
+      .where(inArray(reviews.id, [first, second]));
     const orderedIds = [first, second].sort();
-    expect((await findReviewsPage(target, 1, 1, { query: 'glow', sortBy: 'oldest' })).rows[0].id).toBe(orderedIds[0]);
-    expect((await findReviewsPage(target, 2, 1, { query: 'glow', sortBy: 'oldest' })).rows[0].id).toBe(orderedIds[1]);
-    expect((await findReviewsPage(target, 1, 1, { query: 'glow', sortBy: 'newest' })).rows[0].id).toBe(orderedIds[1]);
+    expect(
+      (await findReviewsPage(target, 1, 1, { query: 'glow', sortBy: 'oldest' })).rows[0].id,
+    ).toBe(orderedIds[0]);
+    expect(
+      (await findReviewsPage(target, 2, 1, { query: 'glow', sortBy: 'oldest' })).rows[0].id,
+    ).toBe(orderedIds[1]);
+    expect(
+      (await findReviewsPage(target, 1, 1, { query: 'glow', sortBy: 'newest' })).rows[0].id,
+    ).toBe(orderedIds[1]);
     expect(before.reviewCount).toBe(3);
     expect(await readReviewRatingSummary(target)).toEqual(before);
   });
@@ -1245,16 +1315,26 @@ describe('public review purchase context', () => {
     const productId = await makeCanonicalProduct();
     const { orderId, lineId } = await makeOrderWithLine(storeId, buyer, variantTitle);
     const grant = await insertEligibility({
-      oxyUserId: buyer, orderId, orderItemId: lineId,
-      scope: 'product', targetType: 'canonical_product', targetId: productId,
-      evidenceType: 'authenticated_purchase', policyVersion: 'test',
+      oxyUserId: buyer,
+      orderId,
+      orderItemId: lineId,
+      scope: 'product',
+      targetType: 'canonical_product',
+      targetId: productId,
+      evidenceType: 'authenticated_purchase',
+      policyVersion: 'test',
     });
     expect(grant).not.toBeNull();
     await consumeEligibility(grant!.id);
     const reviewId = await writeReview({
       authorOxyUserId: mismatchedAuthor ? `another-${buyer}` : buyer,
-      scope: 'product', targetType: 'canonical_product', targetId: productId,
-      rating: 5, verification: 'verified_purchase', eligibilityId: grant!.id, orderId,
+      scope: 'product',
+      targetType: 'canonical_product',
+      targetId: productId,
+      rating: 5,
+      verification: 'verified_purchase',
+      eligibilityId: grant!.id,
+      orderId,
     });
     return { reviewId, productId };
   }
@@ -1267,7 +1347,9 @@ describe('public review purchase context', () => {
     expect(context.get(first.reviewId)).toBe('Black / M');
     expect(context.get(second.reviewId)).toBe('Blue / XL');
     // A scoped read cannot expose another review's purchase context.
-    expect(await findPurchasedVariantsForReviews([first.reviewId])).toEqual(new Map([[first.reviewId, 'Black / M']]));
+    expect(await findPurchasedVariantsForReviews([first.reviewId])).toEqual(
+      new Map([[first.reviewId, 'Black / M']]),
+    );
     expect(await findPurchasedVariantsForReviews([])).toEqual(new Map());
   });
 
@@ -1278,9 +1360,17 @@ describe('public review purchase context', () => {
     const mismatched = await purchasedReview('Other buyer / XL', true);
     const unverified = await writeReview({
       authorOxyUserId: `unverified-${uuidv7()}`,
-      scope: 'product', targetType: 'canonical_product', targetId: valid.productId, rating: 4,
+      scope: 'product',
+      targetType: 'canonical_product',
+      targetId: valid.productId,
+      rating: 4,
     });
-    const context = await findPurchasedVariantsForReviews([valid.reviewId, hidden.reviewId, mismatched.reviewId, unverified]);
+    const context = await findPurchasedVariantsForReviews([
+      valid.reviewId,
+      hidden.reviewId,
+      mismatched.reviewId,
+      unverified,
+    ]);
     expect(context.size).toBe(1);
     expect(context).toEqual(new Map([[valid.reviewId, 'Red / S']]));
   });
@@ -1288,29 +1378,59 @@ describe('public review purchase context', () => {
   it('does not expose blank or no-option variant placeholders', async () => {
     const blank = await purchasedReview('   ');
     const defaultVariant = await purchasedReview('Default Title');
-    expect(await findPurchasedVariantsForReviews([blank.reviewId, defaultVariant.reviewId])).toEqual(new Map());
+    expect(
+      await findPurchasedVariantsForReviews([blank.reviewId, defaultVariant.reviewId]),
+    ).toEqual(new Map());
   });
 });
 
 describe('published review helpfulness', () => {
   async function voteReview(author = userId('helpful-author')) {
-    return writeReview({ authorOxyUserId: author, scope: 'product', targetType: 'canonical_product',
-      targetId: await makeCanonicalProduct(), rating: 4 });
+    return writeReview({
+      authorOxyUserId: author,
+      scope: 'product',
+      targetType: 'canonical_product',
+      targetId: await makeCanonicalProduct(),
+      rating: 4,
+    });
   }
 
   it('concurrent retries create one vote; distinct readers count separately and removal is replay-safe', async () => {
     const id = await voteReview();
     const reader = userId('helpful-reader');
     const other = userId('helpful-other');
-    const replies = await Promise.all(Array.from({ length: 8 }, () => updateReviewHelpfulness(reader, id, true)));
-    expect(replies.every(row => row.helpfulnessCount === 1 && row.markedAsHelpfulByMe)).toBe(true);
-    expect(await updateReviewHelpfulness(other, id, true)).toMatchObject({ helpfulnessCount: 2, markedAsHelpfulByMe: true });
-    expect(await updateReviewHelpfulness(reader, id, false)).toMatchObject({ helpfulnessCount: 1, markedAsHelpfulByMe: false });
-    expect(await updateReviewHelpfulness(reader, id, false)).toMatchObject({ helpfulnessCount: 1, markedAsHelpfulByMe: false });
-    const votes = await db.select({ voter: reviewHelpfulVotes.oxyUserId }).from(reviewHelpfulVotes).where(eq(reviewHelpfulVotes.reviewId, id));
+    const replies = await Promise.all(
+      Array.from({ length: 8 }, () => updateReviewHelpfulness(reader, id, true)),
+    );
+    expect(replies.every((row) => row.helpfulnessCount === 1 && row.markedAsHelpfulByMe)).toBe(
+      true,
+    );
+    expect(await updateReviewHelpfulness(other, id, true)).toMatchObject({
+      helpfulnessCount: 2,
+      markedAsHelpfulByMe: true,
+    });
+    expect(await updateReviewHelpfulness(reader, id, false)).toMatchObject({
+      helpfulnessCount: 1,
+      markedAsHelpfulByMe: false,
+    });
+    expect(await updateReviewHelpfulness(reader, id, false)).toMatchObject({
+      helpfulnessCount: 1,
+      markedAsHelpfulByMe: false,
+    });
+    const votes = await db
+      .select({ voter: reviewHelpfulVotes.oxyUserId })
+      .from(reviewHelpfulVotes)
+      .where(eq(reviewHelpfulVotes.reviewId, id));
     expect(votes).toEqual([{ voter: other }]);
-    expect((await findReviewHelpfulness([id], other))[0]).toMatchObject({ markedAsHelpfulByMe: true, helpfulnessCount: 1 });
-    expect((await findReviewHelpfulness([id]))[0]).toMatchObject({ markedAsHelpfulByMe: false, canUpdateHelpfulness: false, helpfulnessCount: 1 });
+    expect((await findReviewHelpfulness([id], other))[0]).toMatchObject({
+      markedAsHelpfulByMe: true,
+      helpfulnessCount: 1,
+    });
+    expect((await findReviewHelpfulness([id]))[0]).toMatchObject({
+      markedAsHelpfulByMe: false,
+      canUpdateHelpfulness: false,
+      helpfulnessCount: 1,
+    });
   });
 
   it('keeps votes isolated by review and account and refuses an author voting on their own text', async () => {
@@ -1321,9 +1441,19 @@ describe('published review helpfulness', () => {
     await updateReviewHelpfulness(reader, first, true);
     const rows = await findReviewHelpfulness([first, second], author);
     expect(rows).toHaveLength(2);
-    expect(rows.find(row => row.reviewId === first)).toMatchObject({ helpfulnessCount: 1, markedAsHelpfulByMe: false, canUpdateHelpfulness: false });
-    expect(rows.find(row => row.reviewId === second)).toMatchObject({ helpfulnessCount: 0, markedAsHelpfulByMe: false, canUpdateHelpfulness: true });
-    await expect(updateReviewHelpfulness(author, first, true)).rejects.toMatchObject({ httpStatus: 403 });
+    expect(rows.find((row) => row.reviewId === first)).toMatchObject({
+      helpfulnessCount: 1,
+      markedAsHelpfulByMe: false,
+      canUpdateHelpfulness: false,
+    });
+    expect(rows.find((row) => row.reviewId === second)).toMatchObject({
+      helpfulnessCount: 0,
+      markedAsHelpfulByMe: false,
+      canUpdateHelpfulness: true,
+    });
+    await expect(updateReviewHelpfulness(author, first, true)).rejects.toMatchObject({
+      httpStatus: 403,
+    });
     expect((await findReviewHelpfulness([first], reader))[0].helpfulnessCount).toBe(1);
   });
 
@@ -1334,31 +1464,56 @@ describe('published review helpfulness', () => {
     await setReviewStatusIfIn(id, 'hidden', ['published']);
     const missing = uuidv7();
     expect(await findReviewHelpfulness([id, missing], reader)).toEqual([]);
-    await expect(updateReviewHelpfulness(reader, id, true)).rejects.toMatchObject({ httpStatus: 404 });
-    await expect(updateReviewHelpfulness(reader, missing, false)).rejects.toMatchObject({ httpStatus: 404 });
-    const stored = await db.select({ id: reviewHelpfulVotes.id }).from(reviewHelpfulVotes).where(eq(reviewHelpfulVotes.reviewId, id));
+    await expect(updateReviewHelpfulness(reader, id, true)).rejects.toMatchObject({
+      httpStatus: 404,
+    });
+    await expect(updateReviewHelpfulness(reader, missing, false)).rejects.toMatchObject({
+      httpStatus: 404,
+    });
+    const stored = await db
+      .select({ id: reviewHelpfulVotes.id })
+      .from(reviewHelpfulVotes)
+      .where(eq(reviewHelpfulVotes.reviewId, id));
     expect(stored).toHaveLength(1);
   });
 
   it('private transaction reviews have no public helpfulness surface', async () => {
     const author = userId('helpful-private');
     const { lineId } = await makeOrderWithLine(await makeStore(), author);
-    const row = await insertReview({ authorOxyUserId: author, scope: 'native_transaction', targetType: 'order_item',
-      targetId: lineId, rating: 5, verification: 'unverified', incentiveDisclosure: 'none', classificationState: 'native' });
+    const row = await insertReview({
+      authorOxyUserId: author,
+      scope: 'native_transaction',
+      targetType: 'order_item',
+      targetId: lineId,
+      rating: 5,
+      verification: 'unverified',
+      incentiveDisclosure: 'none',
+      classificationState: 'native',
+    });
     createdReviewIds.push(row.id);
     const reader = userId('helpful-private-other');
     expect(await findReviewHelpfulness([row.id], reader)).toEqual([]);
-    await expect(updateReviewHelpfulness(reader, row.id, true)).rejects.toMatchObject({ httpStatus: 404 });
+    await expect(updateReviewHelpfulness(reader, row.id, true)).rejects.toMatchObject({
+      httpStatus: 404,
+    });
   });
 
   it('the database refuses duplicate votes even outside the service and deletes votes with their review', async () => {
     const id = await voteReview();
     const reader = userId('helpful-unique');
     await updateReviewHelpfulness(reader, id, true);
-    await expect(db.insert(reviewHelpfulVotes).values({ reviewId: id, oxyUserId: reader }))
-      .rejects.toSatisfy((err: unknown) => isUniqueViolation(err, 'review_helpful_votes_review_user_key'));
+    await expect(
+      db.insert(reviewHelpfulVotes).values({ reviewId: id, oxyUserId: reader }),
+    ).rejects.toSatisfy((err: unknown) =>
+      isUniqueViolation(err, 'review_helpful_votes_review_user_key'),
+    );
     await db.delete(reviews).where(eq(reviews.id, id));
-    expect(await db.select({ id: reviewHelpfulVotes.id }).from(reviewHelpfulVotes).where(eq(reviewHelpfulVotes.reviewId, id))).toEqual([]);
+    expect(
+      await db
+        .select({ id: reviewHelpfulVotes.id })
+        .from(reviewHelpfulVotes)
+        .where(eq(reviewHelpfulVotes.reviewId, id)),
+    ).toEqual([]);
   });
 });
 
@@ -1366,19 +1521,36 @@ describe('published review helpfulness', () => {
 // is a separate integration precondition; no image requests are intercepted here.
 describe('ordered review attachments and atomic eligibility consumption', () => {
   async function publicReview() {
-    const row = await insertReview({
-      authorOxyUserId: userId('media'), scope: 'product', targetType: 'canonical_product',
-      targetId: await makeCanonicalProduct(), rating: 5, verification: 'unverified',
-      incentiveDisclosure: 'none', classificationState: 'native',
-      media: [{ fileId: 'sql-fixture-video', kind: 'video' }, { fileId: 'sql-fixture-image', kind: 'image' }],
-    }, db);
+    const row = await insertReview(
+      {
+        authorOxyUserId: userId('media'),
+        scope: 'product',
+        targetType: 'canonical_product',
+        targetId: await makeCanonicalProduct(),
+        rating: 5,
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'native',
+        media: [
+          { fileId: 'sql-fixture-video', kind: 'video' },
+          { fileId: 'sql-fixture-image', kind: 'image' },
+        ],
+      },
+      db,
+    );
     createdReviewIds.push(row.id);
     return row;
   }
 
   it('reads attachments in display order and removes them with the parent', async () => {
     const row = await publicReview();
-    expect((await findMediaForReviews([row.id], db)).map(({ fileId, kind, position }) => ({ fileId, kind, position }))).toEqual([
+    expect(
+      (await findMediaForReviews([row.id], db)).map(({ fileId, kind, position }) => ({
+        fileId,
+        kind,
+        position,
+      })),
+    ).toEqual([
       { fileId: 'sql-fixture-video', kind: 'video', position: 0 },
       { fileId: 'sql-fixture-image', kind: 'image', position: 1 },
     ]);
@@ -1390,18 +1562,28 @@ describe('ordered review attachments and atomic eligibility consumption', () => 
     const row = await publicReview();
     expect(await setReviewStatusIfIn(row.id, 'hidden', ['published'], db)).toBe(true);
     expect(await findMediaForReviews([row.id], db)).toEqual([]);
-    expect(await db.select().from(reviewMedia).where(eq(reviewMedia.reviewId, row.id))).toHaveLength(2);
+    expect(
+      await db.select().from(reviewMedia).where(eq(reviewMedia.reviewId, row.id)),
+    ).toHaveLength(2);
   });
 
   it('does not project private order-item media', async () => {
     const buyer = userId('private-media');
     const { lineId } = await makeOrderWithLine(await makeStore(), buyer);
-    const row = await insertReview({
-      authorOxyUserId: buyer, scope: 'native_transaction', targetType: 'order_item',
-      targetId: lineId, rating: 4, verification: 'unverified', incentiveDisclosure: 'none',
-      classificationState: 'native',
-      media: [{ fileId: 'sql-fixture-private', kind: 'image' }],
-    }, db);
+    const row = await insertReview(
+      {
+        authorOxyUserId: buyer,
+        scope: 'native_transaction',
+        targetType: 'order_item',
+        targetId: lineId,
+        rating: 4,
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'native',
+        media: [{ fileId: 'sql-fixture-private', kind: 'image' }],
+      },
+      db,
+    );
     createdReviewIds.push(row.id);
     expect(await findMediaForReviews([row.id], db)).toEqual([]);
   });
@@ -1410,9 +1592,12 @@ describe('ordered review attachments and atomic eligibility consumption', () => 
     { fileId: 'https://external.example/photo.jpg', kind: 'image' as const, position: 2 },
     { fileId: 'sql-fixture-extra', kind: 'image' as const, position: -1 },
     { fileId: 'sql-fixture-extra', kind: 'image' as const, position: 10 },
-  ])('enforces the database ID/position checks: %j', async values => {
+  ])('enforces the database ID/position checks: %j', async (values) => {
     const row = await publicReview();
-    const error = await db.insert(reviewMedia).values({ reviewId: row.id, ...values }).catch(error => error);
+    const error = await db
+      .insert(reviewMedia)
+      .values({ reviewId: row.id, ...values })
+      .catch((error) => error);
     expect(isCheckViolation(error)).toBe(true);
   });
 
@@ -1422,7 +1607,10 @@ describe('ordered review attachments and atomic eligibility consumption', () => 
       { fileId: 'sql-fixture-video', position: 2 },
       { fileId: 'sql-fixture-extra', position: 0 },
     ]) {
-      const error = await db.insert(reviewMedia).values({ reviewId: row.id, kind: 'image', ...values }).catch(error => error);
+      const error = await db
+        .insert(reviewMedia)
+        .values({ reviewId: row.id, kind: 'image', ...values })
+        .catch((error) => error);
       expect(isUniqueViolation(error)).toBe(true);
     }
   });
@@ -1432,26 +1620,43 @@ describe('ordered review attachments and atomic eligibility consumption', () => 
     const { orderId, lineId } = await makeOrderWithLine(await makeStore(), buyer);
     const productId = await makeCanonicalProduct();
     const grant = await insertEligibility({
-      oxyUserId: buyer, orderId, orderItemId: lineId, scope: 'product',
-      targetType: 'canonical_product', targetId: productId,
-      evidenceType: 'authenticated_purchase', policyVersion: 'test',
+      oxyUserId: buyer,
+      orderId,
+      orderItemId: lineId,
+      scope: 'product',
+      targetType: 'canonical_product',
+      targetId: productId,
+      evidenceType: 'authenticated_purchase',
+      policyVersion: 'test',
     });
     expect(grant).not.toBeNull();
     // Inject a post-validation storage fault. Only the external author/media
     // checks are stubbed; the service, CAS, INSERTs and rollback are real SQL.
     const check = vi.spyOn(selfReview, 'assertNotSelfPurchase').mockResolvedValue(undefined);
-    const prepare = vi.spyOn(mediaPreparation, 'prepareReviewMedia').mockResolvedValue([
-      { fileId: 'https://invalid-at-storage.example/image', kind: 'image' },
-    ]);
+    const prepare = vi
+      .spyOn(mediaPreparation, 'prepareReviewMedia')
+      .mockResolvedValue([{ fileId: 'https://invalid-at-storage.example/image', kind: 'image' }]);
     try {
-      const error = await createReview({ accountId: buyer, actorAccountId: buyer, delegated: false, accessToken: 'test-only' }, {
-        scope: 'product', canonicalProductId: productId, eligibilityId: grant?.id,
-        rating: 5, mediaFileIds: ['sql-fixture-image'], dimensions: [{ key: 'quality', rating: 5 }],
-      }).catch(error => error);
+      const error = await createReview(
+        { accountId: buyer, actorAccountId: buyer, delegated: false, accessToken: 'test-only' },
+        {
+          scope: 'product',
+          canonicalProductId: productId,
+          eligibilityId: grant?.id,
+          rating: 5,
+          mediaFileIds: ['sql-fixture-image'],
+          dimensions: [{ key: 'quality', rating: 5 }],
+        },
+      ).catch((error) => error);
       expect(isCheckViolation(error)).toBe(true);
-      const [evidence] = await db.select().from(reviewEligibilities).where(eq(reviewEligibilities.id, grant?.id ?? ''));
+      const [evidence] = await db
+        .select()
+        .from(reviewEligibilities)
+        .where(eq(reviewEligibilities.id, grant?.id ?? ''));
       expect(evidence).toMatchObject({ state: 'open', consumedAt: null });
-      expect(await db.select().from(reviews).where(eq(reviews.canonicalProductId, productId))).toEqual([]);
+      expect(
+        await db.select().from(reviews).where(eq(reviews.canonicalProductId, productId)),
+      ).toEqual([]);
     } finally {
       prepare.mockRestore();
       check.mockRestore();
@@ -1464,13 +1669,25 @@ describe('public review gallery pagination', () => {
     const productId = await makeCanonicalProduct();
     const otherId = await makeCanonicalProduct();
     async function add(targetId: string, date: string, files: string[]) {
-      const row = await insertReview({
-        authorOxyUserId: userId('gallery'), targetType: 'canonical_product', scope: 'product', targetId,
-        rating: 5, verification: 'unverified', classificationState: 'native', incentiveDisclosure: 'none',
-        media: files.map(fileId => ({ fileId, kind: 'image' })),
-      }, db);
+      const row = await insertReview(
+        {
+          authorOxyUserId: userId('gallery'),
+          targetType: 'canonical_product',
+          scope: 'product',
+          targetId,
+          rating: 5,
+          verification: 'unverified',
+          classificationState: 'native',
+          incentiveDisclosure: 'none',
+          media: files.map((fileId) => ({ fileId, kind: 'image' })),
+        },
+        db,
+      );
       createdReviewIds.push(row.id);
-      await db.update(reviews).set({ createdAt: new Date(date) }).where(eq(reviews.id, row.id));
+      await db
+        .update(reviews)
+        .set({ createdAt: new Date(date) })
+        .where(eq(reviews.id, row.id));
       return row;
     }
     const oldest = await add(productId, '2026-01-01', ['fixture-old-0', 'fixture-old-1']);
@@ -1480,17 +1697,22 @@ describe('public review gallery pagination', () => {
     const hidden = await add(productId, '2026-01-04', ['fixture-hidden']);
     await setReviewStatusIfIn(hidden.id, 'hidden', ['published'], db);
     await add(otherId, '2026-01-05', ['fixture-other-product']);
-    const target = { scope: 'product' as const, targetType: 'canonical_product' as const, targetId: productId };
+    const target = {
+      scope: 'product' as const,
+      targetType: 'canonical_product' as const,
+      targetId: productId,
+    };
     const first = await findReviewMediaPage(target, 1, 2, db);
     const second = await findReviewMediaPage(target, 2, 2, db);
     expect(first.total).toBe(3);
     expect(second.total).toBe(3);
-    expect(first.rows.map(row => [row.review.id, row.media.fileId, row.media.position])).toEqual([
-      [recent.id, 'fixture-recent', 0], [oldest.id, 'fixture-old-0', 0],
+    expect(first.rows.map((row) => [row.review.id, row.media.fileId, row.media.position])).toEqual([
+      [recent.id, 'fixture-recent', 0],
+      [oldest.id, 'fixture-old-0', 0],
     ]);
-    expect(second.rows.map(row => [row.review.id, row.media.fileId, row.media.position])).toEqual([
-      [oldest.id, 'fixture-old-1', 1],
-    ]);
+    expect(second.rows.map((row) => [row.review.id, row.media.fileId, row.media.position])).toEqual(
+      [[oldest.id, 'fixture-old-1', 1]],
+    );
     expect((await findReviewMediaPage(target, 3, 2, db)).rows).toEqual([]);
   });
 });

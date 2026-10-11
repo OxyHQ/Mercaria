@@ -4,9 +4,9 @@ import type {
   CreateDraftOrderInput,
   AddDraftLineInput,
   Order,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/draft-orders`;
 
@@ -59,10 +59,7 @@ export async function setDraftCustomer(
 }
 
 /** POST /:id/complete — take the sale; converts the draft into a paid `Order`. */
-export async function completeDraftOrder(
-  storeId: string,
-  draftId: string,
-): Promise<Order> {
+export async function completeDraftOrder(storeId: string, draftId: string): Promise<Order> {
   const { data } = await apiClient.post<ApiResponse<Order>>(
     `${base(storeId)}/${draftId}/complete`,
     {},
@@ -71,12 +68,7 @@ export async function completeDraftOrder(
 }
 
 /** DELETE /:id — cancel the open draft (best-effort cleanup on a failed sale). */
-export async function cancelDraftOrder(
-  storeId: string,
-  draftId: string,
-): Promise<DraftOrder> {
-  const { data } = await apiClient.delete<ApiResponse<DraftOrder>>(
-    `${base(storeId)}/${draftId}`,
-  );
+export async function cancelDraftOrder(storeId: string, draftId: string): Promise<DraftOrder> {
+  const { data } = await apiClient.delete<ApiResponse<DraftOrder>>(`${base(storeId)}/${draftId}`);
   return unwrap(data);
 }

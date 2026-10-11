@@ -400,9 +400,7 @@ async function requireCiSuccess({
       );
     }
 
-    console.log(
-      `CI passed for ${sha}: ${REQUIRED_CI_JOBS.length} required jobs, all \`success\`.`,
-    );
+    console.log(`CI passed for ${sha}: ${REQUIRED_CI_JOBS.length} required jobs, all \`success\`.`);
     return run;
   }
 }

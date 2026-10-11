@@ -107,26 +107,28 @@ export async function listMerchantOfferFacts(
     .limit(input.limit);
 
   const market = input.market;
-  return rows
-    // A market filter narrows to offers that NAME the market. An offer with no
-    // country is left in: absence is not a statement that it is unavailable
-    // there, and dropping it would understate a merchant's own catalogue.
-    .filter((row) => market === undefined || row.country === null || row.country === market)
-    .map((row) => ({
-      offerId: row.offerId,
-      kind: row.kind,
-      status: row.status,
-      canonicalVariantId: row.canonicalVariantId,
-      canonicalProductId: row.canonicalProductId,
-      storefrontId: row.storefrontId,
-      sourceId: row.sourceId,
-      observedAt: row.observedAt,
-      firstSeenAt: row.firstSeenAt,
-      lastSeenAt: row.lastSeenAt,
-      lastConfirmedAt: row.lastConfirmedAt,
-      declaredUnavailableAt: row.declaredUnavailableAt,
-      staleAt: row.staleAt,
-    }));
+  return (
+    rows
+      // A market filter narrows to offers that NAME the market. An offer with no
+      // country is left in: absence is not a statement that it is unavailable
+      // there, and dropping it would understate a merchant's own catalogue.
+      .filter((row) => market === undefined || row.country === null || row.country === market)
+      .map((row) => ({
+        offerId: row.offerId,
+        kind: row.kind,
+        status: row.status,
+        canonicalVariantId: row.canonicalVariantId,
+        canonicalProductId: row.canonicalProductId,
+        storefrontId: row.storefrontId,
+        sourceId: row.sourceId,
+        observedAt: row.observedAt,
+        firstSeenAt: row.firstSeenAt,
+        lastSeenAt: row.lastSeenAt,
+        lastConfirmedAt: row.lastConfirmedAt,
+        declaredUnavailableAt: row.declaredUnavailableAt,
+        staleAt: row.staleAt,
+      }))
+  );
 }
 
 /** A window, half-open, plus the market it is scoped to. */

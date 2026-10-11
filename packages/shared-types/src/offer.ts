@@ -670,18 +670,12 @@ export function deriveOfferDelivery(input: {
   maxDays?: number | null;
   pickup: OfferPickupState;
 }): OfferDelivery {
-  if (
-    input.costAmount === null ||
-    input.costAmount === undefined ||
-    !input.costCurrency
-  ) {
+  if (input.costAmount === null || input.costAmount === undefined || !input.costCurrency) {
     return { known: false, pickup: input.pickup };
   }
 
   const freeOver =
-    input.freeOverAmount !== null &&
-    input.freeOverAmount !== undefined &&
-    input.freeOverCurrency
+    input.freeOverAmount !== null && input.freeOverAmount !== undefined && input.freeOverCurrency
       ? { amount: input.freeOverAmount, currency: input.freeOverCurrency }
       : undefined;
 

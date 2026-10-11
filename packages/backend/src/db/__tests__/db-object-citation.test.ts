@@ -135,7 +135,10 @@ function migrationsInOrder(): { tag: string; sql: string }[] {
   ) as Journal;
   return [...journal.entries]
     .sort((a, b) => a.idx - b.idx)
-    .map((entry) => ({ tag: entry.tag, sql: readFileSync(join(DRIZZLE_ROOT, `${entry.tag}.sql`), 'utf8') }));
+    .map((entry) => ({
+      tag: entry.tag,
+      sql: readFileSync(join(DRIZZLE_ROOT, `${entry.tag}.sql`), 'utf8'),
+    }));
 }
 
 /** Every identifier the migrations mention — what the schema KNOWS. */
@@ -206,7 +209,12 @@ function citationsInComments(
     if (!text.includes('mercaria_')) continue;
     const source = ts.createSourceFile(relative, text, ts.ScriptTarget.Latest, true);
     const comments: { start: number; end: number }[] = [];
-    const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, ts.LanguageVariant.Standard, text);
+    const scanner = ts.createScanner(
+      ts.ScriptTarget.Latest,
+      false,
+      ts.LanguageVariant.Standard,
+      text,
+    );
     for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan())
       if (
         kind === ts.SyntaxKind.SingleLineCommentTrivia ||
@@ -251,7 +259,8 @@ function unresolvedCitations(
 
 const KNOWN = identifiersKnownToTheSchema();
 const FILES = databaseLayerFiles();
-const readDatabaseLayer = (relative: string): string => readFileSync(join(DB_ROOT, relative), 'utf8');
+const readDatabaseLayer = (relative: string): string =>
+  readFileSync(join(DB_ROOT, relative), 'utf8');
 const CITATIONS = citationsInComments(FILES, readDatabaseLayer);
 
 describe('a docblock in the database layer names only objects that exist (#759)', () => {
@@ -267,7 +276,9 @@ describe('a docblock in the database layer names only objects that exist (#759)'
   it('the authority and the population are both real, so a clean result means something', () => {
     // The AUTHORITY. A broken read here makes every citation "absent", which is
     // loud rather than silent — but a floor costs one line and names the cause.
-    expect(KNOWN.size, 'the migration scan found almost no identifiers').toBeGreaterThanOrEqual(200);
+    expect(KNOWN.size, 'the migration scan found almost no identifiers').toBeGreaterThanOrEqual(
+      200,
+    );
 
     // The POPULATION, which is the direction that fails SILENTLY: a comment
     // scanner that returned nothing reports the same empty result as a tree
@@ -277,8 +288,14 @@ describe('a docblock in the database layer names only objects that exist (#759)'
     expect(FILES.length, 'the database-layer walk found nothing').toBeGreaterThanOrEqual(40);
     const exact = CITATIONS.filter((c) => !c.token.includes('*'));
     const globs = CITATIONS.filter((c) => c.token.includes('*'));
-    expect(new Set(exact.map((c) => c.token)).size, 'no exact citation was found').toBeGreaterThanOrEqual(25);
-    expect(new Set(globs.map((c) => c.token)).size, 'no wildcard citation was found').toBeGreaterThanOrEqual(1);
+    expect(
+      new Set(exact.map((c) => c.token)).size,
+      'no exact citation was found',
+    ).toBeGreaterThanOrEqual(25);
+    expect(
+      new Set(globs.map((c) => c.token)).size,
+      'no wildcard citation was found',
+    ).toBeGreaterThanOrEqual(1);
 
     // …and the citations are spread over real files rather than all coming from
     // one, which a single malformed docblock could otherwise supply.
@@ -295,7 +312,10 @@ describe('a docblock in the database layer names only objects that exist (#759)'
     // red and whoever lands it decides what the citing docblocks should say —
     // which is the decision being taken rather than a citation quietly passing.
     const { live, everDropped } = replayObjectLifecycle();
-    expect(everDropped.size, 'no DROP was parsed at all — the statement pattern has rotted').toBeGreaterThanOrEqual(1);
+    expect(
+      everDropped.size,
+      'no DROP was parsed at all — the statement pattern has rotted',
+    ).toBeGreaterThanOrEqual(1);
     expect(
       [...everDropped].filter((name) => !live.has(name)),
       'a migration drops an object that nothing re-creates, so the citation authority now ' +
@@ -308,7 +328,10 @@ describe('a docblock in the database layer names only objects that exist (#759)'
     const globs = [...new Set(CITATIONS.filter((c) => c.token.includes('*')).map((c) => c.token))];
     expect(globs.length).toBeGreaterThanOrEqual(1);
     for (const glob of globs)
-      expect(globMembers(glob, KNOWN).length, `${glob} names a family with no members`).toBeGreaterThanOrEqual(1);
+      expect(
+        globMembers(glob, KNOWN).length,
+        `${glob} names a family with no members`,
+      ).toBeGreaterThanOrEqual(1);
   });
 });
 

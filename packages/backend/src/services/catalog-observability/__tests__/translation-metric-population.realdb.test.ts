@@ -35,10 +35,7 @@ import { uuidv7 } from '@oxy.so/db';
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { categories } from '../../../db/schema/catalog.js';
 import { productTypeDefinitions } from '../../../db/schema/productTypes.js';
-import {
-  attributeDefinitions,
-  attributeEnumValues,
-} from '../../../db/schema/attributeRegistry.js';
+import { attributeDefinitions, attributeEnumValues } from '../../../db/schema/attributeRegistry.js';
 import { collectCatalogMetrics } from '../metrics.service.js';
 import type { DatabaseOrTransaction } from '../../../db/postgres.js';
 
@@ -70,7 +67,9 @@ async function readTranslationMetrics(tx: DatabaseOrTransaction): Promise<Transl
     throw new Error(`translation_coverage is not a measured ratio: ${JSON.stringify(coverage)}`);
   }
   if (missing?.state !== 'measured' || missing.kind !== 'count') {
-    throw new Error(`translation_missing_count is not a measured count: ${JSON.stringify(missing)}`);
+    throw new Error(
+      `translation_missing_count is not a measured count: ${JSON.stringify(missing)}`,
+    );
   }
   const denominator = coverage.denominator;
   if (denominator === undefined) throw new Error('translation_coverage carries no denominator');
@@ -95,9 +94,7 @@ async function readTranslationMetrics(tx: DatabaseOrTransaction): Promise<Transl
  */
 const ROLLBACK = new Error('rollback: this case is complete');
 
-async function rolledBack(
-  work: (tx: DatabaseOrTransaction) => Promise<void>,
-): Promise<void> {
+async function rolledBack(work: (tx: DatabaseOrTransaction) => Promise<void>): Promise<void> {
   try {
     await db.transaction(
       async (tx) => {
@@ -122,38 +119,38 @@ async function rolledBack(
 describe('#565 — the denominator covers every domain the definition names', () => {
   it('a published CATEGORY moves both metrics', async () => {
     await rolledBack(async (tx) => {
-    const before = await readTranslationMetrics(tx);
-    await tx.insert(categories).values({
-      name: `Pop Cat ${RUN}`,
-      slug: `pop-cat-${RUN}`,
-      key: `pop.cat.${RUN}`,
-      lifecycle: 'published',
-    });
-    const after = await readTranslationMetrics(tx);
-    expect(after.coverageDenominator - before.coverageDenominator).toBeGreaterThan(0);
-    expect(after.absent - before.absent).toBeGreaterThan(0);
+      const before = await readTranslationMetrics(tx);
+      await tx.insert(categories).values({
+        name: `Pop Cat ${RUN}`,
+        slug: `pop-cat-${RUN}`,
+        key: `pop.cat.${RUN}`,
+        lifecycle: 'published',
+      });
+      const after = await readTranslationMetrics(tx);
+      expect(after.coverageDenominator - before.coverageDenominator).toBeGreaterThan(0);
+      expect(after.absent - before.absent).toBeGreaterThan(0);
     });
   }, 180_000);
 
   it('a published PRODUCT TYPE moves both metrics — the domain the old producer could not see', async () => {
     await rolledBack(async (tx) => {
-    const before = await readTranslationMetrics(tx);
-    await tx.insert(productTypeDefinitions).values({
-      key: `pop_pt_${RUN}`,
-      version: 1,
-      name: `Pop PT ${RUN}`,
-      // `published` is not a bare status: `product_type_definitions_published_audit_check`
-      // requires the publication to name who made it and when.
-      lifecycle: 'published',
-      publishedByOxyUserId: `oxy_${RUN}`,
-      publishedAt: new Date(),
-    });
-    const after = await readTranslationMetrics(tx);
-    // Against the pre-#565 producer this delta is ZERO: its denominator was
-    // `select count(*) from categories where lifecycle = 'published'`, which
-    // a product type cannot move.
-    expect(after.coverageDenominator - before.coverageDenominator).toBeGreaterThan(0);
-    expect(after.absent - before.absent).toBeGreaterThan(0);
+      const before = await readTranslationMetrics(tx);
+      await tx.insert(productTypeDefinitions).values({
+        key: `pop_pt_${RUN}`,
+        version: 1,
+        name: `Pop PT ${RUN}`,
+        // `published` is not a bare status: `product_type_definitions_published_audit_check`
+        // requires the publication to name who made it and when.
+        lifecycle: 'published',
+        publishedByOxyUserId: `oxy_${RUN}`,
+        publishedAt: new Date(),
+      });
+      const after = await readTranslationMetrics(tx);
+      // Against the pre-#565 producer this delta is ZERO: its denominator was
+      // `select count(*) from categories where lifecycle = 'published'`, which
+      // a product type cannot move.
+      expect(after.coverageDenominator - before.coverageDenominator).toBeGreaterThan(0);
+      expect(after.absent - before.absent).toBeGreaterThan(0);
     });
   }, 180_000);
 
@@ -180,13 +177,12 @@ describe('#565 — the denominator covers every domain the definition names', ()
       const afterUnnamed = await readTranslationMetrics(tx);
       expect(
         afterUnnamed.coverageDenominator - before.coverageDenominator,
-        'an UNNAMED domain moved the coverage denominator — the metric is measuring a wider '
-          + 'population than the one its definition publishes',
+        'an UNNAMED domain moved the coverage denominator — the metric is measuring a wider ' +
+          'population than the one its definition publishes',
       ).toBe(0);
-      expect(
-        afterUnnamed.absent - before.absent,
-        'an UNNAMED domain moved the absent count',
-      ).toBe(0);
+      expect(afterUnnamed.absent - before.absent, 'an UNNAMED domain moved the absent count').toBe(
+        0,
+      );
 
       // Now the NAMED one. It needs a SECOND definition, created `draft`,
       // because a trigger freezes an active definition's value vocabulary —

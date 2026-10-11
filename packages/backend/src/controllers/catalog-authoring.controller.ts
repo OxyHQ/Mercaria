@@ -429,7 +429,11 @@ export async function publishProductDraftHandler(req: Request, res: Response): P
       // 422 and not 400: the request was well-formed and the DRAFT is not ready.
       // The body is the same `AuthoringValidationResult` the validate route
       // returns, so a client renders one list for both.
-      res.status(422).json({ success: false, error: 'VALIDATION_ERROR', data: { validation: result.validation } });
+      res.status(422).json({
+        success: false,
+        error: 'VALIDATION_ERROR',
+        data: { validation: result.validation },
+      });
       return;
     }
     // `publication` carries the outcome too (#577). The status code stays 201 vs

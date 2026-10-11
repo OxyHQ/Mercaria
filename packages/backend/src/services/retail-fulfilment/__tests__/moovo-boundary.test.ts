@@ -85,9 +85,9 @@ describe('composeMoovoTransportRequest', () => {
   it('refuses a supplier-controlled request with no existing carriage', () => {
     // Without it Moovo would be asked to ARRANGE transport for a parcel a
     // carrier already has — a second booking for one movement.
-    expect(() =>
-      composeMoovoTransportRequest({ ...base, mode: 'supplier_controlled' }),
-    ).toThrow(/tracking only/i);
+    expect(() => composeMoovoTransportRequest({ ...base, mode: 'supplier_controlled' })).toThrow(
+      /tracking only/i,
+    );
   });
 
   it('refuses a Moovo-controlled request that carries existing carriage', () => {

@@ -48,10 +48,7 @@ import {
 import { listBlocksForSubject } from '../db/matching/matchBlockedPairRepository.js';
 import { summarizeMatchQueue } from '../db/matching/matchQueueRepository.js';
 import { listSweepCursors } from '../db/matching/matchSweepRepository.js';
-import {
-  listBenchmarkRuns,
-  listBenchmarkSlices,
-} from '../db/matching/matchBenchmarkRepository.js';
+import { listBenchmarkRuns, listBenchmarkSlices } from '../db/matching/matchBenchmarkRepository.js';
 import {
   activateMatchPolicy,
   clearRejectedPair,

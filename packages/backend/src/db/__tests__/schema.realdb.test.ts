@@ -46,12 +46,7 @@ import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { findSchemaInvariantViolations, findUnsupportedExpiryColumns } from '@oxy.so/db/assert';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { EXPIRY_TARGETS } from '../expiryTargets.js';
-import {
-  listings,
-  moderationEnforcements,
-  productVariants,
-  stores,
-} from '../schema/index.js';
+import { listings, moderationEnforcements, productVariants, stores } from '../schema/index.js';
 import { deleteTestStores } from './store-teardown.js';
 
 /**
@@ -69,7 +64,6 @@ const OBJECT_ID = 'a1b2c3d4e5f60718293a4b5c';
 
 /** 25 ⊜ in minor units. Past `integer`'s 2_147_483_647 ceiling, which is the point. */
 const BIG_AMOUNT = 2_500_000_000;
-
 
 let db: Database;
 /** This run's store — every assertion below is scoped to it. */
@@ -401,9 +395,7 @@ describe('the moderation enforcement idempotency key', () => {
     // The half that matters. A key without `revision` passes the assertion above
     // and fails this one — and failing this one means an accepted appeal can
     // never relist the item it restores.
-    await db
-      .insert(moderationEnforcements)
-      .values({ ...base, revision: 2, action: 'restore' });
+    await db.insert(moderationEnforcements).values({ ...base, revision: 2, action: 'restore' });
 
     const ledger = await db
       .select({ action: moderationEnforcements.action })

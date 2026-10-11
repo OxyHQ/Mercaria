@@ -73,18 +73,11 @@ import {
   type PostgresTextSearchConfiguration,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
-import {
-  LOCALE_VALUES,
-  localizationChecks,
-  localizationColumns,
-} from './localizationFamily';
+import { LOCALE_VALUES, localizationChecks, localizationColumns } from './localizationFamily';
 import { categories, listings } from './catalog';
 import { attributeEnumValues } from './attributeRegistry';
 import { productTypeDefinitions, productTypeFields } from './productTypes';
 import { canonicalProductFamilies, canonicalProducts } from './canonicalCatalog';
-
-
-
 
 /**
  * `category_localizations` — one locale's presentation of one category.
@@ -185,11 +178,7 @@ export const categoryLocalizedSlugs = pgTable(
   },
   (t) => [
     checkOneOf('category_localized_slugs_locale_check', t.locale, SUPPORTED_LOCALES),
-    checkOneOf(
-      'category_localized_slugs_provenance_check',
-      t.provenance,
-      LOCALIZATION_PROVENANCES,
-    ),
+    checkOneOf('category_localized_slugs_provenance_check', t.provenance, LOCALIZATION_PROVENANCES),
     check(
       'category_localized_slugs_locale_not_base_check',
       sql`${t.locale} <> ${sql.raw(`'${MERCARIA_BASE_LOCALE}'`)}`,
@@ -197,10 +186,7 @@ export const categoryLocalizedSlugs = pgTable(
     // No backslash appears in this pattern deliberately: a regex written into a
     // JS string loses its escapes on the way to the migration, and a `\.` that
     // becomes `.` is a CHECK that admits what it exists to refuse.
-    check(
-      'category_localized_slugs_shape_check',
-      sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`,
-    ),
+    check('category_localized_slugs_shape_check', sql`${t.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
     // A successor implies a retirement. The reverse is not implied: the LAST
     // slug of a deprecated category is retired with nothing to point at.
     check(

@@ -67,7 +67,11 @@ describe('parseFindingPath places a server complaint on a control', () => {
 
   it('reads a variant row, and its position, from the index', () => {
     expect(parseFindingPath('variants[0]')).toEqual({ kind: 'variant', position: 0, part: 'row' });
-    expect(parseFindingPath('variants[12]')).toEqual({ kind: 'variant', position: 12, part: 'row' });
+    expect(parseFindingPath('variants[12]')).toEqual({
+      kind: 'variant',
+      position: 12,
+      part: 'row',
+    });
   });
 
   it('separates a variant price from its stock and from the row', () => {
@@ -137,7 +141,14 @@ describe('parseFindingPath places a server complaint on a control', () => {
   });
 
   it('answers unknown rather than guessing, and never throws', () => {
-    for (const path of ['', 'nonsense', 'fields.', 'fields.Bad-Key', 'variants[]', 'listing.slug']) {
+    for (const path of [
+      '',
+      'nonsense',
+      'fields.',
+      'fields.Bad-Key',
+      'variants[]',
+      'listing.slug',
+    ]) {
       expect(parseFindingPath(path).kind).toBe('unknown');
     }
   });
@@ -219,7 +230,9 @@ describe('locating and filtering a server response', () => {
   });
 
   it('does not let a product-field finding leak into a variant position', () => {
-    expect(findingsForVariant(located, 0).every((f) => f.target.kind !== 'product_field')).toBe(true);
+    expect(findingsForVariant(located, 0).every((f) => f.target.kind !== 'product_field')).toBe(
+      true,
+    );
   });
 
   it('blocks publication on an error and not on a warning alone', () => {

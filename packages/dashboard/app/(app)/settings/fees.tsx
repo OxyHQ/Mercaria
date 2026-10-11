@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { ChevronLeft } from "lucide-react-native";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { ChevronLeft } from 'lucide-react-native';
 import {
   CURRENCY_PRECISION,
   type CurrencyCode,
@@ -11,14 +11,14 @@ import {
   type FeeScheduleSummary,
   type FeeTaxTreatment,
   type StoreFeeScheduleView,
-} from "@mercaria/shared-types";
-import { Text, formatDate, useColorScheme, useFormatters } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useTranslation } from "@/lib/i18n";
-import { useAcceptFeeSchedule, useFeeSchedule, usePreviewFee } from "@/lib/hooks/use-fees";
+} from '@mercaria/shared-types';
+import { Text, formatDate, useColorScheme, useFormatters } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useTranslation } from '@/lib/i18n';
+import { useAcceptFeeSchedule, useFeeSchedule, usePreviewFee } from '@/lib/hooks/use-fees';
 
 /**
  * Marketplace fees — what this store pays Mercaria per sale, and the consent
@@ -60,7 +60,7 @@ export default function FeesScreen() {
   return (
     <>
       <Head>
-        <title>{t("settings.fees.documentTitle")}</title>
+        <title>{t('settings.fees.documentTitle')}</title>
       </Head>
       <RequireStore permission="store:manage">
         {(storeId) => <FeesBody storeId={storeId} />}
@@ -81,34 +81,27 @@ function FeesBody({ storeId }: { storeId: string }) {
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
     </Pressable>
   );
 
   if (isPending) {
     return (
-      <Screen title={t("settings.fees.title")} action={back}>
+      <Screen title={t('settings.fees.title')} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (isError || !data) {
     return (
-      <Screen title={t("settings.fees.title")} action={back}>
-        <ScreenMessage
-          title={t("settings.fees.loadFailed")}
-          body={t("common.pleaseTryAgain")}
-        />
+      <Screen title={t('settings.fees.title')} action={back}>
+        <ScreenMessage title={t('settings.fees.loadFailed')} body={t('common.pleaseTryAgain')} />
       </Screen>
     );
   }
 
   return (
-    <Screen
-      title={t("settings.fees.title")}
-      subtitle={t("settings.fees.subtitle")}
-      action={back}
-    >
+    <Screen title={t('settings.fees.title')} subtitle={t('settings.fees.subtitle')} action={back}>
       <FeesPanel storeId={storeId} view={data} />
     </Screen>
   );
@@ -123,9 +116,9 @@ function FeesBody({ storeId }: { storeId: string }) {
  * be invisible to it and could go missing from a bundle unnoticed.
  */
 const TAX_COPY: Record<FeeTaxTreatment, string> = {
-  unknown: "settings.fees.terms.taxUnknown",
-  exclusive: "settings.fees.terms.taxExclusive",
-  inclusive: "settings.fees.terms.taxInclusive",
+  unknown: 'settings.fees.terms.taxUnknown',
+  exclusive: 'settings.fees.terms.taxExclusive',
+  inclusive: 'settings.fees.terms.taxInclusive',
 };
 
 /**
@@ -140,7 +133,7 @@ const TAX_COPY: Record<FeeTaxTreatment, string> = {
  * now keeps, on a green build, inside the screen that records their consent.
  */
 const REFUND_COPY: Record<FeeRefundPolicy, string> = {
-  proportional: "settings.fees.terms.refundProportional",
+  proportional: 'settings.fees.terms.refundProportional',
 };
 
 function FeesPanel({ storeId, view }: { storeId: string; view: StoreFeeScheduleView }) {
@@ -152,11 +145,9 @@ function FeesPanel({ storeId, view }: { storeId: string; view: StoreFeeScheduleV
     return (
       <View className="rounded-2xl border border-border bg-surface p-4">
         <Text className="text-sm font-semibold text-foreground">
-          {t("settings.fees.none.heading")}
+          {t('settings.fees.none.heading')}
         </Text>
-        <Text className="mt-1 text-xs text-muted-foreground">
-          {t("settings.fees.none.body")}
-        </Text>
+        <Text className="mt-1 text-xs text-muted-foreground">{t('settings.fees.none.body')}</Text>
       </View>
     );
   }
@@ -164,10 +155,10 @@ function FeesPanel({ storeId, view }: { storeId: string; view: StoreFeeScheduleV
   return (
     <View className="gap-5">
       <View
-        className={`rounded-2xl border p-4 ${acceptance ? "border-primary bg-surface" : "border-border bg-surface"}`}
+        className={`rounded-2xl border p-4 ${acceptance ? 'border-primary bg-surface' : 'border-border bg-surface'}`}
       >
         <Text className="text-sm font-semibold text-foreground">
-          {t(acceptance ? "settings.fees.accepted.heading" : "settings.fees.pending.heading")}
+          {t(acceptance ? 'settings.fees.accepted.heading' : 'settings.fees.pending.heading')}
         </Text>
         {/*
           `formatDate` answers null on a value it cannot parse, and a null
@@ -178,7 +169,7 @@ function FeesPanel({ storeId, view }: { storeId: string; view: StoreFeeScheduleV
         {acceptance ? (
           acceptedOn === null ? null : (
             <Text className="mt-1 text-xs text-muted-foreground">
-              {t("settings.fees.accepted.body", {
+              {t('settings.fees.accepted.body', {
                 version: acceptance.termsVersion,
                 date: acceptedOn,
               })}
@@ -186,7 +177,7 @@ function FeesPanel({ storeId, view }: { storeId: string; view: StoreFeeScheduleV
           )
         ) : (
           <Text className="mt-1 text-xs text-muted-foreground">
-            {t("settings.fees.pending.body")}
+            {t('settings.fees.pending.body')}
           </Text>
         )}
         {acceptance ? null : <AcceptAction storeId={storeId} schedule={schedule} />}
@@ -211,13 +202,13 @@ function ScheduleTerms({ schedule }: { schedule: FeeScheduleSummary }) {
       <Text className="mt-1 text-xs text-muted-foreground">{schedule.merchantSummary}</Text>
       <View className="mt-3 gap-1">
         <Text className="text-xs text-foreground">
-          {t("settings.fees.terms.percentage", {
+          {t('settings.fees.terms.percentage', {
             percent: formatPercent(schedule.percentageBps),
           })}
         </Text>
         {schedule.fixedFee ? (
           <Text className="text-xs text-foreground">
-            {t("settings.fees.terms.fixed", { amount: formatMoney(schedule.fixedFee) })}
+            {t('settings.fees.terms.fixed', { amount: formatMoney(schedule.fixedFee) })}
           </Text>
         ) : null}
         {/*
@@ -229,29 +220,29 @@ function ScheduleTerms({ schedule }: { schedule: FeeScheduleSummary }) {
         */}
         {schedule.minFeeMinor !== undefined && currency !== undefined ? (
           <Text className="text-xs text-foreground">
-            {t("settings.fees.terms.min", {
+            {t('settings.fees.terms.min', {
               amount: formatMoney({ amount: schedule.minFeeMinor, currency }),
             })}
           </Text>
         ) : null}
         {schedule.maxFeeMinor !== undefined && currency !== undefined ? (
           <Text className="text-xs text-foreground">
-            {t("settings.fees.terms.max", {
+            {t('settings.fees.terms.max', {
               amount: formatMoney({ amount: schedule.maxFeeMinor, currency }),
             })}
           </Text>
         ) : null}
-        <Text className="text-xs text-muted-foreground">{t("settings.fees.terms.basis")}</Text>
+        <Text className="text-xs text-muted-foreground">{t('settings.fees.terms.basis')}</Text>
         <Text className="text-xs text-muted-foreground">
           {t(REFUND_COPY[schedule.refundPolicy])}
         </Text>
         <Text className="text-xs text-muted-foreground">{t(TAX_COPY[schedule.taxTreatment])}</Text>
         <Text className="text-xs text-muted-foreground">
-          {t("settings.fees.terms.version", { version: schedule.termsVersion })}
+          {t('settings.fees.terms.version', { version: schedule.termsVersion })}
         </Text>
         {effectiveFrom === null ? null : (
           <Text className="text-xs text-muted-foreground">
-            {t("settings.fees.terms.effectiveFrom", { date: effectiveFrom })}
+            {t('settings.fees.terms.effectiveFrom', { date: effectiveFrom })}
           </Text>
         )}
       </View>
@@ -268,13 +259,7 @@ function ScheduleTerms({ schedule }: { schedule: FeeScheduleSummary }) {
  * refetches (the mutation invalidates on settle) and the owner reads the terms
  * now in force before pressing again.
  */
-function AcceptAction({
-  storeId,
-  schedule,
-}: {
-  storeId: string;
-  schedule: FeeScheduleSummary;
-}) {
+function AcceptAction({ storeId, schedule }: { storeId: string; schedule: FeeScheduleSummary }) {
   const { t } = useTranslation();
   const accept = useAcceptFeeSchedule(storeId);
 
@@ -285,15 +270,21 @@ function AcceptAction({
         version: schedule.version,
         termsVersion: schedule.termsVersion,
       });
-      toast.success(t("settings.fees.acceptSucceeded"));
+      toast.success(t('settings.fees.acceptSucceeded'));
     } catch {
-      toast.error(t("settings.fees.acceptFailed"));
+      toast.error(t('settings.fees.acceptFailed'));
     }
   }
 
   return (
-    <Button tone="accent" className="mt-3" loading={accept.isPending} disabled={accept.isPending} onPress={onAccept}>
-      {t("settings.fees.pending.action")}
+    <Button
+      tone="accent"
+      className="mt-3"
+      loading={accept.isPending}
+      disabled={accept.isPending}
+      onPress={onAccept}
+    >
+      {t('settings.fees.pending.action')}
     </Button>
   );
 }
@@ -325,16 +316,16 @@ function FeeExample({ storeId, schedule }: { storeId: string; schedule: FeeSched
         }),
       );
     } catch {
-      toast.error(t("settings.fees.preview.failed"));
+      toast.error(t('settings.fees.preview.failed'));
     }
   }
 
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {t("settings.fees.preview.title")}
+        {t('settings.fees.preview.title')}
       </Text>
-      <Text className="mt-1 text-xs text-muted-foreground">{t("settings.fees.preview.body")}</Text>
+      <Text className="mt-1 text-xs text-muted-foreground">{t('settings.fees.preview.body')}</Text>
       <View className="mt-3 flex-row flex-wrap gap-2">
         {EXAMPLE_MAJOR_UNITS.map((major) => (
           <Button
@@ -351,7 +342,7 @@ function FeeExample({ storeId, schedule }: { storeId: string; schedule: FeeSched
       </View>
       {quote ? (
         <Text className="mt-3 text-xs text-foreground">
-          {t("settings.fees.preview.result", {
+          {t('settings.fees.preview.result', {
             fee: formatMoney(quote.fee),
             net: formatMoney(quote.net),
           })}

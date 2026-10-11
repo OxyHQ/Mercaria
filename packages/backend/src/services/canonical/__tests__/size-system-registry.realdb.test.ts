@@ -104,8 +104,7 @@ function refusalOf(error: unknown): { code?: string; constraint?: string } {
   const cause = (error as { cause?: { code?: string; constraint_name?: string } }).cause;
   return {
     code: cause?.code ?? (error as { code?: string }).code,
-    constraint:
-      cause?.constraint_name ?? (error as { constraint_name?: string }).constraint_name,
+    constraint: cause?.constraint_name ?? (error as { constraint_name?: string }).constraint_name,
   };
 }
 

@@ -181,7 +181,6 @@ function nextPollAt(now: Date = new Date()): Date {
  */
 function isPastTerminalGrace(purchaseOrder: PurchaseOrderRecord, now: Date = new Date()): boolean {
   if (!TERMINAL_STATUSES.has(purchaseOrder.status)) return false;
-  const reached =
-    purchaseOrder.deliveredAt ?? purchaseOrder.cancelledAt ?? purchaseOrder.updatedAt;
+  const reached = purchaseOrder.deliveredAt ?? purchaseOrder.cancelledAt ?? purchaseOrder.updatedAt;
   return now.getTime() - reached.getTime() >= config.procurement.pollTerminalGraceMs;
 }

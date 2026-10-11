@@ -85,7 +85,14 @@ async function seedOrderWithSnapshot(
   const seller = input.seller ?? `seller-${uuidv7()}`;
   const [listing] = await db
     .insert(listings)
-    .values({ ownerType: 'user', oxyUserId: seller, title: 'Fee thing', description: '', condition: 'new', conditionAssertion: 'seller_declared' })
+    .values({
+      ownerType: 'user',
+      oxyUserId: seller,
+      title: 'Fee thing',
+      description: '',
+      condition: 'new',
+      conditionAssertion: 'seller_declared',
+    })
     .returning({ id: listings.id });
   const [variant] = await insertVariants(listing.id, [
     {
@@ -204,7 +211,10 @@ describe('fee schedule versions are immutable once active', () => {
     // A draft IS editable — the policy is still being written.
     await db.update(feeSchedules).set({ percentageBps: 500 }).where(eq(feeSchedules.id, row.id));
 
-    const active = await activateFeeSchedule(db, { id: row.id, approvedBy: { authority: 'deployment', ref: 'operator-2' } });
+    const active = await activateFeeSchedule(db, {
+      id: row.id,
+      approvedBy: { authority: 'deployment', ref: 'operator-2' },
+    });
     expect(active?.status).toBe('active');
     // The PAIR, not one half of it: `fee_schedules_approved_by_pair_check`
     // refuses a row carrying only one, and asserting one column would pass on a
@@ -215,20 +225,38 @@ describe('fee schedule versions are immutable once active', () => {
 
     // The trigger, not the repository: a direct UPDATE of an economic column is
     // refused by the server itself.
-    await expectPgRejection(db.update(feeSchedules).set({ percentageBps: 9_000 }).where(eq(feeSchedules.id, row.id)), /immutable/);
-    await expectPgRejection(db.update(feeSchedules).set({ termsVersion: 'sneaky' }).where(eq(feeSchedules.id, row.id)), /immutable/);
+    await expectPgRejection(
+      db.update(feeSchedules).set({ percentageBps: 9_000 }).where(eq(feeSchedules.id, row.id)),
+      /immutable/,
+    );
+    await expectPgRejection(
+      db.update(feeSchedules).set({ termsVersion: 'sneaky' }).where(eq(feeSchedules.id, row.id)),
+      /immutable/,
+    );
 
     // …and a published version cannot be deleted at all.
-    await expectPgRejection(db.delete(feeSchedules).where(eq(feeSchedules.id, row.id)), /never deleted/);
+    await expectPgRejection(
+      db.delete(feeSchedules).where(eq(feeSchedules.id, row.id)),
+      /never deleted/,
+    );
   });
 
   it('activating a second version supersedes the first — one active per key, enforced', async () => {
     const scheduleKey = `sched-${uuidv7()}`;
     const v1 = await insertFeeSchedule(db, draft('NOK', { scheduleKey, version: 1 }));
-    await activateFeeSchedule(db, { id: v1.id, approvedBy: { authority: 'deployment', ref: 'op' } });
+    await activateFeeSchedule(db, {
+      id: v1.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
 
-    const v2 = await insertFeeSchedule(db, draft('NOK', { scheduleKey, version: 2, percentageBps: 500 }));
-    const activated = await activateFeeSchedule(db, { id: v2.id, approvedBy: { authority: 'deployment', ref: 'op' } });
+    const v2 = await insertFeeSchedule(
+      db,
+      draft('NOK', { scheduleKey, version: 2, percentageBps: 500 }),
+    );
+    const activated = await activateFeeSchedule(db, {
+      id: v2.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
     expect(activated?.status).toBe('active');
 
     const [v1After] = await db.select().from(feeSchedules).where(eq(feeSchedules.id, v1.id));
@@ -236,10 +264,10 @@ describe('fee schedule versions are immutable once active', () => {
 
     // The index itself: writing a second active row for the key directly is
     // refused by the server, whatever code path tries it.
-    await expectPgRejection(db
-        .update(feeSchedules)
-        .set({ status: 'active' })
-        .where(eq(feeSchedules.id, v1.id)), /fee_schedules_one_active_per_key|duplicate key/);
+    await expectPgRejection(
+      db.update(feeSchedules).set({ status: 'active' }).where(eq(feeSchedules.id, v1.id)),
+      /fee_schedules_one_active_per_key|duplicate key/,
+    );
 
     // Selection reads exactly one version for the key.
     const activeNow = (await listActiveFeeSchedules(db, new Date('2026-06-01T00:00:00Z'))).filter(
@@ -252,10 +280,18 @@ describe('fee schedule versions are immutable once active', () => {
   it('activation is a CAS: a non-draft target reports nothing-to-do and supersedes nothing', async () => {
     const scheduleKey = `sched-${uuidv7()}`;
     const v1 = await insertFeeSchedule(db, draft('NOK', { scheduleKey, version: 1 }));
-    await activateFeeSchedule(db, { id: v1.id, approvedBy: { authority: 'deployment', ref: 'op' } });
+    await activateFeeSchedule(db, {
+      id: v1.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
 
     // Activating the already-active row again: no-op, and v1 is STILL active.
-    expect(await activateFeeSchedule(db, { id: v1.id, approvedBy: { authority: 'deployment', ref: 'op2' } })).toBeUndefined();
+    expect(
+      await activateFeeSchedule(db, {
+        id: v1.id,
+        approvedBy: { authority: 'deployment', ref: 'op2' },
+      }),
+    ).toBeUndefined();
     const [after] = await db.select().from(feeSchedules).where(eq(feeSchedules.id, v1.id));
     expect(after.status).toBe('active');
     expect(after.approvedByRef).toBe('op');
@@ -263,7 +299,10 @@ describe('fee schedule versions are immutable once active', () => {
 
   it('retire withdraws an active version without a replacement', async () => {
     const row = await insertFeeSchedule(db, draft('SEK'));
-    await activateFeeSchedule(db, { id: row.id, approvedBy: { authority: 'deployment', ref: 'op' } });
+    await activateFeeSchedule(db, {
+      id: row.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
     const retired = await retireFeeSchedule(db, row.id);
     expect(retired?.status).toBe('retired');
     const stillListed = await listActiveFeeSchedules(db, new Date('2026-06-01T00:00:00Z'));
@@ -312,11 +351,17 @@ describe('order fee snapshots persist with the order and are append-only', () =>
 
     // The append-only trigger — an UPDATE that would change a placed order's
     // fee is refused by the server, and so is a DELETE.
-    await expectPgRejection(db
+    await expectPgRejection(
+      db
         .update(orderFeeSnapshots)
         .set({ feeAmount: 0 })
-        .where(eq(orderFeeSnapshots.orderId, orderId)), /append-only/);
-    await expectPgRejection(db.delete(orderFeeSnapshots).where(eq(orderFeeSnapshots.orderId, orderId)), /append-only/);
+        .where(eq(orderFeeSnapshots.orderId, orderId)),
+      /append-only/,
+    );
+    await expectPgRejection(
+      db.delete(orderFeeSnapshots).where(eq(orderFeeSnapshots.orderId, orderId)),
+      /append-only/,
+    );
   });
 
   it('projects the snapshot fee into the payment domain through order-linkage', async () => {
@@ -351,27 +396,39 @@ describe('order fee snapshots persist with the order and are append-only', () =>
 
   it('the CHECKs refuse the shapes the boundary forbids', async () => {
     // A mercaria_retail "zero fee" — the row rule 12 exists to prevent.
-    await expectPgRejection(seedOrderWithSnapshot({
+    await expectPgRejection(
+      seedOrderWithSnapshot({
         ...calculatedSnapshot(0),
         commercialMode: 'mercaria_retail',
-      }), /order_fee_snapshots_mode_result_check/);
+      }),
+      /order_fee_snapshots_mode_result_check/,
+    );
 
     // A calculated result that names no schedule.
-    await expectPgRejection(seedOrderWithSnapshot({
+    await expectPgRejection(
+      seedOrderWithSnapshot({
         ...calculatedSnapshot(400),
         scheduleKey: undefined,
         scheduleVersion: undefined,
-      }), /order_fee_snapshots_schedule_named_check/);
+      }),
+      /order_fee_snapshots_schedule_named_check/,
+    );
 
     // A not-applicable row smuggling a fee amount.
-    await expectPgRejection(seedOrderWithSnapshot({
+    await expectPgRejection(
+      seedOrderWithSnapshot({
         commercialMode: 'external_referral',
         result: 'not_applicable',
         fee: { amount: 100, currency: 'EUR' },
-      }), /order_fee_snapshots_fee_presence_check/);
+      }),
+      /order_fee_snapshots_fee_presence_check/,
+    );
 
     // A fee exceeding its own basis.
-    await expectPgRejection(seedOrderWithSnapshot(calculatedSnapshot(4_100)), /order_fee_snapshots_fee_within_basis_check/);
+    await expectPgRejection(
+      seedOrderWithSnapshot(calculatedSnapshot(4_100)),
+      /order_fee_snapshots_fee_within_basis_check/,
+    );
   });
 });
 
@@ -385,7 +442,10 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
       db,
       draft(currency, { scheduleKey, version: 1, percentageBps: 1_000 }),
     );
-    await activateFeeSchedule(db, { id: v1.id, approvedBy: { authority: 'deployment', ref: 'op' } });
+    await activateFeeSchedule(db, {
+      id: v1.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
 
     const context1 = { at: new Date(), schedules: await listActiveFeeSchedules(db, new Date()) };
     const plan1 = await planConnectedMarketplaceFee({
@@ -406,7 +466,10 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
       db,
       draft(currency, { scheduleKey, version: 2, percentageBps: 500 }),
     );
-    await activateFeeSchedule(db, { id: v2.id, approvedBy: { authority: 'deployment', ref: 'op' } });
+    await activateFeeSchedule(db, {
+      id: v2.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
 
     const context2 = { at: new Date(), schedules: await listActiveFeeSchedules(db, new Date()) };
     const plan2 = await planConnectedMarketplaceFee({
@@ -430,7 +493,10 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
       db,
       draft(currency, { scheduleKey, version: 1, termsVersion: 'terms-7' }),
     );
-    await activateFeeSchedule(db, { id: row.id, approvedBy: { authority: 'deployment', ref: 'op' } });
+    await activateFeeSchedule(db, {
+      id: row.id,
+      approvedBy: { authority: 'deployment', ref: 'op' },
+    });
     await insertFeeScheduleAcceptance(db, {
       scheduleKey,
       scheduleVersion: 1,
@@ -465,7 +531,17 @@ describe('planConnectedMarketplaceFee against real schedules', () => {
     });
     const keys = Object.keys(plan).map((key) => key.toLowerCase());
     expect(keys.length).toBeGreaterThan(5);
-    const forbidden = ['buyer', 'guest', 'claim', 'email', 'phone', 'customer', 'card', 'token', 'session'];
+    const forbidden = [
+      'buyer',
+      'guest',
+      'claim',
+      'email',
+      'phone',
+      'customer',
+      'card',
+      'token',
+      'session',
+    ];
     for (const key of keys) {
       for (const fragment of forbidden) {
         expect(key).not.toContain(fragment);

@@ -12,9 +12,9 @@ import type {
   CreateStoreProductVariantInput,
   VariantOptionValue,
   InventoryLevelDTO,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 /** Partial variant payload accepted by `PATCH .../variants/:variantId`. */
 export interface UpdateVariantInput {
@@ -175,13 +175,27 @@ export async function setVariantLevelInventory(
 }
 
 /** Authoring selection, without the listing-gallery fallback. */
-export async function fetchVariantImages(storeId: string, productId: string, variantId: string): Promise<ListingImage[]> {
-  const { data } = await apiClient.get<ApiResponse<ListingImage[]>>(`${base(storeId)}/${productId}/variants/${variantId}/images`);
+export async function fetchVariantImages(
+  storeId: string,
+  productId: string,
+  variantId: string,
+): Promise<ListingImage[]> {
+  const { data } = await apiClient.get<ApiResponse<ListingImage[]>>(
+    `${base(storeId)}/${productId}/variants/${variantId}/images`,
+  );
   return unwrap(data);
 }
 
 /** Replace the ordered selection with files already in this product's gallery. */
-export async function replaceVariantImages(storeId: string, productId: string, variantId: string, fileIds: readonly string[]): Promise<ListingImage[]> {
-  const { data } = await apiClient.put<ApiResponse<ListingImage[]>>(`${base(storeId)}/${productId}/variants/${variantId}/images`, { fileIds });
+export async function replaceVariantImages(
+  storeId: string,
+  productId: string,
+  variantId: string,
+  fileIds: readonly string[],
+): Promise<ListingImage[]> {
+  const { data } = await apiClient.put<ApiResponse<ListingImage[]>>(
+    `${base(storeId)}/${productId}/variants/${variantId}/images`,
+    { fileIds },
+  );
   return unwrap(data);
 }

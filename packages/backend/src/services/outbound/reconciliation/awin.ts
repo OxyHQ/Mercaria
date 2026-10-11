@@ -133,7 +133,8 @@ function knownCurrency(value: unknown): CurrencyCode | null {
 /** An Awin money object → minor units, or the reason it could not be read. */
 function readAwinMoney(
   value: unknown,
-): { readonly kind: 'money'; readonly amount: number; readonly currency: CurrencyCode }
+):
+  | { readonly kind: 'money'; readonly amount: number; readonly currency: CurrencyCode }
   | { readonly kind: 'refused'; readonly reason: string }
   | { readonly kind: 'absent' } {
   if (value === null || value === undefined) return { kind: 'absent' };
@@ -205,9 +206,10 @@ export function normalizeAwinTransaction(
     };
   }
 
-  const statusText = typeof record['commissionStatus'] === 'string'
-    ? record['commissionStatus'].trim().toLowerCase()
-    : '';
+  const statusText =
+    typeof record['commissionStatus'] === 'string'
+      ? record['commissionStatus'].trim().toLowerCase()
+      : '';
   const mapped = AWIN_COMMISSION_STATUS_STATES[statusText];
   if (mapped === undefined) {
     return {
@@ -308,7 +310,10 @@ export function awinTransactionsUrl(input: {
   from: Date;
   to: Date;
 }): string {
-  const url = new URL(`/publishers/${encodeURIComponent(input.publisherId)}/transactions/`, input.baseUrl);
+  const url = new URL(
+    `/publishers/${encodeURIComponent(input.publisherId)}/transactions/`,
+    input.baseUrl,
+  );
   url.searchParams.set('startDate', awinDateParam(input.from));
   url.searchParams.set('endDate', awinDateParam(input.to));
   url.searchParams.set('timezone', 'UTC');
@@ -486,10 +491,9 @@ async function withTimeout<T>(work: Promise<T>, timeoutMs: number): Promise<T> {
     return await Promise.race([
       work,
       new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(
-          () => { reject(new Error('The Awin Publisher API call timed out.')); },
-          timeoutMs,
-        );
+        timer = setTimeout(() => {
+          reject(new Error('The Awin Publisher API call timed out.'));
+        }, timeoutMs);
         timer.unref?.();
       }),
     ]);

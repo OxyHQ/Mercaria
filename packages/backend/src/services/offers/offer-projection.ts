@@ -105,7 +105,9 @@ function toProvenance(
     ...(row.sourceAccountRef ? { sourceAccountRef: row.sourceAccountRef } : {}),
     ...(row.externalOfferId ? { externalOfferId: row.externalOfferId } : {}),
     ...(row.sourceConfidence === null ? {} : { confidence: row.sourceConfidence }),
-    ...(rights ? { mayDisplay: rights.mayDisplay, attributionRequired: rights.attributionRequired } : {}),
+    ...(rights
+      ? { mayDisplay: rights.mayDisplay, attributionRequired: rights.attributionRequired }
+      : {}),
   };
 }
 

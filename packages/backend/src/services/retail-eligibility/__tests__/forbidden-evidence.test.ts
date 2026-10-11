@@ -40,7 +40,12 @@ describe('the forbidden-evidence detector', () => {
   });
 
   it('matches SHAPES, not spellings — the four ways one attempt is written', () => {
-    for (const spelling of ['affiliateFeed', 'affiliate_feed', 'Affiliate Feed', 'AFFILIATE-FEED']) {
+    for (const spelling of [
+      'affiliateFeed',
+      'affiliate_feed',
+      'Affiliate Feed',
+      'AFFILIATE-FEED',
+    ]) {
       expect(detectForbiddenResaleEvidence([spelling]), spelling).toHaveLength(1);
     }
   });

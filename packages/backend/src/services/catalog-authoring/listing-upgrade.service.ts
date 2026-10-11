@@ -210,7 +210,7 @@ async function blockersFor(
         attributeKey: axis.attributeKey,
         detail:
           `Version ${String(target.version)} declares no variant-capable "${axis.attributeKey}" field, ` +
-          'so it could not have authorised this listing\'s axis. Moving the listing onto it would ' +
+          "so it could not have authorised this listing's axis. Moving the listing onto it would " +
           'reach a state the database refuses when an axis is written, and the axis cannot follow — ' +
           'its cited version is frozen, and re-declaring it would discard every assignment.',
       });
@@ -337,12 +337,7 @@ export async function applyListingProductTypeUpgrade(
       throw conflict(blockers.map((entry) => entry.detail).join(' '));
     }
 
-    const moved = await repinListingProductTypeVersion(
-      tx,
-      listing.id,
-      current.id,
-      published.id,
-    );
+    const moved = await repinListingProductTypeVersion(tx, listing.id, current.id, published.id);
     if (moved === null) {
       throw conflict('This listing was moved by somebody else while you were reading it.');
     }

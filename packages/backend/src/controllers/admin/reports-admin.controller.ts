@@ -10,11 +10,7 @@
 
 import type { Request, Response } from 'express';
 import type { SalesReportInterval } from '@mercaria/shared-types';
-import {
-  getSummary,
-  getSalesReport,
-  getTopProducts,
-} from '../../services/report.service.js';
+import { getSummary, getSalesReport, getTopProducts } from '../../services/report.service.js';
 import { sendSuccess } from '../../utils/api-response.js';
 import { respondWithError, notFound } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';

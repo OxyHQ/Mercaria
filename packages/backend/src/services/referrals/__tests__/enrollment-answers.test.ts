@@ -33,10 +33,7 @@ import {
   deriveOutstandingItems,
   type PartnerStandingFacts,
 } from '../partner-standing.service.js';
-import {
-  normalizeDisplayNameForComparison,
-  promotionHostsOf,
-} from '../duplicate-signals.js';
+import { normalizeDisplayNameForComparison, promotionHostsOf } from '../duplicate-signals.js';
 
 /**
  * Safely in the PAST, per `fixture-date-census.test.ts`.
@@ -83,7 +80,10 @@ describe('promotion URLs', () => {
   });
 
   it('bounds the count', () => {
-    const many = Array.from({ length: MAX_PROMOTION_URLS + 1 }, (_, i) => `https://x${String(i)}.example`);
+    const many = Array.from(
+      { length: MAX_PROMOTION_URLS + 1 },
+      (_, i) => `https://x${String(i)}.example`,
+    );
     expect(() => normalizeApplicationAnswers({ promotionUrls: many }, AT)).toThrow(/At most 10/);
   });
 
@@ -178,7 +178,9 @@ describe('the partner agreement', () => {
   });
 
   it('accepts the active version and refuses one nobody published', () => {
-    expect(acceptanceSatisfiesPartnerAgreement(REFERRAL_ACTIVE_PARTNER_AGREEMENT_VERSION)).toBe(true);
+    expect(acceptanceSatisfiesPartnerAgreement(REFERRAL_ACTIVE_PARTNER_AGREEMENT_VERSION)).toBe(
+      true,
+    );
     expect(acceptanceSatisfiesPartnerAgreement('partner-1999-01')).toBe(false);
     expect(acceptanceSatisfiesPartnerAgreement('')).toBe(false);
   });
@@ -267,8 +269,8 @@ describe('duplicate-signal normalization', () => {
   });
 
   it('de-duplicates hosts and drops what it cannot parse', () => {
-    expect(
-      promotionHostsOf(['https://a.example/1', 'https://A.example/2', 'nonsense']),
-    ).toEqual(['a.example']);
+    expect(promotionHostsOf(['https://a.example/1', 'https://A.example/2', 'nonsense'])).toEqual([
+      'a.example',
+    ]);
   });
 });

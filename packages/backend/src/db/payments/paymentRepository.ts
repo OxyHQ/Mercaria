@@ -195,9 +195,7 @@ export async function findPaymentByProviderObjectId(
   const [row] = await db
     .select()
     .from(payments)
-    .where(
-      and(eq(payments.provider, provider), eq(payments.providerObjectId, providerObjectId)),
-    )
+    .where(and(eq(payments.provider, provider), eq(payments.providerObjectId, providerObjectId)))
     .limit(1);
   return row;
 }
@@ -502,7 +500,12 @@ export async function recordProviderEvent(
   const [row] = inserted;
   if (row) return { row, duplicate: false };
 
-  const existing = await findProviderEvent(db, input.provider, input.providerEventId, input.providerAccountId);
+  const existing = await findProviderEvent(
+    db,
+    input.provider,
+    input.providerEventId,
+    input.providerAccountId,
+  );
   if (!existing) {
     throw new Error(
       `Provider event ${input.provider}/${input.providerEventId} could not be read back after ` +
@@ -587,8 +590,12 @@ function stripeBillingEventPredicate(scope: StripeBillingEventScope): SQL {
     eq(paymentProviderEvents.provider, 'stripe'),
     isNull(paymentProviderEvents.providerAccountId),
     eq(paymentProviderEvents.livemode, scope.livemode),
-    inArray(paymentProviderEvents.type, ['invoice.paid', 'invoice.payment_failed',
-      'customer.subscription.updated', 'customer.subscription.deleted']),
+    inArray(paymentProviderEvents.type, [
+      'invoice.paid',
+      'invoice.payment_failed',
+      'customer.subscription.updated',
+      'customer.subscription.deleted',
+    ]),
     sql`exists (select 1 from ${billingCustomers} where
       ${billingCustomers.provider} = 'stripe' and ${billingCustomers.livemode} = ${scope.livemode}
       and ${billingCustomers.providerCustomerId} = ${paymentProviderEvents.objectIds}->>'customer'
@@ -660,8 +667,12 @@ export async function claimProviderEvent(
   // exists to prevent, so it is stated rather than inferred from the SQL.
   if (options.providers.length === 0) return undefined;
 
-  const rail = and(inArray(paymentProviderEvents.provider, [...options.providers]),
-    options.stripeBillingScope ? stripeBillingEventPredicate(options.stripeBillingScope) : undefined);
+  const rail = and(
+    inArray(paymentProviderEvents.provider, [...options.providers]),
+    options.stripeBillingScope
+      ? stripeBillingEventPredicate(options.stripeBillingScope)
+      : undefined,
+  );
   const due = or(
     and(
       inArray(paymentProviderEvents.status, ['received', 'failed']),
@@ -852,9 +863,7 @@ export async function providerEventStats(
       pending: sql<string>`count(*) filter (where ${paymentProviderEvents.status} in ('received', 'processing', 'failed'))`,
       failed: sql<string>`count(*) filter (where ${paymentProviderEvents.status} = 'failed')`,
       deadLetter: sql<string>`count(*) filter (where ${paymentProviderEvents.status} = 'dead_letter')`,
-      oldest: sql<
-        Date | null
-      >`min(${paymentProviderEvents.receivedAt}) filter (where ${paymentProviderEvents.status} in ('received', 'processing', 'failed'))`,
+      oldest: sql<Date | null>`min(${paymentProviderEvents.receivedAt}) filter (where ${paymentProviderEvents.status} in ('received', 'processing', 'failed'))`,
     })
     .from(paymentProviderEvents)
     .where(eq(paymentProviderEvents.provider, provider));
@@ -866,7 +875,9 @@ export async function providerEventStats(
     deadLetter: Number(row?.deadLetter ?? 0),
     oldestUnprocessedAt: oldest === null ? null : new Date(oldest).toISOString(),
     lagSeconds:
-      oldest === null ? 0 : Math.max(0, Math.round((now.getTime() - new Date(oldest).getTime()) / 1_000)),
+      oldest === null
+        ? 0
+        : Math.max(0, Math.round((now.getTime() - new Date(oldest).getTime()) / 1_000)),
   };
 }
 

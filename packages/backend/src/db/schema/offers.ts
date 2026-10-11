@@ -141,7 +141,9 @@ export const offers = pgTable(
   {
     id: generatedId(),
     kind: text({ enum: asEnumValues(OFFER_KINDS) }).notNull(),
-    status: text({ enum: asEnumValues(OFFER_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(OFFER_STATUSES) })
+      .notNull()
+      .default('active'),
     /** Present EXACTLY when retired — a biconditional CHECK, both ways. */
     retirementReason: text({ enum: asEnumValues(OFFER_RETIREMENT_REASONS) }),
     retiredAt: timestamptz(),
@@ -254,7 +256,9 @@ export const offers = pgTable(
      * make #90 evidence rule 6 unrepresentable-otherwise rather than a promise
      * the mapper keeps.
      */
-    condition: text({ enum: asEnumValues(OFFER_CONDITION_VALUES) }).notNull().default('unknown'),
+    condition: text({ enum: asEnumValues(OFFER_CONDITION_VALUES) })
+      .notNull()
+      .default('unknown'),
     /**
      * The source's own wording, EXACTLY as published (#90 evidence rule 5).
      *
@@ -362,7 +366,9 @@ export const offers = pgTable(
     deliveryMinDays: integer(),
     deliveryMaxDays: integer(),
     /** Three states, not a nullable boolean — see `OfferPickupState`. */
-    pickupState: text({ enum: asEnumValues(OFFER_PICKUP_STATES) }).notNull().default('unknown'),
+    pickupState: text({ enum: asEnumValues(OFFER_PICKUP_STATES) })
+      .notNull()
+      .default('unknown'),
 
     // ── Returns (issue commercial fact 8) ────────────────────────────────────
     returnPolicyUrl: text(),
@@ -427,10 +433,7 @@ export const offers = pgTable(
      * and a number computed here would be a second ranking input nothing could
      * explain.
      */
-    qualitySignals: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    qualitySignals: text().array().notNull().default(sql`'{}'::text[]`),
 
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -854,9 +857,7 @@ export const offers = pgTable(
      * and the operator trace all address; the variant lookup is served by the
      * active-native unique above, which is a btree on `product_variant_id`.
      */
-    index('offers_native_listing_idx')
-      .on(t.listingId)
-      .where(sql`${t.listingId} is not null`),
+    index('offers_native_listing_idx').on(t.listingId).where(sql`${t.listingId} is not null`),
     /**
      * ISSUE INDEX 5 — the freshness filter, and the refresh sweep's own order.
      *
@@ -1004,7 +1005,9 @@ export const offerOutboxes = pgTable(
     requestedRevision: bigint({ mode: 'number' }).notNull().default(1),
     /** The revision this claim is answering. NULL before the first claim. */
     claimedRevision: bigint({ mode: 'number' }),
-    status: text({ enum: asEnumValues(OFFER_OUTBOX_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(OFFER_OUTBOX_STATUSES) })
+      .notNull()
+      .default('pending'),
     attempts: integer().notNull().default(0),
     availableAt: timestamptz().notNull(),
     /** Which task holds the lease. An opaque worker identity — no foreign key. */

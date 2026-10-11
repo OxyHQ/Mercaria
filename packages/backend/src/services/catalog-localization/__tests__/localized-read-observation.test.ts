@@ -24,10 +24,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  LOCALIZATION_FALLBACK_STEPS,
-  type LocalizedResolution,
-} from '@mercaria/shared-types';
+import { LOCALIZATION_FALLBACK_STEPS, type LocalizedResolution } from '@mercaria/shared-types';
 import {
   readLocalizationReadCounters,
   recordLocalizedResolution,
@@ -101,9 +98,9 @@ describe('#367 W17 line 771 — a serving path cannot resolve without being coun
   it('only the resolver itself and its wrapper name the pure function', () => {
     expect(
       pureResolverCallers(),
-      'this module calls the PURE resolver, so its resolutions are missing from the '
-        + 'translation_fallback_use_rate denominator — which makes the RATE wrong rather than '
-        + 'merely incomplete. Import `resolveObservedLocalizedField` from `read-observation.js`.',
+      'this module calls the PURE resolver, so its resolutions are missing from the ' +
+        'translation_fallback_use_rate denominator — which makes the RATE wrong rather than ' +
+        'merely incomplete. Import `resolveObservedLocalizedField` from `read-observation.js`.',
     ).toEqual(ALLOWED.map((entry) => entry.file).sort());
   });
 
@@ -112,7 +109,9 @@ describe('#367 W17 line 771 — a serving path cannot resolve without being coun
     // once already: if a permitted file is renamed away, the list above stops
     // permitting anything and silently stops being an exemption at all.
     assertEachOf(ALLOWED, 2, (entry) => {
-      expect(statSync(join(SRC_ROOT, entry.file)).size, `${entry.file} is empty`).toBeGreaterThan(0);
+      expect(statSync(join(SRC_ROOT, entry.file)).size, `${entry.file} is empty`).toBeGreaterThan(
+        0,
+      );
       expect(entry.why.length, `${entry.file} has no reason`).toBeGreaterThan(20);
     });
   });
@@ -173,8 +172,8 @@ describe('#367 W17 line 771 — the counter partitions its own population', () =
     // THE IDENTITY the metric's buckets rest on. Without it a step could be
     // dropped or double-counted and the reading would still look sane.
     const summed =
-      LOCALIZATION_FALLBACK_STEPS.reduce((total, step) => total + counters.byStep[step], 0)
-      + counters.unavailable;
+      LOCALIZATION_FALLBACK_STEPS.reduce((total, step) => total + counters.byStep[step], 0) +
+      counters.unavailable;
     expect(summed, 'the outcomes do not partition the resolutions').toBe(counters.resolutions);
   });
 

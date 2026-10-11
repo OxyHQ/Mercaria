@@ -205,10 +205,7 @@ export interface RejectMatchInput {
  * acceptance 4 names.
  */
 export async function rejectMatchPair(input: RejectMatchInput): Promise<MatchBlockedPairRow> {
-  if (
-    (input.targetCanonicalProductId === null) ===
-    (input.targetCanonicalVariantId === null)
-  ) {
+  if ((input.targetCanonicalProductId === null) === (input.targetCanonicalVariantId === null)) {
     throw validationError('A blocked pair names exactly one target: a product or a variant.');
   }
 

@@ -47,7 +47,11 @@ import * as schema from '../../../db/schema/index.js';
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
 import { createDraft } from '../draft.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
   createTestStore,
@@ -109,7 +113,11 @@ async function openSolo(): Promise<SoloConnection> {
   return solo;
 }
 
-async function waitUntilBlockedBy(waiterPid: number, holderPid: number, what: string): Promise<void> {
+async function waitUntilBlockedBy(
+  waiterPid: number,
+  holderPid: number,
+  what: string,
+): Promise<void> {
   const deadline = Date.now() + BLOCK_WAIT_MS;
   for (;;) {
     const rows = await probe.client<

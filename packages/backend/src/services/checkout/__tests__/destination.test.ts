@@ -20,11 +20,9 @@ vi.mock('../../../db/buyers/addressRepository.js', () => ({
   findAddress: (...args: unknown[]) => findAddress(...args),
 }));
 
-const {
-  addressBookOwnerForActor,
-  destinationFromInput,
-  resolveCheckoutContract,
-} = await import('../destination.js');
+const { addressBookOwnerForActor, destinationFromInput, resolveCheckoutContract } = await import(
+  '../destination.js'
+);
 
 const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-1' };
 const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-1', transport: 'cookie' };
@@ -189,7 +187,11 @@ describe('the two contract versions', () => {
   });
 
   it('passes a v2 destination through untouched', () => {
-    const destination = { type: 'pickup', locationId: 'loc-1', pickupContact: { email: 'a@b.co' } } as const;
+    const destination = {
+      type: 'pickup',
+      locationId: 'loc-1',
+      pickupContact: { email: 'a@b.co' },
+    } as const;
     expect(destinationFromInput({ destination })).toBe(destination);
   });
 

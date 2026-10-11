@@ -257,7 +257,9 @@ export function normalizedFromStoredPayload(payload: unknown): NormalizedSourceR
   const media = Array.isArray(stored.media)
     ? stored.media.filter((entry): entry is string => typeof entry === 'string')
     : [];
-  const facts = Array.isArray(stored.facts) ? (stored.facts as NormalizedSourceRecord['facts']) : undefined;
+  const facts = Array.isArray(stored.facts)
+    ? (stored.facts as NormalizedSourceRecord['facts'])
+    : undefined;
   const availability = text('availability') as NormalizedSourceRecord['availability'];
 
   const optional: Record<string, unknown> = {

@@ -81,8 +81,7 @@ const findVariantsByListing = vi.fn();
 const findVariantsBySourceConnection = vi.fn();
 const updateVariantColumns = vi.fn();
 vi.mock('../../db/catalog/variantRepository.js', () => ({
-  findVariantBySourceInventoryItemId: (...a: unknown[]) =>
-    findVariantBySourceInventoryItemId(...a),
+  findVariantBySourceInventoryItemId: (...a: unknown[]) => findVariantBySourceInventoryItemId(...a),
   findVariantOptionValues: (...a: unknown[]) => findVariantOptionValues(...a),
   findVariantsByListing: (...a: unknown[]) => findVariantsByListing(...a),
   findVariantsBySourceConnection: (...a: unknown[]) => findVariantsBySourceConnection(...a),
@@ -117,7 +116,6 @@ vi.mock('../../db/orders/orderRepository.js', () => ({
   nextOrderNumber: (...a: unknown[]) => nextOrderNumber(...a),
 }));
 
-
 vi.mock('../catalog-write.service.js', () => ({
   createStoreProduct: vi.fn(),
   updateListing: vi.fn(),
@@ -137,7 +135,11 @@ vi.mock('../../connectors/registry.js', () => ({
   getConnectorProvider: (...a: unknown[]) => getConnectorProvider(...a),
 }));
 
-import { pushListingToChannels, syncOrders, processConnectorWebhook } from '../connector-sync.service.js';
+import {
+  pushListingToChannels,
+  syncOrders,
+  processConnectorWebhook,
+} from '../connector-sync.service.js';
 
 const STORE_ID = 'store-1';
 
@@ -295,7 +297,10 @@ describe('pushListingToChannels — loop prevention', () => {
     expect(insertSyncRun.mock.calls).toHaveLength(1);
     expect(insertSyncRun).toHaveBeenCalledWith('other', 'product_push');
     // The native price survives the push unconverted, read from the two columns.
-    expect(pushProduct.mock.calls[0][1].variants[0].price).toEqual({ amount: 1999, currency: 'USD' });
+    expect(pushProduct.mock.calls[0][1].variants[0].price).toEqual({
+      amount: 1999,
+      currency: 'USD',
+    });
 
     // The external mapping is recorded. The old assertion looked for a
     // `$push: { externalRefs: … }` (preceded by a `$pull` for the same
@@ -370,24 +375,51 @@ function normalizedOrder(): NormalizedOrder {
     paymentStatus: 'paid',
     shopCurrency: 'USD',
     presentmentCurrency: 'EUR',
-    fxRate: { from: 'USD', to: 'EUR', rate: 0.9, provider: 'shopify', asOf: '2026-07-15T11:00:00Z' },
+    fxRate: {
+      from: 'USD',
+      to: 'EUR',
+      rate: 0.9,
+      provider: 'shopify',
+      asOf: '2026-07-15T11:00:00Z',
+    },
     lines: [
       {
         title: 'Classic Tee',
         variantTitle: 'M / Black',
         quantity: 2,
-        unitPrice: { shop: { amount: 2000, currency: 'USD' }, presentment: { amount: 1800, currency: 'EUR' } },
-        lineTotal: { shop: { amount: 4000, currency: 'USD' }, presentment: { amount: 3600, currency: 'EUR' } },
+        unitPrice: {
+          shop: { amount: 2000, currency: 'USD' },
+          presentment: { amount: 1800, currency: 'EUR' },
+        },
+        lineTotal: {
+          shop: { amount: 4000, currency: 'USD' },
+          presentment: { amount: 3600, currency: 'EUR' },
+        },
         externalProductId: '111',
         externalVariantId: '999',
       },
     ],
     totals: {
-      subtotal: { shop: { amount: 4000, currency: 'USD' }, presentment: { amount: 3600, currency: 'EUR' } },
-      discountTotal: { shop: { amount: 500, currency: 'USD' }, presentment: { amount: 450, currency: 'EUR' } },
-      tax: { shop: { amount: 400, currency: 'USD' }, presentment: { amount: 360, currency: 'EUR' } },
-      shipping: { shop: { amount: 0, currency: 'USD' }, presentment: { amount: 0, currency: 'EUR' } },
-      grandTotal: { shop: { amount: 3900, currency: 'USD' }, presentment: { amount: 3510, currency: 'EUR' } },
+      subtotal: {
+        shop: { amount: 4000, currency: 'USD' },
+        presentment: { amount: 3600, currency: 'EUR' },
+      },
+      discountTotal: {
+        shop: { amount: 500, currency: 'USD' },
+        presentment: { amount: 450, currency: 'EUR' },
+      },
+      tax: {
+        shop: { amount: 400, currency: 'USD' },
+        presentment: { amount: 360, currency: 'EUR' },
+      },
+      shipping: {
+        shop: { amount: 0, currency: 'USD' },
+        presentment: { amount: 0, currency: 'EUR' },
+      },
+      grandTotal: {
+        shop: { amount: 3900, currency: 'USD' },
+        presentment: { amount: 3510, currency: 'EUR' },
+      },
     },
     // The breakdown lines are SINGLE-currency SHOP amounts while the totals
     // above are `DualMoney` — the contract this fixture exists to exercise.
@@ -428,7 +460,11 @@ describe('syncOrders — create + DualMoney', () => {
     expect(doc.orderNumber).toBe('MRC-000042');
     expect(doc.sellerType).toBe('store');
     expect(doc.storeId).toBe(STORE_ID);
-    expect(doc.source).toMatchObject({ connectionId: 'conn-ord', provider: 'shopify', externalId: 'shp-1001' });
+    expect(doc.source).toMatchObject({
+      connectionId: 'conn-ord',
+      provider: 'shopify',
+      externalId: 'shp-1001',
+    });
     // `payment` flattened into two columns; an external order settles off Oxy Pay.
     expect(doc.paymentStatus).toBe('paid');
     expect(doc.paymentProvider).toBe('external');

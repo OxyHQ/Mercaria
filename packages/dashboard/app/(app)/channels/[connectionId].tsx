@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { Badge } from "@oxy.so/bloom/badge";
-import { View, Pressable } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import * as Clipboard from "expo-clipboard";
+import React, { useState } from 'react';
+import { Badge } from '@oxy.so/bloom/badge';
+import { View, Pressable } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import * as Clipboard from 'expo-clipboard';
 import {
   ChevronLeft,
   History,
@@ -14,7 +14,7 @@ import {
   Plus,
   RadioTower,
   TriangleAlert,
-} from "lucide-react-native";
+} from 'lucide-react-native';
 import type {
   ChannelApiKey,
   ChannelDisconnectPolicy,
@@ -29,38 +29,32 @@ import type {
   SyncRun,
   SyncRunKind,
   SyncRunStatus,
-} from "@mercaria/shared-types";
-import { CHANNEL_DISCONNECT_POLICIES } from "@mercaria/shared-types";
-import {
-  Text,
-  toBloomIcon,
-  useColorScheme,
-  formatDateTime,
-  type Translate,
-} from "@mercaria/ui";
+} from '@mercaria/shared-types';
+import { CHANNEL_DISCONNECT_POLICIES } from '@mercaria/shared-types';
+import { Text, toBloomIcon, useColorScheme, formatDateTime, type Translate } from '@mercaria/ui';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { Button } from "@oxy.so/bloom/button";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Switch } from "@oxy.so/bloom/switch";
-import { toast } from "@oxy.so/bloom/toast";
-import { AlertDialog } from "@oxy.so/bloom/alert-dialog";
-import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { CollectionMapping } from "@/components/channels/CollectionMapping";
+} from '@oxy.so/bloom/segmented-control';
+import { Button } from '@oxy.so/bloom/button';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Switch } from '@oxy.so/bloom/switch';
+import { toast } from '@oxy.so/bloom/toast';
+import { AlertDialog } from '@oxy.so/bloom/alert-dialog';
+import { Dialog, useDialogControl, type DialogControlProps } from '@oxy.so/bloom/dialog';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { CollectionMapping } from '@/components/channels/CollectionMapping';
 import {
   WEBHOOK_FAILURE_REASON_COPY_KEYS,
   ChannelCoverage,
   deriveWebhookDelivery,
   describeOrderHorizon,
   formatWhen,
-} from "@/components/channels/channel-presentation";
-import { useTranslation } from "@/lib/i18n";
+} from '@/components/channels/channel-presentation';
+import { useTranslation } from '@/lib/i18n';
 import {
   useChannelCatalog,
   useChannels,
@@ -75,7 +69,7 @@ import {
   useReregisterChannelWebhooks,
   useRevokeChannelKey,
   useSyncChannel,
-} from "@/lib/hooks/use-channels";
+} from '@/lib/hooks/use-channels';
 
 /**
  * Translation KEYS rather than sentences (#398) — module scope is evaluated at
@@ -85,18 +79,18 @@ import {
  * WooCommerce connector share a provider id), but "Shopify" is one word to a
  * merchant and two keys carrying it are two things a translator can disagree on.
  */
-const PROVIDER_NAME_KEYS: Record<Connection["provider"], string> = {
-  shopify: "channels.type.shopify",
-  woocommerce: "channels.type.woocommerce",
-  etsy: "channels.type.etsy",
-  prestashop: "channels.type.prestashop",
-  magento: "channels.type.magento",
+const PROVIDER_NAME_KEYS: Record<Connection['provider'], string> = {
+  shopify: 'channels.type.shopify',
+  woocommerce: 'channels.type.woocommerce',
+  etsy: 'channels.type.etsy',
+  prestashop: 'channels.type.prestashop',
+  magento: 'channels.type.magento',
 };
 
 const STATUS_LABEL_KEYS: Record<ConnectionStatus, string> = {
-  connected: "channels.state.connected",
-  error: "channels.state.needsAttention",
-  disconnected: "channels.status.disconnected",
+  connected: 'channels.state.connected',
+  error: 'channels.state.needsAttention',
+  disconnected: 'channels.status.disconnected',
 };
 
 /**
@@ -115,29 +109,29 @@ const STATUS_LABEL_KEYS: Record<ConnectionStatus, string> = {
  * reads from the merchant's side as products arriving.
  */
 const RUN_KIND_LABEL_KEYS: Record<SyncRunKind, string> = {
-  backfill: "channels.run.kind.backfill",
-  product_pull: "channels.run.kind.product_pull",
-  product_push: "channels.run.kind.product_push",
-  inventory_sync: "channels.run.kind.inventory_sync",
-  order_sync: "channels.run.kind.order_sync",
-  fulfillment_push: "channels.run.kind.fulfillment_push",
-  webhook: "channels.run.kind.webhook",
-  ingest: "channels.run.kind.ingest",
+  backfill: 'channels.run.kind.backfill',
+  product_pull: 'channels.run.kind.product_pull',
+  product_push: 'channels.run.kind.product_push',
+  inventory_sync: 'channels.run.kind.inventory_sync',
+  order_sync: 'channels.run.kind.order_sync',
+  fulfillment_push: 'channels.run.kind.fulfillment_push',
+  webhook: 'channels.run.kind.webhook',
+  ingest: 'channels.run.kind.ingest',
 };
 
 const RUN_STATUS_LABEL_KEYS: Record<SyncRunStatus, string> = {
-  running: "channels.run.status.running",
-  completed: "channels.run.status.completed",
-  failed: "channels.run.status.failed",
+  running: 'channels.run.status.running',
+  completed: 'channels.run.status.completed',
+  failed: 'channels.run.status.failed',
 };
 
-const DIRECTIONS: readonly SyncResourceDirection[] = ["off", "pull", "push", "bidirectional"];
+const DIRECTIONS: readonly SyncResourceDirection[] = ['off', 'pull', 'push', 'bidirectional'];
 
 const DIRECTION_LABEL_KEYS: Record<SyncResourceDirection, string> = {
-  off: "channels.syncDirection.off",
-  pull: "channels.syncDirection.pull",
-  push: "channels.syncDirection.push",
-  bidirectional: "channels.syncDirection.both",
+  off: 'channels.syncDirection.off',
+  pull: 'channels.syncDirection.pull',
+  push: 'channels.syncDirection.push',
+  bidirectional: 'channels.syncDirection.both',
 };
 
 /**
@@ -150,10 +144,10 @@ const DIRECTION_LABEL_KEYS: Record<SyncResourceDirection, string> = {
  * rather than interpolating a null into `channels.lastSynced`.
  */
 function formatSyncedAt(iso: string | undefined, t: Translate, locale: string): string {
-  if (!iso) return t("channels.settings.neverSyncedYet");
+  if (!iso) return t('channels.settings.neverSyncedYet');
   const when = formatDateTime(iso, locale);
-  if (when === null) return t("channels.settings.neverSyncedYet");
-  return t("channels.lastSynced", { when });
+  if (when === null) return t('channels.settings.neverSyncedYet');
+  return t('channels.lastSynced', { when });
 }
 
 export default function ChannelSettingsScreen() {
@@ -162,24 +156,16 @@ export default function ChannelSettingsScreen() {
   return (
     <>
       <Head>
-        <title>{t("channels.settings.documentTitle")}</title>
+        <title>{t('channels.settings.documentTitle')}</title>
       </Head>
       <RequireStore permission="channels:write">
-        {(storeId) => (
-          <ChannelSettingsBody storeId={storeId} connectionId={String(connectionId)} />
-        )}
+        {(storeId) => <ChannelSettingsBody storeId={storeId} connectionId={String(connectionId)} />}
       </RequireStore>
     </>
   );
 }
 
-function ChannelSettingsBody({
-  storeId,
-  connectionId,
-}: {
-  storeId: string;
-  connectionId: string;
-}) {
+function ChannelSettingsBody({ storeId, connectionId }: { storeId: string; connectionId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
   const { t } = useTranslation();
@@ -195,23 +181,23 @@ function ChannelSettingsBody({
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
     </Pressable>
   );
 
   if (isPending) {
     return (
-      <Screen title={t("channels.settings.title")} action={back}>
+      <Screen title={t('channels.settings.title')} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (isError || !connection) {
     return (
-      <Screen title={t("channels.settings.title")} action={back}>
+      <Screen title={t('channels.settings.title')} action={back}>
         <ScreenMessage
-          title={t("channels.settings.notFound")}
-          body={t("channels.settings.notFoundBody")}
+          title={t('channels.settings.notFound')}
+          body={t('channels.settings.notFoundBody')}
         />
       </Screen>
     );
@@ -219,7 +205,7 @@ function ChannelSettingsBody({
 
   return (
     <Screen
-      title={t("channels.settings.providerTitle", {
+      title={t('channels.settings.providerTitle', {
         provider: t(PROVIDER_NAME_KEYS[connection.provider]),
       })}
       subtitle={connection.shopDomain}
@@ -228,7 +214,7 @@ function ChannelSettingsBody({
       <SettingsForm storeId={storeId} connection={connection} />
       <ChannelScope storeId={storeId} connection={connection} />
       <CollectionMapping storeId={storeId} connection={connection} />
-      {connection.mode === "push_in" ? (
+      {connection.mode === 'push_in' ? (
         <ChannelApiKeys storeId={storeId} connection={connection} />
       ) : null}
       <WebhookHealth storeId={storeId} connection={connection} />
@@ -271,7 +257,7 @@ function ChannelScope({ storeId, connection }: { storeId: string; connection: Co
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.scope.title")}
+        {t('channels.scope.title')}
       </Text>
 
       {horizon ? (
@@ -291,9 +277,7 @@ function ChannelScope({ storeId, connection }: { storeId: string; connection: Co
 function SettingsForm({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { t } = useTranslation();
   const update = useUpdateChannelSettings(storeId);
-  const [products, setProducts] = useState<SyncResourceDirection>(
-    connection.syncSettings.products,
-  );
+  const [products, setProducts] = useState<SyncResourceDirection>(connection.syncSettings.products);
   const [inventory, setInventory] = useState<SyncResourceDirection>(
     connection.syncSettings.inventory,
   );
@@ -305,7 +289,7 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
   // those pins are honoured at all is exactly this setting — so a merchant could
   // configure a mapping and never be able to see why it did nothing.
   const [respectOverrides, setRespectOverrides] = useState<boolean>(
-    connection.syncSettings.conflictPolicy === "respect_overrides",
+    connection.syncSettings.conflictPolicy === 'respect_overrides',
   );
 
   const save = () => {
@@ -317,12 +301,12 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
           inventory,
           orders,
           autoPublish,
-          conflictPolicy: respectOverrides ? "respect_overrides" : "connector_wins",
+          conflictPolicy: respectOverrides ? 'respect_overrides' : 'connector_wins',
         },
       },
       {
-        onSuccess: () => toast.success(t("channels.toast.settingsSaved")),
-        onError: () => toast.error(t("channels.toast.settingsSaveFailed")),
+        onSuccess: () => toast.success(t('channels.toast.settingsSaved')),
+        onError: () => toast.error(t('channels.toast.settingsSaveFailed')),
       },
     );
   };
@@ -331,23 +315,23 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
     <View className="gap-5">
       <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
         <Text className="text-sm font-semibold text-foreground">
-          {t("channels.settings.syncDirections")}
+          {t('channels.settings.syncDirections')}
         </Text>
         <DirectionField
-          label={t("channels.entity.products")}
-          hint={t("channels.settings.productsHint")}
+          label={t('channels.entity.products')}
+          hint={t('channels.settings.productsHint')}
           value={products}
           onChange={setProducts}
         />
         <DirectionField
-          label={t("channels.settings.inventoryLabel")}
-          hint={t("channels.settings.inventoryHint")}
+          label={t('channels.settings.inventoryLabel')}
+          hint={t('channels.settings.inventoryHint')}
           value={inventory}
           onChange={setInventory}
         />
         <DirectionField
-          label={t("channels.entity.orders")}
-          hint={t("channels.settings.ordersHint")}
+          label={t('channels.entity.orders')}
+          hint={t('channels.settings.ordersHint')}
           value={orders}
           onChange={setOrders}
         />
@@ -357,16 +341,16 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
         <View className="flex-row items-center justify-between gap-4 py-1">
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground">
-              {t("channels.settings.autoPublish")}
+              {t('channels.settings.autoPublish')}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {t("channels.settings.autoPublishHint")}
+              {t('channels.settings.autoPublishHint')}
             </Text>
           </View>
           <Switch
             checked={autoPublish}
             onCheckedChange={setAutoPublish}
-            accessibilityLabel={t("channels.settings.autoPublish")}
+            accessibilityLabel={t('channels.settings.autoPublish')}
           />
         </View>
       </View>
@@ -375,22 +359,22 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
         <View className="flex-row items-center justify-between gap-4 py-1">
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground">
-              {t("channels.settings.keepLocalEdits")}
+              {t('channels.settings.keepLocalEdits')}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              {t("channels.settings.keepLocalEditsHint")}
+              {t('channels.settings.keepLocalEditsHint')}
             </Text>
           </View>
           <Switch
             checked={respectOverrides}
             onCheckedChange={setRespectOverrides}
-            accessibilityLabel={t("channels.settings.keepLocalEdits")}
+            accessibilityLabel={t('channels.settings.keepLocalEdits')}
           />
         </View>
       </View>
 
       <Button tone="accent" onPress={save} loading={update.isPending} className="self-start">
-        {t("channels.settings.save")}
+        {t('channels.settings.save')}
       </Button>
     </View>
   );
@@ -417,7 +401,9 @@ function DirectionField({
       <SegmentedControl type="radio" label={label} value={value} onValueChange={onChange}>
         {DIRECTIONS.map((direction) => (
           <SegmentedControlItem key={direction} value={direction}>
-            <SegmentedControlItemText>{t(DIRECTION_LABEL_KEYS[direction])}</SegmentedControlItemText>
+            <SegmentedControlItemText>
+              {t(DIRECTION_LABEL_KEYS[direction])}
+            </SegmentedControlItemText>
           </SegmentedControlItem>
         ))}
       </SegmentedControl>
@@ -434,17 +420,17 @@ function DirectionField({
  * `detail` is the specific half and is rendered beside it.
  */
 const RECORD_FAILURE_REASON_COPY_KEYS: Record<SyncRecordFailureReason, string> = {
-  refused_by_rule: "channels.runFailures.reason.refusedByRule",
-  duplicate_record: "channels.runFailures.reason.duplicateRecord",
-  database_refused: "channels.runFailures.reason.databaseRefused",
-  unclassified: "channels.runFailures.reason.unclassified",
+  refused_by_rule: 'channels.runFailures.reason.refusedByRule',
+  duplicate_record: 'channels.runFailures.reason.duplicateRecord',
+  database_refused: 'channels.runFailures.reason.databaseRefused',
+  unclassified: 'channels.runFailures.reason.unclassified',
 };
 
 /** What KIND of record a refusal was about, so a merchant searches the right list. */
-const RECORD_SUBJECT_COPY_KEYS: Record<SyncRecordFailure["subjectType"], string> = {
-  product: "channels.runFailures.subject.product",
-  order: "channels.runFailures.subject.order",
-  inventory_item: "channels.runFailures.subject.inventoryItem",
+const RECORD_SUBJECT_COPY_KEYS: Record<SyncRecordFailure['subjectType'], string> = {
+  product: 'channels.runFailures.subject.product',
+  order: 'channels.runFailures.subject.order',
+  inventory_item: 'channels.runFailures.subject.inventoryItem',
 };
 
 /**
@@ -473,7 +459,7 @@ function RunRecordFailures({
     return (
       <Pressable className="mt-2 self-start" onPress={() => setOpen(true)}>
         <Text className="text-xs font-semibold text-primary">
-          {t("channels.runFailures.show", { count: run.counts.failed })}
+          {t('channels.runFailures.show', { count: run.counts.failed })}
         </Text>
       </Pressable>
     );
@@ -482,25 +468,25 @@ function RunRecordFailures({
   return (
     <View className="mt-2 gap-2 rounded-xl bg-muted p-3">
       {failures.isPending ? (
-        <Text className="text-xs text-muted-foreground">{t("common.loading")}</Text>
+        <Text className="text-xs text-muted-foreground">{t('common.loading')}</Text>
       ) : failures.isError ? (
         <Text className="text-xs text-muted-foreground">
-          {t("channels.runFailures.loadFailed")}
+          {t('channels.runFailures.loadFailed')}
         </Text>
       ) : (failures.data?.failures ?? []).length === 0 ? (
         // Not "nothing failed" — the run's own tally says otherwise. A run that
         // failed as a whole records no per-record rows, and rows older than the
         // retention window are gone, so this says what is KNOWN rather than
         // contradicting the count above it.
-        <Text className="text-xs text-muted-foreground">{t("channels.runFailures.none")}</Text>
+        <Text className="text-xs text-muted-foreground">{t('channels.runFailures.none')}</Text>
       ) : (
         <View className="gap-2">
           {(failures.data?.failures ?? []).map((failure) => (
             <View key={failure.id}>
               <Text className="text-xs font-semibold text-foreground">
-                {t("channels.runFailures.line", {
+                {t('channels.runFailures.line', {
                   subject: t(RECORD_SUBJECT_COPY_KEYS[failure.subjectType]),
-                  externalId: failure.externalId ? ` ${failure.externalId}` : "",
+                  externalId: failure.externalId ? ` ${failure.externalId}` : '',
                   reason: t(RECORD_FAILURE_REASON_COPY_KEYS[failure.reason]),
                 })}
               </Text>
@@ -509,7 +495,7 @@ function RunRecordFailures({
           ))}
           {failures.data && failures.data.failures.length < failures.data.failedCount ? (
             <Text className="text-[11px] text-muted-foreground">
-              {t("channels.runFailures.showing", {
+              {t('channels.runFailures.showing', {
                 shown: failures.data.failures.length,
                 total: failures.data.failedCount,
               })}
@@ -518,9 +504,7 @@ function RunRecordFailures({
         </View>
       )}
       <Pressable className="self-start" onPress={() => setOpen(false)}>
-        <Text className="text-xs font-semibold text-primary">
-          {t("channels.runFailures.hide")}
-        </Text>
+        <Text className="text-xs font-semibold text-primary">{t('channels.runFailures.hide')}</Text>
       </Pressable>
     </View>
   );
@@ -552,15 +536,18 @@ function RunRecordFailures({
  *   bad night would need a reconnect to do what a second press fixes.
  */
 function manualSyncBlockedReason(connection: Connection, t: Translate): string | null {
-  if (connection.status !== "connected") {
-    return t("channels.import.blockedDisconnected");
+  if (connection.status !== 'connected') {
+    return t('channels.import.blockedDisconnected');
   }
   // The endpoint is the PRODUCT backfill specifically: `requestBackfill` refuses
   // on `syncSettingsProducts` alone, so a channel pulling only orders is refused
   // by the server too. Naming products rather than "syncing" is what keeps this
   // from promising an order import the button does not run.
-  if (connection.syncSettings.products !== "pull" && connection.syncSettings.products !== "bidirectional") {
-    return t("channels.import.blockedDirection");
+  if (
+    connection.syncSettings.products !== 'pull' &&
+    connection.syncSettings.products !== 'bidirectional'
+  ) {
+    return t('channels.import.blockedDirection');
   }
   return null;
 }
@@ -584,10 +571,10 @@ function ManualSync({ storeId, connection }: { storeId: string; connection: Conn
   const { t } = useTranslation();
   const sync = useSyncChannel(storeId);
 
-  if (connection.mode !== "pull") return null;
+  if (connection.mode !== 'pull') return null;
 
   const blocked = manualSyncBlockedReason(connection, t);
-  const paused = (connection.pausedScopes ?? []).includes("fetch");
+  const paused = (connection.pausedScopes ?? []).includes('fetch');
 
   const run = () => {
     sync.mutate(connection.id, {
@@ -595,28 +582,25 @@ function ManualSync({ storeId, connection }: { storeId: string; connection: Conn
       // "Imported" here would be a claim about pages of somebody else's platform
       // that have not been read yet — the run's own row is what reports the
       // outcome, and it is directly below.
-      onSuccess: () => toast.success(t("channels.toast.importStarted")),
-      onError: () => toast.error(t("channels.toast.importStartFailed")),
+      onSuccess: () => toast.success(t('channels.toast.importStarted')),
+      onError: () => toast.error(t('channels.toast.importStartFailed')),
     });
   };
 
   return (
     <View className="mt-8 gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.import.title")}
+        {t('channels.import.title')}
       </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <View className="flex-1 gap-1">
           <Text className="text-sm font-medium text-foreground">
-            {t("channels.import.heading", {
+            {t('channels.import.heading', {
               provider: t(PROVIDER_NAME_KEYS[connection.provider]),
             })}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {blocked ??
-              (paused
-                ? t("channels.import.bodyPaused")
-                : t("channels.import.body"))}
+            {blocked ?? (paused ? t('channels.import.bodyPaused') : t('channels.import.body'))}
           </Text>
         </View>
         <Button
@@ -628,7 +612,7 @@ function ManualSync({ storeId, connection }: { storeId: string; connection: Conn
           disabled={blocked !== null}
           className="self-start"
         >
-          {t("channels.import.now")}
+          {t('channels.import.now')}
         </Button>
       </View>
     </View>
@@ -643,15 +627,12 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
   return (
     <View className="mt-8 gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.history.title")}
+        {t('channels.history.title')}
       </Text>
       {runs.isPending ? (
         <ScreenLoading />
       ) : runs.isError ? (
-        <ScreenMessage
-          title={t("channels.history.loadFailed")}
-          body={t("common.pleaseTryAgain")}
-        />
+        <ScreenMessage title={t('channels.history.loadFailed')} body={t('common.pleaseTryAgain')} />
       ) : (runs.data ?? []).length === 0 ? (
         <View className="flex-row items-start gap-3 rounded-2xl border border-border bg-surface p-4">
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
@@ -659,7 +640,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
           </View>
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground">
-              {t("channels.history.empty")}
+              {t('channels.history.empty')}
             </Text>
             <Text className="mt-0.5 text-xs text-muted-foreground">
               {formatSyncedAt(connection.lastSyncAt, t, locale)}
@@ -677,15 +658,15 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
                 <Badge
                   size="label-small"
                   variant="subtle"
-                  color={run.status === "failed" ? "error" : "default"}
+                  color={run.status === 'failed' ? 'error' : 'default'}
                   content={t(RUN_STATUS_LABEL_KEYS[run.status])}
                 />
               </View>
               <Text className="mt-0.5 text-xs text-muted-foreground">
-                {formatWhen(run.startedAt, t("common.unknown"), locale)}
+                {formatWhen(run.startedAt, t('common.unknown'), locale)}
               </Text>
               <Text className="mt-1 text-xs text-muted-foreground">
-                {t("channels.history.counts", {
+                {t('channels.history.counts', {
                   created: run.counts.created,
                   updated: run.counts.updated,
                   skipped: run.counts.skipped,
@@ -702,7 +683,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
               */}
               {run.counts.updated > 0 && run.counts.created === 0 ? (
                 <Text className="mt-1 text-[11px] text-muted-foreground">
-                  {t("channels.history.updatedNote")}
+                  {t('channels.history.updatedNote')}
                 </Text>
               ) : null}
               {run.error ? (
@@ -716,11 +697,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
                 download all of them to render a control most people never open.
               */}
               {run.counts.failed > 0 ? (
-                <RunRecordFailures
-                  storeId={storeId}
-                  connectionId={connection.id}
-                  run={run}
-                />
+                <RunRecordFailures storeId={storeId} connectionId={connection.id} run={run} />
               ) : null}
             </View>
           ))}
@@ -771,7 +748,7 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
   // connection whose stored credential will not resolve — is NOT checkable here,
   // because the DTO carries no credential-presence fact by design, so it stays a
   // 400 surfaced through this panel's own error toast.
-  if (connection.mode !== "pull" || connection.status !== "connected") {
+  if (connection.mode !== 'pull' || connection.status !== 'connected') {
     return null;
   }
 
@@ -781,15 +758,15 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
 
   const retry = () => {
     reregister.mutate(connection.id, {
-      onSuccess: () => toast.success(t("channels.toast.webhooksRegistering")),
-      onError: () => toast.error(t("channels.toast.webhooksRegisterFailed")),
+      onSuccess: () => toast.success(t('channels.toast.webhooksRegistering')),
+      onError: () => toast.error(t('channels.toast.webhooksRegisterFailed')),
     });
   };
 
   return (
     <View className="mt-8 gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.webhooks.title")}
+        {t('channels.webhooks.title')}
       </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <View className="flex-row items-start gap-2">
@@ -800,7 +777,7 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
               copy rather than by a colour this palette does not have. A redder
               triangle would not tell anybody to widen a permission anyway.
             */}
-            {delivery.state === "healthy" ? (
+            {delivery.state === 'healthy' ? (
               <RadioTower size={15} color={colors.mutedForeground} />
             ) : (
               <TriangleAlert size={15} color={colors.mutedForeground} />
@@ -821,13 +798,13 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
             {failures.map((failure) => (
               <Text key={failure.topic} className="text-xs text-muted-foreground">
                 <Text className="text-xs font-medium text-foreground">{failure.topic}</Text>
-                {t("channels.webhooks.failureDetail", {
+                {t('channels.webhooks.failureDetail', {
                   reason: t(WEBHOOK_FAILURE_REASON_COPY_KEYS[failure.reason]),
                   http:
                     failure.httpStatus === undefined
-                      ? ""
-                      : t("channels.webhooks.httpStatus", { status: failure.httpStatus }),
-                  when: formatWhen(failure.recordedAt, t("channels.recently"), locale),
+                      ? ''
+                      : t('channels.webhooks.httpStatus', { status: failure.httpStatus }),
+                  when: formatWhen(failure.recordedAt, t('channels.recently'), locale),
                 })}
               </Text>
             ))}
@@ -870,11 +847,11 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
           toast.success(
             result.changed
               ? next
-                ? t("channels.toast.paused")
-                : t("channels.toast.resumed")
-              : t("channels.toast.alreadyInThatState"),
+                ? t('channels.toast.paused')
+                : t('channels.toast.resumed')
+              : t('channels.toast.alreadyInThatState'),
           ),
-        onError: () => toast.error(t("channels.toast.pauseFailed")),
+        onError: () => toast.error(t('channels.toast.pauseFailed')),
       },
     );
   };
@@ -882,37 +859,37 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
   return (
     <View className="mt-8 gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.pause.title")}
+        {t('channels.pause.title')}
       </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <View className="flex-row items-center justify-between gap-3">
           <View className="flex-1">
             <Text className="text-sm font-medium text-foreground">
-              {t("channels.pause.importing")}
+              {t('channels.pause.importing')}
             </Text>
             <Text className="mt-0.5 text-xs text-muted-foreground">
-              {t("channels.pause.importingHint")}
+              {t('channels.pause.importingHint')}
             </Text>
           </View>
           <Switch
-            checked={paused.has("fetch")}
-            onCheckedChange={(next) => toggle("fetch", next)}
-            accessibilityLabel={t("channels.pause.importing")}
+            checked={paused.has('fetch')}
+            onCheckedChange={(next) => toggle('fetch', next)}
+            accessibilityLabel={t('channels.pause.importing')}
           />
         </View>
         <View className="flex-row items-center justify-between gap-3">
           <View className="flex-1">
             <Text className="text-sm font-medium text-foreground">
-              {t("channels.pause.publishing")}
+              {t('channels.pause.publishing')}
             </Text>
             <Text className="mt-0.5 text-xs text-muted-foreground">
-              {t("channels.pause.publishingHint")}
+              {t('channels.pause.publishingHint')}
             </Text>
           </View>
           <Switch
-            checked={paused.has("publication")}
-            onCheckedChange={(next) => toggle("publication", next)}
-            accessibilityLabel={t("channels.pause.publishing")}
+            checked={paused.has('publication')}
+            onCheckedChange={(next) => toggle('publication', next)}
+            accessibilityLabel={t('channels.pause.publishing')}
           />
         </View>
       </View>
@@ -938,7 +915,7 @@ function Reconciliation({ storeId, connection }: { storeId: string; connection: 
   return (
     <View className="mt-8 gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.reconciliation.title")}
+        {t('channels.reconciliation.title')}
       </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         {data.bindingGap ? (
@@ -949,7 +926,7 @@ function Reconciliation({ storeId, connection }: { storeId: string; connection: 
         <View className="flex-row flex-wrap gap-4">
           <View className="min-w-[140px] gap-0.5">
             <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-              {t("channels.reconciliation.alreadyIndexed")}
+              {t('channels.reconciliation.alreadyIndexed')}
             </Text>
             <Text className="text-base font-semibold text-foreground">
               {data.existingExternalOffers}
@@ -957,29 +934,27 @@ function Reconciliation({ storeId, connection }: { storeId: string; connection: 
           </View>
           <View className="min-w-[140px] gap-0.5">
             <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-              {t("channels.reconciliation.fromThisStore")}
+              {t('channels.reconciliation.fromThisStore')}
             </Text>
             <Text className="text-base font-semibold text-foreground">{data.nativeOffers}</Text>
           </View>
           <View className="min-w-[140px] gap-0.5">
             <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-              {t("channels.reconciliation.sameProductTwice")}
+              {t('channels.reconciliation.sameProductTwice')}
             </Text>
             <Text className="text-base font-semibold text-foreground">{data.overlaps.length}</Text>
           </View>
           <View className="min-w-[140px] gap-0.5">
             <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-              {t("channels.reconciliation.awaitingReview")}
+              {t('channels.reconciliation.awaitingReview')}
             </Text>
             <Text className="text-base font-semibold text-foreground">{data.awaitingReview}</Text>
           </View>
         </View>
-        <Text className="text-xs text-muted-foreground">
-          {t("channels.reconciliation.body")}
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t('channels.reconciliation.body')}</Text>
         {data.awaitingReview > 0 ? (
           <Text className="text-xs text-muted-foreground">
-            {t("channels.reconciliation.awaitingReviewNote", { count: data.awaitingReview })}
+            {t('channels.reconciliation.awaitingReviewNote', { count: data.awaitingReview })}
           </Text>
         ) : null}
       </View>
@@ -989,13 +964,13 @@ function Reconciliation({ storeId, connection }: { storeId: string; connection: 
 
 /** Why a connection could not be tied to a verified merchant, in plain words. */
 const BINDING_GAP_COPY_KEYS: Record<
-  NonNullable<ChannelReconciliationSummary["bindingGap"]>,
+  NonNullable<ChannelReconciliationSummary['bindingGap']>,
   string
 > = {
-  merchant_not_claimed: "channels.reconciliation.gap.merchantNotClaimed",
-  store_not_linked: "channels.reconciliation.gap.storeNotLinked",
-  storefront_not_matched: "channels.reconciliation.gap.storefrontNotMatched",
-  channel_has_no_domain: "channels.reconciliation.gap.channelHasNoDomain",
+  merchant_not_claimed: 'channels.reconciliation.gap.merchantNotClaimed',
+  store_not_linked: 'channels.reconciliation.gap.storeNotLinked',
+  storefront_not_matched: 'channels.reconciliation.gap.storefrontNotMatched',
+  channel_has_no_domain: 'channels.reconciliation.gap.channelHasNoDomain',
 };
 
 /**
@@ -1010,13 +985,13 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
   const router = useRouter();
   const { t } = useTranslation();
   const disconnect = useDisconnectChannelWithPolicy(storeId);
-  const [policy, setPolicy] = useState<ChannelDisconnectPolicy>("keep_listings");
+  const [policy, setPolicy] = useState<ChannelDisconnectPolicy>('keep_listings');
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <View className="mt-8 gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.disconnect.title")}
+        {t('channels.disconnect.title')}
       </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         {/*
@@ -1028,13 +1003,11 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
           channel imported" (#442), and giving the sentence its own per-policy
           copy would be a second description of what policyHelp already says.
         */}
-        <Text className="text-xs text-muted-foreground">
-          {t("channels.disconnect.intro")}
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t('channels.disconnect.intro')}</Text>
         <SegmentedControl
           type="radio"
           size="sm"
-          label={t("channels.disconnect.policyLabel")}
+          label={t('channels.disconnect.policyLabel')}
           value={policy}
           onValueChange={setPolicy}
         >
@@ -1050,19 +1023,19 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
           {t(DISCONNECT_POLICY_HELP_KEYS[policy])}
         </Text>
         <Button tone="danger" onPress={() => setConfirmOpen(true)}>
-          {t("channels.disconnect.action")}
+          {t('channels.disconnect.action')}
         </Button>
       </View>
 
       <AlertDialog
         visible={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        title={t("channels.disconnect.confirmTitle", {
+        title={t('channels.disconnect.confirmTitle', {
           provider: t(PROVIDER_NAME_KEYS[connection.provider]),
         })}
         description={t(DISCONNECT_POLICY_HELP_KEYS[policy])}
-        confirmLabel={t("channels.disconnect.confirmAction")}
-        cancelLabel={t("common.cancel")}
+        confirmLabel={t('channels.disconnect.confirmAction')}
+        cancelLabel={t('common.cancel')}
         destructive
         onConfirm={() =>
           disconnect.mutate(
@@ -1070,18 +1043,18 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
             {
               onSuccess: (result) => {
                 toast.success(
-                  t("channels.toast.disconnected", {
-                    products: t("channels.disconnect.productsChanged", {
+                  t('channels.toast.disconnected', {
+                    products: t('channels.disconnect.productsChanged', {
                       count: result.listingsAffected,
                     }),
-                    records: t("channels.disconnect.recordsKept", {
+                    records: t('channels.disconnect.recordsKept', {
                       count: result.externalOffersPreserved,
                     }),
                   }),
                 );
-                router.replace("/channels");
+                router.replace('/channels');
               },
-              onError: () => toast.error(t("channels.toast.disconnectFailed")),
+              onError: () => toast.error(t('channels.toast.disconnectFailed')),
             },
           )
         }
@@ -1091,15 +1064,15 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
 }
 
 const DISCONNECT_POLICY_LABEL_KEYS: Record<ChannelDisconnectPolicy, string> = {
-  keep_listings: "channels.disconnect.policy.keepListings",
-  unpublish_listings: "channels.disconnect.policy.unpublishListings",
-  archive_listings: "channels.disconnect.policy.archiveListings",
+  keep_listings: 'channels.disconnect.policy.keepListings',
+  unpublish_listings: 'channels.disconnect.policy.unpublishListings',
+  archive_listings: 'channels.disconnect.policy.archiveListings',
 };
 
 const DISCONNECT_POLICY_HELP_KEYS: Record<ChannelDisconnectPolicy, string> = {
-  keep_listings: "channels.disconnect.policyHelp.keepListings",
-  unpublish_listings: "channels.disconnect.policyHelp.unpublishListings",
-  archive_listings: "channels.disconnect.policyHelp.archiveListings",
+  keep_listings: 'channels.disconnect.policyHelp.keepListings',
+  unpublish_listings: 'channels.disconnect.policyHelp.unpublishListings',
+  archive_listings: 'channels.disconnect.policyHelp.archiveListings',
 };
 
 /**
@@ -1108,10 +1081,10 @@ const DISCONNECT_POLICY_HELP_KEYS: Record<ChannelDisconnectPolicy, string> = {
  * The locale is required for {@link formatSyncedAt}'s reason (#529).
  */
 function formatLastUsed(iso: string | undefined, t: Translate, locale: string): string {
-  if (!iso) return t("channels.keys.neverUsed");
+  if (!iso) return t('channels.keys.neverUsed');
   const when = formatDateTime(iso, locale);
-  if (when === null) return t("channels.keys.neverUsed");
-  return t("channels.keys.lastUsed", { when });
+  if (when === null) return t('channels.keys.neverUsed');
+  return t('channels.keys.lastUsed', { when });
 }
 
 /**
@@ -1130,7 +1103,7 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
     <View className="mt-8 gap-3">
       <View className="flex-row items-center justify-between gap-3">
         <Text className="text-sm font-semibold text-muted-foreground">
-          {t("channels.keys.title")}
+          {t('channels.keys.title')}
         </Text>
         <Button
           appearance="outline"
@@ -1139,7 +1112,7 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
           leadingIcon={toBloomIcon(Plus)}
           onPress={() => generateControl.open()}
         >
-          {t("channels.keys.generate")}
+          {t('channels.keys.generate')}
         </Button>
       </View>
 
@@ -1150,33 +1123,29 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
           </View>
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground">
-              {t("channels.keys.heading")}
+              {t('channels.keys.heading')}
             </Text>
-            <Text className="mt-0.5 text-xs text-muted-foreground">
-              {t("channels.keys.body")}
-            </Text>
+            <Text className="mt-0.5 text-xs text-muted-foreground">{t('channels.keys.body')}</Text>
             <View className="mt-2 flex-row items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5">
               <Text className="text-[11px] font-medium text-muted-foreground">
-                {t("channels.keys.connectionId")}
+                {t('channels.keys.connectionId')}
               </Text>
               <Text selectable className="flex-1 text-[11px] font-semibold text-foreground">
                 {connection.id}
               </Text>
-              <CopyButton value={connection.id} label={t("channels.keys.connectionIdSubject")} />
+              <CopyButton value={connection.id} label={t('channels.keys.connectionIdSubject')} />
             </View>
           </View>
         </View>
 
-        {minted ? (
-          <MintedKeyCard result={minted} onDone={() => setMinted(null)} />
-        ) : null}
+        {minted ? <MintedKeyCard result={minted} onDone={() => setMinted(null)} /> : null}
 
         {isPending ? (
-          <Text className="text-xs text-muted-foreground">{t("channels.keys.loading")}</Text>
+          <Text className="text-xs text-muted-foreground">{t('channels.keys.loading')}</Text>
         ) : isError ? (
-          <Text className="text-xs text-destructive">{t("channels.keys.loadFailed")}</Text>
+          <Text className="text-xs text-destructive">{t('channels.keys.loadFailed')}</Text>
         ) : (keys?.length ?? 0) === 0 ? (
-          <Text className="text-xs text-muted-foreground">{t("channels.keys.empty")}</Text>
+          <Text className="text-xs text-muted-foreground">{t('channels.keys.empty')}</Text>
         ) : (
           <View className="gap-2">
             {keys?.map((key) => (
@@ -1214,17 +1183,17 @@ function MintedKeyCard({
       <View className="flex-row items-center gap-2">
         <TriangleAlert size={15} color={colors.primary} />
         <Text className="flex-1 text-xs font-semibold text-foreground">
-          {t("channels.keys.copyNow")}
+          {t('channels.keys.copyNow')}
         </Text>
       </View>
       <View className="flex-row items-center gap-2 rounded-lg bg-surface px-2.5 py-2">
         <Text selectable className="flex-1 text-[11px] font-semibold text-foreground">
           {result.key}
         </Text>
-        <CopyButton value={result.key} label={t("channels.keys.apiKeySubject")} />
+        <CopyButton value={result.key} label={t('channels.keys.apiKeySubject')} />
       </View>
       <Button tone="accent" size="sm" onPress={onDone} className="self-start">
-        {t("common.done")}
+        {t('common.done')}
       </Button>
     </View>
   );
@@ -1239,8 +1208,8 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
 
   const onRevoke = () => {
     revoke.mutate(apiKey.id, {
-      onSuccess: () => toast.success(t("channels.toast.keyRevoked")),
-      onError: () => toast.error(t("channels.toast.keyRevokeFailed")),
+      onSuccess: () => toast.success(t('channels.toast.keyRevoked')),
+      onError: () => toast.error(t('channels.toast.keyRevokeFailed')),
     });
   };
 
@@ -1250,7 +1219,7 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
         <Text className="text-sm font-semibold text-foreground">{apiKey.label}</Text>
         <Text className="mt-0.5 text-[11px] text-muted-foreground">
           <Text className="font-mono text-[11px] text-muted-foreground">{apiKey.prefix}…</Text>
-          {"  ·  "}
+          {'  ·  '}
           {formatLastUsed(apiKey.lastUsedAt, t, locale)}
         </Text>
       </View>
@@ -1260,17 +1229,17 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
       >
         <Trash2 size={14} color={colors.mutedForeground} />
         <Text className="text-xs font-medium text-muted-foreground">
-          {t("channels.keys.revoke")}
+          {t('channels.keys.revoke')}
         </Text>
       </Pressable>
 
       <AlertDialog
         visible={confirmOpen}
         onClose={() => setConfirmOpen(false)}
-        title={t("channels.keys.revokeConfirmTitle")}
-        description={t("channels.keys.revokeConfirmBody", { label: apiKey.label })}
-        confirmLabel={t("channels.keys.revoke")}
-        cancelLabel={t("common.cancel")}
+        title={t('channels.keys.revokeConfirmTitle')}
+        description={t('channels.keys.revokeConfirmBody', { label: apiKey.label })}
+        confirmLabel={t('channels.keys.revoke')}
+        cancelLabel={t('common.cancel')}
         destructive
         onConfirm={onRevoke}
       />
@@ -1292,24 +1261,24 @@ function GenerateKeyDialog({
 }) {
   const { t } = useTranslation();
   const generate = useGenerateChannelKey(storeId);
-  const [label, setLabel] = useState("");
+  const [label, setLabel] = useState('');
 
   const submit = () => {
     const trimmed = label.trim();
-    if (trimmed === "") {
-      toast.error(t("channels.toast.keyLabelRequired"));
+    if (trimmed === '') {
+      toast.error(t('channels.toast.keyLabelRequired'));
       return;
     }
     generate.mutate(
       { label: trimmed, connectionId: connection.id },
       {
         onSuccess: (result) => {
-          setLabel("");
+          setLabel('');
           control.close();
           onMinted(result);
-          toast.success(t("channels.toast.keyGenerated"));
+          toast.success(t('channels.toast.keyGenerated'));
         },
-        onError: () => toast.error(t("channels.toast.keyGenerateFailed")),
+        onError: () => toast.error(t('channels.toast.keyGenerateFailed')),
       },
     );
   };
@@ -1317,22 +1286,22 @@ function GenerateKeyDialog({
   return (
     <Dialog
       control={control}
-      title={t("channels.keys.generateTitle")}
-      description={t("channels.keys.generateBody")}
+      title={t('channels.keys.generateTitle')}
+      description={t('channels.keys.generateBody')}
     >
       <View className="gap-4">
-        <Field label={t("channels.keys.labelField")}>
+        <Field label={t('channels.keys.labelField')}>
           <TextFieldInput
-            label={t("channels.keys.labelField")}
+            label={t('channels.keys.labelField')}
             value={label}
             onValueChange={setLabel}
-            placeholder={t("channels.keys.labelPlaceholder")}
+            placeholder={t('channels.keys.labelPlaceholder')}
             autoCapitalize="none"
             autoCorrect={false}
           />
         </Field>
         <Button tone="accent" onPress={submit} loading={generate.isPending} className="mt-1">
-          {t("channels.keys.generate")}
+          {t('channels.keys.generate')}
         </Button>
       </View>
     </Dialog>
@@ -1348,14 +1317,14 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   const copy = async () => {
     await Clipboard.setStringAsync(value);
     setCopied(true);
-    toast.success(t("channels.keys.copied", { label }));
+    toast.success(t('channels.keys.copied', { label }));
     setTimeout(() => setCopied(false), 1500);
   };
 
   return (
     <Pressable
       onPress={copy}
-      accessibilityLabel={t("channels.keys.copyAccessibility", { label })}
+      accessibilityLabel={t('channels.keys.copyAccessibility', { label })}
       className="h-7 w-7 items-center justify-center rounded-md active:opacity-70"
     >
       {copied ? (

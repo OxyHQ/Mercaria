@@ -1,6 +1,6 @@
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Persisted selection of the active store AND register location the POS operates
@@ -41,7 +41,7 @@ export const useActiveStore = create<ActiveStoreState>()(
       setActiveLocationId: (locationId) => set({ activeLocationId: locationId }),
     }),
     {
-      name: "mercaria.pos.active-store",
+      name: 'mercaria.pos.active-store',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         activeStoreId: state.activeStoreId,

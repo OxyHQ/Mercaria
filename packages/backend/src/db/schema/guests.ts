@@ -113,9 +113,7 @@ export const guestSessions = pgTable(
     // a full scan every hour — enforced against the real catalogue by
     // `findUnsupportedExpiryColumns` in `schema.realdb.test.ts`.
     index('guest_sessions_expires_at_idx').on(t.expiresAt),
-    index('guest_sessions_revoked_at_idx')
-      .on(t.revokedAt)
-      .where(sql`${t.revokedAt} is not null`),
+    index('guest_sessions_revoked_at_idx').on(t.revokedAt).where(sql`${t.revokedAt} is not null`),
     checkOneOf('guest_sessions_client_class_check', t.clientClass, GUEST_CLIENT_CLASSES),
     // A parked previous hash and its deadline exist together or not at all.
     check(
@@ -359,9 +357,7 @@ export const guestCheckouts = pgTable(
     uniqueIndex('guest_checkouts_checkout_group_id_key').on(t.checkoutGroupId),
     // #108's magic-link routing walks this. NON-unique: one inbox, many
     // checkouts. Partial, because an anonymized row has no hash to find.
-    index('guest_checkouts_email_hash_idx')
-      .on(t.emailHash)
-      .where(sql`${t.emailHash} is not null`),
+    index('guest_checkouts_email_hash_idx').on(t.emailHash).where(sql`${t.emailHash} is not null`),
     // "Which checkouts did this session place?" — the operator trace, and the
     // read #109's claim will need.
     index('guest_checkouts_guest_session_id_idx').on(t.guestSessionId),

@@ -155,7 +155,9 @@ async function resolveGalleryRowIds(
  * variant has no selections of its own, which an answer showing the listing's
  * gallery would make indistinguishable from having selected all of it.
  */
-function projectSelections(rows: readonly { fileId: string; alt: string | null; position: number }[]): ListingImage[] {
+function projectSelections(
+  rows: readonly { fileId: string; alt: string | null; position: number }[],
+): ListingImage[] {
   return rows.map((row) => {
     const dto: ListingImage = { fileId: row.fileId, position: row.position };
     if (row.alt) {

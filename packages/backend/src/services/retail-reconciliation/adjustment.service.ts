@@ -152,8 +152,7 @@ export async function settleRetailCustomerAdjustment(input: {
           // obligation is decided and the money's own state lives on
           // `providerState`.
           status: 'refunded',
-          reason:
-            'Cost reconciliation: the order cost less to fulfil than the buyer was charged.',
+          reason: 'Cost reconciliation: the order cost less to fulfil than the buyer was charged.',
           // NO line items and NO restock: a price adjustment moves money, not
           // goods (#128 item 6).
           lineItems: [],
@@ -304,7 +303,10 @@ async function refundBlockReason(input: {
   // held order and a second payment.
   if (await findRetailRefundSuspension(input.adjustment.orderId)) return 'dispute_open';
 
-  if (adjustment.method === 'recorded_payable' && adjustment.blockReason === 'below_automation_threshold') {
+  if (
+    adjustment.method === 'recorded_payable' &&
+    adjustment.blockReason === 'below_automation_threshold'
+  ) {
     // ADR 0004 D8.2: at or below the threshold the surplus stays on
     // `customer_adjustment`, refundable on request. An operator pressing retry
     // is that request, and it arrives through the operator surface with its own

@@ -362,7 +362,14 @@ function resolveTolerance(
  * The upsert makes a repeat a bump rather than a row.
  */
 async function refreshExceptions(input: {
-  gathered: { order: { id: string }; blocked: readonly { kind: RetailReconciliationExceptionKind; detail: string; purchaseOrderId?: string }[] };
+  gathered: {
+    order: { id: string };
+    blocked: readonly {
+      kind: RetailReconciliationExceptionKind;
+      detail: string;
+      purchaseOrderId?: string;
+    }[];
+  };
   reconciliationId: string;
   now: Date;
 }): Promise<void> {

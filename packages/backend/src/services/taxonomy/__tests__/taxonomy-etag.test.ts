@@ -162,11 +162,6 @@ describe('the distinctions the key claims, asserted rather than assumed', () => 
     // surface had stopped being public and the header had become a lie. Asserted
     // structurally, over the key's OWN property names, so a dimension added
     // later fails here rather than in a cache somebody else is holding.
-    expect(Object.keys(KEY).sort()).toEqual([
-      'parameters',
-      'read',
-      'requestedLocale',
-      'subject',
-    ]);
+    expect(Object.keys(KEY).sort()).toEqual(['parameters', 'read', 'requestedLocale', 'subject']);
   });
 });

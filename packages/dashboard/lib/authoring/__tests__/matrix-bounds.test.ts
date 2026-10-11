@@ -37,11 +37,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type {
-  AuthoringField,
-  AuthoringSchema,
-  CurrencyCode,
-} from '@mercaria/shared-types';
+import type { AuthoringField, AuthoringSchema, CurrencyCode } from '@mercaria/shared-types';
 
 import {
   MAX_MATRIX_ROWS,
@@ -88,7 +84,10 @@ function axisField(key: string, valueIds: readonly string[]): AuthoringField {
 }
 
 /** Two axes whose value counts multiply to exactly `total`. */
-function axesMultiplyingTo(left: number, right: number): {
+function axesMultiplyingTo(
+  left: number,
+  right: number,
+): {
   readonly axes: readonly MatrixAxis[];
   readonly schema: AuthoringSchema;
 } {
@@ -125,11 +124,19 @@ function axesMultiplyingTo(left: number, right: number): {
   const axes: MatrixAxis[] = [
     {
       attributeKey: 'axis_left',
-      values: leftIds.map((id) => ({ kind: 'controlled_value' as const, ordinal: 0, enumValueId: id })),
+      values: leftIds.map((id) => ({
+        kind: 'controlled_value' as const,
+        ordinal: 0,
+        enumValueId: id,
+      })),
     },
     {
       attributeKey: 'axis_right',
-      values: rightIds.map((id) => ({ kind: 'controlled_value' as const, ordinal: 0, enumValueId: id })),
+      values: rightIds.map((id) => ({
+        kind: 'controlled_value' as const,
+        ordinal: 0,
+        enumValueId: id,
+      })),
     },
   ];
 

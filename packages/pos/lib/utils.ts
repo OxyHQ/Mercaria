@@ -1,6 +1,6 @@
-import { clsx, type ClassValue } from "clsx";
-import { Platform } from "react-native";
-import { twMerge } from "tailwind-merge";
+import { clsx, type ClassValue } from 'clsx';
+import { Platform } from 'react-native';
+import { twMerge } from 'tailwind-merge';
 
 /** Merge Tailwind / NativeWind class names, resolving conflicts. */
 export function cn(...inputs: ClassValue[]) {
@@ -8,9 +8,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function isWeb() {
-  return Platform.OS === "web";
+  return Platform.OS === 'web';
 }
 
 export function isNative() {
-  return Platform.OS === "ios" || Platform.OS === "android";
+  return Platform.OS === 'ios' || Platform.OS === 'android';
 }

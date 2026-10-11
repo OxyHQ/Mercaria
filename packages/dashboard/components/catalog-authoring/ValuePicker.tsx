@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
-import { Check, ChevronDown, Search as SearchIcon } from "lucide-react-native";
-import { Dialog, useDialogControl } from "@oxy.so/bloom/dialog";
-import { Text, toBloomFieldIcon, useColorScheme } from "@mercaria/ui";
-import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
-import { useTranslation } from "@/lib/i18n";
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Check, ChevronDown, Search as SearchIcon } from 'lucide-react-native';
+import { Dialog, useDialogControl } from '@oxy.so/bloom/dialog';
+import { Text, toBloomFieldIcon, useColorScheme } from '@mercaria/ui';
+import { TextField, TextFieldIcon, TextFieldInput } from '@oxy.so/bloom/text-field';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * One selectable option: a STABLE id and a display label that came from the
@@ -66,7 +66,7 @@ export function ValuePicker<Id extends string>({
   // is driven by `control`, never by this flag (Bloom's controlled path races
   // its own exit animation).
   const [expanded, setExpanded] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
 
   const selected = options.find((option) => option.id === selectedId) ?? null;
   const filtered = useMemo(() => {
@@ -75,7 +75,7 @@ export function ValuePicker<Id extends string>({
     return options.filter(
       (option) =>
         option.label.toLowerCase().includes(needle) ||
-        (option.detail ?? "").toLowerCase().includes(needle),
+        (option.detail ?? '').toLowerCase().includes(needle),
     );
   }, [options, query]);
 
@@ -92,14 +92,14 @@ export function ValuePicker<Id extends string>({
           control.open();
         }}
         className={[
-          "h-11 flex-row items-center justify-between rounded-xl border bg-background px-3.5",
-          invalid ? "border-destructive" : "border-input",
-          disabled ? "opacity-50" : "active:opacity-70",
-        ].join(" ")}
+          'h-11 flex-row items-center justify-between rounded-xl border bg-background px-3.5',
+          invalid ? 'border-destructive' : 'border-input',
+          disabled ? 'opacity-50' : 'active:opacity-70',
+        ].join(' ')}
       >
         <Text
           className={
-            selected === null ? "text-base text-muted-foreground" : "text-base text-foreground"
+            selected === null ? 'text-base text-muted-foreground' : 'text-base text-foreground'
           }
           numberOfLines={1}
         >
@@ -112,14 +112,14 @@ export function ValuePicker<Id extends string>({
         control={control}
         title={title}
         onClose={() => setExpanded(false)}
-        actions={[{ label: t("common.cancel"), color: "cancel" }]}
+        actions={[{ label: t('common.cancel'), color: 'cancel' }]}
       >
         {options.length > FILTER_THRESHOLD ? (
           <View className="mb-3">
             <TextField radius={999}>
               <TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
               <TextFieldInput
-                label={t("products.wizard.values.filterPlaceholder")}
+                label={t('products.wizard.values.filterPlaceholder')}
                 value={query}
                 onValueChange={setQuery}
                 returnKeyType="search"
@@ -155,7 +155,7 @@ export function ValuePicker<Id extends string>({
             })}
             {filtered.length === 0 ? (
               <Text className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {t("products.wizard.values.noMatches")}
+                {t('products.wizard.values.noMatches')}
               </Text>
             ) : null}
           </View>

@@ -143,7 +143,6 @@ const EVALUATION_REFERENCE =
 const LOCAL_FRESHNESS_REFERENCE =
   /const\s+\w*(TTL|Ttl|StaleSeconds|FRESHNESS_SECONDS)\w*\s*=|function\s+isStale|OFFER_TTL_SECONDS/;
 
-
 const ALERT_DOMAIN_REFERENCE =
   /price-alerts\/|priceAlerts\/|price_alerts\b|price_alert_triggers|priceAlertTriggers|qualifyAlert/;
 
@@ -407,9 +406,9 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     expect(DESTINATION_REFERENCE.test("import { compose } from '../outbound/redirect.js';")).toBe(
       false,
     );
-    expect(DESTINATION_REFERENCE.test("import { x } from '../services/outbound/redirect.js';")).toBe(
-      true,
-    );
+    expect(
+      DESTINATION_REFERENCE.test("import { x } from '../services/outbound/redirect.js';"),
+    ).toBe(true);
     expect(DESTINATION_REFERENCE.test('const offerId = trigger.offerId;')).toBe(false);
   });
 
@@ -439,12 +438,14 @@ describe('the detectors actually detect — the mutation self-tests', () => {
 
   it('the reverse detector sees a price-alert import', () => {
     expect(
-      ALERT_DOMAIN_REFERENCE.test("import { qualifyAlert } from '../price-alerts/qualification.js';"),
+      ALERT_DOMAIN_REFERENCE.test(
+        "import { qualifyAlert } from '../price-alerts/qualification.js';",
+      ),
     ).toBe(true);
     expect(ALERT_DOMAIN_REFERENCE.test('select count(*) from price_alerts')).toBe(true);
-    expect(ALERT_DOMAIN_REFERENCE.test("import { listOffers } from './offers/offer.service.js';")).toBe(
-      false,
-    );
+    expect(
+      ALERT_DOMAIN_REFERENCE.test("import { listOffers } from './offers/offer.service.js';"),
+    ).toBe(false);
   });
 
   it('the derivations select the real files and not their neighbours', () => {
@@ -535,9 +536,11 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
   it('the relative population really is the one the walls scan', () => {
     // Two spellings of one population can disagree, so this pins them together:
     // every absolute path the detectors run over has a relative twin here.
-    expect(enumerateDomain().map((absolute) => absolute.slice(SRC_ROOT.length + 1)).sort()).toEqual(
-      domainRelativePaths().sort(),
-    );
+    expect(
+      enumerateDomain()
+        .map((absolute) => absolute.slice(SRC_ROOT.length + 1))
+        .sort(),
+    ).toEqual(domainRelativePaths().sort());
   });
 });
 

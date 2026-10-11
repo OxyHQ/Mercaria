@@ -99,7 +99,10 @@ import { resolveMedia, resolveStoredMediaUrl } from './catalog-media/urls.js';
 export { resolveMedia, resolveStoredMediaUrl } from './catalog-media/urls.js';
 
 /** Category projections share the same internal-media boundary as products. */
-export function toCategoryImage(category: { imageFileId: string; imageUrl: string | null }): Pick<CategoryTile, 'imageFileId' | 'imageUrl'> {
+export function toCategoryImage(category: {
+  imageFileId: string;
+  imageUrl: string | null;
+}): Pick<CategoryTile, 'imageFileId' | 'imageUrl'> {
   if (isOxyFileId(category.imageFileId)) {
     return { imageFileId: category.imageFileId, imageUrl: resolveMedia(category.imageFileId) };
   }
@@ -178,10 +181,7 @@ function toVariantDTO(
   // its single Default-Title variant is created with no images and no surface to
   // attach one. Restating the rule here would be the second spelling that can
   // disagree.
-  dto.images = resolveVariantImages(
-    variantImages.map(toVariantImageDTO),
-    listingGallery,
-  );
+  dto.images = resolveVariantImages(variantImages.map(toVariantImageDTO), listingGallery);
   // #129: who is selling THIS configuration. Absent when the caller did not
   // resolve it — never defaulted to the listing owner, because an unanswered
   // question and "the catalogue owner sells it" are different claims and only
@@ -225,13 +225,15 @@ function cheapestVariant(variants: VariantRecord[]): VariantRecord | undefined {
 
 /** Preserve stored file IDs in listing image DTOs. */
 function toListingImages(images: ListingImageRecord[]): ListingImage[] {
-  return images.filter(img => img.kind === undefined || img.kind === 'image').map((img) => {
-    const dto: ListingImage = { fileId: img.fileId, position: img.position };
-    if (img.alt) {
-      dto.alt = img.alt;
-    }
-    return dto;
-  });
+  return images
+    .filter((img) => img.kind === undefined || img.kind === 'image')
+    .map((img) => {
+      const dto: ListingImage = { fileId: img.fileId, position: img.position };
+      if (img.alt) {
+        dto.alt = img.alt;
+      }
+      return dto;
+    });
 }
 
 /**
@@ -300,7 +302,9 @@ export function toStoreSummary(
   const products: ProductThumbnail[] = featuredListings
     .slice(0, config.feed.storeCardThumbnails)
     .map((listing) => {
-      const firstImage = (imagesByListing.get(listing.id) ?? []).find(image => isOxyFileId(image.fileId));
+      const firstImage = (imagesByListing.get(listing.id) ?? []).find((image) =>
+        isOxyFileId(image.fileId),
+      );
       const thumbnail: ProductThumbnail = { id: listing.id, title: listing.title };
       if (firstImage) {
         thumbnail.imageFileId = firstImage.fileId;
@@ -347,7 +351,7 @@ export function toProductSummary(
   images: ListingImageRecord[] = [],
 ): ProductSummary {
   const cheapest = cheapestVariant(variants);
-  const firstImage = images.find(image => isOxyFileId(image.fileId));
+  const firstImage = images.find((image) => isOxyFileId(image.fileId));
   const price =
     (cheapest ? variantPrice(cheapest) : null) ??
     (listing.priceRangeMinAmount !== null && listing.priceRangeMinCurrency !== null
@@ -385,9 +389,7 @@ async function buildBrandResolver(
   listings: ListingRecord[],
 ): Promise<(listing: ListingRecord) => string> {
   const storeIds = [
-    ...new Set(
-      listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : [])),
-    ),
+    ...new Set(listings.flatMap((l) => (l.ownerType === 'store' && l.storeId ? [l.storeId] : []))),
   ];
   const userIds = [
     ...new Set(
@@ -489,9 +491,7 @@ function groupVariants(variants: VariantRecord[]): Map<string, VariantRecord[]> 
  * Load every batch a page of listings needs, so a caller that already has the
  * children (the feed builds shelves from one query) does not pay for them twice.
  */
-async function loadBatches(
-  listingIds: string[],
-): Promise<{
+async function loadBatches(listingIds: string[]): Promise<{
   variantsByListing: Map<string, VariantRecord[]>;
   optionValuesByVariant: Map<string, VariantOptionValueRecord[]>;
   variantImagesByVariant: Map<string, VariantImageRecord[]>;
@@ -764,7 +764,14 @@ export async function hydrateListings(
       status: listing.status,
       category: listing.categorySlugs[listing.categorySlugs.length - 1] ?? '',
       images: gallery,
-      media: (children.media?.get(id) ?? children.images.get(id) ?? []).filter(item => isOxyFileId(item.fileId)).map(item => ({ kind: item.kind ?? 'image', fileId: item.fileId, position: item.position, ...(item.alt ? { alt: item.alt } : {}) })),
+      media: (children.media?.get(id) ?? children.images.get(id) ?? [])
+        .filter((item) => isOxyFileId(item.fileId))
+        .map((item) => ({
+          kind: item.kind ?? 'image',
+          fileId: item.fileId,
+          position: item.position,
+          ...(item.alt ? { alt: item.alt } : {}),
+        })),
       tags: [...listing.tags],
       quantity,
       saved: savedSet.has(id),

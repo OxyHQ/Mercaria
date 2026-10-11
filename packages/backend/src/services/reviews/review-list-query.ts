@@ -1,15 +1,29 @@
-import { REVIEW_SEARCH_MAX_LENGTH, REVIEW_SORT_ORDERS, type ReviewListFilters, type ReviewSortOrder } from '@mercaria/shared-types';
+import {
+  REVIEW_SEARCH_MAX_LENGTH,
+  REVIEW_SORT_ORDERS,
+  type ReviewListFilters,
+  type ReviewSortOrder,
+} from '@mercaria/shared-types';
 import { validationError } from '../../lib/errors/error-codes.js';
 
 /** Query-string boundary: arrays/objects are not silently coerced into text. */
-export function parseReviewListFilters({ query, sortBy, ratings }: {
+export function parseReviewListFilters({
+  query,
+  sortBy,
+  ratings,
+}: {
   query?: unknown;
   sortBy?: unknown;
   ratings?: unknown;
 } = {}): ReviewListFilters {
   const filters: ReviewListFilters = {};
-  if (query !== undefined && (typeof query !== 'string' || query.length > REVIEW_SEARCH_MAX_LENGTH)) {
-    throw validationError(`Review search must be a string of at most ${REVIEW_SEARCH_MAX_LENGTH} characters`);
+  if (
+    query !== undefined &&
+    (typeof query !== 'string' || query.length > REVIEW_SEARCH_MAX_LENGTH)
+  ) {
+    throw validationError(
+      `Review search must be a string of at most ${REVIEW_SEARCH_MAX_LENGTH} characters`,
+    );
   }
   const text = typeof query === 'string' ? query.trim() : '';
   if (text) filters.query = text;

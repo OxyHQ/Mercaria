@@ -17,9 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "co.mercaria.app",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {

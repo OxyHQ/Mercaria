@@ -164,7 +164,10 @@ describe('every ordering behind a cacheable catalog read is total', () => {
   it('parses every ordering site — an unreadable one is a failure, not a skip', () => {
     const unreadable = entries
       .filter((entry) => entry.site.terms === null)
-      .map((entry) => `${entry.relative}:${entry.site.line} (${entry.site.enclosing}) — ${entry.site.text}`);
+      .map(
+        (entry) =>
+          `${entry.relative}:${entry.site.line} (${entry.site.enclosing}) — ${entry.site.text}`,
+      );
     expect(
       unreadable,
       'this census could not read these `.orderBy(...)` calls, so it cannot say whether they ' +
@@ -178,7 +181,9 @@ describe('every ordering behind a cacheable catalog read is total', () => {
     for (const entry of entries) {
       for (const term of entry.site.terms ?? []) {
         if (tableFor(term.table) === undefined) {
-          unresolved.push(`${entry.relative}:${entry.site.line} — no schema export \`${term.table}\``);
+          unresolved.push(
+            `${entry.relative}:${entry.site.line} — no schema export \`${term.table}\``,
+          );
         }
       }
     }

@@ -94,9 +94,7 @@ export function deriveGuestCheckoutLifecycle(
  * counts; a portal that hid it would leave the only observer of a split claim
  * being an operator who thought to look.
  */
-export function deriveGuestCheckoutClaim(
-  orders: readonly OrderRecord[],
-): GuestCheckoutClaimState {
+export function deriveGuestCheckoutClaim(orders: readonly OrderRecord[]): GuestCheckoutClaimState {
   const claimants = new Set(orders.map((order) => order.claimedByOxyUserId ?? ''));
   if (claimants.size !== 1) {
     return { status: 'partial' };

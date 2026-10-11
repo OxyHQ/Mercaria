@@ -67,9 +67,7 @@ export function resolveNavigationPresentation(
     return {
       label: row.label,
       ...(row.description === null ? {} : { description: row.description }),
-      ...(row.accessibilityLabel === null
-        ? {}
-        : { accessibilityLabel: row.accessibilityLabel }),
+      ...(row.accessibilityLabel === null ? {} : { accessibilityLabel: row.accessibilityLabel }),
       locale: row.locale,
       requestedLocale,
       status: row.status as NavigationLocalizationStatus,

@@ -5,15 +5,21 @@ import { isOxyFileId, type ReviewMediaItem } from '@mercaria/shared-types';
 export function reviewMediaEntries(items: ReviewMediaItem[]): ReviewMediaItem[] {
   const seen = new Set<string>();
   return items.filter(({ media, review }) => {
-    if (!isOxyFileId(media.fileId) || review.status !== 'published'
-      || !['canonical_product', 'listing'].includes(review.targetType)
-      || !review.media?.some(attachment => attachment.id === media.id && attachment.fileId === media.fileId)
-      || seen.has(media.id)) return false;
+    if (
+      !isOxyFileId(media.fileId) ||
+      review.status !== 'published' ||
+      !['canonical_product', 'listing'].includes(review.targetType) ||
+      !review.media?.some(
+        (attachment) => attachment.id === media.id && attachment.fileId === media.fileId,
+      ) ||
+      seen.has(media.id)
+    )
+      return false;
     seen.add(media.id);
     return true;
   });
 }
 
 export function reviewMediaIndex(items: ReviewMediaItem[], selectedId: string): number {
-  return items.findIndex(item => item.media.id === selectedId);
+  return items.findIndex((item) => item.media.id === selectedId);
 }

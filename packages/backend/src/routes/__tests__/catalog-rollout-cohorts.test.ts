@@ -76,11 +76,7 @@ vi.mock('../../middleware/auth.js', () => ({
    * takes the id from `req.user` rather than from the request, which is the
    * property `internal_user is never taken from the request` pins.
    */
-  authenticateToken: (
-    req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     const asUser = req.header('x-probe-oxy-user-id');
     if (asUser !== undefined && asUser !== '') {
       (req as express.Request & { user?: { id: string } }).user = { id: asUser };
@@ -88,11 +84,7 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {},
-  optionalAuth: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
     next();
   },
 }));
@@ -553,8 +545,14 @@ describe('the catalog mount census is derived from app.ts and is not empty', () 
     // Floors PER SHAPE rather than one total: the two populations break
     // independently, and a single number would let the public set collapse to
     // zero while the operator set carried it.
-    expect(publicMounts.length, 'the derived public catalog mount set collapsed').toBeGreaterThanOrEqual(6);
-    expect(operatorMounts.length, 'the derived operator catalog mount set collapsed').toBeGreaterThanOrEqual(20);
+    expect(
+      publicMounts.length,
+      'the derived public catalog mount set collapsed',
+    ).toBeGreaterThanOrEqual(6);
+    expect(
+      operatorMounts.length,
+      'the derived operator catalog mount set collapsed',
+    ).toBeGreaterThanOrEqual(20);
     expect(new Set(mounts.map((mount) => mount.guard)).size).toBeGreaterThanOrEqual(4);
   });
 

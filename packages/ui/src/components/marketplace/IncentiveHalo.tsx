@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { View } from "react-native";
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 
 /**
  * Decorative multi-stop "incentive halo" ring (web `boxShadow`). Mirrors Shop's
@@ -8,7 +8,7 @@ import { View } from "react-native";
  * violet→blue gradient ring, then a soft outer glow.
  */
 const INCENTIVE_HALO_SHADOW =
-  "0 0 0 1.5px #FFFFFF, 0 0 0 3px #7C3AED, 0 0 0 4.5px #2563EB, 0 0 10px 4.5px rgba(124,58,237,0.35)";
+  '0 0 0 1.5px #FFFFFF, 0 0 0 3px #7C3AED, 0 0 0 4.5px #2563EB, 0 0 10px 4.5px rgba(124,58,237,0.35)';
 
 export interface IncentiveHaloProps {
   /** Content wrapped by the halo (typically a rounded logo). */

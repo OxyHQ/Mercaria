@@ -53,10 +53,7 @@ import {
 import { findLatestSyncRunPerConnection } from '../../db/connectors/syncRunRepository.js';
 import { listFeedConfigurationsForOwner } from '../../db/feedImport/feedConfigurationRepository.js';
 import { listings } from '../../db/schema/catalog.js';
-import {
-  isSellerPaymentReady,
-  resolveNativeRail,
-} from '../payments/provider-account.service.js';
+import { isSellerPaymentReady, resolveNativeRail } from '../payments/provider-account.service.js';
 import { channelTypeForConnection, describeChannel } from './channel-catalog.js';
 
 /**
@@ -79,7 +76,9 @@ export async function deriveChannelReadiness(storeId: string): Promise<ChannelRe
     (connection) => connection.status === 'connected' && connection.fetchPausedAt === null,
   );
 
-  const feeds = config.feedImport.enabled ? await listFeedConfigurationsForOwner(getDb(), storeId) : [];
+  const feeds = config.feedImport.enabled
+    ? await listFeedConfigurationsForOwner(getDb(), storeId)
+    : [];
 
   const connectedChannelTypes: ChannelTypeId[] = [
     ...live.map((connection) => channelTypeForConnection(connection)),

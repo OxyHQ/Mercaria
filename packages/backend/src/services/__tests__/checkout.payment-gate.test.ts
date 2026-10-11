@@ -216,7 +216,6 @@ vi.mock('../../db/condition/conditionRepository.js', () => ({
   findConditionPhotosForListings: vi.fn(async () => []),
 }));
 
-
 const USER = 'buyer-gate';
 /** The resolved actor checkout takes since #105 (ADR 0003 D1). */
 const ACTOR = { kind: 'oxy', oxyUserId: USER } as const;

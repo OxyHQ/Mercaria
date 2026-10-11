@@ -74,7 +74,10 @@ export async function loadCandidateFacts(
     if (list) list.push(toEvaluableFact(row));
   }
 
-  const offerFacts = await offerFactsPort().factsForVariants(variantIds, options.offerContext ?? {});
+  const offerFacts = await offerFactsPort().factsForVariants(
+    variantIds,
+    options.offerContext ?? {},
+  );
 
   return {
     productId,
@@ -102,10 +105,7 @@ export async function loadCandidateFacts(
  * constraint deciding whether a product is "under Electronics" must not be able
  * to answer wrongly because a rollup went stale.
  */
-async function ancestorIdsOf(
-  db: DatabaseOrTransaction,
-  categoryId: string,
-): Promise<string[]> {
+async function ancestorIdsOf(db: DatabaseOrTransaction, categoryId: string): Promise<string[]> {
   const rows = await db.execute<{ id: string; depth: number }>(sql`
     with recursive ancestry as (
       select id, parent_id, 0 as depth from categories where id = ${categoryId}

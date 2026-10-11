@@ -35,10 +35,7 @@
  * asserts it against `BUYER_REQUEST_FORBIDDEN_IDENTIFIERS`.
  */
 
-import type {
-  BuyerRequestActorKind,
-  GuestOrderScope,
-} from '@mercaria/shared-types';
+import type { BuyerRequestActorKind, GuestOrderScope } from '@mercaria/shared-types';
 import type { GuestOrderAccessGrantRow } from '../../db/guestPortal/grantRepository.js';
 import { grantHasScope } from '../guest-portal/scopes.js';
 import { stepUpSatisfied } from '../guest-portal/grant.service.js';

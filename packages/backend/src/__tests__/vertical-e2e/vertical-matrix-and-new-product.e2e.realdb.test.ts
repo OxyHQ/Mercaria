@@ -43,7 +43,11 @@ import { sql } from 'drizzle-orm';
 import { connectPostgres, type Database } from '../../db/postgres.js';
 import { findCategoryByKey } from '../../db/taxonomy/taxonomyRepository.js';
 import { listReviewEvents } from '../../db/catalogProposals/proposalRepository.js';
-import { createDraft, patchDraft, validateStoreDraft } from '../../services/catalog-authoring/draft.service.js';
+import {
+  createDraft,
+  patchDraft,
+  validateStoreDraft,
+} from '../../services/catalog-authoring/draft.service.js';
 import { publishDraft } from '../../services/catalog-authoring/publish.service.js';
 import { createCanonicalProduct } from '../../services/canonical/canonical-product.service.js';
 import { createVariant } from '../../services/canonical/canonical-variant.service.js';
@@ -55,7 +59,12 @@ import { runCanonicalSearch } from '../../services/search/canonical-search.servi
 import { previewVariantSignature } from '../../services/variant-axes/variant-axes.service.js';
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { deleteTestCanonicalRows } from '../../db/__tests__/canonical-teardown.js';
-import { nsCategoryKey, nsKey, nsSlug, type VerticalNamespace } from '../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  nsSlug,
+  type VerticalNamespace,
+} from '../../scripts/seed-verticals/apply.js';
 import { FOOTWEAR_PACKAGE } from '../../scripts/seed-verticals/footwear.js';
 import { SMARTPHONE_PACKAGE } from '../../scripts/seed-verticals/smartphone.js';
 import {
@@ -193,7 +202,12 @@ afterAll(async () => {
 async function trailwindAxes(
   entry: { readonly size: string; readonly color: string; readonly width: string },
   order: readonly ('size' | 'color' | 'width')[] = ['size', 'color', 'width'],
-): Promise<readonly { readonly attributeKey: string; readonly values: readonly { readonly enumValueId: string }[] }[]> {
+): Promise<
+  readonly {
+    readonly attributeKey: string;
+    readonly values: readonly { readonly enumValueId: string }[];
+  }[]
+> {
   const byName = {
     size: {
       attributeKey: nsKey(fwNs, 'shoe_size_eu'),
@@ -216,7 +230,10 @@ describe('a variant signature ignores the order the axes were typed in', () => {
     const forward = [
       { attributeDefinitionId: 'aaaaaaaa-0000-0000-0000-000000000001', normalizedValue: '42' },
       { attributeDefinitionId: 'bbbbbbbb-0000-0000-0000-000000000002', normalizedValue: 'black' },
-      { attributeDefinitionId: 'cccccccc-0000-0000-0000-000000000003', normalizedValue: 'standard' },
+      {
+        attributeDefinitionId: 'cccccccc-0000-0000-0000-000000000003',
+        normalizedValue: 'standard',
+      },
     ];
     const reversed = [...forward].reverse();
     expect(previewVariantSignature(reversed)).toBe(previewVariantSignature(forward));
@@ -375,8 +392,7 @@ describe('the whole eight-configuration matrix, published as one listing', () =>
         sku: `${TOKEN}-M-${entry.size}-${entry.color}-${entry.width}`,
         inventoryAvailable: 2,
         price: { amount: 12900, currency: 'EUR' as const },
-        selectedCanonicalVariantId:
-          footwear.handles.variantIds.get(entry.key) ?? null,
+        selectedCanonicalVariantId: footwear.handles.variantIds.get(entry.key) ?? null,
         axes: await trailwindAxes(entry),
       })),
     );
@@ -587,7 +603,10 @@ describe('a genuinely NEW model, from proposal to a listing somebody can find', 
           price: { amount: 149900, currency: 'EUR' },
           selectedCanonicalVariantId: configuration.variant.id,
           axes: [
-            { attributeKey: nsKey(phNs, 'storage_capacity'), values: [{ number: 512, unit: 'GB' }] },
+            {
+              attributeKey: nsKey(phNs, 'storage_capacity'),
+              values: [{ number: 512, unit: 'GB' }],
+            },
             {
               attributeKey: nsKey(phNs, 'phone_color'),
               values: [{ enumValueId: await enumValueId(db, phNs, 'phone_color', 'black') }],

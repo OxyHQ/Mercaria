@@ -40,13 +40,23 @@ import {
 const router = Router();
 
 router.get('/product/:canonicalProductId', listProductReviews);
-router.get('/product/:canonicalProductId/media', validateId('canonicalProductId'), listProductReviewMedia);
+router.get(
+  '/product/:canonicalProductId/media',
+  validateId('canonicalProductId'),
+  listProductReviewMedia,
+);
 router.get('/merchant/:merchantId', listMerchantReviews);
 
 router.use(authenticateToken);
 
 router.get('/helpfulness', listReviewHelpfulnessHandler);
-router.put('/:id/helpfulness', makeRateLimiter('reviews'), validateId('id'), validateBody(reviewHelpfulnessBodySchema), updateReviewHelpfulnessHandler);
+router.put(
+  '/:id/helpfulness',
+  makeRateLimiter('reviews'),
+  validateId('id'),
+  validateBody(reviewHelpfulnessBodySchema),
+  updateReviewHelpfulnessHandler,
+);
 
 router.get('/eligibilities', listMyReviewEligibilities);
 router.get('/eligibilities/order/:orderId', listOrderReviewEligibilities);

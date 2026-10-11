@@ -59,7 +59,14 @@ const LIB_CATALOG = join(dirname(fileURLToPath(import.meta.url)), '..');
  * ever send.
  */
 const CATEGORY_TREE: readonly CategoryNode[] = [
-  { id: 'cat-root', name: 'Electronics', slug: 'electronics', parentId: null, imageFileId: 'category-art', children: [] },
+  {
+    id: 'cat-root',
+    name: 'Electronics',
+    slug: 'electronics',
+    parentId: null,
+    imageFileId: 'category-art',
+    children: [],
+  },
 ];
 
 /** One published navigation tree, which is what taxonomy v2 returns. */
@@ -125,7 +132,9 @@ describe('taxonomy v2 answers when it has something to say', () => {
 
 describe('the fallback — three different failures, one answer', () => {
   it('falls back when the lever is OFF and `/navigation` REJECTS (a 404)', async () => {
-    const io = readers({ trees: () => Promise.reject(new Error('Request failed with status 404')) });
+    const io = readers({
+      trees: () => Promise.reject(new Error('Request failed with status 404')),
+    });
     const navigation = await resolveCatalogNavigation({
       market: 'ES',
       locale: 'es',
@@ -187,7 +196,7 @@ describe('the fallback — three different failures, one answer', () => {
   });
 });
 
-describe('the fallback\'s own failure is NOT swallowed', () => {
+describe("the fallback's own failure is NOT swallowed", () => {
   it('REJECTS when the v1 read fails too, rather than returning an empty menu', async () => {
     // The case an over-broad `catch` would turn into a silent empty storefront.
     const io = readers({

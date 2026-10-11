@@ -64,9 +64,7 @@ export function parseCohort(kind: CatalogBackfillCohortKind, value: string | nul
     kind === 'connector_provider' &&
     !CONNECTOR_PROVIDER_IDS.some((provider) => provider === trimmed)
   ) {
-    throw validationError(
-      `Cohort connector_provider must be a known provider; got '${trimmed}'.`,
-    );
+    throw validationError(`Cohort connector_provider must be a known provider; got '${trimmed}'.`);
   }
   return { kind, value: trimmed };
 }
@@ -114,7 +112,9 @@ export function cohortListingPredicate(cohort: BackfillCohort): SQL | undefined 
         (candidate): candidate is ConnectorProviderId => candidate === cohort.value,
       );
       if (provider === undefined) {
-        throw validationError(`Cohort connector_provider '${cohort.value}' is not a known provider.`);
+        throw validationError(
+          `Cohort connector_provider '${cohort.value}' is not a known provider.`,
+        );
       }
       return eq(listings.sourceProvider, provider);
     }

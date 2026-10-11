@@ -136,7 +136,11 @@ router.get('/:provider/callback', makeRateLimiter('channels'), async (req, res) 
       res.redirect(302, `${successRedirect}${separator}connected=${provider}`);
       return;
     }
-    sendText(res, 200, `Connected to ${provider}. You can close this window and return to Mercaria.`);
+    sendText(
+      res,
+      200,
+      `Connected to ${provider}. You can close this window and return to Mercaria.`,
+    );
   } catch (err) {
     log.general.error({ err, provider }, 'Connector OAuth callback failed');
     if (isMercariaError(err)) {

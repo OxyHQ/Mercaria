@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from "react";
-import { Pressable, View, useWindowDimensions } from "react-native";
-import { CatalogImage } from "./CatalogImage";
-import type { CategoryTile } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
+import { useState, type ReactNode } from 'react';
+import { Pressable, View, useWindowDimensions } from 'react-native';
+import { CatalogImage } from './CatalogImage';
+import type { CategoryTile } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
 
 export interface CategoryShortcut {
   key: string;
@@ -27,15 +27,9 @@ export function CategoryTileGrid({
   const [width, setWidth] = useState(0);
   const columns = viewport >= 1024 ? 5 : viewport >= 640 ? 3 : 2;
   const gap = viewport >= 768 ? 16 : 12;
-  const cardWidth =
-    width > 0 ? (width - gap * (columns - 1)) / columns : undefined;
+  const cardWidth = width > 0 ? (width - gap * (columns - 1)) / columns : undefined;
   if (!tiles.length && !shortcuts.length) return null;
-  const renderTile = (
-    key: string,
-    label: string,
-    onPress: () => void,
-    preview: ReactNode,
-  ) => (
+  const renderTile = (key: string, label: string, onPress: () => void, preview: ReactNode) => (
     <Pressable
       key={key}
       accessibilityRole="link"
@@ -47,10 +41,7 @@ export function CategoryTileGrid({
       }}
       className="group rounded-[20px] bg-black/[0.04] p-4 dark:bg-white/[0.06] web:transition-colors web:duration-150 web:hover:bg-black/[0.07] web:motion-reduce:transition-none"
     >
-      <Text
-        className="mb-3 text-base font-semibold text-foreground"
-        numberOfLines={1}
-      >
+      <Text className="mb-3 text-base font-semibold text-foreground" numberOfLines={1}>
         {label}
       </Text>
       {preview}
@@ -78,13 +69,17 @@ export function CategoryTileGrid({
             () => onPressTile(tile.id, tile.slug),
             <View className="flex-row gap-3">
               {(tile.sampleImageFileIds?.length
-                ? tile.sampleImageFileIds.slice(0, 2).map((fileId) => ({ fileId, legacyUrl: undefined }))
+                ? tile.sampleImageFileIds
+                    .slice(0, 2)
+                    .map((fileId) => ({ fileId, legacyUrl: undefined }))
                 : tile.sampleImageUrls?.length
-                  ? tile.sampleImageUrls.slice(0, 2).map((legacyUrl) => ({ fileId: undefined, legacyUrl }))
+                  ? tile.sampleImageUrls
+                      .slice(0, 2)
+                      .map((legacyUrl) => ({ fileId: undefined, legacyUrl }))
                   : [{ fileId: tile.imageFileId, legacyUrl: tile.imageUrl }]
               ).map((image, index) => (
                 <CatalogImage
-                  key={`${image.fileId ?? image.legacyUrl ?? "missing"}-${index}`}
+                  key={`${image.fileId ?? image.legacyUrl ?? 'missing'}-${index}`}
                   {...image}
                   accessibilityLabel={tile.name}
                   className="aspect-square flex-1 overflow-hidden rounded-xl bg-background web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none"
@@ -94,12 +89,7 @@ export function CategoryTileGrid({
           ),
         )}
         {shortcuts.map((shortcut) =>
-          renderTile(
-            shortcut.key,
-            shortcut.label,
-            shortcut.onPress,
-            shortcut.preview,
-          ),
+          renderTile(shortcut.key, shortcut.label, shortcut.onPress, shortcut.preview),
         )}
       </View>
     </View>

@@ -9,10 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  AFFILIATE_CLICK_REFERENCE_SUPPORT,
-  AFFILIATE_NETWORK_IDS,
-} from '@mercaria/shared-types';
+import { AFFILIATE_CLICK_REFERENCE_SUPPORT, AFFILIATE_NETWORK_IDS } from '@mercaria/shared-types';
 import {
   AWIN_COMMISSION_STATUS_STATES,
   awinAmountText,
@@ -225,13 +222,22 @@ describe('the request Mercaria composes', () => {
 
   it('refuses a URL that is not on the configured Publisher API origin', () => {
     expect(() =>
-      assertAwinPublisherUrl('https://api.awin.com.evil.test/publishers/1/transactions/', 'https://api.awin.com'),
+      assertAwinPublisherUrl(
+        'https://api.awin.com.evil.test/publishers/1/transactions/',
+        'https://api.awin.com',
+      ),
     ).toThrow();
     expect(() =>
-      assertAwinPublisherUrl('http://api.awin.com/publishers/1/transactions/', 'https://api.awin.com'),
+      assertAwinPublisherUrl(
+        'http://api.awin.com/publishers/1/transactions/',
+        'https://api.awin.com',
+      ),
     ).toThrow();
     expect(() =>
-      assertAwinPublisherUrl('https://api.awin.com/publishers/1/transactions/', 'https://api.awin.com'),
+      assertAwinPublisherUrl(
+        'https://api.awin.com/publishers/1/transactions/',
+        'https://api.awin.com',
+      ),
     ).not.toThrow();
   });
 });
@@ -266,9 +272,7 @@ describe('the direct-partner seam', () => {
     if (EBAY_REPORT_READER_UNAVAILABLE.outcome !== 'unavailable') return;
     expect(DIRECT_REPORT_READER_UNAVAILABLE.detail).toContain('not polled');
     expect(DIRECT_REPORT_READER_UNAVAILABLE.detail).toContain('operator');
-    expect(DIRECT_REPORT_READER_UNAVAILABLE.detail).not.toBe(
-      EBAY_REPORT_READER_UNAVAILABLE.detail,
-    );
+    expect(DIRECT_REPORT_READER_UNAVAILABLE.detail).not.toBe(EBAY_REPORT_READER_UNAVAILABLE.detail);
   });
 
   it('supplies no click reference, for a REPOSITORY rule rather than a network policy', () => {

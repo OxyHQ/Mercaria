@@ -13,14 +13,28 @@ export async function readListingCatalogIdentities(
   if (variantIds.length === 0) return {};
   const db = getDb();
   const owned = new Set(variantIds);
-  const links = (await findActiveLinksForListing(db, listingId))
-    .filter(link => owned.has(link.productVariantId));
-  const variants = new Map((await findCanonicalVariantsByIds(db, links.map(link => link.canonicalVariantId)))
-    .filter(variant => SHOPPER_VISIBLE_CATALOG_STATUSES.includes(variant.status))
-    .map(variant => [variant.id, variant]));
-  const products = new Map((await findCanonicalProductsByIds(db, [...new Set([...variants.values()].map(variant => variant.productId))]))
-    .filter(product => SHOPPER_VISIBLE_CATALOG_STATUSES.includes(product.status))
-    .map(product => [product.id, product]));
+  const links = (await findActiveLinksForListing(db, listingId)).filter((link) =>
+    owned.has(link.productVariantId),
+  );
+  const variants = new Map(
+    (
+      await findCanonicalVariantsByIds(
+        db,
+        links.map((link) => link.canonicalVariantId),
+      )
+    )
+      .filter((variant) => SHOPPER_VISIBLE_CATALOG_STATUSES.includes(variant.status))
+      .map((variant) => [variant.id, variant]),
+  );
+  const products = new Map(
+    (
+      await findCanonicalProductsByIds(db, [
+        ...new Set([...variants.values()].map((variant) => variant.productId)),
+      ])
+    )
+      .filter((product) => SHOPPER_VISIBLE_CATALOG_STATUSES.includes(product.status))
+      .map((product) => [product.id, product]),
+  );
   const result: NonNullable<Listing['catalogIdentityByVariant']> = {};
   for (const link of links) {
     const variant = variants.get(link.canonicalVariantId);

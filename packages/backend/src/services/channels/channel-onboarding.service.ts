@@ -156,9 +156,7 @@ export async function startChannelOnboarding(input: {
 }
 
 /** This store's sessions, newest first, each with live blockers. */
-export async function listChannelOnboarding(
-  storeId: string,
-): Promise<ChannelOnboardingSession[]> {
+export async function listChannelOnboarding(storeId: string): Promise<ChannelOnboardingSession[]> {
   const rows = await listChannelOnboardingSessions(storeId);
   return await Promise.all(rows.map((row) => project(row)));
 }
@@ -473,10 +471,7 @@ export async function deriveActivationBlockers(
  */
 function settingsAreSupported(
   channelType: ChannelTypeId,
-  settings: Pick<
-    SyncSettings,
-    never
-  > & {
+  settings: Pick<SyncSettings, never> & {
     syncSettingsProducts: SyncSettings['products'];
     syncSettingsInventory: SyncSettings['inventory'];
     syncSettingsOrders: SyncSettings['orders'];

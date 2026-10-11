@@ -67,9 +67,7 @@ import { dirname, join, relative, sep } from 'node:path';
 import ts from 'typescript';
 
 /** One segment of a route as expo-router's file tree declares it. */
-export type RouteSegment =
-  | { kind: 'static'; value: string }
-  | { kind: 'param'; value: string };
+export type RouteSegment = { kind: 'static'; value: string } | { kind: 'param'; value: string };
 
 /** One segment of a navigation target read out of source. */
 export type TargetSegment =
@@ -341,7 +339,12 @@ export function resolveSpecifier(
   } else if (specifier === '@mercaria/shared-types') {
     base = join(packagesRoot, 'shared-types', 'src');
   } else if (specifier.startsWith('@mercaria/shared-types/')) {
-    base = join(packagesRoot, 'shared-types', 'src', specifier.slice('@mercaria/shared-types/'.length));
+    base = join(
+      packagesRoot,
+      'shared-types',
+      'src',
+      specifier.slice('@mercaria/shared-types/'.length),
+    );
   }
   if (base === null) return [];
 
@@ -485,11 +488,11 @@ export function parseTargetSegments(raw: string): TargetSegment[] | null {
   if (!raw.startsWith('/')) return null;
   if (raw.startsWith('//')) return null;
   const withoutQuery = raw.split('?')[0].split('#')[0];
-  const parts = withoutQuery
-    .split('/')
-    .filter((part) => part !== '' && !isGroupSegment(part));
+  const parts = withoutQuery.split('/').filter((part) => part !== '' && !isGroupSegment(part));
   return parts.map((part) =>
-    part.includes(EXPR_SENTINEL) ? { kind: 'expr' as const } : { kind: 'static' as const, value: part },
+    part.includes(EXPR_SENTINEL)
+      ? { kind: 'expr' as const }
+      : { kind: 'static' as const, value: part },
   );
 }
 
@@ -610,7 +613,11 @@ export function navTargetsOf(file: string): NavTarget[] {
       }
     }
     // `const target: RoutePath = '/x'`, then navigated to elsewhere.
-    if (ts.isVariableDeclaration(node) && isRouteTypeNode(node.type) && node.initializer !== undefined) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      isRouteTypeNode(node.type) &&
+      node.initializer !== undefined
+    ) {
       record(node.initializer);
     }
     ts.forEachChild(node, visit);

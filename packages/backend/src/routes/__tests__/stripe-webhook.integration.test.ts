@@ -344,7 +344,7 @@ describe('Stripe webhook endpoint scope', () => {
     expect(row?.providerAccountId).toBe('acct_test_1');
   });
 
-  it("the platform secret does NOT verify at the connect endpoint", async () => {
+  it('the platform secret does NOT verify at the connect endpoint', async () => {
     const payload = eventBody({
       id: 'evt_connect_wrong_secret',
       type: 'account.updated',

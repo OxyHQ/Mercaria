@@ -120,11 +120,7 @@ async function main(): Promise<void> {
     if (report.divergent > 0) failed = true;
 
     if (!apply) continue;
-    const verdict = await censusVerticalPackage(
-      db,
-      pkg,
-      namespaceFor(namespaceToken ?? pkg.name),
-    );
+    const verdict = await censusVerticalPackage(db, pkg, namespaceFor(namespaceToken ?? pkg.name));
     process.stdout.write(`\n${formatCensus(verdict)}\n`);
     if (verdict.outcome !== 'matched') failed = true;
   }

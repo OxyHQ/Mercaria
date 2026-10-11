@@ -153,8 +153,7 @@ const IMPORT_CLAUSE =
  *
  * Group 1 is the specifier, group 2 the property if the type form is used.
  */
-const DYNAMIC_IMPORT =
-  /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)(?:\s*\.\s*([A-Za-z_$][\w$]*))?/g;
+const DYNAMIC_IMPORT = /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)(?:\s*\.\s*([A-Za-z_$][\w$]*))?/g;
 
 /** A re-export: `export * from`, `export * as NS from`, `export { … } from`. */
 const RE_EXPORT =
@@ -292,7 +291,8 @@ function declaredNames(file: string, seen: Set<string>, into: Map<string, string
     } else if (clause.startsWith('*')) {
       declaredNames(target, seen, into);
     } else {
-      for (const name of exportedNames(clause.slice(1, -1))) if (!into.has(name)) into.set(name, target);
+      for (const name of exportedNames(clause.slice(1, -1)))
+        if (!into.has(name)) into.set(name, target);
     }
   }
 }
@@ -325,7 +325,8 @@ function buildBarrel(packageName: string, barrelPath: string): PackageBarrel {
       continue;
     }
     // `export { A, type B, C as D } from './x'` — the barrel states the map.
-    for (const name of exportedNames(clause.slice(1, -1))) if (!owners.has(name)) owners.set(name, target);
+    for (const name of exportedNames(clause.slice(1, -1)))
+      if (!owners.has(name)) owners.set(name, target);
   }
 
   return { packageName, path: barrelPath, owners, unresolved };
@@ -525,7 +526,9 @@ export function unfollowedPackageReferences(
         if (covered) continue;
         out.push({
           packageName: barrel.packageName,
-          context: stripped.slice(Math.max(0, at - 60), at + needle.length + 20).replace(/\s+/g, ' '),
+          context: stripped
+            .slice(Math.max(0, at - 60), at + needle.length + 20)
+            .replace(/\s+/g, ' '),
         });
       }
     }

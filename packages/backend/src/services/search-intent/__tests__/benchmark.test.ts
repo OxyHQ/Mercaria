@@ -131,7 +131,8 @@ describe('the deterministic interpreter clears its floor', () => {
     // read as a perfect score against nothing — #125's `unmeasured` verdict,
     // applied to a benchmark.
     for (const measurement of report.measurements) {
-      if (measurement.measure === 'cost_units' || measurement.measure === 'latency_p95_ms') continue;
+      if (measurement.measure === 'cost_units' || measurement.measure === 'latency_p95_ms')
+        continue;
       expect(
         measurement.sampleSize,
         `${measurement.measure} was computed over nothing`,
@@ -141,9 +142,7 @@ describe('the deterministic interpreter clears its floor', () => {
 
   it('never invents a hard requirement', async () => {
     const report = await runIntentBenchmark();
-    const invented = report.outcomes.filter(
-      (outcome) => outcome.falseHardConstraints.length > 0,
-    );
+    const invented = report.outcomes.filter((outcome) => outcome.falseHardConstraints.length > 0);
     expect(
       invented.map((outcome) => `${outcome.caseId}: ${outcome.falseHardConstraints.join(', ')}`),
       'the interpreter excluded products on a requirement nobody made',

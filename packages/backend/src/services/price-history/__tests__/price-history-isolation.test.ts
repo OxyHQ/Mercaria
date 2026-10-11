@@ -141,7 +141,6 @@ const RANKING_REFERENCE =
 const PAYMENT_REFERENCE =
   /payments\/|checkout\/|stripe|Stripe|PaymentIntent|payment_provider_events|ledger_entries|createPayment\w*\(/;
 
-
 const PRICE_HISTORY_REFERENCE =
   /price-history\/|priceHistory\/|offer_price_points|offer_price_snapshots|offerPricePoints|offerPriceSnapshots|derivePriceSeries|readPriceHistory/;
 
@@ -311,12 +310,14 @@ describe('the detectors actually detect — the mutation self-tests', () => {
 
   it('the reverse ranking detector sees a price-history import', () => {
     expect(
-      PRICE_HISTORY_REFERENCE.test("import { readPriceHistory } from '../price-history/read.service.js';"),
+      PRICE_HISTORY_REFERENCE.test(
+        "import { readPriceHistory } from '../price-history/read.service.js';",
+      ),
     ).toBe(true);
     expect(PRICE_HISTORY_REFERENCE.test('select * from offer_price_points')).toBe(true);
-    expect(PRICE_HISTORY_REFERENCE.test("import { listOffers } from './offers/offer.service.js';")).toBe(
-      false,
-    );
+    expect(
+      PRICE_HISTORY_REFERENCE.test("import { listOffers } from './offers/offer.service.js';"),
+    ).toBe(false);
   });
 
   it('the domain-name derivation selects the real files and not their neighbours', () => {
@@ -386,9 +387,11 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
   it('the relative population really is the one the walls scan', () => {
     // Two spellings of one population can disagree, so this pins them together:
     // every absolute path the detectors run over has a relative twin here.
-    expect(enumerateDomain().map((absolute) => absolute.slice(SRC_ROOT.length + 1)).sort()).toEqual(
-      domainRelativePaths().sort(),
-    );
+    expect(
+      enumerateDomain()
+        .map((absolute) => absolute.slice(SRC_ROOT.length + 1))
+        .sort(),
+    ).toEqual(domainRelativePaths().sort());
   });
 });
 

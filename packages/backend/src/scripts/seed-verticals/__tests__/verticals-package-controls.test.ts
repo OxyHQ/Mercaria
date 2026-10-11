@@ -199,7 +199,8 @@ describe.each(VERTICAL_PACKAGES.map((pkg) => [pkg.name, pkg] as const))(
       for (const product of pkg.products) {
         for (const fact of product.facts ?? []) expect(attributeKeys).toContain(fact.attributeKey);
         for (const variant of product.variants) {
-          for (const fact of variant.facts ?? []) expect(attributeKeys).toContain(fact.attributeKey);
+          for (const fact of variant.facts ?? [])
+            expect(attributeKeys).toContain(fact.attributeKey);
         }
       }
     });
@@ -215,9 +216,7 @@ describe.each(VERTICAL_PACKAGES.map((pkg) => [pkg.name, pkg] as const))(
       const configurations = new Set(
         pkg.vehicleMakes.flatMap((make) =>
           make.models.flatMap((model) =>
-            model.generations.flatMap((generation) =>
-              generation.configurations.map((c) => c.key),
-            ),
+            model.generations.flatMap((generation) => generation.configurations.map((c) => c.key)),
           ),
         ),
       );
@@ -461,7 +460,9 @@ describe('the size systems cannot be collapsed by anything in the package', () =
     const chartAt = (productKey: string, euSize: string): Record<string, string> => {
       const product = footwear.products.find((candidate) => candidate.key === productKey);
       const variant = product?.variants.find((candidate) =>
-        candidate.options.some((option) => option.key === 'shoe_size_eu' && option.value === euSize),
+        candidate.options.some(
+          (option) => option.key === 'shoe_size_eu' && option.value === euSize,
+        ),
       );
       const facts: Record<string, string> = {};
       for (const fact of variant?.facts ?? []) facts[fact.attributeKey] = fact.displayValue;
@@ -492,7 +493,9 @@ describe('nothing about a vehicle is a variant axis', () => {
 
   it('marks no attribute in the package variant-defining', () => {
     for (const attribute of brakePad.attributes) {
-      expect(attribute.variantDefining ?? false, `${attribute.key} is variant-defining`).toBe(false);
+      expect(attribute.variantDefining ?? false, `${attribute.key} is variant-defining`).toBe(
+        false,
+      );
     }
   });
 
@@ -517,18 +520,14 @@ describe('nothing about a vehicle is a variant axis', () => {
           (modelSum, model) =>
             modelSum +
             model.generations.reduce(
-              (generationSum, generation) =>
-                generationSum + generation.configurations.length,
+              (generationSum, generation) => generationSum + generation.configurations.length,
               0,
             ),
           0,
         ),
       0,
     );
-    const variants = brakePad.products.reduce(
-      (sum, product) => sum + product.variants.length,
-      0,
-    );
+    const variants = brakePad.products.reduce((sum, product) => sum + product.variants.length, 0);
     expect(variants).toBe(2);
     expect(configurations).toBe(13);
     expect(configurations).toBeGreaterThan(variants * 5);
@@ -553,9 +552,7 @@ describe('nothing about a vehicle is a variant axis', () => {
       vehicleMakes: [
         {
           ...make,
-          models: [
-            { ...model, generations: [{ ...generation, configurations: [configuration] }] },
-          ],
+          models: [{ ...model, generations: [{ ...generation, configurations: [configuration] }] }],
         },
       ],
     };
@@ -570,8 +567,7 @@ describe('nothing about a vehicle is a variant axis', () => {
         sum +
         m.models.reduce(
           (modelSum, candidate) =>
-            modelSum +
-            candidate.generations.reduce((gSum, g) => gSum + g.configurations.length, 0),
+            modelSum + candidate.generations.reduce((gSum, g) => gSum + g.configurations.length, 0),
           0,
         ),
       0,

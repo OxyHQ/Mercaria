@@ -57,9 +57,10 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
               value: variant.id,
               label,
               // An unavailable comparison has no offer count, not zero offers.
-              accessibilityLabel: variant.offerCount === undefined
-                ? label
-                : t('product.variant.offerCountA11y', { label, count: variant.offerCount }),
+              accessibilityLabel:
+                variant.offerCount === undefined
+                  ? label
+                  : t('product.variant.offerCountA11y', { label, count: variant.offerCount }),
             };
           }),
         ]}

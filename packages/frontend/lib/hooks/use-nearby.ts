@@ -27,7 +27,11 @@
 
 import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { ItemConditionKey, NearbyPlaceSuggestion, NearbyResponse } from '@mercaria/shared-types';
+import type {
+  ItemConditionKey,
+  NearbyPlaceSuggestion,
+  NearbyResponse,
+} from '@mercaria/shared-types';
 import {
   fetchGuestOrderCollection,
   fetchNearby,
@@ -83,8 +87,7 @@ export function useNearbyOrigin(): NearbyOriginState {
   const [requesting, setRequesting] = useState(false);
 
   const requestDeviceOrigin = useCallback(() => {
-    const geolocation =
-      typeof navigator === 'undefined' ? undefined : navigator.geolocation;
+    const geolocation = typeof navigator === 'undefined' ? undefined : navigator.geolocation;
     if (!geolocation) {
       setRefusal('unsupported');
       return;

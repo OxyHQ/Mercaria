@@ -166,13 +166,23 @@ export const canonicalProductObservationSchema = z
       )
       .max(50)
       .optional(),
-    media: z.array(z.object({
-      kind: z.enum(['image', 'video']),
-      fileId: idSchema.optional(),
-      sourceUrl: z.string().trim().url().max(2_000).optional(),
-      alt: localizedText('canonical_images.alt', { max: 500 }).optional(),
-      locale: z.string().trim().min(2).max(35).optional(),
-    }).strict().refine(media => media.fileId !== undefined || media.sourceUrl !== undefined, { message: 'A media item needs an Oxy file ID or source URL' })).max(50).optional(),
+    media: z
+      .array(
+        z
+          .object({
+            kind: z.enum(['image', 'video']),
+            fileId: idSchema.optional(),
+            sourceUrl: z.string().trim().url().max(2_000).optional(),
+            alt: localizedText('canonical_images.alt', { max: 500 }).optional(),
+            locale: z.string().trim().min(2).max(35).optional(),
+          })
+          .strict()
+          .refine((media) => media.fileId !== undefined || media.sourceUrl !== undefined, {
+            message: 'A media item needs an Oxy file ID or source URL',
+          }),
+      )
+      .max(50)
+      .optional(),
     identifiers: z
       .array(
         z
@@ -198,10 +208,9 @@ export const identifierAssignSchema = z
     note: z.string().trim().max(2_000).optional(),
   })
   .strict()
-  .refine(
-    (body) => (body.productId === undefined) !== (body.variantId === undefined),
-    { message: 'Provide exactly one of: productId, variantId' },
-  );
+  .refine((body) => (body.productId === undefined) !== (body.variantId === undefined), {
+    message: 'Provide exactly one of: productId, variantId',
+  });
 
 /** `POST /internal/canonical-catalog/identifiers/:id/correct`. */
 export const identifierCorrectSchema = z
@@ -235,8 +244,10 @@ export const canonicalProductLookupQuerySchema = z
   })
   .refine(
     (query) =>
-      [query.identifier !== undefined, query.alias !== undefined, query.sourceId !== undefined].filter(
-        Boolean,
-      ).length === 1,
+      [
+        query.identifier !== undefined,
+        query.alias !== undefined,
+        query.sourceId !== undefined,
+      ].filter(Boolean).length === 1,
     { message: 'Provide exactly one of: scheme+identifier, alias, sourceId+externalId' },
   );

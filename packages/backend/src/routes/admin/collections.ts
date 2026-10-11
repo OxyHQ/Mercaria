@@ -33,12 +33,7 @@ router.post(
   validateBody(createCollectionSchema),
   createStoreCollection,
 );
-router.get(
-  '/:id',
-  requireStorePermission('products:read'),
-  validateId('id'),
-  getStoreCollection,
-);
+router.get('/:id', requireStorePermission('products:read'), validateId('id'), getStoreCollection);
 router.patch(
   '/:id',
   requireStorePermission('collections:write'),

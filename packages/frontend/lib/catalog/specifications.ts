@@ -151,10 +151,7 @@ function localizedLabel(
  * only the number would leave the two spelled by different authorities.
  */
 function presentValue(value: PublicAttributeValue, locale: string): string {
-  if (
-    value.normalizedAmountMinor !== undefined &&
-    value.normalizedCurrency !== undefined
-  ) {
+  if (value.normalizedAmountMinor !== undefined && value.normalizedCurrency !== undefined) {
     return formatMoney(
       {
         amount: value.normalizedAmountMinor,

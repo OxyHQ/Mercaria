@@ -44,7 +44,11 @@ function routingTransport(handler: (method: string, url: string) => ShopifyHttpR
 }
 
 const AUTH: ConnectorAuth = { accessToken: 'shpat_test', shopDomain: 'acme.myshopify.com' };
-const ok = (body: unknown): ShopifyHttpResponse => ({ status: 200, headers: {}, body: JSON.stringify(body) });
+const ok = (body: unknown): ShopifyHttpResponse => ({
+  status: 200,
+  headers: {},
+  body: JSON.stringify(body),
+});
 
 describe('shopify fetchInventory — inventory_levels', () => {
   it('sums an item across locations and clamps negatives to zero', async () => {
@@ -97,12 +101,16 @@ describe('shopify fetchInventory — inventory_levels', () => {
   it('throws on a non-2xx inventory response', async () => {
     const { transport } = routingTransport(() => ({ status: 429, headers: {}, body: '{}' }));
     const provider = createShopifyProvider(transport);
-    await expect(provider.fetchInventory(AUTH, { inventoryItemIds: ['1'] })).rejects.toThrow(/inventory levels/i);
+    await expect(provider.fetchInventory(AUTH, { inventoryItemIds: ['1'] })).rejects.toThrow(
+      /inventory levels/i,
+    );
   });
 });
 
 describe('shopify pushFulfillment — line-level fulfillment orders → fulfillments', () => {
-  function handler(fulfillmentOrders: unknown): (method: string, url: string) => ShopifyHttpResponse {
+  function handler(
+    fulfillmentOrders: unknown,
+  ): (method: string, url: string) => ShopifyHttpResponse {
     return (method, url) => {
       if (method === 'get' && url.includes('/fulfillment_orders.json')) {
         return ok({ fulfillment_orders: fulfillmentOrders });
@@ -118,7 +126,9 @@ describe('shopify pushFulfillment — line-level fulfillment orders → fulfillm
   function fulfillmentBodies(calls: RecordedCall[]): Record<string, unknown>[] {
     return calls
       .filter((c) => c.method === 'post')
-      .map((c) => (JSON.parse(c.body ?? '{}') as { fulfillment: Record<string, unknown> }).fulfillment);
+      .map(
+        (c) => (JSON.parse(c.body ?? '{}') as { fulfillment: Record<string, unknown> }).fulfillment,
+      );
   }
 
   it('fulfills each OPEN fulfillment order at line level with the full tracking info', async () => {
@@ -132,8 +142,16 @@ describe('shopify pushFulfillment — line-level fulfillment orders → fulfillm
             { id: 12, fulfillable_quantity: 1, variant_id: 2 },
           ],
         },
-        { id: 5002, status: 'closed', line_items: [{ id: 13, fulfillable_quantity: 4, variant_id: 3 }] },
-        { id: 5003, status: 'in_progress', line_items: [{ id: 14, fulfillable_quantity: 3, variant_id: 4 }] },
+        {
+          id: 5002,
+          status: 'closed',
+          line_items: [{ id: 13, fulfillable_quantity: 4, variant_id: 3 }],
+        },
+        {
+          id: 5003,
+          status: 'in_progress',
+          line_items: [{ id: 14, fulfillable_quantity: 3, variant_id: 4 }],
+        },
       ]),
     );
     const provider = createShopifyProvider(transport);
@@ -172,7 +190,13 @@ describe('shopify pushFulfillment — line-level fulfillment orders → fulfillm
 
   it('omits tracking_info entirely when no tracking is present', async () => {
     const { transport, calls } = routingTransport(
-      handler([{ id: 5001, status: 'open', line_items: [{ id: 11, fulfillable_quantity: 1, variant_id: 1 }] }]),
+      handler([
+        {
+          id: 5001,
+          status: 'open',
+          line_items: [{ id: 11, fulfillable_quantity: 1, variant_id: 1 }],
+        },
+      ]),
     );
     const provider = createShopifyProvider(transport);
 
@@ -208,7 +232,13 @@ describe('shopify pushFulfillment — line-level fulfillment orders → fulfillm
 
   it('is a no-op (no POST) when every open fulfillment order is fully fulfilled', async () => {
     const { transport, calls } = routingTransport(
-      handler([{ id: 5001, status: 'open', line_items: [{ id: 11, fulfillable_quantity: 0, variant_id: 1 }] }]),
+      handler([
+        {
+          id: 5001,
+          status: 'open',
+          line_items: [{ id: 11, fulfillable_quantity: 0, variant_id: 1 }],
+        },
+      ]),
     );
     const provider = createShopifyProvider(transport);
 
@@ -219,7 +249,13 @@ describe('shopify pushFulfillment — line-level fulfillment orders → fulfillm
 
   it('is a no-op when the order has no open fulfillment orders (already fulfilled)', async () => {
     const { transport, calls } = routingTransport(
-      handler([{ id: 5001, status: 'closed', line_items: [{ id: 11, fulfillable_quantity: 3, variant_id: 1 }] }]),
+      handler([
+        {
+          id: 5001,
+          status: 'closed',
+          line_items: [{ id: 11, fulfillable_quantity: 3, variant_id: 1 }],
+        },
+      ]),
     );
     const provider = createShopifyProvider(transport);
 
@@ -258,7 +294,13 @@ describe('shopify pushFulfillment — line-level fulfillment orders → fulfillm
 
   it('PARTIAL: caps the requested quantity at what is still fulfillable', async () => {
     const { transport, calls } = routingTransport(
-      handler([{ id: 5001, status: 'open', line_items: [{ id: 11, fulfillable_quantity: 1, variant_id: 1 }] }]),
+      handler([
+        {
+          id: 5001,
+          status: 'open',
+          line_items: [{ id: 11, fulfillable_quantity: 1, variant_id: 1 }],
+        },
+      ]),
     );
     const provider = createShopifyProvider(transport);
 
@@ -275,7 +317,13 @@ describe('shopify pushFulfillment — line-level fulfillment orders → fulfillm
 
   it('PARTIAL: no POST when no requested variant matches an open line', async () => {
     const { transport, calls } = routingTransport(
-      handler([{ id: 5001, status: 'open', line_items: [{ id: 11, fulfillable_quantity: 5, variant_id: 1 }] }]),
+      handler([
+        {
+          id: 5001,
+          status: 'open',
+          line_items: [{ id: 11, fulfillable_quantity: 5, variant_id: 1 }],
+        },
+      ]),
     );
     const provider = createShopifyProvider(transport);
 
@@ -290,8 +338,8 @@ describe('shopify pushFulfillment — line-level fulfillment orders → fulfillm
   it('throws when the fulfillment-orders lookup fails', async () => {
     const { transport } = routingTransport(() => ({ status: 404, headers: {}, body: '{}' }));
     const provider = createShopifyProvider(transport);
-    await expect(
-      provider.pushFulfillment(AUTH, { externalOrderId: '1001' }),
-    ).rejects.toThrow(/fulfillment orders lookup/i);
+    await expect(provider.pushFulfillment(AUTH, { externalOrderId: '1001' })).rejects.toThrow(
+      /fulfillment orders lookup/i,
+    );
   });
 });

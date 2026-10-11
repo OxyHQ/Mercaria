@@ -246,7 +246,13 @@ describe('the ledger balances, per currency', () => {
     const huge = 2n ** 53n + 1n;
     await insertLedgerTransaction(db, { kind: 'adjustment', description: `big fair ${RUN_TAG}` }, [
       { account: 'provider_clearing', currency: 'FAIR', amountMinor: huge },
-      { account: 'merchant_payable', currency: 'FAIR', amountMinor: -huge, ownerType: 'store', ownerId: 'store-1' },
+      {
+        account: 'merchant_payable',
+        currency: 'FAIR',
+        amountMinor: -huge,
+        ownerType: 'store',
+        ownerId: 'store-1',
+      },
     ]);
 
     const rows = await db

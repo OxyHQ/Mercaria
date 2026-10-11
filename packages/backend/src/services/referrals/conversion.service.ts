@@ -37,10 +37,7 @@
  * payout-gate decision, not a conversion fact.
  */
 
-import type {
-  ReferralConversionReasonCode,
-  ReferralConversionType,
-} from '@mercaria/shared-types';
+import type { ReferralConversionReasonCode, ReferralConversionType } from '@mercaria/shared-types';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { getDb } from '../../db/postgres.js';
 import {

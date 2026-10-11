@@ -113,7 +113,11 @@ export function selectClarifications(
  * who does not hold the session.
  */
 export type ClarificationAnswerResolution =
-  | { readonly status: 'applied'; readonly kind: IntentClarificationKind; readonly optionId: string }
+  | {
+      readonly status: 'applied';
+      readonly kind: IntentClarificationKind;
+      readonly optionId: string;
+    }
   | { readonly status: 'not_open' };
 
 /**

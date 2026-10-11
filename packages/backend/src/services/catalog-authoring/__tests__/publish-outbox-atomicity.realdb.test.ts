@@ -75,7 +75,11 @@ import { enqueueOfferConvergence } from '../../../db/offers/offerOutboxRepositor
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
 import { createDraft, patchDraft, validateStoreDraft } from '../draft.service.js';
 import { publishDraft } from '../publish.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
   createTestStore,
@@ -111,7 +115,9 @@ async function outboxRow(): Promise<{ revision: number; status: string } | null>
       from offer_outboxes where listing_id = ${listingId}
   `);
   const row = [...rows][0];
-  return row === undefined ? null : { revision: Number(row.requested_revision), status: row.status };
+  return row === undefined
+    ? null
+    : { revision: Number(row.requested_revision), status: row.status };
 }
 
 beforeAll(async () => {

@@ -1,20 +1,20 @@
-import { useMemo, useState } from "react";
-import { View } from "react-native";
-import { Loading } from "@oxy.so/bloom/loading";
-import Head from "expo-router/head";
-import { useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { RiTimeLine } from "@oxy.so/bloom/icons/RiTimeLine";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
+import { useMemo, useState } from 'react';
+import { View } from 'react-native';
+import { Loading } from '@oxy.so/bloom/loading';
+import Head from 'expo-router/head';
+import { useRouter } from 'expo-router';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { RiTimeLine } from '@oxy.so/bloom/icons/RiTimeLine';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
 import {
   SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY,
   ShoppingAgentCard,
   ShoppingAgentFindingCard,
   Text,
-} from "@mercaria/ui";
-import type { ShoppingAgent, ShoppingAgentFinding } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/ui';
+import type { ShoppingAgent, ShoppingAgentFinding } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { useTranslation } from '@/lib/i18n';
 import {
   useDeleteShoppingAgent,
   useResolveShoppingAgentSplit,
@@ -23,7 +23,7 @@ import {
   useShoppingAgentFindings,
   useShoppingAgents,
   useUpdateShoppingAgentState,
-} from "@/lib/hooks/use-shopping-agents";
+} from '@/lib/hooks/use-shopping-agents';
 
 /** Icon size for the empty-state badge. */
 
@@ -100,12 +100,12 @@ export default function ShoppingAgentsScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>{t("shoppingAgents.headTitle")}</title>
+        <title>{t('shoppingAgents.headTitle')}</title>
       </Head>
 
       <View className="gap-space-16 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">{t("shoppingAgents.title")}</Text>
-        <Text className="text-sm text-text-secondary">{t("shoppingAgents.intro")}</Text>
+        <Text className="text-2xl font-bold text-foreground">{t('shoppingAgents.title')}</Text>
+        <Text className="text-sm text-text-secondary">{t('shoppingAgents.intro')}</Text>
         <Text className="text-shop-caption text-text-tertiary">
           {t(SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY)}
         </Text>
@@ -121,12 +121,12 @@ export default function ShoppingAgentsScreen() {
             ) : null}
 
             {agents.isError ? (
-              <Text className="text-sm text-text-secondary">
-                {t("shoppingAgents.loadError")}
-              </Text>
+              <Text className="text-sm text-text-secondary">{t('shoppingAgents.loadError')}</Text>
             ) : null}
 
-            {!agents.isPending && !agents.isError && list.length === 0 ? <EmptyAgentsPlaceholder /> : null}
+            {!agents.isPending && !agents.isError && list.length === 0 ? (
+              <EmptyAgentsPlaceholder />
+            ) : null}
 
             <View className="gap-space-12">
               {list.map((agent) => {
@@ -143,19 +143,18 @@ export default function ShoppingAgentsScreen() {
                       onToggleExpanded={() =>
                         setOpenAgentId((current) => (current === agent.id ? null : agent.id))
                       }
-                      onPause={() =>
-                        updateState.mutate({ agentId: agent.id, state: "paused" })
-                      }
-                      onResume={() =>
-                        updateState.mutate({ agentId: agent.id, state: "enabled" })
-                      }
+                      onPause={() => updateState.mutate({ agentId: agent.id, state: 'paused' })}
+                      onResume={() => updateState.mutate({ agentId: agent.id, state: 'enabled' })}
                       onDelete={() => remove.mutate(agent.id)}
                       onRunNow={() => runNow.mutate(agent.id)}
                       onResolveSplit={(_agent, resolution) =>
                         resolveSplit.mutate({ agentId: agent.id, resolution })
                       }
                       onOpenProduct={(canonicalProductId) =>
-                        router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
+                        router.push({
+                          pathname: '/p/[handle]',
+                          params: { handle: canonicalProductId },
+                        })
                       }
                     />
 
@@ -167,7 +166,10 @@ export default function ShoppingAgentsScreen() {
                         findings={findings.data ?? []}
                         constraintExplanations={constraintExplanations}
                         onOpenProduct={(canonicalProductId) =>
-                          router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
+                          router.push({
+                            pathname: '/p/[handle]',
+                            params: { handle: canonicalProductId },
+                          })
                         }
                       />
                     ) : null}
@@ -209,7 +211,7 @@ function FindingsTimeline({
   return (
     <View className="gap-space-8 ps-space-12">
       <Text className="text-shop-caption text-text-tertiary">
-        {asking ? t("shoppingAgents.findings.asking") : t("shoppingAgents.findings.intro")}
+        {asking ? t('shoppingAgents.findings.asking') : t('shoppingAgents.findings.intro')}
       </Text>
 
       {pending ? (
@@ -220,13 +222,13 @@ function FindingsTimeline({
 
       {failed ? (
         <Text className="text-shop-caption text-text-secondary">
-          {t("shoppingAgents.findings.loadError")}
+          {t('shoppingAgents.findings.loadError')}
         </Text>
       ) : null}
 
       {!pending && !failed && findings.length === 0 ? (
         <Text className="text-shop-caption text-text-secondary">
-          {t("shoppingAgents.findings.empty")}
+          {t('shoppingAgents.findings.empty')}
         </Text>
       ) : null}
 
@@ -248,8 +250,8 @@ function EmptyAgentsPlaceholder() {
     <EmptyState
       icon={RiTimeLine}
       media="circle"
-      title={t("shoppingAgents.empty.title")}
-      description={t("shoppingAgents.empty.body")}
+      title={t('shoppingAgents.empty.title')}
+      description={t('shoppingAgents.empty.body')}
     />
   );
 }
@@ -260,9 +262,9 @@ function SignedOutInvitation() {
     <EmptyState
       icon={RiTimeLine}
       media="circle"
-      title={t("shoppingAgents.signedOut.title")}
-      description={t("shoppingAgents.signedOut.body")}
-      action={{ label: t("login.signInButton"), onPress: () => openAccountDialog() }}
+      title={t('shoppingAgents.signedOut.title')}
+      description={t('shoppingAgents.signedOut.body')}
+      action={{ label: t('login.signInButton'), onPress: () => openAccountDialog() }}
     />
   );
 }

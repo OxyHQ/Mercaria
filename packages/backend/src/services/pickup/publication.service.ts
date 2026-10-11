@@ -44,7 +44,11 @@ import type {
 import { isUniqueViolation } from '@oxy.so/db';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb } from '../../db/postgres.js';
-import { findLocation, findLocationsByStore, type LocationRecord } from '../../db/stores/locationRepository.js';
+import {
+  findLocation,
+  findLocationsByStore,
+  type LocationRecord,
+} from '../../db/stores/locationRepository.js';
 import {
   findPublicationByLocationId,
   listPublicationEvents,
@@ -79,8 +83,13 @@ export async function readPublication(input: {
 }
 
 /** Every publication a store owns. */
-export async function listStorePublications(storeId: string): Promise<readonly MerchantLocationPublication[]> {
-  const [rows, locations] = await Promise.all([listPublicationsForStore(storeId), findLocationsByStore(storeId)]);
+export async function listStorePublications(
+  storeId: string,
+): Promise<readonly MerchantLocationPublication[]> {
+  const [rows, locations] = await Promise.all([
+    listPublicationsForStore(storeId),
+    findLocationsByStore(storeId),
+  ]);
   const byId = new Map(locations.map((location) => [location.id, location]));
   return rows.flatMap((row) => {
     const location = byId.get(row.locationId);
@@ -170,7 +179,7 @@ export async function upsertPublication(input: {
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw conflict(
-        'Another of this store\'s locations already trades from that GoWay place. A place names ' +
+        "Another of this store's locations already trades from that GoWay place. A place names " +
           'one location back, so unlink the other location first.',
       );
     }
@@ -226,7 +235,7 @@ export async function changePublicationState(input: {
     });
     if (link.missing.includes('goway_unavailable')) {
       throw new GoWayUnavailableError(
-        'GoWay could not confirm this location\'s place right now, so it was not published. Try again in a minute.',
+        "GoWay could not confirm this location's place right now, so it was not published. Try again in a minute.",
       );
     }
     if (link.verdict !== 'linked') throw unpublishable(link.missing);
@@ -313,7 +322,10 @@ async function requireOwnedPublication(
   return publication;
 }
 
-async function projectOwned(storeId: string, row: LocationPublicationRow): Promise<MerchantLocationPublication> {
+async function projectOwned(
+  storeId: string,
+  row: LocationPublicationRow,
+): Promise<MerchantLocationPublication> {
   const location = await findLocation(storeId, row.locationId);
   if (!location) throw notFound('Location not found');
   return projectPublication(row, location);

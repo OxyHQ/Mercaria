@@ -189,7 +189,10 @@ function activeCookieProfile(): ReturnType<typeof guestCookieProfile> {
  * Values another site's server quoted or encoded differently simply fail the
  * well-formedness check downstream, which is the correct uniform answer.
  */
-export function readGuestCookie(cookieHeader: string | undefined, name: string): string | undefined {
+export function readGuestCookie(
+  cookieHeader: string | undefined,
+  name: string,
+): string | undefined {
   if (cookieHeader === undefined || cookieHeader.length === 0) return undefined;
   // Bound the work on adversarial input before any parsing (issue #103,
   // "reject oversized … before expensive work"): a legitimate jar carrying
@@ -201,9 +204,7 @@ export function readGuestCookie(cookieHeader: string | undefined, name: string):
     if (part.slice(0, eq).trim() !== name) continue;
     const raw = part.slice(eq + 1).trim();
     // RFC 6265 permits optional double quotes around a cookie-value.
-    return raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2
-      ? raw.slice(1, -1)
-      : raw;
+    return raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2 ? raw.slice(1, -1) : raw;
   }
   return undefined;
 }

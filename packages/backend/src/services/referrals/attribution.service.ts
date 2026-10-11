@@ -38,7 +38,10 @@ import type { ReferralConflictReason, ReferralSubjectKind } from '@mercaria/shar
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb } from '../../db/postgres.js';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
-import { findActiveProgramVersion, findProgramVersionById } from '../../db/referrals/programRepository.js';
+import {
+  findActiveProgramVersion,
+  findProgramVersionById,
+} from '../../db/referrals/programRepository.js';
 import { findPartnerById } from '../../db/referrals/partnerRepository.js';
 import { findTouchById, type ReferralTouchRow } from '../../db/referrals/touchRepository.js';
 import {
@@ -56,10 +59,7 @@ import { appendReferralEvent } from '../../db/referrals/eventRepository.js';
 import { resolvePinnedRewardRuleRef } from './rewards/rule.service.js';
 import { enforcementPermitsAttribution } from './integrity/effects.js';
 import { readEnforcementEffects } from './integrity/enforcement.service.js';
-import {
-  assessSelfReferral,
-  selfReferralPermitsAttribution,
-} from './integrity/self-referral.js';
+import { assessSelfReferral, selfReferralPermitsAttribution } from './integrity/self-referral.js';
 import { collectSelfReferralFacts } from './integrity/self-referral.service.js';
 import { evaluateReferralPilotAdmission } from '../referral-pilot/pilot.service.js';
 
@@ -141,9 +141,7 @@ export async function attributeTouch(touchId: string): Promise<AttributionOutcom
 
     const subject = await deriveSubject(tx, touch, version.qualifyingEventPolicy);
     if (!version.eligibleSubjectKinds.includes(subject.subjectKind)) {
-      throw validationError(
-        `The program does not attribute ${subject.subjectKind} subjects`,
-      );
+      throw validationError(`The program does not attribute ${subject.subjectKind} subjects`);
     }
 
     // #148 / ADR 0005 D7: the self-referral detector, which the vocabulary has

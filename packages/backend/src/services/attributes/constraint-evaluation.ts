@@ -130,8 +130,7 @@ export function evaluateCandidate(
     verdict,
     hardOutcomes,
     preferenceOutcomes,
-    preferenceScore:
-      preferenceOutcomes.length === 0 ? 1 : satisfied / preferenceOutcomes.length,
+    preferenceScore: preferenceOutcomes.length === 0 ? 1 : satisfied / preferenceOutcomes.length,
     evaluationVersion: CONSTRAINT_EVALUATION_VERSION,
     normalizationRuleVersion: NORMALIZATION_RULE_VERSION,
   };
@@ -687,7 +686,9 @@ function evaluateText(preference: TextPreference, facts: CandidateFacts): Constr
   return {
     ...base,
     satisfaction: hit ? 'satisfied' : 'failed',
-    reason: hit ? `The text mentions '${preference.query}'.` : `The text does not mention '${preference.query}'.`,
+    reason: hit
+      ? `The text mentions '${preference.query}'.`
+      : `The text does not mention '${preference.query}'.`,
     sourceBacked: true,
   };
 }

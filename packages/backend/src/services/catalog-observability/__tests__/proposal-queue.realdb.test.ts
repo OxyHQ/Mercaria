@@ -194,8 +194,8 @@ function expectedBandCounts(): Map<string, number> {
     if (!open.has(fixture.state)) continue;
     const band = CATALOG_PROPOSAL_AGE_BANDS.find(
       (candidate) =>
-        fixture.ageSeconds >= candidate.fromSeconds
-        && (candidate.toSeconds === null || fixture.ageSeconds < candidate.toSeconds),
+        fixture.ageSeconds >= candidate.fromSeconds &&
+        (candidate.toSeconds === null || fixture.ageSeconds < candidate.toSeconds),
     );
     if (!band) continue;
     counts.set(band.key, (counts.get(band.key) ?? 0) + 1);
@@ -283,9 +283,7 @@ describe('#367 W6 — the proposal queue read, against Postgres', () => {
       // order is what says the read walked the vocabulary rather than whatever
       // states happened to have rows. An empty state is a bucket carrying zero,
       // never an absent bucket.
-      expect(after.depthByState.map((entry) => entry.state)).toEqual([
-        ...CATALOG_PROPOSAL_STATES,
-      ]);
+      expect(after.depthByState.map((entry) => entry.state)).toEqual([...CATALOG_PROPOSAL_STATES]);
       const beforeByState = new Map(before.depthByState.map((e) => [e.state, e.count]));
       const afterByState = new Map(after.depthByState.map((e) => [e.state, e.count]));
       const expectedStates = expectedStateCounts();
@@ -327,9 +325,7 @@ describe('#367 W6 — the proposal queue read, against Postgres', () => {
       // And the identity that flag stands for, computed here from the answer.
       expect(after.depthByState.reduce((total, e) => total + e.count, 0)).toBe(after.totalDepth);
       expect(
-        after.depthByState
-          .filter((e) => e.open)
-          .reduce((total, e) => total + e.count, 0),
+        after.depthByState.filter((e) => e.open).reduce((total, e) => total + e.count, 0),
       ).toBe(after.openDepth);
 
       /* ---- The bands, as a conserved partition ----------------------------- */
@@ -403,9 +399,7 @@ describe('#367 W6 — the proposal queue read, against Postgres', () => {
       // Four deferrals inserted, two of them still ahead. The distinction is the
       // whole point: a planned deferral reads as backlog and this is what lets a
       // reader subtract it.
-      expect(
-        (afterByState.get('deferred') ?? 0) - (beforeByState.get('deferred') ?? 0),
-      ).toBe(4);
+      expect((afterByState.get('deferred') ?? 0) - (beforeByState.get('deferred') ?? 0)).toBe(4);
       expect(
         after.deferredAheadCount - before.deferredAheadCount,
         'a lapsed deferral was counted as still deferred, or a live one was not',
@@ -462,12 +456,12 @@ describe('#367 W6 — the proposal queue read, against Postgres', () => {
       }
 
       process.stdout.write(
-        `\ncatalog proposal queue: open ${String(before.openDepth)} -> ${String(after.openDepth)}, `
-          + `bands ${after.agingBands.map((b) => `${b.key}=${String(b.count)}`).join(' ')}, `
-          + `p50/p90/p95 ${String(Math.round(after.waitAge.p50Seconds))}/`
-          + `${String(Math.round(after.waitAge.p90Seconds))}/`
-          + `${String(Math.round(after.waitAge.p95Seconds))}s, `
-          + `unbanded ${String(after.unbandedOpenCount)}, sla ${after.sla.state}\n`,
+        `\ncatalog proposal queue: open ${String(before.openDepth)} -> ${String(after.openDepth)}, ` +
+          `bands ${after.agingBands.map((b) => `${b.key}=${String(b.count)}`).join(' ')}, ` +
+          `p50/p90/p95 ${String(Math.round(after.waitAge.p50Seconds))}/` +
+          `${String(Math.round(after.waitAge.p90Seconds))}/` +
+          `${String(Math.round(after.waitAge.p95Seconds))}s, ` +
+          `unbanded ${String(after.unbandedOpenCount)}, sla ${after.sla.state}\n`,
       );
     });
   });

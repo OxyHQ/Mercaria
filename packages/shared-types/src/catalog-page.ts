@@ -534,12 +534,7 @@ export interface CatalogBreadcrumb {
  * #75 owns the SITEMAP and this domain does not build one — it publishes the
  * verdict a sitemap builder needs and nothing more.
  */
-export const CATALOG_PAGE_INDEXABILITY = [
-  'indexable',
-  'thin',
-  'no_index_right',
-  'merged',
-] as const;
+export const CATALOG_PAGE_INDEXABILITY = ['indexable', 'thin', 'no_index_right', 'merged'] as const;
 
 /** One of {@link CATALOG_PAGE_INDEXABILITY}. */
 export type CatalogPageIndexability = (typeof CATALOG_PAGE_INDEXABILITY)[number];

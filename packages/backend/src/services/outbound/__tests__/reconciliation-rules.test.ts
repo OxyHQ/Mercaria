@@ -192,7 +192,12 @@ describe('classifying an observation', () => {
 
   it('marks every kind but `unchanged` as changing the record', () => {
     expect(observationChangedTheRecord('unchanged')).toBe(false);
-    for (const kind of ['first_observation', 'state_change', 'amount_change', 'restated'] as const) {
+    for (const kind of [
+      'first_observation',
+      'state_change',
+      'amount_change',
+      'restated',
+    ] as const) {
       expect(observationChangedTheRecord(kind)).toBe(true);
     }
   });
@@ -280,7 +285,8 @@ describe('matching a reported transaction', () => {
 
 /** A posting row as the database would hand one back. */
 function posting(
-  overrides: Partial<AffiliateCommissionPostingRow> & Pick<AffiliateCommissionPostingRow, 'kind' | 'amountMinor'>,
+  overrides: Partial<AffiliateCommissionPostingRow> &
+    Pick<AffiliateCommissionPostingRow, 'kind' | 'amountMinor'>,
 ): AffiliateCommissionPostingRow {
   return {
     id: `posting-${String(overrides.revision ?? 1)}-${overrides.kind}`,
@@ -466,7 +472,9 @@ describe('planning the ledger postings', () => {
     expect(
       resolveRefusalAccountRef('ebay', { campaignId: '5338123456', attributionEnabled: false }),
     ).toBeNull();
-    expect(resolveRefusalAccountRef('ebay', { campaignId: '   ', attributionEnabled: true })).toBeNull();
+    expect(
+      resolveRefusalAccountRef('ebay', { campaignId: '   ', attributionEnabled: true }),
+    ).toBeNull();
     // Awin's refusal is reached only when no account row exists at all, so
     // there is no publisher id to name and the pass result carries the reason.
     expect(

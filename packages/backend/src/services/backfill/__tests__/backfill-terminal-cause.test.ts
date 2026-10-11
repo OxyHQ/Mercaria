@@ -34,9 +34,10 @@ const tally = (over: Partial<BackfillRunTally>): BackfillRunTally => ({
 describe('the terminal-cause vocabulary', () => {
   it('every producer cause is a real cause', () => {
     for (const cause of CATALOG_BACKFILL_PRODUCER_TERMINAL_CAUSES) {
-      expect(CATALOG_BACKFILL_TERMINAL_CAUSES, `${cause} is not in the stored vocabulary`).toContain(
-        cause,
-      );
+      expect(
+        CATALOG_BACKFILL_TERMINAL_CAUSES,
+        `${cause} is not in the stored vocabulary`,
+      ).toContain(cause);
     }
   });
 

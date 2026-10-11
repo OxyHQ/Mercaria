@@ -99,9 +99,7 @@ export function projectWatchlist(row: WatchlistRow, itemCount: number): Watchlis
     ...(row.templateKey === null ? {} : { templateKey: row.templateKey }),
     version: row.version,
     itemCount,
-    ...(row.lastEvaluatedAt === null
-      ? {}
-      : { lastEvaluatedAt: row.lastEvaluatedAt.toISOString() }),
+    ...(row.lastEvaluatedAt === null ? {} : { lastEvaluatedAt: row.lastEvaluatedAt.toISOString() }),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

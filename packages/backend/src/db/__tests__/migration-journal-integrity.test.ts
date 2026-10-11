@@ -159,11 +159,15 @@ function journalShape(chain: Chain): string[] {
   for (const entry of chain.entries) {
     const first = seen.get(entry.idx);
     if (first !== undefined) {
-      problems.push(`journal idx ${entry.idx} appears twice (positions ${first} and ${entry.idx}).`);
+      problems.push(
+        `journal idx ${entry.idx} appears twice (positions ${first} and ${entry.idx}).`,
+      );
     }
     seen.set(entry.idx, entry.idx);
   }
-  for (const [before, after] of chain.entries.slice(0, -1).map((e, i) => [e, chain.entries[i + 1]])) {
+  for (const [before, after] of chain.entries
+    .slice(0, -1)
+    .map((e, i) => [e, chain.entries[i + 1]])) {
     if (!(before.when < after.when)) {
       problems.push(
         `journal \`when\` does not increase from idx ${before.idx} (${before.when}) to idx ${after.idx} (${after.when}) — a hand-edited or hand-reordered journal.`,
@@ -192,7 +196,9 @@ function setAgreement(chain: Chain): string[] {
     [...from].filter((idx) => !against.has(idx)).sort((a, b) => a - b);
 
   for (const idx of missing(journal, sql)) {
-    problems.push(`idx ${idx} is in the journal with no \`.sql\` file — the migrator would fail to read it.`);
+    problems.push(
+      `idx ${idx} is in the journal with no \`.sql\` file — the migrator would fail to read it.`,
+    );
   }
   for (const idx of missing(sql, journal)) {
     problems.push(
@@ -378,7 +384,9 @@ describe('the detectors — each mutation is a copy of the REAL chain with one f
     mutated.snapshots.delete(victim);
     expect(mutated.snapshots.has(victim)).toBe(false);
 
-    expect(setAgreement(mutated).join('\n')).toMatch(/_snapshot\.json` — the whole suite stays green/u);
+    expect(setAgreement(mutated).join('\n')).toMatch(
+      /_snapshot\.json` — the whole suite stays green/u,
+    );
     // The point of this clause, stated as an assertion: nothing else notices.
     // The journal is untouched, every `.sql` is present and every tag agrees, so
     // the three detectors a reader would expect to cover this all pass.

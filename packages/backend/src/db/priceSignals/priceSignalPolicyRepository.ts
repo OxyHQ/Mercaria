@@ -160,7 +160,12 @@ export async function activatePriceSignalPolicyVersion(
     const rows = await tx
       .update(priceSignalPolicyVersions)
       .set({ status: 'active', activatedAt: now, approvedByOxyUserId })
-      .where(and(eq(priceSignalPolicyVersions.id, id), sql`${priceSignalPolicyVersions.status} in ('draft', 'superseded')`))
+      .where(
+        and(
+          eq(priceSignalPolicyVersions.id, id),
+          sql`${priceSignalPolicyVersions.status} in ('draft', 'superseded')`,
+        ),
+      )
       .returning();
     return rows[0];
   });

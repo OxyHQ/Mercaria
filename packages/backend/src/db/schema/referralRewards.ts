@@ -82,7 +82,12 @@ import {
   REFERRAL_REWARD_STATES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, CURRENCY_CODE_VALUES } from './columns';
-import { referralAttributions, referralConversions, referralPartners, referralPrograms } from './referrals';
+import {
+  referralAttributions,
+  referralConversions,
+  referralPartners,
+  referralPrograms,
+} from './referrals';
 
 /** Bound on a stored reason — the `referral_events` bound, same reasoning. */
 const MAX_REASON_LENGTH = 2_000;
@@ -169,7 +174,9 @@ export const referralRewardRules = pgTable(
     /** Field 13 — set at activation, never before; the CHECK holds the pair. */
     approvedByOxyUserId: text(),
     /** Field 14 */
-    status: text({ enum: asEnumValues(REFERRAL_REWARD_RULE_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(REFERRAL_REWARD_RULE_STATUSES) })
+      .notNull()
+      .default('draft'),
     activatedAt: timestamptz(),
     supersededAt: timestamptz(),
     retiredAt: timestamptz(),
@@ -455,7 +462,9 @@ export const referralRewards = pgTable(
      * There is no second column, because this domain converts nothing.
      */
     currency: text({ enum: CURRENCY_CODE_VALUES }).notNull(),
-    state: text({ enum: asEnumValues(REFERRAL_REWARD_STATES) }).notNull().default('held'),
+    state: text({ enum: asEnumValues(REFERRAL_REWARD_STATES) })
+      .notNull()
+      .default('held'),
     /** Accrual + the pinned rule version's hold (ADR 0005 D12). */
     holdUntilAt: timestamptz().notNull(),
     /** Where a `frozen` reward came from, so a freeze can only ever be a pause. */
@@ -589,11 +598,7 @@ export const referralRewardAdjustments = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf(
-      'referral_reward_adjustments_cause_check',
-      t.cause,
-      REFERRAL_REWARD_REVERSAL_CAUSES,
-    ),
+    checkOneOf('referral_reward_adjustments_cause_check', t.cause, REFERRAL_REWARD_REVERSAL_CAUSES),
     checkOneOf(
       'referral_reward_adjustments_recovery_state_check',
       t.recoveryState,

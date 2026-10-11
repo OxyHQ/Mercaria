@@ -65,7 +65,8 @@ export function sellerDedupKey(offer: {
   readonly merchantId?: string;
   readonly listingId?: string;
 }): string | undefined {
-  if (offer.merchantId !== undefined && offer.merchantId !== '') return `merchant:${offer.merchantId}`;
+  if (offer.merchantId !== undefined && offer.merchantId !== '')
+    return `merchant:${offer.merchantId}`;
   if (offer.listingId !== undefined && offer.listingId !== '') return `listing:${offer.listingId}`;
   return undefined;
 }
@@ -93,9 +94,7 @@ export interface DeduplicatedSample {
  * nine feeds clears the offer floor honestly and the seller floor honestly, and
  * neither number can be inflated by the other.
  */
-export function deduplicateBySeller(
-  entries: readonly PriceSampleEntry[],
-): DeduplicatedSample {
+export function deduplicateBySeller(entries: readonly PriceSampleEntry[]): DeduplicatedSample {
   const bySeller = new Map<string, PriceSampleEntry>();
   const offerIds = new Set<string>();
 

@@ -116,9 +116,7 @@ afterAll(async () => {
       .from(priceAlerts)
       .where(eq(priceAlerts.oxyUserId, BUYER))
   ).map((row) => row.id);
-  await db
-    .delete(notifications)
-    .where(inArray(notifications.oxyUserId, [BUYER]));
+  await db.delete(notifications).where(inArray(notifications.oxyUserId, [BUYER]));
   // The alert cascades its triggers, their quotes and their delivery records.
   await db.delete(priceAlerts).where(inArray(priceAlerts.id, safeIds(alertIds)));
   await db
@@ -198,7 +196,10 @@ async function mintMerchant(label: string): Promise<string> {
 async function bringUpSource(
   label: string,
 ): Promise<{ sourceId: string; provider: string; merchantId: string }> {
-  const provider = `pa-${label}-${RUN}`.toLowerCase().replace(/[^a-z0-9_-]/gu, '').slice(0, 64);
+  const provider = `pa-${label}-${RUN}`
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/gu, '')
+    .slice(0, 64);
   const merchantId = await mintMerchant(label);
   const resolved = await configureIngestionSource({
     name: `Price alert source ${label} ${RUN}`,
@@ -283,7 +284,9 @@ async function observe(input: {
   });
 }
 
-function newAlert(overrides: Partial<NewPriceAlert> & Pick<NewPriceAlert, 'canonicalProductId'>): NewPriceAlert {
+function newAlert(
+  overrides: Partial<NewPriceAlert> & Pick<NewPriceAlert, 'canonicalProductId'>,
+): NewPriceAlert {
   return {
     oxyUserId: BUYER,
     canonicalVariantId: null,
@@ -325,7 +328,9 @@ describe('ACCEPTANCE 1: one trigger and one notification, despite duplicate sour
       observedAt: new Date(),
     });
 
-    const alert = await insertPriceAlert(newAlert({ canonicalProductId: productId, repeatPolicy: 'always' }));
+    const alert = await insertPriceAlert(
+      newAlert({ canonicalProductId: productId, repeatPolicy: 'always' }),
+    );
 
     // Three evaluations of ONE unchanged observation — a duplicate source event,
     // an FX re-check and a second worker all look exactly like this.
@@ -671,7 +676,9 @@ describe('ACCEPTANCE 5: merge, split and variant change', () => {
     // The split job rows themselves belong to #59; this exercise is about the
     // MARKING, so the job ids are supplied directly and the FK is relaxed for
     // the two probe rows below.
-    await db.execute(sql`alter table price_alerts drop constraint price_alerts_split_job_id_catalog_split_jobs_id_fk`);
+    await db.execute(
+      sql`alter table price_alerts drop constraint price_alerts_split_job_id_catalog_split_jobs_id_fk`,
+    );
     try {
       const marked = await markPriceAlertsAmbiguousAfterSplit({
         sourceCanonicalProductId: productId,
@@ -698,11 +705,14 @@ describe('ACCEPTANCE 5: merge, split and variant change', () => {
       const outcome = await evaluatePriceAlertsForProduct(productId);
       expect(outcome.evaluatedAlerts).toBe(0);
     } finally {
-      await db.update(priceAlerts).set({
-        resolutionState: 'resolved',
-        splitJobId: null,
-        splitTargetCanonicalProductId: null,
-      }).where(eq(priceAlerts.id, alert.id));
+      await db
+        .update(priceAlerts)
+        .set({
+          resolutionState: 'resolved',
+          splitJobId: null,
+          splitTargetCanonicalProductId: null,
+        })
+        .where(eq(priceAlerts.id, alert.id));
       await db.execute(
         sql`alter table price_alerts add constraint price_alerts_split_job_id_catalog_split_jobs_id_fk
             foreign key (split_job_id) references catalog_split_jobs(id) on delete restrict`,
@@ -833,7 +843,11 @@ describe('ACCEPTANCE 7: a buyer with no push registration is never told delivery
     // no push registration, so `channels` is `in_app` alone and there is no
     // claim anywhere that a push went out.
     const [feed] = await db
-      .select({ channels: notifications.channels, deliveryStatus: notifications.deliveryStatus, type: notifications.type })
+      .select({
+        channels: notifications.channels,
+        deliveryStatus: notifications.deliveryStatus,
+        type: notifications.type,
+      })
       .from(notifications)
       .where(eq(notifications.id, after[0]?.row.notificationId ?? ''))
       .limit(1);
@@ -1041,7 +1055,9 @@ describe('the CHECKs that a mocked insert would accept', () => {
 
   it('an ambiguous alert must be paused, and a paused one need not be ambiguous', async () => {
     const productId = await mintProduct('ambiguity-check');
-    await db.execute(sql`alter table price_alerts drop constraint price_alerts_split_job_id_catalog_split_jobs_id_fk`);
+    await db.execute(
+      sql`alter table price_alerts drop constraint price_alerts_split_job_id_catalog_split_jobs_id_fk`,
+    );
     try {
       const message = await rejectionMessage(() =>
         db.insert(priceAlerts).values({
@@ -1139,7 +1155,7 @@ describe('the CHECKs that a mocked insert would accept', () => {
 });
 
 describe('erasure is ONE scoped delete, and it takes the history with it', () => {
-  it('deleting a buyer\'s alerts cascades their triggers, quotes and deliveries', async () => {
+  it("deleting a buyer's alerts cascades their triggers, quotes and deliveries", async () => {
     const source = await bringUpSource('erase');
     const productId = await mintProduct('erase');
     const variantId = await mintVariant(productId);

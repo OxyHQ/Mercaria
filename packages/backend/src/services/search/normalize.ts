@@ -216,7 +216,11 @@ function readIdentifierCandidates(token: string): SearchIdentifierCandidate[] {
  * name would change what the name IS.
  */
 export function normalizeSearchQuery(term: string): NormalizedSearchQuery {
-  const bounded = term.normalize('NFKC').replace(/\s+/gu, ' ').trim().slice(0, SEARCH_QUERY_MAX_LENGTH);
+  const bounded = term
+    .normalize('NFKC')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, SEARCH_QUERY_MAX_LENGTH);
 
   // The identifier read runs on the RAW tokens: a barcode may be typed with
   // hyphens or spaces, which the name fold would have collapsed away along with
@@ -232,7 +236,8 @@ export function normalizeSearchQuery(term: string): NormalizedSearchQuery {
   const identifierTokens = new Set(identifiers.map((identifier) => identifier.rawValue));
 
   const normalized = normalizeEntityName(bounded);
-  const tokens = normalized.length === 0 ? [] : normalized.split(' ').slice(0, SEARCH_QUERY_MAX_TOKENS);
+  const tokens =
+    normalized.length === 0 ? [] : normalized.split(' ').slice(0, SEARCH_QUERY_MAX_TOKENS);
   const discriminatingTokens = tokens.filter(isDiscriminatingToken);
 
   return {

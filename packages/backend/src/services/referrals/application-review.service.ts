@@ -339,9 +339,7 @@ export async function resolvePartnerAppeal(input: {
  * added to `REFERRAL_ENROLLMENT_MODE_RULES` without an answer fails `tsc`
  * rather than defaulting to payable. The payout gate consumes it.
  */
-export function enrollmentEarnsProductionRewards(partner: {
-  enrollmentMode: string;
-}): boolean {
+export function enrollmentEarnsProductionRewards(partner: { enrollmentMode: string }): boolean {
   const rule =
     REFERRAL_ENROLLMENT_MODE_RULES[
       partner.enrollmentMode as keyof typeof REFERRAL_ENROLLMENT_MODE_RULES

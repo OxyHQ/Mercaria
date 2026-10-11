@@ -66,20 +66,26 @@ import { connectPushIn, ingestProducts } from '../channel-ingest.service.js';
 // Only external image transports are replaced. Store ownership, media sync,
 // catalog services, repositories and PostgreSQL constraints remain real.
 const { mediaUpload } = vi.hoisted(() => ({ mediaUpload: vi.fn() }));
-vi.mock('@oxy.so/core/server', async importOriginal => ({
-  ...await importOriginal<typeof import('@oxy.so/core/server')>(),
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
   safeFetch: async () => ({
-    status: 200, headers: { 'content-type': 'image/png' },
+    status: 200,
+    headers: { 'content-type': 'image/png' },
     response: Readable.from([Buffer.from('fixture image')]),
   }),
 }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.test', serviceToken: async () => 'fixture-token' }),
+  oxyServiceClient: () => ({
+    baseURL: 'https://api.oxy.test',
+    serviceToken: async () => 'fixture-token',
+  }),
 }));
 beforeEach(() => {
-  mediaUpload.mockReset().mockImplementation(async () => Response.json({
-    data: { file: { id: 'oxy-synchronized-image', visibility: 'public' } },
-  }));
+  mediaUpload.mockReset().mockImplementation(async () =>
+    Response.json({
+      data: { file: { id: 'oxy-synchronized-image', visibility: 'public' } },
+    }),
+  );
   vi.stubGlobal('fetch', mediaUpload);
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -567,7 +573,10 @@ describe('the connector PULL path strands nothing when a product fails (#221)', 
       fixture.connection.id,
       'woo-atomic-1',
     );
-    expect(imported, 'the recovered run must leave a listing the next sync can MATCH').not.toBeNull();
+    expect(
+      imported,
+      'the recovered run must leave a listing the next sync can MATCH',
+    ).not.toBeNull();
     expect(imported?.handle).toBe('atomicity-tee');
     expect(imported?.sourceProvider).toBe('woocommerce');
     expect(imported?.sourceExternalUpdatedAt).toEqual(new Date('2026-08-01T10:00:00Z'));
@@ -889,8 +898,12 @@ describe('one listing per provenance key, enforced by the storage (#221)', () =>
         sourceExternalId: 'woo-preexisting-duplicate',
         createdAt: new Date(createdAt),
       });
-      await tx.insert(listings).values(duplicate(older, 'Older survivor', 'dup-older', '2026-08-01T10:00:00Z'));
-      await tx.insert(listings).values(duplicate(newer, 'Newer duplicate', 'dup-newer', '2026-08-01T11:00:00Z'));
+      await tx
+        .insert(listings)
+        .values(duplicate(older, 'Older survivor', 'dup-older', '2026-08-01T10:00:00Z'));
+      await tx
+        .insert(listings)
+        .values(duplicate(newer, 'Newer duplicate', 'dup-newer', '2026-08-01T11:00:00Z'));
 
       for (const statement of statements) {
         await tx.execute(sql.raw(statement));
@@ -1118,7 +1131,6 @@ describe('the channel PUSH-IN path strands nothing either (#221)', () => {
   });
 });
 
-
 describe('catalog media uses stored Oxy IDs in PostgreSQL', () => {
   it('persists only the returned ID and preserves the existing gallery on storage failure', async () => {
     const fixture = await makePullFixture();
@@ -1126,12 +1138,18 @@ describe('catalog media uses stored Oxy IDs in PostgreSQL', () => {
     const first = await runBackfill(fixture.storeId, fixture.connection.id);
     expect(first.countsCreated).toBe(1);
     const [listing] = await listingsOf(fixture.storeId);
-    const gallery = () => db.select().from(listingImages).where(eq(listingImages.listingId, listing.id));
+    const gallery = () =>
+      db.select().from(listingImages).where(eq(listingImages.listingId, listing.id));
     const before = await gallery();
-    expect(before.map(row => row.fileId)).toEqual(['oxy-synchronized-image']);
+    expect(before.map((row) => row.fileId)).toEqual(['oxy-synchronized-image']);
     expect(mediaUpload.mock.calls[0][1].headers['x-owner-user-id']).toMatch(/^owner-/);
 
-    installProviderYielding([normalizedProduct({ title: 'Must not replace title', imageUrls: ['https://supplier.example/new.png'] })]);
+    installProviderYielding([
+      normalizedProduct({
+        title: 'Must not replace title',
+        imageUrls: ['https://supplier.example/new.png'],
+      }),
+    ]);
     mediaUpload.mockResolvedValue(new Response('Denied', { status: 403 }));
     const failed = await runBackfill(fixture.storeId, fixture.connection.id);
     expect(failed.countsFailed).toBe(1);

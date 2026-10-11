@@ -286,7 +286,7 @@ describe('the merchant surface renders the pin set', () => {
 });
 
 describe('the merchant can release a pin (#427)', () => {
-  it("the product screen renders the release controls AND reaches the mutation", () => {
+  it('the product screen renders the release controls AND reaches the mutation', () => {
     // Both halves, because either alone describes a screen that does not work: a
     // control wired to nothing, or a mutation nothing can reach. Neither fails
     // `tsc` and neither fails a bundle, so this is the only thing in CI that
@@ -346,9 +346,14 @@ describe('the merchant can release a pin (#427)', () => {
     // reason: an absent or renamed subtree contains no forbidden word.
     const shared = JSON.parse(readFileSync(join(PACKAGES_ROOT, SHARED_EN_BUNDLE), 'utf8'));
     const connector = shared?.ui?.connector;
-    expect(connector, 'the shared connector copy is missing from the bundle entirely').toBeDefined();
+    expect(
+      connector,
+      'the shared connector copy is missing from the bundle entirely',
+    ).toBeDefined();
     const sharedCopy = JSON.stringify(connector);
-    expect(sharedCopy.length, 'the shared connector copy is present but empty').toBeGreaterThan(200);
+    expect(sharedCopy.length, 'the shared connector copy is present but empty').toBeGreaterThan(
+      200,
+    );
     expect(connector.pinRelease, 'the connection-wide release sentence is gone').toBeTruthy();
     expect(sharedCopy).not.toMatch(FALSE_RESTORE_PROMISE);
   });

@@ -40,11 +40,7 @@ router.get(
 );
 
 /** GET /brand-relationships/brands/:brandId/channels — direct channels and resellers, separately. */
-router.get(
-  '/brands/:brandId/channels',
-  validateQuery(brandChannelsQuerySchema),
-  getBrandChannels,
-);
+router.get('/brands/:brandId/channels', validateQuery(brandChannelsQuerySchema), getBrandChannels);
 
 /** GET /brand-relationships/merchants/:merchantId/brands — the merchant-page mirror. */
 router.get(

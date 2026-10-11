@@ -19,10 +19,16 @@ import type { ChannelDisconnectPolicy, ChannelPauseScope } from '@mercaria/share
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { findConnection, setConnectionPause } from '../../db/connectors/connectionRepository.js';
 import { listSyncRunsForConnection } from '../../db/connectors/syncRunRepository.js';
-import { recordChannelAuditEvent, listChannelAuditEvents } from '../../db/channels/channelAuditRepository.js';
+import {
+  recordChannelAuditEvent,
+  listChannelAuditEvents,
+} from '../../db/channels/channelAuditRepository.js';
 import { notFound, respondWithError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
-import { channelTypeForConnection, listChannelTypes } from '../../services/channels/channel-catalog.js';
+import {
+  channelTypeForConnection,
+  listChannelTypes,
+} from '../../services/channels/channel-catalog.js';
 import { disconnectChannel } from '../../services/channels/channel-disconnect.service.js';
 import {
   abandonChannelOnboarding,
@@ -35,10 +41,7 @@ import {
 import { deriveChannelReadiness } from '../../services/channels/channel-readiness.js';
 import { reconcileChannel } from '../../services/channels/channel-reconciliation.service.js';
 import { listStoreChannels } from '../../services/channels/channel-summary.service.js';
-import {
-  readSyncRunRecordFailures,
-  toSyncRunDTO,
-} from '../../services/connector-sync.service.js';
+import { readSyncRunRecordFailures, toSyncRunDTO } from '../../services/connector-sync.service.js';
 import { sendSuccess } from '../../utils/api-response.js';
 import { routeParam } from '../../utils/request.js';
 
@@ -150,10 +153,7 @@ export async function listChannelRunRecordFailuresHandler(
  * GET /admin/stores/:storeId/channels/:connectionId/reconciliation — what is
  * already indexed for this merchant, and where it overlaps.
  */
-export async function getChannelReconciliationHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function getChannelReconciliationHandler(req: Request, res: Response): Promise<void> {
   try {
     const connectionId = routeParam(req, 'connectionId');
     sendSuccess(res, await reconcileChannel(storeId(req), connectionId));
@@ -273,7 +273,9 @@ export async function listChannelAuditHandler(req: Request, res: Response): Prom
 /** POST /admin/stores/:storeId/channels/onboarding — start or resume a wizard. */
 export async function startChannelOnboardingHandler(req: Request, res: Response): Promise<void> {
   try {
-    const { channelType } = req.body as { channelType: Parameters<typeof startChannelOnboarding>[0]['channelType'] };
+    const { channelType } = req.body as {
+      channelType: Parameters<typeof startChannelOnboarding>[0]['channelType'];
+    };
     const { session } = await startChannelOnboarding({
       storeId: storeId(req),
       channelType,
@@ -307,10 +309,7 @@ export async function getChannelOnboardingHandler(req: Request, res: Response): 
 }
 
 /** PATCH /admin/stores/:storeId/channels/onboarding/:sessionId — advance a step. */
-export async function advanceChannelOnboardingHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function advanceChannelOnboardingHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as Omit<
       Parameters<typeof advanceChannelOnboarding>[0],
@@ -332,10 +331,7 @@ export async function advanceChannelOnboardingHandler(
 }
 
 /** POST /admin/stores/:storeId/channels/onboarding/:sessionId/activate. */
-export async function activateChannelOnboardingHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function activateChannelOnboardingHandler(req: Request, res: Response): Promise<void> {
   try {
     sendSuccess(
       res,
@@ -352,10 +348,7 @@ export async function activateChannelOnboardingHandler(
 }
 
 /** DELETE /admin/stores/:storeId/channels/onboarding/:sessionId — abandon it. */
-export async function abandonChannelOnboardingHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function abandonChannelOnboardingHandler(req: Request, res: Response): Promise<void> {
   try {
     sendSuccess(
       res,

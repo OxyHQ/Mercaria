@@ -228,10 +228,7 @@ export async function reorderWatchlistItemsHandler(req: Request, res: Response):
       expectedVersion: number;
       itemIds: string[];
     };
-    sendSuccess(
-      res,
-      await reorderWatchlistItems(oxyUserId, watchlistId, expectedVersion, itemIds),
-    );
+    sendSuccess(res, await reorderWatchlistItems(oxyUserId, watchlistId, expectedVersion, itemIds));
   } catch (err) {
     log.general.error({ err, watchlistId }, 'Failed to reorder a watchlist');
     respondWithError(res, err, 'Failed to reorder that watchlist');
@@ -317,10 +314,7 @@ export async function readWatchlistSnapshotHandler(req: Request, res: Response):
 }
 
 /** GET /watchlists/:watchlistId/snapshots/:snapshotId/diff — which items drove it. */
-export async function readWatchlistSnapshotDiffHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function readWatchlistSnapshotDiffHandler(req: Request, res: Response): Promise<void> {
   const watchlistId = routeParam(req, 'watchlistId');
   const snapshotId = routeParam(req, 'snapshotId');
   try {

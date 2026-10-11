@@ -137,10 +137,10 @@ describe('glTF JSON', () => {
 
   it('applies an explicit column-major matrix', () => {
     const matrix = [3, 0, 0, 0, 0, 3, 0, 0, 0, 0, 3, 0, 5, 0, 0, 1];
-    const outcome = inspectGltfJson(
-      gltfJson(oneMeshDocument({ node: { mesh: 0, matrix } })),
-      { budget, availableResources: resourceIndexOf(['geometry.bin']) },
-    );
+    const outcome = inspectGltfJson(gltfJson(oneMeshDocument({ node: { mesh: 0, matrix } })), {
+      budget,
+      availableResources: resourceIndexOf(['geometry.bin']),
+    });
     // A translation moves the box and does not resize it; the scale triples it.
     expect(outcome.measurement.boundingBox).toEqual({ xMm: 30, yMm: 60, zMm: 90 });
   });
@@ -152,10 +152,7 @@ describe('glTF JSON', () => {
     const cyclic = {
       asset: { version: '2.0' },
       scenes: [{ nodes: [0] }],
-      nodes: [
-        { children: [1] },
-        { children: [0], mesh: 0 },
-      ],
+      nodes: [{ children: [1] }, { children: [0], mesh: 0 }],
       meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
       accessors: [{ count: 3, min: [0, 0, 0], max: [1, 1, 1] }],
     };
@@ -201,7 +198,10 @@ describe('glTF JSON', () => {
       meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
       accessors: [{ count: 3 }],
     };
-    const outcome = inspectGltfJson(gltfJson(noExtents), { budget, availableResources: NO_SIBLINGS });
+    const outcome = inspectGltfJson(gltfJson(noExtents), {
+      budget,
+      availableResources: NO_SIBLINGS,
+    });
     expect(outcome.measurement.boundingBox).toBeUndefined();
     expect(outcome.measurement.vertexCount).toBe(3);
   });
@@ -210,7 +210,10 @@ describe('glTF JSON', () => {
     const rigged = {
       ...oneMeshDocument({ attributes: { POSITION: 0, TEXCOORD_0: 0 } }),
       skins: [{ joints: [0] }],
-      animations: [{ channels: [], samplers: [] }, { channels: [], samplers: [] }],
+      animations: [
+        { channels: [], samplers: [] },
+        { channels: [], samplers: [] },
+      ],
     };
     const outcome = inspectGltfJson(gltfJson(rigged), {
       budget,
@@ -281,7 +284,10 @@ describe('glTF JSON', () => {
       buffers: [{ byteLength: 4, uri: 'data:application/octet-stream;base64,AAAA' }],
       images: [{ uri: 'data:image/png;base64,AAAA' }],
     };
-    const outcome = inspectGltfJson(gltfJson(embedded), { budget, availableResources: NO_SIBLINGS });
+    const outcome = inspectGltfJson(gltfJson(embedded), {
+      budget,
+      availableResources: NO_SIBLINGS,
+    });
     expect(outcome.verdict).toBe('measured');
     expect(outcome.measurement.missingResources).toEqual([]);
   });
@@ -310,7 +316,8 @@ describe('glTF JSON', () => {
       }).verdict,
     ).toBe('corrupt');
     expect(
-      inspectGltfJson(gltfJson({ meshes: [] }), { budget, availableResources: NO_SIBLINGS }).verdict,
+      inspectGltfJson(gltfJson({ meshes: [] }), { budget, availableResources: NO_SIBLINGS })
+        .verdict,
     ).toBe('corrupt');
   });
 });
@@ -382,10 +389,7 @@ describe('the zip reader refuses before it expands', () => {
   });
 
   it('refuses a TRAVERSAL path — threat 6', () => {
-    const opened = openZipContainer(
-      zipArchive([{ path: '../../etc/passwd', data: 'x' }]),
-      budget,
-    );
+    const opened = openZipContainer(zipArchive([{ path: '../../etc/passwd', data: 'x' }]), budget);
     expect(opened.ok).toBe(false);
     if (opened.ok === false) {
       expect(opened.outcome.verdict).toBe('corrupt');
@@ -394,10 +398,12 @@ describe('the zip reader refuses before it expands', () => {
   });
 
   it('refuses an absolute path, and accepts a harmless `./` chain', () => {
-    expect(openZipContainer(zipArchive([{ path: '/etc/shadow', data: 'x' }]), budget).ok).toBe(false);
-    expect(
-      openZipContainer(zipArchive([{ path: 'C:/Windows/x.dll', data: 'x' }]), budget).ok,
-    ).toBe(false);
+    expect(openZipContainer(zipArchive([{ path: '/etc/shadow', data: 'x' }]), budget).ok).toBe(
+      false,
+    );
+    expect(openZipContainer(zipArchive([{ path: 'C:/Windows/x.dll', data: 'x' }]), budget).ok).toBe(
+      false,
+    );
     // The control: a path that dips and returns stays inside, and a substring test
     // for `..` would wrongly refuse it.
     expect(openZipContainer(zipArchive([{ path: 'a/../b.txt', data: 'x' }]), budget).ok).toBe(true);
@@ -443,7 +449,11 @@ describe('the zip reader refuses before it expands', () => {
     // refused; nothing is inflated.
     const opened = openZipContainer(
       zipArchive([
-        { path: 'bomb.bin', data: 'tiny', declaredUncompressedSize: 4 * MAX_CONTAINER_EXPANSION_RATIO + 4 },
+        {
+          path: 'bomb.bin',
+          data: 'tiny',
+          declaredUncompressedSize: 4 * MAX_CONTAINER_EXPANSION_RATIO + 4,
+        },
       ]),
       budget,
     );
@@ -489,7 +499,10 @@ describe('the zip reader refuses before it expands', () => {
 
   it('reports a SAFE zip as unsupported rather than as a measurement', () => {
     const outcome = inspectZipContainer(
-      zipArchive([{ path: 'a.txt', data: 'x' }, { path: 'b/', data: '' }]),
+      zipArchive([
+        { path: 'a.txt', data: 'x' },
+        { path: 'b/', data: '' },
+      ]),
       budget,
     );
     // Nothing geometric was measured and nothing is claimed as zero; what the row

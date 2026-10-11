@@ -32,10 +32,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type {
-  AffiliateNetworkId,
-  AffiliateReportFailureReason,
-} from '@mercaria/shared-types';
+import type { AffiliateNetworkId, AffiliateReportFailureReason } from '@mercaria/shared-types';
 import { config } from '../../../config/index.js';
 import { log } from '../../../lib/logger.js';
 import type { Database } from '../../../db/postgres.js';
@@ -102,7 +99,10 @@ export interface AffiliateReconciliationPassResult {
    * was drawn under and there is none to name. Reporting it here rather than
    * inventing an account ref is what keeps that column honest.
    */
-  readonly unavailable: { readonly reason: AffiliateReportFailureReason; readonly detail: string } | null;
+  readonly unavailable: {
+    readonly reason: AffiliateReportFailureReason;
+    readonly detail: string;
+  } | null;
   /** Accounts another task was already polling when this pass ran. */
   readonly skippedAccounts: number;
 }
@@ -161,9 +161,12 @@ export async function runAffiliateReconciliationPass(
     };
   }
 
-  const lookbackMs = Math.max(1, config.affiliateOutbound.reportLookbackDays) * 24 * 60 * 60 * 1_000;
+  const lookbackMs =
+    Math.max(1, config.affiliateOutbound.reportLookbackDays) * 24 * 60 * 60 * 1_000;
   const windows = awinReportWindows(new Date(now.getTime() - lookbackMs), now);
-  const leaseSince = new Date(now.getTime() - Math.max(1_000, config.affiliateOutbound.reportLeaseMs));
+  const leaseSince = new Date(
+    now.getTime() - Math.max(1_000, config.affiliateOutbound.reportLeaseMs),
+  );
 
   const runs: AffiliateReportRunSummary[] = [];
   let skippedAccounts = 0;
@@ -307,7 +310,8 @@ async function runOneWindow(
     }
   }
 
-  const unapplied = read.rejected.length + refused.currency_restated + refused.attribution_unresolvable;
+  const unapplied =
+    read.rejected.length + refused.currency_restated + refused.attribution_unresolvable;
   if (counters.seen === 0 && unapplied > 0) {
     // The vacuity floor: rows arrived and none of them could be applied. A
     // `completed` run with `seen = 0` is what a quiet month looks like, and
@@ -395,7 +399,8 @@ async function recordRefusedAttempt(
   });
   if (accountRef === null) return [];
 
-  const lookbackMs = Math.max(1, config.affiliateOutbound.reportLookbackDays) * 24 * 60 * 60 * 1_000;
+  const lookbackMs =
+    Math.max(1, config.affiliateOutbound.reportLookbackDays) * 24 * 60 * 60 * 1_000;
   const windowFrom = new Date(input.now.getTime() - lookbackMs);
   const run = await openAffiliateReportRun(db, {
     network: input.network,

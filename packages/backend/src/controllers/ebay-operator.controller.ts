@@ -55,10 +55,7 @@ const OPERATOR_LIST_LIMIT = 100;
 const RECONCILIATION_SUMMARY_DAYS = 7;
 
 /** GET `/internal/ebay/sources/:sourceId/discovery-queries`. */
-export async function listEbayDiscoveryQueriesHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function listEbayDiscoveryQueriesHandler(req: Request, res: Response): Promise<void> {
   try {
     const sourceId = routeParam(req, 'sourceId');
     const rows = await listEbayDiscoveryQueries(getDb(), sourceId);

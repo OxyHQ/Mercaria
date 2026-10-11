@@ -155,7 +155,10 @@ export function locationCollectionBlockers(
  * does for nearby discovery, so the two surfaces cannot disagree about the same
  * shelf.
  */
-export function inventoryBlockers(inventory: PickupInventoryFacts, at: Date): readonly PickupBlockReason[] {
+export function inventoryBlockers(
+  inventory: PickupInventoryFacts,
+  at: Date,
+): readonly PickupBlockReason[] {
   const reasons: PickupBlockReason[] = [];
   if (!inventory.listingActive) reasons.push('listing_unavailable');
   if (inventory.availableQuantity <= 0) reasons.push('no_collectable_stock');
@@ -173,7 +176,10 @@ export function inventoryBlockers(inventory: PickupInventoryFacts, at: Date): re
  * already be one the location vouches for — a stale one is zero here, which
  * {@link inventoryBlockers} decides.
  */
-export function locationAvailabilityState(available: number, lowStockThreshold: number): LocationAvailabilityState {
+export function locationAvailabilityState(
+  available: number,
+  lowStockThreshold: number,
+): LocationAvailabilityState {
   if (available <= 0) return 'out_of_stock';
   return available <= lowStockThreshold ? 'low_stock' : 'in_stock';
 }
@@ -192,7 +198,10 @@ export function deriveLocationDiscoverability(
   inventory: PickupInventoryFacts,
   at: Date,
 ): readonly PickupBlockReason[] {
-  const reasons: PickupBlockReason[] = [...locationCollectionBlockers(location), ...inventoryBlockers(inventory, at)];
+  const reasons: PickupBlockReason[] = [
+    ...locationCollectionBlockers(location),
+    ...inventoryBlockers(inventory, at),
+  ];
 
   if (location.opening !== undefined && !opensWithinHorizon(location.opening, at)) {
     reasons.push('location_closed');

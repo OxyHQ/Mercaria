@@ -126,9 +126,7 @@ function scannedPaths(): string[] {
 function readCode(path: string): string {
   const source = readFileSync(path, 'utf8');
   expect(source.length, `${path} looks empty — did it move?`).toBeGreaterThan(200);
-  const stripped = source
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const stripped = source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
   expect(
     stripped.replace(/\s+/g, '').length,
     `${path} has almost no code left after comment stripping — check the stripper`,
@@ -245,9 +243,7 @@ describe('#126 acceptance 2 — no carrier system inside Mercaria', () => {
 
   it('reaches no guest portal or service credential', () => {
     for (const path of scannedPaths()) {
-      expect(CREDENTIAL_REFERENCE.test(readCode(path)), `${path} reaches a credential`).toBe(
-        false,
-      );
+      expect(CREDENTIAL_REFERENCE.test(readCode(path)), `${path} reaches a credential`).toBe(false);
     }
   });
 
@@ -285,13 +281,15 @@ describe('#126 acceptance 2 — no carrier system inside Mercaria', () => {
       PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../../payments/stripe/client.js';"),
     ).toBe(true);
     expect(
-      PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../../services/payments/payment.service.js';"),
+      PAYMENT_DOMAIN_REFERENCE.test(
+        "import { x } from '../../services/payments/payment.service.js';",
+      ),
     ).toBe(true);
     // The negative half: a sibling that merely SHARES a prefix is not the
     // payment domain, so the widening must not swallow it.
-    expect(
-      PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../payments-ui/format.js';"),
-    ).toBe(false);
+    expect(PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../payments-ui/format.js';")).toBe(
+      false,
+    );
   });
 });
 
@@ -359,9 +357,10 @@ describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
       for (const group of allowance.groups) {
         // A reason long enough to be a reason. A blank one is what a hurried
         // addition produces.
-        expect(group.reason.length, `${allowance.table} has a group with no reason`).toBeGreaterThan(
-          30,
-        );
+        expect(
+          group.reason.length,
+          `${allowance.table} has a group with no reason`,
+        ).toBeGreaterThan(30);
         expect(group.columns.length, `${allowance.table} has an empty group`).toBeGreaterThan(0);
         for (const column of group.columns) {
           const qualified = `${allowance.table}.${column}`;
@@ -421,42 +420,46 @@ describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
   });
 
   it('fires on the realistic names, INCLUDING the two the old gate could not see', () => {
-    assertEachOf([
-      // The two that were inert: matched against `proofOfDelivery` and
-      // `serviceCode`, they could not fire however the schema grew.
-      'proof_of_delivery_at',
-      'carrier_service_code',
-      // The ones the old regex did catch, kept so the rewrite is not a
-      // silent narrowing.
-      'carrier_account_id',
-      'package_weight_grams',
-      'shipping_label_url',
-      'last_scan_status',
-      'tracking_poll_cursor',
-      // And the ones it admitted outright, which is the deny-list's own
-      // incompleteness rather than the casing bug.
-      'tracking_number',
-      'shipment_id',
-      'courier_reference',
-      'waybill_id',
-      'checkpoint_at',
-    ], 12, (probe) => {
-      const mutated = retailTables().map((table) =>
-        table.table === 'retail_delivery_promises'
-          ? { ...table, columns: [...table.columns, probe] }
-          : table,
-      );
-      const audit = auditColumns(
-        mutated,
-        RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
-        RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
-        RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
-      );
-      expect(
-        audit.forbidden.map((offence) => offence.column),
-        `${probe} should be refused by name`,
-      ).toContain(`retail_delivery_promises.${probe}`);
-    });
+    assertEachOf(
+      [
+        // The two that were inert: matched against `proofOfDelivery` and
+        // `serviceCode`, they could not fire however the schema grew.
+        'proof_of_delivery_at',
+        'carrier_service_code',
+        // The ones the old regex did catch, kept so the rewrite is not a
+        // silent narrowing.
+        'carrier_account_id',
+        'package_weight_grams',
+        'shipping_label_url',
+        'last_scan_status',
+        'tracking_poll_cursor',
+        // And the ones it admitted outright, which is the deny-list's own
+        // incompleteness rather than the casing bug.
+        'tracking_number',
+        'shipment_id',
+        'courier_reference',
+        'waybill_id',
+        'checkpoint_at',
+      ],
+      12,
+      (probe) => {
+        const mutated = retailTables().map((table) =>
+          table.table === 'retail_delivery_promises'
+            ? { ...table, columns: [...table.columns, probe] }
+            : table,
+        );
+        const audit = auditColumns(
+          mutated,
+          RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
+          RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+          RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+        );
+        expect(
+          audit.forbidden.map((offence) => offence.column),
+          `${probe} should be refused by name`,
+        ).toContain(`retail_delivery_promises.${probe}`);
+      },
+    );
   });
 
   it('fires on an INNOCUOUS unlisted column too — which is the whole inversion', () => {
@@ -511,22 +514,26 @@ describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
   it('permits the seam columns that must survive', () => {
     // The mirror of the liveness test: a prohibition that refused these would
     // ban the Moovo seam this domain is built around.
-    assertEachOf([
-      'moovo_transport_request_id',
-      'moovo_source_reference',
-      'moovo_transport_registered_at',
-      'fulfilment_mode',
-      'permitted_fulfilment_mode',
-    ], 5, (probe) => {
-      expect(
-        columnProhibition(
-          `retail_fulfilment_intents.${probe}`,
-          RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
-          RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
-        ),
-        `${probe} must be permitted`,
-      ).toBeNull();
-    });
+    assertEachOf(
+      [
+        'moovo_transport_request_id',
+        'moovo_source_reference',
+        'moovo_transport_registered_at',
+        'fulfilment_mode',
+        'permitted_fulfilment_mode',
+      ],
+      5,
+      (probe) => {
+        expect(
+          columnProhibition(
+            `retail_fulfilment_intents.${probe}`,
+            RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+            RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+          ),
+          `${probe} must be permitted`,
+        ).toBeNull();
+      },
+    );
   });
 
   it('the exemption list is EXACTLY empty', () => {

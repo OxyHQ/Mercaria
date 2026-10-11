@@ -69,7 +69,11 @@ import {
   proposedRetentionRules,
   runRetentionPass,
 } from '../services/guest-governance/retention.service.js';
-import { gatesRequiredFor, readGateStatuses, requestStageAdvance } from '../services/guest-governance/rollout.service.js';
+import {
+  gatesRequiredFor,
+  readGateStatuses,
+  requestStageAdvance,
+} from '../services/guest-governance/rollout.service.js';
 
 /** How many rows a list route returns. Bounded, so a trace cannot page a table. */
 const LIST_LIMIT = 100;
@@ -167,12 +171,7 @@ export async function runGuestRetentionPassHandler(req: Request, res: Response):
   }
   const outcome = await runRetentionPass({ retentionClass, now: new Date() });
   if (outcome.outcome === 'refused') {
-    sendError(
-      res,
-      ErrorCodes.CONFLICT,
-      `The retention pass was refused: ${outcome.reason}.`,
-      409,
-    );
+    sendError(res, ErrorCodes.CONFLICT, `The retention pass was refused: ${outcome.reason}.`, 409);
     return;
   }
   sendSuccess(res, outcome.result, 202);
@@ -180,7 +179,8 @@ export async function runGuestRetentionPassHandler(req: Request, res: Response):
 
 /** `POST /governance/legal-holds` — pause one class's deletion for one group. */
 export async function raiseGuestLegalHoldHandler(req: Request, res: Response): Promise<void> {
-  const checkoutGroupId = typeof req.body?.checkoutGroupId === 'string' ? req.body.checkoutGroupId : '';
+  const checkoutGroupId =
+    typeof req.body?.checkoutGroupId === 'string' ? req.body.checkoutGroupId : '';
   const retentionClass = req.body?.retentionClass as GuestRetentionClass | undefined;
   const reason = req.body?.reason as GuestDataRetentionReason | undefined;
   if (checkoutGroupId === '' || retentionClass === undefined || reason === undefined) {
@@ -299,7 +299,8 @@ export async function reviewGuestInterventionHandler(req: Request, res: Response
 export async function guestRolloutStatusHandler(req: Request, res: Response): Promise<void> {
   const db = getDb();
   const current = await readCurrentStage(db);
-  const stage = (req.query.stage as GuestRolloutStage | undefined) ?? current ?? GUEST_ROLLOUT_STAGES[0];
+  const stage =
+    (req.query.stage as GuestRolloutStage | undefined) ?? current ?? GUEST_ROLLOUT_STAGES[0];
   sendSuccess(res, {
     // `null` and `stage_0_internal` are DIFFERENT answers: nobody having
     // advanced anything is not the same as somebody deliberately advancing to
@@ -319,7 +320,12 @@ export async function recordGuestGateSignoffHandler(req: Request, res: Response)
   const gate = req.body?.gate as GuestLaunchGate | undefined;
   const discipline = req.body?.discipline as GuestSignoffDiscipline | undefined;
   const satisfied = req.body?.satisfied;
-  if (stage === undefined || gate === undefined || discipline === undefined || typeof satisfied !== 'boolean') {
+  if (
+    stage === undefined ||
+    gate === undefined ||
+    discipline === undefined ||
+    typeof satisfied !== 'boolean'
+  ) {
     sendError(
       res,
       ErrorCodes.VALIDATION_ERROR,
@@ -337,7 +343,11 @@ export async function recordGuestGateSignoffHandler(req: Request, res: Response)
     ...(typeof req.body?.evidenceRef === 'string' ? { evidenceRef: req.body.evidenceRef } : {}),
     ...(typeof req.body?.note === 'string' ? { note: req.body.note } : {}),
   });
-  sendSuccess(res, { signoffId: id, history: await listGateHistory(getDb(), { stage, gate }) }, 201);
+  sendSuccess(
+    res,
+    { signoffId: id, history: await listGateHistory(getDb(), { stage, gate }) },
+    201,
+  );
 }
 
 /**

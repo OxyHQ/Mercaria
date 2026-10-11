@@ -448,7 +448,9 @@ describe('rights are versioned, frozen, and can never disagree with the registry
 
     expect(
       await rejectionMessage(() =>
-        db.delete(catalogSourcePolicies).where(eq(catalogSourcePolicies.id, policy?.id ?? '__none__')),
+        db
+          .delete(catalogSourcePolicies)
+          .where(eq(catalogSourcePolicies.id, policy?.id ?? '__none__')),
       ),
     ).toMatch(/cannot be deleted/u);
   });
@@ -653,7 +655,11 @@ describe('the config refuses a credential where a locator belongs', () => {
       );
     }
 
-    for (const locator of ['connection:abc-123', 'env:MERCARIA_FEED_TOKEN', 'ssm:/oxy/mercaria/x']) {
+    for (const locator of [
+      'connection:abc-123',
+      'env:MERCARIA_FEED_TOKEN',
+      'ssm:/oxy/mercaria/x',
+    ]) {
       const updated = await db
         .update(catalogSourceConfigs)
         .set({ credentialRef: locator })

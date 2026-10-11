@@ -73,10 +73,7 @@ import {
   type FeedStageManifest,
 } from '../../feed-import/staging.js';
 import { declaredAwinColumns } from '../../awin/mapping.js';
-import {
-  assessAwinTrackingLink,
-  withAssessedAwinTracking,
-} from '../../awin/tracking.js';
+import { assessAwinTrackingLink, withAssessedAwinTracking } from '../../awin/tracking.js';
 import {
   createAwinQualityMeter,
   observeAwinRecord,
@@ -131,9 +128,7 @@ interface AwinCursor {
   readonly i: number;
 }
 
-export function createAwinFeedAdapter(
-  dependencies: AwinAdapterDependencies,
-): CatalogSourceAdapter {
+export function createAwinFeedAdapter(dependencies: AwinAdapterDependencies): CatalogSourceAdapter {
   // `affiliate_network`, which is what makes #62's own `offerKindFor` produce an
   // `affiliate` offer when the rights permit affiliate parameters. It is a
   // statement about what this source IS, not a preference: an Awin advertiser's

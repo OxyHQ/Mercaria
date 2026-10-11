@@ -66,11 +66,7 @@ function serverRelativePaths(readDir: DirectoryReader = readSrcDirectory): strin
   return [
     ...walkOwnedDirectory('services/product-page', readDir),
     ...walkOwnedDirectory('db/productPage', readDir),
-    ...namedInSharedDirectories(
-      [...OUTER_DIRECTORIES, 'db/schema'],
-      DOMAIN_NAME_PATTERN,
-      readDir,
-    ),
+    ...namedInSharedDirectories([...OUTER_DIRECTORIES, 'db/schema'], DOMAIN_NAME_PATTERN, readDir),
   ];
 }
 
@@ -316,7 +312,9 @@ describe('the product-page surface exists — the vacuity floor', () => {
       'the repository, controller, route or schema module left the derivation',
     ).toBeGreaterThanOrEqual(MINIMUM_OUTER_FILES);
     for (const file of [...domain, ...outer]) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 
@@ -332,7 +330,9 @@ describe('the product-page surface exists — the vacuity floor', () => {
       MINIMUM_STOREFRONT_MODULES,
     );
     for (const file of files) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 
@@ -397,16 +397,24 @@ describe('WALL 1: the page consumes a ranking and never produces one', () => {
   });
 
   it('the ranking and ordering detectors actually detect — the mutation self-test', () => {
-    expect(RANKING_INTERNAL_REFERENCE.test("import { rankOffers } from '../ranking/ranking.js';")).toBe(true);
     expect(
-      RANKING_INTERNAL_REFERENCE.test("import { awardComparisonLabels } from '../ranking/labels.js';"),
+      RANKING_INTERNAL_REFERENCE.test("import { rankOffers } from '../ranking/ranking.js';"),
     ).toBe(true);
     expect(
-      RANKING_INTERNAL_REFERENCE.test("import { selectEligibleOffers } from '../ranking/eligibility.js';"),
+      RANKING_INTERNAL_REFERENCE.test(
+        "import { awardComparisonLabels } from '../ranking/labels.js';",
+      ),
+    ).toBe(true);
+    expect(
+      RANKING_INTERNAL_REFERENCE.test(
+        "import { selectEligibleOffers } from '../ranking/eligibility.js';",
+      ),
     ).toBe(true);
     // The published entry point is what the page DOES import, and must pass.
     expect(
-      RANKING_INTERNAL_REFERENCE.test("import { rankOfferComparison } from '../ranking/comparison.service.js';"),
+      RANKING_INTERNAL_REFERENCE.test(
+        "import { rankOfferComparison } from '../ranking/comparison.service.js';",
+      ),
     ).toBe(false);
     expect(ORDERING_REFERENCE.test('rows.sort((a, b) => a.price - b.price)')).toBe(true);
     expect(ORDERING_REFERENCE.test('names.localeCompare(other)')).toBe(true);
@@ -429,16 +437,22 @@ describe('WALL 2: the page cannot read commercial standing', () => {
     // `scanned` equals the list length by construction, so it catches a broken
     // loop and never a shrunk population.
     expect(scanned, 'the scanned surface shrank').toBeGreaterThanOrEqual(
-      MINIMUM_DOMAIN_FILES + MINIMUM_OUTER_FILES + MINIMUM_STOREFRONT_SCREENS +
+      MINIMUM_DOMAIN_FILES +
+        MINIMUM_OUTER_FILES +
+        MINIMUM_STOREFRONT_SCREENS +
         MINIMUM_STOREFRONT_MODULES,
     );
   });
 
   it('the commercial detector actually detects — the mutation self-test', () => {
     expect(
-      COMMERCIAL_REFERENCE.test("import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';"),
+      COMMERCIAL_REFERENCE.test(
+        "import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';",
+      ),
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { attribute } from '../referrals/attribution.service.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test("import { attribute } from '../referrals/attribution.service.js';"),
+    ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('const commissionRate = 0.1;')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
@@ -469,7 +483,9 @@ describe('WALL 3: the page never sends anybody anywhere', () => {
     // `scanned` equals the list length by construction, so it catches a broken
     // loop and never a shrunk population.
     expect(scanned, 'the scanned surface shrank').toBeGreaterThanOrEqual(
-      MINIMUM_DOMAIN_FILES + MINIMUM_OUTER_FILES + MINIMUM_STOREFRONT_SCREENS +
+      MINIMUM_DOMAIN_FILES +
+        MINIMUM_OUTER_FILES +
+        MINIMUM_STOREFRONT_SCREENS +
         MINIMUM_STOREFRONT_MODULES,
     );
   });
@@ -477,7 +493,7 @@ describe('WALL 3: the page never sends anybody anywhere', () => {
   it('the handoff detectors actually detect — the mutation self-test', () => {
     // Still forbidden outright.
     expect(OUTBOUND_COMPOSITION_REFERENCE.test('const u = offer.trackingTemplate;')).toBe(true);
-    expect(OUTBOUND_COMPOSITION_REFERENCE.test("res.redirect(302, target)")).toBe(true);
+    expect(OUTBOUND_COMPOSITION_REFERENCE.test('res.redirect(302, target)')).toBe(true);
     expect(OUTBOUND_COMPOSITION_REFERENCE.test("const h = 'www.awin1.com';")).toBe(true);
     // The handoff detector fires on every opener...
     expect(OUTBOUND_HANDOFF_REFERENCE.test('void Linking.openURL(target);')).toBe(true);
@@ -505,15 +521,15 @@ describe('WALL 3: the page never sends anybody anywhere', () => {
 
   it('the outbound detectors actually detect — the mutation self-test', () => {
     expect(OUTBOUND_COMPOSITION_REFERENCE.test('const url = `${trackingTemplate}`;')).toBe(true);
-    expect(OUTBOUND_COMPOSITION_REFERENCE.test("res.redirect(302, destination)")).toBe(true);
+    expect(OUTBOUND_COMPOSITION_REFERENCE.test('res.redirect(302, destination)')).toBe(true);
     // These two MOVED to the conditional handoff rule when #67 landed. The
     // property they pin is unchanged and slightly stronger: opening a MERCHANT
     // url is still refused, now because the opener fires and the Mercaria
     // redirect path is absent from the line.
     expect(OUTBOUND_HANDOFF_REFERENCE.test('Linking.openURL(offer.destinationUrl)')).toBe(true);
-    expect(
-      MERCARIA_REDIRECT_PATH_REFERENCE.test('Linking.openURL(offer.destinationUrl)'),
-    ).toBe(false);
+    expect(MERCARIA_REDIRECT_PATH_REFERENCE.test('Linking.openURL(offer.destinationUrl)')).toBe(
+      false,
+    );
     expect(OUTBOUND_HANDOFF_REFERENCE.test('window.open(url)')).toBe(true);
     expect(MERCARIA_REDIRECT_PATH_REFERENCE.test('window.open(url)')).toBe(false);
     expect(OUTBOUND_COMPOSITION_REFERENCE.test('const host = parsed.hostname;')).toBe(false);
@@ -619,7 +635,10 @@ describe('WALL 6: the page links the identities it decided to link', () => {
     for (const { relative, target } of navigationTargets()) {
       byFile.set(relative, [...(byFile.get(relative) ?? []), target]);
     }
-    for (const owner of ['components/product/OfferRow.tsx', 'components/product/BrandChannels.tsx']) {
+    for (const owner of [
+      'components/product/OfferRow.tsx',
+      'components/product/BrandChannels.tsx',
+    ]) {
       const targets = byFile.get(owner) ?? [];
       // A floor on what was extracted, so a file this walk stopped reading
       // fails here rather than passing by naming no targets at all.
@@ -655,7 +674,9 @@ describe('WALL 5: the page names no currency', () => {
     expect(CURRENCY_NAME_REFERENCE.test("const currency = 'FAIR';")).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('// FairCoin is the default')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('const rail = peable;')).toBe(true);
-    expect(CURRENCY_NAME_REFERENCE.test("const currency = request.comparisonCurrency;")).toBe(false);
+    expect(CURRENCY_NAME_REFERENCE.test('const currency = request.comparisonCurrency;')).toBe(
+      false,
+    );
   });
 });
 
@@ -691,9 +712,9 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     // domainSources() and outerSources() are complementary filters over one
     // derivation, so this pins that they still cover it exactly — a module
     // falling out of both would be scanned by neither while both floors held.
-    expect(
-      [...domainSources(), ...outerSources()].map((file) => file.relative).sort(),
-    ).toEqual(serverRelativePaths().slice().sort());
+    expect([...domainSources(), ...outerSources()].map((file) => file.relative).sort()).toEqual(
+      serverRelativePaths().slice().sort(),
+    );
     // A non-empty floor on each half was written here and REMOVED: measured,
     // collapsing either half fires the gate's existing per-shape floors first
     // and the new clause reported zero occurrences. A clause that can never be
@@ -714,10 +735,9 @@ describe('#668 — the traversals this gate does itself', () => {
     // The REAL function, handed the seeded reader — not a `walk` rebuilt here.
     // A control that re-implements the code under test measures the
     // re-implementation, and this one did until a verified mutation said so.
-    expect(
-      routeScreenPaths('app/(app)/p', seeded),
-      'the route scan does not recurse',
-    ).toContain(planted);
+    expect(routeScreenPaths('app/(app)/p', seeded), 'the route scan does not recurse').toContain(
+      planted,
+    );
     expect(
       routeScreenPaths('app/(app)/p'),
       'the seeded route directory exists on disk, so this proves nothing',
@@ -725,9 +745,8 @@ describe('#668 — the traversals this gate does itself', () => {
   });
 
   it('the remaining one-level reads list FLAT directories', () => {
-    assertDirectoriesAreFlat(
-      ['components/product', 'lib/api', 'lib/hooks'],
-      (relative) => readdirSync(join(STOREFRONT_ROOT, relative), { withFileTypes: true }),
+    assertDirectoriesAreFlat(['components/product', 'lib/api', 'lib/hooks'], (relative) =>
+      readdirSync(join(STOREFRONT_ROOT, relative), { withFileTypes: true }),
     );
   });
 });

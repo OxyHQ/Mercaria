@@ -52,7 +52,11 @@ const CREDS: ConnectorCredentials = {
   shopCurrency: 'USD',
 };
 
-const ok = (body: unknown): ShopifyHttpResponse => ({ status: 200, headers: {}, body: JSON.stringify(body) });
+const ok = (body: unknown): ShopifyHttpResponse => ({
+  status: 200,
+  headers: {},
+  body: JSON.stringify(body),
+});
 
 /** Two single-variant products. */
 const PRODUCTS = [
@@ -100,13 +104,17 @@ describe('shopify fetchProducts — collectionRefs from collects (custom collect
     const collectsCalls = calls.filter((c) => c.url.includes('/collects.json'));
     expect(collectsCalls).toHaveLength(1);
     // No per-product collection lookups leaked in.
-    expect(calls.some((c) => c.url.includes('/products/111')) || calls.some((c) => c.url.includes('/products/222'))).toBe(false);
+    expect(
+      calls.some((c) => c.url.includes('/products/111')) ||
+        calls.some((c) => c.url.includes('/products/222')),
+    ).toBe(false);
   });
 
   it('leaves collectionRefs unset for a product with no membership', async () => {
     const { transport } = routingTransport((url) => {
       if (url.includes('/products.json')) return ok({ products: PRODUCTS });
-      if (url.includes('/collects.json')) return ok({ collects: [{ product_id: 111, collection_id: 501 }] });
+      if (url.includes('/collects.json'))
+        return ok({ collects: [{ product_id: 111, collection_id: 501 }] });
       if (url.includes('/smart_collections.json')) return ok({ smart_collections: [] });
       return { status: 404, headers: {}, body: '{}' };
     });
@@ -122,7 +130,8 @@ describe('shopify fetchProducts — collectionRefs from collects (custom collect
 describe('shopify fetchProducts — collectionRefs from smart collections', () => {
   it('adds smart-collection membership via each smart collection product list', async () => {
     const { transport } = routingTransport((url) => {
-      if (url.includes('/products.json') && !url.includes('/collections/')) return ok({ products: PRODUCTS });
+      if (url.includes('/products.json') && !url.includes('/collections/'))
+        return ok({ products: PRODUCTS });
       if (url.includes('/collects.json')) return ok({ collects: [] });
       if (url.includes('/smart_collections.json')) return ok({ smart_collections: [{ id: 700 }] });
       if (url.includes('/collections/700/products.json')) return ok({ products: [{ id: 222 }] });
@@ -141,7 +150,8 @@ describe('shopify fetchProducts — collection index reused across pages of a ru
   it('builds the index only on the first page and reuses it on later pages', async () => {
     const { transport, calls } = routingTransport((url) => {
       if (url.includes('/products.json')) return ok({ products: PRODUCTS });
-      if (url.includes('/collects.json')) return ok({ collects: [{ product_id: 111, collection_id: 501 }] });
+      if (url.includes('/collects.json'))
+        return ok({ collects: [{ product_id: 111, collection_id: 501 }] });
       if (url.includes('/smart_collections.json')) return ok({ smart_collections: [] });
       return { status: 404, headers: {}, body: '{}' };
     });

@@ -55,17 +55,15 @@
  * Usage:  bun scripts/validate-rtl-upstream-premises.mjs
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Set by the self-test to point the premises at a fixture tree. */
 const overrideRoot = process.env.RTL_PREMISES_MODULES_ROOT;
-const modulesRoot = overrideRoot
-  ? resolve(overrideRoot)
-  : join(repositoryRoot, "node_modules");
+const modulesRoot = overrideRoot ? resolve(overrideRoot) : join(repositoryRoot, 'node_modules');
 
 const failures = [];
 const notes = [];
@@ -78,7 +76,7 @@ const notes = [];
  * either — a scan of `.js` alone would miss a props definition and report a
  * comfortable zero.
  */
-const READ_EXTENSIONS = [".js", ".ts", ".tsx", ".flow", ".d.ts"];
+const READ_EXTENSIONS = ['.js', '.ts', '.tsx', '.flow', '.d.ts'];
 
 function* walk(directory) {
   let entries;
@@ -104,7 +102,7 @@ function filesContaining(directory, needle) {
   for (const file of walk(directory)) {
     let source;
     try {
-      source = readFileSync(file, "utf8");
+      source = readFileSync(file, 'utf8');
     } catch {
       continue;
     }
@@ -121,7 +119,7 @@ function filesContaining(directory, needle) {
 // heard of the CSS logical spellings, so a converted class renders correctly in
 // a browser and drops the border entirely on iOS and Android.
 
-const REACT_NATIVE_LIBRARIES = join(modulesRoot, "react-native", "Libraries");
+const REACT_NATIVE_LIBRARIES = join(modulesRoot, 'react-native', 'Libraries');
 
 /**
  * The spelling that MUST be present, by the same walk, or the search is broken.
@@ -130,55 +128,56 @@ const REACT_NATIVE_LIBRARIES = join(modulesRoot, "react-native", "Libraries");
  * "this guard read nothing at all" — the two states an absence check cannot
  * otherwise tell apart.
  */
-const REACT_NATIVE_CONTROL = "borderStartWidth";
+const REACT_NATIVE_CONTROL = 'borderStartWidth';
 
 /** The spellings that must remain ABSENT while the exceptions stand. */
 const BORDER_INLINE_SPELLINGS = [
-  "borderInlineStartWidth",
-  "borderInlineStartColor",
-  "borderInlineStartStyle",
-  "borderInlineEndWidth",
-  "borderInlineEndColor",
-  "borderInlineEndStyle",
+  'borderInlineStartWidth',
+  'borderInlineStartColor',
+  'borderInlineStartStyle',
+  'borderInlineEndWidth',
+  'borderInlineEndColor',
+  'borderInlineEndStyle',
 ];
 
 if (!existsSync(REACT_NATIVE_LIBRARIES) || !statSync(REACT_NATIVE_LIBRARIES).isDirectory()) {
   failures.push(
-    `Premise (a) could not be measured: ${REACT_NATIVE_LIBRARIES} is not a directory. Without it `
-    + "every `borderInline*` search below returns zero, which is indistinguishable from the premise "
-    + "holding. Run `bun install`, or update this path if React Native moved its style registry.",
+    `Premise (a) could not be measured: ${REACT_NATIVE_LIBRARIES} is not a directory. Without it ` +
+      'every `borderInline*` search below returns zero, which is indistinguishable from the premise ' +
+      'holding. Run `bun install`, or update this path if React Native moved its style registry.',
   );
 } else {
   const controlHits = filesContaining(REACT_NATIVE_LIBRARIES, REACT_NATIVE_CONTROL);
   if (controlHits === 0) {
     failures.push(
-      `Premise (a)'s positive control failed: "${REACT_NATIVE_CONTROL}" was found in 0 files under `
-      + `${REACT_NATIVE_LIBRARIES}. That spelling is what React Native uses INSTEAD of the CSS `
-      + "logical one, so it cannot legitimately be absent — the walk, the extension filter or the "
-      + "path is broken, and every absence reported below is therefore worthless.",
+      `Premise (a)'s positive control failed: "${REACT_NATIVE_CONTROL}" was found in 0 files under ` +
+        `${REACT_NATIVE_LIBRARIES}. That spelling is what React Native uses INSTEAD of the CSS ` +
+        'logical one, so it cannot legitimately be absent — the walk, the extension filter or the ' +
+        'path is broken, and every absence reported below is therefore worthless.',
     );
   } else {
-    notes.push(
-      `premise (a) control "${REACT_NATIVE_CONTROL}" present in ${controlHits} file(s)`,
-    );
-    const present = BORDER_INLINE_SPELLINGS
-      .map((spelling) => ({ spelling, hits: filesContaining(REACT_NATIVE_LIBRARIES, spelling) }))
-      .filter((result) => result.hits > 0);
+    notes.push(`premise (a) control "${REACT_NATIVE_CONTROL}" present in ${controlHits} file(s)`);
+    const present = BORDER_INLINE_SPELLINGS.map((spelling) => ({
+      spelling,
+      hits: filesContaining(REACT_NATIVE_LIBRARIES, spelling),
+    })).filter((result) => result.hits > 0);
 
     if (present.length > 0) {
       failures.push(
-        "PREMISE (a) HAS EXPIRED — and this is good news, not a regression.\n"
-        + `      React Native now mentions ${present.map((r) => `${r.spelling} (${r.hits} file(s))`).join(", ")}.\n`
-        + "      `border-s-*` / `border-e-*` may now survive to a device, which means the physical\n"
-        + "      border entries in `KNOWN_EXCEPTIONS` (validate-rtl-logical-classes.mjs) have lost\n"
-        + "      their reason. THE ACTION IS TO CONVERT, not to silence this check:\n"
-        + "        1. verify on a real device build that the logical spelling renders (#429 item 2);\n"
-        + "        2. convert the border classes those entries excuse;\n"
-        + "        3. delete the entries — their exact counts will fail until you do;\n"
-        + "        4. update this premise, or delete it if it is now permanently satisfied.",
+        'PREMISE (a) HAS EXPIRED — and this is good news, not a regression.\n' +
+          `      React Native now mentions ${present.map((r) => `${r.spelling} (${r.hits} file(s))`).join(', ')}.\n` +
+          '      `border-s-*` / `border-e-*` may now survive to a device, which means the physical\n' +
+          '      border entries in `KNOWN_EXCEPTIONS` (validate-rtl-logical-classes.mjs) have lost\n' +
+          '      their reason. THE ACTION IS TO CONVERT, not to silence this check:\n' +
+          '        1. verify on a real device build that the logical spelling renders (#429 item 2);\n' +
+          '        2. convert the border classes those entries excuse;\n' +
+          '        3. delete the entries — their exact counts will fail until you do;\n' +
+          '        4. update this premise, or delete it if it is now permanently satisfied.',
       );
     } else {
-      notes.push(`premise (a) holds — ${BORDER_INLINE_SPELLINGS.length} borderInline* spellings absent`);
+      notes.push(
+        `premise (a) holds — ${BORDER_INLINE_SPELLINGS.length} borderInline* spellings absent`,
+      );
     }
   }
 }
@@ -190,31 +189,36 @@ if (!existsSync(REACT_NATIVE_LIBRARIES) || !statSync(REACT_NATIVE_LIBRARIES).isD
 // declaration is dropped and the text keeps its inherited alignment.
 
 const DECLARATIONS = join(
-  modulesRoot, "react-native-css", "dist", "commonjs", "compiler", "declarations.js",
+  modulesRoot,
+  'react-native-css',
+  'dist',
+  'commonjs',
+  'compiler',
+  'declarations.js',
 );
 
 /** Exactly what the allowed set must contain while the exceptions stand. */
-const EXPECTED_TEXT_ALIGN = ["auto", "left", "right", "center", "justify"];
+const EXPECTED_TEXT_ALIGN = ['auto', 'left', 'right', 'center', 'justify'];
 
 /** The logical values whose ARRIVAL would retire the `text-left` exception. */
-const LOGICAL_TEXT_ALIGN = ["start", "end"];
+const LOGICAL_TEXT_ALIGN = ['start', 'end'];
 
 if (!existsSync(DECLARATIONS)) {
   failures.push(
-    `Premise (b) could not be measured: ${DECLARATIONS} does not exist. A missing file makes the `
-    + "parse below fail closed rather than silently reporting the premise holds. Run `bun install`, "
-    + "or update this path if react-native-css moved its compiler.",
+    `Premise (b) could not be measured: ${DECLARATIONS} does not exist. A missing file makes the ` +
+      'parse below fail closed rather than silently reporting the premise holds. Run `bun install`, ' +
+      'or update this path if react-native-css moved its compiler.',
   );
 } else {
-  const source = readFileSync(DECLARATIONS, "utf8");
-  const marker = "function parseTextAlign(";
+  const source = readFileSync(DECLARATIONS, 'utf8');
+  const marker = 'function parseTextAlign(';
   const start = source.indexOf(marker);
 
   if (start === -1) {
     failures.push(
-      `Premise (b) could not be measured: "${marker}" was not found in ${DECLARATIONS}. The function `
-      + "was renamed, inlined or minified. Do NOT assume the premise still holds — find where "
-      + "`text-align` is parsed now and re-point this check at it.",
+      `Premise (b) could not be measured: "${marker}" was not found in ${DECLARATIONS}. The function ` +
+        'was renamed, inlined or minified. Do NOT assume the premise still holds — find where ' +
+        '`text-align` is parsed now and re-point this check at it.',
     );
   } else {
     // Bounded to the function body: the file defines dozens of parsers and an
@@ -224,9 +228,9 @@ if (!existsSync(DECLARATIONS)) {
 
     if (!setMatch) {
       failures.push(
-        "Premise (b) could not be measured: `parseTextAlign` was found but its `new Set([...])` "
-        + `allow-list was not, within 600 characters of ${DECLARATIONS}. The implementation changed `
-        + "shape; read it and re-point this check rather than trusting the old reading.",
+        'Premise (b) could not be measured: `parseTextAlign` was found but its `new Set([...])` ' +
+          `allow-list was not, within 600 characters of ${DECLARATIONS}. The implementation changed ` +
+          'shape; read it and re-point this check rather than trusting the old reading.',
       );
     } else {
       const allowed = [...setMatch[1].matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
@@ -235,9 +239,9 @@ if (!existsSync(DECLARATIONS)) {
       // logical value absent, which is exactly the passing answer.
       if (allowed.length === 0) {
         failures.push(
-          "Premise (b)'s positive control failed: `parseTextAlign`'s allow-list parsed to ZERO "
-          + "values. An empty set makes the `start`/`end` check below vacuous — it would report "
-          + "them absent whatever upstream does. Fix the extraction.",
+          "Premise (b)'s positive control failed: `parseTextAlign`'s allow-list parsed to ZERO " +
+            'values. An empty set makes the `start`/`end` check below vacuous — it would report ' +
+            'them absent whatever upstream does. Fix the extraction.',
         );
       } else {
         notes.push(`premise (b) control — allow-list parsed to ${allowed.length} value(s)`);
@@ -245,29 +249,31 @@ if (!existsSync(DECLARATIONS)) {
         const admitted = LOGICAL_TEXT_ALIGN.filter((value) => allowed.includes(value));
         if (admitted.length > 0) {
           failures.push(
-            "PREMISE (b) HAS EXPIRED — and this is good news, not a regression.\n"
-            + `      react-native-css's parseTextAlign now admits ${admitted.map((v) => `"${v}"`).join(" and ")} `
-            + `(allow-list: ${allowed.map((v) => `"${v}"`).join(", ")}).\n`
-            + "      `text-start` / `text-end` may now survive compilation, so the `text-left` and\n"
-            + "      `text-right` entries in `KNOWN_EXCEPTIONS` have lost their reason. THE ACTION IS\n"
-            + "      TO CONVERT, not to silence this check — see premise (a)'s steps.",
+            'PREMISE (b) HAS EXPIRED — and this is good news, not a regression.\n' +
+              `      react-native-css's parseTextAlign now admits ${admitted.map((v) => `"${v}"`).join(' and ')} ` +
+              `(allow-list: ${allowed.map((v) => `"${v}"`).join(', ')}).\n` +
+              '      `text-start` / `text-end` may now survive compilation, so the `text-left` and\n' +
+              '      `text-right` entries in `KNOWN_EXCEPTIONS` have lost their reason. THE ACTION IS\n' +
+              "      TO CONVERT, not to silence this check — see premise (a)'s steps.",
           );
         } else if (
-          allowed.length !== EXPECTED_TEXT_ALIGN.length
-          || !EXPECTED_TEXT_ALIGN.every((value) => allowed.includes(value))
+          allowed.length !== EXPECTED_TEXT_ALIGN.length ||
+          !EXPECTED_TEXT_ALIGN.every((value) => allowed.includes(value))
         ) {
           // Neither expired nor as measured. Reported rather than passed: the
           // exception's stated reason quotes this exact set, so a set that has
           // moved for some other reason is a rationale nobody has re-read.
           failures.push(
-            "Premise (b) is neither the measured set nor an expiry. `parseTextAlign` now allows "
-            + `${allowed.map((v) => `"${v}"`).join(", ")}, where #428 measured `
-            + `${EXPECTED_TEXT_ALIGN.map((v) => `"${v}"`).join(", ")}. `
-            + "`start`/`end` are still refused so the exception still stands, but its written reason "
-            + "quotes the old set. Re-read the implementation and update EXPECTED_TEXT_ALIGN.",
+            'Premise (b) is neither the measured set nor an expiry. `parseTextAlign` now allows ' +
+              `${allowed.map((v) => `"${v}"`).join(', ')}, where #428 measured ` +
+              `${EXPECTED_TEXT_ALIGN.map((v) => `"${v}"`).join(', ')}. ` +
+              '`start`/`end` are still refused so the exception still stands, but its written reason ' +
+              'quotes the old set. Re-read the implementation and update EXPECTED_TEXT_ALIGN.',
           );
         } else {
-          notes.push(`premise (b) holds — allow-list is exactly ${allowed.join("|")}, start/end refused`);
+          notes.push(
+            `premise (b) holds — allow-list is exactly ${allowed.join('|')}, start/end refused`,
+          );
         }
       }
     }
@@ -277,21 +283,21 @@ if (!existsSync(DECLARATIONS)) {
 // ------------------------------------------------------------------- verdict ---
 
 if (failures.length > 0) {
-  console.error("RTL upstream-premise guard failed:\n");
+  console.error('RTL upstream-premise guard failed:\n');
   for (const failure of failures) console.error(`  ${failure}\n`);
   console.error(
-    "  These premises are the REASON `KNOWN_EXCEPTIONS` in validate-rtl-logical-classes.mjs\n"
-    + "  excuses eight physical directional utilities. That guard reconciles their counts against\n"
-    + "  our own source tree and never opens node_modules, so without this check an upstream fix\n"
-    + "  would leave every entry green with its justification expired.\n",
+    '  These premises are the REASON `KNOWN_EXCEPTIONS` in validate-rtl-logical-classes.mjs\n' +
+      '  excuses eight physical directional utilities. That guard reconciles their counts against\n' +
+      '  our own source tree and never opens node_modules, so without this check an upstream fix\n' +
+      '  would leave every entry green with its justification expired.\n',
   );
   process.exit(1);
 }
 
 console.log(
-  "RTL upstream-premise guard passed — "
-  + `${notes.join("; ")}. `
-  + "Both premises behind KNOWN_EXCEPTIONS still hold, so the eight physical directional "
-  + "utilities remain correct. This reads what upstream SHIPS, never what a device RENDERS — "
-  + "#429 item 2 is still open.",
+  'RTL upstream-premise guard passed — ' +
+    `${notes.join('; ')}. ` +
+    'Both premises behind KNOWN_EXCEPTIONS still hold, so the eight physical directional ' +
+    'utilities remain correct. This reads what upstream SHIPS, never what a device RENDERS — ' +
+    '#429 item 2 is still open.',
 );

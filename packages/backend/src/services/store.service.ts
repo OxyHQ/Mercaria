@@ -46,7 +46,10 @@ const DEFAULT_BRAND_COLOR = '#1D4ED8';
  * Shared by the core store update (`PATCH /admin/stores/:storeId`) and the
  * settings update (`PATCH /admin/stores/:storeId/settings`).
  */
-async function policyPatch(storeId: string, patch: UpdateStorePoliciesInput): Promise<Partial<StoreRow>> {
+async function policyPatch(
+  storeId: string,
+  patch: UpdateStorePoliciesInput,
+): Promise<Partial<StoreRow>> {
   const result: Partial<StoreRow> = {
     ...(patch.returnWindowDays !== undefined
       ? { policiesReturnWindowDays: patch.returnWindowDays }
@@ -60,7 +63,8 @@ async function policyPatch(storeId: string, patch: UpdateStorePoliciesInput): Pr
     ['privacyPolicy', 'policiesPrivacyPolicy'],
     ['termsOfService', 'policiesTermsOfService'],
   ] as const) {
-    if (patch[field] !== undefined) result[column] = await synchronizeStoreDescription(storeId, patch[field]);
+    if (patch[field] !== undefined)
+      result[column] = await synchronizeStoreDescription(storeId, patch[field]);
   }
   return result;
 }
@@ -133,10 +137,7 @@ export async function getStore(storeId: string): Promise<StoreRow> {
 }
 
 /** Update a store's profile/policy fields. Returns the updated store. */
-export async function updateStore(
-  storeId: string,
-  patch: UpdateStoreInput,
-): Promise<StoreRow> {
+export async function updateStore(storeId: string, patch: UpdateStoreInput): Promise<StoreRow> {
   const updated = await updateStoreColumns(storeId, {
     ...(patch.name !== undefined ? { name: patch.name } : {}),
     ...(patch.description !== undefined ? { description: patch.description } : {}),
@@ -265,7 +266,9 @@ export async function setStorePermissionOverride(input: {
     (permission) => !callerAccess.permissions.includes(permission),
   );
   if (lacking.length > 0) {
-    throw forbidden(`You cannot grant or revoke a permission you do not hold: ${lacking.join(', ')}`);
+    throw forbidden(
+      `You cannot grant or revoke a permission you do not hold: ${lacking.join(', ')}`,
+    );
   }
 
   if (granted.length === 0 && revoked.length === 0) {

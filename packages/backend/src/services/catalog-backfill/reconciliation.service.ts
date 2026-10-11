@@ -43,7 +43,11 @@ import {
   loadCategoryFactsFor,
   readLegacyCatalogCoverage,
 } from '../../db/catalogBackfill/legacyCatalogRepository.js';
-import { categoryPathsAgree, derivedCategoryPath, LEGACY_CATALOG_CLASSIFIER_VERSION } from './classification.js';
+import {
+  categoryPathsAgree,
+  derivedCategoryPath,
+  LEGACY_CATALOG_CLASSIFIER_VERSION,
+} from './classification.js';
 import { ALL_COHORT, type BackfillCohort } from '../backfill/cohort.js';
 
 /** How many diverging subjects a probe names, so an operator can open one by hand. */

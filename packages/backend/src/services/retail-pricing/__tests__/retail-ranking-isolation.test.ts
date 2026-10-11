@@ -70,7 +70,6 @@ function retailPricingDomainPaths(readDir: DirectoryReader = readSrcDirectory): 
   ];
 }
 
-
 /**
  * What reaching retail cost data looks like, from any direction: an import of a
  * retail-pricing module, a reference to one of its table objects or DTOs, or a

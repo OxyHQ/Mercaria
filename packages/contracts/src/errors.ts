@@ -105,7 +105,10 @@ const SHAPE_ISSUE_CODES: ReadonlySet<string> = new Set([
 /** The longest field name a request error echoes in `details.field`. */
 const MAX_FIELD_LENGTH = 64;
 
-export type MercariaRequestErrorCode = Extract<MercariaPublicErrorCode, 'bad_request' | 'validation_failed'>;
+export type MercariaRequestErrorCode = Extract<
+  MercariaPublicErrorCode,
+  'bad_request' | 'validation_failed'
+>;
 
 /** A refused request, classified: what to answer and with which scalars. */
 export interface MercariaRequestError {
@@ -115,7 +118,8 @@ export interface MercariaRequestError {
 }
 
 function issueField(issue: z.core.$ZodIssue): string | undefined {
-  const path = issue.code === 'unrecognized_keys' && issue.keys.length > 0 ? [issue.keys[0]] : issue.path;
+  const path =
+    issue.code === 'unrecognized_keys' && issue.keys.length > 0 ? [issue.keys[0]] : issue.path;
   const field = path.map(String).join('.');
   return field === '' ? undefined : field.slice(0, MAX_FIELD_LENGTH);
 }
@@ -135,7 +139,9 @@ export function classifyRequestIssues(issues: readonly z.core.$ZodIssue[]): Merc
     message: issues
       .map((issue) => {
         const name = issueField(issue);
-        return name === undefined || issue.code === 'unrecognized_keys' ? issue.message : `${name}: ${issue.message}`;
+        return name === undefined || issue.code === 'unrecognized_keys'
+          ? issue.message
+          : `${name}: ${issue.message}`;
       })
       .join('; '),
     details: field === undefined ? undefined : { field },

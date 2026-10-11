@@ -43,7 +43,8 @@ import {
 } from '../stage-context.js';
 
 export async function runSourceReadvancePage(context: StageContext): Promise<StagePageResult> {
-  const keyset: SQL | undefined = context.cursor === null ? undefined : gt(catalogSourceObjects.id, context.cursor);
+  const keyset: SQL | undefined =
+    context.cursor === null ? undefined : gt(catalogSourceObjects.id, context.cursor);
   const asserted = (key: string) => sql`lpad(${sourceRecords.payload} ->> ${key}, 14, '0')`;
   const nowOwned = sql`exists (
     select 1 from ${productIdentifiers}

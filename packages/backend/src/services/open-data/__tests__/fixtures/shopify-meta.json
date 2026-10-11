@@ -1,24 +1,18 @@
 {
- "id": 362709002,
- "name": "Pompeii",
- "city": "Madrid",
- "province": "Madrid",
- "country": "ES",
- "currency": "EUR",
- "domain": "pompeiibrand.com",
- "url": "https://pompeiibrand.com",
- "myshopify_domain": "pompeii-2.myshopify.com",
- "description": "Born in Madrid, Spain in 2014, Pompeii is a lifestyle brand defined by an elegant yet relaxed approach to everyday clothing. We call it refined streetwear, a style influenced by sport, nostalgia and culture that blends a sense of modern prep with a youthful edge. In the name of walk, we go on.",
- "ships_to_countries": [
-  "ES",
-  "PT",
-  "FR"
- ],
- "money_format": "{{amount_with_comma_separator}}€",
- "published_collections_count": 368,
- "published_products_count": 331,
- "shopify_pay_enabled_card_brands": [
-  "tpgpay"
- ],
- "offers_shop_pay_installments": false
+  "id": 362709002,
+  "name": "Pompeii",
+  "city": "Madrid",
+  "province": "Madrid",
+  "country": "ES",
+  "currency": "EUR",
+  "domain": "pompeiibrand.com",
+  "url": "https://pompeiibrand.com",
+  "myshopify_domain": "pompeii-2.myshopify.com",
+  "description": "Born in Madrid, Spain in 2014, Pompeii is a lifestyle brand defined by an elegant yet relaxed approach to everyday clothing. We call it refined streetwear, a style influenced by sport, nostalgia and culture that blends a sense of modern prep with a youthful edge. In the name of walk, we go on.",
+  "ships_to_countries": ["ES", "PT", "FR"],
+  "money_format": "{{amount_with_comma_separator}}€",
+  "published_collections_count": 368,
+  "published_products_count": 331,
+  "shopify_pay_enabled_card_brands": ["tpgpay"],
+  "offers_shop_pay_installments": false
 }

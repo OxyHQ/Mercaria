@@ -1,9 +1,9 @@
-import { useCallback, useState, type ReactNode } from "react";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { Dialog } from "@oxy.so/bloom/dialog";
-import { ListingSaveProvider } from "@mercaria/ui";
-import { useToggleListingSave } from "@/lib/hooks/use-saves";
-import { useTranslation } from "@/lib/i18n";
+import { useCallback, useState, type ReactNode } from 'react';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { Dialog } from '@oxy.so/bloom/dialog';
+import { ListingSaveProvider } from '@mercaria/ui';
+import { useToggleListingSave } from '@/lib/hooks/use-saves';
+import { useTranslation } from '@/lib/i18n';
 
 export function ShoppingActionsProvider({ children }: { children: ReactNode }) {
   const { canUsePrivateApi } = useOxy();
@@ -32,11 +32,9 @@ export function ShoppingActionsProvider({ children }: { children: ReactNode }) {
       <Dialog
         open={failed}
         onClose={() => setFailed(false)}
-        title={t("saved.actionFailed")}
-        description={t("saved.error.subtitle")}
-        actions={[
-          { label: t("common.confirm"), onPress: () => setFailed(false) },
-        ]}
+        title={t('saved.actionFailed')}
+        description={t('saved.error.subtitle')}
+        actions={[{ label: t('common.confirm'), onPress: () => setFailed(false) }]}
       />
     </ListingSaveProvider>
   );

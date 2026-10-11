@@ -292,10 +292,7 @@ describe('retail pricing policy versions', () => {
   });
 
   it('refuses a rounding tolerance wide enough to hide material variance', async () => {
-    await expectRefused(
-      () => makePolicy({ roundingToleranceMinor: 6 }),
-      'check',
-    );
+    await expectRefused(() => makePolicy({ roundingToleranceMinor: 6 }), 'check');
     // The vacuity floor: the ceiling itself is accepted, so the refusal above is
     // the bound and not a broken fixture.
     const atCeiling = await makePolicy({ roundingToleranceMinor: 5 });
@@ -322,10 +319,7 @@ describe('a retail cost quote is immutable from birth', () => {
   it('writes the quote and its components together, then refuses every change', async () => {
     const policy = await makeActivePolicy();
     const sourcing = await makeSourcing();
-    const { quote, components } = await insertRetailCostQuote(
-      db,
-      quoteInput(policy, sourcing),
-    );
+    const { quote, components } = await insertRetailCostQuote(db, quoteInput(policy, sourcing));
     expect(components).toHaveLength(2);
     expect(quote.customerTotalAmount).toBe(2_895);
 
@@ -350,7 +344,8 @@ describe('a retail cost quote is immutable from birth', () => {
       'check',
     );
     await expectRefused(
-      () => db.delete(retailCostQuoteComponents).where(eq(retailCostQuoteComponents.quoteId, quote.id)),
+      () =>
+        db.delete(retailCostQuoteComponents).where(eq(retailCostQuoteComponents.quoteId, quote.id)),
       'check',
     );
   });
@@ -426,18 +421,26 @@ describe('a retail cost quote is immutable from birth', () => {
     };
     await expectRefused(
       () =>
-        db
-          .insert(retailCostQuotes)
-          .values({ ...base, subsidyAmount: 1_500, buyerPayableAmount: -500, buyerPayableCurrency: 'EUR', contentHash: contentHash() }),
+        db.insert(retailCostQuotes).values({
+          ...base,
+          subsidyAmount: 1_500,
+          buyerPayableAmount: -500,
+          buyerPayableCurrency: 'EUR',
+          contentHash: contentHash(),
+        }),
       'check',
     );
     // A NEGATIVE subsidy would be a promotion that raises the price to fund
     // itself later — refused outright.
     await expectRefused(
       () =>
-        db
-          .insert(retailCostQuotes)
-          .values({ ...base, subsidyAmount: -200, buyerPayableAmount: 1_200, buyerPayableCurrency: 'EUR', contentHash: contentHash() }),
+        db.insert(retailCostQuotes).values({
+          ...base,
+          subsidyAmount: -200,
+          buyerPayableAmount: 1_200,
+          buyerPayableCurrency: 'EUR',
+          contentHash: contentHash(),
+        }),
       'check',
     );
   });
@@ -469,10 +472,7 @@ describe('a retail cost quote is immutable from birth', () => {
     // And a complete quote with no destination — an exact price for nowhere.
     await expectRefused(
       () =>
-        insertRetailCostQuote(
-          db,
-          quoteInput(policy, sourcing, { destinationCountry: undefined }),
-        ),
+        insertRetailCostQuote(db, quoteInput(policy, sourcing, { destinationCountry: undefined })),
       'check',
     );
   });
@@ -720,7 +720,7 @@ describe('the checkout lock', () => {
  * against `= 'ES'`, an expiry compared to a real clock, and `created_at`
  * ordering across rows inserted in one transaction.
  */
-describe("the quote a page may quote from", () => {
+describe('the quote a page may quote from', () => {
   it('prefers a quote composed FOR the market over a destination-less one', async () => {
     const policy = await makeActivePolicy();
     const sourcing = await makeSourcing();

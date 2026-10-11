@@ -192,9 +192,10 @@ async function narrowByOrderNumber<T extends { checkoutGroupId: string }>(
  * that they do not already know. It still sends to the STORED contact and takes
  * no destination, for the same structural reason.
  */
-export async function requestStepUpLink(
-  input: { checkoutGroupId: string; now: Date },
-): Promise<boolean> {
+export async function requestStepUpLink(input: {
+  checkoutGroupId: string;
+  now: Date;
+}): Promise<boolean> {
   return await enqueueGuestMessage(
     {
       checkoutGroupId: input.checkoutGroupId,

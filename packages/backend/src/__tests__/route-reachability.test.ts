@@ -270,7 +270,12 @@ describe('POSITIVE CONTROLS: the walk really is transitive', () => {
     // shortcuts travel this way; before this rule existed they all reported
     // unreachable, contradicting #363, which is how the gap was found.
     const result = reachabilityOf('frontend');
-    for (const route of ['/watchlists', '/shopping-agents', '/referral-partner', '/settings/addresses']) {
+    for (const route of [
+      '/watchlists',
+      '/shopping-agents',
+      '/referral-partner',
+      '/settings/addresses',
+    ]) {
       expect(result.reachable.has(route), `${route} should be reachable via go()`).toBe(true);
     }
   });
@@ -278,9 +283,9 @@ describe('POSITIVE CONTROLS: the walk really is transitive', () => {
   it('follows a route reached only from another route, not from a layout', () => {
     const result = reachabilityOf('frontend');
     expect(result.reachable.has('/price-alerts')).toBe(true);
-    expect((result.inboundEdges.get('/price-alerts') ?? []).every((file) => file.includes('saved'))).toBe(
-      true,
-    );
+    expect(
+      (result.inboundEdges.get('/price-alerts') ?? []).every((file) => file.includes('saved')),
+    ).toBe(true);
   });
 });
 
@@ -443,15 +448,45 @@ describe('MUTATION SELF-TEST: the gate can go red, transitively', () => {
 
 describe('the matcher refuses the two ways its predecessor failed PERMISSIVE', () => {
   const routes: RouteRecord[] = [
-    { route: '/settings/general', file: 'a', segments: [{ kind: 'static', value: 'settings' }, { kind: 'static', value: 'general' }] },
-    { route: '/p/[handle]', file: 'b', segments: [{ kind: 'static', value: 'p' }, { kind: 'param', value: '[handle]' }] },
-    { route: '/products/new', file: 'c', segments: [{ kind: 'static', value: 'products' }, { kind: 'static', value: 'new' }] },
-    { route: '/products/[id]', file: 'd', segments: [{ kind: 'static', value: 'products' }, { kind: 'param', value: '[id]' }] },
+    {
+      route: '/settings/general',
+      file: 'a',
+      segments: [
+        { kind: 'static', value: 'settings' },
+        { kind: 'static', value: 'general' },
+      ],
+    },
+    {
+      route: '/p/[handle]',
+      file: 'b',
+      segments: [
+        { kind: 'static', value: 'p' },
+        { kind: 'param', value: '[handle]' },
+      ],
+    },
+    {
+      route: '/products/new',
+      file: 'c',
+      segments: [
+        { kind: 'static', value: 'products' },
+        { kind: 'static', value: 'new' },
+      ],
+    },
+    {
+      route: '/products/[id]',
+      file: 'd',
+      segments: [
+        { kind: 'static', value: 'products' },
+        { kind: 'param', value: '[id]' },
+      ],
+    },
   ];
   const match = (raw: string): string[] => {
     const segments = parseTargetSegments(raw);
     expect(segments, `${raw} did not parse as an in-app path`).not.toBeNull();
-    return matchTarget(segments ?? [], routes).map((route) => route.route).sort();
+    return matchTarget(segments ?? [], routes)
+      .map((route) => route.route)
+      .sort();
   };
 
   it('an interpolated segment matches a parameter and NEVER a literal', () => {

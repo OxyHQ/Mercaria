@@ -175,7 +175,9 @@ afterEach(async () => {
     await deleteTestCanonicalRows(db, { productIds, variantIds });
   }
   if (policyIds.length > 0) {
-    await db.delete(matchCategoryGates).where(inArray(matchCategoryGates.policyVersionId, policyIds));
+    await db
+      .delete(matchCategoryGates)
+      .where(inArray(matchCategoryGates.policyVersionId, policyIds));
     const runIds = (
       await db
         .select({ id: matchBenchmarkRuns.id })
@@ -284,7 +286,6 @@ async function rejectionMessage(run: () => Promise<unknown>): Promise<string> {
 interface PolicyOptions {
   readonly status?: 'draft' | 'active';
 }
-
 
 async function makePolicy(name: string, options: PolicyOptions = {}): Promise<string> {
   const row = await insertMatchPolicyVersion(db, {
@@ -797,9 +798,7 @@ describe('acceptance 5: a category gate cannot be opened without a qualifying me
     // A GENERATED column refuses a supplied value outright (SQLSTATE 428C9), so
     // a precision nobody measured is not a value these tables can hold.
     await expect(
-      db.execute(
-        sql`update match_benchmark_categories set precision = 1 where id = ${sliceId}`,
-      ),
+      db.execute(sql`update match_benchmark_categories set precision = 1 where id = ${sliceId}`),
     ).rejects.toThrow();
   });
 });
@@ -1172,10 +1171,7 @@ describe("#57's seam, closed: a native listing becomes a native OFFER", () => {
     // canonical attachment materializes NOTHING, which is #57's own rule and
     // exactly the seam this issue closes.
     await convergeNativeOffersForListing(native.listingId);
-    const before = await db
-      .select()
-      .from(offers)
-      .where(eq(offers.listingId, native.listingId));
+    const before = await db.select().from(offers).where(eq(offers.listingId, native.listingId));
     expect(before, 'an unmatched variant must have no offer').toHaveLength(0);
 
     const result = await runMatch({
@@ -1209,10 +1205,7 @@ describe("#57's seam, closed: a native listing becomes a native OFFER", () => {
     // The matcher enqueued the convergence in its own transaction; running it
     // now is what the dispatcher does.
     await convergeNativeOffersForListing(native.listingId);
-    const after = await db
-      .select()
-      .from(offers)
-      .where(eq(offers.listingId, native.listingId));
+    const after = await db.select().from(offers).where(eq(offers.listingId, native.listingId));
     expect(after, 'the matched variant must now have a native offer').toHaveLength(1);
     expect(after[0]?.canonicalVariantId).toBe(canonical.variantId);
     expect(after[0]?.kind).toBe('native');
@@ -1466,7 +1459,9 @@ describe('a merchant-declared attachment survives a matcher that disagrees', () 
       .select()
       .from(nativeListingLinks)
       .where(eq(nativeListingLinks.productVariantId, native.variantId));
-    expect(links, 'a superseded row means the link was replaced and rolled forward').toHaveLength(1);
+    expect(links, 'a superseded row means the link was replaced and rolled forward').toHaveLength(
+      1,
+    );
     expect(links[0]?.id).toBe(link.id);
     expect(links[0]?.status).toBe('active');
     expect(links[0]?.method).toBe('merchant_declared');

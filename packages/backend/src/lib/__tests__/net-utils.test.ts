@@ -39,7 +39,9 @@ describe('net-utils', () => {
     it('extracts the LAST (rightmost) IP — the hop the trusted proxy appended', () => {
       expect(parseForwardedForClientIp('203.0.113.50')).toBe('203.0.113.50');
       // Leftmost entries are client-spoofable; the rightmost is what the ALB saw.
-      expect(parseForwardedForClientIp('203.0.113.50, 70.41.3.18, 150.172.238.178')).toBe('150.172.238.178');
+      expect(parseForwardedForClientIp('203.0.113.50, 70.41.3.18, 150.172.238.178')).toBe(
+        '150.172.238.178',
+      );
     });
 
     it('ignores a spoofed leftmost X-Forwarded-For entry', () => {

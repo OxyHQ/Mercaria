@@ -13,7 +13,8 @@ import { FIRST_EPIC_MIGRATION_IDX } from './model.js';
 import { CHILD_RIGHT, PARENT_LEFT } from './mermaid.js';
 
 const GENERATOR = 'packages/backend/scripts/generate-architecture-diagrams.ts';
-const GATE = 'packages/backend/scripts/architecture/__tests__/catalog-architecture-diagrams.test.ts';
+const GATE =
+  'packages/backend/scripts/architecture/__tests__/catalog-architecture-diagrams.test.ts';
 
 /** A mermaid flowchart node id: safe characters only, and reversible by prefix. */
 function nodeId(prefix: string, name: string): string {
@@ -40,7 +41,9 @@ export function renderDocument(model: ArchitectureModel): string {
   }
 
   const epicEdges = model.edges.filter((edge) => known.has(edge.child));
-  const inboundEdges = model.edges.filter((edge) => !known.has(edge.child) && known.has(edge.parent));
+  const inboundEdges = model.edges.filter(
+    (edge) => !known.has(edge.child) && known.has(edge.parent),
+  );
   const externalParents = [
     ...new Set(epicEdges.filter((edge) => !known.has(edge.parent)).map((edge) => edge.parent)),
   ].sort();
@@ -48,7 +51,9 @@ export function renderDocument(model: ArchitectureModel): string {
   const noWriter = [...known].filter((table) => !model.writers.has(table)).sort();
   const multiWriter = [...model.writers].filter(([, writers]) => writers.length > 1);
   const writerDirectories = [
-    ...new Set([...model.writers.values()].flatMap((writers) => writers.map((writer) => writer.directory))),
+    ...new Set(
+      [...model.writers.values()].flatMap((writers) => writers.map((writer) => writer.directory)),
+    ),
   ].sort();
 
   const out: string[] = [];
@@ -124,8 +129,8 @@ export function renderDocument(model: ArchitectureModel): string {
     '  `UNIQUE(category_id, locale, normalized_alias)` permits many aliases per category; only a',
     '  unique whose columns are all *within* the foreign key pins every one of them for a given',
     '  parent row.',
-    '- **Column names are the SQL names**, resolved through drizzle\'s own `CasingCache` with the',
-    '  repository\'s `DATABASE_CASING`. The schema declares `categoryId`; the DDL says `category_id`.',
+    "- **Column names are the SQL names**, resolved through drizzle's own `CasingCache` with the",
+    "  repository's `DATABASE_CASING`. The schema declares `categoryId`; the DDL says `category_id`.",
     '  Re-implementing that conversion here would be a third spelling of it, free to disagree with',
     '  the two that decide the real schema.',
     '',
@@ -309,7 +314,9 @@ export function renderDocument(model: ArchitectureModel): string {
   for (const assignment of model.modules) {
     const owned = new Set(assignment.tables);
     const edges = epicEdges.filter((edge) => owned.has(edge.child));
-    const referenced = [...new Set(edges.map((edge) => edge.parent))].filter((table) => !owned.has(table));
+    const referenced = [...new Set(edges.map((edge) => edge.parent))].filter(
+      (table) => !owned.has(table),
+    );
     push(`### ${assignment.module}`, '');
     push('```mermaid', 'erDiagram');
     for (const table of assignment.tables) {
@@ -329,10 +336,16 @@ export function renderDocument(model: ArchitectureModel): string {
       const inside = referenced.filter((table) => known.has(table)).sort();
       const outside = referenced.filter((table) => !known.has(table)).sort();
       if (inside.length > 0) {
-        push(`Also names, from other #367 modules: ${inside.map((table) => `\`${table}\``).join(', ')}.`, '');
+        push(
+          `Also names, from other #367 modules: ${inside.map((table) => `\`${table}\``).join(', ')}.`,
+          '',
+        );
       }
       if (outside.length > 0) {
-        push(`Also names, from outside the epic: ${outside.map((table) => `\`${table}\``).join(', ')}.`, '');
+        push(
+          `Also names, from outside the epic: ${outside.map((table) => `\`${table}\``).join(', ')}.`,
+          '',
+        );
       }
     }
     push('| Table | Created by | Written by |', '|---|---|---|');
@@ -393,5 +406,8 @@ export function renderDocument(model: ArchitectureModel): string {
     push('');
   }
 
-  return `${out.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
+  return `${out
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd()}\n`;
 }

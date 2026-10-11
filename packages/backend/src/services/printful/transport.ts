@@ -37,11 +37,7 @@
 import { request as httpsRequest } from 'node:https';
 import type { IncomingMessage } from 'node:http';
 import { assertSafePublicUrl, SsrfRejection, UpstreamError } from '@oxy.so/core/server';
-import type {
-  PrintfulRequest,
-  PrintfulResponse,
-  PrintfulTransport,
-} from './transport-contract.js';
+import type { PrintfulRequest, PrintfulResponse, PrintfulTransport } from './transport-contract.js';
 import { PRINTFUL_BASE_URL, PrintfulTransportError } from './transport-contract.js';
 
 /** The only hosts this integration will ever speak to. */
@@ -76,7 +72,8 @@ export function createPrintfulTransport(options: {
   return {
     baseUrl,
     async call(request: PrintfulRequest): Promise<PrintfulResponse> {
-      const credential = request.credential ?? (await options.resolveCredential(request.storeId ?? ''));
+      const credential =
+        request.credential ?? (await options.resolveCredential(request.storeId ?? ''));
       if (credential === null || credential.trim() === '') {
         // The live gate's second half. #122's quote path hands no credential, so
         // the adapter cannot check one — this is where an unprovisioned account

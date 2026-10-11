@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   PaginatedResponse,
   MerchantOrder,
@@ -8,7 +8,7 @@ import type {
   CreateRefundInput,
   OrderPickup,
   PickupCollectionCode,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchOrders,
   fetchOrder,
@@ -23,26 +23,28 @@ import {
   rotateCollectionCode,
   type FulfillmentStatus,
   type OrderPickupDesk,
-} from "../api/orders";
-import { queryKeys } from "../queryKeys";
-import type { StoreStats } from "../api/types";
+} from '../api/orders';
+import { queryKeys } from '../queryKeys';
+import type { StoreStats } from '../api/types';
 
 const PAGE_LIMIT = 20;
 
 /** Paginated order list (optionally filtered by status). */
-export function useOrders(storeId: string, page: number, status: OrderStatus | "all") {
+export function useOrders(storeId: string, page: number, status: OrderStatus | 'all') {
   return useQuery<PaginatedResponse<MerchantOrderSummary>>({
     queryKey: queryKeys.orders.list(storeId, page, status),
     queryFn: () =>
       fetchOrders(storeId, {
         page,
         limit: PAGE_LIMIT,
-        ...(status !== "all" ? { status } : {}),
+        ...(status !== 'all' ? { status } : {}),
       }),
     enabled: Boolean(storeId),
     placeholderData: (previous, query) =>
       query?.queryKey[1] === storeId &&
-      (query.queryKey[3] as { status?: string })?.status === status ? previous : undefined,
+      (query.queryKey[3] as { status?: string })?.status === status
+        ? previous
+        : undefined,
   });
 }
 
@@ -78,7 +80,7 @@ function invalidateOrders(
   storeId: string,
   orderId: string,
 ) {
-  queryClient.invalidateQueries({ queryKey: ["stores", storeId, "orders"] });
+  queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'orders'] });
   queryClient.invalidateQueries({ queryKey: queryKeys.orders.detail(storeId, orderId) });
 }
 
@@ -133,20 +135,20 @@ export function useOrderPickup(storeId: string, orderId: string) {
  * must re-read it.
  */
 export type PickupDeskAction =
-  | { kind: "ready"; note?: string }
-  | { kind: "collect"; code?: string; overrideReason?: string }
-  | { kind: "cancel"; reason: string };
+  | { kind: 'ready'; note?: string }
+  | { kind: 'collect'; code?: string; overrideReason?: string }
+  | { kind: 'cancel'; reason: string };
 
 export function usePickupDeskAction(storeId: string, orderId: string) {
   const queryClient = useQueryClient();
   return useMutation<OrderPickup, Error, PickupDeskAction>({
     mutationFn: (action) => {
-      if (action.kind === "ready") {
+      if (action.kind === 'ready') {
         return markPickupReady(storeId, orderId, {
           ...(action.note === undefined ? {} : { note: action.note }),
         });
       }
-      if (action.kind === "cancel") {
+      if (action.kind === 'cancel') {
         return cancelPickup(storeId, orderId, { reason: action.reason });
       }
       return collectPickup(storeId, orderId, {

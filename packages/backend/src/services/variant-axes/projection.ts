@@ -176,11 +176,7 @@ export function projectTypedListingAxes(
  *   `on` a shopper would be served the stale typed value; under `shadow` it is
  *   a counter.
  */
-export type VariantAxisShadowClass =
-  | 'agreed'
-  | 'typed_absent'
-  | 'legacy_absent'
-  | 'diverged';
+export type VariantAxisShadowClass = 'agreed' | 'typed_absent' | 'legacy_absent' | 'diverged';
 
 /**
  * Classify one listing's two option sets. Pure, so it is testable alone.

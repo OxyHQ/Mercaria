@@ -7,11 +7,11 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from "react";
-import { TextInput } from "react-native";
-import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
-import { ChatComposer } from "@oxy.so/bloom/chat-composer";
-import { PageFooter } from "@oxy.so/bloom/page-footer";
+} from 'react';
+import { TextInput } from 'react-native';
+import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
+import { ChatComposer } from '@oxy.so/bloom/chat-composer';
+import { PageFooter } from '@oxy.so/bloom/page-footer';
 import Animated, {
   Easing,
   FadeInDown,
@@ -19,11 +19,11 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   withTiming,
-} from "react-native-reanimated";
-import { ArrowRight } from "lucide-react-native";
-import { toBloomIcon } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
-import { useFeed } from "@/lib/hooks/use-feed";
+} from 'react-native-reanimated';
+import { ArrowRight } from 'lucide-react-native';
+import { toBloomIcon } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
+import { useFeed } from '@/lib/hooks/use-feed';
 
 const ARRIVAL = FadeInDown.duration(200)
   .easing(Easing.bezier(0.2, 0, 0, 1))
@@ -35,22 +35,16 @@ const DraftContext = createContext<{
 } | null>(null);
 
 /** The home field and its floating continuation edit the same draft. */
-export function ShoppingComposerProvider({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export function ShoppingComposerProvider({ children }: { children: ReactNode }) {
   const { q } = useLocalSearchParams<{ q?: string }>();
   const pathname = usePathname();
-  const routeQuery = pathname !== "/thread" && typeof q === "string" ? q : "";
+  const routeQuery = pathname !== '/thread' && typeof q === 'string' ? q : '';
   const [query, setQuery] = useState(routeQuery);
   useEffect(() => {
     setQuery(routeQuery);
   }, [routeQuery]);
   const value = useMemo(() => ({ query, setQuery }), [query]);
-  return (
-    <DraftContext.Provider value={value}>{children}</DraftContext.Provider>
-  );
+  return <DraftContext.Provider value={value}>{children}</DraftContext.Provider>;
 }
 
 /** Bloom owns the input, autosizing, keyboard suggestions, focus and send transitions. */
@@ -68,8 +62,7 @@ export function ShoppingComposer({
   const { t } = useTranslation();
   const router = useRouter();
   const draft = useContext(DraftContext);
-  if (!draft)
-    throw new Error("ShoppingComposer requires ShoppingComposerProvider");
+  if (!draft) throw new Error('ShoppingComposer requires ShoppingComposerProvider');
   const { query, setQuery } = draft;
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -96,16 +89,10 @@ export function ShoppingComposer({
 
   const suggestions = useMemo(() => {
     if (!focused || onSubmit) return [];
-    const pills = feed.data?.sections.find(
-      (section) => section.kind === "category-pills",
-    );
-    if (pills?.kind !== "category-pills") return [];
+    const pills = feed.data?.sections.find((section) => section.kind === 'category-pills');
+    if (pills?.kind !== 'category-pills') return [];
     return pills.pills
-      .filter((pill) =>
-        pill.name
-          .toLocaleLowerCase()
-          .includes(query.trim().toLocaleLowerCase()),
-      )
+      .filter((pill) => pill.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
       .slice(0, 5)
       .map((pill) => ({ id: pill.id, label: pill.name }));
   }, [feed.data, focused, query, onSubmit]);
@@ -121,24 +108,20 @@ export function ShoppingComposer({
       inputRef.current?.blur();
       if (onSubmit) {
         onSubmit(term);
-        setQuery("");
-      } else router.push({ pathname: "/thread", params: { q: term } });
+        setQuery('');
+      } else router.push({ pathname: '/thread', params: { q: term } });
     },
     [onSubmit, router, setQuery],
   );
 
   const composer = (
-    <Animated.View
-      entering={ARRIVAL}
-      className="w-full self-center"
-      style={expansion}
-    >
+    <Animated.View entering={ARRIVAL} className="w-full self-center" style={expansion}>
       <ChatComposer
         testID="shopping-composer"
         inputRef={inputRef}
-        accessibilityLabel={t("search.box.label")}
-        labels={{ input: t("search.box.label"), send: t("search.box.label") }}
-        placeholder={t("search.box.placeholder")}
+        accessibilityLabel={t('search.box.label')}
+        labels={{ input: t('search.box.label'), send: t('search.box.label') }}
+        placeholder={t('search.box.placeholder')}
         value={query}
         onValueChange={(value) => {
           setQuery(value);
@@ -168,9 +151,7 @@ export function ShoppingComposer({
           paddingRight: 12,
           paddingTop: 12,
           paddingBottom: 12,
-          boxShadow: onSubmit
-            ? "0 2px 12px rgba(0, 0, 0, 0.06)"
-            : "0 8px 40px rgba(0, 0, 0, 0.12)",
+          boxShadow: onSubmit ? '0 2px 12px rgba(0, 0, 0, 0.06)' : '0 8px 40px rgba(0, 0, 0, 0.12)',
         }}
       />
     </Animated.View>
@@ -180,7 +161,7 @@ export function ShoppingComposer({
   ) : (
     <PageFooter
       position="document"
-      scrim={onSubmit ? "always" : "none"}
+      scrim={onSubmit ? 'always' : 'none'}
       safeArea
       testID="shopping-composer-footer"
       style={{ paddingBottom: 28 }}

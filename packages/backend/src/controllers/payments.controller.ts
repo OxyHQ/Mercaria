@@ -98,10 +98,7 @@ export async function getStorePaymentAccountHandler(req: Request, res: Response)
 }
 
 /** POST /admin/stores/:storeId/payments/account/onboarding-link */
-export async function createStoreOnboardingLinkHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function createStoreOnboardingLinkHandler(req: Request, res: Response): Promise<void> {
   try {
     await respondWithLink(res, storeOwner(req), req.body as OnboardingLinkBody);
   } catch (err) {

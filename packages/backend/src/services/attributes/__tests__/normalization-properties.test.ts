@@ -53,7 +53,12 @@ import {
   type UnitFamily,
   type ValidatedConstraintSet,
 } from '@mercaria/shared-types';
-import { BASE_UNITS, UNIT_DEFINITIONS, normalizeQuantity, unitFamilyOf } from '../../canonical/units.js';
+import {
+  BASE_UNITS,
+  UNIT_DEFINITIONS,
+  normalizeQuantity,
+  unitFamilyOf,
+} from '../../canonical/units.js';
 import {
   evaluateCandidate,
   type CandidateFacts,
@@ -98,15 +103,21 @@ describe('property: normalizing a quantity', () => {
       const unit = pick(random, CANONICAL_UNITS);
       const display = `${magnitude}${pick(random, JOINERS)}${unit}`;
       let outcome: ReturnType<typeof normalizeQuantity> | null = null;
-      expect(() => {
-        outcome = normalizeQuantity(display);
-      }, `seed=${SEED} run=${run} display=${JSON.stringify(display)}`).not.toThrow();
+      expect(
+        () => {
+          outcome = normalizeQuantity(display);
+        },
+        `seed=${SEED} run=${run} display=${JSON.stringify(display)}`,
+      ).not.toThrow();
       const state = outcome === null ? 'threw' : outcome.state;
       seen.set(state, (seen.get(state) ?? 0) + 1);
     }
     // The vacuity floor: a generator producing nothing parseable would satisfy
     // "never throws" while saying nothing about normalization.
-    expect(seen.get('normalized') ?? 0, `seed=${SEED} states=${JSON.stringify([...seen])}`).toBeGreaterThan(2000);
+    expect(
+      seen.get('normalized') ?? 0,
+      `seed=${SEED} states=${JSON.stringify([...seen])}`,
+    ).toBeGreaterThan(2000);
     expect(seen.get('threw') ?? 0).toBe(0);
   });
 
@@ -161,7 +172,10 @@ describe('property: normalizing a quantity', () => {
       expect(again.baseUnit, context).toBe(first.baseUnit);
       checked += 1;
     }
-    expect(checked, `seed=${SEED + 2} — no input normalized, so idempotence was never tested`).toBeGreaterThan(1500);
+    expect(
+      checked,
+      `seed=${SEED + 2} — no input normalized, so idempotence was never tested`,
+    ).toBeGreaterThan(1500);
   });
 
   it('gives one magnitude one value however its unit is SPELLED', () => {
@@ -284,7 +298,13 @@ describe('property: evaluating a constraint set', () => {
       const constraints = [
         hardConstraint('ram-min', 'ram_capacity', 'gte', pick(random, [4, 16, 64]), 'GB'),
         hardConstraint('screen-min', 'screen_size', 'gte', Math.round(random() * 80) / 10, 'in'),
-        hardConstraint('screen-max', 'screen_size', 'lte', 4 + Math.round(random() * 80) / 10, 'in'),
+        hardConstraint(
+          'screen-max',
+          'screen_size',
+          'lte',
+          4 + Math.round(random() * 80) / 10,
+          'in',
+        ),
       ];
       const shuffled = [...constraints];
       for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -297,8 +317,18 @@ describe('property: evaluating a constraint set', () => {
       }
 
       const candidate = factsFor([
-        { attributeKey: 'ram_capacity', definitionVersion: 1, normalizedNumber: ramGb * 1_000_000_000, sourceBacked: true },
-        { attributeKey: 'screen_size', definitionVersion: 1, normalizedNumber: screenIn * 25.4, sourceBacked: true },
+        {
+          attributeKey: 'ram_capacity',
+          definitionVersion: 1,
+          normalizedNumber: ramGb * 1_000_000_000,
+          sourceBacked: true,
+        },
+        {
+          attributeKey: 'screen_size',
+          definitionVersion: 1,
+          normalizedNumber: screenIn * 25.4,
+          sourceBacked: true,
+        },
       ]);
 
       const asDeclared = evaluateCandidate(validatedSet(constraints), candidate);

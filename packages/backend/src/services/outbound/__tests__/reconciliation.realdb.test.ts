@@ -865,7 +865,9 @@ describe('commission reconciliation, against a real server', () => {
         .where(eq(affiliateTransactions.matchedClickId, clickId));
       expect(rows).toHaveLength(1);
 
-      await db.delete(affiliateTransactions).where(eq(affiliateTransactions.matchedClickId, clickId));
+      await db
+        .delete(affiliateTransactions)
+        .where(eq(affiliateTransactions.matchedClickId, clickId));
     });
 
     /**

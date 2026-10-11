@@ -98,7 +98,11 @@ describe('calculateFee — the percentage component', () => {
     // parameter carries a buyer, a session or a claim — so equivalence reduces
     // to determinism, asserted here rather than assumed.
     const input = {
-      schedule: schedule({ fixedFeeAmount: 30, fixedFeeCurrency: 'EUR' as const, eligibleCurrency: 'EUR' as const }),
+      schedule: schedule({
+        fixedFeeAmount: 30,
+        fixedFeeCurrency: 'EUR' as const,
+        eligibleCurrency: 'EUR' as const,
+      }),
       currency: 'EUR' as const,
       lines: [
         { lineTotalMinor: 3_333, discountMinor: 111 },
@@ -254,18 +258,33 @@ describe('selectFeeSchedule — the schedule effective at pricing time', () => {
   const facts = { sellerType: 'store', currency: 'EUR' } as const;
 
   it('selects only inside the effective window', () => {
-    const s = schedule({ effectiveStart: new Date('2026-06-01T00:00:00Z'), effectiveEnd: new Date('2026-07-01T00:00:00Z') });
-    expect(selectFeeSchedule({ schedules: [s], facts, at: new Date('2026-05-31T23:59:59Z') })).toBeUndefined();
-    expect(selectFeeSchedule({ schedules: [s], facts, at: new Date('2026-06-15T00:00:00Z') })).toBe(s);
+    const s = schedule({
+      effectiveStart: new Date('2026-06-01T00:00:00Z'),
+      effectiveEnd: new Date('2026-07-01T00:00:00Z'),
+    });
+    expect(
+      selectFeeSchedule({ schedules: [s], facts, at: new Date('2026-05-31T23:59:59Z') }),
+    ).toBeUndefined();
+    expect(selectFeeSchedule({ schedules: [s], facts, at: new Date('2026-06-15T00:00:00Z') })).toBe(
+      s,
+    );
     // The end is EXCLUSIVE — `[start, end)`.
-    expect(selectFeeSchedule({ schedules: [s], facts, at: new Date('2026-07-01T00:00:00Z') })).toBeUndefined();
+    expect(
+      selectFeeSchedule({ schedules: [s], facts, at: new Date('2026-07-01T00:00:00Z') }),
+    ).toBeUndefined();
   });
 
   it('matches scope facts and nothing else', () => {
     const storeOnly = schedule({ eligibleSellerType: 'store' });
     const usdOnly = schedule({ eligibleCurrency: 'USD' });
     const at = new Date('2026-06-01T00:00:00Z');
-    expect(selectFeeSchedule({ schedules: [storeOnly], facts: { sellerType: 'user', currency: 'EUR' }, at })).toBeUndefined();
+    expect(
+      selectFeeSchedule({
+        schedules: [storeOnly],
+        facts: { sellerType: 'user', currency: 'EUR' },
+        at,
+      }),
+    ).toBeUndefined();
     expect(selectFeeSchedule({ schedules: [storeOnly], facts, at })).toBe(storeOnly);
     expect(selectFeeSchedule({ schedules: [usdOnly], facts, at })).toBeUndefined();
   });
@@ -280,10 +299,22 @@ describe('selectFeeSchedule — the schedule effective at pricing time', () => {
 
   it('a version effective later never selects for an earlier pricing time', () => {
     // Acceptance 3, at the selection layer: a new version cannot reach back.
-    const v1 = schedule({ version: 1, effectiveStart: new Date('2026-01-01T00:00:00Z'), effectiveEnd: new Date('2026-06-01T00:00:00Z') });
+    const v1 = schedule({
+      version: 1,
+      effectiveStart: new Date('2026-01-01T00:00:00Z'),
+      effectiveEnd: new Date('2026-06-01T00:00:00Z'),
+    });
     const v2 = schedule({ version: 2, effectiveStart: new Date('2026-06-01T00:00:00Z') });
-    const before = selectFeeSchedule({ schedules: [v1, v2], facts, at: new Date('2026-03-01T00:00:00Z') });
-    const after = selectFeeSchedule({ schedules: [v1, v2], facts, at: new Date('2026-07-01T00:00:00Z') });
+    const before = selectFeeSchedule({
+      schedules: [v1, v2],
+      facts,
+      at: new Date('2026-03-01T00:00:00Z'),
+    });
+    const after = selectFeeSchedule({
+      schedules: [v1, v2],
+      facts,
+      at: new Date('2026-07-01T00:00:00Z'),
+    });
     expect(before?.version).toBe(1);
     expect(after?.version).toBe(2);
   });

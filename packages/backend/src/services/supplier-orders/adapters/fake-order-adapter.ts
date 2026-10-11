@@ -104,7 +104,10 @@ const placedOrders = new Map<string, SupplierOrderState>();
 let honoursIdempotencyKeys = true;
 
 /** Make one client reference produce one failure. */
-export function injectFakeOrderScenario(clientReference: string, scenario: FakeOrderScenario): void {
+export function injectFakeOrderScenario(
+  clientReference: string,
+  scenario: FakeOrderScenario,
+): void {
   scenarios.set(clientReference, scenario);
 }
 

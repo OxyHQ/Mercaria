@@ -53,11 +53,8 @@ vi.mock('../../../config/index.js', async (importOriginal) => {
   };
 });
 
-const {
-  assertCheckoutCurrencyEligible,
-  checkoutPaymentSurfaces,
-  resolveCheckoutRail,
-} = await import('../checkout-payment.service.js');
+const { assertCheckoutCurrencyEligible, checkoutPaymentSurfaces, resolveCheckoutRail } =
+  await import('../checkout-payment.service.js');
 
 beforeEach(() => {
   rails.peable = false;

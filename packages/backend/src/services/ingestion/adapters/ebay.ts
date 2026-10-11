@@ -56,7 +56,11 @@ import {
   type CatalogSourceAdapter,
 } from '../adapter.js';
 import { ebayGetItems, ebaySearch, type EbayBrowseContext } from '../../ebay/browse.js';
-import { buildEndUserContext, pageLostAttribution, type EbayAttribution } from '../../ebay/attribution.js';
+import {
+  buildEndUserContext,
+  pageLostAttribution,
+  type EbayAttribution,
+} from '../../ebay/attribution.js';
 import {
   mayClaimCompleteEnumeration,
   parseEbayCursor,
@@ -229,7 +233,15 @@ export function createEbayBrowseAdapter(deps: EbayAdapterDeps): CatalogSourceAda
     }
 
     if (cursor.phase === 'discovery') {
-      return runDiscoveryPage({ request, cursor, targets, credential, now, startedAt, mayConclude });
+      return runDiscoveryPage({
+        request,
+        cursor,
+        targets,
+        credential,
+        now,
+        startedAt,
+        mayConclude,
+      });
     }
     return runVerifyPage({
       request,

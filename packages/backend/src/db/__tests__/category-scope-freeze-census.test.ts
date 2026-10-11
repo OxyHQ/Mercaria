@@ -53,10 +53,9 @@ const POPULATION_FLOOR = 5;
  */
 const FROZEN_FLOOR = 2;
 
-function dispositionsFor(entries: readonly CategoryScopeDisposition[]): Map<
-  string,
-  CategoryScopeDisposition
-> {
+function dispositionsFor(
+  entries: readonly CategoryScopeDisposition[],
+): Map<string, CategoryScopeDisposition> {
   return new Map(entries.map((entry) => [entry.table, entry]));
 }
 
@@ -127,9 +126,7 @@ describe('the category-override population is derived, not remembered', () => {
   it('answers the same population under the strict (key, version) reading', () => {
     const strict = new Set(['attribute_definitions', 'product_type_definitions']);
     const loose = deriveCategoryScopedDefinitionTables(schema).map((entry) => entry.table);
-    const narrow = deriveCategoryScopedDefinitionTables(schema, strict).map(
-      (entry) => entry.table,
-    );
+    const narrow = deriveCategoryScopedDefinitionTables(schema, strict).map((entry) => entry.table);
     expect(narrow).toEqual(loose);
 
     // And the injection is not inert: an EMPTY versioned set must empty the
@@ -169,10 +166,7 @@ describe('the category-override population is derived, not remembered', () => {
       .map((entry) => entry.table);
 
     expect(wideRules).toEqual(narrowRules);
-    expect(wideRules).toEqual([
-      'attribute_definition_categories',
-      'product_type_category_scopes',
-    ]);
+    expect(wideRules).toEqual(['attribute_definition_categories', 'product_type_category_scopes']);
     // And the wide reading really does reach further, or the equality above is
     // two identical populations agreeing about nothing.
     expect(widePopulation.map((entry) => entry.table)).toContain('navigation_nodes');
@@ -245,7 +239,10 @@ describe('the category-override population is derived, not remembered', () => {
   });
 
   it('holds the shape rule in BOTH directions', () => {
-    const wrong = shapeGaps(deriveCategoryScopedDefinitionTables(schema), CATEGORY_SCOPE_DISPOSITIONS);
+    const wrong = shapeGaps(
+      deriveCategoryScopedDefinitionTables(schema),
+      CATEGORY_SCOPE_DISPOSITIONS,
+    );
     expect(
       wrong,
       'A `frozen_with_its_version` table must carry a UNIQUE over (definition, category) — ' +

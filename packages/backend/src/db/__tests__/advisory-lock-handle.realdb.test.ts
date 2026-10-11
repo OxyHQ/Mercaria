@@ -150,7 +150,9 @@ describe('a SESSION-level advisory lock', () => {
       expect(await locksHeld(), 'the pooled unlock actually released the lock').toBe(1);
 
       // And the correct form, on the session that took it.
-      const [own] = await reserved<{ released: boolean }[]>`select pg_advisory_unlock(${PROBE_KEY}) as released`;
+      const [own] = await reserved<
+        { released: boolean }[]
+      >`select pg_advisory_unlock(${PROBE_KEY}) as released`;
       expect(own?.released, 'the unlock on the holding session did not report success').toBe(true);
       expect(await locksHeld(), 'the lock survived its own session unlocking it').toBe(0);
     } finally {
@@ -286,7 +288,9 @@ describe('a TRANSACTION-scoped advisory lock', () => {
       // Runs when the case FAILS too, which is the point: a stranded probe
       // trigger is a `pg_trigger` row every later run of this file would have
       // to tell apart from its own.
-      await db.execute(sql`drop trigger if exists ${sql.raw(PROBE_TRIGGER)} on ${sql.raw(PROBE_TABLE)}`);
+      await db.execute(
+        sql`drop trigger if exists ${sql.raw(PROBE_TRIGGER)} on ${sql.raw(PROBE_TABLE)}`,
+      );
       await db.execute(sql`drop function if exists ${sql.raw(PROBE_FUNCTION)}()`);
       await db.execute(sql`drop table if exists ${sql.raw(PROBE_TABLE)}`);
     }
@@ -331,5 +335,4 @@ describe('a TRANSACTION-scoped advisory lock', () => {
     ]);
     expect(order.sort()).toEqual(['a', 'b']);
   }, 60_000);
-
 });

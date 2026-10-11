@@ -1,14 +1,12 @@
-import { View } from "react-native";
-import type { ComparisonExplanation } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  COMPARISON_NO_SUMMARY_KEY,
-} from "../../lib/marketplace-labels";
+import { View } from 'react-native';
+import type { ComparisonExplanation } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import { COMPARISON_NO_SUMMARY_KEY } from '../../lib/marketplace-labels';
 import {
   COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY,
   COMPARISON_PROVENANCE_KEYS,
-} from "../../lib/comparison-labels";
+} from '../../lib/comparison-labels';
 
 export interface ComparisonExplanationBlockProps {
   explanation: ComparisonExplanation;
@@ -46,7 +44,7 @@ export function ComparisonExplanationBlock({
   // Before the early return: a hook may not sit behind a branch.
   const t = useSharedUiTranslation();
 
-  if (explanation.state === "unavailable") {
+  if (explanation.state === 'unavailable') {
     return (
       <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-12">
         <Text className="text-shop-caption text-text-secondary">
@@ -76,7 +74,7 @@ export function ComparisonExplanationBlock({
         </View>
       )}
 
-      {explanation.state === "template" ? (
+      {explanation.state === 'template' ? (
         <Text className="text-shop-caption text-text-secondary">
           {t(COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY)}
         </Text>

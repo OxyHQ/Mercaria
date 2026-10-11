@@ -130,9 +130,7 @@ export async function openReviewForRefusal(
       externalKey: input.externalKey,
       ...(input.externalLabel === undefined ? {} : { externalLabel: input.externalLabel }),
       ...(input.externalPath === undefined ? {} : { externalPath: input.externalPath }),
-      ...(input.observedRawValue === undefined
-        ? {}
-        : { observedRawValue: input.observedRawValue }),
+      ...(input.observedRawValue === undefined ? {} : { observedRawValue: input.observedRawValue }),
       ...(input.sourceRecordId === undefined ? {} : { sourceRecordId: input.sourceRecordId }),
       reason,
       priority: reviewPriority(reason),
@@ -152,10 +150,7 @@ export async function openReviewForRefusal(
  * would be a nearest-match guess arriving through the copy — which is what this
  * queue exists so that nobody does.
  */
-function summarize(
-  input: OpenReviewForRefusalInput,
-  reason: CatalogExternalReviewReason,
-): string {
+function summarize(input: OpenReviewForRefusalInput, reason: CatalogExternalReviewReason): string {
   const token = input.externalLabel ?? input.externalKey;
   switch (reason) {
     case 'unmapped':

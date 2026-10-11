@@ -35,7 +35,11 @@
  * somebody has to travel.
  */
 
-import { P2P_LOCAL_CELL_PRECISION_DEGREES, type P2pLocalArea, type PickupDistanceBand } from '@mercaria/shared-types';
+import {
+  P2P_LOCAL_CELL_PRECISION_DEGREES,
+  type P2pLocalArea,
+  type PickupDistanceBand,
+} from '@mercaria/shared-types';
 import { validationError } from '../../lib/errors/error-codes.js';
 
 /** Mean Earth radius, metres — the sphere the haversine below is taken on. */
@@ -62,7 +66,9 @@ export function assertUsableCoordinate(latitude: number, longitude: number): Coo
     throw validationError('A location needs a finite latitude and longitude.');
   }
   if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-    throw validationError('Latitude must be between -90 and 90, and longitude between -180 and 180.');
+    throw validationError(
+      'Latitude must be between -90 and 90, and longitude between -180 and 180.',
+    );
   }
   if (latitude === 0 && longitude === 0) {
     throw validationError(
@@ -174,5 +180,8 @@ export const DEFAULT_NEARBY_RADIUS_METRES = 25_000;
 /** Clamp a requested radius into the servable range. */
 export function clampNearbyRadius(requested: number | undefined): number {
   if (requested === undefined || !Number.isFinite(requested)) return DEFAULT_NEARBY_RADIUS_METRES;
-  return Math.min(MAX_NEARBY_RADIUS_METRES, Math.max(MIN_NEARBY_RADIUS_METRES, Math.round(requested)));
+  return Math.min(
+    MAX_NEARBY_RADIUS_METRES,
+    Math.max(MIN_NEARBY_RADIUS_METRES, Math.round(requested)),
+  );
 }

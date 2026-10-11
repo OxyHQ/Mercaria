@@ -263,7 +263,10 @@ describe('the outbox write is ACCEPTED by a real server', () => {
       );
     });
 
-    const claimed = await claimModerationOutboxEvent({ leaseOwner: 'live-dispatcher', eventId: id });
+    const claimed = await claimModerationOutboxEvent({
+      leaseOwner: 'live-dispatcher',
+      eventId: id,
+    });
     expect(claimed?.id).toBe(id);
 
     await db.transaction(async (tx) => {
@@ -664,10 +667,7 @@ describe('createAbuseReport against a real database', () => {
       categories: ['counterfeit' as const],
     };
 
-    const outcomes = await Promise.allSettled([
-      createAbuseReport(args),
-      createAbuseReport(args),
-    ]);
+    const outcomes = await Promise.allSettled([createAbuseReport(args), createAbuseReport(args)]);
     for (const outcome of outcomes) {
       if (outcome.status === 'fulfilled') trackReport(outcome.value.report.id);
     }
@@ -898,11 +898,17 @@ describe('the enforcement idempotency key is a real unique index', () => {
       reason: 'r',
     };
 
-    expect(await claimModerationEnforcement({ ...base, revision: 1, action: 'restrict' })).not.toBeNull();
-    expect(await claimModerationEnforcement({ ...base, revision: 2, action: 'restore' })).not.toBeNull();
+    expect(
+      await claimModerationEnforcement({ ...base, revision: 1, action: 'restrict' }),
+    ).not.toBeNull();
+    expect(
+      await claimModerationEnforcement({ ...base, revision: 2, action: 'restore' }),
+    ).not.toBeNull();
     // And the same action at a LATER revision is also its own claim — a second
     // correction re-restricting after an appeal was itself overturned.
-    expect(await claimModerationEnforcement({ ...base, revision: 3, action: 'restrict' })).not.toBeNull();
+    expect(
+      await claimModerationEnforcement({ ...base, revision: 3, action: 'restrict' }),
+    ).not.toBeNull();
 
     const rows = await db
       .select({ id: moderationEnforcements.id })

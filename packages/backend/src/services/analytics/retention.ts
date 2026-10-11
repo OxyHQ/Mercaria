@@ -32,7 +32,10 @@
 
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
-import { countUnredactedExpiredQueries, redactExpiredQueryText } from '../../db/analytics/searchQueryRepository.js';
+import {
+  countUnredactedExpiredQueries,
+  redactExpiredQueryText,
+} from '../../db/analytics/searchQueryRepository.js';
 import { countOverdueSalts } from '../../db/analytics/pseudonymSaltRepository.js';
 
 /** How many records one pass redacts. Bounded, like every other sweep here. */

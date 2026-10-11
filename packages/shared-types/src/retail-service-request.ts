@@ -369,8 +369,7 @@ export const RETAIL_SERVICE_ELIGIBILITY_VERDICTS = [
 ] as const;
 
 /** One of {@link RETAIL_SERVICE_ELIGIBILITY_VERDICTS}. */
-export type RetailServiceEligibilityVerdict =
-  (typeof RETAIL_SERVICE_ELIGIBILITY_VERDICTS)[number];
+export type RetailServiceEligibilityVerdict = (typeof RETAIL_SERVICE_ELIGIBILITY_VERDICTS)[number];
 
 /**
  * Why a request is not eligible.
@@ -726,9 +725,7 @@ export type RetailReturnDisposition = (typeof RETAIL_RETURN_DISPOSITIONS)[number
  * the unit and it is Mercaria's problem now, not the buyer's second chance, and
  * `credited` is a supplier-side fact that must never bound what a buyer may do.
  */
-export const RETAIL_RETURN_CONSUMING_DISPOSITIONS: readonly RetailReturnDisposition[] = [
-  'shipped',
-];
+export const RETAIL_RETURN_CONSUMING_DISPOSITIONS: readonly RetailReturnDisposition[] = ['shipped'];
 
 /**
  * How a buyer gets the goods back to where they are going.

@@ -223,11 +223,13 @@ function derivedProducers(
  */
 function triggersWritingTable(table: string, sql: string = MIGRATION_SQL): string[] {
   const bodies = new Map<string, string>();
-  const functionPattern = /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([a-z0-9_]+)\s*\(\s*\)[^$]*\$\$([\s\S]*?)\$\$/giu;
+  const functionPattern =
+    /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([a-z0-9_]+)\s*\(\s*\)[^$]*\$\$([\s\S]*?)\$\$/giu;
   for (const match of sql.matchAll(functionPattern)) bodies.set(match[1], match[2]);
 
   const found = new Set<string>();
-  const triggerPattern = /CREATE\s+TRIGGER\s+([a-z0-9_]+)[\s\S]*?EXECUTE\s+FUNCTION\s+([a-z0-9_]+)\s*\(/giu;
+  const triggerPattern =
+    /CREATE\s+TRIGGER\s+([a-z0-9_]+)[\s\S]*?EXECUTE\s+FUNCTION\s+([a-z0-9_]+)\s*\(/giu;
   for (const match of sql.matchAll(triggerPattern)) {
     const body = bodies.get(match[2]);
     if (body !== undefined && body.includes(`INSERT INTO "${table}"`)) found.add(match[1]);
@@ -267,8 +269,10 @@ describe('the populations this gate derives from', () => {
     // today's counts — what they have to catch is a walk that COLLAPSED (a moved
     // root, a `readdirSync` returning nothing, a barrel import that resolved to
     // an empty module), not a legitimate addition.
-    expect(SOURCES.size, `the src walk found ${String(SOURCES.size)} production modules`)
-      .toBeGreaterThan(1_200);
+    expect(
+      SOURCES.size,
+      `the src walk found ${String(SOURCES.size)} production modules`,
+    ).toBeGreaterThan(1_200);
     expect(
       MIGRATION_FILES.length,
       `the drizzle walk found ${String(MIGRATION_FILES.length)} migrations`,
@@ -566,8 +570,10 @@ describe('every declared consumer is a symbol something actually calls', () => {
       if (contract.consumer.state !== 'absent') continue;
       checked += 1;
       const { probe, owedBy, reason } = contract.consumer;
-      expect(owedBy, `${contract.kind}: an absent consumer must name the issue that owes it`)
-        .toMatch(/#\d+/u);
+      expect(
+        owedBy,
+        `${contract.kind}: an absent consumer must name the issue that owes it`,
+      ).toMatch(/#\d+/u);
       expect(reason.length).toBeGreaterThan(60);
       if (probe.kind === 'no_update_of_carrier') {
         expect(
@@ -592,8 +598,9 @@ describe('every declared consumer is a symbol something actually calls', () => {
     expect(tableUpdaters('offerOutboxes').length).toBeGreaterThan(0);
 
     // `no_importer_of` on a module that IS imported.
-    expect(importers('db/catalogAuthoring/schemaInvalidationRepository.ts').length)
-      .toBeGreaterThan(0);
+    expect(importers('db/catalogAuthoring/schemaInvalidationRepository.ts').length).toBeGreaterThan(
+      0,
+    );
 
     // And the subjects: the translation trail's readers exist, are exported, and
     // are called by nobody. This is the finding the `absent` state records, and
@@ -650,7 +657,10 @@ describe('every invalidation subject is bumped by something', () => {
   it('finds real bump sites, and goes red when one subject loses its only producer', () => {
     // Vacuity floor: the detector has to be finding call sites at all.
     const sites = bumpSites();
-    expect(sites.length, `only ${String(sites.length)} bump sites were found`).toBeGreaterThanOrEqual(5);
+    expect(
+      sites.length,
+      `only ${String(sites.length)} bump sites were found`,
+    ).toBeGreaterThanOrEqual(5);
     expect(sites).toContain('localization@services/catalog-governance/review.service.ts');
 
     // The mutation: `localization` has exactly one producer, so removing it takes
@@ -691,8 +701,10 @@ describe('every localized table has a trail disposition', () => {
   it('the disposition map is TOTAL over the derived population', () => {
     const tables = localizedTables();
     // Vacuity floor plus the known-answer baseline.
-    expect(tables.length, `the localized-table derivation found ${String(tables.length)}`)
-      .toBeGreaterThanOrEqual(11);
+    expect(
+      tables.length,
+      `the localized-table derivation found ${String(tables.length)}`,
+    ).toBeGreaterThanOrEqual(11);
     expect(Object.keys(LOCALIZED_TABLE_TRAIL_COVERAGE).sort()).toEqual(tables);
 
     for (const table of tables) {
@@ -725,8 +737,9 @@ describe('every localized table has a trail disposition', () => {
     const uncovered = Object.values(LOCALIZED_TABLE_TRAIL_COVERAGE).filter(
       (coverage) => coverage.coverage === 'not_recorded',
     );
-    expect(uncovered.length, 'no uncovered table — has the trail grown to cover all of them?')
-      .toBe(3);
+    expect(uncovered.length, 'no uncovered table — has the trail grown to cover all of them?').toBe(
+      3,
+    );
   });
 });
 

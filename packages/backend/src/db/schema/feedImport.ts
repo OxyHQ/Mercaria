@@ -73,7 +73,16 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   FEED_AUTH_KINDS,
@@ -164,9 +173,7 @@ export const feedConfigurations = pgTable(
      * handle plus a variant id. Order is significant and preserved: it is part
      * of the derived id.
      */
-    identityKeyFields: text()
-      .array()
-      .notNull(),
+    identityKeyFields: text().array().notNull(),
     // ── Conditional-request state (issue §"Supported inputs" 5) ──────────────
     /**
      * What the source's last successful fetch validated with.
@@ -192,11 +199,7 @@ export const feedConfigurations = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf(
-      'feed_configurations_owner_kind_check',
-      t.ownerKind,
-      FEED_CONFIGURATION_OWNER_KINDS,
-    ),
+    checkOneOf('feed_configurations_owner_kind_check', t.ownerKind, FEED_CONFIGURATION_OWNER_KINDS),
     check(
       'feed_configurations_validator_length_check',
       sql`(${t.lastEtag} is null or length(${t.lastEtag}) <= 256)
@@ -237,9 +240,7 @@ export const feedConfigurations = pgTable(
     /** PROPERTY: one feed configuration per #62 source, ever. */
     uniqueIndex('feed_configurations_source_key').on(t.sourceId),
     /** The tenant read: this store's feeds. */
-    index('feed_configurations_store_idx')
-      .on(t.storeId)
-      .where(sql`${t.storeId} is not null`),
+    index('feed_configurations_store_idx').on(t.storeId).where(sql`${t.storeId} is not null`),
   ],
 );
 
@@ -287,7 +288,9 @@ export const feedUploads = pgTable(
      */
     storageKey: text().notNull(),
     compression: text({ enum: asEnumValues(FEED_COMPRESSIONS) }).notNull(),
-    status: text({ enum: asEnumValues(FEED_UPLOAD_STATUSES) }).notNull().default('staged'),
+    status: text({ enum: asEnumValues(FEED_UPLOAD_STATUSES) })
+      .notNull()
+      .default('staged'),
     uploadedByOxyUserId: text().notNull(),
     consumedAt: timestamptz(),
     /** The retention deadline. Swept by `expiryTargets.ts`. */
@@ -310,15 +313,9 @@ export const feedUploads = pgTable(
       'feed_uploads_filename_shape_check',
       sql`${t.filename} ~ '^[A-Za-z0-9][A-Za-z0-9 _.-]{0,199}$' and ${t.filename} !~ '\\.\\.'`,
     ),
-    check(
-      'feed_uploads_digest_shape_check',
-      sql`${t.contentDigest} ~ '^[0-9a-f]{64}$'`,
-    ),
+    check('feed_uploads_digest_shape_check', sql`${t.contentDigest} ~ '^[0-9a-f]{64}$'`),
     check('feed_uploads_byte_size_check', sql`${t.byteSize} >= 0`),
-    check(
-      'feed_uploads_storage_key_shape_check',
-      sql`${t.storageKey} ~ '^[A-Za-z0-9_-]{8,128}$'`,
-    ),
+    check('feed_uploads_storage_key_shape_check', sql`${t.storageKey} ~ '^[A-Za-z0-9_-]{8,128}$'`),
     check(
       'feed_uploads_consumed_shape_check',
       sql`(${t.status} = 'consumed') = (${t.consumedAt} is not null)`,
@@ -389,8 +386,12 @@ export const feedConfigurationVersions = pgTable(
     delimiter: text(),
     /** The quote character, for a delimited format. RFC 4180 says `"`. */
     quoteChar: text(),
-    encoding: text({ enum: asEnumValues(FEED_ENCODINGS) }).notNull().default('utf-8'),
-    compression: text({ enum: asEnumValues(FEED_COMPRESSIONS) }).notNull().default('none'),
+    encoding: text({ enum: asEnumValues(FEED_ENCODINGS) })
+      .notNull()
+      .default('utf-8'),
+    compression: text({ enum: asEnumValues(FEED_COMPRESSIONS) })
+      .notNull()
+      .default('none'),
     /** Where the records live, for a nested format (issue feed configuration 5). */
     recordPath: text(),
     hasHeaderRow: boolean().notNull().default(false),
@@ -413,10 +414,14 @@ export const feedConfigurationVersions = pgTable(
     defaultLanguage: text(),
 
     // ── What an omitted record means (issue processing 6 and 7) ──────────────
-    deliveryMode: text({ enum: asEnumValues(FEED_DELIVERY_MODES) }).notNull().default('delta'),
+    deliveryMode: text({ enum: asEnumValues(FEED_DELIVERY_MODES) })
+      .notNull()
+      .default('delta'),
 
     // ── Authentication, encrypted (issue feed configuration 3) ───────────────
-    authKind: text({ enum: asEnumValues(FEED_AUTH_KINDS) }).notNull().default('none'),
+    authKind: text({ enum: asEnumValues(FEED_AUTH_KINDS) })
+      .notNull()
+      .default('none'),
     /** AES-256-GCM, self-describing, key-id prefixed. A PROTECTED column. */
     authCiphertext: text(),
     /** The header or query-parameter NAME. Not a secret; the value is. */
@@ -736,10 +741,7 @@ export const feedImportReports = pgTable(
           and ${t.durationMs} >= 0`,
     ),
     /** PROPERTY 4 — the vacuity floor, as a constraint. Equality, never `<=`. */
-    check(
-      'feed_import_reports_intake_total_check',
-      sql`${t.scanned} = ${t.valid} + ${t.invalid}`,
-    ),
+    check('feed_import_reports_intake_total_check', sql`${t.scanned} = ${t.valid} + ${t.invalid}`),
     check(
       'feed_import_reports_tally_bound_check',
       sql`${t.changed} + ${t.unchanged} <= ${t.valid}

@@ -104,13 +104,13 @@ const MATCHING_DOMAIN_PATHS = [
   ...matchNamed('db/schema'),
 ];
 
-
 /** Reaching the matching domain, from any direction. */
 const MATCHING_REFERENCE =
   /matching\/|matchDecision|matchQueue|matchPolicy|match_decisions|match_queue|match_policy_versions|evaluateMatch/;
 
 /** Any commercial domain. A correctness function must not be able to read one. */
-const COMMERCIAL_REFERENCE = /fees\/|payments\/|referrals\/|feeSchedule|orderFeeSnapshot|ledgerRepository/;
+const COMMERCIAL_REFERENCE =
+  /fees\/|payments\/|referrals\/|feeSchedule|orderFeeSnapshot|ledgerRepository/;
 
 /**
  * The OFFER write path this domain must not take.
@@ -214,19 +214,23 @@ describe('no HTTP caller can post a decision', () => {
     // Comments stripped: this file's own docblock explains exactly which fields
     // it refuses, which is the prose a naive scan would trip over.
     const schemas = readDomainFile('middleware/matching-schemas.ts');
-    assertEachOf([
-      'outcome:',
-      'confidence:',
-      'blockers:',
-      'matchedCanonicalVariantId',
-      'matchedCanonicalProductId',
-      'decidedStage',
-    ], 6, (forbidden) => {
-      expect(
-        schemas.includes(forbidden),
-        `matching-schemas.ts accepts '${forbidden}'; a route that can post a decision is a route around the whole pipeline`,
-      ).toBe(false);
-    });
+    assertEachOf(
+      [
+        'outcome:',
+        'confidence:',
+        'blockers:',
+        'matchedCanonicalVariantId',
+        'matchedCanonicalProductId',
+        'decidedStage',
+      ],
+      6,
+      (forbidden) => {
+        expect(
+          schemas.includes(forbidden),
+          `matching-schemas.ts accepts '${forbidden}'; a route that can post a decision is a route around the whole pipeline`,
+        ).toBe(false);
+      },
+    );
     // And every schema is closed, so an unknown key is a 400 rather than an
     // ignored one.
     const strictCount = (schemas.match(/\.strict\(\)/gu) ?? []).length;
@@ -238,13 +242,15 @@ describe('the scanner itself is not vacuous', () => {
   it('every detector fires on a seeded positive', () => {
     // A rotted regex passes every assertion above by matching nothing. These
     // are the mutation self-tests that make the gate mean something.
-    expect(MATCHING_REFERENCE.test("import { evaluateMatch } from '../matching/pipeline.js';")).toBe(
-      true,
-    );
+    expect(
+      MATCHING_REFERENCE.test("import { evaluateMatch } from '../matching/pipeline.js';"),
+    ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { x } from '../fees/fee.service.js';")).toBe(true);
     expect(OFFER_WRITE_REFERENCE.test('await upsertNativeOffer(db, row);')).toBe(true);
     expect(
-      CANONICAL_WRITE_REFERENCE.test("import { createProduct } from '../canonical/canonical-product.service.js';"),
+      CANONICAL_WRITE_REFERENCE.test(
+        "import { createProduct } from '../canonical/canonical-product.service.js';",
+      ),
     ).toBe(true);
   });
 
@@ -256,12 +262,14 @@ describe('the scanner itself is not vacuous', () => {
     // rather than silently shrinking every wall above.
     const from = (prefix: string) =>
       MATCHING_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/matching/'), 'the services walk found too few modules').toBeGreaterThanOrEqual(
-      17,
-    );
-    expect(from('db/matching/'), 'the repository walk found too few modules').toBeGreaterThanOrEqual(
-      6,
-    );
+    expect(
+      from('services/matching/'),
+      'the services walk found too few modules',
+    ).toBeGreaterThanOrEqual(17);
+    expect(
+      from('db/matching/'),
+      'the repository walk found too few modules',
+    ).toBeGreaterThanOrEqual(6);
     expect(from('controllers/'), 'no match-named controller was derived').toBeGreaterThanOrEqual(1);
     expect(from('routes/'), 'no match-named route was derived').toBeGreaterThanOrEqual(1);
     expect(from('middleware/'), 'no match-named schema module was derived').toBeGreaterThanOrEqual(
@@ -379,7 +387,10 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     const planted = 'lib/matching-cache.ts';
     const seeded = sweepTree((relative) =>
       relative === 'lib'
-        ? [...realReader(relative), { name: 'matching-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...realReader(relative),
+            { name: 'matching-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : realReader(relative),
     );
     expect(seeded, 'the sweep did not reach the planted module').toContain(planted);

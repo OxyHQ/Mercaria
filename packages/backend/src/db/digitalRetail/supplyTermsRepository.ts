@@ -26,10 +26,7 @@ import type {
   DigitalSupplyProvenance,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import {
-  digitalSupplierCapabilities,
-  digitalSupplyTerms,
-} from '../schema/digitalRetail.js';
+import { digitalSupplierCapabilities, digitalSupplyTerms } from '../schema/digitalRetail.js';
 
 export type DigitalSupplyTermsRow = InferSelectModel<typeof digitalSupplyTerms>;
 export type DigitalSupplierCapabilityRow = InferSelectModel<typeof digitalSupplierCapabilities>;
@@ -105,7 +102,8 @@ export async function createSupplyTerms(
       supportEscalationNote: input.supportEscalationNote ?? null,
     })
     .returning();
-  if (!row) throw new Error(`digital supply terms for agreement ${input.agreementId} were not written`);
+  if (!row)
+    throw new Error(`digital supply terms for agreement ${input.agreementId} were not written`);
   return row;
 }
 

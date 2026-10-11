@@ -33,11 +33,7 @@ export class MercariaAdminClient {
     private readonly storeId: string,
   ) {}
 
-  private async call<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-  ): Promise<ApiResponse<T>> {
+  private async call<T>(method: string, path: string, body?: unknown): Promise<ApiResponse<T>> {
     const started = Date.now();
     let status = 0;
     let payload: unknown = null;
@@ -69,9 +65,12 @@ export class MercariaAdminClient {
     return {
       status,
       ok: status >= 200 && status < 300,
-      body: (envelope?.data ?? (payload as T)) ?? null,
+      body: envelope?.data ?? (payload as T) ?? null,
       durationMs,
-      error: status >= 200 && status < 300 ? null : (envelope?.error ?? envelope?.message ?? `HTTP ${status}`),
+      error:
+        status >= 200 && status < 300
+          ? null
+          : (envelope?.error ?? envelope?.message ?? `HTTP ${status}`),
     };
   }
 
@@ -81,7 +80,11 @@ export class MercariaAdminClient {
     consumerKey: string;
     consumerSecret: string;
   }): Promise<ApiResponse<Connection>> {
-    return this.call('POST', `/admin/stores/${this.storeId}/channels/woocommerce/connect-key`, input);
+    return this.call(
+      'POST',
+      `/admin/stores/${this.storeId}/channels/woocommerce/connect-key`,
+      input,
+    );
   }
 
   /**
@@ -111,7 +114,9 @@ export class MercariaAdminClient {
   }
 
   /** `POST /admin/stores/:storeId/channels/:connectionId/sync` — answers 202. */
-  requestSync(connectionId: string): Promise<ApiResponse<{ status: string; connectionId: string }>> {
+  requestSync(
+    connectionId: string,
+  ): Promise<ApiResponse<{ status: string; connectionId: string }>> {
     return this.call('POST', `/admin/stores/${this.storeId}/channels/${connectionId}/sync`);
   }
 

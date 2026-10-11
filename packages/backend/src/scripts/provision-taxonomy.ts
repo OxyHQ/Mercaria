@@ -279,7 +279,9 @@ async function main(): Promise<void> {
     throw new Error(
       `${counts.divergent} categor${counts.divergent === 1 ? 'y' : 'ies'} already exist and ` +
         'disagree with the taxonomy. Nothing was rewritten. Divergences: ' +
-        found.map((d) => `${d.slug}.${d.field} is "${d.actual}", expected "${d.expected}"`).join('; '),
+        found
+          .map((d) => `${d.slug}.${d.field} is "${d.actual}", expected "${d.expected}"`)
+          .join('; '),
     );
   }
 }

@@ -31,12 +31,7 @@
  * rather than a read-then-write this file could get wrong.
  */
 
-import type {
-  CurrencyCode,
-  Money,
-  Offer,
-  PriceAlertQualification,
-} from '@mercaria/shared-types';
+import type { CurrencyCode, Money, Offer, PriceAlertQualification } from '@mercaria/shared-types';
 import {
   ALL_CURRENCY_CODES,
   PRICE_ALERT_POLICY_VERSION,

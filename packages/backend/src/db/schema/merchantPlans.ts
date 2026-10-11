@@ -125,7 +125,9 @@ export const merchantPlans = pgTable(
      * retroactively shorten a grace somebody is already inside.
      */
     gracePeriodDays: integer().notNull().default(0),
-    status: text({ enum: asEnumValues(MERCHANT_PLAN_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(MERCHANT_PLAN_STATUSES) })
+      .notNull()
+      .default('draft'),
     /** The operator who drafted it — an Oxy account id, no foreign key. */
     createdByOxyUserId: text().notNull(),
     /** The operator who activated it — the audit half of "publish a new version". */
@@ -733,10 +735,6 @@ export const entitlementUsageCounters = pgTable(
       MERCHANT_ENTITLEMENT_CAPABILITIES,
     ),
     check('entitlement_usage_counters_used_check', sql`${t.used} >= 0`),
-    uniqueIndex('entitlement_usage_counters_scope_key').on(
-      t.storeId,
-      t.capabilityKey,
-      t.periodKey,
-    ),
+    uniqueIndex('entitlement_usage_counters_scope_key').on(t.storeId, t.capabilityKey, t.periodKey),
   ],
 );

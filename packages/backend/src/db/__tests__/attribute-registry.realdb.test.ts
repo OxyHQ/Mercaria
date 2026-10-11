@@ -28,9 +28,7 @@ import {
   attributeValueReviews,
   type AttributeDefinitionCapabilityColumn,
 } from '../schema/attributeRegistry.js';
-import {
-  canonicalAttributeValues,
-} from '../schema/canonicalCatalog.js';
+import { canonicalAttributeValues } from '../schema/canonicalCatalog.js';
 import { NORMALIZATION_RULE_VERSION } from '@mercaria/shared-types';
 import {
   draftAttributeDefinition,
@@ -191,7 +189,10 @@ async function mintSourceRecord(marker: string): Promise<string> {
       externalType: 'product',
       externalId: `${marker}-${RUN}`,
       observedAt: new Date(),
-      contentHash: marker.padEnd(64, '0').slice(0, 64).replace(/[^0-9a-f]/gu, '0'),
+      contentHash: marker
+        .padEnd(64, '0')
+        .slice(0, 64)
+        .replace(/[^0-9a-f]/gu, '0'),
     })
     .returning();
   if (!record) throw new Error('source record insert returned no row');
@@ -199,7 +200,10 @@ async function mintSourceRecord(marker: string): Promise<string> {
 }
 
 async function mintProduct(label: string): Promise<string> {
-  const product = await createCanonicalProduct({ name: `${label} ${RUN}`, actorOxyUserId: OPERATOR });
+  const product = await createCanonicalProduct({
+    name: `${label} ${RUN}`,
+    actorOxyUserId: OPERATOR,
+  });
   createdProductIds.push(product.id);
   return product.id;
 }
@@ -1398,8 +1402,12 @@ describe('ONE authoritative attribute definition registry (#367)', () => {
     let observed: Awaited<ReturnType<typeof census>> | null = null;
     await db
       .transaction(async (tx) => {
-        await tx.execute(sql`create table product_type_attribute_definitions (id text primary key)`);
-        await tx.execute(sql`create table spec_fields (id text primary key, key text, value_type text)`);
+        await tx.execute(
+          sql`create table product_type_attribute_definitions (id text primary key)`,
+        );
+        await tx.execute(
+          sql`create table spec_fields (id text primary key, key text, value_type text)`,
+        );
         observed = await census(tx as unknown as typeof db);
         tx.rollback();
       })
@@ -1434,7 +1442,10 @@ describe('ONE authoritative attribute definition registry (#367)', () => {
     // And a table that must NOT match either census, so neither is matching
     // everything: the product-type registry is a different registry on purpose.
     const productTypes = shapes.find((table) => table.name === 'product_type_definitions');
-    expect(productTypes, 'product_type_definitions is missing; the control is broken').toBeDefined();
+    expect(
+      productTypes,
+      'product_type_definitions is missing; the control is broken',
+    ).toBeDefined();
     expect(productTypes?.columns.has('value_type')).toBe(false);
   });
 });

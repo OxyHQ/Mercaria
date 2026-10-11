@@ -103,7 +103,10 @@ function hasCode(code: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   resetStoreAccessCacheForTests();
-  insertStore.mockImplementation(async (values: Record<string, unknown>) => ({ id: STORE_ID, ...values }));
+  insertStore.mockImplementation(async (values: Record<string, unknown>) => ({
+    id: STORE_ID,
+    ...values,
+  }));
   updateStoreColumns.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({
     ...STORE,
     ...patch,
@@ -111,7 +114,9 @@ beforeEach(() => {
   upsertStorePermissionOverride.mockImplementation(async (input: Record<string, unknown>) => input);
   deleteStorePermissionOverride.mockResolvedValue(true);
   readCallerAccountRole.mockResolvedValue(null);
-  storeImages.mockImplementation(async (_store: string, sources: string[]) => sources.map((_, index) => `policy-image-${index}`));
+  storeImages.mockImplementation(async (_store: string, sources: string[]) =>
+    sources.map((_, index) => `policy-image-${index}`),
+  );
 });
 
 describe('createStoreForCaller — which account may be given a store', () => {
@@ -204,7 +209,9 @@ describe('setStorePermissionOverride — exceptions to the role map', () => {
   });
 
   it('refuses a permission the caller does not hold — no escalation by override', async () => {
-    await expect(write({ granted: ['store:manage'] })).rejects.toSatisfy(hasCode(ErrorCodes.FORBIDDEN));
+    await expect(write({ granted: ['store:manage'] })).rejects.toSatisfy(
+      hasCode(ErrorCodes.FORBIDDEN),
+    );
   });
 
   it('refuses one permission both granted and revoked', async () => {
@@ -278,7 +285,9 @@ describe('store.service.updateStoreSettings', () => {
 
     await expect(
       updateStoreSettings(STORE_ID, { policies: { refundPolicy: 'x' } }),
-    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND);
+    ).rejects.toSatisfy(
+      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.NOT_FOUND,
+    );
   });
 });
 
@@ -287,35 +296,65 @@ describe.each([
   ['settings', updateStoreSettings],
 ] as const)('store policy media through the %s writer', (_name, update) => {
   it.each(['shippingNote', 'refundPolicy', 'privacyPolicy', 'termsOfService'] as const)(
-    'synchronizes %s before writing, retaining only the supplied policy', async field => {
-      const columns = { shippingNote: 'policiesShippingNote', refundPolicy: 'policiesRefundPolicy', privacyPolicy: 'policiesPrivacyPolicy', termsOfService: 'policiesTermsOfService' };
-      const input = { policies: { [field]: '<p>Authored policy</p><picture><source srcset="https://merchant.example/large.png 2x"><img src="https://merchant.example/policy.png" alt="Policy diagram"></picture>' } };
+    'synchronizes %s before writing, retaining only the supplied policy',
+    async (field) => {
+      const columns = {
+        shippingNote: 'policiesShippingNote',
+        refundPolicy: 'policiesRefundPolicy',
+        privacyPolicy: 'policiesPrivacyPolicy',
+        termsOfService: 'policiesTermsOfService',
+      };
+      const input = {
+        policies: {
+          [field]:
+            '<p>Authored policy</p><picture><source srcset="https://merchant.example/large.png 2x"><img src="https://merchant.example/policy.png" alt="Policy diagram"></picture>',
+        },
+      };
       await update(STORE_ID, input);
-      expect(storeImages).toHaveBeenCalledExactlyOnceWith(STORE_ID, ['https://merchant.example/policy.png']);
-      expect(storeImages.mock.invocationCallOrder[0]).toBeLessThan(updateStoreColumns.mock.invocationCallOrder[0]);
+      expect(storeImages).toHaveBeenCalledExactlyOnceWith(STORE_ID, [
+        'https://merchant.example/policy.png',
+      ]);
+      expect(storeImages.mock.invocationCallOrder[0]).toBeLessThan(
+        updateStoreColumns.mock.invocationCallOrder[0],
+      );
       expect(updateStoreColumns).toHaveBeenCalledExactlyOnceWith(STORE_ID, {
-        [columns[field]]: `<p>Authored policy</p><picture><img src="${resolveMedia('policy-image-0')}" alt="Policy diagram"></picture>`,
+        [columns[field]]:
+          `<p>Authored policy</p><picture><img src="${resolveMedia('policy-image-0')}" alt="Policy diagram"></picture>`,
       });
       expect(input.policies[field]).toContain('merchant.example');
     },
   );
 
   it('does not save any fields when a later policy import fails', async () => {
-    storeImages.mockResolvedValueOnce(['policy-image-0']).mockRejectedValueOnce(new Error('Storage unavailable'));
-    await expect(update(STORE_ID, { policies: {
-      returnWindowDays: 21,
-      refundPolicy: '<img src="https://merchant.example/returns.png">',
-      privacyPolicy: '<img src="https://merchant.example/privacy.png">',
-    } })).rejects.toThrow('Storage unavailable');
+    storeImages
+      .mockResolvedValueOnce(['policy-image-0'])
+      .mockRejectedValueOnce(new Error('Storage unavailable'));
+    await expect(
+      update(STORE_ID, {
+        policies: {
+          returnWindowDays: 21,
+          refundPolicy: '<img src="https://merchant.example/returns.png">',
+          privacyPolicy: '<img src="https://merchant.example/privacy.png">',
+        },
+      }),
+    ).rejects.toThrow('Storage unavailable');
     expect(updateStoreColumns).not.toHaveBeenCalled();
   });
 
   it('preserves plain copy, clearing and already stored media without storage calls', async () => {
     const privacy = `<img src="${resolveMedia('existing-policy-image')}">`;
-    await update(STORE_ID, { policies: { refundPolicy: '', privacyPolicy: privacy, termsOfService: 'Terms\nKeep this line.' } });
+    await update(STORE_ID, {
+      policies: {
+        refundPolicy: '',
+        privacyPolicy: privacy,
+        termsOfService: 'Terms\nKeep this line.',
+      },
+    });
     expect(storeImages).not.toHaveBeenCalled();
     expect(updateStoreColumns).toHaveBeenCalledExactlyOnceWith(STORE_ID, {
-      policiesRefundPolicy: '', policiesPrivacyPolicy: privacy, policiesTermsOfService: 'Terms\nKeep this line.',
+      policiesRefundPolicy: '',
+      policiesPrivacyPolicy: privacy,
+      policiesTermsOfService: 'Terms\nKeep this line.',
     });
   });
 });

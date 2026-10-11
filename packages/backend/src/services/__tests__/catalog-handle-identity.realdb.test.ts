@@ -497,19 +497,27 @@ describe('sync_runs.error is classified and bounded (#292 part B)', () => {
   });
 });
 
-
 describe('catalog image identity at the write boundary', () => {
   it('refuses source URLs on create and leaves an existing gallery intact on update', async () => {
     const category = await makeStore();
     const storeId = createdStoreIds[0];
     const input = productInput(category, 'media-boundary');
-    await expect(createStoreProduct(storeId, { ...input, imageFileIds: ['https://supplier.example/image.jpg'] }))
-      .rejects.toThrow('synchronized Oxy file IDs');
+    await expect(
+      createStoreProduct(storeId, {
+        ...input,
+        imageFileIds: ['https://supplier.example/image.jpg'],
+      }),
+    ).rejects.toThrow('synchronized Oxy file IDs');
     expect(await db.select().from(listings).where(eq(listings.storeId, storeId))).toEqual([]);
     const id = await createStoreProduct(storeId, { ...input, imageFileIds: ['existing-file'] });
     const before = await findListingGallery(id);
-    await expect(updateListing(id, { title: 'Must roll back', imageFileIds: ['https://supplier.example/image.jpg'] }, { kind: 'source' }))
-      .rejects.toThrow('synchronized Oxy file IDs');
+    await expect(
+      updateListing(
+        id,
+        { title: 'Must roll back', imageFileIds: ['https://supplier.example/image.jpg'] },
+        { kind: 'source' },
+      ),
+    ).rejects.toThrow('synchronized Oxy file IDs');
     expect(await findListingGallery(id)).toEqual(before);
     const [after] = await db.select().from(listings).where(eq(listings.id, id));
     expect(after.title).toBe(input.title);

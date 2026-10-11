@@ -34,11 +34,7 @@ import type {
 import { FEED_TOKEN_BEARING_ISSUE_CODES } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { RETENTION_SECONDS } from '../expiryTargets.js';
-import {
-  feedImportReportEntries,
-  feedImportReports,
-  feedUploads,
-} from '../schema/feedImport.js';
+import { feedImportReportEntries, feedImportReports, feedUploads } from '../schema/feedImport.js';
 
 export type FeedImportReportRow = typeof feedImportReports.$inferSelect;
 export type FeedImportReportEntryRow = typeof feedImportReportEntries.$inferSelect;

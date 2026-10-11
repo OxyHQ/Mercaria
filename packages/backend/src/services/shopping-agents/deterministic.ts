@@ -145,14 +145,16 @@ export interface DeterministicAgentEvaluation {
 }
 
 /** Which #96 named result answers each of the six jobs. */
-const RESULT_KIND_FOR_JOB: Readonly<Record<ShoppingAgentJobKind, BasketResultKind>> = Object.freeze({
-  offer_price_threshold: 'cheapest_known_item_prices',
-  used_or_refurbished_appearance: 'used_or_refurbished_value',
-  official_channel_availability: 'official_channel_plan',
-  basket_target_total: 'cheapest_known_total',
-  materially_better_plan: 'cheapest_known_total',
-  constraint_satisfiable: 'cheapest_known_item_prices',
-});
+const RESULT_KIND_FOR_JOB: Readonly<Record<ShoppingAgentJobKind, BasketResultKind>> = Object.freeze(
+  {
+    offer_price_threshold: 'cheapest_known_item_prices',
+    used_or_refurbished_appearance: 'used_or_refurbished_value',
+    official_channel_availability: 'official_channel_plan',
+    basket_target_total: 'cheapest_known_total',
+    materially_better_plan: 'cheapest_known_total',
+    constraint_satisfiable: 'cheapest_known_item_prices',
+  },
+);
 
 /**
  * Evaluate one saved objective, deterministically.
@@ -340,9 +342,7 @@ function basketRequestFor(subject: AgentEvaluationSubject): BasketRequest {
     comparisonCurrency: subject.displayCurrency,
     channelPolicy: subject.channelPolicy,
     ...(subject.market === undefined ? {} : { market: subject.market }),
-    ...(subject.conditionGroups.length === 0
-      ? {}
-      : { conditionGroups: subject.conditionGroups }),
+    ...(subject.conditionGroups.length === 0 ? {} : { conditionGroups: subject.conditionGroups }),
     objectives,
     ...(subject.excludedMerchantIds.length === 0
       ? {}
@@ -399,7 +399,11 @@ async function evaluateLineConstraints(
     for (const outcome of [...evaluation.hardOutcomes, ...evaluation.preferenceOutcomes]) {
       if (outcome.satisfaction === 'failed') failed.add(outcome.constraintId);
       else if (outcome.satisfaction === 'unknown') unknown.add(outcome.constraintId);
-      else satisfiedCounts.set(outcome.constraintId, (satisfiedCounts.get(outcome.constraintId) ?? 0) + 1);
+      else
+        satisfiedCounts.set(
+          outcome.constraintId,
+          (satisfiedCounts.get(outcome.constraintId) ?? 0) + 1,
+        );
     }
 
     if (evaluation.verdict === 'excluded') {
@@ -437,12 +441,11 @@ type MeasuredObjective =
  * (#97 acceptance 5) is a property of the type: there is no value to compare,
  * not a value that had to be guarded against.
  */
-function objectiveOf(
-  subject: AgentEvaluationSubject,
-  result: BasketResultPlan,
-): MeasuredObjective {
+function objectiveOf(subject: AgentEvaluationSubject, result: BasketResultPlan): MeasuredObjective {
   const total =
-    subject.priceBasis === 'delivered_total' ? result.plan.deliveredTotal : result.plan.itemSubtotal;
+    subject.priceBasis === 'delivered_total'
+      ? result.plan.deliveredTotal
+      : result.plan.itemSubtotal;
   if (total.state === 'known') return { state: 'known', amount: total.amount };
   return {
     state: 'unknown',
@@ -545,7 +548,9 @@ function selectionOf(
 
   return result.plan.lines.map((line) => {
     const merchant = merchantByRef.get(line.lineId);
-    const unit = hasKnownComparisonMoney(line.unitItemPrice) ? line.unitItemPrice.amount : undefined;
+    const unit = hasKnownComparisonMoney(line.unitItemPrice)
+      ? line.unitItemPrice.amount
+      : undefined;
     return {
       lineId: line.lineId,
       canonicalProductId: subjectByRef.get(line.subjectRef)?.recordId ?? line.subjectRef,
@@ -553,8 +558,7 @@ function selectionOf(
       quantity: line.quantity,
       ...(unit === undefined ? {} : { unitItemPrice: unit }),
       ...(line.conditionGroup === undefined ? {} : { conditionGroup: line.conditionGroup }),
-      nativeCheckoutEligible:
-        (merchant?.channel ?? line.channel) === 'native_checkout',
+      nativeCheckoutEligible: (merchant?.channel ?? line.channel) === 'native_checkout',
       // #55's verified standing, as #74 awarded it. `authorized_reseller` is
       // deliberately NOT official (#55 keeps the two badges separate and #71
       // splits them into two groups), so an official-channel agent is never

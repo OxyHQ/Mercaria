@@ -167,7 +167,10 @@ export function previewPerceptualHash(raster: PreviewRaster): PreviewHashResult 
   for (let i = 0; i < kept.length; i += 1) {
     if (kept[i] > median) bits |= 1n << BigInt(i);
   }
-  return { status: 'derived', value: `${PREVIEW_PHASH_ALGORITHM}:${bits.toString(16).padStart(16, '0')}` };
+  return {
+    status: 'derived',
+    value: `${PREVIEW_PHASH_ALGORITHM}:${bits.toString(16).padStart(16, '0')}`,
+  };
 }
 
 /**

@@ -36,10 +36,7 @@
  */
 
 import { assertSafeMoneyAmount } from '@mercaria/shared-types';
-import type {
-  DigitalRetailPricingResult,
-  DigitalRetailRoundingMode,
-} from '@mercaria/shared-types';
+import type { DigitalRetailPricingResult, DigitalRetailRoundingMode } from '@mercaria/shared-types';
 
 /** The policy facts pricing reads. A row satisfies it; so does a fixture. */
 export interface DigitalRetailPricingPolicyFacts {

@@ -41,7 +41,10 @@ import { stripComments } from '../../../__tests__/package-barrel-symbols.js';
  * function at all.
  */
 const COHORT_SYMBOLS: readonly { readonly signal: string; readonly pattern: RegExp }[] = [
-  { signal: 'config.catalog.rolloutCohorts', pattern: /\bconfig\s*\.\s*catalog\s*\.\s*rolloutCohorts\b/u },
+  {
+    signal: 'config.catalog.rolloutCohorts',
+    pattern: /\bconfig\s*\.\s*catalog\s*\.\s*rolloutCohorts\b/u,
+  },
   { signal: 'CATALOG_ROLLOUT_COHORTS', pattern: /\bCATALOG_ROLLOUT_COHORTS\b/u },
   { signal: 'catalogRolloutGate', pattern: /\bcatalogRolloutGate\b/u },
   { signal: 'catalogRolloutAllowedFor', pattern: /\bcatalogRolloutAllowedFor\b/u },

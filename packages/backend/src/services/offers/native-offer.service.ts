@@ -241,7 +241,9 @@ async function convergeInTransaction(
 
   const variants = await findVariantsByListing(listingId, db);
   const links = await findActiveLinksForListing(db, listingId);
-  const canonicalByVariant = new Map(links.map((link) => [link.productVariantId, link.canonicalVariantId]));
+  const canonicalByVariant = new Map(
+    links.map((link) => [link.productVariantId, link.canonicalVariantId]),
+  );
 
   let materialized = 0;
   const keptVariantIds = new Set<string>();
@@ -273,12 +275,12 @@ async function convergeInTransaction(
     // #79's durable offer-change event, in the same transaction. Converges on
     // one row per PRODUCT, so a listing with forty variants owes one evaluation.
     await requestPriceAlertEvaluation(offer.canonicalVariantId, db, now);
-  // #97's saved agents, beside #79's alerts and gated the same way: the first
-  // statement is one indexed `exists`, so a product nobody watches writes no
-  // row. Both run in the CALLER's transaction — a queue row that committed for
-  // an offer write that rolled back would wake an agent about a price that
-  // never existed.
-  await requestShoppingAgentTrigger(offer.canonicalVariantId, db, now);
+    // #97's saved agents, beside #79's alerts and gated the same way: the first
+    // statement is one indexed `exists`, so a product nobody watches writes no
+    // row. Both run in the CALLER's transaction — a queue row that committed for
+    // an offer write that rolled back would wake an agent about a price that
+    // never existed.
+    await requestShoppingAgentTrigger(offer.canonicalVariantId, db, now);
     keptVariantIds.add(variant.id);
     materialized += 1;
   }

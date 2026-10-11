@@ -56,7 +56,16 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
@@ -232,10 +241,7 @@ export const referralPilotCohorts = pgTable(
       'referral_pilot_cohorts_supersedes_check',
       sql`(${t.version} = 1) = (${t.supersedesCohortId} is null)`,
     ),
-    check(
-      'referral_pilot_cohorts_window_check',
-      sql`${t.endsAt} > ${t.startsAt}`,
-    ),
+    check('referral_pilot_cohorts_window_check', sql`${t.endsAt} > ${t.startsAt}`),
     check(
       'referral_pilot_cohorts_caps_check',
       sql`${t.maxAttributionsPerPartner} >= 1
@@ -384,11 +390,7 @@ export const referralPilotStopThresholds = pgTable(
       t.metric,
       REFERRAL_PILOT_STOP_METRICS,
     ),
-    checkOneOf(
-      'referral_pilot_stop_thresholds_unit_check',
-      t.unit,
-      REFERRAL_PILOT_THRESHOLD_UNITS,
-    ),
+    checkOneOf('referral_pilot_stop_thresholds_unit_check', t.unit, REFERRAL_PILOT_THRESHOLD_UNITS),
     checkOneOf('referral_pilot_stop_thresholds_scope_check', t.scope, REFERRAL_PILOT_STOP_SCOPES),
     check(
       'referral_pilot_stop_thresholds_value_check',

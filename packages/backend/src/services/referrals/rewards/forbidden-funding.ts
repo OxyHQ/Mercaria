@@ -52,24 +52,43 @@ interface ForbiddenPattern {
  */
 const FORBIDDEN_PATTERNS: readonly ForbiddenPattern[] = [
   { kind: 'mercaria_retail_cost_variance', pattern: /costvariance|retailvariance|variancesurplus/ },
-  { kind: 'mercaria_retail_margin', pattern: /retailmargin|mercariaretail|retailprofit|retailmarkup/ },
-  { kind: 'supplier_shipping_handling', pattern: /suppliershipping|supplierhandling|shippingcost|handlingfee/ },
-  { kind: 'supplier_acquisition_cost', pattern: /suppliercost|supplieracquisition|wholesalecost|landedcost|procurementcost/ },
+  {
+    kind: 'mercaria_retail_margin',
+    pattern: /retailmargin|mercariaretail|retailprofit|retailmarkup/,
+  },
+  {
+    kind: 'supplier_shipping_handling',
+    pattern: /suppliershipping|supplierhandling|shippingcost|handlingfee/,
+  },
+  {
+    kind: 'supplier_acquisition_cost',
+    pattern: /suppliercost|supplieracquisition|wholesalecost|landedcost|procurementcost/,
+  },
   // Deliberately NOT a bare `tax`, `duty` or `vat`: normalized keys make `vat`
   // a substring of `activatedAt` and `tax` a substring of `taxonomy`, so the
   // obvious pattern refuses a legitimate rule body. A gate that cried wolf
   // would be disabled by whoever hit it next.
   {
     kind: 'customer_tax_duty',
-    pattern: /taxamount|taxrevenue|taxshare|taxduty|salestax|customsduty|dutyamount|vatamount|vatcollected|vatshare/,
+    pattern:
+      /taxamount|taxrevenue|taxshare|taxduty|salestax|customsduty|dutyamount|vatamount|vatcollected|vatshare/,
   },
-  { kind: 'direct_payment_fx_cost', pattern: /fxcost|paymentcost|processorcost|processingfee|interchange/ },
+  {
+    kind: 'direct_payment_fx_cost',
+    pattern: /fxcost|paymentcost|processorcost|processingfee|interchange/,
+  },
   { kind: 'customer_refund_credit', pattern: /refund|storecredit|customercredit|chargeback/ },
   { kind: 'dropship_markup', pattern: /dropship|markup|uplift/ },
   { kind: 'buyer_service_charge', pattern: /servicecharge|buyerfee|buyersurcharge|checkoutfee/ },
-  { kind: 'merchant_fee_increase', pattern: /feeincrease|feeuplift|merchantfee|commissionincrease|feeschedule/ },
+  {
+    kind: 'merchant_fee_increase',
+    pattern: /feeincrease|feeuplift|merchantfee|commissionincrease|feeschedule/,
+  },
   { kind: 'item_price_increase', pattern: /itemprice|listingprice|priceincrease|pricesurcharge/ },
-  { kind: 'paid_ranking', pattern: /paidranking|sponsored|rankingboost|promotedplacement|rankingfee/ },
+  {
+    kind: 'paid_ranking',
+    pattern: /paidranking|sponsored|rankingboost|promotedplacement|rankingfee/,
+  },
 ];
 
 /** One detected attempt: what was sent, what it amounts to, and why it cannot be. */
@@ -93,9 +112,7 @@ function normalize(value: string): string {
  * `{ retailMargin: 500 }` and `{ fundingSourceId: 'retail_margin' }` are one
  * attempt wearing two hats.
  */
-export function detectForbiddenReferralFunding(
-  inputs: readonly string[],
-): ForbiddenFundingMatch[] {
+export function detectForbiddenReferralFunding(inputs: readonly string[]): ForbiddenFundingMatch[] {
   const matches: ForbiddenFundingMatch[] = [];
   for (const input of inputs) {
     const haystack = normalize(input);
@@ -118,10 +135,7 @@ export function detectForbiddenReferralFunding(
  * @param context Where the attempt arrived, so the message says which surface
  *   refused it.
  */
-export function assertNoForbiddenReferralFunding(
-  inputs: readonly string[],
-  context: string,
-): void {
+export function assertNoForbiddenReferralFunding(inputs: readonly string[], context: string): void {
   const matches = detectForbiddenReferralFunding(inputs);
   if (matches.length === 0) return;
   const detail = matches

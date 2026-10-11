@@ -329,7 +329,9 @@ export async function countProductsInCategory(
   const rows = await db
     .select({ total: count() })
     .from(canonicalProducts)
-    .where(and(eq(canonicalProducts.categoryId, categoryId), eq(canonicalProducts.status, 'active')));
+    .where(
+      and(eq(canonicalProducts.categoryId, categoryId), eq(canonicalProducts.status, 'active')),
+    );
   return rows[0]?.total ?? 0;
 }
 

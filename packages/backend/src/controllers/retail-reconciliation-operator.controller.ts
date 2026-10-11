@@ -80,7 +80,9 @@ async function withAudit<T>(
     adjustmentId?: string;
     exceptionId?: string;
   },
-  run: () => Promise<{ outcome: 'applied' | 'no_op'; body: T } | { outcome: 'refused'; detail: string }>,
+  run: () => Promise<
+    { outcome: 'applied' | 'no_op'; body: T } | { outcome: 'refused'; detail: string }
+  >,
 ): Promise<T> {
   const actorOxyUserId = procurementOperatorId(input.req);
   const subject = {
@@ -127,10 +129,7 @@ async function withAudit<T>(
 }
 
 /** `GET /internal/retail-reconciliation/orders/:orderId` — #128's twelve items. */
-export async function retailReconciliationTraceHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function retailReconciliationTraceHandler(req: Request, res: Response): Promise<void> {
   const orderId = requiredParam(req, 'orderId');
   const view = await readRetailReconciliationView(orderId);
   if (!view) {
@@ -147,31 +146,28 @@ export async function reconcileRetailOrderHandler(req: Request, res: Response): 
   const orderId = requiredParam(req, 'orderId');
   const reason = operatorReason(req);
 
-  const data = await withAudit(
-    { req, action: 'reconcile_order', reason, orderId },
-    async () => {
-      // Credits first, exactly as the sweep does, so a credit note that arrived
-      // since the last pass is part of the evidence this revision reads.
-      await ingestSupplierCreditsForOrder({ orderId });
-      const outcome = await reconcileRetailOrder({ orderId });
-      if (!outcome.reconciliation) {
-        return {
-          outcome: 'refused' as const,
-          detail:
-            `Order ${orderId} cannot be reconciled: it is not a mercaria_retail order with a ` +
-            'procurement intent, or no reconciliation policy version is active.',
-        };
-      }
-      const view = await readRetailReconciliationView(orderId);
+  const data = await withAudit({ req, action: 'reconcile_order', reason, orderId }, async () => {
+    // Credits first, exactly as the sweep does, so a credit note that arrived
+    // since the last pass is part of the evidence this revision reads.
+    await ingestSupplierCreditsForOrder({ orderId });
+    const outcome = await reconcileRetailOrder({ orderId });
+    if (!outcome.reconciliation) {
       return {
-        // A run that found the evidence unchanged wrote nothing, and saying so
-        // is the point: an operator pressing twice should be told the second
-        // press changed nothing rather than shown an identical success.
-        outcome: outcome.created ? ('applied' as const) : ('no_op' as const),
-        body: { created: outcome.created, reconciliation: view },
+        outcome: 'refused' as const,
+        detail:
+          `Order ${orderId} cannot be reconciled: it is not a mercaria_retail order with a ` +
+          'procurement intent, or no reconciliation policy version is active.',
       };
-    },
-  );
+    }
+    const view = await readRetailReconciliationView(orderId);
+    return {
+      // A run that found the evidence unchanged wrote nothing, and saying so
+      // is the point: an operator pressing twice should be told the second
+      // press changed nothing rather than shown an identical success.
+      outcome: outcome.created ? ('applied' as const) : ('no_op' as const),
+      body: { created: outcome.created, reconciliation: view },
+    };
+  });
   res.json({ success: true, data });
 }
 
@@ -246,7 +242,9 @@ export async function listReconciliationExceptionsHandler(
   const kind = typeof kindRaw === 'string' && kindRaw.trim() !== '' ? kindRaw.trim() : undefined;
   const rows = await listOpenReconciliationExceptions({
     limit,
-    ...(kind ? { kind: kind as Parameters<typeof listOpenReconciliationExceptions>[0]['kind'] } : {}),
+    ...(kind
+      ? { kind: kind as Parameters<typeof listOpenReconciliationExceptions>[0]['kind'] }
+      : {}),
   });
   res.json({ success: true, data: rows });
 }

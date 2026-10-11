@@ -142,7 +142,7 @@ function toReviewAuthor(profile: OxyProfile | undefined): ReviewAuthor | undefin
     displayName: profile.displayName,
     username: profile.username,
   };
-  author.avatar = profile.avatar ? resolveMedia(profile.avatar) ?? null : null;
+  author.avatar = profile.avatar ? (resolveMedia(profile.avatar) ?? null) : null;
   return author;
 }
 
@@ -385,25 +385,28 @@ export async function createReview(
     // Spending evidence and inserting the review, dimensions and attachments
     // commit together. An attachment/constraint failure must not consume the
     // buyer's opportunity to review. All Oxy I/O finished before this lock.
-    row = await getDb().transaction(async tx => {
+    row = await getDb().transaction(async (tx) => {
       if (eligibility && !(await consumeEligibility(eligibility.id, tx))) {
         throw conflict('That review eligibility has already been used');
       }
-      return insertReview({
-        ...legacyTarget,
-        scope: target.scope,
-        authorOxyUserId,
-        verification: eligibility ? 'verified_purchase' : 'unverified',
-        classificationState: 'native',
-        incentiveDisclosure: input.incentiveDisclosure ?? 'none',
-        rating: input.rating,
-        ...(eligibility ? { orderId: eligibility.orderId, eligibilityId: eligibility.id } : {}),
-        ...(input.title ? { title: input.title } : {}),
-        ...(input.body ? { body: input.body } : {}),
-        ...(input.locale ? { locale: input.locale } : {}),
-        ...(input.dimensions ? { dimensions: input.dimensions } : {}),
-        ...(media.length ? { media } : {}),
-      }, tx);
+      return insertReview(
+        {
+          ...legacyTarget,
+          scope: target.scope,
+          authorOxyUserId,
+          verification: eligibility ? 'verified_purchase' : 'unverified',
+          classificationState: 'native',
+          incentiveDisclosure: input.incentiveDisclosure ?? 'none',
+          rating: input.rating,
+          ...(eligibility ? { orderId: eligibility.orderId, eligibilityId: eligibility.id } : {}),
+          ...(input.title ? { title: input.title } : {}),
+          ...(input.body ? { body: input.body } : {}),
+          ...(input.locale ? { locale: input.locale } : {}),
+          ...(input.dimensions ? { dimensions: input.dimensions } : {}),
+          ...(media.length ? { media } : {}),
+        },
+        tx,
+      );
     });
   } catch (err) {
     // The pre-check above is the nice error; these are the ones that actually
@@ -464,19 +467,24 @@ export async function listPublicReviewMedia(
   targetId: string,
   { page, limit }: { page: number; limit: number },
 ): Promise<{ data: ReviewMediaItem[]; total: number }> {
-  const target = kind === 'product' ? scopedTarget('product', targetId)
-    : { targetType: 'listing' as const, targetId };
+  const target =
+    kind === 'product'
+      ? scopedTarget('product', targetId)
+      : { targetType: 'listing' as const, targetId };
   const { rows, total } = await findReviewMediaPage(target, page, limit);
-  const unique = [...new Map(rows.map(row => [row.review.id, row.review])).values()];
+  const unique = [...new Map(rows.map((row) => [row.review.id, row.review])).values()];
   const hydrated = await hydrate(unique, unique.length);
-  const byId = new Map(hydrated.data.map(review => [review.id, review]));
-  return { total, data: rows.flatMap(row => {
-    const review = byId.get(row.review.id);
-    // A moderator may have hidden the review between reads. Hydration repeats
-    // the visibility check, so do not reintroduce its earlier media projection.
-    const media = review?.media?.find(item => item.id === row.media.id);
-    return review && media ? [{ review, media }] : [];
-  }) };
+  const byId = new Map(hydrated.data.map((review) => [review.id, review]));
+  return {
+    total,
+    data: rows.flatMap((row) => {
+      const review = byId.get(row.review.id);
+      // A moderator may have hidden the review between reads. Hydration repeats
+      // the visibility check, so do not reintroduce its earlier media projection.
+      const media = review?.media?.find((item) => item.id === row.media.id);
+      return review && media ? [{ review, media }] : [];
+    }),
+  };
 }
 
 /** Hydrate a page with batched author, dimension, purchased-variant and helpful-vote reads. */
@@ -486,15 +494,16 @@ async function hydrate(
   products?: Map<string, ReviewProduct>,
 ): Promise<ReviewPage> {
   const authorIds = [...new Set(rows.map((row) => row.authorOxyUserId))];
-  const [authorProfiles, dimensionRows, purchasedVariants, helpfulness, mediaRows] = await Promise.all([
-    getProfiles(authorIds),
-    findDimensionsForReviews(rows.map((row) => row.id)),
-    findPurchasedVariantsForReviews(rows.map((row) => row.id)),
-    findReviewHelpfulness(rows.map((row) => row.id)),
-    findMediaForReviews(rows.map(row => row.id)),
-  ]);
+  const [authorProfiles, dimensionRows, purchasedVariants, helpfulness, mediaRows] =
+    await Promise.all([
+      getProfiles(authorIds),
+      findDimensionsForReviews(rows.map((row) => row.id)),
+      findPurchasedVariantsForReviews(rows.map((row) => row.id)),
+      findReviewHelpfulness(rows.map((row) => row.id)),
+      findMediaForReviews(rows.map((row) => row.id)),
+    ]);
   const dimensions = groupDimensions(dimensionRows);
-  const helpfulCounts = new Map(helpfulness.map(row => [row.reviewId, row.helpfulnessCount]));
+  const helpfulCounts = new Map(helpfulness.map((row) => [row.reviewId, row.helpfulnessCount]));
   const media = new Map<string, ReviewDTO['media']>();
   for (const { reviewId, ...attachment } of mediaRows) {
     const items = media.get(reviewId) ?? [];

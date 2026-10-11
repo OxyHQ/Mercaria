@@ -136,7 +136,9 @@ function expectEveryShapeFoundSomething(): void {
     from('services/feed-import/parse/'),
     'the parser walk found nothing — is the walk still recursive?',
   ).toBeGreaterThanOrEqual(7);
-  expect(from('services/feed-import/'), 'the service walk found nothing').toBeGreaterThanOrEqual(26);
+  expect(from('services/feed-import/'), 'the service walk found nothing').toBeGreaterThanOrEqual(
+    26,
+  );
   expect(from('db/feedImport/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(2);
   expect(UNDERIVABLE_MODULES.length, 'the underivable set changed').toBe(2);
   expect(from('routes/internal-feed-imports'), 'no feed route was derived').toBe(1);
@@ -393,17 +395,23 @@ describe('the vocabularies are closed and their prohibitions disjoint', () => {
 describe('the detectors actually detect — the mutation self-tests', () => {
   it('each regex matches a seeded positive and rejects an ordinary line', () => {
     expect(EVALUATION_REFERENCE.test('const f = new Function("return 1");')).toBe(true);
-    expect(EVALUATION_REFERENCE.test("const out = eval(mapping.expression);")).toBe(true);
+    expect(EVALUATION_REFERENCE.test('const out = eval(mapping.expression);')).toBe(true);
     expect(EVALUATION_REFERENCE.test("import vm from 'node:vm';")).toBe(true);
     expect(EVALUATION_REFERENCE.test('const evaluated = transforms.length;')).toBe(false);
     expect(EVALUATION_REFERENCE.test('function applyFeedTransform(value) {}')).toBe(false);
 
     expect(
-      CANONICAL_WRITE_REFERENCE.test("import { x } from '../canonical/canonical-product.service.js';"),
+      CANONICAL_WRITE_REFERENCE.test(
+        "import { x } from '../canonical/canonical-product.service.js';",
+      ),
     ).toBe(true);
     expect(CANONICAL_WRITE_REFERENCE.test('canonicalVariantId')).toBe(false);
 
-    expect(OFFER_WRITE_REFERENCE.test("import { recordExternalOffer } from '../offers/offer.service.js';")).toBe(true);
+    expect(
+      OFFER_WRITE_REFERENCE.test(
+        "import { recordExternalOffer } from '../offers/offer.service.js';",
+      ),
+    ).toBe(true);
     expect(OFFER_WRITE_REFERENCE.test('const offers = [];')).toBe(false);
 
     expect(MATCHER_WRITE_REFERENCE.test('const decision = await runMatch(subject);')).toBe(true);
@@ -418,11 +426,17 @@ describe('the detectors actually detect — the mutation self-tests', () => {
 
   it('the comment stripper removes prose without removing code', () => {
     const stripped = withoutComments(
-      ['/** never eval() anything */', "import { x } from './y.js'; // eval", 'const z = safe(a);'].join('\n'),
+      [
+        '/** never eval() anything */',
+        "import { x } from './y.js'; // eval",
+        'const z = safe(a);',
+      ].join('\n'),
     );
     expect(EVALUATION_REFERENCE.test(stripped)).toBe(false);
     expect(stripped).toContain('const z = safe(a);');
-    expect(withoutComments("const u = 'https://example.com/x';")).toContain('https://example.com/x');
+    expect(withoutComments("const u = 'https://example.com/x';")).toContain(
+      'https://example.com/x',
+    );
   });
 
   it('the domain directories really are where the gate thinks they are', () => {
@@ -457,20 +471,38 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       COMMERCE_MONEY_REFERENCE.test("import { helper } from '../payments/thing.service.js';"),
       "a module here reaches payments as '../payments/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCE_MONEY_REFERENCE.test("import { helper } from '../../services/payments/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCE_MONEY_REFERENCE.test(
+        "import { helper } from '../../services/payments/thing.service.js';",
+      ),
+    ).toBe(true);
     expect(
       COMMERCE_MONEY_REFERENCE.test("import { helper } from '../retail-pricing/thing.service.js';"),
       "a module here reaches retail-pricing as '../retail-pricing/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCE_MONEY_REFERENCE.test("import { helper } from '../../services/retail-pricing/thing.service.js';")).toBe(true);
     expect(
-      COMMERCE_MONEY_REFERENCE.test("import { helper } from '../retail-eligibility/thing.service.js';"),
+      COMMERCE_MONEY_REFERENCE.test(
+        "import { helper } from '../../services/retail-pricing/thing.service.js';",
+      ),
+    ).toBe(true);
+    expect(
+      COMMERCE_MONEY_REFERENCE.test(
+        "import { helper } from '../retail-eligibility/thing.service.js';",
+      ),
       "a module here reaches retail-eligibility as '../retail-eligibility/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCE_MONEY_REFERENCE.test("import { helper } from '../../services/retail-eligibility/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCE_MONEY_REFERENCE.test(
+        "import { helper } from '../../services/retail-eligibility/thing.service.js';",
+      ),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(COMMERCE_MONEY_REFERENCE.test("import { helper } from '../payments-display/format.js';")).toBe(false);
-    expect(COMMERCE_MONEY_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
+    expect(
+      COMMERCE_MONEY_REFERENCE.test("import { helper } from '../payments-display/format.js';"),
+    ).toBe(false);
+    expect(COMMERCE_MONEY_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(
+      false,
+    );
   });
 
   it('RANKING_REFERENCE sees a sibling-relative import', () => {
@@ -478,12 +510,15 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       RANKING_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
       "a module here reaches ranking as '../ranking/…' and that must not pass",
     ).toBe(true);
-    expect(RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    expect(
+      RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';"),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(false);
+    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(
+      false,
+    );
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
-
 });
 
 /**

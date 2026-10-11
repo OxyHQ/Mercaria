@@ -79,7 +79,11 @@ export async function findCanonicalVariantById(
   db: DatabaseOrTransaction,
   id: string,
 ): Promise<CanonicalVariantRow | undefined> {
-  const rows = await db.select().from(canonicalVariants).where(eq(canonicalVariants.id, id)).limit(1);
+  const rows = await db
+    .select()
+    .from(canonicalVariants)
+    .where(eq(canonicalVariants.id, id))
+    .limit(1);
   return rows[0];
 }
 
@@ -88,7 +92,10 @@ export async function findCanonicalVariantsByIds(
   ids: readonly string[],
 ): Promise<CanonicalVariantRow[]> {
   if (ids.length === 0) return [];
-  return db.select().from(canonicalVariants).where(inArray(canonicalVariants.id, [...ids]));
+  return db
+    .select()
+    .from(canonicalVariants)
+    .where(inArray(canonicalVariants.id, [...ids]));
 }
 
 /** The variant of one product carrying this exact option set. */
@@ -100,7 +107,9 @@ export async function findVariantBySignature(
   const rows = await db
     .select()
     .from(canonicalVariants)
-    .where(and(eq(canonicalVariants.productId, productId), eq(canonicalVariants.signature, signature)))
+    .where(
+      and(eq(canonicalVariants.productId, productId), eq(canonicalVariants.signature, signature)),
+    )
     .limit(1);
   return rows[0];
 }
@@ -250,7 +259,10 @@ export async function listVariantAttributes(
     .select()
     .from(canonicalVariantAttributes)
     .where(eq(canonicalVariantAttributes.variantId, variantId))
-    .orderBy(asc(canonicalVariantAttributes.position), asc(canonicalVariantAttributes.attributeKey));
+    .orderBy(
+      asc(canonicalVariantAttributes.position),
+      asc(canonicalVariantAttributes.attributeKey),
+    );
 }
 
 export async function listVariantAttributesForVariants(
@@ -262,7 +274,10 @@ export async function listVariantAttributesForVariants(
     .select()
     .from(canonicalVariantAttributes)
     .where(inArray(canonicalVariantAttributes.variantId, [...variantIds]))
-    .orderBy(asc(canonicalVariantAttributes.position), asc(canonicalVariantAttributes.attributeKey));
+    .orderBy(
+      asc(canonicalVariantAttributes.position),
+      asc(canonicalVariantAttributes.attributeKey),
+    );
 }
 
 /** Variants whose named axis carries this normalized value — reverse lookup. */

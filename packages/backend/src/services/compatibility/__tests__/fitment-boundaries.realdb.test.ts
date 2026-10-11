@@ -302,9 +302,7 @@ afterAll(async () => {
   // Children first: every foreign key here is RESTRICT, so a wrong order fails
   // loudly. The configuration list carries the two rows the upsert case may have
   // written as well as the four seeded above.
-  await db
-    .delete(vehicleConfigurations)
-    .where(inArray(vehicleConfigurations.id, configurationIds));
+  await db.delete(vehicleConfigurations).where(inArray(vehicleConfigurations.id, configurationIds));
   await db.delete(vehicleGenerations).where(inArray(vehicleGenerations.id, [GN_EARLY, GN_LATE]));
   await db.delete(vehicleModels).where(eq(vehicleModels.id, MD));
   await db.delete(vehicleMakes).where(eq(vehicleMakes.id, MK));
@@ -480,14 +478,20 @@ describe('ambiguous engine codes — one nameplate, two engines, two answers', (
     // nameplate, the trim, the generation or the year would report `applies` for
     // both of these, every page would render, and the person who finds out is the
     // one who fitted the wrong pad.
-    const fitted = await answerFitment({ subject: SUBJECT, vehicle: { configurationId: CF_ENGINE_A } });
+    const fitted = await answerFitment({
+      subject: SUBJECT,
+      vehicle: { configurationId: CF_ENGINE_A },
+    });
     expect(fitted.verdict).toEqual({
       outcome: 'determined',
       applicability: 'applies',
       decidedAtScope: 'vehicle_configuration',
     });
 
-    const other = await answerFitment({ subject: SUBJECT, vehicle: { configurationId: CF_ENGINE_B } });
+    const other = await answerFitment({
+      subject: SUBJECT,
+      vehicle: { configurationId: CF_ENGINE_B },
+    });
     expect(other.verdict, 'the other engine has no statement and must not inherit one').toEqual({
       outcome: 'unknown',
     });

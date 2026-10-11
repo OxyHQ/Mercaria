@@ -67,7 +67,10 @@ export interface ProviderObservationApplication {
 /** What applying one observation did. */
 export type ProviderObservationResult =
   | { applied: true; nextStatus: string }
-  | { applied: false; reason: 'stale' | 'regression' | 'unmapped' | 'illegal' | 'lost_race' | 'no_change' };
+  | {
+      applied: false;
+      reason: 'stale' | 'regression' | 'unmapped' | 'illegal' | 'lost_race' | 'no_change';
+    };
 
 /**
  * Apply one observation, or record why it was not applied.
@@ -254,9 +257,7 @@ async function recordEvidence(
         trackingNumber: shipment.trackingNumber,
         status: scan.status,
         occurredAt: new Date(scan.occurredAt),
-        ...(scan.description
-          ? { description: redactSupplierOrderMessage(scan.description) }
-          : {}),
+        ...(scan.description ? { description: redactSupplierOrderMessage(scan.description) } : {}),
         ...(scan.locationCountry ? { locationCountry: scan.locationCountry } : {}),
         ...(scan.locationRegion ? { locationRegion: scan.locationRegion } : {}),
         ...(input.providerEventId ? { providerEventId: input.providerEventId } : {}),

@@ -75,10 +75,7 @@
  * exists to ask a question.
  */
 
-import type {
-  AuthoringCanonicalRefKind,
-  AuthoringValidationFinding,
-} from '@mercaria/shared-types';
+import type { AuthoringCanonicalRefKind, AuthoringValidationFinding } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   resolveBrandSelection,

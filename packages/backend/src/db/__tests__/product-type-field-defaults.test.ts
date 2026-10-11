@@ -228,7 +228,9 @@ describe('the detector actually detects — the mutation self-test', () => {
     // It also pins the CASING, which is the half that actually went wrong here:
     // asserting `value_policy` is present is what fails if somebody replaces
     // `sqlColumnName` with `column.name` and turns the whole gate vacuous.
-    const real = getTableConfig(productTypeSchema.productTypeFields).columns.map((column) => sqlColumnName(column));
+    const real = getTableConfig(productTypeSchema.productTypeFields).columns.map((column) =>
+      sqlColumnName(column),
+    );
     expect(real).toContain('value_policy');
     expect(real).toContain('requirement');
     expect(real).toContain('position');

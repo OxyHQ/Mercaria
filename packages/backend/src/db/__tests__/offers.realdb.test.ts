@@ -95,7 +95,9 @@ afterAll(async () => {
   await db
     .delete(nativeListingLinks)
     .where(inArray(nativeListingLinks.canonicalVariantId, safeIds(createdVariantIds)));
-  await db.delete(offerOutboxes).where(inArray(offerOutboxes.listingId, safeIds(createdListingIds)));
+  await db
+    .delete(offerOutboxes)
+    .where(inArray(offerOutboxes.listingId, safeIds(createdListingIds)));
   // `listings.store_id` is RESTRICT — a listing outlives its store on purpose —
   // so the listings go first and take their variants with them.
   await db.delete(listings).where(inArray(listings.id, safeIds(createdListingIds)));
@@ -118,10 +120,7 @@ afterAll(async () => {
  * write, and a test that only asserted "it threw" would pass against a CHECK
  * that had been dropped so long as some OTHER constraint happened to fire.
  */
-async function expectRefused(
-  kind: 'check' | 'unique',
-  run: () => Promise<unknown>,
-): Promise<void> {
+async function expectRefused(kind: 'check' | 'unique', run: () => Promise<unknown>): Promise<void> {
   let thrown: unknown;
   try {
     await run();
@@ -277,11 +276,13 @@ async function mintSourceRecord(label: string): Promise<string> {
 }
 
 /** A minimal ACTIVE external offer, ready to have one field made wrong. */
-function externalOffer(overrides: Partial<InsertOfferInput> & {
-  canonicalVariantId: string;
-  merchantId: string;
-  sourceRecordId: string;
-}): InsertOfferInput {
+function externalOffer(
+  overrides: Partial<InsertOfferInput> & {
+    canonicalVariantId: string;
+    merchantId: string;
+    sourceRecordId: string;
+  },
+): InsertOfferInput {
   const now = new Date();
   return {
     kind: 'external',
@@ -425,13 +426,15 @@ describe('active-offer uniqueness (acceptance 1)', () => {
     const merchantId = await mintMerchant('commercial-key');
     const sourceRecordId = await mintSourceRecord('commercial-key');
 
-    await db.insert(offers).values(
-      externalOffer({ canonicalVariantId, merchantId, sourceRecordId, condition: 'new' }),
-    );
+    await db
+      .insert(offers)
+      .values(externalOffer({ canonicalVariantId, merchantId, sourceRecordId, condition: 'new' }));
     await expectRefused('unique', () =>
-      db.insert(offers).values(
-        externalOffer({ canonicalVariantId, merchantId, sourceRecordId, condition: 'new' }),
-      ),
+      db
+        .insert(offers)
+        .values(
+          externalOffer({ canonicalVariantId, merchantId, sourceRecordId, condition: 'new' }),
+        ),
     );
 
     // A DIFFERENT condition is a different offer — the same seller may list a
@@ -454,13 +457,17 @@ describe('active-offer uniqueness (acceptance 1)', () => {
     const merchantId = await mintMerchant('null-collapse');
     const sourceRecordId = await mintSourceRecord('null-collapse');
 
-    await db.insert(offers).values(
-      externalOffer({ canonicalVariantId, merchantId, sourceRecordId, storefrontId: null }),
-    );
-    await expectRefused('unique', () =>
-      db.insert(offers).values(
+    await db
+      .insert(offers)
+      .values(
         externalOffer({ canonicalVariantId, merchantId, sourceRecordId, storefrontId: null }),
-      ),
+      );
+    await expectRefused('unique', () =>
+      db
+        .insert(offers)
+        .values(
+          externalOffer({ canonicalVariantId, merchantId, sourceRecordId, storefrontId: null }),
+        ),
     );
   });
 
@@ -520,10 +527,7 @@ describe('active-offer uniqueness (acceptance 1)', () => {
     // …and `superseded` is the ONE reason that leaves the index, which is what
     // lets `0044` collapse a duplicate that accumulated under the old predicate
     // without deleting a row or blanking its provenance.
-    await db
-      .update(offers)
-      .set({ retirementReason: 'superseded' })
-      .where(eq(offers.id, first.id));
+    await db.update(offers).set({ retirementReason: 'superseded' }).where(eq(offers.id, first.id));
     await db.insert(offers).values(
       externalOffer({
         canonicalVariantId,
@@ -544,9 +548,11 @@ describe('unknown delivery is not free delivery (acceptance 4)', () => {
     const sourceRecordId = await mintSourceRecord('delivery');
 
     await expectRefused('check', () =>
-      db.insert(offers).values(
-        externalOffer({ canonicalVariantId, merchantId, sourceRecordId, deliveryCostAmount: 0 }),
-      ),
+      db
+        .insert(offers)
+        .values(
+          externalOffer({ canonicalVariantId, merchantId, sourceRecordId, deliveryCostAmount: 0 }),
+        ),
     );
     await expectRefused('check', () =>
       db.insert(offers).values(
@@ -768,7 +774,10 @@ describe('expiry removes an offer from current results and loses nothing (accept
     // The row survives, and so does the observation behind it. `RESTRICT` on the
     // source record is what makes the second half structural rather than a habit.
     expect(after?.sourceRecordId).toBe(sourceRecordId);
-    const [record] = await db.select().from(sourceRecords).where(eq(sourceRecords.id, sourceRecordId));
+    const [record] = await db
+      .select()
+      .from(sourceRecords)
+      .where(eq(sourceRecords.id, sourceRecordId));
     expect(record).toBeDefined();
 
     // And it is gone from the CURRENT comparison, which is the point.
@@ -1076,7 +1085,10 @@ describe('native convergence cannot leave a buyable stale offer (acceptance 6)',
     expect(first.materialized).toBe(1);
     expect(second.materialized).toBe(1);
 
-    const rows = await db.select({ id: offers.id }).from(offers).where(eq(offers.listingId, listingId));
+    const rows = await db
+      .select({ id: offers.id })
+      .from(offers)
+      .where(eq(offers.listingId, listingId));
     expect(rows).toHaveLength(1);
   });
 

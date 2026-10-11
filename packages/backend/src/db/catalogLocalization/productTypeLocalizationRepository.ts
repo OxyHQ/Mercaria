@@ -111,10 +111,7 @@ export async function upsertProductTypeLocalization(
     .insert(productTypeLocalizations)
     .values(values)
     .onConflictDoUpdate({
-      target: [
-        productTypeLocalizations.productTypeDefinitionId,
-        productTypeLocalizations.locale,
-      ],
+      target: [productTypeLocalizations.productTypeDefinitionId, productTypeLocalizations.locale],
       set: {
         status: values.status,
         provenance: values.provenance,
@@ -255,12 +252,12 @@ export async function copyForwardProductTypeLocalizations(
     .insert(productTypeLocalizations)
     .values(values)
     .onConflictDoNothing({
-      target: [
-        productTypeLocalizations.productTypeDefinitionId,
-        productTypeLocalizations.locale,
-      ],
+      target: [productTypeLocalizations.productTypeDefinitionId, productTypeLocalizations.locale],
     })
-    .returning({ locale: productTypeLocalizations.locale, status: productTypeLocalizations.status });
+    .returning({
+      locale: productTypeLocalizations.locale,
+      status: productTypeLocalizations.status,
+    });
 
   // Counted off what was WRITTEN rather than off what was planned: the empty
   // half of the returning set IS the "already had one" answer, and re-deriving

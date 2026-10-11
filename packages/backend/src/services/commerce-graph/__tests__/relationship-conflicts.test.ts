@@ -145,7 +145,14 @@ describe('a merchant cannot be both a brand’s own store and its reseller in on
       territories: ['JP'],
     });
     expect(
-      kindsOf(detectConflicts({ subject: official, related: [official, reseller], evidence: [], at: NOW })),
+      kindsOf(
+        detectConflicts({
+          subject: official,
+          related: [official, reseller],
+          evidence: [],
+          at: NOW,
+        }),
+      ),
     ).toEqual([]);
   });
 
@@ -158,7 +165,9 @@ describe('a merchant cannot be both a brand’s own store and its reseller in on
       territories: ['ES'],
     });
     expect(
-      kindsOf(detectConflicts({ subject: official, related: [official, other], evidence: [], at: NOW })),
+      kindsOf(
+        detectConflicts({ subject: official, related: [official, other], evidence: [], at: NOW }),
+      ),
     ).toEqual([]);
   });
 });
@@ -178,7 +187,9 @@ describe('succession cycles', () => {
       relatedBrandId: 'brand-new',
     });
     expect(
-      kindsOf(detectConflicts({ subject: forward, related: [forward, backward], evidence: [], at: NOW })),
+      kindsOf(
+        detectConflicts({ subject: forward, related: [forward, backward], evidence: [], at: NOW }),
+      ),
     ).toEqual(['succession_cycle']);
   });
 

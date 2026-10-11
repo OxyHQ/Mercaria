@@ -53,12 +53,12 @@
  * dashboard's runner having no renderer.
  */
 
-import type { AuthoringLocalizedText } from "@mercaria/shared-types";
-import type { Translate } from "@mercaria/ui";
+import type { AuthoringLocalizedText } from '@mercaria/shared-types';
+import type { Translate } from '@mercaria/ui';
 // The SUBPATH, never the barrel: `@mercaria/ui` reaches `react-native`, whose
 // Flow source Rollup cannot parse, and importing it here would make this
 // module — and so every case in its test — unexecutable.
-import { isolateBidi } from "@mercaria/ui/lib/bidi";
+import { isolateBidi } from '@mercaria/ui/lib/bidi';
 
 /**
  * Copy keys, as literals.
@@ -67,11 +67,11 @@ import { isolateBidi } from "@mercaria/ui/lib/bidi";
  * so a key assembled at runtime is invisible to it — the key reads as unused,
  * the guard fails, and the remedy somebody reaches for is deleting the copy.
  */
-const UNTRANSLATED_WITH_KEY = "products.wizard.untranslated.withKey";
-const UNTRANSLATED_UNNAMED = "products.wizard.untranslated.unnamed";
+const UNTRANSLATED_WITH_KEY = 'products.wizard.untranslated.withKey';
+const UNTRANSLATED_UNNAMED = 'products.wizard.untranslated.unnamed';
 
 /** The sentence a surface shows once when any of its labels came back untranslated. */
-export const UNTRANSLATED_NOTICE_KEY = "products.wizard.untranslated.notice";
+export const UNTRANSLATED_NOTICE_KEY = 'products.wizard.untranslated.notice';
 
 /**
  * What is left to identify the thing when its name is unavailable.
@@ -82,8 +82,8 @@ export const UNTRANSLATED_NOTICE_KEY = "products.wizard.untranslated.notice";
  * database id.
  */
 export type AuthoringLabelFallback =
-  | { readonly kind: "key"; readonly key: string }
-  | { readonly kind: "unidentifiable" };
+  | { readonly kind: 'key'; readonly key: string }
+  | { readonly kind: 'unidentifiable' };
 
 /**
  * A label, and whether it is really this merchant's language.
@@ -95,8 +95,8 @@ export type AuthoringLabelFallback =
  * be a second representation of a fact this already states.
  */
 export type AuthoringLabel =
-  | { readonly outcome: "translated"; readonly text: string }
-  | { readonly outcome: "untranslated"; readonly text: string };
+  | { readonly outcome: 'translated'; readonly text: string }
+  | { readonly outcome: 'untranslated'; readonly text: string };
 
 /**
  * Resolve one piece of catalogue text into something a merchant can read.
@@ -111,11 +111,11 @@ export function authoringLabel(
   fallback: AuthoringLabelFallback,
   translate: Translate,
 ): AuthoringLabel {
-  const value = text?.value?.trim() ?? "";
-  if (value.length > 0) return { outcome: "translated", text: value };
+  const value = text?.value?.trim() ?? '';
+  if (value.length > 0) return { outcome: 'translated', text: value };
 
-  if (fallback.kind === "unidentifiable") {
-    return { outcome: "untranslated", text: translate(UNTRANSLATED_UNNAMED) };
+  if (fallback.kind === 'unidentifiable') {
+    return { outcome: 'untranslated', text: translate(UNTRANSLATED_UNNAMED) };
   }
 
   const key = fallback.key.trim();
@@ -123,7 +123,7 @@ export function authoringLabel(
   // same copy as the `unidentifiable` branch rather than rendering " (not
   // translated)" with a hole where the identifier goes.
   if (key.length === 0) {
-    return { outcome: "untranslated", text: translate(UNTRANSLATED_UNNAMED) };
+    return { outcome: 'untranslated', text: translate(UNTRANSLATED_UNNAMED) };
   }
   // ISOLATED, because this is a Latin machine token inside a sentence that may
   // be Arabic. `snapdragon_8_gen_4` and `128gb` end in digits, which the bidi
@@ -133,12 +133,12 @@ export function authoringLabel(
   // of the price. FSI/PDI are zero-width and default-ignorable, so this is
   // invisible in every screenshot and is asserted by CODE POINT instead.
   return {
-    outcome: "untranslated",
+    outcome: 'untranslated',
     text: translate(UNTRANSLATED_WITH_KEY, { key: isolateBidi(key) }),
   };
 }
 
 /** Whether any of these labels needs {@link UNTRANSLATED_NOTICE_KEY} shown beside it. */
 export function anyUntranslated(labels: readonly AuthoringLabel[]): boolean {
-  return labels.some((entry) => entry.outcome === "untranslated");
+  return labels.some((entry) => entry.outcome === 'untranslated');
 }

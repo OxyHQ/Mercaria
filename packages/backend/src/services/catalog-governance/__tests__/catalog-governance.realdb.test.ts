@@ -107,7 +107,12 @@ async function plan(
       impactMeasuredAt: new Date(),
       impactUnmeasuredReason: null,
       counts: [
-        { referenceTable: 'listings', referenceColumn: 'categoryId', disposition: 'blocks', rowCount: 3 },
+        {
+          referenceTable: 'listings',
+          referenceColumn: 'categoryId',
+          disposition: 'blocks',
+          rowCount: 3,
+        },
         {
           referenceTable: 'navigation_nodes',
           referenceColumn: 'categoryId',
@@ -275,9 +280,9 @@ describe('the impact coverage CHECKs', () => {
     // The service-side half of the floor, refused before any SQL is issued:
     // the CHECK can compare the counted number against the declared one, and
     // only the writer can compare it against the rows it is about to write.
-    await expect(
-      plan({ impactRelationsDeclared: 20 }),
-    ).rejects.toThrow(/Impact measurement is incomplete/u);
+    await expect(plan({ impactRelationsDeclared: 20 })).rejects.toThrow(
+      /Impact measurement is incomplete/u,
+    );
   });
 });
 

@@ -202,7 +202,9 @@ describe('diffProductTypeVersions', () => {
 
   it('derives breakingCount from the entries', () => {
     const diff = diffProductTypeVersions(
-      productType({ fields: [field({ requirement: 'optional' }), field({ attributeKey: 'size' })] }),
+      productType({
+        fields: [field({ requirement: 'optional' }), field({ attributeKey: 'size' })],
+      }),
       productType({
         version: 2,
         fields: [field({ requirement: 'required' })],
@@ -448,7 +450,8 @@ function mutated<T extends object>(base: T, key: keyof T): T {
   else if (typeof current === 'number') next = current + 7;
   else if (Array.isArray(current)) next = [...current, 'census-added-member'];
   else if (typeof current === 'string') next = `${current}-census`;
-  else if (current === null) next = 1; // a null bound, unit or group appearing
+  else if (current === null)
+    next = 1; // a null bound, unit or group appearing
   else throw new Error(`the census has no mutation for ${String(key)}`);
   return { ...base, [key]: next };
 }

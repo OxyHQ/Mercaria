@@ -1,7 +1,7 @@
-import { View } from "react-native";
-import { Text, useFormatters } from "@mercaria/ui";
-import { hasKnownBasketTotal, type WatchlistBasket } from "@mercaria/shared-types";
-import { useTranslation } from "@/lib/i18n";
+import { View } from 'react-native';
+import { Text, useFormatters } from '@mercaria/ui';
+import { hasKnownBasketTotal, type WatchlistBasket } from '@mercaria/shared-types';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The basket total, with an honest completeness label (#81 UX rules 4 and 5,
@@ -42,14 +42,14 @@ export function BasketTotalCard({ basket }: { basket: WatchlistBasket }) {
   if (!hasKnownBasketTotal(total)) {
     return (
       <View className="gap-space-4 rounded-radius-lg border border-border-secondary p-space-16">
-        <Text className="text-sm text-text-secondary">{t("watchlists.basket.title")}</Text>
+        <Text className="text-sm text-text-secondary">{t('watchlists.basket.title')}</Text>
         <Text className="text-xl font-semibold text-foreground">
-          {t("watchlists.basket.noPrice")}
+          {t('watchlists.basket.noPrice')}
         </Text>
         <Text className="text-sm text-text-secondary">
           {basket.unresolved.length === 0
-            ? t("watchlists.basket.empty")
-            : t("watchlists.basket.nonePriced", { count: basket.unresolved.length })}
+            ? t('watchlists.basket.empty')
+            : t('watchlists.basket.nonePriced', { count: basket.unresolved.length })}
         </Text>
       </View>
     );
@@ -57,16 +57,16 @@ export function BasketTotalCard({ basket }: { basket: WatchlistBasket }) {
 
   return (
     <View className="gap-space-4 rounded-radius-lg border border-border-secondary p-space-16">
-      <Text className="text-sm text-text-secondary">{t("watchlists.basket.title")}</Text>
+      <Text className="text-sm text-text-secondary">{t('watchlists.basket.title')}</Text>
       <Text className="text-2xl font-bold text-foreground">{formatMoney(total.amount)}</Text>
       <Text className="text-sm text-text-secondary">
-        {total.basis === "delivered_total"
-          ? t("watchlists.basket.basisDelivered")
-          : t("watchlists.basket.basisItemPrice")}
+        {total.basis === 'delivered_total'
+          ? t('watchlists.basket.basisDelivered')
+          : t('watchlists.basket.basisItemPrice')}
       </Text>
-      {total.completeness === "partial" ? (
+      {total.completeness === 'partial' ? (
         <Text className="text-sm text-text-secondary">
-          {t("watchlists.basket.partial", {
+          {t('watchlists.basket.partial', {
             included: total.includedItems,
             total: total.includedItems + total.excludedItems,
             excluded: total.excludedItems,
@@ -74,7 +74,7 @@ export function BasketTotalCard({ basket }: { basket: WatchlistBasket }) {
         </Text>
       ) : (
         <Text className="text-sm text-text-secondary">
-          {t("watchlists.basket.complete", { count: total.includedItems })}
+          {t('watchlists.basket.complete', { count: total.includedItems })}
         </Text>
       )}
     </View>

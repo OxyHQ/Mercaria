@@ -156,9 +156,7 @@ export async function changeWatchlistItem(
       throw validationError('A quantity must be a whole number of at least 1.');
     }
     if (input.quantity > WATCHLIST_MAX_ITEM_QUANTITY) {
-      throw validationError(
-        `A quantity may not exceed ${WATCHLIST_MAX_ITEM_QUANTITY}.`,
-      );
+      throw validationError(`A quantity may not exceed ${WATCHLIST_MAX_ITEM_QUANTITY}.`);
     }
   }
   const amountGiven = input.targetAmount !== undefined;

@@ -44,7 +44,14 @@ describe('successful parses', () => {
   });
 
   it('parses a person seller, a viewer and nullable pieces', async () => {
-    const wire = { ...productWire(), seller: personSellerWire(), viewer: { saved: true }, primaryImage: null, compareAtPrice: null, priceRange: null };
+    const wire = {
+      ...productWire(),
+      seller: personSellerWire(),
+      viewer: { saved: true },
+      primaryImage: null,
+      compareAtPrice: null,
+      priceRange: null,
+    };
     const { client } = fakeClient(() => ok(wire));
     const product = await client.products.get('prod_1');
     expect(product.seller).toEqual(personSellerWire());
@@ -58,7 +65,9 @@ describe('successful parses', () => {
   });
 
   it('parses a store and a collection', async () => {
-    const { client } = fakeClient(({ url }) => (url.includes('/collections/') ? ok(collectionWire()) : ok(storeWire())));
+    const { client } = fakeClient(({ url }) =>
+      url.includes('/collections/') ? ok(collectionWire()) : ok(storeWire()),
+    );
     expect(await client.stores.get('store_1')).toEqual(storeWire());
     expect(await client.collections.get('col_1')).toEqual(collectionWire());
   });
@@ -69,16 +78,27 @@ describe('successful parses', () => {
         ? ok(pageWire([locationProductWire('prod_1'), locationProductWire('prod_2', 2)]))
         : ok({ ...locationWire(), pickup: null, discoverable: false }),
     );
-    expect(await client.locations.get('loc_1')).toEqual({ ...locationWire(), pickup: null, discoverable: false });
+    expect(await client.locations.get('loc_1')).toEqual({
+      ...locationWire(),
+      pickup: null,
+      discoverable: false,
+    });
     const page = await client.locations.products('loc_1');
     expect('exactQuantity' in (page.items[0] ?? {})).toBe(false);
     expect(page.items[1]?.exactQuantity).toBe(2);
   });
 
   it('strips a place fact a server leaked into a location, and refuses an unknown availability', async () => {
-    const leaky = { ...locationWire(), address: { line1: 'Carrer 1' }, openingHours: [], pauseReason: 'staff ill' };
+    const leaky = {
+      ...locationWire(),
+      address: { line1: 'Carrer 1' },
+      openingHours: [],
+      pauseReason: 'staff ill',
+    };
     const { client } = fakeClient(({ url }) =>
-      url.includes('/products') ? ok(pageWire([{ ...locationProductWire(), availability: 'sold' }])) : ok(leaky),
+      url.includes('/products')
+        ? ok(pageWire([{ ...locationProductWire(), availability: 'sold' }]))
+        : ok(leaky),
     );
     expect(await client.locations.get('loc_1')).toEqual(locationWire());
     const error = (await rejection(client.locations.products('loc_1'))) as MercariaError;
@@ -108,7 +128,11 @@ describe('leaked fields never survive', () => {
   it('strips extra keys at every level of a product', async () => {
     const wire = productWire() as Wire & { purchaseOptions: Wire[]; images: Wire[] };
     Object.assign(wire, LEAKS);
-    Object.assign(wire.purchaseOptions[0] as Wire, { sku: 'VAR-SKU', barcode: '1', supplierRef: 'x' });
+    Object.assign(wire.purchaseOptions[0] as Wire, {
+      sku: 'VAR-SKU',
+      barcode: '1',
+      supplierRef: 'x',
+    });
     Object.assign(wire.ref as Wire, { storeId: 'store_1', handle: 'h' });
     Object.assign(wire.price as Wire, { fx: 1.2 });
     Object.assign(wire.seller as Wire, { email: 'owner@example.com', stripeAccountId: 'acct_1' });
@@ -118,7 +142,22 @@ describe('leaked fields never survive', () => {
     const { client } = fakeClient(() => ok(wire));
     const product = await client.products.get('prod_1');
     const keys = allKeys(product);
-    for (const leaked of ['sku', 'barcode', 'source', 'supplierId', 'wholesaleCost', 'memberIds', 'rules', 'fileId', 'supplierRef', 'storeId', 'fx', 'email', 'stripeAccountId', 'evidence']) {
+    for (const leaked of [
+      'sku',
+      'barcode',
+      'source',
+      'supplierId',
+      'wholesaleCost',
+      'memberIds',
+      'rules',
+      'fileId',
+      'supplierRef',
+      'storeId',
+      'fx',
+      'email',
+      'stripeAccountId',
+      'evidence',
+    ]) {
       expect(keys.has(leaked), leaked).toBe(false);
     }
     expect(product).toEqual(productWire());
@@ -129,7 +168,8 @@ describe('leaked fields never survive', () => {
     const store = { ...storeWire(), ownerOxyUserId: 'oxy_1', stripeAccountId: 'acct', ...LEAKS };
     const collection = { ...collectionWire(), ...LEAKS, automated: true };
     const { client } = fakeClient(({ url }) => {
-      if (url.includes('/stores/store_1/products')) return ok({ ...pageWire([summary], null), total: 99, offset: 0 });
+      if (url.includes('/stores/store_1/products'))
+        return ok({ ...pageWire([summary], null), total: 99, offset: 0 });
       if (url.includes('/collections/')) return ok(collection);
       return ok(store);
     });
@@ -189,12 +229,18 @@ describe('malformed DTOs fail closed', () => {
   });
 
   it('collection: store ref of the wrong kind', async () => {
-    const { client } = fakeClient(() => ok(withField(collectionWire(), 'store', { kind: 'product', id: 'x' })));
+    const { client } = fakeClient(() =>
+      ok(withField(collectionWire(), 'store', { kind: 'product', id: 'x' })),
+    );
     expect(await rejection(client.collections.get('col_1'))).toBeInstanceOf(MercariaResponseError);
   });
 
   it('fails the WHOLE page when one row is malformed, naming the row', async () => {
-    const rows = [productSummaryWire('p1'), withField(productSummaryWire('p2'), 'price.currency', 'XXX'), productSummaryWire('p3')];
+    const rows = [
+      productSummaryWire('p1'),
+      withField(productSummaryWire('p2'), 'price.currency', 'XXX'),
+      productSummaryWire('p3'),
+    ];
     const { client } = fakeClient(() => ok(pageWire(rows, 'next')));
     const error = (await rejection(client.products.search({ query: 'x' }))) as MercariaError;
     expect(error).toBeInstanceOf(MercariaResponseError);
@@ -208,6 +254,8 @@ describe('malformed DTOs fail closed', () => {
     ['numeric nextCursor', { items: [], nextCursor: 2 }],
   ])('page: %s', async (_name, data) => {
     const { client } = fakeClient(() => ok(data));
-    expect(await rejection(client.collections.products('col_1'))).toBeInstanceOf(MercariaResponseError);
+    expect(await rejection(client.collections.products('col_1'))).toBeInstanceOf(
+      MercariaResponseError,
+    );
   });
 });

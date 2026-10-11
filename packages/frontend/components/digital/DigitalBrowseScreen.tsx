@@ -89,8 +89,7 @@ export function DigitalBrowseScreen({ surfaceKey }: DigitalBrowseScreenProps) {
 
   const title = t(surface.titleKey);
   /* A rail only when the server answered one AND the grid can act on all of it. */
-  const railResponse =
-    result?.selectionApplied === true ? facets.data : undefined;
+  const railResponse = result?.selectionApplied === true ? facets.data : undefined;
 
   return (
     <ScreenShell contentClassName="pt-6">

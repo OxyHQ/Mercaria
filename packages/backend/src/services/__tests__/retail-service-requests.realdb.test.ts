@@ -86,10 +86,7 @@ afterAll(async () => {
  * an unrelated reason. Walking the cause chain is what makes each case below
  * assert the guard it is about rather than merely that something went wrong.
  */
-async function expectRefusedBecause(
-  run: () => Promise<unknown>,
-  pattern: RegExp,
-): Promise<void> {
+async function expectRefusedBecause(run: () => Promise<unknown>, pattern: RegExp): Promise<void> {
   let caught: unknown;
   try {
     await run();
@@ -198,9 +195,7 @@ async function makeRequest(
     policyMarket: 'ES',
     statutoryDeadlineAt: new Date(Date.now() + 86_400_000),
     commercialDeadlineAt: new Date(Date.now() + 2 * 86_400_000),
-    ...(overrides.idempotencyKey === undefined
-      ? {}
-      : { idempotencyKey: overrides.idempotencyKey }),
+    ...(overrides.idempotencyKey === undefined ? {} : { idempotencyKey: overrides.idempotencyKey }),
     lines: [
       {
         orderItemId: overrides.orderItemId ?? firstItemId ?? '',
@@ -663,7 +658,10 @@ describe('the customer projection carries no supplier fact', () => {
     const order = await findOrderById(orderId);
     const view = await projectRetailServiceRequestForCustomer(
       (await findRetailServiceRequest(request.id)) ?? request,
-      order ?? (() => { throw new Error('order vanished'); })(),
+      order ??
+        (() => {
+          throw new Error('order vanished');
+        })(),
     );
 
     const serialized = JSON.stringify(view).toLowerCase();

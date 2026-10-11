@@ -54,8 +54,16 @@ import { recordSecuritySignal } from './security-signals.service.js';
  * grant and a grant id can never be read as an account.
  */
 export type GuestDataRequestSubject =
-  | { readonly proof: 'verified_portal_grant'; readonly grantId: string; readonly checkoutGroupId: string }
-  | { readonly proof: 'completed_oxy_claim'; readonly oxyUserId: string; readonly checkoutGroupId: string };
+  | {
+      readonly proof: 'verified_portal_grant';
+      readonly grantId: string;
+      readonly checkoutGroupId: string;
+    }
+  | {
+      readonly proof: 'completed_oxy_claim';
+      readonly oxyUserId: string;
+      readonly checkoutGroupId: string;
+    };
 
 /**
  * Why a request could not be answered. Bounded, and it reaches a client.
@@ -172,9 +180,7 @@ function composeDispositions(input: {
       return {
         dataClass: record.dataClass,
         disposition: record.exportable ? 'deleted' : 'retained_under_obligation',
-        ...(record.exportable
-          ? {}
-          : { retainedReason: exportExclusionReason(record.dataClass) }),
+        ...(record.exportable ? {} : { retainedReason: exportExclusionReason(record.dataClass) }),
         affectedRowCount: 0,
       };
     }
@@ -255,7 +261,9 @@ function retentionReasonFor(dataClass: GuestDataClass): GuestDataRetentionReason
  */
 export async function composeGuestDataExport(input: {
   checkoutGroupId: string;
-}): Promise<readonly { dataClass: GuestDataClass; exportable: boolean; tables: readonly string[] }[]> {
+}): Promise<
+  readonly { dataClass: GuestDataClass; exportable: boolean; tables: readonly string[] }[]
+> {
   recordSecuritySignal('operator_sensitive_access', 0);
   const checkout = await findGuestCheckoutByGroup(getDb(), input.checkoutGroupId);
   if (checkout === null) return [];

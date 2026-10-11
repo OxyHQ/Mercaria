@@ -64,9 +64,7 @@ import {
   findProductFamilyById,
   refreshFamilyProductCount,
 } from '../../db/canonical/productFamilyRepository.js';
-import {
-  findCanonicalVariantById,
-} from '../../db/canonical/canonicalVariantRepository.js';
+import { findCanonicalVariantById } from '../../db/canonical/canonicalVariantRepository.js';
 import {
   insertCanonicalMedia,
   listAttributeValues,
@@ -74,9 +72,7 @@ import {
   listFieldProvenance,
   recordFieldProvenance,
 } from '../../db/canonical/attributeRepository.js';
-import {
-  listIdentifiersForProduct,
-} from '../../db/canonical/productIdentifierRepository.js';
+import { listIdentifiersForProduct } from '../../db/canonical/productIdentifierRepository.js';
 import {
   findCatalogSourceById,
   findSourceRecordsByIds,
@@ -96,7 +92,11 @@ import { ensureDefaultVariant, listVariantOptions } from './canonical-variant.se
 import { isPubliclyVisibleIdentifier } from './product-identifier.service.js';
 import { resolveIdentifier } from './product-identifier.service.js';
 import { synchronizeAccountMedia } from '../catalog-media/sync.js';
-import { assertDescriptionImagesStored, descriptionNeedsMediaImport, synchronizeAccountDescription } from '../catalog-media/description.js';
+import {
+  assertDescriptionImagesStored,
+  descriptionNeedsMediaImport,
+  synchronizeAccountDescription,
+} from '../catalog-media/description.js';
 
 /** How many redirect hops resolution tolerates before calling the data corrupt. */
 const MAX_MERGE_HOPS = 10;
@@ -205,9 +205,7 @@ export async function createCanonicalProduct(
         productId: product.id,
         alias: name,
         kind: 'name_variant',
-        ...(input.actorOxyUserId === undefined
-          ? {}
-          : { createdByOxyUserId: input.actorOxyUserId }),
+        ...(input.actorOxyUserId === undefined ? {} : { createdByOxyUserId: input.actorOxyUserId }),
       });
       for (const alias of input.aliases ?? []) {
         await insertCanonicalProductAlias(tx, {
@@ -287,10 +285,13 @@ export async function updateCanonicalProduct(
 
     if (input.name !== undefined) {
       const name = input.name.trim();
-      if (name.length === 0) throw validationError('updateCanonicalProduct: name must be non-empty.');
+      if (name.length === 0)
+        throw validationError('updateCanonicalProduct: name must be non-empty.');
       const normalizedName = normalizeEntityName(name);
       if (normalizedName.length === 0) {
-        throw validationError(`updateCanonicalProduct: name '${name}' has no normalizable content.`);
+        throw validationError(
+          `updateCanonicalProduct: name '${name}' has no normalizable content.`,
+        );
       }
       if (name !== product.name) {
         patch.name = name;
@@ -380,7 +381,13 @@ export interface ApplyProductSourceObservationInput {
   };
   /** Images the source supplied, each traced to this observation. */
   images?: { fileId?: string; sourceUrl?: string; alt?: string; locale?: string }[];
-  media?: { kind: 'image' | 'video'; fileId?: string; sourceUrl?: string; alt?: string; locale?: string }[];
+  media?: {
+    kind: 'image' | 'video';
+    fileId?: string;
+    sourceUrl?: string;
+    alt?: string;
+    locale?: string;
+  }[];
   /** Identifiers the source asserted, applied through the identifier service. */
   identifiers?: { scheme: IdentifierScheme; rawValue: string }[];
 }
@@ -415,8 +422,10 @@ export async function applyProductSourceObservation(
     throw validationError('applyProductSourceObservation: confidence must be within [0, 1].');
   }
 
-  if (input.images !== undefined && input.media !== undefined) throw validationError('Use images or media, not both.');
-  const images = input.media ?? (input.images ?? []).map(image => ({ ...image, kind: 'image' as const }));
+  if (input.images !== undefined && input.media !== undefined)
+    throw validationError('Use images or media, not both.');
+  const images =
+    input.media ?? (input.images ?? []).map((image) => ({ ...image, kind: 'image' as const }));
   let imageFileIds: string[] = [];
   let description = input.fields.description;
   let importsDescription = descriptionNeedsMediaImport(description);
@@ -430,16 +439,21 @@ export async function applyProductSourceObservation(
     const source = await findCatalogSourceById(getDb(), input.sourceId);
     if (!source) throw notFound(`Catalog source ${input.sourceId} does not exist.`);
     if ((images.length > 0 || importsDescription) && (!source.mayStore || !source.mayDisplay)) {
-      throw validationError('Canonical image synchronization requires source storage and display rights.');
+      throw validationError(
+        'Canonical image synchronization requires source storage and display rights.',
+      );
     }
-    const references = images.map(image => {
+    const references = images.map((image) => {
       const reference = image.fileId ?? image.sourceUrl;
-      if (!reference) throw validationError('A canonical image needs a fileId or an HTTPS sourceUrl.');
+      if (!reference)
+        throw validationError('A canonical image needs a fileId or an HTTPS sourceUrl.');
       return { kind: image.kind, reference };
     });
     // No transaction is held across supplier downloads or Oxy uploads. A
     // refused import cannot partially apply scalar facts or attach source URLs.
-    imageFileIds = (await synchronizeAccountMedia(input.decidedByOxyUserId, references)).map(media => media.fileId);
+    imageFileIds = (await synchronizeAccountMedia(input.decidedByOxyUserId, references)).map(
+      (media) => media.fileId,
+    );
     if (importsDescription && description !== undefined) {
       description = await synchronizeAccountDescription(input.decidedByOxyUserId, description);
     }
@@ -455,14 +469,14 @@ export async function applyProductSourceObservation(
     const source = await findCatalogSourceById(tx, input.sourceId);
     if (!source) throw notFound(`Catalog source ${input.sourceId} does not exist.`);
     if ((images.length > 0 || importsDescription) && (!source.mayStore || !source.mayDisplay)) {
-      throw validationError('Canonical image synchronization requires source storage and display rights.');
+      throw validationError(
+        'Canonical image synchronization requires source storage and display rights.',
+      );
     }
 
     const payload: JsonValue = {
       ...(input.fields.name === undefined ? {} : { name: input.fields.name }),
-      ...(input.fields.description === undefined
-        ? {}
-        : { description: input.fields.description }),
+      ...(input.fields.description === undefined ? {} : { description: input.fields.description }),
       ...(input.fields.releasedAt === undefined
         ? {}
         : { releasedAt: input.fields.releasedAt.toISOString() }),
@@ -475,7 +489,14 @@ export async function applyProductSourceObservation(
               .map((image) => image.fileId ?? image.sourceUrl ?? '')
               .sort(),
           }),
-      ...(input.media === undefined ? {} : { media: input.media.map(item => ({ kind: item.kind, reference: item.fileId ?? item.sourceUrl ?? '' })) }),
+      ...(input.media === undefined
+        ? {}
+        : {
+            media: input.media.map((item) => ({
+              kind: item.kind,
+              reference: item.fileId ?? item.sourceUrl ?? '',
+            })),
+          }),
       ...((input.identifiers ?? []).length === 0
         ? {}
         : {
@@ -548,13 +569,21 @@ export async function applyProductSourceObservation(
     for (const { field, value, current } of scalarFields) {
       if (value === undefined || value === current) continue;
       if (pinned.has(field)) {
-        conflicts.push({ field, reason: 'pinned', sourceValue: field === 'description' ? input.fields.description! : value });
+        conflicts.push({
+          field,
+          reason: 'pinned',
+          sourceValue: field === 'description' ? input.fields.description! : value,
+        });
         continue;
       }
       // Filling absence is not overwriting; replacing a value needs at least the
       // strength of what put it there.
       if (current !== null && incomingStrength < existingStrength) {
-        conflicts.push({ field, reason: 'lower_confidence', sourceValue: field === 'description' ? input.fields.description! : value });
+        conflicts.push({
+          field,
+          reason: 'lower_confidence',
+          sourceValue: field === 'description' ? input.fields.description! : value,
+        });
         continue;
       }
       if (field === 'description') assertDescriptionImagesStored(value);
@@ -661,7 +690,8 @@ export async function resolveCanonicalProduct(
 ): Promise<CanonicalProductRow | undefined> {
   const db = getDb();
   const row =
-    (await findCanonicalProductById(db, idOrSlug)) ?? (await findCanonicalProductBySlug(db, idOrSlug));
+    (await findCanonicalProductById(db, idOrSlug)) ??
+    (await findCanonicalProductBySlug(db, idOrSlug));
   if (!row) return undefined;
   return resolveProductRow(db, row);
 }
@@ -675,7 +705,11 @@ export async function resolveCanonicalProduct(
  */
 export async function resolveCanonicalProductByAlias(
   name: string,
-): Promise<{ kind: 'resolved'; id: string } | { kind: 'ambiguous'; candidateIds: string[] } | { kind: 'none' }> {
+): Promise<
+  | { kind: 'resolved'; id: string }
+  | { kind: 'ambiguous'; candidateIds: string[] }
+  | { kind: 'none' }
+> {
   const lookup = normalizeAliasLookup(name);
   if (lookup.length === 0) return { kind: 'none' };
   const db = getDb();
@@ -922,7 +956,8 @@ export async function getPublicCanonicalProduct(
 ): Promise<CanonicalProduct | undefined> {
   const db = getDb();
   const row =
-    (await findCanonicalProductById(db, idOrSlug)) ?? (await findCanonicalProductBySlug(db, idOrSlug));
+    (await findCanonicalProductById(db, idOrSlug)) ??
+    (await findCanonicalProductBySlug(db, idOrSlug));
   if (!row) return undefined;
   const resolved = await resolveProductRow(db, row);
   if (!SHOPPER_VISIBLE_CATALOG_STATUSES.includes(resolved.status)) return undefined;
@@ -937,7 +972,11 @@ export async function listPublicCanonicalProducts(
   const safePage = Math.max(1, Math.floor(page));
   const safeLimit = Math.min(100, Math.max(1, Math.floor(limit)));
   const db = getDb();
-  const { rows, total } = await listCanonicalProductsPage(db, (safePage - 1) * safeLimit, safeLimit);
+  const { rows, total } = await listCanonicalProductsPage(
+    db,
+    (safePage - 1) * safeLimit,
+    safeLimit,
+  );
   const data: CanonicalProduct[] = [];
   for (const row of rows) data.push(await toPublicCanonicalProduct(db, row));
   const pages = Math.max(1, Math.ceil(total / safeLimit));
@@ -961,7 +1000,7 @@ async function toPublicCanonicalProduct(
   const aliases = await listCanonicalProductAliases(db, row.id);
   const freshness = await productFreshness(db, row.id);
   const mediaRows = await listCanonicalMedia(db, { kind: 'product', id: row.id });
-  const imageRows = mediaRows.filter(media => media.kind === 'image');
+  const imageRows = mediaRows.filter((media) => media.kind === 'image');
   const attributeRows = await listAttributeValues(db, { kind: 'product', id: row.id });
   const identifierRows = await listIdentifiersForProduct(db, row.id);
   const provenanceRows = await listFieldProvenance(db, { kind: 'product', id: row.id });
@@ -987,9 +1026,16 @@ async function toPublicCanonicalProduct(
   for (const item of mediaRows) {
     if (item.status !== 'active' || !isOxyFileId(item.fileId)) continue;
     const freshness = await recordFreshness(db, item.sourceRecordId);
-    media.push({ id: item.id, kind: item.kind, fileId: item.fileId, position: item.position, status: item.status,
-      ...(item.alt === null ? {} : { alt: item.alt }), ...(item.locale === null ? {} : { locale: item.locale }),
-      ...(freshness === undefined ? {} : { freshness }) });
+    media.push({
+      id: item.id,
+      kind: item.kind,
+      fileId: item.fileId,
+      position: item.position,
+      status: item.status,
+      ...(item.alt === null ? {} : { alt: item.alt }),
+      ...(item.locale === null ? {} : { locale: item.locale }),
+      ...(freshness === undefined ? {} : { freshness }),
+    });
   }
 
   const attributes: CanonicalAttributeAssignment[] = attributeRows.map((attribute) => ({
@@ -1062,7 +1108,9 @@ async function toPublicCanonicalProduct(
         ...(identifier.canonicalScheme === null
           ? {}
           : { canonicalScheme: identifier.canonicalScheme }),
-        ...(identifier.canonicalValue === null ? {} : { canonicalValue: identifier.canonicalValue }),
+        ...(identifier.canonicalValue === null
+          ? {}
+          : { canonicalValue: identifier.canonicalValue }),
         status: identifier.status,
         grain: 'product' as const,
       })),

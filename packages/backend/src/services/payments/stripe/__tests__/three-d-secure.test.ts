@@ -84,7 +84,10 @@ describe('parsing STRIPE_3DS_THRESHOLDS', () => {
   });
 
   it('drops an amount past the safe-integer range', () => {
-    const { thresholds, rejected } = parseThreeDSecureThresholds('EUR:99999999999999999999', isKnown);
+    const { thresholds, rejected } = parseThreeDSecureThresholds(
+      'EUR:99999999999999999999',
+      isKnown,
+    );
     expect(thresholds).toEqual({});
     expect(rejected).toHaveLength(1);
   });

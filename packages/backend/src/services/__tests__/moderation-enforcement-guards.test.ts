@@ -119,7 +119,12 @@ vi.mock('../fx.service.js', () => {
   const unavailable = (): never => {
     throw new Error('order.service must not consult FX during a lifecycle transition');
   };
-  return { getRates: unavailable, convert: unavailable, pairRate: unavailable, toDualMoney: unavailable };
+  return {
+    getRates: unavailable,
+    convert: unavailable,
+    pairRate: unavailable,
+    toDualMoney: unavailable,
+  };
 });
 
 const { updateListing } = await import('../catalog-write.service.js');
@@ -155,12 +160,11 @@ beforeEach(() => {
   updateListingColumns.mockResolvedValue(null);
   // The CAS gate in `transition`; a returned result means this caller won it,
   // and `null` would mean the guard refused.
-  transitionOrderStatus.mockImplementation(
-    (orderId: string, _expected: string, next: string) =>
-      Promise.resolve({
-        order: { id: orderId, status: next },
-        event: { id: 'event-1', orderId, status: next, at: new Date() },
-      }),
+  transitionOrderStatus.mockImplementation((orderId: string, _expected: string, next: string) =>
+    Promise.resolve({
+      order: { id: orderId, status: next },
+      event: { id: 'event-1', orderId, status: next, at: new Date() },
+    }),
   );
 });
 
@@ -175,9 +179,9 @@ describe('a seller cannot escape a moderation restriction', () => {
      * error, nothing would log, and the audit trail would still show the
      * restriction being applied — because it was.
      */
-    await expect(
-      updateListing(LISTING_ID, { status: 'active' }, SELLER_ACTOR),
-    ).rejects.toThrow(/restricted pending a moderation decision/i);
+    await expect(updateListing(LISTING_ID, { status: 'active' }, SELLER_ACTOR)).rejects.toThrow(
+      /restricted pending a moderation decision/i,
+    );
 
     // Nothing was written: the guard runs BEFORE any column patch is assembled.
     expect(updateListingColumns).not.toHaveBeenCalled();
@@ -253,7 +257,9 @@ describe('a frozen order cannot move', () => {
      * placed yesterday would be packed and shipped while its case is still open.
      */
     await expect(
-      transition(orderRecord() as never, 'processing', { actor: { kind: 'oxy', oxyUserId: 'seller-1' } }),
+      transition(orderRecord() as never, 'processing', {
+        actor: { kind: 'oxy', oxyUserId: 'seller-1' },
+      }),
     ).rejects.toThrow(/held pending a moderation decision/i);
   });
 
@@ -264,7 +270,9 @@ describe('a frozen order cannot move', () => {
      * questioning, which is the opposite of what the freeze is for.
      */
     await expect(
-      transition(orderRecord() as never, 'cancelled', { actor: { kind: 'oxy', oxyUserId: 'buyer-1' } }),
+      transition(orderRecord() as never, 'cancelled', {
+        actor: { kind: 'oxy', oxyUserId: 'buyer-1' },
+      }),
     ).resolves.toBeDefined();
     expect(transitionOrderStatus).toHaveBeenCalled();
   });

@@ -89,7 +89,12 @@ import type { Database } from '../../../db/postgres.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 import { deleteTestStores } from '../../../db/__tests__/store-teardown.js';
 import { setCategoryLifecycle } from '../../../db/taxonomy/taxonomyRepository.js';
-import { applyVerticalPackage, namespaceFor, type SeedHandles, type VerticalNamespace } from '../apply.js';
+import {
+  applyVerticalPackage,
+  namespaceFor,
+  type SeedHandles,
+  type VerticalNamespace,
+} from '../apply.js';
 import { censusVerticalPackage, formatCensus } from '../census.js';
 import type { VerticalPackage } from '../types.js';
 
@@ -146,7 +151,9 @@ export async function seedVerticalForTest(
   const ns = namespaceFor(token);
   const verdict = await censusVerticalPackage(db, pkg, ns);
   if (verdict.outcome !== 'matched') {
-    throw new Error(`Seeding '${pkg.name}' did not match its own census:\n${formatCensus(verdict)}`);
+    throw new Error(
+      `Seeding '${pkg.name}' did not match its own census:\n${formatCensus(verdict)}`,
+    );
   }
   return { ns, handles, actorOxyUserId };
 }
@@ -178,7 +185,10 @@ export async function teardownVertical(db: Database, token: string): Promise<voi
   const categoryPrefix = `${ns.kebab}.%`;
   const tokenPrefix = `${token}%`;
 
-  const productIds = await idsOf(db, sql`select id from canonical_products where slug like ${slugPrefix}`);
+  const productIds = await idsOf(
+    db,
+    sql`select id from canonical_products where slug like ${slugPrefix}`,
+  );
   const variantIds =
     productIds.length === 0
       ? []
@@ -281,15 +291,23 @@ export async function teardownVertical(db: Database, token: string): Promise<voi
   const productScope = sql`select id from canonical_products where slug like ${slugPrefix}`;
 
   await db.execute(sql`delete from product_identifiers where variant_id in (${variantScope})`);
-  await db.execute(sql`delete from canonical_attribute_values where attribute_key like ${attrPrefix}`);
-  await db.execute(sql`delete from canonical_variant_attributes where variant_id in (${variantScope})`);
-  await db.execute(sql`delete from canonical_variant_aliases where variant_id in (${variantScope})`);
+  await db.execute(
+    sql`delete from canonical_attribute_values where attribute_key like ${attrPrefix}`,
+  );
+  await db.execute(
+    sql`delete from canonical_variant_attributes where variant_id in (${variantScope})`,
+  );
+  await db.execute(
+    sql`delete from canonical_variant_aliases where variant_id in (${variantScope})`,
+  );
   await db.execute(
     sql`delete from canonical_variant_source_links where variant_id in (${variantScope})`,
   );
   if (variantIds.length > 0) await deleteTestCanonicalRows(db, { variantIds });
 
-  await db.execute(sql`delete from canonical_product_aliases where product_id in (${productScope})`);
+  await db.execute(
+    sql`delete from canonical_product_aliases where product_id in (${productScope})`,
+  );
   await db.execute(
     sql`delete from canonical_product_source_links where product_id in (${productScope})`,
   );
@@ -313,7 +331,10 @@ export async function teardownVertical(db: Database, token: string): Promise<voi
   // product-type definitions that cite them cannot be deleted, and their scope
   // rows are `RESTRICT`. `deprecated` is what `isCategoryLifecycleActive` reads
   // as inactive, so nothing shopper-visible sees them again.
-  const categoryIds = await idsOf(db, sql`select id from categories where key like ${categoryPrefix}`);
+  const categoryIds = await idsOf(
+    db,
+    sql`select id from categories where key like ${categoryPrefix}`,
+  );
   for (const id of [...categoryIds].reverse()) {
     await setCategoryLifecycle(id, 'deprecated', db);
   }

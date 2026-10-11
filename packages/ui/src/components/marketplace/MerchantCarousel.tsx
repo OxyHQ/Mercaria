@@ -1,11 +1,11 @@
-import { View } from "react-native";
-import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
-import { MerchantCard, type MerchantCardProps } from "./MerchantCard";
-import { SectionHeader } from "./SectionHeader";
-import type { StoreSummary } from "@mercaria/shared-types";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import { CAROUSEL_STORES_KEY } from "../../lib/marketplace-labels";
-import { uniqueByKey, useShelfCarouselProps } from "../../lib/shelf-carousel";
+import { View } from 'react-native';
+import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
+import { MerchantCard, type MerchantCardProps } from './MerchantCard';
+import { SectionHeader } from './SectionHeader';
+import type { StoreSummary } from '@mercaria/shared-types';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import { CAROUSEL_STORES_KEY } from '../../lib/marketplace-labels';
+import { uniqueByKey, useShelfCarouselProps } from '../../lib/shelf-carousel';
 
 /** Merchant-card slot width (px). */
 const MERCHANT_SLOT_WIDTH = 330;
@@ -18,9 +18,9 @@ export interface MerchantCarouselProps {
    */
   title?: string;
   merchants: StoreSummary[];
-  renderMerchantLink: MerchantCardProps["renderMerchantLink"];
-  renderProductLink: MerchantCardProps["renderProductLink"];
-  cardVariant?: MerchantCardProps["variant"];
+  renderMerchantLink: MerchantCardProps['renderMerchantLink'];
+  renderProductLink: MerchantCardProps['renderProductLink'];
+  cardVariant?: MerchantCardProps['variant'];
 }
 
 /**
@@ -43,8 +43,11 @@ export function MerchantCarousel({
 
   return (
     <View className="mb-10 md:mb-16">
-      <Carousel {...shelf} accessibilityLabel={title ?? t(CAROUSEL_STORES_KEY)}
-        header={title ? <SectionHeader title={title} inset={false} /> : undefined}>
+      <Carousel
+        {...shelf}
+        accessibilityLabel={title ?? t(CAROUSEL_STORES_KEY)}
+        header={title ? <SectionHeader title={title} inset={false} /> : undefined}
+      >
         {rows.map((merchant) => (
           <CarouselItem key={merchant.id} width={MERCHANT_SLOT_WIDTH}>
             <MerchantCard

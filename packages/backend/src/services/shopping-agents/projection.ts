@@ -66,8 +66,7 @@ export function toShoppingAgentDTO(
     lines: lines.map(toShoppingAgentLineDTO),
     constraints: row.constraintSet,
     triggerSources: row.triggerSources as readonly ShoppingAgentTriggerSource[],
-    notificationChannels:
-      row.notificationChannels as readonly ShoppingAgentNotificationChannel[],
+    notificationChannels: row.notificationChannels as readonly ShoppingAgentNotificationChannel[],
     cooldownSeconds: row.cooldownSeconds,
     ...(row.quietHoursStartMinute === null ||
     row.quietHoursEndMinute === null ||
@@ -106,13 +105,9 @@ export function toShoppingAgentDTO(
     },
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    ...(row.lastEvaluatedAt === null
-      ? {}
-      : { lastEvaluatedAt: row.lastEvaluatedAt.toISOString() }),
+    ...(row.lastEvaluatedAt === null ? {} : { lastEvaluatedAt: row.lastEvaluatedAt.toISOString() }),
     ...(row.lastNotifiedAt === null ? {} : { lastNotifiedAt: row.lastNotifiedAt.toISOString() }),
-    ...(row.nextScheduledAt === null
-      ? {}
-      : { nextScheduledAt: row.nextScheduledAt.toISOString() }),
+    ...(row.nextScheduledAt === null ? {} : { nextScheduledAt: row.nextScheduledAt.toISOString() }),
   };
 }
 

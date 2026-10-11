@@ -104,9 +104,7 @@ export async function transitionRetailWarrantyCase(
     .update(retailWarrantyCases)
     .set({
       state: input.to,
-      ...(input.supplierResponse === undefined
-        ? {}
-        : { supplierResponse: input.supplierResponse }),
+      ...(input.supplierResponse === undefined ? {} : { supplierResponse: input.supplierResponse }),
       ...(input.supplierRespondedAt === undefined
         ? {}
         : { supplierRespondedAt: input.supplierRespondedAt }),

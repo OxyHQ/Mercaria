@@ -423,7 +423,9 @@ async function decide(
     }
 
     const now = new Date();
-    const decided = await transitionChangeRequest(tx, requestId, ['planned', 'approved'], { state });
+    const decided = await transitionChangeRequest(tx, requestId, ['planned', 'approved'], {
+      state,
+    });
     if (!decided) throw conflict('This change request was decided by somebody else.');
 
     await recordAuditEvent(tx, {
@@ -480,7 +482,12 @@ export async function readChangeRequestQueue(
 
 function storedReport(
   row: CatalogGovernanceChangeRequestRow,
-  counts: readonly { referenceTable: string; referenceColumn: string; disposition: string; rowCount: number }[],
+  counts: readonly {
+    referenceTable: string;
+    referenceColumn: string;
+    disposition: string;
+    rowCount: number;
+  }[],
 ): CatalogGovernanceImpactReport {
   return reportFromStoredRows(
     row.subjectKind as CatalogGovernanceSubjectKind,
@@ -490,7 +497,8 @@ function storedReport(
     counts.map((entry) => ({
       referenceTable: entry.referenceTable,
       referenceColumn: entry.referenceColumn,
-      disposition: entry.disposition as CatalogGovernanceImpactReport['counts'][number]['disposition'],
+      disposition:
+        entry.disposition as CatalogGovernanceImpactReport['counts'][number]['disposition'],
       rowCount: entry.rowCount,
     })),
     row.impactUnmeasuredReason,

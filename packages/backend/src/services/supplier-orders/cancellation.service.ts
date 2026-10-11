@@ -78,7 +78,9 @@ export async function requestSupplierCancellation(input: {
 }): Promise<CancellationOutcome> {
   const purchaseOrder = await findPurchaseOrderById(input.purchaseOrderId);
   if (!purchaseOrder) {
-    throw new Error(`requestSupplierCancellation: purchase order ${input.purchaseOrderId} not found`);
+    throw new Error(
+      `requestSupplierCancellation: purchase order ${input.purchaseOrderId} not found`,
+    );
   }
   const moved = await requestPurchaseOrderCancellation({
     purchaseOrderId: input.purchaseOrderId,

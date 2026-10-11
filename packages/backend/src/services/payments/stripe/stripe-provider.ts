@@ -382,9 +382,7 @@ export class StripePaymentProvider implements SettlingPaymentProvider, Resumable
    * operator exception path rather than a backoff loop that would still be
    * running when the dispute window closed.
    */
-  async reverseTransfer(
-    request: ReverseTransferRequest,
-  ): Promise<ProviderTransferReversalResult> {
+  async reverseTransfer(request: ReverseTransferRequest): Promise<ProviderTransferReversalResult> {
     try {
       const reversal = await createStripeTransferReversal(
         request.transferObjectId,

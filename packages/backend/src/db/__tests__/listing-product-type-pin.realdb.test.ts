@@ -57,9 +57,7 @@ async function pinOf(id: string): Promise<string | null> {
 }
 
 async function setPin(id: string, value: string | null): Promise<void> {
-  await db.execute(
-    sql`update listings set product_type_definition_id = ${value} where id = ${id}`,
-  );
+  await db.execute(sql`update listings set product_type_definition_id = ${value} where id = ${id}`);
 }
 
 /**

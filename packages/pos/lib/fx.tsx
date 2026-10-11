@@ -1,18 +1,18 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getLocales } from "expo-localization";
-import { useOxy } from "@oxy.so/services";
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getLocales } from 'expo-localization';
+import { useOxy } from '@oxy.so/services';
 import {
   ALL_CURRENCY_CODES,
   type CurrencyCode,
   type CurrencyPreference,
   type FxRates,
-} from "@mercaria/shared-types";
-import { FxProvider, type FxContextValue } from "@mercaria/ui";
-import apiClient from "./api/client";
+} from '@mercaria/shared-types';
+import { FxProvider, type FxContextValue } from '@mercaria/ui';
+import apiClient from './api/client';
 
 /** Canonical currency: the pivot every display rate is quoted against. */
-const FAIR: CurrencyCode = "FAIR";
+const FAIR: CurrencyCode = 'FAIR';
 /**
  * Fiat quotes fetched for display conversion — every supported code except FAIR
  * (which is the pivot, with an implicit rate of 1). Fetching the full set lets
@@ -24,15 +24,15 @@ const QUOTE_CURRENCIES: readonly CurrencyCode[] = ALL_CURRENCY_CODES.filter(
   (code) => code !== FAIR,
 );
 /** Fallback secondary currency when the locale doesn't resolve a supported one. */
-const DEFAULT_SECONDARY: CurrencyCode = "EUR";
+const DEFAULT_SECONDARY: CurrencyCode = 'EUR';
 /** How long resolved rates stay fresh before refetch (15 minutes, in ms). */
 const RATES_STALE_TIME = 1000 * 60 * 15;
 /** How long the persisted currency preference stays fresh (5 minutes, in ms). */
 const PREFERENCE_STALE_TIME = 1000 * 60 * 5;
 /** Stable query key for the FX rates query. */
-const RATES_QUERY_KEY = ["fx-rates", FAIR, QUOTE_CURRENCIES.join(",")] as const;
+const RATES_QUERY_KEY = ['fx-rates', FAIR, QUOTE_CURRENCIES.join(',')] as const;
 /** Stable query key for the persisted display-currency preference. */
-const CURRENCY_PREFERENCE_QUERY_KEY = ["currency-preference"] as const;
+const CURRENCY_PREFERENCE_QUERY_KEY = ['currency-preference'] as const;
 
 /** The success envelope shape returned by `GET /rates`. */
 interface RatesEnvelope {
@@ -51,11 +51,11 @@ interface PreferenceEnvelope {
  * failure degrades display to the native amount; it never crashes.
  */
 async function fetchRates(): Promise<FxRates> {
-  const { data } = await apiClient.get<RatesEnvelope>("/rates", {
-    params: { base: FAIR, quote: QUOTE_CURRENCIES.join(",") },
+  const { data } = await apiClient.get<RatesEnvelope>('/rates', {
+    params: { base: FAIR, quote: QUOTE_CURRENCIES.join(',') },
   });
   if (!data.success || !data.data) {
-    throw new Error("Failed to load FX rates");
+    throw new Error('Failed to load FX rates');
   }
   return data.data;
 }
@@ -72,9 +72,9 @@ export function useRatesQuery() {
 
 /** Fetch the caller's persisted dual-currency DISPLAY preference. */
 async function fetchCurrencyPreference(): Promise<CurrencyPreference> {
-  const { data } = await apiClient.get<PreferenceEnvelope>("/me/currency-preference");
+  const { data } = await apiClient.get<PreferenceEnvelope>('/me/currency-preference');
   if (!data.success || !data.data) {
-    throw new Error("Failed to load currency preference");
+    throw new Error('Failed to load currency preference');
   }
   return data.data;
 }

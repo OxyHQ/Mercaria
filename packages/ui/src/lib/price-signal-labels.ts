@@ -66,23 +66,21 @@ import type {
   PriceSignalKind,
   PriceSignalRecommendationKind,
   PriceSignalUnmeasuredReason,
-} from "@mercaria/shared-types";
-import type { Translate } from "../i18n/create-app-i18n";
-import { formatPercent } from "./format";
+} from '@mercaria/shared-types';
+import type { Translate } from '../i18n/create-app-i18n';
+import { formatPercent } from './format';
 
 /** The short badge text for a quality label. */
 export const PRICE_QUALITY_LABEL_KEYS: Readonly<Record<PriceQualityLabel, string>> = {
-  good_price: "ui.priceSignal.qualityLabel.goodPrice",
-  typical_price: "ui.priceSignal.qualityLabel.typicalPrice",
-  above_typical: "ui.priceSignal.qualityLabel.aboveTypical",
+  good_price: 'ui.priceSignal.qualityLabel.goodPrice',
+  typical_price: 'ui.priceSignal.qualityLabel.typicalPrice',
+  above_typical: 'ui.priceSignal.qualityLabel.aboveTypical',
 };
 
 /** How strong the sample behind a label is, in words rather than in stars. */
-export const PRICE_QUALITY_CONFIDENCE_KEYS: Readonly<
-  Record<PriceQualityConfidence, string>
-> = {
-  sufficient: "ui.priceSignal.confidence.sufficient",
-  strong: "ui.priceSignal.confidence.strong",
+export const PRICE_QUALITY_CONFIDENCE_KEYS: Readonly<Record<PriceQualityConfidence, string>> = {
+  sufficient: 'ui.priceSignal.confidence.sufficient',
+  strong: 'ui.priceSignal.confidence.strong',
 };
 
 /**
@@ -92,35 +90,35 @@ export const PRICE_QUALITY_CONFIDENCE_KEYS: Readonly<
  * with it; it picks a whole sentence instead. See the module note.
  */
 export const PRICE_POSITION_KEYS: Readonly<Record<PriceMarketPosition, string>> = {
-  below: "ui.priceSignal.position.below",
-  near: "ui.priceSignal.position.near",
-  above: "ui.priceSignal.position.above",
+  below: 'ui.priceSignal.position.below',
+  near: 'ui.priceSignal.position.near',
+  above: 'ui.priceSignal.position.above',
 };
 
 /** What each signal is, for the explanation drawer heading. */
 export const PRICE_SIGNAL_TITLE_KEYS: Readonly<Record<PriceSignalKind, string>> = {
-  lowest_observed_item_price: "ui.priceSignal.title.lowestObservedItemPrice",
-  lowest_observed_known_total: "ui.priceSignal.title.lowestObservedKnownTotal",
-  current_vs_recent_median: "ui.priceSignal.title.currentVsRecentMedian",
-  material_price_drop: "ui.priceSignal.title.materialPriceDrop",
-  typical_recent_range: "ui.priceSignal.title.typicalRecentRange",
-  official_store_position: "ui.priceSignal.title.officialStorePosition",
-  price_quality_label: "ui.priceSignal.title.priceQualityLabel",
+  lowest_observed_item_price: 'ui.priceSignal.title.lowestObservedItemPrice',
+  lowest_observed_known_total: 'ui.priceSignal.title.lowestObservedKnownTotal',
+  current_vs_recent_median: 'ui.priceSignal.title.currentVsRecentMedian',
+  material_price_drop: 'ui.priceSignal.title.materialPriceDrop',
+  typical_recent_range: 'ui.priceSignal.title.typicalRecentRange',
+  official_store_position: 'ui.priceSignal.title.officialStorePosition',
+  price_quality_label: 'ui.priceSignal.title.priceQualityLabel',
 };
 
 /** What each signal MEANS, in one sentence, for the drawer body. */
 export const PRICE_SIGNAL_MEANING_KEYS: Readonly<Record<PriceSignalKind, string>> = {
-  lowest_observed_item_price: "ui.priceSignal.meaning.lowestObservedItemPrice",
-  lowest_observed_known_total: "ui.priceSignal.meaning.lowestObservedKnownTotal",
-  current_vs_recent_median: "ui.priceSignal.meaning.currentVsRecentMedian",
-  material_price_drop: "ui.priceSignal.meaning.materialPriceDrop",
-  typical_recent_range: "ui.priceSignal.meaning.typicalRecentRange",
-  official_store_position: "ui.priceSignal.meaning.officialStorePosition",
-  price_quality_label: "ui.priceSignal.meaning.priceQualityLabel",
+  lowest_observed_item_price: 'ui.priceSignal.meaning.lowestObservedItemPrice',
+  lowest_observed_known_total: 'ui.priceSignal.meaning.lowestObservedKnownTotal',
+  current_vs_recent_median: 'ui.priceSignal.meaning.currentVsRecentMedian',
+  material_price_drop: 'ui.priceSignal.meaning.materialPriceDrop',
+  typical_recent_range: 'ui.priceSignal.meaning.typicalRecentRange',
+  official_store_position: 'ui.priceSignal.meaning.officialStorePosition',
+  price_quality_label: 'ui.priceSignal.meaning.priceQualityLabel',
 };
 
 /** The badge shown for a measured DROP, which carries no label of its own. */
-export const PRICE_SIGNAL_DROP_BADGE_KEY = "ui.priceSignal.badge.priceDrop";
+export const PRICE_SIGNAL_DROP_BADGE_KEY = 'ui.priceSignal.badge.priceDrop';
 
 /**
  * The badge KEY for one signal, or `undefined` when it has no badge.
@@ -130,52 +128,50 @@ export const PRICE_SIGNAL_DROP_BADGE_KEY = "ui.priceSignal.badge.priceDrop";
  * scan could ever find because there was no map entry to read.
  */
 export function priceSignalBadgeTextKey(signal: PriceSignal): string | undefined {
-  if (signal.state !== "measured") return undefined;
-  if (signal.value.measure === "label") return PRICE_QUALITY_LABEL_KEYS[signal.value.label];
-  if (signal.value.measure === "drop") return PRICE_SIGNAL_DROP_BADGE_KEY;
+  if (signal.state !== 'measured') return undefined;
+  if (signal.value.measure === 'label') return PRICE_QUALITY_LABEL_KEYS[signal.value.label];
+  if (signal.value.measure === 'drop') return PRICE_SIGNAL_DROP_BADGE_KEY;
   return undefined;
 }
 
 /** Why a signal could not be computed, in words a shopper or a merchant can act on. */
-export const PRICE_SIGNAL_UNMEASURED_KEYS: Readonly<
-  Record<PriceSignalUnmeasuredReason, string>
-> = {
-  no_active_policy: "ui.priceSignal.unmeasured.noActivePolicy",
-  insufficient_observations: "ui.priceSignal.unmeasured.insufficientObservations",
-  insufficient_distinct_sellers: "ui.priceSignal.unmeasured.insufficientDistinctSellers",
-  insufficient_distinct_offers: "ui.priceSignal.unmeasured.insufficientDistinctOffers",
-  insufficient_time_coverage: "ui.priceSignal.unmeasured.insufficientTimeCoverage",
-  no_eligible_current_offer: "ui.priceSignal.unmeasured.noEligibleCurrentOffer",
-  no_comparable_history: "ui.priceSignal.unmeasured.noComparableHistory",
-  currency_not_convertible: "ui.priceSignal.unmeasured.currencyNotConvertible",
-  segment_not_applicable: "ui.priceSignal.unmeasured.segmentNotApplicable",
-  measure_not_applicable: "ui.priceSignal.unmeasured.measureNotApplicable",
-  demand_measurement_unavailable: "ui.priceSignal.unmeasured.demandMeasurementUnavailable",
+export const PRICE_SIGNAL_UNMEASURED_KEYS: Readonly<Record<PriceSignalUnmeasuredReason, string>> = {
+  no_active_policy: 'ui.priceSignal.unmeasured.noActivePolicy',
+  insufficient_observations: 'ui.priceSignal.unmeasured.insufficientObservations',
+  insufficient_distinct_sellers: 'ui.priceSignal.unmeasured.insufficientDistinctSellers',
+  insufficient_distinct_offers: 'ui.priceSignal.unmeasured.insufficientDistinctOffers',
+  insufficient_time_coverage: 'ui.priceSignal.unmeasured.insufficientTimeCoverage',
+  no_eligible_current_offer: 'ui.priceSignal.unmeasured.noEligibleCurrentOffer',
+  no_comparable_history: 'ui.priceSignal.unmeasured.noComparableHistory',
+  currency_not_convertible: 'ui.priceSignal.unmeasured.currencyNotConvertible',
+  segment_not_applicable: 'ui.priceSignal.unmeasured.segmentNotApplicable',
+  measure_not_applicable: 'ui.priceSignal.unmeasured.measureNotApplicable',
+  demand_measurement_unavailable: 'ui.priceSignal.unmeasured.demandMeasurementUnavailable',
 };
 
 /** What a merchant's competitiveness row is about. */
 export const MERCHANT_COMPETITIVENESS_TITLE_KEYS: Readonly<
   Record<MerchantCompetitivenessInsightKind, string>
 > = {
-  position_vs_eligible_median: "ui.priceSignal.competitiveness.positionVsEligibleMedian",
-  cheapest_item_price: "ui.priceSignal.competitiveness.cheapestItemPrice",
-  cheapest_known_total: "ui.priceSignal.competitiveness.cheapestKnownTotal",
-  losing_eligibility: "ui.priceSignal.competitiveness.losingEligibility",
-  demand_without_native_offer: "ui.priceSignal.competitiveness.demandWithoutNativeOffer",
-  own_price_movement: "ui.priceSignal.competitiveness.ownPriceMovement",
-  official_channel_position: "ui.priceSignal.competitiveness.officialChannelPosition",
+  position_vs_eligible_median: 'ui.priceSignal.competitiveness.positionVsEligibleMedian',
+  cheapest_item_price: 'ui.priceSignal.competitiveness.cheapestItemPrice',
+  cheapest_known_total: 'ui.priceSignal.competitiveness.cheapestKnownTotal',
+  losing_eligibility: 'ui.priceSignal.competitiveness.losingEligibility',
+  demand_without_native_offer: 'ui.priceSignal.competitiveness.demandWithoutNativeOffer',
+  own_price_movement: 'ui.priceSignal.competitiveness.ownPriceMovement',
+  official_channel_position: 'ui.priceSignal.competitiveness.officialChannelPosition',
 };
 
 /** What a merchant can DO about an offer that is losing eligibility. */
 export const MERCHANT_ELIGIBILITY_LOSS_KEYS: Readonly<
   Record<MerchantEligibilityLossReason, string>
 > = {
-  observation_stale: "ui.priceSignal.eligibilityLoss.observationStale",
-  availability_unknown: "ui.priceSignal.eligibilityLoss.availabilityUnknown",
-  delivery_cost_unknown: "ui.priceSignal.eligibilityLoss.deliveryCostUnknown",
-  destination_missing: "ui.priceSignal.eligibilityLoss.destinationMissing",
-  condition_unknown: "ui.priceSignal.eligibilityLoss.conditionUnknown",
-  price_missing: "ui.priceSignal.eligibilityLoss.priceMissing",
+  observation_stale: 'ui.priceSignal.eligibilityLoss.observationStale',
+  availability_unknown: 'ui.priceSignal.eligibilityLoss.availabilityUnknown',
+  delivery_cost_unknown: 'ui.priceSignal.eligibilityLoss.deliveryCostUnknown',
+  destination_missing: 'ui.priceSignal.eligibilityLoss.destinationMissing',
+  condition_unknown: 'ui.priceSignal.eligibilityLoss.conditionUnknown',
+  price_missing: 'ui.priceSignal.eligibilityLoss.priceMissing',
 };
 
 /**
@@ -192,16 +188,15 @@ export const MERCHANT_ELIGIBILITY_LOSS_KEYS: Readonly<
 export const PRICE_SIGNAL_RECOMMENDATION_KEYS: Readonly<
   Record<PriceSignalRecommendationKind, string>
 > = {
-  above_eligible_median: "ui.priceSignal.recommendation.aboveEligibleMedian",
+  above_eligible_median: 'ui.priceSignal.recommendation.aboveEligibleMedian',
   delivery_unknown_blocks_known_total:
-    "ui.priceSignal.recommendation.deliveryUnknownBlocksKnownTotal",
-  refresh_would_restore_eligibility:
-    "ui.priceSignal.recommendation.refreshWouldRestoreEligibility",
-  would_be_cheapest_item_price: "ui.priceSignal.recommendation.wouldBeCheapestItemPrice",
+    'ui.priceSignal.recommendation.deliveryUnknownBlocksKnownTotal',
+  refresh_would_restore_eligibility: 'ui.priceSignal.recommendation.refreshWouldRestoreEligibility',
+  would_be_cheapest_item_price: 'ui.priceSignal.recommendation.wouldBeCheapestItemPrice',
 };
 
 /** "Based on %{observations} prices from %{sellers} sellers." */
-const SAMPLE_KEY = "ui.priceSignal.sample";
+const SAMPLE_KEY = 'ui.priceSignal.sample';
 
 /**
  * Every branch of the accessible summary, as a WHOLE sentence.
@@ -212,17 +207,17 @@ const SAMPLE_KEY = "ui.priceSignal.sample";
  * verb, or drop the preposition entirely.
  */
 const SUMMARY_KEYS = {
-  unmeasured: "ui.priceSignal.summary.unmeasured",
-  notPresent: "ui.priceSignal.summary.notPresent",
-  labelBelow: "ui.priceSignal.summary.labelBelow",
-  labelAbove: "ui.priceSignal.summary.labelAbove",
-  labelSame: "ui.priceSignal.summary.labelSame",
-  relativeBelow: "ui.priceSignal.summary.relativeBelow",
-  relativeNear: "ui.priceSignal.summary.relativeNear",
-  relativeAbove: "ui.priceSignal.summary.relativeAbove",
-  drop: "ui.priceSignal.summary.drop",
-  moneyRange: "ui.priceSignal.summary.moneyRange",
-  plain: "ui.priceSignal.summary.plain",
+  unmeasured: 'ui.priceSignal.summary.unmeasured',
+  notPresent: 'ui.priceSignal.summary.notPresent',
+  labelBelow: 'ui.priceSignal.summary.labelBelow',
+  labelAbove: 'ui.priceSignal.summary.labelAbove',
+  labelSame: 'ui.priceSignal.summary.labelSame',
+  relativeBelow: 'ui.priceSignal.summary.relativeBelow',
+  relativeNear: 'ui.priceSignal.summary.relativeNear',
+  relativeAbove: 'ui.priceSignal.summary.relativeAbove',
+  drop: 'ui.priceSignal.summary.drop',
+  moneyRange: 'ui.priceSignal.summary.moneyRange',
+  plain: 'ui.priceSignal.summary.plain',
 } as const;
 
 /** Which `relative` sentence a server-derived position selects. */
@@ -266,13 +261,13 @@ export function priceSignalAccessibleSummary(
 ): string {
   const title = t(PRICE_SIGNAL_TITLE_KEYS[signal.kind]);
 
-  if (signal.state === "unmeasured") {
+  if (signal.state === 'unmeasured') {
     return t(SUMMARY_KEYS.unmeasured, {
       title,
       reason: t(PRICE_SIGNAL_UNMEASURED_KEYS[signal.reason]),
     });
   }
-  if (signal.state === "not_present") {
+  if (signal.state === 'not_present') {
     return t(SUMMARY_KEYS.notPresent, {
       title,
       observations: signal.sample.observations,
@@ -286,7 +281,7 @@ export function priceSignalAccessibleSummary(
   });
   const value = signal.value;
 
-  if (value.measure === "label") {
+  if (value.measure === 'label') {
     const key =
       value.deltaBps < 0
         ? SUMMARY_KEYS.labelBelow
@@ -301,17 +296,17 @@ export function priceSignalAccessibleSummary(
       sample,
     });
   }
-  if (value.measure === "relative") {
+  if (value.measure === 'relative') {
     return t(RELATIVE_SUMMARY_KEYS[value.position], {
       title,
       distance: formatPercent(value.deltaBps, locale),
       sample,
     });
   }
-  if (value.measure === "drop") {
+  if (value.measure === 'drop') {
     return t(SUMMARY_KEYS.drop, { title, distance: formatPercent(value.deltaBps, locale), sample });
   }
-  if (value.measure === "money_range") {
+  if (value.measure === 'money_range') {
     return t(SUMMARY_KEYS.moneyRange, { title, sample });
   }
   return t(SUMMARY_KEYS.plain, { title, sample });

@@ -34,18 +34,18 @@
  * back, not a step the payment depends on.
  */
 
-import { useEffect } from "react";
-import { Button } from "@oxy.so/bloom/button";
-import Head from "expo-router/head";
-import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useOxy } from "@oxy.so/services";
-import { track } from "../../../lib/analytics";
-import { SectionHeader, Text } from "@mercaria/ui";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
-import { usePortalConfirmation } from "@/lib/hooks/use-guest-portal";
-import { useTranslation } from "@/lib/i18n";
+import { useEffect } from 'react';
+import { Button } from '@oxy.so/bloom/button';
+import Head from 'expo-router/head';
+import { View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useOxy } from '@oxy.so/services';
+import { track } from '../../../lib/analytics';
+import { SectionHeader, Text } from '@mercaria/ui';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { useCheckoutPaymentStatus } from '@/lib/hooks/use-checkout';
+import { usePortalConfirmation } from '@/lib/hooks/use-guest-portal';
+import { useTranslation } from '@/lib/i18n';
 
 function CheckoutReturnBody() {
   const { t } = useTranslation();
@@ -93,11 +93,11 @@ function CheckoutReturnBody() {
    */
   const leave = () => {
     if (isAuthenticated) {
-      router.replace("/orders");
+      router.replace('/orders');
       return;
     }
     if (!checkoutGroupId) {
-      router.replace("/");
+      router.replace('/');
       return;
     }
     const group = checkoutGroupId;
@@ -109,11 +109,11 @@ function CheckoutReturnBody() {
   if (!checkoutGroupId) {
     return (
       <View className="px-4">
-        <SectionHeader title={t("payment.title")} />
+        <SectionHeader title={t('payment.title')} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">{t("payment.return.missingGroup")}</Text>
+          <Text className="text-sm text-muted-foreground">{t('payment.return.missingGroup')}</Text>
           <Button appearance="outline" tone="neutral" onPress={leave}>
-            {t("payment.continue")}
+            {t('payment.continue')}
           </Button>
         </View>
       </View>
@@ -122,12 +122,12 @@ function CheckoutReturnBody() {
 
   // A live region on every branch: this screen resolves on its own while the
   // buyer waits, so a screen reader must be told when it does.
-  if (status === "succeeded") {
+  if (status === 'succeeded') {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("payment.received.title")} />
+        <SectionHeader title={t('payment.received.title')} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">{t("payment.received.body")}</Text>
+          <Text className="text-sm text-muted-foreground">{t('payment.received.body')}</Text>
           {/*
             #109 UX rule 1: the OFFER, on the guest confirmation. Shown only to
             a signed-out buyer, because an authenticated one already has these
@@ -146,30 +146,33 @@ function CheckoutReturnBody() {
                 appearance="outline"
                 tone="neutral"
                 onPress={() =>
-                  router.push({ pathname: "/guest-orders/claim", params: { group: checkoutGroupId } })
+                  router.push({
+                    pathname: '/guest-orders/claim',
+                    params: { group: checkoutGroupId },
+                  })
                 }
               >
-                {t("checkout.claim.saveToOxy")}
+                {t('checkout.claim.saveToOxy')}
               </Button>
-              <Text className="text-sm text-muted-foreground">{t("checkout.claim.optional")}</Text>
+              <Text className="text-sm text-muted-foreground">{t('checkout.claim.optional')}</Text>
             </>
           ) : null}
           <Button tone="accent" onPress={leave}>
-            {isAuthenticated ? t("checkout.viewOrders") : t("checkout.keepShopping")}
+            {isAuthenticated ? t('checkout.viewOrders') : t('checkout.keepShopping')}
           </Button>
         </View>
       </View>
     );
   }
 
-  if (status === "canceled") {
+  if (status === 'canceled') {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("payment.cancelled.title")} />
+        <SectionHeader title={t('payment.cancelled.title')} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">{t("payment.cancelled.body")}</Text>
+          <Text className="text-sm text-muted-foreground">{t('payment.cancelled.body')}</Text>
           <Button appearance="outline" tone="neutral" onPress={leave}>
-            {t("payment.continue")}
+            {t('payment.continue')}
           </Button>
         </View>
       </View>
@@ -179,11 +182,11 @@ function CheckoutReturnBody() {
   if (paymentStatus.isError) {
     return (
       <View className="px-4" accessibilityRole="alert" accessibilityLiveRegion="assertive">
-        <SectionHeader title={t("payment.unreadable.title")} />
+        <SectionHeader title={t('payment.unreadable.title')} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">{t("payment.unreadable.body")}</Text>
+          <Text className="text-sm text-muted-foreground">{t('payment.unreadable.body')}</Text>
           <Button appearance="outline" tone="neutral" onPress={leave}>
-            {t("payment.continue")}
+            {t('payment.continue')}
           </Button>
         </View>
       </View>
@@ -192,11 +195,11 @@ function CheckoutReturnBody() {
 
   return (
     <View className="px-4" accessibilityLiveRegion="polite">
-      <SectionHeader title={t("payment.confirming.title")} />
+      <SectionHeader title={t('payment.confirming.title')} />
       <View className="gap-4">
-        <Text className="text-sm text-muted-foreground">{t("payment.confirming.returnBody")}</Text>
+        <Text className="text-sm text-muted-foreground">{t('payment.confirming.returnBody')}</Text>
         <Button appearance="outline" tone="neutral" onPress={leave}>
-          {t("payment.confirming.continueWithoutWaiting")}
+          {t('payment.confirming.continueWithoutWaiting')}
         </Button>
       </View>
     </View>
@@ -208,7 +211,7 @@ export default function CheckoutReturnScreen() {
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>{t("payment.confirming.pageTitle")}</title>
+        <title>{t('payment.confirming.pageTitle')}</title>
       </Head>
       <CheckoutReturnBody />
     </ScreenShell>

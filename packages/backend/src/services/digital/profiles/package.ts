@@ -209,7 +209,8 @@ const ATTRIBUTES: readonly ThreeDAttribute[] = [
     // one answer type with several members, which is what `set` cardinality is.
     key: 'intended_use',
     label: 'Intended use',
-    description: 'What the creator made it for. The printing questions are asked only when this includes printing.',
+    description:
+      'What the creator made it for. The printing questions are asked only when this includes printing.',
     valueType: 'enum',
     cardinality: 'set',
     categoryScopeKeys: SCOPE,
@@ -362,7 +363,8 @@ const ATTRIBUTES: readonly ThreeDAttribute[] = [
     // than unsuitability.
     key: 'engine_compatibility',
     label: 'Engine and tool compatibility',
-    description: 'The engines and tools the creator says the files work in. A claim, not a Mercaria verification.',
+    description:
+      'The engines and tools the creator says the files work in. A claim, not a Mercaria verification.',
     valueType: 'enum',
     cardinality: 'set',
     categoryScopeKeys: SCOPE,
@@ -423,7 +425,11 @@ const ATTRIBUTES: readonly ThreeDAttribute[] = [
     ],
     enumValues: [
       { value: 'fdm', label: 'FDM / FFF', aliases: ['fdm', 'fff', 'filament'] },
-      { value: 'resin_sla', label: 'Resin (SLA / DLP / MSLA)', aliases: ['resin', 'sla', 'dlp', 'msla', 'resina'] },
+      {
+        value: 'resin_sla',
+        label: 'Resin (SLA / DLP / MSLA)',
+        aliases: ['resin', 'sla', 'dlp', 'msla', 'resina'],
+      },
       { value: 'sls', label: 'SLS / MJF powder', aliases: ['sls', 'mjf', 'powder'] },
     ],
   },
@@ -459,7 +465,11 @@ const ATTRIBUTES: readonly ThreeDAttribute[] = [
       { locale: 'fr', label: 'Supports' },
     ],
     enumValues: [
-      { value: 'not_required', label: 'Not required', aliases: ['none', 'no supports', 'sin soportes'] },
+      {
+        value: 'not_required',
+        label: 'Not required',
+        aliases: ['none', 'no supports', 'sin soportes'],
+      },
       { value: 'optional', label: 'Optional', aliases: ['recommended', 'opcional'] },
       { value: 'required', label: 'Required', aliases: ['needed', 'necesarios'] },
     ],
@@ -473,7 +483,8 @@ const ATTRIBUTES: readonly ThreeDAttribute[] = [
     // therefore a measured file census.
     key: 'presupported_files_included',
     label: 'Pre-supported files included',
-    description: 'Whether a version of the model with supports already attached is in the download.',
+    description:
+      'Whether a version of the model with supports already attached is in the download.',
     valueType: 'boolean',
     categoryScopeKeys: SCOPE,
     labels: [
@@ -506,7 +517,8 @@ const ATTRIBUTES: readonly ThreeDAttribute[] = [
   {
     key: 'print_recommendation_notes',
     label: 'Printing notes',
-    description: 'Recommended layer height, material and slicer settings, in the creator’s own words.',
+    description:
+      'Recommended layer height, material and slicer settings, in the creator’s own words.',
     valueType: 'string',
     objectivity: 'subjective',
     filterable: false,
@@ -527,7 +539,8 @@ const ATTRIBUTES: readonly ThreeDAttribute[] = [
     // every owner of that printer.
     key: 'tested_printers',
     label: 'Printers tested on',
-    description: 'The printers the creator has actually printed this on. Their experience, not a compatibility guarantee.',
+    description:
+      'The printers the creator has actually printed this on. Their experience, not a compatibility guarantee.',
     valueType: 'string',
     objectivity: 'subjective',
     filterable: false,
@@ -540,7 +553,8 @@ const ATTRIBUTES: readonly ThreeDAttribute[] = [
   {
     key: 'tested_materials',
     label: 'Materials tested',
-    description: 'The materials the creator has printed this in. Their experience, not a compatibility guarantee.',
+    description:
+      'The materials the creator has printed this in. Their experience, not a compatibility guarantee.',
     valueType: 'string',
     objectivity: 'subjective',
     filterable: false,
@@ -784,7 +798,7 @@ const PROFILE_SHAPES: readonly ProfileShape[] = [
     surfacing: false,
     localizations: [
       { locale: 'es', name: 'Modelo para impresión 3D' },
-      { locale: 'fr', name: "Modèle pour impression 3D" },
+      { locale: 'fr', name: 'Modèle pour impression 3D' },
     ],
   },
   {
@@ -832,7 +846,8 @@ const PROFILE_SHAPES: readonly ProfileShape[] = [
     key: 'three_d_prop',
     categoryKey: 'three_d.props',
     name: '3D prop',
-    description: 'A single object or prop — the commonest thing in the vertical, and printable as often as not.',
+    description:
+      'A single object or prop — the commonest thing in the vertical, and printable as often as not.',
     printable: true,
     lod: true,
     surfacing: true,
@@ -914,12 +929,13 @@ const PROFILES: readonly ThreeDProfile[] = PROFILE_SHAPES.map(buildProfile);
  * arrives. A personal licence at the cheapest price gets what was bought. None
  * of these is enforced here: an option is per asset and this seed creates none.
  */
-const SUGGESTED_UPDATE_POLICY: Readonly<Record<string, ThreeDReferenceLicenceSeed['suggestedUpdatePolicy']>> =
-  {
-    'mercaria-personal': 'purchased_version_only',
-    'mercaria-commercial-project': 'same_major_version',
-    'mercaria-commercial-print': 'all_future_versions',
-  };
+const SUGGESTED_UPDATE_POLICY: Readonly<
+  Record<string, ThreeDReferenceLicenceSeed['suggestedUpdatePolicy']>
+> = {
+  'mercaria-personal': 'purchased_version_only',
+  'mercaria-commercial-project': 'same_major_version',
+  'mercaria-commercial-print': 'all_future_versions',
+};
 
 const LICENCES: readonly ThreeDReferenceLicenceSeed[] = MERCARIA_REFERENCE_LICENCES.map(
   (licence) => ({

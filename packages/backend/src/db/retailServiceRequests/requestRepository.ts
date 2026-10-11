@@ -225,9 +225,7 @@ async function unresolvedUnits(
     .groupBy(retailServiceRequestLines.orderItemId);
 
   const claimedBy = new Map(claimed.map((row) => [row.orderItemId, Number(row.total)]));
-  return new Map(
-    items.map((item) => [item.id, item.quantity - (claimedBy.get(item.id) ?? 0)]),
-  );
+  return new Map(items.map((item) => [item.id, item.quantity - (claimedBy.get(item.id) ?? 0)]));
 }
 
 /** How many units of each named line are still unclaimed, for the derivation. */
@@ -343,9 +341,7 @@ export async function transitionRetailServiceRequest(
       ...(input.outcome === undefined ? {} : { outcome: input.outcome }),
       ...(input.outcomeNote === undefined ? {} : { outcomeNote: input.outcomeNote }),
       ...(input.deciderKind === undefined ? {} : { deciderKind: input.deciderKind }),
-      ...(input.deciderOxyUserId === undefined
-        ? {}
-        : { deciderOxyUserId: input.deciderOxyUserId }),
+      ...(input.deciderOxyUserId === undefined ? {} : { deciderOxyUserId: input.deciderOxyUserId }),
       ...(input.decidedAt === undefined ? {} : { decidedAt: input.decidedAt }),
       ...(input.refundId === undefined ? {} : { refundId: input.refundId }),
       ...(input.completionFailure === undefined

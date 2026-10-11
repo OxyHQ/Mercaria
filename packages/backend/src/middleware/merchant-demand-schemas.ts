@@ -106,9 +106,7 @@ export const acquisitionAssignSchema = z
  */
 export const acquisitionNextActionSchema = z
   .object({
-    state: z.enum(
-      enumValues(MERCHANT_ACQUISITION_STATES.filter((state) => state !== 'excluded')),
-    ),
+    state: z.enum(enumValues(MERCHANT_ACQUISITION_STATES.filter((state) => state !== 'excluded'))),
     /** Bounded, because a next action is a step and not a case file. */
     nextAction: z.string().trim().min(1).max(500).nullable(),
     nextActionDueAt: z.string().datetime().nullable(),
@@ -127,9 +125,7 @@ export const acquisitionExcludeSchema = z
   .strict();
 
 /** `POST /internal/merchant-demand/candidates/:merchantId/do-not-contact`. */
-export const acquisitionDoNotContactSchema = z
-  .object({ doNotContact: z.boolean() })
-  .strict();
+export const acquisitionDoNotContactSchema = z.object({ doNotContact: z.boolean() }).strict();
 
 /**
  * `POST /internal/merchant-demand/candidates/:merchantId/contact-sources`.
@@ -158,10 +154,7 @@ export const acquisitionContactSourceSchema = z
       .min(1)
       .max(200)
       .refine((value) => !value.includes('@'), 'locatorNote may not contain a contact value')
-      .refine(
-        (value) => !/[0-9]{5}/.test(value),
-        'locatorNote may not contain a contact value',
-      ),
+      .refine((value) => !/[0-9]{5}/.test(value), 'locatorNote may not contain a contact value'),
     observedAt: z.string().datetime(),
   })
   .strict();

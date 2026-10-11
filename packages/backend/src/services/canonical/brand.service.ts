@@ -93,7 +93,8 @@ async function resolveBrandRow(db: DatabaseOrTransaction, row: BrandRow): Promis
   for (let hop = 0; hop < MAX_MERGE_HOPS; hop += 1) {
     if (current.status !== 'merged' || !current.mergedIntoId) return current;
     const next = await findBrandById(db, current.mergedIntoId);
-    if (!next) throw new Error(`Brand ${current.id} redirects to missing brand ${current.mergedIntoId}.`);
+    if (!next)
+      throw new Error(`Brand ${current.id} redirects to missing brand ${current.mergedIntoId}.`);
     current = next;
   }
   throw new Error(`Brand merge chain exceeds ${MAX_MERGE_HOPS} hops from ${row.id}.`);
@@ -192,7 +193,9 @@ export async function updateBrand(brandId: string, input: UpdateBrandInput): Pro
     const brand = await findBrandById(tx, brandId);
     if (!brand) throw notFound(`Brand ${brandId} does not exist.`);
     if (brand.status === 'merged') {
-      throw conflict(`Brand ${brandId} is merged into ${String(brand.mergedIntoId)}; update the winner.`);
+      throw conflict(
+        `Brand ${brandId} is merged into ${String(brand.mergedIntoId)}; update the winner.`,
+      );
     }
 
     const patch: Parameters<typeof updateBrandRow>[2] = {};
@@ -324,7 +327,8 @@ export async function applyBrandSourceObservation(
     const validDomains: string[] = [];
     for (const raw of domainInput) {
       const domain = normalizeDomain(raw);
-      if (domain === null) conflicts.push({ field: 'domains', reason: 'invalid_domain', sourceValue: raw });
+      if (domain === null)
+        conflicts.push({ field: 'domains', reason: 'invalid_domain', sourceValue: raw });
       else validDomains.push(domain);
     }
 
@@ -375,7 +379,10 @@ export async function applyBrandSourceObservation(
     // becomes an alias (kept forever, rule 4) plus a review conflict (rule 6).
     if (input.fields.name !== undefined) {
       const sourceName = input.fields.name.trim();
-      if (sourceName.length > 0 && normalizeAliasLookup(sourceName) !== normalizeAliasLookup(brand.name)) {
+      if (
+        sourceName.length > 0 &&
+        normalizeAliasLookup(sourceName) !== normalizeAliasLookup(brand.name)
+      ) {
         await insertBrandAlias(tx, {
           brandId: brand.id,
           alias: sourceName,

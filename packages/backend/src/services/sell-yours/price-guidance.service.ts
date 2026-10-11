@@ -172,9 +172,7 @@ async function currentOfferAmounts(input: {
   }
   if (priced.length === 0) return [];
 
-  const rates = await getRates(input.currency, [
-    ...new Set(priced.map((price) => price.currency)),
-  ]);
+  const rates = await getRates(input.currency, [...new Set(priced.map((price) => price.currency))]);
 
   const amounts: number[] = [];
   for (const price of priced) {

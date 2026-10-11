@@ -354,7 +354,10 @@ export async function sumLedgerAccountForRefund(
     .from(ledgerEntries)
     .innerJoin(ledgerTransactions, eq(ledgerTransactions.id, ledgerEntries.transactionId))
     .where(
-      and(eq(ledgerTransactions.refundId, input.refundId), eq(ledgerEntries.account, input.account)),
+      and(
+        eq(ledgerTransactions.refundId, input.refundId),
+        eq(ledgerEntries.account, input.account),
+      ),
     )
     .groupBy(ledgerEntries.currency);
 
@@ -463,7 +466,9 @@ export async function paymentsMissingLedgerKind(
       ),
     );
 
-  const booked = new Set(found.map((row) => row.paymentId).filter((id): id is string => id !== null));
+  const booked = new Set(
+    found.map((row) => row.paymentId).filter((id): id is string => id !== null),
+  );
   return new Set(input.paymentIds.filter((id) => !booked.has(id)));
 }
 

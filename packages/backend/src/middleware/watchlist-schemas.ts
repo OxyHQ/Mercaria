@@ -58,7 +58,10 @@ const listName = z.string().trim().min(1).max(WATCHLIST_MAX_NAME_LENGTH);
 const description = z.string().trim().min(1).max(WATCHLIST_MAX_DESCRIPTION_LENGTH);
 const icon = z.string().trim().min(1).max(WATCHLIST_MAX_ICON_LENGTH);
 /** Upper-case ISO 3166-1 alpha-2, matching the column's own CHECK. */
-const market = z.string().trim().regex(/^[A-Z]{2}$/);
+const market = z
+  .string()
+  .trim()
+  .regex(/^[A-Z]{2}$/);
 const note = z.string().trim().min(1).max(WATCHLIST_MAX_NOTE_LENGTH);
 /**
  * A version a client READ. `int()` alone accepts `1e300`, so the ceiling is what

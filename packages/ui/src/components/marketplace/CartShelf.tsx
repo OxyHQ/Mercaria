@@ -1,12 +1,12 @@
-import type { ReactElement, ReactNode } from "react";
-import { View } from "react-native";
-import { Carousel, CarouselItem } from "@oxy.so/bloom/carousel";
-import type { CartGroup, CartVendor } from "@mercaria/shared-types";
-import { MerchantCartCard } from "./MerchantCartCard";
-import { SectionHeader } from "./SectionHeader";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import { CART_SHELF_TITLE_KEY } from "../../lib/marketplace-labels";
-import { uniqueByKey, useShelfCarouselProps } from "../../lib/shelf-carousel";
+import type { ReactElement, ReactNode } from 'react';
+import { View } from 'react-native';
+import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
+import type { CartGroup, CartVendor } from '@mercaria/shared-types';
+import { MerchantCartCard } from './MerchantCartCard';
+import { SectionHeader } from './SectionHeader';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import { CART_SHELF_TITLE_KEY } from '../../lib/marketplace-labels';
+import { uniqueByKey, useShelfCarouselProps } from '../../lib/shelf-carousel';
 
 /** Merchant cart-card slot width (px). */
 const CART_SLOT_WIDTH = 330;

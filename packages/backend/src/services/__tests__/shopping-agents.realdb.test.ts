@@ -94,7 +94,9 @@ afterAll(async () => {
     .where(inArray(shoppingAgentTriggers.canonicalProductId, safeIds(createdProductIds)));
   // Children first: an agent's `split_job_id` is `ON DELETE restrict`, so the
   // agents above have to be gone before the job they name can be.
-  await db.delete(catalogSplitJobs).where(inArray(catalogSplitJobs.id, safeIds(createdSplitJobIds)));
+  await db
+    .delete(catalogSplitJobs)
+    .where(inArray(catalogSplitJobs.id, safeIds(createdSplitJobIds)));
   await deleteTestCanonicalRows(db, {
     variantIds: createdVariantIds,
     productIds: createdProductIds,
@@ -489,9 +491,9 @@ describe('findings are APPENDED and never rewritten', () => {
     const finding = await insertShoppingAgentFinding(newFinding(agentId, lineId, productId));
     if (!finding) throw new Error('the finding was not written');
 
-    expect(await setShoppingAgentFindingLifecycle({ id: finding.id, lifecycle: 'superseded' })).toBe(
-      true,
-    );
+    expect(
+      await setShoppingAgentFindingLifecycle({ id: finding.id, lifecycle: 'superseded' }),
+    ).toBe(true);
 
     // A settled finding is never re-opened — the first branch of the trigger.
     const message = await rejectionMessage(() =>
@@ -634,18 +636,18 @@ describe('ACCEPTANCE 6 — a merge rehomes and a split BLOCKS', () => {
 
   it('a merge STAMPS the provenance once, scoped to the loser', async () => {
     const { agentId, productId } = await seedAgent('rehome');
-    expect(await stampShoppingAgentRehoming({ canonicalProductId: productId, now: new Date() })).toBe(
-      1,
-    );
+    expect(
+      await stampShoppingAgentRehoming({ canonicalProductId: productId, now: new Date() }),
+    ).toBe(1);
     const stamped = await findShoppingAgentById(agentId);
     expect(stamped?.rehomedFromCanonicalProductId).toBe(productId);
     expect(stamped?.rehomedAt).not.toBeNull();
 
     // Idempotent by predicate: a resumed phase must not re-stamp, or "the
     // agents that just moved" stops being answerable.
-    expect(await stampShoppingAgentRehoming({ canonicalProductId: productId, now: new Date() })).toBe(
-      0,
-    );
+    expect(
+      await stampShoppingAgentRehoming({ canonicalProductId: productId, now: new Date() }),
+    ).toBe(0);
   }, 60_000);
 });
 

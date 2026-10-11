@@ -26,7 +26,11 @@ import type { CommerceActor } from '../../commerce-actor.js';
 import type { EligibilitySellerGroup } from '../fulfilment-eligibility.js';
 import { isCheckoutRefusal } from '../refusal.js';
 
-const GUEST: CommerceActor = { kind: 'guest', guestSessionId: 'gs-activation', transport: 'cookie' };
+const GUEST: CommerceActor = {
+  kind: 'guest',
+  guestSessionId: 'gs-activation',
+  transport: 'cookie',
+};
 const OXY: CommerceActor = { kind: 'oxy', oxyUserId: 'buyer-activation' };
 
 const ACTIVATED: EligibilitySellerGroup = {

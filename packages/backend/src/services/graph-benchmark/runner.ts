@@ -318,8 +318,16 @@ async function readSizes(db: Database): Promise<RelationSize[]> {
   return [
     // `Number(...)` and not the value as-is: postgres.js decodes `bigint` as a
     // STRING, so a raw sum or comparison downstream would concatenate.
-    ...tables.map((row) => ({ relation: row.relation, kind: 'table' as const, bytes: Number(row.bytes) })),
-    ...indexes.map((row) => ({ relation: row.relation, kind: 'index' as const, bytes: Number(row.bytes) })),
+    ...tables.map((row) => ({
+      relation: row.relation,
+      kind: 'table' as const,
+      bytes: Number(row.bytes),
+    })),
+    ...indexes.map((row) => ({
+      relation: row.relation,
+      kind: 'index' as const,
+      bytes: Number(row.bytes),
+    })),
   ];
 }
 

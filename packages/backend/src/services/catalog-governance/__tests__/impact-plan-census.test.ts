@@ -31,7 +31,9 @@ import { CATALOG_GOVERNANCE_COUNTED_SUBJECT_KINDS } from '@mercaria/shared-types
 
 /** Every table the barrel exports. */
 function allTables(): PgTable[] {
-  return Object.values(schema).flatMap((value) => (is(value, PgTableClass) ? [value as PgTable] : []));
+  return Object.values(schema).flatMap((value) =>
+    is(value, PgTableClass) ? [value as PgTable] : [],
+  );
 }
 
 /**
@@ -112,9 +114,10 @@ describe('the governed-reference census', () => {
       for (const reference of GOVERNED_REFERENCE_PLAN[kind]) {
         // A disposition with no reason is a decision nobody can check. The
         // `rewired_by_domain` ones in particular claim a function exists.
-        expect(reference.note.trim().length, `${referenceKey(reference)} has no reason`).toBeGreaterThan(
-          20,
-        );
+        expect(
+          reference.note.trim().length,
+          `${referenceKey(reference)} has no reason`,
+        ).toBeGreaterThan(20);
         checked += 1;
       }
     }

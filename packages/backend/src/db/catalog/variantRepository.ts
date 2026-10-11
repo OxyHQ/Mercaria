@@ -191,7 +191,10 @@ export async function findVariantsByIds(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<VariantRecord[]> {
   if (variantIds.length === 0) return [];
-  return db.select().from(productVariants).where(inArray(productVariants.id, [...variantIds]));
+  return db
+    .select()
+    .from(productVariants)
+    .where(inArray(productVariants.id, [...variantIds]));
 }
 
 /** The `{name, value}` pairs of a batch of variants, in position order. */

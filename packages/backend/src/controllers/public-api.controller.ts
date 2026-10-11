@@ -58,8 +58,9 @@ import {
 
 type PublicRoute = (typeof MERCARIA_PUBLIC_ROUTES)[number];
 type RouteOf<Id extends MercariaPublicOperationId> = Extract<PublicRoute, { operationId: Id }>;
-type ParamsOf<Id extends MercariaPublicOperationId> =
-  RouteOf<Id>['params'] extends z.ZodType ? z.output<RouteOf<Id>['params']> : undefined;
+type ParamsOf<Id extends MercariaPublicOperationId> = RouteOf<Id>['params'] extends z.ZodType
+  ? z.output<RouteOf<Id>['params']>
+  : undefined;
 
 /** What a handler is given: its parsed params and query, and the verified caller. */
 interface PublicInput<Id extends MercariaPublicOperationId> {
@@ -134,14 +135,18 @@ export const publicApiHandlers: PublicHandlers = {
   getProduct: ({ params, viewerId }) => getPublicProduct(params.id, viewerId),
   lookupStore: ({ query }) => lookupPublicStore(query.handle),
   getStore: ({ params }) => getPublicStore(params.id),
-  listStoreProducts: ({ params, query }) => listPublicStoreProducts(params.id, productListParams(query)),
-  listStoreCollections: ({ params, query }) => listPublicStoreCollections(params.id, pageParams(query)),
+  listStoreProducts: ({ params, query }) =>
+    listPublicStoreProducts(params.id, productListParams(query)),
+  listStoreCollections: ({ params, query }) =>
+    listPublicStoreCollections(params.id, pageParams(query)),
   listStoreLocations: ({ params, query }) => listPublicStoreLocations(params.id, pageParams(query)),
   getCollection: ({ params }) => getPublicCollection(params.id),
-  listCollectionProducts: ({ params, query }) => listPublicCollectionProducts(params.id, pageParams(query)),
+  listCollectionProducts: ({ params, query }) =>
+    listPublicCollectionProducts(params.id, pageParams(query)),
   listLocations: ({ query }) => listPublicLocations(query.goWayPlaceId, pageParams(query)),
   getLocation: ({ params }) => getPublicLocation(params.id),
-  listLocationProducts: ({ params, query }) => listPublicLocationProducts(params.id, productListParams(query)),
+  listLocationProducts: ({ params, query }) =>
+    listPublicLocationProducts(params.id, productListParams(query)),
   getOpenApiDocument: async () => (openApiDocument ??= mercariaPublicOpenApiDocument()),
 };
 
@@ -185,7 +190,10 @@ export function publicApiRoute(route: PublicRoute): RequestHandler {
         sendPublicError(res, err.code, err.message, err.details);
         return;
       }
-      log.general.error({ err, path: req.path, operationId: route.operationId }, '[public-api] unexpected failure');
+      log.general.error(
+        { err, path: req.path, operationId: route.operationId },
+        '[public-api] unexpected failure',
+      );
       sendPublicError(res, 'internal_error', INTERNAL_ERROR_MESSAGE);
     }
   };

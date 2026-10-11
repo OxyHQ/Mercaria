@@ -141,7 +141,13 @@ export async function readReferralPartnerBalances(input: {
 export interface ReferralEarningsTraceReward {
   reward: ReferralRewardRow;
   transitions: readonly ReferralRewardTransitionRow[];
-  adjustments: readonly { id: string; cause: string; deltaAmountMinor: number; recoveryState: string; occurredAt: Date }[];
+  adjustments: readonly {
+    id: string;
+    cause: string;
+    deltaAmountMinor: number;
+    recoveryState: string;
+    occurredAt: Date;
+  }[];
   postings: readonly ReferralLedgerPostingRow[];
   /** The batch that settled it, when one has. */
   payoutBatchId?: string;
@@ -220,7 +226,10 @@ export async function traceReferralEarnings(input: {
  * beneficiary: the projection NAMES every field it carries, which is the #46
  * device this domain has used since #142.
  */
-export function toReferralPayoutBatchPartnerView(batch: ReferralPayoutBatchRow, itemCount: number): {
+export function toReferralPayoutBatchPartnerView(
+  batch: ReferralPayoutBatchRow,
+  itemCount: number,
+): {
   date: string;
   status: string;
   netPayoutMinor: number;

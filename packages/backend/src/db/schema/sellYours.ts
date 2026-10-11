@@ -58,7 +58,13 @@ import {
   SELLER_MATCH_ASSERTION_OUTCOMES,
   SELLER_PICKUP_AVAILABILITIES,
 } from '@mercaria/shared-types';
-import { asEnumValues, checkEveryElementOf, checkOneOf, currencyChecks, optionalMoney } from './columns.js';
+import {
+  asEnumValues,
+  checkEveryElementOf,
+  checkOneOf,
+  currencyChecks,
+  optionalMoney,
+} from './columns.js';
 import { canonicalProducts, canonicalVariants } from './canonicalCatalog.js';
 import { categories, listings } from './catalog.js';
 
@@ -81,10 +87,14 @@ export const sellerListingDrafts = pgTable(
     oxyUserId: text().notNull(),
     clientDraftKey: text().notNull(),
     entryPath: text({ enum: asEnumValues(SELLER_DRAFT_ENTRY_PATHS) }).notNull(),
-    status: text({ enum: asEnumValues(SELLER_DRAFT_STATUSES) }).notNull().default('in_progress'),
+    status: text({ enum: asEnumValues(SELLER_DRAFT_STATUSES) })
+      .notNull()
+      .default('in_progress'),
 
     // ── Progress, saved server-side so another Oxy client resumes exactly here ──
-    currentStep: text({ enum: asEnumValues(SELLER_DRAFT_STEPS) }).notNull().default('identify'),
+    currentStep: text({ enum: asEnumValues(SELLER_DRAFT_STEPS) })
+      .notNull()
+      .default('identify'),
     completedSteps: text().array().notNull().default(sql`'{}'::text[]`),
 
     // ── The canonical match the seller is proposing ────────────────────────────

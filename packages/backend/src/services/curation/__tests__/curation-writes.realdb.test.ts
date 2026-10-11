@@ -267,7 +267,9 @@ afterEach(async () => {
     await db
       .delete(canonicalProductSourceLinks)
       .where(inArray(canonicalProductSourceLinks.productId, productIds));
-    await db.delete(canonicalProductAliases).where(inArray(canonicalProductAliases.productId, productIds));
+    await db
+      .delete(canonicalProductAliases)
+      .where(inArray(canonicalProductAliases.productId, productIds));
     await db
       .delete(canonicalProductRedirects)
       .where(inArray(canonicalProductRedirects.fromId, productIds));
@@ -369,9 +371,7 @@ afterEach(async () => {
     }
     // `rollups` re-derived #76's aggregates for both sides, and they RESTRICT
     // the merchant they describe. Their presence is the merge working.
-    await db
-      .delete(reviewAggregates)
-      .where(inArray(reviewAggregates.merchantId, merchantIds));
+    await db.delete(reviewAggregates).where(inArray(reviewAggregates.merchantId, merchantIds));
     await db.delete(merchants).where(inArray(merchants.id, merchantIds));
   }
   if (brandIds.length > 0) {
@@ -406,9 +406,7 @@ afterEach(async () => {
     }
     await db.delete(brands).where(inArray(brands.id, brandIds));
   }
-
 });
-
 
 /**
  * Claim a job the way the DISPATCHER does, then run it.
@@ -541,7 +539,10 @@ async function seedSourceRecord(label: string): Promise<string> {
   if (!sourceId) throw new Error('failed to seed a catalog source');
   createdSourceIds.push(sourceId);
 
-  const hash = Array.from({ length: 64 }, (_, index) => '0123456789abcdef'[(index + label.length) % 16]).join('');
+  const hash = Array.from(
+    { length: 64 },
+    (_, index) => '0123456789abcdef'[(index + label.length) % 16],
+  ).join('');
   const records = await db
     .insert(sourceRecords)
     .values({
@@ -632,7 +633,11 @@ describe('acceptance 1: a duplicate merge preserves everything and redirects the
 
     // The OLD URL resolves: the tombstone keeps its slug and points at the winner.
     const tombstone = await db
-      .select({ status: canonicalProducts.status, mergedIntoId: canonicalProducts.mergedIntoId, slug: canonicalProducts.slug })
+      .select({
+        status: canonicalProducts.status,
+        mergedIntoId: canonicalProducts.mergedIntoId,
+        slug: canonicalProducts.slug,
+      })
       .from(canonicalProducts)
       .where(eq(canonicalProducts.id, loser.productId));
     expect(tombstone[0]?.status).toBe('merged');
@@ -709,16 +714,10 @@ describe('acceptance 1: a duplicate merge preserves everything and redirects the
     const result = await claimAndRunMerge(job.id, `lease-search-${RUN}`);
     expect(result.completed, 'the merge did not complete').toBe(true);
 
-    expect(
-      await hit(loser.productId),
-      'a merged tombstone was returned by search',
-    ).toBeUndefined();
+    expect(await hit(loser.productId), 'a merged tombstone was returned by search').toBeUndefined();
 
     const after = await hit(winner.productId);
-    expect(
-      after,
-      'the loser’s old name stopped finding the identity it named',
-    ).toBeDefined();
+    expect(after, 'the loser’s old name stopped finding the identity it named').toBeDefined();
     if (after === undefined || after.kind !== 'product') return;
     // THE assertion. Presence alone is satisfied by the fuzzy stage; the alias
     // the merge minted is what makes the old name resolve to the new identity.
@@ -951,7 +950,9 @@ describe('#333: a merge whose two products share ONE reviewer', () => {
       );
       await tx
         .delete(catalogMergeJobPhases)
-        .where(and(eq(catalogMergeJobPhases.jobId, job.id), eq(catalogMergeJobPhases.phase, 'reviews')));
+        .where(
+          and(eq(catalogMergeJobPhases.jobId, job.id), eq(catalogMergeJobPhases.phase, 'reviews')),
+        );
       await tx.execute(
         sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
       );
@@ -1004,7 +1005,10 @@ describe('REPLAY and PARTIAL FAILURE: a completed job re-run moves nothing', () 
     expect(first.rowsAffected).toBeGreaterThan(0);
 
     const phases = await db
-      .select({ phase: catalogMergeJobPhases.phase, completedAt: catalogMergeJobPhases.completedAt })
+      .select({
+        phase: catalogMergeJobPhases.phase,
+        completedAt: catalogMergeJobPhases.completedAt,
+      })
       .from(catalogMergeJobPhases)
       .where(eq(catalogMergeJobPhases.jobId, job.id));
     // Every phase claimed exactly once, and every one of them completed.
@@ -1133,7 +1137,12 @@ describe('ROLLBACK: a mistaken merge is split back without losing a source mappi
 
     // The identity came back as ITSELF: same id, same slug, no longer a tombstone.
     const revived = await db
-      .select({ id: canonicalProducts.id, status: canonicalProducts.status, mergedIntoId: canonicalProducts.mergedIntoId, slug: canonicalProducts.slug })
+      .select({
+        id: canonicalProducts.id,
+        status: canonicalProducts.status,
+        mergedIntoId: canonicalProducts.mergedIntoId,
+        slug: canonicalProducts.slug,
+      })
       .from(canonicalProducts)
       .where(eq(canonicalProducts.id, loser.productId));
     expect(revived[0]?.status).toBe('active');
@@ -1150,7 +1159,10 @@ describe('ROLLBACK: a mistaken merge is split back without losing a source mappi
     // Every assignment reached a terminal state — that is the verify phase's own
     // reconciliation, and #59 split invariant 5's "resume without duplication".
     const assignments = await db
-      .select({ appliedAt: catalogSplitAssignments.appliedAt, skipped: catalogSplitAssignments.skippedReason })
+      .select({
+        appliedAt: catalogSplitAssignments.appliedAt,
+        skipped: catalogSplitAssignments.skippedReason,
+      })
       .from(catalogSplitAssignments)
       .where(eq(catalogSplitAssignments.jobId, split.id));
     expect(assignments).toHaveLength(2);
@@ -1993,7 +2005,9 @@ describe('#663: resuming a merge job whose blocking condition has cleared', () =
     let taken: readonly string[] = [];
     await db
       .transaction(async (tx) => {
-        taken = (await claimMergeJobs({ leaseOwner: owner, batchSize: 1 }, tx)).map((row) => row.id);
+        taken = (await claimMergeJobs({ leaseOwner: owner, batchSize: 1 }, tx)).map(
+          (row) => row.id,
+        );
         tx.rollback();
       })
       .catch(() => undefined);
@@ -2306,7 +2320,9 @@ describe('#679: a split blocked on its second approval PARKS instead of spinning
     let taken: readonly string[] = [];
     await db
       .transaction(async (tx) => {
-        taken = (await claimSplitJobs({ leaseOwner: owner, batchSize: 1 }, tx)).map((row) => row.id);
+        taken = (await claimSplitJobs({ leaseOwner: owner, batchSize: 1 }, tx)).map(
+          (row) => row.id,
+        );
         tx.rollback();
       })
       .catch(() => undefined);
@@ -2433,10 +2449,7 @@ describe('#679: a split blocked on its second approval PARKS instead of spinning
     const { split } = await seedFourEyesSplit('check');
     await expectConstraintViolation(
       () =>
-        db
-          .update(catalogSplitJobs)
-          .set({ phase: 'mint' })
-          .where(eq(catalogSplitJobs.id, split.id)),
+        db.update(catalogSplitJobs).set({ phase: 'mint' }).where(eq(catalogSplitJobs.id, split.id)),
       'catalog_split_jobs_second_approval_check',
     );
     // The positive control: the same UPDATE is accepted once approved, so the
@@ -2505,7 +2518,11 @@ describe('#680: a merge that has moved nothing can be STOPPED, freeing the entit
       }),
     ).rejects.toThrow(/already has an open merge job/);
 
-    const cancelled = await cancelMerge(job.id, SECOND_OPERATOR, 'the child dead-lettered and cannot be fixed');
+    const cancelled = await cancelMerge(
+      job.id,
+      SECOND_OPERATOR,
+      'the child dead-lettered and cannot be fixed',
+    );
     expect(cancelled.status).toBe('cancelled');
 
     /**
@@ -2537,7 +2554,12 @@ describe('#680: a merge that has moved nothing can be STOPPED, freeing the entit
         note: catalogRevisions.note,
       })
       .from(catalogRevisions)
-      .where(and(eq(catalogRevisions.mergeJobId, job.id), eq(catalogRevisions.entityId, loser.productId)));
+      .where(
+        and(
+          eq(catalogRevisions.mergeJobId, job.id),
+          eq(catalogRevisions.entityId, loser.productId),
+        ),
+      );
     const cancelRevision = revisions.find((row) => row.note?.includes('cancelled'));
     expect(cancelRevision).toBeDefined();
     expect(cancelRevision?.actorKind).toBe('operator');
@@ -2565,7 +2587,9 @@ describe('#680: a merge that has moved nothing can be STOPPED, freeing the entit
     expect(fresh?.status).toBe('pending');
     expect(fresh?.phase).toBe('plan');
     expect(mergeJobCancellationState(fresh!).state).toBe('allowed');
-    expect((await cancelMerge(pendingJob.id, SECOND_OPERATOR, 'not needed')).status).toBe('cancelled');
+    expect((await cancelMerge(pendingJob.id, SECOND_OPERATOR, 'not needed')).status).toBe(
+      'cancelled',
+    );
 
     // …and every state where work may stand is refused, BY ITS OWN REASON.
     // A shared message would make these four indistinguishable to an operator,
@@ -2605,9 +2629,9 @@ describe('#680: a merge that has moved nothing can be STOPPED, freeing the entit
       phase: 'awaiting_resolution',
     });
     expect(midResolution.state).toBe('refused');
-    expect(mergeJobCancellationState({ ...base, status: 'blocked', phase: 'awaiting_resolution' }).state).toBe(
-      'allowed',
-    );
+    expect(
+      mergeJobCancellationState({ ...base, status: 'blocked', phase: 'awaiting_resolution' }).state,
+    ).toBe('allowed');
   });
 
   it('the CAS itself refuses every state the predicate would, so a lost race is a no-op', async () => {
@@ -2982,7 +3006,10 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
   /** A `text[]` literal. A bare JS array renders as a ROW constructor in `sql`. */
   function textArrayLiteral(values: readonly string[]) {
     if (values.length === 0) return sql`'{}'::text[]`;
-    return sql`array[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
+    return sql`array[${sql.join(
+      values.map((value) => sql`${value}`),
+      sql`, `,
+    )}]::text[]`;
   }
 
   async function seedMerchant(label: string): Promise<string> {
@@ -3200,7 +3227,6 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
   });
 });
 
-
 /**
  * THE PHASE RECORD, in both directions (epic #367, "Backfill/reindex jobs resume
  * safely after interruption").
@@ -3339,10 +3365,7 @@ describe('RESUMPTION: a stamped phase is skipped and an unstamped one is re-run'
       .select({ completedAt: catalogMergeJobPhases.completedAt })
       .from(catalogMergeJobPhases)
       .where(
-        and(
-          eq(catalogMergeJobPhases.jobId, job.id),
-          eq(catalogMergeJobPhases.phase, 'redirects'),
-        ),
+        and(eq(catalogMergeJobPhases.jobId, job.id), eq(catalogMergeJobPhases.phase, 'redirects')),
       );
     expect(phases).toHaveLength(1);
     expect(phases[0]?.completedAt).not.toBeNull();
@@ -3380,10 +3403,7 @@ describe('RESUMPTION: a stamped phase is skipped and an unstamped one is re-run'
       .select({ completedAt: catalogMergeJobPhases.completedAt })
       .from(catalogMergeJobPhases)
       .where(
-        and(
-          eq(catalogMergeJobPhases.jobId, job.id),
-          eq(catalogMergeJobPhases.phase, 'redirects'),
-        ),
+        and(eq(catalogMergeJobPhases.jobId, job.id), eq(catalogMergeJobPhases.phase, 'redirects')),
       );
     expect(phases).toHaveLength(1);
     expect(phases[0]?.completedAt).not.toBeNull();

@@ -163,9 +163,9 @@ export function judgeProfileCensus(
     return { outcome: 'unmeasurable', entities: missingControls };
   }
 
-  const lines: ProfileCensusLine[] = (
-    Object.keys(pkg.expect) as (keyof ThreeDExpectation)[]
-  ).map((entity) => ({ entity, expected: pkg.expect[entity], found: found[entity] }));
+  const lines: ProfileCensusLine[] = (Object.keys(pkg.expect) as (keyof ThreeDExpectation)[]).map(
+    (entity) => ({ entity, expected: pkg.expect[entity], found: found[entity] }),
+  );
   const total = lines.reduce((sum, line) => sum + line.found, 0);
   if (total === 0) return { outcome: 'vacuous', lines };
 
@@ -242,7 +242,9 @@ export async function censusThreeDProfiles(
 
   const row = [...rows][0];
   if (row === undefined) {
-    throw new Error('The 3D profile census returned no row, which its own aggregates make impossible.');
+    throw new Error(
+      'The 3D profile census returned no row, which its own aggregates make impossible.',
+    );
   }
   return judgeProfileCensus(pkg, {
     categories: row.categories,

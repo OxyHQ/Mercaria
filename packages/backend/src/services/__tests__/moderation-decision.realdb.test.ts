@@ -294,10 +294,7 @@ async function seedReport(listingId: string, caseId: string): Promise<string> {
 
 /** The enforcement rows written for one decision id. */
 async function enforcementsFor(id: string) {
-  return pg
-    .select()
-    .from(moderationEnforcements)
-    .where(eq(moderationEnforcements.decisionId, id));
+  return pg.select().from(moderationEnforcements).where(eq(moderationEnforcements.decisionId, id));
 }
 
 describe('the fixture itself', () => {

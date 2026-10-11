@@ -121,7 +121,9 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   merchant_claim_verified: (f) => {
     if (!f.merchant) return no('no_linked_merchant');
     if (f.merchant.claimState === 'verified') return OK;
-    return f.merchant.claimState === 'unclaimed' ? no('merchant_not_claimed') : no('merchant_claim_not_verified');
+    return f.merchant.claimState === 'unclaimed'
+      ? no('merchant_not_claimed')
+      : no('merchant_claim_not_verified');
   },
 
   // A store with no merchant behind it fails BOTH this and the claim above, and
@@ -193,8 +195,7 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   // in this repository requiring one and making it blocking by default would
   // mean no merchant could ever take a first order. It is always EVALUATED and
   // always reported; `blocking` decides whether the answer withholds anything.
-  test_order_completed: (f) =>
-    f.completedOrderCount > 0 ? OK : no('no_completed_test_order'),
+  test_order_completed: (f) => (f.completedOrderCount > 0 ? OK : no('no_completed_test_order')),
 
   /* ── Guest ──────────────────────────────────────────────────────────── */
 
@@ -212,7 +213,8 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   guest_market_currency_allowed: (f) =>
     f.guest.presentmentCurrencies.length === 0
       ? no('guest_currency_not_chargeable')
-      : f.guest.blockedMarkets.length > 0 && f.guest.markets.length > 0 &&
+      : f.guest.blockedMarkets.length > 0 &&
+          f.guest.markets.length > 0 &&
           f.guest.markets.every((market) => f.guest.blockedMarkets.includes(market))
         ? no('guest_market_blocked')
         : OK,
@@ -319,7 +321,8 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   // says "this store has somewhere a shopper could collect from", which is the
   // onboarding question #85 asks, and never "this can be collected now".
   pickup_fulfilment_available: (f) => {
-    if (!f.fulfilment.storePickupEnabled) return cannotAnswer('store_pickup_disabled', 'deployment');
+    if (!f.fulfilment.storePickupEnabled)
+      return cannotAnswer('store_pickup_disabled', 'deployment');
     return f.fulfilment.collectableLocationCount > 0 ? OK : no('no_collectable_pickup_location');
   },
 };
@@ -396,7 +399,9 @@ export function blockingRequirements(
   advisory: readonly MerchantActivationRequirementKey[],
 ): readonly MerchantActivationRequirementKey[] {
   return results
-    .filter((result) => result.outcome.state !== 'satisfied' && !advisory.includes(result.requirement))
+    .filter(
+      (result) => result.outcome.state !== 'satisfied' && !advisory.includes(result.requirement),
+    )
     .map((result) => result.requirement);
 }
 

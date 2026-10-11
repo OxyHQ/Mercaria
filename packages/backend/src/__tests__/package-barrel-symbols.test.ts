@@ -81,9 +81,10 @@ describe('the packages are derived, not named', () => {
     // A re-export the resolver could not follow is a whole MODULE missing from
     // the map, which is the largest hole available and the quietest.
     for (const barrel of PACKAGE_BARRELS) {
-      expect(barrel.unresolved, `${barrel.packageName} re-exports a module that did not resolve`).toEqual(
-        [],
-      );
+      expect(
+        barrel.unresolved,
+        `${barrel.packageName} re-exports a module that did not resolve`,
+      ).toEqual([]);
     }
   });
 });
@@ -184,9 +185,9 @@ describe('the extractor reads the shapes this repository actually writes', () =>
     // `import { A as B }` requests A; `export { A as B }` publishes B. The two
     // directions of `as` are opposite, and taking the wrong one left 22 real
     // symbols resolving to nothing — which a wall reads as reaching nothing.
-    expect(packageModulesReachedBy("import { Listing as ListingDTO } from '@mercaria/shared-types';")).toEqual(
-      ['packages/shared-types/src/listing.ts'],
-    );
+    expect(
+      packageModulesReachedBy("import { Listing as ListingDTO } from '@mercaria/shared-types';"),
+    ).toEqual(['packages/shared-types/src/listing.ts']);
   });
 
   it('reads a RE-EXPORT of a package symbol', () => {
@@ -206,9 +207,9 @@ describe('the extractor reads the shapes this repository actually writes', () =>
   it('reads a type-only import', () => {
     // `import type` reaches the owning module exactly as a value import does,
     // and it is the commonest import shape in this tree.
-    expect(packageModulesReachedBy("import type { Money } from '@mercaria/shared-types';")).toEqual([
-      'packages/shared-types/src/money.ts',
-    ]);
+    expect(packageModulesReachedBy("import type { Money } from '@mercaria/shared-types';")).toEqual(
+      ['packages/shared-types/src/money.ts'],
+    );
   });
 
   it('treats a whole-namespace import as reaching everything', () => {
@@ -418,7 +419,8 @@ describe('a wall gets the same answer through the barrel as it does directly', (
     // NOTHING in the package form — while nothing in this repository writes the
     // deep form, which is why the wall would be green and blind.
     const pathDetector = /from\s+['"][^'"]*(referral|affiliate)[^'"]*['"]/;
-    const deepForm = "import { ReferralProgramStatus } from '@mercaria/shared-types/src/referral.js';";
+    const deepForm =
+      "import { ReferralProgramStatus } from '@mercaria/shared-types/src/referral.js';";
     const packageForm = "import { ReferralProgramStatus } from '@mercaria/shared-types';";
 
     expect(pathDetector.test(deepForm)).toBe(true);

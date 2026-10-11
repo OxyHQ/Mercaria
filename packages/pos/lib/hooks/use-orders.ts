@@ -1,11 +1,11 @@
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import type {
   PaginatedResponse,
   MerchantOrder,
   MerchantOrderSummary,
-} from "@mercaria/shared-types";
-import { fetchOrders, fetchOrder } from "../api/orders";
-import { queryKeys } from "../queryKeys";
+} from '@mercaria/shared-types';
+import { fetchOrders, fetchOrder } from '../api/orders';
+import { queryKeys } from '../queryKeys';
 
 /** Page size for the sales (recent orders) list. */
 const PAGE_LIMIT = 20;

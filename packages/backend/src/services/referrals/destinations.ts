@@ -48,9 +48,7 @@ export function validateReferralDestination(input: {
   }
   const ref = input.destinationRef;
   if (ref === undefined || !DESTINATION_REF_PATTERN.test(ref)) {
-    throw validationError(
-      `A ${input.destinationType} destination requires a plain id reference`,
-    );
+    throw validationError(`A ${input.destinationType} destination requires a plain id reference`);
   }
   return { destinationType: input.destinationType, destinationRef: ref };
 }

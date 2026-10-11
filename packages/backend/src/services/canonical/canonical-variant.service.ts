@@ -255,9 +255,7 @@ export async function createVariant(input: CreateVariantInput): Promise<CreateVa
         variantId: variant.id,
         alias: input.name.trim(),
         kind: 'name_variant',
-        ...(input.actorOxyUserId === undefined
-          ? {}
-          : { createdByOxyUserId: input.actorOxyUserId }),
+        ...(input.actorOxyUserId === undefined ? {} : { createdByOxyUserId: input.actorOxyUserId }),
       });
     }
 
@@ -290,11 +288,7 @@ export async function replaceVariantOptions(
     const product = await findCanonicalProductById(tx, variant.productId);
     if (!product) throw notFound(`Canonical product ${variant.productId} does not exist.`);
 
-    const normalized = await normalizeOptionSet(
-      tx,
-      product.variantDefiningAttributeKeys,
-      options,
-    );
+    const normalized = await normalizeOptionSet(tx, product.variantDefiningAttributeKeys, options);
     const signature = variantSignature(
       normalized.map(
         (attribute): VariantOptionAssignment => ({
@@ -445,5 +439,8 @@ export async function getBundleComponents(
   bundleVariantId: string,
 ): Promise<{ componentVariantId: string; quantity: number }[]> {
   const rows = await listBundleComponents(getDb(), bundleVariantId);
-  return rows.map((row) => ({ componentVariantId: row.componentVariantId, quantity: row.quantity }));
+  return rows.map((row) => ({
+    componentVariantId: row.componentVariantId,
+    quantity: row.quantity,
+  }));
 }

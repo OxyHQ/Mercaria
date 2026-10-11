@@ -486,9 +486,16 @@ describe('the scan can see a violation', () => {
     // ABSOLUTE, not derived from the list it defends: narrowing `SCANNED_ROOTS`
     // to one root has to fail here rather than lower the bar it is measured
     // against.
-    expect(UNITS.length, `only ${UNITS.length} scanned units: ${UNITS.join(', ')}`)
-      .toBeGreaterThanOrEqual(11);
-    for (const expected of ['backend/src', 'shared-types/src', 'backend/src/db', 'backend/src/services']) {
+    expect(
+      UNITS.length,
+      `only ${UNITS.length} scanned units: ${UNITS.join(', ')}`,
+    ).toBeGreaterThanOrEqual(11);
+    for (const expected of [
+      'backend/src',
+      'shared-types/src',
+      'backend/src/db',
+      'backend/src/services',
+    ]) {
       expect(UNITS).toContain(expected);
     }
   });
@@ -581,9 +588,7 @@ describe('every exemption is real and still load-bearing', () => {
       // An exemption that can no longer MATCH is not merely stale: it reads as a
       // wall doing work while excusing nothing, and the next reader trusts it.
       const probe = asModule('unexempt/probe.ts', readModule(exemption.path));
-      const matched = ALL_DETECTORS.filter(
-        (detector) => findingsIn([probe], detector).length > 0,
-      );
+      const matched = ALL_DETECTORS.filter((detector) => findingsIn([probe], detector).length > 0);
       expect(
         matched.map((detector) => detector.type),
         `${exemption.path} matches no detector, so its exemption excuses nothing`,

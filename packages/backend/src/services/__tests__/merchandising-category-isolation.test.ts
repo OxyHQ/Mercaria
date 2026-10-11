@@ -140,7 +140,7 @@ const SHARED_DIRECTORIES = [
 const PICKUP_COLLECTION_MODULES: readonly ForeignModule[] = [
   {
     path: 'controllers/collection-code.controller.ts',
-    why: "The pickup collection CODE surface (#93) — the one-time code a buyer shows at a pickup point. It reaches services/pickup, not a collection.",
+    why: 'The pickup collection CODE surface (#93) — the one-time code a buyer shows at a pickup point. It reaches services/pickup, not a collection.',
   },
   {
     path: 'db/pickup/collectionRepository.ts',
@@ -267,7 +267,9 @@ describe('the merchandising domain cannot write a product fact (ADR 0007 D3)', (
       'the merchandising population found too few modules to be real',
     ).toBeGreaterThanOrEqual(8);
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 
@@ -286,9 +288,7 @@ describe('the merchandising domain cannot write a product fact (ADR 0007 D3)', (
     // The other half of WALL 1. Without this the file would keep passing on the
     // day the legitimate read was deleted — and a wall around a domain that no
     // longer does the thing is the "green and inert" shape, not a stronger wall.
-    const rules = domain.find(
-      (file) => file.relative === 'db/merchandising/collectionRules.ts',
-    );
+    const rules = domain.find((file) => file.relative === 'db/merchandising/collectionRules.ts');
     expect(rules, 'collectionRules.ts is not in the population').toBeDefined();
     const stripped = withoutComments(rules.source);
     expect(
@@ -337,10 +337,7 @@ describe('the merchandising domain cannot write a product fact (ADR 0007 D3)', (
   it('WALL 4: the prohibition and the permission are disjoint vocabularies', () => {
     const permitted = new Set<string>(COLLECTION_PRODUCT_WRITES);
     assertEachOf(COLLECTION_FORBIDDEN_PRODUCT_WRITES, 7, (forbidden) => {
-      expect(
-        permitted.has(forbidden),
-        `${forbidden} is both permitted and forbidden`,
-      ).toBe(false);
+      expect(permitted.has(forbidden), `${forbidden} is both permitted and forbidden`).toBe(false);
     });
     // The prohibition names the two somebody reaches for FIRST: minting a
     // category to be the collection, and filing products under it.
@@ -373,8 +370,8 @@ describe('the detectors themselves', () => {
       clean: 'await setListingAutomatedMemberships(listingId, all, matched);',
     },
     {
-      fires: "await tx.execute(sql`update listings set category_id = ${id}`);",
-      clean: "await tx.execute(sql`update collections set title = ${t}`);",
+      fires: 'await tx.execute(sql`update listings set category_id = ${id}`);',
+      clean: 'await tx.execute(sql`update collections set title = ${t}`);',
     },
   ];
 
@@ -427,11 +424,15 @@ describe('the detectors themselves', () => {
   });
 
   it('a comment naming a write does not fire, and the stripper is not total', () => {
-    expect(violations('// await tx.update(listings).set({ categoryId });\n', CATEGORY_WRITE_DETECTORS)).toEqual([]);
+    expect(
+      violations('// await tx.update(listings).set({ categoryId });\n', CATEGORY_WRITE_DETECTORS),
+    ).toEqual([]);
     expect(violations('/* insertCategory(x) */', CATEGORY_WRITE_DETECTORS)).toEqual([]);
     // …and the stripper leaves real code alone, or every wall above is vacuous
     // for the reason the stripper was added.
-    expect(withoutComments('const url = "https://x.example/a"; // note')).toContain('https://x.example/a');
+    expect(withoutComments('const url = "https://x.example/a"; // note')).toContain(
+      'https://x.example/a',
+    );
     expect(withoutComments('insertCategory(x); // note').trim()).toBe('insertCategory(x);');
   });
 });
@@ -618,7 +619,9 @@ describe('WALL 1 survives a one-hop wrapper (#568)', () => {
       "import { findListingById } from './repo.js';\nexport async function fileUnder() { return findListingById('l'); }\n";
     files['/src/repo.ts'] = 'export async function findListingById() { return null; }\n';
     const clean = crafted();
-    expect.soft(clean.unresolvedBodies, 'the clean walk resolved nothing, so it proves nothing').toBe(0);
+    expect
+      .soft(clean.unresolvedBodies, 'the clean walk resolved nothing, so it proves nothing')
+      .toBe(0);
     expect.soft(clean.bodiesScanned).toBeGreaterThanOrEqual(2);
     expect(clean.findings).toEqual([]);
   });

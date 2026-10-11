@@ -7,7 +7,18 @@ type Element = DefaultTreeAdapterMap['element'];
 type Node = DefaultTreeAdapterMap['childNode'];
 // These subtrees never form product content. In particular, never fetch an image
 // hidden in a script, template or embedded third-party document.
-const discarded = new Set(['script', 'style', 'iframe', 'object', 'embed', 'template', 'noscript', 'head', 'svg', 'math']);
+const discarded = new Set([
+  'script',
+  'style',
+  'iframe',
+  'object',
+  'embed',
+  'template',
+  'noscript',
+  'head',
+  'svg',
+  'math',
+]);
 
 function contentElements(nodes: Node[]): Element[] {
   const found: Element[] = [];
@@ -24,11 +35,15 @@ function contentElements(nodes: Node[]): Element[] {
 /** Whether a source description needs media rights and an import owner. */
 export function descriptionNeedsMediaImport(description: string | undefined): boolean {
   if (!description) return false;
-  return contentElements(parseFragment(description).childNodes).some(node => {
-    if (node.tagName === 'picture') return node.childNodes.some(child => 'tagName' in child && child.tagName === 'source');
+  return contentElements(parseFragment(description).childNodes).some((node) => {
+    if (node.tagName === 'picture')
+      return node.childNodes.some((child) => 'tagName' in child && child.tagName === 'source');
     if (node.tagName !== 'img') return false;
-    const source = node.attrs.find(attribute => attribute.name === 'src')?.value;
-    return Boolean(source && !resolveStoredMediaUrl(source)) || node.attrs.some(attribute => attribute.name === 'srcset');
+    const source = node.attrs.find((attribute) => attribute.name === 'src')?.value;
+    return (
+      Boolean(source && !resolveStoredMediaUrl(source)) ||
+      node.attrs.some((attribute) => attribute.name === 'srcset')
+    );
   });
 }
 
@@ -42,22 +57,32 @@ async function synchronizeDescription(
 ): Promise<string> {
   const document = parseFragment(description);
   const elements = contentElements(document.childNodes);
-  const nodes = elements.filter(node => node.tagName === 'img');
+  const nodes = elements.filter((node) => node.tagName === 'img');
   if (nodes.length > 64) throw new CatalogMediaSyncError('Too many description images.');
   for (const node of elements) {
-    if (node.tagName === 'picture' && node.childNodes.some(child => 'tagName' in child && child.tagName === 'source') &&
-        !contentElements(node.childNodes).some(child => child.tagName === 'img' && child.attrs.some(attribute => attribute.name === 'src' && attribute.value))) {
+    if (
+      node.tagName === 'picture' &&
+      node.childNodes.some((child) => 'tagName' in child && child.tagName === 'source') &&
+      !contentElements(node.childNodes).some(
+        (child) =>
+          child.tagName === 'img' &&
+          child.attrs.some((attribute) => attribute.name === 'src' && attribute.value),
+      )
+    ) {
       throw new CatalogMediaSyncError('A description picture needs an image fallback source.');
     }
   }
   const references = new Map<string, Element[]>();
   let changed = false;
   for (const node of nodes) {
-    const source = node.attrs.find(attribute => attribute.name === 'src')?.value;
+    const source = node.attrs.find((attribute) => attribute.name === 'src')?.value;
     // The storefront renders img.src. Responsive candidates must never retain
     // outside URLs for another consumer of this standard HTML description.
-    const responsive = node.attrs.some(attribute => attribute.name === 'srcset' || attribute.name === 'sizes');
-    if (!source && responsive) throw new CatalogMediaSyncError('A description image needs an HTTPS source.');
+    const responsive = node.attrs.some(
+      (attribute) => attribute.name === 'srcset' || attribute.name === 'sizes',
+    );
+    if (!source && responsive)
+      throw new CatalogMediaSyncError('A description image needs an HTTPS source.');
     if (!source) continue;
     const stored = resolveStoredMediaUrl(source);
     if (!stored) {
@@ -69,23 +94,35 @@ async function synchronizeDescription(
       group.push(node);
       references.set(reference, group);
     } else if (stored !== source) {
-      node.attrs = node.attrs.map(attribute => attribute.name === 'src' ? { ...attribute, value: stored } : attribute);
+      node.attrs = node.attrs.map((attribute) =>
+        attribute.name === 'src' ? { ...attribute, value: stored } : attribute,
+      );
       changed = true;
     }
     if (responsive) {
-      node.attrs = node.attrs.filter(attribute => attribute.name !== 'srcset' && attribute.name !== 'sizes');
+      node.attrs = node.attrs.filter(
+        (attribute) => attribute.name !== 'srcset' && attribute.name !== 'sizes',
+      );
       changed = true;
     }
   }
   if (references.size) {
     const sources = [...references.keys()];
     const ids = await synchronize(sources);
-    if (ids.length !== sources.length) throw new CatalogMediaSyncError('Description image synchronization returned an incomplete result.');
+    if (ids.length !== sources.length)
+      throw new CatalogMediaSyncError(
+        'Description image synchronization returned an incomplete result.',
+      );
     sources.forEach((source, index) => {
       const url = resolveMedia(ids[index]);
-      if (!url) throw new CatalogMediaSyncError('Description image synchronization did not return an Oxy file ID.');
+      if (!url)
+        throw new CatalogMediaSyncError(
+          'Description image synchronization did not return an Oxy file ID.',
+        );
       for (const node of references.get(source)!) {
-        node.attrs = node.attrs.map(attribute => attribute.name === 'src' ? { ...attribute, value: url } : attribute);
+        node.attrs = node.attrs.map((attribute) =>
+          attribute.name === 'src' ? { ...attribute, value: url } : attribute,
+        );
       }
     });
     changed = true;
@@ -94,25 +131,37 @@ async function synchronizeDescription(
   // Keep its imported img and other author content; remove only source candidates.
   for (const node of elements) {
     if (node.tagName === 'picture') {
-      const children = node.childNodes.filter(child => !('tagName' in child) || child.tagName !== 'source');
-      if (children.length !== node.childNodes.length) { node.childNodes = children; changed = true; }
+      const children = node.childNodes.filter(
+        (child) => !('tagName' in child) || child.tagName !== 'source',
+      );
+      if (children.length !== node.childNodes.length) {
+        node.childNodes = children;
+        changed = true;
+      }
     }
   }
   return changed ? serialize(document) : description;
 }
 
 export function synchronizeStoreDescription(storeId: string, description: string): Promise<string> {
-  return synchronizeDescription(description, sources => synchronizeStoreImages(storeId, sources));
+  return synchronizeDescription(description, (sources) => synchronizeStoreImages(storeId, sources));
 }
 
-export function synchronizeAccountDescription(ownerOxyUserId: string | undefined, description: string): Promise<string> {
-  return synchronizeDescription(description, sources => synchronizeAccountImages(ownerOxyUserId, sources));
+export function synchronizeAccountDescription(
+  ownerOxyUserId: string | undefined,
+  description: string,
+): Promise<string> {
+  return synchronizeDescription(description, (sources) =>
+    synchronizeAccountImages(ownerOxyUserId, sources),
+  );
 }
 
 /** Transactional catalog writers accept only descriptions whose media was
  * synchronized before opening the transaction. No network IO is hidden here. */
 export function assertDescriptionImagesStored(description: string | undefined): void {
   if (descriptionNeedsMediaImport(description)) {
-    throw validationError('Description images must be synchronized with Oxy before catalog writes.');
+    throw validationError(
+      'Description images must be synchronized with Oxy before catalog writes.',
+    );
   }
 }

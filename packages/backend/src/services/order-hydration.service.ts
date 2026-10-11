@@ -55,7 +55,11 @@ import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { resolveOrderCommercialPresentations } from './commercial-presentation/order-commercial.service.js';
 import { readRetailOrderExperience } from './commercial-presentation/retail-order.service.js';
 import { orderBuyerOf } from './orders/order-buyer.js';
-import { resolveMedia, resolveStoredMediaUrl, toStoreSummary } from './catalog-hydration.service.js';
+import {
+  resolveMedia,
+  resolveStoredMediaUrl,
+  toStoreSummary,
+} from './catalog-hydration.service.js';
 
 /**
  * The four columns of a `DualMoney`, reassembled.
@@ -444,9 +448,7 @@ async function loadSellerContext(
 
   const [sellerProfileRows, storeDocs, oxyProfiles] = await Promise.all([
     findSellerProfilesByUserIds(userSellerIds),
-    storeIds.length > 0
-      ? findStoresByIds(storeIds)
-      : Promise.resolve([] as StoreRow[]),
+    storeIds.length > 0 ? findStoresByIds(storeIds) : Promise.resolve([] as StoreRow[]),
     getProfiles([...userSellerIds, ...extraOxyUserIds]),
   ]);
 
@@ -555,9 +557,13 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
       // `shippingAddress` key at all instead of an explicit `undefined` — the
       // treatment `buyerOxyUserId` above already gets, for the same reason: a key
       // present with no value reads to a client as "unknown", and this is "none".
-      ...(toAddressSnapshot(order) ? { shippingAddress: toAddressSnapshot(order) as AddressSnapshot } : {}),
+      ...(toAddressSnapshot(order)
+        ? { shippingAddress: toAddressSnapshot(order) as AddressSnapshot }
+        : {}),
       shipping: toShippingInfo(order),
-      ...(toDigitalSupply(order) ? { digitalSupply: toDigitalSupply(order) as OrderDigitalSupply } : {}),
+      ...(toDigitalSupply(order)
+        ? { digitalSupply: toDigitalSupply(order) as OrderDigitalSupply }
+        : {}),
       totals: {
         subtotal: dual(
           order.totalsSubtotalShopAmount,
@@ -624,7 +630,11 @@ export async function hydrateOrders(orders: OrderRecord[]): Promise<OrderDTO[]> 
     if (order.sellerType === 'user' && order.sellerOxyUserId) {
       const oxyUserId = order.sellerOxyUserId;
       dto.sellerOxyUserId = oxyUserId;
-      dto.seller = toSeller(oxyUserId, sellerProfileByUser.get(oxyUserId), oxyProfiles.get(oxyUserId));
+      dto.seller = toSeller(
+        oxyUserId,
+        sellerProfileByUser.get(oxyUserId),
+        oxyProfiles.get(oxyUserId),
+      );
     } else if (order.sellerType === 'store' && order.storeId) {
       const storeId = order.storeId;
       dto.storeId = storeId;
@@ -782,7 +792,7 @@ export async function summarizeOrders(orders: OrderRecord[]): Promise<OrderSumma
         order.totalsGrandTotalPresentmentCurrency,
       ),
       itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
-      images: order.items.flatMap(item => {
+      images: order.items.flatMap((item) => {
         const url = resolveStoredMediaUrl(item.imageUrl);
         return url ? [{ url, alt: item.title }] : [];
       }),

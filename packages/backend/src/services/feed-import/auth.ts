@@ -45,7 +45,9 @@ function resolveKey(): Buffer {
     );
   }
   if (!HEX_KEY_PATTERN.test(raw)) {
-    throw new Error('FEED_IMPORT_AUTH_ENCRYPTION_KEY must be a 64-character hex string (32 bytes).');
+    throw new Error(
+      'FEED_IMPORT_AUTH_ENCRYPTION_KEY must be a 64-character hex string (32 bytes).',
+    );
   }
   return Buffer.from(raw, 'hex');
 }

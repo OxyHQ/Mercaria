@@ -32,13 +32,22 @@ export interface MercariaHandleSource {
 }
 
 /** A product as {@link MercariaLinks.product} accepts it: an id, a ref, or any product DTO. */
-export type MercariaProductLinkTarget = string | MercariaProductRef | Pick<MercariaProductSummary, 'ref'>;
+export type MercariaProductLinkTarget =
+  | string
+  | MercariaProductRef
+  | Pick<MercariaProductSummary, 'ref'>;
 
 /** A collection as {@link MercariaLinks.collection} accepts it: an id, a ref, or a collection DTO. */
-export type MercariaCollectionLinkTarget = string | MercariaCollectionRef | Pick<MercariaCollection, 'ref'>;
+export type MercariaCollectionLinkTarget =
+  | string
+  | MercariaCollectionRef
+  | Pick<MercariaCollection, 'ref'>;
 
 /** A location as {@link MercariaLinks.location} accepts it: an id, a ref, or a location DTO. */
-export type MercariaLocationLinkTarget = string | MercariaLocationRef | Pick<MercariaLocation, 'ref'>;
+export type MercariaLocationLinkTarget =
+  | string
+  | MercariaLocationRef
+  | Pick<MercariaLocation, 'ref'>;
 
 /** The link builders on a client. */
 export interface MercariaLinks {
@@ -50,7 +59,10 @@ export interface MercariaLinks {
    * A collection within its storefront. Needs the store's current handle as
    * well as the collection, because a collection names its store by id only.
    */
-  collection(collection: MercariaCollectionLinkTarget, store: string | MercariaHandleSource): string;
+  collection(
+    collection: MercariaCollectionLinkTarget,
+    store: string | MercariaHandleSource,
+  ): string;
   /**
    * A location on its store's page, which opens on it. A `MercariaLocation`
    * carries its store's current handle: `links.location(location, location.store)`.
@@ -73,7 +85,9 @@ function refId(value: unknown, kind: 'product' | 'collection' | 'location'): str
     const nested = parseMercariaRef((value as { ref: unknown }).ref);
     if (nested?.kind === kind) return nested.id;
   }
-  throw new MercariaValidationError(`expected a ${kind} id, a ${kind} ref, or an object with a ${kind} ref`);
+  throw new MercariaValidationError(
+    `expected a ${kind} id, a ${kind} ref, or an object with a ${kind} ref`,
+  );
 }
 
 function handleOf(value: unknown): string {
@@ -88,7 +102,8 @@ export function createLinks(webBaseUrl: string): MercariaLinks {
   return Object.freeze({
     product: (product: MercariaProductLinkTarget) =>
       `${webBaseUrl}/products/${encodeURIComponent(refId(product, 'product'))}`,
-    store: (store: string | MercariaHandleSource) => `${webBaseUrl}/stores/${encodeURIComponent(handleOf(store))}`,
+    store: (store: string | MercariaHandleSource) =>
+      `${webBaseUrl}/stores/${encodeURIComponent(handleOf(store))}`,
     collection: (collection: MercariaCollectionLinkTarget, store: string | MercariaHandleSource) =>
       `${webBaseUrl}/stores/${encodeURIComponent(handleOf(store))}?collection=${encodeURIComponent(
         refId(collection, 'collection'),

@@ -95,9 +95,7 @@ export async function listOpenBlocksForSubject(
   return db
     .select()
     .from(matchBlockedPairs)
-    .where(
-      and(eq(matchBlockedPairs.subjectKey, subjectKey), isNull(matchBlockedPairs.clearedAt)),
-    );
+    .where(and(eq(matchBlockedPairs.subjectKey, subjectKey), isNull(matchBlockedPairs.clearedAt)));
 }
 
 /** Every block for one subject, cleared ones included — the operator trace. */

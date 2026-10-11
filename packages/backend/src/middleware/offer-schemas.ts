@@ -35,7 +35,10 @@ const AVAILABILITY_VALUES = OFFER_AVAILABILITY_STATES as readonly [
   OfferAvailability,
   ...OfferAvailability[],
 ];
-const CONDITION_VALUES = OFFER_CONDITION_KEYS as readonly [OfferConditionKey, ...OfferConditionKey[]];
+const CONDITION_VALUES = OFFER_CONDITION_KEYS as readonly [
+  OfferConditionKey,
+  ...OfferConditionKey[],
+];
 const RETIREMENT_REASON_VALUES = OFFER_RETIREMENT_REASONS as readonly [
   OfferRetirementReason,
   ...OfferRetirementReason[],
@@ -43,13 +46,22 @@ const RETIREMENT_REASON_VALUES = OFFER_RETIREMENT_REASONS as readonly [
 
 const entityId = z.string().trim().min(1).max(64);
 /** ISO 3166-1 alpha-2, matching `offers_country_check` rather than approximating it. */
-const country = z.string().trim().length(2).regex(/^[A-Za-z]{2}$/);
+const country = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/);
 
 /** A comma-separated query value, as a browser and a fetch client both send it. */
 function commaList<T extends string>(values: readonly [T, ...T[]]) {
   return z
     .string()
-    .transform((raw) => raw.split(',').map((part) => part.trim()).filter((part) => part !== ''))
+    .transform((raw) =>
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part !== ''),
+    )
     .pipe(z.array(z.enum(values)).min(1).max(values.length));
 }
 
@@ -76,8 +88,7 @@ export const offerListQuerySchema = z
   })
   .strict()
   .refine(
-    (query) =>
-      (query.canonicalVariantId ? 1 : 0) + (query.canonicalProductId ? 1 : 0) === 1,
+    (query) => (query.canonicalVariantId ? 1 : 0) + (query.canonicalProductId ? 1 : 0) === 1,
     { message: 'Provide exactly one of canonicalVariantId or canonicalProductId' },
   );
 

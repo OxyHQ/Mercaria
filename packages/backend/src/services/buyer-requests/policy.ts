@@ -213,9 +213,7 @@ export function resolveReturnEligibility(
   if (anchor === null) {
     return { verdict: 'ineligible', reason: 'order_not_delivered' };
   }
-  const windowEndsAt = new Date(
-    anchor.getTime() + returnWindowDays(facts) * 24 * 60 * 60 * 1_000,
-  );
+  const windowEndsAt = new Date(anchor.getTime() + returnWindowDays(facts) * 24 * 60 * 60 * 1_000);
   if (windowEndsAt.getTime() <= now.getTime()) {
     return { verdict: 'ineligible', reason: 'return_window_closed' };
   }

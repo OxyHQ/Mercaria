@@ -348,7 +348,9 @@ describe('confidence is never an authority, and a preview never writes', () => {
   });
 
   it('the preview imports no writer and issues no statement that could write', () => {
-    const source = withoutComments(readDomainFile(join(SRC_ROOT, 'services/catalog-external-mappings', 'preview.service.ts')));
+    const source = withoutComments(
+      readDomainFile(join(SRC_ROOT, 'services/catalog-external-mappings', 'preview.service.ts')),
+    );
     for (const writer of [
       'insertExternalMapping',
       'upsertExternalMappingReview',
@@ -357,7 +359,9 @@ describe('confidence is never an authority, and a preview never writes', () => {
       'applyObservationResolution',
       'transitionExternalMapping',
     ]) {
-      expect(source.includes(writer), `preview.service.ts imports the writer ${writer}`).toBe(false);
+      expect(source.includes(writer), `preview.service.ts imports the writer ${writer}`).toBe(
+        false,
+      );
     }
     expect(/\.insert\(|\.update\(|\.delete\(/.test(source), 'preview.service.ts writes').toBe(
       false,
@@ -396,7 +400,9 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     expect(OFFER_WRITE_REFERENCE.test('await recordExternalOffer(row);')).toBe(true);
     expect(OFFER_WRITE_REFERENCE.test('const offerId = row.offerId;')).toBe(false);
 
-    expect(REGISTRY_WRITE_REFERENCE.test('db.insert(attributeSourceMappings).values(x)')).toBe(true);
+    expect(REGISTRY_WRITE_REFERENCE.test('db.insert(attributeSourceMappings).values(x)')).toBe(
+      true,
+    );
     expect(REGISTRY_WRITE_REFERENCE.test('db.select().from(attributeSourceMappings)')).toBe(false);
 
     const positives: Readonly<Record<string, string>> = {
@@ -405,7 +411,7 @@ describe('the detectors actually detect — the mutation self-tests', () => {
       'node:vm': "import vm from 'node:vm';",
       'a template engine': "import Handlebars from 'handlebars';",
       'a constructed RegExp': 'const re = new RegExp(row.pattern);',
-      'a dynamic import': "const mod = await import(row.module);",
+      'a dynamic import': 'const mod = await import(row.module);',
     };
     for (const { name, pattern } of CODE_EXECUTION) {
       const seeded = positives[name];
@@ -426,13 +432,17 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     expect(stripped).not.toContain('#74');
     expect(stripped).toContain('const z = rankOffers(a);');
     // And it must not eat a URL's `//`, which is the classic over-strip.
-    expect(withoutComments("const u = 'https://example.com/x';")).toContain('https://example.com/x');
+    expect(withoutComments("const u = 'https://example.com/x';")).toContain(
+      'https://example.com/x',
+    );
   });
 
   it('the domain-file reader refuses an empty file', () => {
     // The vacuity floor's own control: if `readDomainFile` accepted a stub,
     // every scan above would pass on a domain somebody had emptied.
-    expect(() => readDomainFile(join(SRC_ROOT, 'services/catalog-external-mappings', 'does-not-exist.ts'))).toThrow();
+    expect(() =>
+      readDomainFile(join(SRC_ROOT, 'services/catalog-external-mappings', 'does-not-exist.ts')),
+    ).toThrow();
   });
 });
 

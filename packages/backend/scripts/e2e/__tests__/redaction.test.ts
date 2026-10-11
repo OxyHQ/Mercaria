@@ -19,11 +19,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Connection, SyncRun } from '@mercaria/shared-types';
-import {
-  EvidenceCollector,
-  projectConnection,
-  projectSyncRun,
-} from '../evidence.js';
+import { EvidenceCollector, projectConnection, projectSyncRun } from '../evidence.js';
 import {
   assertNoSecrets,
   assertScanWasNotVacuous,
@@ -216,7 +212,12 @@ describe('the DTO projections carry no credential-bearing field', () => {
     },
     webhookIds: ['wh_1111111111', 'wh_2222222222'],
     webhookFailures: [
-      { topic: 'product.updated', reason: 'permission_denied', httpStatus: 401, recordedAt: '2026-08-15T00:00:00.000Z' },
+      {
+        topic: 'product.updated',
+        reason: 'permission_denied',
+        httpStatus: 401,
+        recordedAt: '2026-08-15T00:00:00.000Z',
+      },
     ],
     connectedAt: '2026-08-15T00:00:00.000Z',
   } as unknown as Connection;
@@ -231,7 +232,12 @@ describe('the DTO projections carry no credential-bearing field', () => {
     expect(projected.id).toBe('…cdef');
     expect(projected.webhookIds).toEqual(['…1111', '…2222']);
     expect(projected.webhookFailures).toEqual([
-      { topic: 'product.updated', reason: 'permission_denied', httpStatus: 401, recordedAt: '2026-08-15T00:00:00.000Z' },
+      {
+        topic: 'product.updated',
+        reason: 'permission_denied',
+        httpStatus: 401,
+        recordedAt: '2026-08-15T00:00:00.000Z',
+      },
     ]);
   });
 
@@ -334,9 +340,9 @@ describe('the collector refuses to write a contaminated artefact', () => {
 describe('a PASSED must state an observable and its counterfactual', () => {
   it('refuses a PASSED whose evidence is the absence of an error', () => {
     const collector = new EvidenceCollector(registryWithSecret(), outDir, 'lazy');
-    expect(() =>
-      collector.record({ id: 'W2', title: 'Backfill', status: 'PASSED' }),
-    ).toThrow(/needs the observable that was MEASURED/);
+    expect(() => collector.record({ id: 'W2', title: 'Backfill', status: 'PASSED' })).toThrow(
+      /needs the observable that was MEASURED/,
+    );
   });
 
   it('refuses a PASSED with a measurement but no counterfactual', () => {

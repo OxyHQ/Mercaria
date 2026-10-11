@@ -159,18 +159,10 @@ router.post(
 );
 
 /** POST — publish a draft, superseding the incumbent. All thirteen thresholds or nothing. */
-router.post(
-  '/cohorts/:cohortId/publish',
-  validateId('cohortId'),
-  publishRetailPilotCohortHandler,
-);
+router.post('/cohorts/:cohortId/publish', validateId('cohortId'), publishRetailPilotCohortHandler);
 
 /** GET — the freshest supplier balance Mercaria has recorded. */
-router.get(
-  '/funding/:supplierAccountId',
-  validateId('supplierAccountId'),
-  supplierFundingHandler,
-);
+router.get('/funding/:supplierAccountId', validateId('supplierAccountId'), supplierFundingHandler);
 
 /** POST — record what the balance is. Append-only; a correction is a new row. */
 router.post('/funding', validateBody(fundingSchema), recordSupplierFundingHandler);

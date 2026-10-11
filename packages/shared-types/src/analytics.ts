@@ -125,12 +125,7 @@ export const ANALYTICS_HUMAN_TRAFFIC_CLASSES = ['human'] as const;
  * asked, and recording it as granted would misstate what happened if the
  * requirement later changed.
  */
-export const ANALYTICS_CONSENT_STATES = [
-  'granted',
-  'denied',
-  'not_required',
-  'unknown',
-] as const;
+export const ANALYTICS_CONSENT_STATES = ['granted', 'denied', 'not_required', 'unknown'] as const;
 
 /** One of {@link ANALYTICS_CONSENT_STATES}. */
 export type AnalyticsConsentState = (typeof ANALYTICS_CONSENT_STATES)[number];
@@ -271,59 +266,58 @@ export type AnalyticsEventType = (typeof ANALYTICS_EVENT_TYPES)[number];
  * definitions can see exactly which numbers are not yet producible and why,
  * instead of finding a metric that silently reads zero forever.
  */
-export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<
-  Partial<Record<AnalyticsEventType, string>>
-> = {
-  // The six `#106` types that used to sit here are EMITTED now. #106 gave each
-  // guest checkout gate a bounded refusal reason (`CheckoutRefusalReason`), so
-  // `checkout.controller.ts` can classify an outcome without matching on
-  // message text — which is the exact condition #77 recorded as what the seam
-  // was waiting for.
-  // The four CLIENT payment types that used to sit here are EMITTED now. #111
-  // built the storefront analytics client #107 said was rollout instrumentation
-  // rather than payment work, and each of the four is exactly what #107's
-  // contract required: a browser fact, carrying a BOUNDED method category from
-  // `GUEST_PAYMENT_METHOD_CATEGORIES` rather than the provider's own string.
-  //
-  // `guest_payment_verified` is NOT among them and never will be. It moved to
-  // {@link ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES}, which is a different
-  // and stronger statement than a seam — see the note there.
-  // The three `#108` types (`guest_order_portal_opened`,
-  // `guest_recovery_requested`, `guest_recovery_exchanged`) that used to sit
-  // here are EMITTED now. What closed
-  // the seam was not new plumbing but the GRANT ROW: a portal open and an
-  // exchange both produce a row id that authorizes nothing and outlives
-  // nothing, so the funnel can be counted without a token, an email or a hash
-  // ever reaching a column — which is exactly the contract #77 recorded.
-  // `guest_recovery_requested` carries NO checkout group, deliberately: it is
-  // emitted on every request whether or not anything matched, and a group on it
-  // would turn the metric into the enumeration oracle the 202 exists to close.
-  // Three of `#109`'s five types are EMITTED now (`guest_claim_started`,
-  // `guest_claim_completed`, `guest_claim_conflicted`). What closed that half
-  // of the seam was the CLAIM ROW: a started attempt, a completed claim and a
-  // contest each produce a stable row id and a checkout group, so the funnel is
-  // countable without an account's email, the losing claimant's identity or a
-  // credential ever reaching a column.
-  //
-  // #109's other two are EMITTED now, from the claim screen itself. They were
-  // deferred here because an OFFER is a screen having been shown and a DECLINE
-  // is somebody navigating away — facts a server cannot observe — and #111
-  // supplied the only thing that could close them honestly: a client that
-  // emits the offer when the review screen RENDERS (never when the preview
-  // endpoint is read, which a client can poll) and the decline on an EXPLICIT
-  // dismissal (never on "a preview was read and no claim followed", which is
-  // indistinguishable from a lost connection).
-  // The three `#110` types (`guest_cancellation_requested`,
-  // `guest_return_requested`, `guest_support_request_created`) that used to sit
-  // here are EMITTED now, from `controllers/buyer-requests.controller.ts` and
-  // AFTER the write succeeded — so the numerator counts requests that were
-  // FILED rather than requests that were attempted, which is what
-  // `guest_post_purchase_demand`'s "requests, not outcomes" means. They carry
-  // the ORDER (admitted for these types by
-  // ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES) and the actor KIND, and nothing
-  // else: the request's reason code, the buyer's note and every support message
-  // body have no column here and must not acquire one.
-};
+export const ANALYTICS_DEFERRED_EVENT_TYPES: Readonly<Partial<Record<AnalyticsEventType, string>>> =
+  {
+    // The six `#106` types that used to sit here are EMITTED now. #106 gave each
+    // guest checkout gate a bounded refusal reason (`CheckoutRefusalReason`), so
+    // `checkout.controller.ts` can classify an outcome without matching on
+    // message text — which is the exact condition #77 recorded as what the seam
+    // was waiting for.
+    // The four CLIENT payment types that used to sit here are EMITTED now. #111
+    // built the storefront analytics client #107 said was rollout instrumentation
+    // rather than payment work, and each of the four is exactly what #107's
+    // contract required: a browser fact, carrying a BOUNDED method category from
+    // `GUEST_PAYMENT_METHOD_CATEGORIES` rather than the provider's own string.
+    //
+    // `guest_payment_verified` is NOT among them and never will be. It moved to
+    // {@link ANALYTICS_STRUCTURALLY_UNEMITTED_EVENT_TYPES}, which is a different
+    // and stronger statement than a seam — see the note there.
+    // The three `#108` types (`guest_order_portal_opened`,
+    // `guest_recovery_requested`, `guest_recovery_exchanged`) that used to sit
+    // here are EMITTED now. What closed
+    // the seam was not new plumbing but the GRANT ROW: a portal open and an
+    // exchange both produce a row id that authorizes nothing and outlives
+    // nothing, so the funnel can be counted without a token, an email or a hash
+    // ever reaching a column — which is exactly the contract #77 recorded.
+    // `guest_recovery_requested` carries NO checkout group, deliberately: it is
+    // emitted on every request whether or not anything matched, and a group on it
+    // would turn the metric into the enumeration oracle the 202 exists to close.
+    // Three of `#109`'s five types are EMITTED now (`guest_claim_started`,
+    // `guest_claim_completed`, `guest_claim_conflicted`). What closed that half
+    // of the seam was the CLAIM ROW: a started attempt, a completed claim and a
+    // contest each produce a stable row id and a checkout group, so the funnel is
+    // countable without an account's email, the losing claimant's identity or a
+    // credential ever reaching a column.
+    //
+    // #109's other two are EMITTED now, from the claim screen itself. They were
+    // deferred here because an OFFER is a screen having been shown and a DECLINE
+    // is somebody navigating away — facts a server cannot observe — and #111
+    // supplied the only thing that could close them honestly: a client that
+    // emits the offer when the review screen RENDERS (never when the preview
+    // endpoint is read, which a client can poll) and the decline on an EXPLICIT
+    // dismissal (never on "a preview was read and no claim followed", which is
+    // indistinguishable from a lost connection).
+    // The three `#110` types (`guest_cancellation_requested`,
+    // `guest_return_requested`, `guest_support_request_created`) that used to sit
+    // here are EMITTED now, from `controllers/buyer-requests.controller.ts` and
+    // AFTER the write succeeded — so the numerator counts requests that were
+    // FILED rather than requests that were attempted, which is what
+    // `guest_post_purchase_demand`'s "requests, not outcomes" means. They carry
+    // the ORDER (admitted for these types by
+    // ANALYTICS_COMMERCE_CORRELATED_EVENT_TYPES) and the actor KIND, and nothing
+    // else: the request's reason code, the buyer's note and every support message
+    // body have no column here and must not acquire one.
+  };
 
 /**
  * Event types that are in the vocabulary and will NEVER be emitted, with the
@@ -1215,7 +1209,7 @@ export const ANALYTICS_METRICS: readonly AnalyticsMetricDefinition[] = [
     humanOnly: true,
     merchantVisible: false,
     attributionLimit:
-      'The key carries no financial marker, for `guest_cart_progression_rate`\'s reason: every ' +
+      "The key carries no financial marker, for `guest_cart_progression_rate`'s reason: every " +
       'input is a client-observed failure and none of them is money. ' +
       'Counts FAILURES, not abandonment. Somebody who reaches the payment sheet and closes the ' +
       'tab appears nowhere in the numerator, and the server cannot tell that from a lost ' +
@@ -1353,12 +1347,7 @@ export const ANALYTICS_METRIC_KEYS = ANALYTICS_METRICS.map((metric) => metric.ke
 /* -------------------------------------------------------------------------- */
 
 /** An experiment version's lifecycle. Immutable once it leaves `draft`. */
-export const ANALYTICS_EXPERIMENT_STATUSES = [
-  'draft',
-  'active',
-  'stopped',
-  'completed',
-] as const;
+export const ANALYTICS_EXPERIMENT_STATUSES = ['draft', 'active', 'stopped', 'completed'] as const;
 
 /** One of {@link ANALYTICS_EXPERIMENT_STATUSES}. */
 export type AnalyticsExperimentStatus = (typeof ANALYTICS_EXPERIMENT_STATUSES)[number];
@@ -1454,10 +1443,7 @@ export type AnalyticsExperimentStopCondition =
  * value, so an analyst cannot key a test on an email hash even if one existed
  * to key it on (it does not).
  */
-export const ANALYTICS_EXPERIMENT_ASSIGNMENT_UNITS = [
-  'oxy_user',
-  'pseudonymous_session',
-] as const;
+export const ANALYTICS_EXPERIMENT_ASSIGNMENT_UNITS = ['oxy_user', 'pseudonymous_session'] as const;
 
 /** One of {@link ANALYTICS_EXPERIMENT_ASSIGNMENT_UNITS}. */
 export type AnalyticsExperimentAssignmentUnit =

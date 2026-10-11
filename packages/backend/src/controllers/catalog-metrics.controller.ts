@@ -110,10 +110,7 @@ export function catalogLatencyHandler(req: Request, res: Response): void {
  * "find the draft for this email" are unrepresentable rather than refused. The
  * `tracePayment` rule.
  */
-export async function catalogPublicationTraceHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function catalogPublicationTraceHandler(req: Request, res: Response): Promise<void> {
   const kind = req.params['handleKind'];
   const handle = req.params['handle'];
   if (kind !== 'draft' && kind !== 'listing') {
@@ -131,7 +128,9 @@ export async function catalogPublicationTraceHandler(
   }
   try {
     const trace = await traceCatalogPublication(
-      kind === 'draft' ? { by: 'draft_id', draftId: handle } : { by: 'listing_id', listingId: handle },
+      kind === 'draft'
+        ? { by: 'draft_id', draftId: handle }
+        : { by: 'listing_id', listingId: handle },
     );
     if (!trace) {
       // Undefined means the handle names nothing at all, which is a 404 rather

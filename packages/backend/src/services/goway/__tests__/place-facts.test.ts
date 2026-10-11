@@ -24,7 +24,10 @@ import {
 const OBSERVED = '2026-09-01T00:00:00.000Z';
 const LOCATION_ID = 'location-1';
 
-function storeLink(locationId: string, verification: Place['capabilities'][number]['verification']) {
+function storeLink(
+  locationId: string,
+  verification: Place['capabilities'][number]['verification'],
+) {
   return {
     namespace: 'commerce.mercaria',
     capability: 'store',
@@ -41,10 +44,19 @@ const PLACE: Place = {
   localizedName: { language: 'en', name: 'Central Bookshop', source: 'goway' },
   location: { latitude: 41.39, longitude: 2.17 },
   categories: ['shop.books'],
-  address: { street: 'Carrer de Mallorca', houseNumber: '237', locality: 'Eixample', city: 'Barcelona', postalCode: '08008', countryCode: 'es' },
+  address: {
+    street: 'Carrer de Mallorca',
+    houseNumber: '237',
+    locality: 'Eixample',
+    city: 'Barcelona',
+    postalCode: '08008',
+    countryCode: 'es',
+  },
   contact: { phone: '+34 931 000 000', website: 'https://llibreria.example' },
   timezone: 'Europe/Madrid',
-  openingHours: { intervals: [1, 2, 3, 4, 5].map((day) => ({ day: day as 1, opens: '09:00', closes: '20:00' })) },
+  openingHours: {
+    intervals: [1, 2, 3, 4, 5].map((day) => ({ day: day as 1, opens: '09:00', closes: '20:00' })),
+  },
   hoursExceptions: [],
   status: 'active',
   verification: { state: 'unverified' },
@@ -108,7 +120,10 @@ describe('placeFactsOf', () => {
     const contested = placeFactsOf(
       {
         ...PLACE,
-        capabilities: [storeLink('somebody-else', 'community_reported'), storeLink(LOCATION_ID, 'business_asserted')],
+        capabilities: [
+          storeLink('somebody-else', 'community_reported'),
+          storeLink(LOCATION_ID, 'business_asserted'),
+        ],
       },
       'u',
     );
@@ -118,22 +133,36 @@ describe('placeFactsOf', () => {
 
 describe('placeLinkGaps — the trust rule, one failing condition at a time', () => {
   it('admits the base fixture, so every case below flips exactly one fact', () => {
-    expect(placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: PLACE.id, lookup: found(FACTS) })).toEqual([]);
+    expect(
+      placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: PLACE.id, lookup: found(FACTS) }),
+    ).toEqual([]);
   });
 
   it('(a) refuses a location that names no place', () => {
-    expect(placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: null, lookup: null })).toEqual(['place_not_set']);
+    expect(placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: null, lookup: null })).toEqual([
+      'place_not_set',
+    ]);
   });
 
   const lookups: readonly [string, PlaceLookup, string][] = [
     ['(b) a place GoWay never heard of', { kind: 'not_found' }, 'place_not_found'],
     ['(b) a place GoWay removed', { kind: 'gone', mergedInto: null }, 'place_gone'],
-    ['(b) a MERGED place, until the verify act follows it', { kind: 'gone', mergedInto: 'place-2' }, 'place_gone'],
-    ['(b) GoWay unable to answer, with nothing cached', { kind: 'unavailable' }, 'goway_unavailable'],
+    [
+      '(b) a MERGED place, until the verify act follows it',
+      { kind: 'gone', mergedInto: 'place-2' },
+      'place_gone',
+    ],
+    [
+      '(b) GoWay unable to answer, with nothing cached',
+      { kind: 'unavailable' },
+      'goway_unavailable',
+    ],
   ];
   for (const [label, lookup, gap] of lookups) {
     it(`refuses ${label}`, () => {
-      expect(placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: PLACE.id, lookup })).toEqual([gap]);
+      expect(placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: PLACE.id, lookup })).toEqual([
+        gap,
+      ]);
     });
   }
 
@@ -162,24 +191,41 @@ describe('placeLinkGaps — the trust rule, one failing condition at a time', ()
   for (const [label, patch, gap] of places) {
     it(`refuses ${label}`, () => {
       const place = placeFactsOf({ ...PLACE, ...patch }, 'u');
-      expect(placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: PLACE.id, lookup: found(place) })).toEqual([gap]);
+      expect(
+        placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: PLACE.id, lookup: found(place) }),
+      ).toEqual([gap]);
     });
   }
 
   it('admits the Oxy tier as well as the business one', () => {
-    const verified = placeFactsOf({ ...PLACE, capabilities: [storeLink(LOCATION_ID, 'oxy_verified')] }, 'u');
-    expect(placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: PLACE.id, lookup: found(verified) })).toEqual([]);
+    const verified = placeFactsOf(
+      { ...PLACE, capabilities: [storeLink(LOCATION_ID, 'oxy_verified')] },
+      'u',
+    );
+    expect(
+      placeLinkGaps({ locationId: LOCATION_ID, goWayPlaceId: PLACE.id, lookup: found(verified) }),
+    ).toEqual([]);
   });
 
   it('maps gaps to ONE block reason per remedy', () => {
     expect(
-      placeLinkBlockers(['place_gone', 'goway_unavailable', 'store_link_unverified', 'place_country_missing']).sort(),
+      placeLinkBlockers([
+        'place_gone',
+        'goway_unavailable',
+        'store_link_unverified',
+        'place_country_missing',
+      ]).sort(),
     ).toEqual(['place_incomplete', 'place_link_unverified', 'place_unavailable']);
     expect(placeLinkBlockers([])).toEqual([]);
   });
 
   it('calls a link broken only when the place does not vouch — never for an outage or an incomplete place', () => {
-    for (const gap of ['place_not_set', 'place_gone', 'place_not_active', 'store_link_names_other_location'] as const) {
+    for (const gap of [
+      'place_not_set',
+      'place_gone',
+      'place_not_active',
+      'store_link_names_other_location',
+    ] as const) {
       expect(placeLinkBroken([gap]), gap).toBe(true);
     }
     expect(placeLinkBroken(['goway_unavailable'])).toBe(false);
@@ -191,16 +237,22 @@ describe('placeLinkGaps — the trust rule, one failing condition at a time', ()
 describe('the address an order freezes', () => {
   it('insists on a country, and never invents one', () => {
     expect(pickupAddressOf(FACTS)?.country).toBe('ES');
-    expect(pickupAddressOf(placeFactsOf({ ...PLACE, address: { city: 'Barcelona' } }, 'u'))).toBeNull();
+    expect(
+      pickupAddressOf(placeFactsOf({ ...PLACE, address: { city: 'Barcelona' } }, 'u')),
+    ).toBeNull();
   });
 });
 
-describe('opening facts — GoWay\'s own evaluation', () => {
+describe("opening facts — GoWay's own evaluation", () => {
   // A Monday at 10:00 in Madrid (08:00 UTC in summer).
   const MONDAY_MORNING = new Date('2026-08-10T08:00:00Z');
 
   it('reads open, and when that changes today', () => {
-    expect(openStateOf(FACTS.opening, MONDAY_MORNING)).toEqual({ known: true, open: true, changesAt: '20:00' });
+    expect(openStateOf(FACTS.opening, MONDAY_MORNING)).toEqual({
+      known: true,
+      open: true,
+      changesAt: '20:00',
+    });
   });
 
   it('answers unknown without a zone rather than guessing one', () => {
@@ -229,7 +281,11 @@ describe('opening facts — GoWay\'s own evaluation', () => {
       },
       'u',
     );
-    expect(openStateOf(shut.opening, MONDAY_MORNING)).toMatchObject({ known: true, open: false, exceptionNote: 'Stocktake' });
+    expect(openStateOf(shut.opening, MONDAY_MORNING)).toMatchObject({
+      known: true,
+      open: false,
+      exceptionNote: 'Stocktake',
+    });
     // Closed today, open tomorrow: still a place to send somebody this week.
     expect(opensWithinHorizon(shut.opening, MONDAY_MORNING)).toBe(true);
   });
@@ -243,22 +299,30 @@ describe('opening facts — GoWay\'s own evaluation', () => {
     const both = placeFactsOf(
       {
         ...PLACE,
-        hoursExceptions: (['community_reported', 'business_asserted'] as const).map((verification, index) => ({
-          id: `e${index}`,
-          placeId: PLACE.id,
-          startsOn: '2026-08-15',
-          endsOn: '2026-08-15',
-          closed: verification === 'community_reported',
-          intervals: verification === 'community_reported' ? [] : [{ opens: '10:00', closes: '14:00' }],
-          source: 'goway',
-          verification,
-          observedAt: OBSERVED,
-        })),
+        hoursExceptions: (['community_reported', 'business_asserted'] as const).map(
+          (verification, index) => ({
+            id: `e${index}`,
+            placeId: PLACE.id,
+            startsOn: '2026-08-15',
+            endsOn: '2026-08-15',
+            closed: verification === 'community_reported',
+            intervals:
+              verification === 'community_reported' ? [] : [{ opens: '10:00', closes: '14:00' }],
+            source: 'goway',
+            verification,
+            observedAt: OBSERVED,
+          }),
+        ),
       },
       'u',
     );
     expect(hoursExceptionsOf(both.opening)).toEqual([
-      { startsOn: '2026-08-15', endsOn: '2026-08-15', closed: false, intervals: [{ opens: '10:00', closes: '14:00' }] },
+      {
+        startsOn: '2026-08-15',
+        endsOn: '2026-08-15',
+        closed: false,
+        intervals: [{ opens: '10:00', closes: '14:00' }],
+      },
     ]);
   });
 });

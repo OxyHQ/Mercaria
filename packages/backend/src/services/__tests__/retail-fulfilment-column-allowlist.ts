@@ -30,7 +30,11 @@
  * `db/__tests__/column-allowlist.ts`'s.
  */
 
-import type { ColumnExemption, ColumnProhibition, TableAllowance } from '../../db/__tests__/column-allowlist.js';
+import type {
+  ColumnExemption,
+  ColumnProhibition,
+  TableAllowance,
+} from '../../db/__tests__/column-allowlist.js';
 
 /**
  * Every column of every table in `db/schema/retailFulfilment.ts`.
@@ -79,7 +83,7 @@ export const RETAIL_FULFILMENT_COLUMN_ALLOWLIST: readonly TableAllowance[] = [
     groups: [
       {
         reason:
-          "The row, the order, the #123 procurement intent it fulfils, its kind, and the intent it supersedes. Lineage rather than mutation: a revised intent is a new row naming the one it replaces.",
+          'The row, the order, the #123 procurement intent it fulfils, its kind, and the intent it supersedes. Lineage rather than mutation: a revised intent is a new row naming the one it replaces.',
         columns: [
           'id',
           'order_id',
@@ -92,7 +96,7 @@ export const RETAIL_FULFILMENT_COLUMN_ALLOWLIST: readonly TableAllowance[] = [
       },
       {
         reason:
-          'Mercaria\'s own view of the intent, from `RETAIL_FULFILMENT_INTENT_STATUSES` — a CHECK-bound vocabulary asserted disjoint from `RETAIL_FULFILMENT_FORBIDDEN_INTENT_STATUSES`, so no status can assert a physical fact.',
+          "Mercaria's own view of the intent, from `RETAIL_FULFILMENT_INTENT_STATUSES` — a CHECK-bound vocabulary asserted disjoint from `RETAIL_FULFILMENT_FORBIDDEN_INTENT_STATUSES`, so no status can assert a physical fact.",
         columns: ['status', 'status_reason'],
       },
       {
@@ -139,14 +143,7 @@ export const RETAIL_FULFILMENT_COLUMN_ALLOWLIST: readonly TableAllowance[] = [
       {
         reason:
           'What was promised and on whose authority: the kind, who said it, the reference they said it under, the basis, and the window. Only `mercaria_checkout` may author the guaranteed accepted-at-checkout promise, by CHECK; a supplier SLA arrives advisory and no code path upgrades it.',
-        columns: [
-          'promise_kind',
-          'source',
-          'source_ref',
-          'basis',
-          'earliest_at',
-          'latest_at',
-        ],
+        columns: ['promise_kind', 'source', 'source_ref', 'basis', 'earliest_at', 'latest_at'],
       },
       {
         reason:
@@ -192,9 +189,18 @@ export const RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS: readonly ColumnProhibi
   { segments: ['poll'], prohibition: 'a tracking poll cursor — Moovo owns the polling' },
   { segments: ['proof', 'of', 'delivery'], prohibition: 'proof of delivery, which Moovo holds' },
   { segments: ['service', 'code'], prohibition: "a carrier's own service code" },
-  { segments: ['tracking', 'number'], prohibition: 'a tracking handle Mercaria would have to keep fresh' },
-  { segments: ['tracking', 'code'], prohibition: 'a tracking handle Mercaria would have to keep fresh' },
-  { segments: ['tracking', 'url'], prohibition: 'a tracking handle Mercaria would have to keep fresh' },
+  {
+    segments: ['tracking', 'number'],
+    prohibition: 'a tracking handle Mercaria would have to keep fresh',
+  },
+  {
+    segments: ['tracking', 'code'],
+    prohibition: 'a tracking handle Mercaria would have to keep fresh',
+  },
+  {
+    segments: ['tracking', 'url'],
+    prohibition: 'a tracking handle Mercaria would have to keep fresh',
+  },
 ];
 
 /**

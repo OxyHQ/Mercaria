@@ -164,7 +164,9 @@ function data(reply: Reply): unknown[] {
  * reading it back through the same projection the response uses would make a
  * projection bug invisible to every assertion in the file.
  */
-async function storedFor(variantId: string): Promise<{ listingImageId: string; position: number }[]> {
+async function storedFor(
+  variantId: string,
+): Promise<{ listingImageId: string; position: number }[]> {
   return db
     .select({
       listingImageId: productVariantImages.listingImageId,
@@ -238,7 +240,13 @@ async function makeFixture(input: {
 async function createStore(handle: string, ownerAccount: string): Promise<string> {
   const [store] = await db
     .insert(stores)
-    .values({ oxyAccountId: ownerAccount, handle, name: `Variant image store ${RUN}`, description: '', brandColor: '#000000' })
+    .values({
+      oxyAccountId: ownerAccount,
+      handle,
+      name: `Variant image store ${RUN}`,
+      description: '',
+      brandColor: '#000000',
+    })
     .returning({ id: stores.id });
   if (!store) throw new Error('createStore returned no row');
   storeIds.push(store.id);

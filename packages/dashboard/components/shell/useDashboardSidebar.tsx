@@ -1,15 +1,15 @@
-import React, { useCallback, useMemo } from "react";
-import { View } from "react-native";
-import { usePathname, useRouter } from "expo-router";
-import type { SidebarProps } from "@oxy.so/bloom/sidebar";
-import { ProfileButton, openAccountDialog } from "@oxy.so/services";
-import { toBloomIcon, useColorScheme, useSidebarCollapse } from "@mercaria/ui";
-import { Logo } from "@/components/Logo";
-import { BrandWordmark } from "@/components/BrandWordmark";
-import { StoreSwitcher } from "./StoreSwitcher";
-import { useTranslation } from "@/lib/i18n";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
-import { NAV_ITEMS, isNavItemActive } from "./nav-items";
+import React, { useCallback, useMemo } from 'react';
+import { View } from 'react-native';
+import { usePathname, useRouter } from 'expo-router';
+import type { SidebarProps } from '@oxy.so/bloom/sidebar';
+import { ProfileButton, openAccountDialog } from '@oxy.so/services';
+import { toBloomIcon, useColorScheme, useSidebarCollapse } from '@mercaria/ui';
+import { Logo } from '@/components/Logo';
+import { BrandWordmark } from '@/components/BrandWordmark';
+import { StoreSwitcher } from './StoreSwitcher';
+import { useTranslation } from '@/lib/i18n';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { NAV_ITEMS, isNavItemActive } from './nav-items';
 
 /**
  * The dashboard's navigation as Bloom `Sidebar` props, for `AppShell`'s
@@ -31,56 +31,62 @@ export function useDashboardSidebar(): SidebarProps {
   const { can } = useActiveStoreContext();
   const { collapsed, setCollapsed } = useSidebarCollapse();
 
-  const goHome = useCallback(() => router.push("/"), [router]);
-  const goSettings = useCallback(() => router.push("/(app)/settings"), [router]);
+  const goHome = useCallback(() => router.push('/'), [router]);
+  const goSettings = useCallback(() => router.push('/(app)/settings'), [router]);
 
   const visible = useMemo(() => NAV_ITEMS.filter((item) => can(item.permission)), [can]);
   const selected = visible.find((item) => isNavItemActive(item, pathname))?.key;
 
   return useMemo<SidebarProps>(
     () => ({
-      surface: "plain",
+      surface: 'plain',
       style: { backgroundColor: colors.background },
-      testID: "merchant-sidebar",
-      size: "sm",
+      testID: 'merchant-sidebar',
+      size: 'sm',
       showSearch: true,
       searchShortcut: false,
-      searchShortcutLabel: "",
-      searchLabel: t("nav.searchNavigation"),
-      searchButtonLabel: t("nav.searchNavigation"),
-      searchPlaceholder: t("nav.searchNavigation"),
-      filterLabel: t("nav.searchNavigation"),
-      clearSearchLabel: t("nav.clearSearch"),
-      noResultsLabel: t("nav.noResults"),
+      searchShortcutLabel: '',
+      searchLabel: t('nav.searchNavigation'),
+      searchButtonLabel: t('nav.searchNavigation'),
+      searchPlaceholder: t('nav.searchNavigation'),
+      filterLabel: t('nav.searchNavigation'),
+      clearSearchLabel: t('nav.clearSearch'),
+      noResultsLabel: t('nav.noResults'),
       // Bloom's own chrome labels default to English; every one it draws here
       // is passed translated.
-      accessibilityLabel: t("nav.mainNavigation"),
-      collapseLabel: t("nav.collapseSidebar"),
-      expandLabel: t("nav.expandSidebar"),
-      closeLabel: t("nav.closeSidebar"),
+      accessibilityLabel: t('nav.mainNavigation'),
+      collapseLabel: t('nav.collapseSidebar'),
+      expandLabel: t('nav.expandSidebar'),
+      closeLabel: t('nav.closeSidebar'),
       showThemeToggle: false,
       collapsed,
       onCollapsedChange: setCollapsed,
       logo: {
         icon: <Logo size={28} />,
         wordmark: <BrandWordmark />,
-        accessibilityLabel: t("auth.signInTitle"),
-        href: "/",
+        accessibilityLabel: t('auth.signInTitle'),
+        href: '/',
         onPress: goHome,
       },
       selected,
-      items: visible.filter((item) => item.key !== "settings").map((item) => ({
-        key: item.key,
-        label: t(item.labelKey),
-        icon: toBloomIcon(item.icon),
-        // The route is read from the typed table, never from the row Bloom
-        // hands back, so every push is checked against the real route tree.
-        onPress: () => router.push(item.href),
-      })),
-      secondaryItems: visible.filter((item) => item.key === "settings").map((item) => ({
-        key: item.key, label: t(item.labelKey), icon: toBloomIcon(item.icon),
-        onPress: () => router.push(item.href),
-      })),
+      items: visible
+        .filter((item) => item.key !== 'settings')
+        .map((item) => ({
+          key: item.key,
+          label: t(item.labelKey),
+          icon: toBloomIcon(item.icon),
+          // The route is read from the typed table, never from the row Bloom
+          // hands back, so every push is checked against the real route tree.
+          onPress: () => router.push(item.href),
+        })),
+      secondaryItems: visible
+        .filter((item) => item.key === 'settings')
+        .map((item) => ({
+          key: item.key,
+          label: t(item.labelKey),
+          icon: toBloomIcon(item.icon),
+          onPress: () => router.push(item.href),
+        })),
       // Account trigger. ProfileButton owns all three auth states and follows
       // the rail's collapsed state.
       footer: ({ collapsed: railCollapsed }) => (

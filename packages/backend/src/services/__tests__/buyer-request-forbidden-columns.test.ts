@@ -155,7 +155,9 @@ describe('#110 — the buyer-request schema can hold no way to identify a buyer'
     for (const entry of BUYER_REQUEST_FORBIDDEN_COLUMN_SEGMENTS) {
       const probe = prohibitionProbeColumn(entry);
       const mutated = buyerRequestTables().map((table) =>
-        table.table === 'return_requests' ? { ...table, columns: [...table.columns, probe] } : table,
+        table.table === 'return_requests'
+          ? { ...table, columns: [...table.columns, probe] }
+          : table,
       );
       expect(
         audit(mutated).forbidden.map((offence) => offence.column),
@@ -170,7 +172,9 @@ describe('#110 — the buyer-request schema can hold no way to identify a buyer'
     // never be the reason anything is refused, so removing it changes nothing —
     // and it reads to the next person as a decision somebody made.
     for (const entry of BUYER_REQUEST_FORBIDDEN_COLUMN_SEGMENTS) {
-      const others = BUYER_REQUEST_FORBIDDEN_COLUMN_SEGMENTS.filter((candidate) => candidate !== entry);
+      const others = BUYER_REQUEST_FORBIDDEN_COLUMN_SEGMENTS.filter(
+        (candidate) => candidate !== entry,
+      );
       expect(
         columnProhibition(`t.${prohibitionProbeColumn(entry)}`, others),
         `the prohibition on ${entry.prohibition} is already covered by another`,
@@ -199,7 +203,9 @@ describe('#110 — the buyer-request schema can hold no way to identify a buyer'
       'order_number',
     ]) {
       const mutated = buyerRequestTables().map((table) =>
-        table.table === 'support_threads' ? { ...table, columns: [...table.columns, probe] } : table,
+        table.table === 'support_threads'
+          ? { ...table, columns: [...table.columns, probe] }
+          : table,
       );
       expect(
         audit(mutated).forbidden.map((offence) => offence.column),
@@ -284,9 +290,10 @@ describe('#110 — the buyer-request schema can hold no way to identify a buyer'
     for (const allowance of BUYER_REQUEST_COLUMN_ALLOWLIST) {
       expect(allowance.groups.length, `${allowance.table} has no groups`).toBeGreaterThan(0);
       for (const group of allowance.groups) {
-        expect(group.reason.length, `${allowance.table} has a group with no reason`).toBeGreaterThan(
-          30,
-        );
+        expect(
+          group.reason.length,
+          `${allowance.table} has a group with no reason`,
+        ).toBeGreaterThan(30);
         expect(group.columns.length, `${allowance.table} has an empty group`).toBeGreaterThan(0);
         for (const column of group.columns) {
           const qualified = `${allowance.table}.${column}`;

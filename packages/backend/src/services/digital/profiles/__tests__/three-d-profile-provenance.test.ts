@@ -53,7 +53,8 @@ import { THREE_D_PROFILE_PACKAGE } from '../package.js';
 const NOT_A_BUYER_FACT: Readonly<Record<string, string>> = {
   id: 'the row identity',
   fileId: 'the subject, not a fact about it',
-  measuredAt: 'when the measurement ran — attribution of the row rather than a property of the model',
+  measuredAt:
+    'when the measurement ran — attribution of the row rather than a property of the model',
   createdAt: 'the row clock',
   failureDetail:
     "why a verdict failed, for the CREATOR's own screen. A buyer reads the verdict; the stack behind it is not a product fact and publishing one would leak what a parser choked on",
@@ -134,7 +135,8 @@ describe('the measured-fact registry describes the real inspection table', () =>
 
 describe('the two provenances cannot be confused', () => {
   it('answers `measured` or `seller_claimed` and never guesses', () => {
-    for (const fact of THREE_D_MEASURED_FACTS) expect(threeDFactProvenance(fact), fact).toBe('measured');
+    for (const fact of THREE_D_MEASURED_FACTS)
+      expect(threeDFactProvenance(fact), fact).toBe('measured');
     for (const key of THREE_D_CLAIM_ATTRIBUTE_KEYS) {
       expect(threeDFactProvenance(key), key).toBe('seller_claimed');
     }

@@ -35,7 +35,10 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { isMarketingClaim, matchedMarketingPhrase } from '../services/attributes/marketing-claims.js';
+import {
+  isMarketingClaim,
+  matchedMarketingPhrase,
+} from '../services/attributes/marketing-claims.js';
 import { containsFoldedPhrase, foldPhrase } from '../services/search-intent/dictionaries.js';
 import { SCRIPT_CORPUS, scriptSample } from './script-corpus.js';
 
@@ -165,12 +168,15 @@ describe('dictionaries: a combining mark is part of the word it sits on (#836)',
   it('leaves the Latin behaviour the docblock promises exactly as it was', () => {
     const latin = scriptSample('Latin');
     // `nuevo` inside `renuevo` is not a claim about condition.
-    expect(containsFoldedPhrase(foldPhrase(`re${latin.adjective}`), foldPhrase(latin.adjective))).toBe(
-      false,
-    );
+    expect(
+      containsFoldedPhrase(foldPhrase(`re${latin.adjective}`), foldPhrase(latin.adjective)),
+    ).toBe(false);
     // The same word standing alone is.
     expect(
-      containsFoldedPhrase(foldPhrase(`${latin.noun} ${latin.adjective}`), foldPhrase(latin.adjective)),
+      containsFoldedPhrase(
+        foldPhrase(`${latin.noun} ${latin.adjective}`),
+        foldPhrase(latin.adjective),
+      ),
     ).toBe(true);
     // `16gb` matches inside `16gb/512gb` — the reason the boundary is letters
     // and digits rather than whitespace.
@@ -191,7 +197,10 @@ describe('dictionaries: a combining mark is part of the word it sits on (#836)',
       `${devanagari.noun} (${devanagari.nounGloss}) must match as its own word`,
     ).toBe(true);
     expect(
-      containsFoldedPhrase(foldPhrase(`${bengali.adjective} ${bengali.noun}`), foldPhrase(bengali.noun)),
+      containsFoldedPhrase(
+        foldPhrase(`${bengali.adjective} ${bengali.noun}`),
+        foldPhrase(bengali.noun),
+      ),
       `${bengali.noun} (${bengali.nounGloss}) must match as its own word`,
     ).toBe(true);
   });
@@ -206,9 +215,9 @@ describe('dictionaries: a combining mark is part of the word it sits on (#836)',
     expect(
       containsFoldedPhrase(foldPhrase(devanagari.variant ?? ''), foldPhrase(devanagari.noun)),
     ).toBe(false);
-    expect(containsFoldedPhrase(foldPhrase(`${latin.adjective}s`), foldPhrase(latin.adjective))).toBe(
-      false,
-    );
+    expect(
+      containsFoldedPhrase(foldPhrase(`${latin.adjective}s`), foldPhrase(latin.adjective)),
+    ).toBe(false);
   });
 });
 

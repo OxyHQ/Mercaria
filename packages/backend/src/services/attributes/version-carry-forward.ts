@@ -50,78 +50,80 @@ export type AttributeColumnDisposition = 'carried' | { readonly notCarried: stri
  * table — a hand-written list of column names would drift from the schema in
  * exactly the direction that makes the census pass while covering less.
  */
-export const ATTRIBUTE_VERSION_CARRY_FORWARD: Readonly<
-  Record<string, AttributeColumnDisposition>
-> = Object.freeze({
-  // ── Identity of the NEW row, never the old one's ────────────────────────
-  id: { notCarried: 'The new version is a new row; copying the id would be the same row.' },
-  version: { notCarried: 'The whole point: the new row is max(existing) + 1.' },
-  lifecycleState: {
-    notCarried:
-      'A new version starts `draft`. Carrying `active` forward would publish it implicitly, ' +
-      'which is the global act #568 deliberately split out into a separate operator step.',
-  },
-  createdAt: { notCarried: "The new row's own birthday, stamped by the column default." },
-  updatedAt: { notCarried: "The new row's own, stamped by the column default." },
+export const ATTRIBUTE_VERSION_CARRY_FORWARD: Readonly<Record<string, AttributeColumnDisposition>> =
+  Object.freeze({
+    // ── Identity of the NEW row, never the old one's ────────────────────────
+    id: { notCarried: 'The new version is a new row; copying the id would be the same row.' },
+    version: { notCarried: 'The whole point: the new row is max(existing) + 1.' },
+    lifecycleState: {
+      notCarried:
+        'A new version starts `draft`. Carrying `active` forward would publish it implicitly, ' +
+        'which is the global act #568 deliberately split out into a separate operator step.',
+    },
+    createdAt: { notCarried: "The new row's own birthday, stamped by the column default." },
+    updatedAt: { notCarried: "The new row's own, stamped by the column default." },
 
-  // ── Publication facts, which the new version has not earned ─────────────
-  publishedAt: { notCarried: 'The new version is unpublished; a date here would assert it is not.' },
-  replacedByDefinitionId: {
-    notCarried:
-      'A new version is not replaced by anything — it IS the replacement. Carrying the ' +
-      'predecessor pointer would make a freshly drafted version arrive already claiming to be ' +
-      'superseded, and `attribute_definitions_replaced_by_lifecycle_check` refuses it outright ' +
-      'on a draft, so this is unrepresentable rather than merely wrong (#367 line 237).',
-  },
-  publishedByOxyUserId: {
-    notCarried: 'Nobody has published the new version. Naming the previous publisher would ' +
-      'attribute an act they did not perform.',
-  },
-  deprecatedAt: {
-    notCarried:
-      'A deprecation applies to the version it was recorded against. A fresh draft has not ' +
-      'been deprecated, and carrying the date would make it born retired.',
-  },
-  createdByOxyUserId: {
-    notCarried:
-      'The actor drafting THIS version — the approving operator — not whoever created the ' +
-      'original. Supplied by the caller.',
-  },
+    // ── Publication facts, which the new version has not earned ─────────────
+    publishedAt: {
+      notCarried: 'The new version is unpublished; a date here would assert it is not.',
+    },
+    replacedByDefinitionId: {
+      notCarried:
+        'A new version is not replaced by anything — it IS the replacement. Carrying the ' +
+        'predecessor pointer would make a freshly drafted version arrive already claiming to be ' +
+        'superseded, and `attribute_definitions_replaced_by_lifecycle_check` refuses it outright ' +
+        'on a draft, so this is unrepresentable rather than merely wrong (#367 line 237).',
+    },
+    publishedByOxyUserId: {
+      notCarried:
+        'Nobody has published the new version. Naming the previous publisher would ' +
+        'attribute an act they did not perform.',
+    },
+    deprecatedAt: {
+      notCarried:
+        'A deprecation applies to the version it was recorded against. A fresh draft has not ' +
+        'been deprecated, and carrying the date would make it born retired.',
+    },
+    createdByOxyUserId: {
+      notCarried:
+        'The actor drafting THIS version — the approving operator — not whoever created the ' +
+        'original. Supplied by the caller.',
+    },
 
-  // ── Derived rather than copied ──────────────────────────────────────────
-  baseUnit: {
-    notCarried:
-      'DERIVED from `unitFamily` by `draftAttributeDefinition`, which is what stops two ' +
-      'definitions claiming to be normalized in different units. Carrying it would let a ' +
-      'stale pair through.',
-  },
+    // ── Derived rather than copied ──────────────────────────────────────────
+    baseUnit: {
+      notCarried:
+        'DERIVED from `unitFamily` by `draftAttributeDefinition`, which is what stops two ' +
+        'definitions claiming to be normalized in different units. Carrying it would let a ' +
+        'stale pair through.',
+    },
 
-  // ── Everything that IS the attribute's meaning ──────────────────────────
-  key: 'carried',
-  label: 'carried',
-  description: 'carried',
-  valueType: 'carried',
-  cardinality: 'carried',
-  objectivity: 'carried',
-  unitFamily: 'carried',
-  ratingScaleMax: 'carried',
-  currency: 'carried',
-  componentAxes: 'carried',
-  minValue: 'carried',
-  maxValue: 'carried',
-  decimalPlaces: 'carried',
-  maxLength: 'carried',
-  implausibleAbove: 'carried',
-  implausibleBelow: 'carried',
-  variantDefining: 'carried',
-  filterable: 'carried',
-  sortable: 'carried',
-  comparable: 'carried',
-  searchable: 'carried',
-  hardConstraintCapable: 'carried',
-  displayPolicy: 'carried',
-  evidencePolicy: 'carried',
-});
+    // ── Everything that IS the attribute's meaning ──────────────────────────
+    key: 'carried',
+    label: 'carried',
+    description: 'carried',
+    valueType: 'carried',
+    cardinality: 'carried',
+    objectivity: 'carried',
+    unitFamily: 'carried',
+    ratingScaleMax: 'carried',
+    currency: 'carried',
+    componentAxes: 'carried',
+    minValue: 'carried',
+    maxValue: 'carried',
+    decimalPlaces: 'carried',
+    maxLength: 'carried',
+    implausibleAbove: 'carried',
+    implausibleBelow: 'carried',
+    variantDefining: 'carried',
+    filterable: 'carried',
+    sortable: 'carried',
+    comparable: 'carried',
+    searchable: 'carried',
+    hardConstraintCapable: 'carried',
+    displayPolicy: 'carried',
+    evidencePolicy: 'carried',
+  });
 
 /** A controlled value being added to the new version. */
 export interface CarriedForwardAddition {

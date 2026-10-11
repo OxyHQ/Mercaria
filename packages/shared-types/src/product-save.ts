@@ -259,7 +259,10 @@ export interface ProductSaveReferencePrice {
 
 /** How the current best price compares with the reference above. */
 export type SavedProductPriceChange =
-  | { readonly known: false; readonly reason: 'no_reference_price' | 'currency_changed' | 'no_current_offer' }
+  | {
+      readonly known: false;
+      readonly reason: 'no_reference_price' | 'currency_changed' | 'no_current_offer';
+    }
   | {
       readonly known: true;
       readonly direction: 'down' | 'up' | 'unchanged';

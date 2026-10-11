@@ -1,13 +1,13 @@
-import React, { useState } from "react";
-import { Pressable, View } from "react-native";
-import { BadgeCheck, Search as SearchIcon } from "lucide-react-native";
-import type { AuthoringCanonicalCandidate } from "@mercaria/shared-types";
-import { Text, toBloomFieldIcon, useColorScheme } from "@mercaria/ui";
-import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
-import * as Skeleton from "@oxy.so/bloom/skeleton";
-import { useTranslation } from "@/lib/i18n";
-import { useCanonicalSearch } from "@/lib/authoring/hooks";
-import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
+import React, { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { BadgeCheck, Search as SearchIcon } from 'lucide-react-native';
+import type { AuthoringCanonicalCandidate } from '@mercaria/shared-types';
+import { Text, toBloomFieldIcon, useColorScheme } from '@mercaria/ui';
+import { TextField, TextFieldIcon, TextFieldInput } from '@oxy.so/bloom/text-field';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
+import { useTranslation } from '@/lib/i18n';
+import { useCanonicalSearch } from '@/lib/authoring/hooks';
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
 
 interface CanonicalSearchPanelProps {
   readonly selectedId: string | null;
@@ -15,7 +15,7 @@ interface CanonicalSearchPanelProps {
   readonly onClear?: () => void;
   /** Narrow to one product's own configurations, for the variant step. */
   readonly canonicalProductId?: string | null;
-  readonly kind?: "canonical_product" | "brand";
+  readonly kind?: 'canonical_product' | 'brand';
 }
 
 /**
@@ -41,11 +41,11 @@ export function CanonicalSearchPanel({
   onSelect,
   onClear,
   canonicalProductId = null,
-  kind = "canonical_product",
+  kind = 'canonical_product',
 }: CanonicalSearchPanelProps) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const debounced = useDebouncedValue(query, 300);
   const search = useCanonicalSearch({ query: debounced, kind, canonicalProductId });
 
@@ -54,7 +54,7 @@ export function CanonicalSearchPanel({
       <TextField radius={999}>
         <TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
         <TextFieldInput
-          label={t("products.wizard.canonical.searchPlaceholder")}
+          label={t('products.wizard.canonical.searchPlaceholder')}
           value={query}
           onValueChange={setQuery}
           returnKeyType="search"
@@ -64,7 +64,7 @@ export function CanonicalSearchPanel({
 
       {debounced.trim().length > 0 && debounced.trim().length < 2 ? (
         <Text className="text-xs text-muted-foreground">
-          {t("products.wizard.canonical.minQuery")}
+          {t('products.wizard.canonical.minQuery')}
         </Text>
       ) : null}
 
@@ -79,7 +79,7 @@ export function CanonicalSearchPanel({
         <View className="flex-row items-center gap-2 rounded-xl bg-muted px-3 py-2">
           <BadgeCheck size={16} color={colors.primary} />
           <Text className="flex-1 text-xs text-foreground">
-            {t("products.wizard.canonical.exactMatch")}
+            {t('products.wizard.canonical.exactMatch')}
           </Text>
         </View>
       ) : null}
@@ -96,9 +96,9 @@ export function CanonicalSearchPanel({
               accessibilityState={{ selected: isSelected }}
               onPress={() => onSelect(candidate)}
               className={[
-                "rounded-xl border px-3 py-3 active:opacity-80",
-                isSelected ? "border-primary bg-muted" : "border-border",
-              ].join(" ")}
+                'rounded-xl border px-3 py-3 active:opacity-80',
+                isSelected ? 'border-primary bg-muted' : 'border-border',
+              ].join(' ')}
             >
               <Text className="text-base font-medium text-foreground">{candidate.name}</Text>
               {candidate.brandName === null ? null : (
@@ -120,21 +120,23 @@ export function CanonicalSearchPanel({
         })}
       </View>
 
-      {search.data !== undefined && search.data.candidates.length === 0 && debounced.trim().length >= 2 ? (
+      {search.data !== undefined &&
+      search.data.candidates.length === 0 &&
+      debounced.trim().length >= 2 ? (
         <Text className="text-sm text-muted-foreground">
-          {t("products.wizard.canonical.noResults")}
+          {t('products.wizard.canonical.noResults')}
         </Text>
       ) : null}
 
       {selectedId !== null && onClear !== undefined ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("products.wizard.canonical.clearSelection")}
+          accessibilityLabel={t('products.wizard.canonical.clearSelection')}
           onPress={onClear}
           className="self-start active:opacity-70"
         >
           <Text className="text-sm text-primary">
-            {t("products.wizard.canonical.clearSelection")}
+            {t('products.wizard.canonical.clearSelection')}
           </Text>
         </Pressable>
       ) : null}

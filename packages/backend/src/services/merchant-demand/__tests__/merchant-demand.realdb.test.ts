@@ -77,7 +77,12 @@ import type { StoreCaller } from '../../store-access.service.js';
  * linked store, so it is never used.
  */
 function callerOf(oxyUserId: string): StoreCaller {
-  return { accountId: oxyUserId, actorAccountId: oxyUserId, delegated: false, accessToken: 'unused' };
+  return {
+    accountId: oxyUserId,
+    actorAccountId: oxyUserId,
+    delegated: false,
+    accessToken: 'unused',
+  };
 }
 import { readMerchantDemandDashboard } from '../dashboard.service.js';
 import { readMerchantDemandPreview } from '../preview.service.js';
@@ -645,9 +650,21 @@ describe('low-count suppression (#86 privacy 1, acceptance 8)', () => {
         storefrontId: merchant.storefrontId,
       });
     }
-    await seedEvents({ eventType: 'product_page_view', count: 30, canonicalProductId: loud.productId });
-    await seedEvents({ eventType: 'product_page_view', count: 9, canonicalProductId: quietA.productId });
-    await seedEvents({ eventType: 'product_page_view', count: 8, canonicalProductId: quietB.productId });
+    await seedEvents({
+      eventType: 'product_page_view',
+      count: 30,
+      canonicalProductId: loud.productId,
+    });
+    await seedEvents({
+      eventType: 'product_page_view',
+      count: 9,
+      canonicalProductId: quietA.productId,
+    });
+    await seedEvents({
+      eventType: 'product_page_view',
+      count: 8,
+      canonicalProductId: quietB.productId,
+    });
 
     const view = await readMerchantDemandDashboard({
       merchantId: merchant.merchantId,
@@ -920,8 +937,12 @@ describe('claim transition (#86 acceptance 8)', () => {
     });
     expect(preview.merchantId).toBe(merchant.merchantId);
     expect(
-      (await resolveMerchantDemandAccess({ merchantId: merchant.merchantId, caller: callerOf(CLAIMANT) }))
-        .outcome,
+      (
+        await resolveMerchantDemandAccess({
+          merchantId: merchant.merchantId,
+          caller: callerOf(CLAIMANT),
+        })
+      ).outcome,
     ).toBe('refused');
 
     // The claim lands. #83 is the only writer of this column; the test moves it
@@ -953,8 +974,12 @@ describe('claim transition (#86 acceptance 8)', () => {
           where id = ${merchant.merchantId}`,
     );
     expect(
-      (await resolveMerchantDemandAccess({ merchantId: merchant.merchantId, caller: callerOf(CLAIMANT) }))
-        .outcome,
+      (
+        await resolveMerchantDemandAccess({
+          merchantId: merchant.merchantId,
+          caller: callerOf(CLAIMANT),
+        })
+      ).outcome,
     ).toBe('refused');
   });
 

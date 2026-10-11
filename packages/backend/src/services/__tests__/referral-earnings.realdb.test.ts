@@ -82,10 +82,7 @@ import {
   activateRewardRuleVersion,
   draftRewardRuleVersion,
 } from '../referrals/rewards/rule.service.js';
-import {
-  accrueRewardForConversion,
-  reverseReward,
-} from '../referrals/rewards/reward.service.js';
+import { accrueRewardForConversion, reverseReward } from '../referrals/rewards/reward.service.js';
 import {
   approvePayoutBatch,
   buildPayoutBatchForPartner,
@@ -154,7 +151,9 @@ afterAll(async () => {
     await db
       .select({ id: referralPrograms.id })
       .from(referralPrograms)
-      .where(inArray(referralPrograms.programId, trackedProgramIds.length ? trackedProgramIds : ['-']))
+      .where(
+        inArray(referralPrograms.programId, trackedProgramIds.length ? trackedProgramIds : ['-']),
+      )
   ).map((row) => row.id);
   const ruleVersionIds = (
     await db
@@ -166,7 +165,12 @@ afterAll(async () => {
     await db
       .select({ id: referralAttributions.id })
       .from(referralAttributions)
-      .where(inArray(referralAttributions.programId, trackedProgramIds.length ? trackedProgramIds : ['-']))
+      .where(
+        inArray(
+          referralAttributions.programId,
+          trackedProgramIds.length ? trackedProgramIds : ['-'],
+        ),
+      )
   ).map((row) => row.id);
   const conversionIds = attributionIds.length
     ? (
@@ -338,7 +342,9 @@ afterAll(async () => {
       await tx.execute(
         sql`alter table referral_campaign_budgets disable trigger referral_campaign_budgets_guard`,
       );
-      await tx.delete(referralCampaignBudgets).where(inArray(referralCampaignBudgets.id, budgetIds));
+      await tx
+        .delete(referralCampaignBudgets)
+        .where(inArray(referralCampaignBudgets.id, budgetIds));
       await tx.execute(
         sql`alter table referral_campaign_budgets enable trigger referral_campaign_budgets_guard`,
       );
@@ -416,7 +422,9 @@ afterAll(async () => {
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
-async function makeActiveProgram(ruleId: string): Promise<{ programId: string; versionId: string }> {
+async function makeActiveProgram(
+  ruleId: string,
+): Promise<{ programId: string; versionId: string }> {
   const draft = await createProgramDraft({
     name: `Earnings program ${ruleId}`,
     description: 'Bring a buyer',
@@ -527,7 +535,11 @@ async function makePaymentWithCommission(
 
   await insertLedgerTransaction(
     db,
-    { kind: 'charge_succeeded', description: `fixture charge ${payment.id}`, paymentId: payment.id },
+    {
+      kind: 'charge_succeeded',
+      description: `fixture charge ${payment.id}`,
+      paymentId: payment.id,
+    },
     [
       { account: 'provider_clearing', currency, amountMinor: BigInt(gross) },
       {
@@ -753,12 +765,18 @@ describe('2. hold -> vested -> paid', () => {
     const rail = settlingRail(`tr_${TAG}`);
     registerReferralPayoutRail(rail);
 
-    const [held] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [held] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
     expect(held.state).toBe('held');
 
     const vesting = await vestDueRewards({ partnerId: world.partnerId });
     expect(vesting.vested).toBe(1);
-    const [vested] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [vested] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
     expect(vested.state).toBe('vested');
     expect(vested.vestedAt).not.toBeNull();
 
@@ -789,7 +807,10 @@ describe('2. hold -> vested -> paid', () => {
     expect(settled.batch.status).toBe('paid');
     expect(settled.batch.providerReference).toBe(`tr_${TAG}`);
 
-    const [paid] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [paid] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
     expect(paid.state).toBe('paid');
     expect(paid.paidAt).not.toBeNull();
 
@@ -815,7 +836,10 @@ describe('2. hold -> vested -> paid', () => {
       commissionMinor: 50_000,
       ruleOverrides: { holdDays: 30 },
     });
-    const [before] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [before] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
 
     await freezePartnerRewards({
       partnerId: world.partnerId,
@@ -825,7 +849,10 @@ describe('2. hold -> vested -> paid', () => {
       actorRef: OPERATOR,
       reason: 'fraud review opened',
     });
-    const [frozen] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [frozen] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
     expect(frozen.state).toBe('frozen');
     expect(frozen.frozenFromState).toBe('held');
     expect(frozen.holdUntilAt.getTime()).toBe(before.holdUntilAt.getTime());
@@ -838,7 +865,10 @@ describe('2. hold -> vested -> paid', () => {
       actorRef: OPERATOR,
       reason: 'review cleared',
     });
-    const [lifted] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [lifted] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
     expect(lifted.state).toBe('held');
     expect(lifted.frozenFromState).toBeNull();
     // FORWARD, by at least the frozen duration. The trigger #145 widened is
@@ -1063,7 +1093,10 @@ describe('7. payout retry', () => {
     expect(items).toHaveLength(1);
     expect(items[0].releasedAt).toBeNull();
     // …and the reward is still `vested`, not paid.
-    const [reward] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [reward] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
     expect(reward.state).toBe('vested');
 
     // The retry rides the batch's own key, unchanged across attempts.
@@ -1250,7 +1283,10 @@ describe('9. referral program disabled with existing balances', () => {
     // Every earned record is exactly where it was. ADR 0005 D18: gate loops and
     // gates, never records.
     expect(await payableMinor(world.partnerId, EUR)).toBe(balanceBefore);
-    const [reward] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [reward] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
     expect(reward.state).toBe('vested');
     expect(reward.netAmountMinor).toBe(30_000);
 
@@ -1301,7 +1337,9 @@ describe('10. funding a reward from mercaria_retail margin or cost variance FAIL
       .from(ledgerEntries)
       .where(eq(ledgerEntries.transactionId, posting.ledgerTransactionId));
     for (const entry of entries) {
-      expect(['referral_expense', 'referral_payable', 'provider_clearing']).toContain(entry.account);
+      expect(['referral_expense', 'referral_payable', 'provider_clearing']).toContain(
+        entry.account,
+      );
     }
 
     // And the database itself refuses the forged version: a referral posting
@@ -1509,7 +1547,10 @@ describe('the reconciliation sweep', () => {
 
     // It DETECTED and repaired NOTHING: the reward is exactly as it was, and no
     // posting was invented to make the books agree.
-    const [reward] = await db.select().from(referralRewards).where(eq(referralRewards.id, world.rewardId));
+    const [reward] = await db
+      .select()
+      .from(referralRewards)
+      .where(eq(referralRewards.id, world.rewardId));
     expect(reward.netAmountMinor).toBe(4_000);
     expect(await listReferralLedgerPostingsForReward(db, world.rewardId)).toHaveLength(0);
 

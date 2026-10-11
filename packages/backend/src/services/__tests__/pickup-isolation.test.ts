@@ -32,7 +32,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
-import { listingLocalDiscovery, orderPickups, pickupCollectionEvents } from '../../db/schema/pickup.js';
+import {
+  listingLocalDiscovery,
+  orderPickups,
+  pickupCollectionEvents,
+} from '../../db/schema/pickup.js';
 import {
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
@@ -167,12 +171,16 @@ describe('the pickup domain has no reach it should not have', () => {
     expect(from('services/pickup/'), 'the service walk found nothing').toBeGreaterThanOrEqual(10);
     expect(from('db/pickup/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
     expect(from('controllers/'), 'no pickup controller was derived').toBeGreaterThanOrEqual(3);
-    expect(from('middleware/'), 'no pickup middleware module was derived').toBeGreaterThanOrEqual(2);
+    expect(from('middleware/'), 'no pickup middleware module was derived').toBeGreaterThanOrEqual(
+      2,
+    );
     expect(from('routes/'), 'no pickup route was derived').toBeGreaterThanOrEqual(1);
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
     expect(domain.length).toBeGreaterThanOrEqual(22);
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
     // EXACT: an unbounded exemption set lets any number of readers ride in
     // behind the ones somebody justified (#448). This set had no count at all.
@@ -271,9 +279,15 @@ describe('the pickup domain has no reach it should not have', () => {
     // Walked from the REAL drizzle table rather than read out of the file, so
     // a column added in a migration and mirrored into the schema fails here.
     const columns = Object.keys(getTableColumns(listingLocalDiscovery));
-    assertEachOf(['latitude', 'longitude', 'lat', 'lon', 'geoPoint', 'point', 'address'], 7, (forbidden) => {
-      expect(columns, `listing_local_discovery must not carry ${forbidden}`).not.toContain(forbidden);
-    });
+    assertEachOf(
+      ['latitude', 'longitude', 'lat', 'lon', 'geoPoint', 'point', 'address'],
+      7,
+      (forbidden) => {
+        expect(columns, `listing_local_discovery must not carry ${forbidden}`).not.toContain(
+          forbidden,
+        );
+      },
+    );
     // …and the positive control: the cell it DOES carry is present, so a
     // renamed table cannot pass this by having no columns to check.
     expect(columns).toContain('cellLatIndex');
@@ -286,15 +300,25 @@ describe('the pickup domain has no reach it should not have', () => {
     // over. The whole of what the trail says about a person is which member of
     // STAFF acted.
     const trail = Object.keys(getTableColumns(pickupCollectionEvents));
-    assertEachOf(['buyerOxyUserId', 'email', 'phone', 'guestSessionId', 'codeHash', 'code'], 6, (forbidden) => {
-      expect(trail, `pickup_collection_events must not carry ${forbidden}`).not.toContain(forbidden);
-    });
+    assertEachOf(
+      ['buyerOxyUserId', 'email', 'phone', 'guestSessionId', 'codeHash', 'code'],
+      6,
+      (forbidden) => {
+        expect(trail, `pickup_collection_events must not carry ${forbidden}`).not.toContain(
+          forbidden,
+        );
+      },
+    );
     expect(trail).toContain('actorOxyUserId');
 
     const snapshot = Object.keys(getTableColumns(orderPickups));
-    assertEachOf(['buyerEmail', 'buyerPhone', 'recipientName', 'guestSessionId'], 4, (forbidden) => {
-      expect(snapshot, `order_pickups must not carry ${forbidden}`).not.toContain(forbidden);
-    });
+    assertEachOf(
+      ['buyerEmail', 'buyerPhone', 'recipientName', 'guestSessionId'],
+      4,
+      (forbidden) => {
+        expect(snapshot, `order_pickups must not carry ${forbidden}`).not.toContain(forbidden);
+      },
+    );
     expect(snapshot.length).toBeGreaterThanOrEqual(20);
   });
 });
@@ -310,14 +334,16 @@ describe('the pickup domain has no reach it should not have', () => {
  */
 describe('the detectors themselves', () => {
   it('WALL 1 fires on a stock write', () => {
-    expect(COMMERCE_WRITE_REFERENCE.test("import { reserve } from '../inventory.service.js';")).toBe(
-      true,
-    );
+    expect(
+      COMMERCE_WRITE_REFERENCE.test("import { reserve } from '../inventory.service.js';"),
+    ).toBe(true);
     expect(COMMERCE_WRITE_REFERENCE.test('await restock(variantId, 1, locationId);')).toBe(true);
-    expect(COMMERCE_WRITE_REFERENCE.test("import { x } from '../payments/provider.js';")).toBe(false);
-    expect(COMMERCE_WRITE_REFERENCE.test("import { x } from '../services/payments/redact.js';")).toBe(
-      true,
+    expect(COMMERCE_WRITE_REFERENCE.test("import { x } from '../payments/provider.js';")).toBe(
+      false,
     );
+    expect(
+      COMMERCE_WRITE_REFERENCE.test("import { x } from '../services/payments/redact.js';"),
+    ).toBe(true);
   });
 
   it('WALL 2 fires on a lever read', () => {
@@ -338,9 +364,13 @@ describe('the detectors themselves', () => {
     expect(OUTBOUND_CALL_REFERENCE.test('const point = await geocodeAddress(address);')).toBe(true);
     expect(OUTBOUND_CALL_REFERENCE.test("import { x } from '@some/geocoder-sdk';")).toBe(true);
     expect(OUTBOUND_CALL_REFERENCE.test("import { x } from '@mapbox/search';")).toBe(true);
-    expect(OUTBOUND_CALL_REFERENCE.test("import { createGoWayClient } from '@goway.to/sdk';")).toBe(true);
+    expect(OUTBOUND_CALL_REFERENCE.test("import { createGoWayClient } from '@goway.to/sdk';")).toBe(
+      true,
+    );
     expect(OUTBOUND_CALL_REFERENCE.test("import { x } from '../geo.js';")).toBe(false);
-    expect(OUTBOUND_CALL_REFERENCE.test("import { readPlace } from '../goway/places.js';")).toBe(false);
+    expect(OUTBOUND_CALL_REFERENCE.test("import { readPlace } from '../goway/places.js';")).toBe(
+      false,
+    );
     expect(OUTBOUND_CALL_REFERENCE.test('const distance = haversineMetres(a, b);')).toBe(false);
     expect(GOWAY_SDK_IMPORT.test("import type { Place } from '@goway.to/sdk';")).toBe(true);
     expect(GOWAY_SDK_IMPORT.test("import { x } from '@goway.to/sdk-extra';")).toBe(false);

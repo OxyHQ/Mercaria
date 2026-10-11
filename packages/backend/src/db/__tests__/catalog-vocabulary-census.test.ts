@@ -215,7 +215,9 @@ const OPEN_QUESTIONS: readonly OpenQuestion[] = [
     // and `catalog_governance_audit_events.action`, so a member is the earliest
     // point at which somebody has answered "who may run it" by building it.
     resolved: () =>
-      CATALOG_GOVERNANCE_ACTIONS.some((action) => /repin|re_pin|republish_listings|bulk/.test(action)),
+      CATALOG_GOVERNANCE_ACTIONS.some((action) =>
+        /repin|re_pin|republish_listings|bulk/.test(action),
+      ),
   },
   {
     id: 'Q2',
@@ -224,7 +226,8 @@ const OPEN_QUESTIONS: readonly OpenQuestion[] = [
     // Any clause tying the two has to READ `listings` from inside the axis
     // citation trigger, so the reference is the first observable sign that
     // somebody picked one of the two rules (#883).
-    resolved: () => /\blistings\b/.test(newestFunctionBody('mercaria_native_variant_axis_citation') ?? ''),
+    resolved: () =>
+      /\blistings\b/.test(newestFunctionBody('mercaria_native_variant_axis_citation') ?? ''),
   },
   {
     id: 'Q3',
@@ -288,13 +291,19 @@ describe('#367 line 102 — the vocabulary is encoded in the ADR and in the glos
     // empty here — and "every term agrees" is exactly what an empty pair of
     // maps reports. Floors, never equalities, except for the term set itself:
     // that one IS the subject, so it is pinned rather than floored.
-    expect(tables.size, 'the drizzle barrel exported no tables').toBeGreaterThanOrEqual(MINIMUM_TABLES);
+    expect(tables.size, 'the drizzle barrel exported no tables').toBeGreaterThanOrEqual(
+      MINIMUM_TABLES,
+    );
     expect(
       declarations.size,
       'the source scan found no `export const x = pgTable(` at all',
     ).toBeGreaterThanOrEqual(MINIMUM_DECLARATIONS);
-    expect(glossary.size, 'no term parsed out of the glossary table').toBeGreaterThanOrEqual(MINIMUM_TERMS);
-    expect(vocabulary.size, 'no term parsed out of ADR 0007 D16').toBeGreaterThanOrEqual(MINIMUM_TERMS);
+    expect(glossary.size, 'no term parsed out of the glossary table').toBeGreaterThanOrEqual(
+      MINIMUM_TERMS,
+    );
+    expect(vocabulary.size, 'no term parsed out of ADR 0007 D16').toBeGreaterThanOrEqual(
+      MINIMUM_TERMS,
+    );
 
     // CLAUSE 0's known answer, and the one assertion here that must PASS for a
     // reason unrelated to the subject: `DATABASE_CASING` means the TypeScript
@@ -350,12 +359,20 @@ describe('#367 line 102 — the vocabulary is encoded in the ADR and in the glos
         // silence — the `NOT_IN_THE_MAP` device. The glossary row must say so
         // too, or the two documents disagree about whether a home exists.
         dispositioned++;
-        expect(row.table, `${term} has no home in the ADR but the glossary cites a table`).toBeUndefined();
+        expect(
+          row.table,
+          `${term} has no home in the ADR but the glossary cites a table`,
+        ).toBeUndefined();
         continue;
       }
       homed++;
-      expect(row.table, `the glossary's home for "${term}" disagrees with ADR 0007 D16`).toBe(adrHome);
-      expect(tables.has(adrHome), `"${term}" is homed at \`${adrHome}\`, which no table exports`).toBe(true);
+      expect(row.table, `the glossary's home for "${term}" disagrees with ADR 0007 D16`).toBe(
+        adrHome,
+      );
+      expect(
+        tables.has(adrHome),
+        `"${term}" is homed at \`${adrHome}\`, which no table exports`,
+      ).toBe(true);
       expect(row.file, `the glossary row for "${term}" cites no schema file`).toBeDefined();
       expect(
         declarations.get(adrHome)!.file,
@@ -375,7 +392,9 @@ describe('#367 line 102 — the vocabulary is encoded in the ADR and in the glos
     // had, before they were removed. A citation into an APPLIED MIGRATION is
     // the one permitted form, because a migration is immutable once it has run,
     // so its line numbers cannot move.
-    const cited = [...glossaryDoc.matchAll(/`([A-Za-z0-9_/.-]*\.(?:ts|tsx)):(\d+)`/g)].map((m) => m[0]);
+    const cited = [...glossaryDoc.matchAll(/`([A-Za-z0-9_/.-]*\.(?:ts|tsx)):(\d+)`/g)].map(
+      (m) => m[0],
+    );
     expect(
       cited,
       'a line citation into a live source file is back in the glossary; cite the file and the ' +
@@ -429,16 +448,20 @@ describe('#367 line 121 — every open question is EVALUATED, not narrated (ADR 
     const evaluated = assertStillOpen(OPEN_QUESTIONS);
     // A register of nothing but null triggers is a narrated register wearing
     // this file's name.
-    expect(evaluated, 'no open question carries a trigger this file can run').toBeGreaterThanOrEqual(2);
+    expect(
+      evaluated,
+      'no open question carries a trigger this file can run',
+    ).toBeGreaterThanOrEqual(2);
   });
 });
 
 describe('mutation self-tests — each detector, against inputs it never receives from disk', () => {
   it('the glossary parser reads a real row and refuses a prose line', () => {
     const parsed = glossaryTerms(
-      ['| **Offer** | terms | `offers`, `db/schema/offers.ts` |', 'Two terms in the epic table have no row.'].join(
-        '\n',
-      ),
+      [
+        '| **Offer** | terms | `offers`, `db/schema/offers.ts` |',
+        'Two terms in the epic table have no row.',
+      ].join('\n'),
     );
     expect(parsed.size).toBe(1);
     expect(parsed.get('Offer')).toEqual({ table: 'offers', file: 'db/schema/offers.ts' });
@@ -467,7 +490,9 @@ describe('mutation self-tests — each detector, against inputs it never receive
     expect([...adrOnly.keys()].filter((term) => !glossary.has(term))).toEqual(['Planted concept']);
     const glossaryOnly = new Map(glossary);
     glossaryOnly.set('Planted concept', { table: 'listings' });
-    expect([...glossaryOnly.keys()].filter((term) => !vocabulary.has(term))).toEqual(['Planted concept']);
+    expect([...glossaryOnly.keys()].filter((term) => !vocabulary.has(term))).toEqual([
+      'Planted concept',
+    ]);
   });
 
   it('CLAUSE 2 fires when the glossary sends a reader to the wrong file', () => {

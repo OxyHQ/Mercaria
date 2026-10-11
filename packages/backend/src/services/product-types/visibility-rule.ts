@@ -170,7 +170,10 @@ function parseNode(
   }
 
   if (node === 'not') {
-    return { node: 'not', rule: parseNode(own(candidate, 'rule'), `${path}.rule`, depth + 1, budget) };
+    return {
+      node: 'not',
+      rule: parseNode(own(candidate, 'rule'), `${path}.rule`, depth + 1, budget),
+    };
   }
 
   if (node === 'compare') {

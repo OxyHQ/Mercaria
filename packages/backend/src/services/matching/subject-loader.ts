@@ -29,10 +29,7 @@ import type { IdentifierScheme, MatchSubjectKind } from '@mercaria/shared-types'
 import { normalizeAttributeKey, normalizeOptionValue } from '../canonical/variant-signature.js';
 import { normalizeQuantity } from '../canonical/units.js';
 import { findListingById } from '../../db/catalog/listingRepository.js';
-import {
-  findVariantById,
-  findVariantOptionValues,
-} from '../../db/catalog/variantRepository.js';
+import { findVariantById, findVariantOptionValues } from '../../db/catalog/variantRepository.js';
 import { findSourceRecordById } from '../../db/canonical/provenanceRepository.js';
 import { conditionGroupFor } from '@mercaria/shared-types';
 import { narrowStoredCondition } from '../condition/condition-projection.js';
@@ -129,7 +126,8 @@ export async function loadNativeVariantSubject(
     // the same collapse the v1 wire projection performs and is not routed
     // through it: a matcher reading a compatibility contract would tie its
     // behaviour to a contract that is scheduled to retire.
-    condition: conditionGroupFor(narrowStoredCondition(listing.condition)) === 'new' ? 'new' : 'used',
+    condition:
+      conditionGroupFor(narrowStoredCondition(listing.condition)) === 'new' ? 'new' : 'used',
   };
 }
 

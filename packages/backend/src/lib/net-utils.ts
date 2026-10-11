@@ -108,7 +108,7 @@ export function resolveClientIp(params: {
     return parseForwardedForClientIp(params.forwardedFor) ?? remote;
   }
 
-  const isTrusted = proxies.some(proxy => normalizeIp(proxy) === remote);
+  const isTrusted = proxies.some((proxy) => normalizeIp(proxy) === remote);
   if (!isTrusted) return remote;
 
   return parseForwardedForClientIp(params.forwardedFor) ?? parseRealIp(params.realIp) ?? remote;
@@ -117,13 +117,20 @@ export function resolveClientIp(params: {
 /**
  * Express middleware helper: extract real client IP from request.
  */
-export function getClientIp(req: { ip?: string; headers: Record<string, string | string[] | undefined> }): string {
+export function getClientIp(req: {
+  ip?: string;
+  headers: Record<string, string | string[] | undefined>;
+}): string {
   const forwardedFor = req.headers['x-forwarded-for'];
   const realIp = req.headers['x-real-ip'];
 
-  return resolveClientIp({
-    remoteAddr: req.ip,
-    forwardedFor: Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor,
-    realIp: Array.isArray(realIp) ? realIp[0] : realIp,
-  }) || req.ip || 'unknown';
+  return (
+    resolveClientIp({
+      remoteAddr: req.ip,
+      forwardedFor: Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor,
+      realIp: Array.isArray(realIp) ? realIp[0] : realIp,
+    }) ||
+    req.ip ||
+    'unknown'
+  );
 }

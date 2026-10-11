@@ -35,12 +35,7 @@
 
 import { request as httpsRequest } from 'node:https';
 import type { IncomingMessage } from 'node:http';
-import {
-  safeFetch,
-  assertSafePublicUrl,
-  SsrfRejection,
-  UpstreamError,
-} from '@oxy.so/core/server';
+import { safeFetch, assertSafePublicUrl, SsrfRejection, UpstreamError } from '@oxy.so/core/server';
 
 /** A normalized HTTP response (status + headers + fully-buffered text body). */
 export interface WooCommerceHttpResponse {
@@ -58,7 +53,11 @@ export interface WooCommerceHttpResponse {
  */
 export interface WooCommerceTransport {
   get(url: string, headers: Record<string, string>): Promise<WooCommerceHttpResponse>;
-  post(url: string, headers: Record<string, string>, body: string): Promise<WooCommerceHttpResponse>;
+  post(
+    url: string,
+    headers: Record<string, string>,
+    body: string,
+  ): Promise<WooCommerceHttpResponse>;
   del(url: string, headers: Record<string, string>): Promise<WooCommerceHttpResponse>;
 }
 

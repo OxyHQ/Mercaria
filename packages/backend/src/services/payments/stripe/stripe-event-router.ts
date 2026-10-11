@@ -253,7 +253,8 @@ async function handlePaymentIntent(context: StripeEventContext): Promise<StripeE
   // decide from Stripe's current state, not from this snapshot.
   if (
     !refetched &&
-    (next === undefined || (next !== payment.status && !canTransitionPaymentStatus(payment.status, next)))
+    (next === undefined ||
+      (next !== payment.status && !canTransitionPaymentStatus(payment.status, next)))
   ) {
     intent = await retrieveStripePaymentIntent(intentId, context.account);
     next = mapPaymentIntentStatus(intent.status);
@@ -609,9 +610,8 @@ async function convergeRefund(
   const db = getDb();
   const declared = refund.metadata?.refundId;
   const local =
-    (typeof declared === 'string' && declared !== ''
-      ? await findRefundById(declared)
-      : null) ?? (await findRefundByProviderRefundId('stripe', refund.id));
+    (typeof declared === 'string' && declared !== '' ? await findRefundById(declared) : null) ??
+    (await findRefundByProviderRefundId('stripe', refund.id));
 
   if (!local) {
     const raised = await recordUnmatchedRefund(refund);

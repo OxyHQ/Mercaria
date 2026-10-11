@@ -100,7 +100,11 @@ const MIGRATION_SQL = migrationSql();
 const MIGRATION_COUNT = readdirSync(MIGRATIONS_ROOT).filter((name) => name.endsWith('.sql')).length;
 
 /** Every `rewired_by_domain` reference in the plan, with its subject kind. */
-function pathAsserting(): { kind: string; reference: GovernedReference; entryPoint: RewireEntryPoint }[] {
+function pathAsserting(): {
+  kind: string;
+  reference: GovernedReference;
+  entryPoint: RewireEntryPoint;
+}[] {
   const found: { kind: string; reference: GovernedReference; entryPoint: RewireEntryPoint }[] = [];
   for (const kind of CATALOG_GOVERNANCE_COUNTED_SUBJECT_KINDS) {
     for (const reference of GOVERNED_REFERENCE_PLAN[kind]) {
@@ -215,10 +219,14 @@ describe('the populations this census walks', () => {
     // which is the pin-wearing-a-floor's-name failure that doc warns about.
     // What these numbers have to catch is a walk that COLLAPSED: a moved root,
     // a `readdirSync` returning nothing, or a sweep that reached one directory.
-    expect(SOURCES.size, `the src walk found ${String(SOURCES.size)} production modules`)
-      .toBeGreaterThan(1_200);
-    expect(MIGRATION_COUNT, `the drizzle walk found ${String(MIGRATION_COUNT)} migrations`)
-      .toBeGreaterThan(100);
+    expect(
+      SOURCES.size,
+      `the src walk found ${String(SOURCES.size)} production modules`,
+    ).toBeGreaterThan(1_200);
+    expect(
+      MIGRATION_COUNT,
+      `the drizzle walk found ${String(MIGRATION_COUNT)} migrations`,
+    ).toBeGreaterThan(100);
     expect(MIGRATION_SQL.length, 'the migration concatenation is empty').toBeGreaterThan(100_000);
   });
 
@@ -228,7 +236,14 @@ describe('the populations this census walks', () => {
     }
     // The positive control for that exclusion: a file that DOES exist and IS a
     // test. Without it, "no path matched" is satisfied by an empty walk.
-    expect(existsSync(join(SRC_ROOT, PLAN_MODULE.replace('impact-plan.ts', '__tests__/impact-plan-census.test.ts')))).toBe(true);
+    expect(
+      existsSync(
+        join(
+          SRC_ROOT,
+          PLAN_MODULE.replace('impact-plan.ts', '__tests__/impact-plan-census.test.ts'),
+        ),
+      ),
+    ).toBe(true);
   });
 
   it('strips comments, so a docblock naming a symbol is not a call site', () => {
@@ -252,8 +267,10 @@ describe('the populations this census walks', () => {
     // The census's own positive control. An empty list would satisfy every
     // `for` loop below by never running its body — the #706 defect, which is
     // what makes this floor mandatory rather than decorative.
-    expect(entries.length, `${String(entries.length)} references assert a rewire path`)
-      .toBeGreaterThanOrEqual(13);
+    expect(
+      entries.length,
+      `${String(entries.length)} references assert a rewire path`,
+    ).toBeGreaterThanOrEqual(13);
     // Every kind is represented, so a vocabulary member that stops being used
     // stops being checked and somebody notices.
     const kinds = new Set(entries.map((entry) => entry.entryPoint.kind));
@@ -362,8 +379,10 @@ describe('a rewire that ends in a queue nothing drains', () => {
         // The reverse direction, so closing the gap is checked as hard as
         // opening it. A `present` drain that writes nothing is a consumer that
         // claims rows and never completes them.
-        expect(writers.length, `${referenceKey(reference)} declares a drain that writes nothing`)
-          .toBeGreaterThan(0);
+        expect(
+          writers.length,
+          `${referenceKey(reference)} declares a drain that writes nothing`,
+        ).toBeGreaterThan(0);
       }
     }
     expect(checked, 'no queue-terminating entry point was checked').toBeGreaterThanOrEqual(2);

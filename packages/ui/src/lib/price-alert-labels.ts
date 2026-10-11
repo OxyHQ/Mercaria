@@ -1,7 +1,4 @@
-import type {
-  PriceAlertComparisonBasis,
-  PriceAlertSellerScope,
-} from "@mercaria/shared-types";
+import type { PriceAlertComparisonBasis, PriceAlertSellerScope } from '@mercaria/shared-types';
 
 /**
  * `PriceAlertCard`'s own copy (#437, #79's surface).
@@ -25,37 +22,34 @@ import type {
  * differ ("this alert is paused" against "this agent is waiting"), and a single
  * set would have to be worded so blandly it described neither.
  */
-export const PRICE_ALERT_BASIS_LABEL_KEYS: Readonly<
-  Record<PriceAlertComparisonBasis, string>
-> = {
-  item_price: "ui.priceAlert.basis.item_price",
-  known_total: "ui.priceAlert.basis.known_total",
+export const PRICE_ALERT_BASIS_LABEL_KEYS: Readonly<Record<PriceAlertComparisonBasis, string>> = {
+  item_price: 'ui.priceAlert.basis.item_price',
+  known_total: 'ui.priceAlert.basis.known_total',
 };
 
-export const PRICE_ALERT_SELLER_SCOPE_LABEL_KEYS: Readonly<
-  Record<PriceAlertSellerScope, string>
-> = {
-  any: "ui.priceAlert.sellerScope.any",
-  native_only: "ui.priceAlert.sellerScope.native_only",
-  external_only: "ui.priceAlert.sellerScope.external_only",
-  official_only: "ui.priceAlert.sellerScope.official_only",
-};
+export const PRICE_ALERT_SELLER_SCOPE_LABEL_KEYS: Readonly<Record<PriceAlertSellerScope, string>> =
+  {
+    any: 'ui.priceAlert.sellerScope.any',
+    native_only: 'ui.priceAlert.sellerScope.native_only',
+    external_only: 'ui.priceAlert.sellerScope.external_only',
+    official_only: 'ui.priceAlert.sellerScope.official_only',
+  };
 
-export const PRICE_ALERT_ANY_CONDITION_KEY = "ui.priceAlert.card.anyCondition";
-export const PRICE_ALERT_SCOPE_LINE_KEY = "ui.priceAlert.card.scopeLine";
-export const PRICE_ALERT_LIST_SEPARATOR_KEY = "ui.priceAlert.card.listSeparator";
-export const PRICE_ALERT_OPEN_PRODUCT_KEY = "ui.priceAlert.card.openProduct";
-export const PRICE_ALERT_SAVED_PRODUCT_KEY = "ui.priceAlert.card.savedProduct";
-export const PRICE_ALERT_TARGET_PREFIX_KEY = "ui.priceAlert.card.targetPrefix";
-export const PRICE_ALERT_NOTIFIED_KEY = "ui.priceAlert.card.notified";
-export const PRICE_ALERT_PAUSED_KEY = "ui.priceAlert.card.paused";
-export const PRICE_ALERT_SPLIT_EXPLANATION_KEY = "ui.priceAlert.card.splitExplanation";
-export const PRICE_ALERT_KEEP_SOURCE_KEY = "ui.priceAlert.card.keepSource";
-export const PRICE_ALERT_MOVE_TO_TARGET_KEY = "ui.priceAlert.card.moveToTarget";
-export const PRICE_ALERT_KEEP_BOTH_KEY = "ui.priceAlert.card.keepBoth";
-export const PRICE_ALERT_PAUSE_KEY = "ui.priceAlert.card.pause";
-export const PRICE_ALERT_PAUSE_A11Y_KEY = "ui.priceAlert.card.pauseA11y";
-export const PRICE_ALERT_RESUME_KEY = "ui.priceAlert.card.resume";
-export const PRICE_ALERT_RESUME_A11Y_KEY = "ui.priceAlert.card.resumeA11y";
-export const PRICE_ALERT_DELETE_KEY = "ui.priceAlert.card.delete";
-export const PRICE_ALERT_DELETE_A11Y_KEY = "ui.priceAlert.card.deleteA11y";
+export const PRICE_ALERT_ANY_CONDITION_KEY = 'ui.priceAlert.card.anyCondition';
+export const PRICE_ALERT_SCOPE_LINE_KEY = 'ui.priceAlert.card.scopeLine';
+export const PRICE_ALERT_LIST_SEPARATOR_KEY = 'ui.priceAlert.card.listSeparator';
+export const PRICE_ALERT_OPEN_PRODUCT_KEY = 'ui.priceAlert.card.openProduct';
+export const PRICE_ALERT_SAVED_PRODUCT_KEY = 'ui.priceAlert.card.savedProduct';
+export const PRICE_ALERT_TARGET_PREFIX_KEY = 'ui.priceAlert.card.targetPrefix';
+export const PRICE_ALERT_NOTIFIED_KEY = 'ui.priceAlert.card.notified';
+export const PRICE_ALERT_PAUSED_KEY = 'ui.priceAlert.card.paused';
+export const PRICE_ALERT_SPLIT_EXPLANATION_KEY = 'ui.priceAlert.card.splitExplanation';
+export const PRICE_ALERT_KEEP_SOURCE_KEY = 'ui.priceAlert.card.keepSource';
+export const PRICE_ALERT_MOVE_TO_TARGET_KEY = 'ui.priceAlert.card.moveToTarget';
+export const PRICE_ALERT_KEEP_BOTH_KEY = 'ui.priceAlert.card.keepBoth';
+export const PRICE_ALERT_PAUSE_KEY = 'ui.priceAlert.card.pause';
+export const PRICE_ALERT_PAUSE_A11Y_KEY = 'ui.priceAlert.card.pauseA11y';
+export const PRICE_ALERT_RESUME_KEY = 'ui.priceAlert.card.resume';
+export const PRICE_ALERT_RESUME_A11Y_KEY = 'ui.priceAlert.card.resumeA11y';
+export const PRICE_ALERT_DELETE_KEY = 'ui.priceAlert.card.delete';
+export const PRICE_ALERT_DELETE_A11Y_KEY = 'ui.priceAlert.card.deleteA11y';

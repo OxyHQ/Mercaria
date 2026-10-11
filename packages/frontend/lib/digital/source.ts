@@ -294,9 +294,7 @@ export function digitalBrowseSource(
 }
 
 /** One work's page, by id or slug. */
-export function digitalAssetPageSource(
-  _handle: string,
-): DigitalSurfaceState<DigitalAssetPageView> {
+export function digitalAssetPageSource(_handle: string): DigitalSurfaceState<DigitalAssetPageView> {
   return UNAVAILABLE;
 }
 

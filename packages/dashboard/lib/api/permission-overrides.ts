@@ -2,9 +2,9 @@ import type {
   ApiResponse,
   SetStorePermissionOverrideInput,
   StorePermissionOverride,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/permission-overrides`;
 
@@ -30,7 +30,7 @@ export async function setPermissionOverride(
     input,
   );
   if (!data.success) {
-    throw new Error(data.message ?? data.error ?? "Request failed");
+    throw new Error(data.message ?? data.error ?? 'Request failed');
   }
   return data.data ?? null;
 }

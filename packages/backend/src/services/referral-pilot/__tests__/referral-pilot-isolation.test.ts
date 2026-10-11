@@ -132,7 +132,8 @@ const WALLS: readonly Wall[] = [
   },
   {
     name: 'ranking, search, discovery or a feed',
-    pattern: /from\s+['"][^'"]*(services\/ranking|\.\.\/ranking\/|services\/search|schema\/ranking)[^'"]*['"]/,
+    pattern:
+      /from\s+['"][^'"]*(services\/ranking|\.\.\/ranking\/|services\/search|schema\/ranking)[^'"]*['"]/,
     probe: "import { rankOffers } from '../ranking/score.js';",
   },
   {
@@ -237,7 +238,10 @@ describe('the pilot gate has ONE caller, and it is attribution', () => {
   it('is called from `attributeTouch` and from nowhere in the settlement path', () => {
     for (const dir of SETTLEMENT_DIRS) {
       const offenders = sourceFiles(dir).filter((path) => CALL.test(code(path)));
-      expect(offenders.map((path) => path.split('/').pop()), dir).toEqual([]);
+      expect(
+        offenders.map((path) => path.split('/').pop()),
+        dir,
+      ).toEqual([]);
     }
   });
 
@@ -250,9 +254,9 @@ describe('the pilot gate has ONE caller, and it is attribution', () => {
   });
 
   it('would CATCH a settlement module that started calling it', () => {
-    expect(CALL.test("import { evaluateReferralPilotAdmission } from '../referral-pilot/x.js';")).toBe(
-      true,
-    );
+    expect(
+      CALL.test("import { evaluateReferralPilotAdmission } from '../referral-pilot/x.js';"),
+    ).toBe(true);
   });
 });
 

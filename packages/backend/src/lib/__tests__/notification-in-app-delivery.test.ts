@@ -67,9 +67,9 @@ const USER_ID = 'oxy-user-1';
  */
 function fakeIO(connectedSockets: number) {
   const emit = vi.fn();
-  const fetchSockets = vi.fn().mockResolvedValue(
-    Array.from({ length: connectedSockets }, (_, i) => ({ id: `socket-${i}` })),
-  );
+  const fetchSockets = vi
+    .fn()
+    .mockResolvedValue(Array.from({ length: connectedSockets }, (_, i) => ({ id: `socket-${i}` })));
   return {
     emit,
     fetchSockets,
@@ -105,7 +105,10 @@ describe('in_app delivery status (#364)', () => {
     });
 
     expect(io.to).toHaveBeenCalledWith(`user:${USER_ID}`);
-    expect(io.emit).toHaveBeenCalledWith('notification', expect.objectContaining({ id: 'notification-1' }));
+    expect(io.emit).toHaveBeenCalledWith(
+      'notification',
+      expect.objectContaining({ id: 'notification-1' }),
+    );
     expect(result.deliveryStatus.in_app).toBe('sent');
   });
 

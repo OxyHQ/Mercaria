@@ -15,7 +15,7 @@
  * answers were given under.
  */
 
-import { getLocales } from "expo-localization";
+import { getLocales } from 'expo-localization';
 
 /** A market is an ISO 3166-1 alpha-2 code, which is what the server accepts. */
 export const MARKET_PATTERN = /^[A-Za-z]{2}$/u;
@@ -42,7 +42,7 @@ export function deviceMarket(): string {
   const locales = getLocales();
   for (const locale of locales) {
     const region = locale.regionCode;
-    if (typeof region === "string" && isValidMarket(region)) return normalizeMarket(region);
+    if (typeof region === 'string' && isValidMarket(region)) return normalizeMarket(region);
   }
-  return "";
+  return '';
 }

@@ -248,7 +248,9 @@ export const reviews = pgTable(
     incentiveDisclosure: text({ enum: asEnumValues(REVIEW_INCENTIVE_DISCLOSURES) })
       .notNull()
       .default('none'),
-    status: text({ enum: asEnumValues(REVIEW_STATUSES) }).notNull().default('published'),
+    status: text({ enum: asEnumValues(REVIEW_STATUSES) })
+      .notNull()
+      .default('published'),
     /**
      * When the author last edited the TEXT.
      *
@@ -396,11 +398,7 @@ export const reviews = pgTable(
     uniqueIndex('reviews_eligibility_id_key')
       .on(t.eligibilityId)
       .where(sql`${t.eligibilityId} is not null`),
-    index('reviews_listing_id_status_created_at_idx').on(
-      t.listingId,
-      t.status,
-      t.createdAt.desc(),
-    ),
+    index('reviews_listing_id_status_created_at_idx').on(t.listingId, t.status, t.createdAt.desc()),
     index('reviews_store_id_status_created_at_idx').on(t.storeId, t.status, t.createdAt.desc()),
     index('reviews_seller_oxy_user_id_status_created_at_idx').on(
       t.sellerOxyUserId,
@@ -466,21 +464,30 @@ export const reviewDimensions = pgTable(
 /** Attachments belong to a review, not its product gallery. CASCADE removes
  * meaningless child references when their parent is deleted; moderation still
  * belongs solely to the parent. Oxy owns file IDs and file lifetime. */
-export const reviewMedia = pgTable('review_media', {
-  id: generatedId(),
-  reviewId: text().notNull().references(() => reviews.id, { onDelete: 'cascade' }),
-  fileId: text().notNull(),
-  kind: text({ enum: asEnumValues(REVIEW_MEDIA_KINDS) }).notNull(),
-  position: integer().notNull(),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-}, t => [
-  checkOneOf('review_media_kind_check', t.kind, REVIEW_MEDIA_KINDS),
-  check('review_media_file_id_check', sql`${t.fileId} ~ '^[A-Za-z0-9_-]+$'`),
-  check('review_media_position_check', sql`${t.position} >= 0 and ${t.position} < ${sql.raw(String(REVIEW_MEDIA_LIMIT))}`),
-  uniqueIndex('review_media_review_id_position_key').on(t.reviewId, t.position),
-  uniqueIndex('review_media_review_id_file_id_key').on(t.reviewId, t.fileId),
-]);
+export const reviewMedia = pgTable(
+  'review_media',
+  {
+    id: generatedId(),
+    reviewId: text()
+      .notNull()
+      .references(() => reviews.id, { onDelete: 'cascade' }),
+    fileId: text().notNull(),
+    kind: text({ enum: asEnumValues(REVIEW_MEDIA_KINDS) }).notNull(),
+    position: integer().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf('review_media_kind_check', t.kind, REVIEW_MEDIA_KINDS),
+    check('review_media_file_id_check', sql`${t.fileId} ~ '^[A-Za-z0-9_-]+$'`),
+    check(
+      'review_media_position_check',
+      sql`${t.position} >= 0 and ${t.position} < ${sql.raw(String(REVIEW_MEDIA_LIMIT))}`,
+    ),
+    uniqueIndex('review_media_review_id_position_key').on(t.reviewId, t.position),
+    uniqueIndex('review_media_review_id_file_id_key').on(t.reviewId, t.fileId),
+  ],
+);
 
 /**
  * `review_eligibilities` — a durable grant: this Oxy account may write ONE
@@ -542,7 +549,9 @@ export const reviewEligibilities = pgTable(
      * makes the seam explicit rather than implicit.
      */
     claimId: text(),
-    state: text({ enum: asEnumValues(REVIEW_ELIGIBILITY_STATES) }).notNull().default('open'),
+    state: text({ enum: asEnumValues(REVIEW_ELIGIBILITY_STATES) })
+      .notNull()
+      .default('open'),
     consumedAt: timestamptz(),
     revokedAt: timestamptz(),
     revokedReason: text(),
@@ -633,14 +642,14 @@ export const reviewHelpfulVotes = pgTable(
   'review_helpful_votes',
   {
     id: generatedId(),
-    reviewId: text().notNull().references(() => reviews.id, { onDelete: 'cascade' }),
+    reviewId: text()
+      .notNull()
+      .references(() => reviews.id, { onDelete: 'cascade' }),
     /** Oxy owns the voter identity; there is no local users table. */
     oxyUserId: text().notNull(),
     createdAt: createdAt(),
   },
-  (t) => [
-    uniqueIndex('review_helpful_votes_review_user_key').on(t.reviewId, t.oxyUserId),
-  ],
+  (t) => [uniqueIndex('review_helpful_votes_review_user_key').on(t.reviewId, t.oxyUserId)],
 );
 
 /**
@@ -808,12 +817,15 @@ export const reviewTargetMigrations = pgTable(
       REVIEW_TARGET_TYPES,
     ),
     checkOneOf('review_target_migrations_to_scope_check', t.toScope, REVIEW_SCOPES),
-    checkOneOf('review_target_migrations_to_target_type_check', t.toTargetType, REVIEW_TARGET_TYPES),
     checkOneOf(
-      'review_target_migrations_actor_kind_check',
-      t.actorKind,
-      ['migration', 'operator'] as const,
+      'review_target_migrations_to_target_type_check',
+      t.toTargetType,
+      REVIEW_TARGET_TYPES,
     ),
+    checkOneOf('review_target_migrations_actor_kind_check', t.actorKind, [
+      'migration',
+      'operator',
+    ] as const),
     /** A refusal names no destination; every other action names all three. */
     check(
       'review_target_migrations_destination_check',
@@ -842,4 +854,3 @@ export const reviewTargetMigrations = pgTable(
     index('review_target_migrations_action_at_idx').on(t.action, t.at.desc()),
   ],
 );
-

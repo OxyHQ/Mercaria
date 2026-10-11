@@ -1,28 +1,32 @@
-import React from "react";
-import { Pressable, View } from "react-native";
-import { Plus, X } from "lucide-react-native";
-import { Badge } from "@oxy.so/bloom/badge";
-import type { AuthoringField, AuthoringSchema, ProductTypeFieldRequirement } from "@mercaria/shared-types";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { Label } from "@oxy.so/bloom/label";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import { Switch } from "@oxy.so/bloom/switch";
-import { useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { Pressable, View } from 'react-native';
+import { Plus, X } from 'lucide-react-native';
+import { Badge } from '@oxy.so/bloom/badge';
+import type {
+  AuthoringField,
+  AuthoringSchema,
+  ProductTypeFieldRequirement,
+} from '@mercaria/shared-types';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { Label } from '@oxy.so/bloom/label';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { Switch } from '@oxy.so/bloom/switch';
+import { useTranslation } from '@/lib/i18n';
 import {
   emptyEntry,
   expectedEntryKind,
   isRepeatable,
   maxEntriesFor,
   type DraftFieldEntry,
-} from "@/lib/authoring/answers";
-import { unitAffordance } from "@/lib/authoring/controls";
-import { checkFieldEntries, type InlineFinding } from "@/lib/authoring/inline-validation";
-import { findingMessageKey, type LocatedFinding } from "@/lib/authoring/findings";
-import { COMPONENT_AXIS_LABEL_KEYS } from "@/lib/authoring/labels";
-import { authoringLabel } from "@/lib/authoring/untranslated";
-import { ValuePicker, type PickerOption } from "./ValuePicker";
-import { CanonicalReferenceField } from "./CanonicalReferenceField";
+} from '@/lib/authoring/answers';
+import { unitAffordance } from '@/lib/authoring/controls';
+import { checkFieldEntries, type InlineFinding } from '@/lib/authoring/inline-validation';
+import { findingMessageKey, type LocatedFinding } from '@/lib/authoring/findings';
+import { COMPONENT_AXIS_LABEL_KEYS } from '@/lib/authoring/labels';
+import { authoringLabel } from '@/lib/authoring/untranslated';
+import { ValuePicker, type PickerOption } from './ValuePicker';
+import { CanonicalReferenceField } from './CanonicalReferenceField';
 
 interface SchemaFieldProps {
   readonly field: AuthoringField;
@@ -74,13 +78,13 @@ export function SchemaField({
   // reason and no longer rendered BARE — a form whose untranslated labels all
   // read alike is a form nobody can fill in, so the identifier survives inside
   // an affordance that says it is one.
-  const label = authoringLabel(text?.label, { kind: "key", key: field.key }, t).text;
+  const label = authoringLabel(text?.label, { kind: 'key', key: field.key }, t).text;
   const help = text?.help?.value ?? null;
-  const placeholder = text?.placeholder?.value ?? "";
+  const placeholder = text?.placeholder?.value ?? '';
 
   const inline = checkFieldEntries(field, requirement, entries);
   const findings: readonly (InlineFinding | LocatedFinding)[] = [...inline, ...serverFindings];
-  const invalid = findings.some((finding) => finding.severity === "error");
+  const invalid = findings.some((finding) => finding.severity === 'error');
   const max = maxEntriesFor(field);
   const canAddMore = isRepeatable(field) && (max === null || entries.length < max);
 
@@ -98,7 +102,10 @@ export function SchemaField({
 
       <View className="gap-2">
         {entries.map((entry, index) => (
-          <View key={`${field.id}-${entry.ordinal}-${index}`} className="flex-row items-start gap-2">
+          <View
+            key={`${field.id}-${entry.ordinal}-${index}`}
+            className="flex-row items-start gap-2"
+          >
             <View className="flex-1">
               <EntryControl
                 field={field}
@@ -114,7 +121,7 @@ export function SchemaField({
             {entries.length > 1 && isRepeatable(field) ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t("products.wizard.fields.removeValue")}
+                accessibilityLabel={t('products.wizard.fields.removeValue')}
                 disabled={disabled}
                 onPress={() => onChange(entries.filter((_, position) => position !== index))}
                 className="mt-2.5 active:opacity-70"
@@ -129,14 +136,14 @@ export function SchemaField({
       {canAddMore ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("products.wizard.fields.addValue")}
+          accessibilityLabel={t('products.wizard.fields.addValue')}
           disabled={disabled}
           onPress={() => onChange([...entries, emptyEntry(field, entries.length)])}
           className="mt-1 flex-row items-center gap-1.5 self-start active:opacity-70"
         >
           <Plus size={14} color={colors.primary} />
           <Text className="text-sm font-medium text-primary">
-            {t("products.wizard.fields.addValue")}
+            {t('products.wizard.fields.addValue')}
           </Text>
         </Pressable>
       ) : null}
@@ -145,9 +152,9 @@ export function SchemaField({
         <Text
           key={`${finding.code}-${index}`}
           className={
-            finding.severity === "error"
-              ? "text-xs text-destructive"
-              : "text-xs text-muted-foreground"
+            finding.severity === 'error'
+              ? 'text-xs text-destructive'
+              : 'text-xs text-muted-foreground'
           }
         >
           {t(findingMessageKey(finding.code))}
@@ -160,23 +167,23 @@ export function SchemaField({
 /** How hard the schema is asking. `optional` says nothing, deliberately. */
 function RequirementBadge({ requirement }: { requirement: ProductTypeFieldRequirement }) {
   const { t } = useTranslation();
-  if (requirement === "required") {
+  if (requirement === 'required') {
     return (
       <Badge
         size="label-small"
         variant="subtle"
         color="error"
-        content={t("products.wizard.fields.required")}
+        content={t('products.wizard.fields.required')}
       />
     );
   }
-  if (requirement === "recommended") {
+  if (requirement === 'recommended') {
     return (
       <Badge
         size="label-small"
         variant="subtle"
         color="default"
-        content={t("products.wizard.fields.recommended")}
+        content={t('products.wizard.fields.recommended')}
       />
     );
   }
@@ -217,7 +224,7 @@ function EntryControl({
   const { t } = useTranslation();
   const kind = expectedEntryKind(field);
 
-  if (kind === "boolean" && entry.kind === "boolean") {
+  if (kind === 'boolean' && entry.kind === 'boolean') {
     return (
       <View className="h-11 flex-row items-center gap-3">
         <Switch
@@ -227,13 +234,13 @@ function EntryControl({
           accessibilityLabel={label}
         />
         <Text className="text-sm text-muted-foreground">
-          {entry.value ? t("products.wizard.fields.yes") : t("products.wizard.fields.no")}
+          {entry.value ? t('products.wizard.fields.yes') : t('products.wizard.fields.no')}
         </Text>
       </View>
     );
   }
 
-  if (kind === "controlled_value" && entry.kind === "controlled_value") {
+  if (kind === 'controlled_value' && entry.kind === 'controlled_value') {
     const options: readonly PickerOption[] = field.controlledValues.map((value) => ({
       id: value.id,
       // The localized label, keyed by the value's own id. The CANONICAL string
@@ -243,8 +250,11 @@ function EntryControl({
       // #740: `value.value` is a machine token (`titanium_grey`), not a word a
       // shopper reads — the seed carries a separate label for that — so an
       // untranslated option is MARKED rather than presented as its own name.
-      label: authoringLabel(schema.text.values[value.id]?.label, { kind: "key", key: value.value }, t)
-        .text,
+      label: authoringLabel(
+        schema.text.values[value.id]?.label,
+        { kind: 'key', key: value.value },
+        t,
+      ).text,
       detail: value.value,
     }));
     return (
@@ -252,7 +262,7 @@ function EntryControl({
         options={options}
         selectedId={entry.enumValueId.length === 0 ? null : entry.enumValueId}
         onSelect={(id) => onChange({ ...entry, enumValueId: id })}
-        placeholder={placeholder.length > 0 ? placeholder : t("products.wizard.values.choose")}
+        placeholder={placeholder.length > 0 ? placeholder : t('products.wizard.values.choose')}
         title={label}
         disabled={disabled}
         invalid={invalid}
@@ -260,7 +270,7 @@ function EntryControl({
     );
   }
 
-  if (kind === "canonical_reference" && entry.kind === "canonical_reference") {
+  if (kind === 'canonical_reference' && entry.kind === 'canonical_reference') {
     return (
       <CanonicalReferenceField
         entry={entry}
@@ -272,12 +282,10 @@ function EntryControl({
     );
   }
 
-  if (kind === "number" && entry.kind === "number") {
+  if (kind === 'number' && entry.kind === 'number') {
     const unit = unitAffordance(field);
     const axisLabel =
-      entry.componentAxis === null
-        ? null
-        : t(COMPONENT_AXIS_LABEL_KEYS[entry.componentAxis]);
+      entry.componentAxis === null ? null : t(COMPONENT_AXIS_LABEL_KEYS[entry.componentAxis]);
     return (
       <View className="gap-1">
         {axisLabel === null ? null : (
@@ -298,8 +306,8 @@ function EntryControl({
           {!unit.present ? null : (
             <View className="w-24">
               <TextFieldInput
-                label={t("products.wizard.fields.unitLabel")}
-                value={entry.unit ?? ""}
+                label={t('products.wizard.fields.unitLabel')}
+                value={entry.unit ?? ''}
                 onValueChange={(unitText) => onChange({ ...entry, unit: unitText })}
                 placeholder={unit.placeholder || null}
                 disabled={disabled}
@@ -311,7 +319,7 @@ function EntryControl({
     );
   }
 
-  if (entry.kind === "text") {
+  if (entry.kind === 'text') {
     const long =
       field.validation.maxLength !== null && field.validation.maxLength > TEXTAREA_THRESHOLD;
     if (long) {
@@ -344,7 +352,7 @@ function EntryControl({
   // the value is still stored and the upgrade preview is what explains it.
   return (
     <Text className="py-2 text-sm text-muted-foreground">
-      {t("products.wizard.fields.unsupportedEntry")}
+      {t('products.wizard.fields.unsupportedEntry')}
     </Text>
   );
 }

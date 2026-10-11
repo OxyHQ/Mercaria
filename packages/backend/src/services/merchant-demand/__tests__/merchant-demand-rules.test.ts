@@ -132,13 +132,19 @@ describe('the preview partition is TOTAL — a metric in neither list fails', ()
 
 describe('disclosure: unknown is never zero and a bound is never published', () => {
   it('a count at the floor is measured; one below it is a STATE with no number', () => {
-    const at = discloseDemandCount(MERCHANT_DEMAND_AGGREGATE_MIN_COUNT, MERCHANT_DEMAND_AGGREGATE_MIN_COUNT);
+    const at = discloseDemandCount(
+      MERCHANT_DEMAND_AGGREGATE_MIN_COUNT,
+      MERCHANT_DEMAND_AGGREGATE_MIN_COUNT,
+    );
     expect(at.state).toBe('measured');
     if (at.state === 'measured' && at.measure.unit === 'count') {
       expect(at.measure.count).toBe(MERCHANT_DEMAND_AGGREGATE_MIN_COUNT);
     }
 
-    const below = discloseDemandCount(MERCHANT_DEMAND_AGGREGATE_MIN_COUNT - 1, MERCHANT_DEMAND_AGGREGATE_MIN_COUNT);
+    const below = discloseDemandCount(
+      MERCHANT_DEMAND_AGGREGATE_MIN_COUNT - 1,
+      MERCHANT_DEMAND_AGGREGATE_MIN_COUNT,
+    );
     expect(below.state).toBe('suppressed');
     // The suppressed branch has NO count property to read — a bound is a
     // disclosure too, so "under 10" is not offered either.
@@ -199,7 +205,10 @@ describe('preview rounding rounds DOWN to two significant figures', () => {
   });
 
   it('the preview re-states a suppression at ITS OWN floor, never the dashboard’s', () => {
-    const suppressed = toPreviewValue({ state: 'suppressed', floor: MERCHANT_DEMAND_AGGREGATE_MIN_COUNT });
+    const suppressed = toPreviewValue({
+      state: 'suppressed',
+      floor: MERCHANT_DEMAND_AGGREGATE_MIN_COUNT,
+    });
     expect(suppressed).toEqual({ state: 'suppressed', floor: MERCHANT_DEMAND_PREVIEW_MIN_COUNT });
   });
 
@@ -278,7 +287,9 @@ describe('acquisition scoring: an unmeasured input is left OUT of the mean', () 
     // Reading the missing input as zero would give 8,333. Leaving it out keeps
     // the score at what the measured inputs actually say.
     expect(partial.scoreBps).toBe(complete.scoreBps);
-    expect(partial.unmeasuredInputs).toEqual([{ input: 'connector_fit', reason: 'collection_disabled' }]);
+    expect(partial.unmeasuredInputs).toEqual([
+      { input: 'connector_fit', reason: 'collection_disabled' },
+    ]);
   });
 
   it('nothing measured scores zero AND reports every input unmeasured', () => {
@@ -345,9 +356,7 @@ describe('the two prohibition vocabularies are DISJOINT', () => {
   });
 
   it('#86 privacy 7 is present as a VALUE — payment onboarding is named', () => {
-    expect(MERCHANT_ACQUISITION_FORBIDDEN_CONTACT_SOURCES).toContain(
-      'payment_onboarding_identity',
-    );
+    expect(MERCHANT_ACQUISITION_FORBIDDEN_CONTACT_SOURCES).toContain('payment_onboarding_identity');
     expect(MERCHANT_ACQUISITION_FORBIDDEN_CONTACT_SOURCES).toContain('stripe_connected_account');
   });
 });

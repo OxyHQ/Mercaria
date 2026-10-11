@@ -53,9 +53,11 @@ async function main(): Promise<void> {
   await connectPostgres();
 
   const store = await findStoreByHandle(E2E_STORE_HANDLE);
-  if (!store) throw new Error(`No store '${E2E_STORE_HANDLE}'. Run run-woocommerce-worker.ts first.`);
+  if (!store)
+    throw new Error(`No store '${E2E_STORE_HANDLE}'. Run run-woocommerce-worker.ts first.`);
   const connection = await findConnectionByProvider(store.id, 'woocommerce');
-  if (!connection) throw new Error('No WooCommerce connection. Run run-woocommerce-worker.ts first.');
+  if (!connection)
+    throw new Error('No WooCommerce connection. Run run-woocommerce-worker.ts first.');
 
   const redisConfigured = Boolean(config.redisUrl);
   let redis: Redis | null = null;
@@ -74,24 +76,22 @@ async function main(): Promise<void> {
   const depthAfter: QueueDepth | null = redis ? await readQueueDepth(redis) : null;
   const runAtReturn = await latestTerminalRun(connection.id, runsBefore);
 
-  const jobsAdded =
-    depthBefore && depthAfter ? depthAfter.total - depthBefore.total : null;
+  const jobsAdded = depthBefore && depthAfter ? depthAfter.total - depthBefore.total : null;
 
   // The discriminator. An inline path AWAITS the backfill, so by the time the
   // call returns a terminal run for it MUST exist; a queued one returns with the
   // worker still to pick the job up, so it must NOT.
   const terminalRunExistedAtReturn = runAtReturn !== null;
 
-  const verdict =
-    !redisConfigured
-      ? terminalRunExistedAtReturn
-        ? 'INLINE (control): no Redis, the call blocked and a terminal run already existed on return'
-        : 'INLINE-UNPROVEN: no Redis but no terminal run on return — investigate'
-      : jobsAdded !== null && jobsAdded > 0 && !terminalRunExistedAtReturn
-        ? 'QUEUED: a job appeared in Redis AND the call returned before any terminal run existed'
-        : jobsAdded !== null && jobsAdded > 0
-          ? 'AMBIGUOUS: a job appeared, but a terminal run also existed on return'
-          : 'NOT PROVEN: no job appeared in the sync queue';
+  const verdict = !redisConfigured
+    ? terminalRunExistedAtReturn
+      ? 'INLINE (control): no Redis, the call blocked and a terminal run already existed on return'
+      : 'INLINE-UNPROVEN: no Redis but no terminal run on return — investigate'
+    : jobsAdded !== null && jobsAdded > 0 && !terminalRunExistedAtReturn
+      ? 'QUEUED: a job appeared in Redis AND the call returned before any terminal run existed'
+      : jobsAdded !== null && jobsAdded > 0
+        ? 'AMBIGUOUS: a job appeared, but a terminal run also existed on return'
+        : 'NOT PROVEN: no job appeared in the sync queue';
 
   process.stdout.write(
     `${JSON.stringify(

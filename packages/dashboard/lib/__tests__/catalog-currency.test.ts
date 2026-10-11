@@ -123,9 +123,10 @@ describe('a catalog price names the store currency, not a literal', () => {
     for (const name of ['new.tsx', '[id].tsx']) {
       const file = files.find((f) => f.path === name);
       expect(file, `${name} is gone`).toBeDefined();
-      expect(sources.test(stripComments(file?.text ?? '')), `${name} names no currency source`).toBe(
-        true,
-      );
+      expect(
+        sources.test(stripComments(file?.text ?? '')),
+        `${name} names no currency source`,
+      ).toBe(true);
     }
   });
 
@@ -133,14 +134,14 @@ describe('a catalog price names the store currency, not a literal', () => {
     // The detector, driven. Without this the case above cannot tell "clean" from
     // "the patterns match nothing".
     expect(
-      offenders([
-        { path: 'fake.tsx', text: 'price: { amount: n, currency: "FAIR" },' },
-      ]),
+      offenders([{ path: 'fake.tsx', text: 'price: { amount: n, currency: "FAIR" },' }]),
     ).toHaveLength(1);
     expect(
       offenders([{ path: 'fake.tsx', text: 'toMajorString(v.price.amount, "FAIR")' }]),
     ).toHaveLength(1);
-    expect(offenders([{ path: 'fake.tsx', text: 'const m = toFairMinor(price);' }])).toHaveLength(1);
+    expect(offenders([{ path: 'fake.tsx', text: 'const m = toFairMinor(price);' }])).toHaveLength(
+      1,
+    );
 
     // …and the other polarity: passing a currency through does not trip it.
     expect(

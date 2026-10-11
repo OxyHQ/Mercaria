@@ -256,9 +256,18 @@ describe('the activation domain cannot reach what it must not', () => {
     // the others carried the number.
     const from = (prefix: string) =>
       ACTIVATION_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/merchant-activation/'), 'the service walk found nothing').toBeGreaterThanOrEqual(9);
-    expect(from('db/merchantActivation/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(3);
-    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(2);
+    expect(
+      from('services/merchant-activation/'),
+      'the service walk found nothing',
+    ).toBeGreaterThanOrEqual(9);
+    expect(
+      from('db/merchantActivation/'),
+      'the repository walk found nothing',
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      httpSurface().length,
+      'the HTTP surface derivation found nothing',
+    ).toBeGreaterThanOrEqual(2);
     expect(ACTIVATION_PATHS.length).toBeGreaterThanOrEqual(14);
 
     // The whole-tree assertion (#609). Nothing whose PATH names this domain may
@@ -282,10 +291,15 @@ describe('the activation domain cannot reach what it must not', () => {
     const planted = 'lib/merchant-activation-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'merchant-activation-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'merchant-activation-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
-    expect(seeded, 'the sweep did not reach a planted module').toContain('lib/merchant-activation-cache.ts');
+    expect(seeded, 'the sweep did not reach a planted module').toContain(
+      'lib/merchant-activation-cache.ts',
+    );
     expect(
       seeded.filter((path) => !ACTIVATION_PATHS.includes(path)).sort(),
       'a module the population does not cover was NOT reported outside it — the empty result ' +
@@ -302,18 +316,22 @@ describe('the activation domain cannot reach what it must not', () => {
     // comment claims its shared comparison closes this: replacing that wall's
     // population with `new Set(swept)` leaves all ten of its tests green. What
     // bites is naming modules that EXIST and belong to somebody else.
-    assertEachOf([
-      'controllers/orders.controller.ts',
-      'routes/cart.ts',
-      'db/schema/orders.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(ACTIVATION_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'controllers/orders.controller.ts',
+        'routes/cart.ts',
+        'db/schema/orders.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(ACTIVATION_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
     // EXACT: an unbounded exemption list lets any number of readers ride in
     // behind the two somebody justified (#448).
     expect(TRAIL_READERS.length, 'a fourth trail reader was exempted').toBe(3);
@@ -414,26 +432,28 @@ describe('the activation domain cannot reach what it must not', () => {
     expect(STORAGE_REFERENCE.test('const row = await findStoreById(id);')).toBe(true);
     expect(STORAGE_REFERENCE.test('const outcome = derive(facts);')).toBe(false);
 
-    expect(CAPABILITY_TRAIL_REFERENCE.test('const seen = await readLatestCapabilityStates(tx, id);')).toBe(
-      true,
-    );
-    expect(CAPABILITY_TRAIL_REFERENCE.test('const caps = deriveCapabilities(results, blocking);')).toBe(
-      false,
-    );
+    expect(
+      CAPABILITY_TRAIL_REFERENCE.test('const seen = await readLatestCapabilityStates(tx, id);'),
+    ).toBe(true);
+    expect(
+      CAPABILITY_TRAIL_REFERENCE.test('const caps = deriveCapabilities(results, blocking);'),
+    ).toBe(false);
 
     expect(MERCHANT_FORBIDDEN_FIELD_REFERENCE.test('platformHoldReason?: string;')).toBe(true);
     expect(MERCHANT_FORBIDDEN_FIELD_REFERENCE.test('capabilities?: string[];')).toBe(true);
     expect(MERCHANT_FORBIDDEN_FIELD_REFERENCE.test('nativeCheckoutState?: string;')).toBe(true);
     // The two fields a merchant legitimately sends must NOT trip it.
-    expect(MERCHANT_FORBIDDEN_FIELD_REFERENCE.test('nativeCheckoutIntent?: MerchantCheckoutIntent;')).toBe(
-      false,
-    );
+    expect(
+      MERCHANT_FORBIDDEN_FIELD_REFERENCE.test('nativeCheckoutIntent?: MerchantCheckoutIntent;'),
+    ).toBe(false);
     expect(MERCHANT_FORBIDDEN_FIELD_REFERENCE.test('supportEmail?: string | null;')).toBe(false);
 
-    expect(PAYMENT_REDERIVATION_REFERENCE.test('if (account.chargesEnabled) return true;')).toBe(true);
-    expect(PAYMENT_REDERIVATION_REFERENCE.test('const ready = await isSellerPaymentReady(key);')).toBe(
-      false,
+    expect(PAYMENT_REDERIVATION_REFERENCE.test('if (account.chargesEnabled) return true;')).toBe(
+      true,
     );
+    expect(
+      PAYMENT_REDERIVATION_REFERENCE.test('const ready = await isSellerPaymentReady(key);'),
+    ).toBe(false);
 
     expect(RANKING_REFERENCE.test("import { rankOffers } from '../ranking/score.js';")).toBe(true);
     expect(RANKING_REFERENCE.test('const state = projectActivationState(derived);')).toBe(false);

@@ -63,7 +63,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+  await new Promise<void>((resolve, reject) =>
+    server.close((err) => (err ? reject(err) : resolve())),
+  );
 });
 
 async function call(
@@ -80,13 +82,17 @@ async function call(
 }
 
 const validProducts = {
-  products: [{ externalId: 'woo-1', title: 'T', variants: [{ price: { amount: 100, currency: 'EUR' } }] }],
+  products: [
+    { externalId: 'woo-1', title: 'T', variants: [{ price: { amount: 100, currency: 'EUR' } }] },
+  ],
 };
 const validInventory = { items: [{ externalId: 'woo-1', available: 3 }] };
 
 describe('channel-ingest authz — editors lack channels:write (403)', () => {
   it('403s editors on connect-push', async () => {
-    expect(await call('/woocommerce/connect-push', 'editor', { shopDomain: 'shop.example.com' })).toBe(403);
+    expect(
+      await call('/woocommerce/connect-push', 'editor', { shopDomain: 'shop.example.com' }),
+    ).toBe(403);
   });
   it('403s editors on ingest products', async () => {
     expect(await call(`/${CONNECTION_ID}/ingest/products`, 'editor', validProducts)).toBe(403);
@@ -104,7 +110,9 @@ describe('channel-ingest authz — a non-member is blocked (403)', () => {
 
 describe('channel-ingest authz — admins pass the guard (200)', () => {
   it('lets an admin connect-push (reaches the mocked service)', async () => {
-    expect(await call('/woocommerce/connect-push', 'admin', { shopDomain: 'shop.example.com' })).toBe(200);
+    expect(
+      await call('/woocommerce/connect-push', 'admin', { shopDomain: 'shop.example.com' }),
+    ).toBe(200);
   });
   it('lets an admin ingest products', async () => {
     expect(await call(`/${CONNECTION_ID}/ingest/products`, 'admin', validProducts)).toBe(200);
@@ -124,7 +132,9 @@ describe('channel-ingest validation (admin, past the guard)', () => {
   it('400s a product variant with an unsupported currency', async () => {
     expect(
       await call(`/${CONNECTION_ID}/ingest/products`, 'admin', {
-        products: [{ externalId: 'x', title: 'T', variants: [{ price: { amount: 1, currency: 'XYZ' } }] }],
+        products: [
+          { externalId: 'x', title: 'T', variants: [{ price: { amount: 1, currency: 'XYZ' } }] },
+        ],
       }),
     ).toBe(400);
   });

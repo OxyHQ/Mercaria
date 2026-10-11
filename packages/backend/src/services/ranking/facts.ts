@@ -286,7 +286,10 @@ async function resolveSubjectBrandId(
  * callback and build facts only for the offers it admits — a restricted
  * listing's merchant rating is not something this surface should be reading.
  */
-export function buildOfferRankingFacts(offer: Offer, context: RankingFactContext): OfferRankingFacts {
+export function buildOfferRankingFacts(
+  offer: Offer,
+  context: RankingFactContext,
+): OfferRankingFacts {
   const itemPrice = convertOfferMoney(offer.price, context.comparisonCurrency, context.rates);
   const deliveryCost = convertOfferMoney(
     offer.delivery.known ? offer.delivery.cost : undefined,
@@ -294,7 +297,8 @@ export function buildOfferRankingFacts(offer: Offer, context: RankingFactContext
     context.rates,
   );
 
-  const rating = offer.merchantId === undefined ? undefined : context.merchantRatings.get(offer.merchantId);
+  const rating =
+    offer.merchantId === undefined ? undefined : context.merchantRatings.get(offer.merchantId);
   const pickup = resolvePickupProximity({
     offerId: offer.id,
     pickupAvailable: offer.delivery.pickup === 'available',
@@ -318,7 +322,9 @@ export function buildOfferRankingFacts(offer: Offer, context: RankingFactContext
       : {}),
     ...(condition === undefined ? {} : { condition }),
     ...(conditionGroup === undefined ? {} : { conditionGroup }),
-    ...(rating === undefined ? {} : { merchantRating: rating.rating, merchantReviewCount: rating.count }),
+    ...(rating === undefined
+      ? {}
+      : { merchantRating: rating.rating, merchantReviewCount: rating.count }),
     ...(offer.returnPolicy?.windowDays === undefined
       ? {}
       : { returnWindowDays: offer.returnPolicy.windowDays }),
@@ -384,6 +390,8 @@ export function dominanceSubjectFor(
     offerId: offer.id,
     ...(sourceId === undefined ? {} : { sourceId }),
     ...(offer.merchantId === undefined ? {} : { merchantId: offer.merchantId }),
-    ...(offer.affiliate?.network === undefined ? {} : { affiliateNetwork: offer.affiliate.network }),
+    ...(offer.affiliate?.network === undefined
+      ? {}
+      : { affiliateNetwork: offer.affiliate.network }),
   };
 }

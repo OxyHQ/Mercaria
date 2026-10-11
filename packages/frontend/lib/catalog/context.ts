@@ -13,10 +13,7 @@ import { useMemo } from 'react';
 import { getLocales } from 'expo-localization';
 import { useTranslation } from '@/lib/i18n';
 import { useFx } from '@mercaria/ui';
-import {
-  resolveCatalogRequestContext,
-  type CatalogRequestContext,
-} from './request-context';
+import { resolveCatalogRequestContext, type CatalogRequestContext } from './request-context';
 
 /**
  * Resolve the six dimensions for this render.

@@ -47,16 +47,18 @@ export function checkLocation(value: unknown, where: string): Record<string, unk
   exactKeys(location['ref'], LOCATION_KEYS.locationRef, `${where}.ref`);
   const store = exactKeys(location['store'], LOCATION_KEYS.locationStore, `${where}.store`);
   exactKeys(store['ref'], KEYS.storeRef, `${where}.store.ref`);
-  if (location['pickup'] !== null) exactKeys(location['pickup'], LOCATION_KEYS.pickup, `${where}.pickup`);
+  if (location['pickup'] !== null)
+    exactKeys(location['pickup'], LOCATION_KEYS.pickup, `${where}.pickup`);
   expect(location['discoverable']).toBeTypeOf('boolean');
   return location;
 }
 
 /** A location product's key set: `exactQuantity` exactly when the location discloses a fresh count. */
 export function checkLocationProduct(value: unknown, where: string): Record<string, unknown> {
-  const keys = typeof value === 'object' && value !== null && 'exactQuantity' in value
-    ? [...LOCATION_KEYS.locationProduct, 'exactQuantity']
-    : LOCATION_KEYS.locationProduct;
+  const keys =
+    typeof value === 'object' && value !== null && 'exactQuantity' in value
+      ? [...LOCATION_KEYS.locationProduct, 'exactQuantity']
+      : LOCATION_KEYS.locationProduct;
   const item = exactKeys(value, keys, where);
   exactKeys(item['product'], KEYS.summary, `${where}.product`);
   expect(['in_stock', 'low_stock', 'out_of_stock']).toContain(item['availability']);
@@ -130,7 +132,11 @@ export function createLocationWorld() {
   /** Stale: two hours old against that hour. */
   const STALE = new Date(Date.now() - 2 * 3_600_000);
 
-  async function insertStore(db: Database, label: string, status: 'active' | 'suspended'): Promise<string> {
+  async function insertStore(
+    db: Database,
+    label: string,
+    status: 'active' | 'suspended',
+  ): Promise<string> {
     const [row] = await db
       .insert(stores)
       .values({
@@ -183,7 +189,9 @@ export function createLocationWorld() {
       publishedAt: input.publishedAt,
       pickupOffered: input.pickupOffered ?? true,
       pickupInstructions: input.pickupOffered === false ? null : 'Ring at the side door',
-      ...(input.paused ? { pickupPausedAt: new Date(), pickupPauseReason: SENTINEL.pauseReason } : {}),
+      ...(input.paused
+        ? { pickupPausedAt: new Date(), pickupPauseReason: SENTINEL.pauseReason }
+        : {}),
       ...(input.restricted
         ? {
             restrictedAt: new Date(),
@@ -262,9 +270,16 @@ export function createLocationWorld() {
       name: `${SENTINEL.placeName} ${label}`,
       latitude: 41.4036,
       longitude: 2.1744,
-      address: { street: SENTINEL.placeStreet, houseNumber: '7', city: 'Barcelona', countryCode: 'ES' },
+      address: {
+        street: SENTINEL.placeStreet,
+        houseNumber: '7',
+        city: 'Barcelona',
+        countryCode: 'ES',
+      },
       timezone: 'Europe/Madrid',
-      openingHours: { intervals: [1, 2, 3, 4, 5].map((day) => ({ day, opens: '09:00', closes: '20:00' })) },
+      openingHours: {
+        intervals: [1, 2, 3, 4, 5].map((day) => ({ day, opens: '09:00', closes: '20:00' })),
+      },
       storeLinks: [{ locationId, verification: 'business_asserted' }],
       ...overrides,
     };
@@ -274,12 +289,23 @@ export function createLocationWorld() {
   function resetPlaces(goway: FakeGoWay): void {
     goway.places.clear();
     goway.gone.clear();
-    for (const label of ['linked', 'paused', 'noPickup', 'withdrawn', 'draftAfter', 'restricted', 'inactive', 'inSuspendedStore'] as const) {
+    for (const label of [
+      'linked',
+      'paused',
+      'noPickup',
+      'withdrawn',
+      'draftAfter',
+      'restricted',
+      'inactive',
+      'inSuspendedStore',
+    ] as const) {
       goway.places.set(placeOf(label), place(label, ids[label]));
     }
     goway.places.set(
       placeOf('unvouched'),
-      place('unvouched', ids.unvouched, { storeLinks: [{ locationId: ids.unvouched, verification: 'community_reported' }] }),
+      place('unvouched', ids.unvouched, {
+        storeLinks: [{ locationId: ids.unvouched, verification: 'community_reported' }],
+      }),
     );
   }
 
@@ -288,7 +314,12 @@ export function createLocationWorld() {
     ids.suspendedStore = await insertStore(db, 'suspended', 'suspended');
     const published = { state: 'published', publishedAt: PUBLISHED_AT } as const;
     ids.linked = await insertLocation(db, { storeId: ids.store, label: 'linked', ...published });
-    ids.paused = await insertLocation(db, { storeId: ids.store, label: 'paused', ...published, paused: true });
+    ids.paused = await insertLocation(db, {
+      storeId: ids.store,
+      label: 'paused',
+      ...published,
+      paused: true,
+    });
     ids.noPickup = await insertLocation(db, {
       storeId: ids.store,
       label: 'noPickup',
@@ -296,34 +327,94 @@ export function createLocationWorld() {
       pickupOffered: false,
       disclosesExactStock: true,
     });
-    ids.draftNever = await insertLocation(db, { storeId: ids.store, label: 'draftNever', state: 'draft', publishedAt: null });
-    ids.withdrawn = await insertLocation(db, { storeId: ids.store, label: 'withdrawn', state: 'withdrawn', publishedAt: PUBLISHED_AT });
-    ids.draftAfter = await insertLocation(db, { storeId: ids.store, label: 'draftAfter', state: 'draft', publishedAt: PUBLISHED_AT });
-    ids.restricted = await insertLocation(db, { storeId: ids.store, label: 'restricted', ...published, restricted: true });
-    ids.inactive = await insertLocation(db, { storeId: ids.store, label: 'inactive', ...published, active: false });
-    ids.unvouched = await insertLocation(db, { storeId: ids.store, label: 'unvouched', ...published });
-    ids.noPlace = await insertLocation(db, { storeId: ids.store, label: 'noPlace', ...published, placed: false });
-    ids.inSuspendedStore = await insertLocation(db, { storeId: ids.suspendedStore, label: 'inSuspendedStore', ...published });
+    ids.draftNever = await insertLocation(db, {
+      storeId: ids.store,
+      label: 'draftNever',
+      state: 'draft',
+      publishedAt: null,
+    });
+    ids.withdrawn = await insertLocation(db, {
+      storeId: ids.store,
+      label: 'withdrawn',
+      state: 'withdrawn',
+      publishedAt: PUBLISHED_AT,
+    });
+    ids.draftAfter = await insertLocation(db, {
+      storeId: ids.store,
+      label: 'draftAfter',
+      state: 'draft',
+      publishedAt: PUBLISHED_AT,
+    });
+    ids.restricted = await insertLocation(db, {
+      storeId: ids.store,
+      label: 'restricted',
+      ...published,
+      restricted: true,
+    });
+    ids.inactive = await insertLocation(db, {
+      storeId: ids.store,
+      label: 'inactive',
+      ...published,
+      active: false,
+    });
+    ids.unvouched = await insertLocation(db, {
+      storeId: ids.store,
+      label: 'unvouched',
+      ...published,
+    });
+    ids.noPlace = await insertLocation(db, {
+      storeId: ids.store,
+      label: 'noPlace',
+      ...published,
+      placed: false,
+    });
+    ids.inSuspendedStore = await insertLocation(db, {
+      storeId: ids.suspendedStore,
+      label: 'inSuspendedStore',
+      ...published,
+    });
 
     ids.inStock = await insertStock(db, {
       label: 'instock',
       price: 1_500,
       searchable: true,
-      variants: [[ids.linked, 10, FRESH], [ids.linked, 0, FRESH], [ids.noPickup, 5, FRESH]],
+      variants: [
+        [ids.linked, 10, FRESH],
+        [ids.linked, 0, FRESH],
+        [ids.noPickup, 5, FRESH],
+      ],
     });
-    ids.low = await insertStock(db, { label: 'low', price: 900, variants: [[ids.linked, 2, FRESH]] });
-    ids.empty = await insertStock(db, { label: 'empty', price: 700, variants: [[ids.linked, 0, FRESH]] });
+    ids.low = await insertStock(db, {
+      label: 'low',
+      price: 900,
+      variants: [[ids.linked, 2, FRESH]],
+    });
+    ids.empty = await insertStock(db, {
+      label: 'empty',
+      price: 700,
+      variants: [[ids.linked, 0, FRESH]],
+    });
     ids.stale = await insertStock(db, {
       label: 'stale',
       price: 1_200,
-      variants: [[ids.linked, 50, STALE], [ids.noPickup, 8, STALE]],
+      variants: [
+        [ids.linked, 50, STALE],
+        [ids.noPickup, 8, STALE],
+      ],
     });
     ids.halfStale = await insertStock(db, {
       label: 'halfstale',
       price: 1_100,
-      variants: [[ids.linked, 1, FRESH], [ids.linked, 40, STALE]],
+      variants: [
+        [ids.linked, 1, FRESH],
+        [ids.linked, 40, STALE],
+      ],
     });
-    ids.elsewhere = await insertStock(db, { label: 'elsewhere', price: 600, variants: [[ids.paused, 9, FRESH]] });
+    ids.elsewhere = await insertStock(db, {
+      label: 'elsewhere',
+      price: 600,
+      variants: [[ids.paused, 9, FRESH]],
+    });
     ids.archived = await insertStock(db, {
       label: 'archived',
       price: 500,
@@ -346,7 +437,9 @@ export function createLocationWorld() {
         await tx.execute(
           sql`alter table location_publication_events disable trigger location_publication_events_append_only`,
         );
-        await tx.delete(locationPublications).where(inArray(locationPublications.locationId, locationIds));
+        await tx
+          .delete(locationPublications)
+          .where(inArray(locationPublications.locationId, locationIds));
         await tx.execute(
           sql`alter table location_publication_events enable trigger location_publication_events_append_only`,
         );

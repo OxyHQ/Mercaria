@@ -21,10 +21,7 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import {
-  searchIntentBenchmarkRuns,
-  searchIntentEnablements,
-} from '../schema/searchIntent.js';
+import { searchIntentBenchmarkRuns, searchIntentEnablements } from '../schema/searchIntent.js';
 
 /** One row of `search_intent_benchmark_runs`. */
 export type SearchIntentBenchmarkRunRow = InferSelectModel<typeof searchIntentBenchmarkRuns>;

@@ -28,11 +28,7 @@
  * than an extra screen.
  */
 
-import type {
-  BasketPlan,
-  BasketPlanActions,
-  BasketPlanLine,
-} from '@mercaria/shared-types';
+import type { BasketPlan, BasketPlanActions, BasketPlanLine } from '@mercaria/shared-types';
 import type { BasketCandidate } from './candidates.js';
 
 /**
@@ -73,21 +69,17 @@ export function composePlanActions(
     else bucket.push(line);
   }
 
-  const externalMerchants = [...externalByMerchant.keys()]
-    .sort()
-    .map((key) => {
-      const lines = externalByMerchant.get(key) ?? [];
-      const first = candidatesByOfferRef.get(lines[0].offerRef);
-      return {
-        ...(first?.merchantRef === undefined ? {} : { merchantRef: first.merchantRef }),
-        merchantLabel: first?.merchantLabel ?? key,
-        lineIds: lines.map((line) => line.lineId).sort(),
-        ...(first?.destinationHost === undefined
-          ? {}
-          : { destinationHost: first.destinationHost }),
-        offerRefs: lines.map((line) => line.offerRef).sort(),
-      };
-    });
+  const externalMerchants = [...externalByMerchant.keys()].sort().map((key) => {
+    const lines = externalByMerchant.get(key) ?? [];
+    const first = candidatesByOfferRef.get(lines[0].offerRef);
+    return {
+      ...(first?.merchantRef === undefined ? {} : { merchantRef: first.merchantRef }),
+      merchantLabel: first?.merchantLabel ?? key,
+      lineIds: lines.map((line) => line.lineId).sort(),
+      ...(first?.destinationHost === undefined ? {} : { destinationHost: first.destinationHost }),
+      offerRefs: lines.map((line) => line.offerRef).sort(),
+    };
+  });
 
   return {
     ...(nativeLines.length === 0

@@ -1,13 +1,13 @@
-import type { ReactNode } from "react";
-import { View } from "react-native";
-import { Pin } from "lucide-react-native";
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
+import { Pin } from 'lucide-react-native';
 import {
   partitionPinnedFields,
   type PinnableConnectorField,
   type SyncSettings,
-} from "@mercaria/shared-types";
-import { cn } from "../../lib/cn";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+} from '@mercaria/shared-types';
+import { cn } from '../../lib/cn';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   CONNECTOR_PIN_EFFECT_KEYS,
   CONNECTOR_PIN_LABEL_KEYS,
@@ -15,9 +15,9 @@ import {
   CONNECTOR_PIN_TITLE_KEY,
   CONNECTOR_PIN_UNNAMED_KEY,
   type ConnectorPinEffect,
-} from "../../lib/connector-labels";
-import { Text } from "./text";
-import { Icon } from "./icon";
+} from '../../lib/connector-labels';
+import { Text } from './text';
+import { Icon } from './icon';
 
 export interface ConnectorPinNoticeProps {
   /**
@@ -32,7 +32,7 @@ export interface ConnectorPinNoticeProps {
    * The wire value rather than a boolean, so a caller cannot invert the
    * derivation on the way in.
    */
-  conflictPolicy?: SyncSettings["conflictPolicy"];
+  conflictPolicy?: SyncSettings['conflictPolicy'];
   /**
    * What releasing a field means, in the APP's own words — rendered above the
    * pin list, where a merchant reads it before pressing anything.
@@ -70,10 +70,10 @@ export interface ConnectorPinNoticeProps {
   className?: string;
 }
 
-function effectOf(policy: SyncSettings["conflictPolicy"] | undefined): ConnectorPinEffect {
-  if (policy === "respect_overrides") return "honoured";
-  if (policy === "connector_wins") return "channel_wins";
-  return "unknown";
+function effectOf(policy: SyncSettings['conflictPolicy'] | undefined): ConnectorPinEffect {
+  if (policy === 'respect_overrides') return 'honoured';
+  if (policy === 'connector_wins') return 'channel_wins';
+  return 'unknown';
 }
 
 /**
@@ -120,7 +120,7 @@ export function ConnectorPinNotice({
   const effect = effectOf(conflictPolicy);
 
   return (
-    <View className={cn("gap-2 rounded-2xl border border-border bg-surface p-4", className)}>
+    <View className={cn('gap-2 rounded-2xl border border-border bg-surface p-4', className)}>
       <View className="flex-row items-center gap-2">
         <Icon as={Pin} size={14} className="text-muted-foreground" />
         <Text className="text-sm font-semibold text-foreground">{t(CONNECTOR_PIN_TITLE_KEY)}</Text>
@@ -155,7 +155,7 @@ export function ConnectorPinNotice({
         </View>
       ) : null}
 
-      {effect === "honoured" ? (
+      {effect === 'honoured' ? (
         <Text className="text-xs text-muted-foreground">{t(CONNECTOR_PIN_RELEASE_KEY)}</Text>
       ) : null}
 

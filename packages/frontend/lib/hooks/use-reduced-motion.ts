@@ -1,5 +1,5 @@
-import React from "react";
-import { AccessibilityInfo } from "react-native";
+import React from 'react';
+import { AccessibilityInfo } from 'react-native';
 
 /**
  * Tracks the OS "reduce motion" accessibility preference (on web this maps to
@@ -25,9 +25,8 @@ export function useReducedMotion(): boolean {
         if (mounted) setReduceMotion(false);
       });
 
-    const subscription = AccessibilityInfo.addEventListener(
-      "reduceMotionChanged",
-      (enabled) => setReduceMotion(enabled)
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) =>
+      setReduceMotion(enabled),
     );
 
     return () => {

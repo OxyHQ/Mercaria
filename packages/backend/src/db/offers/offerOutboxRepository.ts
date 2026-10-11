@@ -119,32 +119,34 @@ export async function claimOfferOutbox(
     and(eq(offerOutboxes.status, 'processing'), lte(offerOutboxes.leaseUntil, now)),
   );
 
-  return db
-    .update(offerOutboxes)
-    .set({
-      status: 'processing',
-      leaseOwner: options.leaseOwner,
-      leaseUntil: new Date(now.getTime() + leaseMs),
-      // The revision this claim answers. Completion compares it with whatever
-      // `requested_revision` says by then, which is how a request that arrived
-      // during the run survives the completion that follows it.
-      claimedRevision: sql`${offerOutboxes.requestedRevision}`,
-      attempts: sql`${offerOutboxes.attempts} + 1`,
-      lastError: null,
-    })
-    // Both references name the SAME table, so the subquery's own range entry
-    // shadows the outer one inside it — which is what is wanted here, and why
-    // the correlated-subquery hazard in CONVENTIONS.md does not apply.
-    .where(
-      sql`${offerOutboxes.id} in (
+  return (
+    db
+      .update(offerOutboxes)
+      .set({
+        status: 'processing',
+        leaseOwner: options.leaseOwner,
+        leaseUntil: new Date(now.getTime() + leaseMs),
+        // The revision this claim answers. Completion compares it with whatever
+        // `requested_revision` says by then, which is how a request that arrived
+        // during the run survives the completion that follows it.
+        claimedRevision: sql`${offerOutboxes.requestedRevision}`,
+        attempts: sql`${offerOutboxes.attempts} + 1`,
+        lastError: null,
+      })
+      // Both references name the SAME table, so the subquery's own range entry
+      // shadows the outer one inside it — which is what is wanted here, and why
+      // the correlated-subquery hazard in CONVENTIONS.md does not apply.
+      .where(
+        sql`${offerOutboxes.id} in (
         select ${offerOutboxes.id} from ${offerOutboxes}
         where ${due}
         order by ${asc(offerOutboxes.availableAt)}
         limit ${batchSize}
         for update skip locked
       )`,
-    )
-    .returning();
+      )
+      .returning()
+  );
 }
 
 /**

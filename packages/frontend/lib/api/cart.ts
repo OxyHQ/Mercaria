@@ -53,15 +53,9 @@ export async function addCartItem(input: AddCartItemInput): Promise<Cart> {
 }
 
 /** Set the absolute quantity of a variant in the cart. Returns the updated cart. */
-export async function updateCartItem(
-  variantId: string,
-  input: UpdateCartItemInput,
-): Promise<Cart> {
+export async function updateCartItem(variantId: string, input: UpdateCartItemInput): Promise<Cart> {
   try {
-    const { data } = await apiClient.patch<ApiResponse<Cart>>(
-      `/cart/items/${variantId}`,
-      input,
-    );
+    const { data } = await apiClient.patch<ApiResponse<Cart>>(`/cart/items/${variantId}`, input);
     if (!data.success || !data.data) {
       throw new Error(data.error ?? data.message ?? 'Failed to update cart item');
     }
@@ -74,9 +68,7 @@ export async function updateCartItem(
 /** Remove a variant line from the cart. Returns the updated cart. */
 export async function removeCartItem(variantId: string): Promise<Cart> {
   try {
-    const { data } = await apiClient.delete<ApiResponse<Cart>>(
-      `/cart/items/${variantId}`,
-    );
+    const { data } = await apiClient.delete<ApiResponse<Cart>>(`/cart/items/${variantId}`);
     if (!data.success || !data.data) {
       throw new Error(data.error ?? data.message ?? 'Failed to remove cart item');
     }
@@ -103,9 +95,7 @@ export async function applyDiscount(code: string): Promise<Cart> {
 /** Remove a discount code from the cart. Returns the updated cart. */
 export async function removeDiscount(code: string): Promise<Cart> {
   try {
-    const { data } = await apiClient.delete<ApiResponse<Cart>>(
-      `/cart/discount/${code}`,
-    );
+    const { data } = await apiClient.delete<ApiResponse<Cart>>(`/cart/discount/${code}`);
     if (!data.success || !data.data) {
       throw new Error(data.error ?? data.message ?? 'Failed to remove discount');
     }

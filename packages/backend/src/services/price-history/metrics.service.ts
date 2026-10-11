@@ -34,9 +34,7 @@ export async function readPriceHistoryMetrics(
   windowDays: number,
   now: Date = new Date(),
 ): Promise<PriceHistoryOperationalMetrics> {
-  const since = priceMetricsBucketDay(
-    new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1_000),
-  );
+  const since = priceMetricsBucketDay(new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1_000));
   const [writes, series] = await Promise.all([
     sumPriceWriteMetrics(since),
     summarizePriceSeries(undefined, now),
@@ -63,9 +61,7 @@ export async function readPriceHistoryMetrics(
 }
 
 /** One offer's whole observation trail — what an operator opens to explain a step. */
-export async function tracePriceHistoryForOffer(
-  offerId: string,
-): Promise<PriceHistoryOfferTrace> {
+export async function tracePriceHistoryForOffer(offerId: string): Promise<PriceHistoryOfferTrace> {
   const rows = await listPriceSnapshotsForOffer(offerId, config.priceHistory.traceLimit);
   const corrected = new Set(
     rows.flatMap((row) => (row.supersedesSnapshotId ? [row.supersedesSnapshotId] : [])),

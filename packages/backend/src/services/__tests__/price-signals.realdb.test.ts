@@ -114,9 +114,9 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await db.delete(priceSignalFeedback).where(
-    inArray(priceSignalFeedback.merchantId, safeIds(createdMerchantIds)),
-  );
+  await db
+    .delete(priceSignalFeedback)
+    .where(inArray(priceSignalFeedback.merchantId, safeIds(createdMerchantIds)));
   // The append-only trigger refuses UPDATE and PERMITS DELETE, which is exactly
   // what makes this teardown possible without disabling anything — the shared
   // expiry posture (`analytics_events`, #78's snapshots), not the ledger's.
@@ -151,18 +151,22 @@ describe('the policy version register', () => {
     // apart: `array_length('{}', 1)` is NULL, a CHECK rejects only FALSE, so the
     // obvious spelling ADMITS exactly the row this constraint exists to refuse.
     const message = await rejectionMessage(() =>
-      db.insert(priceSignalPolicyVersions).values(draftValues(`empty-guardrail-${RUN}`, {
-        guardrailMetricKeys: [],
-      })),
+      db.insert(priceSignalPolicyVersions).values(
+        draftValues(`empty-guardrail-${RUN}`, {
+          guardrailMetricKeys: [],
+        }),
+      ),
     );
     expect(message).toContain('price_signal_policy_versions_evaluation_plan_check');
   });
 
   it('refuses a seller floor below the shared constant', async () => {
     const message = await rejectionMessage(() =>
-      db.insert(priceSignalPolicyVersions).values(draftValues(`thin-market-${RUN}`, {
-        minDistinctSellers: PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR - 1,
-      })),
+      db.insert(priceSignalPolicyVersions).values(
+        draftValues(`thin-market-${RUN}`, {
+          minDistinctSellers: PRICE_SIGNAL_MIN_DISTINCT_SELLERS_FLOOR - 1,
+        }),
+      ),
     );
     expect(message).toContain('price_signal_policy_versions_sample_floor_check');
   });
@@ -172,19 +176,23 @@ describe('the policy version register', () => {
     // a shopper sees would be decided by the order of the comparisons in the
     // code rather than by the row.
     const message = await rejectionMessage(() =>
-      db.insert(priceSignalPolicyVersions).values(draftValues(`overlap-${RUN}`, {
-        typicalBandBps: 900,
-        goodPriceBelowMedianBps: 800,
-      })),
+      db.insert(priceSignalPolicyVersions).values(
+        draftValues(`overlap-${RUN}`, {
+          typicalBandBps: 900,
+          goodPriceBelowMedianBps: 800,
+        }),
+      ),
     );
     expect(message).toContain('price_signal_policy_versions_thresholds_check');
   });
 
   it('refuses a metric key #77 has not defined', async () => {
     const message = await rejectionMessage(() =>
-      db.insert(priceSignalPolicyVersions).values(draftValues(`unknown-metric-${RUN}`, {
-        guardrailMetricKeys: ['a_number_nobody_defined'],
-      })),
+      db.insert(priceSignalPolicyVersions).values(
+        draftValues(`unknown-metric-${RUN}`, {
+          guardrailMetricKeys: ['a_number_nobody_defined'],
+        }),
+      ),
     );
     expect(message).toContain('price_signal_policy_versions_guardrail_metrics_check');
   });
@@ -485,7 +493,11 @@ describe('merchant correction reports', () => {
         slug: `pricesignal-merchant-${label}-${RUN}`,
         ...(claimant === null
           ? {}
-          : { claimState: 'claimed' as const, claimedByOxyUserId: claimant, claimedAt: new Date() }),
+          : {
+              claimState: 'claimed' as const,
+              claimedByOxyUserId: claimant,
+              claimedAt: new Date(),
+            }),
       })
       .returning({ id: merchants.id });
     if (!merchant) throw new Error('the merchant was not written');
@@ -557,7 +569,9 @@ describe('merchant correction reports', () => {
     };
 
     const closedWithoutActor = await rejectionMessage(() =>
-      db.insert(priceSignalFeedback).values({ ...base, status: 'resolved', resolvedAt: new Date() }),
+      db
+        .insert(priceSignalFeedback)
+        .values({ ...base, status: 'resolved', resolvedAt: new Date() }),
     );
     expect(closedWithoutActor).toContain('price_signal_feedback_resolution_shape_check');
 

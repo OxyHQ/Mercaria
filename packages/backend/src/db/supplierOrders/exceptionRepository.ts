@@ -181,7 +181,10 @@ export async function resolveProcurementException(
       updatedAt: resolvedAt,
     })
     .where(
-      and(eq(procurementExceptions.id, input.exceptionId), isNull(procurementExceptions.resolvedAt)),
+      and(
+        eq(procurementExceptions.id, input.exceptionId),
+        isNull(procurementExceptions.resolvedAt),
+      ),
     )
     .returning();
   return row;

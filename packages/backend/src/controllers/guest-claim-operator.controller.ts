@@ -77,10 +77,7 @@ function refusalStatus(refusal: GuestClaimRevocationRefusal): { code: string; st
 }
 
 /** GET /internal/guest-commerce/claims/consistency — the two drift probes. */
-export async function guestClaimConsistencyHandler(
-  _req: Request,
-  res: Response,
-): Promise<void> {
+export async function guestClaimConsistencyHandler(_req: Request, res: Response): Promise<void> {
   try {
     sendSuccess(res, await readGuestClaimConsistency());
   } catch (err) {
@@ -109,10 +106,7 @@ export async function traceGuestClaimsHandler(req: Request, res: Response): Prom
  * the two-step is that the proposal and the effect are separate acts by
  * separate people.
  */
-export async function requestClaimRevocationHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function requestClaimRevocationHandler(req: Request, res: Response): Promise<void> {
   const claimId = routeParam(req, 'claimId');
   const parsed = revocationRequestSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -156,10 +150,7 @@ export async function requestClaimRevocationHandler(
  * credential and never from the body: an approval a caller could attribute to
  * somebody else is not an approval.
  */
-export async function approveClaimRevocationHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function approveClaimRevocationHandler(req: Request, res: Response): Promise<void> {
   const revocationId = routeParam(req, 'revocationId');
   if (!emptySchema.safeParse(req.body ?? {}).success) {
     sendError(res, ErrorCodes.VALIDATION_ERROR, 'This action takes no body', 400);
@@ -188,10 +179,7 @@ export async function approveClaimRevocationHandler(
 }
 
 /** POST /internal/guest-commerce/claim-revocations/:revocationId/withdraw */
-export async function withdrawClaimRevocationHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function withdrawClaimRevocationHandler(req: Request, res: Response): Promise<void> {
   const revocationId = routeParam(req, 'revocationId');
   if (!emptySchema.safeParse(req.body ?? {}).success) {
     sendError(res, ErrorCodes.VALIDATION_ERROR, 'This action takes no body', 400);

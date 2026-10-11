@@ -3,10 +3,19 @@ import type { Review, ReviewMediaItem } from '../../../packages/shared-types/src
 import en from '../../../packages/ui/src/i18n/locales/en.json';
 import ar from '../../../packages/ui/src/i18n/locales/ar.json';
 
-for (const { width, height } of [{ width: 390, height: 1000 }, { width: 1440, height: 1000 }, { width: 1440, height: 600 }]) {
-  test(`review media failure preserves review, navigation, pagination and parent sheet at ${width}x${height}`, async ({ page, request }) => {
+for (const { width, height } of [
+  { width: 390, height: 1000 },
+  { width: 1440, height: 1000 },
+  { width: 1440, height: 600 },
+]) {
+  test(`review media failure preserves review, navigation, pagination and parent sheet at ${width}x${height}`, async ({
+    page,
+    request,
+  }) => {
     const listings = await (await request.get('http://localhost:4160/listings?limit=100')).json();
-    const product = listings.data.find((item: { title: string }) => item.title === 'Brilliant Eye Brightener');
+    const product = listings.data.find(
+      (item: { title: string }) => item.title === 'Brilliant Eye Brightener',
+    );
     expect(product).toBeTruthy();
     const endpoint = `/listings/${product.id}/reviews`;
     const original = await (await request.get(`http://localhost:4160${endpoint}?limit=12`)).json();
@@ -14,34 +23,73 @@ for (const { width, height } of [{ width: 390, height: 1000 }, { width: 1440, he
     expect(review).toBeTruthy();
     expect(original.data[1]).toBeTruthy();
     const externalImages: string[] = [];
-    page.on('request', request => { if (request.url().startsWith('https://supplier-images.invalid/')) externalImages.push(request.url()); });
-    const entries: ReviewMediaItem[] = [0, 1, 2].map(index => {
-      const media = { id: `missing-attachment-${index}`, fileId: `unavailable-review-media-test-${index}`, kind: index === 2 ? 'video' as const : 'image' as const, position: index };
+    page.on('request', (request) => {
+      if (request.url().startsWith('https://supplier-images.invalid/'))
+        externalImages.push(request.url());
+    });
+    const entries: ReviewMediaItem[] = [0, 1, 2].map((index) => {
+      const media = {
+        id: `missing-attachment-${index}`,
+        fileId: `unavailable-review-media-test-${index}`,
+        kind: index === 2 ? ('video' as const) : ('image' as const),
+        position: index,
+      };
       const source = original.data[index % 2];
-      return { media, review: { ...source, author: { ...source.author, avatar: 'https://supplier-images.invalid/old-avatar.jpg' }, media: [media] } };
+      return {
+        media,
+        review: {
+          ...source,
+          author: { ...source.author, avatar: 'https://supplier-images.invalid/old-avatar.jpg' },
+          media: [media],
+        },
+      };
     });
     // A controlled missing-file/transport test, NOT a successful upload test.
     // Never substitute image bytes or use these IDs in persisted catalog data.
-    await page.route('https://cloud.oxy.so/unavailable-review-media-test-*', route => route.fulfill({ status: 404 }));
+    await page.route('https://cloud.oxy.so/unavailable-review-media-test-*', (route) =>
+      route.fulfill({ status: 404 }),
+    );
     let secondPageRequests = 0;
     let failMore = true;
-    await page.route(new RegExp(`${endpoint}/media(?:\\?.*)?$`), route => {
+    await page.route(new RegExp(`${endpoint}/media(?:\\?.*)?$`), (route) => {
       const secondPage = new URL(route.request().url()).searchParams.get('page') === '2';
       if (secondPage) {
         secondPageRequests++;
-        if (failMore) return route.fulfill({ status: 503, json: { success: false, error: 'Temporary test outage' } });
+        if (failMore)
+          return route.fulfill({
+            status: 503,
+            json: { success: false, error: 'Temporary test outage' },
+          });
       }
-      return route.fulfill({ json: { success: true, data: secondPage ? entries.slice(2) : entries.slice(0, 2),
-        pagination: { page: secondPage ? 2 : 1, limit: 10, total: 3, totalPages: 2, hasNextPage: !secondPage, hasPrevPage: secondPage } } });
+      return route.fulfill({
+        json: {
+          success: true,
+          data: secondPage ? entries.slice(2) : entries.slice(0, 2),
+          pagination: {
+            page: secondPage ? 2 : 1,
+            limit: 10,
+            total: 3,
+            totalPages: 2,
+            hasNextPage: !secondPage,
+            hasPrevPage: secondPage,
+          },
+        },
+      });
     });
     await page.addInitScript(() => {
       localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale: 'en' }, version: 0 }));
-      localStorage.setItem('mercaria.bloom.theme', JSON.stringify({ mode: 'light', colorPreset: 'mono' }));
+      localStorage.setItem(
+        'mercaria.bloom.theme',
+        JSON.stringify({ mode: 'light', colorPreset: 'mono' }),
+      );
     });
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`/products/${product.id}`);
-    await page.getByTestId('product-sections').getByRole('button', { name: 'Read more reviews', exact: true }).click();
+    await page
+      .getByTestId('product-sections')
+      .getByRole('button', { name: 'Read more reviews', exact: true })
+      .click();
     const sheet = page.getByTestId('product-reviews-dialog');
     const open = sheet.getByRole('button', { name: 'View review photo 1', exact: true });
     await expect(open).toBeVisible();
@@ -50,24 +98,42 @@ for (const { width, height } of [{ width: 390, height: 1000 }, { width: 1440, he
     await expect(viewer).toBeVisible();
     const close = viewer.getByRole('button', { name: 'Close', exact: true });
     expect((await close.boundingBox())!.width).toBe(44);
-    if (width >= 976) expect(await viewer.evaluate(node => getComputedStyle(node).borderTopLeftRadius)).toBe('40px');
+    if (width >= 976)
+      expect(await viewer.evaluate((node) => getComputedStyle(node).borderTopLeftRadius)).toBe(
+        '40px',
+      );
     await expect(viewer.getByTestId(`review-${review.id}`)).toBeVisible();
-    await expect(viewer.getByTestId('review-media-stage').getByText('This media could not be loaded.').first()).toBeVisible();
-    await viewer.getByTestId('review-media-thumbnails').getByRole('button', { name: 'View review photo 2', exact: true }).click();
-    await expect(viewer.getByTestId('review-media-thumbnails').getByRole('button', { name: 'View review photo 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      viewer.getByTestId('review-media-stage').getByText('This media could not be loaded.').first(),
+    ).toBeVisible();
+    await viewer
+      .getByTestId('review-media-thumbnails')
+      .getByRole('button', { name: 'View review photo 2', exact: true })
+      .click();
+    await expect(
+      viewer
+        .getByTestId('review-media-thumbnails')
+        .getByRole('button', { name: 'View review photo 2', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     const detail = viewer.getByTestId('review-media-associated-review');
     await expect(detail.getByTestId(`review-${original.data[1].id}`)).toBeVisible();
     await expect(detail.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
     failMore = false;
     await detail.getByRole('button', { name: 'Try again', exact: true }).click();
-    const third = viewer.getByTestId('review-media-thumbnails').getByRole('button', { name: 'View review video 3', exact: true });
+    const third = viewer
+      .getByTestId('review-media-thumbnails')
+      .getByRole('button', { name: 'View review video 3', exact: true });
     await expect(third).toBeVisible();
     await third.click();
     await expect(third).toHaveAttribute('aria-pressed', 'true');
     expect(secondPageRequests).toBeGreaterThan(1);
-    await expect(viewer.getByRole('button', { name: 'Go to the next item', exact: true })).toBeHidden();
+    await expect(
+      viewer.getByRole('button', { name: 'Go to the next item', exact: true }),
+    ).toBeHidden();
     await expect(detail.getByTestId(`review-${review.id}`)).toBeVisible();
-    await expect(viewer.getByTestId('review-media-stage').getByRole('alert').last()).toHaveText('This media could not be loaded.');
+    await expect(viewer.getByTestId('review-media-stage').getByRole('alert').last()).toHaveText(
+      'This media could not be loaded.',
+    );
     await page.screenshot({ path: `/tmp/mercaria-review-media-failure-${width}-${height}.png` });
     await viewer.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(viewer).toHaveCount(0);
@@ -80,34 +146,65 @@ for (const { width, height } of [{ width: 390, height: 1000 }, { width: 1440, he
 }
 
 for (const locale of ['en', 'ar'] as const) {
-  test(`review thumbnail rail keeps the active photo visible in ${locale}`, async ({ page, request }) => {
+  test(`review thumbnail rail keeps the active photo visible in ${locale}`, async ({
+    page,
+    request,
+  }) => {
     const copy = locale === 'ar' ? ar.ui : en.ui;
     const listings = await (await request.get('http://localhost:4160/listings?limit=100')).json();
-    const product = listings.data.find((item: { title: string }) => item.title === 'Brilliant Eye Brightener');
+    const product = listings.data.find(
+      (item: { title: string }) => item.title === 'Brilliant Eye Brightener',
+    );
     expect(product).toBeTruthy();
     const endpoint = `/listings/${product.id}/reviews`;
     const original = await (await request.get(`http://localhost:4160${endpoint}?limit=12`)).json();
     expect(original.data[0]).toBeTruthy();
     // Missing-file fixtures exercise navigation only; no successful image delivery is simulated.
     const entries: ReviewMediaItem[] = Array.from({ length: 14 }, (_, position) => {
-      const media = { id: `missing-rail-${position}`, fileId: `unavailable-review-rail-${position}`, kind: 'image' as const, position };
+      const media = {
+        id: `missing-rail-${position}`,
+        fileId: `unavailable-review-rail-${position}`,
+        kind: 'image' as const,
+        position,
+      };
       return { media, review: { ...original.data[0], media: [media] } };
     });
-    await page.route('https://cloud.oxy.so/unavailable-review-rail-*', route => route.fulfill({ status: 404 }));
-    await page.route(new RegExp(`${endpoint}/media(?:\\?.*)?$`), route => route.fulfill({ json: {
-      success: true, data: entries,
-      pagination: { page: 1, limit: 14, total: 14, totalPages: 1, hasNextPage: false, hasPrevPage: false },
-    } }));
-    await page.addInitScript(locale => {
+    await page.route('https://cloud.oxy.so/unavailable-review-rail-*', (route) =>
+      route.fulfill({ status: 404 }),
+    );
+    await page.route(new RegExp(`${endpoint}/media(?:\\?.*)?$`), (route) =>
+      route.fulfill({
+        json: {
+          success: true,
+          data: entries,
+          pagination: {
+            page: 1,
+            limit: 14,
+            total: 14,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
+        },
+      }),
+    );
+    await page.addInitScript((locale) => {
       localStorage.setItem('i18n-storage', JSON.stringify({ state: { locale }, version: 0 }));
     }, locale);
     await page.setViewportSize({ width: 390, height: 1000 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`/products/${product.id}`);
-    await page.getByTestId('product-sections').getByRole('button', { name: copy.review.readMore, exact: true }).click();
-    await page.getByTestId('product-reviews-dialog').getByRole('button', {
-      name: copy.reviewMedia.viewImage.replace('%{position}', '1'), exact: true,
-    }).click();
+    await page
+      .getByTestId('product-sections')
+      .getByRole('button', { name: copy.review.readMore, exact: true })
+      .click();
+    await page
+      .getByTestId('product-reviews-dialog')
+      .getByRole('button', {
+        name: copy.reviewMedia.viewImage.replace('%{position}', '1'),
+        exact: true,
+      })
+      .click();
     const viewer = page.getByTestId('review-media-viewer');
     const rail = viewer.getByTestId('review-media-thumbnails');
     const thumbnails = rail.getByRole('button');
@@ -119,11 +216,13 @@ for (const locale of ['en', 'ar'] as const) {
       await expect(thumbnails.nth(index)).toHaveAttribute('aria-pressed', 'true');
     }
     const expectInsideRail = async (position: number) => {
-      await expect.poll(async () => {
-        const bounds = (await rail.boundingBox())!;
-        const active = (await thumbnails.nth(position).boundingBox())!;
-        return active.x >= bounds.x - 1 && active.x + active.width <= bounds.x + bounds.width + 1;
-      }).toBe(true);
+      await expect
+        .poll(async () => {
+          const bounds = (await rail.boundingBox())!;
+          const active = (await thumbnails.nth(position).boundingBox())!;
+          return active.x >= bounds.x - 1 && active.x + active.width <= bounds.x + bounds.width + 1;
+        })
+        .toBe(true);
     };
     await expectInsideRail(entries.length - 1);
     // Re-measure when a phone rotates to the horizontal-thumbnail tablet layout.

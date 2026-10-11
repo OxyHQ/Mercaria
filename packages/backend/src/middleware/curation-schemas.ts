@@ -130,11 +130,7 @@ export const requestSplitSchema = z
     reversesMergeJobId: id.optional(),
     reviewItemId: id.optional(),
     items: z
-      .array(
-        z
-          .object({ itemType: enumOf(CATALOG_SPLIT_ITEM_TYPES), itemRef: id })
-          .strict(),
-      )
+      .array(z.object({ itemType: enumOf(CATALOG_SPLIT_ITEM_TYPES), itemRef: id }).strict())
       .min(1)
       .max(1_000),
   })
@@ -157,9 +153,12 @@ export const reassignIdentifierSchema = z
     reason,
   })
   .strict()
-  .refine((value) => (value.targetProductId === undefined) !== (value.targetVariantId === undefined), {
-    message: 'Name a product OR a variant — an identifier belongs to exactly one grain.',
-  });
+  .refine(
+    (value) => (value.targetProductId === undefined) !== (value.targetVariantId === undefined),
+    {
+      message: 'Name a product OR a variant — an identifier belongs to exactly one grain.',
+    },
+  );
 
 export const selectAttributeValueSchema = z.object({ reason }).strict();
 

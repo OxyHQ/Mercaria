@@ -111,9 +111,7 @@ export async function listListingIdsWithLegacyOptions(
  * One indexed aggregate over a table the pass is already reading, so it costs a
  * statement per pass rather than per listing.
  */
-export async function countListingsWithLegacyOptions(
-  db: DatabaseOrTransaction,
-): Promise<number> {
+export async function countListingsWithLegacyOptions(db: DatabaseOrTransaction): Promise<number> {
   const [row] = await db
     .select({ total: countDistinct(listingOptions.listingId) })
     .from(listingOptions);
@@ -166,8 +164,5 @@ export async function listLegacyVariantOptionValues(
     .select()
     .from(productVariantOptionValues)
     .where(inArray(productVariantOptionValues.variantId, [...variantIds]))
-    .orderBy(
-      asc(productVariantOptionValues.variantId),
-      asc(productVariantOptionValues.position),
-    );
+    .orderBy(asc(productVariantOptionValues.variantId), asc(productVariantOptionValues.position));
 }

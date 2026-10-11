@@ -13,10 +13,16 @@ const candidates = ['bg-black/30', 'bg-black/75', 'bg-black/[0.04]', 'bg-white/7
 let failures = 0;
 for (const app of ['frontend', 'dashboard', 'pos']) {
   const base = fileURLToPath(new URL(`../../packages/${app}/`, import.meta.url));
-  const tailwind = await compile(await readFile(`${base}/global.css`, 'utf8'), { base, onDependency() {} });
+  const tailwind = await compile(await readFile(`${base}/global.css`, 'utf8'), {
+    base,
+    onDependency() {},
+  });
   // These are the actual withNativeWind options. The default inlineVariables
   // optimization hides the bug by evaluating fixed colors before serialization.
-  const sheet = compileNative(tailwind.build(candidates), { inlineVariables: false, inlineRem: 16 }).stylesheet();
+  const sheet = compileNative(tailwind.build(candidates), {
+    inlineVariables: false,
+    inlineRem: 16,
+  }).stylesheet();
   const serialized = JSON.parse(JSON.stringify(sheet));
   for (const candidate of candidates) {
     const rules = serialized.s?.find(([name]) => name === candidate)?.[1];
@@ -24,19 +30,27 @@ for (const app of ['frontend', 'dashboard', 'pos']) {
     const invalid = [];
     function visit(value) {
       if (!Array.isArray(value) && (value === null || typeof value !== 'object')) return;
-      if (Array.isArray(value) && value[1] === 'colorMix' && value[2]?.includes(null)) invalid.push(value[2]);
+      if (Array.isArray(value) && value[1] === 'colorMix' && value[2]?.includes(null))
+        invalid.push(value[2]);
       for (const child of Object.values(value)) visit(child);
     }
     visit(rules);
     if (invalid.length) {
       failures++;
-      console.error(`${app} ${candidate}: serialized optional weights contain null`, JSON.stringify(invalid));
+      console.error(
+        `${app} ${candidate}: serialized optional weights contain null`,
+        JSON.stringify(invalid),
+      );
     }
   }
 }
 if (failures) {
-  console.error(`${failures} native color descriptors fail the compiler/runtime contract. Native alpha rendering remains unresolved.`);
+  console.error(
+    `${failures} native color descriptors fail the compiler/runtime contract. Native alpha rendering remains unresolved.`,
+  );
   process.exitCode = 1;
 } else {
-  console.log('No null color-mix weights after serialization. Verify colors on a native device before closing the issue.');
+  console.log(
+    'No null color-mix weights after serialization. Verify colors on a native device before closing the issue.',
+  );
 }

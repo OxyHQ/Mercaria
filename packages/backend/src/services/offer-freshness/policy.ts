@@ -149,8 +149,7 @@ function fromConfiguration(
   // "how often is it expected to be refreshed" is answered by how long its
   // facts are good for — which is the only per-source number available and is
   // the honest reading: nothing else has been stated.
-  const expectedRefreshIntervalSeconds =
-    config.fetchCadenceSeconds ?? config.freshnessTtlSeconds;
+  const expectedRefreshIntervalSeconds = config.fetchCadenceSeconds ?? config.freshnessTtlSeconds;
   const expiryAfterSeconds = config.freshnessTtlSeconds;
   const warningAfterSeconds = Math.max(
     60,
@@ -243,7 +242,9 @@ export async function resolveSourceFreshnessPolicies(
   if (unique.length === 0) return resolved;
 
   const entries = await Promise.all(
-    unique.map(async (sourceId) => [sourceId, await resolveSourceFreshnessPolicy(sourceId, db)] as const),
+    unique.map(
+      async (sourceId) => [sourceId, await resolveSourceFreshnessPolicy(sourceId, db)] as const,
+    ),
   );
   for (const [sourceId, policy] of entries) {
     if (policy !== undefined) resolved.set(sourceId, policy);

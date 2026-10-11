@@ -246,15 +246,11 @@ export function listingPageFacts(listing: Listing): SeoVisibleFacts {
       { name: listing.title, path: listingPath },
     ],
     entityName: listing.title,
-    ...(listing.vendor === undefined || listing.vendor === ''
-      ? {}
-      : { brandName: listing.vendor }),
+    ...(listing.vendor === undefined || listing.vendor === '' ? {} : { brandName: listing.vendor }),
     gtins: [],
     offers: [offer],
     offerCurrency: listing.price.currency,
-    variantNames: listing.variants
-      .map((variant) => variant.title)
-      .filter((title) => title !== ''),
+    variantNames: listing.variants.map((variant) => variant.title).filter((title) => title !== ''),
   };
 }
 
@@ -290,7 +286,10 @@ export function catalogueEntityFacts(input: CatalogueEntityFactsInput): SeoVisib
   return {
     title: input.name,
     ...(description === '' ? {} : { description }),
-    imageUrls: input.logoFileId === undefined ? [] : [resolveMedia(input.logoFileId)].filter((value): value is string => value !== undefined),
+    imageUrls:
+      input.logoFileId === undefined
+        ? []
+        : [resolveMedia(input.logoFileId)].filter((value): value is string => value !== undefined),
     breadcrumbs: [
       { name: 'Home', path: buildRoutePath('home') },
       { name: input.name, path },
@@ -406,7 +405,10 @@ export function nativeStoreFacts(store: NativeStoreFactsInput): SeoVisibleFacts 
   return {
     title: store.name,
     ...(store.description.trim() === '' ? {} : { description: store.description }),
-    imageUrls: store.logoFileId === null ? [] : [resolveMedia(store.logoFileId)].filter((value): value is string => value !== undefined),
+    imageUrls:
+      store.logoFileId === null
+        ? []
+        : [resolveMedia(store.logoFileId)].filter((value): value is string => value !== undefined),
     breadcrumbs: [
       { name: 'Home', path: buildRoutePath('home') },
       { name: store.name, path },

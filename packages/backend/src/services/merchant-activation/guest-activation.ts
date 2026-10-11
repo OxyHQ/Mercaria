@@ -55,9 +55,7 @@ export type GuestSellerActivation =
  * caller will reach for and a seam that answered `activated` for a blocked
  * seller would be a hole with a helpful name on it.
  */
-export async function readGuestSellerActivation(
-  sellerKey: string,
-): Promise<GuestSellerActivation> {
+export async function readGuestSellerActivation(sellerKey: string): Promise<GuestSellerActivation> {
   if (config.guest.checkoutRollout.blockedSellerKeys.includes(sellerKey)) {
     return { state: 'blocked_by_operator' };
   }
@@ -74,13 +72,10 @@ export async function readGuestSellerActivation(
   // The FIRST unmet requirement in registry order, which is ordered by how early
   // it bites — so the reason a log line carries is the one furthest upstream
   // rather than whichever happened to be checked last.
-  const first = derived.guest.find((result) =>
-    derived.guestBlocking.includes(result.requirement),
-  );
+  const first = derived.guest.find((result) => derived.guestBlocking.includes(result.requirement));
   const outcome = first?.outcome;
   return {
     state: 'not_activated',
-    reason:
-      outcome && outcome.state !== 'satisfied' ? outcome.reason : 'native_checkout_not_ready',
+    reason: outcome && outcome.state !== 'satisfied' ? outcome.reason : 'native_checkout_not_ready',
   };
 }

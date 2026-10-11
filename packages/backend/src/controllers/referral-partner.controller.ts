@@ -79,7 +79,12 @@ import {
   readPartnerPerformance,
 } from '../services/referrals/dashboard/performance.service.js';
 import { readPartnerEarnings } from '../services/referrals/dashboard/earnings.service.js';
-import { issueCode, issueLink, retireCode, revokeLink } from '../services/referrals/instrument.service.js';
+import {
+  issueCode,
+  issueLink,
+  retireCode,
+  revokeLink,
+} from '../services/referrals/instrument.service.js';
 import { projectCode, projectLink } from '../services/referrals/read.service.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { referralEnforcementAppealSchema } from '../middleware/referral-schemas.js';
@@ -227,21 +232,25 @@ export function makeReferralPartnerRouter(resolveOwner: ReferralPartnerOwnerReso
   });
 
   /** Marketing consent — separate from terms, and revocable. */
-  router.post('/marketing-consent', validateBody(referralMarketingConsentSchema), async (req, res) => {
-    try {
-      const owner = resolveOwner(req);
-      const partner = await requirePartner(owner);
-      const body = req.body as ReferralMarketingConsentBody;
-      const row = await setReferralMarketingConsent({
-        partnerId: partner.id,
-        granted: body.granted,
-        actorOxyUserId: getRequiredOxyUserId(req),
-      });
-      sendSuccess(res, { marketingConsent: row.marketingConsentAt !== null });
-    } catch (err) {
-      respondWithError(res, err, 'Failed to record the marketing consent');
-    }
-  });
+  router.post(
+    '/marketing-consent',
+    validateBody(referralMarketingConsentSchema),
+    async (req, res) => {
+      try {
+        const owner = resolveOwner(req);
+        const partner = await requirePartner(owner);
+        const body = req.body as ReferralMarketingConsentBody;
+        const row = await setReferralMarketingConsent({
+          partnerId: partner.id,
+          granted: body.granted,
+          actorOxyUserId: getRequiredOxyUserId(req),
+        });
+        sendSuccess(res, { marketingConsent: row.marketingConsentAt !== null });
+      } catch (err) {
+        respondWithError(res, err, 'Failed to record the marketing consent');
+      }
+    },
+  );
 
   /** What this partner has declared for tax, and what the gate makes of it. */
   router.get('/tax-profile', async (req: Request, res: Response) => {
@@ -366,7 +375,11 @@ export function makeReferralPartnerRouter(resolveOwner: ReferralPartnerOwnerReso
     try {
       const owner = resolveOwner(req);
       const partner = await requirePartner(owner);
-      const body = req.body as { dimension: Parameters<typeof readPartnerPerformance>[0]['dimension']; from: string; through: string };
+      const body = req.body as {
+        dimension: Parameters<typeof readPartnerPerformance>[0]['dimension'];
+        from: string;
+        through: string;
+      };
       sendSuccess(
         res,
         await readPartnerPerformance({
@@ -483,40 +496,48 @@ export function makeReferralPartnerRouter(resolveOwner: ReferralPartnerOwnerReso
    * reservation permanently. There is deliberately no DELETE and no "reissue" —
    * a recycled code would let a new owner inherit another partner's history.
    */
-  router.post('/codes/:codeId/retire', validateBody(referralInstrumentRetireSchema), async (req, res) => {
-    try {
-      const owner = resolveOwner(req);
-      const codeId = req.params.codeId as string;
-      await assertOwnsCode(owner, codeId);
-      const row = await retireCode({
-        codeId,
-        actorKind: 'partner',
-        actorRef: getRequiredOxyUserId(req),
-        reason: (req.body as ReferralInstrumentRetireBody).reason,
-      });
-      sendSuccess(res, { code: projectCode(row) });
-    } catch (err) {
-      respondWithError(res, err, 'Failed to retire the referral code');
-    }
-  });
+  router.post(
+    '/codes/:codeId/retire',
+    validateBody(referralInstrumentRetireSchema),
+    async (req, res) => {
+      try {
+        const owner = resolveOwner(req);
+        const codeId = req.params.codeId as string;
+        await assertOwnsCode(owner, codeId);
+        const row = await retireCode({
+          codeId,
+          actorKind: 'partner',
+          actorRef: getRequiredOxyUserId(req),
+          reason: (req.body as ReferralInstrumentRetireBody).reason,
+        });
+        sendSuccess(res, { code: projectCode(row) });
+      } catch (err) {
+        respondWithError(res, err, 'Failed to retire the referral code');
+      }
+    },
+  );
 
   /** Revoke a link. The code it wraps is untouched. */
-  router.post('/links/:linkId/revoke', validateBody(referralInstrumentRetireSchema), async (req, res) => {
-    try {
-      const owner = resolveOwner(req);
-      const linkId = req.params.linkId as string;
-      await assertOwnsLink(owner, linkId);
-      const row = await revokeLink({
-        linkId,
-        actorKind: 'partner',
-        actorRef: getRequiredOxyUserId(req),
-        reason: (req.body as ReferralInstrumentRetireBody).reason,
-      });
-      sendSuccess(res, { link: projectLink(row) });
-    } catch (err) {
-      respondWithError(res, err, 'Failed to revoke the referral link');
-    }
-  });
+  router.post(
+    '/links/:linkId/revoke',
+    validateBody(referralInstrumentRetireSchema),
+    async (req, res) => {
+      try {
+        const owner = resolveOwner(req);
+        const linkId = req.params.linkId as string;
+        await assertOwnsLink(owner, linkId);
+        const row = await revokeLink({
+          linkId,
+          actorKind: 'partner',
+          actorRef: getRequiredOxyUserId(req),
+          reason: (req.body as ReferralInstrumentRetireBody).reason,
+        });
+        sendSuccess(res, { link: projectLink(row) });
+      } catch (err) {
+        respondWithError(res, err, 'Failed to revoke the referral link');
+      }
+    },
+  );
 
   return router;
 }

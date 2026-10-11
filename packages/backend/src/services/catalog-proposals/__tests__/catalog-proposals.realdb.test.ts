@@ -64,11 +64,7 @@ import {
   listReviewEvents,
 } from '../../../db/catalogProposals/proposalRepository.js';
 import { config } from '../../../config/index.js';
-import {
-  proposalConvergenceKey,
-  submitProposal,
-  withdrawProposal,
-} from '../proposal.service.js';
+import { proposalConvergenceKey, submitProposal, withdrawProposal } from '../proposal.service.js';
 import { approveProposal, redirectProposal, rejectProposal } from '../review.service.js';
 import { runProposalBackfill } from '../backfill.service.js';
 import { NAME_FOLD_VERSION } from '../../canonical/normalization.js';
@@ -198,12 +194,20 @@ afterAll(async () => {
   await db.execute(
     sql`delete from catalog_proposals where submitted_by_oxy_user_id like ${`${P}%`} and redirected_to_proposal_id is not null`,
   );
-  await db.execute(sql`delete from catalog_proposals where submitted_by_oxy_user_id like ${`${P}%`}`);
+  await db.execute(
+    sql`delete from catalog_proposals where submitted_by_oxy_user_id like ${`${P}%`}`,
+  );
   await db.execute(sql`delete from catalog_authoring_draft_values where draft_id like ${`${P}%`}`);
   await db.execute(sql`delete from catalog_authoring_drafts where id like ${`${P}%`}`);
-  await db.execute(sql`delete from catalog_authoring_schema_invalidations where subject_id like ${`${P}%`}`);
-  await db.execute(sql`delete from attribute_value_aliases where attribute_definition_id like ${`${P}%`}`);
-  await db.execute(sql`delete from attribute_enum_values where attribute_definition_id like ${`${P}%`}`);
+  await db.execute(
+    sql`delete from catalog_authoring_schema_invalidations where subject_id like ${`${P}%`}`,
+  );
+  await db.execute(
+    sql`delete from attribute_value_aliases where attribute_definition_id like ${`${P}%`}`,
+  );
+  await db.execute(
+    sql`delete from attribute_enum_values where attribute_definition_id like ${`${P}%`}`,
+  );
   await db.execute(sql`delete from product_type_fields where id like ${`${P}%`}`);
   await db.execute(sql`delete from product_type_definitions where id like ${`${P}%`}`);
   await db.execute(sql`delete from attribute_definitions where id like ${`${P}%`}`);
@@ -366,7 +370,10 @@ describe.skipIf(!ready)('submission, convergence and the scan evidence', () => {
 
     // A different SPELLING that normalizes to the same thing — which is what
     // makes convergence worth having rather than a string equality.
-    const second = await submitProposal(db, submission('  verde   bosque ', SECOND_MERCHANT, false));
+    const second = await submitProposal(
+      db,
+      submission('  verde   bosque ', SECOND_MERCHANT, false),
+    );
     expect(second.outcome).toBe('converged');
     expect(second.proposal.id).toBe(first?.id);
 
@@ -480,7 +487,11 @@ describe.skipIf(!ready)('the operator decision', () => {
     const redirected = await redirectProposal(
       db,
       { proposalId: proposal.proposal.id, operatorOxyUserId: OPERATOR },
-      { toType: 'controlled_value', attributeDefinitionId: `${P}-attr`, reason: 'a value, not an attribute' },
+      {
+        toType: 'controlled_value',
+        attributeDefinitionId: `${P}-attr`,
+        reason: 'a value, not an attribute',
+      },
     );
     expect(redirected.state).toBe('redirected');
     expect(redirected.redirectedToProposalId).not.toBeNull();
@@ -543,7 +554,11 @@ describe.skipIf(!ready)('the idempotent backfill', () => {
     );
 
     // The draft's local claim became the typed answer it was asking for.
-    const value = await db.execute<{ kind: string; value_enum_value_id: string | null; value_text: string | null }>(sql`
+    const value = await db.execute<{
+      kind: string;
+      value_enum_value_id: string | null;
+      value_text: string | null;
+    }>(sql`
       select kind, value_enum_value_id, value_text from catalog_authoring_draft_values
       where id = ${`${P}-value`}
     `);
@@ -599,7 +614,6 @@ describe.skipIf(!ready)('the idempotent backfill', () => {
   });
 });
 
-
 describe.skipIf(!ready)('the durable submission budget (#367 Workstream 18)', () => {
   /**
    * The per-submitter and per-store axes are counted in POSTGRES
@@ -649,7 +663,7 @@ describe.skipIf(!ready)('the durable submission budget (#367 Workstream 18)', ()
     expect(admitted.outcome).toBe('created');
   });
 
-  it('counts within the WINDOW, so yesterday\'s proposals do not spend today\'s budget', async () => {
+  it("counts within the WINDOW, so yesterday's proposals do not spend today's budget", async () => {
     // The bound is "per hour", not "ever". Driven through `submitProposal`
     // rather than through the counter, because the horizon under test is the
     // SERVICE's: a case that called `countProposalsSince` with its own `since`

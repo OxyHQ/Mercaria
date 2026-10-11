@@ -29,8 +29,8 @@
  * `valueType`, `valuePolicy`, `unitFamily` — which the server composes.
  */
 
-import type { AuthoringField, AuthoringValueKind } from "@mercaria/shared-types";
-import { expectedEntryKind } from "./answers";
+import type { AuthoringField, AuthoringValueKind } from '@mercaria/shared-types';
+import { expectedEntryKind } from './answers';
 
 /* -------------------------------------------------------------------------- */
 /* The unit affordance                                                         */
@@ -57,7 +57,7 @@ const NO_UNIT: UnitAffordance = { present: false };
 
 export function unitAffordance(field: AuthoringField): UnitAffordance {
   if (field.validation.unitFamily === null) return NO_UNIT;
-  return { present: true, placeholder: field.validation.baseUnit ?? "" };
+  return { present: true, placeholder: field.validation.baseUnit ?? '' };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -72,7 +72,7 @@ export function unitAffordance(field: AuthoringField): UnitAffordance {
  * switched the axis on and the alternative is a control that silently discards
  * what they type.
  */
-export type AxisValueSupport = AuthoringValueKind | "unsupported";
+export type AxisValueSupport = AuthoringValueKind | 'unsupported';
 
 /**
  * The kinds an axis value control can actually render today.
@@ -93,13 +93,13 @@ export type AxisValueSupport = AuthoringValueKind | "unsupported";
  * that silently dropped the axis would disagree with a schema that offers it.
  */
 export const AXIS_SUPPORTED_KINDS: readonly AuthoringValueKind[] = [
-  "controlled_value",
-  "number",
-  "text",
+  'controlled_value',
+  'number',
+  'text',
 ];
 
 /** What control this field's axis values need. */
 export function axisValueSupport(field: AuthoringField): AxisValueSupport {
   const kind = expectedEntryKind(field);
-  return AXIS_SUPPORTED_KINDS.includes(kind) ? kind : "unsupported";
+  return AXIS_SUPPORTED_KINDS.includes(kind) ? kind : 'unsupported';
 }

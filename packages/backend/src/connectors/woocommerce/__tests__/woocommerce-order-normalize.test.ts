@@ -105,7 +105,11 @@ describe('normalizeWooCommerceOrder — single-currency DualMoney', () => {
   it('maps the customer + shipping address (shipping preferred, GMT timestamps as UTC)', () => {
     const order = normalizeWooCommerceOrder(wooOrder(), 'USD');
 
-    expect(order.customer).toEqual({ externalId: '12', email: 'ada@example.com', name: 'Ada Lovelace' });
+    expect(order.customer).toEqual({
+      externalId: '12',
+      email: 'ada@example.com',
+      name: 'Ada Lovelace',
+    });
     expect(order.shippingAddress).toEqual({
       recipientName: 'Ada Lovelace',
       line1: '2 Difference St',

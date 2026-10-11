@@ -177,9 +177,7 @@ export async function readReferralPartnerDashboard(
   // a first screen.
   const links = (
     await Promise.all(
-      codes.map((code) =>
-        partnerLinksView({ codeId: code.id, limit: DASHBOARD_LINKS_PER_CODE }),
-      ),
+      codes.map((code) => partnerLinksView({ codeId: code.id, limit: DASHBOARD_LINKS_PER_CODE })),
     )
   ).flat();
 

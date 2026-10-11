@@ -64,7 +64,7 @@ export const WOOCOMMERCE_SCENARIOS: readonly ScenarioSpec[] = [
     id: 'W1',
     title: 'REST credential connection',
     expectedObservable:
-      "connection status `connected`, `shopCurrency` matching the site, exactly ONE connection row",
+      'connection status `connected`, `shopCurrency` matching the site, exactly ONE connection row',
     wouldReadIfAbsent:
       'no connection row at all, or one with status `error` and a null `shopCurrency` — the ' +
       'credentials are verified against the site on connect, so a wrong key cannot produce a ' +
@@ -130,7 +130,7 @@ export const WOOCOMMERCE_SCENARIOS: readonly ScenarioSpec[] = [
     title: 'Invalid / insufficient permission',
     expectedObservable:
       'the sync still works; `webhookIds` empty AND `webhookFailures` naming every topic with ' +
-      "its status and reason; `GET .../channels/readiness` reporting `catalog.state: degraded`",
+      'its status and reason; `GET .../channels/readiness` reporting `catalog.state: degraded`',
     wouldReadIfAbsent:
       'an empty `webhookFailures` beside an empty `webhookIds` — which is what the PRE-#218 ' +
       'behaviour produced and reads as a healthy channel, and is the whole reason the refusal ' +
@@ -178,7 +178,7 @@ export const WOOCOMMERCE_SCENARIOS: readonly ScenarioSpec[] = [
       'EVERY variation, each at its own price with its own option values and stock; the ' +
       "webhook run's tallies",
     wouldReadIfAbsent:
-      'ONE variant at the parent\'s lowest price with no option values and `available: 0`, ' +
+      "ONE variant at the parent's lowest price with no option values and `available: 0`, " +
       'beside an option axis declaring several — the #220 collapse verbatim',
     requires: ['woo_site', 'admin_auth', 'public_ingress', 'manual_site_edit'],
   },

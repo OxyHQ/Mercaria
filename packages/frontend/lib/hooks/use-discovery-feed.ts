@@ -1,5 +1,10 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import type { DiscoveryFeed, DiscoveryScope, DiscoverySignal, DiscoverySignalPage } from '@mercaria/shared-types';
+import type {
+  DiscoveryFeed,
+  DiscoveryScope,
+  DiscoverySignal,
+  DiscoverySignalPage,
+} from '@mercaria/shared-types';
 import { fetchDiscoveryFeed, fetchDiscoverySignalPage } from '../api/discovery';
 import { queryKeys } from './query-keys';
 

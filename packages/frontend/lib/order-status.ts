@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@mercaria/shared-types";
+import type { OrderStatus } from '@mercaria/shared-types';
 
 /**
  * Friendly label per order status, as translation KEYS (#560).
@@ -29,14 +29,14 @@ import type { OrderStatus } from "@mercaria/shared-types";
  * without it, which is the whole reason it is a `Record`.
  */
 export const ORDER_STATUS_LABEL_KEYS: Readonly<Record<OrderStatus, string>> = {
-  pending_payment: "orders.status.pendingPayment",
-  paid: "orders.status.paid",
-  processing: "orders.status.processing",
-  shipped: "orders.status.shipped",
-  delivered: "orders.status.delivered",
-  digitally_delivered: "orders.status.digitallyDelivered",
-  cancelled: "orders.status.cancelled",
-  refunded: "orders.status.refunded",
-  partially_refunded: "orders.status.partiallyRefunded",
+  pending_payment: 'orders.status.pendingPayment',
+  paid: 'orders.status.paid',
+  processing: 'orders.status.processing',
+  shipped: 'orders.status.shipped',
+  delivered: 'orders.status.delivered',
+  digitally_delivered: 'orders.status.digitallyDelivered',
+  cancelled: 'orders.status.cancelled',
+  refunded: 'orders.status.refunded',
+  partially_refunded: 'orders.status.partiallyRefunded',
 };
 Object.freeze(ORDER_STATUS_LABEL_KEYS);

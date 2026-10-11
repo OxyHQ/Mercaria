@@ -243,7 +243,10 @@ describe('quantiles name an observation and never interpolate', () => {
   it('coverage is FLOORED, so 6 days and 23 hours is 6', () => {
     const sorted = [
       { ...entry('a', 1, 'merchant:a'), observedAt: BASE },
-      { ...entry('b', 1, 'merchant:b'), observedAt: new Date(BASE.getTime() + 6 * DAY + 23 * 3_600_000) },
+      {
+        ...entry('b', 1, 'merchant:b'),
+        observedAt: new Date(BASE.getTime() + 6 * DAY + 23 * 3_600_000),
+      },
     ];
     expect(coverageDays(sorted)).toBe(6);
   });
@@ -311,9 +314,7 @@ describe('sample floors and confidence (statistical policy 4, acceptance 3)', ()
     expect(priceQualityConfidenceFor(clears, POLICY)).toBe('sufficient');
     // A hundred observations from one seller is a long record of one shop, not a
     // strong market sample.
-    expect(
-      priceQualityConfidenceFor({ ...clears, observations: 100 }, POLICY),
-    ).toBe('sufficient');
+    expect(priceQualityConfidenceFor({ ...clears, observations: 100 }, POLICY)).toBe('sufficient');
     expect(
       priceQualityConfidenceFor(
         { ...clears, observations: 8, distinctSellers: 6, distinctOffers: 6, coverageDays: 4 },
@@ -326,7 +327,9 @@ describe('sample floors and confidence (statistical policy 4, acceptance 3)', ()
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /** A derivation input with nothing in it, for a test to fill in one field of. */
-function emptyInput(overrides: Partial<PriceSignalDerivationInput> = {}): PriceSignalDerivationInput {
+function emptyInput(
+  overrides: Partial<PriceSignalDerivationInput> = {},
+): PriceSignalDerivationInput {
   return {
     scope: {
       scopeKind: 'canonical_product',
@@ -559,7 +562,13 @@ describe('the three states, and what each one may carry', () => {
           basis: 'historical_quote',
           money: { amount: item.amount, currency: 'EUR' },
           native: { amount: item.amount * 2, currency: 'USD' },
-          quote: { from: 'USD', to: 'EUR', rate: 0.5, provider: 'static', asOf: BASE.toISOString() },
+          quote: {
+            from: 'USD',
+            to: 'EUR',
+            rate: 0.5,
+            provider: 'static',
+            asOf: BASE.toISOString(),
+          },
         } satisfies PriceHistoryValue,
       ]),
     );

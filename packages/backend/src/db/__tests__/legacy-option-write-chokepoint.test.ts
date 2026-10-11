@@ -307,7 +307,9 @@ describe('the legacy option-table write census', () => {
     const variantOwner = sources.get(join('db', 'catalog', 'variantRepository.ts'));
     expect(variantOwner, 'the variant owner path is stale').toBeDefined();
     expect(
-      /export\s+(?:async\s+)?function\s+replaceOptionValues\b/u.test(stripComments(variantOwner ?? '')),
+      /export\s+(?:async\s+)?function\s+replaceOptionValues\b/u.test(
+        stripComments(variantOwner ?? ''),
+      ),
       '`replaceOptionValues` is now exported, so `product_variant_option_values` can be written from any module. Either keep it module-private, or extend the helper-caller census above to cover it (#824)',
     ).toBe(false);
   });
@@ -342,24 +344,24 @@ describe('the legacy option-table write census', () => {
 
     // The inline statement, with no helper wrapping it — the shape a rename or
     // an inlining would produce, and the one a name-keyed detector misses.
-    expect(LEGACY_OPTION_WRITE.test('await db.insert(productVariantOptionValues).values(rows);')).toBe(
-      true,
-    );
+    expect(
+      LEGACY_OPTION_WRITE.test('await db.insert(productVariantOptionValues).values(rows);'),
+    ).toBe(true);
     expect(LEGACY_OPTION_WRITE.test('await db.insert(listingOptions).values(rows);')).toBe(true);
 
     // The delete half of each replace, and the update nobody writes yet.
-    expect(LEGACY_OPTION_WRITE.test('await db\n  .delete(productVariantOptionValues)\n  .where(x)')).toBe(
-      true,
-    );
+    expect(
+      LEGACY_OPTION_WRITE.test('await db\n  .delete(productVariantOptionValues)\n  .where(x)'),
+    ).toBe(true);
     expect(LEGACY_OPTION_WRITE.test('db.update(listingOptions).set({ name })')).toBe(true);
 
     // Raw SQL, which bypasses the query builder and its column mappers.
-    expect(LEGACY_OPTION_WRITE.test('db.execute(sql`insert into listing_options (name) values (1)`)')).toBe(
-      true,
-    );
-    expect(LEGACY_OPTION_WRITE.test('sql`update "product_variant_option_values" set value = 1`')).toBe(
-      true,
-    );
+    expect(
+      LEGACY_OPTION_WRITE.test('db.execute(sql`insert into listing_options (name) values (1)`)'),
+    ).toBe(true);
+    expect(
+      LEGACY_OPTION_WRITE.test('sql`update "product_variant_option_values" set value = 1`'),
+    ).toBe(true);
     expect(LEGACY_OPTION_WRITE.test('sql`delete from listing_options where id = 1`')).toBe(true);
 
     // Interpolated, where the table name never appears as text. Asserted to be a
@@ -372,16 +374,18 @@ describe('the legacy option-table write census', () => {
     );
 
     // Reads are legitimate and are what `legacyOptionRepository.ts` exists for.
-    expect(LEGACY_OPTION_WRITE.test('.from(listingOptions).where(eq(listingOptions.listingId, id))')).toBe(
+    expect(
+      LEGACY_OPTION_WRITE.test('.from(listingOptions).where(eq(listingOptions.listingId, id))'),
+    ).toBe(false);
+    expect(LEGACY_OPTION_WRITE.test('select count(*) from ${productVariantOptionValues}')).toBe(
       false,
     );
-    expect(LEGACY_OPTION_WRITE.test('select count(*) from ${productVariantOptionValues}')).toBe(false);
 
     // A neighbouring table whose name merely starts the same must not read as
     // this one.
-    expect(LEGACY_OPTION_WRITE.test('sql`insert into listing_options_archive (id) values (1)`')).toBe(
-      false,
-    );
+    expect(
+      LEGACY_OPTION_WRITE.test('sql`insert into listing_options_archive (id) values (1)`'),
+    ).toBe(false);
     expect(LEGACY_OPTION_WRITE.test('db.insert(listingOptionsArchive).values(rows)')).toBe(false);
   });
 
@@ -397,22 +401,24 @@ describe('the legacy option-table write census', () => {
 
     // The alias probe, and the negative control that an ordinary import is not
     // read as one.
-    expect(ALIASED_IMPORT.test('import { listingOptions as lo } from "../schema/catalog.js";')).toBe(
-      true,
-    );
     expect(
-      ALIASED_IMPORT.test('import { productVariantOptionValues as v } from "../schema/catalog.js";'),
+      ALIASED_IMPORT.test('import { listingOptions as lo } from "../schema/catalog.js";'),
     ).toBe(true);
-    expect(ALIASED_IMPORT.test('import { listingOptions, listings } from "../schema/catalog.js";')).toBe(
-      false,
-    );
+    expect(
+      ALIASED_IMPORT.test(
+        'import { productVariantOptionValues as v } from "../schema/catalog.js";',
+      ),
+    ).toBe(true);
+    expect(
+      ALIASED_IMPORT.test('import { listingOptions, listings } from "../schema/catalog.js";'),
+    ).toBe(false);
 
     // The helper-call probe, and the negative control that an import of the
     // symbol is not a call to it.
     expect(HELPER_CALL.test('await replaceListingOptions(id, options, tx);')).toBe(true);
-    expect(HELPER_CALL.test('import { replaceListingOptions } from "./listingRepository.js";')).toBe(
-      false,
-    );
+    expect(
+      HELPER_CALL.test('import { replaceListingOptions } from "./listingRepository.js";'),
+    ).toBe(false);
 
     // The evasion the two symbol-keyed censuses cannot see on their own, and the
     // reason the alias wall covers the HELPER and not only the tables. Both

@@ -92,7 +92,9 @@ export interface ReferralFundingAdapter {
 export type AffiliateCommissionReader = (input: {
   recordRef: string;
   db: DatabaseOrTransaction;
-}) => Promise<{ amountMinor: number; currency: CurrencyCode; version: string; observedAt: Date } | undefined>;
+}) => Promise<
+  { amountMinor: number; currency: CurrencyCode; version: string; observedAt: Date } | undefined
+>;
 
 /** A reader of RECOGNIZED Mercaria Pro subscription revenue (#89). */
 export type SubscriptionRevenueReader = AffiliateCommissionReader;

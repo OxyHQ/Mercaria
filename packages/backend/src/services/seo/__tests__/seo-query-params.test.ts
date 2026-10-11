@@ -9,10 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  SEO_CANONICAL_QUERY_KINDS,
-  SEO_NON_CANONICAL_QUERY_KINDS,
-} from '@mercaria/shared-types';
+import { SEO_CANONICAL_QUERY_KINDS, SEO_NON_CANONICAL_QUERY_KINDS } from '@mercaria/shared-types';
 import {
   buildCanonicalUrl,
   canonicalParamsForRoute,

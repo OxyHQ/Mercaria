@@ -8,10 +8,10 @@
  * tested without a renderer.
  */
 
-import type { OpeningHoursInterval } from "@goway.to/sdk";
+import type { OpeningHoursInterval } from '@goway.to/sdk';
 
 /** A weekday as GoWay numbers it: 0 = Sunday … 6 = Saturday. */
-export type Weekday = OpeningHoursInterval["day"];
+export type Weekday = OpeningHoursInterval['day'];
 
 /** The order the editor lists the week in — Monday first, the order shop signs use. */
 export const EDITOR_WEEK: readonly Weekday[] = [1, 2, 3, 4, 5, 6, 0];
@@ -21,13 +21,13 @@ export const EDITOR_WEEK: readonly Weekday[] = [1, 2, 3, 4, 5, 6, 0];
  * locale store rehydrates, so a resolved word here would freeze one language).
  */
 export const WEEKDAY_LABEL_KEYS: Record<Weekday, string> = {
-  0: "settings.locations.editor.days.sun",
-  1: "settings.locations.editor.days.mon",
-  2: "settings.locations.editor.days.tue",
-  3: "settings.locations.editor.days.wed",
-  4: "settings.locations.editor.days.thu",
-  5: "settings.locations.editor.days.fri",
-  6: "settings.locations.editor.days.sat",
+  0: 'settings.locations.editor.days.sun',
+  1: 'settings.locations.editor.days.mon',
+  2: 'settings.locations.editor.days.tue',
+  3: 'settings.locations.editor.days.wed',
+  4: 'settings.locations.editor.days.thu',
+  5: 'settings.locations.editor.days.fri',
+  6: 'settings.locations.editor.days.sat',
 };
 
 /** One line of the week editor per weekday. */
@@ -43,7 +43,7 @@ function normalizeClock(value: string): string {
 
 /** The text a day's intervals read as. */
 export function formatRanges(ranges: readonly { opens: string; closes: string }[]): string {
-  return ranges.map((range) => `${range.opens}-${range.closes}`).join(", ");
+  return ranges.map((range) => `${range.opens}-${range.closes}`).join(', ');
 }
 
 /**
@@ -52,7 +52,7 @@ export function formatRanges(ranges: readonly { opens: string; closes: string }[
  */
 export function parseRanges(text: string): { opens: string; closes: string }[] | null {
   const trimmed = text.trim();
-  if (trimmed === "") return [];
+  if (trimmed === '') return [];
   const ranges: { opens: string; closes: string }[] = [];
   for (const part of trimmed.split(/[,;]/)) {
     const pieces = part.split(/[-–]/);

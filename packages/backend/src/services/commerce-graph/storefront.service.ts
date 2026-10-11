@@ -163,8 +163,7 @@ export async function applySourceObservation(
     }
   }
 
-  const slug =
-    existing?.slug ?? (await ensureUniqueSlug(name, (c) => storefrontSlugExists(db, c)));
+  const slug = existing?.slug ?? (await ensureUniqueSlug(name, (c) => storefrontSlugExists(db, c)));
   return upsertStorefrontFromSource(db, {
     merchantId: params.merchantId,
     provider,

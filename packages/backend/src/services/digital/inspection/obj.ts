@@ -159,9 +159,15 @@ export function inspectObj(
         const b = resolved[corner] * 3;
         const c = resolved[corner + 1] * 3;
         const halt = census.add(
-          positions[a], positions[a + 1], positions[a + 2],
-          positions[b], positions[b + 1], positions[b + 2],
-          positions[c], positions[c + 1], positions[c + 2],
+          positions[a],
+          positions[a + 1],
+          positions[a + 2],
+          positions[b],
+          positions[b + 1],
+          positions[b + 2],
+          positions[c],
+          positions[c + 1],
+          positions[c + 2],
         );
         if (halt) return censusHaltOutcome(halt, MAX_REPORTED_TRIANGLES);
       }

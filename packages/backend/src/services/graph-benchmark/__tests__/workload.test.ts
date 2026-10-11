@@ -15,11 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  coveredWorkloadItems,
-  EXPLORATORY_SHAPES,
-  WORKLOAD_SHAPES,
-} from '../workload.js';
+import { coveredWorkloadItems, EXPLORATORY_SHAPES, WORKLOAD_SHAPES } from '../workload.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -76,8 +72,10 @@ describe('the benchmark workload', () => {
       expect(relativePath, `${shape.id} has a malformed reader string`).toBeDefined();
       expect(exportName, `${shape.id} names no export`).toBeDefined();
       const source = readFileSync(join(SRC_ROOT, relativePath ?? ''), 'utf8');
-      expect(source.length, `${shape.id}: ${relativePath ?? ''} looks empty — did it move?`)
-        .toBeGreaterThan(200);
+      expect(
+        source.length,
+        `${shape.id}: ${relativePath ?? ''} looks empty — did it move?`,
+      ).toBeGreaterThan(200);
       expect(
         source.includes(`export async function ${exportName ?? ''}(`) ||
           source.includes(`export function ${exportName ?? ''}(`),

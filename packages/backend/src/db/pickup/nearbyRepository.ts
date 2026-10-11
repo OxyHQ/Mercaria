@@ -119,7 +119,9 @@ function linkedLocations(links: readonly PlaceLink[]) {
 }
 
 /** The canonical join, driven by whichever handle the caller supplied. */
-function canonicalPredicate(query: Pick<CollectableQuery, 'canonicalVariantId' | 'canonicalProductId'>) {
+function canonicalPredicate(
+  query: Pick<CollectableQuery, 'canonicalVariantId' | 'canonicalProductId'>,
+) {
   return query.canonicalVariantId !== undefined
     ? sql`nll.canonical_variant_id = ${query.canonicalVariantId}`
     : sql`cv.product_id = ${query.canonicalProductId}`;
@@ -162,9 +164,11 @@ export async function findCollectableAtLocations(
       m.slug                              as merchant_slug,
       sf.name                             as storefront_name
     from native_listing_links nll
-    ${query.canonicalVariantId === undefined
-      ? sql`join canonical_variants cv on cv.id = nll.canonical_variant_id`
-      : sql``}
+    ${
+      query.canonicalVariantId === undefined
+        ? sql`join canonical_variants cv on cv.id = nll.canonical_variant_id`
+        : sql``
+    }
     join product_variants pv on pv.id = nll.product_variant_id
     join listings l on l.id = pv.listing_id
     join inventory_levels il on il.variant_id = pv.id
@@ -179,9 +183,11 @@ export async function findCollectableAtLocations(
       and ${canonicalPredicate(query)}
       and ${collectablePredicate()}
       ${query.currency === undefined ? sql`` : sql`and pv.price_currency = ${query.currency}`}
-      ${query.conditionKeys === undefined || query.conditionKeys.length === 0
-        ? sql``
-        : sql`and l.condition = any(${sql.param([...query.conditionKeys])}::text[])`}
+      ${
+        query.conditionKeys === undefined || query.conditionKeys.length === 0
+          ? sql``
+          : sql`and l.condition = any(${sql.param([...query.conditionKeys])}::text[])`
+      }
     order by loc.id asc, pv.id asc
   `);
 
@@ -204,9 +210,11 @@ export async function countCollectableAtLocations(
   const rows = await db.execute(sql`
     select count(distinct loc.id)::int as location_count
     from native_listing_links nll
-    ${query.canonicalVariantId === undefined
-      ? sql`join canonical_variants cv on cv.id = nll.canonical_variant_id`
-      : sql``}
+    ${
+      query.canonicalVariantId === undefined
+        ? sql`join canonical_variants cv on cv.id = nll.canonical_variant_id`
+        : sql``
+    }
     join product_variants pv on pv.id = nll.product_variant_id
     join listings l on l.id = pv.listing_id
     join inventory_levels il on il.variant_id = pv.id
@@ -353,7 +361,8 @@ export async function listStorePickupLocations(
     // back to the state that BLOCKS. The column carries a CHECK so the fallback
     // is unreachable today; if that ever changes, it fails closed.
     publicationState:
-      LOCATION_PUBLICATION_STATES.find((state) => state === String(row.publication_state)) ?? 'draft',
+      LOCATION_PUBLICATION_STATES.find((state) => state === String(row.publication_state)) ??
+      'draft',
     pickupOffered: Boolean(row.pickup_offered),
     pickupPaused: Boolean(row.pickup_paused),
     restricted: Boolean(row.restricted),

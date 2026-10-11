@@ -125,7 +125,10 @@ async function findExistingRight(
   db: DatabaseOrTransaction,
 ): Promise<AssetRightRow | null> {
   const predicate = input.orderItemId
-    ? and(eq(assetRights.orderItemId, input.orderItemId), eq(assetRights.packageId, input.packageId))
+    ? and(
+        eq(assetRights.orderItemId, input.orderItemId),
+        eq(assetRights.packageId, input.packageId),
+      )
     : and(eq(assetRights.buyerKey, input.buyerKey), eq(assetRights.packageId, input.packageId));
   const [row] = await db.select().from(assetRights).where(predicate).limit(1);
   return row ?? null;
@@ -162,8 +165,7 @@ export async function transitionRight(
       .update(assetRights)
       .set({
         status: input.to,
-        revocationBasis:
-          input.to === 'revoked_for_policy' ? (input.revocationBasis ?? null) : null,
+        revocationBasis: input.to === 'revoked_for_policy' ? (input.revocationBasis ?? null) : null,
       })
       .where(and(eq(assetRights.id, input.rightId), inArray(assetRights.status, [...input.from])))
       .returning({ id: assetRights.id });

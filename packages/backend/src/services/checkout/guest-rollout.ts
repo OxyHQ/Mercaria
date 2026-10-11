@@ -228,10 +228,7 @@ function uniqueMethods(groups: readonly EligibilitySellerGroup[]): ShippingMetho
  * the same for all four — wait, or sign in — so nothing actionable is withheld.
  */
 function refuse(dimension: string, details: Record<string, unknown>): never {
-  log.guest.warn(
-    { dimension, ...details },
-    '[Guest] checkout refused by a rollout kill switch',
-  );
+  log.guest.warn({ dimension, ...details }, '[Guest] checkout refused by a rollout kill switch');
   throw checkoutRefusal(
     'guest_rollout_blocked',
     'Guest checkout is temporarily unavailable for this order. Sign in to continue, or try ' +

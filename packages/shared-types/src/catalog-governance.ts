@@ -433,8 +433,7 @@ export const CATALOG_GOVERNANCE_TERMINAL_CHANGE_STATES = [
  * same numbers.
  */
 export const CATALOG_GOVERNANCE_IMPACT_COVERAGES = ['measured', 'unmeasured'] as const;
-export type CatalogGovernanceImpactCoverage =
-  (typeof CATALOG_GOVERNANCE_IMPACT_COVERAGES)[number];
+export type CatalogGovernanceImpactCoverage = (typeof CATALOG_GOVERNANCE_IMPACT_COVERAGES)[number];
 
 /**
  * What happens to the rows a governance change touches. Every foreign key into
@@ -469,8 +468,7 @@ export const CATALOG_GOVERNANCE_SNAPSHOT_SCOPES = [
   'all',
 ] as const;
 
-export type CatalogGovernanceSnapshotScope =
-  (typeof CATALOG_GOVERNANCE_SNAPSHOT_SCOPES)[number];
+export type CatalogGovernanceSnapshotScope = (typeof CATALOG_GOVERNANCE_SNAPSHOT_SCOPES)[number];
 
 /**
  * What a snapshot restore decided about one entity, and it is the
@@ -481,8 +479,7 @@ export type CatalogGovernanceSnapshotScope =
  * somebody is trying to understand when they reach for a restore.
  */
 export const CATALOG_GOVERNANCE_RESTORE_OUTCOMES = ['create', 'present', 'divergent'] as const;
-export type CatalogGovernanceRestoreOutcome =
-  (typeof CATALOG_GOVERNANCE_RESTORE_OUTCOMES)[number];
+export type CatalogGovernanceRestoreOutcome = (typeof CATALOG_GOVERNANCE_RESTORE_OUTCOMES)[number];
 
 /**
  * Things a governance surface may never do, named as VALUES so a census can

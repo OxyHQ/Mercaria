@@ -66,7 +66,12 @@ function makeUserId(role: string): string {
 }
 
 async function makeCategory(
-  overrides: { parentId?: string; ancestorIds?: string[]; isActive?: boolean; position?: number } = {},
+  overrides: {
+    parentId?: string;
+    ancestorIds?: string[];
+    isActive?: boolean;
+    position?: number;
+  } = {},
 ): Promise<{ id: string; slug: string; name: string }> {
   const suffix = uuidv7().slice(-12);
   const [category] = await db
@@ -110,7 +115,11 @@ async function makeListing(
 }
 
 /** One `discovery_signals` row for a listing — the sweep's own output shape. */
-async function seedSignal(values: { subjectId: string; categoryId: string; unitsSold: number }): Promise<void> {
+async function seedSignal(values: {
+  subjectId: string;
+  categoryId: string;
+  unitsSold: number;
+}): Promise<void> {
   await db.insert(discoverySignals).values({
     subjectType: 'listing',
     subjectId: values.subjectId,
@@ -200,16 +209,31 @@ describe('getDiscoverySignalPage', () => {
 
     const scope = { kind: 'category', handle: category.slug } as const;
 
-    const page1 = await getDiscoverySignalPage({ signal: 'best-selling', scope, limit: 1, offset: 0 });
+    const page1 = await getDiscoverySignalPage({
+      signal: 'best-selling',
+      scope,
+      limit: 1,
+      offset: 0,
+    });
     expect(page1.products.map((p) => p.id)).toEqual([first]);
     expect(page1.pageDepth).toBe('capped');
     expect(page1.hasMore).toBe(true);
 
-    const page2 = await getDiscoverySignalPage({ signal: 'best-selling', scope, limit: 1, offset: 1 });
+    const page2 = await getDiscoverySignalPage({
+      signal: 'best-selling',
+      scope,
+      limit: 1,
+      offset: 1,
+    });
     expect(page2.products.map((p) => p.id)).toEqual([second]);
     expect(page2.hasMore).toBe(true);
 
-    const page3 = await getDiscoverySignalPage({ signal: 'best-selling', scope, limit: 1, offset: 2 });
+    const page3 = await getDiscoverySignalPage({
+      signal: 'best-selling',
+      scope,
+      limit: 1,
+      offset: 2,
+    });
     expect(page3.products.map((p) => p.id)).toEqual([third]);
     expect(page3.hasMore).toBe(false);
   });
@@ -273,7 +297,11 @@ describe('getDiscoverySignalPage', () => {
 
   it('a suppressed subcategory is unreachable through its parent category scope', async () => {
     const parent = await makeCategory();
-    const suppressed = await makeCategory({ parentId: parent.id, ancestorIds: [parent.id], isActive: false });
+    const suppressed = await makeCategory({
+      parentId: parent.id,
+      ancestorIds: [parent.id],
+      isActive: false,
+    });
     const visible = await makeListing(parent.id, { publishedAt: new Date('2021-06-01') });
     // Adverse: the hidden listing is newer, so it wins `new`'s ordering if it leaks.
     const hidden = await makeListing(suppressed.id, { publishedAt: new Date('2022-06-01') });
@@ -335,7 +363,7 @@ describe('getDiscoverySignalPage', () => {
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
-  it('a category scope resolves by ID too, matching the feed\'s own id-or-slug rule', async () => {
+  it("a category scope resolves by ID too, matching the feed's own id-or-slug rule", async () => {
     const category = await makeCategory();
     const listing = await makeListing(category.id, { publishedAt: new Date('2022-01-01') });
 

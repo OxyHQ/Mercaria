@@ -22,25 +22,25 @@
  * listing runs rather than a stand-in for it.
  */
 
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { KNOWN_FINDING_PATH_EXCEPTION_COUNT } from "./validate-authoring-schema-driven.mjs";
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { KNOWN_FINDING_PATH_EXCEPTION_COUNT } from './validate-authoring-schema-driven.mjs';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const validator = resolve(repositoryRoot, "scripts/validate-authoring-schema-driven.mjs");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const validator = resolve(repositoryRoot, 'scripts/validate-authoring-schema-driven.mjs');
 
-const AUTHORING_DIR = "packages/dashboard/lib/authoring";
-const WIZARD_DIR = "packages/dashboard/components/catalog-authoring";
-const BUNDLE = "packages/dashboard/lib/i18n/locales/en.json";
+const AUTHORING_DIR = 'packages/dashboard/lib/authoring';
+const WIZARD_DIR = 'packages/dashboard/components/catalog-authoring';
+const BUNDLE = 'packages/dashboard/lib/i18n/locales/en.json';
 
 // The shared tree #478 added to this guard's population. A fixture has to carry
 // a file and a bundle in it, or every case fails on that tree's own floor
 // instead of on the wall it is testing — which is itself the floor working, and
 // is asserted directly by its own case below.
-const UI_DIR = "packages/ui/src/components/marketplace";
-const UI_BUNDLE = "packages/ui/src/i18n/locales/en.json";
+const UI_DIR = 'packages/ui/src/components/marketplace';
+const UI_BUNDLE = 'packages/ui/src/i18n/locales/en.json';
 
 /**
  * A fixture bundle carrying the keys the negative controls resolve.
@@ -52,8 +52,8 @@ const UI_BUNDLE = "packages/ui/src/i18n/locales/en.json";
 const FIXTURE_BUNDLE = JSON.stringify({
   products: {
     wizard: {
-      fields: { required: "Required", storage: "Storage" },
-      steps: { details: "Details" },
+      fields: { required: 'Required', storage: 'Storage' },
+      steps: { details: 'Details' },
     },
   },
 });
@@ -74,11 +74,11 @@ const FIXTURE_BUNDLE = JSON.stringify({
 function exceptionFixture() {
   return {
     [`${AUTHORING_DIR}/findings.ts`]:
-      "export function parseFindingPath(path: string) {\n" +
+      'export function parseFindingPath(path: string) {\n' +
       "  if (path === 'listing.title') return { kind: 'listing', field: 'title' };\n" +
       "  if (path === 'listing.description') return { kind: 'listing', field: 'description' };\n" +
       "  return { kind: 'unknown' };\n" +
-      "}\n",
+      '}\n',
   };
 }
 
@@ -87,17 +87,17 @@ function baseTree(extra = {}) {
   return {
     [BUNDLE]: FIXTURE_BUNDLE,
     [UI_BUNDLE]: FIXTURE_BUNDLE,
-    [`${AUTHORING_DIR}/answers.ts`]: "export const answers = 1;\n",
-    [`${WIZARD_DIR}/SchemaField.tsx`]: "export const field = 1;\n",
-    "packages/dashboard/lib/other.ts": "export const other = 1;\n",
-    [`${UI_DIR}/PriceDisplay.tsx`]: "export const price = 1;\n",
+    [`${AUTHORING_DIR}/answers.ts`]: 'export const answers = 1;\n',
+    [`${WIZARD_DIR}/SchemaField.tsx`]: 'export const field = 1;\n',
+    'packages/dashboard/lib/other.ts': 'export const other = 1;\n',
+    [`${UI_DIR}/PriceDisplay.tsx`]: 'export const price = 1;\n',
     ...extra,
   };
 }
 
 /** Run the REAL guard against a scratch checkout. */
 async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {}) {
-  const root = await mkdtemp(join(tmpdir(), "authoring-schema-validator-"));
+  const root = await mkdtemp(join(tmpdir(), 'authoring-schema-validator-'));
   try {
     for (const [path, contents] of Object.entries(files)) {
       const full = join(root, path);
@@ -105,8 +105,8 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
       await writeFile(full, contents);
     }
 
-    Bun.spawnSync({ cmd: ["git", "-c", "init.defaultBranch=main", "init", "-q"], cwd: root });
-    Bun.spawnSync({ cmd: ["git", "add", "-A", "-f"], cwd: root });
+    Bun.spawnSync({ cmd: ['git', '-c', 'init.defaultBranch=main', 'init', '-q'], cwd: root });
+    Bun.spawnSync({ cmd: ['git', 'add', '-A', '-f'], cwd: root });
 
     // Deleted AFTER `git add`, so the path stays in the index while the working
     // tree loses it — a real divergence (a half-applied checkout, an
@@ -114,14 +114,14 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
     for (const path of removeAfterAdd) await rm(join(root, path), { force: true });
 
     const environment = { ...process.env, AUTHORING_VALIDATOR_ROOT: root };
-    if (!realFloors) environment.AUTHORING_VALIDATOR_FIXTURE_FLOORS = "1";
+    if (!realFloors) environment.AUTHORING_VALIDATOR_FIXTURE_FLOORS = '1';
 
     const proc = Bun.spawnSync({
-      cmd: ["bun", validator],
+      cmd: ['bun', validator],
       cwd: repositoryRoot,
       env: environment,
-      stdout: "pipe",
-      stderr: "pipe",
+      stdout: 'pipe',
+      stderr: 'pipe',
     });
     return {
       code: proc.exitCode,
@@ -148,14 +148,14 @@ function record(name, ok, detail) {
  * and both look like a passing test here.
  */
 async function mustFail(name, files, { expect, mutationMarker, ...options }) {
-  const source = Object.values(files).join("\n");
+  const source = Object.values(files).join('\n');
   if (mutationMarker !== undefined && !source.includes(mutationMarker)) {
     record(name, false, `the mutation never landed: ${mutationMarker} is not in the fixture`);
     return;
   }
   const { code, output } = await runAgainst(files, options);
   if (code === 0) {
-    record(name, false, "the guard PASSED a tree it must refuse");
+    record(name, false, 'the guard PASSED a tree it must refuse');
     return;
   }
   if (!output.includes(expect)) {
@@ -174,107 +174,107 @@ async function mustPass(name, files, options = {}) {
 // ------------------------------------------------------- wall 1: branching ---
 
 await mustFail(
-  "a comparison against a concept key fails",
+  'a comparison against a concept key fails',
   baseTree({
     [`${AUTHORING_DIR}/render.ts`]:
-      "export function render(field: { key: string }) {\n" +
+      'export function render(field: { key: string }) {\n' +
       "  if (field.key === 'storage_capacity') return 1;\n" +
-      "  return 0;\n}\n",
+      '  return 0;\n}\n',
   }),
-  { expect: "concept-branch", mutationMarker: "field.key === 'storage_capacity'" },
+  { expect: 'concept-branch', mutationMarker: "field.key === 'storage_capacity'" },
 );
 
 await mustFail(
-  "the SAME comparison through an in-file constant fails",
+  'the SAME comparison through an in-file constant fails',
   baseTree({
     [`${AUTHORING_DIR}/render.ts`]:
       "const SMARTPHONE = 'electronic_phone_key';\n" +
-      "export function render(attributeKey: string) {\n" +
-      "  return attributeKey === SMARTPHONE;\n}\n",
+      'export function render(attributeKey: string) {\n' +
+      '  return attributeKey === SMARTPHONE;\n}\n',
   }),
-  { expect: "concept-branch", mutationMarker: "attributeKey === SMARTPHONE" },
+  { expect: 'concept-branch', mutationMarker: 'attributeKey === SMARTPHONE' },
 );
 
 await mustFail(
-  "a switch over a concept key fails",
+  'a switch over a concept key fails',
   baseTree({
     [`${AUTHORING_DIR}/render.ts`]:
-      "export function render(field: { attributeKey: string }) {\n" +
+      'export function render(field: { attributeKey: string }) {\n' +
       "  switch (field.attributeKey) {\n    case 'colour':\n      return 1;\n" +
-      "    default:\n      return 0;\n  }\n}\n",
+      '    default:\n      return 0;\n  }\n}\n',
   }),
-  { expect: "concept-branch", mutationMarker: "case 'colour'" },
+  { expect: 'concept-branch', mutationMarker: "case 'colour'" },
 );
 
 await mustFail(
-  "membership over a hardcoded field list fails",
+  'membership over a hardcoded field list fails',
   baseTree({
     [`${AUTHORING_DIR}/render.ts`]:
       "const SMARTPHONE_FIELDS = ['storage_capacity', 'screen_size'];\n" +
-      "export function render(field: { key: string }) {\n" +
-      "  return SMARTPHONE_FIELDS.includes(field.key);\n}\n",
+      'export function render(field: { key: string }) {\n' +
+      '  return SMARTPHONE_FIELDS.includes(field.key);\n}\n',
   }),
-  { expect: "concept-branch", mutationMarker: "SMARTPHONE_FIELDS.includes(field.key)" },
+  { expect: 'concept-branch', mutationMarker: 'SMARTPHONE_FIELDS.includes(field.key)' },
 );
 
 await mustFail(
-  "membership over an inline Set of values fails",
+  'membership over an inline Set of values fails',
   baseTree({
     [`${AUTHORING_DIR}/render.ts`]:
-      "export function render(field: { key: string }) {\n" +
+      'export function render(field: { key: string }) {\n' +
       "  return new Set(['colour', 'size']).has(field.key);\n}\n",
   }),
-  { expect: "concept-branch", mutationMarker: "new Set(['colour', 'size']).has(field.key)" },
+  { expect: 'concept-branch', mutationMarker: "new Set(['colour', 'size']).has(field.key)" },
 );
 
 await mustFail(
-  "a prefix test on a concept key fails",
+  'a prefix test on a concept key fails',
   baseTree({
     [`${AUTHORING_DIR}/render.ts`]:
-      "export function render(productTypeKey: string) {\n" +
+      'export function render(productTypeKey: string) {\n' +
       "  return productTypeKey.startsWith('electronic');\n}\n",
   }),
-  { expect: "concept-branch", mutationMarker: "productTypeKey.startsWith('electronic')" },
+  { expect: 'concept-branch', mutationMarker: "productTypeKey.startsWith('electronic')" },
 );
 
 // -------------------------------------------------- wall 2: namespaced keys ---
 
 await mustFail(
-  "a namespaced concept key parked in a constant fails",
+  'a namespaced concept key parked in a constant fails',
   baseTree({
     [`${AUTHORING_DIR}/keys.ts`]: "export const TYPE = 'electronics.phones.smartphones';\n",
   }),
-  { expect: "namespaced-key", mutationMarker: "electronics.phones.smartphones" },
+  { expect: 'namespaced-key', mutationMarker: 'electronics.phones.smartphones' },
 );
 
 // ---------------------------------------------- walls 3 and 4: the payload ---
 
 await mustFail(
-  "a hardcoded attribute key in a payload fails",
+  'a hardcoded attribute key in a payload fails',
   baseTree({
     [`${AUTHORING_DIR}/compose.ts`]:
       "export const payload = { attributeKey: 'storage_capacity', values: [] };\n",
   }),
-  { expect: "hardcoded-identity", mutationMarker: "attributeKey: 'storage_capacity'" },
+  { expect: 'hardcoded-identity', mutationMarker: "attributeKey: 'storage_capacity'" },
 );
 
 await mustFail(
-  "a hardcoded controlled-value id in a payload fails",
+  'a hardcoded controlled-value id in a payload fails',
   baseTree({
     [`${AUTHORING_DIR}/compose.ts`]: "export const answer = { enumValueId: 'black' };\n",
   }),
-  { expect: "hardcoded-identity", mutationMarker: "enumValueId: 'black'" },
+  { expect: 'hardcoded-identity', mutationMarker: "enumValueId: 'black'" },
 );
 
 await mustFail(
-  "a TRANSLATED label sent as identity fails",
+  'a TRANSLATED label sent as identity fails',
   baseTree({
     [`${AUTHORING_DIR}/compose.ts`]:
-      "export function compose(t: (key: string) => string) {\n" +
+      'export function compose(t: (key: string) => string) {\n' +
       "  return { attributeKey: t('products.wizard.fields.storage'), values: [] };\n}\n",
   }),
   {
-    expect: "label-as-identity",
+    expect: 'label-as-identity',
     mutationMarker: "attributeKey: t('products.wizard.fields.storage')",
   },
 );
@@ -285,19 +285,19 @@ await mustFail(
   // BOTH bundles are present deliberately: without one the guard exits earlier on
   // the unreadable bundle, which is a correct refusal for a DIFFERENT reason. It
   // was one bundle until #478 widened the population to two.
-  "a broken file listing cannot pass silently (whole-tree floor)",
+  'a broken file listing cannot pass silently (whole-tree floor)',
   { [BUNDLE]: FIXTURE_BUNDLE, [UI_BUNDLE]: FIXTURE_BUNDLE },
-  { expect: "the file listing is broken", realFloors: true },
+  { expect: 'the file listing is broken', realFloors: true },
 );
 
 await mustFail(
-  "an authoring tree that vanished cannot pass silently (subtree floor)",
+  'an authoring tree that vanished cannot pass silently (subtree floor)',
   {
     [BUNDLE]: FIXTURE_BUNDLE,
     [UI_BUNDLE]: FIXTURE_BUNDLE,
-    "packages/dashboard/lib/other.ts": "export const other = 1;\n",
+    'packages/dashboard/lib/other.ts': 'export const other = 1;\n',
   },
-  { expect: "this guard is measuring nothing" },
+  { expect: 'this guard is measuring nothing' },
 );
 
 // #478. THE case for the widening, and it is a floor case rather than a wall
@@ -312,48 +312,48 @@ await mustFail(
   {
     [BUNDLE]: FIXTURE_BUNDLE,
     [UI_BUNDLE]: FIXTURE_BUNDLE,
-    [`${AUTHORING_DIR}/answers.ts`]: "export const answers = 1;\n",
+    [`${AUTHORING_DIR}/answers.ts`]: 'export const answers = 1;\n',
     ...Object.fromEntries(
       Array.from({ length: 70 }, (_, index) => [
         `packages/dashboard/lib/file${String(index)}.ts`,
-        "export const value = 1;\n",
+        'export const value = 1;\n',
       ]),
     ),
   },
-  { expect: "source files under packages/ui/src/", realFloors: true },
+  { expect: 'source files under packages/ui/src/', realFloors: true },
 );
 
 // The shared tree is really READ, not merely counted. `packages/ui/src` had no
 // authoring gate before #478, so without a case like this "no findings there"
 // and "that tree is not being scanned" print the same line.
 await mustFail(
-  "a concept branch in the shared ui tree is refused, not only one in the dashboard",
+  'a concept branch in the shared ui tree is refused, not only one in the dashboard',
   baseTree({
     [`${UI_DIR}/AttributeRow.tsx`]:
-      "export function render(attribute: { name: string }) {\n" +
+      'export function render(attribute: { name: string }) {\n' +
       '  return attribute.name === "colour" ? 1 : 0;\n' +
-      "}\n",
+      '}\n',
   }),
-  { expect: "[concept-branch]", mutationMarker: 'attribute.name === "colour"' },
+  { expect: '[concept-branch]', mutationMarker: 'attribute.name === "colour"' },
 );
 
 await mustFail(
-  "a tracked file the working tree lost is a loud failure",
-  baseTree({ [`${AUTHORING_DIR}/render.ts`]: "export const render = 1;\n" }),
+  'a tracked file the working tree lost is a loud failure',
+  baseTree({ [`${AUTHORING_DIR}/render.ts`]: 'export const render = 1;\n' }),
   {
-    expect: "tracked but unreadable",
+    expect: 'tracked but unreadable',
     removeAfterAdd: [`${AUTHORING_DIR}/render.ts`],
   },
 );
 
 await mustFail(
-  "a missing en.json is a loud failure, not a silent wall-2 bypass",
+  'a missing en.json is a loud failure, not a silent wall-2 bypass',
   {
-    [`${AUTHORING_DIR}/answers.ts`]: "export const answers = 1;\n",
-    [`${WIZARD_DIR}/SchemaField.tsx`]: "export const field = 1;\n",
-    "packages/dashboard/lib/other.ts": "export const other = 1;\n",
+    [`${AUTHORING_DIR}/answers.ts`]: 'export const answers = 1;\n',
+    [`${WIZARD_DIR}/SchemaField.tsx`]: 'export const field = 1;\n',
+    'packages/dashboard/lib/other.ts': 'export const other = 1;\n',
   },
-  { expect: "wall 2 cannot tell a concept key from copy" },
+  { expect: 'wall 2 cannot tell a concept key from copy' },
 );
 
 // ------------------------------------------------ negative controls ---------
@@ -362,56 +362,56 @@ await mustPass(
   "switching on the schema's own value type does NOT fire",
   baseTree({
     [`${AUTHORING_DIR}/render.ts`]:
-      "export function render(field: { validation: { valueType: string } }) {\n" +
-      "  switch (field.validation.valueType) {\n" +
+      'export function render(field: { validation: { valueType: string } }) {\n' +
+      '  switch (field.validation.valueType) {\n' +
       "    case 'boolean':\n      return 1;\n" +
       "    case 'enum':\n      return 2;\n" +
-      "    default:\n      return 0;\n  }\n}\n",
+      '    default:\n      return 0;\n  }\n}\n',
     ...exceptionFixture(),
   }),
 );
 
 await mustPass(
-  "comparing a requirement, a scope or a cardinality does NOT fire",
+  'comparing a requirement, a scope or a cardinality does NOT fire',
   baseTree({
     [`${AUTHORING_DIR}/render.ts`]:
-      "export function render(field: { requirement: string; scope: string }) {\n" +
+      'export function render(field: { requirement: string; scope: string }) {\n' +
       "  if (field.requirement === 'required') return 1;\n" +
       "  if (field.scope === 'variant') return 2;\n" +
-      "  return 0;\n}\n",
+      '  return 0;\n}\n',
     ...exceptionFixture(),
   }),
 );
 
 await mustPass(
-  "membership against a set built from the SCHEMA does NOT fire",
+  'membership against a set built from the SCHEMA does NOT fire',
   baseTree({
     [`${AUTHORING_DIR}/check.ts`]:
-      "export function check(\n" +
-      "  controlled: Set<string>,\n" +
-      "  axisKeys: Set<string>,\n" +
-      "  entry: { enumValueId: string },\n" +
-      "  field: { key: string },\n" +
-      ") {\n" +
-      "  if (!controlled.has(entry.enumValueId)) return 1;\n" +
-      "  if (!axisKeys.has(field.key)) return 2;\n" +
-      "  return 0;\n}\n",
+      'export function check(\n' +
+      '  controlled: Set<string>,\n' +
+      '  axisKeys: Set<string>,\n' +
+      '  entry: { enumValueId: string },\n' +
+      '  field: { key: string },\n' +
+      ') {\n' +
+      '  if (!controlled.has(entry.enumValueId)) return 1;\n' +
+      '  if (!axisKeys.has(field.key)) return 2;\n' +
+      '  return 0;\n}\n',
     ...exceptionFixture(),
   }),
 );
 
 await mustPass(
-  "a payload composed from the field does NOT fire",
+  'a payload composed from the field does NOT fire',
   baseTree({
     [`${AUTHORING_DIR}/compose.ts`]:
-      "export function compose(field: { key: string }, values: unknown[]) {\n" +
-      "  return { attributeKey: field.key, values };\n}\n",
+      'export function compose(field: { key: string }, values: unknown[]) {\n' +
+      '  return { attributeKey: field.key, values };\n}\n',
     ...exceptionFixture(),
   }),
 );
 
 await mustPass(
-  "a real translation key does NOT fire",
+  'a real translation key does NOT fire',
   baseTree({
     [`${AUTHORING_DIR}/copy.ts`]:
       "export const REQUIRED = 'products.wizard.fields.required';\n" +
@@ -421,7 +421,7 @@ await mustPass(
 );
 
 await mustPass(
-  "the two reasoned validation paths do NOT fire in the file that owns them",
+  'the two reasoned validation paths do NOT fire in the file that owns them',
   baseTree({ ...exceptionFixture() }),
 );
 
@@ -438,14 +438,14 @@ await mustPass(
  * Without it, "we removed four dead entries" rests on a measurement taken once.
  */
 await mustPass(
-  "a camelCase validation path does not fire at all — the shape rule cannot match one",
+  'a camelCase validation path does not fire at all — the shape rule cannot match one',
   baseTree({
     [`${AUTHORING_DIR}/paths.ts`]:
-      "export function step(path: string) {\n" +
+      'export function step(path: string) {\n' +
       "  if (path === 'classification.categoryId') return 1;\n" +
       "  if (path === 'classification.productType') return 2;\n" +
       "  if (path === 'draft.schemaEtag') return 3;\n" +
-      "  return 0;\n}\n",
+      '  return 0;\n}\n',
     ...exceptionFixture(),
   }),
 );
@@ -454,35 +454,35 @@ await mustPass(
 // names cannot express: `listing.title` was excused ANYWHERE under
 // packages/dashboard/, so parking it in a wizard component was free.
 await mustFail(
-  "an excused validation path in ANOTHER file is NOT excused",
+  'an excused validation path in ANOTHER file is NOT excused',
   baseTree({
     [`${AUTHORING_DIR}/keys.ts`]: "export const TITLE = 'listing.title';\n",
     ...exceptionFixture(),
   }),
-  { expect: "[namespaced-key]", mutationMarker: "export const TITLE = 'listing.title'" },
+  { expect: '[namespaced-key]', mutationMarker: "export const TITLE = 'listing.title'" },
 );
 
 await mustPass(
   "a dotted storage key OUTSIDE the wizard's tree does NOT fire",
   baseTree({
-    "packages/dashboard/lib/themePersistence.ts":
+    'packages/dashboard/lib/themePersistence.ts':
       "export const KEY = 'mercaria.dashboard.bloom.theme';\n",
     ...exceptionFixture(),
   }),
 );
 
 await mustPass(
-  "comparing bare row ids does NOT fire",
+  'comparing bare row ids does NOT fire',
   baseTree({
     [`${AUTHORING_DIR}/rows.ts`]:
-      "export function same(row: { id: string }, other: { id: string }) {\n" +
-      "  return row.id === other.id;\n}\n",
+      'export function same(row: { id: string }, other: { id: string }) {\n' +
+      '  return row.id === other.id;\n}\n',
     ...exceptionFixture(),
   }),
 );
 
 await mustPass(
-  "an import specifier that looks like a namespaced key does NOT fire",
+  'an import specifier that looks like a namespaced key does NOT fire',
   baseTree({
     [`${AUTHORING_DIR}/imports.ts`]: "import 'expo.router.shim';\nexport const x = 1;\n",
     ...exceptionFixture(),
@@ -491,11 +491,9 @@ await mustPass(
 
 // ------------------------------- the exemption list, reconciled BOTH ways ---
 
-await mustFail(
-  "a reasoned exception that no longer fires is refused",
-  baseTree(),
-  { expect: "the count went DOWN to 0" },
-);
+await mustFail('a reasoned exception that no longer fires is refused', baseTree(), {
+  expect: 'the count went DOWN to 0',
+});
 
 /**
  * The direction the audited guards were all missing, and the one that lets a new
@@ -508,17 +506,17 @@ await mustFail(
  * behind the reasoned branch.
  */
 await mustFail(
-  "a SECOND use of an excused validation path in the same file cannot ride in",
+  'a SECOND use of an excused validation path in the same file cannot ride in',
   baseTree({
     [`${AUTHORING_DIR}/findings.ts`]:
       "export const TITLE_PATH = 'listing.title';\n" +
-      "export function parseFindingPath(path: string) {\n" +
+      'export function parseFindingPath(path: string) {\n' +
       "  if (path === 'listing.title') return { kind: 'listing', field: 'title' };\n" +
       "  if (path === 'listing.description') return { kind: 'listing', field: 'description' };\n" +
       "  return { kind: 'unknown' };\n" +
-      "}\n",
+      '}\n',
   }),
-  { expect: "the count went UP", mutationMarker: "export const TITLE_PATH = 'listing.title'" },
+  { expect: 'the count went UP', mutationMarker: "export const TITLE_PATH = 'listing.title'" },
 );
 
 // ------------------------------- test files are skipped, and ONLY test files ---
@@ -531,13 +529,13 @@ await mustFail(
  * a wall that stopped reporting rather than as a green run.
  */
 const FIXTURE_SHAPED_SOURCE =
-  "export function probe(target: { attributeKey: string }) {\n" +
+  'export function probe(target: { attributeKey: string }) {\n' +
   "  const path = 'fields.material';\n" +
   "  return target.attributeKey === 'shoe_size' ? { attributeKey: 'shoe_size', path } : null;\n" +
-  "}\n";
+  '}\n';
 
 await mustPass(
-  "a TEST file naming attribute fixtures is skipped by every wall",
+  'a TEST file naming attribute fixtures is skipped by every wall',
   baseTree({
     [`${AUTHORING_DIR}/__tests__/findings.test.ts`]: FIXTURE_SHAPED_SOURCE,
     ...exceptionFixture(),
@@ -548,38 +546,38 @@ await mustFail(
   // The control that makes the exclusion honest. Byte-identical source at a
   // NON-test path must still be refused — an exclusion able to swallow
   // production code would pass this and hide the thing the guard exists for.
-  "the SAME source outside a test path is still refused",
+  'the SAME source outside a test path is still refused',
   baseTree({
     [`${AUTHORING_DIR}/probe.ts`]: FIXTURE_SHAPED_SOURCE,
   }),
-  { expect: "[hardcoded-identity]", mutationMarker: "attributeKey: 'shoe_size'" },
+  { expect: '[hardcoded-identity]', mutationMarker: "attributeKey: 'shoe_size'" },
 );
 
 await mustFail(
-  "and by the namespaced-key wall too, not only the first one",
+  'and by the namespaced-key wall too, not only the first one',
   baseTree({
     [`${AUTHORING_DIR}/probe.ts`]: FIXTURE_SHAPED_SOURCE,
   }),
-  { expect: "[namespaced-key]", mutationMarker: "'fields.material'" },
+  { expect: '[namespaced-key]', mutationMarker: "'fields.material'" },
 );
 
 // ------------------------------------------- the exemption list is BOUNDED ---
 
 record(
-  "the validation-path exemption list has an exact, asserted size",
+  'the validation-path exemption list has an exact, asserted size',
   KNOWN_FINDING_PATH_EXCEPTION_COUNT === 2,
   `KNOWN_FINDING_PATH_EXCEPTIONS holds ${KNOWN_FINDING_PATH_EXCEPTION_COUNT}, expected 2. ` +
-    "Wall 2 subtracts every one of them by name, so a list that grew silently is a hole. " +
-    "Adding one is a decision: state why the new path cannot be told from a concept key. " +
-    "The size alone proves little on its own — six wrong strings satisfy a size of six, which is " +
-    "how four of the original entries came to excuse nothing (#494 finding 4) — so the guard also " +
-    "reconciles each entry against its FILE and an exact count, in both directions.",
+    'Wall 2 subtracts every one of them by name, so a list that grew silently is a hole. ' +
+    'Adding one is a decision: state why the new path cannot be told from a concept key. ' +
+    'The size alone proves little on its own — six wrong strings satisfy a size of six, which is ' +
+    'how four of the original entries came to excuse nothing (#494 finding 4) — so the guard also ' +
+    'reconciles each entry against its FILE and an exact count, in both directions.',
 );
 
 // ---------------------------------------------------------------- report ----
 
 for (const { name, ok, detail } of results) {
-  console.log(`${ok ? "ok  " : "FAIL"}  ${name}`);
+  console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}`);
   if (!ok && detail !== undefined) console.log(`      ${detail}`);
 }
 const passed = results.filter((entry) => entry.ok).length;

@@ -256,10 +256,7 @@ async function importedListing(fixture: Fixture, externalId: string): Promise<{ 
 
 /** Every collection membership row of one listing. */
 async function membershipsOf(listingId: string) {
-  return db
-    .select()
-    .from(listingCollections)
-    .where(eq(listingCollections.listingId, listingId));
+  return db.select().from(listingCollections).where(eq(listingCollections.listingId, listingId));
 }
 
 /** Write the mapping straight onto the row, bypassing the write-time refusal. */
@@ -329,10 +326,7 @@ describe('a mapping onto a MANUAL collection is applied (the positive control)',
       rows.map((r) => r.collectionId),
       'the mapped manual collection must hold the listing',
     ).toEqual([target.id]);
-    expect(
-      rows[0].position,
-      'a connector membership carries no hand-picked order',
-    ).toBeNull();
+    expect(rows[0].position, 'a connector membership carries no hand-picked order').toBeNull();
   });
 });
 
@@ -357,10 +351,7 @@ describe('a mapping whose target was DELETED does not fail the import', () => {
     expect(run.countsCreated, 'the product must still import').toBe(1);
 
     const listing = await importedListing(fixture, product.externalId);
-    expect(
-      await membershipsOf(listing.id),
-      'and it belongs to no collection',
-    ).toEqual([]);
+    expect(await membershipsOf(listing.id), 'and it belongs to no collection').toEqual([]);
   });
 });
 
@@ -411,10 +402,7 @@ describe('updateSyncSettings refuses a mapping it cannot honour', () => {
       .select()
       .from(connections)
       .where(eq(connections.id, fixture.connection.id));
-    expect(
-      row.syncSettingsCollectionMapping,
-      'a refused mapping must not be stored',
-    ).toBeNull();
+    expect(row.syncSettingsCollectionMapping, 'a refused mapping must not be stored').toBeNull();
   });
 
   it('refuses a target that does not exist', async () => {
@@ -468,11 +456,14 @@ describe('listChannelCollections resolves both ends of every stored row', () => 
     });
     await db.delete(collections).where(eq(collections.id, doomedId));
 
-    installProvider([], [
-      { externalId: EXTERNAL_REF, title: 'Tees', productCount: 3 },
-      { externalId: 'ext-automated', title: 'Hoodies' },
-      { externalId: 'ext-deleted', title: 'Caps' },
-    ]);
+    installProvider(
+      [],
+      [
+        { externalId: EXTERNAL_REF, title: 'Tees', productCount: 3 },
+        { externalId: 'ext-automated', title: 'Hoodies' },
+        { externalId: 'ext-deleted', title: 'Caps' },
+      ],
+    );
 
     const view = await listChannelCollections(fixture.storeId, fixture.connection.id);
 
@@ -514,9 +505,9 @@ describe('listChannelCollections resolves both ends of every stored row', () => 
     const view = await listChannelCollections(fixture.storeId, fixture.connection.id);
 
     expect(view.external.outcome).toBe('unavailable');
-    expect(
-      view.external.outcome === 'unavailable' ? view.external.reason : undefined,
-    ).toBe('platform_unavailable');
+    expect(view.external.outcome === 'unavailable' ? view.external.reason : undefined).toBe(
+      'platform_unavailable',
+    );
     // The stored rows are Mercaria's own facts and stay answerable.
     expect(view.mapping).toHaveLength(1);
     expect(
@@ -532,9 +523,9 @@ describe('listChannelCollections resolves both ends of every stored row', () => 
 
     // The tenant gate on every channel route answers 404 and never 403, so a
     // caller cannot use it to learn that a connection id exists.
-    await expect(
-      listChannelCollections(mine.storeId, theirs.connection.id),
-    ).rejects.toMatchObject({ httpStatus: 404 });
+    await expect(listChannelCollections(mine.storeId, theirs.connection.id)).rejects.toMatchObject({
+      httpStatus: 404,
+    });
   });
 });
 

@@ -163,7 +163,10 @@ export async function marketplaceSellerSlugExists(
   db: DatabaseOrTransaction = getDb(),
   slug: string,
 ): Promise<boolean> {
-  const [row] = await db.select({ id: merchants.id }).from(merchants).where(eq(merchants.slug, slug));
+  const [row] = await db
+    .select({ id: merchants.id })
+    .from(merchants)
+    .where(eq(merchants.slug, slug));
   return row !== undefined;
 }
 

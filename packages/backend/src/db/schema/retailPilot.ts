@@ -93,7 +93,9 @@ export const retailPilotCohorts = pgTable(
      */
     cohortKey: text().notNull(),
     version: integer().notNull(),
-    status: text({ enum: asEnumValues(RETAIL_PILOT_COHORT_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(RETAIL_PILOT_COHORT_STATUSES) })
+      .notNull()
+      .default('draft'),
 
     /** The single supplier and account #125 pilot cohort 2 permits. */
     supplierId: text()
@@ -175,10 +177,7 @@ export const retailPilotCohorts = pgTable(
       t.monthlySpendCapCurrency,
     ]),
     check('retail_pilot_cohorts_version_check', sql`${t.version} >= 1`),
-    check(
-      'retail_pilot_cohorts_market_check',
-      sql`${t.marketCountry} ~ '^[A-Z]{2}$'`,
-    ),
+    check('retail_pilot_cohorts_market_check', sql`${t.marketCountry} ~ '^[A-Z]{2}$'`),
     // The audience biconditional.
     check(
       'retail_pilot_cohorts_audience_percentage_check',
@@ -368,10 +367,7 @@ export const retailPilotStops = pgTable(
       'retail_pilot_stops_lift_check',
       sql`num_nonnulls(${t.liftedAt}, ${t.liftedByOxyUserId}, ${t.liftReason}) in (0, 3)`,
     ),
-    check(
-      'retail_pilot_stops_scope_ref_check',
-      sql`(${t.scope} = 'pilot') = (${t.scopeRef} = '')`,
-    ),
+    check('retail_pilot_stops_scope_ref_check', sql`(${t.scope} = 'pilot') = (${t.scopeRef} = '')`),
     uniqueIndex('retail_pilot_stops_live_key')
       .on(t.cohortId, t.metric, t.scope, t.scopeRef)
       .where(sql`${t.liftedAt} is null`),

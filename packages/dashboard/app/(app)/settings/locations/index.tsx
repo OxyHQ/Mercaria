@@ -1,30 +1,30 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import { Link, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { ChevronLeft, ChevronRight, Plus, Trash2, MapPin } from "lucide-react-native";
-import type { Location, LocationType } from "@mercaria/shared-types";
-import {
-  Text,
-  useColorScheme,
-  toBloomIcon,
-} from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { Link, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { ChevronLeft, ChevronRight, Plus, Trash2, MapPin } from 'lucide-react-native';
+import type { Location, LocationType } from '@mercaria/shared-types';
+import { Text, useColorScheme, toBloomIcon } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Dialog, useDialogControl, type DialogControlProps } from '@oxy.so/bloom/dialog';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useTranslation } from "@/lib/i18n";
-import { useLocations, useCreateLocation, useDeleteLocation } from "@/lib/hooks/use-tax-and-locations";
+} from '@oxy.so/bloom/segmented-control';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useTranslation } from '@/lib/i18n';
+import {
+  useLocations,
+  useCreateLocation,
+  useDeleteLocation,
+} from '@/lib/hooks/use-tax-and-locations';
 
-const TYPES: LocationType[] = ["warehouse", "retail", "pop_up", "virtual"];
+const TYPES: LocationType[] = ['warehouse', 'retail', 'pop_up', 'virtual'];
 
 /**
  * Display label per location type (#398).
@@ -36,10 +36,10 @@ const TYPES: LocationType[] = ["warehouse", "retail", "pop_up", "virtual"];
  * to an enum.
  */
 const LOCATION_TYPE_LABEL_KEYS: Record<LocationType, string> = {
-  warehouse: "settings.locations.types.warehouse",
-  retail: "settings.locations.types.retail",
-  pop_up: "settings.locations.types.popUp",
-  virtual: "settings.locations.types.virtual",
+  warehouse: 'settings.locations.types.warehouse',
+  retail: 'settings.locations.types.retail',
+  pop_up: 'settings.locations.types.popUp',
+  virtual: 'settings.locations.types.virtual',
 };
 
 export default function LocationsScreen() {
@@ -47,7 +47,7 @@ export default function LocationsScreen() {
   return (
     <>
       <Head>
-        <title>{t("settings.locations.documentTitle")}</title>
+        <title>{t('settings.locations.documentTitle')}</title>
       </Head>
       <RequireStore permission="locations:write">
         {(storeId) => <LocationsBody storeId={storeId} />}
@@ -71,30 +71,26 @@ function LocationsBody({ storeId }: { storeId: string }) {
         className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
       >
         <ChevronLeft size={16} color={colors.foreground} />
-        <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+        <Text className="text-sm font-medium text-foreground">{t('common.back')}</Text>
       </Pressable>
-      <Button
-        tone="accent"
-        leadingIcon={toBloomIcon(Plus)}
-        onPress={() => createControl.open()}
-      >
-        {t("common.new")}
+      <Button tone="accent" leadingIcon={toBloomIcon(Plus)} onPress={() => createControl.open()}>
+        {t('common.new')}
       </Button>
     </View>
   );
 
   return (
     <Screen
-      title={t("settings.locations.title")}
-      subtitle={t("settings.locations.subtitle")}
+      title={t('settings.locations.title')}
+      subtitle={t('settings.locations.subtitle')}
       action={back}
     >
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
         <ScreenMessage
-          title={t("settings.locations.loadFailed")}
-          body={t("common.pleaseTryAgain")}
+          title={t('settings.locations.loadFailed')}
+          body={t('common.pleaseTryAgain')}
         />
       ) : (
         <View className="gap-2">
@@ -104,8 +100,8 @@ function LocationsBody({ storeId }: { storeId: string }) {
               location={location}
               onDelete={() =>
                 deleteLocation.mutate(location.id, {
-                  onSuccess: () => toast.success(t("settings.locations.deleted")),
-                  onError: () => toast.error(t("settings.locations.deleteFailed")),
+                  onSuccess: () => toast.success(t('settings.locations.deleted')),
+                  onError: () => toast.error(t('settings.locations.deleteFailed')),
                 })
               }
             />
@@ -123,19 +119,16 @@ function LocationsBody({ storeId }: { storeId: string }) {
  * its claim, its hours and its commerce terms. The flag says whether it has a
  * place yet — a location with none can never be found by a shopper.
  */
-function LocationRow({
-  location,
-  onDelete,
-}: {
-  location: Location;
-  onDelete: () => void;
-}) {
+function LocationRow({ location, onDelete }: { location: Location; onDelete: () => void }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   return (
     <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
-      <Link href={{ pathname: "/settings/locations/[id]", params: { id: location.id } }} asChild>
-        <Pressable accessibilityLabel={location.name} className="min-w-0 flex-1 flex-row items-center gap-3 rounded-lg active:opacity-70">
+      <Link href={{ pathname: '/settings/locations/[id]', params: { id: location.id } }} asChild>
+        <Pressable
+          accessibilityLabel={location.name}
+          className="min-w-0 flex-1 flex-row items-center gap-3 rounded-lg active:opacity-70"
+        >
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
             <MapPin size={18} color={colors.mutedForeground} />
           </View>
@@ -147,16 +140,23 @@ function LocationRow({
             */}
             <Text className="text-xs capitalize text-muted-foreground">
               {t(LOCATION_TYPE_LABEL_KEYS[location.type])}
-              {location.isDefault ? t("settings.locations.defaultFlag") : ""}
-              {location.isActive ? "" : t("settings.locations.inactiveFlag")}
-              {location.goWayPlaceId ? t("settings.locations.placeFlag") : t("settings.locations.noPlaceFlag")}
+              {location.isDefault ? t('settings.locations.defaultFlag') : ''}
+              {location.isActive ? '' : t('settings.locations.inactiveFlag')}
+              {location.goWayPlaceId
+                ? t('settings.locations.placeFlag')
+                : t('settings.locations.noPlaceFlag')}
             </Text>
           </View>
           <ChevronRight size={16} color={colors.mutedForeground} />
         </Pressable>
       </Link>
       {!location.isDefault ? (
-        <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel={t("settings.locations.deleteAction", { name: location.name })} className="p-2 active:opacity-70">
+        <Pressable
+          onPress={onDelete}
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.locations.deleteAction', { name: location.name })}
+          className="p-2 active:opacity-70"
+        >
           <Trash2 size={16} color={colors.mutedForeground} />
         </Pressable>
       ) : null}
@@ -173,45 +173,41 @@ function CreateLocationDialog({
 }) {
   const createLocation = useCreateLocation(storeId);
   const { t } = useTranslation();
-  const [name, setName] = useState("");
-  const [type, setType] = useState<LocationType>("warehouse");
+  const [name, setName] = useState('');
+  const [type, setType] = useState<LocationType>('warehouse');
 
   const submit = () => {
     if (!name.trim()) {
-      toast.error(t("settings.locations.nameRequired"));
+      toast.error(t('settings.locations.nameRequired'));
       return;
     }
     createLocation.mutate(
       { name: name.trim(), type },
       {
         onSuccess: () => {
-          toast.success(t("settings.locations.created"));
-          setName("");
-          setType("warehouse");
+          toast.success(t('settings.locations.created'));
+          setName('');
+          setType('warehouse');
           control.close();
         },
-        onError: () => toast.error(t("settings.locations.createFailed")),
+        onError: () => toast.error(t('settings.locations.createFailed')),
       },
     );
   };
 
   return (
-    <Dialog control={control} title={t("settings.locations.newTitle")}>
+    <Dialog control={control} title={t('settings.locations.newTitle')}>
       <View className="gap-4">
-        <Field label={t("common.name")}>
+        <Field label={t('common.name')}>
           <TextFieldInput
-            label={t("common.name")}
+            label={t('common.name')}
             value={name}
             onValueChange={setName}
-            placeholder={t("settings.locations.namePlaceholder")}
+            placeholder={t('settings.locations.namePlaceholder')}
           />
         </Field>
-        <Field label={t("common.type")}>
-          <SegmentedControl
-            type="radio"
-            value={type}
-            onValueChange={setType}
-          >
+        <Field label={t('common.type')}>
+          <SegmentedControl type="radio" value={type} onValueChange={setType}>
             {TYPES.map((locationType) => (
               <SegmentedControlItem key={locationType} value={locationType}>
                 <SegmentedControlItemText>
@@ -222,7 +218,7 @@ function CreateLocationDialog({
           </SegmentedControl>
         </Field>
         <Button tone="accent" onPress={submit} loading={createLocation.isPending} className="mt-1">
-          {t("common.create")}
+          {t('common.create')}
         </Button>
       </View>
     </Dialog>

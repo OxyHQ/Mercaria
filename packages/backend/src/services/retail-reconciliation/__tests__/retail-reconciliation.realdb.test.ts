@@ -614,7 +614,11 @@ describe('the ledger, and ADR 0004 D7’s postings', () => {
     const supplierId = `sup-${RUN}-top`;
     const posting = prefundTopUp({ supplierId, currency: 'EUR', amountMinor: 50_000n });
     const written = await insertLedgerTransaction(db, posting.transaction, posting.entries);
-    const rows = await db.execute<{ account: string; owner_type: string | null; total: string }>(sql`
+    const rows = await db.execute<{
+      account: string;
+      owner_type: string | null;
+      total: string;
+    }>(sql`
       select account, owner_type, sum(amount_minor)::text as total
       from ledger_entries where transaction_id = ${written.id}
       group by account, owner_type
@@ -634,9 +638,9 @@ describe('the ledger, and ADR 0004 D7’s postings', () => {
     const broken = posting.entries.map((entry, index) =>
       index === 0 ? { ...entry, amountMinor: entry.amountMinor + 1n } : entry,
     );
-    await expect(
-      insertLedgerTransaction(db, posting.transaction, broken),
-    ).rejects.toThrow(/does not balance/);
+    await expect(insertLedgerTransaction(db, posting.transaction, broken)).rejects.toThrow(
+      /does not balance/,
+    );
   });
 });
 
@@ -749,9 +753,7 @@ describe('the global ledger still nets to zero per currency', () => {
     `);
     expect([...rows]).toEqual([]);
     // The vacuity floor: an empty ledger nets to zero too.
-    const [count] = await db.execute<{ n: string }>(
-      sql`select count(*) as n from ledger_entries`,
-    );
+    const [count] = await db.execute<{ n: string }>(sql`select count(*) as n from ledger_entries`);
     expect(Number(count?.n)).toBeGreaterThanOrEqual(10);
   });
 });

@@ -154,14 +154,26 @@ export const catalogGovernanceChangeRequests = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('catalog_governance_change_requests_domain_check', t.domain, CATALOG_GOVERNANCE_DOMAINS),
-    checkOneOf('catalog_governance_change_requests_action_check', t.action, CATALOG_GOVERNANCE_ACTIONS),
+    checkOneOf(
+      'catalog_governance_change_requests_domain_check',
+      t.domain,
+      CATALOG_GOVERNANCE_DOMAINS,
+    ),
+    checkOneOf(
+      'catalog_governance_change_requests_action_check',
+      t.action,
+      CATALOG_GOVERNANCE_ACTIONS,
+    ),
     checkOneOf(
       'catalog_governance_change_requests_subject_kind_check',
       t.subjectKind,
       CATALOG_GOVERNANCE_SUBJECT_KINDS,
     ),
-    checkOneOf('catalog_governance_change_requests_state_check', t.state, CATALOG_GOVERNANCE_CHANGE_STATES),
+    checkOneOf(
+      'catalog_governance_change_requests_state_check',
+      t.state,
+      CATALOG_GOVERNANCE_CHANGE_STATES,
+    ),
     checkOneOf(
       'catalog_governance_change_requests_impact_coverage_check',
       t.impactCoverage,
@@ -353,7 +365,11 @@ export const catalogGovernanceAuditEvents = pgTable(
     at: timestamptz().notNull(),
   },
   (t) => [
-    checkOneOf('catalog_governance_audit_events_domain_check', t.domain, CATALOG_GOVERNANCE_DOMAINS),
+    checkOneOf(
+      'catalog_governance_audit_events_domain_check',
+      t.domain,
+      CATALOG_GOVERNANCE_DOMAINS,
+    ),
     checkOneOf(
       'catalog_governance_audit_events_action_check',
       t.action,
@@ -369,7 +385,11 @@ export const catalogGovernanceAuditEvents = pgTable(
       t.actorKind,
       CATALOG_GOVERNANCE_ACTOR_KINDS,
     ),
-    checkOneOf('catalog_governance_audit_events_source_check', t.source, CATALOG_GOVERNANCE_AUDIT_SOURCES),
+    checkOneOf(
+      'catalog_governance_audit_events_source_check',
+      t.source,
+      CATALOG_GOVERNANCE_AUDIT_SOURCES,
+    ),
     // A human act names its human. `system` is the only actorless kind, and
     // making that a CHECK stops an unattributed governance decision existing.
     check(

@@ -63,9 +63,7 @@ export function toStoreDTO(store: StoreRow, access: StoreAccess): StoreDTO {
       ...(store.policiesShippingNote ? { shippingNote: store.policiesShippingNote } : {}),
       ...(store.policiesRefundPolicy ? { refundPolicy: store.policiesRefundPolicy } : {}),
       ...(store.policiesPrivacyPolicy ? { privacyPolicy: store.policiesPrivacyPolicy } : {}),
-      ...(store.policiesTermsOfService
-        ? { termsOfService: store.policiesTermsOfService }
-        : {}),
+      ...(store.policiesTermsOfService ? { termsOfService: store.policiesTermsOfService } : {}),
     },
     defaultCurrency: store.defaultCurrency as StoreDTO['defaultCurrency'],
     taxSettings: {
@@ -126,7 +124,10 @@ export async function listMyStores(req: Request, res: Response): Promise<void> {
   if (!caller) return;
   try {
     const stores = await listAccessibleStores(caller);
-    sendSuccess(res, stores.map(({ store, access }) => toStoreDTO(store, access)));
+    sendSuccess(
+      res,
+      stores.map(({ store, access }) => toStoreDTO(store, access)),
+    );
   } catch (err) {
     log.general.error({ err }, 'Failed to list stores');
     respondWithError(res, err, 'Failed to load your stores');
@@ -158,10 +159,7 @@ export async function updateStoreSettingsHandler(req: Request, res: Response): P
   const ctx = loaded(req, res);
   if (!ctx) return;
   try {
-    const updated = await updateStoreSettings(
-      ctx.store.id,
-      req.body as UpdateStoreSettingsInput,
-    );
+    const updated = await updateStoreSettings(ctx.store.id, req.body as UpdateStoreSettingsInput);
     sendSuccess(res, toStoreDTO(updated, ctx.access));
   } catch (err) {
     log.general.error({ err }, 'Failed to update store settings');

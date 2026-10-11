@@ -291,7 +291,9 @@ function explain(input: {
     parts.push(`capped at the schedule maximum ${formatMinor(schedule.maxFeeMinor, currency)}`);
   }
   if (input.cappedAtBasis) {
-    parts.push('capped at the fee basis (a marketplace fee never exceeds the items it is charged on)');
+    parts.push(
+      'capped at the fee basis (a marketplace fee never exceeds the items it is charged on)',
+    );
   }
   parts.push(
     `= ${formatMinor(input.feeMinor, currency)} under schedule ${schedule.scheduleKey} ` +

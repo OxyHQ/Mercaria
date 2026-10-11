@@ -264,16 +264,14 @@ describe('the row shape a seller-authored localization may take', () => {
     // Without a reviewer it is STILL refused, which is what makes the claim
     // "machine may never be approved" rather than "machine may never name a
     // reviewer". Two rows, because one cannot separate the two constraints.
-    await expectRefusal(
-      /listing_localizations_(machine_status|reviewed_audit)_check/u,
-      () =>
-        db.insert(listingLocalizations).values({
-          listingId,
-          locale: 'ja',
-          status: 'approved',
-          provenance: 'machine',
-          title: '機械翻訳',
-        }),
+    await expectRefusal(/listing_localizations_(machine_status|reviewed_audit)_check/u, () =>
+      db.insert(listingLocalizations).values({
+        listingId,
+        locale: 'ja',
+        status: 'approved',
+        provenance: 'machine',
+        title: '機械翻訳',
+      }),
     );
     // …and the isolable one: a machine row at a status it MAY hold, wearing
     // somebody else's review. Only `_machine_reviewer_check` refuses this.
@@ -326,10 +324,7 @@ describe('the row shape a seller-authored localization may take', () => {
         .update(listingLocalizations)
         .set({ status: 'machine_translated', provenance: 'machine', title: 'sobrescrito' })
         .where(
-          and(
-            eq(listingLocalizations.listingId, listingId),
-            eq(listingLocalizations.locale, 'es'),
-          ),
+          and(eq(listingLocalizations.listingId, listingId), eq(listingLocalizations.locale, 'es')),
         ),
     );
 
@@ -424,7 +419,10 @@ describe('the stale trigger watches BOTH seller-authored columns', () => {
       provenance: 'mercaria',
       title: null,
     });
-    await db.update(listings).set({ title: `Preserve ${RUN} v2` }).where(eq(listings.id, listingId));
+    await db
+      .update(listings)
+      .set({ title: `Preserve ${RUN} v2` })
+      .where(eq(listings.id, listingId));
 
     const [spanish] = await db
       .select()
@@ -1018,7 +1016,9 @@ describe('full-text search reads localized listing text, under its own analyser'
                     || to_tsvector(${configuration}::regconfig, '')) ::text as vector`,
       );
       if (row.stored !== expected.vector) {
-        mismatched.push(`${row.locale} stored ${row.stored} but ${configuration} gives ${expected.vector}`);
+        mismatched.push(
+          `${row.locale} stored ${row.stored} but ${configuration} gives ${expected.vector}`,
+        );
       }
     }
     expect(mismatched).toEqual([]);

@@ -20,7 +20,9 @@ const MERCHANT = 'merchant-apple';
 const OTHER_MERCHANT = 'merchant-someone-else';
 
 /** A storefront projection with sane defaults, overridden per case. */
-function storefront(overrides: Partial<ScopeStorefrontFacts> & { id: string }): ScopeStorefrontFacts {
+function storefront(
+  overrides: Partial<ScopeStorefrontFacts> & { id: string },
+): ScopeStorefrontFacts {
   return {
     merchantId: MERCHANT,
     provider: null,
@@ -88,9 +90,7 @@ describe('scope rule 2 — a platform account proves that shop, not every brand'
       merchantId: MERCHANT,
       requested: [{ kind: 'storefront', ref: 'sf-same' }],
       proof,
-      storefronts: [
-        storefront({ id: 'sf-same', provider: 'shopify', externalShopId: 'shop-1' }),
-      ],
+      storefronts: [storefront({ id: 'sf-same', provider: 'shopify', externalShopId: 'shop-1' })],
     });
     expect(resolved[0]?.state).toBe('verified');
   });

@@ -5,9 +5,9 @@ import type {
   CreateCustomerInput,
   UpdateCustomerInput,
   OrderSummary,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/customers`;
 
@@ -28,7 +28,9 @@ export async function fetchCustomer(storeId: string, id: string): Promise<Custom
 
 /** GET a customer's order history. */
 export async function fetchCustomerOrders(storeId: string, id: string): Promise<OrderSummary[]> {
-  const { data } = await apiClient.get<ApiResponse<OrderSummary[]>>(`${base(storeId)}/${id}/orders`);
+  const { data } = await apiClient.get<ApiResponse<OrderSummary[]>>(
+    `${base(storeId)}/${id}/orders`,
+  );
   return unwrap(data);
 }
 

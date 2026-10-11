@@ -1,17 +1,17 @@
-import { useState } from "react";
-import { View } from "react-native";
-import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import type { Cart, NearbyLocationResult } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { RiMapPin2Line } from "@oxy.so/bloom/icons/RiMapPin2Line";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { Footer } from "@/components/shell/Footer";
-import { NearbyAvailability } from "@/components/nearby/NearbyAvailability";
-import { useAddCartItem } from "@/lib/hooks/use-cart";
-import { useTranslation } from "@/lib/i18n";
+import { useState } from 'react';
+import { View } from 'react-native';
+import Head from 'expo-router/head';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import type { Cart, NearbyLocationResult } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { RiMapPin2Line } from '@oxy.so/bloom/icons/RiMapPin2Line';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { Footer } from '@/components/shell/Footer';
+import { NearbyAvailability } from '@/components/nearby/NearbyAvailability';
+import { useAddCartItem } from '@/lib/hooks/use-cart';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * Collect in person — the screen where a shopper turns "a shop near me has
@@ -84,7 +84,7 @@ export default function NearbyScreen() {
             // The line is in the cart and the cart is authoritative, so the
             // honest recovery is to send the buyer to it rather than to guess a
             // seller key and have checkout answer "no matching cart items".
-            setError(t("nearby.screen.addedToCart"));
+            setError(t('nearby.screen.addedToCart'));
             return;
           }
           const query = new URLSearchParams({
@@ -104,9 +104,9 @@ export default function NearbyScreen() {
       <ScreenShell contentClassName="pt-6">
         <EmptyState
           icon={RiMapPin2Line}
-          title={t("nearby.screen.emptyTitle")}
-          description={t("nearby.screen.emptyBody")}
-          action={{ label: t("nearby.screen.backToMercaria"), onPress: () => router.replace("/") }}
+          title={t('nearby.screen.emptyTitle')}
+          description={t('nearby.screen.emptyBody')}
+          action={{ label: t('nearby.screen.backToMercaria'), onPress: () => router.replace('/') }}
         />
       </ScreenShell>
     );
@@ -115,7 +115,7 @@ export default function NearbyScreen() {
   return (
     <ScreenShell contentClassName="pt-6">
       <Head>
-        <title>{t("nearby.screen.documentTitle")}</title>
+        <title>{t('nearby.screen.documentTitle')}</title>
       </Head>
       <View className="web:mx-auto web:w-full web:max-w-[900px] gap-space-24 md:px-5">
         <NearbyAvailability
@@ -123,7 +123,7 @@ export default function NearbyScreen() {
           {...(canonicalVariantId === undefined ? {} : { canonicalVariantId })}
           withCheckoutEligibility
           onSelectLocation={collectHere}
-          selectLabel={t("nearby.selectHere")}
+          selectLabel={t('nearby.selectHere')}
           {...(isAuthenticated ? {} : { onSignIn: () => openAccountDialog() })}
         />
 

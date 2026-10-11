@@ -134,8 +134,6 @@ export async function releaseSweepRun(
   return rows.length === 1;
 }
 
-export async function listSweepCursors(
-  db: DatabaseOrTransaction,
-): Promise<MatchSweepCursorRow[]> {
+export async function listSweepCursors(db: DatabaseOrTransaction): Promise<MatchSweepCursorRow[]> {
   return db.select().from(matchSweepCursors).orderBy(matchSweepCursors.id);
 }

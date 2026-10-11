@@ -45,7 +45,10 @@ import { RETENTION_SECONDS } from '../../../db/expiryTargets.js';
 import { recordProviderEvent } from '../../../db/payments/paymentRepository.js';
 import { getDb } from '../../../db/postgres.js';
 import { config } from '../../../config/index.js';
-import { billingCohortBindingForCustomer, requireRegisteredBillingCohort } from '../../billing/cohort-access.js';
+import {
+  billingCohortBindingForCustomer,
+  requireRegisteredBillingCohort,
+} from '../../billing/cohort-access.js';
 import { STRIPE_BILLING_EVENT_TYPES } from '../../billing/stripe/subscription-events.js';
 import { log } from '../../../lib/logger.js';
 import { PaymentProviderError } from '../provider.js';
@@ -63,9 +66,21 @@ import { toProviderEventEnvelope, verifyStripeEvent } from './verify.js';
  * detail — no secret, no signature, no payload.
  */
 export type StripeIngressResult =
-  | { readonly outcome: 'accepted'; readonly providerEventId: string; readonly storedEventId: string }
-  | { readonly outcome: 'duplicate'; readonly providerEventId: string; readonly storedEventId: string }
-  | { readonly outcome: 'ignored'; readonly code: 'livemode_mismatch' | 'billing_cohort_mismatch'; readonly providerEventId: string }
+  | {
+      readonly outcome: 'accepted';
+      readonly providerEventId: string;
+      readonly storedEventId: string;
+    }
+  | {
+      readonly outcome: 'duplicate';
+      readonly providerEventId: string;
+      readonly storedEventId: string;
+    }
+  | {
+      readonly outcome: 'ignored';
+      readonly code: 'livemode_mismatch' | 'billing_cohort_mismatch';
+      readonly providerEventId: string;
+    }
   | { readonly outcome: 'unavailable'; readonly code: 'billing_cohort_unavailable' }
   | { readonly outcome: 'rejected'; readonly code: 'invalid_signature' | 'wrong_scope' };
 
@@ -88,9 +103,7 @@ export interface StripeDelivery {
  * direction that answers 500 to a forged request and invites the sender to try
  * again.
  */
-export async function ingestStripeDelivery(
-  delivery: StripeDelivery,
-): Promise<StripeIngressResult> {
+export async function ingestStripeDelivery(delivery: StripeDelivery): Promise<StripeIngressResult> {
   let event: Stripe.Event;
   try {
     event = await verifyStripeEvent(delivery);
@@ -134,13 +147,21 @@ export async function ingestStripeDelivery(
   // Cohort-only admission cannot wake marketplace/Connect handlers or poison
   // their durable dedupe keys. Signature/mode/scope checks still precede SQL.
   if (!config.payments.stripe.enabled) {
-    if (delivery.scope !== 'platform' || event.account || !STRIPE_BILLING_EVENT_TYPES.includes(event.type)) {
+    if (
+      delivery.scope !== 'platform' ||
+      event.account ||
+      !STRIPE_BILLING_EVENT_TYPES.includes(event.type)
+    ) {
       return { outcome: 'ignored', code: 'billing_cohort_mismatch', providerEventId: event.id };
     }
     const binding = await billingCohortBindingForCustomer(envelope.objectIds.customer);
-    if (!binding) return { outcome: 'ignored', code: 'billing_cohort_mismatch', providerEventId: event.id };
-    try { requireRegisteredBillingCohort(binding); }
-    catch { return { outcome: 'unavailable', code: 'billing_cohort_unavailable' }; }
+    if (!binding)
+      return { outcome: 'ignored', code: 'billing_cohort_mismatch', providerEventId: event.id };
+    try {
+      requireRegisteredBillingCohort(binding);
+    } catch {
+      return { outcome: 'unavailable', code: 'billing_cohort_unavailable' };
+    }
   }
 
   const stored = await recordProviderEvent(getDb(), {

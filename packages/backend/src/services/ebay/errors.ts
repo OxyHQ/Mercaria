@@ -142,10 +142,14 @@ export function classifyEbayResponse(input: {
   // mints a fresh one — and NOT `auth_failure`, which would mark the source
   // failed for a token that had merely aged out mid-page.
   if (ids.some((id) => EBAY_TOKEN_ERROR_IDS.includes(id))) {
-    return new CatalogSourceFetchError('auth_failure', `${context}: eBay rejected the access token`, {
-      retryable: true,
-      ...withRetryAfter,
-    });
+    return new CatalogSourceFetchError(
+      'auth_failure',
+      `${context}: eBay rejected the access token`,
+      {
+        retryable: true,
+        ...withRetryAfter,
+      },
+    );
   }
 
   if (status === 429) {

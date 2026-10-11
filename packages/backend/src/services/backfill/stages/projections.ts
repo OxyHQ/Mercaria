@@ -68,9 +68,7 @@ import {
  * page belong to — a second cursor over families would scan every family in the
  * catalogue to find them.
  */
-export async function runRebuildProjectionsPage(
-  context: StageContext,
-): Promise<StagePageResult> {
+export async function runRebuildProjectionsPage(context: StageContext): Promise<StagePageResult> {
   const db = getDb();
   const rows = await db
     .select({
@@ -107,7 +105,11 @@ export async function runRebuildProjectionsPage(
 
       if (row.brandId !== null && !refreshedBrands.has(row.brandId)) {
         refreshedBrands.add(row.brandId);
-        await refreshBrandProductCount(db, row.brandId, await countProductsForBrand(db, row.brandId));
+        await refreshBrandProductCount(
+          db,
+          row.brandId,
+          await countProductsForBrand(db, row.brandId),
+        );
       }
 
       if (actual === row.variantCount) {

@@ -158,9 +158,7 @@ function indexRightExpression() {
 }
 
 /** How many products in this ordered page of the catalogue. */
-export async function countCanonicalProductsForSitemap(
-  db: DatabaseOrTransaction,
-): Promise<number> {
+export async function countCanonicalProductsForSitemap(db: DatabaseOrTransaction): Promise<number> {
   const [row] = await db.select({ total: count() }).from(canonicalProducts);
   return row?.total ?? 0;
 }

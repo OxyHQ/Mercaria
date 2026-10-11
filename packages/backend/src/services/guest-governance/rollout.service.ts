@@ -32,10 +32,7 @@ import type {
   GuestRolloutStage,
   GuestStageAdvanceVerdict,
 } from '@mercaria/shared-types';
-import {
-  GUEST_LAUNCH_GATE_REGISTER,
-  GUEST_ROLLOUT_STAGES,
-} from '@mercaria/shared-types';
+import { GUEST_LAUNCH_GATE_REGISTER, GUEST_ROLLOUT_STAGES } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -88,38 +85,36 @@ export interface GateStatus {
  * either. What a person can do about an automated gate is change the thing it
  * measures.
  */
-export async function readGateStatuses(
-  stage: GuestRolloutStage,
-): Promise<readonly GateStatus[]> {
+export async function readGateStatuses(stage: GuestRolloutStage): Promise<readonly GateStatus[]> {
   const verdicts = await readGateVerdicts(getDb(), stage);
   const byGate = new Map(verdicts.map((verdict) => [verdict.gate, verdict]));
   const required = gatesRequiredFor(stage);
-  return GUEST_LAUNCH_GATE_REGISTER.filter((definition) =>
-    required.includes(definition.gate),
-  ).map((definition): GateStatus => {
-    const automated = AUTOMATED_GATE_CHECKS[definition.gate];
-    if (definition.evidenceKind === 'automated_check' && automated !== undefined) {
+  return GUEST_LAUNCH_GATE_REGISTER.filter((definition) => required.includes(definition.gate)).map(
+    (definition): GateStatus => {
+      const automated = AUTOMATED_GATE_CHECKS[definition.gate];
+      if (definition.evidenceKind === 'automated_check' && automated !== undefined) {
+        return {
+          gate: definition.gate,
+          title: definition.title,
+          discipline: definition.discipline,
+          evidenceKind: definition.evidenceKind,
+          satisfied: automated(),
+          decidedBy: 'automated',
+          blockedBy: definition.blockedBy ?? null,
+        };
+      }
+      const verdict = byGate.get(definition.gate);
       return {
         gate: definition.gate,
         title: definition.title,
         discipline: definition.discipline,
         evidenceKind: definition.evidenceKind,
-        satisfied: automated(),
-        decidedBy: 'automated',
+        satisfied: verdict?.satisfied ?? false,
+        decidedBy: verdict === undefined ? 'none' : 'signoff',
         blockedBy: definition.blockedBy ?? null,
       };
-    }
-    const verdict = byGate.get(definition.gate);
-    return {
-      gate: definition.gate,
-      title: definition.title,
-      discipline: definition.discipline,
-      evidenceKind: definition.evidenceKind,
-      satisfied: verdict?.satisfied ?? false,
-      decidedBy: verdict === undefined ? 'none' : 'signoff',
-      blockedBy: definition.blockedBy ?? null,
-    };
-  });
+    },
+  );
 }
 
 /**
@@ -184,9 +179,7 @@ export async function requestStageAdvance(input: {
   }
 
   const statuses = await readGateStatuses(input.stage);
-  const unsatisfied = statuses
-    .filter((status) => !status.satisfied)
-    .map((status) => status.gate);
+  const unsatisfied = statuses.filter((status) => !status.satisfied).map((status) => status.gate);
 
   if (unsatisfied.length > 0) {
     const anySignoffs = await countGateSignoffs(db);

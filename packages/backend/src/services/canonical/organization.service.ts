@@ -112,7 +112,9 @@ export async function createOrganization(input: CreateOrganizationInput): Promis
   if (!slug) throw validationError(`createOrganization: cannot derive a slug from '${name}'.`);
   const countryCode = input.countryCode?.trim().toUpperCase();
   if (countryCode !== undefined && !/^[A-Z]{2}$/.test(countryCode)) {
-    throw validationError(`createOrganization: '${countryCode}' is not an ISO 3166-1 alpha-2 code.`);
+    throw validationError(
+      `createOrganization: '${countryCode}' is not an ISO 3166-1 alpha-2 code.`,
+    );
   }
 
   try {

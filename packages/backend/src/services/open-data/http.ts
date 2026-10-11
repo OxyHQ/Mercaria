@@ -113,7 +113,8 @@ const DEFAULT_RATE_LIMIT_BACKOFF_MS = 60_000;
 
 export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
   const doFetch = options.fetch ?? fetch;
-  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const clock = options.clock ?? Date.now;
   /** host → the earliest instant the next request may leave. */
   const nextAllowed = new Map<string, number>();
@@ -121,7 +122,9 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
   if (options.userAgent.trim().length === 0) {
     // Refused at construction rather than per request: an anonymous client is
     // the one thing every provider here bans. Reaching this is a wiring defect.
-    throw new Error('An open-data transport needs a User-Agent that identifies Mercaria and a contact.');
+    throw new Error(
+      'An open-data transport needs a User-Agent that identifies Mercaria and a contact.',
+    );
   }
 
   async function throttle(url: string, minIntervalMs: number | undefined): Promise<void> {
@@ -134,7 +137,10 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
     if (leaveAt > now) await sleep(leaveAt - now);
   }
 
-  async function send(url: string, init: { headers: Record<string, string>; signal?: AbortSignal }): Promise<Response> {
+  async function send(
+    url: string,
+    init: { headers: Record<string, string>; signal?: AbortSignal },
+  ): Promise<Response> {
     const timeout = AbortSignal.timeout(options.timeoutMs);
     const signal = init.signal === undefined ? timeout : AbortSignal.any([init.signal, timeout]);
     try {
@@ -144,10 +150,14 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
         signal,
       });
     } catch (error: unknown) {
-      throw new CatalogSourceFetchError('source_outage', `The request to ${new URL(url).host} failed.`, {
-        retryable: true,
-        cause: error,
-      });
+      throw new CatalogSourceFetchError(
+        'source_outage',
+        `The request to ${new URL(url).host} failed.`,
+        {
+          retryable: true,
+          cause: error,
+        },
+      );
     }
   }
 
@@ -156,20 +166,30 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
     if (response.status === 429) {
       throw new CatalogSourceFetchError('rate_limit', `${host} answered 429.`, {
         retryable: true,
-        retryAfterMs: readRetryAfterMs(response.headers.get('retry-after'), clock()) ?? DEFAULT_RATE_LIMIT_BACKOFF_MS,
+        retryAfterMs:
+          readRetryAfterMs(response.headers.get('retry-after'), clock()) ??
+          DEFAULT_RATE_LIMIT_BACKOFF_MS,
       });
     }
     if (response.status === 401 || response.status === 403) {
       // A keyless endpoint that refuses is refusing THIS CLIENT — a missing or
       // banned User-Agent — and retrying it unchanged is how a soft block
       // becomes a hard one.
-      throw new CatalogSourceFetchError('auth_failure', `${host} refused the request (${String(response.status)}).`, {
-        retryable: false,
-      });
+      throw new CatalogSourceFetchError(
+        'auth_failure',
+        `${host} refused the request (${String(response.status)}).`,
+        {
+          retryable: false,
+        },
+      );
     }
-    throw new CatalogSourceFetchError('source_outage', `${host} answered ${String(response.status)}.`, {
-      retryable: response.status >= 500 || response.status === 408,
-    });
+    throw new CatalogSourceFetchError(
+      'source_outage',
+      `${host} answered ${String(response.status)}.`,
+      {
+        retryable: response.status >= 500 || response.status === 408,
+      },
+    );
   }
 
   return {
@@ -193,10 +213,14 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
       } catch (error: unknown) {
         // A 200 that is not JSON is the host's maintenance page or a CDN error
         // served as success — a fact about the RESPONSE, not the schema.
-        throw new CatalogSourceFetchError('parse_failure', `${new URL(url).host} answered 200 with a body that is not JSON.`, {
-          retryable: true,
-          cause: error,
-        });
+        throw new CatalogSourceFetchError(
+          'parse_failure',
+          `${new URL(url).host} answered 200 with a body that is not JSON.`,
+          {
+            retryable: true,
+            cause: error,
+          },
+        );
       }
     },
 
@@ -239,7 +263,10 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
 
       if (response.status === 304 && cached !== null) {
         await response.body?.cancel();
-        const confirmed: CachedDumpMeta = { ...cached, confirmedAt: new Date(clock()).toISOString() };
+        const confirmed: CachedDumpMeta = {
+          ...cached,
+          confirmedAt: new Date(clock()).toISOString(),
+        };
         await writeFile(metaPath, JSON.stringify(confirmed), 'utf8');
         return toDownload(bytesPath, confirmed);
       }
@@ -268,9 +295,13 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
           if (received > limit) {
             // Refused, never truncated: a truncated dump parses as a smaller
             // catalogue and a complete pass over it would retire the rest.
-            throw new CatalogSourceFetchError('source_outage', 'The dump exceeded OPEN_DATA_MAX_DOWNLOAD_BYTES mid-stream.', {
-              retryable: false,
-            });
+            throw new CatalogSourceFetchError(
+              'source_outage',
+              'The dump exceeded OPEN_DATA_MAX_DOWNLOAD_BYTES mid-stream.',
+              {
+                retryable: false,
+              },
+            );
           }
           hash.update(chunk);
           yield chunk;
@@ -278,16 +309,26 @@ export function createOpenDataHttp(options: OpenDataHttpOptions): OpenDataHttp {
       }
       try {
         await pipeline(
-          Readable.from(bounded(Readable.fromWeb(response.body as import('node:stream/web').ReadableStream<Uint8Array>))),
+          Readable.from(
+            bounded(
+              Readable.fromWeb(
+                response.body as import('node:stream/web').ReadableStream<Uint8Array>,
+              ),
+            ),
+          ),
           createWriteStream(temporary),
         );
       } catch (error: unknown) {
         await rm(temporary, { force: true });
         if (error instanceof CatalogSourceFetchError) throw error;
-        throw new CatalogSourceFetchError('source_outage', `The download from ${new URL(url).host} was interrupted.`, {
-          retryable: true,
-          cause: error,
-        });
+        throw new CatalogSourceFetchError(
+          'source_outage',
+          `The download from ${new URL(url).host} was interrupted.`,
+          {
+            retryable: true,
+            cause: error,
+          },
+        );
       }
       await rename(temporary, bytesPath);
       const meta: CachedDumpMeta = {
@@ -308,7 +349,8 @@ function toDownload(path: string, meta: CachedDumpMeta): OpenDataDownload {
   return {
     path,
     confirmedAt: new Date(meta.confirmedAt),
-    lastModified: lastModified !== null && !Number.isNaN(lastModified.getTime()) ? lastModified : null,
+    lastModified:
+      lastModified !== null && !Number.isNaN(lastModified.getTime()) ? lastModified : null,
     digest: meta.digest,
   };
 }

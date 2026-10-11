@@ -30,19 +30,19 @@
  * why this paragraph describes the prohibition rather than spelling it.
  */
 
-import { useEffect } from "react";
-import { Button } from "@oxy.so/bloom/button";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import Head from "expo-router/head";
-import { View } from "react-native";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { SectionHeader, Text } from "@mercaria/ui";
-import type { GuestClaimBlockReason, GuestClaimOrderRef } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { useGuestClaim, useGuestClaimPreview } from "@/lib/hooks/use-guest-claim";
-import { track } from "@/lib/analytics";
-import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
-import { useTranslation } from "@/lib/i18n";
+import { useEffect } from 'react';
+import { Button } from '@oxy.so/bloom/button';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Head from 'expo-router/head';
+import { View } from 'react-native';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { SectionHeader, Text } from '@mercaria/ui';
+import type { GuestClaimBlockReason, GuestClaimOrderRef } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { useGuestClaim, useGuestClaimPreview } from '@/lib/hooks/use-guest-claim';
+import { track } from '@/lib/analytics';
+import { ORDER_STATUS_LABEL_KEYS } from '@/lib/order-status';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * What a claim actually gets you, today.
@@ -55,9 +55,9 @@ import { useTranslation } from "@/lib/i18n";
  * feature and the same reason.
  */
 const CLAIM_BENEFIT_KEYS = [
-  "guestOrders.claim.benefits.history",
-  "guestOrders.claim.benefits.anyDevice",
-  "guestOrders.claim.benefits.review",
+  'guestOrders.claim.benefits.history',
+  'guestOrders.claim.benefits.anyDevice',
+  'guestOrders.claim.benefits.review',
 ];
 
 /**
@@ -73,10 +73,10 @@ const CLAIM_BENEFIT_KEYS = [
  * the group is taken.
  */
 const CLAIM_BLOCK_MESSAGE_KEYS: Record<GuestClaimBlockReason, string> = {
-  claiming_unavailable: "guestOrders.claim.blocked.unavailable",
-  claim_scope_missing: "guestOrders.claim.blocked.inboxNotVerified",
-  inbox_not_verified: "guestOrders.claim.blocked.inboxNotVerified",
-  claimed_by_another_account: "guestOrders.claim.blocked.claimedByAnotherAccount",
+  claiming_unavailable: 'guestOrders.claim.blocked.unavailable',
+  claim_scope_missing: 'guestOrders.claim.blocked.inboxNotVerified',
+  inbox_not_verified: 'guestOrders.claim.blocked.inboxNotVerified',
+  claimed_by_another_account: 'guestOrders.claim.blocked.claimedByAnotherAccount',
 };
 
 function ClaimBody() {
@@ -102,16 +102,14 @@ function ClaimBody() {
    */
   useEffect(() => {
     if (preview.data === undefined || !preview.data.claimable) return;
-    track("guest_claim_offered");
+    track('guest_claim_offered');
   }, [preview.data]);
 
   if (!checkoutGroupId) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("guestOrders.claim.missingTitle")} />
-        <Text className="text-sm text-muted-foreground">
-          {t("guestOrders.claim.missingBody")}
-        </Text>
+        <SectionHeader title={t('guestOrders.claim.missingTitle')} />
+        <Text className="text-sm text-muted-foreground">{t('guestOrders.claim.missingBody')}</Text>
       </View>
     );
   }
@@ -123,12 +121,10 @@ function ClaimBody() {
     // way back.
     return (
       <View className="px-4 gap-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("guestOrders.claim.signInTitle")} />
-        <Text className="text-sm text-muted-foreground">
-          {t("guestOrders.claim.signInBody")}
-        </Text>
+        <SectionHeader title={t('guestOrders.claim.signInTitle')} />
+        <Text className="text-sm text-muted-foreground">{t('guestOrders.claim.signInBody')}</Text>
         <Button tone="accent" onPress={() => openAccountDialog()}>
-          {t("guestOrders.claim.signInAction")}
+          {t('guestOrders.claim.signInAction')}
         </Button>
       </View>
     );
@@ -140,17 +136,17 @@ function ClaimBody() {
         <SectionHeader
           title={
             claim.data.alreadyClaimed
-              ? t("guestOrders.claim.alreadySavedTitle")
-              : t("guestOrders.claim.savedTitle")
+              ? t('guestOrders.claim.alreadySavedTitle')
+              : t('guestOrders.claim.savedTitle')
           }
         />
         <Text className="text-sm text-muted-foreground">
           {claim.data.alreadyClaimed
-            ? t("guestOrders.claim.alreadySavedBody")
-            : t("guestOrders.claim.savedBody")}
+            ? t('guestOrders.claim.alreadySavedBody')
+            : t('guestOrders.claim.savedBody')}
         </Text>
-        <Button tone="accent" onPress={() => router.replace("/orders")}>
-          {t("guestOrders.claim.goToOrders")}
+        <Button tone="accent" onPress={() => router.replace('/orders')}>
+          {t('guestOrders.claim.goToOrders')}
         </Button>
       </View>
     );
@@ -159,8 +155,8 @@ function ClaimBody() {
   if (preview.isPending) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("guestOrders.claim.checkingTitle")} />
-        <Text className="text-sm text-muted-foreground">{t("guestOrders.oneMoment")}</Text>
+        <SectionHeader title={t('guestOrders.claim.checkingTitle')} />
+        <Text className="text-sm text-muted-foreground">{t('guestOrders.oneMoment')}</Text>
       </View>
     );
   }
@@ -168,12 +164,16 @@ function ClaimBody() {
   if (preview.isError || !preview.data) {
     return (
       <View className="px-4 gap-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("guestOrders.claim.failedTitle")} />
+        <SectionHeader title={t('guestOrders.claim.failedTitle')} />
         <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-          {t("guestOrders.claim.failedBody")}
+          {t('guestOrders.claim.failedBody')}
         </Text>
-        <Button appearance="outline" tone="neutral" onPress={() => router.replace("/guest-orders/recover")}>
-          {t("guestOrders.sendAccessLink")}
+        <Button
+          appearance="outline"
+          tone="neutral"
+          onPress={() => router.replace('/guest-orders/recover')}
+        >
+          {t('guestOrders.sendAccessLink')}
         </Button>
       </View>
     );
@@ -186,8 +186,8 @@ function ClaimBody() {
       <SectionHeader
         title={
           alreadyClaimedByYou
-            ? t("guestOrders.claim.reviewAlreadyTitle")
-            : t("guestOrders.claim.reviewTitle")
+            ? t('guestOrders.claim.reviewAlreadyTitle')
+            : t('guestOrders.claim.reviewTitle')
         }
       />
 
@@ -195,8 +195,8 @@ function ClaimBody() {
       <View className="gap-3">
         <Text className="text-sm text-muted-foreground">
           {orders.length === 1
-            ? t("guestOrders.claim.oneOrder")
-            : t("guestOrders.claim.manyOrders", { count: orders.length })}
+            ? t('guestOrders.claim.oneOrder')
+            : t('guestOrders.claim.manyOrders', { count: orders.length })}
         </Text>
         {orders.map((order: GuestClaimOrderRef) => (
           <View key={order.id} className="gap-1">
@@ -215,9 +215,7 @@ function ClaimBody() {
             {t(benefitKey)}
           </Text>
         ))}
-        <Text className="text-sm text-muted-foreground">
-          {t("guestOrders.claim.notRequired")}
-        </Text>
+        <Text className="text-sm text-muted-foreground">{t('guestOrders.claim.notRequired')}</Text>
       </View>
 
       {blockReason ? (
@@ -239,7 +237,7 @@ function ClaimBody() {
           onPress={() => claim.mutate(checkoutGroupId)}
           disabled={!claimable || claim.isPending}
         >
-          {alreadyClaimedByYou ? t("common.confirm") : t("guestOrders.claim.submit")}
+          {alreadyClaimedByYou ? t('common.confirm') : t('guestOrders.claim.submit')}
         </Button>
         {/*
           UX rule 9: declining leaves purchase access exactly as it was.
@@ -254,12 +252,12 @@ function ClaimBody() {
           appearance="outline"
           tone="neutral"
           onPress={() => {
-            track("guest_claim_declined");
+            track('guest_claim_declined');
             router.back();
           }}
           disabled={claim.isPending}
         >
-          {t("guestOrders.claim.decline")}
+          {t('guestOrders.claim.decline')}
         </Button>
       </View>
     </View>
@@ -271,7 +269,7 @@ export default function GuestOrderClaimScreen() {
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>{t("guestOrders.claim.pageTitle")}</title>
+        <title>{t('guestOrders.claim.pageTitle')}</title>
         {/* Reached from the portal, which is the page a credential lands on. */}
         <meta name="referrer" content="no-referrer" />
         <meta name="robots" content="noindex, nofollow" />

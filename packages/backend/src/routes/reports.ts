@@ -29,10 +29,7 @@ import { createAbuseReport } from '../services/moderation/report-intake.service.
 import { sendSuccess, sendError, ErrorCodes } from '../utils/api-response.js';
 import { isMercariaError, respondWithError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
-import type {
-  AbuseReportCategory,
-  AbuseReportedType,
-} from '@mercaria/shared-types';
+import type { AbuseReportCategory, AbuseReportedType } from '@mercaria/shared-types';
 
 const router = Router();
 

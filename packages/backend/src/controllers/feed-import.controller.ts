@@ -59,7 +59,13 @@ import { previewFeed, validateFeedVersion } from '../services/feed-import/previe
 import { redactFeedUrl } from '../services/feed-import/redact.js';
 import { resolveFeedImport } from '../services/feed-import/resolve.js';
 import { sanitizeUploadFilename, stageUploadedFeed } from '../services/feed-import/upload.js';
-import { conflict, forbidden, notFound, respondWithError, validationError } from '../lib/errors/error-codes.js';
+import {
+  conflict,
+  forbidden,
+  notFound,
+  respondWithError,
+  validationError,
+} from '../lib/errors/error-codes.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
@@ -128,9 +134,7 @@ function feedOwnerStoreId(req: Request): string | null {
   if (scope === undefined) {
     // Not a 404: a client cannot cause this and cannot fix it. It means a
     // router mounted these handlers without saying whose feeds they serve.
-    throw new Error(
-      'This router mounted the feed handlers without declaring a feed owner scope.',
-    );
+    throw new Error('This router mounted the feed handlers without declaring a feed owner scope.');
   }
   if (scope === 'platform') return null;
   const store = req.store;
@@ -271,7 +275,10 @@ export async function createFeedHandler(req: Request, res: Response): Promise<vo
 /** GET …/feeds/:configurationId */
 export async function getFeedHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const versions = await listFeedVersions(getDb(), configuration.id);
     sendSuccess(res, {
       configuration: toConfigurationDTO(configuration),
@@ -285,7 +292,10 @@ export async function getFeedHandler(req: Request, res: Response): Promise<void>
 /** GET …/feeds/:configurationId/status — issue Mapping UX 7. */
 export async function getFeedStatusHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     sendSuccess(res, await composeFeedStatus(configuration));
   } catch (error: unknown) {
     respondWithFeedError(res, error, 'getFeedStatus');
@@ -295,7 +305,10 @@ export async function getFeedStatusHandler(req: Request, res: Response): Promise
 /** POST …/feeds/:configurationId/versions */
 export async function draftFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const body = req.body as DraftFeedVersionBody;
     // Field by field rather than a spread: the zod-inferred body types every
     // member as optional under this package's `strict: false`, so a spread
@@ -352,7 +365,10 @@ export async function draftFeedVersionHandler(req: Request, res: Response): Prom
 /** POST …/feeds/:configurationId/versions/:versionId/preview */
 export async function previewFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const preview = await previewFeed({
       configurationId: configuration.id,
       versionId: routeParam(req, 'versionId'),
@@ -366,7 +382,10 @@ export async function previewFeedVersionHandler(req: Request, res: Response): Pr
 /** POST …/feeds/:configurationId/versions/:versionId/validate */
 export async function validateFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const report = await validateFeedVersion({
       configurationId: configuration.id,
       versionId: routeParam(req, 'versionId'),
@@ -382,7 +401,10 @@ export async function validateFeedVersionHandler(req: Request, res: Response): P
 /** POST …/feeds/:configurationId/versions/:versionId/activate */
 export async function activateFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const body = req.body as ActivateFeedVersionBody;
     await activateFeedVersion({
       configurationId: configuration.id,
@@ -399,7 +421,10 @@ export async function activateFeedVersionHandler(req: Request, res: Response): P
 /** POST …/feeds/:configurationId/versions/:versionId/revert */
 export async function revertFeedVersionHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const version = await revertToFeedVersion({
       configurationId: configuration.id,
       versionId: routeParam(req, 'versionId'),
@@ -422,7 +447,10 @@ export async function revertFeedVersionHandler(req: Request, res: Response): Pro
  */
 export async function uploadFeedHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     // The global `express.json()` matches on content type and would have
     // CONSUMED a JSON body before this handler ever ran, leaving an empty
     // stream that reads as an empty feed — and an empty feed on a snapshot
@@ -472,7 +500,10 @@ export async function uploadFeedHandler(req: Request, res: Response): Promise<vo
 /** GET …/feeds/:configurationId/uploads */
 export async function listFeedUploadsHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const rows = await listFeedUploads(getDb(), configuration.id, 50);
     sendSuccess(
       res,
@@ -494,7 +525,10 @@ export async function listFeedUploadsHandler(req: Request, res: Response): Promi
 /** GET …/feeds/:configurationId/reports */
 export async function listFeedReportsHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const rows = await listFeedImportReports(getDb(), configuration.id, 50);
     sendSuccess(res, rows);
   } catch (error: unknown) {
@@ -505,7 +539,10 @@ export async function listFeedReportsHandler(req: Request, res: Response): Promi
 /** GET …/feeds/:configurationId/reports/:reportId */
 export async function getFeedReportHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const report = await findFeedImportReport(getDb(), routeParam(req, 'reportId'));
     if (report === undefined || report.configurationId !== configuration.id) {
       throw notFound('Report not found for this feed');
@@ -531,7 +568,10 @@ export async function getFeedReportHandler(req: Request, res: Response): Promise
  */
 export async function downloadFeedReportHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const report = await findFeedImportReport(getDb(), routeParam(req, 'reportId'));
     if (report === undefined || report.configurationId !== configuration.id) {
       throw notFound('Report not found for this feed');
@@ -542,10 +582,7 @@ export async function downloadFeedReportHandler(req: Request, res: Response): Pr
       config.feedImport.maxReportEntries,
     );
     res.setHeader('content-type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'content-disposition',
-      `attachment; filename="feed-report-${report.id}.csv"`,
-    );
+    res.setHeader('content-disposition', `attachment; filename="feed-report-${report.id}.csv"`);
     res.write('record_index,issue_code,severity,role,source_field,external_id,observed_token\n');
     for (const entry of entries) {
       res.write(
@@ -582,7 +619,10 @@ function csvCell(value: string | null): string {
 /** POST …/feeds/:configurationId/sync — a MANUAL pass. */
 export async function syncFeedHandler(req: Request, res: Response): Promise<void> {
   try {
-    const configuration = await assertConfigurationOwnedByRequester(req, routeParam(req, 'configurationId'));
+    const configuration = await assertConfigurationOwnedByRequester(
+      req,
+      routeParam(req, 'configurationId'),
+    );
     const run = await openSourceRun(getDb(), {
       sourceId: configuration.sourceId,
       kind: 'manual',

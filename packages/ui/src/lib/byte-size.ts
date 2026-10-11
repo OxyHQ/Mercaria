@@ -1,4 +1,4 @@
-import { isolateBidi } from "./bidi";
+import { isolateBidi } from './bidi';
 
 /**
  * A file size, spelled for the reader's locale (#1015 Workstream 9
@@ -51,11 +51,11 @@ const UNITS: readonly {
   /** The pre-`Intl` spelling, used when a constrained runtime refuses. */
   readonly fallbackSuffix: string;
 }[] = [
-  { unit: "byte", divisor: 1, fractionDigits: 0, fallbackSuffix: " B" },
-  { unit: "kilobyte", divisor: UNIT_STEP, fractionDigits: 1, fallbackSuffix: " kB" },
-  { unit: "megabyte", divisor: UNIT_STEP ** 2, fractionDigits: 1, fallbackSuffix: " MB" },
-  { unit: "gigabyte", divisor: UNIT_STEP ** 3, fractionDigits: 1, fallbackSuffix: " GB" },
-  { unit: "terabyte", divisor: UNIT_STEP ** 4, fractionDigits: 1, fallbackSuffix: " TB" },
+  { unit: 'byte', divisor: 1, fractionDigits: 0, fallbackSuffix: ' B' },
+  { unit: 'kilobyte', divisor: UNIT_STEP, fractionDigits: 1, fallbackSuffix: ' kB' },
+  { unit: 'megabyte', divisor: UNIT_STEP ** 2, fractionDigits: 1, fallbackSuffix: ' MB' },
+  { unit: 'gigabyte', divisor: UNIT_STEP ** 3, fractionDigits: 1, fallbackSuffix: ' GB' },
+  { unit: 'terabyte', divisor: UNIT_STEP ** 4, fractionDigits: 1, fallbackSuffix: ' TB' },
 ];
 
 /**
@@ -109,9 +109,9 @@ export function formatByteSize(bytes: number, locale: string): string {
     let formatter = formatterCache.get(cacheKey);
     if (formatter === undefined) {
       formatter = new Intl.NumberFormat(locale, {
-        style: "unit",
+        style: 'unit',
         unit: unit.unit,
-        unitDisplay: "short",
+        unitDisplay: 'short',
         maximumFractionDigits: unit.fractionDigits,
       });
       formatterCache.set(cacheKey, formatter);

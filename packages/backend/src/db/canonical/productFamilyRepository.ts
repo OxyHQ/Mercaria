@@ -169,7 +169,10 @@ export async function insertProductFamilyAlias(
       createdByOxyUserId: input.createdByOxyUserId ?? null,
     })
     .onConflictDoNothing({
-      target: [canonicalProductFamilyAliases.familyId, canonicalProductFamilyAliases.normalizedAlias],
+      target: [
+        canonicalProductFamilyAliases.familyId,
+        canonicalProductFamilyAliases.normalizedAlias,
+      ],
     })
     .returning();
   return rows[0];
@@ -301,7 +304,10 @@ export async function listProductFamilyRedirects(
     .select()
     .from(canonicalProductFamilyRedirects)
     .where(eq(canonicalProductFamilyRedirects.fromId, fromId))
-    .orderBy(asc(canonicalProductFamilyRedirects.createdAt), asc(canonicalProductFamilyRedirects.id));
+    .orderBy(
+      asc(canonicalProductFamilyRedirects.createdAt),
+      asc(canonicalProductFamilyRedirects.id),
+    );
 }
 
 /** Repoint the loser's aliases; see `brandRepository.repointBrandAliases`. */

@@ -1,9 +1,9 @@
-import { Pressable, View } from "react-native";
-import { type NearbyLocationResult } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useFormatters } from "../../lib/use-formatters";
-import { conditionLabelKey } from "../../lib/condition";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { Pressable, View } from 'react-native';
+import { type NearbyLocationResult } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useFormatters } from '../../lib/use-formatters';
+import { conditionLabelKey } from '../../lib/condition';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   MARKETPLACE_VISIT_MERCHANT_KEY,
   NEARBY_CHANNEL_KEY,
@@ -11,7 +11,7 @@ import {
   NEARBY_SIGN_IN_A11Y_KEY,
   NEARBY_SIGN_IN_KEY,
   NEARBY_SOLD_BY_KEY,
-} from "../../lib/marketplace-labels";
+} from '../../lib/marketplace-labels';
 import {
   GOWAY_PLACE_LINK_A11Y_KEY,
   GOWAY_PLACE_LINK_KEY,
@@ -24,7 +24,7 @@ import {
   describeOpenState,
   describeStockConfirmed,
   formatPublicAddress,
-} from "../../lib/pickup-labels";
+} from '../../lib/pickup-labels';
 
 /**
  * One place a shopper could collect this exact thing from (#93 client rules 3,
@@ -115,7 +115,7 @@ export function NearbyLocationCard({
   onPressMerchant,
   onPressPlace,
   onSelect,
-  selectLabel = "Collect here",
+  selectLabel = 'Collect here',
   onSignIn,
 }: NearbyLocationCardProps) {
   const t = useSharedUiTranslation();
@@ -123,7 +123,7 @@ export function NearbyLocationCard({
   const { location } = result;
   const address = formatPublicAddress(location.address);
   const eligibility = result.checkoutEligibility;
-  const blocked = eligibility !== undefined && eligibility.verdict === "blocked";
+  const blocked = eligibility !== undefined && eligibility.verdict === 'blocked';
   const blockCopy = blocked ? describeBuyerPickupBlock(t, eligibility.reasons) : undefined;
 
   return (
@@ -143,7 +143,9 @@ export function NearbyLocationCard({
       <View className="flex-row flex-wrap gap-space-6">
         <Chip>{`${t(PICKUP_DISTANCE_BAND_KEYS[result.distanceBand])} · ${formatDistance(result.approximateMetres)}`}</Chip>
         <Chip>{t(LOCATION_AVAILABILITY_KEYS[result.availability])}</Chip>
-        {result.condition === undefined ? null : <Chip>{t(conditionLabelKey(result.condition))}</Chip>}
+        {result.condition === undefined ? null : (
+          <Chip>{t(conditionLabelKey(result.condition))}</Chip>
+        )}
       </View>
 
       {/*
@@ -154,11 +156,13 @@ export function NearbyLocationCard({
       <Text className="text-shop-caption text-text-secondary">
         {result.exactQuantity === undefined
           ? t(LOCATION_AVAILABILITY_EXPLANATION_KEYS[result.availability])
-          : t("ui.pickup.exactQuantity", { count: result.exactQuantity })}
+          : t('ui.pickup.exactQuantity', { count: result.exactQuantity })}
       </Text>
 
       {/* Hours and freshness: two facts a shopper acts on before travelling. */}
-      <Text className="text-shop-caption text-text-secondary">{describeOpenState(t, location.openState)}</Text>
+      <Text className="text-shop-caption text-text-secondary">
+        {describeOpenState(t, location.openState)}
+      </Text>
       <Text className="text-shop-caption text-text-tertiary">
         {describeStockConfirmed(t, result.stockConfirmedAt, now)}
       </Text>
@@ -201,8 +205,8 @@ export function NearbyLocationCard({
           }}
         >
           <Text className="text-shop-caption text-text">
-          {t(NEARBY_SOLD_BY_KEY, { merchant: location.merchant.name })}
-        </Text>
+            {t(NEARBY_SOLD_BY_KEY, { merchant: location.merchant.name })}
+          </Text>
         </Pressable>
       )}
       {location.storefront === undefined ? null : (
@@ -212,7 +216,7 @@ export function NearbyLocationCard({
       )}
 
       <Text className="text-shop-caption text-text-tertiary">
-        {t(PICKUP_PAYMENT_REQUIREMENT_KEYS[location.paymentRequirement])}{" "}
+        {t(PICKUP_PAYMENT_REQUIREMENT_KEYS[location.paymentRequirement])}{' '}
         {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[location.identityRequirement])}
       </Text>
 
@@ -254,7 +258,7 @@ export function NearbyLocationCard({
         </View>
       )}
 
-      {eligibility !== undefined && eligibility.verdict === "eligible" && onSelect !== undefined ? (
+      {eligibility !== undefined && eligibility.verdict === 'eligible' && onSelect !== undefined ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(NEARBY_SELECT_AT_KEY, {

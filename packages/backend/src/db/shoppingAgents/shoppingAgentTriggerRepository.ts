@@ -38,7 +38,11 @@
 import { and, asc, eq, gt, lte, or, sql } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { canonicalVariants } from '../schema/canonicalCatalog.js';
-import { shoppingAgentLines, shoppingAgentTriggers, shoppingAgents } from '../schema/shoppingAgents.js';
+import {
+  shoppingAgentLines,
+  shoppingAgentTriggers,
+  shoppingAgents,
+} from '../schema/shoppingAgents.js';
 
 export type ShoppingAgentTriggerRow = typeof shoppingAgentTriggers.$inferSelect;
 
@@ -301,9 +305,7 @@ export async function readShoppingAgentTriggerSummary(
       processing: sql<number>`count(*) filter (where ${shoppingAgentTriggers.state} = 'processing')::int`,
       done: sql<number>`count(*) filter (where ${shoppingAgentTriggers.state} = 'done')::int`,
       deadLetter: sql<number>`count(*) filter (where ${shoppingAgentTriggers.state} = 'dead_letter')::int`,
-      oldestPending: sql<
-        Date | null
-      >`min(${shoppingAgentTriggers.availableAt}) filter (where ${shoppingAgentTriggers.state} = 'pending')`,
+      oldestPending: sql<Date | null>`min(${shoppingAgentTriggers.availableAt}) filter (where ${shoppingAgentTriggers.state} = 'pending')`,
     })
     .from(shoppingAgentTriggers);
   const row = rows[0];

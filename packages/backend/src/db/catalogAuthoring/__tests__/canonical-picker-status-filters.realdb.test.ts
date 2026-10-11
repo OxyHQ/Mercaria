@@ -153,7 +153,11 @@ async function makeBrand(name: string, status: 'active' | 'inactive' | 'suppress
   return row.id;
 }
 
-async function makeProduct(name: string, status: 'active' | 'draft' | 'suppressed', brandId: string) {
+async function makeProduct(
+  name: string,
+  status: 'active' | 'draft' | 'suppressed',
+  brandId: string,
+) {
   const [row] = await db
     .insert(canonicalProducts)
     .values({

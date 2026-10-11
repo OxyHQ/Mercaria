@@ -16,7 +16,9 @@ const SHOPIFY = [
 describe('robotsAllows (RFC 9309)', () => {
   it('allows everything without a robots file, or without a matching group', () => {
     expect(robotsAllows(null, 'Mercaria', '/anything')).toBe(true);
-    expect(robotsAllows('User-agent: Googlebot\nDisallow: /', 'Mercaria', '/products.json')).toBe(true);
+    expect(robotsAllows('User-agent: Googlebot\nDisallow: /', 'Mercaria', '/products.json')).toBe(
+      true,
+    );
   });
 
   it('applies the * group, with prefixes and wildcards', () => {
@@ -29,13 +31,23 @@ describe('robotsAllows (RFC 9309)', () => {
 
   it('prefers the group naming the crawler, and the longest rule, with allow winning a tie', () => {
     expect(robotsAllows(SHOPIFY, 'AhrefsBot', '/products.json')).toBe(false);
-    expect(robotsAllows('User-agent: *\nDisallow: /collections\nAllow: /collections/checkout', 'Mercaria', '/collections/checkout')).toBe(true);
+    expect(
+      robotsAllows(
+        'User-agent: *\nDisallow: /collections\nAllow: /collections/checkout',
+        'Mercaria',
+        '/collections/checkout',
+      ),
+    ).toBe(true);
     expect(robotsAllows('User-agent: *\nDisallow: /a\nAllow: /a', 'Mercaria', '/a')).toBe(true);
   });
 
   it('honours the $ anchor and ignores comments and an empty disallow', () => {
-    expect(robotsAllows('User-agent: *\nDisallow: /*.json$', 'Mercaria', '/products.json')).toBe(false);
-    expect(robotsAllows('User-agent: *\nDisallow: /*.json$', 'Mercaria', '/products.json?page=2')).toBe(true);
+    expect(robotsAllows('User-agent: *\nDisallow: /*.json$', 'Mercaria', '/products.json')).toBe(
+      false,
+    );
+    expect(
+      robotsAllows('User-agent: *\nDisallow: /*.json$', 'Mercaria', '/products.json?page=2'),
+    ).toBe(true);
     expect(robotsAllows('User-agent: * # everyone\nDisallow:', 'Mercaria', '/anything')).toBe(true);
   });
 });

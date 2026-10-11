@@ -326,10 +326,7 @@ export const catalogBackfillRuns = pgTable(
      * is not: the ceiling is an incident lever and a CHECK would make raising it
      * a migration, which is the one thing you cannot do at 3am.
      */
-    check(
-      'catalog_backfill_runs_consecutive_failures_check',
-      sql`${t.consecutiveFailures} >= 0`,
-    ),
+    check('catalog_backfill_runs_consecutive_failures_check', sql`${t.consecutiveFailures} >= 0`),
     /** A completed pass has an end time and no cursor left to resume from. */
     check(
       'catalog_backfill_runs_completed_shape_check',
@@ -349,10 +346,7 @@ export const catalogBackfillRuns = pgTable(
       'catalog_backfill_runs_last_error_length_check',
       sql`${t.lastError} is null or length(${t.lastError}) <= ${sql.raw(String(CATALOG_BACKFILL_MAX_TEXT_LENGTH))}`,
     ),
-    check(
-      'catalog_backfill_runs_requested_by_check',
-      sql`btrim(${t.requestedByOxyUserId}) <> ''`,
-    ),
+    check('catalog_backfill_runs_requested_by_check', sql`btrim(${t.requestedByOxyUserId}) <> ''`),
     /**
      * ONE resumable run per (stage, mode, mapping version, cohort) at a time.
      *
@@ -369,9 +363,7 @@ export const catalogBackfillRuns = pgTable(
       .on(t.createdAt)
       .where(sql`${t.status} in ('pending', 'paused')`),
     /** Reclaiming a dead task's lease — its own partial index, the outbox shape. */
-    index('catalog_backfill_runs_reclaim_idx')
-      .on(t.leaseUntil)
-      .where(sql`${t.status} = 'running'`),
+    index('catalog_backfill_runs_reclaim_idx').on(t.leaseUntil).where(sql`${t.status} = 'running'`),
     /** The metrics read: every run of the current mapping version. */
     index('catalog_backfill_runs_mapping_idx').on(t.mappingVersion, t.stage),
   ],
@@ -499,8 +491,12 @@ export const catalogBackfillRecords = pgTable(
      * row beside the old one so the two rule sets are comparable; and a dry run
      * can never overwrite the apply it was meant to predict.
      */
-    uniqueIndex('catalog_backfill_records_subject_key')
-      .on(t.mappingVersion, t.mode, t.stage, t.subjectKey),
+    uniqueIndex('catalog_backfill_records_subject_key').on(
+      t.mappingVersion,
+      t.mode,
+      t.stage,
+      t.subjectKey,
+    ),
     /** The report read: everything one run produced, worst outcomes findable. */
     index('catalog_backfill_records_run_idx').on(t.runId, t.outcome),
     /** The operator trace: every stage's verdict on one subject. */
@@ -549,7 +545,11 @@ export const catalogConsistencyFindings = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('catalog_consistency_findings_kind_check', t.kind, CATALOG_CONSISTENCY_FINDING_KINDS),
+    checkOneOf(
+      'catalog_consistency_findings_kind_check',
+      t.kind,
+      CATALOG_CONSISTENCY_FINDING_KINDS,
+    ),
     checkOneOf(
       'catalog_consistency_findings_subject_kind_check',
       t.subjectKind,
@@ -560,7 +560,10 @@ export const catalogConsistencyFindings = pgTable(
       'catalog_consistency_findings_detail_length_check',
       sql`${t.detail} is null or length(${t.detail}) <= ${sql.raw(String(CATALOG_BACKFILL_MAX_TEXT_LENGTH))}`,
     ),
-    check('catalog_consistency_findings_seen_order_check', sql`${t.lastSeenAt} >= ${t.firstSeenAt}`),
+    check(
+      'catalog_consistency_findings_seen_order_check',
+      sql`${t.lastSeenAt} >= ${t.firstSeenAt}`,
+    ),
     check(
       'catalog_consistency_findings_resolved_order_check',
       sql`${t.resolvedAt} is null or ${t.resolvedAt} >= ${t.firstSeenAt}`,

@@ -43,7 +43,9 @@ export async function findLevel(
   const [row] = await db
     .select()
     .from(inventoryLevels)
-    .where(and(eq(inventoryLevels.variantId, variantId), eq(inventoryLevels.locationId, locationId)))
+    .where(
+      and(eq(inventoryLevels.variantId, variantId), eq(inventoryLevels.locationId, locationId)),
+    )
     .limit(1);
   return row ?? null;
 }

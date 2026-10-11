@@ -98,13 +98,20 @@ export const CATALOG_PROPOSAL_MINTABLE_TYPES: readonly CatalogProposalType[] = [
  * which leaves the record saying exactly what happened.
  */
 export const CATALOG_PROPOSAL_LINK_ONLY_TYPES: Readonly<Record<string, string>> = {
-  category: '/internal/commerce-graph — the taxonomy write chokepoint owns a category key and its ancestry.',
-  product_type: '/internal/product-types — a product type is a versioned schema an operator drafts and publishes.',
-  brand: '/internal/canonical-catalog — the canonical graph owns a brand, its aliases and its merge history.',
-  product_family: '/internal/canonical-catalog — a family is a canonical entity with its own identity gate.',
-  canonical_product: '/internal/canonical-catalog — minting a product is #60/#58 work, never a side effect of review.',
-  canonical_variant: '/internal/canonical-catalog — a variant identity is its option assignments, which a label cannot supply.',
-  attribute: '/internal/catalog-attributes — #94 owns the registry and freezes a published definition version.',
+  category:
+    '/internal/commerce-graph — the taxonomy write chokepoint owns a category key and its ancestry.',
+  product_type:
+    '/internal/product-types — a product type is a versioned schema an operator drafts and publishes.',
+  brand:
+    '/internal/canonical-catalog — the canonical graph owns a brand, its aliases and its merge history.',
+  product_family:
+    '/internal/canonical-catalog — a family is a canonical entity with its own identity gate.',
+  canonical_product:
+    '/internal/canonical-catalog — minting a product is #60/#58 work, never a side effect of review.',
+  canonical_variant:
+    '/internal/canonical-catalog — a variant identity is its option assignments, which a label cannot supply.',
+  attribute:
+    '/internal/catalog-attributes — #94 owns the registry and freezes a published definition version.',
 };
 
 /**

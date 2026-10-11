@@ -163,7 +163,10 @@ for (const gate of GATES) {
         gate: relative(SRC_ROOT, gate),
         // `g`/`y` carry lastIndex between calls, which would make the same
         // detector answer differently on its second use.
-        pattern: new RegExp(literal.slice(1, lastSlash), literal.slice(lastSlash + 1).replace(/[gy]/g, '')),
+        pattern: new RegExp(
+          literal.slice(1, lastSlash),
+          literal.slice(lastSlash + 1).replace(/[gy]/g, ''),
+        ),
       });
     } catch {
       misSliced += 1;
@@ -210,8 +213,14 @@ const GUARDED = BARRELS.filter((barrel) => detectorsFooledBy(barrel).length > 0)
  * drizzle, so naming 79 modules would not even express what they do.
  */
 const ALLOWED: { path: string; reason: string }[] = [
-  { path: 'db/postgres.ts', reason: 'hands the namespace to drizzle() for the relational query API' },
-  { path: 'services/graph-benchmark/runner.ts', reason: 'builds a benchmark client over the same namespace' },
+  {
+    path: 'db/postgres.ts',
+    reason: 'hands the namespace to drizzle() for the relational query API',
+  },
+  {
+    path: 'services/graph-benchmark/runner.ts',
+    reason: 'builds a benchmark client over the same namespace',
+  },
 ];
 
 function barrelImportsOf(file: string): Barrel[] {
@@ -289,12 +298,18 @@ describe('a barrel is guarded only when it actually defeats a wall', () => {
     // A synthetic barrel carrying a module a real detector forbids, run through
     // the same derivation. A `detectorsFooledBy` that stopped matching would
     // otherwise leave GUARDED empty and every assertion here green forever.
-    const synthetic: Barrel = { path: join(SRC_ROOT, 'db', 'schema', 'index.ts'), targets: ['referrals'] };
+    const synthetic: Barrel = {
+      path: join(SRC_ROOT, 'db', 'schema', 'index.ts'),
+      targets: ['referrals'],
+    };
     expect(detectorsFooledBy(synthetic).length).toBeGreaterThan(0);
 
     // And the negative control: a barrel carrying nothing any wall names is not
     // guarded, so the classifier is not simply answering yes.
-    const inert: Barrel = { path: join(SRC_ROOT, 'db', 'schema', 'index.ts'), targets: ['zzz_no_wall_names_this'] };
+    const inert: Barrel = {
+      path: join(SRC_ROOT, 'db', 'schema', 'index.ts'),
+      targets: ['zzz_no_wall_names_this'],
+    };
     expect(detectorsFooledBy(inert)).toEqual([]);
   });
 });
@@ -307,7 +322,7 @@ describe('nothing reaches a domain through a barrel', () => {
     expect(
       unexpected.sort(),
       'imports a domain through a barrel, where every path-based isolation wall goes blind ' +
-        "(#556). Import the owning module — `db/schema/<domain>.js` — instead. If this module " +
+        '(#556). Import the owning module — `db/schema/<domain>.js` — instead. If this module ' +
         'genuinely needs the whole namespace, add it to ALLOWED with the reason.',
     ).toEqual([]);
 
@@ -341,8 +356,13 @@ describe('nothing reaches a domain through a barrel', () => {
     const source = read(violation);
     expect(source).not.toMatch(/from\s+'\.\.\/schema\/index\.js'/);
 
-    const specifiers = matches(SPECIFIER, "import { referralAttributions } from '../schema/index.js';");
+    const specifiers = matches(
+      SPECIFIER,
+      "import { referralAttributions } from '../schema/index.js';",
+    );
     expect(specifiers).toEqual(['../schema/index.js']);
-    expect(resolveSpecifier(violation, specifiers[0])).toBe(join(SRC_ROOT, 'db', 'schema', 'index.ts'));
+    expect(resolveSpecifier(violation, specifiers[0])).toBe(
+      join(SRC_ROOT, 'db', 'schema', 'index.ts'),
+    );
   });
 });

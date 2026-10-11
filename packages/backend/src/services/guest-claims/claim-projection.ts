@@ -44,17 +44,13 @@ export function toClaimSummary(row: GuestOrderClaimRow): GuestOrderClaimSummary 
     createdAt: row.createdAt.toISOString(),
     ...(row.completedAt === null ? {} : { completedAt: row.completedAt.toISOString() }),
     ...(row.revokedAt === null ? {} : { revokedAt: row.revokedAt.toISOString() }),
-    ...(row.revokedByOxyUserId === null
-      ? {}
-      : { revokedByOxyUserId: row.revokedByOxyUserId }),
+    ...(row.revokedByOxyUserId === null ? {} : { revokedByOxyUserId: row.revokedByOxyUserId }),
     ...(row.revocationReason === null ? {} : { revocationReason: row.revocationReason }),
   };
 }
 
 /** One revocation request, for the operator surface. */
-export function toRevocationSummary(
-  row: GuestClaimRevocationRow,
-): GuestClaimRevocationSummary {
+export function toRevocationSummary(row: GuestClaimRevocationRow): GuestClaimRevocationSummary {
   return {
     id: row.id,
     claimId: row.claimId,
@@ -63,9 +59,7 @@ export function toRevocationSummary(
     evidenceRef: row.evidenceRef,
     requestedByOxyUserId: row.requestedByOxyUserId,
     fourEyesRequired: row.fourEyesRequired,
-    ...(row.approvedByOxyUserId === null
-      ? {}
-      : { approvedByOxyUserId: row.approvedByOxyUserId }),
+    ...(row.approvedByOxyUserId === null ? {} : { approvedByOxyUserId: row.approvedByOxyUserId }),
     createdAt: row.createdAt.toISOString(),
     ...(row.executedAt === null ? {} : { executedAt: row.executedAt.toISOString() }),
     ...(row.withdrawnAt === null ? {} : { withdrawnAt: row.withdrawnAt.toISOString() }),

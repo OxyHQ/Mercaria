@@ -1,13 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from '@tanstack/react-query';
 import type {
   ReportSummary,
   SalesReportPoint,
   SalesReportInterval,
   TopProduct,
-} from "@mercaria/shared-types";
-import { fetchReportSummary, fetchSalesReport, fetchTopProducts } from "../api/reports";
-import type { ReportRange } from "../report-range";
-import { queryKeys } from "../queryKeys";
+} from '@mercaria/shared-types';
+import { fetchReportSummary, fetchSalesReport, fetchTopProducts } from '../api/reports';
+import type { ReportRange } from '../report-range';
+import { queryKeys } from '../queryKeys';
 
 /** Single-snapshot report summary. */
 export function useReportSummary(storeId: string) {
@@ -19,7 +19,11 @@ export function useReportSummary(storeId: string) {
 }
 
 /** Sales-over-time report, bucketed by interval (default: day). */
-export function useSalesReport(storeId: string, interval: SalesReportInterval = "day", range?: ReportRange) {
+export function useSalesReport(
+  storeId: string,
+  interval: SalesReportInterval = 'day',
+  range?: ReportRange,
+) {
   return useQuery<SalesReportPoint[]>({
     queryKey: [...queryKeys.reports.sales(storeId, interval), range],
     queryFn: () => fetchSalesReport(storeId, { interval, ...range }),

@@ -47,7 +47,11 @@ function queuedRaw(responses: WooCommerceHttpResponse[]): {
 }
 
 /** A clock driven by the injected sleep (sleeping advances time), plus the recorded waits. */
-function fakeClock(): { now: () => number; sleep: (ms: number) => Promise<void>; sleeps: number[] } {
+function fakeClock(): {
+  now: () => number;
+  sleep: (ms: number) => Promise<void>;
+  sleeps: number[];
+} {
   let clock = 0;
   const sleeps: number[] = [];
   return {

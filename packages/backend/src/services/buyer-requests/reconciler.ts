@@ -51,9 +51,7 @@ export async function reconcileBuyerRequestRefunds(now: Date = new Date()): Prom
   // A grace period before a return is swept: the inline drain usually finishes
   // the job, and sweeping a row the request handler is still working on would
   // race it into the same compare-and-swap for no benefit.
-  const updatedBefore = new Date(
-    now.getTime() - config.buyerRequests.reconcileGraceMs,
-  );
+  const updatedBefore = new Date(now.getTime() - config.buyerRequests.reconcileGraceMs);
   const pending = await listReturnRequestsAwaitingRefundSettlement({
     updatedBefore,
     limit: config.buyerRequests.reconcileBatchSize,

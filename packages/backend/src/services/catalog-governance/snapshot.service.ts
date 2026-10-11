@@ -68,8 +68,13 @@ type ExportedProductType = {
   readonly name: string;
   readonly lifecycle: string;
   readonly categoryKeys: readonly string[];
-  readonly fields: readonly { attributeKey: string; scope: string; flow: string; requirement: string }[];
-}
+  readonly fields: readonly {
+    attributeKey: string;
+    scope: string;
+    flow: string;
+    requirement: string;
+  }[];
+};
 
 type ExportedAttribute = {
   readonly key: string;
@@ -78,7 +83,7 @@ type ExportedAttribute = {
   readonly valueType: string;
   readonly lifecycleState: string;
   readonly enumValues: readonly { value: string; label: string }[];
-}
+};
 
 type ExportedLocalization = {
   readonly entity: string;
@@ -109,7 +114,10 @@ export interface DefinitionDocument {
 }
 
 /** Whether a scope covers a section. `all` covers everything. */
-function covers(scope: CatalogGovernanceSnapshotScope, section: CatalogGovernanceSnapshotScope): boolean {
+function covers(
+  scope: CatalogGovernanceSnapshotScope,
+  section: CatalogGovernanceSnapshotScope,
+): boolean {
   return scope === 'all' || scope === section;
 }
 
@@ -132,7 +140,9 @@ function canonicalize(value: unknown): unknown {
 
 /** sha-256 of the canonicalized document. */
 export function documentDigest(document: DefinitionDocument): string {
-  return createHash('sha256').update(JSON.stringify(canonicalize(document))).digest('hex');
+  return createHash('sha256')
+    .update(JSON.stringify(canonicalize(document)))
+    .digest('hex');
 }
 
 /** Read the definitions in scope. */
@@ -349,7 +359,8 @@ export async function restoreDefinitions(
       continue;
     }
 
-    const parent = category.parentKey === null ? null : await findCategoryByKey(category.parentKey, db);
+    const parent =
+      category.parentKey === null ? null : await findCategoryByKey(category.parentKey, db);
     if (category.parentKey !== null && !parent) {
       steps.push({
         entity: 'category',

@@ -74,7 +74,8 @@ export function PriceHistoryPanel({
         </Text>
       ))}
 
-      {response.summary.lowest !== undefined && response.summary.lowest.value.basis !== undefined ? (
+      {response.summary.lowest !== undefined &&
+      response.summary.lowest.value.basis !== undefined ? (
         <Text className="text-shop-caption text-text-secondary">
           {t('product.priceHistory.lowestInWindow', {
             amount: formatMoney(response.summary.lowest.value.money),

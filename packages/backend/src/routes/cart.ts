@@ -87,6 +87,10 @@ router.delete('/discount/:code', makeActorRateLimiter('cart'), deleteCartDiscoun
 // No body schema: the merge takes NO input at all. The guest session it merges
 // is the one the resolver verified, never one a client named — which is why
 // there is nothing here to validate and nothing to forge.
-router.post('/merge', makeActorRateLimiter('cart-merge', { identifiedMax: 60 }), mergeGuestCartHandler);
+router.post(
+  '/merge',
+  makeActorRateLimiter('cart-merge', { identifiedMax: 60 }),
+  mergeGuestCartHandler,
+);
 
 export default router;

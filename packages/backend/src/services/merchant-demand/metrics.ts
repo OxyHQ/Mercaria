@@ -38,9 +38,7 @@ const BY_KEY = new Map<string, MerchantDemandMetricDefinition>(
  * cannot be shown a figure whose numerator, denominator, source and attribution
  * limit are unstated — there is nothing to render them FROM.
  */
-export function merchantDemandMetricByKey(
-  key: string,
-): MerchantDemandMetricDefinition | undefined {
+export function merchantDemandMetricByKey(key: string): MerchantDemandMetricDefinition | undefined {
   return BY_KEY.get(key);
 }
 

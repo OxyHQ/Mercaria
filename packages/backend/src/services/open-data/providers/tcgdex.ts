@@ -17,7 +17,12 @@
  */
 
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
-import type { OpenDataItem, OpenDataPage, OpenDataPageContext, OpenDataProvider } from '../provider.js';
+import type {
+  OpenDataItem,
+  OpenDataPage,
+  OpenDataPageContext,
+  OpenDataProvider,
+} from '../provider.js';
 import { OpenDataConfigurationError, OpenDataSchemaError } from '../provider.js';
 import { asArray, asNumber, asObject, asText, decimalMoney, FactCollector } from '../read.js';
 
@@ -46,7 +51,9 @@ export const tcgdexProvider: OpenDataProvider = {
 async function fetchTcgdexPage(context: OpenDataPageContext): Promise<OpenDataPage> {
   const language = (context.accountRef ?? 'es').toLowerCase();
   if (!(LANGUAGES as readonly string[]).includes(language)) {
-    throw new OpenDataConfigurationError(`"${language}" is not a TCGdex language this provider reads.`);
+    throw new OpenDataConfigurationError(
+      `"${language}" is not a TCGdex language this provider reads.`,
+    );
   }
   const page = typeof context.cursor?.p === 'number' ? context.cursor.p : 1;
   const perPage = Math.min(Math.max(context.pageSize, 1), PAGE_CAP);
@@ -70,11 +77,14 @@ async function fetchTcgdexPage(context: OpenDataPageContext): Promise<OpenDataPa
     const id = asText(asObject(entry)?.id);
     // Card ids are `<set>-<number>`; anything else is not something to put in a path.
     if (id === undefined || !/^[A-Za-z0-9._-]{1,64}$/u.test(id)) continue;
-    const detail = await context.http.getJson(`${BASE_URL}/${language}/cards/${encodeURIComponent(id)}`, {
-      minIntervalMs: INTERVAL_MS,
-      allowNotFound: true,
-      ...(signal ? { signal } : {}),
-    });
+    const detail = await context.http.getJson(
+      `${BASE_URL}/${language}/cards/${encodeURIComponent(id)}`,
+      {
+        minIntervalMs: INTERVAL_MS,
+        allowNotFound: true,
+        ...(signal ? { signal } : {}),
+      },
+    );
     const card = asObject(detail?.body);
     if (card !== undefined) items.push(...toItems(card, language));
   }
@@ -99,7 +109,10 @@ export function toItems(card: Readonly<Record<string, unknown>>, language: strin
   const image = asText(card.image);
   const updated = asText(cardmarket?.updated) ?? asText(card.updated);
   const variants = asObject(card.variants);
-  const title = setName === undefined ? name : `${name} — ${setName}${localId === undefined ? '' : ` #${localId}`}`;
+  const title =
+    setName === undefined
+      ? name
+      : `${name} — ${setName}${localId === undefined ? '' : ` #${localId}`}`;
 
   const facts = new FactCollector('tcgdex')
     .add('card_id', id)
@@ -116,19 +129,46 @@ export function toItems(card: Readonly<Record<string, unknown>>, language: strin
     .list('types', card.types)
     .text('stage', card.stage)
     .text('evolve_from', card.evolveFrom)
-    .add('dex_ids', asArray(card.dexId).map((entry) => asText(entry)).filter((entry): entry is string => entry !== undefined))
+    .add(
+      'dex_ids',
+      asArray(card.dexId)
+        .map((entry) => asText(entry))
+        .filter((entry): entry is string => entry !== undefined),
+    )
     .number('retreat', card.retreat)
     .text('regulation_mark', card.regulationMark)
     .flag('legal_standard', legal?.standard)
     .flag('legal_expanded', legal?.expanded)
-    .add('attacks', asArray(card.attacks).map((attack) => asText(asObject(attack)?.name)).filter((entry): entry is string => entry !== undefined))
-    .add('abilities', asArray(card.abilities).map((ability) => asText(asObject(ability)?.name)).filter((entry): entry is string => entry !== undefined))
-    .add('weaknesses', asArray(card.weaknesses).map((weakness) => {
-      const entry = asObject(weakness);
-      const type = asText(entry?.type);
-      return type === undefined ? undefined : `${type} ${asText(entry?.value) ?? ''}`.trim();
-    }).filter((entry): entry is string => entry !== undefined))
-    .add('variants', variants === undefined ? [] : Object.entries(variants).filter(([, on]) => on === true).map(([variant]) => variant))
+    .add(
+      'attacks',
+      asArray(card.attacks)
+        .map((attack) => asText(asObject(attack)?.name))
+        .filter((entry): entry is string => entry !== undefined),
+    )
+    .add(
+      'abilities',
+      asArray(card.abilities)
+        .map((ability) => asText(asObject(ability)?.name))
+        .filter((entry): entry is string => entry !== undefined),
+    )
+    .add(
+      'weaknesses',
+      asArray(card.weaknesses)
+        .map((weakness) => {
+          const entry = asObject(weakness);
+          const type = asText(entry?.type);
+          return type === undefined ? undefined : `${type} ${asText(entry?.value) ?? ''}`.trim();
+        })
+        .filter((entry): entry is string => entry !== undefined),
+    )
+    .add(
+      'variants',
+      variants === undefined
+        ? []
+        : Object.entries(variants)
+            .filter(([, on]) => on === true)
+            .map(([variant]) => variant),
+    )
     .number('cardmarket_product_id', cardmarket?.idProduct)
     .number('cardmarket_avg', cardmarket?.avg, 'EUR')
     .number('cardmarket_low', cardmarket?.low, 'EUR')
@@ -138,7 +178,11 @@ export function toItems(card: Readonly<Record<string, unknown>>, language: strin
     .number('cardmarket_trend_holo', cardmarket?.['trend-holo'], 'EUR')
     .number('tcgplayer_normal_market', asObject(tcgplayer?.normal)?.marketPrice, 'USD')
     .number('tcgplayer_holofoil_market', asObject(tcgplayer?.holofoil)?.marketPrice, 'USD')
-    .number('tcgplayer_reverse_holofoil_market', asObject(tcgplayer?.['reverse-holofoil'])?.marketPrice, 'USD')
+    .number(
+      'tcgplayer_reverse_holofoil_market',
+      asObject(tcgplayer?.['reverse-holofoil'])?.marketPrice,
+      'USD',
+    )
     .add('price_basis', 'cardmarket_trend')
     .toArray();
 
@@ -165,7 +209,9 @@ export function toItems(card: Readonly<Record<string, unknown>>, language: strin
       language,
       ...(cardmarketId === undefined
         ? {}
-        : { sourceUrl: `https://www.cardmarket.com/es/Pokemon/Products?idProduct=${String(cardmarketId)}` }),
+        : {
+            sourceUrl: `https://www.cardmarket.com/es/Pokemon/Products?idProduct=${String(cardmarketId)}`,
+          }),
       ...(updated === undefined ? {} : { sourceUpdatedAt: updated }),
       facts,
     };
@@ -173,7 +219,9 @@ export function toItems(card: Readonly<Record<string, unknown>>, language: strin
       externalType: 'offer',
       externalId: `${id}:${finish.key}`,
       normalized,
-      ...(updated === undefined || Number.isNaN(Date.parse(updated)) ? {} : { sourceUpdatedAt: new Date(updated) }),
+      ...(updated === undefined || Number.isNaN(Date.parse(updated))
+        ? {}
+        : { sourceUpdatedAt: new Date(updated) }),
       raw: { id, finish: finish.key, price: finish.price ?? null, updated: updated ?? null },
     });
   }

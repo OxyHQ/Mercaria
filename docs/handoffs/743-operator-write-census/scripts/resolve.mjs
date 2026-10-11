@@ -21,7 +21,8 @@ import { SRC, ROUTES } from './paths.mjs';
 
 const GATE = /requireCatalogOperator|CATALOG_OPERATOR_OXY_USER_IDS/;
 const WRITE = /^router\.(post|patch|put|delete)\s*\(([\s\S]*?)\);$/gm;
-const TRAIL = /(?<![.\w])(recordAuditEvent|recordRevision|recordCompensation|insertReviewEvent)\s*\(/;
+const TRAIL =
+  /(?<![.\w])(recordAuditEvent|recordRevision|recordCompensation|insertReviewEvent)\s*\(/;
 
 /** Every `import { a, b } from './x.js'` in a module, as symbol -> resolved path. */
 function importMap(file) {
@@ -33,7 +34,10 @@ function importMap(file) {
     const target = resolve(dirname(file), spec.replace(/\.js$/, '.ts'));
     if (!existsSync(target)) continue;
     for (const raw of m[1].split(',')) {
-      const name = raw.replace(/\btype\b/, '').split(/\s+as\s+/)[0].trim();
+      const name = raw
+        .replace(/\btype\b/, '')
+        .split(/\s+as\s+/)[0]
+        .trim();
       if (name) map.set(name, target);
     }
   }
@@ -59,7 +63,9 @@ function functionBody(source, name) {
 }
 
 const rows = [];
-for (const name of readdirSync(ROUTES).filter((f) => f.endsWith('.ts')).sort()) {
+for (const name of readdirSync(ROUTES)
+  .filter((f) => f.endsWith('.ts'))
+  .sort()) {
   const file = join(ROUTES, name);
   const src = readFileSync(file, 'utf8');
   if (!GATE.test(src)) continue;
@@ -93,9 +99,11 @@ console.log('handler body resolved  :', rows.filter((r) => r.resolved).length);
 console.log('  -> reaches a trail   :', rows.filter((r) => r.trail).length);
 if (unresolvedModule.length) {
   console.log('\nMODULE UNRESOLVED (' + unresolvedModule.length + '):');
-  for (const r of unresolvedModule.slice(0, 10)) console.log('  ', r.router, r.method, r.path, r.handler);
+  for (const r of unresolvedModule.slice(0, 10))
+    console.log('  ', r.router, r.method, r.path, r.handler);
 }
 if (unresolvedBody.length) {
   console.log('\nBODY UNRESOLVED (' + unresolvedBody.length + '):');
-  for (const r of unresolvedBody.slice(0, 10)) console.log('  ', r.router, r.handler, '->', r.module);
+  for (const r of unresolvedBody.slice(0, 10))
+    console.log('  ', r.router, r.handler, '->', r.module);
 }

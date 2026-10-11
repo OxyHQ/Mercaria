@@ -16,23 +16,33 @@ export async function findPurchasedVariantsForReviews(
   const rows = await db
     .select({ reviewId: reviews.id, variantTitle: orderItems.variantTitle })
     .from(reviews)
-    .innerJoin(reviewEligibilities, and(
-      eq(reviewEligibilities.id, reviews.eligibilityId),
-      eq(reviewEligibilities.oxyUserId, reviews.authorOxyUserId),
-      eq(reviewEligibilities.scope, reviews.scope),
-    ))
-    .innerJoin(orderItems, and(
-      eq(orderItems.id, reviewEligibilities.orderItemId),
-      eq(orderItems.orderId, reviewEligibilities.orderId),
-    ))
-    .where(and(
-      inArray(reviews.id, reviewIds),
-      eq(reviews.status, 'published'),
-      eq(reviews.verification, 'verified_purchase'),
-    ));
-  return new Map(rows.flatMap(({ reviewId, variantTitle }) => {
-    const title = variantTitle.trim();
-    // This is the documented catalog sentinel for a product with no options.
-    return title && title !== 'Default Title' ? [[reviewId, title]] : [];
-  }));
+    .innerJoin(
+      reviewEligibilities,
+      and(
+        eq(reviewEligibilities.id, reviews.eligibilityId),
+        eq(reviewEligibilities.oxyUserId, reviews.authorOxyUserId),
+        eq(reviewEligibilities.scope, reviews.scope),
+      ),
+    )
+    .innerJoin(
+      orderItems,
+      and(
+        eq(orderItems.id, reviewEligibilities.orderItemId),
+        eq(orderItems.orderId, reviewEligibilities.orderId),
+      ),
+    )
+    .where(
+      and(
+        inArray(reviews.id, reviewIds),
+        eq(reviews.status, 'published'),
+        eq(reviews.verification, 'verified_purchase'),
+      ),
+    );
+  return new Map(
+    rows.flatMap(({ reviewId, variantTitle }) => {
+      const title = variantTitle.trim();
+      // This is the documented catalog sentinel for a product with no options.
+      return title && title !== 'Default Title' ? [[reviewId, title]] : [];
+    }),
+  );
 }

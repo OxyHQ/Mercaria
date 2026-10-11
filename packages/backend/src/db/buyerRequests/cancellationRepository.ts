@@ -29,10 +29,7 @@ import type {
   CancellationRequestState,
 } from '@mercaria/shared-types';
 import { OPEN_CANCELLATION_REQUEST_STATES } from '@mercaria/shared-types';
-import {
-  cancellationRequestLines,
-  cancellationRequests,
-} from '../schema/buyerRequests.js';
+import { cancellationRequestLines, cancellationRequests } from '../schema/buyerRequests.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 
@@ -118,11 +115,12 @@ export async function insertCancellationRequest(
 }
 
 /** One request by id, or `undefined`. */
-export async function findCancellationRequestById(
-  id: string,
-  db: DatabaseOrTransaction = getDb(),
-) {
-  const [row] = await db.select(publicRequest()).from(cancellationRequests).where(eq(cancellationRequests.id, id)).limit(1);
+export async function findCancellationRequestById(id: string, db: DatabaseOrTransaction = getDb()) {
+  const [row] = await db
+    .select(publicRequest())
+    .from(cancellationRequests)
+    .where(eq(cancellationRequests.id, id))
+    .limit(1);
   return row;
 }
 

@@ -1,7 +1,10 @@
 import type { SearchResult } from '@goway.to/sdk';
 import type { CheckoutAddressInput } from '@mercaria/shared-types';
 
-export type PostalAddress = Pick<CheckoutAddressInput, 'line1' | 'city' | 'region' | 'postalCode' | 'country'>;
+export type PostalAddress = Pick<
+  CheckoutAddressInput,
+  'line1' | 'city' | 'region' | 'postalCode' | 'country'
+>;
 
 /** Only structured geographic facts. Never guess a street from a place's display name. */
 export function postalAddressFromResult(result: SearchResult): PostalAddress {
@@ -16,5 +19,10 @@ export function postalAddressFromResult(result: SearchResult): PostalAddress {
 }
 
 export function hasRequiredPostalFields(address: PostalAddress): boolean {
-  return Boolean(address.line1.trim() && address.city.trim() && address.postalCode.trim() && /^[A-Z]{2}$/.test(address.country));
+  return Boolean(
+    address.line1.trim() &&
+      address.city.trim() &&
+      address.postalCode.trim() &&
+      /^[A-Z]{2}$/.test(address.country),
+  );
 }

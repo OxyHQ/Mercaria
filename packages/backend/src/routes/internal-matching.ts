@@ -79,11 +79,7 @@ router.post('/policies/:id/activate', activateMatchPolicyHandler);
 router.post('/gates', validateBody(openCategoryGateSchema), openCategoryGateHandler);
 
 /** POST — disable it. Attributable and reasoned, by CHECK. */
-router.post(
-  '/gates/:id/close',
-  validateBody(closeCategoryGateSchema),
-  closeCategoryGateHandler,
-);
+router.post('/gates/:id/close', validateBody(closeCategoryGateSchema), closeCategoryGateHandler);
 
 /** POST — record that a pair is wrong, so it is never proposed again. */
 router.post('/blocked-pairs', validateBody(rejectMatchPairSchema), rejectMatchPairHandler);

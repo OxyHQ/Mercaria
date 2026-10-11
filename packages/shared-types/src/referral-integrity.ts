@@ -281,10 +281,7 @@ export const REFERRAL_FORBIDDEN_RISK_SIGNALS: readonly ReferralForbiddenRiskSign
  * Exhaustive over the union, so a member added on EITHER side — #143's or
  * #148's — fails `tsc` until somebody says why it is forbidden.
  */
-export const REFERRAL_FORBIDDEN_RISK_SIGNAL_LABELS: Record<
-  ReferralForbiddenRiskSignal,
-  string
-> = {
+export const REFERRAL_FORBIDDEN_RISK_SIGNAL_LABELS: Record<ReferralForbiddenRiskSignal, string> = {
   email_address:
     'a contact identifier — ADR 0005 A2 places email outside referral identity, and a ' +
     'signal keyed on one is a durable user graph with a fraud label on it',
@@ -418,15 +415,14 @@ export type ReferralSelfReferralEvidence =
   | 'approved_operator_finding';
 
 /** {@link ReferralSelfReferralEvidence} as a tuple. */
-export const REFERRAL_SELF_REFERRAL_EVIDENCE_KINDS: readonly ReferralSelfReferralEvidence[] =
-  [
-    'same_oxy_actor',
-    'partner_administers_referred_merchant',
-    'verified_beneficiary_overlap',
-    'explicit_related_party_declaration',
-    'staff_or_test_activity',
-    'approved_operator_finding',
-  ];
+export const REFERRAL_SELF_REFERRAL_EVIDENCE_KINDS: readonly ReferralSelfReferralEvidence[] = [
+  'same_oxy_actor',
+  'partner_administers_referred_merchant',
+  'verified_beneficiary_overlap',
+  'explicit_related_party_declaration',
+  'staff_or_test_activity',
+  'approved_operator_finding',
+];
 
 /**
  * Evidence that may NEVER, on its own, produce a self-referral finding —
@@ -703,9 +699,7 @@ export const REFERRAL_BASIS_FORBIDDEN_FROM_FORFEITURE: ReferralEnforcementBasis 
  * somebody added it, never because it was omitted from a prohibition list.
  */
 export const REFERRAL_BASES_PERMITTING_FORFEITURE: readonly ReferralEnforcementBasis[] =
-  REFERRAL_ENFORCEMENT_BASES.filter(
-    (basis) => basis !== REFERRAL_BASIS_FORBIDDEN_FROM_FORFEITURE,
-  );
+  REFERRAL_ENFORCEMENT_BASES.filter((basis) => basis !== REFERRAL_BASIS_FORBIDDEN_FROM_FORFEITURE);
 
 /**
  * What an enforcement action is ABOUT.
@@ -1052,10 +1046,7 @@ export interface ReferralRetentionRule {
  * representations of one fact are exactly what a register exists to keep
  * honest.
  */
-export const REFERRAL_RETENTION_POLICY: Record<
-  ReferralRetentionClass,
-  ReferralRetentionRule
-> = {
+export const REFERRAL_RETENTION_POLICY: Record<ReferralRetentionClass, ReferralRetentionRule> = {
   raw_touch: {
     sweptAfterDays: 30,
     basis:
@@ -1089,7 +1080,8 @@ export const REFERRAL_RETENTION_POLICY: Record<
   },
   appeal: {
     sweptAfterDays: 730,
-    basis: 'The appellant’s own submission and the decision on it, on the same clock as the review.',
+    basis:
+      'The appellant’s own submission and the decision on it, on the same clock as the review.',
   },
   commission_and_ledger: {
     sweptAfterDays: null,

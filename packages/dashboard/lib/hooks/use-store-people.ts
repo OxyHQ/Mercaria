@@ -1,16 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useOxy } from "@oxy.so/services";
-import type { AccountMember, AccountNode, AccountRole } from "@oxy.so/core";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useOxy } from '@oxy.so/services';
+import type { AccountMember, AccountNode, AccountRole } from '@oxy.so/core';
 import type {
   SetStorePermissionOverrideInput,
   StorePermissionOverride,
-} from "@mercaria/shared-types";
-import {
-  fetchPermissionOverrides,
-  setPermissionOverride,
-} from "../api/permission-overrides";
-import { transferStoreOwnerAccount } from "../api/stores";
-import { queryKeys } from "../queryKeys";
+} from '@mercaria/shared-types';
+import { fetchPermissionOverrides, setPermissionOverride } from '../api/permission-overrides';
+import { transferStoreOwnerAccount } from '../api/stores';
+import { queryKeys } from '../queryKeys';
 
 /**
  * Who can act for a store, and the exceptions Mercaria keeps (ADR 0012).
@@ -24,8 +21,8 @@ import { queryKeys } from "../queryKeys";
 export function useOwnerAccount(oxyAccountId: string | undefined) {
   const { oxyServices } = useOxy();
   return useQuery<AccountNode>({
-    queryKey: queryKeys.oxyAccount(oxyAccountId ?? ""),
-    queryFn: () => oxyServices.accounts.get(oxyAccountId ?? ""),
+    queryKey: queryKeys.oxyAccount(oxyAccountId ?? ''),
+    queryFn: () => oxyServices.accounts.get(oxyAccountId ?? ''),
     enabled: Boolean(oxyAccountId),
   });
 }
@@ -37,8 +34,8 @@ export function useOwnerAccount(oxyAccountId: string | undefined) {
 export function useOwnerAccountMembers(oxyAccountId: string | undefined, enabled: boolean) {
   const { oxyServices } = useOxy();
   return useQuery<AccountMember[]>({
-    queryKey: queryKeys.oxyAccountMembers(oxyAccountId ?? ""),
-    queryFn: () => oxyServices.accounts.members.list(oxyAccountId ?? ""),
+    queryKey: queryKeys.oxyAccountMembers(oxyAccountId ?? ''),
+    queryFn: () => oxyServices.accounts.members.list(oxyAccountId ?? ''),
     enabled: Boolean(oxyAccountId) && enabled,
   });
 }
@@ -56,8 +53,13 @@ export function usePermissionOverrides(storeId: string) {
 export function useSetPermissionOverride(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ oxyUserId, input }: { oxyUserId: string; input: SetStorePermissionOverrideInput }) =>
-      setPermissionOverride(storeId, oxyUserId, input),
+    mutationFn: ({
+      oxyUserId,
+      input,
+    }: {
+      oxyUserId: string;
+      input: SetStorePermissionOverrideInput;
+    }) => setPermissionOverride(storeId, oxyUserId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.permissionOverrides(storeId) });
       // An override can change the CALLER's own permissions on the store.
@@ -69,7 +71,7 @@ export function useSetPermissionOverride(storeId: string) {
 /** One person the owner wants in the new organization. */
 export interface ConvertInvitee {
   usernameOrEmail: string;
-  role: Exclude<AccountRole, "owner">;
+  role: Exclude<AccountRole, 'owner'>;
 }
 
 /** What "convert to organization" needs. */
@@ -101,7 +103,7 @@ export function useConvertToOrganization(storeId: string) {
   return useMutation<ConvertToOrganizationResult, Error, ConvertToOrganizationInput>({
     mutationFn: async (input) => {
       const organization = await oxyServices.accounts.create({
-        kind: "organization",
+        kind: 'organization',
         username: input.username,
         name: { displayName: input.displayName },
       });
@@ -132,7 +134,7 @@ export function useUsernames(oxyUserIds: readonly string[]) {
   const { oxyServices } = useOxy();
   const ids = [...oxyUserIds].sort();
   return useQuery<Map<string, string>>({
-    queryKey: ["oxy-usernames", ids],
+    queryKey: ['oxy-usernames', ids],
     queryFn: async () => {
       const users = await oxyServices.users.getMany(ids);
       return new Map(users.map((user) => [user.id, user.username]));

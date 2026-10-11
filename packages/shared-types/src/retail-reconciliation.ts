@@ -568,16 +568,15 @@ export const RETAIL_RECONCILIATION_MAX_TOLERANCE_MINOR: Readonly<Record<Currency
  * hundredth of a major unit, which is exactly what a single half-even rounding
  * can produce.
  */
-export const RETAIL_RECONCILIATION_DEFAULT_TOLERANCE_MINOR: Readonly<
-  Record<CurrencyCode, number>
-> = Object.freeze(
-  Object.fromEntries(
-    (Object.keys(CURRENCY_PRECISION) as CurrencyCode[]).map((currency) => [
-      currency,
-      centEquivalentMinorUnits(currency),
-    ]),
-  ) as Record<CurrencyCode, number>,
-);
+export const RETAIL_RECONCILIATION_DEFAULT_TOLERANCE_MINOR: Readonly<Record<CurrencyCode, number>> =
+  Object.freeze(
+    Object.fromEntries(
+      (Object.keys(CURRENCY_PRECISION) as CurrencyCode[]).map((currency) => [
+        currency,
+        centEquivalentMinorUnits(currency),
+      ]),
+    ) as Record<CurrencyCode, number>,
+  );
 
 /**
  * ADR 0004 D8.2's materiality threshold for AUTOMATIC adjustment — 1.00 EUR

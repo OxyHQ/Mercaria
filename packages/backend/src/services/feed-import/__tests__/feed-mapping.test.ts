@@ -45,11 +45,25 @@ describe('the money reader', () => {
     // `Math.round(1.0050 * 100)` is 100 in IEEE-754 and 101 here, which is the
     // whole reason the conversion is textual. Four decimals rather than three,
     // because three trailing digits are a GROUPING separator by the rule below.
-    expect(parseFeedMoney({ amountText: '1.0050', currencyText: 'EUR', defaultCurrency: null, minorUnits: false })).toEqual({
+    expect(
+      parseFeedMoney({
+        amountText: '1.0050',
+        currencyText: 'EUR',
+        defaultCurrency: null,
+        minorUnits: false,
+      }),
+    ).toEqual({
       kind: 'money',
       money: { amount: 101, currency: 'EUR' },
     });
-    expect(parseFeedMoney({ amountText: '19.99', currencyText: 'EUR', defaultCurrency: null, minorUnits: false })).toEqual({
+    expect(
+      parseFeedMoney({
+        amountText: '19.99',
+        currencyText: 'EUR',
+        defaultCurrency: null,
+        minorUnits: false,
+      }),
+    ).toEqual({
       kind: 'money',
       money: { amount: 1_999, currency: 'EUR' },
     });
@@ -72,23 +86,43 @@ describe('the money reader', () => {
     ];
     for (const [text, expected] of cases) {
       expect(
-        parseFeedMoney({ amountText: text, currencyText: 'EUR', defaultCurrency: null, minorUnits: false }),
+        parseFeedMoney({
+          amountText: text,
+          currencyText: 'EUR',
+          defaultCurrency: null,
+          minorUnits: false,
+        }),
       ).toEqual({ kind: 'money', money: { amount: expected, currency: 'EUR' } });
     }
   });
 
   it('takes the currency from the value itself before the column or the default', () => {
     expect(
-      parseFeedMoney({ amountText: '19.99 USD', currencyText: 'EUR', defaultCurrency: 'GBP', minorUnits: false }),
+      parseFeedMoney({
+        amountText: '19.99 USD',
+        currencyText: 'EUR',
+        defaultCurrency: 'GBP',
+        minorUnits: false,
+      }),
     ).toEqual({ kind: 'money', money: { amount: 1_999, currency: 'USD' } });
     expect(
-      parseFeedMoney({ amountText: 'USD 19.99', currencyText: null, defaultCurrency: 'GBP', minorUnits: false }),
+      parseFeedMoney({
+        amountText: 'USD 19.99',
+        currencyText: null,
+        defaultCurrency: 'GBP',
+        minorUnits: false,
+      }),
     ).toEqual({ kind: 'money', money: { amount: 1_999, currency: 'USD' } });
   });
 
   it('honours a ZERO-decimal currency rather than assuming cents', () => {
     expect(
-      parseFeedMoney({ amountText: '1500', currencyText: 'JPY', defaultCurrency: null, minorUnits: false }),
+      parseFeedMoney({
+        amountText: '1500',
+        currencyText: 'JPY',
+        defaultCurrency: null,
+        minorUnits: false,
+      }),
     ).toEqual({ kind: 'money', money: { amount: 1_500, currency: 'JPY' } });
   });
 
@@ -102,27 +136,59 @@ describe('the money reader', () => {
     expect(refused).toEqual({ kind: 'refused', failure: 'unsupported_currency', token: 'XYZ' });
     // The escape hatch: a column already in minor units needs no precision.
     expect(
-      parseFeedMoney({ amountText: '1999', currencyText: 'XYZ', defaultCurrency: null, minorUnits: true }),
+      parseFeedMoney({
+        amountText: '1999',
+        currencyText: 'XYZ',
+        defaultCurrency: null,
+        minorUnits: true,
+      }),
     ).toEqual({ kind: 'money', money: { amount: 1_999, currency: 'XYZ' } });
   });
 
   it('refuses a missing currency, a negative amount and unparseable text', () => {
     expect(
-      parseFeedMoney({ amountText: '19.99', currencyText: null, defaultCurrency: null, minorUnits: false }).kind,
+      parseFeedMoney({
+        amountText: '19.99',
+        currencyText: null,
+        defaultCurrency: null,
+        minorUnits: false,
+      }).kind,
     ).toBe('refused');
     expect(
-      parseFeedMoney({ amountText: '-5.00', currencyText: 'EUR', defaultCurrency: null, minorUnits: false }),
+      parseFeedMoney({
+        amountText: '-5.00',
+        currencyText: 'EUR',
+        defaultCurrency: null,
+        minorUnits: false,
+      }),
     ).toEqual({ kind: 'refused', failure: 'negative_amount' });
     expect(
-      parseFeedMoney({ amountText: 'call for price', currencyText: 'EUR', defaultCurrency: null, minorUnits: false }),
+      parseFeedMoney({
+        amountText: 'call for price',
+        currencyText: 'EUR',
+        defaultCurrency: null,
+        minorUnits: false,
+      }),
     ).toEqual({ kind: 'refused', failure: 'unparseable_number' });
   });
 });
 
 describe('the deterministic external id', () => {
   it('is stable across deliveries and derived from the key columns alone', () => {
-    const first = deriveFeedExternalId(new Map([['id', 'SKU-1'], ['title', 'A']]), ['id']);
-    const second = deriveFeedExternalId(new Map([['id', 'SKU-1'], ['title', 'B changed']]), ['id']);
+    const first = deriveFeedExternalId(
+      new Map([
+        ['id', 'SKU-1'],
+        ['title', 'A'],
+      ]),
+      ['id'],
+    );
+    const second = deriveFeedExternalId(
+      new Map([
+        ['id', 'SKU-1'],
+        ['title', 'B changed'],
+      ]),
+      ['id'],
+    );
     expect(first).toEqual({ kind: 'derived', externalId: 'SKU-1' });
     expect(second).toEqual(first);
   });
@@ -131,8 +197,20 @@ describe('the deterministic external id', () => {
     // The fixture that makes a naive join and an escaping one disagree: without
     // escaping, `('a', 'b|c')` and `('a|b', 'c')` collide — which is two of a
     // merchant's products sharing one source object.
-    const left = deriveFeedExternalId(new Map([['a', 'a'], ['b', 'b|c']]), ['a', 'b']);
-    const right = deriveFeedExternalId(new Map([['a', 'a|b'], ['b', 'c']]), ['a', 'b']);
+    const left = deriveFeedExternalId(
+      new Map([
+        ['a', 'a'],
+        ['b', 'b|c'],
+      ]),
+      ['a', 'b'],
+    );
+    const right = deriveFeedExternalId(
+      new Map([
+        ['a', 'a|b'],
+        ['b', 'c'],
+      ]),
+      ['a', 'b'],
+    );
     expect(left.kind).toBe('derived');
     expect(right.kind).toBe('derived');
     expect(left).not.toEqual(right);

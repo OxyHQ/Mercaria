@@ -1,8 +1,8 @@
-import React, { useState } from "react";
-import axios from "axios";
-import { View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
-import type { PickupCollectionEventKind } from "@mercaria/shared-types";
+import React, { useState } from 'react';
+import axios from 'axios';
+import { View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import type { PickupCollectionEventKind } from '@mercaria/shared-types';
 import {
   ORDER_PICKUP_STATE_EXPLANATION_KEYS,
   ORDER_PICKUP_STATE_KEYS,
@@ -10,21 +10,21 @@ import {
   Text,
   formatDateTime,
   formatPublicAddress,
-} from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Loading } from "@oxy.so/bloom/loading";
-import { canRetainDetailData } from "@/lib/detail-query-state";
-import { useActiveStoreContext } from "@/lib/hooks/use-stores";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
+} from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Loading } from '@oxy.so/bloom/loading';
+import { canRetainDetailData } from '@/lib/detail-query-state';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
 import {
   useOrderPickup,
   usePickupDeskAction,
   useRotateCollectionCode,
-} from "@/lib/hooks/use-orders";
-import { useGoWayPlaceUrl } from "@/lib/goway/hooks";
-import { useTranslation } from "@/lib/i18n";
+} from '@/lib/hooks/use-orders';
+import { useGoWayPlaceUrl } from '@/lib/goway/hooks';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The collection desk — one order, at one counter (#93 merchant rules 1-4 and
@@ -71,29 +71,29 @@ import { useTranslation } from "@/lib/i18n";
  * language loaded first; the trail calls `t(EVENT_TEXT_KEYS[kind])`.
  */
 const EVENT_TEXT_KEYS: Record<PickupCollectionEventKind, string> = {
-  code_validated: "orders.pickup.event.codeValidated",
-  code_rejected: "orders.pickup.event.codeRejected",
-  collected: "orders.pickup.event.collected",
-  collection_refused: "orders.pickup.event.collectionRefused",
-  code_rotated: "orders.pickup.event.codeRotated",
-  code_revoked: "orders.pickup.event.codeRevoked",
-  marked_ready: "orders.pickup.event.markedReady",
-  pickup_cancelled: "orders.pickup.event.pickupCancelled",
-  fallback_override: "orders.pickup.event.fallbackOverride",
+  code_validated: 'orders.pickup.event.codeValidated',
+  code_rejected: 'orders.pickup.event.codeRejected',
+  collected: 'orders.pickup.event.collected',
+  collection_refused: 'orders.pickup.event.collectionRefused',
+  code_rotated: 'orders.pickup.event.codeRotated',
+  code_revoked: 'orders.pickup.event.codeRevoked',
+  marked_ready: 'orders.pickup.event.markedReady',
+  pickup_cancelled: 'orders.pickup.event.pickupCancelled',
+  fallback_override: 'orders.pickup.event.fallbackOverride',
 };
 
 export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId: string }) {
   const { t, locale } = useTranslation();
   const desk = useOrderPickup(storeId, orderId);
   const { can } = useActiveStoreContext();
-  const canFulfill = can("orders:fulfill");
+  const canFulfill = can('orders:fulfill');
   const act = usePickupDeskAction(storeId, orderId);
   const rotate = useRotateCollectionCode(storeId, orderId);
 
-  const [code, setCode] = useState("");
-  const [overrideReason, setOverrideReason] = useState("");
-  const [cancelReason, setCancelReason] = useState("");
-  const [rotateReason, setRotateReason] = useState("");
+  const [code, setCode] = useState('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [rotateReason, setRotateReason] = useState('');
   /** The NEW code, shown once after a rotation so staff can read it out. */
   const [rotatedCode, setRotatedCode] = useState<string | null>(null);
 
@@ -102,17 +102,40 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
   // stale handover controls actionable. Permission failures conceal cached data.
   if (axios.isAxiosError(desk.error) && desk.error.response?.status === 404) return null;
   const data = canRetainDetailData(desk.error) ? desk.data : undefined;
-  const disabled = !canFulfill || desk.isFetching || desk.isError || act.isPending || rotate.isPending;
-  const readStatus = <View testID="merchant-pickup-status" accessibilityLiveRegion="polite">
-    {desk.isFetching ? <Loading variant="inline" size="sm" accessibilityLabel={t("common.loading")} />
-      : desk.isError ? <View className="gap-2"><Text className="text-sm text-destructive">{t("orders.pickup.loadFailed")}</Text>
-        <Button size="sm" appearance="outline" onPress={() => { void desk.refetch(); }}>{t("common.retry")}</Button></View> : null}
-  </View>;
-  if (!data) return <View testID="merchant-pickup-desk" className="gap-3 rounded-2xl border border-border bg-card p-4">
-    <Text className="text-base font-semibold text-foreground">{t("orders.pickup.title")}</Text>{readStatus}
-  </View>;
+  const disabled =
+    !canFulfill || desk.isFetching || desk.isError || act.isPending || rotate.isPending;
+  const readStatus = (
+    <View testID="merchant-pickup-status" accessibilityLiveRegion="polite">
+      {desk.isFetching ? (
+        <Loading variant="inline" size="sm" accessibilityLabel={t('common.loading')} />
+      ) : desk.isError ? (
+        <View className="gap-2">
+          <Text className="text-sm text-destructive">{t('orders.pickup.loadFailed')}</Text>
+          <Button
+            size="sm"
+            appearance="outline"
+            onPress={() => {
+              void desk.refetch();
+            }}
+          >
+            {t('common.retry')}
+          </Button>
+        </View>
+      ) : null}
+    </View>
+  );
+  if (!data)
+    return (
+      <View
+        testID="merchant-pickup-desk"
+        className="gap-3 rounded-2xl border border-border bg-card p-4"
+      >
+        <Text className="text-base font-semibold text-foreground">{t('orders.pickup.title')}</Text>
+        {readStatus}
+      </View>
+    );
   const { pickup, events } = data;
-  const settled = pickup.state === "collected" || pickup.state === "pickup_cancelled";
+  const settled = pickup.state === 'collected' || pickup.state === 'pickup_cancelled';
   const address = formatPublicAddress(pickup.address);
 
   const run = (action: Parameters<typeof act.mutate>[0], success: string) => {
@@ -124,8 +147,11 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
   };
 
   return (
-    <View testID="merchant-pickup-desk" className="gap-3 rounded-2xl border border-border bg-card p-4">
-      <Text className="text-base font-semibold text-foreground">{t("orders.pickup.title")}</Text>
+    <View
+      testID="merchant-pickup-desk"
+      className="gap-3 rounded-2xl border border-border bg-card p-4"
+    >
+      <Text className="text-base font-semibold text-foreground">{t('orders.pickup.title')}</Text>
       {readStatus}
 
       <View className="gap-1">
@@ -150,24 +176,24 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
 
       {settled || !canFulfill ? null : (
         <View className="gap-3">
-          {pickup.state === "awaiting_preparation" ? (
+          {pickup.state === 'awaiting_preparation' ? (
             <Button
               tone="accent"
               disabled={disabled}
-              onPress={() => run({ kind: "ready" }, t("orders.pickup.toast.markedReady"))}
+              onPress={() => run({ kind: 'ready' }, t('orders.pickup.toast.markedReady'))}
             >
-              {t("orders.pickup.markReady")}
+              {t('orders.pickup.markReady')}
             </Button>
           ) : null}
 
           <View className="gap-1.5">
-            <Field label={t("orders.pickup.codeLabel")}>
+            <Field label={t('orders.pickup.codeLabel')}>
               <TextFieldInput
-                label={t("orders.pickup.codeLabel")}
+                label={t('orders.pickup.codeLabel')}
                 value={code}
                 disabled={disabled}
                 onValueChange={setCode}
-                placeholder={t("orders.pickup.codePlaceholder")}
+                placeholder={t('orders.pickup.codePlaceholder')}
                 autoCapitalize="characters"
                 autoCorrect={false}
               />
@@ -177,10 +203,10 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               tone="neutral"
               disabled={disabled || code.trim().length === 0}
               onPress={() =>
-                run({ kind: "collect", code: code.trim() }, t("orders.pickup.toast.collected"))
+                run({ kind: 'collect', code: code.trim() }, t('orders.pickup.toast.collected'))
               }
             >
-              {t("orders.pickup.checkCodeAndHandOver")}
+              {t('orders.pickup.checkCodeAndHandOver')}
             </Button>
           </View>
 
@@ -191,13 +217,13 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             than a way around verification.
           */}
           <View className="gap-1.5">
-            <Field label={t("orders.pickup.overrideLabel")}>
+            <Field label={t('orders.pickup.overrideLabel')}>
               <TextFieldInput
-                label={t("orders.pickup.overrideLabel")}
+                label={t('orders.pickup.overrideLabel')}
                 value={overrideReason}
                 disabled={disabled}
                 onValueChange={setOverrideReason}
-                placeholder={t("orders.pickup.overridePlaceholder")}
+                placeholder={t('orders.pickup.overridePlaceholder')}
               />
             </Field>
             <Button
@@ -206,26 +232,24 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               disabled={disabled || overrideReason.trim().length === 0}
               onPress={() =>
                 run(
-                  { kind: "collect", overrideReason: overrideReason.trim() },
-                  t("orders.pickup.toast.collectedWithOverride"),
+                  { kind: 'collect', overrideReason: overrideReason.trim() },
+                  t('orders.pickup.toast.collectedWithOverride'),
                 )
               }
             >
-              {t("orders.pickup.handOverWithOverride")}
+              {t('orders.pickup.handOverWithOverride')}
             </Button>
-            <Text className="text-xs text-muted-foreground">
-              {t("orders.pickup.overrideNote")}
-            </Text>
+            <Text className="text-xs text-muted-foreground">{t('orders.pickup.overrideNote')}</Text>
           </View>
 
           <View className="gap-1.5">
-            <Field label={t("orders.pickup.rotateLabel")}>
+            <Field label={t('orders.pickup.rotateLabel')}>
               <TextFieldInput
-                label={t("orders.pickup.rotateLabel")}
+                label={t('orders.pickup.rotateLabel')}
                 value={rotateReason}
                 disabled={disabled}
                 onValueChange={setRotateReason}
-                placeholder={t("orders.pickup.rotatePlaceholder")}
+                placeholder={t('orders.pickup.rotatePlaceholder')}
               />
             </Field>
             <Button
@@ -237,13 +261,13 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
                 rotate.mutate(rotateReason.trim(), {
                   onSuccess: (issued) => {
                     setRotatedCode(issued.code);
-                    toast.success(t("orders.pickup.toast.codeIssued"));
+                    toast.success(t('orders.pickup.toast.codeIssued'));
                   },
                   onError: (error: Error) => toast.error(error.message),
                 });
               }}
             >
-              {t("orders.pickup.rotate")}
+              {t('orders.pickup.rotate')}
             </Button>
             {/*
               Shown ONCE, right here, because the shop has to read it to the
@@ -254,7 +278,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             {rotatedCode === null ? null : (
               <View className="gap-0.5 rounded-xl bg-muted p-3">
                 <Text className="text-xs text-muted-foreground">
-                  {t("orders.pickup.rotatedCodeNote")}
+                  {t('orders.pickup.rotatedCodeNote')}
                 </Text>
                 <Text className="text-lg font-semibold text-foreground web:select-text">
                   {rotatedCode}
@@ -264,13 +288,13 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
           </View>
 
           <View className="gap-1.5">
-            <Field label={t("orders.pickup.cancelLabel")}>
+            <Field label={t('orders.pickup.cancelLabel')}>
               <TextFieldInput
-                label={t("orders.pickup.cancelLabel")}
+                label={t('orders.pickup.cancelLabel')}
                 value={cancelReason}
                 disabled={disabled}
                 onValueChange={setCancelReason}
-                placeholder={t("orders.pickup.cancelPlaceholder")}
+                placeholder={t('orders.pickup.cancelPlaceholder')}
               />
             </Field>
             <Button
@@ -279,24 +303,22 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               disabled={disabled || cancelReason.trim().length === 0}
               onPress={() =>
                 run(
-                  { kind: "cancel", reason: cancelReason.trim() },
-                  t("orders.pickup.toast.cancelled"),
+                  { kind: 'cancel', reason: cancelReason.trim() },
+                  t('orders.pickup.toast.cancelled'),
                 )
               }
             >
-              {t("orders.pickup.cancelCollection")}
+              {t('orders.pickup.cancelCollection')}
             </Button>
-            <Text className="text-xs text-muted-foreground">
-              {t("orders.pickup.cancelNote")}
-            </Text>
+            <Text className="text-xs text-muted-foreground">{t('orders.pickup.cancelNote')}</Text>
           </View>
         </View>
       )}
 
       <View className="gap-1">
-        <Text className="text-sm font-semibold text-foreground">{t("orders.pickup.trail")}</Text>
+        <Text className="text-sm font-semibold text-foreground">{t('orders.pickup.trail')}</Text>
         {events.length === 0 ? (
-          <Text className="text-xs text-muted-foreground">{t("orders.pickup.trailEmpty")}</Text>
+          <Text className="text-xs text-muted-foreground">{t('orders.pickup.trailEmpty')}</Text>
         ) : (
           events.map((event) => {
             // The event text is a complete phrase on its own, so an
@@ -307,7 +329,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               <Text key={event.id} className="text-xs text-muted-foreground">
                 {when === null ? null : `${when} · `}
                 {t(EVENT_TEXT_KEYS[event.kind])}
-                {event.reason === undefined ? "" : ` · ${event.reason}`}
+                {event.reason === undefined ? '' : ` · ${event.reason}`}
               </Text>
             );
           })
@@ -324,8 +346,13 @@ function PlaceOnGoWay({ placeId }: { placeId: string }) {
   if (url === undefined) return null;
   return (
     <View className="flex-row">
-      <Button size="sm" appearance="outline" tone="neutral" onPress={() => void WebBrowser.openBrowserAsync(url)}>
-        {t("orders.pickup.viewPlace")}
+      <Button
+        size="sm"
+        appearance="outline"
+        tone="neutral"
+        onPress={() => void WebBrowser.openBrowserAsync(url)}
+      >
+        {t('orders.pickup.viewPlace')}
       </Button>
     </View>
   );

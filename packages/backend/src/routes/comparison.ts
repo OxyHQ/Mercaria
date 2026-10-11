@@ -49,10 +49,6 @@ router.post('/', validateBody(productComparisonSchema), compareProductsHandler);
 router.post('/basket', validateBody(basketSolveSchema), solveBasketHandler);
 
 /** POST /comparison/basket/revalidate — before navigation or checkout. */
-router.post(
-  '/basket/revalidate',
-  validateBody(basketRevalidateSchema),
-  revalidateBasketHandler,
-);
+router.post('/basket/revalidate', validateBody(basketRevalidateSchema), revalidateBasketHandler);
 
 export default router;

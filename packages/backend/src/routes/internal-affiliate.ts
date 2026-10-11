@@ -60,11 +60,7 @@ router.get('/hosts', validateQuery(listOutboundHostsQuerySchema), listOutboundHo
 router.post('/hosts', validateBody(approveOutboundHostSchema), approveOutboundHostHandler);
 
 /** POST — revoke one live approval, attributably. */
-router.post(
-  '/hosts/:id/revoke',
-  validateBody(revokeOutboundHostSchema),
-  revokeOutboundHostHandler,
-);
+router.post('/hosts/:id/revoke', validateBody(revokeOutboundHostSchema), revokeOutboundHostHandler);
 
 /** GET — one OFFER's recent clicks. The trace opens from nothing else. */
 router.get('/clicks', validateQuery(outboundClickTraceQuerySchema), outboundClickTraceHandler);

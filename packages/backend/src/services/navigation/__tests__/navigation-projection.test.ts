@@ -214,7 +214,13 @@ describe('projecting a tree', () => {
     // "somebody unpublished it" and "somebody deleted it" lead an operator to
     // different places.
     const nodes = [
-      node({ id: 'c', key: 'sale', targetKind: 'collection', categoryId: null, collectionId: 'col-1' }),
+      node({
+        id: 'c',
+        key: 'sale',
+        targetKind: 'collection',
+        categoryId: null,
+        collectionId: 'col-1',
+      }),
     ];
     const projection = projectNavigationNodes(
       nodes,

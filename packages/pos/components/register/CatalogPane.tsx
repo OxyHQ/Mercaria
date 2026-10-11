@@ -1,22 +1,22 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { View, ScrollView } from "react-native";
-import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { Barcode, Search } from "lucide-react-native";
-import type { Listing, ProductVariantDTO } from "@mercaria/shared-types";
-import { toBloomFieldIcon } from "@mercaria/ui";
-import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Chip } from "@oxy.so/bloom/chip";
-import { toast } from "@oxy.so/bloom/toast";
-import { useDialogControl } from "@oxy.so/bloom/dialog";
-import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { useCatalog, useCategories, type CatalogFilters } from "@/lib/hooks/use-catalog";
-import { lookupByCode } from "@/lib/api/catalog";
-import { useRegisterCart, type RegisterCartLine } from "@/lib/stores/register-cart";
-import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
-import { useTranslation } from "@/lib/i18n";
-import { ProductTile } from "./ProductTile";
-import { VariantPickerSheet } from "./VariantPickerSheet";
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, ScrollView } from 'react-native';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { Barcode, Search } from 'lucide-react-native';
+import type { Listing, ProductVariantDTO } from '@mercaria/shared-types';
+import { toBloomFieldIcon } from '@mercaria/ui';
+import { TextField, TextFieldIcon, TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Chip } from '@oxy.so/bloom/chip';
+import { toast } from '@oxy.so/bloom/toast';
+import { useDialogControl } from '@oxy.so/bloom/dialog';
+import { ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { useCatalog, useCategories, type CatalogFilters } from '@/lib/hooks/use-catalog';
+import { lookupByCode } from '@/lib/api/catalog';
+import { useRegisterCart, type RegisterCartLine } from '@/lib/stores/register-cart';
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
+import { useTranslation } from '@/lib/i18n';
+import { ProductTile } from './ProductTile';
+import { VariantPickerSheet } from './VariantPickerSheet';
 
 /** Debounce (ms) for the catalog search box before refiring the query. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -25,7 +25,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 function lineFromVariant(
   listing: Listing,
   variant: ProductVariantDTO,
-): Omit<RegisterCartLine, "quantity"> {
+): Omit<RegisterCartLine, 'quantity'> {
   return {
     listingId: listing.id,
     variantId: variant.id,
@@ -49,9 +49,9 @@ export function CatalogPane({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
   const addLine = useRegisterCart((s) => s.addLine);
 
-  const [search, setSearch] = useState("");
-  const [code, setCode] = useState("");
-  const [category, setCategory] = useState("");
+  const [search, setSearch] = useState('');
+  const [code, setCode] = useState('');
+  const [category, setCategory] = useState('');
   // Held until the sheet has finished closing (`onClosed`), so its title and
   // rows do not blank out under the exit animation.
   const [pickerListing, setPickerListing] = useState<Listing | null>(null);
@@ -72,7 +72,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
   const resolveUri = useCallback(
     (value: string | undefined): string | undefined => {
       if (!value) return undefined;
-      return resolveImage?.(value, "thumb");
+      return resolveImage?.(value, 'thumb');
     },
     [resolveImage],
   );
@@ -83,14 +83,14 @@ export function CatalogPane({ storeId }: { storeId: string }) {
       if (listing.variants.length === 1) {
         const variant = listing.variants[0];
         if (variant.available <= 0) {
-          toast.error(t("catalog.outOfStock"));
+          toast.error(t('catalog.outOfStock'));
           return;
         }
         addLine(lineFromVariant(listing, variant));
         return;
       }
       if (inStockVariants.length === 0) {
-        toast.error(t("catalog.outOfStock"));
+        toast.error(t('catalog.outOfStock'));
         return;
       }
       setPickerListing(listing);
@@ -101,21 +101,21 @@ export function CatalogPane({ storeId }: { storeId: string }) {
 
   const onSubmitCode = useCallback(async () => {
     const trimmed = code.trim();
-    if (trimmed === "") return;
+    if (trimmed === '') return;
     try {
       const match = await lookupByCode(storeId, trimmed);
       if (!match) {
-        toast.error(t("catalog.noProductForCode"));
+        toast.error(t('catalog.noProductForCode'));
         return;
       }
       if (match.variant.available <= 0) {
-        toast.error(t("catalog.outOfStock"));
+        toast.error(t('catalog.outOfStock'));
         return;
       }
       addLine(lineFromVariant(match.listing, match.variant));
-      setCode("");
+      setCode('');
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("catalog.lookupFailed");
+      const message = error instanceof Error ? error.message : t('catalog.lookupFailed');
       toast.error(message);
     }
   }, [code, storeId, addLine, t]);
@@ -127,7 +127,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
         <TextField style={{ height: 48 }}>
           <TextFieldIcon icon={toBloomFieldIcon(Search)} />
           <TextFieldInput
-            label={t("catalog.searchPlaceholder")}
+            label={t('catalog.searchPlaceholder')}
             value={search}
             onValueChange={setSearch}
           />
@@ -137,7 +137,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
             <TextField style={{ height: 48 }}>
               <TextFieldIcon icon={toBloomFieldIcon(Barcode)} />
               <TextFieldInput
-                label={t("catalog.codePlaceholder")}
+                label={t('catalog.codePlaceholder')}
                 value={code}
                 onValueChange={setCode}
                 autoCapitalize="none"
@@ -152,7 +152,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
             onPress={onSubmitCode}
             style={{ height: 48, paddingHorizontal: 20 }}
           >
-            {t("catalog.add")}
+            {t('catalog.add')}
           </Button>
         </View>
 
@@ -163,9 +163,9 @@ export function CatalogPane({ storeId }: { storeId: string }) {
             contentContainerClassName="gap-2 pe-4"
           >
             <CategoryChip
-              label={t("common.all")}
-              active={category === ""}
-              onPress={() => setCategory("")}
+              label={t('common.all')}
+              active={category === ''}
+              onPress={() => setCategory('')}
             />
             {categories.map((node) => (
               <CategoryChip
@@ -183,17 +183,14 @@ export function CatalogPane({ storeId }: { storeId: string }) {
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title={t("catalog.loadFailed")} body={t("common.pleaseTryAgain")} />
+        <ScreenMessage title={t('catalog.loadFailed')} body={t('common.pleaseTryAgain')} />
       ) : listings.length === 0 ? (
-        <ScreenMessage title={t("catalog.emptyTitle")} body={t("catalog.emptyBody")} />
+        <ScreenMessage title={t('catalog.emptyTitle')} body={t('catalog.emptyBody')} />
       ) : (
         <ScrollView className="flex-1" contentContainerClassName="px-2 pb-28 pt-3 md:px-4 md:pb-8">
           <View className="flex-row flex-wrap">
             {listings.map((listing) => (
-              <View
-                key={listing.id}
-                className="w-1/2 p-2 md:w-1/3 lg:w-1/4 xl:w-1/5"
-              >
+              <View key={listing.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4 xl:w-1/5">
                 <ProductTile
                   listing={listing}
                   imageUri={resolveUri(listing.images[0]?.fileId)}

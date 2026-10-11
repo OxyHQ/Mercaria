@@ -467,7 +467,12 @@ describe('findListingsBySignal', () => {
     const leaf = await makeCategory();
     const deepId = await makeListing(top); // the row's own category is irrelevant to this read
     const shallowId = await makeListing(top);
-    await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: leaf, unitsSold: 60 });
+    await seedSignal({
+      subjectType: 'listing',
+      subjectId: deepId,
+      categoryId: leaf,
+      unitsSold: 60,
+    });
     await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: mid, unitsSold: 60 });
     await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: top, unitsSold: 60 });
     await seedSignal({
@@ -495,7 +500,12 @@ describe('findListingsBySignal', () => {
     const leaf = await makeCategory();
     const deepId = await makeListing(top);
     const shallowId = await makeListing(top);
-    await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: leaf, viewCount: 60 });
+    await seedSignal({
+      subjectType: 'listing',
+      subjectId: deepId,
+      categoryId: leaf,
+      viewCount: 60,
+    });
     await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: mid, viewCount: 60 });
     await seedSignal({ subjectType: 'listing', subjectId: deepId, categoryId: top, viewCount: 60 });
     await seedSignal({

@@ -158,7 +158,7 @@ async function main(): Promise<void> {
       'CONNECTOR_OAUTH_REDIRECT_BASE_URL is NOT configured in this run, so ' +
         '`registerWebhooks` failed with a configuration error before reaching the site. ' +
         'A connection therefore reads `connected` with ZERO webhook ids and ZERO refused ' +
-        'topics — the absence is Mercaria\'s own missing configuration, NOT a refusal by ' +
+        "topics — the absence is Mercaria's own missing configuration, NOT a refusal by " +
         'the site, and W7/X1 cannot be judged from it.',
     );
   }
@@ -361,7 +361,10 @@ async function distinctVariantCurrencies(storeId: string): Promise<string[]> {
     .from(productVariants)
     .innerJoin(listings, eq(productVariants.listingId, listings.id))
     .where(and(eq(listings.storeId, storeId)));
-  return rows.map((r) => r.currency).filter(Boolean).sort();
+  return rows
+    .map((r) => r.currency)
+    .filter(Boolean)
+    .sort();
 }
 
 await main();

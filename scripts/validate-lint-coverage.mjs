@@ -70,17 +70,17 @@
  * Usage:  bun scripts/validate-lint-coverage.mjs
  */
 
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 /** Overridable so the self-test can point the REAL guard at a scratch tree. */
 const repositoryRoot = process.env.LINT_COVERAGE_VALIDATOR_ROOT
   ? resolve(process.env.LINT_COVERAGE_VALIDATOR_ROOT)
-  : resolve(here, "..");
+  : resolve(here, '..');
 
 /** A script that runs a real linter, decided by CONTENT. */
 const RUNS_A_LINTER = /\b(eslint|biome|oxlint)\b/u;
@@ -105,13 +105,20 @@ const FILTERED_LINT_RUN = /--filter\s+(\S+)\s+lint(?![:\w-])/gu;
 const CI_BIOME_STEP = /^\s*(?:-\s+)?run:\s*bunx biome ci \.\s*$/mu;
 
 /** The gating job, named rather than inferred (#482's reasoning). */
-const GATING_JOB = "lint-and-test";
+const GATING_JOB = 'lint-and-test';
 
 // ------------------------------------------------------- expected state -----
 
 /** Packages whose `lint` script runs a real linter — all of them. */
 const EXPECTED_REAL = [
-  "backend", "contracts", "dashboard", "frontend", "pos", "sdk", "shared-types", "ui",
+  'backend',
+  'contracts',
+  'dashboard',
+  'frontend',
+  'pos',
+  'sdk',
+  'shared-types',
+  'ui',
 ];
 
 /** Packages whose `lint` script is an `exit 0` placeholder. EMPTY since Biome. */
@@ -121,16 +128,16 @@ const EXPECTED_PLACEHOLDER = [];
 const EXPECTED_NO_SCRIPT = [];
 
 /** Packages whose `lint:expo` runs ESLint (the Expo env-var rules). */
-const EXPECTED_EXPO_ESLINT = ["dashboard", "frontend", "pos"];
+const EXPECTED_EXPO_ESLINT = ['dashboard', 'frontend', 'pos'];
 
 /** Workspace packages named by a `--filter <pkg> lint:expo` step in ci.yml. */
-const EXPECTED_CI_EXPO_TARGETS = ["@mercaria/dashboard", "@mercaria/frontend", "@mercaria/pos"];
+const EXPECTED_CI_EXPO_TARGETS = ['@mercaria/dashboard', '@mercaria/frontend', '@mercaria/pos'];
 
 /** The one eslint range every eslint-running package declares (#607). */
-const EXPECTED_ESLINT_RANGE = "^9.39.5";
+const EXPECTED_ESLINT_RANGE = '^9.39.5';
 
 /** The one Biome version: EXACT, root devDependency, and the config's `$schema`. */
-const EXPECTED_BIOME_VERSION = "2.5.15";
+const EXPECTED_BIOME_VERSION = '2.5.15';
 
 /**
  * Every negated `files.includes` entry in `biome.jsonc`, EXACTLY. Each is a
@@ -138,18 +145,18 @@ const EXPECTED_BIOME_VERSION = "2.5.15";
  * the config. Adding one here is the record that somebody decided.
  */
 const EXPECTED_BIOME_EXCLUSIONS = [
-  "!**/*.generated.*",
-  "!**/.expo",
-  "!**/.next",
-  "!**/coverage",
-  "!**/dist",
-  "!**/drizzle/meta",
-  "!**/node_modules",
-  "!.github/scripts/reviewed-images.json",
-  "!.worktrees",
-  "!docs/audits",
-  "!packages/contracts/openapi.json",
-  "!packages/ui/src/theme/global.css",
+  '!**/*.generated.*',
+  '!**/.expo',
+  '!**/.next',
+  '!**/coverage',
+  '!**/dist',
+  '!**/drizzle/meta',
+  '!**/node_modules',
+  '!.github/scripts/reviewed-images.json',
+  '!.worktrees',
+  '!docs/audits',
+  '!packages/contracts/openapi.json',
+  '!packages/ui/src/theme/global.css',
 ];
 
 /** Below this the `packages/` walk is broken; it names the cause. */
@@ -160,57 +167,61 @@ const failures = [];
 // ------------------------------------------------------------- controls -----
 
 const LINTER_CONTROL_MUST_MATCH = [
-  "biome check .",
-  "biome check . && bun run lint:expo",
-  "eslint . --max-warnings 0",
+  'biome check .',
+  'biome check . && bun run lint:expo',
+  'eslint . --max-warnings 0',
 ];
 const LINTER_CONTROL_MUST_NOT_MATCH = [
   'echo "No lint configured for ui" && exit 0',
   'echo "No lint configured for shared-types" && exit 0',
-  "tsc --noEmit",
-  "echo linting",
+  'tsc --noEmit',
+  'echo linting',
 ];
 
 for (const script of LINTER_CONTROL_MUST_MATCH) {
   if (!RUNS_A_LINTER.test(script)) {
     failures.push(
-      `positive control failed: ${JSON.stringify(script)} did not read as running a linter — the `
-      + "detector is broken, and a broken one files every package as a placeholder while still "
-      + "printing three tidy sets",
+      `positive control failed: ${JSON.stringify(script)} did not read as running a linter — the ` +
+        'detector is broken, and a broken one files every package as a placeholder while still ' +
+        'printing three tidy sets',
     );
   }
 }
 for (const script of LINTER_CONTROL_MUST_NOT_MATCH) {
   if (RUNS_A_LINTER.test(script)) {
     failures.push(
-      `negative control failed: ${JSON.stringify(script)} read as running a linter — a placeholder `
-      + "would then be counted as real coverage, which is the direction that overstates the repo",
+      `negative control failed: ${JSON.stringify(script)} read as running a linter — a placeholder ` +
+        'would then be counted as real coverage, which is the direction that overstates the repo',
     );
   }
 }
 
-const ESLINT_CONTROL_MUST_MATCH = ["eslint .", "eslint src scripts build.ts", "eslint . --max-warnings 0"];
+const ESLINT_CONTROL_MUST_MATCH = [
+  'eslint .',
+  'eslint src scripts build.ts',
+  'eslint . --max-warnings 0',
+];
 const ESLINT_CONTROL_MUST_NOT_MATCH = [
-  "biome check .",
-  "oxlint",
+  'biome check .',
+  'oxlint',
   'echo "No lint configured for ui" && exit 0',
   // A plugin name is not a linter invocation.
-  "eslint-config-check",
+  'eslint-config-check',
 ];
 
 for (const script of ESLINT_CONTROL_MUST_MATCH) {
   if (!RUNS_ESLINT.test(script)) {
     failures.push(
-      `positive control failed: ${JSON.stringify(script)} did not read as running eslint — the `
-      + "derived population would then be empty, and every declaration check vacuously true",
+      `positive control failed: ${JSON.stringify(script)} did not read as running eslint — the ` +
+        'derived population would then be empty, and every declaration check vacuously true',
     );
   }
 }
 for (const script of ESLINT_CONTROL_MUST_NOT_MATCH) {
   if (RUNS_ESLINT.test(script)) {
     failures.push(
-      `negative control failed: ${JSON.stringify(script)} read as running eslint — a package would `
-      + "be asked to declare a linter it does not run",
+      `negative control failed: ${JSON.stringify(script)} read as running eslint — a package would ` +
+        'be asked to declare a linter it does not run',
     );
   }
 }
@@ -220,27 +231,31 @@ for (const script of ESLINT_CONTROL_MUST_NOT_MATCH) {
  * script narrowed to one directory still READS as running Biome, and is the
  * quiet way the whole-tree claim stops being true.
  */
-const BIOME_TREE_CONTROL_MUST_MATCH = ["biome check .", "biome check . && bun run lint:expo", "biome ci ."];
+const BIOME_TREE_CONTROL_MUST_MATCH = [
+  'biome check .',
+  'biome check . && bun run lint:expo',
+  'biome ci .',
+];
 const BIOME_TREE_CONTROL_MUST_NOT_MATCH = [
-  "biome check packages/backend",
-  "biome check ./packages",
-  "biome format --write .",
-  "eslint .",
+  'biome check packages/backend',
+  'biome check ./packages',
+  'biome format --write .',
+  'eslint .',
 ];
 
 for (const script of BIOME_TREE_CONTROL_MUST_MATCH) {
   if (!RUNS_BIOME_OVER_TREE.test(script)) {
     failures.push(
-      `positive control failed: ${JSON.stringify(script)} did not read as Biome over the whole tree — `
-      + "the root-script check would then refuse the real one",
+      `positive control failed: ${JSON.stringify(script)} did not read as Biome over the whole tree — ` +
+        'the root-script check would then refuse the real one',
     );
   }
 }
 for (const script of BIOME_TREE_CONTROL_MUST_NOT_MATCH) {
   if (RUNS_BIOME_OVER_TREE.test(script)) {
     failures.push(
-      `negative control failed: ${JSON.stringify(script)} read as Biome over the whole tree — a `
-      + "narrowed root script would pass as full coverage",
+      `negative control failed: ${JSON.stringify(script)} read as Biome over the whole tree — a ` +
+        'narrowed root script would pass as full coverage',
     );
   }
 }
@@ -248,22 +263,27 @@ for (const script of BIOME_TREE_CONTROL_MUST_NOT_MATCH) {
 // ------------------------------------------------------- the three sets -----
 
 function packageDirectories() {
-  const root = join(repositoryRoot, "packages");
+  const root = join(repositoryRoot, 'packages');
   let entries;
   try {
     entries = readdirSync(root, { withFileTypes: true });
   } catch {
     return [];
   }
-  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
 }
 
 function manifestOf(directory) {
-  const path = join(repositoryRoot, "packages", directory, "package.json");
+  const path = join(repositoryRoot, 'packages', directory, 'package.json');
   try {
-    return JSON.parse(readFileSync(path, "utf8"));
+    return JSON.parse(readFileSync(path, 'utf8'));
   } catch (error) {
-    failures.push(`packages/${directory}/package.json could not be read as JSON (${error.message})`);
+    failures.push(
+      `packages/${directory}/package.json could not be read as JSON (${error.message})`,
+    );
     return null;
   }
 }
@@ -286,9 +306,9 @@ for (const directory of directories) {
 
 if (directories.length < MINIMUM_PACKAGES) {
   failures.push(
-    `${directories.length} workspace packages found under packages/, below the ${MINIMUM_PACKAGES} `
-    + "floor — a walk that finds nothing leaves every set empty, and empty sets match empty "
-    + "expectations",
+    `${directories.length} workspace packages found under packages/, below the ${MINIMUM_PACKAGES} ` +
+      'floor — a walk that finds nothing leaves every set empty, and empty sets match empty ' +
+      'expectations',
   );
 }
 
@@ -297,30 +317,30 @@ const sameSet = (found, expected) =>
 
 if (!sameSet(real, EXPECTED_REAL)) {
   failures.push(
-    `packages running a REAL linter are [${real.join(", ")}], expected [${EXPECTED_REAL.join(", ")}]. `
-    + "A package leaving this set stopped being linted by its own `lint` script; one joining it has "
-    + "to be recorded here.",
+    `packages running a REAL linter are [${real.join(', ')}], expected [${EXPECTED_REAL.join(', ')}]. ` +
+      'A package leaving this set stopped being linted by its own `lint` script; one joining it has ' +
+      'to be recorded here.',
   );
 }
 if (!sameSet(placeholder, EXPECTED_PLACEHOLDER)) {
   failures.push(
-    `packages whose lint script is a PLACEHOLDER are [${placeholder.join(", ")}], expected `
-    + `[${EXPECTED_PLACEHOLDER.join(", ")}]. A placeholder exits 0 without linting anything.`,
+    `packages whose lint script is a PLACEHOLDER are [${placeholder.join(', ')}], expected ` +
+      `[${EXPECTED_PLACEHOLDER.join(', ')}]. A placeholder exits 0 without linting anything.`,
   );
 }
 if (!sameSet(noScript, EXPECTED_NO_SCRIPT)) {
   failures.push(
-    `packages with NO lint script are [${noScript.join(", ")}], expected `
-    + `[${EXPECTED_NO_SCRIPT.join(", ")}]. \`bun run --filter <pkg> lint\` stops being a command for `
-    + "them, and a multi-package filter skips them in silence.",
+    `packages with NO lint script are [${noScript.join(', ')}], expected ` +
+      `[${EXPECTED_NO_SCRIPT.join(', ')}]. \`bun run --filter <pkg> lint\` stops being a command for ` +
+      'them, and a multi-package filter skips them in silence.',
   );
 }
 
 const partitioned = [...real, ...placeholder, ...noScript].sort();
 if (!sameSet(partitioned, directories)) {
   failures.push(
-    `the three sets cover [${partitioned.join(", ")}] but packages/ holds [${directories.join(", ")}] `
-    + "— a package in none of them is one this gate says nothing about",
+    `the three sets cover [${partitioned.join(', ')}] but packages/ holds [${directories.join(', ')}] ` +
+      '— a package in none of them is one this gate says nothing about',
   );
 }
 
@@ -331,25 +351,26 @@ if (!sameSet(partitioned, directories)) {
 // from `lint` (a package that went back to eslint wholesale).
 const eslintRunners = directories.filter((directory) => {
   const scripts = manifests.get(directory)?.scripts ?? {};
-  return RUNS_ESLINT.test(scripts["lint:expo"] ?? "") || RUNS_ESLINT.test(scripts.lint ?? "");
+  return RUNS_ESLINT.test(scripts['lint:expo'] ?? '') || RUNS_ESLINT.test(scripts.lint ?? '');
 });
 const expoEslint = directories.filter((directory) =>
-  RUNS_ESLINT.test(manifests.get(directory)?.scripts?.["lint:expo"] ?? ""));
+  RUNS_ESLINT.test(manifests.get(directory)?.scripts?.['lint:expo'] ?? ''),
+);
 
 if (!sameSet(expoEslint, EXPECTED_EXPO_ESLINT)) {
   failures.push(
-    `packages whose \`lint:expo\` runs ESLint are [${expoEslint.join(", ")}], expected `
-    + `[${EXPECTED_EXPO_ESLINT.join(", ")}]. That ESLint carries eslint-plugin-expo's env-var rules, `
-    + "which Biome lacks; an app leaving this set ships a destructured or computed "
-    + "`process.env.EXPO_PUBLIC_*` read that Metro inlines as `undefined`.",
+    `packages whose \`lint:expo\` runs ESLint are [${expoEslint.join(', ')}], expected ` +
+      `[${EXPECTED_EXPO_ESLINT.join(', ')}]. That ESLint carries eslint-plugin-expo's env-var rules, ` +
+      'which Biome lacks; an app leaving this set ships a destructured or computed ' +
+      '`process.env.EXPO_PUBLIC_*` read that Metro inlines as `undefined`.',
   );
 }
 for (const directory of EXPECTED_EXPO_ESLINT) {
-  const lint = manifests.get(directory)?.scripts?.lint ?? "";
-  if (manifests.has(directory) && !lint.includes("lint:expo")) {
+  const lint = manifests.get(directory)?.scripts?.lint ?? '';
+  if (manifests.has(directory) && !lint.includes('lint:expo')) {
     failures.push(
-      `packages/${directory}'s \`lint\` script (${JSON.stringify(lint)}) does not run \`lint:expo\`, so `
-      + "`bun run --filter <app> lint` stops covering the Expo env-var rules",
+      `packages/${directory}'s \`lint\` script (${JSON.stringify(lint)}) does not run \`lint:expo\`, so ` +
+        '`bun run --filter <app> lint` stops covering the Expo env-var rules',
     );
   }
 }
@@ -360,24 +381,24 @@ for (const directory of eslintRunners) {
   const declared = manifest.devDependencies?.eslint ?? manifest.dependencies?.eslint;
   if (declared === undefined) {
     failures.push(
-      `packages/${directory} runs eslint in its lint scripts but DECLARES no eslint. It resolves as `
-      + "an auto-installed peer, so nothing in any manifest pins it. Add "
-      + `"eslint": "${EXPECTED_ESLINT_RANGE}" to its devDependencies.`,
+      `packages/${directory} runs eslint in its lint scripts but DECLARES no eslint. It resolves as ` +
+        'an auto-installed peer, so nothing in any manifest pins it. Add ' +
+        `"eslint": "${EXPECTED_ESLINT_RANGE}" to its devDependencies.`,
     );
     continue;
   }
   declaredRanges.set(directory, declared);
   if (declared !== EXPECTED_ESLINT_RANGE) {
     failures.push(
-      `packages/${directory} declares eslint ${declared}, expected ${EXPECTED_ESLINT_RANGE}. Every `
-      + "eslint-running package states ONE range, because divergent ranges resolve to two linters.",
+      `packages/${directory} declares eslint ${declared}, expected ${EXPECTED_ESLINT_RANGE}. Every ` +
+        'eslint-running package states ONE range, because divergent ranges resolve to two linters.',
     );
   }
-  const js = manifest.devDependencies?.["@eslint/js"] ?? manifest.dependencies?.["@eslint/js"];
+  const js = manifest.devDependencies?.['@eslint/js'] ?? manifest.dependencies?.['@eslint/js'];
   if (js !== undefined && js !== declared) {
     failures.push(
-      `packages/${directory} declares @eslint/js ${js} beside eslint ${declared}. eslint depends on `
-      + "@eslint/js at an EXACT version, so these must state the same range.",
+      `packages/${directory} declares @eslint/js ${js} beside eslint ${declared}. eslint depends on ` +
+        '@eslint/js at an EXACT version, so these must state the same range.',
     );
   }
 }
@@ -386,41 +407,44 @@ for (const directory of eslintRunners) {
 
 let rootManifest = null;
 try {
-  rootManifest = JSON.parse(readFileSync(join(repositoryRoot, "package.json"), "utf8"));
+  rootManifest = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8'));
 } catch (error) {
   failures.push(`the root package.json could not be read as JSON (${error.message})`);
 }
 
-const rootBiome = rootManifest?.devDependencies?.["@biomejs/biome"];
+const rootBiome = rootManifest?.devDependencies?.['@biomejs/biome'];
 if (rootManifest !== null && rootBiome !== EXPECTED_BIOME_VERSION) {
   failures.push(
-    `the root package.json declares @biomejs/biome ${rootBiome ?? "nowhere"}, expected EXACTLY `
-    + `${EXPECTED_BIOME_VERSION}. A range lets the lockfile move the formatter, and a formatter that `
-    + "moves reformats the tree on somebody else's pull request.",
+    `the root package.json declares @biomejs/biome ${rootBiome ?? 'nowhere'}, expected EXACTLY ` +
+      `${EXPECTED_BIOME_VERSION}. A range lets the lockfile move the formatter, and a formatter that ` +
+      "moves reformats the tree on somebody else's pull request.",
   );
 }
 for (const directory of directories) {
   const manifest = manifests.get(directory);
-  const own = manifest?.devDependencies?.["@biomejs/biome"] ?? manifest?.dependencies?.["@biomejs/biome"];
+  const own =
+    manifest?.devDependencies?.['@biomejs/biome'] ?? manifest?.dependencies?.['@biomejs/biome'];
   if (own !== undefined) {
     failures.push(
-      `packages/${directory} declares its own @biomejs/biome ${own}. Biome is pinned ONCE, at the root, `
-      + "or two packages format the same tree with two versions.",
+      `packages/${directory} declares its own @biomejs/biome ${own}. Biome is pinned ONCE, at the root, ` +
+        'or two packages format the same tree with two versions.',
     );
   }
 }
 
 // ------------------------------------------------- the Biome config --------
 
-const biomeConfigPath = join(repositoryRoot, "biome.jsonc");
+const biomeConfigPath = join(repositoryRoot, 'biome.jsonc');
 let biomeConfig = null;
 try {
-  const text = readFileSync(biomeConfigPath, "utf8");
+  const text = readFileSync(biomeConfigPath, 'utf8');
   // TypeScript's own JSONC reader: comments and trailing commas, no hand-rolled
   // parser guessing at syntax it does not recognise.
   const parsed = ts.parseConfigFileTextToJson(biomeConfigPath, text);
   if (parsed.error) {
-    failures.push(`biome.jsonc could not be parsed (${ts.flattenDiagnosticMessageText(parsed.error.messageText, " ")})`);
+    failures.push(
+      `biome.jsonc could not be parsed (${ts.flattenDiagnosticMessageText(parsed.error.messageText, ' ')})`,
+    );
   } else {
     biomeConfig = parsed.config;
   }
@@ -429,41 +453,45 @@ try {
 }
 
 if (biomeConfig !== null) {
-  const schema = String(biomeConfig.$schema ?? "");
+  const schema = String(biomeConfig.$schema ?? '');
   if (!schema.includes(`/${EXPECTED_BIOME_VERSION}/`)) {
     failures.push(
-      `biome.jsonc's $schema is ${JSON.stringify(schema)}, which does not name ${EXPECTED_BIOME_VERSION} — `
-      + "the config and the pinned binary disagree about which Biome this is",
+      `biome.jsonc's $schema is ${JSON.stringify(schema)}, which does not name ${EXPECTED_BIOME_VERSION} — ` +
+        'the config and the pinned binary disagree about which Biome this is',
     );
   }
   const includes = biomeConfig.files?.includes;
-  if (!Array.isArray(includes) || includes[0] !== "**") {
+  if (!Array.isArray(includes) || includes[0] !== '**') {
     failures.push(
-      "biome.jsonc's `files.includes` does not start with \"**\" — Biome would no longer see the whole "
-      + "tree, and every exclusion below would be measured against a narrower base",
+      'biome.jsonc\'s `files.includes` does not start with "**" — Biome would no longer see the whole ' +
+        'tree, and every exclusion below would be measured against a narrower base',
     );
   } else {
-    const exclusions = includes.filter((entry) => typeof entry === "string" && entry.startsWith("!")).sort();
+    const exclusions = includes
+      .filter((entry) => typeof entry === 'string' && entry.startsWith('!'))
+      .sort();
     if (!sameSet(exclusions, EXPECTED_BIOME_EXCLUSIONS)) {
       failures.push(
-        `biome.jsonc excludes [${exclusions.join(", ")}], expected [${EXPECTED_BIOME_EXCLUSIONS.join(", ")}]. `
-        + "An exclusion is a path Biome neither formats nor lints; one added in the config alone is "
-        + "coverage leaving in a diff nobody reads as such.",
+        `biome.jsonc excludes [${exclusions.join(', ')}], expected [${EXPECTED_BIOME_EXCLUSIONS.join(', ')}]. ` +
+          'An exclusion is a path Biome neither formats nor lints; one added in the config alone is ' +
+          'coverage leaving in a diff nobody reads as such.',
       );
     }
   }
   if (biomeConfig.linter?.enabled === false) {
-    failures.push("biome.jsonc sets `linter.enabled: false` — `biome check .` would lint nothing");
+    failures.push('biome.jsonc sets `linter.enabled: false` — `biome check .` would lint nothing');
   }
   if (biomeConfig.formatter?.enabled === false) {
-    failures.push("biome.jsonc sets `formatter.enabled: false` — `biome ci .` would check no formatting");
+    failures.push(
+      'biome.jsonc sets `formatter.enabled: false` — `biome ci .` would check no formatting',
+    );
   }
   for (const [index, override] of (biomeConfig.overrides ?? []).entries()) {
-    for (const tool of ["linter", "formatter"]) {
+    for (const tool of ['linter', 'formatter']) {
       if (override?.[tool]?.enabled === false) {
         failures.push(
-          `biome.jsonc override #${index} (${JSON.stringify(override.includes ?? [])}) sets `
-          + `\`${tool}.enabled: false\` — an exclusion spelled so the list above cannot see it`,
+          `biome.jsonc override #${index} (${JSON.stringify(override.includes ?? [])}) sets ` +
+            `\`${tool}.enabled: false\` — an exclusion spelled so the list above cannot see it`,
         );
       }
     }
@@ -475,53 +503,55 @@ if (biomeConfig !== null) {
 const rootLint = rootManifest?.scripts?.lint;
 if (rootManifest !== null && rootLint === undefined) {
   failures.push(
-    "the root package.json has no `lint` script — this gate exists to describe what that command "
-    + "covers, so its removal is a change somebody has to make deliberately",
+    'the root package.json has no `lint` script — this gate exists to describe what that command ' +
+      'covers, so its removal is a change somebody has to make deliberately',
   );
 } else if (rootLint !== undefined) {
   if (!RUNS_BIOME_OVER_TREE.test(rootLint)) {
     failures.push(
-      `the root lint script is ${JSON.stringify(rootLint)}, which does not run \`biome check .\` over `
-      + "the whole tree — that one invocation IS the coverage of all eight packages",
+      `the root lint script is ${JSON.stringify(rootLint)}, which does not run \`biome check .\` over ` +
+        'the whole tree — that one invocation IS the coverage of all eight packages',
     );
   }
-  if (!rootLint.includes("lint:expo")) {
+  if (!rootLint.includes('lint:expo')) {
     failures.push(
-      `the root lint script is ${JSON.stringify(rootLint)}, which no longer runs \`lint:expo\` — the `
-      + "Expo env-var rules would leave `bun run lint`",
+      `the root lint script is ${JSON.stringify(rootLint)}, which no longer runs \`lint:expo\` — the ` +
+        'Expo env-var rules would leave `bun run lint`',
     );
   }
 }
 
 // ------------------------------------------------------------ the workflow --
 
-const workflowPath = join(repositoryRoot, ".github", "workflows", "ci.yml");
-let workflow = "";
+const workflowPath = join(repositoryRoot, '.github', 'workflows', 'ci.yml');
+let workflow = '';
 try {
-  workflow = readFileSync(workflowPath, "utf8");
+  workflow = readFileSync(workflowPath, 'utf8');
 } catch (error) {
   failures.push(`.github/workflows/ci.yml could not be read (${error.message})`);
 }
 
 if (workflow.length > 0 && !workflow.includes(`${GATING_JOB}:`)) {
   failures.push(
-    `.github/workflows/ci.yml no longer declares the \`${GATING_JOB}\` job — the lint steps below are `
-    + "only gated if the job carrying them is the one a merge waits on",
+    `.github/workflows/ci.yml no longer declares the \`${GATING_JOB}\` job — the lint steps below are ` +
+      'only gated if the job carrying them is the one a merge waits on',
   );
 }
 if (workflow.length > 0 && !CI_BIOME_STEP.test(workflow)) {
   failures.push(
-    "no `run: bunx biome ci .` step was found in ci.yml — Biome's format and lint verdict over the "
-    + "whole tree is what a merge waits on, and without it nothing enforces either",
+    "no `run: bunx biome ci .` step was found in ci.yml — Biome's format and lint verdict over the " +
+      'whole tree is what a merge waits on, and without it nothing enforces either',
   );
 }
 
-const ciExpoTargets = [...workflow.matchAll(FILTERED_EXPO_LINT_RUN)].map((match) => match[1]).sort();
+const ciExpoTargets = [...workflow.matchAll(FILTERED_EXPO_LINT_RUN)]
+  .map((match) => match[1])
+  .sort();
 if (!sameSet(ciExpoTargets, EXPECTED_CI_EXPO_TARGETS)) {
   failures.push(
-    `ci.yml runs lint:expo for [${ciExpoTargets.join(", ")}], expected `
-    + `[${EXPECTED_CI_EXPO_TARGETS.join(", ")}]. One single-filter step per app, because a `
-    + "multi-filter skips a package missing the script in silence.",
+    `ci.yml runs lint:expo for [${ciExpoTargets.join(', ')}], expected ` +
+      `[${EXPECTED_CI_EXPO_TARGETS.join(', ')}]. One single-filter step per app, because a ` +
+      'multi-filter skips a package missing the script in silence.',
   );
 }
 
@@ -529,8 +559,8 @@ const expoNames = new Set(expoEslint.map((directory) => manifests.get(directory)
 for (const target of ciExpoTargets) {
   if (!expoNames.has(target)) {
     failures.push(
-      `ci.yml runs \`--filter ${target} lint:expo\` but that package has no \`lint:expo\` running `
-      + "eslint. A NAMED filter with a missing script exits 1, so this breaks the build.",
+      `ci.yml runs \`--filter ${target} lint:expo\` but that package has no \`lint:expo\` running ` +
+        'eslint. A NAMED filter with a missing script exits 1, so this breaks the build.',
     );
   }
 }
@@ -541,8 +571,8 @@ const ciLintTargets = [...workflow.matchAll(FILTERED_LINT_RUN)].map((match) => m
 for (const target of ciLintTargets) {
   if (!realNames.has(target)) {
     failures.push(
-      `ci.yml runs \`--filter ${target} lint\` but that package has no script running a real `
-      + "linter. A NAMED filter with a missing script exits 1, so this breaks the build.",
+      `ci.yml runs \`--filter ${target} lint\` but that package has no script running a real ` +
+        'linter. A NAMED filter with a missing script exits 1, so this breaks the build.',
     );
   }
 }
@@ -550,26 +580,26 @@ for (const target of ciLintTargets) {
 // ------------------------------------------------------------------ verdict --
 
 if (failures.length > 0) {
-  console.error("lint coverage guard failed:\n");
+  console.error('lint coverage guard failed:\n');
   for (const failure of failures) console.error(`  ${failure}\n`);
   console.error(
-    "  This gate pins what `bun run lint` and CI cover. If something genuinely moved, update the\n"
-    + "  expected set in this file in the same change — that edit is the record that somebody decided.\n",
+    '  This gate pins what `bun run lint` and CI cover. If something genuinely moved, update the\n' +
+      '  expected set in this file in the same change — that edit is the record that somebody decided.\n',
   );
   process.exit(1);
 }
 
 console.log(
-  `lint coverage guard passed — ${directories.length} workspace packages, all covered by `
-  + "`biome check .` from the root (format and lint), with "
-  + `${EXPECTED_BIOME_EXCLUSIONS.length} pinned exclusions in biome.jsonc and @biomejs/biome pinned `
-  + `EXACTLY at ${EXPECTED_BIOME_VERSION}. ${real.length} packages have a real \`lint\` script `
-  + `(${real.join(", ")}), ${placeholder.length} placeholders, ${noScript.length} with none. `
-  + `${expoEslint.length} Expo apps run eslint-plugin-expo through \`lint:expo\` (${expoEslint.join(", ")}), `
-  + `all ${declaredRanges.size} declaring eslint ${EXPECTED_ESLINT_RANGE}. ci.yml runs \`biome ci .\` and `
-  + `lint:expo for ${ciExpoTargets.join(", ")} in \`${GATING_JOB}\`. `
-  + `${LINTER_CONTROL_MUST_MATCH.length + ESLINT_CONTROL_MUST_MATCH.length + BIOME_TREE_CONTROL_MUST_MATCH.length} `
-  + "positive and "
-  + `${LINTER_CONTROL_MUST_NOT_MATCH.length + ESLINT_CONTROL_MUST_NOT_MATCH.length + BIOME_TREE_CONTROL_MUST_NOT_MATCH.length} `
-  + "negative detector controls run.",
+  `lint coverage guard passed — ${directories.length} workspace packages, all covered by ` +
+    '`biome check .` from the root (format and lint), with ' +
+    `${EXPECTED_BIOME_EXCLUSIONS.length} pinned exclusions in biome.jsonc and @biomejs/biome pinned ` +
+    `EXACTLY at ${EXPECTED_BIOME_VERSION}. ${real.length} packages have a real \`lint\` script ` +
+    `(${real.join(', ')}), ${placeholder.length} placeholders, ${noScript.length} with none. ` +
+    `${expoEslint.length} Expo apps run eslint-plugin-expo through \`lint:expo\` (${expoEslint.join(', ')}), ` +
+    `all ${declaredRanges.size} declaring eslint ${EXPECTED_ESLINT_RANGE}. ci.yml runs \`biome ci .\` and ` +
+    `lint:expo for ${ciExpoTargets.join(', ')} in \`${GATING_JOB}\`. ` +
+    `${LINTER_CONTROL_MUST_MATCH.length + ESLINT_CONTROL_MUST_MATCH.length + BIOME_TREE_CONTROL_MUST_MATCH.length} ` +
+    'positive and ' +
+    `${LINTER_CONTROL_MUST_NOT_MATCH.length + ESLINT_CONTROL_MUST_NOT_MATCH.length + BIOME_TREE_CONTROL_MUST_NOT_MATCH.length} ` +
+    'negative detector controls run.',
 );

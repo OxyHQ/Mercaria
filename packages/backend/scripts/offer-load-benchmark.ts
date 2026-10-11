@@ -352,7 +352,11 @@ async function seedOffers(
  * buffer cache and reporting it as "the" latency measures the disk, while the
  * mean lets one slow run stand in for a distribution nobody saw.
  */
-async function explain(db: Database, label: string, statement: ReturnType<typeof sql>): Promise<void> {
+async function explain(
+  db: Database,
+  label: string,
+  statement: ReturnType<typeof sql>,
+): Promise<void> {
   const timings: number[] = [];
   let plan = '';
   for (let attempt = 0; attempt < 5; attempt += 1) {

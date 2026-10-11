@@ -1,19 +1,19 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   PaginatedResponse,
   Customer,
   OrderSummary,
   CreateCustomerInput,
   UpdateCustomerInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchCustomers,
   fetchCustomer,
   fetchCustomerOrders,
   createCustomer,
   updateCustomer,
-} from "../api/customers";
-import { queryKeys } from "../queryKeys";
+} from '../api/customers';
+import { queryKeys } from '../queryKeys';
 
 const PAGE_LIMIT = 20;
 
@@ -30,7 +30,9 @@ export function useCustomers(storeId: string, page: number, search: string) {
     enabled: Boolean(storeId),
     placeholderData: (previous, query) =>
       query?.queryKey[1] === storeId &&
-      (query.queryKey[3] as { search?: string })?.search === search ? previous : undefined,
+      (query.queryKey[3] as { search?: string })?.search === search
+        ? previous
+        : undefined,
   });
 }
 
@@ -53,7 +55,7 @@ export function useCustomerOrders(storeId: string, id: string) {
 }
 
 function invalidate(queryClient: ReturnType<typeof useQueryClient>, storeId: string) {
-  queryClient.invalidateQueries({ queryKey: ["stores", storeId, "customers"] });
+  queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'customers'] });
 }
 
 /** Create a customer. */

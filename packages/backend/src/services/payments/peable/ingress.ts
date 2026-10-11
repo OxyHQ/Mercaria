@@ -58,8 +58,16 @@ import { processStoredPeableEvent } from './event-processor.js';
  * — no secret, no signature, no payload.
  */
 export type PeableIngressResult =
-  | { readonly outcome: 'accepted'; readonly providerEventId: string; readonly storedEventId: string }
-  | { readonly outcome: 'duplicate'; readonly providerEventId: string; readonly storedEventId: string }
+  | {
+      readonly outcome: 'accepted';
+      readonly providerEventId: string;
+      readonly storedEventId: string;
+    }
+  | {
+      readonly outcome: 'duplicate';
+      readonly providerEventId: string;
+      readonly storedEventId: string;
+    }
   | { readonly outcome: 'rejected'; readonly code: 'invalid_signature' };
 
 /** One delivery, exactly as it arrived. */
@@ -78,9 +86,7 @@ export interface PeableDelivery {
  * from "blew up" by catching would eventually get it wrong in the direction that
  * answers 500 to a forged request and invites the sender to try again.
  */
-export async function ingestPeableDelivery(
-  delivery: PeableDelivery,
-): Promise<PeableIngressResult> {
+export async function ingestPeableDelivery(delivery: PeableDelivery): Promise<PeableIngressResult> {
   let envelope: ProviderEventEnvelope;
   try {
     const payload = delivery.payload.toString('utf8');

@@ -43,15 +43,15 @@ import {
   markGuestPortalMessageSent,
   type GuestPortalMessageRow,
 } from '../../db/guestPortal/messageRepository.js';
-import { findLiveSuppression, suppressGuestContact } from '../../db/guestPortal/suppressionRepository.js';
+import {
+  findLiveSuppression,
+  suppressGuestContact,
+} from '../../db/guestPortal/suppressionRepository.js';
 import {
   findGuestCheckoutByGroup,
   findGuestCheckoutById,
 } from '../../db/guests/guestCheckoutRepository.js';
-import {
-  findOrdersInCheckoutGroup,
-  type OrderRecord,
-} from '../../db/orders/orderRepository.js';
+import { findOrdersInCheckoutGroup, type OrderRecord } from '../../db/orders/orderRepository.js';
 import { decryptGuestPii } from '../../lib/guest-pii.js';
 import { log } from '../../lib/logger.js';
 import { orderSellerLabel } from '../commercial-presentation/presentation.js';
@@ -79,12 +79,14 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
 > = {
   order_confirmation: {
     trigger: 'services/payments/outbox-handlers.ts (guest_portal_initialization)',
-    note: 'Enqueued when a guest payment is VERIFIED (#107 → #108). Deterministic on the ' +
+    note:
+      'Enqueued when a guest payment is VERIFIED (#107 → #108). Deterministic on the ' +
       'checkout group, so duplicate webhooks converge on one message.',
   },
   payment_delayed_success: {
     trigger: null,
-    note: '#111. A payment that succeeds long after the buyer left produces the SAME verified ' +
+    note:
+      '#111. A payment that succeeds long after the buyer left produces the SAME verified ' +
       'event the confirmation is enqueued from, and the deterministic id makes it the same ' +
       'message — so a second kind would either duplicate the confirmation or replace it. ' +
       'Distinguishing "late" needs a delay threshold nobody has chosen, which is a rollout ' +
@@ -92,12 +94,14 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
   },
   payment_pending: {
     trigger: null,
-    note: '#111. Needs a threshold for how long "still processing" has to last before telling ' +
+    note:
+      '#111. Needs a threshold for how long "still processing" has to last before telling ' +
       'somebody about it; sending immediately would mail every 3-D Secure challenge.',
   },
   payment_failed: {
     trigger: null,
-    note: '#111. The payment domain knows the failure; what it does not know is whether the ' +
+    note:
+      '#111. The payment domain knows the failure; what it does not know is whether the ' +
       'buyer is still on the page retrying, and mailing somebody mid-retry is worse than ' +
       'silence. Needs the same rollout threshold as payment_pending.',
   },
@@ -119,12 +123,14 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
   },
   refund_completed: {
     trigger: 'services/guest-portal/message.service.ts (notifyGuestOrderLifecycle)',
-    note: 'The `refunded` status transition. A PARTIAL refund is deliberately not this kind — ' +
+    note:
+      'The `refunded` status transition. A PARTIAL refund is deliberately not this kind — ' +
       'it leaves the order in `partially_refunded`, which is a different fact.',
   },
   cost_adjustment_issued: {
     trigger: 'services/retail-reconciliation/notifications.ts',
-    note: '#128. A `mercaria_retail` order reconciled to LESS than the buyer was charged, so the ' +
+    note:
+      '#128. A `mercaria_retail` order reconciled to LESS than the buyer was charged, so the ' +
       'surplus is theirs. Its own kind rather than `refund_pending`, because the two are ' +
       'opposite facts about who acted — a buyer who reads "your refund is on its way" for ' +
       'something they never requested has been told the wrong thing about their own order. ' +
@@ -133,33 +139,38 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
   },
   refund_pending: {
     trigger: 'services/buyer-requests/return-decision.service.ts',
-    note: '#110. Deferred by #108 on the reasoning that "pending" would mean the RAIL had not ' +
+    note:
+      '#110. Deferred by #108 on the reasoning that "pending" would mean the RAIL had not ' +
       'paid yet, which a buyer cannot act on. In a RETURN it means something different and ' +
       'actionable — the seller approved, the goods are accounted for, and the money is coming — ' +
       'which is why the trigger lives in the return flow and not in the payment domain.',
   },
   tracking_updated: {
     trigger: null,
-    note: '#110. Shipping is Moovo’s and is HIDDEN everywhere; the order carries a snapshot ' +
+    note:
+      '#110. Shipping is Moovo’s and is HIDDEN everywhere; the order carries a snapshot ' +
       'with cost zero and no carrier events, so there is nothing to notify about until Moovo ' +
       'lands and a carrier event exists to describe.',
   },
   order_ready_for_pickup: {
     trigger: 'services/pickup/collection.service.ts (markPickupReady)',
-    note: '#93. Enqueued when a shop marks a collection ready, guest-origin orders only. Keyed ' +
+    note:
+      '#93. Enqueued when a shop marks a collection ready, guest-origin orders only. Keyed ' +
       'on the PICKUP state rather than an order status: a collection never becomes `shipped`, ' +
       'and #93 pickup rule 12 keeps the handover’s states apart from the payment’s.',
   },
   return_request_updated: {
     trigger: 'services/buyer-requests/return-decision.service.ts',
-    note: '#110. ONE kind for approved / rejected / awaiting-item / received / cancelled, told ' +
+    note:
+      '#110. ONE kind for approved / rejected / awaiting-item / received / cancelled, told ' +
       'apart by the STATE passed as the enqueue’s `dedupeSuffix`. Five kinds would have been ' +
       'five sentences pointing at the same portal page; the suffix is what keeps them ' +
       'idempotent without a kind each.',
   },
   refund_failed: {
     trigger: 'services/buyer-requests/return-decision.service.ts',
-    note: '#110. The rail reported the money did NOT go, on a refund the commerce record has ' +
+    note:
+      '#110. The rail reported the money did NOT go, on a refund the commerce record has ' +
       'already committed. The only message in that domain about something Mercaria is fixing ' +
       'rather than something the buyer must do — sent because the alternative is a person ' +
       'watching a refund that never arrives with no way to tell whether anybody knows.',
@@ -170,12 +181,14 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
   },
   cancellation_request_approved: {
     trigger: 'services/buyer-requests/cancellation-decision.service.ts',
-    note: '#110. TWO kinds rather than one carrying an outcome: the subject lines have to ' +
+    note:
+      '#110. TWO kinds rather than one carrying an outcome: the subject lines have to ' +
       'differ, and a template branching on a state would be a fifth place the state is spelled.',
   },
   cancellation_request_rejected: {
     trigger: 'services/buyer-requests/cancellation-decision.service.ts',
-    note: '#110. The rejection half of the pair above. The body never quotes the seller’s ' +
+    note:
+      '#110. The rejection half of the pair above. The body never quotes the seller’s ' +
       'reason — it lives on the order page, behind the portal credential.',
   },
   return_request_received: {
@@ -184,19 +197,22 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
   },
   support_response_available: {
     trigger: 'services/buyer-requests/support.service.ts',
-    note: '#110. A SELLER or an operator wrote into the thread. A buyer writing to their own ' +
+    note:
+      '#110. A SELLER or an operator wrote into the thread. A buyer writing to their own ' +
       'thread notifies nobody, and the body carries no message text — the thread is behind the ' +
       'portal credential and an email is not.',
   },
   buyer_action_required: {
     trigger: 'services/buyer-requests/return-decision.service.ts',
-    note: '#110 communication item 10. Fired when a return is approved WITH a ship-back ' +
+    note:
+      '#110 communication item 10. Fired when a return is approved WITH a ship-back ' +
       'deadline, which is the only deadline in that domain a buyer can miss.',
   },
 
   claim_completed: {
     trigger: 'services/guest-claims/claim-outbox.service.ts (notifyClaimCompleted)',
-    note: 'Enqueued from the claim’s durable outbox rather than from the claim transaction, so ' +
+    note:
+      'Enqueued from the claim’s durable outbox rather than from the claim transaction, so ' +
       'a mail failure can never roll back an ownership change. It is the security notice a ' +
       'claim owes: the claim revoked every outstanding portal credential (ADR 0003 D14), and ' +
       'somebody reading their order through a link needs to know why it stopped working and ' +
@@ -216,26 +232,30 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
   },
   retail_service_request_received: {
     trigger: 'services/retail-service-requests/notifications.ts',
-    note: '#127. Enqueued after the request row commits, so it counts requests that were FILED ' +
+    note:
+      '#127. Enqueued after the request row commits, so it counts requests that were FILED ' +
       'rather than attempted. Its body says Mercaria handles it from here, which is #127 ' +
       'experience rule 1 in the one place a buyer would otherwise go looking for a supplier.',
   },
   retail_cancellation_updated: {
     trigger: 'services/retail-service-requests/notifications.ts',
-    note: '#127. ONE kind for pending / accepted / unavailable, told apart by the state in the ' +
+    note:
+      '#127. ONE kind for pending / accepted / unavailable, told apart by the state in the ' +
       'dedupe suffix — #108’s own mechanism. Three kinds would be three sentences pointing ' +
       'at the same portal page, and the outcome the buyer needs is the refund amount, which ' +
       'the page carries.',
   },
   retail_return_authorized: {
     trigger: 'services/retail-service-requests/notifications.ts',
-    note: '#127. Its own kind rather than a state of `retail_return_updated`, because it is the ' +
+    note:
+      '#127. Its own kind rather than a state of `retail_return_updated`, because it is the ' +
       'one return message that asks the buyer to DO something before a deadline and its ' +
       'subject line has to say so.',
   },
   retail_return_updated: {
     trigger: 'services/retail-service-requests/notifications.ts',
-    note: '#127. In transit, received and inspected, told apart by the dedupe suffix. The body ' +
+    note:
+      '#127. In transit, received and inspected, told apart by the dedupe suffix. The body ' +
       'states that receiving and refunding are separate steps, which is #127 experience rule 5 ' +
       'and the single most common support question a returns flow generates.',
   },
@@ -245,19 +265,22 @@ export const GUEST_PORTAL_MESSAGE_TRIGGERS: Record<
   },
   retail_service_delayed: {
     trigger: 'services/retail-service-requests/notifications.ts',
-    note: '#127 communication item 10 — "supplier delay only in customer-appropriate language". ' +
+    note:
+      '#127 communication item 10 — "supplier delay only in customer-appropriate language". ' +
       'The body names no supplier and no reason, because both are procurement facts and ' +
       'because "our supplier has not replied" tells a buyer to go and find one.',
   },
   retail_safety_notice: {
     trigger: 'services/retail-service-requests/notifications.ts',
-    note: '#127 communication item 11. Enqueued when a `safety_recall` request is raised ' +
+    note:
+      '#127 communication item 11. Enqueued when a `safety_recall` request is raised ' +
       'against an order, and deliberately NOT deduped on a state — a recall notice re-sent is ' +
       'better than one swallowed.',
   },
   retail_service_request_closed: {
     trigger: 'services/retail-service-requests/notifications.ts',
-    note: '#127 communication item 12. Sent on every terminal state, so a rejected request ' +
+    note:
+      '#127 communication item 12. Sent on every terminal state, so a rejected request ' +
       'produces a message rather than silence — a buyer who is told no can act on it, and one ' +
       'who is told nothing opens a second request.',
   },
@@ -319,8 +342,7 @@ export async function enqueueGuestMessage(
 
   const now = new Date();
   const subject = input.orderId ?? input.checkoutGroupId;
-  const dedupeKey =
-    input.dedupeSuffix === undefined ? subject : `${subject}:${input.dedupeSuffix}`;
+  const dedupeKey = input.dedupeSuffix === undefined ? subject : `${subject}:${input.dedupeSuffix}`;
 
   const created = await enqueueGuestPortalMessage(db, {
     id: guestPortalMessageId(input.kind, dedupeKey),
@@ -531,7 +553,10 @@ async function composeFacts(
     const { token } = await mintExchangeGrant(getDb(), {
       checkoutGroupId: message.checkoutGroupId,
       guestCheckoutId: message.guestCheckoutId,
-      reason: message.kind === 'access_link_step_up' ? 'sensitive_action' : exchangeReasonFor(message.kind),
+      reason:
+        message.kind === 'access_link_step_up'
+          ? 'sensitive_action'
+          : exchangeReasonFor(message.kind),
       now,
     });
     portalUrl = buildPortalUrl(base, token);

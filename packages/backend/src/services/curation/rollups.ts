@@ -129,11 +129,15 @@ export async function rebuildEntityRollups(
         .select({ familyId: canonicalProducts.familyId, brandId: canonicalProducts.brandId })
         .from(canonicalProducts)
         .where(sql`${canonicalProducts.id} in (${loserId}, ${winnerId})`);
-      for (const familyId of new Set(rows.map((row) => row.familyId).filter((id): id is string => id !== null))) {
+      for (const familyId of new Set(
+        rows.map((row) => row.familyId).filter((id): id is string => id !== null),
+      )) {
         await refreshFamilyCount(familyId, db);
         rebuilt += 1;
       }
-      for (const brandId of new Set(rows.map((row) => row.brandId).filter((id): id is string => id !== null))) {
+      for (const brandId of new Set(
+        rows.map((row) => row.brandId).filter((id): id is string => id !== null),
+      )) {
         await refreshBrandCount(brandId, db);
         rebuilt += 1;
       }

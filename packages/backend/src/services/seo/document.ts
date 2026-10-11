@@ -38,12 +38,7 @@ import type {
   SeoVisibleFacts,
 } from '@mercaria/shared-types';
 import { robotsDirectiveFor } from './indexability.js';
-import {
-  breadcrumbNode,
-  organizationNode,
-  productNode,
-  webSiteNode,
-} from './structured-data.js';
+import { breadcrumbNode, organizationNode, productNode, webSiteNode } from './structured-data.js';
 
 /** The brand name every title and sharing card is suffixed with. */
 export const SITE_NAME = 'Mercaria';
@@ -98,7 +93,11 @@ function sharingTypeFor(routeId: PublicRouteId): SeoSharingMetadata['type'] {
 }
 
 /** Builds the entity-specific schema.org node(s) for one route, given its facts. */
-type StructuredDataBuilder = (facts: SeoVisibleFacts, canonicalUrl: string, origin: string) => SeoJsonLdNode;
+type StructuredDataBuilder = (
+  facts: SeoVisibleFacts,
+  canonicalUrl: string,
+  origin: string,
+) => SeoJsonLdNode;
 
 /**
  * Which entity node each route emits — a `Record<PublicRouteId, ...>` rather

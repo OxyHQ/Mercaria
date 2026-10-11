@@ -1,8 +1,4 @@
-import type {
-  ComparisonCell,
-  ComparisonInput,
-  ComparisonTableRow,
-} from '@mercaria/shared-types';
+import type { ComparisonCell, ComparisonInput, ComparisonTableRow } from '@mercaria/shared-types';
 
 /**
  * The explicit rules that decide whether a comparison says anything, and the

@@ -176,9 +176,9 @@ export interface CanonicalGraphWriter {
    * own advance path (ADR 0014 D4). The OUTCOME is carried because whether the
    * object attached is the stage's verdict; a dry run asks nothing.
    */
-  readvanceSourceObject(sourceObjectId: string): Promise<
-    GraphWriteResult & { readonly outcome: ReadvanceOutcome | 'not_written' }
-  >;
+  readvanceSourceObject(
+    sourceObjectId: string,
+  ): Promise<GraphWriteResult & { readonly outcome: ReadvanceOutcome | 'not_written' }>;
 
   /** Make a seeded draft shopper-visible (ADR 0014 D3). Records the review stamp. */
   promoteProduct(input: { productId: string; actorOxyUserId: string }): Promise<GraphWriteResult>;
@@ -228,7 +228,11 @@ export const dryRunGraphWriter: CanonicalGraphWriter = {
   requestOfferConvergence: (listingId) =>
     Promise.resolve({ id: dryRunId(`offer-sync:${listingId}`), persisted: false }),
   readvanceSourceObject: (sourceObjectId) =>
-    Promise.resolve({ id: dryRunId(`readvance:${sourceObjectId}`), persisted: false, outcome: 'not_written' }),
+    Promise.resolve({
+      id: dryRunId(`readvance:${sourceObjectId}`),
+      persisted: false,
+      outcome: 'not_written',
+    }),
   promoteProduct: (input) =>
     Promise.resolve({ id: dryRunId(`promote:${input.productId}`), persisted: false }),
   anchorSourceObservation: (input) =>
@@ -314,7 +318,11 @@ export function applyGraphWriter(tx?: DatabaseOrTransaction): CanonicalGraphWrit
         // A mistyped barcode is evidence somebody typed it wrong, never evidence
         // the product is something else (#58's rule, one domain over). Nothing is
         // stored and the stage reports it rather than guessing a correction.
-        return { id: dryRunId(`identifier-invalid:${input.rawValue}`), persisted: false, outcome: 'invalid' };
+        return {
+          id: dryRunId(`identifier-invalid:${input.rawValue}`),
+          persisted: false,
+          outcome: 'invalid',
+        };
       }
       return {
         id: assigned.identifier.id,

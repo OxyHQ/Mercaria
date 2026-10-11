@@ -1610,9 +1610,7 @@ export async function updateSyncSettings(
       ...(patch.orders !== undefined ? { orders: patch.orders } : {}),
       ...(patch.autoPublish !== undefined ? { autoPublish: patch.autoPublish } : {}),
       ...(patch.conflictPolicy !== undefined ? { conflictPolicy: patch.conflictPolicy } : {}),
-      ...(patch.targetLocationId !== undefined
-        ? { targetLocationId: patch.targetLocationId }
-        : {}),
+      ...(patch.targetLocationId !== undefined ? { targetLocationId: patch.targetLocationId } : {}),
       ...(patch.priceRules !== undefined ? { priceRules: patch.priceRules } : {}),
       ...(patch.collectionMapping !== undefined
         ? { collectionMapping: patch.collectionMapping }
@@ -1725,7 +1723,8 @@ export async function disconnect(
         await findConnectionIdsByShopDomain(existing.provider, existing.shopDomain)
       ).filter((id) => id !== existing.id);
       const addressIsShared = siblingIds.some(
-        (siblingId) => provider.webhookDeliveryUrl({ address, connectionId: siblingId }) === deliveryUrl,
+        (siblingId) =>
+          provider.webhookDeliveryUrl({ address, connectionId: siblingId }) === deliveryUrl,
       );
       if (addressIsShared) {
         // The stored ids still go — they are this connection's own record — but
@@ -1859,10 +1858,7 @@ function describeVariantEnumerationGap(gap: VariantEnumerationGap): string {
  * only "incomplete" would leave an operator unable to tell a site that stopped
  * publishing a page header from one whose plugin is serving a variation twice.
  */
-function incompleteVariantSetError(
-  externalId: string,
-  gap: VariantEnumerationGap,
-): MercariaError {
+function incompleteVariantSetError(externalId: string, gap: VariantEnumerationGap): MercariaError {
   return validationError(
     `Connector product ${externalId} has an incomplete variant enumeration (${gap.kind}): ` +
       `${describeVariantEnumerationGap(gap)} — refusing to create, update or unsell anything from it`,
@@ -2862,11 +2858,7 @@ async function importProduct(
 
   // `let` because the create branch may LOSE the provenance-unique race and fall
   // through to the update branch with the row the winner wrote (#221).
-  let existing = await findListingBySourceExternalId(
-    conn.storeId,
-    conn.id,
-    product.externalId,
-  );
+  let existing = await findListingBySourceExternalId(conn.storeId, conn.id, product.externalId);
 
   if (!existing) {
     // LOOP PREVENTION (bidirectional): before creating, check whether this external
@@ -2874,11 +2866,7 @@ async function importProduct(
     // If so, the inbound event is an echo of our own push — the listing is
     // Mercaria-owned, so skip it (never re-import a pushed product as a duplicate,
     // and never let the platform's normalization fight Mercaria's source of truth).
-    const pushMirror = await listingPushedToConnection(
-      conn.storeId,
-      conn.id,
-      product.externalId,
-    );
+    const pushMirror = await listingPushedToConnection(conn.storeId, conn.id, product.externalId);
     if (pushMirror) {
       return 'skipped';
     }
@@ -2892,21 +2880,23 @@ async function importProduct(
     let createdListingId: string | undefined;
     try {
       const input = toCreateInput(product, opts.categorySlug, opts.priceRules);
-      const media = product.mediaSources === undefined ? undefined : await synchronizeStoreMedia(conn.storeId, product.mediaSources);
-      if (media) { delete input.imageFileIds; input.mediaFileIds = media.map(item => item.fileId); }
-      else input.imageFileIds = await synchronizeStoreImages(conn.storeId, input.imageFileIds ?? []);
+      const media =
+        product.mediaSources === undefined
+          ? undefined
+          : await synchronizeStoreMedia(conn.storeId, product.mediaSources);
+      if (media) {
+        delete input.imageFileIds;
+        input.mediaFileIds = media.map((item) => item.fileId);
+      } else
+        input.imageFileIds = await synchronizeStoreImages(conn.storeId, input.imageFileIds ?? []);
       input.description = await synchronizeStoreDescription(conn.storeId, input.description);
-      createdListingId = await createStoreProduct(
-        conn.storeId,
-        input,
-        {
-          locationId: opts.importLocationId,
-          ...(media === undefined ? {} : { media }),
-          source: buildSource(conn, product),
-          status: opts.autoPublish ? 'active' : 'draft',
-          variantSources: buildVariantSources(conn, product),
-        },
-      );
+      createdListingId = await createStoreProduct(conn.storeId, input, {
+        locationId: opts.importLocationId,
+        ...(media === undefined ? {} : { media }),
+        source: buildSource(conn, product),
+        status: opts.autoPublish ? 'active' : 'draft',
+        variantSources: buildVariantSources(conn, product),
+      });
     } catch (err) {
       // #221: `listings_store_id_source_key_idx` is UNIQUE, so the read above and
       // this insert are no longer a read-then-write race. Losing it is ORDINARY —
@@ -2924,11 +2914,7 @@ async function importProduct(
       if (!isUniqueViolation(err, 'listings_store_id_source_key_idx')) {
         throw err;
       }
-      const raced = await findListingBySourceExternalId(
-        conn.storeId,
-        conn.id,
-        product.externalId,
-      );
+      const raced = await findListingBySourceExternalId(conn.storeId, conn.id, product.externalId);
       // The constraint fired and the row is not there: something other than the
       // race we can explain. Rethrow the ORIGINAL error rather than invent one.
       if (!raced) {
@@ -2966,9 +2952,14 @@ async function importProduct(
   if (patch.description !== undefined) {
     patch.description = await synchronizeStoreDescription(conn.storeId, patch.description);
   }
-  const media = !overridden.has('images') && product.mediaSources !== undefined ? await synchronizeStoreMedia(conn.storeId, product.mediaSources) : undefined;
-  if (media) { delete patch.imageFileIds; patch.mediaFileIds = media.map(item => item.fileId); }
-  else if (patch.imageFileIds !== undefined) {
+  const media =
+    !overridden.has('images') && product.mediaSources !== undefined
+      ? await synchronizeStoreMedia(conn.storeId, product.mediaSources)
+      : undefined;
+  if (media) {
+    delete patch.imageFileIds;
+    patch.mediaFileIds = media.map((item) => item.fileId);
+  } else if (patch.imageFileIds !== undefined) {
     patch.imageFileIds = await synchronizeStoreImages(conn.storeId, patch.imageFileIds);
   }
   // Validate and synchronize media before changing any catalog state.
@@ -3241,12 +3232,7 @@ async function archiveSourcedListing(
   // are in `ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH`: each records that the product
   // was absent or unpublished UPSTREAM, so the product being back is the same
   // fact reversing rather than the connector overruling anybody.
-  const archived = await setListingStatusIfIn(
-    listing.id,
-    'archived',
-    ALL_LISTING_STATUSES,
-    cause,
-  );
+  const archived = await setListingStatusIfIn(listing.id, 'archived', ALL_LISTING_STATUSES, cause);
   if (archived) {
     // The root connection, stated (#584): the CAS above committed on its own.
     await requestNativeOfferSync(listing.id, getDb());
@@ -3276,9 +3262,9 @@ async function archiveUnseenSourcedListings(
   // The `status !== 'archived'` filter is applied here rather than in the query
   // because the repository read is deliberately status-agnostic; the set it
   // returns is already just this connection's imports, not the store's catalogue.
-  const sourced = (
-    await findListingsBySourceConnection(conn.storeId, conn.id)
-  ).filter((listing) => listing.status !== 'archived');
+  const sourced = (await findListingsBySourceConnection(conn.storeId, conn.id)).filter(
+    (listing) => listing.status !== 'archived',
+  );
 
   let archived = 0;
   for (const listing of sourced) {
@@ -3502,7 +3488,11 @@ type WebhookWork = (counts: SyncRunCounts) => Promise<void>;
  * platforms re-deliver failed webhooks and every upsert is idempotent, so a
  * modeled failure is recorded on the run + logged and swallowed.
  */
-async function runWebhookUnit(conn: ConnectionRow, topic: string, work: WebhookWork): Promise<void> {
+async function runWebhookUnit(
+  conn: ConnectionRow,
+  topic: string,
+  work: WebhookWork,
+): Promise<void> {
   const connectionId = conn.id;
   const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const run = await insertSyncRun(connectionId, 'webhook');
@@ -3775,7 +3765,11 @@ function ensureAddressSnapshot(
  * so a synthetic reference keeps the immutable snapshot self-describing without a
  * dangling foreign key. (Linking to a real listing is future work.)
  */
-function externalLineRef(kind: 'product' | 'variant', conn: ConnectionRow, externalId?: string): string {
+function externalLineRef(
+  kind: 'product' | 'variant',
+  conn: ConnectionRow,
+  externalId?: string,
+): string {
   return `ext:${conn.provider}:${kind}:${externalId ?? 'unknown'}`;
 }
 
@@ -3840,7 +3834,7 @@ function buildExternalOrderDoc(
   orderNumber: string,
 ): NewOrder {
   const buyerOxyUserId = `ext:${conn.provider}:${order.customer?.externalId ?? order.externalId}`;
-  const paidAt = order.paymentStatus === 'paid' ? order.createdAt ?? new Date() : undefined;
+  const paidAt = order.paymentStatus === 'paid' ? (order.createdAt ?? new Date()) : undefined;
 
   const doc: NewOrder = {
     orderNumber,
@@ -3912,7 +3906,10 @@ function buildExternalOrderDoc(
  * duplicated); a new order is created with a fresh Mercaria order number. A
  * concurrent create that loses the unique-index race is treated as `skipped`.
  */
-async function upsertExternalOrder(conn: ConnectionRow, order: NormalizedOrder): Promise<ImportOutcome> {
+async function upsertExternalOrder(
+  conn: ConnectionRow,
+  order: NormalizedOrder,
+): Promise<ImportOutcome> {
   const connectionId = conn.id;
   const existing = await findOrderBySourceExternalId(conn.storeId, connectionId, order.externalId);
 
@@ -4049,7 +4046,12 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
    * text does not name.
    */
   const recordFailures: SyncRunRecordFailure[] = [];
-  emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'started', counts });
+  emitSyncProgress(conn.storeId, {
+    connectionId: runConnectionId,
+    kind: 'order_sync',
+    phase: 'started',
+    counts,
+  });
 
   try {
     let cursor: string | undefined;
@@ -4073,7 +4075,12 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
         }
       }
       cursor = page.nextCursor;
-      emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'running', counts });
+      emitSyncProgress(conn.storeId, {
+        connectionId: runConnectionId,
+        kind: 'order_sync',
+        phase: 'running',
+        counts,
+      });
     } while (cursor);
 
     const completed = await finishSyncRun(run.id, {
@@ -4082,7 +4089,12 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
       recordFailures,
     });
     await markConnectionSynced(runConnectionId);
-    emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'completed', counts });
+    emitSyncProgress(conn.storeId, {
+      connectionId: runConnectionId,
+      kind: 'order_sync',
+      phase: 'completed',
+      counts,
+    });
     return completed;
   } catch (err) {
     const failed = await finishSyncRun(run.id, {
@@ -4091,7 +4103,12 @@ export async function syncOrders(storeId: string, connectionId: string): Promise
       failure: err,
     });
     await markConnectionError(runConnectionId);
-    emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'order_sync', phase: 'failed', counts });
+    emitSyncProgress(conn.storeId, {
+      connectionId: runConnectionId,
+      kind: 'order_sync',
+      phase: 'failed',
+      counts,
+    });
     log.general.error({ err, connectionId: runConnectionId }, 'Connector order sync failed');
     return failed;
   }
@@ -4155,7 +4172,12 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
    * subjects.
    */
   const recordFailures: SyncRunRecordFailure[] = [];
-  emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'started', counts });
+  emitSyncProgress(conn.storeId, {
+    connectionId: runConnectionId,
+    kind: 'inventory_sync',
+    phase: 'started',
+    counts,
+  });
 
   try {
     const locationId = await resolveInventoryLocationId(conn);
@@ -4174,7 +4196,9 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
     }
 
     if (byItemId.size > 0) {
-      const levels = await provider.fetchInventory(auth, { inventoryItemIds: [...byItemId.keys()] });
+      const levels = await provider.fetchInventory(auth, {
+        inventoryItemIds: [...byItemId.keys()],
+      });
       for (const level of levels) {
         const mapping = byItemId.get(level.externalInventoryItemId);
         if (!mapping) {
@@ -4182,7 +4206,12 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
           continue;
         }
         try {
-          await setAvailable(mapping.variantId, mapping.listingId, locationId, Math.max(0, level.available));
+          await setAvailable(
+            mapping.variantId,
+            mapping.listingId,
+            locationId,
+            Math.max(0, level.available),
+          );
           counts.updated += 1;
         } catch (err) {
           counts.failed += 1;
@@ -4192,11 +4221,20 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
             failure: err,
           });
           log.general.warn(
-            { err, connectionId: runConnectionId, externalInventoryItemId: level.externalInventoryItemId },
+            {
+              err,
+              connectionId: runConnectionId,
+              externalInventoryItemId: level.externalInventoryItemId,
+            },
             'Failed to apply connector inventory level',
           );
         }
-        emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'running', counts });
+        emitSyncProgress(conn.storeId, {
+          connectionId: runConnectionId,
+          kind: 'inventory_sync',
+          phase: 'running',
+          counts,
+        });
       }
     }
 
@@ -4206,7 +4244,12 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
       recordFailures,
     });
     await markConnectionSynced(runConnectionId);
-    emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'completed', counts });
+    emitSyncProgress(conn.storeId, {
+      connectionId: runConnectionId,
+      kind: 'inventory_sync',
+      phase: 'completed',
+      counts,
+    });
     return completed;
   } catch (err) {
     const failed = await finishSyncRun(run.id, {
@@ -4215,7 +4258,12 @@ export async function syncInventory(storeId: string, connectionId: string): Prom
       failure: err,
     });
     await markConnectionError(runConnectionId);
-    emitSyncProgress(conn.storeId, { connectionId: runConnectionId, kind: 'inventory_sync', phase: 'failed', counts });
+    emitSyncProgress(conn.storeId, {
+      connectionId: runConnectionId,
+      kind: 'inventory_sync',
+      phase: 'failed',
+      counts,
+    });
     log.general.error({ err, connectionId: runConnectionId }, 'Connector inventory sync failed');
     return failed;
   }
@@ -4394,7 +4442,12 @@ async function pushListingToConnection(
 
     await finishSyncRun(run.id, { status: 'completed', counts });
     await touchConnectionLastSync(connectionId);
-    emitSyncProgress(conn.storeId, { connectionId, kind: 'product_push', phase: 'completed', counts });
+    emitSyncProgress(conn.storeId, {
+      connectionId,
+      kind: 'product_push',
+      phase: 'completed',
+      counts,
+    });
   } catch (err) {
     counts.failed += 1;
     await finishSyncRun(run.id, {
@@ -4500,7 +4553,12 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
   const connectionId = conn.id;
   const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
   const run = await insertSyncRun(connectionId, 'fulfillment_push');
-  emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'started', counts });
+  emitSyncProgress(conn.storeId, {
+    connectionId,
+    kind: 'fulfillment_push',
+    phase: 'started',
+    counts,
+  });
 
   try {
     const provider = getConnectorProvider(conn.provider);
@@ -4513,7 +4571,12 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
 
     await finishSyncRun(run.id, { status: 'completed', counts });
     await touchConnectionLastSync(connectionId);
-    emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'completed', counts });
+    emitSyncProgress(conn.storeId, {
+      connectionId,
+      kind: 'fulfillment_push',
+      phase: 'completed',
+      counts,
+    });
   } catch (err) {
     counts.failed += 1;
     await finishSyncRun(run.id, {
@@ -4521,7 +4584,12 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
       counts,
       failure: err,
     });
-    emitSyncProgress(conn.storeId, { connectionId, kind: 'fulfillment_push', phase: 'failed', counts });
+    emitSyncProgress(conn.storeId, {
+      connectionId,
+      kind: 'fulfillment_push',
+      phase: 'failed',
+      counts,
+    });
     log.general.error(
       { err, connectionId, orderId: order.id },
       'Failed to push fulfillment to channel',

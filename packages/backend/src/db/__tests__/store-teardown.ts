@@ -59,10 +59,7 @@ import { stores } from '../schema/stores.js';
  * created and knows about. What this covers is the one dependent a file cannot
  * know about, because another file's fixture caused it.
  */
-export async function deleteTestStores(
-  db: Database,
-  storeIds: readonly string[],
-): Promise<void> {
+export async function deleteTestStores(db: Database, storeIds: readonly string[]): Promise<void> {
   const ids = [...new Set(storeIds)];
   if (ids.length === 0) return;
   await db.delete(nativeStoreLinks).where(inArray(nativeStoreLinks.storeId, ids));

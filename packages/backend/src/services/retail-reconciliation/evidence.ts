@@ -498,7 +498,12 @@ export async function gatherReconciliationEvidence(
         convertible = false;
         break;
       }
-      const result = convertWithStoredRate(rates, entry.minor, supplierCurrency, accountingCurrency);
+      const result = convertWithStoredRate(
+        rates,
+        entry.minor,
+        supplierCurrency,
+        accountingCurrency,
+      );
       if (!result) {
         blocked.push({
           kind: 'currency_unconvertible',

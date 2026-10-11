@@ -1,16 +1,16 @@
-import { renderListingLink } from "@/lib/catalog/product-links";
-import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { Icon, merchantImageSource, resolveCatalogImage } from "@mercaria/ui";
-import { useMemo, useState } from "react";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { Rating } from "@oxy.so/bloom/rating";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { BloomColorScope } from "@oxy.so/bloom/theme";
-import { Image } from "@mercaria/ui";
-import { LinearGradient } from "expo-linear-gradient";
-import Head from "expo-router/head";
-import { useLocalSearchParams } from "expo-router";
-import { Check, ChevronDown, Search, SlidersHorizontal } from "lucide-react-native";
+import { renderListingLink } from '@/lib/catalog/product-links';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { Icon, merchantImageSource, resolveCatalogImage } from '@mercaria/ui';
+import { useMemo, useState } from 'react';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { Rating } from '@oxy.so/bloom/rating';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { BloomColorScope } from '@oxy.so/bloom/theme';
+import { Image } from '@mercaria/ui';
+import { LinearGradient } from 'expo-linear-gradient';
+import Head from 'expo-router/head';
+import { useLocalSearchParams } from 'expo-router';
+import { Check, ChevronDown, Search, SlidersHorizontal } from 'lucide-react-native';
 import {
   ProductCard,
   SectionHeader,
@@ -19,29 +19,29 @@ import {
   useFormatters,
   useRatingDisplay,
   type ProductSummary,
-} from "@mercaria/ui";
+} from '@mercaria/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@oxy.so/bloom/dropdown-menu";
-import { Switch } from "@oxy.so/bloom/switch";
-import { TextField, TextFieldIcon, TextFieldInput } from "@oxy.so/bloom/text-field";
-import { isOxyFileId, type Listing, type StoreSummary } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { StoreFollowButton } from "@/components/store/StoreFollowButton";
-import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
-import { StoreVisitUs } from "@/components/store/StoreVisitUs";
-import { storeThemeTokens } from "@/lib/store-theme";
-import { useStore, useStoreCollections } from "@/lib/hooks/use-store";
-import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
-import { useListings } from "@/lib/hooks/use-listings";
-import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback";
-import { useWindowScrollY } from "@/lib/hooks/use-window-scroll";
-import { useTranslation } from "@/lib/i18n";
-import { ProductGridSkeleton } from "@/components/catalog/ProductGridSkeleton";
+} from '@oxy.so/bloom/dropdown-menu';
+import { Switch } from '@oxy.so/bloom/switch';
+import { TextField, TextFieldIcon, TextFieldInput } from '@oxy.so/bloom/text-field';
+import { isOxyFileId, type Listing, type StoreSummary } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { StoreFollowButton } from '@/components/store/StoreFollowButton';
+import { StoreMenuSheet } from '@/components/store/StoreMenuSheet';
+import { StoreVisitUs } from '@/components/store/StoreVisitUs';
+import { storeThemeTokens } from '@/lib/store-theme';
+import { useStore, useStoreCollections } from '@/lib/hooks/use-store';
+import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
+import { useListings } from '@/lib/hooks/use-listings';
+import { useDebouncedCallback } from '@/lib/hooks/use-debounced-callback';
+import { useWindowScrollY } from '@/lib/hooks/use-window-scroll';
+import { useTranslation } from '@/lib/i18n';
+import { ProductGridSkeleton } from '@/components/catalog/ProductGridSkeleton';
 
 /** Hero height (px) — full-bleed brand cover with the centered wordmark. */
 const HERO_HEIGHT = 360;
@@ -52,19 +52,19 @@ const PARALLAX_EXTRA = 140;
 /** Capped wordmark height (px) inside the hero. */
 const WORDMARK_HEIGHT = 92;
 /** Light text tone over a brand-tinted surface (data-driven, mirrors MerchantCard). */
-const TONE_LIGHT = "#FFFFFF";
+const TONE_LIGHT = '#FFFFFF';
 /** Dark text tone over a brand-tinted surface (data-driven, mirrors MerchantCard). */
-const TONE_DARK = "#111111";
+const TONE_DARK = '#111111';
 /** Hex alpha suffix (~85%) for the glassy brand-tinted pill fills. */
-const GLASS_ALPHA = "D9";
+const GLASS_ALPHA = 'D9';
 /** Fixed dark cover overlay (~25%) so the wordmark reads over any cover. */
-const COVER_DARK_OVERLAY = "rgba(0,0,0,0.25)";
+const COVER_DARK_OVERLAY = 'rgba(0,0,0,0.25)';
 /**
  * Hex alpha suffix (~35%) for the unfilled part of each star: the text tone,
  * faded, so the empty stars read over any brand colour (the theme border the
  * hand-drawn stars used to take disappears on a dark brand).
  */
-const EMPTY_STAR_ALPHA = "59";
+const EMPTY_STAR_ALPHA = '59';
 /** Hero gradient stops: transparent at top → opaque brand at the bottom. */
 const HERO_GRADIENT_LOCATIONS = [0.35, 1] as const;
 /** Page size for the products grid (drives "Load more"). */
@@ -72,7 +72,7 @@ const PAGE_LIMIT = 24;
 /** Debounce (ms) before a search keystroke commits to the listings query. */
 const SEARCH_DEBOUNCE_MS = 300;
 
-type SortValue = "best" | "newest" | "price_asc" | "price_desc";
+type SortValue = 'best' | 'newest' | 'price_asc' | 'price_desc';
 
 /**
  * KEYS rather than labels: this is evaluated at import, before the locale store
@@ -80,21 +80,21 @@ type SortValue = "best" | "newest" | "price_asc" | "price_desc";
  * first. Each is resolved with `t()` at its render site.
  */
 const SORT_OPTIONS: { value: SortValue; labelKey: string }[] = [
-  { value: "best", labelKey: "store.sort.best" },
-  { value: "newest", labelKey: "store.sort.newest" },
-  { value: "price_asc", labelKey: "store.sort.priceAsc" },
-  { value: "price_desc", labelKey: "store.sort.priceDesc" },
+  { value: 'best', labelKey: 'store.sort.best' },
+  { value: 'newest', labelKey: 'store.sort.newest' },
+  { value: 'price_asc', labelKey: 'store.sort.priceAsc' },
+  { value: 'price_desc', labelKey: 'store.sort.priceDesc' },
 ];
 
 /** Map the page's sort selection to the listings query's `sort` param. */
-function toQuerySort(sort: SortValue): "newest" | "price_asc" | "price_desc" | undefined {
-  if (sort === "best") return undefined;
+function toQuerySort(sort: SortValue): 'newest' | 'price_asc' | 'price_desc' | undefined {
+  if (sort === 'best') return undefined;
   return sort;
 }
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
 function toProductSummary(listing: Listing, brand: string): ProductSummary {
-  const firstImage = listing.images.find(image => isOxyFileId(image.fileId));
+  const firstImage = listing.images.find((image) => isOxyFileId(image.fileId));
   return {
     id: listing.id,
     title: listing.title,
@@ -155,13 +155,17 @@ function CollectionPill({
       accessibilityLabel={title}
       onPress={onPress}
       className={`h-11 flex-row items-center gap-2 rounded-full border ps-1.5 pe-4 web:shadow-sm ${
-        active ? "border-foreground" : "border-border"
+        active ? 'border-foreground' : 'border-border'
       }`}
       style={glassStyle(store)}
     >
       {resolvedImage ? (
         <View className="h-8 w-8 overflow-hidden rounded-full bg-muted">
-          <Image source={{ uri: resolvedImage }} contentFit="cover" className="h-8 w-8 rounded-full" />
+          <Image
+            source={{ uri: resolvedImage }}
+            contentFit="cover"
+            className="h-8 w-8 rounded-full"
+          />
         </View>
       ) : null}
       <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: toneColor }}>
@@ -190,7 +194,7 @@ function ParallaxCover({ uri, fileId }: { uri?: string; fileId?: string }) {
       source={source}
       contentFit="cover"
       style={{
-        position: "absolute",
+        position: 'absolute',
         left: 0,
         right: 0,
         top: -PARALLAX_EXTRA,
@@ -218,7 +222,7 @@ function StoreBody({
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
-  const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
+  const toneColor = store.textTone === 'light' ? TONE_LIGHT : TONE_DARK;
   // Scoped shadcn theme tokens derived from the store's palette. Applied to the
   // page wrapper so every shared component below (cards, inputs, pills, buttons)
   // renders in the merchant's brand palette without per-component edits.
@@ -232,9 +236,9 @@ function StoreBody({
   const [activeCollectionId, setActiveCollectionId] = useState<string | undefined>(
     linkedCollectionId,
   );
-  const [searchInput, setSearchInput] = useState("");
-  const [q, setQ] = useState("");
-  const [sort, setSort] = useState<SortValue>("best");
+  const [searchInput, setSearchInput] = useState('');
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<SortValue>('best');
   const [inStockOnly, setInStockOnly] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -312,15 +316,20 @@ function StoreBody({
     SORT_OPTIONS.find((o) => o.value === sort)?.labelKey ?? SORT_OPTIONS[0].labelKey;
 
   return (
-    <BloomColorScope tokens={themeTokens} mode={store.textTone === "light" ? "dark" : "light"}>
+    <BloomColorScope tokens={themeTokens} mode={store.textTone === 'light' ? 'dark' : 'light'}>
       {/* ---- Hero ---- */}
       <View className="relative w-full overflow-hidden" style={{ height: HERO_HEIGHT }}>
-        {store.coverFileId || store.coverImageUrl ? <ParallaxCover uri={store.coverImageUrl} fileId={store.coverFileId} /> : null}
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: COVER_DARK_OVERLAY }]} />
+        {store.coverFileId || store.coverImageUrl ? (
+          <ParallaxCover uri={store.coverImageUrl} fileId={store.coverFileId} />
+        ) : null}
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { backgroundColor: COVER_DARK_OVERLAY }]}
+        />
         {/* Brand-color scrim fading up from the bottom into the page tint. */}
         <LinearGradient
           pointerEvents="none"
-          colors={["transparent", store.brandColor]}
+          colors={['transparent', store.brandColor]}
           locations={HERO_GRADIENT_LOCATIONS}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
@@ -330,17 +339,13 @@ function StoreBody({
         {/* Top-left store identity (glassy) — opens the store menu sheet. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("store.menu.openLabel", { store: store.name })}
+          accessibilityLabel={t('store.menu.openLabel', { store: store.name })}
           onPress={() => setMenuOpen(true)}
           className="absolute start-4 top-4 flex-row items-center gap-2 rounded-full border border-white/30 px-3 py-2 web:shadow"
           style={glassStyle(store)}
         >
           {logoSource ? (
-            <Image
-              source={logoSource}
-              contentFit="contain"
-              style={{ width: 22, height: 22 }}
-            />
+            <Image source={logoSource} contentFit="contain" style={{ width: 22, height: 22 }} />
           ) : null}
           <Text numberOfLines={1} className="text-sm font-bold" style={{ color: toneColor }}>
             {store.name}
@@ -357,7 +362,7 @@ function StoreBody({
             <Image
               source={logoSource}
               contentFit="contain"
-              style={{ height: WORDMARK_HEIGHT, width: "70%", maxWidth: 320 }}
+              style={{ height: WORDMARK_HEIGHT, width: '70%', maxWidth: 320 }}
             />
           ) : (
             <Text
@@ -380,7 +385,7 @@ function StoreBody({
               rating: store.rating,
               reviews: store.reviewCount,
               subject: t(STORE_RATING_LABEL_KEY),
-              variant: "stars",
+              variant: 'stars',
             })}
             variant="stars"
             color={toneColor}
@@ -405,7 +410,7 @@ function StoreBody({
             className="mb-6"
           >
             <CollectionPill
-              title={t("store.shopAll")}
+              title={t('store.shopAll')}
               active={activeCollectionId === undefined}
               toneColor={toneColor}
               store={store}
@@ -429,11 +434,15 @@ function StoreBody({
         {/* ---- Collection tiles grid ---- */}
         {publishedCollections.length > 0 ? (
           <View className="mb-8">
-            <SectionHeader title={t("store.collections")} />
+            <SectionHeader title={t('store.collections')} />
             <View className="flex-row flex-wrap px-2">
               {publishedCollections.map((collection) => {
                 const isActive = activeCollectionId === collection.id;
-                const image = resolveCatalogImage(collection.imageFileId, collection.imageUrl, resolveImage);
+                const image = resolveCatalogImage(
+                  collection.imageFileId,
+                  collection.imageUrl,
+                  resolveImage,
+                );
                 return (
                   <View key={collection.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
                     <Pressable
@@ -441,7 +450,7 @@ function StoreBody({
                       accessibilityLabel={collection.title}
                       onPress={() => selectCollection(isActive ? undefined : collection.id)}
                       className={`group overflow-hidden rounded-2xl border bg-muted web:shadow-sm web:transition-transform web:duration-300 web:hover:-translate-y-1 ${
-                        isActive ? "border-foreground" : "border-border"
+                        isActive ? 'border-foreground' : 'border-border'
                       }`}
                     >
                       <View className="relative aspect-[4/3] w-full">
@@ -476,14 +485,14 @@ function StoreBody({
         ) : null}
 
         {/* ---- Products section ---- */}
-        <SectionHeader title={t("store.products.heading")} />
+        <SectionHeader title={t('store.products.heading')} />
 
         {/* Search input */}
         <View className="mb-3 px-4">
           <TextField radius={999}>
             <TextFieldIcon icon={toBloomFieldIcon(Search)} />
             <TextFieldInput
-              label={t("store.products.searchPlaceholder", { store: store.name })}
+              label={t('store.products.searchPlaceholder', { store: store.name })}
               value={searchInput}
               onValueChange={onChangeSearch}
               returnKeyType="search"
@@ -494,10 +503,10 @@ function StoreBody({
         {/* Filter bar: Sort dropdown + In-stock toggle */}
         <View className="mb-4 flex-row flex-wrap items-center gap-3 px-4">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild label={t("store.sort.label")}>
+            <DropdownMenuTrigger asChild label={t('store.sort.label')}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t("store.sort.label")}
+                accessibilityLabel={t('store.sort.label')}
                 className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4"
               >
                 <Icon as={SlidersHorizontal} size={15} className="text-foreground" />
@@ -505,7 +514,7 @@ function StoreBody({
                 <Icon as={ChevronDown} size={16} className="text-muted-foreground" />
               </Pressable>
             </DropdownMenuTrigger>
-            <DropdownMenuContent label={t("store.sort.label")}>
+            <DropdownMenuContent label={t('store.sort.label')}>
               <DropdownMenuRadioGroup
                 value={sort}
                 onValueChange={(next) => {
@@ -527,28 +536,32 @@ function StoreBody({
           </DropdownMenu>
 
           <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4">
-            <Text className="text-sm font-medium text-foreground">{t("store.filters.inStock")}</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {t('store.filters.inStock')}
+            </Text>
             <Switch
               checked={inStockOnly}
               onCheckedChange={onToggleInStock}
-              accessibilityLabel={t("store.filters.inStock")}
+              accessibilityLabel={t('store.filters.inStock')}
             />
           </View>
         </View>
 
         {/* Products grid */}
-        {isLoading && !data ? <ProductGridSkeleton accessibilityLabel={t("store.products.loadingLabel")} /> : null}
+        {isLoading && !data ? (
+          <ProductGridSkeleton accessibilityLabel={t('store.products.loadingLabel')} />
+        ) : null}
 
         {isError && !data ? (
           <View className="items-center px-8 py-16">
             <Text className="text-center text-base text-muted-foreground">
-              {t("store.products.loadError")}
+              {t('store.products.loadError')}
             </Text>
           </View>
         ) : null}
 
         {!isLoading && products.length === 0 && !isError ? (
-          <EmptyState description={t("store.products.empty")} />
+          <EmptyState description={t('store.products.empty')} />
         ) : null}
 
         {products.length > 0 ? (
@@ -566,12 +579,12 @@ function StoreBody({
           <View className="items-center px-4 py-6">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t("store.products.loadMoreLabel")}
+              accessibilityLabel={t('store.products.loadMoreLabel')}
               onPress={() => setPage((p) => p + 1)}
               className="rounded-full border border-border bg-muted px-6 py-3 web:shadow-sm"
             >
               <Text className="text-sm font-semibold text-foreground">
-                {t("store.products.loadMore")}
+                {t('store.products.loadMore')}
               </Text>
             </Pressable>
           </View>
@@ -606,18 +619,18 @@ export default function StoreScreen() {
     location?: string;
   }>();
   const linkedCollectionId =
-    typeof collection === "string" && collection !== "" ? collection : undefined;
+    typeof collection === 'string' && collection !== '' ? collection : undefined;
   // `/stores/<handle>?location=<id>` — the URL the public API serves for a
   // location (#1017): its card is listed first in "Visit us".
-  const linkedLocationId = typeof location === "string" && location !== "" ? location : undefined;
-  const { data, isLoading, isError } = useStore(handle ?? "");
+  const linkedLocationId = typeof location === 'string' && location !== '' ? location : undefined;
+  const { data, isLoading, isError } = useStore(handle ?? '');
 
   const head = (
     <Head>
       <title>
         {data?.store.name
-          ? t("store.documentTitle", { store: data.store.name })
-          : t("store.documentTitleFallback")}
+          ? t('store.documentTitle', { store: data.store.name })
+          : t('store.documentTitleFallback')}
       </title>
     </Head>
   );
@@ -631,7 +644,7 @@ export default function StoreScreen() {
         {head}
         <View className="w-full bg-muted" style={{ height: HERO_HEIGHT }} />
         <View className="pt-5">
-          <ProductGridSkeleton accessibilityLabel={t("store.products.loadingLabel")} />
+          <ProductGridSkeleton accessibilityLabel={t('store.products.loadingLabel')} />
         </View>
       </ScreenShell>
     );
@@ -643,7 +656,7 @@ export default function StoreScreen() {
         {head}
         <View className="items-center justify-center px-8 py-16 web:min-h-screen">
           <Text className="text-center text-base text-muted-foreground">
-            {t("store.loadError")}
+            {t('store.loadError')}
           </Text>
         </View>
       </ScreenShell>
@@ -657,7 +670,7 @@ export default function StoreScreen() {
     >
       {head}
       <StoreBody
-        handle={handle ?? ""}
+        handle={handle ?? ''}
         store={data.store}
         linkedCollectionId={linkedCollectionId}
         linkedLocationId={linkedLocationId}

@@ -51,10 +51,7 @@ import {
   sellerDraftMatchAssertions,
   sellerListingDrafts,
 } from '../../../db/schema/sellYours.js';
-import {
-  SELLER_DECLARATION_BLOCKERS,
-  SELLER_DECLARATION_EXEMPT_BLOCKERS,
-} from '../match-gate.js';
+import { SELLER_DECLARATION_BLOCKERS, SELLER_DECLARATION_EXEMPT_BLOCKERS } from '../match-gate.js';
 import {
   RANKING_SURFACE_PATHS,
   assertRankingSurfaceIsWhole,
@@ -160,7 +157,6 @@ const COMMERCIAL_REFERENCE =
 const SELL_YOURS_REFERENCE =
   /sell-yours\/|sellYours\/|sellerListingDrafts\b|seller_listing_drafts\b|buildSellerPriceGuidance\(|deriveSellerDraftReadiness\(/;
 
-
 /** A `native_listing_links` INSERT, from any direction. */
 const ATTACHMENT_WRITE = /insertNativeListingLink\(/;
 
@@ -184,7 +180,9 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
     ).toBeGreaterThanOrEqual(MINIMUM_SHARED_FILES);
     expect(domain.length).toBe(owned.length + shared.length);
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
       expect(
         statSync(join(SRC_ROOT, file.relative)).isFile(),
         `${file.relative} is in the population but is not a file — did it move?`,
@@ -334,23 +332,27 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
     // These are the facts about (this listing, that product) rather than about a
     // scorer's confidence. Exempting one would be the false merge #58's whole
     // domain exists to prevent, with a person's tap as the excuse.
-    assertEachOf([
-      'conflicting_identifier',
-      'brand_mismatch',
-      'variant_attribute_mismatch',
-      'bundle_mismatch',
-      'multipack_mismatch',
-      'accessory_mismatch',
-      'replacement_part_mismatch',
-      'regional_variant_mismatch',
-      'category_mismatch',
-      'blocked_pair',
-    ] as const, 10, (blocker) => {
-      expect(
-        SELLER_DECLARATION_BLOCKERS,
-        `${blocker} stopped refusing a seller-declared match`,
-      ).toContain(blocker);
-    });
+    assertEachOf(
+      [
+        'conflicting_identifier',
+        'brand_mismatch',
+        'variant_attribute_mismatch',
+        'bundle_mismatch',
+        'multipack_mismatch',
+        'accessory_mismatch',
+        'replacement_part_mismatch',
+        'regional_variant_mismatch',
+        'category_mismatch',
+        'blocked_pair',
+      ] as const,
+      10,
+      (blocker) => {
+        expect(
+          SELLER_DECLARATION_BLOCKERS,
+          `${blocker} stopped refusing a seller-declared match`,
+        ).toContain(blocker);
+      },
+    );
   });
 
   it('WALL 5: only the publication path writes an attachment', () => {
@@ -366,9 +368,9 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
     // A scanner whose regex rotted would pass every assertion above vacuously.
     expect(CANONICAL_WRITE.test('await insertCanonicalProduct(tx, row);')).toBe(true);
     expect(CANONICAL_WRITE.test('await tx.update(canonicalProducts).set({ name });')).toBe(true);
-    expect(CANONICAL_WRITE.test("import { x } from '../canonical/canonical-product.service.js';")).toBe(
-      true,
-    );
+    expect(
+      CANONICAL_WRITE.test("import { x } from '../canonical/canonical-product.service.js';"),
+    ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { planFees } from '../fees/plan.js';")).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('const ranked = rankOffers(candidates);')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('select * from ranking_policy_versions')).toBe(true);
@@ -383,9 +385,9 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
     expect(CANONICAL_WRITE.test('const product = await findCanonicalProductById(db, id);')).toBe(
       false,
     );
-    expect(COMMERCIAL_REFERENCE.test("import { listOffers } from '../offers/offer.service.js';")).toBe(
-      false,
-    );
+    expect(
+      COMMERCIAL_REFERENCE.test("import { listOffers } from '../offers/offer.service.js';"),
+    ).toBe(false);
   });
 });
 

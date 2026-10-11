@@ -8,8 +8,9 @@ import { parseMercariaMcpAllowedOrigins } from '../mercaria-mcp-http.js';
 
 describe('Mercaria capability catalog', () => {
   it('is valid and derives the MCP surface from the same canonical tools', () => {
-    expect(appCapabilityCatalogSchema.parse(MERCARIA_CAPABILITY_CATALOG))
-      .toEqual(MERCARIA_CAPABILITY_CATALOG);
+    expect(appCapabilityCatalogSchema.parse(MERCARIA_CAPABILITY_CATALOG)).toEqual(
+      MERCARIA_CAPABILITY_CATALOG,
+    );
 
     const exposedNames = MERCARIA_CAPABILITY_CATALOG.tools
       .filter(({ exposure }) => exposure.includes('mcp'))
@@ -46,21 +47,16 @@ describe('Mercaria capability catalog', () => {
         { key: 'refundShipping', kind: 'exact_boolean' },
       ],
     });
-    expect(refund?.inputSchema.required).toEqual(expect.arrayContaining([
-      'idempotencyKey',
-      'storeId',
-      'orderId',
-      'maximumAmountMinor',
-    ]));
+    expect(refund?.inputSchema.required).toEqual(
+      expect.arrayContaining(['idempotencyKey', 'storeId', 'orderId', 'maximumAmountMinor']),
+    );
   });
 
   it('uses a small default browser allow-list and de-duplicates configured origins', () => {
-    expect(parseMercariaMcpAllowedOrigins(
-      'https://example.com, https://chatgpt.com,https://example.com',
-    )).toEqual([
-      'https://chatgpt.com',
-      'https://claude.ai',
-      'https://example.com',
-    ]);
+    expect(
+      parseMercariaMcpAllowedOrigins(
+        'https://example.com, https://chatgpt.com,https://example.com',
+      ),
+    ).toEqual(['https://chatgpt.com', 'https://claude.ai', 'https://example.com']);
   });
 });

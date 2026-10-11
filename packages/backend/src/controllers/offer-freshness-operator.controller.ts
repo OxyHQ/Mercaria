@@ -52,7 +52,10 @@ import {
   requestPriorityRefresh,
   scheduleSourceRefresh,
 } from '../services/offer-freshness/refresh-scheduler.js';
-import { publishFreshnessPolicySchema, requestRefreshSchema } from '../middleware/offer-freshness-schemas.js';
+import {
+  publishFreshnessPolicySchema,
+  requestRefreshSchema,
+} from '../middleware/offer-freshness-schemas.js';
 
 /** GET — one source's catalogue health, everything #68 §"Source health" lists. */
 export async function sourceCatalogHealthHandler(req: Request, res: Response): Promise<void> {
@@ -107,7 +110,12 @@ export async function publishFreshnessPolicyHandler(req: Request, res: Response)
     const sourceId = routeParam(req, 'sourceId');
     const parsed = publishFreshnessPolicySchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid body', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid body',
+        400,
+      );
       return;
     }
     const body = parsed.data;
@@ -170,7 +178,12 @@ export async function requestRefreshHandler(req: Request, res: Response): Promis
     const sourceId = routeParam(req, 'sourceId');
     const parsed = requestRefreshSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid body', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid body',
+        400,
+      );
       return;
     }
     const actor = getRequiredOxyUserId(req);
@@ -193,7 +206,11 @@ export async function requestRefreshHandler(req: Request, res: Response): Promis
         );
         return;
       }
-      sendSuccess(res, { taskId: task.id, mode: task.mode, priorityClass: task.priorityClass }, 201);
+      sendSuccess(
+        res,
+        { taskId: task.id, mode: task.mode, priorityClass: task.priorityClass },
+        201,
+      );
       return;
     }
 

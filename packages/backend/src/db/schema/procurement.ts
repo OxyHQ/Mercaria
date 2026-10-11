@@ -148,7 +148,9 @@ export const suppliers = pgTable(
   'suppliers',
   {
     id: generatedId(),
-    status: text({ enum: asEnumValues(SUPPLIER_STATUSES) }).notNull().default('under_review'),
+    status: text({ enum: asEnumValues(SUPPLIER_STATUSES) })
+      .notNull()
+      .default('under_review'),
     supplierType: text({ enum: asEnumValues(SUPPLIER_TYPES) }).notNull(),
     /** The name Mercaria's operators know this counterparty by. */
     canonicalName: text().notNull(),
@@ -366,7 +368,9 @@ export const supplierAccounts = pgTable(
     /** Adapter throttle configuration. NULL = the adapter's own default. */
     rateLimitPerMinute: integer(),
     dailyOrderQuota: integer(),
-    state: text({ enum: asEnumValues(SUPPLIER_ACCOUNT_STATES) }).notNull().default('inactive'),
+    state: text({ enum: asEnumValues(SUPPLIER_ACCOUNT_STATES) })
+      .notNull()
+      .default('inactive'),
     /** When this account first became `active`. Set once, never cleared. */
     activatedAt: timestamptz(),
     killSwitchedAt: timestamptz(),
@@ -389,10 +393,7 @@ export const supplierAccounts = pgTable(
     ),
     // A machine identifier, not a display name — the adapter registry keys on it.
     check('supplier_accounts_provider_check', sql`${t.provider} ~ '^[a-z0-9][a-z0-9_-]*$'`),
-    check(
-      'supplier_accounts_provider_account_id_check',
-      sql`length(${t.providerAccountId}) > 0`,
-    ),
+    check('supplier_accounts_provider_account_id_check', sql`length(${t.providerAccountId}) > 0`),
     // A secret-store PATH: leading slash, path characters, bounded. A raw API
     // key or token fails this shape — which is the point.
     check(
@@ -541,7 +542,11 @@ export const supplierAgreements = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('supplier_agreements_approval_state_check', t.approvalState, AGREEMENT_APPROVAL_STATES),
+    checkOneOf(
+      'supplier_agreements_approval_state_check',
+      t.approvalState,
+      AGREEMENT_APPROVAL_STATES,
+    ),
     checkOneOf('supplier_agreements_incoterm_check', t.incoterm, INCOTERMS),
     checkOneOf(
       'supplier_agreements_payment_terms_kind_check',
@@ -767,10 +772,7 @@ export const procurementOffers = pgTable(
       'procurement_offers_mapping_check',
       sql`${t.canonicalVariantId} is null or ${t.canonicalProductId} is not null`,
     ),
-    check(
-      'procurement_offers_origins_check',
-      sql`not ('' = any(${t.fulfilmentOriginCountries}))`,
-    ),
+    check('procurement_offers_origins_check', sql`not ('' = any(${t.fulfilmentOriginCountries}))`),
     check(
       'procurement_offers_destinations_check',
       sql`not ('' = any(${t.eligibleDestinationCountries}))`,
@@ -813,10 +815,7 @@ export const procurementOffers = pgTable(
       .on(t.expiresAt)
       .where(sql`${t.expiresAt} is not null`),
     // Destination filtering is by array element (`@>`), which only GIN serves.
-    index('procurement_offers_destinations_gin_idx').using(
-      'gin',
-      t.eligibleDestinationCountries,
-    ),
+    index('procurement_offers_destinations_gin_idx').using('gin', t.eligibleDestinationCountries),
   ],
 );
 
@@ -899,7 +898,9 @@ export const purchaseOrders = pgTable(
     fxRateAsOf: text(),
     /** The redacted fulfilment destination — see the table docblock. */
     ...addressColumns('destination'),
-    status: text({ enum: asEnumValues(PURCHASE_ORDER_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(PURCHASE_ORDER_STATUSES) })
+      .notNull()
+      .default('draft'),
     /** The normalized reason behind a refusal/expiry/cancellation, when one exists. */
     reasonCode: text({ enum: asEnumValues(PURCHASE_ORDER_REASON_CODES) }),
     /** The #122 preflight quote this PO was created from, when one exists. */
@@ -967,10 +968,7 @@ export const purchaseOrders = pgTable(
       'purchase_orders_fx_rate_complete_check',
       sql`num_nonnulls(${t.fxRateFrom}, ${t.fxRateTo}, ${t.fxRateRate}, ${t.fxRateProvider}, ${t.fxRateAsOf}) in (0, 5)`,
     ),
-    check(
-      'purchase_orders_attempts_check',
-      sql`${t.submissionAttempts} >= 0`,
-    ),
+    check('purchase_orders_attempts_check', sql`${t.submissionAttempts} >= 0`),
     // A recorded provider state names the mapping version that read it and the
     // instant the provider observed it. A state with no version is a claim
     // nobody can reproduce, and one with no observation time cannot be ordered
@@ -1134,10 +1132,7 @@ export const purchaseOrderShipments = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    check(
-      'purchase_order_shipments_tracking_number_check',
-      sql`length(${t.trackingNumber}) > 0`,
-    ),
+    check('purchase_order_shipments_tracking_number_check', sql`length(${t.trackingNumber}) > 0`),
     // A redelivered shipment callback updates the parcel it already made.
     uniqueIndex('purchase_order_shipments_po_tracking_key').on(t.purchaseOrderId, t.trackingNumber),
   ],

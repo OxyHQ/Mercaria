@@ -132,28 +132,28 @@ export async function readBuyerOrderRequestOptions(
     orderId: context.order.id,
     cancellation:
       cancellation.verdict === 'eligible'
-      ? { available: true }
-      : {
-          available: false,
-          reason: cancellation.reason,
-          // Rule 6's return offer, as DATA rather than as a sentence in a
-          // template — and computed from the return's own eligibility rather
-          // than from the reason alone, so a shipped order past its return
-          // window does not offer a return that would be refused.
-          returnAvailable:
-            CANCELLATION_REASONS_OFFERING_RETURN.includes(cancellation.reason) &&
-            returnable.verdict === 'eligible',
-        },
+        ? { available: true }
+        : {
+            available: false,
+            reason: cancellation.reason,
+            // Rule 6's return offer, as DATA rather than as a sentence in a
+            // template — and computed from the return's own eligibility rather
+            // than from the reason alone, so a shipped order past its return
+            // window does not offer a return that would be refused.
+            returnAvailable:
+              CANCELLATION_REASONS_OFFERING_RETURN.includes(cancellation.reason) &&
+              returnable.verdict === 'eligible',
+          },
     return:
       returnable.verdict === 'eligible'
-      ? { available: true, windowEndsAt: returnable.windowEndsAt.toISOString() }
-      : {
-          available: false,
-          reason: returnable.reason,
-          cancellationAvailable:
-            RETURN_REASONS_OFFERING_CANCELLATION.includes(returnable.reason) &&
-            cancellation.verdict === 'eligible',
-        },
+        ? { available: true, windowEndsAt: returnable.windowEndsAt.toISOString() }
+        : {
+            available: false,
+            reason: returnable.reason,
+            cancellationAvailable:
+              RETURN_REASONS_OFFERING_CANCELLATION.includes(returnable.reason) &&
+              cancellation.verdict === 'eligible',
+          },
     supportAvailable: input.supportAvailable,
   };
 }

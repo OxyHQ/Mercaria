@@ -334,7 +334,10 @@ export const promoteCompatibilityClaimSchema = z
     vehicleConfigurationId: z.string().trim().min(1).max(64).optional(),
     applicability: z.enum(tuple(COMPATIBILITY_APPLICABILITIES)),
     position: z.enum(tuple(FITMENT_POSITIONS)),
-    qualifiers: z.array(z.enum(tuple(FITMENT_QUALIFIERS))).max(13).optional(),
+    qualifiers: z
+      .array(z.enum(tuple(FITMENT_QUALIFIERS)))
+      .max(13)
+      .optional(),
     conditionNote: z.string().trim().min(1).max(2000).optional(),
     yearFrom: z.coerce.number().int().min(VEHICLE_MIN_YEAR).max(VEHICLE_MAX_YEAR).optional(),
     yearTo: z.coerce.number().int().min(VEHICLE_MIN_YEAR).max(VEHICLE_MAX_YEAR).optional(),

@@ -162,7 +162,11 @@ export function evaluateOfferEligibility(
   // 4 — market and customer class. An offer published for no market at all is
   // admitted everywhere: absence of a scope is not a scope excluding anybody.
   evaluated.mark('market_and_customer');
-  if (context.market !== undefined && offer.country !== undefined && offer.country !== context.market) {
+  if (
+    context.market !== undefined &&
+    offer.country !== undefined &&
+    offer.country !== context.market
+  ) {
     reasons.push('market_not_served');
   }
   if (

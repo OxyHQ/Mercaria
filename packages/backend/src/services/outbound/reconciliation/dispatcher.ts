@@ -70,10 +70,13 @@ export function startAffiliateReconciliationDispatcher(): void {
   if (!config.affiliateOutbound.reconciliationEnabled) return;
 
   const leaseOwner = `affiliate-reconciliation-${randomUUID()}`;
-  const timer = setInterval(() => {
-    void runAffiliateReconciliationTick(leaseOwner).catch((err: unknown) => {
-      log.general.warn({ err }, '[AffiliateReconciliation] tick failed');
-    });
-  }, Math.max(60_000, config.affiliateOutbound.reportPollIntervalMs));
+  const timer = setInterval(
+    () => {
+      void runAffiliateReconciliationTick(leaseOwner).catch((err: unknown) => {
+        log.general.warn({ err }, '[AffiliateReconciliation] tick failed');
+      });
+    },
+    Math.max(60_000, config.affiliateOutbound.reportPollIntervalMs),
+  );
   timer.unref?.();
 }

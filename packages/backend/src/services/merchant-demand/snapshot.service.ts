@@ -355,14 +355,12 @@ interface MetricAnswer {
  * metric would be permanently withheld and the dashboard would carry a
  * column nobody can read.
  */
-function composeFromPartition(
-  input: {
-    readonly perProduct: ReadonlyMap<string, number>;
-    readonly partition: ProductPartition;
-    readonly include?: (productId: string) => boolean;
-    readonly floor: number;
-  },
-): MetricAnswer {
+function composeFromPartition(input: {
+  readonly perProduct: ReadonlyMap<string, number>;
+  readonly partition: ProductPartition;
+  readonly include?: (productId: string) => boolean;
+  readonly floor: number;
+}): MetricAnswer {
   const admits = input.include ?? ((): boolean => true);
   let disclosed = 0;
   for (const row of input.partition.rows) {

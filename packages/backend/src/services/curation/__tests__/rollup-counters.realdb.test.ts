@@ -233,7 +233,9 @@ describe('the stored rollup counters (#749)', () => {
     expect(derivedBrand, 'the brand derivation counted nothing').toBeGreaterThan(0);
     expect(derivedVariant, 'the variant derivation counted nothing').toBeGreaterThan(0);
 
-    expect(storedFamily, 'the merge rollup and countProductsForFamily disagree').toBe(derivedFamily);
+    expect(storedFamily, 'the merge rollup and countProductsForFamily disagree').toBe(
+      derivedFamily,
+    );
     expect(storedBrand, 'the merge rollup and countProductsForBrand disagree').toBe(derivedBrand);
     expect(storedVariant, 'the merge rollup and countVariantsForProduct disagree').toBe(
       derivedVariant,
@@ -251,10 +253,9 @@ describe('the stored rollup counters (#749)', () => {
 
     const stored = await storedVariantCount();
     expect(stored, 'the rebuild wrote nothing for the product').toBeGreaterThan(0);
-    expect(
-      stored,
-      'variant_count changed population — that is a decision #749 did not take',
-    ).toBe(2);
+    expect(stored, 'variant_count changed population — that is a decision #749 did not take').toBe(
+      2,
+    );
   });
 
   it('the brand repair path exists and writes what the derivation says', async () => {

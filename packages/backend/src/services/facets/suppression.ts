@@ -59,7 +59,9 @@ export function suppressBuckets(
   // The cap is a response-size bound, not a policy: a selected bucket is never
   // the one dropped, so a shopper cannot lose their own chip to a long tail.
   const selected = kept.filter((bucket) => bucket.selected);
-  const rest = kept.filter((bucket) => !bucket.selected).slice(0, Math.max(0, cap - selected.length));
+  const rest = kept
+    .filter((bucket) => !bucket.selected)
+    .slice(0, Math.max(0, cap - selected.length));
   const capped = kept.filter((bucket) => selected.includes(bucket) || rest.includes(bucket));
   return { kept: capped, dropped: buckets.length - capped.length };
 }

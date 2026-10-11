@@ -96,7 +96,14 @@ export const FEED_COMPRESSIONS: readonly FeedCompression[] = ['none', 'gzip'];
  * merchant who sent a zip is told to send the file, which is an action they can
  * take, where "unsupported compression" is not.
  */
-export type FeedForbiddenContainer = 'zip' | 'tar' | 'tar_gz' | 'rar' | 'seven_zip' | 'bzip2' | 'xz';
+export type FeedForbiddenContainer =
+  | 'zip'
+  | 'tar'
+  | 'tar_gz'
+  | 'rar'
+  | 'seven_zip'
+  | 'bzip2'
+  | 'xz';
 
 export const FEED_FORBIDDEN_CONTAINERS: readonly FeedForbiddenContainer[] = [
   'zip',

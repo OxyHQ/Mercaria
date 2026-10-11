@@ -109,10 +109,7 @@ export function normalizeTitle(title: string): string {
 }
 
 /** `|A ∩ B| / |A ∪ B|`, and `0` for two empty sets rather than a division by zero. */
-export function jaccardSimilarity(
-  left: readonly string[],
-  right: readonly string[],
-): number {
+export function jaccardSimilarity(left: readonly string[], right: readonly string[]): number {
   if (left.length === 0 || right.length === 0) return 0;
   const rightSet = new Set(right);
   let intersection = 0;
@@ -138,10 +135,7 @@ export function jaccardSimilarity(
  * feature is the max of the two similarities so a genuinely short canonical name
  * is not punished.
  */
-export function containmentSimilarity(
-  left: readonly string[],
-  right: readonly string[],
-): number {
+export function containmentSimilarity(left: readonly string[], right: readonly string[]): number {
   if (left.length === 0 || right.length === 0) return 0;
   const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
   const longerSet = new Set(longer);
@@ -178,7 +172,6 @@ export function titleSimilarity(left: readonly string[], right: readonly string[
  */
 export function discriminatingTokens(tokens: readonly string[]): string[] {
   return tokens.filter(
-    (token) =>
-      (/[0-9]/u.test(token) && /[\p{L}]/u.test(token)) || /^[0-9]{2,}$/u.test(token),
+    (token) => (/[0-9]/u.test(token) && /[\p{L}]/u.test(token)) || /^[0-9]{2,}$/u.test(token),
   );
 }

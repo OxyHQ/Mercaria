@@ -142,11 +142,7 @@ export const FACET_TAXONOMY_KEY = 'category';
  */
 export type FacetValueShape = 'buckets' | 'range' | 'money_range';
 
-export const FACET_VALUE_SHAPES: readonly FacetValueShape[] = [
-  'buckets',
-  'range',
-  'money_range',
-];
+export const FACET_VALUE_SHAPES: readonly FacetValueShape[] = ['buckets', 'range', 'money_range'];
 
 /** Where a rendered label came from, so a client can tell copy from a key. */
 export type FacetLabelSource =

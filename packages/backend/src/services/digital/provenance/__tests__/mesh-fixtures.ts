@@ -101,7 +101,9 @@ export function writeObj(
 ): Uint8Array {
   const lines = ['# mercaria test'];
   for (let i = 0; i < vertices.length / 3; i += 1) {
-    lines.push(`v ${String(vertices[i * 3])} ${String(vertices[i * 3 + 1])} ${String(vertices[i * 3 + 2])}`);
+    lines.push(
+      `v ${String(vertices[i * 3])} ${String(vertices[i * 3 + 1])} ${String(vertices[i * 3 + 2])}`,
+    );
   }
   // `vn` and `vt` must NOT be read as positions. They are here so that the test
   // population contains the thing a prefix test on `v` alone would eat.
@@ -183,7 +185,8 @@ export function upscale(
   const luma = new Uint8Array(width * height);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      luma[y * width + x] = raster.luma[Math.floor(y / factor) * raster.width + Math.floor(x / factor)];
+      luma[y * width + x] =
+        raster.luma[Math.floor(y / factor) * raster.width + Math.floor(x / factor)];
     }
   }
   return { width, height, luma };

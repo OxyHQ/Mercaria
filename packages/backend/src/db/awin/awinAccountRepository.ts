@@ -59,7 +59,9 @@ export async function upsertAwinAccount(
     feedCredentialRef: input.feedCredentialRef ?? null,
     publisherApiCredentialRef: input.publisherApiCredentialRef ?? null,
     ...(input.maxConcurrency === undefined ? {} : { maxConcurrency: input.maxConcurrency }),
-    ...(input.maxCallsPerMinute === undefined ? {} : { maxCallsPerMinute: input.maxCallsPerMinute }),
+    ...(input.maxCallsPerMinute === undefined
+      ? {}
+      : { maxCallsPerMinute: input.maxCallsPerMinute }),
   };
   const [row] = await db
     .insert(awinAccounts)

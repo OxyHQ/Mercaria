@@ -89,7 +89,10 @@ export const shoppingIntentSchema = z
     // The query is BOUNDED rather than refused when long: a shopper who pasted
     // a specification sheet still means something by the first part of it, and
     // the excess is dropped before anything — the model included — sees it.
-    query: z.string().min(1).max(INTENT_QUERY_MAX_LENGTH * 4),
+    query: z
+      .string()
+      .min(1)
+      .max(INTENT_QUERY_MAX_LENGTH * 4),
     locale: z
       .string()
       .trim()

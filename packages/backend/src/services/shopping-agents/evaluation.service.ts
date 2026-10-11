@@ -137,9 +137,7 @@ export async function evaluateShoppingAgent(
     // #96's lever, read HERE rather than inside the evaluator: a service
     // reading it would be a second place the rollout is decided.
     offerComparisonPermitted: resolveOfferComparisonMode() === 'on',
-    ...(prior === undefined ||
-    prior.objectiveAmount === null ||
-    prior.objectiveCurrency === null
+    ...(prior === undefined || prior.objectiveAmount === null || prior.objectiveCurrency === null
       ? {}
       : {
           prior: {

@@ -79,10 +79,12 @@ async function request(
       body: JSON.stringify(body),
     });
   } finally {
-    await new Promise<void>((resolve, reject) => server.close((error) => {
-      if (error) reject(error);
-      else resolve();
-    }));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve();
+      }),
+    );
   }
 }
 
@@ -114,7 +116,10 @@ describe('Mercaria internal capability routes', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(mocks.verify).toHaveBeenCalledWith(TOKEN);
-    expect(mocks.introspect).toHaveBeenCalledWith(TOKEN, expect.objectContaining({ jti: 'ticket-1' }));
+    expect(mocks.introspect).toHaveBeenCalledWith(
+      TOKEN,
+      expect.objectContaining({ jti: 'ticket-1' }),
+    );
     expect(mocks.authorizeDomain).toHaveBeenCalledWith(
       'listBuyerOrders',
       { page: 1, limit: 20 },
@@ -137,13 +142,25 @@ describe('Mercaria internal capability routes', () => {
   it.each([
     [{ type: 'requester', accountId: 'requester-account' }, 'requester-account'],
     [{ type: 'alia', ownerAccountId: 'alia-owner' }, 'alia-owner'],
-  ] as const)('preserves the signed %s actor separately from the effective account', async (actor, expectedActor) => {
-    mocks.verify.mockResolvedValueOnce(claims({ actor }));
-    const response = await request('listBuyerOrders', { page: 1, limit: 20 });
-    expect(response.status).toBe(200);
-    expect(mocks.authorizeDomain).toHaveBeenCalledWith('listBuyerOrders', { page: 1, limit: 20 }, 'owner-account');
-    expect(mocks.execute).toHaveBeenCalledWith('listBuyerOrders', { page: 1, limit: 20 }, 'owner-account', expectedActor);
-  });
+  ] as const)(
+    'preserves the signed %s actor separately from the effective account',
+    async (actor, expectedActor) => {
+      mocks.verify.mockResolvedValueOnce(claims({ actor }));
+      const response = await request('listBuyerOrders', { page: 1, limit: 20 });
+      expect(response.status).toBe(200);
+      expect(mocks.authorizeDomain).toHaveBeenCalledWith(
+        'listBuyerOrders',
+        { page: 1, limit: 20 },
+        'owner-account',
+      );
+      expect(mocks.execute).toHaveBeenCalledWith(
+        'listBuyerOrders',
+        { page: 1, limit: 20 },
+        'owner-account',
+        expectedActor,
+      );
+    },
+  );
 
   it('blocks a ticket revoked between planning and execution', async () => {
     mocks.introspect.mockResolvedValueOnce(false);
@@ -153,23 +170,27 @@ describe('Mercaria internal capability routes', () => {
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: 'capability_revoked_or_denied' });
     expect(mocks.execute).not.toHaveBeenCalled();
-    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
-      result: { status: 'denied', code: 'capability_revoked_or_denied' },
-    }));
+    expect(mocks.audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: { status: 'denied', code: 'capability_revoked_or_denied' },
+      }),
+    );
   });
 
   it('enforces signed financial limits before introspection or domain effects', async () => {
-    mocks.verify.mockResolvedValueOnce(claims({
-      tool: 'refundStoreOrder',
-      capabilities: ['store.refunds.execute'],
-      resource: {
-        appId: 'mercaria',
-        effectiveAccountId: 'owner-account',
-        resourceType: 'store',
-        resourceId: 'store-1',
-      },
-      limits: [{ tool: 'refundStoreOrder', key: 'maximumAmountMinor', value: 5_000 }],
-    }));
+    mocks.verify.mockResolvedValueOnce(
+      claims({
+        tool: 'refundStoreOrder',
+        capabilities: ['store.refunds.execute'],
+        resource: {
+          appId: 'mercaria',
+          effectiveAccountId: 'owner-account',
+          resourceType: 'store',
+          resourceId: 'store-1',
+        },
+        limits: [{ tool: 'refundStoreOrder', key: 'maximumAmountMinor', value: 5_000 }],
+      }),
+    );
 
     const response = await request('refundStoreOrder', {
       idempotencyKey: 'run-1:step-1',
@@ -193,9 +214,11 @@ describe('Mercaria internal capability routes', () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: 'domain_authority_unavailable' });
     expect(mocks.execute).not.toHaveBeenCalled();
-    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
-      result: { status: 'failed', code: 'domain_authority_unavailable' },
-    }));
+    expect(mocks.audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: { status: 'failed', code: 'domain_authority_unavailable' },
+      }),
+    );
   });
 
   it('refuses non-schema input before any authority-controlled effect', async () => {
@@ -205,8 +228,10 @@ describe('Mercaria internal capability routes', () => {
     expect(await response.json()).toEqual({ error: 'capability_input_schema_mismatch' });
     expect(mocks.introspect).not.toHaveBeenCalled();
     expect(mocks.execute).not.toHaveBeenCalled();
-    expect(mocks.audit).toHaveBeenCalledWith(expect.objectContaining({
-      result: { status: 'denied', code: 'capability_input_schema_mismatch' },
-    }));
+    expect(mocks.audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: { status: 'denied', code: 'capability_input_schema_mismatch' },
+      }),
+    );
   });
 });

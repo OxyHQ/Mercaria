@@ -90,8 +90,7 @@ export function catalogRolloutSubjectFromRequest(req: Request): CatalogRolloutSu
   const params = asRecord(req.params);
   const query = asRecord(req.query);
   const body = asRecord(req.body);
-  const pick = (key: string): string | null =>
-    firstString(params[key], query[key], body[key]);
+  const pick = (key: string): string | null => firstString(params[key], query[key], body[key]);
 
   return {
     market: pick('market'),
@@ -139,11 +138,7 @@ export function catalogRolloutSubjectFromRequest(req: Request): CatalogRolloutSu
 export function catalogRolloutGate(
   extract: (req: Request) => CatalogRolloutSubject = catalogRolloutSubjectFromRequest,
 ) {
-  return function catalogRolloutMiddleware(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void {
+  return function catalogRolloutMiddleware(req: Request, res: Response, next: NextFunction): void {
     if (ENABLED_COHORTS.length === 0) {
       next();
       return;

@@ -418,11 +418,12 @@ export const ANALYTICS_FORBIDDEN_COLUMN_SEGMENTS: readonly AnalyticsColumnProhib
   {
     segments: ['name'],
     prohibition:
-      "a human-readable name. This domain stores entity IDS: a name is either a person or a copy of a label another domain owns, and a copy is what erasure cannot reach",
+      'a human-readable name. This domain stores entity IDS: a name is either a person or a copy of a label another domain owns, and a copy is what erasure cannot reach',
   },
   {
     segments: ['handle'],
-    prohibition: 'a reusable account or session handle, which is a correlation key with a friendly face',
+    prohibition:
+      'a reusable account or session handle, which is a correlation key with a friendly face',
   },
 
   // Payment.
@@ -453,7 +454,7 @@ export const ANALYTICS_FORBIDDEN_COLUMN_SEGMENTS: readonly AnalyticsColumnProhib
   {
     segments: ['hash'],
     prohibition:
-      "a keyed or unkeyed digest. A digest of an address is an exact-match ORACLE, not an anonymisation — `guest_checkouts.email_hash` is PROTECTED for exactly this reason",
+      'a keyed or unkeyed digest. A digest of an address is an exact-match ORACLE, not an anonymisation — `guest_checkouts.email_hash` is PROTECTED for exactly this reason',
   },
   { segments: ['digest'], prohibition: 'a digest, which is an exact-match oracle' },
   { segments: ['hmac'], prohibition: 'a keyed digest, which is an exact-match oracle' },

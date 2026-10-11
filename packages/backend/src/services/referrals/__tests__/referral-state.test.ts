@@ -171,9 +171,9 @@ describe('referralStateCookieProfile', () => {
 
 describe('readReferralStateCookie', () => {
   it('finds the named cookie among others', () => {
-    expect(readReferralStateCookie('a=1; mercaria_referral_dev=mrf_x; b=2', 'mercaria_referral_dev')).toBe(
-      'mrf_x',
-    );
+    expect(
+      readReferralStateCookie('a=1; mercaria_referral_dev=mrf_x; b=2', 'mercaria_referral_dev'),
+    ).toBe('mrf_x');
   });
 
   it('answers undefined for absent, empty and oversized headers', () => {
@@ -185,6 +185,8 @@ describe('readReferralStateCookie', () => {
   });
 
   it('does not confuse a cookie whose name is a suffix of another', () => {
-    expect(readReferralStateCookie('other_mercaria_referral_dev=nope', 'mercaria_referral_dev')).toBeUndefined();
+    expect(
+      readReferralStateCookie('other_mercaria_referral_dev=nope', 'mercaria_referral_dev'),
+    ).toBeUndefined();
   });
 });

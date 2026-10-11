@@ -208,8 +208,7 @@ export const SCHEDULER_CLASSIFY_LEGACY_REVIEWS = 'maintenance:classify-legacy-re
 /** Stable scheduler id for the periodic connector reconcile sweep (sync queue). */
 export const SCHEDULER_CONNECTION_RECONCILE = 'sync:connection-reconcile';
 /** Stable scheduler id for the #262 webhook re-registration sweep (sync queue). */
-export const SCHEDULER_CONNECTION_WEBHOOK_REGISTRATION =
-  'sync:connection-webhook-registration';
+export const SCHEDULER_CONNECTION_WEBHOOK_REGISTRATION = 'sync:connection-webhook-registration';
 
 // --- Job names (colons allowed) ---------------------------------------------
 

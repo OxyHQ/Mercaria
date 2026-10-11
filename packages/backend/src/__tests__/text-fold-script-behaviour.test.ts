@@ -237,15 +237,15 @@ describe('a fold that keeps combining marks keeps two words apart', () => {
         asserted += 1;
         expect(
           fold(pair.marked),
-          `${name} collapsed ${script} "${pair.marked}" (${pair.markedGloss}) onto `
-            + `"${pair.unmarked}" (${pair.unmarkedGloss})`,
+          `${name} collapsed ${script} "${pair.marked}" (${pair.markedGloss}) onto ` +
+            `"${pair.unmarked}" (${pair.unmarkedGloss})`,
         ).not.toBe(fold(pair.unmarked));
       }
       expect(
         asserted,
-        `${name} is registered as mark-losing for every mark-bearing script, so this case `
-          + 'measured nothing. A fold with no script left to be right about belongs in a '
-          + 'different suite, not in a green one.',
+        `${name} is registered as mark-losing for every mark-bearing script, so this case ` +
+          'measured nothing. A fold with no script left to be right about belongs in a ' +
+          'different suite, not in a green one.',
       ).toBeGreaterThan(0);
     });
 
@@ -324,8 +324,9 @@ describe('the register of folds that still destroy combining marks (#830, #854)'
       // The premise, first: the two fixtures really are two different strings.
       // Without it a corpus edit making them identical turns everything below
       // into a comparison of a word with itself.
-      expect(pair.marked, 'the corpus pair collapsed — this case would assert nothing')
-        .not.toBe(pair.unmarked);
+      expect(pair.marked, 'the corpus pair collapsed — this case would assert nothing').not.toBe(
+        pair.unmarked,
+      );
 
       // A CHARACTERISATION, not an endorsement. Fixing the fold makes this red,
       // which is the point: delete the register entry in the same diff and the
@@ -339,10 +340,10 @@ describe('the register of folds that still destroy combining marks (#830, #854)'
       // and handed back a different real word.
       expect(
         fold(pair.marked),
-        `${name} no longer folds ${script} "${pair.marked}" (${pair.markedGloss}) onto `
-          + `"${pair.unmarked}" (${pair.unmarkedGloss}). If ${issue} is fixed, delete this `
-          + 'entry from MARK_LOSING_PAIRS in the same diff so the preserving loop measures '
-          + 'the pair again.',
+        `${name} no longer folds ${script} "${pair.marked}" (${pair.markedGloss}) onto ` +
+          `"${pair.unmarked}" (${pair.unmarkedGloss}). If ${issue} is fixed, delete this ` +
+          'entry from MARK_LOSING_PAIRS in the same diff so the preserving loop measures ' +
+          'the pair again.',
       ).toBe(pair.unmarked);
     });
   }
@@ -365,8 +366,11 @@ describe('the register of folds that still destroy combining marks (#830, #854)'
     // than a clear one. It would also mean the preserving loop was skipping a
     // subject that never existed.
     for (const pair of MARK_LOSING_PAIRS) {
-      expect(MARK_BEARING, `${pair.name} is registered against ${pair.script}, which carries no `
-        + 'mark pair in the corpus').toContain(pair.script);
+      expect(
+        MARK_BEARING,
+        `${pair.name} is registered against ${pair.script}, which carries no ` +
+          'mark pair in the corpus',
+      ).toContain(pair.script);
     }
   });
 

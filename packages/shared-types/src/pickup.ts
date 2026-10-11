@@ -249,7 +249,11 @@ export interface LocationPlaceLink {
   /** The place's strongest `commerce.mercaria.store` assertion, when it has one. */
   readonly storeLink?: {
     readonly locationId: string;
-    readonly verification: 'community_reported' | 'external_source' | 'business_asserted' | 'oxy_verified';
+    readonly verification:
+      | 'community_reported'
+      | 'external_source'
+      | 'business_asserted'
+      | 'oxy_verified';
   };
 }
 

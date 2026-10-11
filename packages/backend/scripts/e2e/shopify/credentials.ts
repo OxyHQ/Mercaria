@@ -62,9 +62,7 @@ export function shopifyCredentialsPath(): string {
  * deployment will accept, and a group- or world-readable copy on a shared box is
  * a disclosure that no later redaction can undo.
  */
-export async function loadShopifyCredentials(
-  filePath: string,
-): Promise<ShopifyCredentialsResult> {
+export async function loadShopifyCredentials(filePath: string): Promise<ShopifyCredentialsResult> {
   let mode: number;
   try {
     mode = (await stat(filePath)).mode & 0o777;
@@ -80,7 +78,11 @@ export async function loadShopifyCredentials(
   try {
     raw = await readFile(filePath, 'utf8');
   } catch (err) {
-    return { outcome: 'unreadable', path: filePath, reason: `could not read: ${(err as Error).name}` };
+    return {
+      outcome: 'unreadable',
+      path: filePath,
+      reason: `could not read: ${(err as Error).name}`,
+    };
   }
 
   let parsed: unknown;
@@ -95,7 +97,11 @@ export async function loadShopifyCredentials(
     (key) => typeof candidate[key] !== 'string' || !candidate[key]?.trim(),
   );
   if (missing.length > 0) {
-    return { outcome: 'unreadable', path: filePath, reason: `missing field(s): ${missing.join(', ')}` };
+    return {
+      outcome: 'unreadable',
+      path: filePath,
+      reason: `missing field(s): ${missing.join(', ')}`,
+    };
   }
 
   const shopDomain = candidate.shopDomain.trim().toLowerCase();

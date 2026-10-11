@@ -78,11 +78,7 @@ export const FEE_SCHEDULE_STATUSES: readonly FeeScheduleStatus[] = [
 export type FeeTaxTreatment = 'unknown' | 'exclusive' | 'inclusive';
 
 /** {@link FeeTaxTreatment} as the tuple the column types and CHECKs read. */
-export const FEE_TAX_TREATMENTS: readonly FeeTaxTreatment[] = [
-  'unknown',
-  'exclusive',
-  'inclusive',
-];
+export const FEE_TAX_TREATMENTS: readonly FeeTaxTreatment[] = ['unknown', 'exclusive', 'inclusive'];
 
 /**
  * What happens to Mercaria's fee when an order is (partially) refunded.

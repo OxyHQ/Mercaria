@@ -121,8 +121,11 @@ export async function reconcileLegacyAttributeMappings(
     // the comparison would compile and the property read after it would not.
     const matched = live.some((mapping) => {
       const target = columnsToTarget(mapping.dimension, mapping);
-      return target !== null && target.dimension === 'attribute'
-        && target.attributeKey === row.attributeKey;
+      return (
+        target !== null &&
+        target.dimension === 'attribute' &&
+        target.attributeKey === row.attributeKey
+      );
     });
 
     if (matched) {

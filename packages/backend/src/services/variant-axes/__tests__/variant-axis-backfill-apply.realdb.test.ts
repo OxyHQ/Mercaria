@@ -480,7 +480,7 @@ describe('the backfill in apply mode', () => {
     });
     expect(
       page.listingIds,
-      'the aimed page is not exactly this file\'s listing; an apply pass here would write to a row this file does not own',
+      "the aimed page is not exactly this file's listing; an apply pass here would write to a row this file does not own",
     ).toEqual([LISTING_ID]);
 
     // ── dry_run: the writes are REACHED ─────────────────────────────────────
@@ -632,10 +632,9 @@ describe('the backfill in apply mode', () => {
     // registry that stopped resolving something.
     expect(second.axes.unresolved).toBe(1);
     expect(second.assignments.unresolved).toBe(1);
-    expect(
-      second.diagnostics.assignmentsRetainedUnresolved,
-      'the second pass orphaned a row',
-    ).toBe(0);
+    expect(second.diagnostics.assignmentsRetainedUnresolved, 'the second pass orphaned a row').toBe(
+      0,
+    );
 
     // And the rows themselves did not move. The counters above are the service's
     // own account of what it did; this is Postgres's. `id` catches a

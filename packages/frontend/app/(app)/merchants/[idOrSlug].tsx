@@ -1,25 +1,25 @@
-import { useMemo, useState } from "react";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { Pressable, View } from "react-native";
-import Head from "expo-router/head";
-import { Badge } from "@oxy.so/bloom/badge";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useMemo, useState } from 'react';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { Pressable, View } from 'react-native';
+import Head from 'expo-router/head';
+import { Badge } from '@oxy.so/bloom/badge';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type {
   MerchantCatalogEmptyReason,
   MerchantOfferMixBucket,
   MerchantPage,
-} from "@mercaria/shared-types";
-import { Rating } from "@oxy.so/bloom/rating";
-import { SectionHeader, Text, useRatingDisplay } from "@mercaria/ui";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { MerchantBrandStandings } from "@/components/merchant/MerchantBrandStandings";
-import { MerchantChannelPicker } from "@/components/merchant/MerchantChannelPicker";
-import { MerchantProductCard } from "@/components/merchant/MerchantProductCard";
-import { MerchantStandingBanner } from "@/components/merchant/MerchantStandingBanner";
-import { useTranslation } from "@/lib/i18n";
-import { ProductGridSkeleton } from "@/components/catalog/ProductGridSkeleton";
-import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
-import { useMerchantCatalog, useMerchantPage } from "@/lib/hooks/use-merchant-page";
+} from '@mercaria/shared-types';
+import { Rating } from '@oxy.so/bloom/rating';
+import { SectionHeader, Text, useRatingDisplay } from '@mercaria/ui';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { MerchantBrandStandings } from '@/components/merchant/MerchantBrandStandings';
+import { MerchantChannelPicker } from '@/components/merchant/MerchantChannelPicker';
+import { MerchantProductCard } from '@/components/merchant/MerchantProductCard';
+import { MerchantStandingBanner } from '@/components/merchant/MerchantStandingBanner';
+import { useTranslation } from '@/lib/i18n';
+import { ProductGridSkeleton } from '@/components/catalog/ProductGridSkeleton';
+import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
+import { useMerchantCatalog, useMerchantPage } from '@/lib/hooks/use-merchant-page';
 
 /**
  * The merchant page (#73).
@@ -61,9 +61,9 @@ import { useMerchantCatalog, useMerchantPage } from "@/lib/hooks/use-merchant-pa
  * leaf for that reason.
  */
 const EMPTY_COPY_KEYS: Readonly<Record<MerchantCatalogEmptyReason, string>> = {
-  no_offers: "merchants.catalog.empty.noOffers",
-  stale_sources: "merchants.catalog.empty.staleSources",
-  filtered_out: "merchants.catalog.empty.filteredOut",
+  no_offers: 'merchants.catalog.empty.noOffers',
+  stale_sources: 'merchants.catalog.empty.staleSources',
+  filtered_out: 'merchants.catalog.empty.filteredOut',
 };
 Object.freeze(EMPTY_COPY_KEYS);
 
@@ -99,7 +99,7 @@ function OfferMix({ page }: { page: MerchantPage }) {
       named.push({
         // A market-less offer is available everywhere; calling it "Unknown"
         // would misreport an explicit fact as a gap.
-        label: bucket.key ?? t("merchants.offerMix.allMarkets"),
+        label: bucket.key ?? t('merchants.offerMix.allMarkets'),
         count: bucket.count,
       });
     }
@@ -114,16 +114,20 @@ function OfferMix({ page }: { page: MerchantPage }) {
   return (
     <View className="gap-2 px-4 pt-6">
       <Text className="text-xs uppercase text-muted-foreground">
-        {t("merchants.offerMix.title")}
+        {t('merchants.offerMix.title')}
       </Text>
       <View className="flex-row flex-wrap gap-2">
         {chips.map((chip) => (
-          <MixChip key={`${chip.label}-${String(chip.count)}`} label={chip.label} count={chip.count} />
+          <MixChip
+            key={`${chip.label}-${String(chip.count)}`}
+            label={chip.label}
+            count={chip.count}
+          />
         ))}
       </View>
       {mix.staleOfferCount > 0 ? (
         <Text className="text-xs text-muted-foreground">
-          {t("merchants.offerMix.staleNotice", { count: mix.staleOfferCount })}
+          {t('merchants.offerMix.staleNotice', { count: mix.staleOfferCount })}
         </Text>
       ) : null}
     </View>
@@ -176,8 +180,8 @@ export default function MerchantScreen() {
     <Head>
       <title>
         {page
-          ? t("merchants.meta.title", { name: page.merchant.name })
-          : t("merchants.meta.fallbackTitle")}
+          ? t('merchants.meta.title', { name: page.merchant.name })
+          : t('merchants.meta.fallbackTitle')}
       </title>
     </Head>
   );
@@ -190,7 +194,7 @@ export default function MerchantScreen() {
           <View className="h-8 w-2/3 rounded bg-muted" />
         </View>
         <View className="pt-6">
-          <ProductGridSkeleton accessibilityLabel={t("merchants.catalog.loadingLabel")} />
+          <ProductGridSkeleton accessibilityLabel={t('merchants.catalog.loadingLabel')} />
         </View>
       </ScreenShell>
     );
@@ -205,7 +209,7 @@ export default function MerchantScreen() {
         {head}
         <View className="items-center justify-center px-8 py-16 web:min-h-screen">
           <Text className="text-center text-base text-muted-foreground">
-            {t("merchants.unavailable")}
+            {t('merchants.unavailable')}
           </Text>
         </View>
       </ScreenShell>
@@ -220,8 +224,8 @@ export default function MerchantScreen() {
         <Text className="text-2xl font-bold text-foreground">{page.merchant.name}</Text>
         {page.aliases.length > 0 ? (
           <Text numberOfLines={2} className="text-sm text-muted-foreground">
-            {t("merchants.alsoKnownAs", {
-              names: page.aliases.map((alias) => alias.alias).join(", "),
+            {t('merchants.alsoKnownAs', {
+              names: page.aliases.map((alias) => alias.alias).join(', '),
             })}
           </Text>
         ) : null}
@@ -230,7 +234,7 @@ export default function MerchantScreen() {
             does not. Absent is the normal state. */}
         {page.organization ? (
           <Text className="text-sm text-muted-foreground">
-            {t("merchants.operatedBy", {
+            {t('merchants.operatedBy', {
               organization: page.organization.legalName ?? page.organization.name,
             })}
           </Text>
@@ -240,11 +244,7 @@ export default function MerchantScreen() {
       <MerchantStandingBanner
         standing={page.standing}
         onClaim={() =>
-          router.push(
-            `/settings/general?claimMerchant=${encodeURIComponent(
-              page.merchant.id,
-            )}`,
-          )
+          router.push(`/settings/general?claimMerchant=${encodeURIComponent(page.merchant.id)}`)
         }
       />
 
@@ -260,12 +260,14 @@ export default function MerchantScreen() {
             />
           ) : (
             <Text className="text-sm font-semibold text-foreground">
-              {t("merchants.reviews.none")}
+              {t('merchants.reviews.none')}
             </Text>
           )}
           {/* The scope, spelled out. A page can carry several ratings and a
               reader must never have to guess which question one answers. */}
-          <Text className="text-xs text-muted-foreground">{t(REVIEW_SCOPE_HEADING_KEYS.merchant)}</Text>
+          <Text className="text-xs text-muted-foreground">
+            {t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
+          </Text>
         </View>
       ) : null}
 
@@ -277,24 +279,18 @@ export default function MerchantScreen() {
         <View className="px-4 pt-6">
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel={t("merchants.nativeStore.openLabel", {
+            accessibilityLabel={t('merchants.nativeStore.openLabel', {
               store: page.nativeStore.name,
             })}
             onPress={() =>
-              router.push(
-                `/stores/${encodeURIComponent(
-                  page.nativeStore?.handle ?? "",
-                )}`,
-              )
+              router.push(`/stores/${encodeURIComponent(page.nativeStore?.handle ?? '')}`)
             }
             className="rounded-2xl border border-border p-4"
           >
             <Text className="text-sm font-semibold text-foreground">
-              {t("merchants.nativeStore.title", { store: page.nativeStore.name })}
+              {t('merchants.nativeStore.title', { store: page.nativeStore.name })}
             </Text>
-            <Text className="text-xs text-muted-foreground">
-              {t("merchants.nativeStore.note")}
-            </Text>
+            <Text className="text-xs text-muted-foreground">{t('merchants.nativeStore.note')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -310,12 +306,16 @@ export default function MerchantScreen() {
       <MerchantBrandStandings standings={page.brandStandings} />
 
       <View className="pt-8">
-        <SectionHeader title={t("merchants.catalog.title")} />
+        <SectionHeader title={t('merchants.catalog.title')} />
 
-        {catalogLoading && entries.length === 0 ? <ProductGridSkeleton accessibilityLabel={t("merchants.catalog.loadingLabel")} /> : null}
+        {catalogLoading && entries.length === 0 ? (
+          <ProductGridSkeleton accessibilityLabel={t('merchants.catalog.loadingLabel')} />
+        ) : null}
 
         {!catalogLoading && entries.length === 0 ? (
-          <EmptyState description={t(emptyReason ? EMPTY_COPY_KEYS[emptyReason] : EMPTY_COPY_KEYS.no_offers)} />
+          <EmptyState
+            description={t(emptyReason ? EMPTY_COPY_KEYS[emptyReason] : EMPTY_COPY_KEYS.no_offers)}
+          />
         ) : null}
 
         {entries.length > 0 ? (
@@ -325,7 +325,7 @@ export default function MerchantScreen() {
                 <MerchantProductCard
                   entry={entry}
                   onPress={(canonicalProductId) =>
-                    router.push({ pathname: "/p/[handle]", params: { handle: canonicalProductId } })
+                    router.push({ pathname: '/p/[handle]', params: { handle: canonicalProductId } })
                   }
                 />
               </View>
@@ -337,15 +337,15 @@ export default function MerchantScreen() {
           <View className="items-center px-4 py-6">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t("merchants.catalog.loadMoreLabel")}
+              accessibilityLabel={t('merchants.catalog.loadMoreLabel')}
               disabled={isFetchingNextPage}
               onPress={() => void fetchNextPage()}
               className="rounded-full border border-border bg-muted px-6 py-3 web:shadow-sm"
             >
               <Text className="text-sm font-semibold text-foreground">
                 {isFetchingNextPage
-                  ? t("merchants.catalog.loadingMore")
-                  : t("merchants.catalog.loadMore")}
+                  ? t('merchants.catalog.loadingMore')
+                  : t('merchants.catalog.loadMore')}
               </Text>
             </Pressable>
           </View>

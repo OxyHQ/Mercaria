@@ -39,7 +39,9 @@ export function goWayClient(): GoWayClient | null {
  * the real SDK still builds every URL, validates every request and parses every
  * response with GoWay's own contract.
  */
-export function useGoWayTransportForTests(transport: { apiBaseUrl: string; fetch: GoWayFetch } | null): void {
+export function useGoWayTransportForTests(
+  transport: { apiBaseUrl: string; fetch: GoWayFetch } | null,
+): void {
   testTransport = transport;
   client = null;
 }

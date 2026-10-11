@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 
 /**
  * Small app-wide ephemeral UI state that doesn't belong to a feature store.

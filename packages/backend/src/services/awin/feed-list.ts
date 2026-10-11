@@ -92,7 +92,11 @@ const MEMBERSHIP_BY_TOKEN: Readonly<Record<string, AwinMembershipStatus>> = {
  * reads as an empty network.
  */
 function normalizeKey(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/gu, '_').replace(/^_|_$/gu, '');
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, '_')
+    .replace(/^_|_$/gu, '');
 }
 
 /** Read one field by any of its accepted spellings. */

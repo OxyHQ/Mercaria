@@ -240,10 +240,7 @@ describe('onboarding steps', () => {
 
   it('marks a step BLOCKED when its gap is unevaluable, and INCOMPLETE otherwise', () => {
     const blockedOverride = { guest: { transactionalTransportConfigured: false } };
-    const blockedSteps = deriveOnboarding(
-      allResults(blockedOverride),
-      blocking(blockedOverride),
-    );
+    const blockedSteps = deriveOnboarding(allResults(blockedOverride), blocking(blockedOverride));
     // The transport gap is stepless (nothing a merchant can do), so no step
     // carries it — which is exactly the census's point. The step that DOES have
     // a merchant-actionable gap is the one below.

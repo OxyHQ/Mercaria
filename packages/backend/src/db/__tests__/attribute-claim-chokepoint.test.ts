@@ -76,9 +76,7 @@ const CLAIM_WRITE = new RegExp(
       `\\.\\s*delete\\s*\\(\\s*${table}\\s*\\)`,
       `(?:insert\\s+into|update|delete\\s+from)\\s+\\$\\{\\s*${table}\\s*\\}`,
     ]),
-    ...RELATIONS.map(
-      (relation) => `(?:insert\\s+into|update|delete\\s+from)\\s+"?${relation}"?`,
-    ),
+    ...RELATIONS.map((relation) => `(?:insert\\s+into|update|delete\\s+from)\\s+"?${relation}"?`),
   ].join('|'),
   'iu',
 );
@@ -187,7 +185,8 @@ describe('the attribute-claim write census', () => {
     // three of the four deleted.
     const builder = 'await tx.insert(nativeVariantAttributeClaims).values({});';
     const update = 'await db\n  .update(nativeListingAttributeClaims)\n  .set({ x: 1 });';
-    const raw = "await db.execute(sql`insert into native_variant_attribute_claims (id) values (1)`);";
+    const raw =
+      'await db.execute(sql`insert into native_variant_attribute_claims (id) values (1)`);';
     const interpolated = 'await db.execute(sql`update ${nativeListingAttributeClaims} set x = 1`);';
     for (const [name, probe] of Object.entries({ builder, update, raw, interpolated })) {
       expect(CLAIM_WRITE.test(probe), `the ${name} branch does not fire`).toBe(true);

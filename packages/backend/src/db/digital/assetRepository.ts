@@ -249,7 +249,10 @@ export async function withdrawAssetVersion(
     .update(assetVersions)
     .set({ state: 'withdrawn' })
     .where(
-      and(eq(assetVersions.id, versionId), inArray(assetVersions.state, ['published', 'superseded'])),
+      and(
+        eq(assetVersions.id, versionId),
+        inArray(assetVersions.state, ['published', 'superseded']),
+      ),
     )
     .returning({ id: assetVersions.id });
   return rows.length === 1;
@@ -272,9 +275,10 @@ export async function insertAssetFile(
   tx?: DatabaseOrTransaction,
 ): Promise<PublicAssetFileRow> {
   const db = tx ?? getDb();
-  const [row] = await db.insert(assetFiles).values({ ...input }).returning(
-    PUBLIC_ASSET_FILE_COLUMNS,
-  );
+  const [row] = await db
+    .insert(assetFiles)
+    .values({ ...input })
+    .returning(PUBLIC_ASSET_FILE_COLUMNS);
   return row;
 }
 
@@ -286,9 +290,10 @@ export async function recordAssetFileScan(
   tx?: DatabaseOrTransaction,
 ): Promise<void> {
   const db = tx ?? getDb();
-  await db.update(assetFiles).set({ scanVerdict: verdict, scanAt: scannedAt }).where(
-    eq(assetFiles.id, fileId),
-  );
+  await db
+    .update(assetFiles)
+    .set({ scanVerdict: verdict, scanAt: scannedAt })
+    .where(eq(assetFiles.id, fileId));
 }
 
 /** Every file of a version, WITHOUT storage keys. */
@@ -373,7 +378,10 @@ export async function addFileToPackage(
   tx?: DatabaseOrTransaction,
 ): Promise<void> {
   const db = tx ?? getDb();
-  await db.insert(assetPackageFiles).values({ ...input }).onConflictDoNothing();
+  await db
+    .insert(assetPackageFiles)
+    .values({ ...input })
+    .onConflictDoNothing();
 }
 
 /**
@@ -636,10 +644,10 @@ export async function everyFileInspectionAcceptable(
   for (const inspection of inspections) {
     const held = latest.get(inspection.fileId);
     if (
-      !held
-      || inspection.measuredAt > held.measuredAt
-      || (inspection.measuredAt.getTime() === held.measuredAt.getTime()
-        && inspection.createdAt > held.createdAt)
+      !held ||
+      inspection.measuredAt > held.measuredAt ||
+      (inspection.measuredAt.getTime() === held.measuredAt.getTime() &&
+        inspection.createdAt > held.createdAt)
     ) {
       latest.set(inspection.fileId, inspection);
     }

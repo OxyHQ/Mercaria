@@ -69,7 +69,8 @@ const RULES: readonly { readonly kind: SupportRedactionKind; readonly pattern: R
   // MANDATORY separators. See the docblock for the failure this prevents.
   {
     kind: 'phone_number',
-    pattern: /(?:\+\d{1,3}[ .-]?)?(?:\(\d{2,4}\)[ .-]?|\d{2,4}[ .-])\d{2,4}[ .-]\d{2,4}(?:[ .-]\d{2,4})?/g,
+    pattern:
+      /(?:\+\d{1,3}[ .-]?)?(?:\(\d{2,4}\)[ .-]?|\d{2,4}[ .-])\d{2,4}[ .-]\d{2,4}(?:[ .-]\d{2,4})?/g,
   },
 ];
 

@@ -139,7 +139,8 @@ export async function recordAwinSample(input: RecordAwinSampleInput): Promise<Aw
   const feed = await findAwinFeed(input.feedRowId);
   // A 404 rather than a 403 for a feed belonging to another advertiser: a
   // distinguishable response would let a caller enumerate which feed ids exist.
-  if (feed === null || feed.advertiserRowId !== advertiser.id) throw notFound('Awin feed not found');
+  if (feed === null || feed.advertiserRowId !== advertiser.id)
+    throw notFound('Awin feed not found');
 
   if (input.passedRows > input.sampled) {
     throw validationError('A sample cannot report more passing rows than it examined.');

@@ -32,7 +32,13 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PUBLIC_ROUTE_IDS } from '@mercaria/shared-types';
-import { buildRoutePath, matchPublicRoute, publicRoute, PUBLIC_ROUTES, routeIsLive } from '../routes.js';
+import {
+  buildRoutePath,
+  matchPublicRoute,
+  publicRoute,
+  PUBLIC_ROUTES,
+  routeIsLive,
+} from '../routes.js';
 
 /** `packages/backend/src`, from `packages/backend/src/services/seo/__tests__`. */
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -326,12 +332,25 @@ describe('matching a path against the registry', () => {
     // The property `matchPublicRoute` relies on. It stops being true the day
     // somebody adds `/p/compare` beside `/p/:handle`, and the failure would be
     // a page silently resolving as the wrong route.
-    for (const probe of ['/', '/p/x', '/products/x', '/stores/x', '/m/x', '/sellers/x', '/brands/x', '/families/x', '/merchants/x', '/categories/x']) {
+    for (const probe of [
+      '/',
+      '/p/x',
+      '/products/x',
+      '/stores/x',
+      '/m/x',
+      '/sellers/x',
+      '/brands/x',
+      '/families/x',
+      '/merchants/x',
+      '/categories/x',
+    ]) {
       const matches = PUBLIC_ROUTES.filter((route) => {
         const pattern = route.pattern.split('/').filter((segment) => segment !== '');
         const actual = probe.split('/').filter((segment) => segment !== '');
         if (pattern.length !== actual.length) return false;
-        return pattern.every((segment, index) => segment.startsWith(':') || segment === actual[index]);
+        return pattern.every(
+          (segment, index) => segment.startsWith(':') || segment === actual[index],
+        );
       });
       expect(matches.length, `${probe} matches ${matches.length} patterns`).toBeLessThanOrEqual(1);
     }

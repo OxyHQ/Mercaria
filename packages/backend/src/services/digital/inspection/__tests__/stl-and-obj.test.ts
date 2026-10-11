@@ -89,7 +89,11 @@ describe('binary STL', () => {
 
   it('says `false` for a degenerate triangle, because a slicer will too', () => {
     const degenerate: readonly Triangle[] = [
-      [[0, 0, 0], [1, 0, 0], [1, 0, 0]],
+      [
+        [0, 0, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+      ],
     ];
     expect(inspectStl(binaryStl(degenerate), { budget }).measurement.watertight).toBe(false);
   });
@@ -127,13 +131,7 @@ describe('binary STL', () => {
   it('welds corners written as different floats within the tolerance', () => {
     const offset = VERTEX_WELD_EPSILON / 4;
     const nudged: readonly Triangle[] = CLOSED_TETRAHEDRON.map((triangle, index) =>
-      index === 0
-        ? ([
-            [offset, 0, 0],
-            triangle[1],
-            triangle[2],
-          ] as Triangle)
-        : triangle,
+      index === 0 ? ([[offset, 0, 0], triangle[1], triangle[2]] as Triangle) : triangle,
     );
     // Still four welded corners and still closed: an exporter that rounds a shared
     // corner differently in one facet has not produced a mesh with a hole.
@@ -179,9 +177,18 @@ describe('ASCII STL', () => {
 
   it('refuses a facet that is not a triangle, naming the line', () => {
     const bad = new TextEncoder().encode(
-      ['solid x', 'facet normal 0 0 0', 'outer loop',
-       'vertex 0 0 0', 'vertex 1 0 0', 'vertex 0 1 0', 'vertex 1 1 0',
-       'endloop', 'endfacet', 'endsolid x'].join('\n'),
+      [
+        'solid x',
+        'facet normal 0 0 0',
+        'outer loop',
+        'vertex 0 0 0',
+        'vertex 1 0 0',
+        'vertex 0 1 0',
+        'vertex 1 1 0',
+        'endloop',
+        'endfacet',
+        'endsolid x',
+      ].join('\n'),
     );
     const outcome = inspectStl(bad, { budget });
     expect(outcome.verdict).toBe('corrupt');
@@ -196,7 +203,9 @@ describe('ASCII STL', () => {
   });
 
   it('refuses text that is not STL at all', () => {
-    expect(inspectStl(new TextEncoder().encode('hello world\n'), { budget }).verdict).toBe('corrupt');
+    expect(inspectStl(new TextEncoder().encode('hello world\n'), { budget }).verdict).toBe(
+      'corrupt',
+    );
   });
 
   it('refuses a text file above the text ceiling without decoding it', () => {
@@ -216,8 +225,14 @@ describe('OBJ', () => {
     const outcome = inspectObj(
       objFile([
         'o tetra',
-        'v 0 0 0', 'v 10 0 0', 'v 0 20 0', 'v 0 0 30',
-        'f 1 2 3', 'f 1 3 4', 'f 1 4 2', 'f 2 4 3',
+        'v 0 0 0',
+        'v 10 0 0',
+        'v 0 20 0',
+        'v 0 0 30',
+        'f 1 2 3',
+        'f 1 3 4',
+        'f 1 4 2',
+        'f 2 4 3',
       ]),
       { budget, availableResources: NO_SIBLINGS },
     );
@@ -242,10 +257,10 @@ describe('OBJ', () => {
   });
 
   it('resolves NEGATIVE indices against the vertices declared so far', () => {
-    const outcome = inspectObj(
-      objFile(['v 0 0 0', 'v 4 0 0', 'v 0 8 0', 'f -3 -2 -1']),
-      { budget, availableResources: NO_SIBLINGS },
-    );
+    const outcome = inspectObj(objFile(['v 0 0 0', 'v 4 0 0', 'v 0 8 0', 'f -3 -2 -1']), {
+      budget,
+      availableResources: NO_SIBLINGS,
+    });
     expect(outcome.verdict).toBe('measured');
     expect(outcome.measurement.triangleCount).toBe(1);
     expect(outcome.measurement.boundingBox).toEqual({ xMm: 4, yMm: 8, zMm: 0 });
@@ -313,7 +328,10 @@ describe('OBJ', () => {
         'mtllib ../../../etc/passwd',
         'mtllib http://attacker.example/x.mtl',
         'mtllib /absolute.mtl',
-        'v 0 0 0', 'v 1 0 0', 'v 0 1 0', 'f 1 2 3',
+        'v 0 0 0',
+        'v 1 0 0',
+        'v 0 1 0',
+        'f 1 2 3',
       ]),
       { budget, availableResources: resourceIndexOf(['passwd', 'x.mtl', 'absolute.mtl']) },
     );
@@ -325,10 +343,10 @@ describe('OBJ', () => {
   });
 
   it('measures UV mapping from the FACES, not from the `vt` declarations', () => {
-    const unused = inspectObj(
-      objFile(['v 0 0 0', 'v 1 0 0', 'v 0 1 0', 'vt 0 0', 'f 1 2 3']),
-      { budget, availableResources: NO_SIBLINGS },
-    );
+    const unused = inspectObj(objFile(['v 0 0 0', 'v 1 0 0', 'v 0 1 0', 'vt 0 0', 'f 1 2 3']), {
+      budget,
+      availableResources: NO_SIBLINGS,
+    });
     // `vt` lines nothing references is not UV mapping.
     expect(unused.measurement.hasUvMapping).toBe(false);
 
@@ -349,7 +367,10 @@ describe('OBJ', () => {
         's off',
         'g group-one',
         'l 1 2',
-        'v 0 0 0', 'v 1 0 0', 'v 0 1 0', 'f 1//1 2//1 3//1',
+        'v 0 0 0',
+        'v 1 0 0',
+        'v 0 1 0',
+        'f 1//1 2//1 3//1',
       ]),
       { budget, availableResources: resourceIndexOf(['x.mtl']) },
     );

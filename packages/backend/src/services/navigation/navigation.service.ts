@@ -129,9 +129,7 @@ async function loadSavedQueries(
       ...(hasPrice
         ? {
             price: {
-              currency: priceCurrency as NonNullable<
-                NavigationSavedQueryView['price']
-              >['currency'],
+              currency: priceCurrency as NonNullable<NavigationSavedQueryView['price']>['currency'],
               ...(row.priceMinAmount === null ? {} : { minAmount: row.priceMinAmount }),
               ...(row.priceMaxAmount === null ? {} : { maxAmount: row.priceMaxAmount }),
             },
@@ -239,10 +237,7 @@ export async function readPublishedNavigation(
     };
     return {
       ...empty,
-      etag: navigationEtag(
-        { market: params.market, requestedLocale: params.locale },
-        empty,
-      ),
+      etag: navigationEtag({ market: params.market, requestedLocale: params.locale }, empty),
     };
   }
 

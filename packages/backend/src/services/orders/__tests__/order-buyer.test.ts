@@ -91,9 +91,7 @@ describe('orderBuyerOf — a row the CHECK forbids is REFUSED, never patched ove
   });
 
   it('raises on a guest order with no contact record', () => {
-    expect(() => orderBuyerOf(row({ buyerOrigin: 'guest' }))).toThrow(
-      /buyer_guest_checkout_id/,
-    );
+    expect(() => orderBuyerOf(row({ buyerOrigin: 'guest' }))).toThrow(/buyer_guest_checkout_id/);
   });
 });
 

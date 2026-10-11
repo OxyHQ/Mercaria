@@ -138,7 +138,14 @@ vi.mock('../catalog-hydration.service.js', () => ({
   resolveMedia: (value: string, variant?: string) => (variant ? `${value}:${variant}` : value),
 }));
 
-import { createReview, recomputeAggregate, listReviewsForStoreHandle, listReviews, listScopedReviews, listPublicReviewMedia } from '../review.service.js';
+import {
+  createReview,
+  recomputeAggregate,
+  listReviewsForStoreHandle,
+  listReviews,
+  listScopedReviews,
+  listPublicReviewMedia,
+} from '../review.service.js';
 import type { StoreCaller } from '../store-access.service.js';
 import { isMercariaError } from '../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../utils/api-response.js';
@@ -226,7 +233,6 @@ function uniqueViolation(constraint: string): Error & { code: string; constraint
   });
 }
 
-
 /** The author, in their own session — self-review asks Oxy with it (ADR 0012). */
 const BUYER: StoreCaller = {
   accountId: 'buyer-1',
@@ -307,7 +313,9 @@ describe('review.service.createReview — scope and dimension gates', () => {
   it('accepts a dimension that DOES belong to the scope', async () => {
     // The negative above is only meaningful beside this: a gate that refused
     // every dimension would pass that test and be useless.
-    insertReview.mockResolvedValue(reviewRow({ scope: 'product', targetType: 'canonical_product' }));
+    insertReview.mockResolvedValue(
+      reviewRow({ scope: 'product', targetType: 'canonical_product' }),
+    );
 
     await createReview(BUYER, {
       scope: 'product',
@@ -380,9 +388,7 @@ describe('review.service.createReview — eligibility and verification', () => {
 
     await expect(
       createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
-    );
+    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
 
     expect(insertReview).not.toHaveBeenCalled();
   });
@@ -432,9 +438,7 @@ describe('review.service.createReview — one review per scoped target', () => {
 
     await expect(
       createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
-    );
+    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
 
     expect(insertReview).not.toHaveBeenCalled();
     // The pre-check reads the target as a whole, not a status-filtered slice: a
@@ -452,9 +456,7 @@ describe('review.service.createReview — one review per scoped target', () => {
 
     await expect(
       createReview(BUYER, { scope: 'product', canonicalProductId: 'prod-1', rating: 5 }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
-    );
+    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
   });
 
   it('maps the LEGACY listing index refusal to the same CONFLICT', async () => {
@@ -464,9 +466,7 @@ describe('review.service.createReview — one review per scoped target', () => {
 
     await expect(
       createReview(BUYER, { scope: 'p2p_listing', listingId: 'listing-1', rating: 5 }),
-    ).rejects.toSatisfy(
-      (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT,
-    );
+    ).rejects.toSatisfy((err: unknown) => isMercariaError(err) && err.code === ErrorCodes.CONFLICT);
   });
 
   it('maps the eligibility index refusal to its OWN conflict message', async () => {
@@ -515,7 +515,9 @@ describe('review.service.createReview — notifications', () => {
   });
 
   it('notifies NOBODY for a product review — a canonical product has no owner', async () => {
-    insertReview.mockResolvedValue(reviewRow({ scope: 'product', targetType: 'canonical_product' }));
+    insertReview.mockResolvedValue(
+      reviewRow({ scope: 'product', targetType: 'canonical_product' }),
+    );
 
     await createReview(BUYER, { scope: 'product', canonicalProductId: 'prod-1', rating: 5 });
 
@@ -654,7 +656,11 @@ describe('review.service.listReviewsForStoreHandle', () => {
 
 describe('public purchased variant hydration', () => {
   it('batches exact review ids and keeps missing purchase evidence absent on both read paths', async () => {
-    const first = reviewRow({ id: 'review-purchased', verification: 'verified_purchase', eligibilityId: 'eligibility-purchased' });
+    const first = reviewRow({
+      id: 'review-purchased',
+      verification: 'verified_purchase',
+      eligibilityId: 'eligibility-purchased',
+    });
     const second = reviewRow({ id: 'review-no-evidence' });
     findPurchasedVariantsForReviews.mockResolvedValue(new Map([[first.id, 'Black / M']]));
     findReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
@@ -676,10 +682,20 @@ describe('public helpfulness counts', () => {
   it('hydrates counts in one batch without exposing personal vote state', async () => {
     const first = reviewRow({ id: 'review-helpful' });
     const second = reviewRow({ id: 'review-no-votes' });
-    findReviewHelpfulness.mockResolvedValue([{ reviewId: first.id, helpfulnessCount: 7, markedAsHelpfulByMe: false, canUpdateHelpfulness: false }]);
+    findReviewHelpfulness.mockResolvedValue([
+      {
+        reviewId: first.id,
+        helpfulnessCount: 7,
+        markedAsHelpfulByMe: false,
+        canUpdateHelpfulness: false,
+      },
+    ]);
     findReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
-    const result = await listReviews({ targetType: 'listing', targetId: 'listing-1' }, { page: 1, limit: 12 });
-    expect(result.data.map(row => row.helpfulnessCount)).toEqual([7, 0]);
+    const result = await listReviews(
+      { targetType: 'listing', targetId: 'listing-1' },
+      { page: 1, limit: 12 },
+    );
+    expect(result.data.map((row) => row.helpfulnessCount)).toEqual([7, 0]);
     expect(result.data[0]).not.toHaveProperty('markedAsHelpfulByMe');
     expect(result.data[0]).not.toHaveProperty('canUpdateHelpfulness');
     expect(findReviewHelpfulness).toHaveBeenCalledExactlyOnceWith([first.id, second.id]);
@@ -694,9 +710,14 @@ describe('public review attachments', () => {
       { id: 'attachment-a', fileId: 'oxy-photo', kind: 'image', position: 0 },
       { id: 'attachment-b', fileId: 'oxy-video', kind: 'video', position: 1 },
     ];
-    findMediaForReviews.mockResolvedValueOnce(attachments.map(media => ({ ...media, reviewId: first.id })));
+    findMediaForReviews.mockResolvedValueOnce(
+      attachments.map((media) => ({ ...media, reviewId: first.id })),
+    );
     findReviewsPage.mockResolvedValue({ rows: [first, second], total: 2 });
-    const result = await listReviews({ targetType: 'listing', targetId: 'listing-1' }, { page: 1, limit: 12 });
+    const result = await listReviews(
+      { targetType: 'listing', targetId: 'listing-1' },
+      { page: 1, limit: 12 },
+    );
     expect(result.data[0].media).toEqual(attachments);
     expect(result.data[1]).not.toHaveProperty('media');
     expect(findMediaForReviews).toHaveBeenCalledExactlyOnceWith([first.id, second.id]);
@@ -708,13 +729,20 @@ describe('public review media gallery', () => {
     const first = reviewRow({ id: 'visible-media-review' });
     const second = reviewRow({ id: 'moderated-during-read' });
     const media = { id: 'attachment-1', fileId: 'oxy-photo', kind: 'image', position: 0 };
-    findReviewMediaPage.mockResolvedValue({ rows: [
-      { review: first, media },
-      { review: second, media: { ...media, id: 'attachment-hidden' } },
-    ], total: 2 });
+    findReviewMediaPage.mockResolvedValue({
+      rows: [
+        { review: first, media },
+        { review: second, media: { ...media, id: 'attachment-hidden' } },
+      ],
+      total: 2,
+    });
     findMediaForReviews.mockResolvedValueOnce([{ ...media, reviewId: first.id }]);
     const result = await listPublicReviewMedia('product', 'product-1', { page: 1, limit: 10 });
-    expect(findReviewMediaPage).toHaveBeenCalledExactlyOnceWith({ scope: 'product', targetType: 'canonical_product', targetId: 'product-1' }, 1, 10);
+    expect(findReviewMediaPage).toHaveBeenCalledExactlyOnceWith(
+      { scope: 'product', targetType: 'canonical_product', targetId: 'product-1' },
+      1,
+      10,
+    );
     expect(result.data).toHaveLength(1);
     expect(result.data[0]).toMatchObject({ media, review: { id: first.id } });
     expect(result.total).toBe(2);

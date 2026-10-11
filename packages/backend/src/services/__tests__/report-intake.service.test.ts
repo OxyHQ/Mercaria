@@ -39,7 +39,7 @@ const writes: { write: string; handle: unknown }[] = [];
 
 vi.mock('../../db/postgres.js', () => ({
   getDb: () => ({
-    transaction: async <T,>(fn: (handle: typeof tx) => Promise<T>): Promise<T> => await fn(tx),
+    transaction: async <T>(fn: (handle: typeof tx) => Promise<T>): Promise<T> => await fn(tx),
   }),
 }));
 

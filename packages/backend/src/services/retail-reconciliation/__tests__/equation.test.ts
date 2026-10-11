@@ -59,7 +59,11 @@ describe('the four interpretations', () => {
   it('1. reports an exact recovery when the two sides are equal', () => {
     const verdict = classifyRetailReconciliation({
       accountingCurrency: 'EUR',
-      terms: terms({ customer_charge: 10_000, supplier_item_cost: 9_000, tax_duty_liability: 1_000 }),
+      terms: terms({
+        customer_charge: 10_000,
+        supplier_item_cost: 9_000,
+        tax_duty_liability: 1_000,
+      }),
       toleranceMinor: 1,
       blockedBy: [],
     });

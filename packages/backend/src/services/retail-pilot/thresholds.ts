@@ -145,14 +145,50 @@ export function evaluateStopThresholds(
  */
 export const PRINTFUL_PILOT_RECOMMENDED_THRESHOLDS: readonly RetailPilotThreshold[] = [
   // "> 2% of retail orders, trailing 7 days" (#119 §10).
-  { metric: 'supplier_stock_rejection', unit: 'rate_bps', thresholdValue: 200, windowHours: 168, scope: 'supplier' },
-  { metric: 'procurement_timeout_or_ambiguity', unit: 'rate_bps', thresholdValue: 200, windowHours: 168, scope: 'supplier' },
+  {
+    metric: 'supplier_stock_rejection',
+    unit: 'rate_bps',
+    thresholdValue: 200,
+    windowHours: 168,
+    scope: 'supplier',
+  },
+  {
+    metric: 'procurement_timeout_or_ambiguity',
+    unit: 'rate_bps',
+    thresholdValue: 200,
+    windowHours: 168,
+    scope: 'supplier',
+  },
   // "> €50/week" absorbed negative variance.
-  { metric: 'negative_realized_margin', unit: 'minor_units', thresholdValue: 5_000, windowHours: 168, scope: 'pilot' },
+  {
+    metric: 'negative_realized_margin',
+    unit: 'minor_units',
+    thresholdValue: 5_000,
+    windowHours: 168,
+    scope: 'pilot',
+  },
   // "> 10% of shipments, trailing 14 days".
-  { metric: 'late_dispatch', unit: 'rate_bps', thresholdValue: 1_000, windowHours: 336, scope: 'supplier' },
+  {
+    metric: 'late_dispatch',
+    unit: 'rate_bps',
+    thresholdValue: 1_000,
+    windowHours: 336,
+    scope: 'supplier',
+  },
   // "One occurrence" — ADR 0004 D2.9, the bound the architecture treats as absolute.
-  { metric: 'non_eu_dispatch_origin', unit: 'count', thresholdValue: 0, windowHours: 0, scope: 'pilot' },
+  {
+    metric: 'non_eu_dispatch_origin',
+    unit: 'count',
+    thresholdValue: 0,
+    windowHours: 0,
+    scope: 'pilot',
+  },
   // "One occurrence — delist immediately", so the scope is the SKU.
-  { metric: 'product_safety_incident', unit: 'count', thresholdValue: 0, windowHours: 0, scope: 'sku' },
+  {
+    metric: 'product_safety_incident',
+    unit: 'count',
+    thresholdValue: 0,
+    windowHours: 0,
+    scope: 'sku',
+  },
 ];

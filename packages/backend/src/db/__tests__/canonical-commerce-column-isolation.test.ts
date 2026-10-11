@@ -177,7 +177,10 @@ describe('the canonical graph carries no price, stock, availability, condition o
 
   it('CLAUSE 1 — no canonical column names a commerce fact', () => {
     const offenders = canonicalColumns
-      .map((column) => ({ column, prohibition: columnProhibition(column, PROHIBITIONS, EXEMPTIONS) }))
+      .map((column) => ({
+        column,
+        prohibition: columnProhibition(column, PROHIBITIONS, EXEMPTIONS),
+      }))
       .filter((entry) => entry.prohibition !== null)
       .map((entry) => `${entry.column} — ${entry.prohibition}`);
     expect(offenders).toEqual([]);
@@ -250,9 +253,10 @@ describe('the canonical graph carries no price, stock, availability, condition o
       const hits = schemaTableColumns(control.module as unknown as Record<string, unknown>)
         .flatMap(({ table, columns }) => columns.map((column) => `${table}.${column}`))
         .filter((column) => columnProhibition(column, PROHIBITIONS) !== null);
-      expect(hits.length, `${control.name} produced no hits — the detector is inert`).toBeGreaterThan(
-        0,
-      );
+      expect(
+        hits.length,
+        `${control.name} produced no hits — the detector is inert`,
+      ).toBeGreaterThan(0);
       total += hits.length;
       console.log(`[canonical-commerce] control ${control.name}: ${hits.length} prohibited names.`);
     }
@@ -275,14 +279,18 @@ describe('the canonical graph carries no price, stock, availability, condition o
   it('mutation self-test — the prohibitions do NOT fire on the legitimate names they sit beside', () => {
     // A detector that cannot tell a legitimate value from its quarry gets
     // narrowed under pressure, and narrowing is the permissive direction.
-    assertEachOf([
-      'bundle_components.quantity',
-      'canonical_products.pricing_policy_id',
-      'canonical_variants.position',
-      'canonical_products.description',
-      'product_identifiers.value',
-    ], 5, (legitimate) => {
-      expect(columnProhibition(legitimate, PROHIBITIONS), `${legitimate} was refused`).toBeNull();
-    });
+    assertEachOf(
+      [
+        'bundle_components.quantity',
+        'canonical_products.pricing_policy_id',
+        'canonical_variants.position',
+        'canonical_products.description',
+        'product_identifiers.value',
+      ],
+      5,
+      (legitimate) => {
+        expect(columnProhibition(legitimate, PROHIBITIONS), `${legitimate} was refused`).toBeNull();
+      },
+    );
   });
 });

@@ -117,9 +117,7 @@ function renderScenario(scenario: ContractScenario): Buffer {
           cell(record.externalId),
           cell(normalized.title),
           cell(normalized.identifiers[0]?.value ?? ''),
-          cell(
-            normalized.price === undefined ? '' : (normalized.price.amount / 100).toFixed(2),
-          ),
+          cell(normalized.price === undefined ? '' : (normalized.price.amount / 100).toFixed(2)),
           cell(normalized.price?.currency ?? ''),
           cell(destination),
           cell(
@@ -253,9 +251,7 @@ function createAwinContractAdapter(
         // and the reason the limit here can cover every record: a pass that was
         // bounded did not establish that it saw everything, even when it
         // happened to.
-        ...((scenario.completeOnLastPage ?? true)
-          ? {}
-          : { sampleLimit: Math.max(1, recordCount) }),
+        ...((scenario.completeOnLastPage ?? true) ? {} : { sampleLimit: Math.max(1, recordCount) }),
       }),
     // The quality snapshot is #66's own surface and is covered by
     // `awin-writes.realdb.test.ts`; wiring it here would make every contract

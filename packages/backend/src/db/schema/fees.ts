@@ -129,7 +129,9 @@ export const feeSchedules = pgTable(
     refundPolicy: text({ enum: asEnumValues(FEE_REFUND_POLICIES) })
       .notNull()
       .default('proportional'),
-    status: text({ enum: asEnumValues(FEE_SCHEDULE_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(FEE_SCHEDULE_STATUSES) })
+      .notNull()
+      .default('draft'),
     /** The terms document version a merchant accepts alongside this schedule. */
     termsVersion: text().notNull(),
     /**
@@ -186,27 +188,22 @@ export const feeSchedules = pgTable(
     ),
     checkOneOf('fee_schedules_tax_treatment_check', t.taxTreatment, FEE_TAX_TREATMENTS),
     checkOneOf('fee_schedules_refund_policy_check', t.refundPolicy, FEE_REFUND_POLICIES),
-    checkOneOf('fee_schedules_eligible_seller_type_check', t.eligibleSellerType, CONNECTED_MARKETPLACE_SELLER_TYPES),
+    checkOneOf(
+      'fee_schedules_eligible_seller_type_check',
+      t.eligibleSellerType,
+      CONNECTED_MARKETPLACE_SELLER_TYPES,
+    ),
     ...currencyChecks('fee_schedules', [t.eligibleCurrency, t.fixedFeeCurrency]),
     check('fee_schedules_version_check', sql`${t.version} >= 1`),
     // Trust rule 6: no negative fee outside supported policy — and none is
     // supported, so every component is non-negative at the type of the row.
-    check(
-      'fee_schedules_percentage_bps_check',
-      sql`${t.percentageBps} between 0 and 10000`,
-    ),
+    check('fee_schedules_percentage_bps_check', sql`${t.percentageBps} between 0 and 10000`),
     check(
       'fee_schedules_fixed_fee_amount_check',
       sql`${t.fixedFeeAmount} is null or ${t.fixedFeeAmount} >= 0`,
     ),
-    check(
-      'fee_schedules_min_fee_check',
-      sql`${t.minFeeMinor} is null or ${t.minFeeMinor} >= 0`,
-    ),
-    check(
-      'fee_schedules_max_fee_check',
-      sql`${t.maxFeeMinor} is null or ${t.maxFeeMinor} >= 0`,
-    ),
+    check('fee_schedules_min_fee_check', sql`${t.minFeeMinor} is null or ${t.minFeeMinor} >= 0`),
+    check('fee_schedules_max_fee_check', sql`${t.maxFeeMinor} is null or ${t.maxFeeMinor} >= 0`),
     check(
       'fee_schedules_min_max_order_check',
       sql`${t.minFeeMinor} is null or ${t.maxFeeMinor} is null or ${t.minFeeMinor} <= ${t.maxFeeMinor}`,
@@ -281,7 +278,11 @@ export const feeScheduleAcceptances = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf('fee_schedule_acceptances_owner_type_check', t.ownerType, PROVIDER_ACCOUNT_OWNER_TYPES),
+    checkOneOf(
+      'fee_schedule_acceptances_owner_type_check',
+      t.ownerType,
+      PROVIDER_ACCOUNT_OWNER_TYPES,
+    ),
     check('fee_schedule_acceptances_version_check', sql`${t.scheduleVersion} >= 1`),
     // One acceptance per owner per schedule version — a replayed accept
     // converges instead of duplicating the audit trail.
@@ -353,7 +354,11 @@ export const orderFeeSnapshots = pgTable(
     checkOneOf('order_fee_snapshots_result_check', t.result, FEE_SNAPSHOT_RESULTS),
     checkOneOf('order_fee_snapshots_basis_check', t.basis, FEE_BASES),
     checkOneOf('order_fee_snapshots_clamp_applied_check', t.clampApplied, FEE_CLAMPS),
-    checkOneOf('order_fee_snapshots_scope_seller_type_check', t.scopeSellerType, CONNECTED_MARKETPLACE_SELLER_TYPES),
+    checkOneOf(
+      'order_fee_snapshots_scope_seller_type_check',
+      t.scopeSellerType,
+      CONNECTED_MARKETPLACE_SELLER_TYPES,
+    ),
     ...currencyChecks('order_fee_snapshots', [
       t.basisAmountCurrency,
       t.feeCurrency,

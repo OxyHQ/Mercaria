@@ -217,9 +217,7 @@ export function createListingSubjectProvider(): ModerationSubjectProvider {
           externalId: listingId,
           type: 'commerce.listing',
           permalink: permalink(listingId),
-          ...(ownerOxyUserId === undefined
-            ? {}
-            : { author: { oxyUserId: ownerOxyUserId } }),
+          ...(ownerOxyUserId === undefined ? {} : { author: { oxyUserId: ownerOxyUserId } }),
         },
         content,
         context,

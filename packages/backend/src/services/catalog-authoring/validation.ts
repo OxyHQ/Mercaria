@@ -303,10 +303,7 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
   if (input.description === null || input.description.trim().length === 0) {
     findings.push(finding('description_missing', 'error', 'listing.description'));
   }
-  if (
-    input.itemConditionKey === null &&
-    CONDITION_REQUIRED_AUTHORING_FLOWS.includes(input.flow)
-  ) {
+  if (input.itemConditionKey === null && CONDITION_REQUIRED_AUTHORING_FLOWS.includes(input.flow)) {
     // #572. An ERROR, and the alternative is not a blank field on a form: it is
     // `new` / `seller_declared` written onto the listing in the SELLER's own
     // name, about goods nobody described. Only the flows in the tuple raise it —
@@ -319,7 +316,9 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
 
   const fieldsById = new Map(input.schema.fields.map((field) => [field.id, field]));
   const rules = ruleValues(input.values);
-  const variantByPosition = new Map(input.variants.map((variant) => [variant.id, variant.position]));
+  const variantByPosition = new Map(
+    input.variants.map((variant) => [variant.id, variant.position]),
+  );
 
   // An answer citing a field this schema does not declare. Reported rather than
   // ignored: silently dropping it is how an author's twenty minutes disappear
@@ -391,10 +390,15 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
     if (field.variantCapable) continue;
     const position = variantByPosition.get(value.draftVariantId) ?? 0;
     findings.push(
-      finding('variant_axis_not_permitted', 'error', variantFieldPath(position, value.attributeKey), {
-        fieldId: field.id,
-        attributeKey: field.key,
-      }),
+      finding(
+        'variant_axis_not_permitted',
+        'error',
+        variantFieldPath(position, value.attributeKey),
+        {
+          fieldId: field.id,
+          attributeKey: field.key,
+        },
+      ),
     );
   }
 
@@ -435,7 +439,9 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
       );
     }
     if (variant.inventoryAvailable < 0) {
-      findings.push(finding('inventory_negative', 'error', `variants[${variant.position}].inventory`));
+      findings.push(
+        finding('inventory_negative', 'error', `variants[${variant.position}].inventory`),
+      );
     }
     if (variant.axisSignature === null) continue;
     if (seenSignatures.has(variant.axisSignature)) {

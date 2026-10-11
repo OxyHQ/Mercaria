@@ -694,7 +694,10 @@ function shopifyVariantSet(variants: NormalizedVariant[]): VariantSet {
 }
 
 /** PURE: map a raw Shopify product into a `NormalizedProduct` in `shopCurrency`. */
-export function normalizeShopifyProduct(raw: unknown, shopCurrency: CurrencyCode): NormalizedProduct {
+export function normalizeShopifyProduct(
+  raw: unknown,
+  shopCurrency: CurrencyCode,
+): NormalizedProduct {
   const parsed = shopifyProductSchema.safeParse(raw);
   if (!parsed.success) {
     throw validationError(`Malformed Shopify product: ${parsed.error.message}`);
@@ -782,7 +785,10 @@ function dualMoneyFromSet(
   presentmentCurrency: CurrencyCode,
 ): DualMoney {
   const shopAmount = set?.shop_money.amount ?? fallbackAmount ?? '0';
-  const shop: Money = { amount: decimalStringToMinor(shopAmount, shopCurrency), currency: shopCurrency };
+  const shop: Money = {
+    amount: decimalStringToMinor(shopAmount, shopCurrency),
+    currency: shopCurrency,
+  };
   if (presentmentCurrency !== shopCurrency && set?.presentment_money) {
     return {
       shop,
@@ -799,7 +805,10 @@ function dualMoneyFromSet(
 function multiplyDual(unit: DualMoney, quantity: number): DualMoney {
   return {
     shop: { amount: unit.shop.amount * quantity, currency: unit.shop.currency },
-    presentment: { amount: unit.presentment.amount * quantity, currency: unit.presentment.currency },
+    presentment: {
+      amount: unit.presentment.amount * quantity,
+      currency: unit.presentment.currency,
+    },
   };
 }
 
@@ -878,7 +887,10 @@ function mapShopifyCustomer(raw: ShopifyOrder['customer']): NormalizedOrderCusto
   const customer: NormalizedOrderCustomer = {};
   if (raw.id !== undefined) customer.externalId = String(raw.id);
   if (raw.email) customer.email = raw.email;
-  const name = [raw.first_name, raw.last_name].filter((p) => p).join(' ').trim();
+  const name = [raw.first_name, raw.last_name]
+    .filter((p) => p)
+    .join(' ')
+    .trim();
   if (name) customer.name = name;
   return Object.keys(customer).length > 0 ? customer : undefined;
 }
@@ -999,15 +1011,40 @@ export function normalizeShopifyOrder(raw: unknown, shopCurrency: CurrencyCode):
     : shopCurrency;
 
   const totals = {
-    subtotal: dualMoneyFromSet(order.subtotal_price_set, order.subtotal_price, shopCurrency, presentmentCurrency),
-    discountTotal: dualMoneyFromSet(order.total_discounts_set, order.total_discounts, shopCurrency, presentmentCurrency),
+    subtotal: dualMoneyFromSet(
+      order.subtotal_price_set,
+      order.subtotal_price,
+      shopCurrency,
+      presentmentCurrency,
+    ),
+    discountTotal: dualMoneyFromSet(
+      order.total_discounts_set,
+      order.total_discounts,
+      shopCurrency,
+      presentmentCurrency,
+    ),
     tax: dualMoneyFromSet(order.total_tax_set, order.total_tax, shopCurrency, presentmentCurrency),
-    shipping: dualMoneyFromSet(order.total_shipping_price_set, '0', shopCurrency, presentmentCurrency),
-    grandTotal: dualMoneyFromSet(order.total_price_set, order.total_price, shopCurrency, presentmentCurrency),
+    shipping: dualMoneyFromSet(
+      order.total_shipping_price_set,
+      '0',
+      shopCurrency,
+      presentmentCurrency,
+    ),
+    grandTotal: dualMoneyFromSet(
+      order.total_price_set,
+      order.total_price,
+      shopCurrency,
+      presentmentCurrency,
+    ),
   };
 
   const lines: NormalizedOrderLine[] = order.line_items.map((item) => {
-    const unitPrice = dualMoneyFromSet(item.price_set, item.price, shopCurrency, presentmentCurrency);
+    const unitPrice = dualMoneyFromSet(
+      item.price_set,
+      item.price,
+      shopCurrency,
+      presentmentCurrency,
+    );
     const line: NormalizedOrderLine = {
       title: item.title ?? item.name ?? 'Item',
       variantTitle: item.variant_title ?? DEFAULT_OPTION_VALUE,
@@ -1028,7 +1065,10 @@ export function normalizeShopifyOrder(raw: unknown, shopCurrency: CurrencyCode):
     throw validationError(`Shopify order ${String(order.id)} has no line items`);
   }
 
-  const { status, paymentStatus } = mapShopifyStatus(order.financial_status, order.fulfillment_status);
+  const { status, paymentStatus } = mapShopifyStatus(
+    order.financial_status,
+    order.fulfillment_status,
+  );
   // `asOf` lands in `orders.fx_rate_as_of`, which is `text()` — so a malformed
   // value would be STORED rather than refused, while an `FxRateSnapshot` is
   // supposed to identify a conversion completely (#221). It is VALIDATED and not
@@ -1073,14 +1113,20 @@ export function normalizeShopifyOrder(raw: unknown, shopCurrency: CurrencyCode):
 }
 
 /** Build one Shopify REST variant body from a `PushVariant` + the option order. */
-function toShopifyVariantBody(variant: PushVariant, optionNames: string[]): Record<string, unknown> {
+function toShopifyVariantBody(
+  variant: PushVariant,
+  optionNames: string[],
+): Record<string, unknown> {
   const body: Record<string, unknown> = {
     price: minorToDecimalString(variant.price.amount, variant.price.currency),
     inventory_management: variant.inventory.tracked ? 'shopify' : null,
     inventory_quantity: variant.inventory.available,
   };
   if (variant.compareAtPrice) {
-    body.compare_at_price = minorToDecimalString(variant.compareAtPrice.amount, variant.compareAtPrice.currency);
+    body.compare_at_price = minorToDecimalString(
+      variant.compareAtPrice.amount,
+      variant.compareAtPrice.currency,
+    );
   }
   if (variant.sku) body.sku = variant.sku;
   if (variant.barcode) body.barcode = variant.barcode;
@@ -1241,7 +1287,10 @@ function requestedQuantitiesByVariant(lines: PushFulfillmentLine[]): Map<string,
   const requested = new Map<string, number>();
   for (const line of lines) {
     if (line.externalVariantId && line.quantity > 0) {
-      requested.set(line.externalVariantId, (requested.get(line.externalVariantId) ?? 0) + line.quantity);
+      requested.set(
+        line.externalVariantId,
+        (requested.get(line.externalVariantId) ?? 0) + line.quantity,
+      );
     }
   }
   return requested;
@@ -1266,7 +1315,9 @@ function buildTrackingInfo(fulfillment: PushFulfillment): Record<string, string>
  * Construct a Shopify provider over `transport`. The default transport is the
  * real SSRF-safe one; tests inject a fake to exercise the mapping/paging logic.
  */
-export function createShopifyProvider(transport: ShopifyTransport = shopifyTransport): ConnectorProvider {
+export function createShopifyProvider(
+  transport: ShopifyTransport = shopifyTransport,
+): ConnectorProvider {
   /**
    * Per-shop product→collection-ids index, cached across the pages of one backfill
    * run (see {@link COLLECTION_INDEX_TTL_MS}). Scoped to THIS provider instance so
@@ -1371,7 +1422,11 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
   }
 
   /** Record that `productId` belongs to `collectionId` in the accumulating index. */
-  function addMembership(index: Map<string, Set<string>>, productId: string, collectionId: string): void {
+  function addMembership(
+    index: Map<string, Set<string>>,
+    productId: string,
+    collectionId: string,
+  ): void {
     const set = index.get(productId);
     if (set) {
       set.add(collectionId);
@@ -1419,7 +1474,9 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
       (body) => {
         const parsed = smartCollectionsResponseSchema.safeParse(body);
         if (!parsed.success) {
-          throw validationError(`Unexpected Shopify smart-collections payload: ${parsed.error.message}`);
+          throw validationError(
+            `Unexpected Shopify smart-collections payload: ${parsed.error.message}`,
+          );
         }
         for (const collection of parsed.data.smart_collections) {
           smartCollectionIds.push(String(collection.id));
@@ -1435,7 +1492,9 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
         (body) => {
           const parsed = collectionProductsResponseSchema.safeParse(body);
           if (!parsed.success) {
-            throw validationError(`Unexpected Shopify collection-products payload: ${parsed.error.message}`);
+            throw validationError(
+              `Unexpected Shopify collection-products payload: ${parsed.error.message}`,
+            );
           }
           for (const product of parsed.data.products) {
             addMembership(membership, String(product.id), collectionId);
@@ -1591,7 +1650,10 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
         throw validationError(`Unexpected Shopify token payload: ${parsed.error.message}`);
       }
 
-      const identity = await verifyConnection({ accessToken: parsed.data.access_token, shopDomain });
+      const identity = await verifyConnection({
+        accessToken: parsed.data.access_token,
+        shopDomain,
+      });
       const grantedScopes = parsed.data.scope
         .split(',')
         .map((s) => s.trim())
@@ -1615,7 +1677,9 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
       if (!parsed.success) {
         throw validationError(`Unexpected Shopify products payload: ${parsed.error.message}`);
       }
-      const products = parsed.data.products.map((p) => normalizeShopifyProduct(p, creds.shopCurrency));
+      const products = parsed.data.products.map((p) =>
+        normalizeShopifyProduct(p, creds.shopCurrency),
+      );
 
       // REST products.json omits collection membership — enrich each product with its
       // external collection ids from the per-run index (built once on the first page).
@@ -1660,7 +1724,9 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
           )
         : await transport.post(`${apiBase(auth.shopDomain)}/products.json`, headers, body);
       assertOk(response, product.externalId ? 'product update' : 'product create');
-      const parsed = productMutationResponseSchema.safeParse(parseJson(response, 'product mutation'));
+      const parsed = productMutationResponseSchema.safeParse(
+        parseJson(response, 'product mutation'),
+      );
       if (!parsed.success) {
         throw validationError(`Unexpected Shopify product payload: ${parsed.error.message}`);
       }
@@ -1748,7 +1814,9 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
           { 'X-Shopify-Access-Token': auth.accessToken, Accept: 'application/json' },
         );
         assertOk(response, 'inventory levels');
-        const parsed = inventoryLevelsResponseSchema.safeParse(parseJson(response, 'inventory levels'));
+        const parsed = inventoryLevelsResponseSchema.safeParse(
+          parseJson(response, 'inventory levels'),
+        );
         if (!parsed.success) {
           throw validationError(`Unexpected Shopify inventory payload: ${parsed.error.message}`);
         }
@@ -1787,7 +1855,9 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
         parseJson(listResponse, 'fulfillment orders lookup'),
       );
       if (!parsed.success) {
-        throw validationError(`Unexpected Shopify fulfillment-orders payload: ${parsed.error.message}`);
+        throw validationError(
+          `Unexpected Shopify fulfillment-orders payload: ${parsed.error.message}`,
+        );
       }
 
       const requestedByVariant = fulfillment.lines

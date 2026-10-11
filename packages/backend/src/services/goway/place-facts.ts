@@ -73,7 +73,10 @@ export interface PlaceFacts {
   readonly contact: LocationPublicContact;
   readonly accessibility: LocationAccessibilityFacts;
   /** The strongest `commerce.mercaria.store` assertion, when the place carries one. */
-  readonly storeLink?: { readonly locationId: string; readonly verification: CapabilityVerification };
+  readonly storeLink?: {
+    readonly locationId: string;
+    readonly verification: CapabilityVerification;
+  };
   /** `https://goway.to/place/<id>`. */
   readonly url: string;
 }
@@ -107,7 +110,20 @@ const ACCESSIBILITY_KEYS = [
  * "street number", the continental order.
  */
 const NUMBER_FIRST_COUNTRIES: ReadonlySet<string> = new Set([
-  'AU', 'CA', 'FR', 'GB', 'IE', 'IL', 'IN', 'LU', 'MY', 'NZ', 'PH', 'SG', 'US', 'ZA',
+  'AU',
+  'CA',
+  'FR',
+  'GB',
+  'IE',
+  'IL',
+  'IN',
+  'LU',
+  'MY',
+  'NZ',
+  'PH',
+  'SG',
+  'US',
+  'ZA',
 ]);
 
 /** Project one GoWay place, as the SDK parsed it. */
@@ -140,7 +156,9 @@ export function placeFactsOf(place: Place, url: string): PlaceFacts {
       ...(nonEmpty(address.locality) === undefined ? {} : { line2: nonEmpty(address.locality) }),
       ...(nonEmpty(address.city) === undefined ? {} : { city: nonEmpty(address.city) }),
       ...(nonEmpty(address.region) === undefined ? {} : { region: nonEmpty(address.region) }),
-      ...(nonEmpty(address.postalCode) === undefined ? {} : { postalCode: nonEmpty(address.postalCode) }),
+      ...(nonEmpty(address.postalCode) === undefined
+        ? {}
+        : { postalCode: nonEmpty(address.postalCode) }),
       ...(country === undefined || !/^[A-Z]{2}$/.test(country) ? {} : { country }),
     },
     ...(place.timezone === undefined ? {} : { timezone: place.timezone }),
@@ -150,8 +168,12 @@ export function placeFactsOf(place: Place, url: string): PlaceFacts {
       ...(place.hoursExceptions === undefined ? {} : { hoursExceptions: place.hoursExceptions }),
     },
     contact: {
-      ...(nonEmpty(place.contact?.phone) === undefined ? {} : { phone: nonEmpty(place.contact?.phone) }),
-      ...(nonEmpty(place.contact?.website) === undefined ? {} : { url: nonEmpty(place.contact?.website) }),
+      ...(nonEmpty(place.contact?.phone) === undefined
+        ? {}
+        : { phone: nonEmpty(place.contact?.phone) }),
+      ...(nonEmpty(place.contact?.website) === undefined
+        ? {}
+        : { url: nonEmpty(place.contact?.website) }),
     },
     accessibility,
     ...(link !== undefined && typeof link.value === 'string' && link.value !== ''

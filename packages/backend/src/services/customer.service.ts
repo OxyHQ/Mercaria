@@ -226,10 +226,7 @@ export async function listCustomers(
 }
 
 /** Load one customer scoped to its store, or throw NOT_FOUND. */
-export async function getCustomer(
-  storeId: string,
-  customerId: string,
-): Promise<CustomerRecord> {
+export async function getCustomer(storeId: string, customerId: string): Promise<CustomerRecord> {
   const customer = await findCustomer(storeId, customerId);
   if (!customer) {
     throw notFound('Customer not found');
@@ -276,9 +273,7 @@ export async function updateCustomer(
     const updated = await updateCustomerRow(storeId, customerId, {
       // Claiming an Oxy account also stops the record being a walk-in — the two
       // move together, exactly as they did when the service set both by hand.
-      ...(patch.oxyUserId !== undefined
-        ? { oxyUserId: patch.oxyUserId, isWalkIn: false }
-        : {}),
+      ...(patch.oxyUserId !== undefined ? { oxyUserId: patch.oxyUserId, isWalkIn: false } : {}),
       ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
       ...(patch.email !== undefined ? { email: patch.email } : {}),
       ...(patch.phone !== undefined ? { phone: patch.phone } : {}),

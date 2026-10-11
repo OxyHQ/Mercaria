@@ -34,10 +34,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { AuthoringCanonicalRefKind } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
-import {
-  catalogAuthoringDraftValues,
-  catalogAuthoringDrafts,
-} from '../schema/catalogAuthoring.js';
+import { catalogAuthoringDraftValues, catalogAuthoringDrafts } from '../schema/catalogAuthoring.js';
 import { nativeListingAttributeClaims } from '../schema/variantAxes.js';
 
 /**

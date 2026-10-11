@@ -118,7 +118,10 @@ describe('the pilot admits only what a published cohort names', () => {
       ).outcome,
     ).toBe('admitted');
     expect(
-      deriveRetailPilotAdmission(state(), request({ lineTotalMinor: 5_001, orderTotalMinor: 5_001 })),
+      deriveRetailPilotAdmission(
+        state(),
+        request({ lineTotalMinor: 5_001, orderTotalMinor: 5_001 }),
+      ),
     ).toEqual({ outcome: 'refused', reason: 'item_value_above_cohort_limit' });
 
     expect(
@@ -309,14 +312,23 @@ describe('stop thresholds report what was NOT measured', () => {
   it('will not read a rate off a sample too small to mean anything', () => {
     // A 2% threshold against three orders fires on the first failure, which is
     // a signal about three orders rather than about the pilot.
-    expect(
-      evaluateStopThresholds([rate], [measurement({ value: 5_000, sampleSize: 3 })]),
-    ).toEqual([{ outcome: 'unmeasured', metric: 'supplier_stock_rejection', reason: 'empty_sample' }]);
+    expect(evaluateStopThresholds([rate], [measurement({ value: 5_000, sampleSize: 3 })])).toEqual([
+      { outcome: 'unmeasured', metric: 'supplier_stock_rejection', reason: 'empty_sample' },
+    ]);
     // A COUNT has no such floor: one incident is one incident.
     expect(
-      evaluateStopThresholds([once], [
-        { metric: 'non_eu_dispatch_origin', unit: 'count', value: 1, scopeRef: '', sampleSize: 1 },
-      ]),
+      evaluateStopThresholds(
+        [once],
+        [
+          {
+            metric: 'non_eu_dispatch_origin',
+            unit: 'count',
+            value: 1,
+            scopeRef: '',
+            sampleSize: 1,
+          },
+        ],
+      ),
     ).toEqual([
       {
         outcome: 'breached',

@@ -289,11 +289,7 @@ export const merchantActivationCapabilityEvents = pgTable(
      * email or a moderation finding has no shape to arrive in — `analytics.ts`'
      * allow-list argument, applied to an audit row.
      */
-    unmet: text()
-      .array()
-      .$type<string[]>()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    unmet: text().array().$type<string[]>().notNull().default(sql`'{}'::text[]`),
     actorKind: text({ enum: asEnumValues(MERCHANT_ACTIVATION_ACTOR_KINDS) }).notNull(),
     /** NULL for `system`, which is most transitions — see the type's docblock. */
     actorOxyUserId: text(),
@@ -321,7 +317,11 @@ export const merchantActivationCapabilityEvents = pgTable(
       t.actorKind,
       MERCHANT_ACTIVATION_ACTOR_KINDS,
     ),
-    checkOneOf('merchant_activation_capability_events_cause_check', t.cause, MERCHANT_ACTIVATION_CAUSES),
+    checkOneOf(
+      'merchant_activation_capability_events_cause_check',
+      t.cause,
+      MERCHANT_ACTIVATION_CAUSES,
+    ),
     // A `merchant` or `operator` transition names the person; a `system` one
     // must NOT, or a sweep's observation would be attributed to whoever happened
     // to trigger it. A biconditional, so neither direction can be forgotten.

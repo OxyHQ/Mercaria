@@ -56,7 +56,10 @@ import {
 } from '@mercaria/shared-types';
 import { uuidv7 } from '@oxy.so/db';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
-import { findClaimById, findScopesForClaim } from '../../db/merchant-claims/merchantClaimRepository.js';
+import {
+  findClaimById,
+  findScopesForClaim,
+} from '../../db/merchant-claims/merchantClaimRepository.js';
 import {
   findMerchantById,
   listMerchantDomains,
@@ -68,10 +71,7 @@ import {
 } from '../../db/commerce-graph/nativeStoreLinkRepository.js';
 import { findConnectionsByStore } from '../../db/connectors/connectionRepository.js';
 import { findListingIdsByStore } from '../../db/catalog/listingRepository.js';
-import {
-  findStoreById,
-  updateStoreColumns,
-} from '../../db/stores/storeRepository.js';
+import { findStoreById, updateStoreColumns } from '../../db/stores/storeRepository.js';
 import { findVariantsByListing } from '../../db/catalog/variantRepository.js';
 import {
   advanceRequestStep,
@@ -600,11 +600,12 @@ async function runApplication(args: {
     storeId,
     actorOxyUserId: params.actorOxyUserId,
   });
-  request = (await advanceRequestStep(db, {
-    requestId: request.id,
-    from: request.step,
-    to: 'link_written',
-  })) ?? (await requireRequest(db, request.id));
+  request =
+    (await advanceRequestStep(db, {
+      requestId: request.id,
+      from: request.step,
+      to: 'link_written',
+    })) ?? (await requireRequest(db, request.id));
 
   // ── Step 3: the profile fields the owner chose ───────────────────────────
   await applySelectedProfileFields({
@@ -614,27 +615,30 @@ async function runApplication(args: {
     actorOxyUserId: params.actorOxyUserId,
     now,
   });
-  request = (await advanceRequestStep(db, {
-    requestId: request.id,
-    from: request.step,
-    to: 'profile_applied',
-  })) ?? (await requireRequest(db, request.id));
+  request =
+    (await advanceRequestStep(db, {
+      requestId: request.id,
+      from: request.step,
+      to: 'profile_applied',
+    })) ?? (await requireRequest(db, request.id));
 
   // ── Step 4: #58's seam, fail-closed ──────────────────────────────────────
   const matchState = await requestCatalogMatching(storeId);
-  request = (await advanceRequestStep(db, {
-    requestId: request.id,
-    from: request.step,
-    to: 'catalog_matching_requested',
-  })) ?? (await requireRequest(db, request.id));
+  request =
+    (await advanceRequestStep(db, {
+      requestId: request.id,
+      from: request.step,
+      to: 'catalog_matching_requested',
+    })) ?? (await requireRequest(db, request.id));
 
   // ── Step 5: #57's convergence, then the overlap findings ─────────────────
   await reconcileCatalogAndOffers({ request, storeId, now });
-  request = (await advanceRequestStep(db, {
-    requestId: request.id,
-    from: request.step,
-    to: 'offers_reconciled',
-  })) ?? (await requireRequest(db, request.id));
+  request =
+    (await advanceRequestStep(db, {
+      requestId: request.id,
+      from: request.step,
+      to: 'offers_reconciled',
+    })) ?? (await requireRequest(db, request.id));
 
   await updateRequestImpact(
     db,
@@ -798,7 +802,10 @@ async function applySelectedProfileFields(input: {
   if (input.adoptFields.length === 0) return;
 
   const db = getDb();
-  const diff = await getLinkageDiff({ storeId: input.storeId, merchantId: input.request.merchantId });
+  const diff = await getLinkageDiff({
+    storeId: input.storeId,
+    merchantId: input.request.merchantId,
+  });
   const plan = planProfileAdoption({ diff, selected: input.adoptFields });
   if (plan.length === 0) return;
 

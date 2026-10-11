@@ -64,7 +64,11 @@ import { requestPriceAlertEvaluation } from '../../db/priceAlerts/priceAlertEval
 import { requestShoppingAgentTrigger } from '../../db/shoppingAgents/shoppingAgentTriggerRepository.js';
 
 /** The seller key shape `checkout.service` and the payments seam already share. */
-function sellerKeyForListing(row: { ownerType: string; storeId: string | null; oxyUserId: string | null }): string | null {
+function sellerKeyForListing(row: {
+  ownerType: string;
+  storeId: string | null;
+  oxyUserId: string | null;
+}): string | null {
   if (row.ownerType === 'store' && row.storeId) return `store:${row.storeId}`;
   if (row.ownerType === 'user' && row.oxyUserId) return `user:${row.oxyUserId}`;
   return null;
@@ -84,9 +88,13 @@ export async function buildOfferProjectionContext(
   now: Date = new Date(),
   db: DatabaseOrTransaction = getDb(),
 ): Promise<OfferProjectionContext> {
-  const listingIds = [...new Set(rows.flatMap((row) => (row.offer.listingId ? [row.offer.listingId] : [])))];
+  const listingIds = [
+    ...new Set(rows.flatMap((row) => (row.offer.listingId ? [row.offer.listingId] : []))),
+  ];
   const variantIds = [
-    ...new Set(rows.flatMap((row) => (row.offer.productVariantId ? [row.offer.productVariantId] : []))),
+    ...new Set(
+      rows.flatMap((row) => (row.offer.productVariantId ? [row.offer.productVariantId] : [])),
+    ),
   ];
   const sourceRecordIds = [
     ...new Set(rows.flatMap((row) => (row.offer.sourceRecordId ? [row.offer.sourceRecordId] : []))),
@@ -300,9 +308,10 @@ export async function listOffers(
    * because the cursor is a keyset over the SQL order which this does not
    * touch.
    */
-  const offers = input.includeStale === true
-    ? projected
-    : projected.filter((offer) => mayAppearInComparison(offer.freshness));
+  const offers =
+    input.includeStale === true
+      ? projected
+      : projected.filter((offer) => mayAppearInComparison(offer.freshness));
 
   const last = page[page.length - 1];
   return {
@@ -442,7 +451,10 @@ export async function recordExternalOffer(
   // state, so this call is also where "a low-confidence mapping is never
   // upgraded" is produced rather than merely checked.
   const conditionColumns = observation.conditionMappingProvider
-    ? await mapSourceCondition(observation.conditionMappingProvider, observation.conditionSourceLabel)
+    ? await mapSourceCondition(
+        observation.conditionMappingProvider,
+        observation.conditionSourceLabel,
+      )
     : unmappedOfferCondition(observation.conditionSourceLabel ?? null);
 
   const qualitySignals: InsertOfferInput['qualitySignals'] = [];

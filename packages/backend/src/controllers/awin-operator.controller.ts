@@ -171,7 +171,12 @@ export async function registerAwinAccountHandler(req: Request, res: Response): P
   try {
     const parsed = registerAwinAccountSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid body', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid body',
+        400,
+      );
       return;
     }
     // Named explicitly rather than spread: this package compiles with
@@ -202,7 +207,12 @@ export async function changeAwinAccountStateHandler(req: Request, res: Response)
   try {
     const parsed = changeAwinAccountStateSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid body', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid body',
+        400,
+      );
       return;
     }
     const account = await changeAwinAccountState({
@@ -296,18 +306,19 @@ export async function registerAwinSourceHandler(req: Request, res: Response): Pr
   try {
     const parsed = registerAwinSourceSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid body', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid body',
+        400,
+      );
       return;
     }
     const advertiser = await registerAwinAdvertiserSource({
       advertiserRowId: routeParam(req, 'advertiserId'),
       merchantId: parsed.data.merchantId ?? '',
-      ...(parsed.data.storefrontId === undefined
-        ? {}
-        : { storefrontId: parsed.data.storefrontId }),
-      ...(parsed.data.territories === undefined
-        ? {}
-        : { territories: parsed.data.territories }),
+      ...(parsed.data.storefrontId === undefined ? {} : { storefrontId: parsed.data.storefrontId }),
+      ...(parsed.data.territories === undefined ? {} : { territories: parsed.data.territories }),
       ...(parsed.data.freshnessTtlSeconds === undefined
         ? {}
         : { freshnessTtlSeconds: parsed.data.freshnessTtlSeconds }),
@@ -324,7 +335,12 @@ export async function changeAwinActivationHandler(req: Request, res: Response): 
   try {
     const parsed = changeAwinActivationSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid body', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid body',
+        400,
+      );
       return;
     }
     const advertiser = await changeAwinAdvertiserActivation({
@@ -344,7 +360,12 @@ export async function recordAwinSampleHandler(req: Request, res: Response): Prom
   try {
     const parsed = recordAwinSampleSchema.safeParse(req.body);
     if (!parsed.success) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, parsed.error.issues[0]?.message ?? 'Invalid body', 400);
+      sendError(
+        res,
+        ErrorCodes.VALIDATION_ERROR,
+        parsed.error.issues[0]?.message ?? 'Invalid body',
+        400,
+      );
       return;
     }
     const sample = await recordAwinSample({

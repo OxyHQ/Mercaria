@@ -181,7 +181,8 @@ function toCompetitivenessCsv(rows: readonly MerchantCompetitivenessRow[]): stri
       row.subject.taxInclusion,
       row.subject.from,
       row.subject.to,
-      value !== undefined && (value.measure === 'relative' || value.measure === 'drop' || value.measure === 'label')
+      value !== undefined &&
+      (value.measure === 'relative' || value.measure === 'drop' || value.measure === 'label')
         ? String(value.deltaBps)
         : '',
       value !== undefined && value.measure === 'relative' ? value.position : '',
@@ -323,10 +324,7 @@ export async function createPriceSignalPolicyHandler(req: Request, res: Response
  * signal is computed at read time from observations this domain never writes,
  * which is issue monitoring 6 in one call.
  */
-export async function activatePriceSignalPolicyHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function activatePriceSignalPolicyHandler(req: Request, res: Response): Promise<void> {
   try {
     const activated = await activatePriceSignalPolicyVersion(
       routeParam(req, 'id'),
@@ -377,7 +375,8 @@ export async function createPriceSignalRunHandler(req: Request, res: Response): 
       market?: string;
     };
     const version = await findPriceSignalPolicyByVersion(body.policyVersion);
-    if (version === undefined) throw validationError(`Unknown policy version ${body.policyVersion}`);
+    if (version === undefined)
+      throw validationError(`Unknown policy version ${body.policyVersion}`);
 
     const run = await insertPriceSignalRun({
       policyVersionId: version.id,

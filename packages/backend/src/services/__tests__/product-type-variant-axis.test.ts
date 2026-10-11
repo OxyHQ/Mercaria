@@ -96,8 +96,11 @@ describe('scope is the first wall', () => {
     // realistic mistake is declaring a fitment fact with `scope: 'variant'`,
     // which walks straight past the scope wall.
     expect(
-      assessVariantAxis({ scope: 'compatibility', attributeKey: 'year_range', variantCapable: true })
-        .outcome,
+      assessVariantAxis({
+        scope: 'compatibility',
+        attributeKey: 'year_range',
+        variantCapable: true,
+      }).outcome,
     ).toBe('refused');
     const mislabelled = assessVariantAxis({
       scope: 'variant',

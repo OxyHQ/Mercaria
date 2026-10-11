@@ -1,18 +1,18 @@
-import { useState } from "react";
-import { Pressable, View } from "react-native";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "@oxy.so/bloom/toast";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from '@oxy.so/bloom/toast';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
 import {
   ABUSE_REPORT_CATEGORIES,
   type AbuseReportCategory,
   type AbuseReportedType,
-} from "@mercaria/shared-types";
-import { Dialog, type DialogControlProps } from "@oxy.so/bloom/dialog";
-import { Text } from "@mercaria/ui";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import { submitAbuseReport } from "@/lib/api/reports";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/shared-types';
+import { Dialog, type DialogControlProps } from '@oxy.so/bloom/dialog';
+import { Text } from '@mercaria/ui';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { submitAbuseReport } from '@/lib/api/reports';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * One abuse-report form for listings, reviews, sellers and stores, using the existing POST /reports
@@ -30,20 +30,20 @@ import { useTranslation } from "@/lib/i18n";
  * Each key is a literal so the i18n guard can see it is referenced.
  */
 const CATEGORY_LABEL_KEYS: Readonly<Record<AbuseReportCategory, string>> = {
-  counterfeit: "sellers.report.category.counterfeit",
-  prohibited_item: "sellers.report.category.prohibitedItem",
-  misleading_listing: "sellers.report.category.misleadingListing",
-  unsafe_product: "sellers.report.category.unsafeProduct",
-  stolen_goods: "sellers.report.category.stolenGoods",
-  scam: "sellers.report.category.scam",
-  impersonation: "sellers.report.category.impersonation",
-  spam: "sellers.report.category.spam",
-  hateful_content: "sellers.report.category.hatefulContent",
+  counterfeit: 'sellers.report.category.counterfeit',
+  prohibited_item: 'sellers.report.category.prohibitedItem',
+  misleading_listing: 'sellers.report.category.misleadingListing',
+  unsafe_product: 'sellers.report.category.unsafeProduct',
+  stolen_goods: 'sellers.report.category.stolenGoods',
+  scam: 'sellers.report.category.scam',
+  impersonation: 'sellers.report.category.impersonation',
+  spam: 'sellers.report.category.spam',
+  hateful_content: 'sellers.report.category.hatefulContent',
   // `somethingElse`, not `other`: a leaf whose last segment is a CLDR plural
   // category makes its PARENT look pluralised to the bundle tooling, which
   // reads `sellers.report.category` as a resolvable key that is really an
   // object.
-  other: "sellers.report.category.somethingElse",
+  other: 'sellers.report.category.somethingElse',
 };
 Object.freeze(CATEGORY_LABEL_KEYS);
 
@@ -64,7 +64,7 @@ export function AbuseReportDialog({
   const { t } = useTranslation();
   const { isAuthenticated } = useOxy();
   const [selected, setSelected] = useState<AbuseReportCategory[]>([]);
-  const [details, setDetails] = useState("");
+  const [details, setDetails] = useState('');
 
   const submit = useMutation({
     mutationFn: () =>
@@ -76,9 +76,9 @@ export function AbuseReportDialog({
       }),
     onSuccess: () => {
       // "Received", never "reviewed" — see the header.
-      toast.success(t("sellers.report.received"));
+      toast.success(t('sellers.report.received'));
       setSelected([]);
-      setDetails("");
+      setDetails('');
       control.close();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -95,15 +95,13 @@ export function AbuseReportDialog({
   return (
     <Dialog
       control={control}
-      title={t("sellers.report.title", { name: displayName })}
-      description={t("sellers.report.description")}
+      title={t('sellers.report.title', { name: displayName })}
+      description={t('sellers.report.description')}
       actions={
         isAuthenticated
           ? [
               {
-                label: submit.isPending
-                  ? t("sellers.report.sending")
-                  : t("sellers.report.send"),
+                label: submit.isPending ? t('sellers.report.sending') : t('sellers.report.send'),
                 disabled: selected.length === 0 || submit.isPending,
                 // Stays open while the report is in flight; `onSuccess` closes it,
                 // and a failure leaves the reader's choices where they were.
@@ -117,7 +115,7 @@ export function AbuseReportDialog({
               // the one that gets them one rather than a form that would 401 on
               // submit.
               {
-                label: t("sellers.report.signIn"),
+                label: t('sellers.report.signIn'),
                 onPress: () => openAccountDialog(),
               },
             ]
@@ -136,7 +134,7 @@ export function AbuseReportDialog({
                   accessibilityLabel={t(CATEGORY_LABEL_KEYS[category])}
                   onPress={() => toggle(category)}
                   className={`rounded-full border px-4 py-2 ${
-                    active ? "border-foreground bg-muted" : "border-border"
+                    active ? 'border-foreground bg-muted' : 'border-border'
                   }`}
                 >
                   <Text className="text-sm text-foreground">
@@ -151,7 +149,7 @@ export function AbuseReportDialog({
             value={details}
             onValueChange={setDetails}
             maxLength={MAX_DETAILS}
-            placeholder={t("sellers.report.detailsPlaceholder")}
+            placeholder={t('sellers.report.detailsPlaceholder')}
             rows={4}
             autoResize
           />

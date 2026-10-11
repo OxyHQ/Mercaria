@@ -352,7 +352,10 @@ export const BENCHMARK_DEFINITIONS: readonly BenchmarkDefinition[] = [
  */
 export function fixtureDefinition(
   input: BenchmarkDefinition['definition'],
-  overrides: { version?: number; lifecycleState?: 'draft' | 'active' | 'deprecated' | 'retired' } = {},
+  overrides: {
+    version?: number;
+    lifecycleState?: 'draft' | 'active' | 'deprecated' | 'retired';
+  } = {},
 ): ResolvedAttributeDefinition {
   const enumValues = (input.enumValues ?? []).map((value, position) => ({
     id: `enum-${input.key}-${value.value}`,
@@ -488,64 +491,261 @@ export interface BenchmarkObservation {
 
 export const BENCHMARK_OBSERVATIONS: readonly BenchmarkObservation[] = [
   // 1. Mixed units — two spellings of one fact, and they must agree.
-  { property: 'mixed units', attributeKey: 'screen_size', displayValue: '6.1 in', expected: 'normalized', baseMagnitude: 154.94 },
-  { property: 'mixed units', attributeKey: 'screen_size', displayValue: '154.94 mm', expected: 'normalized', baseMagnitude: 154.94 },
-  { property: 'mixed units', attributeKey: 'storage_capacity', displayValue: '256GB', expected: 'normalized', baseMagnitude: 256_000_000_000 },
-  { property: 'mixed units', attributeKey: 'storage_capacity', displayValue: '0.256 TB', expected: 'normalized', baseMagnitude: 256_000_000_000 },
+  {
+    property: 'mixed units',
+    attributeKey: 'screen_size',
+    displayValue: '6.1 in',
+    expected: 'normalized',
+    baseMagnitude: 154.94,
+  },
+  {
+    property: 'mixed units',
+    attributeKey: 'screen_size',
+    displayValue: '154.94 mm',
+    expected: 'normalized',
+    baseMagnitude: 154.94,
+  },
+  {
+    property: 'mixed units',
+    attributeKey: 'storage_capacity',
+    displayValue: '256GB',
+    expected: 'normalized',
+    baseMagnitude: 256_000_000_000,
+  },
+  {
+    property: 'mixed units',
+    attributeKey: 'storage_capacity',
+    displayValue: '0.256 TB',
+    expected: 'normalized',
+    baseMagnitude: 256_000_000_000,
+  },
   // Decimal and binary storage prefixes are NOT the same unit.
-  { property: 'mixed units', attributeKey: 'storage_capacity', displayValue: '256 GiB', expected: 'normalized', baseMagnitude: 274_877_906_944 },
+  {
+    property: 'mixed units',
+    attributeKey: 'storage_capacity',
+    displayValue: '256 GiB',
+    expected: 'normalized',
+    baseMagnitude: 274_877_906_944,
+  },
 
   // 5. Enum aliases — every spelling resolves, and the source text survives.
-  { property: 'enum aliases', attributeKey: 'charging_port', displayValue: 'USB C', expected: 'normalized', normalizedText: 'usb_c' },
-  { property: 'enum aliases', attributeKey: 'charging_port', displayValue: 'Type-C', expected: 'normalized', normalizedText: 'usb_c' },
-  { property: 'enum aliases', attributeKey: 'charging_port', displayValue: 'usb-c', expected: 'normalized', normalizedText: 'usb_c' },
-  { property: 'enum aliases', attributeKey: 'charging_port', displayValue: 'Barrel jack', expected: 'unparsed' },
+  {
+    property: 'enum aliases',
+    attributeKey: 'charging_port',
+    displayValue: 'USB C',
+    expected: 'normalized',
+    normalizedText: 'usb_c',
+  },
+  {
+    property: 'enum aliases',
+    attributeKey: 'charging_port',
+    displayValue: 'Type-C',
+    expected: 'normalized',
+    normalizedText: 'usb_c',
+  },
+  {
+    property: 'enum aliases',
+    attributeKey: 'charging_port',
+    displayValue: 'usb-c',
+    expected: 'normalized',
+    normalizedText: 'usb_c',
+  },
+  {
+    property: 'enum aliases',
+    attributeKey: 'charging_port',
+    displayValue: 'Barrel jack',
+    expected: 'unparsed',
+  },
 
   // 6. Ranges — inclusive bounds, both ends kept.
-  { property: 'ranges', attributeKey: 'warranty_period', displayValue: '1-3 years', expected: 'unknown_unit' },
-  { property: 'ranges', attributeKey: 'warranty_period', displayValue: '365-1095 d', expected: 'normalized', range: [31_536_000, 94_608_000] },
-  { property: 'ranges', attributeKey: 'warranty_period', displayValue: '7 to 30 d', expected: 'normalized', range: [604_800, 2_592_000] },
+  {
+    property: 'ranges',
+    attributeKey: 'warranty_period',
+    displayValue: '1-3 years',
+    expected: 'unknown_unit',
+  },
+  {
+    property: 'ranges',
+    attributeKey: 'warranty_period',
+    displayValue: '365-1095 d',
+    expected: 'normalized',
+    range: [31_536_000, 94_608_000],
+  },
+  {
+    property: 'ranges',
+    attributeKey: 'warranty_period',
+    displayValue: '7 to 30 d',
+    expected: 'normalized',
+    range: [604_800, 2_592_000],
+  },
   // An inverted interval is refused, never reordered.
-  { property: 'ranges', attributeKey: 'warranty_period', displayValue: '30-7 d', expected: 'unknown_unit' },
+  {
+    property: 'ranges',
+    attributeKey: 'warranty_period',
+    displayValue: '30-7 d',
+    expected: 'unknown_unit',
+  },
 
   // 8. Source scale errors — recorded, never shown.
-  { property: 'scale errors', attributeKey: 'screen_size', displayValue: '2400000 mm', expected: 'implausible' },
-  { property: 'scale errors', attributeKey: 'weight', displayValue: '0.148 g', expected: 'implausible' },
-  { property: 'scale errors', attributeKey: 'weight', displayValue: '148 g', expected: 'normalized', baseMagnitude: 148 },
+  {
+    property: 'scale errors',
+    attributeKey: 'screen_size',
+    displayValue: '2400000 mm',
+    expected: 'implausible',
+  },
+  {
+    property: 'scale errors',
+    attributeKey: 'weight',
+    displayValue: '0.148 g',
+    expected: 'implausible',
+  },
+  {
+    property: 'scale errors',
+    attributeKey: 'weight',
+    displayValue: '148 g',
+    expected: 'normalized',
+    baseMagnitude: 148,
+  },
 
   // 2. Ambiguity: a bare number is NEVER given a unit by inference…
-  { property: 'no inferred unit', attributeKey: 'weight', displayValue: '148', expected: 'unparsed' },
+  {
+    property: 'no inferred unit',
+    attributeKey: 'weight',
+    displayValue: '148',
+    expected: 'unparsed',
+  },
   // …but a RECORDED per-source mapping supplies one.
-  { property: 'no inferred unit', attributeKey: 'weight', displayValue: '148', expected: 'normalized', baseMagnitude: 148, assumedUnit: 'g' },
+  {
+    property: 'no inferred unit',
+    attributeKey: 'weight',
+    displayValue: '148',
+    expected: 'normalized',
+    baseMagnitude: 148,
+    assumedUnit: 'g',
+  },
 
   // Cross-family refusal: a mass is not a screen size.
-  { property: 'cross-family refusal', attributeKey: 'screen_size', displayValue: '6 kg', expected: 'unknown_unit' },
+  {
+    property: 'cross-family refusal',
+    attributeKey: 'screen_size',
+    displayValue: '6 kg',
+    expected: 'unknown_unit',
+  },
   // An unknown token is a taxonomy gap, not a guess.
-  { property: 'unknown unit', attributeKey: 'screen_size', displayValue: '12 parsecs', expected: 'unknown_unit' },
+  {
+    property: 'unknown unit',
+    attributeKey: 'screen_size',
+    displayValue: '12 parsecs',
+    expected: 'unknown_unit',
+  },
 
   // 10. Marketing claims never become objective attributes.
-  { property: 'marketing claim', attributeKey: 'build_material', displayValue: 'Premium quality aluminium', expected: 'marketing_claim' },
-  { property: 'marketing claim', attributeKey: 'build_material', displayValue: 'Aluminium', expected: 'normalized', normalizedText: 'aluminium' },
+  {
+    property: 'marketing claim',
+    attributeKey: 'build_material',
+    displayValue: 'Premium quality aluminium',
+    expected: 'marketing_claim',
+  },
+  {
+    property: 'marketing claim',
+    attributeKey: 'build_material',
+    displayValue: 'Aluminium',
+    expected: 'normalized',
+    normalizedText: 'aluminium',
+  },
   // The same words on a SUBJECTIVE attribute are the point of the field.
-  { property: 'marketing claim', attributeKey: 'editorial_style', displayValue: 'Premium quality finish', expected: 'normalized', normalizedText: 'premium quality finish' },
+  {
+    property: 'marketing claim',
+    attributeKey: 'editorial_style',
+    displayValue: 'Premium quality finish',
+    expected: 'normalized',
+    normalizedText: 'premium quality finish',
+  },
 
   // Typed refusals that a looser parser would coerce.
-  { property: 'typed refusal', attributeKey: 'core_count', displayValue: '8.5', expected: 'unparsed' },
-  { property: 'typed refusal', attributeKey: 'core_count', displayValue: '8', expected: 'normalized', baseMagnitude: 8 },
-  { property: 'typed refusal', attributeKey: 'core_count', displayValue: '9000', expected: 'out_of_range' },
-  { property: 'typed refusal', attributeKey: 'release_date', displayValue: '03/04/2026', expected: 'unparsed' },
-  { property: 'typed refusal', attributeKey: 'release_date', displayValue: '2026-04-03', expected: 'normalized' },
-  { property: 'typed refusal', attributeKey: 'msrp', displayValue: '1199.00 USD', expected: 'unparsed' },
-  { property: 'typed refusal', attributeKey: 'msrp', displayValue: '1199.00 EUR', expected: 'normalized' },
-  { property: 'typed refusal', attributeKey: 'water_resistant', displayValue: 'yes', expected: 'normalized' },
+  {
+    property: 'typed refusal',
+    attributeKey: 'core_count',
+    displayValue: '8.5',
+    expected: 'unparsed',
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'core_count',
+    displayValue: '8',
+    expected: 'normalized',
+    baseMagnitude: 8,
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'core_count',
+    displayValue: '9000',
+    expected: 'out_of_range',
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'release_date',
+    displayValue: '03/04/2026',
+    expected: 'unparsed',
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'release_date',
+    displayValue: '2026-04-03',
+    expected: 'normalized',
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'msrp',
+    displayValue: '1199.00 USD',
+    expected: 'unparsed',
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'msrp',
+    displayValue: '1199.00 EUR',
+    expected: 'normalized',
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'water_resistant',
+    displayValue: 'yes',
+    expected: 'normalized',
+  },
   // The truthy NON-boolean fixture: a loose `Boolean(value)` reading makes the
   // string "false" TRUE, and every fixture written as a real boolean would pass
   // against that bug (AGENTS.md rule E).
-  { property: 'typed refusal', attributeKey: 'water_resistant', displayValue: 'false', expected: 'normalized' },
-  { property: 'typed refusal', attributeKey: 'water_resistant', displayValue: 'maybe', expected: 'unparsed' },
-  { property: 'typed refusal', attributeKey: 'water_resistant', displayValue: 'IPX7', expected: 'unparsed' },
+  {
+    property: 'typed refusal',
+    attributeKey: 'water_resistant',
+    displayValue: 'false',
+    expected: 'normalized',
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'water_resistant',
+    displayValue: 'maybe',
+    expected: 'unparsed',
+  },
+  {
+    property: 'typed refusal',
+    attributeKey: 'water_resistant',
+    displayValue: 'IPX7',
+    expected: 'unparsed',
+  },
 
   // Dimensionless families never convert into one another.
-  { property: 'dimensionless', attributeKey: 'screen_to_body', displayValue: '87.5 %', expected: 'normalized', baseMagnitude: 87.5 },
-  { property: 'dimensionless', attributeKey: 'screen_to_body', displayValue: '87.5 mm', expected: 'unknown_unit' },
+  {
+    property: 'dimensionless',
+    attributeKey: 'screen_to_body',
+    displayValue: '87.5 %',
+    expected: 'normalized',
+    baseMagnitude: 87.5,
+  },
+  {
+    property: 'dimensionless',
+    attributeKey: 'screen_to_body',
+    displayValue: '87.5 mm',
+    expected: 'unknown_unit',
+  },
 ];

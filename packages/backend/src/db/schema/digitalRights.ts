@@ -125,9 +125,7 @@ export const assetLicences = pgTable(
     uniqueIndex('asset_licences_store_slug_key')
       .on(t.storeId, t.slug)
       .where(sql`store_id is not null`),
-    uniqueIndex('asset_licences_reference_slug_key')
-      .on(t.slug)
-      .where(sql`store_id is null`),
+    uniqueIndex('asset_licences_reference_slug_key').on(t.slug).where(sql`store_id is null`),
   ],
 );
 
@@ -188,11 +186,7 @@ export const assetLicenceVersions = pgTable(
       t.attribution,
       DIGITAL_LICENCE_ATTRIBUTION_MODES,
     ),
-    checkEveryElementOf(
-      'asset_licence_versions_rights_check',
-      t.rights,
-      DIGITAL_LICENCE_RIGHTS,
-    ),
+    checkEveryElementOf('asset_licence_versions_rights_check', t.rights, DIGITAL_LICENCE_RIGHTS),
     /** A licence granting nothing is not a licence. */
     check('asset_licence_versions_rights_nonempty_check', sql`array_length(${t.rights}, 1) >= 1`),
     check('asset_licence_versions_version_check', sql`${t.version} >= 1`),
@@ -316,7 +310,9 @@ export const assetRights = pgTable(
       .references(() => assetLicenceVersions.id, { onDelete: 'restrict' }),
     updatePolicy: text({ enum: asEnumValues(DIGITAL_LICENCE_UPDATE_POLICIES) }).notNull(),
     source: text({ enum: asEnumValues(ASSET_RIGHT_SOURCES) }).notNull(),
-    status: text({ enum: asEnumValues(ASSET_RIGHT_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(ASSET_RIGHT_STATUSES) })
+      .notNull()
+      .default('active'),
     /**
      * Required exactly when `status = 'revoked_for_policy'`, from the closed set
      * of bases. A revocation with no basis is the thing #1015 W2 forbids.
@@ -519,10 +515,7 @@ export const assetDownloadEvents = pgTable(
       'asset_download_events_refusal_pairing_check',
       sql`(${t.kind} = 'refused') = (${t.refusalReason} is not null)`,
     ),
-    check(
-      'asset_download_events_bytes_check',
-      sql`coalesce(${t.bytesTransferred}, 0) >= 0`,
-    ),
+    check('asset_download_events_bytes_check', sql`coalesce(${t.bytesTransferred}, 0) >= 0`),
     check(
       'asset_download_events_requester_check',
       sql`${t.requesterKey} ~ '^(oxy:|guest:|anonymous$)'`,

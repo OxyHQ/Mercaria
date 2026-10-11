@@ -93,7 +93,8 @@ function printSteps(steps: readonly ProfileStep[]): void {
 
 function printReport(report: ProfileSeedReport): void {
   const verb = report.applied ? 'applied' : 'would apply';
-  const namespace = report.namespace === null ? 'canonical keys' : `namespace '${report.namespace.snake}'`;
+  const namespace =
+    report.namespace === null ? 'canonical keys' : `namespace '${report.namespace.snake}'`;
   process.stdout.write(`\n${report.packageName} (${namespace}) — ${verb}\n`);
   printSteps(report.steps);
   process.stdout.write(
@@ -132,7 +133,10 @@ async function main(): Promise<void> {
     process.stderr.write(
       `${pkg.name}: the declared expectation disagrees with the package data for ` +
         `${drift
-          .map((entity) => `${entity} (declared ${pkg.expect[entity]}, data implies ${derived[entity]})`)
+          .map(
+            (entity) =>
+              `${entity} (declared ${pkg.expect[entity]}, data implies ${derived[entity]})`,
+          )
           .join(', ')}.\n`,
     );
     process.exitCode = 1;

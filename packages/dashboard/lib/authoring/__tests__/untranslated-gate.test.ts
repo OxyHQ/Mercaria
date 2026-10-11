@@ -29,14 +29,14 @@
  * and fails the build if it comes back clean.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
-import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
-const PACKAGE_ROOT = path.resolve(__dirname, "../../..");
+const PACKAGE_ROOT = path.resolve(__dirname, '../../..');
 
 /** Directories with no source of ours in them. */
-const SKIP = new Set(["node_modules", ".expo", "dist", "build", ".git", "android", "ios"]);
+const SKIP = new Set(['node_modules', '.expo', 'dist', 'build', '.git', 'android', 'ios']);
 
 /**
  * Tests are OUT of the population, and deliberately.
@@ -51,7 +51,7 @@ function walk(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (SKIP.has(entry.name) || entry.name === "__tests__") continue;
+      if (SKIP.has(entry.name) || entry.name === '__tests__') continue;
       out.push(...walk(path.join(dir, entry.name)));
       continue;
     }
@@ -64,19 +64,19 @@ function walk(dir: string): string[] {
 
 /** Comments are stripped: a module documenting the pattern it refuses is not a violation. */
 function stripComments(source: string): string {
-  let out = "";
+  let out = '';
   let index = 0;
-  let state: "code" | "line" | "block" = "code";
+  let state: 'code' | 'line' | 'block' = 'code';
   while (index < source.length) {
     const two = source.slice(index, index + 2);
-    if (state === "code") {
-      if (two === "//") {
-        state = "line";
+    if (state === 'code') {
+      if (two === '//') {
+        state = 'line';
         index += 2;
         continue;
       }
-      if (two === "/*") {
-        state = "block";
+      if (two === '/*') {
+        state = 'block';
         index += 2;
         continue;
       }
@@ -84,20 +84,20 @@ function stripComments(source: string): string {
       index += 1;
       continue;
     }
-    if (state === "line") {
-      if (source[index] === "\n") {
-        state = "code";
-        out += "\n";
+    if (state === 'line') {
+      if (source[index] === '\n') {
+        state = 'code';
+        out += '\n';
       }
       index += 1;
       continue;
     }
-    if (two === "*/") {
-      state = "code";
+    if (two === '*/') {
+      state = 'code';
       index += 2;
       continue;
     }
-    out += source[index] === "\n" ? "\n" : " ";
+    out += source[index] === '\n' ? '\n' : ' ';
     index += 1;
   }
   return out;
@@ -127,10 +127,10 @@ function scan(relativePath: string, source: string): Violation[] {
   if (!CARRIER_TYPES.test(source)) return [];
   const found: Violation[] = [];
   stripComments(source)
-    .split("\n")
+    .split('\n')
     .forEach((line, index) => {
       for (const match of line.matchAll(VALUE_FALLBACK)) {
-        const fallback = (match.groups?.fallback ?? "").trim();
+        const fallback = (match.groups?.fallback ?? '').trim();
         if (PERMITTED_FALLBACK.test(fallback)) continue;
         found.push({ file: relativePath, line: index + 1, fallback });
       }
@@ -140,58 +140,58 @@ function scan(relativePath: string, source: string): Violation[] {
 
 const sources = walk(PACKAGE_ROOT).map((absolute) => ({
   relative: path.relative(PACKAGE_ROOT, absolute),
-  text: readFileSync(absolute, "utf8"),
+  text: readFileSync(absolute, 'utf8'),
 }));
 const inScope = sources.filter((entry) => CARRIER_TYPES.test(entry.text));
 
-describe("the localization fallback gate", () => {
-  it("walked a real tree", () => {
+describe('the localization fallback gate', () => {
+  it('walked a real tree', () => {
     // A rename or a moved test file could point PACKAGE_ROOT at nothing; then
     // every assertion below passes over an empty set.
     expect(sources.length).toBeGreaterThan(50);
   });
 
-  it("found the surfaces that hold localized catalogue text", () => {
+  it('found the surfaces that hold localized catalogue text', () => {
     expect(inScope.length).toBeGreaterThanOrEqual(6);
     // Named explicitly: if the scope rule stops matching these, it is matching
     // nothing that matters and the floor above would not notice.
     for (const expected of [
-      path.join("components", "catalog-authoring", "SchemaField.tsx"),
-      path.join("components", "catalog-authoring", "ReviewPanel.tsx"),
-      path.join("components", "catalog-authoring", "VariantAxes.tsx"),
+      path.join('components', 'catalog-authoring', 'SchemaField.tsx'),
+      path.join('components', 'catalog-authoring', 'ReviewPanel.tsx'),
+      path.join('components', 'catalog-authoring', 'VariantAxes.tsx'),
     ]) {
       expect(inScope.map((entry) => entry.relative)).toContain(expected);
     }
   });
 
-  it("fires on the code it replaced", () => {
+  it('fires on the code it replaced', () => {
     // The mutation self-test. These are the two lines #740 cited, verbatim.
     const before = [
-      "interface X { s: AuthoringSchema }",
-      "const subtitle = schema.text.productTypeName?.value ?? schema.productType.key;",
-      "const categoryName = schema.text.categoryName?.value ?? draft.categoryId;",
-    ].join("\n");
-    const fired = scan("before.tsx", before);
+      'interface X { s: AuthoringSchema }',
+      'const subtitle = schema.text.productTypeName?.value ?? schema.productType.key;',
+      'const categoryName = schema.text.categoryName?.value ?? draft.categoryId;',
+    ].join('\n');
+    const fired = scan('before.tsx', before);
     expect(fired.map((violation) => violation.fallback)).toEqual([
-      "schema.productType.key",
-      "draft.categoryId",
+      'schema.productType.key',
+      'draft.categoryId',
     ]);
   });
 
-  it("does not fire on absence, which is an honest fallback", () => {
+  it('does not fire on absence, which is an honest fallback', () => {
     const source = [
-      "interface X { s: AuthoringSchema }",
-      "const help = text?.help?.value ?? null;",
+      'interface X { s: AuthoringSchema }',
+      'const help = text?.help?.value ?? null;',
       'const placeholder = text?.placeholder?.value ?? "";',
-    ].join("\n");
-    expect(scan("ok.tsx", source)).toEqual([]);
+    ].join('\n');
+    expect(scan('ok.tsx', source)).toEqual([]);
   });
 
-  it("does not fire on a module that holds no localized text", () => {
-    expect(scan("unrelated.ts", "const a = row?.value ?? 0;")).toEqual([]);
+  it('does not fire on a module that holds no localized text', () => {
+    expect(scan('unrelated.ts', 'const a = row?.value ?? 0;')).toEqual([]);
   });
 
-  it("finds no surface rendering an identifier where a name goes", () => {
+  it('finds no surface rendering an identifier where a name goes', () => {
     const violations = inScope.flatMap((entry) => scan(entry.relative, entry.text));
     expect(
       violations.map((violation) => `${violation.file}:${violation.line} ?? ${violation.fallback}`),

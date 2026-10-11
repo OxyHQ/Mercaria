@@ -107,9 +107,7 @@ export function projectSnapshot(stored: StoredMerchantDemandSnapshot): MerchantD
     storefrontId: row.storefrontId,
     sourceId: row.sourceId,
     value: toValue(row),
-    ...(row.aggregateBasis === null
-      ? {}
-      : { aggregateBasis: row.aggregateBasis }),
+    ...(row.aggregateBasis === null ? {} : { aggregateBasis: row.aggregateBasis }),
     definition: requireMerchantDemandMetric(row.metricKey),
   }));
 
@@ -161,9 +159,11 @@ export function projectSnapshot(stored: StoredMerchantDemandSnapshot): MerchantD
 }
 
 /** The window a request describes, aligned to whole days ending now. */
-export function resolveWindow(
-  request: MerchantDemandDashboardRequest,
-): { readonly from: Date; readonly to: Date; readonly now: Date } {
+export function resolveWindow(request: MerchantDemandDashboardRequest): {
+  readonly from: Date;
+  readonly to: Date;
+  readonly now: Date;
+} {
   const now = request.now ?? new Date();
   // The request schema admits only `MERCHANT_DEMAND_WINDOW_DAYS`; this is the
   // same closed set applied again for callers that do not come through HTTP

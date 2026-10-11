@@ -286,16 +286,8 @@ export const affiliateOutboundClicks = pgTable(
       t.clientSurface,
       OUTBOUND_CLIENT_SURFACES,
     ),
-    checkOneOf(
-      'affiliate_outbound_clicks_traffic_check',
-      t.trafficClass,
-      REFERRAL_TRAFFIC_CLASSES,
-    ),
-    checkOneOf(
-      'affiliate_outbound_clicks_consent_check',
-      t.consentMode,
-      REFERRAL_CONSENT_MODES,
-    ),
+    checkOneOf('affiliate_outbound_clicks_traffic_check', t.trafficClass, REFERRAL_TRAFFIC_CLASSES),
+    checkOneOf('affiliate_outbound_clicks_consent_check', t.consentMode, REFERRAL_CONSENT_MODES),
     checkOneOf(
       'affiliate_outbound_clicks_disposition_check',
       t.disposition,

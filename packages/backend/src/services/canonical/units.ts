@@ -584,7 +584,12 @@ export function normalizeRange(display: string): NormalizedRange {
   if (parsed.unit === undefined || parsed.family === undefined) {
     // A bare interval with no unit. Dimensionless by construction, so it
     // normalizes as a plain count of whatever the definition declares.
-    return { state: 'normalized', baseLower: parsed.lower, baseUpper: parsed.upper, sourceDecimals: parsed.sourceDecimals };
+    return {
+      state: 'normalized',
+      baseLower: parsed.lower,
+      baseUpper: parsed.upper,
+      sourceDecimals: parsed.sourceDecimals,
+    };
   }
 
   const baseUnit = BASE_UNITS[parsed.family];

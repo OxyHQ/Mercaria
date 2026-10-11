@@ -1,15 +1,15 @@
-import { View } from "react-native";
-import { Badge } from "@oxy.so/bloom/badge";
-import type { OfferConditionDTO } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
+import { View } from 'react-native';
+import { Badge } from '@oxy.so/bloom/badge';
+import type { OfferConditionDTO } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
 import {
   CONDITION_A11Y_LABEL_KEY,
   CONDITION_NOT_STATED_KEY,
   CONDITION_SELLER_WORDING_KEY,
   conditionExplanationKey,
   conditionLabelKey,
-} from "../../lib/condition";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+} from '../../lib/condition';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 
 export interface OfferConditionBadgeProps {
   /** An OFFER's condition (#90) — the taxonomy plus an honest `unknown`. */
@@ -47,19 +47,21 @@ export function OfferConditionBadge({
   // stops an unknown condition being handed to a function that has no answer
   // for it.
   const key = condition.key;
-  const label = key === "unknown" ? t(CONDITION_NOT_STATED_KEY) : t(conditionLabelKey(key));
+  const label = key === 'unknown' ? t(CONDITION_NOT_STATED_KEY) : t(conditionLabelKey(key));
 
   return (
     <View className="gap-space-4">
       <View
         className="self-start"
         accessibilityRole="text"
-        accessibilityLabel={key === "unknown" ? label : t(CONDITION_A11Y_LABEL_KEY, { label })}
+        accessibilityLabel={key === 'unknown' ? label : t(CONDITION_A11Y_LABEL_KEY, { label })}
       >
         <Badge size="label-medium" variant="subtle" color="default" content={label} />
       </View>
-      {showExplanation && key !== "unknown" ? (
-        <Text className="text-shop-caption text-text-secondary">{t(conditionExplanationKey(key))}</Text>
+      {showExplanation && key !== 'unknown' ? (
+        <Text className="text-shop-caption text-text-secondary">
+          {t(conditionExplanationKey(key))}
+        </Text>
       ) : null}
       {condition.sourceLabel ? (
         // The source's own wording beside the normalized key (#90 UI rule 4):

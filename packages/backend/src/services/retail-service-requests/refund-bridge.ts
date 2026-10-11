@@ -57,10 +57,7 @@ import { findRetailRefundSuspension } from '../../db/retailServiceRequests/polic
 import { getDb } from '../../db/postgres.js';
 import { conflict } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
-import {
-  enqueuePaymentEvent,
-  paymentRefundedEventId,
-} from '../payments/payment-outbox.service.js';
+import { enqueuePaymentEvent, paymentRefundedEventId } from '../payments/payment-outbox.service.js';
 
 /**
  * The idempotency key every retail refund carries.

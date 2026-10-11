@@ -158,9 +158,7 @@ describe('#77 identity rule 2 — a guest checkout is not a durable person profi
         "import { findGuestCheckout } from '../../db/guests/guestCheckoutRepository.js';",
       ),
     ).toBe(true);
-    expect(
-      GUEST_STORE_IMPORT.test("import { config } from '../../config/index.js';"),
-    ).toBe(false);
+    expect(GUEST_STORE_IMPORT.test("import { config } from '../../config/index.js';")).toBe(false);
   });
 });
 
@@ -269,12 +267,12 @@ describe('#77 identity rule 5 — a claim connects only its own checkout', () =>
     // The two raw spellings — the drizzle-interpolated table reference, which is
     // how every raw statement in this directory names a table, and the bare
     // SQL identifier.
-    expect(
-      EVENTS_TABLE_WRITE.test('await db.execute(sql`delete from ${analyticsEvents}`);'),
-    ).toBe(true);
+    expect(EVENTS_TABLE_WRITE.test('await db.execute(sql`delete from ${analyticsEvents}`);')).toBe(
+      true,
+    );
     expect(
       EVENTS_TABLE_WRITE.test(
-        "await db.execute(sql`delete from analytics_events where occurred_at < ${cutoff}`);",
+        'await db.execute(sql`delete from analytics_events where occurred_at < ${cutoff}`);',
       ),
     ).toBe(true);
     expect(

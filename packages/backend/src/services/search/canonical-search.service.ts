@@ -44,7 +44,6 @@
 import {
   SEARCH_RELEVANCE_POLICY_VERSION,
   SEARCH_RESULT_KINDS,
-
   type SearchAppliedQuery,
   type SearchFilters,
   type SearchMatchStage,
@@ -172,7 +171,9 @@ function note(
   kind: SearchResultKind,
   id: string,
   stage: SearchMatchStage,
-  signals: Partial<Pick<Candidate, 'trigramSimilarity' | 'lexicalRank' | 'tokenOverlap' | 'aliasKind'>> = {},
+  signals: Partial<
+    Pick<Candidate, 'trigramSimilarity' | 'lexicalRank' | 'tokenOverlap' | 'aliasKind'>
+  > = {},
 ): void {
   const key = `${kind}:${id}`;
   const existing = candidates.get(key);
@@ -183,7 +184,10 @@ function note(
   // same row) and taking whichever ran last would make the score depend on
   // stage ORDER rather than on the evidence.
   if (signals.trigramSimilarity !== undefined) {
-    candidate.trigramSimilarity = Math.max(candidate.trigramSimilarity ?? 0, signals.trigramSimilarity);
+    candidate.trigramSimilarity = Math.max(
+      candidate.trigramSimilarity ?? 0,
+      signals.trigramSimilarity,
+    );
   }
   if (signals.lexicalRank !== undefined) {
     candidate.lexicalRank = Math.max(candidate.lexicalRank ?? 0, signals.lexicalRank);
@@ -225,7 +229,9 @@ async function retrieveProducts(
         identifier.canonicalValue === undefined ? [] : [identifier.canonicalValue],
       ),
     );
-    const variantIds = owners.flatMap((owner) => (owner.variantId === null ? [] : [owner.variantId]));
+    const variantIds = owners.flatMap((owner) =>
+      owner.variantId === null ? [] : [owner.variantId],
+    );
     const variants = await findCanonicalVariantsByIds(db, variantIds);
     for (const owner of owners) {
       if (owner.productId !== null) note(candidates, 'product', owner.productId, 'identifier');
@@ -293,7 +299,11 @@ async function retrieveBrands(
   for (const id of await findBrandIdsByNormalizedName(db, query.normalized, budget)) {
     note(candidates, 'brand', id, 'exact_name');
   }
-  for (const hit of await findBrandAliasCandidates(db, normalizeAliasLookup(query.bounded), budget)) {
+  for (const hit of await findBrandAliasCandidates(
+    db,
+    normalizeAliasLookup(query.bounded),
+    budget,
+  )) {
     note(candidates, 'brand', hit.id, 'exact_alias', { aliasKind: hit.aliasKind });
   }
   for (const hit of await searchBrandIdsByLexicalRank(db, query.bounded, budget)) {
@@ -314,7 +324,11 @@ async function retrieveFamilies(
   for (const id of await findFamilyIdsByNormalizedName(db, query.normalized, budget)) {
     note(candidates, 'product_family', id, 'exact_name');
   }
-  for (const hit of await findFamilyAliasCandidates(db, normalizeAliasLookup(query.bounded), budget)) {
+  for (const hit of await findFamilyAliasCandidates(
+    db,
+    normalizeAliasLookup(query.bounded),
+    budget,
+  )) {
     note(candidates, 'product_family', hit.id, 'exact_alias', { aliasKind: hit.aliasKind });
   }
   for (const hit of await searchFamilyIdsByLexicalRank(db, query.bounded, budget)) {
@@ -417,7 +431,8 @@ export async function runCanonicalSearch(
     kinds,
     filters: request.filters,
   });
-  const cursor = request.cursor === undefined ? null : decodeSearchCursor(request.cursor, fingerprint);
+  const cursor =
+    request.cursor === undefined ? null : decodeSearchCursor(request.cursor, fingerprint);
   const depth = cursor?.depth ?? 0;
 
   const applied: SearchAppliedQuery = {

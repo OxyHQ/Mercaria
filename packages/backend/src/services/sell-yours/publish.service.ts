@@ -169,12 +169,7 @@ export async function publishSellerDraft(
       },
     };
 
-    const listingId = await insertP2PListingWithin(
-      tx,
-      oxyUserId,
-      listingInput,
-      new Date(),
-    );
+    const listingId = await insertP2PListingWithin(tx, oxyUserId, listingInput, new Date());
 
     const match = await attachDeclaredMatch(tx, {
       draftId: draft.id,
@@ -245,9 +240,7 @@ async function attachDeclaredMatch(
         canonicalProductId: input.canonicalProductId,
         canonicalVariantId: input.canonicalVariantId,
         confidence: null,
-        blockers: outcome.blockers as Parameters<
-          typeof recordSellerMatchAssertion
-        >[0]['blockers'],
+        blockers: outcome.blockers as Parameters<typeof recordSellerMatchAssertion>[0]['blockers'],
         reasonCodes: outcome.reasonCodes,
       },
       tx,

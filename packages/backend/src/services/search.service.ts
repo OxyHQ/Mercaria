@@ -83,9 +83,7 @@ export function toFilters(query: ListingQuery): ListingSearchFilters {
    */
   if (query.condition) {
     filters.conditionGroups =
-      query.condition === 'new'
-        ? ['new']
-        : CONDITION_GROUPS.filter((group) => group !== 'new');
+      query.condition === 'new' ? ['new'] : CONDITION_GROUPS.filter((group) => group !== 'new');
   }
   if (query.conditionKeys && query.conditionKeys.length > 0) {
     filters.conditionKeys = query.conditionKeys;

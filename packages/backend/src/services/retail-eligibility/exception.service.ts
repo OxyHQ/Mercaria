@@ -183,7 +183,9 @@ export async function revokeRetailEligibilityExceptionAudited(
       actorOxyUserId: input.revokedByOxyUserId,
       detail: 'not approved',
     });
-    throw conflict(`Eligibility exception ${input.id} is not approved, so there is nothing to withdraw.`);
+    throw conflict(
+      `Eligibility exception ${input.id} is not approved, so there is nothing to withdraw.`,
+    );
   }
   await appendRetailEligibilityAudit(db, {
     action: 'exception_revoked',

@@ -1,22 +1,22 @@
-import { Icon } from "../ui/icon";
-import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { merchantImageSource } from "../../lib/shop-merchant-images";
-import type { ReactElement, ReactNode } from "react";
-import { Pressable, View } from "react-native";
-import { Image } from "../ui/image";
-import { MoreHorizontal } from "lucide-react-native";
-import { Rating } from "@oxy.so/bloom/rating";
-import { Text } from "../ui/text";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
+import { Icon } from '../ui/icon';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { merchantImageSource } from '../../lib/shop-merchant-images';
+import type { ReactElement, ReactNode } from 'react';
+import { Pressable, View } from 'react-native';
+import { Image } from '../ui/image';
+import { MoreHorizontal } from 'lucide-react-native';
+import { Rating } from '@oxy.so/bloom/rating';
+import { Text } from '../ui/text';
+import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   MARKETPLACE_VISIT_MERCHANT_KEY,
   MERCHANT_HEADER_MORE_OPTIONS_KEY,
   MERCHANT_HEADER_VISIT_STORE_KEY,
   PRODUCT_CARD_DISCOUNT_KEY,
-} from "../../lib/marketplace-labels";
-import { useRatingDisplay } from "../../lib/rating-display";
-import { formatPercent } from "../../lib/format";
-import { IncentiveHalo } from "./IncentiveHalo";
+} from '../../lib/marketplace-labels';
+import { useRatingDisplay } from '../../lib/rating-display';
+import { formatPercent } from '../../lib/format';
+import { IncentiveHalo } from './IncentiveHalo';
 
 /** Logo edge length (px) for the `large` (mobile sticky bar) variant. */
 const LARGE_LOGO_SIZE = 44;
@@ -64,7 +64,7 @@ export interface MerchantHeaderProps {
    * - `compact` — smaller logo, name + rating, and a trailing overflow
    *   (…) button (the desktop buy-column header).
    */
-  size?: "large" | "compact";
+  size?: 'large' | 'compact';
 }
 
 /**
@@ -98,7 +98,12 @@ function HeaderRating({
 const BASIS_POINTS_PER_PERCENT = 100;
 
 /** Merchant logos only receive the incentive ring for a confirmed exclusive offer. */
-function HeaderLogo({ logoUrl, logoFileId, size, exclusiveOffer }: {
+function HeaderLogo({
+  logoUrl,
+  logoFileId,
+  size,
+  exclusiveOffer,
+}: {
   logoUrl?: string;
   logoFileId?: string;
   size: number;
@@ -112,8 +117,7 @@ function HeaderLogo({ logoUrl, logoFileId, size, exclusiveOffer }: {
       style={{ height: size, width: size }}
     >
       {logoSource ? (
-        <Image source={logoSource} contentFit="cover"
-          style={{ height: size, width: size }} />
+        <Image source={logoSource} contentFit="cover" style={{ height: size, width: size }} />
       ) : null}
     </View>
   );
@@ -137,78 +141,82 @@ export function MerchantHeader({
   visitLabel,
   onMore,
   moreAction,
-  size = "compact",
-  scopeLabel = "Seller service",
+  size = 'compact',
+  scopeLabel = 'Seller service',
   discountPercent,
   exclusiveOffer = false,
 }: MerchantHeaderProps) {
-  const isLarge = size === "large";
+  const isLarge = size === 'large';
   const t = useSharedUiTranslation();
   const locale = useSharedUiLocale();
-  const wrapLink = (child: ReactElement) => renderLink ? renderLink(child) : child;
+  const wrapLink = (child: ReactElement) => (renderLink ? renderLink(child) : child);
 
   return (
     <View className="flex-row items-center gap-space-8">
-      {wrapLink(<Pressable
-        accessibilityRole={renderLink ? "link" : undefined}
-        accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name })}
-        disabled={!renderLink}
-        className="flex-1 flex-row items-center gap-space-8"
-      >
-        <HeaderLogo logoUrl={logoUrl} logoFileId={logoFileId} size={isLarge ? LARGE_LOGO_SIZE : COMPACT_LOGO_SIZE} exclusiveOffer={exclusiveOffer} />
-        <View className="flex-1">
-          <Text
-            numberOfLines={1}
-            className={
-              isLarge
-                ? "text-shop-bodyTitleLarge text-text"
-                : "text-shop-bodyTitleSmall text-text"
-            }
-          >
-            {name}
-          </Text>
-          {rating !== undefined ? (
-            <HeaderRating
-              rating={rating}
-              reviewCount={reviewCount}
-              scopeLabel={scopeLabel}
-            />
-          ) : null}
-          {discountPercent !== undefined && discountPercent > 0 ? (
-            <Text className="text-shop-captionBold text-text-brand">
-              {t(PRODUCT_CARD_DISCOUNT_KEY, {
-                percent: formatPercent(
-                  discountPercent * BASIS_POINTS_PER_PERCENT,
-                  locale,
-                  0,
-                ),
-              })}
-            </Text>
-          ) : null}
-        </View>
-      </Pressable>)}
-
-      {isLarge ? (renderLink ? renderLink(
+      {wrapLink(
         <Pressable
-          accessibilityRole="link"
+          accessibilityRole={renderLink ? 'link' : undefined}
           accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name })}
-          className="rounded-radius-max border-[1.5px] border-border-secondary px-space-16 py-space-8"
+          disabled={!renderLink}
+          className="flex-1 flex-row items-center gap-space-8"
         >
-          <Text className="text-shop-buttonMedium text-text">
-            {visitLabel ?? t(MERCHANT_HEADER_VISIT_STORE_KEY)}
-          </Text>
-        </Pressable>
-      ) : null) : moreAction ?? (onMore ? (
-        <Pressable
-          onPress={onMore}
-          accessibilityRole="button"
-          accessibilityLabel={t(MERCHANT_HEADER_MORE_OPTIONS_KEY)}
-          hitSlop={8}
-          className="rounded-radius-max p-space-6"
-        >
-          <Icon as={MoreHorizontal} size={OVERFLOW_ICON_SIZE} className="text-text-tertiary" />
-        </Pressable>
-      ) : null)}
+          <HeaderLogo
+            logoUrl={logoUrl}
+            logoFileId={logoFileId}
+            size={isLarge ? LARGE_LOGO_SIZE : COMPACT_LOGO_SIZE}
+            exclusiveOffer={exclusiveOffer}
+          />
+          <View className="flex-1">
+            <Text
+              numberOfLines={1}
+              className={
+                isLarge
+                  ? 'text-shop-bodyTitleLarge text-text'
+                  : 'text-shop-bodyTitleSmall text-text'
+              }
+            >
+              {name}
+            </Text>
+            {rating !== undefined ? (
+              <HeaderRating rating={rating} reviewCount={reviewCount} scopeLabel={scopeLabel} />
+            ) : null}
+            {discountPercent !== undefined && discountPercent > 0 ? (
+              <Text className="text-shop-captionBold text-text-brand">
+                {t(PRODUCT_CARD_DISCOUNT_KEY, {
+                  percent: formatPercent(discountPercent * BASIS_POINTS_PER_PERCENT, locale, 0),
+                })}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>,
+      )}
+
+      {isLarge
+        ? renderLink
+          ? renderLink(
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name })}
+                className="rounded-radius-max border-[1.5px] border-border-secondary px-space-16 py-space-8"
+              >
+                <Text className="text-shop-buttonMedium text-text">
+                  {visitLabel ?? t(MERCHANT_HEADER_VISIT_STORE_KEY)}
+                </Text>
+              </Pressable>,
+            )
+          : null
+        : (moreAction ??
+          (onMore ? (
+            <Pressable
+              onPress={onMore}
+              accessibilityRole="button"
+              accessibilityLabel={t(MERCHANT_HEADER_MORE_OPTIONS_KEY)}
+              hitSlop={8}
+              className="rounded-radius-max p-space-6"
+            >
+              <Icon as={MoreHorizontal} size={OVERFLOW_ICON_SIZE} className="text-text-tertiary" />
+            </Pressable>
+          ) : null))}
     </View>
   );
 }

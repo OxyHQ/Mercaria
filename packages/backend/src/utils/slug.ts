@@ -15,18 +15,20 @@ const FIRST_SUFFIX = 2;
  * hyphens removed.
  */
 export function slugify(input: string): string {
-  return input
-    .normalize('NFKD')
-    // Strip combining diacritical marks left over from NFKD decomposition.
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim()
-    // Any run of non-alphanumeric characters becomes a single hyphen.
-    .replace(/[^a-z0-9]+/g, '-')
-    // Collapse repeated hyphens (defensive; the run-collapse above mostly covers this).
-    .replace(/-{2,}/g, '-')
-    // Trim leading/trailing hyphens.
-    .replace(/^-+|-+$/g, '');
+  return (
+    input
+      .normalize('NFKD')
+      // Strip combining diacritical marks left over from NFKD decomposition.
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .trim()
+      // Any run of non-alphanumeric characters becomes a single hyphen.
+      .replace(/[^a-z0-9]+/g, '-')
+      // Collapse repeated hyphens (defensive; the run-collapse above mostly covers this).
+      .replace(/-{2,}/g, '-')
+      // Trim leading/trailing hyphens.
+      .replace(/^-+|-+$/g, '')
+  );
 }
 
 /**

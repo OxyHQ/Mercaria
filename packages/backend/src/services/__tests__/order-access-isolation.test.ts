@@ -252,18 +252,22 @@ describe('the population the three walls are applied to (#460)', () => {
     // measurement. A bare `order` matches 61 modules; two of them are the
     // helper's own foreign controls, named there because a population holding
     // them has stopped being a domain.
-    assertEachOf([
-      'controllers/orders.controller.ts',
-      'db/schema/orders.ts',
-      'routes/orders.ts',
-      'services/order.service.ts',
-    ], 4, (foreign) => {
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-      expect(ACCESS_PATHS, `${foreign} is not this path`).not.toContain(foreign);
-    });
+    assertEachOf(
+      [
+        'controllers/orders.controller.ts',
+        'db/schema/orders.ts',
+        'routes/orders.ts',
+        'services/order.service.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+        expect(ACCESS_PATHS, `${foreign} is not this path`).not.toContain(foreign);
+      },
+    );
   });
 
   it('every module that CONSUMES the access decision is either in the population or another domain’s', () => {
@@ -317,7 +321,8 @@ describe('the ONE cart-wall exemption is real, in both directions (#448)', () =>
     ).toBe(true);
     // …and it is the ONLY module in the population that does.
     const others = ACCESS_PATHS.filter(
-      (relative) => relative !== CART_WALL_EXEMPT && CART_CREDENTIAL_REFERENCE.test(readAccessCode(relative)),
+      (relative) =>
+        relative !== CART_WALL_EXEMPT && CART_CREDENTIAL_REFERENCE.test(readAccessCode(relative)),
     );
     expect(others, 'a second module needs the exemption and does not have it').toEqual([]);
   });

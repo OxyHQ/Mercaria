@@ -100,7 +100,8 @@ describe('the wizard flushes a pending save when it unmounts', () => {
       'a non-empty dependency array must not read as an unmount-only effect',
     ).toBe(false);
 
-    const flushingDebounce = 'setTimeout(fn, AUTOSAVE_DELAY_MS);\n  return () => { void saveNow(); }\n}, [';
+    const flushingDebounce =
+      'setTimeout(fn, AUTOSAVE_DELAY_MS);\n  return () => { void saveNow(); }\n}, [';
     const match = /setTimeout\([\s\S]*?AUTOSAVE_DELAY_MS\s*\)\s*;([\s\S]*?)\}\s*,\s*\[/.exec(
       flushingDebounce,
     );

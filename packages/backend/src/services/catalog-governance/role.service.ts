@@ -33,10 +33,7 @@
  */
 
 import type { CatalogGovernanceRole } from '@mercaria/shared-types';
-import {
-  CATALOG_GOVERNANCE_ACTION_ROLES,
-  CATALOG_GOVERNANCE_ROLES,
-} from '@mercaria/shared-types';
+import { CATALOG_GOVERNANCE_ACTION_ROLES, CATALOG_GOVERNANCE_ROLES } from '@mercaria/shared-types';
 import { conflict, forbidden } from '../../lib/errors/error-codes.js';
 import { getDb, type Database, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {

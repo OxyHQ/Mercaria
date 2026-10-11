@@ -73,18 +73,14 @@ export function normalizeAxisValue(value: string): string {
  *   value. Both would produce a digest no later read could reproduce, and a
  *   signature that cannot be recomputed is not an identity.
  */
-export function typedVariantSignature(
-  assignments: readonly TypedVariantAxisAssignment[],
-): string {
+export function typedVariantSignature(assignments: readonly TypedVariantAxisAssignment[]): string {
   const seen = new Set<string>();
   const serialized: string[] = [];
 
   for (const assignment of assignments) {
     const definitionId = assignment.attributeDefinitionId.trim();
     if (definitionId.length === 0) {
-      throw new Error(
-        'typedVariantSignature: an assignment has an empty attribute definition id.',
-      );
+      throw new Error('typedVariantSignature: an assignment has an empty attribute definition id.');
     }
     if (seen.has(definitionId)) {
       throw new Error(

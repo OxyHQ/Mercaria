@@ -106,7 +106,8 @@ function domainModules(): { path: string; source: string }[] {
 const STRENGTH_MUTATION = /\.strength\s*=[^=]/u;
 
 /** A module reaching into attribute storage. */
-const ATTRIBUTE_STORAGE = /from\s+'[^']*(attributeRepository|canonicalCatalog|attributeOpsRepository)/u;
+const ATTRIBUTE_STORAGE =
+  /from\s+'[^']*(attributeRepository|canonicalCatalog|attributeOpsRepository)/u;
 
 describe('hard constraints cannot be downgraded', () => {
   const modules = domainModules();
@@ -218,9 +219,13 @@ describe('reserved offer keys', () => {
     // A vacuity floor plus the specific members whose absence would reopen the
     // hole: `price` and `availability` are the two a real feed asserts.
     expect(RESERVED_OFFER_FACT_KEYS.length).toBeGreaterThanOrEqual(15);
-    assertEachOf(['price', 'availability', 'condition', 'shipping_cost', 'total_price'], 5, (key) => {
-      expect(RESERVED_OFFER_FACT_KEYS, `'${key}' must be reserved`).toContain(key);
-    });
+    assertEachOf(
+      ['price', 'availability', 'condition', 'shipping_cost', 'total_price'],
+      5,
+      (key) => {
+        expect(RESERVED_OFFER_FACT_KEYS, `'${key}' must be reserved`).toContain(key);
+      },
+    );
     // And `msrp` is deliberately NOT reserved: a manufacturer's suggested price
     // is a fact about the product, and a `money` attribute is its right home.
     expect(RESERVED_OFFER_FACT_KEYS).not.toContain('msrp');
@@ -325,15 +330,19 @@ describe('the population rule 1 is applied to (#460)', () => {
     // without a row here would be an exemption nobody ever measured, which is
     // the one shape an exclusion must not have. #706's `assertEachOf` count is
     // what makes that mechanical — it moves with the list or the build fails.
-    assertEachOf([
-      'db/canonical/attributeRepository.ts',
-      'db/variantAxes/attributeClaimRepository.ts',
-      'services/comparison/attribute-facts.ts',
-      'services/catalog-governance/attribute-claim.service.ts',
-    ], 4, (foreign) => {
-      const source = readFileSync(join(SRC_ROOT, foreign), 'utf8');
-      expect(STRENGTH_MUTATION.test(source), `${foreign} would trip rule 1`).toBe(false);
-    });
+    assertEachOf(
+      [
+        'db/canonical/attributeRepository.ts',
+        'db/variantAxes/attributeClaimRepository.ts',
+        'services/comparison/attribute-facts.ts',
+        'services/catalog-governance/attribute-claim.service.ts',
+      ],
+      4,
+      (foreign) => {
+        const source = readFileSync(join(SRC_ROOT, foreign), 'utf8');
+        expect(STRENGTH_MUTATION.test(source), `${foreign} would trip rule 1`).toBe(false);
+      },
+    );
   });
 });
 

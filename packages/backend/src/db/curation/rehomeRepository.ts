@@ -145,8 +145,13 @@ function presenceGuard(target: RehomeTarget, toId: string) {
  * -row report, so it is the same number on every driver and can be asserted
  * against the phase record without knowing which one is underneath.
  */
-async function runCounted(db: DatabaseOrTransaction, statement: ReturnType<typeof sql>): Promise<number> {
-  const rows = await db.execute(sql`with moved as (${statement}) select count(*)::int as moved from moved`);
+async function runCounted(
+  db: DatabaseOrTransaction,
+  statement: ReturnType<typeof sql>,
+): Promise<number> {
+  const rows = await db.execute(
+    sql`with moved as (${statement}) select count(*)::int as moved from moved`,
+  );
   const first: unknown = rows[0];
   if (first && typeof first === 'object' && 'moved' in first) {
     return Number((first as { moved: number }).moved);

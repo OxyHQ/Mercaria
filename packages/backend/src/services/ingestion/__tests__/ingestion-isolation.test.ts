@@ -136,13 +136,15 @@ const CANONICAL_WRITE_REFERENCE =
   /canonical-product\.service|canonical-variant\.service|product-family\.service|brand\.service|organization\.service|product-identifier\.service/;
 
 /** #121/#116's retail domain. An ingested offer must not make Mercaria the seller. */
-const RETAIL_REFERENCE = /retail-eligibility|retail-pricing|retailEligibility|retailPricing|mercaria_retail/;
+const RETAIL_REFERENCE =
+  /retail-eligibility|retail-pricing|retailEligibility|retailPricing|mercaria_retail/;
 
 /** #74's ranking. */
 const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\/|\.\.\/ranking\//;
 
 /** #37's outbound redirect. This domain models routing metadata and never routes. */
-const REDIRECT_REFERENCE = /outboundRedirect|redirect\.service|buildAffiliateUrl|services\/outbound\//;
+const REDIRECT_REFERENCE =
+  /outboundRedirect|redirect\.service|buildAffiliateUrl|services\/outbound\//;
 
 /** #59's curation tooling. Corrections are its job, not an ingestion run's. */
 const CURATION_REFERENCE = /services\/curation\/|catalogMergeJob|requestMerge|applyRehomeTarget/;
@@ -152,7 +154,10 @@ const ADAPTER_FORBIDDEN: readonly { name: string; pattern: RegExp }[] = [
   { name: 'a repository', pattern: /db\/[a-zA-Z-]+\/[a-zA-Z]+Repository/ },
   { name: 'a database handle', pattern: /db\/postgres|getDb\(|drizzle-orm/ },
   { name: 'a canonical write service', pattern: CANONICAL_WRITE_REFERENCE },
-  { name: 'the offer domain', pattern: /offers\/offer\.service|offerRepository|recordExternalOffer/ },
+  {
+    name: 'the offer domain',
+    pattern: /offers\/offer\.service|offerRepository|recordExternalOffer/,
+  },
   { name: 'the matching pipeline', pattern: /matching\/match\.service|runMatch/ },
 ];
 
@@ -372,13 +377,17 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     ).toBe(true);
     expect(CANONICAL_WRITE_REFERENCE.test('canonicalVariantId')).toBe(false);
 
-    expect(RETAIL_REFERENCE.test("import { getRetailEligibility } from '../retail-eligibility/x.js';")).toBe(true);
+    expect(
+      RETAIL_REFERENCE.test("import { getRetailEligibility } from '../retail-eligibility/x.js';"),
+    ).toBe(true);
     expect(RETAIL_REFERENCE.test('const retailer = record.merchantHint;')).toBe(false);
 
     expect(RANKING_REFERENCE.test('const ordered = rankOffers(rows);')).toBe(true);
     expect(RANKING_REFERENCE.test('.orderBy(asc(offers.priceAmount))')).toBe(false);
 
-    expect(REDIRECT_REFERENCE.test("import { buildAffiliateUrl } from '../outbound/x.js';")).toBe(true);
+    expect(REDIRECT_REFERENCE.test("import { buildAffiliateUrl } from '../outbound/x.js';")).toBe(
+      true,
+    );
     expect(REDIRECT_REFERENCE.test('affiliateTrackingTemplate')).toBe(false);
 
     expect(
@@ -389,18 +398,28 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     for (const { pattern } of ADAPTER_FORBIDDEN) {
       expect(pattern.test('const response = await fetch(url);')).toBe(false);
     }
-    expect(ADAPTER_FORBIDDEN[0]?.pattern.test("from '../../db/ingestion/catalogSourceRunRepository.js'")).toBe(true);
-    expect(ADAPTER_FORBIDDEN[1]?.pattern.test("import { getDb } from '../../db/postgres.js';")).toBe(true);
+    expect(
+      ADAPTER_FORBIDDEN[0]?.pattern.test("from '../../db/ingestion/catalogSourceRunRepository.js'"),
+    ).toBe(true);
+    expect(
+      ADAPTER_FORBIDDEN[1]?.pattern.test("import { getDb } from '../../db/postgres.js';"),
+    ).toBe(true);
   });
 
   it('the comment stripper removes prose without removing code', () => {
     const stripped = withoutComments(
-      ['/** ranking is #74 rankOffers */', "import { x } from './y.js'; // rankOffers", 'const z = rankOffers(a);'].join('\n'),
+      [
+        '/** ranking is #74 rankOffers */',
+        "import { x } from './y.js'; // rankOffers",
+        'const z = rankOffers(a);',
+      ].join('\n'),
     );
     expect(stripped).not.toContain('#74');
     expect(stripped).toContain('const z = rankOffers(a);');
     // And it must not eat a URL's `//`, which is the classic over-strip.
-    expect(withoutComments("const u = 'https://example.com/x';")).toContain('https://example.com/x');
+    expect(withoutComments("const u = 'https://example.com/x';")).toContain(
+      'https://example.com/x',
+    );
   });
 });
 
@@ -431,12 +450,15 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       RANKING_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
       "a module here reaches ranking as '../ranking/…' and that must not pass",
     ).toBe(true);
-    expect(RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    expect(
+      RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';"),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(false);
+    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(
+      false,
+    );
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
-
 });
 
 /**

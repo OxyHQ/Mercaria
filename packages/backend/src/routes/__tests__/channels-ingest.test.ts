@@ -45,7 +45,10 @@ vi.mock('../../services/channel-key.service.js', () => ({
 vi.mock('../../services/channel-ingest.service.js', () => {
   const resolve = (connectionId: string) => {
     if (connectionId === NON_PUSH_IN_CONNECTION) {
-      throw new MercariaError({ code: 'VALIDATION_ERROR', message: 'Connection is not a push-in channel' });
+      throw new MercariaError({
+        code: 'VALIDATION_ERROR',
+        message: 'Connection is not a push-in channel',
+      });
     }
     if (connectionId === FOREIGN_CONNECTION) {
       throw new MercariaError({ code: 'NOT_FOUND', message: 'Connection not found' });
@@ -68,8 +71,9 @@ vi.mock('../../lib/logger.js', () => ({
 // The rate limiter is not under test here; a passthrough keeps the test off the
 // network (the real limiter runs an optional Oxy token resolve).
 vi.mock('../../lib/rate-limit.js', () => ({
-  makeRateLimiter: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
-    next(),
+  makeRateLimiter:
+    () => (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
+      next(),
 }));
 
 import channelsIngestRouter from '../channels-ingest.js';
@@ -125,13 +129,21 @@ describe('channel-key ingest — authentication', () => {
 
   it('401s an unknown / invalid key', async () => {
     expect(
-      await post(`/channels/ingest/${CONNECTION_ID}/products`, { bearer: 'mck_nope' }, validProducts),
+      await post(
+        `/channels/ingest/${CONNECTION_ID}/products`,
+        { bearer: 'mck_nope' },
+        validProducts,
+      ),
     ).toBe(401);
   });
 
   it('accepts the key via the X-Mercaria-Channel-Key header', async () => {
     expect(
-      await post(`/channels/ingest/${CONNECTION_ID}/products`, { header: PUSH_IN_KEY }, validProducts),
+      await post(
+        `/channels/ingest/${CONNECTION_ID}/products`,
+        { header: PUSH_IN_KEY },
+        validProducts,
+      ),
     ).toBe(200);
   });
 });
@@ -139,14 +151,22 @@ describe('channel-key ingest — authentication', () => {
 describe('channel-key ingest — a store-scoped key', () => {
   it('ingests products, using the store id from the KEY', async () => {
     expect(
-      await post(`/channels/ingest/${CONNECTION_ID}/products`, { bearer: PUSH_IN_KEY }, validProducts),
+      await post(
+        `/channels/ingest/${CONNECTION_ID}/products`,
+        { bearer: PUSH_IN_KEY },
+        validProducts,
+      ),
     ).toBe(200);
     expect(ingestProducts).toHaveBeenCalledWith(STORE_ID, CONNECTION_ID, expect.anything());
   });
 
   it('ingests inventory', async () => {
     expect(
-      await post(`/channels/ingest/${CONNECTION_ID}/inventory`, { bearer: PUSH_IN_KEY }, validInventory),
+      await post(
+        `/channels/ingest/${CONNECTION_ID}/inventory`,
+        { bearer: PUSH_IN_KEY },
+        validInventory,
+      ),
     ).toBe(200);
   });
 });
@@ -154,13 +174,21 @@ describe('channel-key ingest — a store-scoped key', () => {
 describe('channel-key ingest — a connection-bound key', () => {
   it('200s for its own connection', async () => {
     expect(
-      await post(`/channels/ingest/${CONNECTION_ID}/products`, { bearer: BOUND_KEY }, validProducts),
+      await post(
+        `/channels/ingest/${CONNECTION_ID}/products`,
+        { bearer: BOUND_KEY },
+        validProducts,
+      ),
     ).toBe(200);
   });
 
   it('403s for any other connection', async () => {
     expect(
-      await post(`/channels/ingest/${OTHER_CONNECTION_ID}/products`, { bearer: BOUND_KEY }, validProducts),
+      await post(
+        `/channels/ingest/${OTHER_CONNECTION_ID}/products`,
+        { bearer: BOUND_KEY },
+        validProducts,
+      ),
     ).toBe(403);
   });
 });
@@ -168,13 +196,21 @@ describe('channel-key ingest — a connection-bound key', () => {
 describe('channel-key ingest — service rejections surface through the key path', () => {
   it('400s a non-push-in connection', async () => {
     expect(
-      await post(`/channels/ingest/${NON_PUSH_IN_CONNECTION}/products`, { bearer: PUSH_IN_KEY }, validProducts),
+      await post(
+        `/channels/ingest/${NON_PUSH_IN_CONNECTION}/products`,
+        { bearer: PUSH_IN_KEY },
+        validProducts,
+      ),
     ).toBe(400);
   });
 
   it('404s a foreign / missing connection', async () => {
     expect(
-      await post(`/channels/ingest/${FOREIGN_CONNECTION}/products`, { bearer: PUSH_IN_KEY }, validProducts),
+      await post(
+        `/channels/ingest/${FOREIGN_CONNECTION}/products`,
+        { bearer: PUSH_IN_KEY },
+        validProducts,
+      ),
     ).toBe(404);
   });
 });
@@ -182,21 +218,33 @@ describe('channel-key ingest — service rejections surface through the key path
 describe('channel-key ingest — validation', () => {
   it('400s a malformed connection id', async () => {
     expect(
-      await post('/channels/ingest/not-an-objectid/products', { bearer: PUSH_IN_KEY }, validProducts),
+      await post(
+        '/channels/ingest/not-an-objectid/products',
+        { bearer: PUSH_IN_KEY },
+        validProducts,
+      ),
     ).toBe(400);
   });
 
   it('400s an empty products batch', async () => {
     expect(
-      await post(`/channels/ingest/${CONNECTION_ID}/products`, { bearer: PUSH_IN_KEY }, { products: [] }),
+      await post(
+        `/channels/ingest/${CONNECTION_ID}/products`,
+        { bearer: PUSH_IN_KEY },
+        { products: [] },
+      ),
     ).toBe(400);
   });
 
   it('400s a negative inventory quantity', async () => {
     expect(
-      await post(`/channels/ingest/${CONNECTION_ID}/inventory`, { bearer: PUSH_IN_KEY }, {
-        items: [{ externalId: 'woo-1', available: -1 }],
-      }),
+      await post(
+        `/channels/ingest/${CONNECTION_ID}/inventory`,
+        { bearer: PUSH_IN_KEY },
+        {
+          items: [{ externalId: 'woo-1', available: -1 }],
+        },
+      ),
     ).toBe(400);
   });
 });

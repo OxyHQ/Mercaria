@@ -249,13 +249,13 @@ export const referralRiskSignals = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf('referral_risk_signals_subject_type_check', t.subjectType, REFERRAL_RISK_SUBJECT_TYPES),
-    checkOneOf('referral_risk_signals_kind_check', t.kind, REFERRAL_RISK_SIGNAL_KINDS),
     checkOneOf(
-      'referral_risk_signals_severity_check',
-      t.severity,
-      REFERRAL_RISK_SIGNAL_SEVERITIES,
+      'referral_risk_signals_subject_type_check',
+      t.subjectType,
+      REFERRAL_RISK_SUBJECT_TYPES,
     ),
+    checkOneOf('referral_risk_signals_kind_check', t.kind, REFERRAL_RISK_SIGNAL_KINDS),
+    checkOneOf('referral_risk_signals_severity_check', t.severity, REFERRAL_RISK_SIGNAL_SEVERITIES),
     check(
       'referral_risk_signals_recorded_by_check',
       sql`${t.recordedByKind} in ('system', 'operator')

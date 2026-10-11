@@ -3,9 +3,9 @@ import type {
   Discount,
   CreateDiscountInput,
   UpdateDiscountInput,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/discounts`;
 

@@ -141,10 +141,7 @@ export const guestOrderClaims = pgTable(
     index('guest_order_claims_group_created_at_idx').on(t.checkoutGroupId, t.createdAt.desc()),
     // "What has this account claimed" — the account-history read and the
     // consistency probe's join side.
-    index('guest_order_claims_account_created_at_idx').on(
-      t.claimedByOxyUserId,
-      t.createdAt.desc(),
-    ),
+    index('guest_order_claims_account_created_at_idx').on(t.claimedByOxyUserId, t.createdAt.desc()),
     checkOneOf('guest_order_claims_state_check', t.state, GUEST_ORDER_CLAIM_STATES),
     checkOneOf(
       'guest_order_claims_conflict_reason_check',
@@ -249,15 +246,8 @@ export const guestOrderClaimRevocations = pgTable(
     uniqueIndex('guest_order_claim_revocations_open_key')
       .on(t.claimId)
       .where(sql`${t.state} = 'pending_approval'`),
-    index('guest_order_claim_revocations_claim_created_at_idx').on(
-      t.claimId,
-      t.createdAt.desc(),
-    ),
-    checkOneOf(
-      'guest_order_claim_revocations_state_check',
-      t.state,
-      GUEST_CLAIM_REVOCATION_STATES,
-    ),
+    index('guest_order_claim_revocations_claim_created_at_idx').on(t.claimId, t.createdAt.desc()),
+    checkOneOf('guest_order_claim_revocations_state_check', t.state, GUEST_CLAIM_REVOCATION_STATES),
     checkOneOf(
       'guest_order_claim_revocations_reason_check',
       t.reason,
@@ -330,7 +320,9 @@ export const guestOrderClaimOutbox = pgTable(
     /** Correlation, so the operator trace can open from a group without a join. */
     checkoutGroupId: text().notNull(),
     type: text({ enum: asEnumValues(GUEST_CLAIM_OUTBOX_TYPES) }).notNull(),
-    state: text({ enum: asEnumValues(GUEST_CLAIM_OUTBOX_STATES) }).notNull().default('pending'),
+    state: text({ enum: asEnumValues(GUEST_CLAIM_OUTBOX_STATES) })
+      .notNull()
+      .default('pending'),
     attempts: integer().notNull().default(0),
     availableAt: timestamptz().notNull(),
     /** Which task holds the lease. An opaque worker identity — no foreign key. */

@@ -17,9 +17,7 @@ import { sendError, ErrorCodes } from '../utils/api-response.js';
 
 /** Flatten Zod issues into a single human-readable message. */
 function formatIssues(error: z.ZodError): string {
-  return error.issues
-    .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-    .join('; ');
+  return error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
 }
 
 /**

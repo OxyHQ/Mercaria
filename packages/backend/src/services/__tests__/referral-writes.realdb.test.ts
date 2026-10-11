@@ -42,11 +42,7 @@ import {
   retireProgram,
   type CreateProgramDraftInput,
 } from '../referrals/program.service.js';
-import {
-  applyAsPartner,
-  approvePartner,
-  suspendPartner,
-} from '../referrals/partner.service.js';
+import { applyAsPartner, approvePartner, suspendPartner } from '../referrals/partner.service.js';
 import { issueCode, issueLink } from '../referrals/instrument.service.js';
 import {
   registerCodeTouch,
@@ -220,9 +216,7 @@ afterAll(async () => {
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
   if (trackedProgramIds.length > 0) {
-    await db
-      .delete(referralPrograms)
-      .where(inArray(referralPrograms.programId, trackedProgramIds));
+    await db.delete(referralPrograms).where(inArray(referralPrograms.programId, trackedProgramIds));
   }
   await closePostgres();
 });
@@ -372,9 +366,7 @@ describe('rule 8: a partner cannot issue instruments for a program it is not app
       promotionMethods: [],
     });
     trackedPartnerIds.push(applied.id);
-    await expect(issueCode({ partnerId: applied.id, programId })).rejects.toThrow(
-      /cannot issue/i,
-    );
+    await expect(issueCode({ partnerId: applied.id, programId })).rejects.toThrow(/cannot issue/i);
 
     // Approved, but the program only admits stores.
     const storeOnly = await makeActiveProgram({ eligiblePartnerTypes: ['store'] });

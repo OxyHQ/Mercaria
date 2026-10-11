@@ -87,7 +87,11 @@ const router = Router();
 router.use(makeRateLimiter('listings'));
 
 /** Generic compatibility, either direction. Exactly one selector. */
-router.get('/relations', validateQuery(compatibilityRelationsQuerySchema), compatibilityRelationsHandler);
+router.get(
+  '/relations',
+  validateQuery(compatibilityRelationsQuerySchema),
+  compatibilityRelationsHandler,
+);
 
 /**
  * Automotive fitment. `/verdict` is declared BEFORE `/fitments` would ever be

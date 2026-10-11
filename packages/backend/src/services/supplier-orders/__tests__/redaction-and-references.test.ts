@@ -77,9 +77,7 @@ describe('the client reference and its idempotency keys', () => {
 
   it('derives the same key for the same act, every time', () => {
     expect(deriveSubmissionIdempotencyKey('po-1')).toBe(deriveSubmissionIdempotencyKey('po-1'));
-    expect(deriveCancellationIdempotencyKey('po-1')).toBe(
-      deriveCancellationIdempotencyKey('po-1'),
-    );
+    expect(deriveCancellationIdempotencyKey('po-1')).toBe(deriveCancellationIdempotencyKey('po-1'));
     // Submitting and cancelling are different acts and must not share a key: a
     // provider keyed on it would answer the cancellation with the submission.
     expect(deriveSubmissionIdempotencyKey('po-1')).not.toBe(
@@ -270,7 +268,10 @@ describe('what the street rule must NOT eat (#832 over-matching cost)', () => {
   // happened to do. Two entries are pre-existing losses to the five-digit rule
   // (`SKU12345`, `18500`) and are recorded rather than quietly excluded.
   it.each([
-    ['Rejected for ada@example.com at 1 Market Street, Valencia 46001 (phone 600111222)', 'Rejected for [redacted] at [redacted] [redacted] (phone [redacted])'],
+    [
+      'Rejected for ada@example.com at 1 Market Street, Valencia 46001 (phone 600111222)',
+      'Rejected for [redacted] at [redacted] [redacted] (phone [redacted])',
+    ],
     ['SKU-A is out of stock for service STD', 'SKU-A is out of stock for service STD'],
     ['refused for ada@example.com', 'refused for [redacted]'],
     ['SKU-A', 'SKU-A'],
@@ -298,7 +299,10 @@ describe('what the street rule must NOT eat (#832 over-matching cost)', () => {
     ['quantity 2 exceeds available 1', 'quantity 2 exceeds available 1'],
     ['Rate limit exceeded, retry in 30 seconds', 'Rate limit exceeded, retry in 30 seconds'],
     ['Invalid value for field shipping.service', 'Invalid value for field shipping.service'],
-    ['The order has 4 lines and 2 could not be fulfilled', 'The order has 4 lines and 2 could not be fulfilled'],
+    [
+      'The order has 4 lines and 2 could not be fulfilled',
+      'The order has 4 lines and 2 could not be fulfilled',
+    ],
   ])('answers %j exactly as it did before #832', (input, expected) => {
     expect(redactSupplierOrderMessage(input)).toBe(expected);
   });

@@ -93,9 +93,7 @@ export async function insertTaxProfileRevision(
     })
     .returning();
   if (!row) {
-    throw new Error(
-      `referral_tax_profiles insert for partner ${input.partnerId} returned no row.`,
-    );
+    throw new Error(`referral_tax_profiles insert for partner ${input.partnerId} returned no row.`);
   }
   return row;
 }

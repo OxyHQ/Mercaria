@@ -1,8 +1,8 @@
-import type { ReactElement, ReactNode } from "react";
-import { Pressable, View } from "react-native";
-import { ShopDetailIcon } from "./ShopDetailIcon";
-import { Text } from "../ui/text";
-import { useColorScheme } from "../../lib/useColorScheme";
+import type { ReactElement, ReactNode } from 'react';
+import { Pressable, View } from 'react-native';
+import { ShopDetailIcon } from './ShopDetailIcon';
+import { Text } from '../ui/text';
+import { useColorScheme } from '../../lib/useColorScheme';
 
 /** Trailing chevron icon size (px). */
 const CHEVRON_ICON_SIZE = 20;
@@ -15,7 +15,7 @@ export interface SectionHeaderProps {
   showChevron?: boolean;
   /** False when Bloom's Carousel header already owns the inset and spacing. */
   inset?: boolean;
-  chevronPosition?: "end" | "after-title";
+  chevronPosition?: 'end' | 'after-title';
 }
 
 /**
@@ -29,7 +29,7 @@ export function SectionHeader({
   renderLink,
   showChevron = false,
   inset = true,
-  chevronPosition = "end",
+  chevronPosition = 'end',
 }: SectionHeaderProps) {
   const { colors } = useColorScheme();
 
@@ -38,7 +38,7 @@ export function SectionHeader({
     return (
       <Text
         accessibilityRole="header"
-        className={`${inset ? "px-4 pb-3 md:px-5" : ""} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
+        className={`${inset ? 'px-4 pb-3 md:px-5' : ''} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
       >
         {title}
       </Text>
@@ -49,17 +49,13 @@ export function SectionHeader({
     <>
       <Text
         accessibilityRole="header"
-        className={`${chevronPosition === "end" ? "flex-1" : "shrink"} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
+        className={`${chevronPosition === 'end' ? 'flex-1' : 'shrink'} text-shop-subtitle text-foreground md:text-shop-sectionTitle`}
       >
         {title}
       </Text>
       {showChevron ? (
         <View className="h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full bg-black/[0.04] dark:bg-white/[0.06]">
-          <ShopDetailIcon
-            name="chevron"
-            size={CHEVRON_ICON_SIZE}
-            color={colors.foreground}
-          />
+          <ShopDetailIcon name="chevron" size={CHEVRON_ICON_SIZE} color={colors.foreground} />
         </View>
       ) : null}
     </>
@@ -68,10 +64,10 @@ export function SectionHeader({
   if (renderLink || onPress) {
     const control = (
       <Pressable
-        accessibilityRole={renderLink ? "link" : "button"}
+        accessibilityRole={renderLink ? 'link' : 'button'}
         accessibilityLabel={title}
         onPress={onPress}
-        className={`flex-row items-center gap-2 ${inset ? "justify-between px-4 pb-3 md:px-5" : ""}`}
+        className={`flex-row items-center gap-2 ${inset ? 'justify-between px-4 pb-3 md:px-5' : ''}`}
       >
         {inner}
       </Pressable>
@@ -81,7 +77,7 @@ export function SectionHeader({
 
   return (
     <View
-      className={`flex-row items-center gap-2 ${inset ? "justify-between px-4 pb-3 md:px-5" : ""}`}
+      className={`flex-row items-center gap-2 ${inset ? 'justify-between px-4 pb-3 md:px-5' : ''}`}
     >
       {inner}
     </View>

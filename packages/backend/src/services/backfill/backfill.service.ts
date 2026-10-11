@@ -52,7 +52,12 @@ import {
   releaseBackfillRun,
   type CatalogBackfillRunRow,
 } from '../../db/backfill/backfillRunRepository.js';
-import { cohortColumns, cohortListingPredicate, parseCohort, type BackfillCohort } from './cohort.js';
+import {
+  cohortColumns,
+  cohortListingPredicate,
+  parseCohort,
+  type BackfillCohort,
+} from './cohort.js';
 import { createGraphWriter } from './graph-writer.js';
 import { CATALOG_BACKFILL_MAPPING_VERSION } from './mapping-version.js';
 import type { StageContext, StagePageResult, StageRunner } from './stage-context.js';
@@ -188,7 +193,12 @@ export async function runCatalogBackfillPage(
     throw conflict(`Backfill run ${runId} is complete; open a new run to page again.`);
   }
 
-  const claimed = await claimBackfillRun({ runId, leaseOwner: LEASE_OWNER, leaseMs: LEASE_MS, now });
+  const claimed = await claimBackfillRun({
+    runId,
+    leaseOwner: LEASE_OWNER,
+    leaseMs: LEASE_MS,
+    now,
+  });
   if (claimed === undefined) return undefined;
 
   const cohort = parseCohort(claimed.cohortKind, claimed.cohortValue);

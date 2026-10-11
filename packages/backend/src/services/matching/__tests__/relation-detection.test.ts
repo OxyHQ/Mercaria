@@ -44,7 +44,11 @@ const CASES: readonly Row[] = [
   { title: 'Soporte de coche para movil', expected: 'accessory', why: 'soporte' },
 
   // ── replacement part: beats accessory, and that ordering is deliberate ──────
-  { title: 'Bateria de repuesto para iPhone 15 Pro', expected: 'replacement_part', why: 'repuesto' },
+  {
+    title: 'Bateria de repuesto para iPhone 15 Pro',
+    expected: 'replacement_part',
+    why: 'repuesto',
+  },
   {
     title: 'Replacement charging cable for iPhone',
     expected: 'replacement_part',
@@ -57,7 +61,11 @@ const CASES: readonly Row[] = [
   { title: 'AA Batteries pack of 12', expected: 'multipack', why: 'pack of N' },
   { title: 'Pilas AA 4 unidades', expected: 'multipack', why: 'N unidades' },
   { title: 'Calcetines negros x3', expected: 'multipack', why: 'xN' },
-  { title: 'Bombillas LED twin pack', expected: 'multipack', why: 'a multipack marker with no count' },
+  {
+    title: 'Bombillas LED twin pack',
+    expected: 'multipack',
+    why: 'a multipack marker with no count',
+  },
 
   // ── bundle ─────────────────────────────────────────────────────────────────
   { title: 'Meta Quest 3 bundle con Asgard Wrath 2', expected: 'bundle', why: 'bundle' },

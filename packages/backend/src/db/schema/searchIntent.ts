@@ -203,7 +203,11 @@ export const searchIntentTurns = pgTable(
   },
   (t) => [
     checkOneOf('search_intent_turns_mode_check', t.mode, INTERPRETATION_MODES),
-    checkOneOf('search_intent_turns_fallback_reason_check', t.fallbackReason, INTENT_FALLBACK_REASONS),
+    checkOneOf(
+      'search_intent_turns_fallback_reason_check',
+      t.fallbackReason,
+      INTENT_FALLBACK_REASONS,
+    ),
     // The biconditional. A `model` turn carrying a fallback reason and a
     // `deterministic` turn carrying none are both rows that would make the
     // fallback rate uncomputable — the first inflates it, the second leaves a
@@ -292,10 +296,7 @@ export const searchIntentBenchmarkRuns = pgTable(
   },
   (t) => [
     check('search_intent_benchmark_runs_language_check', sql`${t.language} ~ '^[a-z]{2,3}$'`),
-    check(
-      'search_intent_benchmark_runs_digest_check',
-      sql`${t.datasetDigest} ~ '^[0-9a-f]{64}$'`,
-    ),
+    check('search_intent_benchmark_runs_digest_check', sql`${t.datasetDigest} ~ '^[0-9a-f]{64}$'`),
     // Every rate is a proportion. A "recall" of 1.4 is a computation bug, and
     // storing one would enable a parser against a threshold it never met.
     check(
@@ -375,10 +376,7 @@ export const searchIntentEnablements = pgTable(
     check('search_intent_enablements_language_check', sql`${t.language} ~ '^[a-z]{2,3}$'`),
     check('search_intent_enablements_actor_check', sql`btrim(${t.enabledByOxyUserId}) <> ''`),
     check('search_intent_enablements_note_check', sql`btrim(${t.note}) <> ''`),
-    check(
-      'search_intent_enablements_digest_check',
-      sql`${t.datasetDigest} ~ '^[0-9a-f]{64}$'`,
-    ),
+    check('search_intent_enablements_digest_check', sql`${t.datasetDigest} ~ '^[0-9a-f]{64}$'`),
     // The composite citation — the `match_category_gates` device. A row naming a
     // run measured against ANOTHER dataset is unrepresentable, so "these
     // thresholds were recorded against these exact cases" is a foreign key

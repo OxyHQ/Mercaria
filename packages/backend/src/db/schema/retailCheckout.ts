@@ -254,10 +254,7 @@ export const retailProcurementIntents = pgTable(
       'retail_procurement_intents_cost_check',
       sql`${t.supplierCostAmount} >= 0 and ${t.buyerLockedTotalAmount} >= 0`,
     ),
-    check(
-      'retail_procurement_intents_group_check',
-      sql`length(btrim(${t.checkoutGroupId})) > 0`,
-    ),
+    check('retail_procurement_intents_group_check', sql`length(btrim(${t.checkoutGroupId})) > 0`),
     /**
      * A failure kind appears EXACTLY on a `failed` intent.
      *

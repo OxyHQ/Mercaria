@@ -46,10 +46,7 @@ function operatorView(row: RetailPricingPolicyRecord) {
 }
 
 /** GET /internal/payments/retail-pricing-policies — every version of every policy. */
-export async function listRetailPricingPoliciesHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function listRetailPricingPoliciesHandler(req: Request, res: Response): Promise<void> {
   try {
     const policyKey = typeof req.query.policyKey === 'string' ? req.query.policyKey : undefined;
     const rows = await listRetailPricingPolicies(getDb(), policyKey ? { policyKey } : undefined);
@@ -69,10 +66,7 @@ export async function listRetailPricingPoliciesHandler(
  * told they made a typo rather than that retail carries zero markup by
  * construction. This surface answers the second thing.
  */
-export async function createRetailPricingPolicyHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function createRetailPricingPolicyHandler(req: Request, res: Response): Promise<void> {
   try {
     assertRetailPolicyBodyIsCostOnly(req.body);
     const body = req.body as RetailPricingPolicyCreateBody;
@@ -144,10 +138,7 @@ export async function activateRetailPricingPolicyHandler(
 }
 
 /** POST /internal/payments/retail-pricing-policies/:id/retire — withdraw it. */
-export async function retireRetailPricingPolicyHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function retireRetailPricingPolicyHandler(req: Request, res: Response): Promise<void> {
   try {
     const row = await retireRetailPricingPolicy(getDb(), routeParam(req, 'id'));
     if (!row) {

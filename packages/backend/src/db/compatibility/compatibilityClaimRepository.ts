@@ -186,7 +186,13 @@ export async function selectClaim(
   await db
     .update(compatibilityClaims)
     .set({ state: 'superseded', updatedAt: now })
-    .where(and(scope, eq(compatibilityClaims.state, 'selected'), sql`${compatibilityClaims.id} <> ${claimId}`));
+    .where(
+      and(
+        scope,
+        eq(compatibilityClaims.state, 'selected'),
+        sql`${compatibilityClaims.id} <> ${claimId}`,
+      ),
+    );
 
   await db
     .update(compatibilityClaims)
@@ -217,19 +223,25 @@ export async function recordClaimReview(
 ): Promise<boolean> {
   const updated = await db
     .update(compatibilityClaims)
-    .set({ state, reviewedByOxyUserId: actorOxyUserId, reviewedAt, reviewNote, updatedAt: reviewedAt })
+    .set({
+      state,
+      reviewedByOxyUserId: actorOxyUserId,
+      reviewedAt,
+      reviewNote,
+      updatedAt: reviewedAt,
+    })
     .where(eq(compatibilityClaims.id, claimId))
     .returning({ id: compatibilityClaims.id });
   return updated.length === 1;
 }
 
 /** Claims a source made that have never been looked at. Used by the metrics read. */
-export async function countUnreviewedClaims(
-  db: DatabaseOrTransaction = getDb(),
-): Promise<number> {
+export async function countUnreviewedClaims(db: DatabaseOrTransaction = getDb()): Promise<number> {
   const [row] = await db
     .select({ total: count() })
     .from(compatibilityClaims)
-    .where(and(eq(compatibilityClaims.state, 'unresolved'), isNull(compatibilityClaims.reviewedAt)));
+    .where(
+      and(eq(compatibilityClaims.state, 'unresolved'), isNull(compatibilityClaims.reviewedAt)),
+    );
   return row === undefined ? 0 : Number(row.total);
 }

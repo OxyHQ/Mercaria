@@ -126,8 +126,16 @@ export interface SubmitProposalInput {
  * narrow (#68, #110).
  */
 export type ProposalSubmission =
-  | { readonly outcome: 'created'; readonly proposal: CatalogProposal; readonly scan: CatalogProposalDuplicateScan }
-  | { readonly outcome: 'converged'; readonly proposal: CatalogProposal; readonly scan: CatalogProposalDuplicateScan };
+  | {
+      readonly outcome: 'created';
+      readonly proposal: CatalogProposal;
+      readonly scan: CatalogProposalDuplicateScan;
+    }
+  | {
+      readonly outcome: 'converged';
+      readonly proposal: CatalogProposal;
+      readonly scan: CatalogProposalDuplicateScan;
+    };
 
 /**
  * Run the pre-submission duplicate scan and report it, storing nothing.
@@ -214,7 +222,10 @@ export async function submitProposal(
   // remedy is to use it, and a proposal for something that already exists is
   // work an operator would close by pointing at the same row. A near match is
   // never a refusal — see the detection module.
-  if (scan.blocking !== null && CATALOG_PROPOSAL_BLOCKING_DETECTORS.includes(scan.blocking.detector)) {
+  if (
+    scan.blocking !== null &&
+    CATALOG_PROPOSAL_BLOCKING_DETECTORS.includes(scan.blocking.detector)
+  ) {
     throw conflict(
       `“${scan.blocking.label}” already exists in the catalogue; use it instead of proposing it.`,
     );
@@ -396,7 +407,10 @@ export async function listStoreProposals(
     storeId: input.storeId,
     ...(input.states === undefined ? {} : { states: input.states }),
     ...(input.types === undefined ? {} : { types: input.types }),
-    limit: Math.min(input.limit ?? config.catalogProposals.pageSize, config.catalogProposals.pageSize),
+    limit: Math.min(
+      input.limit ?? config.catalogProposals.pageSize,
+      config.catalogProposals.pageSize,
+    ),
     offset: input.offset ?? 0,
   });
   return projectProposals(db, rows);

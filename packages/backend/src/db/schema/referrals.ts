@@ -143,7 +143,9 @@ export const referralPrograms = pgTable(
     /** The buyer-facing terms summary, safe to render verbatim. */
     publicTermsSummary: text().notNull(),
     family: text({ enum: asEnumValues(REFERRAL_PROGRAM_FAMILIES) }).notNull(),
-    status: text({ enum: asEnumValues(REFERRAL_PROGRAM_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(REFERRAL_PROGRAM_STATUSES) })
+      .notNull()
+      .default('draft'),
     /** Required by the time the version is published; a draft may not know it yet. */
     effectiveStartAt: timestamptz(),
     effectiveEndAt: timestamptz(),
@@ -314,7 +316,9 @@ export const referralPartners = pgTable(
     enrollmentMode: text({ enum: asEnumValues(REFERRAL_ENROLLMENT_MODES) })
       .notNull()
       .default('open_application'),
-    state: text({ enum: asEnumValues(REFERRAL_PARTNER_STATES) }).notNull().default('applied'),
+    state: text({ enum: asEnumValues(REFERRAL_PARTNER_STATES) })
+      .notNull()
+      .default('applied'),
     /** Enrollment history summary — the full trail is `referral_events`. */
     appliedAt: timestamptz(),
     invitedAt: timestamptz(),
@@ -355,10 +359,14 @@ export const referralPartners = pgTable(
     payoutReadiness: text({ enum: asEnumValues(REFERRAL_READINESS_SUMMARIES) })
       .notNull()
       .default('unknown'),
-    riskState: text({ enum: asEnumValues(REFERRAL_RISK_STATES) }).notNull().default('none'),
+    riskState: text({ enum: asEnumValues(REFERRAL_RISK_STATES) })
+      .notNull()
+      .default('none'),
     suspendedAt: timestamptz(),
     terminatedAt: timestamptz(),
-    appealState: text({ enum: asEnumValues(REFERRAL_APPEAL_STATES) }).notNull().default('none'),
+    appealState: text({ enum: asEnumValues(REFERRAL_APPEAL_STATES) })
+      .notNull()
+      .default('none'),
     reviewedAt: timestamptz(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -456,7 +464,9 @@ export const referralTaxProfiles = pgTable(
     /** 1 for the first declaration, +1 per correction. See the docblock. */
     revision: integer().notNull(),
     /** Which published questionnaire this declaration answers. */
-    questionnaireVersion: text({ enum: asEnumValues(REFERRAL_TAX_QUESTIONNAIRE_VERSIONS) }).notNull(),
+    questionnaireVersion: text({
+      enum: asEnumValues(REFERRAL_TAX_QUESTIONNAIRE_VERSIONS),
+    }).notNull(),
     participantType: text({ enum: asEnumValues(REFERRAL_TAX_PARTICIPANT_TYPES) }).notNull(),
     /** ISO 3166-1 alpha-2, upper case — the CHECK is the format authority. */
     residencyCountry: text().notNull(),
@@ -481,7 +491,10 @@ export const referralTaxProfiles = pgTable(
     // Two alpha-2 letters, upper case. A length check alone would admit `e5`
     // and, worse, `es` — and a lower-case code stored beside an upper-case one
     // makes the same country two countries to every reader that groups by it.
-    check('referral_tax_profiles_residency_country_check', sql`${t.residencyCountry} ~ '^[A-Z]{2}$'`),
+    check(
+      'referral_tax_profiles_residency_country_check',
+      sql`${t.residencyCountry} ~ '^[A-Z]{2}$'`,
+    ),
     check('referral_tax_profiles_revision_check', sql`${t.revision} >= 1`),
     check('referral_tax_profiles_declared_by_check', sql`length(${t.declaredByOxyUserId}) > 0`),
     // Two concurrent submissions collide here rather than both reading as the
@@ -538,7 +551,9 @@ export const referralPartnerApplications = pgTable(
       .references(() => referralPartners.id, { onDelete: 'restrict' }),
     /** 1 for the first submission, +1 for each re-submission after changes. */
     revision: integer().notNull().default(1),
-    state: text({ enum: asEnumValues(REFERRAL_APPLICATION_STATES) }).notNull().default('draft'),
+    state: text({ enum: asEnumValues(REFERRAL_APPLICATION_STATES) })
+      .notNull()
+      .default('draft'),
     /** The mode this application was made under; the partner row carries it too. */
     enrollmentMode: text({ enum: asEnumValues(REFERRAL_ENROLLMENT_MODES) }).notNull(),
     /**
@@ -675,7 +690,9 @@ export const referralPartnerApplications = pgTable(
     // `withdrawn` are OUT so reapplication needs no special case.
     uniqueIndex('referral_partner_applications_live_key')
       .on(t.partnerId)
-      .where(sql`${t.state} in ('draft', 'submitted', 'under_review', 'changes_requested', 'approved')`),
+      .where(
+        sql`${t.state} in ('draft', 'submitted', 'under_review', 'changes_requested', 'approved')`,
+      ),
     // The operator review inbox: "what is waiting, oldest first".
     index('referral_partner_applications_state_submitted_idx').on(t.state, t.submittedAt),
   ],
@@ -768,7 +785,10 @@ export const referralPartnerApplicationReviews = pgTable(
           and length(array_to_string(${t.evidenceRefs}, ' ')) <= 2000`,
     ),
     // One decision per revision — the idempotency key. See the docblock.
-    uniqueIndex('referral_partner_application_reviews_revision_key').on(t.applicationId, t.revision),
+    uniqueIndex('referral_partner_application_reviews_revision_key').on(
+      t.applicationId,
+      t.revision,
+    ),
   ],
 );
 
@@ -889,7 +909,9 @@ export const referralCodes = pgTable(
     aliasOfCodeId: text().references((): AnyPgColumn => referralCodes.id, {
       onDelete: 'restrict',
     }),
-    status: text({ enum: asEnumValues(REFERRAL_INSTRUMENT_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(REFERRAL_INSTRUMENT_STATUSES) })
+      .notNull()
+      .default('active'),
     destinationType: text({ enum: asEnumValues(REFERRAL_DESTINATION_TYPES) }),
     /** The destination's own id (listing/collection/store) — never a URL. */
     destinationRef: text(),
@@ -911,7 +933,11 @@ export const referralCodes = pgTable(
   },
   (t) => [
     checkOneOf('referral_codes_status_check', t.status, REFERRAL_INSTRUMENT_STATUSES),
-    checkOneOf('referral_codes_destination_type_check', t.destinationType, REFERRAL_DESTINATION_TYPES),
+    checkOneOf(
+      'referral_codes_destination_type_check',
+      t.destinationType,
+      REFERRAL_DESTINATION_TYPES,
+    ),
     // The namespace and case policy (ADR 0005 D3): lower-case letters, digits
     // and hyphens, 3–32 characters, starting alphanumeric. `lower()` in the
     // CHECK would be redundant with the pattern but states the policy.
@@ -970,7 +996,9 @@ export const referralLinks = pgTable(
       .references(() => referralCodes.id, { onDelete: 'restrict' }),
     /** The signed opaque token, verbatim as shared. Unique — one spelling per link. */
     token: text().notNull(),
-    status: text({ enum: asEnumValues(REFERRAL_INSTRUMENT_STATUSES) }).notNull().default('active'),
+    status: text({ enum: asEnumValues(REFERRAL_INSTRUMENT_STATUSES) })
+      .notNull()
+      .default('active'),
     /** Optional override of the code's destination — same closed shape. */
     destinationType: text({ enum: asEnumValues(REFERRAL_DESTINATION_TYPES) }),
     destinationRef: text(),
@@ -990,7 +1018,11 @@ export const referralLinks = pgTable(
   },
   (t) => [
     checkOneOf('referral_links_status_check', t.status, REFERRAL_INSTRUMENT_STATUSES),
-    checkOneOf('referral_links_destination_type_check', t.destinationType, REFERRAL_DESTINATION_TYPES),
+    checkOneOf(
+      'referral_links_destination_type_check',
+      t.destinationType,
+      REFERRAL_DESTINATION_TYPES,
+    ),
     check('referral_links_token_check', sql`length(${t.token}) > 0`),
     check(
       'referral_links_destination_check',
@@ -1202,7 +1234,9 @@ export const referralAttributions = pgTable(
     ruleVersionRef: text().notNull(),
     /** When this attribution stops converting — evidence time + the window. */
     expiresAt: timestamptz().notNull(),
-    state: text({ enum: asEnumValues(REFERRAL_ATTRIBUTION_STATES) }).notNull().default('active'),
+    state: text({ enum: asEnumValues(REFERRAL_ATTRIBUTION_STATES) })
+      .notNull()
+      .default('active'),
     conflictReason: text({ enum: asEnumValues(REFERRAL_CONFLICT_REASONS) }),
     resolvedAt: timestamptz(),
     /** The predecessor this row superseded or corrected, when it has one. */
@@ -1255,10 +1289,7 @@ export const referralAttributions = pgTable(
       'referral_attributions_supersedes_check',
       sql`${t.supersedesAttributionId} is null or ${t.supersedesAttributionId} <> ${t.id}`,
     ),
-    check(
-      'referral_attributions_expiry_check',
-      sql`${t.expiresAt} > ${t.evidenceOccurredAt}`,
-    ),
+    check('referral_attributions_expiry_check', sql`${t.expiresAt} > ${t.evidenceOccurredAt}`),
     // ADR 0005 D4's winner cardinality: ONE active attribution per program and
     // subject. The concurrent loser's insert fails here and is mapped to a
     // conflict, never a duplicate winner.
@@ -1269,9 +1300,7 @@ export const referralAttributions = pgTable(
     index('referral_attributions_subject_idx').on(t.subjectKind, t.subjectRef, t.createdAt.desc()),
     // Attribution expiry reads (issue, migration/scale 3) — only active rows
     // ever need the scan.
-    index('referral_attributions_expires_at_idx')
-      .on(t.expiresAt)
-      .where(sql`${t.state} = 'active'`),
+    index('referral_attributions_expires_at_idx').on(t.expiresAt).where(sql`${t.state} = 'active'`),
     index('referral_attributions_program_version_id_idx').on(t.programVersionId),
     // "What replaced X" — the successor lookup, partial because most rows
     // never supersede anything.
@@ -1371,7 +1400,9 @@ export const referralConversions = pgTable(
     /** When the milestone happened, per its own aggregate. */
     occurredAt: timestamptz().notNull(),
     verifiedAt: timestamptz(),
-    state: text({ enum: asEnumValues(REFERRAL_CONVERSION_STATES) }).notNull().default('pending'),
+    state: text({ enum: asEnumValues(REFERRAL_CONVERSION_STATES) })
+      .notNull()
+      .default('pending'),
     reasonCode: text({ enum: asEnumValues(REFERRAL_CONVERSION_REASON_CODES) }),
     /** The #144 revenue-base record, once one exists. A seam, not a value. */
     revenueBaseRef: text(),
@@ -1390,7 +1421,11 @@ export const referralConversions = pgTable(
     ),
     checkOneOf('referral_conversions_source_kind_check', t.sourceKind, REFERRAL_CONVERSION_SOURCES),
     checkOneOf('referral_conversions_state_check', t.state, REFERRAL_CONVERSION_STATES),
-    checkOneOf('referral_conversions_reason_code_check', t.reasonCode, REFERRAL_CONVERSION_REASON_CODES),
+    checkOneOf(
+      'referral_conversions_reason_code_check',
+      t.reasonCode,
+      REFERRAL_CONVERSION_REASON_CODES,
+    ),
     check(
       'referral_conversions_identity_check',
       sql`length(${t.sourceRef}) > 0 and length(${t.sourceEventId}) > 0

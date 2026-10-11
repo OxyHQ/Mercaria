@@ -37,7 +37,12 @@ import {
 /** How many open eligibilities one order-history page asks for. */
 const ELIGIBILITY_PAGE_LIMIT = 50;
 
-async function sendReviewMediaPage(req: Request, res: Response, kind: 'product' | 'listing', id: string): Promise<void> {
+async function sendReviewMediaPage(
+  req: Request,
+  res: Response,
+  kind: 'product' | 'listing',
+  id: string,
+): Promise<void> {
   try {
     const { page, limit } = parsePagination(req.query);
     const result = await listPublicReviewMedia(kind, id, { page, limit });
@@ -59,7 +64,10 @@ export async function listListingReviewMedia(req: Request, res: Response): Promi
 export async function listReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {
   try {
     res.setHeader('Cache-Control', 'private, no-store');
-    sendSuccess(res, await listReviewHelpfulness(getRequiredOxyUserId(req), parseReviewHelpfulnessIds(req.query)));
+    sendSuccess(
+      res,
+      await listReviewHelpfulness(getRequiredOxyUserId(req), parseReviewHelpfulnessIds(req.query)),
+    );
   } catch (err) {
     respondWithError(res, err, 'Failed to load review votes');
   }
@@ -68,7 +76,14 @@ export async function listReviewHelpfulnessHandler(req: Request, res: Response):
 export async function updateReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {
   try {
     res.setHeader('Cache-Control', 'private, no-store');
-    sendSuccess(res, await updateReviewHelpfulness(getRequiredOxyUserId(req), routeParam(req, 'id'), req.body.helpful));
+    sendSuccess(
+      res,
+      await updateReviewHelpfulness(
+        getRequiredOxyUserId(req),
+        routeParam(req, 'id'),
+        req.body.helpful,
+      ),
+    );
   } catch (err) {
     respondWithError(res, err, 'Failed to update review vote');
   }

@@ -196,7 +196,8 @@ const FORBIDDEN_REFERENCES: readonly { signal: string; pattern: RegExp }[] = [
     // anchored on `services/fees/` does not match — a hole this test found in
     // its own first draft.
     signal: 'marketplace_fee',
-    pattern: /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/i,
+    pattern:
+      /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/i,
   },
   {
     signal: 'referral_reward',
@@ -209,7 +210,8 @@ const FORBIDDEN_REFERENCES: readonly { signal: string; pattern: RegExp }[] = [
   { signal: 'payment_rail_acceptance', pattern: /faircoin|oxypay|oxy_pay|acceptsFair|peable/i },
   {
     signal: 'retail_cost_variance',
-    pattern: /retail-pricing\/|retail_cost|retailCost|costVariance|retail_cost_variance|absorption_cap/i,
+    pattern:
+      /retail-pricing\/|retail_cost|retailCost|costVariance|retail_cost_variance|absorption_cap/i,
   },
   { signal: 'sponsored_payment', pattern: /sponsor|promotedPlacement|paidPlacement|adSlot/i },
 ];
@@ -286,9 +288,7 @@ describe('canonical search cannot rank by a commercial payment', () => {
     // The vacuity floor for the gate itself, PER SHAPE: a walk that found
     // nothing produces zero violations, which is exactly what a healthy run
     // also produces.
-    const inDirectories = SCANNED_DIRECTORIES.flatMap((relative) =>
-      walk(join(SRC_ROOT, relative)),
-    );
+    const inDirectories = SCANNED_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative)));
     const inOuter = outerPaths();
     expect(
       inDirectories.length,
@@ -323,13 +323,14 @@ describe('canonical search cannot rank by a commercial payment', () => {
     // matching nothing, and only this test can tell that apart from a clean
     // domain.
     const positives: Readonly<Record<string, string>> = {
-      affiliate_commission: "const rate = await readAffiliateReport(offer).commission;",
-      marketplace_fee: "import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';",
-      referral_reward: "const boost = referralReward(candidate);",
+      affiliate_commission: 'const rate = await readAffiliateReport(offer).commission;',
+      marketplace_fee:
+        "import { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';",
+      referral_reward: 'const boost = referralReward(candidate);',
       merchant_pro_plan: "if (merchant.subscriptionTier === 'pro') score += 0.2;",
-      payment_rail_acceptance: "if (merchant.acceptsPeable) score += 0.1;",
+      payment_rail_acceptance: 'if (merchant.acceptsPeable) score += 0.1;',
       retail_cost_variance: "import { readRetailCostQuote } from '../retail-pricing/quote.js';",
-      sponsored_payment: "const bid = await readSponsoredBid(productId);",
+      sponsored_payment: 'const bid = await readSponsoredBid(productId);',
     };
     const negative =
       "import { listOffersForComparison } from '../../db/offers/offerRepository.js';";
@@ -370,15 +371,19 @@ describe('canonical search cannot rank by a commercial payment', () => {
     ).toContain('middleware/search-schemas.ts');
 
     // …and #95's five files stay out, or this wall fires at whoever edits them.
-    assertEachOf([
-      'controllers/search-intent.controller.ts',
-      'controllers/internal-search-intent.controller.ts',
-      'routes/search-intent.ts',
-      'routes/internal-search-intent.ts',
-      'middleware/search-intent-schemas.ts',
-    ], 5, (foreign) => {
-      expect(outer, `${foreign} belongs to #95 and has its own gate`).not.toContain(foreign);
-    });
+    assertEachOf(
+      [
+        'controllers/search-intent.controller.ts',
+        'controllers/internal-search-intent.controller.ts',
+        'routes/search-intent.ts',
+        'routes/internal-search-intent.ts',
+        'middleware/search-intent-schemas.ts',
+      ],
+      5,
+      (foreign) => {
+        expect(outer, `${foreign} belongs to #95 and has its own gate`).not.toContain(foreign);
+      },
+    );
     expect(NOT_THIS_DOMAIN_PATTERN.test('internal-search-intent.controller.ts')).toBe(true);
     expect(NOT_THIS_DOMAIN_PATTERN.test('search-operator.controller.ts')).toBe(false);
 
@@ -387,20 +392,25 @@ describe('canonical search cannot rank by a commercial payment', () => {
     // than a tidy-up: with the sweep matching PATHS and `db/schema` in the
     // directory list, the narrow spelling drags three of #95's modules into
     // #70's population, and every count in this file stays where it is.
-    assertEachOf([
-      'db/schema/searchIntent.ts',
-      'db/searchIntent/benchmarkRepository.ts',
-      'db/searchIntent/searchIntentRepository.ts',
-    ], 3, (foreign) => {
-      expect(
-        /search-intent/i.test(foreign),
-        `${foreign} is excluded without the optional hyphen`,
-      ).toBe(false);
-      expect(NOT_THIS_DOMAIN_PATTERN.test(foreign), `${foreign} belongs to #95`).toBe(true);
-      expect(outerRelativePaths(), `${foreign} belongs to #95 and has its own gate`).not.toContain(
-        foreign,
-      );
-    });
+    assertEachOf(
+      [
+        'db/schema/searchIntent.ts',
+        'db/searchIntent/benchmarkRepository.ts',
+        'db/searchIntent/searchIntentRepository.ts',
+      ],
+      3,
+      (foreign) => {
+        expect(
+          /search-intent/i.test(foreign),
+          `${foreign} is excluded without the optional hyphen`,
+        ).toBe(false);
+        expect(NOT_THIS_DOMAIN_PATTERN.test(foreign), `${foreign} belongs to #95`).toBe(true);
+        expect(
+          outerRelativePaths(),
+          `${foreign} belongs to #95 and has its own gate`,
+        ).not.toContain(foreign);
+      },
+    );
   });
 
   it('is the FORWARD wall over #70, and its relation to the shared surface holds', () => {

@@ -200,9 +200,7 @@ export const retailReconciliationPolicies = pgTable(
     recurringVarianceCount: integer().notNull().default(3),
     recurringVarianceWindowHours: integer().notNull().default(168),
     /** ADR 0004 D8.6's operational ceiling, measured from delivery. */
-    finalityCeilingDays: integer()
-      .notNull()
-      .default(RETAIL_RECONCILIATION_FINALITY_CEILING_DAYS),
+    finalityCeilingDays: integer().notNull().default(RETAIL_RECONCILIATION_FINALITY_CEILING_DAYS),
     /** What becomes of an adjustment the buyer never received. Two options; see above. */
     subThresholdDisposition: text({ enum: asEnumValues(RETAIL_ADJUSTMENT_FINALITY_DISPOSITIONS) })
       .notNull()
@@ -419,10 +417,7 @@ export const retailReconciliations = pgTable(
     checkOneOf('retail_reconciliations_outcome_check', t.outcome, RETAIL_RECONCILIATION_OUTCOMES),
     ...currencyChecks('retail_reconciliations', [t.accountingCurrency]),
     check('retail_reconciliations_revision_check', sql`${t.revision} >= 1`),
-    check(
-      'retail_reconciliations_digest_check',
-      sql`${t.evidenceDigest} ~ '^[0-9a-f]{64}$'`,
-    ),
+    check('retail_reconciliations_digest_check', sql`${t.evidenceDigest} ~ '^[0-9a-f]{64}$'`),
     check(
       'retail_reconciliations_amounts_check',
       sql`${t.customerAmountBeforeSubsidyMinor} >= 0
@@ -604,10 +599,7 @@ export const retailReconciliationEvidence = pgTable(
       RETAIL_RECONCILIATION_EVIDENCE_KINDS,
     ),
     ...currencyChecks('retail_reconciliation_evidence', [t.evidenceCurrency]),
-    check(
-      'retail_reconciliation_evidence_reference_check',
-      sql`length(btrim(${t.reference})) > 0`,
-    ),
+    check('retail_reconciliation_evidence_reference_check', sql`length(btrim(${t.reference})) > 0`),
     // An amount names its currency. `optionalMoney` makes the pair nullable and
     // says nothing about them being nullable TOGETHER, so a figure with no
     // currency is representable without this — and raw minor units with no
@@ -755,7 +747,9 @@ export const retailCustomerAdjustments = pgTable(
     /** What is owed, in the reconciliation's accounting currency. */
     ...money('adjustment'),
     method: text({ enum: asEnumValues(RETAIL_ADJUSTMENT_METHODS) }).notNull(),
-    state: text({ enum: asEnumValues(RETAIL_ADJUSTMENT_STATES) }).notNull().default('owed'),
+    state: text({ enum: asEnumValues(RETAIL_ADJUSTMENT_STATES) })
+      .notNull()
+      .default('owed'),
     /** Why the rail was not used. Present exactly on a `recorded_payable`. */
     blockReason: text({ enum: asEnumValues(RETAIL_ADJUSTMENT_BLOCK_REASONS) }),
     /** ADR 0004 D8.7 case (c) — recorded explicitly, never hidden as margin. */

@@ -87,10 +87,7 @@ export async function findOwnedSession(
       ? eq(searchIntentSessions.oxyUserId, owner.oxyUserId)
       : owner.kind === 'guest'
         ? eq(searchIntentSessions.guestSessionId, owner.guestSessionId)
-        : and(
-            isNull(searchIntentSessions.oxyUserId),
-            isNull(searchIntentSessions.guestSessionId),
-          );
+        : and(isNull(searchIntentSessions.oxyUserId), isNull(searchIntentSessions.guestSessionId));
   const [row] = await db
     .select()
     .from(searchIntentSessions)
@@ -232,7 +229,10 @@ export async function readFallbackRate(
     .select({ reason: searchIntentTurns.fallbackReason, count: sql<string>`count(*)` })
     .from(searchIntentTurns)
     .where(
-      and(gt(searchIntentTurns.createdAt, since), sql`${searchIntentTurns.fallbackReason} is not null`),
+      and(
+        gt(searchIntentTurns.createdAt, since),
+        sql`${searchIntentTurns.fallbackReason} is not null`,
+      ),
     )
     .groupBy(searchIntentTurns.fallbackReason);
 

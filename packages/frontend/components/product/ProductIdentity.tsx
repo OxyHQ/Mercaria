@@ -92,9 +92,7 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
           </View>
         ) : null}
 
-        {product.description ? (
-          <ProductDescription description={product.description} />
-        ) : null}
+        {product.description ? <ProductDescription description={product.description} /> : null}
 
         <LifecycleLine product={product} />
       </View>

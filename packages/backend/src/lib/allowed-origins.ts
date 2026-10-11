@@ -73,7 +73,11 @@ export function isAllowedBrowserOrigin(origin: string | undefined): boolean {
 export const PUBLIC_READ_CORS_BASE_PATH = '/public/v1';
 
 /** The only methods the public allowance covers. `OPTIONS` is the preflight. */
-export const PUBLIC_READ_CORS_METHODS: readonly string[] = Object.freeze(['GET', 'HEAD', 'OPTIONS']);
+export const PUBLIC_READ_CORS_METHODS: readonly string[] = Object.freeze([
+  'GET',
+  'HEAD',
+  'OPTIONS',
+]);
 
 /**
  * Request headers a foreign browser client may send to the public surface.

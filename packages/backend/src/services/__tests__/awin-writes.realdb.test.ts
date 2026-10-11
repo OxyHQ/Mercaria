@@ -32,7 +32,10 @@ import { uuidv7 } from '@oxy.so/db';
 import { AWIN_FEED_COLUMNS, AWIN_MAPPING_VERSION } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
-import { acquireActivePolicySlot, type ActivePolicySlot } from '../ingestion/__tests__/active-policy-slot.js';
+import {
+  acquireActivePolicySlot,
+  type ActivePolicySlot,
+} from '../ingestion/__tests__/active-policy-slot.js';
 import { insertMatchPolicyVersion } from '../../db/matching/matchPolicyRepository.js';
 import { matchDecisions, matchPolicyVersions } from '../../db/schema/matching.js';
 import {
@@ -75,7 +78,11 @@ import {
   publishIngestionSourcePolicy,
 } from '../ingestion/source.service.js';
 import type { AdapterFetchPage, CatalogSourceAdapter } from '../ingestion/adapter.js';
-import { AWIN_FEED_PROVIDER, createAwinFeedAdapter, stageAwinFeed } from '../ingestion/adapters/awin-feed.js';
+import {
+  AWIN_FEED_PROVIDER,
+  createAwinFeedAdapter,
+  stageAwinFeed,
+} from '../ingestion/adapters/awin-feed.js';
 import { buildAwinMapping } from '../awin/mapping.js';
 import { awinMappingFor, resolveAwinFeed } from '../awin/resolve.js';
 import { upsertAwinAccount } from '../../db/awin/awinAccountRepository.js';
@@ -335,7 +342,6 @@ afterAll(async () => {
     }
   }
 }, 120_000);
-
 
 /**
  * Assert a write is refused, and report WHY.
@@ -695,7 +701,10 @@ describe('the CHECKs and triggers, against a real server', () => {
     });
     expect(
       await rejectionMessage(async () =>
-        db.update(awinLinkSamples).set({ verdict: 'failed' }).where(eq(awinLinkSamples.id, sample.id)),
+        db
+          .update(awinLinkSamples)
+          .set({ verdict: 'failed' })
+          .where(eq(awinLinkSamples.id, sample.id)),
       ),
     ).toMatch(/append-only/u);
 
@@ -750,7 +759,10 @@ describe('the CHECKs and triggers, against a real server', () => {
     const { accountId } = await bringUpAdvertiser('statereason');
     expect(
       await rejectionMessage(async () =>
-        db.update(awinAccounts).set({ state: 'deauthorized' }).where(eq(awinAccounts.id, accountId)),
+        db
+          .update(awinAccounts)
+          .set({ state: 'deauthorized' })
+          .where(eq(awinAccounts.id, accountId)),
       ),
     ).toMatch(/state_shape_check/u);
   });
@@ -884,8 +896,11 @@ describe('the network lease binds the FLEET, keyed on the ACCOUNT', () => {
 
 describe('acceptance 1 — TWO advertisers ingest end to end, as distinct merchants', () => {
   /** One advertiser's feed, gzipped, in Awin's own column names. */
-  function awinFeedBytes(rows: readonly { id: string; title: string; gtin: string; price: string }[]): Buffer {
-    const header = 'aw_product_id,product_name,ean,search_price,currency,merchant_deep_link,aw_deep_link';
+  function awinFeedBytes(
+    rows: readonly { id: string; title: string; gtin: string; price: string }[],
+  ): Buffer {
+    const header =
+      'aw_product_id,product_name,ean,search_price,currency,merchant_deep_link,aw_deep_link';
     const body = rows.map(
       (row) =>
         `"${row.id}","${row.title}","${row.gtin}","${row.price}","EUR",` +
@@ -896,11 +911,12 @@ describe('acceptance 1 — TWO advertisers ingest end to end, as distinct mercha
   }
 
   /** Register the adapter for one advertiser's own source, and drive one run. */
-  async function ingestAdvertiser(input: {
-    label: string;
-    gtin: string;
-    title: string;
-  }): Promise<{ sourceId: string; merchantId: string; storefrontId: string; advertiserRowId: string }> {
+  async function ingestAdvertiser(input: { label: string; gtin: string; title: string }): Promise<{
+    sourceId: string;
+    merchantId: string;
+    storefrontId: string;
+    advertiserRowId: string;
+  }> {
     const { advertiserRowId } = await bringUpAdvertiser(input.label);
     const { merchantId, storefrontId } = await mintMerchantAndStorefront(input.label);
 
@@ -987,7 +1003,12 @@ describe('acceptance 1 — TWO advertisers ingest end to end, as distinct mercha
           leaseUntil: new Date(now.getTime() + 120_000),
           startedAt: sql`coalesce(${catalogSourceRuns.startedAt}, ${now.toISOString()}::timestamptz)`,
         })
-        .where(and(eq(catalogSourceRuns.id, run.id), inArray(catalogSourceRuns.status, ['pending', 'running'])));
+        .where(
+          and(
+            eq(catalogSourceRuns.id, run.id),
+            inArray(catalogSourceRuns.status, ['pending', 'running']),
+          ),
+        );
       const result = await runIngestionPage({ runId: run.id, leaseOwner, now });
       if (result.outcome !== null || result.skipped !== null) break;
     }
@@ -1269,7 +1290,12 @@ describe('acceptance 2 — a shared product converges on ONE canonical entity', 
           leaseUntil: new Date(now.getTime() + 120_000),
           startedAt: sql`coalesce(${catalogSourceRuns.startedAt}, ${now.toISOString()}::timestamptz)`,
         })
-        .where(and(eq(catalogSourceRuns.id, run.id), inArray(catalogSourceRuns.status, ['pending', 'running'])));
+        .where(
+          and(
+            eq(catalogSourceRuns.id, run.id),
+            inArray(catalogSourceRuns.status, ['pending', 'running']),
+          ),
+        );
       const result = await runIngestionPage({ runId: run.id, leaseOwner, now });
       if (result.outcome !== null || result.skipped !== null) break;
     }

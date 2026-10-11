@@ -109,7 +109,10 @@ export async function recordEarningDiscrepancy(
     .returning();
 
   if (upserted) {
-    return { row: upserted, created: upserted.firstSeenAt.getTime() === input.observedAt.getTime() };
+    return {
+      row: upserted,
+      created: upserted.firstSeenAt.getTime() === input.observedAt.getTime(),
+    };
   }
 
   // The `setWhere` matched nothing, which means the row exists and is resolved.

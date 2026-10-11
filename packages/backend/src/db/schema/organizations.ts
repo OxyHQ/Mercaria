@@ -45,7 +45,15 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgTable, text, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
 import { generatedId, tsvector } from '@oxy.so/db';
 import {
@@ -174,7 +182,10 @@ export const brands = pgTable(
       'brands_merged_state_check',
       sql`(${t.status} = 'merged') = (${t.mergedIntoId} is not null)`,
     ),
-    check('brands_merged_into_self_check', sql`${t.mergedIntoId} is null or ${t.mergedIntoId} <> ${t.id}`),
+    check(
+      'brands_merged_into_self_check',
+      sql`${t.mergedIntoId} is null or ${t.mergedIntoId} <> ${t.id}`,
+    ),
     uniqueIndex('brands_slug_key').on(t.slug),
     index('brands_normalized_name_idx').on(t.normalizedName),
     index('brands_normalized_name_trgm_idx').using('gin', t.normalizedName.op('gin_trgm_ops')),

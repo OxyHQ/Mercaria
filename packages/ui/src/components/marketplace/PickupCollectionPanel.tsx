@@ -1,13 +1,13 @@
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   PICKUP_PANEL_CODE_A11Y_KEY,
   PICKUP_PANEL_CODE_HEADING_KEY,
   PICKUP_PANEL_CODE_NOTE_KEY,
   PICKUP_PANEL_HEADING_KEY,
-} from "../../lib/marketplace-labels";
-import { Pressable, View } from "react-native";
-import type { OrderPickup, PickupCollectionCode } from "@mercaria/shared-types";
-import { Text } from "../ui/text";
+} from '../../lib/marketplace-labels';
+import { Pressable, View } from 'react-native';
+import type { OrderPickup, PickupCollectionCode } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
 import {
   GOWAY_PLACE_LINK_A11Y_KEY,
   GOWAY_PLACE_LINK_KEY,
@@ -16,7 +16,7 @@ import {
   PICKUP_IDENTITY_REQUIREMENT_KEYS,
   PICKUP_PAYMENT_REQUIREMENT_KEYS,
   formatPublicAddress,
-} from "../../lib/pickup-labels";
+} from '../../lib/pickup-labels';
 
 /**
  * The collection an order carries, and the code that opens the shutter
@@ -75,7 +75,9 @@ export function PickupCollectionPanel({ pickup, code, onPressPlace }: PickupColl
           className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
           accessibilityRole="text"
         >
-          <Text className="text-shop-captionBold text-text">{t(ORDER_PICKUP_STATE_KEYS[pickup.state])}</Text>
+          <Text className="text-shop-captionBold text-text">
+            {t(ORDER_PICKUP_STATE_KEYS[pickup.state])}
+          </Text>
         </View>
         <Text className="text-shop-caption text-text-secondary">
           {t(ORDER_PICKUP_STATE_EXPLANATION_KEYS[pickup.state])}
@@ -106,7 +108,7 @@ export function PickupCollectionPanel({ pickup, code, onPressPlace }: PickupColl
       )}
 
       <Text className="text-shop-caption text-text-tertiary">
-        {t(PICKUP_PAYMENT_REQUIREMENT_KEYS[pickup.paymentRequirement])}{" "}
+        {t(PICKUP_PAYMENT_REQUIREMENT_KEYS[pickup.paymentRequirement])}{' '}
         {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[pickup.identityRequirement])}
       </Text>
 
@@ -125,7 +127,7 @@ export function PickupCollectionPanel({ pickup, code, onPressPlace }: PickupColl
           <Text
             className="text-shop-header text-text web:select-text"
             accessibilityLabel={t(PICKUP_PANEL_CODE_A11Y_KEY, {
-              code: code.code.split("").join(" "),
+              code: code.code.split('').join(' '),
             })}
           >
             {code.code}

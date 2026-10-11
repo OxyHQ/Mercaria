@@ -8,14 +8,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  CREATOR_VIEW_MIN_COHORT,
-  summariseCreatorDigitalSales,
-} from '../creator-analytics.js';
-import {
-  ASSET_PROCESSING_FAILURE_VERDICTS,
-  computeLaunchMetrics,
-} from '../launch-metrics.js';
+import { CREATOR_VIEW_MIN_COHORT, summariseCreatorDigitalSales } from '../creator-analytics.js';
+import { ASSET_PROCESSING_FAILURE_VERDICTS, computeLaunchMetrics } from '../launch-metrics.js';
 import { DIGITAL_METRICS, digitalMetricByKey } from '../metrics.js';
 import { NO_DIGITAL_ANALYTICS_FACTS } from '../facts.js';
 import {
@@ -50,7 +44,10 @@ describe("#1015 W6 — a creator's own commercial record is not suppressed", () 
     const summary = summariseCreatorDigitalSales({
       ...WINDOW,
       facts: facts({
-        sales: [sale({ currency: 'EUR', grossAmount: 100 }), sale({ currency: 'USD', grossAmount: 100 })],
+        sales: [
+          sale({ currency: 'EUR', grossAmount: 100 }),
+          sale({ currency: 'USD', grossAmount: 100 }),
+        ],
       }),
     });
     expect(summary.amounts.map((amount) => amount.currency)).toEqual(['EUR', 'USD']);
@@ -130,7 +127,7 @@ describe("#1015 W6 — a creator's own commercial record is not suppressed", () 
   });
 });
 
-describe('#1015 W6 — views ARE suppressed, because they are somebody else\'s behaviour', () => {
+describe("#1015 W6 — views ARE suppressed, because they are somebody else's behaviour", () => {
   it('below the floor they are `null`, not zero', () => {
     const summary = summariseCreatorDigitalSales({
       ...WINDOW,
@@ -163,7 +160,7 @@ describe('#1015 W6 — views ARE suppressed, because they are somebody else\'s b
     expect(summary.views).toEqual({ free: 1, paid: CREATOR_VIEW_MIN_COHORT });
   });
 
-  it('the floor is the sibling domain\'s number, so two surfaces cannot be differenced', () => {
+  it("the floor is the sibling domain's number, so two surfaces cannot be differenced", () => {
     expect(CREATOR_VIEW_MIN_COHORT).toBe(10);
   });
 });
@@ -267,9 +264,13 @@ describe('#1015 W13 — the launch metrics', () => {
     assertEachOf(['pending', 'measured', 'unsupported'] as const, 3, (verdict) => {
       expect(ASSET_PROCESSING_FAILURE_VERDICTS).not.toContain(verdict);
     });
-    assertEachOf(['corrupt', 'missing_resources', 'failed', 'refused_too_large'] as const, 4, (verdict) => {
-      expect(ASSET_PROCESSING_FAILURE_VERDICTS).toContain(verdict);
-    });
+    assertEachOf(
+      ['corrupt', 'missing_resources', 'failed', 'refused_too_large'] as const,
+      4,
+      (verdict) => {
+        expect(ASSET_PROCESSING_FAILURE_VERDICTS).toContain(verdict);
+      },
+    );
   });
 
   it('a lost timing is excluded from latency rather than counted as zero', () => {
@@ -359,8 +360,18 @@ describe('#1015 W13 — the launch metrics', () => {
       ...LAUNCH_WINDOW,
       facts: facts({
         sales: [
-          sale({ currency: 'EUR', grossAmount: 1_000, realizedFeeAmount: 100, creatorEarningsAmount: 900 }),
-          sale({ currency: 'GBP', grossAmount: 2_000, realizedFeeAmount: 200, creatorEarningsAmount: 1_800 }),
+          sale({
+            currency: 'EUR',
+            grossAmount: 1_000,
+            realizedFeeAmount: 100,
+            creatorEarningsAmount: 900,
+          }),
+          sale({
+            currency: 'GBP',
+            grossAmount: 2_000,
+            realizedFeeAmount: 200,
+            creatorEarningsAmount: 1_800,
+          }),
         ],
       }),
     });

@@ -6,7 +6,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { MERCARIA_PUBLIC_LIST_MAX_OFFSET } from '@mercaria/contracts';
-import { collectionWebUrl, locationWebUrl, normalizeWebOrigin, productWebUrl, storeWebUrl } from '../urls.js';
+import {
+  collectionWebUrl,
+  locationWebUrl,
+  normalizeWebOrigin,
+  productWebUrl,
+  storeWebUrl,
+} from '../urls.js';
 import {
   clampPublicPageLimit,
   encodePublicCursor,
@@ -18,7 +24,9 @@ import {
 describe('the canonical web URLs', () => {
   it('builds the four documented shapes', () => {
     expect(productWebUrl('https://mercaria.co', 'abc')).toBe('https://mercaria.co/products/abc');
-    expect(storeWebUrl('https://mercaria.co', 'my-shop')).toBe('https://mercaria.co/stores/my-shop');
+    expect(storeWebUrl('https://mercaria.co', 'my-shop')).toBe(
+      'https://mercaria.co/stores/my-shop',
+    );
     expect(collectionWebUrl('https://mercaria.co', 'my-shop', 'c1')).toBe(
       'https://mercaria.co/stores/my-shop?collection=c1',
     );
@@ -63,7 +71,11 @@ describe('the public cursor', () => {
       [cursor, 'location-products', fingerprint],
       [cursor, 'products', otherFilters],
       [encodePublicCursor('products', fingerprint, 0), 'products', fingerprint],
-      [encodePublicCursor('products', fingerprint, MERCARIA_PUBLIC_LIST_MAX_OFFSET), 'products', fingerprint],
+      [
+        encodePublicCursor('products', fingerprint, MERCARIA_PUBLIC_LIST_MAX_OFFSET),
+        'products',
+        fingerprint,
+      ],
       [encodePublicCursor('products', fingerprint, 1.5), 'products', fingerprint],
       ['not a cursor', 'products', fingerprint],
       [Buffer.from('{"v":2}').toString('base64url'), 'products', fingerprint],

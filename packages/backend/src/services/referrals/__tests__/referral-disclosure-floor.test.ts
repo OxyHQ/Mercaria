@@ -23,21 +23,19 @@ import {
   REFERRAL_SUBJECT_REVEALING_DIMENSIONS,
   type ReferralPerformanceRow,
 } from '@mercaria/shared-types';
-import {
-  applyDisclosureFloor,
-  dimensionRevealsSubject,
-} from '../dashboard/disclosure.js';
+import { applyDisclosureFloor, dimensionRevealsSubject } from '../dashboard/disclosure.js';
 
-function row(key: string, humanClicks: number, qualifiedConversions: number): ReferralPerformanceRow {
+function row(
+  key: string,
+  humanClicks: number,
+  qualifiedConversions: number,
+): ReferralPerformanceRow {
   return { key, label: key, humanClicks, qualifiedConversions };
 }
 
 describe('the floor applies only to subject-revealing dimensions', () => {
   it('names market and client surface, and nothing else', () => {
-    expect([...REFERRAL_SUBJECT_REVEALING_DIMENSIONS].sort()).toEqual([
-      'client_surface',
-      'market',
-    ]);
+    expect([...REFERRAL_SUBJECT_REVEALING_DIMENSIONS].sort()).toEqual(['client_surface', 'market']);
   });
 
   it('is a SUBSET of the published dimensions', () => {
@@ -217,7 +215,10 @@ describe('the property a subtraction attack rests on', () => {
         const conversions = (seed * 3 + i * 5) % 25;
         measured.push(row(`m${i}`, clicks, conversions));
       }
-      const total = measured.reduce((sum, r) => sum + Math.max(r.humanClicks, r.qualifiedConversions), 0);
+      const total = measured.reduce(
+        (sum, r) => sum + Math.max(r.humanClicks, r.qualifiedConversions),
+        0,
+      );
       const disclosed = applyDisclosureFloor(measured, 'market');
       const publishedMass = disclosed.rows.reduce(
         (sum, r) => sum + Math.max(r.humanClicks, r.qualifiedConversions),
@@ -237,9 +238,9 @@ describe('the property a subtraction attack rests on', () => {
       expect(disclosed.withheldRowCount).toBeGreaterThanOrEqual(2);
       // Every published cell cleared the floor, and no suppressed key left.
       for (const published of disclosed.rows) {
-        expect(Math.max(published.humanClicks, published.qualifiedConversions)).toBeGreaterThanOrEqual(
-          REFERRAL_PARTNER_DISCLOSURE_FLOOR,
-        );
+        expect(
+          Math.max(published.humanClicks, published.qualifiedConversions),
+        ).toBeGreaterThanOrEqual(REFERRAL_PARTNER_DISCLOSURE_FLOOR);
       }
       expect(residual).toBeGreaterThan(0);
     }

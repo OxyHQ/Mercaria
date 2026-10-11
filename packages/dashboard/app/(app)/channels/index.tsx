@@ -28,31 +28,31 @@
  * them is now shared.
  */
 
-import { RiPlugLine } from "@oxy.so/bloom/icons/RiPlugLine";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import React from "react";
-import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
-import Head from "expo-router/head";
+import { RiPlugLine } from '@oxy.so/bloom/icons/RiPlugLine';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import React from 'react';
+import { View, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import Head from 'expo-router/head';
 import {
   ArrowRight,
   CheckCircle2,
   CircleAlert,
   FileSpreadsheet,
   Store as StoreIcon,
-} from "lucide-react-native";
+} from 'lucide-react-native';
 import type {
   ChannelHealthState,
   ChannelPauseScope,
   ChannelReadiness,
   ChannelSummary,
   ChannelTypeDescriptor,
-} from "@mercaria/shared-types";
-import { Text, useColorScheme } from "@mercaria/ui";
-import { Button } from "@oxy.so/bloom/button";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
+} from '@mercaria/shared-types';
+import { Text, useColorScheme } from '@mercaria/ui';
+import { Button } from '@oxy.so/bloom/button';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
 import {
   CHANNEL_TYPE_NAME_KEYS,
   ChannelCoverage,
@@ -61,14 +61,14 @@ import {
   NativeCheckoutBadge,
   READINESS_BLOCKER_COPY_KEYS,
   formatWhen,
-} from "@/components/channels/channel-presentation";
-import { useTranslation } from "@/lib/i18n";
+} from '@/components/channels/channel-presentation';
+import { useTranslation } from '@/lib/i18n';
 import {
   useChannelCatalog,
   useChannelReadiness,
   useChannelSummary,
   useStartChannelOnboarding,
-} from "@/lib/hooks/use-channels";
+} from '@/lib/hooks/use-channels';
 
 /**
  * Translation KEYS per pause scope, not sentences (#485).
@@ -97,8 +97,8 @@ import {
  * API's vocabulary, not copy.
  */
 const CHANNEL_PAUSE_SCOPE_LABEL_KEYS: Record<ChannelPauseScope, string> = {
-  fetch: "channels.pauseScope.fetch",
-  publication: "channels.pauseScope.publication",
+  fetch: 'channels.pauseScope.fetch',
+  publication: 'channels.pauseScope.publication',
 };
 
 export default function ChannelsScreen() {
@@ -106,7 +106,7 @@ export default function ChannelsScreen() {
   return (
     <>
       <Head>
-        <title>{t("channels.documentTitle")}</title>
+        <title>{t('channels.documentTitle')}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => <ChannelsBody storeId={storeId} />}
@@ -125,15 +125,11 @@ function ChannelsBody({ storeId }: { storeId: string }) {
   const failed = summary.isError || catalog.isError || readiness.isError;
 
   return (
-    <Screen
-      title={t("channels.title")}
-      subtitle={t("channels.subtitle")}
-
-    >
+    <Screen title={t('channels.title')} subtitle={t('channels.subtitle')}>
       {pending ? (
         <ScreenLoading />
       ) : failed ? (
-        <ScreenMessage title={t("channels.loadFailed")} body={t("common.pleaseTryAgain")} />
+        <ScreenMessage title={t('channels.loadFailed')} body={t('common.pleaseTryAgain')} />
       ) : (
         <View className="gap-8">
           {readiness.data ? <ReadinessPanel readiness={readiness.data} /> : null}
@@ -159,7 +155,7 @@ function ChannelsBody({ storeId }: { storeId: string }) {
 function ReadinessPanel({ readiness }: { readiness: ChannelReadiness }) {
   const { colors } = useColorScheme();
   const { t, locale } = useTranslation();
-  const ready = readiness.nativeCheckout.state === "healthy";
+  const ready = readiness.nativeCheckout.state === 'healthy';
   const connectedCount = readiness.catalog.connectedChannelTypes.length;
 
   return (
@@ -171,40 +167,40 @@ function ReadinessPanel({ readiness }: { readiness: ChannelReadiness }) {
           <CircleAlert size={18} color={colors.mutedForeground} />
         )}
         <Text className="text-sm font-semibold text-foreground">
-          {ready ? t("channels.readiness.ready") : t("channels.readiness.notReady")}
+          {ready ? t('channels.readiness.ready') : t('channels.readiness.notReady')}
         </Text>
       </View>
 
       <View className="flex-row flex-wrap gap-3">
         <ReadinessAxis
-          label={t("channels.readiness.catalog")}
+          label={t('channels.readiness.catalog')}
           state={readiness.catalog.state}
           detail={
             connectedCount === 0
-              ? t("channels.readiness.noChannelConnected")
-              : t("channels.readiness.catalogDetail", {
-                  channels: t("channels.readiness.channelCount", { count: connectedCount }),
+              ? t('channels.readiness.noChannelConnected')
+              : t('channels.readiness.catalogDetail', {
+                  channels: t('channels.readiness.channelCount', { count: connectedCount }),
                   sync: readiness.catalog.lastSuccessfulSyncAt
-                    ? t("channels.readiness.lastSynced", {
+                    ? t('channels.readiness.lastSynced', {
                         when: formatWhen(
                           readiness.catalog.lastSuccessfulSyncAt,
-                          t("channels.never"),
+                          t('channels.never'),
                           locale,
                         ),
                       })
-                    : t("channels.readiness.neverSynced"),
+                    : t('channels.readiness.neverSynced'),
                 })
           }
         />
         <ReadinessAxis
-          label={t("channels.readiness.payouts")}
+          label={t('channels.readiness.payouts')}
           state={readiness.payments.state}
           detail={
             readiness.payments.railEnabled
-              ? readiness.payments.state === "healthy"
-                ? t("channels.readiness.payoutsSetUp")
-                : t("channels.readiness.payoutsNotSetUp")
-              : t("channels.readiness.cardPaymentsOff")
+              ? readiness.payments.state === 'healthy'
+                ? t('channels.readiness.payoutsSetUp')
+                : t('channels.readiness.payoutsNotSetUp')
+              : t('channels.readiness.cardPaymentsOff')
           }
         />
       </View>
@@ -232,11 +228,11 @@ function ReadinessAxis({
   state: ChannelHealthState;
 }) {
   const tone =
-    state === "healthy"
-      ? "text-primary"
-      : state === "degraded"
-        ? "text-foreground"
-        : "text-muted-foreground";
+    state === 'healthy'
+      ? 'text-primary'
+      : state === 'degraded'
+        ? 'text-foreground'
+        : 'text-muted-foreground';
   return (
     <View className="min-w-[180px] flex-1 gap-0.5">
       <Text className="text-[10px] font-semibold uppercase text-muted-foreground">{label}</Text>
@@ -254,19 +250,19 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
   // The native catalogue is always present, so "nothing connected" means nothing
   // BESIDES it — a list that hid the native row would tell a merchant with fifty
   // hand-typed products that they have no channels at all.
-  const external = channels.filter((channel) => channel.channelType !== "native");
+  const external = channels.filter((channel) => channel.channelType !== 'native');
 
   return (
     <View className="gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.yourChannels")}
+        {t('channels.yourChannels')}
       </Text>
       {external.length === 0 ? (
         <View className="rounded-2xl border border-dashed border-border">
           <EmptyState
             icon={RiPlugLine}
-            title={t("channels.empty.title")}
-            description={t("channels.empty.body")}
+            title={t('channels.empty.title')}
+            description={t('channels.empty.body')}
           />
         </View>
       ) : null}
@@ -274,10 +270,10 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
         {channels.map((channel) => (
           <Pressable
             key={channel.id}
-            disabled={channel.channelType === "native"}
+            disabled={channel.channelType === 'native'}
             onPress={() =>
               router.push(
-                channel.channelType === "product_feed"
+                channel.channelType === 'product_feed'
                   ? `/channels/feeds/${channel.id}`
                   : `/channels/${channel.id}`,
               )
@@ -286,7 +282,7 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
           >
             <View className="flex-row items-start gap-3">
               <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
-                {channel.channelType === "product_feed" ? (
+                {channel.channelType === 'product_feed' ? (
                   <FileSpreadsheet size={20} color={colors.mutedForeground} />
                 ) : (
                   <StoreIcon size={20} color={colors.mutedForeground} />
@@ -303,32 +299,32 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
                 <Text className="text-xs text-muted-foreground">{channel.label}</Text>
                 <Text className="text-xs text-muted-foreground">
                   {channel.lastSyncAt
-                    ? t("channels.lastSynced", {
-                        when: formatWhen(channel.lastSyncAt, t("channels.never"), locale),
+                    ? t('channels.lastSynced', {
+                        when: formatWhen(channel.lastSyncAt, t('channels.never'), locale),
                       })
-                    : t("channels.neverSynced")}
+                    : t('channels.neverSynced')}
                   {channel.nextScheduledSyncAt
-                    ? t("channels.nextScheduled", {
+                    ? t('channels.nextScheduled', {
                         when: formatWhen(
                           channel.nextScheduledSyncAt,
-                          t("channels.unscheduled"),
+                          t('channels.unscheduled'),
                           locale,
                         ),
                       })
-                    : ""}
+                    : ''}
                 </Text>
                 {channel.pausedScopes.length > 0 ? (
                   <Text className="text-xs font-medium text-muted-foreground">
-                    {t("channels.pausedScopes", {
+                    {t('channels.pausedScopes', {
                       scopes: channel.pausedScopes
                         .map((scope) => t(CHANNEL_PAUSE_SCOPE_LABEL_KEYS[scope]))
-                        .join(t("channels.andJoin")),
+                        .join(t('channels.andJoin')),
                     })}
                   </Text>
                 ) : null}
                 {channel.lastRunCounts ? (
                   <Text className="text-xs text-muted-foreground">
-                    {t("channels.lastRunCounts", {
+                    {t('channels.lastRunCounts', {
                       created: channel.lastRunCounts.created,
                       updated: channel.lastRunCounts.updated,
                       skipped: channel.lastRunCounts.skipped,
@@ -337,7 +333,7 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
                   </Text>
                 ) : null}
               </View>
-              {channel.channelType === "native" ? null : (
+              {channel.channelType === 'native' ? null : (
                 <ArrowRight size={16} color={colors.mutedForeground} />
               )}
             </View>
@@ -372,20 +368,19 @@ function AvailableChannels({
 
   const connectedTypes = new Set(
     connected
-      .filter((channel) => channel.channelType !== "native")
+      .filter((channel) => channel.channelType !== 'native')
       .map((channel) => channel.channelType),
   );
   // The two WooCommerce channels share `UNIQUE(store_id, provider)`, so having
   // either rules out the other. Stated here because it is a fact about the
   // schema that the descriptor's `single_connection_per_provider` limitation
   // explains but cannot enforce on a button.
-  const wooTaken = connectedTypes.has("woocommerce") || connectedTypes.has("woocommerce_plugin");
+  const wooTaken = connectedTypes.has('woocommerce') || connectedTypes.has('woocommerce_plugin');
 
   const onConnect = (descriptor: ChannelTypeDescriptor) => {
     start.mutate(descriptor.channelType, {
       onSuccess: (session) => router.push(`/channels/onboarding/${session.id}`),
-      onError: () =>
-        toast.error(t("channels.toast.startConnectFailed", { name: descriptor.name })),
+      onError: () => toast.error(t('channels.toast.startConnectFailed', { name: descriptor.name })),
     });
   };
 
@@ -403,20 +398,20 @@ function AvailableChannels({
   return (
     <View className="gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        {t("channels.addChannel")}
+        {t('channels.addChannel')}
       </Text>
       <View className="gap-2">
         {descriptors
-          .filter((descriptor) => descriptor.channelType !== "native")
+          .filter((descriptor) => descriptor.channelType !== 'native')
           .map((descriptor) => {
-            const taken = descriptor.channelType.startsWith("woocommerce")
+            const taken = descriptor.channelType.startsWith('woocommerce')
               ? wooTaken
               : connectedTypes.has(descriptor.channelType);
-            const connectable = descriptor.availability === "available" && !taken;
+            const connectable = descriptor.availability === 'available' && !taken;
             // Only what a merchant should read BEFORE choosing. The full list,
             // informational entries included, is on the wizard's channel step.
             const notable = descriptor.limitations.filter(
-              (limitation) => limitation.severity !== "informational",
+              (limitation) => limitation.severity !== 'informational',
             );
 
             return (
@@ -426,7 +421,7 @@ function AvailableChannels({
               >
                 <View className="flex-row items-start gap-3">
                   <View className="h-11 w-11 items-center justify-center rounded-xl bg-muted">
-                    {descriptor.kind === "product_feed" ? (
+                    {descriptor.kind === 'product_feed' ? (
                       <FileSpreadsheet size={20} color={colors.mutedForeground} />
                     ) : (
                       <StoreIcon size={20} color={colors.mutedForeground} />
@@ -438,24 +433,24 @@ function AvailableChannels({
                         {descriptor.name}
                       </Text>
                       <NativeCheckoutBadge supported={descriptor.supportsNativeCheckout} />
-                      {descriptor.availability === "not_implemented" ? (
+                      {descriptor.availability === 'not_implemented' ? (
                         <View className="rounded-full bg-muted px-2 py-0.5">
                           <Text className="text-[10px] font-semibold text-muted-foreground">
-                            {t("channels.availability.notImplemented")}
+                            {t('channels.availability.notImplemented')}
                           </Text>
                         </View>
                       ) : null}
-                      {descriptor.availability === "not_configured" ? (
+                      {descriptor.availability === 'not_configured' ? (
                         <View className="rounded-full bg-muted px-2 py-0.5">
                           <Text className="text-[10px] font-semibold text-muted-foreground">
-                            {t("channels.availability.notConfigured")}
+                            {t('channels.availability.notConfigured')}
                           </Text>
                         </View>
                       ) : null}
                     </View>
                     <Text className="text-xs text-muted-foreground">{descriptor.summary}</Text>
                   </View>
-                  {descriptor.availability === "available" ? (
+                  {descriptor.availability === 'available' ? (
                     <Button
                       appearance="outline"
                       tone="neutral"
@@ -464,7 +459,7 @@ function AvailableChannels({
                       loading={startingChannelType === descriptor.channelType}
                       onPress={() => onConnect(descriptor)}
                     >
-                      {taken ? t("channels.state.connected") : t("channels.connect")}
+                      {taken ? t('channels.state.connected') : t('channels.connect')}
                     </Button>
                   ) : null}
                 </View>

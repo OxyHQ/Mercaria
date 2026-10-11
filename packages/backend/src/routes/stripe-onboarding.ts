@@ -40,10 +40,7 @@ import { onboardingReturnQuerySchema } from '../middleware/payments-schemas.js';
 import { getDb } from '../db/postgres.js';
 import { findProviderAccountByOwner } from '../db/payments/providerAccountRepository.js';
 import { createStripeAccountLink } from '../services/payments/stripe/client.js';
-import {
-  redactAccountId,
-  syncAccountRow,
-} from '../services/payments/stripe/account.service.js';
+import { redactAccountId, syncAccountRow } from '../services/payments/stripe/account.service.js';
 import { stripeOnboardingConfig } from '../services/payments/stripe/onboarding-config.js';
 import {
   createOnboardingState,

@@ -80,12 +80,17 @@ import {
   listProductTypeFacetFields,
 } from '../../db/facets/facetMetadataRepository.js';
 import { resolveDefinitionsForCategory } from '../attributes/definition-registry.service.js';
+import { renderMeasurement, type MeasurementSystem } from '../canonical/display-units.js';
 import {
-  renderMeasurement,
-  type MeasurementSystem,
-} from '../canonical/display-units.js';
-import { readLocalizedAttributeValues, readLocalizedCategories } from '../catalog-localization/read.service.js';
-import { attributeNameLabel, facetLocaleChain, labelFromResolution, stableKeyLabel } from './labels.js';
+  readLocalizedAttributeValues,
+  readLocalizedCategories,
+} from '../catalog-localization/read.service.js';
+import {
+  attributeNameLabel,
+  facetLocaleChain,
+  labelFromResolution,
+  stableKeyLabel,
+} from './labels.js';
 import { planFacets, type FacetPlanEntry } from './metadata.js';
 import {
   compareAvailabilityBuckets,
@@ -156,8 +161,7 @@ export async function resolveFacets(
   // ---- Metadata: what may be faceted, at which grain, in which order --------
   const productType =
     rootCategoryId === undefined ? null : await findProductTypeForCategory(db, rootCategoryId);
-  const fields =
-    productType === null ? [] : await listProductTypeFacetFields(db, productType.id);
+  const fields = productType === null ? [] : await listProductTypeFacetFields(db, productType.id);
   const definitions =
     rootCategoryId === undefined ? [] : await resolveDefinitionsForCategory(db, rootCategoryId);
 
@@ -200,7 +204,10 @@ export async function resolveFacets(
     const present = await listScopeOfferCurrencies(db, { scope: scopeInput, requirements, now });
     const converted = await convertPriceBound(partition.requestedPrice, present);
     priceUnconvertible = converted.unconvertible;
-    requirements = { ...requirements, offer: withPriceBounds(requirements.offer, converted.bounds) };
+    requirements = {
+      ...requirements,
+      offer: withPriceBounds(requirements.offer, converted.bounds),
+    };
   }
 
   const context: FacetQueryContext = { scope: scopeInput, requirements, now };
@@ -233,9 +240,7 @@ export async function resolveFacets(
   }));
 
   // ---- Counts ---------------------------------------------------------------
-  const selectedKeys = new Set(
-    request.selection.map((entry) => entry.facetKey as string),
-  );
+  const selectedKeys = new Set(request.selection.map((entry) => entry.facetKey as string));
   const facets: Facet[] = [];
   const suppressed: FacetSuppression[] = [];
 
@@ -717,7 +722,10 @@ export function rangeDisplay(
   system: MeasurementSystem | null,
 ): FacetRangeDisplay | null {
   if (system === null || baseUnit === null) return null;
-  const rendered = renderMeasurement({ baseMagnitude: min, baseMagnitudeMax: max, baseUnit }, system);
+  const rendered = renderMeasurement(
+    { baseMagnitude: min, baseMagnitudeMax: max, baseUnit },
+    system,
+  );
   if (rendered.outcome !== 'rendered') return null;
   if (rendered.magnitudeMax === undefined) return null;
   if (!Number.isFinite(rendered.magnitude) || !Number.isFinite(rendered.magnitudeMax)) return null;
@@ -730,11 +738,7 @@ export function rangeDisplay(
 }
 
 /** Wrap the plan, the label and the values into the DTO. */
-function assembleFacet(
-  pending: PendingFacet,
-  values: FacetValues,
-  counts: AttributeCounts,
-): Facet {
+function assembleFacet(pending: PendingFacet, values: FacetValues, counts: AttributeCounts): Facet {
   const { plan } = pending;
   return {
     key: plan.key,
@@ -818,7 +822,10 @@ async function buildTaxonomyFacet(input: {
       const name = localizedById.get(child.id);
       return {
         key: child.id,
-        label: name === undefined ? { text: child.name, source: 'registry_base' as const } : labelFromResolution(name, child.name),
+        label:
+          name === undefined
+            ? { text: child.name, source: 'registry_base' as const }
+            : labelFromResolution(name, child.name),
         count: countById.get(child.id) ?? 0,
         selected: selectedIds.has(child.id),
       };

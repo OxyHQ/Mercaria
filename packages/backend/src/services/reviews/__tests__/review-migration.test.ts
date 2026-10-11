@@ -64,10 +64,7 @@ vi.mock('../../../db/postgres.js', () => ({
  */
 const TX = { __tx: 'review-migration-test' } as unknown as DatabaseOrTransaction;
 
-import {
-  assignReviewOnSplit,
-  classifyLegacyReviews,
-} from '../review-migration.service.js';
+import { assignReviewOnSplit, classifyLegacyReviews } from '../review-migration.service.js';
 import type { DatabaseOrTransaction } from '../../../db/postgres.js';
 import { isMercariaError } from '../../../lib/errors/error-codes.js';
 import { ErrorCodes } from '../../../utils/api-response.js';
@@ -195,7 +192,10 @@ describe('classifyLegacyReviews — the decision table', () => {
       TX,
     );
     expect(recordTargetMigration).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'refuse_ambiguous', reason: 'store_has_no_linked_merchant' }),
+      expect.objectContaining({
+        action: 'refuse_ambiguous',
+        reason: 'store_has_no_linked_merchant',
+      }),
       TX,
     );
     expect(report.ambiguous).toBe(1);
@@ -207,8 +207,18 @@ describe('classifyLegacyReviews — the decision table', () => {
     // they are derived again. Twice on the same target would be wasted work on a
     // shared Postgres, and the dedupe is what makes a 500-review batch bounded.
     findUnclassifiedLegacyReviews.mockResolvedValue([
-      legacyReview({ id: 'r1', targetType: 'seller', listingId: null, sellerOxyUserId: 'seller-9' }),
-      legacyReview({ id: 'r2', targetType: 'seller', listingId: null, sellerOxyUserId: 'seller-9' }),
+      legacyReview({
+        id: 'r1',
+        targetType: 'seller',
+        listingId: null,
+        sellerOxyUserId: 'seller-9',
+      }),
+      legacyReview({
+        id: 'r2',
+        targetType: 'seller',
+        listingId: null,
+        sellerOxyUserId: 'seller-9',
+      }),
     ]);
 
     await classifyLegacyReviews();

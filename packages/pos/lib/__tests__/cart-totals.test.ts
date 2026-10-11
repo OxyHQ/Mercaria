@@ -66,7 +66,11 @@ describe('the subtotal sums every line at its own quantity', () => {
   });
 
   it('adds every line rather than reporting the first or the largest', () => {
-    const subtotal = computeCartSubtotal([fair(ONE_FAIR, 1), fair(2 * ONE_FAIR, 2), fair(ONE_FAIR, 1)]);
+    const subtotal = computeCartSubtotal([
+      fair(ONE_FAIR, 1),
+      fair(2 * ONE_FAIR, 2),
+      fair(ONE_FAIR, 1),
+    ]);
     expect(subtotal.amount).toBe(6 * ONE_FAIR);
   });
 
@@ -92,12 +96,12 @@ describe('the subtotal sums every line at its own quantity', () => {
 describe('the currency', () => {
   it('is taken from the FIRST line', () => {
     const eur: CurrencyCode = 'EUR';
-    expect(computeCartSubtotal([line({ unitPrice: { amount: 100, currency: eur }, quantity: 1 })])).toEqual(
-      { amount: 100, currency: 'EUR' },
-    );
+    expect(
+      computeCartSubtotal([line({ unitPrice: { amount: 100, currency: eur }, quantity: 1 })]),
+    ).toEqual({ amount: 100, currency: 'EUR' });
   });
 
-  it('is the FIRST line\'s, not the last one added', () => {
+  it("is the FIRST line's, not the last one added", () => {
     // Pins WHICH line decides. This needs lines that DISAGREE: with a cart that
     // is all one currency, reading `lines[0]` and reading the last line are
     // indistinguishable, and an assertion over such a cart measures nothing.

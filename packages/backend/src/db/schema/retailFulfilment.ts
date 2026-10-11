@@ -93,7 +93,15 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgTable, text, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import {
   RETAIL_DELIVERY_OBSERVATION_OUTCOMES,
@@ -242,8 +250,9 @@ export const retailFulfilmentIntents = pgTable(
      * What the supply agreement permitted at purchase. Frozen by trigger with
      * the rest of the row's contractual half.
      */
-    permittedFulfilmentMode: text({ enum: asEnumValues(RETAIL_PERMITTED_FULFILMENT_MODES) })
-      .notNull(),
+    permittedFulfilmentMode: text({
+      enum: asEnumValues(RETAIL_PERMITTED_FULFILMENT_MODES),
+    }).notNull(),
     /**
      * Which mode is actually used. NULL until transport is arranged, then
      * write-once by trigger — a mode that could be flipped afterwards would
@@ -266,7 +275,11 @@ export const retailFulfilmentIntents = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('retail_fulfilment_intents_kind_check', t.intentKind, RETAIL_FULFILMENT_INTENT_KINDS),
+    checkOneOf(
+      'retail_fulfilment_intents_kind_check',
+      t.intentKind,
+      RETAIL_FULFILMENT_INTENT_KINDS,
+    ),
     checkOneOf(
       'retail_fulfilment_intents_status_check',
       t.status,

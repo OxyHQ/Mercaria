@@ -90,7 +90,6 @@ async function runProbe(
   consumerKey: string,
   consumerSecret: string,
 ): Promise<ProbeReport> {
-
   // The pair joins into HTTP Basic userinfo, exactly as `connector-sync.service`
   // composes it from the decrypted credential blob. Composing it the same way
   // here is what makes this a probe of the provider rather than of a second
@@ -201,7 +200,11 @@ async function runProbe(
 function collectVariants(product: unknown): Array<{ price?: { currency?: string } }> {
   const variants = (product as { variants?: unknown }).variants;
   if (Array.isArray(variants)) return variants as Array<{ price?: { currency?: string } }>;
-  if (variants && typeof variants === 'object' && Array.isArray((variants as { variants?: unknown }).variants)) {
+  if (
+    variants &&
+    typeof variants === 'object' &&
+    Array.isArray((variants as { variants?: unknown }).variants)
+  ) {
     return (variants as { variants: Array<{ price?: { currency?: string } }> }).variants;
   }
   return [];

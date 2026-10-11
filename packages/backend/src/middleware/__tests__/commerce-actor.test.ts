@@ -43,9 +43,7 @@ beforeAll(async () => {
   process.env.GUEST_EMAIL_HASH_KEY = 'unit-test-email-hash-key';
 
   middleware = await import('../commerce-actor.js');
-  service = (await import(
-    '../../services/guest-session.service.js'
-  )) as unknown as typeof service;
+  service = (await import('../../services/guest-session.service.js')) as unknown as typeof service;
 });
 
 beforeEach(() => {
@@ -139,7 +137,8 @@ async function resolve(req: Request, fake: FakeResponse): Promise<{ nextCalls: n
   await new Promise<void>((resolvePromise, reject) => {
     middleware.resolveCommerceActor(req, fake.res, (error?: unknown) => {
       nextCalls += 1;
-      if (error !== undefined && error !== null) reject(error instanceof Error ? error : new Error(String(error)));
+      if (error !== undefined && error !== null)
+        reject(error instanceof Error ? error : new Error(String(error)));
       else resolvePromise();
     });
     // A refusal answers the response without calling next; settle on a tick.
@@ -487,7 +486,10 @@ describe('issueGuestActor — the lazy-issuance primitive', () => {
     });
     const req = makeReq({
       method: 'POST',
-      headers: { 'x-mercaria-guest-transport': 'header', 'x-mercaria-guest-client': 'smart-fridge' },
+      headers: {
+        'x-mercaria-guest-transport': 'header',
+        'x-mercaria-guest-client': 'smart-fridge',
+      },
     });
 
     await middleware.issueGuestActor(req, makeRes().res);

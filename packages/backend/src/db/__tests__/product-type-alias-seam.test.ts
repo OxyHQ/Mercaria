@@ -144,9 +144,9 @@ describe('#732 — the product-type alias seam, and the change that opens it', (
 
   it('the detector fires on a real reference — the mutation self-test', () => {
     // Without this, a broken pattern would report a clean census forever.
-    expect(BINDING.test(stripComments('const rows = await db.select().from(productTypeAliases);'))).toBe(
-      true,
-    );
+    expect(
+      BINDING.test(stripComments('const rows = await db.select().from(productTypeAliases);')),
+    ).toBe(true);
     expect(BINDING.test(stripComments('// mentions productTypeAliases in prose only'))).toBe(false);
   });
 

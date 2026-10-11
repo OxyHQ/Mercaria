@@ -105,7 +105,10 @@ export interface OpenDataItem {
 export interface OpenDataPage {
   readonly items: readonly OpenDataItem[];
   /** Ids the provider positively said are gone (a targeted 404). */
-  readonly removed?: readonly { readonly externalType: SourceRecordExternalType; readonly externalId: string }[];
+  readonly removed?: readonly {
+    readonly externalType: SourceRecordExternalType;
+    readonly externalId: string;
+  }[];
   /** `null` when there are no further pages. */
   readonly next: OpenDataCursor | null;
   /**

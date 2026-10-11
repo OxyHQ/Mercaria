@@ -73,7 +73,10 @@ describe('response schemas', () => {
     const wire = productWire();
     (wire.price as Record<string, unknown>).currency = 'XXX';
     wire.availability = 'maybe';
-    expect(issuePaths(MercariaProductSchema.safeParse(wire)).sort()).toEqual(['availability', 'price.currency']);
+    expect(issuePaths(MercariaProductSchema.safeParse(wire)).sort()).toEqual([
+      'availability',
+      'price.currency',
+    ]);
   });
 
   it('refuse a condition whose group is not its key’s group', () => {
@@ -86,7 +89,9 @@ describe('response schemas', () => {
     const wire = productWire('prod_1');
     const [option] = wire.purchaseOptions as Record<string, unknown>[];
     option!.ref = { kind: 'variant', productId: 'prod_2', variantId: 'v' };
-    expect(issuePaths(MercariaProductSchema.safeParse(wire))).toEqual(['purchaseOptions.0.ref.productId']);
+    expect(issuePaths(MercariaProductSchema.safeParse(wire))).toEqual([
+      'purchaseOptions.0.ref.productId',
+    ]);
   });
 
   it('refuse a non-http URL and a malformed timestamp', () => {
@@ -111,10 +116,9 @@ describe('response schemas', () => {
       url: 'https://mercaria.co/stores/h',
     };
     expect(MercariaStoreSchema.safeParse(store).success).toBe(true);
-    expect(issuePaths(MercariaStoreSchema.safeParse({ ...store, rating: 6, brandColor: 'red' })).sort()).toEqual([
-      'brandColor',
-      'rating',
-    ]);
+    expect(
+      issuePaths(MercariaStoreSchema.safeParse({ ...store, rating: 6, brandColor: 'red' })).sort(),
+    ).toEqual(['brandColor', 'rating']);
   });
 });
 
@@ -122,8 +126,17 @@ export function locationWire(id = 'loc_1'): Record<string, unknown> {
   return {
     ref: { kind: 'location', id },
     goWayPlaceId: 'plc_1',
-    store: { ref: { kind: 'store', id: 'store_1' }, handle: 'night-city-games', name: 'Night City Games', logoUrl: null },
-    pickup: { identityRequirement: 'collection_code', paymentRequirement: 'prepaid', instructions: null },
+    store: {
+      ref: { kind: 'store', id: 'store_1' },
+      handle: 'night-city-games',
+      name: 'Night City Games',
+      logoUrl: null,
+    },
+    pickup: {
+      identityRequirement: 'collection_code',
+      paymentRequirement: 'prepaid',
+      instructions: null,
+    },
     discoverable: true,
     url: `https://mercaria.co/stores/night-city-games?location=${id}`,
   };
@@ -131,48 +144,81 @@ export function locationWire(id = 'loc_1'): Record<string, unknown> {
 
 describe('location schemas', () => {
   it('parse a location and drop what the contract does not name — a place fact included', () => {
-    const parsed = MercariaLocationSchema.parse({ ...locationWire(), address: { line1: 'Leaked' }, openingHours: [] });
+    const parsed = MercariaLocationSchema.parse({
+      ...locationWire(),
+      address: { line1: 'Leaked' },
+      openingHours: [],
+    });
     expect('address' in parsed).toBe(false);
     expect('openingHours' in parsed).toBe(false);
     expect(Object.isFrozen(parsed.ref)).toBe(true);
   });
 
   it('take null pickup terms for a location that offers no collection, and refuse an unknown requirement', () => {
-    expect(MercariaLocationSchema.safeParse({ ...locationWire(), pickup: null }).success).toBe(true);
+    expect(MercariaLocationSchema.safeParse({ ...locationWire(), pickup: null }).success).toBe(
+      true,
+    );
     const wire = locationWire();
     (wire.pickup as Record<string, unknown>).paymentRequirement = 'pay_in_store';
-    expect(issuePaths(MercariaLocationSchema.safeParse(wire))).toEqual(['pickup.paymentRequirement']);
+    expect(issuePaths(MercariaLocationSchema.safeParse(wire))).toEqual([
+      'pickup.paymentRequirement',
+    ]);
   });
 
   it('bound availability to three words, and the exact count to a non-negative integer that may be absent', () => {
-    const item = { product: productWire(), availability: 'low_stock', stockConfirmedAt: '2026-09-01T12:00:00.000Z' };
+    const item = {
+      product: productWire(),
+      availability: 'low_stock',
+      stockConfirmedAt: '2026-09-01T12:00:00.000Z',
+    };
     const parsed: MercariaLocationProduct = MercariaLocationProductSchema.parse(item);
     expect('exactQuantity' in parsed).toBe(false);
-    expect(MercariaLocationProductSchema.parse({ ...item, exactQuantity: 2 }).exactQuantity).toBe(2);
+    expect(MercariaLocationProductSchema.parse({ ...item, exactQuantity: 2 }).exactQuantity).toBe(
+      2,
+    );
     expect(
-      issuePaths(MercariaLocationProductSchema.safeParse({ ...item, availability: 'sold', exactQuantity: -1 })).sort(),
+      issuePaths(
+        MercariaLocationProductSchema.safeParse({
+          ...item,
+          availability: 'sold',
+          exactQuantity: -1,
+        }),
+      ).sort(),
     ).toEqual(['availability', 'exactQuantity']);
   });
 
   it('page like every other list', () => {
-    const item = { product: productWire(), availability: 'in_stock', stockConfirmedAt: '2026-09-01T12:00:00.000Z' };
-    expect(MercariaLocationProductPageSchema.parse({ items: [item], nextCursor: 'abc' }).items).toHaveLength(1);
+    const item = {
+      product: productWire(),
+      availability: 'in_stock',
+      stockConfirmedAt: '2026-09-01T12:00:00.000Z',
+    };
+    expect(
+      MercariaLocationProductPageSchema.parse({ items: [item], nextCursor: 'abc' }).items,
+    ).toHaveLength(1);
   });
 });
 
 describe('refs', () => {
   it('in a response drop an added key, like every response object', () => {
-    const parsed = MercariaProductSchema.parse({ ...productWire(), ref: { kind: 'product', id: 'prod_1', handle: 'h' } });
+    const parsed = MercariaProductSchema.parse({
+      ...productWire(),
+      ref: { kind: 'product', id: 'prod_1', handle: 'h' },
+    });
     expect(parsed.ref).toEqual({ kind: 'product', id: 'prod_1' });
   });
 
   it('read back from storage are strict: an extra key is refused, never dropped', () => {
     expect(MercariaRefSchema.safeParse({ kind: 'product', id: 'p' }).success).toBe(true);
-    expect(MercariaRefSchema.safeParse({ kind: 'product', id: 'p', title: 'snapshot' }).success).toBe(false);
+    expect(
+      MercariaRefSchema.safeParse({ kind: 'product', id: 'p', title: 'snapshot' }).success,
+    ).toBe(false);
     expect(MercariaRefSchema.safeParse({ kind: 'product', id: '   ' }).success).toBe(false);
     expect(MercariaRefSchema.safeParse({ kind: 'listing', id: 'p' }).success).toBe(false);
     expect(MercariaRefSchema.safeParse({ kind: 'location', id: 'l' }).success).toBe(true);
-    expect(MercariaRefSchema.safeParse({ kind: 'location', id: 'l', goWayPlaceId: 'plc' }).success).toBe(false);
+    expect(
+      MercariaRefSchema.safeParse({ kind: 'location', id: 'l', goWayPlaceId: 'plc' }).success,
+    ).toBe(false);
   });
 });
 
@@ -181,14 +227,21 @@ describe('pages', () => {
     expectTypeOf<z.infer<typeof MercariaProductSummaryPageSchema>>().toEqualTypeOf<
       MercariaPage<MercariaProductSummary>
     >();
-    expectTypeOf<z.infer<typeof MercariaCollectionPageSchema>>().toEqualTypeOf<MercariaPage<MercariaCollection>>();
+    expectTypeOf<z.infer<typeof MercariaCollectionPageSchema>>().toEqualTypeOf<
+      MercariaPage<MercariaCollection>
+    >();
   });
 
   it('fail whole when one item is malformed', () => {
     const bad = productWire();
     bad.title = 7;
     expect(
-      issuePaths(MercariaProductSummaryPageSchema.safeParse({ items: [productWire(), bad], nextCursor: null })),
+      issuePaths(
+        MercariaProductSummaryPageSchema.safeParse({
+          items: [productWire(), bad],
+          nextCursor: null,
+        }),
+      ),
     ).toEqual(['items.1.title']);
   });
 });
@@ -203,9 +256,13 @@ describe('the error body', () => {
   });
 
   it('refuses a SCREAMING code and non-scalar details', () => {
-    expect(MercariaErrorBodySchema.safeParse({ error: { code: 'NOT_FOUND', message: 'x' } }).success).toBe(false);
     expect(
-      MercariaErrorBodySchema.safeParse({ error: { code: 'gone', message: 'x', details: { list: [1] } } }).success,
+      MercariaErrorBodySchema.safeParse({ error: { code: 'NOT_FOUND', message: 'x' } }).success,
+    ).toBe(false);
+    expect(
+      MercariaErrorBodySchema.safeParse({
+        error: { code: 'gone', message: 'x', details: { list: [1] } },
+      }).success,
     ).toBe(false);
   });
 });
@@ -221,7 +278,9 @@ describe('JSON Schema', () => {
   it('leaves response objects open and persisted refs closed', () => {
     expect(mercariaJsonSchema('MercariaStore')).not.toHaveProperty('additionalProperties');
     expect(mercariaJsonSchema('MercariaStoreRef')).not.toHaveProperty('additionalProperties');
-    expect(JSON.stringify(mercariaJsonSchema('MercariaRef'))).toContain('"additionalProperties":false');
+    expect(JSON.stringify(mercariaJsonSchema('MercariaRef'))).toContain(
+      '"additionalProperties":false',
+    );
   });
 });
 
@@ -282,11 +341,22 @@ describe('no public shape carries an ambiguous identity string or a private stor
     ];
     // Vacuity floor: the walk reached nested response keys and request keys.
     expect(keys).toEqual(
-      expect.arrayContaining(['ref', 'currency', 'variantId', 'oxyUserId', 'nextCursor', 'storeId', 'handle', 'limit']),
+      expect.arrayContaining([
+        'ref',
+        'currency',
+        'variantId',
+        'oxyUserId',
+        'nextCursor',
+        'storeId',
+        'handle',
+        'limit',
+      ]),
     );
     expect(keys.filter((key) => FORBIDDEN.has(key))).toEqual([]);
     // Positive control: the same walk sees a forbidden key nested in a page.
-    const leaky = z.object({ items: z.array(z.object({ seller: z.object({ brand: z.string() }).nullable() })) });
+    const leaky = z.object({
+      items: z.array(z.object({ seller: z.object({ brand: z.string() }).nullable() })),
+    });
     expect(keysOf(leaky).filter((key) => FORBIDDEN.has(key))).toEqual(['brand']);
   });
 });

@@ -49,8 +49,7 @@ describe('SHARED_FLAT_DIRS is spelled once', () => {
    * value; it has to count uses. The defect was two spellings, so the
    * measurement is: each bag name occurs EXACTLY ONCE in the source.
    */
-  const occurrences = (src: string, name: string): number =>
-    src.split(`'${name}'`).length - 1;
+  const occurrences = (src: string, name: string): number => src.split(`'${name}'`).length - 1;
 
   it.each(['controllers', 'routes', 'middleware', 'db/schema'])(
     "'%s' is written exactly once",
@@ -151,7 +150,9 @@ describe('TRIPWIRE: a bag directory nobody listed', () => {
   it('finds no scoring directory that is absent from the list', () => {
     const leaves = domainLeaves();
     const unlisted = candidateDirs().filter(
-      (d) => !SHARED_FLAT_DIRS.includes(d as (typeof SHARED_FLAT_DIRS)[number]) && bagScore(d, leaves) >= THRESHOLD,
+      (d) =>
+        !SHARED_FLAT_DIRS.includes(d as (typeof SHARED_FLAT_DIRS)[number]) &&
+        bagScore(d, leaves) >= THRESHOLD,
     );
     expect(unlisted).toEqual([]);
   });
@@ -182,7 +183,9 @@ describe('END TO END: a schema module moves the derived count by exactly one', (
 
   function derivedFor(root: string): { count: number; added: string[] } {
     const out = execFileSync('bun', ['run', SCRIPT, root], { encoding: 'utf8' });
-    const match = out.match(/walk [^\n]*-> (\d+), \+(\d+) outside the list:\n([\s\S]*?)(?:\n\n|\n=)/);
+    const match = out.match(
+      /walk [^\n]*-> (\d+), \+(\d+) outside the list:\n([\s\S]*?)(?:\n\n|\n=)/,
+    );
     if (match === null) throw new Error(`census produced no bucket-A row:\n${out}`);
     return {
       count: Number(match[1]),

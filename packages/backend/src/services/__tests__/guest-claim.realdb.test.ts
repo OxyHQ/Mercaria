@@ -544,10 +544,7 @@ describe('order ACCESS follows the claim, through both spellings of the rule', (
     // The SQL spelling. Two representations of one rule can disagree, which is
     // why #106 drives both — and #109 is the first change that makes the second
     // one return anything at all.
-    const listed = await orderRepo.findOrders(
-      { buyerOrClaimantOxyUserId: `owner-${RUN}` },
-      db,
-    );
+    const listed = await orderRepo.findOrders({ buyerOrClaimantOxyUserId: `owner-${RUN}` }, db);
     const listedIds = listed.map((order) => order.id).sort();
     expect(listedIds).toEqual([...group.orderIds].sort());
 
@@ -632,10 +629,7 @@ describe('the durable follow-up work (acceptance 9, conflict case 11)', () => {
     // `p2p_seller`; the canonical product and the listing are absent in this
     // fixture, and #76 skips those scopes silently rather than refusing the
     // whole grant.
-    expect(granted.map((row) => row.scope).sort()).toEqual([
-      'native_transaction',
-      'p2p_seller',
-    ]);
+    expect(granted.map((row) => row.scope).sort()).toEqual(['native_transaction', 'p2p_seller']);
     for (const row of granted) {
       // The CLAIMED evidence type and a claim id, never `authenticated_purchase`
       // — losing that distinction would record a guest purchase as an account's

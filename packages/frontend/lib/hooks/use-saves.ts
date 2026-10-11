@@ -154,7 +154,9 @@ export function useToggleListingSave() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.feed.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.saves.savedItems }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.saves.listingContext(input.listingId) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.saves.listingContext(input.listingId),
+        }),
       ]);
     },
   });

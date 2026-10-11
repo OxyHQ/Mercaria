@@ -104,10 +104,7 @@ export interface ShoppingAgentSummaryProvider {
    *   it must return `unavailable` rather than resolving late: the template is
    *   already composed and a notification is already owed.
    */
-  draft(
-    pkg: ShoppingAgentSummaryPackage,
-    deadlineMs: number,
-  ): Promise<ShoppingAgentSummaryOutcome>;
+  draft(pkg: ShoppingAgentSummaryPackage, deadlineMs: number): Promise<ShoppingAgentSummaryOutcome>;
 }
 
 /** The default: no provider, honestly. See the module header. */
@@ -122,9 +119,7 @@ export const unavailableShoppingAgentSummaryProvider: ShoppingAgentSummaryProvid
 let registeredProvider: ShoppingAgentSummaryProvider = unavailableShoppingAgentSummaryProvider;
 
 /** Register the real implementation. A deployment's wiring calls this once, at boot. */
-export function registerShoppingAgentSummaryProvider(
-  provider: ShoppingAgentSummaryProvider,
-): void {
+export function registerShoppingAgentSummaryProvider(provider: ShoppingAgentSummaryProvider): void {
   registeredProvider = provider;
 }
 

@@ -174,7 +174,9 @@ describe('the collector REFUSES TO WRITE, which is the guarantee that matters', 
     // The refusal must leave NOTHING behind. A partially written artefact
     // carrying the token would be worse than no refusal at all, because the
     // exception would read as "nothing was written".
-    await expect(readFile(path.join(evidenceDir, 'shopify-mutant.evidence.json'), 'utf8')).rejects.toThrow();
+    await expect(
+      readFile(path.join(evidenceDir, 'shopify-mutant.evidence.json'), 'utf8'),
+    ).rejects.toThrow();
   });
 
   it('refuses on a token in the ENVIRONMENT block too, not only in a scenario', async () => {

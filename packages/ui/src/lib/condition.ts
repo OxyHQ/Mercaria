@@ -39,41 +39,41 @@
  * explanation.
  */
 
-import type { ConditionGroup, ItemConditionKey } from "@mercaria/shared-types";
+import type { ConditionGroup, ItemConditionKey } from '@mercaria/shared-types';
 
 /** The short label a badge and a picker row show. */
 export const CONDITION_LABEL_KEYS: Readonly<Record<ItemConditionKey, string>> = {
-  new: "ui.condition.label.new",
-  open_box: "ui.condition.label.open_box",
-  refurbished_manufacturer: "ui.condition.label.refurbished_manufacturer",
-  refurbished_seller: "ui.condition.label.refurbished_seller",
-  used_like_new: "ui.condition.label.used_like_new",
-  used_good: "ui.condition.label.used_good",
-  used_fair: "ui.condition.label.used_fair",
-  used_poor: "ui.condition.label.used_poor",
-  for_parts: "ui.condition.label.for_parts",
+  new: 'ui.condition.label.new',
+  open_box: 'ui.condition.label.open_box',
+  refurbished_manufacturer: 'ui.condition.label.refurbished_manufacturer',
+  refurbished_seller: 'ui.condition.label.refurbished_seller',
+  used_like_new: 'ui.condition.label.used_like_new',
+  used_good: 'ui.condition.label.used_good',
+  used_fair: 'ui.condition.label.used_fair',
+  used_poor: 'ui.condition.label.used_poor',
+  for_parts: 'ui.condition.label.for_parts',
 };
 
 /** One sentence saying what the seller is actually claiming. */
 export const CONDITION_EXPLANATION_KEYS: Readonly<Record<ItemConditionKey, string>> = {
-  new: "ui.condition.explanation.new",
-  open_box: "ui.condition.explanation.open_box",
-  refurbished_manufacturer: "ui.condition.explanation.refurbished_manufacturer",
-  refurbished_seller: "ui.condition.explanation.refurbished_seller",
-  used_like_new: "ui.condition.explanation.used_like_new",
-  used_good: "ui.condition.explanation.used_good",
-  used_fair: "ui.condition.explanation.used_fair",
-  used_poor: "ui.condition.explanation.used_poor",
-  for_parts: "ui.condition.explanation.for_parts",
+  new: 'ui.condition.explanation.new',
+  open_box: 'ui.condition.explanation.open_box',
+  refurbished_manufacturer: 'ui.condition.explanation.refurbished_manufacturer',
+  refurbished_seller: 'ui.condition.explanation.refurbished_seller',
+  used_like_new: 'ui.condition.explanation.used_like_new',
+  used_good: 'ui.condition.explanation.used_good',
+  used_fair: 'ui.condition.explanation.used_fair',
+  used_poor: 'ui.condition.explanation.used_poor',
+  for_parts: 'ui.condition.explanation.for_parts',
 };
 
 /** The label a filter facet and a price-history segment show. */
 export const CONDITION_GROUP_LABEL_KEYS: Readonly<Record<ConditionGroup, string>> = {
-  new: "ui.condition.group.new",
-  open_box: "ui.condition.group.open_box",
-  refurbished: "ui.condition.group.refurbished",
-  used: "ui.condition.group.used",
-  for_parts: "ui.condition.group.for_parts",
+  new: 'ui.condition.group.new',
+  open_box: 'ui.condition.group.open_box',
+  refurbished: 'ui.condition.group.refurbished',
+  used: 'ui.condition.group.used',
+  for_parts: 'ui.condition.group.for_parts',
 };
 
 /**
@@ -83,7 +83,7 @@ export const CONDITION_GROUP_LABEL_KEYS: Readonly<Record<ConditionGroup, string>
  * Mercaria's verification of it. Surfaced beside the explanation on any surface
  * where a shopper is choosing between conditions.
  */
-export const CONDITION_DISCLAIMER_KEY = "ui.condition.disclaimer";
+export const CONDITION_DISCLAIMER_KEY = 'ui.condition.disclaimer';
 
 /**
  * `Condition: %{label}` — the accessible name a badge announces.
@@ -92,13 +92,13 @@ export const CONDITION_DISCLAIMER_KEY = "ui.condition.disclaimer";
  * moves: French puts a space before the colon and Chinese uses a full-width one,
  * and a screen reader reads what the string actually says.
  */
-export const CONDITION_A11Y_LABEL_KEY = "ui.condition.a11yLabel";
+export const CONDITION_A11Y_LABEL_KEY = 'ui.condition.a11yLabel';
 
 /** An OFFER whose source published no condition at all (#90). */
-export const CONDITION_NOT_STATED_KEY = "ui.condition.notStated";
+export const CONDITION_NOT_STATED_KEY = 'ui.condition.notStated';
 
 /** `The seller describes it as “%{label}”.` — #90 UI rule 4's source wording. */
-export const CONDITION_SELLER_WORDING_KEY = "ui.condition.sellerWording";
+export const CONDITION_SELLER_WORDING_KEY = 'ui.condition.sellerWording';
 
 /** The translation key for one taxonomy key's label. */
 export function conditionLabelKey(key: ItemConditionKey): string {

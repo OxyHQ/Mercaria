@@ -1,16 +1,7 @@
-import {
-  useQuery,
-  useMutation,
-  useQueryClient,
-  keepPreviousData,
-} from "@tanstack/react-query";
-import type {
-  PaginatedResponse,
-  Customer,
-  CreateCustomerInput,
-} from "@mercaria/shared-types";
-import { fetchCustomers, createCustomer } from "../api/customers";
-import { queryKeys } from "../queryKeys";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import type { PaginatedResponse, Customer, CreateCustomerInput } from '@mercaria/shared-types';
+import { fetchCustomers, createCustomer } from '../api/customers';
+import { queryKeys } from '../queryKeys';
 
 /** The store's customers, optionally filtered by a search term. */
 export function useCustomers(storeId: string, search: string) {
@@ -31,7 +22,7 @@ export function useCreateCustomer(storeId: string) {
   return useMutation({
     mutationFn: (input: CreateCustomerInput) => createCustomer(storeId, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["stores", storeId, "customers"] });
+      queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'customers'] });
     },
   });
 }

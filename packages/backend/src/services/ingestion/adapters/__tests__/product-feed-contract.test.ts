@@ -40,7 +40,11 @@ import {
   type ContractScenario,
 } from '../../__tests__/adapter-contract-suite.js';
 import { CatalogSourceFetchError, type CatalogSourceAdapter } from '../../adapter.js';
-import { FEED_REFUSAL_REASONS, FeedImportRefusal, feedRefusalFetchKind } from '../../../feed-import/errors.js';
+import {
+  FEED_REFUSAL_REASONS,
+  FeedImportRefusal,
+  feedRefusalFetchKind,
+} from '../../../feed-import/errors.js';
 import type { ResolvedFeedImport } from '../../../feed-import/resolve.js';
 import { stageUploadedFeed } from '../../../feed-import/upload.js';
 import { createProductFeedAdapter, PRODUCT_FEED_PROVIDER } from '../product-feed.js';

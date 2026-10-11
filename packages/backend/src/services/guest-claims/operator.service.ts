@@ -13,17 +13,10 @@
 
 import type { GuestClaimConsistency, GuestClaimTrace } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
-import {
-  listClaimsForGroup,
-  readClaimConsistency,
-} from '../../db/guestClaims/claimRepository.js';
+import { listClaimsForGroup, readClaimConsistency } from '../../db/guestClaims/claimRepository.js';
 import { listRevocationsForClaims } from '../../db/guestClaims/revocationRepository.js';
 import { listGuestClaimJobsForGroup } from '../../db/guestClaims/claimOutboxRepository.js';
-import {
-  toClaimSummary,
-  toOutboxEntry,
-  toRevocationSummary,
-} from './claim-projection.js';
+import { toClaimSummary, toOutboxEntry, toRevocationSummary } from './claim-projection.js';
 
 /** How much of each list a trace returns. Bounded, so one group cannot be a dump. */
 const TRACE_LIMIT = 50;

@@ -17,12 +17,17 @@ import { buildCandidate, buildFacts, buildOffer } from './offer-fixtures.js';
 
 const policy = BUILTIN_RANKING_POLICY;
 
-function rank(candidates: Parameters<typeof rankOffers>[0]['candidates'], intent: Parameters<typeof rankOffers>[0]['intent'] = 'balanced') {
+function rank(
+  candidates: Parameters<typeof rankOffers>[0]['candidates'],
+  intent: Parameters<typeof rankOffers>[0]['intent'] = 'balanced',
+) {
   return rankOffers({ candidates, policy, intent, viewerLocationProvided: false });
 }
 
 function labelsOf(ranked: ReturnType<typeof rank>, offerId: string): string[] {
-  return (ranked.find((entry) => entry.offerId === offerId)?.labels ?? []).map((award) => award.label);
+  return (ranked.find((entry) => entry.offerId === offerId)?.labels ?? []).map(
+    (award) => award.label,
+  );
 }
 
 describe('scenario: price', () => {
@@ -85,7 +90,9 @@ describe('scenario: official store', () => {
     ]);
     expect(labelsOf(ranked, 'official')).toContain('official_direct_store');
     expect(labelsOf(ranked, 'reseller')).toContain('authorized_reseller');
-    expect(labelsOf(ranked, 'ordinary')).toEqual(expect.not.arrayContaining(['official_direct_store']));
+    expect(labelsOf(ranked, 'ordinary')).toEqual(
+      expect.not.arrayContaining(['official_direct_store']),
+    );
   });
 
   it('sorts official channels first under the `official` intent and nowhere else', () => {
@@ -296,7 +303,11 @@ describe('acceptance criteria', () => {
 
   it('6 — every displayed label carries a machine-readable reason code', () => {
     const ranked = rank([
-      buildCandidate('one', { relationship: 'official_channel', deliveryMaxDays: 2, nativeCheckoutEligible: true }),
+      buildCandidate('one', {
+        relationship: 'official_channel',
+        deliveryMaxDays: 2,
+        nativeCheckoutEligible: true,
+      }),
     ]);
     const labels = ranked[0]?.labels ?? [];
     expect(labels.length).toBeGreaterThan(0);

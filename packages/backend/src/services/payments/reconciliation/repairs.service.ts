@@ -223,7 +223,10 @@ async function retryWithheldTransfer(
     });
   }
 
-  const account = await refreshSellerAccount(order.sellerType === 'store' ? 'store' : 'user', order.sellerOwnerId);
+  const account = await refreshSellerAccount(
+    order.sellerType === 'store' ? 'store' : 'user',
+    order.sellerOwnerId,
+  );
   if (!account) {
     return await refuse(
       request,
@@ -273,7 +276,10 @@ async function retryWithheldTransfer(
       ? `Transfer created for order ${order.id}.`
       : `The settlement ran and order ${order.id} is still withheld; read the transfer_withheld ` +
         'exception for the rail’s own reason.',
-    detail: { ...outcome, ...(settled?.providerObjectId ? { providerObjectId: settled.providerObjectId } : {}) },
+    detail: {
+      ...outcome,
+      ...(settled?.providerObjectId ? { providerObjectId: settled.providerObjectId } : {}),
+    },
     paymentId: payment.id,
     orderId: order.id,
   });
@@ -332,7 +338,11 @@ async function retryTransferReversal(
     subjectKey,
     outcome: result.reversal === 'succeeded' ? 'applied' : 'no_op',
     note: `Refund recovery reported '${result.reversal}'.`,
-    detail: { refundId: refund.id, reversal: result.reversal, ...(result.note ? { railNote: result.note } : {}) },
+    detail: {
+      refundId: refund.id,
+      reversal: result.reversal,
+      ...(result.note ? { railNote: result.note } : {}),
+    },
     ...(refund.paymentId ? { paymentId: refund.paymentId } : {}),
     orderId: refund.orderId,
   });
@@ -520,7 +530,11 @@ async function bookReconcilingEntry(
   }
 
   auditLog(request, subjectKey, 'applied', { ledgerTransactionId });
-  await maybeResolveDiscrepancy(request, 'applied', `Booked reconciling entry ${ledgerTransactionId}.`);
+  await maybeResolveDiscrepancy(
+    request,
+    'applied',
+    `Booked reconciling entry ${ledgerTransactionId}.`,
+  );
   return {
     action: request.action,
     outcome: 'applied',

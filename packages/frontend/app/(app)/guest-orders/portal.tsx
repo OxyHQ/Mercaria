@@ -40,28 +40,28 @@
  * rejection the server is careful to give.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@oxy.so/bloom/button";
-import { View } from "react-native";
-import Head from "expo-router/head";
-import { router, useLocalSearchParams } from "expo-router";
-import type { OrderStatus } from "@mercaria/shared-types";
-import { PickupCollectionPanel, SectionHeader, Text } from "@mercaria/ui";
-import { openGoWayPlace } from "@/lib/goway";
-import { ScreenShell } from "@/components/shell/ScreenShell";
+import { useEffect, useRef, useState } from 'react';
+import { Button } from '@oxy.so/bloom/button';
+import { View } from 'react-native';
+import Head from 'expo-router/head';
+import { router, useLocalSearchParams } from 'expo-router';
+import type { OrderStatus } from '@mercaria/shared-types';
+import { PickupCollectionPanel, SectionHeader, Text } from '@mercaria/ui';
+import { openGoWayPlace } from '@/lib/goway';
+import { ScreenShell } from '@/components/shell/ScreenShell';
 import {
   useGuestPortalSession,
   useGuestPortalStatus,
   useGuestPortalView,
   useMagicLinkExchange,
   usePortalSignOut,
-} from "@/lib/hooks/use-guest-portal";
-import { useGuestOrderCollection } from "@/lib/hooks/use-nearby";
-import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
-import { useTranslation } from "@/lib/i18n";
+} from '@/lib/hooks/use-guest-portal';
+import { useGuestOrderCollection } from '@/lib/hooks/use-nearby';
+import { ORDER_STATUS_LABEL_KEYS } from '@/lib/order-status';
+import { useTranslation } from '@/lib/i18n';
 
 /** The prefix an exchange token carries. Anything else is not one. */
-const EXCHANGE_PREFIX = "mgx_";
+const EXCHANGE_PREFIX = 'mgx_';
 
 /**
  * Read the token out of the URL and REMOVE it, in that order.
@@ -70,15 +70,15 @@ const EXCHANGE_PREFIX = "mgx_";
  * back to a route parameter, which is how a verified app link delivers it.
  */
 function takeTokenFromFragment(): string | null {
-  if (typeof window === "undefined") return null;
-  const fragment = window.location.hash.replace(/^#/, "");
+  if (typeof window === 'undefined') return null;
+  const fragment = window.location.hash.replace(/^#/, '');
   if (!fragment.startsWith(EXCHANGE_PREFIX)) return null;
   // Captured BEFORE the strip: after `replaceState` the value is gone, so the
   // order of these two statements is the feature.
   const token = fragment;
   window.history.replaceState(
     window.history.state,
-    "",
+    '',
     `${window.location.pathname}${window.location.search}`,
   );
   return token;
@@ -109,11 +109,11 @@ function PortalBody() {
   const session = useGuestPortalSession(!exchange.isPending);
   const state = exchange.data ?? session.data;
   const group = state?.checkoutGroupId ?? params.group;
-  const canReadOrders = state?.scopes.includes("orders:read") ?? false;
+  const canReadOrders = state?.scopes.includes('orders:read') ?? false;
   // #109: `claim:write` is granted only to a credential whose inbox is proven,
   // so this is the same line ADR 0003 D17 draws — a device may watch the order,
   // a proven inbox may move it into an account.
-  const canClaim = state?.scopes.includes("claim:write") ?? false;
+  const canClaim = state?.scopes.includes('claim:write') ?? false;
 
   const view = useGuestPortalView(group, Boolean(state) && canReadOrders);
   const status = useGuestPortalStatus(group, Boolean(state) && !canReadOrders);
@@ -121,8 +121,8 @@ function PortalBody() {
   if (exchange.isPending || (session.isPending && !state)) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={t("guestOrders.portal.openingTitle")} />
-        <Text className="text-sm text-muted-foreground">{t("guestOrders.oneMoment")}</Text>
+        <SectionHeader title={t('guestOrders.portal.openingTitle')} />
+        <Text className="text-sm text-muted-foreground">{t('guestOrders.oneMoment')}</Text>
       </View>
     );
   }
@@ -133,18 +133,18 @@ function PortalBody() {
         <SectionHeader
           title={
             linkRefused
-              ? t("guestOrders.portal.linkRefusedTitle")
-              : t("guestOrders.portal.noCredentialTitle")
+              ? t('guestOrders.portal.linkRefusedTitle')
+              : t('guestOrders.portal.noCredentialTitle')
           }
         />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
             {linkRefused
-              ? t("guestOrders.portal.linkRefusedBody")
-              : t("guestOrders.portal.noCredentialBody")}
+              ? t('guestOrders.portal.linkRefusedBody')
+              : t('guestOrders.portal.noCredentialBody')}
           </Text>
-          <Button tone="accent" onPress={() => router.push("/guest-orders/recover")}>
-            {t("guestOrders.sendAccessLink")}
+          <Button tone="accent" onPress={() => router.push('/guest-orders/recover')}>
+            {t('guestOrders.sendAccessLink')}
           </Button>
         </View>
       </View>
@@ -153,7 +153,7 @@ function PortalBody() {
 
   return (
     <View className="px-4 gap-6" accessibilityLiveRegion="polite">
-      <SectionHeader title={t("guestOrders.portal.title")} />
+      <SectionHeader title={t('guestOrders.portal.title')} />
 
       {canReadOrders ? (
         <FullView
@@ -187,14 +187,19 @@ function PortalBody() {
         <Button
           appearance="outline"
           tone="neutral"
-          onPress={() => router.push({ pathname: "/guest-orders/claim", params: { group } })}
+          onPress={() => router.push({ pathname: '/guest-orders/claim', params: { group } })}
         >
-          {t("guestOrders.portal.claimAction")}
+          {t('guestOrders.portal.claimAction')}
         </Button>
       ) : null}
 
-      <Button appearance="outline" tone="neutral" onPress={() => signOut.mutate()} disabled={signOut.isPending}>
-        {t("guestOrders.portal.signOut")}
+      <Button
+        appearance="outline"
+        tone="neutral"
+        onPress={() => signOut.mutate()}
+        disabled={signOut.isPending}
+      >
+        {t('guestOrders.portal.signOut')}
       </Button>
     </View>
   );
@@ -209,12 +214,12 @@ function FullView(props: {
 }) {
   const { t } = useTranslation();
   if (props.loading) {
-    return <Text className="text-sm text-muted-foreground">{t("guestOrders.portal.loading")}</Text>;
+    return <Text className="text-sm text-muted-foreground">{t('guestOrders.portal.loading')}</Text>;
   }
   if (props.failed || !props.orders) {
     return (
       <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-        {t("guestOrders.portal.fullFailed")}
+        {t('guestOrders.portal.fullFailed')}
       </Text>
     );
   }
@@ -287,12 +292,12 @@ function BoundedView(props: {
 }) {
   const { t } = useTranslation();
   if (props.loading) {
-    return <Text className="text-sm text-muted-foreground">{t("guestOrders.portal.loading")}</Text>;
+    return <Text className="text-sm text-muted-foreground">{t('guestOrders.portal.loading')}</Text>;
   }
   if (props.failed || !props.entries) {
     return (
       <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-        {t("guestOrders.portal.boundedFailed")}
+        {t('guestOrders.portal.boundedFailed')}
       </Text>
     );
   }
@@ -310,14 +315,14 @@ function BoundedView(props: {
         </View>
       ))}
       <Text className="text-sm text-muted-foreground">
-        {t("guestOrders.portal.confirmEmailBody")}
+        {t('guestOrders.portal.confirmEmailBody')}
       </Text>
       <Button
         appearance="outline"
         tone="neutral"
-        onPress={() => router.push("/guest-orders/recover")}
+        onPress={() => router.push('/guest-orders/recover')}
       >
-        {t("guestOrders.portal.confirmEmailAction")}
+        {t('guestOrders.portal.confirmEmailAction')}
       </Button>
     </View>
   );
@@ -328,7 +333,7 @@ export default function GuestOrderPortalScreen() {
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>{t("guestOrders.portal.pageTitle")}</title>
+        <title>{t('guestOrders.portal.pageTitle')}</title>
         {/*
           A STRICT referrer policy on the one page a credential ever reaches in
           a URL (#108 magic-link rule 5). Even in the window before the fragment

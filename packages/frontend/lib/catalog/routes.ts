@@ -63,9 +63,7 @@ export function navigationTargetHref(target: NavigationTarget): Href | undefined
       return brandHref(target.brandSlug.length > 0 ? target.brandSlug : target.brandId);
     case 'product_family':
       return productFamilyHref(
-        target.productFamilySlug.length > 0
-          ? target.productFamilySlug
-          : target.productFamilyId,
+        target.productFamilySlug.length > 0 ? target.productFamilySlug : target.productFamilyId,
       );
     case 'saved_query':
       // A curated search is a search, and `/search` takes a term. A saved query

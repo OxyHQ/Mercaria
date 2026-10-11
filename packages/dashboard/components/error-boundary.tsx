@@ -21,10 +21,7 @@ interface ErrorBoundaryState {
  * component tree, reports them to Sentry, and displays a user-friendly
  * recovery screen.
  */
-export class AppErrorBoundary extends React.Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
+export class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -62,20 +59,10 @@ export class AppErrorBoundary extends React.Component<
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) {
         const FallbackComponent = this.props.fallback;
-        return (
-          <FallbackComponent
-            error={this.state.error}
-            resetError={this.resetError}
-          />
-        );
+        return <FallbackComponent error={this.state.error} resetError={this.resetError} />;
       }
 
-      return (
-        <ProviderErrorFallback
-          error={this.state.error}
-          resetError={this.resetError}
-        />
-      );
+      return <ProviderErrorFallback error={this.state.error} resetError={this.resetError} />;
     }
 
     return this.props.children;
@@ -126,37 +113,94 @@ export function ThemedErrorFallback(props: ErrorFallbackProps) {
   const { t } = useTranslation();
   return (
     <ErrorPresentation {...props} colors={colors}>
-      <Button tone="accent" onPress={props.resetError}>{t('common.retry')}</Button>
+      <Button tone="accent" onPress={props.resetError}>
+        {t('common.retry')}
+      </Button>
     </ErrorPresentation>
   );
 }
 
 /** Native primitives keep the outer recovery usable without any UI provider. */
-function ErrorPresentation({ error, colors, children }: ErrorFallbackProps & {
+function ErrorPresentation({
+  error,
+  colors,
+  children,
+}: ErrorFallbackProps & {
   colors: ThemeColors;
   children: React.ReactNode;
 }) {
   // This zustand reader neither requires context nor suspends.
   const { t } = useTranslation();
   return (
-    <View testID="app-error-fallback" style={{ flex: 1, minHeight: 400, backgroundColor: colors.background,
-      justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+    <View
+      testID="app-error-fallback"
+      style={{
+        flex: 1,
+        minHeight: 400,
+        backgroundColor: colors.background,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+      }}
+    >
       <View style={{ maxWidth: 400, width: '100%', alignItems: 'stretch' }}>
-        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.errorSubtle,
-          justifyContent: 'center', alignItems: 'center', alignSelf: 'center', marginBottom: 20 }}>
-          <Text style={{ fontSize: 24, color: colors.errorSubtleForeground, fontWeight: '600' }}>!</Text>
+        <View
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: colors.errorSubtle,
+            justifyContent: 'center',
+            alignItems: 'center',
+            alignSelf: 'center',
+            marginBottom: 20,
+          }}
+        >
+          <Text style={{ fontSize: 24, color: colors.errorSubtleForeground, fontWeight: '600' }}>
+            !
+          </Text>
         </View>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text, textAlign: 'center', marginBottom: 8 }}>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: '700',
+            color: colors.text,
+            textAlign: 'center',
+            marginBottom: 8,
+          }}
+        >
           {t('common.somethingWentWrong')}
         </Text>
-        <Text style={{ fontSize: 15, color: colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
+        <Text
+          style={{
+            fontSize: 15,
+            color: colors.textSecondary,
+            textAlign: 'center',
+            lineHeight: 22,
+            marginBottom: 24,
+          }}
+        >
           {t('errors.boundaryBody')}
         </Text>
         {__DEV__ && (
-          <ScrollView style={{ maxHeight: 120, width: '100%', backgroundColor: colors.backgroundSecondary,
-            borderRadius: 8, padding: 12, marginBottom: 24 }}>
-            <Text style={{ fontSize: 12, color: colors.textSecondary,
-              fontFamily: Platform.OS === 'web' ? 'monospace' : 'SpaceMono' }} selectable>
+          <ScrollView
+            style={{
+              maxHeight: 120,
+              width: '100%',
+              backgroundColor: colors.backgroundSecondary,
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 24,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                color: colors.textSecondary,
+                fontFamily: Platform.OS === 'web' ? 'monospace' : 'SpaceMono',
+              }}
+              selectable
+            >
               {error.message}
             </Text>
           </ScrollView>

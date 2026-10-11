@@ -38,7 +38,8 @@ export async function listStoreOrders(req: Request, res: Response): Promise<void
   try {
     const id = storeId(req);
     const { page, limit } = parsePagination(req.query);
-    const status = typeof req.query.status === 'string' ? (req.query.status as OrderStatus) : undefined;
+    const status =
+      typeof req.query.status === 'string' ? (req.query.status as OrderStatus) : undefined;
     const { data, total } = await getStoreOrders(id, { status, page, limit });
     sendPaginated(res, data, buildPagination(page, limit, total));
   } catch (err) {

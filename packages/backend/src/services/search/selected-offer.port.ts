@@ -104,10 +104,7 @@ let selector: SearchOfferSelector | null = null;
  */
 export function registerSearchOfferSelector(next: SearchOfferSelector): void {
   if (selector !== null) {
-    log.general.warn(
-      {},
-      '[search] an offer selector was already registered; replacing it',
-    );
+    log.general.warn({}, '[search] an offer selector was already registered; replacing it');
   }
   selector = next;
 }

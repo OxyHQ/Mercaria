@@ -23,8 +23,7 @@ import {
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 
 /** An exception as stored. */
-export type RetailServicePolicyExceptionRow =
-  typeof retailServicePolicyExceptions.$inferSelect;
+export type RetailServicePolicyExceptionRow = typeof retailServicePolicyExceptions.$inferSelect;
 
 /** A dispute coordination as stored. */
 export type RetailDisputeCoordinationRow = typeof retailDisputeCoordinations.$inferSelect;

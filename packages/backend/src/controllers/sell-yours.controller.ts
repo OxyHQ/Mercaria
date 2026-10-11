@@ -98,9 +98,7 @@ export async function patchDraft(req: Request, res: Response): Promise<void> {
         canonicalProductId: loaded.draft.canonicalProductId,
         canonicalVariantId: loaded.draft.canonicalVariantId,
       }),
-      loaded.draft.categoryId
-        ? findCategoryById(loaded.draft.categoryId)
-        : Promise.resolve(null),
+      loaded.draft.categoryId ? findCategoryById(loaded.draft.categoryId) : Promise.resolve(null),
     ]);
     sendSuccess(res, toSellerDraftDTO(loaded, prefill, category?.slug));
   } catch (err) {

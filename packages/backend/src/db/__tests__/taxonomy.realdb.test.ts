@@ -163,7 +163,10 @@ describe('identity: the key is stable and frozen (ADR 0007 D1)', () => {
     const id = await makeCategory('frozen');
 
     await expectTriggerRefusal(/frozen after insert/iu, () =>
-      db.update(categories).set({ key: handle('frozen-renamed') }).where(eq(categories.id, id)),
+      db
+        .update(categories)
+        .set({ key: handle('frozen-renamed') })
+        .where(eq(categories.id, id)),
     );
 
     // The positive control for the trigger's precision. A `BEFORE UPDATE`
@@ -263,10 +266,7 @@ describe('lifecycle and merging (ADR 0007 D2/D13)', () => {
 
     // A successor on a row that is not `merged`.
     await expect(
-      db
-        .update(categories)
-        .set({ mergedIntoCategoryId: winner })
-        .where(eq(categories.id, loser)),
+      db.update(categories).set({ mergedIntoCategoryId: winner }).where(eq(categories.id, loser)),
     ).rejects.toSatisfy(isCheckViolation);
   });
 

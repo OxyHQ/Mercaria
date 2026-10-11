@@ -17,10 +17,7 @@
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres } from '../../../db/postgres.js';
-import {
-  createSupplier,
-  type SupplierRecord,
-} from '../../../db/procurement/supplierRepository.js';
+import { createSupplier, type SupplierRecord } from '../../../db/procurement/supplierRepository.js';
 import {
   createSupplierAccount,
   type SupplierAccountRecord,

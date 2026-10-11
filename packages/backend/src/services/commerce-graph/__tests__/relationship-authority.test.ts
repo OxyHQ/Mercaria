@@ -109,9 +109,9 @@ describe('domain control proves control of that domain and nothing else (evidenc
   const domainControlOnly: EvidenceFact[] = [{ kind: 'domain_control', status: 'active' }];
 
   it('cannot verify an official-store badge', () => {
-    expect(findSufficientEvidence('merchant_official_channel_for_brand', domainControlOnly)).toEqual(
-      [],
-    );
+    expect(
+      findSufficientEvidence('merchant_official_channel_for_brand', domainControlOnly),
+    ).toEqual([]);
   });
 
   it('cannot verify an authorized-reseller badge', () => {
@@ -128,9 +128,9 @@ describe('domain control proves control of that domain and nothing else (evidenc
     // The one fact domain control actually establishes. Without this case the
     // three refusals above would also pass against a rule table that refuses
     // domain control everywhere, which would be a different (and wrong) design.
-    expect(findSufficientEvidence('organization_operates_merchant', domainControlOnly)).toHaveLength(
-      1,
-    );
+    expect(
+      findSufficientEvidence('organization_operates_merchant', domainControlOnly),
+    ).toHaveLength(1);
   });
 
   it('names what WOULD have been enough, per kind', () => {

@@ -13,10 +13,7 @@
  * Every transition appends its `referral_events` row in the same transaction.
  */
 
-import type {
-  ReferralPartnerOwnerType,
-  ReferralPromotionMethod,
-} from '@mercaria/shared-types';
+import type { ReferralPartnerOwnerType, ReferralPromotionMethod } from '@mercaria/shared-types';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { getDb } from '../../db/postgres.js';
 import {

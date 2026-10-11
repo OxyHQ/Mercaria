@@ -311,7 +311,8 @@ try {
     const connection = (await readShopifyConnections()).find(
       (entry) => entry.shopDomain === SHOP_DOMAIN,
     );
-    if (!connection) throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
+    if (!connection)
+      throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
 
     must(
       'PATCH channels/:id/settings',
@@ -397,7 +398,8 @@ try {
     const connection = (await readShopifyConnections()).find(
       (entry) => entry.shopDomain === SHOP_DOMAIN,
     );
-    if (!connection) throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
+    if (!connection)
+      throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
 
     const since = Date.now();
     await pauseForHuman(
@@ -445,7 +447,8 @@ try {
     const connection = (await readShopifyConnections()).find(
       (entry) => entry.shopDomain === SHOP_DOMAIN,
     );
-    if (!connection) throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
+    if (!connection)
+      throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
 
     must(
       'PATCH channels/:id/settings',
@@ -531,7 +534,8 @@ try {
     const connection = (await readShopifyConnections()).find(
       (entry) => entry.shopDomain === SHOP_DOMAIN,
     );
-    if (!connection) throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
+    if (!connection)
+      throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
 
     await pauseForHuman(
       'In the Shopify admin: Settings -> Apps and sales channels -> UNINSTALL\n' +

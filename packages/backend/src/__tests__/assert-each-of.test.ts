@@ -51,7 +51,9 @@ describe('assertEachOf', () => {
 
   /** The half a plain non-empty check misses: entries removed, not all of them. */
   it('refuses a list that shrank below its floor', () => {
-    expect(() => assertEachOf(['a'], 3, () => undefined)).toThrow(/has 1 entries and needs at least 3/);
+    expect(() => assertEachOf(['a'], 3, () => undefined)).toThrow(
+      /has 1 entries and needs at least 3/,
+    );
   });
 
   /**

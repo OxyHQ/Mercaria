@@ -231,7 +231,13 @@ export async function setPublicationState(
  * merchant nor an operator can act on.
  */
 export async function setPickupPause(
-  input: { publicationId: string; paused: boolean; reason: string | null; actorOxyUserId: string; at: Date },
+  input: {
+    publicationId: string;
+    paused: boolean;
+    reason: string | null;
+    actorOxyUserId: string;
+    at: Date;
+  },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<LocationPublicationRow | null> {
   const [row] = await db

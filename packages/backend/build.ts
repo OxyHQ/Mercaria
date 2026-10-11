@@ -87,16 +87,18 @@ await esbuild.build({
   // container start with ERR_MODULE_NOT_FOUND naming the unresolved path — so
   // re-measure the NEW package before changing anything here. The fix is still not
   // to bundle @oxy.so/* wholesale: inlining CJS is what throws the shim above.
-  plugins: [{
-    name: 'externalize-third-party',
-    setup(build) {
-      // Externalize every bare import (third-party node_modules) except first-party.
-      build.onResolve({ filter: /^[^./]/ }, args => {
-        if (args.path.startsWith('@mercaria/')) return undefined;
-        return { path: args.path, external: true };
-      });
+  plugins: [
+    {
+      name: 'externalize-third-party',
+      setup(build) {
+        // Externalize every bare import (third-party node_modules) except first-party.
+        build.onResolve({ filter: /^[^./]/ }, (args) => {
+          if (args.path.startsWith('@mercaria/')) return undefined;
+          return { path: args.path, external: true };
+        });
+      },
     },
-  }],
+  ],
   sourcemap: false,
   minify: false,
   logLevel: 'info',

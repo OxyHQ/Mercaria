@@ -136,9 +136,15 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
       for (const target of MERGE_REHOMING_PLAN[type]) {
         const key = rehomeTargetKey(target.column);
         if (target.disposition === 'conflict_gated') {
-          expect(target.conflictKind, `${key} is conflict-gated with no conflict kind`).toBeDefined();
+          expect(
+            target.conflictKind,
+            `${key} is conflict-gated with no conflict kind`,
+          ).toBeDefined();
         }
-        if (target.disposition === 'repoint_if_absent' || target.disposition === 'repoint_or_supersede') {
+        if (
+          target.disposition === 'repoint_if_absent' ||
+          target.disposition === 'repoint_or_supersede'
+        ) {
           expect(
             target.uniqueWith?.length ?? 0,
             `${key} guards against a unique it does not name; the guard would then be a no-op`,
@@ -146,7 +152,10 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
         }
         if (target.disposition === 'repoint_or_supersede') {
           expect(target.statusColumn, `${key} supersedes with no status column`).toBeDefined();
-          expect(target.supersededStatus, `${key} supersedes with no superseded value`).toBeDefined();
+          expect(
+            target.supersededStatus,
+            `${key} supersedes with no superseded value`,
+          ).toBeDefined();
         }
         expect(target.note.length, `${key} has no reason recorded`).toBeGreaterThan(20);
       }
@@ -218,8 +227,14 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
     }
     // Vacuity floors. Zero gated entries, or a stub nothing ever queried, would
     // make every assertion above pass without comparing anything.
-    expect(checked, 'no conflict-gated entry was checked; this test measured nothing').toBeGreaterThan(0);
-    expect(probes, 'no detector issued a probe; the produced sets are empty by accident').toBeGreaterThan(0);
+    expect(
+      checked,
+      'no conflict-gated entry was checked; this test measured nothing',
+    ).toBeGreaterThan(0);
+    expect(
+      probes,
+      'no detector issued a probe; the produced sets are empty by accident',
+    ).toBeGreaterThan(0);
   });
 
   /**
@@ -249,12 +264,18 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
         expect(target.disposition, `${key} guards a collapse without gating it`).toBe(
           'conflict_gated',
         );
-        expect(target.conflictKind, `${key} guards a collapse and raises no conflict`).toBeDefined();
+        expect(
+          target.conflictKind,
+          `${key} guards a collapse and raises no conflict`,
+        ).toBeDefined();
       }
     }
     // Four today: both grains of `generic_compatibility_relations`, from both
     // ends. A floor, not an equality — a new one must not have to edit this.
-    expect(checked, 'no collapse guard was checked; this test measured nothing').toBeGreaterThanOrEqual(4);
+    expect(
+      checked,
+      'no collapse guard was checked; this test measured nothing',
+    ).toBeGreaterThanOrEqual(4);
   });
 
   /**
@@ -286,7 +307,10 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
             'raises 23505 the moment one buyer reviewed both sides of the merge (#333).',
         ).toBe('repoint_if_absent');
         const guarded = (target.uniqueWith ?? []).map((column) => sqlColumnName(column)).sort();
-        expect(guarded, `${key} guards on the wrong columns`).toEqual(['author_oxy_user_id', 'scope']);
+        expect(guarded, `${key} guards on the wrong columns`).toEqual([
+          'author_oxy_user_id',
+          'scope',
+        ]);
       }
     }
     /**
@@ -328,7 +352,14 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
     // plan names one of these. The census above is what stops a future
     // reference to `orders` being added to a plan quietly, and this is what
     // stops it being added deliberately.
-    const forbidden = ['orders', 'order_items', 'listings', 'product_variants', 'payments', 'refunds'];
+    const forbidden = [
+      'orders',
+      'order_items',
+      'listings',
+      'product_variants',
+      'payments',
+      'refunds',
+    ];
     for (const type of MERGEABLE_ENTITY_TYPES) {
       for (const target of MERGE_REHOMING_PLAN[type]) {
         const table = getTableName(target.column.table);

@@ -86,9 +86,7 @@ export function highValueHoldFor(input: {
   // rather than being held for one more sweep. The boundary matters at all only
   // because the sweep is periodic: an off-by-one here is a payout delayed by an
   // interval, not by a millisecond.
-  return input.now.getTime() >= releasableAt.getTime()
-    ? SETTLE
-    : { outcome: 'hold', releasableAt };
+  return input.now.getTime() >= releasableAt.getTime() ? SETTLE : { outcome: 'hold', releasableAt };
 }
 
 /**

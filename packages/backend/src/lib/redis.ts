@@ -188,7 +188,9 @@ export function getSocketAdapterClients(): { pubClient: Redis; subClient: Redis 
  * Get BullMQ-compatible connection config (not an ioredis instance).
  * BullMQ requires maxRetriesPerRequest: null.
  */
-export function getRedisConnection(): (ReturnType<typeof parseRedisUrl> & { maxRetriesPerRequest: null }) | null {
+export function getRedisConnection():
+  | (ReturnType<typeof parseRedisUrl> & { maxRetriesPerRequest: null })
+  | null {
   const config = parseRedisUrl();
   if (!config) return null;
   return { ...config, maxRetriesPerRequest: null };
@@ -203,9 +205,7 @@ export const REDIS_TIMEOUT_MS = 1_000;
 export function withRedisTimeout<T>(promise: Promise<T>, ms = REDIS_TIMEOUT_MS): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('Redis timeout')), ms),
-    ),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), ms)),
   ]);
 }
 

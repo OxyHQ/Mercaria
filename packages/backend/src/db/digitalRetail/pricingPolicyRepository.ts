@@ -9,10 +9,7 @@
 
 import { and, eq, ne } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
-import type {
-  DigitalRetailProductClass,
-  DigitalRetailRoundingMode,
-} from '@mercaria/shared-types';
+import type { DigitalRetailProductClass, DigitalRetailRoundingMode } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { digitalRetailPricingPolicies } from '../schema/digitalRetail.js';
 
@@ -132,9 +129,7 @@ export async function activatePricingPolicy(
   now: Date,
   tx?: DatabaseOrTransaction,
 ): Promise<DigitalRetailPricingPolicyRow | null> {
-  const run = async (
-    db: DatabaseOrTransaction,
-  ): Promise<DigitalRetailPricingPolicyRow | null> => {
+  const run = async (db: DatabaseOrTransaction): Promise<DigitalRetailPricingPolicyRow | null> => {
     const [draft] = await db
       .select()
       .from(digitalRetailPricingPolicies)

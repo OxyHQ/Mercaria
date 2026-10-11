@@ -158,12 +158,12 @@ describe('pinnedByEdit — a pin is a CHANGE, never a mention', () => {
   });
 
   it('pins `seo` when EITHER half moves', () => {
-    expect(pinnedByEdit(before, { seo: { title: 'Mine', description: 'Platform seo description' } })).toEqual(
-      ['seo'],
-    );
-    expect(pinnedByEdit(before, { seo: { title: 'Platform seo title', description: 'Mine' } })).toEqual(
-      ['seo'],
-    );
+    expect(
+      pinnedByEdit(before, { seo: { title: 'Mine', description: 'Platform seo description' } }),
+    ).toEqual(['seo']);
+    expect(
+      pinnedByEdit(before, { seo: { title: 'Platform seo title', description: 'Mine' } }),
+    ).toEqual(['seo']);
     expect(
       pinnedByEdit(before, {
         seo: { title: 'Platform seo title', description: 'Platform seo description' },

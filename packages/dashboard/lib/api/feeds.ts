@@ -41,9 +41,9 @@ import type {
   FeedMappingSuggestion,
   FeedPreviewRecord,
   FeedValueMapping,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/feeds`;
 
@@ -51,7 +51,7 @@ const base = (storeId: string) => `/admin/stores/${storeId}/feeds`;
 export interface FeedConfiguration {
   id: string;
   sourceId: string;
-  ownerKind: "merchant" | "operator";
+  ownerKind: 'merchant' | 'operator';
   storeId: string | null;
   label: string;
   identityKeyFields: string[];
@@ -70,7 +70,7 @@ export interface FeedVersion {
   id: string;
   configurationId: string;
   version: number;
-  status: "draft" | "active" | "superseded";
+  status: 'draft' | 'active' | 'superseded';
   fetchMode: FeedFetchMode;
   uploadId: string | null;
   format: FeedFormat;

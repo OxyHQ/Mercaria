@@ -314,39 +314,39 @@ describe('#90 gate 4 — ranking cannot read the condition domain', () => {
   const DOMAIN_REACH =
     /from ['"][^'"]*(?:services\/condition|db\/condition|schema\/condition)[^'"]*['"]|listingConditionPhotos|listingConditionRevisions|conditionSourceMappings|conditionMappingRulesets/;
 
-/**
- * The ONE ranking-surface module that may read the condition domain, with the
- * assertion that justifies it and an EXACT count (#448).
- *
- * Widening this wall from a four-entry copy to #483's derived surface found it:
- * `catalog-hydration.service.ts` is in the surface because it is the shared
- * projection `feed.service` and `search.service` both order through, and it
- * imports `db/condition/conditionRepository` — but every use is a batched READ
- * and a DTO PROJECTION (`projectItemCondition`, `projectLegacyCondition`), which
- * is #90's display path. It reorders nothing: its own bucketing comment says it
- * preserves "the query's own order", and no ordering expression in the file
- * mentions a condition.
- *
- * That distinction is the whole point of this wall — a condition is a
- * DESCRIPTION, not a placement input — so the exception is held to it below
- * rather than granted by name. If that module ever sorts, scores or filters by
- * condition, the second assertion fails and the exception stops applying.
- */
-const CONDITION_DISPLAY_READERS = ['services/catalog-hydration.service.ts'];
+  /**
+   * The ONE ranking-surface module that may read the condition domain, with the
+   * assertion that justifies it and an EXACT count (#448).
+   *
+   * Widening this wall from a four-entry copy to #483's derived surface found it:
+   * `catalog-hydration.service.ts` is in the surface because it is the shared
+   * projection `feed.service` and `search.service` both order through, and it
+   * imports `db/condition/conditionRepository` — but every use is a batched READ
+   * and a DTO PROJECTION (`projectItemCondition`, `projectLegacyCondition`), which
+   * is #90's display path. It reorders nothing: its own bucketing comment says it
+   * preserves "the query's own order", and no ordering expression in the file
+   * mentions a condition.
+   *
+   * That distinction is the whole point of this wall — a condition is a
+   * DESCRIPTION, not a placement input — so the exception is held to it below
+   * rather than granted by name. If that module ever sorts, scores or filters by
+   * condition, the second assertion fails and the exception stops applying.
+   */
+  const CONDITION_DISPLAY_READERS = ['services/catalog-hydration.service.ts'];
 
-/**
- * An ordering expression that mentions a condition — what the exception forbids.
- *
- * Anchored on real ordering CONSTRUCTS (`.sort(`, `sortBy`, `orderBy`, `rankBy`,
- * `scoreBy`) rather than on the word "sort" anywhere, and case-INSENSITIVE. The
- * first version of this pattern was neither, and its mutation test proved it: a
- * `zzSortByCondition` helper added to the excused module left the gate GREEN,
- * because `sort` did not match `Sort` and `[^)]*` could not span
- * `sort((left, right) =>`. An exception justified by an assertion that cannot
- * fire is an exception justified by nothing.
- */
-const CONDITION_ORDERING =
-  /(?:\.\s*sort\s*\(|\bsortBy\b|\borderBy\b|\brankBy\b|\bscoreBy\b)[\s\S]{0,100}?condition/i;
+  /**
+   * An ordering expression that mentions a condition — what the exception forbids.
+   *
+   * Anchored on real ordering CONSTRUCTS (`.sort(`, `sortBy`, `orderBy`, `rankBy`,
+   * `scoreBy`) rather than on the word "sort" anywhere, and case-INSENSITIVE. The
+   * first version of this pattern was neither, and its mutation test proved it: a
+   * `zzSortByCondition` helper added to the excused module left the gate GREEN,
+   * because `sort` did not match `Sort` and `[^)]*` could not span
+   * `sort((left, right) =>`. An exception justified by an assertion that cannot
+   * fire is an exception justified by nothing.
+   */
+  const CONDITION_ORDERING =
+    /(?:\.\s*sort\s*\(|\bsortBy\b|\borderBy\b|\brankBy\b|\bscoreBy\b)[\s\S]{0,100}?condition/i;
 
   it('no ranking surface imports a condition module or names its tables', () => {
     const offenders: string[] = [];
@@ -362,8 +362,10 @@ const CONDITION_ORDERING =
     // shared derivation exists to have. `assertRankingSurfaceIsWhole` carries
     // the per-shape floors for the surface itself.
     assertRankingSurfaceIsWhole();
-    expect(RANKING_SURFACE_PATHS.length, 'the ranking surface derivation found nothing')
-      .toBeGreaterThanOrEqual(40);
+    expect(
+      RANKING_SURFACE_PATHS.length,
+      'the ranking surface derivation found nothing',
+    ).toBeGreaterThanOrEqual(40);
 
     // The union, asserted in BOTH directions, so neither half can vanish
     // silently — which is precisely what a straight substitution did to the
@@ -460,7 +462,9 @@ describe('#90 gate 5 — the condition domain cannot read commercial standing', 
     // would actually write: each of the three forbidden domains is one `../`
     // away. The absolute-looking probe above passes against a pattern that
     // misses all three, which is why it kept this wall green.
-    expect(COMMERCIAL_REACH.test("import { feeFor } from '../fees/fee-calculation.js';")).toBe(true);
+    expect(COMMERCIAL_REACH.test("import { feeFor } from '../fees/fee-calculation.js';")).toBe(
+      true,
+    );
     expect(
       COMMERCIAL_REACH.test("import { paymentService } from '../payments/payment.service.js';"),
     ).toBe(true);

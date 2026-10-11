@@ -88,8 +88,16 @@ const money = z
 
 const quietHours = z
   .object({
-    startMinute: z.number().int().min(0).max(PRICE_ALERT_MINUTES_PER_DAY - 1),
-    endMinute: z.number().int().min(0).max(PRICE_ALERT_MINUTES_PER_DAY - 1),
+    startMinute: z
+      .number()
+      .int()
+      .min(0)
+      .max(PRICE_ALERT_MINUTES_PER_DAY - 1),
+    endMinute: z
+      .number()
+      .int()
+      .min(0)
+      .max(PRICE_ALERT_MINUTES_PER_DAY - 1),
     // An IANA zone name, checked against the RUNTIME rather than a list —
     // `isSupportedTimeZone` in the service. The pattern here only bounds the
     // shape so an unbounded string cannot reach `Intl`.
@@ -109,7 +117,10 @@ export const createPriceAlertSchema = z
     canonicalVariantId: entityId.optional(),
     target: money,
     basis: z.enum(BASIS_VALUES),
-    conditionGroups: z.array(z.enum(CONDITION_GROUP_VALUES)).max(CONDITION_GROUPS.length).optional(),
+    conditionGroups: z
+      .array(z.enum(CONDITION_GROUP_VALUES))
+      .max(CONDITION_GROUPS.length)
+      .optional(),
     market: market.optional(),
     sellerScope: z.enum(SELLER_SCOPE_VALUES).optional(),
     merchantId: entityId.optional(),
@@ -119,7 +130,12 @@ export const createPriceAlertSchema = z
     requirePickupAvailable: z.boolean().optional(),
     repeatPolicy: z.enum(REPEAT_POLICY_VALUES).optional(),
     resetThreshold: money.optional(),
-    cooldownSeconds: z.number().int().min(60).max(365 * 24 * 60 * 60).optional(),
+    cooldownSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(365 * 24 * 60 * 60)
+      .optional(),
     quietHours: quietHours.optional(),
     locale: z.string().trim().min(2).max(35).optional(),
     emailOptIn: z.boolean().optional(),
@@ -131,7 +147,10 @@ export const updatePriceAlertSchema = z
   .object({
     target: money.optional(),
     basis: z.enum(BASIS_VALUES).optional(),
-    conditionGroups: z.array(z.enum(CONDITION_GROUP_VALUES)).max(CONDITION_GROUPS.length).optional(),
+    conditionGroups: z
+      .array(z.enum(CONDITION_GROUP_VALUES))
+      .max(CONDITION_GROUPS.length)
+      .optional(),
     market: market.nullable().optional(),
     sellerScope: z.enum(SELLER_SCOPE_VALUES).optional(),
     merchantId: entityId.nullable().optional(),
@@ -141,7 +160,13 @@ export const updatePriceAlertSchema = z
     requirePickupAvailable: z.boolean().optional(),
     repeatPolicy: z.enum(REPEAT_POLICY_VALUES).optional(),
     resetThreshold: money.nullable().optional(),
-    cooldownSeconds: z.number().int().min(60).max(365 * 24 * 60 * 60).nullable().optional(),
+    cooldownSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(365 * 24 * 60 * 60)
+      .nullable()
+      .optional(),
     quietHours: quietHours.nullable().optional(),
     locale: z.string().trim().min(2).max(35).nullable().optional(),
     emailOptIn: z.boolean().optional(),

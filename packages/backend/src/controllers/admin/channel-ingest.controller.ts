@@ -51,7 +51,10 @@ export async function connectPushChannelHandler(req: Request, res: Response): Pr
     });
     sendSuccess(res, { connectionId: conn.id, storeId: conn.storeId });
   } catch (err) {
-    log.general.error({ err, provider: req.params.provider }, 'Failed to establish push-in channel');
+    log.general.error(
+      { err, provider: req.params.provider },
+      'Failed to establish push-in channel',
+    );
     respondWithError(res, err, 'Failed to establish push-in channel');
   }
 }

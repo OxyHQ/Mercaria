@@ -230,13 +230,13 @@ describe('ownership is enforced by the database, not by convention', () => {
     // what makes the `ON CONFLICT` arbiter resolvable at all, and the whole
     // reason the conflict target repeats the index predicate.
     expect((await cartRepo.ensureCart({ kind: 'oxy_user', oxyUserId })).id).toBe(first.id);
-    expect((await cartRepo.ensureCart({ kind: 'guest_session', guestSessionId })).id).toBe(guest.id);
+    expect((await cartRepo.ensureCart({ kind: 'guest_session', guestSessionId })).id).toBe(
+      guest.id,
+    );
 
     // …and the index really refuses a raw second insert, which is the property
     // `ensureCart` converging would otherwise hide.
-    await expect(
-      db.insert(schema.carts).values({ oxyUserId }).returning(),
-    ).rejects.toThrow();
+    await expect(db.insert(schema.carts).values({ oxyUserId }).returning()).rejects.toThrow();
   });
 
   it('cascades a guest cart away with its session — retention is schema, not sweep code', async () => {
@@ -249,7 +249,10 @@ describe('ownership is enforced by the database, not by convention', () => {
     await db.delete(schema.guestSessions).where(eq(schema.guestSessions.id, guestSessionId));
 
     const carts = await db.select().from(schema.carts).where(eq(schema.carts.id, cartId));
-    const items = await db.select().from(schema.cartItems).where(eq(schema.cartItems.cartId, cartId));
+    const items = await db
+      .select()
+      .from(schema.cartItems)
+      .where(eq(schema.cartItems.cartId, cartId));
     expect(carts).toHaveLength(0);
     expect(items).toHaveLength(0);
   });
@@ -285,12 +288,16 @@ describe('the merge itself', () => {
 
     const early = new Date('2026-01-01T00:00:00.000Z');
     const late = new Date('2026-02-01T00:00:00.000Z');
-    cartIds.push(await seedCart({ kind: 'guest_session', guestSessionId }, [
-      { listingId, variantId, quantity: 3, addedAt: early },
-    ]));
-    cartIds.push(await seedCart({ kind: 'oxy_user', oxyUserId }, [
-      { listingId, variantId, quantity: 2, addedAt: late },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'guest_session', guestSessionId }, [
+        { listingId, variantId, quantity: 3, addedAt: early },
+      ]),
+    );
+    cartIds.push(
+      await seedCart({ kind: 'oxy_user', oxyUserId }, [
+        { listingId, variantId, quantity: 2, addedAt: late },
+      ]),
+    );
 
     const result = await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
 
@@ -325,12 +332,14 @@ describe('the merge itself', () => {
     const guestSessionId = await seedSession();
     const { listingId, variantId } = await seedListing({ label: 'clamp', available: 4 });
 
-    cartIds.push(await seedCart({ kind: 'guest_session', guestSessionId }, [
-      { listingId, variantId, quantity: 3 },
-    ]));
-    cartIds.push(await seedCart({ kind: 'oxy_user', oxyUserId }, [
-      { listingId, variantId, quantity: 3 },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'guest_session', guestSessionId }, [
+        { listingId, variantId, quantity: 3 },
+      ]),
+    );
+    cartIds.push(
+      await seedCart({ kind: 'oxy_user', oxyUserId }, [{ listingId, variantId, quantity: 3 }]),
+    );
 
     const result = await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
 
@@ -350,9 +359,11 @@ describe('the merge itself', () => {
     const guestSessionId = await seedSession();
     const { listingId, variantId } = await seedListing({ label: 'oos', available: 0 });
 
-    cartIds.push(await seedCart({ kind: 'guest_session', guestSessionId }, [
-      { listingId, variantId, quantity: 2 },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'guest_session', guestSessionId }, [
+        { listingId, variantId, quantity: 2 },
+      ]),
+    );
 
     const result = await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
 
@@ -373,9 +384,11 @@ describe('the merge itself', () => {
     const guestSessionId = await seedSession();
     const { listingId, variantId } = await seedListing({ label: 'draft', status: 'draft' });
 
-    cartIds.push(await seedCart({ kind: 'guest_session', guestSessionId }, [
-      { listingId, variantId, quantity: 1 },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'guest_session', guestSessionId }, [
+        { listingId, variantId, quantity: 1 },
+      ]),
+    );
 
     await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
 
@@ -389,11 +402,13 @@ describe('the merge itself', () => {
     const guestSessionId = await seedSession();
     const { listingId, variantId } = await seedListing({ label: 'discount' });
 
-    cartIds.push(await seedCart(
-      { kind: 'guest_session', guestSessionId },
-      [{ listingId, variantId, quantity: 1 }],
-      ['NOSUCHCODE'],
-    ));
+    cartIds.push(
+      await seedCart(
+        { kind: 'guest_session', guestSessionId },
+        [{ listingId, variantId, quantity: 1 }],
+        ['NOSUCHCODE'],
+      ),
+    );
 
     const result = await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
 
@@ -413,9 +428,11 @@ describe('the merge itself', () => {
     const guestSessionId = await seedSession();
     const { listingId, variantId } = await seedListing({ label: 'audit' });
 
-    cartIds.push(await seedCart({ kind: 'guest_session', guestSessionId }, [
-      { listingId, variantId, quantity: 2 },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'guest_session', guestSessionId }, [
+        { listingId, variantId, quantity: 2 },
+      ]),
+    );
 
     await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
 
@@ -453,9 +470,11 @@ describe('exactly once, under concurrent retries (acceptance 4)', () => {
     const guestSessionId = await seedSession();
     const { listingId, variantId } = await seedListing({ label: 'race', available: 50 });
 
-    cartIds.push(await seedCart({ kind: 'guest_session', guestSessionId }, [
-      { listingId, variantId, quantity: 3 },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'guest_session', guestSessionId }, [
+        { listingId, variantId, quantity: 3 },
+      ]),
+    );
 
     const [a, b] = await Promise.all([
       mergeService.mergeGuestCart({ guestSessionId, oxyUserId }),
@@ -488,9 +507,11 @@ describe('exactly once, under concurrent retries (acceptance 4)', () => {
     const guestSessionId = await seedSession();
     const { listingId, variantId } = await seedListing({ label: 'third', available: 50 });
 
-    cartIds.push(await seedCart({ kind: 'guest_session', guestSessionId }, [
-      { listingId, variantId, quantity: 2 },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'guest_session', guestSessionId }, [
+        { listingId, variantId, quantity: 2 },
+      ]),
+    );
 
     const first = await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
     const retry = await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
@@ -510,9 +531,11 @@ describe('exactly once, under concurrent retries (acceptance 4)', () => {
     const guestSessionId = await seedSession();
     const { listingId, variantId } = await seedListing({ label: 'revoked' });
 
-    cartIds.push(await seedCart({ kind: 'guest_session', guestSessionId }, [
-      { listingId, variantId, quantity: 1 },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'guest_session', guestSessionId }, [
+        { listingId, variantId, quantity: 1 },
+      ]),
+    );
 
     await mergeService.mergeGuestCart({ guestSessionId, oxyUserId });
 
@@ -536,9 +559,9 @@ describe('a failed merge is recoverable (acceptance 8)', () => {
       { listingId, variantId, quantity: 3 },
     ]);
     cartIds.push(guestCartId);
-    cartIds.push(await seedCart({ kind: 'oxy_user', oxyUserId }, [
-      { listingId, variantId, quantity: 1 },
-    ]));
+    cartIds.push(
+      await seedCart({ kind: 'oxy_user', oxyUserId }, [{ listingId, variantId, quantity: 1 }]),
+    );
 
     // Fail the transaction at its LAST step by making the audit insert violate
     // its own reason CHECK — a realistic shape (a vocabulary drift) that lands

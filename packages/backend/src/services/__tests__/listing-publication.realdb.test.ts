@@ -224,9 +224,7 @@ describe('the FIRST activation stamps it and no later one moves it', () => {
     // The instant is the PUBLICATION, not the create: that is the whole ordering
     // change #261 accepted, and a stamp equal to `created_at` would mean the
     // derivation had silently kept the old meaning.
-    expect(published.publishedAt.getTime()).toBeGreaterThanOrEqual(
-      published.createdAt.getTime(),
-    );
+    expect(published.publishedAt.getTime()).toBeGreaterThanOrEqual(published.createdAt.getTime());
   });
 
   it('does NOT restamp when a listing is published a second time', async () => {

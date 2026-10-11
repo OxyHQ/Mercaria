@@ -225,7 +225,12 @@ afterAll(async () => {
   if (createdDefinitionIds.length > 0) {
     await db
       .update(productTypeDefinitions)
-      .set({ lifecycle: 'draft', publishedAt: null, publishedByOxyUserId: null, deprecatedAt: null })
+      .set({
+        lifecycle: 'draft',
+        publishedAt: null,
+        publishedByOxyUserId: null,
+        deprecatedAt: null,
+      })
       .where(inArray(productTypeDefinitions.id, createdDefinitionIds));
     await db
       .delete(productTypeFields)
@@ -241,7 +246,9 @@ afterAll(async () => {
       .where(inArray(productTypeDefinitions.id, createdDefinitionIds));
   }
   if (createdAttributeIds.length > 0) {
-    await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, createdAttributeIds));
+    await db
+      .delete(attributeDefinitions)
+      .where(inArray(attributeDefinitions.id, createdAttributeIds));
   }
   if (createdCategoryIds.length > 0) {
     await db.delete(categories).where(inArray(categories.id, createdCategoryIds));
@@ -253,10 +260,16 @@ describe('a published version is frozen, and its identity is frozen from INSERT'
   it('refuses a re-keyed version even while it is still a DRAFT (D1 rule 2)', async () => {
     const id = await makeDefinition('rekey');
     await expectRaise(/identity .* is frozen/iu, () =>
-      db.update(productTypeDefinitions).set({ key: typeKey('rekey-renamed') }).where(eq(productTypeDefinitions.id, id)),
+      db
+        .update(productTypeDefinitions)
+        .set({ key: typeKey('rekey-renamed') })
+        .where(eq(productTypeDefinitions.id, id)),
     );
     await expectRaise(/identity .* is frozen/iu, () =>
-      db.update(productTypeDefinitions).set({ version: 7 }).where(eq(productTypeDefinitions.id, id)),
+      db
+        .update(productTypeDefinitions)
+        .set({ version: 7 })
+        .where(eq(productTypeDefinitions.id, id)),
     );
 
     // The positive control for the trigger's PRECISION. A `BEFORE UPDATE`
@@ -353,12 +366,16 @@ describe('the children of a published version are frozen with it', () => {
   it('refuses a field, a group and a scope once the version is published', async () => {
     const id = await makeDefinition('children');
     // While it is a draft, all three are accepted — the positive control.
-    await db.insert(productTypeCategoryScopes).values({ productTypeDefinitionId: id, categoryId: category });
+    await db
+      .insert(productTypeCategoryScopes)
+      .values({ productTypeDefinitionId: id, categoryId: category });
     const [group] = await db
       .insert(productTypeFieldGroups)
       .values({ productTypeDefinitionId: id, key: 'specs', label: 'Specs' })
       .returning();
-    await db.insert(productTypeFields).values(fieldValues(id, colorAttribute, { groupId: group.id }));
+    await db
+      .insert(productTypeFields)
+      .values(fieldValues(id, colorAttribute, { groupId: group.id }));
 
     await db
       .update(productTypeDefinitions)
@@ -366,10 +383,14 @@ describe('the children of a published version are frozen with it', () => {
       .where(eq(productTypeDefinitions.id, id));
 
     await expectRaise(/authoring contract is frozen/iu, () =>
-      db.insert(productTypeFields).values(fieldValues(id, vehicleAttribute, { scope: 'compatibility' })),
+      db
+        .insert(productTypeFields)
+        .values(fieldValues(id, vehicleAttribute, { scope: 'compatibility' })),
     );
     await expectRaise(/authoring contract is frozen/iu, () =>
-      db.insert(productTypeFieldGroups).values({ productTypeDefinitionId: id, key: 'more', label: 'More' }),
+      db
+        .insert(productTypeFieldGroups)
+        .values({ productTypeDefinitionId: id, key: 'more', label: 'More' }),
     );
     // The category scope too. This assertion was ABSENT in the first version of
     // this file, and mutation-testing found it: removing
@@ -400,39 +421,52 @@ describe('a field cannot cite one attribute and name another', () => {
     const id = await makeDefinition('citation');
 
     await expectRaise(/citation must match/iu, () =>
-      db.insert(productTypeFields).values(
-        fieldValues(id, colorAttribute, { attributeKey: vehicleAttribute.key }),
-      ),
+      db
+        .insert(productTypeFields)
+        .values(fieldValues(id, colorAttribute, { attributeKey: vehicleAttribute.key })),
     );
     await expectRaise(/citation must match/iu, () =>
       db.insert(productTypeFields).values(
-        fieldValues(id, colorAttribute, { attributeDefinitionVersion: colorAttribute.version + 1 }),
+        fieldValues(id, colorAttribute, {
+          attributeDefinitionVersion: colorAttribute.version + 1,
+        }),
       ),
     );
 
     // The positive control: the honest citation is accepted.
-    const [row] = await db.insert(productTypeFields).values(fieldValues(id, colorAttribute)).returning();
+    const [row] = await db
+      .insert(productTypeFields)
+      .values(fieldValues(id, colorAttribute))
+      .returning();
     expect(row.attributeKey).toBe(colorAttribute.key);
     expect(row.attributeDefinitionVersion).toBe(colorAttribute.version);
   });
 
   it('refuses two flows that disagree about what the attribute IS', async () => {
     const id = await makeDefinition('flows');
-    await db
-      .insert(productTypeFields)
-      .values(fieldValues(id, colorAttribute, { flow: 'merchant', scope: 'variant', variantCapable: true }));
+    await db.insert(productTypeFields).values(
+      fieldValues(id, colorAttribute, {
+        flow: 'merchant',
+        scope: 'variant',
+        variantCapable: true,
+      }),
+    );
 
     // WHO is asked and in what order may vary per flow. Whether colour defines
     // variants may not — that is a fact about the attribute.
     await expectRaise(/disagrees with flow/iu, () =>
       db
         .insert(productTypeFields)
-        .values(fieldValues(id, colorAttribute, { flow: 'p2p', scope: 'variant', variantCapable: false })),
+        .values(
+          fieldValues(id, colorAttribute, { flow: 'p2p', scope: 'variant', variantCapable: false }),
+        ),
     );
     await expectRaise(/disagrees with flow/iu, () =>
       db
         .insert(productTypeFields)
-        .values(fieldValues(id, colorAttribute, { flow: 'p2p', scope: 'product', variantCapable: true })),
+        .values(
+          fieldValues(id, colorAttribute, { flow: 'p2p', scope: 'product', variantCapable: true }),
+        ),
     );
 
     // Agreeing on the attribute while differing on requirement and order is the
@@ -476,7 +510,9 @@ describe('a field sits in a group of its OWN version, or in none', () => {
     try {
       await db
         .insert(productTypeFields)
-        .values(fieldValues(mine, vehicleAttribute, { groupId: foreign.id, scope: 'compatibility' }));
+        .values(
+          fieldValues(mine, vehicleAttribute, { groupId: foreign.id, scope: 'compatibility' }),
+        );
     } catch (error: unknown) {
       thrown = error;
     }
@@ -495,7 +531,9 @@ describe('the variant-axis prohibition holds against a direct INSERT (D6/D8)', (
     await expectCheckViolation(() =>
       db
         .insert(productTypeFields)
-        .values(fieldValues(id, vehicleAttribute, { scope: 'compatibility', variantCapable: true })),
+        .values(
+          fieldValues(id, vehicleAttribute, { scope: 'compatibility', variantCapable: true }),
+        ),
     );
 
     // Conjunct 2: and its key must be outside the forbidden set — so the
@@ -566,7 +604,9 @@ describe('the visibility rule is bounded at the column, and a forbidden field ca
     await expectCheckViolation(() =>
       db
         .insert(productTypeFields)
-        .values(fieldValues(id, vehicleAttribute, { scope: 'compatibility', visibilityRule: oversized })),
+        .values(
+          fieldValues(id, vehicleAttribute, { scope: 'compatibility', visibilityRule: oversized }),
+        ),
     );
   });
 

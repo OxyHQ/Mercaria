@@ -1,5 +1,5 @@
-import { View } from "react-native";
-import { Text } from "../ui/text";
+import { View } from 'react-native';
+import { Text } from '../ui/text';
 import {
   COMMERCIAL_A11Y_DISCLOSURE_KEY,
   COMMERCIAL_A11Y_SELLER_KEY,
@@ -7,9 +7,9 @@ import {
   commercialDisclosureExplanation,
   commercialDisclosureLabel,
   commercialSellerLabel,
-} from "../../lib/commercial-copy";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import type { CommercialPresentation } from "@mercaria/shared-types";
+} from '../../lib/commercial-copy';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import type { CommercialPresentation } from '@mercaria/shared-types';
 
 export interface CommercialDisclosureProps {
   /** What the server said about who is selling this (#129). */
@@ -104,7 +104,7 @@ export function CommercialDisclosure({
           ))}
         </View>
       ) : null}
-      {presentation.mode === "mercaria_retail" && showExplanations ? (
+      {presentation.mode === 'mercaria_retail' && showExplanations ? (
         // The four consumer-rights windows, as NUMBERS from the presentation
         // rather than as a sentence written here. A placed order carries the
         // windows it was made under (#126's role snapshot), so a copy change

@@ -23,7 +23,12 @@
  */
 
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
-import type { OpenDataItem, OpenDataPage, OpenDataPageContext, OpenDataProvider } from '../provider.js';
+import type {
+  OpenDataItem,
+  OpenDataPage,
+  OpenDataPageContext,
+  OpenDataProvider,
+} from '../provider.js';
 import { OpenDataSchemaError } from '../provider.js';
 import { asArray, asNumber, asObject, asText, decimalMoney, FactCollector } from '../read.js';
 
@@ -51,7 +56,12 @@ export const scryfallProvider: OpenDataProvider = {
 
 async function fetchScryfallPage(context: OpenDataPageContext): Promise<OpenDataPage> {
   const page = typeof context.cursor?.p === 'number' ? context.cursor.p : 1;
-  const params = new URLSearchParams({ q: QUERY, unique: 'prints', order: 'set', page: String(page) });
+  const params = new URLSearchParams({
+    q: QUERY,
+    unique: 'prints',
+    order: 'set',
+    page: String(page),
+  });
   const response = await context.http.getJson(`${SEARCH_URL}?${params.toString()}`, {
     minIntervalMs: INTERVAL_MS,
     ...(context.signal ? { signal: context.signal } : {}),
@@ -83,7 +93,10 @@ export function toItems(card: Readonly<Record<string, unknown>>): OpenDataItem[]
   const prices = asObject(card.prices);
   const setName = asText(card.set_name);
   const collectorNumber = asText(card.collector_number);
-  const title = setName === undefined ? name : `${name} — ${setName}${collectorNumber === undefined ? '' : ` #${collectorNumber}`}`;
+  const title =
+    setName === undefined
+      ? name
+      : `${name} — ${setName}${collectorNumber === undefined ? '' : ` #${collectorNumber}`}`;
   const firstFace = asObject(asArray(card.card_faces)[0]);
   const images = asObject(card.image_uris) ?? asObject(firstFace?.image_uris);
   const media = [images?.large, images?.normal]
@@ -93,9 +106,13 @@ export function toItems(card: Readonly<Record<string, unknown>>): OpenDataItem[]
   const purchase = asObject(card.purchase_uris);
   const cardmarketUrl = asText(purchase?.cardmarket);
   const legalities = asObject(card.legalities);
-  const legalIn = legalities === undefined
-    ? []
-    : Object.entries(legalities).filter(([, status]) => status === 'legal').map(([format]) => format).sort();
+  const legalIn =
+    legalities === undefined
+      ? []
+      : Object.entries(legalities)
+          .filter(([, status]) => status === 'legal')
+          .map(([format]) => format)
+          .sort();
   const released = asText(card.released_at);
 
   const facts = new FactCollector('scryfall')
@@ -146,7 +163,11 @@ export function toItems(card: Readonly<Record<string, unknown>>): OpenDataItem[]
     .add('price_basis', 'cardmarket_trend')
     .toArray();
 
-  const finishes: { readonly key: 'nonfoil' | 'foil'; readonly label: string; readonly price: unknown }[] = [
+  const finishes: {
+    readonly key: 'nonfoil' | 'foil';
+    readonly label: string;
+    readonly price: unknown;
+  }[] = [
     { key: 'nonfoil', label: 'Nonfoil', price: prices?.eur },
     { key: 'foil', label: 'Foil', price: prices?.eur_foil },
   ];

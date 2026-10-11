@@ -11,7 +11,11 @@
  */
 
 import { and, arrayContains, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
-import type { CanonicalAliasKind, SourceLinkMethod, SourceLinkStatus } from '@mercaria/shared-types';
+import type {
+  CanonicalAliasKind,
+  SourceLinkMethod,
+  SourceLinkStatus,
+} from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import {
   organizationAliases,
@@ -78,7 +82,11 @@ export async function updateOrganization(
   id: string,
   patch: OrganizationPatch,
 ): Promise<OrganizationRow | undefined> {
-  const rows = await db.update(organizations).set(patch).where(eq(organizations.id, id)).returning();
+  const rows = await db
+    .update(organizations)
+    .set(patch)
+    .where(eq(organizations.id, id))
+    .returning();
   return rows[0];
 }
 
@@ -103,7 +111,10 @@ export async function findOrganizationsByIds(
   ids: readonly string[],
 ): Promise<OrganizationRow[]> {
   if (ids.length === 0) return [];
-  return db.select().from(organizations).where(inArray(organizations.id, [...ids]));
+  return db
+    .select()
+    .from(organizations)
+    .where(inArray(organizations.id, [...ids]));
 }
 
 /** Exact-normalization candidates — equality on the service-maintained column. */

@@ -20,10 +20,7 @@
 
 import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import { publicColumns } from '@oxy.so/db/assert';
-import type {
-  SupportMessageAuthorKind,
-  SupportRedactionKind,
-} from '@mercaria/shared-types';
+import type { SupportMessageAuthorKind, SupportRedactionKind } from '@mercaria/shared-types';
 import { supportMessages, supportThreads } from '../schema/buyerRequests.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
@@ -178,10 +175,7 @@ export async function insertSupportMessage(
 }
 
 /** One thread's messages, oldest first, without the protected author columns. */
-export async function listSupportMessages(
-  threadId: string,
-  db: DatabaseOrTransaction = getDb(),
-) {
+export async function listSupportMessages(threadId: string, db: DatabaseOrTransaction = getDb()) {
   return db
     .select(publicMessage())
     .from(supportMessages)

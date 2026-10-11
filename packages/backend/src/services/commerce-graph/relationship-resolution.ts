@@ -135,7 +135,8 @@ export async function resolveOfficialChannel(params: {
   });
 
   const direct = rows.find((row) => row.kind === 'merchant_official_channel_for_brand');
-  const chosen = direct ?? rows.find((row) => row.kind === 'merchant_authorized_reseller_for_brand');
+  const chosen =
+    direct ?? rows.find((row) => row.kind === 'merchant_authorized_reseller_for_brand');
 
   const badge: PublicRelationshipBadge | null =
     chosen === undefined ? null : RELATIONSHIP_KIND_DEFINITIONS[chosen.kind].publicBadge;

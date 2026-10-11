@@ -306,11 +306,18 @@ describe('createCollection', () => {
   });
 });
 
-
 describe('collection image identity', () => {
-  it.each(['https://supplier.example/cover.jpg', 'data:image/png;base64,AAAA', '//cdn.example/image'])('refuses an image URL before any create/update write: %s', async imageFileId => {
-    await expect(createCollection(STORE_ID, { title: 'Image', handle: 'image', type: 'manual', imageFileId })).rejects.toThrow('Expected an Oxy file ID');
-    await expect(updateCollection(STORE_ID, COLLECTION_ID, { imageFileId })).rejects.toThrow('Expected an Oxy file ID');
+  it.each([
+    'https://supplier.example/cover.jpg',
+    'data:image/png;base64,AAAA',
+    '//cdn.example/image',
+  ])('refuses an image URL before any create/update write: %s', async (imageFileId) => {
+    await expect(
+      createCollection(STORE_ID, { title: 'Image', handle: 'image', type: 'manual', imageFileId }),
+    ).rejects.toThrow('Expected an Oxy file ID');
+    await expect(updateCollection(STORE_ID, COLLECTION_ID, { imageFileId })).rejects.toThrow(
+      'Expected an Oxy file ID',
+    );
     expect(insertCollection).not.toHaveBeenCalled();
     expect(updateCollectionRow).not.toHaveBeenCalled();
     expect(replaceManualMembership).not.toHaveBeenCalled();
@@ -322,7 +329,18 @@ describe('collection image identity', () => {
     insertCollection.mockResolvedValueOnce(row);
     findCollectionById.mockResolvedValueOnce(collection());
     updateCollectionRow.mockResolvedValueOnce(row);
-    expect((await createCollection(STORE_ID, { title: row.title, handle: row.handle, type: 'manual', imageFileId })).imageFileId).toBe(imageFileId);
-    expect((await updateCollection(STORE_ID, COLLECTION_ID, { imageFileId })).imageFileId).toBe(imageFileId);
+    expect(
+      (
+        await createCollection(STORE_ID, {
+          title: row.title,
+          handle: row.handle,
+          type: 'manual',
+          imageFileId,
+        })
+      ).imageFileId,
+    ).toBe(imageFileId);
+    expect((await updateCollection(STORE_ID, COLLECTION_ID, { imageFileId })).imageFileId).toBe(
+      imageFileId,
+    );
   });
 });

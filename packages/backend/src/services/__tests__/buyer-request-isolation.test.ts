@@ -170,8 +170,7 @@ const ORDER_WRITER_REFERENCE =
 const REFUND_REFERENCE = /from\s+['"][^'"]*refund\.service|refundForBuyerRequest/;
 
 /** Any inventory movement. Restock happens once, in the commerce path. */
-const INVENTORY_REFERENCE =
-  /from\s+['"][^'"]*inventory\.service|\b(?:restock|release|commit)\s*\(/;
+const INVENTORY_REFERENCE = /from\s+['"][^'"]*inventory\.service|\b(?:restock|release|commit)\s*\(/;
 
 /**
  * The payment domain. The buyer path never reads a provider, a payment
@@ -232,13 +231,17 @@ describe('buyer request isolation (static)', () => {
     // would still pass. Each floor is today's count, so a SHRINK stops the build
     // rather than quietly narrowing every assertion below.
     const from = (prefix: string) => DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/buyer-requests/'), 'the service walk found nothing').toBeGreaterThanOrEqual(
-      13,
+    expect(
+      from('services/buyer-requests/'),
+      'the service walk found nothing',
+    ).toBeGreaterThanOrEqual(13);
+    expect(from('db/buyerRequests/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(
+      4,
     );
-    expect(from('db/buyerRequests/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(4);
-    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(
-      3,
-    );
+    expect(
+      httpSurface().length,
+      'the HTTP surface derivation found nothing',
+    ).toBeGreaterThanOrEqual(3);
     expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(17);
 
     // The whole-tree assertion (#609), with its own vacuity floor first: a sweep
@@ -261,10 +264,15 @@ describe('buyer request isolation (static)', () => {
     const planted = 'lib/buyer-request-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'buyer-request-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'buyer-request-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
-    expect(seeded, 'the sweep did not reach a planted module').toContain('lib/buyer-request-cache.ts');
+    expect(seeded, 'the sweep did not reach a planted module').toContain(
+      'lib/buyer-request-cache.ts',
+    );
     expect(
       seeded.filter((path) => !DOMAIN_PATHS.includes(path)).sort(),
       'a module the population does not cover was NOT reported outside it — the empty result ' +
@@ -281,18 +289,17 @@ describe('buyer request isolation (static)', () => {
     // comment claims its shared comparison closes this: replacing that wall's
     // population with `new Set(swept)` leaves all ten of its tests green. What
     // bites is naming modules that EXIST and belong to somebody else.
-    assertEachOf([
-      'routes/orders.ts',
-      'routes/guest-orders.ts',
-      'db/schema/orders.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      ['routes/orders.ts', 'routes/guest-orders.ts', 'db/schema/orders.ts', 'middleware/auth.ts'],
+      4,
+      (foreign) => {
+        expect(DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
 
     // EXACT: an unbounded exclusion list lets any number of modules ride in
     // behind the ones somebody justified (#448).
@@ -313,7 +320,9 @@ describe('buyer request isolation (static)', () => {
     // a module the walk no longer finds excuses nothing while looking like a
     // decision.
     for (const { path } of CROSSING_PATHS) {
-      expect(DOMAIN_PATHS, `${path} is excluded from the buyer wall but is not in the domain`,
+      expect(
+        DOMAIN_PATHS,
+        `${path} is excluded from the buyer wall but is not in the domain`,
       ).toContain(path);
     }
   });
@@ -440,10 +449,14 @@ describe('buyer request isolation (static)', () => {
     // this probe is the one that had to be written from the idiom rather than
     // copied out of the regex.
     expect(
-      PAYMENT_DOMAIN_REFERENCE.test("import { paymentService } from '../payments/payment.service.js';"),
+      PAYMENT_DOMAIN_REFERENCE.test(
+        "import { paymentService } from '../payments/payment.service.js';",
+      ),
     ).toBe(true);
     expect(
-      PAYMENT_DOMAIN_REFERENCE.test("import { bookLedger } from '../../payments/ledger-postings.js';"),
+      PAYMENT_DOMAIN_REFERENCE.test(
+        "import { bookLedger } from '../../payments/ledger-postings.js';",
+      ),
     ).toBe(true);
     // A neighbour that merely shares the prefix is not the payment domain.
     expect(PAYMENT_DOMAIN_REFERENCE.test("import { fmt } from '../payments-ui/format.js';")).toBe(
@@ -597,10 +610,7 @@ describe('every trail vocabulary member has a producer (#743, #765)', () => {
     const { values, callSites } = producedValues(domainSources(), REASON_CALLS, 'reason');
     expect(callSites, 'the refusal sweep found no call sites at all').toBeGreaterThanOrEqual(21);
 
-    const reasons = [
-      ...BUYER_REQUEST_DECISION_REFUSALS,
-      ...BUYER_REQUEST_TRANSITION_REFUSALS,
-    ];
+    const reasons = [...BUYER_REQUEST_DECISION_REFUSALS, ...BUYER_REQUEST_TRANSITION_REFUSALS];
     expect(
       reasons.filter((reason) => !values.has(reason)),
       'a bounded reason code no producer can write — a dead reason (#744, #753, #791)',
@@ -697,7 +707,9 @@ describe('refusal writes and their deliberate absences (#765)', () => {
     // BEFORE the service call it shadows.
     const controller = stripComments(readSource('controllers/buyer-requests.controller.ts'));
     const handler = controller.slice(controller.indexOf('export const cancelReturn'));
-    const guardAt = handler.search(/\(\s*parsed\.data\.note\s*\?\?\s*''\s*\)\s*\.trim\(\)\.length\s*<\s*3/);
+    const guardAt = handler.search(
+      /\(\s*parsed\.data\.note\s*\?\?\s*''\s*\)\s*\.trim\(\)\.length\s*<\s*3/,
+    );
     const callAt = handler.indexOf('await cancelReturnRequest(');
     expect(guardAt, 'the cancelReturn handler no longer refuses a short note').toBeGreaterThan(-1);
     expect(callAt, 'the cancelReturn handler no longer calls the service').toBeGreaterThan(-1);

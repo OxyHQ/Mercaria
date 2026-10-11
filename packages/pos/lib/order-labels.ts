@@ -1,4 +1,4 @@
-import type { LocationType, OrderSourceChannel, OrderStatus } from "@mercaria/shared-types";
+import type { LocationType, OrderSourceChannel, OrderStatus } from '@mercaria/shared-types';
 
 /**
  * Translation keys for the wire enums the till renders (#398).
@@ -17,30 +17,30 @@ import type { LocationType, OrderSourceChannel, OrderStatus } from "@mercaria/sh
  * package's typecheck rather than rendering a blank line at a counter.
  */
 export const ORDER_STATUS_LABEL_KEYS: Record<OrderStatus, string> = {
-  pending_payment: "orders.status.pendingPayment",
-  paid: "orders.status.paid",
-  processing: "orders.status.processing",
-  shipped: "orders.status.shipped",
-  delivered: "orders.status.delivered",
+  pending_payment: 'orders.status.pendingPayment',
+  paid: 'orders.status.paid',
+  processing: 'orders.status.processing',
+  shipped: 'orders.status.shipped',
+  delivered: 'orders.status.delivered',
   // #1015: a digital order's completion signal (ADR 0010 D9). A POS never places
   // one — there is nothing to hand over at a counter — but the map is exhaustive
   // over the union on purpose, so it arrives here rather than rendering a blank
   // line at a till.
-  digitally_delivered: "orders.status.digitallyDelivered",
-  cancelled: "orders.status.cancelled",
-  refunded: "orders.status.refunded",
-  partially_refunded: "orders.status.partiallyRefunded",
+  digitally_delivered: 'orders.status.digitallyDelivered',
+  cancelled: 'orders.status.cancelled',
+  refunded: 'orders.status.refunded',
+  partially_refunded: 'orders.status.partiallyRefunded',
 };
 
 export const ORDER_CHANNEL_LABEL_KEYS: Record<OrderSourceChannel, string> = {
-  storefront: "orders.channel.storefront",
-  pos: "orders.channel.pos",
-  draft: "orders.channel.draft",
+  storefront: 'orders.channel.storefront',
+  pos: 'orders.channel.pos',
+  draft: 'orders.channel.draft',
 };
 
 export const LOCATION_TYPE_LABEL_KEYS: Record<LocationType, string> = {
-  warehouse: "locations.type.warehouse",
-  retail: "locations.type.retail",
-  pop_up: "locations.type.popUp",
-  virtual: "locations.type.virtual",
+  warehouse: 'locations.type.warehouse',
+  retail: 'locations.type.retail',
+  pop_up: 'locations.type.popUp',
+  virtual: 'locations.type.virtual',
 };

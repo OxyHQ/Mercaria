@@ -117,7 +117,10 @@ export async function findOrderPickupsByOrderIds(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<OrderPickupRow[]> {
   if (orderIds.length === 0) return [];
-  return db.select().from(orderPickups).where(inArray(orderPickups.orderId, [...orderIds]));
+  return db
+    .select()
+    .from(orderPickups)
+    .where(inArray(orderPickups.orderId, [...orderIds]));
 }
 
 /**

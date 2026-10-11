@@ -1,4 +1,4 @@
-import { ProductReviewMedia } from "@/components/product/ProductReviewMedia";
+import { ProductReviewMedia } from '@/components/product/ProductReviewMedia';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
@@ -202,7 +202,9 @@ export default function DigitalAssetScreen() {
                   {t('digital.asset.guidanceTitle')}
                 </Text>
                 {/* The seller's own prose, verbatim. */}
-                <Text className="text-shop-bodySmall text-text-secondary">{view.sellerGuidance}</Text>
+                <Text className="text-shop-bodySmall text-text-secondary">
+                  {view.sellerGuidance}
+                </Text>
               </View>
             )}
 
@@ -226,7 +228,13 @@ export default function DigitalAssetScreen() {
                   {t('digital.asset.reviewsTitle')}
                 </Text>
                 <ReviewSummaryCard
-                  mediaContent={<ProductReviewMedia scope="product" id={view.canonicalProductId} scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)} />}
+                  mediaContent={
+                    <ProductReviewMedia
+                      scope="product"
+                      id={view.canonicalProductId}
+                      scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
+                    />
+                  }
                   scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
                   average={aggregate?.rating ?? 0}
                   total={aggregate?.reviewCount ?? 0}
@@ -235,9 +243,14 @@ export default function DigitalAssetScreen() {
                   isLoading={reviewsQuery.isLoading}
                   isError={reviewsQuery.isError}
                   isRetrying={reviewsQuery.isFetching}
-                  onRetry={() => { void reviewsQuery.refetch(); }}
+                  onRetry={() => {
+                    void reviewsQuery.refetch();
+                  }}
                   onReadMore={() => setReviewsOpen(true)}
-                  onReviewPress={(id) => { setInitialReviewId(id); setReviewsOpen(true); }}
+                  onReviewPress={(id) => {
+                    setInitialReviewId(id);
+                    setReviewsOpen(true);
+                  }}
                   {...(aggregate === undefined ? {} : { unverified: aggregate.unverified })}
                 />
               </View>
@@ -253,7 +266,10 @@ export default function DigitalAssetScreen() {
           canonicalProductId={view.canonicalProductId}
           scope="product"
           initialReviewId={initialReviewId}
-          onClose={() => { setReviewsOpen(false); setInitialReviewId(undefined); }}
+          onClose={() => {
+            setReviewsOpen(false);
+            setInitialReviewId(undefined);
+          }}
         />
       ) : null}
     </ScreenShell>

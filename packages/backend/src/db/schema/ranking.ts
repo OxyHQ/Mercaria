@@ -49,7 +49,15 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { check, doublePrecision, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  check,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import { ANALYTICS_METRIC_KEYS, RANKING_POLICY_STATUSES } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
@@ -87,7 +95,9 @@ export const rankingPolicyVersions = pgTable(
      * ambiguous, which is the one thing versioning exists to prevent.
      */
     version: text().notNull(),
-    status: text({ enum: asEnumValues(RANKING_POLICY_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(RANKING_POLICY_STATUSES) })
+      .notNull()
+      .default('draft'),
     /** What changed and why — read by whoever is deciding whether to roll back. */
     description: text().notNull(),
 

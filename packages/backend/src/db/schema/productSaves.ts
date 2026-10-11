@@ -124,7 +124,9 @@ export const productSaves = pgTable(
     /** #80 model rule 5 — where the save was made from. */
     sourceContext: text({ enum: asEnumValues(PRODUCT_SAVE_SOURCE_CONTEXTS) }).notNull(),
     /** #80 model rule 8. One member; see the file header. */
-    visibility: text({ enum: asEnumValues(PRODUCT_SAVE_VISIBILITIES) }).notNull().default('private'),
+    visibility: text({ enum: asEnumValues(PRODUCT_SAVE_VISIBILITIES) })
+      .notNull()
+      .default('private'),
     /** #80 model rule 7 / migration rule 8. */
     resolutionState: text({ enum: asEnumValues(PRODUCT_SAVE_RESOLUTION_STATES) })
       .notNull()

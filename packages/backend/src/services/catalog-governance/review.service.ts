@@ -213,7 +213,10 @@ export async function reviewExternalMapping(
 
   await db.transaction(async (tx) => {
     if (input.decision === 'approve') {
-      await approveExternalMapping({ id: input.mappingId, approverOxyUserId: actor.oxyUserId, at }, tx);
+      await approveExternalMapping(
+        { id: input.mappingId, approverOxyUserId: actor.oxyUserId, at },
+        tx,
+      );
     } else if (input.decision === 'reject') {
       await rejectExternalMapping(
         { id: input.mappingId, reviewerOxyUserId: actor.oxyUserId, reason: input.reason, at },
@@ -250,7 +253,6 @@ export interface ReviewCompatibilityClaimInput {
   readonly reviewNote: string | null;
   readonly reason: string;
 }
-
 
 /**
  * Review one compatibility claim.

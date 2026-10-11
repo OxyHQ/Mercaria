@@ -98,7 +98,11 @@ export async function findCanonicalProductById(
   db: DatabaseOrTransaction,
   id: string,
 ): Promise<CanonicalProductRow | undefined> {
-  const rows = await db.select().from(canonicalProducts).where(eq(canonicalProducts.id, id)).limit(1);
+  const rows = await db
+    .select()
+    .from(canonicalProducts)
+    .where(eq(canonicalProducts.id, id))
+    .limit(1);
   return rows[0];
 }
 
@@ -119,7 +123,10 @@ export async function findCanonicalProductsByIds(
   ids: readonly string[],
 ): Promise<CanonicalProductRow[]> {
   if (ids.length === 0) return [];
-  return db.select().from(canonicalProducts).where(inArray(canonicalProducts.id, [...ids]));
+  return db
+    .select()
+    .from(canonicalProducts)
+    .where(inArray(canonicalProducts.id, [...ids]));
 }
 
 export async function findCanonicalProductsByNormalizedName(

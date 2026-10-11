@@ -203,9 +203,7 @@ afterAll(async () => {
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
   if (trackedProgramIds.length > 0) {
-    await db
-      .delete(referralPrograms)
-      .where(inArray(referralPrograms.programId, trackedProgramIds));
+    await db.delete(referralPrograms).where(inArray(referralPrograms.programId, trackedProgramIds));
   }
   if (trackedMerchantIds.length > 0) {
     await db.delete(merchantClaims).where(inArray(merchantClaims.merchantId, trackedMerchantIds));
@@ -323,7 +321,10 @@ async function click(
 
 /** Every touch recorded for one code — scoped, never a table-wide count. */
 async function touchesForCode(codeId: string) {
-  return await db.select().from(referralTouches).where(inArray(referralTouches.codeId, [codeId]));
+  return await db
+    .select()
+    .from(referralTouches)
+    .where(inArray(referralTouches.codeId, [codeId]));
 }
 
 /** Every ACTIVE attribution for one program. */
@@ -888,10 +889,7 @@ describe('acceptance 5: contact and payment data are never cross-checkout identi
 });
 
 describe('acceptance 7: merchant binding survives correction and merge', () => {
-  async function makeMerchantWithClaim(
-    suffix: string,
-    claimantOxyUserId: string,
-  ): Promise<string> {
+  async function makeMerchantWithClaim(suffix: string, claimantOxyUserId: string): Promise<string> {
     const [merchant] = await db
       .insert(merchants)
       .values({ name: `Merchant ${suffix} ${TAG}`, slug: `merchant-${suffix}-${TAG}` })

@@ -110,10 +110,7 @@ export const MATCH_OUTCOMES: readonly MatchOutcome[] = [
  */
 export type MatchSubjectKind = 'native_variant' | 'source_record';
 
-export const MATCH_SUBJECT_KINDS: readonly MatchSubjectKind[] = [
-  'native_variant',
-  'source_record',
-];
+export const MATCH_SUBJECT_KINDS: readonly MatchSubjectKind[] = ['native_variant', 'source_record'];
 
 /**
  * The human-review state of one decision (#58 match record 7).

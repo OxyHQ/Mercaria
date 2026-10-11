@@ -299,9 +299,7 @@ export async function checkOrphanedReferences(
      order by e.id desc
      limit ${limit}
   `);
-  const proposalHandles = [...danglingProposals].map((row) =>
-    handle('catalog_proposals', row.id),
-  );
+  const proposalHandles = [...danglingProposals].map((row) => handle('catalog_proposals', row.id));
 
   const population =
     governance.population +
@@ -344,7 +342,11 @@ function redirectSubject(row: RedirectCandidateRow): CategoryRedirectSubject | n
   if (row.subject_kind === 'category_id' && row.subject_category_id !== null) {
     return { kind: 'category_id', categoryId: row.subject_category_id };
   }
-  if (row.subject_kind === 'localized_slug' && row.subject_locale !== null && row.subject_slug !== null) {
+  if (
+    row.subject_kind === 'localized_slug' &&
+    row.subject_locale !== null &&
+    row.subject_slug !== null
+  ) {
     return { kind: 'localized_slug', locale: row.subject_locale, slug: row.subject_slug };
   }
   return null;

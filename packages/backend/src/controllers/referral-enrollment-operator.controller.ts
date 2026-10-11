@@ -39,10 +39,7 @@ import {
   listApplicationReviews,
   listApplicationsForPartner,
 } from '../db/referrals/applicationRepository.js';
-import {
-  findPartnerById,
-  listPartnersByState,
-} from '../db/referrals/partnerRepository.js';
+import { findPartnerById, listPartnersByState } from '../db/referrals/partnerRepository.js';
 import { listTermsAcceptances } from '../db/referrals/termsAcceptanceRepository.js';
 import {
   decideApplication,
@@ -103,9 +100,7 @@ export async function listReferralPartnerInboxHandler(req: Request, res: Respons
           enrollmentMode: partner.enrollmentMode,
           appealState: partner.appealState,
           riskState: partner.riskState,
-          ...(live !== undefined
-            ? { application: toReferralApplicationPartnerView(live) }
-            : {}),
+          ...(live !== undefined ? { application: toReferralApplicationPartnerView(live) } : {}),
         };
       }),
     );

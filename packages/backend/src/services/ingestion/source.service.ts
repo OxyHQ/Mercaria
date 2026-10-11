@@ -289,7 +289,8 @@ export async function publishIngestionSourcePolicy(
   });
 
   const resolved = await resolveIngestionSource(input.sourceId, db);
-  if (!resolved) throw new Error(`Source ${input.sourceId} vanished immediately after publication.`);
+  if (!resolved)
+    throw new Error(`Source ${input.sourceId} vanished immediately after publication.`);
   return resolved;
 }
 
@@ -334,7 +335,8 @@ export async function changeIngestionSourceStatus(
   });
 
   const resolved = await resolveIngestionSource(input.sourceId, db);
-  if (!resolved) throw new Error(`Source ${input.sourceId} vanished immediately after a status change.`);
+  if (!resolved)
+    throw new Error(`Source ${input.sourceId} vanished immediately after a status change.`);
   return resolved;
 }
 

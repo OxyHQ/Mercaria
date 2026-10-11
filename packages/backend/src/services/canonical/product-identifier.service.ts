@@ -172,9 +172,7 @@ export async function assignIdentifier(
             canonicalValue: identifier.canonicalValue,
             status: 'disputed',
             conflictsWithIdentifierId: owner.id,
-            ...(input.sourceRecordId === undefined
-              ? {}
-              : { sourceRecordId: input.sourceRecordId }),
+            ...(input.sourceRecordId === undefined ? {} : { sourceRecordId: input.sourceRecordId }),
             ...(input.assignedByOxyUserId === undefined
               ? {}
               : { assignedByOxyUserId: input.assignedByOxyUserId }),
@@ -353,9 +351,7 @@ export async function correctIdentifier(
       ...(input.note === undefined ? {} : { note: input.note }),
     });
     if (!replacement) {
-      throw conflict(
-        `The corrected value is already an active assertion for this ${grain.grain}.`,
-      );
+      throw conflict(`The corrected value is already an active assertion for this ${grain.grain}.`);
     }
     return { retired, replacement };
   });

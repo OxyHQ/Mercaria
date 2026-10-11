@@ -37,7 +37,10 @@ function viewerFromRequest(req: Request): SellerProfileViewer | null {
 /** GET /sellers/:oxyUserId — the public P2P seller profile. */
 export async function getPublicSellerHandler(req: Request, res: Response): Promise<void> {
   try {
-    sendSuccess(res, await getPublicSellerProfile(routeParam(req, 'oxyUserId'), viewerFromRequest(req)));
+    sendSuccess(
+      res,
+      await getPublicSellerProfile(routeParam(req, 'oxyUserId'), viewerFromRequest(req)),
+    );
   } catch (error: unknown) {
     // A refusal is already the uniform 404 the service raises; the fallback
     // message never names the seller, so an internal failure discloses no more

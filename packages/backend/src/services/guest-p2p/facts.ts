@@ -82,31 +82,40 @@ export async function readGuestP2PFacts(input: {
   const sellerOxyUserId = listing.oxyUserId;
   const sellerKey = `user:${sellerOxyUserId}`;
 
-  const [readiness, account, variants, details, photoCount, profiles, oxyUser, trust, policyAcceptance] =
-    await Promise.all([
-      readSellerPaymentReadiness([sellerKey]),
-      findSellerAccount({ ownerType: 'user', ownerId: sellerOxyUserId }),
-      findVariantsByListing(input.listingId),
-      findConditionDetails(input.listingId),
-      countEvidentialConditionPhotos(getDb(), input.listingId),
-      findSellerProfilesByUserIds([sellerOxyUserId]),
-      // The ANONYMOUS read: this is a policy question about the seller, not a
-      // page somebody is looking at, so there is no viewer whose block graph or
-      // bearer belongs in it (#92 keeps viewer-scoped reads for viewer-scoped
-      // questions).
-      readSellerOxyUser(sellerOxyUserId, null),
-      readSellerTrust(sellerOxyUserId),
-      // #85's P2P acceptance surface, which closes the one criterion #112 could
-      // not evaluate. The CURRENT published version and no other: accepting v1
-      // of a policy Mercaria has since replaced is not consent to v2, and a
-      // lookup that ignored the version would read it as though it were.
-      findPolicyAcceptance(getDb(), {
-        policyKey: 'p2p_returns_cancellation_dispute',
-        policyVersion: MERCHANT_ACTIVATION_POLICIES.p2p_returns_cancellation_dispute.version,
-        ownerType: 'user',
-        ownerId: sellerOxyUserId,
-      }),
-    ]);
+  const [
+    readiness,
+    account,
+    variants,
+    details,
+    photoCount,
+    profiles,
+    oxyUser,
+    trust,
+    policyAcceptance,
+  ] = await Promise.all([
+    readSellerPaymentReadiness([sellerKey]),
+    findSellerAccount({ ownerType: 'user', ownerId: sellerOxyUserId }),
+    findVariantsByListing(input.listingId),
+    findConditionDetails(input.listingId),
+    countEvidentialConditionPhotos(getDb(), input.listingId),
+    findSellerProfilesByUserIds([sellerOxyUserId]),
+    // The ANONYMOUS read: this is a policy question about the seller, not a
+    // page somebody is looking at, so there is no viewer whose block graph or
+    // bearer belongs in it (#92 keeps viewer-scoped reads for viewer-scoped
+    // questions).
+    readSellerOxyUser(sellerOxyUserId, null),
+    readSellerTrust(sellerOxyUserId),
+    // #85's P2P acceptance surface, which closes the one criterion #112 could
+    // not evaluate. The CURRENT published version and no other: accepting v1
+    // of a policy Mercaria has since replaced is not consent to v2, and a
+    // lookup that ignored the version would read it as though it were.
+    findPolicyAcceptance(getDb(), {
+      policyKey: 'p2p_returns_cancellation_dispute',
+      policyVersion: MERCHANT_ACTIVATION_POLICIES.p2p_returns_cancellation_dispute.version,
+      ownerType: 'user',
+      ownerId: sellerOxyUserId,
+    }),
+  ]);
 
   return {
     sellerKey,

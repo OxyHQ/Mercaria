@@ -477,10 +477,7 @@ export type OfferComparisonTotal =
 
 export type OfferCostComponent = 'item_price' | 'delivery_cost';
 
-export const OFFER_COST_COMPONENTS: readonly OfferCostComponent[] = [
-  'item_price',
-  'delivery_cost',
-];
+export const OFFER_COST_COMPONENTS: readonly OfferCostComponent[] = ['item_price', 'delivery_cost'];
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Intent, labels and reasons                                                 */
@@ -582,9 +579,7 @@ export const OFFER_COMPARISON_LABELS: readonly OfferComparisonLabel[] = [
  * A `Record` over the union, so a label added without a classification is a
  * compile error rather than something that silently reads as a comparison.
  */
-export const OFFER_LABEL_KIND: Readonly<
-  Record<OfferComparisonLabel, 'comparison' | 'standing'>
-> = {
+export const OFFER_LABEL_KIND: Readonly<Record<OfferComparisonLabel, 'comparison' | 'standing'>> = {
   best_overall: 'comparison',
   cheapest_item_price: 'comparison',
   cheapest_known_total: 'comparison',

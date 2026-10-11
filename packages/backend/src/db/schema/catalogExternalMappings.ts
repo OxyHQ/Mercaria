@@ -180,9 +180,7 @@ export const catalogExternalMappings = pgTable(
     /** The source's own token, exactly as published. */
     externalKey: text().notNull(),
     /** The lookup form. GENERATED, so it cannot disagree with `external_key`. */
-    externalKeyNormalized: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim("external_key"))`),
+    externalKeyNormalized: text().notNull().generatedAlwaysAs(sql`lower(btrim("external_key"))`),
     /** The source's own display text for the token, when it published one. */
     externalLabel: text(),
     /** The source's own path to the token, outermost first, verbatim. */
@@ -389,10 +387,7 @@ export const catalogExternalMappings = pgTable(
       sql`${t.confidence} >= 0 and ${t.confidence} <= 1`,
     ),
     check('catalog_external_mappings_version_check', sql`${t.version} >= 1`),
-    check(
-      'catalog_external_mappings_transform_version_check',
-      sql`${t.transformRuleVersion} >= 1`,
-    ),
+    check('catalog_external_mappings_transform_version_check', sql`${t.transformRuleVersion} >= 1`),
     // The reviewed-against version is a fact about a PRODUCT-TYPE mapping and
     // about nothing else. Without this, a unit mapping could carry one and a
     // reader would have to decide what that meant.
@@ -511,9 +506,7 @@ export const catalogExternalMappingReviews = pgTable(
       .references(() => catalogSources.id, { onDelete: 'restrict' }),
     dimension: text({ enum: asEnumValues(CATALOG_EXTERNAL_MAPPING_DIMENSIONS) }).notNull(),
     externalKey: text().notNull(),
-    externalKeyNormalized: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim("external_key"))`),
+    externalKeyNormalized: text().notNull().generatedAlwaysAs(sql`lower(btrim("external_key"))`),
     externalLabel: text(),
     externalPath: text().array().notNull().default(sql`'{}'::text[]`),
     /**
@@ -527,7 +520,9 @@ export const catalogExternalMappingReviews = pgTable(
     /** The observation that raised it. `restrict` — the evidence must not vanish. */
     sourceRecordId: text().references(() => sourceRecords.id, { onDelete: 'restrict' }),
     reason: text({ enum: asEnumValues(CATALOG_EXTERNAL_REVIEW_REASONS) }).notNull(),
-    state: text({ enum: asEnumValues(CATALOG_EXTERNAL_REVIEW_STATES) }).notNull().default('open'),
+    state: text({ enum: asEnumValues(CATALOG_EXTERNAL_REVIEW_STATES) })
+      .notNull()
+      .default('open'),
     priority: integer().notNull().default(0),
     occurrences: integer().notNull().default(1),
     firstObservedAt: timestamptz().notNull(),
@@ -643,9 +638,7 @@ export const catalogExternalTokenObservations = pgTable(
       .references(() => catalogSources.id, { onDelete: 'restrict' }),
     dimension: text({ enum: asEnumValues(CATALOG_EXTERNAL_MAPPING_DIMENSIONS) }).notNull(),
     externalKey: text().notNull(),
-    externalKeyNormalized: text()
-      .notNull()
-      .generatedAlwaysAs(sql`lower(btrim("external_key"))`),
+    externalKeyNormalized: text().notNull().generatedAlwaysAs(sql`lower(btrim("external_key"))`),
     subjectKind: text({ enum: asEnumValues(CATALOG_EXTERNAL_SUBJECT_KINDS) }).notNull(),
     /**
      * The subject's own id, with no foreign key.
@@ -813,7 +806,11 @@ export const catalogExternalMappingRuns = pgTable(
       t.dimension,
       CATALOG_EXTERNAL_MAPPING_DIMENSIONS,
     ),
-    checkOneOf('catalog_external_mapping_runs_mode_check', t.mode, CATALOG_EXTERNAL_REPROCESS_MODES),
+    checkOneOf(
+      'catalog_external_mapping_runs_mode_check',
+      t.mode,
+      CATALOG_EXTERNAL_REPROCESS_MODES,
+    ),
     checkOneOf(
       'catalog_external_mapping_runs_state_check',
       t.state,

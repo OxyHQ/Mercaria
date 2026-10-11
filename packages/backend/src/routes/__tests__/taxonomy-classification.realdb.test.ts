@@ -49,11 +49,7 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {},
-  optionalAuth: (
-    _req: express.Request,
-    _res: express.Response,
-    next: express.NextFunction,
-  ) => {
+  optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
     next();
   },
 }));
@@ -383,7 +379,10 @@ afterAll(async () => {
 
 describe('the surface is mounted and gated', () => {
   it('serves a subject that exists, which is what proves the mount', async () => {
-    const response = await request('GET', `/internal/taxonomy/classifications/listing/${LISTING_ID}`);
+    const response = await request(
+      'GET',
+      `/internal/taxonomy/classifications/listing/${LISTING_ID}`,
+    );
     expect(response.status).toBe(200);
     const body = data(response.body);
     // A seeded FIELD by name, not merely a 2xx: a 200 with an empty envelope is
@@ -427,7 +426,10 @@ describe('filing a secondary classification over HTTP', () => {
   });
 
   it('shows the filing on the composed read, beside the primary', async () => {
-    const response = await request('GET', `/internal/taxonomy/classifications/listing/${LISTING_ID}`);
+    const response = await request(
+      'GET',
+      `/internal/taxonomy/classifications/listing/${LISTING_ID}`,
+    );
     const body = data(response.body);
     const secondary = body['secondary'] as Array<Record<string, unknown>>;
     expect(secondary.map((row) => row['categoryId'])).toContain(CAT.cameras);
@@ -870,10 +872,7 @@ describe('the DATABASE refuses, not merely the service', () => {
   it('PERMITS re-pointing the primary to a category unrelated to every secondary', async () => {
     const { listings } = await import('../../db/schema/catalog.js');
     const { eq } = await import('drizzle-orm');
-    await db
-      .update(listings)
-      .set({ categoryId: CAT.foldables })
-      .where(eq(listings.id, LISTING_ID));
+    await db.update(listings).set({ categoryId: CAT.foldables }).where(eq(listings.id, LISTING_ID));
 
     const [row] = await db
       .select({ categoryId: listings.categoryId })

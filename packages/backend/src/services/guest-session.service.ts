@@ -33,7 +33,11 @@
  */
 
 import { createHash, randomBytes } from 'node:crypto';
-import type { GuestClientClass, GuestSessionState, GuestSessionStatus } from '@mercaria/shared-types';
+import type {
+  GuestClientClass,
+  GuestSessionState,
+  GuestSessionStatus,
+} from '@mercaria/shared-types';
 import { config } from '../config/index.js';
 import { getDb } from '../db/postgres.js';
 import {

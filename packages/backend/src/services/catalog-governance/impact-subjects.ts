@@ -74,7 +74,10 @@
 import type { CatalogGovernanceAction, CatalogGovernanceSubjectKind } from '@mercaria/shared-types';
 import { CATALOG_GOVERNANCE_ACTION_SUBJECTS } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
-import { findAttributeDefinitionById, findActiveAttributeDefinition } from '../../db/attributes/definitionRepository.js';
+import {
+  findAttributeDefinitionById,
+  findActiveAttributeDefinition,
+} from '../../db/attributes/definitionRepository.js';
 import {
   findProductTypeDefinitionById,
   findPublishedProductTypeDefinition,

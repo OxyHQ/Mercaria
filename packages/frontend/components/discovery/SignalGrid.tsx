@@ -1,4 +1,4 @@
-import { renderListingLink } from "@/lib/catalog/product-links";
+import { renderListingLink } from '@/lib/catalog/product-links';
 import type { ProductSummary } from '@mercaria/shared-types';
 import { FeedGrid, ProductCard } from '@mercaria/ui';
 

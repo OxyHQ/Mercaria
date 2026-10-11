@@ -1,9 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { NavigationSurface } from '@mercaria/shared-types';
-import {
-  fetchCategoryTree,
-  fetchNavigationTrees,
-} from '@/lib/api/catalog-navigation';
+import { fetchCategoryTree, fetchNavigationTrees } from '@/lib/api/catalog-navigation';
 import { queryKeys } from '@/lib/hooks/query-keys';
 import { useCatalogContext } from './context';
 import { resolveCatalogNavigation, type CatalogNavigation } from './navigation';
@@ -49,11 +46,7 @@ export function useCatalogNavigation(
   const { surface } = options ?? {};
 
   return useQuery<CatalogNavigation>({
-    queryKey: queryKeys.catalog.navigation(
-      context.market ?? '',
-      context.locale,
-      surface ?? '',
-    ),
+    queryKey: queryKeys.catalog.navigation(context.market ?? '', context.locale, surface ?? ''),
     staleTime: NAVIGATION_STALE_TIME,
     // A menu is the first request of a session and a retry storm on a
     // deliberately-unmounted route is a cost with no benefit: the fallback below

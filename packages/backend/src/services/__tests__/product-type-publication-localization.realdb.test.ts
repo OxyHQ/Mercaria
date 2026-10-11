@@ -221,7 +221,12 @@ afterAll(async () => {
     // localizations follow their definition the same way.
     await db
       .update(productTypeDefinitions)
-      .set({ lifecycle: 'draft', publishedAt: null, publishedByOxyUserId: null, deprecatedAt: null })
+      .set({
+        lifecycle: 'draft',
+        publishedAt: null,
+        publishedByOxyUserId: null,
+        deprecatedAt: null,
+      })
       .where(inArray(productTypeDefinitions.id, createdDefinitionIds));
     await db
       .delete(productTypeFields)
@@ -237,7 +242,9 @@ afterAll(async () => {
       .where(inArray(productTypeDefinitions.id, createdDefinitionIds));
   }
   if (createdAttributeIds.length > 0) {
-    await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, createdAttributeIds));
+    await db
+      .delete(attributeDefinitions)
+      .where(inArray(attributeDefinitions.id, createdAttributeIds));
   }
   if (createdCategoryIds.length > 0) {
     await db.delete(categories).where(inArray(categories.id, createdCategoryIds));
@@ -623,9 +630,10 @@ describe('the fixtures this file relies on', () => {
           eq(productTypeCategoryScopes.categoryId, category),
         ),
       );
-    expect(createdDefinitionIds.length, 'this file created no product-type version').toBeGreaterThan(
-      10,
-    );
+    expect(
+      createdDefinitionIds.length,
+      'this file created no product-type version',
+    ).toBeGreaterThan(10);
     expect(scopes.length).toBe(createdDefinitionIds.length);
   });
 });

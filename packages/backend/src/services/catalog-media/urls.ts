@@ -19,9 +19,23 @@ export function resolveStoredMediaUrl(value: string | null | undefined): string 
     const source = new URL(value);
     const cloud = new URL(oxyClient.cloudURL);
     const prefix = `${cloud.pathname.replace(/\/+$/, '')}/`;
-    if (source.origin !== cloud.origin || source.username || source.password || source.hash || !source.pathname.startsWith(prefix)) return undefined;
-    if ([...source.searchParams.keys()].some(key => key !== 'variant') || source.searchParams.getAll('variant').length > 1) return undefined;
-    return resolveMedia(source.pathname.slice(prefix.length), source.searchParams.get('variant') ?? undefined);
+    if (
+      source.origin !== cloud.origin ||
+      source.username ||
+      source.password ||
+      source.hash ||
+      !source.pathname.startsWith(prefix)
+    )
+      return undefined;
+    if (
+      [...source.searchParams.keys()].some((key) => key !== 'variant') ||
+      source.searchParams.getAll('variant').length > 1
+    )
+      return undefined;
+    return resolveMedia(
+      source.pathname.slice(prefix.length),
+      source.searchParams.get('variant') ?? undefined,
+    );
   } catch {
     return undefined;
   }

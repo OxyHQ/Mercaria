@@ -254,8 +254,16 @@ export const listingConditionRevisions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf('listing_condition_revisions_from_condition_check', t.fromCondition, ITEM_CONDITION_KEYS),
-    checkOneOf('listing_condition_revisions_to_condition_check', t.toCondition, ITEM_CONDITION_KEYS),
+    checkOneOf(
+      'listing_condition_revisions_from_condition_check',
+      t.fromCondition,
+      ITEM_CONDITION_KEYS,
+    ),
+    checkOneOf(
+      'listing_condition_revisions_to_condition_check',
+      t.toCondition,
+      ITEM_CONDITION_KEYS,
+    ),
     checkOneOf(
       'listing_condition_revisions_from_assertion_check',
       t.fromAssertion,
@@ -266,7 +274,11 @@ export const listingConditionRevisions = pgTable(
       t.toAssertion,
       CONDITION_ASSERTIONS,
     ),
-    checkOneOf('listing_condition_revisions_actor_kind_check', t.actorKind, CONDITION_REVISION_ACTORS),
+    checkOneOf(
+      'listing_condition_revisions_actor_kind_check',
+      t.actorKind,
+      CONDITION_REVISION_ACTORS,
+    ),
     // A person is named; a backfill is not. Both directions, because recording a
     // user id against a migration is a lie in an audit table and an anonymous
     // operator correction is an unattributable one.
@@ -283,10 +295,7 @@ export const listingConditionRevisions = pgTable(
       sql`${t.fromCondition} is distinct from ${t.toCondition}
           or ${t.fromAssertion} is distinct from ${t.toAssertion}`,
     ),
-    check(
-      'listing_condition_revisions_reason_check',
-      sql`length(btrim(${t.reason})) > 0`,
-    ),
+    check('listing_condition_revisions_reason_check', sql`length(btrim(${t.reason})) > 0`),
     index('listing_condition_revisions_listing_id_created_at_idx').on(
       t.listingId,
       t.createdAt.desc(),
@@ -388,7 +397,11 @@ export const conditionSourceMappings = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('condition_source_mappings_condition_key_check', t.conditionKey, ITEM_CONDITION_KEYS),
+    checkOneOf(
+      'condition_source_mappings_condition_key_check',
+      t.conditionKey,
+      ITEM_CONDITION_KEYS,
+    ),
     check(
       'condition_source_mappings_confidence_check',
       sql`${t.confidence} >= 0 and ${t.confidence} <= 1`,
@@ -475,5 +488,4 @@ export const conditionCategoryPolicies = pgTable(
  * a future value like `0.7000000000000001` would land a constraint text nobody
  * can read and that no test would notice was wrong.
  */
-export const CONDITION_MAPPING_CONFIDENCE_FLOOR_SQL =
-  CONDITION_MAPPING_CONFIDENCE_FLOOR.toFixed(2);
+export const CONDITION_MAPPING_CONFIDENCE_FLOOR_SQL = CONDITION_MAPPING_CONFIDENCE_FLOOR.toFixed(2);

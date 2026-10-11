@@ -107,15 +107,16 @@ describe('#1015 W8 prohibition 1 — a match never enforces anything', () => {
       importsOf(name).some((specifier) => specifier.includes('moderation/')),
     );
     expect(reaching).toEqual(['review.ts']);
-    expect(importsOf('review.ts').filter((specifier) => specifier.includes('moderation/'))).toEqual([
-      '../../moderation/report-intake.service.js',
-    ]);
+    expect(importsOf('review.ts').filter((specifier) => specifier.includes('moderation/'))).toEqual(
+      ['../../moderation/report-intake.service.js'],
+    );
   });
 
   it('the detector detects — the mutation self-test', () => {
     const seeded = "import { applyPlan } from '../../moderation/enforcement.service.js';";
     expect(FORBIDDEN_TARGETS.some((target) => seeded.includes(target))).toBe(true);
-    const innocent = "import { createAbuseReport } from '../../moderation/report-intake.service.js';";
+    const innocent =
+      "import { createAbuseReport } from '../../moderation/report-intake.service.js';";
     expect(FORBIDDEN_TARGETS.some((target) => innocent.includes(target))).toBe(false);
   });
 });
@@ -151,7 +152,7 @@ describe('#1015 W8 prohibition 2 — nothing here notifies anybody', () => {
         new RegExp(`(from\\s+'[^']*${token}|\\b${token}\\s*\\()`).test(seeded),
       ),
     ).toBe(true);
-    const innocent = "const packet = buildProvenanceReviewPacket(sweep);";
+    const innocent = 'const packet = buildProvenanceReviewPacket(sweep);';
     expect(
       NOTIFICATION_TOKENS.some((token) =>
         new RegExp(`(from\\s+'[^']*${token}|\\b${token}\\s*\\()`).test(innocent),
@@ -192,7 +193,9 @@ describe('#1015 W8 prohibition 3 — no bytes and no storage key leave this dire
       7,
       (field) => {
         expect(
-          body.split('\n').some((line) => !line.trim().startsWith('*') && line.includes(`${field}:`)),
+          body
+            .split('\n')
+            .some((line) => !line.trim().startsWith('*') && line.includes(`${field}:`)),
           `ProvenanceReviewPacket declares ${field}`,
         ).toBe(false);
       },

@@ -132,10 +132,7 @@ export async function findRewardRuleVersionById(
   db: DatabaseOrTransaction,
   id: string,
 ): Promise<ReferralRewardRuleRow | undefined> {
-  const [row] = await db
-    .select()
-    .from(referralRewardRules)
-    .where(eq(referralRewardRules.id, id));
+  const [row] = await db.select().from(referralRewardRules).where(eq(referralRewardRules.id, id));
   return row;
 }
 

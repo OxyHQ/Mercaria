@@ -178,11 +178,7 @@ describe('classifying a category assignment', () => {
 
   it('reports a published, selectable, in-window node as current', () => {
     const shelf = category({ id: 'c1' });
-    const verdict = classifyCategoryAssignment(
-      listing({ categoryId: 'c1' }),
-      mapOf(shelf),
-      NOW,
-    );
+    const verdict = classifyCategoryAssignment(listing({ categoryId: 'c1' }), mapOf(shelf), NOW);
     expect(verdict.reason).toBe('category_assignment_current');
     expect(verdict.targetId).toBe('c1');
   });
@@ -395,9 +391,7 @@ describe('folding legacy product-type text', () => {
 
 describe('classifying legacy product-type text', () => {
   const shelf = category({ id: 'c-shoes', ancestorIds: ['c-clothing'] });
-  const versions = (
-    ...facts: readonly Partial<ProductTypeFacts>[]
-  ): readonly ProductTypeFacts[] =>
+  const versions = (...facts: readonly Partial<ProductTypeFacts>[]): readonly ProductTypeFacts[] =>
     facts.map((fact) => ({ key: 'footwear', lifecycle: 'published', scopes: [], ...fact }));
 
   it('reports absent and blank text as nothing to map', () => {
@@ -446,7 +440,9 @@ describe('classifying legacy product-type text', () => {
   it('resolves a direct scope and a descendant scope, and refuses a scope that grants nothing', () => {
     const direct = versions({ scopes: [{ categoryId: 'c-shoes', includeDescendants: false }] });
     const ancestor = versions({ scopes: [{ categoryId: 'c-clothing', includeDescendants: true }] });
-    const narrowed = versions({ scopes: [{ categoryId: 'c-clothing', includeDescendants: false }] });
+    const narrowed = versions({
+      scopes: [{ categoryId: 'c-clothing', includeDescendants: false }],
+    });
     const empty = versions({ scopes: [] });
     const subject = listing({ productType: 'Footwear', categoryId: 'c-shoes' });
 

@@ -143,8 +143,7 @@ export async function buildBuyerLibrary(
         : fulfilment.status === 'pending'
           ? 'pending'
           : 'unavailable',
-    action:
-      fulfilment.status === 'delivered' ? actionForCapability(fulfilment.capability) : 'none',
+    action: fulfilment.status === 'delivered' ? actionForCapability(fulfilment.capability) : 'none',
     fulfilmentCapability: fulfilment.capability,
     maskedHint: hints.get(fulfilment.id) ?? null,
     revealed: fulfilment.revealCount > 0,

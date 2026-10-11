@@ -86,11 +86,7 @@ describe('"use X instead" is representable on a deprecation', () => {
     const successor = await activeDefinition('successor');
     const predecessor = await activeDefinition('predecessor');
 
-    const deprecated = await deprecateAttributeDefinition(
-      predecessor.key,
-      1,
-      successor.id,
-    );
+    const deprecated = await deprecateAttributeDefinition(predecessor.key, 1, successor.id);
 
     expect(deprecated.lifecycleState).toBe('deprecated');
     expect(deprecated.replacedByDefinitionId).toBe(successor.id);

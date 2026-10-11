@@ -71,7 +71,9 @@ export function renderReport(result: BenchmarkResult): string {
   lines.push('');
   lines.push(`- Server: \`${result.postgresVersion}\``);
   lines.push(`- Measured: ${result.measuredAt}`);
-  lines.push(`- Seed: ${String(result.seed)}, latency runs per statement: ${String(result.latencyRuns)}`);
+  lines.push(
+    `- Seed: ${String(result.seed)}, latency runs per statement: ${String(result.latencyRuns)}`,
+  );
   lines.push(
     `- Fan-out (median / max): offers per variant ` +
       `${String(result.graph.offersPerVariant.median)} / ${String(result.graph.offersPerVariant.max)}, ` +

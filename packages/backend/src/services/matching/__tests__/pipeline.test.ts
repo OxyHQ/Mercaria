@@ -21,7 +21,9 @@ import {
 import { benchmarkSubject, defaultBenchmarkPolicy } from '../benchmark/runner.js';
 import { gs1CheckDigit } from '../../canonical/identifiers.js';
 
-function catalogue(overrides: Partial<ConstructorParameters<typeof InMemoryCandidateSource>[0]> = {}) {
+function catalogue(
+  overrides: Partial<ConstructorParameters<typeof InMemoryCandidateSource>[0]> = {},
+) {
   return new InMemoryCandidateSource({
     products: FIXTURE_PRODUCTS,
     variants: FIXTURE_VARIANTS,
@@ -96,9 +98,7 @@ describe('the ordered stages', () => {
         brandText: 'Meta',
         categoryKey: 'vr-headsets',
         identifiers: [{ scheme: 'mpn', rawValue: 'WAU28T64ES' }],
-        attributes: [
-          { key: 'storage', normalizedValue: '128000000000b', displayValue: '128 GB' },
-        ],
+        attributes: [{ key: 'storage', normalizedValue: '128000000000b', displayValue: '128 GB' }],
       }),
       defaultBenchmarkPolicy(),
       catalogue(),
@@ -187,9 +187,7 @@ describe('the refusals #58 makes structural', () => {
         title: 'Quest 3 128GB',
         brandText: 'Facebook Technologies',
         categoryKey: 'vr-headsets',
-        attributes: [
-          { key: 'storage', normalizedValue: '128000000000b', displayValue: '128 GB' },
-        ],
+        attributes: [{ key: 'storage', normalizedValue: '128000000000b', displayValue: '128 GB' }],
       }),
       defaultBenchmarkPolicy(),
       catalogue(),
@@ -216,9 +214,7 @@ describe('the refusals #58 makes structural', () => {
   it('a missing variant axis produces a review, never an invented value', async () => {
     const result = await evaluateMatch(
       subject({
-        attributes: [
-          { key: 'storage', normalizedValue: '256000000000b', displayValue: '256 GB' },
-        ],
+        attributes: [{ key: 'storage', normalizedValue: '256000000000b', displayValue: '256 GB' }],
       }),
       defaultBenchmarkPolicy(),
       catalogue(),

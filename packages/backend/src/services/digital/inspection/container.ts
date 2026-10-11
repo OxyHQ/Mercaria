@@ -263,10 +263,7 @@ export function findThreeMfModelPart(entries: readonly ContainerEntry[]): Contai
  * against the result, so a central directory that under-declares a bomb is caught
  * by `maxOutputLength` and one that over-declares is caught by the comparison.
  */
-export function readContainerEntry(
-  bytes: Uint8Array,
-  entry: ContainerEntry,
-): ContainerEntryRead {
+export function readContainerEntry(bytes: Uint8Array, entry: ContainerEntry): ContainerEntryRead {
   if (entry.isDirectory) {
     return refuse(corruptFile(`entry '${pathForMessage(entry.path)}' is a directory`));
   }
@@ -417,7 +414,10 @@ function pathForMessage(rawPath: string): string {
 }
 
 /** A refusal, as the shape both result types share. */
-function refuse(outcome: InspectionOutcome): { readonly ok: false; readonly outcome: InspectionOutcome } {
+function refuse(outcome: InspectionOutcome): {
+  readonly ok: false;
+  readonly outcome: InspectionOutcome;
+} {
   return { ok: false, outcome };
 }
 

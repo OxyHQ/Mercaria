@@ -89,7 +89,8 @@ export const COMPARISON_DIRECTION_RULES: readonly ComparisonDirectionRule[] = [
   {
     attributeKey: 'noise_level',
     direction: 'lower_is_better',
-    because: 'A quieter appliance is quieter; a category that wants noise measures output, not this.',
+    because:
+      'A quieter appliance is quieter; a category that wants noise measures output, not this.',
   },
   {
     attributeKey: 'water_resistance_depth',

@@ -86,7 +86,9 @@ async function main(): Promise<void> {
   const totalPages = products.headers['x-wp-totalpages'];
   const total = products.headers['x-wp-total'];
   console.log(`     X-WP-Total                  = ${total ?? '(absent)'}`);
-  console.log(`     X-WP-TotalPages             = ${totalPages ?? '(ABSENT — runbook W9 applies)'}`);
+  console.log(
+    `     X-WP-TotalPages             = ${totalPages ?? '(ABSENT — runbook W9 applies)'}`,
+  );
   if (!total) {
     fail('X-WP-Total is absent through the real transport; pagination cannot be measured');
   }
@@ -100,7 +102,9 @@ async function main(): Promise<void> {
   const currencyCode = (JSON.parse(currency.body) as { code?: string }).code;
   console.log(`     currency                    = ${currencyCode}`);
   if (currencyCode === 'USD' || currencyCode === 'FAIR') {
-    fail(`the store currency is ${currencyCode}; the seed must use a currency that makes native-currency preservation observable`);
+    fail(
+      `the store currency is ${currencyCode}; the seed must use a currency that makes native-currency preservation observable`,
+    );
   }
 
   // --- POST, the path webhook registration uses ----------------------------
@@ -133,9 +137,13 @@ async function main(): Promise<void> {
     `${restBase}/webhooks/${webhookId}?force=true`,
     headers,
   );
-  console.log(`DEL  /webhooks/${webhookId}${' '.repeat(Math.max(0, 18 - String(webhookId).length))}-> ${deleted.status}`);
+  console.log(
+    `DEL  /webhooks/${webhookId}${' '.repeat(Math.max(0, 18 - String(webhookId).length))}-> ${deleted.status}`,
+  );
   if (deleted.status !== 200) {
-    fail(`the probe webhook ${webhookId} could not be deleted (${deleted.status}); remove it by hand`);
+    fail(
+      `the probe webhook ${webhookId} could not be deleted (${deleted.status}); remove it by hand`,
+    );
   }
 
   console.log('');

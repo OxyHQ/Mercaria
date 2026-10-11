@@ -504,7 +504,11 @@ export const retailMarketCapabilities = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('retail_market_capabilities_customer_type_check', t.customerType, RETAIL_CUSTOMER_TYPES),
+    checkOneOf(
+      'retail_market_capabilities_customer_type_check',
+      t.customerType,
+      RETAIL_CUSTOMER_TYPES,
+    ),
     checkOneOf('retail_market_capabilities_vat_check', t.vatTreatment, RETAIL_VAT_TREATMENTS),
     checkOneOf(
       'retail_market_capabilities_importer_check',
@@ -526,10 +530,7 @@ export const retailMarketCapabilities = pgTable(
       'retail_market_capabilities_countries_check',
       sql`${t.destinationCountry} ~ '^[A-Z]{2}$' and ${t.fulfilmentOriginCountry} ~ '^[A-Z]{2}$'`,
     ),
-    check(
-      'retail_market_capabilities_languages_check',
-      sql`not ('' = any(${t.supportLanguages}))`,
-    ),
+    check('retail_market_capabilities_languages_check', sql`not ('' = any(${t.supportLanguages}))`),
     check(
       'retail_market_capabilities_threshold_check',
       sql`num_nonnulls(${t.orderValueThresholdMinor}, ${t.orderValueThresholdCurrency}) in (0, 2)
@@ -791,10 +792,7 @@ export const retailComplianceEvidence = pgTable(
       'retail_compliance_evidence_target_check',
       sql`num_nonnulls(${t.oxyFileId}, ${t.documentUrl}) >= 1`,
     ),
-    check(
-      'retail_compliance_evidence_markets_check',
-      sql`not ('' = any(${t.marketCountries}))`,
-    ),
+    check('retail_compliance_evidence_markets_check', sql`not ('' = any(${t.marketCountries}))`),
     check(
       'retail_compliance_evidence_sha256_check',
       sql`${t.sha256} is null or ${t.sha256} ~ '^[a-f0-9]{64}$'`,
@@ -1043,7 +1041,11 @@ export const retailEligibilityExceptions = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('retail_eligibility_exceptions_state_check', t.state, RETAIL_EXCEPTION_STORED_STATES),
+    checkOneOf(
+      'retail_eligibility_exceptions_state_check',
+      t.state,
+      RETAIL_EXCEPTION_STORED_STATES,
+    ),
     // The structural half of "no exception waives a recall": the unwaivable
     // reasons have no representation in this column at all.
     // Rendered from the waivable tuple in shared-types, so the CHECK, the
@@ -1070,10 +1072,7 @@ export const retailEligibilityExceptions = pgTable(
       'retail_eligibility_exceptions_requested_by_check',
       sql`btrim(${t.requestedByOxyUserId}) <> ''`,
     ),
-    check(
-      'retail_eligibility_exceptions_expiry_check',
-      sql`${t.expiresAt} > ${t.requestedAt}`,
-    ),
+    check('retail_eligibility_exceptions_expiry_check', sql`${t.expiresAt} > ${t.requestedAt}`),
     // An approval is a decision WITH its record, and an approved exception has
     // at least the first one.
     check(
@@ -1190,7 +1189,11 @@ export const retailEligibilityDecisions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf('retail_eligibility_decisions_verdict_check', t.verdict, RETAIL_ELIGIBILITY_VERDICTS),
+    checkOneOf(
+      'retail_eligibility_decisions_verdict_check',
+      t.verdict,
+      RETAIL_ELIGIBILITY_VERDICTS,
+    ),
     checkOneOf(
       'retail_eligibility_decisions_action_check',
       t.nextRequiredAction,
@@ -1298,12 +1301,16 @@ export const retailEligibilityAudits = pgTable(
     at: timestamptz().notNull(),
   },
   (t) => [
-    checkOneOf('retail_eligibility_audits_action_check', t.action, RETAIL_ELIGIBILITY_AUDIT_ACTIONS),
-    check(
-      'retail_eligibility_audits_outcome_check',
-      sql`${t.outcome} in ('applied', 'refused')`,
+    checkOneOf(
+      'retail_eligibility_audits_action_check',
+      t.action,
+      RETAIL_ELIGIBILITY_AUDIT_ACTIONS,
     ),
-    check('retail_eligibility_audits_subject_check', sql`btrim(${t.subjectTable}) <> '' and btrim(${t.subjectId}) <> ''`),
+    check('retail_eligibility_audits_outcome_check', sql`${t.outcome} in ('applied', 'refused')`),
+    check(
+      'retail_eligibility_audits_subject_check',
+      sql`btrim(${t.subjectTable}) <> '' and btrim(${t.subjectId}) <> ''`,
+    ),
     check(
       'retail_eligibility_audits_reason_check',
       sql`btrim(${t.reason}) <> '' and length(${t.reason}) <= ${sql.raw(String(MAX_NOTE_LENGTH))}`,

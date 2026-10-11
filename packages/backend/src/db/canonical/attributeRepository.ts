@@ -368,7 +368,10 @@ export async function insertCanonicalImage(
   return insertCanonicalMedia(db, { ...input, kind: 'image' });
 }
 
-export async function insertCanonicalMedia(db: DatabaseOrTransaction, input: InsertCanonicalImageInput & { kind: 'image' | 'video' }): Promise<CanonicalImageRow | undefined> {
+export async function insertCanonicalMedia(
+  db: DatabaseOrTransaction,
+  input: InsertCanonicalImageInput & { kind: 'image' | 'video' },
+): Promise<CanonicalImageRow | undefined> {
   const isProduct = input.grain.kind === 'product';
   const rows = await db
     .insert(canonicalImages)
@@ -413,9 +416,19 @@ export async function listCanonicalImages(
     .orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
 }
 
-export async function listCanonicalMedia(db: DatabaseOrTransaction, grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>): Promise<CanonicalImageRow[]> {
-  const owner = grain.kind === 'product' ? eq(canonicalImages.productId, grain.id) : eq(canonicalImages.variantId, grain.id);
-  return db.select().from(canonicalImages).where(owner).orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
+export async function listCanonicalMedia(
+  db: DatabaseOrTransaction,
+  grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>,
+): Promise<CanonicalImageRow[]> {
+  const owner =
+    grain.kind === 'product'
+      ? eq(canonicalImages.productId, grain.id)
+      : eq(canonicalImages.variantId, grain.id);
+  return db
+    .select()
+    .from(canonicalImages)
+    .where(owner)
+    .orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
 }
 
 /** Retain the source observation, row identity and variant grain when importing
@@ -427,9 +440,17 @@ export async function attachImportedCanonicalImage(
   fileId: string,
 ): Promise<boolean> {
   if (!isOxyFileId(fileId)) throw new Error('Expected an Oxy file ID.');
-  const rows = await db.update(canonicalImages).set({ fileId }).where(and(
-    eq(canonicalImages.id, imageId), eq(canonicalImages.sourceUrl, sourceUrl), isNull(canonicalImages.fileId),
-  )).returning({ id: canonicalImages.id });
+  const rows = await db
+    .update(canonicalImages)
+    .set({ fileId })
+    .where(
+      and(
+        eq(canonicalImages.id, imageId),
+        eq(canonicalImages.sourceUrl, sourceUrl),
+        isNull(canonicalImages.fileId),
+      ),
+    )
+    .returning({ id: canonicalImages.id });
   return rows.length === 1;
 }
 

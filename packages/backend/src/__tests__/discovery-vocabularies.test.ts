@@ -18,10 +18,7 @@ import {
   DISCOVERY_WINDOWS,
   ORDER_STATUSES,
 } from '@mercaria/shared-types';
-import {
-  CARD_GROUP_SIGNALS,
-  SHELF_SIGNALS,
-} from '../services/discovery/feed.service.js';
+import { CARD_GROUP_SIGNALS, SHELF_SIGNALS } from '../services/discovery/feed.service.js';
 
 describe('discovery vocabularies', () => {
   it('splits the signals into exactly the two storage sources, with no overlap and no orphan', () => {

@@ -2,15 +2,17 @@ import type {
   ApiResponse,
   ProviderOnboardingLink,
   SellerPaymentSettings,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
-import { unwrap } from "./unwrap";
+} from '@mercaria/shared-types';
+import apiClient from './client';
+import { unwrap } from './unwrap';
 
 const base = (storeId: string) => `/admin/stores/${storeId}/payments`;
 
 /** GET the store's payment standing, plus what this deployment can onboard. */
 export async function fetchPaymentSettings(storeId: string): Promise<SellerPaymentSettings> {
-  const { data } = await apiClient.get<ApiResponse<SellerPaymentSettings>>(`${base(storeId)}/account`);
+  const { data } = await apiClient.get<ApiResponse<SellerPaymentSettings>>(
+    `${base(storeId)}/account`,
+  );
   return unwrap(data);
 }
 

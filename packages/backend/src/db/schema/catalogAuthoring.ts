@@ -233,7 +233,9 @@ export const catalogAuthoringDrafts = pgTable(
      * behaviour exactly, which is why nothing about this column is `notNull`.
      */
     createIdempotencyKey: text(),
-    status: text({ enum: asEnumValues(AUTHORING_DRAFT_STATUSES) }).notNull().default('open'),
+    status: text({ enum: asEnumValues(AUTHORING_DRAFT_STATUSES) })
+      .notNull()
+      .default('open'),
 
     /** `restrict`: nothing deletes a category, and a pin may not be orphaned. */
     categoryId: text()
@@ -535,12 +537,12 @@ export const catalogAuthoringDraftVariants = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    ...currencyChecks('catalog_authoring_draft_variants', [t.priceCurrency, t.compareAtPriceCurrency]),
+    ...currencyChecks('catalog_authoring_draft_variants', [
+      t.priceCurrency,
+      t.compareAtPriceCurrency,
+    ]),
     check('catalog_authoring_draft_variants_position_check', sql`${t.position} >= 0`),
-    check(
-      'catalog_authoring_draft_variants_inventory_check',
-      sql`${t.inventoryAvailable} >= 0`,
-    ),
+    check('catalog_authoring_draft_variants_inventory_check', sql`${t.inventoryAvailable} >= 0`),
     // The two halves of a `Money` are absent TOGETHER. `product_variants` states
     // the same rule; a draft that could hold an amount with no currency would
     // publish one.

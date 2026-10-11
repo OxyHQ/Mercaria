@@ -63,8 +63,7 @@ let db: Database;
 const RUN = uuidv7().slice(-12).replace(/\W/gu, '').toLowerCase();
 
 /** A slug is ASCII by policy, so it is derived from the script name, not the word. */
-const slugFor = (script: string, kind: string): string =>
-  `${kind}-${script.toLowerCase()}-${RUN}`;
+const slugFor = (script: string, kind: string): string => `${kind}-${script.toLowerCase()}-${RUN}`;
 
 beforeAll(async () => {
   databaseUrl = await createMercariaTestDatabase(ADMIN_URL);
@@ -82,7 +81,7 @@ afterAll(async () => {
   await dropMercariaTestDatabase(databaseUrl);
 });
 
-describe("every canonical `simple` search vector indexes every shipped script", () => {
+describe('every canonical `simple` search vector indexes every shipped script', () => {
   it('canonical products and families keep the name as a lexeme', async () => {
     for (const sample of SCRIPT_CORPUS) {
       const [family] = await db

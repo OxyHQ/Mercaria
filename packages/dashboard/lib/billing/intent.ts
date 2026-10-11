@@ -8,18 +8,27 @@ export function secureBillingIntentKey(): string {
   const bytes = new Uint8Array(24);
   // Oxy's shared crypto initialization supplies native CSPRNG; fail closed if unavailable.
   globalThis.crypto.getRandomValues(bytes);
-  return `billing-${Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("")}`;
+  return `billing-${Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('')}`;
 }
-export function createBillingIntentRunner(storage: BillingIntentStorage, generate = secureBillingIntentKey) {
+export function createBillingIntentRunner(
+  storage: BillingIntentStorage,
+  generate = secureBillingIntentKey,
+) {
   const pending = new Map<string, Promise<unknown>>();
-  return function run<T>(subject: readonly string[], action: (key: string) => Promise<T>): Promise<T> {
+  return function run<T>(
+    subject: readonly string[],
+    action: (key: string) => Promise<T>,
+  ): Promise<T> {
     const address = `mercaria.billing.intent.v1:${JSON.stringify(subject)}`;
     const inflight = pending.get(address);
     if (inflight) return inflight as Promise<T>;
     const operation = (async () => {
       let key = await storage.getItem(address);
-      if (!key) { key = generate(); await storage.setItem(address, key); }
-      if (!/^[A-Za-z0-9:_-]{8,200}$/.test(key)) throw new Error("Invalid stored billing intent.");
+      if (!key) {
+        key = generate();
+        await storage.setItem(address, key);
+      }
+      if (!/^[A-Za-z0-9:_-]{8,200}$/.test(key)) throw new Error('Invalid stored billing intent.');
       try {
         const result = await action(key);
         await storage.removeItem(address);
@@ -33,7 +42,11 @@ export function createBillingIntentRunner(storage: BillingIntentStorage, generat
       }
     })();
     pending.set(address, operation);
-    void operation.finally(() => { if (pending.get(address) === operation) pending.delete(address); }).catch(() => {});
+    void operation
+      .finally(() => {
+        if (pending.get(address) === operation) pending.delete(address);
+      })
+      .catch(() => {});
     return operation;
   };
 }

@@ -7,7 +7,9 @@ const native = vi.hoisted(() => ({
   isRTL: false,
   nextLaunchRTL: false,
   allowRTL: vi.fn(),
-  forceRTL: vi.fn((rtl: boolean) => { native.nextLaunchRTL = rtl; }),
+  forceRTL: vi.fn((rtl: boolean) => {
+    native.nextLaunchRTL = rtl;
+  }),
 }));
 vi.mock('react-native', () => ({ I18nManager: native, Platform: { OS: 'android' } }));
 

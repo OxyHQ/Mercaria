@@ -40,12 +40,16 @@ function sampleInput(): ComparisonInput {
   const table = buildComparisonTable([
     subject('p1', {
       declared: new Map([['warranty_months', declared({ label: 'Warranty' })]]),
-      facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(12) })]]),
+      facts: new Map([
+        ['warranty_months', fact({ key: 'warranty_months', value: numberValue(12) })],
+      ]),
       commerce: commerce({ lowestItemPrice: eur(29900), lowestKnownTotal: eur(30400) }),
     }),
     subject('p2', {
       declared: new Map([['warranty_months', declared({ label: 'Warranty' })]]),
-      facts: new Map([['warranty_months', fact({ key: 'warranty_months', value: numberValue(36) })]]),
+      facts: new Map([
+        ['warranty_months', fact({ key: 'warranty_months', value: numberValue(36) })],
+      ]),
       commerce: commerce({ lowestItemPrice: eur(34900), lowestKnownTotal: eur(35400) }),
     }),
   ]);
@@ -164,9 +168,7 @@ describe('the validator refuses every way a summary stops being one', () => {
     );
     expect(result.state).toBe('rejected');
     if (result.state === 'rejected') {
-      expect(result.rejections.map((entry) => entry.reason)).toContain(
-        'unknown_record_reference',
-      );
+      expect(result.rejections.map((entry) => entry.reason)).toContain('unknown_record_reference');
     }
   });
 
@@ -210,13 +212,13 @@ describe('the validator refuses every way a summary stops being one', () => {
     };
     const result = validateExplanationDraft(
       withConstraint,
-      draft({ constraintEchoes: [{ constraintRef: 'c1', subjectRef: 'p1', satisfaction: 'satisfied' }] }),
+      draft({
+        constraintEchoes: [{ constraintRef: 'c1', subjectRef: 'p1', satisfaction: 'satisfied' }],
+      }),
     );
     expect(result.state).toBe('rejected');
     if (result.state === 'rejected') {
-      expect(result.rejections.map((entry) => entry.reason)).toContain(
-        'constraint_result_changed',
-      );
+      expect(result.rejections.map((entry) => entry.reason)).toContain('constraint_result_changed');
     }
   });
 
@@ -227,7 +229,10 @@ describe('the validator refuses every way a summary stops being one', () => {
       'Alpha accepts FAIR.',
       'Alpha offers a discount when buyers pay with Peable.',
     ]) {
-      const result = validateExplanationDraft(pkg, draft({ summary: [{ text, citedRefs: ['p1'] }] }));
+      const result = validateExplanationDraft(
+        pkg,
+        draft({ summary: [{ text, citedRefs: ['p1'] }] }),
+      );
       expect(result.state, text).toBe('rejected');
       if (result.state === 'rejected') {
         expect(result.rejections.map((entry) => entry.reason)).toContain('forbidden_topic');
@@ -297,9 +302,7 @@ describe('the service composes the deterministic answer first', () => {
     const { explanation } = await explainComparison(sampleInput());
     expect(explanation.state).toBe('template');
     if (explanation.state === 'template') {
-      expect(explanation.rejections.map((entry) => entry.reason)).toEqual([
-        'provider_unavailable',
-      ]);
+      expect(explanation.rejections.map((entry) => entry.reason)).toEqual(['provider_unavailable']);
     }
   });
 

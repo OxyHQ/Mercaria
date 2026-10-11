@@ -15,18 +15,26 @@ describe('Steam search content across the shipped scripts', () => {
       </a>`;
       const rows = searchRows(html);
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({ title: `${name} & Friends`, released: `${name} 2026`, review: `${name} & reviews`, platforms: ['win'] });
+      expect(rows[0]).toMatchObject({
+        title: `${name} & Friends`,
+        released: `${name} 2026`,
+        review: `${name} & reviews`,
+        platforms: ['win'],
+      });
       const item = toItem(rows[0]!, { country: 'ES', currency: 'EUR' });
       expect(item?.normalized).toMatchObject({
-        title: `${name} & Friends`, productGroupKey: '123',
+        title: `${name} & Friends`,
+        productGroupKey: '123',
         price: { amount: 5999, currency: 'EUR' },
         compareAtPrice: { amount: 7999, currency: 'EUR' },
         sourceUrl: 'https://store.steampowered.com/app/123/',
       });
-      expect(item?.normalized.facts).toEqual(expect.arrayContaining([
-        expect.objectContaining({ key: 'steam.release_date', value: `${name} 2026` }),
-        expect.objectContaining({ key: 'steam.review_summary', value: `${name} & reviews` }),
-      ]));
+      expect(item?.normalized.facts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: 'steam.release_date', value: `${name} 2026` }),
+          expect.objectContaining({ key: 'steam.review_summary', value: `${name} & reviews` }),
+        ]),
+      );
     },
   );
 });

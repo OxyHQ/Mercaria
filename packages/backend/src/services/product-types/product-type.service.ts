@@ -41,7 +41,10 @@ import type {
   PublicProductTypeSpecificationGroup,
   PublicProductTypeSpecificationLayout,
 } from '@mercaria/shared-types';
-import { PRODUCT_TYPE_AUTHORING_FLOWS, PRODUCT_TYPE_EDITABLE_LIFECYCLES } from '@mercaria/shared-types';
+import {
+  PRODUCT_TYPE_AUTHORING_FLOWS,
+  PRODUCT_TYPE_EDITABLE_LIFECYCLES,
+} from '@mercaria/shared-types';
 import type { Database, DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   findProductTypeDefinitionById,
@@ -90,10 +93,7 @@ export type ProductTypePublication =
       readonly detail: string;
     };
 
-function refused(
-  refusal: ProductTypePublicationRefusal,
-  detail: string,
-): ProductTypePublication {
+function refused(refusal: ProductTypePublicationRefusal, detail: string): ProductTypePublication {
   return { outcome: 'refused', refusal, detail };
 }
 
@@ -442,8 +442,7 @@ export function deriveSpecificationLayout(
   const firstPosition = new Map<string, number>();
 
   for (const field of fields) {
-    const placement =
-      field.groupId === null ? null : (groupKeyById.get(field.groupId) ?? null);
+    const placement = field.groupId === null ? null : (groupKeyById.get(field.groupId) ?? null);
     const seen = placements.get(field.attributeKey) ?? new Set<string | null>();
     seen.add(placement);
     placements.set(field.attributeKey, seen);

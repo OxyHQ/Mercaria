@@ -121,9 +121,7 @@ function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): strin
 }
 
 function domainSources(): ScannedFile[] {
-  return domainRelativePaths().map((relative) =>
-    readScanned(join(SRC_ROOT, relative), relative),
-  );
+  return domainRelativePaths().map((relative) => readScanned(join(SRC_ROOT, relative), relative));
 }
 
 /**
@@ -148,7 +146,11 @@ function storefrontSources(): ScannedFile[] {
       'frontend/app/(app)/watchlists',
       '.tsx',
     ),
-    ...filesIn(join(STOREFRONT_ROOT, 'components/watchlist'), 'frontend/components/watchlist', '.tsx'),
+    ...filesIn(
+      join(STOREFRONT_ROOT, 'components/watchlist'),
+      'frontend/components/watchlist',
+      '.tsx',
+    ),
     ...['lib/api', 'lib/hooks'].flatMap((relative) =>
       filesIn(join(STOREFRONT_ROOT, relative), `frontend/${relative}`, '.ts', DOMAIN_NAME_PATTERN),
     ),
@@ -277,7 +279,9 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
     ).toBeGreaterThanOrEqual(4);
     expect(domain.length).toBe(inDomain.length + inOuter.length);
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 
@@ -291,7 +295,9 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
     ).toBeGreaterThanOrEqual(4);
     expect(modules.length, 'the watchlist api/hook modules moved').toBeGreaterThanOrEqual(2);
     for (const file of storefront) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 
@@ -304,7 +310,9 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
       'the storefront locale bundles moved; WALL 1 can no longer see the copy it forbids',
     ).toBeGreaterThanOrEqual(12);
     for (const file of bundles) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
       // …and the floor that a byte count cannot give: the watchlist COPY is
       // still in there. A bundle stripped of this namespace is still a large
       // file of other screens' sentences, so `length > 200` would go on passing
@@ -478,25 +486,29 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
       true,
     );
     expect(COMMERCIAL_REFERENCE.test('select * from ledger_entries')).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { listOffers } from '../offers/offer.service.js';")).toBe(
-      false,
-    );
+    expect(
+      COMMERCIAL_REFERENCE.test("import { listOffers } from '../offers/offer.service.js';"),
+    ).toBe(false);
 
     expect(
-      SAVE_DOMAIN_REFERENCE.test("import { readBestOfferForProduct } from '../product-saves/best-offer.js';"),
+      SAVE_DOMAIN_REFERENCE.test(
+        "import { readBestOfferForProduct } from '../product-saves/best-offer.js';",
+      ),
     ).toBe(true);
     expect(SAVE_DOMAIN_REFERENCE.test('select count(*) from product_saves')).toBe(true);
     expect(
-      SAVE_DOMAIN_REFERENCE.test("import { rankOfferComparison } from '../ranking/comparison.service.js';"),
+      SAVE_DOMAIN_REFERENCE.test(
+        "import { rankOfferComparison } from '../ranking/comparison.service.js';",
+      ),
     ).toBe(false);
 
     expect(SHARING_REFERENCE.test('const shareToken = mintToken();')).toBe(true);
     expect(SHARING_REFERENCE.test('share_link text not null')).toBe(true);
     expect(SHARING_REFERENCE.test('const displayCurrency = list.displayCurrency;')).toBe(false);
 
-    expect(ANALYTICS_REFERENCE.test("import { recordAnalyticsEvent } from '../analytics/emit.js';")).toBe(
-      true,
-    );
+    expect(
+      ANALYTICS_REFERENCE.test("import { recordAnalyticsEvent } from '../analytics/emit.js';"),
+    ).toBe(true);
     expect(ANALYTICS_REFERENCE.test('recordAnalyticsEvent({ type: "x" });')).toBe(true);
     expect(ANALYTICS_REFERENCE.test('const evaluatedAt = new Date();')).toBe(false);
 
@@ -557,9 +569,11 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
 
   it('the relative population really is the one the walls scan', () => {
     // Two spellings of one population can disagree, so this pins them together.
-    expect(domainSources().map((file) => file.relative).sort()).toEqual(
-      domainRelativePaths().sort(),
-    );
+    expect(
+      domainSources()
+        .map((file) => file.relative)
+        .sort(),
+    ).toEqual(domainRelativePaths().sort());
   });
 });
 

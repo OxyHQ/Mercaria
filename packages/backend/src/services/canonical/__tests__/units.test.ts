@@ -120,7 +120,11 @@ describe('resolveUnit', () => {
 
 describe('parseQuantity and normalizeQuantity', () => {
   it('reads a magnitude with a unit, spaced or not', () => {
-    expect(parseQuantity('256GB')).toEqual({ magnitude: 256, unit: 'GB', family: 'digital_storage' });
+    expect(parseQuantity('256GB')).toEqual({
+      magnitude: 256,
+      unit: 'GB',
+      family: 'digital_storage',
+    });
     expect(parseQuantity(' 6.1 in ')).toEqual({ magnitude: 6.1, unit: 'in', family: 'length' });
     expect(parseQuantity('187 g')).toEqual({ magnitude: 187, unit: 'g', family: 'mass' });
   });

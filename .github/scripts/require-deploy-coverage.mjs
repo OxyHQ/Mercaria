@@ -297,7 +297,12 @@ export function judgeCoverage({ runs, now = Date.now(), staleRunMs = DEFAULT_STA
   // uncovered would be a true statement about the page and a misleading one
   // about the repository, so this is its own state and says what it read.
   if (lastSuccessIndex === -1) {
-    return { state: 'no_success_in_page', uncovered: ordered, pending: inFlight, lastSuccess: null };
+    return {
+      state: 'no_success_in_page',
+      uncovered: ordered,
+      pending: inFlight,
+      lastSuccess: null,
+    };
   }
 
   const uncovered = ordered.slice(0, lastSuccessIndex);
@@ -505,11 +510,9 @@ async function readPostMigrations({ repository, sha, token }) {
 
     const found = [];
     for (const path of addedMigrationFiles(files)) {
-      const body = await api(
-        `/repos/${repository}/contents/${encodeURI(path)}?ref=${sha}`,
-        token,
-        { raw: true },
-      );
+      const body = await api(`/repos/${repository}/contents/${encodeURI(path)}?ref=${sha}`, token, {
+        raw: true,
+      });
       if (declaresPostPhase(body)) found.push(path);
     }
     return { known: true, files: found };

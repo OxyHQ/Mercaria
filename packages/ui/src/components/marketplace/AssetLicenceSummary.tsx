@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { View } from "react-native";
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 import {
   ALL_CURRENCY_CODES,
   DIGITAL_LICENCE_RIGHTS,
@@ -7,11 +7,11 @@ import {
   type DigitalLicenceAuthorship,
   type DigitalLicenceUpdatePolicy,
   type DigitalLicenceVersionTerms,
-} from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
-import { useFormatters } from "../../lib/use-formatters";
-import { formatWholeNumber } from "../../lib/plain-number";
+} from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
+import { useFormatters } from '../../lib/use-formatters';
+import { formatWholeNumber } from '../../lib/plain-number';
 import {
   ASSET_LICENCE_ADDITIONAL_TERMS_TITLE_KEY,
   ASSET_LICENCE_ATTRIBUTION_TITLE_KEY,
@@ -30,7 +30,7 @@ import {
   DIGITAL_LICENCE_AUTHORSHIP_KEYS,
   DIGITAL_LICENCE_RIGHT_KEYS,
   DIGITAL_LICENCE_UPDATE_POLICY_KEYS,
-} from "../../lib/digital-asset-labels";
+} from '../../lib/digital-asset-labels';
 
 /**
  * What the SELECTED offer's licence actually grants (#1015 Workstream 2,
@@ -109,9 +109,7 @@ export function AssetLicenceSummary({
    * one not shown, because the first is a number somebody will rely on.
    */
   const revenueCurrency =
-    terms.revenueLimitCurrency === null
-      ? undefined
-      : currencyCodeOf(terms.revenueLimitCurrency);
+    terms.revenueLimitCurrency === null ? undefined : currencyCodeOf(terms.revenueLimitCurrency);
   const revenueLimit =
     terms.revenueLimitAmount !== null && revenueCurrency !== undefined
       ? formatMoney({ amount: terms.revenueLimitAmount, currency: revenueCurrency })
@@ -177,7 +175,9 @@ export function AssetLicenceSummary({
         <Text className="text-shop-bodySmall text-text">
           {terms.projectLimit === null
             ? t(ASSET_LICENCE_PROJECTS_UNLIMITED_KEY)
-            : t(ASSET_LICENCE_PROJECTS_KEY, { projects: formatWholeNumber(terms.projectLimit, locale) })}
+            : t(ASSET_LICENCE_PROJECTS_KEY, {
+                projects: formatWholeNumber(terms.projectLimit, locale),
+              })}
         </Text>
         <Text className="text-shop-bodySmall text-text">
           {revenueLimit === undefined

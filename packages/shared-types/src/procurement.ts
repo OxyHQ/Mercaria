@@ -300,10 +300,7 @@ export const PROCUREMENT_AVAILABILITY_STATES: readonly ProcurementAvailability[]
 export type ProcurementOfferStatus = 'active' | 'retired';
 
 /** {@link ProcurementOfferStatus} as the tuple the column types and CHECKs read. */
-export const PROCUREMENT_OFFER_STATUSES: readonly ProcurementOfferStatus[] = [
-  'active',
-  'retired',
-];
+export const PROCUREMENT_OFFER_STATUSES: readonly ProcurementOfferStatus[] = ['active', 'retired'];
 
 /** Where an offer's facts came from — the provenance grain #118 item 14 asks for. */
 export type ProcurementProvenance = 'feed' | 'api' | 'manual' | 'import';
@@ -471,11 +468,7 @@ export const PURCHASE_ORDER_INITIATORS: readonly PurchaseOrderInitiator[] = [
  * order surface never sees a PO status, a supplier identity or a cost — it sees
  * this, derived per PO by the projection service.
  */
-export type PurchaseOrderFulfilmentState =
-  | 'preparing'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled';
+export type PurchaseOrderFulfilmentState = 'preparing' | 'shipped' | 'delivered' | 'cancelled';
 
 /** {@link PurchaseOrderFulfilmentState} as the tuple projections and tests read. */
 export const PURCHASE_ORDER_FULFILMENT_STATES: readonly PurchaseOrderFulfilmentState[] = [

@@ -1,13 +1,20 @@
-import { useEffect } from "react";
-import { View } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
-import Svg, { Path } from "react-native-svg";
-import { Button } from "@oxy.so/bloom/button";
-import { ShopDetailIcon } from "./ShopDetailIcon";
-import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import { useShopControlClassName } from "../../lib/useShopControlClassName";
-import { useColorScheme } from "../../lib/useColorScheme";
+import { useEffect } from 'react';
+import { View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
+import { Button } from '@oxy.so/bloom/button';
+import { ShopDetailIcon } from './ShopDetailIcon';
+import { Text } from '../ui/text';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
+import { useShopControlClassName } from '../../lib/useShopControlClassName';
+import { useColorScheme } from '../../lib/useColorScheme';
 
 export interface PurchaseOptionsProps {
   canBuy: boolean;
@@ -17,7 +24,7 @@ export interface PurchaseOptionsProps {
   added?: boolean;
   /** Selling-plan panels place the two actions on one row. */
   horizontal?: boolean;
-  purchaseKind?: "one-time" | "subscription";
+  purchaseKind?: 'one-time' | 'subscription';
   /** Real saved-item state and action owned by the caller. Only shown for a
    * selected sold-out variant; never substitutes for choosing an option. */
   unavailableSaveAction?: {
@@ -39,10 +46,15 @@ function AddToCartLabel({ added }: { added: boolean }) {
   const progress = useSharedValue(added ? 1 : 0);
   useEffect(() => {
     const target = added ? 1 : 0;
-    progress.value = reduced ? target : withDelay(150, withTiming(target, {
-      duration: 300,
-      easing: Easing.bezier(0.42, 0, 0.58, 1),
-    }));
+    progress.value = reduced
+      ? target
+      : withDelay(
+          150,
+          withTiming(target, {
+            duration: 300,
+            easing: Easing.bezier(0.42, 0, 0.58, 1),
+          }),
+        );
   }, [added, progress, reduced]);
   const motion = useAnimatedStyle(() => ({ transform: [{ translateY: -52 * progress.value }] }));
   return (
@@ -50,17 +62,31 @@ function AddToCartLabel({ added }: { added: boolean }) {
       aria-hidden
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{ height: 52, width: "100%", overflow: "hidden" }}
+      style={{ height: 52, width: '100%', overflow: 'hidden' }}
     >
       <Animated.View testID="add-to-cart-label-motion" style={[{ height: 104 }, motion]}>
-        <View style={{ height: 52, alignItems: "center", justifyContent: "center" }}>
-          <Text className="text-shop-buttonLarge text-white">{t("ui.purchase.addToCart")}</Text>
+        <View style={{ height: 52, alignItems: 'center', justifyContent: 'center' }}>
+          <Text className="text-shop-buttonLarge text-white">{t('ui.purchase.addToCart')}</Text>
         </View>
-        <View style={{ height: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}>
+        <View
+          style={{
+            height: 52,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+          }}
+        >
           <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 9.5L10.5 15L8.5 13M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            <Path
+              d="M15 9.5L10.5 15L8.5 13M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+              stroke="white"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </Svg>
-          <Text className="text-shop-buttonLarge text-white">{t("ui.purchase.added")}</Text>
+          <Text className="text-shop-buttonLarge text-white">{t('ui.purchase.added')}</Text>
         </View>
       </Animated.View>
     </View>
@@ -75,7 +101,7 @@ export function PurchaseOptions({
   hasSelection = true,
   added = false,
   horizontal = false,
-  purchaseKind = "one-time",
+  purchaseKind = 'one-time',
   unavailableSaveAction,
   onAddToCart,
   onBuyNow,
@@ -83,10 +109,12 @@ export function PurchaseOptions({
   const t = useSharedUiTranslation();
   const controlClassName = useShopControlClassName();
   const { colors } = useColorScheme();
-  const checkoutLabel = t(purchaseKind === "subscription" ? "ui.purchase.subscribeNow" : "ui.purchase.buyNow");
+  const checkoutLabel = t(
+    purchaseKind === 'subscription' ? 'ui.purchase.subscribeNow' : 'ui.purchase.buyNow',
+  );
   const label = !canBuy
-    ? t(hasSelection ? "ui.purchase.soldOut" : "ui.purchase.selectOptions")
-    : t(added ? "ui.purchase.added" : "ui.purchase.addToCart");
+    ? t(hasSelection ? 'ui.purchase.soldOut' : 'ui.purchase.selectOptions')
+    : t(added ? 'ui.purchase.added' : 'ui.purchase.addToCart');
   if (!canBuy && hasSelection && unavailableSaveAction) {
     const action = unavailableSaveAction;
     return (
@@ -99,32 +127,43 @@ export function PurchaseOptions({
           loading={action.pending}
           accessibilityLabel={action.accessibilityLabel}
           onPress={action.onPress}
-          className={controlClassName(action.saved ? "primary-flat" : "secondary-flat", action.pending, action.pending)}
-          textStyle={{ flexShrink: 1, textAlign: "center" }}
+          className={controlClassName(
+            action.saved ? 'primary-flat' : 'secondary-flat',
+            action.pending,
+            action.pending,
+          )}
+          textStyle={{ flexShrink: 1, textAlign: 'center' }}
         >
           {action.label}
         </Button>
         <View className="flex-row gap-space-8">
-          <View aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          <View
+            aria-hidden
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             <ShopDetailIcon name="about" size={16} color={colors.foreground} />
           </View>
           <Text className="flex-1 text-shop-caption text-foreground">
-            {t(action.saved ? "ui.purchase.soldOutSaved" : "ui.purchase.soldOutSave")}
+            {t(action.saved ? 'ui.purchase.soldOutSaved' : 'ui.purchase.soldOutSave')}
           </Text>
         </View>
       </View>
     );
   }
   return (
-    <View className={horizontal ? "flex-row-reverse gap-space-8" : "gap-space-8"} testID="product-purchase-actions">
+    <View
+      className={horizontal ? 'flex-row-reverse gap-space-8' : 'gap-space-8'}
+      testID="product-purchase-actions"
+    >
       <Button
         material="flat"
         accessibilityLabel={label}
         disabled={!canBuy || isPending}
         loading={isPending}
         onPress={onAddToCart}
-        className={controlClassName("primary", !canBuy, isPending)}
-        style={horizontal ? (canBuy ? { width: "50%", flexShrink: 0 } : { flex: 1 }) : undefined}
+        className={controlClassName('primary', !canBuy, isPending)}
+        style={horizontal ? (canBuy ? { width: '50%', flexShrink: 0 } : { flex: 1 }) : undefined}
       >
         {canBuy ? <AddToCartLabel added={added} /> : label}
       </Button>
@@ -134,15 +173,15 @@ export function PurchaseOptions({
           accessibilityLabel={checkoutLabel}
           disabled={isPending}
           onPress={onBuyNow}
-          className={controlClassName("secondary", isPending)}
+          className={controlClassName('secondary', isPending)}
           style={horizontal ? { flex: 1 } : undefined}
-          textStyle={{ flexShrink: 1, textAlign: "center" }}
+          textStyle={{ flexShrink: 1, textAlign: 'center' }}
         >
           {checkoutLabel}
         </Button>
       ) : null}
       <Text accessibilityLiveRegion="polite" className="sr-only">
-        {added ? t("ui.purchase.added") : ""}
+        {added ? t('ui.purchase.added') : ''}
       </Text>
     </View>
   );

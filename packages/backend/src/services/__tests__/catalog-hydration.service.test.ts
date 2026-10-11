@@ -84,7 +84,14 @@ vi.mock('../../lib/logger.js', () => ({
   log: { general: { warn: vi.fn(), error: vi.fn() } },
 }));
 
-import { hydrateListings, toCategoryImage, resolveMedia, resolveStoredMediaUrl, toProductSummary, toStoreSummary } from '../catalog-hydration.service.js';
+import {
+  hydrateListings,
+  toCategoryImage,
+  resolveMedia,
+  resolveStoredMediaUrl,
+  toProductSummary,
+  toStoreSummary,
+} from '../catalog-hydration.service.js';
 import { projectSeller } from '../public-api/projection.js';
 
 /** The empty batch `findListingChildren` returns for listings with no children. */
@@ -175,13 +182,22 @@ beforeEach(() => {
 });
 
 describe('catalog-hydration.service.hydrateListings — connector provenance', () => {
-  it.each(['seller-avatar-id', 'https://supplier.example/avatar.jpg', 'https://cloud.oxy.so/old-avatar'])('keeps seller avatar IDs separate from public API URLs: %s', async avatar => {
-    getProfiles.mockResolvedValue(new Map([['person-1', { displayName: 'Seller', username: 'seller', avatar }]]));
-    const [dto] = await hydrateListings([listingRow({ ownerType: 'user', oxyUserId: 'person-1', storeId: null })]);
+  it.each([
+    'seller-avatar-id',
+    'https://supplier.example/avatar.jpg',
+    'https://cloud.oxy.so/old-avatar',
+  ])('keeps seller avatar IDs separate from public API URLs: %s', async (avatar) => {
+    getProfiles.mockResolvedValue(
+      new Map([['person-1', { displayName: 'Seller', username: 'seller', avatar }]]),
+    );
+    const [dto] = await hydrateListings([
+      listingRow({ ownerType: 'user', oxyUserId: 'person-1', storeId: null }),
+    ]);
     const expected = avatar === 'seller-avatar-id' ? avatar : null;
     expect(dto.seller?.avatar).toBe(expected);
     expect(projectSeller(dto, undefined, resolveMedia)).toMatchObject({
-      kind: 'person', avatarUrl: expected ? `media:${expected}:full` : null,
+      kind: 'person',
+      avatarUrl: expected ? `media:${expected}:full` : null,
     });
   });
 
@@ -257,7 +273,9 @@ function imageRow(listingId: string, fileId: string): ListingImageRecord {
 
 /** A full store row with explicit public presentation overrides. */
 function storeRow(
-  media: Partial<Pick<StoreRow, 'coverFileId' | 'logoFileId' | 'policiesRefundPolicy' | 'policiesPrivacyPolicy'>>,
+  media: Partial<
+    Pick<StoreRow, 'coverFileId' | 'logoFileId' | 'policiesRefundPolicy' | 'policiesPrivacyPolicy'>
+  >,
 ): StoreRow {
   return {
     oxyAccountId: 'oxy-account-fixture',
@@ -327,9 +345,7 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
 
   it('emits ProductSummary.imageUrl when the listing HAS one', () => {
     const listing = listingRow();
-    const summary = toProductSummary(listing, [], 'Acme', [
-      imageRow(listing.id, 'file-1'),
-    ]);
+    const summary = toProductSummary(listing, [], 'Acme', [imageRow(listing.id, 'file-1')]);
 
     expect(summary.imageUrl).toBe('media:file-1:full');
     expect(summary.imageFileId).toBe('file-1');
@@ -378,19 +394,37 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
     expect(summary.products[0].imageFileId).toBe('thumb-1');
   });
 
-  it.each(['https://supplier.example/image.png', 'http://supplier.example/image.png', 'https://cloud.oxy.so/file-1', 'data:image/png;base64,abc', '/image.png', '', 'not an ID'])('does not resolve an unimported reference: %s', reference => {
+  it.each([
+    'https://supplier.example/image.png',
+    'http://supplier.example/image.png',
+    'https://cloud.oxy.so/file-1',
+    'data:image/png;base64,abc',
+    '/image.png',
+    '',
+    'not an ID',
+  ])('does not resolve an unimported reference: %s', (reference) => {
     expect(resolveMedia(reference)).toBeUndefined();
   });
 
   it('resolves stored Oxy URLs only in explicitly URL-valued legacy fields', () => {
-    expect(resolveStoredMediaUrl('https://cloud.oxy.so/file-1?variant=thumb')).toBe('media:file-1:thumb');
+    expect(resolveStoredMediaUrl('https://cloud.oxy.so/file-1?variant=thumb')).toBe(
+      'media:file-1:thumb',
+    );
     expect(resolveStoredMediaUrl('https://cloud.oxy.so/file-1')).toBe('media:file-1:full');
   });
 
-  it.each(['https://supplier.example/photo.jpg', 'https://cloud.oxy.so.evil.example/file-1', 'https://cloud.oxy.so@evil.example/file-1',
-    'https://person:secret@cloud.oxy.so/file-1', 'http://cloud.oxy.so/file-1', '//cloud.oxy.so/file-1',
-    'https://cloud.oxy.so/https%3A%2F%2Fsupplier.example%2Fphoto.jpg', 'https://cloud.oxy.so/file-1?url=https://supplier.example',
-    'https://cloud.oxy.so/file-1?variant=thumb&variant=original', 'https://cloud.oxy.so/file-1#fragment'])('withholds untrusted stored media URL %s', reference => {
+  it.each([
+    'https://supplier.example/photo.jpg',
+    'https://cloud.oxy.so.evil.example/file-1',
+    'https://cloud.oxy.so@evil.example/file-1',
+    'https://person:secret@cloud.oxy.so/file-1',
+    'http://cloud.oxy.so/file-1',
+    '//cloud.oxy.so/file-1',
+    'https://cloud.oxy.so/https%3A%2F%2Fsupplier.example%2Fphoto.jpg',
+    'https://cloud.oxy.so/file-1?url=https://supplier.example',
+    'https://cloud.oxy.so/file-1?variant=thumb&variant=original',
+    'https://cloud.oxy.so/file-1#fragment',
+  ])('withholds untrusted stored media URL %s', (reference) => {
     expect(resolveStoredMediaUrl(reference)).toBeUndefined();
   });
 
@@ -399,9 +433,18 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
     const external = imageRow(listing.id, 'https://supplier.example/image.png');
     expect(toProductSummary(listing, [], 'Acme', [external])).not.toHaveProperty('imageUrl');
     expect(toProductSummary(listing, [], 'Acme', [external])).not.toHaveProperty('imageFileId');
-    expect(toProductSummary(listing, [], 'Acme', [external, imageRow(listing.id, 'imported')]).imageFileId).toBe('imported');
-    expect(toProductSummary(listing, [], 'Acme', [external, imageRow(listing.id, 'imported')]).imageUrl).toBe('media:imported:full');
-    const summary = toStoreSummary(storeRow({ coverFileId: external.fileId, logoFileId: external.fileId }), [listing], new Map([[listing.id, [external]]]));
+    expect(
+      toProductSummary(listing, [], 'Acme', [external, imageRow(listing.id, 'imported')])
+        .imageFileId,
+    ).toBe('imported');
+    expect(
+      toProductSummary(listing, [], 'Acme', [external, imageRow(listing.id, 'imported')]).imageUrl,
+    ).toBe('media:imported:full');
+    const summary = toStoreSummary(
+      storeRow({ coverFileId: external.fileId, logoFileId: external.fileId }),
+      [listing],
+      new Map([[listing.id, [external]]]),
+    );
     expect(summary).not.toHaveProperty('coverImageUrl');
     expect(summary).not.toHaveProperty('logoUrl');
     expect(summary).not.toHaveProperty('logoFileId');
@@ -411,17 +454,30 @@ describe('catalog-hydration.service — an absent image is an absent field, neve
   });
 });
 
-
 describe('category media projection', () => {
   it('retains the imported ID even when an older supplier URL exists', () => {
-    expect(toCategoryImage({ imageFileId: 'category-file', imageUrl: 'https://supplier.example/category.jpg' }))
-      .toEqual({ imageFileId: 'category-file', imageUrl: 'media:category-file:full' });
+    expect(
+      toCategoryImage({
+        imageFileId: 'category-file',
+        imageUrl: 'https://supplier.example/category.jpg',
+      }),
+    ).toEqual({ imageFileId: 'category-file', imageUrl: 'media:category-file:full' });
   });
   it('recovers the ID only from the verified legacy Oxy namespace', () => {
-    expect(toCategoryImage({ imageFileId: '', imageUrl: 'https://cloud.oxy.so/legacy-file?variant=thumb' }))
-      .toEqual({ imageFileId: 'legacy-file', imageUrl: 'media:legacy-file:thumb' });
+    expect(
+      toCategoryImage({
+        imageFileId: '',
+        imageUrl: 'https://cloud.oxy.so/legacy-file?variant=thumb',
+      }),
+    ).toEqual({ imageFileId: 'legacy-file', imageUrl: 'media:legacy-file:thumb' });
   });
-  it.each(['https://supplier.example/image.jpg', 'data:image/png;base64,AA==', 'https://cloud.oxy.so.evil.example/file', 'https://cloud.oxy.so/folder/file', 'https://cloud.oxy.so/file?redirect=elsewhere'])('withholds unsynced reference %s', imageUrl => {
+  it.each([
+    'https://supplier.example/image.jpg',
+    'data:image/png;base64,AA==',
+    'https://cloud.oxy.so.evil.example/file',
+    'https://cloud.oxy.so/folder/file',
+    'https://cloud.oxy.so/file?redirect=elsewhere',
+  ])('withholds unsynced reference %s', (imageUrl) => {
     expect(toCategoryImage({ imageFileId: imageUrl, imageUrl })).toEqual({});
   });
   it('omits both fields while category media is absent', () => {

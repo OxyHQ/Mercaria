@@ -219,7 +219,10 @@ router.post(
  * somebody made and can be shown to have made. Attributable, dated and explained
  * by CHECK.
  */
-router.post('/retail-disputes/:disputeId/release-suspension', retailServiceReleaseSuspensionHandler);
+router.post(
+  '/retail-disputes/:disputeId/release-suspension',
+  retailServiceReleaseSuspensionHandler,
+);
 
 // ── Merchant plans, entitlements and subscription billing (#89) ─────────────
 //

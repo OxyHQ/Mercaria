@@ -22,10 +22,7 @@
  * only for a test's convenience (#69's `getConnectorProvider` ruling).
  */
 
-import type {
-  AffiliateNetworkId,
-  AffiliateReportFailureReason,
-} from '@mercaria/shared-types';
+import type { AffiliateNetworkId, AffiliateReportFailureReason } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../../../db/postgres.js';
 import type { ObservedAffiliateTransaction } from '../../../db/affiliateOutbound/transactionRepository.js';
 

@@ -234,7 +234,16 @@ function variantRow(overrides: Partial<VariantRecord> = {}): VariantRecord {
 
 /** One `listing_images` row. */
 function imageRow(listingId: string, fileId: string, position = 0): ListingImageRecord {
-  return { id: uuidv7(), kind: 'image', listingId, fileId, alt: null, position, createdAt: AT, updatedAt: AT };
+  return {
+    id: uuidv7(),
+    kind: 'image',
+    listingId,
+    fileId,
+    alt: null,
+    position,
+    createdAt: AT,
+    updatedAt: AT,
+  };
 }
 
 /**
@@ -322,7 +331,11 @@ describe('cart.service.addItem', () => {
     findVariantsByIds.mockResolvedValueOnce([variantRow({ inventoryAvailable: 3 })]);
     findListingsByIds.mockResolvedValueOnce([listingRow()]);
 
-    const cart = await addItem(VIEW, { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 50 });
+    const cart = await addItem(VIEW, {
+      listingId: LISTING_ID,
+      variantId: VARIANT_ID,
+      quantity: 50,
+    });
 
     // The written cart line was clamped to 3 (available).
     expect(ensureCart).toHaveBeenCalledWith(OWNER);
@@ -338,9 +351,7 @@ describe('cart.service.addItem', () => {
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ inventoryAvailable: 10 }));
 
-    const existing = storedCart([
-      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2 },
-    ]);
+    const existing = storedCart([{ listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2 }]);
     findCartByOwner.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
 
     findVariantsByIds.mockResolvedValueOnce([variantRow({ inventoryAvailable: 10 })]);
@@ -363,9 +374,7 @@ describe('cart.service.addItem', () => {
     findListingById.mockResolvedValueOnce(listingRow());
     findVariantById.mockResolvedValueOnce(variantRow({ priceCurrency: 'EUR' }));
 
-    const existing = storedCart([
-      { listingId: LISTING_ID, variantId: uuidv7(), quantity: 1 },
-    ]);
+    const existing = storedCart([{ listingId: LISTING_ID, variantId: uuidv7(), quantity: 1 }]);
     findCartByOwner.mockResolvedValueOnce(existing).mockResolvedValueOnce(existing);
 
     // getCart hydration lookups (the EUR line converts to the FAIR presentment).
@@ -385,9 +394,7 @@ describe('cart.service.addItem', () => {
 
 describe('cart.service.revalidate', () => {
   it('flags a line as stale when available < quantity and computes subtotal as the sum of line totals', async () => {
-    const cart = storedCart([
-      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 5,  },
-    ]);
+    const cart = storedCart([{ listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 5 }]);
 
     // Live state: only 2 available (< 5 requested) → stale; price 1500.
     findVariantsByIds.mockResolvedValueOnce([
@@ -413,7 +420,7 @@ describe('cart.service.revalidate', () => {
     const LISTING_2 = uuidv7();
     const cart = storedCart([
       { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2 },
-      { listingId: LISTING_2, variantId: VARIANT_2, quantity: 1,  },
+      { listingId: LISTING_2, variantId: VARIANT_2, quantity: 1 },
     ]);
 
     findVariantsByIds.mockResolvedValueOnce([
@@ -435,9 +442,7 @@ describe('cart.service.revalidate', () => {
   });
 
   it('marks a line whose variant has NO price as stale and zero-priced, never free', async () => {
-    const cart = storedCart([
-      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2,  },
-    ]);
+    const cart = storedCart([{ listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2 }]);
 
     // Both price columns are NULL together — the shape the paired CHECK allows.
     findVariantsByIds.mockResolvedValueOnce([
@@ -459,9 +464,7 @@ describe('cart.service.revalidate', () => {
 
 describe('cart.service groups', () => {
   it('groups lines by store vendor with a per-group subtotal', async () => {
-    const cart = storedCart([
-      { listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2,  },
-    ]);
+    const cart = storedCart([{ listingId: LISTING_ID, variantId: VARIANT_ID, quantity: 2 }]);
 
     findVariantsByIds.mockResolvedValueOnce([
       variantRow({ priceAmount: 1500, inventoryAvailable: 10 }),
@@ -491,9 +494,7 @@ describe('cart.service groups', () => {
     const SELLER_USER = 'seller-9';
     const P2P_LISTING = uuidv7();
     const P2P_VARIANT = uuidv7();
-    const cart = storedCart([
-      { listingId: P2P_LISTING, variantId: P2P_VARIANT, quantity: 1,  },
-    ]);
+    const cart = storedCart([{ listingId: P2P_LISTING, variantId: P2P_VARIANT, quantity: 1 }]);
 
     findVariantsByIds.mockResolvedValueOnce([
       variantRow({
@@ -508,7 +509,12 @@ describe('cart.service groups', () => {
     findStoresByIds.mockResolvedValueOnce([]);
     findSellerProfilesByUserIds.mockResolvedValueOnce([]);
     getProfilesMock.mockResolvedValueOnce(
-      new Map([[SELLER_USER, { id: SELLER_USER, username: 'jane', displayName: 'Jane Doe', avatar: 'av-1' }]]),
+      new Map([
+        [
+          SELLER_USER,
+          { id: SELLER_USER, username: 'jane', displayName: 'Jane Doe', avatar: 'av-1' },
+        ],
+      ]),
     );
 
     const dto = await revalidate(cart, VIEW);

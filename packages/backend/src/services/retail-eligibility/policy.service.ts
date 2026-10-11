@@ -19,7 +19,10 @@
  * `retail-pricing-policy.service` shape.
  */
 
-import type { RetailEligibilityPolicySummary, RetailFulfilmentMethod } from '@mercaria/shared-types';
+import type {
+  RetailEligibilityPolicySummary,
+  RetailFulfilmentMethod,
+} from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -39,10 +42,7 @@ import {
 import { appendRetailEligibilityAudit } from '../../db/retailEligibility/decisionRepository.js';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { assertNoForbiddenResaleEvidence } from './forbidden-evidence.js';
-import type {
-  RetailCustomerType,
-  RetailResaleEvidenceKind,
-} from '@mercaria/shared-types';
+import type { RetailCustomerType, RetailResaleEvidenceKind } from '@mercaria/shared-types';
 
 /** `retail_eligibility_policies` row → the operator-facing DTO. */
 export function toRetailEligibilityPolicySummary(
@@ -59,7 +59,8 @@ export function toRetailEligibilityPolicySummary(
     permittedDestinationCountries: row.permittedDestinationCountries,
     permittedFulfilmentOriginCountries: row.permittedFulfilmentOriginCountries,
     permittedChannels: row.permittedChannels,
-    permittedCurrencies: row.permittedCurrencies as RetailEligibilityPolicySummary['permittedCurrencies'],
+    permittedCurrencies:
+      row.permittedCurrencies as RetailEligibilityPolicySummary['permittedCurrencies'],
     permittedFulfilmentMethods: row.permittedFulfilmentMethods as RetailFulfilmentMethod[],
     permittedCustomerTypes: row.permittedCustomerTypes as RetailCustomerType[],
     requiredResaleEvidenceKinds: row.requiredResaleEvidenceKinds as RetailResaleEvidenceKind[],

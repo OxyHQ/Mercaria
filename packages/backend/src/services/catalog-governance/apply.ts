@@ -83,10 +83,7 @@ import {
   rederiveCategoryBrowsePaths,
   type CategoryPathRederivation,
 } from '../catalog-write.service.js';
-import {
-  archiveNavigationTree,
-  publishNavigationTree,
-} from '../navigation/authoring.service.js';
+import { archiveNavigationTree, publishNavigationTree } from '../navigation/authoring.service.js';
 
 /**
  * What an apply produced, for the audit event's `after` snapshot.
@@ -170,7 +167,8 @@ async function applyTaxonomy(
         throw validationError('taxonomy_move needs a parentId parameter (null makes it a root).');
       }
       const raw = parameters.parentId;
-      const parentId = raw === null ? null : typeof raw === 'string' && raw !== '' ? raw : undefined;
+      const parentId =
+        raw === null ? null : typeof raw === 'string' && raw !== '' ? raw : undefined;
       if (parentId === undefined) {
         throw validationError('taxonomy_move needs parentId to be a category id or null.');
       }

@@ -166,26 +166,11 @@ export const navigationSavedQueries = pgTable(
     /** The free-text half of the query, when it has one. */
     queryText: text(),
     categoryId: text().references(() => categories.id, { onDelete: 'restrict' }),
-    brandIds: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    merchantIds: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    conditionGroups: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    availability: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
-    offerKinds: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    brandIds: text().array().notNull().default(sql`'{}'::text[]`),
+    merchantIds: text().array().notNull().default(sql`'{}'::text[]`),
+    conditionGroups: text().array().notNull().default(sql`'{}'::text[]`),
+    availability: text().array().notNull().default(sql`'{}'::text[]`),
+    offerKinds: text().array().notNull().default(sql`'{}'::text[]`),
     /** #70 filter 7 — only official or authorized channels for the brand. */
     officialChannelOnly: boolean().notNull().default(false),
     /** ISO 3166-1 alpha-2, when the query is pinned to one market. */
@@ -263,10 +248,7 @@ export const navigationSavedQueryAttributeFilters = pgTable(
       .references(() => navigationSavedQueries.id, { onDelete: 'cascade' }),
     /** #94's stable attribute key, never a label. */
     attributeKey: text().notNull(),
-    values: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    values: text().array().notNull().default(sql`'{}'::text[]`),
     position: integer().notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -280,7 +262,10 @@ export const navigationSavedQueryAttributeFilters = pgTable(
       'navigation_saved_query_attribute_filters_values_check',
       sql`cardinality(${t.values}) >= 1`,
     ),
-    check('navigation_saved_query_attribute_filters_key_check', sql`btrim(${t.attributeKey}) <> ''`),
+    check(
+      'navigation_saved_query_attribute_filters_key_check',
+      sql`btrim(${t.attributeKey}) <> ''`,
+    ),
     check('navigation_saved_query_attribute_filters_position_check', sql`${t.position} >= 0`),
     uniqueIndex('navigation_saved_query_attribute_filters_key_key').on(
       t.savedQueryId,
@@ -335,7 +320,9 @@ export const navigationTrees = pgTable(
     /** BCP-47, lower-case. */
     locale: text().notNull(),
     surface: text({ enum: asEnumValues(NAVIGATION_SURFACES) }).notNull(),
-    lifecycle: text({ enum: asEnumValues(NAVIGATION_TREE_LIFECYCLES) }).notNull().default('draft'),
+    lifecycle: text({ enum: asEnumValues(NAVIGATION_TREE_LIFECYCLES) })
+      .notNull()
+      .default('draft'),
     /** Operator-facing; never served by a public read. See `internalLabel` above. */
     internalLabel: text().notNull(),
     /** Live from this instant; NULL means "from the moment it was published". */

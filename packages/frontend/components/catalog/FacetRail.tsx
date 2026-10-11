@@ -1,11 +1,6 @@
 import { Pressable, View } from 'react-native';
 import { Chip } from '@oxy.so/bloom/chip';
-import type {
-  Facet,
-  FacetBucket,
-  FacetOrigin,
-  FacetSelectionEntry,
-} from '@mercaria/shared-types';
+import type { Facet, FacetBucket, FacetOrigin, FacetSelectionEntry } from '@mercaria/shared-types';
 import {
   Text,
   facetBucketText,
@@ -92,7 +87,9 @@ export function FacetRail({ response, selection, onSelectionChange }: FacetRailP
             accessibilityLabel={t('catalog.filters.clear')}
             onPress={() => onSelectionChange([])}
           >
-            <Text className="text-shop-caption text-text-secondary">{t('catalog.filters.clear')}</Text>
+            <Text className="text-shop-caption text-text-secondary">
+              {t('catalog.filters.clear')}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -278,9 +275,7 @@ function FacetBucketChip({
       // own node is a second focus stop that reads as another control.
       accessibilityLabel={`${text}, ${String(bucket.count)}`}
       onPress={() =>
-        onSelectionChange(
-          toggleFacetValue(selection, origin, facetKey, bucket.key, multiSelect),
-        )
+        onSelectionChange(toggleFacetValue(selection, origin, facetKey, bucket.key, multiSelect))
       }
     >
       {/* The selected state is spelled as well as announced, never colour alone. */}

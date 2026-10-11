@@ -49,7 +49,11 @@ import {
   countQueuedClaims,
   recordVariantAttributeClaim,
 } from '../../../db/variantAxes/attributeClaimRepository.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
   createTestStore,
@@ -242,7 +246,10 @@ describe('a publication result reports the whole publication', () => {
   it('separates the DECLARED variant from the one left to the matcher', async () => {
     const { publication } = publicationOf(published.result);
 
-    const links = await db.execute<{ product_variant_id: string; canonical_variant_id: string }>(sql`
+    const links = await db.execute<{
+      product_variant_id: string;
+      canonical_variant_id: string;
+    }>(sql`
       select product_variant_id, canonical_variant_id
         from native_listing_links
        where listing_id = ${publication.listingId}

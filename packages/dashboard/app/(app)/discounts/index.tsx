@@ -1,34 +1,29 @@
-import React, { useState } from "react";
-import { View, Pressable } from "react-native";
-import Head from "expo-router/head";
-import { Plus, Tag, Trash2 } from "lucide-react-native";
+import React, { useState } from 'react';
+import { View, Pressable } from 'react-native';
+import Head from 'expo-router/head';
+import { Plus, Tag, Trash2 } from 'lucide-react-native';
 import type {
   Discount,
   DiscountMethod,
   DiscountValueType,
   CreateDiscountInput,
-} from "@mercaria/shared-types";
-import {
-  Text,
-  useColorScheme,
-  type Translate,
-  toBloomIcon,
-} from "@mercaria/ui";
-import { Field } from "@oxy.so/bloom/field";
-import { TextFieldInput } from "@oxy.so/bloom/text-field";
-import { Button } from "@oxy.so/bloom/button";
-import { Dialog, useDialogControl, type DialogControlProps } from "@oxy.so/bloom/dialog";
+} from '@mercaria/shared-types';
+import { Text, useColorScheme, type Translate, toBloomIcon } from '@mercaria/ui';
+import { Field } from '@oxy.so/bloom/field';
+import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Button } from '@oxy.so/bloom/button';
+import { Dialog, useDialogControl, type DialogControlProps } from '@oxy.so/bloom/dialog';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
-import { toast } from "@oxy.so/bloom/toast";
-import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
-import { RequireStore } from "@/components/shell/RequireStore";
-import { useDiscounts, useCreateDiscount, useDeleteDiscount } from "@/lib/hooks/use-discounts";
-import { useTranslation } from "@/lib/i18n";
-import { toFairMinor } from "@/lib/money";
+} from '@oxy.so/bloom/segmented-control';
+import { toast } from '@oxy.so/bloom/toast';
+import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { RequireStore } from '@/components/shell/RequireStore';
+import { useDiscounts, useCreateDiscount, useDeleteDiscount } from '@/lib/hooks/use-discounts';
+import { useTranslation } from '@/lib/i18n';
+import { toFairMinor } from '@/lib/money';
 
 /** Basis-points per percent (100% = 10000 bps). */
 const BPS_PER_PERCENT = 100;
@@ -38,7 +33,7 @@ export default function DiscountsScreen() {
   return (
     <>
       <Head>
-        <title>{t("discounts.documentTitle")}</title>
+        <title>{t('discounts.documentTitle')}</title>
       </Head>
       <RequireStore permission="discounts:write">
         {(storeId) => <DiscountsBody storeId={storeId} />}
@@ -55,24 +50,20 @@ function DiscountsBody({ storeId }: { storeId: string }) {
 
   const action = (
     <View className="flex-row items-center gap-2">
-      <Button
-        tone="accent"
-        leadingIcon={toBloomIcon(Plus)}
-        onPress={() => createControl.open()}
-      >
-        {t("common.new")}
+      <Button tone="accent" leadingIcon={toBloomIcon(Plus)} onPress={() => createControl.open()}>
+        {t('common.new')}
       </Button>
     </View>
   );
 
   return (
-    <Screen title={t("nav.discounts")} subtitle={t("discounts.subtitle")} action={action}>
+    <Screen title={t('nav.discounts')} subtitle={t('discounts.subtitle')} action={action}>
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title={t("discounts.loadError")} body={t("common.pleaseTryAgain")} />
+        <ScreenMessage title={t('discounts.loadError')} body={t('common.pleaseTryAgain')} />
       ) : (data?.length ?? 0) === 0 ? (
-        <ScreenMessage title={t("discounts.empty.title")} body={t("discounts.empty.body")} />
+        <ScreenMessage title={t('discounts.empty.title')} body={t('discounts.empty.body')} />
       ) : (
         <View className="gap-2">
           {data?.map((discount) => (
@@ -81,8 +72,8 @@ function DiscountsBody({ storeId }: { storeId: string }) {
               discount={discount}
               onDelete={() =>
                 deleteDiscount.mutate(discount.id, {
-                  onSuccess: () => toast.success(t("discounts.deleted")),
-                  onError: () => toast.error(t("discounts.deleteError")),
+                  onSuccess: () => toast.success(t('discounts.deleted')),
+                  onError: () => toast.error(t('discounts.deleteError')),
                 })
               }
             />
@@ -105,11 +96,11 @@ function DiscountsBody({ storeId }: { storeId: string }) {
  * was rather than given copy nobody has written.
  */
 function describeValue(discount: Discount, t: Translate): string {
-  if (discount.valueType === "percentage") {
-    return t("discounts.percentOff", { percent: discount.value / BPS_PER_PERCENT });
+  if (discount.valueType === 'percentage') {
+    return t('discounts.percentOff', { percent: discount.value / BPS_PER_PERCENT });
   }
-  if (discount.valueType === "fixed_amount") {
-    return t("discounts.fixedAmountOff");
+  if (discount.valueType === 'fixed_amount') {
+    return t('discounts.fixedAmountOff');
   }
   return discount.valueType;
 }
@@ -121,10 +112,10 @@ function DiscountRow({ discount, onDelete }: { discount: Discount; onDelete: () 
   // reorder them. `method`/`value`/`state`, never `count` — i18n-js pluralizes
   // any key called with a `count` option.
   const methodLabel =
-    discount.method === "code"
-      ? discount.codes.map((c) => c.code).join(", ") || t("discounts.methodCode")
-      : t("discounts.methodAutomatic");
-  const stateLabel = t(discount.isActive ? "discounts.state.active" : "discounts.state.inactive");
+    discount.method === 'code'
+      ? discount.codes.map((c) => c.code).join(', ') || t('discounts.methodCode')
+      : t('discounts.methodAutomatic');
+  const stateLabel = t(discount.isActive ? 'discounts.state.active' : 'discounts.state.inactive');
   return (
     <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
       <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
@@ -133,7 +124,7 @@ function DiscountRow({ discount, onDelete }: { discount: Discount; onDelete: () 
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground">{discount.title}</Text>
         <Text className="text-xs text-muted-foreground">
-          {t("discounts.rowMeta", {
+          {t('discounts.rowMeta', {
             method: methodLabel,
             value: describeValue(discount, t),
             state: stateLabel,
@@ -156,36 +147,35 @@ function CreateDiscountDialog({
 }) {
   const createDiscount = useCreateDiscount(storeId);
   const { t } = useTranslation();
-  const [title, setTitle] = useState("");
-  const [method, setMethod] = useState<DiscountMethod>("code");
-  const [code, setCode] = useState("");
-  const [valueType, setValueType] = useState<Extract<DiscountValueType, "percentage" | "fixed_amount">>(
-    "percentage",
-  );
-  const [amount, setAmount] = useState("");
+  const [title, setTitle] = useState('');
+  const [method, setMethod] = useState<DiscountMethod>('code');
+  const [code, setCode] = useState('');
+  const [valueType, setValueType] =
+    useState<Extract<DiscountValueType, 'percentage' | 'fixed_amount'>>('percentage');
+  const [amount, setAmount] = useState('');
 
   const submit = () => {
     if (!title.trim()) {
-      toast.error(t("discounts.create.titleRequired"));
+      toast.error(t('discounts.create.titleRequired'));
       return;
     }
-    if (method === "code" && !code.trim()) {
-      toast.error(t("discounts.create.codeRequired"));
+    if (method === 'code' && !code.trim()) {
+      toast.error(t('discounts.create.codeRequired'));
       return;
     }
 
     let value: number;
-    if (valueType === "percentage") {
+    if (valueType === 'percentage') {
       const pct = Number(amount);
       if (!Number.isFinite(pct) || pct <= 0) {
-        toast.error(t("discounts.create.invalidPercentage"));
+        toast.error(t('discounts.create.invalidPercentage'));
         return;
       }
       value = Math.round(pct * BPS_PER_PERCENT);
     } else {
       const minor = toFairMinor(amount);
       if (minor === null || minor <= 0) {
-        toast.error(t("discounts.create.invalidAmount"));
+        toast.error(t('discounts.create.invalidAmount'));
         return;
       }
       value = minor;
@@ -194,81 +184,77 @@ function CreateDiscountDialog({
     const input: CreateDiscountInput = {
       title: title.trim(),
       method,
-      ...(method === "code" ? { codes: [code.trim()] } : {}),
+      ...(method === 'code' ? { codes: [code.trim()] } : {}),
       valueType,
       value,
-      appliesTo: { scope: "order" },
+      appliesTo: { scope: 'order' },
       isActive: true,
     };
 
     createDiscount.mutate(input, {
       onSuccess: () => {
-        toast.success(t("discounts.create.success"));
-        setTitle("");
-        setCode("");
-        setAmount("");
+        toast.success(t('discounts.create.success'));
+        setTitle('');
+        setCode('');
+        setAmount('');
         control.close();
       },
-      onError: () => toast.error(t("discounts.create.error")),
+      onError: () => toast.error(t('discounts.create.error')),
     });
   };
 
   const amountLabel =
-    valueType === "percentage"
-      ? t("discounts.create.percentOffLabel")
-      : t("discounts.create.amountOffLabel");
+    valueType === 'percentage'
+      ? t('discounts.create.percentOffLabel')
+      : t('discounts.create.amountOffLabel');
 
   return (
-    <Dialog control={control} title={t("discounts.create.dialogTitle")}>
+    <Dialog control={control} title={t('discounts.create.dialogTitle')}>
       <View className="gap-4">
-        <Field label={t("common.title")}>
+        <Field label={t('common.title')}>
           <TextFieldInput
-            label={t("common.title")}
+            label={t('common.title')}
             value={title}
             onValueChange={setTitle}
-            placeholder={t("discounts.create.titlePlaceholder")}
+            placeholder={t('discounts.create.titlePlaceholder')}
           />
         </Field>
-        <Field label={t("discounts.create.methodLabel")}>
-          <SegmentedControl
-            type="radio"
-            value={method}
-            onValueChange={setMethod}
-          >
+        <Field label={t('discounts.create.methodLabel')}>
+          <SegmentedControl type="radio" value={method} onValueChange={setMethod}>
             <SegmentedControlItem value="code">
-              <SegmentedControlItemText>{t("discounts.create.methodCode")}</SegmentedControlItemText>
+              <SegmentedControlItemText>
+                {t('discounts.create.methodCode')}
+              </SegmentedControlItemText>
             </SegmentedControlItem>
             <SegmentedControlItem value="automatic">
               <SegmentedControlItemText>
-                {t("discounts.create.methodAutomatic")}
+                {t('discounts.create.methodAutomatic')}
               </SegmentedControlItemText>
             </SegmentedControlItem>
           </SegmentedControl>
         </Field>
-        {method === "code" ? (
-          <Field label={t("discounts.create.codeLabel")}>
+        {method === 'code' ? (
+          <Field label={t('discounts.create.codeLabel')}>
             <TextFieldInput
-              label={t("discounts.create.codeLabel")}
+              label={t('discounts.create.codeLabel')}
               value={code}
               onValueChange={setCode}
-              placeholder={t("discounts.create.codePlaceholder")}
+              placeholder={t('discounts.create.codePlaceholder')}
               autoCapitalize="characters"
             />
           </Field>
         ) : null}
-        <Field label={t("discounts.create.valueTypeLabel")}>
-          <SegmentedControl
-            type="radio"
-            value={valueType}
-            onValueChange={setValueType}
-          >
+        <Field label={t('discounts.create.valueTypeLabel')}>
+          <SegmentedControl type="radio" value={valueType} onValueChange={setValueType}>
             <SegmentedControlItem value="percentage">
               <SegmentedControlItemText>
-                {t("discounts.create.valueTypePercentage")}
+                {t('discounts.create.valueTypePercentage')}
               </SegmentedControlItemText>
             </SegmentedControlItem>
             <SegmentedControlItem value="fixed_amount">
-              <SegmentedControlItemText>{t("discounts.create.valueTypeFixed")}</SegmentedControlItemText>
+              <SegmentedControlItemText>
+                {t('discounts.create.valueTypeFixed')}
+              </SegmentedControlItemText>
             </SegmentedControlItem>
           </SegmentedControl>
         </Field>
@@ -278,11 +264,11 @@ function CreateDiscountDialog({
             value={amount}
             onValueChange={setAmount}
             keyboardType="decimal-pad"
-            placeholder={valueType === "percentage" ? "20" : "10.00"}
+            placeholder={valueType === 'percentage' ? '20' : '10.00'}
           />
         </Field>
         <Button tone="accent" onPress={submit} loading={createDiscount.isPending} className="mt-1">
-          {t("common.create")}
+          {t('common.create')}
         </Button>
       </View>
     </Dialog>

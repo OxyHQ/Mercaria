@@ -47,7 +47,11 @@ export function useSearchIntent() {
   const [dismissed, setDismissed] = useState(false);
 
   const interpret = useMutation({
-    mutationFn: (input: { query: string; sessionId?: string; answer?: { clarificationId: string; optionId: string } }) =>
+    mutationFn: (input: {
+      query: string;
+      sessionId?: string;
+      answer?: { clarificationId: string; optionId: string };
+    }) =>
       interpretShoppingIntent({
         query: input.query,
         locale: deviceLocale(),

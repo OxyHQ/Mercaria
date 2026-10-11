@@ -1,25 +1,25 @@
-import { Slot, Stack } from "expo-router";
-import { Platform, View } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AppShell, AppShellMenuButton } from "@oxy.so/bloom/app-shell";
-import { AppErrorBoundary, ThemedErrorFallback } from "@/components/error-boundary";
-import { AuthGate } from "@/components/AuthGate";
-import { useDashboardSidebar } from "@/components/shell/useDashboardSidebar";
-import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
-import { BottomTabBar } from "@/components/shell/BottomTabBar";
-import { useTranslation } from "@/lib/i18n";
-import { Logo } from "@/components/Logo";
-import { BrandWordmark } from "@/components/BrandWordmark";
+import { Slot, Stack } from 'expo-router';
+import { Platform, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppShell, AppShellMenuButton } from '@oxy.so/bloom/app-shell';
+import { AppErrorBoundary, ThemedErrorFallback } from '@/components/error-boundary';
+import { AuthGate } from '@/components/AuthGate';
+import { useDashboardSidebar } from '@/components/shell/useDashboardSidebar';
+import { StoreSwitcher } from '@/components/shell/StoreSwitcher';
+import { BottomTabBar } from '@/components/shell/BottomTabBar';
+import { useTranslation } from '@/lib/i18n';
+import { Logo } from '@/components/Logo';
+import { BrandWordmark } from '@/components/BrandWordmark';
 
 // Keep Bloom's AppShell surface visible underneath native routed screens.
 const SCREEN_OPTIONS = {
   headerShown: false,
-  contentStyle: { backgroundColor: "transparent" },
+  contentStyle: { backgroundColor: 'transparent' },
 } as const;
 
 const GESTURE_ROOT_STYLE = { flex: 1 } as const;
 
-const IS_WEB = Platform.OS === "web";
+const IS_WEB = Platform.OS === 'web';
 
 /**
  * The shell, as a component of its own so it mounts INSIDE `AuthGate`: the
@@ -44,22 +44,27 @@ function Shell() {
       testID="merchant-shell"
       // WEB scrolls the DOCUMENT (sticky navigation, scroll restoration);
       // NATIVE is one fixed frame and each page owns its scroller (`Screen`).
-      scroll={IS_WEB ? "document" : "fixed"}
+      scroll={IS_WEB ? 'document' : 'fixed'}
       sidebar={sidebar}
       // The drawer carries the account footer, which the bottom bar does not,
       // so below `md` the header keeps its menu button — ours, for its label.
       header={
         <View className="gap-2 px-4 py-2 md:hidden">
           <View className="flex-row items-center justify-between gap-3">
-            <AppShellMenuButton accessibilityLabel={t("nav.openNavigation")} />
-            <View testID="wholesale-mobile-brand" className="flex-row items-center gap-2"><Logo size={28} /><BrandWordmark /></View>
+            <AppShellMenuButton accessibilityLabel={t('nav.openNavigation')} />
+            <View testID="wholesale-mobile-brand" className="flex-row items-center gap-2">
+              <Logo size={28} />
+              <BrandWordmark />
+            </View>
           </View>
-          <View className="items-end"><StoreSwitcher /></View>
+          <View className="items-end">
+            <StoreSwitcher />
+          </View>
         </View>
       }
       bottomBar={<BottomTabBar />}
       navFrom="md"
-      drawerCloseLabel={t("nav.closeNavigation")}
+      drawerCloseLabel={t('nav.closeNavigation')}
     >
       {routed}
     </AppShell>

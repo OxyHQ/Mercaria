@@ -141,8 +141,10 @@ export async function updateMerchantCheckoutIntents(
   },
 ): Promise<MerchantActivationSettingsRow> {
   const patch: Partial<typeof merchantActivationSettings.$inferInsert> = {};
-  if (input.nativeCheckoutIntent !== undefined) patch.nativeCheckoutIntent = input.nativeCheckoutIntent;
-  if (input.guestCheckoutIntent !== undefined) patch.guestCheckoutIntent = input.guestCheckoutIntent;
+  if (input.nativeCheckoutIntent !== undefined)
+    patch.nativeCheckoutIntent = input.nativeCheckoutIntent;
+  if (input.guestCheckoutIntent !== undefined)
+    patch.guestCheckoutIntent = input.guestCheckoutIntent;
   if (input.supportEmail !== undefined) patch.supportEmail = input.supportEmail;
   if (input.supportUrl !== undefined) patch.supportUrl = input.supportUrl;
 

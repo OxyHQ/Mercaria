@@ -30,57 +30,56 @@ import type { AbuseReportCategory } from '@mercaria/shared-types';
  * which is the point. A category that silently fell through to a default would
  * send juries a claim nobody chose.
  */
-const CATEGORY_TO_TAXONOMY: Readonly<Record<AbuseReportCategory, TaxonomyCode>> =
-  Object.freeze({
-    counterfeit: 'commerce.counterfeit',
-    prohibited_item: 'commerce.prohibited_item',
-    misleading_listing: 'commerce.misleading_listing',
-    unsafe_product: 'commerce.unsafe_product',
+const CATEGORY_TO_TAXONOMY: Readonly<Record<AbuseReportCategory, TaxonomyCode>> = Object.freeze({
+  counterfeit: 'commerce.counterfeit',
+  prohibited_item: 'commerce.prohibited_item',
+  misleading_listing: 'commerce.misleading_listing',
+  unsafe_product: 'commerce.unsafe_product',
 
-    /**
-     * Selling stolen goods is a prohibited-item claim, not a deception one: the
-     * objection is that the item may not be sold at all, whoever describes it how.
-     */
-    stolen_goods: 'commerce.prohibited_item',
+  /**
+   * Selling stolen goods is a prohibited-item claim, not a deception one: the
+   * objection is that the item may not be sold at all, whoever describes it how.
+   */
+  stolen_goods: 'commerce.prohibited_item',
 
-    /**
-     * A scam is about the TRANSACTION rather than the object — the listing may
-     * describe a real thing that never ships. That is an integrity claim, not a
-     * product defect, and it is why `scam` is not folded into
-     * `misleading_listing`.
-     */
-    scam: 'integrity.scam',
+  /**
+   * A scam is about the TRANSACTION rather than the object — the listing may
+   * describe a real thing that never ships. That is an integrity claim, not a
+   * product defect, and it is why `scam` is not folded into
+   * `misleading_listing`.
+   */
+  scam: 'integrity.scam',
 
-    /**
-     * A shop pretending to be a brand it is not. Distinct from `counterfeit`,
-     * which is about the GOODS: a genuine reseller can impersonate a brand's
-     * official store, and a fake shop can sell real stock.
-     */
-    impersonation: 'integrity.impersonation',
+  /**
+   * A shop pretending to be a brand it is not. Distinct from `counterfeit`,
+   * which is about the GOODS: a genuine reseller can impersonate a brand's
+   * official store, and a fake shop can sell real stock.
+   */
+  impersonation: 'integrity.impersonation',
 
-    spam: 'integrity.spam',
+  spam: 'integrity.spam',
 
-    /**
-     * The concrete way hateful material shows up in a catalogue: a slur in a
-     * title, a description or a shop name.
-     *
-     * A reporter's category is an ALLEGATION, not a finding — the jury classifies
-     * the material itself and may land anywhere in the `hate` or `harassment`
-     * family, or nowhere. The category only has to route the case honestly, which
-     * is also why there is no vague "offensive content" option: it would map to
-     * nothing real, and inventing a generic code to receive it would put a claim
-     * in front of a jury that the baseline taxonomy does not define.
-     */
-    hateful_content: 'hate.slur',
+  /**
+   * The concrete way hateful material shows up in a catalogue: a slur in a
+   * title, a description or a shop name.
+   *
+   * A reporter's category is an ALLEGATION, not a finding — the jury classifies
+   * the material itself and may land anywhere in the `hate` or `harassment`
+   * family, or nowhere. The category only has to route the case honestly, which
+   * is also why there is no vague "offensive content" option: it would map to
+   * nothing real, and inventing a generic code to receive it would put a claim
+   * in front of a jury that the baseline taxonomy does not define.
+   */
+  hateful_content: 'hate.slur',
 
-    /**
-     * "Something else." Mapped to the open catch-all rather than guessed at: a
-     * reporter who declined to classify has told us they do not know, and picking
-     * a specific code on their behalf would put a claim in front of a jury that
-     * nobody actually made. Their own words travel as `details`.
-     */
-    other: 'other.unclassifiable',
-  });
+  /**
+   * "Something else." Mapped to the open catch-all rather than guessed at: a
+   * reporter who declined to classify has told us they do not know, and picking
+   * a specific code on their behalf would put a claim in front of a jury that
+   * nobody actually made. Their own words travel as `details`.
+   */
+  other: 'other.unclassifiable',
+});
 
 /**
  * The allegations a report carries, deduped and SORTED.
@@ -93,9 +92,7 @@ const CATEGORY_TO_TAXONOMY: Readonly<Record<AbuseReportCategory, TaxonomyCode>> 
  * allegation, so a shopper ticking both "counterfeit" and "misleading" does not
  * allege the same thing twice.
  */
-export function toTaxonomyCodes(
-  categories: readonly AbuseReportCategory[],
-): TaxonomyCode[] {
+export function toTaxonomyCodes(categories: readonly AbuseReportCategory[]): TaxonomyCode[] {
   const codes = new Set<TaxonomyCode>();
   for (const category of categories) {
     const code = CATEGORY_TO_TAXONOMY[category];

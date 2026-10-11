@@ -96,10 +96,7 @@ export async function findAttributionById(
   db: DatabaseOrTransaction,
   id: string,
 ): Promise<ReferralAttributionRow | undefined> {
-  const [row] = await db
-    .select()
-    .from(referralAttributions)
-    .where(eq(referralAttributions.id, id));
+  const [row] = await db.select().from(referralAttributions).where(eq(referralAttributions.id, id));
   return row;
 }
 

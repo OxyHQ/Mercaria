@@ -70,10 +70,7 @@ export async function runVendorBrandCandidatesPage(
 
 type Candidate = Awaited<ReturnType<typeof extractVendorBrandCandidates>>['candidates'][number];
 
-async function verdictFor(
-  context: StageContext,
-  candidate: Candidate,
-): Promise<SubjectVerdict> {
+async function verdictFor(context: StageContext, candidate: Candidate): Promise<SubjectVerdict> {
   const forms = candidate.displayForms.join(' | ');
   if (candidate.ambiguous) {
     return {

@@ -203,7 +203,10 @@ export async function findNavigationTreeById(
   db: DatabaseOrTransaction,
   id: string,
 ): Promise<NavigationTreeRow | undefined> {
-  const [row] = await db.select(TREE_COLUMNS).from(navigationTrees).where(eq(navigationTrees.id, id));
+  const [row] = await db
+    .select(TREE_COLUMNS)
+    .from(navigationTrees)
+    .where(eq(navigationTrees.id, id));
   return row;
 }
 

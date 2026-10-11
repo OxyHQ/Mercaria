@@ -58,13 +58,24 @@ function visit(
     const primitives = value.filter(isPrimitive);
     if (primitives.length === value.length) {
       if (value.length > 0 && path !== '') {
-        addRawField(fields, path, primitives.map(renderPrimitive).join(listSeparator), listSeparator);
+        addRawField(
+          fields,
+          path,
+          primitives.map(renderPrimitive).join(listSeparator),
+          listSeparator,
+        );
       }
       return;
     }
     if (depth >= MAX_FLATTEN_DEPTH) return;
     for (let position = 0; position < value.length; position += 1) {
-      visit(value[position], path === '' ? String(position) : `${path}.${position}`, fields, listSeparator, depth + 1);
+      visit(
+        value[position],
+        path === '' ? String(position) : `${path}.${position}`,
+        fields,
+        listSeparator,
+        depth + 1,
+      );
     }
     return;
   }

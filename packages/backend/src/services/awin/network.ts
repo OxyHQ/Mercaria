@@ -33,13 +33,13 @@ import {
   type AwinNetworkBudget,
 } from '../../db/awin/awinNetworkLeaseRepository.js';
 import { FeedImportRefusal } from '../feed-import/errors.js';
-import { openFeedStream, type FeedFetchOutcome, type FeedValidators } from '../feed-import/fetch.js';
-import { boundedBytes, type FeedByteMeter } from '../feed-import/bytes.js';
 import {
-  AWIN_FEED_LIST_MAX_BYTES,
-  awinFeedDownloadUrl,
-  awinFeedListUrl,
-} from './constants.js';
+  openFeedStream,
+  type FeedFetchOutcome,
+  type FeedValidators,
+} from '../feed-import/fetch.js';
+import { boundedBytes, type FeedByteMeter } from '../feed-import/bytes.js';
+import { AWIN_FEED_LIST_MAX_BYTES, awinFeedDownloadUrl, awinFeedListUrl } from './constants.js';
 import { readAwinFeedList, type AwinFeedListResult } from './feed-list.js';
 import { resolveAwinCredential } from './credential.js';
 import type { AwinFeedColumn } from '@mercaria/shared-types';
@@ -73,7 +73,7 @@ export async function withAwinNetworkLease<T>(
       'upstream_status',
       claim.reason === 'rate_limited'
         ? 'Mercaria has spent this publisher account’s per-minute allowance for Awin; the call ' +
-          'was not made. The pass retries from where it stopped.'
+            'was not made. The pass retries from where it stopped.'
         : 'Every concurrency slot for this publisher account is busy; the call was not made.',
       { retryable: true },
     );
@@ -137,9 +137,7 @@ export async function fetchAwinFeedList(input: {
 
     try {
       const meter: FeedByteMeter = { compressedBytes: 0, decompressedBytes: 0 };
-      return await readAwinFeedList(
-        boundedBytes(outcome.bytes, AWIN_FEED_LIST_MAX_BYTES, meter),
-      );
+      return await readAwinFeedList(boundedBytes(outcome.bytes, AWIN_FEED_LIST_MAX_BYTES, meter));
     } finally {
       // Every branch, including a refusal mid-stream: a socket left open holds a
       // connection to Awin until the process exits.

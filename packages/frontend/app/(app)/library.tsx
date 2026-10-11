@@ -75,7 +75,9 @@ export default function DigitalLibraryScreen() {
         ) : source.kind === 'unavailable' ? (
           <DigitalSurfaceNotice reason={source.reason} />
         ) : source.value.rights.length === 0 ? (
-          <Text className="text-shop-bodySmall text-text-tertiary">{t('digital.library.empty')}</Text>
+          <Text className="text-shop-bodySmall text-text-tertiary">
+            {t('digital.library.empty')}
+          </Text>
         ) : (
           <View className="gap-space-12">
             {source.value.rights.map((right) => (
@@ -111,7 +113,9 @@ function SignedOutInvitation() {
   const { t } = useTranslation();
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
-      <Text className="text-shop-bodyTitleSmall text-text">{t('digital.library.signedOut.title')}</Text>
+      <Text className="text-shop-bodyTitleSmall text-text">
+        {t('digital.library.signedOut.title')}
+      </Text>
       <Text className="text-shop-bodySmall text-text-secondary">
         {t('digital.library.signedOut.body')}
       </Text>

@@ -157,7 +157,8 @@ const WALLS: readonly Wall[] = [
   },
   {
     name: 'the offer, listing and cart layers (#122 mixed carts 5–6)',
-    pattern: /from\s+['"][^'"]*(db\/offers|schema\/offers|services\/offers|cart\.service|cart-merge|catalog-write)[^'"]*['"]/,
+    pattern:
+      /from\s+['"][^'"]*(db\/offers|schema\/offers|services\/offers|cart\.service|cart-merge|catalog-write)[^'"]*['"]/,
   },
   {
     name: 'FX conversion (#120 owns every conversion in the retail money path)',
@@ -267,14 +268,20 @@ describe('supplier preflight isolation (static)', () => {
 
     // And the neighbours the pattern must NOT drag in, or these walls fire at
     // whoever edits #124 or #118.
-    assertEachOf([
-      'services/supplier-orders/submission.service.ts',
-      'db/procurement/supplierRepository.ts',
-      'routes/supplier-webhook.ts',
-    ], 3, (foreign) => {
-      expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
-      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
-    });
+    assertEachOf(
+      [
+        'services/supplier-orders/submission.service.ts',
+        'db/procurement/supplierRepository.ts',
+        'routes/supplier-webhook.ts',
+      ],
+      3,
+      (foreign) => {
+        expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(
+          false,
+        );
+        expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+      },
+    );
   });
 
   for (const wall of WALLS) {

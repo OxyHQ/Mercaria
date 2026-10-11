@@ -511,8 +511,10 @@ describe('sweepFacetScopes', () => {
   it('reports the domain reasons behind the bare scopes, as counts', async () => {
     const result = await withFixture((tx) => sweepSubtree(tx));
 
-    expect(result.emptyReasons.length, 'no reason was reported for three bare rails')
-      .toBeGreaterThan(0);
+    expect(
+      result.emptyReasons.length,
+      'no reason was reported for three bare rails',
+    ).toBeGreaterThan(0);
     for (const bucket of result.emptyReasons) {
       expect(FACET_SUPPRESSION_REASONS).toContain(bucket.reason);
       // Per SCOPE, so no reason can exceed the number of bare scopes. A count
@@ -580,8 +582,10 @@ describe('sweepFacetScopes', () => {
     // oldest corner of the taxonomy: `order by id limit n` is deterministic too
     // and would return one signature for every seed.
     const signatures = new Set(drawn.across.map(signature));
-    expect(signatures.size, 'every seed drew the same scopes — is the draw hash-ordered?')
-      .toBeGreaterThan(1);
+    expect(
+      signatures.size,
+      'every seed drew the same scopes — is the draw hash-ordered?',
+    ).toBeGreaterThan(1);
   });
 
   it('holds its identities on an unscoped sweep of the whole catalogue', async () => {
@@ -593,8 +597,10 @@ describe('sweepFacetScopes', () => {
     // it is exercised here. Only identities and bounds are asserted: the
     // whole-catalogue population is a fact about what every parallel file is
     // doing, and an absolute count would be a test of them.
-    expect(result.population, 'this file alone contributes five eligible categories')
-      .toBeGreaterThanOrEqual(ELIGIBLE.length);
+    expect(
+      result.population,
+      'this file alone contributes five eligible categories',
+    ).toBeGreaterThanOrEqual(ELIGIBLE.length);
     expect(result.drawn).toBe(2);
     expect(result.drawn).toBeLessThanOrEqual(result.population);
     expect(result.sampled).toBe(result.empty + result.populated);

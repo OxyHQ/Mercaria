@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   activateFeedVersion,
   createFeed,
@@ -17,8 +17,8 @@ import {
   type FeedReport,
   type FeedStatus,
   type FeedVersion,
-} from "../api/feeds";
-import { queryKeys } from "../queryKeys";
+} from '../api/feeds';
+import { queryKeys } from '../queryKeys';
 
 /**
  * Invalidate a feed's own views after a write.
@@ -90,8 +90,7 @@ export function useCreateFeed(storeId: string) {
 export function useDraftFeedVersion(storeId: string, configurationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: DraftFeedVersionInput) =>
-      draftFeedVersion(storeId, configurationId, input),
+    mutationFn: (input: DraftFeedVersionInput) => draftFeedVersion(storeId, configurationId, input),
     onSuccess: () => invalidateFeed(queryClient, storeId, configurationId),
   });
 }

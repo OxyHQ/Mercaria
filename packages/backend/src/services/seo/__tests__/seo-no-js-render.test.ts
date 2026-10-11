@@ -68,7 +68,11 @@ function shellHead(): string {
   // The shell's own WebApplication node, as the browser receives it.
   tags.push(
     '<script type="application/ld+json">' +
-      JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebApplication', name: 'Mercaria' }) +
+      JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebApplication',
+        name: 'Mercaria',
+      }) +
       '</script>',
   );
   return tags.join('\n    ');
@@ -158,7 +162,9 @@ describe('rendering one product page without JavaScript', () => {
   });
 
   it('carries the robots directive', () => {
-    expect(rendered).toContain('<meta name="robots" content="index,follow,max-image-preview:large">');
+    expect(rendered).toContain(
+      '<meta name="robots" content="index,follow,max-image-preview:large">',
+    );
   });
 
   it('carries the page’s Open Graph facts and none of the shell’s', () => {
@@ -174,9 +180,7 @@ describe('rendering one product page without JavaScript', () => {
 
   it('carries exactly the structured data the document composed', () => {
     const blocks = [
-      ...rendered.matchAll(
-        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/gu,
-      ),
+      ...rendered.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/gu),
     ];
     expect(blocks).toHaveLength(productDocument().structuredData.length);
     const types = blocks.map((block) => JSON.parse(block[1] ?? '{}')['@type']);
@@ -276,9 +280,9 @@ describe('which requests the worker pays for a lookup on', () => {
   });
 
   it('refuses a static asset and a non-GET method', () => {
-    expect(isDocumentRequest(htmlRequest('/_expo/static/js/web/a.js'), '/_expo/static/js/web/a.js')).toBe(
-      false,
-    );
+    expect(
+      isDocumentRequest(htmlRequest('/_expo/static/js/web/a.js'), '/_expo/static/js/web/a.js'),
+    ).toBe(false);
     expect(isDocumentRequest(htmlRequest('/p/x', { method: 'POST' }), '/p/x')).toBe(false);
   });
 });

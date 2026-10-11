@@ -41,7 +41,11 @@ export function productRef(id: string): MercariaProductRef {
 
 /** A variant (purchase option) ref. Throws {@link MercariaValidationError} for an empty id. */
 export function variantRef(productId: string, variantId: string): MercariaVariantRef {
-  return build(MercariaVariantRefSchema, { kind: 'variant', productId, variantId }, 'product id and variant id');
+  return build(
+    MercariaVariantRefSchema,
+    { kind: 'variant', productId, variantId },
+    'product id and variant id',
+  );
 }
 
 /** A store ref. Throws {@link MercariaValidationError} for an empty id. */
@@ -137,7 +141,9 @@ export function parseMercariaRefString(value: unknown): MercariaRef | null {
     if (parts.length !== 4) return null;
     const productId = decodeCanonical(parts[2] ?? '');
     const variantId = decodeCanonical(parts[3] ?? '');
-    return productId === null || variantId === null ? null : parseMercariaRef({ kind: 'variant', productId, variantId });
+    return productId === null || variantId === null
+      ? null
+      : parseMercariaRef({ kind: 'variant', productId, variantId });
   }
   if (kind === 'product' || kind === 'store' || kind === 'collection' || kind === 'location') {
     if (parts.length !== 3) return null;

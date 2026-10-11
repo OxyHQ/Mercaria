@@ -195,9 +195,18 @@ export const referralProgramDraftSchema = z
     eligiblePartnerTypes: z.array(z.enum(tuple(REFERRAL_PARTNER_OWNER_TYPES))).min(1),
     eligibleSubjectKinds: z.array(z.enum(tuple(REFERRAL_SUBJECT_KINDS))).min(1),
     markets: marketList.optional(),
-    currencies: z.array(z.enum(tuple(ALL_CURRENCY_CODES))).max(50).optional(),
-    channels: z.array(z.enum(tuple(REFERRAL_CHANNELS))).max(10).optional(),
-    commercialModes: z.array(z.enum(tuple(REFERRAL_COMMERCIAL_MODES))).max(10).optional(),
+    currencies: z
+      .array(z.enum(tuple(ALL_CURRENCY_CODES)))
+      .max(50)
+      .optional(),
+    channels: z
+      .array(z.enum(tuple(REFERRAL_CHANNELS)))
+      .max(10)
+      .optional(),
+    commercialModes: z
+      .array(z.enum(tuple(REFERRAL_COMMERCIAL_MODES)))
+      .max(10)
+      .optional(),
     attributionWindowDays: z.number().int().positive().max(3650),
     activationWindowDays: z.number().int().positive().max(3650).optional(),
     qualifyingEventPolicy: z.enum(tuple(REFERRAL_CONVERSION_TYPES)),

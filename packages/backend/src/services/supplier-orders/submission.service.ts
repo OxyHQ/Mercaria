@@ -140,7 +140,9 @@ export async function submitPurchaseOrderToSupplier(
 
   const lines = await findPurchaseOrderLines(purchaseOrderId);
   if (lines.length === 0) {
-    throw new Error(`submitPurchaseOrderToSupplier: purchase order ${purchaseOrderId} has no lines`);
+    throw new Error(
+      `submitPurchaseOrderToSupplier: purchase order ${purchaseOrderId} has no lines`,
+    );
   }
   const draft = composeSupplierOrderDraft(purchaseOrder, lines);
   const requestHash = digestSupplierOrderRequest(draft);
@@ -167,7 +169,11 @@ export async function submitPurchaseOrderToSupplier(
   // Step 5. The comparison happens in SQL against the digest of what was
   // actually sent, so "differs" is a fact rather than a claim.
   if (
-    await supplierOrderRequestDiffersFromPrior({ purchaseOrderId, operation: 'submit', requestHash })
+    await supplierOrderRequestDiffersFromPrior({
+      purchaseOrderId,
+      operation: 'submit',
+      requestHash,
+    })
   ) {
     await raiseProcurementExceptionFor({
       kind: 'cost_mismatch',
@@ -188,7 +194,9 @@ export async function submitPurchaseOrderToSupplier(
     providerObjectIdOf: (answer) => answer.externalOrderId,
     invoke: async ({ adapter, providerAccountId, environment, credential, timeoutMs }) => {
       if (!adapter.submitOrder) {
-        throw new Error(`adapter ${adapter.provider} declares order_draft_submission with no method`);
+        throw new Error(
+          `adapter ${adapter.provider} declares order_draft_submission with no method`,
+        );
       }
       return await adapter.submitOrder({
         providerAccountId,
@@ -288,7 +296,10 @@ async function convergeAmbiguousSubmission(
         'supplier order',
       flagOperator: true,
     });
-    return { outcome: 'resolved', result: { outcome: 'refused', purchaseOrderId: purchaseOrder.id, reason: 'unconverged' } };
+    return {
+      outcome: 'resolved',
+      result: { outcome: 'refused', purchaseOrderId: purchaseOrder.id, reason: 'unconverged' },
+    };
   }
   if (call.outcome !== 'succeeded') {
     // The lookup itself failed. The ambiguity stands and the outbox retries;
@@ -309,12 +320,20 @@ async function convergeAmbiguousSubmission(
     return { outcome: 'not_found' };
   }
 
-  const applied = await applySubmissionAnswer(purchaseOrder, call.answer, call.adapter.capabilities);
+  const applied = await applySubmissionAnswer(
+    purchaseOrder,
+    call.answer,
+    call.adapter.capabilities,
+  );
   return {
     outcome: 'resolved',
     result:
       applied.outcome === 'submitted'
-        ? { outcome: 'converged', purchaseOrderId: purchaseOrder.id, externalOrderId: applied.externalOrderId }
+        ? {
+            outcome: 'converged',
+            purchaseOrderId: purchaseOrder.id,
+            externalOrderId: applied.externalOrderId,
+          }
         : applied,
   };
 }
@@ -361,7 +380,11 @@ async function applySubmissionAnswer(
           detail: 'the provider returned a second, different order id for this purchase order',
           flagOperator: true,
         });
-        return { outcome: 'refused', purchaseOrderId: purchaseOrder.id, reason: 'duplicate_external_order' };
+        return {
+          outcome: 'refused',
+          purchaseOrderId: purchaseOrder.id,
+          reason: 'duplicate_external_order',
+        };
       }
     }
   }
@@ -373,7 +396,11 @@ async function applySubmissionAnswer(
       ...(applied.providerMessage ? { supplierNote: applied.providerMessage } : {}),
     });
     await announceRejected(purchaseOrder.id);
-    return { outcome: 'rejected', purchaseOrderId: purchaseOrder.id, reason: applied.reasonCode ?? 'supplier_error' };
+    return {
+      outcome: 'rejected',
+      purchaseOrderId: purchaseOrder.id,
+      reason: applied.reasonCode ?? 'supplier_error',
+    };
   }
 
   if (applied.state === 'accepted' || applied.state === 'partially_accepted') {

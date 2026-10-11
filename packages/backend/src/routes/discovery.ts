@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { DISCOVERY_SIGNALS, type DiscoveryScope, type DiscoverySignal } from '@mercaria/shared-types';
+import {
+  DISCOVERY_SIGNALS,
+  type DiscoveryScope,
+  type DiscoverySignal,
+} from '@mercaria/shared-types';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { validateQuery } from '../middleware/validate.js';
@@ -89,7 +93,9 @@ const SIGNAL_VALUES = DISCOVERY_SIGNALS as readonly [DiscoverySignal, ...Discove
  */
 const discoverySignalScopeSchema = scopeSchema.refine(
   (scope): scope is Exclude<DiscoveryScope, { kind: 'deals' }> => scope.kind !== 'deals',
-  { message: 'scope must be "root" or "category:<handle>" — deals has no per-signal shelf to page' },
+  {
+    message: 'scope must be "root" or "category:<handle>" — deals has no per-signal shelf to page',
+  },
 );
 
 /**

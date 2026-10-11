@@ -61,9 +61,7 @@ import { findProcurementOfferById } from '../../db/procurement/procurementOfferR
 import { log } from '../../lib/logger.js';
 import type { CommerceActor } from '../commerce-actor.js';
 import { getRetailEligibility } from '../retail-eligibility/retail-eligibility.service.js';
-import {
-  RETAIL_ELIGIBILITY_POLICY_KEY,
-} from '../retail-eligibility/retail-eligibility.service.js';
+import { RETAIL_ELIGIBILITY_POLICY_KEY } from '../retail-eligibility/retail-eligibility.service.js';
 import { composeRetailCostQuote } from '../retail-pricing/retail-cost-quote.service.js';
 import { lockRetailCostQuote } from '../retail-pricing/retail-cost-quote.service.js';
 import {
@@ -715,7 +713,8 @@ function composeIntents<TLine>(
     .sort(([left], [right]) => (left < right ? -1 : 1))
     .map(([supplierId, supplierLines]) => {
       const [first] = supplierLines;
-      if (!first) throw new Error(`Retail intent for supplier ${supplierId} was built with no lines`);
+      if (!first)
+        throw new Error(`Retail intent for supplier ${supplierId} was built with no lines`);
       const supplierCurrency = first.supplierLineTotal.currency;
       let supplierCost = 0;
       let buyerLocked = 0;
@@ -813,7 +812,12 @@ function buildSourceCosts(input: {
   };
   const costs = [];
   if (input.quote.unitCostAmount !== null) {
-    costs.push({ ...base, kind: 'supplier_item' as const, amount: input.quote.unitCostAmount, perUnit: true });
+    costs.push({
+      ...base,
+      kind: 'supplier_item' as const,
+      amount: input.quote.unitCostAmount,
+      perUnit: true,
+    });
   }
   if (input.quote.supplierFeesAmount !== null && input.quote.supplierFeesAmount > 0) {
     costs.push({

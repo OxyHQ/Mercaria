@@ -28,8 +28,9 @@ describe('persisted marketplace image URLs', () => {
 
   it('uses the configured resolver namespace rather than hardcoding a cloud host', () => {
     const resolve = vi.fn((id: string) => `https://assets.example.test/media/${id}`);
-    expect(resolveStoredImageUrl('https://assets.example.test/media/file-1', resolve))
-      .toBe('https://assets.example.test/media/file-1');
+    expect(resolveStoredImageUrl('https://assets.example.test/media/file-1', resolve)).toBe(
+      'https://assets.example.test/media/file-1',
+    );
     expect(resolve).toHaveBeenCalledWith('file-1', undefined);
     expect(resolveStoredImageUrl('https://cloud.oxy.so/file-1', resolve)).toBeUndefined();
   });
@@ -40,25 +41,31 @@ describe('persisted marketplace image URLs', () => {
   });
 });
 
-
 describe('catalog image IDs', () => {
   it('resolves the ID with the requested rendition instead of the legacy URL', () => {
     const resolver = vi.fn(resolveImage);
-    expect(resolveCatalogImage('new-file', 'https://supplier.example/photo.jpg', resolver, 'thumb'))
-      .toBe('https://cloud.oxy.so/new-file?variant=thumb');
+    expect(
+      resolveCatalogImage('new-file', 'https://supplier.example/photo.jpg', resolver, 'thumb'),
+    ).toBe('https://cloud.oxy.so/new-file?variant=thumb');
     expect(resolver).toHaveBeenCalledWith('new-file', 'thumb');
   });
 
   it.each(['', 'https://cloud.oxy.so/file-1', 'https://supplier.example/photo.jpg', '/photo.jpg'])(
-    'refuses a malformed present ID even when the old URL is valid: %s', (fileId) => {
+    'refuses a malformed present ID even when the old URL is valid: %s',
+    (fileId) => {
       const resolver = vi.fn(resolveImage);
       expect(resolveCatalogImage(fileId, resolveImage('old-file'), resolver)).toBeUndefined();
       expect(resolver).not.toHaveBeenCalled();
-    });
+    },
+  );
 
   it('supports old persisted DTOs only within the current resolver namespace', () => {
-    expect(resolveCatalogImage(undefined, resolveImage('old-file'), resolveImage)).toBe(resolveImage('old-file'));
-    expect(resolveCatalogImage(undefined, 'https://supplier.example/photo.jpg', resolveImage)).toBeUndefined();
+    expect(resolveCatalogImage(undefined, resolveImage('old-file'), resolveImage)).toBe(
+      resolveImage('old-file'),
+    );
+    expect(
+      resolveCatalogImage(undefined, 'https://supplier.example/photo.jpg', resolveImage),
+    ).toBeUndefined();
   });
 
   it('withholds an ID when its provider or rendition is unavailable', () => {

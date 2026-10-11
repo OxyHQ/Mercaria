@@ -32,7 +32,11 @@ import { sql } from 'drizzle-orm';
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
 import { createDraft, patchDraft, validateStoreDraft } from '../draft.service.js';
-import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
+import {
+  nsCategoryKey,
+  nsKey,
+  type VerticalNamespace,
+} from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
   createTestStore,

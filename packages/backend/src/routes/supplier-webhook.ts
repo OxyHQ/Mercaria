@@ -58,7 +58,10 @@
 
 import express, { Router, type Request, type Response } from 'express';
 import { log } from '../lib/logger.js';
-import { findSupplierAccountById, readCredentialReference } from '../db/procurement/supplierAccountRepository.js';
+import {
+  findSupplierAccountById,
+  readCredentialReference,
+} from '../db/procurement/supplierAccountRepository.js';
 import { readSupplierCredential } from '../services/supplier-orders/credential.port.js';
 import {
   ingestSupplierEvent,
@@ -111,7 +114,9 @@ router.post(
       return;
     }
 
-    const secret = await readSupplierCredential((await readCredentialReference(account.id)) ?? null);
+    const secret = await readSupplierCredential(
+      (await readCredentialReference(account.id)) ?? null,
+    );
     if (secret === null) {
       refuseUnverifiedSupplierCallback({
         provider: account.provider,

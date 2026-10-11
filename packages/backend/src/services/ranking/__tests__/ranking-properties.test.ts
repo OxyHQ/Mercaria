@@ -50,7 +50,14 @@ function ratesFor(base: CurrencyCode): FxRates {
   for (const [code, perFair] of Object.entries(RATE_TABLE)) {
     rates[code] = perFair / perBase;
   }
-  return { base, rates, provider: 'static', asOf: '2026-08-10T12:00:00.000Z', stale: false, ttlSeconds: 60 };
+  return {
+    base,
+    rates,
+    provider: 'static',
+    asOf: '2026-08-10T12:00:00.000Z',
+    stale: false,
+    ttlSeconds: 60,
+  };
 }
 
 const QUOTABLE = Object.keys(RATE_TABLE) as CurrencyCode[];
@@ -80,7 +87,11 @@ describe('property: currency conversion', () => {
     // testing nothing at all.
     expect(uncovered.length).toBeGreaterThan(0);
     for (const code of uncovered) {
-      const converted = convertOfferMoney({ amount: 1_000, currency: code }, 'EUR', ratesFor('EUR'));
+      const converted = convertOfferMoney(
+        { amount: 1_000, currency: code },
+        'EUR',
+        ratesFor('EUR'),
+      );
       expect(converted.known).toBe(false);
       expect(converted.known === false ? converted.reason : undefined).toBe('not_convertible');
     }
@@ -133,7 +144,12 @@ describe('property: missing data', () => {
       const kept = scoredOutcomes.filter((_, position) => position !== index);
       const withUnknown = weightedSignalScore([
         ...kept,
-        { signal: OFFER_RANKING_SIGNALS[index] ?? 'item_price', state: 'unknown', reason: 'not_published', detail: '' },
+        {
+          signal: OFFER_RANKING_SIGNALS[index] ?? 'item_price',
+          state: 'unknown',
+          reason: 'not_published',
+          detail: '',
+        },
       ]);
       expect(withUnknown).toBeCloseTo(weightedSignalScore(kept), 12);
 
@@ -227,9 +243,10 @@ describe('property: ties and ordering', () => {
         intent: 'cheapest',
         viewerLocationProvided: false,
       });
-      expect(ranked.map((entry) => entry.rank), `run ${run}`).toEqual(
-        Array.from({ length: size }, (_, index) => index + 1),
-      );
+      expect(
+        ranked.map((entry) => entry.rank),
+        `run ${run}`,
+      ).toEqual(Array.from({ length: size }, (_, index) => index + 1));
     }
   });
 
@@ -255,9 +272,14 @@ describe('property: ties and ordering', () => {
       const byId = new Map(candidates.map((entry) => [entry.offerId, entry]));
       let seenUnknown = false;
       for (const entry of ranked) {
-        const known = hasKnownTotal(byId.get(entry.offerId)?.facts.total ?? { known: false, missing: [] });
+        const known = hasKnownTotal(
+          byId.get(entry.offerId)?.facts.total ?? { known: false, missing: [] },
+        );
         if (!known) seenUnknown = true;
-        else expect(seenUnknown, `run ${run}: a known total appeared after an unknown one`).toBe(false);
+        else
+          expect(seenUnknown, `run ${run}: a known total appeared after an unknown one`).toBe(
+            false,
+          );
       }
     }
   });

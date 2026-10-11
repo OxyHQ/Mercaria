@@ -34,10 +34,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  LEGACY_OPTION_FORBIDDEN_FOLDS,
-  LEGACY_OPTION_NAME_FOLDS,
-} from '../legacy-resolution.js';
+import { LEGACY_OPTION_FORBIDDEN_FOLDS, LEGACY_OPTION_NAME_FOLDS } from '../legacy-resolution.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -158,8 +155,10 @@ describe('the enumeration itself', () => {
     // scanned; the absolute minimum is what catches a walk that silently found
     // no files at all.
     const files = domainFiles();
-    expect(files.length, 'the domain scan found almost nothing — did the walk work?')
-      .toBeGreaterThanOrEqual(8);
+    expect(
+      files.length,
+      'the domain scan found almost nothing — did the walk work?',
+    ).toBeGreaterThanOrEqual(8);
     for (const file of files) {
       expect(readFileSync(file, 'utf8').length, `${file} is empty`).toBeGreaterThan(200);
     }
@@ -236,14 +235,18 @@ describe('wall 1 — no canonical identity, in either direction', () => {
   });
 
   it('the detector fires on the shape it is hunting', () => {
-    expect(CANONICAL_REFERENCE.test("import { canonicalAttributeValues } from '../schema/x.js';"))
-      .toBe(true);
+    expect(
+      CANONICAL_REFERENCE.test("import { canonicalAttributeValues } from '../schema/x.js';"),
+    ).toBe(true);
     expect(CANONICAL_REFERENCE.test('await db.select().from(canonicalVariants);')).toBe(true);
     // And does NOT fire on the one canonical module the domain legitimately
     // imports: #56's own value folder, which is a pure string function and
     // reaches no canonical table.
-    expect(CANONICAL_REFERENCE.test("import { normalizeOptionValue } from '../canonical/variant-signature.js';"))
-      .toBe(false);
+    expect(
+      CANONICAL_REFERENCE.test(
+        "import { normalizeOptionValue } from '../canonical/variant-signature.js';",
+      ),
+    ).toBe(false);
   });
 });
 
@@ -293,8 +296,9 @@ describe('wall 3 — matrices are sparse', () => {
   it('the detector fires on a generator', () => {
     expect(MATRIX_GENERATOR_REFERENCE.test('const rows = cartesianProduct(axes);')).toBe(true);
     expect(MATRIX_GENERATOR_REFERENCE.test('function expandMatrix(axes) {}')).toBe(true);
-    expect(MATRIX_GENERATOR_REFERENCE.test('const rows = await listVariantAxisAssignments(db, ids);'))
-      .toBe(false);
+    expect(
+      MATRIX_GENERATOR_REFERENCE.test('const rows = await listVariantAxisAssignments(db, ids);'),
+    ).toBe(false);
   });
 });
 
@@ -321,11 +325,15 @@ describe('wall 4 — the legacy option tables are READ, never written', () => {
   });
 
   it('the detector fires on a write and not on a read', () => {
-    expect(LEGACY_OPTION_WRITE_REFERENCE.test('await db.insert(listingOptions).values(rows);'))
-      .toBe(true);
-    expect(LEGACY_OPTION_WRITE_REFERENCE.test('await tx.delete(productVariantOptionValues);'))
-      .toBe(true);
-    expect(LEGACY_OPTION_WRITE_REFERENCE.test('await db.select().from(listingOptions);')).toBe(false);
+    expect(
+      LEGACY_OPTION_WRITE_REFERENCE.test('await db.insert(listingOptions).values(rows);'),
+    ).toBe(true);
+    expect(LEGACY_OPTION_WRITE_REFERENCE.test('await tx.delete(productVariantOptionValues);')).toBe(
+      true,
+    );
+    expect(LEGACY_OPTION_WRITE_REFERENCE.test('await db.select().from(listingOptions);')).toBe(
+      false,
+    );
   });
 });
 
@@ -340,7 +348,9 @@ describe('wall 5 — no ranking, fee or referral reference', () => {
   });
 
   it('the detector fires on the shape it is hunting', () => {
-    expect(COMMERCIAL_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(true);
+    expect(COMMERCIAL_REFERENCE.test("import { rankOffers } from '../ranking/rank.js';")).toBe(
+      true,
+    );
     expect(COMMERCIAL_REFERENCE.test("from '../../db/payments/ledgerRepository.js'")).toBe(false);
     expect(COMMERCIAL_REFERENCE.test("from '../../services/payments/redact.js'")).toBe(true);
   });
@@ -373,20 +383,31 @@ describe('#454: a relative import cannot walk around these detectors', () => {
       COMMERCIAL_REFERENCE.test("import { helper } from '../payments/thing.service.js';"),
       "a module here reaches payments as '../payments/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { helper } from '../../services/payments/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test(
+        "import { helper } from '../../services/payments/thing.service.js';",
+      ),
+    ).toBe(true);
     expect(
       COMMERCIAL_REFERENCE.test("import { helper } from '../fees/thing.service.js';"),
       "a module here reaches fees as '../fees/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { helper } from '../../services/fees/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test("import { helper } from '../../services/fees/thing.service.js';"),
+    ).toBe(true);
     expect(
       COMMERCIAL_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
       "a module here reaches ranking as '../ranking/…' and that must not pass",
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test(
+        "import { helper } from '../../services/ranking/thing.service.js';",
+      ),
+    ).toBe(true);
     // The negative half, or the widening would fire on ordinary imports.
-    expect(COMMERCIAL_REFERENCE.test("import { helper } from '../payments-display/format.js';")).toBe(false);
+    expect(
+      COMMERCIAL_REFERENCE.test("import { helper } from '../payments-display/format.js';"),
+    ).toBe(false);
     expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
-
 });

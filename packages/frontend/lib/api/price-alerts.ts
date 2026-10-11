@@ -53,10 +53,7 @@ export interface CreatePriceAlertRequest {
 }
 
 export async function createPriceAlert(input: CreatePriceAlertRequest): Promise<PriceAlert> {
-  const { data } = await apiClient.post<ApiResponse<{ alert: PriceAlert }>>(
-    '/price-alerts',
-    input,
-  );
+  const { data } = await apiClient.post<ApiResponse<{ alert: PriceAlert }>>('/price-alerts', input);
   return unwrap(data, 'Failed to create that price alert').alert;
 }
 

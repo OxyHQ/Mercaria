@@ -113,7 +113,9 @@ export const merchants = pgTable(
     slug: text().notNull(),
     merchantType: text({ enum: asEnumValues(MERCHANT_TYPES) }),
     description: text(),
-    claimState: text({ enum: asEnumValues(CLAIM_STATES) }).notNull().default('unclaimed'),
+    claimState: text({ enum: asEnumValues(CLAIM_STATES) })
+      .notNull()
+      .default('unclaimed'),
     /** An Oxy account id — no foreign key; Oxy owns identity. Written by #40/#83. */
     claimedByOxyUserId: text(),
     claimedAt: timestamptz(),
@@ -235,10 +237,7 @@ export const merchantDomains = pgTable(
   },
   (t) => [
     checkOneOf('merchant_domains_status_check', t.status, MERCHANT_DOMAIN_STATUSES),
-    check(
-      'merchant_domains_domain_normalized_check',
-      sql`${t.domain} = lower(btrim(${t.domain}))`,
-    ),
+    check('merchant_domains_domain_normalized_check', sql`${t.domain} = lower(btrim(${t.domain}))`),
     // A verification without a time is not a verification anybody can audit.
     check(
       'merchant_domains_verified_state_check',
@@ -384,10 +383,7 @@ export const storefronts = pgTable(
       'storefronts_merged_state_check',
       sql`(${t.status} = 'merged') = (${t.mergedIntoId} is not null)`,
     ),
-    check(
-      'storefronts_domain_normalized_check',
-      sql`${t.domain} = lower(btrim(${t.domain}))`,
-    ),
+    check('storefronts_domain_normalized_check', sql`${t.domain} = lower(btrim(${t.domain}))`),
     check('storefronts_country_check', sql`${t.country} ~ '^[A-Z]{2}$'`),
     check('storefronts_currency_check', sql`${t.currency} ~ '^[A-Z]{3,4}$'`),
     check(
@@ -402,9 +398,7 @@ export const storefronts = pgTable(
         sql`${t.provider} is not null and ${t.externalShopId} is not null and ${t.status} <> 'merged'`,
       ),
     index('storefronts_merchant_id_idx').on(t.merchantId),
-    index('storefronts_domain_idx')
-      .on(t.domain)
-      .where(sql`${t.domain} is not null`),
+    index('storefronts_domain_idx').on(t.domain).where(sql`${t.domain} is not null`),
     // Issue #54 requires a status index; last_seen_at is the order the refresh
     // and staleness surfaces (#68) read it in.
     index('storefronts_status_last_seen_at_idx').on(t.status, t.lastSeenAt.desc()),

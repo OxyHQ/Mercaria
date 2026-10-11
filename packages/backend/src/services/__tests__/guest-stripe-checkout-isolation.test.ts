@@ -159,7 +159,8 @@ const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
  * WORD stops being about the thing it was protecting the moment the word
  * becomes legitimate, and then it is only ever satisfied by rewording.
  */
-const FAIRCOIN_RAIL_CONSTRUCTION = /rail:\s*['"]faircoin['"]|['"]faircoin['"]\s*(?:as const)?\s*,?\s*\/\/\s*provider|PAYMENT_PROVIDER_IDS[^;]*faircoin/;
+const FAIRCOIN_RAIL_CONSTRUCTION =
+  /rail:\s*['"]faircoin['"]|['"]faircoin['"]\s*(?:as const)?\s*,?\s*\/\/\s*provider|PAYMENT_PROVIDER_IDS[^;]*faircoin/;
 
 /**
  * ADR 0006 G4/G5: a guest payment creates NO Stripe Customer and saves NO
@@ -273,17 +274,15 @@ describe('the guest Stripe checkout path cannot reach what it must not', () => {
         'reports the same green as a domain with no violations',
     ).toBeGreaterThanOrEqual(40);
     expect(
-      DURABLE_PAYMENT_PATHS.filter((path) => path.startsWith('backend/src/services/payments/stripe/'))
-        .length,
+      DURABLE_PAYMENT_PATHS.filter((path) =>
+        path.startsWith('backend/src/services/payments/stripe/'),
+      ).length,
       'the Stripe half of the payment domain left the population',
     ).toBeGreaterThanOrEqual(13);
     // The BACKEND half is a deliberate selection and stays EXACT (#448); the
     // CLIENT half is derived and gets a floor, because a count of a derived set
     // is satisfied by that set being wrong in two compensating directions.
-    expect(
-      GUEST_PAYMENT_BACKEND_PATHS.length,
-      'the named backend half changed size',
-    ).toBe(4);
+    expect(GUEST_PAYMENT_BACKEND_PATHS.length, 'the named backend half changed size').toBe(4);
     expect(
       guestPaymentClientPaths().length,
       'the payment-component walk found nothing — a client wall over an empty population reports ' +
@@ -388,10 +387,10 @@ describe('the guest Stripe checkout path cannot reach what it must not', () => {
     expect(STRIPE_CUSTOMER_REFERENCE.test("setup_future_usage: 'off_session',")).toBe(true);
     expect(STRIPE_CUSTOMER_REFERENCE.test('await stripe.customers.create({});')).toBe(true);
     expect(STRIPE_CUSTOMER_REFERENCE.test('customerSessionClientSecret: secret,')).toBe(true);
-    expect(GUEST_CREDENTIAL_REFERENCE.test('metadata: { guestSessionId: actor.guestSessionId }')).toBe(
-      true,
-    );
-    expect(GUEST_CREDENTIAL_REFERENCE.test("metadata: { emailHash: hash }")).toBe(true);
+    expect(
+      GUEST_CREDENTIAL_REFERENCE.test('metadata: { guestSessionId: actor.guestSessionId }'),
+    ).toBe(true);
+    expect(GUEST_CREDENTIAL_REFERENCE.test('metadata: { emailHash: hash }')).toBe(true);
     expect(PROVIDER_IDENTITY_REFERENCE.test('const f = charge.payment_method_details.card;')).toBe(
       true,
     );

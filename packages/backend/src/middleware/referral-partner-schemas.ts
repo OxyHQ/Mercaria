@@ -73,7 +73,9 @@ function tuple<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
 export const referralApplicationSchema = z
   .object({
     displayName: z.string().trim().min(1).max(200).optional(),
-    enrollmentMode: z.enum(tuple(REFERRAL_ENROLLMENT_MODES as readonly ReferralEnrollmentMode[])).optional(),
+    enrollmentMode: z
+      .enum(tuple(REFERRAL_ENROLLMENT_MODES as readonly ReferralEnrollmentMode[]))
+      .optional(),
     programId: z.string().trim().min(1).max(200).optional(),
     promotionMethods: z
       .array(z.enum(tuple(REFERRAL_PROMOTION_METHODS as readonly ReferralPromotionMethod[])))
@@ -84,7 +86,9 @@ export const referralApplicationSchema = z
     // actually for; the CHECK is what holds against a caller that is not this
     // route.
     promotionUrls: z.array(z.string().trim().min(1).max(300)).max(10).optional(),
-    audienceBand: z.enum(tuple(REFERRAL_AUDIENCE_BANDS as readonly ReferralAudienceBand[])).optional(),
+    audienceBand: z
+      .enum(tuple(REFERRAL_AUDIENCE_BANDS as readonly ReferralAudienceBand[]))
+      .optional(),
     markets: z.array(z.string().trim().min(2).max(2)).max(50).optional(),
     prohibitedMethodsAcknowledged: z.boolean().optional(),
     hasRelatedParty: z.boolean().optional(),
@@ -175,9 +179,13 @@ export type ReferralAppealBody = z.infer<typeof referralAppealSchema>;
  */
 export const referralApplicationDecisionSchema = z
   .object({
-    decision: z.enum(tuple(REFERRAL_APPLICATION_DECISIONS as readonly ReferralApplicationDecision[])),
+    decision: z.enum(
+      tuple(REFERRAL_APPLICATION_DECISIONS as readonly ReferralApplicationDecision[]),
+    ),
     rejectionCode: z
-      .enum(tuple(REFERRAL_APPLICATION_REJECTION_CODES as readonly ReferralApplicationRejectionCode[]))
+      .enum(
+        tuple(REFERRAL_APPLICATION_REJECTION_CODES as readonly ReferralApplicationRejectionCode[]),
+      )
       .optional(),
     partnerMessage: z.string().trim().min(1).max(500).optional(),
     reviewerNote: z.string().trim().min(1).max(2_000).optional(),

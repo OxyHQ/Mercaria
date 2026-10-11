@@ -13,9 +13,9 @@
  * the same instant it ends Mercaria's.
  */
 
-import { useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useOxy } from "@oxy.so/services";
+import { useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useOxy } from '@oxy.so/services';
 import {
   MAX_CLAIM_LIST_LIMIT,
   MAX_HOURS_EXCEPTION_LIST_LIMIT,
@@ -30,12 +30,12 @@ import {
   type PlaceUpdateInput,
   type SearchResult,
   type StructuredGeocodeQuery,
-} from "@goway.to/sdk";
-import { GOWAY_API_URL } from "../config";
-import { useTranslation } from "../i18n";
-import { queryKeys } from "../queryKeys";
-import { MERCARIA_STORE_CAPABILITY } from "./place-link";
-import type { CapabilityOperation } from "./place-form";
+} from '@goway.to/sdk';
+import { GOWAY_API_URL } from '../config';
+import { useTranslation } from '../i18n';
+import { queryKeys } from '../queryKeys';
+import { MERCARIA_STORE_CAPABILITY } from './place-link';
+import type { CapabilityOperation } from './place-form';
 
 /** How many search results the place picker shows. */
 const SEARCH_LIMIT = 10;
@@ -60,8 +60,8 @@ export function useGoWayPlace(placeId: string | undefined) {
   const client = useGoWayClient();
   const { locale } = useTranslation();
   return useQuery<Place>({
-    queryKey: queryKeys.goway.place(placeId ?? "", locale),
-    queryFn: () => client.places.get(placeId ?? ""),
+    queryKey: queryKeys.goway.place(placeId ?? '', locale),
+    queryFn: () => client.places.get(placeId ?? ''),
     enabled: Boolean(placeId),
     retry: false,
   });
@@ -74,7 +74,8 @@ export function useGoWaySearch(query: string) {
   const term = query.trim();
   return useQuery<SearchResult[]>({
     queryKey: queryKeys.goway.search(term, locale),
-    queryFn: async ({ signal }) => (await client.search.query({ query: term, limit: SEARCH_LIMIT }, { signal })).items,
+    queryFn: async ({ signal }) =>
+      (await client.search.query({ query: term, limit: SEARCH_LIMIT }, { signal })).items,
     enabled: term.length >= 2,
     retry: false,
   });
@@ -86,7 +87,8 @@ export function useGoWayAddress(query: StructuredGeocodeQuery | null) {
   const { locale } = useTranslation();
   return useQuery<SearchResult[]>({
     queryKey: queryKeys.goway.address(query, locale),
-    queryFn: async ({ signal }) => (await client.geocode.structured({ ...query, limit: SEARCH_LIMIT }, { signal })).items,
+    queryFn: async ({ signal }) =>
+      (await client.geocode.structured({ ...query, limit: SEARCH_LIMIT }, { signal })).items,
     enabled: query !== null,
     retry: false,
   });
@@ -101,12 +103,12 @@ export function useGoWayAddress(query: StructuredGeocodeQuery | null) {
 export function usePlaceClaims(oxyAccountId: string | undefined, placeId: string | undefined) {
   const client = useGoWayClient();
   return useQuery<PlaceClaim[]>({
-    queryKey: queryKeys.goway.placeClaims(oxyAccountId ?? "", placeId ?? ""),
+    queryKey: queryKeys.goway.placeClaims(oxyAccountId ?? '', placeId ?? ''),
     queryFn: async () =>
       (
         await client.claims.list({
-          oxyAccountId: oxyAccountId ?? "",
-          placeId: placeId ?? "",
+          oxyAccountId: oxyAccountId ?? '',
+          placeId: placeId ?? '',
           limit: MAX_CLAIM_LIST_LIMIT,
         })
       ).items,
@@ -119,9 +121,13 @@ export function usePlaceClaims(oxyAccountId: string | undefined, placeId: string
 export function useHoursExceptions(placeId: string | undefined) {
   const client = useGoWayClient();
   return useQuery<PlaceHoursException[]>({
-    queryKey: queryKeys.goway.hoursExceptions(placeId ?? ""),
+    queryKey: queryKeys.goway.hoursExceptions(placeId ?? ''),
     queryFn: async () =>
-      (await client.places.hoursExceptions.list(placeId ?? "", { limit: MAX_HOURS_EXCEPTION_LIST_LIMIT })).items,
+      (
+        await client.places.hoursExceptions.list(placeId ?? '', {
+          limit: MAX_HOURS_EXCEPTION_LIST_LIMIT,
+        })
+      ).items,
     enabled: Boolean(placeId),
     retry: false,
   });
@@ -131,7 +137,7 @@ export function useHoursExceptions(placeId: string | undefined) {
 function useInvalidatePlace() {
   const queryClient = useQueryClient();
   return (placeId: string) => {
-    queryClient.invalidateQueries({ queryKey: ["goway", "place", placeId] });
+    queryClient.invalidateQueries({ queryKey: ['goway', 'place', placeId] });
   };
 }
 
@@ -167,7 +173,7 @@ export function useApplyCapabilityOperations(placeId: string) {
     mutationFn: async (operations: readonly CapabilityOperation[]) => {
       try {
         for (const operation of operations) {
-          if (operation.kind === "put") {
+          if (operation.kind === 'put') {
             await client.places.capabilities.put(placeId, operation.key, operation.assertion);
           } else {
             await client.places.capabilities.delete(placeId, operation.key);
@@ -177,10 +183,13 @@ export function useApplyCapabilityOperations(placeId: string) {
         // A partial failure still changed something. DELETE returns 204: only
         // GoWay can say which weaker assertion is now strongest. Wait for the
         // authoritative read before allowing the editor to acknowledge a draft.
-        await queryClient.invalidateQueries({ queryKey: ["goway", "place", placeId] });
+        await queryClient.invalidateQueries({ queryKey: ['goway', 'place', placeId] });
       }
       const state = queryClient.getQueryState<Place>(queryKeys.goway.place(placeId, locale));
-      return { confirmed: state?.status === "success" && !state.isInvalidated, error: state?.error };
+      return {
+        confirmed: state?.status === 'success' && !state.isInvalidated,
+        error: state?.error,
+      };
     },
   });
 }
@@ -211,7 +220,9 @@ export function useClaimGoWayPlace(placeId: string) {
     mutationFn: (input: { oxyAccountId: string; role: PlaceClaimRole }) =>
       client.places.claims.create(placeId, input),
     onSuccess: (claim) =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.goway.accountClaims(claim.oxyAccountId) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.goway.accountClaims(claim.oxyAccountId),
+      }),
   });
 }
 
@@ -220,7 +231,8 @@ export function useCreateHoursException(placeId: string) {
   const client = useGoWayClient();
   const invalidate = useInvalidatePlace();
   return useMutation({
-    mutationFn: (input: PlaceHoursExceptionInput) => client.places.hoursExceptions.create(placeId, input),
+    mutationFn: (input: PlaceHoursExceptionInput) =>
+      client.places.hoursExceptions.create(placeId, input),
     onSuccess: () => invalidate(placeId),
   });
 }

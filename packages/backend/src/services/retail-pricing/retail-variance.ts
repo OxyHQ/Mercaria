@@ -171,10 +171,7 @@ export function projectRetailAccountingOutputs(
   const currency = input.buyerPayable.currency;
   const entries: RetailAccountingEntry[] = [];
 
-  const push = (
-    output: RetailAccountingEntry['output'],
-    amountMinor: number,
-  ): void => {
+  const push = (output: RetailAccountingEntry['output'], amountMinor: number): void => {
     if (amountMinor === 0) return;
     assertSafeMoneyAmount(amountMinor, `retail.accounting.${output}`);
     entries.push({ output, amount: { amount: amountMinor, currency } });

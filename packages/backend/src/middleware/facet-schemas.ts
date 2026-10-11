@@ -123,7 +123,11 @@ const selectionEntrySchema = z
       return;
     }
     if (entry.origin !== 'commerce') return;
-    if (entry.minMinor !== undefined && entry.maxMinor !== undefined && entry.minMinor > entry.maxMinor) {
+    if (
+      entry.minMinor !== undefined &&
+      entry.maxMinor !== undefined &&
+      entry.minMinor > entry.maxMinor
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'A price bound\u2019s lower end must not exceed its upper end.',
@@ -134,7 +138,10 @@ const selectionEntrySchema = z
     // guessed one would compare raw minor units across currencies.
     if (
       entry.facetKey === 'offer_price' &&
-      !((entry.minMinor !== undefined || entry.maxMinor !== undefined) && entry.currency !== undefined)
+      !(
+        (entry.minMinor !== undefined || entry.maxMinor !== undefined) &&
+        entry.currency !== undefined
+      )
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -206,7 +213,11 @@ export const facetRequestSchema = z
  */
 export interface FacetRequestBody {
   readonly scope:
-    | { readonly kind: 'category'; readonly categoryId: string; readonly includeDescendants?: boolean }
+    | {
+        readonly kind: 'category';
+        readonly categoryId: string;
+        readonly includeDescendants?: boolean;
+      }
     | { readonly kind: 'canonical_products'; readonly canonicalProductIds: string[] };
   readonly selection?: {
     readonly origin: 'attribute' | 'commerce' | 'taxonomy';

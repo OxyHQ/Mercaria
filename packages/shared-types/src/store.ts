@@ -61,7 +61,14 @@ export type StorePermission = (typeof STORE_PERMISSIONS)[number];
  * permissions. The backend asserts at compile time that this tuple is exactly
  * Oxy's, so a role Oxy adds fails `tsc` here instead of resolving to nothing.
  */
-export const STORE_ACCOUNT_ROLES = ['owner', 'admin', 'editor', 'developer', 'billing', 'viewer'] as const;
+export const STORE_ACCOUNT_ROLES = [
+  'owner',
+  'admin',
+  'editor',
+  'developer',
+  'billing',
+  'viewer',
+] as const;
 
 /** The caller's role in the Oxy account that owns a store. */
 export type StoreAccountRole = (typeof STORE_ACCOUNT_ROLES)[number];
@@ -110,7 +117,9 @@ const ADMIN_STORE_PERMISSIONS = STORE_PERMISSIONS.filter((p) => p !== 'store:man
  *   NOT read customers (buyer personal data) or demand analytics (#86 asks for
  *   an explicit grant).
  */
-export const STORE_ROLE_PERMISSIONS: Readonly<Record<StoreAccountRole, readonly StorePermission[]>> = {
+export const STORE_ROLE_PERMISSIONS: Readonly<
+  Record<StoreAccountRole, readonly StorePermission[]>
+> = {
   owner: STORE_PERMISSIONS,
   admin: ADMIN_STORE_PERMISSIONS,
   editor: [
@@ -315,4 +324,3 @@ export interface UpdateStoreSettingsInput {
   notificationSettings?: UpdateStoreNotificationSettingsInput;
   taxSettings?: UpdateTaxSettingsInput;
 }
-

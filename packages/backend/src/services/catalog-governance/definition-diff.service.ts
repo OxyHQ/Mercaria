@@ -22,9 +22,7 @@ import type {
 import { PRODUCT_TYPE_AUTHORING_FLOWS } from '@mercaria/shared-types';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
-import {
-  findProductTypeDefinitionByKeyVersion,
-} from '../../db/productTypes/productTypeRepository.js';
+import { findProductTypeDefinitionByKeyVersion } from '../../db/productTypes/productTypeRepository.js';
 import {
   listProductTypeCategoryScopes,
   listProductTypeFieldGroups,

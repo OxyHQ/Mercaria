@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { resolveVariantImages } from "@mercaria/shared-types";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { resolveVariantImages } from '@mercaria/shared-types';
 import type {
   PaginatedResponse,
   Listing,
@@ -8,7 +8,7 @@ import type {
   CreateStoreProductInput,
   UpdateListingInput,
   CreateStoreProductVariantInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchProducts,
   fetchProduct,
@@ -25,21 +25,34 @@ import {
   fetchVariantLevels,
   setVariantLevelInventory,
   type UpdateVariantInput,
-} from "../api/products";
-import { queryKeys } from "../queryKeys";
+} from '../api/products';
+import { queryKeys } from '../queryKeys';
 
 const PAGE_LIMIT = 20;
 
 /** Paginated product list for a store (search and status filtered before pagination). */
-export function useProducts(storeId: string, page: number, search: string, status: ListingStatus | "all" = "all") {
+export function useProducts(
+  storeId: string,
+  page: number,
+  search: string,
+  status: ListingStatus | 'all' = 'all',
+) {
   return useQuery<PaginatedResponse<Listing>>({
     queryKey: queryKeys.products.list(storeId, page, search, status),
-    queryFn: () => fetchProducts(storeId, { page, limit: PAGE_LIMIT, ...(search ? { search } : {}), ...(status !== "all" ? { status } : {}) }),
+    queryFn: () =>
+      fetchProducts(storeId, {
+        page,
+        limit: PAGE_LIMIT,
+        ...(search ? { search } : {}),
+        ...(status !== 'all' ? { status } : {}),
+      }),
     enabled: Boolean(storeId),
     placeholderData: (previous, query) =>
       query?.queryKey[1] === storeId &&
       (query.queryKey[3] as { search?: string; status?: string })?.search === search &&
-      (query.queryKey[3] as { status?: string })?.status === status ? previous : undefined,
+      (query.queryKey[3] as { status?: string })?.status === status
+        ? previous
+        : undefined,
   });
 }
 
@@ -53,7 +66,12 @@ export function useProduct(storeId: string, productId: string) {
 }
 
 /** Multi-location inventory levels for a variant. */
-export function useVariantLevels(storeId: string, productId: string, variantId: string, enabled = true) {
+export function useVariantLevels(
+  storeId: string,
+  productId: string,
+  variantId: string,
+  enabled = true,
+) {
   return useQuery<InventoryLevelDTO[]>({
     queryKey: queryKeys.products.levels(storeId, productId, variantId),
     queryFn: () => fetchVariantLevels(storeId, productId, variantId),
@@ -62,11 +80,8 @@ export function useVariantLevels(storeId: string, productId: string, variantId: 
 }
 
 /** Invalidate every cached query for a store's products. */
-function invalidateProducts(
-  queryClient: ReturnType<typeof useQueryClient>,
-  storeId: string,
-) {
-  queryClient.invalidateQueries({ queryKey: ["stores", storeId, "products"] });
+function invalidateProducts(queryClient: ReturnType<typeof useQueryClient>, storeId: string) {
+  queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'products'] });
 }
 
 /** Publish a confirmed write before refetching, even after leaving its editor. */
@@ -134,8 +149,7 @@ export function useCreateVariant(storeId: string, productId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: queryKeys.products.write(storeId, productId),
-    mutationFn: (input: CreateStoreProductVariantInput) =>
-      createVariant(storeId, productId, input),
+    mutationFn: (input: CreateStoreProductVariantInput) => createVariant(storeId, productId, input),
     onSuccess: (product) => publishProduct(queryClient, storeId, productId, product),
   });
 }
@@ -201,7 +215,12 @@ export function useSetVariantLevelInventory(storeId: string, productId: string) 
 }
 
 /** Reading the authoring selection needs products:write, just like its PUT. */
-export function useVariantImages(storeId: string, productId: string, variantId: string, enabled: boolean) {
+export function useVariantImages(
+  storeId: string,
+  productId: string,
+  variantId: string,
+  enabled: boolean,
+) {
   return useQuery({
     queryKey: queryKeys.products.images(storeId, productId, variantId),
     queryFn: () => fetchVariantImages(storeId, productId, variantId),
@@ -214,18 +233,34 @@ export function useReplaceVariantImages(storeId: string, productId: string, vari
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: queryKeys.products.write(storeId, productId),
-    mutationFn: (fileIds: readonly string[]) => replaceVariantImages(storeId, productId, variantId, fileIds),
-    onSuccess: async images => {
+    mutationFn: (fileIds: readonly string[]) =>
+      replaceVariantImages(storeId, productId, variantId, fileIds),
+    onSuccess: async (images) => {
       // A focus refetch started before this PUT must not overwrite its result.
-      await queryClient.cancelQueries({ queryKey: queryKeys.products.images(storeId, productId, variantId), exact: true });
-      await queryClient.cancelQueries({ queryKey: queryKeys.products.detail(storeId, productId), exact: true });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.products.images(storeId, productId, variantId),
+        exact: true,
+      });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.products.detail(storeId, productId),
+        exact: true,
+      });
       queryClient.setQueryData(queryKeys.products.images(storeId, productId, variantId), images);
-      queryClient.setQueryData<Listing>(queryKeys.products.detail(storeId, productId), product => product ? {
-        ...product,
-        variants: product.variants.map(variant => variant.id === variantId ? {
-          ...variant, images: resolveVariantImages(images, product.images),
-        } : variant),
-      } : product);
+      queryClient.setQueryData<Listing>(queryKeys.products.detail(storeId, productId), (product) =>
+        product
+          ? {
+              ...product,
+              variants: product.variants.map((variant) =>
+                variant.id === variantId
+                  ? {
+                      ...variant,
+                      images: resolveVariantImages(images, product.images),
+                    }
+                  : variant,
+              ),
+            }
+          : product,
+      );
       invalidateProducts(queryClient, storeId);
     },
   });

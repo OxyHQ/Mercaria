@@ -38,10 +38,7 @@ import {
   REFERRAL_STATE_REQUEST_HEADER,
   type ReferralStateTransport,
 } from '../services/referrals/referral-state.js';
-import {
-  classifyReferralTraffic,
-  INTERNAL_TRAFFIC_HEADER,
-} from '../services/referrals/traffic.js';
+import { classifyReferralTraffic, INTERNAL_TRAFFIC_HEADER } from '../services/referrals/traffic.js';
 
 /**
  * The header a NATIVE client may declare consent on.
@@ -107,7 +104,10 @@ function presentedState(req: Request): string | undefined {
 }
 
 /** The bind context every referral write runs under. */
-function bindContext(req: Request, surface: ReferralClientSurface | undefined): ReferralBindContext {
+function bindContext(
+  req: Request,
+  surface: ReferralClientSurface | undefined,
+): ReferralBindContext {
   const body = req.body as { consent?: string } | undefined;
   return {
     actor: req.commerceActor ?? { kind: 'anonymous' },

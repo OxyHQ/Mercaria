@@ -55,10 +55,7 @@ import type {
 } from '../middleware/attribute-schemas.js';
 
 /** GET /catalog-attributes/definitions — by category, or by key and version. */
-export async function listAttributeDefinitionsHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function listAttributeDefinitionsHandler(req: Request, res: Response): Promise<void> {
   try {
     const query = req.query as { categoryId?: string; key?: string; version?: number };
     const db = getDb();
@@ -162,10 +159,7 @@ function preferredSystem(query: AttributeValuesQuery): MeasurementSystem | null 
  * know — the source's words are served instead, which is the honest fallback:
  * printing the magnitude beside a guessed unit is exactly what #94 forbids.
  */
-export async function getPublicAttributeValuesHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function getPublicAttributeValuesHandler(req: Request, res: Response): Promise<void> {
   try {
     const { entityKind, entityId } = req.params as { entityKind: string; entityId: string };
     if (!isAttributeEntityKind(entityKind)) {
@@ -202,9 +196,7 @@ export async function getPublicAttributeValuesHandler(
         ...(row.normalizedAmountMinor === null
           ? {}
           : { normalizedAmountMinor: row.normalizedAmountMinor }),
-        ...(row.normalizedCurrency === null
-          ? {}
-          : { normalizedCurrency: row.normalizedCurrency }),
+        ...(row.normalizedCurrency === null ? {} : { normalizedCurrency: row.normalizedCurrency }),
         ...(row.componentAxis === null ? {} : { componentAxis: row.componentAxis }),
         position: row.position,
         sourceBacked: true,

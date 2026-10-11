@@ -37,10 +37,7 @@
 import { sql } from 'drizzle-orm';
 import { check, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
-import {
-  DISCOVERY_SUBJECT_TYPES,
-  DISCOVERY_WINDOWS,
-} from '@mercaria/shared-types';
+import { DISCOVERY_SUBJECT_TYPES, DISCOVERY_WINDOWS } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
 
 /** A counted subject, in one scope, over one window. Replaced whole per run. */

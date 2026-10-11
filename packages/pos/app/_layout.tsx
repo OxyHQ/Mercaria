@@ -1,40 +1,37 @@
-import { isOxyFileId } from "@mercaria/shared-types";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { useFonts } from "expo-font";
-import { Slot, Stack } from "expo-router";
-import {
-  preventNativeSplashAutoHide,
-  useHideNativeSplashWhenReady,
-} from "@oxy.so/expo-splash";
-import { useCallback, useEffect } from "react";
-import { OxyProvider, useOxy } from "@oxy.so/services";
-import { BloomProvider } from "@oxy.so/bloom/provider";
-import { OverlayInertBoundary } from "@oxy.so/bloom/portal";
-import { expoRouterScrollAdapter } from "@oxy.so/bloom/scroll/expo-router";
-import { ImageResolverProvider } from "@oxy.so/bloom/image-resolver";
-import * as Linking from "expo-linking";
-import { Platform } from "react-native";
+import { isOxyFileId } from '@mercaria/shared-types';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { useFonts } from 'expo-font';
+import { Slot, Stack } from 'expo-router';
+import { preventNativeSplashAutoHide, useHideNativeSplashWhenReady } from '@oxy.so/expo-splash';
+import { useCallback, useEffect } from 'react';
+import { OxyProvider, useOxy } from '@oxy.so/services';
+import { BloomProvider } from '@oxy.so/bloom/provider';
+import { OverlayInertBoundary } from '@oxy.so/bloom/portal';
+import { expoRouterScrollAdapter } from '@oxy.so/bloom/scroll/expo-router';
+import { ImageResolverProvider } from '@oxy.so/bloom/image-resolver';
+import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
-import { AppErrorBoundary } from "@/components/error-boundary";
-import AppSplashScreen from "@/components/AppSplashScreen";
-import { KeyboardProvider } from "@/lib/keyboard";
-import { SharedUiTranslationProvider, useColorScheme } from "@mercaria/ui";
-import { AppFxProvider } from "@/lib/fx";
-import { setTokenGetter } from "@/lib/api/client";
-import { OXY_CLIENT_ID, OXY_API_URL } from "@/lib/config";
-import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from "@/lib/themePersistence";
-import "react-native-reanimated";
-import "../global.css";
+import { AppErrorBoundary } from '@/components/error-boundary';
+import AppSplashScreen from '@/components/AppSplashScreen';
+import { KeyboardProvider } from '@/lib/keyboard';
+import { SharedUiTranslationProvider, useColorScheme } from '@mercaria/ui';
+import { AppFxProvider } from '@/lib/fx';
+import { setTokenGetter } from '@/lib/api/client';
+import { OXY_CLIENT_ID, OXY_API_URL } from '@/lib/config';
+import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
+import 'react-native-reanimated';
+import '../global.css';
 // Imported at the ROOT for its side effect as much as for the binding: building
 // the i18n store applies the resolved locale (device, then the persisted
 // preference) before the first paint, so no screen renders a frame of English on
 // a device set to another language.
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation } from '@/lib/i18n';
 
-export { ErrorBoundary } from "expo-router";
+export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
-  initialRouteName: "(app)",
+  initialRouteName: '(app)',
 };
 
 // Hold the native OS splash (Oxy family "Instagram, from Meta" pattern): Mercaria's
@@ -44,7 +41,7 @@ export const unstable_settings = {
 // guards `Platform.OS === 'web'`).
 preventNativeSplashAutoHide();
 
-const AUTH_REDIRECT_URI = Linking.createURL("/");
+const AUTH_REDIRECT_URI = Linking.createURL('/');
 
 function AuthSetup({ children }: { children: React.ReactNode }) {
   const { oxyServices } = useOxy();
@@ -57,7 +54,7 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
     (fileId: string, variant?: string): string | undefined => {
       if (!isOxyFileId(fileId)) return undefined;
       const url = oxyServices.assets.publicUrl(fileId, variant);
-      return url && url.startsWith("http") ? url : undefined;
+      return url && url.startsWith('http') ? url : undefined;
     },
     [oxyServices],
   );
@@ -79,7 +76,7 @@ function AppContent() {
             Bloom's AppShell can scroll the DOCUMENT (sticky navigation, scroll
             restoration). A web Stack wraps every scene in a viewport-clamped
             card, which is a scroll container between the root and the shell. */}
-        {Platform.OS === "web" ? (
+        {Platform.OS === 'web' ? (
           <Slot />
         ) : (
           <Stack
@@ -103,9 +100,9 @@ function RootLayout() {
   // below sits above every branch that renders anything.
   const { t, locale } = useTranslation();
   const [loaded, error] = useFonts({
-    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
-    Inter: require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf"),
-    "Inter-Italic": require("../assets/fonts/Inter-Italic-VariableFont_opsz,wght.ttf"),
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Inter: require('../assets/fonts/Inter-VariableFont_opsz,wght.ttf'),
+    'Inter-Italic': require('../assets/fonts/Inter-Italic-VariableFont_opsz,wght.ttf'),
     ...FontAwesome.font,
   });
 
@@ -138,7 +135,7 @@ function RootLayout() {
           persistKey={BLOOM_THEME_PERSIST_KEY}
           storage={BLOOM_THEME_STORAGE}
           fonts={false}
-          onFontsLoading={Platform.OS === "web" ? <AppSplashScreen /> : null}
+          onFontsLoading={Platform.OS === 'web' ? <AppSplashScreen /> : null}
         >
           {/* POS requires login — no anonymous surface. The SDK device-first cold
               boot restores sessions from persisted device credentials; the auth
@@ -146,7 +143,7 @@ function RootLayout() {
           <OxyProvider
             baseURL={OXY_API_URL}
             clientId={OXY_CLIENT_ID}
-            authRedirectUri={Platform.OS !== "web" ? AUTH_REDIRECT_URI : undefined}
+            authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
           >
             <OverlayInertBoundary testID="app-content-boundary">
               <AppContent />

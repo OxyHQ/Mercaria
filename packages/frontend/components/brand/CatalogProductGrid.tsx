@@ -1,11 +1,11 @@
-import { View } from "react-native";
-import { Button } from "@oxy.so/bloom/button";
-import { useRouter } from "expo-router";
-import { useOxy } from "@oxy.so/services";
-import type { CatalogProductBrowsePage } from "@mercaria/shared-types";
-import { CanonicalProductCard, Text } from "@mercaria/ui";
-import * as Skeleton from "@oxy.so/bloom/skeleton";
-import { useTranslation } from "@/lib/i18n";
+import { View } from 'react-native';
+import { Button } from '@oxy.so/bloom/button';
+import { useRouter } from 'expo-router';
+import { useOxy } from '@oxy.so/services';
+import type { CatalogProductBrowsePage } from '@mercaria/shared-types';
+import { CanonicalProductCard, Text } from '@mercaria/ui';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The product grid a brand or a family page renders (#72 product-browse rules).
@@ -51,7 +51,7 @@ export function CatalogProductGrid({
   const products = (pages ?? []).flatMap((page) => page.products);
   // The page-level state, taken from the FIRST page: every page of one browse
   // is computed under the same lever, so a later page cannot disagree.
-  const offersIncluded = pages?.[0]?.offerContext !== "withdrawn";
+  const offersIncluded = pages?.[0]?.offerContext !== 'withdrawn';
 
   if (isLoading) {
     return (
@@ -67,10 +67,10 @@ export function CatalogProductGrid({
     return (
       <Text className="text-sm text-muted-foreground">
         {filtered
-          ? t("brands.grid.emptyFiltered")
+          ? t('brands.grid.emptyFiltered')
           : offersIncluded
-            ? t("brands.grid.empty")
-            : t("brands.grid.emptyPricesWithdrawn")}
+            ? t('brands.grid.empty')
+            : t('brands.grid.emptyPricesWithdrawn')}
       </Text>
     );
   }
@@ -84,19 +84,27 @@ export function CatalogProductGrid({
               product={product}
               offersIncluded={offersIncluded}
               resolveImage={(fileId) => {
-                const url = oxyServices.assets.publicUrl(fileId, "thumb");
-                return url && url.startsWith("http") ? url : undefined;
+                const url = oxyServices.assets.publicUrl(fileId, 'thumb');
+                return url && url.startsWith('http') ? url : undefined;
               }}
               onPress={(canonicalProductId) =>
-                router.push({ pathname: "/p/[handle]", params: { handle: product.slug || canonicalProductId } })
+                router.push({
+                  pathname: '/p/[handle]',
+                  params: { handle: product.slug || canonicalProductId },
+                })
               }
             />
           </View>
         ))}
       </View>
       {hasNextPage ? (
-        <Button appearance="outline" tone="neutral" onPress={onLoadMore} disabled={isFetchingNextPage}>
-          {isFetchingNextPage ? t("brands.grid.loadingMore") : t("brands.grid.showMore")}
+        <Button
+          appearance="outline"
+          tone="neutral"
+          onPress={onLoadMore}
+          disabled={isFetchingNextPage}
+        >
+          {isFetchingNextPage ? t('brands.grid.loadingMore') : t('brands.grid.showMore')}
         </Button>
       ) : null}
     </View>

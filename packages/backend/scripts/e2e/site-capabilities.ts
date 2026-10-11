@@ -33,7 +33,10 @@ function basic(consumerKey: string, consumerSecret: string): string {
 }
 
 /** Read `X-WP-Total` off a `per_page=1` request. Returns -1 when unreadable. */
-async function readTotal(url: string, authorization: string): Promise<{ total: number; totalPages: string | null }> {
+async function readTotal(
+  url: string,
+  authorization: string,
+): Promise<{ total: number; totalPages: string | null }> {
   const response = await fetch(url, { headers: { Authorization: authorization } });
   if (!response.ok) return { total: -1, totalPages: null };
   const raw = response.headers.get('x-wp-total');

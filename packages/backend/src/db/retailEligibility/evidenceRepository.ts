@@ -29,10 +29,7 @@ import type {
   RetailResaleEvidenceKind,
 } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
-import {
-  retailComplianceEvidence,
-  retailResaleEvidence,
-} from '../schema/retailEligibility.js';
+import { retailComplianceEvidence, retailResaleEvidence } from '../schema/retailEligibility.js';
 
 /** One resale-evidence row, whole. */
 export type RetailResaleEvidenceRecord = typeof retailResaleEvidence.$inferSelect;
@@ -205,10 +202,7 @@ export async function revokeRetailResaleEvidence(
       updatedAt: at,
     })
     .where(
-      and(
-        eq(retailResaleEvidence.id, input.id),
-        eq(retailResaleEvidence.reviewState, 'verified'),
-      ),
+      and(eq(retailResaleEvidence.id, input.id), eq(retailResaleEvidence.reviewState, 'verified')),
     )
     .returning();
   return row;
@@ -296,10 +290,7 @@ export async function listRetailComplianceEvidenceForProduct(
     .select()
     .from(retailComplianceEvidence)
     .where(
-      and(
-        eq(retailComplianceEvidence.supplierId, filter.supplierId),
-        or(...subjectPredicates),
-      ),
+      and(eq(retailComplianceEvidence.supplierId, filter.supplierId), or(...subjectPredicates)),
     )
     .orderBy(desc(retailComplianceEvidence.recordedAt));
 }

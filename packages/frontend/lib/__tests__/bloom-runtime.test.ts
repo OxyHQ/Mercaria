@@ -10,8 +10,10 @@ describe('installed Bloom runtime', () => {
       const consumer = createRequire(new URL(`../../../${app}/package.json`, import.meta.url).href);
       const services = createRequire(consumer.resolve('@oxy.so/services'));
       for (const entry of ['@oxy.so/bloom/surfaces', '@oxy.so/bloom/theme']) {
-        expect(realpathSync(services.resolve(entry)), `${app}: ${entry} must be shared with Services`)
-          .toBe(realpathSync(consumer.resolve(entry)));
+        expect(
+          realpathSync(services.resolve(entry)),
+          `${app}: ${entry} must be shared with Services`,
+        ).toBe(realpathSync(consumer.resolve(entry)));
       }
     });
   }

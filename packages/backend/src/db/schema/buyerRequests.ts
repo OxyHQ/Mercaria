@@ -107,12 +107,7 @@ function stateList(states: readonly string[]): string {
  * id, an `operator` carries an Oxy id, and `system` carries neither. Written
  * out per table, the fourth copy is where somebody permits both.
  */
-function actorShapeCheck(
-  name: string,
-  kind: PgColumn,
-  oxyUserId: PgColumn,
-  grantId: PgColumn,
-) {
+function actorShapeCheck(name: string, kind: PgColumn, oxyUserId: PgColumn, grantId: PgColumn) {
   return check(
     name,
     sql`(${kind} = 'oxy' and ${oxyUserId} is not null and ${grantId} is null)
@@ -687,9 +682,7 @@ export const supportThreads = pgTable(
     // the NULL branch because Postgres treats NULLs as distinct, so a plain
     // two-column unique would let a buyer open unlimited order-level threads —
     // the `commerce_relationships` endpoint-key trap, one domain over.
-    uniqueIndex('support_threads_order_key')
-      .on(t.orderId)
-      .where(sql`${t.returnRequestId} is null`),
+    uniqueIndex('support_threads_order_key').on(t.orderId).where(sql`${t.returnRequestId} is null`),
     uniqueIndex('support_threads_return_request_key')
       .on(t.returnRequestId)
       .where(sql`${t.returnRequestId} is not null`),
@@ -740,11 +733,7 @@ export const supportMessages = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf(
-      'support_messages_author_kind_check',
-      t.authorKind,
-      SUPPORT_MESSAGE_AUTHOR_KINDS,
-    ),
+    checkOneOf('support_messages_author_kind_check', t.authorKind, SUPPORT_MESSAGE_AUTHOR_KINDS),
     checkEveryElementOf('support_messages_redactions_check', t.redactions, SUPPORT_REDACTION_KINDS),
     // A seller or an operator is always a named account; a buyer is one or a
     // portal grant. The shape mirrors the request tables' requester CHECK.

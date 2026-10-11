@@ -328,7 +328,10 @@ describe('normalizeWooCommerceProduct', () => {
     expect(rounded[0].price.amount).toBe(2000);
 
     expect(() =>
-      normalizeWooCommerceProduct({ ...simpleProduct, price: 'not-a-price', sale_price: '' }, 'USD'),
+      normalizeWooCommerceProduct(
+        { ...simpleProduct, price: 'not-a-price', sale_price: '' },
+        'USD',
+      ),
     ).toThrow();
   });
 });

@@ -96,9 +96,7 @@ const CART_ROOTS = [
  * walls on the day somebody writes one.
  */
 function cartModulesIn(relative: string, readDir: DirectoryReader = readDirectory): string[] {
-  return walk(relative, readDir).filter((path) =>
-    (path.split('/').pop() ?? '').startsWith('cart'),
-  );
+  return walk(relative, readDir).filter((path) => (path.split('/').pop() ?? '').startsWith('cart'));
 }
 
 /**
@@ -193,11 +191,26 @@ describe('the guest cart path cannot reach the domains it must not', () => {
     // a vacuity floor exists for. The six roots break independently, so one
     // total would let the `services/` derivation collapse to zero while the
     // others carried the number.
-    expect(cartModulesIn('services').length, 'the services derivation found nothing').toBeGreaterThanOrEqual(3);
-    expect(cartModulesIn('controllers').length, 'the controller derivation found nothing').toBeGreaterThanOrEqual(1);
-    expect(cartModulesIn('routes').length, 'the route derivation found nothing').toBeGreaterThanOrEqual(1);
-    expect(cartModulesIn('db/buyers').length, 'the buyer-cart derivation found nothing').toBeGreaterThanOrEqual(1);
-    expect(cartModulesIn('db/guests').length, 'the guest-cart derivation found nothing').toBeGreaterThanOrEqual(1);
+    expect(
+      cartModulesIn('services').length,
+      'the services derivation found nothing',
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      cartModulesIn('controllers').length,
+      'the controller derivation found nothing',
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      cartModulesIn('routes').length,
+      'the route derivation found nothing',
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      cartModulesIn('db/buyers').length,
+      'the buyer-cart derivation found nothing',
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      cartModulesIn('db/guests').length,
+      'the guest-cart derivation found nothing',
+    ).toBeGreaterThanOrEqual(1);
     expect(CART_PATHS.length, 'the cart path derivation found nothing').toBeGreaterThanOrEqual(7);
     for (const path of CART_PATHS) {
       expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
@@ -206,7 +219,9 @@ describe('the guest cart path cannot reach the domains it must not', () => {
     // EXACT: the merge set is an identity, not a predicate (#448).
     expect(MERGE_PATHS.length, 'the merge list changed size').toBe(1);
     for (const path of MERGE_PATHS) {
-      expect(CART_PATHS, `${path} is scanned as the merge but is not in the cart path`).toContain(path);
+      expect(CART_PATHS, `${path} is scanned as the merge but is not in the cart path`).toContain(
+        path,
+      );
     }
     expect(scanned).toBe(CART_PATHS.length);
   });
@@ -249,7 +264,10 @@ describe('the guest cart path cannot reach the domains it must not', () => {
     const planted = 'lib/cart-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'cart-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'cart-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -264,18 +282,22 @@ describe('the guest cart path cannot reach the domains it must not', () => {
     // and the one the plant cannot see, since a plant absent from the real sweep
     // is reported outside a population built FROM that sweep exactly as it is
     // outside a correct one.
-    assertEachOf([
-      'services/checkout.service.ts',
-      'controllers/orders.controller.ts',
-      'db/schema/buyers.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(CART_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'services/checkout.service.ts',
+        'controllers/orders.controller.ts',
+        'db/schema/buyers.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(CART_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
@@ -285,7 +307,10 @@ describe('the guest cart path cannot reach the domains it must not', () => {
       CART_ROOTS.flatMap((r) =>
         cartModulesIn(r, (relative) =>
           relative === root
-            ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+            ? [
+                ...readDirectory(relative),
+                { name: added, isDirectory: () => false, isFile: () => true },
+              ]
             : readDirectory(relative),
         ),
       );
@@ -308,7 +333,10 @@ describe('the guest cart path cannot reach the domains it must not', () => {
       CART_ROOTS.flatMap((r) =>
         cartModulesIn(r, (relative) =>
           relative === 'routes'
-            ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+            ? [
+                ...readDirectory(relative),
+                { name: 'admin', isDirectory: () => true, isFile: () => false },
+              ]
             : relative === 'routes/admin'
               ? [{ name: 'cart-admin.ts', isDirectory: () => false, isFile: () => true }]
               : readDirectory(relative),
@@ -358,7 +386,9 @@ describe('the guest cart path cannot reach the domains it must not', () => {
    * than passing every scan silently.
    */
   it('each detector actually detects (mutation self-test)', () => {
-    expect(PAYMENT_REFERENCE.test("import { createIntent } from './payments/provider.js';")).toBe(true);
+    expect(PAYMENT_REFERENCE.test("import { createIntent } from './payments/provider.js';")).toBe(
+      true,
+    );
     expect(REFERRAL_REFERENCE.test('await recordReferralAttribution(partnerId);')).toBe(true);
     expect(INVENTORY_WRITE_REFERENCE.test('await reserveInventory(variantId, 2);')).toBe(true);
     expect(DISCOUNT_REDEMPTION_REFERENCE.test('await incrementDiscountUsage(codes);')).toBe(true);

@@ -16,9 +16,22 @@
  */
 
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
-import type { OpenDataItem, OpenDataPage, OpenDataPageContext, OpenDataProvider } from '../provider.js';
+import type {
+  OpenDataItem,
+  OpenDataPage,
+  OpenDataPageContext,
+  OpenDataProvider,
+} from '../provider.js';
 import { OpenDataSchemaError } from '../provider.js';
-import { asArray, asNumber, asObject, asText, asTextList, decimalMoney, FactCollector } from '../read.js';
+import {
+  asArray,
+  asNumber,
+  asObject,
+  asText,
+  asTextList,
+  decimalMoney,
+  FactCollector,
+} from '../read.js';
 
 export const GOG_PROVIDER = 'gog_catalog';
 
@@ -106,7 +119,9 @@ async function fetchGogPage(context: OpenDataPageContext): Promise<OpenDataPage>
 /** GOG's `2025.04.16` → `2025-04-16`. */
 function gogDate(value: unknown): string | undefined {
   const text = asText(value);
-  return text !== undefined && /^\d{4}\.\d{2}\.\d{2}$/u.test(text) ? text.replace(/\./gu, '-') : undefined;
+  return text !== undefined && /^\d{4}\.\d{2}\.\d{2}$/u.test(text)
+    ? text.replace(/\./gu, '-')
+    : undefined;
 }
 
 function names(value: unknown): string[] {
@@ -115,7 +130,10 @@ function names(value: unknown): string[] {
     .filter((name): name is string => name !== undefined);
 }
 
-export function toItem(product: Readonly<Record<string, unknown>>, country: string): OpenDataItem | null {
+export function toItem(
+  product: Readonly<Record<string, unknown>>,
+  country: string,
+): OpenDataItem | null {
   const id = asText(product.id);
   const title = asText(product.title);
   const price = asObject(product.price);

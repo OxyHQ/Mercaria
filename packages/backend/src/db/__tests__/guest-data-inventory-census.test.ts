@@ -134,9 +134,7 @@ describe('every guest table is classified exactly once (#111)', () => {
     for (const record of GUEST_DATA_INVENTORY.filter((entry) => entry.tables.length === 0)) {
       expect(record.purpose.length).toBeGreaterThan(60);
     }
-    const notStored = GUEST_DATA_INVENTORY.filter(
-      (record) => record.disposition === 'not_stored',
-    );
+    const notStored = GUEST_DATA_INVENTORY.filter((record) => record.disposition === 'not_stored');
     expect(notStored.map((record) => record.dataClass)).toEqual([
       'provider_customer_wallet_reference',
     ]);
@@ -181,9 +179,7 @@ describe('the census is checked from the two registries, not only from a list (#
     // The two classes nobody may read directly are the throttle evidence and
     // the provider reference. `none` is a real answer and has to be one: a
     // digest exists precisely so no reader ever gets the value.
-    const unreadable = GUEST_DATA_INVENTORY.filter((record) =>
-      record.accessRoles.includes('none'),
-    );
+    const unreadable = GUEST_DATA_INVENTORY.filter((record) => record.accessRoles.includes('none'));
     expect(unreadable.map((record) => record.dataClass).sort()).toEqual([
       'email_verification_and_recovery',
       'provider_customer_wallet_reference',

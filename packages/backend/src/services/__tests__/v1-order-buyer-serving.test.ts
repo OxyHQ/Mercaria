@@ -71,8 +71,8 @@ vi.mock('../commercial-presentation/retail-order.service.js', () => ({
   readRetailOrderExperience: (...args: unknown[]) => readRetailOrderExperience(...args),
 }));
 
-vi.mock('../catalog-hydration.service.js', async original => ({
-  ...await original<typeof import('../catalog-hydration.service.js')>(),
+vi.mock('../catalog-hydration.service.js', async (original) => ({
+  ...(await original<typeof import('../catalog-hydration.service.js')>()),
   resolveMedia: (id: string) => `media:${id}`,
   toStoreSummary: () => ({ id: 'store-1', handle: 'acme', name: 'Acme' }),
 }));
@@ -95,7 +95,11 @@ vi.mock('../../lib/logger.js', () => ({
   log: { general: { warn: vi.fn(), error: vi.fn() } },
 }));
 
-import { hydrateOrders, hydrateOrdersForMerchant, summarizeOrders } from '../order-hydration.service.js';
+import {
+  hydrateOrders,
+  hydrateOrdersForMerchant,
+  summarizeOrders,
+} from '../order-hydration.service.js';
 
 const BUYER = 'oxy-buyer-1';
 const CLAIMANT = 'oxy-claimant-1';
@@ -241,8 +245,9 @@ beforeEach(() => {
   readRetailOrderExperience.mockReset().mockResolvedValue(undefined);
   resolveOrderCommercialPresentations
     .mockReset()
-    .mockImplementation(async (rows: { orderId: string }[]) =>
-      new Map(rows.map((row) => [row.orderId, PRESENTATION])),
+    .mockImplementation(
+      async (rows: { orderId: string }[]) =>
+        new Map(rows.map((row) => [row.orderId, PRESENTATION])),
     );
 });
 
@@ -250,28 +255,62 @@ describe('v1 contract — Order.buyerOxyUserId (read)', () => {
   it('keeps list thumbnails on purchased-line snapshots and isolates orders in one batch', async () => {
     const first = oxyOrder();
     const second = claimedGuestOrder();
-    const item = (orderId: string, title: string, imageUrl: string | null, quantity: number): OrderItemRecord => ({
-      id: uuidv7(), orderId, listingId: 'historical-listing', variantId: 'historical-variant',
-      title, variantTitle: 'At purchase', imageUrl, quantity, optionValues: [],
-      unitPriceShopAmount: 1000, unitPriceShopCurrency: 'FAIR',
-      unitPricePresentmentAmount: 1000, unitPricePresentmentCurrency: 'FAIR',
-      lineTotalShopAmount: 1000 * quantity, lineTotalShopCurrency: 'FAIR',
-      lineTotalPresentmentAmount: 1000 * quantity, lineTotalPresentmentCurrency: 'FAIR',
-      discountTotalShopAmount: null, discountTotalShopCurrency: null,
-      discountTotalPresentmentAmount: null, discountTotalPresentmentCurrency: null,
-      locationId: null, conditionKey: null, conditionAssertion: null, conditionNotes: null,
-      digitalPackageId: null, digitalAssetVersionId: null, digitalLicenceVersionId: null,
-      digitalUpdatePolicy: null, position: 0, createdAt: AT, updatedAt: AT,
+    const item = (
+      orderId: string,
+      title: string,
+      imageUrl: string | null,
+      quantity: number,
+    ): OrderItemRecord => ({
+      id: uuidv7(),
+      orderId,
+      listingId: 'historical-listing',
+      variantId: 'historical-variant',
+      title,
+      variantTitle: 'At purchase',
+      imageUrl,
+      quantity,
+      optionValues: [],
+      unitPriceShopAmount: 1000,
+      unitPriceShopCurrency: 'FAIR',
+      unitPricePresentmentAmount: 1000,
+      unitPricePresentmentCurrency: 'FAIR',
+      lineTotalShopAmount: 1000 * quantity,
+      lineTotalShopCurrency: 'FAIR',
+      lineTotalPresentmentAmount: 1000 * quantity,
+      lineTotalPresentmentCurrency: 'FAIR',
+      discountTotalShopAmount: null,
+      discountTotalShopCurrency: null,
+      discountTotalPresentmentAmount: null,
+      discountTotalPresentmentCurrency: null,
+      locationId: null,
+      conditionKey: null,
+      conditionAssertion: null,
+      conditionNotes: null,
+      digitalPackageId: null,
+      digitalAssetVersionId: null,
+      digitalLicenceVersionId: null,
+      digitalUpdatePolicy: null,
+      position: 0,
+      createdAt: AT,
+      updatedAt: AT,
     });
     const [a, b, empty] = await summarizeOrders([
-      { ...first, items: [item(first.id, 'Original red', 'https://cloud.oxy.so/red', 3),
-        item(first.id, 'Without photograph', null, 1), item(first.id, 'Original blue', 'https://cloud.oxy.so/blue', 2),
-        item(first.id, 'Legacy external photograph', 'https://supplier.example/legacy.jpg', 1)] },
+      {
+        ...first,
+        items: [
+          item(first.id, 'Original red', 'https://cloud.oxy.so/red', 3),
+          item(first.id, 'Without photograph', null, 1),
+          item(first.id, 'Original blue', 'https://cloud.oxy.so/blue', 2),
+          item(first.id, 'Legacy external photograph', 'https://supplier.example/legacy.jpg', 1),
+        ],
+      },
       { ...second, items: [item(second.id, 'Other purchase', 'https://cloud.oxy.so/other', 1)] },
       oxyOrder(),
     ]);
-    expect(a.images).toEqual([{ url: 'https://cloud.oxy.so/red', alt: 'Original red' },
-      { url: 'https://cloud.oxy.so/blue', alt: 'Original blue' }]);
+    expect(a.images).toEqual([
+      { url: 'https://cloud.oxy.so/red', alt: 'Original red' },
+      { url: 'https://cloud.oxy.so/blue', alt: 'Original blue' },
+    ]);
     expect(a.itemCount).toBe(7);
     expect(b.images).toEqual([{ url: 'https://cloud.oxy.so/other', alt: 'Other purchase' }]);
     expect(empty.images).toEqual([]);

@@ -190,7 +190,8 @@ const OPERATIONAL_WRITE_REFERENCE =
   /insertStoreMember|updateStoreMember|deleteStoreMember|inviteMember|removeMember|updateMember\b|insertLocation|adjustInventory|insertCollection|upsertCustomer|insertOrder|transition\(|refund\.service|report\.service/;
 
 /** The follow graph. Mercaria's backend never touches it, and linkage least of all. */
-const FOLLOW_TARGET_REFERENCE = /follows\.ensureTarget|storeFollowUri|STORE_FOLLOW_KIND|followNamespace/;
+const FOLLOW_TARGET_REFERENCE =
+  /follows\.ensureTarget|storeFollowUri|STORE_FOLLOW_KIND|followNamespace/;
 
 function readDomainFile(relative: string): string {
   const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
@@ -245,7 +246,9 @@ describe('no name-only automatic linkage (the issue’s flat prohibition)', () =
       const columns = Object.keys(getTableColumns(table));
       scannedColumns += columns.length;
       expect(
-        columns.filter((column) => /similar|score|confidence|fuzzy|distance|threshold/i.test(column)),
+        columns.filter((column) =>
+          /similar|score|confidence|fuzzy|distance|threshold/i.test(column),
+        ),
         `${tableName} has a similarity-shaped column; a name match would have somewhere to live`,
       ).toEqual([]);
 
@@ -289,7 +292,7 @@ describe('no name-only automatic linkage (the issue’s flat prohibition)', () =
     // Mutation self-test: a broken regex passes every assertion above by
     // matching nothing at all. These are the exact strings the gate exists to
     // catch, and each must be seen.
-    expect(NAME_MATCH_REFERENCE.test("if (store.name === merchant.name) link()")).toBe(true);
+    expect(NAME_MATCH_REFERENCE.test('if (store.name === merchant.name) link()')).toBe(true);
     expect(NAME_MATCH_REFERENCE.test('const s = similarity(a, b)')).toBe(true);
     expect(NAME_MATCH_REFERENCE.test('source: "name_match"')).toBe(true);
     expect(NAME_MATCH_REFERENCE.test('levenshtein(storeHandle, merchantSlug)')).toBe(true);
@@ -369,14 +372,16 @@ describe('linkage materializes offers through #57 and writes none itself', () =>
     // Builder call, both handles: a transaction handle is what a repository
     // writing inside `db.transaction(...)` actually has in scope.
     expect(
-      OFFER_WRITE_REFERENCE.test('await db.update(offers).set({ status: retired }).where(eq(a, b))'),
+      OFFER_WRITE_REFERENCE.test(
+        'await db.update(offers).set({ status: retired }).where(eq(a, b))',
+      ),
     ).toBe(true);
     expect(OFFER_WRITE_REFERENCE.test('await tx.insert(offers).values(row)')).toBe(true);
 
     // Raw SQL, which is how this repository already talks to `offers`.
     expect(
       OFFER_WRITE_REFERENCE.test(
-        'await db.execute(sql`update offers set status = \'retired\' where store_id = ${id}`)',
+        "await db.execute(sql`update offers set status = 'retired' where store_id = ${id}`)",
       ),
     ).toBe(true);
     expect(
@@ -406,11 +411,23 @@ describe('linkage materializes offers through #57 and writes none itself', () =>
     // the two walked directories and the prefix-filtered shared directories.
     const from = (prefix: string) =>
       LINKAGE_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/store-linkage/'), 'the service directory walk found nothing').toBeGreaterThanOrEqual(5);
-    expect(from('db/store-linkage/'), 'the repository directory walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(
+      from('services/store-linkage/'),
+      'the service directory walk found nothing',
+    ).toBeGreaterThanOrEqual(5);
+    expect(
+      from('db/store-linkage/'),
+      'the repository directory walk found nothing',
+    ).toBeGreaterThanOrEqual(1);
     expect(from('routes/'), 'the routes prefix filter found nothing').toBeGreaterThanOrEqual(1);
-    expect(from('controllers/'), 'the controllers prefix filter found nothing').toBeGreaterThanOrEqual(2);
-    expect(from('middleware/'), 'the middleware prefix filter found nothing').toBeGreaterThanOrEqual(1);
+    expect(
+      from('controllers/'),
+      'the controllers prefix filter found nothing',
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      from('middleware/'),
+      'the middleware prefix filter found nothing',
+    ).toBeGreaterThanOrEqual(1);
 
     // No test file may enter the scanned set: a gate scanning its own probes
     // reports violations it wrote itself.

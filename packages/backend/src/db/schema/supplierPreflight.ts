@@ -472,8 +472,16 @@ export const supplierQuotes = pgTable(
       t.importResponsibility,
       SUPPLIER_IMPORT_RESPONSIBILITIES,
     ),
-    checkOneOf('supplier_quotes_price_guarantee_check', t.priceGuarantee, SUPPLIER_QUOTE_GUARANTEES),
-    checkOneOf('supplier_quotes_stock_guarantee_check', t.stockGuarantee, SUPPLIER_QUOTE_GUARANTEES),
+    checkOneOf(
+      'supplier_quotes_price_guarantee_check',
+      t.priceGuarantee,
+      SUPPLIER_QUOTE_GUARANTEES,
+    ),
+    checkOneOf(
+      'supplier_quotes_stock_guarantee_check',
+      t.stockGuarantee,
+      SUPPLIER_QUOTE_GUARANTEES,
+    ),
     checkOneOf('supplier_quotes_status_check', t.status, SUPPLIER_PREFLIGHT_STATUSES),
     checkOneOf(
       'supplier_quotes_exception_kind_check',
@@ -663,9 +671,7 @@ export const supplierQuotes = pgTable(
     index('supplier_quotes_checkout_group_idx')
       .on(t.checkoutGroupId, t.createdAt)
       .where(sql`${t.checkoutGroupId} is not null`),
-    index('supplier_quotes_order_idx')
-      .on(t.orderId)
-      .where(sql`${t.orderId} is not null`),
+    index('supplier_quotes_order_idx').on(t.orderId).where(sql`${t.orderId} is not null`),
     index('supplier_quotes_account_idx').on(t.supplierAccountId, t.createdAt),
     // The operator exception queue: answers a person still has to look at.
     index('supplier_quotes_exception_idx')
@@ -716,11 +722,7 @@ export const supplierQuoteShippingOptions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf(
-      'supplier_quote_shipping_options_basis_check',
-      t.basis,
-      SUPPLIER_SHIPPING_BASES,
-    ),
+    checkOneOf('supplier_quote_shipping_options_basis_check', t.basis, SUPPLIER_SHIPPING_BASES),
     ...currencyChecks('supplier_quote_shipping_options', [t.costCurrency]),
     check(
       'supplier_quote_shipping_options_service_code_check',
@@ -834,10 +836,7 @@ export const supplierReservations = pgTable(
     ),
     check('supplier_reservations_supplier_sku_check', sql`length(${t.supplierSku}) > 0`),
     check('supplier_reservations_quantity_check', sql`${t.quantity} > 0`),
-    check(
-      'supplier_reservations_window_check',
-      sql`${t.providerExpiresAt} > ${t.reservedAt}`,
-    ),
+    check('supplier_reservations_window_check', sql`${t.providerExpiresAt} > ${t.reservedAt}`),
     // A consumption names the checkout that spent it; a release names its cause.
     check(
       'supplier_reservations_consumption_check',

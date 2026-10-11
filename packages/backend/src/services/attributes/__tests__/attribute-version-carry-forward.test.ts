@@ -144,10 +144,7 @@ function activeFixture(): ResolvedAttributeDefinition {
       createdAt: new Date('2020-01-01T00:00:00Z'),
       updatedAt: new Date('2020-01-01T00:00:00Z'),
     } as ResolvedAttributeDefinition['row'],
-    enumValues: [
-      enumValueRow('red', 'Red', 0),
-      enumValueRow('blue', 'Blue', 1),
-    ],
+    enumValues: [enumValueRow('red', 'Red', 0), enumValueRow('blue', 'Blue', 1)],
     aliases: new Map([
       ['rojo', 'red'],
       ['azul', 'blue'],

@@ -51,9 +51,7 @@ export async function runReferralConsistencyChecks(input?: {
   const expired = await db
     .select({ id: referralAttributions.id, expiresAt: referralAttributions.expiresAt })
     .from(referralAttributions)
-    .where(
-      and(eq(referralAttributions.state, 'active'), lte(referralAttributions.expiresAt, at)),
-    )
+    .where(and(eq(referralAttributions.state, 'active'), lte(referralAttributions.expiresAt, at)))
     .limit(FINDING_LIMIT);
   for (const row of expired) {
     findings.push({
@@ -107,10 +105,7 @@ export async function runReferralConsistencyChecks(input?: {
   const detachedConversions = await db
     .select({ id: referralConversions.id, attributionId: referralConversions.attributionId })
     .from(referralConversions)
-    .innerJoin(
-      referralAttributions,
-      eq(referralConversions.attributionId, referralAttributions.id),
-    )
+    .innerJoin(referralAttributions, eq(referralConversions.attributionId, referralAttributions.id))
     .where(
       and(
         eq(referralConversions.state, 'eligible'),

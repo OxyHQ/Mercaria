@@ -270,7 +270,10 @@ function productRequirementExists(requirement: FacetAttributeRequirement): SQL {
 }
 
 /** A variant-grain requirement, bound to ONE named variant alias. */
-function variantRequirementExists(variantAlias: string, requirement: FacetAttributeRequirement): SQL {
+function variantRequirementExists(
+  variantAlias: string,
+  requirement: FacetAttributeRequirement,
+): SQL {
   return sql`(exists (
       select 1 from canonical_attribute_values vav
       where vav.variant_id = ${sql.raw(variantAlias)}.id
@@ -547,8 +550,7 @@ export async function countVariantAttributeBuckets(
   if (hasOfferRequirement(requirements.offer)) {
     siblingChecks.push(offerRequirementsExists('cv', requirements.offer, context.now));
   }
-  const siblings =
-    siblingChecks.length === 0 ? sql`true` : sql.join(siblingChecks, sql` and `);
+  const siblings = siblingChecks.length === 0 ? sql`true` : sql.join(siblingChecks, sql` and `);
 
   const rows = await db.execute<FacetAttributeBucketRow>(sql`
     select vals.attribute_key as "attributeKey",
@@ -788,8 +790,7 @@ async function countOfferBuckets(
   const variantChecks: SQL[] = requirements.variant.map((requirement) =>
     variantRequirementExists('cv', requirement),
   );
-  const variantGuard =
-    variantChecks.length === 0 ? sql`true` : sql.join(variantChecks, sql` and `);
+  const variantGuard = variantChecks.length === 0 ? sql`true` : sql.join(variantChecks, sql` and `);
 
   const rows = await db.execute<FacetCommerceBucketRow>(sql`
     select ${bucketExpression} as "bucketValue", count(distinct p.id)::int as "productCount"
@@ -869,8 +870,7 @@ export async function measureOfferPriceSpans(
   const variantChecks: SQL[] = requirements.variant.map((requirement) =>
     variantRequirementExists('cv', requirement),
   );
-  const variantGuard =
-    variantChecks.length === 0 ? sql`true` : sql.join(variantChecks, sql` and `);
+  const variantGuard = variantChecks.length === 0 ? sql`true` : sql.join(variantChecks, sql` and `);
 
   const rows = await db.execute<FacetPriceSpanRow>(sql`
     select o.price_currency as currency,

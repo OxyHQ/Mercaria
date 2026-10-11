@@ -45,7 +45,13 @@ export const MERCARIA_PUBLIC_API_VERSION = '1.0.0' as const;
 /** The production origin the OpenAPI document names as its server. */
 export const MERCARIA_PUBLIC_API_ORIGIN = 'https://api.mercaria.co' as const;
 
-export const MERCARIA_PUBLIC_ROUTE_TAGS = ['products', 'stores', 'collections', 'locations', 'meta'] as const;
+export const MERCARIA_PUBLIC_ROUTE_TAGS = [
+  'products',
+  'stores',
+  'collections',
+  'locations',
+  'meta',
+] as const;
 export type MercariaPublicRouteTag = (typeof MERCARIA_PUBLIC_ROUTE_TAGS)[number];
 
 /** One operation. */
@@ -74,7 +80,11 @@ export interface MercariaPublicRoute {
 }
 
 /** Codes every operation can answer with, whatever it reads. */
-export const MERCARIA_PUBLIC_UNIVERSAL_ERRORS = ['bad_request', 'rate_limited', 'internal_error'] as const;
+export const MERCARIA_PUBLIC_UNIVERSAL_ERRORS = [
+  'bad_request',
+  'rate_limited',
+  'internal_error',
+] as const;
 
 const ENTITY_ERRORS = ['not_found', 'gone'] as const;
 

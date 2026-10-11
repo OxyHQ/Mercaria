@@ -1,13 +1,17 @@
-import { Pressable, View } from "react-native";
-import { Loading } from "@oxy.so/bloom/loading";
-import Head from "expo-router/head";
-import { useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { Text } from "@mercaria/ui";
-import { WATCHLIST_MAX_LISTS_PER_OWNER } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { useCreateWatchlist, useDuplicateWatchlist, useWatchlists } from "@/lib/hooks/use-watchlists";
-import { useTranslation } from "@/lib/i18n";
+import { Pressable, View } from 'react-native';
+import { Loading } from '@oxy.so/bloom/loading';
+import Head from 'expo-router/head';
+import { useRouter } from 'expo-router';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { Text } from '@mercaria/ui';
+import { WATCHLIST_MAX_LISTS_PER_OWNER } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import {
+  useCreateWatchlist,
+  useDuplicateWatchlist,
+  useWatchlists,
+} from '@/lib/hooks/use-watchlists';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The buyer's watchlists (#81 UX rules 1 and 7).
@@ -40,24 +44,24 @@ export default function WatchlistsScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>{t("watchlists.pageTitle")}</title>
+        <title>{t('watchlists.pageTitle')}</title>
       </Head>
 
       <View className="gap-space-16 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">{t("watchlists.heading")}</Text>
-        <Text className="text-sm text-text-secondary">{t("watchlists.intro")}</Text>
+        <Text className="text-2xl font-bold text-foreground">{t('watchlists.heading')}</Text>
+        <Text className="text-sm text-text-secondary">{t('watchlists.intro')}</Text>
 
         {!isAuthenticated ? (
           <View className="gap-space-12 rounded-radius-lg border border-border-secondary p-space-16">
-            <Text className="text-base text-foreground">{t("watchlists.signedOut.body")}</Text>
+            <Text className="text-base text-foreground">{t('watchlists.signedOut.body')}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t("watchlists.signedOut.signIn")}
+              accessibilityLabel={t('watchlists.signedOut.signIn')}
               onPress={() => openAccountDialog()}
               className="items-center rounded-radius-max bg-primary py-space-12"
             >
               <Text className="text-shop-buttonMedium text-primary-foreground">
-                {t("watchlists.signedOut.signIn")}
+                {t('watchlists.signedOut.signIn')}
               </Text>
             </Pressable>
           </View>
@@ -66,54 +70,54 @@ export default function WatchlistsScreen() {
             <Loading variant="inline" size="sm" />
           </View>
         ) : watchlists.isError ? (
-          <Text className="text-sm text-text-secondary">{t("watchlists.loadError")}</Text>
+          <Text className="text-sm text-text-secondary">{t('watchlists.loadError')}</Text>
         ) : (
           <View className="gap-space-12">
             {lists.map((list) => (
               <Pressable
                 key={list.id}
                 accessibilityRole="button"
-                accessibilityLabel={t("watchlists.openList", { name: list.name })}
+                accessibilityLabel={t('watchlists.openList', { name: list.name })}
                 onPress={() => router.push(`/watchlists/${list.id}`)}
                 className="gap-space-4 rounded-radius-lg border border-border-secondary p-space-16"
               >
                 <Text className="text-base font-semibold text-foreground">
-                  {list.icon ? `${list.icon} ` : ""}
+                  {list.icon ? `${list.icon} ` : ''}
                   {list.name}
                 </Text>
                 <Text className="text-sm text-text-secondary">
-                  {t("watchlists.listMeta", {
+                  {t('watchlists.listMeta', {
                     count: list.itemCount,
                     currency: list.displayCurrency,
                   })}
                 </Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t("watchlists.duplicateList", { name: list.name })}
+                  accessibilityLabel={t('watchlists.duplicateList', { name: list.name })}
                   onPress={() => duplicateList.mutate({ watchlistId: list.id })}
                 >
-                  <Text className="text-sm text-text-secondary">{t("watchlists.duplicate")}</Text>
+                  <Text className="text-sm text-text-secondary">{t('watchlists.duplicate')}</Text>
                 </Pressable>
               </Pressable>
             ))}
 
             {lists.length === 0 ? (
-              <Text className="text-sm text-text-secondary">{t("watchlists.empty")}</Text>
+              <Text className="text-sm text-text-secondary">{t('watchlists.empty')}</Text>
             ) : null}
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t("watchlists.createA11y")}
+              accessibilityLabel={t('watchlists.createA11y')}
               disabled={atLimit || createList.isPending}
               onPress={() =>
-                createList.mutate({ name: t("watchlists.newList"), displayCurrency: "EUR" })
+                createList.mutate({ name: t('watchlists.newList'), displayCurrency: 'EUR' })
               }
               className="items-center rounded-radius-max border border-border-secondary py-space-12"
             >
               <Text className="text-shop-buttonMedium text-text">
                 {atLimit
-                  ? t("watchlists.atLimit", { count: WATCHLIST_MAX_LISTS_PER_OWNER })
-                  : t("watchlists.newList")}
+                  ? t('watchlists.atLimit', { count: WATCHLIST_MAX_LISTS_PER_OWNER })
+                  : t('watchlists.newList')}
               </Text>
             </Pressable>
           </View>

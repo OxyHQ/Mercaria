@@ -116,19 +116,21 @@ describe('the parser measures something — the mutation self-tests', () => {
     // The usual way a sitemap check fails: it passes against a file with
     // nothing in it. Every assertion below rests on this returning [] here.
     expect(sitemapEntries('')).toEqual([]);
-    expect(sitemapEntries('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>')).toEqual(
-      [],
-    );
+    expect(
+      sitemapEntries('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>'),
+    ).toEqual([]);
   });
 
   it('does not read a URL out of a comment', () => {
-    expect(sitemapEntries('<!-- <url><loc>https://ghost.example/</loc></url> --><urlset></urlset>')).toEqual(
-      [],
-    );
+    expect(
+      sitemapEntries('<!-- <url><loc>https://ghost.example/</loc></url> --><urlset></urlset>'),
+    ).toEqual([]);
   });
 
   it('refuses a `<url>` that states no location', () => {
-    expect(() => sitemapEntries('<urlset><url><lastmod>2026-01-02</lastmod></url></urlset>')).toThrow();
+    expect(() =>
+      sitemapEntries('<urlset><url><lastmod>2026-01-02</lastmod></url></urlset>'),
+    ).toThrow();
   });
 
   it('accepts only days that exist', () => {
@@ -197,9 +199,10 @@ describe('DIRECTION 2: the modification date is a fixed, possible day', () => {
     for (const entry of entries) {
       const stated = entry.lastmod;
       expect(stated, `${entry.loc} states no modification date`).toBeDefined();
-      expect(parseIsoDay(stated ?? ''), `${entry.loc} states '${stated}', which is not a day`).toBeInstanceOf(
-        Date,
-      );
+      expect(
+        parseIsoDay(stated ?? ''),
+        `${entry.loc} states '${stated}', which is not a day`,
+      ).toBeInstanceOf(Date);
     }
   });
 
@@ -209,7 +212,9 @@ describe('DIRECTION 2: the modification date is a fixed, possible day', () => {
     const now = Date.now();
     for (const entry of entries) {
       const day = parseIsoDay(entry.lastmod ?? '');
-      expect(day?.getTime() ?? 0, `${entry.loc} states a date in the future`).toBeLessThanOrEqual(now);
+      expect(day?.getTime() ?? 0, `${entry.loc} states a date in the future`).toBeLessThanOrEqual(
+        now,
+      );
     }
   });
 });
@@ -220,9 +225,10 @@ describe('DIRECTION 3: no build step regenerates the tracked artefact', () => {
   it('reads the real manifest — the vacuity floor', () => {
     // A renamed or moved package.json must fail HERE rather than make the two
     // assertions below pass against an empty script map.
-    expect(Object.keys(scripts).length, 'the frontend manifest declares no scripts').toBeGreaterThanOrEqual(
-      5,
-    );
+    expect(
+      Object.keys(scripts).length,
+      'the frontend manifest declares no scripts',
+    ).toBeGreaterThanOrEqual(5);
     expect(scripts.build, 'the frontend manifest declares no build script').toBeDefined();
   });
 

@@ -1,4 +1,4 @@
-import { isOxyFileId } from "@mercaria/shared-types";
+import { isOxyFileId } from '@mercaria/shared-types';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import { Slot, Stack } from 'expo-router';
@@ -20,7 +20,11 @@ import { AppFxProvider } from '@/lib/fx';
 import { setTokenGetter } from '@/lib/api/client';
 import { useGuestCartMerge } from '@/lib/hooks/use-cart';
 import { OXY_CLIENT_ID } from '@/lib/config';
-import { BLOOM_DEFAULT_COLOR_PRESET, BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
+import {
+  BLOOM_DEFAULT_COLOR_PRESET,
+  BLOOM_THEME_PERSIST_KEY,
+  BLOOM_THEME_STORAGE,
+} from '@/lib/themePersistence';
 import { useTranslation } from '@/lib/i18n';
 import 'react-native-reanimated';
 import '../global.css';
@@ -58,7 +62,7 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
       const url = oxyServices.assets.publicUrl(fileId, variant);
       return url && url.startsWith('http') ? url : undefined;
     },
-    [oxyServices]
+    [oxyServices],
   );
 
   return (

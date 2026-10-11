@@ -542,10 +542,7 @@ export const analyticsRollups = pgTable(
     // absent, because the number could not be stored.
     checkOneOf('analytics_rollups_metric_key_check', t.metricKey, ANALYTICS_METRIC_KEYS),
     checkOneOf('analytics_rollups_source_check', t.source, ANALYTICS_METRIC_SOURCES),
-    check(
-      'analytics_rollups_counts_check',
-      sql`${t.numerator} >= 0 and ${t.denominator} >= 0`,
-    ),
+    check('analytics_rollups_counts_check', sql`${t.numerator} >= 0 and ${t.denominator} >= 0`),
     index('analytics_rollups_metric_bucket_idx').on(t.metricKey, t.bucketDate),
     index('analytics_rollups_store_idx')
       .on(t.storeId, t.metricKey, t.bucketDate)

@@ -51,7 +51,10 @@ export interface MercariaFetchInit {
  * A `fetch` implementation. The global `fetch` of every supported runtime
  * satisfies this, and so does a test double.
  */
-export type MercariaFetch = (url: string, init: MercariaFetchInit) => Promise<MercariaFetchResponse>;
+export type MercariaFetch = (
+  url: string,
+  init: MercariaFetchInit,
+) => Promise<MercariaFetchResponse>;
 
 interface AbortControllerLike {
   readonly signal: MercariaAbortSignal;

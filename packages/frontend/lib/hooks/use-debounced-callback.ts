@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from 'react';
 
 /**
  * Returns a debounced version of `callback`. The latest call within `delay`
@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef } from "react";
  */
 export function useDebouncedCallback<Args extends unknown[]>(
   callback: (...args: Args) => void,
-  delay: number
+  delay: number,
 ): { run: (...args: Args) => void; flush: () => void; cancel: () => void } {
   const callbackRef = useRef(callback);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,7 +47,7 @@ export function useDebouncedCallback<Args extends unknown[]>(
         if (pending) callbackRef.current(...pending);
       }, delay);
     },
-    [delay]
+    [delay],
   );
 
   useEffect(() => cancel, [cancel]);

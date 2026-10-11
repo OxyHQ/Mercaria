@@ -16,13 +16,18 @@
  * are not what this renders.
  */
 
-import { writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-export const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-export const OPENAPI_DOCUMENT_PATH = resolve(repositoryRoot, "packages", "contracts", "openapi.json");
-export const CONTRACTS_ENTRY = resolve(repositoryRoot, "packages", "contracts", "src", "index.ts");
+export const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const OPENAPI_DOCUMENT_PATH = resolve(
+  repositoryRoot,
+  'packages',
+  'contracts',
+  'openapi.json',
+);
+export const CONTRACTS_ENTRY = resolve(repositoryRoot, 'packages', 'contracts', 'src', 'index.ts');
 
 /** The committed spelling: two-space JSON and a trailing newline. */
 export function renderOpenApi(document) {

@@ -41,7 +41,10 @@ const FEEDBACK_REASON_VALUES = PRICE_SIGNAL_FEEDBACK_REASONS as readonly [
   PriceSignalFeedbackReason,
   ...PriceSignalFeedbackReason[],
 ];
-const RUN_MODE_VALUES = PRICE_SIGNAL_RUN_MODES as readonly [PriceSignalRunMode, ...PriceSignalRunMode[]];
+const RUN_MODE_VALUES = PRICE_SIGNAL_RUN_MODES as readonly [
+  PriceSignalRunMode,
+  ...PriceSignalRunMode[],
+];
 /**
  * `ANALYTICS_METRIC_KEYS` is `ANALYTICS_METRICS.map(...)`, so its non-emptiness
  * is a fact about the data rather than something the type records — the same
@@ -59,7 +62,11 @@ const METRIC_KEY_VALUES: readonly [string, ...string[]] = (() => {
 
 const entityId = z.string().trim().min(1).max(64);
 /** ISO 3166-1 alpha-2, matching the CHECK rather than approximating it. */
-const market = z.string().trim().length(2).regex(/^[A-Za-z]{2}$/);
+const market = z
+  .string()
+  .trim()
+  .length(2)
+  .regex(/^[A-Za-z]{2}$/);
 
 /**
  * `GET /price-signals` — one subject's signals.

@@ -59,11 +59,7 @@ import type { OfferAvailability, OfferMoney } from './offer';
  * a search would return; `targeted` re-reads a named list of objects and is
  * what a priority refresh needs.
  */
-export type CatalogRefreshMode =
-  | 'full_snapshot'
-  | 'incremental'
-  | 'query_driven'
-  | 'targeted';
+export type CatalogRefreshMode = 'full_snapshot' | 'incremental' | 'query_driven' | 'targeted';
 
 export const CATALOG_REFRESH_MODES: readonly CatalogRefreshMode[] = [
   'full_snapshot',
@@ -142,7 +138,10 @@ export function highestRefreshPriority(
 ): OfferRefreshPriorityClass | undefined {
   let best: OfferRefreshPriorityClass | undefined;
   for (const reason of reasons) {
-    if (best === undefined || OFFER_REFRESH_PRIORITY_RANK[reason] < OFFER_REFRESH_PRIORITY_RANK[best]) {
+    if (
+      best === undefined ||
+      OFFER_REFRESH_PRIORITY_RANK[reason] < OFFER_REFRESH_PRIORITY_RANK[best]
+    ) {
       best = reason;
     }
   }
@@ -413,7 +412,11 @@ export type OfferFreshnessAssessment =
       readonly checkedAgeSeconds: number;
       /** #68 public behaviour 2 — the WARNING state's own field. */
       readonly lastCheckedAt: string;
-      readonly expiry: { readonly bounded: true; readonly warnsAt: string; readonly expiresAt: string };
+      readonly expiry: {
+        readonly bounded: true;
+        readonly warnsAt: string;
+        readonly expiresAt: string;
+      };
     }
   | {
       readonly level: 'expired';
@@ -563,8 +566,7 @@ export function assessOfferFreshness(
    *
    * It is not a global TTL and could not become one: the number is that row's.
    */
-  const effective: SourceFreshnessPolicy =
-    policy ?? offerDeadlinePolicy(input);
+  const effective: SourceFreshnessPolicy = policy ?? offerDeadlinePolicy(input);
 
   const lifetimeSeconds = effectiveOfferLifetimeSeconds(effective);
   const expiresAt = new Date(input.lastSeenAt.getTime() + lifetimeSeconds * 1_000);
@@ -989,9 +991,7 @@ export interface SourceAdvertiserHealth {
  * expired" (public behaviour 7) is a statement about Mercaria's information and
  * not about the retailer's shelves.
  */
-export function rollUpOfferAvailability(
-  states: readonly OfferAvailability[],
-): OfferAvailability {
+export function rollUpOfferAvailability(states: readonly OfferAvailability[]): OfferAvailability {
   if (states.includes('in_stock')) return 'in_stock';
   if (states.includes('preorder')) return 'preorder';
   const known = states.filter((state) => state !== 'unknown');

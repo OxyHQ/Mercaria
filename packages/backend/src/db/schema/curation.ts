@@ -156,7 +156,10 @@ export const CURATION_MAX_TEXT_LENGTH = 2_000;
  * meaning — the disputed newcomer is the subject and the incumbent active owner
  * is the counterpart — and ordering them by id would destroy which is which.
  */
-export const CURATION_ORDERED_PAIR_REVIEW_KINDS = ['entity_collision', 'suspected_duplicate'] as const;
+export const CURATION_ORDERED_PAIR_REVIEW_KINDS = [
+  'entity_collision',
+  'suspected_duplicate',
+] as const;
 
 /**
  * Render a string tuple as a SQL `in (...)` list body.
@@ -265,7 +268,9 @@ function impactChecks(table: string, columns: ImpactCheckColumns) {
 /** The lease and retry columns a curation job carries. */
 function jobRuntimeColumns() {
   return {
-    status: text({ enum: asEnumValues(CATALOG_JOB_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(CATALOG_JOB_STATUSES) })
+      .notNull()
+      .default('pending'),
     attempts: integer().notNull().default(0),
     availableAt: timestamptz().notNull(),
     /** Which task holds the lease. An opaque worker identity — no foreign key. */
@@ -349,7 +354,9 @@ export const catalogMergeJobs = pgTable(
     /** The identity that survives and inherits. */
     winnerId: text().notNull(),
 
-    phase: text({ enum: asEnumValues(CATALOG_MERGE_PHASES) }).notNull().default('plan'),
+    phase: text({ enum: asEnumValues(CATALOG_MERGE_PHASES) })
+      .notNull()
+      .default('plan'),
 
     /** MANDATORY (#59 security 2): an unexplained merge is unrepresentable. */
     reason: text().notNull(),
@@ -428,7 +435,10 @@ export const catalogMergeJobs = pgTable(
       check('catalog_merge_jobs_actor_check', sql`btrim(${t.requestedByOxyUserId}) <> ''`),
       /** A thing cannot be merged into itself; the tombstone would point at itself. */
       check('catalog_merge_jobs_distinct_check', sql`${t.loserId} <> ${t.winnerId}`),
-      check('catalog_merge_jobs_parent_self_check', sql`${t.parentJobId} is null or ${t.parentJobId} <> ${t.id}`),
+      check(
+        'catalog_merge_jobs_parent_self_check',
+        sql`${t.parentJobId} is null or ${t.parentJobId} <> ${t.id}`,
+      ),
       /**
        * FOUR EYES, in the row. Two CHECKs and neither is sufficient alone:
        * the first refuses an approval by the person who asked, the second
@@ -467,9 +477,7 @@ export const catalogMergeJobs = pgTable(
         .on(t.leaseUntil, t.createdAt)
         .where(sql`${t.status} = 'processing'`),
       /** The operator inbox: jobs waiting on a person, oldest first. */
-      index('catalog_merge_jobs_blocked_idx')
-        .on(t.createdAt)
-        .where(sql`${t.status} = 'blocked'`),
+      index('catalog_merge_jobs_blocked_idx').on(t.createdAt).where(sql`${t.status} = 'blocked'`),
       /** "What has ever been done to this entity", from either side. */
       index('catalog_merge_jobs_winner_idx').on(t.entityType, t.winnerId, t.createdAt.desc()),
       index('catalog_merge_jobs_parent_idx')
@@ -533,7 +541,9 @@ export const catalogMergeConflicts = pgTable(
     winnerIdentifierId: text().references(() => productIdentifiers.id, { onDelete: 'restrict' }),
     loserVariantId: text().references(() => canonicalVariants.id, { onDelete: 'restrict' }),
     winnerVariantId: text().references(() => canonicalVariants.id, { onDelete: 'restrict' }),
-    loserRelationshipId: text().references(() => commerceRelationships.id, { onDelete: 'restrict' }),
+    loserRelationshipId: text().references(() => commerceRelationships.id, {
+      onDelete: 'restrict',
+    }),
     winnerRelationshipId: text().references(() => commerceRelationships.id, {
       onDelete: 'restrict',
     }),
@@ -917,9 +927,7 @@ export const catalogMergeConflicts = pgTable(
       .on(t.childJobId)
       .where(sql`${t.childJobId} is not null`),
     /** The gate the advance reads: does this job still have an undecided conflict? */
-    index('catalog_merge_conflicts_unresolved_idx')
-      .on(t.jobId)
-      .where(sql`${t.resolution} is null`),
+    index('catalog_merge_conflicts_unresolved_idx').on(t.jobId).where(sql`${t.resolution} is null`),
   ],
 );
 
@@ -1008,7 +1016,9 @@ export const catalogSplitJobs = pgTable(
     /** The new entity's display name. `new_entity` only. */
     targetName: text(),
 
-    phase: text({ enum: asEnumValues(CATALOG_SPLIT_PHASES) }).notNull().default('plan'),
+    phase: text({ enum: asEnumValues(CATALOG_SPLIT_PHASES) })
+      .notNull()
+      .default('plan'),
 
     reason: text().notNull(),
     /** An Oxy account id — no foreign key. */
@@ -1131,9 +1141,7 @@ export const catalogSplitJobs = pgTable(
       index('catalog_split_jobs_reclaim_idx')
         .on(t.leaseUntil, t.createdAt)
         .where(sql`${t.status} = 'processing'`),
-      index('catalog_split_jobs_blocked_idx')
-        .on(t.createdAt)
-        .where(sql`${t.status} = 'blocked'`),
+      index('catalog_split_jobs_blocked_idx').on(t.createdAt).where(sql`${t.status} = 'blocked'`),
       index('catalog_split_jobs_reverses_idx')
         .on(t.reversesMergeJobId)
         .where(sql`${t.reversesMergeJobId} is not null`),
@@ -1261,7 +1269,9 @@ export const catalogReviewItems = pgTable(
     /** 0–1, and NULL for a deterministic detection. The graph's usual semantics. */
     confidence: doublePrecision(),
 
-    state: text({ enum: asEnumValues(CURATION_REVIEW_STATES) }).notNull().default('open'),
+    state: text({ enum: asEnumValues(CURATION_REVIEW_STATES) })
+      .notNull()
+      .default('open'),
     /** An Oxy account id — no foreign key. Who claimed it, so two operators do not both start. */
     assignedToOxyUserId: text(),
     assignedAt: timestamptz(),
@@ -1498,7 +1508,11 @@ export const catalogEntitySuppressions = pgTable(
     uniqueIndex('catalog_entity_suppressions_open_key')
       .on(t.entityType, t.entityId, t.scope)
       .where(sql`${t.liftedAt} is null`),
-    index('catalog_entity_suppressions_entity_idx').on(t.entityType, t.entityId, t.createdAt.desc()),
+    index('catalog_entity_suppressions_entity_idx').on(
+      t.entityType,
+      t.entityId,
+      t.createdAt.desc(),
+    ),
   ],
 );
 
@@ -1598,10 +1612,7 @@ export const catalogRevisions = pgTable(
       sql`${t.actorOxyUserId} is null or btrim(${t.actorOxyUserId}) <> ''`,
     ),
     /** A revision belongs to at most one job; two would make the trace ambiguous. */
-    check(
-      'catalog_revisions_job_check',
-      sql`num_nonnulls(${t.mergeJobId}, ${t.splitJobId}) <= 1`,
-    ),
+    check('catalog_revisions_job_check', sql`num_nonnulls(${t.mergeJobId}, ${t.splitJobId}) <= 1`),
     check(
       'catalog_revisions_compensates_self_check',
       sql`${t.compensatesRevisionId} is null or ${t.compensatesRevisionId} <> ${t.id}`,

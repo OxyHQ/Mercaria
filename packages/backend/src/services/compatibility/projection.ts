@@ -142,15 +142,18 @@ export function projectAutomotiveFitment(
     subject: projectSubject(row),
     scope: row.scope,
     make: projectVehicleReference(vehicles.make),
-    model: vehicles.model === undefined || vehicles.model === null
-      ? null
-      : projectVehicleReference(vehicles.model),
-    generation: vehicles.generation === undefined || vehicles.generation === null
-      ? null
-      : projectVehicleReference(vehicles.generation),
-    configuration: vehicles.configuration === undefined || vehicles.configuration === null
-      ? null
-      : projectVehicleReference(vehicles.configuration),
+    model:
+      vehicles.model === undefined || vehicles.model === null
+        ? null
+        : projectVehicleReference(vehicles.model),
+    generation:
+      vehicles.generation === undefined || vehicles.generation === null
+        ? null
+        : projectVehicleReference(vehicles.generation),
+    configuration:
+      vehicles.configuration === undefined || vehicles.configuration === null
+        ? null
+        : projectVehicleReference(vehicles.configuration),
     applicability: row.applicability,
     position: row.position,
     qualifiers: row.qualifiers as readonly FitmentQualifier[],
@@ -268,7 +271,12 @@ export function projectFitmentVerdict(
 /** One rung of the vehicle picker. Identity plus base name, whatever the rung. */
 export function projectVehicleCatalogLevel(
   level: VehicleCatalogLevel,
-  rows: readonly (VehicleMakeRow | VehicleModelRow | VehicleGenerationRow | VehicleConfigurationRow)[],
+  rows: readonly (
+    | VehicleMakeRow
+    | VehicleModelRow
+    | VehicleGenerationRow
+    | VehicleConfigurationRow
+  )[],
 ): VehicleCatalogLevelView {
   return { level, vehicles: rows.map(projectVehicleReference) };
 }

@@ -411,9 +411,10 @@ describe('test fixtures carry no unexplained future date', () => {
     // The vacuity floor. A moved directory, a wrong root or a broken extension
     // filter all produce an empty scan, and an empty scan reports exactly what
     // a clean tree reports.
-    expect(SCANNED_FILES.length, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(
-      SCANNED_FILE_FLOOR,
-    );
+    expect(
+      SCANNED_FILES.length,
+      'the walk read almost nothing — did the layout move?',
+    ).toBeGreaterThan(SCANNED_FILE_FLOOR);
     expect(
       ALL_LITERALS.length,
       'no date literals found at all — the extractor is broken, not the tree',
@@ -438,9 +439,9 @@ describe('test fixtures carry no unexplained future date', () => {
     // Without this, an entry outlives the literal it excuses and the register
     // becomes a list of permissions for code nobody can find.
     const present = new Set(ALL_LITERALS.map((l) => censusKey(l.file, l.date)));
-    const stale = FUTURE_DATED_FIXTURES.filter(
-      (e) => !present.has(censusKey(e.file, e.date)),
-    ).map((e) => `${e.file} — ${e.date}`);
+    const stale = FUTURE_DATED_FIXTURES.filter((e) => !present.has(censusKey(e.file, e.date))).map(
+      (e) => `${e.file} — ${e.date}`,
+    );
 
     expect(
       stale,
@@ -457,9 +458,10 @@ describe('test fixtures carry no unexplained future date', () => {
     ).toBe(FUTURE_DATED_FIXTURE_COUNT);
 
     for (const entry of FUTURE_DATED_FIXTURES) {
-      expect(entry.reason.trim().length, `${entry.file} ${entry.date} has no reason`).toBeGreaterThan(
-        20,
-      );
+      expect(
+        entry.reason.trim().length,
+        `${entry.file} ${entry.date} has no reason`,
+      ).toBeGreaterThan(20);
     }
 
     const keys = FUTURE_DATED_FIXTURES.map((e) => censusKey(e.file, e.date));
@@ -500,7 +502,10 @@ describe('the census can actually see what it claims to', () => {
   });
 
   it('does not read a bare number or a version string as a date', () => {
-    const found = dateLiteralsIn('probe.ts', ['const n = 2099 - 12;', "const v = 'v1.2.3';"].join('\n'));
+    const found = dateLiteralsIn(
+      'probe.ts',
+      ['const n = 2099 - 12;', "const v = 'v1.2.3';"].join('\n'),
+    );
     expect(found).toEqual([]);
   });
 
@@ -584,7 +589,11 @@ describe('no TypeScript source carries a raw NUL byte', () => {
       // with whichever answer it already held.
       writeFileSync(
         dirty,
-        Buffer.concat([Buffer.from('export const DIRTY = "a'), Buffer.from([0]), Buffer.from('b";\n')]),
+        Buffer.concat([
+          Buffer.from('export const DIRTY = "a'),
+          Buffer.from([0]),
+          Buffer.from('b";\n'),
+        ]),
       );
 
       const probes = collectTypeScriptFiles(probeRoot);

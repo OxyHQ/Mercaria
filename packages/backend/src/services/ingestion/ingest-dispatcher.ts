@@ -40,10 +40,7 @@ import {
   claimDueSources,
   releaseSourceLease,
 } from '../../db/ingestion/catalogSourceConfigRepository.js';
-import {
-  claimSourceRuns,
-  openSourceRun,
-} from '../../db/ingestion/catalogSourceRunRepository.js';
+import { claimSourceRuns, openSourceRun } from '../../db/ingestion/catalogSourceRunRepository.js';
 import { runIngestionPage, type IngestPageResult } from './ingest.service.js';
 import { resolveCatalogSourceAdapter } from './registry.js';
 

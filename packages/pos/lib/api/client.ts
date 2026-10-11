@@ -1,5 +1,5 @@
-import axios from "axios";
-import config from "../config";
+import axios from 'axios';
+import config from '../config';
 
 /**
  * Shared axios instance for the Mercaria backend API.
@@ -12,7 +12,7 @@ const apiClient = axios.create({
   baseURL: config.apiUrl,
   timeout: 15000,
   headers: {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   },
 });
 
@@ -28,7 +28,7 @@ apiClient.interceptors.request.use(
     if (getAccessToken) {
       const token = getAccessToken();
       if (token) {
-        request.headers["Authorization"] = `Bearer ${token}`;
+        request.headers['Authorization'] = `Bearer ${token}`;
       }
     }
     return request;

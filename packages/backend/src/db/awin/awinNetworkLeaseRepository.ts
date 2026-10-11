@@ -128,10 +128,7 @@ export async function claimAwinNetworkLease(
   const cutoffParam = sql`${windowCutoff.toISOString()}::timestamptz`;
   const nowParam = sql`${now.toISOString()}::timestamptz`;
 
-  const free = or(
-    isNull(awinNetworkLeases.leaseUntil),
-    lte(awinNetworkLeases.leaseUntil, now),
-  );
+  const free = or(isNull(awinNetworkLeases.leaseUntil), lte(awinNetworkLeases.leaseUntil, now));
   const hasBudget = or(
     lte(awinNetworkLeases.windowStart, windowCutoff),
     sql`${awinNetworkLeases.callsInWindow} < ${awinNetworkLeases.windowAllowance}`,

@@ -277,8 +277,7 @@ export const LEGACY_CATALOG_COLUMNS: readonly LegacyCatalogColumn[] = [
       kind: 'carried',
       refs: [targetColumn(nativeVariantAxisAssignments, 'attributeDefinitionId')],
     },
-    note:
-      'ADR 0007 D6. #367 step 4. Resolves by exact key fold; anything else stays text.',
+    note: 'ADR 0007 D6. #367 step 4. Resolves by exact key fold; anything else stays text.',
   },
   {
     table: 'product_variant_option_values',

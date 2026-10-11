@@ -71,10 +71,7 @@ export interface NewReviewEligibility {
  * two coincide for that one scope and are different roles, which is why the
  * table carries both columns and this function only ever touches one of them.
  */
-function targetColumnValues(target: {
-  targetType: ReviewTargetType;
-  targetId: string;
-}): {
+function targetColumnValues(target: { targetType: ReviewTargetType; targetId: string }): {
   listingId: string | null;
   storeId: string | null;
   sellerOxyUserId: string | null;
@@ -195,9 +192,7 @@ export async function findOpenEligibilitiesForUser(
   return db
     .select()
     .from(reviewEligibilities)
-    .where(
-      and(eq(reviewEligibilities.oxyUserId, oxyUserId), eq(reviewEligibilities.state, 'open')),
-    )
+    .where(and(eq(reviewEligibilities.oxyUserId, oxyUserId), eq(reviewEligibilities.state, 'open')))
     .orderBy(desc(reviewEligibilities.createdAt), desc(reviewEligibilities.id))
     .limit(limit);
 }

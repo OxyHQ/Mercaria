@@ -181,7 +181,9 @@ export async function rewardsMissingAccrualPosting(
         inArray(referralLedgerPostings.rewardId, [...rewardIds]),
       ),
     );
-  const booked = new Set(found.map((row) => row.rewardId).filter((id): id is string => id !== null));
+  const booked = new Set(
+    found.map((row) => row.rewardId).filter((id): id is string => id !== null),
+  );
   return new Set(rewardIds.filter((id) => !booked.has(id)));
 }
 
@@ -263,9 +265,7 @@ export async function listPartnersWithPostings(
     .selectDistinct({ partnerId: referralLedgerPostings.partnerId })
     .from(referralLedgerPostings)
     .where(
-      input.afterPartnerId
-        ? gt(referralLedgerPostings.partnerId, input.afterPartnerId)
-        : undefined,
+      input.afterPartnerId ? gt(referralLedgerPostings.partnerId, input.afterPartnerId) : undefined,
     )
     .orderBy(asc(referralLedgerPostings.partnerId))
     .limit(input.limit);

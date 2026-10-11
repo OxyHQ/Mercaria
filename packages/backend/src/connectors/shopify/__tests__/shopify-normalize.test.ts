@@ -164,7 +164,10 @@ describe('normalizeShopifyProduct', () => {
 
     expect(() =>
       normalizeShopifyProduct(
-        { ...singleVariantProduct, variants: [{ ...singleVariantProduct.variants[0], price: 'not-a-price' }] },
+        {
+          ...singleVariantProduct,
+          variants: [{ ...singleVariantProduct.variants[0], price: 'not-a-price' }],
+        },
         'USD',
       ),
     ).toThrow();

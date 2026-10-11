@@ -54,7 +54,10 @@ export const referralPilotCohortSchema = z
     programId: z.string().trim().min(1).max(200),
     programVersionId: z.string().trim().min(1).max(200),
     // ISO-3166-1 alpha-2, non-empty, and the same shape the row CHECK enforces.
-    markets: z.array(z.string().regex(/^[A-Z]{2}$/)).min(1).max(20),
+    markets: z
+      .array(z.string().regex(/^[A-Z]{2}$/))
+      .min(1)
+      .max(20),
     payoutCurrency: enumOf(ALL_CURRENCY_CODES),
     startsAt: z.string().datetime(),
     endsAt: z.string().datetime(),

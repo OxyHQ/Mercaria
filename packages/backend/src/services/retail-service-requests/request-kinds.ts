@@ -9,10 +9,7 @@
  * deciding every column, and that only holds while every consumer reads columns.
  */
 
-import type {
-  RetailServiceRequestKind,
-  RetailServiceRequestPolicy,
-} from '@mercaria/shared-types';
+import type { RetailServiceRequestKind, RetailServiceRequestPolicy } from '@mercaria/shared-types';
 import { RETAIL_SERVICE_REQUEST_POLICIES } from '@mercaria/shared-types';
 import type { BuyerRequestAction } from '../buyer-requests/authorization.js';
 

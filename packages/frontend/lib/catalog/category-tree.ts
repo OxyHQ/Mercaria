@@ -53,9 +53,7 @@ export function useCategoryTree(): ReturnType<typeof useQuery<readonly CategoryN
 }
 
 /** Every node of the tree, depth-first. */
-export function flattenCategories(
-  nodes: readonly CategoryNode[],
-): readonly CategoryNode[] {
+export function flattenCategories(nodes: readonly CategoryNode[]): readonly CategoryNode[] {
   const flat: CategoryNode[] = [];
   for (const node of nodes) {
     flat.push(node);
@@ -78,9 +76,7 @@ export function findCategoryByHandle(
   handle: string,
 ): CategoryNode | undefined {
   const flat = flattenCategories(nodes);
-  return (
-    flat.find((node) => node.id === handle) ?? flat.find((node) => node.slug === handle)
-  );
+  return flat.find((node) => node.id === handle) ?? flat.find((node) => node.slug === handle);
 }
 
 /** The chain from the root down to (and excluding) the category itself. */

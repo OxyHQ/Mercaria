@@ -619,7 +619,7 @@ function assertDefinitionShape(key: string, input: DraftAttributeDefinitionInput
       'A money attribute names exactly one currency, and no other value type may carry one.',
     );
   }
-  if ((input.valueType === 'structured') !== ((input.componentAxes ?? []).length > 0)) {
+  if ((input.valueType === 'structured') !== (input.componentAxes ?? []).length > 0) {
     throw validationError(
       'A structured attribute declares its component axes, and no other value type may declare any.',
     );

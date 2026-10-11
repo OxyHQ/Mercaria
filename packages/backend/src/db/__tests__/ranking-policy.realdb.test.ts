@@ -239,7 +239,10 @@ describe('activation, promotion and rollback', () => {
     const one = await insertRankingPolicyVersion(draft(), db);
     const two = await insertRankingPolicyVersion(draft(), db);
 
-    await activateRankingPolicyVersion({ id: one.id, policyKey: KEY, actorOxyUserId: OPERATOR }, db);
+    await activateRankingPolicyVersion(
+      { id: one.id, policyKey: KEY, actorOxyUserId: OPERATOR },
+      db,
+    );
     const promoted = await activateRankingPolicyVersion(
       { id: two.id, policyKey: KEY, actorOxyUserId: OPERATOR },
       db,

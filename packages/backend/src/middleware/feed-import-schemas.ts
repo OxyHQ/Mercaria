@@ -75,9 +75,27 @@ export const createFeedConfigurationSchema = z
      */
     identityKeyFields: z.array(sourceField).min(1).max(4),
     merchantId: z.string().trim().min(1).max(64).optional(),
-    territories: z.array(z.string().trim().regex(/^[A-Z]{2}$/u)).max(64).optional(),
-    fetchCadenceSeconds: z.number().int().min(60).max(30 * 24 * 60 * 60).optional(),
-    freshnessTtlSeconds: z.number().int().min(60).max(30 * 24 * 60 * 60).optional(),
+    territories: z
+      .array(
+        z
+          .string()
+          .trim()
+          .regex(/^[A-Z]{2}$/u),
+      )
+      .max(64)
+      .optional(),
+    fetchCadenceSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(30 * 24 * 60 * 60)
+      .optional(),
+    freshnessTtlSeconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(30 * 24 * 60 * 60)
+      .optional(),
   })
   .strict();
 
@@ -161,11 +179,27 @@ export const draftFeedVersionSchema = z
     quoteChar: z.string().length(1).optional(),
     encoding: z.enum(ENCODING_VALUES).optional(),
     compression: z.enum(COMPRESSION_VALUES).optional(),
-    recordPath: z.string().trim().min(1).max(200).regex(/^[A-Za-z0-9_:.[\]/-]+$/u).optional(),
+    recordPath: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .regex(/^[A-Za-z0-9_:.[\]/-]+$/u)
+      .optional(),
     hasHeaderRow: z.boolean().optional(),
     listSeparator: z.string().length(1).optional(),
-    defaultCurrency: z.string().trim().regex(/^[A-Za-z]{3,4}$/u).transform((value) => value.toUpperCase()).optional(),
-    defaultCountry: z.string().trim().regex(/^[A-Za-z]{2}$/u).transform((value) => value.toUpperCase()).optional(),
+    defaultCurrency: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{3,4}$/u)
+      .transform((value) => value.toUpperCase())
+      .optional(),
+    defaultCountry: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{2}$/u)
+      .transform((value) => value.toUpperCase())
+      .optional(),
     defaultLanguage: z.string().trim().max(35).optional(),
     /**
      * The most consequential field in this body.
@@ -180,7 +214,11 @@ export const draftFeedVersionSchema = z
     authKind: z.enum(AUTH_KIND_VALUES).optional(),
     /** PLAINTEXT, encrypted before storage and never returned by any read. */
     authSecret: z.string().min(1).max(4_096).optional(),
-    authParamName: z.string().trim().regex(/^[A-Za-z0-9_-]{1,64}$/u).optional(),
+    authParamName: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_-]{1,64}$/u)
+      .optional(),
     mappingNote: z.string().trim().max(512).optional(),
     fieldMappings: z.array(fieldMapping).min(1).max(FEED_FIELD_ROLES.length),
     valueMappings: z.array(valueMapping).max(200).optional(),

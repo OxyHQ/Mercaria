@@ -176,9 +176,7 @@ export default function SignalScreen() {
           <Text className="text-shop-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
         ) : null}
 
-        {products.length > 0 ? (
-          <SignalGrid products={products} />
-        ) : null}
+        {products.length > 0 ? <SignalGrid products={products} /> : null}
 
         {signalPage.hasNextPage ? (
           <View className="items-center px-4 py-6">

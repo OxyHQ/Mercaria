@@ -226,8 +226,7 @@ export function buildAnalyticsEvent(draft: AnalyticsEventDraft, now: Date): Anal
     receivedAt: now,
     actorKind: identity.kind === 'oxy' ? 'oxy' : identity.actorKind,
     oxyUserId: identity.kind === 'oxy' ? identity.oxyUserId : null,
-    pseudonymousSessionId:
-      identity.kind === 'pseudonymous' ? identity.pseudonymousSessionId : null,
+    pseudonymousSessionId: identity.kind === 'pseudonymous' ? identity.pseudonymousSessionId : null,
     pseudonymEpoch: identity.kind === 'pseudonymous' ? identity.pseudonymEpoch : null,
     checkoutGroupId: correlationAllowed ? (draft.checkoutGroupId ?? null) : null,
     orderId: correlationAllowed ? (draft.orderId ?? null) : null,

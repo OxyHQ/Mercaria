@@ -238,7 +238,7 @@ const CHOKEPOINTS: readonly Chokepoint[] = [
     symbol: 'findVerificationCandidates',
     allowed: ['db/connectors/channelApiKeyRepository.ts', 'services/channel-key.service.ts'],
     why:
-      "The ONE protected read of `channel_api_keys.hash`. The digest is irreversible and is a " +
+      'The ONE protected read of `channel_api_keys.hash`. The digest is irreversible and is a ' +
       'PROTECTED column anyway, because handing it out hands over an offline oracle to test ' +
       'guessed keys against. Every other read in that repository goes through `publicColumns`, ' +
       'so this symbol is the greppable opt-in and its reader set is the wall.',
@@ -412,9 +412,10 @@ describe('#658 — the channel credential surface: its population', () => {
       'db/schema/orders.ts',
       'middleware/auth.ts',
     ];
-    expect(foreign.length, 'the foreign-module control is empty, so it cannot fail').toBeGreaterThan(
-      2,
-    );
+    expect(
+      foreign.length,
+      'the foreign-module control is empty, so it cannot fail',
+    ).toBeGreaterThan(2);
     for (const other of foreign) {
       expect(
         statSync(join(SRC_ROOT, other)).isFile(),
@@ -497,9 +498,10 @@ describe('#658 — the walls', () => {
           `${allowed} is allowed to reach \`${chokepoint.symbol}\` but is not a file`,
         ).toBe(true);
       }
-      expect(chokepoint.why.length, `${chokepoint.symbol} is walled with no reason`).toBeGreaterThan(
-        60,
-      );
+      expect(
+        chokepoint.why.length,
+        `${chokepoint.symbol} is walled with no reason`,
+      ).toBeGreaterThan(60);
     }
   });
 
@@ -560,32 +562,40 @@ describe('#658 — the walls', () => {
 
 describe('#658 — mutation self-tests: every detector fires on what it forbids', () => {
   it('CREDENTIAL_VOCABULARY matches each carrier and not an ordinary neighbour', () => {
-    assertEachOf([
-      "import { decryptSecret } from '../lib/connector-crypto.js';",
-      'const { key } = await generateKey(storeId, input, oxyUserId);',
-      'const resolved = await verifyKey(raw);',
-      'const candidates = await findVerificationCandidates(prefix);',
-      'const envelope = await findConnectionWebhookSecret(connectionId, provider);',
-      'router.use(makeRateLimiter("channels"), requireChannelKey);',
-      'const key = req.channelKey;',
-      'channelKey: z.string().trim().min(1).max(200).optional(),',
-      'async function call(auth: ConnectorAuth): Promise<void> {}',
-      'consumerSecret: z.string().trim().min(1).max(255),',
-      'credentialsCiphertext: text(),',
-    ], 11, (probe) => {
-      expect(CREDENTIAL_VOCABULARY.test(probe), `vocabulary missed: ${probe}`).toBe(true);
-    });
+    assertEachOf(
+      [
+        "import { decryptSecret } from '../lib/connector-crypto.js';",
+        'const { key } = await generateKey(storeId, input, oxyUserId);',
+        'const resolved = await verifyKey(raw);',
+        'const candidates = await findVerificationCandidates(prefix);',
+        'const envelope = await findConnectionWebhookSecret(connectionId, provider);',
+        'router.use(makeRateLimiter("channels"), requireChannelKey);',
+        'const key = req.channelKey;',
+        'channelKey: z.string().trim().min(1).max(200).optional(),',
+        'async function call(auth: ConnectorAuth): Promise<void> {}',
+        'consumerSecret: z.string().trim().min(1).max(255),',
+        'credentialsCiphertext: text(),',
+      ],
+      11,
+      (probe) => {
+        expect(CREDENTIAL_VOCABULARY.test(probe), `vocabulary missed: ${probe}`).toBe(true);
+      },
+    );
     // The near misses. A detector that matches everything is as useless as one
     // that matches nothing, and it is the one that gets deleted by whoever hits
     // it next.
-    assertEachOf([
-      'const conn = await findConnection(storeId, connectionId);',
-      'const keyId = routeParam(req, "keyId");',
-      'const accessToken = await oxy.getAccessToken();',
-      'const summary = await listKeys(storeId);',
-    ], 4, (probe) => {
-      expect(CREDENTIAL_VOCABULARY.test(probe), `vocabulary over-matched: ${probe}`).toBe(false);
-    });
+    assertEachOf(
+      [
+        'const conn = await findConnection(storeId, connectionId);',
+        'const keyId = routeParam(req, "keyId");',
+        'const accessToken = await oxy.getAccessToken();',
+        'const summary = await listKeys(storeId);',
+      ],
+      4,
+      (probe) => {
+        expect(CREDENTIAL_VOCABULARY.test(probe), `vocabulary over-matched: ${probe}`).toBe(false);
+      },
+    );
   });
 
   it('stripComments removes prose without eating a URL or the code beside it', () => {
@@ -616,7 +626,8 @@ describe('#658 — mutation self-tests: every detector fires on what it forbids'
     expect(CREDENTIAL_IN_LOG.test(logCallArguments(nested)[0])).toBe(true);
     // A message literal naming a credential is prose and must NOT fire, or the
     // wall reds on `'Failed to generate channel key'`, which is a real line.
-    const proseOnly = "log.general.error({ err, keyId: req.params.keyId }, 'Failed to revoke channel key');";
+    const proseOnly =
+      "log.general.error({ err, keyId: req.params.keyId }, 'Failed to revoke channel key');";
     expect(
       CREDENTIAL_IN_LOG.test(logCallArguments(proseOnly)[0]),
       'a log MESSAGE naming a credential fired the wall — string literals are not values',
@@ -624,21 +635,29 @@ describe('#658 — mutation self-tests: every detector fires on what it forbids'
   });
 
   it('CREDENTIAL_IN_URL fires on a URL-borne credential and not on an id', () => {
-    assertEachOf([
-      "const presented = routeParam(req, 'key');",
-      'const presented = req.query.apiKey;',
-      'const presented = req.params.channelKey;',
-      'const presented = req.query.token;',
-    ], 4, (probe) => {
-      expect(CREDENTIAL_IN_URL.test(probe), `URL detector missed: ${probe}`).toBe(true);
-    });
-    assertEachOf([
-      "const connectionId = routeParam(req, 'connectionId');",
-      'const keyId = req.params.keyId;',
-      'const provider = req.params.provider;',
-      'const body = req.body.channelKey;',
-    ], 4, (probe) => {
-      expect(CREDENTIAL_IN_URL.test(probe), `URL detector over-matched: ${probe}`).toBe(false);
-    });
+    assertEachOf(
+      [
+        "const presented = routeParam(req, 'key');",
+        'const presented = req.query.apiKey;',
+        'const presented = req.params.channelKey;',
+        'const presented = req.query.token;',
+      ],
+      4,
+      (probe) => {
+        expect(CREDENTIAL_IN_URL.test(probe), `URL detector missed: ${probe}`).toBe(true);
+      },
+    );
+    assertEachOf(
+      [
+        "const connectionId = routeParam(req, 'connectionId');",
+        'const keyId = req.params.keyId;',
+        'const provider = req.params.provider;',
+        'const body = req.body.channelKey;',
+      ],
+      4,
+      (probe) => {
+        expect(CREDENTIAL_IN_URL.test(probe), `URL detector over-matched: ${probe}`).toBe(false);
+      },
+    );
   });
 });

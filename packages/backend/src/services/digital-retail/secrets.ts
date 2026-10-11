@@ -38,7 +38,13 @@
  * asks. Four characters cannot reconstruct a key (ADR 0011 D10).
  */
 
-import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
 
 /** The one algorithm this module writes. The column records it per artifact. */
 export const SEAL_ALGORITHM = 'aes-256-gcm.v1';
@@ -78,9 +84,7 @@ const KEY_REFERENCE_SHAPE = /^\/[A-Za-z0-9/_.-]+$/;
  * so a reference pointing anywhere else fails rather than reaching for a
  * plausibly-named variable.
  */
-export function environmentKeyResolver(
-  env: NodeJS.ProcessEnv = process.env,
-): SealingKeyResolver {
+export function environmentKeyResolver(env: NodeJS.ProcessEnv = process.env): SealingKeyResolver {
   const PREFIX = '/oxy/mercaria/digital-retail/seal/';
   return {
     async resolve(keyReference: string): Promise<Buffer> {
@@ -89,7 +93,10 @@ export function environmentKeyResolver(
           `digital-retail sealing key reference must live under ${PREFIX}; received ${keyReference}`,
         );
       }
-      const name = keyReference.slice(PREFIX.length).replace(/[^A-Za-z0-9]/g, '_').toUpperCase();
+      const name = keyReference
+        .slice(PREFIX.length)
+        .replace(/[^A-Za-z0-9]/g, '_')
+        .toUpperCase();
       const value = env[`DIGITAL_RETAIL_SEAL_KEY_${name}`];
       if (!value) {
         throw new Error(

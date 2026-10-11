@@ -173,7 +173,11 @@ export type AuthoringSchemaRefusal =
  */
 export type AuthoringSchemaComposition =
   | { readonly outcome: 'composed'; readonly schema: AuthoringSchema }
-  | { readonly outcome: 'refused'; readonly refusal: AuthoringSchemaRefusal; readonly detail: string };
+  | {
+      readonly outcome: 'refused';
+      readonly refusal: AuthoringSchemaRefusal;
+      readonly detail: string;
+    };
 
 function refused(refusal: AuthoringSchemaRefusal, detail: string): AuthoringSchemaComposition {
   return { outcome: 'refused', refusal, detail };
@@ -469,7 +473,10 @@ async function composeForDefinition(
   const [definitions, enumValues, allowedValues] = await Promise.all([
     listAttributeDefinitionsByIds(db, attributeDefinitionIds),
     listAttributeEnumValues(db, attributeDefinitionIds),
-    listProductTypeFieldAllowedValues(db, fields.map((field) => field.id)),
+    listProductTypeFieldAllowedValues(
+      db,
+      fields.map((field) => field.id),
+    ),
   ]);
   const definitionById = new Map(definitions.map((row) => [row.id, row]));
 
@@ -661,12 +668,14 @@ async function composeText(
   const chain = localeFallbackChain(input.requestedLocale, 'language_then_base');
   const attributeDefinitionIds = [...input.definitionById.keys()];
 
-  const [productTypeRows, categoryRows, attributeLabelRows, valueLocalizations] = await Promise.all([
-    findProductTypeLocalizations([input.definition.id], chain as readonly SupportedLocale[], db),
-    findCategoryLocalizations([input.category.id], chain as readonly SupportedLocale[], db),
-    listAttributeLabelsForDefinitions(db, attributeDefinitionIds, chain),
-    readLocalizedValueLabels(db, input.enumValueIds, chain),
-  ]);
+  const [productTypeRows, categoryRows, attributeLabelRows, valueLocalizations] = await Promise.all(
+    [
+      findProductTypeLocalizations([input.definition.id], chain as readonly SupportedLocale[], db),
+      findCategoryLocalizations([input.category.id], chain as readonly SupportedLocale[], db),
+      listAttributeLabelsForDefinitions(db, attributeDefinitionIds, chain),
+      readLocalizedValueLabels(db, input.enumValueIds, chain),
+    ],
+  );
 
   const productTypeName = toText(
     resolveObservedLocalizedField({
@@ -709,7 +718,10 @@ async function composeText(
   );
 
   // Attribute labels: base locale only. See `baseOnlyText`.
-  const labelByDefinitionAndLocale = new Map<string, { label: string; description: string | null }>();
+  const labelByDefinitionAndLocale = new Map<
+    string,
+    { label: string; description: string | null }
+  >();
   for (const row of attributeLabelRows) {
     labelByDefinitionAndLocale.set(`${row.attributeDefinitionId}:${row.locale}`, {
       label: row.label,
@@ -836,7 +848,12 @@ async function readLocalizedValueLabels(
 
   const candidatesByValue = new Map<
     string,
-    { locale: string; status: LocalizedCandidateStatus; provenance: LocalizedCandidateProvenance; value: string | null }[]
+    {
+      locale: string;
+      status: LocalizedCandidateStatus;
+      provenance: LocalizedCandidateProvenance;
+      value: string | null;
+    }[]
   >();
   for (const row of localizationRows) {
     if (!chain.includes(row.locale)) continue;
@@ -867,8 +884,9 @@ async function readLocalizedValueLabels(
 // Off the OBSERVED resolver, whose signature is the pure one's unchanged — so
 // these describe exactly what this serving path passes, and a widening of the
 // pure resolver that the wrapper did not adopt would be a type error here.
-type LocalizedCandidateStatus =
-  Parameters<typeof resolveObservedLocalizedField>[0]['candidates'][number]['status'];
+type LocalizedCandidateStatus = Parameters<
+  typeof resolveObservedLocalizedField
+>[0]['candidates'][number]['status'];
 type LocalizedCandidateProvenance = Parameters<
   typeof resolveObservedLocalizedField
 >[0]['candidates'][number]['provenance'];
@@ -894,7 +912,15 @@ export async function listAuthoringCategories(
     chain as readonly SupportedLocale[],
     db,
   );
-  const byCategory = new Map<string, { locale: string; status: LocalizedCandidateStatus; provenance: LocalizedCandidateProvenance; value: string | null }[]>();
+  const byCategory = new Map<
+    string,
+    {
+      locale: string;
+      status: LocalizedCandidateStatus;
+      provenance: LocalizedCandidateProvenance;
+      value: string | null;
+    }[]
+  >();
   for (const row of localizations) {
     const bucket = byCategory.get(row.categoryId) ?? [];
     bucket.push({
@@ -941,7 +967,15 @@ export async function listAuthoringProductTypes(
     chain as readonly SupportedLocale[],
     db,
   );
-  const byDefinition = new Map<string, { locale: string; status: LocalizedCandidateStatus; provenance: LocalizedCandidateProvenance; value: string | null }[]>();
+  const byDefinition = new Map<
+    string,
+    {
+      locale: string;
+      status: LocalizedCandidateStatus;
+      provenance: LocalizedCandidateProvenance;
+      value: string | null;
+    }[]
+  >();
   for (const row of localizations) {
     const bucket = byDefinition.get(row.productTypeDefinitionId) ?? [];
     bucket.push({

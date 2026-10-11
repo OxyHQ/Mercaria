@@ -204,7 +204,8 @@ export async function upsertMerchantSubscription(
       },
     })
     .returning();
-  if (!row) throw new Error(`Upserting the subscription for store ${input.storeId} returned no row.`);
+  if (!row)
+    throw new Error(`Upserting the subscription for store ${input.storeId} returned no row.`);
   return row;
 }
 

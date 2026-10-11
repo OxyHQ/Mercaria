@@ -117,7 +117,11 @@ async function versionId(label: string): Promise<string> {
 async function createCategory(name: string): Promise<string> {
   const [row] = await db
     .insert(categories)
-    .values({ name, slug: `${name.toLowerCase()}-${RUN}`, key: `l10n.${name.toLowerCase()}.${RUN}` })
+    .values({
+      name,
+      slug: `${name.toLowerCase()}-${RUN}`,
+      key: `l10n.${name.toLowerCase()}.${RUN}`,
+    })
     .returning();
   categoryIds.push(row.id);
   return row.id;
@@ -157,7 +161,9 @@ afterAll(async () => {
     await db
       .delete(productTypeLocalizations)
       .where(inArray(productTypeLocalizations.productTypeDefinitionId, productTypeVersionIds));
-    await db.delete(productTypeDefinitions).where(inArray(productTypeDefinitions.id, productTypeVersionIds));
+    await db
+      .delete(productTypeDefinitions)
+      .where(inArray(productTypeDefinitions.id, productTypeVersionIds));
   }
   if (categoryIds.length > 0) {
     await db
@@ -290,7 +296,13 @@ describe('the localization row shape', () => {
   it('permits one row per locale and no more', async () => {
     const categoryId = await createCategory('OnePerLocale');
     await upsertCategoryLocalization(
-      { categoryId, locale: 'es', status: 'machine_translated', provenance: 'machine', name: 'Zapatos' },
+      {
+        categoryId,
+        locale: 'es',
+        status: 'machine_translated',
+        provenance: 'machine',
+        name: 'Zapatos',
+      },
       db,
     );
     await expect(
@@ -332,7 +344,9 @@ describe('the machine-write guard is ATTACHED to every table that can hold a pro
   const protectableTables = tables
     .filter((table) => getTableName(table).endsWith('_localizations'))
     .filter((table) =>
-      Object.values(getTableColumns(table)).some((column) => sqlColumnName(column) === 'provenance'),
+      Object.values(getTableColumns(table)).some(
+        (column) => sqlColumnName(column) === 'provenance',
+      ),
     )
     .map(getTableName)
     .sort();
@@ -528,7 +542,13 @@ describe('the machine-write guard', () => {
     );
     await expectTriggerRefusal(/Machine translation may not replace reviewed text/u, () =>
       upsertCategoryLocalization(
-        { categoryId, locale: 'es', status: 'machine_translated', provenance: 'machine', name: 'X' },
+        {
+          categoryId,
+          locale: 'es',
+          status: 'machine_translated',
+          provenance: 'machine',
+          name: 'X',
+        },
         db,
       ),
     );
@@ -549,7 +569,10 @@ describe('the machine-write guard', () => {
       db,
     );
     // Make it stale the way a source change does.
-    await db.update(categories).set({ name: `GuardStale renamed ${RUN}` }).where(eq(categories.id, categoryId));
+    await db
+      .update(categories)
+      .set({ name: `GuardStale renamed ${RUN}` })
+      .where(eq(categories.id, categoryId));
 
     const refreshed = await upsertCategoryLocalization(
       {
@@ -568,7 +591,13 @@ describe('the machine-write guard', () => {
   it('lets a human replace machine text, which is the direction that must work', async () => {
     const categoryId = await createCategory('HumanOverMachine');
     await upsertCategoryLocalization(
-      { categoryId, locale: 'es', status: 'machine_translated', provenance: 'machine', name: 'Calzado' },
+      {
+        categoryId,
+        locale: 'es',
+        status: 'machine_translated',
+        provenance: 'machine',
+        name: 'Calzado',
+      },
       db,
     );
     const settled = await upsertCategoryLocalization(
@@ -823,7 +852,12 @@ describe('the batched read', () => {
       db,
     );
     await issueCategoryLocalizedSlug(
-      { categoryId: withSpanish, locale: 'es', slug: `zapatos-read-${RUN}`, provenance: 'mercaria' },
+      {
+        categoryId: withSpanish,
+        locale: 'es',
+        slug: `zapatos-read-${RUN}`,
+        provenance: 'mercaria',
+      },
       db,
     );
 
@@ -859,7 +893,13 @@ describe('the batched read', () => {
       .values({ name: `Cascade ${RUN}`, slug: `cascade-${RUN}`, key: `l10n.cascade.${RUN}` })
       .returning();
     await upsertCategoryLocalization(
-      { categoryId: row.id, locale: 'es', status: 'machine_translated', provenance: 'machine', name: 'Cascada' },
+      {
+        categoryId: row.id,
+        locale: 'es',
+        status: 'machine_translated',
+        provenance: 'machine',
+        name: 'Cascada',
+      },
       db,
     );
     await issueCategoryLocalizedSlug(

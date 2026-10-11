@@ -78,7 +78,10 @@ export const productComparisonSchema = z
       .max(MAX_COMPARISON_SUBJECTS),
     currency: z.enum(CURRENCY_VALUES).optional(),
     market: country.optional(),
-    conditionGroups: z.array(z.enum(CONDITION_GROUP_VALUES)).max(CONDITION_GROUPS.length).optional(),
+    conditionGroups: z
+      .array(z.enum(CONDITION_GROUP_VALUES))
+      .max(CONDITION_GROUPS.length)
+      .optional(),
     /** The category the constraints are scoped to, so #94 can refuse an off-scope one. */
     categoryId: entityId.optional(),
     constraints: z.array(productConstraintSchema).min(1).max(MAX_CONSTRAINTS_PER_SET).optional(),
@@ -92,7 +95,11 @@ const basketLineSchema = z
     canonicalProductId: entityId,
     canonicalVariantId: entityId.optional(),
     quantity: z.number().int().min(1).max(100),
-    conditionGroups: z.array(z.enum(CONDITION_GROUP_VALUES)).min(1).max(CONDITION_GROUPS.length).optional(),
+    conditionGroups: z
+      .array(z.enum(CONDITION_GROUP_VALUES))
+      .min(1)
+      .max(CONDITION_GROUPS.length)
+      .optional(),
     merchantId: entityId.optional(),
   })
   .strict();
@@ -125,10 +132,9 @@ export const basketSolveSchema = z
     pickup: z.literal(true).optional(),
   })
   .strict()
-  .refine(
-    (value) => (value.lines === undefined) !== (value.watchlistId === undefined),
-    { message: 'Provide exactly one of lines or watchlistId' },
-  );
+  .refine((value) => (value.lines === undefined) !== (value.watchlistId === undefined), {
+    message: 'Provide exactly one of lines or watchlistId',
+  });
 
 /**
  * `POST /comparison/basket/revalidate` — re-check a plan before acting on it.
@@ -169,7 +175,10 @@ export const basketRevalidateSchema = z
             objectives: z.array(z.enum(OBJECTIVE_VALUES)),
             maxMerchants: z.number().int().min(1).max(MAX_BASKET_LINES).optional(),
             excludedMerchantIds: z.array(entityId).max(64).optional(),
-            pickupPreference: z.object({ requested: z.literal(true) }).strict().optional(),
+            pickupPreference: z
+              .object({ requested: z.literal(true) })
+              .strict()
+              .optional(),
           })
           .strict(),
         candidateOfferRefs: z.array(z.string().trim().min(1).max(16)).max(1000),

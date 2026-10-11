@@ -254,9 +254,7 @@ async function grantForOrder(
  * Idempotent and safe to call from the `paid` transition, from a backfill and
  * from an operator repair — all three converge on the same rows.
  */
-export async function grantEligibilitiesForOrder(
-  orderId: string,
-): Promise<EligibilityGrantReport> {
+export async function grantEligibilitiesForOrder(orderId: string): Promise<EligibilityGrantReport> {
   const order = await findOrderById(orderId);
   if (!order) throw notFound('Order not found');
 
@@ -327,7 +325,9 @@ export async function grantEligibilitiesForClaimedGuestOrder(
     );
   }
   if (!evidence.claimId.trim() || !evidence.claimedByOxyUserId.trim()) {
-    throw validationError('A guest-origin eligibility requires a claim id and a claiming Oxy account');
+    throw validationError(
+      'A guest-origin eligibility requires a claim id and a claiming Oxy account',
+    );
   }
 
   const order = await findOrderById(orderId);

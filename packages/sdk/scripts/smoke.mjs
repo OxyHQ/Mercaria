@@ -81,9 +81,26 @@ const EXPECTED_FILES = [
 
 /** The manifest fields a consumer's package manager and the registry read. */
 const PUBLISHED_FIELDS = [
-  'name', 'version', 'description', 'license', 'author', 'homepage', 'repository', 'bugs', 'keywords',
-  'type', 'sideEffects', 'main', 'module', 'types', 'react-native', 'exports', 'files', 'engines',
-  'publishConfig', 'dependencies',
+  'name',
+  'version',
+  'description',
+  'license',
+  'author',
+  'homepage',
+  'repository',
+  'bugs',
+  'keywords',
+  'type',
+  'sideEffects',
+  'main',
+  'module',
+  'types',
+  'react-native',
+  'exports',
+  'files',
+  'engines',
+  'publishConfig',
+  'dependencies',
 ];
 
 function fail(message) {
@@ -92,17 +109,25 @@ function fail(message) {
 }
 
 function run(command, args, cwd, what) {
-  const result = spawnSync(command, args, { cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+  const result = spawnSync(command, args, {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, NO_COLOR: '1' },
+  });
   if (result.error) fail(`${what}: could not run ${command} (${result.error.message})`);
   if (result.status !== 0) {
-    fail(`${what}: ${command} ${args.join(' ')} exited ${result.status}\n${result.stdout}\n${result.stderr}`);
+    fail(
+      `${what}: ${command} ${args.join(' ')} exited ${result.status}\n${result.stdout}\n${result.stderr}`,
+    );
   }
   return result.stdout;
 }
 
 async function listFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true, recursive: true });
-  return entries.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath, entry.name));
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name));
 }
 
 async function main() {
@@ -116,26 +141,38 @@ async function main() {
   try {
     // ── Stage and pack ────────────────────────────────────────────────────────
     for (const file of ['index.js', 'index.cjs', 'index.d.ts', 'index.d.cts']) {
-      await stat(join(root, 'dist', file)).catch(() => fail(`dist/${file} is missing — run the build first`));
+      await stat(join(root, 'dist', file)).catch(() =>
+        fail(`dist/${file} is missing — run the build first`),
+      );
     }
     const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
     const stage = join(scratch, 'stage');
     await mkdir(stage, { recursive: true });
     await cp(join(root, 'dist'), join(stage, 'dist'), { recursive: true });
-    for (const doc of ['README.md', 'CHANGELOG.md', 'LICENSE', 'NOTICE']) await cp(join(root, doc), join(stage, doc));
-    const published = Object.fromEntries(PUBLISHED_FIELDS.filter((key) => key in manifest).map((key) => [key, manifest[key]]));
+    for (const doc of ['README.md', 'CHANGELOG.md', 'LICENSE', 'NOTICE'])
+      await cp(join(root, doc), join(stage, doc));
+    const published = Object.fromEntries(
+      PUBLISHED_FIELDS.filter((key) => key in manifest).map((key) => [key, manifest[key]]),
+    );
     await writeFile(join(stage, 'package.json'), `${JSON.stringify(published, null, 2)}\n`);
 
     const packDir = join(scratch, 'pack');
     await mkdir(packDir);
-    const packed = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', packDir], stage, 'pack'));
+    const packed = JSON.parse(
+      run('npm', ['pack', '--json', '--pack-destination', packDir], stage, 'pack'),
+    );
     const tarball = join(packDir, packed[0].filename);
     const tarballBytes = (await stat(tarball)).size;
 
     // ── 1. File list ──────────────────────────────────────────────────────────
-    const listed = run('tar', ['-tzf', tarball], scratch, 'list tarball').split('\n').filter(Boolean).sort();
+    const listed = run('tar', ['-tzf', tarball], scratch, 'list tarball')
+      .split('\n')
+      .filter(Boolean)
+      .sort();
     if (JSON.stringify(listed) !== JSON.stringify(EXPECTED_FILES)) {
-      fail(`tarball files are\n  ${listed.join('\n  ')}\nexpected\n  ${EXPECTED_FILES.join('\n  ')}`);
+      fail(
+        `tarball files are\n  ${listed.join('\n  ')}\nexpected\n  ${EXPECTED_FILES.join('\n  ')}`,
+      );
     }
     pass(`tarball holds exactly ${EXPECTED_FILES.length} files (dist, docs, manifest)`);
 
@@ -144,7 +181,8 @@ async function main() {
     await mkdir(extract);
     run('tar', ['-xzf', tarball, '-C', extract], scratch, 'extract tarball');
     const builtins = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
-    const importSpecifier = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
+    const importSpecifier =
+      /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["']([^"']+)["']/g;
     for (const file of await listFiles(extract)) {
       const text = await readFile(file, 'utf8');
       const name = relative(extract, file);
@@ -154,34 +192,68 @@ async function main() {
         for (const [, specifier] of text.matchAll(importSpecifier)) {
           if (builtins.has(specifier)) fail(`${name} imports the Node built-in ${specifier}`);
           if (!specifier.startsWith('.') && !RUNTIME_DEPENDENCIES.includes(specifier)) {
-            fail(`${name} imports the package ${specifier}; the SDK depends on ${RUNTIME_DEPENDENCIES.join(', ')} only`);
+            fail(
+              `${name} imports the package ${specifier}; the SDK depends on ${RUNTIME_DEPENDENCIES.join(', ')} only`,
+            );
           }
         }
       }
     }
-    const shippedManifest = JSON.parse(await readFile(join(extract, 'package', 'package.json'), 'utf8'));
-    for (const field of ['peerDependencies', 'optionalDependencies', 'devDependencies', 'bundleDependencies', 'bundledDependencies', 'scripts']) {
+    const shippedManifest = JSON.parse(
+      await readFile(join(extract, 'package', 'package.json'), 'utf8'),
+    );
+    for (const field of [
+      'peerDependencies',
+      'optionalDependencies',
+      'devDependencies',
+      'bundleDependencies',
+      'bundledDependencies',
+      'scripts',
+    ]) {
       if (field in shippedManifest) fail(`the published manifest carries ${field}`);
     }
     const shippedDependencies = Object.keys(shippedManifest.dependencies ?? {}).sort();
     if (JSON.stringify(shippedDependencies) !== JSON.stringify(RUNTIME_DEPENDENCIES)) {
-      fail(`the published dependencies are [${shippedDependencies.join(', ')}], expected [${RUNTIME_DEPENDENCIES.join(', ')}]`);
+      fail(
+        `the published dependencies are [${shippedDependencies.join(', ')}], expected [${RUNTIME_DEPENDENCIES.join(', ')}]`,
+      );
     }
-    if (shippedManifest.name !== '@mercaria.co/sdk') fail(`published name is ${shippedManifest.name}`);
-    pass('no private scope, no workspace protocol, zod the only dependency, no scripts, no Node built-in imports');
+    if (shippedManifest.name !== '@mercaria.co/sdk')
+      fail(`published name is ${shippedManifest.name}`);
+    pass(
+      'no private scope, no workspace protocol, zod the only dependency, no scripts, no Node built-in imports',
+    );
 
     // ── 3. Node ESM + CJS from the installed tarball ─────────────────────────
     const consumer = join(scratch, 'consumer');
     await mkdir(consumer);
-    await writeFile(join(consumer, 'package.json'), '{ "name": "sdk-smoke-consumer", "private": true }\n');
+    await writeFile(
+      join(consumer, 'package.json'),
+      '{ "name": "sdk-smoke-consumer", "private": true }\n',
+    );
     // `--prefer-offline`: `zod` comes from the npm cache when it is there, and
     // from the registry when it is not — exactly what a consumer's install does.
-    run('npm', ['install', tarball, '--no-audit', '--no-fund', '--ignore-scripts', '--no-package-lock', '--prefer-offline'], consumer, 'install tarball');
+    run(
+      'npm',
+      [
+        'install',
+        tarball,
+        '--no-audit',
+        '--no-fund',
+        '--ignore-scripts',
+        '--no-package-lock',
+        '--prefer-offline',
+      ],
+      consumer,
+      'install tarball',
+    );
 
     await writeFile(join(consumer, 'program.mjs'), CONSUMER_ESM);
     await writeFile(join(consumer, 'program.cjs'), CONSUMER_CJS);
     run(process.execPath, ['program.mjs'], consumer, 'node ESM import');
-    pass('node ESM import: client, product parse, link, 410 → MercariaGoneError, query refused unsent, cross-copy instanceof');
+    pass(
+      'node ESM import: client, product parse, link, 410 → MercariaGoneError, query refused unsent, cross-copy instanceof',
+    );
     run(process.execPath, ['program.cjs'], consumer, 'node CJS require');
     pass('node CJS require: client, product parse, link');
 
@@ -217,7 +289,8 @@ async function main() {
       }
       const inputs = Object.keys(result.metafile.inputs);
       const offending = inputs.filter((input) => builtins.has(input) || input.startsWith('node:'));
-      if (offending.length > 0) fail(`${target} bundle pulled in Node built-ins: ${offending.join(', ')}`);
+      if (offending.length > 0)
+        fail(`${target} bundle pulled in Node built-ins: ${offending.join(', ')}`);
       if (!inputs.some((input) => input.endsWith('@mercaria.co/sdk/dist/index.js'))) {
         fail(`${target} bundle did not resolve the ESM entry (inputs: ${inputs.join(', ')})`);
       }
@@ -228,9 +301,28 @@ async function main() {
     await writeFile(join(consumer, 'types-esm.mts'), CONSUMER_TYPES);
     await writeFile(join(consumer, 'types-cjs.cts'), CONSUMER_TYPES);
     const nodeTypes = JSON.parse(
-      await readFile(join(dirname(fileURLToPath(import.meta.resolve('@types/node/package.json'))), 'package.json'), 'utf8'),
+      await readFile(
+        join(
+          dirname(fileURLToPath(import.meta.resolve('@types/node/package.json'))),
+          'package.json',
+        ),
+        'utf8',
+      ),
     ).version;
-    run('npm', ['install', `@types/node@${nodeTypes}`, '--no-audit', '--no-fund', '--ignore-scripts', '--no-package-lock', '--prefer-offline'], consumer, 'install @types/node');
+    run(
+      'npm',
+      [
+        'install',
+        `@types/node@${nodeTypes}`,
+        '--no-audit',
+        '--no-fund',
+        '--ignore-scripts',
+        '--no-package-lock',
+        '--prefer-offline',
+      ],
+      consumer,
+      'install @types/node',
+    );
     const tsc = join(dirname(fileURLToPath(import.meta.resolve('typescript'))), '..', 'bin', 'tsc');
     for (const [name, environment] of Object.entries({
       node: { lib: ['ES2020'], types: ['node'] },
@@ -251,9 +343,16 @@ async function main() {
           files: ['types-esm.mts', 'types-cjs.cts'],
         }),
       );
-      run(process.execPath, [tsc, '-p', `tsconfig.${name}.json`], consumer, `${name} consumer type-check`);
+      run(
+        process.execPath,
+        [tsc, '-p', `tsconfig.${name}.json`],
+        consumer,
+        `${name} consumer type-check`,
+      );
     }
-    pass('declarations type-check under nodenext (ESM and CJS), skipLibCheck off, as a Node and as a browser consumer');
+    pass(
+      'declarations type-check under nodenext (ESM and CJS), skipLibCheck off, as a Node and as a browser consumer',
+    );
 
     if (keepDir) {
       await mkdir(keepDir, { recursive: true });

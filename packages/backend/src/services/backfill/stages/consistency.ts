@@ -338,10 +338,7 @@ interface NativeOfferRow {
   readonly canonicalVariantId: string;
 }
 
-async function checkOffer(
-  context: StageContext,
-  offer: NativeOfferRow,
-): Promise<SubjectVerdict> {
+async function checkOffer(context: StageContext, offer: NativeOfferRow): Promise<SubjectVerdict> {
   const db = getDb();
   const subjectKey = `native_offer:${offer.id}`;
 

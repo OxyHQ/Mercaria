@@ -102,8 +102,7 @@ type ListingGridQuery = Parameters<typeof useListings>[0];
  * the whole job: the premise this module rests on cannot change without
  * breaking the build at the decision that depends on it.
  */
-export const LISTING_GRID_CARRIES_ATTRIBUTE_FILTER: CarriesAttributeFilter<ListingGridQuery> =
-  false;
+export const LISTING_GRID_CARRIES_ATTRIBUTE_FILTER: CarriesAttributeFilter<ListingGridQuery> = false;
 
 /** What the category screen's grid can do with a facet selection. */
 export function deriveCategoryGridFacetConsumption(): FacetSelectionConsumption {

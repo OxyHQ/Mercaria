@@ -167,7 +167,10 @@ export interface AliasFoldAudit {
  */
 const SAMPLE_LIMIT = 100;
 
-async function scalar(db: DatabaseOrTransaction, statement: ReturnType<typeof sql>): Promise<number> {
+async function scalar(
+  db: DatabaseOrTransaction,
+  statement: ReturnType<typeof sql>,
+): Promise<number> {
   const rows = await db.execute<{ total: number }>(statement);
   return Number([...rows][0]?.total ?? 0);
 }
@@ -322,13 +325,7 @@ export async function auditAliasFold(db: DatabaseOrTransaction): Promise<AliasFo
   // construction, which is why an enum-value collision is never ambiguous in
   // the alias sense. It is still a decision: two canonical values becoming one
   // means every assignment citing the loser has to move.
-  const enumValues = await auditColumn(
-    db,
-    'attribute_enum_values',
-    'value',
-    'value',
-    't.id',
-  );
+  const enumValues = await auditColumn(db, 'attribute_enum_values', 'value', 'value', 't.id');
 
   return {
     aliases,

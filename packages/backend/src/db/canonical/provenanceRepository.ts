@@ -18,10 +18,7 @@
  */
 
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import type {
-  CatalogSourceKind,
-  SourceRecordExternalType,
-} from '@mercaria/shared-types';
+import type { CatalogSourceKind, SourceRecordExternalType } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
 
@@ -213,7 +210,10 @@ export async function findSourceRecordsByIds(
   ids: readonly string[],
 ): Promise<SourceRecordRow[]> {
   if (ids.length === 0) return [];
-  return db.select().from(sourceRecords).where(inArray(sourceRecords.id, [...ids]));
+  return db
+    .select()
+    .from(sourceRecords)
+    .where(inArray(sourceRecords.id, [...ids]));
 }
 
 /**

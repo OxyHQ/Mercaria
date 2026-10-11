@@ -167,7 +167,10 @@ export const referralRewardRuleDraftSchema = z
           'compared against a base whose currency varies',
       });
     }
-    if ((body.maxRewardPerPartnerPeriodMinor === undefined) !== (body.partnerCapPeriod === undefined)) {
+    if (
+      (body.maxRewardPerPartnerPeriodMinor === undefined) !==
+      (body.partnerCapPeriod === undefined)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['partnerCapPeriod'],

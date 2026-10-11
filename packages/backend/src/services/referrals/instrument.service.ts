@@ -266,9 +266,7 @@ async function requireIssuable(
   const partner = await findPartnerById(db, partnerId);
   if (!partner) throw notFound('Referral partner not found');
   if (partner.state !== 'approved') {
-    throw conflict(
-      `The partner is ${partner.state} and cannot issue instruments for this program`,
-    );
+    throw conflict(`The partner is ${partner.state} and cannot issue instruments for this program`);
   }
   // #148: the scoped suspension, through the ONE derivation the three gates
   // share. `removedFromProgramIds` is read here too — a partner removed from
@@ -283,9 +281,7 @@ async function requireIssuable(
     throw conflict('The program has no active version — instruments cannot be issued');
   }
   if (!version.eligiblePartnerTypes.includes(partner.ownerType)) {
-    throw conflict(
-      `The program does not admit ${partner.ownerType} partners`,
-    );
+    throw conflict(`The program does not admit ${partner.ownerType} partners`);
   }
   return { partner, version };
 }

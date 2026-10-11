@@ -18,7 +18,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
-import { PRICE_HISTORY_FORBIDDEN_DTO_FIELDS, PRICE_HISTORY_POLICY_VERSION } from '@mercaria/shared-types';
+import {
+  PRICE_HISTORY_FORBIDDEN_DTO_FIELDS,
+  PRICE_HISTORY_POLICY_VERSION,
+} from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
@@ -136,7 +139,9 @@ afterAll(async () => {
   await closePostgres();
 });
 
-async function mintCanonicalVariant(label: string): Promise<{ productId: string; variantId: string }> {
+async function mintCanonicalVariant(
+  label: string,
+): Promise<{ productId: string; variantId: string }> {
   const [product] = await db
     .insert(canonicalProducts)
     .values({
@@ -186,8 +191,13 @@ async function mintSourceRecord(sourceId: string, externalId: string): Promise<s
 }
 
 /** A source that may display a price, so a case is about history and nothing else. */
-async function bringUpSource(label: string): Promise<{ sourceId: string; provider: string; merchantId: string }> {
-  const provider = `ph-${label}-${RUN}`.toLowerCase().replace(/[^a-z0-9_-]/gu, '').slice(0, 64);
+async function bringUpSource(
+  label: string,
+): Promise<{ sourceId: string; provider: string; merchantId: string }> {
+  const provider = `ph-${label}-${RUN}`
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/gu, '')
+    .slice(0, 64);
   const merchantId = await mintMerchant(label);
   const resolved = await configureIngestionSource({
     name: `Price history source ${label} ${RUN}`,
@@ -235,7 +245,10 @@ async function observe(input: {
   condition?: string;
   delivery?: { amount: number; currency: string };
 }): Promise<string> {
-  const sourceRecordId = await mintSourceRecord(input.source.sourceId, `${input.externalOfferId}-${input.observedAt.getTime()}`);
+  const sourceRecordId = await mintSourceRecord(
+    input.source.sourceId,
+    `${input.externalOfferId}-${input.observedAt.getTime()}`,
+  );
   return recordExternalOffer({
     kind: 'external',
     canonicalVariantId: input.canonicalVariantId,
@@ -282,7 +295,10 @@ async function seedObservation(input: {
       itemPriceAmount: input.amount,
       itemPriceCurrency: input.currency,
       ...(input.shipping
-        ? { shippingCostAmount: input.shipping.amount, shippingCostCurrency: input.shipping.currency }
+        ? {
+            shippingCostAmount: input.shipping.amount,
+            shippingCostCurrency: input.shipping.currency,
+          }
         : {}),
       taxInclusion: 'unknown',
       conditionKey: input.conditionKey as 'new',
@@ -573,7 +589,10 @@ describe('deduplication, anchors and the counters that make them visible', () =>
     });
 
     const rows = await db
-      .select({ amount: offerPriceSnapshots.itemPriceAmount, reasons: offerPriceSnapshots.changeReasons })
+      .select({
+        amount: offerPriceSnapshots.itemPriceAmount,
+        reasons: offerPriceSnapshots.changeReasons,
+      })
       .from(offerPriceSnapshots)
       .where(eq(offerPriceSnapshots.offerId, offerId));
     expect(rows).toHaveLength(2);
@@ -612,7 +631,10 @@ describe('deduplication, anchors and the counters that make them visible', () =>
       .where(eq(offerPriceSnapshots.offerId, offerId));
     expect(rows).toHaveLength(0);
 
-    const metrics = await findPriceWriteMetrics(observedAt.toISOString().slice(0, 10), source.sourceId);
+    const metrics = await findPriceWriteMetrics(
+      observedAt.toISOString().slice(0, 10),
+      source.sourceId,
+    );
     expect(metrics?.refused).toBe(1);
     expect(metrics?.written).toBe(0);
   });
@@ -815,7 +837,7 @@ describe('the derived series', () => {
     expect(response.currentOffer).toBeUndefined();
   }, 60_000);
 
-  it('never shows one variant\'s low as another\'s — acceptance 3', async () => {
+  it("never shows one variant's low as another's — acceptance 3", async () => {
     const source = await bringUpSource('variants');
     const cheap = await mintCanonicalVariant('variant-cheap');
     const dear = await mintCanonicalVariant('variant-dear');
@@ -854,7 +876,12 @@ describe('the derived series', () => {
 
     for (const variantId of [cheap.variantId, dear.variantId]) {
       await requestPriceSeriesRebuild(
-        { scopeKind: 'canonical_variant', canonicalVariantId: variantId, displayCurrency: 'EUR', granularity: 'day' },
+        {
+          scopeKind: 'canonical_variant',
+          canonicalVariantId: variantId,
+          displayCurrency: 'EUR',
+          granularity: 'day',
+        },
         PRICE_HISTORY_POLICY_VERSION,
       );
     }

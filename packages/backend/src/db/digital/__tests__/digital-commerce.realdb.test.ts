@@ -83,7 +83,10 @@ import {
   upsertAssetLicence,
 } from '../licenceRepository.js';
 import { findRightEvents, grantRight, transitionRight } from '../rightRepository.js';
-import { mintDownloadGrant, redeemDownloadGrant } from '../../../services/digital/download.service.js';
+import {
+  mintDownloadGrant,
+  redeemDownloadGrant,
+} from '../../../services/digital/download.service.js';
 
 let db: Database;
 
@@ -101,7 +104,10 @@ const safe = (ids: readonly string[]): string[] => (ids.length === 0 ? ['__none_
 
 /** A 64-char lowercase hex hash, which the CHECK on `content_hash` requires. */
 const hash = (seed: string): string =>
-  Array.from({ length: 64 }, (_, i) => '0123456789abcdef'[(seed.charCodeAt(i % seed.length) + i) % 16]).join('');
+  Array.from(
+    { length: 64 },
+    (_, i) => '0123456789abcdef'[(seed.charCodeAt(i % seed.length) + i) % 16],
+  ).join('');
 
 beforeAll(async () => {
   db = await connectPostgres();
@@ -130,52 +136,87 @@ afterAll(async () => {
 
   // ONE TABLE PER WINDOW (#301). Four windows, in dependency order.
   await withTriggerToggleLock(db, async (tx) => {
-    await tx.execute(sql`alter table asset_download_events disable trigger asset_download_events_append_only`);
-    await tx.delete(assetDownloadEvents).where(inArray(assetDownloadEvents.rightId, safe(rightIds)));
+    await tx.execute(
+      sql`alter table asset_download_events disable trigger asset_download_events_append_only`,
+    );
+    await tx
+      .delete(assetDownloadEvents)
+      .where(inArray(assetDownloadEvents.rightId, safe(rightIds)));
     await tx
       .delete(assetDownloadEvents)
       .where(inArray(assetDownloadEvents.requesterKey, [BUYER, OTHER_BUYER, 'anonymous']));
-    await tx.execute(sql`alter table asset_download_events enable trigger asset_download_events_append_only`);
+    await tx.execute(
+      sql`alter table asset_download_events enable trigger asset_download_events_append_only`,
+    );
   });
   await db.delete(assetDownloadGrants).where(inArray(assetDownloadGrants.rightId, safe(rightIds)));
   await withTriggerToggleLock(db, async (tx) => {
-    await tx.execute(sql`alter table asset_right_events disable trigger asset_right_events_append_only`);
+    await tx.execute(
+      sql`alter table asset_right_events disable trigger asset_right_events_append_only`,
+    );
     await tx.delete(assetRightEvents).where(inArray(assetRightEvents.rightId, safe(rightIds)));
-    await tx.execute(sql`alter table asset_right_events enable trigger asset_right_events_append_only`);
+    await tx.execute(
+      sql`alter table asset_right_events enable trigger asset_right_events_append_only`,
+    );
   });
   await withTriggerToggleLock(db, async (tx) => {
-    await tx.execute(sql`alter table asset_rights disable trigger asset_rights_commercial_half_immutable`);
+    await tx.execute(
+      sql`alter table asset_rights disable trigger asset_rights_commercial_half_immutable`,
+    );
     await tx.delete(assetRights).where(inArray(assetRights.buyerKey, [BUYER, OTHER_BUYER]));
-    await tx.execute(sql`alter table asset_rights enable trigger asset_rights_commercial_half_immutable`);
+    await tx.execute(
+      sql`alter table asset_rights enable trigger asset_rights_commercial_half_immutable`,
+    );
   });
 
-  await db.delete(assetVariantBindings).where(inArray(assetVariantBindings.variantId, [`variant-${RUN}`]));
+  await db
+    .delete(assetVariantBindings)
+    .where(inArray(assetVariantBindings.variantId, [`variant-${RUN}`]));
   await db.delete(assetLicenceOptions).where(inArray(assetLicenceOptions.assetId, assetIds));
   await db.delete(assetPackageFiles).where(inArray(assetPackageFiles.versionId, safe(versionIds)));
   await db.delete(assetPackages).where(inArray(assetPackages.assetId, assetIds));
   await db.delete(assetFileInspections).where(inArray(assetFileInspections.fileId, safe(fileIds)));
   await withTriggerToggleLock(db, async (tx) => {
-    await tx.execute(sql`alter table asset_provenance_signals disable trigger asset_provenance_signals_append_only`);
-    await tx.delete(assetProvenanceSignals).where(inArray(assetProvenanceSignals.versionId, safe(versionIds)));
-    await tx.execute(sql`alter table asset_provenance_signals enable trigger asset_provenance_signals_append_only`);
+    await tx.execute(
+      sql`alter table asset_provenance_signals disable trigger asset_provenance_signals_append_only`,
+    );
+    await tx
+      .delete(assetProvenanceSignals)
+      .where(inArray(assetProvenanceSignals.versionId, safe(versionIds)));
+    await tx.execute(
+      sql`alter table asset_provenance_signals enable trigger asset_provenance_signals_append_only`,
+    );
   });
   await withTriggerToggleLock(db, async (tx) => {
-    await tx.execute(sql`alter table asset_files disable trigger asset_files_immutable_once_published`);
+    await tx.execute(
+      sql`alter table asset_files disable trigger asset_files_immutable_once_published`,
+    );
     await tx.delete(assetFiles).where(inArray(assetFiles.versionId, safe(versionIds)));
-    await tx.execute(sql`alter table asset_files enable trigger asset_files_immutable_once_published`);
+    await tx.execute(
+      sql`alter table asset_files enable trigger asset_files_immutable_once_published`,
+    );
   });
-  await db.update(digitalAssets).set({ currentVersionId: null }).where(inArray(digitalAssets.id, assetIds));
+  await db
+    .update(digitalAssets)
+    .set({ currentVersionId: null })
+    .where(inArray(digitalAssets.id, assetIds));
   await withTriggerToggleLock(db, async (tx) => {
-    await tx.execute(sql`alter table asset_versions disable trigger asset_versions_immutable_once_published`);
+    await tx.execute(
+      sql`alter table asset_versions disable trigger asset_versions_immutable_once_published`,
+    );
     await tx.delete(assetVersions).where(inArray(assetVersions.assetId, assetIds));
-    await tx.execute(sql`alter table asset_versions enable trigger asset_versions_immutable_once_published`);
+    await tx.execute(
+      sql`alter table asset_versions enable trigger asset_versions_immutable_once_published`,
+    );
   });
   await db.delete(digitalAssets).where(inArray(digitalAssets.id, assetIds));
   await withTriggerToggleLock(db, async (tx) => {
     await tx.execute(
       sql`alter table asset_licence_versions disable trigger asset_licence_versions_immutable_once_published`,
     );
-    await tx.delete(assetLicenceVersions).where(inArray(assetLicenceVersions.licenceId, safe(createdLicenceIds)));
+    await tx
+      .delete(assetLicenceVersions)
+      .where(inArray(assetLicenceVersions.licenceId, safe(createdLicenceIds)));
     await tx.execute(
       sql`alter table asset_licence_versions enable trigger asset_licence_versions_immutable_once_published`,
     );
@@ -405,7 +446,10 @@ describe('a creator publishes an asset, and the version is then immutable', () =
       db.update(assetVersions).set({ label: '9.9' }).where(eq(assetVersions.id, versionId)),
     ).rejects.toSatisfy(isCheckViolation);
     await expect(
-      db.update(assetVersions).set({ changelog: 'rewritten' }).where(eq(assetVersions.id, versionId)),
+      db
+        .update(assetVersions)
+        .set({ changelog: 'rewritten' })
+        .where(eq(assetVersions.id, versionId)),
     ).rejects.toSatisfy(isCheckViolation);
     // The control: the STATE may still move, or `withdrawVersion` below could not
     // work and the assertions above would be measuring a frozen row rather than a
@@ -424,11 +468,17 @@ describe('a creator publishes an asset, and the version is then immutable', () =
         .where(eq(assetFiles.id, meshFileId)),
     ).rejects.toSatisfy(isCheckViolation);
     await expect(
-      db.update(assetFiles).set({ contentHash: hash('swapped') }).where(eq(assetFiles.id, meshFileId)),
+      db
+        .update(assetFiles)
+        .set({ contentHash: hash('swapped') })
+        .where(eq(assetFiles.id, meshFileId)),
     ).rejects.toSatisfy(isCheckViolation);
     // And the visibility, which is the one that would WIDEN what a licence covers.
     await expect(
-      db.update(assetFiles).set({ visibility: 'public_download' }).where(eq(assetFiles.id, meshFileId)),
+      db
+        .update(assetFiles)
+        .set({ visibility: 'public_download' })
+        .where(eq(assetFiles.id, meshFileId)),
     ).rejects.toSatisfy(isCheckViolation);
     // The control: the scan verdict is still writable, because a security
     // withdrawal discovered after publication has to be recordable.
@@ -458,7 +508,10 @@ describe('a creator publishes an asset, and the version is then immutable', () =
         .where(eq(assetLicenceVersions.id, versionId)),
     ).rejects.toSatisfy(isCheckViolation);
     await expect(
-      db.update(assetLicenceVersions).set({ seatLimit: 99 }).where(eq(assetLicenceVersions.id, versionId)),
+      db
+        .update(assetLicenceVersions)
+        .set({ seatLimit: 99 })
+        .where(eq(assetLicenceVersions.id, versionId)),
     ).rejects.toSatisfy(isCheckViolation);
   });
 
@@ -725,7 +778,11 @@ describe('a creator publishes an asset, and the version is then immutable', () =
       kind: 'geometry_fingerprint',
       value: shared,
     });
-    const matches = await findMatchingProvenanceSignals('geometry_fingerprint', shared, second.versionId);
+    const matches = await findMatchingProvenanceSignals(
+      'geometry_fingerprint',
+      shared,
+      second.versionId,
+    );
     expect(matches.map((row) => row.versionId)).toEqual([first.versionId]);
 
     await expect(
@@ -735,7 +792,9 @@ describe('a creator publishes an asset, and the version is then immutable', () =
         .where(eq(assetProvenanceSignals.versionId, first.versionId)),
     ).rejects.toSatisfy(isCheckViolation);
     await expect(
-      db.delete(assetProvenanceSignals).where(eq(assetProvenanceSignals.versionId, first.versionId)),
+      db
+        .delete(assetProvenanceSignals)
+        .where(eq(assetProvenanceSignals.versionId, first.versionId)),
     ).rejects.toSatisfy(isCheckViolation);
   });
 });
@@ -783,7 +842,10 @@ describe('payment creates EXACTLY ONE right, under retries and reordering', () =
     expect(second.right.id).toBe(first.right.id);
     expect(third.right.id).toBe(first.right.id);
 
-    const rows = await db.select().from(assetRights).where(eq(assetRights.orderItemId, orderItemId));
+    const rows = await db
+      .select()
+      .from(assetRights)
+      .where(eq(assetRights.orderItemId, orderItemId));
     expect(rows).toHaveLength(1);
     const events = await findRightEvents(first.right.id);
     expect(events.filter((event) => event.kind === 'granted')).toHaveLength(1);
@@ -794,7 +856,10 @@ describe('payment creates EXACTLY ONE right, under retries and reordering', () =
     // version later cannot move these.
     const { assetId, versionId, packageId } = await mintPublishedAsset('snapshot');
     const storeId = createdStoreIds[createdStoreIds.length - 1];
-    const licenceVersionId = await mintLicenceVersion(storeId, 'snapshot', ['personal_use', 'modification']);
+    const licenceVersionId = await mintLicenceVersion(storeId, 'snapshot', [
+      'personal_use',
+      'modification',
+    ]);
     const { orderId, orderItemId } = await mintDigitalOrder({
       packageId,
       assetVersionId: versionId,
@@ -827,7 +892,10 @@ describe('payment creates EXACTLY ONE right, under retries and reordering', () =
       'commercial_project_use',
     ]);
     await expect(
-      db.update(assetRights).set({ licenceVersionId: otherLicence }).where(eq(assetRights.id, right.id)),
+      db
+        .update(assetRights)
+        .set({ licenceVersionId: otherLicence })
+        .where(eq(assetRights.id, right.id)),
     ).rejects.toSatisfy(isCheckViolation);
     await expect(
       db.update(assetRights).set({ buyerKey: OTHER_BUYER }).where(eq(assetRights.id, right.id)),
@@ -974,19 +1042,24 @@ describe('payment creates EXACTLY ONE right, under retries and reordering', () =
         detail: 'claim upheld',
       }),
     ).toBe('moved');
-    expect(await transitionRight({
-      rightId: `missing-${RUN}`,
-      from: ['active'],
-      to: 'refunded',
-      kind: 'refunded',
-      actor: 'system',
-      occurredAt: new Date(),
-    })).toBe('missing');
+    expect(
+      await transitionRight({
+        rightId: `missing-${RUN}`,
+        from: ['active'],
+        to: 'refunded',
+        kind: 'refunded',
+        actor: 'system',
+        occurredAt: new Date(),
+      }),
+    ).toBe('missing');
 
     const events = await findRightEvents(right.id);
     expect(events.map((event) => event.kind)).toEqual(['granted', 'dispute_opened', 'revoked']);
     await expect(
-      db.update(assetRightEvents).set({ detail: 'edited' }).where(eq(assetRightEvents.rightId, right.id)),
+      db
+        .update(assetRightEvents)
+        .set({ detail: 'edited' })
+        .where(eq(assetRightEvents.rightId, right.id)),
     ).rejects.toSatisfy(isCheckViolation);
     await expect(
       db.delete(assetRightEvents).where(eq(assetRightEvents.rightId, right.id)),
@@ -999,7 +1072,10 @@ describe('payment creates EXACTLY ONE right, under retries and reordering', () =
 /* -------------------------------------------------------------------------- */
 
 describe('a download is authorized against the RIGHT, never against a URL', () => {
-  async function mintRight(label: string, policy: 'purchased_version_only' | 'all_future_versions') {
+  async function mintRight(
+    label: string,
+    policy: 'purchased_version_only' | 'all_future_versions',
+  ) {
     const asset = await mintPublishedAsset(label);
     const storeId = createdStoreIds[createdStoreIds.length - 1];
     const licenceVersionId = await mintLicenceVersion(storeId, label, ['personal_use']);
@@ -1023,7 +1099,10 @@ describe('a download is authorized against the RIGHT, never against a URL', () =
 
   it('mints a grant, and the SAME right can be redeemed again later', async () => {
     // #1015 acceptance criterion 6: re-download without a permanent public URL.
-    const { rightId, versionId, meshFileId } = await mintRight('download', 'purchased_version_only');
+    const { rightId, versionId, meshFileId } = await mintRight(
+      'download',
+      'purchased_version_only',
+    );
     const first = await mintDownloadGrant({
       requesterKey: BUYER,
       rightId,
@@ -1050,7 +1129,10 @@ describe('a download is authorized against the RIGHT, never against a URL', () =
     expect(second.outcome).toBe('granted');
 
     // The token is NEVER stored: only its hash, and the hash is not the token.
-    const grants = await db.select().from(assetDownloadGrants).where(eq(assetDownloadGrants.rightId, rightId));
+    const grants = await db
+      .select()
+      .from(assetDownloadGrants)
+      .where(eq(assetDownloadGrants.rightId, rightId));
     expect(grants).toHaveLength(2);
     for (const grant of grants) {
       expect(grant.tokenHash).toMatch(/^[0-9a-f]{64}$/);
@@ -1078,7 +1160,10 @@ describe('a download is authorized against the RIGHT, never against a URL', () =
   });
 
   it('REFUSES a preview-only file, which the public viewer streams instead', async () => {
-    const { rightId, versionId, previewFileId } = await mintRight('preview', 'purchased_version_only');
+    const { rightId, versionId, previewFileId } = await mintRight(
+      'preview',
+      'purchased_version_only',
+    );
     expect(
       await mintDownloadGrant({ requesterKey: BUYER, rightId, versionId, fileId: previewFileId }),
     ).toEqual({ outcome: 'refused', reason: 'file_not_downloadable' });
@@ -1090,7 +1175,12 @@ describe('a download is authorized against the RIGHT, never against a URL', () =
     const { rightId, versionId } = await mintRight('outside', 'purchased_version_only');
     const other = await mintPublishedAsset('outside-other');
     expect(
-      await mintDownloadGrant({ requesterKey: BUYER, rightId, versionId, fileId: other.meshFileId }),
+      await mintDownloadGrant({
+        requesterKey: BUYER,
+        rightId,
+        versionId,
+        fileId: other.meshFileId,
+      }),
     ).toEqual({ outcome: 'refused', reason: 'file_not_in_package' });
   });
 
@@ -1111,7 +1201,12 @@ describe('a download is authorized against the RIGHT, never against a URL', () =
     await recordAssetFileScan(file.id, 'clean', new Date());
     expect(await publishAssetVersion(second.id, new Date())).toBe(true);
     expect(
-      await mintDownloadGrant({ requesterKey: BUYER, rightId, versionId: second.id, fileId: file.id }),
+      await mintDownloadGrant({
+        requesterKey: BUYER,
+        rightId,
+        versionId: second.id,
+        fileId: file.id,
+      }),
     ).toEqual({ outcome: 'refused', reason: 'version_not_covered' });
     // The control: the purchased version is still reachable, so the refusal above
     // is about coverage and not about the asset having become unreadable.
@@ -1128,7 +1223,10 @@ describe('a download is authorized against the RIGHT, never against a URL', () =
   it('REFUSES a download once the right stops being active, mid-window', async () => {
     // The five-minute window is short and is not zero: a refund inside it must stop
     // the transfer rather than be noticed on the next request.
-    const { rightId, versionId, meshFileId } = await mintRight('refunded-mid', 'purchased_version_only');
+    const { rightId, versionId, meshFileId } = await mintRight(
+      'refunded-mid',
+      'purchased_version_only',
+    );
     const granted = await mintDownloadGrant({
       requesterKey: BUYER,
       rightId,
@@ -1182,9 +1280,10 @@ describe('a download is authorized against the RIGHT, never against a URL', () =
     });
     if (granted.outcome !== 'granted') throw new Error('expected a grant');
     for (let i = 0; i < 5; i += 1) {
-      expect((await redeemDownloadGrant(granted.grant.token, BUYER)).outcome, `redemption ${i}`).toBe(
-        'ready',
-      );
+      expect(
+        (await redeemDownloadGrant(granted.grant.token, BUYER)).outcome,
+        `redemption ${i}`,
+      ).toBe('ready');
     }
     expect(await redeemDownloadGrant(granted.grant.token, BUYER)).toEqual({
       outcome: 'refused',

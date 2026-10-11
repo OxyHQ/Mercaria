@@ -26,10 +26,7 @@
  * is a `rejected_claim` recovery nobody's customer path reads.
  */
 
-import type {
-  RetailReturnDisposition,
-  SupplierRecoveryKind,
-} from '@mercaria/shared-types';
+import type { RetailReturnDisposition, SupplierRecoveryKind } from '@mercaria/shared-types';
 import {
   findRetailReturnCase,
   findRetailReturnCaseForRequest,
@@ -90,8 +87,9 @@ export async function requestSupplierReturnAuthorization(
   }
 
   const intents = await listRetailProcurementIntents(request.orderId);
-  const purchaseOrderId = intents.find((intent) => intent.purchaseOrderId !== null)
-    ?.purchaseOrderId;
+  const purchaseOrderId = intents.find(
+    (intent) => intent.purchaseOrderId !== null,
+  )?.purchaseOrderId;
   if (purchaseOrderId === undefined || purchaseOrderId === null) {
     // No purchase order means nothing was ever procured from a supplier for
     // these lines, so there is nobody to claim against. The case stands and the
@@ -350,7 +348,9 @@ export async function settleRetailSupplierRecovery(
     requestId: input.requestId,
     kind: input.accepted ? 'supplier_recovery_credited' : 'supplier_recovery_rejected',
     ...retailDeciderAudit(decider),
-    detail: input.accepted ? (input.creditNoteReference ?? 'credited') : (input.rejectionReason ?? 'rejected'),
+    detail: input.accepted
+      ? (input.creditNoteReference ?? 'credited')
+      : (input.rejectionReason ?? 'rejected'),
   });
   log.general.info(
     { recoveryId: input.recoveryId, accepted: input.accepted },

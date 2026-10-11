@@ -109,10 +109,10 @@ describe('no route handler writes to the database', () => {
       .sort();
     expect(
       offenders,
-      'a route handler writes to the database directly. Move the write behind a repository or '
-        + 'service function: a handler write is outside every chokepoint, so whatever invariant '
-        + 'that table has — a transaction guard, a balanced set, a single-writer rule — does not '
-        + 'apply to it.',
+      'a route handler writes to the database directly. Move the write behind a repository or ' +
+        'service function: a handler write is outside every chokepoint, so whatever invariant ' +
+        'that table has — a transaction guard, a balanced set, a single-writer rule — does not ' +
+        'apply to it.',
     ).toEqual([]);
   });
 });

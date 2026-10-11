@@ -50,7 +50,8 @@ async function createCheckout(
   overrides: { emailHash?: string; guestSessionId?: string } = {},
 ): Promise<{ id: string; checkoutGroupId: string; guestSessionId: string }> {
   const checkoutGroupId = `grp-${Math.random().toString(36).slice(2, 12)}`;
-  const guestSessionId = overrides.guestSessionId ?? `ses-${Math.random().toString(36).slice(2, 12)}`;
+  const guestSessionId =
+    overrides.guestSessionId ?? `ses-${Math.random().toString(36).slice(2, 12)}`;
   const [row] = await db
     .insert(guests.guestCheckouts)
     .values({
@@ -89,7 +90,6 @@ async function insertGrant(
   return row;
 }
 
-
 /**
  * Assert a statement is refused by a NAMED constraint.
  *
@@ -112,8 +112,7 @@ async function expectConstraintViolation(
   }
   expect(raised, `expected ${constraintName} to refuse the statement`).toBeDefined();
   const cause = (raised as { cause?: { constraint_name?: string } }).cause;
-  const named =
-    cause?.constraint_name ?? (raised as { constraint_name?: string }).constraint_name;
+  const named = cause?.constraint_name ?? (raised as { constraint_name?: string }).constraint_name;
   expect(named).toBe(constraintName);
 }
 
@@ -349,7 +348,9 @@ describe('the exchange is single-use under CONCURRENCY (test case 3)', () => {
     });
     const first = await grantSvc.exchangeMagicLinkToken({ presented: used.token, now: new Date() });
     if (first) createdGrantIds.push(first.grant.id);
-    expect(await grantSvc.exchangeMagicLinkToken({ presented: used.token, now: new Date() })).toBeNull();
+    expect(
+      await grantSvc.exchangeMagicLinkToken({ presented: used.token, now: new Date() }),
+    ).toBeNull();
 
     const expired = tokens.mintExchangeToken();
     const past = new Date(Date.now() - 60_000);
@@ -533,9 +534,9 @@ describe('suppression is a fact about an ADDRESS', () => {
       now: new Date(),
     });
     expect(await suppressionRepo.findLiveSuppression(db, emailHash)).toBeNull();
-    expect(
-      await suppressionRepo.suppressGuestContact(db, { emailHash, reason: 'complaint' }),
-    ).toBe(true);
+    expect(await suppressionRepo.suppressGuestContact(db, { emailHash, reason: 'complaint' })).toBe(
+      true,
+    );
   });
 
   it('refuses a half-recorded lift', async () => {

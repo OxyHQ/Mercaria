@@ -160,10 +160,7 @@ export async function claimBackfillRun(
           or(
             inArray(catalogBackfillRuns.status, [...RESUMABLE]),
             // A `running` row whose lease expired: the task that held it died.
-            and(
-              eq(catalogBackfillRuns.status, 'running'),
-              lt(catalogBackfillRuns.leaseUntil, now),
-            ),
+            and(eq(catalogBackfillRuns.status, 'running'), lt(catalogBackfillRuns.leaseUntil, now)),
           ),
         ),
       )

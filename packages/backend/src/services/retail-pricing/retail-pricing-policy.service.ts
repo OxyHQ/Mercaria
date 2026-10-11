@@ -17,10 +17,7 @@
  * it.
  */
 
-import type {
-  RetailCostComponentKind,
-  RetailPricingPolicySummary,
-} from '@mercaria/shared-types';
+import type { RetailCostComponentKind, RetailPricingPolicySummary } from '@mercaria/shared-types';
 import type { RetailPricingPolicyRecord } from '../../db/retailPricing/retailPricingPolicyRepository.js';
 import { assertNoForbiddenPricingComponent } from './forbidden-components.js';
 

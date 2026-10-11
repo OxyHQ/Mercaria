@@ -46,11 +46,22 @@ export interface ProcurementMetrics {
   /** #124 observability 5 — inbound events by delivery and status. */
   events: { delivery: string; status: string; total: number }[];
   /** #124 observability 5 and 9 — per account, how long a source has been silent. */
-  lag: { supplierAccountId: string; delivery: string; lastReceivedAt: string; lagMs: number; slaBreached: boolean }[];
+  lag: {
+    supplierAccountId: string;
+    delivery: string;
+    lastReceivedAt: string;
+    lagMs: number;
+    slaBreached: boolean;
+  }[];
   /** #124 observability 3, 6 and 10 — the conditions a person owns. */
   exceptions: { kind: string; open: number; resolved: number }[];
   /** Process-local: deliveries this task refused because it could not verify them. */
-  ingest: { refusedUnverified: number; storedWebhook: number; storedPoll: number; duplicates: number };
+  ingest: {
+    refusedUnverified: number;
+    storedWebhook: number;
+    storedPoll: number;
+    duplicates: number;
+  };
 }
 
 /** Read every figure the operator surface publishes. */

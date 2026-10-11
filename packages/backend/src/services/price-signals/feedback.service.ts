@@ -59,8 +59,12 @@ export async function filePriceSignalFeedback(
     merchantId: input.merchantId,
     reportedByOxyUserId: input.oxyUserId,
     scopeKind: input.canonicalVariantId === undefined ? 'canonical_product' : 'canonical_variant',
-    ...(input.canonicalProductId === undefined ? {} : { canonicalProductId: input.canonicalProductId }),
-    ...(input.canonicalVariantId === undefined ? {} : { canonicalVariantId: input.canonicalVariantId }),
+    ...(input.canonicalProductId === undefined
+      ? {}
+      : { canonicalProductId: input.canonicalProductId }),
+    ...(input.canonicalVariantId === undefined
+      ? {}
+      : { canonicalVariantId: input.canonicalVariantId }),
     segment: input.segment,
     ...(input.market === undefined ? {} : { market: input.market }),
     displayCurrency: input.currency,
@@ -82,7 +86,9 @@ export async function listOwnPriceSignalFeedback(
 }
 
 /** The operator queue. */
-export async function listPriceSignalFeedbackQueue(limit: number): Promise<PriceSignalFeedbackRow[]> {
+export async function listPriceSignalFeedbackQueue(
+  limit: number,
+): Promise<PriceSignalFeedbackRow[]> {
   return listOpenPriceSignalFeedback(limit);
 }
 

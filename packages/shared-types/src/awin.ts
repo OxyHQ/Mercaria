@@ -559,4 +559,3 @@ export interface AwinDestinationSwapExample {
  * #62's own `affiliate_params`-absent branch then produces exactly the right
  * offer with no new mechanism.
  */
-

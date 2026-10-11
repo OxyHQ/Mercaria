@@ -77,10 +77,7 @@ export async function list(oxyUserId: string): Promise<AddressDTO[]> {
  * Create an address for the buyer. The buyer's FIRST address becomes their
  * default automatically; subsequent ones do not.
  */
-export async function create(
-  oxyUserId: string,
-  input: CreateAddressInput,
-): Promise<AddressDTO> {
+export async function create(oxyUserId: string, input: CreateAddressInput): Promise<AddressDTO> {
   return toDTO(await insertAddress(oxyUserId, input));
 }
 

@@ -432,10 +432,22 @@ function fromTrs(t: number[], r: number[], s: number[]): number[] {
   const wy = w * y2;
   const wz = w * z2;
   return [
-    (1 - (yy + zz)) * s[0], (xy + wz) * s[0], (xz - wy) * s[0], 0,
-    (xy - wz) * s[1], (1 - (xx + zz)) * s[1], (yz + wx) * s[1], 0,
-    (xz + wy) * s[2], (yz - wx) * s[2], (1 - (xx + yy)) * s[2], 0,
-    t[0], t[1], t[2], 1,
+    (1 - (yy + zz)) * s[0],
+    (xy + wz) * s[0],
+    (xz - wy) * s[0],
+    0,
+    (xy - wz) * s[1],
+    (1 - (xx + zz)) * s[1],
+    (yz + wx) * s[1],
+    0,
+    (xz + wy) * s[2],
+    (yz - wx) * s[2],
+    (1 - (xx + yy)) * s[2],
+    0,
+    t[0],
+    t[1],
+    t[2],
+    1,
   ];
 }
 
@@ -455,7 +467,12 @@ function multiply(a: readonly number[], b: readonly number[]): number[] {
 }
 
 /** `m · (x, y, z, 1)`, dropping the homogeneous coordinate. */
-function transform(m: readonly number[], x: number, y: number, z: number): [number, number, number] {
+function transform(
+  m: readonly number[],
+  x: number,
+  y: number,
+  z: number,
+): [number, number, number] {
   return [
     m[0] * x + m[4] * y + m[8] * z + m[12],
     m[1] * x + m[5] * y + m[9] * z + m[13],
@@ -497,10 +514,7 @@ function accessorExtents(
  * "this primitive declares 1e300 indices" must not produce the same answer: the
  * first is ordinary (a non-indexed primitive) and the second is a file to refuse.
  */
-function accessorCount(
-  accessors: readonly unknown[],
-  index: unknown,
-): number | null | 'invalid' {
+function accessorCount(accessors: readonly unknown[], index: unknown): number | null | 'invalid' {
   if (index === undefined) return null;
   if (typeof index !== 'number' || !Number.isInteger(index)) return 'invalid';
   const accessor = accessors[index];

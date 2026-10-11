@@ -156,7 +156,10 @@ describe('shopify pushProduct — UPDATE (with externalId)', () => {
       body: JSON.stringify({ product: { id: 555 } }),
     });
     const provider = createShopifyProvider(transport.transport);
-    const result = await provider.pushProduct(AUTH, pushProduct({ externalId: '555', status: 'draft' }));
+    const result = await provider.pushProduct(
+      AUTH,
+      pushProduct({ externalId: '555', status: 'draft' }),
+    );
 
     expect(result).toEqual({ externalId: '555' });
     expect(transport.calls).toHaveLength(1);

@@ -214,9 +214,36 @@ export function zipfCount(index: number, count: number, exponent: number, max: n
  * is exactly one brand word.
  */
 const SYLLABLES = [
-  'ka', 'ro', 'mi', 'tel', 'vor', 'zan', 'lu', 'bre', 'nix', 'qua',
-  'sil', 'dro', 'fen', 'gar', 'hep', 'jol', 'kir', 'mun', 'pav', 'ryn',
-  'tos', 'ulv', 'wex', 'yad', 'zeb', 'cor', 'dim', 'elk', 'fyr', 'glo',
+  'ka',
+  'ro',
+  'mi',
+  'tel',
+  'vor',
+  'zan',
+  'lu',
+  'bre',
+  'nix',
+  'qua',
+  'sil',
+  'dro',
+  'fen',
+  'gar',
+  'hep',
+  'jol',
+  'kir',
+  'mun',
+  'pav',
+  'ryn',
+  'tos',
+  'ulv',
+  'wex',
+  'yad',
+  'zeb',
+  'cor',
+  'dim',
+  'elk',
+  'fyr',
+  'glo',
 ] as const;
 
 function syntheticWord(index: number, syllables: number): string {
@@ -234,8 +261,18 @@ function syntheticWord(index: number, syllables: number): string {
 
 /** Category nouns, so a name ends in something a shopper would recognise. */
 const NOUNS = [
-  'headset', 'blender', 'kettle', 'monitor', 'lamp', 'router', 'camera',
-  'scooter', 'mattress', 'printer', 'speaker', 'keyboard',
+  'headset',
+  'blender',
+  'kettle',
+  'monitor',
+  'lamp',
+  'router',
+  'camera',
+  'scooter',
+  'mattress',
+  'printer',
+  'speaker',
+  'keyboard',
 ] as const;
 
 /**
@@ -649,7 +686,11 @@ export async function seedGraph(
       staleAt: at(7 - (index % 14)),
       contentHash: String(index).padStart(64, '0'),
     })),
-    (batch) => db.insert(sourceRecords).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(sourceRecords)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   await db.insert(categories).values(
@@ -672,7 +713,11 @@ export async function seedGraph(
       name: syntheticWord(index, 3),
       normalizedName: syntheticWord(index, 3),
     })),
-    (batch) => db.insert(brands).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(brands)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   await insertBatched(
@@ -683,7 +728,11 @@ export async function seedGraph(
       normalizedName: `${syntheticWord(index + 5_000, 2)} series`,
       brandId: `bx-brand-${String(index % scale.brands)}`,
     })),
-    (batch) => db.insert(canonicalProductFamilies).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(canonicalProductFamilies)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ---- Products ------------------------------------------------------------
@@ -703,7 +752,11 @@ export async function seedGraph(
       firstSeenAt: at(-30),
       lastSeenAt: at(0),
     })),
-    (batch) => db.insert(canonicalProducts).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(canonicalProducts)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   await db.insert(canonicalProducts).values({
@@ -740,7 +793,11 @@ export async function seedGraph(
       alias: aliasFor(index),
       kind: 'marketing_name' as const,
     })),
-    (batch) => db.insert(canonicalProductAliases).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(canonicalProductAliases)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ---- Variants ------------------------------------------------------------
@@ -767,7 +824,10 @@ export async function seedGraph(
       };
     });
     await insertBatched(rows, (batch) =>
-      db.insert(canonicalVariants).values([...batch]).then(() => undefined),
+      db
+        .insert(canonicalVariants)
+        .values([...batch])
+        .then(() => undefined),
     );
   }
 
@@ -789,7 +849,11 @@ export async function seedGraph(
           ]
         : [],
     ),
-    (batch) => db.insert(productIdentifiers).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(productIdentifiers)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ---- Merchants and storefronts ------------------------------------------
@@ -800,7 +864,11 @@ export async function seedGraph(
       slug: `bench-merch-${String(index)}`,
       name: merchantName(index),
     })),
-    (batch) => db.insert(merchants).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(merchants)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   await insertBatched(
@@ -817,7 +885,11 @@ export async function seedGraph(
       status: 'active' as const,
       lastSeenAt: at(-(index % 30)),
     })),
-    (batch) => db.insert(storefronts).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(storefronts)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ---- Offers --------------------------------------------------------------
@@ -918,7 +990,11 @@ export async function seedGraph(
       verificationMethod: 'operator_review' as const,
       assertedByKind: 'catalog_operator' as const,
     })),
-    (batch) => db.insert(commerceRelationships).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(commerceRelationships)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   await insertBatched(
@@ -931,7 +1007,11 @@ export async function seedGraph(
       observedAt: at(-55),
       sourceRecordId: `bx-sr-${String(index % sourceRecordPool)}`,
     })),
-    (batch) => db.insert(relationshipEvidence).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(relationshipEvidence)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ---- Match decisions (the #59 review inbox) ------------------------------
@@ -984,7 +1064,11 @@ export async function seedGraph(
         createdAt: at(-(index % 30)),
       };
     }),
-    (batch) => db.insert(matchDecisions).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(matchDecisions)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ---- Backfill evidence ---------------------------------------------------
@@ -1021,7 +1105,11 @@ export async function seedGraph(
       reasonCode:
         index % 8 === 0 ? ('blocked_by_decision' as const) : ('variant_attached' as const),
     })),
-    (batch) => db.insert(catalogBackfillRecords).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(catalogBackfillRecords)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ---- Attribute values, at BOTH grains (#367 Workstream 10) ---------------
@@ -1051,7 +1139,11 @@ export async function seedGraph(
       sourceRecordId: `bx-sr-${String(index % sourceRecordCount(scale))}`,
       observedAt: at(-1),
     })),
-    (batch) => db.insert(canonicalAttributeValues).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(canonicalAttributeValues)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // A numeric spec on every FIFTH product, so the range aggregate has a real
@@ -1076,7 +1168,11 @@ export async function seedGraph(
       sourceRecordId: `bx-sr-${String(index % sourceRecordCount(scale))}`,
       observedAt: at(-1),
     })),
-    (batch) => db.insert(canonicalAttributeValues).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(canonicalAttributeValues)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   log(`  variant axis assignments ${String(variantIds.length)}…`);
@@ -1089,7 +1185,11 @@ export async function seedGraph(
       normalizedValue: BENCH_COLOURS[index % BENCH_COLOURS.length] ?? 'black',
       normalizationState: 'normalized' as const,
     })),
-    (batch) => db.insert(canonicalVariantAttributes).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(canonicalVariantAttributes)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ---- Geo listings --------------------------------------------------------
@@ -1113,7 +1213,11 @@ export async function seedGraph(
       categorySlugs: [`bench-cat-${String(index % CATEGORY_COUNT)}`],
       publishedAt: at(-(index % 90)),
     })),
-    (batch) => db.insert(listings).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(listings)
+        .values([...batch])
+        .then(() => undefined),
   );
   // Each one's coarse P2P area: a 2°×2° box around Barcelona, deterministic, so
   // a ring of cells finds a real neighbourhood rather than everything or
@@ -1128,7 +1232,11 @@ export async function seedGraph(
       areaLabel: 'Bench area',
       country: 'ES',
     })),
-    (batch) => db.insert(listingLocalDiscovery).values([...batch]).then(() => undefined),
+    (batch) =>
+      db
+        .insert(listingLocalDiscovery)
+        .values([...batch])
+        .then(() => undefined),
   );
 
   // ANALYZE before anything is measured: a plan chosen from default statistics

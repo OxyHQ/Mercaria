@@ -2,7 +2,7 @@ import {
   PUBLICLY_VIEWABLE_ASSET_FILE_ROLES,
   type AssetFileRole,
   type AssetFileVisibility,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 
 /**
  * What the PUBLIC 3D viewer is allowed to render, as a type a caller cannot
@@ -62,7 +62,7 @@ import {
  * The brand. Module-private on purpose: an exported brand is an object literal
  * anybody can write, which is the whole guarantee gone.
  */
-const ASSET_PREVIEW_SOURCE: unique symbol = Symbol("mercaria.ui.assetPreviewSource");
+const ASSET_PREVIEW_SOURCE: unique symbol = Symbol('mercaria.ui.assetPreviewSource');
 
 /**
  * A preview the public viewer may render: already filtered to a publicly
@@ -98,9 +98,9 @@ export interface AssetPreviewSource {
 /** Why a candidate file may not be shown to the public. */
 export type AssetPreviewRefusalReason =
   /** Its role is not in `PUBLICLY_VIEWABLE_ASSET_FILE_ROLES` — a paid file. */
-  | "role_is_not_publicly_viewable"
+  | 'role_is_not_publicly_viewable'
   /** Its visibility says only a right holder may have it. */
-  | "visibility_requires_a_right";
+  | 'visibility_requires_a_right';
 
 /** What a caller offers the viewer, before anything has been decided about it. */
 export interface AssetPreviewCandidate {
@@ -122,8 +122,8 @@ export interface AssetPreviewCandidate {
  * two get rendered as the same empty box.
  */
 export type AssetPreviewAdmission =
-  | { readonly kind: "admitted"; readonly source: AssetPreviewSource }
-  | { readonly kind: "refused"; readonly reason: AssetPreviewRefusalReason };
+  | { readonly kind: 'admitted'; readonly source: AssetPreviewSource }
+  | { readonly kind: 'refused'; readonly reason: AssetPreviewRefusalReason };
 
 /**
  * Whether a role may be shown to a caller holding no right.
@@ -145,13 +145,13 @@ export function isPubliclyViewableAssetRole(role: AssetFileRole): boolean {
  */
 export function admitAssetPreview(candidate: AssetPreviewCandidate): AssetPreviewAdmission {
   if (!isPubliclyViewableAssetRole(candidate.role)) {
-    return { kind: "refused", reason: "role_is_not_publicly_viewable" };
+    return { kind: 'refused', reason: 'role_is_not_publicly_viewable' };
   }
-  if (candidate.visibility === "rightful_download_only") {
-    return { kind: "refused", reason: "visibility_requires_a_right" };
+  if (candidate.visibility === 'rightful_download_only') {
+    return { kind: 'refused', reason: 'visibility_requires_a_right' };
   }
   return {
-    kind: "admitted",
+    kind: 'admitted',
     source: {
       [ASSET_PREVIEW_SOURCE]: true,
       fileId: candidate.fileId,
@@ -172,8 +172,8 @@ export function admitAssetPreview(candidate: AssetPreviewCandidate): AssetPrevie
  * is the seam {@link AssetPreviewViewer} documents — and in its absence the
  * still fallback is what renders, never the model.
  */
-export function assetPreviewKind(source: AssetPreviewSource): "still" | "streamed_model" {
-  return source.role === "web_derivative" ? "streamed_model" : "still";
+export function assetPreviewKind(source: AssetPreviewSource): 'still' | 'streamed_model' {
+  return source.role === 'web_derivative' ? 'streamed_model' : 'still';
 }
 
 /**
@@ -185,5 +185,5 @@ export function assetPreviewKind(source: AssetPreviewSource): "still" | "streame
  * the paid mesh.
  */
 export function isAssetPreviewFile(source: AssetPreviewSource): boolean {
-  return source.visibility === "public_download";
+  return source.visibility === 'public_download';
 }

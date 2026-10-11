@@ -205,10 +205,7 @@ export async function findWatchlistSnapshot(
     .select()
     .from(watchlistSnapshots)
     .where(
-      and(
-        eq(watchlistSnapshots.id, snapshotId),
-        eq(watchlistSnapshots.watchlistId, watchlistId),
-      ),
+      and(eq(watchlistSnapshots.id, snapshotId), eq(watchlistSnapshots.watchlistId, watchlistId)),
     )
     .limit(1);
   return row;

@@ -151,8 +151,7 @@ const EN: Record<GuestPortalMessageKind, Copy> = {
   },
   cancellation_request_approved: {
     subject: () => 'Mercaria — your cancellation was approved',
-    body: (f) =>
-      `The seller approved your cancellation for ${orderLine(f)}.\n\n${f.portalUrl}`,
+    body: (f) => `The seller approved your cancellation for ${orderLine(f)}.\n\n${f.portalUrl}`,
   },
   cancellation_request_rejected: {
     subject: () => 'Mercaria — your cancellation was not approved',
@@ -162,7 +161,8 @@ const EN: Record<GuestPortalMessageKind, Copy> = {
   },
   return_request_received: {
     subject: () => 'Mercaria — we have your return request',
-    body: (f) => `We passed your return request for ${orderLine(f)} to the seller.\n\n${f.portalUrl}`,
+    body: (f) =>
+      `We passed your return request for ${orderLine(f)} to the seller.\n\n${f.portalUrl}`,
   },
   support_response_available: {
     subject: () => 'Mercaria — there is a reply about your order',

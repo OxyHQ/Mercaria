@@ -25,7 +25,10 @@ import type {
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
-import { findConnectionsByStore, type ConnectionRow } from '../../db/connectors/connectionRepository.js';
+import {
+  findConnectionsByStore,
+  type ConnectionRow,
+} from '../../db/connectors/connectionRepository.js';
 import { findLatestSyncRunPerConnection } from '../../db/connectors/syncRunRepository.js';
 import { listFeedConfigurationsForOwner } from '../../db/feedImport/feedConfigurationRepository.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';

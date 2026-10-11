@@ -1,16 +1,20 @@
-import { useState } from "react";
-import { Button } from "@oxy.so/bloom/button";
-import { View } from "react-native";
-import { RatingInput } from "@oxy.so/bloom/rating";
-import { useOxy } from "@oxy.so/services";
-import { REVIEW_MEDIA_LIMIT } from "@mercaria/shared-types";
-import type { ReviewEligibility, ReviewScope } from "@mercaria/shared-types";
-import { Text } from "@mercaria/ui";
-import { Textarea } from "@oxy.so/bloom/textarea";
-import { useTranslation } from "@/lib/i18n";
-import { REVIEW_SCOPE_HEADING_KEYS, useCreateReview, useReviewEligibilities } from "@/lib/hooks/use-reviews";
-import type { ReviewAttachment } from "@/lib/reviews/review-uploads";
-import { ReviewMediaUpload } from "./ReviewMediaUpload";
+import { useState } from 'react';
+import { Button } from '@oxy.so/bloom/button';
+import { View } from 'react-native';
+import { RatingInput } from '@oxy.so/bloom/rating';
+import { useOxy } from '@oxy.so/services';
+import { REVIEW_MEDIA_LIMIT } from '@mercaria/shared-types';
+import type { ReviewEligibility, ReviewScope } from '@mercaria/shared-types';
+import { Text } from '@mercaria/ui';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { useTranslation } from '@/lib/i18n';
+import {
+  REVIEW_SCOPE_HEADING_KEYS,
+  useCreateReview,
+  useReviewEligibilities,
+} from '@/lib/hooks/use-reviews';
+import type { ReviewAttachment } from '@/lib/reviews/review-uploads';
+import { ReviewMediaUpload } from './ReviewMediaUpload';
 
 /** How many prompts one order-history page shows before "and N more". */
 const VISIBLE_PROMPTS = 4;
@@ -29,11 +33,11 @@ const VISIBLE_PROMPTS = 4;
  * whichever language loaded first. Every map below carries keys for that reason.
  */
 const PROMPT_QUESTION_KEYS: Readonly<Record<ReviewScope, string>> = {
-  product: "reviews.question.product",
-  merchant: "reviews.question.merchant",
-  native_transaction: "reviews.question.nativeTransaction",
-  p2p_listing: "reviews.question.p2pListing",
-  p2p_seller: "reviews.question.p2pSeller",
+  product: 'reviews.question.product',
+  merchant: 'reviews.question.merchant',
+  native_transaction: 'reviews.question.nativeTransaction',
+  p2p_listing: 'reviews.question.p2pListing',
+  p2p_seller: 'reviews.question.p2pSeller',
 };
 Object.freeze(PROMPT_QUESTION_KEYS);
 
@@ -54,11 +58,11 @@ Object.freeze(PROMPT_QUESTION_KEYS);
  * runtime guarantee is unchanged.
  */
 const SCOPE_TERM_KEYS: Readonly<Record<ReviewScope, string>> = {
-  product: "reviews.scope.product",
-  merchant: "reviews.scope.merchant",
-  native_transaction: "reviews.scope.nativeTransaction",
-  p2p_listing: "reviews.scope.p2pListing",
-  p2p_seller: "reviews.scope.p2pSeller",
+  product: 'reviews.scope.product',
+  merchant: 'reviews.scope.merchant',
+  native_transaction: 'reviews.scope.nativeTransaction',
+  p2p_listing: 'reviews.scope.p2pListing',
+  p2p_seller: 'reviews.scope.p2pSeller',
 };
 Object.freeze(SCOPE_TERM_KEYS);
 
@@ -69,36 +73,36 @@ Object.freeze(SCOPE_TERM_KEYS);
  * slot whose grammar (article, gender, word order) differs by language.
  */
 const PUBLISHED_KEYS: Readonly<Record<ReviewScope, string>> = {
-  product: "reviews.published.product",
-  merchant: "reviews.published.merchant",
-  native_transaction: "reviews.published.nativeTransaction",
-  p2p_listing: "reviews.published.p2pListing",
-  p2p_seller: "reviews.published.p2pSeller",
+  product: 'reviews.published.product',
+  merchant: 'reviews.published.merchant',
+  native_transaction: 'reviews.published.nativeTransaction',
+  p2p_listing: 'reviews.published.p2pListing',
+  p2p_seller: 'reviews.published.p2pSeller',
 };
 Object.freeze(PUBLISHED_KEYS);
 
 /** The note field's accessible name, per scope, for the same reason. */
 const NOTE_LABEL_KEYS: Readonly<Record<ReviewScope, string>> = {
-  product: "reviews.noteLabel.product",
-  merchant: "reviews.noteLabel.merchant",
-  native_transaction: "reviews.noteLabel.nativeTransaction",
-  p2p_listing: "reviews.noteLabel.p2pListing",
-  p2p_seller: "reviews.noteLabel.p2pSeller",
+  product: 'reviews.noteLabel.product',
+  merchant: 'reviews.noteLabel.merchant',
+  native_transaction: 'reviews.noteLabel.nativeTransaction',
+  p2p_listing: 'reviews.noteLabel.p2pListing',
+  p2p_seller: 'reviews.noteLabel.p2pSeller',
 };
 Object.freeze(NOTE_LABEL_KEYS);
 
 /** The body field for one scoped review, keyed by the scope's target. */
 function targetInput(eligibility: ReviewEligibility): Record<string, string> {
   switch (eligibility.scope) {
-    case "product":
+    case 'product':
       return { canonicalProductId: eligibility.targetId };
-    case "merchant":
+    case 'merchant':
       return { merchantId: eligibility.targetId };
-    case "native_transaction":
+    case 'native_transaction':
       return { orderItemId: eligibility.targetId };
-    case "p2p_listing":
+    case 'p2p_listing':
       return { listingId: eligibility.targetId };
-    case "p2p_seller":
+    case 'p2p_seller':
       return { sellerOxyUserId: eligibility.targetId };
   }
 }
@@ -112,16 +116,22 @@ function targetInput(eligibility: ReviewEligibility): Record<string, string> {
  * thing twice is looking at TWO prompts, and sending the id is what makes the
  * one they tapped the one that gets spent.
  */
-function ReviewPrompt({ eligibility, accountId }: { eligibility: ReviewEligibility; accountId: string }) {
+function ReviewPrompt({
+  eligibility,
+  accountId,
+}: {
+  eligibility: ReviewEligibility;
+  accountId: string;
+}) {
   const { t } = useTranslation();
   const [rating, setRating] = useState<number | null>(null);
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState('');
   const [media, setMedia] = useState<ReviewAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const createReview = useCreateReview();
   // These scopes have the public product media viewer. Private transaction
   // feedback never offers a public upload control.
-  const acceptsMedia = eligibility.scope === "product" || eligibility.scope === "p2p_listing";
+  const acceptsMedia = eligibility.scope === 'product' || eligibility.scope === 'p2p_listing';
 
   const submit = (): void => {
     if (rating === null || uploading || createReview.isPending) return;
@@ -130,7 +140,7 @@ function ReviewPrompt({ eligibility, accountId }: { eligibility: ReviewEligibili
       eligibilityId: eligibility.id,
       rating,
       ...(body.trim() ? { body: body.trim() } : {}),
-      ...(acceptsMedia && media.length ? { mediaFileIds: media.map(item => item.fileId) } : {}),
+      ...(acceptsMedia && media.length ? { mediaFileIds: media.map((item) => item.fileId) } : {}),
       ...targetInput(eligibility),
     });
   };
@@ -146,7 +156,10 @@ function ReviewPrompt({ eligibility, accountId }: { eligibility: ReviewEligibili
   }
 
   return (
-    <View testID={`review-prompt-${eligibility.id}`} className="gap-3 rounded-2xl border border-border bg-card p-4">
+    <View
+      testID={`review-prompt-${eligibility.id}`}
+      className="gap-3 rounded-2xl border border-border bg-card p-4"
+    >
       <View>
         <Text className="text-sm font-bold text-foreground">
           {t(PROMPT_QUESTION_KEYS[eligibility.scope])}
@@ -157,7 +170,7 @@ function ReviewPrompt({ eligibility, accountId }: { eligibility: ReviewEligibili
           questions rather than one asked four times.
         */}
         <Text className="mt-0.5 text-xs text-muted-foreground">
-          {t("reviews.verifiedPurchase", { scopeLabel: t(SCOPE_TERM_KEYS[eligibility.scope]) })}
+          {t('reviews.verifiedPurchase', { scopeLabel: t(SCOPE_TERM_KEYS[eligibility.scope]) })}
         </Text>
       </View>
 
@@ -173,7 +186,7 @@ function ReviewPrompt({ eligibility, accountId }: { eligibility: ReviewEligibili
         size="sm"
         accessibilityLabel={t(REVIEW_SCOPE_HEADING_KEYS[eligibility.scope])}
         formatStarLabel={(choice) =>
-          t("reviews.ratingChoice", {
+          t('reviews.ratingChoice', {
             choice,
             scopeLabel: t(SCOPE_TERM_KEYS[eligibility.scope]),
           })
@@ -181,7 +194,7 @@ function ReviewPrompt({ eligibility, accountId }: { eligibility: ReviewEligibili
       />
 
       <Textarea
-        placeholder={t("reviews.notePlaceholder")}
+        placeholder={t('reviews.notePlaceholder')}
         value={body}
         onValueChange={setBody}
         disabled={createReview.isPending}
@@ -189,38 +202,60 @@ function ReviewPrompt({ eligibility, accountId }: { eligibility: ReviewEligibili
         autoResize
       />
 
-      {acceptsMedia ? <>
-        <ReviewMediaUpload accountId={accountId} disabled={createReview.isPending || media.length >= REVIEW_MEDIA_LIMIT}
-          onBusyChange={setUploading} onUploaded={attachment => setMedia(previous =>
-            previous.some(item => item.fileId === attachment.fileId) || previous.length >= REVIEW_MEDIA_LIMIT
-              ? previous : [...previous, attachment])} />
-        {media.map(attachment => <View key={attachment.fileId} className="flex-row items-center gap-2">
-          <Text numberOfLines={1} className="min-w-0 flex-1 text-sm text-foreground">{attachment.name}</Text>
-          <Button size="sm" appearance="outline" disabled={createReview.isPending}
-            accessibilityLabel={t("reviews.media.remove", { filename: attachment.name })}
-            onPress={() => setMedia(previous => previous.filter(item => item.fileId !== attachment.fileId))}>
-            {t("reviews.media.removeAction")}
-          </Button>
-        </View>)}
-      </> : null}
+      {acceptsMedia ? (
+        <>
+          <ReviewMediaUpload
+            accountId={accountId}
+            disabled={createReview.isPending || media.length >= REVIEW_MEDIA_LIMIT}
+            onBusyChange={setUploading}
+            onUploaded={(attachment) =>
+              setMedia((previous) =>
+                previous.some((item) => item.fileId === attachment.fileId) ||
+                previous.length >= REVIEW_MEDIA_LIMIT
+                  ? previous
+                  : [...previous, attachment],
+              )
+            }
+          />
+          {media.map((attachment) => (
+            <View key={attachment.fileId} className="flex-row items-center gap-2">
+              <Text numberOfLines={1} className="min-w-0 flex-1 text-sm text-foreground">
+                {attachment.name}
+              </Text>
+              <Button
+                size="sm"
+                appearance="outline"
+                disabled={createReview.isPending}
+                accessibilityLabel={t('reviews.media.remove', { filename: attachment.name })}
+                onPress={() =>
+                  setMedia((previous) =>
+                    previous.filter((item) => item.fileId !== attachment.fileId),
+                  )
+                }
+              >
+                {t('reviews.media.removeAction')}
+              </Button>
+            </View>
+          ))}
+        </>
+      ) : null}
 
       {createReview.isError ? (
         <Text className="text-xs text-destructive">
           {createReview.error instanceof Error
             ? createReview.error.message
-            : t("reviews.publishError")}
+            : t('reviews.publishError')}
         </Text>
       ) : null}
 
       <Button
-
         tone="accent"
         size="sm"
         disabled={rating === null || createReview.isPending || uploading}
         loading={createReview.isPending}
         onPress={submit}
       >
-        {t("reviews.publishAction")}
+        {t('reviews.publishAction')}
       </Button>
     </View>
   );
@@ -256,13 +291,17 @@ export function ReviewEligibilityPrompts() {
 
   return (
     <View className="gap-3 px-4 pb-6">
-      <Text className="text-sm font-bold text-foreground">{t("reviews.heading")}</Text>
+      <Text className="text-sm font-bold text-foreground">{t('reviews.heading')}</Text>
       {visible.map((eligibility) => (
-        <ReviewPrompt key={`${user.id}:${eligibility.id}`} eligibility={eligibility} accountId={user.id} />
+        <ReviewPrompt
+          key={`${user.id}:${eligibility.id}`}
+          eligibility={eligibility}
+          accountId={user.id}
+        />
       ))}
       {remaining > 0 ? (
         <Text className="text-xs text-muted-foreground">
-          {t("reviews.moreToRate", { count: remaining })}
+          {t('reviews.moreToRate', { count: remaining })}
         </Text>
       ) : null}
     </View>

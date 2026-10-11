@@ -235,10 +235,7 @@ export const catalogSourceFreshnessPolicies = pgTable(
      * ADAPTER declares and can never widen it: an adapter that cannot enumerate
      * completely does not gain the ability because a policy listed the mode.
      */
-    permittedRefreshModes: text()
-      .array()
-      .notNull()
-      .default(sql`'{}'::text[]`),
+    permittedRefreshModes: text().array().notNull().default(sql`'{}'::text[]`),
 
     // ── The anomaly thresholds (#68 anomaly 1 and 3) ─────────────────────────
     /**
@@ -400,15 +397,13 @@ export const offerRefreshTasks = pgTable(
 
     priorityClass: text({ enum: asEnumValues(OFFER_REFRESH_PRIORITY_CLASSES) }).notNull(),
     /** Every reason that has been raised for this subject, deduped by the writer. */
-    priorityReasons: text()
-      .array()
-      .notNull(),
+    priorityReasons: text().array().notNull(),
     /** PROPERTY 3 — the ordering key, computed by the database from the class. */
-    priorityRank: integer()
-      .notNull()
-      .generatedAlwaysAs(sql.raw(PRIORITY_RANK_CASE_SQL)),
+    priorityRank: integer().notNull().generatedAlwaysAs(sql.raw(PRIORITY_RANK_CASE_SQL)),
 
-    status: text({ enum: asEnumValues(OFFER_REFRESH_TASK_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(OFFER_REFRESH_TASK_STATUSES) })
+      .notNull()
+      .default('pending'),
     /** Bumped by every enqueue. Monotonic per row; never a clock. */
     requestedRevision: bigint({ mode: 'number' }).notNull().default(1),
     /** The revision this claim is answering. NULL before the first claim. */
@@ -437,7 +432,11 @@ export const offerRefreshTasks = pgTable(
   },
   (t) => [
     checkOneOf('offer_refresh_tasks_mode_check', t.mode, CATALOG_REFRESH_MODES),
-    checkOneOf('offer_refresh_tasks_subject_kind_check', t.subjectKind, OFFER_REFRESH_SUBJECT_KINDS),
+    checkOneOf(
+      'offer_refresh_tasks_subject_kind_check',
+      t.subjectKind,
+      OFFER_REFRESH_SUBJECT_KINDS,
+    ),
     checkOneOf('offer_refresh_tasks_status_check', t.status, OFFER_REFRESH_TASK_STATUSES),
     checkOneOf('offer_refresh_tasks_refusal_check', t.lastRefusal, OFFER_REFRESH_REFUSALS),
     checkOneOf(
@@ -533,9 +532,7 @@ export const offerRefreshTasks = pgTable(
       .where(sql`${t.status} = 'processing'`),
     /** The per-source queue read the health surface runs. */
     index('offer_refresh_tasks_source_idx').on(t.sourceId, t.status, t.availableAt),
-    index('offer_refresh_tasks_offer_idx')
-      .on(t.offerId)
-      .where(sql`${t.offerId} is not null`),
+    index('offer_refresh_tasks_offer_idx').on(t.offerId).where(sql`${t.offerId} is not null`),
   ],
 );
 
@@ -799,4 +796,3 @@ export const catalogSourceRunQuarantines = pgTable(
     index('catalog_source_run_quarantines_source_idx').on(t.sourceId, t.kind, t.createdAt),
   ],
 );
-

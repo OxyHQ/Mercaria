@@ -49,7 +49,9 @@ function makePlan(options: {
   /** Ids Mercaria has recorded for this connection (#295). */
   owned?: readonly string[];
   listRefusal?: Extract<WebhookProbe<never>, { outcome: 'refused' }>;
-  refuseCreate?: (topic: string) => Extract<WebhookProbe<never>, { outcome: 'refused' }> | undefined;
+  refuseCreate?: (
+    topic: string,
+  ) => Extract<WebhookProbe<never>, { outcome: 'refused' }> | undefined;
   refuseRemove?: (id: string) => Extract<WebhookProbe<never>, { outcome: 'refused' }> | undefined;
 }): {
   plan: WebhookRegistrationPlan;
@@ -177,7 +179,9 @@ describe('reconcileWebhookSubscriptions', () => {
       adoptExisting: false,
       existing: [{ id: 'stuck', topic: 'products/update', deliveryUrl: OURS }],
       refuseRemove: (id) =>
-        id === 'stuck' ? { outcome: 'refused', reason: 'permission_denied', httpStatus: 403 } : undefined,
+        id === 'stuck'
+          ? { outcome: 'refused', reason: 'permission_denied', httpStatus: 403 }
+          : undefined,
     });
 
     const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
@@ -207,7 +211,9 @@ describe('reconcileWebhookSubscriptions', () => {
         { id: 'everything-after', topic: 'products/update', deliveryUrl: OURS },
       ],
       refuseRemove: (id) =>
-        id === 'stuck' ? { outcome: 'refused', reason: 'permission_denied', httpStatus: 403 } : undefined,
+        id === 'stuck'
+          ? { outcome: 'refused', reason: 'permission_denied', httpStatus: 403 }
+          : undefined,
     });
 
     const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
@@ -270,7 +276,9 @@ describe('reconcileWebhookSubscriptions', () => {
         { id: 'stubborn-dup', topic: 'products/create', deliveryUrl: OURS },
       ],
       refuseRemove: (id) =>
-        id === 'stubborn-dup' ? { outcome: 'refused', reason: 'rate_limited', httpStatus: 429 } : undefined,
+        id === 'stubborn-dup'
+          ? { outcome: 'refused', reason: 'rate_limited', httpStatus: 429 }
+          : undefined,
     });
 
     const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
@@ -364,7 +372,11 @@ describe('reconcileWebhookSubscriptions', () => {
     // dressed as tidying up, and it is why the comparison is exact.
     const foreign: PlatformWebhookSubscription[] = [
       { id: 'other-connection', topic: 'products/create', deliveryUrl: `${OURS}/conn-2` },
-      { id: 'someone-elses-app', topic: 'products/create', deliveryUrl: 'https://elsewhere.test/hook' },
+      {
+        id: 'someone-elses-app',
+        topic: 'products/create',
+        deliveryUrl: 'https://elsewhere.test/hook',
+      },
     ];
     const { plan, removed } = makePlan({ adoptExisting: false, existing: [...foreign] });
 
@@ -416,7 +428,9 @@ describe('reconcileWebhookSubscriptions', () => {
     const result = expectReconciled(await reconcileWebhookSubscriptions(plan));
 
     expect(removed).toEqual(['moved']);
-    expect(created, 'the topic must be created afresh at the address we serve').toEqual([...TOPICS]);
+    expect(created, 'the topic must be created afresh at the address we serve').toEqual([
+      ...TOPICS,
+    ]);
     expect(result.subscriptions.map((subscription) => subscription.id)).not.toContain('moved');
   });
 
@@ -429,9 +443,13 @@ describe('reconcileWebhookSubscriptions', () => {
     const { plan, created } = makePlan({
       adoptExisting: false,
       owned: ['stubborn'],
-      existing: [{ id: 'stubborn', topic: 'products/create', deliveryUrl: `${MOVED_FROM}/shopify` }],
+      existing: [
+        { id: 'stubborn', topic: 'products/create', deliveryUrl: `${MOVED_FROM}/shopify` },
+      ],
       refuseRemove: (id) =>
-        id === 'stubborn' ? { outcome: 'refused', reason: 'platform_error', httpStatus: 500 } : undefined,
+        id === 'stubborn'
+          ? { outcome: 'refused', reason: 'platform_error', httpStatus: 500 }
+          : undefined,
     });
 
     const result = expectReconciled(await reconcileWebhookSubscriptions(plan));

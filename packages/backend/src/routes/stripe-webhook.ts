@@ -46,7 +46,10 @@
  */
 
 import express, { Router, type Request, type Response } from 'express';
-import { ingestStripeDelivery, type StripeIngressResult } from '../services/payments/stripe/ingress.js';
+import {
+  ingestStripeDelivery,
+  type StripeIngressResult,
+} from '../services/payments/stripe/ingress.js';
 import { config } from '../config/index.js';
 import type { StripeWebhookScope } from '../services/payments/stripe/event-scopes.js';
 
@@ -92,7 +95,8 @@ function respond(res: Response, result: StripeIngressResult): void {
 function handleDelivery(scope: StripeWebhookScope) {
   return async (req: Request, res: Response): Promise<void> => {
     if (scope === 'connect' && !config.payments.stripe.enabled) {
-      res.status(404).end(); return;
+      res.status(404).end();
+      return;
     }
     const signature = req.get('Stripe-Signature');
     if (signature === undefined || signature === '') {

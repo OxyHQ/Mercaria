@@ -67,7 +67,8 @@ export async function processSupplierProviderEvents(options?: {
   signal?: AbortSignal;
 }): Promise<SupplierEventProcessingResult> {
   const db = getDb();
-  const leaseOwner = options?.leaseOwner ?? `procurement-events:${String(process.pid)}:${randomUUID()}`;
+  const leaseOwner =
+    options?.leaseOwner ?? `procurement-events:${String(process.pid)}:${randomUUID()}`;
   const batchSize = options?.eventId
     ? 1
     : Math.max(1, options?.batchSize ?? config.procurement.eventBatchSize);
@@ -88,9 +89,12 @@ export async function processSupplierProviderEvents(options?: {
     });
     if (!event) break;
 
-    const heartbeat = setInterval(() => {
-      void renewSupplierProviderEvent(db, event.id, leaseOwner, leaseMs);
-    }, Math.max(250, Math.floor(leaseMs / 3)));
+    const heartbeat = setInterval(
+      () => {
+        void renewSupplierProviderEvent(db, event.id, leaseOwner, leaseMs);
+      },
+      Math.max(250, Math.floor(leaseMs / 3)),
+    );
     heartbeat.unref?.();
 
     try {

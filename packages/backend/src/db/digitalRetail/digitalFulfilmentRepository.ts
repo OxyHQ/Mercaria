@@ -52,8 +52,7 @@ export type DigitalFulfilmentIncidentRow = InferSelectModel<typeof digitalFulfil
  */
 export type DigitalArtifactPublicRow = Awaited<ReturnType<typeof findActiveArtifact>>;
 
-const artifactPublicColumns = () =>
-  publicColumns(digitalFulfilmentArtifacts, PROTECTED_COLUMNS);
+const artifactPublicColumns = () => publicColumns(digitalFulfilmentArtifacts, PROTECTED_COLUMNS);
 
 export interface CreateFulfilmentInput {
   readonly purchaseOrderId: string;
@@ -224,7 +223,10 @@ export async function storeArtifact(
       .update(digitalFulfilments)
       .set({ status: 'delivered', deliveredAt: input.now, updatedAt: input.now })
       .where(
-        and(eq(digitalFulfilments.id, input.fulfilmentId), eq(digitalFulfilments.status, 'pending')),
+        and(
+          eq(digitalFulfilments.id, input.fulfilmentId),
+          eq(digitalFulfilments.status, 'pending'),
+        ),
       );
     return artifact.id;
   };

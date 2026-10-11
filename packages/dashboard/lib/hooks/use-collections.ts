@@ -1,10 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type {
   Collection,
   CreateCollectionInput,
   UpdateCollectionInput,
   SetCollectionProductsInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchCollections,
   fetchCollection,
@@ -12,8 +12,8 @@ import {
   updateCollection,
   deleteCollection,
   setCollectionProducts,
-} from "../api/collections";
-import { queryKeys } from "../queryKeys";
+} from '../api/collections';
+import { queryKeys } from '../queryKeys';
 
 /** The store's collections. */
 export function useCollections(storeId: string) {
@@ -38,13 +38,19 @@ function invalidate(queryClient: ReturnType<typeof useQueryClient>, storeId: str
 }
 
 /** Publish the server DTO before refetch; older reads cannot undo this save. */
-async function publishCollection(queryClient: ReturnType<typeof useQueryClient>, storeId: string, collection: Collection) {
+async function publishCollection(
+  queryClient: ReturnType<typeof useQueryClient>,
+  storeId: string,
+  collection: Collection,
+) {
   const listKey = queryKeys.collections.list(storeId);
   const detailKey = queryKeys.collections.detail(storeId, collection.id);
   await queryClient.cancelQueries({ queryKey: listKey, exact: true });
   await queryClient.cancelQueries({ queryKey: detailKey, exact: true });
   queryClient.setQueryData(detailKey, collection);
-  queryClient.setQueryData<Collection[]>(listKey, current => current?.map(item => item.id === collection.id ? collection : item));
+  queryClient.setQueryData<Collection[]>(listKey, (current) =>
+    current?.map((item) => (item.id === collection.id ? collection : item)),
+  );
   invalidate(queryClient, storeId);
 }
 
@@ -64,7 +70,7 @@ export function useUpdateCollection(storeId: string, id: string) {
     mutationFn: (input: UpdateCollectionInput) => updateCollection(storeId, id, input),
     onSuccess: async (collection, input) => {
       await publishCollection(queryClient, storeId, collection);
-      if (input.rules) queryClient.invalidateQueries({ queryKey: ["stores", storeId, "products"] });
+      if (input.rules) queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'products'] });
     },
   });
 }
@@ -80,7 +86,9 @@ export function useDeleteCollection(storeId: string) {
       // Cancel older list/detail reads before publishing the confirmed deletion.
       await queryClient.cancelQueries({ queryKey: listKey, exact: true });
       await queryClient.cancelQueries({ queryKey: detailKey, exact: true });
-      queryClient.setQueryData<Collection[]>(listKey, current => current?.filter(collection => collection.id !== id));
+      queryClient.setQueryData<Collection[]>(listKey, (current) =>
+        current?.filter((collection) => collection.id !== id),
+      );
       queryClient.removeQueries({ queryKey: detailKey, exact: true });
       invalidate(queryClient, storeId);
     },
@@ -92,9 +100,9 @@ export function useSetCollectionProducts(storeId: string, id: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: SetCollectionProductsInput) => setCollectionProducts(storeId, id, input),
-    onSuccess: async collection => {
+    onSuccess: async (collection) => {
       await publishCollection(queryClient, storeId, collection);
-      queryClient.invalidateQueries({ queryKey: ["stores", storeId, "products"] });
+      queryClient.invalidateQueries({ queryKey: ['stores', storeId, 'products'] });
     },
   });
 }

@@ -580,9 +580,7 @@ export interface WebhookRegistrationUnknown extends WebhookRegistrationRecordBas
 }
 
 /** Everything ONE webhook registration attempt leaves behind. */
-export type WebhookRegistrationRecord =
-  | WebhookRegistrationReconciled
-  | WebhookRegistrationUnknown;
+export type WebhookRegistrationRecord = WebhookRegistrationReconciled | WebhookRegistrationUnknown;
 
 /**
  * Record what ONE webhook-registration attempt left behind — ids, secret and
@@ -798,10 +796,9 @@ export async function findConnectionsNeedingWebhookRegistration(
             select 1
             from ${connectionWebhookFailures}
             where ${connectionWebhookFailures.connectionId} = ${connections.id}
-              and ${inArray(
-                connectionWebhookFailures.reason,
-                [...CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS],
-              )}
+              and ${inArray(connectionWebhookFailures.reason, [
+                ...CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS,
+              ])}
           )`,
         ),
       ),

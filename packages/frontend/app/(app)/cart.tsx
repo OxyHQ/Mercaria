@@ -1,16 +1,16 @@
-import { renderCartVendorLink } from "@/lib/catalog/cart-vendor-links";
-import { renderListingLink } from "@/lib/catalog/product-links";
-import { useImageResolver } from "@oxy.so/bloom/image-resolver";
-import { merchantImageSource } from "@mercaria/ui";
-import { useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import { Image } from "@mercaria/ui";
-import Head from "expo-router/head";
-import { useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { RiShoppingBag3Line } from "@oxy.so/bloom/icons/RiShoppingBag3Line";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { Rating } from "@oxy.so/bloom/rating";
+import { renderCartVendorLink } from '@/lib/catalog/cart-vendor-links';
+import { renderListingLink } from '@/lib/catalog/product-links';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { merchantImageSource } from '@mercaria/ui';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Image } from '@mercaria/ui';
+import Head from 'expo-router/head';
+import { useRouter } from 'expo-router';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { RiShoppingBag3Line } from '@oxy.so/bloom/icons/RiShoppingBag3Line';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { Rating } from '@oxy.so/bloom/rating';
 import {
   CartLineItem,
   CommercialDisclosure,
@@ -21,14 +21,14 @@ import {
   commercialSellerLabel,
   useRatingDisplay,
   type ProductSummary,
-} from "@mercaria/ui";
-import type { CartGroup, Money } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
-import { useCart, useUpdateCartItem, useRemoveCartItem } from "@/lib/hooks/use-cart";
-import { useGuestCredential } from "@/lib/stores/guest-credential-store";
-import { useFeed } from "@/lib/hooks/use-feed";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/ui';
+import type { CartGroup, Money } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
+import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/lib/hooks/use-cart';
+import { useGuestCredential } from '@/lib/stores/guest-credential-store';
+import { useFeed } from '@/lib/hooks/use-feed';
+import { useTranslation } from '@/lib/i18n';
 
 /** Vendor logo edge length (px) in the cart-group header. */
 const VENDOR_LOGO_SIZE = 40;
@@ -46,9 +46,9 @@ const VENDOR_LOGO_SIZE = 40;
  * loaded first. They are resolved at the render site instead.
  */
 const ACCOUNT_BENEFIT_KEYS = [
-  "cart.guestOffer.benefits.crossDevice",
-  "cart.guestOffer.benefits.savedAddresses",
-  "cart.guestOffer.benefits.orderHistory",
+  'cart.guestOffer.benefits.crossDevice',
+  'cart.guestOffer.benefits.savedAddresses',
+  'cart.guestOffer.benefits.orderHistory',
 ];
 
 /** Empty state — never crashes, mirrors the home error/empty rhythm. */
@@ -69,8 +69,8 @@ function AccountBenefitsCard() {
   const { t } = useTranslation();
   return (
     <View className="mb-4 rounded-3xl border border-border bg-card p-4 web:shadow">
-      <Text className="text-base font-bold text-foreground">{t("cart.guestOffer.title")}</Text>
-      <Text className="mt-1 text-sm text-muted-foreground">{t("cart.guestOffer.intro")}</Text>
+      <Text className="text-base font-bold text-foreground">{t('cart.guestOffer.title')}</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">{t('cart.guestOffer.intro')}</Text>
       <View className="mt-3 gap-1.5">
         {ACCOUNT_BENEFIT_KEYS.map((benefitKey) => (
           <Text key={benefitKey} className="text-sm text-foreground">
@@ -78,14 +78,14 @@ function AccountBenefitsCard() {
           </Text>
         ))}
       </View>
-      <Text className="mt-3 text-xs text-muted-foreground">{t("cart.guestOffer.footnote")}</Text>
+      <Text className="mt-3 text-xs text-muted-foreground">{t('cart.guestOffer.footnote')}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("cart.guestOffer.signInA11yLabel")}
+        accessibilityLabel={t('cart.guestOffer.signInA11yLabel')}
         onPress={() => openAccountDialog()}
         className="mt-4 items-center rounded-full border border-border py-3 web:hover:opacity-90 active:opacity-90"
       >
-        <Text className="text-sm font-semibold text-foreground">{t("cart.signIn")}</Text>
+        <Text className="text-sm font-semibold text-foreground">{t('cart.signIn')}</Text>
       </Pressable>
     </View>
   );
@@ -104,9 +104,9 @@ function GuestStorageWarning() {
   return (
     <View className="mb-4 rounded-3xl border border-destructive/40 bg-card p-4">
       <Text accessibilityRole="alert" className="text-sm font-semibold text-foreground">
-        {t("cart.storageWarning.title")}
+        {t('cart.storageWarning.title')}
       </Text>
-      <Text className="mt-1 text-sm text-muted-foreground">{t("cart.storageWarning.body")}</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">{t('cart.storageWarning.body')}</Text>
     </View>
   );
 }
@@ -138,8 +138,8 @@ function CartGroupCard({
   // A rating is a rating OF THE VENDOR. On a Mercaria-sold group it would read
   // as a rating of Mercaria, which nobody left, so it is withheld rather than
   // relabelled.
-  const showRating = vendor.rating !== undefined && commercial.mode === "connected_marketplace";
-  const linksToVendor = commercial.mode === "connected_marketplace";
+  const showRating = vendor.rating !== undefined && commercial.mode === 'connected_marketplace';
+  const linksToVendor = commercial.mode === 'connected_marketplace';
   const headerContent = (
     <>
       <View
@@ -174,16 +174,19 @@ function CartGroupCard({
   return (
     <View className="mb-4 overflow-hidden rounded-3xl border border-border bg-card p-4 web:shadow">
       {/* Header: the seller, linked to the vendor page only when they are one. */}
-      {(linksToVendor ? renderCartVendorLink(vendor, (
-        <Pressable
-          accessibilityLabel={t("cart.group.visitSellerA11yLabel", { seller: sellerName })}
-          className="flex-row items-center gap-3"
-        >
-          {headerContent}
-        </Pressable>
-      )) : null) ?? (
+      {(linksToVendor
+        ? renderCartVendorLink(
+            vendor,
+            <Pressable
+              accessibilityLabel={t('cart.group.visitSellerA11yLabel', { seller: sellerName })}
+              className="flex-row items-center gap-3"
+            >
+              {headerContent}
+            </Pressable>,
+          )
+        : null) ?? (
         <View
-          accessibilityLabel={t("cart.group.soldByA11yLabel", { seller: sellerName })}
+          accessibilityLabel={t('cart.group.soldByA11yLabel', { seller: sellerName })}
           className="flex-row items-center gap-3"
         >
           {headerContent}
@@ -209,20 +212,20 @@ function CartGroupCard({
 
       {/* Subtotal + checkout (sibling to the vendor link, never nested) */}
       <View className="mt-5 flex-row items-center justify-between border-t border-border pt-4">
-        <Text className="text-sm text-muted-foreground">{t("cart.group.subtotal")}</Text>
+        <Text className="text-sm text-muted-foreground">{t('cart.group.subtotal')}</Text>
         <PriceDisplay price={group.subtotal} primaryClassName="text-base font-bold" />
       </View>
-      {group.guestCheckout?.status === "blocked" ? (
+      {group.guestCheckout?.status === 'blocked' ? (
         <GuestGroupBlockedNotice vendorName={sellerName} />
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("cart.group.checkoutWithA11yLabel", { seller: sellerName })}
+          accessibilityLabel={t('cart.group.checkoutWithA11yLabel', { seller: sellerName })}
           onPress={() => onCheckout(group)}
           className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
         >
           <Text className="text-sm font-semibold text-primary-foreground">
-            {t("cart.group.checkout")}
+            {t('cart.group.checkout')}
           </Text>
         </Pressable>
       )}
@@ -248,17 +251,17 @@ function GuestGroupBlockedNotice({ vendorName }: { vendorName: string }) {
   const { t } = useTranslation();
   return (
     <View className="mt-4 rounded-2xl border border-border bg-muted p-4">
-      <Text className="text-sm font-semibold text-foreground">{t("cart.guestBlocked.title")}</Text>
+      <Text className="text-sm font-semibold text-foreground">{t('cart.guestBlocked.title')}</Text>
       <Text className="mt-1 text-sm text-muted-foreground">
-        {t("cart.guestBlocked.body", { seller: vendorName })}
+        {t('cart.guestBlocked.body', { seller: vendorName })}
       </Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("cart.guestBlocked.signInA11yLabel")}
+        accessibilityLabel={t('cart.guestBlocked.signInA11yLabel')}
         onPress={() => openAccountDialog()}
         className="mt-4 items-center rounded-full bg-primary py-3 web:hover:opacity-90 active:opacity-90"
       >
-        <Text className="text-sm font-semibold text-primary-foreground">{t("cart.signIn")}</Text>
+        <Text className="text-sm font-semibold text-primary-foreground">{t('cart.signIn')}</Text>
       </Pressable>
     </View>
   );
@@ -291,7 +294,7 @@ function CartBody() {
   // `platform` key #123 put in the same namespace, and a client composing
   // `store:<id>` for them would be told there are no matching cart items.
   const onCheckout = (group: CartGroup) => {
-    router.push({ pathname: "/checkout", params: { seller: group.sellerKey } });
+    router.push({ pathname: '/checkout', params: { seller: group.sellerKey } });
   };
 
   // Whole-cart checkout: place every group the CALLER may actually place.
@@ -303,8 +306,8 @@ function CartBody() {
   const onCheckoutAll = () => {
     router.push(
       blockedGroups.length === 0
-        ? "/checkout"
-        : { pathname: "/checkout", params: { seller: checkoutableKeys.join(",") } },
+        ? '/checkout'
+        : { pathname: '/checkout', params: { seller: checkoutableKeys.join(',') } },
     );
   };
 
@@ -312,13 +315,13 @@ function CartBody() {
   const recommendations = useMemo<ProductSummary[]>(() => {
     const sections = feed?.sections ?? [];
     return sections.flatMap((section) =>
-      section.kind === "products" ? section.products ?? [] : [],
+      section.kind === 'products' ? (section.products ?? []) : [],
     );
   }, [feed]);
 
   const groups = cart?.groups ?? [];
-  const blockedGroups = groups.filter((group) => group.guestCheckout?.status === "blocked");
-  const checkoutableGroups = groups.filter((group) => group.guestCheckout?.status !== "blocked");
+  const blockedGroups = groups.filter((group) => group.guestCheckout?.status === 'blocked');
+  const checkoutableGroups = groups.filter((group) => group.guestCheckout?.status !== 'blocked');
   const checkoutableKeys = checkoutableGroups.map((group) => group.sellerKey);
   // Summed on the client purely for DISPLAY, and only over one currency: every
   // cart line is already converted to `cart.currency` at hydration, so this is
@@ -334,7 +337,7 @@ function CartBody() {
 
   return (
     <>
-      <SectionHeader title={t("cart.title")} />
+      <SectionHeader title={t('cart.title')} />
 
       {/* Signing out of the cart is no longer a state this screen has: the cart
           belongs to whoever the server resolves the caller to be, so a guest
@@ -344,7 +347,7 @@ function CartBody() {
         <View
           className="px-4 py-16"
           accessibilityRole="progressbar"
-          accessibilityLabel={t("cart.loadingA11yLabel")}
+          accessibilityLabel={t('cart.loadingA11yLabel')}
         >
           <View className="mb-4 h-40 w-full rounded-3xl bg-muted" />
           <View className="h-40 w-full rounded-3xl bg-muted" />
@@ -353,16 +356,16 @@ function CartBody() {
         <EmptyState
           icon={RiShoppingBag3Line}
           media="circle"
-          title={t("cart.error.title")}
-          description={t("cart.error.subtitle")}
+          title={t('cart.error.title')}
+          description={t('cart.error.subtitle')}
         />
       ) : groups.length === 0 ? (
         <>
           <EmptyState
             icon={RiShoppingBag3Line}
             media="circle"
-            title={t("cart.empty.title")}
-            description={t("cart.empty.subtitle")}
+            title={t('cart.empty.title')}
+            description={t('cart.empty.subtitle')}
           />
           {!isAuthenticated ? (
             <View className="px-4">
@@ -392,8 +395,8 @@ function CartBody() {
               <View className="flex-row items-center justify-between">
                 <Text className="text-sm text-muted-foreground">
                   {blockedGroups.length === 0
-                    ? t("cart.summary.totalAll")
-                    : t("cart.summary.totalAvailable")}
+                    ? t('cart.summary.totalAll')
+                    : t('cart.summary.totalAvailable')}
                 </Text>
                 {/* The figure has to be the one the button will charge. Showing
                     the whole cart's subtotal beside a button that places only
@@ -404,16 +407,16 @@ function CartBody() {
                 accessibilityRole="button"
                 accessibilityLabel={
                   blockedGroups.length === 0
-                    ? t("cart.summary.checkoutAllA11yLabel")
-                    : t("cart.summary.checkoutAvailableA11yLabel")
+                    ? t('cart.summary.checkoutAllA11yLabel')
+                    : t('cart.summary.checkoutAvailableA11yLabel')
                 }
                 onPress={onCheckoutAll}
                 className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
               >
                 <Text className="text-sm font-semibold text-primary-foreground">
                   {blockedGroups.length === 0
-                    ? t("cart.summary.checkoutAll")
-                    : t("cart.summary.checkoutAvailable")}
+                    ? t('cart.summary.checkoutAll')
+                    : t('cart.summary.checkoutAvailable')}
                 </Text>
               </Pressable>
             </View>
@@ -430,7 +433,11 @@ function CartBody() {
       {recommendations.length > 0 ? (
         <View className="mt-6">
           {/* Heading of the bottom recommendation shelf. */}
-          <ProductShelf title={t("cart.recommendations.title")} items={recommendations} renderProductLink={renderListingLink} />
+          <ProductShelf
+            title={t('cart.recommendations.title')}
+            items={recommendations}
+            renderProductLink={renderListingLink}
+          />
         </View>
       ) : null}
 
@@ -446,7 +453,7 @@ export default function CartScreen() {
     // (`max-w-[1200px]`) and gets `pt-5` on both platforms.
     <ScreenShell contentClassName="pt-5 web:max-w-[1200px]">
       <Head>
-        <title>{t("cart.pageTitle")}</title>
+        <title>{t('cart.pageTitle')}</title>
       </Head>
       <CartBody />
     </ScreenShell>

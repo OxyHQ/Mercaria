@@ -23,6 +23,11 @@ const router = Router();
 
 router.use(authenticateToken);
 
-router.get('/', makeRateLimiter('listings'), validateQuery(savedItemsQuerySchema), savedItemsHandler);
+router.get(
+  '/',
+  makeRateLimiter('listings'),
+  validateQuery(savedItemsQuerySchema),
+  savedItemsHandler,
+);
 
 export default router;

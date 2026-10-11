@@ -10,7 +10,8 @@ export function resolveCatalogImage(
   resolveImage: ImageResolver | null,
   variant?: string,
 ): string | undefined {
-  if (fileId !== undefined) return isOxyFileId(fileId) ? resolveImage?.(fileId, variant) : undefined;
+  if (fileId !== undefined)
+    return isOxyFileId(fileId) ? resolveImage?.(fileId, variant) : undefined;
   return resolveStoredImageUrl(legacyUrl, resolveImage);
 }
 

@@ -77,8 +77,7 @@ vi.mock('../handlers.js', () => ({
   handleReviewClassificationSweep: vi.fn(),
   handleConnectionBackfill: (...a: unknown[]) => handleConnectionBackfill(...a),
   handleConnectionReconcile: (...a: unknown[]) => handleConnectionReconcile(...a),
-  handleConnectionWebhookReregister: (...a: unknown[]) =>
-    handleConnectionWebhookReregister(...a),
+  handleConnectionWebhookReregister: (...a: unknown[]) => handleConnectionWebhookReregister(...a),
   handleConnectionWebhookRegistrationSweep: (...a: unknown[]) =>
     handleConnectionWebhookRegistrationSweep(...a),
   handleConnectionWebhookAudit: (...a: unknown[]) => handleConnectionWebhookAudit(...a),

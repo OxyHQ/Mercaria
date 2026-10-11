@@ -1,8 +1,8 @@
-import { View } from "react-native";
-import { Text } from "@mercaria/ui";
-import type { SellerPriceGuidance, SellerPriceGuidanceSegment } from "@mercaria/shared-types";
-import { formatDate, useFormatters } from "@mercaria/ui";
-import { useTranslation } from "@/lib/i18n";
+import { View } from 'react-native';
+import { Text } from '@mercaria/ui';
+import type { SellerPriceGuidance, SellerPriceGuidanceSegment } from '@mercaria/shared-types';
+import { formatDate, useFormatters } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * Price guidance, rendered so it cannot read as a price (#91 price guidance
@@ -32,23 +32,23 @@ export interface PriceGuidancePanelProps {
   guidance: SellerPriceGuidance;
 }
 
-const SEGMENT_LABEL_KEYS: Record<SellerPriceGuidanceSegment["kind"], string> = {
-  current_same_condition: "sell.guidance.segment.currentSameCondition",
-  current_new: "sell.guidance.segment.currentNew",
-  current_refurbished: "sell.guidance.segment.currentRefurbished",
-  recent_sold_native: "sell.guidance.segment.recentSoldNative",
+const SEGMENT_LABEL_KEYS: Record<SellerPriceGuidanceSegment['kind'], string> = {
+  current_same_condition: 'sell.guidance.segment.currentSameCondition',
+  current_new: 'sell.guidance.segment.currentNew',
+  current_refurbished: 'sell.guidance.segment.currentRefurbished',
+  recent_sold_native: 'sell.guidance.segment.recentSoldNative',
 };
 
 const INSUFFICIENT_LABEL_KEYS: Record<string, string> = {
-  no_observations: "sell.guidance.insufficient.noObservations",
-  below_sample_floor: "sell.guidance.insufficient.belowSampleFloor",
-  below_seller_floor: "sell.guidance.insufficient.belowSellerFloor",
+  no_observations: 'sell.guidance.insufficient.noObservations',
+  below_sample_floor: 'sell.guidance.insufficient.belowSampleFloor',
+  below_seller_floor: 'sell.guidance.insufficient.belowSellerFloor',
 };
 
 const CONFIDENCE_LABEL_KEYS: Record<string, string> = {
-  low: "sell.guidance.confidence.low",
-  medium: "sell.guidance.confidence.medium",
-  high: "sell.guidance.confidence.high",
+  low: 'sell.guidance.confidence.low',
+  medium: 'sell.guidance.confidence.medium',
+  high: 'sell.guidance.confidence.high',
 };
 
 export function PriceGuidancePanel({ guidance }: PriceGuidancePanelProps) {
@@ -57,7 +57,7 @@ export function PriceGuidancePanel({ guidance }: PriceGuidancePanelProps) {
   const since = formatDate(guidance.from, locale);
   return (
     <View className="gap-3 rounded-2xl border border-border p-4">
-      <Text className="text-base font-medium">{t("sell.guidance.heading")}</Text>
+      <Text className="text-base font-medium">{t('sell.guidance.heading')}</Text>
       {/* Both scope sentences NAME the date, and i18n-js renders a missing
           placeholder as the literal `[missing "%{since}" value]` — untranslated
           debug text, in every locale. So an unformattable `from` drops the whole
@@ -66,25 +66,25 @@ export function PriceGuidancePanel({ guidance }: PriceGuidancePanelProps) {
       {since === null ? null : (
         <Text className="text-xs text-muted-foreground">
           {guidance.market
-            ? t("sell.guidance.scopeWithMarket", {
+            ? t('sell.guidance.scopeWithMarket', {
                 market: guidance.market,
                 currency: guidance.currency,
                 since,
               })
-            : t("sell.guidance.scope", { currency: guidance.currency, since })}
+            : t('sell.guidance.scope', { currency: guidance.currency, since })}
         </Text>
       )}
 
       {guidance.segments.map((segment) => (
         <View key={segment.kind} className="gap-1">
           <Text className="text-sm font-medium">{t(SEGMENT_LABEL_KEYS[segment.kind])}</Text>
-          {segment.state === "available" ? (
+          {segment.state === 'available' ? (
             <>
               <Text className="text-base">
                 {formatMoney(segment.low)} – {formatMoney(segment.high)}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {t("sell.guidance.segmentStats", {
+                {t('sell.guidance.segmentStats', {
                   median: formatMoney(segment.median),
                   count: segment.sampleSize,
                   confidence: t(CONFIDENCE_LABEL_KEYS[segment.confidence]),
@@ -95,13 +95,13 @@ export function PriceGuidancePanel({ guidance }: PriceGuidancePanelProps) {
             <Text className="text-sm text-muted-foreground">
               {INSUFFICIENT_LABEL_KEYS[segment.reason]
                 ? t(INSUFFICIENT_LABEL_KEYS[segment.reason])
-                : t("sell.guidance.insufficient.fallback")}
+                : t('sell.guidance.insufficient.fallback')}
             </Text>
           )}
         </View>
       ))}
 
-      <Text className="text-xs text-muted-foreground">{t("sell.guidance.disclaimer")}</Text>
+      <Text className="text-xs text-muted-foreground">{t('sell.guidance.disclaimer')}</Text>
     </View>
   );
 }

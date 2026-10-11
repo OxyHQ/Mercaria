@@ -46,7 +46,12 @@ import { hydrateListings } from '../../services/catalog-hydration.service.js';
 import { enqueueProductPush } from '../../queue/producers.js';
 import { parsePagination, buildPagination } from '../../utils/pagination.js';
 import { sendSuccess, sendPaginated } from '../../utils/api-response.js';
-import { respondWithError, forbidden, notFound, validationError } from '../../lib/errors/error-codes.js';
+import {
+  respondWithError,
+  forbidden,
+  notFound,
+  validationError,
+} from '../../lib/errors/error-codes.js';
 import { routeParam } from '../../utils/request.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
@@ -123,7 +128,10 @@ export async function listProducts(req: Request, res: Response): Promise<void> {
     const { page, limit } = parsePagination(req.query);
 
     const { status, search } = req.query;
-    if (status !== undefined && (typeof status !== 'string' || !ALL_LISTING_STATUSES.includes(status as ListingStatus))) {
+    if (
+      status !== undefined &&
+      (typeof status !== 'string' || !ALL_LISTING_STATUSES.includes(status as ListingStatus))
+    ) {
       throw validationError('Invalid product status');
     }
     if (search !== undefined && (typeof search !== 'string' || search.length > 200)) {
@@ -148,8 +156,21 @@ export async function createProduct(req: Request, res: Response): Promise<void> 
   try {
     const id = storeId(req);
     const body = req.body as CreateStoreProductInput;
-    const media = body.mediaFileIds === undefined ? undefined : await prepareCatalogMedia(req.store.oxyAccountId, requireStoreCaller(req).accessToken, body.mediaFileIds);
-    if (body.imageFileIds?.length) await prepareCatalogMedia(req.store.oxyAccountId, requireStoreCaller(req).accessToken, body.imageFileIds, true);
+    const media =
+      body.mediaFileIds === undefined
+        ? undefined
+        : await prepareCatalogMedia(
+            req.store.oxyAccountId,
+            requireStoreCaller(req).accessToken,
+            body.mediaFileIds,
+          );
+    if (body.imageFileIds?.length)
+      await prepareCatalogMedia(
+        req.store.oxyAccountId,
+        requireStoreCaller(req).accessToken,
+        body.imageFileIds,
+        true,
+      );
     const listingId = await createStoreProduct(id, req.body as CreateStoreProductInput, {
       media,
       // #90: the acting store member OWNS any condition evidence this product
@@ -194,14 +215,41 @@ export async function patchProduct(req: Request, res: Response): Promise<void> {
     const body = req.body as UpdateListingInput;
     // Existing permitted gallery references may be manufacturer media owned by
     // a canonical operator. Retaining them must not invent a new ownership claim.
-    const retained = body.mediaFileIds !== undefined || body.imageFileIds !== undefined
-      ? new Set((await findListingChildren([listingId])).media.get(listingId)?.map(item => item.fileId) ?? []) : new Set<string>();
-    const media = body.mediaFileIds === undefined ? undefined : await prepareCatalogMedia(req.store.oxyAccountId, requireStoreCaller(req).accessToken, body.mediaFileIds, false, retained);
-    if (body.imageFileIds?.length) await prepareCatalogMedia(req.store.oxyAccountId, requireStoreCaller(req).accessToken, body.imageFileIds, true, retained);
-    await updateListing(listingId, req.body as UpdateListingInput, {
-      kind: 'seller',
-      oxyUserId: getRequiredOxyUserId(req),
-    }, media);
+    const retained =
+      body.mediaFileIds !== undefined || body.imageFileIds !== undefined
+        ? new Set(
+            (await findListingChildren([listingId])).media
+              .get(listingId)
+              ?.map((item) => item.fileId) ?? [],
+          )
+        : new Set<string>();
+    const media =
+      body.mediaFileIds === undefined
+        ? undefined
+        : await prepareCatalogMedia(
+            req.store.oxyAccountId,
+            requireStoreCaller(req).accessToken,
+            body.mediaFileIds,
+            false,
+            retained,
+          );
+    if (body.imageFileIds?.length)
+      await prepareCatalogMedia(
+        req.store.oxyAccountId,
+        requireStoreCaller(req).accessToken,
+        body.imageFileIds,
+        true,
+        retained,
+      );
+    await updateListing(
+      listingId,
+      req.body as UpdateListingInput,
+      {
+        kind: 'seller',
+        oxyUserId: getRequiredOxyUserId(req),
+      },
+      media,
+    );
     await schedulePush(storeId(req), listingId);
     const dto = await hydrateById(listingId, req.userId ?? '');
     sendSuccess(res, dto);
@@ -262,7 +310,10 @@ export async function previewProductTypeUpgrade(req: Request, res: Response): Pr
       preview: await previewListingProductTypeUpgrade(getDb(), storeId, listingId),
     });
   } catch (err) {
-    log.general.error({ err, storeId, listingId }, 'Failed to preview a listing product-type upgrade');
+    log.general.error(
+      { err, storeId, listingId },
+      'Failed to preview a listing product-type upgrade',
+    );
     respondWithError(res, err, 'Failed to preview that upgrade');
   }
 }
@@ -280,7 +331,10 @@ export async function applyProductTypeUpgrade(req: Request, res: Response): Prom
     });
     sendSuccess(res, result);
   } catch (err) {
-    log.general.error({ err, storeId, listingId }, 'Failed to apply a listing product-type upgrade');
+    log.general.error(
+      { err, storeId, listingId },
+      'Failed to apply a listing product-type upgrade',
+    );
     respondWithError(res, err, 'Failed to apply that upgrade');
   }
 }
@@ -369,7 +423,10 @@ async function assertVariantInListing(variantId: string, listingId: string): Pro
 }
 
 /** Build the per-location `InventoryLevelDTO[]` for a variant (joins location names). */
-async function variantLevelDTOs(variantId: string, storeIdValue: string): Promise<InventoryLevelDTO[]> {
+async function variantLevelDTOs(
+  variantId: string,
+  storeIdValue: string,
+): Promise<InventoryLevelDTO[]> {
   const levels = await findLevelsByVariant(variantId);
   if (levels.length === 0) {
     return [];

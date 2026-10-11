@@ -63,9 +63,7 @@ import {
 } from '../canonical/attributeRepository.js';
 import { ensureCatalogSource } from '../canonical/provenanceRepository.js';
 import { createBrand } from '../../services/canonical/brand.service.js';
-import {
-  createProductFamily,
-} from '../../services/canonical/product-family.service.js';
+import { createProductFamily } from '../../services/canonical/product-family.service.js';
 import {
   applyProductSourceObservation,
   createCanonicalProduct,
@@ -94,18 +92,31 @@ import { reviewAggregates } from '../schema/reviews.js';
 
 // Only the external transports are replaced. Catalogue repositories and every
 // transaction below run against the real migrated PostgreSQL database.
-const { downloadImage, uploadImage } = vi.hoisted(() => ({ downloadImage: vi.fn(), uploadImage: vi.fn() }));
-vi.mock('@oxy.so/core/server', async importOriginal => ({
-  ...await importOriginal<typeof import('@oxy.so/core/server')>(), safeFetch: downloadImage,
+const { downloadImage, uploadImage } = vi.hoisted(() => ({
+  downloadImage: vi.fn(),
+  uploadImage: vi.fn(),
+}));
+vi.mock('@oxy.so/core/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
+  safeFetch: downloadImage,
 }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.so', serviceToken: async () => 'test-service-token' }),
+  oxyServiceClient: () => ({
+    baseURL: 'https://api.oxy.so',
+    serviceToken: async () => 'test-service-token',
+  }),
 }));
 beforeEach(() => {
   downloadImage.mockReset().mockImplementation(async () => ({
-    status: 200, headers: { 'content-type': 'image/png' }, response: Readable.from([Buffer.from('source image')]),
+    status: 200,
+    headers: { 'content-type': 'image/png' },
+    response: Readable.from([Buffer.from('source image')]),
   }));
-  uploadImage.mockReset().mockImplementation(async () => Response.json({ data: { file: { id: 'oxy-canonical-file', visibility: 'public' } } }));
+  uploadImage
+    .mockReset()
+    .mockImplementation(async () =>
+      Response.json({ data: { file: { id: 'oxy-canonical-file', visibility: 'public' } } }),
+    );
   vi.stubGlobal('fetch', uploadImage);
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -185,7 +196,9 @@ afterAll(async () => {
     await db
       .select({ id: canonicalVariants.id })
       .from(canonicalVariants)
-      .where(inArray(canonicalVariants.productId, createdProductIds.length ? createdProductIds : ['']))
+      .where(
+        inArray(canonicalVariants.productId, createdProductIds.length ? createdProductIds : ['']),
+      )
   ).map((row) => row.id);
 
   if (variantIds.length > 0) {
@@ -343,7 +356,10 @@ afterAll(async () => {
 });
 
 /** Assert a write is refused by the named CONSTRAINT KIND, not merely by an error. */
-async function expectRefused(kind: 'check' | 'unique', write: () => Promise<unknown>): Promise<void> {
+async function expectRefused(
+  kind: 'check' | 'unique',
+  write: () => Promise<unknown>,
+): Promise<void> {
   let caught: unknown;
   try {
     await write();
@@ -480,7 +496,10 @@ describe('acceptance 1 — one model, several capacities and colours, ONE produc
       valueType: 'measurement',
       unitFamily: 'digital_storage',
     });
-    const productId = await mintProduct({ label: 'Convergence Phone', axes: [storageKey, 'color'] });
+    const productId = await mintProduct({
+      label: 'Convergence Phone',
+      axes: [storageKey, 'color'],
+    });
 
     const first = await createVariant({
       productId,
@@ -847,17 +866,47 @@ describe('acceptance 4 — every selected field and image traces to provenance',
   it('imports a legacy image without replacing its identity or overwriting a concurrent import', async () => {
     const productId = await mintProduct({ label: 'Legacy media import' });
     const result = await applyProductSourceObservation({
-      productId, sourceId, externalId: `legacy-media-${RUN}`, observedAt: new Date(),
-      method: 'connector_declared', matchRule: 'test.legacy-media', decidedByOxyUserId: OPERATOR,
-      fields: {}, images: [{ fileId: 'before-import', sourceUrl: 'https://supplier.example/legacy.jpg', alt: 'Front' }],
+      productId,
+      sourceId,
+      externalId: `legacy-media-${RUN}`,
+      observedAt: new Date(),
+      method: 'connector_declared',
+      matchRule: 'test.legacy-media',
+      decidedByOxyUserId: OPERATOR,
+      fields: {},
+      images: [
+        { fileId: 'before-import', sourceUrl: 'https://supplier.example/legacy.jpg', alt: 'Front' },
+      ],
     });
-    const [before] = await db.update(canonicalImages).set({ fileId: null })
-      .where(eq(canonicalImages.sourceRecordId, result.sourceRecordId)).returning();
-    expect(await attachImportedCanonicalImage(db, before.id, 'https://supplier.example/changed.jpg', 'new-file')).toBe(false);
-    expect(await attachImportedCanonicalImage(db, before.id, before.sourceUrl!, 'new-file')).toBe(true);
-    expect(await attachImportedCanonicalImage(db, before.id, before.sourceUrl!, 'stale-file')).toBe(false);
-    const [after] = await db.select().from(canonicalImages).where(eq(canonicalImages.id, before.id));
-    expect(after).toEqual({ ...before, fileId: 'new-file', imageRef: 'new-file', updatedAt: expect.any(Date) });
+    const [before] = await db
+      .update(canonicalImages)
+      .set({ fileId: null })
+      .where(eq(canonicalImages.sourceRecordId, result.sourceRecordId))
+      .returning();
+    expect(
+      await attachImportedCanonicalImage(
+        db,
+        before.id,
+        'https://supplier.example/changed.jpg',
+        'new-file',
+      ),
+    ).toBe(false);
+    expect(await attachImportedCanonicalImage(db, before.id, before.sourceUrl!, 'new-file')).toBe(
+      true,
+    );
+    expect(await attachImportedCanonicalImage(db, before.id, before.sourceUrl!, 'stale-file')).toBe(
+      false,
+    );
+    const [after] = await db
+      .select()
+      .from(canonicalImages)
+      .where(eq(canonicalImages.id, before.id));
+    expect(after).toEqual({
+      ...before,
+      fileId: 'new-file',
+      imageRef: 'new-file',
+      updatedAt: expect.any(Date),
+    });
     expect(after.updatedAt.getTime()).toBeGreaterThanOrEqual(before.updatedAt.getTime());
   });
 
@@ -944,76 +993,134 @@ describe('acceptance 4 — every selected field and image traces to provenance',
   it('leaves facts and the previous gallery unchanged when Oxy refuses an import', async () => {
     const productId = await mintProduct({ label: 'Failed Image Import Product' });
     const observation = {
-      productId, sourceId, externalId: `media-failure-${RUN}`, observedAt: new Date(),
-      method: 'connector_declared' as const, matchRule: 'test.media-failure', decidedByOxyUserId: OPERATOR,
-      fields: { description: 'Original description' }, images: [{ fileId: 'previous-oxy-file' }],
+      productId,
+      sourceId,
+      externalId: `media-failure-${RUN}`,
+      observedAt: new Date(),
+      method: 'connector_declared' as const,
+      matchRule: 'test.media-failure',
+      decidedByOxyUserId: OPERATOR,
+      fields: { description: 'Original description' },
+      images: [{ fileId: 'previous-oxy-file' }],
     };
     await applyProductSourceObservation(observation);
     expect(downloadImage).not.toHaveBeenCalled();
     uploadImage.mockImplementation(async () => new Response('denied', { status: 403 }));
-    await expect(applyProductSourceObservation({
-      ...observation, fields: { description: 'Must not replace the original' },
-      images: [{ sourceUrl: 'https://supplier.example/new.png' }],
-    })).rejects.toThrow(/not authorized/);
+    await expect(
+      applyProductSourceObservation({
+        ...observation,
+        fields: { description: 'Must not replace the original' },
+        images: [{ sourceUrl: 'https://supplier.example/new.png' }],
+      }),
+    ).rejects.toThrow(/not authorized/);
     const product = await getPublicCanonicalProduct(productId);
     expect(product?.description).toBe('Original description');
-    expect(product?.images.map(image => image.fileId)).toEqual(['previous-oxy-file']);
-    const records = await db.select().from(sourceRecords).where(eq(sourceRecords.externalId, observation.externalId));
+    expect(product?.images.map((image) => image.fileId)).toEqual(['previous-oxy-file']);
+    const records = await db
+      .select()
+      .from(sourceRecords)
+      .where(eq(sourceRecords.externalId, observation.externalId));
     expect(records).toHaveLength(1);
   });
 
   it('imports description-only images before applying facts, keeping the original source observation', async () => {
     const productId = await mintProduct({ label: 'Description Media Product' });
-    const original = '<p>Materials</p><img src="https://supplier.example/chart.png" alt="Size chart">';
+    const original =
+      '<p>Materials</p><img src="https://supplier.example/chart.png" alt="Size chart">';
     const observation = {
-      productId, sourceId, externalId: `description-${RUN}`, observedAt: new Date(),
-      method: 'connector_declared' as const, matchRule: 'test.description', decidedByOxyUserId: OPERATOR,
+      productId,
+      sourceId,
+      externalId: `description-${RUN}`,
+      observedAt: new Date(),
+      method: 'connector_declared' as const,
+      matchRule: 'test.description',
+      decidedByOxyUserId: OPERATOR,
       fields: { description: original },
     };
     const result = await applyProductSourceObservation(observation);
     expect(result.product.description).toContain('https://cloud.oxy.so/oxy-canonical-file');
     expect(result.product.description).not.toContain('supplier.example');
     expect(result.applied).toContain('description');
-    const [record] = await db.select().from(sourceRecords).where(eq(sourceRecords.id, result.sourceRecordId));
+    const [record] = await db
+      .select()
+      .from(sourceRecords)
+      .where(eq(sourceRecords.id, result.sourceRecordId));
     expect(record.payload).toMatchObject({ description: original });
     uploadImage.mockImplementation(async () => new Response('denied', { status: 403 }));
-    await expect(applyProductSourceObservation({ ...observation, fields: { description: '<img src="https://supplier.example/replacement.png">' } })).rejects.toThrow(/not authorized/);
+    await expect(
+      applyProductSourceObservation({
+        ...observation,
+        fields: { description: '<img src="https://supplier.example/replacement.png">' },
+      }),
+    ).rejects.toThrow(/not authorized/);
     const stored = await getPublicCanonicalProduct(productId);
     expect(stored?.description).toBe(result.product.description);
-    const records = await db.select().from(sourceRecords).where(eq(sourceRecords.externalId, observation.externalId));
+    const records = await db
+      .select()
+      .from(sourceRecords)
+      .where(eq(sourceRecords.externalId, observation.externalId));
     expect(records).toHaveLength(1);
   });
 
   it('does not import an ignored pinned description', async () => {
     const productId = await mintProduct({ label: 'Pinned Description Media Product' });
-    await updateCanonicalProduct(productId, { description: 'Operator correction', actorOxyUserId: OPERATOR });
+    await updateCanonicalProduct(productId, {
+      description: 'Operator correction',
+      actorOxyUserId: OPERATOR,
+    });
     const original = '<img src="https://supplier.example/chart.png">';
     const result = await applyProductSourceObservation({
-      productId, sourceId, externalId: `pinned-description-${RUN}`, observedAt: new Date(),
-      method: 'connector_declared', matchRule: 'test.pinned-description', decidedByOxyUserId: OPERATOR,
+      productId,
+      sourceId,
+      externalId: `pinned-description-${RUN}`,
+      observedAt: new Date(),
+      method: 'connector_declared',
+      matchRule: 'test.pinned-description',
+      decidedByOxyUserId: OPERATOR,
       fields: { description: original },
     });
     expect(result.product.description).toBe('Operator correction');
-    expect(result.conflicts).toContainEqual({ field: 'description', reason: 'pinned', sourceValue: original });
+    expect(result.conflicts).toContainEqual({
+      field: 'description',
+      reason: 'pinned',
+      sourceValue: original,
+    });
     expect(downloadImage).not.toHaveBeenCalled();
     expect(uploadImage).not.toHaveBeenCalled();
   });
 
-  it.each(['gallery', 'description'] as const)('refuses source %s media without storage rights before any external IO', async media => {
-    const productId = await mintProduct({ label: `Nonstorable ${media} Product` });
-    const restrictedSource = await ensureCatalogSource(db, {
-      kind: 'feed', name: `nonstorable-${media}-${RUN}`, mayDisplay: true, mayStore: false, attributionRequired: false,
-    });
-    createdSourceIds.push(restrictedSource.id);
-    await expect(applyProductSourceObservation({
-      productId, sourceId: restrictedSource.id, externalId: `nonstorable-${media}-${RUN}`, observedAt: new Date(),
-      method: 'connector_declared', matchRule: 'test.media-rights', decidedByOxyUserId: OPERATOR,
-      fields: media === 'description' ? { description: '<img src="https://supplier.example/new.png">' } : {},
-      images: media === 'gallery' ? [{ sourceUrl: 'https://supplier.example/new.png' }] : [],
-    })).rejects.toThrow(/storage and display rights/);
-    expect(downloadImage).not.toHaveBeenCalled();
-    expect(uploadImage).not.toHaveBeenCalled();
-  });
+  it.each(['gallery', 'description'] as const)(
+    'refuses source %s media without storage rights before any external IO',
+    async (media) => {
+      const productId = await mintProduct({ label: `Nonstorable ${media} Product` });
+      const restrictedSource = await ensureCatalogSource(db, {
+        kind: 'feed',
+        name: `nonstorable-${media}-${RUN}`,
+        mayDisplay: true,
+        mayStore: false,
+        attributionRequired: false,
+      });
+      createdSourceIds.push(restrictedSource.id);
+      await expect(
+        applyProductSourceObservation({
+          productId,
+          sourceId: restrictedSource.id,
+          externalId: `nonstorable-${media}-${RUN}`,
+          observedAt: new Date(),
+          method: 'connector_declared',
+          matchRule: 'test.media-rights',
+          decidedByOxyUserId: OPERATOR,
+          fields:
+            media === 'description'
+              ? { description: '<img src="https://supplier.example/new.png">' }
+              : {},
+          images: media === 'gallery' ? [{ sourceUrl: 'https://supplier.example/new.png' }] : [],
+        }),
+      ).rejects.toThrow(/storage and display rights/);
+      expect(downloadImage).not.toHaveBeenCalled();
+      expect(uploadImage).not.toHaveBeenCalled();
+    },
+  );
 });
 
 /**
@@ -1130,7 +1237,10 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
     createdAttributeKeys.push(key);
     await defineAttribute({ key, label: 'Weight', valueType: 'measurement', unitFamily: 'mass' });
     const productId = await mintProduct({ label: 'Unparsed Product', axes: [key] });
-    const created = await createVariant({ productId, options: [{ key, value: 'about 200 grams' }] });
+    const created = await createVariant({
+      productId,
+      options: [{ key, value: 'about 200 grams' }],
+    });
 
     const rows = await db
       .select()
@@ -1442,7 +1552,9 @@ describe('#629 — a multi-valued attribute keeps the order it declared', () => 
     ];
     const expected = declared.map((row) => row.value);
     const insertionOrder = [...declared].reverse();
-    const slotOrder = [...declared].sort((a, b) => `#${a.position}`.localeCompare(`#${b.position}`));
+    const slotOrder = [...declared].sort((a, b) =>
+      `#${a.position}`.localeCompare(`#${b.position}`),
+    );
 
     // Adversity ASSERTED, not hoped for: if either of these ever agreed with
     // `expected`, the assertions below would pass under a plan that supplied no
@@ -1498,36 +1610,92 @@ describe('#629 — a multi-valued attribute keeps the order it declared', () => 
 
 it('projects canonical videos only through mixed media and refuses variant-video grain at SQL', async () => {
   const productId = await mintProduct({ label: 'Mixed Gallery Product' });
-  const observation = await applyProductSourceObservation({ productId, sourceId, externalId: `mixed-gallery-${RUN}`,
-    observedAt: new Date(), method: 'connector_declared', matchRule: 'test.mixed-gallery', decidedByOxyUserId: OPERATOR,
-    fields: {}, images: [{ fileId: `canonical-photo-${RUN}` }] });
-  await db.insert(canonicalImages).values({ productId, sourceRecordId: observation.sourceRecordId,
-    kind: 'video', fileId: `canonical-video-${RUN}`, position: 1 });
+  const observation = await applyProductSourceObservation({
+    productId,
+    sourceId,
+    externalId: `mixed-gallery-${RUN}`,
+    observedAt: new Date(),
+    method: 'connector_declared',
+    matchRule: 'test.mixed-gallery',
+    decidedByOxyUserId: OPERATOR,
+    fields: {},
+    images: [{ fileId: `canonical-photo-${RUN}` }],
+  });
+  await db.insert(canonicalImages).values({
+    productId,
+    sourceRecordId: observation.sourceRecordId,
+    kind: 'video',
+    fileId: `canonical-video-${RUN}`,
+    position: 1,
+  });
   // Reads never depend on enabling new video writes during a rollout/rollback.
   const projected = await getPublicCanonicalProduct(productId);
-  expect(projected?.images.map(image => image.fileId)).toEqual([`canonical-photo-${RUN}`]);
-  expect(projected?.media?.map(media => [media.kind, media.fileId])).toEqual([
-    ['image', `canonical-photo-${RUN}`], ['video', `canonical-video-${RUN}`],
+  expect(projected?.images.map((image) => image.fileId)).toEqual([`canonical-photo-${RUN}`]);
+  expect(projected?.media?.map((media) => [media.kind, media.fileId])).toEqual([
+    ['image', `canonical-photo-${RUN}`],
+    ['video', `canonical-video-${RUN}`],
   ]);
-  expect(projected?.media?.some(media => 'sourceUrl' in media)).toBe(false);
+  expect(projected?.media?.some((media) => 'sourceUrl' in media)).toBe(false);
   const [variant] = await listVariants(productId);
-  await expect(db.insert(canonicalImages).values({ variantId: variant!.id, sourceRecordId: observation.sourceRecordId,
-    kind: 'video', fileId: `variant-video-${RUN}`, position: 0 })).rejects.toThrow();
+  await expect(
+    db.insert(canonicalImages).values({
+      variantId: variant!.id,
+      sourceRecordId: observation.sourceRecordId,
+      kind: 'video',
+      fileId: `variant-video-${RUN}`,
+      position: 0,
+    }),
+  ).rejects.toThrow();
 });
-
 
 it('rejects canonical-only video as condition and seller-draft evidence in both insertion orders', async () => {
   const productId = await mintProduct({ label: 'Canonical evidence boundary' });
-  const observation = await applyProductSourceObservation({ productId, sourceId, externalId: `canonical-evidence-${RUN}`,
-    observedAt: new Date(), method: 'connector_declared', matchRule: 'test.video-evidence', decidedByOxyUserId: OPERATOR, fields: {} });
-  const [listing] = await db.insert(listings).values({ ownerType: 'user', oxyUserId: OPERATOR, title: 'Evidence', description: '',
-    condition: 'used_good', conditionAssertion: 'seller_declared', status: 'draft' }).returning();
-  const [draft] = await db.insert(sellerListingDrafts).values({ oxyUserId: OPERATOR, clientDraftKey: uuidv7(), entryPath: 'unmatched' }).returning();
-  const video = (fileId: string) => db.insert(canonicalImages).values({ productId, sourceRecordId: observation.sourceRecordId,
-    fileId, kind: 'video', position: 0 });
-  const condition = (fileId: string) => db.insert(listingConditionPhotos).values({ listingId: listing.id, fileId,
-    provenance: 'seller_uploaded', uploadedByOxyUserId: OPERATOR, uploadedAt: new Date() });
-  const staged = (fileId: string) => db.insert(sellerDraftImages).values({ draftId: draft.id, fileId, provenance: 'seller_uploaded' });
+  const observation = await applyProductSourceObservation({
+    productId,
+    sourceId,
+    externalId: `canonical-evidence-${RUN}`,
+    observedAt: new Date(),
+    method: 'connector_declared',
+    matchRule: 'test.video-evidence',
+    decidedByOxyUserId: OPERATOR,
+    fields: {},
+  });
+  const [listing] = await db
+    .insert(listings)
+    .values({
+      ownerType: 'user',
+      oxyUserId: OPERATOR,
+      title: 'Evidence',
+      description: '',
+      condition: 'used_good',
+      conditionAssertion: 'seller_declared',
+      status: 'draft',
+    })
+    .returning();
+  const [draft] = await db
+    .insert(sellerListingDrafts)
+    .values({ oxyUserId: OPERATOR, clientDraftKey: uuidv7(), entryPath: 'unmatched' })
+    .returning();
+  const video = (fileId: string) =>
+    db.insert(canonicalImages).values({
+      productId,
+      sourceRecordId: observation.sourceRecordId,
+      fileId,
+      kind: 'video',
+      position: 0,
+    });
+  const condition = (fileId: string) =>
+    db.insert(listingConditionPhotos).values({
+      listingId: listing.id,
+      fileId,
+      provenance: 'seller_uploaded',
+      uploadedByOxyUserId: OPERATOR,
+      uploadedAt: new Date(),
+    });
+  const staged = (fileId: string) =>
+    db
+      .insert(sellerDraftImages)
+      .values({ draftId: draft.id, fileId, provenance: 'seller_uploaded' });
   try {
     for (const evidence of [condition, staged]) {
       const videoFirst = uuidv7();
@@ -1538,7 +1706,7 @@ it('rejects canonical-only video as condition and seller-draft evidence in both 
       await expect(video(evidenceFirst)).rejects.toThrow();
       const concurrent = uuidv7();
       const results = await Promise.allSettled([video(concurrent), evidence(concurrent)]);
-      expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     }
   } finally {
     await db.delete(sellerListingDrafts).where(eq(sellerListingDrafts.id, draft.id));

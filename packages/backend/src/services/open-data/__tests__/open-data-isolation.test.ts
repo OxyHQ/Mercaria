@@ -23,9 +23,13 @@ const FORBIDDEN: readonly { name: string; pattern: RegExp }[] = [
   { name: 'a database handle', pattern: /db\/postgres|getDb\(|drizzle-orm/ },
   {
     name: 'a canonical write service',
-    pattern: /canonical-product\.service|canonical-variant\.service|product-family\.service|brand\.service|organization\.service|product-identifier\.service/,
+    pattern:
+      /canonical-product\.service|canonical-variant\.service|product-family\.service|brand\.service|organization\.service|product-identifier\.service/,
   },
-  { name: 'the offer domain', pattern: /offers\/offer\.service|offerRepository|recordExternalOffer/ },
+  {
+    name: 'the offer domain',
+    pattern: /offers\/offer\.service|offerRepository|recordExternalOffer/,
+  },
   { name: 'the matching pipeline', pattern: /matching\/match\.service|runMatch/ },
 ];
 
@@ -38,8 +42,12 @@ describe('an open-data module reaches nothing in the commerce graph', () => {
     // `register.ts` is the composition root: it supplies the demand read as a
     // function and is the one module here that may reach Postgres.
     const files = [
-      ...readdirSync(OPEN_DATA_ROOT).filter((entry) => entry.endsWith('.ts') && entry !== 'register.ts'),
-      ...readdirSync(join(OPEN_DATA_ROOT, 'providers')).filter((entry) => entry.endsWith('.ts')).map((entry) => `providers/${entry}`),
+      ...readdirSync(OPEN_DATA_ROOT).filter(
+        (entry) => entry.endsWith('.ts') && entry !== 'register.ts',
+      ),
+      ...readdirSync(join(OPEN_DATA_ROOT, 'providers'))
+        .filter((entry) => entry.endsWith('.ts'))
+        .map((entry) => `providers/${entry}`),
     ];
     // The floor, read off the real tree: an empty walk passes vacuously.
     expect(files.length).toBeGreaterThanOrEqual(11);
@@ -52,10 +60,14 @@ describe('an open-data module reaches nothing in the commerce graph', () => {
   });
 
   it('every provider module is in the catalogue', () => {
-    const modules = readdirSync(join(OPEN_DATA_ROOT, 'providers')).filter((entry) => entry.endsWith('.ts'));
+    const modules = readdirSync(join(OPEN_DATA_ROOT, 'providers')).filter((entry) =>
+      entry.endsWith('.ts'),
+    );
     const catalogue = readFileSync(join(OPEN_DATA_ROOT, 'catalogue.ts'), 'utf8');
     for (const module of modules) {
-      expect(catalogue, `providers/${module} is not imported by catalogue.ts`).toContain(`./providers/${module.replace(/\.ts$/u, '.js')}`);
+      expect(catalogue, `providers/${module} is not imported by catalogue.ts`).toContain(
+        `./providers/${module.replace(/\.ts$/u, '.js')}`,
+      );
     }
   });
 });
@@ -75,15 +87,21 @@ describe('the provider catalogue', () => {
       expect(provider.refreshModes.length, provider.slug).toBeGreaterThan(0);
       expect(provider.homepage, provider.slug).toMatch(/^https:\/\//u);
       // A provider that needs a sub-feed must say what it is.
-      if (provider.accountRefRequired) expect(provider.accountRefMeaning, provider.slug).not.toBeNull();
+      if (provider.accountRefRequired)
+        expect(provider.accountRefMeaning, provider.slug).not.toBeNull();
     }
   });
 
   it('declares full_snapshot only where a pass reads the whole source', () => {
     // A snapshot authorises retiring what a pass did not see. Only dump-backed
     // providers read everything; a paged API over a moving listing cannot.
-    const snapshot = OPEN_DATA_PROVIDERS.filter((provider) => provider.refreshModes.includes('full_snapshot'));
-    expect(snapshot.map((provider) => provider.slug).sort()).toEqual(['miteco_fuel', 'open_prices']);
+    const snapshot = OPEN_DATA_PROVIDERS.filter((provider) =>
+      provider.refreshModes.includes('full_snapshot'),
+    );
+    expect(snapshot.map((provider) => provider.slug).sort()).toEqual([
+      'miteco_fuel',
+      'open_prices',
+    ]);
     for (const provider of snapshot) expect(provider.kind).toBe('feed');
   });
 

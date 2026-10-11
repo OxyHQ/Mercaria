@@ -1,7 +1,7 @@
-import { Pressable, View } from "react-native";
-import { useRouter } from "expo-router";
-import type { BrandChannelEntry } from "@mercaria/shared-types";
-import { OfficialChannelBadge, SectionHeader, Text } from "@mercaria/ui";
+import { Pressable, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import type { BrandChannelEntry } from '@mercaria/shared-types';
+import { OfficialChannelBadge, SectionHeader, Text } from '@mercaria/ui';
 
 /**
  * One of a brand's two channel lists (#72 official-channel rules 2 and 4).

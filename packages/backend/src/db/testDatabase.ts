@@ -120,7 +120,10 @@ export async function createMercariaTestDatabase(adminUrl: string): Promise<stri
  * The extensions are the SAME list (`requiredExtensions.ts`), which is the
  * drift the module docblock warns about, closed.
  */
-export async function createMercariaTestDatabaseThrough(adminUrl: string, lastTag: string): Promise<string> {
+export async function createMercariaTestDatabaseThrough(
+  adminUrl: string,
+  lastTag: string,
+): Promise<string> {
   return createTestDatabase({
     adminUrl,
     migrate: (databaseUrl) => applyMigrationsThrough(databaseUrl, lastTag),
@@ -152,7 +155,9 @@ export async function applyMigrationsThrough(
 
 /** A temporary migrations folder ending at `lastTag`. The caller removes it. */
 function journalPrefix(lastTag: string): string {
-  const journal = JSON.parse(readFileSync(join(MIGRATIONS_FOLDER, 'meta', '_journal.json'), 'utf8')) as {
+  const journal = JSON.parse(
+    readFileSync(join(MIGRATIONS_FOLDER, 'meta', '_journal.json'), 'utf8'),
+  ) as {
     entries: { tag: string }[];
   };
   const end = journal.entries.findIndex((entry) => entry.tag === lastTag);
@@ -161,7 +166,10 @@ function journalPrefix(lastTag: string): string {
 
   const folder = mkdtempSync(join(tmpdir(), 'mercaria-migrate-through-'));
   mkdirSync(join(folder, 'meta'), { recursive: true });
-  writeFileSync(join(folder, 'meta', '_journal.json'), JSON.stringify({ ...journal, entries: retained }));
+  writeFileSync(
+    join(folder, 'meta', '_journal.json'),
+    JSON.stringify({ ...journal, entries: retained }),
+  );
   for (const entry of retained) {
     copyFileSync(join(MIGRATIONS_FOLDER, `${entry.tag}.sql`), join(folder, `${entry.tag}.sql`));
   }

@@ -240,7 +240,9 @@ export async function draftFeedVersion(
     );
   }
   if (!needsRecordPath && input.recordPath !== undefined) {
-    throw validationError(`A ${format} feed's records are its rows or its lines; it has no record path.`);
+    throw validationError(
+      `A ${format} feed's records are its rows or its lines; it has no record path.`,
+    );
   }
   if (isDelimited) {
     const delimiter = input.delimiter ?? (format === 'tsv' ? '\t' : ',');
@@ -253,12 +255,16 @@ export async function draftFeedVersion(
     }
   }
   if (!isDelimited && (input.hasHeaderRow ?? false)) {
-    throw validationError('A header row is a property a delimited feed has and a document does not.');
+    throw validationError(
+      'A header row is a property a delimited feed has and a document does not.',
+    );
   }
 
   const authKind: FeedAuthKind = input.authKind ?? 'none';
   if (authKind === 'none' && input.authSecret !== undefined) {
-    throw validationError('A credential was supplied for a feed configured with no authentication.');
+    throw validationError(
+      'A credential was supplied for a feed configured with no authentication.',
+    );
   }
   if (authKind !== 'none' && (input.authSecret ?? '') === '') {
     throw validationError(
@@ -268,7 +274,9 @@ export async function draftFeedVersion(
     );
   }
   if ((authKind === 'header' || authKind === 'query_param') && (input.authParamName ?? '') === '') {
-    throw validationError(`A ${authKind} credential must name the header or parameter it is sent in.`);
+    throw validationError(
+      `A ${authKind} credential must name the header or parameter it is sent in.`,
+    );
   }
 
   assertMappingsAreComplete(input.fieldMappings);

@@ -69,7 +69,8 @@ export async function openRunQuarantine(
     .returning();
 
   const row = rows[0];
-  if (!row) throw new Error(`catalog_source_run_quarantines insert for ${input.runId} returned nothing.`);
+  if (!row)
+    throw new Error(`catalog_source_run_quarantines insert for ${input.runId} returned nothing.`);
   return row;
 }
 
@@ -162,11 +163,15 @@ export async function releaseRunQuarantine(
       resolution: 'released',
       resolvedAt: input.now,
       resolvedByOxyUserId: input.actorOxyUserId,
-      resolutionNote: input.note === null ? null : input.note.slice(0, OFFER_FRESHNESS_MAX_TEXT_LENGTH),
+      resolutionNote:
+        input.note === null ? null : input.note.slice(0, OFFER_FRESHNESS_MAX_TEXT_LENGTH),
       updatedAt: input.now,
     })
     .where(
-      and(eq(catalogSourceRunQuarantines.id, input.id), isNull(catalogSourceRunQuarantines.resolution)),
+      and(
+        eq(catalogSourceRunQuarantines.id, input.id),
+        isNull(catalogSourceRunQuarantines.resolution),
+      ),
     )
     .returning();
   return rows[0];

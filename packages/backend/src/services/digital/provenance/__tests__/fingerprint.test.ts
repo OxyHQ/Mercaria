@@ -112,7 +112,10 @@ describe('#1015 W8 case 1 — identical bytes', () => {
 describe('#1015 W8 case 2 — the same mesh re-exported with a different vertex order', () => {
   /** The faces, shuffled, with each face's corners rotated. */
   const REORDERED = [...FACES]
-    .map((face, index) => [face[(index + 1) % 3], face[(index + 2) % 3], face[index % 3]] as [number, number, number])
+    .map(
+      (face, index) =>
+        [face[(index + 1) % 3], face[(index + 2) % 3], face[index % 3]] as [number, number, number],
+    )
     .reverse();
 
   it('the geometry fingerprint is unchanged', () => {
@@ -238,10 +241,7 @@ describe('#1015 W8 — where a fingerprint cannot be derived reliably, it says s
   it('a trivially small mesh is refused rather than fingerprinted', () => {
     // A cube: eight distinct vertices, twelve faces, and thousands of unrelated
     // creators upload one. A fingerprint over it would match all of them.
-    const cube = [
-      0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
-      0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
-    ];
+    const cube = [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1];
     const result = geometryFingerprint('obj', writeObj(cube, makeTriangles(8)));
     expect(result).toEqual({ status: 'unsupported', reason: 'too_few_distinct_vertices' });
   });
@@ -253,9 +253,9 @@ describe('#1015 W8 — where a fingerprint cannot be derived reliably, it says s
     for (let i = 0; i < GEOMETRY_FINGERPRINT_MIN_DISTINCT_VERTICES * 10; i += 1) {
       repeated.push(1, 2, 3);
     }
-    expect(geometryFingerprint('obj', writeObj(repeated, makeTriangles(repeated.length / 3)))).toEqual(
-      { status: 'unsupported', reason: 'too_few_distinct_vertices' },
-    );
+    expect(
+      geometryFingerprint('obj', writeObj(repeated, makeTriangles(repeated.length / 3))),
+    ).toEqual({ status: 'unsupported', reason: 'too_few_distinct_vertices' });
   });
 
   it('a denormal-extent mesh is refused rather than scaled by Infinity', () => {

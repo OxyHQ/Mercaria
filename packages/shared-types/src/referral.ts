@@ -74,10 +74,7 @@ export const REFERRAL_PROGRAM_STATUSES: readonly ReferralProgramStatus[] = [
 export type ReferralPartnerOwnerType = 'user' | 'store';
 
 /** {@link ReferralPartnerOwnerType} as a tuple. */
-export const REFERRAL_PARTNER_OWNER_TYPES: readonly ReferralPartnerOwnerType[] = [
-  'user',
-  'store',
-];
+export const REFERRAL_PARTNER_OWNER_TYPES: readonly ReferralPartnerOwnerType[] = ['user', 'store'];
 
 /**
  * A partner's enrollment STANDING — what this owner may do right now.

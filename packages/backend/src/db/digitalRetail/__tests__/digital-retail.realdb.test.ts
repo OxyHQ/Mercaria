@@ -99,7 +99,9 @@ interface Fixture {
 }
 
 /** A whole authorized supplier, down to an approved rider. */
-async function makeSupplyChain(overrides: { provenance?: 'publisher_direct' } = {}): Promise<Fixture> {
+async function makeSupplyChain(
+  overrides: { provenance?: 'publisher_direct' } = {},
+): Promise<Fixture> {
   const [supplier] = await db
     .insert(suppliers)
     .values({
@@ -645,9 +647,7 @@ describe('the attempt log is append-only', () => {
     );
     await expectRefused(
       () =>
-        db
-          .delete(digitalPurchaseOrderAttempts)
-          .where(eq(digitalPurchaseOrderAttempts.id, row.id)),
+        db.delete(digitalPurchaseOrderAttempts).where(eq(digitalPurchaseOrderAttempts.id, row.id)),
       'trigger',
     );
   });
@@ -907,7 +907,8 @@ describe('the fulfilment and its artifacts', () => {
       'trigger',
     );
     await expectRefused(
-      () => db.delete(digitalFulfilmentArtifacts).where(eq(digitalFulfilmentArtifacts.id, artifactId)),
+      () =>
+        db.delete(digitalFulfilmentArtifacts).where(eq(digitalFulfilmentArtifacts.id, artifactId)),
       'trigger',
     );
   });
@@ -1004,7 +1005,14 @@ describe('the reveal audit', () => {
     );
     const names = (columns as unknown as { column_name: string }[]).map((row) => row.column_name);
     expect(names.length).toBeGreaterThan(5);
-    for (const forbidden of ['ip', 'ip_address', 'user_agent', 'device_id', 'fingerprint', 'session_id']) {
+    for (const forbidden of [
+      'ip',
+      'ip_address',
+      'user_agent',
+      'device_id',
+      'fingerprint',
+      'session_id',
+    ]) {
       expect(names).not.toContain(forbidden);
     }
   });
@@ -1082,7 +1090,8 @@ describe('the operator audit — ADR 0011 D12', () => {
       now: NOW,
     });
     await expectRefused(
-      () => db.delete(digitalFulfilmentIncidents).where(eq(digitalFulfilmentIncidents.id, incident.id)),
+      () =>
+        db.delete(digitalFulfilmentIncidents).where(eq(digitalFulfilmentIncidents.id, incident.id)),
       'trigger',
     );
   });

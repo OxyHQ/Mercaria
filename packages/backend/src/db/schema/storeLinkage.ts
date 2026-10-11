@@ -216,7 +216,11 @@ export const storeLinkageRequests = pgTable(
       t.blockReason,
       STORE_LINKAGE_BLOCK_REASONS,
     ),
-    checkOneOf('store_linkage_requests_match_state_check', t.matchState, STORE_LINKAGE_MATCH_STATES),
+    checkOneOf(
+      'store_linkage_requests_match_state_check',
+      t.matchState,
+      STORE_LINKAGE_MATCH_STATES,
+    ),
     // An audit record whose reason is whitespace is not an audit record.
     check('store_linkage_requests_reason_check', sql`btrim(${t.reason}) <> ''`),
     /**
@@ -360,11 +364,7 @@ export const storeLinkageCandidates = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf(
-      'store_linkage_candidates_source_check',
-      t.source,
-      STORE_LINKAGE_CANDIDATE_SOURCES,
-    ),
+    checkOneOf('store_linkage_candidates_source_check', t.source, STORE_LINKAGE_CANDIDATE_SOURCES),
     checkOneOf(
       'store_linkage_candidates_disposition_check',
       t.disposition,
@@ -433,10 +433,7 @@ export const storeLinkageProfileAdoptions = pgTable(
     ),
     // Adopting an empty value is not adopting a fact — it is clearing a field
     // through a door built for something else.
-    check(
-      'store_linkage_profile_adoptions_value_check',
-      sql`btrim(${t.adoptedValue}) <> ''`,
-    ),
+    check('store_linkage_profile_adoptions_value_check', sql`btrim(${t.adoptedValue}) <> ''`),
     // One adoption per (request, field): a replayed application re-applies
     // nothing and writes no second audit row for the same decision.
     uniqueIndex('store_linkage_profile_adoptions_request_field_key').on(t.requestId, t.field),

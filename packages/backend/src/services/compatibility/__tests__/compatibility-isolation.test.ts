@@ -194,7 +194,7 @@ const AGGREGATE_EXCLUSIONS: readonly {
   {
     path: 'services/curation/merge-conflicts.ts',
     reason:
-      'the module that applies each merge conflict in ITS OWN domain\'s terms — retired, revoked, ' +
+      "the module that applies each merge conflict in ITS OWN domain's terms — retired, revoked, " +
       'retired-offer, closed — so it imports one writer per domain by construction, exactly as ' +
       'the merge plan names one column per domain',
   },
@@ -528,16 +528,29 @@ describe('the compatibility domain cannot reach what it must not', () => {
     // independently, and a single total would let the service walk collapse to
     // zero while the repositories carried the number.
     const from = (segment: string) => files.filter((file) => file.includes(segment)).length;
-    expect(from('/services/compatibility/'), 'the service walk found nothing').toBeGreaterThanOrEqual(4);
-    expect(from('/db/compatibility/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(4);
-    expect(from('/db/schema/compatibility'), 'the schema derivation found nothing').toBeGreaterThanOrEqual(1);
+    expect(
+      from('/services/compatibility/'),
+      'the service walk found nothing',
+    ).toBeGreaterThanOrEqual(4);
+    expect(from('/db/compatibility/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(
+      4,
+    );
+    expect(
+      from('/db/schema/compatibility'),
+      'the schema derivation found nothing',
+    ).toBeGreaterThanOrEqual(1);
     // The HTTP surface, floored per LAYER rather than as one total: a route file
     // and its controller break independently, and one floor of three would let the
     // controller vanish from the scan while the route and the schemas carried the
     // number — which is the layer a forbidden import is most likely to enter.
     expect(from('/routes/compatibility'), 'the route walk found nothing').toBeGreaterThanOrEqual(1);
-    expect(from('/controllers/'), 'the controller derivation found nothing').toBeGreaterThanOrEqual(2);
-    expect(from('/middleware/'), 'the request-schema derivation found nothing').toBeGreaterThanOrEqual(2);
+    expect(from('/controllers/'), 'the controller derivation found nothing').toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(
+      from('/middleware/'),
+      'the request-schema derivation found nothing',
+    ).toBeGreaterThanOrEqual(2);
     // The layer the four-directory loop could not see at all, floored on its own
     // for exactly that reason: the claim-promotion service lives here, and a
     // floor that lumped it in with the services above would have been satisfied
@@ -944,7 +957,9 @@ describe('no compatibility DTO can carry provenance — the two-gate rule', () =
       { make: vehicleRow },
     );
     for (const field of COMPATIBILITY_FORBIDDEN_VIEW_FIELDS) {
-      expect(Object.keys(view), `the emitted fitment view carries \`${field}\``).not.toContain(field);
+      expect(Object.keys(view), `the emitted fitment view carries \`${field}\``).not.toContain(
+        field,
+      );
     }
     expect(Object.keys(view).length).toBeGreaterThanOrEqual(15);
     expect(view.make).toEqual({ id: 'make_1', key: 'volkswagen', name: 'Volkswagen' });
@@ -955,11 +970,15 @@ describe('the detectors actually detect — the mutation self-tests', () => {
   it('the option detector sees a table, a constant and a repository import', () => {
     expect(OPTION_WRITE_REFERENCE.test('await tx.insert(listingOptions).values(rows);')).toBe(true);
     expect(
-      OPTION_WRITE_REFERENCE.test("import { insertVariants } from '../../db/catalog/variantRepository.js';"),
+      OPTION_WRITE_REFERENCE.test(
+        "import { insertVariants } from '../../db/catalog/variantRepository.js';",
+      ),
     ).toBe(true);
     expect(OPTION_WRITE_REFERENCE.test('delete from product_variant_option_values')).toBe(true);
     expect(
-      OPTION_WRITE_REFERENCE.test("import { canonicalVariants } from '../schema/canonicalCatalog.js';"),
+      OPTION_WRITE_REFERENCE.test(
+        "import { canonicalVariants } from '../schema/canonicalCatalog.js';",
+      ),
     ).toBe(false);
   });
 
@@ -978,21 +997,21 @@ describe('the detectors actually detect — the mutation self-tests', () => {
   });
 
   it('the commerce detector sees a rail and not the word part', () => {
-    expect(COMMERCE_REFERENCE.test("import { x } from '../payments/checkout-payment.service.js';")).toBe(
-      true,
-    );
+    expect(
+      COMMERCE_REFERENCE.test("import { x } from '../payments/checkout-payment.service.js';"),
+    ).toBe(true);
     expect(COMMERCE_REFERENCE.test('const intent = new PaymentIntent();')).toBe(true);
     expect(COMMERCE_REFERENCE.test('const partNumber = "BP-1234";')).toBe(false);
   });
 
   it('the relationship detector sees #55 and not the word relation', () => {
     expect(
-      RELATIONSHIP_REFERENCE.test("import { commerceRelationships } from '../schema/relationships.js';"),
+      RELATIONSHIP_REFERENCE.test(
+        "import { commerceRelationships } from '../schema/relationships.js';",
+      ),
     ).toBe(true);
     expect(RELATIONSHIP_REFERENCE.test('select * from commerce_relationships')).toBe(true);
-    expect(
-      RELATIONSHIP_REFERENCE.test('const relation = await findRelationById(id);'),
-    ).toBe(false);
+    expect(RELATIONSHIP_REFERENCE.test('const relation = await findRelationById(id);')).toBe(false);
   });
 
   it('the comment stripper does not hide a real reference on the same line', () => {

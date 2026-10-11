@@ -54,7 +54,11 @@ async function tick(): Promise<void> {
 /** Begin draining. Idempotent — a second call is a no-op. */
 export function startStripeEventDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.payments.stripe.enabled && !parseBillingCohort(config.merchantBilling.peableCohortJson)) return;
+  if (
+    !config.payments.stripe.enabled &&
+    !parseBillingCohort(config.merchantBilling.peableCohortJson)
+  )
+    return;
   abortController = new AbortController();
 
   timer = setInterval(() => {

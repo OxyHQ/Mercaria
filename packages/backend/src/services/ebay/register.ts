@@ -29,10 +29,7 @@
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
-import {
-  ebayApplicationKey,
-  reserveEbayCalls,
-} from '../../db/ebay/ebayBudgetRepository.js';
+import { ebayApplicationKey, reserveEbayCalls } from '../../db/ebay/ebayBudgetRepository.js';
 import { listTrackedEbayItemIds } from '../../db/ebay/ebayCohortRepository.js';
 import { listEnabledEbayDiscoveryQueries } from '../../db/ebay/ebayDiscoveryRepository.js';
 import { createEbayBrowseAdapter, type EbayAdapterDeps } from '../ingestion/adapters/ebay.js';

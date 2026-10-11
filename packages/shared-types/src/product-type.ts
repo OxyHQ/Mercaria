@@ -356,20 +356,11 @@ export type ProductTypeRuleOperator =
   | ProductTypeRuleMembershipOperator
   | ProductTypeRulePresenceOperator;
 
-export const PRODUCT_TYPE_RULE_COMPARISON_OPERATORS: readonly ProductTypeRuleComparisonOperator[] = [
-  'eq',
-  'ne',
-  'gt',
-  'gte',
-  'lt',
-  'lte',
-];
+export const PRODUCT_TYPE_RULE_COMPARISON_OPERATORS: readonly ProductTypeRuleComparisonOperator[] =
+  ['eq', 'ne', 'gt', 'gte', 'lt', 'lte'];
 
-export const PRODUCT_TYPE_RULE_MEMBERSHIP_OPERATORS: readonly ProductTypeRuleMembershipOperator[] = [
-  'in',
-  'not_in',
-  'includes_any',
-];
+export const PRODUCT_TYPE_RULE_MEMBERSHIP_OPERATORS: readonly ProductTypeRuleMembershipOperator[] =
+  ['in', 'not_in', 'includes_any'];
 
 export const PRODUCT_TYPE_RULE_PRESENCE_OPERATORS: readonly ProductTypeRulePresenceOperator[] = [
   'is_present',

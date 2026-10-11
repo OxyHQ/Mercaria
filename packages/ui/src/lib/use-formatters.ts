@@ -1,6 +1,6 @@
-import { useMemo } from "react";
-import type { Money, OfferMoney } from "@mercaria/shared-types";
-import { useSharedUiLocale } from "../i18n/ui-translation";
+import { useMemo } from 'react';
+import type { Money, OfferMoney } from '@mercaria/shared-types';
+import { useSharedUiLocale } from '../i18n/ui-translation';
 import {
   formatDistance,
   formatDuration,
@@ -9,7 +9,7 @@ import {
   formatRating,
   formatReviewCount,
   formatSourceMoney,
-} from "./format";
+} from './format';
 
 /**
  * `./format`'s seven NUMBER formatters, bound to the locale in force (#500).

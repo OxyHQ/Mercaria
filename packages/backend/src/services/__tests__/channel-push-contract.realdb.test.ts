@@ -33,17 +33,25 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 // catalog services, repositories and PostgreSQL constraints remain real.
 const { mediaUpload } = vi.hoisted(() => ({ mediaUpload: vi.fn() }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({ baseURL: 'https://api.oxy.test', serviceToken: async () => 'fixture-token' }),
+  oxyServiceClient: () => ({
+    baseURL: 'https://api.oxy.test',
+    serviceToken: async () => 'fixture-token',
+  }),
 }));
 const originalFetch = globalThis.fetch;
 beforeEach(() => {
-  mediaUpload.mockReset().mockImplementation(async () => Response.json({
-    data: { file: { id: 'oxy-synchronized-image', visibility: 'public' } },
-  }));
-  vi.stubGlobal('fetch', (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-    String(input) === 'https://api.oxy.test/assets/service/user-media'
-      ? mediaUpload(input, init)
-      : originalFetch(input, init));
+  mediaUpload.mockReset().mockImplementation(async () =>
+    Response.json({
+      data: { file: { id: 'oxy-synchronized-image', visibility: 'public' } },
+    }),
+  );
+  vi.stubGlobal(
+    'fetch',
+    (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+      String(input) === 'https://api.oxy.test/assets/service/user-media'
+        ? mediaUpload(input, init)
+        : originalFetch(input, init),
+  );
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -62,9 +70,11 @@ vi.mock('@oxy.so/core/server', async () => {
   // "a revoked key is rejected" pass against a comparison that does not exist.
   const actual = await vi.importActual<typeof import('@oxy.so/core/server')>('@oxy.so/core/server');
   return {
-    ...actual, getRequiredOxyUserId: () => OWNER_USER,
+    ...actual,
+    getRequiredOxyUserId: () => OWNER_USER,
     safeFetch: async () => ({
-      status: 200, headers: { 'content-type': 'image/png' },
+      status: 200,
+      headers: { 'content-type': 'image/png' },
       response: Readable.from([Buffer.from('fixture image')]),
     }),
   };
@@ -313,7 +323,9 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     const namespace = uuidv7();
     await ingest(`/${connection.id}/products`, key, { products: [pushProduct(namespace)] });
 
-    const items = { items: [{ externalId: `woo-${namespace}`, sku: `PUSH-${namespace}`, available: 9 }] };
+    const items = {
+      items: [{ externalId: `woo-${namespace}`, sku: `PUSH-${namespace}`, available: 9 }],
+    };
     const first = await ingest(`/${connection.id}/inventory`, key, items);
     const second = await ingest(`/${connection.id}/inventory`, key, items);
 
@@ -443,7 +455,11 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
       products: [
         pushProduct(namespace, {
           variants: [
-            { sku: `PUSH-${namespace}`, price: { amount: 9900, currency: 'GBP' }, inventory: { available: 4 } },
+            {
+              sku: `PUSH-${namespace}`,
+              price: { amount: 9900, currency: 'GBP' },
+              inventory: { available: 4 },
+            },
           ],
         }),
       ],
@@ -471,9 +487,7 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
     // same instant as the same digits with a `Z`, so the assertion below
     // distinguishes "accepted" from "accepted and then misread".
     const response = await ingest(`/${connection.id}/products`, key, {
-      products: [
-        pushProduct(namespace, { externalUpdatedAt: '2026-02-15T05:38:08+02:00' }),
-      ],
+      products: [pushProduct(namespace, { externalUpdatedAt: '2026-02-15T05:38:08+02:00' })],
     });
 
     expect(response.status).toBe(200);
@@ -533,10 +547,9 @@ describe('SCENARIO 3 + 4: pushing products and inventory, and repeating the push
       ],
     });
 
-    expect(JSON.parse(response.text).data.results.map((r: { action: string }) => r.action)).toEqual([
-      'created',
-      'created',
-    ]);
+    expect(JSON.parse(response.text).data.results.map((r: { action: string }) => r.action)).toEqual(
+      ['created', 'created'],
+    );
 
     const imported = await findListingsBySourceConnection(storeId, connection.id);
     const untracked = imported.find((row) => row.sourceExternalId === `woo-${namespace}-untracked`);
@@ -664,9 +677,13 @@ describe('SCENARIO 5: rotating and revoking a key', () => {
     const connection = await connectPushIn(storeId, 'woocommerce', {});
     const original = await generateKey(storeId, { label: 'plugin v1' }, OWNER_USER);
     const namespace = uuidv7();
-    expect((await ingest(`/${connection.id}/products`, original.key, {
-      products: [pushProduct(namespace)],
-    })).status).toBe(200);
+    expect(
+      (
+        await ingest(`/${connection.id}/products`, original.key, {
+          products: [pushProduct(namespace)],
+        })
+      ).status,
+    ).toBe(200);
 
     // Rotation is mint-then-revoke rather than an in-place swap, so the plugin
     // can be reconfigured before the old credential stops working.
@@ -675,13 +692,18 @@ describe('SCENARIO 5: rotating and revoking a key', () => {
 
     expect(revoked.id).toBe(original.apiKey.id);
     expect(
-      (await ingest(`/${connection.id}/products`, original.key, { products: [pushProduct(uuidv7())] }))
-        .status,
+      (
+        await ingest(`/${connection.id}/products`, original.key, {
+          products: [pushProduct(uuidv7())],
+        })
+      ).status,
     ).toBe(401);
     expect(
-      (await ingest(`/${connection.id}/products`, replacement.key, {
-        products: [pushProduct(uuidv7())],
-      })).status,
+      (
+        await ingest(`/${connection.id}/products`, replacement.key, {
+          products: [pushProduct(uuidv7())],
+        })
+      ).status,
     ).toBe(200);
     // Revocation is a STAMP, not a delete: who minted what survives the key.
     expect((await listKeys(storeId)).map((row) => row.id)).not.toContain(original.apiKey.id);
@@ -701,11 +723,7 @@ describe('SCENARIO 5: rotating and revoking a key', () => {
     const body = { products: [pushProduct(uuidv7())] };
 
     const malformed = await ingest(`/${connection.id}/products`, 'not-a-key', body);
-    const unknown = await ingest(
-      `/${connection.id}/products`,
-      `mck_${'0'.repeat(64)}`,
-      body,
-    );
+    const unknown = await ingest(`/${connection.id}/products`, `mck_${'0'.repeat(64)}`, body);
     const absent = await ingest(`/${connection.id}/products`, undefined, body);
 
     // One answer for all three: a distinguishable refusal is an oracle for which
@@ -715,7 +733,7 @@ describe('SCENARIO 5: rotating and revoking a key', () => {
 });
 
 describe('SCENARIO 6: cross-store and cross-connection use', () => {
-  it("REFUSES a key from another store, even against a real connection id", async () => {
+  it('REFUSES a key from another store, even against a real connection id', async () => {
     const storeA = await makeStore();
     const storeB = await makeStore();
     const connectionB = await connectPushIn(storeB, 'woocommerce', {});
@@ -771,9 +789,7 @@ describe('SCENARIO 7: the plaintext key never reappears', () => {
 
     // Every OTHER response the surface can produce, scanned for the plaintext.
     // A shape assertion would only cover the fields somebody remembered.
-    const listText = await (
-      await fetch(`${baseUrl}/admin/stores/${storeId}/channel-keys`)
-    ).text();
+    const listText = await (await fetch(`${baseUrl}/admin/stores/${storeId}/channel-keys`)).text();
     const ingestText = (
       await ingest(`/${connection.id}/products`, minted, { products: [pushProduct(uuidv7())] })
     ).text;

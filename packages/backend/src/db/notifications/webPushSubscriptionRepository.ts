@@ -128,10 +128,7 @@ export async function hasActiveWebPushSubscription(
     .select({ id: webPushSubscriptions.id })
     .from(webPushSubscriptions)
     .where(
-      and(
-        eq(webPushSubscriptions.oxyUserId, oxyUserId),
-        eq(webPushSubscriptions.active, true),
-      ),
+      and(eq(webPushSubscriptions.oxyUserId, oxyUserId), eq(webPushSubscriptions.active, true)),
     )
     .limit(1);
   return rows.length > 0;
@@ -149,9 +146,6 @@ export async function findWebPushSubscriptionsForDelivery(
     .select(WEB_PUSH_DELIVERY_COLUMNS)
     .from(webPushSubscriptions)
     .where(
-      and(
-        eq(webPushSubscriptions.oxyUserId, oxyUserId),
-        eq(webPushSubscriptions.active, true),
-      ),
+      and(eq(webPushSubscriptions.oxyUserId, oxyUserId), eq(webPushSubscriptions.active, true)),
     );
 }

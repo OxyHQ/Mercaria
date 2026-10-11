@@ -1,21 +1,21 @@
-import { useMemo } from "react";
-import { Pressable, View } from "react-native";
-import { Loading } from "@oxy.so/bloom/loading";
-import Head from "expo-router/head";
-import { useRouter } from "expo-router";
-import { openAccountDialog, useOxy } from "@oxy.so/services";
-import { RiHeartLine } from "@oxy.so/bloom/icons/RiHeartLine";
-import { EmptyState } from "@oxy.so/bloom/empty-state";
-import { SavedItemCard, Text } from "@mercaria/ui";
-import type { ProductSaveSplitResolution, SavedItem } from "@mercaria/shared-types";
-import { ScreenShell } from "@/components/shell/ScreenShell";
+import { useMemo } from 'react';
+import { Pressable, View } from 'react-native';
+import { Loading } from '@oxy.so/bloom/loading';
+import Head from 'expo-router/head';
+import { useRouter } from 'expo-router';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { RiHeartLine } from '@oxy.so/bloom/icons/RiHeartLine';
+import { EmptyState } from '@oxy.so/bloom/empty-state';
+import { SavedItemCard, Text } from '@mercaria/ui';
+import type { ProductSaveSplitResolution, SavedItem } from '@mercaria/shared-types';
+import { ScreenShell } from '@/components/shell/ScreenShell';
 import {
   useResolveSplitAmbiguity,
   useSavedItems,
   useToggleListingSave,
   useToggleProductSave,
-} from "@/lib/hooks/use-saves";
-import { useTranslation } from "@/lib/i18n";
+} from '@/lib/hooks/use-saves';
+import { useTranslation } from '@/lib/i18n';
 
 /** Icon size for the empty-state badge. */
 
@@ -56,19 +56,19 @@ export default function SavedScreen() {
     // A product save resolves to the canonical PRODUCT page (#71); a listing
     // save resolves to the one listing. Sending both to the listing would undo
     // the distinction the row just made.
-    if (item.kind === "product") {
-      router.push({ pathname: "/p/[handle]", params: { handle: item.product.slug } });
+    if (item.kind === 'product') {
+      router.push({ pathname: '/p/[handle]', params: { handle: item.product.slug } });
       return;
     }
-    router.push({ pathname: "/products/[id]", params: { id: item.listingId } });
+    router.push({ pathname: '/products/[id]', params: { id: item.listingId } });
   };
 
   const removeItem = (item: SavedItem) => {
-    if (item.kind === "product") {
+    if (item.kind === 'product') {
       toggleProduct.mutate({
         canonicalProductId: item.save.canonicalProductId,
         saved: true,
-        sourceContext: "saved_list",
+        sourceContext: 'saved_list',
       });
       return;
     }
@@ -84,23 +84,23 @@ export default function SavedScreen() {
    * alerts mounted, which the DTO says.
    */
   const createAlert = (item: SavedItem) => {
-    if (item.kind !== "product") return;
+    if (item.kind !== 'product') return;
     router.push(`/price-alerts?canonicalProductId=${item.save.canonicalProductId}`);
   };
 
   const answerSplit = (item: SavedItem, resolution: ProductSaveSplitResolution) => {
-    if (item.kind !== "product") return;
+    if (item.kind !== 'product') return;
     resolveSplit.mutate({ saveId: item.save.id, resolution });
   };
 
   return (
     <ScreenShell>
       <Head>
-        <title>{t("saved.pageTitle")}</title>
+        <title>{t('saved.pageTitle')}</title>
       </Head>
 
       <View className="gap-space-16 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">{t("saved.heading")}</Text>
+        <Text className="text-2xl font-bold text-foreground">{t('saved.heading')}</Text>
 
         {!isAuthenticated ? (
           <SignedOutInvitation />
@@ -109,14 +109,24 @@ export default function SavedScreen() {
             <Loading variant="inline" size="sm" />
           </View>
         ) : savedItems.isError ? (
-          <EmptyState icon={RiHeartLine} media="circle" title={t("saved.error.title")} description={t("saved.error.subtitle")} />
+          <EmptyState
+            icon={RiHeartLine}
+            media="circle"
+            title={t('saved.error.title')}
+            description={t('saved.error.subtitle')}
+          />
         ) : items.length === 0 ? (
-          <EmptyState icon={RiHeartLine} media="circle" title={t("saved.empty.title")} description={t("saved.empty.subtitle")} />
+          <EmptyState
+            icon={RiHeartLine}
+            media="circle"
+            title={t('saved.empty.title')}
+            description={t('saved.empty.subtitle')}
+          />
         ) : (
           <View className="gap-space-12">
             {items.map((item) => (
               <SavedItemCard
-                key={item.kind === "product" ? item.save.id : item.favoriteId}
+                key={item.kind === 'product' ? item.save.id : item.favoriteId}
                 item={item}
                 onPress={openItem}
                 onRemove={removeItem}
@@ -126,7 +136,7 @@ export default function SavedScreen() {
                 // they were looking at AND has no way to know which that is now.
                 // It is also the only answer that cannot lose an interest they
                 // had; narrowing it afterwards is one tap on this same page.
-                onResolveSplit={(entry) => answerSplit(entry, "keep_both")}
+                onResolveSplit={(entry) => answerSplit(entry, 'keep_both')}
                 onCreatePriceAlert={createAlert}
               />
             ))}
@@ -134,13 +144,13 @@ export default function SavedScreen() {
             {savedItems.hasNextPage ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={t("saved.loadMoreA11y")}
+                accessibilityLabel={t('saved.loadMoreA11y')}
                 onPress={() => void savedItems.fetchNextPage()}
                 disabled={savedItems.isFetchingNextPage}
                 className="items-center rounded-radius-max border border-border-secondary py-space-12"
               >
                 <Text className="text-shop-buttonMedium text-text">
-                  {savedItems.isFetchingNextPage ? t("saved.loading") : t("saved.showMore")}
+                  {savedItems.isFetchingNextPage ? t('saved.loading') : t('saved.showMore')}
                 </Text>
               </Pressable>
             ) : null}
@@ -151,20 +161,21 @@ export default function SavedScreen() {
   );
 }
 
-
 function SignedOutInvitation() {
   const { t } = useTranslation();
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
-      <Text className="text-shop-bodyTitleSmall text-text">{t("saved.signedOut.title")}</Text>
-      <Text className="text-sm text-muted-foreground">{t("saved.signedOut.body")}</Text>
+      <Text className="text-shop-bodyTitleSmall text-text">{t('saved.signedOut.title')}</Text>
+      <Text className="text-sm text-muted-foreground">{t('saved.signedOut.body')}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t("saved.signedOut.signIn")}
+        accessibilityLabel={t('saved.signedOut.signIn')}
         onPress={() => openAccountDialog()}
         className="items-center rounded-radius-max bg-bg-fill-brand py-space-12"
       >
-        <Text className="text-shop-buttonMedium text-text-inverse">{t("saved.signedOut.signIn")}</Text>
+        <Text className="text-shop-buttonMedium text-text-inverse">
+          {t('saved.signedOut.signIn')}
+        </Text>
       </Pressable>
     </View>
   );

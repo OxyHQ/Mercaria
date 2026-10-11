@@ -293,7 +293,9 @@ export const listings = pgTable(
      * needs the second one.
      */
     conditionAcknowledgedAt: timestamptz(),
-    status: text({ enum: asEnumValues(ALL_LISTING_STATUSES) }).notNull().default('draft'),
+    status: text({ enum: asEnumValues(ALL_LISTING_STATUSES) })
+      .notNull()
+      .default('draft'),
 
     /**
      * What moved this listing into `archived`, and what it was immediately
@@ -526,11 +528,7 @@ export const listings = pgTable(
     ),
     // Keyset-paginated browse feeds. Each is the feed's ORDER BY, in that exact
     // column order and direction — anything else cannot serve the sort.
-    index('listings_status_published_at_id_idx').on(
-      t.status,
-      t.publishedAt.desc(),
-      t.id.desc(),
-    ),
+    index('listings_status_published_at_id_idx').on(t.status, t.publishedAt.desc(), t.id.desc()),
     index('listings_status_category_id_published_at_id_idx').on(
       t.status,
       t.categoryId,
@@ -632,7 +630,9 @@ export const listingImages = pgTable(
     /** An Oxy media file id — no foreign key; Oxy owns the file. */
     fileId: text().notNull(),
     /** Existing rows are images; one mixed gallery preserves row identity. */
-    kind: text({ enum: asEnumValues(CATALOG_MEDIA_KINDS) }).notNull().default('image'),
+    kind: text({ enum: asEnumValues(CATALOG_MEDIA_KINDS) })
+      .notNull()
+      .default('image'),
     alt: text(),
     position: integer().notNull().default(0),
     createdAt: createdAt(),

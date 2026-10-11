@@ -112,9 +112,7 @@ export function projectProgramForOperator(row: ReferralProgramRow): ReferralProg
     ...(row.featureFlagKey !== null ? { featureFlagKey: row.featureFlagKey } : {}),
     cohortKeys: row.cohortKeys,
     createdByOxyUserId: row.createdByOxyUserId,
-    ...(row.approvedByOxyUserId !== null
-      ? { approvedByOxyUserId: row.approvedByOxyUserId }
-      : {}),
+    ...(row.approvedByOxyUserId !== null ? { approvedByOxyUserId: row.approvedByOxyUserId } : {}),
     ...(row.publishedAt !== null ? { publishedAt: row.publishedAt.toISOString() } : {}),
     ...(row.pausedAt !== null ? { pausedAt: row.pausedAt.toISOString() } : {}),
     ...(row.endedAt !== null ? { endedAt: row.endedAt.toISOString() } : {}),

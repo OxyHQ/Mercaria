@@ -157,7 +157,9 @@ async function main(): Promise<void> {
         `Provider wire probe (REAL createWooCommerceProvider over a real socket; NOT a ` +
           `scenario run — no admin route, no sync service, no write path): ` +
           `verifyConnection ${wire.verify.outcome}` +
-          (wire.verify.outcome === 'ok' ? ` reporting shopCurrency ${wire.verify.shopCurrency}` : '') +
+          (wire.verify.outcome === 'ok'
+            ? ` reporting shopCurrency ${wire.verify.shopCurrency}`
+            : '') +
           `; first products page ${wire.firstPage.outcome}` +
           (wire.firstPage.outcome === 'ok'
             ? ` — ${wire.firstPage.productCount} products, nextCursor ` +
@@ -312,8 +314,7 @@ async function runConnectedScenarios(input: {
   results.set('W1', {
     id: 'W1',
     title: spec('W1').title,
-    status:
-      connection.status === 'connected' && wooRows.length === 1 ? 'PASSED' : 'FAILED',
+    status: connection.status === 'connected' && wooRows.length === 1 ? 'PASSED' : 'FAILED',
     measured:
       `connection status \`${connection.status}\`, shopCurrency \`${connection.shopCurrency ?? '—'}\`, ` +
       `${wooRows.length} WooCommerce connection row(s)`,

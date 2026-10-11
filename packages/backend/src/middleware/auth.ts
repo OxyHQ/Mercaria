@@ -101,11 +101,7 @@ export const authenticateToken = createOxyAuthMiddleware(oxyClient, {
  */
 const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, { auth: { debug: AUTH_DEBUG } });
 
-export function optionalAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
   // Uses @oxy.so/core/server optional auth — attaches user if valid, continues if not.
   oxyOptionalAuth(req, res, next);
 }

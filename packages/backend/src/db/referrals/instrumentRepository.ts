@@ -125,12 +125,7 @@ export async function transitionCodeStatus(
       ...(input.to === 'revoked' ? { revokedAt: input.at } : {}),
       ...(input.to === 'retired' ? { retiredAt: input.at } : {}),
     })
-    .where(
-      and(
-        eq(referralCodes.id, input.id),
-        inArray(referralCodes.status, [...input.expected]),
-      ),
-    )
+    .where(and(eq(referralCodes.id, input.id), inArray(referralCodes.status, [...input.expected])))
     .returning();
   return row;
 }
@@ -204,12 +199,7 @@ export async function transitionLinkStatus(
       ...(input.to === 'paused' ? { pausedAt: input.at } : {}),
       ...(input.to === 'revoked' ? { revokedAt: input.at } : {}),
     })
-    .where(
-      and(
-        eq(referralLinks.id, input.id),
-        inArray(referralLinks.status, [...input.expected]),
-      ),
-    )
+    .where(and(eq(referralLinks.id, input.id), inArray(referralLinks.status, [...input.expected])))
     .returning();
   return row;
 }
@@ -251,7 +241,9 @@ export async function listCodesByPartner(
     .where(
       and(
         eq(referralCodes.partnerId, input.partnerId),
-        input.before ? sql`${referralCodes.createdAt} < ${input.before.toISOString()}::timestamptz` : undefined,
+        input.before
+          ? sql`${referralCodes.createdAt} < ${input.before.toISOString()}::timestamptz`
+          : undefined,
       ),
     )
     .orderBy(sql`${referralCodes.createdAt} desc`)
@@ -269,7 +261,9 @@ export async function listLinksByCode(
     .where(
       and(
         eq(referralLinks.codeId, input.codeId),
-        input.before ? sql`${referralLinks.createdAt} < ${input.before.toISOString()}::timestamptz` : undefined,
+        input.before
+          ? sql`${referralLinks.createdAt} < ${input.before.toISOString()}::timestamptz`
+          : undefined,
       ),
     )
     .orderBy(sql`${referralLinks.createdAt} desc`)

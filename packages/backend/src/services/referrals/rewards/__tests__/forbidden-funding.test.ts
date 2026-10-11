@@ -174,12 +174,12 @@ describe('the .strict() schema refuses every forbidden-shaped field', () => {
 
 describe('the refusal NAMES the prohibition rather than saying "unknown field"', () => {
   it('answers a retail margin attempt with the zero-profit reason', () => {
-    expect(() => validateRewardRuleDraftBody({ ...VALID_DRAFT, retailMarginShareBps: 500 })).toThrow(
-      /mercaria_retail_margin/,
-    );
-    expect(() => validateRewardRuleDraftBody({ ...VALID_DRAFT, retailMarginShareBps: 500 })).toThrow(
-      /zero by construction .*zero intended item profit/,
-    );
+    expect(() =>
+      validateRewardRuleDraftBody({ ...VALID_DRAFT, retailMarginShareBps: 500 }),
+    ).toThrow(/mercaria_retail_margin/);
+    expect(() =>
+      validateRewardRuleDraftBody({ ...VALID_DRAFT, retailMarginShareBps: 500 }),
+    ).toThrow(/zero by construction .*zero intended item profit/);
   });
 
   it('tells a retail COST VARIANCE apart from a retail margin', () => {

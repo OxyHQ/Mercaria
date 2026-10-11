@@ -350,7 +350,9 @@ afterAll(async () => {
       await tx.execute(
         sql`alter table referral_campaign_budgets disable trigger referral_campaign_budgets_guard`,
       );
-      await tx.delete(referralCampaignBudgets).where(inArray(referralCampaignBudgets.id, budgetIds));
+      await tx
+        .delete(referralCampaignBudgets)
+        .where(inArray(referralCampaignBudgets.id, budgetIds));
       await tx.execute(
         sql`alter table referral_campaign_budgets enable trigger referral_campaign_budgets_guard`,
       );
@@ -389,7 +391,9 @@ afterAll(async () => {
       // guards it, and the transactions naming those payments are already gone
       // by the time this commits.
       await withTriggerToggleLock(db, async (tx) => {
-        await tx.execute(sql`alter table ledger_entries disable trigger ledger_entries_append_only`);
+        await tx.execute(
+          sql`alter table ledger_entries disable trigger ledger_entries_append_only`,
+        );
         await tx.delete(ledgerEntries).where(inArray(ledgerEntries.transactionId, txIds));
         await tx.execute(sql`alter table ledger_entries enable trigger ledger_entries_append_only`);
       });
@@ -424,7 +428,9 @@ afterAll(async () => {
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
 /** A published buyer-referral program whose `commission_rule_ref` names `ruleId`. */
-async function makeActiveProgram(ruleId: string): Promise<{ programId: string; versionId: string }> {
+async function makeActiveProgram(
+  ruleId: string,
+): Promise<{ programId: string; versionId: string }> {
   const draft = await createProgramDraft({
     name: `Rewards program ${TAG}`,
     description: 'Bring a buyer',
@@ -1679,15 +1685,9 @@ describe('case 7 under CONCURRENCY: a cap bounds the total, not each accrual', (
       const accrued = await db
         .select()
         .from(referralRewards)
-        .innerJoin(
-          referralRewardRules,
-          eq(referralRewardRules.id, referralRewards.ruleVersionId),
-        )
+        .innerJoin(referralRewardRules, eq(referralRewardRules.id, referralRewards.ruleVersionId))
         .where(eq(referralRewardRules.campaignRef, iterationCampaign));
-      const total = accrued.reduce(
-        (sum, row) => sum + row.referral_rewards.grossAmountMinor,
-        0,
-      );
+      const total = accrued.reduce((sum, row) => sum + row.referral_rewards.grossAmountMinor, 0);
       expect(
         total,
         `iteration ${String(iteration)} paid ${String(total)} against a campaign cap of ${String(CAP)}`,

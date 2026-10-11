@@ -78,7 +78,11 @@ import {
 import { toExternalCollection } from '../collections.js';
 import { parseZonelessUtcTimestamp } from '../timestamps.js';
 import { REGISTERED_WEBHOOK_TOPICS } from './webhook.js';
-import { wooCommerceTransport, type WooCommerceHttpResponse, type WooCommerceTransport } from './http.js';
+import {
+  wooCommerceTransport,
+  type WooCommerceHttpResponse,
+  type WooCommerceTransport,
+} from './http.js';
 
 /** This provider's id — one spelling, read by the provider object and by order provenance. */
 const PROVIDER_ID = 'woocommerce';
@@ -86,7 +90,6 @@ const PROVIDER_ID = 'woocommerce';
 const PAGE_LIMIT = 100;
 /** The publish states of products the pull imports (drafts/private are skipped). */
 const PRODUCT_STATUS = 'publish';
-
 
 // --- WooCommerce response schemas (only the fields we consume; extras ignored) ---
 
@@ -473,7 +476,10 @@ function resolveVariantSet(
 
   const duplicates = duplicatesOf(fetchedIds);
   if (duplicates.length > 0) {
-    return { enumeration: 'incomplete', gap: { kind: 'duplicate_fetched', duplicateIds: duplicates } };
+    return {
+      enumeration: 'incomplete',
+      gap: { kind: 'duplicate_fetched', duplicateIds: duplicates },
+    };
   }
   if (fetchedIds.length === 0) {
     return {
@@ -542,7 +548,9 @@ function normalizeParsed(
   // WooCommerce's `*_gmt` fields carry no zone; a value that carries one anyway
   // is read AS its own offset rather than discarded (#221) — see
   // `connectors/timestamps.ts` for why discarding it erases stored freshness.
-  const updatedAt = parseZonelessUtcTimestamp(product.date_modified_gmt ?? product.date_created_gmt);
+  const updatedAt = parseZonelessUtcTimestamp(
+    product.date_modified_gmt ?? product.date_created_gmt,
+  );
   if (updatedAt) {
     normalized.externalUpdatedAt = updatedAt;
   }
@@ -573,12 +581,19 @@ function normalizeParsed(
  * `expandedVariations` (as `fetchProducts` does); a product without one is
  * derived from its own price/stock fields.
  */
-export function normalizeWooCommerceProduct(raw: unknown, shopCurrency: CurrencyCode): NormalizedProduct {
+export function normalizeWooCommerceProduct(
+  raw: unknown,
+  shopCurrency: CurrencyCode,
+): NormalizedProduct {
   const parsed = wooProductSchema.safeParse(raw);
   if (!parsed.success) {
     throw validationError(`Malformed WooCommerce product: ${parsed.error.message}`);
   }
-  return normalizeParsed(parsed.data, shopCurrency, parsed.data.expandedVariations ?? NO_VARIATION_EXPANSION);
+  return normalizeParsed(
+    parsed.data,
+    shopCurrency,
+    parsed.data.expandedVariations ?? NO_VARIATION_EXPANSION,
+  );
 }
 
 // --- WooCommerce ORDER schemas (only the fields we consume) ------------------
@@ -769,7 +784,10 @@ function variantTitleFromMeta(meta: WooOrderLine['meta_data']): string {
  */
 function toOrderLine(line: WooOrderLine, currency: CurrencyCode): NormalizedOrderLine {
   const quantity = line.quantity > 0 ? line.quantity : 1;
-  const lineSubtotalMinor = decimalStringToMinor(line.subtotal.trim() !== '' ? line.subtotal : '0', currency);
+  const lineSubtotalMinor = decimalStringToMinor(
+    line.subtotal.trim() !== '' ? line.subtotal : '0',
+    currency,
+  );
   const unitMinor = Math.round(lineSubtotalMinor / quantity);
   const unitPrice = singleDualMoney(unitMinor, currency);
   const result: NormalizedOrderLine = {
@@ -877,7 +895,8 @@ function mapWooAddress(
   shipping: WooOrderAddress | null | undefined,
   billing: WooOrderAddress | null | undefined,
 ): AddressSnapshot | undefined {
-  const src = shipping && (shipping.address_1 ?? '').trim() !== '' ? shipping : billing ?? shipping;
+  const src =
+    shipping && (shipping.address_1 ?? '').trim() !== '' ? shipping : (billing ?? shipping);
   if (!src) {
     return undefined;
   }
@@ -912,13 +931,18 @@ function mapWooAddress(
  * read from WooCommerce's authoritative fields; the subtotal is the sum of line totals
  * so items and `totals.subtotal` stay internally consistent.
  */
-export function normalizeWooCommerceOrder(raw: unknown, shopCurrency: CurrencyCode): NormalizedOrder {
+export function normalizeWooCommerceOrder(
+  raw: unknown,
+  shopCurrency: CurrencyCode,
+): NormalizedOrder {
   const parsed = wooOrderSchema.safeParse(raw);
   if (!parsed.success) {
     throw validationError(`Malformed WooCommerce order: ${parsed.error.message}`);
   }
   const order = parsed.data;
-  const currency: CurrencyCode = isSupportedCurrencyCode(order.currency) ? order.currency : shopCurrency;
+  const currency: CurrencyCode = isSupportedCurrencyCode(order.currency)
+    ? order.currency
+    : shopCurrency;
 
   const lines = order.line_items.map((line) => toOrderLine(line, currency));
   if (lines.length === 0) {
@@ -928,9 +952,15 @@ export function normalizeWooCommerceOrder(raw: unknown, shopCurrency: CurrencyCo
   const subtotalMinor = lines.reduce((sum, line) => sum + line.lineTotal.shop.amount, 0);
   const totals = {
     subtotal: singleDualMoney(subtotalMinor, currency),
-    discountTotal: singleDualMoney(decimalStringToMinor(order.discount_total || '0', currency), currency),
+    discountTotal: singleDualMoney(
+      decimalStringToMinor(order.discount_total || '0', currency),
+      currency,
+    ),
     tax: singleDualMoney(decimalStringToMinor(order.total_tax || '0', currency), currency),
-    shipping: singleDualMoney(decimalStringToMinor(order.shipping_total || '0', currency), currency),
+    shipping: singleDualMoney(
+      decimalStringToMinor(order.shipping_total || '0', currency),
+      currency,
+    ),
     grandTotal: singleDualMoney(decimalStringToMinor(order.total || '0', currency), currency),
   };
 
@@ -1374,9 +1404,7 @@ export function createWooCommerceProvider(
           authHeaders(creds),
         );
         assertOk(response, 'category list');
-        const parsed = wooCategoriesResponseSchema.safeParse(
-          parseJson(response, 'category list'),
-        );
+        const parsed = wooCategoriesResponseSchema.safeParse(parseJson(response, 'category list'));
         if (!parsed.success) {
           throw validationError(
             `Unexpected WooCommerce categories payload: ${parsed.error.message}`,
@@ -1393,7 +1421,10 @@ export function createWooCommerceProvider(
             }),
           );
         }
-        if (enumerationFinished(response, parsed.data.length, page) || page >= MAX_ENUMERATION_PAGES) {
+        if (
+          enumerationFinished(response, parsed.data.length, page) ||
+          page >= MAX_ENUMERATION_PAGES
+        ) {
           return collections;
         }
         page += 1;
@@ -1495,7 +1526,9 @@ export function createWooCommerceProvider(
       if (!parsed.success) {
         throw validationError(`Unexpected WooCommerce orders payload: ${parsed.error.message}`);
       }
-      const orders = parsed.data.map((order) => normalizeWooCommerceOrder(order, creds.shopCurrency));
+      const orders = parsed.data.map((order) =>
+        normalizeWooCommerceOrder(order, creds.shopCurrency),
+      );
       if (enumerationFinished(response, parsed.data.length, page)) {
         return { orders };
       }
@@ -1539,7 +1572,11 @@ export function createWooCommerceProvider(
               if (!wanted.has(id)) {
                 continue;
               }
-              const inv = resolveInventory(variation.manage_stock, variation.stock_quantity, parent);
+              const inv = resolveInventory(
+                variation.manage_stock,
+                variation.stock_quantity,
+                parent,
+              );
               if (inv.tracked) {
                 levels.push({ externalInventoryItemId: id, available: inv.available });
               }

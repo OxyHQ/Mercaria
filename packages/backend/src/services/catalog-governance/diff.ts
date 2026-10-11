@@ -316,7 +316,12 @@ export function diffAttributeVersions(
   // exactly one direction: `public` → `operator_only` withdraws every stored
   // value from every public surface at once, while the reverse only adds.
   capability('variantDefining', from.variantDefining, to.variantDefining, entries);
-  capability('hardConstraintCapable', from.hardConstraintCapable, to.hardConstraintCapable, entries);
+  capability(
+    'hardConstraintCapable',
+    from.hardConstraintCapable,
+    to.hardConstraintCapable,
+    entries,
+  );
   capability('searchable', from.searchable, to.searchable, entries);
   presentation('filterable', from.filterable, to.filterable, entries);
   presentation('sortable', from.sortable, to.sortable, entries);

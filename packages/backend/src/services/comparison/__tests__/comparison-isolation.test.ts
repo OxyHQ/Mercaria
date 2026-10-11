@@ -198,10 +198,14 @@ describe('the comparison domain has real modules — the vacuity floor', () => {
     // every scan below pass against an empty list.
     expect(domain.length).toBeGreaterThanOrEqual(16);
     for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
     for (const file of outerSources()) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
     }
   });
 
@@ -279,7 +283,9 @@ describe('WALL 1: a recommendation cannot read commercial standing', () => {
     expect(
       COMMERCIAL_REFERENCE.test("import { attribute } from '../referrals/attribution.service.js';"),
     ).toBe(true);
-    expect(COMMERCIAL_REFERENCE.test("import { quote } from '../retail-pricing/cost.js';")).toBe(true);
+    expect(COMMERCIAL_REFERENCE.test("import { quote } from '../retail-pricing/cost.js';")).toBe(
+      true,
+    );
     expect(COMMERCIAL_REFERENCE.test('select * from order_fee_snapshots')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('const commissionRate = 0.1;')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
@@ -339,11 +345,16 @@ describe('WALL 2: the domain names no currency', () => {
     const validation = domainSources().find((file) =>
       file.relative.endsWith('services/comparison/explanation/validation.ts'),
     );
-    expect(validation, 'the validator moved; the carve-out now hides nothing or everything').toBeDefined();
+    expect(
+      validation,
+      'the validator moved; the carve-out now hides nothing or everything',
+    ).toBeDefined();
     if (validation === undefined) return;
     expect(validation.source).toContain('const FORBIDDEN_TOPIC');
     expect(CURRENCY_NAME_REFERENCE.test(validation.source)).toBe(true);
-    expect(CURRENCY_NAME_REFERENCE.test(sourceOutsideForbiddenTopic(validation.source))).toBe(false);
+    expect(CURRENCY_NAME_REFERENCE.test(sourceOutsideForbiddenTopic(validation.source))).toBe(
+      false,
+    );
   });
 
   it('the currency detector actually detects — the mutation self-test', () => {
@@ -351,7 +362,9 @@ describe('WALL 2: the domain names no currency', () => {
     expect(CURRENCY_NAME_REFERENCE.test('// FairCoin is the display default')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('import { OxyPay } from "x";')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('import { peableClient } from "x";')).toBe(true);
-    expect(CURRENCY_NAME_REFERENCE.test("const currency: CurrencyCode = request.currency;")).toBe(false);
+    expect(CURRENCY_NAME_REFERENCE.test('const currency: CurrencyCode = request.currency;')).toBe(
+      false,
+    );
     expect(CURRENCY_NAME_REFERENCE.test('const fair = isFairComparison();')).toBe(false);
   });
 });
@@ -371,8 +384,12 @@ describe('WALL 3: review sentiment can never become a specification', () => {
   });
 
   it('the review detector actually detects — the mutation self-test', () => {
-    expect(REVIEW_REFERENCE.test("import { x } from '../reviews/aggregate.service.js';")).toBe(true);
-    expect(REVIEW_REFERENCE.test("import { y } from '../../db/reviews/reviewRepository.js';")).toBe(true);
+    expect(REVIEW_REFERENCE.test("import { x } from '../reviews/aggregate.service.js';")).toBe(
+      true,
+    );
+    expect(REVIEW_REFERENCE.test("import { y } from '../../db/reviews/reviewRepository.js';")).toBe(
+      true,
+    );
     expect(REVIEW_REFERENCE.test('const aggregate = await reviewAggregate(id);')).toBe(true);
     expect(REVIEW_REFERENCE.test('const reviewed = false;')).toBe(false);
   });
@@ -391,16 +408,20 @@ describe('WALL 4: the two vocabularies are disjoint', () => {
   });
 
   it('every prohibition the issue names is present as a VALUE', () => {
-    assertEachOf([
-      'affiliate_commission_rate',
-      'merchant_subscription_plan',
-      'fair_acceptance',
-      'review_sentiment',
-      'model_general_knowledge',
-      'ingestion_order',
-    ], 6, (forbidden) => {
-      expect(COMPARISON_FORBIDDEN_RECOMMENDATION_INPUTS).toContain(forbidden);
-    });
+    assertEachOf(
+      [
+        'affiliate_commission_rate',
+        'merchant_subscription_plan',
+        'fair_acceptance',
+        'review_sentiment',
+        'model_general_knowledge',
+        'ingestion_order',
+      ],
+      6,
+      (forbidden) => {
+        expect(COMPARISON_FORBIDDEN_RECOMMENDATION_INPUTS).toContain(forbidden);
+      },
+    );
   });
 
   it('the reason and result vocabularies are closed and non-empty', () => {
@@ -484,20 +505,24 @@ describe('WALL 5: a forbidden input has nowhere to live, in a REAL package', () 
     expect(pkg.groundedValues.length).toBeGreaterThanOrEqual(3);
 
     const serialized = JSON.stringify(pkg);
-    assertEachOf([
-      'prod-1',
-      'offer-1',
-      '/p/alpha',
-      'alpha.example',
-      'recordId',
-      'canonicalPath',
-      'destinationHost',
-      'commission',
-      'referral',
-      'margin',
-    ], 10, (forbidden) => {
-      expect(serialized.includes(forbidden), `the package leaked ${forbidden}`).toBe(false);
-    });
+    assertEachOf(
+      [
+        'prod-1',
+        'offer-1',
+        '/p/alpha',
+        'alpha.example',
+        'recordId',
+        'canonicalPath',
+        'destinationHost',
+        'commission',
+        'referral',
+        'margin',
+      ],
+      10,
+      (forbidden) => {
+        expect(serialized.includes(forbidden), `the package leaked ${forbidden}`).toBe(false);
+      },
+    );
   });
 
   it('the leak detector actually detects — the mutation self-test', () => {
@@ -635,7 +660,10 @@ describe("#94's display policy reaches this surface", () => {
     // asserts the ENTRYPOINT calls it rather than that the read exists. What the
     // read ITSELF answers is measured against a real server in
     // `db/__tests__/attribute-registry.realdb.test.ts`.
-    const service = readFileSync(join(SRC_ROOT, 'services/comparison/comparison.service.ts'), 'utf8');
+    const service = readFileSync(
+      join(SRC_ROOT, 'services/comparison/comparison.service.ts'),
+      'utf8',
+    );
     const code = withoutComments(service);
     expect(code).toContain('listOperatorOnlyAttributeKeys');
     expect(code).toContain('withholdOperatorOnlyAttributes(db, declared, facts)');
@@ -648,8 +676,12 @@ describe("#94's display policy reaches this surface", () => {
     const withhold = code.slice(code.indexOf('async function withholdOperatorOnlyAttributes'));
     expect(withhold).toContain('declared.keys()');
     expect(withhold).toContain('facts.keys()');
-    expect(withhold.slice(0, 1200)).toContain('(declared as Map<string, DeclaredAttribute>).delete(key)');
-    expect(withhold.slice(0, 1200)).toContain('(facts as Map<string, TableAttributeFact>).delete(key)');
+    expect(withhold.slice(0, 1200)).toContain(
+      '(declared as Map<string, DeclaredAttribute>).delete(key)',
+    );
+    expect(withhold.slice(0, 1200)).toContain(
+      '(facts as Map<string, TableAttributeFact>).delete(key)',
+    );
   });
 
   it('the entrypoint detector actually detects — the mutation self-test', () => {
@@ -657,7 +689,10 @@ describe("#94's display policy reaches this surface", () => {
     // matched a string nobody removed would go on passing after the call site
     // was deleted. Both mutations below are the deletion this gate exists to
     // catch, and both make the assertions fail.
-    const service = readFileSync(join(SRC_ROOT, 'services/comparison/comparison.service.ts'), 'utf8');
+    const service = readFileSync(
+      join(SRC_ROOT, 'services/comparison/comparison.service.ts'),
+      'utf8',
+    );
     const withoutCall = withoutComments(service).replace(
       'withholdOperatorOnlyAttributes(db, declared, facts)',
       '',

@@ -496,11 +496,7 @@ export const retailCostQuoteComponents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf(
-      'retail_cost_quote_components_kind_check',
-      t.kind,
-      RETAIL_COST_COMPONENT_KINDS,
-    ),
+    checkOneOf('retail_cost_quote_components_kind_check', t.kind, RETAIL_COST_COMPONENT_KINDS),
     checkOneOf(
       'retail_cost_quote_components_confidence_check',
       t.confidence,

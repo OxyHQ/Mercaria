@@ -125,11 +125,7 @@ describe('deriveEnforcementEffects (#148 acceptance 2)', () => {
   });
 
   it('pausing attribution leaves payout and link issuance OPEN', () => {
-    const effects = deriveEnforcementEffects(
-      [live('new_attribution_suspension')],
-      'approved',
-      NOW,
-    );
+    const effects = deriveEnforcementEffects([live('new_attribution_suspension')], 'approved', NOW);
     expect(effects.newAttributionSuspended).toBe(true);
     expect(effects.payoutHeld).toBe(false);
     expect(effects.newLinksSuspended).toBe(false);

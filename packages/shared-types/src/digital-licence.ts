@@ -94,11 +94,7 @@ export const DIGITAL_LICENCE_RIGHT_DEPENDENCIES: readonly (readonly [
  * says when a creator has chosen to waive credit entirely, and a boolean cannot
  * hold it (#1015 W2 requirement 5 — *"where allowed"*).
  */
-export const DIGITAL_LICENCE_ATTRIBUTION_MODES = [
-  'required',
-  'optional',
-  'not_required',
-] as const;
+export const DIGITAL_LICENCE_ATTRIBUTION_MODES = ['required', 'optional', 'not_required'] as const;
 
 /** One of {@link DIGITAL_LICENCE_ATTRIBUTION_MODES}. */
 export type DigitalLicenceAttributionMode = (typeof DIGITAL_LICENCE_ATTRIBUTION_MODES)[number];
@@ -276,11 +272,7 @@ export const MERCARIA_REFERENCE_LICENCES: readonly {
     summary:
       'Produce and sell physical copies of the model. Covers printing and selling printed items; does not permit selling the digital files.',
     terms: {
-      rights: [
-        'personal_use',
-        'commercial_physical_production',
-        'modification',
-      ],
+      rights: ['personal_use', 'commercial_physical_production', 'modification'],
       attribution: 'optional',
       seatLimit: null,
       revenueLimitAmount: null,

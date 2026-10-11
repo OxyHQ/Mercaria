@@ -148,10 +148,7 @@ export function resolveCanonicalSearchMode(): CanonicalReadMode {
  * how a surface ends up checking the mode and forgetting the cohort. `shadow` is
  * refused here and counted by the caller — see the module docblock.
  */
-export function canonicalReadPermitted(
-  mode: CanonicalReadMode,
-  subject: CohortSubject,
-): boolean {
+export function canonicalReadPermitted(mode: CanonicalReadMode, subject: CohortSubject): boolean {
   if (mode !== 'on') return false;
   return canonicalReadAllowedFor(config.canonicalRollout.readCohorts, subject);
 }

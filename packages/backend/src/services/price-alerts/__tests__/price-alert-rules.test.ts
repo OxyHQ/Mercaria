@@ -285,9 +285,7 @@ describe('quiet hours', () => {
   });
 
   it('a zone the runtime cannot evaluate answers FALSE rather than withholding forever', () => {
-    expect(
-      withinQuietHours({ ...window, timeZone: 'Mars/Olympus_Mons' }, new Date()),
-    ).toBe(false);
+    expect(withinQuietHours({ ...window, timeZone: 'Mars/Olympus_Mons' }, new Date())).toBe(false);
   });
 
   it('an empty window is not a window', () => {
@@ -338,7 +336,9 @@ describe('qualifying an alert', () => {
       alert: alert({ basis: 'known_total' }),
       candidates: [
         candidate({
-          offer: { delivery: { known: true, cost: { amount: 0, currency: 'EUR' }, pickup: 'unknown' } },
+          offer: {
+            delivery: { known: true, cost: { amount: 0, currency: 'EUR' }, pickup: 'unknown' },
+          },
           facts: {
             deliveryCost: {
               known: true,
@@ -382,7 +382,13 @@ describe('qualifying an alert', () => {
     expect(converted.quotes).toEqual([
       {
         component: 'item_price',
-        snapshot: { from: 'GBP', to: 'EUR', rate: 1.176, provider: 'static', asOf: NOW.toISOString() },
+        snapshot: {
+          from: 'GBP',
+          to: 'EUR',
+          rate: 1.176,
+          provider: 'static',
+          asOf: NOW.toISOString(),
+        },
       },
     ]);
     expect(converted.nativeItemCurrency).toBe('GBP');

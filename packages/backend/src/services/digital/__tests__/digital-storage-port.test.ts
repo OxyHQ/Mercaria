@@ -57,7 +57,12 @@ vi.mock('../../../capabilities/oxy-service-client.js', () => ({
 }));
 vi.mock('../../../lib/logger.js', () => ({
   log: {
-    general: { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: (...a: unknown[]) => logError(...a) },
+    general: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      debug: vi.fn(),
+      error: (...a: unknown[]) => logError(...a),
+    },
   },
 }));
 
@@ -127,9 +132,7 @@ describe('resolveAuthorizedUrl mints through the service route, and nothing else
     // route is not deployed yet. Either way the CDN form is a guaranteed 404, so
     // falling back would hand a buyer a broken URL and swallow the real failure.
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-    linkedDownloadUrls.mockRejectedValue(
-      Object.assign(new Error('Forbidden'), { status: 403 }),
-    );
+    linkedDownloadUrls.mockRejectedValue(Object.assign(new Error('Forbidden'), { status: 403 }));
 
     const failure = await assetStorage.resolveAuthorizedUrl(STORAGE_KEY).catch((error) => error);
     expect(isDigitalStorageError(failure)).toBe(true);
@@ -420,7 +423,8 @@ describe('the digital domain names `oxyClient` in exactly one file', () => {
     // — so it would be called successfully and refuse the person who paid. The
     // previous version of this census carried a negative lookahead exempting it,
     // which is precisely how the wrong mechanism shipped.
-    const userScopedResolver = /\bresolveMedia\b|\bgetFileDownloadUrl(Async)?\b|\bassets\.(url|publicUrl)\b/;
+    const userScopedResolver =
+      /\bresolveMedia\b|\bgetFileDownloadUrl(Async)?\b|\bassets\.(url|publicUrl)\b/;
     const offenders = digitalDomainFiles().filter((file) => userScopedResolver.test(codeOf(file)));
     expect(
       offenders.map((file) => file.slice(SRC.length + 1)),

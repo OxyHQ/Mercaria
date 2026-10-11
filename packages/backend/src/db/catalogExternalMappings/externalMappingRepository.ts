@@ -259,7 +259,10 @@ export async function readLiveMappingsForDimension(
         ),
       ),
     )
-    .orderBy(asc(catalogExternalMappings.externalKeyNormalized), asc(catalogExternalMappings.version));
+    .orderBy(
+      asc(catalogExternalMappings.externalKeyNormalized),
+      asc(catalogExternalMappings.version),
+    );
 }
 
 /**

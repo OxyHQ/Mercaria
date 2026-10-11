@@ -147,7 +147,10 @@ describe('the diff explains a comparable change, largest movement first', () => 
       ]),
     );
     if (!diff.comparable) throw new Error('expected a comparable diff');
-    expect(diff.items[0]).toMatchObject({ kind: 'became_unresolved', previousUnitPriceMinor: 1000 });
+    expect(diff.items[0]).toMatchObject({
+      kind: 'became_unresolved',
+      previousUnitPriceMinor: 1000,
+    });
   });
 
   it('says nothing about an item that did not move', () => {
@@ -168,8 +171,6 @@ describe('the diff explains a comparable change, largest movement first', () => 
       side('s2', [{ ...line({ watchlistItemId: 'a' }), watchlistItemId: null }]),
     );
     if (!diff.comparable) throw new Error('expected a comparable diff');
-    expect(diff.items).toEqual([
-      expect.objectContaining({ itemId: 'a', kind: 'removed' }),
-    ]);
+    expect(diff.items).toEqual([expect.objectContaining({ itemId: 'a', kind: 'removed' })]);
   });
 });

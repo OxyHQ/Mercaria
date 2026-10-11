@@ -250,9 +250,14 @@ describe('guest portal isolation (static)', () => {
     // the others carried the number. Each is today's count, so a SHRINK stops
     // the build.
     const from = (prefix: string) => PORTAL_PATHS.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/guest-portal/'), 'the service walk found nothing').toBeGreaterThanOrEqual(9);
+    expect(from('services/guest-portal/'), 'the service walk found nothing').toBeGreaterThanOrEqual(
+      9,
+    );
     expect(from('db/guestPortal/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(6);
-    expect(sharedSurface().length, 'the shared-directory derivation found nothing').toBeGreaterThanOrEqual(5);
+    expect(
+      sharedSurface().length,
+      'the shared-directory derivation found nothing',
+    ).toBeGreaterThanOrEqual(5);
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
     expect(PORTAL_PATHS.length).toBeGreaterThanOrEqual(20);
     expect(
@@ -327,7 +332,10 @@ describe('guest portal isolation (static)', () => {
     const planted = 'lib/guest-portal-cache.ts';
     const seeded = domainNamedModules((relative) =>
       relative === 'lib'
-        ? [...readDirectory(relative), { name: 'guest-portal-cache.ts', isDirectory: () => false, isFile: () => true }]
+        ? [
+            ...readDirectory(relative),
+            { name: 'guest-portal-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
         : readDirectory(relative),
     );
     expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
@@ -354,18 +362,22 @@ describe('guest portal isolation (static)', () => {
     // so a widening broad enough to empty the set above fails here instead.
     // Mutation-tested: `...walk('')` added to the population fails this clause
     // naming `controllers/orders.controller.ts`.
-    assertEachOf([
-      'controllers/orders.controller.ts',
-      'routes/cart.ts',
-      'db/schema/orders.ts',
-      'middleware/auth.ts',
-    ], 4, (foreign) => {
-      expect(PORTAL_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
-      expect(
-        statSync(join(SRC_ROOT, foreign)).isFile(),
-        `${foreign} no longer exists, so excluding it proves nothing`,
-      ).toBe(true);
-    });
+    assertEachOf(
+      [
+        'controllers/orders.controller.ts',
+        'routes/cart.ts',
+        'db/schema/orders.ts',
+        'middleware/auth.ts',
+      ],
+      4,
+      (foreign) => {
+        expect(PORTAL_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+        expect(
+          statSync(join(SRC_ROOT, foreign)).isFile(),
+          `${foreign} no longer exists, so excluding it proves nothing`,
+        ).toBe(true);
+      },
+    );
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
@@ -378,7 +390,10 @@ describe('guest portal isolation (static)', () => {
     const seededWith = (directory: string, added: string): string[] =>
       sharedSurface((relative) =>
         relative === directory
-          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          ? [
+              ...readDirectory(relative),
+              { name: added, isDirectory: () => false, isFile: () => true },
+            ]
           : readDirectory(relative),
       );
 
@@ -405,7 +420,10 @@ describe('guest portal isolation (static)', () => {
     expect(
       sharedSurface((relative) =>
         relative === 'routes'
-          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          ? [
+              ...readDirectory(relative),
+              { name: 'admin', isDirectory: () => true, isFile: () => false },
+            ]
           : relative === 'routes/admin'
             ? [{ name: 'guest-orders.ts', isDirectory: () => false, isFile: () => true }]
             : readDirectory(relative),
@@ -458,10 +476,9 @@ describe('guest portal isolation (static)', () => {
   it('the portal reaches neither OxyPay/FairCoin nor the referral domain', () => {
     for (const path of PORTAL_PATHS) {
       const source = readPortalSource(path);
-      expect(
-        OXYPAY_OR_FAIRCOIN_REFERENCE.test(source),
-        `${path} mentions OxyPay or FairCoin`,
-      ).toBe(false);
+      expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test(source), `${path} mentions OxyPay or FairCoin`).toBe(
+        false,
+      );
       expect(
         REFERRAL_REFERENCE.test(stripComments(source)),
         `${path} reaches the referral domain; attribution is #141/#143's entirely`,
@@ -485,9 +502,9 @@ describe('guest portal isolation (static)', () => {
       true,
     );
     expect(CLIENT_SCOPE_REFERENCE.test('const s = req.body.scopes;')).toBe(true);
-    expect(CLIENT_SCOPE_REFERENCE.test('const schema = z.object({ scopes: z.array(z.string()) });')).toBe(
-      true,
-    );
+    expect(
+      CLIENT_SCOPE_REFERENCE.test('const schema = z.object({ scopes: z.array(z.string()) });'),
+    ).toBe(true);
     expect(CALLER_DESTINATION_REFERENCE.test('const to = req.body.to;')).toBe(true);
     expect(CALLER_DESTINATION_REFERENCE.test('sendTo(req.query.destination);')).toBe(true);
     expect(OXYPAY_OR_FAIRCOIN_REFERENCE.test('await oxyPay.charge()')).toBe(true);

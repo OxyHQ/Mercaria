@@ -45,10 +45,7 @@ import {
  * `GET /internal/catalog-localization/completeness` — every covered domain
  * against every locale in scope, with the report's own coverage beside it.
  */
-export async function localizationCompletenessHandler(
-  req: Request,
-  res: Response,
-): Promise<void> {
+export async function localizationCompletenessHandler(req: Request, res: Response): Promise<void> {
   try {
     const scope = (req.query.scope as CompletenessLocaleScope | undefined) ?? 'launch';
     sendSuccess(res, await readLocalizationCompleteness(scope));

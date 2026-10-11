@@ -56,23 +56,23 @@
  * Usage:  bun scripts/validate-rtl-direction.mjs
  */
 
-import { readdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   isRtlLocale,
   languageOf,
   RTL_LANGUAGE_CODES,
-} from "../packages/ui/src/i18n/rtl-locales.ts";
+} from '../packages/ui/src/i18n/rtl-locales.ts';
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Every app whose direction is derived from its own shipped bundles. */
 const APPS = [
-  { name: "frontend", locales: "packages/frontend/lib/i18n/locales" },
-  { name: "dashboard", locales: "packages/dashboard/lib/i18n/locales" },
-  { name: "pos", locales: "packages/pos/lib/i18n/locales" },
+  { name: 'frontend', locales: 'packages/frontend/lib/i18n/locales' },
+  { name: 'dashboard', locales: 'packages/dashboard/lib/i18n/locales' },
+  { name: 'pos', locales: 'packages/pos/lib/i18n/locales' },
 ];
 
 /**
@@ -87,7 +87,9 @@ const failures = [];
 /** The locale tags an app actually ships, read off disk. */
 function shippedLocaleTags(app) {
   const entries = readdirSync(resolve(repositoryRoot, app.locales));
-  return entries.filter((name) => name.endsWith(".json")).map((name) => name.slice(0, -".json".length));
+  return entries
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => name.slice(0, -'.json'.length));
 }
 
 const shipped = new Map();
@@ -96,8 +98,8 @@ for (const app of APPS) {
   shipped.set(app.name, tags);
   if (tags.length < MINIMUM_BUNDLES_PER_APP) {
     failures.push(
-      `${app.name} lists ${tags.length} locale bundles, below the ${MINIMUM_BUNDLES_PER_APP} floor — `
-      + "the listing is probably broken, and with no bundles every assertion below passes vacuously",
+      `${app.name} lists ${tags.length} locale bundles, below the ${MINIMUM_BUNDLES_PER_APP} floor — ` +
+        'the listing is probably broken, and with no bundles every assertion below passes vacuously',
     );
   }
 }
@@ -120,11 +122,11 @@ for (const app of APPS) {
       const mirrors = isRtlLocale(probe, tags);
       if (mirrors === bundleExists) continue;
       failures.push(
-        `${app.name}: isRtlLocale(${JSON.stringify(probe)}) returned ${mirrors}, but a bundle for `
-        + `"${code}" ${bundleExists ? "EXISTS" : "does NOT exist"} in ${app.locales}. Direction must `
-        + "follow the SHIPPED BUNDLES, never the language subtag alone: enableFallback renders English "
-        + "for a locale with no bundle, so mirroring one produces an English screen laid out "
-        + "right-to-left.",
+        `${app.name}: isRtlLocale(${JSON.stringify(probe)}) returned ${mirrors}, but a bundle for ` +
+          `"${code}" ${bundleExists ? 'EXISTS' : 'does NOT exist'} in ${app.locales}. Direction must ` +
+          'follow the SHIPPED BUNDLES, never the language subtag alone: enableFallback renders English ' +
+          'for a locale with no bundle, so mirroring one produces an English screen laid out ' +
+          'right-to-left.',
       );
     }
   }
@@ -141,21 +143,31 @@ for (const app of APPS) {
  * assertion in this file and report a clean run.
  */
 const CASES = [
-  { locale: "ar", available: ["en", "de", "es"], expected: false, why: "RTL language, no bundle" },
-  { locale: "ar", available: ["en", "ar"], expected: true, why: "RTL language, bundle present" },
-  { locale: "ar-EG", available: ["en", "ar"], expected: true, why: "regional RTL tag, base bundle" },
-  { locale: "he", available: ["en", "he-IL"], expected: true, why: "base RTL tag, regional bundle" },
-  { locale: "en", available: ["en", "ar"], expected: false, why: "LTR language stays LTR" },
-  { locale: "de", available: ["en", "de"], expected: false, why: "LTR language with a bundle" },
-  { locale: "", available: ["en", "ar"], expected: false, why: "empty tag is not RTL" },
+  { locale: 'ar', available: ['en', 'de', 'es'], expected: false, why: 'RTL language, no bundle' },
+  { locale: 'ar', available: ['en', 'ar'], expected: true, why: 'RTL language, bundle present' },
+  {
+    locale: 'ar-EG',
+    available: ['en', 'ar'],
+    expected: true,
+    why: 'regional RTL tag, base bundle',
+  },
+  {
+    locale: 'he',
+    available: ['en', 'he-IL'],
+    expected: true,
+    why: 'base RTL tag, regional bundle',
+  },
+  { locale: 'en', available: ['en', 'ar'], expected: false, why: 'LTR language stays LTR' },
+  { locale: 'de', available: ['en', 'de'], expected: false, why: 'LTR language with a bundle' },
+  { locale: '', available: ['en', 'ar'], expected: false, why: 'empty tag is not RTL' },
 ];
 
 for (const testCase of CASES) {
   const actual = isRtlLocale(testCase.locale, testCase.available);
   if (actual === testCase.expected) continue;
   failures.push(
-    `isRtlLocale(${JSON.stringify(testCase.locale)}, ${JSON.stringify(testCase.available)}) `
-    + `returned ${actual}, expected ${testCase.expected} — ${testCase.why}`,
+    `isRtlLocale(${JSON.stringify(testCase.locale)}, ${JSON.stringify(testCase.available)}) ` +
+      `returned ${actual}, expected ${testCase.expected} — ${testCase.why}`,
   );
 }
 
@@ -167,12 +179,12 @@ for (const testCase of CASES) {
  * synthetic case above: deleting that bundle turns this red instead of silently
  * turning the storefront's mirroring off.
  */
-const frontendTags = shipped.get("frontend");
-if (!isRtlLocale("ar", frontendTags)) {
+const frontendTags = shipped.get('frontend');
+if (!isRtlLocale('ar', frontendTags)) {
   failures.push(
-    "the storefront does not mirror Arabic, but it ships packages/frontend/lib/i18n/locales/ar.json "
-    + "(#396/#397). Either the bundle was removed or the bundle check stopped reading the list — "
-    + "and a check that can only answer `false` would pass every other assertion here.",
+    'the storefront does not mirror Arabic, but it ships packages/frontend/lib/i18n/locales/ar.json ' +
+      '(#396/#397). Either the bundle was removed or the bundle check stopped reading the list — ' +
+      'and a check that can only answer `false` would pass every other assertion here.',
   );
 }
 
@@ -201,9 +213,9 @@ const MINIMUM_RTL_LANGUAGES = 8;
 
 if (RTL_LANGUAGE_CODES.size < MINIMUM_RTL_LANGUAGES) {
   failures.push(
-    `RTL_LANGUAGE_CODES has ${RTL_LANGUAGE_CODES.size} entries, below the `
-    + `${MINIMUM_RTL_LANGUAGES} floor — the per-language loop above iterates this set, so a gutted `
-    + "set makes every assertion in it pass by never running",
+    `RTL_LANGUAGE_CODES has ${RTL_LANGUAGE_CODES.size} entries, below the ` +
+      `${MINIMUM_RTL_LANGUAGES} floor — the per-language loop above iterates this set, so a gutted ` +
+      'set makes every assertion in it pass by never running',
   );
 }
 
@@ -243,7 +255,7 @@ if (RTL_LANGUAGE_CODES.size < MINIMUM_RTL_LANGUAGES) {
  * below reads "no opinion", and the whole block reports clean while measuring
  * nothing. `assertProbeWorks` is what makes that a loud failure instead.
  */
-const ICU_UNAVAILABLE = "unavailable";
+const ICU_UNAVAILABLE = 'unavailable';
 
 function icuDirection(tag) {
   try {
@@ -269,7 +281,7 @@ function icuDirection(tag) {
  * shipping `dv.json` does not fail this guard for CLDR's mistake.
  */
 const ICU_DIRECTION_EXCEPTIONS = new Map([
-  ["dv", "ICU/CLDR reports ltr for Thaana, which is a right-to-left script"],
+  ['dv', 'ICU/CLDR reports ltr for Thaana, which is a right-to-left script'],
 ]);
 
 /**
@@ -279,10 +291,10 @@ const ICU_DIRECTION_EXCEPTIONS = new Map([
  * `ar` comparison in the block below.
  */
 const PROBE_CONTROLS = [
-  { tag: "ar", expected: "rtl" },
-  { tag: "he", expected: "rtl" },
-  { tag: "en", expected: "ltr" },
-  { tag: "ja", expected: "ltr" },
+  { tag: 'ar', expected: 'rtl' },
+  { tag: 'he', expected: 'rtl' },
+  { tag: 'en', expected: 'ltr' },
+  { tag: 'ja', expected: 'ltr' },
 ];
 
 let probeWorks = true;
@@ -291,10 +303,10 @@ for (const control of PROBE_CONTROLS) {
   if (actual === control.expected) continue;
   probeWorks = false;
   failures.push(
-    `the Intl direction probe answered ${JSON.stringify(actual)} for "${control.tag}", expected `
-    + `"${control.expected}". Every cross-check below compares against this probe, so a broken one `
-    + "makes the whole block pass while measuring nothing. This runtime may expose the accessor "
-    + "under the other spelling (`textInfo` vs `getTextInfo()`) or ship without full ICU data.",
+    `the Intl direction probe answered ${JSON.stringify(actual)} for "${control.tag}", expected ` +
+      `"${control.expected}". Every cross-check below compares against this probe, so a broken one ` +
+      'makes the whole block pass while measuring nothing. This runtime may expose the accessor ' +
+      'under the other spelling (`textInfo` vs `getTextInfo()`) or ship without full ICU data.',
   );
 }
 
@@ -312,24 +324,24 @@ if (probeWorks) {
     const icu = icuDirection(language);
     if (icu === ICU_UNAVAILABLE) {
       failures.push(
-        `Intl has no direction for the shipped language "${language}", so this guard cannot say `
-        + "whether it should mirror. Add it to ICU_DIRECTION_EXCEPTIONS with the reason, or "
-        + "establish the direction another way — do not leave it unanswered.",
+        `Intl has no direction for the shipped language "${language}", so this guard cannot say ` +
+          'whether it should mirror. Add it to ICU_DIRECTION_EXCEPTIONS with the reason, or ' +
+          'establish the direction another way — do not leave it unanswered.',
       );
       continue;
     }
     const listedAsRtl = RTL_LANGUAGE_CODES.has(language);
     const exception = ICU_DIRECTION_EXCEPTIONS.get(language);
     if (exception !== undefined) continue;
-    if ((icu === "rtl") === listedAsRtl) continue;
+    if ((icu === 'rtl') === listedAsRtl) continue;
     failures.push(
       listedAsRtl
-        ? `"${language}" is in RTL_LANGUAGE_CODES but Intl reports its script runs ${icu}. An LTR `
-          + "language in that set mirrors a layout that should not be mirrored."
-        : `"${language}" ships a bundle and Intl reports its script runs RIGHT-TO-LEFT, but it is `
-          + "NOT in RTL_LANGUAGE_CODES (packages/ui/src/i18n/rtl-locales.ts). Every loop in this "
-          + "guard iterates that set, so this language is not checked and found LTR — it is never a "
-          + "subject. The app ships its copy and lays it out left-to-right, with every guard green.",
+        ? `"${language}" is in RTL_LANGUAGE_CODES but Intl reports its script runs ${icu}. An LTR ` +
+            'language in that set mirrors a layout that should not be mirrored.'
+        : `"${language}" ships a bundle and Intl reports its script runs RIGHT-TO-LEFT, but it is ` +
+            'NOT in RTL_LANGUAGE_CODES (packages/ui/src/i18n/rtl-locales.ts). Every loop in this ' +
+            'guard iterates that set, so this language is not checked and found LTR — it is never a ' +
+            'subject. The app ships its copy and lays it out left-to-right, with every guard green.',
     );
   }
 
@@ -340,10 +352,10 @@ if (probeWorks) {
   for (const language of RTL_LANGUAGE_CODES) {
     if (ICU_DIRECTION_EXCEPTIONS.has(language)) continue;
     const icu = icuDirection(language);
-    if (icu === "rtl" || icu === ICU_UNAVAILABLE) continue;
+    if (icu === 'rtl' || icu === ICU_UNAVAILABLE) continue;
     failures.push(
-      `RTL_LANGUAGE_CODES contains "${language}", but Intl reports its script runs ${icu}. Either `
-      + "it is a typo, or CLDR disagrees for a reason worth recording in ICU_DIRECTION_EXCEPTIONS.",
+      `RTL_LANGUAGE_CODES contains "${language}", but Intl reports its script runs ${icu}. Either ` +
+        'it is a typo, or CLDR disagrees for a reason worth recording in ICU_DIRECTION_EXCEPTIONS.',
     );
   }
 
@@ -356,10 +368,10 @@ if (probeWorks) {
    * upstream improves.
    */
   for (const [language, why] of ICU_DIRECTION_EXCEPTIONS) {
-    if (icuDirection(language) !== "rtl") continue;
+    if (icuDirection(language) !== 'rtl') continue;
     failures.push(
-      `ICU_DIRECTION_EXCEPTIONS excuses "${language}" because ${why} — but Intl now reports it as `
-      + "rtl, so the exception is stale and is excusing nothing. Delete the entry.",
+      `ICU_DIRECTION_EXCEPTIONS excuses "${language}" because ${why} — but Intl now reports it as ` +
+        'rtl, so the exception is stale and is excusing nothing. Delete the entry.',
     );
   }
 }
@@ -367,7 +379,7 @@ if (probeWorks) {
 // ------------------------------------------------------------------- verdict ---
 
 if (failures.length > 0) {
-  console.error("RTL direction guard failed:\n");
+  console.error('RTL direction guard failed:\n');
   for (const failure of failures) console.error(`  ${failure}\n`);
   process.exit(1);
 }
@@ -376,7 +388,7 @@ const summary = APPS.map((app) => {
   const tags = shipped.get(app.name);
   const rtl = tags.filter((tag) => isRtlLocale(tag, tags));
   return `${app.name} ${tags.length} bundles (${rtl.length} RTL)`;
-}).join(", ");
+}).join(', ');
 
 const crossChecked = new Set();
 for (const app of APPS) {
@@ -384,14 +396,14 @@ for (const app of APPS) {
 }
 
 console.log(
-  `RTL direction guard passed — ${summary}; `
-  // Where each number comes from, because "checks N RTL locales" is not a claim
-  // a reader can act on without knowing whether N is a hand-written list or a
-  // derived population. The first is the LIST; the second is the POPULATION.
-  + `${RTL_LANGUAGE_CODES.size} hand-listed RTL languages probed against each app's shipped `
-  + `bundles, ${CASES.length} synthetic cases covering both answers, storefront Arabic control `
-  + `anchored, one shared RTL set (#435 deleted the storefront's copy; the drift comparison went `
-  + `with it); and ${crossChecked.size} SHIPPED languages cross-checked against Intl's own script `
-  + `direction with ${ICU_DIRECTION_EXCEPTIONS.size} recorded CLDR exception(s), so a right-to-left `
-  + `locale added to the product without being added to the list fails here (#367 line 202).`,
+  `RTL direction guard passed — ${summary}; ` +
+    // Where each number comes from, because "checks N RTL locales" is not a claim
+    // a reader can act on without knowing whether N is a hand-written list or a
+    // derived population. The first is the LIST; the second is the POPULATION.
+    `${RTL_LANGUAGE_CODES.size} hand-listed RTL languages probed against each app's shipped ` +
+    `bundles, ${CASES.length} synthetic cases covering both answers, storefront Arabic control ` +
+    `anchored, one shared RTL set (#435 deleted the storefront's copy; the drift comparison went ` +
+    `with it); and ${crossChecked.size} SHIPPED languages cross-checked against Intl's own script ` +
+    `direction with ${ICU_DIRECTION_EXCEPTIONS.size} recorded CLDR exception(s), so a right-to-left ` +
+    `locale added to the product without being added to the list fails here (#367 line 202).`,
 );

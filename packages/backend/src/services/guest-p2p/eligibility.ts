@@ -332,7 +332,10 @@ function evaluateFromFacts(
     case 'domestic_only':
       return facts.sellerPayoutCountry.known === 'no'
         ? blocked(criterion, facts.sellerPayoutCountry.owner)
-        : verdictOf(criterion, facts.sellerPayoutCountry.value === facts.context.destinationCountry);
+        : verdictOf(
+            criterion,
+            facts.sellerPayoutCountry.value === facts.context.destinationCountry,
+          );
 
     case 'policies_accepted':
       // #85 supplies the acceptance; #112 decides what it is worth. An absent

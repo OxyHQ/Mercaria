@@ -1,7 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { MerchantPlanCatalogEntry, MerchantPlanStatusView } from "@mercaria/shared-types";
-import { cancelPlan, fetchPlanCatalog, fetchPlanStatus, openBillingPortal, startPlanCheckout } from "../api/plan";
-import { queryKeys } from "../queryKeys";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { MerchantPlanCatalogEntry, MerchantPlanStatusView } from '@mercaria/shared-types';
+import {
+  cancelPlan,
+  fetchPlanCatalog,
+  fetchPlanStatus,
+  openBillingPortal,
+  startPlanCheckout,
+} from '../api/plan';
+import { queryKeys } from '../queryKeys';
 
 /** This store's plan, effective entitlements and usage. */
 export function usePlanStatus(storeId: string) {
@@ -32,7 +38,7 @@ export function usePlanCatalog(storeId: string) {
  */
 export function useStartPlanCheckout(storeId: string) {
   return useMutation({
-    mutationFn: (input: { planId: string; interval: "monthly" | "annual"; currency: string }) =>
+    mutationFn: (input: { planId: string; interval: 'monthly' | 'annual'; currency: string }) =>
       startPlanCheckout(storeId, input),
   });
 }

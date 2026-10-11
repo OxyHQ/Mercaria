@@ -11,7 +11,10 @@ import { forbidden, notFound, validationError } from '../../lib/errors/error-cod
 
 export const reviewHelpfulnessBodySchema = z.strictObject({ helpful: z.boolean() });
 const batchQuerySchema = z.strictObject({
-  ids: z.string().max(REVIEW_HELPFULNESS_BATCH_LIMIT * 37).transform(value => value.split(','))
+  ids: z
+    .string()
+    .max(REVIEW_HELPFULNESS_BATCH_LIMIT * 37)
+    .transform((value) => value.split(','))
     .pipe(z.array(z.string().refine(isLiveEntityId)).min(1).max(REVIEW_HELPFULNESS_BATCH_LIMIT)),
 });
 
@@ -23,16 +26,22 @@ export function parseReviewHelpfulnessIds(query: unknown): string[] {
 
 export async function listReviewHelpfulness(oxyUserId: string, reviewIds: string[]) {
   if (!oxyUserId) throw forbidden('Sign in to read your review votes.');
-  if (reviewIds.length > REVIEW_HELPFULNESS_BATCH_LIMIT) throw validationError('Too many review ids.');
+  if (reviewIds.length > REVIEW_HELPFULNESS_BATCH_LIMIT)
+    throw validationError('Too many review ids.');
   return findReviewHelpfulness(reviewIds, oxyUserId);
 }
 
-export async function updateReviewHelpfulness(oxyUserId: string, reviewId: string, helpful: boolean) {
+export async function updateReviewHelpfulness(
+  oxyUserId: string,
+  reviewId: string,
+  helpful: boolean,
+) {
   if (!oxyUserId) throw forbidden('Sign in to mark a review helpful.');
-  return getDb().transaction(async tx => {
+  return getDb().transaction(async (tx) => {
     const review = await lockPublicReviewForHelpfulness(reviewId, tx);
     if (!review) throw notFound('Review not found.');
-    if (review.authorOxyUserId === oxyUserId) throw forbidden('You cannot vote on your own review.');
+    if (review.authorOxyUserId === oxyUserId)
+      throw forbidden('You cannot vote on your own review.');
     await setReviewHelpfulVote(reviewId, oxyUserId, helpful, tx);
     return (await findReviewHelpfulness([reviewId], oxyUserId, tx))[0];
   });

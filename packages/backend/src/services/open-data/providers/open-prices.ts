@@ -33,8 +33,23 @@ import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { createGunzip } from 'node:zlib';
 import type { NormalizedSourceRecord } from '@mercaria/shared-types';
-import { OpenDataSchemaError, type OpenDataItem, type OpenDataPage, type OpenDataPageContext, type OpenDataProvider } from '../provider.js';
-import { asDate, asNumber, asObject, asText, decimalMoney, FactCollector, gtinDigits, subFeedKey } from '../read.js';
+import {
+  OpenDataSchemaError,
+  type OpenDataItem,
+  type OpenDataPage,
+  type OpenDataPageContext,
+  type OpenDataProvider,
+} from '../provider.js';
+import {
+  asDate,
+  asNumber,
+  asObject,
+  asText,
+  decimalMoney,
+  FactCollector,
+  gtinDigits,
+  subFeedKey,
+} from '../read.js';
 
 export const OPEN_PRICES_PROVIDER = 'open_prices';
 
@@ -145,8 +160,16 @@ async function fetchOpenPricesPage(context: OpenDataPageContext): Promise<OpenDa
 async function aggregate(context: OpenDataPageContext, chain: string): Promise<Aggregation> {
   const signal = context.signal;
   const [prices, locationsDump] = await Promise.all([
-    context.http.download(PRICES_DUMP_URL, { maxAgeMs: DUMP_MAX_AGE_MS, minIntervalMs: openPricesProvider.minRequestIntervalMs, ...(signal ? { signal } : {}) }),
-    context.http.download(LOCATIONS_DUMP_URL, { maxAgeMs: DUMP_MAX_AGE_MS, minIntervalMs: openPricesProvider.minRequestIntervalMs, ...(signal ? { signal } : {}) }),
+    context.http.download(PRICES_DUMP_URL, {
+      maxAgeMs: DUMP_MAX_AGE_MS,
+      minIntervalMs: openPricesProvider.minRequestIntervalMs,
+      ...(signal ? { signal } : {}),
+    }),
+    context.http.download(LOCATIONS_DUMP_URL, {
+      maxAgeMs: DUMP_MAX_AGE_MS,
+      minIntervalMs: openPricesProvider.minRequestIntervalMs,
+      ...(signal ? { signal } : {}),
+    }),
   ]);
 
   const territories = [...context.territories].map((code) => code.toUpperCase()).sort();
@@ -158,7 +181,11 @@ async function aggregate(context: OpenDataPageContext, chain: string): Promise<A
   const locations = new Map<number, OpenPricesLocation>();
   for (const location of allLocations.values()) {
     if (location.chain !== chain) continue;
-    if (territories.length > 0 && (location.countryCode === undefined || !territories.includes(location.countryCode))) continue;
+    if (
+      territories.length > 0 &&
+      (location.countryCode === undefined || !territories.includes(location.countryCode))
+    )
+      continue;
     locations.set(location.id, location);
   }
 
@@ -169,7 +196,11 @@ async function aggregate(context: OpenDataPageContext, chain: string): Promise<A
     if (locationId === undefined || !locations.has(locationId)) continue;
     // A CATEGORY price (loose fruit by the kilo) has no GTIN and therefore no
     // product identity a comparison could join on.
-    if (asText(row.type) !== 'PRODUCT' || (row.duplicate_of !== null && row.duplicate_of !== undefined)) continue;
+    if (
+      asText(row.type) !== 'PRODUCT' ||
+      (row.duplicate_of !== null && row.duplicate_of !== undefined)
+    )
+      continue;
     const gtin = gtinDigits(row.product_code);
     const date = asDate(row.date);
     const currency = asText(row.currency);
@@ -218,7 +249,9 @@ async function aggregate(context: OpenDataPageContext, chain: string): Promise<A
     digest: `${prices.digest.slice(0, 32)}${locationsDump.digest.slice(0, 32)}`,
     chainName,
     // Sorted by GTIN so a page boundary means the same thing on every read.
-    products: [...byGtin.values()].sort((left, right) => (left.gtin < right.gtin ? -1 : left.gtin > right.gtin ? 1 : 0)),
+    products: [...byGtin.values()].sort((left, right) =>
+      left.gtin < right.gtin ? -1 : left.gtin > right.gtin ? 1 : 0,
+    ),
     locations,
   };
   aggregations.set(key, aggregation);
@@ -243,7 +276,9 @@ function toItem(product: ChainProductAggregate, aggregation: Aggregation): OpenD
   const row = product.latest.row;
   const location = aggregation.locations.get(product.latest.locationId);
   const discounted = row.price_is_discounted === true;
-  const compareAt = discounted ? decimalMoney(row.price_without_discount, product.currency) : undefined;
+  const compareAt = discounted
+    ? decimalMoney(row.price_without_discount, product.currency)
+    : undefined;
 
   const facts = new FactCollector('open_prices')
     .add('sighting_date', product.latest.date.toISOString().slice(0, 10))
@@ -261,7 +296,12 @@ function toItem(product: ChainProductAggregate, aggregation: Aggregation): OpenD
     .list('origins', row.origins_tags)
     .add('proof_attached', row.proof_id !== null && row.proof_id !== undefined)
     .text('shop_type', location?.shopType)
-    .text('shop_osm', location?.osmType !== undefined && location.osmId !== undefined ? `${location.osmType.toLowerCase()}/${String(location.osmId)}` : undefined)
+    .text(
+      'shop_osm',
+      location?.osmType !== undefined && location.osmId !== undefined
+        ? `${location.osmType.toLowerCase()}/${String(location.osmId)}`
+        : undefined,
+    )
     .text('shop_postcode', location?.postcode)
     .text('chain_logo_url', location?.logoUrl)
     .add('price_id', product.latest.id)
@@ -278,7 +318,9 @@ function toItem(product: ChainProductAggregate, aggregation: Aggregation): OpenD
     merchantHint: aggregation.chainName,
     ...(location?.city === undefined ? {} : { storefrontHint: location.city }),
     price: { amount: product.latest.amount, currency: product.currency },
-    ...(compareAt === undefined || compareAt.amount <= product.latest.amount ? {} : { compareAtPrice: compareAt }),
+    ...(compareAt === undefined || compareAt.amount <= product.latest.amount
+      ? {}
+      : { compareAtPrice: compareAt }),
     conditionLabel: 'new',
     ...(location?.countryCode === undefined ? {} : { country: location.countryCode }),
     ...(location?.city === undefined ? {} : { region: location.city }),
@@ -293,12 +335,19 @@ function toItem(product: ChainProductAggregate, aggregation: Aggregation): OpenD
     externalId: product.gtin,
     normalized,
     sourceUpdatedAt: product.latest.date,
-    raw: { priceId: product.latest.id, locationId: product.latest.locationId, date: asText(row.date), price: asText(row.price) },
+    raw: {
+      priceId: product.latest.id,
+      locationId: product.latest.locationId,
+      date: asText(row.date),
+      price: asText(row.price),
+    },
   };
 }
 
 /** Every shop in the locations dump, keyed by Open Prices' own location id. */
-export async function readOpenPricesLocations(path: string): Promise<Map<number, OpenPricesLocation>> {
+export async function readOpenPricesLocations(
+  path: string,
+): Promise<Map<number, OpenPricesLocation>> {
   const result = new Map<number, OpenPricesLocation>();
   for await (const row of readJsonLines(path)) {
     const id = asNumber(row.id);
@@ -324,7 +373,10 @@ export async function readOpenPricesLocations(path: string): Promise<Map<number,
 
 /** One JSON object per line of a gzipped dump. A malformed line is skipped. */
 async function* readJsonLines(path: string): AsyncGenerator<Readonly<Record<string, unknown>>> {
-  const lines = createInterface({ input: createReadStream(path).pipe(createGunzip()), crlfDelay: Infinity });
+  const lines = createInterface({
+    input: createReadStream(path).pipe(createGunzip()),
+    crlfDelay: Infinity,
+  });
   let seen = 0;
   let parsed = 0;
   for await (const line of lines) {

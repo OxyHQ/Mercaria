@@ -166,7 +166,9 @@ export const procurementOutboxes = pgTable(
      * consumer through it.
      */
     payload: jsonb().$type<Record<string, unknown>>().notNull(),
-    status: text({ enum: asEnumValues(PROCUREMENT_OUTBOX_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(PROCUREMENT_OUTBOX_STATUSES) })
+      .notNull()
+      .default('pending'),
     attempts: integer().notNull().default(0),
     availableAt: timestamptz().notNull(),
     /** Which task holds the lease. An opaque worker identity — no foreign key. */
@@ -180,7 +182,11 @@ export const procurementOutboxes = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
-    checkOneOf('procurement_outboxes_event_type_check', t.eventType, PROCUREMENT_OUTBOX_EVENT_TYPES),
+    checkOneOf(
+      'procurement_outboxes_event_type_check',
+      t.eventType,
+      PROCUREMENT_OUTBOX_EVENT_TYPES,
+    ),
     checkOneOf('procurement_outboxes_status_check', t.status, PROCUREMENT_OUTBOX_STATUSES),
     check('procurement_outboxes_attempts_check', sql`${t.attempts} >= 0`),
     check(
@@ -289,7 +295,11 @@ export const supplierOrderAttempts = pgTable(
       t.providerErrorClass,
       SUPPLIER_PROVIDER_ERROR_CLASSES,
     ),
-    checkOneOf('supplier_order_attempts_reason_code_check', t.reasonCode, PURCHASE_ORDER_REASON_CODES),
+    checkOneOf(
+      'supplier_order_attempts_reason_code_check',
+      t.reasonCode,
+      PURCHASE_ORDER_REASON_CODES,
+    ),
     check('supplier_order_attempts_attempt_number_check', sql`${t.attemptNumber} >= 1`),
     check('supplier_order_attempts_request_hash_check', sql`length(${t.requestHash}) = 64`),
     check(
@@ -408,7 +418,9 @@ export const supplierProviderEvents = pgTable(
     receivedAt: timestamptz().notNull(),
     /** The ALLOW-LISTED projection of the payload. Never the payload. */
     payloadSummary: jsonb().$type<Record<string, unknown>>().notNull(),
-    status: text({ enum: asEnumValues(SUPPLIER_EVENT_STATUSES) }).notNull().default('received'),
+    status: text({ enum: asEnumValues(SUPPLIER_EVENT_STATUSES) })
+      .notNull()
+      .default('received'),
     attempts: integer().notNull().default(0),
     lastError: text(),
     processedAt: timestamptz(),
@@ -574,12 +586,11 @@ export const purchaseOrderTrackingEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [
-    checkOneOf(
-      'purchase_order_tracking_events_status_check',
-      t.status,
-      SUPPLIER_TRACKING_STATUSES,
+    checkOneOf('purchase_order_tracking_events_status_check', t.status, SUPPLIER_TRACKING_STATUSES),
+    check(
+      'purchase_order_tracking_events_tracking_number_check',
+      sql`length(${t.trackingNumber}) > 0`,
     ),
-    check('purchase_order_tracking_events_tracking_number_check', sql`length(${t.trackingNumber}) > 0`),
     check(
       'purchase_order_tracking_events_description_length_check',
       sql`${t.description} is null
@@ -748,9 +759,7 @@ export const procurementExceptions = pgTable(
       .on(t.kind, t.supplierAccountId)
       .where(sql`${t.resolvedAt} is null and ${t.purchaseOrderId} is null
                  and ${t.supplierAccountId} is not null`),
-    index('procurement_exceptions_open_idx')
-      .on(t.detectedAt)
-      .where(sql`${t.resolvedAt} is null`),
+    index('procurement_exceptions_open_idx').on(t.detectedAt).where(sql`${t.resolvedAt} is null`),
     index('procurement_exceptions_po_idx').on(t.purchaseOrderId, t.detectedAt),
   ],
 );

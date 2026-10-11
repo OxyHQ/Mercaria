@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
-import { View } from "react-native";
-import { cn } from "../../lib/cn";
+import { useState, type ReactNode } from 'react';
+import { View } from 'react-native';
+import { cn } from '../../lib/cn';
 
 export interface FeedGridProps<T> {
   /** Items laid out left-to-right, wrapping onto new rows. */
@@ -59,12 +59,15 @@ export function FeedGrid<T>({
     return true;
   });
   const columns = autoColumns
-    ? Math.max(autoColumns.minimumColumns, Math.min(safeItems.length,
-        Math.floor((width + autoColumns.gap) / (autoColumns.minWidth + autoColumns.gap))))
+    ? Math.max(
+        autoColumns.minimumColumns,
+        Math.min(
+          safeItems.length,
+          Math.floor((width + autoColumns.gap) / (autoColumns.minWidth + autoColumns.gap)),
+        ),
+      )
     : 0;
-  const slotWidth = autoColumns
-    ? (width - (columns - 1) * autoColumns.gap) / columns
-    : undefined;
+  const slotWidth = autoColumns ? (width - (columns - 1) * autoColumns.gap) / columns : undefined;
 
   return (
     // The reference writes this row as `flex flex-wrap` — a bare `flex` sets
@@ -74,15 +77,24 @@ export function FeedGrid<T>({
     // `SearchInterpretation.tsx`, `VariantSwatches.tsx`); omitting it here
     // would stack every slot in a single column instead of wrapping.
     <View
-      className={cn("flex-row flex-wrap", !autoColumns && "-mx-space-4 md:-mx-space-8", rowGapClassName)}
-      onLayout={autoColumns ? event => setWidth(event.nativeEvent.layout.width) : undefined}
+      className={cn(
+        'flex-row flex-wrap',
+        !autoColumns && '-mx-space-4 md:-mx-space-8',
+        rowGapClassName,
+      )}
+      onLayout={autoColumns ? (event) => setWidth(event.nativeEvent.layout.width) : undefined}
       style={autoColumns ? { gap: autoColumns.gap } : undefined}
     >
-      {(!autoColumns || width > 0) && safeItems.map((item) => (
-        <View key={keyExtractor(item)} className={slotClassName} style={autoColumns ? { width: slotWidth } : undefined}>
-          {renderItem(item)}
-        </View>
-      ))}
+      {(!autoColumns || width > 0) &&
+        safeItems.map((item) => (
+          <View
+            key={keyExtractor(item)}
+            className={slotClassName}
+            style={autoColumns ? { width: slotWidth } : undefined}
+          >
+            {renderItem(item)}
+          </View>
+        ))}
     </View>
   );
 }

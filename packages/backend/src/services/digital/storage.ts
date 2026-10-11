@@ -83,7 +83,9 @@
 import type { AssetUploadInput } from '@oxy.so/core';
 import type { OxyServer } from '@oxy.so/core/server';
 
-type ServiceLinkedDownloadUrl = Awaited<ReturnType<OxyServer['assets']['linkedDownloadUrls']>>[number];
+type ServiceLinkedDownloadUrl = Awaited<
+  ReturnType<OxyServer['assets']['linkedDownloadUrls']>
+>[number];
 import { oxyClient } from '../../middleware/auth.js';
 import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
 import { log } from '../../lib/logger.js';
@@ -310,7 +312,10 @@ export const oxyAssetStorage: DigitalAssetStoragePort = {
       // default is private, but a default is a thing that changes in somebody
       // else's release, and the difference here is between a paid mesh behind an
       // authorizer and a paid mesh on a CDN.
-      uploaded = await oxyClient.assets.upload(input.file, { visibility: 'private', metadata: input.metadata });
+      uploaded = await oxyClient.assets.upload(input.file, {
+        visibility: 'private',
+        metadata: input.metadata,
+      });
     } catch (cause) {
       throw new DigitalStorageError('unresolved', 'Storing the asset object failed.', { cause });
     }

@@ -90,7 +90,13 @@ async function makeCollection(name: string, isPublished = true): Promise<string>
   storeIds.push(store.id);
   const [row] = await db
     .insert(collections)
-    .values({ storeId: store.id, title: `Nav ${name}`, handle: key(name), type: 'manual', isPublished })
+    .values({
+      storeId: store.id,
+      title: `Nav ${name}`,
+      handle: key(name),
+      type: 'manual',
+      isPublished,
+    })
     .returning({ id: collections.id });
   collectionIds.push(row.id);
   return row.id;
@@ -343,10 +349,7 @@ describe('a tree is a TREE (mercaria_navigation_node_acyclic)', () => {
     const categoryId = await makeCategory('self-cat');
     const nodeId = await makeNode(treeId, categoryId, { key: key('self'), position: 0 });
     await expect(
-      db
-        .update(navigationNodes)
-        .set({ parentId: nodeId })
-        .where(eq(navigationNodes.id, nodeId)),
+      db.update(navigationNodes).set({ parentId: nodeId }).where(eq(navigationNodes.id, nodeId)),
     ).rejects.toSatisfy(isCheckViolation);
   });
 
@@ -422,7 +425,10 @@ describe('publication freezes the tree and its content', () => {
   it('freezes the key, the scope and the version', async () => {
     const treeId = await makeTree('frozen-identity');
     await expect(
-      db.update(navigationTrees).set({ key: key('renamed') }).where(eq(navigationTrees.id, treeId)),
+      db
+        .update(navigationTrees)
+        .set({ key: key('renamed') })
+        .where(eq(navigationTrees.id, treeId)),
     ).rejects.toSatisfy(isCheckViolation);
     await expect(
       db.update(navigationTrees).set({ market: 'FR' }).where(eq(navigationTrees.id, treeId)),
@@ -585,7 +591,10 @@ describe('machine translation cannot overwrite human work (ADR 0007 D4)', () => 
       .set({ status: 'stale' })
       .where(eq(navigationNodeLocalizations.nodeId, nodeId));
     const [row] = await db
-      .select({ status: navigationNodeLocalizations.status, label: navigationNodeLocalizations.label })
+      .select({
+        status: navigationNodeLocalizations.status,
+        label: navigationNodeLocalizations.label,
+      })
       .from(navigationNodeLocalizations)
       .where(eq(navigationNodeLocalizations.nodeId, nodeId));
     expect(row.status).toBe('stale');

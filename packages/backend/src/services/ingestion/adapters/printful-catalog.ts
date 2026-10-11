@@ -112,7 +112,8 @@ function unwrapBody(body: unknown): unknown {
 
 /** A decimal money string in STRING arithmetic — never `Number(x) * 100`. */
 function minorUnits(value: unknown, currency: CurrencyCode): number | null {
-  const raw = typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : '';
+  const raw =
+    typeof value === 'number' ? String(value) : typeof value === 'string' ? value.trim() : '';
   if (!/^\d+(\.\d+)?$/.test(raw)) return null;
   const precision = CURRENCY_PRECISION[currency];
   if (precision === undefined) return null;
@@ -155,17 +156,24 @@ async function fetchJson(
   request: PrintfulRequest,
   operation: string,
 ): Promise<unknown> {
-  const response = await transport.call(request).catch((error: unknown) => classify(error, operation));
+  const response = await transport
+    .call(request)
+    .catch((error: unknown) => classify(error, operation));
   if (response.status === 401 || response.status === 403) {
     // NOT retryable: a wrong credential fails identically on every attempt, and
     // retrying it burns the source's rate budget answering the same 401.
-    throw new CatalogSourceFetchError('auth_failure', `printful ${operation} rejected the credential`);
+    throw new CatalogSourceFetchError(
+      'auth_failure',
+      `printful ${operation} rejected the credential`,
+    );
   }
   if (response.status === 429) {
     const retryAfter = Number(response.headers['retry-after'] ?? '');
     throw new CatalogSourceFetchError('rate_limit', `printful ${operation} was rate limited`, {
       retryable: true,
-      ...(Number.isFinite(retryAfter) && retryAfter > 0 ? { retryAfterMs: retryAfter * 1_000 } : {}),
+      ...(Number.isFinite(retryAfter) && retryAfter > 0
+        ? { retryAfterMs: retryAfter * 1_000 }
+        : {}),
     });
   }
   if (response.status < 200 || response.status >= 300) {
@@ -297,7 +305,11 @@ export function createPrintfulCatalogAdapter(transport: PrintfulTransport): Cata
         for (const externalId of request.externalIds) {
           const variant = await fetchJson(
             transport,
-            { ...context, method: 'GET', path: `/v2/catalog-variants/${encodeURIComponent(externalId)}` },
+            {
+              ...context,
+              method: 'GET',
+              path: `/v2/catalog-variants/${encodeURIComponent(externalId)}`,
+            },
             'catalog variant read',
           );
           const record = toRecord(
@@ -343,7 +355,9 @@ export function createPrintfulCatalogAdapter(transport: PrintfulTransport): Cata
           },
           'catalog variant list',
         );
-        for (const variant of Array.isArray(variantsBody) ? variantsBody : list(variantsBody, 'data')) {
+        for (const variant of Array.isArray(variantsBody)
+          ? variantsBody
+          : list(variantsBody, 'data')) {
           if (records.length >= MAX_RECORDS_PER_PAGE) {
             // The page is FULL, so this sweep has not read everything it was
             // asked for. `truncated` is what turns that into `complete: false`

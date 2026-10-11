@@ -20,9 +20,9 @@ import { deriveRetailOrderProgressStage } from '../retail-order.service';
 
 describe('deriveRetailOrderProgressStage', () => {
   it('a PAID order is confirming availability and is never confirmed (ADR 0004 D9.1)', () => {
-    expect(
-      deriveRetailOrderProgressStage({ orderStatus: 'paid', paymentStatus: 'paid' }),
-    ).toBe('confirming_availability');
+    expect(deriveRetailOrderProgressStage({ orderStatus: 'paid', paymentStatus: 'paid' })).toBe(
+      'confirming_availability',
+    );
   });
 
   it('only PROCESSING reads as confirmed, because D9.2 binds it to PO acceptance', () => {

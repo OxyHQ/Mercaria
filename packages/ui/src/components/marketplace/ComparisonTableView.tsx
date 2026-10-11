@@ -1,11 +1,7 @@
-import { ScrollView, View } from "react-native";
-import type {
-  ComparisonCell,
-  ComparisonTable,
-  ComparisonTableRow,
-} from "@mercaria/shared-types";
-import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { ScrollView, View } from 'react-native';
+import type { ComparisonCell, ComparisonTable, ComparisonTableRow } from '@mercaria/shared-types';
+import { Text } from '../ui/text';
+import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import {
   COMPARISON_CELL_A11Y_KEY,
   COMPARISON_CELL_INFERRED_A11Y_KEY,
@@ -18,7 +14,7 @@ import {
   COMPARISON_TABLE_UNNAMED_PRODUCT_KEY,
   comparisonNotApplicableTextKey,
   comparisonUnknownTextKey,
-} from "../../lib/comparison-labels";
+} from '../../lib/comparison-labels';
 
 /** How wide one product column is. Fixed, so the row header stays readable. */
 const COLUMN_WIDTH = 160;
@@ -119,10 +115,10 @@ function ComparisonRow({
             {t(COMPARISON_TABLE_IN_UNIT_KEY, { unit: row.unit })}
           </Text>
         )}
-        {row.direction === "not_comparable" ? null : (
+        {row.direction === 'not_comparable' ? null : (
           <Text className="text-shop-caption text-text-secondary">
             {t(
-              row.direction === "higher_is_better"
+              row.direction === 'higher_is_better'
                 ? COMPARISON_TABLE_HIGHER_IS_BETTER_KEY
                 : COMPARISON_TABLE_LOWER_IS_BETTER_KEY,
             )}
@@ -160,7 +156,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
   if (cell === undefined) {
     // The same fact `unknown.not_recorded` states, so it resolves the same key
     // rather than a second sentence that could be translated differently.
-    const notRecorded = t(comparisonUnknownTextKey("not_recorded"));
+    const notRecorded = t(comparisonUnknownTextKey('not_recorded'));
     return (
       <Text
         className="text-shop-caption text-text-secondary"
@@ -172,7 +168,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
   }
 
   switch (cell.state) {
-    case "source_backed":
+    case 'source_backed':
       return (
         <Text
           className="text-shop-caption text-text"
@@ -184,7 +180,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
           {cell.value.rendered}
         </Text>
       );
-    case "inferred":
+    case 'inferred':
       return (
         <View className="gap-space-2">
           <Text
@@ -201,8 +197,8 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
           </Text>
         </View>
       );
-    case "conflicting": {
-      const disagree = t(comparisonUnknownTextKey("conflicting_sources"));
+    case 'conflicting': {
+      const disagree = t(comparisonUnknownTextKey('conflicting_sources'));
       return (
         <View className="gap-space-2">
           <Text
@@ -219,7 +215,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
         </View>
       );
     }
-    case "unknown": {
+    case 'unknown': {
       const unknown = t(comparisonUnknownTextKey(cell.reason));
       return (
         <Text
@@ -230,7 +226,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
         </Text>
       );
     }
-    case "not_applicable": {
+    case 'not_applicable': {
       const notApplicable = t(comparisonNotApplicableTextKey(cell.reason));
       return (
         <Text
@@ -248,7 +244,7 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
       // into two different claims.
       return (
         <Text className="text-shop-caption text-text-secondary">
-          {t(comparisonUnknownTextKey("not_recorded"))}
+          {t(comparisonUnknownTextKey('not_recorded'))}
         </Text>
       );
   }

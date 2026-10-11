@@ -258,10 +258,16 @@ describe('the record-backed criteria refuse what the record says', () => {
   it('refuses a line above the value cap, and admits one exactly at it', () => {
     const cap = GUEST_P2P_BOUNDED_SCOPE.maxLineValueMinorUnits;
     expect(
-      outcomeOf(bestCaseFacts({ unitPrice: known({ amount: cap + 1, currency: 'EUR' }) }), 'value_within_cap'),
+      outcomeOf(
+        bestCaseFacts({ unitPrice: known({ amount: cap + 1, currency: 'EUR' }) }),
+        'value_within_cap',
+      ),
     ).toBe('refused');
     expect(
-      outcomeOf(bestCaseFacts({ unitPrice: known({ amount: cap, currency: 'EUR' }) }), 'value_within_cap'),
+      outcomeOf(
+        bestCaseFacts({ unitPrice: known({ amount: cap, currency: 'EUR' }) }),
+        'value_within_cap',
+      ),
     ).toBe('satisfied');
   });
 
@@ -288,9 +294,9 @@ describe('the record-backed criteria refuse what the record says', () => {
   });
 
   it('refuses an unrefined condition and a listing with no disclosed defects', () => {
-    expect(outcomeOf(bestCaseFacts({ conditionRefined: false }), 'normalized_condition_and_defects')).toBe(
-      'refused',
-    );
+    expect(
+      outcomeOf(bestCaseFacts({ conditionRefined: false }), 'normalized_condition_and_defects'),
+    ).toBe('refused');
     expect(
       outcomeOf(bestCaseFacts({ conditionDetailCount: 0 }), 'normalized_condition_and_defects'),
     ).toBe('refused');
@@ -298,9 +304,9 @@ describe('the record-backed criteria refuse what the record says', () => {
 
   it('refuses a seller whose Oxy profile is private or trust-restricted', () => {
     for (const visibility of ['private', 'restricted'] as const) {
-      expect(outcomeOf(bestCaseFacts({ sellerVisibility: known(visibility) }), 'oxy_identity_state')).toBe(
-        'refused',
-      );
+      expect(
+        outcomeOf(bestCaseFacts({ sellerVisibility: known(visibility) }), 'oxy_identity_state'),
+      ).toBe('refused');
     }
   });
 });

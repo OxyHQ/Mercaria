@@ -1343,7 +1343,7 @@ export type BasketLineRevalidation =
  * lines cannot disagree — #94's constraint-verdict device.
  */
 export interface BasketRevalidation {
-  readonly snapshotDigest: string
+  readonly snapshotDigest: string;
   readonly revalidatedAt: string;
   readonly lines: readonly BasketLineRevalidation[];
   readonly mayProceed: boolean;
@@ -1425,10 +1425,7 @@ export function coarserFreshness(
  * comparable tax treatment, and reporting either one would misstate the other
  * half by whatever the rate happens to be.
  */
-export function combineTaxInclusion(
-  a: OfferTaxInclusion,
-  b: OfferTaxInclusion,
-): OfferTaxInclusion {
+export function combineTaxInclusion(a: OfferTaxInclusion, b: OfferTaxInclusion): OfferTaxInclusion {
   if (a === 'unknown' || b === 'unknown') return 'unknown';
   return a === b ? a : 'unknown';
 }

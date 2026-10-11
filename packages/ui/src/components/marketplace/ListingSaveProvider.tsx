@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from 'react';
 
 export type SaveListing = (
   id: string,
@@ -15,11 +15,7 @@ export function ListingSaveProvider({
   onSave: SaveListing;
   children: ReactNode;
 }) {
-  return (
-    <ListingSaveContext.Provider value={onSave}>
-      {children}
-    </ListingSaveContext.Provider>
-  );
+  return <ListingSaveContext.Provider value={onSave}>{children}</ListingSaveContext.Provider>;
 }
 
 export function useListingSaveAction() {

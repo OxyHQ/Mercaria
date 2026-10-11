@@ -5,8 +5,8 @@ import type {
   DigitalLicenceAuthorship,
   DigitalLicenceRight,
   DigitalLicenceUpdatePolicy,
-} from "@mercaria/shared-types";
-import type { AssetPreviewRefusalReason } from "./asset-preview";
+} from '@mercaria/shared-types';
+import type { AssetPreviewRefusalReason } from './asset-preview';
 
 /**
  * The reader-facing copy for digital commerce (#1015, ADR 0010) — as
@@ -54,33 +54,33 @@ import type { AssetPreviewRefusalReason } from "./asset-preview";
 /* -------------------------------------------------------------------------- */
 
 /** The accessible name of the preview surface: `Preview of %{title}`. */
-export const ASSET_VIEWER_PREVIEW_A11Y_KEY = "ui.assetViewer.previewA11y";
+export const ASSET_VIEWER_PREVIEW_A11Y_KEY = 'ui.assetViewer.previewA11y';
 /** Nothing public exists to show — not a refusal, an absence. */
-export const ASSET_VIEWER_NO_PREVIEW_KEY = "ui.assetViewer.noPreview";
+export const ASSET_VIEWER_NO_PREVIEW_KEY = 'ui.assetViewer.noPreview';
 /** A still is being shown because no interactive renderer is installed. */
-export const ASSET_VIEWER_STATIC_ONLY_KEY = "ui.assetViewer.staticOnly";
+export const ASSET_VIEWER_STATIC_ONLY_KEY = 'ui.assetViewer.staticOnly';
 /** A still is being shown because the screen is too small to orbit a model. */
-export const ASSET_VIEWER_STATIC_SMALL_SCREEN_KEY = "ui.assetViewer.staticOnSmallScreen";
+export const ASSET_VIEWER_STATIC_SMALL_SCREEN_KEY = 'ui.assetViewer.staticOnSmallScreen';
 /**
  * The honesty line #1015 W4 closes with, stated to the BUYER rather than only
  * in a docblock: what they are looking at is a generated copy, so a preview
  * that looks lower-fidelity than the product is not a defect in the product.
  */
-export const ASSET_VIEWER_NEVER_SOURCE_KEY = "ui.assetViewer.neverTheSourceFile";
+export const ASSET_VIEWER_NEVER_SOURCE_KEY = 'ui.assetViewer.neverTheSourceFile';
 /** `ASSET_FILE_VISIBILITIES.preview_only`: streamed, never handed over. */
-export const ASSET_VIEWER_STREAMED_ONLY_KEY = "ui.assetViewer.streamedOnly";
+export const ASSET_VIEWER_STREAMED_ONLY_KEY = 'ui.assetViewer.streamedOnly';
 /** The accessible group name for the control row. */
-export const ASSET_VIEWER_CONTROLS_KEY = "ui.assetViewer.controls";
+export const ASSET_VIEWER_CONTROLS_KEY = 'ui.assetViewer.controls';
 /** What the pointer and touch gestures do, for a reader who cannot discover it. */
-export const ASSET_VIEWER_GESTURES_KEY = "ui.assetViewer.gestures";
-export const ASSET_VIEWER_RESET_KEY = "ui.assetViewer.reset";
-export const ASSET_VIEWER_FULLSCREEN_OPEN_KEY = "ui.assetViewer.fullscreenOpen";
-export const ASSET_VIEWER_FULLSCREEN_CLOSE_KEY = "ui.assetViewer.fullscreenClose";
-export const ASSET_VIEWER_WIREFRAME_KEY = "ui.assetViewer.wireframe";
-export const ASSET_VIEWER_STATISTICS_KEY = "ui.assetViewer.statistics";
-export const ASSET_VIEWER_ANIMATION_KEY = "ui.assetViewer.animation";
+export const ASSET_VIEWER_GESTURES_KEY = 'ui.assetViewer.gestures';
+export const ASSET_VIEWER_RESET_KEY = 'ui.assetViewer.reset';
+export const ASSET_VIEWER_FULLSCREEN_OPEN_KEY = 'ui.assetViewer.fullscreenOpen';
+export const ASSET_VIEWER_FULLSCREEN_CLOSE_KEY = 'ui.assetViewer.fullscreenClose';
+export const ASSET_VIEWER_WIREFRAME_KEY = 'ui.assetViewer.wireframe';
+export const ASSET_VIEWER_STATISTICS_KEY = 'ui.assetViewer.statistics';
+export const ASSET_VIEWER_ANIMATION_KEY = 'ui.assetViewer.animation';
 /** The "play nothing" choice in the animation selector. */
-export const ASSET_VIEWER_ANIMATION_OFF_KEY = "ui.assetViewer.animationOff";
+export const ASSET_VIEWER_ANIMATION_OFF_KEY = 'ui.assetViewer.animationOff';
 
 /**
  * Why a file offered to the public viewer was refused.
@@ -89,11 +89,9 @@ export const ASSET_VIEWER_ANIMATION_OFF_KEY = "ui.assetViewer.animationOff";
  * sentence a buyer should read, and an empty frame that means both "there is no
  * preview" and "we refused the file you offered" is how those get conflated.
  */
-export const ASSET_PREVIEW_REFUSAL_KEYS: Readonly<
-  Record<AssetPreviewRefusalReason, string>
-> = {
-  role_is_not_publicly_viewable: "ui.assetViewer.refused.role_is_not_publicly_viewable",
-  visibility_requires_a_right: "ui.assetViewer.refused.visibility_requires_a_right",
+export const ASSET_PREVIEW_REFUSAL_KEYS: Readonly<Record<AssetPreviewRefusalReason, string>> = {
+  role_is_not_publicly_viewable: 'ui.assetViewer.refused.role_is_not_publicly_viewable',
+  visibility_requires_a_right: 'ui.assetViewer.refused.visibility_requires_a_right',
 };
 
 /* -------------------------------------------------------------------------- */
@@ -101,47 +99,45 @@ export const ASSET_PREVIEW_REFUSAL_KEYS: Readonly<
 /* -------------------------------------------------------------------------- */
 
 /** Heading over the figures MERCARIA produced. */
-export const ASSET_FACTS_MEASURED_TITLE_KEY = "ui.assetFacts.measuredTitle";
+export const ASSET_FACTS_MEASURED_TITLE_KEY = 'ui.assetFacts.measuredTitle';
 /** One sentence saying who measured them and from what. */
-export const ASSET_FACTS_MEASURED_NOTE_KEY = "ui.assetFacts.measuredNote";
+export const ASSET_FACTS_MEASURED_NOTE_KEY = 'ui.assetFacts.measuredNote';
 /** `Measured with %{processor} %{version} on %{date}` — the provenance itself. */
-export const ASSET_FACTS_MEASURED_BY_KEY = "ui.assetFacts.measuredBy";
+export const ASSET_FACTS_MEASURED_BY_KEY = 'ui.assetFacts.measuredBy';
 /** The per-row marker, so the provenance survives a reader who skips headings. */
-export const ASSET_FACTS_MEASURED_BADGE_KEY = "ui.assetFacts.measuredBadge";
+export const ASSET_FACTS_MEASURED_BADGE_KEY = 'ui.assetFacts.measuredBadge';
 /** Heading over what the SELLER wrote. */
-export const ASSET_FACTS_CLAIMED_TITLE_KEY = "ui.assetFacts.claimedTitle";
+export const ASSET_FACTS_CLAIMED_TITLE_KEY = 'ui.assetFacts.claimedTitle';
 /** One sentence saying Mercaria has not checked them. */
-export const ASSET_FACTS_CLAIMED_NOTE_KEY = "ui.assetFacts.claimedNote";
+export const ASSET_FACTS_CLAIMED_NOTE_KEY = 'ui.assetFacts.claimedNote';
 /** The per-row marker for a claim. */
-export const ASSET_FACTS_CLAIMED_BADGE_KEY = "ui.assetFacts.claimedBadge";
+export const ASSET_FACTS_CLAIMED_BADGE_KEY = 'ui.assetFacts.claimedBadge';
 /**
  * What a NULL geometry column renders.
  *
  * ADR 0010 D12: every geometry column is nullable and NULL means NOT MEASURED,
  * which is why a `0` and an absence must not share a rendering.
  */
-export const ASSET_FACTS_NOT_MEASURED_KEY = "ui.assetFacts.notMeasured";
+export const ASSET_FACTS_NOT_MEASURED_KEY = 'ui.assetFacts.notMeasured';
 
 /** What the inspection pipeline concluded, in the reader's own words. */
-export const ASSET_INSPECTION_VERDICT_KEYS: Readonly<
-  Record<AssetInspectionVerdict, string>
-> = {
-  pending: "ui.assetFacts.verdict.pending",
-  measured: "ui.assetFacts.verdict.measured",
-  unsupported: "ui.assetFacts.verdict.unsupported",
-  corrupt: "ui.assetFacts.verdict.corrupt",
-  missing_resources: "ui.assetFacts.verdict.missing_resources",
-  failed: "ui.assetFacts.verdict.failed",
-  refused_too_large: "ui.assetFacts.verdict.refused_too_large",
+export const ASSET_INSPECTION_VERDICT_KEYS: Readonly<Record<AssetInspectionVerdict, string>> = {
+  pending: 'ui.assetFacts.verdict.pending',
+  measured: 'ui.assetFacts.verdict.measured',
+  unsupported: 'ui.assetFacts.verdict.unsupported',
+  corrupt: 'ui.assetFacts.verdict.corrupt',
+  missing_resources: 'ui.assetFacts.verdict.missing_resources',
+  failed: 'ui.assetFacts.verdict.failed',
+  refused_too_large: 'ui.assetFacts.verdict.refused_too_large',
 };
 
 /* -------------------------------------------------------------------------- */
 /* The licence (#1015 W2, ADR 0010 D3/D4)                                      */
 /* -------------------------------------------------------------------------- */
 
-export const ASSET_LICENCE_TITLE_KEY = "ui.assetLicence.title";
+export const ASSET_LICENCE_TITLE_KEY = 'ui.assetLicence.title';
 /** Heading over the rights the version GRANTS. */
-export const ASSET_LICENCE_GRANTED_TITLE_KEY = "ui.assetLicence.grantedTitle";
+export const ASSET_LICENCE_GRANTED_TITLE_KEY = 'ui.assetLicence.grantedTitle';
 /**
  * Heading over the rights it does not.
  *
@@ -150,31 +146,31 @@ export const ASSET_LICENCE_GRANTED_TITLE_KEY = "ui.assetLicence.grantedTitle";
  * listed only the grants would leave "may I redistribute the files?" answered by
  * silence. The complement is derived from the shared tuple, never listed here.
  */
-export const ASSET_LICENCE_NOT_GRANTED_TITLE_KEY = "ui.assetLicence.notGrantedTitle";
-export const ASSET_LICENCE_ATTRIBUTION_TITLE_KEY = "ui.assetLicence.attributionTitle";
-export const ASSET_LICENCE_UPDATES_TITLE_KEY = "ui.assetLicence.updatesTitle";
-export const ASSET_LICENCE_LIMITS_TITLE_KEY = "ui.assetLicence.limitsTitle";
+export const ASSET_LICENCE_NOT_GRANTED_TITLE_KEY = 'ui.assetLicence.notGrantedTitle';
+export const ASSET_LICENCE_ATTRIBUTION_TITLE_KEY = 'ui.assetLicence.attributionTitle';
+export const ASSET_LICENCE_UPDATES_TITLE_KEY = 'ui.assetLicence.updatesTitle';
+export const ASSET_LICENCE_LIMITS_TITLE_KEY = 'ui.assetLicence.limitsTitle';
 /** Heading over `DigitalLicenceVersionTerms.additionalTerms`, shown verbatim. */
-export const ASSET_LICENCE_ADDITIONAL_TERMS_TITLE_KEY = "ui.assetLicence.additionalTermsTitle";
+export const ASSET_LICENCE_ADDITIONAL_TERMS_TITLE_KEY = 'ui.assetLicence.additionalTermsTitle';
 /** `Up to %{seats} people` — the bounded case. */
-export const ASSET_LICENCE_SEATS_KEY = "ui.assetLicence.seats";
+export const ASSET_LICENCE_SEATS_KEY = 'ui.assetLicence.seats';
 /** The `null` case, which ADR 0010 notes is the ORDINARY one. */
-export const ASSET_LICENCE_SEATS_UNLIMITED_KEY = "ui.assetLicence.seatsUnlimited";
-export const ASSET_LICENCE_PROJECTS_KEY = "ui.assetLicence.projects";
-export const ASSET_LICENCE_PROJECTS_UNLIMITED_KEY = "ui.assetLicence.projectsUnlimited";
-export const ASSET_LICENCE_REVENUE_KEY = "ui.assetLicence.revenue";
-export const ASSET_LICENCE_REVENUE_UNLIMITED_KEY = "ui.assetLicence.revenueUnlimited";
+export const ASSET_LICENCE_SEATS_UNLIMITED_KEY = 'ui.assetLicence.seatsUnlimited';
+export const ASSET_LICENCE_PROJECTS_KEY = 'ui.assetLicence.projects';
+export const ASSET_LICENCE_PROJECTS_UNLIMITED_KEY = 'ui.assetLicence.projectsUnlimited';
+export const ASSET_LICENCE_REVENUE_KEY = 'ui.assetLicence.revenue';
+export const ASSET_LICENCE_REVENUE_UNLIMITED_KEY = 'ui.assetLicence.revenueUnlimited';
 
 /** Every right a licence version may grant, as a buyer would say it. */
 export const DIGITAL_LICENCE_RIGHT_KEYS: Readonly<Record<DigitalLicenceRight, string>> = {
-  personal_use: "ui.assetLicence.right.personal_use",
-  commercial_project_use: "ui.assetLicence.right.commercial_project_use",
-  commercial_physical_production: "ui.assetLicence.right.commercial_physical_production",
-  modification: "ui.assetLicence.right.modification",
-  derivative_redistribution: "ui.assetLicence.right.derivative_redistribution",
-  source_redistribution: "ui.assetLicence.right.source_redistribution",
-  sublicensing: "ui.assetLicence.right.sublicensing",
-  extended_enterprise_use: "ui.assetLicence.right.extended_enterprise_use",
+  personal_use: 'ui.assetLicence.right.personal_use',
+  commercial_project_use: 'ui.assetLicence.right.commercial_project_use',
+  commercial_physical_production: 'ui.assetLicence.right.commercial_physical_production',
+  modification: 'ui.assetLicence.right.modification',
+  derivative_redistribution: 'ui.assetLicence.right.derivative_redistribution',
+  source_redistribution: 'ui.assetLicence.right.source_redistribution',
+  sublicensing: 'ui.assetLicence.right.sublicensing',
+  extended_enterprise_use: 'ui.assetLicence.right.extended_enterprise_use',
 };
 
 /**
@@ -188,9 +184,9 @@ export const DIGITAL_LICENCE_RIGHT_KEYS: Readonly<Record<DigitalLicenceRight, st
 export const DIGITAL_LICENCE_ATTRIBUTION_KEYS: Readonly<
   Record<DigitalLicenceAttributionMode, string>
 > = {
-  required: "ui.assetLicence.attribution.required",
-  optional: "ui.assetLicence.attribution.optional",
-  not_required: "ui.assetLicence.attribution.not_required",
+  required: 'ui.assetLicence.attribution.required',
+  optional: 'ui.assetLicence.attribution.optional',
+  not_required: 'ui.assetLicence.attribution.not_required',
 };
 
 /**
@@ -205,29 +201,27 @@ export const DIGITAL_LICENCE_ATTRIBUTION_KEYS: Readonly<
 export const DIGITAL_LICENCE_UPDATE_POLICY_KEYS: Readonly<
   Record<DigitalLicenceUpdatePolicy, string>
 > = {
-  purchased_version_only: "ui.assetLicence.updatePolicy.purchased_version_only",
-  same_major_version: "ui.assetLicence.updatePolicy.same_major_version",
-  all_future_versions: "ui.assetLicence.updatePolicy.all_future_versions",
+  purchased_version_only: 'ui.assetLicence.updatePolicy.purchased_version_only',
+  same_major_version: 'ui.assetLicence.updatePolicy.same_major_version',
+  all_future_versions: 'ui.assetLicence.updatePolicy.all_future_versions',
 };
 
 /** Whose text this is — Mercaria's reference licence or the creator's own. */
-export const DIGITAL_LICENCE_AUTHORSHIP_KEYS: Readonly<
-  Record<DigitalLicenceAuthorship, string>
-> = {
-  mercaria_reference: "ui.assetLicence.authorship.mercaria_reference",
-  creator: "ui.assetLicence.authorship.creator",
+export const DIGITAL_LICENCE_AUTHORSHIP_KEYS: Readonly<Record<DigitalLicenceAuthorship, string>> = {
+  mercaria_reference: 'ui.assetLicence.authorship.mercaria_reference',
+  creator: 'ui.assetLicence.authorship.creator',
 };
 
 /* -------------------------------------------------------------------------- */
 /* The buyer's library (#1015 W9)                                              */
 /* -------------------------------------------------------------------------- */
 
-export const ASSET_LIBRARY_FILES_TITLE_KEY = "ui.assetLibrary.filesTitle";
-export const ASSET_LIBRARY_DOWNLOAD_ACTION_KEY = "ui.assetLibrary.downloadAction";
+export const ASSET_LIBRARY_FILES_TITLE_KEY = 'ui.assetLibrary.filesTitle';
+export const ASSET_LIBRARY_DOWNLOAD_ACTION_KEY = 'ui.assetLibrary.downloadAction';
 /** `Download %{file}` — the announced label, which names the file. */
-export const ASSET_LIBRARY_DOWNLOAD_A11Y_KEY = "ui.assetLibrary.downloadA11y";
+export const ASSET_LIBRARY_DOWNLOAD_A11Y_KEY = 'ui.assetLibrary.downloadA11y';
 /** A `preview_only` file: rendered, never handed over. */
-export const ASSET_LIBRARY_NOT_DOWNLOADABLE_KEY = "ui.assetLibrary.notDownloadable";
+export const ASSET_LIBRARY_NOT_DOWNLOADABLE_KEY = 'ui.assetLibrary.notDownloadable';
 /**
  * Why the download controls are absent.
  *
@@ -237,14 +231,14 @@ export const ASSET_LIBRARY_NOT_DOWNLOADABLE_KEY = "ui.assetLibrary.notDownloadab
  * is the one member list this branch reads, so the library and the authorizer
  * cannot disagree about what a held right may do.
  */
-export const ASSET_LIBRARY_DOWNLOADS_PAUSED_KEY = "ui.assetLibrary.downloadsPaused";
-export const ASSET_LIBRARY_GRANTED_ON_KEY = "ui.assetLibrary.grantedOn";
-export const ASSET_LIBRARY_LICENCE_KEY = "ui.assetLibrary.licence";
+export const ASSET_LIBRARY_DOWNLOADS_PAUSED_KEY = 'ui.assetLibrary.downloadsPaused';
+export const ASSET_LIBRARY_GRANTED_ON_KEY = 'ui.assetLibrary.grantedOn';
+export const ASSET_LIBRARY_LICENCE_KEY = 'ui.assetLibrary.licence';
 /** The version the purchase PINNED — never the asset's newest. */
-export const ASSET_LIBRARY_PURCHASED_VERSION_KEY = "ui.assetLibrary.purchasedVersion";
+export const ASSET_LIBRARY_PURCHASED_VERSION_KEY = 'ui.assetLibrary.purchasedVersion';
 /** The newest version this right actually covers, per its update policy. */
-export const ASSET_LIBRARY_AVAILABLE_VERSION_KEY = "ui.assetLibrary.availableVersion";
-export const ASSET_LIBRARY_UPDATE_AVAILABLE_KEY = "ui.assetLibrary.updateAvailable";
+export const ASSET_LIBRARY_AVAILABLE_VERSION_KEY = 'ui.assetLibrary.availableVersion';
+export const ASSET_LIBRARY_UPDATE_AVAILABLE_KEY = 'ui.assetLibrary.updateAvailable';
 
 /**
  * Whether a right authorizes a download, and what it means when it does not.
@@ -256,9 +250,9 @@ export const ASSET_LIBRARY_UPDATE_AVAILABLE_KEY = "ui.assetLibrary.updateAvailab
  * one that never happened.
  */
 export const ASSET_RIGHT_STATUS_KEYS: Readonly<Record<AssetRightStatus, string>> = {
-  active: "ui.assetLibrary.status.active",
-  refunded: "ui.assetLibrary.status.refunded",
-  disputed_hold: "ui.assetLibrary.status.disputed_hold",
-  revoked_for_policy: "ui.assetLibrary.status.revoked_for_policy",
-  superseded: "ui.assetLibrary.status.superseded",
+  active: 'ui.assetLibrary.status.active',
+  refunded: 'ui.assetLibrary.status.refunded',
+  disputed_hold: 'ui.assetLibrary.status.disputed_hold',
+  revoked_for_policy: 'ui.assetLibrary.status.revoked_for_policy',
+  superseded: 'ui.assetLibrary.status.superseded',
 };

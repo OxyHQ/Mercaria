@@ -36,10 +36,7 @@
  */
 
 import { and, desc, eq, gt, sql } from 'drizzle-orm';
-import type {
-  AffiliateNetworkId,
-  AffiliateReportFailureReason,
-} from '@mercaria/shared-types';
+import type { AffiliateNetworkId, AffiliateReportFailureReason } from '@mercaria/shared-types';
 import { affiliateReportRuns } from '../schema/affiliateOutbound.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 

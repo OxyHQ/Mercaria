@@ -35,12 +35,19 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 
 import { connectPostgres, type Database } from '../../../db/postgres.js';
-import { findCategoryBreadcrumb, findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
+import {
+  findCategoryBreadcrumb,
+  findCategoryByKey,
+} from '../../../db/taxonomy/taxonomyRepository.js';
 import { readLocalizedCategories } from '../../../services/catalog-localization/read.service.js';
 import { resolveDefinitionsForCategory } from '../../../services/attributes/definition-registry.service.js';
 import { resolveFacets } from '../../../services/facets/facet.service.js';
 import { readCanonicalProductPage } from '../../../services/product-page/product-page.service.js';
-import { createDraft, patchDraft, validateStoreDraft } from '../../../services/catalog-authoring/draft.service.js';
+import {
+  createDraft,
+  patchDraft,
+  validateStoreDraft,
+} from '../../../services/catalog-authoring/draft.service.js';
 import { publishDraft } from '../../../services/catalog-authoring/publish.service.js';
 import { composeAuthoringSchema } from '../../../services/catalog-authoring/schema.service.js';
 import { FOOTWEAR_PACKAGE, TRAILWIND_ABSENT_COMBINATIONS } from '../footwear.js';
@@ -249,7 +256,9 @@ describe('localized labels and the fallback chain', () => {
 describe('the size systems are not collapsed, and the audience is the scope', () => {
   it("offers the men's US system in the men's department and NOT the women's", async () => {
     const mens = (await resolveDefinitionsForCategory(db, mensCategoryId)).map((d) => d.row.key);
-    const womens = (await resolveDefinitionsForCategory(db, womensCategoryId)).map((d) => d.row.key);
+    const womens = (await resolveDefinitionsForCategory(db, womensCategoryId)).map(
+      (d) => d.row.key,
+    );
 
     // Vacuity floor first: an empty list satisfies every "does not contain"
     // below and is exactly what a broken scope query returns.
@@ -394,9 +403,12 @@ describe('the colour family and the commercial colourway are different facts', (
       expect(pair.normalized_text).not.toBeNull();
       expect(pair.source_display_value).not.toBe(pair.normalized_text);
     }
-    expect(pairs.filter((pair) => pair.normalized_text === 'black').map((p) => p.source_display_value).sort()).toEqual(
-      ['Jet Black', 'Midnight'],
-    );
+    expect(
+      pairs
+        .filter((pair) => pair.normalized_text === 'black')
+        .map((p) => p.source_display_value)
+        .sort(),
+    ).toEqual(['Jet Black', 'Midnight']);
   });
 
   it('refuses the colourway as a facet, naming the reason', async () => {
@@ -560,7 +572,9 @@ describe('the multi-axis matrix is sparse, and provably so', () => {
       join canonical_products p on p.id = v.product_id
       where p.slug = ${nsSlug(ns, 'kestrel-trailwind-3')}
     `);
-    const { createVariant } = await import('../../../services/canonical/canonical-variant.service.js');
+    const { createVariant } = await import(
+      '../../../services/canonical/canonical-variant.service.js'
+    );
     const productRows = await db.execute<{ id: string }>(sql`
       select id from canonical_products where slug = ${nsSlug(ns, 'kestrel-trailwind-3')}
     `);
@@ -657,7 +671,10 @@ describe('authoring → publication → the product page', () => {
       permissions: PERMISSIONS,
       description: 'Seeded by the footwear reference vertical.',
       fields: [
-        { attributeKey: nsKey(ns, 'upper_material'), values: [{ enumValueId: await enumId('upper_material', 'mesh') }] },
+        {
+          attributeKey: nsKey(ns, 'upper_material'),
+          values: [{ enumValueId: await enumId('upper_material', 'mesh') }],
+        },
       ],
       variants: [
         {
@@ -665,9 +682,18 @@ describe('authoring → publication → the product page', () => {
           inventoryAvailable: 4,
           price: { amount: 12900, currency: 'EUR' },
           axes: [
-            { attributeKey: nsKey(ns, 'shoe_size_eu'), values: [{ enumValueId: await enumId('shoe_size_eu', '42') }] },
-            { attributeKey: nsKey(ns, 'footwear_color'), values: [{ enumValueId: await enumId('footwear_color', 'black') }] },
-            { attributeKey: nsKey(ns, 'shoe_width'), values: [{ enumValueId: await enumId('shoe_width', 'standard') }] },
+            {
+              attributeKey: nsKey(ns, 'shoe_size_eu'),
+              values: [{ enumValueId: await enumId('shoe_size_eu', '42') }],
+            },
+            {
+              attributeKey: nsKey(ns, 'footwear_color'),
+              values: [{ enumValueId: await enumId('footwear_color', 'black') }],
+            },
+            {
+              attributeKey: nsKey(ns, 'shoe_width'),
+              values: [{ enumValueId: await enumId('shoe_width', 'standard') }],
+            },
           ],
         },
       ],

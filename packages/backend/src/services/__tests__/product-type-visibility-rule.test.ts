@@ -58,16 +58,30 @@ function parsed(candidate: unknown): ProductTypeVisibilityRule {
 
 describe('parsing refuses everything outside the language', () => {
   it('accepts the four leaf shapes and the three combinators', () => {
-    expect(parseVisibilityRule({ node: 'compare', field: 'ram', op: 'gte', value: 16 }).outcome).toBe('valid');
-    expect(parseVisibilityRule({ node: 'membership', field: 'ports', op: 'includes_any', values: ['usb_c'] }).outcome).toBe('valid');
-    expect(parseVisibilityRule({ node: 'presence', field: 'gtin', op: 'is_present' }).outcome).toBe('valid');
+    expect(
+      parseVisibilityRule({ node: 'compare', field: 'ram', op: 'gte', value: 16 }).outcome,
+    ).toBe('valid');
+    expect(
+      parseVisibilityRule({
+        node: 'membership',
+        field: 'ports',
+        op: 'includes_any',
+        values: ['usb_c'],
+      }).outcome,
+    ).toBe('valid');
+    expect(parseVisibilityRule({ node: 'presence', field: 'gtin', op: 'is_present' }).outcome).toBe(
+      'valid',
+    );
     expect(
       parseVisibilityRule({
         node: 'all',
         rules: [
           { node: 'presence', field: 'gtin', op: 'is_absent' },
           { node: 'not', rule: { node: 'compare', field: 'ram', op: 'eq', value: 8 } },
-          { node: 'any', rules: [{ node: 'membership', field: 'color', op: 'in', values: ['black'] }] },
+          {
+            node: 'any',
+            rules: [{ node: 'membership', field: 'color', op: 'in', values: ['black'] }],
+          },
         ],
       }).outcome,
     ).toBe('valid');
@@ -223,11 +237,34 @@ describe('evaluation is three-valued and unknown never satisfies anything', () =
   };
 
   it('answers definitely when it can', () => {
-    expect(evaluateVisibilityRule(parsed({ node: 'compare', field: 'ram', op: 'gte', value: 16 }), values).outcome).toBe('satisfied');
-    expect(evaluateVisibilityRule(parsed({ node: 'compare', field: 'ram', op: 'gt', value: 16 }), values).outcome).toBe('unsatisfied');
-    expect(evaluateVisibilityRule(parsed({ node: 'membership', field: 'color', op: 'in', values: ['black', 'white'] }), values).outcome).toBe('satisfied');
-    expect(evaluateVisibilityRule(parsed({ node: 'membership', field: 'color', op: 'not_in', values: ['black'] }), values).outcome).toBe('unsatisfied');
-    expect(evaluateVisibilityRule(parsed({ node: 'membership', field: 'ports', op: 'includes_any', values: ['hdmi'] }), values).outcome).toBe('satisfied');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'compare', field: 'ram', op: 'gte', value: 16 }),
+        values,
+      ).outcome,
+    ).toBe('satisfied');
+    expect(
+      evaluateVisibilityRule(parsed({ node: 'compare', field: 'ram', op: 'gt', value: 16 }), values)
+        .outcome,
+    ).toBe('unsatisfied');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'membership', field: 'color', op: 'in', values: ['black', 'white'] }),
+        values,
+      ).outcome,
+    ).toBe('satisfied');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'membership', field: 'color', op: 'not_in', values: ['black'] }),
+        values,
+      ).outcome,
+    ).toBe('unsatisfied');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'membership', field: 'ports', op: 'includes_any', values: ['hdmi'] }),
+        values,
+      ).outcome,
+    ).toBe('satisfied');
   });
 
   it('answers unknown for an unanswered field and names it', () => {
@@ -244,17 +281,45 @@ describe('evaluation is three-valued and unknown never satisfies anything', () =
     // one — the same statement. An empty array is different: "this has no ports"
     // is an answer, and reading it as silence makes a rule keyed on it never
     // fire for exactly the products it describes.
-    expect(evaluateVisibilityRule(parsed({ node: 'presence', field: 'cleared', op: 'is_absent' }), values).outcome).toBe('satisfied');
-    expect(evaluateVisibilityRule(parsed({ node: 'presence', field: 'never_set', op: 'is_absent' }), values).outcome).toBe('satisfied');
-    expect(evaluateVisibilityRule(parsed({ node: 'presence', field: 'empty', op: 'is_present' }), values).outcome).toBe('satisfied');
-    expect(evaluateVisibilityRule(parsed({ node: 'membership', field: 'empty', op: 'includes_any', values: ['x'] }), values).outcome).toBe('unsatisfied');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'presence', field: 'cleared', op: 'is_absent' }),
+        values,
+      ).outcome,
+    ).toBe('satisfied');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'presence', field: 'never_set', op: 'is_absent' }),
+        values,
+      ).outcome,
+    ).toBe('satisfied');
+    expect(
+      evaluateVisibilityRule(parsed({ node: 'presence', field: 'empty', op: 'is_present' }), values)
+        .outcome,
+    ).toBe('satisfied');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'membership', field: 'empty', op: 'includes_any', values: ['x'] }),
+        values,
+      ).outcome,
+    ).toBe('unsatisfied');
   });
 
   it('never coerces a numeric-looking string', () => {
     // `'010' < '9'` must not become a fact about a product.
     const stringy: ProductTypeRuleValues = { ram: '16' };
-    expect(evaluateVisibilityRule(parsed({ node: 'compare', field: 'ram', op: 'gte', value: 16 }), stringy).outcome).toBe('unknown');
-    expect(evaluateVisibilityRule(parsed({ node: 'compare', field: 'ram', op: 'eq', value: 16 }), stringy).outcome).toBe('unsatisfied');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'compare', field: 'ram', op: 'gte', value: 16 }),
+        stringy,
+      ).outcome,
+    ).toBe('unknown');
+    expect(
+      evaluateVisibilityRule(
+        parsed({ node: 'compare', field: 'ram', op: 'eq', value: 16 }),
+        stringy,
+      ).outcome,
+    ).toBe('unsatisfied');
   });
 
   it('applies Kleene logic: a definite failure beats an unknown', () => {
@@ -299,11 +364,17 @@ describe('evaluation is three-valued and unknown never satisfies anything', () =
 describe('the effective requirement', () => {
   it('is the declared one only when the condition is definitely satisfied', () => {
     expect(effectiveFieldRequirement('required', null)).toBe('required');
-    expect(effectiveFieldRequirement('required', { outcome: 'satisfied', unknownFields: [] })).toBe('required');
-    expect(effectiveFieldRequirement('required', { outcome: 'unsatisfied', unknownFields: [] })).toBe('hidden');
+    expect(effectiveFieldRequirement('required', { outcome: 'satisfied', unknownFields: [] })).toBe(
+      'required',
+    );
+    expect(
+      effectiveFieldRequirement('required', { outcome: 'unsatisfied', unknownFields: [] }),
+    ).toBe('hidden');
     // The decision that keeps an authoring form from deadlocking: a field whose
     // precondition nobody has answered cannot be REQUIRED.
-    expect(effectiveFieldRequirement('required', { outcome: 'unknown', unknownFields: ['storage'] })).toBe('hidden');
+    expect(
+      effectiveFieldRequirement('required', { outcome: 'unknown', unknownFields: ['storage'] }),
+    ).toBe('hidden');
   });
 
   /**
@@ -341,7 +412,9 @@ describe('the effective requirement', () => {
    * declared requirement level, so `effectiveFieldRequirement`'s coverage over
    * the five levels rests entirely on the table cases here.
    */
-  const CONDITIONAL_COLLAPSE_UNREPRESENTABLE: readonly ProductTypeFieldRequirement[] = ['forbidden'];
+  const CONDITIONAL_COLLAPSE_UNREPRESENTABLE: readonly ProductTypeFieldRequirement[] = [
+    'forbidden',
+  ];
 
   it('exempts exactly one level from the conditional walk, and names why', () => {
     expect([...CONDITIONAL_COLLAPSE_UNREPRESENTABLE]).toEqual(['forbidden']);
@@ -418,10 +491,20 @@ function generateValidRule(next: () => number, depth: number): unknown {
   const leafOnly = depth >= PRODUCT_TYPE_RULE_MAX_DEPTH - 1;
   const roll = leafOnly ? next() * 0.6 : next();
   if (roll < 0.2) {
-    return { node: 'compare', field: pick(next, FIELD_KEYS), op: pick(next, ['eq', 'ne']), value: pick(next, ['black', 42, true]) };
+    return {
+      node: 'compare',
+      field: pick(next, FIELD_KEYS),
+      op: pick(next, ['eq', 'ne']),
+      value: pick(next, ['black', 42, true]),
+    };
   }
   if (roll < 0.4) {
-    return { node: 'compare', field: pick(next, FIELD_KEYS), op: pick(next, ['gt', 'gte', 'lt', 'lte']), value: Math.floor(next() * 1000) };
+    return {
+      node: 'compare',
+      field: pick(next, FIELD_KEYS),
+      op: pick(next, ['gt', 'gte', 'lt', 'lte']),
+      value: Math.floor(next() * 1000),
+    };
   }
   if (roll < 0.6) {
     const count = 1 + Math.floor(next() * 4);
@@ -433,7 +516,11 @@ function generateValidRule(next: () => number, depth: number): unknown {
     };
   }
   if (roll < 0.75) {
-    return { node: 'presence', field: pick(next, FIELD_KEYS), op: pick(next, ['is_present', 'is_absent']) };
+    return {
+      node: 'presence',
+      field: pick(next, FIELD_KEYS),
+      op: pick(next, ['is_present', 'is_absent']),
+    };
   }
   if (roll < 0.85) {
     return { node: 'not', rule: generateValidRule(next, depth + 1) };
@@ -449,13 +536,41 @@ function generateValidRule(next: () => number, depth: number): unknown {
 function generateJunk(next: () => number, depth: number): unknown {
   const roll = next();
   if (depth > 5 || roll < 0.2) {
-    return pick(next, [null, undefined, 0, -1, Number.NaN, Number.POSITIVE_INFINITY, '', 'node', true, [], {}, { node: 'compare' }]);
+    return pick(next, [
+      null,
+      undefined,
+      0,
+      -1,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      '',
+      'node',
+      true,
+      [],
+      {},
+      { node: 'compare' },
+    ]);
   }
   if (roll < 0.4) {
     return {
-      node: pick(next, ['compare', 'membership', 'presence', 'all', 'any', 'not', 'exec', '', 'Compare']),
+      node: pick(next, [
+        'compare',
+        'membership',
+        'presence',
+        'all',
+        'any',
+        'not',
+        'exec',
+        '',
+        'Compare',
+      ]),
       field: pick(next, [...FIELD_KEYS, 'Bad Key', '', '__proto__', 'a'.repeat(400), 7]),
-      op: pick(next, [...PRODUCT_TYPE_RULE_OPERATORS, ...PRODUCT_TYPE_FORBIDDEN_RULE_OPERATORS, '', 42]),
+      op: pick(next, [
+        ...PRODUCT_TYPE_RULE_OPERATORS,
+        ...PRODUCT_TYPE_FORBIDDEN_RULE_OPERATORS,
+        '',
+        42,
+      ]),
       value: pick(next, ['x', 1, false, null, {}, []]),
       values: pick(next, [[], ['a'], [{}], 'not-an-array', Array.from({ length: 40 }, () => 'v')]),
       rules: pick(next, [[], 'nope', [generateJunk(next, depth + 1)]]),
@@ -463,8 +578,12 @@ function generateJunk(next: () => number, depth: number): unknown {
       __proto__: { node: 'presence', field: 'ram', op: 'is_present' },
     };
   }
-  if (roll < 0.6) return Array.from({ length: 1 + Math.floor(next() * 4) }, () => generateJunk(next, depth + 1));
-  return { node: pick(next, ['all', 'any']), rules: Array.from({ length: 1 + Math.floor(next() * 5) }, () => generateJunk(next, depth + 1)) };
+  if (roll < 0.6)
+    return Array.from({ length: 1 + Math.floor(next() * 4) }, () => generateJunk(next, depth + 1));
+  return {
+    node: pick(next, ['all', 'any']),
+    rules: Array.from({ length: 1 + Math.floor(next() * 5) }, () => generateJunk(next, depth + 1)),
+  };
 }
 
 /**
@@ -529,7 +648,10 @@ function generateValues(next: () => number): ProductTypeRuleValues {
     else if (roll < 0.55) values[key] = Math.floor(next() * 1000);
     else if (roll < 0.75) values[key] = pick(next, ['black', 'usb_c', '16']);
     else if (roll < 0.85) values[key] = next() < 0.5;
-    else values[key] = Array.from({ length: Math.floor(next() * 4) }, () => pick(next, ['usb_c', 'hdmi', 3]));
+    else
+      values[key] = Array.from({ length: Math.floor(next() * 4) }, () =>
+        pick(next, ['usb_c', 'hdmi', 3]),
+      );
   }
   return values as ProductTypeRuleValues;
 }
@@ -651,7 +773,9 @@ describe('fuzz: the interpreter is bounded, total and deterministic', () => {
 
     // A `__proto__`-carrying candidate. Every property is read with
     // `hasOwnProperty`, so an inherited `node` cannot answer for a missing one.
-    const polluted = JSON.parse('{"__proto__": {"node": "presence", "field": "ram", "op": "is_present"}}');
+    const polluted = JSON.parse(
+      '{"__proto__": {"node": "presence", "field": "ram", "op": "is_present"}}',
+    );
     const pollutedResult = parseVisibilityRule(polluted);
     expect(pollutedResult.outcome).toBe('invalid');
     if (pollutedResult.outcome === 'invalid') expect(pollutedResult.refusal).toBe('unknown_node');

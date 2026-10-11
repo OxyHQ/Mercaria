@@ -106,9 +106,7 @@ export function renderSeoHead(document: SeoDocument): string {
   if (sharing.imageUrl !== undefined) parts.push(metaName('twitter:image', sharing.imageUrl));
 
   for (const node of document.structuredData) {
-    parts.push(
-      `<script type="application/ld+json">${escapeJsonLd(node)}</script>`,
-    );
+    parts.push(`<script type="application/ld+json">${escapeJsonLd(node)}</script>`);
   }
 
   return parts.join('');

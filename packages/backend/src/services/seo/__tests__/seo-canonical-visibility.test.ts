@@ -68,8 +68,8 @@ describe('#888 — SEO cannot bypass the canonical visibility filter', () => {
     for (const module of UNFILTERED_ROW_SOURCES) {
       expect(
         source.includes(module),
-        `seo.service.ts imports ${module}, which returns an unfiltered row — `
-          + 'a suppressed product would reach a rel=canonical again',
+        `seo.service.ts imports ${module}, which returns an unfiltered row — ` +
+          'a suppressed product would reach a rel=canonical again',
       ).toBe(false);
     }
   });

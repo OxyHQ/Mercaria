@@ -119,7 +119,8 @@ const WALLS: Wall[] = [
     files: PILOT_FILES,
     pattern:
       /from\s+['"][^'"]*(supplier-orders\/|procurement\/purchase-order|refund\.service|retail-checkout\/fulfilment)[^'"]*['"]/,
-    probe: "import { submitPurchaseOrderToSupplier } from '../supplier-orders/submission.service.js';",
+    probe:
+      "import { submitPurchaseOrderToSupplier } from '../supplier-orders/submission.service.js';",
   },
   {
     // A pilot bound is not a payment decision and must never become one. The
@@ -180,9 +181,14 @@ describe('retail pilot and Printful isolation (static)', () => {
     // and a single number lets one collapse to zero while the others carry it.
     const population = pilotPopulation();
     const from = (prefix: string) => population.filter((path) => path.startsWith(prefix)).length;
-    expect(from('services/retail-pilot/'), 'the service walk found nothing').toBeGreaterThanOrEqual(3);
+    expect(from('services/retail-pilot/'), 'the service walk found nothing').toBeGreaterThanOrEqual(
+      3,
+    );
     expect(from('db/retailPilot/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(1);
-    expect(from('controllers/'), 'the operator controller left the population').toBeGreaterThanOrEqual(1);
+    expect(
+      from('controllers/'),
+      'the operator controller left the population',
+    ).toBeGreaterThanOrEqual(1);
     expect(from('routes/'), 'the operator route left the population').toBeGreaterThanOrEqual(1);
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
     expect(PILOT_FILES.length).toBeGreaterThanOrEqual(7);

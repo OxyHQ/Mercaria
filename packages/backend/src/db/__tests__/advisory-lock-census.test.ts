@@ -839,9 +839,7 @@ describe('the advisory-lock census', () => {
     // session lock becomes an offender); one that stopped recognising the
     // statements reports a clean estate, which is indistinguishable from
     // success. These two floors are what separate them.
-    const compliantSession = allSites.filter(
-      (site) => site.scope === 'session' && site.compliant,
-    );
+    const compliantSession = allSites.filter((site) => site.scope === 'session' && site.compliant);
     const compliantTransaction = allSites.filter(
       (site) => site.scope === 'transaction' && site.compliant,
     );
@@ -890,7 +888,9 @@ describe('the advisory-lock census', () => {
       .map(
         (site) =>
           `${site.file}:${site.line} — ${site.scope}-scoped lock on ${
-            site.handle === null ? 'an unidentifiable handle' : `\`${site.handle}\` (${site.handleKind})`
+            site.handle === null
+              ? 'an unidentifiable handle'
+              : `\`${site.handle}\` (${site.handleKind})`
           }`,
       );
     expect(
@@ -1034,7 +1034,7 @@ describe('the advisory-lock census', () => {
     }
     expect(
       offenders,
-      'a database-wide `alter table … disable trigger` runs outside `withTriggerToggleLock`. On the POOL that DDL autocommits, so a throw before the matching enable leaves the trigger off for the rest of the run and every later file asserting it refuses a write passes vacuously. Wrap the window in `withTriggerToggleLock(db, async (tx) => …)` and issue every statement on `tx` — and before you do, check whether the trigger has an event the window can even fire: several of #283\'s turned out to be `before update` triggers bracketing a delete, and the narrowest window is no window.',
+      "a database-wide `alter table … disable trigger` runs outside `withTriggerToggleLock`. On the POOL that DDL autocommits, so a throw before the matching enable leaves the trigger off for the rest of the run and every later file asserting it refuses a write passes vacuously. Wrap the window in `withTriggerToggleLock(db, async (tx) => …)` and issue every statement on `tx` — and before you do, check whether the trigger has an event the window can even fire: several of #283's turned out to be `before update` triggers bracketing a delete, and the narrowest window is no window.",
     ).toEqual([]);
   });
 
@@ -1095,7 +1095,7 @@ describe('the advisory-lock census', () => {
 
     expect(
       offenders,
-      'a `withTriggerToggleLock` window disables triggers on more than one table. `alter table … disable trigger` takes ShareRowExclusive, which conflicts with the RowExclusive an ordinary INSERT/UPDATE/DELETE holds — so holding one table\'s lock while acquiring another\'s deadlocks (40P01) against any writer taking the pair the other way round, and the shared mutex cannot prevent it because it serialises windows against windows while the counterparty is a plain writer. Split it: one `withTriggerToggleLock` call per table, keeping the DELETES children-first where a foreign key requires it. Do NOT instead reorder the disables to match the current writer — both orders already exist in this repository, so that is a bet rather than a fix.',
+      "a `withTriggerToggleLock` window disables triggers on more than one table. `alter table … disable trigger` takes ShareRowExclusive, which conflicts with the RowExclusive an ordinary INSERT/UPDATE/DELETE holds — so holding one table's lock while acquiring another's deadlocks (40P01) against any writer taking the pair the other way round, and the shared mutex cannot prevent it because it serialises windows against windows while the counterparty is a plain writer. Split it: one `withTriggerToggleLock` call per table, keeping the DELETES children-first where a foreign key requires it. Do NOT instead reorder the disables to match the current writer — both orders already exist in this repository, so that is a bet rather than a fix.",
     ).toEqual([]);
   });
 
@@ -1204,7 +1204,9 @@ describe('the advisory-lock census', () => {
     // it was written against. Retirement condition at the constant.
     const anchored = all.filter((site) => site.file === TRIGGER_WINDOW_ANCHOR);
     expect(anchored.length, `${TRIGGER_WINDOW_ANCHOR} no longer opens a trigger window`).toBe(1);
-    expect(anchored[0]?.locked, `${TRIGGER_WINDOW_ANCHOR}'s own window read as unlocked`).toBe(true);
+    expect(anchored[0]?.locked, `${TRIGGER_WINDOW_ANCHOR}'s own window read as unlocked`).toBe(
+      true,
+    );
   });
 
   it('opens no trigger window from inside a transaction, a window or a slot', () => {
@@ -1244,7 +1246,7 @@ describe('the advisory-lock census', () => {
       );
     expect(
       offenders,
-      'a trigger-toggle window is opened from a place that can deadlock. The mutex is the transaction\'s FIRST statement precisely so a waiter holds no table locks while it queues — hoist the window out of the enclosing transaction, or take the slot before the window rather than inside it.',
+      "a trigger-toggle window is opened from a place that can deadlock. The mutex is the transaction's FIRST statement precisely so a waiter holds no table locks while it queues — hoist the window out of the enclosing transaction, or take the slot before the window rather than inside it.",
     ).toEqual([]);
   });
 
@@ -1264,7 +1266,10 @@ describe('the advisory-lock census', () => {
     const inWindow = probe(
       'await withTriggerToggleLock(db, async (a) => { await withTriggerToggleLock(db, async (b) => { await b.execute(sql`x`); }); });',
     );
-    expect(inWindow.some((site) => site.insideWindow), 'a nested window read as safe').toBe(true);
+    expect(
+      inWindow.some((site) => site.insideWindow),
+      'a nested window read as safe',
+    ).toBe(true);
 
     // The slot name here is FICTIONAL, and deliberately. `slot-teardown-census`
     // detects a holder with a regex over comment-stripped source, so it reads a
@@ -1316,9 +1321,10 @@ describe('the advisory-lock census', () => {
     `);
     expect(pooledSession, 'the shape #275 reported was not detected twice').toHaveLength(2);
     expect(pooledSession.every((site) => site.scope === 'session')).toBe(true);
-    expect(pooledSession.every((site) => site.compliant), 'a pooled session lock read as safe').toBe(
-      false,
-    );
+    expect(
+      pooledSession.every((site) => site.compliant),
+      'a pooled session lock read as safe',
+    ).toBe(false);
     expect(pooledSession[0]?.handle).toBe('db');
 
     const reservedSession = probe(`
@@ -1367,7 +1373,9 @@ describe('the advisory-lock census', () => {
       const tx = requireTransaction(db, 'lockPartnerCapWindow');
       await tx.execute(sql\`select pg_advisory_xact_lock(CLASS, hashtext(key))\`);
     `);
-    expect(guarded[0]?.compliant, 'a xact lock behind requireTransaction read as unsafe').toBe(true);
+    expect(guarded[0]?.compliant, 'a xact lock behind requireTransaction read as unsafe').toBe(
+      true,
+    );
 
     // And the helper's callback parameter, which is one call deeper than
     // drizzle's own `.transaction(`.
@@ -1407,7 +1415,7 @@ describe('the advisory-lock census', () => {
         await db.execute(sql\`alter table x disable trigger t\`);
       });
     `);
-    expect(wrongHandle[0]?.locked, "a pooled toggle inside the callback read as locked").toBe(
+    expect(wrongHandle[0]?.locked, 'a pooled toggle inside the callback read as locked').toBe(
       false,
     );
 
@@ -1440,9 +1448,9 @@ describe('the advisory-lock census', () => {
     // statement would fail the build on the documentation of the rule.
     const probe = (body: string): AdvisorySite[] => advisorySites('probe.ts', body);
     expect(probe('// await db.execute(sql`select pg_advisory_lock(1)`);')).toHaveLength(0);
-    expect(probe('/** Takes `pg_advisory_lock(1)` through the pool. */\nconst x = 1;')).toHaveLength(
-      0,
-    );
+    expect(
+      probe('/** Takes `pg_advisory_lock(1)` through the pool. */\nconst x = 1;'),
+    ).toHaveLength(0);
     expect(probe("const name = 'pg_advisory_lock';")).toHaveLength(0);
     // The one this census found in itself on its first run: an error message
     // quoting the function it exists to police. Untagged, therefore not a

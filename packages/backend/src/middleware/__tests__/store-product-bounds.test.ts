@@ -55,15 +55,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  MAX_VALUES_PER_VARIANT_AXIS,
-  MAX_VARIANT_AXES_PER_PRODUCT,
-} from '@mercaria/shared-types';
-import {
-  createStoreProductSchema,
-  ingestProductsSchema,
-  updateVariantSchema,
-} from '../schemas.js';
+import { MAX_VALUES_PER_VARIANT_AXIS, MAX_VARIANT_AXES_PER_PRODUCT } from '@mercaria/shared-types';
+import { createStoreProductSchema, ingestProductsSchema, updateVariantSchema } from '../schemas.js';
 
 function optionValues(n: number) {
   return Array.from({ length: n }, (_unused, i) => ({
@@ -88,7 +81,11 @@ function storeProduct(over: Record<string, unknown> = {}) {
     imageFileIds: [],
     options: options(1),
     variants: [
-      { optionValues: optionValues(1), price: { amount: 1, currency: 'FAIR' }, inventory: { available: 0 } },
+      {
+        optionValues: optionValues(1),
+        price: { amount: 1, currency: 'FAIR' },
+        inventory: { available: 0 },
+      },
     ],
     ...over,
   };
@@ -135,14 +132,19 @@ describe('createStoreProductSchema bounds the three dimensions that had none', (
     const withOptionValues = (n: number) =>
       storeProduct({
         variants: [
-          { optionValues: optionValues(n), price: { amount: 1, currency: 'FAIR' }, inventory: { available: 0 } },
+          {
+            optionValues: optionValues(n),
+            price: { amount: 1, currency: 'FAIR' },
+            inventory: { available: 0 },
+          },
         ],
       });
     expect(
       createStoreProductSchema.safeParse(withOptionValues(MAX_VARIANT_AXES_PER_PRODUCT)).success,
     ).toBe(true);
     expect(
-      createStoreProductSchema.safeParse(withOptionValues(MAX_VARIANT_AXES_PER_PRODUCT + 1)).success,
+      createStoreProductSchema.safeParse(withOptionValues(MAX_VARIANT_AXES_PER_PRODUCT + 1))
+        .success,
     ).toBe(false);
   });
 });

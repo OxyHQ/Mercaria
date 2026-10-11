@@ -83,7 +83,11 @@ export async function verifyLocationPlaceLink(input: {
     });
   }
 
-  return describePlaceLink({ locationId: location.id, goWayPlaceId: location.goWayPlaceId, lookup: read.lookup });
+  return describePlaceLink({
+    locationId: location.id,
+    goWayPlaceId: location.goWayPlaceId,
+    lookup: read.lookup,
+  });
 }
 
 /** The verdict and what GoWay shows, as the merchant reads it. */

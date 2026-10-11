@@ -215,7 +215,10 @@ export async function findStorefrontsByIds(
   ids: readonly string[],
 ): Promise<StorefrontRow[]> {
   if (ids.length === 0) return [];
-  return db.select().from(storefronts).where(inArray(storefronts.id, [...ids]));
+  return db
+    .select()
+    .from(storefronts)
+    .where(inArray(storefronts.id, [...ids]));
 }
 
 /**
@@ -234,10 +237,7 @@ export async function markStorefrontVerified(
     .update(storefronts)
     .set({ verificationState: 'verified', verifiedAt: input.verifiedAt })
     .where(
-      and(
-        eq(storefronts.id, input.storefrontId),
-        eq(storefronts.merchantId, input.merchantId),
-      ),
+      and(eq(storefronts.id, input.storefrontId), eq(storefronts.merchantId, input.merchantId)),
     )
     .returning();
   return row;

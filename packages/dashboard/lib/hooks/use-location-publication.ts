@@ -1,19 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   LocationPlaceLink,
   LocationPublicationState,
   MerchantLocationPublication,
   SetLocationPickupPauseInput,
   UpsertLocationPublicationInput,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   fetchLocationPublication,
   saveLocationPublication,
   setLocationPickupPause,
   setLocationPublicationState,
   verifyLocationPlaceLink,
-} from "../api/locations";
-import { queryKeys } from "../queryKeys";
+} from '../api/locations';
+import { queryKeys } from '../queryKeys';
 
 /** One location's publication; `null` when it has none yet. */
 export function useLocationPublication(storeId: string, locationId: string) {
@@ -58,7 +58,8 @@ export function useSaveLocationPublication(storeId: string, locationId: string) 
   const queryClient = useQueryClient();
   const invalidate = useInvalidatePublication(storeId, locationId);
   return useMutation({
-    mutationFn: (input: UpsertLocationPublicationInput) => saveLocationPublication(storeId, locationId, input),
+    mutationFn: (input: UpsertLocationPublicationInput) =>
+      saveLocationPublication(storeId, locationId, input),
     onSuccess: async (publication) => {
       const queryKey = queryKeys.locationPublication(storeId, locationId);
       await queryClient.cancelQueries({ queryKey, exact: true });
@@ -72,7 +73,8 @@ export function useSaveLocationPublication(storeId: string, locationId: string) 
 export function useSetLocationPublicationState(storeId: string, locationId: string) {
   const invalidate = useInvalidatePublication(storeId, locationId);
   return useMutation({
-    mutationFn: (state: LocationPublicationState) => setLocationPublicationState(storeId, locationId, state),
+    mutationFn: (state: LocationPublicationState) =>
+      setLocationPublicationState(storeId, locationId, state),
     // A refused publish is as worth re-reading as a success: the verdict that
     // refused it is what the screen shows next.
     onSettled: invalidate,
@@ -83,7 +85,8 @@ export function useSetLocationPublicationState(storeId: string, locationId: stri
 export function useSetLocationPickupPause(storeId: string, locationId: string) {
   const invalidate = useInvalidatePublication(storeId, locationId);
   return useMutation({
-    mutationFn: (input: SetLocationPickupPauseInput) => setLocationPickupPause(storeId, locationId, input),
+    mutationFn: (input: SetLocationPickupPauseInput) =>
+      setLocationPickupPause(storeId, locationId, input),
     onSuccess: invalidate,
   });
 }

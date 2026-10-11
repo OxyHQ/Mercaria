@@ -58,7 +58,6 @@ const MARKER = randomUUID().slice(0, 8);
  */
 let db: Database;
 
-
 /**
  * Assert that a statement was refused by a TRIGGER carrying a given message.
  *
@@ -71,10 +70,7 @@ let db: Database;
  * rather than exported, because a shared test helper between two realdb files
  * is a shared fixture dependency and this domain deliberately has none.
  */
-async function expectTriggerRefusal(
-  operation: Promise<unknown>,
-  message: RegExp,
-): Promise<void> {
+async function expectTriggerRefusal(operation: Promise<unknown>, message: RegExp): Promise<void> {
   let caught: unknown;
   try {
     await operation;
@@ -95,7 +91,6 @@ function subject(name: string): string {
 }
 
 describe('the abuse counters and interventions (#111)', () => {
-
   it('counts concurrently without losing an increment', async () => {
     // The property a read-then-write does NOT have. Twenty concurrent
     // increments against one window must total twenty; a read-then-write lets
@@ -235,7 +230,6 @@ describe('the abuse counters and interventions (#111)', () => {
 });
 
 describe('the security signal counters (#111)', () => {
-
   it('accumulates a DELTA, so a sweep can report a backlog in one write', async () => {
     const windowStartedAt = new Date(`2026-08-10T05:0${MARKER.charCodeAt(0) % 6}:00.000Z`);
     await countSecuritySignal(db, {
@@ -266,7 +260,6 @@ describe('the security signal counters (#111)', () => {
 });
 
 describe('the retention policy register (#111)', () => {
-
   it('publishes a complete schedule and reports full coverage', async () => {
     await db.transaction(async (tx) => {
       await publishRetentionPolicyVersion(tx, {
@@ -463,7 +456,6 @@ describe('legal holds pause ONE class for ONE group (#111 retention rule 7)', ()
 });
 
 describe('a data request is audited and never claims full deletion (#111)', () => {
-
   it('records a receipt whose retained classes each name a reason', async () => {
     const requestId = await db.transaction(async (tx) =>
       recordDataRequest(tx, {
@@ -528,7 +520,6 @@ describe('a data request is audited and never claims full deletion (#111)', () =
 });
 
 describe('the rollout gate (#111 acceptance 8)', () => {
-
   it('a WITHDRAWAL is a later row, and the latest verdict wins', async () => {
     await recordGateSignoff(db, {
       stage: 'stage_1_staff_canary',

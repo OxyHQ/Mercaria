@@ -33,7 +33,10 @@ import type { CompatibilityClaimRow } from '../../../db/compatibility/compatibil
  * fail on every unrelated schema addition, which is a test that measures the
  * schema instead of the guard.
  */
-function claim(subjectProductId: string | null, subjectVariantId: string | null): CompatibilityClaimRow {
+function claim(
+  subjectProductId: string | null,
+  subjectVariantId: string | null,
+): CompatibilityClaimRow {
   const partial: Partial<CompatibilityClaimRow> = {
     id: 'claim_1',
     subjectProductId,

@@ -50,7 +50,10 @@ import {
 } from '../../db/attributes/definitionRepository.js';
 import { conflict, validationError } from '../../lib/errors/error-codes.js';
 import { normalizeOptionValue } from '../canonical/variant-signature.js';
-import { draftAttributeDefinition, resolveActiveDefinition } from './definition-registry.service.js';
+import {
+  draftAttributeDefinition,
+  resolveActiveDefinition,
+} from './definition-registry.service.js';
 import { buildNextVersionInput } from './version-carry-forward.js';
 
 /** One controlled value being added, as the deciding operator settled it. */

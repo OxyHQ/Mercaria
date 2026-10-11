@@ -91,8 +91,7 @@ export function summariseObservations(input: {
     zeroPricedCount,
     medianPriceMinor: medianOf(dominantAmounts),
     dominantCurrency,
-    dominantCurrencyShare:
-      input.prices.length === 0 ? 0 : dominantCount / input.prices.length,
+    dominantCurrencyShare: input.prices.length === 0 ? 0 : dominantCount / input.prices.length,
   };
 }
 

@@ -125,7 +125,9 @@ afterAll(async () => {
   // reason. They are keyed to this run's own definition id and reference it by a
   // polymorphic column with no foreign key, so nothing blocks the deletes below
   // and nothing else can see them.
-  await db.execute(sql`delete from attribute_labels where attribute_definition_id = ${definition.id}`);
+  await db.execute(
+    sql`delete from attribute_labels where attribute_definition_id = ${definition.id}`,
+  );
   await db.execute(sql`delete from attribute_definitions where id = ${definition.id}`);
 }, 180_000);
 

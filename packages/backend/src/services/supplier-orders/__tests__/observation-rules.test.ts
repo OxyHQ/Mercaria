@@ -202,10 +202,9 @@ describe('the order capability boundary', () => {
   });
 
   it('refuses a delivery from an adapter that cannot read an order back', () => {
-    const result = applyDeclaredOrderCapabilities(
-      submission({ state: 'delivered' }),
-      ['order_draft_submission'],
-    );
+    const result = applyDeclaredOrderCapabilities(submission({ state: 'delivered' }), [
+      'order_draft_submission',
+    ]);
     expect(result.answer.state).toBe('unknown');
     expect(result.downgrades.map((entry) => entry.commitment)).toContain('assumed_delivery');
   });

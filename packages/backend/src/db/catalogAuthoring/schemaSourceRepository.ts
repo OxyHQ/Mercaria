@@ -24,10 +24,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { attributeDefinitions, attributeLabels } from '../schema/attributeRegistry.js';
 import { categories } from '../schema/catalog.js';
-import {
-  productTypeCategoryScopes,
-  productTypeDefinitions,
-} from '../schema/productTypes.js';
+import { productTypeCategoryScopes, productTypeDefinitions } from '../schema/productTypes.js';
 
 export type AttributeDefinitionRow = typeof attributeDefinitions.$inferSelect;
 export type AttributeLabelRow = typeof attributeLabels.$inferSelect;
@@ -49,17 +46,19 @@ export async function listAttributeDefinitionsByIds(
   ids: readonly string[],
 ): Promise<AttributeDefinitionRow[]> {
   if (ids.length === 0) return [];
-  return db
-    .select()
-    .from(attributeDefinitions)
-    .where(inArray(attributeDefinitions.id, [...ids]))
-    // `key` alone is not a total order over an id set: the only NON-partial
-    // unique here is `(key, version)`, and this read is deliberately by VERSION
-    // id, so two versions of one key can both be cited and tie. The composed
-    // schema is hashed into `authoringEtag`, so a tie is not cosmetic — it
-    // produces two validators for identical content and every revalidation
-    // misses. `version` completes the unique, which makes the order total.
-    .orderBy(asc(attributeDefinitions.key), asc(attributeDefinitions.version));
+  return (
+    db
+      .select()
+      .from(attributeDefinitions)
+      .where(inArray(attributeDefinitions.id, [...ids]))
+      // `key` alone is not a total order over an id set: the only NON-partial
+      // unique here is `(key, version)`, and this read is deliberately by VERSION
+      // id, so two versions of one key can both be cited and tie. The composed
+      // schema is hashed into `authoringEtag`, so a tie is not cosmetic — it
+      // produces two validators for identical content and every revalidation
+      // misses. `version` completes the unique, which makes the order total.
+      .orderBy(asc(attributeDefinitions.key), asc(attributeDefinitions.version))
+  );
 }
 
 /**
@@ -193,28 +192,27 @@ export async function listSelectableCategories(
   db: DatabaseOrTransaction,
   options: { parentId?: string | null; limit: number },
 ): Promise<CategoryRow[]> {
-  const selectable = and(
-    eq(categories.selectable, true),
-    eq(categories.lifecycle, 'published'),
+  const selectable = and(eq(categories.selectable, true), eq(categories.lifecycle, 'published'));
+  return (
+    db
+      .select()
+      .from(categories)
+      .where(
+        options.parentId === undefined
+          ? selectable
+          : options.parentId === null
+            ? and(selectable, sql`${categories.parentId} is null`)
+            : and(selectable, eq(categories.parentId, options.parentId)),
+      )
+      // `(position, name, slug)` and NOT `(position, name)`: `categories.name` carries
+      // no unique index, so two siblings sharing a position and a name were ordered by
+      // whatever the planner returned — a page-2 read could then repeat or drop one,
+      // and nothing anywhere would say so. `slug` carries `categories_slug_key`, so
+      // adding it makes the order TOTAL. `name` stays the leading display key because
+      // this is a picker a human reads.
+      .orderBy(asc(categories.position), asc(categories.name), asc(categories.slug))
+      .limit(options.limit)
   );
-  return db
-    .select()
-    .from(categories)
-    .where(
-      options.parentId === undefined
-        ? selectable
-        : options.parentId === null
-          ? and(selectable, sql`${categories.parentId} is null`)
-          : and(selectable, eq(categories.parentId, options.parentId)),
-    )
-    // `(position, name, slug)` and NOT `(position, name)`: `categories.name` carries
-    // no unique index, so two siblings sharing a position and a name were ordered by
-    // whatever the planner returned — a page-2 read could then repeat or drop one,
-    // and nothing anywhere would say so. `slug` carries `categories_slug_key`, so
-    // adding it makes the order TOTAL. `name` stays the leading display key because
-    // this is a picker a human reads.
-    .orderBy(asc(categories.position), asc(categories.name), asc(categories.slug))
-    .limit(options.limit);
 }
 
 /** One category, for the pin a draft states and a validation re-checks. */
@@ -222,11 +220,7 @@ export async function findCategoryRow(
   db: DatabaseOrTransaction,
   categoryId: string,
 ): Promise<CategoryRow | null> {
-  const rows = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.id, categoryId))
-    .limit(1);
+  const rows = await db.select().from(categories).where(eq(categories.id, categoryId)).limit(1);
   return rows[0] ?? null;
 }
 

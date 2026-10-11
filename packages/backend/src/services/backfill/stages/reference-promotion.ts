@@ -41,20 +41,26 @@ import {
 
 export async function runReferencePromotionPage(context: StageContext): Promise<StagePageResult> {
   const db = getDb();
-  const keyset: SQL | undefined = context.cursor === null ? undefined : gt(canonicalProducts.id, context.cursor);
+  const keyset: SQL | undefined =
+    context.cursor === null ? undefined : gt(canonicalProducts.id, context.cursor);
 
   // Rules 1 and 2 as the page: drafts this stage's sibling minted under APPLY.
   const rows = await db
     .selectDistinct({ id: canonicalProducts.id })
     .from(catalogBackfillRecords)
-    .innerJoin(canonicalProducts, eq(canonicalProducts.id, catalogBackfillRecords.canonicalProductId))
-    .where(and(
-      eq(catalogBackfillRecords.stage, 'reference_products'),
-      eq(catalogBackfillRecords.mode, 'apply'),
-      eq(catalogBackfillRecords.reasonCode, 'reference_product_minted'),
-      eq(canonicalProducts.status, 'draft'),
-      keyset,
-    ))
+    .innerJoin(
+      canonicalProducts,
+      eq(canonicalProducts.id, catalogBackfillRecords.canonicalProductId),
+    )
+    .where(
+      and(
+        eq(catalogBackfillRecords.stage, 'reference_products'),
+        eq(catalogBackfillRecords.mode, 'apply'),
+        eq(catalogBackfillRecords.reasonCode, 'reference_product_minted'),
+        eq(canonicalProducts.status, 'draft'),
+        keyset,
+      ),
+    )
     .orderBy(asc(canonicalProducts.id))
     .limit(context.limit);
 
@@ -64,16 +70,25 @@ export async function runReferencePromotionPage(context: StageContext): Promise<
     (row) => ({ kind: 'canonical_product', canonicalProductId: row.id }),
     (row) => decideProduct(context, row.id),
   );
-  return { counters, nextCursor: rows.length < context.limit ? null : (rows[rows.length - 1]?.id ?? null) };
+  return {
+    counters,
+    nextCursor: rows.length < context.limit ? null : (rows[rows.length - 1]?.id ?? null),
+  };
 }
 
 async function decideProduct(context: StageContext, productId: string): Promise<SubjectVerdict> {
   const db = getDb();
   const variantIds = (
-    await db.select({ id: canonicalVariants.id }).from(canonicalVariants).where(eq(canonicalVariants.productId, productId))
+    await db
+      .select({ id: canonicalVariants.id })
+      .from(canonicalVariants)
+      .where(eq(canonicalVariants.productId, productId))
   ).map((row) => row.id);
   if (variantIds.length === 0) {
-    return { reasonCode: 'promotion_awaiting_offer', detail: `product ${productId} has no variant` };
+    return {
+      reasonCode: 'promotion_awaiting_offer',
+      detail: `product ${productId} has no variant`,
+    };
   }
 
   // Rule 3: an active GTIN, or (ADR 0016) an active source link — a
@@ -81,27 +96,45 @@ async function decideProduct(context: StageContext, productId: string): Promise<
   const [identifier] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(productIdentifiers)
-    .where(and(inArray(productIdentifiers.variantId, variantIds), eq(productIdentifiers.status, 'active')));
+    .where(
+      and(
+        inArray(productIdentifiers.variantId, variantIds),
+        eq(productIdentifiers.status, 'active'),
+      ),
+    );
   const [anchor] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(canonicalVariantSourceLinks)
-    .where(and(inArray(canonicalVariantSourceLinks.variantId, variantIds), eq(canonicalVariantSourceLinks.status, 'active')));
+    .where(
+      and(
+        inArray(canonicalVariantSourceLinks.variantId, variantIds),
+        eq(canonicalVariantSourceLinks.status, 'active'),
+      ),
+    );
   if ((identifier?.count ?? 0) === 0 && (anchor?.count ?? 0) === 0) {
-    return { reasonCode: 'promotion_awaiting_offer', detail: `product ${productId} holds no active identifier or source link` };
+    return {
+      reasonCode: 'promotion_awaiting_offer',
+      detail: `product ${productId} holds no active identifier or source link`,
+    };
   }
 
   // Rule 4.
   const [priced] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(offers)
-    .where(and(
-      inArray(offers.canonicalVariantId, variantIds),
-      eq(offers.status, 'active'),
-      isNotNull(offers.priceAmount),
-    ));
+    .where(
+      and(
+        inArray(offers.canonicalVariantId, variantIds),
+        eq(offers.status, 'active'),
+        isNotNull(offers.priceAmount),
+      ),
+    );
   const pricedOffers = priced?.count ?? 0;
   if (pricedOffers === 0) {
-    return { reasonCode: 'promotion_awaiting_offer', detail: `product ${productId} has no active priced offer yet` };
+    return {
+      reasonCode: 'promotion_awaiting_offer',
+      detail: `product ${productId} has no active priced offer yet`,
+    };
   }
 
   await context.writer.promoteProduct({ productId, actorOxyUserId: context.actorOxyUserId });

@@ -41,9 +41,7 @@ export async function traceOfferHandler(req: Request, res: Response): Promise<vo
       sendError(res, ErrorCodes.NOT_FOUND, 'Offer not found', 404);
       return;
     }
-    const outbox = offer.listingId
-      ? await findOfferOutboxForListing(offer.listingId)
-      : undefined;
+    const outbox = offer.listingId ? await findOfferOutboxForListing(offer.listingId) : undefined;
     sendSuccess(res, {
       offer,
       convergence: outbox

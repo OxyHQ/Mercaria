@@ -239,10 +239,9 @@ describe('the Shopify default scopes cover what the connector actually calls', (
     // The exact failure #218 lands in: `read_products` alone, three topics
     // refused, three subscriptions created and their ids discarded.
     for (const topic of SHOPIFY_WEBHOOK_TOPICS) {
-      expect(
-        SHOPIFY_DEFAULT_SCOPES,
-        `the default scope set cannot subscribe ${topic}`,
-      ).toContain(WEBHOOK_TOPIC_SCOPES[topic]);
+      expect(SHOPIFY_DEFAULT_SCOPES, `the default scope set cannot subscribe ${topic}`).toContain(
+        WEBHOOK_TOPIC_SCOPES[topic],
+      );
     }
   });
 

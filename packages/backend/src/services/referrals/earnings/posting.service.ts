@@ -44,7 +44,10 @@ import {
   referralLedgerPostingKey,
   type ReferralLedgerPostingRow,
 } from '../../../db/referralEarnings/ledgerPostingRepository.js';
-import type { ReferralRewardAdjustmentRow, ReferralRewardRow } from '../../../db/referrals/rewardRepository.js';
+import type {
+  ReferralRewardAdjustmentRow,
+  ReferralRewardRow,
+} from '../../../db/referrals/rewardRepository.js';
 import type { ReferralPayoutBatchRow } from '../../../db/referralEarnings/payoutBatchRepository.js';
 import { assertReferralPosting } from './accounts.js';
 import {

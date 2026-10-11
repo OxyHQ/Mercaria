@@ -75,10 +75,7 @@
 
 import { and, eq } from 'drizzle-orm';
 
-import {
-  MERCARIA_REFERENCE_LICENCES,
-  unmetLicenceRightDependencies,
-} from '@mercaria/shared-types';
+import { MERCARIA_REFERENCE_LICENCES, unmetLicenceRightDependencies } from '@mercaria/shared-types';
 import type { DigitalLicenceVersionTerms } from '@mercaria/shared-types';
 
 import type { DatabaseOrTransaction } from '../../../db/postgres.js';
@@ -123,13 +120,17 @@ export function licenceTermsDisagreements(
   const storedRights = [...(stored.rights ?? [])].sort();
   const expectedRights = [...expected.rights].sort();
   if (storedRights.join(',') !== expectedRights.join(',')) {
-    problems.push(`rights stored [${storedRights.join(', ')}], expected [${expectedRights.join(', ')}]`);
+    problems.push(
+      `rights stored [${storedRights.join(', ')}], expected [${expectedRights.join(', ')}]`,
+    );
   }
   if (stored.attribution !== expected.attribution) {
     problems.push(`attribution stored '${stored.attribution}', expected '${expected.attribution}'`);
   }
   if ((stored.seatLimit ?? null) !== expected.seatLimit) {
-    problems.push(`seatLimit stored ${String(stored.seatLimit)}, expected ${String(expected.seatLimit)}`);
+    problems.push(
+      `seatLimit stored ${String(stored.seatLimit)}, expected ${String(expected.seatLimit)}`,
+    );
   }
   if ((stored.revenueLimitAmount ?? null) !== expected.revenueLimitAmount) {
     problems.push(
@@ -217,7 +218,9 @@ async function findLicenceVersionByNumber(
   const [row] = await db
     .select()
     .from(assetLicenceVersions)
-    .where(and(eq(assetLicenceVersions.licenceId, licenceId), eq(assetLicenceVersions.version, version)))
+    .where(
+      and(eq(assetLicenceVersions.licenceId, licenceId), eq(assetLicenceVersions.version, version)),
+    )
     .limit(1);
   return row ?? null;
 }
@@ -246,7 +249,9 @@ export async function applyReferenceLicences(
     outcome: ProfileStepOutcome,
     detail?: string,
   ): void => {
-    steps.push(detail === undefined ? { entity, identity, outcome } : { entity, identity, outcome, detail });
+    steps.push(
+      detail === undefined ? { entity, identity, outcome } : { entity, identity, outcome, detail },
+    );
   };
 
   for (const seed of pkg.licences) {

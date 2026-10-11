@@ -5,12 +5,23 @@ import { reviewMediaEntries, reviewMediaIndex } from '../media-gallery';
 // Pure DTO tests; these IDs do not stand in for an uploaded image in a browser.
 function entry(id: string): ReviewMediaItem {
   const media = { id, fileId: `file-${id}`, kind: 'image' as const, position: 0 };
-  return { media, review: {
-    id: `review-${id}`, authorOxyUserId: 'author', targetType: 'canonical_product',
-    canonicalProductId: 'product', verification: 'verified_purchase', rating: 5,
-    classificationState: 'native', incentiveDisclosure: 'none', status: 'published', media: [media],
-    createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z',
-  } };
+  return {
+    media,
+    review: {
+      id: `review-${id}`,
+      authorOxyUserId: 'author',
+      targetType: 'canonical_product',
+      canonicalProductId: 'product',
+      verification: 'verified_purchase',
+      rating: 5,
+      classificationState: 'native',
+      incentiveDisclosure: 'none',
+      status: 'published',
+      media: [media],
+      createdAt: '2026-10-01T00:00:00Z',
+      updatedAt: '2026-10-01T00:00:00Z',
+    },
+  };
 }
 
 describe('review media gallery identity', () => {
@@ -29,9 +40,12 @@ describe('review media gallery identity', () => {
   it('withholds external media, hidden/private parents and mismatched attachment ownership', () => {
     const external = entry('external');
     external.media.fileId = 'https://supplier.example/photo.jpg';
-    const hidden = entry('hidden'); hidden.review.status = 'hidden';
-    const privateEntry = entry('private'); privateEntry.review.targetType = 'order_item';
-    const detached = entry('detached'); detached.review.media = [];
+    const hidden = entry('hidden');
+    hidden.review.status = 'hidden';
+    const privateEntry = entry('private');
+    privateEntry.review.targetType = 'order_item';
+    const detached = entry('detached');
+    detached.review.media = [];
     expect(reviewMediaEntries([external, hidden, privateEntry, detached])).toEqual([]);
   });
 });

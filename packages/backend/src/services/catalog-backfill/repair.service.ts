@@ -162,7 +162,8 @@ export async function runLegacyCategoryPathRepair(
         continue;
       }
       case 'category_path_drifted': {
-        const category = listing.categoryId === null ? undefined : categoryFacts.get(listing.categoryId);
+        const category =
+          listing.categoryId === null ? undefined : categoryFacts.get(listing.categoryId);
         if (category === undefined) {
           // Unreachable through the classifier, which answers
           // `present_without_category` when the map has no such node. Counted as

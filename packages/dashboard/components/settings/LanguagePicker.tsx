@@ -1,8 +1,8 @@
-import React from "react";
-import { Pressable, View } from "react-native";
-import { Check, Languages } from "lucide-react-native";
-import { cn, LOCALE_ENDONYMS, Text, useColorScheme } from "@mercaria/ui";
-import { DASHBOARD_LOCALES, useTranslation } from "@/lib/i18n";
+import React from 'react';
+import { Pressable, View } from 'react-native';
+import { Check, Languages } from 'lucide-react-native';
+import { cn, LOCALE_ENDONYMS, Text, useColorScheme } from '@mercaria/ui';
+import { DASHBOARD_LOCALES, useTranslation } from '@/lib/i18n';
 
 /**
  * Choose the dashboard's language.
@@ -29,19 +29,21 @@ export function LanguagePicker() {
   // A device reporting `de-AT` has no bundle of its own and renders `de`, so the
   // row that is actually in force is matched on the language subtag. Comparing
   // the whole tag would leave every regional locale showing no selection at all.
-  const activeLanguage = (locale.split("-")[0] ?? "").toLowerCase();
+  const activeLanguage = (locale.split('-')[0] ?? '').toLowerCase();
 
   return (
     <View className="mt-6 gap-2">
       <View className="flex-row items-center gap-2">
         <Languages size={18} color={colors.mutedForeground} />
-        <Text className="text-sm font-semibold text-foreground">{t("settings.language.title")}</Text>
+        <Text className="text-sm font-semibold text-foreground">
+          {t('settings.language.title')}
+        </Text>
       </View>
-      <Text className="text-xs text-muted-foreground">{t("settings.language.description")}</Text>
+      <Text className="text-xs text-muted-foreground">{t('settings.language.description')}</Text>
 
       <View className="mt-2 overflow-hidden rounded-2xl border border-border bg-surface">
         {DASHBOARD_LOCALES.map((option, index) => {
-          const selected = (option.split("-")[0] ?? "").toLowerCase() === activeLanguage;
+          const selected = (option.split('-')[0] ?? '').toLowerCase() === activeLanguage;
           // The separator is decided here rather than with a `last:` variant:
           // nothing else in this repository uses one, react-native-css does not
           // implement it, and the failure would be a stray border on the last
@@ -55,8 +57,8 @@ export function LanguagePicker() {
               accessibilityState={{ selected }}
               accessibilityLabel={LOCALE_ENDONYMS[option]}
               className={cn(
-                "flex-row items-center justify-between px-4 py-3 active:opacity-80",
-                !lastRow && "border-b border-border",
+                'flex-row items-center justify-between px-4 py-3 active:opacity-80',
+                !lastRow && 'border-b border-border',
               )}
             >
               <Text className="text-sm text-foreground">{LOCALE_ENDONYMS[option]}</Text>

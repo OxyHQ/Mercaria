@@ -775,9 +775,9 @@ describe('the audit trail', () => {
     // Created → ready → disabled. Three transitions, three durable records: an
     // id keyed only on the destination state could not represent a seller who
     // returns to one they have held before.
-    expect(mine.map((row) => (row.payload as { onboardingState?: string }).onboardingState)).toEqual(
-      expect.arrayContaining(['action_required', 'ready', 'disabled']),
-    );
+    expect(
+      mine.map((row) => (row.payload as { onboardingState?: string }).onboardingState),
+    ).toEqual(expect.arrayContaining(['action_required', 'ready', 'disabled']));
     // Ids, never a provider payload and never a contact value.
     for (const row of mine) {
       expect(JSON.stringify(row.payload)).not.toContain(accountId);

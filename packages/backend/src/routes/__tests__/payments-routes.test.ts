@@ -94,9 +94,7 @@ beforeAll(async () => {
   process.env.STRIPE_ONBOARDING_RETURN_URL = 'https://dashboard.mercaria.test/settings/payments';
   process.env.STRIPE_ONBOARDING_STATE_SECRET = 'routes-onboarding-state-secret';
 
-  ({ createOnboardingState } = await import(
-    '../../services/payments/stripe/onboarding-state.js'
-  ));
+  ({ createOnboardingState } = await import('../../services/payments/stripe/onboarding-state.js'));
   const storeRouter = (await import('../admin/payments.js')).default;
   const sellerRouter = (await import('../seller.js')).default;
   const onboardingRouter = (await import('../stripe-onboarding.js')).default;
@@ -333,10 +331,9 @@ describe('the hosted-onboarding round trip', () => {
   it('400s a tampered state instead of redirecting anywhere', async () => {
     const tampered = `${validState().slice(0, -3)}xyz`;
 
-    const res = await fetch(
-      `${onboardingUrl}/refresh?state=${encodeURIComponent(tampered)}`,
-      { redirect: 'manual' },
-    );
+    const res = await fetch(`${onboardingUrl}/refresh?state=${encodeURIComponent(tampered)}`, {
+      redirect: 'manual',
+    });
 
     // NOT a 3xx. The only destination available with an unverified state would
     // be one derived from it, which is how a signed-state check becomes an open

@@ -13,11 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  authoringEtag,
-  authoringSchemaCacheKey,
-  type AuthoringSchemaKey,
-} from '../etag.js';
+import { authoringEtag, authoringSchemaCacheKey, type AuthoringSchemaKey } from '../etag.js';
 import {
   defaultTypedVariantSignature,
   typedVariantSignature,
@@ -146,7 +142,7 @@ describe('every semantic dimension is IN the key, varied one at a time', () => {
  * a property of HTTP.
  */
 
-describe('the axis digest is #367 step 4\'s, and this domain defines none', () => {
+describe("the axis digest is #367 step 4's, and this domain defines none", () => {
   // The order-independence PROPERTY is step 4's own
   // (`variant-axis-signature.test.ts`) and is deliberately not re-tested here —
   // a second suite over one function measures the same thing twice and drifts

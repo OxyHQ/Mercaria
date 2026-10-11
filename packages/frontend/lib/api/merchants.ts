@@ -3,8 +3,8 @@ import type {
   MerchantCatalogPage,
   MerchantOfferPage,
   MerchantPage,
-} from "@mercaria/shared-types";
-import apiClient from "./client";
+} from '@mercaria/shared-types';
+import apiClient from './client';
 
 /**
  * The merchant page API client (#73).
@@ -28,7 +28,7 @@ const DEFAULT_PAGE_LIMIT = 24;
 /** Query parameters both browses accept. `sellers` selects the marketplace lens. */
 export interface MerchantBrowseParams {
   storefrontId?: string;
-  sellers?: "this_merchant" | "all";
+  sellers?: 'this_merchant' | 'all';
   categoryId?: string;
   brandId?: string;
   market?: string;
@@ -50,7 +50,7 @@ export async function fetchMerchantPage(idOrSlug: string): Promise<MerchantPage>
   const { data } = await apiClient.get<ApiResponse<MerchantPage>>(
     `/merchants/${encodeURIComponent(idOrSlug)}/page`,
   );
-  return unwrap(data, "Failed to load merchant");
+  return unwrap(data, 'Failed to load merchant');
 }
 
 /**
@@ -68,7 +68,7 @@ export async function fetchMerchantCatalog(
     `/merchants/${encodeURIComponent(idOrSlug)}/catalog`,
     { params: { limit: DEFAULT_PAGE_LIMIT, ...params } },
   );
-  return unwrap(data, "Failed to load merchant catalogue");
+  return unwrap(data, 'Failed to load merchant catalogue');
 }
 
 /** Fetch one KEYSET page of the offer-level view. */
@@ -80,5 +80,5 @@ export async function fetchMerchantOffers(
     `/merchants/${encodeURIComponent(idOrSlug)}/offers`,
     { params: { limit: DEFAULT_PAGE_LIMIT, ...params } },
   );
-  return unwrap(data, "Failed to load merchant offers");
+  return unwrap(data, 'Failed to load merchant offers');
 }

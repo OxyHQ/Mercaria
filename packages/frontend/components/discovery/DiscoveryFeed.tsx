@@ -1,4 +1,4 @@
-import { renderListingLink, renderMerchantLink } from "@/lib/catalog/product-links";
+import { renderListingLink, renderMerchantLink } from '@/lib/catalog/product-links';
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
 import { Link, useRouter, type Href } from 'expo-router';
@@ -93,7 +93,7 @@ function signalHref(handle: string, signal: DiscoverySignal): Href {
  * `/categories/[handle]` sits directly above `/s/[signal]`.
  */
 export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: DiscoveryFeedProps) {
-  const firstCategorySection = sections.find(section => section.kind === 'category-tiles');
+  const firstCategorySection = sections.find((section) => section.kind === 'category-tiles');
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -130,14 +130,22 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
     const heading = shelfHeading(section.categoryHandle, section.signal, section.categoryName);
     if (heading === undefined) {
       return (
-        <ProductCarousel key={section.id} items={section.products} renderProductLink={renderListingLink} />
+        <ProductCarousel
+          key={section.id}
+          items={section.products}
+          renderProductLink={renderListingLink}
+        />
       );
     }
     return (
       <ProductShelf
         key={section.id}
         title={heading.title}
-        renderTitleLink={(child) => <Link href={heading.href} asChild>{child}</Link>}
+        renderTitleLink={(child) => (
+          <Link href={heading.href} asChild>
+            {child}
+          </Link>
+        )}
         items={section.products}
         renderProductLink={renderListingLink}
       />
@@ -208,9 +216,15 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
         return null;
 
       case 'category-tiles':
-        return <CategoryTileGrid key={section.id} tiles={section.tiles} onPressTile={onPressCategoryTile}
-          title={section === firstCategorySection ? categoryTitle : undefined}
-          shortcuts={section === firstCategorySection ? categoryShortcuts : undefined} />;
+        return (
+          <CategoryTileGrid
+            key={section.id}
+            tiles={section.tiles}
+            onPressTile={onPressCategoryTile}
+            title={section === firstCategorySection ? categoryTitle : undefined}
+            shortcuts={section === firstCategorySection ? categoryShortcuts : undefined}
+          />
+        );
 
       case 'pills':
         return renderCategoryTiles(section.id, section.tiles);
@@ -248,15 +262,22 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
        */
       case 'card-group':
         return (
-          <View key={section.id}>
-            {section.cards.map((nested) => renderProductsShelf(nested))}
-          </View>
+          <View key={section.id}>{section.cards.map((nested) => renderProductsShelf(nested))}</View>
         );
     }
   }
 
-  return <View>
-    {!firstCategorySection ? <CategoryTileGrid tiles={[]} title={categoryTitle} shortcuts={categoryShortcuts} onPressTile={onPressCategoryTile} /> : null}
-    {sections.map((section) => renderSection(section))}
-  </View>;
+  return (
+    <View>
+      {!firstCategorySection ? (
+        <CategoryTileGrid
+          tiles={[]}
+          title={categoryTitle}
+          shortcuts={categoryShortcuts}
+          onPressTile={onPressCategoryTile}
+        />
+      ) : null}
+      {sections.map((section) => renderSection(section))}
+    </View>
+  );
 }

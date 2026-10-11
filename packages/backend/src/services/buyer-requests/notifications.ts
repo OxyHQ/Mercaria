@@ -58,21 +58,18 @@ export interface NotifiableOrder {
  * state means a redelivered decision converges and a genuine later state does
  * not.
  */
-function notify(
-  order: NotifiableOrder,
-  kind: GuestPortalMessageKind,
-  dedupeSuffix: string,
-): void {
+function notify(order: NotifiableOrder, kind: GuestPortalMessageKind, dedupeSuffix: string): void {
   const checkoutGroupId = order.checkoutGroupId;
   if (checkoutGroupId === null) return;
-  void enqueueGuestMessage({ checkoutGroupId, kind, orderId: order.id, dedupeSuffix }, getDb()).catch(
-    (err: unknown) => {
-      log.guest.error(
-        { err, orderId: order.id, kind },
-        '[BuyerRequests] failed to enqueue a message; the request stands',
-      );
-    },
-  );
+  void enqueueGuestMessage(
+    { checkoutGroupId, kind, orderId: order.id, dedupeSuffix },
+    getDb(),
+  ).catch((err: unknown) => {
+    log.guest.error(
+      { err, orderId: order.id, kind },
+      '[BuyerRequests] failed to enqueue a message; the request stands',
+    );
+  });
 }
 
 /** "We have your cancellation request." */
@@ -153,7 +150,11 @@ export function notifyRefundFailed(order: NotifiableOrder, requestId: string): v
 }
 
 /** "There is a reply waiting in your order's support thread." */
-export function notifySupportResponse(order: NotifiableOrder, threadId: string, messageId: string): void {
+export function notifySupportResponse(
+  order: NotifiableOrder,
+  threadId: string,
+  messageId: string,
+): void {
   notify(order, 'support_response_available', `${threadId}:${messageId}`);
 }
 

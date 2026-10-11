@@ -73,8 +73,16 @@ export async function insertIdentifierAssertion(
   // two disputes over one value coexist while exactly one active owner does not.
   const target =
     input.variantId === undefined
-      ? [productIdentifiers.productId, productIdentifiers.scheme, productIdentifiers.normalizedValue]
-      : [productIdentifiers.variantId, productIdentifiers.scheme, productIdentifiers.normalizedValue];
+      ? [
+          productIdentifiers.productId,
+          productIdentifiers.scheme,
+          productIdentifiers.normalizedValue,
+        ]
+      : [
+          productIdentifiers.variantId,
+          productIdentifiers.scheme,
+          productIdentifiers.normalizedValue,
+        ];
   const where =
     input.variantId === undefined
       ? sql`${productIdentifiers.status} = 'active' and ${productIdentifiers.productId} is not null`

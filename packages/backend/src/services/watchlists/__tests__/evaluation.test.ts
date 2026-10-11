@@ -11,12 +11,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  FxRateSnapshot,
-  Offer,
-  RankedOffer,
-  WatchlistItem,
-} from '@mercaria/shared-types';
+import type { FxRateSnapshot, Offer, RankedOffer, WatchlistItem } from '@mercaria/shared-types';
 
 const rankOfferComparison = vi.fn();
 const listOffers = vi.fn();
@@ -111,7 +106,12 @@ function offer(id: string, merchantId?: string): Offer {
   } as unknown as Offer;
 }
 
-function ranked(id: string, itemMinor: number, from: FxRateSnapshot['from'], rate: number): RankedOffer {
+function ranked(
+  id: string,
+  itemMinor: number,
+  from: FxRateSnapshot['from'],
+  rate: number,
+): RankedOffer {
   return {
     offerId: id,
     rank: 1,
@@ -119,7 +119,11 @@ function ranked(id: string, itemMinor: number, from: FxRateSnapshot['from'], rat
     signals: [],
     labels: [],
     cost: {
-      itemPrice: { known: true, amount: { amount: itemMinor, currency: 'EUR' }, fx: quote(from, rate) },
+      itemPrice: {
+        known: true,
+        amount: { amount: itemMinor, currency: 'EUR' },
+        fx: quote(from, rate),
+      },
       deliveryCost: { known: false, reason: 'not_published' },
       total: { known: false, missing: ['delivery_cost'] },
       taxInclusion: 'unknown',
@@ -222,7 +226,11 @@ describe('#81 item rule 7: an item that could not be priced is reported, never d
       now: NOW,
     });
 
-    expect(basket.total).toMatchObject({ completeness: 'partial', includedItems: 1, excludedItems: 1 });
+    expect(basket.total).toMatchObject({
+      completeness: 'partial',
+      includedItems: 1,
+      excludedItems: 1,
+    });
     expect(basket.unresolved).toEqual([
       { itemId: 'wi_2', canonicalProductId: 'cp_2', reason: 'no_offers_recorded' },
     ]);

@@ -15,8 +15,7 @@ import { conflict } from '../../lib/errors/error-codes.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { catalogGovernanceDefinitionSnapshots } from '../schema/catalogGovernance.js';
 
-export type CatalogGovernanceSnapshotRow =
-  typeof catalogGovernanceDefinitionSnapshots.$inferSelect;
+export type CatalogGovernanceSnapshotRow = typeof catalogGovernanceDefinitionSnapshots.$inferSelect;
 
 /** The counted parts of a snapshot. The headline is derived, never supplied. */
 export interface SnapshotCounts {

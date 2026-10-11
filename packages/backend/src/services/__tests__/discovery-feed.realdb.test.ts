@@ -466,9 +466,7 @@ describe('getDiscoveryFeed', () => {
     const stores = feed.sections.find((s): s is StoresSection => s.kind === 'stores');
     const card = stores?.stores.find((store) => store.id === storeId);
     expect(card).toBeDefined();
-    expect(card?.products.map((product) => product.id).sort()).toEqual(
-      [inParent, inChild].sort(),
-    );
+    expect(card?.products.map((product) => product.id).sort()).toEqual([inParent, inChild].sort());
     expect(card?.products.map((product) => product.id)).not.toContain(elsewhere);
   });
 
@@ -530,14 +528,22 @@ describe('getDiscoveryFeed', () => {
     // sorts by `(parentId, position, slug)` and every child here shares a
     // `parentId`, so a random slug suffix would leave sample order (and thus
     // which two survive the cap) to chance.
-    const category = await makeCategory({ position: -2_000_000_000, imageUrl: 'https://supplier.example/category.jpg' });
+    const category = await makeCategory({
+      position: -2_000_000_000,
+      imageUrl: 'https://supplier.example/category.jpg',
+    });
     await makeCategory({
       parentId: category.id,
       ancestorIds: [category.id],
       position: 0,
       imageFileId: 'discovery-sample-1',
     });
-    await makeCategory({ parentId: category.id, ancestorIds: [category.id], position: 1, imageUrl: 'https://supplier.example/child.jpg' }); // not imported — skipped, never hotlinked
+    await makeCategory({
+      parentId: category.id,
+      ancestorIds: [category.id],
+      position: 1,
+      imageUrl: 'https://supplier.example/child.jpg',
+    }); // not imported — skipped, never hotlinked
     await makeCategory({
       parentId: category.id,
       ancestorIds: [category.id],

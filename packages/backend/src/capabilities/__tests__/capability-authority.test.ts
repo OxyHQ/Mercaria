@@ -79,9 +79,9 @@ afterEach(() => {
 describe('Mercaria capability authority client', () => {
   it('verifies Ed25519 tickets against a cached Oxy JWKS', async () => {
     const key = signingKey('key-1');
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ keys: [key.jwk] }), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ keys: [key.jwk] }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(verifyMercariaCapabilityTicket(ticket(key))).resolves.toMatchObject({
@@ -101,7 +101,8 @@ describe('Mercaria capability authority client', () => {
   it('refreshes JWKS once when Oxy rotates to a previously unknown key', async () => {
     const oldKey = signingKey('old-key');
     const newKey = signingKey('new-key');
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ keys: [oldKey.jwk] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ keys: [newKey.jwk] }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
@@ -120,14 +121,21 @@ describe('Mercaria capability authority client', () => {
       exp: Math.floor(NOW.getTime() / 1_000) + 60,
       jti: 'ticket-1',
     } as CapabilityTicketClaims;
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      active: true,
-      decision: { allowed: true, reason: 'authorized' },
-      claims: localClaims,
-    }), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          active: true,
+          decision: { allowed: true, reason: 'authorized' },
+          claims: localClaims,
+        }),
+        { status: 200 },
+      ),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(introspectMercariaCapabilityTicket('signed-ticket', localClaims)).resolves.toBe(true);
+    await expect(introspectMercariaCapabilityTicket('signed-ticket', localClaims)).resolves.toBe(
+      true,
+    );
     const [, request] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(request.headers).toEqual({
       authorization: 'Bearer service-token',
@@ -135,12 +143,19 @@ describe('Mercaria capability authority client', () => {
     });
     expect(JSON.parse(request.body as string)).toEqual({ ticket: 'signed-ticket' });
 
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
-      active: true,
-      decision: { allowed: true, reason: 'authorized' },
-      claims: { ...localClaims, tool: 'readBuyerOrder' },
-    }), { status: 200 }));
-    await expect(introspectMercariaCapabilityTicket('signed-ticket', localClaims)).resolves.toBe(false);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          active: true,
+          decision: { allowed: true, reason: 'authorized' },
+          claims: { ...localClaims, tool: 'readBuyerOrder' },
+        }),
+        { status: 200 },
+      ),
+    );
+    await expect(introspectMercariaCapabilityTicket('signed-ticket', localClaims)).resolves.toBe(
+      false,
+    );
   });
 
   it('sends only the hashed idempotency key to Oxy audit persistence', async () => {

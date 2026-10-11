@@ -36,7 +36,10 @@ import {
   ensureCatalogSource,
   recordSourceObservation,
 } from '../../db/canonical/provenanceRepository.js';
-import { findBrandIdsByNormalizedAlias, findBrandsByNormalizedName } from '../../db/canonical/brandRepository.js';
+import {
+  findBrandIdsByNormalizedAlias,
+  findBrandsByNormalizedName,
+} from '../../db/canonical/brandRepository.js';
 import { contentHashOf, type JsonValue } from './content-hash.js';
 import { normalizeAliasLookup, normalizeEntityName } from './normalization.js';
 
@@ -53,7 +56,7 @@ export const VENDOR_BACKFILL_SOURCE = {
   mayStore: true,
   attributionRequired: false,
   rightsNote:
-    "Seller-entered `listings.vendor` free text, extracted as brand candidates for review. Never displayed as a brand fact.",
+    'Seller-entered `listings.vendor` free text, extracted as brand candidates for review. Never displayed as a brand fact.',
 } as const;
 
 /** Why a candidate group needs a closer look before any brand exists for it. */

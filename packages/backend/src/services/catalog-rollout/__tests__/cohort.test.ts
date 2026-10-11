@@ -177,7 +177,6 @@ describe('the whole-list semantics', () => {
     expect(catalogRolloutAllowedFor(stage4, { storeId: 'store-alpha' })).toBe(true);
     expect(catalogRolloutAllowedFor(stage4, { market: 'ES', locale: 'es' })).toBe(true);
   });
-
 });
 
 describe('a malformed entry NARROWS and can never widen', () => {
@@ -239,15 +238,21 @@ describe('value normalisation matches the spelling a subject carries', () => {
 
   it('a store, category and product type are case-SENSITIVE identifiers', () => {
     // An id is an id. Folding one would make two different rows one cohort.
-    expect(catalogRolloutAllowedFor(parseCatalogRolloutCohorts(['store:Store-Alpha']), {
-      storeId: 'store-alpha',
-    })).toBe(false);
-    expect(catalogRolloutAllowedFor(parseCatalogRolloutCohorts(['category:Cat-Alpha']), {
-      categoryId: 'cat-alpha',
-    })).toBe(false);
-    expect(catalogRolloutAllowedFor(parseCatalogRolloutCohorts(['product_type:Footwear']), {
-      productTypeKey: 'footwear',
-    })).toBe(false);
+    expect(
+      catalogRolloutAllowedFor(parseCatalogRolloutCohorts(['store:Store-Alpha']), {
+        storeId: 'store-alpha',
+      }),
+    ).toBe(false);
+    expect(
+      catalogRolloutAllowedFor(parseCatalogRolloutCohorts(['category:Cat-Alpha']), {
+        categoryId: 'cat-alpha',
+      }),
+    ).toBe(false);
+    expect(
+      catalogRolloutAllowedFor(parseCatalogRolloutCohorts(['product_type:Footwear']), {
+        productTypeKey: 'footwear',
+      }),
+    ).toBe(false);
   });
 });
 

@@ -1,7 +1,7 @@
-import { View } from "react-native";
-import { Button } from "@oxy.so/bloom/button";
-import Head from "expo-router/head";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { View } from 'react-native';
+import { Button } from '@oxy.so/bloom/button';
+import Head from 'expo-router/head';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import type {
   Order,
   OrderItem,
@@ -9,7 +9,7 @@ import type {
   OrderStatus,
   RetailDeliveryStatement,
   RetailOrderExperience,
-} from "@mercaria/shared-types";
+} from '@mercaria/shared-types';
 import {
   CommercialDisclosure,
   PickupCollectionPanel,
@@ -22,21 +22,21 @@ import {
   formatRegionName,
   retailOrderProgressExplanation,
   retailOrderProgressLabel,
-} from "@mercaria/ui";
-import { openGoWayPlace } from "@/lib/goway";
-import { ScreenShell } from "@/components/shell/ScreenShell";
-import { toast } from "@oxy.so/bloom/toast";
-import { Badge } from "@oxy.so/bloom/badge";
-import { useOrder, useCancelOrder } from "@/lib/hooks/use-orders";
-import { useOrderCollection } from "@/lib/hooks/use-nearby";
-import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
-import { useTranslation } from "@/lib/i18n";
+} from '@mercaria/ui';
+import { openGoWayPlace } from '@/lib/goway';
+import { ScreenShell } from '@/components/shell/ScreenShell';
+import { toast } from '@oxy.so/bloom/toast';
+import { Badge } from '@oxy.so/bloom/badge';
+import { useOrder, useCancelOrder } from '@/lib/hooks/use-orders';
+import { useOrderCollection } from '@/lib/hooks/use-nearby';
+import { ORDER_STATUS_LABEL_KEYS } from '@/lib/order-status';
+import { useTranslation } from '@/lib/i18n';
 
 /** Order statuses from which a buyer may still cancel (mirrors the backend graph). */
 const BUYER_CANCELLABLE: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
-  "pending_payment",
-  "paid",
-  "processing",
+  'pending_payment',
+  'paid',
+  'processing',
 ]);
 
 /**
@@ -48,11 +48,11 @@ const BUYER_CANCELLABLE: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
  * `authorized` on the screen in every language.
  */
 const PAYMENT_STATUS_KEY: Record<OrderPaymentStatus, string> = {
-  unpaid: "orders.payment.unpaid",
-  authorized: "orders.payment.authorized",
-  paid: "orders.payment.paid",
-  refunded: "orders.payment.refunded",
-  failed: "orders.payment.failed",
+  unpaid: 'orders.payment.unpaid',
+  authorized: 'orders.payment.authorized',
+  paid: 'orders.payment.paid',
+  refunded: 'orders.payment.refunded',
+  failed: 'orders.payment.failed',
 };
 
 /**
@@ -70,7 +70,7 @@ function DeliveryLine({ label, statement }: { label: string; statement: RetailDe
   const window =
     earliest && latest
       ? `${earliest} – ${latest}`
-      : (earliest ?? latest ?? t("orders.delivery.noDates"));
+      : (earliest ?? latest ?? t('orders.delivery.noDates'));
   return (
     <View className="gap-0.5">
       <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -78,10 +78,10 @@ function DeliveryLine({ label, statement }: { label: string; statement: RetailDe
       </Text>
       <Text className="text-sm text-foreground">{window}</Text>
       <Text className="text-xs text-muted-foreground">
-        {statement.basis === "guaranteed"
-          ? t("orders.delivery.basisGuaranteed")
-          : t("orders.delivery.basisEstimate")}
-        {statement.stale ? ` ${t("orders.delivery.staleNote")}` : ""}
+        {statement.basis === 'guaranteed'
+          ? t('orders.delivery.basisGuaranteed')
+          : t('orders.delivery.basisEstimate')}
+        {statement.stale ? ` ${t('orders.delivery.staleNote')}` : ''}
       </Text>
     </View>
   );
@@ -113,21 +113,18 @@ function RetailProgressCard({ retail }: { retail: RetailOrderExperience }) {
       </Text>
       {retail.acceptedDelivery ? (
         <DeliveryLine
-          label={t("orders.delivery.promisedLabel")}
+          label={t('orders.delivery.promisedLabel')}
           statement={retail.acceptedDelivery}
         />
       ) : null}
       {retail.currentDelivery ? (
-        <DeliveryLine
-          label={t("orders.delivery.latestLabel")}
-          statement={retail.currentDelivery}
-        />
+        <DeliveryLine label={t('orders.delivery.latestLabel')} statement={retail.currentDelivery} />
       ) : null}
       {retail.refreshFailing ? (
         // A third fact, beside both windows. Without it a buyer would read the
         // newest observed estimate as current when its refresh has been failing.
         <Text accessibilityRole="alert" className="text-xs text-muted-foreground">
-          {t("orders.delivery.refreshFailing")}
+          {t('orders.delivery.refreshFailing')}
         </Text>
       ) : null}
     </View>
@@ -153,10 +150,13 @@ function ItemsCard({ items }: { items: OrderItem[] }) {
   const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.items.title")}</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">{t('orders.items.title')}</Text>
       <View className="gap-3">
         {items.map((item, idx) => (
-          <View key={`${item.variantId}-${idx}`} className="flex-row items-center justify-between gap-3">
+          <View
+            key={`${item.variantId}-${idx}`}
+            className="flex-row items-center justify-between gap-3"
+          >
             <View className="min-w-0 flex-1">
               <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
                 {item.title}
@@ -165,7 +165,10 @@ function ItemsCard({ items }: { items: OrderItem[] }) {
                 {item.variantTitle} · ×{item.quantity}
               </Text>
             </View>
-            <PriceDisplay price={item.lineTotal.presentment} primaryClassName="text-sm font-semibold" />
+            <PriceDisplay
+              price={item.lineTotal.presentment}
+              primaryClassName="text-sm font-semibold"
+            />
           </View>
         ))}
       </View>
@@ -173,10 +176,20 @@ function ItemsCard({ items }: { items: OrderItem[] }) {
   );
 }
 
-function TotalRow({ label, amount, bold }: { label: string; amount: React.ReactNode; bold?: boolean }) {
+function TotalRow({
+  label,
+  amount,
+  bold,
+}: {
+  label: string;
+  amount: React.ReactNode;
+  bold?: boolean;
+}) {
   return (
     <View className="flex-row items-center justify-between">
-      <Text className={bold ? "text-sm font-semibold text-foreground" : "text-sm text-muted-foreground"}>
+      <Text
+        className={bold ? 'text-sm font-semibold text-foreground' : 'text-sm text-muted-foreground'}
+      >
         {label}
       </Text>
       {amount}
@@ -189,22 +202,41 @@ function TotalsCard({ order }: { order: Order }) {
   const { totals } = order;
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.totals.title")}</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">{t('orders.totals.title')}</Text>
       <View className="gap-2">
-        <TotalRow label={t("orders.totals.subtotal")} amount={<PriceDisplay price={totals.subtotal.presentment} primaryClassName="text-sm" />} />
+        <TotalRow
+          label={t('orders.totals.subtotal')}
+          amount={<PriceDisplay price={totals.subtotal.presentment} primaryClassName="text-sm" />}
+        />
         {totals.discountTotal.presentment.amount > 0 ? (
           <TotalRow
-            label={t("orders.totals.discounts")}
-            amount={<PriceDisplay price={totals.discountTotal.presentment} primaryClassName="text-sm text-destructive" />}
+            label={t('orders.totals.discounts')}
+            amount={
+              <PriceDisplay
+                price={totals.discountTotal.presentment}
+                primaryClassName="text-sm text-destructive"
+              />
+            }
           />
         ) : null}
-        <TotalRow label={t("orders.totals.tax")} amount={<PriceDisplay price={totals.tax.presentment} primaryClassName="text-sm" />} />
-        <TotalRow label={t("orders.totals.shipping")} amount={<PriceDisplay price={totals.shipping.presentment} primaryClassName="text-sm" />} />
+        <TotalRow
+          label={t('orders.totals.tax')}
+          amount={<PriceDisplay price={totals.tax.presentment} primaryClassName="text-sm" />}
+        />
+        <TotalRow
+          label={t('orders.totals.shipping')}
+          amount={<PriceDisplay price={totals.shipping.presentment} primaryClassName="text-sm" />}
+        />
         <View className="my-1 h-px bg-border" />
         <TotalRow
-          label={t("orders.totals.total")}
+          label={t('orders.totals.total')}
           bold
-          amount={<PriceDisplay price={totals.grandTotal.presentment} primaryClassName="text-base font-bold" />}
+          amount={
+            <PriceDisplay
+              price={totals.grandTotal.presentment}
+              primaryClassName="text-base font-bold"
+            />
+          }
         />
       </View>
     </View>
@@ -215,7 +247,9 @@ function PaymentCard({ order }: { order: Order }) {
   const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
-      <Text className="mb-1 text-sm font-semibold text-foreground">{t("orders.payment.title")}</Text>
+      <Text className="mb-1 text-sm font-semibold text-foreground">
+        {t('orders.payment.title')}
+      </Text>
       <Text className="text-sm text-muted-foreground">
         {t(PAYMENT_STATUS_KEY[order.payment.status])}
       </Text>
@@ -236,21 +270,21 @@ function ShippingAddressCard({ order }: { order: Order }) {
     return (
       <View className="rounded-2xl border border-border bg-card p-4">
         <Text className="mb-2 text-sm font-semibold text-foreground">
-          {t("orders.shipTo.title")}
+          {t('orders.shipTo.title')}
         </Text>
-        <Text className="text-sm text-muted-foreground">{t("orders.shipTo.none")}</Text>
+        <Text className="text-sm text-muted-foreground">{t('orders.shipTo.none')}</Text>
       </View>
     );
   }
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
-      <Text className="mb-2 text-sm font-semibold text-foreground">{t("orders.shipTo.title")}</Text>
+      <Text className="mb-2 text-sm font-semibold text-foreground">{t('orders.shipTo.title')}</Text>
       <Text className="text-sm text-foreground">{a.recipientName}</Text>
       <Text className="text-sm text-muted-foreground">{a.line1}</Text>
       {a.line2 ? <Text className="text-sm text-muted-foreground">{a.line2}</Text> : null}
       <Text className="text-sm text-muted-foreground">
         {a.city}
-        {a.region ? `, ${a.region}` : ""} {a.postalCode}
+        {a.region ? `, ${a.region}` : ''} {a.postalCode}
       </Text>
       <Text className="text-sm text-muted-foreground">{formatRegionName(a.country, locale)}</Text>
     </View>
@@ -274,8 +308,8 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
 
   const onCancel = () => {
     cancel.mutate(orderId, {
-      onSuccess: () => toast.success(t("orders.cancel.success")),
-      onError: () => toast.error(t("orders.cancel.error")),
+      onSuccess: () => toast.success(t('orders.cancel.success')),
+      onError: () => toast.error(t('orders.cancel.error')),
     });
   };
 
@@ -292,13 +326,18 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
     return (
       <View className="items-center px-8 py-24">
         <Text className="text-center text-lg font-bold text-foreground">
-          {t("orders.detail.errorTitle")}
+          {t('orders.detail.errorTitle')}
         </Text>
         <Text className="mt-1 text-center text-sm text-muted-foreground">
-          {t("orders.detail.errorSubtitle")}
+          {t('orders.detail.errorSubtitle')}
         </Text>
-        <Button appearance="outline" tone="neutral" className="mt-4" onPress={() => router.replace("/orders")}>
-          {t("orders.detail.backToOrders")}
+        <Button
+          appearance="outline"
+          tone="neutral"
+          className="mt-4"
+          onPress={() => router.replace('/orders')}
+        >
+          {t('orders.detail.backToOrders')}
         </Button>
       </View>
     );
@@ -312,7 +351,7 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
 
   return (
     <View className="px-4">
-      <SectionHeader title={t("orders.detail.title", { number: order.orderNumber })} />
+      <SectionHeader title={t('orders.detail.title', { number: order.orderNumber })} />
       <View className="gap-4">
         <View className="flex-row items-center justify-between">
           <StatusPill status={order.status} />
@@ -321,7 +360,7 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
           </Text>
         </View>
         <Text className="text-sm text-muted-foreground">
-          {t("orders.detail.soldBy", { seller: sellerName })}
+          {t('orders.detail.soldBy', { seller: sellerName })}
         </Text>
         <CommercialDisclosure presentation={order.commercial} showExplanations />
 
@@ -362,7 +401,7 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
             onPress={onCancel}
             loading={cancel.isPending}
           >
-            {t("orders.cancel.action")}
+            {t('orders.cancel.action')}
           </Button>
         ) : null}
       </View>
@@ -377,7 +416,7 @@ export default function OrderDetailScreen() {
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>{t("orders.detail.pageTitle")}</title>
+        <title>{t('orders.detail.pageTitle')}</title>
       </Head>
       <OrderDetailBody orderId={String(id)} />
     </ScreenShell>

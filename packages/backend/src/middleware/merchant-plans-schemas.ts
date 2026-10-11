@@ -36,7 +36,10 @@ import {
 } from '@mercaria/shared-types';
 
 const CURRENCY_CODE_VALUES = ALL_CURRENCY_CODES as readonly [CurrencyCode, ...CurrencyCode[]];
-const BILLING_INTERVAL_VALUES = BILLING_INTERVALS as readonly [BillingInterval, ...BillingInterval[]];
+const BILLING_INTERVAL_VALUES = BILLING_INTERVALS as readonly [
+  BillingInterval,
+  ...BillingInterval[],
+];
 const PLAN_TIER_VALUES = MERCHANT_PLAN_TIERS as readonly [MerchantPlanTier, ...MerchantPlanTier[]];
 const LIMIT_KIND_VALUES = ENTITLEMENT_LIMIT_KINDS as readonly [
   EntitlementLimitKind,

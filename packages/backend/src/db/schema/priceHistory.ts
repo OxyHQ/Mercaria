@@ -197,7 +197,9 @@ export const offerPriceSnapshots = pgTable(
     shippingCostAmount: bigint({ mode: 'number' }),
     shippingCostCurrency: text(),
     /** Issue snapshot field 7. `unknown` until an offer-side column carries it — see the DTO. */
-    taxInclusion: text({ enum: asEnumValues(PRICE_TAX_INCLUSIONS) }).notNull().default('unknown'),
+    taxInclusion: text({ enum: asEnumValues(PRICE_TAX_INCLUSIONS) })
+      .notNull()
+      .default('unknown'),
 
     // ── What was being offered (issue snapshot fields 8, 9, 10) ──────────────
     /** #90's taxonomy key, or `unknown`. The SEGMENT is derived; see the docblock. */
@@ -282,9 +284,17 @@ export const offerPriceSnapshots = pgTable(
   },
   (t) => [
     checkOneOf('offer_price_snapshots_condition_key_check', t.conditionKey, OFFER_CONDITION_KEYS),
-    checkOneOf('offer_price_snapshots_availability_check', t.availability, OFFER_AVAILABILITY_STATES),
+    checkOneOf(
+      'offer_price_snapshots_availability_check',
+      t.availability,
+      OFFER_AVAILABILITY_STATES,
+    ),
     checkOneOf('offer_price_snapshots_tax_inclusion_check', t.taxInclusion, PRICE_TAX_INCLUSIONS),
-    checkOneOf('offer_price_snapshots_freshness_level_check', t.freshnessLevel, OFFER_FRESHNESS_LEVELS),
+    checkOneOf(
+      'offer_price_snapshots_freshness_level_check',
+      t.freshnessLevel,
+      OFFER_FRESHNESS_LEVELS,
+    ),
     checkEveryElementOf(
       'offer_price_snapshots_change_reasons_check',
       t.changeReasons,
@@ -440,7 +450,9 @@ export const offerPriceSeries = pgTable(
     requestedRevision: bigint({ mode: 'number' }).notNull().default(1),
     /** The revision this claim is answering. NULL before the first claim. */
     claimedRevision: bigint({ mode: 'number' }),
-    status: text({ enum: asEnumValues(PRICE_SERIES_REBUILD_STATUSES) }).notNull().default('pending'),
+    status: text({ enum: asEnumValues(PRICE_SERIES_REBUILD_STATUSES) })
+      .notNull()
+      .default('pending'),
     attempts: integer().notNull().default(0),
     availableAt: timestamptz().notNull(),
     leaseOwner: text(),
@@ -676,7 +688,12 @@ export const offerPricePoints = pgTable(
      * plus `insert` inside one transaction makes impossible — and this is what
      * refuses it anyway.
      */
-    uniqueIndex('offer_price_points_bucket_key').on(t.seriesId, t.bucketStart, t.measure, t.segment),
+    uniqueIndex('offer_price_points_bucket_key').on(
+      t.seriesId,
+      t.bucketStart,
+      t.measure,
+      t.segment,
+    ),
     // The read's own shape: one series, one question, ordered along the x axis.
     index('offer_price_points_read_idx').on(t.seriesId, t.measure, t.segment, t.bucketStart),
     index('offer_price_points_snapshot_idx').on(t.snapshotId),
@@ -736,7 +753,10 @@ export const offerPriceWriteMetrics = pgTable(
       .generatedAlwaysAs(sql`"bucket_day" || '|' || coalesce("source_id", '')`),
   },
   (t) => [
-    check('offer_price_write_metrics_bucket_day_check', sql`${t.bucketDay} ~ '^\\d{4}-\\d{2}-\\d{2}$'`),
+    check(
+      'offer_price_write_metrics_bucket_day_check',
+      sql`${t.bucketDay} ~ '^\\d{4}-\\d{2}-\\d{2}$'`,
+    ),
     check(
       'offer_price_write_metrics_counters_check',
       sql`${t.written} >= 0 and ${t.deduplicated} >= 0 and ${t.refused} >= 0

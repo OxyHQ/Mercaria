@@ -218,9 +218,7 @@ beforeAll(async () => {
     findGlobalLedgerImbalances,
     insertLedgerTransaction,
     findOpenMerchantPayables,
-  } = await import(
-    '../../../../db/payments/ledgerRepository.js'
-  ));
+  } = await import('../../../../db/payments/ledgerRepository.js'));
   ({ findPaymentById } = await import('../../../../db/payments/paymentRepository.js'));
   ({ claimReconciliationRun, releaseReconciliationRun } = await import(
     '../../../../db/payments/reconciliationCursorRepository.js'
@@ -775,7 +773,11 @@ describe('the open-payment sweep', () => {
         },
       },
     });
-    await applyPaymentStatus({ paymentId: payment.id, next: 'refunded', providerObjectId: intentId });
+    await applyPaymentStatus({
+      paymentId: payment.id,
+      next: 'refunded',
+      providerObjectId: intentId,
+    });
 
     const refunded = await findPaymentById(db, payment.id);
     if (!refunded) throw new Error('the fixture payment vanished');
@@ -1106,7 +1108,11 @@ describe('the ledger audit', () => {
       providerObjectId: intentId,
       linkOrders: false,
     });
-    await applyPaymentStatus({ paymentId: payment.id, next: 'succeeded', providerObjectId: intentId });
+    await applyPaymentStatus({
+      paymentId: payment.id,
+      next: 'succeeded',
+      providerObjectId: intentId,
+    });
 
     const booked = await db
       .select()
@@ -1125,13 +1131,20 @@ describe('the ledger audit', () => {
     // Without this the aim could be the vacuity: a floor at or above the fixture
     // scans nothing and reports nothing, which is what a working suppression
     // looks like from outside.
-    expect(page.scanned, 'the audit scanned no payment, so it proved nothing').toBeGreaterThanOrEqual(
-      1,
-    );
+    expect(
+      page.scanned,
+      'the audit scanned no payment, so it proved nothing',
+    ).toBeGreaterThanOrEqual(1);
 
-    const row = await oneDiscrepancy('ledger_transaction_missing', `${payment.id}:charge_succeeded`);
+    const row = await oneDiscrepancy(
+      'ledger_transaction_missing',
+      `${payment.id}:charge_succeeded`,
+    );
     expect(row.severity).toBe('critical');
-    expect(row.detail).toMatchObject({ expectedKind: 'charge_succeeded', paymentStatus: 'succeeded' });
+    expect(row.detail).toMatchObject({
+      expectedKind: 'charge_succeeded',
+      paymentStatus: 'succeeded',
+    });
   });
 
   it('does not report an open payable that a WITHHELD TRANSFER explains', async () => {

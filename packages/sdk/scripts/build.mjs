@@ -128,7 +128,13 @@ await copyFile(join(dist, 'index.d.ts'), join(dist, 'index.d.cts'));
  * the last one is the declaration's own JSDoc and stays.
  */
 function dropOrphanedDocblocks(code) {
-  const source = ts.createSourceFile('index.d.ts', code, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+  const source = ts.createSourceFile(
+    'index.d.ts',
+    code,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS,
+  );
   const removals = [];
   for (const statement of source.statements) {
     const ranges = ts.getLeadingCommentRanges(code, statement.pos) ?? [];

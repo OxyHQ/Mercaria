@@ -11,10 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { CatalogSourceRightsVerdict } from '@mercaria/shared-types';
-import {
-  AWIN_MAPPING_VERSION,
-  AWIN_PUBLISHER_API_MAX_WINDOW_DAYS,
-} from '@mercaria/shared-types';
+import { AWIN_MAPPING_VERSION, AWIN_PUBLISHER_API_MAX_WINDOW_DAYS } from '@mercaria/shared-types';
 import { readAwinFeedList, awinFeedNeedsDownload } from '../feed-list.js';
 import {
   assessAwinDestination,
@@ -24,11 +21,7 @@ import {
   withAssessedAwinTracking,
 } from '../tracking.js';
 import { buildAwinMapping, declaredAwinColumns } from '../mapping.js';
-import {
-  createAwinQualityMeter,
-  observeAwinRecord,
-  readAwinQualityCounts,
-} from '../quality.js';
+import { createAwinQualityMeter, observeAwinRecord, readAwinQualityCounts } from '../quality.js';
 import { resolveAwinCredential } from '../credential.js';
 import { splitAwinTransactionWindows } from '../reconciliation.js';
 import { awinFeedListUrl, awinFeedDownloadUrl } from '../constants.js';
@@ -346,7 +339,10 @@ describe('the cheap staleness detector answers `true` on silence', () => {
       awinFeedNeedsDownload({ listedLastImported: null, importedLastImported: new Date() }),
     ).toBe(true);
     expect(
-      awinFeedNeedsDownload({ listedLastImported: '2026-08-09T10:00:00Z', importedLastImported: null }),
+      awinFeedNeedsDownload({
+        listedLastImported: '2026-08-09T10:00:00Z',
+        importedLastImported: null,
+      }),
     ).toBe(true);
     expect(
       awinFeedNeedsDownload({ listedLastImported: 'not a date', importedLastImported: new Date() }),
@@ -432,7 +428,14 @@ describe('quality is MEASURED and nothing is repaired', () => {
     normalized: MappedFeedRecord['normalized'],
     issues: MappedFeedRecord['issues'] = [],
   ): MappedFeedRecord {
-    return { index, externalId, normalized, issues, sourceValues: new Map(), sourceUpdatedAt: null };
+    return {
+      index,
+      externalId,
+      normalized,
+      issues,
+      sourceValues: new Map(),
+      sourceUpdatedAt: null,
+    };
   }
 
   it('counts a partition that ADDS UP, which is what the CHECK enforces', () => {
@@ -579,10 +582,7 @@ describe('quality is MEASURED and nothing is repaired', () => {
    */
   it('distinguishes a clean feed from one where the swap could not have fired', () => {
     const TRACKED = 'https://www.awin1.com/cread.php?awinmid=1';
-    const record = (
-      index: number,
-      sourceUrl: string,
-    ): Parameters<typeof observeAwinRecord>[1] => ({
+    const record = (index: number, sourceUrl: string): Parameters<typeof observeAwinRecord>[1] => ({
       raw: rawRecord({}, index),
       mapped: mapped(index, `r${String(index)}`, {
         title: 'R',
@@ -861,7 +861,10 @@ describe('the ≤31-day transaction window chunker (#67’s seam)', () => {
     // A query Awin would accept for a backwards range turns a caller's bug into
     // a silently empty result.
     expect(
-      splitAwinTransactionWindows(new Date('2026-08-09T00:00:00Z'), new Date('2026-08-01T00:00:00Z')),
+      splitAwinTransactionWindows(
+        new Date('2026-08-09T00:00:00Z'),
+        new Date('2026-08-01T00:00:00Z'),
+      ),
     ).toEqual([]);
   });
 

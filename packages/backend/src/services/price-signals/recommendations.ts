@@ -23,10 +23,7 @@
  * file this domain does not own and a test does scan.
  */
 
-import type {
-  MerchantCompetitivenessRow,
-  PriceSignalRecommendation,
-} from '@mercaria/shared-types';
+import type { MerchantCompetitivenessRow, PriceSignalRecommendation } from '@mercaria/shared-types';
 
 /**
  * Turn a merchant's competitiveness rows into the recommendations they support.

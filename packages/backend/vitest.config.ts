@@ -25,7 +25,9 @@ function tsconfigPathAliases(): Record<string, string> {
   return Object.fromEntries(
     Object.entries(paths).map(([specifier, targets]) => {
       if (specifier.includes('*') || targets.length !== 1) {
-        throw new Error(`tsconfig.json paths entry ${specifier} is not an exact, single-target mapping`);
+        throw new Error(
+          `tsconfig.json paths entry ${specifier} is not an exact, single-target mapping`,
+        );
       }
       return [specifier, resolve(dirname(tsconfigPath), targets[0])];
     }),

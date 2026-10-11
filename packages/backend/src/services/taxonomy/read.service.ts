@@ -160,8 +160,11 @@ function toView(
   });
   const name = presentation?.name ?? unavailable('en');
   const description = presentation?.description ?? unavailable('en');
-  const slug: LocalizedSlugResolution =
-    presentation?.slug ?? { outcome: 'unavailable', requestedLocale: 'en', reason: 'no_text_in_locale' };
+  const slug: LocalizedSlugResolution = presentation?.slug ?? {
+    outcome: 'unavailable',
+    requestedLocale: 'en',
+    reason: 'no_text_in_locale',
+  };
   return {
     id: row.id,
     key: row.key,
@@ -370,7 +373,10 @@ export async function searchTaxonomyCategories(
   const slugById = new Map(rows.map((row) => [row.id, row.slug]));
   const folded = needle.toLocaleLowerCase();
 
-  const ranked: { readonly hit: TaxonomyCategorySearchHit; readonly sort: readonly [number, number, string] }[] = [];
+  const ranked: {
+    readonly hit: TaxonomyCategorySearchHit;
+    readonly sort: readonly [number, number, string];
+  }[] = [];
   for (const category of views) {
     if (category.name.outcome !== 'resolved') continue;
     const label = category.name.value.toLocaleLowerCase();
@@ -387,7 +393,9 @@ export async function searchTaxonomyCategories(
   }
   ranked.sort(
     (a, b) =>
-      a.sort[0] - b.sort[0] || a.sort[1] - b.sort[1] || (a.sort[2] < b.sort[2] ? -1 : a.sort[2] > b.sort[2] ? 1 : 0),
+      a.sort[0] - b.sort[0] ||
+      a.sort[1] - b.sort[1] ||
+      (a.sort[2] < b.sort[2] ? -1 : a.sort[2] > b.sort[2] ? 1 : 0),
   );
   return {
     hits: ranked.slice(0, options.limit).map((entry) => entry.hit),
@@ -437,7 +445,12 @@ export async function readTaxonomyEligibility(
 async function presentProductTypes(
   db: DatabaseOrTransaction,
   scoped: readonly {
-    definition: { readonly id: string; readonly key: string; readonly version: number; readonly name: string };
+    definition: {
+      readonly id: string;
+      readonly key: string;
+      readonly version: number;
+      readonly name: string;
+    };
     includeDescendants: boolean;
   }[],
   requestedLocale: string,
@@ -487,7 +500,9 @@ async function trailOf(
   // The localization read is scoped to the DISCLOSABLE rows only. Presenting a
   // withheld step and then dropping its text would put an unannounced category's
   // Spanish name into this process for no reader.
-  const disclosable = rows.filter((row) => taxonomyLifecycleIsDisclosable(row.lifecycle as CategoryLifecycle));
+  const disclosable = rows.filter((row) =>
+    taxonomyLifecycleIsDisclosable(row.lifecycle as CategoryLifecycle),
+  );
   const views = await present(db, disclosable, requestedLocale);
   const byId = new Map(views.map((view) => [view.id, view]));
   return rows.map((row): TaxonomyBreadcrumbStepView => {
@@ -537,7 +552,8 @@ function afterCursor(
 ): readonly CategoryRow[] {
   if (after === undefined) return rows;
   return rows.filter(
-    (row) => row.position > after.position || (row.position === after.position && row.slug > after.slug),
+    (row) =>
+      row.position > after.position || (row.position === after.position && row.slug > after.slug),
   );
 }
 

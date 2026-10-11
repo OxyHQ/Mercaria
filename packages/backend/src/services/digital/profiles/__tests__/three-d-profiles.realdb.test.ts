@@ -47,13 +47,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { randomBytes } from 'node:crypto';
 
-import {
-  MERCARIA_REFERENCE_LICENCES,
-  THREE_D_CLAIM_ATTRIBUTE_KEYS,
-} from '@mercaria/shared-types';
+import { MERCARIA_REFERENCE_LICENCES, THREE_D_CLAIM_ATTRIBUTE_KEYS } from '@mercaria/shared-types';
 
 import { connectPostgres, type Database } from '../../../../db/postgres.js';
-import { findCategoryByKey, setCategoryLifecycle } from '../../../../db/taxonomy/taxonomyRepository.js';
+import {
+  findCategoryByKey,
+  setCategoryLifecycle,
+} from '../../../../db/taxonomy/taxonomyRepository.js';
 import { composeAuthoringSchema } from '../../../catalog-authoring/schema.service.js';
 import { findAssetLicenceBySlug } from '../../../../db/digital/licenceRepository.js';
 import {
@@ -251,7 +251,9 @@ describe('a dashboard can COMPOSE the print-model form from the database', () =>
     // the weekend is asked what it is, what it is for, and whether it needs
     // supports — and the last one only if they said it was for printing.
     expect(composition.schema.fields.length).toBe(3);
-    expect(composition.schema.fields.filter((field) => field.visibilityRule !== null).length).toBe(1);
+    expect(composition.schema.fields.filter((field) => field.visibilityRule !== null).length).toBe(
+      1,
+    );
   });
 
   it('serves Spanish for a Spanish request, from the localization rows the seed wrote', async () => {
@@ -472,7 +474,11 @@ describe('the reference licences', () => {
   });
 
   it('refuses to DELETE a published version, which is why there is no reset', async () => {
-    const licence = await findAssetLicenceBySlug(null, MERCARIA_REFERENCE_LICENCES[0]?.slug ?? '', db);
+    const licence = await findAssetLicenceBySlug(
+      null,
+      MERCARIA_REFERENCE_LICENCES[0]?.slug ?? '',
+      db,
+    );
     expect(licence).not.toBeNull();
     const ROLLBACK = '3d-profiles: licence delete rollback';
     let refusal: string | null = null;

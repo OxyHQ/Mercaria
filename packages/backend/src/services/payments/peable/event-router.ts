@@ -112,9 +112,7 @@ async function applyIntentEvent(
 
   const payment = await findPaymentByProviderObjectId(getDb(), 'peable', intentId);
   if (!payment) {
-    throw unresolved(
-      `no Mercaria payment is linked to Peable intent ${intentId} yet`,
-    );
+    throw unresolved(`no Mercaria payment is linked to Peable intent ${intentId} yet`);
   }
 
   if (payment.status === next) {

@@ -146,7 +146,13 @@ type AxisName = (typeof REQUEST_CONTEXT_AXES)[number]['adr'];
 
 const AXIS_NAMES: readonly AxisName[] = REQUEST_CONTEXT_AXES.map((a) => a.adr);
 
-const ADR_PATH = join(PACKAGES_ROOT, '..', 'docs', 'adr', '0007-universal-catalog-taxonomy-and-authoring.md');
+const ADR_PATH = join(
+  PACKAGES_ROOT,
+  '..',
+  'docs',
+  'adr',
+  '0007-universal-catalog-taxonomy-and-authoring.md',
+);
 const CLIENT_CONTEXT_PATH = join(PACKAGES_ROOT, 'frontend', 'lib', 'catalog', 'request-context.ts');
 
 /**
@@ -159,9 +165,10 @@ const CLIENT_CONTEXT_PATH = join(PACKAGES_ROOT, 'frontend', 'lib', 'catalog', 'r
  */
 function axesNamedByTheAdr(): string[] {
   const text = readFileSync(ADR_PATH, 'utf8');
-  const sentence = /((?:`[a-z_]+`(?:,\s*|\s+and\s+))+`[a-z_]+`)[\s\S]{0,40}?are seven independent request-context/u.exec(
-    text,
-  );
+  const sentence =
+    /((?:`[a-z_]+`(?:,\s*|\s+and\s+))+`[a-z_]+`)[\s\S]{0,40}?are seven independent request-context/u.exec(
+      text,
+    );
   if (sentence === null) return [];
   return [...sentence[1].matchAll(/`([a-z_]+)`/gu)].map((m) => m[1] as string);
 }
@@ -188,9 +195,10 @@ function dimensionsDeclaredByTheClient(): string[] {
       ts.isIdentifier(node.name) &&
       node.name.text === 'ADR_0007_D4_REQUEST_DIMENSIONS'
     ) {
-      const array = node.initializer !== undefined && ts.isAsExpression(node.initializer)
-        ? node.initializer.expression
-        : node.initializer;
+      const array =
+        node.initializer !== undefined && ts.isAsExpression(node.initializer)
+          ? node.initializer.expression
+          : node.initializer;
       if (array !== undefined && ts.isArrayLiteralExpression(array)) {
         for (const element of array.elements) {
           if (ts.isStringLiteral(element)) names.push(element.text);
@@ -460,7 +468,12 @@ function scanSource(relativePath: string, text: string): ScanResult {
           break;
         }
         const [key, value] = element.elements;
-        if (key === undefined || value === undefined || !ts.isStringLiteral(key) || !ts.isStringLiteral(value)) {
+        if (
+          key === undefined ||
+          value === undefined ||
+          !ts.isStringLiteral(key) ||
+          !ts.isStringLiteral(value)
+        ) {
           literal = false;
           break;
         }
@@ -508,11 +521,11 @@ const CROSS_AXIS_MAPPING_EXEMPTIONS = [
     values: ['us', 'us', 'us', 'uk'],
     readings: ['market->measurement_system', 'market->size_system'],
     reason:
-      "CLDR supplemental measurementData, transcribed. It is a FALLBACK and not a derivation: "
-      + "preferredSystem() returns an explicit ?unitSystem= first and consults this table only "
-      + "when the request stated no preference, and measurementSystemForMarket answers null — not "
-      + "metric — for a market CLDR has no entry for. The market->size_system reading is an "
-      + "artefact of 'us' and 'uk' belonging to both vocabularies; no size system is derived here.",
+      'CLDR supplemental measurementData, transcribed. It is a FALLBACK and not a derivation: ' +
+      'preferredSystem() returns an explicit ?unitSystem= first and consults this table only ' +
+      'when the request stated no preference, and measurementSystemForMarket answers null — not ' +
+      'metric — for a market CLDR has no entry for. The market->size_system reading is an ' +
+      "artefact of 'us' and 'uk' belonging to both vocabularies; no size system is derived here.",
   },
 ] as const;
 
@@ -602,11 +615,13 @@ describe('CLAUSE 0: the instrument', () => {
     // has few FILES, and a parser that stopped recognising literals has few
     // CANDIDATES over the same files.
     expect(scannedFiles, 'the traversal shrank').toBeGreaterThanOrEqual(2_000);
-    expect(scannedCandidates, 'the parser stopped recognising mappings').toBeGreaterThanOrEqual(900);
+    expect(scannedCandidates, 'the parser stopped recognising mappings').toBeGreaterThanOrEqual(
+      900,
+    );
     reportPopulation(
-      `[#367 line 199] request-context axes: ${scannedFiles} files, ${scannedCandidates} candidate `
-        + `mappings, ${foundSites.length} cross-axis site(s), `
-        + `${JUDGEABLE_PAIRS.size}/${AXIS_NAMES.length * (AXIS_NAMES.length - 1)} judgeable pairs`,
+      `[#367 line 199] request-context axes: ${scannedFiles} files, ${scannedCandidates} candidate ` +
+        `mappings, ${foundSites.length} cross-axis site(s), ` +
+        `${JUDGEABLE_PAIRS.size}/${AXIS_NAMES.length * (AXIS_NAMES.length - 1)} judgeable pairs`,
     );
   });
 
@@ -618,8 +633,8 @@ describe('CLAUSE 0: the instrument', () => {
       const matched = foundSites.filter((site) => exemptionMatches(site, exemption));
       expect(
         matched.length,
-        `${exemption.symbol} was not found by the census — the walker, the parser or the `
-          + 'vocabularies stopped working, and every clause below is now vacuous',
+        `${exemption.symbol} was not found by the census — the walker, the parser or the ` +
+          'vocabularies stopped working, and every clause below is now vacuous',
       ).toBe(1);
       expect([...(matched[0]?.pairs ?? [])].sort()).toEqual([...exemption.readings].sort());
     });
@@ -635,8 +650,8 @@ describe('CLAUSE 1: the axis list is bound to two artefacts it does not own', ()
     const fromAdr = axesNamedByTheAdr();
     expect(
       fromAdr.length,
-      'ADR 0007 D4 no longer names seven axes in the sentence this file parses — a wrapped '
-        + 'sentence read by a line-anchored pattern reads six and passes',
+      'ADR 0007 D4 no longer names seven axes in the sentence this file parses — a wrapped ' +
+        'sentence read by a line-anchored pattern reads six and passes',
     ).toBe(7);
     // EQUALITY in both directions. Containment one way is satisfied by a list
     // trimmed to the code; the other way by an axis the ADR never named.
@@ -647,8 +662,8 @@ describe('CLAUSE 1: the axis list is bound to two artefacts it does not own', ()
     const fromClient = dimensionsDeclaredByTheClient();
     expect(
       fromClient.length,
-      'ADR_0007_D4_REQUEST_DIMENSIONS was not found in packages/frontend/lib/catalog/'
-        + 'request-context.ts, or is no longer seven entries',
+      'ADR_0007_D4_REQUEST_DIMENSIONS was not found in packages/frontend/lib/catalog/' +
+        'request-context.ts, or is no longer seven entries',
     ).toBe(7);
     expect([...fromClient].sort()).toEqual([...REQUEST_CONTEXT_AXES.map((a) => a.client)].sort());
   });
@@ -691,9 +706,9 @@ describe('CLAUSE 2: the vocabulary overlap matrix', () => {
     ).toEqual(['uk', 'us']);
     // language ⊂ locale ENTIRELY: every language is a locale, which is what
     // makes the projection legitimate rather than an inference.
-    expect(
-      overlaps.find((o) => o.pair === 'language ∩ locale')?.shared.length,
-    ).toBe(AXIS_VOCABULARY.language.size);
+    expect(overlaps.find((o) => o.pair === 'language ∩ locale')?.shared.length).toBe(
+      AXIS_VOCABULARY.language.size,
+    );
   });
 
   it('leaves 38 of the 42 ordered pairs judgeable', () => {
@@ -721,11 +736,14 @@ describe('CLAUSE 3: the cross-axis mapping census', () => {
       (site) => !CROSS_AXIS_MAPPING_EXEMPTIONS.some((e) => exemptionMatches(site, e)),
     );
     expect(
-      unexempted.map((s) => `${s.file}:${s.line} [${s.shape}] ${s.pairs.join(', ')} keys=${JSON.stringify(s.keys.slice(0, 6))} values=${JSON.stringify(s.values.slice(0, 6))}`),
-      'a module maps one request-context axis onto another. `en-US` does not mean USD and '
-        + 'Spanish is not Spain: each axis is resolved from its own source and carried as its own '
-        + 'field. If this table is a legitimate, opt-in FALLBACK — as CLDR measurementData is — '
-        + 'add it to CROSS_AXIS_MAPPING_EXEMPTIONS with the ordering that keeps it one.',
+      unexempted.map(
+        (s) =>
+          `${s.file}:${s.line} [${s.shape}] ${s.pairs.join(', ')} keys=${JSON.stringify(s.keys.slice(0, 6))} values=${JSON.stringify(s.values.slice(0, 6))}`,
+      ),
+      'a module maps one request-context axis onto another. `en-US` does not mean USD and ' +
+        'Spanish is not Spain: each axis is resolved from its own source and carried as its own ' +
+        'field. If this table is a legitimate, opt-in FALLBACK — as CLDR measurementData is — ' +
+        'add it to CROSS_AXIS_MAPPING_EXEMPTIONS with the ordering that keeps it one.',
     ).toEqual([]);
   });
 
@@ -745,23 +763,66 @@ describe('CLAUSE 3: the cross-axis mapping census', () => {
 
 describe('CLAUSE 4: the detector is violable, in every shape it claims', () => {
   const PLANTS = [
-    ['object   currency from market', "const M = { ES: 'EUR', US: 'USD', JP: 'JPY' };", 'market->currency'],
-    ['object   currency from locale', "const M = { 'en-us': 'USD', 'es-es': 'EUR', 'ja-jp': 'JPY' };", 'locale->currency'],
-    ['object   market from language', "const M = { fr: 'FR', ja: 'JP', hi: 'IN' };", 'language->market'],
-    ['object   zone from market', "const M = { ES: 'Europe/Madrid', JP: 'Asia/Tokyo' };", 'market->time_zone'],
+    [
+      'object   currency from market',
+      "const M = { ES: 'EUR', US: 'USD', JP: 'JPY' };",
+      'market->currency',
+    ],
+    [
+      'object   currency from locale',
+      "const M = { 'en-us': 'USD', 'es-es': 'EUR', 'ja-jp': 'JPY' };",
+      'locale->currency',
+    ],
+    [
+      'object   market from language',
+      "const M = { fr: 'FR', ja: 'JP', hi: 'IN' };",
+      'language->market',
+    ],
+    [
+      'object   zone from market',
+      "const M = { ES: 'Europe/Madrid', JP: 'Asia/Tokyo' };",
+      'market->time_zone',
+    ],
     ['object   locale from market', "const M = { FR: 'fr-fr', JP: 'ja-jp' };", 'market->locale'],
-    ['switch   currency from market', "function f(m: string) { switch (m) { case 'ES': return 'EUR'; case 'JP': return 'JPY'; } return null; }", 'market->currency'],
-    ['switch   zone from market', "function z(m: string) { switch (m) { case 'ES': return 'Europe/Madrid'; case 'JP': return 'Asia/Tokyo'; } return null; }", 'market->time_zone'],
-    ['ternary  currency from market', "const f = (m: string) => (m === 'ES' ? 'EUR' : m === 'JP' ? 'JPY' : 'USD');", 'market->currency'],
-    ['ternary  locale from market', "const g = (m: string) => (m === 'FR' ? 'fr-fr' : m === 'JP' ? 'ja-jp' : 'en');", 'market->locale'],
-    ['entries  currency from market', "const M = new Map([['ES', 'EUR'], ['JP', 'JPY']]);", 'market->currency'],
-    ['entries  market from language', "const M = new Map([['fr', 'FR'], ['ja', 'JP']]);", 'language->market'],
+    [
+      'switch   currency from market',
+      "function f(m: string) { switch (m) { case 'ES': return 'EUR'; case 'JP': return 'JPY'; } return null; }",
+      'market->currency',
+    ],
+    [
+      'switch   zone from market',
+      "function z(m: string) { switch (m) { case 'ES': return 'Europe/Madrid'; case 'JP': return 'Asia/Tokyo'; } return null; }",
+      'market->time_zone',
+    ],
+    [
+      'ternary  currency from market',
+      "const f = (m: string) => (m === 'ES' ? 'EUR' : m === 'JP' ? 'JPY' : 'USD');",
+      'market->currency',
+    ],
+    [
+      'ternary  locale from market',
+      "const g = (m: string) => (m === 'FR' ? 'fr-fr' : m === 'JP' ? 'ja-jp' : 'en');",
+      'market->locale',
+    ],
+    [
+      'entries  currency from market',
+      "const M = new Map([['ES', 'EUR'], ['JP', 'JPY']]);",
+      'market->currency',
+    ],
+    [
+      'entries  market from language',
+      "const M = new Map([['fr', 'FR'], ['ja', 'JP']]);",
+      'language->market',
+    ],
   ] as const;
 
   it('names every planted conflation', () => {
     assertEachOf(PLANTS, 11, ([label, source, expected]) => {
       const { sites } = scanSource('plant.ts', source);
-      expect(sites.flatMap((s) => s.pairs), `${label} was not named`).toContain(expected);
+      expect(
+        sites.flatMap((s) => s.pairs),
+        `${label} was not named`,
+      ).toContain(expected);
     });
     // Every shape the detector claims is exercised by at least one plant — a
     // shape with no plant is a branch nobody has proved runs, and three of the
@@ -776,9 +837,18 @@ describe('CLAUSE 4: the detector is violable, in every shape it claims', () => {
     ['a map between unrelated vocabularies', "const M = { alpha: 'one', beta: 'two' };"],
     ['a single-entry map, which is not a table', "const M = { ES: 'EUR' };"],
     ['a same-axis identity map', "const M = { EUR: 'EUR', USD: 'USD' };"],
-    ['a language-to-language map, which the overlap rule makes unjudgeable', "const M = { es: 'es', en: 'en' };"],
-    ['a switch over non-axis values', "function f(k: string) { switch (k) { case 'alpha': return 'one'; case 'beta': return 'two'; } return null; }"],
-    ['a ternary over non-axis values', "const f = (k: string) => (k === 'alpha' ? 'one' : k === 'beta' ? 'two' : 'three');"],
+    [
+      'a language-to-language map, which the overlap rule makes unjudgeable',
+      "const M = { es: 'es', en: 'en' };",
+    ],
+    [
+      'a switch over non-axis values',
+      "function f(k: string) { switch (k) { case 'alpha': return 'one'; case 'beta': return 'two'; } return null; }",
+    ],
+    [
+      'a ternary over non-axis values',
+      "const f = (k: string) => (k === 'alpha' ? 'one' : k === 'beta' ? 'two' : 'three');",
+    ],
     ['entries over non-axis values', "const M = new Map([['alpha', 'one'], ['beta', 'two']]);"],
   ] as const;
 
@@ -789,7 +859,10 @@ describe('CLAUSE 4: the detector is violable, in every shape it claims', () => {
     // before the case rule and the overlap rule were added.
     assertEachOf(CONTROLS, 7, ([label, source]) => {
       const { sites } = scanSource('control.ts', source);
-      expect(sites.flatMap((s) => s.pairs), `${label} was flagged`).toEqual([]);
+      expect(
+        sites.flatMap((s) => s.pairs),
+        `${label} was flagged`,
+      ).toEqual([]);
     });
   });
 });
@@ -837,14 +910,14 @@ const CARRIAGE_EXEMPTIONS = [
   {
     axis: 'size_system',
     reason:
-      'Mercaria publishes NO size-system mapping over HTTP, so there is no value a request could '
-      + 'send that would authorize collapsing EU 42 into US 9 — which is exactly why the '
-      + 'storefront CatalogSizeSystem has one member, `unspecified`. The axis is fully modelled '
-      + 'as a property of a size VALUE (shared-types/size-system.ts: domain, region, audience, '
-      + 'basis) and compareSizeDeclarations refuses across systems. A request parameter would be '
-      + 'a field with no consumer, which is worse than an absence a reader can see: it satisfies '
-      + 'the ADR sentence and changes nothing. It arrives with the sourced mapping that gives it '
-      + 'a meaning.',
+      'Mercaria publishes NO size-system mapping over HTTP, so there is no value a request could ' +
+      'send that would authorize collapsing EU 42 into US 9 — which is exactly why the ' +
+      'storefront CatalogSizeSystem has one member, `unspecified`. The axis is fully modelled ' +
+      'as a property of a size VALUE (shared-types/size-system.ts: domain, region, audience, ' +
+      'basis) and compareSizeDeclarations refuses across systems. A request parameter would be ' +
+      'a field with no consumer, which is worse than an absence a reader can see: it satisfies ' +
+      'the ADR sentence and changes nothing. It arrives with the sourced mapping that gives it ' +
+      'a meaning.',
   },
 ] as const;
 
@@ -861,9 +934,11 @@ describe('CLAUSE 6: the backend request surface', () => {
       const walk = (node: unknown, depth: number): void => {
         if (depth > 8 || node === null || typeof node !== 'object' || seen.has(node)) return;
         seen.add(node);
-        const def = (node as {
-          _def?: { type?: string; typeName?: string; shape?: unknown };
-        })._def;
+        const def = (
+          node as {
+            _def?: { type?: string; typeName?: string; shape?: unknown };
+          }
+        )._def;
         if (def === undefined) return;
         const isZodObject = def.typeName === 'ZodObject' || def.type === 'object';
         const shape = typeof def.shape === 'function' ? def.shape() : def.shape;
@@ -892,7 +967,9 @@ describe('CLAUSE 6: the backend request surface', () => {
     // A known answer that must PASS: `currency` is carried widely, so a walk
     // that silently found nothing announces itself here rather than in the
     // clause below, where an exemption could absorb it.
-    expect((carriers.get('currency') as Set<string> | undefined)?.size ?? 0).toBeGreaterThanOrEqual(10);
+    expect((carriers.get('currency') as Set<string> | undefined)?.size ?? 0).toBeGreaterThanOrEqual(
+      10,
+    );
 
     const exempt = new Set(CARRIAGE_EXEMPTIONS.map((e) => e.axis as string));
     const counts: string[] = [];
@@ -913,10 +990,10 @@ describe('CLAUSE 6: the backend request surface', () => {
       }
       expect(
         modulesCarrying.size,
-        `${axis.adr} has no request field on the backend surface. An axis a request cannot state `
-          + 'is an axis the server must infer from another one, which is the collapse this file '
-          + 'exists to prevent — `measurement_system` is one deletion away from being wholly '
-          + 'derived from `market`. Add it back, or exempt it with the reason it may not be sent.',
+        `${axis.adr} has no request field on the backend surface. An axis a request cannot state ` +
+          'is an axis the server must infer from another one, which is the collapse this file ' +
+          'exists to prevent — `measurement_system` is one deletion away from being wholly ' +
+          'derived from `market`. Add it back, or exempt it with the reason it may not be sent.',
       ).toBeGreaterThanOrEqual(1);
     });
     reportPopulation(`[#367 line 199] backend request carriage (modules): ${counts.join(' ')}`);

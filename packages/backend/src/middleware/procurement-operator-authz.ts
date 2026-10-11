@@ -28,11 +28,7 @@ import { log } from '../lib/logger.js';
  * `authenticateToken`, and reads NOTHING from the request beyond the verified
  * caller — no header, body field or query parameter can influence it.
  */
-export function requireProcurementOperator(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
+export function requireProcurementOperator(req: Request, res: Response, next: NextFunction): void {
   // Defence in depth against a future mount that forgets the config check —
   // the mount and the gate live in different files, exactly the pair that
   // drifts (the `requirePaymentOperator` precedent).

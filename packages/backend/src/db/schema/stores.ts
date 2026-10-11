@@ -19,7 +19,16 @@
  */
 
 import { sql } from 'drizzle-orm';
-import { boolean, check, doublePrecision, index, integer, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxy.so/db';
 import { STORE_PERMISSIONS } from '@mercaria/shared-types';
 import type { LocationType, StorePermission, TextTone } from '@mercaria/shared-types';
@@ -84,8 +93,12 @@ export const stores = pgTable(
     /** An Oxy media file id — no foreign key; Oxy owns the file. */
     coverFileId: text(),
     brandColor: text().notNull(),
-    textTone: text({ enum: asEnumValues(TEXT_TONES) }).notNull().default('light'),
-    status: text({ enum: asEnumValues(STORE_STATUSES) }).notNull().default('active'),
+    textTone: text({ enum: asEnumValues(TEXT_TONES) })
+      .notNull()
+      .default('light'),
+    status: text({ enum: asEnumValues(STORE_STATUSES) })
+      .notNull()
+      .default('active'),
 
     // `policies` — a fixed five-field object, flattened.
     policiesReturnWindowDays: integer().notNull().default(30),
@@ -214,7 +227,9 @@ export const locations = pgTable(
       .notNull()
       .references(() => stores.id, { onDelete: 'cascade' }),
     name: text().notNull(),
-    type: text({ enum: asEnumValues(LOCATION_TYPES) }).notNull().default('warehouse'),
+    type: text({ enum: asEnumValues(LOCATION_TYPES) })
+      .notNull()
+      .default('warehouse'),
     ...optionalAddressColumns('address'),
     isDefault: boolean().notNull().default(false),
     isActive: boolean().notNull().default(true),
@@ -233,9 +248,7 @@ export const locations = pgTable(
     index('locations_store_id_is_active_idx').on(t.storeId, t.isActive),
     // `deleteLocation`'s guard depends on this being true: at most ONE default
     // location per store.
-    uniqueIndex('locations_store_id_default_key')
-      .on(t.storeId)
-      .where(sql`${t.isDefault}`),
+    uniqueIndex('locations_store_id_default_key').on(t.storeId).where(sql`${t.isDefault}`),
   ],
 );
 
@@ -315,9 +328,7 @@ export const customers = pgTable(
     uniqueIndex('customers_store_id_oxy_user_id_key')
       .on(t.storeId, t.oxyUserId)
       .where(sql`${t.oxyUserId} is not null`),
-    index('customers_store_id_email_idx')
-      .on(t.storeId, t.email)
-      .where(sql`${t.email} is not null`),
+    index('customers_store_id_email_idx').on(t.storeId, t.email).where(sql`${t.email} is not null`),
     // Tag filtering within a store. A btree cannot serve `&&`/`<@`, so the
     // element side is GIN; the `storeId` narrowing happens on the heap.
     index('customers_tags_idx').using('gin', t.tags),

@@ -17,8 +17,16 @@ export interface FakeResponse {
   headers?: Record<string, string>;
 }
 
-export function json(status: number, value: unknown, headers: Record<string, string> = {}): FakeResponse {
-  return { status, body: JSON.stringify(value), headers: { 'content-type': 'application/json', ...headers } };
+export function json(
+  status: number,
+  value: unknown,
+  headers: Record<string, string> = {},
+): FakeResponse {
+  return {
+    status,
+    body: JSON.stringify(value),
+    headers: { 'content-type': 'application/json', ...headers },
+  };
 }
 
 export function ok(data: unknown): FakeResponse {
@@ -32,7 +40,9 @@ export function failure(
   message = 'server said no',
   details?: Record<string, string | number | boolean | null>,
 ): FakeResponse {
-  return json(status, { error: details === undefined ? { code, message } : { code, message, details } });
+  return json(status, {
+    error: details === undefined ? { code, message } : { code, message, details },
+  });
 }
 
 /** A real WHATWG `Response`, so the transport is exercised against the genuine interface. */

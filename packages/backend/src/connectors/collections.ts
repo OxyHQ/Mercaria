@@ -40,9 +40,7 @@ export function toExternalCollection(
   return {
     externalId,
     title: trimmed && trimmed !== '' ? trimmed : `Untitled (${externalId})`,
-    ...(extra?.parentExternalId !== undefined
-      ? { parentExternalId: extra.parentExternalId }
-      : {}),
+    ...(extra?.parentExternalId !== undefined ? { parentExternalId: extra.parentExternalId } : {}),
     ...(extra?.productCount !== undefined ? { productCount: extra.productCount } : {}),
   };
 }

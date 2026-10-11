@@ -63,7 +63,11 @@ describe('deriveOfferDelivery — unknown is not zero (issue acceptance 4)', () 
   });
 
   it('an ABSENT cost is unknown, and the union has no `cost` to misread', () => {
-    const delivery = deriveOfferDelivery({ costAmount: null, costCurrency: null, pickup: 'unknown' });
+    const delivery = deriveOfferDelivery({
+      costAmount: null,
+      costCurrency: null,
+      pickup: 'unknown',
+    });
     expect(delivery.known).toBe(false);
     expect('cost' in delivery).toBe(false);
   });
@@ -86,15 +90,15 @@ describe('deriveOfferDelivery — unknown is not zero (issue acceptance 4)', () 
   });
 
   it('a HALF-filled money pair is unknown, not a currencyless amount', () => {
-    expect(deriveOfferDelivery({ costAmount: 499, costCurrency: null, pickup: 'unknown' }).known).toBe(
-      false,
-    );
+    expect(
+      deriveOfferDelivery({ costAmount: 499, costCurrency: null, pickup: 'unknown' }).known,
+    ).toBe(false);
   });
 
   it('carries pickup through on both branches — unknown pickup is not "no pickup"', () => {
-    expect(deriveOfferDelivery({ costAmount: null, costCurrency: null, pickup: 'unknown' }).pickup).toBe(
-      'unknown',
-    );
+    expect(
+      deriveOfferDelivery({ costAmount: null, costCurrency: null, pickup: 'unknown' }).pickup,
+    ).toBe('unknown');
     expect(
       deriveOfferDelivery({ costAmount: 0, costCurrency: 'EUR', pickup: 'unavailable' }).pickup,
     ).toBe('unavailable');

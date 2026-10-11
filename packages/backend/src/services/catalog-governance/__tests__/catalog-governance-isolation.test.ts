@@ -112,7 +112,7 @@ const WALLS: readonly Wall[] = [
     // writer of something whose derivations live in one place.
     pattern:
       /\.\s*(?:insert|update|delete)\s*\(\s*(?:categories|listings|productTypeDefinitions|productTypeFields|productTypeFieldGroups|productTypeCategoryScopes|attributeDefinitions|attributeEnumValues|attributeLabels|attributeValueAliases|canonicalProducts|canonicalVariants|brands|navigationTrees|navigationNodes|categoryAliases|categoryRedirects)\s*\)/u,
-    why: 'This domain writes NOTHING in the catalogue. Every apply calls the owning domain\'s own writer — taxonomyRepository, publishProductTypeVersion, publishAttributeDefinition, publishNavigationTree.',
+    why: "This domain writes NOTHING in the catalogue. Every apply calls the owning domain's own writer — taxonomyRepository, publishProductTypeVersion, publishAttributeDefinition, publishNavigationTree.",
   },
   {
     name: 'no second operator allow-list',
@@ -159,7 +159,7 @@ const WALLS: readonly Wall[] = [
     // without anybody editing this file — and the values do not appear literally
     // here, so the wall cannot trip over stating itself.
     pattern: new RegExp(COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS.join('|'), 'u'),
-    why: 'The operator names the vehicle in full or the promotion is refused. Nothing here may suggest, rank, infer or read it out of the claim\'s own words.',
+    why: "The operator names the vehicle in full or the promotion is refused. Nothing here may suggest, rank, infer or read it out of the claim's own words.",
   },
   {
     name: 'no code execution from stored input',
@@ -233,7 +233,10 @@ describe('the catalog governance walls', () => {
     }
     // Vacuity floor first: eight files today, and a walk that found nothing
     // satisfies the assertion below without measuring anything.
-    expect(scanned.size, `the compatibility walk read ${String(scanned.size)} files`).toBeGreaterThanOrEqual(8);
+    expect(
+      scanned.size,
+      `the compatibility walk read ${String(scanned.size)} files`,
+    ).toBeGreaterThanOrEqual(8);
 
     const pattern = new RegExp(COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS.join('|'), 'u');
     const offenders = [...scanned]
@@ -257,8 +260,12 @@ describe('the catalog governance walls', () => {
     let exemptions = 0;
     for (const wall of WALLS) {
       for (const entry of wall.exempt ?? []) {
-        expect(sources.has(entry.path), `stale exemption on ${wall.name}: ${entry.path}`).toBe(true);
-        expect(entry.reason.length, `exemption without a reason: ${entry.path}`).toBeGreaterThan(20);
+        expect(sources.has(entry.path), `stale exemption on ${wall.name}: ${entry.path}`).toBe(
+          true,
+        );
+        expect(entry.reason.length, `exemption without a reason: ${entry.path}`).toBeGreaterThan(
+          20,
+        );
         exemptions += 1;
       }
     }
@@ -379,10 +386,9 @@ describe('the governance vocabularies reconcile in both directions', () => {
     const direct = new Set<string>(DIRECT_APPLY_ACTIONS);
     const ownService = new Set<string>(['definition_snapshot_restore', 'vertical_package_apply']);
     for (const action of CATALOG_GOVERNANCE_ACTIONS) {
-      expect(
-        direct.has(action) || ownService.has(action),
-        `${action} has no apply path`,
-      ).toBe(true);
+      expect(direct.has(action) || ownService.has(action), `${action} has no apply path`).toBe(
+        true,
+      );
       expect(direct.has(action) && ownService.has(action), `${action} has two apply paths`).toBe(
         false,
       );
@@ -440,10 +446,7 @@ describe('the governance vocabularies reconcile in both directions', () => {
 
 describe('the route set is closed', () => {
   it('registers exactly the paths #367 Workstream 12 decided on', () => {
-    const source = readFileSync(
-      join(SRC_ROOT, 'routes', 'internal-catalog-governance.ts'),
-      'utf8',
-    );
+    const source = readFileSync(join(SRC_ROOT, 'routes', 'internal-catalog-governance.ts'), 'utf8');
     const registered = [...source.matchAll(/router\.(get|post)\(\s*\n?\s*'([^']+)'/gu)]
       .map((match) => `${match[1].toUpperCase()} ${match[2]}`)
       .sort();
@@ -509,10 +512,7 @@ describe('the route set is closed', () => {
   });
 
   it('mounts authentication before the allow-list', () => {
-    const source = readFileSync(
-      join(SRC_ROOT, 'routes', 'internal-catalog-governance.ts'),
-      'utf8',
-    );
+    const source = readFileSync(join(SRC_ROOT, 'routes', 'internal-catalog-governance.ts'), 'utf8');
     const auth = source.indexOf('router.use(authenticateToken)');
     const operator = source.indexOf('router.use(requireCatalogOperator)');
     expect(auth, 'the router does not authenticate at all').toBeGreaterThan(-1);
@@ -541,10 +541,7 @@ describe('the scan covers the whole domain', () => {
   it('every scanned path exists and is a file', () => {
     const sources = domainSources();
     for (const path of sources.keys()) {
-      expect(
-        statSync(join(SRC_ROOT, path)).isFile(),
-        `scanned path is stale: ${path}`,
-      ).toBe(true);
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `scanned path is stale: ${path}`).toBe(true);
     }
     // Every module the domain ships must be IN the scan. A file added under a
     // directory nobody scans is a wall that stops covering it silently.

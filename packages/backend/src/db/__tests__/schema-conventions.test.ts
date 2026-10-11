@@ -187,7 +187,10 @@ describe('schema conventions (static)', () => {
       const checkedSql = config.checks.map((entry) => entry.value.queryChunks).flat();
       const checkedColumns = new Set(
         checkedSql
-          .filter((chunk): chunk is { name: string } => typeof chunk === 'object' && chunk !== null && 'name' in chunk)
+          .filter(
+            (chunk): chunk is { name: string } =>
+              typeof chunk === 'object' && chunk !== null && 'name' in chunk,
+          )
           .map((chunk) => chunk.name),
       );
 

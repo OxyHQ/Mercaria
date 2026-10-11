@@ -76,9 +76,7 @@ afterAll(async () => {
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
   if (trackedProgramIds.length > 0) {
-    await db
-      .delete(referralPrograms)
-      .where(inArray(referralPrograms.programId, trackedProgramIds));
+    await db.delete(referralPrograms).where(inArray(referralPrograms.programId, trackedProgramIds));
   }
   await closePostgres();
 });
@@ -263,11 +261,7 @@ describe('the scope and the reasons are two ends of ONE rule', () => {
       }),
     );
     expect([...scoped].sort()).toEqual(
-      [
-        openEligible.programId,
-        closedEnrolled.programId,
-        ineligibleEnrolled.programId,
-      ].sort(),
+      [openEligible.programId, closedEnrolled.programId, ineligibleEnrolled.programId].sort(),
     );
 
     // With no enrollment the two escape-hatch rows go too — the enrollment is

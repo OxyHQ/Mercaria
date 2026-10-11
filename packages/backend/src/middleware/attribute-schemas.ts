@@ -99,7 +99,9 @@ const CARDINALITY_VALUES = asEnum(ATTRIBUTE_CARDINALITIES as readonly AttributeC
 const OBJECTIVITY_VALUES = asEnum(ATTRIBUTE_OBJECTIVITIES as readonly AttributeObjectivity[]);
 const UNIT_FAMILY_VALUES = asEnum(UNIT_FAMILIES as readonly UnitFamily[]);
 const AXIS_VALUES = asEnum(ATTRIBUTE_COMPONENT_AXES as readonly AttributeComponentAxis[]);
-const DISPLAY_POLICY_VALUES = asEnum(ATTRIBUTE_DISPLAY_POLICIES as readonly AttributeDisplayPolicy[]);
+const DISPLAY_POLICY_VALUES = asEnum(
+  ATTRIBUTE_DISPLAY_POLICIES as readonly AttributeDisplayPolicy[],
+);
 const EVIDENCE_POLICY_VALUES = asEnum(
   ATTRIBUTE_EVIDENCE_POLICIES as readonly AttributeEvidencePolicy[],
 );
@@ -179,9 +181,7 @@ export const attributeDefinitionDraftSchema = z
       .optional(),
     categoryScopes: z
       .array(
-        z
-          .object({ categoryId: idSchema, includeDescendants: z.boolean().optional() })
-          .strict(),
+        z.object({ categoryId: idSchema, includeDescendants: z.boolean().optional() }).strict(),
       )
       .max(200)
       .optional(),
@@ -241,7 +241,10 @@ const constraintValueSchema = z.discriminatedUnion('type', [
   z
     .object({
       type: z.literal('date'),
-      value: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}/u, 'A date value is ISO-8601'),
+      value: z
+        .string()
+        .trim()
+        .regex(/^\d{4}-\d{2}-\d{2}/u, 'A date value is ISO-8601'),
     })
     .strict(),
   z
@@ -365,10 +368,20 @@ const commercePredicateSchema = z.discriminatedUnion('facet', [
     .object({
       facet: z.literal('market'),
       op: z.literal('in'),
-      territories: z.array(z.string().trim().regex(/^[A-Z]{2}$/u)).min(1).max(32),
+      territories: z
+        .array(
+          z
+            .string()
+            .trim()
+            .regex(/^[A-Z]{2}$/u),
+        )
+        .min(1)
+        .max(32),
     })
     .strict(),
-  z.object({ facet: z.literal('official_channel'), op: z.literal('is'), value: z.boolean() }).strict(),
+  z
+    .object({ facet: z.literal('official_channel'), op: z.literal('is'), value: z.boolean() })
+    .strict(),
   z
     .object({
       facet: z.literal('offer_channel'),
@@ -459,7 +472,11 @@ export const constraintSetEvaluateSchema = z
     /** Evaluate ONE variant rather than the product. */
     variantId: idSchema.optional(),
     currency: z.enum(CURRENCY_VALUES).optional(),
-    territory: z.string().trim().regex(/^[A-Z]{2}$/u).optional(),
+    territory: z
+      .string()
+      .trim()
+      .regex(/^[A-Z]{2}$/u)
+      .optional(),
     constraints: z.array(productConstraintSchema).min(1).max(MAX_CONSTRAINTS_PER_SET),
   })
   .strict();
@@ -496,7 +513,11 @@ export const attributeFacetQuerySchema = z.object({ categoryId: idSchema }).stri
 export const attributeValuesQuerySchema = z
   .object({
     unitSystem: z.enum(MEASUREMENT_SYSTEM_VALUES).optional(),
-    market: z.string().trim().regex(/^[A-Za-z]{2}$/u).optional(),
+    market: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{2}$/u)
+      .optional(),
   })
   .strict();
 

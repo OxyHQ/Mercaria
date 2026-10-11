@@ -436,7 +436,11 @@ describe('a creator reaches only their OWN store’s asset graph', () => {
   it('404s a version belonging to a DIFFERENT asset of the same store', async () => {
     // The second hop. One "load the asset" middleware would have left this
     // unchecked on exactly the routes that have a second id in the path.
-    findAssetVersion.mockResolvedValue({ id: VERSION_ID, assetId: 'another-asset', state: 'draft' });
+    findAssetVersion.mockResolvedValue({
+      id: VERSION_ID,
+      assetId: 'another-asset',
+      state: 'draft',
+    });
     const { status } = await post(
       uploadsOn,
       `/digital/stores/${STORE_ID}/assets/${ASSET_ID}/versions/${VERSION_ID}/withdraw`,
@@ -1114,9 +1118,7 @@ describe('claiming a FREE asset', () => {
   it('refuses a vertical this deployment does not sell', async () => {
     // An ALLOW-list, which is why a vertical absent from it refuses rather than
     // being admitted by default the day it is added.
-    resolveDigitalLines.mockResolvedValue(
-      new Map([[VARIANT_ID, { ...line, vertical: 'audio' }]]),
-    );
+    resolveDigitalLines.mockResolvedValue(new Map([[VARIANT_ID, { ...line, vertical: 'audio' }]]));
     const { status } = await post(
       uploadsOn,
       claimPath,

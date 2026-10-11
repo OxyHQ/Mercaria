@@ -67,9 +67,7 @@ export async function seoDiagnoseHandler(req: Request, res: Response): Promise<v
         outcome: diagnosis.resolution.outcome,
         indexability: diagnosis.indexability?.outcome,
         reason:
-          diagnosis.indexability?.outcome === 'refused'
-            ? diagnosis.indexability.reason
-            : undefined,
+          diagnosis.indexability?.outcome === 'refused' ? diagnosis.indexability.reason : undefined,
       },
       '[Seo] operator diagnosed a public URL',
     );

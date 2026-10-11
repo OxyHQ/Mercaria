@@ -73,10 +73,10 @@ export function startMerchantSubscriptionReconciler(): void {
     if (inFlight) return;
     inFlight = true;
     void runOnce(startedGeneration)
-      .catch((err) =>
-        log.general.error({ err }, '[MerchantBilling] a reconciliation pass failed'),
-      )
-      .finally(() => { inFlight = false; });
+      .catch((err) => log.general.error({ err }, '[MerchantBilling] a reconciliation pass failed'))
+      .finally(() => {
+        inFlight = false;
+      });
   }, config.merchantBilling.reconciliationIntervalMs);
   timer.unref?.();
 }
