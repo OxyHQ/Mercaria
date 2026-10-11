@@ -32,13 +32,12 @@
  * `revoked_at IS NULL`, so a second revoke reports "nothing to revoke" rather
  * than silently re-stamping a new timestamp over the original one.
  *
- * ## `revoked_at IS NULL` is the exact port of Mongo's `$exists: false`
+ * ## `revoked_at IS NULL` means "not revoked"
  *
- * Both spellings mean the same set here only because revocation is the sole
- * writer of that column and always writes a real `Date`. A field Mongo left
- * ABSENT is NULL in Postgres, never `''` — the empty string is a value and would
- * read as revoked-at-the-epoch, which is why nothing in this module ever writes
- * one.
+ * That holds because revocation is the sole writer of that column and always
+ * writes a real `Date`. An ABSENT value is NULL, never `''` — the empty string
+ * is a value and would read as revoked-at-the-epoch, which is why nothing in
+ * this module ever writes one.
  */
 
 import { and, desc, eq, isNull } from 'drizzle-orm';
@@ -84,11 +83,11 @@ export interface NewChannelApiKey {
  * Mint a key.
  *
  * `scopes` is required of the caller rather than defaulted here: the column's own
- * DDL default is the EMPTY array (Mongoose defaulted it to the full scope set),
- * so the caller's explicit write is the only thing that gives a key any authority
- * at all. A caller that forgot it would mint a key that authenticates and
- * authorizes nothing — which is the fail-closed direction, and still worth
- * stating so nobody "fixes" it by adding a default back.
+ * DDL default is the EMPTY array, so the caller's explicit write is the only
+ * thing that gives a key any authority at all. A caller that forgot it would
+ * mint a key that authenticates and authorizes nothing — which is the
+ * fail-closed direction, and still worth stating so nobody "fixes" it by adding
+ * a default back.
  *
  * @throws A unique violation (SQLSTATE 23505) on `channel_api_keys_hash_key` if
  *   the digest is already stored. Not caught: two distinct plaintexts colliding

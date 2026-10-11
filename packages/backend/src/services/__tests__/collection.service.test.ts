@@ -7,9 +7,8 @@
  * alone), that a manual set preserves the caller's order and validates its ids,
  * and that a duplicate handle becomes a CONFLICT.
  *
- * What is deliberately NOT here any more: the old suite asserted the exact Mongo
- * predicates (`$addToSet`/`$pull` filter shapes) that materialization emitted.
- * Those are SQL now, and asserting a rendered predicate against a mock proves
+ * What is deliberately NOT here: the exact predicates materialization emits.
+ * Those are SQL, and asserting a rendered predicate against a mock proves
  * only that the string did not change. The rule translator and the set-diff are
  * checked against a REAL server in `db/__tests__/catalog.realdb.test.ts`, where a
  * predicate that matches nothing fails instead of passing.
@@ -193,9 +192,7 @@ describe('recomputeAutomatedMembershipForListing', () => {
     await recomputeAutomatedMembershipForListing(LISTING_A);
 
     // The reconcile is BOUNDED to the automated ids and told which matched. A
-    // hand-picked membership is not in that set, so it cannot be reached — which
-    // is what the Mongo version achieved by filtering the array before writing it
-    // back wholesale.
+    // hand-picked membership is not in that set, so it cannot be reached.
     expect(setListingAutomatedMemberships).toHaveBeenCalledWith(
       LISTING_A,
       [COLLECTION_ID, OTHER_AUTOMATED],
@@ -270,8 +267,8 @@ describe('setCollectionProducts', () => {
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.VALIDATION_ERROR,
     );
     // The write must not have been attempted: `listing_collections.listing_id` is
-    // a real foreign key now, so an unchecked id is a 23503 rather than the
-    // silent no-match Mongo produced.
+    // a real foreign key, so an unchecked id is a 23503 rather than a silent
+    // no-match.
     expect(replaceManualMembership).not.toHaveBeenCalled();
   });
 });

@@ -38,10 +38,10 @@
  * It reserves nothing, commits nothing and touches no inventory. The
  * reservation happens in `checkout.service`'s own loop, at the location this
  * gate resolved, through the EXISTING `reserve(variantId, qty, locationId)` —
- * whose guarded UPDATE has been race-safe at the location grain since the Mongo
- * port. #93 says "reserve stock at the exact selected location through the
- * existing race-safe inventory service", and the whole of the change that
- * needed is passing an id that was already a parameter.
+ * whose guarded UPDATE is race-safe at the location grain. #93 says "reserve
+ * stock at the exact selected location through the existing race-safe inventory
+ * service", and the whole of the change that needed is passing an id that was
+ * already a parameter.
  */
 
 import type { PickupIdentityRequirement, PickupPaymentRequirement } from '@mercaria/shared-types';

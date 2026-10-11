@@ -602,8 +602,9 @@ capability gap. The second has since been built — see the update inside it.**
    `oxy:deploy-phase` marker through `@oxy.so/db`'s `readMigrationPhases` — it says
    nothing about what a statement writes. No `validate:*` script in the root
    `package.json` points at SQL. Positive control that the device is house
-   standard: `validate-no-mongo.mjs` and `validate-money-formatting.mjs` are
-   source-scanning gates with their own `test-validate-*.mjs` self-tests.
+   standard: `validate-rtl-logical-classes.mjs` and
+   `validate-money-formatting.mjs` are source-scanning gates with their own
+   `test-validate-*.mjs` self-tests.
 2. **~~No census demands a trigger for a new commerce-adjacent table.~~ — TRUE
    WHEN WRITTEN, FALSIFIED 2026-08-21 by PR #815.** The original measurement
    stands and is kept because it is what explains the gap: searched for
@@ -1062,10 +1063,10 @@ during an incident.
    missing `runVariantAxisBackfill` realdb test and corrected the
    `legacy-resolution.ts` docblock. What is left of box 2 is the `Tono` case and
    the service-level sibling-collision decision.
-3. **A migration-SQL gate** in the `validate-no-mongo.mjs` shape, refusing DML and
-   destructive ALTER against a named commerce set, with the exact-count exemption
-   list `migration-handwritten-markers.test.ts` already uses. Moves box 3's
-   property half; and a snapshot-immutability census in the
+3. **A migration-SQL gate** in the `validate-money-formatting.mjs` shape,
+   refusing DML and destructive ALTER against a named commerce set, with the
+   exact-count exemption list `migration-handwritten-markers.test.ts` already
+   uses. Moves box 3's property half; and a snapshot-immutability census in the
    `merge-plan-census.test.ts` shape would immediately report
    `order_status_history`, `payments` and `refunds` as unprotected.
 4. **A terminal state plus a retry budget on `catalog_backfill_runs`**, which

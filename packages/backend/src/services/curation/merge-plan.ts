@@ -8,7 +8,7 @@
  * saves, alerts and watchlists are rehomed idempotently" is a claim about
  * COMPLETENESS, and completeness is exactly what a hand-written merge cannot
  * prove. Finding fewer referencing tables looks identical to there BEING fewer
- * (`~/Oxy/AGENTS.md`, the pathspec and Mongo-reader findings), and the miss is
+ * (`~/Oxy/AGENTS.md`, the pathspec finding), and the miss is
  * silent — the orphaned rows keep pointing at a tombstone nobody reads.
  *
  * So the plan is declared here as real drizzle COLUMNS, and

@@ -18,7 +18,7 @@
  *    convention two statements politely observed;
  *  - `deleteLocation` raises SQLSTATE 23503 from the RESTRICT side, which
  *    `location.service` translates into its CONFLICT contract;
- *  - the `inventory_levels` cascade removes the rows Mongo leaked, and the
+ *  - the `inventory_levels` cascade removes the orphaned rows, and the
  *    variant ROLLUP has to be recomputed afterwards because a cascade does not
  *    touch a denormalized total;
  *  - `recomputeVariantRollup`'s correlated aggregate returns a NON-VACUOUS
@@ -346,7 +346,7 @@ describe('deleteLocation', () => {
     expect(result.deleted).toBe(true);
     expect(result.affectedVariantIds).toEqual([variantId]);
 
-    // The FK removed the orphaned level row Mongo used to leak...
+    // The FK removed the orphaned level row...
     const remaining = await db
       .select({ id: inventoryLevels.id })
       .from(inventoryLevels)
@@ -396,8 +396,8 @@ describe('deleteLocation', () => {
       totalsGrandTotalCurrency: 'FAIR',
     });
 
-    // Under Mongo this delete SUCCEEDED and left the draft pointing at a
-    // location that no longer existed. `SET NULL` was not an option: NULL
+    // Without RESTRICT this delete would SUCCEED and leave the draft pointing
+    // at a location that no longer exists. `SET NULL` is not an option: NULL
     // already means "the store's default location", so it would have silently
     // rerouted the reservation instead of refusing.
     let caught: unknown;

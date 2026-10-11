@@ -6,10 +6,9 @@
  * A draft is the register's MUTABLE cart, and every mutation ends the same way:
  * re-price the whole thing and write the result back. That shape is what
  * {@link replaceDraftPricing} encodes — lines, allocations, tax lines and totals
- * are replaced WHOLESALE in one transaction, exactly as assigning a Mongoose
- * sub-document array did. Patching them individually would leave the previous
- * recompute's rows behind, and a draft carrying two generations of tax lines
- * charges both.
+ * are replaced WHOLESALE in one transaction. Patching them individually would
+ * leave the previous recompute's rows behind, and a draft carrying two
+ * generations of tax lines charges both.
  *
  * Draft money is SINGLE currency throughout (`draft_orders.currency`): a POS sale
  * settles and charges in the store's own currency, and only acquires a
@@ -432,9 +431,9 @@ export async function updateDraftOrder(
  *
  * The two columns move together because `draft_orders_converted_order_check`
  * requires it: a `completed` draft has a converted order and a non-completed one
- * does not, which Mongo could only hope for. Guarded on `status = 'open'` for the
- * same reason the order transition is — a second `complete` that lost the race
- * must not overwrite the first one's order id.
+ * does not. Guarded on `status = 'open'` for the same reason the order
+ * transition is — a second `complete` that lost the race must not overwrite the
+ * first one's order id.
  *
  * @returns `false` when the guard refused, i.e. the draft was concurrently
  *   completed or cancelled.

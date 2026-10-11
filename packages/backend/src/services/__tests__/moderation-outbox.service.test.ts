@@ -1,8 +1,7 @@
 /**
  * The outbox invariant: nothing is enqueued outside a transaction.
  *
- * The guard moved with the port. Under Mongo it was `session.inTransaction()`;
- * under drizzle it is `requireTransaction`, which discriminates on whether the
+ * The guard is `requireTransaction`, which discriminates on whether the
  * handle has a `rollback` FUNCTION — the root `PostgresJsDatabase` does not, and
  * both a top-level transaction and a nested savepoint one do. That is what these
  * tests exercise, with a fake handle of each shape, and it is the part that can
@@ -32,10 +31,10 @@ const onConflictDoNothing = vi.fn();
 /**
  * Present, and expected to stay UNCALLED.
  *
- * `DO UPDATE` is the one spelling that reintroduces the bug the Mongo
- * `timestamps: false` flag existed to fix: a repeated enqueue becomes a real write
- * that contends with the dispatcher's live lease on that row. The realdb sibling
- * proves the row is untouched; this proves the statement never asks to update.
+ * `DO UPDATE` is the one spelling that turns a repeated enqueue into a real
+ * write that contends with the dispatcher's live lease on that row. The realdb
+ * sibling proves the row is untouched; this proves the statement never asks to
+ * update.
  */
 const onConflictDoUpdate = vi.fn();
 

@@ -7,19 +7,16 @@
  * exponential backoff capped, and a failure that cannot succeed becomes a
  * visible `dead_letter` rather than an ever-growing attempt count.
  *
- * ## What Postgres does better than Mongo did here
+ * ## Why the claim and the enqueue are shaped this way
  *
  * The claim is `SELECT … FOR UPDATE SKIP LOCKED` inside the update, so N tasks
  * draining concurrently never contend: each takes rows the others have not
- * locked, instead of racing on a `findOneAndUpdate` and losing. The Mongo
- * version's correctness came from the atomicity of a single-document update;
- * this one's comes from row locks, and it scales with tasks rather than against
- * them.
+ * locked, instead of racing on one row and losing. Correctness comes from row
+ * locks, and it scales with tasks rather than against them.
  *
- * `on conflict (id) do nothing` gives natively what the Mongo enqueue needed
- * `timestamps: false` to achieve: a repeat is a genuine no-op, not a write that
- * bumps `updated_at` and contends with a live lease. `do update` would
- * reintroduce exactly that bug.
+ * `on conflict (id) do nothing` makes a repeat a genuine no-op, not a write
+ * that bumps `updated_at` and contends with a live lease. `do update` would
+ * introduce exactly that bug.
  */
 
 import { and, desc, eq, gt, inArray, isNotNull, lte, or, sql } from 'drizzle-orm';
@@ -49,10 +46,10 @@ export interface EnqueuePaymentOutboxInput {
  * `db` is a `DatabaseOrTransaction` and every real caller passes a TRANSACTION,
  * because that is the entire point of the table: the domain write and this row
  * commit together, or a payment succeeds and nothing downstream ever hears about
- * it. The moderation equivalent enforces that at runtime because a Mongo
- * `ClientSession` can be handed over without a transaction open on it; drizzle
- * has no such shape — a `Transaction` handle only exists inside `db.transaction`
- * — so the type is the whole guard here and there is nothing left to assert.
+ * it. The moderation equivalent also enforces that at runtime
+ * (`moderation/transactionGuard.ts`); every caller here already passes the
+ * handle `db.transaction` gives it, so the type is the whole guard here and
+ * there is nothing left to assert.
  *
  * @returns `true` when this call created the row, `false` when it already
  *   existed — which is the ordinary outcome of a retry and not a failure.

@@ -20,17 +20,11 @@
  *    rather than one taking a row and the other blocking on it and coming back
  *    empty.
  *
- * ## What the Mongo original was for, and why the shape of the hazard changed
+ * ## The hazard: a repeated enqueue that writes
  *
- * The file it replaces existed to catch a Mongo-specific bug: naming
- * `createdAt`/`updatedAt` inside `$setOnInsert` on a schema declaring
- * `{ timestamps: true }` put one path under two operators and the server refused
- * the whole write, aborting the intake transaction with it. That exact bug cannot
- * exist here — but its second half can, and does: the "obvious" fix under Mongo
- * (let the ORM own the timestamps) left a `$set: { updatedAt }` on the update and
- * turned a repeated enqueue into a real write contending with the dispatcher's
- * live lease. `ON CONFLICT DO NOTHING` is the structural answer, and the
- * `xmin` assertion below is what holds it.
+ * An enqueue that bumps `updated_at` on a repeat turns it into a real write
+ * contending with the dispatcher's live lease. `ON CONFLICT DO NOTHING` is the
+ * structural answer, and the `xmin` assertion below is what holds it.
  *
  * ## Scoping, because this database is SHARED
  *

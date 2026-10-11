@@ -68,7 +68,6 @@ Put app tests under `lib/**/__tests__/*.test.ts` and backend tests next to the s
 CI runs the following on every pull request, and each line runs locally as written:
 
 ```bash
-bun run validate:no-mongo
 bun run validate:agents-md
 bun run validate:rtl-classes
 bun run validate:bidi-isolation

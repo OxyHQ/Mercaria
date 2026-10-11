@@ -14,17 +14,17 @@
 --
 -- `models/counter.ts` allocates a number with `findByIdAndUpdate($inc)` on a
 -- single document — one row, contended by every checkout in the system, and
--- correct only because Mongo makes that update atomic. `nextval()` is the same
+-- correct only because that update is atomic. `nextval()` is the same
 -- guarantee without the row: it does not take a transaction-scoped lock, so two
 -- concurrent checkouts never wait on each other, and a rolled-back transaction
 -- does NOT return its number.
 --
--- That last part is a real behaviour change and it is the right one. Under Mongo
--- a checkout that failed after allocating also burned its number (the `$inc` was
--- already committed), so gaps exist in production today; `nextval` makes the
--- same gaps for the same reason. What it additionally guarantees is that a
--- number is never handed out twice, which the Mongo path could violate if the
--- allocation and the order insert straddled a retry.
+-- That last part is a real behaviour change and it is the right one. Under the
+-- counter document a checkout that failed after allocating also burned its
+-- number (the `$inc` was already committed), so gaps exist in production today;
+-- `nextval` makes the same gaps for the same reason. What it additionally
+-- guarantees is that a number is never handed out twice, which the counter path
+-- could violate if the allocation and the order insert straddled a retry.
 --
 -- ## Only the two sequences that have consumers
 --

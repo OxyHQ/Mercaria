@@ -121,9 +121,9 @@ export async function categorySlugExists(
 /**
  * The whole ACTIVE taxonomy, in sibling order.
  *
- * `parent_id` then `position` reproduces the `{parentId: 1, position: 1}` index
- * order the Mongo read used, with `slug` breaking a tie between two siblings
- * sharing a position rather than letting the tree wobble between requests.
+ * `parent_id` then `position` is the tree's order, with `slug` breaking a tie
+ * between two siblings sharing a position rather than letting the tree wobble
+ * between requests.
  */
 export async function findActiveCategories(
   db: DatabaseOrTransaction = getDb(),
