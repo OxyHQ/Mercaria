@@ -45,7 +45,7 @@ function setup(read: () => Promise<Place>) {
   });
   vi.mocked(useQueryClient).mockReturnValue(client);
   // React hooks are mocked here to capture configuration; QueryObserver and QueryClient are real.
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // biome-ignore lint/correctness/useHookAtTopLevel: React Query hooks are mocked here to capture the mutation options
   useApplyCapabilityOperations('place');
   const options = vi.mocked(useMutation).mock.calls.at(-1)![0] as {
     mutationFn: (

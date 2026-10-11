@@ -57,6 +57,7 @@ it.each([false, true])(
     const unsubscribe = observer?.subscribe(() => {});
     try {
       vi.mocked(useQueryClient).mockReturnValue(client);
+      // biome-ignore lint/correctness/useHookAtTopLevel: React Query hooks are mocked here to capture the mutation options
       useSetVariantLevelInventory('store-a', 'product');
       const options = vi.mocked(useMutation).mock.calls.at(-1)![0] as {
         onSuccess: (

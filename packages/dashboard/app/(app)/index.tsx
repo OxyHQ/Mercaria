@@ -320,6 +320,7 @@ function TopProductsList({ products }: { products: TopProduct[] }) {
           {products.map((p) => {
             const content = (
               <Pressable
+                key={p.listingId}
                 disabled={!can('products:read')}
                 accessibilityLabel={p.title}
                 className="flex-row items-center justify-between gap-3 rounded-lg py-2 web:hover:bg-muted"

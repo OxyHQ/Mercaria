@@ -53,8 +53,13 @@ it.each(['metadata', 'rules', 'products'])(
       })
       .catch(() => undefined);
     vi.mocked(useQueryClient).mockReturnValue(client);
-    if (mode !== 'products') useUpdateCollection('store-a', original.id);
-    else useSetCollectionProducts('store-a', original.id);
+    if (mode !== 'products') {
+      // biome-ignore lint/correctness/useHookAtTopLevel: React Query hooks are mocked here to capture the mutation options
+      useUpdateCollection('store-a', original.id);
+    } else {
+      // biome-ignore lint/correctness/useHookAtTopLevel: React Query hooks are mocked here to capture the mutation options
+      useSetCollectionProducts('store-a', original.id);
+    }
     const options = vi.mocked(useMutation).mock.calls.at(-1)![0] as {
       onSuccess: (data: Collection, input: object) => Promise<void>;
     };
