@@ -56,6 +56,7 @@ import type {
 } from '../provider.js';
 import { Peable, PeableError } from '@peable.to/sdk';
 import { config } from '../../../config/index.js';
+import { oxyServiceTokenProvider } from '../../../capabilities/oxy-service-client.js';
 import { verifyPeableSignature } from './verify.js';
 
 // SDK response types remain upstream. The gateway's existing create/retrieve
@@ -187,10 +188,14 @@ export class PeablePaymentProvider
   readonly id = 'peable' as const;
   private readonly client: Peable;
   constructor(client?: Peable) {
-    const { publicKey, secret, baseUrl, oxyApiUrl } = config.payments.peable;
+    // Mercaria's own Oxy identity (the task role on ECS); no Peable credential.
     this.client =
       client ??
-      new Peable({ publicKey, secret, baseURL: baseUrl, oxyApiUrl, requestTimeoutMs: 20_000 });
+      new Peable({
+        tokenProvider: oxyServiceTokenProvider,
+        baseURL: config.payments.peable.baseUrl,
+        requestTimeoutMs: 20_000,
+      });
   }
   private async call<T>(stage: PaymentProviderStage, operation: () => Promise<T>): Promise<T> {
     try {

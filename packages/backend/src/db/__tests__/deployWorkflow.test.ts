@@ -94,6 +94,11 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(register?.run).not.toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
     expect(register?.run).toContain('.name != "OXY_APPLICATION_KEY"');
     expect(register?.run).toContain('.name != "OXY_APPLICATION_SECRET"');
+    // Peable takes the same identity, so the aliases of that pair go too.
+    expect(register?.run).toContain('.name != "PEABLE_APP_PUBLIC_KEY"');
+    expect(register?.run).toContain('.name != "PEABLE_APP_SECRET"');
+    expect(register?.run).not.toContain('/PEABLE_APP_PUBLIC_KEY');
+    expect(register?.run).not.toContain('/PEABLE_APP_SECRET');
     expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
     // No GoWay client means no location can be published (ADR 0013).
     expect(register?.run).toContain('{name: "GOWAY_API_URL", value: $goway_api_url}');

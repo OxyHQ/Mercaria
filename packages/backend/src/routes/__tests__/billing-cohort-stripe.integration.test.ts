@@ -130,8 +130,9 @@ beforeAll(async () => {
     STRIPE_WEBHOOK_SECRET: secret,
     STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_fixture',
     MERCHANT_BILLING_ENABLED: String(actions),
-    PEABLE_APP_PUBLIC_KEY: 'fixture-public',
-    PEABLE_APP_SECRET: 'fixture-secret',
+    // Mercaria's Oxy identity, minted from the fixture at OXY_API_URL.
+    OXY_APPLICATION_KEY: 'fixture-public',
+    OXY_APPLICATION_SECRET: 'fixture-secret',
     MERCHANT_BILLING_PEABLE_COHORT: JSON.stringify({
       merchantId: 'merchant-fixture',
       applicationId: 'app-fixture',

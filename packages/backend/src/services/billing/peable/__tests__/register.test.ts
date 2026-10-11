@@ -4,8 +4,8 @@ const seam = vi.hoisted(() => ({
   raw: '',
   enabled: true,
   live: false,
-  publicKey: 'fixture',
-  secret: 'fixture',
+  identity: true,
+  tokenProvider: { getToken: vi.fn(), invalidate: vi.fn() },
   account: vi.fn(),
   merchant: vi.fn(),
   constructed: vi.fn(),
@@ -24,14 +24,7 @@ vi.mock('../../../../config/index.js', () => ({
         },
       },
       peable: {
-        get publicKey() {
-          return seam.publicKey;
-        },
-        get secret() {
-          return seam.secret;
-        },
         baseUrl: 'http://unused',
-        oxyApiUrl: 'http://unused',
       },
     },
     merchantBilling: {
@@ -48,6 +41,10 @@ vi.mock('../../../payments/stripe/client.js', () => ({
     return { accounts: { retrieve: seam.account }, subscriptions: { retrieve: vi.fn() } };
   },
 }));
+vi.mock('../../../../capabilities/oxy-service-client.js', () => ({
+  oxyServiceClient: () => (seam.identity ? {} : null),
+  oxyServiceTokenProvider: seam.tokenProvider,
+}));
 vi.mock('../../stripe/cohort-reader.js', () => ({
   createBillingCohortStripeReader: () => ({
     platformAccountId: async () => (await seam.account(null)).id,
@@ -58,8 +55,8 @@ vi.mock('@peable.to/sdk', async (original) => ({
   ...(await original<object>()),
   Peable: class {
     merchants = { retrieve: seam.merchant };
-    constructor() {
-      seam.constructed();
+    constructor(config: unknown) {
+      seam.constructed(config);
     }
   },
 }));
@@ -100,8 +97,7 @@ beforeEach(() => {
   seam.raw = '';
   seam.enabled = true;
   seam.live = false;
-  seam.publicKey = 'fixture';
-  seam.secret = 'fixture';
+  seam.identity = true;
   seam.account.mockReset().mockResolvedValue({ id: 'acct_fixture' });
   seam.merchant
     .mockReset()
@@ -252,19 +248,26 @@ describe('billing cohort registration', () => {
     expect(getBillingProvider('stripe')).toBeUndefined();
     expect(seam.account).not.toHaveBeenCalled();
   });
-  for (const missing of ['publicKey', 'secret'] as const) {
-    it(`rejects missing ${missing} before provider or gateway reads`, async () => {
-      seam.raw = JSON.stringify(cohort);
-      seam[missing] = '';
-      await expect(registerMerchantBillingProvider()).rejects.toThrow(
-        'complete Peable application credential',
-      );
-      expect(seam.account).not.toHaveBeenCalled();
-      expect(seam.merchant).not.toHaveBeenCalled();
-      expect(getBillingProvider('stripe')).toBeUndefined();
-      expect(seam.registered).not.toHaveBeenCalled();
+  it('rejects a process with no Oxy identity before provider or gateway reads', async () => {
+    seam.raw = JSON.stringify(cohort);
+    seam.identity = false;
+    await expect(registerMerchantBillingProvider()).rejects.toThrow(
+      'Merchant billing requires an Oxy identity for Mercaria.',
+    );
+    expect(seam.account).not.toHaveBeenCalled();
+    expect(seam.constructed).not.toHaveBeenCalled();
+    expect(seam.merchant).not.toHaveBeenCalled();
+    expect(getBillingProvider('stripe')).toBeUndefined();
+    expect(seam.registered).not.toHaveBeenCalled();
+  });
+  it("reaches Peable as Mercaria's Oxy identity and with no credential of its own", async () => {
+    seam.raw = JSON.stringify(cohort);
+    await registerMerchantBillingProvider();
+    expect(seam.constructed).toHaveBeenCalledExactlyOnceWith({
+      tokenProvider: seam.tokenProvider,
+      baseURL: 'http://unused',
     });
-  }
+  });
   it('does not enable the out-of-cohort legacy mutator', async () => {
     seam.enabled = false;
     seam.raw = JSON.stringify(cohort);
