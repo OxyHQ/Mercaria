@@ -1,4 +1,4 @@
-import { renderListingLink } from "@/lib/catalog/product-links";
+import { renderListingLink, renderMerchantLink } from "@/lib/catalog/product-links";
 import { renderCartVendorLink } from "@/lib/catalog/cart-vendor-links";
 import { useState } from "react";
 import { View, Pressable, Platform } from "react-native";
@@ -82,10 +82,6 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
     router.push(group.guestCheckout?.status === "blocked" ? "/cart" : { pathname: "/checkout", params: { seller: group.sellerKey } });
   };
 
-  const onPressProduct = (id: string) => {
-    router.push({ pathname: "/products/[id]", params: { id } });
-  };
-
   return (
     <>
       {/* Hero search header (provides branding — replaces the old top bar) */}
@@ -123,8 +119,9 @@ function FeedBody({ data, isLoading, isError, refetch, onHeroVisibilityChange }:
         }
         if (section.kind === "merchants") {
           return <MerchantCarousel key={section.id} title={section.title} merchants={section.merchants}
-            onPressMerchant={handle => router.push({ pathname: "/stores/[handle]", params: { handle } })}
-            onPressProduct={onPressProduct} />;
+            renderMerchantLink={renderMerchantLink}
+            renderProductLink={renderListingLink}
+            cardVariant="home" />;
         }
         return null;
       })}
