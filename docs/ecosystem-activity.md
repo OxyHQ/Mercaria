@@ -4,11 +4,13 @@ The backend publishes aggregate traffic and its infrastructure heartbeat to the
 Oxy API, which broadcasts changes to the website dashboard. Collection runs in
 the service process regardless of whether somebody opens the dashboard.
 
-Enable with `OXY_ECOSYSTEM_ACTIVITY_ENABLED=true`, `AWS_REGION`, and a registered
-Oxy application credential (`OXY_APPLICATION_KEY` and `OXY_APPLICATION_SECRET`).
+Enable with `OXY_ECOSYSTEM_ACTIVITY_ENABLED=true`, `AWS_REGION`, and an Oxy
+identity. On ECS that is the task role: `oxy-mercaria-task` is bound to the
+Mercaria application (oxy ADR 0026), and the deploy carries no key pair. Off
+ECS, set `OXY_APPLICATION_KEY` and `OXY_APPLICATION_SECRET`; a full pair wins
+over attestation and half a pair is no identity.
 An invalid activation value or missing required configuration fails at boot.
 Disabled collection emits a warning; it must not be interpreted as zero traffic.
-Provision credentials and enable the flag in the deployment before claiming coverage.
 
 HTTP middleware is mounted before body parsers and routers, including public
 routes, webhooks, failures and authenticated internal calls. Outgoing fetch and
