@@ -52,9 +52,9 @@ async function loadStoreCollection(req: Request): Promise<Collection> {
 /**
  * Serialize ONE collection, reading its hand-picked product ids.
  *
- * `productIds` was a field on the Mongo document and is a relation now, so every
- * single-collection response reads it explicitly; the list endpoint batches
- * instead, which is why this is not folded into `toCollectionDTO`.
+ * `productIds` is a relation, so every single-collection response reads it
+ * explicitly; the list endpoint batches instead, which is why this is not
+ * folded into `toCollectionDTO`.
  */
 async function serialize(collection: Collection): Promise<ReturnType<typeof toCollectionDTO>> {
   return toCollectionDTO(collection, await getCollectionProductIds(collection.id));

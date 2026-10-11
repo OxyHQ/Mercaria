@@ -8,8 +8,7 @@
  * predicate. That is what makes #80 acceptance 5 ("save toggles are idempotent
  * under repeated taps and network retries") true of a retrying mobile client
  * and of two concurrent taps, which a read-then-write cannot be — the
- * `favoriteRepository` note one table over records the same lesson from the
- * Mongo port.
+ * `favoriteRepository` note one table over records the same lesson.
  *
  * The COUNTER is not touched here. It is derived from these rows by
  * `productSaveAggregateRepository`, so no function in this file can move a

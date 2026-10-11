@@ -12,8 +12,8 @@
  *
  *  - **The count moves only when the SET really changed.** The repository's
  *    insert and delete report whether a row was written, so a repeated save
- *    increments nothing. The Mongo path read first and then wrote, which two
- *    concurrent saves could both pass — inserting once (the unique index absorbs
+ *    increments nothing. A read-then-write is something two concurrent saves
+ *    could both pass — inserting once (the unique index absorbs
  *    the second) and counting twice.
  *  - **The decrement is `greatest(0, count - 1)` rather than a
  *    `where favoriteCount > 0` guard.** That guard made the whole update a

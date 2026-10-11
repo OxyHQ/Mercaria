@@ -16,15 +16,13 @@
  * only sanctioned media resolver. ListingImage.fileId always retains the
  * stored reference; resolving a rendition must never rewrite that identity.
  *
- * ## Ported to Postgres
+ * ## Batching
  *
- * The input is a {@link ListingRecord}, not a Mongoose document, and the batch
- * count grew from three queries to five — because one document became four
- * tables. That is the whole change in shape: what was `listing.images` is now a
- * `listing_images` batch, `listing.options` a `listing_options` batch, and
- * `listing.collectionIds` a `listing_collections` batch. All three are loaded
- * ONCE for the page by `findListingChildren`, so the per-listing cost is still
- * zero queries.
+ * The input is a {@link ListingRecord}, and the batch is five queries because a
+ * listing spans four tables: `listing.images` is a `listing_images` batch,
+ * `listing.options` a `listing_options` batch, and `listing.collectionIds` a
+ * `listing_collections` batch. All three are loaded ONCE for the page by
+ * `findListingChildren`, so the per-listing cost is still zero queries.
  *
  * The seller profile is a Postgres row too now. It moved with the commerce core
  * rather than with the catalogue, because `order.service` has to bump its

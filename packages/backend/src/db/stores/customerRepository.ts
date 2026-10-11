@@ -135,8 +135,8 @@ export async function findCustomerByEmail(
  *
  * `%`, `_` and the escape character itself are the three that matter: unescaped,
  * a search for `100%` matches every customer, and a search for `a_b` matches
- * `axb`. The Mongo path escaped a RegExp for the same reason; dropping the escape
- * during the port would turn a search box into a wildcard nobody typed.
+ * `axb`. Dropping the escape would turn a search box into a wildcard nobody
+ * typed.
  */
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
@@ -248,8 +248,8 @@ export async function updateCustomer(
  * Relate a buyer to a store and bump their lifetime aggregates — exactly once per
  * paid store order.
  *
- * `ON CONFLICT … DO UPDATE` is the port of Mongo's `$inc` + `$setOnInsert` in one
- * statement, with the same split of responsibilities: the INSERT values carry the
+ * `ON CONFLICT … DO UPDATE` is an increment-or-insert in one statement, with a
+ * split of responsibilities: the INSERT values carry the
  * identity a first order establishes, and the DO UPDATE carries only what
  * accumulates. The increments reference the EXISTING row's columns (never
  * `excluded`, which is the row this statement proposed), so two concurrent first
@@ -298,10 +298,10 @@ export async function upsertCustomerOnPaid(
  * NOT an upsert — see the module header. `orderCount` is deliberately untouched:
  * a refund does not un-count the order.
  *
- * `greatest(0, …)` is a BEHAVIOUR CHANGE against the Mongo `$inc`, which would
- * happily drive the total negative. A negative lifetime spend is not a state any
- * reader can render, and the clamp matches `adjustStoreProductCount`'s existing
- * convention for the same class of counter.
+ * `greatest(0, …)` stops a plain increment from driving the total negative. A
+ * negative lifetime spend is not a state any reader can render, and the clamp
+ * matches `adjustStoreProductCount`'s existing convention for the same class of
+ * counter.
  */
 export async function decrementCustomerOnRefund(
   storeId: string,

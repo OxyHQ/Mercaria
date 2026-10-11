@@ -12,16 +12,16 @@
  *
  * ## A listing has no position
  *
- * The Mongo `$near` radius this browse once took is gone with the point it
- * read (`0162`): a store sells from locations whose place is GoWay's, found
- * through `/nearby`, and a P2P seller's area is a coarse cell found through
- * `/nearby/p2p` (`listing_local_discovery`).
+ * There is no radius filter here — listings carry no point (`0162`): a store
+ * sells from locations whose place is GoWay's, found through `/nearby`, and a
+ * P2P seller's area is a coarse cell found through `/nearby/p2p`
+ * (`listing_local_discovery`).
  *
  * **Full-text matching uses `websearch_to_tsquery`.** It is the only built-in
  * parser that cannot raise on user input — a lone `"` or `|` is a syntax error
  * to `to_tsquery` — and it gives buyers the quoting and `-exclusion` a search box
  * implies. `plainto_tsquery` is equally safe but ANDs every word with no way to
- * phrase-match, which Mongo's `$text` did support.
+ * phrase-match, which a search box is expected to support.
  */
 
 import { CONDITION_GROUPS } from '@mercaria/shared-types';
