@@ -7,7 +7,12 @@ const publisher = vi.hoisted(() => ({
   stop: vi.fn(async () => {}),
 }));
 const create = vi.hoisted(() => vi.fn((_options: unknown) => publisher));
-vi.mock('@oxy.so/core/server', () => ({ createEcosystemTraffic: create }));
+vi.mock('@oxy.so/core/server', () => ({
+  createEcosystemTraffic: create,
+  canAttestWorkloadIdentity: () => false,
+  OxyServer: class {},
+}));
+import { resetOxyServiceClientForTests } from '../capabilities/oxy-service-client';
 import {
   ecosystemActivityMiddleware,
   observeEcosystemSocket,
@@ -22,6 +27,7 @@ describe('ecosystem activity lifecycle', () => {
     vi.stubEnv('OXY_APPLICATION_SECRET', 'test-secret');
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.clearAllMocks();
+    resetOxyServiceClientForTests();
   });
   afterEach(async () => {
     await stopEcosystemActivity();

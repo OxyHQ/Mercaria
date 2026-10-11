@@ -76,8 +76,9 @@
  * read server-to-server. Without this member the register route would have to
  * believe a client-reported digest, which is the exact value W1 forbids. It
  * resolves through `getServiceLinkedDownloadUrls`, which is service-token
- * authenticated and therefore needs `OXY_APPLICATION_KEY`/`OXY_APPLICATION_SECRET`;
- * an unconfigured deployment gets a refusal and never a client-supplied fact.
+ * authenticated and therefore needs Mercaria's Oxy identity (its task role, or
+ * `OXY_APPLICATION_KEY`/`OXY_APPLICATION_SECRET` off ECS); a deployment with
+ * neither gets a refusal and never a client-supplied fact.
  */
 
 import type { AssetUploadInput } from '@oxy.so/core';
