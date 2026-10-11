@@ -13,7 +13,7 @@
  *    it has no default there for the same reason.
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Head from 'expo-router/head';

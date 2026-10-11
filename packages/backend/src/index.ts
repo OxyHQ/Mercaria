@@ -1,8 +1,8 @@
 import { startEcosystemActivity, stopEcosystemActivity } from './ecosystemActivity';
-import http from 'http';
+import http from 'node:http';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { connectPostgres } from './db/postgres.js';
 import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';

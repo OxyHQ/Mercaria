@@ -387,9 +387,7 @@ async function* readJsonLines(path: string): AsyncGenerator<Readonly<Record<stri
       if (value === undefined) continue;
       parsed += 1;
       yield value;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   // A dump of lines none of which parse is a format change, not an empty
   // catalogue — and a complete pass over "nothing" would retire everything.

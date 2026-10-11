@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import Head from 'expo-router/head';
 import { View } from 'react-native';
 import { useOxy, openAccountDialog } from '@oxy.so/services';

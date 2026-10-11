@@ -2,7 +2,7 @@ import { Dialog } from '@oxy.so/bloom/dialog';
 import { Button } from '@oxy.so/bloom/button';
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import React, { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import {

@@ -57,7 +57,7 @@ describe('GET /discovery/signal', () => {
   it('serves a root page to an anonymous caller, with the paged-list shape', async () => {
     const { status, body } = await get('?signal=new&scope=root');
     expect(status).toBe(200);
-    const data = body['data'] as {
+    const data = body.data as {
       signal: string;
       scope: unknown;
       pageDepth: string;

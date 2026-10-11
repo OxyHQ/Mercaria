@@ -14,11 +14,11 @@
  * which today is all of them.
  */
 
-import {
-  type ComparisonExplanation,
-  type ComparisonInput,
-  type ExplanationPackage,
-  type ExplanationRejection,
+import type {
+  ComparisonExplanation,
+  ComparisonInput,
+  ExplanationPackage,
+  ExplanationRejection,
 } from '@mercaria/shared-types';
 import { log } from '../../../lib/logger.js';
 import { explanationProvider } from './adapter.port.js';

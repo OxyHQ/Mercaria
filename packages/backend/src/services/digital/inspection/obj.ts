@@ -171,7 +171,6 @@ export function inspectObj(
         );
         if (halt) return censusHaltOutcome(halt, MAX_REPORTED_TRIANGLES);
       }
-      continue;
     }
 
     // Every other OBJ directive — `vn`, `g`, `s`, `usemtl`, the free-form curve

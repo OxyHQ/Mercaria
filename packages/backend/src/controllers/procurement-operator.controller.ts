@@ -78,9 +78,9 @@ export async function procurementMetricsHandler(_req: Request, res: Response): P
 
 /** GET — the two operator queues: open conditions and dead-lettered jobs. */
 export async function procurementQueuesHandler(req: Request, res: Response): Promise<void> {
-  const kindRaw = req.query['kind'];
+  const kindRaw = req.query.kind;
   const kind = typeof kindRaw === 'string' && kindRaw.trim() !== '' ? kindRaw.trim() : undefined;
-  const limitRaw = req.query['limit'];
+  const limitRaw = req.query.limit;
   const limit = Number.parseInt(typeof limitRaw === 'string' ? limitRaw : '50', 10);
   sendSuccess(
     res,

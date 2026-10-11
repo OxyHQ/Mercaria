@@ -101,56 +101,36 @@ is where it must be caught.
    (`test/parse.test.ts`).
 4. **`packages/sdk/CHANGELOG.md`** — an entry under the new version.
 5. **Version bump** in `packages/sdk/package.json` per the rules above.
-6. **Merge to `main`** — `publish-sdk.yml` publishes it (next section).
+6. **Merge to `main`**, then publish it by hand (next section).
 
 Steps 1–5 land in ONE pull request, so a published SDK never describes a
 contract the backend at that commit does not serve.
 
-## How publishing is gated
+## How it is published
 
-`.github/workflows/publish-sdk.yml` runs on a push to `main` touching
-`packages/sdk/**`, `packages/contracts/src/**` or the workflow itself, and on
-`workflow_dispatch`.
+Releases are published by hand from the maintainer's machine, never from
+GitHub Actions — the same way every Oxy SDK is released. There is no publish
+workflow and no `NPM_TOKEN` secret.
 
-1. **`gate`** — `.github/scripts/require-ci-success.mjs`, exactly as every
-   deploy uses it ([deploy.md](deploy.md) §"What gates a deploy"): the whole of
-   `ci.yml` must have passed for this commit. `ci.yml`'s `Lint & Test` job lints,
-   typechecks, tests, builds and smoke-tests the SDK, so the publish workflow
-   runs no copy of the suite (#518).
-2. **`publish`** — installs, builds, and runs `scripts/smoke.mjs --out`, which
-   packs the tarball from a staging directory (a manifest whose only dependency
-   is `zod`, no scripts and no `workspace:`), tests the installed tarball from
-   Node ESM and CJS, Bun, a browser bundle, a React Native bundle and a
-   `nodenext` type-check as a Node and as a browser consumer, fails if any
-   shipped file names `@mercaria/`, and keeps that exact tarball.
-3. The version is checked against the registry. **Already published → the job
-   succeeds and publishes nothing**, so re-runs and doc-only changes are safe.
-   A registry error other than 404 stops the job rather than being read as
-   "not published".
-4. `npm publish ./<tested tarball> --provenance --access public`, with
-   `id-token: write`. The `./` is load-bearing: npm reads a bare
-   `sdk-release/x.tgz` as the GitHub shorthand `owner/repo` (#1021).
+1. Wait for `ci.yml` to pass on the merged commit. Its `Lint & Test` job lints,
+   typechecks, tests, builds and smoke-tests the SDK.
+2. From a clean checkout of that commit: `bun install`, then
+   `bun run smoke:sdk -- --out <dir>` (it builds first). `smoke.mjs --out` packs the
+   tarball from a staging directory (a manifest whose only dependency is `zod`,
+   no scripts and no `workspace:`), tests the installed tarball from Node ESM
+   and CJS, Bun, a browser bundle, a React Native bundle and a `nodenext`
+   type-check as a Node and as a browser consumer, fails if any shipped file
+   names `@mercaria/`, and keeps that exact tarball.
+3. `npm view @mercaria.co/sdk@<version> version` — a version already on the
+   registry is never republished.
+4. `npm publish ./<dir>/<tarball> --access public`. The `./` is load-bearing:
+   npm reads a bare `dir/x.tgz` as the GitHub shorthand `owner/repo` (#1021).
+5. Tag the commit `sdk-v<version>` and push the tag.
 
-The concurrency group never cancels an in-flight publish.
-
-### Authentication
-
-**0.1.0 was published by hand** (2026-09-13), from the exact tarball
-`smoke.mjs --out` produced at `main` `5547181e` — the way the other Oxy SDKs
-are released. The workflow could not: the org-wide `NPM_TOKEN` has no write
-access to the `@mercaria.co` scope, and the registry answers that with
-`404 PUT`, not `403` — the same 404 a missing scope gives, so read it as "no
-permission" first.
-
-For the workflow to publish, `NPM_TOKEN` needs write access to `@mercaria.co`.
-Until then a release is a manual `npm publish ./<tarball> --access public` of
-the tarball `bun run smoke:sdk -- --out <dir>` keeps. npm now warns that tokens
-which bypass 2FA are being restricted for direct publishing; if that lands,
-this section is where the replacement gets written down.
-
-`prepublishOnly` (typecheck, test, build, smoke) guards a manual
-`npm publish` from `packages/sdk`, but that path publishes the unstaged
-manifest; the workflow is the supported release path.
+`npm publish <tarball>` runs no lifecycle scripts, which is why the tarball
+published is the one `smoke.mjs` tested, never a re-pack. `prepublishOnly`
+(typecheck, test, build, smoke) only guards an `npm publish` run from
+`packages/sdk`, and that path publishes the unstaged manifest — don't use it.
 
 ## The contract test against the real backend
 

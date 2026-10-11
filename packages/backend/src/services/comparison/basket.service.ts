@@ -41,10 +41,7 @@ import {
   type BasketSolution,
   type ComparisonPolicyIdentity,
   type ComparisonRecordRef,
-  type CurrencyCode,
   type Offer,
-  type OfferRelationshipStanding,
-  type RankedOffer,
 } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import { validationError } from '../../lib/errors/error-codes.js';
@@ -58,7 +55,7 @@ import { buildBasketSnapshot } from './basket/snapshot.js';
 import { solveBasket } from './basket/solver.js';
 import { MAX_BASKET_LINES } from './policy.js';
 import { ComparisonRecordIndex } from './record-refs.js';
-import { collectComparisonRates, toMoneyFact } from './render.js';
+import { collectComparisonRates } from './render.js';
 
 /** How many offers each line's ranked read asks for. */
 const OFFERS_PER_LINE = 25;

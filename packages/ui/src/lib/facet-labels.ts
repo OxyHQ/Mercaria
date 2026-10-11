@@ -58,7 +58,7 @@ import type {
   FacetLabel,
   OfferAvailability,
 } from '@mercaria/shared-types';
-import { CONDITION_GROUPS, FACET_TAXONOMY_KEY } from '@mercaria/shared-types';
+import { CONDITION_GROUPS, type FACET_TAXONOMY_KEY } from '@mercaria/shared-types';
 import { conditionGroupLabelKey } from './condition';
 import { formatRegionName } from './region';
 
@@ -122,7 +122,7 @@ export const FACET_MARKET_ANY_LABEL_KEY = 'ui.facet.market.any';
 
 /** Whether a string names a facet whose title this module holds copy for. */
 export function isFacetStableTitle(key: string): key is FacetStableTitle {
-  return Object.prototype.hasOwnProperty.call(FACET_TITLE_LABEL_KEYS, key);
+  return Object.hasOwn(FACET_TITLE_LABEL_KEYS, key);
 }
 
 /**
@@ -157,12 +157,12 @@ export function facetStableBucketText(
   locale: string,
 ): string | null {
   if (facetKey === 'availability') {
-    return Object.prototype.hasOwnProperty.call(FACET_AVAILABILITY_LABEL_KEYS, bucketKey)
+    return Object.hasOwn(FACET_AVAILABILITY_LABEL_KEYS, bucketKey)
       ? translate(FACET_AVAILABILITY_LABEL_KEYS[bucketKey as OfferAvailability])
       : null;
   }
   if (facetKey === 'offer_channel') {
-    return Object.prototype.hasOwnProperty.call(FACET_CHANNEL_LABEL_KEYS, bucketKey)
+    return Object.hasOwn(FACET_CHANNEL_LABEL_KEYS, bucketKey)
       ? translate(FACET_CHANNEL_LABEL_KEYS[bucketKey as FacetChannelBucket])
       : null;
   }

@@ -499,7 +499,7 @@ export async function clearExclusion(
 ): Promise<MerchantAcquisitionCandidateView> {
   const now = input.now ?? new Date();
   const existing = await findAcquisitionCandidate(input.merchantId, db);
-  if (existing !== undefined && existing.candidate.doNotContact) {
+  if (existing?.candidate.doNotContact) {
     await recordAcquisitionAudit(
       {
         merchantId: input.merchantId,
@@ -595,7 +595,7 @@ export async function logOutreach(
 ): Promise<MerchantAcquisitionCandidateView> {
   const now = input.now ?? new Date();
   const existing = await findAcquisitionCandidate(input.merchantId, db);
-  if (existing !== undefined && existing.candidate.doNotContact) {
+  if (existing?.candidate.doNotContact) {
     await recordAcquisitionAudit(
       {
         merchantId: input.merchantId,

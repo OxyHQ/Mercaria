@@ -61,8 +61,8 @@ function HeroCard({
   const style = useAnimatedStyle(() => {
     const progress = reduced ? 0 : (clock.value % CYCLE_MS) / (CYCLE_MS / 2) - 1;
     const delayed = progress * (1 + (index % 4) / 25);
-    const turn = Math.max(-1, Math.min(1, Math.pow(delayed, 23)));
-    const opacity = Math.max(0, 1 - Math.pow(delayed, 22));
+    const turn = Math.max(-1, Math.min(1, delayed ** 23));
+    const opacity = Math.max(0, 1 - delayed ** 22);
     const float = reduced
       ? 0
       : (Math.sin((clock.value * Math.PI) / 4000 + index) + 1) * width * 0.025;

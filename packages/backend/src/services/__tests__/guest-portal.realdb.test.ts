@@ -464,8 +464,8 @@ describe('the token is stored only as a digest, and the digest is unique', () =>
   it('a cart token presented to the portal resolver is refused by SHAPE', async () => {
     // ADR 0003 I3: scope is structural. A `mgs_` credential never reaches a
     // hash or a lookup, because `readPortalToken` has an anchored pattern.
-    expect(await grantSvc.resolvePortalGrant('mgs_' + 'A'.repeat(43), new Date())).toBeNull();
-    expect(await grantSvc.resolvePortalGrant('mgx_' + 'A'.repeat(43), new Date())).toBeNull();
+    expect(await grantSvc.resolvePortalGrant(`mgs_${'A'.repeat(43)}`, new Date())).toBeNull();
+    expect(await grantSvc.resolvePortalGrant(`mgx_${'A'.repeat(43)}`, new Date())).toBeNull();
     expect(await grantSvc.resolvePortalGrant('nonsense', new Date())).toBeNull();
   });
 });

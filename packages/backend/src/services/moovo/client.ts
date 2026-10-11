@@ -45,12 +45,12 @@ import {
   classifyMoovoFailure,
   safeMoovoFailureLog,
 } from './outcome.js';
-import {
-  type MoovoCallContext,
-  type MoovoTransport,
-  type MoovoTransportFailure,
-  type MoovoTransportHandle,
-  type MoovoTransportOutcome,
+import type {
+  MoovoCallContext,
+  MoovoTransport,
+  MoovoTransportFailure,
+  MoovoTransportHandle,
+  MoovoTransportOutcome,
 } from './transport-contract.js';
 
 /** What the client needs to know that is not the transport's business. */

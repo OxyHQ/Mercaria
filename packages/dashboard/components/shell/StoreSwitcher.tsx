@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronsUpDown, Store as StoreIcon } from 'lucide-react-native';

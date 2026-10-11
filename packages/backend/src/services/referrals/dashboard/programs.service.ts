@@ -31,14 +31,14 @@
  * can check.
  */
 
-import {
-  type CurrencyCode,
-  type ReferralFundingSourceId,
-  type ReferralPartnerOwnerType,
-  type ReferralProgramLimits,
-  type ReferralProgramOffer,
-  type ReferralProgramPartnerView,
-  type ReferralRewardBasisCopy,
+import type {
+  CurrencyCode,
+  ReferralFundingSourceId,
+  ReferralPartnerOwnerType,
+  ReferralProgramLimits,
+  ReferralProgramOffer,
+  ReferralProgramPartnerView,
+  ReferralRewardBasisCopy,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../../db/postgres.js';
 import {

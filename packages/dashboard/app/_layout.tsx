@@ -53,7 +53,7 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
     (fileId: string, variant?: string): string | undefined => {
       if (!isOxyFileId(fileId)) return undefined;
       const url = oxyServices.assets.publicUrl(fileId, variant);
-      return url && url.startsWith('http') ? url : undefined;
+      return url?.startsWith('http') ? url : undefined;
     },
     [oxyServices],
   );

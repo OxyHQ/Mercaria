@@ -57,13 +57,13 @@ import {
 } from '../../services/graph-benchmark/measure.js';
 import { WORKLOAD_SHAPES } from '../../services/graph-benchmark/workload.js';
 
-const SCALE = BENCHMARK_SCALES['ci'];
+const SCALE = BENCHMARK_SCALES.ci;
 if (!SCALE) throw new Error('The `ci` benchmark scale is missing.');
 
 /** Server to create the throwaway on — the same variable `globalSetup` reads. */
 const ADMIN_URL =
-  process.env['TEST_DATABASE_URL'] ??
-  process.env['DATABASE_URL'] ??
+  process.env.TEST_DATABASE_URL ??
+  process.env.DATABASE_URL ??
   'postgres://mercaria:mercaria@127.0.0.1:5435/mercaria_dev';
 
 let databaseUrl: string;

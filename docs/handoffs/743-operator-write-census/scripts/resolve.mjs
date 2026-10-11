@@ -46,7 +46,7 @@ function importMap(file) {
 
 /** The body of `export async function NAME(...)` — brace-matched. */
 function functionBody(source, name) {
-  const head = new RegExp('(?:export\\s+)?(?:async\\s+)?function\\s+' + name + '\\s*\\(');
+  const head = new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\(`);
   const at = source.search(head);
   if (at < 0) return null;
   const open = source.indexOf('{', at);
@@ -84,7 +84,7 @@ for (const name of readdirSync(ROUTES)
       method: m[1].toUpperCase(),
       path,
       handler,
-      module: module ? module.replace(SRC + '/', '') : null,
+      module: module ? module.replace(`${SRC}/`, '') : null,
       resolved: Boolean(body),
       trail: body ? TRAIL.test(body) : false,
     });
@@ -98,12 +98,12 @@ console.log('handler module resolved:', rows.length - unresolvedModule.length);
 console.log('handler body resolved  :', rows.filter((r) => r.resolved).length);
 console.log('  -> reaches a trail   :', rows.filter((r) => r.trail).length);
 if (unresolvedModule.length) {
-  console.log('\nMODULE UNRESOLVED (' + unresolvedModule.length + '):');
+  console.log(`\nMODULE UNRESOLVED (${unresolvedModule.length}):`);
   for (const r of unresolvedModule.slice(0, 10))
     console.log('  ', r.router, r.method, r.path, r.handler);
 }
 if (unresolvedBody.length) {
-  console.log('\nBODY UNRESOLVED (' + unresolvedBody.length + '):');
+  console.log(`\nBODY UNRESOLVED (${unresolvedBody.length}):`);
   for (const r of unresolvedBody.slice(0, 10))
     console.log('  ', r.router, r.handler, '->', r.module);
 }

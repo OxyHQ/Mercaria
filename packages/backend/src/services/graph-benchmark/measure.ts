@@ -93,7 +93,7 @@ function readString(source: Record<string, unknown>, key: string): string | null
 }
 
 function parseNode(source: Record<string, unknown>): PlanNode {
-  const rawChildren = source['Plans'];
+  const rawChildren = source.Plans;
   const children = Array.isArray(rawChildren) ? rawChildren.filter(isRecord).map(parseNode) : [];
   return {
     nodeType: readString(source, 'Node Type') ?? 'Unknown',
@@ -126,7 +126,7 @@ export function parsePlanJson(payload: unknown): PlanAnalysis {
   const entries = Array.isArray(payload) ? payload : [payload];
   const first = entries.find(isRecord);
   if (!first) throw new Error('EXPLAIN returned no plan object.');
-  const rawPlan = first['Plan'];
+  const rawPlan = first.Plan;
   if (!isRecord(rawPlan)) throw new Error('EXPLAIN payload carries no "Plan" node.');
 
   const root = parseNode(rawPlan);

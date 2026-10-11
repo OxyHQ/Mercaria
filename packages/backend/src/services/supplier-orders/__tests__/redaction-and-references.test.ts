@@ -375,14 +375,14 @@ describe('projecting a provider payload', () => {
     });
     expect(JSON.stringify(projection)).not.toContain('Ada');
     expect(JSON.stringify(projection)).not.toContain('Market');
-    expect(String(projection['orderStatus'])).toMatch(/^\[object:\d+ keys\]$/);
+    expect(String(projection.orderStatus)).toMatch(/^\[object:\d+ keys\]$/);
   });
 
   it('redacts inside an allow-listed STRING too', () => {
     const projection = projectSupplierEventPayload({
       reasonCode: 'refused for ada@example.com',
     });
-    expect(String(projection['reasonCode'])).not.toContain('example.com');
+    expect(String(projection.reasonCode)).not.toContain('example.com');
   });
 
   it('has no allow-listed key that could name a person or a place', () => {

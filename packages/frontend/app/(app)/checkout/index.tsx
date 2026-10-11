@@ -716,9 +716,9 @@ function CheckoutBody() {
             <Text className="text-sm font-semibold text-foreground">
               {t('checkout.shippingAddress')}
             </Text>
-            {usingInlineAddress ? null : (
-              <>
-                {savedAddresses.map((address) => (
+            {usingInlineAddress
+              ? null
+              : savedAddresses.map((address) => (
                   <AddressOption
                     key={address.id}
                     address={address}
@@ -726,8 +726,6 @@ function CheckoutBody() {
                     onSelect={() => setSelectedAddressId(address.id)}
                   />
                 ))}
-              </>
-            )}
             <Button
               appearance="outline"
               tone="neutral"

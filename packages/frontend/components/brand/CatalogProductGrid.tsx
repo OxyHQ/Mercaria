@@ -85,7 +85,7 @@ export function CatalogProductGrid({
               offersIncluded={offersIncluded}
               resolveImage={(fileId) => {
                 const url = oxyServices.assets.publicUrl(fileId, 'thumb');
-                return url && url.startsWith('http') ? url : undefined;
+                return url?.startsWith('http') ? url : undefined;
               }}
               onPress={(canonicalProductId) =>
                 router.push({

@@ -51,8 +51,8 @@ import { searchProductIdsByLexicalRank } from '../search/searchCandidateReposito
 import { SCRIPT_CORPUS, scriptSample } from '../../__tests__/script-corpus.js';
 
 const ADMIN_URL =
-  process.env['TEST_DATABASE_URL'] ??
-  process.env['DATABASE_URL'] ??
+  process.env.TEST_DATABASE_URL ??
+  process.env.DATABASE_URL ??
   'postgres://mercaria:mercaria@127.0.0.1:5435/mercaria_dev';
 
 let databaseUrl: string;

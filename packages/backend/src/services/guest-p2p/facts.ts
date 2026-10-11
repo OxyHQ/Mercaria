@@ -77,7 +77,7 @@ export async function readGuestP2PFacts(input: {
   context: GuestP2PCheckoutContext;
 }): Promise<GuestP2PFacts | null> {
   const listing = await findListingById(input.listingId);
-  if (!listing || listing.ownerType !== 'user' || listing.oxyUserId === null) return null;
+  if (listing?.ownerType !== 'user' || listing.oxyUserId === null) return null;
 
   const sellerOxyUserId = listing.oxyUserId;
   const sellerKey = `user:${sellerOxyUserId}`;

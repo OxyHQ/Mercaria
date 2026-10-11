@@ -41,7 +41,7 @@
  */
 
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { type SelectedRow } from '@oxy.so/db';
+import type { SelectedRow } from '@oxy.so/db';
 import { publicColumns } from '@oxy.so/db/assert';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { PROTECTED_COLUMNS } from '../protectedColumns.js';

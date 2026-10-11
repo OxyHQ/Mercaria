@@ -166,7 +166,7 @@ function measuredNumerator(report: CatalogMetricsReport, key: string): number {
   expect(entry?.state, `${key} is not measured — see mustStayZero and the logged failure`).toBe(
     'measured',
   );
-  if (!entry || entry.state !== 'measured') return Number.NaN;
+  if (entry?.state !== 'measured') return Number.NaN;
   return entry.numerator;
 }
 
@@ -174,7 +174,7 @@ function measuredNumerator(report: CatalogMetricsReport, key: string): number {
 function measuredDenominator(report: CatalogMetricsReport, key: string): number {
   const entry = reading(report, key);
   expect(entry?.state, `${key} is not measured`).toBe('measured');
-  if (!entry || entry.state !== 'measured') return Number.NaN;
+  if (entry?.state !== 'measured') return Number.NaN;
   expect(entry.denominator, `${key} is not a ratio`).toBeDefined();
   return entry.denominator ?? Number.NaN;
 }
@@ -191,7 +191,7 @@ function measuredDenominator(report: CatalogMetricsReport, key: string): number 
  */
 function expectBucketsSumToReading(entry: CatalogMetricReading | undefined): number {
   expect(entry, 'no such reading').toBeDefined();
-  if (!entry || entry.state !== 'measured' || entry.by === undefined) return 0;
+  if (entry?.state !== 'measured' || entry.by === undefined) return 0;
   let numerator = 0;
   let denominator = 0;
   for (const bucket of entry.by) {

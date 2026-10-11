@@ -169,15 +169,15 @@ function renderSql(node: unknown): string {
 
   const record = node as Record<string, unknown>;
   // A `StringChunk` carries `value: string[]`.
-  if (Array.isArray(record['value'])) return (record['value'] as unknown[]).map(renderSql).join('');
+  if (Array.isArray(record.value)) return (record.value as unknown[]).map(renderSql).join('');
   // A `Column`. Rendered through `sqlColumnName`, never `column.name`: the
   // latter is the TypeScript property, because `@oxy.so/db` applies the casing at
   // query time — so an assertion against `column.name` would be an assertion
   // about the editor rather than about the emitted DDL.
-  if (typeof record['name'] === 'string' && record['table'] !== undefined) {
+  if (typeof record.name === 'string' && record.table !== undefined) {
     return sqlColumnName(node as PgColumn);
   }
-  if (Array.isArray(record['queryChunks'])) return renderSql(record['queryChunks']);
+  if (Array.isArray(record.queryChunks)) return renderSql(record.queryChunks);
   return '';
 }
 
@@ -311,7 +311,7 @@ describe('the normalized lookup key is GENERATED, on every table that holds a to
       catalogExternalTokenObservations,
     ]) {
       const columns = getTableColumns(table);
-      const generated = columns['externalKeyNormalized'];
+      const generated = columns.externalKeyNormalized;
       expect(
         generated,
         `${getTableConfig(table).name} has no externalKeyNormalized column`,
@@ -320,7 +320,7 @@ describe('the normalized lookup key is GENERATED, on every table that holds a to
       // the lookup key cannot disagree, which is the
       // `attribute_value_aliases.normalized_alias` device.
       expect(generated?.generated, 'externalKeyNormalized is not generated').toBeDefined();
-      expect(columns['externalKey'], 'the verbatim token column is missing').toBeDefined();
+      expect(columns.externalKey, 'the verbatim token column is missing').toBeDefined();
     }
   });
 });

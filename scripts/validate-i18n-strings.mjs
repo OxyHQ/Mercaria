@@ -3505,7 +3505,7 @@ for (const path of appBundlePaths) {
     failures.push(`${path}: not valid JSON (${error.message})`);
     continue;
   }
-  if (Object.prototype.hasOwnProperty.call(parsed, SHARED_UI_NAMESPACE)) {
+  if (Object.hasOwn(parsed, SHARED_UI_NAMESPACE)) {
     failures.push(
       `${path}: has a top-level "${SHARED_UI_NAMESPACE}" key, which is reserved for ` +
         "@mercaria/ui's own copy (#437). mergeSharedUiCopy refuses this at boot; rename the app key.",

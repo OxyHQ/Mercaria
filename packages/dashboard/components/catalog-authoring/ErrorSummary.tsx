@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable, View } from 'react-native';
 import { AlertTriangle, CircleAlert } from 'lucide-react-native';
 import { Text, useColorScheme } from '@mercaria/ui';

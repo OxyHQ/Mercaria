@@ -96,7 +96,7 @@ let probe: SoloConnection;
  * where the same shape is what makes a wait observable at all.
  */
 async function openSolo(): Promise<SoloConnection> {
-  const databaseUrl = process.env['DATABASE_URL'];
+  const databaseUrl = process.env.DATABASE_URL;
   if (databaseUrl === undefined) {
     throw new Error('vitest.pg.globalSetup did not publish DATABASE_URL');
   }

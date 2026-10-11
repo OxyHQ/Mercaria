@@ -67,7 +67,7 @@ async function get(path: string): Promise<{ status: number; body: Record<string,
 
 /** The `data` envelope every successful read here returns. */
 function data(body: Record<string, unknown>): Record<string, unknown> {
-  return (body['data'] ?? {}) as Record<string, unknown>;
+  return (body.data ?? {}) as Record<string, unknown>;
 }
 
 beforeAll(async () => {
@@ -92,8 +92,8 @@ describe('the vehicle picker, one rung at a time', () => {
     const body = data(response.body);
     // The level travels in the response, so a client cannot render a list of
     // generations under a heading that says models.
-    expect(body['level']).toBe('make');
-    const vehicles = body['vehicles'] as { id: string; key: string; name: string }[];
+    expect(body.level).toBe('make');
+    const vehicles = body.vehicles as { id: string; key: string; name: string }[];
     // Global read, so `toContain` and not an equality — plus a floor, because an
     // empty list satisfies every "does not contain" and is what a broken read
     // returns.
@@ -102,16 +102,17 @@ describe('the vehicle picker, one rung at a time', () => {
   });
 
   it('walks makes → models → generations → configurations, each parent in the PATH', async () => {
-    const makes = data(await get('/compatibility/vehicles/makes').then((r) => r.body))[
-      'vehicles'
-    ] as { id: string; key: string }[];
+    const makes = data(await get('/compatibility/vehicles/makes').then((r) => r.body)).vehicles as {
+      id: string;
+      key: string;
+    }[];
     const bmw = makes.find((make) => make.key === nsKey(seeded.ns, 'bmw'));
     expect(bmw, 'the seeded make is not in the picker').toBeDefined();
     if (bmw === undefined) return;
 
     const models = data((await get(`/compatibility/vehicles/makes/${bmw.id}/models`)).body);
-    expect(models['level']).toBe('model');
-    const modelRows = models['vehicles'] as { id: string; name: string }[];
+    expect(models.level).toBe('model');
+    const modelRows = models.vehicles as { id: string; name: string }[];
     // Exactly the two this make owns — the rung is scoped by its parent, which is
     // the property a wrongly-read path parameter breaks.
     expect(modelRows.map((row) => row.name).sort()).toEqual(['3 Series', '4 Series']);
@@ -121,8 +122,8 @@ describe('the vehicle picker, one rung at a time', () => {
     const generations = data(
       (await get(`/compatibility/vehicles/models/${threeSeries.id}/generations`)).body,
     );
-    expect(generations['level']).toBe('generation');
-    const generationRows = generations['vehicles'] as { id: string; name: string }[];
+    expect(generations.level).toBe('generation');
+    const generationRows = generations.vehicles as { id: string; name: string }[];
     expect(generationRows.map((row) => row.name).sort()).toEqual(['F30', 'G20']);
 
     const g20 = generationRows.find((row) => row.name === 'G20');
@@ -130,8 +131,8 @@ describe('the vehicle picker, one rung at a time', () => {
     const configurations = data(
       (await get(`/compatibility/vehicles/generations/${g20.id}/configurations`)).body,
     );
-    expect(configurations['level']).toBe('configuration');
-    expect((configurations['vehicles'] as unknown[]).length).toBe(3);
+    expect(configurations.level).toBe('configuration');
+    expect((configurations.vehicles as unknown[]).length).toBe(3);
   });
 
   it('answers an EMPTY list for a parent nobody created — the control', async () => {
@@ -140,24 +141,23 @@ describe('the vehicle picker, one rung at a time', () => {
     // name rows they seeded and this one shows the shape of the other outcome.
     const response = await get(`/compatibility/vehicles/makes/${TOKEN}-no-such-make/models`);
     expect(response.status).toBe(200);
-    expect(data(response.body)['vehicles']).toEqual([]);
+    expect(data(response.body).vehicles).toEqual([]);
   });
 
   it('narrows configurations by YEAR through the query, and coerces it', async () => {
-    const makes = data((await get('/compatibility/vehicles/makes')).body)['vehicles'] as {
+    const makes = data((await get('/compatibility/vehicles/makes')).body).vehicles as {
       id: string;
       key: string;
     }[];
     const vw = makes.find((make) => make.key === nsKey(seeded.ns, 'volkswagen'));
     if (vw === undefined) return;
-    const models = data((await get(`/compatibility/vehicles/makes/${vw.id}/models`)).body)[
-      'vehicles'
-    ] as { id: string }[];
+    const models = data((await get(`/compatibility/vehicles/makes/${vw.id}/models`)).body)
+      .vehicles as { id: string }[];
     const golf = models[0];
     if (golf === undefined) return;
     const generations = data(
       (await get(`/compatibility/vehicles/models/${golf.id}/generations`)).body,
-    )['vehicles'] as { id: string; name: string }[];
+    ).vehicles as { id: string; name: string }[];
     const mk8 = generations.find((row) => row.name === 'Mk8');
     if (mk8 === undefined) return;
 
@@ -166,28 +166,27 @@ describe('the vehicle picker, one rung at a time', () => {
     const inWindow = data(
       (await get(`/compatibility/vehicles/generations/${mk8.id}/configurations?year=2019`)).body,
     );
-    expect((inWindow['vehicles'] as unknown[]).length).toBeGreaterThan(0);
+    expect((inWindow.vehicles as unknown[]).length).toBeGreaterThan(0);
     const outside = data(
       (await get(`/compatibility/vehicles/generations/${mk8.id}/configurations?year=2013`)).body,
     );
-    expect(outside['vehicles']).toEqual([]);
+    expect(outside.vehicles).toEqual([]);
   });
 
   it('refuses a year outside the representable range, and an unknown parameter', async () => {
-    const makes = data((await get('/compatibility/vehicles/makes')).body)['vehicles'] as {
+    const makes = data((await get('/compatibility/vehicles/makes')).body).vehicles as {
       id: string;
       key: string;
     }[];
     const bmw = makes.find((make) => make.key === nsKey(seeded.ns, 'bmw'));
     if (bmw === undefined) return;
-    const models = data((await get(`/compatibility/vehicles/makes/${bmw.id}/models`)).body)[
-      'vehicles'
-    ] as { id: string }[];
+    const models = data((await get(`/compatibility/vehicles/makes/${bmw.id}/models`)).body)
+      .vehicles as { id: string }[];
     const model = models[0];
     if (model === undefined) return;
     const generations = data(
       (await get(`/compatibility/vehicles/models/${model.id}/generations`)).body,
-    )['vehicles'] as { id: string }[];
+    ).vehicles as { id: string }[];
     const generation = generations[0];
     if (generation === undefined) return;
 
@@ -214,13 +213,13 @@ describe('the reverse read and the verdict, over HTTP', () => {
     const response = await get(`/compatibility/fitments?subjectVariantId=${variantId}`);
     expect(response.status).toBe(200);
     const body = data(response.body);
-    const fitments = body['fitments'] as { applicability: string; scope: string }[];
+    const fitments = body.fitments as { applicability: string; scope: string }[];
     // The package declares nine statements about this part; the read publishes
     // the ones policy admits, and an exclusion is information rather than a row
     // to hide.
     expect(fitments.length).toBeGreaterThan(0);
     expect(fitments.map((row) => row.applicability)).toContain('does_not_apply');
-    expect(body['truncated']).toBe(false);
+    expect(body.truncated).toBe(false);
   });
 
   it('answers a verdict for a vehicle named in the query', async () => {
@@ -242,10 +241,10 @@ describe('the reverse read and the verdict, over HTTP', () => {
         `&makeId=${makeId}&modelId=${modelId}&generationId=${generationId}`,
     );
     expect(response.status).toBe(200);
-    const verdict = data(response.body)['verdict'] as Record<string, unknown>;
-    expect(verdict['outcome']).toBe('determined');
-    expect(verdict['applicability']).toBe('applies');
-    expect(verdict['decidedAtScope']).toBe('vehicle_generation');
+    const verdict = data(response.body).verdict as Record<string, unknown>;
+    expect(verdict.outcome).toBe('determined');
+    expect(verdict.applicability).toBe('applies');
+    expect(verdict.decidedAtScope).toBe('vehicle_generation');
   });
 
   it('answers `unknown` for a car this catalogue does not have, not `does_not_apply`', async () => {
@@ -257,7 +256,7 @@ describe('the reverse read and the verdict, over HTTP', () => {
       `/compatibility/fitments/verdict?subjectVariantId=${variantId}&makeId=${TOKEN}-nope`,
     );
     expect(response.status).toBe(200);
-    expect(data(response.body)['verdict']).toEqual({ outcome: 'unknown' });
+    expect(data(response.body).verdict).toEqual({ outcome: 'unknown' });
   });
 
   it('requires a vehicle to answer a verdict at all', async () => {

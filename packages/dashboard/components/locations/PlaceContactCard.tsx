@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { Place } from '@goway.to/sdk';
 import { Text } from '@mercaria/ui';
 import { Field } from '@oxy.so/bloom/field';

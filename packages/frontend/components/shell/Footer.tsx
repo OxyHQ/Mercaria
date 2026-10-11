@@ -1,4 +1,3 @@
-import React from 'react';
 import { Linking, View, Pressable } from 'react-native';
 import { Text } from '@mercaria/ui';
 import { Logo } from '@/components/Logo';

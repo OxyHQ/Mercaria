@@ -778,8 +778,8 @@ describe('the derived series', () => {
     // the product and must NOT become the `new` series' answer.
     const bySegment = new Map(
       first
-        .filter((point) => point['measure'] === 'lowest_item_price')
-        .map((point) => [point['segment'], point['nativeAmount']]),
+        .filter((point) => point.measure === 'lowest_item_price')
+        .map((point) => [point.segment, point.nativeAmount]),
     );
     expect(bySegment.get('used')).toBe(4_000);
     expect(bySegment.get('new')).toBe(9_000);

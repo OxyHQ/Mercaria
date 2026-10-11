@@ -425,7 +425,7 @@ export async function procureDigitalLine(
     const chosen = selection.candidate;
     tried.add(chosen.offerId);
     const source = rawCandidates.find((candidate) => candidate.offerId === chosen.offerId);
-    if (!source || !source.termsId) {
+    if (!source?.termsId) {
       // Eligibility already refused a candidate with no rider, so reaching here
       // means the two disagree — a bug, not a supplier problem.
       throw new Error(`candidate ${chosen.offerId} passed eligibility with no supply terms`);

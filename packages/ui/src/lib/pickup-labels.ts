@@ -1,12 +1,12 @@
-import {
-  type LocationAvailabilityState,
-  type LocationOpenState,
-  type OrderPickupState,
-  type PickupAddress,
-  type PickupBlockReason,
-  type PickupDistanceBand,
-  type PickupIdentityRequirement,
-  type PickupPaymentRequirement,
+import type {
+  LocationAvailabilityState,
+  LocationOpenState,
+  OrderPickupState,
+  PickupAddress,
+  PickupBlockReason,
+  PickupDistanceBand,
+  PickupIdentityRequirement,
+  PickupPaymentRequirement,
 } from '@mercaria/shared-types';
 import type { Translate } from '../i18n/create-app-i18n';
 

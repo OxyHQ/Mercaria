@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, ScrollView } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Head from 'expo-router/head';
 import { useQueryClient } from '@tanstack/react-query';

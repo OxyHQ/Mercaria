@@ -375,10 +375,10 @@ describe('an ambiguous claim reaches a shopper only through an operator', () => 
     const after = event?.after as Record<string, unknown> | null;
     // The vehicle is in the trail, so "which car did somebody decide this was"
     // is answerable without re-reading a row that may since have been superseded.
-    expect(after?.['vehicleConfigurationId']).toBe(unfittedConfigurationId);
-    expect(after?.['scope']).toBe('vehicle_configuration');
-    expect(after?.['applicability']).toBe('applies');
-    expect(after?.['fitmentId']).toBeDefined();
+    expect(after?.vehicleConfigurationId).toBe(unfittedConfigurationId);
+    expect(after?.scope).toBe('vehicle_configuration');
+    expect(after?.applicability).toBe('applies');
+    expect(after?.fitmentId).toBeDefined();
   });
 
   it('writes NOTHING when the claim is about a different subject', async () => {

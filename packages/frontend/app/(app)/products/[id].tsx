@@ -410,7 +410,7 @@ function ProductBody({ listing }: ProductBodyProps) {
       ? listing.store?.refundPolicy?.trim()
       : undefined;
   const maxQuantity = selectedVariant?.available;
-  const canAddToCart = selectedVariant !== undefined && selectedVariant.inStock;
+  const canAddToCart = selectedVariant?.inStock === true;
   const saveInPurchaseActions =
     !previewScenario && selectedVariant !== undefined && !selectedVariant.inStock;
   const primarySaved = canonicalProductId ? productSaved : listingSaved;

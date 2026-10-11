@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import type { PlaceHoursException } from '@goway.to/sdk';

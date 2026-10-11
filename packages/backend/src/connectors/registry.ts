@@ -29,5 +29,5 @@ export function getConnectorProvider(id: ConnectorProviderId): ConnectorProvider
 
 /** Whether a provider id is implemented (used to reject unknown route params early). */
 export function isImplementedProvider(id: string): id is ConnectorProviderId {
-  return Object.prototype.hasOwnProperty.call(PROVIDERS, id);
+  return Object.hasOwn(PROVIDERS, id);
 }

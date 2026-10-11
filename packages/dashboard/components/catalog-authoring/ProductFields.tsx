@@ -1,4 +1,3 @@
-import React from 'react';
 import { View } from 'react-native';
 import type { AuthoringField, AuthoringSchema } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';

@@ -16,7 +16,7 @@
 
 import { FeedImportRefusal } from '../errors.js';
 import { flattenJsonRecord } from './flatten.js';
-import { type FeedParseOptions, type FeedRawRecord } from './types.js';
+import type { FeedParseOptions, FeedRawRecord } from './types.js';
 
 /** A line that failed to parse. Carried as a field so the mapper reports it. */
 export const MALFORMED_RECORD_FIELD = '__malformed__';

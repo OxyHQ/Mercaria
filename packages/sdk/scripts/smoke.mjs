@@ -10,8 +10,9 @@
  *   node scripts/smoke.mjs              # pack into a temp dir, test, clean up
  *   node scripts/smoke.mjs --out <dir>  # also keep the tested tarball in <dir>
  *
- * `--out` is how `.github/workflows/publish-sdk.yml` publishes EXACTLY the
- * tarball this script tested, rather than re-packing afterwards.
+ * `--out` is how a release publishes EXACTLY the tarball this script tested,
+ * rather than re-packing afterwards. Releases are published by hand, never
+ * from CI (`docs/sdk.md` §"How it is published").
  *
  * ## Why the tarball is packed from a staging directory
  *
@@ -371,7 +372,7 @@ async function main() {
 
 // ── Consumer programs ───────────────────────────────────────────────────────
 
-const SHARED_PROGRAM = String.raw`
+const SHARED_PROGRAM = `
 const product = {
   ref: { kind: 'product', id: 'prod 1' },
   title: 'Smoke',

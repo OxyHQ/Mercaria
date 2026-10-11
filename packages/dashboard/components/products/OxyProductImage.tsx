@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { Image } from '@mercaria/ui';
 import { Package } from 'lucide-react-native';

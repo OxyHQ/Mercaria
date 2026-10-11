@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import type { AuthoringSchema, CurrencyCode } from '@mercaria/shared-types';
 import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';

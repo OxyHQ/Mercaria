@@ -115,18 +115,14 @@ export async function decideEnablement(
 
   const rows = await readEnablements(input.language, input.categoryId, db);
   const languageOk =
-    rows.languageRow !== undefined &&
-    rows.languageRow.enabled &&
-    rows.languageRow.datasetDigest === input.datasetDigest;
+    rows.languageRow?.enabled && rows.languageRow.datasetDigest === input.datasetDigest;
   if (!languageOk) {
     return { status: 'deterministic', reason: 'not_enabled_for_category_language' };
   }
   if (input.categoryId === undefined) return { status: 'model_permitted' };
 
   const categoryOk =
-    rows.categoryRow !== undefined &&
-    rows.categoryRow.enabled &&
-    rows.categoryRow.datasetDigest === input.datasetDigest;
+    rows.categoryRow?.enabled && rows.categoryRow.datasetDigest === input.datasetDigest;
   return categoryOk
     ? { status: 'model_permitted' }
     : { status: 'deterministic', reason: 'not_enabled_for_category_language' };

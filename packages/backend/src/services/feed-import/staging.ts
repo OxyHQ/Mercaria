@@ -429,7 +429,6 @@ export async function sweepFeedStages(now: Date = new Date()): Promise<number> {
       }
     } catch {
       // A stage removed by a concurrent sweep is the outcome this loop wants.
-      continue;
     }
   }
   return removed;

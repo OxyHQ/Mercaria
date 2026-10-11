@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import type { SearchResult, StructuredGeocodeQuery } from '@goway.to/sdk';
 import { Text } from '@mercaria/ui';

@@ -1,4 +1,4 @@
-import { type ReactElement } from 'react';
+import type { ReactElement } from 'react';
 import { View, type ViewStyle } from 'react-native';
 import { Image } from '@mercaria/ui';
 

@@ -216,7 +216,7 @@ const get = (path: string, options?: Parameters<typeof request>[2]): Promise<Ans
 
 /** The `data` envelope `sendSuccess` wraps every success in. */
 function data(answer: Answer): Record<string, unknown> {
-  return (answer.body['data'] ?? {}) as Record<string, unknown>;
+  return (answer.body.data ?? {}) as Record<string, unknown>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -552,7 +552,7 @@ describe('the taxonomy reads', () => {
     const answer = await get('/taxonomy/categories/roots?limit=200');
     expect(answer.status).toBe(200);
     const page = data(answer);
-    const categories = page['categories'] as {
+    const categories = page.categories as {
       id: string;
       key: string;
       name: { outcome: string; value?: string };
@@ -580,7 +580,7 @@ describe('the taxonomy reads', () => {
   it('serves children in sibling order and excludes a SUPPRESSED node', async () => {
     const answer = await get(`/taxonomy/categories/${fx.midId}/children?limit=50`);
     expect(answer.status).toBe(200);
-    const ids = (data(answer)['categories'] as { id: string }[]).map((entry) => entry.id);
+    const ids = (data(answer).categories as { id: string }[]).map((entry) => entry.id);
     // Equality, because these are exactly the children this file created.
     expect(ids).toEqual([fx.leafAId, fx.leafBId]);
     expect(ids).not.toContain(fx.suppressedId);
@@ -589,7 +589,7 @@ describe('the taxonomy reads', () => {
   it('serves descendants at any depth, root-relative', async () => {
     const answer = await get(`/taxonomy/categories/${fx.rootId}/descendants?limit=50`);
     expect(answer.status).toBe(200);
-    const ids = (data(answer)['categories'] as { id: string }[]).map((entry) => entry.id);
+    const ids = (data(answer).categories as { id: string }[]).map((entry) => entry.id);
     // `(position, slug)` across every depth, which is NOT depth-first: `leafA` is
     // position 0, and `leafB` and `mid` share position 1 with `-leaf-b` sorting
     // before `-mid`. That is the repository's documented sibling order applied to a
@@ -602,13 +602,13 @@ describe('the taxonomy reads', () => {
     const first = await get(`/taxonomy/categories/${fx.rootId}/descendants?limit=1`);
     expect(first.status).toBe(200);
     const page = data(first);
-    expect(page['hasMore']).toBe(true);
-    const cursor = page['nextCursor'] as string;
+    expect(page.hasMore).toBe(true);
+    const cursor = page.nextCursor as string;
     expect(typeof cursor).toBe('string');
     const second = await get(
       `/taxonomy/categories/${fx.rootId}/descendants?limit=5&cursor=${encodeURIComponent(cursor)}`,
     );
-    const secondIds = (data(second)['categories'] as { id: string }[]).map((entry) => entry.id);
+    const secondIds = (data(second).categories as { id: string }[]).map((entry) => entry.id);
     // Strictly after, with no overlap — the property an offset cursor loses under
     // a concurrent insert and a broken keyset loses always.
     expect(secondIds).toEqual([fx.leafBId, fx.midId]);
@@ -624,19 +624,19 @@ describe('the taxonomy reads', () => {
   it('serves the ancestors and the breadcrumb, and the trail includes SELF only in the breadcrumb', async () => {
     const ancestors = await get(`/taxonomy/categories/${fx.leafAId}/ancestors`);
     expect(ancestors.status).toBe(200);
-    const ancestorIds = (data(ancestors)['steps'] as { id: string }[]).map((step) => step.id);
+    const ancestorIds = (data(ancestors).steps as { id: string }[]).map((step) => step.id);
     expect(ancestorIds).toEqual([fx.rootId, fx.midId]);
 
     const breadcrumb = await get(`/taxonomy/categories/${fx.leafAId}/breadcrumb`);
     expect(breadcrumb.status).toBe(200);
-    const crumbIds = (data(breadcrumb)['steps'] as { id: string }[]).map((step) => step.id);
+    const crumbIds = (data(breadcrumb).steps as { id: string }[]).map((step) => step.id);
     expect(crumbIds).toEqual([fx.rootId, fx.midId, fx.leafAId]);
   });
 
   it('keeps a trail COMPLETE while withholding an undisclosable step’s identity', async () => {
     const answer = await get(`/taxonomy/categories/${fx.underDraftId}/breadcrumb`);
     expect(answer.status).toBe(200);
-    const steps = data(answer)['steps'] as Record<string, unknown>[];
+    const steps = data(answer).steps as Record<string, unknown>[];
     // The trail keeps its LENGTH: a breadcrumb missing its middle is not a shorter
     // breadcrumb, it is a wrong one.
     expect(steps.length).toBe(2);
@@ -670,17 +670,17 @@ describe('the taxonomy reads', () => {
   it('resolves a category by its stable KEY, and refuses a label where a key belongs', async () => {
     const byKey = await get(`/taxonomy/categories/by-key/${fx.midKey}`);
     expect(byKey.status).toBe(200);
-    expect((data(byKey)['category'] as { id: string }).id).toBe(fx.midId);
+    expect((data(byKey).category as { id: string }).id).toBe(fx.midId);
     // A display label — spaces and capitals — is a 400 naming the rule, not a 404.
     const byLabel = await get('/taxonomy/categories/by-key/Sneakers%20And%20Boots');
     expect(byLabel.status).toBe(400);
-    expect(String(byLabel.body['message'])).toContain('stable machine key');
+    expect(String(byLabel.body.message)).toContain('stable machine key');
   });
 
   it('answers eligibility as a VERDICT with named reasons, not as a filtered set', async () => {
     const selectable = await get(`/taxonomy/categories/${fx.midId}/eligibility`);
     expect(selectable.status).toBe(200);
-    const yes = data(selectable)['eligibility'] as {
+    const yes = data(selectable).eligibility as {
       listable: boolean;
       refusals: string[];
       selectable: boolean;
@@ -693,7 +693,7 @@ describe('the taxonomy reads', () => {
     // The grouping ROOT: published, and a product may not be filed under it. The
     // set-shaped answer cannot express this at all.
     const structural = await get(`/taxonomy/categories/${fx.rootId}/eligibility`);
-    const no = data(structural)['eligibility'] as { listable: boolean; refusals: string[] };
+    const no = data(structural).eligibility as { listable: boolean; refusals: string[] };
     expect(no.listable).toBe(false);
     expect(no.refusals).toContain('category_not_selectable');
 
@@ -708,7 +708,7 @@ describe('the taxonomy reads', () => {
      */
     const unscoped = await get(`/taxonomy/categories/${fx.underDraftId}/eligibility`);
     expect(unscoped.status).toBe(200);
-    const neither = data(unscoped)['eligibility'] as {
+    const neither = data(unscoped).eligibility as {
       listable: boolean;
       selectable: boolean;
       refusals: string[];
@@ -742,7 +742,7 @@ describe('localized category search', () => {
       `/taxonomy/categories/search?q=${encodeURIComponent(`Zapatillas ${SEARCH_STEM}`)}&locale=es`,
     );
     expect(answer.status).toBe(200);
-    const hits = data(answer)['hits'] as {
+    const hits = data(answer).hits as {
       category: { id: string; name: { value: string } };
       match: string;
       matchedIn: string;
@@ -758,7 +758,7 @@ describe('localized category search', () => {
     const answer = await get(
       `/taxonomy/categories/search?q=${encodeURIComponent(`Running ${SEARCH_STEM}`)}&locale=es`,
     );
-    const hits = data(answer)['hits'] as { category: { id: string }; matchedIn: string }[];
+    const hits = data(answer).hits as { category: { id: string }; matchedIn: string }[];
     expect(hits.map((hit) => hit.category.id)).toEqual([fx.leafAId]);
     // `base_name`, not `localized_name`: an untranslated taxonomy must not read as
     // a translated one.
@@ -767,16 +767,16 @@ describe('localized category search', () => {
 
   it('ranks a prefix match ahead of a contains match, deterministically', async () => {
     const answer = await get(`/taxonomy/categories/search?q=${SEARCH_STEM}&locale=en&limit=50`);
-    const hits = data(answer)['hits'] as { category: { id: string }; match: string }[];
+    const hits = data(answer).hits as { category: { id: string }; match: string }[];
     // The stem sits at the END of every seeded name, so every hit is `contains` and
     // the order is by name length then slug — a TOTAL order, which is what makes
     // two runs agree.
     expect(hits.length).toBeGreaterThanOrEqual(4);
     expect(new Set(hits.map((hit) => hit.match))).toEqual(new Set(['contains']));
     const repeat = await get(`/taxonomy/categories/search?q=${SEARCH_STEM}&locale=en&limit=50`);
-    expect(
-      (data(repeat)['hits'] as { category: { id: string } }[]).map((h) => h.category.id),
-    ).toEqual(hits.map((hit) => hit.category.id));
+    expect((data(repeat).hits as { category: { id: string } }[]).map((h) => h.category.id)).toEqual(
+      hits.map((hit) => hit.category.id),
+    );
     // The suppressed and draft nodes carry the stem in their names and must not be
     // in a shopper's autocomplete — the control on the lifecycle filter.
     const ids = hits.map((hit) => hit.category.id);
@@ -800,7 +800,7 @@ describe('localized category search', () => {
     );
     expect(spanish.status).toBe(200);
     expect(
-      (data(spanish)['hits'] as { category: { id: string } }[]).map((h) => h.category.id),
+      (data(spanish).hits as { category: { id: string } }[]).map((h) => h.category.id),
     ).not.toContain(fx.midId);
     // POSITIVE CONTROL: the same query in the locale whose label DOES contain it
     // returns the row — so the case above is about the drop and not about the query
@@ -809,7 +809,7 @@ describe('localized category search', () => {
       `/taxonomy/categories/search?q=${encodeURIComponent(`Sneakers ${SEARCH_STEM}`)}&locale=en`,
     );
     expect(
-      (data(english)['hits'] as { category: { id: string } }[]).map((h) => h.category.id),
+      (data(english).hits as { category: { id: string } }[]).map((h) => h.category.id),
     ).toEqual([fx.midId]);
   });
 
@@ -826,7 +826,7 @@ describe('localized category search', () => {
      */
     const answer = await get('/taxonomy/categories/search?q=%25%25&locale=en');
     expect(answer.status).toBe(200);
-    expect((data(answer)['hits'] as unknown[]).length).toBe(0);
+    expect((data(answer).hits as unknown[]).length).toBe(0);
   });
 
   it('refuses a one-character query', async () => {
@@ -924,7 +924,7 @@ describe('the ETag exchange and locale cache separation', () => {
 
   it('separates two PAGES of one read, so a cursor cannot be answered from the other', async () => {
     const first = await get(`/taxonomy/categories/${fx.rootId}/descendants?limit=1`);
-    const cursor = data(first)['nextCursor'] as string;
+    const cursor = data(first).nextCursor as string;
     const second = await get(
       `/taxonomy/categories/${fx.rootId}/descendants?limit=1&cursor=${encodeURIComponent(cursor)}`,
     );
@@ -980,7 +980,7 @@ describe('the pre-existing catalogue reads still answer', () => {
   it('serves the v1 category tree, which carries no key and no localization', async () => {
     const answer = await get('/categories');
     expect(answer.status).toBe(200);
-    const nodes = answer.body['data'] as { id: string; name: string; key?: string }[];
+    const nodes = answer.body.data as { id: string; name: string; key?: string }[];
     const ours = nodes.find((node) => node.id === fx.rootId);
     expect(ours, 'the seeded root is not in the v1 tree').toBeDefined();
     // Recorded rather than fixed: `CategoryNode` has no `key`, which is why
@@ -991,13 +991,13 @@ describe('the pre-existing catalogue reads still answer', () => {
   it('serves a category’s listing browse', async () => {
     const answer = await get(`/categories/${fx.midSlug}/listings`);
     expect(answer.status).toBe(200);
-    expect(Array.isArray(data(answer)['data'])).toBe(true);
+    expect(Array.isArray(data(answer).data)).toBe(true);
   });
 
   it('serves the PUBLISHED specification layout, and 404s an unpublished key', async () => {
     const answer = await get(`/product-types/${fx.productTypeKey}/specification-layout`);
     expect(answer.status).toBe(200);
-    expect(data(answer)['layout'] ?? data(answer)).toBeTruthy();
+    expect(data(answer).layout ?? data(answer)).toBeTruthy();
     expect((await get(`/product-types/${TOKEN}_nothing/specification-layout`)).status).toBe(404);
   });
 });
@@ -1021,7 +1021,7 @@ describe('the authoring reads', () => {
   it('offers only categories a product may be FILED under', async () => {
     const answer = await get('/catalog-authoring/categories?limit=500', { actor: MEMBER });
     expect(answer.status).toBe(200);
-    const ids = (data(answer)['categories'] as { id: string }[]).map((entry) => entry.id);
+    const ids = (data(answer).categories as { id: string }[]).map((entry) => entry.id);
     expect(ids).toContain(fx.midId);
     // The grouping root is published and NOT selectable; the suppressed node is
     // selectable and not published. Both are excluded, and they are different facts.
@@ -1036,7 +1036,7 @@ describe('the authoring reads', () => {
     expect(answer.status).toBe(200);
     // `leafA` is a DESCENDANT of the scoped node, so this also proves
     // `includeDescendants` is read.
-    const keys = (data(answer)['productTypes'] as { key: string }[]).map((entry) => entry.key);
+    const keys = (data(answer).productTypes as { key: string }[]).map((entry) => entry.key);
     expect(keys).toContain(fx.productTypeKey);
   });
 
@@ -1113,7 +1113,7 @@ describe('the product drafts', () => {
       body: { categoryId: fx.midId, productTypeKey: fx.productTypeKey, market: 'ES' },
     });
     expect(created.status).toBe(201);
-    const draft = data(created)['draft'] as { id: string; version: number };
+    const draft = data(created).draft as { id: string; version: number };
     draftId = draft.id;
     expect(draft.version).toBe(1);
 
@@ -1122,9 +1122,7 @@ describe('the product drafts', () => {
     ).toBe(200);
     const listed = await get(`/stores/${fx.storeId}/product-drafts?limit=10`, { actor: MEMBER });
     expect(listed.status).toBe(200);
-    expect((data(listed)['drafts'] as { id: string }[]).map((entry) => entry.id)).toContain(
-      draftId,
-    );
+    expect((data(listed).drafts as { id: string }[]).map((entry) => entry.id)).toContain(draftId);
   });
 
   it('enforces the version compare-and-swap on a PATCH', async () => {
@@ -1133,7 +1131,7 @@ describe('the product drafts', () => {
       body: { version: 1, title: `Draft ${TOKEN}` },
     });
     expect(ok.status).toBe(200);
-    expect((data(ok)['draft'] as { version: number }).version).toBe(2);
+    expect((data(ok).draft as { version: number }).version).toBe(2);
 
     // The SAME request again, carrying the version it has just superseded. A CAS that
     // accepted it would silently overwrite whatever landed in between.
@@ -1159,7 +1157,7 @@ describe('the product drafts', () => {
       { actor: MEMBER },
     );
     expect(validated.status).toBe(200);
-    const validation = data(validated)['validation'] as {
+    const validation = data(validated).validation as {
       findings: { code: string; path: string }[];
     };
     expect(Array.isArray(validation.findings)).toBe(true);
@@ -1178,9 +1176,7 @@ describe('the product drafts', () => {
     // body is the same `AuthoringValidationResult` the validate route returns, so a
     // client renders one list for both.
     expect(published.status).toBe(422);
-    expect(
-      (published.body['data'] as { validation?: unknown } | undefined)?.validation,
-    ).toBeDefined();
+    expect((published.body.data as { validation?: unknown } | undefined)?.validation).toBeDefined();
   });
 
   it('previews an upgrade with a GET and applies one with a POST, on one path', async () => {
@@ -1206,7 +1202,7 @@ describe('the product drafts', () => {
 
   it('discards a draft with the version in the QUERY', async () => {
     const current = await get(`/stores/${fx.storeId}/product-drafts/${draftId}`, { actor: MEMBER });
-    const version = (data(current)['draft'] as { version: number }).version;
+    const version = (data(current).draft as { version: number }).version;
     const discarded = await request(
       'DELETE',
       `/stores/${fx.storeId}/product-drafts/${draftId}?version=${String(version)}`,
@@ -1251,7 +1247,7 @@ describe('the catalog proposals', () => {
       },
     });
     expect(submitted.status, JSON.stringify(submitted.body)).toBe(201);
-    const proposal = (data(submitted)['proposal'] ?? data(submitted)) as { id: string };
+    const proposal = (data(submitted).proposal ?? data(submitted)) as { id: string };
     proposalId = proposal.id;
     expect(typeof proposalId).toBe('string');
 
@@ -1299,7 +1295,7 @@ describe('exact schema-version retrieval after a newer version publishes', () =>
       { actor: MEMBER },
     );
     expect(before.status).toBe(200);
-    const v1 = (data(before)['schema'] as { productType: { version: number } }).productType;
+    const v1 = (data(before).schema as { productType: { version: number } }).productType;
     expect(v1.version).toBe(1);
     const v1Etag = before.etag;
 
@@ -1356,9 +1352,9 @@ describe('exact schema-version retrieval after a newer version publishes', () =>
       { actor: MEMBER },
     );
     expect(after.status).toBe(200);
-    expect(
-      (data(after)['schema'] as { productType: { version: number } }).productType.version,
-    ).toBe(2);
+    expect((data(after).schema as { productType: { version: number } }).productType.version).toBe(
+      2,
+    );
     // And its tag differs from v1's, so a client holding the old schema is not
     // answered 304 with a body it no longer has.
     expect(after.etag).not.toBe(v1Etag);
@@ -1379,7 +1375,7 @@ describe('exact schema-version retrieval after a newer version publishes', () =>
     );
     expect(pinned.status).toBe(200);
     const pinnedType = (
-      data(pinned)['schema'] as {
+      data(pinned).schema as {
         productType: { version: number; lifecycle: string };
       }
     ).productType;
@@ -1410,7 +1406,7 @@ describe('exact schema-version retrieval after a newer version publishes', () =>
       { actor: MEMBER },
     );
     expect(
-      (data(fresh)['schema'] as { productType: { lifecycle: string } }).productType.lifecycle,
+      (data(fresh).schema as { productType: { lifecycle: string } }).productType.lifecycle,
     ).toBe('deprecated');
 
     // A version nobody published is NOT retrievable, and a version that does not

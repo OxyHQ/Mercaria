@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import type { AuthoringSchema } from '@mercaria/shared-types';
 import { Text, type Translate } from '@mercaria/ui';

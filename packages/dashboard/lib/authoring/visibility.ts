@@ -65,9 +65,7 @@ type FieldAnswer =
  * for exactly the products it describes.
  */
 function readAnswer(values: ProductTypeRuleValues, field: string): FieldAnswer {
-  const raw: ProductTypeRuleFieldValue = Object.prototype.hasOwnProperty.call(values, field)
-    ? values[field]
-    : undefined;
+  const raw: ProductTypeRuleFieldValue = Object.hasOwn(values, field) ? values[field] : undefined;
   if (raw === undefined || raw === null) return { state: 'absent' };
   if (typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean') {
     return { state: 'scalar', value: raw };

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import type { AccentTone } from '@oxy.so/bloom/theme';
 import { Badge } from '@oxy.so/bloom/badge';
 import { View } from 'react-native';

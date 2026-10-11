@@ -80,7 +80,7 @@ function requiredDate(value: unknown, field: string): Date {
 
 /** Read the programme a pilot route is scoped to. Never optional: a pilot bounds ONE programme. */
 function requiredProgramId(req: Request): string {
-  const value = req.query['programId'];
+  const value = req.query.programId;
   if (typeof value !== 'string' || value.trim() === '') {
     throw validationError('`programId` is required.');
   }
@@ -135,29 +135,29 @@ export async function createReferralPilotCohortHandler(
 ): Promise<void> {
   try {
     const body = req.body as Record<string, unknown>;
-    const supersedes = body['supersedesCohortId'];
+    const supersedes = body.supersedesCohortId;
     const cohort = await createReferralPilotCohortDraft({
-      cohortKey: String(body['cohortKey']),
-      version: Number(body['version']),
-      subject: oneOf<ReferralPilotSubject>(REFERRAL_PILOT_SUBJECTS, body['subject'], 'subject'),
-      legalEntity: String(body['legalEntity']),
-      programOwnerOxyUserId: String(body['programOwnerOxyUserId']),
-      programId: String(body['programId']),
-      programVersionId: String(body['programVersionId']),
-      markets: (body['markets'] as string[]) ?? [],
+      cohortKey: String(body.cohortKey),
+      version: Number(body.version),
+      subject: oneOf<ReferralPilotSubject>(REFERRAL_PILOT_SUBJECTS, body.subject, 'subject'),
+      legalEntity: String(body.legalEntity),
+      programOwnerOxyUserId: String(body.programOwnerOxyUserId),
+      programId: String(body.programId),
+      programVersionId: String(body.programVersionId),
+      markets: (body.markets as string[]) ?? [],
       payoutCurrency: oneOf<CurrencyCode>(
         ALL_CURRENCY_CODES,
-        body['payoutCurrency'],
+        body.payoutCurrency,
         'payoutCurrency',
       ),
-      startsAt: requiredDate(body['startsAt'], 'startsAt'),
-      endsAt: requiredDate(body['endsAt'], 'endsAt'),
-      maxAttributionsPerPartner: Number(body['maxAttributionsPerPartner']),
-      maxAttributionsTotal: Number(body['maxAttributionsTotal']),
-      rewardBudgetMinor: Number(body['rewardBudgetMinor']),
-      manualReviewRequired: body['manualReviewRequired'] !== false,
+      startsAt: requiredDate(body.startsAt, 'startsAt'),
+      endsAt: requiredDate(body.endsAt, 'endsAt'),
+      maxAttributionsPerPartner: Number(body.maxAttributionsPerPartner),
+      maxAttributionsTotal: Number(body.maxAttributionsTotal),
+      rewardBudgetMinor: Number(body.rewardBudgetMinor),
+      manualReviewRequired: body.manualReviewRequired !== false,
       ...(typeof supersedes === 'string' ? { supersedesCohortId: supersedes } : {}),
-      rationale: String(body['rationale']),
+      rationale: String(body.rationale),
     });
     sendSuccess(res, cohort, 201);
   } catch (error) {
@@ -175,9 +175,9 @@ export async function addReferralPilotPartnerHandler(
     const body = req.body as Record<string, unknown>;
     await addReferralPilotPartner({
       cohortId: requiredParam(req, 'cohortId'),
-      partnerId: String(body['partnerId']),
+      partnerId: String(body.partnerId),
       addedByOxyUserId: getRequiredOxyUserId(req),
-      note: String(body['note']),
+      note: String(body.note),
     });
     sendSuccess(res, { added: true }, 201);
   } catch (error) {
@@ -193,7 +193,7 @@ export async function addReferralPilotThresholdHandler(
 ): Promise<void> {
   try {
     const body = req.body as Record<string, unknown>;
-    const scope = oneOf<ReferralPilotStopScope>(REFERRAL_PILOT_STOP_SCOPES, body['scope'], 'scope');
+    const scope = oneOf<ReferralPilotStopScope>(REFERRAL_PILOT_STOP_SCOPES, body.scope, 'scope');
     // A market-scoped stop covers NOTHING today, because a touch carries no
     // market and the admission gate has none to compare (`stopCovers`). A
     // threshold that could never bite is worse than an absent one — it reads as
@@ -207,10 +207,10 @@ export async function addReferralPilotThresholdHandler(
     }
     await addReferralPilotThreshold({
       cohortId: requiredParam(req, 'cohortId'),
-      metric: oneOf<ReferralPilotStopMetric>(REFERRAL_PILOT_STOP_METRICS, body['metric'], 'metric'),
-      unit: oneOf<ReferralPilotThresholdUnit>(REFERRAL_PILOT_THRESHOLD_UNITS, body['unit'], 'unit'),
-      thresholdValue: Number(body['thresholdValue']),
-      windowHours: Number(body['windowHours']),
+      metric: oneOf<ReferralPilotStopMetric>(REFERRAL_PILOT_STOP_METRICS, body.metric, 'metric'),
+      unit: oneOf<ReferralPilotThresholdUnit>(REFERRAL_PILOT_THRESHOLD_UNITS, body.unit, 'unit'),
+      thresholdValue: Number(body.thresholdValue),
+      windowHours: Number(body.windowHours),
       scope,
     });
     sendSuccess(res, { added: true }, 201);
@@ -292,12 +292,12 @@ export async function recordReferralPilotReviewHandler(
       cohortId: requiredParam(req, 'cohortId'),
       decision: oneOf<ReferralPilotReviewDecision>(
         REFERRAL_PILOT_REVIEW_DECISIONS,
-        body['decision'],
+        body.decision,
         'decision',
       ),
       reviewedByOxyUserId: getRequiredOxyUserId(req),
-      rationale: String(body['rationale']),
-      closes: body['closes'] === true,
+      rationale: String(body.rationale),
+      closes: body.closes === true,
     });
     if (!reviewed) {
       throw conflict('This version already carries a review, or does not exist.');
@@ -353,23 +353,15 @@ export async function evaluateReferralPilotThresholdsHandler(
 ): Promise<void> {
   try {
     const body = req.body as Record<string, unknown>;
-    const supplied = Array.isArray(body['measurements']) ? body['measurements'] : [];
+    const supplied = Array.isArray(body.measurements) ? body.measurements : [];
     const measurements: ReferralPilotMeasurement[] = supplied.map((entry) => {
       const row = entry as Record<string, unknown>;
       return {
-        metric: oneOf<ReferralPilotStopMetric>(
-          REFERRAL_PILOT_STOP_METRICS,
-          row['metric'],
-          'metric',
-        ),
-        unit: oneOf<ReferralPilotThresholdUnit>(
-          REFERRAL_PILOT_THRESHOLD_UNITS,
-          row['unit'],
-          'unit',
-        ),
-        value: Number(row['value']),
-        scopeRef: typeof row['scopeRef'] === 'string' ? row['scopeRef'] : '',
-        sampleSize: Number(row['sampleSize']),
+        metric: oneOf<ReferralPilotStopMetric>(REFERRAL_PILOT_STOP_METRICS, row.metric, 'metric'),
+        unit: oneOf<ReferralPilotThresholdUnit>(REFERRAL_PILOT_THRESHOLD_UNITS, row.unit, 'unit'),
+        value: Number(row.value),
+        scopeRef: typeof row.scopeRef === 'string' ? row.scopeRef : '',
+        sampleSize: Number(row.sampleSize),
       };
     });
     sendSuccess(
@@ -392,16 +384,16 @@ export async function raiseReferralPilotStopHandler(
 ): Promise<void> {
   try {
     const body = req.body as Record<string, unknown>;
-    const scope = oneOf<ReferralPilotStopScope>(REFERRAL_PILOT_STOP_SCOPES, body['scope'], 'scope');
+    const scope = oneOf<ReferralPilotStopScope>(REFERRAL_PILOT_STOP_SCOPES, body.scope, 'scope');
     const result = await raiseReferralPilotStop({
       cohortId: requiredParam(req, 'cohortId'),
-      metric: oneOf<ReferralPilotStopMetric>(REFERRAL_PILOT_STOP_METRICS, body['metric'], 'metric'),
+      metric: oneOf<ReferralPilotStopMetric>(REFERRAL_PILOT_STOP_METRICS, body.metric, 'metric'),
       scope,
-      scopeRef: scope === 'pilot' ? '' : String(body['scopeRef']),
+      scopeRef: scope === 'pilot' ? '' : String(body.scopeRef),
       raisedByOxyUserId: getRequiredOxyUserId(req),
-      observedValue: Number(body['observedValue']),
-      thresholdValue: Number(body['thresholdValue']),
-      detail: String(body['detail']),
+      observedValue: Number(body.observedValue),
+      thresholdValue: Number(body.thresholdValue),
+      detail: String(body.detail),
     });
     sendSuccess(res, result, result.raised ? 201 : 200);
   } catch (error) {
@@ -420,7 +412,7 @@ export async function liftReferralPilotStopHandler(
     const lifted = await liftReferralPilotStop({
       stopId: requiredParam(req, 'stopId'),
       liftedByOxyUserId: getRequiredOxyUserId(req),
-      reason: String(body['reason']),
+      reason: String(body.reason),
     });
     if (!lifted) throw conflict('That stop is not live.');
     sendSuccess(res, { lifted: true });

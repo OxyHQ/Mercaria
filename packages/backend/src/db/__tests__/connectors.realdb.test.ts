@@ -44,7 +44,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { eq, inArray, sql } from 'drizzle-orm';
 import {
-  CONNECTOR_WEBHOOK_FAILURE_REASONS,
+  type CONNECTOR_WEBHOOK_FAILURE_REASONS,
   CONNECTOR_WEBHOOK_REGISTRATION_STATES,
 } from '@mercaria/shared-types';
 import {

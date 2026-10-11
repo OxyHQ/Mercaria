@@ -96,7 +96,6 @@ function mercariaHosts(): readonly string[] {
       // An unparseable entry in the origin list is that list's problem and is
       // already its own bug; skipping it here can only make this check
       // STRICTER about nothing, never more permissive about a real host.
-      continue;
     }
   }
   return hosts;

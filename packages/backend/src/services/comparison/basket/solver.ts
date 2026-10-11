@@ -569,7 +569,6 @@ function betterPlan(
       if (left !== right) return left > right;
       return byItemSubtotalThenDigest(candidate, incumbent);
     }
-    case 'cheapest_known_item_prices':
     default:
       return byItemSubtotalThenDigest(candidate, incumbent);
   }

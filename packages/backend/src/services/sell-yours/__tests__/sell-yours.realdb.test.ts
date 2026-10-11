@@ -430,7 +430,7 @@ describe('a match state and its ids cannot disagree', () => {
       db.execute(
         sql`update seller_listing_drafts
                set match_state = 'seller_rejected',
-                   canonical_product_id = ${'some-product-' + RUN}
+                   canonical_product_id = ${`some-product-${RUN}`}
              where id = ${draft.id}`,
       ),
     ).rejects.toThrow();

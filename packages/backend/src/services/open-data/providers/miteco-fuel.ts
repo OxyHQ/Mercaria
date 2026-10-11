@@ -163,7 +163,7 @@ async function cutBrand(path: string, brand: string): Promise<OpenDataItem[]> {
   for (const entry of asArray(body.ListaEESSPrecio)) {
     const station = asObject(entry);
     if (station === undefined) continue;
-    const label = asText(station['Rótulo']);
+    const label = asText(station.Rótulo);
     if (label === undefined || subFeedKey(label) !== brand) continue;
     // `R` is a restricted sale (cooperative members, fleets). Only a price
     // anybody can pay belongs in a comparison.
@@ -182,7 +182,7 @@ export function toItems(
 ): OpenDataItem[] {
   const stationId = asText(station.IDEESS);
   if (stationId === undefined) return [];
-  const address = asText(station['Dirección']);
+  const address = asText(station.Dirección);
   const locality = asText(station.Localidad);
   const province = asText(station.Provincia);
   const storefront = [address, locality]
@@ -211,7 +211,7 @@ export function toItems(
       .number('longitude', station['Longitud (WGS84)'], 'deg', ',')
       .text('opening_hours', station.Horario)
       .text('roadside_margin', station.Margen)
-      .text('remission', station['Remisión'])
+      .text('remission', station.Remisión)
       .number('bioethanol_percent', station['% BioEtanol'], '%', ',')
       .number('methyl_ester_percent', station['% Éster metílico'], '%', ',')
       .add('data_timestamp', timestamp?.toISOString())

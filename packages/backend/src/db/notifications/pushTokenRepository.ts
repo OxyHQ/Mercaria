@@ -36,7 +36,7 @@
  */
 
 import { and, eq, inArray } from 'drizzle-orm';
-import { type SelectedRow } from '@oxy.so/db';
+import type { SelectedRow } from '@oxy.so/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { pushTokens, type PUSH_TOKEN_PLATFORMS } from '../schema/notifications.js';
 

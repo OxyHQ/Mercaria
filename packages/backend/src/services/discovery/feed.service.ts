@@ -140,7 +140,7 @@ import {
   type ListingRecord,
 } from '../../db/catalog/listingRepository.js';
 import { findStoresByIds, type StoreRow } from '../../db/stores/storeRepository.js';
-import { type DiscountRow } from '../../db/merchandising/discountRepository.js';
+import type { DiscountRow } from '../../db/merchandising/discountRepository.js';
 import {
   toCategoryImage,
   toProductSummaries,

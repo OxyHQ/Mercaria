@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Pressable } from 'react-native';
 import { Text } from './text';
 import { cn } from '../../lib/cn';

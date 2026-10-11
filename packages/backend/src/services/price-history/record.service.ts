@@ -244,7 +244,7 @@ async function resolveRetentionDeadline(
 ): Promise<Date | null> {
   if (!sourceId) return null;
   const policy = await findActiveSourcePolicy(db, sourceId);
-  if (!policy || !policy.mayCache || policy.cacheTtlSeconds === null) return null;
+  if (!policy?.mayCache || policy.cacheTtlSeconds === null) return null;
   return new Date(observedAt.getTime() + policy.cacheTtlSeconds * 1_000);
 }
 

@@ -257,7 +257,6 @@ export function stepCompleteness(
         (form.title.trim().length > 0 ? 1 : 0) + (form.description.trim().length > 0 ? 1 : 0);
       return { answered, total: 2, blocked: 2 - answered };
     }
-    case 'review':
     default:
       return EMPTY;
   }

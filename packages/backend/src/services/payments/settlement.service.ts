@@ -216,7 +216,7 @@ async function settleOneOrder(input: {
   // checked before the buyer paid, and it can be lost in between. The buyer's
   // order stays paid — the goods are theirs — and the seller's money waits for a
   // person to decide between a recovered account and a refund (#50).
-  if (!account || account.onboardingState !== 'ready') {
+  if (account?.onboardingState !== 'ready') {
     await recordWithheld({
       payment,
       order,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';

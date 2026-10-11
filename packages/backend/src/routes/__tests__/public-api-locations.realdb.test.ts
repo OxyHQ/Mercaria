@@ -122,20 +122,20 @@ async function call(path: string): Promise<Answer> {
 
 function expectFailure(answer: Answer, status: number, code: MercariaPublicErrorCode): void {
   expect(answer.status, answer.text).toBe(status);
-  const error = exactKeys(answer.body, ['error'], 'error body')['error'] as Record<string, unknown>;
-  expect(error['code']).toBe(code);
+  const error = exactKeys(answer.body, ['error'], 'error body').error as Record<string, unknown>;
+  expect(error.code).toBe(code);
 }
 
 function items(answer: Answer): Record<string, unknown>[] {
   expect(answer.status, answer.text).toBe(200);
   const page = exactKeys(answer.body, ['items', 'nextCursor'], 'page');
-  return page['items'] as Record<string, unknown>[];
+  return page.items as Record<string, unknown>[];
 }
 
 function locationIds(answer: Answer): string[] {
   return items(answer).map((item, index) => {
     const location = checkLocation(item, `items[${index}]`);
-    return (location['ref'] as { id: string }).id;
+    return (location.ref as { id: string }).id;
   });
 }
 
@@ -144,7 +144,7 @@ function stockByProduct(answer: Answer): Map<string, Record<string, unknown>> {
   return new Map(
     items(answer).map((item, index) => {
       const product = checkLocationProduct(item, `items[${index}]`);
-      return [(product['product'] as { ref: { id: string } }).ref.id, product];
+      return [(product.product as { ref: { id: string } }).ref.id, product];
     }),
   );
 }
@@ -160,10 +160,10 @@ async function walk(path: string, limit: number): Promise<{ ids: string[]; pages
       `${path}${separator}limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`,
     );
     for (const item of items(answer)) {
-      const ref = (item['ref'] ?? (item['product'] as { ref: unknown }).ref) as { id: string };
+      const ref = (item.ref ?? (item.product as { ref: unknown }).ref) as { id: string };
       seen.push(ref.id);
     }
-    cursor = answer.body['nextCursor'] as string | null;
+    cursor = answer.body.nextCursor as string | null;
     pages += 1;
     expect(pages).toBeLessThan(20);
   } while (cursor !== null);
@@ -239,11 +239,11 @@ describe('GET /public/v1/locations/:id', () => {
 
   it('says a paused or collection-less location is not discoverable, without saying why', async () => {
     const paused = checkLocation((await call(`/locations/${ids.paused}`)).body, 'paused');
-    expect(paused['discoverable']).toBe(false);
-    expect(paused['pickup']).not.toBeNull();
+    expect(paused.discoverable).toBe(false);
+    expect(paused.pickup).not.toBeNull();
     const noPickup = checkLocation((await call(`/locations/${ids.noPickup}`)).body, 'noPickup');
-    expect(noPickup['discoverable']).toBe(false);
-    expect(noPickup['pickup']).toBeNull();
+    expect(noPickup.discoverable).toBe(false);
+    expect(noPickup.pickup).toBeNull();
   });
 
   it('answers 404 for a location never published, unknown or malformed', async () => {
@@ -376,7 +376,7 @@ describe('GET /public/v1/stores/:id/locations', () => {
 
   it('refuses a cursor minted for another list', async () => {
     const first = await call(`/stores/${ids.store}/locations?limit=1`);
-    const cursor = first.body['nextCursor'] as string;
+    const cursor = first.body.nextCursor as string;
     expect(cursor).toBeTypeOf('string');
     expectFailure(
       await call(`/stores/${ids.store}/collections?cursor=${cursor}`),
@@ -406,7 +406,7 @@ describe('GET /public/v1/locations/:id/products', () => {
   it('bounds availability at the location’s own threshold, and treats a stale count as nothing', async () => {
     const stock = stockByProduct(await call(`/locations/${ids.linked}/products?limit=50`));
     const availability = Object.fromEntries(
-      [...stock].map(([id, item]) => [id, item['availability']]),
+      [...stock].map(([id, item]) => [id, item.availability]),
     );
     expect(availability).toEqual({
       [ids.inStock]: 'in_stock',
@@ -418,15 +418,15 @@ describe('GET /public/v1/locations/:id/products', () => {
     // Private exact stock: no number anywhere at this location.
     for (const item of stock.values()) expect('exactQuantity' in item).toBe(false);
     // The oldest fresh confirmation a figure rests on, or the latest stale one.
-    expect(stock.get(ids.halfStale)?.['stockConfirmedAt']).toBe(FRESH.toISOString());
-    expect(stock.get(ids.stale)?.['stockConfirmedAt']).toBe(STALE.toISOString());
+    expect(stock.get(ids.halfStale)?.stockConfirmedAt).toBe(FRESH.toISOString());
+    expect(stock.get(ids.stale)?.stockConfirmedAt).toBe(STALE.toISOString());
   });
 
   it('discloses an exact count only where the merchant opted in, and only while it is fresh', async () => {
     const stock = stockByProduct(await call(`/locations/${ids.noPickup}/products?limit=50`));
     expect(new Set(stock.keys())).toEqual(new Set([ids.inStock, ids.stale]));
     expect(stock.get(ids.inStock)).toMatchObject({ availability: 'in_stock', exactQuantity: 5 });
-    expect(stock.get(ids.stale)?.['availability']).toBe('out_of_stock');
+    expect(stock.get(ids.stale)?.availability).toBe('out_of_stock');
     expect('exactQuantity' in (stock.get(ids.stale) ?? {})).toBe(false);
   });
 
@@ -439,7 +439,7 @@ describe('GET /public/v1/locations/:id/products', () => {
     expect([...searched.keys()]).toEqual([ids.inStock]);
     const sorted = items(
       await call(`/locations/${ids.linked}/products?sort=price_asc&limit=50`),
-    ).map((item) => (item['product'] as { price: { amount: number } }).price.amount);
+    ).map((item) => (item.product as { price: { amount: number } }).price.amount);
     expect(sorted).toEqual([700, 900, 1_100, 1_200, 1_500]);
   });
 
@@ -451,9 +451,8 @@ describe('GET /public/v1/locations/:id/products', () => {
     expect(pages).toBe(3);
     expect(walked).toEqual([ids.empty, ids.low, ids.halfStale, ids.stale, ids.inStock]);
 
-    const cursor = (await call(`/locations/${ids.linked}/products?limit=2`)).body[
-      'nextCursor'
-    ] as string;
+    const cursor = (await call(`/locations/${ids.linked}/products?limit=2`)).body
+      .nextCursor as string;
     expect(cursor).toBeTypeOf('string');
     for (const path of [
       `/locations/${ids.linked}/products?inStock=true&cursor=${cursor}`,

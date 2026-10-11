@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable, View } from 'react-native';
 import { Check, Languages } from 'lucide-react-native';
 import { cn, LOCALE_ENDONYMS, Text, useColorScheme } from '@mercaria/ui';

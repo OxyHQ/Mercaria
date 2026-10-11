@@ -33,10 +33,10 @@
 import { randomUUID } from 'node:crypto';
 import type { CurrencyCode, SupplierPreflightAnswer } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
-import {
-  type SupplierAdapterQuoteInput,
-  type SupplierAdapterReleaseInput,
-  type SupplierPreflightAdapter,
+import type {
+  SupplierAdapterQuoteInput,
+  SupplierAdapterReleaseInput,
+  SupplierPreflightAdapter,
 } from './adapter.js';
 import { registerSupplierAdapter } from './registry.js';
 
