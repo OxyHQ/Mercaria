@@ -30,6 +30,7 @@ export function MerchantCartCard({ group, renderVendorLink, onCheckout }: Mercha
   const totalQuantity = group.items.reduce((n, item) => n + item.quantity, 0);
   const thumbnails = group.items.slice(0, 2);
   const sellerName = commercialSellerLabel(t, group.commercial);
+  const linksVendor = group.commercial.mode === 'connected_marketplace';
   const logo = (
     <View className="h-8 w-8 overflow-hidden rounded-full border border-border bg-muted">
       {logoSource ? (
@@ -63,7 +64,7 @@ export function MerchantCartCard({ group, renderVendorLink, onCheckout }: Mercha
           ) ?? logo}
           <View className="min-w-0">
             {/* A retail group's legal seller can differ from its catalogue vendor. */}
-            {group.commercial.mode === 'connected_marketplace'
+            {linksVendor
               ? (renderVendorLink(group.vendor, <Pressable>{seller}</Pressable>) ?? seller)
               : seller}
             <View className="flex-row flex-wrap items-baseline gap-1">

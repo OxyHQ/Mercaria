@@ -81,10 +81,10 @@ export function ProductMediaGallery({
     [],
   );
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) =>
+    const appStateListener = AppState.addEventListener('change', (state) =>
       setAppActive(state === 'active'),
     );
-    return () => subscription.remove();
+    return () => appStateListener.remove();
   }, []);
   const items = useMemo(
     () =>
