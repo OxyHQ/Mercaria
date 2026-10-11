@@ -105,8 +105,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.3.14'
-      # wrangler bundles dist/_worker.js, which imports @oxy.so/telemetry/edge
-      # from node_modules, so the install stays; the export does not.
       - run: bun install --frozen-lockfile
       - uses: actions/download-artifact@v8
         with:

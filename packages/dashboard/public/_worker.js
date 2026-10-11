@@ -1,5 +1,3 @@
-import { observeEdgeRequest } from '@oxy.so/telemetry/edge';
-
 /**
  * Cloudflare Pages Worker -- SPA routing with proper MIME-type handling.
  *
@@ -82,14 +80,4 @@ const assetWorker = {
   },
 };
 
-export default {
-  fetch(request, env, ctx) {
-    return observeEdgeRequest({
-      service: 'mercaria',
-      request,
-      env,
-      ctx,
-      next: () => assetWorker.fetch(request, env, ctx),
-    });
-  },
-};
+export default assetWorker;
