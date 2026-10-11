@@ -42,6 +42,17 @@ export function invalidateOxyServiceToken(): void {
   oxyServiceClient()?.invalidateServiceToken();
 }
 
+/**
+ * The same identity in the shape `@peable.to/sdk` takes as `tokenProvider`.
+ * Peable resolves its merchant from the token's application id and environment
+ * (merchants.oxyAppId), so the task role reaches the merchant a key pair did
+ * and Mercaria holds no Peable credential of its own.
+ */
+export const oxyServiceTokenProvider = Object.freeze({
+  getToken: requiredOxyServiceToken,
+  invalidate: invalidateOxyServiceToken,
+});
+
 export function resetOxyServiceClientForTests(): void {
   client = undefined;
 }

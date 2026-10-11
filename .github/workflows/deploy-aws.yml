@@ -351,11 +351,14 @@ jobs:
                    # Mercaria authenticates to Oxy as its task role
                    # (oxy-mercaria-task, bound to the Mercaria application; oxy
                    # ADR 0026), so a release carries no application key pair and
-                   # removes one an earlier revision still names.
+                   # removes one an earlier revision still names. Peable takes
+                   # the same identity, so its aliases of that pair go too.
                    | .secrets = (
                        (.secrets // []) | map(select(
                          .name != "OXY_APPLICATION_KEY" and
-                         .name != "OXY_APPLICATION_SECRET"
+                         .name != "OXY_APPLICATION_SECRET" and
+                         .name != "PEABLE_APP_PUBLIC_KEY" and
+                         .name != "PEABLE_APP_SECRET"
                        ))
                      )
                  else . end

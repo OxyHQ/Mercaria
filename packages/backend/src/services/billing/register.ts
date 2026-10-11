@@ -2,6 +2,10 @@ import { Peable } from '@peable.to/sdk';
 import { createHash } from 'node:crypto';
 import { log } from '../../lib/logger.js';
 import { config } from '../../config/index.js';
+import {
+  oxyServiceClient,
+  oxyServiceTokenProvider,
+} from '../../capabilities/oxy-service-client.js';
 import { registerBillingProvider } from './provider.js';
 import { StripeBillingProvider } from './stripe/stripe-billing.js';
 import { billingCohortSchema, CohortBillingProvider } from './peable/adapter.js';
@@ -22,18 +26,21 @@ export async function registerMerchantBillingProvider(): Promise<void> {
   } catch {
     throw new Error('Invalid merchant billing cohort configuration.');
   }
-  const { publicKey, secret, baseUrl, oxyApiUrl } = config.payments.peable;
   // An explicit cohort must be completely configured before any remote reads.
-  if (!publicKey.trim() || !secret.trim()) {
-    throw new Error('Merchant billing requires a complete Peable application credential.');
+  // Peable is reached as Mercaria's own Oxy identity (the task role on ECS).
+  if (!oxyServiceClient()) {
+    throw new Error('Merchant billing requires an Oxy identity for Mercaria.');
   }
   const reader = createBillingCohortStripeReader(cohort);
   const accountId = await reader.platformAccountId();
   if (accountId !== cohort.platformAccountId || legacy.livemode !== cohort.livemode) {
     throw new Error('Merchant billing platform account or mode differs from the cohort.');
   }
-  const client = new Peable({ publicKey, secret, baseURL: baseUrl, oxyApiUrl });
-  // Namespace must resolve through existing credentials; never register a merchant here.
+  const client = new Peable({
+    tokenProvider: oxyServiceTokenProvider,
+    baseURL: config.payments.peable.baseUrl,
+  });
+  // Namespace must resolve through Mercaria's identity; never register a merchant here.
   const merchant = await client.merchants.retrieve();
   if (
     merchant.id !== cohort.merchantId ||
