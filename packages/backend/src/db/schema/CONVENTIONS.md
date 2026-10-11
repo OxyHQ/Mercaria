@@ -1,16 +1,15 @@
 # Postgres schema conventions — Mercaria
 
 Binding for every table in this schema. Decision + reason, nothing else. Two
-prime directives: **no relational link may be lost**, and **no Mongo baggage
+prime directives: **no relational link may be lost**, and **no legacy baggage
 travels**. Where they conflict, STOP and escalate rather than resolving it
 silently.
 
-> This document was written during the Mongo→Postgres port and is still binding,
-> but read it as a LEDGER: the phases it plans (Fase 1–4), the Mongoose models it
-> maps and the backfill it instructs have all completed and been deleted, and the
-> `mercaria-production` Mongo database was dropped on 2026-08-08. Nothing here can
-> be re-run. What survives is the DECISION and its reason for each table — which
-> is what makes a column whose shape looks arbitrary answerable at all.
+> This document is binding, and it is also a LEDGER: the phases it plans
+> (Fase 1–4), the legacy models it maps and the backfill it instructs have all
+> completed and been deleted. Nothing here can be re-run. What survives is the
+> DECISION and its reason for each table — which is what makes a column whose
+> shape looks arbitrary answerable at all.
 
 Several of these are enforced by tests, not by discipline — see the bottom.
 
@@ -42,7 +41,7 @@ fail the build instead of quietly meaning nothing.
 
 ## Naming
 
-**Tables: explicit snake_case, plural.** `inventory_levels`, not Mongoose's
+**Tables: explicit snake_case, plural.** `inventory_levels`, not a
 derived `inventorylevels`. The derived name is a `pluralize()` artifact, not a
 design, and nothing reads a collection name — call sites are being rewritten,
 not shimmed. The Fase 4 backfill therefore needs an explicit collection → table
@@ -120,7 +119,7 @@ quotes every identifier it emits. Hand-written SQL must quote it too.
 **uuid v7** for new ones — `generatedId()` from `@oxy.so/db`. This is not a
 convenience, it is what makes the backfill possible at all:
 
-- Every cross-collection reference in Mercaria's Mongo model is already a
+- Every cross-table reference in Mercaria's legacy model was already a
   `String` id (`AGENTS.md` states this as a rule). A remapped id would mean
   rewriting every one of them in the same pass that copies the rows, with no way
   to verify the result short of re-deriving the whole graph.
@@ -146,12 +145,12 @@ re-derives the same row, and that determinism IS the idempotency.
 ## Money — `DualMoney` is FOUR real columns per amount
 
 This is the Mercaria-specific rule with the most call sites, and the one most
-likely to be got wrong by someone porting a Mongoose sub-document mechanically.
+likely to be got wrong by someone mapping a nested sub-document mechanically.
 
 Mercaria is multi-currency (presentment + shop, Shopify-Markets style). Every
 TRANSACTED amount on an order or refund is a `DualMoney { shop, presentment }`,
-and each half is a `Money { amount, currency }`. In Mongo that is one nested
-object. In Postgres it is **four columns, flat, on the owning table**:
+and each half is a `Money { amount, currency }`. In the domain type that is one
+nested object. In Postgres it is **four columns, flat, on the owning table**:
 
 ```
 unit_price_shop_amount          bigint   not null   -- minor units
@@ -237,23 +236,20 @@ beside it. Render the CHECK with `inList()` / `textArrayLiteral()` from
 `@oxy.so/db` so the constraint text is generated from the tuple rather than
 retyped.
 
-**This is what "adding a currency code propagates" now means, and it CHANGES.**
-Under Mongo, adding a code to `ALL_CURRENCY_CODES` propagated at runtime,
-because `MoneySchema`'s enum read the tuple and Mongoose validated against it on
-the next write. Under Postgres the constraint is DDL that has already been
-applied: adding a code to the tuple changes the TypeScript union immediately and
-changes nothing in the database at all, so the first write of the new code fails
-its CHECK. **Adding a currency code is therefore a code change plus
-`bun run db:generate` plus a migration** — additive, so `-- oxy:deploy-phase=pre`
-— and the shared-types change and the migration must land in the same PR or the
-build is green and production rejects the write.
+**Adding a currency code does NOT propagate at runtime.** A validator that read
+the tuple would pick the new code up on its next write; a Postgres constraint is
+DDL that has already been applied: adding a code to the tuple changes the
+TypeScript union immediately and changes nothing in the database at all, so the
+first write of the new code fails its CHECK. **Adding a currency code is
+therefore a code change plus `bun run db:generate` plus a migration** —
+additive, so `-- oxy:deploy-phase=pre` — and the shared-types change and the
+migration must land in the same PR or the build is green and production rejects
+the write.
 
-**Mongoose enums were never enforced on an update.** `Model.updateOne` runs no
-validators, so the live collections may contain values the schema forbids.
-Porting a narrow enum verbatim starts rejecting real rows. Every CHECK here must
-be the union of the Mongoose enum, the `@mercaria/shared-types` union, and every
-literal written anywhere in the code — and a production `distinct()` audit is
-still REQUIRED before the backfill, because only the data can confirm it.
+**A CHECK must admit every value the code writes.** Every CHECK here must be the
+union of the `@mercaria/shared-types` union and every literal written anywhere
+in the code; a CHECK narrowed to the type alone starts rejecting real rows, and
+only a production `distinct()` audit can confirm a narrowing is safe.
 `Listing.status` is the one to check first: `restricted` is written by
 moderation enforcement, and a CHECK missing it silently disarms every takedown.
 
@@ -265,18 +261,17 @@ element is in range" is written as array CONTAINMENT, never `unnest`.
 
 Always `timestamptz`, always `mode: 'date'` — `timestamptz()` from `@oxy.so/db`.
 `timestamp` without a time zone reinterprets the value in the session's
-`TimeZone` on every read, silently changing what a Mongo `Date` meant.
+`TimeZone` on every read, silently changing what a stored instant meant.
 
-| Mongoose | Postgres |
+| Row lifecycle | Postgres |
 |---|---|
-| `timestamps: true` | `created_at` + `updated_at`, both `NOT NULL DEFAULT now()` |
-| `timestamps: { createdAt: true, updatedAt: false }` | `created_at` only — the ABSENCE of `updated_at` is the append-only contract |
-| `timestamps: false` + own `createdAt: { default: Date.now }` | `created_at`, identical to the row above |
+| Mutable | `created_at` + `updated_at`, both `NOT NULL DEFAULT now()` |
+| Append-only | `created_at` only — the ABSENCE of `updated_at` is the append-only contract |
 
-**`updated_at` is maintained by the application** (`$onUpdate`), matching
-Mongoose. Deliberately not a trigger: a trigger is invisible in the schema file,
-and it would fire during the backfill and overwrite the historical value the
-migration exists to preserve.
+**`updated_at` is maintained by the application** (`$onUpdate`). Deliberately
+not a trigger: a trigger is invisible in the schema file, and it would fire
+during a backfill and overwrite the historical value the backfill exists to
+preserve.
 
 `createdAt()`/`updatedAt()` default to `date_trunc('milliseconds', now())`, not
 plain `now()`. `timestamptz` carries microseconds and a JS `Date` carries
@@ -329,7 +324,7 @@ nothing for.
 Every relation gets a real constraint with an **explicitly decided `ON DELETE`**.
 `ON UPDATE` is never declared: ids are immutable.
 
-The rule for choosing: read the existing Mongo delete path first and state the
+The rule for choosing: read the existing delete path first and state the
 choice against it. A commerce record that a buyer or a tax authority can be
 asked about does not CASCADE — an order line whose listing was deleted must
 survive with its price snapshot intact, because the order is the record of what
@@ -344,26 +339,21 @@ marking it orphaned.
 
 ## Unique constraints
 
-Mongo unique index → `UNIQUE`. Mongo `sparse` / `partialFilterExpression` → a
-Postgres partial unique index (`uniqueIndex().where(...)`).
+A unique → `UNIQUE`. A unique over an OPTIONAL value → a partial unique index
+(`uniqueIndex().where(...)`).
 
 Postgres treats NULLs as DISTINCT by default, so a plain `UNIQUE` on a nullable
-column is already correct — but the partial form is worth keeping where Mongo
-used one, because it also keeps the index the size of the real set and states
-the intent at the constraint.
+column is already correct — but the partial form is worth using for an optional
+value, because it also keeps the index the size of the real set and states the
+intent at the constraint.
 
-> **Carry the Mongo lesson across, do not re-learn it.** `sparse: true` on a
-> unique index does NOT exclude a stored `null` — `sparse` omits a document when
-> the field is ABSENT, so `$set: { field: null }` (the natural way to clear an
-> optional field) indexes it and the second such row fails with `E11000`. The
-> Mongo fix was `partialFilterExpression: { field: { $type: '…' } }`. The
-> Postgres analogue is a partial unique index with an explicit
-> `where(isNotNull(col))` where the semantics demand it — and the same discipline
-> applies to whoever writes the clearing code: **a sparse-unique column must be
-> written NULL, never `''`.** An empty string is a VALUE, so it collides for
-> real, converting a non-problem into a live bug.
+> **Clearing an optional unique value writes NULL.** The partial unique index
+> carries an explicit `where(isNotNull(col))` where the semantics demand it —
+> and the same discipline applies to whoever writes the clearing code: **a
+> sparse-unique column must be written NULL, never `''`.** An empty string is a
+> VALUE, so it collides for real, converting a non-problem into a live bug.
 
-Invariants Mongo could not state at all become constraints here — the
+Invariants an application check cannot hold become constraints here — the
 idempotency key on `moderation_enforcement` (`decision_id + revision + action`)
 is already exactly this shape and must arrive as a real `UNIQUE`, because it is
 the ONLY thing standing between an enforcement retry and a double takedown.
@@ -373,8 +363,8 @@ never relist the item.
 
 ### And a ported unique can be WRONG — `product_variants.sku`/`.barcode` (#296)
 
-The mapping above is mechanical in one direction only. A Mongo sparse-unique
-carried across faithfully still has to be asked whether the property it asserts
+The mapping above is mechanical in one direction only. A sparse-unique carried
+across faithfully still has to be asked whether the property it asserts
 is TRUE of the domain, and for these two it was not. Both were dropped by
 migration `0073` (`post`) and NEITHER is replaced at any scope.
 
@@ -427,7 +417,7 @@ than the diffs.
 ## Arrays and objects
 
 - A scalar array (tags, search terms) → a native `type[]`, with a GIN index
-  where Mongo's multikey index served an `$in`. A child table for a set never
+  where a query filters by element. A child table for a set never
   queried by element is over-normalization.
 - An array of IDS or entities → a real junction table. Never a `jsonb` id array:
   it cannot be joined, constrained, or usefully indexed. `Listing.collectionIds`
@@ -446,18 +436,17 @@ LOOSE, and projecting it into columns would silently drop whatever a newer
 CrowdSource version added. A price, an address or a set of order totals is not
 shape-less and does not qualify.
 
-## Mongoose behaviour that has no schema counterpart
+## Normalization that has no schema counterpart
 
-`trim: true`, `lowercase: true` and setter-style defaults are Mongoose
-APPLICATION behaviour. Postgres has no equivalent, and dropping them silently
-changes what gets stored. **Re-apply each at the call site during the port.**
-They are deliberately NOT encoded as CHECK constraints: a CHECK would reject
-existing production rows during the backfill and convert a silent normalization
-into a 500.
+Trimming, lowercasing and setter-style defaults are APPLICATION behaviour.
+Postgres has no equivalent, and dropping them silently changes what gets stored.
+**Each is applied at the call site.** They are deliberately NOT encoded as CHECK
+constraints: a CHECK would reject existing production rows and convert a silent
+normalization into a 500.
 
 The one to audit hardest is anything a UNIQUE constraint depends on — a store
-handle or a connector provenance key that Mongoose lowercased on write is unique
-case-insensitively today and will not be once the normalization is gone. Either
+handle or a connector provenance key lowercased on write is unique
+case-insensitively only while the call site keeps normalizing it. Either
 the call site normalizes, or the index is on `lower(col)`. Decide per column; do
 not assume. (`sku` was the first example this paragraph used, and it stopped
 being one when #296 dropped its unique — the audit is only owed where a
@@ -486,8 +475,8 @@ differently from an ordinary select.
 
 ## Generated columns
 
-Where Mongoose derived a value in a hook, the derivation belongs in the schema —
-not because it is tidier, but because a hook is bypassable and a
+Where a value is derived from other columns, the derivation belongs in the
+schema — not because it is tidier, but because a hook is bypassable and a
 `GENERATED ALWAYS ... STORED` column is not. No write path (route, service,
 backfill, `psql`) can produce a row whose derived value disagrees with its
 source: an attempt fails with SQLSTATE `428C9`.
@@ -505,11 +494,10 @@ not.** Check `pg_proc.provolatile`, do not assume:
 builtin.** `array_to_tsvector(a)` is immutable and was the first answer for
 `text[]`; it is also wrong, because it stores every element as a lexeme VERBATIM
 — no stemming, no case folding — so a listing tagged `Handmade` was not findable
-by "handmade" and `Bikes` not by "bikes", a real narrowing against Mongo's
-`$text`, which stemmed array elements. `array_to_string(anyarray, text)` is
-STABLE only because `anyarray` admits types whose text conversion is not
-immutable; narrowed to `text[]` the conversion genuinely is, so
-`mercaria_immutable_array_to_string(text[], text)`
+by "handmade" and `Bikes` not by "bikes", a real narrowing of tag search.
+`array_to_string(anyarray, text)` is STABLE only because `anyarray` admits types
+whose text conversion is not immutable; narrowed to `text[]` the conversion
+genuinely is, so `mercaria_immutable_array_to_string(text[], text)`
 (`drizzle/0003_tag_search_stemming.sql`) declares it honestly rather than by
 assertion. Reach for the same shape before accepting a builtin that type-checks
 and analyzes differently.
@@ -531,14 +519,13 @@ expression cannot reproduce. The stored total is the record of what was charged.
 
 ## Text search
 
-A Mongo text index becomes a `tsvector` GENERATED column plus a GIN index —
-never `LIKE '%…%'`, which is not a port of a text index but a table scan wearing
-one's clothes. Use `tsvector` from `@oxy.so/db` and the two-argument
+A text index is a `tsvector` GENERATED column plus a GIN index — never
+`LIKE '%…%'`, which is not a text index but a table scan wearing one's clothes.
+Use `tsvector` from `@oxy.so/db` and the two-argument
 `to_tsvector('<config>', …)` with a literal configuration.
 
-Note that catalogue search changes SHAPE where Mongo indexed a multikey field on
-the parent document: searching listing text that lives on variants now joins
-back to `listings`.
+Note that searching listing text that lives on variants joins back to
+`listings`.
 
 **A vector's configuration and its query side's configuration are ONE decision,
 and a disagreement between them is UNRELIABLE rather than merely lossy.** Two
@@ -608,8 +595,8 @@ database. It looks like a fallback and is not one.
 
 ## Indexes
 
-Port the indexes that earn their keep, drop the ones that do not, add the ones
-Mongo needed and lacked.
+Keep the indexes that earn their keep, drop the ones that do not, and add the
+ones a query needs.
 
 - **Dropped as redundant:** a standalone `{storeId: 1}` alongside a compound
   unique that already leads with it — a btree serves any leading prefix.
@@ -735,14 +722,14 @@ deleted one commit earlier under the two-copies rule.
 
 ## The model → table ledger
 
-Every one of the 31 Mongoose models the pre-cutover backend carried, mapped.
+Every one of the 31 legacy models the pre-cutover backend carried, mapped.
 This was also the explicit collection → table map the Fase 4 backfill ran from
-(Mongoose's derived collection name is the lowercased plural, e.g.
+(the derived collection name was the lowercased plural, e.g.
 `inventorylevels`). Neither those models nor that backfill exist any more; the
 ledger stays because it is the only record of where each table's data came from,
 and a column whose shape looks arbitrary is usually answered here.
 
-| Mongoose model | Table(s) |
+| Legacy model | Table(s) |
 |---|---|
 | `Store` | `stores` (+ `store_members`, dropped by `0161` — ADR 0012; see "Store ownership is an Oxy account") |
 | `Location` | `locations` |
@@ -776,7 +763,7 @@ and a column whose shape looks arbitrary is usually answered here.
 | `ModerationEnforcement` | `moderation_enforcements` |
 | `Counter` | **EXCLUDED** — replaced by two SEQUENCEs, below |
 
-**One Mongo field maps to a table shared by TWO models.**
+**One legacy field maps to a table shared by TWO models.**
 `listing_collections` carries `Collection.productIds` (the hand-picked, ORDERED
 input of a manual collection) and `Listing.collectionIds` (the MATERIALIZED
 membership of both kinds) as one relation with a `position`. For a manual
@@ -836,7 +823,7 @@ migration.
 ### The canonical commerce graph has NO source model either (#53, ADR 0002)
 
 Eight more Postgres-born tables, bound by ADR 0002 (`docs/adr/0002-canonical-
-commerce-graph.md`) rather than by any Mongoose model: `catalog_sources`,
+commerce-graph.md`) rather than by any legacy model: `catalog_sources`,
 `source_records`, `organizations`, `brands`, `organization_aliases`,
 `brand_aliases`, `organization_source_links`, `brand_source_links`. The
 decisions that make their shapes answerable:
@@ -1705,7 +1692,7 @@ non-private review before changing votes and refuses the review's own author;
 moderation visibility and permission are current review facts, not duplicated
 onto the vote. Hiding retains votes; physical review deletion cascades them.
 
-`reviews` was born in `buyers.ts` (from the `Review` Mongoose model, above) and
+`reviews` was born in `buyers.ts` (from the `Review` legacy model, above) and
 lives in `schema/reviews.ts` since #76, beside four Postgres-born tables:
 `review_dimensions`, `review_eligibilities`, `review_aggregates` +
 `review_dimension_aggregates`, and `review_target_migrations`.
@@ -1922,7 +1909,7 @@ serve. Full reasoning: `docs/catalog-pages.md`.
 
 `guest_sessions` (`schema/guests.ts`, `drizzle/0013_guest_sessions.sql`) and
 `cart_merges` (same file, `drizzle/0017_guest_cart_ownership.sql`) were born in
-Postgres for ADR 0003 (#103, #104) — there was never a Mongoose model behind
+Postgres for ADR 0003 (#103, #104) — there was never a legacy model behind
 either and the backfill had nothing to copy into them. Their decisions, so a
 column whose shape looks arbitrary is answerable here:
 
@@ -3812,8 +3799,8 @@ Deliberately NOT jsonb, though a mechanical port would have made them so:
 `ModerationEnforcement.previousState` (three known keys → three CHECKed columns),
 every embedded address (→ `addressColumns`), every `Money`/`DualMoney`, the
 credential envelopes on `connections`, `Feedback.metadata` (its TypeScript index
-signature is not backed by the Mongoose schema, which declares three strict
-paths), and every `{name, value}` option-value list (→ child tables).
+signature is backed by only three strict paths), and every `{name, value}`
+option-value list (→ child tables).
 
 ## Register: the documented exceptions
 
@@ -3822,8 +3809,8 @@ deviation is a visible decision rather than a silent one.
 
 | Deviation | Where | Why |
 |---|---|---|
-| A SINGULAR table name | `feedback` | "Feedback" is a mass noun; `feedbacks` is not a word, and Mongoose's derived collection name being exactly that is a `pluralize()` artifact, not a naming decision to inherit. |
-| A currency column with NO currency CHECK | `connections.shop_currency` | It is the EXTERNAL platform's currency, declared with no enum in Mongoose deliberately: a Shopify or WooCommerce shop may report a code Mercaria does not list, and rejecting the connection over it would break the import rather than the price. Named in the gate's `EXEMPT` set. |
+| A SINGULAR table name | `feedback` | "Feedback" is a mass noun; `feedbacks` is not a word, and a `pluralize()` artifact is not a naming decision. |
+| A currency column with NO currency CHECK | `connections.shop_currency` | It is the EXTERNAL platform's currency, declared with no enum deliberately: a Shopify or WooCommerce shop may report a code Mercaria does not list, and rejecting the connection over it would break the import rather than the price. Named in the gate's `EXEMPT` set. |
 | A currency column with NO currency CHECK | `provider_accounts.default_currency` | The same shape as the row above, one system further out: it is the payment RAIL's currency for that seller's account. Several EEA settlement currencies (RON, CZK, HUF, BGN) are outside `ALL_CURRENCY_CODES`, which is Mercaria's PRESENTMENT set, so a CHECK here would fail the SYNC of a real seller's account rather than reject a price. Nothing prices against it; it is shown to the seller. Named in the gate's `EXEMPT` set. |
 | A currency column with a SHAPE check, not the tuple CHECK | `storefronts.currency` | The third member of the class the two rows above define: a currency chosen by a system that is not Mercaria — the external channel's OWN currency as its platform reports it, possibly a code outside `ALL_CURRENCY_CODES`, and nothing prices against it. Unlike the two above it DOES carry a CHECK (`~ '^[A-Z]{3,4}$'`), which keeps garbage out and satisfies the currency gate structurally, so it needs no `EXEMPT` entry; ADR 0002 D18 binds `offers.price_currency` (#57) to this same shape. |
 | A polymorphic owner instead of the mutually-exclusive PAIR `orders` uses | `provider_accounts.owner_type` + `owner_id` | `orders` splits its seller into two nullable id columns and a CHECK because it joins to `stores` for real and wants that foreign key. This table cannot: half its owners are Oxy accounts, whose key space is not in this database, so the pair would exist only to be CHECKed. It follows `ledger_entries`, which already carries this exact pair for these exact two kinds — and one column makes "two owners at once" unrepresentable rather than merely rejected, which is what lets the load-bearing constraint here be a single `UNIQUE(provider, owner_type, owner_id)`. That index is the only thing stopping a seller attaching a second connected account, or somebody else's. |
@@ -3832,7 +3819,7 @@ deviation is a visible decision rather than a silent one.
 
 ## Register: what was dropped, and what it cost
 
-"No Mongo baggage travels" is only credible if the dropped things are listed.
+"No legacy baggage travels" is only credible if the dropped things are listed.
 
 | Dropped | Evidence it is dead |
 |---|---|
@@ -3862,11 +3849,12 @@ Listed so a 23503 is recognised rather than rediscovered.
 - **`cart_items` CASCADE from `product_variants`.** A cart holding a deleted
   variant used to fail at checkout, far from the cause, to a buyer who did
   nothing wrong. The line now disappears with the variant.
-- **New constraints Mongo could not state**, each of which a half-finished
-  service path could previously violate: at most one default `location` per
-  store; at most one default `address` per user; one `store_members` row per
-  (store, user) — the table itself was dropped by `0161` (ADR 0012), and its
-  successor `store_permission_overrides` keeps the same one-per-pair key; one `cart_items` line per (cart, variant); a `completed`
+- **New constraints the application alone could not hold**, each of which a
+  half-finished service path could previously violate: at most one default
+  `location` per store; at most one default `address` per user; one
+  `store_members` row per (store, user) — the table itself was dropped by `0161`
+  (ADR 0012), and its successor `store_permission_overrides` keeps the same
+  one-per-pair key; one `cart_items` line per (cart, variant); a `completed`
   `draft_order` has a converted order and a non-completed one does not; a
   `discounts` window that ends before it starts is refused.
 
@@ -3885,7 +3873,7 @@ add a row when a gate lands, and do not list one that does not run yet.
 | Every `PROTECTED_COLUMNS` entry names a real table (by its SQL name) and a real column (by its TypeScript property) — the two conventions differ and mixing them up silently protects NOTHING | `src/db/__tests__/schema-conventions.test.ts` | no |
 | `money`/`dualMoney`/`addressColumns` emit exactly the column names they claim, in TypeScript AND in SQL — the one place in the schema where key names are not compiler-checked | `src/db/__tests__/schema-conventions.test.ts` | no |
 | Every currency column carries a CHECK, since `text({ enum })` emits no DDL | `src/db/__tests__/schema-conventions.test.ts` | no |
-| snake_case tables and columns; every table has a PK; every timestamp is `timestamptz`; no `''` default; no `_id`/`__v` left over from Mongoose | `src/db/__tests__/schema.realdb.test.ts` | yes |
+| snake_case tables and columns; every table has a PK; every timestamp is `timestamptz`; no `''` default; no `_id`/`__v` column | `src/db/__tests__/schema.realdb.test.ts` | yes |
 | Every expiry-swept column has a supporting leading btree index — nothing else notices a later migration dropping one | `src/db/__tests__/schema.realdb.test.ts` | yes |
 | A ledger transaction balances to zero per currency, and its rows refuse UPDATE and DELETE | `src/db/payments/__tests__/ledger.realdb.test.ts` | yes |
 | A published fee schedule version refuses every economic edit and any DELETE; at most one active version per key; snapshots and acceptances refuse UPDATE and DELETE; the snapshot CHECKs refuse a `mercaria_retail` fee, a schedule-less `calculated` row and a fee above its basis | `src/db/fees/__tests__/fee-schedules.realdb.test.ts` | yes |
@@ -3988,16 +3976,15 @@ each one has a translation that type-checks, reads correctly and is WRONG — so
 each is pinned by two genuinely concurrent calls against a real server, and each
 was mutation-tested by reverting to the wrong form and watching the gate fail.
 
-- **A conditional write must stay ONE statement.** Mongo's
-  `findOneAndUpdate({_id, status: current}, …)` evaluated its guard and its
-  mutation together. `UPDATE … WHERE id = $1 AND status = $2 RETURNING` has the
-  same property: the row is locked for the statement, so the loser's predicate is
-  re-checked against the winner's write. A read-then-write is a different
-  function with the same signature and a lost-update bug.
+- **A conditional write must stay ONE statement.**
+  `UPDATE … WHERE id = $1 AND status = $2 RETURNING` evaluates its guard and its
+  mutation together: the row is locked for the statement, so the loser's
+  predicate is re-checked against the winner's write. A read-then-write is a
+  different function with the same signature and a lost-update bug.
 - **A guard that reads OTHER rows cannot live in the same `UPDATE`.** A subquery
   in an `UPDATE … WHERE` is evaluated against the statement's own snapshot, and
   READ COMMITTED explicitly does not re-read other rows during an EvalPlanQual
-  recheck — so the tempting one-statement port of Mongo's `$expr` ceiling lets
+  recheck — so the tempting one-statement ceiling check lets
   BOTH concurrent redemptions through. Serialize on the parent
   (`SELECT … FOR UPDATE`), then count in a SEPARATE statement, which takes a
   fresh snapshot after the wait. `redeemDiscountCode` is the worked example.
@@ -4059,7 +4046,7 @@ mechanised yet. What was checked, and what each check is actually worth:
 
 Anything in this document that a gate does NOT enforce is enforced by review.
 The money-column shape, the `ON DELETE` reasoning, the enum-widening audit and
-the re-applied Mongoose normalizations are all in that category — they are the
+the call-site normalizations are all in that category — they are the
 ones to read this file for before opening a PR, not after.
 
 ## Mercaria-retail native checkout (#123)

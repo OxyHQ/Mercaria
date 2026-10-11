@@ -12,11 +12,11 @@
  *
  * ## The DTO reassembles what the schema flattened
  *
- * Mongo held `appliesTo`, `buy`, `get`, `minimumRequirement`,
- * `customerEligibility` and `usageLimits` as nested sub-documents; Postgres holds
- * each field as its own column. The wire shape does NOT change — clients and the
- * dashboard still receive the nested `Discount` DTO — so this serializer is where
- * the two representations meet, and it is the only place that knows both.
+ * `appliesTo`, `buy`, `get`, `minimumRequirement`, `customerEligibility` and
+ * `usageLimits` are nested objects on the wire; Postgres holds each field as
+ * its own column. The wire shape does NOT change — clients and the dashboard
+ * still receive the nested `Discount` DTO — so this serializer is where the two
+ * representations meet, and it is the only place that knows both.
  *
  * A sub-document is emitted only when the schema really has one: `buy`/`get` are
  * keyed on their `quantity` column being non-NULL, because a leg with a scope and

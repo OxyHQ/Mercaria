@@ -190,11 +190,11 @@ describe('createAbuseReport — validation', () => {
 
   it('rejects a non-string reportedId before it reaches the query', async () => {
     /**
-     * Drizzle binds parameters, so the Mongo-era `{$ne: null}` operator injection
-     * is gone — but a non-string still reaches the INSERT and stores an object
-     * where an id belongs, and the duplicate read has to be asked about a real id
-     * to mean anything. The guard is also why this service stays safe for callers
-     * that never passed the route's validation.
+     * Drizzle binds parameters, so an operator object such as `{$ne: null}`
+     * cannot become a query — but a non-string still reaches the INSERT and
+     * stores an object where an id belongs, and the duplicate read has to be
+     * asked about a real id to mean anything. The guard is also why this
+     * service stays safe for callers that never passed the route's validation.
      */
     await expect(
       createAbuseReport({
@@ -239,9 +239,9 @@ describe('createAbuseReport — duplicates', () => {
   it('maps the unique-index violation onto the SAME conflict, so a race reads alike', async () => {
     /**
      * The read above loses a genuine race: two taps, both reads miss, and
-     * `abuse_reports_reporter_reported_key` refuses the loser. Under Mongo that
-     * surfaced as an unhandled driver error — a 500 for doing exactly what the
-     * other tap did. Mapping it here makes the racing and sequential cases
+     * `abuse_reports_reporter_reported_key` refuses the loser. Unmapped, that
+     * would surface as an unhandled driver error — a 500 for doing exactly what
+     * the other tap did. Mapping it here makes the racing and sequential cases
      * indistinguishable to the client, which is the only thing that makes the
      * read-first check worth keeping.
      *

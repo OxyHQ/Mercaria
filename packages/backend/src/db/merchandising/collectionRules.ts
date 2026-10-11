@@ -5,18 +5,16 @@
  * `collectionRepository` so every operator can be table-tested without a
  * database, and from `collection.service` so no service holds SQL.
  *
- * Three properties are load-bearing and each replaces a Mongo mechanism:
+ * Three properties are load-bearing:
  *
- *  - **A `contains` / `starts_with` / `ends_with` needle is ESCAPED.** Mongo used
- *    `$regex` with `escapeRegExp`; the Postgres analogue is `ILIKE` with `%`, `_`
- *    and `\` escaped. Skipping it makes a rule for a product type containing an
- *    underscore silently match one character of anything, and a rule containing
- *    `%` match the entire catalogue.
- *  - **`not_equals` matches a NULL/absent value**, because Mongo's `$ne` did:
- *    `{vendor: {$ne: 'Acme'}}` matched every document with no `vendor` at all.
- *    A bare `vendor <> 'Acme'` evaluates to NULL there and drops those rows, so
- *    a merchant's "everything except Acme" collection would silently exclude
- *    every unbranded product.
+ *  - **A `contains` / `starts_with` / `ends_with` needle is ESCAPED.** It is
+ *    `ILIKE` with `%`, `_` and `\` escaped. Skipping it makes a rule for a
+ *    product type containing an underscore silently match one character of
+ *    anything, and a rule containing `%` match the entire catalogue.
+ *  - **`not_equals` matches a NULL/absent value**: "vendor is not Acme" must
+ *    match every listing with no `vendor` at all. A bare `vendor <> 'Acme'`
+ *    evaluates to NULL there and drops those rows, so a merchant's "everything
+ *    except Acme" collection would silently exclude every unbranded product.
  *  - **An unsupported field/operator pair yields `null` and is SKIPPED**, and a
  *    rule set with NO usable condition matches NOTHING. Automated collections
  *    degrade gracefully; the alternative — treating "no conditions" as "no
@@ -73,7 +71,7 @@ function stringPredicate(
     case 'equals':
       return sql`${column} = ${value}`;
     case 'not_equals':
-      // Mongo's `$ne` matched an absent field; see the module header.
+      // `not_equals` matches an absent field; see the module header.
       return sql`(${column} is null or ${column} <> ${value})`;
     case 'contains':
       return sql`${column} ilike ${`%${needle}%`}`;
@@ -142,7 +140,7 @@ function numericPredicate(
 /**
  * An inventory rule, resolved against the listing's denormalized `has_inventory`
  * boolean — Mercaria has no per-listing stock NUMBER to compare, so the rule is
- * reduced to in-stock / out-of-stock exactly as the Mongo translator did.
+ * reduced to in-stock / out-of-stock.
  */
 function inventoryPredicate(operator: CollectionRuleOperator, value: string): SQL | null {
   const num = Number(value);
@@ -169,9 +167,8 @@ function inventoryPredicate(operator: CollectionRuleOperator, value: string): SQ
  *
  * `compareAtPrice` is the only variant-level field: it is not denormalized onto
  * the listing, so it resolves through a CORRELATED `EXISTS` whose outer
- * reference is qualified by {@link variantExistsPredicate}. The Mongo version
- * ran a separate query and constrained `_id $in [...]`, which could not be
- * combined with the rest of the filter in one statement.
+ * reference is qualified by {@link variantExistsPredicate}, so it combines with
+ * the rest of the filter in one statement.
  */
 export function translateRule(rule: CollectionRuleInput): SQL | null {
   const stringColumn = STRING_COLUMNS[rule.field as keyof typeof STRING_COLUMNS];

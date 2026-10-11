@@ -4,11 +4,10 @@
  *
  * ## A run is opened and then closed, in two statements — never mutated in place
  *
- * The Mongoose path created a document, mutated `counts`/`status`/`finishedAt`
- * on the in-memory object as the run progressed, and called `save()` at the end.
- * That works here too and is deliberately not what this module offers: the
- * intermediate object was never persisted, so the only writes that ever reached
- * the database were the open and the close. {@link insertSyncRun} and
+ * Mutating `counts`/`status`/`finishedAt` on an in-memory object as the run
+ * progresses and saving it at the end is deliberately not what this module
+ * offers: the intermediate object is never persisted, so the only writes that
+ * reach the database are the open and the close. {@link insertSyncRun} and
  * {@link finishSyncRun} say exactly that, and the tallies stay a plain JS object
  * in the caller until the run ends — which is also what the live Socket.IO
  * progress ticks read.
@@ -19,11 +18,11 @@
  *
  * ## `started_at desc` needs no `nulls last`
  *
- * `desc()` orders NULLS FIRST in Postgres, which silently reverses a Mongo sort
- * that put missing values last — the trap worth checking on every ported ORDER
- * BY. It does not apply here: `started_at` is `NOT NULL`, so a NULL is
- * unrepresentable and the two orderings cannot differ. `finished_at` IS nullable
- * and is deliberately never sorted on.
+ * `desc()` orders NULLS FIRST in Postgres, which silently reverses a sort that
+ * means to put missing values last — the trap worth checking on every ORDER BY.
+ * It does not apply here: `started_at` is `NOT NULL`, so a NULL is
+ * unrepresentable and the two orderings cannot differ. `finished_at` IS
+ * nullable and is deliberately never sorted on.
  *
  * ## The readers arrived with #87, and both share ONE ordering
  *
@@ -256,8 +255,8 @@ export async function insertSyncRun(
  * `failure` and gets none, matching the `error` precedence above.
  *
  * @returns The stored row, so the caller can serialize what was actually
- *   persisted rather than the object it was holding — the two diverged silently
- *   under Mongoose whenever a `save()` was skipped on an error path.
+ *   persisted rather than the object it was holding — the two diverge silently
+ *   whenever a write is skipped on an error path.
  */
 export async function finishSyncRun(
   runId: string,
@@ -282,8 +281,8 @@ export async function finishSyncRun(
         countsFailed: outcome.counts.failed,
         finishedAt: now,
         // Explicitly `null` on success: a run that failed, was retried and then
-        // succeeded must not keep the earlier message, which the Mongoose path's
-        // "assign only when set" left standing on the reused document.
+        // succeeded must not keep the earlier message, which "assign only when
+        // set" would leave standing.
         //
         // `undefined` — not "falsy" — is what means "there was no failure". A caller
         // that legitimately caught a thrown `''`, `0` or `null` still gets a

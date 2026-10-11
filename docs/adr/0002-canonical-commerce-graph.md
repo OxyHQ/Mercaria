@@ -23,10 +23,8 @@ be built by parallel agents without colliding.
 The persistence baseline is fixed and non-negotiable: **PostgreSQL is
 Mercaria's only runtime database, and Drizzle schemas plus generated migrations
 own relational persistence** (`packages/backend/src/db/schema/`, conventions in
-`db/schema/CONVENTIONS.md`). MongoDB/Mongoose was removed from the runtime
-(PR #136) and the production database dropped on 2026-08-08. Nothing in this
-ADR proposes Mongo as a store, a compatibility layer or a migration target, and
-nothing may reintroduce it.
+`db/schema/CONVENTIONS.md`). Nothing in this ADR proposes a second store, a
+compatibility layer or another migration target, and nothing may introduce one.
 
 The constraints the current system imposes, verified against the schema:
 
@@ -1052,8 +1050,8 @@ types; must survive tombstones).
 | 3 | Official/authorized relationships require evidence rather than names alone | D10, D17 (evidence-gated `verified`, authority matrix, name/domain similarity capped at `asserted`) |
 | 4 | Product identifiers and collision/correction behavior are defined | D14 (schemes, normalization, grain, the active-owner partial unique, dispute routing, append-only corrections); D16 (aliases/redirects after merges) |
 | 5 | External and native offers share a comparison model without pretending to share checkout semantics | D18 (shared column set; checkout structural via native `product_variants` only; external-offer-never-a-listing in D6/D18) |
-| 6 | PostgreSQL/Drizzle is the only runtime persistence assumption | Context (baseline), D20–D22; no Mongo appears anywhere as store, layer or target |
+| 6 | PostgreSQL/Drizzle is the only runtime persistence assumption | Context (baseline), D20–D22; no other database appears anywhere as store, layer or target |
 | 7 | Backfill preserves immutable orders and current commerce behavior | D23 (Phases 0–4 plus the orders invariant; orders/refunds/payments untouched; listing-first reads intact until per-surface flag cutover) |
 | 8 | #53–#61 can proceed without inventing schema/cardinality decisions | Glossary + cardinalities; D13–D22; D25(a) ownership map; D25(d) FK contract |
 | 9 | Parallel schema work has an explicit migration-integration protocol | D25(b)–(c): regenerate-at-integration bound (owner-per-batch explicitly rejected), journal/snapshot mechanics stated, integration order fixed |
-| 10 | No MongoDB/Mongoose implementation path remains | Context; every mechanism named (drizzle tables, CHECKs, partial uniques, `db.transaction`, `migrate.ts` phases) is PostgreSQL-native |
+| 10 | No non-PostgreSQL implementation path remains | Context; every mechanism named (drizzle tables, CHECKs, partial uniques, `db.transaction`, `migrate.ts` phases) is PostgreSQL-native |

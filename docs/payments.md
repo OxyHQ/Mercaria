@@ -40,7 +40,7 @@ single real charge could be created.
 
 ## Models
 
-Thirteen tables, all Postgres-native — none has a Mongoose ancestor.
+Thirteen tables, all Postgres-native.
 
 | Table | What it is |
 |---|---|
@@ -322,8 +322,7 @@ column names so the two claim queries are the same query.
 - **The row IS the job.** No queue, no detached promise. Both evaporate on a
   restart, and payment consequences that evaporate do so silently.
 - **The enqueue is a genuine no-op on a repeat.** `on conflict (id) do nothing`.
-  A `do update` would reintroduce the exact bug the Mongo version needed
-  `timestamps: false` to avoid: a write nobody needed, contending with the
+  A `do update` would be a write nobody needed, contending with the
   dispatcher's live lease on the same row.
 - **Claims are leases with an owner check.** `FOR UPDATE SKIP LOCKED`, so N tasks
   drain concurrently without contending, and a dead task's lease is reclaimed

@@ -20,8 +20,8 @@ One unified API (`packages/backend`) serves storefront, dashboard and POS.
   column filters `status='active'`, and the two draft-showing screens order by
   `created_at`.
 - **`product_variants.sku` and `.barcode` are unique at NO grain** (#296).
-  Both carried a table-wide partial unique from the genesis migration, ported
-  from Mongo's `sparse: true, unique: true`, and both were an AMBIGUITY CHECK
+  Both carried a table-wide partial unique from the genesis migration, and both
+  were an AMBIGUITY CHECK
   wearing a constraint's clothes. A `barcode` is one seller's OBSERVATION of a
   trade item, and two merchants selling one trade item share a GTIN by
   definition — so the unique made the premise `offers` and every price

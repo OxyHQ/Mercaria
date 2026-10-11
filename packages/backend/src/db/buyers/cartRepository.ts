@@ -9,11 +9,11 @@
  * ## `addItem` is an UPSERT, and the constraint is what makes it one
  *
  * `cart_items_cart_id_variant_id_key` states "one line per variant per cart",
- * which the Mongo path only ever approximated by searching the embedded array
- * first and then pushing. Two concurrent adds of the same variant could both miss
- * and both push, leaving a cart with two lines for one variant that the checkout
- * then reserved twice. `ON CONFLICT … DO UPDATE` collapses find-then-write into
- * one statement, so the second add bumps the quantity instead.
+ * which searching first and then inserting would only approximate. Two
+ * concurrent adds of the same variant could both miss and both insert, leaving
+ * a cart with two lines for one variant that the checkout then reserved twice.
+ * `ON CONFLICT … DO UPDATE` collapses find-then-write into one statement, so
+ * the second add bumps the quantity instead.
  *
  * ## A cart is owned by a {@link CartOwner}, never by "a user" (#104)
  *

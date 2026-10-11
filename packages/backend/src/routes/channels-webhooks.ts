@@ -117,11 +117,9 @@ router.post(
       // answer — `null` — and one response, which is what stops the 401 being
       // used to enumerate them apart.
       //
-      // The Mongo path had an `isValidObjectId` pre-check here, purely because a
-      // non-ObjectId `_id` made Mongoose THROW a CastError before any query ran.
-      // A `text` primary key has no such failure mode: an arbitrary path segment
-      // simply matches no row and gets the same 401, so the guard is Mongo
-      // baggage and is gone rather than re-spelled as an id-shape predicate.
+      // No id-shape pre-check: a `text` primary key has no cast failure mode,
+      // so an arbitrary path segment simply matches no row and gets the same
+      // 401.
       const envelope = await findConnectionWebhookSecret(connectionId, 'woocommerce');
       if (!envelope) {
         sendText(res, 401, 'Invalid webhook signature');
