@@ -3,15 +3,11 @@
   "recipes": [
     {
       "name": "mercaria",
-      "services": [
-        "mercaria"
-      ],
       "ecrRepository": "oxy/mercaria",
       "dockerfile": "Dockerfile",
-      "dockerfileSha256": "5f93c981c46906d9e5cf117566fa173058f15e08023dceea7a2c2fa9c8f6cac2",
+      "context": ".",
       "target": null,
-      "tagSuffix": "",
-      "cacheScope": "mercaria-backend"
+      "buildInputsSha256": "7e0d18a9ea9cf4416eaa2045452dd6cc6a8decce3606f85aab8f3eab2df469a3"
     }
   ]
 }
