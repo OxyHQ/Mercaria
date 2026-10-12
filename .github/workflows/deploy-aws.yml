@@ -595,7 +595,7 @@ jobs:
       - name: Register the deployed capability catalog
         if: steps.ecs.outputs.status == 'ACTIVE'
         run: |
-          COMMAND_JSON='["node","packages/backend/dist/register-capability-catalog.js"]' \
+          COMMAND_JSON='["bun","packages/backend/dist/register-capability-catalog.js"]' \
           TASK_LABEL='capability catalog registration' \
           STARTED_BY='deploy-capability-catalog' \
           .github/scripts/run-ecs-task.sh

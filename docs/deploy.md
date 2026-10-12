@@ -447,6 +447,26 @@ the vacuity floor, which is what proves the narrowing rather than the floor is
 refusing; and removing `needs:` entirely goes red on the floor, naming it
 ungated.
 
+### The API runs on Bun
+
+The root `Dockerfile`'s runner stage is `oven/bun:1.4.3-alpine` and its CMD is
+`bun packages/backend/dist/index.js` under `dumb-init` (PID 1, forwarding
+SIGTERM to Bun's graceful shutdown). Every ECS one-shot names `bun` too: the
+migrator in `.github/scripts/run-migration-task.sh`, the capability catalog step
+in `deploy-aws.yml`, and the taxonomy provisioner run by hand. The image's
+`node` is only a symlink to bun.
+
+CI's `Build API` job builds that image and boots it against a throwaway PostGIS
+(`.github/scripts/smoke-api-image.sh`): every migrator phase, the taxonomy
+one-shot, `/health/ready` 200, the Docker health check, Bun under `dumb-init`,
+a graceful exit 0 on SIGTERM, and a non-zero exit when boot or a migration
+fails. The same job runs the unit suite under Bun (`bun run --cwd
+packages/backend test:bun`); `bun run test` stays vitest on Node.
+
+To return to Node, revert the change that made the switch: it moved the runner
+stage and every one-shot command together, and they must stay together — a
+`bun` command against a Node image dies at task start.
+
 ### How a migration reaches production
 
 `bun run db:generate` (drizzle-kit) writes the SQL; `packages/backend/src/db/migrate.ts`
