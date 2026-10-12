@@ -1,6 +1,14 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 #
 # Production image for the @mercaria/backend service.
+#
+# Every external image (the syntax frontend above, both bases and the
+# `COPY --from` below) is pinned by its multi-arch INDEX digest. The digest is
+# what the build pulls; the tag is kept only for readability. Re-pushing a tag
+# therefore changes nothing here, and a bump means a new digest, a re-review and
+# a re-pin (`python3 .github/scripts/reviewed-image.py pin`). Resolved
+# 2026-10-12: docker/dockerfile:1.7 = 1.7.1, node:24-alpine = 24.21.0-alpine,
+# oven/bun:1.4.3-alpine; each index lists linux/arm64 and linux/amd64.
 #
 # Multi-stage, multi-arch. `node:24-alpine` and `oven/bun` are multi-arch
 # manifests, so this image builds natively on AWS Graviton (linux/arm64) as well
@@ -44,7 +52,7 @@
 # two stages below start from it: one for the runtime dependency tree, one for
 # the build.
 # ---------------------------------------------------------------------------
-FROM node:24-alpine AS builder
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS builder
 
 # Toolchain for any dependency that needs a node-gyp fallback when a prebuilt
 # binary is unavailable for the target arch (e.g. ws's optional native
@@ -61,7 +69,7 @@ RUN apk add --no-cache python3 make g++ libc6-compat \
 # native fallbacks above, runs on Node; nothing from it but node_modules and the
 # bundle reaches the runner. The musl build from the matching alpine image works
 # on amd64 and arm64, and is the same binary the runner stage ships.
-COPY --from=oven/bun:1.4.3-alpine /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.3-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
@@ -170,7 +178,7 @@ RUN test -f packages/backend/dist/scripts/provision-taxonomy.js \
 # ---------------------------------------------------------------------------
 # Stage 2: runner — minimal runtime with production deps and the bundle.
 # ---------------------------------------------------------------------------
-FROM oven/bun:1.4.3-alpine AS runner
+FROM oven/bun:1.4.3-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373 AS runner
 
 ENV NODE_ENV=production \
     PORT=3001
