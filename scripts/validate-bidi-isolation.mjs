@@ -581,14 +581,18 @@ for (const [name, english, localized] of localizedPairs) {
 }
 
 /**
- * `ar` renders Arabic-Indic digits, which is the case that most needs isolation
- * and the one a Latin-digit assumption breaks silently. Asserted as a property
- * — no ASCII digit survives — rather than as a literal, because the point is
- * the numbering system and not one particular spelling of 148.
+ * `ar-EG` renders Arabic-Indic digits, which is the case that most needs
+ * isolation and the one a Latin-digit assumption breaks silently. Asserted as a
+ * property — no ASCII digit survives — rather than as a literal, because the
+ * point is the numbering system and not one particular spelling of 148.
+ *
+ * Not bare `ar`: current CLDR gives `ar` Latin digits by default. Bun 1.4,
+ * Node 24 and browsers all print `148.00 US$` for it; only Bun 1.3's older ICU
+ * still printed `١٤٨٫٠٠`, which is what this check was first written against.
  */
-const arabicMoney = visibleText(formatMoney({ amount: 14800, currency: 'USD' }, 'ar'));
+const arabicMoney = visibleText(formatMoney({ amount: 14800, currency: 'USD' }, 'ar-EG'));
 check(
-  "formatMoney/ar uses the locale's own digits (no ASCII digit in the figure)",
+  "formatMoney/ar-EG uses the locale's own digits (no ASCII digit in the figure)",
   !/[0-9]/.test(arabicMoney.replace('$', '')),
   `got ${JSON.stringify(arabicMoney)} — ${describeCodePoints(arabicMoney)}`,
 );
