@@ -213,9 +213,10 @@ this is additive with no migration.
 
 Three consequences worth stating, because each was a decision:
 
-- **`publishableKey` is sent only on the Stripe rail.** Peable's `publicKey` is
+- **`publishableKey` is sent only on the Stripe rail.** Peable's `publicKey` was
   Mercaria's own ApplicationCredential; putting it in a handoff would ship a
-  server credential to every buyer's browser. Absent means "use the key the app
+  server credential to every buyer's browser. (Mercaria now reaches Peable with
+  its Oxy workload identity and holds no Peable key at all; the rule stands.) Absent means "use the key the app
   was built with", which is the correct instruction on a rail with no
   server-side key to reconcile against.
 - **Presentment currencies are per rail.** `PEABLE_PRESENTMENT_CURRENCIES`

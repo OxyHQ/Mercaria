@@ -5,10 +5,15 @@
 **/dist
 **/.expo
 **/coverage
-.env
-.env.*
+# Every workspace's env files, not just the root's: `COPY packages/backend`
+# would otherwise put a local packages/backend/.env into a build layer. The
+# build reads no .env file, examples included.
+**/.env
+**/.env.*
 *.log
 .git
+# Local worktrees: other checkouts, with their own env files and node_modules.
+.worktrees
 .github
 .vscode
 .idea

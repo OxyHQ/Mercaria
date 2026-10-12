@@ -1,5 +1,3 @@
-import { observeEdgeRequest } from '@oxy.so/telemetry/edge';
-
 /**
  * The Mercaria storefront's Cloudflare Worker (Static Assets, advanced mode).
  *
@@ -304,14 +302,4 @@ const assetWorker = {
   },
 };
 
-export default {
-  fetch(request, env, ctx) {
-    return observeEdgeRequest({
-      service: 'mercaria',
-      request,
-      env,
-      ctx,
-      next: () => assetWorker.fetch(request, env, ctx),
-    });
-  },
-};
+export default assetWorker;

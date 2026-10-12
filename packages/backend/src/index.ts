@@ -1,8 +1,5 @@
 import { startEcosystemActivity, stopEcosystemActivity } from './ecosystemActivity';
 import http from 'node:http';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import { connectPostgres } from './db/postgres.js';
 import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';
@@ -13,12 +10,9 @@ import { registerSizeSystemConceptRegistry } from './services/canonical/size-sys
 // Socket.io
 import { initSocket } from './socket.js';
 
-// Fix for ES Modules __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load .env from the api directory (not the monorepo root)
-dotenv.config({ path: join(__dirname, '../.env') });
+// Bun loads `.env` from the working directory before any module runs, and every
+// script that starts this server (`dev`, `start`) runs in packages/backend, so it
+// reads packages/backend/.env. Variables already in the environment win.
 
 // Publish the size-system code registry to the external-mapping resolver
 // (#367 Workstream 11), closing `concept-registry.port.ts`'s `size_system`

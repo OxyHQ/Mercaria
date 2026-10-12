@@ -41,6 +41,7 @@ import { parseHighValueHoldThresholds } from '../services/payments/high-value-ho
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 import { parseBillingCohort } from '../services/billing/cohort-config.js';
+import { oxyServiceClient } from '../capabilities/oxy-service-client.js';
 
 /**
  * Parse an integer environment variable, falling back to `fallback` when the
@@ -474,8 +475,8 @@ function resolveBillingCohortConfigured(): boolean {
     /^sk_(?:live|test)_[A-Za-z0-9]+$/.test(key) &&
     key.startsWith('sk_live_') === cohort.livemode &&
     strEnv('STRIPE_WEBHOOK_SECRET', '') !== '' &&
-    strEnv('PEABLE_APP_PUBLIC_KEY', '') !== '' &&
-    strEnv('PEABLE_APP_SECRET', '') !== ''
+    // Peable is reached as Mercaria's own Oxy identity, never a key pair of its own.
+    oxyServiceClient() !== null
   );
 }
 
@@ -505,7 +506,9 @@ function resolveMerchantBillingEnabled(): boolean {
   if (resolveStripeEnabled() || resolveBillingCohortConfigured()) return true;
 
   log.general.error(
-    { missing: ['STRIPE_ENABLED or complete MERCHANT_BILLING_PEABLE_COHORT credentials'] },
+    {
+      missing: ['STRIPE_ENABLED or a complete MERCHANT_BILLING_PEABLE_COHORT and an Oxy identity'],
+    },
     '[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; ' +
       'staying OFF. Entitlements, existing subscriptions and provider events are unaffected — ' +
       'this flag gates starting or managing a paid plan only.',
@@ -646,18 +649,23 @@ function resolveReferralOperatorIds(): readonly string[] {
  * without it: Mercaria reaches `paid` ONLY from a verified event (ADR 0001), so
  * a rail that can create a payment and cannot verify its settlement takes money
  * and leaves every order unpaid.
+ *
+ * There is no Peable credential: the SDK is handed Mercaria's own Oxy identity
+ * (the task role on ECS, oxy ADR 0026; a full `OXY_APPLICATION_*` pair off it),
+ * and the gateway resolves the merchant from that token's application. Without
+ * an identity the rail could not authenticate a single call, so it is required.
  */
 function resolvePeableEnabled(): boolean {
   if (!boolEnv('PEABLE_ENABLED', false)) return false;
 
-  const missing = (
-    [
-      'PEABLE_BASE_URL',
-      'PEABLE_APP_PUBLIC_KEY',
-      'PEABLE_APP_SECRET',
-      'PEABLE_WEBHOOK_SECRET',
-    ] as const
-  ).filter((name) => (process.env[name]?.trim() ?? '') === '');
+  const missing: string[] = (['PEABLE_BASE_URL', 'PEABLE_WEBHOOK_SECRET'] as const).filter(
+    (name) => (process.env[name]?.trim() ?? '') === '',
+  );
+  if (oxyServiceClient() === null) {
+    missing.push(
+      'an Oxy identity (ECS task role, or OXY_APPLICATION_KEY + OXY_APPLICATION_SECRET)',
+    );
+  }
   if (missing.length === 0) return true;
 
   log.general.error(
@@ -1539,12 +1547,12 @@ export interface ReconciliationConfig {
  * to notice.
  */
 export interface PeableConfig {
-  /** True only when `PEABLE_ENABLED` is set AND every required secret is present. */
+  /**
+   * True only when `PEABLE_ENABLED` is set, every required secret is present
+   * AND Mercaria has an Oxy identity to authenticate with.
+   */
   readonly enabled: boolean;
   readonly baseUrl: string;
-  readonly oxyApiUrl: string;
-  readonly publicKey: string;
-  readonly secret: string;
   readonly webhookSecret: string;
   /**
    * The rotation window. A gateway cannot atomically swap a webhook secret, so
@@ -4655,11 +4663,6 @@ export const config: AppConfig = Object.freeze({
       enabled: resolvePeableEnabled(),
       /** The gateway's origin, no trailing slash. */
       baseUrl: strEnv('PEABLE_BASE_URL', 'https://api.peable.to').replace(/\/+$/, ''),
-      /** Where the service token is minted. The SAME oxy-api every Oxy service uses. */
-      oxyApiUrl: strEnv('OXY_API_URL', 'https://api.oxy.so').replace(/\/+$/, ''),
-      /** Mercaria's own ApplicationCredential. Never sent to Peable — only the minted token is. */
-      publicKey: strEnv('PEABLE_APP_PUBLIC_KEY', ''),
-      secret: strEnv('PEABLE_APP_SECRET', ''),
       webhookSecret: strEnv('PEABLE_WEBHOOK_SECRET', ''),
       // Spread-when-present, like Stripe's rotation secrets: absent rather than
       // `''`, so the verifier iterates the secrets it actually has instead of

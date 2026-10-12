@@ -1,6 +1,6 @@
 import { createEcosystemTraffic } from '@oxy.so/core/server';
 import type { RequestHandler } from 'express';
-import { requiredOxyServiceToken } from './capabilities/oxy-service-client';
+import { oxyServiceClient, requiredOxyServiceToken } from './capabilities/oxy-service-client';
 
 let activity: ReturnType<typeof createEcosystemTraffic> | undefined;
 
@@ -14,8 +14,10 @@ export function startEcosystemActivity(ready: () => boolean): void {
     console.warn('Ecosystem activity is disabled for mercaria');
     return;
   }
-  if (!process.env.OXY_APPLICATION_KEY?.trim() || !process.env.OXY_APPLICATION_SECRET?.trim()) {
-    throw new Error('Ecosystem activity requires OXY_APPLICATION_KEY and OXY_APPLICATION_SECRET');
+  if (!oxyServiceClient()) {
+    throw new Error(
+      'Ecosystem activity requires an Oxy identity: an attestable task role or OXY_APPLICATION_KEY and OXY_APPLICATION_SECRET',
+    );
   }
   if (activity) return;
   activity = createEcosystemTraffic({

@@ -65,11 +65,14 @@ describe('the deploy workflow and the migrator agree', () => {
   });
 
   it('runs the built migrator by the path the image actually contains', () => {
-    // `dist/db/migrate.js`, not `src/db/migrate.ts`: the runtime image ships
-    // neither bun nor `src/`, so the developer-facing `db:migrate` script cannot
-    // run there. `build.ts` emits this path as a second entry point.
+    // `dist/db/migrate.js`, not `src/db/migrate.ts`: the runtime image ships no
+    // `src/`, so the developer-facing `db:migrate` script cannot run there.
+    // `build.ts` emits this path as a second entry point. `bun` because that is
+    // the runtime the image ships (Dockerfile); a `bun` command against a Node
+    // image, or the reverse claim, is a one-shot that dies or lies.
     expect(script).toContain('packages/backend/dist/db/migrate.js');
-    expect(script).toContain('"node"');
+    expect(script).toContain('"bun"');
+    expect(script).not.toContain('"node"');
   });
 
   it('pins migrations, rollout and catalog registration to one immutable image', () => {
@@ -88,10 +91,17 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(register?.run).toContain('runtimePlatform, enableFaultInjection}');
     expect(register?.run).not.toContain('del(.taskDefinitionArn');
     expect(register?.run).toContain('.image = $image');
-    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_KEY');
-    expect(register?.run).toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
+    // Mercaria attests its task role for Oxy (oxy ADR 0026): a release removes
+    // the application key pair and never injects it again.
+    expect(register?.run).not.toContain('/oxy/$APP/OXY_APPLICATION_KEY');
+    expect(register?.run).not.toContain('/oxy/$APP/OXY_APPLICATION_SECRET');
     expect(register?.run).toContain('.name != "OXY_APPLICATION_KEY"');
     expect(register?.run).toContain('.name != "OXY_APPLICATION_SECRET"');
+    // Peable takes the same identity, so the aliases of that pair go too.
+    expect(register?.run).toContain('.name != "PEABLE_APP_PUBLIC_KEY"');
+    expect(register?.run).toContain('.name != "PEABLE_APP_SECRET"');
+    expect(register?.run).not.toContain('/PEABLE_APP_PUBLIC_KEY');
+    expect(register?.run).not.toContain('/PEABLE_APP_SECRET');
     expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
     // No GoWay client means no location can be published (ADR 0013).
     expect(register?.run).toContain('{name: "GOWAY_API_URL", value: $goway_api_url}');
@@ -99,7 +109,9 @@ describe('the deploy workflow and the migrator agree', () => {
       "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
     );
     expect(rollout?.run).toContain('--task-definition');
-    expect(catalog?.run).toContain('packages/backend/dist/register-capability-catalog.js');
+    expect(catalog?.run).toContain(
+      '["bun","packages/backend/dist/register-capability-catalog.js"]',
+    );
     expect(catalog?.env?.TASK_DEFINITION).toBe('${{ steps.ecs.outputs.task_definition }}');
     expect(ecsTaskScript).toContain('--task-definition "$TASK_DEFINITION"');
     expect(ecsTaskScript).toContain('EXIT_CODE');

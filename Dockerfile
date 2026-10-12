@@ -1,10 +1,34 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 #
 # Production image for the @mercaria/backend service.
+#
+# Every external image (the syntax frontend above, both bases and the
+# `COPY --from` below) is pinned by its multi-arch INDEX digest. The digest is
+# what the build pulls; the tag is kept only for readability. Re-pushing a tag
+# therefore changes nothing here, and a bump means a new digest, a re-review and
+# a re-pin (`python3 .github/scripts/reviewed-image.py pin`). Resolved
+# 2026-10-12: docker/dockerfile:1.7 = 1.7.1, node:24-alpine = 24.21.0-alpine,
+# oven/bun:1.4.3-alpine; each index lists linux/arm64 and linux/amd64.
 #
 # Multi-stage, multi-arch. `node:24-alpine` and `oven/bun` are multi-arch
 # manifests, so this image builds natively on AWS Graviton (linux/arm64) as well
 # as x86_64 — Docker selects the right base layer per target platform.
+#
+# The API RUNS ON BUN (oven/bun:1.4.3-alpine, musl like the stages that install
+# its dependencies). It ran on node:24-alpine until 2026-10; Bun serves the same
+# esbuild bundle (ESM, platform=node) unchanged. Measured on the built dist
+# against a local PostgreSQL 17 + PostGIS: every migrator phase applies, the
+# taxonomy one-shot provisions and is idempotent on a re-run, /health/ready
+# answers 200, a socket.io WebSocket upgrade reaches the Oxy auth middleware, the
+# 65 s keep-alive closes an idle socket at 66 s exactly as on Node, SIGTERM runs
+# the graceful shutdown to exit 0, and a boot without a reachable database exits
+# 1. CI's `Build API` job proves the same against the real image
+# (.github/scripts/smoke-api-image.sh).
+#
+# Rolling back to Node is reverting the change that made this switch: it moved
+# this runner stage AND every one-shot command (`.github/scripts/run-migration-task.sh`,
+# the capability-catalog step in deploy-aws.yml) together, and they must stay
+# together — a `bun …` command against a Node image dies at task start.
 #
 # Build context is the monorepo ROOT (bun workspaces):
 #   docker build -t mercaria-backend:test .
@@ -15,7 +39,7 @@
 #   bundle:    bun install --frozen-lockfile (incl. devDependencies for the build)
 #              && bun run build:backend    (tsc shared-types + esbuild bundle
 #                                            -> packages/backend/dist/index.js)
-#   run:       node packages/backend/dist/index.js
+#   run:       bun packages/backend/dist/index.js   (oven/bun runtime)
 #
 # @mercaria/shared-types is a first-party workspace package; the API bundle
 # INLINES it (see packages/backend/build.ts), so the runtime image needs neither
@@ -28,7 +52,7 @@
 # two stages below start from it: one for the runtime dependency tree, one for
 # the build.
 # ---------------------------------------------------------------------------
-FROM node:24-alpine AS builder
+FROM node:24-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS builder
 
 # Toolchain for any dependency that needs a node-gyp fallback when a prebuilt
 # binary is unavailable for the target arch (e.g. ws's optional native
@@ -40,9 +64,12 @@ FROM node:24-alpine AS builder
 RUN apk add --no-cache python3 make g++ libc6-compat \
  && npm install -g node-gyp@10
 
-# Bun is the package manager / script runner at build time; the runtime stays
-# Node. The musl build from the matching alpine image works on amd64 and arm64.
-COPY --from=oven/bun:1.3.14-alpine /usr/local/bin/bun /usr/local/bin/bun
+# Bun is the package manager / script runner at build time (and the runtime,
+# below). This stage stays on node:24-alpine because node-gyp, which builds the
+# native fallbacks above, runs on Node; nothing from it but node_modules and the
+# bundle reaches the runner. The musl build from the matching alpine image works
+# on amd64 and arm64, and is the same binary the runner stage ships.
+COPY --from=oven/bun:1.4.3-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
@@ -151,28 +178,31 @@ RUN test -f packages/backend/dist/scripts/provision-taxonomy.js \
 # ---------------------------------------------------------------------------
 # Stage 2: runner — minimal runtime with production deps and the bundle.
 # ---------------------------------------------------------------------------
-FROM node:24-alpine AS runner
+FROM oven/bun:1.4.3-alpine@sha256:629e17411f1f129dbec3af78d5af9c9f2a937435c80349437206c6b0b7422373 AS runner
 
 ENV NODE_ENV=production \
     PORT=3001
 
 # libc6-compat: glibc shim some prebuilt native binaries expect on Alpine/musl.
-# dumb-init: proper PID 1 so SIGTERM/SIGINT reach Node for graceful shutdown.
+# dumb-init: PID 1 that forwards SIGTERM/SIGINT to Bun (the graceful shutdown in
+# src/index.ts) and reaps zombies. The base image already carries the
+# libgcc/libstdc++ Bun links against.
 RUN apk add --no-cache libc6-compat dumb-init
 
 WORKDIR /app
 
-# Run as the unprivileged `node` user provided by the base image.
-USER node
+# Run as the unprivileged `bun` user (uid/gid 1000, like Node's `node`) the
+# base image provides.
+USER bun
 
 # Bring over the pruned (production-only) dependency tree and the workspace
-# manifests so Node's workspace resolution stays valid.
-COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
-COPY --from=prod-deps --chown=node:node /app/package.json ./package.json
-COPY --from=prod-deps --chown=node:node /app/packages/backend/package.json ./packages/backend/package.json
+# manifests so workspace resolution stays valid.
+COPY --from=prod-deps --chown=bun:bun /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=bun:bun /app/package.json ./package.json
+COPY --from=prod-deps --chown=bun:bun /app/packages/backend/package.json ./packages/backend/package.json
 
 # The bundled API.
-COPY --from=bundle --chown=node:node /app/packages/backend/dist ./packages/backend/dist
+COPY --from=bundle --chown=bun:bun /app/packages/backend/dist ./packages/backend/dist
 
 # The SQL migrations, which EVERY serving task needs — not just the one-shot
 # migration task. `db/postgres.ts` reads this folder's journal at module load to
@@ -180,13 +210,19 @@ COPY --from=bundle --chown=node:node /app/packages/backend/dist ./packages/backe
 # it crashes at container start rather than starting and answering "not ready".
 # `src/db/migrationsFolder.ts` resolves the path from the package root, which is
 # why this lands beside `dist` rather than anywhere else.
-COPY --from=bundle --chown=node:node /app/packages/backend/drizzle ./packages/backend/drizzle
+COPY --from=bundle --chown=bun:bun /app/packages/backend/drizzle ./packages/backend/drizzle
 
 EXPOSE 3001
 
-# Container-level health check hitting the app's /health endpoint.
+# Container-level health check hitting the app's /health endpoint: any answer
+# below 500 is healthy, no answer within 4 s is not.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "require('http').get({host:'127.0.0.1',port:process.env.PORT||3001,path:'/health',timeout:4000},r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+  CMD bun -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/health',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.status<500?0:1),()=>process.exit(1))"
 
+# Every one-shot that overrides this command (the migrator and the capability
+# catalog in deploy-aws.yml, the taxonomy provisioner by hand) names `bun` too.
+# The base image puts a `node` on PATH, but it is a symlink to bun
+# (/usr/local/bun-node-fallback-bin/node): there is no Node in this image, so
+# `node <file>` would run Bun while claiming otherwise.
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "packages/backend/dist/index.js"]
+CMD ["bun", "packages/backend/dist/index.js"]

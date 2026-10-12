@@ -4,11 +4,13 @@ The backend publishes aggregate traffic and its infrastructure heartbeat to the
 Oxy API, which broadcasts changes to the website dashboard. Collection runs in
 the service process regardless of whether somebody opens the dashboard.
 
-Enable with `OXY_ECOSYSTEM_ACTIVITY_ENABLED=true`, `AWS_REGION`, and a registered
-Oxy application credential (`OXY_APPLICATION_KEY` and `OXY_APPLICATION_SECRET`).
+Enable with `OXY_ECOSYSTEM_ACTIVITY_ENABLED=true`, `AWS_REGION`, and an Oxy
+identity. On ECS that is the task role: `oxy-mercaria-task` is bound to the
+Mercaria application (oxy ADR 0026), and the deploy carries no key pair. Off
+ECS, set `OXY_APPLICATION_KEY` and `OXY_APPLICATION_SECRET`; a full pair wins
+over attestation and half a pair is no identity.
 An invalid activation value or missing required configuration fails at boot.
 Disabled collection emits a warning; it must not be interpreted as zero traffic.
-Provision credentials and enable the flag in the deployment before claiming coverage.
 
 HTTP middleware is mounted before body parsers and routers, including public
 routes, webhooks, failures and authenticated internal calls. Outgoing fetch and
@@ -27,10 +29,10 @@ The publisher does not observe database wire traffic, raw TCP, HTTP/2, WebRTC,
 or a separate process that has not installed the collector. These transports
 must not be represented by fabricated lines.
 
-## Cloudflare edge requests
+## Cloudflare web traffic
 
-Every deployed frontend request, including static files, runs the shared `@oxy.so/telemetry/edge` observer. Workers use `run_worker_first = true`; Pages builds emit a bundled Advanced Mode `_worker.js` with `_routes.json` including `/*`. The original asset handler still owns responses, redirects, streams, MIME handling and cache headers. This increases Worker/Functions invocations for static requests.
-
-Configure **server-only** bindings `OXY_EDGE_ACTIVITY_ENABLED=true`, `OXY_EDGE_ACTIVITY_API_KEY`, `OXY_EDGE_ACTIVITY_API_SECRET`, and optionally `OXY_EDGE_ACTIVITY_API_URL` (default `https://api.oxy.so`). Use a dedicated activity credential, separate from the backend application credential. Never place these bindings in public Expo/Vite variables or committed files. Enabled publication failures emit a fixed error while preserving website availability. Deployment and valid credentials are required before this is live; a code merge alone does not enable coverage.
-
-Each completed response publishes a batch with incoming and outgoing counters through `ctx.waitUntil`. Failed handlers count only the incoming request. Health, collector and authentication control requests are excluded. No URLs, payloads, IP addresses, user identifiers or query strings are sent. Cloudflare `request.cf.colo` identifies the serving PoP; the visitor endpoint stays unknown, so external static activity is a PoP pulse, not a fabricated geographic arc. Credentials and counters never enter frontend bundles.
+The storefront, dashboard and POS Workers run no activity code and hold no Oxy
+activity secret. Oxy measures their web traffic keylessly from Cloudflare's own
+analytics (see OxyHQ/oxy `docs/operations/cloudflare-web-activity.md`). The
+`OXY_EDGE_ACTIVITY_*` bindings were never provisioned and nothing reads them; if
+one is ever found on a deployment, delete it.
