@@ -45,7 +45,7 @@ COMMAND_JSON=$(jq -nc \
   --arg db "$PG_DATABASE" \
   --arg phase "$PHASE" \
   '[
-      "node", "packages/backend/dist/db/migrate.js",
+      "bun", "packages/backend/dist/db/migrate.js",
       ("--target-database=" + $db),
       ("--phase=" + $phase)
   ]')

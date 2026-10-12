@@ -81,13 +81,14 @@ let paymentProviderEvents: typeof import('../../db/schema/payments.js').paymentP
  */
 beforeAll(async () => {
   process.env.PEABLE_ENABLED = 'true';
-  // All four of `resolvePeableEnabled`'s required names, not just the ones this
-  // file exercises: the flag is a CONJUNCTION, so omitting `PEABLE_BASE_URL`
-  // leaves the rail off and every request here a 404 — which would make the
-  // raw-body assertion vacuous while still looking like a wiring bug.
+  // Everything `resolvePeableEnabled` requires, not just what this file
+  // exercises: the flag is a CONJUNCTION, so omitting `PEABLE_BASE_URL` or
+  // Mercaria's Oxy identity leaves the rail off and every request here a 404 —
+  // which would make the raw-body assertion vacuous while still looking like a
+  // wiring bug.
   process.env.PEABLE_BASE_URL = 'https://api.peable.invalid';
-  process.env.PEABLE_APP_PUBLIC_KEY = 'peable_pub_not_a_real_key';
-  process.env.PEABLE_APP_SECRET = 'peable_secret_not_a_real_key';
+  process.env.OXY_APPLICATION_KEY = 'oxy_dk_not_a_real_key';
+  process.env.OXY_APPLICATION_SECRET = 'oxy_secret_not_a_real_key';
   process.env.PEABLE_WEBHOOK_SECRET = SECRET;
   process.env.PEABLE_WEBHOOK_SECRET_PREVIOUS = SECRET_PREVIOUS;
 

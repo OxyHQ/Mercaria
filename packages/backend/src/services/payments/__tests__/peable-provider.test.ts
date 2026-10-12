@@ -45,7 +45,10 @@ const intentsByKey = new Map<string, string>();
 let nextId = 0;
 let failNextStage: PaymentProviderStage | null = null;
 const wire: FakeRequest[] = [];
+/** The `Authorization` header of every gateway request, in order. */
+const bearers: (string | undefined)[] = [];
 let mintCount = 0;
+let identityToken: string | null = null;
 let rejectRequests = 0;
 let forcedStatus: number | null = null;
 let dropAfterEffect = false;
@@ -61,7 +64,9 @@ function reset(): void {
   nextId = 0;
   failNextStage = null;
   wire.length = 0;
+  bearers.length = 0;
   mintCount = 0;
+  identityToken = null;
   rejectRequests = 0;
   forcedStatus = null;
   dropAfterEffect = false;
@@ -241,16 +246,13 @@ async function fakeGateway(request: FakeRequest): Promise<unknown> {
   throw new Error(`the fake gateway has no route for ${request.method} ${request.path}`);
 }
 
-// Exercise the published SDK, including token mint and HTTP serialization.
-// Only the gateway/provider boundary is synthetic; no local client is mocked.
+// Exercise the published SDK, including its token handling and HTTP
+// serialization. Only the gateway/provider boundary and Mercaria's Oxy identity
+// (below) are synthetic; no local client is mocked.
 let gatewayUrl = '';
 const gateway = createServer(async (req, res) => {
   res.setHeader('content-type', 'application/json');
-  if (req.url === '/auth/service-token') {
-    mintCount += 1;
-    res.end(JSON.stringify({ data: { token: 'synthetic-service-token', expiresIn: 300 } }));
-    return;
-  }
+  bearers.push(req.headers.authorization);
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   const raw = Buffer.concat(chunks).toString();
@@ -336,6 +338,24 @@ afterAll(async () => {
   );
 });
 
+// Mercaria's Oxy identity as the SDK's `tokenProvider` sees it: one cached token,
+// minted afresh after `invalidate()`. Counting mints here keeps the 401
+// assertions meaning what they meant when the SDK minted from a key pair.
+vi.mock('../../../capabilities/oxy-service-client.js', () => ({
+  oxyServiceTokenProvider: {
+    getToken: async () => {
+      if (identityToken === null) {
+        mintCount += 1;
+        identityToken = `oxy-identity-token-${String(mintCount)}`;
+      }
+      return identityToken;
+    },
+    invalidate: () => {
+      identityToken = null;
+    },
+  },
+}));
+
 vi.mock('../../../config/index.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../config/index.js')>();
   return {
@@ -349,11 +369,6 @@ vi.mock('../../../config/index.js', async (importOriginal) => {
           get baseUrl() {
             return gatewayUrl;
           },
-          get oxyApiUrl() {
-            return gatewayUrl;
-          },
-          publicKey: 'pk',
-          secret: 'sk',
           webhookSecret: WEBHOOK_SECRET,
           livemode: false,
         },
@@ -654,6 +669,8 @@ describe('published SDK HTTP parity', () => {
     await provider.createPayment(request);
     expect(mintCount).toBe(2);
     expect(wire).toHaveLength(2);
+    // Mercaria's own identity is the bearer, and the 401 invalidated it.
+    expect(bearers).toEqual(['Bearer oxy-identity-token-1', 'Bearer oxy-identity-token-2']);
     expect(wire.map((row) => row.idempotencyKey)).toEqual([
       request.idempotencyKey,
       request.idempotencyKey,

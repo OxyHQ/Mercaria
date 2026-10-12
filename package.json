@@ -7,7 +7,7 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "bun@1.3.14",
+  "packageManager": "bun@1.4.3",
   "scripts": {
     "dev": "bun run --filter '*' dev",
     "dev:frontend": "bun run --filter @mercaria/frontend dev -- --clear --tunnel",
@@ -54,7 +54,7 @@
     "seed:verticals": "bun run --cwd packages/backend src/scripts/seed-verticals/index.ts",
     "seed:digital-3d": "bun run --cwd packages/backend src/scripts/seed-digital-3d.ts",
     "postinstall": "bun run --filter @mercaria/shared-types build && bun run --filter @mercaria/contracts build",
-    "test:edge": "bun test scripts/edge-activity.test.ts",
+    "test:edge": "bun test scripts/asset-worker.test.ts",
     "test:storefront:browser": "playwright test --config scripts/e2e/storefront/playwright.config.ts"
   },
   "keywords": [
@@ -96,8 +96,7 @@
     "@oxy.so/core": "4.2.0",
     "lightningcss": "1.30.1",
     "lightningcss-linux-x64-gnu": "1.30.1",
-    "lightningcss-linux-x64-musl": "1.30.1",
-    "@oxy.so/telemetry": "1.2.0"
+    "lightningcss-linux-x64-musl": "1.30.1"
   },
   "dependencies": {
     "@oxy.so/core": "4.2.0"
@@ -107,7 +106,6 @@
     "@swc/core"
   ],
   "resolutions": {
-    "@oxy.so/contracts": "4.9.0",
-    "@oxy.so/telemetry": "1.2.0"
+    "@oxy.so/contracts": "4.9.0"
   }
 }

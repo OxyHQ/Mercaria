@@ -20,8 +20,8 @@
       // Audit evidence. `proof.json` and the records bind source, logs and
       // installed modules by hash, so these files must stay byte-identical.
       "!docs/audits",
-      // The reviewed-image recipe read by publish-reviewed-images.yml; a
-      // reviewed artefact, not source, and kept byte-identical.
+      // The reviewed-image pin read by .github/scripts/reviewed-image.py; a
+      // reviewed artefact, not source, rewritten only by its `pin` command.
       "!.github/scripts/reviewed-images.json",
       // Its header comment quotes a `@source` glob whose `**/` closes the
       // comment early, so Biome cannot parse the file (34 parse errors). The

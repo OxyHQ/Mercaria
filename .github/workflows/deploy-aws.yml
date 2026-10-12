@@ -105,7 +105,6 @@ env:
   ECR_REGISTRY: 237343248947.dkr.ecr.us-west-2.amazonaws.com
   APP: mercaria
   CLUSTER: oxy-cluster
-  DOCKERFILE: Dockerfile
   # The PostgreSQL database the migration tasks below are allowed to touch.
   #
   # NOT cosmetic: the migrator refuses to run unless this matches the database its
@@ -232,8 +231,25 @@ jobs:
       - name: Expose the Actions cache to buildx
         uses: crazy-max/ghaction-github-runtime@v4
 
+      # Production builds only what the owner reviewed. The Dockerfile, its
+      # context, target and both .dockerignore files are hashed and compared
+      # with the ONE pin in .github/scripts/reviewed-images.json; a mismatch
+      # stops here, before anything is built or pushed. The build's file,
+      # context and labels are this step's outputs, so it cannot build a
+      # different file than the one checked and no hash is spelled out here to
+      # drift from the pin. CI runs the same check on every pull request
+      # (`reviewed-image.py check`, Lint & Test, inside CI complete).
+      - name: Refuse unreviewed image build inputs
+        id: reviewed
+        run: python3 -B .github/scripts/reviewed-image.py guard --recipe mercaria
+
       - name: Build and push (linux/arm64)
         id: image
+        env:
+          DOCKERFILE: ${{ steps.reviewed.outputs.dockerfile }}
+          CONTEXT: ${{ steps.reviewed.outputs.context }}
+          SOURCE_TREE: ${{ steps.reviewed.outputs.source_tree }}
+          BUILD_INPUTS_SHA256: ${{ steps.reviewed.outputs.build_inputs_sha256 }}
         run: |
           IMG=$ECR_REGISTRY/oxy/$APP
           docker buildx build \
@@ -241,10 +257,14 @@ jobs:
             --cache-from type=gha,scope=$APP-backend \
             --cache-to type=gha,scope=$APP-backend,mode=max \
             -f "$DOCKERFILE" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "io.oxy.source.tree=$SOURCE_TREE" \
+            --label "io.oxy.build-inputs.sha256=$BUILD_INPUTS_SHA256" \
             -t "$IMG:${{ github.sha }}" \
             -t "$IMG:latest" \
             --push \
-            .
+            "$CONTEXT"
           DIGEST=$(aws ecr describe-images \
             --repository-name "oxy/$APP" \
             --image-ids "imageTag=$GITHUB_SHA" \
@@ -320,15 +340,6 @@ jobs:
             exit 0
           fi
 
-          # Oxy provisions this service identity directly into SSM. Refuse to
-          # register a release revision unless both halves exist; ECS resolves
-          # these references before the container starts.
-          for PARAMETER in OXY_APPLICATION_KEY OXY_APPLICATION_SECRET; do
-            aws ssm get-parameter \
-              --name "/oxy/$APP/$PARAMETER" \
-              --query 'Parameter.Name' --output text >/dev/null
-          done
-
           TD=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].taskDefinition' --output text)
           echo "previous_task_definition=$TD" >> "$GITHUB_OUTPUT"
           NET=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].networkConfiguration' --output json)
@@ -344,8 +355,6 @@ jobs:
             --arg image "$IMAGE_URI" \
             --arg oxy_api_url "https://api.oxy.so" \
             --arg goway_api_url "$GOWAY_API_URL" \
-            --arg oxy_key "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_KEY" \
-            --arg oxy_secret "arn:aws:ssm:$AWS_REGION:237343248947:parameter/oxy/$APP/OXY_APPLICATION_SECRET" \
             '{family, taskRoleArn, executionRoleArn, networkMode,
               containerDefinitions, volumes, placementConstraints,
               requiresCompatibilities, cpu, memory, tags, pidMode, ipcMode,
@@ -359,14 +368,18 @@ jobs:
                        ((.environment // []) | map(select(.name != "OXY_API_URL" and .name != "GOWAY_API_URL")))
                        + [{name: "OXY_API_URL", value: $oxy_api_url}, {name: "GOWAY_API_URL", value: $goway_api_url}]
                      )
+                   # Mercaria authenticates to Oxy as its task role
+                   # (oxy-mercaria-task, bound to the Mercaria application; oxy
+                   # ADR 0026), so a release carries no application key pair and
+                   # removes one an earlier revision still names. Peable takes
+                   # the same identity, so its aliases of that pair go too.
                    | .secrets = (
-                       ((.secrets // []) | map(select(
+                       (.secrets // []) | map(select(
                          .name != "OXY_APPLICATION_KEY" and
-                         .name != "OXY_APPLICATION_SECRET"
-                       ))) + [
-                         {name: "OXY_APPLICATION_KEY", valueFrom: $oxy_key},
-                         {name: "OXY_APPLICATION_SECRET", valueFrom: $oxy_secret}
-                       ]
+                         .name != "OXY_APPLICATION_SECRET" and
+                         .name != "PEABLE_APP_PUBLIC_KEY" and
+                         .name != "PEABLE_APP_SECRET"
+                       ))
                      )
                  else . end
                )' \
@@ -602,7 +615,7 @@ jobs:
       - name: Register the deployed capability catalog
         if: steps.ecs.outputs.status == 'ACTIVE'
         run: |
-          COMMAND_JSON='["node","packages/backend/dist/register-capability-catalog.js"]' \
+          COMMAND_JSON='["bun","packages/backend/dist/register-capability-catalog.js"]' \
           TASK_LABEL='capability catalog registration' \
           STARTED_BY='deploy-capability-catalog' \
           .github/scripts/run-ecs-task.sh

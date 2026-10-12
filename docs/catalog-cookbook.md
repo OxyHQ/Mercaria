@@ -47,6 +47,11 @@ taxonomy disagree the first time somebody edits whichever file they opened.
 DATABASE_URL=… bun --cwd packages/backend src/scripts/provision-taxonomy.ts
 ```
 
+The production database is reachable only inside the VPC, so there it runs as a
+one-shot ECS task on the release's task definition, from the image's compiled
+copy: command `["bun", "packages/backend/dist/scripts/provision-taxonomy.js"]`.
+The image runs on Bun, so name `bun`, never `node`.
+
 It is idempotent by construction, not by care: the only statement it can issue
 against `categories` is an INSERT, and only for a key the repository reports
 absent. There is no UPDATE and no DELETE in it, so a second run writes nothing

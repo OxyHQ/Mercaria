@@ -580,30 +580,20 @@ for (const [name, english, localized] of localizedPairs) {
 }
 
 /**
- * Bare `ar` follows the runtime's CLDR default (latn in ICU 78, arab in older
- * versions). It does not promise Arabic-Indic digits. Explicit regional and
- * numbering-system tags still do: keep exact expectations for both systems,
- * so dropping the locale/extension or forcing one system cannot pass.
- * Source: unicode-org/cldr common/main/ar.xml, numbers/defaultNumberingSystem.
+ * `ar-EG` renders Arabic-Indic digits, which is the case that most needs
+ * isolation and the one a Latin-digit assumption breaks silently. Asserted as a
+ * property — no ASCII digit survives — rather than as a literal, because the
+ * point is the numbering system and not one particular spelling of 148.
+ *
+ * Not bare `ar`: current CLDR gives `ar` Latin digits by default. Bun 1.4,
+ * Node 24 and browsers all print `148.00 US$` for it; only Bun 1.3's older ICU
+ * still printed `١٤٨٫٠٠`, which is what this check was first written against.
  */
-for (const [locale, expected] of [
-  ['ar-EG', '$١٤٨٫٠٠'],
-  ['ar-u-nu-arab', '$١٤٨٫٠٠'],
-  ['ar-u-nu-latn', '$148.00'],
-]) {
-  checkIsolatedExactly(
-    'formatMoney',
-    `respects ${locale}`,
-    formatMoney({ amount: 14800, currency: 'USD' }, locale),
-    expected,
-  );
-}
-const arabicSystem = new Intl.NumberFormat('ar').resolvedOptions().numberingSystem;
-const arabicMoney = visibleText(formatMoney({ amount: 14800, currency: 'USD' }, 'ar'));
+const arabicMoney = visibleText(formatMoney({ amount: 14800, currency: 'USD' }, 'ar-EG'));
 check(
-  "formatMoney/ar follows the runtime's CLDR numbering system",
-  arabicMoney === { arab: '$١٤٨٫٠٠', latn: '$148.00' }[arabicSystem],
-  `system ${arabicSystem}, got ${JSON.stringify(arabicMoney)} — ${describeCodePoints(arabicMoney)}`,
+  "formatMoney/ar-EG uses the locale's own digits (no ASCII digit in the figure)",
+  !/[0-9]/.test(arabicMoney.replace('$', '')),
+  `got ${JSON.stringify(arabicMoney)} — ${describeCodePoints(arabicMoney)}`,
 );
 
 /**

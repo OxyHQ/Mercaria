@@ -67,7 +67,7 @@ bun run dev:backend
 bun run dev:frontend
 ```
 
-Bun 1.3.14 and Node 22. Use `bun` and `bunx`, never npm, yarn or npx.
+Bun 1.4.3 and Node 22. Use `bun` and `bunx`, never npm, yarn or npx.
 
 <details>
 <summary><b>All the commands</b></summary>

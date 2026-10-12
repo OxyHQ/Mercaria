@@ -4,9 +4,11 @@ const mocks = vi.hoisted(() => ({
   serviceToken: vi.fn(),
   invalidateServiceToken: vi.fn(),
   constructed: vi.fn(),
+  canAttest: vi.fn(() => false),
 }));
 
 vi.mock('@oxy.so/core/server', () => ({
+  canAttestWorkloadIdentity: () => mocks.canAttest(),
   OxyServer: class {
     constructor(options: unknown) {
       mocks.constructed(options);
@@ -34,6 +36,7 @@ beforeEach(() => {
   delete process.env.OXY_APPLICATION_SECRET;
   resetOxyServiceClientForTests();
   for (const mock of Object.values(mocks)) mock.mockReset();
+  mocks.canAttest.mockReturnValue(false);
 });
 
 describe('Mercaria Oxy service client', () => {
@@ -41,9 +44,7 @@ describe('Mercaria Oxy service client', () => {
     process.env.OXY_APPLICATION_KEY = 'key-only';
 
     expect(oxyServiceClient()).toBeNull();
-    await expect(requiredOxyServiceToken()).rejects.toThrow(
-      'Oxy application credentials are not configured',
-    );
+    await expect(requiredOxyServiceToken()).rejects.toThrow('Mercaria has no Oxy identity');
     expect(mocks.constructed).not.toHaveBeenCalled();
   });
 
@@ -65,5 +66,24 @@ describe('Mercaria Oxy service client', () => {
     await expect(requiredOxyServiceToken()).resolves.toBe('service-token');
     invalidateOxyServiceToken();
     expect(mocks.invalidateServiceToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('attests its task role when no key pair is configured', async () => {
+    mocks.canAttest.mockReturnValue(true);
+    mocks.serviceToken.mockResolvedValueOnce('workload-token');
+
+    expect(oxyServiceClient()).not.toBeNull();
+    expect(mocks.constructed).toHaveBeenCalledWith(
+      expect.not.objectContaining({ serviceAuth: expect.anything() }),
+    );
+    await expect(requiredOxyServiceToken()).resolves.toBe('workload-token');
+  });
+
+  it('never treats half a key pair as an attestation', () => {
+    mocks.canAttest.mockReturnValue(true);
+    process.env.OXY_APPLICATION_SECRET = 'secret-only';
+
+    expect(oxyServiceClient()).toBeNull();
+    expect(mocks.constructed).not.toHaveBeenCalled();
   });
 });

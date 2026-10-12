@@ -2,8 +2,9 @@
 
 Nate's authorization in OxyHQ/oxy#1519 and Peable#87 covers the five existing
 BillingProvider methods for an exact Mercaria cohort, preserving its existing
-Stripe platform account/mode and flow/MoR. Peable#92 supplies that contract; published @peable.to/sdk0.2.2 and transitive
-shared-types0.3.0 are installed from npm with integrity in bun.lock.
+Stripe platform account/mode and flow/MoR. Peable#92 supplies that contract; published @peable.to/sdk 0.2.5-oxy-one.0 (dist-tag
+`oxy-one`, the first to take a `tokenProvider`) and transitive shared-types
+0.3.2-oxy-one.0 are installed from npm with integrity in bun.lock.
 The store is the stable billing subject. Merchant/application ownership is not
 evidence of an Oxy payer identity; no optional invented payer field is added.
 
@@ -21,9 +22,13 @@ Malformed/mismatched configuration leaves no legacy fallback for that process.
 An explicit cohort is registered independently of `STRIPE_ENABLED`. The bounded
 reader exposes only platform-account and exact-subscription GETs, checks the
 existing key mode against the cohort environment, and verifies the platform
-account before registering. Both explicit `PEABLE_APP_PUBLIC_KEY` and
-`PEABLE_APP_SECRET` must be configured before any remote read; provisioning may
-reference the existing application credential without copying or rotating it.
+account before registering. Mercaria must have an Oxy identity before any remote
+read: the ECS task role (`oxy-mercaria-task`, oxy ADR 0026), or a full
+`OXY_APPLICATION_KEY`/`OXY_APPLICATION_SECRET` pair off ECS. The Peable SDK is
+handed that identity as its `tokenProvider` (SDK 0.2.5-oxy-one.0); there is no
+Peable credential, and the gateway resolves the merchant from the token's
+application id and environment. `PEABLE_APP_PUBLIC_KEY`/`PEABLE_APP_SECRET` are
+no longer read, and a release removes them from the task definition.
 The general client and direct legacy Stripe mutations remain disabled when
 `STRIPE_ENABLED` is off, including stores outside the cohort. A malformed cohort
 also rejects startup in that state. This does not enable checkout actions: the

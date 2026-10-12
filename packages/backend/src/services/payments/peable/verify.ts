@@ -96,7 +96,10 @@ export function verifyPeableSignature(input: ProviderEventInput): ProviderEventE
   }
   if (!event) refuse('the Peable delivery could not be verified');
 
-  const intentId = event.data?.object?.id;
+  // A `billing.observation.updated` object names a `resourceId`, never an `id`,
+  // so it stores no object ids — and, with no handler, is kept as evidence.
+  const object = event.data?.object;
+  const intentId = object && 'id' in object ? object.id : undefined;
   const paymentStatus = PAYMENT_STATUS_FOR_EVENT[event.type];
 
   return {

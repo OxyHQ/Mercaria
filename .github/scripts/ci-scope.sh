@@ -82,8 +82,10 @@ while IFS= read -r path; do
     .github/workflows/ci.yml | .github/scripts/ci-scope.sh | .github/scripts/test-ci-scope.sh)
       all "$path decides what CI runs"
       ;;
+    # Run by the `Build API` job against the image it builds.
+    .github/scripts/smoke-api-image.sh) want[api]=true ;;
     .github/*) ;;
-    # The API's container build; the `Build API` job bundles the same source.
+    # The API's container build; the `Build API` job builds and smokes it.
     Dockerfile) want[api]=true ;;
     # The lockfile, the root manifest, bunfig, tsconfig, root scripts, app.json,
     # biome.jsonc, the Expo eslint config, .github (this script and ci.yml included), and every
