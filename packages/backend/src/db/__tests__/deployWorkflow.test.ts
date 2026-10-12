@@ -65,11 +65,14 @@ describe('the deploy workflow and the migrator agree', () => {
   });
 
   it('runs the built migrator by the path the image actually contains', () => {
-    // `dist/db/migrate.js`, not `src/db/migrate.ts`: the runtime image ships
-    // neither bun nor `src/`, so the developer-facing `db:migrate` script cannot
-    // run there. `build.ts` emits this path as a second entry point.
+    // `dist/db/migrate.js`, not `src/db/migrate.ts`: the runtime image ships no
+    // `src/`, so the developer-facing `db:migrate` script cannot run there.
+    // `build.ts` emits this path as a second entry point. `bun` because that is
+    // the runtime the image ships (Dockerfile); a `bun` command against a Node
+    // image, or the reverse claim, is a one-shot that dies or lies.
     expect(script).toContain('packages/backend/dist/db/migrate.js');
-    expect(script).toContain('"node"');
+    expect(script).toContain('"bun"');
+    expect(script).not.toContain('"node"');
   });
 
   it('pins migrations, rollout and catalog registration to one immutable image', () => {
@@ -106,7 +109,9 @@ describe('the deploy workflow and the migrator agree', () => {
       "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
     );
     expect(rollout?.run).toContain('--task-definition');
-    expect(catalog?.run).toContain('packages/backend/dist/register-capability-catalog.js');
+    expect(catalog?.run).toContain(
+      '["bun","packages/backend/dist/register-capability-catalog.js"]',
+    );
     expect(catalog?.env?.TASK_DEFINITION).toBe('${{ steps.ecs.outputs.task_definition }}');
     expect(ecsTaskScript).toContain('--task-definition "$TASK_DEFINITION"');
     expect(ecsTaskScript).toContain('EXIT_CODE');

@@ -73,8 +73,8 @@ every closed value set) · `contracts` (the `/public/v1` zod source; regen
   transaction sums to zero PER CURRENCY.
 - **Nothing auto-deletes or rewrites financial history.** Repairs are explicit,
   audited operator actions from a CLOSED set.
-- **Use `constructEventAsync`, never `constructEvent`** — under Bun the sync
-  Stripe crypto entry points throw while production on Node works.
+- **Use `constructEventAsync`, never `constructEvent`** — production runs on Bun,
+  where the sync Stripe crypto entry points throw (vitest on Node hides it).
 
 ## PostgreSQL
 

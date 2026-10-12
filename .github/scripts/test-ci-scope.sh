@@ -43,6 +43,7 @@ check 'api app dashboard pos' app.json
 check 'api app dashboard pos' .github/workflows/ci.yml
 check 'api app dashboard pos' .github/scripts/ci-scope.sh
 check 'api' Dockerfile
+check 'api' .github/scripts/smoke-api-image.sh
 check '' scripts/validate-i18n-strings.mjs scripts/test-validate-i18n-strings.mjs
 check 'api app dashboard pos' scripts/validate-lint-coverage.mjs scripts/asset-worker.test.ts
 check '' .github/workflows/deploy-aws.yml .github/scripts/run-migration-task.sh

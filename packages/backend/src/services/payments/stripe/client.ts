@@ -27,12 +27,12 @@
  * work; under `bun` the synchronous one throws — and so does
  * `generateTestHeaderString`, which is what a test would reach for.
  *
- * This backend runs BOTH: production is `node packages/backend/dist/index.js`
- * (Dockerfile) while `bun run dev` is `bun --watch src/index.ts`. A synchronous
- * `constructEvent` would therefore verify every delivery in production and throw
- * on every delivery in development, which is the worst possible split — the bug
- * is invisible where it is tested and total where it is written. Use the
- * `*Async` variants everywhere, including in tests.
+ * Production runs `bun packages/backend/dist/index.js` (Dockerfile, since
+ * 2026-10), so production resolves the worker build too, and a synchronous
+ * `constructEvent` would throw on EVERY delivery there. vitest still runs the
+ * suite on Node, where the synchronous call works — the bug would be invisible
+ * where it is tested and total where it runs. Use the `*Async` variants
+ * everywhere, including in tests.
  */
 
 import Stripe from 'stripe';
