@@ -132,7 +132,7 @@ describe('THE GATE: every route is reachable, or says why it is not', () => {
           undecided
             .map((route) => {
               const record = result.routes.find((candidate) => candidate.route === route);
-              return `  ${route}  (${record?.file.replace(PACKAGES_ROOT + '/', '') ?? '?'})`;
+              return `  ${route}  (${record?.file.replace(`${PACKAGES_ROOT}/`, '') ?? '?'})`;
             })
             .join('\n') +
           '\n\nGive each one an inbound edge from a reachable screen, or add it to ' +

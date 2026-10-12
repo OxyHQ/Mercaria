@@ -1,4 +1,3 @@
-import React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { Money } from '@mercaria/shared-types';

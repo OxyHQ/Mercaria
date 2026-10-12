@@ -20,7 +20,7 @@
  */
 
 import { and, eq, sql } from 'drizzle-orm';
-import { type SelectedRow } from '@oxy.so/db';
+import type { SelectedRow } from '@oxy.so/db';
 import { publicColumns } from '@oxy.so/db/assert';
 import type {
   SupplierContactKind,

@@ -85,7 +85,7 @@ router.post(
   '/:supplierAccountId',
   express.raw({ type: '*/*', limit: MAX_BODY_BYTES }),
   async (req: Request, res: Response) => {
-    const supplierAccountIdParam = req.params['supplierAccountId'];
+    const supplierAccountIdParam = req.params.supplierAccountId;
     const supplierAccountId =
       typeof supplierAccountIdParam === 'string' ? supplierAccountIdParam : '';
     const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);

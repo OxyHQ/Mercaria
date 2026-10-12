@@ -30,7 +30,6 @@
 
 import { RiPlugLine } from '@oxy.so/bloom/icons/RiPlugLine';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
-import React from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import Head from 'expo-router/head';

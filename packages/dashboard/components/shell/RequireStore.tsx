@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { Redirect } from 'expo-router';
 import type { StorePermission } from '@mercaria/shared-types';
 import { ScreenLoading, ScreenMessage } from '@/components/shell/Screen';

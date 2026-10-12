@@ -1,6 +1,6 @@
 import { createPublicKey, type KeyObject } from 'node:crypto';
 import {
-  auditResultSchema,
+  type auditResultSchema,
   capabilityTicketClaimsSchema,
   policyDecisionSchema,
   type CapabilityTicketClaims,

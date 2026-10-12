@@ -158,7 +158,7 @@ function chargeIdOf(invoice: Stripe.Invoice): string | undefined {
 async function cohortOnlyAllowed(context: StripeEventContext): Promise<boolean> {
   if (config.payments.stripe.enabled) return true;
   if (context.account) return false;
-  const binding = await billingCohortBindingForCustomer(context.objectIds['customer']);
+  const binding = await billingCohortBindingForCustomer(context.objectIds.customer);
   if (!binding || context.livemode !== binding.cohort.livemode) return false;
   requireRegisteredBillingCohort(binding);
   return true;
@@ -169,9 +169,9 @@ async function readInvoice(context: StripeEventContext, invoiceId: string) {
       expand: ['payments.data.payment.payment_intent'],
     });
   }
-  const cohort = await billingCohortForCustomer(context.objectIds['customer']);
+  const cohort = await billingCohortForCustomer(context.objectIds.customer);
   if (!cohort) throw malformed('Invoice customer is outside the configured billing cohort.');
-  return createBillingCohortStripeReader(cohort).invoice(invoiceId, context.objectIds['customer']!);
+  return createBillingCohortStripeReader(cohort).invoice(invoiceId, context.objectIds.customer!);
 }
 
 /**
@@ -192,13 +192,13 @@ async function handleSubscription(context: StripeEventContext): Promise<StripeEv
       note: 'no billing rail is registered on this deployment, so nothing consumes this event',
     };
   }
-  const subscriptionId = context.objectIds['subscription'];
+  const subscriptionId = context.objectIds.subscription;
   if (!subscriptionId) throw malformed(`${context.type} named no subscription id.`);
 
   const snapshot = await provider.retrieveSubscription(subscriptionId);
   if (
     !config.payments.stripe.enabled &&
-    snapshot.providerCustomerId !== context.objectIds['customer']
+    snapshot.providerCustomerId !== context.objectIds.customer
   ) {
     throw malformed('Subscription snapshot differs from the verified event customer.');
   }
@@ -242,7 +242,7 @@ async function handleSubscription(context: StripeEventContext): Promise<StripeEv
 async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEventOutcome> {
   if (!(await cohortOnlyAllowed(context)))
     return { kind: 'ignored', note: 'outside the configured billing cohort' };
-  const invoiceId = context.objectIds['invoice'];
+  const invoiceId = context.objectIds.invoice;
   if (!invoiceId) throw malformed('invoice.paid named no invoice id.');
 
   const invoice = await readInvoice(context, invoiceId);
@@ -263,7 +263,7 @@ async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEve
   }
 
   if (!config.payments.stripe.enabled) {
-    const binding = await billingCohortBindingForCustomer(context.objectIds['customer']);
+    const binding = await billingCohortBindingForCustomer(context.objectIds.customer);
     if (!binding || binding.storeId !== subscription.storeId)
       throw malformed('Subscription is outside the configured billing cohort.');
   }
@@ -283,10 +283,10 @@ async function handleInvoicePaid(context: StripeEventContext): Promise<StripeEve
   }
 
   const cohort = !config.payments.stripe.enabled
-    ? await billingCohortForCustomer(context.objectIds['customer'])
+    ? await billingCohortForCustomer(context.objectIds.customer)
     : undefined;
   const charge = cohort
-    ? await createBillingCohortStripeReader(cohort).charge(chargeId, context.objectIds['customer']!)
+    ? await createBillingCohortStripeReader(cohort).charge(chargeId, context.objectIds.customer!)
     : await getStripeClient().charges.retrieve(chargeId, { expand: ['balance_transaction'] });
   const balance = charge.balance_transaction;
   if (!balance || typeof balance === 'string') {
@@ -334,7 +334,7 @@ async function handleInvoicePaymentFailed(
       note: 'no billing rail is registered on this deployment, so nothing consumes this event',
     };
   }
-  const invoiceId = context.objectIds['invoice'];
+  const invoiceId = context.objectIds.invoice;
   if (!invoiceId) throw malformed('invoice.payment_failed named no invoice id.');
 
   const invoice = await readInvoice(context, invoiceId);
@@ -346,7 +346,7 @@ async function handleInvoicePaymentFailed(
   const snapshot = await provider.retrieveSubscription(subscriptionId);
   if (
     !config.payments.stripe.enabled &&
-    snapshot.providerCustomerId !== context.objectIds['customer']
+    snapshot.providerCustomerId !== context.objectIds.customer
   ) {
     throw malformed('Subscription snapshot differs from the verified event customer.');
   }

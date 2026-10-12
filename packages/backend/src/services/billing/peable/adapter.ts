@@ -1,5 +1,5 @@
 /** Peable executes the same Stripe billing rail; Mercaria owns its plan semantics. */
-import { Peable, PeableError } from '@peable.to/sdk';
+import { type Peable, PeableError } from '@peable.to/sdk';
 import { z } from 'zod';
 import { getDb } from '../../../db/postgres.js';
 import {

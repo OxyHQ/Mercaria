@@ -26,11 +26,11 @@
  */
 
 import { inArray } from 'drizzle-orm';
-import {
-  type LocalizedCategoryPresentation,
-  type LocalizedResolution,
-  type LocalizationCandidate,
-  type LocalizedSlugCandidate,
+import type {
+  LocalizedCategoryPresentation,
+  LocalizedResolution,
+  LocalizationCandidate,
+  LocalizedSlugCandidate,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { categories } from '../../db/schema/catalog.js';

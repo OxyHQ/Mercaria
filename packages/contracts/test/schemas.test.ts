@@ -4,7 +4,7 @@ import {
   CONTRACT_JSON_SCHEMA_NAMES,
   CONTRACT_SCHEMAS,
   MERCARIA_PUBLIC_ROUTES,
-  MercariaCollectionPageSchema,
+  type MercariaCollectionPageSchema,
   MercariaErrorBodySchema,
   MercariaLocationProductPageSchema,
   MercariaLocationProductSchema,

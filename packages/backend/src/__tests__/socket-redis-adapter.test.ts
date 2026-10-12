@@ -27,7 +27,7 @@
  * the defect behind a tick.
  */
 
-import http from 'http';
+import http from 'node:http';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { RedisAdapter } from '@socket.io/redis-adapter';
 

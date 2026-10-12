@@ -63,9 +63,9 @@ vi.mock('../../../config/index.js', async (importOriginal) => {
 let db: Database, server: Server, url: string;
 let planId: string;
 const nonce = randomUUID().replaceAll('-', '');
-const ownedStores = [nonce.slice(0, 23) + '1', nonce.slice(0, 23) + '2'];
-const outsiderStore = nonce.slice(0, 23) + '3';
-const wrongModeStore = nonce.slice(0, 23) + '4';
+const ownedStores = [`${nonce.slice(0, 23)}1`, `${nonce.slice(0, 23)}2`];
+const outsiderStore = `${nonce.slice(0, 23)}3`;
+const wrongModeStore = `${nonce.slice(0, 23)}4`;
 const refs = ['outside', 'first', 'later', 'wrongmode'].map((label) => `sub_${label}${nonce}`);
 const snapshots = new Map<string, BillingSubscription>();
 const calls: string[] = [];
@@ -318,7 +318,7 @@ it('keeps general Stripe-enabled reconciliation for noncohort stores while exclu
   flags.stripe = true;
   // Another suite's subscription is eligible under the general rail but has no
   // snapshot in this fixture. Its failure must not become a whole-DB assertion.
-  const foreignStore = nonce.slice(0, 23) + '5';
+  const foreignStore = `${nonce.slice(0, 23)}5`;
   const foreignRef = `sub_shared${nonce}`;
   await db.insert(stores).values({
     id: foreignStore,

@@ -224,7 +224,7 @@ export async function gatherReconciliationEvidence(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<GatheredReconciliationEvidence | undefined> {
   const order = await findReconcilableOrder(orderId, db);
-  if (!order || order.commercialRole !== 'mercaria_retail') return undefined;
+  if (order?.commercialRole !== 'mercaria_retail') return undefined;
 
   const intents = await listRetailProcurementIntents(orderId, db);
   if (intents.length === 0) return undefined;

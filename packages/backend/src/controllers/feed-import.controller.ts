@@ -586,7 +586,7 @@ export async function downloadFeedReportHandler(req: Request, res: Response): Pr
     res.write('record_index,issue_code,severity,role,source_field,external_id,observed_token\n');
     for (const entry of entries) {
       res.write(
-        [
+        `${[
           String(entry.recordIndex),
           entry.issueCode,
           entry.severity,
@@ -594,7 +594,7 @@ export async function downloadFeedReportHandler(req: Request, res: Response): Pr
           csvCell(entry.sourceField),
           csvCell(entry.externalId),
           entry.observedToken ?? '',
-        ].join(',') + '\n',
+        ].join(',')}\n`,
       );
     }
     res.end();

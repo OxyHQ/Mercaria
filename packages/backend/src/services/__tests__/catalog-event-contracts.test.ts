@@ -232,7 +232,7 @@ function triggersWritingTable(table: string, sql: string = MIGRATION_SQL): strin
     /CREATE\s+TRIGGER\s+([a-z0-9_]+)[\s\S]*?EXECUTE\s+FUNCTION\s+([a-z0-9_]+)\s*\(/giu;
   for (const match of sql.matchAll(triggerPattern)) {
     const body = bodies.get(match[2]);
-    if (body !== undefined && body.includes(`INSERT INTO "${table}"`)) found.add(match[1]);
+    if (body?.includes(`INSERT INTO "${table}"`)) found.add(match[1]);
   }
   return [...found].sort();
 }

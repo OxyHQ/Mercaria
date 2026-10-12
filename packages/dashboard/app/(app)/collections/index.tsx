@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import Head from 'expo-router/head';
 import { Plus, FolderTree, Trash2 } from 'lucide-react-native';

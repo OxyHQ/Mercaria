@@ -188,9 +188,7 @@ export function PurchasePlanPicker({
   ) : null;
 
   if (!plan)
-    return requiresSubscription || plans.length > 0 ? null : (
-      <>{renderActions({ kind: 'one-time' })}</>
-    );
+    return requiresSubscription || plans.length > 0 ? null : renderActions({ kind: 'one-time' });
   const subscriptionTitle = t(
     requiresSubscription
       ? 'ui.purchase.subscriptionRequired'

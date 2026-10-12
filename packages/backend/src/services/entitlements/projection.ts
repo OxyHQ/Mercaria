@@ -99,7 +99,7 @@ export async function listMerchantPlanCatalog(
       .filter((entitlement) => entitlement.planId === plan.id)
       .flatMap((entitlement) => {
         const definition = byKey.get(entitlement.capabilityKey);
-        if (!definition || definition.availability !== 'available') return [];
+        if (definition?.availability !== 'available') return [];
         return [
           {
             key: entitlement.capabilityKey,

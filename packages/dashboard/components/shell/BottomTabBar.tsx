@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';

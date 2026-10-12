@@ -1227,5 +1227,5 @@ export async function claimantMayLinkStore(
   const store = await findStoreById(storeId);
   if (!store) return false;
   const access = await resolveStoreAccess(claimant, store);
-  return access !== null && access.permissions.includes(LINKAGE_PERMISSION);
+  return access?.permissions.includes(LINKAGE_PERMISSION) ?? false;
 }

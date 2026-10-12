@@ -29,7 +29,7 @@ import { submitPurchaseOrderToSupplier } from './submission.service.js';
 
 /** The id every payload in this domain carries. */
 function purchaseOrderIdOf(event: ProcurementOutboxRow): string {
-  const value = event.payload['purchaseOrderId'];
+  const value = event.payload.purchaseOrderId;
   if (typeof value !== 'string' || value.length === 0) {
     throw new Error(`procurement outbox row ${event.id} carries no purchaseOrderId`);
   }
@@ -84,7 +84,7 @@ export async function runProcurementOutboxEvent(event: ProcurementOutboxRow): Pr
       // refund is driven from the two terminal outcomes above and from an
       // operator's explicit cancellation, never from an open case.
       log.general.debug(
-        { eventId: event.id, eventType, purchaseOrderId: event.payload['purchaseOrderId'] },
+        { eventId: event.id, eventType, purchaseOrderId: event.payload.purchaseOrderId },
         '[Procurement] exception recorded; an operator resolves it (#127/#128)',
       );
       return;

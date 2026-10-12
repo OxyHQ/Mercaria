@@ -82,7 +82,7 @@ export function DigitalAssetGrid({ pages, filtered }: DigitalAssetGridProps) {
             offersIncluded={offersIncluded}
             resolveImage={(fileId) => {
               const url = oxyServices.assets.publicUrl(fileId, 'thumb');
-              return url && url.startsWith('http') ? url : undefined;
+              return url?.startsWith('http') ? url : undefined;
             }}
             /*
              * The slug when there is one, the id otherwise — `/3d/:slug` resolves

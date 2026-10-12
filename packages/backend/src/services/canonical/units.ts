@@ -330,7 +330,7 @@ const UNIT_ALIASES: Readonly<Record<string, string>> = Object.freeze({
 export function resolveUnit(token: string): string | null {
   const trimmed = token.trim();
   if (trimmed.length === 0) return null;
-  if (Object.prototype.hasOwnProperty.call(UNIT_DEFINITIONS, trimmed)) return trimmed;
+  if (Object.hasOwn(UNIT_DEFINITIONS, trimmed)) return trimmed;
   // Case-SENSITIVE aliases first: the spellings whose case is their meaning must
   // be resolved before anything folds them.
   const exact = UNIT_ALIASES_EXACT[trimmed];

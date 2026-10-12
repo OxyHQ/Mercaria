@@ -602,7 +602,7 @@ async function currentOfferLink(
   if (!latest) return {};
 
   const offer = await findOfferById(getDb(), latest.offerId);
-  if (!offer || offer.status !== 'active') return {};
+  if (offer?.status !== 'active') return {};
 
   const observation = {
     sourceId: await resolveOfferSourceId(offer.sourceRecordId),

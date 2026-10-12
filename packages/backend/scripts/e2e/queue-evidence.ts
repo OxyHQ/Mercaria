@@ -24,7 +24,7 @@
  * the WORKER rather than the request executed it.
  */
 
-import { Redis } from 'ioredis';
+import type { Redis } from 'ioredis';
 import { MARKETPLACE_SYNC_QUEUE } from '../../src/queue/constants.js';
 
 /** What one observation of the sync queue's depth found. */

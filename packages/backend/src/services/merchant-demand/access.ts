@@ -101,7 +101,7 @@ export async function resolveMerchantDemandAccess(
     // plus grants, minus revokes — so a store that wants an editor to see
     // demand grants `analytics:read` explicitly, which is what "explicit
     // analytics permission" means for a role that does not hold it by default.
-    if (access !== null && access.permissions.includes('analytics:read')) {
+    if (access?.permissions.includes('analytics:read')) {
       return {
         outcome: 'granted',
         via: 'linked_store_member',

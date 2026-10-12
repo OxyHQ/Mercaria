@@ -1,4 +1,3 @@
-import React from 'react';
 import { View } from 'react-native';
 import Head from 'expo-router/head';
 import { RequirePos } from '@/components/shell/RequirePos';

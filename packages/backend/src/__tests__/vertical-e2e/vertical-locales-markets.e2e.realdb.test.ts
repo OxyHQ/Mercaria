@@ -679,7 +679,7 @@ describe.each(PAIRS)('the smartphone existing-canonical journey in $name', (pair
       offerComparisonPermitted: true,
     });
     expect(page).toBeDefined();
-    if (!page || !page.page.offers.available) {
+    if (!page?.page.offers.available) {
       throw new Error('the phone page withheld its comparison');
     }
     expect(page.page.variants).toHaveLength(8);
@@ -699,7 +699,7 @@ describe.each(PAIRS)('the smartphone existing-canonical journey in $name', (pair
       limit: 20,
       offerComparisonPermitted: true,
     });
-    if (!scoped || !scoped.page.offers.available) {
+    if (!scoped?.page.offers.available) {
       throw new Error('the variant-scoped phone page withheld its comparison');
     }
     expect(scoped.page.selectedVariantId).toBe(listedVariantId);

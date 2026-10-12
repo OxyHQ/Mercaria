@@ -28,9 +28,9 @@ function walk(dir) {
 const files = walk(SRC).filter((p) => !p.includes('__tests__') && !p.endsWith('.test.ts'));
 
 function classify(symbol) {
-  const callRe = new RegExp('(?<![.\\w])' + symbol + '\\s*\\(');
+  const callRe = new RegExp(`(?<![.\\w])${symbol}\\s*\\(`);
   const defRe = new RegExp(
-    '(?:export\\s+)?(?:async\\s+)?function\\s+' + symbol + '\\b|const\\s+' + symbol + '\\s*[:=]',
+    `(?:export\\s+)?(?:async\\s+)?function\\s+${symbol}\\b|const\\s+${symbol}\\s*[:=]`,
   );
   const definers = [];
   const callers = [];
@@ -55,5 +55,5 @@ for (const symbol of process.argv.slice(2)) {
       '  non-route callers=' +
       String(callers.length),
   );
-  for (const c of callers.slice(0, 3)) console.log('      ' + c.replace(SRC + '/', ''));
+  for (const c of callers.slice(0, 3)) console.log(`      ${c.replace(`${SRC}/`, '')}`);
 }

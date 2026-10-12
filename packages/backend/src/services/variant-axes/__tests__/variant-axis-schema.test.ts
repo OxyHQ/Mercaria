@@ -123,14 +123,14 @@ function renderSql(node: unknown): string {
 
   const record = node as Record<string, unknown>;
   // A `StringChunk` carries `value: string[]`.
-  if (Array.isArray(record['value'])) return (record['value'] as unknown[]).map(renderSql).join('');
+  if (Array.isArray(record.value)) return (record.value as unknown[]).map(renderSql).join('');
   // A `Column`. Rendered through `sqlColumnName`, never `column.name`: the
   // latter is the TypeScript property, because `@oxy.so/db` applies the casing at
   // query time.
-  if (typeof record['name'] === 'string' && record['table'] !== undefined) {
+  if (typeof record.name === 'string' && record.table !== undefined) {
     return sqlColumnName(node as PgColumn);
   }
-  if (Array.isArray(record['queryChunks'])) return renderSql(record['queryChunks']);
+  if (Array.isArray(record.queryChunks)) return renderSql(record.queryChunks);
   return '';
 }
 

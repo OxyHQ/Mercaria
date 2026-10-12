@@ -32,18 +32,18 @@
  * interpreter's own doc comment warns about.
  */
 
-import {
-  type AttributeComponentAxis,
-  type AuthoringField,
-  type AuthoringSchema,
-  type AuthoringValidationCode,
-  type AuthoringValidationFinding,
-  type AuthoringValidationResult,
-  type AuthoringValidationSeverity,
-  type ItemConditionKey,
-  type ProductTypeAuthoringFlow,
-  type ProductTypeRuleFieldValue,
-  type ProductTypeRuleValues,
+import type {
+  AttributeComponentAxis,
+  AuthoringField,
+  AuthoringSchema,
+  AuthoringValidationCode,
+  AuthoringValidationFinding,
+  AuthoringValidationResult,
+  AuthoringValidationSeverity,
+  ItemConditionKey,
+  ProductTypeAuthoringFlow,
+  ProductTypeRuleFieldValue,
+  ProductTypeRuleValues,
 } from '@mercaria/shared-types';
 import {
   effectiveFieldRequirement,

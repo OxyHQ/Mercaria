@@ -24,11 +24,11 @@
  */
 
 import { createHash } from 'node:crypto';
-import {
-  type BasketInputSnapshot,
-  type BasketRequest,
-  type ComparisonPolicyIdentity,
-  type FxRateSnapshot,
+import type {
+  BasketInputSnapshot,
+  BasketRequest,
+  ComparisonPolicyIdentity,
+  FxRateSnapshot,
 } from '@mercaria/shared-types';
 import { renderCandidateTerms, type BasketCandidate } from './candidates.js';
 

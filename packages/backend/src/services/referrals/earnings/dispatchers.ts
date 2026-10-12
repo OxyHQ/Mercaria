@@ -70,7 +70,7 @@ export async function runReferralPayoutTick(now: Date = new Date()): Promise<num
   for (const partnerId of partnerIds) {
     try {
       const partner = await findPartnerById(db, partnerId);
-      if (!partner || partner.state !== 'approved') continue;
+      if (partner?.state !== 'approved') continue;
       const balances = await readReferralPartnerLedgerBalances(db, partnerId);
       for (const balance of balances) {
         if (balance.outstandingMinor <= 0) continue;

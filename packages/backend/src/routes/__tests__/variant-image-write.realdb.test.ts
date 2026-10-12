@@ -154,7 +154,7 @@ async function call(method: string, path: string, payload?: unknown): Promise<Re
 }
 
 function data(reply: Reply): unknown[] {
-  return (reply.body['data'] ?? []) as unknown[];
+  return (reply.body.data ?? []) as unknown[];
 }
 
 /**

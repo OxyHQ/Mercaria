@@ -372,7 +372,7 @@ async function main() {
 
 // ── Consumer programs ───────────────────────────────────────────────────────
 
-const SHARED_PROGRAM = String.raw`
+const SHARED_PROGRAM = `
 const product = {
   ref: { kind: 'product', id: 'prod 1' },
   title: 'Smoke',

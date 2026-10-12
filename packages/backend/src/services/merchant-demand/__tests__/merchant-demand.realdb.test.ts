@@ -41,9 +41,9 @@ import { inArray, sql } from 'drizzle-orm';
  * of the file would not, since ESM hoists every `import` above it.
  */
 vi.hoisted(() => {
-  process.env['ANALYTICS_COLLECTION_MODE'] = 'full';
-  process.env['MERCHANT_DEMAND_ENABLED'] = 'true';
-  process.env['MERCHANT_DEMAND_PREVIEW_ENABLED'] = 'true';
+  process.env.ANALYTICS_COLLECTION_MODE = 'full';
+  process.env.MERCHANT_DEMAND_ENABLED = 'true';
+  process.env.MERCHANT_DEMAND_PREVIEW_ENABLED = 'true';
 });
 
 import { uuidv7 } from '@oxy.so/db';

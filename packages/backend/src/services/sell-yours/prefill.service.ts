@@ -59,7 +59,7 @@ export async function buildCanonicalPrefill(input: {
 
   const db = getDb();
   const product = await findCanonicalProductById(db, input.canonicalProductId);
-  if (!product || product.status !== 'active') return undefined;
+  if (product?.status !== 'active') return undefined;
 
   const [brand, category, variant] = await Promise.all([
     product.brandId ? findBrandById(db, product.brandId) : Promise.resolve(undefined),

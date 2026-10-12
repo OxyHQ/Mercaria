@@ -32,7 +32,7 @@
  *   watching the product row would never see this.
  */
 
-import { type AttributeEntityKind, type SourceLinkMethod } from '@mercaria/shared-types';
+import type { AttributeEntityKind, SourceLinkMethod } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   clearAttributeValueSelection,

@@ -316,7 +316,7 @@ export async function materializeMembership(
  */
 export async function recomputeAutomatedMembershipForListing(listingId: string): Promise<void> {
   const listing = await findListingById(listingId);
-  if (!listing || listing.ownerType !== 'store' || !listing.storeId) {
+  if (listing?.ownerType !== 'store' || !listing.storeId) {
     return;
   }
   const storeId = listing.storeId;

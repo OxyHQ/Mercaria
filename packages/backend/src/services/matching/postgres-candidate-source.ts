@@ -43,7 +43,7 @@ import { findActiveLinkForVariant } from '../../db/offers/nativeListingLinkRepos
 import { listOpenBlocksForSubject } from '../../db/matching/matchBlockedPairRepository.js';
 import { isCategoryGateOpen } from '../../db/matching/matchPolicyRepository.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
-import { canonicalProducts, canonicalVariants } from '../../db/schema/canonicalCatalog.js';
+import { canonicalProducts, type canonicalVariants } from '../../db/schema/canonicalCatalog.js';
 import { categories } from '../../db/schema/catalog.js';
 import { IDENTIFIER_SCHEME_REGISTRY } from '@mercaria/shared-types';
 import type {

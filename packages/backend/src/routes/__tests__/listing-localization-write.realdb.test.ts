@@ -142,7 +142,7 @@ async function call(method: string, path: string, payload?: unknown): Promise<Re
 }
 
 function data(reply: Reply): Record<string, unknown> {
-  return (reply.body['data'] ?? {}) as Record<string, unknown>;
+  return (reply.body.data ?? {}) as Record<string, unknown>;
 }
 
 /** The stored rows for one listing — what a response claim is checked against. */
@@ -299,7 +299,7 @@ describe('a P2P seller writing their own listing’s translations', () => {
       description: 'Cuadro de aluminio, poco uso',
     });
     expect(reply.status).toBe(200);
-    expect(data(reply)['provenance']).toBe(SELLER_LOCALIZATION_PROVENANCE);
+    expect(data(reply).provenance).toBe(SELLER_LOCALIZATION_PROVENANCE);
 
     const rows = await rowsFor(ownListingId);
     expect(rows).toHaveLength(1);
@@ -325,7 +325,7 @@ describe('a P2P seller writing their own listing’s translations', () => {
       title: 'Bicicleta de ruta',
     });
     expect(first.status).toBe(200);
-    expect(data(first)['locale']).toBe('es-mx');
+    expect(data(first).locale).toBe('es-mx');
 
     const second = await call('PUT', `/seller/listings/${ownListingId}/localizations/es-mx`, {
       title: 'Bicicleta de ruta corregida',
@@ -356,12 +356,12 @@ describe('a P2P seller writing their own listing’s translations', () => {
   it('lists every locale it has, and reads one back', async () => {
     const coverage = await call('GET', `/seller/listings/${ownListingId}/localizations`);
     expect(coverage.status).toBe(200);
-    const locales = (coverage.body['data'] as { locale: string }[]).map((row) => row.locale);
+    const locales = (coverage.body.data as { locale: string }[]).map((row) => row.locale);
     expect(locales).toEqual(expect.arrayContaining(['es', 'es-mx', 'fr']));
 
     const one = await call('GET', `/seller/listings/${ownListingId}/localizations/es`);
     expect(one.status).toBe(200);
-    expect(data(one)['title']).toBe('Bicicleta de carretera');
+    expect(data(one).title).toBe('Bicicleta de carretera');
   });
 
   it('withdraws a translation, and a repeat converges on 404', async () => {
@@ -502,7 +502,7 @@ describe('a store member writing a store product’s translations', () => {
       `/admin/stores/${storeId}/products/${storeListingId}/localizations`,
     );
     expect(reply.status).toBe(200);
-    expect((reply.body['data'] as unknown[]).length).toBe(1);
+    expect((reply.body.data as unknown[]).length).toBe(1);
   });
 
   it('refuses a product belonging to another store', async () => {

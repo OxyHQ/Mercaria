@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { Barcode, Search } from 'lucide-react-native';

@@ -972,7 +972,7 @@ describe('#367 line 58 — taxonomy, product type, family, product, variant, lis
       // variant tables — that is what lets `offers.product_variant_id` satisfy
       // CLAUSE 3 through its foreign key to the native table.
       expect(conceptWordIn('product_variant_id')).toBe('variant');
-      expect(CONCEPT_WORD_TO_TABLES['variant']).toEqual(['canonical_variants', 'product_variants']);
+      expect(CONCEPT_WORD_TO_TABLES.variant).toEqual(['canonical_variants', 'product_variants']);
       expect(conceptWordIn('category_slugs')).toBe('category');
       expect(conceptWordIn('created_at')).toBeUndefined();
       expect(conceptWordIn('store_id')).toBeUndefined();

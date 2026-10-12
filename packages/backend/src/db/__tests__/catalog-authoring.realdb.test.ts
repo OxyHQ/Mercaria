@@ -178,9 +178,9 @@ function draftInsert(id: string, overrides: string = ''): ReturnType<typeof sql>
   return sql.raw(`
     insert into catalog_authoring_drafts
       (id, store_id, created_by_oxy_user_id, status, category_id, product_type_definition_id,
-       flow, locale, market, schema_hash, version, expires_at${overrides === '' ? '' : ', ' + overrides.split('|')[0]})
+       flow, locale, market, schema_hash, version, expires_at${overrides === '' ? '' : `, ${overrides.split('|')[0]}`})
     values ('${id}', '${P}-store', '${P}-user', 'open', '${P}-cat', '${P}-ptd',
-            'merchant', 'en', 'ES', '"h"', 1, now() + interval '1 day'${overrides === '' ? '' : ', ' + overrides.split('|')[1]})
+            'merchant', 'en', 'ES', '"h"', 1, now() + interval '1 day'${overrides === '' ? '' : `, ${overrides.split('|')[1]}`})
   `);
 }
 

@@ -175,7 +175,7 @@ beforeAll(async () => {
         503,
       );
     if (path.includes('/subscriptions/')) {
-      let value = { ...snapshot };
+      const value = { ...snapshot };
       if (path.endsWith('/cancel_at_period_end')) {
         if (!key) return reply({}, 400);
         if (!receipts.has(key)) {

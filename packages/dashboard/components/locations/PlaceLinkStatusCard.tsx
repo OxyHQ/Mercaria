@@ -1,4 +1,3 @@
-import React from 'react';
 import { View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import type { PlaceClaim } from '@goway.to/sdk';

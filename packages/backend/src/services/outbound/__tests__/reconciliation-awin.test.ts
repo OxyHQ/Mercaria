@@ -104,7 +104,7 @@ describe('mapping Awin’s own vocabulary', () => {
       'deleted',
       'pending',
     ]);
-    expect(AWIN_COMMISSION_STATUS_STATES['deleted']).toBe('reversed');
+    expect(AWIN_COMMISSION_STATUS_STATES.deleted).toBe('reversed');
   });
 
   it('REJECTS an unrecognised status rather than guessing a state', () => {

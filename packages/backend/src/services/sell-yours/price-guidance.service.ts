@@ -192,7 +192,6 @@ async function currentOfferAmounts(input: {
        * the sample — which the floors above then account for. Including the raw
        * minor units would compare 100 JPY against 100 EUR.
        */
-      continue;
     }
   }
   return amounts;
@@ -317,7 +316,6 @@ async function soldSegment(
     } catch {
       // Same omission rule as the offer sample above: an unservable pair leaves
       // the observation out rather than mixing minor units across currencies.
-      continue;
     }
   }
 

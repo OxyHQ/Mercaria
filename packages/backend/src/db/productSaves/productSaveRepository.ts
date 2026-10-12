@@ -149,13 +149,13 @@ export async function updateProductSavePreferences(
 ): Promise<ProductSaveRow | undefined> {
   const patch: Record<string, string | null> = {};
   if ('preferredCanonicalVariantId' in preferences) {
-    patch['preferredCanonicalVariantId'] = preferences.preferredCanonicalVariantId ?? null;
+    patch.preferredCanonicalVariantId = preferences.preferredCanonicalVariantId ?? null;
   }
   if ('preferredConditionGroup' in preferences) {
-    patch['preferredConditionGroup'] = preferences.preferredConditionGroup ?? null;
+    patch.preferredConditionGroup = preferences.preferredConditionGroup ?? null;
   }
   if ('preferredMerchantId' in preferences) {
-    patch['preferredMerchantId'] = preferences.preferredMerchantId ?? null;
+    patch.preferredMerchantId = preferences.preferredMerchantId ?? null;
   }
   if (Object.keys(patch).length === 0) {
     return findProductSave(oxyUserId, canonicalProductId, db);

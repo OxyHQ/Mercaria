@@ -209,7 +209,12 @@ import { getShopifyCredentials } from '../connectors/shopify/config.js';
 import { classifyShopifyWebhookTopic } from '../connectors/shopify/webhook.js';
 import { classifyWooCommerceWebhookTopic } from '../connectors/woocommerce/webhook.js';
 import { getIO } from '../socket.js';
-import { conflict, notFound, validationError, MercariaError } from '../lib/errors/error-codes.js';
+import {
+  conflict,
+  notFound,
+  validationError,
+  type MercariaError,
+} from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 
 /** Product-delete webhook payload (Shopify sends only `{ id }` on delete). */
@@ -4457,7 +4462,7 @@ async function pushListingToConnection(
  */
 export async function pushListingToChannels(storeId: string, listingId: string): Promise<void> {
   const listing = await findListingById(listingId);
-  if (!listing || listing.ownerType !== 'store' || listing.storeId !== storeId) {
+  if (listing?.ownerType !== 'store' || listing.storeId !== storeId) {
     return; // Not a store product of this store — nothing to push.
   }
 
@@ -4521,7 +4526,7 @@ export async function pushOrderFulfillment(orderId: string): Promise<void> {
   }
 
   const conn = await findConnectionById(order.sourceConnectionId);
-  if (!conn || conn.status !== 'connected' || !conn.hasCredentials || !conn.shopDomain) {
+  if (conn?.status !== 'connected' || !conn.hasCredentials || !conn.shopDomain) {
     return; // Connection gone / disconnected / mid-reconnect — skip silently.
   }
   // Only bidirectional order sync pushes fulfillments back to the platform.

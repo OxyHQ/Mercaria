@@ -98,7 +98,7 @@ let deleter: SoloConnection;
 let probe: SoloConnection;
 
 async function openSolo(): Promise<SoloConnection> {
-  const databaseUrl = process.env['DATABASE_URL'];
+  const databaseUrl = process.env.DATABASE_URL;
   if (databaseUrl === undefined) {
     throw new Error('vitest.pg.globalSetup did not publish DATABASE_URL');
   }

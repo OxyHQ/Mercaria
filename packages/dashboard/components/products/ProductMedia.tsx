@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import {
   ZoomableMediaGallery,

@@ -43,7 +43,7 @@
  */
 
 import type { ConditionGroup } from './condition';
-import type { CurrencyCode, FxRateSnapshot, Money } from './money';
+import type { FxRateSnapshot, Money } from './money';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* The alert                                                                  */

@@ -238,7 +238,7 @@ export async function listReconciliationExceptionsHandler(
   res: Response,
 ): Promise<void> {
   const limit = boundedQuery(req, 'limit', 50, 200);
-  const kindRaw = req.query['kind'];
+  const kindRaw = req.query.kind;
   const kind = typeof kindRaw === 'string' && kindRaw.trim() !== '' ? kindRaw.trim() : undefined;
   const rows = await listOpenReconciliationExceptions({
     limit,

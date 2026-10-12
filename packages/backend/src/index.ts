@@ -1,5 +1,5 @@
 import { startEcosystemActivity, stopEcosystemActivity } from './ecosystemActivity';
-import http from 'http';
+import http from 'node:http';
 import { connectPostgres } from './db/postgres.js';
 import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';

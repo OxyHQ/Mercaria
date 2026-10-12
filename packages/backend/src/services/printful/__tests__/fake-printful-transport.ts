@@ -102,7 +102,7 @@ export function createFakePrintfulTransport(): FakePrintfulTransport {
   const referenceOf = (request: PrintfulRequest): string | null => {
     const body = request.body;
     if (typeof body === 'object' && body !== null) {
-      const external = (body as Record<string, unknown>)['external_id'];
+      const external = (body as Record<string, unknown>).external_id;
       if (typeof external === 'string') return external;
     }
     const match = /\/v2\/orders\/([^/]+)/.exec(request.path);

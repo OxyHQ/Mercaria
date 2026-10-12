@@ -140,11 +140,11 @@ function readAwinMoney(
   if (value === null || value === undefined) return { kind: 'absent' };
   if (typeof value !== 'object') return { kind: 'refused', reason: 'money is not an object' };
   const record = value as Record<string, unknown>;
-  const currency = knownCurrency(record['currency']);
+  const currency = knownCurrency(record.currency);
   if (currency === null) {
     return { kind: 'refused', reason: 'the currency is absent or is one Mercaria cannot store' };
   }
-  const amountText = awinAmountText(record['amount']);
+  const amountText = awinAmountText(record.amount);
   if (amountText === null) {
     return { kind: 'refused', reason: 'the amount is not a plain decimal number' };
   }
@@ -198,7 +198,7 @@ export function normalizeAwinTransaction(
     };
   }
   const record = raw as Record<string, unknown>;
-  const networkTransactionId = readRef(record['id']);
+  const networkTransactionId = readRef(record.id);
   if (networkTransactionId === null) {
     return {
       outcome: 'rejected',
@@ -207,9 +207,7 @@ export function normalizeAwinTransaction(
   }
 
   const statusText =
-    typeof record['commissionStatus'] === 'string'
-      ? record['commissionStatus'].trim().toLowerCase()
-      : '';
+    typeof record.commissionStatus === 'string' ? record.commissionStatus.trim().toLowerCase() : '';
   const mapped = AWIN_COMMISSION_STATUS_STATES[statusText];
   if (mapped === undefined) {
     return {
@@ -227,11 +225,11 @@ export function normalizeAwinTransaction(
   // `paidToPublisher` promotes an EARNED state to `paid` and never a refused
   // one: a transaction Awin paid and later deleted is a clawback, and reading
   // it as `paid` would leave the reversal unbooked while the money is gone.
-  const paid = record['paidToPublisher'] === true;
+  const paid = record.paidToPublisher === true;
   const state: AffiliateTransactionState =
     paid && (mapped === 'approved' || mapped === 'paid') ? 'paid' : mapped;
 
-  const commission = readAwinMoney(record['commissionAmount']);
+  const commission = readAwinMoney(record.commissionAmount);
   if (commission.kind !== 'money') {
     return {
       outcome: 'rejected',
@@ -245,7 +243,7 @@ export function normalizeAwinTransaction(
     };
   }
 
-  const saleAmount = readAwinMoney(record['saleAmount']);
+  const saleAmount = readAwinMoney(record.saleAmount);
   if (saleAmount.kind === 'refused') {
     return {
       outcome: 'rejected',
@@ -253,7 +251,7 @@ export function normalizeAwinTransaction(
     };
   }
 
-  const eventAt = readInstant(record['transactionDate']);
+  const eventAt = readInstant(record.transactionDate);
   if (eventAt === null) {
     return {
       outcome: 'rejected',
@@ -261,18 +259,18 @@ export function normalizeAwinTransaction(
     };
   }
 
-  const clickRefs = record['clickRefs'];
+  const clickRefs = record.clickRefs;
   const clickRef =
     clickRefs !== null && typeof clickRefs === 'object'
-      ? readRef((clickRefs as Record<string, unknown>)['clickRef'])
+      ? readRef((clickRefs as Record<string, unknown>).clickRef)
       : null;
 
   return {
     outcome: 'transaction',
     transaction: {
       networkTransactionId,
-      advertiserRef: readRef(record['advertiserId']),
-      publisherRef: readRef(record['publisherId']),
+      advertiserRef: readRef(record.advertiserId),
+      publisherRef: readRef(record.publisherId),
       state,
       orderValue:
         saleAmount.kind === 'money'
@@ -280,7 +278,7 @@ export function normalizeAwinTransaction(
           : null,
       commission: { amount: commission.amount, currency: commission.currency },
       eventAt,
-      networkProcessedAt: readInstant(record['validationDate']),
+      networkProcessedAt: readInstant(record.validationDate),
       networkClickRef: clickRef,
     },
   };
@@ -453,8 +451,8 @@ export function createAwinReportReader(
         ? payload
         : payload !== null &&
             typeof payload === 'object' &&
-            Array.isArray((payload as Record<string, unknown>)['transactions'])
-          ? ((payload as Record<string, unknown>)['transactions'] as unknown[])
+            Array.isArray((payload as Record<string, unknown>).transactions)
+          ? ((payload as Record<string, unknown>).transactions as unknown[])
           : null;
       if (entries === null) {
         return {

@@ -83,13 +83,13 @@ function parseOptions(argv: readonly string[]): Options {
 }
 
 function assertSafeTarget(): string {
-  if (process.env['FOLDING_BENCHMARK'] !== '1') {
+  if (process.env.FOLDING_BENCHMARK !== '1') {
     throw new Error(
       'Refusing to run: set FOLDING_BENCHMARK=1. This script truncates scratch tables and ' +
         'drops and recreates listing_localizations_search_vector_idx.',
     );
   }
-  const url = process.env['DATABASE_URL'];
+  const url = process.env.DATABASE_URL;
   if (!url) throw new Error('Refusing to run: DATABASE_URL is not set.');
   const databaseName = new URL(url).pathname.replace(/^\//u, '');
   if (!databaseName.includes('bench')) {

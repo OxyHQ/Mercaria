@@ -174,10 +174,10 @@ describe('END TO END: a schema module moves the derived count by exactly one', (
     if (withWidgetSchema) write('db/schema/widget.ts', 'export const f = 6;\n');
     write(
       'services/widget/__tests__/widget-isolation.test.ts',
-      [
+      `${[
         "const WIDGET_PATHS = ['services/widget/engine.ts', 'services/widget/policy.ts'];",
         'for (const p of WIDGET_PATHS) { void p; }',
-      ].join('\n') + '\n',
+      ].join('\n')}\n`,
     );
   }
 

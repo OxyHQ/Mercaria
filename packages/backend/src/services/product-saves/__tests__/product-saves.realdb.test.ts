@@ -43,7 +43,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
  * top of the file would not, since ESM hoists every `import` above it.
  */
 vi.hoisted(() => {
-  process.env['PRODUCT_SAVE_MIGRATION_ENABLED'] = 'true';
+  process.env.PRODUCT_SAVE_MIGRATION_ENABLED = 'true';
 });
 
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';

@@ -489,7 +489,7 @@ describe('the census can actually see what it claims to', () => {
     const source = [
       `const a = '${future}';`,
       `const b = "${future}T10:00:00.000Z";`,
-      'const c = `' + future + '`;',
+      `const c = \`${future}\`;`,
       `const d = new Date('${past}');`,
     ].join('\n');
 

@@ -1,4 +1,3 @@
-import React from 'react';
 import { RiStore2Line } from '@oxy.so/bloom/icons/RiStore2Line';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { View, Pressable } from 'react-native';

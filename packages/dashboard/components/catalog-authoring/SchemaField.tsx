@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable, View } from 'react-native';
 import { Plus, X } from 'lucide-react-native';
 import { Badge } from '@oxy.so/bloom/badge';

@@ -43,7 +43,7 @@ export function resolveDeviceLocale(): string {
  * reverse, with nothing in either tree to read.
  */
 export function mergeSharedUiCopy(locale: SupportedLocale, appBundle: object): object {
-  if (Object.prototype.hasOwnProperty.call(appBundle, SHARED_UI_COPY_NAMESPACE)) {
+  if (Object.hasOwn(appBundle, SHARED_UI_COPY_NAMESPACE)) {
     throw new Error(
       `mergeSharedUiCopy: the ${locale} bundle already has a top-level ` +
         `"${SHARED_UI_COPY_NAMESPACE}" key. That namespace is reserved for ` +

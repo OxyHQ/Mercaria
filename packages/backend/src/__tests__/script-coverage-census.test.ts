@@ -905,14 +905,12 @@ describe('the fold surface is derived from a source walk', () => {
     expect(fires('property_class', String.raw`/[^\p{L}\p{N}]/u`)).toBe(true);
     expect(fires('property_class', String.raw`/\p{Script=Latin}/u`)).toBe(false);
     expect(fires('text_search_config', "sql`to_tsvector('english', x)`")).toBe(true);
-    expect(fires('codepoint_range', String.raw`/[̀-ͯ]/`)).toBe(true);
+    expect(fires('codepoint_range', `/[̀-ͯ]/`)).toBe(true);
     expect(fires('codepoint_range', String.raw`/[\u{300}-\u{36F}]/gu`)).toBe(true);
     // The rewrite/validate line, which is what keeps the surface at 45 and not 126.
-    expect(fires('ascii_alphabet_rewrite', String.raw`value.replace(/[^a-z0-9]+/g, '-')`)).toBe(
-      true,
-    );
-    expect(fires('ascii_alphabet_rewrite', String.raw`/^[A-Z]{3}$/.test(code)`)).toBe(false);
-    expect(fires('ascii_alphabet_rewrite', String.raw`z.string().regex(/^[a-z-]+$/)`)).toBe(false);
+    expect(fires('ascii_alphabet_rewrite', `value.replace(/[^a-z0-9]+/g, '-')`)).toBe(true);
+    expect(fires('ascii_alphabet_rewrite', `/^[A-Z]{3}$/.test(code)`)).toBe(false);
+    expect(fires('ascii_alphabet_rewrite', `z.string().regex(/^[a-z-]+$/)`)).toBe(false);
   });
 
   it('resolves a MULTI-LINE import, which is how this codebase writes them', () => {

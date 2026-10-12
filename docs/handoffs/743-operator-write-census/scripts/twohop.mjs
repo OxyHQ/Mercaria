@@ -38,7 +38,7 @@ function importMap(file) {
 }
 
 function functionBody(source, name) {
-  const head = new RegExp('(?:export\\s+)?(?:async\\s+)?function\\s+' + name + '\\s*\\(');
+  const head = new RegExp(`(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\(`);
   const at = source.search(head);
   if (at < 0) return null;
   const open = source.indexOf('{', at);
@@ -102,7 +102,7 @@ for (const name of readdirSync(ROUTES)
     else if (actor) tally.hop2Actor += 1;
     else {
       tally.neither += 1;
-      neither.push(name + '  ' + m[1].toUpperCase() + ' ' + path + '  ' + handler);
+      neither.push(`${name}  ${m[1].toUpperCase()} ${path}  ${handler}`);
     }
   }
 }
@@ -113,4 +113,4 @@ console.log('trail at hop 2         :', tally.hop2Trail);
 console.log('actor column at hop 2  :', tally.hop2Actor);
 console.log('neither (candidates)   :', tally.neither);
 console.log('\nfirst 15 candidates:');
-for (const n of neither.slice(0, 15)) console.log('  ' + n);
+for (const n of neither.slice(0, 15)) console.log(`  ${n}`);
