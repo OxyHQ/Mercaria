@@ -6,8 +6,8 @@ await esbuild.build({
    *
    * `src/db/migrate.ts` is the one-shot the deploy runs before and after the
    * rollout (`.github/workflows/deploy-aws.yml`). It cannot be invoked the way a
-   * developer does — `bun run src/…` — because the runtime image ships neither
-   * bun nor `src/`, only node and `dist/`. Without this entry there is simply no
+   * developer does — `bun run src/…` — because the runtime image ships no
+   * `src/`, only `dist/` (and runs it with `bun dist/…`). Without this entry there is simply no
    * way to migrate the production database from the image that contains the
    * migrations.
    *
@@ -33,7 +33,7 @@ await esbuild.build({
    * entry points' common ancestor (`src/`) as the base, so these land exactly at
    * `dist/index.js`, `dist/db/migrate.js`, `dist/register-capability-catalog.js`
    * and `dist/scripts/provision-taxonomy.js`. The one-shots call their main function at module
-   * load, so the emitted files run on plain `node <path>`.
+   * load, so the emitted files run on plain `bun <path>` (the image's runtime).
    *
    * Note they sit at different depths below the package root, which is why
    * `db/migrationsFolder.ts` resolves by finding that root rather than by

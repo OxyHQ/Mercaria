@@ -51,7 +51,9 @@ jobs:
     # constraint is imposed by the service container below and this is now the
     # only job in the repository that has one.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 25, not 20: the API suite now also runs under Bun (below), about two more
+    # minutes on top of a job that took 13-14.
+    timeout-minutes: 25
 
     services:
       # The API suite needs a real PostGIS server: the `*.realdb.test.ts` files
@@ -142,6 +144,7 @@ jobs:
       - name: Verify production deployment gate fixtures
         run: |
           bash -n \
+            .github/scripts/smoke-api-image.sh \
             .github/scripts/smoke-mcp.sh \
             .github/scripts/test-smoke-mcp.sh \
             .github/scripts/wait-for-ecs-deployment.sh \
@@ -548,12 +551,45 @@ jobs:
           TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
         run: bun run --filter @mercaria/backend test
 
+      # Production runs the API on Bun (root Dockerfile), so the unit suite also
+      # runs under Bun's runtime and test runner, not only under vitest on Node.
+      # Same server, same harness: `scripts/test-bun.ts` creates its own
+      # throwaway database here through vitest.pg.globalSetup.ts and drops it.
+      # The *.realdb.test.ts files, and the files that script lists with the
+      # vitest API each one needs, stay on vitest only; the image smoke in
+      # `Build API` covers Postgres under Bun against the real image.
+      - name: Run API unit tests under Bun
+        env:
+          TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
+        run: bun run --cwd packages/backend test:bun
+
   build-api:
     name: Build API
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The production image is built and booted here, uncached (no pull request
+    # writes a build-cache scope; see refresh-build-cache.yml).
+    timeout-minutes: 30
     needs: lint-and-test
     if: needs.lint-and-test.outputs.build-api != 'false'
+
+    # A throwaway database for the image smoke below; nothing else uses it.
+    # The same PostGIS pin as `Lint & Test`. One migrator run fits the default
+    # lock ceiling (measured: `all` over the whole journal at 64), so this one
+    # needs no ALTER SYSTEM.
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: mercaria
+          POSTGRES_PASSWORD: mercaria
+          POSTGRES_DB: mercaria
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mercaria -d mercaria"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
     steps:
       - uses: actions/checkout@v7
@@ -571,6 +607,21 @@ jobs:
 
       - name: Build API
         run: bun run build:backend
+
+      # The image deploy-aws.yml ships, built for this runner's platform
+      # (amd64; production is arm64 from the same Dockerfile).
+      - name: Build the production image
+        run: docker build -t mercaria-backend:ci .
+
+      # The image as ECS runs it: Bun under dumb-init, every one-shot command,
+      # a 200 from /health/ready, a non-zero exit on a failed boot and a
+      # graceful exit 0 on SIGTERM.
+      - name: Smoke the API image under its Bun runtime
+        env:
+          IMAGE: mercaria-backend:ci
+          DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria
+          PG_DATABASE: mercaria
+        run: bash .github/scripts/smoke-api-image.sh
 
   build-app:
     name: Build App
