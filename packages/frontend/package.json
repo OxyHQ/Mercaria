@@ -25,7 +25,7 @@
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",
     "@mercaria/ui": "workspace:*",
-    "@oxy.so/bloom": "7.31.1",
+    "@oxy.so/bloom": "7.33.0",
     "@oxy.so/core": "4.4.0",
     "@oxy.so/services": "11.1.17",
     "@react-native-async-storage/async-storage": "^2.2.0",
