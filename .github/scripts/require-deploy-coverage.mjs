@@ -52,9 +52,11 @@
  *    whether a commit reaches them (`resolve-deploy-scope.mjs`), so a commit
  *    that does not reach a deploy produces a run that ships nothing and says
  *    so — a green run for the web deploys, the `DEPLOY_NOOP_STEP` statement
- *    for the API. A run whose CI finished after a newer merge skips every job
- *    and concludes `skipped`; those are IGNORED here (`judgeCoverage`), because
- *    the newer commit's own run carries that change.
+ *    for the API. Each run ships the newest CI-green commit on `main` when it
+ *    executes; one that waits on a newer commit's CI says it is HELD and
+ *    defers this check (`DEPLOY_HELD_STEP`). A run for a `ci.yml` run that was
+ *    not a push to `main` skips every job and concludes `skipped`; those are
+ *    IGNORED here (`judgeCoverage`).
  *  - **Coverage is by CREATION order, never by completion order.** An evicted
  *    run completes in seconds while the run it was queued behind takes fifteen
  *    minutes, so ordering by `updated_at` puts the success BEFORE the
@@ -210,6 +212,15 @@ export const DEPLOY_NOOP_STEP =
   'Outcome: nothing to ship — production already has every deployable change';
 
 /**
+ * The statement a run makes when it HELD: a commit newer than every green one
+ * has a `ci.yml` run still in flight, whose completion triggers the next
+ * deploy. Read as `held`, which DEFERS like a deploy run still in flight —
+ * the work is in hand, so reporting it would be the alarm that gets muted.
+ * Like the no-op, it stands only alone.
+ */
+export const DEPLOY_HELD_STEP = 'Outcome: held — a newer commit has CI still running';
+
+/**
  * The phase marker a `post` migration carries.
  *
  * A copy of `@oxy.so/db`'s `POST_PHASE_GREP_PATTERN` without the anchors, for
@@ -292,12 +303,12 @@ export function sortNewestFirst(runs) {
  * and a page with no successful run in it at all.
  */
 export function judgeCoverage({ runs, now = Date.now(), staleRunMs = DEFAULT_STALE_RUN_MS }) {
-  // A `skipped` run is a SUPERSEDED one: every job of it was skipped by the
-  // deploy's `if:` because its `ci.yml` run finished after a newer merge
-  // landed. It shipped nothing and claimed nothing, and the newer commit's own
-  // run is the one that answers — so it is not in the population at all.
-  // A deploy that FAILED its gate (red CI) is `failure`, never `skipped`, and
-  // still counts. Before `workflow_run` no deploy run could conclude `skipped`.
+  // A `skipped` run is one whose every job the deploy's `if:` skipped: its
+  // `ci.yml` run was not a push to this repository's `main`. It shipped
+  // nothing and claimed nothing about `main`, so it is not in the population.
+  // A deploy that went red (a gate refusal, or a newer commit whose CI
+  // failed) is `failure`, never `skipped`, and still counts. Before
+  // `workflow_run` no deploy run could conclude `skipped`.
   const ordered = sortNewestFirst(runs.filter((run) => run.conclusion !== 'skipped'));
 
   // Distinct from `covered` on purpose. A workflow with no runs at all reports
@@ -400,12 +411,15 @@ export function judgeDeployOutcome({ jobs }) {
   }));
 
   const base = { jobCount: jobList.length, stepCount: steps.length, halves };
-  const noop = (byName.get(DEPLOY_NOOP_STEP) ?? []).filter((step) => step.conclusion === 'success');
-  if (noop.length > 0) {
-    // The no-op statement stands only alone; with any half beside it the run
-    // claims two incompatible things.
-    if (noop.length === 1 && halves.every((entry) => entry.verdict === 'unstated')) {
-      return { state: 'current', ...base };
+  const said = (name) =>
+    (byName.get(name) ?? []).filter((step) => step.conclusion === 'success').length;
+  const noop = said(DEPLOY_NOOP_STEP);
+  const held = said(DEPLOY_HELD_STEP);
+  if (noop + held > 0) {
+    // Each stands only alone; with the other, or any half, beside it the run
+    // claims incompatible things.
+    if (noop + held === 1 && halves.every((entry) => entry.verdict === 'unstated')) {
+      return { state: noop === 1 ? 'current' : 'held', ...base };
     }
     return { state: 'contradictory', ...base };
   }
@@ -846,6 +860,14 @@ export async function checkDeployCoverage({
       if (workflow.statesOutcome) {
         const jobs = await readRunJobs({ repository, runId: verdict.lastSuccess.id, token });
         const outcome = judgeDeployOutcome({ jobs });
+        if (outcome.state === 'held') {
+          deferred.push(workflow.name);
+          log(
+            `${workflow.name}: held for a newer commit's CI, deferring — ` +
+              describeRun(verdict.lastSuccess),
+          );
+          continue;
+        }
         if (outcome.state === 'current') {
           log(
             `${workflow.name}: current — newest run had nothing to ship since the last ` +

@@ -112,6 +112,21 @@ const scopeModule: {
     shippingJob: string;
     shippedStep?: string;
   }) => boolean;
+  SHIPPED_COMMIT_PREFIX: string;
+  chooseTarget: (input: {
+    commits: string[];
+    ciRuns: Map<string, { status: string; conclusion?: string | null }>;
+  }) => { action: string; target?: string; pending?: string; failedNewer: string[] };
+  shippedCommit: (input: {
+    run: { head_sha: string };
+    jobs: {
+      name: string;
+      conclusion?: string | null;
+      steps?: { name: string; conclusion?: string | null }[];
+    }[];
+    shippingJob: string;
+    shippedStep?: string;
+  }) => string | null;
   decide: (input: {
     base: string | null;
     comparison: { status: string; files?: { filename: string }[] } | null;
@@ -135,6 +150,7 @@ interface WorkflowStep {
 interface WorkflowJob {
   name?: string;
   if?: string;
+  env?: Record<string, string>;
   needs?: string | string[];
   steps?: WorkflowStep[];
 }
@@ -466,12 +482,11 @@ describe('the API deploy must never cancel a run mid-migration', () => {
  * workflow runs only from the default branch and none of it is exercised
  * before merge.
  */
-describe('a deploy runs once CI concluded, never polls, and ships only the tip it verified', () => {
+describe('a deploy runs once CI concluded, never polls, and ships the newest green commit', () => {
   const GUARD = [
     "github.event.workflow_run.event == 'push'",
     "github.event.workflow_run.head_branch == 'main'",
     'github.event.workflow_run.head_repository.full_name == github.repository',
-    'github.event.workflow_run.head_sha == github.sha',
   ];
 
   it.each(GATED_DEPLOY_WORKFLOWS)('%s triggers on CI completing on main, not on push', (file) => {
@@ -494,7 +509,12 @@ describe('a deploy runs once CI concluded, never polls, and ships only the tip i
       step.run?.includes('require-ci-success.mjs'),
     );
     expect(invocation?.run).toContain('--no-wait');
-    expect(invocation?.run).toContain('--sha="$DEPLOY_SHA"');
+    // Of the TARGET the scope step resolved, never the triggering run's sha.
+    expect(invocation?.run).toContain('--sha="$TARGET"');
+    expect(invocation?.env?.TARGET).toBe(ghExpr('steps.scope.outputs.target'));
+    // A tip-only rule strands the green commit under a GITHUB_TOKEN merge,
+    // which starts no CI at all (the failure Alia hit). It must not return.
+    expect(condition).not.toContain('head_sha == github.sha');
     const scope = (gate.steps ?? []).find((step) => step.run?.includes('resolve-deploy-scope.mjs'));
     expect(scope?.id, `${file} has no scope step`).toBe('scope');
   });
@@ -515,11 +535,18 @@ describe('a deploy runs once CI concluded, never polls, and ships only the tip i
       expect(shipping).toHaveLength(1);
       const [, job] = shipping[0];
       const condition = (job.if ?? '').replace(/\s+/g, ' ');
-      expect(condition).toContain("needs.gate.outputs.deploy == 'true'");
-      expect(condition).toContain("github.event.workflow_run.conclusion == 'success'");
-      // It builds and ships the verified commit, not whatever `main` is now.
+      expect(condition).toBe("needs.gate.outputs.deploy == 'true'");
+      // It builds and ships the verified target, not whatever `main` is now.
       const checkout = (job.steps ?? []).find((step) => step.uses?.startsWith('actions/checkout'));
-      expect(checkout?.with?.ref).toBe(ghExpr('env.DEPLOY_SHA'));
+      expect(checkout?.with?.ref).toBe(ghExpr('needs.gate.outputs.target'));
+      expect(job.env?.DEPLOY_SHA).toBe(ghExpr('needs.gate.outputs.target'));
+      // And says what it shipped, which the next run's scope reads as its base.
+      const statement = (job.steps ?? []).filter((step) =>
+        step.name?.startsWith(scopeModule.SHIPPED_COMMIT_PREFIX),
+      );
+      expect(statement.map((step) => step.name)).toEqual([
+        `${scopeModule.SHIPPED_COMMIT_PREFIX}${ghExpr('needs.gate.outputs.target')}`,
+      ]);
     },
   );
 
@@ -532,7 +559,9 @@ describe('a deploy runs once CI concluded, never polls, and ships only the tip i
       expect(group).toContain(
         'github.event.workflow_run.head_repository.full_name != github.repository',
       );
-      expect(group).toContain('github.event.workflow_run.head_sha != github.sha');
+      // Every main push run shares the real group: each resolves the newest
+      // green commit when it executes, so whichever survives ships no less.
+      expect(group).not.toContain('head_sha');
       expect(group).toContain("format('-noop-{0}', github.run_id)");
     },
   );
@@ -662,6 +691,84 @@ describe('the deploy scope never skips a deploy that should happen', () => {
         shippedStep: rolled.name,
       }),
     ).toBe(false);
+  });
+
+  it('ships the newest green commit, passing over commits CI never ran on', () => {
+    const { chooseTarget } = scopeModule;
+    type CiRun = { status: string; conclusion?: string | null };
+    const done = (conclusion: string): CiRun => ({ status: 'completed', conclusion });
+    // A GITHUB_TOKEN automerge (no CI run) on top of a green commit: the green
+    // one ships. The tip-only rule left it stranded (Alia).
+    expect(
+      chooseTarget({ commits: ['bot', 'green'], ciRuns: new Map([['green', done('success')]]) }),
+    ).toEqual({ action: 'deploy', target: 'green', failedNewer: [] });
+    // A newer commit whose CI is still running HOLDS: its completion deploys.
+    for (const status of ['queued', 'in_progress']) {
+      expect(
+        chooseTarget({
+          commits: ['newer', 'green'],
+          ciRuns: new Map<string, CiRun>([
+            ['newer', { status }],
+            ['green', done('success')],
+          ]),
+        }).action,
+      ).toBe('hold');
+    }
+    // A newer green commit is the target, never the older one that triggered.
+    expect(
+      chooseTarget({
+        commits: ['newer', 'older'],
+        ciRuns: new Map([
+          ['newer', done('success')],
+          ['older', done('success')],
+        ]),
+      }).target,
+    ).toBe('newer');
+    // A newer RED commit is passed over and reported, never shipped.
+    expect(
+      chooseTarget({
+        commits: ['red', 'bot', 'green'],
+        ciRuns: new Map([
+          ['red', done('failure')],
+          ['green', done('success')],
+        ]),
+      }),
+    ).toEqual({ action: 'deploy', target: 'green', failedNewer: ['red'] });
+    // Nothing green in reach is not a deploy of anything.
+    expect(
+      chooseTarget({ commits: ['red'], ciRuns: new Map([['red', done('cancelled')]]) }).action,
+    ).toBe('none');
+  });
+
+  it('reads the shipped commit from the run, not from its head', () => {
+    const { shippedCommit, SHIPPED_COMMIT_PREFIX } = scopeModule;
+    const shipped = 'a'.repeat(40);
+    const head = 'b'.repeat(40);
+    const jobs = [
+      {
+        name: 'deploy-app',
+        conclusion: 'success',
+        steps: [{ name: `${SHIPPED_COMMIT_PREFIX}${shipped}`, conclusion: 'success' }],
+      },
+    ];
+    expect(shippedCommit({ run: { head_sha: head }, jobs, shippingJob: 'deploy-app' })).toBe(
+      shipped,
+    );
+    // Runs from before the statement shipped their own head.
+    expect(
+      shippedCommit({
+        run: { head_sha: head },
+        jobs: [{ name: 'deploy-app', conclusion: 'success', steps: [] }],
+        shippingJob: 'deploy-app',
+      }),
+    ).toBe(head);
+    expect(
+      shippedCommit({
+        run: { head_sha: head },
+        jobs: [{ name: 'deploy-app', conclusion: 'skipped' }],
+        shippingJob: 'deploy-app',
+      }),
+    ).toBeNull();
   });
 
   it.each(GATED_DEPLOY_WORKFLOWS)(

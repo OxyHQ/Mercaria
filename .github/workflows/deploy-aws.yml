@@ -92,16 +92,17 @@ on:
 # while the evictor SUCCEEDS — which nothing asserted, and which is now
 # `deploy-coverage.yml`'s job.
 #
-# THE EVICTOR IS STILL A DESCENDANT UNDER `workflow_run`, and that needed two
-# things. CI runs complete out of order (4 in 100 pushes measured), and a
-# `workflow_run` run's `head_sha` is `main`'s tip when the event fired, not the
-# commit CI verified. So a run deploys only when the two are EQUAL (the gate's
-# `if:`); a superseded run skips every job — and the `-noop-<run id>` suffix
-# below, the same predicate negated, keeps it out of this group, so it can
-# never evict a queued real deploy. Every run that can deploy uses exactly
-# `deploy-aws-<ref>`, and arrives in push order of the commit it ships.
+# EVICTION STAYS HARMLESS UNDER `workflow_run`, for a different reason. CI
+# runs complete out of order (4 in 100 pushes measured), so arrival order is
+# no longer push order. But no run ships "the commit whose CI triggered it":
+# the gate resolves, WHEN IT EXECUTES, the newest CI-green commit on `main`
+# (passing over commits with no CI run, holding while a newer one's CI is in
+# flight). Whichever run survives the queue therefore ships at least what the
+# evicted one would have. The `-noop-<run id>` suffix below only keeps runs
+# that can never deploy (a CI run that was not a push to this repository's
+# `main`) out of this group.
 concurrency:
-  group: deploy-aws-${{ github.ref }}${{ github.event_name == 'workflow_run' && (github.event.workflow_run.event != 'push' || github.event.workflow_run.head_repository.full_name != github.repository || github.event.workflow_run.head_sha != github.sha) && format('-noop-{0}', github.run_id) || '' }}
+  group: deploy-aws-${{ github.ref }}${{ github.event_name == 'workflow_run' && (github.event.workflow_run.event != 'push' || github.event.workflow_run.head_repository.full_name != github.repository) && format('-noop-{0}', github.run_id) || '' }}
   cancel-in-progress: false
 
 permissions:
@@ -126,9 +127,6 @@ env:
   # install it). The matching DATABASE_URL is already live in SSM
   # /oxy/mercaria/DATABASE_URL → task definition oxy-mercaria:2.
   PG_DATABASE: mercaria
-  # The commit CI just verified. Equal to `github.sha` on every run that
-  # deploys: the gate's `if:` skips a run whose CI finished after a newer merge.
-  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   # WHAT IS VERIFIED BEFORE THE API SHIPS: the whole of `ci.yml` — the ten
@@ -168,22 +166,21 @@ jobs:
   # the job it `needs:` and touches no Postgres.
   gate:
     name: CI passed for this commit
-    # A dispatch, or a `ci.yml` run for a PUSH to THIS repository's `main` whose
-    # commit is still the tip — see the concurrency note above for why a
-    # superseded one must not deploy. A CI run that FAILED is not filtered
-    # here on purpose: the gate runs and refuses, so a red commit stays a red
-    # deploy run that `deploy-coverage.yml` reports, as before.
+    # A dispatch, or any `ci.yml` run for a PUSH to THIS repository's `main`.
+    # The commit shipped is the newest CI-green commit on `main` at run time,
+    # resolved by the scope step — see the concurrency note above.
     if: >-
       github.event_name == 'workflow_dispatch' || (
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.head_sha == github.sha)
+      github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     # Nothing waits here any more: the verdict exists before this run does.
     timeout-minutes: 10
     outputs:
       deploy: ${{ steps.scope.outputs.deploy }}
+      target: ${{ steps.scope.outputs.target }}
+      tip_failed: ${{ steps.scope.outputs.tip_failed }}
     # Job-level, which REPLACES the workflow-level block for this job rather than
     # adding to it. That is the point: the gate needs `actions: read` to ask what
     # `ci.yml` concluded, and it must NOT hold `id-token: write` — an API read has
@@ -193,17 +190,9 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ env.DEPLOY_SHA }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24.20.0'
-      # Asked ONCE: every required job present and `success` on the newest
-      # attempt for this sha — stricter than `workflow_run.conclusion`.
-      - name: Require a green CI run for this commit
-        run: node .github/scripts/require-ci-success.mjs --sha="$DEPLOY_SHA" --no-wait
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # The old `paths-ignore`, diffed against the last commit whose rollout a
       # run of this workflow PERFORMED — never the previous push, so a skipped
       # run can never hide a failed, evicted or hollow one. Any doubt answers
@@ -219,26 +208,41 @@ jobs:
           DEPLOY_PATHS_IGNORE: |
             **.md
             docs/**
+      # Asked ONCE, of the TARGET: every required job present and `success` on
+      # the newest attempt for that sha — stricter than a run-level conclusion.
+      - name: Require a green CI run for this commit
+        if: steps.scope.outputs.target != ''
+        run: node .github/scripts/require-ci-success.mjs --sha="$TARGET" --no-wait
+        env:
+          TARGET: ${{ steps.scope.outputs.target }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # The statement a no-op run makes, read by `require-deploy-coverage.mjs`
       # (`DEPLOY_NOOP_STEP`). Without it the newest run of this workflow on a
       # docs-only merge would state nothing and read as a hollow green. It is
       # truthful because the scope base is the last PERFORMED rollout: nothing
       # deployable changed since production last moved.
       - name: 'Outcome: nothing to ship — production already has every deployable change'
-        if: steps.scope.outputs.deploy != 'true'
+        if: steps.scope.outputs.deploy != 'true' && steps.scope.outputs.held != 'true'
         run: |
           echo "no deployable change since the last rollout; deploy job skipped"
           echo '- **nothing to ship**: no deployable change since the last performed rollout.' >> "$GITHUB_STEP_SUMMARY"
+      # A HELD run (a newer commit's CI is still running; its completion
+      # deploys) states that too, so `require-deploy-coverage.mjs` DEFERS on it
+      # (`DEPLOY_HELD_STEP`) instead of reading a hollow green.
+      - name: 'Outcome: held — a newer commit has CI still running'
+        if: steps.scope.outputs.held == 'true'
+        run: echo "held; the newer commit's CI completion triggers the next deploy"
 
   deploy:
     needs: gate
-    # The literal `workflow_run` guard on the job that holds the credential, in
-    # addition to the gate's refusal: nothing here ships a commit whose CI did
-    # not conclude `success`.
-    if: >-
-      needs.gate.outputs.deploy == 'true' && (
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success')
+    # `deploy` is true only after the gate verified `target`'s CI job by job
+    # (`require-ci-success.mjs`), so nothing here ships a commit whose CI did
+    # not pass. There is deliberately no `workflow_run.conclusion` clause: the
+    # run triggered by a RED commit's CI must still ship the newest green one
+    # beneath it, or a green commit held behind it would be stranded.
+    if: needs.gate.outputs.deploy == 'true'
+    env:
+      DEPLOY_SHA: ${{ needs.gate.outputs.target }}
     # Native arm64, matching the image this job builds.
     #
     # A CORRECTED RECORD, written down so the wrong version is not re-derived:
@@ -263,7 +267,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.DEPLOY_SHA }}
+          ref: ${{ needs.gate.outputs.target }}
 
       - name: Configure AWS credentials (OIDC, no stored keys)
         uses: aws-actions/configure-aws-credentials@v6
@@ -742,3 +746,27 @@ jobs:
         run: |
           echo "no rollout happened — the image is in ECR and is NOT being served"
           echo '- **rollout NOT performed**: the image is in ECR and is NOT being served.' >> "$GITHUB_STEP_SUMMARY"
+
+      # What is now SERVED, by step NAME — the only channel
+      # `/actions/runs/{id}/jobs` returns, since this run's `head_sha` is the tip
+      # when it fired and not necessarily the commit built here.
+      # `resolve-deploy-scope.mjs` reads it as the next run's diff base.
+      - name: Shipped commit ${{ needs.gate.outputs.target }}
+        if: steps.rollout.outputs.performed == 'true'
+        run: echo "serving $DEPLOY_SHA"
+
+  # Red when a commit NEWER than the one shipped has a CI run that did not
+  # succeed. The newest green commit still ships above; this keeps the red one
+  # a red deploy run, which is what `deploy-coverage.yml` reports — exactly as
+  # a refusing gate did before `workflow_run`.
+  tip:
+    name: Newer commits on main passed CI
+    needs: [gate, deploy]
+    if: ${{ !cancelled() && needs.gate.outputs.tip_failed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report the commit(s) above the shipped one whose CI failed
+        run: |
+          echo "::error::A commit on main newer than the one this run shipped has a CI run that did not succeed. See the gate's log for which; it ships once a fix lands."
+          exit 1

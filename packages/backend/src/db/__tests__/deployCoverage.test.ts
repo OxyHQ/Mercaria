@@ -80,7 +80,7 @@ interface OutcomeStep {
   conclusion?: string | null;
 }
 interface OutcomeVerdict {
-  state: 'shipped' | 'current' | 'hollow' | 'unstated' | 'contradictory' | 'unreadable';
+  state: 'shipped' | 'current' | 'held' | 'hollow' | 'unstated' | 'contradictory' | 'unreadable';
   jobCount: number;
   stepCount: number;
   halves: { half: string; absentMeans: string; verdict: string }[];
@@ -97,6 +97,7 @@ const coverage: {
   DEPLOY_WORKFLOWS: readonly WatchedWorkflow[];
   DEPLOY_OUTCOME_STEPS: readonly OutcomeHalfSteps[];
   DEPLOY_NOOP_STEP: string;
+  DEPLOY_HELD_STEP: string;
   POST_PHASE_MARKER: string;
   MIGRATIONS_PATH: string;
   DEFAULT_STALE_RUN_MS: number;
@@ -804,11 +805,27 @@ describe('judgeDeployOutcome refuses every green it did not read a statement fro
     expect(coverage.judgeDeployOutcome({ jobs: both }).state).toBe('contradictory');
   });
 
-  it('the API deploy declares the no-op statement by the name the check reads', () => {
+  it('reads a lone HELD statement as held, and never beside anything else', () => {
+    const held = [{ steps: [{ name: coverage.DEPLOY_HELD_STEP, conclusion: 'success' }] }];
+    expect(coverage.judgeDeployOutcome({ jobs: held }).state).toBe('held');
+    const both = [
+      {
+        steps: [
+          { name: coverage.DEPLOY_HELD_STEP, conclusion: 'success' },
+          { name: coverage.DEPLOY_NOOP_STEP, conclusion: 'success' },
+        ],
+      },
+    ];
+    expect(coverage.judgeDeployOutcome({ jobs: both }).state).toBe('contradictory');
+  });
+
+  it('the API deploy declares the no-op and held statements by the names the check reads', () => {
     const names = declaredStepNames('deploy-aws.yml');
-    expect(names.filter((name) => name === coverage.DEPLOY_NOOP_STEP)).toHaveLength(1);
-    // Not one of the pair's names, or a no-op could satisfy a half.
-    expect(OUTCOME_STEP_NAMES).not.toContain(coverage.DEPLOY_NOOP_STEP);
+    for (const statement of [coverage.DEPLOY_NOOP_STEP, coverage.DEPLOY_HELD_STEP]) {
+      expect(names.filter((name) => name === statement)).toHaveLength(1);
+      // Not one of the pair's names, or a statement could satisfy a half.
+      expect(OUTCOME_STEP_NAMES).not.toContain(statement);
+    }
   });
 
   it('refuses a half-stated run', () => {
