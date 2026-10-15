@@ -131,7 +131,7 @@ export function MerchantCard({ merchant, onPressMerchant, onPressProduct }: Merc
                 any merchant cover. */}
             <Rating
               {...ratingDisplay({ rating: merchant.rating, reviews: merchant.reviewCount })}
-              size="small"
+              size="sm"
               color={toneColor}
               style={{ marginTop: 2 }}
             />

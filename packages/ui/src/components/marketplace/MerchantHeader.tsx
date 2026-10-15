@@ -81,10 +81,7 @@ function HeaderRating({
 }) {
   const ratingDisplay = useRatingDisplay();
   return (
-    <Rating
-      {...ratingDisplay({ rating, reviews: reviewCount, subject: scopeLabel })}
-      size="small"
-    />
+    <Rating {...ratingDisplay({ rating, reviews: reviewCount, subject: scopeLabel })} size="sm" />
   );
 }
 

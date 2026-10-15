@@ -176,7 +176,7 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
               rating: store.rating,
               reviews: store.reviewCount,
             })}
-            size="small"
+            size="sm"
             color={toneColor}
             style={{ marginTop: 2 }}
           />
