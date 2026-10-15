@@ -1028,8 +1028,8 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
       </View>
 
       <AlertDialog
-        visible={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
         title={t('channels.disconnect.confirmTitle', {
           provider: t(PROVIDER_NAME_KEYS[connection.provider]),
         })}
@@ -1234,8 +1234,8 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
       </Pressable>
 
       <AlertDialog
-        visible={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
         title={t('channels.keys.revokeConfirmTitle')}
         description={t('channels.keys.revokeConfirmBody', { label: apiKey.label })}
         confirmLabel={t('channels.keys.revoke')}

@@ -134,7 +134,7 @@ export function CanonicalProductCard({
         {product.rating === undefined ? null : (
           <Rating
             {...ratingDisplay({ rating: product.rating.value, reviews: product.rating.count })}
-            size="small"
+            size="sm"
           />
         )}
 
