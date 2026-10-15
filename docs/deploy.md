@@ -62,47 +62,56 @@ SUCCEEDED, leaving a green commit unshipped.
 All four now trigger on `workflow_run` of `CI` (`types: [completed]`,
 `branches: [main]`) plus `workflow_dispatch`. What each run does:
 
-1. **The `gate` job's `if:` admits only a `ci.yml` run for a `push` to THIS
-   repository's `main` whose `head_sha` is still `github.sha`.** A
-   `workflow_run` run's own `head_sha` is `main`'s tip when the event fired,
-   NOT the commit CI verified (measured: a coverage run triggered by the deploy
-   of `246ecab3` carried `ebef16a9`). CI runs finish out of order (4 of the
-   last 100 pushes), so shipping the verified commit regardless would roll
-   production back and make every run-anchored report below misread what is
-   live. A superseded run skips every job, concludes `skipped`, and the newer
-   commit's own CI completion deploys it. A CI run that FAILED is not filtered
-   out: the gate runs and refuses, so a red commit stays a red deploy run.
-2. **`require-ci-success.mjs --no-wait`** asks once — every required job
-   present and `success` on the newest attempt for the sha, which is stricter
-   than `workflow_run.conclusion`. On a dispatch whose CI has not concluded it
-   refuses instead of waiting.
-3. **`resolve-deploy-scope.mjs`** rebuilds the old `paths:`/`paths-ignore:`
-   from a diff. The base is the last commit a run of this workflow actually
-   SHIPPED — the shipping job `success`, and for the API the `Outcome: rollout
-   performed` step — never the previous push, so a skip can never hide a
-   failed, evicted, cancelled or hollow deploy: the next run covers everything
-   since production last moved. Every doubt (no base, an API error, a diverged
-   history, a truncated file list) answers DEPLOY; the only skips are a
-   complete diff that touches nothing in scope and an identical tree. A
-   dispatch always deploys.
-4. **The shipping job** carries the literal guard
-   `github.event.workflow_run.conclusion == 'success'` beside
-   `needs.gate.outputs.deploy == 'true'`, and checks out
-   `workflow_run.head_sha` (equal to `github.sha` by rule 1).
+1. **The `gate` job's `if:` admits any `ci.yml` run for a `push` to THIS
+   repository's `main`;** anything else skips every job (`skipped`, ignored
+   by coverage) in its own `-noop-<run id>` concurrency group.
+2. **`resolve-deploy-scope.mjs` resolves the TARGET at run time: the newest
+   CI-green commit on `main`.** Not the commit whose CI completion fired the
+   run, and not "the tip or nothing". Walking `main` from the tip:
+   - a commit with **no `ci.yml` run** is passed over. A merge made with
+     `GITHUB_TOKEN` (`automerge-first-party.yml`'s dependabot merges) starts
+     no workflow at all, so it never gets one, and a tip-only rule strands the
+     green commit beneath it forever — the failure Alia hit. (#1077 shipped
+     that tip-only rule for a few hours; this replaced it.)
+   - a commit whose CI is **queued or in progress HOLDS** the run: that CI's
+     completion fires this workflow again.
+   - a commit whose CI **failed** is passed over and reported: the newest green
+     commit beneath it still ships, and the run's `tip` job goes red, so the
+     red commit stays a red deploy run for `deploy-coverage.yml`, as a refusing
+     gate was before.
+
+   It then rebuilds the old `paths:`/`paths-ignore:` from a diff of the target
+   against the last commit a run of this workflow actually SHIPPED — read from
+   the shipping job's `Shipped commit <sha>` step (a `workflow_run` run's own
+   `head_sha` is `main`'s tip when the event fired, not what it built:
+   measured, a coverage run fired by the deploy of `246ecab3` carried
+   `ebef16a9`), and for the API only from a run whose `Outcome: rollout
+   performed` ran. Never the previous push, so a skip can never hide a failed,
+   evicted, cancelled or hollow deploy. Every doubt (no base, an API error, a
+   diverged history, a truncated file list) answers DEPLOY; the only skips are
+   a complete diff that touches nothing in scope and an identical tree. A
+   dispatch ships exactly the commit it names.
+3. **`require-ci-success.mjs --sha=<target> --no-wait`** asks once — every
+   required job present and `success` on the newest attempt for the target —
+   so nothing ships whose CI did not pass, whatever fired the run. On a
+   dispatch whose CI has not concluded it refuses instead of waiting.
+4. **The shipping job** runs on `needs.gate.outputs.deploy == 'true'` alone and
+   checks out the target. There is deliberately no
+   `workflow_run.conclusion == 'success'` clause: the run fired by a RED
+   commit's CI must still ship the green one beneath it.
 
 Two consequences that are deliberate:
 
-- **Concurrency.** A run that cannot deploy (rule 1 negated) takes a
-  `-noop-<run id>` suffix on its group, so it neither cancels a web deploy in
-  flight nor evicts the API's queued one. Every deploying run uses exactly the
-  old group, and since it ships its own event's tip, the evictor of a queued
-  API deploy is still a DESCENDANT — the property §"What is merged is asserted
-  to have shipped" rests on. `deployGating.test.ts` pins the suffix and asserts
-  the API's group with it removed is exactly `deploy-aws-${{ github.ref }}`.
-- **A superseded commit ships with its successor.** If the successor's CI then
-  fails, nothing ships until it is fixed; before, the earlier green commit
-  would have shipped alone. The successor's red gate run is what
-  `deploy-coverage.yml` reports.
+- **Concurrency.** Settings and groups are unchanged, and every run for a push
+  to `main` shares the real group. CI completes out of order (4 of the last
+  100 pushes), so arrival order is no longer push order — but because each run
+  resolves the newest green commit WHEN IT EXECUTES, whichever run survives an
+  eviction (API) or a cancellation (web) ships at least what the displaced one
+  would have. `deployGating.test.ts` asserts the API's group with the noop
+  suffix removed is exactly `deploy-aws-${{ github.ref }}`.
+- **A HELD run is green.** For the API it says so (`Outcome: held — …`), and
+  `deploy-coverage.yml` defers on it like a run in flight; for the web deploys
+  the newest run reads green until the newer commit's run lands.
 
 The cost moved rather than vanished: every green CI on `main` now starts all
 four workflows, and a commit that reaches none of them costs four ~20-second
@@ -289,9 +298,9 @@ the condition this check asserts.
   does not reach ships nothing and says so (a green run for the web deploys;
   for the API the gate's `Outcome: nothing to ship — …` step, read as
   `current`, which is truthful because its scope base is the last PERFORMED
-  rollout). A SUPERSEDED run concludes `skipped` and is ignored: the newer
-  commit's own run answers. A gate that refused a red CI is `failure` and still
-  counts.
+  rollout). A held run defers. A run that is not for a push to `main`
+  concludes `skipped` and is ignored. A run with a red commit above its target
+  is `failure` and still counts.
 - **Coverage is ordered by `run_number`, never by completion time.** An evicted
   run completes in seconds while the run it queued behind takes fifteen minutes,
   so a completion-order sort puts the success ABOVE cancellations it did not

@@ -1,6 +1,24 @@
 #!/usr/bin/env node
 /**
- * Does this commit change what this deploy workflow ships?
+ * WHICH commit does this deploy ship, and does it change what this workflow
+ * ships?
+ *
+ * ## The target is the newest CI-green commit on `main`, resolved at run time
+ *
+ * Not the commit whose CI completion triggered the run, and not "the tip or
+ * nothing". Walking `main` from the tip: a commit with NO `ci.yml` run is passed
+ * over — a merge made with `GITHUB_TOKEN` (automerge-first-party.yml's
+ * dependabot merges) starts no workflow at all, so it never gets one, and
+ * "only the tip deploys" would strand the green commit beneath it forever (the
+ * failure Alia hit). A commit whose CI is QUEUED or IN PROGRESS holds the run:
+ * that run's completion triggers this workflow again. A commit whose CI FAILED
+ * is passed over and reported (`tip_failed`), so the newest green commit still
+ * ships while the red one stays visible. The first green commit found is the
+ * target, and `require-ci-success.mjs` then verifies it job by job.
+ *
+ * Resolving at run time is also what makes eviction and cancellation harmless:
+ * whichever run of the concurrency group actually executes ships the newest
+ * green commit as of then, so a run that displaced another never ships less.
  *
  * ## Why this exists
  *
@@ -25,9 +43,9 @@
  *
  * ## Every doubt resolves to DEPLOY
  *
- * This script decides only whether to SKIP work; it never decides whether a
- * commit is fit to ship — `require-ci-success.mjs` runs before it and refuses
- * on its own. So the safe answer to "I could not tell" is to deploy: no base
+ * The scope half decides only whether to SKIP work; it never decides whether
+ * a commit is fit to ship — `require-ci-success.mjs` verifies the target after
+ * this and refuses on its own. So the safe answer to "I could not tell" is to deploy: no base
  * found, an API error, a diverged history or a truncated file list all print
  * why and answer `deploy=true`. The only `false` answers are a diff that was
  * read COMPLETELY and touches nothing in scope, and an identical tree (a CI
@@ -36,6 +54,17 @@
 
 import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+
+/**
+ * The prefix of the step name a shipping job states its commit in. A step NAME
+ * because it is the one thing `/actions/runs/{id}/jobs` returns (see
+ * `require-deploy-coverage.mjs` §DEPLOY_OUTCOME_STEPS); a run's own `head_sha`
+ * is `main`'s tip when the event fired, which is not necessarily what shipped.
+ */
+export const SHIPPED_COMMIT_PREFIX = 'Shipped commit ';
+
+/** How far down `main` to look for a CI-green commit. */
+const MAX_COMMITS = 30;
 
 /** How many successful runs to inspect for the last real shipment. */
 const MAX_BASE_CANDIDATES = 25;
@@ -112,6 +141,42 @@ export function runShipped({ jobs, shippingJob, shippedStep }) {
 }
 
 /**
+ * The commit a run SHIPPED, or null. Its `Shipped commit <sha>` statement when
+ * it has one; otherwise its `head_sha`, which is exact for every run made
+ * before the statement existed (push-triggered, or `workflow_run` runs that
+ * shipped only their own tip). Pure, for the tests.
+ */
+export function shippedCommit({ run, jobs, shippingJob, shippedStep }) {
+  if (!runShipped({ jobs, shippingJob, shippedStep })) return null;
+  const job = jobs.find((candidate) => candidate.name === shippingJob);
+  const stated = (job.steps ?? []).find(
+    (step) => step.name?.startsWith(SHIPPED_COMMIT_PREFIX) && step.conclusion === 'success',
+  );
+  const sha = stated ? stated.name.slice(SHIPPED_COMMIT_PREFIX.length).trim() : run.head_sha;
+  return /^[0-9a-f]{40}$/u.test(sha ?? '') ? sha : null;
+}
+
+/**
+ * The target, walking `main` newest first. Pure, for the tests.
+ *
+ * `ciRuns` maps a sha to its newest push-event `ci.yml` run. Returns
+ * `{ action: 'deploy', target, failedNewer }`, `{ action: 'hold', pending }` or
+ * `{ action: 'none', failedNewer }`.
+ */
+export function chooseTarget({ commits, ciRuns }) {
+  const failedNewer = [];
+  for (const sha of commits) {
+    const run = ciRuns.get(sha);
+    // No CI run at all: a GITHUB_TOKEN merge. Never a reason to hold.
+    if (!run) continue;
+    if (run.status !== 'completed') return { action: 'hold', pending: sha, failedNewer };
+    if (run.conclusion === 'success') return { action: 'deploy', target: sha, failedNewer };
+    failedNewer.push(sha);
+  }
+  return { action: 'none', failedNewer };
+}
+
+/**
  * The decision, given the compare result against the last shipped commit.
  * Pure, for the tests. Returns `{ deploy, reason }`.
  */
@@ -185,45 +250,93 @@ async function findLastShipped({
       `/repos/${repository}/actions/runs/${run.id}/jobs?per_page=100`,
       token,
     );
-    if (runShipped({ jobs, shippingJob, shippedStep })) return run;
+    const sha = shippedCommit({ run, jobs, shippingJob, shippedStep });
+    if (sha) return { run, sha };
   }
   return null;
+}
+
+async function readCiRuns({ repository, token }) {
+  const payload = await api(
+    `/repos/${repository}/actions/workflows/ci.yml/runs?branch=main&event=push&per_page=100`,
+    token,
+  );
+  const bySha = new Map();
+  const newestFirst = [...(payload.workflow_runs ?? [])].sort(
+    (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at),
+  );
+  for (const run of newestFirst) if (!bySha.has(run.head_sha)) bySha.set(run.head_sha, run);
+  return bySha;
 }
 
 async function main() {
   const env = process.env;
   const repository = env.GITHUB_REPOSITORY;
-  const sha = env.DEPLOY_SHA;
+  const tip = env.GITHUB_SHA;
   const token = env.GITHUB_TOKEN;
   const include = patternList(env.DEPLOY_PATHS);
   const exclude = patternList(env.DEPLOY_PATHS_IGNORE);
 
-  const write = (deploy, reason, base = '') => {
-    console.log(`${deploy ? 'DEPLOY' : 'SKIP'}: ${reason}`);
+  const output = (values) => {
     if (env.GITHUB_OUTPUT) {
-      appendFileSync(env.GITHUB_OUTPUT, `deploy=${deploy}\nbase=${base}\n`);
-    }
-    if (env.GITHUB_STEP_SUMMARY) {
       appendFileSync(
-        env.GITHUB_STEP_SUMMARY,
-        `- **${deploy ? 'deploying' : 'nothing to ship'}**: ${reason}\n`,
+        env.GITHUB_OUTPUT,
+        Object.entries(values)
+          .map(([key, value]) => `${key}=${value}\n`)
+          .join(''),
       );
     }
+  };
+  const summary = (line) => {
+    console.log(line);
+    if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `- ${line}\n`);
   };
 
   // Validate the configuration before anything can short-circuit, so a broken
   // pattern list fails every run rather than only the ones that reach the diff.
   touchesScope({ files: [], include, exclude });
 
-  if (!repository || !sha || !env.WORKFLOW_FILE || !env.SHIPPING_JOB) {
+  if (!repository || !tip || !env.WORKFLOW_FILE || !env.SHIPPING_JOB) {
     throw new Error(
-      'resolve-deploy-scope: GITHUB_REPOSITORY, DEPLOY_SHA, WORKFLOW_FILE and SHIPPING_JOB are required',
+      'resolve-deploy-scope: GITHUB_REPOSITORY, GITHUB_SHA, WORKFLOW_FILE and SHIPPING_JOB are required',
     );
   }
   if (env.GITHUB_EVENT_NAME === 'workflow_dispatch') {
-    write(true, 'a manual dispatch always deploys');
+    summary(`DEPLOY ${tip}: a manual dispatch always deploys the commit it names`);
+    output({ target: tip, deploy: true, held: false, tip_failed: false, base: '' });
     return;
   }
+
+  // No catch here: a target that cannot be resolved must not be guessed, so an
+  // API failure is a red gate rather than a deploy of the wrong commit.
+  const [{ commits }, ciRuns] = await Promise.all([
+    api(`/repos/${repository}/commits?sha=${tip}&per_page=${MAX_COMMITS}`, token).then((list) => ({
+      commits: list.map((commit) => commit.sha),
+    })),
+    readCiRuns({ repository, token }),
+  ]);
+  const choice = chooseTarget({ commits, ciRuns });
+  const tipFailed = choice.failedNewer.length > 0;
+  if (tipFailed) {
+    console.log(
+      `::warning::newer commit(s) on main whose CI did not succeed: ${choice.failedNewer.join(', ')}`,
+    );
+  }
+  if (choice.action === 'hold') {
+    summary(
+      `HOLD: ${choice.pending}, newer than any green commit, has a CI run that has not concluded; ` +
+        'its completion triggers this workflow again',
+    );
+    output({ target: '', deploy: false, held: true, tip_failed: false, base: '' });
+    return;
+  }
+  if (choice.action === 'none') {
+    throw new Error(
+      `resolve-deploy-scope: no commit among the newest ${MAX_COMMITS} on main has a green CI run`,
+    );
+  }
+  const { target } = choice;
+  console.log(`target: ${target}${target === tip ? ' (the tip)' : ` (tip is ${tip})`}`);
 
   let base = null;
   let comparison = null;
@@ -236,16 +349,21 @@ async function main() {
       shippedStep: env.SHIPPED_STEP || '',
       token,
     });
-    base = shipped?.head_sha ?? null;
-    if (shipped) console.log(`last shipped by run ${shipped.id}: ${base} — ${shipped.html_url}`);
+    base = shipped?.sha ?? null;
+    if (shipped)
+      console.log(`last shipped by run ${shipped.run.id}: ${base} — ${shipped.run.html_url}`);
     if (base) {
-      comparison = await api(`/repos/${repository}/compare/${base}...${sha}?per_page=100`, token);
+      comparison = await api(
+        `/repos/${repository}/compare/${base}...${target}?per_page=100`,
+        token,
+      );
     }
   } catch (error) {
     console.log(`::warning::could not resolve the deploy scope (${error.message}); deploying`);
   }
   const { deploy, reason } = decide({ base, comparison, include, exclude });
-  write(deploy, reason, base ?? '');
+  summary(`${deploy ? 'DEPLOY' : 'SKIP'} ${target}: ${reason}`);
+  output({ target, deploy, held: false, tip_failed: tipFailed, base: base ?? '' });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

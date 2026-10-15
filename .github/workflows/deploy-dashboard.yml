@@ -40,53 +40,39 @@ permissions:
 # `wrangler deploy` is safe, and why the group must be keyed PER APP rather than
 # shared — is written out once in `deploy-cloudflare.yml`.
 concurrency:
-  group: deploy-dashboard-${{ github.ref }}${{ github.event_name == 'workflow_run' && (github.event.workflow_run.event != 'push' || github.event.workflow_run.head_repository.full_name != github.repository || github.event.workflow_run.head_sha != github.sha) && format('-noop-{0}', github.run_id) || '' }}
+  group: deploy-dashboard-${{ github.ref }}${{ github.event_name == 'workflow_run' && (github.event.workflow_run.event != 'push' || github.event.workflow_run.head_repository.full_name != github.repository) && format('-noop-{0}', github.run_id) || '' }}
   cancel-in-progress: true
-
-# The commit CI just verified. Equal to `github.sha` on every run that deploys:
-# the gate's `if:` skips a run whose CI finished after a newer merge landed.
-env:
-  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   gate:
     name: CI passed for this commit
-    # Runs on a dispatch, or on a `ci.yml` run for a PUSH to THIS repository's
-    # `main` whose commit is still the tip. A run of CI that finished after a
-    # newer merge landed is superseded: this workflow's run carries the newer
-    # commit as its `head_sha`, so shipping the older one would misreport
-    # what is live and could roll production back. Such a run skips every job
-    # (conclusion `skipped`, which `require-deploy-coverage.mjs` ignores) and
-    # sits in its own concurrency group, so it can neither cancel nor evict a
-    # real deploy; the newer commit's own CI completion deploys it.
+    # Runs on a dispatch, or on any `ci.yml` run for a PUSH to THIS
+    # repository's `main`; anything else skips every job (conclusion `skipped`,
+    # which `require-deploy-coverage.mjs` ignores) in its own concurrency group.
     #
-    # A CI run that FAILED is not filtered here on purpose: the gate runs and
-    # refuses, so a red commit on `main` stays a red deploy run, exactly as it
-    # was before `workflow_run`.
+    # The commit it ships is NOT necessarily the one whose CI just finished:
+    # the scope step resolves the newest CI-green commit on `main` at run time
+    # (a commit with no CI run, such as a GITHUB_TOKEN automerge, is passed
+    # over; one whose CI is still running HOLDS the run, and its completion
+    # triggers this workflow again). So whichever run executes ships the newest
+    # verified code, and a run cancelled by a newer one loses nothing.
     if: >-
       github.event_name == 'workflow_dispatch' || (
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
-      github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.head_sha == github.sha)
+      github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     # Nothing here waits any more: CI has concluded before this run exists.
     timeout-minutes: 10
     outputs:
       deploy: ${{ steps.scope.outputs.deploy }}
+      target: ${{ steps.scope.outputs.target }}
+      tip_failed: ${{ steps.scope.outputs.tip_failed }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ env.DEPLOY_SHA }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24.20.0'
-      # Asked ONCE: every required job present and `success` on the newest
-      # attempt for this sha — stricter than `workflow_run.conclusion`.
-      - name: Require a green CI run for this commit
-        run: node .github/scripts/require-ci-success.mjs --sha="$DEPLOY_SHA" --no-wait
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # The old `on.push.paths`, diffed against the last commit this workflow
       # SHIPPED (not the previous push), so a skipped run can never hide one
       # that failed. Any doubt answers `deploy=true`.
@@ -106,6 +92,14 @@ jobs:
             packages/shared-types/**
             package.json
             bun.lock
+      # Asked ONCE, of the TARGET: every required job present and `success` on
+      # the newest attempt for that sha — stricter than a run-level conclusion.
+      - name: Require a green CI run for this commit
+        if: steps.scope.outputs.target != ''
+        run: node .github/scripts/require-ci-success.mjs --sha="$TARGET" --no-wait
+        env:
+          TARGET: ${{ steps.scope.outputs.target }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # The Expo export needs no secret, only the public EXPO_PUBLIC_* build config,
   # and ships nothing. It used to run WHILE the gate polled for ci.yml; now
@@ -119,7 +113,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.DEPLOY_SHA }}
+          ref: ${{ needs.gate.outputs.target }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24.20.0'
@@ -154,13 +148,14 @@ jobs:
 
   deploy-dashboard:
     needs: [gate, build]
-    # The literal `workflow_run` guard on the job that holds the credential, in
-    # addition to the gate's refusal: nothing here ships a commit whose CI did
-    # not conclude `success`.
-    if: >-
-      needs.gate.outputs.deploy == 'true' && (
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success')
+    # `deploy` is true only after the gate verified `target`'s CI job by job
+    # (`require-ci-success.mjs`), so nothing here ships a commit whose CI did
+    # not pass. There is deliberately no `workflow_run.conclusion` clause: the
+    # run triggered by a RED commit's CI must still ship the newest green one
+    # beneath it, or a green commit held behind it would be stranded.
+    if: needs.gate.outputs.deploy == 'true'
+    env:
+      DEPLOY_SHA: ${{ needs.gate.outputs.target }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -170,7 +165,7 @@ jobs:
       # own exactly as it did after the install (wrangler is not in bun.lock).
       - uses: actions/checkout@v7
         with:
-          ref: ${{ env.DEPLOY_SHA }}
+          ref: ${{ needs.gate.outputs.target }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.3'
@@ -184,3 +179,23 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # What shipped, by step NAME — the only channel `/actions/runs/{id}/jobs`
+      # returns. `resolve-deploy-scope.mjs` reads it as the next run's diff base.
+      - name: Shipped commit ${{ needs.gate.outputs.target }}
+        run: echo "shipped $DEPLOY_SHA"
+
+  # Red when a commit NEWER than the one shipped has a CI run that did not
+  # succeed. The newest green commit still ships above; this keeps the red one
+  # a red deploy run, which is what `deploy-coverage.yml` reports — exactly as
+  # a refusing gate did before `workflow_run`.
+  tip:
+    name: Newer commits on main passed CI
+    needs: [gate, deploy-dashboard]
+    if: ${{ !cancelled() && needs.gate.outputs.tip_failed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report the commit(s) above the shipped one whose CI failed
+        run: |
+          echo "::error::A commit on main newer than the one this run shipped has a CI run that did not succeed. See the gate's log for which; it ships once a fix lands."
+          exit 1
