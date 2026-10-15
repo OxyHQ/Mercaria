@@ -35,6 +35,7 @@ import internalProductSavesRouter from './routes/internal-product-saves.js';
 import cartRouter from './routes/cart.js';
 import addressesRouter from './routes/addresses.js';
 import checkoutRouter from './routes/checkout.js';
+import supervisedShoppingRouter from './routes/supervised-shopping.js';
 import ordersRouter from './routes/orders.js';
 import digitalRouter from './routes/digital.routes.js';
 import reviewsRouter from './routes/reviews.js';
@@ -62,6 +63,7 @@ import canonicalProductsRouter from './routes/canonical-products.js';
 import productFamiliesRouter from './routes/product-families.js';
 import catalogPagesRouter from './routes/catalog-pages.js';
 import internalCanonicalCatalogRouter from './routes/internal-canonical-catalog.js';
+import internalCatalogSafetyRouter from './routes/internal-catalog-safety.js';
 import offersRouter from './routes/offers.js';
 import retailOffersRouter from './routes/retail-offers.js';
 import internalOffersRouter from './routes/internal-offers.js';
@@ -398,6 +400,7 @@ export function createApp(): express.Express {
   app.use('/cart', cartRouter);
   app.use('/addresses', addressesRouter);
   app.use('/checkout', checkoutRouter);
+  app.use('/supervised-shopping', supervisedShoppingRouter);
   // Guest sessions (ADR 0003, #103). The MOUNT is gated like the Stripe routes
   // above and for the same reason: a deployment without guest commerce answers
   // 404 — the truthful answer — rather than advertising a credential surface
@@ -620,6 +623,7 @@ export function createApp(): express.Express {
   // single question with a single answer.
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/canonical-catalog', internalCanonicalCatalogRouter);
+    app.use('/internal/catalog-safety', internalCatalogSafetyRouter);
   }
   /**
    * The unified offer model (#57, ADR 0002 D18): what a canonical variant costs,

@@ -7242,3 +7242,48 @@ last, because rounding down is the only direction that can cross the floor — s
 price computed at exactly the ceiling can realize a basis point above it. The
 band bounds the REQUESTED margin; a sub-minor-unit overshoot is arithmetic, and
 `pricing.ts` says so rather than leaving it to be discovered.
+
+## Supervised shopping: operator reviews bind an exact projection
+
+`catalog_safety_reviews` is append-only platform-operator evidence, not a seller
+classification or a second Oxy policy. `allow` establishes that the reviewed
+text-only listing projection may be submitted to Oxy as general content.
+Oxy still decides whether the authenticated requester may receive it. The latest
+review wins, and a digest mismatch immediately makes a projection unavailable.
+The digest covers full descriptions, condition disclosures, option and variant
+text, price, owner, category, and media references; no truncated text is hashed.
+The child-facing projection exposes only the reviewed title, variant/options and
+numeric price. Media, arbitrary descriptions, reviews, and seller biographies
+are absent. Inventory changes do not change content. No existing listing is
+automatically approved, and publication status is never classification evidence.
+
+Reviews restrict listing deletion to preserve operator evidence; catalog
+withdrawal remains an ordinary archive. The reviewer belongs to Oxy and has no
+local FK. The review decision is a closed shared-types tuple with a SQL CHECK.
+
+Review precedence is the database identity `revision`, allocated under the
+listing lock. Neither a wall clock nor UUID order can resurrect an earlier allow
+when a reviewer withdraws it. Revisions are globally unique but only compared
+within the same listing; skipped sequence values are harmless.
+
+`supervised_checkout_requests` freezes the buyer, idempotency key and request /
+selection digests before any cart consumption. It contains no second cart or
+price authority. The existing checkout writes a supervised group in one
+transaction; recovery matches the buyer and exact seller-derived request keys,
+checks the complete immutable selection, and never infers a purchase by amount
+or recency. Requests cannot be edited or deleted.
+
+`supervised_purchase_operations` coordinates the existing payment with its Oxy
+approval. Oxy alone owns approval state; the local row holds immutable effect
+fingerprints and monotonic timestamps for a payment attempt and confirmed
+cancellation. `supervised_purchase_lines` freezes the reviewed digest and Oxy
+merchant for each immutable order item. Existing order money / FX / ledger
+records remain authoritative. An uncertain PSP response keeps the operation and
+its idempotency key; it never releases a guardian approval for reuse.
+
+The existing durable payment outbox confirms approval on a verified successful
+payment and cancels it only after a locally stopped payment whose provider
+cancellation is known (or whose PSP attempt never started). Late approval
+attachment and cancellation serialize on the same operation row, so no event
+can be lost between them. These tables retain financial authorization evidence;
+all foreign Oxy identifiers are registered in the external-key ledger.

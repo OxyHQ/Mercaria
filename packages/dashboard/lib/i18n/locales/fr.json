@@ -1913,5 +1913,23 @@
     "price": "Prix",
     "date": "Date",
     "customer": "Client"
+  },
+  "catalogSafety": {
+    "title": "Vérification du contenu des achats",
+    "intro": "Les opérateurs de la plateforme vérifient le texte source complet avant de rendre une fiche sans images disponible.",
+    "accessDenied": "Accès plateforme requis",
+    "accessBody": "Cet espace est réservé aux personnes autorisées à vérifier le catalogue.",
+    "unavailable": "Cet article ne peut pas être vérifié",
+    "empty": "Aucun article à vérifier",
+    "next": "Articles suivants",
+    "select": "Sélectionnez un article à vérifier",
+    "limitBody": "Cet article dépasse les limites de vérification et reste indisponible pour les achats supervisés.",
+    "allowed": "Le texte actuel est approuvé",
+    "pending": "Le texte actuel n’est pas approuvé",
+    "textOnly": "Seuls le titre, les variantes, les options et le prix seront affichés. Photos, descriptions et avis sont exclus.",
+    "saveError": "La vérification n’a pas pu être enregistrée. Rechargez l’article et vérifiez son contenu actuel.",
+    "saved": "Vérification enregistrée",
+    "allow": "Autoriser le texte vérifié",
+    "withhold": "Ne pas afficher"
   }
 }

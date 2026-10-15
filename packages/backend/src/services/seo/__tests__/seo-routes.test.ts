@@ -131,6 +131,9 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/nearby.tsx',
   'app/(app)/checkout/index.tsx',
   'app/(app)/checkout/return.tsx',
+  // Personal, policy-gated shopping and immutable approval details are never public crawl surfaces.
+  'app/(app)/supervised-shopping/index.tsx',
+  'app/(app)/supervised-shopping/checkout.tsx',
   // The "Sell yours" flow (#91) — an authenticated draft-in-progress, reached
   // only from a credential, and never a landing page a crawler should index.
   'app/(app)/sell/index.tsx',

@@ -616,3 +616,4 @@ export * from './digitalRights';
 // digital purchase order on `purchase_orders` would need a shipment that never
 // arrives (ADR 0011 D5).
 export * from './digitalRetail';
+export * from './supervisedShopping';

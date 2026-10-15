@@ -1,3 +1,4 @@
+import { SupervisedStorefrontGate } from '@/components/shell/SupervisedStorefrontGate';
 import { Slot, Stack } from 'expo-router';
 import { Platform, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -25,9 +26,11 @@ const CONTENT_WIDTH = 2000;
 
 export default function AppLayout() {
   return (
-    <CartFlightProvider>
-      <StorefrontLayout />
-    </CartFlightProvider>
+    <SupervisedStorefrontGate>
+      <CartFlightProvider>
+        <StorefrontLayout />
+      </CartFlightProvider>
+    </SupervisedStorefrontGate>
   );
 }
 

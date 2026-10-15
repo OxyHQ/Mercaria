@@ -1,3 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
+import { useOxy } from '@oxy.so/services';
+import { ShieldCheck } from 'lucide-react-native';
+import { catalogSafetyAccess } from '@/lib/api/catalog-safety';
 import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'expo-router';
 import type { SidebarProps } from '@oxy.so/bloom/sidebar';
@@ -22,6 +26,15 @@ import { NAV_ITEMS, isNavItemActive } from './nav-items';
  */
 export function useDashboardSidebar(): SidebarProps {
   const { t } = useTranslation();
+  const { user } = useOxy();
+  const reviewAccess = useQuery({
+    queryKey: ['catalog-safety-access', user?.id],
+    queryFn: catalogSafetyAccess,
+    enabled: !!user?.id,
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+  });
   const { colors } = useColorScheme();
   const router = useRouter();
   const pathname = usePathname();
@@ -75,14 +88,26 @@ export function useDashboardSidebar(): SidebarProps {
           // hands back, so every push is checked against the real route tree.
           onPress: () => router.push(item.href),
         })),
-      secondaryItems: visible
-        .filter((item) => item.key === 'settings')
-        .map((item) => ({
-          key: item.key,
-          label: t(item.labelKey),
-          icon: toBloomIcon(item.icon),
-          onPress: () => router.push(item.href),
-        })),
+      secondaryItems: [
+        ...(reviewAccess.data
+          ? [
+              {
+                key: 'catalog-safety',
+                label: t('catalogSafety.title'),
+                icon: toBloomIcon(ShieldCheck),
+                onPress: () => router.push('/catalog-safety'),
+              },
+            ]
+          : []),
+        ...visible
+          .filter((item) => item.key === 'settings')
+          .map((item) => ({
+            key: item.key,
+            label: t(item.labelKey),
+            icon: toBloomIcon(item.icon),
+            onPress: () => router.push(item.href),
+          })),
+      ],
       // Account trigger. ProfileButton owns all three auth states and follows
       // the rail's collapsed state.
       footer: ({ collapsed: railCollapsed }) => (
@@ -104,6 +129,7 @@ export function useDashboardSidebar(): SidebarProps {
       store?.name,
       t,
       visible,
+      reviewAccess.data,
     ],
   );
 }

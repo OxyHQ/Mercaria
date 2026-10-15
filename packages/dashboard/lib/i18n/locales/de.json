@@ -1891,5 +1891,23 @@
     "price": "Preis",
     "date": "Datum",
     "customer": "Kunde"
+  },
+  "catalogSafety": {
+    "title": "Prüfung von Einkaufsinhalten",
+    "intro": "Plattformmitarbeiter prüfen den vollständigen Ausgangstext, bevor reine Textangebote verfügbar werden.",
+    "accessDenied": "Plattformzugriff erforderlich",
+    "accessBody": "Dieser Bereich ist nur für autorisierte Katalogprüfer verfügbar.",
+    "unavailable": "Artikel kann nicht geprüft werden",
+    "empty": "Keine Artikel zu prüfen",
+    "next": "Nächste Artikel",
+    "select": "Wähle einen Artikel zur Prüfung",
+    "limitBody": "Dieser Artikel überschreitet die Prüfgrenzen und bleibt für begleitetes Einkaufen nicht verfügbar.",
+    "allowed": "Aktueller Text ist freigegeben",
+    "pending": "Aktueller Text ist nicht freigegeben",
+    "textOnly": "Nur Titel, Varianten, Optionen und Preis werden angezeigt. Fotos, Beschreibungen und Bewertungen sind ausgeschlossen.",
+    "saveError": "Die Prüfung konnte nicht gespeichert werden. Lade den Artikel erneut und prüfe den aktuellen Inhalt.",
+    "saved": "Prüfung gespeichert",
+    "allow": "Geprüften Text freigeben",
+    "withhold": "Nicht anzeigen"
   }
 }

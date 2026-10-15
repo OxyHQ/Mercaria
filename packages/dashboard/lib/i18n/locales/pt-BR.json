@@ -1913,5 +1913,23 @@
     "price": "Preço",
     "date": "Data",
     "customer": "Cliente"
+  },
+  "catalogSafety": {
+    "title": "Revisão de conteúdo de compras",
+    "intro": "Os operadores da plataforma revisam o texto completo antes de disponibilizar uma apresentação sem imagens.",
+    "accessDenied": "Acesso de plataforma necessário",
+    "accessBody": "Esta área está disponível apenas para revisores autorizados do catálogo.",
+    "unavailable": "Não é possível revisar o item",
+    "empty": "Nenhum item para revisar",
+    "next": "Próximos itens",
+    "select": "Selecione um item para revisar",
+    "limitBody": "Este item excede os limites de revisão e continua indisponível para compras supervisionadas.",
+    "allowed": "O texto atual está aprovado",
+    "pending": "O texto atual não está aprovado",
+    "textOnly": "Apenas título, variantes, opções e preço serão exibidos. Fotos, descrições e avaliações não estão incluídas.",
+    "saveError": "Não foi possível salvar a revisão. Recarregue o item e revise o conteúdo atual.",
+    "saved": "Revisão salva",
+    "allow": "Permitir texto revisado",
+    "withhold": "Não exibir"
   }
 }
