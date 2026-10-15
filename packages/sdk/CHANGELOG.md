@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- Add `materials.linkTransport` and the opaque `moovoTransportId` reservation reference.
+- Transport facts remain owned by Moovo and are resolved through its SDK.
+
 ## 0.3.0
 
 - Add `materials` for donated offers, requests, reservations, recipient receipt,

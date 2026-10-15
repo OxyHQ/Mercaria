@@ -48,6 +48,7 @@ export const MaterialReservationSchema = z.object({
   offerId: MercariaIdSchema,
   donorAccountId: MercariaIdSchema,
   requesterAccountId: MercariaIdSchema,
+  moovoTransportId: MercariaIdSchema.nullable().default(null),
   quantity: MaterialQuantitySchema,
   status: z.enum(MATERIAL_RESERVATION_STATUSES),
   // Private collection details are disclosed only while accepted/delivered.
@@ -79,3 +80,9 @@ export type MaterialAction = z.infer<typeof MaterialActionSchema>;
 export type MaterialReservation = z.infer<typeof MaterialReservationSchema>;
 export type MaterialOfferQuery = z.infer<typeof MaterialOfferQuerySchema>;
 export type MaterialReservationQuery = z.infer<typeof MaterialReservationQuerySchema>;
+
+export const MaterialTransportLinkSchema = z.strictObject({
+  actingAccountId: MercariaIdSchema,
+  transportId: MercariaIdSchema,
+});
+export type MaterialTransportLink = z.infer<typeof MaterialTransportLinkSchema>;

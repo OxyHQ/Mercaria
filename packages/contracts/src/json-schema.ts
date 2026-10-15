@@ -6,6 +6,7 @@ import {
   MaterialOfferCreateSchema,
   MaterialRequestCreateSchema,
   MaterialActionSchema,
+  MaterialTransportLinkSchema,
 } from './materials';
 /**
  * Every NAMED schema of the contract, and its JSON Schema.
@@ -68,6 +69,7 @@ export const CONTRACT_JSON_SCHEMA_NAMES = [
   'MaterialOfferCreate',
   'MaterialRequestCreate',
   'MaterialAction',
+  'MaterialTransportLink',
 
   'MercariaMoney',
   'MercariaImage',
@@ -109,6 +111,7 @@ export const CONTRACT_SCHEMAS = {
   MaterialOfferCreate: MaterialOfferCreateSchema,
   MaterialRequestCreate: MaterialRequestCreateSchema,
   MaterialAction: MaterialActionSchema,
+  MaterialTransportLink: MaterialTransportLinkSchema,
 
   MercariaMoney: MercariaMoneySchema,
   MercariaImage: MercariaImageSchema,

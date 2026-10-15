@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Mercaria public API",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Commerce reads and authenticated donated-material reservations for Oxy applications. Success bodies are the value itself; every error is `{ \"error\": { \"code\", \"message\", \"details\"? } }`. Lists are `{ items, nextCursor }` and end at 10000 items. Generated from `@mercaria/contracts`; `@mercaria.co/sdk` is the supported client."
   },
   "servers": [
@@ -2284,6 +2284,170 @@
         }
       }
     },
+    "/materials/reservations/{id}/transport": {
+      "post": {
+        "operationId": "linkMaterialTransport",
+        "tags": [
+          "materials"
+        ],
+        "summary": "Attach an existing Moovo transport reference",
+        "description": "Verifies the transport through Moovo SDK and stores only its opaque ID. Donation cancellation never cancels transport.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The entity id. A malformed id answers 404, not 400.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "oxyBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actingAccountId": {
+                    "type": "string",
+                    "pattern": "\\S",
+                    "description": "An opaque id. Never parse it."
+                  },
+                  "transportId": {
+                    "type": "string",
+                    "pattern": "\\S",
+                    "description": "An opaque id. Never parse it."
+                  }
+                },
+                "required": [
+                  "actingAccountId",
+                  "transportId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attach an existing Moovo transport reference",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialReservation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request`: Malformed: a wrong type, a missing field, an unknown or repeated parameter, or a cursor from another list.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized`: No credentials, or credentials that did not verify.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`forbidden`: Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found`: The entity never existed, or the id is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict`: Conflicts with current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed`: Well-formed, but a value is refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: Rate limit hit. `details.retryAfterSeconds` and `Retry-After` say when to retry.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the caller may retry.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Unexpected server defect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`service_unavailable`: Degraded or not yet ready.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MercariaErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/openapi.json": {
       "get": {
         "operationId": "getOpenApiDocument",
@@ -3473,6 +3637,19 @@
             "pattern": "\\S",
             "description": "An opaque id. Never parse it."
           },
+          "moovoTransportId": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "An opaque id. Never parse it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "quantity": {
             "type": "integer",
             "minimum": 1,
@@ -3538,6 +3715,26 @@
           "items",
           "nextCursor"
         ]
+      },
+      "MaterialTransportLink": {
+        "type": "object",
+        "properties": {
+          "actingAccountId": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "An opaque id. Never parse it."
+          },
+          "transportId": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "An opaque id. Never parse it."
+          }
+        },
+        "required": [
+          "actingAccountId",
+          "transportId"
+        ],
+        "additionalProperties": false
       },
       "MercariaCollection": {
         "type": "object",

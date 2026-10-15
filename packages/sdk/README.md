@@ -530,3 +530,11 @@ for await (const page of client.materials.iterateReservations({
 The recipient calls `confirmDelivery` only after receiving the materials.
 Accepted quantities are committed; recipient-confirmed quantities are received.
 There is no payment for the donated items.
+
+### Material transport reference
+
+`client.materials.linkTransport(reservationId, { actingAccountId, transportId })`
+attaches only the opaque Moovo reference after Moovo verifies the reservation.
+Use Moovo's SDK to propose, quote, authorize and book transport directly as the
+user, and to read its current status. Cancelling a Mercaria reservation preserves
+this reference and does not cancel an existing courier booking.

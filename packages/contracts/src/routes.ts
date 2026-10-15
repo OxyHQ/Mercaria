@@ -2,6 +2,7 @@ import {
   MaterialOfferCreateSchema,
   MaterialRequestCreateSchema,
   MaterialActionSchema,
+  MaterialTransportLinkSchema,
   MaterialOfferQuerySchema,
   MaterialReservationQuerySchema,
   MaterialReservationReadQuerySchema,
@@ -48,7 +49,7 @@ import {
 export const MERCARIA_PUBLIC_API_BASE_PATH = '/public/v1' as const;
 
 /** The version the OpenAPI document states. Bumped with any contract change. */
-export const MERCARIA_PUBLIC_API_VERSION = '1.1.0' as const;
+export const MERCARIA_PUBLIC_API_VERSION = '1.2.0' as const;
 
 /** The production origin the OpenAPI document names as its server. */
 export const MERCARIA_PUBLIC_API_ORIGIN = 'https://api.mercaria.co' as const;
@@ -346,6 +347,30 @@ export const MERCARIA_PUBLIC_ROUTES = [
     ],
   },
 
+  {
+    operationId: 'linkMaterialTransport',
+    method: 'post',
+    path: '/materials/reservations/{id}/transport',
+    tag: 'materials',
+    summary: 'Attach an existing Moovo transport reference',
+    description:
+      'Verifies the transport through Moovo SDK and stores only its opaque ID. Donation cancellation never cancels transport.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MaterialReservation',
+    cursorKind: null,
+    authenticated: true,
+    successStatus: 200,
+    body: MaterialTransportLinkSchema,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
   {
     operationId: 'searchProducts',
     method: 'get',

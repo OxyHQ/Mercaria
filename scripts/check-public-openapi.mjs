@@ -54,6 +54,7 @@ export const EXPECTED_OPERATIONS = [
   ['post', '/materials/offers/{id}/requests', 'requestMaterial'],
   ['get', '/materials/reservations', 'listMaterialReservations'],
   ['get', '/materials/reservations/{id}', 'getMaterialReservation'],
+  ['post', '/materials/reservations/{id}/transport', 'linkMaterialTransport'],
   ['post', '/materials/reservations/{id}/accept', 'acceptMaterialReservation'],
   ['post', '/materials/reservations/{id}/cancel', 'cancelMaterialReservation'],
   ['post', '/materials/reservations/{id}/confirm-delivery', 'confirmDeliveryMaterialReservation'],

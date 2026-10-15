@@ -5,6 +5,8 @@ import {
   MaterialOfferPageSchema,
   MaterialRequestCreateSchema,
   MaterialActionSchema,
+  MaterialTransportLinkSchema,
+  type MaterialTransportLink,
   MaterialReservationSchema,
   MaterialReservationPageSchema,
   MaterialOfferQuerySchema,
@@ -115,6 +117,19 @@ export function createMaterialsApi(config: TransportConfig) {
         { accountId },
         MaterialReservationSchema,
         options.signal,
+      ),
+    linkTransport: (
+      id: string,
+      body: MaterialTransportLink,
+      options: MercariaRequestOptions = {},
+    ) =>
+      request(
+        config,
+        `/materials/reservations/${pathSegment(id, 'reservation id')}/transport`,
+        {},
+        MaterialReservationSchema,
+        options.signal,
+        { body: input(MaterialTransportLinkSchema, body) },
       ),
     accept: (id: string, body: MaterialAction, options?: MercariaRequestOptions) =>
       transition('accept', id, body, options),
