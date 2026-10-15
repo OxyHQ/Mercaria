@@ -1,3 +1,4 @@
+import { listPendingMaterialPickups } from '../pending-pickups.js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
@@ -345,5 +346,46 @@ describe('donated materials on real PostgreSQL', () => {
         cursor: privatePage.nextCursor!,
       }),
     ).rejects.toMatchObject({ code: 'bad_request' });
+  });
+});
+
+describe('agent pickup projection', () => {
+  it('reads only accepted own reservations, keeps transport references and omits private location', async () => {
+    const source = await offer(10);
+    const accepted = await reserve(source.id, 1);
+    const acceptedSecond = await reserve(source.id, 1);
+    await transitionMaterialReservation(donor, acceptedSecond.id, action(donor), 'accepted');
+    const delivered = await reserve(source.id, 1);
+    const cancelled = await reserve(source.id, 1);
+    await reserve(source.id, 1);
+    await transitionMaterialReservation(donor, accepted.id, action(donor), 'accepted');
+    await transitionMaterialReservation(donor, delivered.id, action(donor), 'accepted');
+    await transitionMaterialReservation(receiver, delivered.id, action(receiver), 'delivered');
+    await transitionMaterialReservation(receiver, cancelled.id, action(receiver), 'cancelled');
+    await db
+      .update(materialReservations)
+      .set({ moovoTransportId: 'transport-ref-only' })
+      .where(eq(materialReservations.id, accepted.id));
+    const pending = await listPendingMaterialPickups(donor.accountId, { limit: 100 });
+    expect(pending.items.some((row) => row.reservationId === accepted.id)).toBe(true);
+    expect(
+      pending.items.some(
+        (row) => row.reservationId === delivered.id || row.reservationId === cancelled.id,
+      ),
+    ).toBe(false);
+    expect(pending.items.find((row) => row.reservationId === accepted.id)?.moovoTransportId).toBe(
+      'transport-ref-only',
+    );
+    expect(JSON.stringify(pending)).not.toContain(`PRIVATE_${RUN}`);
+    expect((await listPendingMaterialPickups(other.accountId, { limit: 100 })).items).toHaveLength(
+      0,
+    );
+    const page = await listPendingMaterialPickups(donor.accountId, { limit: 1 });
+    expect(page.items).toHaveLength(1);
+    expect(page.nextCursor).not.toBeNull();
+    if (!page.nextCursor) throw new Error('Expected more than one pending pickup');
+    await expect(
+      listPendingMaterialPickups(other.accountId, { limit: 1, cursor: page.nextCursor }),
+    ).rejects.toThrow('cursor');
   });
 });
