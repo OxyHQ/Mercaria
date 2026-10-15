@@ -171,6 +171,7 @@
         "@expo/vector-icons": "^15.1.1",
         "@goway.to/sdk": "0.3.0",
         "@hugeicons/react-native": "^1.0.15",
+        "@mercaria.co/sdk": "workspace:*",
         "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@mercaria/ui": "workspace:*",
@@ -360,7 +361,7 @@
     },
     "packages/sdk": {
       "name": "@mercaria.co/sdk",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "dependencies": {
         "zod": "^4.5.4",
       },

@@ -1,3 +1,14 @@
+import {
+  createMaterialOffer,
+  getMaterialOffer,
+  closeMaterialOffer,
+  requestMaterial,
+  listMaterialOffers,
+  listMaterialReservations,
+  getMaterialReservation,
+  transitionMaterialReservation,
+} from '../services/materials/materials.service.js';
+import { storeCallerFrom, type StoreCaller } from '../services/store-access.service.js';
 /**
  * Public integration surface controller (THIN) — `/public/v1` (#1017).
  *
@@ -64,6 +75,8 @@ type ParamsOf<Id extends MercariaPublicOperationId> = RouteOf<Id>['params'] exte
 
 /** What a handler is given: its parsed params and query, and the verified caller. */
 interface PublicInput<Id extends MercariaPublicOperationId> {
+  body: RouteOf<Id> extends { body: infer Body extends z.ZodType } ? z.output<Body> : undefined;
+  caller: StoreCaller | null;
   params: ParamsOf<Id>;
   query: z.output<RouteOf<Id>['query']>;
   /** The verified Oxy caller, or `undefined` for an anonymous read. */
@@ -126,6 +139,20 @@ function productListParams(parsed: {
 let openApiDocument: OpenApiDocument | undefined;
 
 export const publicApiHandlers: PublicHandlers = {
+  listMaterialOffers: ({ query }) => listMaterialOffers(query),
+  getMaterialOffer: ({ params }) => getMaterialOffer(params.id),
+  createMaterialOffer: ({ caller, body }) => createMaterialOffer(caller, body),
+  closeMaterialOffer: ({ caller, params, body }) => closeMaterialOffer(caller, params.id, body),
+  requestMaterial: ({ caller, params, body }) => requestMaterial(caller, params.id, body),
+  listMaterialReservations: ({ caller, query }) => listMaterialReservations(caller, query),
+  getMaterialReservation: ({ caller, params, query }) =>
+    getMaterialReservation(caller, params.id, query.accountId),
+  acceptMaterialReservation: ({ caller, params, body }) =>
+    transitionMaterialReservation(caller, params.id, body, 'accepted'),
+  cancelMaterialReservation: ({ caller, params, body }) =>
+    transitionMaterialReservation(caller, params.id, body, 'cancelled'),
+  confirmDeliveryMaterialReservation: ({ caller, params, body }) =>
+    transitionMaterialReservation(caller, params.id, body, 'delivered'),
   searchProducts: ({ query }) =>
     searchPublicProducts({
       ...productListParams(query),
@@ -169,6 +196,8 @@ export function publicApiRoute(route: PublicRoute): RequestHandler {
   // The registry ties each operationId to its own params, query and response;
   // this is the one place a handler is reached through the union.
   const handler = publicApiHandlers[route.operationId] as (input: {
+    body: unknown;
+    caller: StoreCaller | null;
     params: unknown;
     query: unknown;
     viewerId: string | undefined;
@@ -177,12 +206,20 @@ export function publicApiRoute(route: PublicRoute): RequestHandler {
 
   return async (req: Request, res: Response) => {
     try {
+      const caller = 'authenticated' in route && route.authenticated ? storeCallerFrom(req) : null;
+      if ('authenticated' in route && route.authenticated && !caller)
+        throw new PublicApiError('unauthorized', 'Authentication required');
+      if (route.tag === 'materials') res.setHeader('Cache-Control', 'no-store');
       const value = await handler({
+        caller,
+        body: 'body' in route ? parseRequestPart(route.body, req.body) : undefined,
         params: parseRequestPart(route.params, req.params),
         query: parseRequestPart(route.query, req.query),
         viewerId: viewerOf(req),
       });
-      res.status(200).json(responseSchema.parse(value));
+      res
+        .status('successStatus' in route ? route.successStatus : 200)
+        .json(responseSchema.parse(value));
     } catch (err) {
       if (err instanceof PublicApiError) {
         // A 400/404/410 is an ordinary answer on a surface foreign callers probe

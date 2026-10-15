@@ -190,3 +190,12 @@ bun run --cwd packages/backend test -- src/routes/__tests__/public-api-sdk-contr
   (phase 3) — each needs an explicit contract and permission review first.
 - **Service-to-service authority** — waits on an Oxy service-auth contract for
   the public routes.
+
+## Donated materials
+
+The `materials` namespace supports free offers, account-authorized requests,
+atomic reservations, cancellation and recipient-confirmed receipt. All writes
+use the caller's live Oxy bearer and explicit idempotency keys. Iterate accepted
+reservations with `materials.iterateReservations({ accountId, status: 'accepted' })`
+to discover pending pickups. Store only their opaque IDs in another product.
+See [materials.md](materials.md) for contracts, roles, privacy and retry semantics.

@@ -7242,3 +7242,26 @@ last, because rounding down is the only direction that can cross the floor — s
 price computed at exactly the ceiling can realize a basis point above it. The
 band bounds the REQUESTED margin; a sub-minor-unit overshoot is arithmetic, and
 `pricing.ts` says so rather than leaving it to be discovered.
+
+## Donated materials
+
+`material_offers`, `material_reservations`, and `material_reservation_events` are
+Postgres-born. The owner, requester and audit actor IDs are Oxy account references
+without local foreign keys. Material donation is independent of commerce orders:
+there are no money or payment columns. A reservation has a real restrictive
+foreign key to its offer, and audit events to their reservation.
+
+Quantity is an integer bounded at one million units. Committed and received
+quantities are derived from accepted and delivered reservations; no second stored
+counter needs reconciliation. All writers lock the offer before reading stock or
+changing a reservation. The acceptance transaction holds that lock until its
+state and audit event commit. Row locks, rather than process mutexes, serialize
+competing reservations across server instances. Deterministic realdb tests wait
+for both contenders behind a named fixture lock before releasing the race.
+
+Closed value sets live in shared-types and render both contract enums and SQL
+CHECKs. Idempotency uniqueness is account-scoped on offer/request creation and
+reservation/account-scoped on actions. Only the recipient can move committed units
+to received. Pickup instructions are protected columns and are explicitly selected
+inside the authorization service; public DTOs omit them entirely. See
+`docs/materials.md` for API and lifecycle semantics.

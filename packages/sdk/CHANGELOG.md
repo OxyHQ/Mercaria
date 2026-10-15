@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Add `materials` for donated offers, requests, reservations, recipient receipt,
+  cancellation, and account-scoped pending-pickup iteration.
+- Validate write bodies and parse responses with the shared contract; forward a
+  fresh Oxy bearer per call. Explicit idempotency keys make uncertain writes safe
+  to retry without automatic mutation retries.
+
+
 All notable changes to `@mercaria.co/sdk`. The package follows semantic
 versioning with the 0.x rule: while the major version is 0, a MINOR release may
 break the API or the contract, and a PATCH release never does.

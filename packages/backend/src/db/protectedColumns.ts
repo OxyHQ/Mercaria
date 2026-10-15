@@ -48,6 +48,7 @@
 import type { ProtectedColumnRegistry } from '@oxy.so/db/assert';
 
 export const PROTECTED_COLUMNS = {
+  material_offers: ['pickupInstructions'],
   /**
    * A POS walk-in's contact details. `customer.service` upserts these from what
    * a cashier types at the register, and the store customer list reads the table

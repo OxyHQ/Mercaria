@@ -1,3 +1,4 @@
+import { createMaterialsApi, type MercariaMaterialsApi } from './materials';
 import type { z } from 'zod';
 import {
   MercariaCollectionPageSchema,
@@ -250,6 +251,7 @@ export interface MercariaLocationsApi {
 }
 
 export interface MercariaClient {
+  readonly materials: MercariaMaterialsApi;
   readonly products: MercariaProductsApi;
   readonly stores: MercariaStoresApi;
   readonly collections: MercariaCollectionsApi;
@@ -574,6 +576,7 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
   });
 
   return Object.freeze({
+    materials: createMaterialsApi(config),
     products,
     stores,
     collections,

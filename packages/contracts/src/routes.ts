@@ -1,3 +1,11 @@
+import {
+  MaterialOfferCreateSchema,
+  MaterialRequestCreateSchema,
+  MaterialActionSchema,
+  MaterialOfferQuerySchema,
+  MaterialReservationQuerySchema,
+  MaterialReservationReadQuerySchema,
+} from './materials';
 /**
  * The route registry — every operation `/public/v1` serves, as DATA.
  *
@@ -40,7 +48,7 @@ import {
 export const MERCARIA_PUBLIC_API_BASE_PATH = '/public/v1' as const;
 
 /** The version the OpenAPI document states. Bumped with any contract change. */
-export const MERCARIA_PUBLIC_API_VERSION = '1.0.0' as const;
+export const MERCARIA_PUBLIC_API_VERSION = '1.1.0' as const;
 
 /** The production origin the OpenAPI document names as its server. */
 export const MERCARIA_PUBLIC_API_ORIGIN = 'https://api.mercaria.co' as const;
@@ -51,6 +59,7 @@ export const MERCARIA_PUBLIC_ROUTE_TAGS = [
   'collections',
   'locations',
   'meta',
+  'materials',
 ] as const;
 export type MercariaPublicRouteTag = (typeof MERCARIA_PUBLIC_ROUTE_TAGS)[number];
 
@@ -58,7 +67,10 @@ export type MercariaPublicRouteTag = (typeof MERCARIA_PUBLIC_ROUTE_TAGS)[number]
 export interface MercariaPublicRoute {
   /** Unique, stable; the generated client's method name and the backend's handler key. */
   readonly operationId: string;
-  readonly method: 'get';
+  readonly method: 'get' | 'post';
+  readonly body?: z.ZodType;
+  readonly authenticated?: boolean;
+  readonly successStatus?: 200 | 201;
   /** OpenAPI path template relative to the base path, e.g. `/products/{id}`. */
   readonly path: `/${string}`;
   readonly tag: MercariaPublicRouteTag;
@@ -97,6 +109,243 @@ const ENTITY_ERRORS = ['not_found', 'gone'] as const;
 const LOCATION_ERRORS = [...ENTITY_ERRORS, 'service_unavailable'] as const;
 
 export const MERCARIA_PUBLIC_ROUTES = [
+  {
+    operationId: 'listMaterialOffers',
+    method: 'get',
+    path: '/materials/offers',
+    tag: 'materials',
+    summary: 'List active donated materials',
+    description:
+      'List active donated materials. Materials are donated; no item payment or checkout is created.',
+    params: null,
+    query: MaterialOfferQuerySchema,
+    response: 'MaterialOfferPage',
+    cursorKind: 'material-offers',
+    authenticated: false,
+    successStatus: 200,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'createMaterialOffer',
+    method: 'post',
+    path: '/materials/offers',
+    tag: 'materials',
+    summary: 'Offer donated materials as an Oxy account',
+    description:
+      'Offer donated materials as an Oxy account. Materials are donated; no item payment or checkout is created.',
+    params: null,
+    query: MercariaNoQuerySchema,
+    response: 'MaterialOffer',
+    cursorKind: null,
+    authenticated: true,
+    successStatus: 201,
+    body: MaterialOfferCreateSchema,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'getMaterialOffer',
+    method: 'get',
+    path: '/materials/offers/{id}',
+    tag: 'materials',
+    summary: 'Read a donated material offer',
+    description:
+      'Read a donated material offer. Materials are donated; no item payment or checkout is created.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MaterialOffer',
+    cursorKind: null,
+    authenticated: false,
+    successStatus: 200,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'closeMaterialOffer',
+    method: 'post',
+    path: '/materials/offers/{id}/close',
+    tag: 'materials',
+    summary: 'Close an offer to new requests and acceptance',
+    description:
+      'Close an offer to new requests and acceptance. Materials are donated; no item payment or checkout is created.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MaterialOffer',
+    cursorKind: null,
+    authenticated: true,
+    successStatus: 200,
+    body: MaterialActionSchema,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'requestMaterial',
+    method: 'post',
+    path: '/materials/offers/{id}/requests',
+    tag: 'materials',
+    summary: 'Request donated materials without reserving stock',
+    description:
+      'Request donated materials without reserving stock. Materials are donated; no item payment or checkout is created.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MaterialReservation',
+    cursorKind: null,
+    authenticated: true,
+    successStatus: 201,
+    body: MaterialRequestCreateSchema,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'listMaterialReservations',
+    method: 'get',
+    path: '/materials/reservations',
+    tag: 'materials',
+    summary: 'List an authorized account reservations',
+    description:
+      'List an authorized account reservations. Materials are donated; no item payment or checkout is created.',
+    params: null,
+    query: MaterialReservationQuerySchema,
+    response: 'MaterialReservationPage',
+    cursorKind: 'material-reservations',
+    authenticated: true,
+    successStatus: 200,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'getMaterialReservation',
+    method: 'get',
+    path: '/materials/reservations/{id}',
+    tag: 'materials',
+    summary: 'Read an authorized participant reservation',
+    description:
+      'Read an authorized participant reservation. Materials are donated; no item payment or checkout is created.',
+    params: MercariaIdParamsSchema,
+    query: MaterialReservationReadQuerySchema,
+    response: 'MaterialReservation',
+    cursorKind: null,
+    authenticated: true,
+    successStatus: 200,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'acceptMaterialReservation',
+    method: 'post',
+    path: '/materials/reservations/{id}/accept',
+    tag: 'materials',
+    summary: 'Donor accepts and atomically reserves available units',
+    description:
+      'Donor accepts and atomically reserves available units. Materials are donated; no item payment or checkout is created.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MaterialReservation',
+    cursorKind: null,
+    authenticated: true,
+    successStatus: 200,
+    body: MaterialActionSchema,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'cancelMaterialReservation',
+    method: 'post',
+    path: '/materials/reservations/{id}/cancel',
+    tag: 'materials',
+    summary: 'Either participant cancels and releases reserved units',
+    description:
+      'Either participant cancels and releases reserved units. Materials are donated; no item payment or checkout is created.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MaterialReservation',
+    cursorKind: null,
+    authenticated: true,
+    successStatus: 200,
+    body: MaterialActionSchema,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+  {
+    operationId: 'confirmDeliveryMaterialReservation',
+    method: 'post',
+    path: '/materials/reservations/{id}/confirm-delivery',
+    tag: 'materials',
+    summary: 'Recipient confirms receipt, moving committed units to received',
+    description:
+      'Recipient confirms receipt, moving committed units to received. Materials are donated; no item payment or checkout is created.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MaterialReservation',
+    cursorKind: null,
+    authenticated: true,
+    successStatus: 200,
+    body: MaterialActionSchema,
+    errors: [
+      'unauthorized',
+      'forbidden',
+      'not_found',
+      'conflict',
+      'validation_failed',
+      'service_unavailable',
+    ],
+  },
+
   {
     operationId: 'searchProducts',
     method: 'get',

@@ -97,7 +97,8 @@
     "tailwindcss": "4.3.3",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^5.0.14",
-    "zustand-persist": "^0.4.0"
+    "zustand-persist": "^0.4.0",
+    "@mercaria.co/sdk": "workspace:*"
   },
   "devDependencies": {
     "@babel/plugin-syntax-dynamic-import": "^7.8.3",
