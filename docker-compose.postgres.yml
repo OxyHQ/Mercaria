@@ -63,38 +63,16 @@ services:
     #
     # ## What this ceiling carries, measured
     #
-    # By `packages/backend/scripts/lock-capacity-probe.ts` — N real migrations
-    # through the real migrator entrypoint, launched together and escalated until
-    # `out of shared memory`, with two independent witnesses that they genuinely
-    # overlapped. On postgis/postgis:17-3.5, on 2026-08-21, at commit 9b18057,
-    # with a 133-entry chain costing 5,986 locks per full-chain migration:
-    #
-    #     max_locks_per_transaction=256  -> 15 carried, the 16th exhausted
-    #     max_locks_per_transaction=512  -> 31 carried, the 32nd exhausted
-    #
-    # Twelve are wanted today, so the headroom is three more private-database
-    # files. Every figure here carries the chain length and the date it was taken
-    # at, because a capacity that cannot expire visibly is the whole of #849.
-    #
-    # 512 is measured but NOT set, deliberately. Three files of headroom is
-    # positive and the guard fails the build the moment it is not, so raising the
-    # ceiling now would cost every developer a `--force-recreate` (the harness
-    # asserts the floor and refuses a server below it) to buy runway nothing
-    # needs yet. What the row buys is that the remedy is then a three-line edit
-    # rather than twenty minutes of measurement at the moment somebody is
-    # already blocked — the guard refuses any ceiling it holds no measurement
-    # for, and 512 is one it holds.
-    #
-    # ## Correcting the record, because the old numbers are still quoted
-    #
-    # The table this replaces read "256 -> 12 concurrent migrations, 16th fails".
-    # The 16 reproduces exactly. The 12 was never a capacity — it was the largest
-    # N anybody had TESTED, and 13, 14 and 15 all carry. The lock-cost half was
-    # right and has barely moved: measured against truncated copies of the chain,
-    # one migration cost 5,818 locks at 109 entries and 5,986 at 133, so the
-    # erosion is real and slow (~15 locks per migration added, against a budget of
-    # ~90,000). The guard therefore PROJECTS the capacity onto the chain as it
-    # stands rather than comparing today's file count against an old number.
+    # `packages/backend/scripts/lock-capacity-probe.ts` applies the real full
+    # chain concurrently until shared lock exhaustion. On 2026-10-15 at
+    # 096013fc, PostgreSQL 17.5 / postgis:17-3.5, max_connections=100 and
+    # max_prepared_transactions=0, the 168-entry chain held 6,545 locks alone.
+    # At max_locks_per_transaction=512, all 28 concurrent migrations completed
+    # (interval overlap 28, sampled peak 169,194 locks); 29 exhausted the table.
+    # The guard counts the required concurrency and projects capacity as the
+    # chain grows. The former 256 ceiling no longer carries that requirement.
+    # Measurement rows and the older 256 evidence live in the guard, not an
+    # unchanging claim about how many test files the repository contains.
     #
     # It has to be a server ARGUMENT: the setting is `postmaster` context, so
     # neither PGOPTIONS nor `ALTER SYSTEM` reaches it without a restart.
@@ -105,7 +83,7 @@ services:
     # ASSERTS the floor on whatever server it is handed — so a half-applied
     # change fails loudly in the environment that is wrong, instead of leaving
     # lock exhaustion reproducible in only one of them.
-    command: postgres -c max_locks_per_transaction=256
+    command: postgres -c max_locks_per_transaction=512
     container_name: mercaria-postgres-dev
     restart: unless-stopped
     environment:

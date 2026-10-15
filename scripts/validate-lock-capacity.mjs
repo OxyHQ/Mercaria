@@ -105,22 +105,15 @@ const MEASUREMENTS = [
     serverVersion: '17.5',
     maxConnections: 100,
   },
-  /**
-   * Nothing is set to 512 today. It is recorded because the ceiling is the
-   * remedy when the headroom above runs out, and this guard refuses a ceiling it
-   * holds no measurement for — so without this row, raising it would mean
-   * standing up a server and spending twenty minutes at the moment somebody is
-   * already blocked. Measured in the same session as the row above, so it is a
-   * measurement rather than a doubling of one.
-   */
+  /** Re-measured with the complete 168-entry chain; see the probe evidence. */
   {
     ceiling: 512,
-    capacity: 31,
-    firstExhausted: 32,
-    locksPerMigration: 5986,
-    journalEntries: 133,
-    measuredOn: '2026-08-21',
-    measuredAtCommit: '9b18057',
+    capacity: 28,
+    firstExhausted: 29,
+    locksPerMigration: 6545,
+    journalEntries: 168,
+    measuredOn: '2026-10-15',
+    measuredAtCommit: '096013fc',
     image: 'postgis/postgis:17-3.5',
     serverVersion: '17.5',
     maxConnections: 100,
