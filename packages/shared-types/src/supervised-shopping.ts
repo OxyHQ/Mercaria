@@ -8,7 +8,7 @@ export type CatalogSafetyReviewDecision = (typeof CATALOG_SAFETY_REVIEW_DECISION
 export interface ReviewedShoppingVariant {
   id: string;
   title: string;
-  options: { name: string; value: string }[];
+  options: { id: string; name: string; value: string }[];
   price: Money | null;
 }
 
@@ -26,7 +26,7 @@ export interface CatalogSafetyReviewMaterial {
   description: string;
   condition: ItemConditionKey;
   conditionDetails: { kind: string; severity: string | null; note: string | null }[];
-  options: { name: string; values: string[] }[];
+  options: { id: string; name: string; values: string[] }[];
   imageFileIds: string[];
   status: string;
   latestDecision: CatalogSafetyReviewDecision | null;
@@ -50,7 +50,7 @@ export interface ReviewedShoppingCart {
     selection: {
       title: string;
       variantTitle: string;
-      options: { name: string; value: string }[];
+      options: { id: string; name: string; value: string }[];
       unitPrice: Money;
       lineTotal: Money;
       stale: boolean;

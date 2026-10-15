@@ -366,9 +366,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `ingestion.ts`'s `NormalizedSourceRecord` gained `productGroupKey`
     // (ADR 0016) — a source's own product id, opaque and source-scoped, not an
     // identity-shaped name. 136/2369/7900.
-    // Organization now adds oxyAccountId, the opaque canonical Oxy identity.
-    // Measured from this tree: one property, no module/type or identity-name change.
-    'walked 136 contract module(s), 2369 exported type(s), 7901 property signature(s)',
+    // Organization adds oxyAccountId, the opaque canonical Oxy identity.
+    // Kids adds the reviewed shopping module and its bounded presentation DTOs;
+    // option labels carry their persisted source-row ids. Measured by the real guard.
+    'walked 137 contract module(s), 2375 exported type(s), 7945 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

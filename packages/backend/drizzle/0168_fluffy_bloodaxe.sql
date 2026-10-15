@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: payment_outboxes_event_type_check is replaced with a wider event vocabulary; its earlier definition must be restored from the preceding migration only after new approval confirmation events are drained. Retain supervised purchase evidence and its reference-aware application; do not drop populated authorization history during rollback.
 CREATE TABLE "catalog_safety_reviews" (
 	"id" text PRIMARY KEY NOT NULL,
 	"revision" bigint GENERATED ALWAYS AS IDENTITY (sequence name "catalog_safety_reviews_revision_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9007199254740991 START WITH 1 CACHE 1),
@@ -61,6 +62,7 @@ CREATE UNIQUE INDEX "supervised_purchase_operations_payment_key" ON "supervised_
 CREATE UNIQUE INDEX "supervised_purchase_operations_approval_key" ON "supervised_purchase_operations" USING btree ("approval_id");--> statement-breakpoint
 ALTER TABLE "payment_outboxes" ADD CONSTRAINT "payment_outboxes_event_type_check" CHECK ("payment_outboxes"."event_type" in ('payment_succeeded', 'supervised_purchase_cancelled', 'payment_failed', 'payment_succeeded_after_release', 'transfer_withheld', 'payment_refunded', 'payment_disputed', 'transfer_changed', 'payout_changed', 'provider_account_changed', 'refund_failed', 'reversal_failed', 'refund_unmatched', 'guest_portal_initialization', 'procurement_requested', 'retail_procurement_failed'));
 --> statement-breakpoint
+-- oxy:handwritten-begin=supervised_shopping_immutability
 CREATE FUNCTION mercaria_catalog_safety_review_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   RAISE EXCEPTION 'catalog safety reviews are append-only' USING ERRCODE = '23514';
@@ -96,3 +98,4 @@ FOR EACH ROW EXECUTE FUNCTION mercaria_supervised_purchase_operation_guard();
 --> statement-breakpoint
 CREATE TRIGGER supervised_checkout_requests_immutable BEFORE UPDATE OR DELETE ON supervised_checkout_requests
 FOR EACH ROW EXECUTE FUNCTION mercaria_catalog_safety_review_immutable();
+-- oxy:handwritten-end=supervised_shopping_immutability

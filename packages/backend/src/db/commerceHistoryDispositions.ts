@@ -1003,6 +1003,36 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       "A review is the author's to edit and moderation may hide it, so the row moves by design.",
   },
   {
+    table: 'supervised_purchase_lines',
+    rowUpdate: 'refused',
+    rowDelete: 'refused',
+    frozenColumns: [],
+    reason:
+      'The reviewed content digest and canonical merchant bound to an immutable purchased line; ' +
+      '`supervised_purchase_lines_immutable` refuses edits and deletion of this authorization evidence.',
+  },
+  {
+    table: 'supervised_purchase_operations',
+    rowUpdate: 'allowed',
+    rowDelete: 'refused',
+    frozenColumns: [
+      'id',
+      'payment_id',
+      'expires_at',
+      'request_fingerprint',
+      'cart_fingerprint',
+      'payment_fingerprint',
+      'created_at',
+      'approval_id',
+      'payment_started_at',
+      'cancellation_confirmed_at',
+    ],
+    reason:
+      'Payment coordination retains its immutable approval effects and write-once approval/payment ' +
+      'events through `supervised_purchase_operations_guard`; updated_at may advance, but neither ' +
+      'the bound effects nor a recorded event may be replaced, and the operation cannot be deleted.',
+  },
+  {
     table: 'supplier_recoveries',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',

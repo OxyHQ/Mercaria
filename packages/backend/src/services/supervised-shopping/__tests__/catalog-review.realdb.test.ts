@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { connectPostgres, closePostgres, getDb } from '../../../db/postgres.js';
 import {
   listings,
+  listingOptions,
   productVariants,
   productVariantOptionValues,
 } from '../../../db/schema/catalog.js';
@@ -109,6 +110,35 @@ describe('platform-reviewed shopping projection, real PostgreSQL', () => {
     },
   );
 
+  it('binds reviewed labels to their persisted option identities', async () => {
+    const { listing, variant } = await seed();
+    const [option] = await getDb()
+      .insert(listingOptions)
+      .values({ listingId: listing.id, name: 'Finish', values: ['Natural'] })
+      .returning();
+    const [assignment] = await getDb()
+      .select()
+      .from(productVariantOptionValues)
+      .where(eq(productVariantOptionValues.variantId, variant.id));
+    const reviewed = await approve(listing.id);
+    expect(reviewed.options).toEqual([{ id: option.id, name: 'Finish', values: ['Natural'] }]);
+    expect(reviewed.listing.variants[0].options).toEqual([
+      { id: assignment.id, name: 'Finish', value: 'Natural' },
+    ]);
+    await getDb()
+      .delete(productVariantOptionValues)
+      .where(eq(productVariantOptionValues.id, assignment.id));
+    await getDb().insert(productVariantOptionValues).values({
+      variantId: variant.id,
+      name: 'Finish',
+      value: 'Natural',
+    });
+    const refreshed = await candidate(listing.id);
+    expect(refreshed.listing.variants[0].options[0].id).not.toBe(assignment.id);
+    expect(refreshed.listing.reviewDigest).not.toBe(reviewed.listing.reviewDigest);
+    expect(reviewedShoppingProjection(refreshed)).toBeNull();
+  });
+
   it('stock movements preserve review while explicit withdrawal supersedes approval', async () => {
     const { listing, variant } = await seed();
     await approve(listing.id);
@@ -146,7 +176,7 @@ describe('platform-reviewed shopping projection, real PostgreSQL', () => {
     async (clockChange) => {
       const { listing } = await seed();
       vi.useFakeTimers({ toFake: ['Date'] });
-      const firstTime = new Date('2026-10-15T12:00:00.000Z');
+      const firstTime = new Date('2025-01-15T12:00:00.000Z');
       try {
         vi.setSystemTime(firstTime);
         const approved = await approve(listing.id);

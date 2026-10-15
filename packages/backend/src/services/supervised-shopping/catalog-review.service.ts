@@ -120,7 +120,7 @@ export async function readCatalogReviewSources(
         title: variant.title,
         options: [...(variantOptions.get(variant.id) ?? [])]
           .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id))
-          .map(({ name, value }) => ({ name, value })),
+          .map(({ id, name, value }) => ({ id, name, value })),
         price:
           variant.priceAmount === null || variant.priceCurrency === null
             ? null
@@ -132,7 +132,7 @@ export async function readCatalogReviewSources(
     const options = optionRows
       .filter((option) => option.listingId === row.id)
       .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id))
-      .map(({ name, values }) => ({ name, values }));
+      .map(({ id, name, values }) => ({ id, name, values }));
     const conditionDetails = details
       .filter((detail) => detail.listingId === row.id)
       .map(({ kind, severity, note }) => ({ kind, severity, note }));
