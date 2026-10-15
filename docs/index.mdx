@@ -11,6 +11,8 @@ schema decision. `HANDOFF.md` holds deferred work.
 
 ## Architecture
 
+- [Central company identity and migration](central-organizations.md) — Oxy owns company facts; Mercaria retains commerce references and immutable migration evidence.
+
 - `packages/frontend/` · `packages/dashboard/` · `packages/pos/` — Expo apps
   (React Native + Web), expo-router, NativeWind. Each app's frame is Bloom's
   `AppShell` (`@oxy.so/bloom/app-shell`), mounted in `app/(app)/_layout.tsx` with

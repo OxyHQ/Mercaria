@@ -147,6 +147,10 @@ function identifiersKnownToTheSchema(): Set<string> {
   for (const file of readdirSync(DRIZZLE_ROOT).filter((name) => name.endsWith('.sql')))
     for (const match of readFileSync(join(DRIZZLE_ROOT, file), 'utf8').matchAll(SQL_IDENTIFIER))
       known.add(match[0]);
+  // Removed objects cannot justify a present-tense database citation. Keep
+  // non-object identifiers (including CHECK values), but replay object lifetime.
+  const { live, everDropped } = replayObjectLifecycle();
+  for (const name of everDropped) if (!live.has(name)) known.delete(name);
   return known;
 }
 
@@ -302,26 +306,18 @@ describe('a docblock in the database layer names only objects that exist (#759)'
     expect(new Set(CITATIONS.map((c) => c.relative)).size).toBeGreaterThanOrEqual(10);
   });
 
-  it('the authority admits no DEAD name — every dropped object is re-created', () => {
-    // The one way an authority of "everything the migrations mention" is
-    // PERMISSIVE: an object created, later dropped, and still named in a
-    // docblock would resolve against the `DROP` statement's own text.
-    //
-    // Today all three drops are the idempotent drop-then-create pattern inside
-    // one file, so nothing is dead. The day a genuine removal lands, this goes
-    // red and whoever lands it decides what the citing docblocks should say —
-    // which is the decision being taken rather than a citation quietly passing.
+  it('the authority excludes dropped objects while retaining recreated ones', () => {
     const { live, everDropped } = replayObjectLifecycle();
-    expect(
-      everDropped.size,
-      'no DROP was parsed at all — the statement pattern has rotted',
-    ).toBeGreaterThanOrEqual(1);
-    expect(
-      [...everDropped].filter((name) => !live.has(name)),
-      'a migration drops an object that nothing re-creates, so the citation authority now ' +
-        'contains a name no database has. Narrow the authority or fix the citing docblocks',
-    ).toEqual([]);
+    expect(everDropped.size, 'no DROP was parsed').toBeGreaterThanOrEqual(1);
+    for (const name of everDropped) expect(KNOWN.has(name), name).toBe(live.has(name));
     expect(live.size, 'the CREATE replay found almost nothing').toBeGreaterThanOrEqual(180);
+    const removed = [...everDropped].filter((name) => !live.has(name));
+    expect(removed.length, 'no actual retirement exercises the dead-name guard').toBeGreaterThan(0);
+    for (const token of removed) {
+      expect(
+        unresolvedCitations([{ token, relative: 'schema/planted.ts', line: 1 }], KNOWN),
+      ).toHaveLength(1);
+    }
   });
 
   it('the wildcard citations resolve to real families, and to more than one member where they say so', () => {

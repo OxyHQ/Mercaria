@@ -8,7 +8,7 @@
  * found by its English title was not found by its French one. The fix covered
  * `listings` and `listing_localizations`, which are the columns that carry a
  * LOCALE. The other six search vectors in this schema — canonical products and
- * families, merchants and storefronts, organizations and brands — carry no
+ * families, merchants and storefronts, and brands — carry no
  * locale at all and are built as `'simple'` for that reason (ADR 0002 D21:
  * proper nouns must not be stemmed).
  *
@@ -46,7 +46,7 @@ import * as schema from '../schema/index.js';
 import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../testDatabase.js';
 import { canonicalProductFamilies, canonicalProducts } from '../schema/canonicalCatalog.js';
 import { merchants, storefronts } from '../schema/merchants.js';
-import { brands, organizations } from '../schema/organizations.js';
+import { brands } from '../schema/organizations.js';
 import { searchProductIdsByLexicalRank } from '../search/searchCandidateRepository.js';
 import { SCRIPT_CORPUS, scriptSample } from '../../__tests__/script-corpus.js';
 
@@ -123,7 +123,7 @@ describe('every canonical `simple` search vector indexes every shipped script', 
     }
   });
 
-  it('merchants, storefronts, organizations and brands do too', async () => {
+  it('merchants, storefronts and brands do too', async () => {
     for (const sample of SCRIPT_CORPUS) {
       const [merchant] = await db
         .insert(merchants)
@@ -138,14 +138,6 @@ describe('every canonical `simple` search vector indexes every shipped script', 
           channelKind: 'marketplace',
         })
         .returning({ id: storefronts.id });
-      const [organization] = await db
-        .insert(organizations)
-        .values({
-          slug: slugFor(sample.script, 'org'),
-          name: sample.noun,
-          normalizedName: sample.noun,
-        })
-        .returning({ id: organizations.id });
       const [brand] = await db
         .insert(brands)
         .values({
@@ -160,11 +152,9 @@ describe('every canonical `simple` search vector indexes every shipped script', 
         union all
         select 'storefront', search_vector::text from storefronts where id = ${storefront.id}
         union all
-        select 'organization', search_vector::text from organizations where id = ${organization.id}
-        union all
         select 'brand', search_vector::text from brands where id = ${brand.id}
       `);
-      expect(vectors, `${sample.script} produced no rows at all`).toHaveLength(4);
+      expect(vectors, `${sample.script} produced no rows at all`).toHaveLength(3);
       for (const row of vectors) {
         expect(
           row.vector,

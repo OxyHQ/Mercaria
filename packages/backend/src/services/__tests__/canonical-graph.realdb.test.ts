@@ -57,12 +57,7 @@ import {
   findBrandIdsBySourceObject,
   updateBrand,
 } from '../canonical/brand.service.js';
-import {
-  addVerifiedOrganizationDomain,
-  applyOrganizationSourceObservation,
-  createOrganization,
-  findOrganizationIdsByVerifiedDomain,
-} from '../canonical/organization.service.js';
+import { insertOrganization } from '../../db/canonical/organizationRepository.js';
 import {
   extractVendorBrandCandidates,
   VENDOR_BACKFILL_SOURCE,
@@ -208,11 +203,11 @@ describe('uniqueness (real unique indexes)', () => {
     );
 
     trackOrganization(
-      await createOrganization({ name: `Zephyr Org ${RUN}`, slug: `zephyr-org-${RUN}` }),
+      await insertOrganization(db, { oxyAccountId: `oxy-org-${RUN}`, slug: `zephyr-org-${RUN}` }),
     );
     await expect(
-      createOrganization({ name: `Zephyr Org Two ${RUN}`, slug: `zephyr-org-${RUN}` }),
-    ).rejects.toThrow(/already exists/);
+      insertOrganization(db, { oxyAccountId: `oxy-other-org-${RUN}`, slug: `zephyr-org-${RUN}` }),
+    ).rejects.toThrow();
   });
 });
 
@@ -469,41 +464,7 @@ describe('provenance (acceptance 2) and the source-upsert rules', () => {
  * out of the schema rather than out of a hand-written case list.
  */
 
-describe('organization domains: verified is a decision, never an observation', () => {
-  it('routes observed domains to review and only the explicit writer verifies', async () => {
-    const source = await makeTestSource('feed-org');
-    const organization = trackOrganization(await createOrganization({ name: `Vantage ${RUN}` }));
-
-    const applied = await applyOrganizationSourceObservation({
-      organizationId: organization.id,
-      sourceId: source.id,
-      externalId: `vantage-${RUN}`,
-      observedAt: new Date('2026-08-06T00:00:00.000Z'),
-      method: 'connector_declared',
-      matchRule: 'connector:declared-merchant',
-      fields: { domains: [`vantage-${RUN}.example`] },
-    });
-
-    expect(applied.conflicts).toEqual([
-      {
-        field: 'domains',
-        reason: 'domain_requires_verification',
-        sourceValue: `vantage-${RUN}.example`,
-      },
-    ]);
-    expect(applied.organization.verifiedDomains).toEqual([]);
-    expect(await findOrganizationIdsByVerifiedDomain(`vantage-${RUN}.example`)).toEqual([]);
-
-    await addVerifiedOrganizationDomain({
-      organizationId: organization.id,
-      domain: `https://www.vantage-${RUN}.example/about`,
-      actorOxyUserId: 'oxy-op-1',
-    });
-    expect(await findOrganizationIdsByVerifiedDomain(`vantage-${RUN}.example`)).toEqual([
-      organization.id,
-    ]);
-  });
-});
+// Organization ownership, identity edits and domain verification now belong to Oxy.
 
 describe('public DTOs expose verified facts and safe freshness only', () => {
   it('carries no internal review or matching state', async () => {
