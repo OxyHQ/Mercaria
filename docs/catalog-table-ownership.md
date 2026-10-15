@@ -55,6 +55,7 @@ it and can only rise.
 
 | Module | Schema file | Repositories | Tables |
 |---|---|---|---|
+| Organization migration evidence | `db/schema/organizations.ts` | — (migration-only immutable evidence) | `organization_identity_archives` |
 | Taxonomy | `db/schema/taxonomy.ts` | `db/taxonomy/taxonomyRepository.ts` | `category_aliases`, `category_redirects`, `category_external_mappings` — plus `categories` itself, which lives in `db/schema/catalog.ts:128` and was widened in place (D2) |
 | Classification | `db/schema/taxonomyClassification.ts` | `db/taxonomy/classificationRepository.ts` | `listing_secondary_categories`, `canonical_product_secondary_categories` — the JUSTIFIED secondary filings (#367 W1). There is deliberately no primary table: the primary category IS `listings.category_id` / `canonical_products.category_id`, so "exactly one" is held by a scalar column rather than by a partial unique on an `is_primary` flag |
 | Product types | `db/schema/productTypes.ts` | `db/productTypes/productTypeRepository.ts`, `productTypeFieldRepository.ts` | `product_type_definitions`, `product_type_category_scopes`, `product_type_field_groups`, `product_type_fields`, `product_type_field_allowed_values`, `product_type_aliases` |
@@ -138,13 +139,14 @@ to a shared, pre-existing schema module is exactly the one a file-scoped
 derivation misses, and it is also the one most likely to acquire a second
 writer.
 
-**Three of these tables have no application writer today**, which is a fact
+**Five of these tables have no application writer today**, which is a fact
 about the map rather than a gap in it. `discovery_sweep_cursors` was a fourth
 until the periodic sweep landed: it is now written by
 `db/discovery/discoverySignalRepository.ts`'s `claimDiscoverySweepRun` /
 `completeDiscoverySweepRun`, the lease claim/complete pair
 `services/discovery/sweep.ts` calls once per run.
 
+- **`organization_identity_archives`** is populated once by the central-organization migration. Application code reads the frozen source evidence for reviewed mapping; triggers prohibit changes. Canonical company identity lives in Oxy.
 - **`product_type_aliases`** has neither a reader nor a writer.
   `db/__tests__/product-type-alias-seam.test.ts` (#732) is the gate that records
   why and states the prerequisite — a product-type member on `SearchFilters` —

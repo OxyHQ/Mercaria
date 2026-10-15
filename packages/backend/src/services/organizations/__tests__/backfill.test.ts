@@ -9,7 +9,7 @@ function row(
   id: string,
   overrides: Partial<OrganizationMigrationRow> = {},
 ): OrganizationMigrationRow {
-  const date = new Date('2026-10-15T00:00:00.000Z');
+  const date = new Date('2025-01-15T00:00:00.000Z');
   return {
     id,
     oxyAccountId: null,

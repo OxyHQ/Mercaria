@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: Restore organizations identity columns and indexes from the prior schema snapshot, then recover source facts from organization_identity_archives and recompute normalized_name and search_vector before rolling back the application.
 -- A nonempty installation must run the reviewed source-ID backfill before cutover.
 DO $$
 BEGIN

@@ -24,7 +24,7 @@ const canonical = (accountId: string, overrides: Partial<Organization> = {}): Or
   status: 'active',
   mergedIntoAccountId: null,
   createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-10-15T00:00:00.000Z',
+  updatedAt: '2025-01-15T00:00:00.000Z',
   ...overrides,
 });
 

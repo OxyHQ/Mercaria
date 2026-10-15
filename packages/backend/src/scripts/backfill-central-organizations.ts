@@ -5,7 +5,6 @@ import { OxyServices } from '@oxy.so/core';
 import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createDatabase } from '@oxy.so/db';
-import * as schema from '../db/schema/index.js';
 import {
   organizations,
   organizationAliases,
@@ -42,7 +41,11 @@ const reviewedMappingSchema = z.array(
 const reviewedMappings = values['reviewed-mappings']
   ? reviewedMappingSchema.parse(JSON.parse(await readFile(values['reviewed-mappings'], 'utf8')))
   : [];
-const { db, client } = createDatabase({ databaseUrl: url, schema, client: { max: 1 } });
+const { db, client } = createDatabase({
+  databaseUrl: url,
+  schema: { organizations, organizationAliases, organizationIdentityArchives },
+  client: { max: 1 },
+});
 try {
   const rows = await db.transaction(async (tx) => {
     await tx.execute(sql`set transaction isolation level repeatable read read only`);

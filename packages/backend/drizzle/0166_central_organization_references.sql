@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: Restore organizations identity constraints from the prior schema snapshot and retain organization_identity_archives as immutable migration evidence; remove the identity freeze only during a coordinated application rollback.
 CREATE TABLE "organization_identity_archives" (
 	"id" text PRIMARY KEY NOT NULL,
 	"organization_id" text NOT NULL,
@@ -20,6 +21,7 @@ ALTER TABLE "organization_identity_archives" ADD CONSTRAINT "organization_identi
 CREATE UNIQUE INDEX "organization_identity_archives_organization_id_key" ON "organization_identity_archives" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "organizations_oxy_account_id_idx" ON "organizations" USING btree ("oxy_account_id");
 --> statement-breakpoint
+-- oxy:handwritten-begin=central_organization_identity_freeze
 INSERT INTO organization_identity_archives (id, organization_id, name, legal_name, website_url, verified_domains, country_code, logo_file_id, logo_source_record_id)
 SELECT id, id, name, legal_name, website_url, verified_domains, country_code, logo_file_id, logo_source_record_id FROM organizations;
 --> statement-breakpoint
@@ -52,3 +54,5 @@ CREATE TRIGGER organization_identity_archives_immutable BEFORE UPDATE OR DELETE 
 CREATE TRIGGER organization_aliases_identity_frozen
 BEFORE INSERT OR UPDATE OR DELETE ON organization_aliases
 FOR EACH ROW EXECUTE FUNCTION mercaria_organization_archive_immutable();
+
+-- oxy:handwritten-end=central_organization_identity_freeze
