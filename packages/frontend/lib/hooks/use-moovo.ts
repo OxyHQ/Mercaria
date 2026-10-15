@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useOxy } from '@oxy.so/services';
-import { moovoForOxy } from '@moovo.now/sdk';
+import { moovoForOxy } from '@oxy.so/moovo-sdk';
 
 export function useMoovo() {
   const { oxyServices } = useOxy();

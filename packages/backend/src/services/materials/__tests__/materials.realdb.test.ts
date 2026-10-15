@@ -351,6 +351,7 @@ describe('donated materials on real PostgreSQL', () => {
 
 describe('agent pickup projection', () => {
   it('reads only accepted own reservations, keeps transport references and omits private location', async () => {
+    const outsider = person('projection-outsider');
     const source = await offer(10);
     const accepted = await reserve(source.id, 1);
     const acceptedSecond = await reserve(source.id, 1);
@@ -377,15 +378,15 @@ describe('agent pickup projection', () => {
       'transport-ref-only',
     );
     expect(JSON.stringify(pending)).not.toContain(`PRIVATE_${RUN}`);
-    expect((await listPendingMaterialPickups(other.accountId, { limit: 100 })).items).toHaveLength(
-      0,
-    );
+    expect(
+      (await listPendingMaterialPickups(outsider.accountId, { limit: 100 })).items,
+    ).toHaveLength(0);
     const page = await listPendingMaterialPickups(donor.accountId, { limit: 1 });
     expect(page.items).toHaveLength(1);
     expect(page.nextCursor).not.toBeNull();
     if (!page.nextCursor) throw new Error('Expected more than one pending pickup');
     await expect(
-      listPendingMaterialPickups(other.accountId, { limit: 1, cursor: page.nextCursor }),
+      listPendingMaterialPickups(outsider.accountId, { limit: 1, cursor: page.nextCursor }),
     ).rejects.toThrow('cursor');
   });
 });

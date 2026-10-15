@@ -99,7 +99,7 @@
     "zustand": "^5.0.14",
     "zustand-persist": "^0.4.0",
     "@mercaria.co/sdk": "workspace:*",
-    "@moovo.now/sdk": "file:../../vendor/moovo.now-sdk-0.1.0-fe829858.tgz"
+    "@oxy.so/moovo-sdk": "0.1.0"
   },
   "devDependencies": {
     "@babel/plugin-syntax-dynamic-import": "^7.8.3",

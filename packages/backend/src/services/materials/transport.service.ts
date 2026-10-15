@@ -1,6 +1,6 @@
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { OxyServices } from '@oxy.so/core';
-import { moovoForOxy } from '@moovo.now/sdk';
+import { moovoForOxy } from '@oxy.so/moovo-sdk';
 import { MaterialTransportLinkSchema, type MaterialTransportLink } from '@mercaria/contracts';
 import type { StoreCaller } from '../store-access.service';
 import { PublicApiError } from '../public-api/errors';

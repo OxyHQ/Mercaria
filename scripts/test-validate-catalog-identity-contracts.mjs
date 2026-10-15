@@ -366,7 +366,8 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `ingestion.ts`'s `NormalizedSourceRecord` gained `productGroupKey`
     // (ADR 0016) — a source's own product id, opaque and source-scoped, not an
     // identity-shaped name. 136/2369/7900.
-    'walked 136 contract module(s), 2369 exported type(s), 7900 property signature(s)',
+    // Materials adds one contract module without catalog identity fields.
+    'walked 137 contract module(s), 2369 exported type(s), 7900 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

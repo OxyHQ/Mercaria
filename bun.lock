@@ -22,7 +22,6 @@
         "@goway.to/sdk": "0.3.0",
         "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
-        "@moovo.now/sdk": "file:../../vendor/moovo.now-sdk-0.1.0-fe829858.tgz",
         "@oxy.so/contracts": "4.12.0",
         "@oxy.so/core": "4.5.0",
         "@oxy.so/crowdsource": "^1.2.0",
@@ -30,6 +29,7 @@
         "@oxy.so/crowdsource-express": "^1.1.0",
         "@oxy.so/db": "^1.0.0",
         "@oxy.so/mcp": "1.1.0",
+        "@oxy.so/moovo-sdk": "0.1.0",
         "@peable.to/sdk": "0.2.5-oxy-one.0",
         "@socket.io/redis-adapter": "^8.3.0",
         "bullmq": "^5.80.4",
@@ -176,9 +176,9 @@
         "@mercaria/contracts": "workspace:*",
         "@mercaria/shared-types": "workspace:*",
         "@mercaria/ui": "workspace:*",
-        "@moovo.now/sdk": "file:../../vendor/moovo.now-sdk-0.1.0-fe829858.tgz",
         "@oxy.so/bloom": "10.4.0",
         "@oxy.so/core": "4.5.0",
+        "@oxy.so/moovo-sdk": "0.1.0",
         "@oxy.so/services": "11.2.0",
         "@react-native-async-storage/async-storage": "^2.2.0",
         "@react-native-community/hooks": "^100.1.0",
@@ -825,8 +825,6 @@
 
     "@modelcontextprotocol/sdk": ["@modelcontextprotocol/sdk@1.30.0", "", { "dependencies": { "@hono/node-server": "^1.19.9 || ^2.0.5", "ajv": "^8.17.1", "ajv-formats": "^3.0.1", "content-type": "^1.0.5", "cors": "^2.8.5", "cross-spawn": "^7.0.5", "eventsource": "^3.0.2", "eventsource-parser": "^3.0.0", "express": "^5.2.1", "express-rate-limit": "^8.2.1", "hono": "^4.11.4", "jose": "^6.1.3", "json-schema-typed": "^8.0.2", "pkce-challenge": "^5.0.0", "raw-body": "^3.0.0", "zod": "^3.25 || ^4.0", "zod-to-json-schema": "^3.25.1" }, "peerDependencies": { "@cfworker/json-schema": "^4.1.1" }, "optionalPeers": ["@cfworker/json-schema"] }, "sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA=="],
 
-    "@moovo.now/sdk": ["@moovo.now/sdk@../../vendor/moovo.now-sdk-0.1.0-fe829858.tgz", { "dependencies": { "zod": "^4.5.4" }, "peerDependencies": { "@oxy.so/core": "^4.5.0" } }, "sha512-C1pBiJ8qkwn61lCh7iZFyik6LPTE5GO4zsfd6QSyBJAFrJSPFaEteR7clkxl6PNzC+5WMSryLDcWxqajtHw3UQ=="],
-
     "@msgpackr-extract/msgpackr-extract-darwin-arm64": ["@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.4", "", { "os": "darwin", "cpu": "arm64" }, "sha512-LCkGo6JDfaBhgST7UpPWgNgLINpcpabaHfyz5OBx75nUYxBsaEPxjnyNjWpeb/xBup/682QnBfRBy2/LvPutZQ=="],
 
     "@msgpackr-extract/msgpackr-extract-darwin-x64": ["@msgpackr-extract/msgpackr-extract-darwin-x64@3.0.4", "", { "os": "darwin", "cpu": "x64" }, "sha512-zExlW9zUJKZH/tOtVMttwjKa4Xm/3KcNjnE3dPN92uCktwavMxpgCA3MoJK/DOnTWsQgo224OaST27/mPNAf+w=="],
@@ -906,6 +904,8 @@
     "@oxy.so/expo-splash": ["@oxy.so/expo-splash@1.0.0", "", { "dependencies": { "@expo/image-utils": ">=0.7.0", "xml2js": "^0.6.2" }, "peerDependencies": { "expo": ">=51.0.0", "expo-splash-screen": ">=0.27.0", "react": ">=18.0.0", "react-native": ">=0.74.0" } }, "sha512-v1jMNwb0WpHhDuGss8kNOi7rYWlIA2H96d8ejHiB3H12iKkrNBNA02vFfG7Q8Xrd2SlSu1vrfU8Tl4B33s3cVA=="],
 
     "@oxy.so/mcp": ["@oxy.so/mcp@1.1.0", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0", "@oxy.so/contracts": "^4.9.0", "zod": "^4.5.4" } }, "sha512-dVue2Ug50d7Zwl2wZv8x6yYBOAAWUXcdh2yz1Su2ufcST+ahv/ode6zVX887zWCyoADUWiWNhc2bYZwTsdBqjQ=="],
+
+    "@oxy.so/moovo-sdk": ["@oxy.so/moovo-sdk@0.1.0", "", { "dependencies": { "zod": "^4.5.4" }, "peerDependencies": { "@oxy.so/core": "^4.5.0" } }, "sha512-ez7pV9dmJFg+V65CNdh1BgSXl9AYJc3Y4l0PzuKERr2iUIPIqct+xG7gRUJ0t4hhhiAm8popGu5gdJOVFZ0mwQ=="],
 
     "@oxy.so/protocol": ["@oxy.so/protocol@1.2.2", "", { "dependencies": { "@noble/curves": "^1.9.7", "@oxy.so/contracts": "^4.9.0", "zod": "^3.25.64" }, "peerDependencies": { "@react-native-async-storage/async-storage": "<3.0.0", "expo-crypto": "<58.0.0", "expo-modules-core": "<58.0.0", "expo-secure-store": "<58.0.0", "express": "^4.18.0 || ^5.0.0" }, "optionalPeers": ["@react-native-async-storage/async-storage", "expo-crypto", "expo-secure-store", "express"] }, "sha512-6PlaD/GwG0CKvA1kZ0HVB5xM8JMKBms0dYmgAngGIk5lkPRz8x6hu7JkpvGGFef1yAvcxv8F19wW2pf3+YrEoQ=="],
 

@@ -1,7 +1,7 @@
 {
   "name": "@mercaria/backend",
   "version": "1.0.0",
-  "description": "Mercaria API — buy/sell marketplace backend by Oxy",
+  "description": "Mercaria API \u2014 buy/sell marketplace backend by Oxy",
   "private": true,
   "type": "module",
   "engines": {
@@ -55,7 +55,7 @@
     "stripe": "^22.4.0",
     "web-push": "^3.6.7",
     "zod": "^4.5.4",
-    "@moovo.now/sdk": "file:../../vendor/moovo.now-sdk-0.1.0-fe829858.tgz"
+    "@oxy.so/moovo-sdk": "0.1.0"
   },
   "devDependencies": {
     "@mercaria.co/sdk": "workspace:*",

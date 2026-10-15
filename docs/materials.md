@@ -79,7 +79,7 @@ privacy, delivery and cursor scope through services and the complete HTTP chain.
 An accepted reservation can request transport or keep personal pickup. The form
 prefills only facts already available (material/quantity and freeform pickup
 notes); both structured addresses, coordinates, contacts and parcel facts must
-be supplied. The frontend uses `moovoForOxy` from the owning `@moovo.now/sdk`
+be supplied. The frontend uses `moovoForOxy` from the owning `@oxy.so/moovo-sdk`
 directly. It shows Moovo's exact quote and selected payer, requires that payer's
 explicit confirmation, then lets a donation participant request fulfillment.
 A donor, recipient or authorized sponsoring organization can pay; an organization
@@ -109,10 +109,9 @@ unavailable and no charge is claimed. Donation items remain free.
 
 Configuration: `EXPO_PUBLIC_MOOVO_API_URL` for the frontend and `MOOVO_API_URL`
 for backend reference verification, both defaulting to `https://api.moovo.now`.
-The unpublished owning SDK is vendored with its source commit and SHA-256/SHA-512
-in `vendor/sdk-provenance.json`; no consumer patch is applied. Migration `0167`
-is an additive pre-deploy column. The Docker build copies vendor artifacts before
-its frozen dependency installation.
+The owning transport SDK is installed from the registry as
+`@oxy.so/moovo-sdk@0.1.0`, with no consumer patch. Migration `0167` adds
+the transport reference column before deployment.
 
 Verification includes actual PostgreSQL/HTTP/SDK reference attachment, mismatch
 rejection and reference retention after donation cancellation, plus browser flows

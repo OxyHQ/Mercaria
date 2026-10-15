@@ -8,7 +8,7 @@ import {
   MoovoApiError,
   type TransportEndpoint,
   type TransportView,
-} from '@moovo.now/sdk';
+} from '@oxy.so/moovo-sdk';
 import type { MaterialReservation } from '@mercaria.co/sdk';
 import { Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
