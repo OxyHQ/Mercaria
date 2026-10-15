@@ -39,9 +39,9 @@ The regular `src/db/migrate.ts` runner is the only migration executor; consult
 
 ```sh
 # DATABASE_URL is injected by the selected environment; never print it.
-bun run packages/backend/src/scripts/backfill-central-organizations.ts --target-database mercaria --plan-output /tmp/mercaria-company-plan.json
+bun run packages/backend/dist/scripts/backfill-central-organizations.js --target-database mercaria --plan-output /tmp/mercaria-company-plan.json
 # OXY_ADMIN_ACCESS_TOKEN is injected through an approved secret mechanism.
-bun run packages/backend/src/scripts/backfill-central-organizations.ts --target-database mercaria --apply --plan-sha256 REVIEWED_HASH
+bun run packages/backend/dist/scripts/backfill-central-organizations.js --target-database mercaria --apply --plan-sha256 REVIEWED_HASH
 ```
 
 `--plan-output` writes the exact groups, source archives, aliases, reviewed mappings and

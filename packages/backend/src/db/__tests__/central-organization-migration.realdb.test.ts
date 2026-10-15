@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import postgres from 'postgres';
 import {
@@ -66,6 +68,11 @@ it('archives frozen facts, supports reference-only rollout writes and guards the
     { name: 'Original Company' },
   ]);
 
+  const packageRoot = join(import.meta.dirname, '../../..');
+  execFileSync('bun', ['run', '--filter', '@mercaria/contracts', 'build'], { cwd: packageRoot, stdio: 'pipe' });
+  execFileSync('bun', ['build.ts'], { cwd: packageRoot, stdio: 'pipe' });
+  const planOutput = execFileSync('bun', [join(packageRoot, 'dist/scripts/backfill-central-organizations.js'), '--target-database', new URL(databaseUrl).pathname.slice(1)], { env: { ...process.env, DATABASE_URL: databaseUrl }, encoding: 'utf8' });
+  expect(planOutput).toContain('dry-run');
   await client`update organizations set oxy_account_id='oxy-company' where id in ('company','old-company')`;
   await applyMigrationsThrough(databaseUrl, '0167_retire_local_organization_identity', 'post');
   expect(
