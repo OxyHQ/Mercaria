@@ -31,12 +31,17 @@
 # the note on that step for why the pre/post pair cannot do it.
 name: Deploy to AWS
 
+# Triggered by `ci.yml` COMPLETING on `main`, not by the push. The push trigger
+# made the gate POLL for CI for up to 30 minutes while holding a runner — one of
+# four idle runners per merge on an org-wide limit of 20 concurrent jobs. The
+# old `paths-ignore` (`**.md`, `docs/**`) is `DEPLOY_PATHS_IGNORE` on the gate's
+# scope step, diffed against the last commit whose rollout this workflow
+# PERFORMED. `docs/deploy.md` §"What gates a deploy".
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
   workflow_dispatch:
     inputs:
       migration_phase:
@@ -67,14 +72,8 @@ on:
 # not prevent this workflow family's defensive rollback — it TRIGGERS it, which
 # was measured in Allo on 2026-08-09 while trying to stop one.
 #
-# It is ALSO what bounds the `gate` job's runner occupancy, which is the question
-# `docs/deploy.md` §"What to do when a gate times out" trains a reader to ask of
-# any polling gate. The three web deploys each cancel their own superseded runs
-# and can still have three gates polling at once; this group serialises instead,
-# so at most ONE run of this workflow is in progress per ref and therefore at
-# most one API gate ever polls. A queued run holds no runner at all. Net, this
-# workflow now occupies LESS: a poll loop replaced a full duplicate run of the
-# backend suite plus a PostGIS service container, on every push to `main`.
+# Since the move to `workflow_run` the gate no longer polls at all: CI has
+# concluded before this run exists, so it asks once and answers in seconds.
 #
 # THE COST OF THIS SETTING, AND WHAT NOW BOUNDS IT (#574). One group with
 # `cancel-in-progress: false` gives a queue depth of ONE, so a third arrival
@@ -92,8 +91,17 @@ on:
 # is pending, so it carries the evicted run's migrations too. That holds exactly
 # while the evictor SUCCEEDS — which nothing asserted, and which is now
 # `deploy-coverage.yml`'s job.
+#
+# THE EVICTOR IS STILL A DESCENDANT UNDER `workflow_run`, and that needed two
+# things. CI runs complete out of order (4 in 100 pushes measured), and a
+# `workflow_run` run's `head_sha` is `main`'s tip when the event fired, not the
+# commit CI verified. So a run deploys only when the two are EQUAL (the gate's
+# `if:`); a superseded run skips every job — and the `-noop-<run id>` suffix
+# below, the same predicate negated, keeps it out of this group, so it can
+# never evict a queued real deploy. Every run that can deploy uses exactly
+# `deploy-aws-<ref>`, and arrives in push order of the commit it ships.
 concurrency:
-  group: deploy-aws-${{ github.ref }}
+  group: deploy-aws-${{ github.ref }}${{ github.event_name == 'workflow_run' && (github.event.workflow_run.event != 'push' || github.event.workflow_run.head_repository.full_name != github.repository || github.event.workflow_run.head_sha != github.sha) && format('-noop-{0}', github.run_id) || '' }}
   cancel-in-progress: false
 
 permissions:
@@ -118,6 +126,9 @@ env:
   # install it). The matching DATABASE_URL is already live in SSM
   # /oxy/mercaria/DATABASE_URL → task definition oxy-mercaria:2.
   PG_DATABASE: mercaria
+  # The commit CI just verified. Equal to `github.sha` on every run that
+  # deploys: the gate's `if:` skips a run whose CI finished after a newer merge.
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   # WHAT IS VERIFIED BEFORE THE API SHIPS: the whole of `ci.yml` — the ten
@@ -150,39 +161,84 @@ jobs:
   # ONE definition of "did CI pass".
   #
   # THE POSTGIS SERVICE CONTAINER WENT WITH THE COPY, deliberately. This job
-  # runs one `fetch` loop and needs no database; the container, its image pin and
+  # asks the API and needs no database; the container, its image pin and
   # the x86-runner constraint that container imposes now live in exactly one
   # place, on `ci.yml`'s `lint-and-test` job, which is the job that still needs
   # them. Nothing else in this workflow read it — `deploy` takes no output from
   # the job it `needs:` and touches no Postgres.
   gate:
     name: CI passed for this commit
+    # A dispatch, or a `ci.yml` run for a PUSH to THIS repository's `main` whose
+    # commit is still the tip — see the concurrency note above for why a
+    # superseded one must not deploy. A CI run that FAILED is not filtered
+    # here on purpose: the gate runs and refuses, so a red commit stays a red
+    # deploy run that `deploy-coverage.yml` reports, as before.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_sha == github.sha)
     runs-on: ubuntu-latest
-    # Above the script's own 30-minute wait for a run to conclude, so a genuine
-    # refusal is reported by the script with its reason rather than by the runner
-    # killing the job. See `docs/deploy.md` §"What to do when a gate times out"
-    # before raising it — a timeout here is runner occupancy, not an impatient
-    # budget.
-    timeout-minutes: 40
+    # Nothing waits here any more: the verdict exists before this run does.
+    timeout-minutes: 10
+    outputs:
+      deploy: ${{ steps.scope.outputs.deploy }}
     # Job-level, which REPLACES the workflow-level block for this job rather than
     # adding to it. That is the point: the gate needs `actions: read` to ask what
-    # `ci.yml` concluded, and it must NOT hold `id-token: write` — a poll loop has
+    # `ci.yml` concluded, and it must NOT hold `id-token: write` — an API read has
     # no business being able to assume the AWS deploy role.
     permissions:
       contents: read
       actions: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24.20.0'
+      # Asked ONCE: every required job present and `success` on the newest
+      # attempt for this sha — stricter than `workflow_run.conclusion`.
       - name: Require a green CI run for this commit
-        run: node .github/scripts/require-ci-success.mjs
+        run: node .github/scripts/require-ci-success.mjs --sha="$DEPLOY_SHA" --no-wait
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The old `paths-ignore`, diffed against the last commit whose rollout a
+      # run of this workflow PERFORMED — never the previous push, so a skipped
+      # run can never hide a failed, evicted or hollow one. Any doubt answers
+      # `deploy=true`.
+      - name: Decide whether this commit changes what the API ships
+        id: scope
+        run: node .github/scripts/resolve-deploy-scope.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_FILE: deploy-aws.yml
+          SHIPPING_JOB: deploy
+          SHIPPED_STEP: 'Outcome: rollout performed'
+          DEPLOY_PATHS_IGNORE: |
+            **.md
+            docs/**
+      # The statement a no-op run makes, read by `require-deploy-coverage.mjs`
+      # (`DEPLOY_NOOP_STEP`). Without it the newest run of this workflow on a
+      # docs-only merge would state nothing and read as a hollow green. It is
+      # truthful because the scope base is the last PERFORMED rollout: nothing
+      # deployable changed since production last moved.
+      - name: 'Outcome: nothing to ship — production already has every deployable change'
+        if: steps.scope.outputs.deploy != 'true'
+        run: |
+          echo "no deployable change since the last rollout; deploy job skipped"
+          echo '- **nothing to ship**: no deployable change since the last performed rollout.' >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     needs: gate
+    # The literal `workflow_run` guard on the job that holds the credential, in
+    # addition to the gate's refusal: nothing here ships a commit whose CI did
+    # not conclude `success`.
+    if: >-
+      needs.gate.outputs.deploy == 'true' && (
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success')
     # Native arm64, matching the image this job builds.
     #
     # A CORRECTED RECORD, written down so the wrong version is not re-derived:
@@ -199,8 +255,15 @@ jobs:
     # Emulated arm64 is much slower than native, so the label stays; a blocked
     # run needs a human to approve it, not a runner change.
     runs-on: ubuntu-24.04-arm
+    # Healthy runs take 7-13 minutes. Generous, because a timeout CANCELS the
+    # job, and a cancellation between `run-task` and its exit-code check orphans
+    # a live migration task (see the concurrency note) — the bound exists only
+    # so a hung run cannot hold this group for six hours.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
 
       - name: Configure AWS credentials (OIDC, no stored keys)
         uses: aws-actions/configure-aws-credentials@v6
@@ -257,17 +320,17 @@ jobs:
             --cache-from type=gha,scope=$APP-backend \
             --cache-to type=gha,scope=$APP-backend,mode=max \
             -f "$DOCKERFILE" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.revision=$DEPLOY_SHA" \
             --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
             --label "io.oxy.source.tree=$SOURCE_TREE" \
             --label "io.oxy.build-inputs.sha256=$BUILD_INPUTS_SHA256" \
-            -t "$IMG:${{ github.sha }}" \
+            -t "$IMG:$DEPLOY_SHA" \
             -t "$IMG:latest" \
             --push \
             "$CONTEXT"
           DIGEST=$(aws ecr describe-images \
             --repository-name "oxy/$APP" \
-            --image-ids "imageTag=$GITHUB_SHA" \
+            --image-ids "imageTag=$DEPLOY_SHA" \
             --query 'imageDetails[0].imageDigest' \
             --output text)
           if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
@@ -294,7 +357,7 @@ jobs:
       - name: Resolve the ECS one-shot shape
         id: ecs
         env:
-          # Absent on a `push` trigger, where only the default is ever right.
+          # Absent on a `workflow_run` trigger, where only the default is ever right.
           REQUESTED_PHASE: ${{ github.event.inputs.migration_phase }}
           IMAGE_URI: ${{ steps.image.outputs.uri }}
           # GoWay's API origin (ADR 0013). Pinned into every release revision
