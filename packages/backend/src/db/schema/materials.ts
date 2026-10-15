@@ -38,6 +38,8 @@ export const materialReservations = pgTable(
       .notNull()
       .references(() => materialOffers.id, { onDelete: 'restrict' }),
     requesterAccountId: text().notNull(),
+    // Opaque Moovo reference. Transport facts are fetched from its owning SDK.
+    moovoTransportId: text(),
     quantity: integer().notNull(),
     status: text({ enum: MATERIAL_RESERVATION_STATUSES }).notNull().default('requested'),
     idempotencyKey: text().notNull(),

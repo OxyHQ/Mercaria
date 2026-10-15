@@ -68,6 +68,9 @@ async function account(page: Page) {
   });
   // Never send synthetic credentials to a real service. This browser suite
   // tests the actual SDK, Oxy provider, controls and retry behavior with HTTP fixtures.
+  await page.route('https://api.moovo.now/**', (route) =>
+    route.fulfill({ status: 404, json: { error: { code: 'not_found', message: 'No transport' } } }),
+  );
   await page.route('http://127.0.0.1:4160/**', (route) =>
     route.fulfill({
       status: 404,
@@ -247,4 +250,197 @@ test('donor accepts, releases a reservation and no longer sees collection detail
   await page.getByRole('button', { name: 'Cancel request or reservation', exact: true }).click();
   await expect(page.getByText('Cancelled', { exact: true })).toBeVisible();
   await expect(page.getByText('Private workshop entrance', { exact: true })).toHaveCount(0);
+});
+
+async function transportFixture(
+  page: Page,
+  payer = accountId,
+  lostCreate = false,
+  lostBook = false,
+) {
+  await account(page);
+  const row = {
+    id: 'transport-reservation',
+    offerId: offered.id,
+    donorAccountId: offered.ownerAccountId,
+    requesterAccountId: accountId,
+    quantity: 2,
+    status: 'accepted',
+    pickupInstructions: 'Check the workshop entrance',
+    moovoTransportId: null as string | null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  let transport: Record<string, unknown> | null = null;
+  const creates: Record<string, unknown>[] = [];
+  const authorizations: Record<string, unknown>[] = [];
+  const bookings: Record<string, unknown>[] = [];
+  const links: Record<string, unknown>[] = [];
+  await page.route('**/public/v1/materials/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/reservations'))
+      return route.fulfill({ json: { items: [row], nextCursor: null } });
+    if (path.endsWith('/transport')) {
+      const body = route.request().postDataJSON();
+      links.push(body);
+      row.moovoTransportId = body.transportId;
+      return route.fulfill({ json: row });
+    }
+    if (path.endsWith(`/${offered.id}`)) return route.fulfill({ json: offered });
+    return route.fulfill({ json: { items: [offered], nextCursor: null } });
+  });
+  await page.route('https://api.moovo.now/api/v1/**', async (route) => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname;
+    expect(req.headers().authorization).toContain('Bearer ');
+    if (req.method() === 'POST' && path.endsWith('/transports')) {
+      const body = req.postDataJSON();
+      creates.push(body);
+      transport = {
+        ...body,
+        id: 'transport-browser',
+        requestingAccountId: accountId,
+        payerAccountId: payer,
+        status: 'quoted',
+        quotes: [
+          {
+            id: 'quote-browser',
+            amountMinor: 1234,
+            currency: 'FAIR',
+            fulfillment: 'moovo_courier',
+            expiresAt: new Date(Date.now() + 300000).toISOString(),
+          },
+        ],
+        authorization: null,
+        jobId: null,
+        jobStatus: null,
+        paymentStatus: 'pending',
+        paymentCollectionAvailable: false,
+        createdAt: new Date().toISOString(),
+      };
+      if (lostCreate) return route.abort('failed');
+      return route.fulfill({ status: 201, json: transport });
+    }
+    if (path.endsWith('/authorize')) {
+      const body = req.postDataJSON();
+      authorizations.push(body);
+      transport = {
+        ...transport,
+        status: 'authorized',
+        authorization: {
+          ...body,
+          payerAccountId: payer,
+          actorAccountId: accountId,
+          expiresAt: new Date(Date.now() + 300000).toISOString(),
+        },
+      };
+      return route.fulfill({ json: transport });
+    }
+    if (path.endsWith('/book')) {
+      bookings.push(req.postDataJSON());
+      transport = {
+        ...transport,
+        status: 'booked',
+        jobId: 'real-request-ref',
+        jobStatus: 'requested',
+      };
+      if (lostBook) return route.abort('failed');
+      return route.fulfill({ json: transport });
+    }
+    if (path.endsWith('/cancel')) {
+      transport = { ...transport, status: 'cancelled' };
+      return route.fulfill({ json: transport });
+    }
+    return transport
+      ? route.fulfill({ json: transport })
+      : route.fulfill({
+          status: 404,
+          json: { error: { code: 'not_found', message: 'No request' } },
+        });
+  });
+  await page.goto('/materials');
+  await page.getByRole('button', { name: 'My requests and reservations', exact: true }).click();
+  await page.getByRole('button', { name: 'Request transport', exact: true }).click();
+  for (const leg of ['Pickup', 'Delivery']) {
+    for (const [field, value] of [
+      ['Street address', `${leg} street 1`],
+      ['City', 'Barcelona'],
+      ['Postal code', '08001'],
+      ['Country (two-letter code)', 'ES'],
+      ['Contact name', 'Test contact'],
+      ['Contact phone', '+34000000000'],
+      ['Latitude', leg === 'Pickup' ? '41.38' : '41.40'],
+      ['Longitude', '2.17'],
+    ])
+      await page.getByLabel(`${leg} ${field}`, { exact: true }).fill(value);
+  }
+  await page.getByLabel('Total weight (kg)', { exact: true }).fill('2');
+  await page.getByLabel('Number of packages', { exact: true }).fill('1');
+  if (payer !== accountId) await page.getByRole('button', { name: 'Donor', exact: true }).click();
+  await page.getByRole('button', { name: 'Get a transport quote', exact: true }).click();
+  await expect(page.getByText(/Transport: 12.34 FAIR/)).toBeVisible();
+  return { creates, authorizations, bookings, links };
+}
+
+test('transport price needs payer confirmation; uncertain create and booking replies resolve the existing request', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const calls = await transportFixture(page, accountId, true, true);
+  expect(calls.creates).toHaveLength(1);
+  const authorize = page.getByRole('button', {
+    name: 'Authorize this transport price',
+    exact: true,
+  });
+  await expect(authorize).toBeDisabled();
+  await page
+    .getByRole('button', {
+      name: `I am acting for ${accountId} and agree to this route and transport price`,
+      exact: true,
+    })
+    .click();
+  await authorize.click();
+  await expect(
+    page.getByRole('button', { name: 'Request the authorized transport', exact: true }),
+  ).toBeVisible();
+  expect(calls.authorizations).toHaveLength(1);
+  expect(calls.authorizations[0]).toMatchObject({
+    actingAccountId: accountId,
+    quoteId: 'quote-browser',
+    amountMinor: 1234,
+    currency: 'FAIR',
+    confirmed: true,
+  });
+  await page.getByRole('button', { name: 'Request the authorized transport', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Open delivery in Moovo', exact: true }),
+  ).toBeVisible();
+  expect(calls.bookings).toHaveLength(1);
+  await expect(page.getByText(/Transport payment is pending/)).toBeVisible();
+  await page.getByRole('button', { name: 'Save transport reference', exact: true }).click();
+  expect(calls.links[0]).toEqual({ actingAccountId: accountId, transportId: 'transport-browser' });
+  await expect(
+    page.getByRole('button', { name: 'Request the authorized transport', exact: true }),
+  ).toHaveCount(0);
+});
+
+test('choosing a different payer never exposes authorization; cancelling proposal preserves personal pickup', async ({
+  page,
+}) => {
+  const calls = await transportFixture(page, offered.ownerAccountId);
+  await expect(
+    page.getByRole('button', { name: 'Authorize this transport price', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Share with the selected payer for approval', exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Cancel transport proposal; keep personal pickup', exact: true })
+    .click();
+  await expect(page.getByText('Transport proposal cancelled.', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Personal pickup is always available. Donated materials remain free.'),
+  ).toBeVisible();
+  expect(calls.authorizations).toHaveLength(0);
+  expect(calls.bookings).toHaveLength(0);
 });

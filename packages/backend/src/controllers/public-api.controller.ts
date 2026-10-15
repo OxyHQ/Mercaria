@@ -1,3 +1,4 @@
+import { linkMaterialTransport } from '../services/materials/transport.service.js';
 import {
   createMaterialOffer,
   getMaterialOffer,
@@ -139,6 +140,8 @@ function productListParams(parsed: {
 let openApiDocument: OpenApiDocument | undefined;
 
 export const publicApiHandlers: PublicHandlers = {
+  linkMaterialTransport: ({ caller, params, body }) =>
+    linkMaterialTransport(caller, params.id, body),
   listMaterialOffers: ({ query }) => listMaterialOffers(query),
   getMaterialOffer: ({ params }) => getMaterialOffer(params.id),
   createMaterialOffer: ({ caller, body }) => createMaterialOffer(caller, body),

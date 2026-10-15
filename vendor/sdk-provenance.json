@@ -1,0 +1,9 @@
+{
+  "artifact": "moovo.now-sdk-0.1.0-fe829858.tgz",
+  "repository": "https://github.com/OxyHQ/Moovo",
+  "sourceCommit": "fe82985806d1ce861bd28ddd4820a30661eb8f57",
+  "sourcePackage": "packages/sdk",
+  "sha256": "e810049db2691ead315e5302a78d005493dcbdcedc0d15d487297198287e33cf",
+  "integrity": "sha512-C1pBiJ8qkwn61lCh7iZFyik6LPTE5GO4zsfd6QSyBJAFrJSPFaEteR7clkxl6PNzC+5WMSryLDcWxqajtHw3UQ==",
+  "published": false
+}

@@ -1,3 +1,4 @@
+import { MaterialTransportPanel } from '@/components/materials/MaterialTransportPanel';
 import { useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Head from 'expo-router/head';
@@ -412,6 +413,14 @@ function ReservationCard({ row, accountId }: { row: MaterialReservation; account
           </Button>
         ) : null}
       </View>
+      {row.status === 'accepted' || row.moovoTransportId ? (
+        <MaterialTransportPanel
+          reservation={row}
+          accountId={accountId}
+          title={offer.data?.title ?? t('materials.reservation')}
+        />
+      ) : null}
+      {row.moovoTransportId ? <Text>{t('transport.cancellationWarning')}</Text> : null}
       {action.isError ? <ErrorMessage error={action.error} /> : null}
     </View>
   );

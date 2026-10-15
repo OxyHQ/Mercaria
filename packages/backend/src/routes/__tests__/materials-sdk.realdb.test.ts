@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import type express from 'express';
+import express from 'express';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { eq, inArray } from 'drizzle-orm';
@@ -27,7 +27,7 @@ vi.mock('../../middleware/auth.js', () => ({
     if (account)
       Object.assign(req, {
         userId: account,
-        accessToken: req.headers.authorization!.slice(7),
+        accessToken: req.headers.authorization?.slice(7),
         user: { id: account },
         oxyActor: { actorAccountId: account, effectiveAccountId: account, delegated: false },
       });
@@ -74,6 +74,122 @@ afterAll(async () => {
 });
 
 describe('materials SDK through the real HTTP middleware and PostgreSQL', () => {
+  it('verifies Moovo ownership through its SDK and stores only the reference, including after donation cancellation', async () => {
+    const jwt = `e30.${Buffer.from(JSON.stringify({ sub: donorId, exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.test-signature`;
+    auth.tokens.set(`Bearer ${jwt}`, donorId);
+    const donor = createMercariaClient({ apiBaseUrl: base, getAccessToken: () => jwt }).materials;
+    const recipient = createMercariaClient({
+      apiBaseUrl: base,
+      getAccessToken: () => 'recipient-token',
+    }).materials;
+    const offer = await donor.createOffer({
+      ownerAccountId: donorId,
+      title: 'Spare material',
+      description: 'Free',
+      publicArea: 'West',
+      quantity: 4,
+      unit: 'pieces',
+      pickupInstructions: 'Private collection notes',
+      idempotencyKey: uuidv7(),
+    });
+    offers.push(offer.id);
+    const reservation = await recipient.request(offer.id, {
+      requesterAccountId: recipientId,
+      quantity: 2,
+      idempotencyKey: uuidv7(),
+    });
+    await donor.accept(reservation.id, { actingAccountId: donorId, idempotencyKey: uuidv7() });
+    const endpoint = {
+      address: { line1: 'Moovo-only address', city: 'Test', postalCode: '08001', country: 'ES' },
+      latitude: 41,
+      longitude: 2,
+      contactName: 'Test',
+      contactPhone: '+34000000000',
+    };
+    const transport = {
+      id: 'moovo-opaque-reference',
+      reservationId: reservation.id,
+      requestingAccountId: donorId,
+      payerAccountId: recipientId,
+      status: 'quoted',
+      pickup: endpoint,
+      dropoff: endpoint,
+      parcel: { weightKg: 2, pieces: 1, sizeClass: 'small' },
+      itemDescription: 'Shipment snapshot',
+      quotes: [
+        {
+          id: 'quote',
+          amountMinor: 1234,
+          currency: 'FAIR',
+          expiresAt: new Date(Date.now() + 60000).toISOString(),
+          fulfillment: 'moovo_courier',
+        },
+      ],
+      authorization: null,
+      jobId: null,
+      jobStatus: null,
+      paymentStatus: 'pending',
+      paymentCollectionAvailable: false,
+      createdAt: new Date().toISOString(),
+    };
+    const methods: string[] = [];
+    const moovoApp = express();
+    moovoApp.use((req, res) => {
+      methods.push(req.method);
+      expect(req.headers.authorization).toBe(`Bearer ${jwt}`);
+      res.json(
+        req.path.endsWith('/wrong-reservation')
+          ? { ...transport, reservationId: 'other' }
+          : transport,
+      );
+    });
+    const moovoServer = moovoApp.listen(0, '127.0.0.1');
+    await new Promise<void>((resolve) => moovoServer.once('listening', resolve));
+    process.env.MOOVO_API_URL = `http://127.0.0.1:${(moovoServer.address() as AddressInfo).port}`;
+    try {
+      await expect(
+        donor.linkTransport(reservation.id, {
+          actingAccountId: donorId,
+          transportId: 'wrong-reservation',
+        }),
+      ).rejects.toMatchObject({ code: 'conflict' });
+      const linked = await donor.linkTransport(reservation.id, {
+        actingAccountId: donorId,
+        transportId: transport.id,
+      });
+      expect(linked.moovoTransportId).toBe(transport.id);
+      expect(
+        (
+          await donor.linkTransport(reservation.id, {
+            actingAccountId: donorId,
+            transportId: transport.id,
+          })
+        ).moovoTransportId,
+      ).toBe(transport.id);
+      const [stored] = await db
+        .select()
+        .from(materialReservations)
+        .where(eq(materialReservations.id, reservation.id));
+      expect(stored.moovoTransportId).toBe(transport.id);
+      expect(JSON.stringify(stored)).not.toContain('Moovo-only');
+      expect(stored).not.toHaveProperty('amountMinor');
+      expect(stored).not.toHaveProperty('transportStatus');
+      const cancelled = await donor.cancel(reservation.id, {
+        actingAccountId: donorId,
+        idempotencyKey: uuidv7(),
+      });
+      expect(cancelled).toMatchObject({
+        moovoTransportId: transport.id,
+        pickupInstructions: null,
+        status: 'cancelled',
+      });
+      expect(methods.every((method) => method === 'GET')).toBe(true);
+    } finally {
+      await new Promise<void>((resolve) => moovoServer.close(() => resolve()));
+      delete process.env.MOOVO_API_URL;
+    }
+  });
+
   it('creates, lists, accepts and confirms receipt with refreshed authority and replay-safe responses', async () => {
     let token = 'donor-token';
     const getter = vi.fn(() => token);

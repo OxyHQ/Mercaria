@@ -139,6 +139,7 @@ function projectReservation(row: ReservationRow, offer: OfferRow): MaterialReser
     offerId: row.offerId,
     donorAccountId: offer.ownerAccountId,
     requesterAccountId: row.requesterAccountId,
+    moovoTransportId: row.moovoTransportId,
     quantity: row.quantity,
     status: row.status,
     pickupInstructions:

@@ -73,3 +73,50 @@ for these new strings. Browser regression fixtures exercise the actual Oxy
 provider, SDK and form controls; they substitute Oxy HTTP authority, not database
 semantics. PostgreSQL tests independently cover contention, revocation, replay,
 privacy, delivery and cursor scope through services and the complete HTTP chain.
+
+## Optional Moovo transport
+
+An accepted reservation can request transport or keep personal pickup. The form
+prefills only facts already available (material/quantity and freeform pickup
+notes); both structured addresses, coordinates, contacts and parcel facts must
+be supplied. The frontend uses `moovoForOxy` from the owning `@moovo.now/sdk`
+directly. It shows Moovo's exact quote and selected payer, requires that payer's
+explicit confirmation, then lets a donation participant request fulfillment.
+A donor, recipient or authorized sponsoring organization can pay; an organization
+editor cannot approve expenditure. A different payer receives a review link at
+`/materials-transport/<transport-id>` and can switch Oxy accounts there.
+
+`materials.linkTransport(id, { actingAccountId, transportId })` persists only
+`material_reservations.moovo_transport_id`. The backend verifies the current
+Moovo reference through a request-local official Oxy-linked SDK read. It checks
+that the transport belongs to this reservation before attaching it, and only
+replaces a reference whose previous proposal was explicitly cancelled. No
+transport price, address, approval or status is stored in Mercaria. The UI reads
+current state from Moovo independently and hides old content on failures.
+
+A lost create response is recovered by reservation ID; a lost booking response
+is recovered by the same transport ID. Repeated writes preserve their operation
+identity. The user can retry attaching an already created reference without
+requesting another shipment. Cancelling a donation keeps its transport reference
+and does **not** cancel an existing transport. Unbooked proposals have a separate
+cancel action; requested deliveries are managed in Moovo.
+
+Moovo's current internal courier quotes use 100 minor units per FAIR, distinct
+from Mercaria's 100,000,000. The owning SDK's `formatTransportPrice` renders them;
+they must not be passed to Mercaria's money formatter. Current fulfillment is a
+real Moovo courier job with payment explicitly pending; payment collection is
+unavailable and no charge is claimed. Donation items remain free.
+
+Configuration: `EXPO_PUBLIC_MOOVO_API_URL` for the frontend and `MOOVO_API_URL`
+for backend reference verification, both defaulting to `https://api.moovo.now`.
+The unpublished owning SDK is vendored with its source commit and SHA-256/SHA-512
+in `vendor/sdk-provenance.json`; no consumer patch is applied. Migration `0167`
+is an additive pre-deploy column. The Docker build copies vendor artifacts before
+its frozen dependency installation.
+
+Verification includes actual PostgreSQL/HTTP/SDK reference attachment, mismatch
+rejection and reference retention after donation cancellation, plus browser flows
+for exact price, explicit payer confirmation, a different payer, personal pickup,
+proposal cancellation and lost create/booking responses. English and Spanish
+transport copy is provided; the other shipped locales currently use English
+fallback strings, as the material donation foundation does.

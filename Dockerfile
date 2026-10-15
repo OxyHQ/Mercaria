@@ -80,6 +80,7 @@ WORKDIR /app
 # workspace's package.json is included (the frontend source is excluded by
 # .dockerignore) so the bun workspace graph stays valid.
 COPY package.json bun.lock bunfig.toml ./
+COPY vendor ./vendor
 COPY packages/backend/package.json ./packages/backend/package.json
 COPY packages/frontend/package.json ./packages/frontend/package.json
 COPY packages/shared-types/package.json ./packages/shared-types/package.json
