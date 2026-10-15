@@ -1,5 +1,5 @@
 /** Explicit, resumable source-ID migration. Dry-run is the default; never matches names. */
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { OxyServices } from '@oxy.so/core';
 import { and, eq, isNull, or, sql } from 'drizzle-orm';
@@ -20,6 +20,7 @@ const { values } = parseArgs({
   options: {
     'target-database': { type: 'string' },
     'plan-sha256': { type: 'string' },
+    'plan-output': { type: 'string' },
     'reviewed-mappings': { type: 'string' },
     'acknowledge-domain-reverification': { type: 'boolean', default: false },
     apply: { type: 'boolean', default: false },
@@ -64,6 +65,22 @@ try {
     }));
   });
   const plan = planOrganizationBackfill(rows, reviewedMappings);
+  if (values['plan-output']) {
+    await writeFile(
+      values['plan-output'],
+      JSON.stringify(
+        {
+          database: values['target-database'],
+          sha256: plan.sha256,
+          reviewedMappings,
+          groups: plan.groups,
+        },
+        null,
+        2,
+      ),
+      { mode: 0o600, flag: 'wx' },
+    );
+  }
   console.log(
     JSON.stringify(
       {
