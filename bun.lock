@@ -27,7 +27,7 @@
         "@oxy.so/crowdsource": "^1.2.0",
         "@oxy.so/crowdsource-contracts": "^1.1.0",
         "@oxy.so/crowdsource-express": "^1.1.0",
-        "@oxy.so/db": "^1.0.0",
+        "@oxy.so/db": "^1.1.0",
         "@oxy.so/mcp": "1.1.0",
         "@peable.to/sdk": "0.2.5-oxy-one.0",
         "@socket.io/redis-adapter": "^8.3.0",
@@ -894,7 +894,7 @@
 
     "@oxy.so/crowdsource-express": ["@oxy.so/crowdsource-express@1.1.0", "", { "peerDependencies": { "@oxy.so/crowdsource-contracts": "^1.1.0", "express": ">=4" } }, "sha512-j36JutvSU/5ZMfX8GVdAGsMGttCQ5PWo4sTlObPrST0vTaJim54YT3JhpF53Zy3FJPzihpPJL6o65ABFmt9owQ=="],
 
-    "@oxy.so/db": ["@oxy.so/db@1.0.0", "", { "peerDependencies": { "drizzle-orm": "^0.45.2", "postgres": "^3.4.9" } }, "sha512-5tnH+84QR7cnTRYF7FWIN1rGF7YoE0M+sfUBC2Bdclzp1Hfb7+Msr7cEvFklluZxXMP2Mv8HzPB6/gz3Kndk4Q=="],
+    "@oxy.so/db": ["@oxy.so/db@1.1.0", "", { "peerDependencies": { "drizzle-orm": "^0.45.2", "postgres": "^3.4.9" } }, "sha512-VotVrgHxfbqIn3Tn+pXa1nrIUFYA1VnQ6jQw2X8odTGoWmHcJYbzDVowzCU4pRbHZr1fTEOmdVjTJyl5pzJxgA=="],
 
     "@oxy.so/doctor": ["@oxy.so/doctor@1.1.0", "", { "bin": { "oxy-doctor": "src/cli.mjs" } }, "sha512-o5uDvU2c6f7Z+8jpiRyFILimouEwm7GY0pqMEfMNgCJ3/Q10ot2ccm9OpGnRlx9T2MLaWdDh/4hU4TLPq+OC8g=="],
 
