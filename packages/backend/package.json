@@ -35,7 +35,7 @@
     "@oxy.so/crowdsource": "^1.2.0",
     "@oxy.so/crowdsource-contracts": "^1.1.0",
     "@oxy.so/crowdsource-express": "^1.1.0",
-    "@oxy.so/db": "^1.0.0",
+    "@oxy.so/db": "^1.1.0",
     "@oxy.so/mcp": "1.1.0",
     "@peable.to/sdk": "0.2.5-oxy-one.0",
     "@socket.io/redis-adapter": "^8.3.0",
