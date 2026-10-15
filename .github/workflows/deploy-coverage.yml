@@ -27,11 +27,9 @@
 # eviction implies an EVICTOR, the evictor is a real run that always concludes,
 # and its conclusion fires this check whatever happened to the run it displaced.
 #
-# Note this is NOT the `workflow_run` that `docs/deploy.md` §"Why the gate reads
-# CI's result" rejected. That rejection was about using `workflow_run` to
-# TRIGGER A DEPLOY, where losing the `paths:` filter matters and getting it
-# wrong means deploys silently stop. Here the trigger drives a REPORT: if it
-# never fires, the worst case is today's behaviour, and it can never stop a
+# The deploys themselves now trigger on `ci.yml`'s `workflow_run` too (see
+# `docs/deploy.md` §"What gates a deploy"). Here the trigger drives a REPORT:
+# if it never fires, the schedule still answers, and it can never stop a
 # deploy or ship anything.
 #
 # ## There is no bypass, deliberately
@@ -55,13 +53,15 @@ on:
       - Deploy Dashboard
       - Deploy POS
     types: [completed]
-  # The backstop that carries the guarantee. Hourly rather than every few
-  # minutes because the deploy events above are what make it prompt; this exists
-  # for the cases that emit no event at all — a run held `action_required`
-  # awaiting approval, a human cancellation, a queue that stalled. The worst
-  # unreported window measured before this existed was 358 minutes.
+  # The backstop that carries the guarantee. Every six hours rather than hourly
+  # (2026-10): the deploy events above are what make it prompt, the org shares
+  # 20 concurrent jobs, and an hourly run was 24 queue slots a day for the rare
+  # case that emits no event at all — a run held `action_required` awaiting
+  # approval, a human cancellation, a queue that stalled. The worst unreported
+  # window measured before this existed was 358 minutes; six hours bounds it at
+  # about that.
   schedule:
-    - cron: '17 * * * *'
+    - cron: '17 */6 * * *'
   # So the wiring can be exercised by hand the moment it merges, instead of
   # waiting for an incident to find out whether it works — and so "is main
   # actually shipped?" is a question anybody can ask at any time.

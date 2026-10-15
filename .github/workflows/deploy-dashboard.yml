@@ -14,21 +14,23 @@ name: Deploy Dashboard
 # and nothing about whether it is correct. Until #505 this workflow had no gate
 # at all. See `docs/deploy.md` §"What gates a deploy".
 
+# Triggered by `ci.yml` COMPLETING on `main`, not by the push (see
+# `docs/deploy.md` §"What gates a deploy"). The old push trigger made the gate
+# POLL for CI for up to 30 minutes, holding a runner the whole time — one of
+# four idle runners per merge on an org-wide limit of 20 concurrent jobs.
+# `workflow_run` carries no `paths:`, so the old filter is the `DEPLOY_PATHS`
+# list on the gate's scope step below, diffed against the last commit this
+# workflow actually shipped.
 on:
-  workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - '.github/workflows/deploy-dashboard.yml'
-      - '.github/scripts/require-ci-success.mjs'
-      - 'packages/dashboard/**'
-      - 'packages/ui/**'
-      - 'packages/shared-types/**'
-      - 'package.json'
-      - 'bun.lock'
+  workflow_dispatch:
 
 # The deploy authenticates to Cloudflare with its own secret; the workflow token
-# needs only enough to check out the gate script and read this commit's CI run.
+# needs only enough to check out the gate script, read this commit's CI run and
+# compare it with the last shipped commit.
 permissions:
   contents: read
   actions: read
@@ -38,37 +40,86 @@ permissions:
 # `wrangler deploy` is safe, and why the group must be keyed PER APP rather than
 # shared — is written out once in `deploy-cloudflare.yml`.
 concurrency:
-  group: deploy-dashboard-${{ github.ref }}
+  group: deploy-dashboard-${{ github.ref }}${{ github.event_name == 'workflow_run' && (github.event.workflow_run.event != 'push' || github.event.workflow_run.head_repository.full_name != github.repository || github.event.workflow_run.head_sha != github.sha) && format('-noop-{0}', github.run_id) || '' }}
   cancel-in-progress: true
+
+# The commit CI just verified. Equal to `github.sha` on every run that deploys:
+# the gate's `if:` skips a run whose CI finished after a newer merge landed.
+env:
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
   gate:
     name: CI passed for this commit
+    # Runs on a dispatch, or on a `ci.yml` run for a PUSH to THIS repository's
+    # `main` whose commit is still the tip. A run of CI that finished after a
+    # newer merge landed is superseded: this workflow's run carries the newer
+    # commit as its `head_sha`, so shipping the older one would misreport
+    # what is live and could roll production back. Such a run skips every job
+    # (conclusion `skipped`, which `require-deploy-coverage.mjs` ignores) and
+    # sits in its own concurrency group, so it can neither cancel nor evict a
+    # real deploy; the newer commit's own CI completion deploys it.
+    #
+    # A CI run that FAILED is not filtered here on purpose: the gate runs and
+    # refuses, so a red commit on `main` stays a red deploy run, exactly as it
+    # was before `workflow_run`.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_sha == github.sha)
     runs-on: ubuntu-latest
-    # Above the script's own 30-minute wait for a run to conclude, so a genuine
-    # refusal is reported by the script with its reason rather than by the runner
-    # killing the job.
-    timeout-minutes: 40
+    # Nothing here waits any more: CI has concluded before this run exists.
+    timeout-minutes: 10
+    outputs:
+      deploy: ${{ steps.scope.outputs.deploy }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24.20.0'
+      # Asked ONCE: every required job present and `success` on the newest
+      # attempt for this sha — stricter than `workflow_run.conclusion`.
       - name: Require a green CI run for this commit
-        run: node .github/scripts/require-ci-success.mjs
+        run: node .github/scripts/require-ci-success.mjs --sha="$DEPLOY_SHA" --no-wait
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The old `on.push.paths`, diffed against the last commit this workflow
+      # SHIPPED (not the previous push), so a skipped run can never hide one
+      # that failed. Any doubt answers `deploy=true`.
+      - name: Decide whether this commit changes the dashboard app
+        id: scope
+        run: node .github/scripts/resolve-deploy-scope.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_FILE: deploy-dashboard.yml
+          SHIPPING_JOB: deploy-dashboard
+          DEPLOY_PATHS: |
+            .github/workflows/deploy-dashboard.yml
+            .github/scripts/require-ci-success.mjs
+            .github/scripts/resolve-deploy-scope.mjs
+            packages/dashboard/**
+            packages/ui/**
+            packages/shared-types/**
+            package.json
+            bun.lock
 
-  # The Expo export needs nothing the gate protects: no secret, only the public
-  # EXPO_PUBLIC_* build config, and it ships nothing. So it runs WHILE the gate
-  # waits for ci.yml (~12 min) instead of after it, and the job that holds the
-  # Cloudflare token still needs the gate and only uploads what this built.
-  # Measured: the export was 58-59s of a ~90s deploy job that started only once
-  # the gate passed (runs of deploy-dashboard/deploy-pos, 2026-09).
+  # The Expo export needs no secret, only the public EXPO_PUBLIC_* build config,
+  # and ships nothing. It used to run WHILE the gate polled for ci.yml; now
+  # that the gate answers in seconds it waits for it, so a commit that does not
+  # reach this app (or whose CI failed) builds nothing at all.
   build:
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24.20.0'
@@ -78,7 +129,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Build dashboard (Expo web export)
         run: bun run build:dashboard
-        timeout-minutes: 60
+        timeout-minutes: 25
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
           NODE_ENV: production
@@ -103,13 +154,26 @@ jobs:
 
   deploy-dashboard:
     needs: [gate, build]
+    # The literal `workflow_run` guard on the job that holds the credential, in
+    # addition to the gate's refusal: nothing here ships a commit whose CI did
+    # not conclude `success`.
+    if: >-
+      needs.gate.outputs.deploy == 'true' && (
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
+      # Only `wrangler.jsonc` and the built `dist/` are read here. No
+      # `bun install`: `_worker.js` imports nothing, so wrangler bundles it
+      # without node_modules, and `bunx wrangler@4` resolves wrangler on its
+      # own exactly as it did after the install (wrangler is not in bun.lock).
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.3'
-      - run: bun install --frozen-lockfile
       - uses: actions/download-artifact@v8
         with:
           name: dashboard-dist

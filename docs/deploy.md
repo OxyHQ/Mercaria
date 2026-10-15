@@ -49,6 +49,67 @@ calls `.github/scripts/require-ci-success.mjs`. That asks the Actions API what
 `ci.yml` concluded **for this exact commit** and refuses unless every job it
 defines is present and `success`.
 
+### Since 2026-10: triggered by CI's completion, and the gate never waits
+
+Until October 2026 each deploy triggered on the `push` and its `gate` POLLED
+for CI for up to 30 minutes, holding a runner throughout — four idle runners
+per merge against the org's FREE-plan limit of **20 concurrent jobs**, where
+jobs already waited longer in queue than they ran. It also failed on its own
+terms: on 2026-10-15 the `Deploy to AWS` and `Deploy POS` gates for `b14ebee3`
+timed out after 30 minutes while that commit's CI sat queued and then
+SUCCEEDED, leaving a green commit unshipped.
+
+All four now trigger on `workflow_run` of `CI` (`types: [completed]`,
+`branches: [main]`) plus `workflow_dispatch`. What each run does:
+
+1. **The `gate` job's `if:` admits only a `ci.yml` run for a `push` to THIS
+   repository's `main` whose `head_sha` is still `github.sha`.** A
+   `workflow_run` run's own `head_sha` is `main`'s tip when the event fired,
+   NOT the commit CI verified (measured: a coverage run triggered by the deploy
+   of `246ecab3` carried `ebef16a9`). CI runs finish out of order (4 of the
+   last 100 pushes), so shipping the verified commit regardless would roll
+   production back and make every run-anchored report below misread what is
+   live. A superseded run skips every job, concludes `skipped`, and the newer
+   commit's own CI completion deploys it. A CI run that FAILED is not filtered
+   out: the gate runs and refuses, so a red commit stays a red deploy run.
+2. **`require-ci-success.mjs --no-wait`** asks once — every required job
+   present and `success` on the newest attempt for the sha, which is stricter
+   than `workflow_run.conclusion`. On a dispatch whose CI has not concluded it
+   refuses instead of waiting.
+3. **`resolve-deploy-scope.mjs`** rebuilds the old `paths:`/`paths-ignore:`
+   from a diff. The base is the last commit a run of this workflow actually
+   SHIPPED — the shipping job `success`, and for the API the `Outcome: rollout
+   performed` step — never the previous push, so a skip can never hide a
+   failed, evicted, cancelled or hollow deploy: the next run covers everything
+   since production last moved. Every doubt (no base, an API error, a diverged
+   history, a truncated file list) answers DEPLOY; the only skips are a
+   complete diff that touches nothing in scope and an identical tree. A
+   dispatch always deploys.
+4. **The shipping job** carries the literal guard
+   `github.event.workflow_run.conclusion == 'success'` beside
+   `needs.gate.outputs.deploy == 'true'`, and checks out
+   `workflow_run.head_sha` (equal to `github.sha` by rule 1).
+
+Two consequences that are deliberate:
+
+- **Concurrency.** A run that cannot deploy (rule 1 negated) takes a
+  `-noop-<run id>` suffix on its group, so it neither cancels a web deploy in
+  flight nor evicts the API's queued one. Every deploying run uses exactly the
+  old group, and since it ships its own event's tip, the evictor of a queued
+  API deploy is still a DESCENDANT — the property §"What is merged is asserted
+  to have shipped" rests on. `deployGating.test.ts` pins the suffix and asserts
+  the API's group with it removed is exactly `deploy-aws-${{ github.ref }}`.
+- **A superseded commit ships with its successor.** If the successor's CI then
+  fails, nothing ships until it is fixed; before, the earlier green commit
+  would have shipped alone. The successor's red gate run is what
+  `deploy-coverage.yml` reports.
+
+The cost moved rather than vanished: every green CI on `main` now starts all
+four workflows, and a commit that reaches none of them costs four ~20-second
+gate jobs where it used to cost nothing. A commit that reaches them no longer
+parks four runners for the length of CI, and the three web deploys install
+only `wrangler` in their deploy job instead of a second full `bun install`.
+
 Until #518 the API was the exception: it had a `test` job of its own, and that
 job was a partial copy of `ci.yml` rather than CI. It ran **4 steps where
 `ci.yml`'s `Lint & Test` ran 21** — no `validate:*` guard and no typecheck at
@@ -70,7 +131,13 @@ transpiles rather than typechecks, so a backend type error was deployable.
 
 The three web workflows have no test job to `needs:`, so the two obvious repairs
 are a `workflow_run` trigger or a second copy of the suite inside each workflow.
-Both were rejected:
+Both were rejected in August 2026; the first was ADOPTED in October 2026 (the
+section above), once the runner occupancy of the polling gate was measured as
+the bigger risk. Its two objections are answered there: the narrowing is
+rebuilt from a diff anchored on the last shipped commit and fails toward
+deploying, and the untestable-before-merge part is pinned by
+`deployGating.test.ts` and was verified on the first runs after merge. The
+original reasoning, kept because the second objection still stands:
 
 - **`workflow_run` carries no `paths:`.** The narrowing that stops a docs-only
   change redeploying three apps would have to be rebuilt out of a diff, and the
@@ -116,6 +183,11 @@ proves the app BUNDLES — a missing import, a syntax error — and says nothing
 about the typechecks, the ten guards or the three app test runners.
 
 ### What to do when a gate times out — and the two wrong repairs
+
+> Historical since October 2026: the gate no longer waits, so it cannot time
+> out on a queue. The section is kept because its measurements are why the
+> trigger changed, and because "raise the wait" and "drop the gate" remain the
+> two wrong repairs for any polling gate.
 
 **A gate timing out is a symptom of runner occupancy, not of an impatient
 budget. The two wrong repairs are raising the wait (it hides the queue and
@@ -212,10 +284,14 @@ the condition this check asserts.
 
 **Three things about the implementation that are load-bearing:**
 
-- **It anchors on the newest RUN, never the newest COMMIT.** All four deploys
-  carry `paths:`/`paths-ignore:`, so a docs-only tip legitimately has no run —
-  anchoring on the commit would mean rebuilding those filters out of a diff, the
-  untestable reconstruction §"Why the gate reads CI's result" already rejected.
+- **It anchors on the newest RUN, never the newest COMMIT.** Since October
+  2026 every green CI on `main` produces a run of each deploy; one the commit
+  does not reach ships nothing and says so (a green run for the web deploys;
+  for the API the gate's `Outcome: nothing to ship — …` step, read as
+  `current`, which is truthful because its scope base is the last PERFORMED
+  rollout). A SUPERSEDED run concludes `skipped` and is ignored: the newer
+  commit's own run answers. A gate that refused a red CI is `failure` and still
+  counts.
 - **Coverage is ordered by `run_number`, never by completion time.** An evicted
   run completes in seconds while the run it queued behind takes fifteen minutes,
   so a completion-order sort puts the success ABOVE cancellations it did not
@@ -239,7 +315,8 @@ One successful deploy applies everything pending.
 **What it does NOT claim.** It does not fire for an eviction whose evictor
 succeeded, because nothing was lost — the five-minute window in #574's own
 timeline is a consistent older state, not a torn one, and removing it needs one
-of the rejected options. The guarantee is carried by the hourly `schedule`; the
+of the rejected options. The guarantee is carried by the `schedule` (every six
+hours since October 2026; hourly before); the
 `workflow_run` trigger only makes the answer fast, so nothing rests on whether
 GitHub emits an event for a run cancelled by concurrency.
 

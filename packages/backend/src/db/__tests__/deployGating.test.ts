@@ -94,21 +94,56 @@ const gateModule: {
       token?: string;
     }) => Promise<{ name: string; conclusion?: string | null; status?: string }[]>;
     sleepFor?: (ms: number) => Promise<void>;
+    wait?: boolean;
   }) => Promise<FakeRun>;
 } = await import(pathToFileURL(GATE_SCRIPT_PATH).href);
 
+const SCOPE_SCRIPT_PATH = join(REPO_ROOT, '.github', 'scripts', 'resolve-deploy-scope.mjs');
+const scopeModule: {
+  globToRegExp: (pattern: string) => RegExp;
+  patternList: (value: string) => string[];
+  touchesScope: (input: { files: string[]; include?: string[]; exclude?: string[] }) => string[];
+  runShipped: (input: {
+    jobs: {
+      name: string;
+      conclusion?: string | null;
+      steps?: { name: string; conclusion?: string | null }[];
+    }[];
+    shippingJob: string;
+    shippedStep?: string;
+  }) => boolean;
+  decide: (input: {
+    base: string | null;
+    comparison: { status: string; files?: { filename: string }[] } | null;
+    include: string[];
+    exclude: string[];
+  }) => { deploy: boolean; reason: string };
+} = await import(pathToFileURL(SCOPE_SCRIPT_PATH).href);
+
+/** A GitHub Actions expression as it is spelled in a workflow file. */
+const ghExpr = (inner: string): string => `\${{ ${inner} }}`;
+
 /** Only the shape these assertions read — not a schema for GitHub Actions. */
 interface WorkflowStep {
+  name?: string;
+  id?: string;
   uses?: string;
   run?: string;
+  with?: Record<string, string>;
   env?: Record<string, string>;
 }
 interface WorkflowJob {
   name?: string;
+  if?: string;
   needs?: string | string[];
   steps?: WorkflowStep[];
 }
 interface WorkflowFile {
+  on?: {
+    push?: unknown;
+    workflow_run?: { workflows?: string[]; types?: string[]; branches?: string[] };
+    workflow_dispatch?: unknown;
+  };
   concurrency?: { group?: string; 'cancel-in-progress'?: boolean | string };
   jobs: Record<string, WorkflowJob>;
 }
@@ -395,7 +430,19 @@ describe('the API deploy must never cancel a run mid-migration', () => {
   });
 
   it('serialises per REF and never per sha, which would race two migrators', () => {
-    const group = readWorkflow(API_DEPLOY_WORKFLOW).concurrency?.group ?? '';
+    const fullGroup = readWorkflow(API_DEPLOY_WORKFLOW).concurrency?.group ?? '';
+    // Since `workflow_run`, a run that can NOT deploy (superseded or foreign —
+    // every job skips) takes a `-noop-<run id>` suffix so it cannot evict a
+    // queued real deploy. That suffix compares `head_sha` with `github.sha`,
+    // so the sha assertion below is made on the group every DEPLOYING run
+    // uses: the expression with the suffix removed.
+    const noopSuffix =
+      /\$\{\{ github\.event_name == 'workflow_run' && \(.*\) && format\('-noop-\{0\}', github\.run_id\) \|\| '' \}\}$/u;
+    expect(fullGroup, 'the noop suffix is gone or reshaped — re-derive this assertion').toMatch(
+      noopSuffix,
+    );
+    const group = fullGroup.replace(noopSuffix, '');
+    expect(group).toBe(`deploy-aws-${ghExpr('github.ref')}`);
 
     expect(group).toContain('github.ref');
     expect(
@@ -407,6 +454,238 @@ describe('the API deploy must never cancel a run mid-migration', () => {
         `covered by a later success.`,
     ).not.toContain('github.sha');
   });
+});
+
+/**
+ * The deploys trigger on `ci.yml` COMPLETING, and the gate asks once (#queue).
+ *
+ * The push trigger made each gate POLL for up to 30 minutes holding a runner —
+ * four idle runners per merge on an org limit of 20 concurrent jobs, and on
+ * 2026-10-15 two of them timed out while CI sat queued, leaving a green commit
+ * unshipped. These pin the shape that replaced it, because a `workflow_run`
+ * workflow runs only from the default branch and none of it is exercised
+ * before merge.
+ */
+describe('a deploy runs once CI concluded, never polls, and ships only the tip it verified', () => {
+  const GUARD = [
+    "github.event.workflow_run.event == 'push'",
+    "github.event.workflow_run.head_branch == 'main'",
+    'github.event.workflow_run.head_repository.full_name == github.repository',
+    'github.event.workflow_run.head_sha == github.sha',
+  ];
+
+  it.each(GATED_DEPLOY_WORKFLOWS)('%s triggers on CI completing on main, not on push', (file) => {
+    const { on } = readWorkflow(file);
+    expect(on?.push, `${file} still triggers on push — its gate would poll`).toBeUndefined();
+    expect(on?.workflow_run?.workflows).toEqual(['CI']);
+    expect(on?.workflow_run?.types).toEqual(['completed']);
+    expect(on?.workflow_run?.branches).toEqual(['main']);
+    expect(on).toHaveProperty('workflow_dispatch');
+  });
+
+  it.each(GATED_DEPLOY_WORKFLOWS)('%s gates on the tip CI verified, asked once', (file) => {
+    const workflow = readWorkflow(file);
+    const gate = workflow.jobs.gate;
+    expect(gate, `${file} has no gate job`).toBeDefined();
+    const condition = (gate.if ?? '').replace(/\s+/g, ' ');
+    for (const clause of GUARD) expect(condition, `${file} gate if:`).toContain(clause);
+
+    const invocation = (gate.steps ?? []).find((step) =>
+      step.run?.includes('require-ci-success.mjs'),
+    );
+    expect(invocation?.run).toContain('--no-wait');
+    expect(invocation?.run).toContain('--sha="$DEPLOY_SHA"');
+    const scope = (gate.steps ?? []).find((step) => step.run?.includes('resolve-deploy-scope.mjs'));
+    expect(scope?.id, `${file} has no scope step`).toBe('scope');
+  });
+
+  it.each(GATED_DEPLOY_WORKFLOWS)(
+    '%s ships only on a successful CI and an in-scope change',
+    (file) => {
+      const workflow = readWorkflow(file);
+      const shipping = Object.entries(workflow.jobs).filter(([, job]) =>
+        (job.steps ?? []).some(
+          (step) =>
+            step.uses?.startsWith('aws-actions/configure-aws-credentials') ||
+            Object.values(step.env ?? {}).some((value) =>
+              String(value).includes('secrets.CLOUDFLARE_API_TOKEN'),
+            ),
+        ),
+      );
+      expect(shipping).toHaveLength(1);
+      const [, job] = shipping[0];
+      const condition = (job.if ?? '').replace(/\s+/g, ' ');
+      expect(condition).toContain("needs.gate.outputs.deploy == 'true'");
+      expect(condition).toContain("github.event.workflow_run.conclusion == 'success'");
+      // It builds and ships the verified commit, not whatever `main` is now.
+      const checkout = (job.steps ?? []).find((step) => step.uses?.startsWith('actions/checkout'));
+      expect(checkout?.with?.ref).toBe(ghExpr('env.DEPLOY_SHA'));
+    },
+  );
+
+  it.each(GATED_DEPLOY_WORKFLOWS)(
+    '%s keeps a run that cannot deploy out of the real group',
+    (file) => {
+      const group = readWorkflow(file).concurrency?.group ?? '';
+      // The negation of the gate's guard (head_branch is fixed by `branches:`).
+      expect(group).toContain("github.event.workflow_run.event != 'push'");
+      expect(group).toContain(
+        'github.event.workflow_run.head_repository.full_name != github.repository',
+      );
+      expect(group).toContain('github.event.workflow_run.head_sha != github.sha');
+      expect(group).toContain("format('-noop-{0}', github.run_id)");
+    },
+  );
+
+  it('the gate refuses an unfinished CI run instead of waiting for it', async () => {
+    let sleeps = 0;
+    const thrown = await gateModule
+      .requireCiSuccess({
+        repository: 'o/r',
+        sha: 'abc',
+        wait: false,
+        sleepFor: async () => {
+          sleeps += 1;
+        },
+        findRuns: async () => [
+          { id: 1, run_attempt: 1, status: 'in_progress', conclusion: null, html_url: 'u' },
+        ],
+        readRunJobs: async () => [],
+      })
+      .then(
+        () => null,
+        (error: unknown) => error as Error,
+      );
+    expect(thrown).toBeInstanceOf(gateModule.GateFailure);
+    expect(thrown?.message).toMatch(/does not wait/u);
+    expect(sleeps, 'a no-wait gate slept').toBe(0);
+
+    const absent = await gateModule
+      .requireCiSuccess({ repository: 'o/r', sha: 'abc', wait: false, findRuns: async () => [] })
+      .then(
+        () => null,
+        (error: unknown) => error as Error,
+      );
+    expect(absent).toBeInstanceOf(gateModule.GateFailure);
+  });
+});
+
+describe('the deploy scope never skips a deploy that should happen', () => {
+  const { decide, touchesScope, globToRegExp, runShipped } = scopeModule;
+  const WEB = ['packages/frontend/**', 'packages/ui/**', 'package.json', 'bun.lock'];
+  const API_IGNORE = ['**.md', 'docs/**'];
+  const ahead = (...files: string[]) => ({
+    status: 'ahead',
+    files: files.map((filename) => ({ filename })),
+  });
+
+  it('reads globs the way on.push.paths did', () => {
+    expect(globToRegExp('**.md').test('docs/a/b.md')).toBe(true);
+    expect(globToRegExp('docs/**').test('docs/x/y.ts')).toBe(true);
+    expect(globToRegExp('packages/ui/**').test('packages/ui2/x.ts')).toBe(false);
+    expect(globToRegExp('package.json').test('packages/pos/package.json')).toBe(false);
+    expect(touchesScope({ files: ['docs/a.md', 'README.md'], exclude: API_IGNORE })).toEqual([]);
+    expect(
+      touchesScope({ files: ['docs/a.md', 'packages/backend/x.ts'], exclude: API_IGNORE }),
+    ).toEqual(['packages/backend/x.ts']);
+  });
+
+  it('skips only a COMPLETE diff that touches nothing in scope, or an identical tree', () => {
+    expect(
+      decide({ base: 'b', comparison: ahead('docs/x.md'), include: [], exclude: API_IGNORE })
+        .deploy,
+    ).toBe(false);
+    expect(
+      decide({ base: 'b', comparison: ahead('packages/pos/app.tsx'), include: WEB, exclude: [] })
+        .deploy,
+    ).toBe(false);
+    expect(
+      decide({
+        base: 'b',
+        comparison: { status: 'identical', files: [] },
+        include: WEB,
+        exclude: [],
+      }).deploy,
+    ).toBe(false);
+    expect(
+      decide({ base: 'b', comparison: ahead('packages/ui/x.tsx'), include: WEB, exclude: [] })
+        .deploy,
+    ).toBe(true);
+  });
+
+  it('deploys on every doubt', () => {
+    const many = ahead(...Array.from({ length: 300 }, (_, index) => `docs/${index}.md`));
+    expect(decide({ base: null, comparison: null, include: WEB, exclude: [] }).deploy).toBe(true);
+    expect(decide({ base: 'b', comparison: null, include: WEB, exclude: [] }).deploy).toBe(true);
+    expect(
+      decide({ base: 'b', comparison: { status: 'diverged' }, include: WEB, exclude: [] }).deploy,
+    ).toBe(true);
+    expect(
+      decide({ base: 'b', comparison: { status: 'behind' }, include: WEB, exclude: [] }).deploy,
+    ).toBe(true);
+    expect(decide({ base: 'b', comparison: ahead(), include: WEB, exclude: [] }).deploy).toBe(true);
+    expect(decide({ base: 'b', comparison: many, include: [], exclude: API_IGNORE }).deploy).toBe(
+      true,
+    );
+    expect(() => touchesScope({ files: [], include: [], exclude: [] })).toThrow();
+  });
+
+  it('anchors on a run that SHIPPED, never one that skipped or hollowed', () => {
+    const rolled = { name: 'Outcome: rollout performed', conclusion: 'success' };
+    expect(
+      runShipped({
+        jobs: [{ name: 'deploy-app', conclusion: 'success' }],
+        shippingJob: 'deploy-app',
+      }),
+    ).toBe(true);
+    expect(
+      runShipped({
+        jobs: [{ name: 'deploy-app', conclusion: 'skipped' }],
+        shippingJob: 'deploy-app',
+      }),
+    ).toBe(false);
+    expect(runShipped({ jobs: [], shippingJob: 'deploy-app' })).toBe(false);
+    expect(
+      runShipped({
+        jobs: [{ name: 'deploy', conclusion: 'success', steps: [rolled] }],
+        shippingJob: 'deploy',
+        shippedStep: rolled.name,
+      }),
+    ).toBe(true);
+    // #608's hollow green: the job succeeded, the rollout did not happen.
+    expect(
+      runShipped({
+        jobs: [
+          { name: 'deploy', conclusion: 'success', steps: [{ ...rolled, conclusion: 'skipped' }] },
+        ],
+        shippingJob: 'deploy',
+        shippedStep: rolled.name,
+      }),
+    ).toBe(false);
+  });
+
+  it.each(GATED_DEPLOY_WORKFLOWS)(
+    '%s names its real shipping job and covers its own file',
+    (file) => {
+      const workflow = readWorkflow(file);
+      const step = (workflow.jobs.gate?.steps ?? []).find((candidate) => candidate.id === 'scope');
+      const env = step?.env ?? {};
+      expect(env.WORKFLOW_FILE).toBe(file);
+      expect(Object.keys(workflow.jobs)).toContain(env.SHIPPING_JOB);
+      const include = scopeModule.patternList(env.DEPLOY_PATHS ?? '');
+      const exclude = scopeModule.patternList(env.DEPLOY_PATHS_IGNORE ?? '');
+      // A change to the workflow itself or to either gate script must reach it.
+      for (const path of [
+        `.github/workflows/${file}`,
+        '.github/scripts/require-ci-success.mjs',
+        '.github/scripts/resolve-deploy-scope.mjs',
+      ]) {
+        expect(touchesScope({ files: [path], include, exclude }), `${file}: ${path}`).toEqual([
+          path,
+        ]);
+      }
+    },
+  );
 });
 
 describe('ci.yml gives every commit on main its own verdict', () => {
