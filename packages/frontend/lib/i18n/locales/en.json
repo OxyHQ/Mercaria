@@ -1383,6 +1383,21 @@
       "createFailed": "We couldn't create a link. Please try again.",
       "empty": "Create a link to share Mercaria. Referrals it brings are attributed to you.",
       "notPartner": "Your link appears here once you are enrolled in a programme."
+    },
+    "code": {
+      "title": "Referral code",
+      "description": "Someone gave you a code? Enter it here.",
+      "label": "Referral code",
+      "placeholder": "Code",
+      "apply": "Apply",
+      "applied": "Code applied",
+      "invalid": "That code can't be used.",
+      "failed": "The code couldn't be applied. Try again."
+    },
+    "disclosure": {
+      "title": "You came through a referral link",
+      "body": "Whoever shared it may get a reward from Mercaria if you buy. It doesn't change the price you pay.",
+      "dismiss": "Got it"
     }
   },
   "brand": {

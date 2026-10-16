@@ -1398,6 +1398,21 @@
       "createFailed": "No se pudo crear el enlace. Inténtalo de nuevo.",
       "empty": "Crea un enlace para compartir Mercaria. Los referidos que traiga se te atribuyen.",
       "notPartner": "Tu enlace aparecerá aquí cuando estés inscrito en un programa."
+    },
+    "code": {
+      "title": "Código de referido",
+      "description": "¿Te han dado un código? Escríbelo aquí.",
+      "label": "Código de referido",
+      "placeholder": "Código",
+      "apply": "Aplicar",
+      "applied": "Código aplicado",
+      "invalid": "Ese código no se puede usar.",
+      "failed": "No se pudo aplicar el código. Inténtalo de nuevo."
+    },
+    "disclosure": {
+      "title": "Has llegado por un enlace de referido",
+      "body": "Quien lo compartió puede recibir una recompensa de Mercaria si compras. No cambia el precio que pagas.",
+      "dismiss": "Entendido"
     }
   },
   "brand": {

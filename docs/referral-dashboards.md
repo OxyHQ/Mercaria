@@ -365,14 +365,18 @@ conversion rate, a withheld breakdown explains itself, the disclosure is
 verbatim and no state relies on colour. The breakdown dimensions now render
 translated labels rather than the raw enum member.
 
-### The shared URL is the API's `/r/<token>`, not `mercaria.co/r/<token>`
+### The shared URL is `mercaria.co/r/<token>`, and the worker REDIRECTS it
 
-ADR 0005 D3 names `mercaria.co/r/<token>`, but `GET /r/:token` is served by the
-API only: the storefront's Cloudflare worker (`public/_worker.js`) does not
-forward `/r/*`, so a `mercaria.co/r/...` link would land on the app and
-attribute nobody. The page therefore composes `${apiUrl}/r/<token>`
-(`api.mercaria.co` in production). Forwarding `/r/*` in the worker is what
-lets the page switch to the storefront host.
+ADR 0005 D3's shape. `GET /r/:token` is an API route, and the storefront worker
+(`public/_worker.js`) answers `/r/<token>` with a `302` to it rather than
+proxying it. That is not a detail: the route sets the click's carrier as
+`__Host-mercaria_referral`, which is host-only by definition, and
+`POST /referrals/bind` reads it on the API host. Proxied, the cookie would land
+on `mercaria.co`, which no API request carries, and every anonymous click would
+redirect fine and attribute nobody. The worker matches the link token's exact
+shape and drops the query, which the API route reads none of; `scripts/asset-worker.test.ts`
+pins both. A dev server runs no worker, so a dev build's page composes links on
+its API origin instead.
 
 ## A `ScreenShell` hazard this screen found, still open on native
 

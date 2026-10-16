@@ -1383,6 +1383,21 @@
       "createFailed": "无法创建链接，请重试。",
       "empty": "创建链接来分享 Mercaria。通过它带来的推荐会归属于你。",
       "notPartner": "加入计划后，你的链接会显示在这里。"
+    },
+    "code": {
+      "title": "推荐码",
+      "description": "有人给了你推荐码？在这里输入。",
+      "label": "推荐码",
+      "placeholder": "推荐码",
+      "apply": "应用",
+      "applied": "推荐码已应用",
+      "invalid": "该推荐码无法使用。",
+      "failed": "无法应用推荐码，请重试。"
+    },
+    "disclosure": {
+      "title": "你是通过推荐链接来的",
+      "body": "如果你购买，分享链接的人可能会获得 Mercaria 的奖励。你支付的价格不变。",
+      "dismiss": "知道了"
     }
   },
   "brand": {

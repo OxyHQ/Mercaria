@@ -1383,6 +1383,21 @@
       "createFailed": "Der Link konnte nicht erstellt werden. Versuch es noch einmal.",
       "empty": "Erstelle einen Link, um Mercaria zu teilen. Empfehlungen über diesen Link werden dir zugeordnet.",
       "notPartner": "Dein Link erscheint hier, sobald du in einem Programm angemeldet bist."
+    },
+    "code": {
+      "title": "Empfehlungscode",
+      "description": "Hast du einen Code bekommen? Gib ihn hier ein.",
+      "label": "Empfehlungscode",
+      "placeholder": "Code",
+      "apply": "Anwenden",
+      "applied": "Code angewendet",
+      "invalid": "Dieser Code kann nicht verwendet werden.",
+      "failed": "Der Code konnte nicht angewendet werden. Versuche es erneut."
+    },
+    "disclosure": {
+      "title": "Du bist über einen Empfehlungslink gekommen",
+      "body": "Wer ihn geteilt hat, kann von Mercaria eine Belohnung erhalten, wenn du kaufst. Dein Preis ändert sich dadurch nicht.",
+      "dismiss": "Verstanden"
     }
   },
   "brand": {

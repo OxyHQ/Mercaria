@@ -20,6 +20,7 @@ import { SharedUiTranslationProvider, useColorScheme } from '@mercaria/ui';
 import { AppFxProvider } from '@/lib/fx';
 import { setTokenGetter } from '@/lib/api/client';
 import { useGuestCartMerge } from '@/lib/hooks/use-cart';
+import { useReferralBinding } from '@/lib/hooks/use-referral-binding';
 import { OXY_CLIENT_ID } from '@/lib/config';
 import {
   BLOOM_DEFAULT_COLOR_PRESET,
@@ -54,6 +55,11 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
   // is the scheduling an effect would otherwise have to reimplement. Calling it
   // twice would converge anyway, server-side.
   useGuestCartMerge();
+
+  // A followed referral link pays nobody until the click is bound to a subject
+  // (#143), and the subject — a sign-in, the first cart write — can appear on
+  // any screen. Mounted here for the same reason as the merge above.
+  useReferralBinding();
 
   // Resolve public Oxy file IDs using the rendition requested by Bloom.
   // No rendition means the original; Avatar explicitly requests its thumbnail.

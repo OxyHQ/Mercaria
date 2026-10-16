@@ -327,6 +327,20 @@ test('Referrals: a link is created, copied and listed, and every figure keeps it
       links.push(link);
       return route.fulfill({ status: 201, json: { success: true, data: { link } } });
     }
+    if (pathname === '/referrals/code-entry') {
+      const body = route.request().postDataJSON();
+      writes.push(`entry ${body.code} ${body.moment}`);
+      return route.fulfill({
+        json: {
+          success: true,
+          data: {
+            state: 'attributed',
+            disclosureRequired: true,
+            publicTermsSummary: 'Typed terms.',
+          },
+        },
+      });
+    }
     return route.fulfill({ status: 404, json: { error: 'Unused fixture endpoint' } });
   });
 
@@ -347,4 +361,11 @@ test('Referrals: a link is created, copied and listed, and every figure keeps it
   expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/r\/fixturetoken$/);
   await expect(dialog.getByText(/\/r\/fixturetoken$/)).toBeVisible();
   await expect(dialog.getByText('FIXTURE', { exact: true })).toBeVisible();
+
+  // A code somebody was given is typed here — the `in_app` moment, never checkout.
+  await dialog.getByLabel(en.referral.code.label, { exact: true }).fill('FRIEND10');
+  await dialog.getByRole('button', { name: en.referral.code.apply, exact: true }).click();
+  await expect(page.getByText(en.referral.code.applied, { exact: true })).toBeVisible();
+  expect(writes.at(-1)).toBe('entry FRIEND10 in_app');
+  await expect(dialog.getByText('Typed terms.', { exact: true })).toBeVisible();
 });

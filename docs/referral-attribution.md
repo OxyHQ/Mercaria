@@ -281,6 +281,31 @@ evidence has to be readable during the incident that turned the surface off.
 
 ---
 
+## The storefront client (`lib/hooks/use-referral-binding.ts`)
+
+The server cannot bind an anonymous click by itself, so the CLIENT is half of
+attribution — without it every signed-out click redirects fine and pays nobody,
+with every gate green.
+
+- **Bind.** Mounted once in `AuthSetup`, beside the cart merge. On web it reads
+  `GET /referrals/state` once; while that says `pending` it calls
+  `POST /referrals/bind` once per subject that appears — signing in, or the cart
+  coming back non-empty, which is the client-visible sign the first cart write
+  created a guest session (the web credential is `HttpOnly`). `pending` keeps the
+  carrier for the next subject; anything else means it was redeemed or dropped.
+  Native holds no carrier (no universal links, below), so this is web only.
+- **Disclosure.** `components/referrals/ReferralDisclosureNotice.tsx`, at the top
+  of the storefront while a carrier is held and after a bind that says one is
+  owed, with the program's `publicTermsSummary` verbatim once bound. It says
+  someone may be rewarded and the price does not change (ADR 0005 I2), and never
+  who.
+- **Typed codes.** Settings → Referrals takes a code as the `in_app` moment.
+  Checkout stays referral-free (`commercial-presentation-isolation.test.ts`).
+- **Links.** Shared as `mercaria.co/r/<token>`; the storefront worker redirects
+  them to this route (docs/referral-dashboards.md says why never a proxy).
+- **Consent.** Never declared: with no consent framework the honest declaration
+  is none, recorded as `unknown`.
+
 ## Consent
 
 **Mercaria operates no consent framework.** There is no CMP, no stored consent
@@ -353,8 +378,9 @@ boolean — tripped the request-derived-destination detector. The pattern gained
   for how it ENDS: #85 supplied the capability, and the change that supplied it
   (#324) is the change that added `{state: 'activated'}`.
 - **A consent framework** (web rule 5), as above.
-- **Client surfaces.** No storefront or dashboard screen consumes
-  `/referrals/*` yet; that is #147's work, and every endpoint it needs exists.
+- **Merchant binding has no client.** `POST /referrals/merchant-binding` binds
+  a carried click to a merchant the caller holds a claim on, and no app creates
+  a merchant claim yet, so nothing calls it.
 - **A merge does not rehome a standing attribution.** #142's
   `recordSubjectMerge` is explicit that "history keeps its references; reads and
   NEW attributions resolve through the redirect", and its own realdb file pins

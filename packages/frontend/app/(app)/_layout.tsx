@@ -9,6 +9,7 @@ import { useStorefrontSidebar } from '@/components/shell/useStorefrontSidebar';
 import { BottomTabBar } from '@/components/shell/BottomTabBar';
 import { useNotificationSetup } from '@/lib/hooks/use-notification-setup';
 import { ShoppingActionsProvider } from '@/components/shell/ShoppingActionsProvider';
+import { ReferralDisclosureNotice } from '@/components/referrals/ReferralDisclosureNotice';
 
 // Bloom's AppShell paints the page surface. Native Stack's default light
 // background would cover it even when Bloom and the page text are dark-mode.
@@ -89,6 +90,8 @@ function StorefrontLayout() {
             gutter={width >= STOREFRONT_NAV_FROM ? 8 : 0}
             navigationGap={4}
           >
+            {/* Web only: a referral link opens in the browser, never the app. */}
+            {IS_WEB ? <ReferralDisclosureNotice /> : null}
             {routed}
           </AppShell>
         </GestureHandlerRootView>

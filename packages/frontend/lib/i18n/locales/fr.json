@@ -1398,6 +1398,21 @@
       "createFailed": "Impossible de créer le lien. Réessayez.",
       "empty": "Créez un lien pour partager Mercaria. Les parrainages qu’il génère vous sont attribués.",
       "notPartner": "Votre lien apparaîtra ici une fois inscrit à un programme."
+    },
+    "code": {
+      "title": "Code de parrainage",
+      "description": "On vous a donné un code ? Saisissez-le ici.",
+      "label": "Code de parrainage",
+      "placeholder": "Code",
+      "apply": "Appliquer",
+      "applied": "Code appliqué",
+      "invalid": "Ce code ne peut pas être utilisé.",
+      "failed": "Le code n'a pas pu être appliqué. Réessayez."
+    },
+    "disclosure": {
+      "title": "Vous êtes arrivé via un lien de parrainage",
+      "body": "La personne qui l'a partagé peut recevoir une récompense de Mercaria si vous achetez. Le prix que vous payez ne change pas.",
+      "dismiss": "Compris"
     }
   },
   "brand": {

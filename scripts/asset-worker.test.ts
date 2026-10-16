@@ -41,3 +41,30 @@ for (const entry of entries) {
     ).rejects.toBe(error);
   });
 }
+
+test('storefront: a referral link is redirected to the API, which sets the carrier on its own host', async () => {
+  const worker = (await import('../packages/frontend/public/_worker.js')).default;
+  const env = {
+    SEO_API_ORIGIN: 'https://api.example.com',
+    ASSETS: {
+      fetch: async () => new Response('app shell', { headers: { 'Content-Type': 'text/html' } }),
+    },
+  };
+  const result = await worker.fetch(
+    new Request('https://example.com/r/eyJsaW5rSWQiOiJ4In0.c2lnbmF0dXJl?utm_source=ignored'),
+    env,
+    { waitUntil: () => {} },
+  );
+  expect(result.status).toBe(302);
+  expect(result.headers.get('location')).toBe(
+    'https://api.example.com/r/eyJsaW5rSWQiOiJ4In0.c2lnbmF0dXJl',
+  );
+  expect(result.headers.get('cache-control')).toBe('no-store');
+  expect(result.headers.get('referrer-policy')).toBe('no-referrer');
+
+  // Anything that is not a link token's shape is the app's to answer.
+  const other = await worker.fetch(new Request('https://example.com/r/not-a-token'), env, {
+    waitUntil: () => {},
+  });
+  expect(other.status).toBe(200);
+});

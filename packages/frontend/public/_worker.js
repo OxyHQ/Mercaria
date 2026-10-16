@@ -75,6 +75,21 @@ const CRAWL_ARTEFACTS = new Map([
 
 const SITEMAP_PREFIX = '/sitemaps/';
 
+/**
+ * A partner's referral link, `mercaria.co/r/<token>` (ADR 0005 D3).
+ *
+ * REDIRECTED to the API's `GET /r/:token`, never proxied. That route sets the
+ * click's carrier as `__Host-mercaria_referral` — host-only by definition — and
+ * `POST /referrals/bind` reads it on the API host. Proxied, the cookie would
+ * land on `mercaria.co`, which no API request ever carries, and every
+ * anonymous click would redirect fine and attribute nobody.
+ *
+ * The token is the link token's exact shape (`<base64url>.<base64url>`) and
+ * nothing else: anything else under `/r/` falls through to the app, and the
+ * query string is dropped because the API route reads none.
+ */
+const REFERRAL_LINK_PATH = /^\/r\/[A-Za-z0-9_-]{1,512}\.[A-Za-z0-9_-]{1,128}$/;
+
 function getExtension(pathname) {
   const lastDot = pathname.lastIndexOf('.');
   return lastDot === -1 ? '' : pathname.slice(lastDot).toLowerCase();
@@ -200,6 +215,20 @@ const assetWorker = {
     const pathname = url.pathname;
     const extension = getExtension(pathname);
     const apiOrigin = env?.SEO_API_ORIGIN || '';
+
+    // `302` and `no-store` for the API route's own reasons: a cached hop would
+    // keep sending browsers past a revoked link without asking. `no-referrer`
+    // so the API host is not told which post the click came from.
+    if (apiOrigin !== '' && REFERRAL_LINK_PATH.test(pathname)) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: new URL(pathname, apiOrigin).href,
+          'cache-control': 'no-store',
+          'referrer-policy': 'no-referrer',
+        },
+      });
+    }
 
     /**
      * `robots.txt` and the sitemaps come from the API, which renders them from
