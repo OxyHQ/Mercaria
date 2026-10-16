@@ -148,6 +148,7 @@ import {
   PUBLIC_READ_CORS_ALLOWED_HEADERS,
   PUBLIC_READ_CORS_METHODS,
   isPublicReadCorsRequest,
+  isMaterialsCorsRequest,
 } from './lib/allowed-origins.js';
 import capabilitiesRouter from './routes/capabilities.js';
 import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.js';
@@ -194,7 +195,18 @@ export function createApp(): express.Express {
     maxAge: 600,
   });
 
+  const materialsCors = cors({
+    origin: '*',
+    credentials: false,
+    methods: ['GET', 'HEAD', 'POST', 'OPTIONS'],
+    allowedHeaders: [...PUBLIC_READ_CORS_ALLOWED_HEADERS],
+    optionsSuccessStatus: 204,
+  });
   app.use((req, res, next) => {
+    if (isMaterialsCorsRequest(req.method, req.path)) {
+      materialsCors(req, res, next);
+      return;
+    }
     if (isPublicReadCorsRequest(req.method, req.path)) {
       publicReadCors(req, res, next);
       return;

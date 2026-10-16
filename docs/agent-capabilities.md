@@ -53,3 +53,7 @@ This happens before post-phase migrations or catalog publication. In the normal 
 path, a candidate that fails before that boundary is returned to the recorded previous
 task definition; the explicit all-migrations cutover and failures of the external Oxy
 authorization server are never treated as safe Mercaria rollbacks.
+
+### Materials proposals
+
+Catalog 1.1.0 adds the read-only `listPendingMaterialPickups` capability (`materials.read`) on the exact `mercaria_account` root. The existing signature, audience, tool, capability-limit and live-introspection gates apply to both the owner's and an organization's delegated account. The handler projects accepted reservations only, excludes cancelled/delivered ones, and returns paginated reservation/offer/account references, quantity, unit, public area and optional Moovo reference. No private pickup instructions or cached transport status crosses this tool. A transport reference alone says nothing about its current status; the human follows the Mercaria review link to consult Moovo and choose collection, quote, payer authorization and booking. No materials mutation or finance tool is added. Register the deployed catalog with the existing `src/register-capability-catalog.ts` entrypoint before enabling the Alia template.

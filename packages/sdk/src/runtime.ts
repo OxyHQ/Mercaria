@@ -29,7 +29,8 @@ export interface MercariaAbortSignal {
 
 /** What the SDK passes to `fetch`. */
 export interface MercariaFetchInit {
-  method: 'GET';
+  method: 'GET' | 'POST';
+  body?: string;
   headers: Record<string, string>;
   /**
    * The request's `AbortSignal` (a {@link MercariaAbortSignal} at runtime).

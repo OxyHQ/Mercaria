@@ -27,6 +27,8 @@ export const MERCARIA_PUBLIC_LIST_MAX_OFFSET = 10_000;
  * there.
  */
 export const MERCARIA_PUBLIC_CURSOR_KINDS = [
+  'material-offers',
+  'material-reservations',
   'products',
   'store-products',
   'store-collections',

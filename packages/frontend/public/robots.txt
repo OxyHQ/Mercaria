@@ -35,6 +35,7 @@ Disallow: /watchlists
 Disallow: /notifications
 Disallow: /price-alerts
 Disallow: /shopping-agents
+Disallow: /materials
 Disallow: /referral-partner
 Disallow: /guest-orders/
 Disallow: /nearby

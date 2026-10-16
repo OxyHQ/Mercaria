@@ -125,3 +125,14 @@ export type {
   MercariaStoreRef,
   MercariaVariantRef,
 } from './contract';
+
+export type {
+  MercariaMaterialsApi,
+  MaterialOffer,
+  MaterialOfferCreate,
+  MaterialRequestCreate,
+  MaterialAction,
+  MaterialReservation,
+  MaterialOfferQuery,
+  MaterialReservationQuery,
+} from './materials';

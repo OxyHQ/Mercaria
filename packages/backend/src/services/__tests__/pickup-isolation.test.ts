@@ -209,10 +209,18 @@ describe('the pickup domain has no reach it should not have', () => {
     assertNothingOutsideDomainPopulation({
       population: pickupPopulation,
       pattern: DOMAIN_NAMED,
-      // Measured empty: every pickup-named module in the tree is a module of
-      // this domain. One owned by somebody else goes here WITH its reason.
-      notThisDomain: [],
-      expectedExclusions: 0,
+      // Every other pickup-named module is a module of this domain. One owned
+      // by somebody else goes here WITH its reason.
+      notThisDomain: [
+        {
+          path: 'services/materials/pending-pickups.ts',
+          why:
+            'Donated materials (docs/materials.md): a read-only list of accepted donation ' +
+            'reservations awaiting collection. No order, no collection desk, no credential and ' +
+            'no money; it reads only the material tables.',
+        },
+      ],
+      expectedExclusions: 1,
       sweepFloor: 18,
       plantIn: 'lib',
       plantName: 'pickup-cache.ts',

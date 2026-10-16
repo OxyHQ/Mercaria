@@ -188,11 +188,12 @@ describe('THE GATE: every route is reachable, or says why it is not', () => {
     expect(
       deliberate.map((entry) => `${entry.app}${entry.route}`).sort(),
       'the DELIBERATE list changed. A route unreachable BY DESIGN is rare — a provider return ' +
-        "URL and the Settings dialog's deep-link bridges. Adding one means in-app navigation " +
+        "URL, a payer's shared approval link and the Settings dialog's deep-link bridges. Adding one means in-app navigation " +
         'must never reach that screen; if the truth is "nobody has wired it yet", it is ' +
         'awaiting_product_decision instead.',
     ).toEqual([
       'frontend/checkout/return',
+      'frontend/materials-transport/[id]',
       'frontend/referral-partner',
       'frontend/settings',
       'frontend/settings/addresses',

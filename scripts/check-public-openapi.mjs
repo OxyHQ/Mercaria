@@ -47,6 +47,17 @@ import {
 
 /** Every operation `/public/v1` publishes, spelled out (method, path, operationId). */
 export const EXPECTED_OPERATIONS = [
+  ['get', '/materials/offers', 'listMaterialOffers'],
+  ['post', '/materials/offers', 'createMaterialOffer'],
+  ['get', '/materials/offers/{id}', 'getMaterialOffer'],
+  ['post', '/materials/offers/{id}/close', 'closeMaterialOffer'],
+  ['post', '/materials/offers/{id}/requests', 'requestMaterial'],
+  ['get', '/materials/reservations', 'listMaterialReservations'],
+  ['get', '/materials/reservations/{id}', 'getMaterialReservation'],
+  ['post', '/materials/reservations/{id}/transport', 'linkMaterialTransport'],
+  ['post', '/materials/reservations/{id}/accept', 'acceptMaterialReservation'],
+  ['post', '/materials/reservations/{id}/cancel', 'cancelMaterialReservation'],
+  ['post', '/materials/reservations/{id}/confirm-delivery', 'confirmDeliveryMaterialReservation'],
   ['get', '/products', 'searchProducts'],
   ['get', '/products/{id}', 'getProduct'],
   ['get', '/stores/lookup', 'lookupStore'],
@@ -139,16 +150,19 @@ export function checkOpenApiDocument(document) {
       failures.push(`layer 2: ${where} has no operationId.`);
     }
     const responses = operation.responses ?? {};
-    const success = responses['200']?.content?.['application/json']?.schema?.$ref;
+    const successStatus = ['createMaterialOffer', 'requestMaterial'].includes(operation.operationId)
+      ? '201'
+      : '200';
+    const success = responses[successStatus]?.content?.['application/json']?.schema?.$ref;
     const component =
       typeof success === 'string'
         ? schemas[success.replace('#/components/schemas/', '')]
         : undefined;
     if (typeof success !== 'string' || !success.startsWith('#/components/schemas/')) {
-      failures.push(`layer 2: ${where} has no 200 schema \`$ref\`.`);
+      failures.push(`layer 2: ${where} has no ${successStatus} schema \`$ref\`.`);
     } else if (component === undefined || Object.keys(component).length === 0) {
       failures.push(
-        `layer 2: ${where} answers 200 with \`${success}\`, which is missing or empty.`,
+        `layer 2: ${where} answers ${successStatus} with \`${success}\`, which is missing or empty.`,
       );
     }
     for (const status of UNIVERSAL_STATUSES) {

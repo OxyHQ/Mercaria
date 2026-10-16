@@ -139,6 +139,14 @@ export default function ProfileScreen() {
           </Card>
         </View>
         <View className="gap-3">
+          <Button
+            appearance="plain"
+            tone="neutral"
+            style={rowStyle}
+            onPress={() => router.push('/materials')}
+          >
+            {t('materials.heading')}
+          </Button>
           {isAuthenticated ? (
             <Button
               appearance="plain"

@@ -1,3 +1,13 @@
+import {
+  MaterialOfferSchema,
+  MaterialReservationSchema,
+  MaterialOfferPageSchema,
+  MaterialReservationPageSchema,
+  MaterialOfferCreateSchema,
+  MaterialRequestCreateSchema,
+  MaterialActionSchema,
+  MaterialTransportLinkSchema,
+} from './materials';
 /**
  * Every NAMED schema of the contract, and its JSON Schema.
  *
@@ -52,6 +62,15 @@ export const MercariaOpenApiDocumentSchema = z.looseObject({
 });
 
 export const CONTRACT_JSON_SCHEMA_NAMES = [
+  'MaterialOffer',
+  'MaterialReservation',
+  'MaterialOfferPage',
+  'MaterialReservationPage',
+  'MaterialOfferCreate',
+  'MaterialRequestCreate',
+  'MaterialAction',
+  'MaterialTransportLink',
+
   'MercariaMoney',
   'MercariaImage',
   'MercariaProductRef',
@@ -85,6 +104,15 @@ export type ContractJsonSchemaName = (typeof CONTRACT_JSON_SCHEMA_NAMES)[number]
  * compile error, and each entry keeps its own type for the route registry.
  */
 export const CONTRACT_SCHEMAS = {
+  MaterialOffer: MaterialOfferSchema,
+  MaterialReservation: MaterialReservationSchema,
+  MaterialOfferPage: MaterialOfferPageSchema,
+  MaterialReservationPage: MaterialReservationPageSchema,
+  MaterialOfferCreate: MaterialOfferCreateSchema,
+  MaterialRequestCreate: MaterialRequestCreateSchema,
+  MaterialAction: MaterialActionSchema,
+  MaterialTransportLink: MaterialTransportLinkSchema,
+
   MercariaMoney: MercariaMoneySchema,
   MercariaImage: MercariaImageSchema,
   MercariaProductRef: MercariaProductRefSchema,

@@ -22,6 +22,7 @@ describe('Mercaria capability catalog', () => {
 
     expect(mcpNames).toEqual(exposedNames);
     expect(mcpNames).toEqual([
+      'listPendingMaterialPickups',
       'searchProducts',
       'listBuyerOrders',
       'readBuyerOrder',

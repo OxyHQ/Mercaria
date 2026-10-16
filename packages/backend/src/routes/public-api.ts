@@ -16,7 +16,7 @@ import { publicApiRoute, sendPublicError } from '../controllers/public-api.contr
  * `operationId` — so the routes served and the routes documented cannot differ.
  * Registry order is what puts `/stores/lookup` before `/stores/:id`.
  *
- * GET only. `optionalAuth` attaches a verified Oxy caller when a bearer token is
+ * Catalog GETs and authenticated donated-material operations. `optionalAuth` attaches a verified Oxy caller when a bearer token is
  * presented (a token that does not verify is read as anonymous), which is what
  * lets `viewer.saved` forward the calling application's own authority. The CORS
  * policy for this prefix is `lib/allowed-origins.ts`'s `isPublicReadCorsRequest`.
@@ -35,7 +35,7 @@ for (const route of MERCARIA_PUBLIC_ROUTES) {
 
 /**
  * Anything else under the prefix — an unknown path, or a known path with a
- * method other than GET/HEAD — is a JSON `unknown_route` 404, never Express's
+ * method not declared in the registry — is a JSON `unknown_route` 404, never Express's
  * HTML 404 page. Never `not_found`: a route mismatch must not read as a missing
  * entity. An error raised ABOVE the router (a malformed body sent with a GET)
  * is answered by `app.ts`'s global handler, in the same contract shape.
