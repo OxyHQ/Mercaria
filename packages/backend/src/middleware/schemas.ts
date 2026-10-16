@@ -554,8 +554,8 @@ export const createStoreSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().max(5_000).optional(),
   brandColor: z.string().trim().min(1).optional(),
-  logoFileId: z.string().trim().min(1).optional(),
-  coverFileId: z.string().trim().min(1).optional(),
+  logoFileId: z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID').optional(),
+  coverFileId: z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID').optional(),
   defaultCurrency: currencySchema.optional(),
 });
 
@@ -592,8 +592,8 @@ export const updateStoreSchema = z
     name: z.string().trim().min(1).max(120).optional(),
     description: z.string().max(5_000).optional(),
     brandColor: z.string().trim().min(1).optional(),
-    logoFileId: z.string().trim().min(1).optional(),
-    coverFileId: z.string().trim().min(1).optional(),
+    logoFileId: z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID').optional(),
+    coverFileId: z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID').optional(),
     defaultCurrency: currencySchema.optional(),
     textTone: z.enum(['light', 'dark']).optional(),
     status: z.enum(['active', 'suspended', 'closed']).optional(),

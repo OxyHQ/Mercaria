@@ -1190,7 +1190,11 @@ async function seedP2P(counts: SeedCounts): Promise<void> {
       title: spec.title,
       description: spec.description,
       price: fair(spec.price),
-      itemCondition: spec.condition,
+      // Condition photos name gallery sources; they persist as the same Oxy IDs.
+      itemCondition: {
+        ...spec.condition,
+        photoAnnotations: spec.condition.photoAnnotations?.map(photo => ({ ...photo, fileId: seedMediaFileId(photo.fileId) })),
+      },
       category: spec.categorySlug,
       imageFileIds: spec.images.map(seedMediaFileId),
       tags: ['secondhand', spec.categorySlug],
