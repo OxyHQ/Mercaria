@@ -18,7 +18,7 @@ on:
         type: string
         required: true
       publish_endpoint:
-        description: 'Also create mcp.mercaria.oxy.so after the backend is ready'
+        description: 'Also create mcp.mercaria.co after the backend is ready'
         type: boolean
         default: false
         required: true
@@ -55,11 +55,11 @@ jobs:
               sys.exit('CLOUDFLARE_API_TOKEN is empty')
 
           apply = os.environ['ACTION'] == 'apply'
-          zone_name = 'oxy.so'
+          zone_name = 'mercaria.co'
           validation_name = os.environ['VALIDATION_NAME'].rstrip('.')
           validation_value = os.environ['VALIDATION_VALUE'].rstrip('.')
-          if not validation_name.endswith('.mcp.mercaria.oxy.so'):
-              sys.exit('validation_name is outside mcp.mercaria.oxy.so')
+          if not validation_name.endswith('.mcp.mercaria.co'):
+              sys.exit('validation_name is outside mcp.mercaria.co')
           if not validation_value.endswith('.acm-validations.aws'):
               sys.exit('validation_value is not an ACM validation target')
 
@@ -86,7 +86,7 @@ jobs:
 
           wanted = [(validation_name, validation_value)]
           if os.environ['PUBLISH_ENDPOINT'] == 'true':
-              wanted.append(('mcp.mercaria.oxy.so', os.environ['ALB_DNS']))
+              wanted.append(('mcp.mercaria.co', os.environ['ALB_DNS']))
 
           failed = False
           for name, content in wanted:

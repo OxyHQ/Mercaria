@@ -44,10 +44,10 @@ function readTool({ capability, limitKeys = [], ...input }: ReadToolInput): Cata
 export const MERCARIA_CAPABILITY_CATALOG: AppCapabilityCatalog = {
   schemaVersion: '1',
   appId: 'mercaria',
-  version: '1.1.0',
+  version: '1.2.0',
   audience: 'oxy-mercaria-api',
   internalBaseUrl: 'https://api.mercaria.co',
-  externalMcp: { resource: 'https://mcp.mercaria.oxy.so' },
+  externalMcp: { resource: 'https://mcp.mercaria.co' },
   accountResourceType: 'mercaria_account',
   tools: [
     readTool({
