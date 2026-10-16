@@ -260,9 +260,11 @@ jobs:
       # - OXY_FILE_REFERENCES_ENABLED / OXY_FILE_RECONCILIATION_ENABLED /
       #   OXY_FILE_RECONCILIATION_DRY_RUN / CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED:
       #   the Oxy ADR 0043 levers (docs/catalog-media.md, "Levers and the
-      #   release order"). Reconciliation STAYS a dry run until every entity
-      #   type's dry-run counts on `oxy_file_reference_reconciliations` have
-      #   been read; flipping DRY_RUN to "false" is its own reviewed PR.
+      #   release order"). Reconciliation runs for real: the dry-run counts on
+      #   `oxy_file_reference_reconciliations` were read in production on
+      #   2026-10-17 (listing_image, category_image, store_logo,
+      #   collection_image: 0 added, 0 removed, 0 refused; every other type
+      #   empty), which is the precondition for Oxy's sweep ever enforcing.
       #   OXY_FILE_EVENTS_ENABLED is deliberately ABSENT (so off, 404): the
       #   webhook is registered in the Oxy console and its secret set first.
       #
@@ -273,7 +275,7 @@ jobs:
           "GOWAY_API_URL": "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
           "OXY_FILE_REFERENCES_ENABLED": "true",
           "OXY_FILE_RECONCILIATION_ENABLED": "true",
-          "OXY_FILE_RECONCILIATION_DRY_RUN": "true",
+          "OXY_FILE_RECONCILIATION_DRY_RUN": "false",
           "CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED": "true"
         }
     # Native arm64, matching the image this job builds.

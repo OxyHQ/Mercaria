@@ -117,12 +117,12 @@ describe('the deploy workflow and the migrator agree', () => {
       OXY_API_URL: 'https://api.oxy.so',
       // No GoWay client means no location can be published (ADR 0013).
       GOWAY_API_URL: "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
-      // Oxy ADR 0043 levers. Reconciliation stays DRY until its counts are
-      // read; the events mount stays off (absent) until the webhook is
-      // registered and its secret set (docs/catalog-media.md).
+      // Oxy ADR 0043 levers. Reconciliation runs for real (its dry-run counts
+      // were read in production); the events mount stays off (absent) until
+      // the webhook is registered and its secret set (docs/catalog-media.md).
       OXY_FILE_REFERENCES_ENABLED: 'true',
       OXY_FILE_RECONCILIATION_ENABLED: 'true',
-      OXY_FILE_RECONCILIATION_DRY_RUN: 'true',
+      OXY_FILE_RECONCILIATION_DRY_RUN: 'false',
       CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED: 'true',
     });
     expect(rollout?.run).toContain('--task-definition');
