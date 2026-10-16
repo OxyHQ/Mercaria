@@ -369,11 +369,15 @@ translated labels rather than the raw enum member.
 
 ADR 0005 D3's shape. `GET /r/:token` is an API route, and the storefront worker
 (`public/_worker.js`) answers `/r/<token>` with a `302` to it rather than
-proxying it. That is not a detail: the route sets the click's carrier as
-`__Host-mercaria_referral`, which is host-only by definition, and
-`POST /referrals/bind` reads it on the API host. Proxied, the cookie would land
-on `mercaria.co`, which no API request carries, and every anonymous click would
-redirect fine and attribute nobody. The worker matches the link token's exact
+proxying it. The route sets no cookie (since 2026-10-16 it asks first: the
+click's carrier rides in the redirect's URL fragment, and only
+`POST /referrals/consent` writes `__Host-mercaria_referral`, host-only, on the
+API host after the buyer allows it — `docs/referral-attribution.md`
+"Consent"). A redirect rather than a proxy still matters: the API's `302`
+carries the fragment straight to the browser and its `no-store` and
+`no-referrer` headers apply, with no worker in between to cache or rewrite
+either, and the route's rate limit and classification see the real client
+rather than the worker. The worker matches the link token's exact
 shape and drops the query, which the API route reads none of; `scripts/asset-worker.test.ts`
 pins both. A dev server runs no worker, so a dev build's page composes links on
 its API origin instead.

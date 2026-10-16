@@ -34,6 +34,12 @@ An anonymous click writes no touch row. A crawler writes no touch row. A real
 shopper's touch is recorded against the very session D6 names, at the moment
 they do something that has a subject. Both rules hold and neither is bent.
 
+A third rule, added 2026-10-16 (ADR 0005 amendment), decides HOW the evidence
+travels: **nothing is stored on the buyer's device, and nothing is attributed,
+until the buyer allows it** (ePrivacy Art. 5(3)). The redirect carries the
+evidence in the URL fragment; the storefront asks; only the answer writes a
+cookie or a touch. The review that led to it is `docs/referral-privacy-review.md`.
+
 ---
 
 ## `GET /r/:token`
@@ -73,8 +79,28 @@ protocol-relative URL, and then compares the result's origin back anyway.
 | Header | Value | Why |
 |---|---|---|
 | status | `302` | A `301`/`308` is permanently cacheable. A browser that stopped asking would keep following a **revoked** link, stop spending the click ceiling, and make the operator lever inert. |
-| `Cache-Control` | `no-store, no-cache, must-revalidate, private` | No intermediary holds the `Set-Cookie` this response may carry, and every click reaches the row that decides. |
+| `Cache-Control` | `no-store, no-cache, must-revalidate, private` | No intermediary holds the per-click carrier in the `Location`, and every click reaches the row that decides. |
 | `Referrer-Policy` | `no-referrer` | The destination page never learns the token from a `Referer` header. |
+| `Set-Cookie` | **never** | A click is not consent. The carrier rides in the `Location`'s fragment instead (below). |
+
+### The carrier rides in the fragment, and nothing else is written
+
+An organic click's `Location` is the composed destination plus
+`#mercaria_ref=mrf_…` — the signed carrier (below), appended AFTER composition
+with the `URL` API (`withReferralCarrier`), so the origin check and the loop
+guard ran on a fragment-free URL and the fragment cannot change what they
+checked. The carrier's alphabet is `mrf_`, base64url and one `.`, asserted
+before it is appended. A fragment is never sent to a server and never appears
+in a `Referer`, so the click's evidence reaches the storefront's page and
+nobody else.
+
+What the redirect still does touches no device and names no person: it
+resolves the link, honours the redirect lever, classifies the traffic, and
+claims the click against the link's ceiling (a counter on the link row). It
+sets **no cookie** and writes **no touch** — and it no longer resolves a
+commerce actor at all, so a signed-in shopper's click is answered exactly like a
+stranger's. A non-organic click and a native `X-Mercaria-Referral-Consent:
+denied` click get the bare destination with no fragment.
 
 ### Redirect loops
 
@@ -82,23 +108,20 @@ The four destination templates cannot name this route, and the composed path is
 asserted against `REFERRAL_ROUTE_PREFIXES` anyway — so a fifth template added
 later fails at composition rather than looping a browser.
 
-### Two branches, and the second one had a real bug
+### One branch: a signed-in click waits for consent too
 
-A click by a request that **already carries a subject** — a signed-in shopper, or
-a native client presenting its guest credential — is resolved COMPLETELY at
-click time: the touch is written and `attributeRecordedTouch` decides the winner.
-No carrier is issued, because there is nothing to defer.
+Until 2026-10-16 a click by a request that already carried a subject was
+resolved completely at click time — touch written, winner decided. That is
+gone: the buyer had not been asked. A signed-in shopper's click now gets the
+same fragment carrier as anyone's, and is attributed when they press Allow,
+by `POST /referrals/consent` — which, with a subject present, runs exactly the
+`bindCarriedReferral` path. The lesson of the earlier bug still binds: a click
+with a subject must not be left with nothing to redeem, and the consent route is
+what redeems it (pinned in `referral-edge.realdb.test.ts`).
 
-The first shape of this recorded the touch and stopped. That was wrong and
-silently so: with no carrier, `POST /referrals/bind` would have had nothing to
-present, so a signed-in buyer's click would have sat unattributed forever,
-earning the partner nothing while every gate stayed green. Found by re-reading
-the branch rather than by a failing test; now pinned by a realdb case that goes
-red when the `attributeRecordedTouch` call is deleted (mutation-verified).
-
-`attributeRecordedTouch` lives in `binding.service.ts` and both paths go through
-it, because two places deciding whether a recorded touch becomes a winner would
-be two answers to the attribution lever.
+`attributeRecordedTouch` lives in `binding.service.ts` and every bind goes
+through it, because two places deciding whether a recorded touch becomes a
+winner would be two answers to the attribution lever.
 
 ### Refusals are uniform
 
@@ -167,25 +190,39 @@ A short-lived, purpose-specific credential that **authorizes nothing**.
   is published by a partner and public by design; this one is minted by the
   server, and one key for both would make a leak of the public half a mint for
   the private one.
-- **The payload is `{l, c, t, x, n}`** — link id, code id, click instant,
-  deadline, nonce. There is no user id, session id, order id or scope list in
-  it, so there is nothing an authorization check could read even if one were
-  written. That is ADR 0005 A1 as a property of the type. Decoding it discloses
-  nothing new: both ids are already inside the signed link token the partner
-  published, and neither names a partner, a program or a person.
+- **The payload is `{v, l, c, t, x, n, k}`** — version (2), link id, code id,
+  click instant, deadline, nonce, and the consent letter. There is no user id,
+  session id, order id or scope list in it, so there is nothing an
+  authorization check could read even if one were written. That is ADR 0005 A1
+  as a property of the type. Decoding it discloses nothing new: both ids are
+  already inside the signed link token the partner published, and neither names
+  a partner, a program or a person.
+- **Consent is inside the signature.** `k` is `u` (minted by the redirect,
+  nobody asked yet) or `g` (re-issued by `POST /referrals/consent` after the
+  buyer allowed it). There is no "denied" letter: a refusal issues nothing. A
+  v1 carrier (`{l, c, t, x, n}`, every cookie set before consent was asked)
+  still verifies, as consent `unknown`, so the bump strands nobody — but a
+  COOKIE carrier that does not say `g` is never read for attribution and is
+  cleared wherever the server sees it (`presentedCarrier` in the controller).
+  A bind records the touch's `consent_mode` as `granted` from the carrier
+  itself, never from the client's word.
 - **The window anchor is inside the signature.** `clickedAt` is stamped once, at
   the redirect, and travels signed — so presenting the carrier again does not
-  move it, and neither does re-issuing the cookie. #143 web rule 7 ("do not
-  extend the window forever through every page view") is arithmetic on a value
-  the client cannot edit.
-- **Carriage in kind** (ADR 0003 D9's shape): web gets
-  `__Host-mercaria_referral` (HttpOnly, Secure, SameSite=Lax, Path=/, no
-  Domain); dev gets `mercaria_referral_dev` **without** Secure under a different
-  name, logged once — an explicit downgrade, never a silent one. Native gets
-  `X-Mercaria-Referral-State` with `X-Mercaria-Referral-Transport: header`.
-- `SameSite=Lax` rather than `Strict`, because the carrier is SET on a top-level
-  navigation arriving from a partner's own site — exactly the cross-site case
-  `Strict` drops.
+  move it, and neither does re-issuing it on consent (`reissueConsentedReferralState`
+  copies the click instant and the deadline). #143 web rule 7 ("do not extend
+  the window forever through every page view") is arithmetic on a value the
+  client cannot edit.
+- **Carriage**: the redirect hands it over in the URL fragment only. After
+  Allow, an anonymous web buyer gets `__Host-mercaria_referral` (HttpOnly,
+  Secure, SameSite=Lax, Path=/, no Domain, max-age = the carrier's remaining
+  life), written by `POST /referrals/consent` and by nothing else; dev gets
+  `mercaria_referral_dev` **without** Secure under a different name, logged
+  once — an explicit downgrade, never a silent one. A native surface gets the
+  consented carrier on `X-Mercaria-Referral-State` with
+  `X-Mercaria-Referral-Transport: header`.
+- `SameSite=Lax` is kept from when the redirect set the cookie: the consent call
+  is a same-site request (`mercaria.co` → the API host), so it costs nothing,
+  and one profile serves every carrier a browser may still hold.
 - **Capped at 90 days** whatever a program asks for.
 
 A precision note worth keeping: `clickedAt` is stored in epoch **seconds**, so a
@@ -206,10 +243,11 @@ reference, and `pending` is an ordinary answer rather than an error. The
 
 | Surface | What it does |
 |---|---|
-| `POST /referrals/bind` | Redeem a carried click for the resolved actor. A redeemed carrier is CLEARED, so a second call finds nothing rather than recording a second touch for one click. |
+| `POST /referrals/consent` | The buyer's answer, `{consent: 'granted' \| 'denied', surface}` (strict). The carrier is accepted ONLY on the `X-Mercaria-Referral-State` request header — never body, query or cookie. `denied`: verify nothing, write nothing, clear any carrier cookie, `{state: 'none'}`. `granted` + subject: bind now (touch `consent_mode = granted`), no cookie. `granted` + anonymous: re-issue the carrier with `k = g` and set it as the cookie, `pending`. Unusable carrier: `state_unusable`. The ONLY route that writes a carrier cookie. |
+| `POST /referrals/bind` | Redeem a consented carrier cookie (or a native header carrier) for the resolved actor. A redeemed carrier is CLEARED, so a second call finds nothing rather than recording a second touch for one click. |
 | `POST /referrals/code-entry` | The buyer typed a code, at `in_app` or `at_checkout` — ADR 0005 D4's two code kinds. |
 | `POST /referrals/merchant-binding` | Bind a carried click to a merchant the caller **already holds a claim on** (#83). |
-| `GET /referrals/state` | What this browser is holding, for a disclosure banner. |
+| `GET /referrals/state` | What this browser is holding (a consented cookie carrier), for a disclosure banner. |
 
 **Last touch wins and the code always wins** are neither implemented nor
 re-derived here: ADR 0005 D4 gets both for free, because code entry IS a touch
@@ -289,18 +327,39 @@ The server cannot bind an anonymous click by itself, so the CLIENT is half of
 attribution — without it every signed-out click redirects fine and pays nobody,
 with every gate green.
 
-- **Bind.** Mounted once in `AuthSetup`, beside the cart merge. On web it reads
-  `GET /referrals/state` once; while that says `pending` it calls
-  `POST /referrals/bind` once per subject that appears — signing in, or the cart
-  coming back non-empty, which is the client-visible sign the first cart write
-  created a guest session (the web credential is `HttpOnly`). `pending` keeps the
-  carrier for the next subject; anything else means it was redeemed or dropped.
-  Native holds no carrier (no universal links, below), so this is web only.
-- **Disclosure.** `components/referrals/ReferralDisclosureNotice.tsx`, at the top
-  of the storefront while a carrier is held and after a bind that says one is
-  owed, with the program's `publicTermsSummary` verbatim once bound. It says
-  someone may be rewarded and the price does not change (ADR 0005 I2), and never
-  who.
+- **The fragment.** When `use-referral-binding.ts` first loads — before the
+  router renders — it reads `#mercaria_ref` out of `window.location.hash`,
+  strips it with `history.replaceState` (path, query and any other fragment
+  kept) and holds the carrier in a zustand store, in MEMORY only: never
+  localStorage, sessionStorage or a cookie. Expo Router has by then copied the
+  initial fragment into the focused route's `#` param and writes it back on
+  mount, so the hook also clears that param (`router.setParams({'#': ''})` —
+  `undefined` would print `#undefined`) and strips once more. Pinned in the
+  e2e spec.
+- **Consent.** While a carrier is held, `ReferralDisclosureNotice` is the
+  consent prompt (below) and NOTHING runs: no state read, no cart read, no
+  bind — even when signed in. **Allow** posts `/referrals/consent` with the
+  carrier on the header and `granted`: with a subject the answer is the bind's
+  (terms shown verbatim); anonymous, it is `pending` and the server now holds
+  the carrier as a cookie. **No thanks** forgets the carrier at once and posts
+  `denied` (which also clears any older carrier cookie).
+- **Bind.** Mounted once in `AuthSetup`, beside the cart merge. With no fresh
+  carrier held, on web it reads `GET /referrals/state` once — which only ever
+  sees a carrier the buyer consented to on an earlier visit, or the one they
+  just allowed; while that says `pending` it calls `POST /referrals/bind` once
+  per subject that appears — signing in, or the cart coming back non-empty,
+  which is the client-visible sign the first cart write created a guest session
+  (the web credential is `HttpOnly`). `pending` keeps the carrier for the next
+  subject; anything else means it was redeemed or dropped. Native holds no
+  carrier (no universal links, below), so this is web only.
+- **The prompt, then the disclosure.**
+  `components/referrals/ReferralDisclosureNotice.tsx`, at the top of the
+  storefront. While undecided: the title, the disclosure sentence (someone may
+  be rewarded, the price does not change — ADR 0005 I2 — never who), that
+  Mercaria remembers the visit for up to 90 days only if allowed, and two
+  equally weighted buttons, so declining is as easy as allowing. After Allow:
+  the plain disclosure, dismissible, with the program's `publicTermsSummary`
+  verbatim once bound. Copy in all 12 storefront locales.
 - **Typed codes.** Settings → Referrals takes a code as the `in_app` moment.
   Checkout stays referral-free (`commercial-presentation-isolation.test.ts`).
 - **Links.** Shared as `mercaria.co/r/<token>`; the storefront worker redirects
@@ -308,27 +367,33 @@ with every gate green.
 - **Merchant binding.** The storefront claim flow posts
   `POST /referrals/merchant-binding` right after a claim opens, fire and forget,
   so a carried click binds to the claimed merchant (`docs/merchant-claims.md`
-  §"The storefront client").
-- **Consent.** Never declared: with no consent framework the honest declaration
-  is none, recorded as `unknown`.
+  §"The storefront client"). It declares no consent of its own: the touch
+  records `granted` when the carrier says the buyer allowed it, and `unknown`
+  otherwise (§Consent).
 
 ## Consent
 
-**Mercaria operates no consent framework.** There is no CMP, no stored consent
-record and no jurisdiction table anywhere in this repository. What exists is a
-DECLARATION the client makes, recorded verbatim on the touch
-(`referral_touches.consent_mode`, #142), and acted on in exactly one way:
-`denied` writes no web carrier and clears any it finds.
+Decided by the owner on 2026-10-16 (`docs/referral-privacy-review.md`, ADR 0005
+amendment): **ask, and only then store or attribute.** ePrivacy Art. 5(3) wants
+prior consent before anything is stored on, or read from, a buyer's device for
+referral tracking, and a referral cookie is not strictly necessary.
 
-Where the declaration can be made is decided by what can actually be observed:
-
-- **Native** can declare at click time (`X-Mercaria-Referral-Consent`).
-- **Web cannot** — a top-level browser navigation sets no custom header and this
-  route accepts no query parameter — so the declaration arrives at BIND time,
-  where the body carries it.
-
-This is recorded rather than assumed, and the framework that would let a web
-client declare earlier is a named seam.
+- **Before the answer nothing is on the device.** The redirect sets no cookie;
+  the carrier is in the URL fragment and then in page memory. No touch exists.
+- **The answer is a separate request**, `POST /referrals/consent`, and it is
+  what turns the carrier into a touch (subject present) or a cookie
+  (anonymous). Only `granted` writes anything.
+- **The consent travels signed.** A carrier the buyer allowed says so in its
+  own payload (`k = g`), so the touch records `consent_mode = granted` from the
+  carrier, whenever the bind happens. A touch recorded from a typed code, or
+  from a native header carrier, still records the client's declaration
+  (`unknown` when none) — this is a referral prompt, not a site-wide consent
+  framework, and nothing here pretends otherwise.
+- **Native** can still declare at click time (`X-Mercaria-Referral-Consent`);
+  only `denied` changes anything there (no carrier at all). A native client
+  never receives a click today (no universal links), so no native prompt exists.
+- **Cookies from before** (v1, or any carrier without `k = g`) are never read for
+  attribution and are cleared the next time the browser reaches `/referrals/*`.
 
 ---
 
@@ -383,7 +448,9 @@ boolean — tripped the request-derived-destination detector. The pattern gained
   `GuestSellerActivation` (#107) was the same device and is now the precedent
   for how it ENDS: #85 supplied the capability, and the change that supplied it
   (#324) is the change that added `{state: 'activated'}`.
-- **A consent framework** (web rule 5), as above.
+- **A site-wide consent framework** (web rule 5). The referral flow asks its own
+  question (above); there is still no CMP or stored consent record, so a typed
+  code and a native header carrier record the client's declaration.
 - **A merge does not rehome a standing attribution.** #142's
   `recordSubjectMerge` is explicit that "history keeps its references; reads and
   NEW attributions resolve through the redirect", and its own realdb file pins
@@ -423,5 +490,7 @@ state, not environment: an unpublished program, a paused
       a program or trace an attribution.
 - [ ] `ANALYTICS_INTERNAL_TRAFFIC_TOKEN` set, or staff traffic classifies
       `organic` and enters attribution.
-- [ ] The privacy review ADR 0005 A1–A5 owes, recorded, before a program and
-      its pilot cohort are published in production.
+- [x] The privacy review ADR 0005 A1–A5 owes, recorded:
+      `docs/referral-privacy-review.md`. Its item 1 (consent for the carrier
+      cookie) is resolved by the consent-first flow; items 2–3 are still open
+      and are owned by the legal entity and operations respectively.
