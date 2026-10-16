@@ -42,6 +42,8 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-asset",
+      "@oxy.so/services/plugins/withOxySharedPermissions",
+      "@oxy.so/app-preset/plugin/withOxyAndroidRelease",
       "expo-notifications",
       [
         "@stripe/stripe-react-native",
