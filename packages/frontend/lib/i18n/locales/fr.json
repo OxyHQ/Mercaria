@@ -1525,6 +1525,12 @@
       "title": "Vous êtes arrivé via un lien de parrainage",
       "body": "La personne qui l'a partagé peut recevoir une récompense de Mercaria si vous achetez. Le prix que vous payez ne change pas.",
       "dismiss": "Compris"
+    },
+    "consent": {
+      "body": "Mercaria ne se souviendra de cette visite, pendant 90 jours au maximum, que si vous l'autorisez.",
+      "allow": "Autoriser",
+      "decline": "Non merci",
+      "failed": "Nous n'avons pas pu enregistrer votre choix. Veuillez réessayer."
     }
   },
   "brand": {

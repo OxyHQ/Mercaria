@@ -1510,6 +1510,12 @@
       "title": "You came through a referral link",
       "body": "Whoever shared it may get a reward from Mercaria if you buy. It doesn't change the price you pay.",
       "dismiss": "Got it"
+    },
+    "consent": {
+      "body": "Mercaria will remember this visit for up to 90 days only if you allow it.",
+      "allow": "Allow",
+      "decline": "No thanks",
+      "failed": "We couldn't save your choice. Please try again."
     }
   },
   "brand": {

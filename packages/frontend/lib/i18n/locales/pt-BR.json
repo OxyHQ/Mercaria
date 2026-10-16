@@ -1525,6 +1525,12 @@
       "title": "Você chegou por um link de indicação",
       "body": "Quem compartilhou pode receber uma recompensa da Mercaria se você comprar. Isso não muda o preço que você paga.",
       "dismiss": "Entendi"
+    },
+    "consent": {
+      "body": "A Mercaria só vai lembrar desta visita por até 90 dias se você permitir.",
+      "allow": "Permitir",
+      "decline": "Não, obrigado",
+      "failed": "Não foi possível salvar sua escolha. Tente novamente."
     }
   },
   "brand": {

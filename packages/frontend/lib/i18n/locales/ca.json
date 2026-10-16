@@ -1525,6 +1525,12 @@
       "title": "Has arribat per un enllaç de referit",
       "body": "Qui el va compartir pot rebre una recompensa de Mercaria si compres. No canvia el preu que pagues.",
       "dismiss": "D'acord"
+    },
+    "consent": {
+      "body": "Mercaria recordarà aquesta visita fins a 90 dies només si ho permets.",
+      "allow": "Permetre",
+      "decline": "No, gràcies",
+      "failed": "No hem pogut desar la teva elecció. Torna-ho a provar."
     }
   },
   "brand": {

@@ -1510,6 +1510,12 @@
       "title": "Du bist über einen Empfehlungslink gekommen",
       "body": "Wer ihn geteilt hat, kann von Mercaria eine Belohnung erhalten, wenn du kaufst. Dein Preis ändert sich dadurch nicht.",
       "dismiss": "Verstanden"
+    },
+    "consent": {
+      "body": "Mercaria merkt sich diesen Besuch nur dann bis zu 90 Tage lang, wenn du es erlaubst.",
+      "allow": "Erlauben",
+      "decline": "Nein danke",
+      "failed": "Deine Auswahl konnte nicht gespeichert werden. Bitte versuche es erneut."
     }
   },
   "brand": {
