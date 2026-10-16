@@ -12,10 +12,8 @@
  * it, per ADR 0002 D25(a)'s file-ownership protocol: an observation store and a
  * claim about what those observations MEAN are two lifecycles over one graph.
  *
- * Mounted while `PRICE_SIGNALS_ENABLED` is off and while nothing is published,
- * because a deployment with no active policy version is exactly when somebody
- * needs to publish one — and because the evidence has to be readable during the
- * incident that turned the sweep off.
+ * Mounted while nothing is published, because a deployment with no active
+ * policy version is exactly when somebody needs to publish one.
  *
  * ## The route set is CLOSED, and four absences are the point
  *

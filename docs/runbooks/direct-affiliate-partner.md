@@ -19,9 +19,6 @@ Task definition (`oxy-infra`, `terraform-uswest2/app-services.tf`,
 ```
 CATALOG_INGESTION_ENABLED=true
 FEED_IMPORT_ENABLED=true
-OFFER_MATERIALIZATION_ENABLED=true
-OFFER_REFRESH_ENABLED=true
-OFFER_EXPIRY_SWEEP_ENABLED=true
 OUTBOUND_REDIRECT_ENABLED=true
 CATALOG_OPERATOR_OXY_USER_IDS=<oxy user id>
 PAYMENT_OPERATOR_OXY_USER_IDS=<oxy user id>
@@ -35,8 +32,8 @@ OUTBOUND_TOKEN_SECRET     # openssl rand -hex 32
 ```
 
 `OUTBOUND_REDIRECT_ENABLED` without the token secret stays OFF and logs once at
-boot (`config/index.ts`'s half-configuration rule). Without the expiry sweep a
-withdrawn offer stays on sale forever, which is the one failure a shopper sees.
+boot (`config/index.ts`'s half-configuration rule). Offer materialization,
+refresh and the expiry sweep always run and need no variable.
 
 ## 2. Create the feed configuration, and with it the source
 

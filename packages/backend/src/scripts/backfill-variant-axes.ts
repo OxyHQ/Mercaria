@@ -13,8 +13,8 @@
  * `--apply` is required to write anything. The mode is not a config value and
  * there is no environment variable for it: a migration that wrote because
  * somebody forgot a flag is the one failure neither a report nor a rollback can
- * undo, and `PRODUCT_SAVE_MIGRATION_ENABLED` records the same decision one
- * domain over.
+ * undo, and the product-save migration's `dryRun` default records the same
+ * decision one domain over.
  *
  * A dry run is NOT a parallel prediction. It runs the identical code inside a
  * transaction and rolls it back, so it exercises every trigger, every CHECK and

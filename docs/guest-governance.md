@@ -19,9 +19,10 @@ and the single most likely mistake here was a tenth answer to a question one of
 them already answers. So:
 
 - **No new feature flag for a capability an existing lever gates.**
-  `GUEST_FEATURE_GATE_REGISTER` names each of the thirteen capabilities the
-  issue enumerates and the lever that answers it — including four that answer
-  `null` because the absence is structural.
+  `GUEST_FEATURE_GATE_REGISTER` names each capability the issue enumerates
+  that a lever still answers — including those that answer `null` because the
+  absence is structural. Buyer cancellations, returns and support left it when
+  `BUYER_REQUESTS_ENABLED` was removed: that surface is always on.
 - **No `GUEST_ROLLOUT_STAGE` variable.** The current stage is DERIVED from the
   latest permitted advance. A variable naming one would be a second
   representation of a fact the append-only advance history already holds, and

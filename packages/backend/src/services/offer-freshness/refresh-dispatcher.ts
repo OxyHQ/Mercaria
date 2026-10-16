@@ -8,12 +8,10 @@
  * would be a second place the rights gate, the monotonicity guard, the
  * quarantine gate and the retirement rule all have to be right.
  *
- * ## The LOOP is gated; the durable record never is
+ * ## The durable record is the task
  *
- * `OFFER_REFRESH_ENABLED` stops this loop and nothing else. Tasks accumulate
- * while it is off — an alert raised at 3am is served when the loop comes back —
- * which is the house rule and is what makes bringing a feed up by hand a
- * supported thing to do.
+ * A task is a durable row, so one enqueued while no process is draining — an
+ * alert raised at 3am during a deploy — is served when the loop comes back.
  *
  * ## Refusals are recorded, never silently downgraded
  *
@@ -245,13 +243,6 @@ async function tick(): Promise<void> {
 /** Begin dispatching. Idempotent — a second call is a no-op. */
 export function startOfferRefreshDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.offerFreshness.refreshEnabled) {
-    log.general.info(
-      '[OfferFreshness] refresh dispatcher disabled; tasks enqueued now are stored and will ' +
-        'run once OFFER_REFRESH_ENABLED is on',
-    );
-    return;
-  }
 
   timer = setInterval(() => {
     void tick();

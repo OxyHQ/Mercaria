@@ -155,13 +155,6 @@ async function tick(): Promise<void> {
 /** Begin sweeping. Idempotent — a second call is a no-op. */
 export function startOfferExpirySweep(): void {
   if (timer !== undefined) return;
-  if (!config.offerFreshness.expirySweepEnabled) {
-    log.general.info(
-      '[OfferFreshness] expiry sweep disabled; lapsed offers still leave comparison, because ' +
-        'the freshness verdict is derived at read time and needs no sweep',
-    );
-    return;
-  }
 
   timer = setInterval(() => {
     void tick();
