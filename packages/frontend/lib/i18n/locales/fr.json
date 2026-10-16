@@ -1599,7 +1599,7 @@
     "headTitle": "Agents d'achat · Mercaria",
     "title": "Agents d'achat",
     "intro": "Ce que vous avez demandé à Mercaria de surveiller. Chaque agent observe le catalogue et vous prévient dès que ce que vous avez demandé se réalise.",
-    "loadError": "Nous n'avons pas pu charger vos agents d'achat. Vérifiez votre connexion et réessayez.",
+    "loadError": "Nous n'avons pas pu charger vos agents d'achat pour le moment. Vos agents ne sont pas affectés.",
     "findings": {
       "asking": "Nouvelle vérification en cours…",
       "intro": "Tout ce que cet agent a vu, du plus récent au plus ancien. Les observations plus anciennes restent ici même lorsqu'une plus récente les remplace.",

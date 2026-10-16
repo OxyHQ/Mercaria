@@ -1599,7 +1599,7 @@
     "headTitle": "Agentes de compra · Mercaria",
     "title": "Agentes de compra",
     "intro": "Cosas que le has pedido a Mercaria que vigile. Cada agente observa el catálogo y te avisa cuando se cumple lo que pediste.",
-    "loadError": "No hemos podido cargar tus agentes de compra. Comprueba tu conexión e inténtalo de nuevo.",
+    "loadError": "Ahora mismo no hemos podido cargar tus agentes de compra. Tus agentes no se ven afectados.",
     "findings": {
       "asking": "Pidiendo otra revisión…",
       "intro": "Todo lo que ha visto este agente, de lo más reciente a lo más antiguo. Las observaciones anteriores se quedan aquí aunque otra posterior las sustituya.",
