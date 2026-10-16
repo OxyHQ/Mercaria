@@ -1614,7 +1614,7 @@
     "headTitle": "Agentes de compra · Mercaria",
     "title": "Agentes de compra",
     "intro": "Coisas que você pediu para a Mercaria ficar de olho. Cada agente observa o catálogo e avisa você quando o que você pediu acontece.",
-    "loadError": "Não foi possível carregar seus agentes de compra. Verifique sua conexão e tente de novo.",
+    "loadError": "Não foi possível carregar seus agentes de compra agora. Seus agentes não foram afetados.",
     "findings": {
       "asking": "Pedindo mais uma olhada…",
       "intro": "Tudo o que este agente já viu, do mais recente ao mais antigo. Observações antigas continuam aqui mesmo depois de uma mais nova substituí-las.",

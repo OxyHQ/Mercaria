@@ -146,8 +146,12 @@ const LOCAL_FRESHNESS_REFERENCE =
 const ALERT_DOMAIN_REFERENCE =
   /price-alerts\/|priceAlerts\/|price_alerts\b|price_alert_triggers|priceAlertTriggers|qualifyAlert/;
 
-/** The three levers, none of which may gate a durable record. */
-const LEVER_REFERENCE = /config\.priceAlerts\.(enabled|evaluationEnabled|notificationsEnabled)/;
+/**
+ * Any boolean lever over this domain. There is none today — the surface is
+ * always mounted and every loop always runs — so this keeps one that is ever
+ * reintroduced from gating a durable record.
+ */
+const LEVER_REFERENCE = /config\.priceAlerts\.\w*(enabled|Enabled)\b/;
 
 /**
  * The modules that write the durable records a lever must never reach.

@@ -206,17 +206,12 @@ function ProductBody({
       ) : null}
 
       {/*
-        #79 closed the seam #80 opened, so the affordance is real — and it is
-        still rendered ONLY on the supported branch. A deployment with
-        `PRICE_ALERTS_ENABLED` off gets nothing rather than a greyed-out bell,
-        because a control that claims an unbuilt feature exists is exactly what
-        the one-branch seam was avoiding.
-
-        It says "Set" and never "Alert set": this card carries no alert state at
-        all (the DTO has none — the saved-list domain may not read #79's), so
+        #79 closed the seam #80 opened, so the affordance is real. It says
+        "Set" and never "Alert set": this card carries no alert state at all
+        (the DTO has none — the saved-list domain may not read #79's), so
         anything about what the buyer has already set would be a guess.
       */}
-      {item.priceAlert.supported && onCreatePriceAlert ? (
+      {onCreatePriceAlert ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(SAVED_ITEM_SET_ALERT_A11Y_KEY)}

@@ -1957,33 +1957,18 @@ export interface CatalogConfig {
 /**
  * Canonical product saves (#80).
  *
- * THREE independent levers, and the interaction is the point (#80 acceptance
- * 8): `enabled` decides whether the surface exists at all, `readMode` decides
- * what a saved list is made of, and `migrationApplyEnabled` decides whether the
- * migration may WRITE.
+ * `/product-saves` and `/saved-items` are always mounted and `/favorites` is
+ * untouched. `readMode` decides what a saved list is made of: `off` serves the
+ * listing saves a buyer had before #80 and nothing else; `dual` serves both,
+ * which is the comparison window; `on` serves product saves plus the listing
+ * saves no product save represents. `on` never drops an unmatched P2P favorite
+ * — see `SavedItemsReadMode`, where the reasoning belongs.
  *
- * - `enabled=false` is the full withdrawal: `/product-saves` and `/saved-items`
- *   404, `/favorites` is untouched, and a deployment behaves exactly as it did
- *   before #80. Saves already stored are not deleted and not gated — turning it
- *   back on restores them.
- * - `readMode` is the rollback INSIDE an enabled deployment. `off` serves the
- *   listing saves a buyer had before #80 and nothing else; `dual` serves both,
- *   which is the comparison window; `on` serves product saves plus the listing
- *   saves no product save represents. `on` never drops an unmatched P2P
- *   favorite — see `SavedItemsReadMode`, where the reasoning belongs.
- * - `migrationApplyEnabled=false` downgrades every migration request to a DRY
- *   RUN that reports what it would do. The #60 dry-run-writer shape: the request is always answerable, only the write is gated, so an
- *   operator can measure the migration before authorising it.
+ * The migration's write gate is in the REQUEST, not here: a migration page is
+ * a dry run unless the operator sends `dryRun: false`.
  */
 /**
- * The canonical "Sell yours" flow (#91).
- *
- * ONE lever, and it gates the MOUNT rather than a loop or a row. There is no
- * durable queue here to gate: a draft is a person's unfinished work, so the
- * "gate the loop, never the record" rule has nothing to bite on — the analogous
- * mistake would be a flag that DELETED drafts, and nobody would pull that lever
- * either. With it off the flow is unavailable and every existing draft is still
- * exactly where its owner left it.
+ * The canonical "Sell yours" flow (#91). `/seller/drafts` is always mounted.
  *
  * Deliberately absent: a flag that disables the deterministic match gate. A
  * "just attach what the seller said" switch is the false merge with an
@@ -1991,8 +1976,6 @@ export interface CatalogConfig {
  * one where it must not be available.
  */
 export interface SellYoursConfig {
-  /** `SELL_YOURS_ENABLED` — mounts `/seller/drafts`. Never touches a stored draft. */
-  readonly enabled: boolean;
   /** How many live offers one guidance segment samples. */
   readonly guidanceOfferSampleSize: number;
   /** How many sold order lines one guidance segment samples. */
@@ -2025,12 +2008,8 @@ export interface VariantAxesConfig {
 }
 
 export interface ProductSavesConfig {
-  /** `PRODUCT_SAVES_ENABLED` — mounts `/product-saves` and `/saved-items`. */
-  readonly enabled: boolean;
   /** `PRODUCT_SAVE_READS` — `off | dual | on`. */
   readonly readMode: SavedItemsReadMode;
-  /** `PRODUCT_SAVE_MIGRATION_ENABLED` — may a migration page WRITE? */
-  readonly migrationApplyEnabled: boolean;
   /** How many favorites one migration page examines. */
   readonly migrationBatchSize: number;
   /** How many aggregate rows one counter sweep page examines. */
@@ -2038,18 +2017,7 @@ export interface ProductSavesConfig {
 }
 
 /**
- * Private watchlists (#81).
- *
- * ONE flag, and it gates the MOUNT and nothing else. The three-lever shape #80
- * needed does not apply here: there is no read mode to roll back to, because
- * there was no watchlist surface before this issue, and there is no write gate
- * on a migration because there is no migration — a watchlist is created by a
- * person, not derived from anything.
- *
- * What the flag does NOT gate is the ROWS. A list already stored stays stored
- * and comes back when the flag does, for #80's reason: a rollback lever that
- * cost buyers their lists is not one anybody would pull, so it would sit unused
- * during exactly the incident it exists for.
+ * Private watchlists (#81). `/watchlists` is always mounted.
  *
  * `snapshotPageSize` bounds the history read and `evaluationConcurrency` bounds
  * how many offer comparisons one basket runs at once — a 200-item list firing
@@ -2057,8 +2025,6 @@ export interface ProductSavesConfig {
  * product page shares.
  */
 export interface WatchlistsConfig {
-  /** `WATCHLISTS_ENABLED` — mounts `/watchlists`. */
-  readonly enabled: boolean;
   /** How many recorded evaluations one history page returns. */
   readonly snapshotPageSize: number;
   /** How many items one basket evaluation prices at a time. */
@@ -2068,15 +2034,10 @@ export interface WatchlistsConfig {
 /**
  * The unified offer model (#57, ADR 0002 D18).
  *
- * ONE lever and two tunables. `materializationEnabled` gates the convergence
- * LOOP and nothing else: catalogue writes keep enqueuing while it is off, so
- * turning it on drains the backlog rather than stranding it (gate the loop,
- * never the durable record).
- *
- * There is deliberately no flag over the offer TABLES and none over the READ
- * surface. Rows written while the loop is off stay valid when it turns on, and a
+ * Two tunables for the convergence loop, which always runs. There is
+ * deliberately no flag over the offer TABLES and none over the READ surface: a
  * comparison read of an empty offer table is an empty list, which is the honest
- * answer rather than an error. Nor is there a second flag over checkout: only
+ * answer rather than an error. Nor is there a flag over checkout: only
  * `native` offers can reach it structurally, and the verdict is derived live —
  * so there is no state a flag could protect that the shape does not.
  */
@@ -2223,10 +2184,6 @@ export interface SearchIntentConfig {
  * FairCoin-specific assumption and a default of any single code would be one.
  */
 export interface PriceHistoryConfig {
-  /** `PRICE_HISTORY_ENABLED` — does the rebuild dispatcher run. Gates the LOOP only. */
-  readonly enabled: boolean;
-  /** `PRICE_HISTORY_PUBLIC_READS_ENABLED` — is `/price-history` mounted at all. */
-  readonly publicReadsEnabled: boolean;
   /** Which display currencies this deployment builds series in. Empty = none. */
   readonly seriesCurrencies: readonly CurrencyCode[];
   /** How long an identical observation is suppressed before it is written as an anchor. */
@@ -2246,26 +2203,13 @@ export interface PriceHistoryConfig {
 }
 
 /**
- * Price alerts (#79).
- *
- * THREE independent levers, and the middle one is issue operations 5's "global
- * notification kill switch independent of alert storage" — which is why it is
- * separate from the other two rather than folded into `enabled`. With alerts
- * enabled, evaluation running and notifications OFF, alerts keep being
- * evaluated and triggers keep being written; nothing is delivered and nothing
- * is lost, so flipping it back drains the backlog.
- *
- * NOT ONE of the three gates a durable record. `price-alert-isolation.test.ts`
- * fails the build if the trigger writer, the evaluation enqueue or the
- * notification enqueue learns to read one.
+ * Price alerts (#79). The buyer surface is always mounted and the evaluation
+ * and delivery loops always run; what lives here is their shape and the abuse
+ * bounds. Stopping delivery (issue operations 5) is a deploy, not an
+ * environment switch: a delivery is a durable queue row, so a stopped loop
+ * loses nothing and the next process drains the backlog.
  */
 export interface PriceAlertsConfig {
-  /** `PRICE_ALERTS_ENABLED` — is the buyer surface mounted at all. */
-  readonly enabled: boolean;
-  /** `PRICE_ALERT_EVALUATION_ENABLED` — does the evaluator run. The LOOP only. */
-  readonly evaluationEnabled: boolean;
-  /** `PRICE_ALERT_NOTIFICATIONS_ENABLED` — the kill switch. The LOOP only. */
-  readonly notificationsEnabled: boolean;
   /** Issue abuse rule 1: how many non-deleted alerts one account may hold. */
   readonly maxActivePerUser: number;
   /** Issue abuse rule 1: how many an account may create per window. */
@@ -2288,28 +2232,13 @@ export interface PriceAlertsConfig {
 }
 
 /**
- * Saved shopping agents (#97).
- *
- * FOUR independent levers, and the last is #97 cost rule 10 and evaluation
- * rule 10's "global kill switch that can stop evaluation or notification
- * INDEPENDENTLY". With agents enabled, triggers running and notifications OFF,
- * catalogue events keep enqueueing, agents keep being evaluated and findings
- * keep being appended; nothing is delivered and nothing is lost, so flipping it
- * back drains the backlog.
- *
- * NOT ONE of the four gates a durable record. `shopping-agent-isolation.test.ts`
- * fails the build if the finding writer, either enqueue or the notification
- * writer learns to read one.
+ * Saved shopping agents (#97). The shopper surface is always mounted and the
+ * trigger, evaluation and delivery loops always run; what lives here is their
+ * shape and #97's cost bounds. Stopping evaluation or delivery (#97 cost rule
+ * 10) is a deploy, not an environment switch: every stage is a durable queue
+ * row, so a stopped loop loses nothing and the next process drains the backlog.
  */
 export interface ShoppingAgentsConfig {
-  /** `SHOPPING_AGENTS_ENABLED` — is the shopper surface mounted at all. */
-  readonly enabled: boolean;
-  /** `SHOPPING_AGENT_TRIGGER_ENABLED` — does the product fan-out run. The LOOP. */
-  readonly triggerEnabled: boolean;
-  /** `SHOPPING_AGENT_EVALUATION_ENABLED` — does the evaluator run. The LOOP. */
-  readonly evaluationEnabled: boolean;
-  /** `SHOPPING_AGENT_NOTIFICATIONS_ENABLED` — the kill switch. The LOOP. */
-  readonly notificationsEnabled: boolean;
   /** #97 cost rule 9: how many non-deleted agents one account may hold. */
   readonly maxActivePerUser: number;
   /** #97 cost rule 9: how many an account may create per window. */
@@ -2352,23 +2281,6 @@ export interface ShoppingAgentsConfig {
  * the house rule every other versioned policy in this codebase follows.
  */
 export interface PriceSignalsConfig {
-  /**
-   * `PRICE_SIGNALS_ENABLED` — does the monitoring sweep dispatcher run.
-   *
-   * Gates the LOOP and nothing durable. With it off a policy version can still be
-   * published and activated, a merchant can still read their own
-   * competitiveness, and the operator surface still answers — what stops is the
-   * background measurement, which is a cost rather than a capability.
-   */
-  readonly enabled: boolean;
-  /**
-   * `PRICE_SIGNALS_PUBLIC_READS_ENABLED` — is `/price-signals` mounted.
-   *
-   * The buyer-facing half is the half that gets a lever, exactly as #78's
-   * `PRICE_HISTORY_PUBLIC_READS_ENABLED` gates a chart and never a row: a badge
-   * is the one part of this domain that can be WRONG in public.
-   */
-  readonly publicReadsEnabled: boolean;
   /** How many offers one subject's cross-sectional sample may pull in. */
   readonly offerSampleLimit: number;
   /** How many canonical products one sweep page examines. */
@@ -2407,8 +2319,6 @@ export interface SeoConfig {
 }
 
 export interface OfferFreshnessConfig {
-  /** `OFFER_REFRESH_ENABLED` — does the refresh dispatcher run. Gates the LOOP only. */
-  readonly refreshEnabled: boolean;
   /** How many refresh tasks one dispatcher tick claims. */
   readonly refreshBatchSize: number;
   /** How often the refresh dispatcher polls, in milliseconds. */
@@ -2428,8 +2338,6 @@ export interface OfferFreshnessConfig {
    */
   readonly defaultRefreshConcurrency: number;
   readonly defaultRefreshCallsPerMinute: number;
-  /** `OFFER_EXPIRY_SWEEP_ENABLED` — does the expiry sweep run. Gates the LOOP only. */
-  readonly expirySweepEnabled: boolean;
   /** How many offers one expiry sweep pass may retire. */
   readonly expirySweepBatchSize: number;
   /** How often the expiry sweep runs, in milliseconds. */
@@ -2437,8 +2345,6 @@ export interface OfferFreshnessConfig {
 }
 
 export interface OffersConfig {
-  /** `OFFER_MATERIALIZATION_ENABLED` — does the convergence dispatcher run. */
-  readonly materializationEnabled: boolean;
   /** How many listings one drain claims. */
   readonly outboxBatchSize: number;
   /** How often the dispatcher polls, in milliseconds. */
@@ -3222,9 +3128,7 @@ export interface MoovoConfig {
 
 /**
  * Buyer post-purchase requests — cancellations, returns and support (#110).
- *
- * THREE levers and none of them gates a durable record. See the value block at
- * the bottom of this file for what each one stops.
+ * The buyer surface is always open and the settlement sweep always runs.
  */
 /**
  * Merchant activation readiness (#85).
@@ -3268,10 +3172,6 @@ export interface MerchantActivationConfig {
 }
 
 export interface BuyerRequestsConfig {
-  /** Gates the buyer-facing WRITE paths. Reads and decisions stay open. */
-  readonly requestsEnabled: boolean;
-  /** Gates the refund-settlement sweep LOOP, never a row. */
-  readonly reconcilerEnabled: boolean;
   readonly reconcileIntervalMs: number;
   readonly reconcileBatchSize: number;
   readonly reconcileGraceMs: number;
@@ -3720,7 +3620,6 @@ export const config: AppConfig = Object.freeze({
     rolloutCohorts: Object.freeze(resolveCatalogRolloutCohorts()),
   }),
   sellYours: Object.freeze({
-    enabled: boolEnv('SELL_YOURS_ENABLED', true),
     guidanceOfferSampleSize: intEnv('SELL_YOURS_GUIDANCE_OFFER_SAMPLE_SIZE', 100),
     guidanceSoldSampleSize: intEnv('SELL_YOURS_GUIDANCE_SOLD_SAMPLE_SIZE', 200),
     draftListLimit: intEnv('SELL_YOURS_DRAFT_LIST_LIMIT', 25),
@@ -3730,19 +3629,15 @@ export const config: AppConfig = Object.freeze({
     reads: resolveVariantAxisReadMode(),
   }),
   productSaves: Object.freeze({
-    enabled: boolEnv('PRODUCT_SAVES_ENABLED', true),
     readMode: resolveSavedItemsReadMode(),
-    migrationApplyEnabled: boolEnv('PRODUCT_SAVE_MIGRATION_ENABLED', false),
     migrationBatchSize: intEnv('PRODUCT_SAVE_MIGRATION_BATCH_SIZE', 200),
     counterSweepBatchSize: intEnv('PRODUCT_SAVE_COUNTER_SWEEP_BATCH_SIZE', 500),
   }),
   watchlists: Object.freeze({
-    enabled: boolEnv('WATCHLISTS_ENABLED', true),
     snapshotPageSize: intEnv('WATCHLIST_SNAPSHOT_PAGE_SIZE', 50),
     evaluationConcurrency: intEnv('WATCHLIST_EVALUATION_CONCURRENCY', 6),
   }),
   offers: Object.freeze({
-    materializationEnabled: boolEnv('OFFER_MATERIALIZATION_ENABLED', true),
     outboxBatchSize: intEnv('OFFER_OUTBOX_BATCH_SIZE', 25),
     outboxPollIntervalMs: intEnv('OFFER_OUTBOX_POLL_INTERVAL_MS', 5_000),
   }),
@@ -3767,20 +3662,16 @@ export const config: AppConfig = Object.freeze({
     canaryEnabled: boolEnv('RANKING_CANARY_ENABLED', true),
   }),
   offerFreshness: Object.freeze({
-    refreshEnabled: boolEnv('OFFER_REFRESH_ENABLED', false),
     refreshBatchSize: intEnv('OFFER_REFRESH_BATCH_SIZE', 25),
     refreshPollIntervalMs: intEnv('OFFER_REFRESH_POLL_INTERVAL_MS', 15_000),
     refreshLeaseMs: intEnv('OFFER_REFRESH_LEASE_MS', 120_000),
     refreshMaxBackoffMs: intEnv('OFFER_REFRESH_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     defaultRefreshConcurrency: intEnv('OFFER_REFRESH_DEFAULT_CONCURRENCY', 2),
     defaultRefreshCallsPerMinute: intEnv('OFFER_REFRESH_DEFAULT_CALLS_PER_MINUTE', 60),
-    expirySweepEnabled: boolEnv('OFFER_EXPIRY_SWEEP_ENABLED', false),
     expirySweepBatchSize: intEnv('OFFER_EXPIRY_SWEEP_BATCH_SIZE', 500),
     expirySweepIntervalMs: intEnv('OFFER_EXPIRY_SWEEP_INTERVAL_MS', 60_000),
   }),
   priceHistory: Object.freeze({
-    enabled: boolEnv('PRICE_HISTORY_ENABLED', false),
-    publicReadsEnabled: boolEnv('PRICE_HISTORY_PUBLIC_READS_ENABLED', false),
     seriesCurrencies: Object.freeze(resolvePriceHistorySeriesCurrencies()),
     anchorIntervalSeconds: intEnv('PRICE_HISTORY_ANCHOR_INTERVAL_SECONDS', 24 * 60 * 60),
     retentionWindowDays: intEnv('PRICE_HISTORY_RETENTION_WINDOW_DAYS', 400),
@@ -3793,12 +3684,6 @@ export const config: AppConfig = Object.freeze({
     traceLimit: intEnv('PRICE_HISTORY_TRACE_LIMIT', 500),
   }),
   priceAlerts: Object.freeze({
-    enabled: boolEnv('PRICE_ALERTS_ENABLED', true),
-    evaluationEnabled: boolEnv('PRICE_ALERT_EVALUATION_ENABLED', true),
-    // Default TRUE, like the two above (ADR 0015): it is an INCIDENT lever, and
-    // an incident lever that ships in the off position is a feature nobody
-    // notices is missing.
-    notificationsEnabled: boolEnv('PRICE_ALERT_NOTIFICATIONS_ENABLED', true),
     maxActivePerUser: intEnv('PRICE_ALERT_MAX_ACTIVE_PER_USER', 200),
     createRateLimit: intEnv('PRICE_ALERT_CREATE_RATE_LIMIT', 60),
     createRateWindowMs: intEnv('PRICE_ALERT_CREATE_RATE_WINDOW_MS', 60 * 60 * 1_000),
@@ -3819,13 +3704,6 @@ export const config: AppConfig = Object.freeze({
   }),
 
   shoppingAgents: Object.freeze({
-    enabled: boolEnv('SHOPPING_AGENTS_ENABLED', false),
-    triggerEnabled: boolEnv('SHOPPING_AGENT_TRIGGER_ENABLED', false),
-    evaluationEnabled: boolEnv('SHOPPING_AGENT_EVALUATION_ENABLED', false),
-    // Default TRUE, unlike the three above: it is an INCIDENT lever, and an
-    // incident lever that ships in the off position is a feature nobody notices
-    // is missing. The three above are rollout levers and default off.
-    notificationsEnabled: boolEnv('SHOPPING_AGENT_NOTIFICATIONS_ENABLED', true),
     maxActivePerUser: intEnv('SHOPPING_AGENT_MAX_ACTIVE_PER_USER', 50),
     createRateLimit: intEnv('SHOPPING_AGENT_CREATE_RATE_LIMIT', 30),
     createRateWindowMs: intEnv('SHOPPING_AGENT_CREATE_RATE_WINDOW_MS', 60 * 60 * 1_000),
@@ -3854,8 +3732,6 @@ export const config: AppConfig = Object.freeze({
     findingPageSize: intEnv('SHOPPING_AGENT_FINDING_PAGE_SIZE', 50),
   }),
   priceSignals: Object.freeze({
-    enabled: boolEnv('PRICE_SIGNALS_ENABLED', false),
-    publicReadsEnabled: boolEnv('PRICE_SIGNALS_PUBLIC_READS_ENABLED', false),
     offerSampleLimit: intEnv('PRICE_SIGNAL_OFFER_SAMPLE_LIMIT', 200),
     sweepBatchSize: intEnv('PRICE_SIGNAL_SWEEP_BATCH_SIZE', 25),
     sweepPollIntervalMs: intEnv('PRICE_SIGNAL_SWEEP_POLL_INTERVAL_MS', 60_000),
@@ -4224,23 +4100,6 @@ export const config: AppConfig = Object.freeze({
     reconciliationPollIntervalMs: intEnv('REFERRAL_RECONCILIATION_POLL_INTERVAL_MS', 3_600_000),
   }),
   /**
-   * Buyer post-purchase requests — cancellations, returns and support (#110).
-   *
-   * THREE levers and none of them gates a durable record, which is the house
-   * rule and is load-bearing here: a cancellation request is a buyer waiting
-   * for an answer, and a flag that stopped the row being written would lose it
-   * silently.
-   *
-   * `requestsEnabled` gates the buyer-facing MOUNT, so a deployment can stop
-   * accepting NEW requests during an incident while every request already filed
-   * stays decidable by its seller and readable by its buyer — the
-   * `GUEST_SESSION_ISSUANCE_ENABLED` shape.
-   *
-   * `reconcilerEnabled` gates the sweep LOOP only. A return waiting on a rail
-   * is still advanced by the merchant and operator surfaces, so turning the
-   * timer off during an incident cannot make a refund unfinishable.
-   */
-  /**
    * #85. Neither lever gates a durable record and neither gates a surface —
    * see {@link MerchantActivationConfig} for why there is no third.
    */
@@ -4251,8 +4110,6 @@ export const config: AppConfig = Object.freeze({
     observationBatchSize: intEnv('MERCHANT_ACTIVATION_OBSERVATION_BATCH_SIZE', 100),
   }),
   buyerRequests: Object.freeze({
-    requestsEnabled: boolEnv('BUYER_REQUESTS_ENABLED', true),
-    reconcilerEnabled: boolEnv('BUYER_REQUEST_RECONCILER_ENABLED', true),
     reconcileIntervalMs: intEnv('BUYER_REQUEST_RECONCILE_INTERVAL_MS', MINUTE_MS),
     reconcileBatchSize: intEnv('BUYER_REQUEST_RECONCILE_BATCH_SIZE', 50),
     // A grace period before a `refund_pending` return is swept. The inline

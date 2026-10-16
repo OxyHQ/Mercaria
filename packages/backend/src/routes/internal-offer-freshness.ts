@@ -13,11 +13,9 @@
  * ADR 0002 D25(a)'s file-ownership protocol — the same reason #56, #57, #58,
  * #60 and #62 each created their own behind this identical gate.
  *
- * **It stays mounted while `OFFER_REFRESH_ENABLED` is off**, deliberately and
- * for `/internal/ingestion`'s reason: publishing a source's freshness policy,
- * reading its quarantine board and draining it by hand is how a feed is brought
- * up before the loop is switched on, and the evidence has to be readable during
- * the incident that turned the loop off.
+ * Publishing a source's freshness policy, reading its quarantine board and
+ * draining it by hand is how a feed is brought up, for `/internal/ingestion`'s
+ * reason.
  */
 
 import { Router } from 'express';

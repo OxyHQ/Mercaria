@@ -47,12 +47,14 @@ export function PriceHistoryPanel({
   const { formatMoney } = useFormatters();
   const history = useProductPriceHistory({ canonicalProductId, segment, currency });
 
-  // A 404 is the ordinary answer on a deployment that has not enabled public
-  // price-history reads — the router is not mounted at all. Rendering nothing
-  // is right: an error a shopper cannot act on is noise, and a "chart
-  // unavailable" box would advertise a feature this deployment does not have.
+  // Rendering nothing on an error is right: an error a shopper cannot act on is
+  // noise, and a "chart unavailable" box would advertise a chart nobody built.
   if (history.isError || history.data === undefined || segment === undefined) return null;
 
+  // Nothing observed and nothing missing means the range is all `uncovered` —
+  // the ordinary answer in a currency `PRICE_HISTORY_SERIES_CURRENCIES` does
+  // not list. That is a fact about Mercaria's rebuild queue, not about the
+  // product, so the panel stays silent rather than saying "not built".
   const response: PriceHistoryResponse = history.data;
   if (response.points.length === 0 && response.gaps.length === 0) return null;
 

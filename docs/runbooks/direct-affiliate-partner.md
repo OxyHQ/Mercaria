@@ -17,17 +17,14 @@ Task definition (`oxy-infra`, `terraform-uswest2/app-services.tf`,
 `module "mercaria"`):
 
 ```
-OFFER_MATERIALIZATION_ENABLED=true
-OFFER_REFRESH_ENABLED=true
-OFFER_EXPIRY_SWEEP_ENABLED=true
 CATALOG_OPERATOR_OXY_USER_IDS=<oxy user id>
 PAYMENT_OPERATOR_OXY_USER_IDS=<oxy user id>
 ```
 
-The feed importer and the `/out` redirect have no switch, and the outbound
-token key is derived from `MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime
-secrets"), so there is no secret to add. Without the expiry sweep a
-withdrawn offer stays on sale forever, which is the one failure a shopper sees.
+The feed importer, the `/out` redirect, offer materialization, refresh and the
+expiry sweep have no switch, and the outbound token key is derived from
+`MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets"), so there is no
+secret to add.
 
 ## 2. Create the feed configuration, and with it the source
 

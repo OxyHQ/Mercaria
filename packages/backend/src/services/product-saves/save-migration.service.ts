@@ -34,11 +34,10 @@
  *
  * ## A dry run is the default posture
  *
- * `PRODUCT_SAVE_MIGRATION_ENABLED=false` downgrades every request to a dry run
- * that reports exactly what it would do — the #60 dry-run-writer shape. The
- * request is always answerable and only the WRITE is gated, so an operator
- * measures the migration before authorising it rather than discovering its size
- * afterwards.
+ * A page WRITES only when the request says `dryRun: false` explicitly; anything
+ * else is a dry run that reports exactly what it would do. The safety lives in
+ * the request rather than in the environment, so an operator measures the
+ * migration before authorising it rather than discovering its size afterwards.
  */
 
 import type { ProductSaveMigrationReport } from '@mercaria/shared-types';
@@ -66,7 +65,7 @@ export interface RunMigrationInput {
   readonly limit: number;
   /** The `favorites.id` the previous page stopped at. */
   readonly cursor?: string;
-  /** Report without writing, even where writing is permitted. */
+  /** Writes only when exactly `false`. Absent or `true` is a dry run. */
   readonly dryRun?: boolean;
 }
 
@@ -104,7 +103,7 @@ function resolveSingleProduct(
 export async function runFavoriteMigrationPage(
   input: RunMigrationInput,
 ): Promise<ProductSaveMigrationReport> {
-  const dryRun = input.dryRun === true || !config.productSaves.migrationApplyEnabled;
+  const dryRun = input.dryRun !== false;
   const limit = Math.min(input.limit, config.productSaves.migrationBatchSize);
   const db = getDb();
 

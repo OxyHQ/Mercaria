@@ -374,6 +374,9 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // The catalog env flags went: the backfill read-mode `flags` payload lost
     // graphEnabled, writePublicationEnabled, publicRoutesEnabled and
     // searchIndexingEnabled. 137/2376/7931, read off the guard's own output line.
+    // Price alerts are always mounted now, so `ProductSavePriceAlert` lost its
+    // `{ supported: false; reason }` variant: two properties.
+    // 137/2376/7933, read off the guard's own output line.
     'walked RECOUNT',
     'check A arms exercised by real declarations: 6/9',
   ],

@@ -1598,7 +1598,7 @@
     "headTitle": "Einkaufsagenten · Mercaria",
     "title": "Einkaufsagenten",
     "intro": "Dinge, die Mercaria für dich im Auge behalten soll. Jeder Agent beobachtet den Katalog und sagt dir Bescheid, sobald zutrifft, worum du gebeten hast.",
-    "loadError": "Wir konnten deine Einkaufsagenten nicht laden. Prüfe deine Verbindung und versuche es erneut.",
+    "loadError": "Wir konnten deine Einkaufsagenten gerade nicht laden. Deine Agenten sind davon nicht betroffen.",
     "findings": {
       "asking": "Es wird noch einmal nachgesehen …",
       "intro": "Alles, was dieser Agent gesehen hat, das Neueste zuerst. Ältere Beobachtungen bleiben hier, auch wenn eine spätere sie ersetzt.",

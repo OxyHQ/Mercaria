@@ -1,11 +1,7 @@
 /**
  * `/watchlists` — the buyer's private lists and their basket history (#81).
  *
- * Mounted only when `WATCHLISTS_ENABLED`, so a deployment that has not adopted
- * #81 answers 404. The LISTS themselves are never gated by anything: a row
- * already stored stays stored and comes back when the flag does, because a flag
- * that hid a person's own data would make the rollback lever cost them their
- * lists — which is the lever nobody would then pull.
+ * Always mounted.
  *
  * There is deliberately NO operator surface and no internal router. Six
  * allow-lists already exist and none of them should be able to read somebody's

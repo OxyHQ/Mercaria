@@ -153,11 +153,9 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Payment outbox dispatcher import failed'));
 
       // Converge native offers (#57). The third dispatcher, on the same lease
-      // shape as the two above and gated the same way — a catalogue write keeps
-      // enqueuing while `OFFER_MATERIALIZATION_ENABLED` is off, so switching it
-      // on drains the backlog rather than stranding it. Unlike the two above,
-      // its jobs are a FIXED POINT rather than a delivery: one row per listing,
-      // and running it twice changes nothing the second time.
+      // shape as the two above. Unlike them, its jobs are a FIXED POINT rather
+      // than a delivery: one row per listing, and running it twice changes
+      // nothing the second time.
       import('./services/offers/offer-outbox-dispatcher.js')
         .then(({ startOfferOutboxDispatcher }) => startOfferOutboxDispatcher())
         .catch((err) => log.general.error({ err }, 'Offer outbox dispatcher import failed'));
@@ -202,8 +200,8 @@ connectPostgres()
       // Turn refresh TASKS into ingestion RUNS (#68). On EVERY task, with the
       // same lease shape: a claim is `FOR UPDATE SKIP LOCKED` with an owner
       // check, so N tasks share one queue and a dead task's lease is
-      // reclaimed. `OFFER_REFRESH_ENABLED` gates the LOOP and nothing durable —
-      // an alert raised while it is off is served when it comes back.
+      // reclaimed. A task is a durable row, so one raised during a deploy is
+      // served when the loop comes back.
       import('./services/offer-freshness/refresh-dispatcher.js')
         .then(({ startOfferRefreshDispatcher }) => startOfferRefreshDispatcher())
         .catch((err: unknown) =>
@@ -211,40 +209,34 @@ connectPostgres()
         );
 
       // Retire offers whose source's own policy has lapsed, WITH its outage
-      // grace (#68). Turning this off cannot make a stale offer visible: the
-      // freshness verdict is derived at read time against the live policy, so
-      // the sweep only decides when the durable retirement is written down.
+      // grace (#68). The freshness verdict is derived at read time against the
+      // live policy, so the sweep only decides when the durable retirement is
+      // written down; it deletes nothing.
       import('./services/offer-freshness/expiry-sweep.js')
         .then(({ startOfferExpirySweep }) => startOfferExpirySweep())
         .catch((err: unknown) => log.general.error({ err }, 'Offer expiry sweep import failed'));
 
       // Keep derived price series in agreement with the observations behind
-      // them (#78). `PRICE_HISTORY_ENABLED` gates the LOOP and nothing durable:
-      // every offer write records its observation whatever this flag says, and
-      // turning it on drains whatever accumulated while it was off. Turning it
-      // OFF cannot make a stored point disappear either — what stops is the
-      // convergence, and a series reports its own `rebuiltAt` and coverage so a
-      // reader can see exactly how stale it is.
+      // them (#78). Series are enqueued only in the currencies
+      // `PRICE_HISTORY_SERIES_CURRENCIES` lists, so with that empty this loop
+      // finds nothing to do. A series reports its own `rebuiltAt` and coverage
+      // so a reader can see exactly how stale it is.
       import('./services/price-history/rebuild-dispatcher.js')
         .then(({ startPriceSeriesRebuildDispatcher }) => startPriceSeriesRebuildDispatcher())
         .catch((err: unknown) =>
           log.general.error({ err }, 'Price-history rebuild dispatcher import failed'),
         );
-      // Decide which buyers' price alerts a change of offer satisfies (#79).
-      // `PRICE_ALERT_EVALUATION_ENABLED` gates the LOOP: a queue row is written
-      // on every offer write to a WATCHED product whatever this flag says, so
-      // turning it on drains the backlog and turning it off loses no qualifying
-      // event — the offers are still there to be decided against.
+      // Decide which buyers' price alerts a change of offer satisfies (#79). A
+      // queue row is written on every offer write to a WATCHED product, so a
+      // stopped process loses no qualifying event and the next one drains it.
       import('./services/price-alerts/evaluation-dispatcher.js')
         .then(({ startPriceAlertEvaluationDispatcher }) => startPriceAlertEvaluationDispatcher())
         .catch((err: unknown) =>
           log.general.error({ err }, 'Price-alert evaluation dispatcher import failed'),
         );
-      // Deliver what those evaluations decided. `PRICE_ALERT_NOTIFICATIONS_ENABLED`
-      // is issue #79 operations 5's GLOBAL KILL SWITCH, independent of alert
-      // storage: with it off, triggers and delivery rows keep accumulating and
-      // nothing is sent. It is a SEPARATE loop from the evaluator's so a stuck
-      // transport cannot hold the lease that decides prices.
+      // Deliver what those evaluations decided. A SEPARATE loop from the
+      // evaluator's, so a stuck transport cannot hold the lease that decides
+      // prices.
       import('./services/price-alerts/delivery-dispatcher.js')
         .then(({ startPriceAlertDeliveryDispatcher }) => startPriceAlertDeliveryDispatcher())
         .catch((err: unknown) =>
@@ -253,9 +245,9 @@ connectPostgres()
       // #97's three loops, and they are three because they stop
       // independently. The TRIGGER wakes the agents watching a product that
       // moved; the EVALUATOR asks #96 what the saved objective now costs and
-      // appends a finding; the DELIVERY sends what qualified. Every one of them
-      // gates a LOOP and none gates a row, so turning any off loses nothing and
-      // turning it back on drains the backlog.
+      // appends a finding; the DELIVERY sends what qualified. Every stage is a
+      // durable queue row, so a stopped loop loses nothing and the next one
+      // drains the backlog.
       import('./services/shopping-agents/trigger-dispatcher.js')
         .then(({ startShoppingAgentTriggerDispatcher }) => startShoppingAgentTriggerDispatcher())
         .catch((err: unknown) =>
@@ -273,14 +265,10 @@ connectPostgres()
         .catch((err: unknown) =>
           log.general.error({ err }, 'Shopping-agent delivery dispatcher import failed'),
         );
-      // Measure how often a trustworthy price signal can be made (#82).
-      // `PRICE_SIGNALS_ENABLED` gates the LOOP and nothing durable: a policy
-      // version is still publishable and activatable with it off, a merchant
-      // still reads their own competitiveness, a shopper still sees a badge, and
-      // turning it on drains whatever runs an operator queued. A run is never
-      // created by the loop — it is queued explicitly against a named cohort and
-      // a named policy version, which is what makes comparing a candidate against
-      // the live distribution controllable at all.
+      // Measure how often a trustworthy price signal can be made (#82). A run
+      // is never created by the loop — it is queued explicitly against a named
+      // cohort and a named policy version, which is what makes comparing a
+      // candidate against the live distribution controllable at all.
       import('./services/price-signals/sweep-dispatcher.js')
         .then(({ startPriceSignalSweepDispatcher }) => startPriceSignalSweepDispatcher())
         .catch((err: unknown) =>
@@ -382,10 +370,8 @@ connectPostgres()
       // (#110). `refund.service` drains the provider outbox inline, so this
       // catches the slow cases — a rail that took its time, a task that died
       // mid-drain — which would otherwise leave a buyer's portal saying a
-      // refund is on its way forever. The LOOP is gated by
-      // `BUYER_REQUEST_RECONCILER_ENABLED`; the merchant and operator surfaces
-      // drive the same idempotent path, so turning it off cannot make a refund
-      // unfinishable.
+      // refund is on its way forever. The merchant and operator surfaces drive
+      // the same idempotent path.
       import('./services/buyer-requests/reconciler.js')
         .then(({ startBuyerRequestReconciler }) => startBuyerRequestReconciler())
         .catch((err: unknown) =>

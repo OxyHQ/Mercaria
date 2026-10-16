@@ -287,10 +287,11 @@ rather than approximated: a connecting line IS an interpolation claim, and #78
 returns gaps as ranges precisely so a renderer must decide what to do with them
 rather than inferring one from a missing x value.
 
-A 404 renders nothing at all. On a deployment with `PRICE_HISTORY_PUBLIC_READS_ENABLED`
-off the router is not mounted, which is a configuration fact rather than a
-transient failure; an error box would advertise a feature the deployment does
-not have.
+An error renders nothing at all, and so does a range that is entirely
+`uncovered` — the ordinary answer in a currency `PRICE_HISTORY_SERIES_CURRENCIES`
+does not list. That is a fact about Mercaria's rebuild queue, not about the
+product, and an error box or a "not built" line would advertise a chart nobody
+built.
 
 ## Links that are NAMED rather than followed
 
@@ -440,8 +441,8 @@ Each is a named contract that fails closed, not a stub that lies:
   empty; the control is ABSENT rather than rendered as a button that opens
   nothing.
 - **#79 (epic #39) — CLOSED.** Price alerts shipped and closed #80's
-  `ProductSavePriceAlert` seam: it now has BOTH branches (`supported: true`
-  gated on `PRICE_ALERTS_ENABLED`), so the saved-list affordance exists. This
+  `ProductSavePriceAlert` seam: it is now always `supported: true`, so the
+  saved-list affordance exists. This
   page still has no "watch this price" control of its own — that entry point is
   #71's own seam, not #79's.
 - **#80 — CLOSED.** The canonical page reads the existing authenticated

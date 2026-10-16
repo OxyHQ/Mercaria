@@ -365,31 +365,19 @@ export function createApp(): express.Express {
   app.use('/stores', storesRouter);
   app.use('/favorites', favoritesRouter);
   /**
-   * Canonical product saves (#80). `/favorites` above is UNTOUCHED and stays
-   * mounted whatever these flags say — #80 acceptance 2 is that no existing
-   * favorite is dropped, and the surface a buyer's existing saves are served
-   * through is the first place that has to hold.
-   *
-   * `PRODUCT_SAVES_ENABLED` gates the MOUNT, so a deployment that has not
-   * adopted #80 404s both paths and behaves exactly as it did before. It does
-   * NOT gate the rows: saves already stored stay stored and come back when the
-   * flag does, because a rollback lever that cost buyers their list is not one
-   * anybody would pull.
+   * Canonical product saves (#80). `/favorites` above is UNTOUCHED — #80
+   * acceptance 2 is that no existing favorite is dropped, and the surface a
+   * buyer's existing saves are served through is the first place that has to
+   * hold.
    */
-  if (config.productSaves.enabled) {
-    app.use('/product-saves', productSavesRouter);
-    app.use('/saved-items', savedItemsRouter);
-  }
+  app.use('/product-saves', productSavesRouter);
+  app.use('/saved-items', savedItemsRouter);
   /**
-   * Private watchlists (#81) — mounted under their own flag, beside the saves
-   * they are deliberately not part of. A watchlist is a GROUPING with a purpose
-   * and a save is a standing interest in one product; a deployment may adopt
-   * either without the other, which is why the two flags are independent. The
-   * flag gates the MOUNT and never the rows.
+   * Private watchlists (#81), beside the saves they are deliberately not part
+   * of. A watchlist is a GROUPING with a purpose and a save is a standing
+   * interest in one product.
    */
-  if (config.watchlists.enabled) {
-    app.use('/watchlists', watchlistsRouter);
-  }
+  app.use('/watchlists', watchlistsRouter);
   app.use('/cart', cartRouter);
   app.use('/addresses', addressesRouter);
   app.use('/checkout', checkoutRouter);
@@ -696,49 +684,22 @@ export function createApp(): express.Express {
   }
 
   /**
-   * Currency-safe price history (#78), behind its OWN read lever.
-   *
-   * `PRICE_HISTORY_PUBLIC_READS_ENABLED` gates the MOUNT and nothing durable:
-   * observations are recorded on every offer write whatever it says, and the
-   * operator surface below stays mounted while it is off. A chart is the one
-   * part of this domain that can be WRONG in public — a line drawn through a
-   * period nobody observed, a currency reinterpreted without saying so — so the
-   * buyer-facing half is the half that gets a lever, exactly as `#80`'s
-   * `PRODUCT_SAVES_ENABLED` gates a surface and never a row.
+   * Currency-safe price history (#78). Observations are recorded on every
+   * offer write and a series is built only in the currencies
+   * `PRICE_HISTORY_SERIES_CURRENCIES` lists; a range nothing was observed in is
+   * answered `uncovered`, never drawn through.
    */
-  if (config.priceHistory.publicReadsEnabled) {
-    app.use('/price-history', priceHistoryRouter);
-  }
+  app.use('/price-history', priceHistoryRouter);
+  /** Price alerts (#79) — the buyer's own surface. */
+  app.use('/price-alerts', priceAlertsRouter);
+  /** Saved shopping agents (#97) — the shopper's own surface. */
+  app.use('/shopping-agents', shoppingAgentsRouter);
   /**
-   * Price alerts (#79) — the buyer's own surface, gated by `PRICE_ALERTS_ENABLED`.
-   *
-   * The MOUNT and nothing else: alerts already stored keep being evaluated and
-   * keep notifying while this is off, because a flag that stopped a buyer's
-   * alert firing would make the rollback lever cost them the thing they were
-   * waiting for. The two levers that DO stop work are the evaluation and
-   * delivery loops, and neither gates a durable record either.
+   * Trustworthy price signals (#82). With no active policy version every
+   * signal is `unmeasured`, so a badge is never shown on evidence nobody
+   * published a policy for.
    */
-  if (config.priceAlerts.enabled) {
-    app.use('/price-alerts', priceAlertsRouter);
-  }
-  if (config.shoppingAgents.enabled) {
-    // #97. The MOUNT is gated and the ROWS never are: an agent already saved
-    // stays saved, keeps being evaluated and comes back when the flag does.
-    app.use('/shopping-agents', shoppingAgentsRouter);
-  }
-  /**
-   * Trustworthy price signals (#82), behind their OWN read lever.
-   *
-   * `PRICE_SIGNALS_PUBLIC_READS_ENABLED` gates the MOUNT and nothing durable, for
-   * the reason #78's lever exists: a badge is the one part of this domain that
-   * can be WRONG in public, so the buyer-facing half is the half that gets a
-   * lever. The merchant surface below is NOT gated by it — a merchant reading
-   * their own analysis is not a claim shown to a shopper, and gating it would
-   * take a dashboard away to fix a badge.
-   */
-  if (config.priceSignals.publicReadsEnabled) {
-    app.use('/price-signals', priceSignalsRouter);
-  }
+  app.use('/price-signals', priceSignalsRouter);
   // A merchant's own competitiveness analysis (#82, supporting #40). Not under
   // `/admin/stores/:storeId` because the subject is a canonical-graph MERCHANT:
   // the gate is #83's verified claim, checked in the service, and a caller who is
@@ -810,16 +771,13 @@ export function createApp(): express.Express {
     // graph.
     app.use('/internal/catalog-condition', internalCatalogConditionRouter);
     // Price history (#78): metrics, one offer's observation trail, and a
-    // rebuild trigger. Mounted while `PRICE_HISTORY_ENABLED` is off, because
-    // the evidence has to be readable during the incident that turned the loop
-    // off — #62's and #68's rule for their own operator surfaces.
+    // rebuild trigger.
     app.use('/internal/price-history', internalPriceHistoryRouter);
     // Price signals (#82): policy versions, measurement runs, coverage and label
     // distribution, the mass-change diff, and the merchant correction queue. Same
     // allow-list, same reason — what a claim about a price MEANS is a fact about
-    // this graph. Mounted while the sweep is off and while nothing is published,
-    // because a deployment with no active version is exactly when somebody needs
-    // to publish one.
+    // this graph. Mounted while nothing is published, because a deployment with
+    // no active version is exactly when somebody needs to publish one.
     app.use('/internal/price-signals', internalPriceSignalsRouter);
   }
 
@@ -844,27 +802,17 @@ export function createApp(): express.Express {
    * The product-save operator surface (#80), on the SAME allow-list and for the
    * same reason as the five above: a save points at a canonical product and its
    * counter is a canonical rollup.
-   *
-   * Deliberately NOT gated on `PRODUCT_SAVES_ENABLED`. That lever withdraws the
-   * BUYER surface, and an operator must still be able to read counter drift,
-   * rebuild a counter and erase an account's saves while it is off — gating this
-   * on it would hide the evidence during exactly the incident that turned the
-   * buyer surface off, which is #60's own reasoning for `/internal/backfill`.
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/product-saves', internalProductSavesRouter);
   }
   /**
-   * The price-alert operator surface (#79), on the SAME allow-list and mounted
-   * regardless of `PRICE_ALERTS_ENABLED` — #80's reasoning exactly: an operator
-   * has to be able to read the evaluation lag and trace an alert during the
-   * incident that turned the buyer surface off.
+   * The price-alert operator surface (#79), on the SAME allow-list: the
+   * evaluation lag and an alert's trace.
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/price-alerts', internalPriceAlertsRouter);
-    // #97's aggregates. Deliberately NOT gated on `SHOPPING_AGENTS_ENABLED`:
-    // the queue lag has to be readable during the incident that turned the
-    // shopper surface off.
+    // #97's aggregates: the shopping-agent queue lag.
     app.use('/internal/shopping-agents', internalShoppingAgentsRouter);
   }
   /**
@@ -879,9 +827,7 @@ export function createApp(): express.Express {
    * Source-aware freshness, refresh scheduling and catalogue health (#68), on
    * the SAME allow-list as the ingestion surface above and mounted for the same
    * reason: publishing a source's freshness policy, reading its quarantine
-   * board and draining it by hand is how a feed is brought up BEFORE
-   * `OFFER_REFRESH_ENABLED` is switched on, and the evidence has to stay
-   * readable during the incident that turned the loop off.
+   * board and draining it by hand is how a feed is brought up.
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/offer-freshness', internalOfferFreshnessRouter);

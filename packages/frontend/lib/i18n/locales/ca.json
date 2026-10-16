@@ -1614,7 +1614,7 @@
     "headTitle": "Agents de compra · Mercaria",
     "title": "Agents de compra",
     "intro": "Coses que has demanat a Mercaria que vigili. Cada agent observa el catàleg i t'avisa quan es compleix el que has demanat.",
-    "loadError": "No hem pogut carregar els teus agents de compra. Comprova la connexió i torna-ho a provar.",
+    "loadError": "Ara mateix no hem pogut carregar els teus agents de compra. Els teus agents no en queden afectats.",
     "findings": {
       "asking": "Demanant una altra ullada…",
       "intro": "Tot el que ha vist aquest agent, del més recent al més antic. Les observacions anteriors es queden aquí encara que una de posterior les substitueixi.",

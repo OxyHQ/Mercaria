@@ -1807,9 +1807,8 @@ would trip. `/internal/payments` mounts one because its surface can MOVE MONEY.
   collection and nowhere else.
 - **No migration and no new environment variable.** Nothing in this domain is
   gated by a lever of its own; the levers that matter to it belong to the domains
-  it reads (`FACETS_ENABLED`, `CANONICAL_SEARCH`,
-  `OFFER_MATERIALIZATION_ENABLED`, and the operator allow-list that mounts
-  `/catalog-proposals`).
+  it reads (`FACETS_ENABLED`, `CANONICAL_SEARCH`, and the operator allow-list
+  that mounts `/catalog-proposals`).
 
   **TWO of ADR 0007 D12's six levers do not exist in the code and must not be
   quoted at anybody:** `CATALOG_LOCALIZATION_ENABLED` and — the one this note

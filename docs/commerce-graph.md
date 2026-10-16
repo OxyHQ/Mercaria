@@ -105,8 +105,8 @@ are load-bearing:
   `canonicalProductId`, keyset-paginated cheapest-first). Operator surface:
   `/internal/offers/*` behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
   #54/#56 use — trace, converge-now, retire (an EXTERNAL offer only; a native one
-  follows its listing). Env: `OFFER_MATERIALIZATION_ENABLED` (gates the loop
-  only), `OFFER_OUTBOX_BATCH_SIZE`, `OFFER_OUTBOX_POLL_INTERVAL_MS`.
+  follows its listing). The convergence loop always runs. Env:
+  `OFFER_OUTBOX_BATCH_SIZE`, `OFFER_OUTBOX_POLL_INTERVAL_MS`.
 - Load benchmark: `packages/backend/scripts/offer-load-benchmark.ts`, opt-in
   (`OFFER_BENCHMARK=1` plus a database whose name contains `bench`), Zipf-skewed.
   Deliberately NOT in CI.

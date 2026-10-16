@@ -1,8 +1,7 @@
 /**
  * The EVALUATION loop (#97 evaluation 1, cost 1 and 10).
  *
- * `SHOPPING_AGENT_EVALUATION_ENABLED` gates the LOOP and never the durable
- * record. The scheduled sweep beside it is #97 cost rule 3 — "category and
+ * The scheduled sweep beside the queue is #97 cost rule 3 — "category and
  * source-aware reevaluation intervals" — expressed per AGENT, because the
  * cadence a shopper set for their own objective is the only interval this
  * domain has any business owning; how often a SOURCE is re-read is #68's, and a
@@ -90,8 +89,6 @@ export async function runShoppingAgentEvaluationTick(
 
 /** Start the loop on this task. `unref()` immediately — see the trigger dispatcher. */
 export function startShoppingAgentEvaluationDispatcher(): void {
-  if (!config.shoppingAgents.evaluationEnabled) return;
-
   const leaseOwner = `shopping-agent-eval-${randomUUID()}`;
   const timer = setInterval(() => {
     void runShoppingAgentEvaluationTick(leaseOwner).catch((err: unknown) => {

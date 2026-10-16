@@ -92,22 +92,22 @@ decisions: `db/schema/CONVENTIONS.md` §"Saved shopping agents (#97)".
 - **The operator surface is ONE route and returns only AGGREGATES.** There is
   no trace and none may be added: a saved agent is a person's intent in their
   own words, so "who is watching this product" is unrepresentable rather than
-  refused. It is on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list and is
-  deliberately NOT gated on `SHOPPING_AGENTS_ENABLED` — the queue lag has to be
-  readable during the incident that turned the shopper surface off.
+  refused. It is on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list.
 - **Explicit authorization is a COMPARISON, not a checkbox.** The client echoes
   back `shoppingAgentConstraintDigest` of exactly what it RENDERED and a
   mismatch is refused, on create AND on a constraint edit — so no search, save
   or watchlist path can mint an agent by accident (#97 privacy 2). A material
   edit bumps `revision`, which is in the evaluation key, so the answer to the
   old question can never silence the new one.
-- Env: `SHOPPING_AGENTS_ENABLED` (the shopper MOUNT),
-  `SHOPPING_AGENT_TRIGGER_ENABLED` and `SHOPPING_AGENT_EVALUATION_ENABLED` (the
-  two LOOPS), all default false, plus **`SHOPPING_AGENT_NOTIFICATIONS_ENABLED`**
-  (#97 evaluation 10's independent kill switch — default TRUE, because an
-  incident lever that ships off is a feature nobody notices is missing), the two
-  abuse caps and the loop tunables. **NOT ONE gates a durable record**, and a
-  scanned gate says so.
+- Env: the two abuse caps and the loop tunables only. The shopper surface is
+  always mounted and the trigger, evaluation and delivery loops always run.
+  **#97 evaluation 10's "stop evaluation or notification independently" is a
+  deploy, not an environment switch**: the old
+  `SHOPPING_AGENT_NOTIFICATIONS_ENABLED` was read once at boot into frozen
+  config, so it was never a runtime lever, and it is gone. The loops are
+  separate dispatchers over durable queue rows, so a build that does not start
+  one loses nothing and the next one drains the backlog. **No lever may gate a
+  durable record**, and a scanned gate says so.
 - Seams, each a named contract that fails closed: **an outbound mail transport**
   (`registerShoppingAgentEmailTransport` is called by nothing; an `email`
   channel is storable and fails `transport_unconfigured` visibly with the row
