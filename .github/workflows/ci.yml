@@ -148,9 +148,12 @@ jobs:
             .github/scripts/smoke-mcp.sh \
             .github/scripts/test-smoke-mcp.sh \
             .github/scripts/wait-for-ecs-deployment.sh \
-            .github/scripts/test-wait-for-ecs-deployment.sh
+            .github/scripts/test-wait-for-ecs-deployment.sh \
+            .github/scripts/run-ecs-task.sh \
+            .github/scripts/test-run-ecs-task.sh
           bash .github/scripts/test-smoke-mcp.sh
           bash .github/scripts/test-wait-for-ecs-deployment.sh
+          bash .github/scripts/test-run-ecs-task.sh
           bash -n .github/scripts/ci-scope.sh .github/scripts/test-ci-scope.sh
           bash .github/scripts/test-ci-scope.sh
 

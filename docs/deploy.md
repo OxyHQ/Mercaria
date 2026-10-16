@@ -539,12 +539,14 @@ The root `Dockerfile`'s runner stage is `oven/bun:1.4.3-alpine` and its CMD is
 `bun packages/backend/dist/index.js` under `dumb-init` (PID 1, forwarding
 SIGTERM to Bun's graceful shutdown). Every ECS one-shot names `bun` too: the
 migrator in `.github/scripts/run-migration-task.sh`, the capability catalog step
-in `deploy-aws.yml`, and the taxonomy provisioner run by hand. The image's
-`node` is only a symlink to bun.
+in `deploy-aws.yml`, the taxonomy provisioner run by hand, and the Oxy-media
+backfills `run-media-backfill.yml` runs (below). The image's `node` is only a
+symlink to bun.
 
 CI's `Build API` job builds that image and boots it against a throwaway PostGIS
 (`.github/scripts/smoke-api-image.sh`): every migrator phase, the taxonomy
-one-shot, `/health/ready` 200, the Docker health check, Bun under `dumb-init`,
+one-shot, a preview of every media backfill, `/health/ready` 200, the Docker
+health check, Bun under `dumb-init`,
 a graceful exit 0 on SIGTERM, and a non-zero exit when boot or a migration
 fails. The same job runs the unit suite under Bun (`bun run --cwd
 packages/backend test:bun`); `bun run test` stays vitest on Node.
@@ -571,6 +573,18 @@ build if that file was not produced.
   for every other case: it is a `workflow_dispatch` dropdown an operator sees
   under pressure, and picking it for an ordinary release overrides the
   pre/post rule that keeps a rollout safe.
+
+### Production backfills run on the live task definition
+
+A backfill that acts as Mercaria's Oxy application needs the task role
+`oxy-mercaria-task` (workload identity) and the VPC, so it runs as an ECS
+one-shot of the LIVE service's current task definition: the image production
+already serves, nothing registered or built. `.github/workflows/run-media-backfill.yml`
+is that runner for the Oxy-media backfills (`docs/catalog-media.md` §Backfills):
+dispatch-only, protected `main` only, preview by default, the argv built from
+closed inputs, refused while a rollout is in flight, and the task's CloudWatch
+output printed into the run. A script reaches it only as a `build.ts` entry
+point that has been deployed; `mediaBackfillWorkflow.test.ts` pins both halves.
 
 ### Runtime secrets live in SSM only
 

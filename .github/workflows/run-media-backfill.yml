@@ -1,0 +1,211 @@
+# Run one Oxy-media backfill (docs/catalog-media.md §Backfills) against the
+# PRODUCTION database, as Mercaria's Oxy application.
+#
+# WHY AN ECS ONE-SHOT, AND WHY THE LIVE TASK DEFINITION. The backfills import
+# and adopt files AS MERCARIA (Oxy ADR 0043). That authority is the ECS task
+# role `oxy-mercaria-task` — workload identity, no key pair exists anywhere —
+# and the database is on a private VPC address. So the only place a backfill
+# can act is a task started from the live service's task definition: same
+# image, role, secrets, subnets and security groups. This workflow registers
+# nothing and builds nothing; it runs the image production already serves, so
+# a caller cannot choose which code gets the production role. (The Oxy repo's
+# seed and migration one-shots build from the dispatching commit; here the
+# image that passed `deploy-aws.yml` is the only candidate, so a script reaches
+# this runner only once its entry point in packages/backend/build.ts has been
+# deployed.)
+#
+# THE COMMAND IS BUILT FROM CLOSED INPUTS ONLY. Every input is a choice, a
+# bounded integer or an id matched against the script's own pattern, read
+# through `env:` (never interpolated into shell), and the argv is assembled by
+# jq. There is no free-text command.
+#
+# PREVIEW IS THE DEFAULT. A preview reads and reports and writes nothing; only
+# `mode=apply` passes `--apply`. Every apply is a compare-and-swap that reports
+# `changed` rows for an explicit retry, so re-running a batch is safe.
+#
+# Paging: each run handles at most `limit` rows. The report's `resumeAfter*`
+# value is the `after` input for the next batch. A report naming retry ids
+# exits 1, which turns this run red with the report printed above it.
+#
+# The report is printed to this run's log, and this repository is PUBLIC. The
+# scripts were written for that: they report ids and SHA-256 hashes of sources
+# and storage keys, never a URL or a key, and print no error text (which could
+# carry one).
+name: Run media backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: Which backfill to run
+        type: choice
+        required: true
+        options:
+          - listing-media
+          - store-artwork
+          - application-media
+          - digital-asset-storage
+      mode:
+        description: preview reads and writes nothing; apply writes
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - apply
+      target:
+        description: application-media only (ignored by the other scripts)
+        type: choice
+        required: true
+        default: canonical_image
+        options:
+          - canonical_image
+          - category_image
+          - brand_logo
+          - canonical_description_image
+          - canonical_image_duplicates
+          - source_media
+      limit:
+        description: Rows in this batch (1 to 500)
+        type: number
+        required: true
+        default: 100
+      after:
+        description: Resume after this id (the previous report's resumeAfter value); empty starts from the beginning
+        type: string
+        required: false
+        default: ''
+
+# One run per script at a time, queued rather than cancelled: cancelling
+# between `run-task` and its exit-code check orphans a task that keeps writing.
+concurrency:
+  group: media-backfill-${{ inputs.script }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  APP: mercaria
+  CLUSTER: oxy-cluster
+
+jobs:
+  backfill:
+    name: Backfill ${{ inputs.script }} (${{ inputs.mode }})
+    # This job assumes the production deploy role. Only protected main may
+    # dispatch it, and the checkout below is that commit — the runner script it
+    # executes is reviewed code, and the task it starts runs the LIVE image.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The task's own bound is TASK_TIMEOUT_SECONDS below; this sits above it so
+    # the job reports the task's verdict rather than being cancelled mid-wait.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+
+      # Before any credential: a malformed input costs nothing.
+      - name: Build the command from the closed inputs
+        id: command
+        env:
+          SCRIPT: ${{ inputs.script }}
+          MODE: ${{ inputs.mode }}
+          TARGET: ${{ inputs.target }}
+          LIMIT: ${{ inputs.limit }}
+          AFTER: ${{ inputs.after }}
+        run: |
+          set -euo pipefail
+          case "$SCRIPT" in
+            listing-media | store-artwork | application-media | digital-asset-storage) ;;
+            *) echo "::error::unknown script '$SCRIPT'"; exit 1 ;;
+          esac
+          case "$MODE" in
+            preview | apply) ;;
+            *) echo "::error::unknown mode '$MODE'"; exit 1 ;;
+          esac
+          case "$TARGET" in
+            canonical_image | category_image | brand_logo | canonical_description_image | canonical_image_duplicates | source_media) ;;
+            *) echo "::error::unknown target '$TARGET'"; exit 1 ;;
+          esac
+          if [[ ! "$LIMIT" =~ ^[1-9][0-9]{0,2}$ ]] || ((LIMIT > 500)); then
+            echo "::error::limit must be an integer from 1 to 500"
+            exit 1
+          fi
+          # The scripts' own pattern for an id, bounded in length.
+          if [ -n "$AFTER" ] && [[ ! "$AFTER" =~ ^[A-Za-z0-9_-]{1,128}$ ]]; then
+            echo "::error::after must be an id of letters, digits, '_' or '-'"
+            exit 1
+          fi
+
+          command=$(jq -nc \
+            --arg script "$SCRIPT" \
+            --arg mode "$MODE" \
+            --arg target "$TARGET" \
+            --arg limit "$LIMIT" \
+            --arg after "$AFTER" \
+            '["bun", "packages/backend/dist/scripts/backfill-\($script).js", "--\($mode)", "--limit=\($limit)"]
+             + (if $script == "application-media" then ["--target=\($target)"] else [] end)
+             + (if $after != "" then ["--after=\($after)"] else [] end)')
+          echo "json=$command" >> "$GITHUB_OUTPUT"
+          echo "command: $command"
+          {
+            echo "### media backfill: \`$SCRIPT\` ($MODE)"
+            echo
+            echo "\`$command\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Configure AWS credentials (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::237343248947:role/oxy-github-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      # The live service's CURRENT task definition and network, read here and
+      # nowhere else. Refused while a rollout is in flight: its candidate may
+      # yet be rolled back, and the deploy's post migrations have not run.
+      - name: Resolve the live task definition
+        id: ecs
+        run: |
+          set -euo pipefail
+          service=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" \
+            --query 'services[0]' --output json)
+          status=$(jq -r '.status // "MISSING"' <<<"$service")
+          if [ "$status" != ACTIVE ]; then
+            echo "::error::service $APP on $CLUSTER is $status, not ACTIVE"
+            exit 1
+          fi
+          deployments=$(jq '[.deployments[]] | length' <<<"$service")
+          rollout=$(jq -r '.deployments[] | select(.status == "PRIMARY") | .rolloutState // "COMPLETED"' <<<"$service")
+          if [ "$deployments" != 1 ] || [ "$rollout" != COMPLETED ]; then
+            echo "::error::a rollout of $APP is in flight ($deployments deployments, primary $rollout); run again once it settles"
+            exit 1
+          fi
+          task_definition=$(jq -er '.taskDefinition' <<<"$service")
+          definition=$(aws ecs describe-task-definition --task-definition "$task_definition" \
+            --query taskDefinition --output json)
+          if [ "$(jq '.containerDefinitions | length' <<<"$definition")" != 1 ]; then
+            echo "::error::expected exactly one container in $task_definition"
+            exit 1
+          fi
+          container=$(jq -er '.containerDefinitions[0].name' <<<"$definition")
+          image=$(jq -er '.containerDefinitions[0].image' <<<"$definition")
+          echo "task_definition=$task_definition" >> "$GITHUB_OUTPUT"
+          echo "container=$container" >> "$GITHUB_OUTPUT"
+          echo "network=$(jq -c '.networkConfiguration' <<<"$service")" >> "$GITHUB_OUTPUT"
+          echo "live task definition $task_definition, image $image"
+          echo "live image: \`$image\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the backfill as an ECS one-shot task
+        run: .github/scripts/run-ecs-task.sh
+        env:
+          TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
+          CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
+          NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+          COMMAND_JSON: ${{ steps.command.outputs.json }}
+          TASK_LABEL: ${{ inputs.script }} backfill (${{ inputs.mode }})
+          STARTED_BY: backfill-${{ inputs.script }}
+          TASK_TIMEOUT_SECONDS: '3300'
+          PRINT_TASK_LOG: 'true'

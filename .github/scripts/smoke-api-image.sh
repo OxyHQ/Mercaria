@@ -5,8 +5,10 @@
 #   1. apply the migrator with the command run-migration-task.sh sends (`all` on
 #      the empty database, then `pre` and `post` as clean no-ops), and REFUSE a
 #      wrong --target-database with a non-zero exit;
-#   2. run the taxonomy one-shot, twice (it is idempotent), and load the
-#      capability-catalog one-shot far enough to reach its identity check;
+#   2. run the taxonomy one-shot, twice (it is idempotent), load the
+#      capability-catalog one-shot far enough to reach its identity check, and
+#      run every Oxy-media backfill (and every application-media target) in
+#      preview to a clean exit and a preview report, refusing an unknown flag;
 #   3. exit non-zero when the server cannot reach its database at boot;
 #   4. serve /health/ready with 200 from the image's default CMD, and turn the
 #      image's own HEALTHCHECK healthy;
@@ -50,6 +52,33 @@ set -e
 if [ "$catalog_code" = 0 ] || ! grep -q 'no Oxy identity' <<<"$catalog_out"; then
   printf '%s\n' "$catalog_out"
   echo "::error::register-capability-catalog did not reach its identity check (exit $catalog_code)"
+  exit 1
+fi
+
+# The Oxy-media backfills, by the command shape run-media-backfill.yml sends.
+# Preview reads and writes nothing, so on this database each must exit 0 and
+# print its (empty) report; no Oxy identity is needed to get there.
+backfill_preview() {
+  local out code
+  set +e
+  out=$(one_shot bun "packages/backend/dist/scripts/backfill-$1.js" --preview --limit=100 "${@:2}" 2>&1)
+  code=$?
+  set -e
+  if [ "$code" != 0 ] || ! grep -q '"mode": "preview"' <<<"$out"; then
+    printf '%s\n' "$out"
+    echo "::error::backfill-$1 ${*:2} did not preview cleanly (exit $code)"
+    exit 1
+  fi
+}
+backfill_preview listing-media
+backfill_preview store-artwork
+backfill_preview digital-asset-storage
+for target in canonical_image category_image brand_logo canonical_description_image \
+  canonical_image_duplicates source_media; do
+  backfill_preview application-media "--target=$target"
+done
+if one_shot bun packages/backend/dist/scripts/backfill-listing-media.js --not-a-flag >/dev/null 2>&1; then
+  echo "::error::backfill-listing-media exited 0 on an unknown argument"
   exit 1
 fi
 
@@ -129,4 +158,4 @@ if [ "$exit_code" != 0 ] || ! grep -q 'Graceful shutdown complete' <<<"$logs"; t
   exit 1
 fi
 
-echo "API image smoke passed: migrator (all/pre/post, wrong target refused), taxonomy and catalog one-shots, failed boot non-zero, /health/ready, HEALTHCHECK, Bun under dumb-init, graceful SIGTERM"
+echo "API image smoke passed: migrator (all/pre/post, wrong target refused), taxonomy and catalog one-shots, media backfill previews, failed boot non-zero, /health/ready, HEALTHCHECK, Bun under dumb-init, graceful SIGTERM"
