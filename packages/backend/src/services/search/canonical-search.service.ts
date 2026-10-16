@@ -52,6 +52,7 @@ import {
   type SearchResultKind,
 } from '@mercaria/shared-types';
 import type { CanonicalAliasKind } from '@mercaria/shared-types';
+import { isOxyFileId } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { findCanonicalProductsCollectableNear } from '../pickup/nearby.service.js';
 import { clampNearbyRadius } from '../pickup/geo.js';
@@ -766,12 +767,14 @@ async function composeResults(
           ? {}
           : { family: { id: familyRef.id, slug: familyRef.slug, name: familyRef.name } }),
         ...(row.categoryId === null ? {} : { categoryId: row.categoryId }),
-        ...(image === undefined
+        // The imported Oxy file only. A supplier `sourceUrl` is an import input
+        // and never leaves the backend — it may be a signed CDN link, and
+        // showing it would be a hotlink the source's terms may not allow.
+        ...(image === undefined || !isOxyFileId(image.fileId)
           ? {}
           : {
               image: {
-                ...(image.fileId === null ? {} : { fileId: image.fileId }),
-                ...(image.sourceUrl === null ? {} : { sourceUrl: image.sourceUrl }),
+                fileId: image.fileId,
                 ...(image.alt === null ? {} : { alt: image.alt }),
               },
             }),

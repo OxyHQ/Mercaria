@@ -60,7 +60,6 @@ export async function readPublicBundleContentsForVariants(
           ...(image
             ? {
                 image: {
-                  ...(image.sourceUrl ? { sourceUrl: image.sourceUrl } : {}),
                   ...(image.fileId ? { fileId: image.fileId } : {}),
                   ...(image.alt ? { alt: image.alt } : {}),
                 },

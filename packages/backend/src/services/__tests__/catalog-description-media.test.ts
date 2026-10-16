@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const { storeImages, accountImages } = vi.hoisted(() => ({
+const { storeImages, accountImages, applicationImages } = vi.hoisted(() => ({
   storeImages: vi.fn(),
   accountImages: vi.fn(),
+  applicationImages: vi.fn(),
 }));
 vi.mock('../catalog-media/sync.js', () => ({
   CatalogMediaSyncError: class CatalogMediaSyncError extends Error {},
   synchronizeStoreImages: storeImages,
   synchronizeAccountImages: accountImages,
+  synchronizeApplicationImages: applicationImages,
 }));
 vi.mock('../../middleware/auth.js', () => ({
   oxyClient: {
@@ -19,9 +21,12 @@ vi.mock('../../middleware/auth.js', () => ({
 }));
 import {
   assertDescriptionImagesStored,
+  descriptionImageFileIds,
   descriptionNeedsMediaImport,
   synchronizeAccountDescription,
+  synchronizeApplicationDescription,
   synchronizeStoreDescription,
+  withoutDescriptionImage,
 } from '../catalog-media/description.js';
 
 beforeEach(() => {
@@ -31,6 +36,9 @@ beforeEach(() => {
   );
   accountImages.mockImplementation(async (_owner: string, sources: string[]) =>
     sources.map((_, i) => `stored-${i}`),
+  );
+  applicationImages.mockImplementation(async (sources: string[]) =>
+    sources.map((_, i) => `app-${i}`),
   );
 });
 
@@ -133,5 +141,40 @@ describe('description media import', () => {
       synchronizeStoreDescription('store', '<img src="https://supplier.test/a">'.repeat(65)),
     ).rejects.toThrow(/Too many/);
     expect(storeImages).not.toHaveBeenCalled();
+  });
+});
+
+describe('the Oxy files a description uses (Oxy ADR 0043)', () => {
+  it('imports a canonical description as the APPLICATION, never an account', async () => {
+    const result = await synchronizeApplicationDescription(
+      '<img src="https://supplier.test/chart.jpg">',
+    );
+    expect(result).toBe('<img src="https://cloud.oxy.so/app-0">');
+    expect(applicationImages).toHaveBeenCalledOnce();
+    expect(accountImages).not.toHaveBeenCalled();
+    expect(storeImages).not.toHaveBeenCalled();
+  });
+
+  it('lists each content image once, ignoring supplier URLs and hidden subtrees', () => {
+    expect(
+      descriptionImageFileIds(
+        '<p><img src="https://cloud.oxy.so/a?variant=thumb"><img src="https://cloud.oxy.so/b"></p>' +
+          '<img src="https://cloud.oxy.so/a"><img src="https://supplier.test/c.png">' +
+          '<template><img src="https://cloud.oxy.so/hidden"></template>',
+      ),
+    ).toEqual(['a', 'b']);
+    expect(descriptionImageFileIds('plain copy')).toEqual([]);
+  });
+
+  it('removes only the images that show a taken-down file and keeps the author’s markup', () => {
+    const html =
+      '<p>Fit</p><figure><img src="https://cloud.oxy.so/gone" alt="x"><figcaption>Chart</figcaption></figure>' +
+      '<img src="https://cloud.oxy.so/kept">';
+    expect(withoutDescriptionImage(html, 'gone')).toBe(
+      '<p>Fit</p><figure><figcaption>Chart</figcaption></figure><img src="https://cloud.oxy.so/kept">',
+    );
+    expect(withoutDescriptionImage(html, 'absent')).toBeUndefined();
+    // A file id that only appears as text is not an image of it.
+    expect(withoutDescriptionImage('<p>gone</p>', 'gone')).toBeUndefined();
   });
 });

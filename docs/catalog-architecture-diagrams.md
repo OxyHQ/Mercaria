@@ -103,6 +103,8 @@ flowchart LR
         M_Supervised_catalog_review["Supervised catalog review"]
         M_Supervised_purchase_coordination["Supervised purchase coordination"]
         M_Store_access["Store access"]
+        M_Canonical_source_imagery__Oxy_ADR_0043_["Canonical source imagery (Oxy ADR 0043)"]
+        M_Oxy_file_usage__Oxy_ADR_0043_["Oxy file usage (Oxy ADR 0043)"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
         direction TB
@@ -201,6 +203,8 @@ flowchart LR
     M_Supervised_purchase_coordination --> X_order_items
     M_Supervised_purchase_coordination --> X_payments
     M_Store_access --> X_stores
+    M_Canonical_source_imagery__Oxy_ADR_0043_ --> X_canonical_products
+    M_Canonical_source_imagery__Oxy_ADR_0043_ --> X_source_records
 ```
 
 **2 foreign keys point the other way** — from a table outside the epic into
@@ -215,8 +219,8 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**25 modules**, **20 writing directories**,
-**4 tables written from more than one directory** and
+**27 modules**, **22 writing directories**,
+**5 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
 "one module owns a table", and these are the places where more than one directory issues the
@@ -224,6 +228,7 @@ statements.
 
 ```mermaid
 flowchart LR
+    W_db_canonical["db/canonical"]
     W_db_catalog["db/catalog"]
     W_db_catalogAuthoring["db/catalogAuthoring"]
     W_db_catalogExternalMappings["db/catalogExternalMappings"]
@@ -235,6 +240,7 @@ flowchart LR
     W_db_digitalRetail["db/digitalRetail"]
     W_db_discovery["db/discovery"]
     W_db_navigation["db/navigation"]
+    W_db_oxyFiles["db/oxyFiles"]
     W_db_productTypes["db/productTypes"]
     W_db_reviews["db/reviews"]
     W_db_stores["db/stores"]
@@ -269,6 +275,9 @@ flowchart LR
     M_Supervised_catalog_review(["Supervised catalog review"])
     M_Supervised_purchase_coordination(["Supervised purchase coordination"])
     M_Store_access(["Store access"])
+    M_Canonical_source_imagery__Oxy_ADR_0043_(["Canonical source imagery (Oxy ADR 0043)"])
+    M_Oxy_file_usage__Oxy_ADR_0043_(["Oxy file usage (Oxy ADR 0043)"])
+    W_db_canonical -->|"1"| M_Canonical_source_imagery__Oxy_ADR_0043_
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
     W_db_catalogAuthoring -->|"4"| M_Authoring
@@ -285,6 +294,9 @@ flowchart LR
     W_db_digitalRetail -->|"4"| M_Digital_retail_supply
     W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
+    W_db_oxyFiles -->|"1"| M_Authoring
+    W_db_oxyFiles -->|"5"| M_Oxy_file_usage__Oxy_ADR_0043_
+    W_db_oxyFiles -->|"1"| M_Review_attachments
     W_db_productTypes -->|"5"| M_Product_types
     W_db_reviews -->|"1"| M_Review_attachments
     W_db_reviews -->|"1"| M_Review_helpfulness
@@ -303,15 +315,19 @@ flowchart LR
         T_catalog_authoring_drafts[("catalog_authoring_drafts")]
         T_generic_compatibility_relations[("generic_compatibility_relations")]
         T_native_listing_attribute_claims[("native_listing_attribute_claims")]
+        T_review_media[("review_media")]
     end
     W_db_catalogAuthoring -.-> T_catalog_authoring_draft_values
     W_db_catalogProposals -.-> T_catalog_authoring_draft_values
     W_db_catalogAuthoring -.-> T_catalog_authoring_drafts
     W_db_catalogProposals -.-> T_catalog_authoring_drafts
+    W_db_oxyFiles -.-> T_catalog_authoring_drafts
     W_db_compatibility -.-> T_generic_compatibility_relations
     W_services_curation -.-> T_generic_compatibility_relations
     W_db_catalogProposals -.-> T_native_listing_attribute_claims
     W_db_variantAxes -.-> T_native_listing_attribute_claims
+    W_db_oxyFiles -.-> T_review_media
+    W_db_reviews -.-> T_review_media
     subgraph unwritten["No application writer"]
         direction TB
         T_canonical_product_family_localizations[("canonical_product_family_localizations")]
@@ -330,9 +346,10 @@ entry to a file it actually read.
 | Table | Owning module | Writing directories |
 |---|---|---|
 | `catalog_authoring_draft_values` | Authoring | `db/catalogAuthoring/draftRepository.ts` (delete/insert/update)<br>`db/catalogProposals/backfillRepository.ts` (update) |
-| `catalog_authoring_drafts` | Authoring | `db/catalogAuthoring/draftRepository.ts` (insert/update)<br>`db/catalogProposals/backfillRepository.ts` (update) |
+| `catalog_authoring_drafts` | Authoring | `db/catalogAuthoring/draftRepository.ts` (insert/update)<br>`db/catalogProposals/backfillRepository.ts` (update)<br>`db/oxyFiles/detachRepository.ts` (update) |
 | `generic_compatibility_relations` | Compatibility | `db/compatibility/compatibilityRelationRepository.ts` (insert/update)<br>`services/curation/merge-conflicts.ts` (update) |
 | `native_listing_attribute_claims` | Variant axes and claims | `db/catalogProposals/backfillRepository.ts` (update)<br>`db/variantAxes/attributeClaimRepository.ts` (insert/update) |
+| `review_media` | Review attachments | `db/oxyFiles/detachRepository.ts` (delete)<br>`db/reviews/reviewRepository.ts` (insert) |
 
 ### Tables no application code writes
 
@@ -355,7 +372,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 95 tables created by a migration at or after `0088`
+All 101 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -584,7 +601,7 @@ Also names, from outside the epic: `attribute_definitions`, `attribute_enum_valu
 
 | Table | Created by | Written by |
 |---|---|---|
-| `catalog_authoring_drafts` | `0098` | `db/catalogAuthoring` (insert/update)<br>`db/catalogProposals` (update) |
+| `catalog_authoring_drafts` | `0098` | `db/catalogAuthoring` (insert/update)<br>`db/catalogProposals` (update)<br>`db/oxyFiles` (update) |
 | `catalog_authoring_draft_variants` | `0098` | `db/catalogAuthoring` (delete/insert/update) |
 | `catalog_authoring_draft_values` | `0098` | `db/catalogAuthoring` (delete/insert/update)<br>`db/catalogProposals` (update) |
 | `catalog_authoring_schema_invalidations` | `0098` | `db/catalogAuthoring` (insert) |
@@ -819,7 +836,7 @@ Also names, from outside the epic: `reviews`.
 
 | Table | Created by | Written by |
 |---|---|---|
-| `review_media` | `0168` | `db/reviews` (insert) |
+| `review_media` | `0168` | `db/oxyFiles` (delete)<br>`db/reviews` (insert) |
 
 ### Connector pins
 
@@ -1116,6 +1133,47 @@ Also names, from outside the epic: `stores`.
 |---|---|---|
 | `store_permission_overrides` | `0158` | `db/stores` (delete/insert) |
 
+### Canonical source imagery (Oxy ADR 0043)
+
+```mermaid
+erDiagram
+    canonical_source_media_imports {
+    }
+    canonical_products ||--o{ canonical_source_media_imports : "canonical_product_id · cascade"
+    source_records ||--o{ canonical_source_media_imports : "source_record_id · restrict"
+```
+
+Also names, from outside the epic: `canonical_products`, `source_records`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `canonical_source_media_imports` | `0173` | `db/canonical` (delete/insert/update) |
+
+### Oxy file usage (Oxy ADR 0043)
+
+```mermaid
+erDiagram
+    oxy_file_reference_outboxes {
+    }
+    oxy_file_references {
+    }
+    oxy_file_reference_reconciliations {
+    }
+    oxy_file_events {
+    }
+    oxy_file_event_actions {
+    }
+    oxy_file_events ||--o{ oxy_file_event_actions : "oxy_file_event_id · restrict"
+```
+
+| Table | Created by | Written by |
+|---|---|---|
+| `oxy_file_reference_outboxes` | `0172` | `db/oxyFiles` (delete/update) |
+| `oxy_file_references` | `0172` | `db/oxyFiles` (delete/insert) |
+| `oxy_file_reference_reconciliations` | `0172` | `db/oxyFiles` (insert/update) |
+| `oxy_file_events` | `0172` | `db/oxyFiles` (insert) |
+| `oxy_file_event_actions` | `0172` | `db/oxyFiles` (insert) |
+
 ## 4. What the derivation found
 
 Counts, so that a diagram that quietly stopped measuring anything is visible as a number that
@@ -1123,18 +1181,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 95 |
-| Modules they are grouped into | 25 |
-| Foreign keys out of an epic table | 189 |
+| Tables in the population | 101 |
+| Modules they are grouped into | 27 |
+| Foreign keys out of an epic table | 192 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 23 |
 | Relationships the schema proves are 1:1 | 6 |
 | Relationships whose parent is optional (nullable FK) | 83 |
-| Directories that write an epic table | 20 |
-| Tables written from more than one directory | 4 |
+| Directories that write an epic table | 22 |
+| Tables written from more than one directory | 5 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 189 foreign keys: **48** `cascade`, **2** `no action`, **136** `restrict`, **3** `set null`.
+`ON DELETE` across those 192 foreign keys: **49** `cascade`, **2** `no action`, **138** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 

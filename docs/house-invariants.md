@@ -96,18 +96,20 @@
 
 ## Raw-body mounts
 
-Five routers must stay mounted BEFORE `express.json()` in `app.ts`, and one more
+Six routers must stay mounted BEFORE `express.json()` in `app.ts`, and one more
 route buffers its own body:
 
 `/channels/webhooks` · `/webhooks/crowdsource` · `/webhooks/stripe` and
 `/webhooks/stripe/connect` · `/webhooks/peable` (ADR 0009) ·
-`/webhooks/suppliers/:supplierAccountId`, plus the feed-import upload route
+`/webhooks/suppliers/:supplierAccountId` · `/webhooks/oxy-files` (Oxy ADR 0043
+D9, gated on `OXY_FILE_EVENTS_ENABLED`), plus the feed-import upload route
 (`express.raw`, refuses a JSON content type).
 
 Asserted against the REAL middleware chain by
-`routes/__tests__/stripe-webhook.integration.test.ts` and
-`routes/__tests__/peable-webhook.integration.test.ts`. `app.ts` exists so the app
-can be built without listening, which is what makes that assertion possible.
+`routes/__tests__/stripe-webhook.integration.test.ts`,
+`routes/__tests__/peable-webhook.integration.test.ts` and
+`routes/__tests__/oxy-files-webhook.integration.test.ts`. `app.ts` exists so the
+app can be built without listening, which is what makes that assertion possible.
 
 **The assertion is PER MOUNT, and that is why there are two files rather than a
 shared one.** A raw-body test proves something about the router it sends bytes
@@ -115,8 +117,8 @@ to; the Stripe file staying green says nothing about a router added afterwards,
 which is exactly how a new webhook acquires a parser above it and nobody notices.
 Each has its own vacuity guard — the same router mounted behind `express.json()`,
 required to REFUSE the identical delivery — so an accepted delivery is positive
-evidence the handler read raw bytes rather than a green that cannot fail. A sixth
-mount brings a sixth file.
+evidence the handler read raw bytes rather than a green that cannot fail. A
+seventh mount brings its own file, as the sixth (`/webhooks/oxy-files`) did.
 
 ## Operator allow-lists
 
@@ -151,9 +153,9 @@ refusal stated where a second one would otherwise grow.
 | Invariant | Held by | What it prevents |
 |---|---|---|
 | **An `asset_rights` row is the ONLY thing that authorizes a download.** Not a payment, not a signed URL, not an order status. | `services/digital/download.service.ts`, six checks in a fixed order | #1015 boundary 4 — a paid payment proving the right to arbitrary files |
-| **`asset_files.storage_key` is read in exactly ONE place**, after the last refusal. | `PROTECTED_COLUMNS.asset_files`, `findAssetFileStorageKey` | the input a signed URL is minted from leaving the process in a response body |
+| **`asset_files.storage_key` is read in exactly ONE place**, after the last refusal (and by the operator's storage-move backfill through that same function). | `PROTECTED_COLUMNS.asset_files`, `findAssetFileStorageKey` | the input a signed URL is minted from leaving the process in a response body |
 | **A download grant's token is never stored and never logged.** Only a SHA-256 of it. | `asset_download_grants.token_hash` + its shape CHECK | a dump or a log line opening somebody's paid files |
-| **A published version, file or licence version cannot be edited or deleted.** | four triggers in `0156` | v2 mutating what v1 was; a creator swapping bytes after a sale |
+| **A published version, file or licence version cannot be edited or deleted.** A file's storage key may move only in a declared, same-hash move (Oxy ADR 0043). | four triggers in `0156`; `0174` | v2 mutating what v1 was; a creator swapping bytes after a sale |
 | **A right's COMMERCIAL half cannot be rewritten and the row cannot be deleted.** Only `status` and the revocation basis move. | `asset_rights_commercial_half_immutable` | a buyer's licence being upgraded in place |
 | **A `digital` order has NO address and every other order has a whole one.** | `orders_shipping_address_digital_check` | a fabricated street — #1015 boundary 16 |
 | **Place of supply is resolved PER LINE.** | `rateMatchesPlaceOfSupply` in `pricing.service.ts` | a digital supply taxed at the shipping address, or silently at zero |

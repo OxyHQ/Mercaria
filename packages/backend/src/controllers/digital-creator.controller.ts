@@ -25,8 +25,10 @@
  * API — an 8 GiB ceiling and a 10 MB JSON limit are not reconcilable — so a
  * creator uploads to Oxy and posts the `file_id`, and
  * `services/digital/storage.ts` reads the size, the verified media type and the
- * digest back from the asset service. A deployment that cannot ask answers 503
- * and registers nothing; it never falls back to believing the client.
+ * digest back from the asset service — of the APPLICATION-owned private file
+ * Mercaria adopts from that upload (Oxy ADR 0043 stage 4b), which is what the
+ * row stores. A deployment that cannot ask answers 503 and registers nothing; it
+ * never falls back to believing the client, or to the creator's own upload.
  *
  * ## Publication asks three questions and none of them is "is this pretty"
  *
@@ -282,9 +284,15 @@ export async function registerAssetFileHandler(req: Request, res: Response): Pro
       visibility: AssetFileVisibility;
     };
 
+    // The deliverable becomes an APPLICATION-owned PRIVATE file (Oxy ADR 0043
+    // D3/D5) sharing the creator's stored bytes (stage 4b adoption — nothing is
+    // downloaded or uploaded again, whatever the type or size), so serving it
+    // never depends on the creator's link staying in place (ADR 0021). The source
+    // is read through the mint first, which answers only for a file attached to
+    // Mercaria, and the copy is measured against it.
     let object: StoredAssetObject | null;
     try {
-      object = await assetStorage.describeAssetObject(body.storageKey);
+      object = await assetStorage.adoptAssetObject(body.storageKey);
     } catch (error) {
       if (isDigitalStorageError(error) && error.reason === 'unconfigured') {
         throw new MercariaError({

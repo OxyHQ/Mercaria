@@ -34,7 +34,14 @@
  * acquiring another's deadlocks against a file doing it in the other order.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Oxy is replaced at the SDK boundary for the storage-move backfill case only;
+// every other case here makes no Oxy call (`oxy.client` stays null).
+const oxy = vi.hoisted(() => ({ client: null as unknown }));
+vi.mock('../../../capabilities/oxy-service-client.js', () => ({
+  oxyServiceClient: () => oxy.client,
+}));
 import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, uuidv7 } from '@oxy.so/db';
 import { connectPostgres, type Database } from '../../postgres.js';
@@ -76,7 +83,10 @@ import {
   recordProvenanceSignal,
   findMatchingProvenanceSignals,
   withdrawAssetVersion,
+  replaceAssetFileStorageKey,
 } from '../assetRepository.js';
+import { backfillDigitalAssetStorage } from '../../../services/digital/asset-storage-backfill.js';
+import { reconcileEntityType } from '../../../services/catalog-media/file-reference-reconciliation.js';
 import {
   insertAssetLicenceVersion,
   publishAssetLicenceVersion,
@@ -485,6 +495,221 @@ describe('a creator publishes an asset, and the version is then immutable', () =
     await recordAssetFileScan(meshFileId, 'infected', new Date());
     const [file] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));
     expect(file.scanVerdict).toBe('infected');
+  });
+
+  it('admits a DECLARED same-bytes storage move on a published file, and nothing else', async () => {
+    // Oxy ADR 0043: a deliverable moves onto an application-owned private file
+    // holding the SAME bytes. `replaceAssetFileStorageKey` declares the move for
+    // this one row in its own transaction (migration 0174); the hash, size and
+    // type stay refused inside it, and an undeclared move stays refused (above).
+    const { meshFileId } = await mintPublishedAsset('storage-move');
+    const [before] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));
+    if (!before) throw new Error('fixture: no file');
+    expect(
+      await replaceAssetFileStorageKey({
+        fileId: meshFileId,
+        previousKey: before.storageKey,
+        next: {
+          storageKey: `app-owned-${RUN}`,
+          contentHash: hash('swapped'),
+          byteSize: before.byteSize,
+          mediaType: before.mediaType,
+        },
+      }),
+    ).toBe(false);
+    expect(
+      await replaceAssetFileStorageKey({
+        fileId: meshFileId,
+        previousKey: before.storageKey,
+        next: {
+          storageKey: `app-owned-${RUN}`,
+          contentHash: before.contentHash,
+          byteSize: before.byteSize,
+          mediaType: before.mediaType,
+        },
+      }),
+    ).toBe(true);
+    const [after] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));
+    expect(after?.storageKey).toBe(`app-owned-${RUN}`);
+    expect(after?.contentHash).toBe(before.contentHash);
+    // The declaration is transaction-local: a later bare update is refused again.
+    await expect(
+      db
+        .update(assetFiles)
+        .set({ storageKey: 'private/elsewhere/model.stl' })
+        .where(eq(assetFiles.id, meshFileId)),
+    ).rejects.toSatisfy(isCheckViolation);
+    // And a declared move cannot carry a hash change past the trigger either.
+    await expect(
+      db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select set_config('mercaria.asset_storage_move', ${meshFileId}, true)`,
+        );
+        await tx
+          .update(assetFiles)
+          .set({ storageKey: `app-owned-2-${RUN}`, contentHash: hash('swapped') })
+          .where(eq(assetFiles.id, meshFileId));
+      }),
+    ).rejects.toSatisfy(isCheckViolation);
+  });
+
+  it('the storage-move backfill adopts a deliverable as an application file and moves the row', async () => {
+    const { meshFileId } = await mintPublishedAsset('storage-backfill');
+    const [before] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));
+    if (!before) throw new Error('fixture: no file');
+    const copyKey = `app-copy-${RUN}`;
+    const adoptions: { fileId: string; visibility: unknown }[] = [];
+    const measured = (id: string) => ({
+      id,
+      url: `https://s3.oxy.test/${id}?X-Amz-Signature=not-real`,
+      expiresIn: 300,
+      mime: before.mediaType,
+      size: before.byteSize,
+      sha256: before.contentHash,
+    });
+    oxy.client = {
+      assets: {
+        linkedDownloadUrls: async (ids: string[]) => ids.map(measured),
+        adoptAppFile: async (fileId: string, options: { visibility: unknown }) => {
+          adoptions.push({ fileId, visibility: options.visibility });
+          return {
+            file: {
+              id: copyKey,
+              sha256: before.contentHash,
+              mime: before.mediaType,
+              size: before.byteSize,
+              visibility: 'private',
+            },
+            outcome: 'adopted',
+            deduplicated: true,
+          };
+        },
+        references: {
+          add: async (refs: object[]) => refs.map((ref) => ({ ...ref, result: 'created' })),
+        },
+      },
+    };
+    try {
+      const preview = await backfillDigitalAssetStorage({
+        mode: 'preview',
+        limit: 1,
+        fileId: meshFileId,
+      });
+      expect(preview.entries).toEqual([
+        {
+          fileId: meshFileId,
+          storageKeySha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+          outcome: 'pending',
+        },
+      ]);
+      expect(JSON.stringify(preview)).not.toContain(before.storageKey);
+      expect(adoptions).toEqual([]);
+
+      const applied = await backfillDigitalAssetStorage({
+        mode: 'apply',
+        limit: 1,
+        fileId: meshFileId,
+      });
+      expect(applied.entries[0]?.outcome).toBe('applied');
+      // Oxy adopted the source's stored bytes privately, as the application —
+      // a mesh (stage 4b takes every type), and no URL handed to an import.
+      expect(adoptions).toEqual([{ fileId: before.storageKey, visibility: 'private' }]);
+      const [after] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));
+      expect(after?.storageKey).toBe(copyKey);
+      expect(after?.contentHash).toBe(before.contentHash);
+
+      // A copy whose measurement disagrees is refused and the row stays put.
+      const { meshFileId: other } = await mintPublishedAsset('storage-backfill-mismatch');
+      const [otherBefore] = await db.select().from(assetFiles).where(eq(assetFiles.id, other));
+      (oxy.client as { assets: { linkedDownloadUrls: unknown } }).assets.linkedDownloadUrls =
+        async (ids: string[]) =>
+          ids.map((id) => ({
+            ...measured(id),
+            sha256: id === otherBefore?.storageKey ? otherBefore.contentHash : 'f'.repeat(64),
+            size: otherBefore?.byteSize ?? 1,
+          }));
+      const mismatch = await backfillDigitalAssetStorage({
+        mode: 'apply',
+        limit: 1,
+        fileId: other,
+      });
+      expect(mismatch.entries[0]?.outcome).toBe('failed');
+      const [otherAfter] = await db.select().from(assetFiles).where(eq(assetFiles.id, other));
+      expect(otherAfter?.storageKey).toBe(otherBefore?.storageKey);
+
+      // Bytes Oxy refuses as taken down (451) are reported blocked, the row
+      // stays put, and the file is NOT offered for a retry — a rerun cannot
+      // change a claim's outcome.
+      (oxy.client as { assets: { adoptAppFile: unknown } }).assets.adoptAppFile = async () => {
+        throw Object.assign(new Error('Content blocked'), { status: 451 });
+      };
+      const blocked = await backfillDigitalAssetStorage({
+        mode: 'apply',
+        limit: 1,
+        fileId: other,
+      });
+      expect(blocked.entries[0]?.outcome).toBe('blocked');
+      expect(blocked.retryFileIds).toEqual([]);
+      const [otherStill] = await db.select().from(assetFiles).where(eq(assetFiles.id, other));
+      expect(otherStill?.storageKey).toBe(otherBefore?.storageKey);
+    } finally {
+      oxy.client = null;
+    }
+  });
+
+  it('reconciles deliverable references from keys read through the one sanctioned reader', async () => {
+    const { meshFileId } = await mintPublishedAsset('reference-inventory');
+    const [fixture] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));
+    if (!fixture) throw new Error('fixture: no file');
+    // The fixtures' keys are paths, which no Oxy file id is; give this one an
+    // Oxy-shaped key through the declared move, so the inventory can carry it.
+    const oxyKey = `oxyfile${RUN.replaceAll('-', '')}`;
+    expect(
+      await replaceAssetFileStorageKey({
+        fileId: meshFileId,
+        previousKey: fixture.storageKey,
+        next: {
+          storageKey: oxyKey,
+          contentHash: fixture.contentHash,
+          byteSize: fixture.byteSize,
+          mediaType: fixture.mediaType,
+        },
+      }),
+    ).toBe(true);
+    const file = { storageKey: oxyKey };
+    const sent: { fileId: string; entityId: string }[] = [];
+    oxy.client = {
+      assets: {
+        references: {
+          reconcile: async (
+            entityType: string,
+            items: AsyncIterable<{ fileId: string; entityId: string }>,
+            options: { dryRun: boolean },
+          ) => {
+            for await (const item of items) sent.push(item);
+            return {
+              sessionId: 's',
+              entityType,
+              dryRun: options.dryRun,
+              added: 0,
+              removed: 0,
+              unchanged: 0,
+              refused: 0,
+            };
+          },
+        },
+      },
+    };
+    try {
+      const outcome = await reconcileEntityType('digital_asset_file', { dryRun: true });
+      // The storage key IS the file id and the entity id (no row exists at upload).
+      expect(sent).toContainEqual({ fileId: file.storageKey, entityId: file.storageKey });
+      expect(outcome.inventory).toBeGreaterThanOrEqual(1);
+      // A key that is no Oxy file id (a path) is never sent: Oxy would refuse the batch.
+      expect(sent.every((item) => /^[A-Za-z0-9_-]+$/.test(item.fileId))).toBe(true);
+    } finally {
+      oxy.client = null;
+    }
   });
 
   it('REFUSES to delete a published version or its files', async () => {

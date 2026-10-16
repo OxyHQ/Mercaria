@@ -52,6 +52,7 @@ import reportsRouter from './routes/reports.js';
 import crowdSourceWebhookRouter from './routes/crowdsource-webhook.js';
 import stripeWebhookRouter from './routes/stripe-webhook.js';
 import peableWebhookRouter from './routes/peable-webhook.js';
+import oxyFilesWebhookRouter from './routes/oxy-files-webhook.js';
 import supplierWebhookRouter from './routes/supplier-webhook.js';
 import stripeOnboardingRouter from './routes/stripe-onboarding.js';
 import internalPaymentsRouter from './routes/internal-payments.js';
@@ -158,11 +159,11 @@ import { createMercariaMcpHttpService } from './capabilities/mercaria-mcp-http.j
 /**
  * Build the application.
  *
- * MOUNT ORDER IS LOAD-BEARING and is asserted by
- * `routes/__tests__/crowdsource-webhook.integration.test.ts` and
- * `routes/__tests__/stripe-webhook.integration.test.ts`: all three webhook
- * routers must be registered BEFORE `express.json()`, or the raw bytes their
- * signatures cover are consumed before they can be verified.
+ * MOUNT ORDER IS LOAD-BEARING and is asserted PER MOUNT by
+ * `routes/__tests__/*-webhook.integration.test.ts`: every webhook router must be
+ * registered BEFORE `express.json()`, or the raw bytes its signatures cover are
+ * consumed before they can be verified (`docs/house-invariants.md`, "Raw-body
+ * mounts").
  */
 export function createApp(): express.Express {
   const app = express();
@@ -320,6 +321,17 @@ export function createApp(): express.Express {
   // thing — and one that could strand a supplier's events during an incident
   // where their configuration is exactly what somebody is fixing.
   app.use('/webhooks/suppliers', supplierWebhookRouter);
+
+  // Oxy's file events (Oxy ADR 0043 D9) — the SIXTH raw-body mount: Oxy signs
+  // the bytes it sent, so a parser reaching the stream first breaks every
+  // delivery. Gated on `OXY_FILE_EVENTS_ENABLED` (404 when off). Unlike the
+  // Stripe mount it is NOT gated on the secret too: Oxy shows the secret only
+  // after the endpoint echoed its challenge, so the route must answer that
+  // challenge first and refuses events (503, retried) until the secret is set.
+  // See `routes/oxy-files-webhook.ts`.
+  if (config.oxyFiles.eventsEnabled) {
+    app.use('/webhooks/oxy-files', oxyFilesWebhookRouter);
+  }
 
   // Body parsing
   app.use(express.json({ limit: '10mb' }));

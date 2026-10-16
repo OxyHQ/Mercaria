@@ -659,3 +659,67 @@ export async function everyFileInspectionAcceptable(
     return PUBLISHABLE_ASSET_INSPECTION_VERDICTS.includes(inspection.verdict);
   });
 }
+
+/**
+ * Move ONE asset file's bytes to a new storage key — the same bytes, stored as
+ * an application-owned private Oxy file (Oxy ADR 0043 D3/D5) — only while the
+ * row still names `previousKey` and records exactly the hash, size and type the
+ * new object was MEASURED to hold.
+ *
+ * The one writer of a storage move. On a PUBLISHED version the
+ * `asset_files_immutable_once_published` trigger refuses any `storage_key`
+ * change the transaction did not declare for this row (migration `0174`), so
+ * this declares it — `set_config(..., true)` is transaction-local — in the same
+ * transaction as the update; the trigger still refuses a changed hash, size or
+ * type. A draft's file may move freely, as any draft column may.
+ *
+ * @returns `false` when the row moved, vanished or no longer matches.
+ */
+export async function replaceAssetFileStorageKey(
+  input: {
+    fileId: string;
+    previousKey: string;
+    next: { storageKey: string; contentHash: string; byteSize: number; mediaType: string };
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const write = async (tx: DatabaseOrTransaction) => {
+    await tx.execute(sql`select set_config('mercaria.asset_storage_move', ${input.fileId}, true)`);
+    const rows = await tx
+      .update(assetFiles)
+      .set({ storageKey: input.next.storageKey })
+      .where(
+        and(
+          eq(assetFiles.id, input.fileId),
+          eq(assetFiles.storageKey, input.previousKey),
+          eq(assetFiles.contentHash, input.next.contentHash),
+          eq(assetFiles.byteSize, input.next.byteSize),
+          eq(assetFiles.mediaType, input.next.mediaType),
+        ),
+      )
+      .returning({ id: assetFiles.id });
+    return rows.length === 1;
+  };
+  // A transaction (or a savepoint inside the caller's): the declaration is
+  // transaction-local and must not outlive the one UPDATE it covers.
+  return db.transaction((tx) => write(tx));
+}
+
+/** One keyset page of asset file ids — the storage-move backfill's cursor. */
+export async function findAssetFileIdPage(
+  options: { after?: string; fileId?: string; limit: number },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: assetFiles.id })
+    .from(assetFiles)
+    .where(
+      and(
+        options.after ? sql`${assetFiles.id} > ${options.after}` : undefined,
+        options.fileId ? eq(assetFiles.id, options.fileId) : undefined,
+      ),
+    )
+    .orderBy(asc(assetFiles.id))
+    .limit(options.limit);
+  return rows.map((row) => row.id);
+}

@@ -1,5 +1,4 @@
-import { Readable } from 'node:stream';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
@@ -9,19 +8,22 @@ import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
 import { findLegacyArtworkStoreIds } from '../../db/stores/storeArtworkMediaRepository.js';
 import { backfillStoreArtwork } from '../catalog-media/store-artwork-backfill.js';
 
-// Only the two remote transports are simulated. These cases prove maintenance
-// atomicity/identity in real PostgreSQL; they do not prove live Oxy imports.
-const { upload, download } = vi.hoisted(() => ({ upload: vi.fn(), download: vi.fn() }));
-vi.mock('@oxy.so/core/server', async (original) => ({
-  ...(await original<typeof import('@oxy.so/core/server')>()),
-  safeFetch: (...args: unknown[]) => download(...args),
-}));
+// Only Oxy is simulated, at the SDK boundary: `importUserMedia` is Oxy's import
+// by URL (ADR 0043 D7). These cases prove maintenance atomicity/identity in real
+// PostgreSQL; they do not prove live Oxy imports.
+const { importMedia } = vi.hoisted(() => ({ importMedia: vi.fn() }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => ({
-    baseURL: 'https://api.oxy.so',
-    serviceToken: async () => 'test-service-token',
+    assets: { importUserMedia: (...args: unknown[]) => importMedia(...args) },
   }),
 }));
+function imported(id: string) {
+  return {
+    file: { id, mime: 'image/png', size: 10, visibility: 'public', status: 'active' },
+    outcome: 'downloaded',
+    deduplicated: false,
+  };
+}
 
 let db: Database;
 const storeIds: string[] = [];
@@ -33,18 +35,9 @@ beforeAll(async () => {
 });
 beforeEach(() => {
   vi.resetAllMocks();
-  download.mockImplementation(async () => ({
-    status: 200,
-    headers: { 'content-type': 'image/png' },
-    response: Readable.from([Buffer.from('test bytes')]),
-  }));
   let uploaded = 0;
-  upload.mockImplementation(async () =>
-    Response.json({ data: { file: { id: `imported-${++uploaded}`, visibility: 'public' } } }),
-  );
-  vi.stubGlobal('fetch', upload);
+  importMedia.mockImplementation(async () => imported(`imported-${++uploaded}`));
 });
-afterEach(() => vi.unstubAllGlobals());
 afterAll(async () => {
   await deleteTestStores(db, storeIds);
   await closePostgres();
@@ -106,8 +99,7 @@ describe('legacy store artwork import', () => {
     });
     expect(JSON.stringify(report)).not.toMatch(/supplier|signature|private/);
     expect(await artwork(storeId, collectionId)).toEqual(before);
-    expect(download).not.toHaveBeenCalled();
-    expect(upload).not.toHaveBeenCalled();
+    expect(importMedia).not.toHaveBeenCalled();
   });
 
   it('imports under the persisted store owner, keeps Oxy IDs and reruns without I/O', async () => {
@@ -123,22 +115,20 @@ describe('legacy store artwork import', () => {
       cover: 'already-internal',
       collection: 'imported-2',
     });
-    expect(upload.mock.calls[0][1].headers['x-owner-user-id']).toBe(owner);
+    expect(importMedia.mock.calls[0][0]).toBe(owner);
     expect(await findLegacyArtworkStoreIds({ storeId, limit: 1 }, db)).toEqual([]);
     expect((await backfillStoreArtwork({ mode: 'apply', limit: 1, storeId }, db)).entries).toEqual(
       [],
     );
-    expect(upload).toHaveBeenCalledTimes(2);
+    expect(importMedia).toHaveBeenCalledTimes(2);
   });
 
   it('commits nothing when a later upload fails and reports the retry', async () => {
     const { storeId, collectionId } = await fixture();
     const before = await artwork(storeId, collectionId);
-    upload
-      .mockResolvedValueOnce(
-        Response.json({ data: { file: { id: 'first-file', visibility: 'public' } } }),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 403 }));
+    importMedia
+      .mockResolvedValueOnce(imported('first-file'))
+      .mockRejectedValueOnce(Object.assign(new Error('HTTP 403'), { status: 403 }));
     const report = await backfillStoreArtwork({ mode: 'apply', limit: 1, storeId }, db);
     expect(report.entries[0].outcome).toBe('failed');
     expect(report.retryStoreIds).toEqual([storeId]);
@@ -149,7 +139,7 @@ describe('legacy store artwork import', () => {
     'refuses a concurrent %s change made while uploading',
     async (kind) => {
       const { storeId, collectionId } = await fixture();
-      upload.mockImplementationOnce(async () => {
+      importMedia.mockImplementationOnce(async () => {
         if (kind === 'owner')
           await db
             .update(stores)
@@ -165,7 +155,7 @@ describe('legacy store artwork import', () => {
             .update(collections)
             .set({ imageFileId: null })
             .where(eq(collections.id, collectionId));
-        return Response.json({ data: { file: { id: 'imported-file', visibility: 'public' } } });
+        return imported('imported-file');
       });
       const before = await artwork(storeId, collectionId);
       const report = await backfillStoreArtwork({ mode: 'apply', limit: 1, storeId }, db);
@@ -183,7 +173,6 @@ describe('legacy store artwork import', () => {
     expect(await findLegacyArtworkStoreIds({ storeId, limit: 1 }, db)).toEqual([storeId]);
     const report = await backfillStoreArtwork({ mode: 'apply', limit: 1, storeId }, db);
     expect(report.entries[0].outcome).toBe('failed');
-    expect(download).not.toHaveBeenCalled();
-    expect(upload).not.toHaveBeenCalled();
+    expect(importMedia).not.toHaveBeenCalled();
   });
 });

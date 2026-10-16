@@ -35,7 +35,7 @@
  * call. It is no longer a writer.
  */
 
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import {
   isCategoryLifecycleActive,
@@ -186,6 +186,70 @@ export async function insertCategory(
     .returning();
   if (!row) throw new Error('insertCategory returned no row.');
   return row;
+}
+
+/**
+ * Clear category art that shows `fileId` — in `image_file_id`, or as a legacy
+ * Oxy URL in `image_url` that `urlNamesFile` recognises — because Oxy blocked or
+ * deleted the file (Oxy ADR 0043 D9/D10). Presentation only: neither column
+ * feeds a derivation, so no subtree is rewritten. Returns the categories changed.
+ */
+export async function clearCategoryImagesByFile(
+  db: DatabaseOrTransaction,
+  fileId: string,
+  urlNamesFile: (url: string) => boolean,
+): Promise<string[]> {
+  const byId = await db
+    .update(categories)
+    .set({ imageFileId: null })
+    .where(eq(categories.imageFileId, fileId))
+    .returning({ id: categories.id });
+  const candidates = await db
+    .select({ id: categories.id, imageUrl: categories.imageUrl })
+    .from(categories)
+    .where(and(isNotNull(categories.imageUrl), sql`strpos(${categories.imageUrl}, ${fileId}) > 0`));
+  const byUrl = candidates.filter((row) => row.imageUrl !== null && urlNamesFile(row.imageUrl));
+  if (byUrl.length > 0) {
+    await db
+      .update(categories)
+      .set({ imageUrl: null })
+      .where(
+        inArray(
+          categories.id,
+          byUrl.map((row) => row.id),
+        ),
+      );
+  }
+  return [...new Set([...byId.map((row) => row.id), ...byUrl.map((row) => row.id)])];
+}
+
+/**
+ * Point a category's art at `fileId`, only while it still holds exactly what
+ * the caller read (`previous`) — the application-media backfill's
+ * compare-and-swap, so an edit made while the import was in flight wins.
+ */
+export async function replaceCategoryImageFile(
+  categoryId: string,
+  previous: { imageFileId: string | null; imageUrl: string | null },
+  fileId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const rows = await db
+    .update(categories)
+    .set({ imageFileId: fileId })
+    .where(
+      and(
+        eq(categories.id, categoryId),
+        previous.imageFileId === null
+          ? isNull(categories.imageFileId)
+          : eq(categories.imageFileId, previous.imageFileId),
+        previous.imageUrl === null
+          ? isNull(categories.imageUrl)
+          : eq(categories.imageUrl, previous.imageUrl),
+      ),
+    )
+    .returning({ id: categories.id });
+  return rows.length === 1;
 }
 
 /**

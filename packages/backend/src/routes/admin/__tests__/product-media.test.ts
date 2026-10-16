@@ -5,10 +5,10 @@ import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { productMediaRouter } from '../product-media.js';
 import { PRODUCT_IMAGE_MAX_BYTES } from '../../../services/catalog-media/upload.js';
 
+// Oxy is replaced at the SDK boundary: `uploadUserMedia(owner, bytes, mime)`.
 vi.mock('../../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => ({
-    baseURL: 'https://oxy.test',
-    serviceToken: async () => 'isolated-service-token',
+    assets: { uploadUserMedia: (...args: unknown[]) => upstream(...args) },
   }),
 }));
 const flags = vi.hoisted(() => ({ video: false }));
@@ -21,8 +21,7 @@ vi.mock('../../../config/index.js', () => ({
     },
   },
 }));
-const originalFetch = globalThis.fetch;
-const upstream = vi.fn();
+const upstream = vi.hoisted(() => vi.fn());
 let server: Server;
 let origin: string;
 const png = Buffer.from(
@@ -49,19 +48,15 @@ beforeEach(() => {
   flags.video = false;
   upstream
     .mockReset()
-    .mockResolvedValue(
-      new Response(
-        JSON.stringify({ data: { file: { id: 'oxy-imported-image', visibility: 'public' } } }),
-        { status: 201 },
-      ),
-    );
-  vi.stubGlobal('fetch', ((input, init) =>
-    String(input).startsWith('https://oxy.test')
-      ? upstream(input, init)
-      : originalFetch(input, init)) as typeof fetch);
+    .mockImplementation(async (_owner: string, bytes: Uint8Array, mime: string) => ({
+      id: 'oxy-imported-image',
+      visibility: 'public',
+      mime,
+      size: bytes.byteLength,
+      sha256: 'a'.repeat(64),
+    }));
 });
 afterAll(async () => {
-  vi.unstubAllGlobals();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
 const send = (body: Buffer, mime = 'image/png', permission = 'write') =>
@@ -82,11 +77,10 @@ it('passes real image bytes through the JSON-mounted router and derives owner ex
     data: { fileId: 'oxy-imported-image', kind: 'image' },
   });
   expect(upstream).toHaveBeenCalledTimes(1);
-  const [url, request] = upstream.mock.calls[0];
-  expect(url).toBe('https://oxy.test/assets/service/user-media');
-  expect(request.headers['x-owner-user-id']).toBe('persisted-store-account');
-  expect(request.headers.Authorization).toBe('Bearer isolated-service-token');
-  expect(Buffer.from(request.body)).toEqual(png);
+  const [owner, bytes, mime] = upstream.mock.calls[0];
+  expect(owner).toBe('persisted-store-account');
+  expect(mime).toBe('image/png');
+  expect(Buffer.from(bytes)).toEqual(png);
 });
 it('refuses read-only operators before upload, while write permission does not require store:manage', async () => {
   expect((await send(png, 'image/png', 'read')).status).toBe(403);
@@ -100,7 +94,9 @@ it('rejects unsupported, empty, mislabeled and over-limit bytes without reaching
   expect(upstream).not.toHaveBeenCalled();
 });
 it('returns an honest retryable error for Oxy failures, never an invented file ID or upstream secrets', async () => {
-  upstream.mockResolvedValueOnce(new Response('secret service failure', { status: 403 }));
+  upstream.mockRejectedValueOnce(
+    Object.assign(new Error('secret service failure'), { status: 403 }),
+  );
   const response = await send(png);
   expect(response.status).toBe(502);
   expect(await response.text()).not.toContain('secret');
@@ -110,7 +106,7 @@ it.each([
   { id: 'oxy-id', visibility: 'private' },
   {},
 ])('refuses invalid Oxy response metadata %o', async (file) => {
-  upstream.mockResolvedValueOnce(new Response(JSON.stringify({ data: { file } })));
+  upstream.mockResolvedValueOnce(file);
   expect((await send(png)).status).toBe(502);
 });
 
@@ -121,27 +117,25 @@ it('gates new MP4 uploads, derives the owner from store authority and verifies t
   flags.video = true;
   expect((await send(mp4, 'video/mp4', 'read')).status).toBe(403);
   expect(upstream).not.toHaveBeenCalled();
-  upstream.mockResolvedValueOnce(
-    Response.json({
-      data: {
-        file: { id: 'oxy-video', visibility: 'public', mime: 'video/mp4', size: mp4.length },
-      },
-    }),
-  );
+  upstream.mockResolvedValueOnce({
+    id: 'oxy-video',
+    visibility: 'public',
+    mime: 'video/mp4',
+    size: mp4.length,
+  });
   const response = await send(mp4, 'video/mp4');
   expect(response.status).toBe(201);
   expect(await response.json()).toEqual({
     success: true,
     data: { fileId: 'oxy-video', kind: 'video' },
   });
-  expect(upstream.mock.calls[0][1].headers['x-owner-user-id']).toBe('persisted-store-account');
+  expect(upstream.mock.calls[0][0]).toBe('persisted-store-account');
   expect((await send(png, 'video/mp4')).status).toBe(400);
-  upstream.mockResolvedValueOnce(
-    Response.json({
-      data: {
-        file: { id: 'oxy-video', visibility: 'public', mime: 'image/png', size: mp4.length },
-      },
-    }),
-  );
+  upstream.mockResolvedValueOnce({
+    id: 'oxy-video',
+    visibility: 'public',
+    mime: 'image/png',
+    size: mp4.length,
+  });
   expect((await send(mp4, 'video/mp4')).status).toBe(502);
 });

@@ -216,3 +216,15 @@ Open Food Facts, Open Prices and OpenStreetMap-derived facts are ODbL.
    `canonicalizeNormalizedRecord` and `redactSourceObservation`. This proves no fact is
    dropped and the payload fits in 32 KB.
 5. Add a row to the table above, with the licence and what the account ref means.
+
+## Images (Oxy ADR 0043)
+
+Media a provider supplies is stored as URLs in the source record's projection and,
+by the owner's decision, COPIED into files the Mercaria application owns when the
+observation is attached to a canonical product (Oxy's import by URL,
+`docs/catalog-media.md`, "External imagery is copied") — never a hotlink. Several
+providers' terms bear on that (the licence column above: `ygoprodeck` forbids image
+hotlinking and stores no media, so it has nothing to copy; Open Food Facts images
+are CC BY-SA and carry attribution, which `source_record_id` provenance keeps).
+Amazon and eBay terms restrict image caching in particular; copying is the owner's
+recorded decision.

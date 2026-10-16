@@ -663,6 +663,31 @@ The canonical browser gallery test also supplies deliberately external source
 URLs and asserts zero requests to that origin while rendering Oxy images; its
 real-media seed precondition must pass before that case can establish this.
 
+## Oxy Files ownership and usage registration — open (Oxy ADR 0043, 2026-10-16)
+
+Mercaria's side of Oxy ADR 0043 is in code (`docs/catalog-media.md`): imports go
+through Oxy's import by URL (`services/catalog-media/oxy-files.ts`, the one
+adapter); canonical media, category art, brand logos, copied external imagery and
+digital deliverables are owned by the Mercaria APPLICATION; every file use is
+registered by trigger + outbox; a nightly reconciliation runs per entity type;
+`/webhooks/oxy-files` handles takedowns. The section above is superseded where it
+says the importer downloads through `safeFetch` and that canonical images import
+under the operator's account. What is NOT done:
+
+- **Nothing has run against a live Oxy.** Every Oxy call is faked at the SDK
+  boundary in tests, against the released ADR 0043 SDK's types (`@oxy.so/core`
+  4.18.0, `@oxy.so/contracts` 4.22.0, `@oxy.so/services` 11.9.0 — one core
+  across the backend and the apps).
+- **Scopes:** Mercaria's application needs `files:references:write`,
+  `files:app:write`, `files:app:delete` and `files:user-media:write`.
+- **Release order** (`docs/catalog-media.md`, "Levers and the release order"),
+  then `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED`.
+- **Backfills not run** (preview by default): `backfill-listing-media`,
+  `backfill-store-artwork`, `backfill-application-media` (`canonical_image`,
+  `category_image`, `brand_logo`, `canonical_description_image`,
+  `canonical_image_duplicates`, `source_media`) and
+  `backfill-digital-asset-storage`.
+
 ## Storefront product parity — review media upload/acceptance remaining (2026-10-10)
 
 The public Shop [rhode product](https://shop.app/products/8117398765806/peptide-lip-tint-ribbon)

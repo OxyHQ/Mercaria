@@ -1,6 +1,5 @@
-import { Readable } from 'node:stream';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-const state = vi.hoisted(() => ({ enabled: true, download: vi.fn(), upload: vi.fn() }));
+import { beforeEach, expect, it, vi } from 'vitest';
+const state = vi.hoisted(() => ({ enabled: true, importUserMedia: vi.fn() }));
 vi.mock('../../config/index.js', () => ({
   config: {
     catalog: {
@@ -10,47 +9,39 @@ vi.mock('../../config/index.js', () => ({
     },
   },
 }));
-vi.mock('@oxy.so/core/server', () => ({
-  safeFetch: (...args: unknown[]) => state.download(...args),
-}));
 vi.mock('../../db/stores/storeRepository.js', () => ({
   findStoreById: async () => ({ oxyAccountId: 'persisted-owner' }),
 }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => ({
-    baseURL: 'https://oxy.test',
-    serviceToken: async () => 'isolated-token',
+    assets: { importUserMedia: (...args: unknown[]) => state.importUserMedia(...args) },
   }),
 }));
 import { synchronizeStoreMedia } from '../catalog-media/sync.js';
 import { matchesProductVideo, PRODUCT_VIDEO_MAX_BYTES } from '../catalog-media/policy.js';
 const mp4 = Buffer.from('00000018667479706d703432000000006d70343269736f6d', 'hex');
+
+/** Oxy's answer to an import by URL: what it MEASURED, which is what decides the kind. */
+function imported(file: Record<string, unknown>) {
+  return {
+    file: { id: 'oxy-video', visibility: 'public', status: 'active', ...file },
+    outcome: 'downloaded',
+    deduplicated: false,
+  };
+}
+
 beforeEach(() => {
   state.enabled = true;
-  state.upload.mockReset();
-  state.download.mockReset();
-  state.download.mockImplementation(async () => ({
-    status: 200,
-    headers: { 'content-type': 'video/mp4' },
-    response: Readable.from([mp4]),
-  }));
-  state.upload.mockImplementation(async () =>
-    Response.json({
-      data: {
-        file: { id: 'oxy-video', visibility: 'public', mime: 'video/mp4', size: mp4.length },
-      },
-    }),
-  );
-  vi.stubGlobal('fetch', state.upload);
+  state.importUserMedia
+    .mockReset()
+    .mockImplementation(async () => imported({ mime: 'video/mp4', size: mp4.length }));
 });
-afterEach(() => vi.unstubAllGlobals());
-it('imports verified MP4 bytes under the persisted store owner and returns typed IDs only', async () => {
+it('imports a video under the persisted store owner and returns typed IDs only', async () => {
   const result = await synchronizeStoreMedia('store', [
     { kind: 'video', reference: 'https://supplier.test/clip.mp4' },
   ]);
   expect(result).toEqual([{ kind: 'video', fileId: 'oxy-video', position: 0 }]);
-  expect(state.upload.mock.calls[0][1].headers['x-owner-user-id']).toBe('persisted-owner');
-  expect(Buffer.from(state.upload.mock.calls[0][1].body)).toEqual(mp4);
+  expect(state.importUserMedia.mock.calls[0][0]).toBe('persisted-owner');
 });
 it('refuses disabled video imports and unverified existing video IDs before network operations', async () => {
   state.enabled = false;
@@ -61,42 +52,35 @@ it('refuses disabled video imports and unverified existing video IDs before netw
   await expect(
     synchronizeStoreMedia('store', [{ kind: 'video', reference: 'unverified-id' }]),
   ).rejects.toThrow(/verification/);
-  expect(state.download).not.toHaveBeenCalled();
-  expect(state.upload).not.toHaveBeenCalled();
+  expect(state.importUserMedia).not.toHaveBeenCalled();
 });
 it('does not treat a video as an image or an image as a video', async () => {
+  // Declared an image; Oxy measured a video.
   await expect(
     synchronizeStoreMedia('store', [{ kind: 'image', reference: 'https://supplier.test/a.mp4' }]),
-  ).rejects.toThrow();
-  state.download.mockImplementation(async () => ({
-    status: 200,
-    headers: { 'content-type': 'video/mp4' },
-    response: Readable.from([Buffer.from('not mp4')]),
-  }));
+  ).rejects.toThrow(/image/);
+  // Declared a video; Oxy measured an image.
+  state.importUserMedia.mockResolvedValueOnce(imported({ mime: 'image/png', size: 10 }));
   await expect(
     synchronizeStoreMedia('store', [{ kind: 'video', reference: 'https://supplier.test/a.mp4' }]),
   ).rejects.toThrow(/MP4/);
-  expect(state.upload).not.toHaveBeenCalled();
 });
-it('rejects Oxy metadata mismatch, failed imports and excessive sizes without publishing a gallery', async () => {
-  state.upload.mockResolvedValueOnce(
-    Response.json({
-      data: {
-        file: { id: 'oxy-photo', visibility: 'public', mime: 'image/png', size: mp4.length },
-      },
-    }),
+it('rejects an oversized video and a failed import without publishing a gallery', async () => {
+  state.importUserMedia.mockResolvedValueOnce(
+    imported({ mime: 'video/mp4', size: PRODUCT_VIDEO_MAX_BYTES + 1 }),
   );
   await expect(
     synchronizeStoreMedia('store', [{ kind: 'video', reference: 'https://supplier.test/a.mp4' }]),
-  ).rejects.toThrow(/metadata/);
-  state.download.mockImplementation(async () => ({
-    status: 200,
-    headers: { 'content-type': 'video/mp4', 'content-length': String(PRODUCT_VIDEO_MAX_BYTES + 1) },
-    response: Readable.from([mp4]),
-  }));
+  ).rejects.toThrow(/MP4/);
+  state.importUserMedia.mockRejectedValueOnce(
+    Object.assign(new Error('HTTP 415'), { status: 415 }),
+  );
   await expect(
-    synchronizeStoreMedia('store', [{ kind: 'video', reference: 'https://supplier.test/a.mp4' }]),
-  ).rejects.toThrow(/size/);
+    synchronizeStoreMedia('store', [
+      { kind: 'image', reference: 'https://supplier.test/a.png' },
+      { kind: 'video', reference: 'https://supplier.test/a.mp4' },
+    ]),
+  ).rejects.toThrow(/Oxy/);
 });
 it('MP4 validation excludes AVIF and truncated file type boxes', () => {
   expect(matchesProductVideo(mp4, 'video/mp4')).toBe(true);

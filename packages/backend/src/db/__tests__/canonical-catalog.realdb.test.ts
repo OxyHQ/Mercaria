@@ -20,8 +20,7 @@
  * cannot vanish from under its tombstones).
  */
 
-import { Readable } from 'node:stream';
-import { afterAll, beforeAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
@@ -90,36 +89,53 @@ import {
 } from '../../services/attributes/definition-registry.service.js';
 import { reviewAggregates } from '../schema/reviews.js';
 
-// Only the external transports are replaced. Catalogue repositories and every
+// Only Oxy is replaced, at the SDK boundary. Catalogue repositories and every
 // transaction below run against the real migrated PostgreSQL database.
-const { downloadImage, uploadImage } = vi.hoisted(() => ({
-  downloadImage: vi.fn(),
-  uploadImage: vi.fn(),
-}));
-vi.mock('@oxy.so/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
-  safeFetch: downloadImage,
+//
+// Every import answers a DISTINCT file id. A constant id here is what hid the
+// duplicate-row bug: `canonical_images.image_ref` is `coalesce(file_id,
+// source_url)`, so a re-observation whose import returned a NEW file missed the
+// unique and wrote a second row for one image — and a mock answering the same
+// id every time made the second row collide with the first and vanish.
+const { importAppFile, importUserMedia } = vi.hoisted(() => ({
+  importAppFile: vi.fn(),
+  importUserMedia: vi.fn(),
 }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => ({
-    baseURL: 'https://api.oxy.so',
-    serviceToken: async () => 'test-service-token',
+    assets: {
+      importAppFile: (...args: unknown[]) => importAppFile(...args),
+      importUserMedia: (...args: unknown[]) => importUserMedia(...args),
+    },
   }),
 }));
+let imports = 0;
+/** The id the n-th import of this file answers (1-based). */
+function importedFileId(n: number): string {
+  return `oxy-canonical-file-${RUN}-${n}`;
+}
 beforeEach(() => {
-  downloadImage.mockReset().mockImplementation(async () => ({
-    status: 200,
-    headers: { 'content-type': 'image/png' },
-    response: Readable.from([Buffer.from('source image')]),
-  }));
-  uploadImage
-    .mockReset()
-    .mockImplementation(async () =>
-      Response.json({ data: { file: { id: 'oxy-canonical-file', visibility: 'public' } } }),
-    );
-  vi.stubGlobal('fetch', uploadImage);
+  importAppFile.mockReset().mockImplementation(async () => {
+    imports += 1;
+    return {
+      file: {
+        id: importedFileId(imports),
+        mime: 'image/png',
+        size: 12,
+        visibility: 'public',
+        status: 'active',
+      },
+      outcome: 'downloaded',
+      deduplicated: false,
+    };
+  });
+  importUserMedia.mockReset();
 });
-afterEach(() => vi.unstubAllGlobals());
+function oxyRefuses(status: number) {
+  importAppFile.mockImplementation(async () => {
+    throw Object.assign(new Error(`HTTP ${status}`), { status });
+  });
+}
 
 let db: Database;
 
@@ -859,8 +875,13 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     expect(publicProduct?.fieldProvenance[0]?.freshness?.sourceKind).toBe('feed');
     expect(JSON.stringify(publicProduct)).not.toContain(result.sourceRecordId);
     expect(publicProduct?.images[0]?.freshness?.observedAt).toBe(observedAt.toISOString());
-    expect(publicProduct?.images[0]?.fileId).toBe('oxy-canonical-file');
-    expect(uploadImage.mock.calls[0]?.[1].headers['x-owner-user-id']).toBe(OPERATOR);
+    const imported = importAppFile.mock.calls.length;
+    expect(imported).toBe(1);
+    expect(publicProduct?.images[0]?.fileId).toMatch(/^oxy-canonical-file-/);
+    // Canonical media belongs to the Mercaria APPLICATION (Oxy ADR 0043), never
+    // to the operator who made the request.
+    expect(importAppFile.mock.calls[0]?.[0]).toBe(`https://example.test/${RUN}.jpg`);
+    expect(importUserMedia).not.toHaveBeenCalled();
   });
 
   it('imports a legacy image without replacing its identity or overwriting a concurrent import', async () => {
@@ -954,6 +975,67 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     );
   });
 
+  it('a NEW observation of a source the product already stored writes no second image row', async () => {
+    // The audit's duplicate: each new observation re-imported the source, got a
+    // different file, and `image_ref = coalesce(file_id, source_url)` let the
+    // insert through as a second row for the same image.
+    const productId = await mintProduct({ label: 'Re-observed Media Product' });
+    const sourceUrl = `https://example.test/reobserved-${RUN}.jpg`;
+    const observation = {
+      productId,
+      sourceId,
+      externalId: `reobserved-${RUN}`,
+      method: 'connector_declared' as const,
+      matchRule: 'test.reobserved',
+      decidedByOxyUserId: OPERATOR,
+      images: [{ sourceUrl }],
+    };
+    const before = importAppFile.mock.calls.length;
+    const first = await applyProductSourceObservation({
+      ...observation,
+      observedAt: new Date('2026-08-03T00:00:00Z'),
+      fields: { description: 'First wording' },
+    });
+    const second = await applyProductSourceObservation({
+      ...observation,
+      observedAt: new Date('2026-08-04T00:00:00Z'),
+      fields: { description: 'Second wording' },
+    });
+    expect(first.imagesAdded).toBe(1);
+    expect(second.newObservation).toBe(true);
+    expect(second.imagesAdded).toBe(0);
+    expect(importAppFile.mock.calls.length - before).toBe(1);
+    const rows = await db
+      .select()
+      .from(canonicalImages)
+      .where(eq(canonicalImages.productId, productId));
+    expect(rows.map((row) => row.sourceUrl)).toEqual([sourceUrl]);
+
+    // A legacy row that holds only its source URL takes the file in place
+    // rather than gaining a second row beside it.
+    const legacyProductId = await mintProduct({ label: 'Legacy Source Row Product' });
+    const legacyUrl = `https://example.test/legacy-row-${RUN}.jpg`;
+    await db.insert(canonicalImages).values({
+      productId: legacyProductId,
+      sourceRecordId: first.sourceRecordId,
+      sourceUrl: legacyUrl,
+    });
+    await applyProductSourceObservation({
+      ...observation,
+      productId: legacyProductId,
+      externalId: `legacy-row-${RUN}`,
+      observedAt: new Date('2026-08-05T00:00:00Z'),
+      fields: {},
+      images: [{ sourceUrl: legacyUrl }],
+    });
+    const legacyRows = await db
+      .select()
+      .from(canonicalImages)
+      .where(eq(canonicalImages.productId, legacyProductId));
+    expect(legacyRows).toHaveLength(1);
+    expect(legacyRows[0]?.fileId).toMatch(/^oxy-canonical-file-/);
+  });
+
   it('converges a re-delivered observation: the same content writes nothing new', async () => {
     const productId = await mintProduct({ label: 'Converging Product' });
     const observation = {
@@ -968,6 +1050,7 @@ describe('acceptance 4 — every selected field and image traces to provenance',
       images: [{ sourceUrl: `https://example.test/converge-${RUN}.jpg` }],
     };
 
+    const before = importAppFile.mock.calls.length;
     const first = await applyProductSourceObservation(observation);
     const second = await applyProductSourceObservation(observation);
 
@@ -975,13 +1058,15 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     expect(second.newObservation).toBe(false);
     expect(second.sourceRecordId).toBe(first.sourceRecordId);
     expect(second.imagesAdded).toBe(0);
+    // A source the product already stored is not imported again at all.
+    expect(importAppFile.mock.calls.length - before).toBe(1);
 
     const images = await db
       .select()
       .from(canonicalImages)
       .where(eq(canonicalImages.productId, productId));
     expect(images).toHaveLength(1);
-    expect(images[0]?.fileId).toBe('oxy-canonical-file');
+    expect(images[0]?.fileId).toBe(importedFileId(imports));
     expect(images[0]?.sourceUrl).toBe(observation.images[0]?.sourceUrl);
     const links = await db
       .select()
@@ -1004,8 +1089,8 @@ describe('acceptance 4 — every selected field and image traces to provenance',
       images: [{ fileId: 'previous-oxy-file' }],
     };
     await applyProductSourceObservation(observation);
-    expect(downloadImage).not.toHaveBeenCalled();
-    uploadImage.mockImplementation(async () => new Response('denied', { status: 403 }));
+    expect(importAppFile).not.toHaveBeenCalled();
+    oxyRefuses(403);
     await expect(
       applyProductSourceObservation({
         ...observation,
@@ -1038,7 +1123,7 @@ describe('acceptance 4 — every selected field and image traces to provenance',
       fields: { description: original },
     };
     const result = await applyProductSourceObservation(observation);
-    expect(result.product.description).toContain('https://cloud.oxy.so/oxy-canonical-file');
+    expect(result.product.description).toMatch(/https:\/\/cloud\.oxy\.so\/oxy-canonical-file-/);
     expect(result.product.description).not.toContain('supplier.example');
     expect(result.applied).toContain('description');
     const [record] = await db
@@ -1046,7 +1131,7 @@ describe('acceptance 4 — every selected field and image traces to provenance',
       .from(sourceRecords)
       .where(eq(sourceRecords.id, result.sourceRecordId));
     expect(record.payload).toMatchObject({ description: original });
-    uploadImage.mockImplementation(async () => new Response('denied', { status: 403 }));
+    oxyRefuses(403);
     await expect(
       applyProductSourceObservation({
         ...observation,
@@ -1085,8 +1170,7 @@ describe('acceptance 4 — every selected field and image traces to provenance',
       reason: 'pinned',
       sourceValue: original,
     });
-    expect(downloadImage).not.toHaveBeenCalled();
-    expect(uploadImage).not.toHaveBeenCalled();
+    expect(importAppFile).not.toHaveBeenCalled();
   });
 
   it.each(['gallery', 'description'] as const)(
@@ -1117,8 +1201,7 @@ describe('acceptance 4 — every selected field and image traces to provenance',
           images: media === 'gallery' ? [{ sourceUrl: 'https://supplier.example/new.png' }] : [],
         }),
       ).rejects.toThrow(/storage and display rights/);
-      expect(downloadImage).not.toHaveBeenCalled();
-      expect(uploadImage).not.toHaveBeenCalled();
+      expect(importAppFile).not.toHaveBeenCalled();
     },
   );
 });

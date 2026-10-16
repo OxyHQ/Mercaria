@@ -697,16 +697,27 @@ describe('public bundle contents', () => {
       componentVariantId: child.variantIds[0],
       quantity: 1,
     });
+    const productFile = `bundle-product-${RUN}`;
+    const variantFile = `bundle-variant-${RUN}`;
     await db.insert(canonicalImages).values([
       {
         productId: child.productId,
         sourceRecordId: source.recordId,
+        fileId: productFile,
         sourceUrl: 'https://example.com/product.png',
+        position: 0,
+      },
+      {
+        // Not imported: a supplier URL alone is never shown, so it cannot win.
+        variantId: child.variantIds[0],
+        sourceRecordId: source.recordId,
+        sourceUrl: 'https://example.com/unimported.png',
         position: 0,
       },
       {
         variantId: child.variantIds[0],
         sourceRecordId: source.recordId,
+        fileId: variantFile,
         sourceUrl: 'https://example.com/variant.png',
         position: 2,
       },
@@ -714,14 +725,17 @@ describe('public bundle contents', () => {
     const read = async () =>
       (await readCanonicalProductPage(pageRequest(pack.slug, { offerComparisonPermitted: false })))
         ?.page.bundleContents;
-    expect(await read()).toMatchObject({
+    const first = await read();
+    expect(first).toMatchObject({
       status: 'available',
-      components: [{ image: { sourceUrl: 'https://example.com/variant.png' } }],
+      components: [{ image: { fileId: variantFile } }],
     });
+    // A supplier URL never leaves the backend (Oxy ADR 0043 audit).
+    expect(JSON.stringify(first)).not.toContain('example.com');
     await db.delete(canonicalImages).where(eq(canonicalImages.variantId, child.variantIds[0]));
     expect(await read()).toMatchObject({
       status: 'available',
-      components: [{ image: { sourceUrl: 'https://example.com/product.png' } }],
+      components: [{ image: { fileId: productFile } }],
     });
   });
 

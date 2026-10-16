@@ -105,6 +105,7 @@ import {
 } from '../../db/schema/retailEligibility.js';
 import { catalogBackfillRecords } from '../../db/schema/backfill.js';
 import { productSaveAggregates, productSaves } from '../../db/schema/productSaves.js';
+import { canonicalSourceMediaImports } from '../../db/schema/canonicalSourceMedia.js';
 import {
   priceAlertEvaluations,
   priceAlerts,
@@ -1353,6 +1354,17 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       note: BACKFILL_RECORD_NOTE,
     },
     {
+      column: canonicalSourceMediaImports.canonicalProductId,
+      phase: 'reviews',
+      disposition: 'untouched',
+      note:
+        "An owed copy of an observation's imagery (Oxy ADR 0043), a JOB rather than a " +
+        'relationship. The worker resolves a tombstone to its winner when it runs ' +
+        '(`resolveCanonicalProductRow`), so a job queued against the loser lands its images on ' +
+        'the survivor; repointing it here would add nothing and could collide with the ' +
+        "winner's own job for the same observation on the (product, observation) unique.",
+    },
+    {
       column: productSaves.canonicalProductId,
       phase: 'saves',
       disposition: 'repoint_if_absent',
@@ -2564,6 +2576,43 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       '`source_channel` is `storefront | pos | draft` — where an order came from. `storefront` ' +
       'matches by word only and names no `storefronts.id`; #59 merge invariant 3 keeps orders ' +
       'out of the plan entirely.',
+  },
+  {
+    table: 'oxy_file_event_actions',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      "Oxy ADR 0043's takedown audit: which row a blocked or deleted file was removed from. " +
+      'Its `entity_type` reaches a brand (`brand_logo`) and a canonical product ' +
+      '(`canonical_description_image`), both mergeable, and a merge leaves it where it is — ' +
+      'it is a record of what was changed on the entity it was changed on, append-only by ' +
+      'trigger, exactly as `catalog_localization_revisions` is left.',
+  },
+  {
+    table: 'oxy_file_events',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'oxy_file_reference_outboxes',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      'A JOB, not a relationship (the `attribute_reindex_requests` shape): "converge this ' +
+      'entity\'s Oxy file references from what it holds now". A merge keeps the loser as a ' +
+      "tombstone that still holds its logo or description, so the loser's references stay " +
+      "true; the winner's own rows enqueue the winner through their triggers when the merge " +
+      'writes them. Repointing a job would converge the wrong entity.',
+  },
+  {
+    table: 'oxy_file_references',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      'What Oxy acknowledged, keyed by the entity Mercaria TOLD it about. Oxy holds the ' +
+      'reference under the loser id; repointing this row alone would make the ledger disagree ' +
+      'with Oxy, and the next convergence or reconciliation of either entity corrects both ' +
+      'sides from the live rows.',
   },
   {
     table: 'payment_discrepancies',

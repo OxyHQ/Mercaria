@@ -1,4 +1,3 @@
-import { Readable } from 'node:stream';
 /**
  * THE PLUGIN PUSH CONTRACT — issue #69's eight WooCommerce-plugin scenarios, and
  * the Mercaria half of acceptance criterion 4.
@@ -28,32 +27,16 @@ import { Readable } from 'node:stream';
  */
 
 import { STORE_PERMISSIONS } from '@mercaria/shared-types';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-// Only external image transports are replaced. Store ownership, media sync,
-// catalog services, repositories and PostgreSQL constraints remain real.
-const { mediaUpload } = vi.hoisted(() => ({ mediaUpload: vi.fn() }));
-vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({
-    baseURL: 'https://api.oxy.test',
-    serviceToken: async () => 'fixture-token',
-  }),
-}));
-const originalFetch = globalThis.fetch;
-beforeEach(() => {
-  mediaUpload.mockReset().mockImplementation(async () =>
-    Response.json({
-      data: { file: { id: 'oxy-synchronized-image', visibility: 'public' } },
-    }),
-  );
-  vi.stubGlobal(
-    'fetch',
-    (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-      String(input) === 'https://api.oxy.test/assets/service/user-media'
-        ? mediaUpload(input, init)
-        : originalFetch(input, init),
-  );
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+// Only Oxy is replaced, at the SDK boundary (`__tests__/oxy-files-fake.ts`).
+// Store ownership, the media adapter, catalog services, repositories and
+// PostgreSQL constraints remain real.
+const oxyFiles = vi.hoisted(() => ({ current: undefined as undefined | { client: unknown } }));
+vi.mock('../../capabilities/oxy-service-client.js', async () => {
+  const { createFakeOxyFiles } = await import('../../__tests__/oxy-files-fake.js');
+  oxyFiles.current = createFakeOxyFiles();
+  return { oxyServiceClient: () => oxyFiles.current?.client };
 });
-afterEach(() => vi.unstubAllGlobals());
 
 import express from 'express';
 import type { AddressInfo } from 'node:net';
@@ -72,11 +55,6 @@ vi.mock('@oxy.so/core/server', async () => {
   return {
     ...actual,
     getRequiredOxyUserId: () => OWNER_USER,
-    safeFetch: async () => ({
-      status: 200,
-      headers: { 'content-type': 'image/png' },
-      response: Readable.from([Buffer.from('fixture image')]),
-    }),
   };
 });
 

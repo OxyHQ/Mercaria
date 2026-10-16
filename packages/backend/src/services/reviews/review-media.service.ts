@@ -10,7 +10,7 @@ import type { StoreCaller } from '../store-access.service.js';
 import { forbidden, serviceUnavailable, validationError } from '../../lib/errors/error-codes.js';
 
 /** Uses the author's bearer on a fresh client, never the shared singleton.
- * The caller may reference their own public upload but may not promote private
+ * The caller may attach their own public upload but may not promote private
  * media, borrow another account's upload or supply its MIME/visibility. */
 export async function prepareReviewMedia(
   author: StoreCaller,
@@ -60,19 +60,11 @@ export async function prepareReviewMedia(
     }
     media.push({ fileId, kind });
   }
-  // A self-reference keeps the author's app asset durable independently of a
-  // review write/retry. No visibility override: this never publishes a file.
-  // No SQL transaction or eligibility is held across these network requests.
-  for (const { fileId } of media) {
-    try {
-      await client.assets.link(fileId, {
-        app: 'mercaria',
-        entityType: 'review_media',
-        entityId: fileId,
-      });
-    } catch {
-      throw serviceUnavailable('Review attachments could not be attached. Try again shortly.');
-    }
-  }
+  // No reference is made here. The review write's `review_media` rows fire the
+  // reference trigger (migration 0172), and the outbox registers the use with
+  // Mercaria's service token after the review commits (Oxy ADR 0043 D4) — a
+  // review that fails to save registers nothing. The author's file is theirs
+  // and Oxy never collects an account's file (D5), so nothing has to hold it
+  // alive across the write. Nothing here changes visibility either.
   return media;
 }

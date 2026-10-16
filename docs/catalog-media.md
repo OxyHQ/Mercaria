@@ -8,8 +8,9 @@ are resolved by the Oxy SDK in clients; supplier URLs are import inputs only.
 may fall back to `images` with `kind: 'image'` when the field is absent.
 
 The physical `listing_images` and `canonical_images` names are retained to
-preserve deployed row IDs, references and provenance. Migration 0167 adds a
-`kind` discriminator, defaulting existing rows to `image`. The legacy `images`
+preserve deployed row IDs, references and provenance. Migration 0168
+(`0168_land_review_and_catalog_media`) adds a `kind` discriminator, defaulting
+existing rows to `image`. The legacy `images`
 DTO and all feed/cart/search/SEO/thumbnail projections remain image-only. A
 video-only product has no fabricated image thumbnail in those projections.
 Canonical variant media and listing variant assignments remain image-only; a
@@ -26,17 +27,18 @@ Merchant create/PATCH accepts **either** legacy `imageFileIds` **or** ordered
 bearer before a catalog transaction. New files must belong to the store's
 persisted Oxy account, be public and active, and have an accepted MIME and size.
 Already-authorized references in the current listing may be retained even when
-a canonical operator owns them; this does not authorize attaching another
-account's new files. The response discriminator is derived from verified MIME,
-never from an extension or caller-declared kind.
+another owner holds them; this does not authorize attaching another account's new
+files. The response discriminator is derived from verified MIME, never from an
+extension or caller-declared kind.
 
 `POST /admin/stores/:storeId/products/media` retains `products:write` authority
-before reading bytes. The service upload uses the central Oxy service client and
-the persisted store owner, not the staff member or a request header. Images have
-a 20 MiB cap; initial video support is MP4 with a 40 MiB cap. Both byte signatures
-and returned Oxy video MIME/size are checked. The response adds `kind` beside the
-existing `fileId`. Removing an editor selection detaches it on Save; it never
-deletes the shared remote file. Failed uploads and saves retain the draft.
+before reading bytes. The upload goes through `services/catalog-media/oxy-files.ts`
+(`uploadUserMedia`) with the central Oxy service client and the persisted store
+owner, not the staff member or a request header. Images have a 20 MiB cap; initial
+video support is MP4 with a 40 MiB cap. Both byte signatures and returned Oxy video
+MIME/size are checked. The response adds `kind` beside the existing `fileId`.
+Removing an editor selection detaches it on Save; it never deletes the shared
+remote file. Failed uploads and saves retain the draft.
 
 Connector push DTOs and normalized pull products may provide ordered
 `mediaSources: {kind, reference}[]`. Push `images` and `mediaSources` are mutually
@@ -46,20 +48,242 @@ Canonical observations accept `media` with explicit kinds instead of `images`,
 retain source provenance/rights and import before opening their transaction.
 The source rights are checked again inside that transaction.
 
-The existing safe importer downloads HTTPS sources with pinned DNS, bounded
-bytes and redirects, then uses Oxy's durable public user-media endpoint. It never
-forwards supplier credentials or publishes a failed partial gallery. Video
-sources must return MP4 bytes; an arbitrary existing Oxy ID plus `kind: video`
-is not accepted as verification by the source-import route. Existing uploaded
-videos enter via the authenticated merchant metadata verifier instead. Image
-IDs retain the legacy import path, with SQL refusing to relabel a known video.
+### Import by URL happens in Oxy (Oxy ADR 0043 D7)
+
+Mercaria no longer downloads supplier bytes. `services/catalog-media/sync.ts`
+validates every reference (an Oxy file id, or HTTPS without credentials) before
+importing any member of a gallery, then asks Oxy to import each new source:
+`importUserMedia(owner, url)` for an account, `importAppFile(url)` for the
+application. Oxy fetches with its own SSRF-safe fetcher and remembers
+`(owner, URL) → file`, so **an unchanged source imported again answers the same
+file id without a download** — which is what ended the connector's re-download of
+every gallery on every product update (`connector-import-atomicity.realdb.test.ts`
+re-syncs an unchanged product and asserts nothing was fetched and no gallery row
+changed). The returned kind is what Oxy MEASURED (`catalogMediaKind(mime, size)`)
+and must equal the declared kind; a video is still refused unless
+`CATALOG_VIDEO_WRITES_ENABLED`, and an existing Oxy id is not accepted as a video
+by this route. No error carries a source URL. No reference is registered at import:
+the row that will hold the file is not written yet (see "Usage registration").
+
+**Every call to Oxy Files is in ONE module, `services/catalog-media/oxy-files.ts`**
+(import, upload, references, reconciliation, event-signature verification), so a
+name that changes upstream is a one-file change. It uses `importAppFile`,
+`importUserMedia`, `verifyFileEventSignature`, `adoptAppFile`,
+`uploadAppFileLarge` and `LargeUploadFailedError` from the released ADR 0043 SDK:
+`@oxy.so/core` 4.18.0 with `@oxy.so/contracts` 4.22.0, the one version every
+package resolves (`@oxy.so/services` 11.9.0 in the apps takes core `^4.18.0`).
+
+### Who owns the bytes
+
+| Content | Owner (ADR 0043 D1) | Import call |
+|---|---|---|
+| A store listing's gallery and description images, condition photos, store logo/cover/policy images, collection images, authoring and seller drafts | the STORE's Oxy account, `stores.oxy_account_id` (acting as it) | `synchronizeStore*` |
+| A P2P listing's media | the seller's account | `synchronizeAccount*` |
+| Canonical images and canonical description images, category art, brand logos | the **Mercaria application** — never the operator who made the request (it was, until ADR 0043) | `synchronizeApplication*` |
+| Review media, evidence documents | unchanged: the uploading account | (uploaded by the person) |
+| Digital deliverables | the **Mercaria application**, PRIVATE (readable only through Mercaria's service token, ADR 0043 D3/D5) — a creator's upload is adopted at registration, every type and size | `services/digital/storage.ts` (`putAssetObject`, `adoptAssetObject`) |
+
+### External imagery is copied (owner decision)
+
+Mercaria copies images from every source it ingests — eBay, Awin, the open-data
+and Shopify-storefront readers, every feed — and shows the copies, never the
+supplier URL. Their terms may restrict caching (eBay and Amazon in particular);
+`docs/catalog-sources/` records which, and the rights flags
+(`may_display_media`, `may_store`) are kept as provenance, not as a gate.
+
+When an observation is attached to a canonical product — the ingestion matcher,
+#60's backfill minting a product, or an operator's observation: all three write an
+active `canonical_product_source_links` row — the trigger of migration `0173`
+queues `canonical_source_media_imports(product, observation)` in the same
+transaction, if the observation's stored `payload.media` names anything. The
+dispatcher (`services/catalog-media/source-media-import.ts`) imports each HTTPS
+reference through the adapter as an application-owned PUBLIC file and attaches it
+as a `canonical_images` row with `source_url` and `source_record_id` as provenance,
+deduplicated by source URL (`attachCanonicalMediaBySource`); a merged product's job
+lands on the winner. Search, merchant pages, product and offer cards already show
+a product's imported canonical images, so nothing else changes.
+
+It is bounded so a million-offer feed cannot stampede Oxy: per task
+`CANONICAL_SOURCE_MEDIA_BATCH_SIZE` (5) jobs per
+`CANONICAL_SOURCE_MEDIA_POLL_INTERVAL_MS` (10 s); across all tasks at most
+`CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT` (10) held at once; per observation
+`CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD` (6) images; and a product that already
+shows `CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT` (10) images imports nothing more —
+its thousandth offer costs one read and no Oxy call. Oxy answers a repeated
+(owner, URL) without a fetch. A source Oxy refuses for good (4xx other than
+401/403/408/429) is skipped; anything else retries with backoff (1 min doubling to
+6 h) and dead-letters after `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` (8). The loop is
+gated by `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` (default off); the trigger queues
+regardless. Links made before `0173` are queued by
+`backfill-application-media.ts --target=source_media`.
+
+### Digital deliverables are application files
+
+Every deliverable is an APPLICATION-owned PRIVATE file (Oxy ADR 0043 stage 4b),
+whatever its type or size up to 8 GiB:
+
+- `putAssetObject` stores bytes this process holds through Oxy's resumable
+  multipart upload (`uploadAppFileLarge`, private) and registers the use.
+- Registering a creator's upload ADOPTS it (`adoptAssetObject`): the mint first
+  confirms the creator attached the file to Mercaria (adoption alone would take
+  any stranger's public file), then `adoptAppFile` gives Mercaria its own private
+  file sharing the stored bytes — nothing is downloaded or uploaded again — and
+  the copy's SHA-256 and size are measured against the source's before the row
+  points at it. There is no fallback to the creator's upload: a registration
+  whose adoption fails answers 502 and registers nothing.
+- `scripts/backfill-digital-asset-storage.ts` moves rows registered before this
+  onto adopted files the same way; bytes Oxy refuses as taken down (451) are
+  reported `blocked` and not retried.
+
+Serving then depends on no creator link (ADR 0021). A published file's BYTES stay
+immutable; its storage key may move only in a declared, same-hash move
+(migration `0174`, `replaceAssetFileStorageKey`) — `docs/digital-commerce.md`.
+
+## Usage registration (Oxy ADR 0043 D4–D6, D9)
+
+Oxy keeps an APPLICATION-owned file only while some application references it
+(unreferenced for 24 hours → trash → purged 30 days later), and never deletes an
+account's file. So every row that holds an Oxy file id is told to Oxy as a
+reference `(fileId, entityType, entityId)`, and withdrawn when it stops holding
+it. `services/catalog-media/file-reference-registry.ts` is the one registry;
+`oxy-file-reference-registry.test.ts` fails the build on a schema column named
+like a file id that no entry holds, and on a trigger that disagrees with it.
+
+| `entityType` | `entityId` | Holding rows | Owner | On `file.blocked` / `file.deleted` |
+|---|---|---|---|---|
+| `listing_image` | `listings.id` (one reference per file per gallery) | `listing_images.file_id` | store / seller | gallery row removed |
+| `listing_description_image` | `listings.id` | `<img>` in `listings.description` and `listing_localizations.description` | store / seller | `<img>` removed |
+| `condition_photo` | `listing_condition_photos.id` | `.file_id` | store / seller | `rejected` (blocked) / `withdrawn` (deleted) — the row is evidence |
+| `store_logo` / `store_cover` | `stores.id` | `logo_file_id` / `cover_file_id` | store | column cleared |
+| `store_policy_image` | `stores.id` | `<img>` in the four `policies_*` texts | store | `<img>` removed |
+| `collection_image` | `collections.id` | `.image_file_id` | store | column cleared |
+| `seller_draft_image` | `seller_listing_drafts.id` | `seller_draft_images.file_id` | store / seller | row removed |
+| `authoring_draft_image` | `catalog_authoring_drafts.id` | `.image_file_ids[]` | store | removed from OPEN drafts (`version` bumps); a published draft is the record |
+| `canonical_image` | `canonical_images.id` | `.file_id` | application | `suppressed` — the row is provenance |
+| `canonical_description_image` | `canonical_products.id` | `<img>` in `.description` and `canonical_product_localizations.description` | application | `<img>` removed |
+| `category_image` | `categories.id` | `.image_file_id`, or an Oxy URL in legacy `.image_url` | application | cleared |
+| `brand_logo` | `brands.id` | `.logo_file_id` | application | cleared |
+| `organization_archive_logo` | `organization_identity_archives.id` | `.logo_file_id` | application | retained (immutable evidence) |
+| `review_media` | `reviews.id` | `review_media.file_id` | the author | row removed |
+| `return_request_evidence`, `retail_service_request_evidence`, `supplier_agreement_evidence`, `retail_resale_evidence`, `retail_compliance_evidence`, `merchant_claim_evidence`, `relationship_evidence` | the evidence row's `id` | its `file_id` / `oxy_file_id` | the uploader | retained (evidence) |
+| `order_item_image` | `order_items.id` | an Oxy URL in `.image_url` | store / seller | retained — order history is never rewritten |
+| `digital_asset_file` | the storage key itself | `asset_files.storage_key` | the application (adopted or uploaded); the creator only for a row the storage backfill has not moved yet | retained |
+
+**How a write becomes a reference.** A trigger of migration `0172` on every
+holding table (`mercaria_oxy_file_reference_touch`) enqueues the ENTITY into
+`oxy_file_reference_outboxes`, in the writer's own transaction, on every insert,
+delete and update of a watched column — so a cascade (deleting a listing deletes
+its gallery), a merge, a backfill and an operator's SQL are all covered, and a
+rolled-back write leaves no request. The row names the entity, never the file:
+the worker (`file-reference-outbox.ts`) reads what the entity holds NOW from the
+registry, diffs it against `oxy_file_references` (what Oxy acknowledged), and
+sends the difference (`references.add` / `references.remove`, 100 per request).
+It is the offer outbox's fixed point: one row per entity, a revision pair so a
+write landing mid-run re-arms it, leases with an owner check
+(`FOR UPDATE SKIP LOCKED`), capped exponential backoff and a visible
+`dead_letter`; a converged row is DELETED rather than marked done, so the table
+holds only owed work. An Oxy failure never blocks or rolls back the catalogue
+write and never loses a removal: the row stays until Oxy answered. A file id Oxy
+refuses (`not_found`) is recorded `refused` and asked again by the next write to
+the entity or the next reconciliation. Two types have no trigger: `order_item_image`
+(a checkout write is never made to depend on this — the reconciliation registers
+it, and a trashed file comes back with the reference within Oxy's 30 days) and
+`digital_asset_file` (registered by `services/digital/storage.ts` when it stores
+or copies an object, and reconciled from an inventory that reads each key through
+`findAssetFileStorageKey`, the one sanctioned reader of that protected column —
+an application-owned deliverable nothing references would be collected).
+
+**Reconciliation** (`file-reference-reconciliation.ts`, ADR 0043 D6) sends Oxy
+the whole inventory of one entity type, streamed in keyset pages; Oxy adds what
+it is missing and removes what it holds from before the run that the inventory
+lacks. One row per type in `oxy_file_reference_reconciliations` is leased so one
+task runs a type (Oxy allows one open session per type), every
+`OXY_FILE_RECONCILIATION_INTERVAL_HOURS` (24), retried in 30 minutes on failure,
+with the last counts on the row. After a real run the ledger is rewritten to the
+inventory. It is the safety net and **how existing data enters the model**: the
+first run of each type registers every file Mercaria already used.
+`OXY_FILE_RECONCILIATION_DRY_RUN` (default ON) commits every run as a dry run —
+read each type's first counts before switching it off.
+
+**File events** (ADR 0043 D9). `POST /webhooks/oxy-files` is the SIXTH raw-body
+mount (above `express.json()`, asserted by `oxy-files-webhook.integration.test.ts`).
+It answers Oxy's `webhook.challenge` unsigned, and verifies every event with
+`verifyFileEventSignature` (`oxy-signature`, HMAC over the raw body, five-minute
+window). One transaction per event: the dedupe claim on Oxy's event id
+(`oxy_file_events`), the presentation change of every registry entry with a
+detach, and one append-only `oxy_file_event_actions` row per entity (`removed`,
+`suppressed` or `retained`). The changes fire the reference triggers, so the
+withdrawn uses are withdrawn from Oxy by the same outbox. Only `file.blocked` and
+`file.deleted` change anything; `trashed`, `restored`, `visibility_changed` and
+`unblocked` are recorded only (an owner may restore what they trashed, and a
+removal is not reversed automatically). A takedown scans every holding table for
+the file id — unindexed on purpose for the rare event, rather than trusting a
+ledger that lags its writes.
+
+### Levers and the release order
+
+| Variable | Default | Gates |
+|---|---|---|
+| `OXY_FILE_REFERENCES_ENABLED` | off | the outbox LOOP (the triggers enqueue regardless; switching it on drains the backlog) |
+| `OXY_FILE_REFERENCE_POLL_INTERVAL_MS` / `_BATCH_SIZE` / `_MAX_ATTEMPTS` | 5000 / 50 / 12 | the drain |
+| `OXY_FILE_RECONCILIATION_ENABLED` | off | the reconciliation LOOP |
+| `OXY_FILE_RECONCILIATION_DRY_RUN` | **on** | commits as dry runs |
+| `OXY_FILE_RECONCILIATION_INTERVAL_HOURS` / `_POLL_INTERVAL_MS` | 24 / 60000 | scheduling |
+| `OXY_FILE_EVENTS_ENABLED` | off | the MOUNT (404 when off) |
+| `OXY_FILE_EVENTS_SECRET` | empty | events are refused 503 (Oxy retries ~3.5 days) until set |
+| `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` | off | the external-imagery import LOOP (the source-link trigger queues regardless) |
+| `CANONICAL_SOURCE_MEDIA_*` | see above | its batch, global in-flight cap, per-record and per-product caps, attempts |
+
+Order: Oxy stages 1–4b deployed (digital registration adopts through stage 4b's
+`/assets/service/app/adopt`), Mercaria's application granted
+`files:references:write`, `files:app:write`, `files:app:delete` and
+`files:user-media:write`; deploy
+this (migration `0172` is `pre`); `OXY_FILE_REFERENCES_ENABLED=true`;
+`OXY_FILE_RECONCILIATION_ENABLED=true` and read every type's dry-run counts on
+`oxy_file_reference_reconciliations`; `OXY_FILE_RECONCILIATION_DRY_RUN=false`;
+only then may Oxy switch its sweep to `enforce`. For events:
+`OXY_FILE_EVENTS_ENABLED=true` → register `https://<api>/webhooks/oxy-files` in
+the Oxy console (the challenge is answered) → set `OXY_FILE_EVENTS_SECRET` →
+deploy.
+
+### Backfills
+
+Preview by default, `--apply` explicit, reports carry SHA-256 hashes of sources
+and never URLs, and every apply is a compare-and-swap that reports `changed` for
+an explicit retry. They now import through Oxy (no local download), and the
+reference triggers register what they write.
+
+- `scripts/backfill-listing-media.ts` and `scripts/backfill-store-artwork.ts` —
+  legacy URL-valued gallery and store artwork, imported as the store's account
+  or the seller.
+- `scripts/backfill-application-media.ts --target=canonical_image|category_image|brand_logo`
+  — into application-owned files: a legacy supplier URL is IMPORTED, and a file
+  some account owns (an operator's canonical image) is ADOPTED by importing its
+  own public URL as the application's (bytes are shared by content address; the
+  account keeps its file, now "not in use", for its owner to decide about).
+- `--target=canonical_description_image` — the same adoption for every Oxy image
+  in a canonical description, rewriting only those `<img>` sources under a
+  compare-and-swap on the whole description. (Localized canonical descriptions
+  have no writer yet, #367 L2.)
+- `--target=canonical_image_duplicates` — collapses the rows the old identity
+  bug wrote: per (product or variant, source URL) one survivor (active, then
+  holding a file, then oldest), a missing alt text carried over, the rest deleted.
+  Nothing references a canonical image row by id.
+- `--target=source_media` — queues the imagery of source links made before 0173.
+- `scripts/backfill-digital-asset-storage.ts` — moves deliverables onto
+  application-owned private files (above).
+
+The canonical observation fixed on the way: a source's identity is its URL
+(`attachCanonicalMediaBySource`); `image_ref = coalesce(file_id, source_url)` used
+to let a re-import that returned a different file write a second row per
+observation.
 
 ## Rollout and rollback
 
 `CATALOG_VIDEO_WRITES_ENABLED` defaults to false. It gates new video upload,
 verification and import, **not reads of stored records**. Deploy in this order:
 
-1. Apply additive migration 0167 through the ordinary migration runner.
+1. Apply additive migration 0168 through the ordinary migration runner.
 2. Roll out new API **and every catalog/import worker** while video writes remain
    disabled. New legacy-image writers preserve video rows and slots; old binaries
    replace every row and could delete videos.
