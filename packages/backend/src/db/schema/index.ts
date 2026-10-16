@@ -626,3 +626,7 @@ export * from './supervisedShopping';
 // table above reads it. Nothing here references a holding row by foreign key:
 // an outbox row whose entity is gone is exactly the removal it exists to send.
 export * from './oxyFiles';
+
+// External imagery copied into the canonical catalogue (Oxy ADR 0041): the
+// queue a source-link trigger fills and a bounded dispatcher drains.
+export * from './canonicalSourceMedia';

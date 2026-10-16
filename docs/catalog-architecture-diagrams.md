@@ -103,6 +103,7 @@ flowchart LR
         M_Supervised_catalog_review["Supervised catalog review"]
         M_Supervised_purchase_coordination["Supervised purchase coordination"]
         M_Store_access["Store access"]
+        M_Canonical_source_imagery__Oxy_ADR_0041_["Canonical source imagery (Oxy ADR 0041)"]
         M_Oxy_file_usage__Oxy_ADR_0041_["Oxy file usage (Oxy ADR 0041)"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
@@ -202,6 +203,8 @@ flowchart LR
     M_Supervised_purchase_coordination --> X_order_items
     M_Supervised_purchase_coordination --> X_payments
     M_Store_access --> X_stores
+    M_Canonical_source_imagery__Oxy_ADR_0041_ --> X_canonical_products
+    M_Canonical_source_imagery__Oxy_ADR_0041_ --> X_source_records
 ```
 
 **2 foreign keys point the other way** — from a table outside the epic into
@@ -216,7 +219,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**26 modules**, **21 writing directories**,
+**27 modules**, **22 writing directories**,
 **5 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -225,6 +228,7 @@ statements.
 
 ```mermaid
 flowchart LR
+    W_db_canonical["db/canonical"]
     W_db_catalog["db/catalog"]
     W_db_catalogAuthoring["db/catalogAuthoring"]
     W_db_catalogExternalMappings["db/catalogExternalMappings"]
@@ -271,7 +275,9 @@ flowchart LR
     M_Supervised_catalog_review(["Supervised catalog review"])
     M_Supervised_purchase_coordination(["Supervised purchase coordination"])
     M_Store_access(["Store access"])
+    M_Canonical_source_imagery__Oxy_ADR_0041_(["Canonical source imagery (Oxy ADR 0041)"])
     M_Oxy_file_usage__Oxy_ADR_0041_(["Oxy file usage (Oxy ADR 0041)"])
+    W_db_canonical -->|"1"| M_Canonical_source_imagery__Oxy_ADR_0041_
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
     W_db_catalogAuthoring -->|"4"| M_Authoring
@@ -366,7 +372,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 100 tables created by a migration at or after `0088`
+All 101 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -1127,6 +1133,22 @@ Also names, from outside the epic: `stores`.
 |---|---|---|
 | `store_permission_overrides` | `0158` | `db/stores` (delete/insert) |
 
+### Canonical source imagery (Oxy ADR 0041)
+
+```mermaid
+erDiagram
+    canonical_source_media_imports {
+    }
+    canonical_products ||--o{ canonical_source_media_imports : "canonical_product_id · cascade"
+    source_records ||--o{ canonical_source_media_imports : "source_record_id · restrict"
+```
+
+Also names, from outside the epic: `canonical_products`, `source_records`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `canonical_source_media_imports` | `0173` | `db/canonical` (delete/insert/update) |
+
 ### Oxy file usage (Oxy ADR 0041)
 
 ```mermaid
@@ -1159,18 +1181,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 100 |
-| Modules they are grouped into | 26 |
-| Foreign keys out of an epic table | 190 |
+| Tables in the population | 101 |
+| Modules they are grouped into | 27 |
+| Foreign keys out of an epic table | 192 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 23 |
 | Relationships the schema proves are 1:1 | 6 |
 | Relationships whose parent is optional (nullable FK) | 83 |
-| Directories that write an epic table | 21 |
+| Directories that write an epic table | 22 |
 | Tables written from more than one directory | 5 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 190 foreign keys: **48** `cascade`, **2** `no action`, **137** `restrict`, **3** `set null`.
+`ON DELETE` across those 192 foreign keys: **49** `cascade`, **2** `no action`, **138** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 

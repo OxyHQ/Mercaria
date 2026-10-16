@@ -161,6 +161,15 @@ connectPostgres()
       import('./services/catalog-media/file-reference-outbox.js')
         .then(({ startFileReferenceDispatcher }) => startFileReferenceDispatcher())
         .catch((err) => log.general.error({ err }, 'Oxy file reference dispatcher import failed'));
+      // Copy attached observations' imagery into the canonical catalogue as
+      // application-owned files, bounded by its own caps (Oxy ADR 0041). Gated
+      // by `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED`; the source-link trigger of
+      // migration 0170 queues whatever it says.
+      import('./services/catalog-media/source-media-import.js')
+        .then(({ startCanonicalSourceMediaImports }) => startCanonicalSourceMediaImports())
+        .catch((err) =>
+          log.general.error({ err }, 'Canonical source media import failed to start'),
+        );
       import('./services/catalog-media/file-reference-reconciliation.js')
         .then(({ startFileReferenceReconciliation }) => startFileReferenceReconciliation())
         .catch((err) =>
@@ -856,6 +865,10 @@ connectPostgres()
           './services/catalog-media/file-reference-outbox.js'
         );
         stopFileReferenceDispatcher();
+        const { stopCanonicalSourceMediaImports } = await import(
+          './services/catalog-media/source-media-import.js'
+        );
+        stopCanonicalSourceMediaImports();
         const { stopFileReferenceReconciliation } = await import(
           './services/catalog-media/file-reference-reconciliation.js'
         );

@@ -3903,6 +3903,27 @@ export interface OxyFilesConfig {
   readonly eventsEnabled: boolean;
   /** `OXY_FILE_EVENTS_SECRET` — the signing secret Oxy showed when the endpoint was verified. */
   readonly eventsSecret: string;
+  /**
+   * `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` — drain `canonical_source_media_imports`:
+   * copy an attached observation's `payload.media` into application-owned
+   * canonical images. Default OFF; the source-link trigger queues regardless.
+   */
+  readonly sourceMediaImportEnabled: boolean;
+  /** `CANONICAL_SOURCE_MEDIA_POLL_INTERVAL_MS` — one drain per interval per task. Default 10000. */
+  readonly sourceMediaPollIntervalMs: number;
+  /** `CANONICAL_SOURCE_MEDIA_BATCH_SIZE` — jobs claimed per drain per task. Default 5. */
+  readonly sourceMediaBatchSize: number;
+  /** `CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT` — jobs held at once across ALL tasks. Default 10. */
+  readonly sourceMediaMaxInFlight: number;
+  /** `CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD` — images imported from one observation. Default 6. */
+  readonly sourceMediaMaxPerRecord: number;
+  /**
+   * `CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT` — a product that already SHOWS this
+   * many images imports nothing more, however many offers it gains. Default 10.
+   */
+  readonly sourceMediaMaxPerProduct: number;
+  /** `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` — failures before `dead_letter`. Default 8. */
+  readonly sourceMediaMaxAttempts: number;
 }
 
 /**
@@ -5080,6 +5101,13 @@ export const config: AppConfig = Object.freeze({
     reconciliationPollIntervalMs: intEnv('OXY_FILE_RECONCILIATION_POLL_INTERVAL_MS', MINUTE_MS),
     eventsEnabled: boolEnv('OXY_FILE_EVENTS_ENABLED', false),
     eventsSecret: strEnv('OXY_FILE_EVENTS_SECRET', ''),
+    sourceMediaImportEnabled: boolEnv('CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED', false),
+    sourceMediaPollIntervalMs: intEnv('CANONICAL_SOURCE_MEDIA_POLL_INTERVAL_MS', 10_000),
+    sourceMediaBatchSize: intEnv('CANONICAL_SOURCE_MEDIA_BATCH_SIZE', 5),
+    sourceMediaMaxInFlight: intEnv('CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT', 10),
+    sourceMediaMaxPerRecord: intEnv('CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD', 6),
+    sourceMediaMaxPerProduct: intEnv('CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT', 10),
+    sourceMediaMaxAttempts: intEnv('CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS', 8),
   }),
   catalogAuthoring: Object.freeze({
     enabled: boolEnv('CATALOG_AUTHORING_ENABLED', false),

@@ -124,6 +124,14 @@ async function resolveProductRow(
   throw new Error(`Canonical product merge chain exceeds ${MAX_MERGE_HOPS} hops from ${row.id}.`);
 }
 
+/** The live product a row resolves to: a merge tombstone answers with its winner. */
+export function resolveCanonicalProductRow(
+  db: DatabaseOrTransaction,
+  row: CanonicalProductRow,
+): Promise<CanonicalProductRow> {
+  return resolveProductRow(db, row);
+}
+
 export interface CreateCanonicalProductInput {
   /** The canonical MODEL name — "iPhone 16 Pro", never a seller's listing title. */
   name: string;

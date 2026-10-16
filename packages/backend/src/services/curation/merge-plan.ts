@@ -105,6 +105,7 @@ import {
 } from '../../db/schema/retailEligibility.js';
 import { catalogBackfillRecords } from '../../db/schema/backfill.js';
 import { productSaveAggregates, productSaves } from '../../db/schema/productSaves.js';
+import { canonicalSourceMediaImports } from '../../db/schema/canonicalSourceMedia.js';
 import {
   priceAlertEvaluations,
   priceAlerts,
@@ -1351,6 +1352,17 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'reviews',
       disposition: 'retained_by_tombstone',
       note: BACKFILL_RECORD_NOTE,
+    },
+    {
+      column: canonicalSourceMediaImports.canonicalProductId,
+      phase: 'reviews',
+      disposition: 'untouched',
+      note:
+        "An owed copy of an observation's imagery (Oxy ADR 0041), a JOB rather than a " +
+        'relationship. The worker resolves a tombstone to its winner when it runs ' +
+        '(`resolveCanonicalProductRow`), so a job queued against the loser lands its images on ' +
+        'the survivor; repointing it here would add nothing and could collide with the ' +
+        "winner's own job for the same observation on the (product, observation) unique.",
     },
     {
       column: productSaves.canonicalProductId,
