@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import type { DiscoverySignal } from '@mercaria/shared-types';
 import { DISCOVERY_SIGNALS } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
@@ -49,7 +49,6 @@ function isDiscoverySignal(value: string): value is DiscoverySignal {
 }
 
 export default function SignalScreen() {
-  const router = useRouter();
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ handle: string; signal: string }>();
   const handle = params.handle ?? '';
@@ -63,9 +62,6 @@ export default function SignalScreen() {
 
   const signal = isDiscoverySignal(rawSignal) ? rawSignal : undefined;
   const signalPage = useDiscoverySignalPage({ kind: 'category', handle }, signal);
-
-  const onPressProduct = (id: string) =>
-    router.push({ pathname: '/products/[id]', params: { id } });
 
   if (signal === undefined) {
     return (
@@ -180,9 +176,7 @@ export default function SignalScreen() {
           <Text className="text-shop-body text-text-tertiary">{t('discovery.signal.empty')}</Text>
         ) : null}
 
-        {products.length > 0 ? (
-          <SignalGrid products={products} onPressProduct={onPressProduct} />
-        ) : null}
+        {products.length > 0 ? <SignalGrid products={products} /> : null}
 
         {signalPage.hasNextPage ? (
           <View className="items-center px-4 py-6">

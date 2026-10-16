@@ -866,7 +866,9 @@
       "viewImage": "ছবি %{position} দেখুন",
       "previous": "আগের ছবি",
       "next": "পরের ছবি",
-      "open": "%{title}-এর ছবি খুলুন"
+      "open": "%{title}-এর ছবি খুলুন",
+      "viewVideo": "ভিডিও %{position} দেখুন",
+      "openVideo": "%{title} এর ভিডিও খুলুন"
     },
     "quantity": {
       "remove": "পণ্যটি সরান",
@@ -874,6 +876,9 @@
       "increase": "পরিমাণ বাড়ান"
     },
     "review": {
+      "loading": "রিভিউ লোড হচ্ছে…",
+      "loadError": "রিভিউ লোড করা যায়নি। আবার চেষ্টা করুন।",
+      "retry": "আবার চেষ্টা করুন",
       "defaultScope": "পর্যালোচনা",
       "starsA11y": "গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",
       "starsScopedA11y": "%{subject}। গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",
@@ -1006,6 +1011,14 @@
       "andSave": "সেট কিনে সাশ্রয় করুন",
       "view": "সেট দেখুন",
       "addFailed": "এই সেটটি যোগ করা যায়নি। আবার চেষ্টা করুন।"
+    },
+    "reviewMedia": {
+      "title": "পর্যালোচনার ছবি ও ভিডিও",
+      "viewImage": "পর্যালোচনার ছবি %{position} দেখুন",
+      "viewVideo": "পর্যালোচনার ভিডিও %{position} দেখুন",
+      "unavailable": "এই মিডিয়াটি লোড করা যায়নি।",
+      "retry": "আবার চেষ্টা করুন",
+      "more": "আরও ছবি ও ভিডিও লোড করুন"
     }
   }
 }

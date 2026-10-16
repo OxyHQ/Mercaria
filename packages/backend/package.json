@@ -48,6 +48,7 @@
     "express-rate-limit": "^8.3.1",
     "helmet": "^8.3.0",
     "ioredis": "^5.11.1",
+    "parse5": "8.0.1",
     "pino": "^10.3.1",
     "postgres": "3.4.9",
     "rate-limit-redis": "^5.0.0",

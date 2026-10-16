@@ -315,6 +315,19 @@ describe('a merchant page', () => {
 /* ────────────────────────────────────────────────────────────────────────── */
 
 describe('a brand page', () => {
+  it('does not publish legacy external artwork or undefined images in metadata', () => {
+    const facts = catalogueEntityFacts({
+      routeId: 'brand',
+      slug: 'legacy',
+      name: 'Legacy',
+      description: null,
+      logoFileId: 'https://supplier.example/logo.png',
+    });
+    expect(facts.imageUrls).toEqual([]);
+    const document = compose('brand', INDEXABLE, facts);
+    expect(renderSeoHead(document)).not.toContain('supplier.example');
+  });
+
   const facts = catalogueEntityFacts({
     routeId: 'brand',
     slug: 'apple',

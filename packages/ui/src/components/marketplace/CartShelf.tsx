@@ -1,3 +1,4 @@
+import type { ReactElement, ReactNode } from 'react';
 import { View } from 'react-native';
 import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
 import type { CartGroup, CartVendor } from '@mercaria/shared-types';
@@ -14,9 +15,9 @@ export interface CartShelfProps {
   /** Heading; defaults to the translated "In your cart". */
   title?: string;
   groups: CartGroup[];
-  onPressVendor: (vendor: CartVendor) => void;
+  renderVendorLink: (vendor: CartVendor, child: ReactElement) => ReactNode;
   onCheckout: (group: CartGroup) => void;
-  onPressCart: () => void;
+  renderCartLink: (child: ReactElement) => ReactNode;
 }
 
 /**
@@ -27,9 +28,9 @@ export interface CartShelfProps {
 export function CartShelf({
   title,
   groups,
-  onPressVendor,
+  renderVendorLink,
   onCheckout,
-  onPressCart,
+  renderCartLink,
 }: CartShelfProps) {
   const t = useSharedUiTranslation();
   const shelf = useShelfCarouselProps();
@@ -50,14 +51,18 @@ export function CartShelf({
             title={heading}
             inset={false}
             showChevron
-            onPress={onPressCart}
+            renderLink={renderCartLink}
             chevronPosition="after-title"
           />
         }
       >
         {rows.map((group) => (
           <CarouselItem key={group.sellerKey} width={CART_SLOT_WIDTH}>
-            <MerchantCartCard group={group} onPressVendor={onPressVendor} onCheckout={onCheckout} />
+            <MerchantCartCard
+              group={group}
+              renderVendorLink={renderVendorLink}
+              onCheckout={onCheckout}
+            />
           </CarouselItem>
         ))}
       </Carousel>

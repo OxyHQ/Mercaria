@@ -83,7 +83,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     labelKey: 'nav.collections',
     icon: FolderTree,
     href: '/collections',
-    permission: 'collections:write',
+    permission: 'products:read',
   },
   {
     key: 'channels',

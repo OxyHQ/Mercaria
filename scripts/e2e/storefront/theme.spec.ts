@@ -7,6 +7,29 @@ import { expect, test } from '@playwright/test';
 // Compile each real app entry so a missing shared import cannot pass. The
 // browser checks the cascade; the native compiler checks platform separation.
 for (const app of ['frontend', 'dashboard', 'pos']) {
+  test(`${app} native overlay colors preserve alpha through Tailwind compilation`, async () => {
+    const base = resolve(__dirname, `../../../packages/${app}`);
+    const compiler = await compile(await readFile(`${base}/global.css`, 'utf8'), {
+      base,
+      onDependency() {},
+    });
+    const colors = {
+      'bg-black/30': '#0000004d',
+      'bg-black/75': '#000000bf',
+      'bg-black/[0.04]': '#0000000a',
+      'bg-white/75': '#ffffffbf',
+    };
+    const native = compileNative(compiler.build(Object.keys(colors))).stylesheet();
+    for (const [name, expected] of Object.entries(colors)) {
+      const rules = native.s?.find(([candidate]) => candidate === name)?.[1];
+      expect(rules?.length).toBeGreaterThan(0);
+      // Tailwind emits an sRGB fallback and an @supports color-mix override.
+      // Both must survive: 3.0.7 compiled the override as #NaNNaNNaNxx,
+      // replacing the correct first rule and removing price-pill backgrounds.
+      for (const rule of rules!) expect(rule.d).toContainEqual({ backgroundColor: expected });
+    }
+  });
+
   test(`${app} dark utilities follow the app selection across OS themes`, async ({ page }) => {
     const base = resolve(__dirname, `../../../packages/${app}`);
     const compiler = await compile(await readFile(`${base}/global.css`, 'utf8'), {

@@ -169,7 +169,7 @@ async function readPrimaryImages(
     .from(canonicalImages)
     .where(
       sql`${canonicalImages.productId} = any(${sql.param([...productIds])}::text[])
-          and ${canonicalImages.status} = 'active'
+          and ${canonicalImages.status} = 'active' and ${canonicalImages.kind} = 'image'
           and ${canonicalImages.fileId} is not null`,
     )
     .orderBy(canonicalImages.productId, canonicalImages.position, canonicalImages.id);

@@ -40,6 +40,7 @@
  */
 
 import { uuidv7 } from '@oxy.so/db';
+import { seedMediaFileId } from './seed-media.js';
 import { sql } from 'drizzle-orm';
 import { CONDITION_DISCLOSURE_KINDS, conditionEvidencePolicy } from '@mercaria/shared-types';
 import type {
@@ -399,8 +400,8 @@ interface StoreSpec {
   description: string;
   brandColor: string;
   textTone: 'light' | 'dark';
-  logoFileId: string;
-  coverFileId?: string;
+  logoSource: string;
+  coverSource?: string;
   rating: number;
   reviewCount: number;
   products: StoreProductSpec[];
@@ -413,9 +414,9 @@ const STORES: StoreSpec[] = [
     description: 'Independent Barcelona label of playful, sculptural knitwear and ready-to-wear.',
     brandColor: 'rgb(132,112,93)',
     textTone: 'light',
-    logoFileId:
+    logoSource:
       'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1773914536/logo.png?format=webp&width=64',
-    coverFileId:
+    coverSource:
       'https://cdn.shopify.com/shop-assets/shopify_brokers/palomawool.myshopify.com/1773914305/PWSS26_B-12.jpeg?width=800',
     rating: 4.9,
     reviewCount: 1400,
@@ -453,9 +454,9 @@ const STORES: StoreSpec[] = [
     description: 'New York atelier known for elevated, effortless wardrobe staples.',
     brandColor: 'rgb(126,122,112)',
     textTone: 'light',
-    logoFileId:
+    logoSource:
       'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1784834046/logo.png?format=webp&width=64',
-    coverFileId:
+    coverSource:
       'https://cdn.shopify.com/shop-assets/shopify_brokers/nili-lotan.myshopify.com/1783446974/Slice111.jpg.jpeg?width=800',
     rating: 4.7,
     reviewCount: 128,
@@ -493,7 +494,7 @@ const STORES: StoreSpec[] = [
     description: 'Clean, vegan, cruelty-free beauty made for life on the go.',
     brandColor: 'rgb(214,71,107)',
     textTone: 'light',
-    logoFileId:
+    logoSource:
       'https://cdn.shopify.com/shop-assets/shopify_brokers/milkmakeup21.myshopify.com/1699543597/logo.png?format=webp&width=64',
     rating: 4.8,
     reviewCount: 5200,
@@ -708,7 +709,7 @@ async function seedCategories(counts: SeedCounts): Promise<void> {
       key: top.key,
       name: top.name,
       slug: top.slug,
-      imageUrl: top.pillImage,
+      imageFileId: seedMediaFileId(top.pillImage),
       position: topIndex,
     });
     counts.categories += 1;
@@ -719,7 +720,7 @@ async function seedCategories(counts: SeedCounts): Promise<void> {
         name: child.name,
         slug: child.slug,
         parentId: parent.id,
-        imageUrl: child.image,
+        imageFileId: seedMediaFileId(child.image),
         position: childIndex,
       });
       counts.categories += 1;
@@ -743,7 +744,7 @@ function toStoreProductInput(
     title: product.title,
     description: product.description,
     category: product.categorySlug,
-    imageFileIds: [product.image, ...(product.gallery ?? [])],
+    imageFileIds: [product.image, ...(product.gallery ?? [])].map(seedMediaFileId),
     tags: [storeSpec.name.toLowerCase(), product.categorySlug, ...(product.extraTags ?? [])],
     options: (product.options ?? []).map((o) => ({ name: o.name, values: [...o.values] })),
     variants: product.variants.map((spec) => ({
@@ -774,8 +775,8 @@ async function seedStore(storeSpec: StoreSpec, counts: SeedCounts): Promise<void
     description: storeSpec.description,
     brandColor: storeSpec.brandColor,
     defaultCurrency: SEED_CURRENCY,
-    logoFileId: storeSpec.logoFileId,
-    coverFileId: storeSpec.coverFileId,
+    logoFileId: seedMediaFileId(storeSpec.logoSource),
+    coverFileId: storeSpec.coverSource ? seedMediaFileId(storeSpec.coverSource) : undefined,
   });
   counts.stores += 1;
 
@@ -1191,7 +1192,7 @@ async function seedP2P(counts: SeedCounts): Promise<void> {
       price: fair(spec.price),
       itemCondition: spec.condition,
       category: spec.categorySlug,
-      imageFileIds: [...spec.images],
+      imageFileIds: spec.images.map(seedMediaFileId),
       tags: ['secondhand', spec.categorySlug],
       quantity: spec.available,
     });
@@ -1337,6 +1338,21 @@ async function seed(): Promise<void> {
   // Before the database is opened, so a fixture the domain rules refuse costs
   // nothing and leaves nothing.
   assertP2PFixturesCanPublish();
+  // Validate every imported asset before clearing anything. Seeds consume real
+  // Oxy files; supplier URLs remain source metadata, never file IDs.
+  for (const top of TAXONOMY) {
+    if (top.listing === 'internal_only') continue;
+    seedMediaFileId(top.pillImage);
+    top.children.forEach((child) => seedMediaFileId(child.image));
+  }
+  for (const store of STORES) {
+    seedMediaFileId(store.logoSource);
+    if (store.coverSource) seedMediaFileId(store.coverSource);
+    store.products.forEach((product) =>
+      [product.image, ...(product.gallery ?? [])].forEach(seedMediaFileId),
+    );
+  }
+  P2P_LISTINGS.forEach((listing) => listing.images.forEach(seedMediaFileId));
 
   const db = await connectPostgres();
 

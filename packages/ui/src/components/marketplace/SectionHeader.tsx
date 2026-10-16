@@ -1,3 +1,4 @@
+import type { ReactElement, ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { ShopDetailIcon } from './ShopDetailIcon';
 import { Text } from '../ui/text';
@@ -8,6 +9,8 @@ const CHEVRON_ICON_SIZE = 20;
 
 export interface SectionHeaderProps {
   title: string;
+  /** Use renderLink for navigation and onPress for an action. */
+  renderLink?: (child: ReactElement) => ReactNode;
   onPress?: () => void;
   showChevron?: boolean;
   /** False when Bloom's Carousel header already owns the inset and spacing. */
@@ -23,6 +26,7 @@ export interface SectionHeaderProps {
 export function SectionHeader({
   title,
   onPress,
+  renderLink,
   showChevron = false,
   inset = true,
   chevronPosition = 'end',
@@ -30,7 +34,7 @@ export function SectionHeader({
   const { colors } = useColorScheme();
 
   // Plain branch — matches the existing shelf heading exactly.
-  if (!onPress && !showChevron) {
+  if (!renderLink && !onPress && !showChevron) {
     return (
       <Text
         accessibilityRole="header"
@@ -57,10 +61,10 @@ export function SectionHeader({
     </>
   );
 
-  if (onPress) {
-    return (
+  if (renderLink || onPress) {
+    const control = (
       <Pressable
-        accessibilityRole="link"
+        accessibilityRole={renderLink ? 'link' : 'button'}
         accessibilityLabel={title}
         onPress={onPress}
         className={`flex-row items-center gap-2 ${inset ? 'justify-between px-4 pb-3 md:px-5' : ''}`}
@@ -68,6 +72,7 @@ export function SectionHeader({
         {inner}
       </Pressable>
     );
+    return renderLink ? renderLink(control) : control;
   }
 
   return (

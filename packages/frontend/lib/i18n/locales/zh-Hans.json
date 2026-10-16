@@ -143,6 +143,7 @@
     "notFound": "未找到该商品。",
     "visitA11y": "访问 %{name}",
     "moreFromStore": "%{name} 的更多商品",
+    "youMightAlsoLike": "你可能还喜欢",
     "compareOffersA11y": "比较该商品的所有报价",
     "compareOffers": "比较所有报价",
     "percentOff": "省 %{percent}%",
@@ -234,7 +235,8 @@
       "product": "关于此商品",
       "variant": "关于此配置",
       "definitionsUnavailable": "部分名称按存储的原样显示。",
-      "untranslated": "部分名称尚未翻译成你的语言。"
+      "untranslated": "部分名称尚未翻译成你的语言。",
+      "loadError": "无法加载规格。请重试。"
     },
     "variants": {
       "unavailable": "暂无供应",
@@ -472,6 +474,17 @@
       "count": "%{formattedCount}人觉得有帮助",
       "error": "无法更新你的投票。请重试。",
       "retry": "重新加载投票"
+    },
+    "media": {
+      "add": "添加照片或视频",
+      "prompt": "将文件拖到此处或",
+      "uploading": "正在上传…",
+      "uploaded": "上传完成",
+      "invalid": "最多10个文件：JPG、PNG、WebP、GIF或AVIF图片不超过20 MB；MP4或WebM视频不超过100 MB。",
+      "publicNotice": "上传的文件是公开的。在此移除附件不会将其从你的Oxy文件中删除。",
+      "failed": "无法验证上传，请重试。",
+      "remove": "移除%{filename}",
+      "removeAction": "移除"
     }
   },
   "search": {
@@ -673,7 +686,8 @@
       "actionLabel": "关注 %{name}"
     },
     "linkCard": {
-      "viewProfile": "查看 %{name} 的主页"
+      "viewProfile": "查看 %{name} 的主页",
+      "visitProfile": "查看个人资料"
     },
     "report": {
       "action": "举报",
@@ -1207,6 +1221,15 @@
       "collectHere": "在线下单，到店自取",
       "placeRatingSubject": "GoWay 上的%{place}",
       "photoLabel": "%{place}的照片"
+    },
+    "contact": {
+      "title": "联系%{store}",
+      "unavailable": "无法加载联系信息。",
+      "empty": "此商店尚未公布联系信息。",
+      "website": "网站",
+      "copy": "复制%{value}",
+      "copied": "已复制",
+      "copyFailed": "无法复制。请重试。"
     }
   },
   "offer": {
@@ -1540,6 +1563,17 @@
       "updateFailed": "无法更新该地址",
       "removed": "地址已删除",
       "removeFailed": "无法删除该地址"
+    },
+    "picker": {
+      "search": "使用 GoWay 查找地址",
+      "help": "搜索街道和城市，然后选择并核对地址。",
+      "placeholder": "街道、门牌号和城市",
+      "loading": "正在搜索 GoWay…",
+      "error": "暂时无法搜索地址。请重试或手动输入地址。",
+      "partial": "部分地址来源暂不可用，结果可能不完整。",
+      "empty": "未找到地址。请添加城市或手动输入地址。",
+      "review": "核对地址详情",
+      "manual": "手动输入地址"
     }
   },
   "shoppingAgents": {

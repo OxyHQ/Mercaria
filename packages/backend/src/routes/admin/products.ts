@@ -30,6 +30,7 @@ import {
 } from '../../controllers/admin/products-admin.controller.js';
 import { makeListingLocalizationRouter } from '../../controllers/listing-localizations.controller.js';
 import { makeVariantImageRouter } from '../../controllers/variant-images.controller.js';
+import { productMediaRouter } from './product-media.js';
 
 /**
  * Store products sub-router, mounted at `/admin/stores/:storeId/products`.
@@ -40,6 +41,7 @@ import { makeVariantImageRouter } from '../../controllers/variant-images.control
  * inventory absolute-set requires `inventory:write`.
  */
 const router = Router({ mergeParams: true });
+router.use('/media', productMediaRouter);
 
 router.get('/', requireStorePermission('products:read'), listProducts);
 router.post(

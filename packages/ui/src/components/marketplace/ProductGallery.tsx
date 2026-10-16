@@ -1,15 +1,29 @@
-import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type Ref,
+  type ReactNode,
+} from 'react';
 import { Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import { Button } from '@oxy.so/bloom/button';
+import { Box as SkeletonBox } from '@oxy.so/bloom/skeleton';
 import { Carousel, CarouselItem, type CarouselProps } from '@oxy.so/bloom/carousel';
 import { useIsRtl } from '@oxy.so/bloom/hooks';
 import {
   ZoomableMediaGallery,
   type ZoomableMediaGalleryHandle,
   type MeasuredRect,
+  type GalleryMedia,
+  type GalleryVideo,
 } from '@oxy.so/bloom/zoomable-media-gallery';
+import { MediaSurface } from '@oxy.so/bloom/media-flight';
+import { Play, Expand } from 'lucide-react-native';
 import { Text } from '../ui/text';
+import { useColorScheme } from '../../lib/useColorScheme';
 import { cn } from '../../lib/cn';
 import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -26,7 +40,12 @@ export interface ProductGalleryImage {
   alt?: string;
 }
 export interface ProductGalleryProps {
-  images: ProductGalleryImage[];
+  images?: ProductGalleryImage[];
+  media?: GalleryMedia[];
+  onIndexChange?: (index: number) => void;
+  onOpenChange?: (open: boolean) => void;
+  renderVideoStatus?: (media: GalleryVideo) => ReactNode;
+  loading?: boolean;
   title: string;
   className?: string;
   ref?: Ref<ProductGalleryHandle>;
@@ -54,12 +73,32 @@ const TABLET_ARROW_BUTTON_PROPS = {
  * Arrows, swipe and thumbnails update the same index. Bloom owns fullscreen
  * zoom/pan and media transitions. A changed media set resets the index without
  * remounting the gallery or blanking images shared by two configurations. */
-export function ProductGallery({ images, title, ref, className }: ProductGalleryProps) {
+export function ProductGallery({
+  images,
+  media,
+  title,
+  ref,
+  className,
+  onIndexChange,
+  onOpenChange,
+  renderVideoStatus,
+  loading,
+}: ProductGalleryProps) {
+  const items: GalleryMedia[] = media ?? images ?? [];
+  const [viewerOpen, setViewerOpen] = useState(false);
   const { width, height } = useWindowDimensions();
   const rtl = useIsRtl();
+  const { colors } = useColorScheme();
   const t = useSharedUiTranslation();
   const [index, setIndex] = useState(0);
-  const mediaKey = images.map((image) => image.uri).join('\u0000');
+  // Retrying a clip replaces its player/session, not its selected gallery slot.
+  // The viewer snapshot must still unmount before the old session is released.
+  const mediaKey = items
+    .map((item) => (item.kind === 'video' ? (item.shareUrl ?? item.id) : item.uri))
+    .join('\u0000');
+  const viewerKey = items
+    .map((item) => (item.kind === 'video' ? `${item.id}:${item.shareUrl ?? ''}` : item.uri))
+    .join('\u0000');
   const [previousMediaKey, setPreviousMediaKey] = useState(mediaKey);
   if (previousMediaKey !== mediaKey) {
     setPreviousMediaKey(mediaKey);
@@ -81,8 +120,11 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
   // thumbnails to its taller desktop gallery at lg (976).
   const desktop = width >= 976;
   const showThumbnails = width >= 768;
-  const hasMany = images.length > 1;
-  const activeIndex = Math.min(index, Math.max(0, images.length - 1));
+  const hasMany = items.length > 1;
+  const hasVideo = items.some((item) => item.kind === 'video');
+  const previousLabel = t(hasVideo ? 'ui.carousel.previous' : GALLERY_PREVIOUS_KEY);
+  const nextLabel = t(hasVideo ? 'ui.carousel.next' : GALLERY_NEXT_KEY);
+  const activeIndex = Math.min(index, Math.max(0, items.length - 1));
   // ScrollView's horizontal offsets are negative on RTL web, physical on
   // Android and already logical on iOS. The rail tracks distance from start.
   const thumbnailScrollOffset = useCallback(
@@ -90,10 +132,10 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
       if (desktop || !rtl) return offset;
       if (Platform.OS === 'web') return -offset;
       if (Platform.OS === 'android')
-        return Math.max(0, images.length * 54 - 6 - thumbnailViewportExtent) - offset;
+        return Math.max(0, items.length * 54 - 6 - thumbnailViewportExtent) - offset;
       return offset;
     },
-    [desktop, rtl, images.length, thumbnailViewportExtent],
+    [desktop, rtl, items.length, thumbnailViewportExtent],
   );
   // Shop uses 48px thumbnails with 6px between them. Keep the selected photo
   // visible when the carousel/viewer changes it beyond the rail's viewport.
@@ -130,6 +172,16 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
       : height * 0.45;
   const imageWidth = Math.max(0, (panelWidth || width) - (desktop && hasMany ? 64 : 0));
   const select = (next: number) => setIndex(next);
+  useEffect(() => {
+    onIndexChange?.(activeIndex);
+  }, [activeIndex, onIndexChange]);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      setViewerOpen(open);
+      onOpenChange?.(open);
+    },
+    [onOpenChange],
+  );
   const measureThumb = useCallback(
     (position: number) =>
       new Promise<MeasuredRect | null>((resolve) => {
@@ -146,15 +198,15 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
   );
   const openViewer = async (position: number) => {
     const rect = await measureThumb(position);
-    viewer.current?.open(images, position, rect ?? undefined);
+    viewer.current?.open(items, position, rect ?? undefined);
   };
   useImperativeHandle(
     ref,
     () => ({
-      activeImage: images[activeIndex],
+      activeImage: items[activeIndex]?.kind === 'video' ? undefined : items[activeIndex],
       measureActiveImage: () => measureThumb(activeIndex),
     }),
-    [activeIndex, images, measureThumb],
+    [activeIndex, items, measureThumb],
   );
 
   const thumbnails = () => (
@@ -180,14 +232,17 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
       scrollEventThrottle={16}
       testID="product-thumbnails"
     >
-      {images.map((image, position) => (
+      {items.map((image, position) => (
         <Button
-          key={`${image.uri}-${position}`}
+          key={`${image.kind === 'video' ? image.id : image.uri}-${position}`}
           iconOnly
           appearance="plain"
           material="flat"
           className="group"
-          accessibilityLabel={t(GALLERY_VIEW_IMAGE_KEY, { position: position + 1 })}
+          accessibilityLabel={t(
+            image.kind === 'video' ? 'ui.gallery.viewVideo' : GALLERY_VIEW_IMAGE_KEY,
+            { position: position + 1 },
+          )}
           pressed={position === activeIndex}
           onPress={() => select(position)}
           onFocus={() => select(position)}
@@ -208,7 +263,24 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
             backgroundColor: '#fff',
           }}
         >
-          <Image source={{ uri: image.uri }} contentFit="cover" style={{ width: 48, height: 48 }} />
+          {image.kind === 'video' ? (
+            <View className="h-full w-full items-center justify-center bg-bg-fill-secondary">
+              {image.poster ? (
+                <Image
+                  source={{ uri: image.poster }}
+                  contentFit="cover"
+                  style={{ position: 'absolute', width: 48, height: 48 }}
+                />
+              ) : null}
+              <Play size={20} color={colors.foreground} />
+            </View>
+          ) : (
+            <Image
+              source={{ uri: image.uri }}
+              contentFit="cover"
+              style={{ width: 48, height: 48 }}
+            />
+          )}
           <View
             pointerEvents="none"
             className="absolute inset-0 rounded-[8px] border-[0.5px] border-border-image"
@@ -236,54 +308,90 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
       arrowButtonProps={desktop ? GALLERY_ARROW_BUTTON_PROPS : TABLET_ARROW_BUTTON_PROPS}
       showDots={false}
       gap={0}
-      previousLabel={t(GALLERY_PREVIOUS_KEY)}
-      nextLabel={t(GALLERY_NEXT_KEY)}
+      previousLabel={previousLabel}
+      nextLabel={nextLabel}
       testID="product-gallery-carousel"
       style={{ minWidth: 0, flex: 1 }}
     >
-      {images.map((image, position) => (
-        <CarouselItem key={`${image.uri}-${position}`}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('ui.gallery.open', { title })}
-            onPress={() => void openViewer(position)}
-            style={{
-              height: frameHeight,
-              overflow: 'hidden',
-              borderRadius: 28,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <View
-              ref={(frame) => {
-                frames.current[position] = frame;
-              }}
-              className="md:shadow-shop-s"
+      {items.map((image, position) => (
+        <CarouselItem key={`${image.kind === 'video' ? image.id : image.uri}-${position}`}>
+          {image.kind === 'video' ? (
+            <View style={{ height: frameHeight, alignItems: 'center', justifyContent: 'center' }}>
+              <View
+                ref={(frame) => {
+                  frames.current[position] = frame;
+                }}
+                style={{
+                  width: imageWidth,
+                  height: frameHeight,
+                  overflow: 'hidden',
+                  borderRadius: 28,
+                }}
+              >
+                <MediaSurface
+                  content={image}
+                  detached={viewerOpen || position !== activeIndex}
+                  nativeControls
+                  contentFit="contain"
+                  accessibilityLabel={image.alt ?? title}
+                  style={{ width: '100%', height: '100%' }}
+                />
+                <View className="absolute top-3 end-3">
+                  <Button
+                    iconOnly
+                    renderLeadingIcon={({ size, color }) => <Expand size={size} color={color} />}
+                    appearance="outline"
+                    material="flat"
+                    accessibilityLabel={t('ui.gallery.openVideo', { title })}
+                    onPress={() => void openViewer(position)}
+                  />
+                </View>
+                {!viewerOpen && position === activeIndex ? renderVideoStatus?.(image) : null}
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('ui.gallery.open', { title })}
+              onPress={() => void openViewer(position)}
               style={{
-                width: Math.min(imageWidth, frameHeight * (ratios[image.uri] ?? 1)),
-                height: Math.min(frameHeight, imageWidth / (ratios[image.uri] ?? 1)),
+                height: frameHeight,
                 overflow: 'hidden',
                 borderRadius: 28,
-                backgroundColor: '#fff',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              <Image
-                source={{ uri: image.uri }}
-                contentFit="contain"
-                style={{ width: '100%', height: '100%' }}
-                accessibilityLabel={image.alt ?? title}
-                onLoad={({ source }) => {
-                  if (source.width > 0 && source.height > 0) {
-                    const ratio = source.width / source.height;
-                    setRatios((current) =>
-                      current[image.uri] === ratio ? current : { ...current, [image.uri]: ratio },
-                    );
-                  }
+              <View
+                ref={(frame) => {
+                  frames.current[position] = frame;
                 }}
-              />
-            </View>
-          </Pressable>
+                className="md:shadow-shop-s"
+                style={{
+                  width: Math.min(imageWidth, frameHeight * (ratios[image.uri] ?? 1)),
+                  height: Math.min(frameHeight, imageWidth / (ratios[image.uri] ?? 1)),
+                  overflow: 'hidden',
+                  borderRadius: 28,
+                  backgroundColor: '#fff',
+                }}
+              >
+                <Image
+                  source={{ uri: image.uri }}
+                  contentFit="contain"
+                  style={{ width: '100%', height: '100%' }}
+                  accessibilityLabel={image.alt ?? title}
+                  onLoad={({ source }) => {
+                    if (source.width > 0 && source.height > 0) {
+                      const ratio = source.width / source.height;
+                      setRatios((current) =>
+                        current[image.uri] === ratio ? current : { ...current, [image.uri]: ratio },
+                      );
+                    }
+                  }}
+                />
+              </View>
+            </Pressable>
+          )}
         </CarouselItem>
       ))}
     </Carousel>
@@ -295,7 +403,9 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
       testID="product-gallery"
       onLayout={(event) => setPanelWidth(event.nativeEvent.layout.width)}
     >
-      {images.length === 0 ? (
+      {items.length === 0 && loading ? (
+        <SkeletonBox height={frameHeight} borderRadius={28} />
+      ) : items.length === 0 ? (
         <View
           style={{ height: frameHeight }}
           className="items-center justify-center rounded-radius-28 bg-bg-fill-secondary"
@@ -317,16 +427,26 @@ export function ProductGallery({ images, title, ref, className }: ProductGallery
         </View>
       )}
       <ZoomableMediaGallery
+        key={viewerKey}
         ref={viewer}
+        onOpenChange={handleOpenChange}
+        videoControls
+        renderVideoOverlay={renderVideoStatus}
         appearance="page"
         onIndexChange={setIndex}
         measureThumb={measureThumb}
         cornerRadius={28}
         indicatorVariant="thumbnails"
         labels={{
-          previous: t(GALLERY_PREVIOUS_KEY),
-          next: t(GALLERY_NEXT_KEY),
-          goTo: (position) => t(GALLERY_VIEW_IMAGE_KEY, { position }),
+          previous: previousLabel,
+          next: nextLabel,
+          goTo: (position) =>
+            t(
+              items[position - 1]?.kind === 'video'
+                ? 'ui.gallery.viewVideo'
+                : GALLERY_VIEW_IMAGE_KEY,
+              { position },
+            ),
         }}
       />
     </View>

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
 import type { ProductBundleComponent, ProductBundleContents } from '@mercaria/shared-types';
 import { Text } from '../ui/text';
@@ -11,7 +11,8 @@ export interface BundleContentsProps {
   contents?: ProductBundleContents;
   pending?: boolean;
   resolveImage: (image: NonNullable<ProductBundleComponent['image']>) => string | undefined;
-  onPressComponent: (component: ProductBundleComponent) => void;
+  /** App-owned routing keeps web anchors and native navigation on the same target. */
+  renderLink: (component: ProductBundleComponent, child: ReactElement) => ReactNode;
 }
 
 /** Shop's three-item phone rail and four/five-column gallery-side grid. */
@@ -19,7 +20,7 @@ export function BundleContents({
   contents,
   pending = false,
   resolveImage,
-  onPressComponent,
+  renderLink,
 }: BundleContentsProps) {
   const t = useSharedUiTranslation();
   const { width } = useWindowDimensions();
@@ -38,7 +39,7 @@ export function BundleContents({
       component={component}
       disabled={pending}
       uri={component.image ? resolveImage(component.image) : undefined}
-      onPress={() => onPressComponent(component)}
+      renderLink={(child) => renderLink(component, child)}
     />
   );
   return (
@@ -105,21 +106,20 @@ export function BundleContents({
 function BundleComponentCard({
   component,
   uri,
-  onPress,
+  renderLink,
   disabled,
 }: {
   component: ProductBundleComponent;
   uri?: string;
-  onPress: () => void;
+  renderLink: (child: ReactElement) => ReactNode;
   disabled: boolean;
 }) {
   const t = useSharedUiTranslation();
   const [failedUri, setFailedUri] = useState<string>();
-  return (
+  const card = (
     <Pressable
       testID="bundled-product-card"
       accessibilityRole="link"
-      onPress={onPress}
       disabled={disabled}
       accessibilityState={{ disabled }}
       accessibilityLabel={t('ui.bundle.open', {
@@ -164,4 +164,6 @@ function BundleComponentCard({
       </View>
     </Pressable>
   );
+  // A stale configuration must not retain a destination for modified clicks.
+  return disabled ? card : renderLink(card);
 }

@@ -71,7 +71,8 @@ vi.mock('../commercial-presentation/retail-order.service.js', () => ({
   readRetailOrderExperience: (...args: unknown[]) => readRetailOrderExperience(...args),
 }));
 
-vi.mock('../catalog-hydration.service.js', () => ({
+vi.mock('../catalog-hydration.service.js', async (original) => ({
+  ...(await original<typeof import('../catalog-hydration.service.js')>()),
   resolveMedia: (id: string) => `media:${id}`,
   toStoreSummary: () => ({ id: 'store-1', handle: 'acme', name: 'Acme' }),
 }));
@@ -297,23 +298,21 @@ describe('v1 contract — Order.buyerOxyUserId (read)', () => {
       {
         ...first,
         items: [
-          item(first.id, 'Original red', 'https://images.example/red.jpg', 3),
+          item(first.id, 'Original red', 'https://cloud.oxy.so/red', 3),
           item(first.id, 'Without photograph', null, 1),
-          item(first.id, 'Original blue', 'https://images.example/blue.jpg', 2),
+          item(first.id, 'Original blue', 'https://cloud.oxy.so/blue', 2),
+          item(first.id, 'Legacy external photograph', 'https://supplier.example/legacy.jpg', 1),
         ],
       },
-      {
-        ...second,
-        items: [item(second.id, 'Other purchase', 'https://images.example/other.jpg', 1)],
-      },
+      { ...second, items: [item(second.id, 'Other purchase', 'https://cloud.oxy.so/other', 1)] },
       oxyOrder(),
     ]);
     expect(a.images).toEqual([
-      { url: 'https://images.example/red.jpg', alt: 'Original red' },
-      { url: 'https://images.example/blue.jpg', alt: 'Original blue' },
+      { url: 'https://cloud.oxy.so/red', alt: 'Original red' },
+      { url: 'https://cloud.oxy.so/blue', alt: 'Original blue' },
     ]);
-    expect(a.itemCount).toBe(6);
-    expect(b.images).toEqual([{ url: 'https://images.example/other.jpg', alt: 'Other purchase' }]);
+    expect(a.itemCount).toBe(7);
+    expect(b.images).toEqual([{ url: 'https://cloud.oxy.so/other', alt: 'Other purchase' }]);
     expect(empty.images).toEqual([]);
     expect(findStoresByIds).toHaveBeenCalledTimes(1);
   });

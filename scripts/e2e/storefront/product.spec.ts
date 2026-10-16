@@ -1185,7 +1185,7 @@ test('review search submits to the server, preserves the aggregate and restores 
   await expect(dialog).toBeVisible();
 });
 
-test('merchant-authored return policy expands and share copies the selected variant URL', async ({
+test('merchant-authored return policy opens and share copies the selected variant URL', async ({
   page,
   context,
   request,
@@ -1202,6 +1202,8 @@ test('merchant-authored return policy expands and share copies the selected vari
   await page.goto(`/products/${product.id}?variantId=${variant.id}`);
   await page.getByRole('button', { name: 'Return policy', exact: true }).click();
   await expect(page.getByText('Local browser fixture: returns within 14 days.')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('product-return-policy-dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Share this product', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Link copied', exact: true })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(

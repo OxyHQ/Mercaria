@@ -52,6 +52,7 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray } from 'drizzle-orm';
+import { resolveMedia } from '../catalog-hydration.service.js';
 import { uuidv7 } from '@oxy.so/db';
 import type {
   CardGroupSection,
@@ -99,6 +100,7 @@ async function makeCategory(
     parentId?: string;
     ancestorIds?: string[];
     imageUrl?: string;
+    imageFileId?: string;
     position?: number;
     isActive?: boolean;
   } = {},
@@ -113,6 +115,7 @@ async function makeCategory(
       parentId: overrides.parentId ?? null,
       ancestorIds: overrides.ancestorIds ?? [],
       imageUrl: overrides.imageUrl ?? null,
+      imageFileId: overrides.imageFileId ?? '',
       position: overrides.position ?? 0,
       isActive: overrides.isActive ?? true,
     })
@@ -525,34 +528,45 @@ describe('getDiscoveryFeed', () => {
     // sorts by `(parentId, position, slug)` and every child here shares a
     // `parentId`, so a random slug suffix would leave sample order (and thus
     // which two survive the cap) to chance.
-    const category = await makeCategory({ position: -2_000_000_000 });
+    const category = await makeCategory({
+      position: -2_000_000_000,
+      imageUrl: 'https://supplier.example/category.jpg',
+    });
     await makeCategory({
       parentId: category.id,
       ancestorIds: [category.id],
       position: 0,
-      imageUrl: 'https://example.com/discovery-sample-1.jpg',
+      imageFileId: 'discovery-sample-1',
     });
-    await makeCategory({ parentId: category.id, ancestorIds: [category.id], position: 1 }); // no image — a skipped entry, never a blank slot
+    await makeCategory({
+      parentId: category.id,
+      ancestorIds: [category.id],
+      position: 1,
+      imageUrl: 'https://supplier.example/child.jpg',
+    }); // not imported — skipped, never hotlinked
     await makeCategory({
       parentId: category.id,
       ancestorIds: [category.id],
       position: 2,
-      imageUrl: 'https://example.com/discovery-sample-2.jpg',
+      imageUrl: resolveMedia('discovery-sample-2'),
     });
     await makeCategory({
       parentId: category.id,
       ancestorIds: [category.id],
       position: 3,
-      imageUrl: 'https://example.com/discovery-sample-3.jpg',
+      imageFileId: 'discovery-sample-3',
     }); // a third available image — never reached, the tile has exactly two slots
 
     const feed = await getDiscoveryFeed({ kind: 'root' });
 
     const tiles = feed.sections.find((s): s is CategoryTilesSection => s.kind === 'category-tiles');
     const tile = tiles?.tiles.find((t) => t.slug === category.slug);
+    expect(tile).not.toHaveProperty('imageUrl');
+    expect(tile).not.toHaveProperty('imageFileId');
+    expect(tile?.sampleImageFileIds).toEqual(['discovery-sample-1', 'discovery-sample-2']);
     expect(tile?.sampleImageUrls).toEqual([
-      'https://example.com/discovery-sample-1.jpg',
-      'https://example.com/discovery-sample-2.jpg',
+      resolveMedia('discovery-sample-1'),
+      resolveMedia('discovery-sample-2'),
     ]);
   });
 
@@ -565,6 +579,7 @@ describe('getDiscoveryFeed', () => {
     const tiles = feed.sections.find((s): s is CategoryTilesSection => s.kind === 'category-tiles');
     const tile = tiles?.tiles.find((t) => t.slug === category.slug);
     expect(tile?.sampleImageUrls).toBeUndefined();
+    expect(tile?.sampleImageFileIds).toBeUndefined();
   });
 
   it('a category scope names its own shelves and stores section, even though its own name is never among its own subcategory tiles', async () => {

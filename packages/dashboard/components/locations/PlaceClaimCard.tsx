@@ -4,6 +4,7 @@ import type { PlaceClaim, PlaceClaimRole } from '@goway.to/sdk';
 import { Text } from '@mercaria/ui';
 import { Badge } from '@oxy.so/bloom/badge';
 import { Button } from '@oxy.so/bloom/button';
+import { Loading } from '@oxy.so/bloom/loading';
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -41,11 +42,17 @@ export function PlaceClaimCard({
   oxyAccountId,
   claim,
   claimsUnreadable,
+  claimsPending,
+  claimsFetching,
+  onRetryClaims,
 }: {
   placeId: string;
   oxyAccountId: string;
   claim: PlaceClaim | undefined;
   claimsUnreadable: boolean;
+  claimsPending: boolean;
+  claimsFetching: boolean;
+  onRetryClaims: () => void;
 }) {
   const { t } = useTranslation();
   const file = useClaimGoWayPlace(placeId);
@@ -56,10 +63,22 @@ export function PlaceClaimCard({
       title={t('settings.locations.editor.claim.title')}
       description={t('settings.locations.editor.claim.description')}
     >
+      {claimsPending ? (
+        <Loading variant="inline" size="sm" accessibilityLabel={t('common.loading')} />
+      ) : null}
       {claimsUnreadable ? (
-        <Text className="text-sm text-muted-foreground">
-          {t('settings.locations.editor.claim.unreadable')}
-        </Text>
+        <View className="gap-2" accessibilityLiveRegion="polite">
+          <Text className="text-sm text-muted-foreground">
+            {t('settings.locations.editor.claim.unreadable')}
+          </Text>
+          <Button
+            appearance="outline"
+            disabled={claimsFetching || file.isPending}
+            onPress={onRetryClaims}
+          >
+            {t('common.retry')}
+          </Button>
+        </View>
       ) : null}
       {claim ? (
         <View className="flex-row items-center gap-2">
@@ -83,9 +102,14 @@ export function PlaceClaimCard({
           {t('settings.locations.editor.claim.pendingNote')}
         </Text>
       ) : null}
-      {canFileClaim(claim) ? (
+      {!claimsPending && !claimsUnreadable && canFileClaim(claim) ? (
         <View className="gap-2">
-          <SegmentedControl type="radio" value={role} onValueChange={setRole}>
+          <SegmentedControl
+            type="radio"
+            disabled={file.isPending}
+            value={role}
+            onValueChange={setRole}
+          >
             {CLAIM_ROLES.map((option) => (
               <SegmentedControlItem key={option} value={option}>
                 <SegmentedControlItemText>{t(CLAIM_ROLE_KEYS[option])}</SegmentedControlItemText>
@@ -95,15 +119,16 @@ export function PlaceClaimCard({
           <Button
             tone="accent"
             loading={file.isPending}
-            onPress={() =>
+            onPress={() => {
+              if (file.isPending || claimsPending || claimsUnreadable) return;
               file.mutate(
                 { oxyAccountId, role },
                 {
                   onSuccess: () => toast.success(t('settings.locations.editor.claim.filed')),
                   onError: (error) => toast.error(t(goWayErrorKey(error))),
                 },
-              )
-            }
+              );
+            }}
           >
             {t('settings.locations.editor.claim.file')}
           </Button>

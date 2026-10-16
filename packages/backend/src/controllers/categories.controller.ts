@@ -18,6 +18,7 @@ import { parsePagination } from '../utils/pagination.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError, notFound } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
+import { toCategoryImage } from '../services/catalog-hydration.service.js';
 
 /** Build the nested `CategoryNode` tree from a flat list of categories. */
 function buildTree(categories: CategoryRecord[]): CategoryNode[] {
@@ -33,9 +34,7 @@ function buildTree(categories: CategoryRecord[]): CategoryNode[] {
       parentId: c.parentId,
       children: [],
     };
-    if (c.imageUrl) {
-      node.imageUrl = c.imageUrl;
-    }
+    Object.assign(node, toCategoryImage(c));
     nodeById.set(id, node);
   }
 

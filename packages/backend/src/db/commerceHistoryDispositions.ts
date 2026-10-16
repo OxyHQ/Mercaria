@@ -988,6 +988,14 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'A reader may add or retract a helpfulness vote; it is mutable feedback, not a transaction snapshot.',
   },
   {
+    table: 'review_media',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: [],
+    reason:
+      'Ordered file references are review content, not a transaction snapshot; deletion follows the parent review by cascade and public visibility follows its moderation state.',
+  },
+  {
     table: 'review_target_migrations',
     rowUpdate: 'refused',
     rowDelete: 'refused',

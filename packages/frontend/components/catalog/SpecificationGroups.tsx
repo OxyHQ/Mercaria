@@ -30,6 +30,8 @@ import type { SpecificationGroup, SpecificationTable } from '@/lib/catalog/speci
 
 export interface SpecificationGroupsProps {
   table: SpecificationTable;
+  /** The enclosing product accordion already labels this section. */
+  showTitle?: boolean;
   /**
    * True when the definition read failed, so every label fell back to the value
    * projection's own — which the server falls back to the stable KEY on.
@@ -37,16 +39,22 @@ export interface SpecificationGroupsProps {
   definitionsUnavailable: boolean;
 }
 
-export function SpecificationGroups({ table, definitionsUnavailable }: SpecificationGroupsProps) {
+export function SpecificationGroups({
+  table,
+  definitionsUnavailable,
+  showTitle = true,
+}: SpecificationGroupsProps) {
   const { t } = useTranslation();
 
   if (table.groups.length === 0) return null;
 
   return (
     <View className="gap-space-24">
-      <Text className="text-shop-captionBold text-text" accessibilityRole="header">
-        {t('catalog.specs.title')}
-      </Text>
+      {showTitle ? (
+        <Text className="text-shop-captionBold text-text" accessibilityRole="header">
+          {t('catalog.specs.title')}
+        </Text>
+      ) : null}
 
       {definitionsUnavailable ? (
         <Text className="text-shop-caption text-text-tertiary">

@@ -1,7 +1,8 @@
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { merchantImageSource } from '@mercaria/ui';
 import { useEffect } from 'react';
 import { View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '@mercaria/ui';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useOxy } from '@oxy.so/services';
@@ -43,6 +44,7 @@ export default function BrandPageScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { oxyServices } = useOxy();
+  const resolveImage = useImageResolver();
 
   const { data: brand, isLoading, isError } = useBrandPage(handle);
   const products = useBrandProducts(handle);
@@ -119,7 +121,7 @@ export default function BrandPageScreen() {
           <View className="flex-row items-center gap-4">
             {logoUrl ? (
               <Image
-                source={merchantImageSource(logoUrl)}
+                source={merchantImageSource(logoUrl, resolveImage)}
                 contentFit="contain"
                 style={{ width: LOGO_SIZE, height: LOGO_SIZE }}
                 className="rounded-2xl bg-card"

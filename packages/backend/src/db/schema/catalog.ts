@@ -39,6 +39,7 @@ import type { SQL } from 'drizzle-orm';
 import { createdAt, generatedId, timestamptz, tsvector, updatedAt } from '@oxy.so/db';
 import {
   ALL_LISTING_STATUSES,
+  CATALOG_MEDIA_KINDS,
   CATEGORY_KEY_PATTERN,
   CATEGORY_LIFECYCLES,
   CONDITION_ASSERTIONS,
@@ -628,12 +629,18 @@ export const listingImages = pgTable(
       .references(() => listings.id, { onDelete: 'cascade' }),
     /** An Oxy media file id — no foreign key; Oxy owns the file. */
     fileId: text().notNull(),
+    /** Existing rows are images; one mixed gallery preserves row identity. */
+    kind: text({ enum: asEnumValues(CATALOG_MEDIA_KINDS) })
+      .notNull()
+      .default('image'),
     alt: text(),
     position: integer().notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
+    checkOneOf('listing_images_kind_check', t.kind, CATALOG_MEDIA_KINDS),
+    unique('listing_images_id_listing_kind_key').on(t.id, t.listingId, t.kind),
     index('listing_images_listing_id_position_idx').on(t.listingId, t.position),
     /**
      * "Does any listing already show this file?", answered per row.
@@ -935,11 +942,19 @@ export const productVariantImages = pgTable(
     variantId: text().notNull(),
     /** The listing gallery row this variant shows. Never a bare file id. */
     listingImageId: text().notNull(),
+    /** Constant participates in the FK: a variant may select only photographs. */
+    mediaKind: text().notNull().default('image'),
     position: integer().notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
+    check('product_variant_images_image_only_check', sql`${t.mediaKind} = 'image'`),
+    foreignKey({
+      name: 'product_variant_images_media_kind_fk',
+      columns: [t.listingImageId, t.listingId, t.mediaKind],
+      foreignColumns: [listingImages.id, listingImages.listingId, listingImages.kind],
+    }).onDelete('cascade'),
     foreignKey({
       name: 'product_variant_images_variant_fk',
       columns: [t.variantId, t.listingId],

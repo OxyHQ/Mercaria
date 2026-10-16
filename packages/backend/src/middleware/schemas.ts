@@ -37,6 +37,8 @@ import {
   MAX_VALUES_PER_VARIANT_AXIS,
   MAX_VARIANT_AXES_PER_PRODUCT,
   STORE_PERMISSIONS,
+  REVIEW_MEDIA_LIMIT,
+  isOxyFileId,
   type AssetFileRole,
   type AssetFileVisibility,
   type ConditionDetailKind,
@@ -175,7 +177,7 @@ export const createP2PListingSchema = z.object({
   condition: z.enum(LEGACY_BINARY_CONDITION_VALUES).optional(),
   itemCondition: listingConditionSchema.optional(),
   category: z.string().trim().min(1),
-  imageFileIds: z.array(z.string().trim().min(1)),
+  imageFileIds: z.array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID')),
   tags: z.array(z.string().trim().min(1)).optional(),
   quantity: z.number().int().nonnegative().optional(),
 });
@@ -189,7 +191,13 @@ export const updateListingSchema = z
     condition: z.enum(LEGACY_BINARY_CONDITION_VALUES).optional(),
     itemCondition: listingConditionSchema.optional(),
     category: z.string().trim().min(1).optional(),
-    imageFileIds: z.array(z.string().trim().min(1)).optional(),
+    mediaFileIds: z
+      .array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID'))
+      .max(64)
+      .optional(),
+    imageFileIds: z
+      .array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID'))
+      .optional(),
     tags: z.array(z.string().trim().min(1)).optional(),
     quantity: z.number().int().nonnegative().optional(),
     status: z.enum(['draft', 'active', 'sold', 'archived']).optional(),
@@ -197,6 +205,9 @@ export const updateListingSchema = z
     productType: z.string().trim().min(1).optional(),
     handle: z.string().trim().min(1).optional(),
     seo: seoSchema.optional(),
+  })
+  .refine((obj) => obj.mediaFileIds === undefined || obj.imageFileIds === undefined, {
+    message: 'Choose mediaFileIds or imageFileIds',
   })
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
 
@@ -241,19 +252,29 @@ const createStoreProductVariantSchema = z.object({
 });
 
 /** Body for store `POST /products` (CreateStoreProductInput). */
-export const createStoreProductSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().max(10_000),
-  category: z.string().trim().min(1),
-  imageFileIds: z.array(z.string().trim().min(1)),
-  tags: z.array(z.string().trim().min(1)).optional(),
-  options: z.array(listingOptionSchema).max(MAX_VARIANT_AXES_PER_PRODUCT),
-  variants: z.array(createStoreProductVariantSchema).min(1),
-  vendor: z.string().trim().min(1).optional(),
-  productType: z.string().trim().min(1).optional(),
-  handle: z.string().trim().min(1).optional(),
-  seo: seoSchema.optional(),
-});
+export const createStoreProductSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().max(10_000),
+    category: z.string().trim().min(1),
+    imageFileIds: z
+      .array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID'))
+      .optional(),
+    mediaFileIds: z
+      .array(z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID'))
+      .max(64)
+      .optional(),
+    tags: z.array(z.string().trim().min(1)).optional(),
+    options: z.array(listingOptionSchema).max(MAX_VARIANT_AXES_PER_PRODUCT),
+    variants: z.array(createStoreProductVariantSchema).min(1),
+    vendor: z.string().trim().min(1).optional(),
+    productType: z.string().trim().min(1).optional(),
+    handle: z.string().trim().min(1).optional(),
+    seo: seoSchema.optional(),
+  })
+  .refine((obj) => obj.mediaFileIds === undefined || obj.imageFileIds === undefined, {
+    message: 'Choose mediaFileIds or imageFileIds',
+  });
 
 /** Body for store `POST /products/:id/variants` (add a variant). */
 export const createVariantSchema = createStoreProductVariantSchema;
@@ -373,7 +394,7 @@ export const createCollectionSchema = z.object({
   title: z.string().trim().min(1).max(200),
   handle: z.string().trim().min(1).max(120),
   description: z.string().max(5_000).optional(),
-  imageFileId: z.string().trim().min(1).optional(),
+  imageFileId: z.string().trim().refine(isOxyFileId, 'Expected an Oxy file ID').optional(),
   type: z.enum(['manual', 'automated']),
   productIds: z.array(z.string().trim().min(1)).optional(),
   rules: z
@@ -1073,6 +1094,11 @@ export const createReviewSchema = z
       .optional(),
     title: z.string().trim().min(1).max(200).optional(),
     body: z.string().trim().max(5000).optional(),
+    mediaFileIds: z
+      .array(z.string().max(256).refine(isOxyFileId, 'Expected an Oxy file ID'))
+      .max(REVIEW_MEDIA_LIMIT)
+      .refine((ids) => new Set(ids).size === ids.length, 'Duplicate review attachment')
+      .optional(),
     // BCP-47 shape, matching `reviews_locale_shape_check` — the column would
     // reject anything else, and a 400 explains it better than a 500.
     locale: z
@@ -1288,46 +1314,61 @@ const ingestVariantSchema = z.object({
 });
 
 /** One ingested product (`IngestProduct`). */
-const ingestProductSchema = z.object({
-  externalId: z.string().trim().min(1).max(255),
-  /**
-   * The platform's own `updated_at`, as RFC 3339 — `Z` or a numeric offset.
-   *
-   * `{ offset: true }` is load-bearing and its absence was a total, silent
-   * outage on this rail. On zod 3 a bare `.datetime()` accepts ONLY a `Z`
-   * suffix, so `2026-08-15T05:38:08+00:00` — valid RFC 3339, and what PHP's
-   * `DateTime::format('c')` emits, along with most date libraries by default —
-   * was refused. Measured by running the WooCommerce plugin's own mapper over a
-   * live 124-product catalogue against this schema: 0 of 124 products accepted
-   * on plugin 1.0.0, 124 of 124 once it emitted `Z` (#290).
-   *
-   * What made it invisible rather than merely wrong is the INVENTORY payload,
-   * which carries no timestamp and so validated under both spellings: "Test
-   * connection" succeeded, the plugin reported healthy, stock flowed, and no
-   * product ever arrived. Fixing the plugin removed that symptom and not this
-   * defect — the next client to emit an offset hits the same wall the same way.
-   *
-   * A zoneless value stays REFUSED, which is the half worth keeping: RFC 3339
-   * requires a zone, `new Date` reads a zoneless datetime as LOCAL time, and
-   * admitting one would silently shift every stored instant by the server's
-   * offset. Every shape this now accepts is one `new Date` CONVERTS to the
-   * correct UTC instant — measured, including that `+02` (hour-only, which
-   * `new Date` cannot parse at all) is rejected here rather than reaching the
-   * column as an invalid date.
-   */
-  externalUpdatedAt: z.string().datetime({ offset: true }).optional(),
-  title: z.string().trim().min(1).max(300),
-  description: z.string().max(50_000).optional(),
-  images: z
-    .array(z.string().trim().url().startsWith('http', 'Must be an absolute http(s) URL'))
-    .optional(),
-  options: z.array(listingOptionSchema).max(MAX_VARIANT_AXES_PER_PRODUCT).optional(),
-  variants: z.array(ingestVariantSchema).min(1),
-  vendor: z.string().trim().min(1).max(200).optional(),
-  productType: z.string().trim().min(1).max(200).optional(),
-  handle: z.string().trim().min(1).max(200).optional(),
-  seo: seoSchema.optional(),
-});
+const ingestProductSchema = z
+  .object({
+    externalId: z.string().trim().min(1).max(255),
+    /**
+     * The platform's own `updated_at`, as RFC 3339 — `Z` or a numeric offset.
+     *
+     * `{ offset: true }` is load-bearing and its absence was a total, silent
+     * outage on this rail. On zod 3 a bare `.datetime()` accepts ONLY a `Z`
+     * suffix, so `2026-08-15T05:38:08+00:00` — valid RFC 3339, and what PHP's
+     * `DateTime::format('c')` emits, along with most date libraries by default —
+     * was refused. Measured by running the WooCommerce plugin's own mapper over a
+     * live 124-product catalogue against this schema: 0 of 124 products accepted
+     * on plugin 1.0.0, 124 of 124 once it emitted `Z` (#290).
+     *
+     * What made it invisible rather than merely wrong is the INVENTORY payload,
+     * which carries no timestamp and so validated under both spellings: "Test
+     * connection" succeeded, the plugin reported healthy, stock flowed, and no
+     * product ever arrived. Fixing the plugin removed that symptom and not this
+     * defect — the next client to emit an offset hits the same wall the same way.
+     *
+     * A zoneless value stays REFUSED, which is the half worth keeping: RFC 3339
+     * requires a zone, `new Date` reads a zoneless datetime as LOCAL time, and
+     * admitting one would silently shift every stored instant by the server's
+     * offset. Every shape this now accepts is one `new Date` CONVERTS to the
+     * correct UTC instant — measured, including that `+02` (hour-only, which
+     * `new Date` cannot parse at all) is rejected here rather than reaching the
+     * column as an invalid date.
+     */
+    externalUpdatedAt: z.string().datetime({ offset: true }).optional(),
+    title: z.string().trim().min(1).max(300),
+    description: z.string().max(50_000).optional(),
+    images: z
+      .array(z.string().trim().url().startsWith('http', 'Must be an absolute http(s) URL'))
+      .optional(),
+    mediaSources: z
+      .array(
+        z
+          .object({
+            kind: z.enum(['image', 'video']),
+            reference: z.string().trim().url().startsWith('https://'),
+          })
+          .strict(),
+      )
+      .max(64)
+      .optional(),
+    options: z.array(listingOptionSchema).max(MAX_VARIANT_AXES_PER_PRODUCT).optional(),
+    variants: z.array(ingestVariantSchema).min(1),
+    vendor: z.string().trim().min(1).max(200).optional(),
+    productType: z.string().trim().min(1).max(200).optional(),
+    handle: z.string().trim().min(1).max(200).optional(),
+    seo: seoSchema.optional(),
+  })
+  .refine((value) => value.images === undefined || value.mediaSources === undefined, {
+    message: 'Use images or mediaSources, not both',
+  });
 
 /**
  * Body for `POST /admin/stores/:storeId/channels/:connectionId/ingest/products`

@@ -37,7 +37,11 @@
  *    process dies in between.
  */
 
-import type { CreateCollectionInput, UpdateCollectionInput } from '@mercaria/shared-types';
+import {
+  isOxyFileId,
+  type CreateCollectionInput,
+  type UpdateCollectionInput,
+} from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxy.so/db';
 import {
   deleteCollection as deleteCollectionRow,
@@ -120,6 +124,8 @@ export async function createCollection(
   storeId: string,
   input: CreateCollectionInput,
 ): Promise<Collection> {
+  if (input.imageFileId !== undefined && !isOxyFileId(input.imageFileId))
+    throw validationError('Expected an Oxy file ID');
   const isPublished = input.isPublished !== false;
   const productIds = input.productIds ?? [];
   if (productIds.length > 0) {
@@ -166,6 +172,8 @@ export async function updateCollection(
   collectionId: string,
   patch: UpdateCollectionInput,
 ): Promise<Collection> {
+  if (patch.imageFileId !== undefined && !isOxyFileId(patch.imageFileId))
+    throw validationError('Expected an Oxy file ID');
   const existing = await findCollectionById(storeId, collectionId);
   if (!existing) {
     throw notFound('Collection not found');

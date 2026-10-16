@@ -3,7 +3,7 @@ import { optionalAuth } from '../middleware/auth.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateId } from '../middleware/validate.js';
 import { browseListings, getListingById } from '../controllers/listings.controller.js';
-import { listListingReviews } from '../controllers/reviews.controller.js';
+import { listListingReviews, listListingReviewMedia } from '../controllers/reviews.controller.js';
 
 /**
  * Listings API — DB-backed browse/search + product detail.
@@ -35,5 +35,6 @@ router.get('/:id', validateId('id'), getListingById);
  * A listing's published reviews (paginated, newest first).
  */
 router.get('/:id/reviews', validateId('id'), listListingReviews);
+router.get('/:id/reviews/media', validateId('id'), listListingReviewMedia);
 
 export default router;

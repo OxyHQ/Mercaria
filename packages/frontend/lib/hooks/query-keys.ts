@@ -199,6 +199,10 @@ export const queryKeys = {
    * are for the legacy reads.
    */
   reviews: {
+    media: (scope: 'product' | 'p2p_listing', id: string, limit: number) =>
+      scope === 'product'
+        ? (['reviews', 'product', id, 'media', { limit }] as const)
+        : (['listings', id, 'reviews', 'media', { limit }] as const),
     helpfulnessAll: (userId: string) => ['review-helpfulness', userId] as const,
     helpfulness: (userId: string, ids: string[]) => ['review-helpfulness', userId, ids] as const,
     productAll: (canonicalProductId: string) => ['reviews', 'product', canonicalProductId] as const,
@@ -209,7 +213,7 @@ export const queryKeys = {
     merchantAll: (merchantId: string) => ['reviews', 'merchant', merchantId] as const,
     merchant: (merchantId: string, page: number, limit = 12, query = '') =>
       ['reviews', 'merchant', merchantId, page, { limit, query }] as const,
-    eligibilities: ['reviews', 'eligibilities'] as const,
+    eligibilities: (userId: string) => ['reviews', 'eligibilities', userId] as const,
   },
   /**
    * The canonical product page (#71). Its own namespace rather than a branch of

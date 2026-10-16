@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '@mercaria/ui';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import type { CurrencyCode, MerchantCatalogEntry, Money } from '@mercaria/shared-types';

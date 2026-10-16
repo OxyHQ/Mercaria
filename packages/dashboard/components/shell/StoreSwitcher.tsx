@@ -7,10 +7,10 @@ import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 
 /**
  * Compact active-store indicator + switcher. Tapping it returns to the store
- * picker (`/stores`) to choose a different store. Rendered once in the mobile shell header so
- * the operator sees the active store on list and detail screens alike.
+ * picker (`/stores`) to choose a different store. The mobile header and sidebar
+ * footer keep the store separate from the Wholesale product brand.
  */
-export function StoreSwitcher() {
+export function StoreSwitcher({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const { colors } = useColorScheme();
   const { t } = useTranslation();
@@ -21,7 +21,7 @@ export function StoreSwitcher() {
       onPress={() => router.push('/stores')}
       accessibilityRole="button"
       accessibilityLabel={t('stores.switch')}
-      className="flex-row items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 active:opacity-80 web:hover:border-primary"
+      className={`flex-row items-center gap-2 rounded-xl border border-border bg-surface ${compact ? 'p-1' : 'px-3 py-2'} active:opacity-80 web:hover:border-primary`}
     >
       <View
         className="h-6 w-6 items-center justify-center rounded-md"
@@ -29,10 +29,12 @@ export function StoreSwitcher() {
       >
         <StoreIcon size={14} color="#fff" />
       </View>
-      <Text className="max-w-[140px] text-sm font-semibold text-foreground" numberOfLines={1}>
-        {store?.name ?? t('stores.selectStore')}
-      </Text>
-      <ChevronsUpDown size={14} color={colors.mutedForeground} />
+      {!compact ? (
+        <Text className="max-w-[140px] text-sm font-semibold text-foreground" numberOfLines={1}>
+          {store?.name ?? t('stores.selectStore')}
+        </Text>
+      ) : null}
+      {!compact ? <ChevronsUpDown size={14} color={colors.mutedForeground} /> : null}
     </Pressable>
   );
 }

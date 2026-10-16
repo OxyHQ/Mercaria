@@ -143,6 +143,7 @@
     "notFound": "この商品は見つかりませんでした。",
     "visitA11y": "%{name} を開く",
     "moreFromStore": "%{name} のほかの商品",
+    "youMightAlsoLike": "こちらもおすすめ",
     "compareOffersA11y": "この商品のすべての出品を比較する",
     "compareOffers": "すべての出品を比較",
     "percentOff": "%{percent}%オフ",
@@ -234,7 +235,8 @@
       "product": "この商品について",
       "variant": "この構成について",
       "definitionsUnavailable": "一部の項目名は保存されているまま表示しています。",
-      "untranslated": "一部の項目名はまだあなたの言語に翻訳されていません。"
+      "untranslated": "一部の項目名はまだあなたの言語に翻訳されていません。",
+      "loadError": "仕様を読み込めませんでした。もう一度お試しください。"
     },
     "variants": {
       "unavailable": "在庫なし",
@@ -472,6 +474,17 @@
       "count": "%{formattedCount}人が役に立ったと評価",
       "error": "評価を更新できませんでした。もう一度お試しください。",
       "retry": "評価を再読み込み"
+    },
+    "media": {
+      "add": "写真や動画を追加",
+      "prompt": "ここにファイルをドロップするか、",
+      "uploading": "アップロード中…",
+      "uploaded": "アップロード完了",
+      "invalid": "最大10ファイル：JPG・PNG・WebP・GIF・AVIF画像は20 MBまで、MP4・WebM動画は100 MBまで。",
+      "publicNotice": "アップロードしたファイルは公開されます。ここで添付を外しても、Oxyのファイルからは削除されません。",
+      "failed": "アップロードを確認できませんでした。もう一度お試しください。",
+      "remove": "%{filename}を外す",
+      "removeAction": "外す"
     }
   },
   "search": {
@@ -673,7 +686,8 @@
       "actionLabel": "%{name} さんをフォロー"
     },
     "linkCard": {
-      "viewProfile": "%{name} さんのプロフィールを見る"
+      "viewProfile": "%{name} さんのプロフィールを見る",
+      "visitProfile": "プロフィールを見る"
     },
     "report": {
       "action": "報告",
@@ -1207,6 +1221,15 @@
       "collectHere": "オンラインで注文して店舗で受け取り",
       "placeRatingSubject": "GoWayの%{place}",
       "photoLabel": "%{place}の写真"
+    },
+    "contact": {
+      "title": "%{store}に問い合わせる",
+      "unavailable": "連絡先情報を読み込めませんでした。",
+      "empty": "このストアは連絡先情報を公開していません。",
+      "website": "ウェブサイト",
+      "copy": "%{value}をコピー",
+      "copied": "コピーしました",
+      "copyFailed": "コピーできませんでした。もう一度お試しください。"
     }
   },
   "offer": {
@@ -1540,6 +1563,17 @@
       "updateFailed": "住所を更新できませんでした",
       "removed": "住所を削除しました",
       "removeFailed": "住所を削除できませんでした"
+    },
+    "picker": {
+      "search": "GoWayで住所を検索",
+      "help": "通りと市区町村を検索し、住所を選んで確認してください。",
+      "placeholder": "通り、番地、市区町村",
+      "loading": "GoWayで検索中…",
+      "error": "住所を検索できません。再試行するか、手動で入力してください。",
+      "partial": "一部の情報源を利用できません。検索結果が不完全な場合があります。",
+      "empty": "住所が見つかりません。市区町村を追加するか、手動で入力してください。",
+      "review": "住所の詳細を確認",
+      "manual": "住所を手動で入力"
     }
   },
   "shoppingAgents": {

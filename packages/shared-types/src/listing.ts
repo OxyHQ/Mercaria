@@ -10,6 +10,7 @@
  * cheapest variant.
  */
 
+import type { ListingMedia } from './catalog-media';
 import type { Timestamps } from './common';
 import type { Money } from './money';
 import type { Seller } from './seller';
@@ -359,6 +360,16 @@ export interface Listing extends Timestamps {
    * blended star average that answers neither question.
    */
   canonicalProductId?: string;
+  /** Detail only: public catalog identities from active attachments, keyed by
+   * native variant id. An absent entry never borrows another option's facts. */
+  catalogIdentityByVariant?: Record<
+    string,
+    {
+      productId: string;
+      variantId: string;
+      categoryId?: string;
+    }
+  >;
   /** Detail only: exact active catalog attachments, keyed by native variant id.
    * No entry means no known composition; product-level identity is insufficient. */
   bundleContentsByVariant?: Record<string, ProductBundleContents>;
@@ -374,6 +385,8 @@ export interface Listing extends Timestamps {
   category: string;
   /** Ordered gallery images. */
   images: ListingImage[];
+  /** Ordered mixed gallery. Optional while older persisted DTOs remain in use. */
+  media?: ListingMedia[];
   /** Denormalized seller identity (present iff `ownerType === 'user'`). */
   seller?: Seller;
   /** Denormalized store identity (present iff `ownerType === 'store'`). */
@@ -475,7 +488,9 @@ export interface CreateStoreProductInput {
   /** The v1 category SLUG. See `LEGACY_LISTING_CATEGORY_CONTRACT`. */
   category: string;
   /** Oxy media file ids for the gallery, in display order. */
-  imageFileIds: string[];
+  imageFileIds?: string[];
+  /** Mixed gallery, mutually exclusive with imageFileIds. Server derives each kind from Oxy. */
+  mediaFileIds?: string[];
   tags?: string[];
   /** Selectable options that the variants assign values for. */
   options: ListingOption[];
@@ -499,6 +514,8 @@ export interface CreateStoreProductInput {
  * 8). The service refuses one on a listing that has already sold.
  */
 export type UpdateListingInput = Partial<CreateP2PListingInput> & {
+  /** Store mixed gallery. Mutually exclusive with imageFileIds. */
+  mediaFileIds?: string[];
   /**
    * Seller-settable statuses only — a client can never ask for `restricted`, nor
    * PATCH its way out of one. See {@link SellerSettableListingStatus}.

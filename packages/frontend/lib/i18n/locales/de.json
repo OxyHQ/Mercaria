@@ -143,6 +143,7 @@
     "notFound": "Wir konnten dieses Produkt nicht finden.",
     "visitA11y": "%{name} besuchen",
     "moreFromStore": "Mehr von %{name}",
+    "youMightAlsoLike": "Das könnte dir auch gefallen",
     "compareOffersA11y": "Alle Angebote für dieses Produkt vergleichen",
     "compareOffers": "Alle Angebote vergleichen",
     "percentOff": "%{percent}% Rabatt",
@@ -234,7 +235,8 @@
       "product": "Über dieses Produkt",
       "variant": "Über diese Konfiguration",
       "definitionsUnavailable": "Einige Bezeichnungen werden genau so angezeigt, wie sie gespeichert sind.",
-      "untranslated": "Einige Bezeichnungen sind noch nicht in deine Sprache übersetzt."
+      "untranslated": "Einige Bezeichnungen sind noch nicht in deine Sprache übersetzt.",
+      "loadError": "Die technischen Daten konnten nicht geladen werden. Versuche es erneut."
     },
     "variants": {
       "unavailable": "nicht verfügbar",
@@ -472,6 +474,17 @@
       "count": "%{formattedCount} fanden dies hilfreich",
       "error": "Deine Stimme konnte nicht aktualisiert werden. Versuche es erneut.",
       "retry": "Hilfreich-Stimmen erneut laden"
+    },
+    "media": {
+      "add": "Foto oder Video hinzufügen",
+      "prompt": "Datei hier ablegen oder",
+      "uploading": "Wird hochgeladen…",
+      "uploaded": "Upload abgeschlossen",
+      "invalid": "Bis zu 10 Dateien: JPG-, PNG-, WebP-, GIF- oder AVIF-Bilder bis 20 MB; MP4- oder WebM-Videos bis 100 MB.",
+      "publicNotice": "Hochgeladene Dateien sind öffentlich. Das Entfernen eines Anhangs hier löscht ihn nicht aus deinen Oxy-Dateien.",
+      "failed": "Der Upload konnte nicht überprüft werden. Versuche es erneut.",
+      "remove": "%{filename} entfernen",
+      "removeAction": "Entfernen"
     }
   },
   "search": {
@@ -673,7 +686,8 @@
       "actionLabel": "%{name} folgen"
     },
     "linkCard": {
-      "viewProfile": "Profil von %{name} ansehen"
+      "viewProfile": "Profil von %{name} ansehen",
+      "visitProfile": "Profil ansehen"
     },
     "report": {
       "action": "Melden",
@@ -1207,6 +1221,15 @@
       "collectHere": "Online bestellen, hier abholen",
       "placeRatingSubject": "%{place} auf GoWay",
       "photoLabel": "Foto von %{place}"
+    },
+    "contact": {
+      "title": "%{store} kontaktieren",
+      "unavailable": "Die Kontaktdaten konnten nicht geladen werden.",
+      "empty": "Dieser Shop hat keine Kontaktdaten veröffentlicht.",
+      "website": "Website",
+      "copy": "%{value} kopieren",
+      "copied": "Kopiert",
+      "copyFailed": "Kopieren fehlgeschlagen. Versuche es erneut."
     }
   },
   "offer": {
@@ -1540,6 +1563,17 @@
       "updateFailed": "Adresse konnte nicht aktualisiert werden",
       "removed": "Adresse entfernt",
       "removeFailed": "Adresse konnte nicht entfernt werden"
+    },
+    "picker": {
+      "search": "Adresse mit GoWay suchen",
+      "help": "Suche nach Straße und Stadt, wähle eine Adresse und überprüfe sie.",
+      "placeholder": "Straße, Hausnummer und Stadt",
+      "loading": "GoWay wird durchsucht…",
+      "error": "Die Adresssuche ist nicht verfügbar. Versuche es erneut oder gib die Adresse manuell ein.",
+      "partial": "Einige Quellen sind nicht verfügbar. Die Ergebnisse können unvollständig sein.",
+      "empty": "Keine Adresse gefunden. Ergänze eine Stadt oder gib die Adresse manuell ein.",
+      "review": "Adressdetails überprüfen",
+      "manual": "Adresse manuell eingeben"
     }
   },
   "shoppingAgents": {

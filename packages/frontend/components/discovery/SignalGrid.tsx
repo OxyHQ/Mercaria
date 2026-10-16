@@ -1,3 +1,4 @@
+import { renderListingLink } from '@/lib/catalog/product-links';
 import type { ProductSummary } from '@mercaria/shared-types';
 import { FeedGrid, ProductCard } from '@mercaria/ui';
 
@@ -11,7 +12,7 @@ import { FeedGrid, ProductCard } from '@mercaria/ui';
  * (`packages/ui/src/components/marketplace/FeedGrid.tsx`).
  *
  * `FeedGrid` is the only survivor of the nine components the discovery feed
- * briefly added to `@mercaria/ui`, and this is its only caller: it is a
+ * briefly added to `@mercaria/ui`: it is a
  * layout, not a card, and there was no wrapping grid in the kit before it.
  *
  * The per-item card is `@mercaria/ui`'s own `ProductCard` (the one
@@ -26,11 +27,10 @@ const PRODUCT_GRID_ROW_GAP_CLASS = 'gap-y-space-8 md:gap-y-space-16';
 
 export interface SignalGridProps {
   products: ProductSummary[];
-  onPressProduct: (id: string) => void;
   onToggleSaveProduct?: (id: string, nextSaved: boolean) => void;
 }
 
-export function SignalGrid({ products, onPressProduct, onToggleSaveProduct }: SignalGridProps) {
+export function SignalGrid({ products, onToggleSaveProduct }: SignalGridProps) {
   return (
     <FeedGrid
       items={products}
@@ -40,7 +40,7 @@ export function SignalGrid({ products, onPressProduct, onToggleSaveProduct }: Si
       renderItem={(product) => (
         <ProductCard
           product={product}
-          onPress={onPressProduct}
+          renderLink={renderListingLink}
           onToggleSave={onToggleSaveProduct}
         />
       )}

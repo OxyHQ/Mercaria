@@ -4,7 +4,7 @@ import { View, ScrollView, Pressable } from 'react-native';
 import { useOxy } from '@oxy.so/services';
 import { Check, Plus, Trash2 } from 'lucide-react-native';
 import type { Address, CreateAddressInput } from '@mercaria/shared-types';
-import { Text, formatRegionName, toBloomIcon } from '@mercaria/ui';
+import { Icon, Text, formatRegionName, toBloomIcon } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import { SettingsHeader } from '@/components/settings/settings-header';
 import { AddressForm } from '@/components/address/AddressForm';
@@ -64,7 +64,7 @@ function AddressCard({
           onPress={onDelete}
           className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
         >
-          <Trash2 size={16} className="text-muted-foreground" />
+          <Icon as={Trash2} size={16} className="text-muted-foreground" />
         </Pressable>
       </View>
       {!address.isDefault ? (

@@ -873,7 +873,9 @@
       "viewImage": "Mostra la imatge %{position}",
       "previous": "Imatge anterior",
       "next": "Imatge següent",
-      "open": "Obrir imatges de %{title}"
+      "open": "Obrir imatges de %{title}",
+      "viewVideo": "Veure el vídeo %{position}",
+      "openVideo": "Obrir el vídeo de %{title}"
     },
     "quantity": {
       "remove": "Treu l'article",
@@ -881,6 +883,9 @@
       "increase": "Augmenta la quantitat"
     },
     "review": {
+      "loading": "S’estan carregant les ressenyes…",
+      "loadError": "No s’han pogut carregar les ressenyes. Torna-ho a provar.",
+      "retry": "Torna-ho a provar",
       "defaultScope": "Ressenyes",
       "starsA11y": "Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
       "starsScopedA11y": "%{subject}. Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
@@ -1013,6 +1018,14 @@
       "andSave": "Compra en paquet i estalvia",
       "view": "Veure paquet",
       "addFailed": "No s’ha pogut afegir el paquet. Torna-ho a provar."
+    },
+    "reviewMedia": {
+      "title": "Fotos i vídeos de ressenyes",
+      "viewImage": "Veure foto de ressenya %{position}",
+      "viewVideo": "Veure vídeo de ressenya %{position}",
+      "unavailable": "No s’ha pogut carregar aquest fitxer.",
+      "retry": "Torna-ho a provar",
+      "more": "Carrega més fotos i vídeos"
     }
   }
 }

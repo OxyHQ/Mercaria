@@ -1,6 +1,10 @@
+import type { ReactElement, ReactNode } from 'react';
+import type { ProductLinkRenderer } from './ProductCard';
+import { resolveCatalogImage } from '../../lib/stored-image-url';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { merchantImageSource } from '../../lib/shop-merchant-images';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Rating } from '@oxy.so/bloom/rating';
 import { Text } from '../ui/text';
@@ -13,13 +17,8 @@ import type { StoreSummary } from '@mercaria/shared-types';
 const CARD_HEIGHT = 397;
 /** Card corner radius (px). */
 const CARD_RADIUS = 28;
-/**
- * Featured-thumbnail edge length (px). Fixed so each square cell always has a
- * concrete size — an absolute-fill cover image needs a sized parent to show.
- */
-const THUMB_SIZE = 92;
 /** Product-thumbnail corner radius (px). */
-const THUMB_RADIUS = 16;
+const THUMB_RADIUS = 20;
 
 /** Documented dark cover overlay constant (~20%). */
 const COVER_DARK_OVERLAY = 'rgba(0,0,0,0.20)';
@@ -34,17 +33,21 @@ const TONE_DARK = '#111111';
  */
 const GRADIENT_LOCATIONS = [0.2, 0.8] as const;
 
+export type MerchantLinkRenderer = (handle: string, child: ReactElement) => ReactNode;
+
 export interface MerchantCardProps {
   merchant: StoreSummary;
-  onPressMerchant?: (handle: string) => void;
-  onPressProduct?: (id: string) => void;
+  renderMerchantLink: MerchantLinkRenderer;
+  renderProductLink: ProductLinkRenderer;
+  /** Shop home centers the wordmark with its rating; discovery keeps a heading. */
+  variant?: 'home' | 'discovery';
 }
 
 /**
  * Editorial "store hero" merchant (shop) card. Layers, back → front: the cover
  * photo (the visual anchor, bleeds the whole card) → a fixed dark tint → a
  * bottom brand-color gradient wash → the foreground content (centered wordmark,
- * bottom-left name + rating, and a row of featured product thumbnails) → a 1px
+ * name + rating, and a row of featured product thumbnails) → a 1px
  * inset border. Foreground text follows the merchant's `textTone`
  * (light/dark), including the rating star.
  *
@@ -52,13 +55,37 @@ export interface MerchantCardProps {
  * thumbnail is its own SIBLING link (never nested inside the store link), so
  * web renders no `<button>`/`<a>` inside another.
  */
-export function MerchantCard({ merchant, onPressMerchant, onPressProduct }: MerchantCardProps) {
+export function MerchantCard({
+  merchant,
+  renderMerchantLink,
+  renderProductLink,
+  variant = 'discovery',
+}: MerchantCardProps) {
+  const resolveImage = useImageResolver();
+  const coverSource = merchantImageSource(
+    merchant.coverImageUrl,
+    resolveImage,
+    merchant.coverFileId,
+  );
+  const logoSource = merchantImageSource(merchant.logoUrl, resolveImage, merchant.logoFileId);
   const ratingDisplay = useRatingDisplay();
   const t = useSharedUiTranslation();
   const toneColor = merchant.textTone === 'light' ? TONE_LIGHT : TONE_DARK;
 
+  const products = (merchant.products ?? []).slice(0, 3);
+  const centeredDetails = variant === 'home' && Boolean(logoSource);
+  const rating =
+    merchant.rating > 0 && merchant.reviewCount > 0 ? (
+      <Rating
+        {...ratingDisplay({ rating: merchant.rating, reviews: merchant.reviewCount })}
+        size="sm"
+        color={toneColor}
+      />
+    ) : null;
+
   return (
     <View
+      testID="merchant-card"
       className="group w-full overflow-hidden web:shadow-lg"
       style={{
         height: CARD_HEIGHT,
@@ -67,105 +94,127 @@ export function MerchantCard({ merchant, onPressMerchant, onPressProduct }: Merc
       }}
     >
       {/* Layer 1 — cover image, bleeds the whole card (the visual anchor). */}
-      {merchant.coverImageUrl ? (
+      {coverSource ? (
         <Image
-          source={merchantImageSource(merchant.coverImageUrl)}
+          testID="merchant-card-cover"
+          source={coverSource}
           contentFit="cover"
           pointerEvents="none"
-          className="web:transition-transform web:duration-150 web:group-hover:scale-[1.03] web:motion-reduce:transition-none web:motion-reduce:transform-none"
+          className="web:transition-transform web:duration-500 web:ease-out web:motion-safe:group-hover:scale-105 web:motion-reduce:transition-none"
           style={StyleSheet.absoluteFill}
         />
       ) : null}
 
-      {/* Layer 2 — fixed dark tint (~20%). */}
-      <View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { backgroundColor: COVER_DARK_OVERLAY }]}
-      />
+      {/* The cover treatment belongs only to image-backed themes. */}
+      {coverSource ? (
+        <>
+          <View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, { backgroundColor: COVER_DARK_OVERLAY }]}
+          />
 
-      {/* Layer 3 — bottom brand-color gradient: opaque brand at the bottom → transparent ~80% up. */}
-      <LinearGradient
-        pointerEvents="none"
-        colors={[merchant.brandColor, 'transparent']}
-        locations={GRADIENT_LOCATIONS}
-        start={{ x: 0, y: 1 }}
-        end={{ x: 0, y: 0 }}
-        style={StyleSheet.absoluteFill}
-      />
+          {/* Layer 3 — bottom brand-color gradient: opaque brand at the bottom → transparent ~80% up. */}
+          <LinearGradient
+            pointerEvents="none"
+            colors={[merchant.brandColor, 'transparent']}
+            locations={GRADIENT_LOCATIONS}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 0, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </>
+      ) : null}
 
       {/* Layer 4 — foreground content (above the layers as a later sibling). */}
       <View className="flex-1 p-3">
-        {/* Store zone — centered wordmark with the name + rating pinned bottom-left. */}
-        <View className="relative flex-1">
-          {/* Centered wordmark / logo — the store link. */}
+        {renderMerchantLink(
+          merchant.handle,
           <Pressable
-            accessibilityRole="link"
+            testID="merchant-card-store-link"
             accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name: merchant.name })}
-            onPress={() => onPressMerchant?.(merchant.handle)}
-            className="absolute inset-0 items-center justify-center"
+            className="relative flex-1"
           >
-            {merchant.logoUrl ? (
-              <Image
-                source={merchantImageSource(merchant.logoUrl)}
-                contentFit="contain"
-                style={{ maxHeight: 74, maxWidth: 195, width: '70%', height: 74 }}
-              />
-            ) : (
-              <Text
-                numberOfLines={1}
-                className="text-center text-3xl font-bold"
-                style={{ color: toneColor }}
-              >
-                {merchant.name}
-              </Text>
-            )}
-          </Pressable>
-
-          {/* Name + rating, bottom-left of the store zone. */}
-          <View className="absolute bottom-0 start-0">
-            <Text numberOfLines={1} className="text-sm font-bold" style={{ color: toneColor }}>
-              {merchant.name}
-            </Text>
-            {/* Bloom's compact rating: the star, localised figure
-                and count painted in the cover's text tone so they read over
-                any merchant cover. */}
-            <Rating
-              {...ratingDisplay({ rating: merchant.rating, reviews: merchant.reviewCount })}
-              size="sm"
-              color={toneColor}
-              style={{ marginTop: 2 }}
-            />
-          </View>
-        </View>
-
-        {/* Featured product thumbnails — sibling links (never nested in the store
-            link). Each cell has an explicit square size so the cover image
-            (which fills it) always has a sized parent to render into. */}
-        <View className="mt-3 flex-row justify-center gap-1.5">
-          {(merchant.products ?? []).map((thumb) => (
-            <Pressable
-              key={thumb.id}
-              accessibilityRole="link"
-              accessibilityLabel={thumb.title}
-              onPress={() => onPressProduct?.(thumb.id)}
-              className="overflow-hidden bg-muted web:shadow-sm"
-              style={{ width: THUMB_SIZE, height: THUMB_SIZE, borderRadius: THUMB_RADIUS }}
-            >
-              {thumb.imageUrl ? (
-                <Image
-                  source={{ uri: thumb.imageUrl }}
-                  contentFit="cover"
-                  style={StyleSheet.absoluteFill}
-                />
-              ) : null}
+            {variant === 'discovery' || logoSource ? (
               <View
+                testID="merchant-card-branding"
                 pointerEvents="none"
-                className="absolute inset-0 border border-border"
-                style={{ borderRadius: THUMB_RADIUS }}
-              />
-            </Pressable>
-          ))}
-        </View>
+                className="absolute inset-0 items-center justify-center gap-2 web:transition-transform web:duration-150 web:ease-out web:motion-safe:group-hover:scale-110 web:motion-reduce:transition-none"
+              >
+                {logoSource ? (
+                  <Image
+                    source={logoSource}
+                    contentFit="contain"
+                    style={{
+                      maxHeight: 74,
+                      maxWidth: 195,
+                      width: centeredDetails ? '60%' : '70%',
+                      height: 74,
+                    }}
+                  />
+                ) : (
+                  <Text
+                    numberOfLines={1}
+                    className="max-w-[195px] text-center text-3xl font-bold"
+                    style={{ color: toneColor }}
+                  >
+                    {merchant.name}
+                  </Text>
+                )}
+                {centeredDetails ? rating : null}
+              </View>
+            ) : null}
+            {!centeredDetails ? (
+              <View testID="merchant-card-heading" pointerEvents="none" className="gap-0.5 p-1">
+                <Text numberOfLines={1} className="text-sm font-bold" style={{ color: toneColor }}>
+                  {merchant.name}
+                </Text>
+                {rating}
+              </View>
+            ) : null}
+          </Pressable>,
+        )}
+
+        {/* Product links are siblings of the store link, with at most three squares. */}
+        {products.length > 0 ? (
+          <View testID="merchant-card-products" className="flex-row justify-center gap-1.5">
+            {products.map((thumb) => {
+              const imageUrl = resolveCatalogImage(
+                thumb.imageFileId,
+                thumb.imageUrl,
+                resolveImage,
+                'thumb',
+              );
+              return (
+                <View key={thumb.id} className="min-w-0 max-w-[150px] flex-1">
+                  {renderProductLink(
+                    thumb.id,
+                    <Pressable
+                      testID="merchant-card-product-link"
+                      accessibilityLabel={thumb.title}
+                      className="group/product overflow-hidden bg-muted web:shadow-sm"
+                      style={{ aspectRatio: 1, borderRadius: THUMB_RADIUS }}
+                    >
+                      {imageUrl ? (
+                        <Image
+                          testID="merchant-card-product-image"
+                          source={{ uri: imageUrl }}
+                          contentFit="cover"
+                          className="web:transition-transform web:motion-safe:group-hover/product:scale-110 web:motion-reduce:transition-none"
+                          style={StyleSheet.absoluteFill}
+                        />
+                      ) : null}
+                      <View
+                        pointerEvents="none"
+                        className="absolute inset-0 border border-border"
+                        style={{ borderRadius: THUMB_RADIUS }}
+                      />
+                    </Pressable>,
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
 
       {/* Layer 5 — 1px inset border (very front, non-interactive). */}

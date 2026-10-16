@@ -368,6 +368,38 @@ const cases = [
     expectOutput: 'i18n string guard passed',
   },
 
+  {
+    name: 'test fixtures are not application copy or translation call sites',
+    files: migratedTree({
+      'packages/dashboard/lib/hooks/product.test.ts':
+        'const product = { title: "Before" }; t("fixture.only");',
+      'packages/frontend/components/product.spec.tsx':
+        'const result = <Text>Expected product</Text>;',
+      'packages/ui/src/__tests__/fixtures/product.ts': 'const product = { title: "Confirmed" };',
+      'packages/pos/components/product.test.tsx': 'const result = <Text>Expected product</Text>;',
+    }),
+    expectExit: 0,
+    expectOutput: 'i18n string guard passed',
+  },
+  ...[
+    'packages/dashboard/components/latest.tsx',
+    'packages/dashboard/components/__tests__extra/label.ts',
+    'packages/dashboard/components/product.specification.ts',
+  ].map((path) => ({
+    name: `production file ${path} still requires extracted copy`,
+    files: migratedTree({ [path]: 'export const label = { title: "Product label" };' }),
+    expectExit: 1,
+    expectOutput: `${path}:1: hardcoded user-facing string`,
+  })),
+  {
+    name: 'a key referenced only in tests remains unused by the application',
+    files: treeWithBundle((value) => ({ ...value, onlyInTest: 'Dead application copy' }), {
+      'packages/dashboard/lib/product.test.ts': 't("onlyInTest");',
+    }),
+    expectExit: 1,
+    expectOutput: '"onlyInTest" is named by no string literal',
+  },
+
   // ------------------------------------------------ K: per-locale plurals ---
   // The pair that has to move together. The first two are bundles the OLD
   // key-parity check rejected and #436 makes legal; the rest are what stops
@@ -736,6 +768,26 @@ const cases = [
 
   // ------------------------------------------- C: referential integrity ------
 
+  {
+    name: 'an app can translate a key owned by the shared UI vocabulary',
+    files: migratedTree({
+      'packages/frontend/components/SharedLabel.tsx':
+        'import { useSharedUiTranslation } from "@mercaria/ui";\n' +
+        'export function SharedLabel() { const t = useSharedUiTranslation(); return <Text>{t("ui.condition.label.new")}</Text>; }\n',
+    }),
+    expectExit: 0,
+    expectOutput: 'i18n string guard passed',
+  },
+  {
+    name: 'a missing shared key from an app still fails at the shared owner',
+    files: migratedTree({
+      'packages/frontend/components/SharedLabel.tsx':
+        'import { useSharedUiTranslation } from "@mercaria/ui";\n' +
+        'export function SharedLabel() { const t = useSharedUiTranslation(); return <Text>{t("ui.condition.label.doesNotExist")}</Text>; }\n',
+    }),
+    expectExit: 1,
+    expectOutput: 'names no key in packages/ui/src/i18n/locales/en.json',
+  },
   {
     name: 'a t() call naming a key that does not exist fails',
     files: migratedTree({

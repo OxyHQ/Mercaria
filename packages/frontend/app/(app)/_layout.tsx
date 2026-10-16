@@ -10,7 +10,12 @@ import { BottomTabBar } from '@/components/shell/BottomTabBar';
 import { useNotificationSetup } from '@/lib/hooks/use-notification-setup';
 import { ShoppingActionsProvider } from '@/components/shell/ShoppingActionsProvider';
 
-const SCREEN_OPTIONS = { headerShown: false } as const;
+// Bloom's AppShell paints the page surface. Native Stack's default light
+// background would cover it even when Bloom and the page text are dark-mode.
+const SCREEN_OPTIONS = {
+  headerShown: false,
+  contentStyle: { backgroundColor: 'transparent' },
+} as const;
 
 const GESTURE_ROOT_STYLE = { flex: 1 } as const;
 
@@ -72,6 +77,7 @@ function StorefrontLayout() {
         <GestureHandlerRootView style={GESTURE_ROOT_STYLE}>
           <AppShell
             variant="feed"
+            safeArea
             panel
             // WEB scrolls the DOCUMENT (sticky navigation, the address bar
             // collapsing, scroll restoration); NATIVE is one fixed frame and each

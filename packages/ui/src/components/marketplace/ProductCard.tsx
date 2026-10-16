@@ -1,15 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
 import { Button } from '@oxy.so/bloom/button';
+import { CatalogImage } from './CatalogImage';
 import { ShopDetailIcon } from './ShopDetailIcon';
 import { Text } from '../ui/text';
 import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
-import {
-  MARKETPLACE_NO_IMAGE_KEY,
-  PRODUCT_CARD_DISCOUNT_KEY,
-  PRODUCT_CARD_SAVE_KEY,
-} from '../../lib/marketplace-labels';
+import { PRODUCT_CARD_DISCOUNT_KEY, PRODUCT_CARD_SAVE_KEY } from '../../lib/marketplace-labels';
 import { Rating } from '@oxy.so/bloom/rating';
 import { PriceDisplay, usePriceText } from '../PriceDisplay';
 import type { ProductSummary } from '../../lib/format';
@@ -23,6 +19,9 @@ const ON_IMAGE_LIGHT = '#FFFFFF';
 /** Heart icon size for the favorite button. */
 const HEART_SIZE = 18;
 
+/** The consuming app owns routing; the card owns its separate image/text links. */
+export type ProductLinkRenderer = (id: string, child: ReactElement) => ReactNode;
+
 export interface ProductCardProps {
   variant?: 'standard' | 'image-only';
   product: ProductSummary;
@@ -31,7 +30,7 @@ export interface ProductCardProps {
    * otherwise the card seeds from the DTO's `saved` flag.
    */
   saved?: boolean;
-  onPress?: (id: string) => void;
+  renderLink: ProductLinkRenderer;
   onToggleSave?: SaveListing;
 }
 
@@ -47,7 +46,7 @@ function isOnSale(product: ProductSummary): boolean {
 export function ProductCard({
   product,
   saved,
-  onPress,
+  renderLink,
   onToggleSave,
   variant = 'standard',
 }: ProductCardProps) {
@@ -93,24 +92,22 @@ export function ProductCard({
         style={{ boxShadow: '0px 2px 8px rgba(0,0,0,0.06)' }}
       >
         {/* Image navigation link — fills the block, sits beneath the favorite. */}
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={product.title}
-          onPress={() => onPress?.(product.id)}
-          className="absolute inset-0"
-        >
-          {product.imageUrl ? (
-            <Image
-              source={{ uri: product.imageUrl }}
+        {renderLink(
+          product.id,
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel={product.title}
+            className="absolute inset-0"
+          >
+            <CatalogImage
+              fileId={product.imageFileId}
+              legacyUrl={product.imageUrl}
+              accessibilityLabel={product.title}
               contentFit="cover"
               className="h-full w-full web:transition-transform web:duration-300 web:group-hover:scale-105 web:motion-reduce:transition-none web:motion-reduce:transform-none"
             />
-          ) : (
-            <View className="h-full w-full items-center justify-center bg-muted">
-              <Text className="text-xs text-muted-foreground">{t(MARKETPLACE_NO_IMAGE_KEY)}</Text>
-            </View>
-          )}
-        </Pressable>
+          </Pressable>,
+        )}
 
         {/* Subtle dark wash over the image (Shop bg-bg-overlay-inverse-04). */}
         {variant !== 'image-only' ? (
@@ -178,42 +175,44 @@ export function ProductCard({
       </View>
 
       {/* Text block — its own separate navigation link. */}
-      {variant !== 'image-only' ? (
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={product.title}
-          onPress={() => onPress?.(product.id)}
-          className="flex flex-col ps-1 leading-[16px]"
-        >
-          <Text numberOfLines={1} className="text-xs text-muted-foreground">
-            {product.brand}
-          </Text>
-          <Text numberOfLines={1} className="text-xs font-bold text-foreground">
-            {product.title}
-          </Text>
+      {variant !== 'image-only'
+        ? renderLink(
+            product.id,
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={product.title}
+              className="flex flex-col ps-1"
+            >
+              <Text numberOfLines={1} className="text-xs text-muted-foreground">
+                {product.brand}
+              </Text>
+              <Text numberOfLines={1} className="text-xs font-bold text-foreground">
+                {product.title}
+              </Text>
 
-          {/* Review row */}
-          <Rating
-            {...ratingDisplay({
-              rating: product.rating,
-              reviews: product.reviewCount,
-            })}
-            size="sm"
-          />
+              {/* Review row */}
+              <Rating
+                {...ratingDisplay({
+                  rating: product.rating,
+                  reviews: product.reviewCount,
+                })}
+                size="sm"
+              />
 
-          {/* Price row. The primary FAIR figure (plus the optional dual-currency
+              {/* Price row. The primary FAIR figure (plus the optional dual-currency
             secondary, driven by FxContext) renders via PriceDisplay; the
             compare-at strikethrough stays a plain formatted figure. */}
-          <View className="mt-0.5 flex-row items-center gap-1">
-            <PriceDisplay price={product.price} primaryClassName="text-xs font-bold" />
-            {onSale && product.compareAtPrice ? (
-              <Text className="text-xs font-normal text-muted-foreground line-through">
-                {formatMoney(product.compareAtPrice)}
-              </Text>
-            ) : null}
-          </View>
-        </Pressable>
-      ) : null}
+              <View className="mt-0.5 flex-row items-center gap-1">
+                <PriceDisplay price={product.price} primaryClassName="text-xs font-bold" />
+                {onSale && product.compareAtPrice ? (
+                  <Text className="text-xs font-normal text-muted-foreground line-through">
+                    {formatMoney(product.compareAtPrice)}
+                  </Text>
+                ) : null}
+              </View>
+            </Pressable>,
+          )
+        : null}
     </View>
   );
 }

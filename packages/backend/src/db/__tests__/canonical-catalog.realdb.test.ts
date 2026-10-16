@@ -29,7 +29,9 @@ import { fixtureGtin } from '../../__tests__/fixture-gtin.js';
 import { log } from '../../lib/logger.js';
 import { deleteTestCanonicalRows } from './canonical-teardown.js';
 import { brands } from '../schema/organizations.js';
-import { categories } from '../schema/catalog.js';
+import { categories, listings } from '../schema/catalog.js';
+import { listingConditionPhotos } from '../schema/condition.js';
+import { sellerListingDrafts, sellerDraftImages } from '../schema/sellYours.js';
 import { catalogSources, sourceRecords } from '../schema/provenance.js';
 import {
   attributeDefinitionCategories,
@@ -55,6 +57,7 @@ import {
   productIdentifiers,
 } from '../schema/canonicalCatalog.js';
 import {
+  attachImportedCanonicalImage,
   listAttributeValues,
   setAttributeValueSelectionState,
 } from '../canonical/attributeRepository.js';
@@ -67,6 +70,7 @@ import {
   findCanonicalProductByIdentifier,
   getPublicCanonicalProduct,
   resolveCanonicalProduct,
+  updateCanonicalProduct,
 } from '../../services/canonical/canonical-product.service.js';
 import {
   createVariant,
@@ -859,6 +863,53 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     expect(uploadImage.mock.calls[0]?.[1].headers['x-owner-user-id']).toBe(OPERATOR);
   });
 
+  it('imports a legacy image without replacing its identity or overwriting a concurrent import', async () => {
+    const productId = await mintProduct({ label: 'Legacy media import' });
+    const result = await applyProductSourceObservation({
+      productId,
+      sourceId,
+      externalId: `legacy-media-${RUN}`,
+      observedAt: new Date(),
+      method: 'connector_declared',
+      matchRule: 'test.legacy-media',
+      decidedByOxyUserId: OPERATOR,
+      fields: {},
+      images: [
+        { fileId: 'before-import', sourceUrl: 'https://supplier.example/legacy.jpg', alt: 'Front' },
+      ],
+    });
+    const [before] = await db
+      .update(canonicalImages)
+      .set({ fileId: null })
+      .where(eq(canonicalImages.sourceRecordId, result.sourceRecordId))
+      .returning();
+    expect(
+      await attachImportedCanonicalImage(
+        db,
+        before.id,
+        'https://supplier.example/changed.jpg',
+        'new-file',
+      ),
+    ).toBe(false);
+    expect(await attachImportedCanonicalImage(db, before.id, before.sourceUrl!, 'new-file')).toBe(
+      true,
+    );
+    expect(await attachImportedCanonicalImage(db, before.id, before.sourceUrl!, 'stale-file')).toBe(
+      false,
+    );
+    const [after] = await db
+      .select()
+      .from(canonicalImages)
+      .where(eq(canonicalImages.id, before.id));
+    expect(after).toEqual({
+      ...before,
+      fileId: 'new-file',
+      imageRef: 'new-file',
+      updatedAt: expect.any(Date),
+    });
+    expect(after.updatedAt.getTime()).toBeGreaterThanOrEqual(before.updatedAt.getTime());
+  });
+
   it('makes an image without an observation UNWRITABLE, not merely discouraged', async () => {
     const productId = await mintProduct({ label: 'Image Provenance Product' });
     // `source_record_id` is NOT NULL, so there is no path — service or psql —
@@ -972,32 +1023,104 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     expect(records).toHaveLength(1);
   });
 
-  it('refuses source media without storage rights before any external IO', async () => {
-    const productId = await mintProduct({ label: 'Nonstorable Image Product' });
-    const restrictedSource = await ensureCatalogSource(db, {
-      kind: 'feed',
-      name: `nonstorable-images-${RUN}`,
-      mayDisplay: true,
-      mayStore: false,
-      attributionRequired: false,
-    });
-    createdSourceIds.push(restrictedSource.id);
+  it('imports description-only images before applying facts, keeping the original source observation', async () => {
+    const productId = await mintProduct({ label: 'Description Media Product' });
+    const original =
+      '<p>Materials</p><img src="https://supplier.example/chart.png" alt="Size chart">';
+    const observation = {
+      productId,
+      sourceId,
+      externalId: `description-${RUN}`,
+      observedAt: new Date(),
+      method: 'connector_declared' as const,
+      matchRule: 'test.description',
+      decidedByOxyUserId: OPERATOR,
+      fields: { description: original },
+    };
+    const result = await applyProductSourceObservation(observation);
+    expect(result.product.description).toContain('https://cloud.oxy.so/oxy-canonical-file');
+    expect(result.product.description).not.toContain('supplier.example');
+    expect(result.applied).toContain('description');
+    const [record] = await db
+      .select()
+      .from(sourceRecords)
+      .where(eq(sourceRecords.id, result.sourceRecordId));
+    expect(record.payload).toMatchObject({ description: original });
+    uploadImage.mockImplementation(async () => new Response('denied', { status: 403 }));
     await expect(
       applyProductSourceObservation({
-        productId,
-        sourceId: restrictedSource.id,
-        externalId: `nonstorable-${RUN}`,
-        observedAt: new Date(),
-        method: 'connector_declared',
-        matchRule: 'test.media-rights',
-        decidedByOxyUserId: OPERATOR,
-        fields: {},
-        images: [{ sourceUrl: 'https://supplier.example/new.png' }],
+        ...observation,
+        fields: { description: '<img src="https://supplier.example/replacement.png">' },
       }),
-    ).rejects.toThrow(/storage and display rights/);
+    ).rejects.toThrow(/not authorized/);
+    const stored = await getPublicCanonicalProduct(productId);
+    expect(stored?.description).toBe(result.product.description);
+    const records = await db
+      .select()
+      .from(sourceRecords)
+      .where(eq(sourceRecords.externalId, observation.externalId));
+    expect(records).toHaveLength(1);
+  });
+
+  it('does not import an ignored pinned description', async () => {
+    const productId = await mintProduct({ label: 'Pinned Description Media Product' });
+    await updateCanonicalProduct(productId, {
+      description: 'Operator correction',
+      actorOxyUserId: OPERATOR,
+    });
+    const original = '<img src="https://supplier.example/chart.png">';
+    const result = await applyProductSourceObservation({
+      productId,
+      sourceId,
+      externalId: `pinned-description-${RUN}`,
+      observedAt: new Date(),
+      method: 'connector_declared',
+      matchRule: 'test.pinned-description',
+      decidedByOxyUserId: OPERATOR,
+      fields: { description: original },
+    });
+    expect(result.product.description).toBe('Operator correction');
+    expect(result.conflicts).toContainEqual({
+      field: 'description',
+      reason: 'pinned',
+      sourceValue: original,
+    });
     expect(downloadImage).not.toHaveBeenCalled();
     expect(uploadImage).not.toHaveBeenCalled();
   });
+
+  it.each(['gallery', 'description'] as const)(
+    'refuses source %s media without storage rights before any external IO',
+    async (media) => {
+      const productId = await mintProduct({ label: `Nonstorable ${media} Product` });
+      const restrictedSource = await ensureCatalogSource(db, {
+        kind: 'feed',
+        name: `nonstorable-${media}-${RUN}`,
+        mayDisplay: true,
+        mayStore: false,
+        attributionRequired: false,
+      });
+      createdSourceIds.push(restrictedSource.id);
+      await expect(
+        applyProductSourceObservation({
+          productId,
+          sourceId: restrictedSource.id,
+          externalId: `nonstorable-${media}-${RUN}`,
+          observedAt: new Date(),
+          method: 'connector_declared',
+          matchRule: 'test.media-rights',
+          decidedByOxyUserId: OPERATOR,
+          fields:
+            media === 'description'
+              ? { description: '<img src="https://supplier.example/new.png">' }
+              : {},
+          images: media === 'gallery' ? [{ sourceUrl: 'https://supplier.example/new.png' }] : [],
+        }),
+      ).rejects.toThrow(/storage and display rights/);
+      expect(downloadImage).not.toHaveBeenCalled();
+      expect(uploadImage).not.toHaveBeenCalled();
+    },
+  );
 });
 
 /**
@@ -1483,4 +1606,110 @@ describe('#629 — a multi-valued attribute keeps the order it declared', () => 
     // And the positions never moved, which is what made the reorder silent.
     expect(after.map((row) => row.position)).toEqual([0, 2, 10]);
   });
+});
+
+it('projects canonical videos only through mixed media and refuses variant-video grain at SQL', async () => {
+  const productId = await mintProduct({ label: 'Mixed Gallery Product' });
+  const observation = await applyProductSourceObservation({
+    productId,
+    sourceId,
+    externalId: `mixed-gallery-${RUN}`,
+    observedAt: new Date(),
+    method: 'connector_declared',
+    matchRule: 'test.mixed-gallery',
+    decidedByOxyUserId: OPERATOR,
+    fields: {},
+    images: [{ fileId: `canonical-photo-${RUN}` }],
+  });
+  await db.insert(canonicalImages).values({
+    productId,
+    sourceRecordId: observation.sourceRecordId,
+    kind: 'video',
+    fileId: `canonical-video-${RUN}`,
+    position: 1,
+  });
+  // Reads never depend on enabling new video writes during a rollout/rollback.
+  const projected = await getPublicCanonicalProduct(productId);
+  expect(projected?.images.map((image) => image.fileId)).toEqual([`canonical-photo-${RUN}`]);
+  expect(projected?.media?.map((media) => [media.kind, media.fileId])).toEqual([
+    ['image', `canonical-photo-${RUN}`],
+    ['video', `canonical-video-${RUN}`],
+  ]);
+  expect(projected?.media?.some((media) => 'sourceUrl' in media)).toBe(false);
+  const [variant] = await listVariants(productId);
+  await expect(
+    db.insert(canonicalImages).values({
+      variantId: variant!.id,
+      sourceRecordId: observation.sourceRecordId,
+      kind: 'video',
+      fileId: `variant-video-${RUN}`,
+      position: 0,
+    }),
+  ).rejects.toThrow();
+});
+
+it('rejects canonical-only video as condition and seller-draft evidence in both insertion orders', async () => {
+  const productId = await mintProduct({ label: 'Canonical evidence boundary' });
+  const observation = await applyProductSourceObservation({
+    productId,
+    sourceId,
+    externalId: `canonical-evidence-${RUN}`,
+    observedAt: new Date(),
+    method: 'connector_declared',
+    matchRule: 'test.video-evidence',
+    decidedByOxyUserId: OPERATOR,
+    fields: {},
+  });
+  const [listing] = await db
+    .insert(listings)
+    .values({
+      ownerType: 'user',
+      oxyUserId: OPERATOR,
+      title: 'Evidence',
+      description: '',
+      condition: 'used_good',
+      conditionAssertion: 'seller_declared',
+      status: 'draft',
+    })
+    .returning();
+  const [draft] = await db
+    .insert(sellerListingDrafts)
+    .values({ oxyUserId: OPERATOR, clientDraftKey: uuidv7(), entryPath: 'unmatched' })
+    .returning();
+  const video = (fileId: string) =>
+    db.insert(canonicalImages).values({
+      productId,
+      sourceRecordId: observation.sourceRecordId,
+      fileId,
+      kind: 'video',
+      position: 0,
+    });
+  const condition = (fileId: string) =>
+    db.insert(listingConditionPhotos).values({
+      listingId: listing.id,
+      fileId,
+      provenance: 'seller_uploaded',
+      uploadedByOxyUserId: OPERATOR,
+      uploadedAt: new Date(),
+    });
+  const staged = (fileId: string) =>
+    db
+      .insert(sellerDraftImages)
+      .values({ draftId: draft.id, fileId, provenance: 'seller_uploaded' });
+  try {
+    for (const evidence of [condition, staged]) {
+      const videoFirst = uuidv7();
+      await video(videoFirst);
+      await expect(evidence(videoFirst)).rejects.toThrow();
+      const evidenceFirst = uuidv7();
+      await evidence(evidenceFirst);
+      await expect(video(evidenceFirst)).rejects.toThrow();
+      const concurrent = uuidv7();
+      const results = await Promise.allSettled([video(concurrent), evidence(concurrent)]);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    }
+  } finally {
+    await db.delete(sellerListingDrafts).where(eq(sellerListingDrafts.id, draft.id));
+    await db.delete(listings).where(eq(listings.id, listing.id));
+  }
 });

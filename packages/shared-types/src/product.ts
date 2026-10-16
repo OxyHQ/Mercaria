@@ -20,6 +20,8 @@ export interface ProductSummary {
   title: string;
   /** Brand / seller short name shown above the title. */
   brand: string;
+  /** Primary synchronized Oxy image. Resolve through the app's image provider. */
+  imageFileId?: string;
   /**
    * Resolvable image URL, ABSENT when the subject has no image.
    *
@@ -42,6 +44,8 @@ export interface ProductSummary {
 
 /** A compact product reference shown as a thumbnail inside a merchant card. */
 export interface ProductThumbnail {
+  /** Synchronized Oxy image resolved by the app provider. */
+  imageFileId?: string;
   /** Stable product id (links to the product). */
   id: string;
   /** Product title (for accessibility / alt text). */
@@ -85,6 +89,9 @@ export interface StoreSummary {
   handle: string;
   /** Display name of the shop. */
   name: string;
+  /** Synchronized Oxy assets; URLs below are compatibility projections. */
+  logoFileId?: string;
+  coverFileId?: string;
   /** Optional white logo/wordmark PNG (resolvable URL) shown over the cover. */
   logoUrl?: string;
   /** Cover image filling the card background (object-cover). */
@@ -120,6 +127,8 @@ export interface StoreSummary {
 
 /** A single subcategory tile inside a category card's 2×2 grid. */
 export interface CategoryTile {
+  /** Oxy file ID, resolved by the client; never a supplier URL. */
+  imageFileId?: string;
   /** Stable tile id. */
   id: string;
   /** Display name (e.g. "Dresses"). */
@@ -151,6 +160,8 @@ export interface CategoryTile {
    * carries this field unset because nothing reads it there.
    */
   sampleImageUrls?: string[];
+  /** Up to two Oxy file IDs from this category’s children, in display order. */
+  sampleImageFileIds?: string[];
 }
 
 /** A top-level category with a small grid of featured subcategories. */
@@ -198,6 +209,8 @@ export interface CategoryFeedSection {
 
 /** A small round category "pill" (circular image + label) shown above the feed. */
 export interface CategoryPill {
+  /** Oxy file ID, resolved by the client; never a supplier URL. */
+  imageFileId?: string;
   /** Category id this pill links to. */
   id: string;
   /** Display name (e.g. "Women"). */

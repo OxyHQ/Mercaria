@@ -1,3 +1,4 @@
+import type { ListingMedia } from '@mercaria/shared-types';
 /**
  * Catalog write service — the SINGLE funnel for catalog mutations.
  *
@@ -35,6 +36,7 @@
  *    `insertVariants` for what that breaks.
  */
 
+import { assertDescriptionImagesStored } from './catalog-media/description.js';
 import type {
   CreateP2PListingInput,
   CreateStoreProductInput,
@@ -43,6 +45,7 @@ import type {
   UpdateListingInput,
 } from '@mercaria/shared-types';
 import {
+  isOxyFileId,
   MERCHANT_ARCHIVABLE_LISTING_STATUSES,
   SELLER_SETTABLE_LISTING_STATUSES,
 } from '@mercaria/shared-types';
@@ -57,6 +60,7 @@ import {
   releasePinnedFields as releaseListingPinnedFields,
   repinListingProductTypeIfPinned,
   replaceListingImages,
+  replaceListingMedia,
   setListingStatusIfIn,
   updateListingColumns,
   type ListingImageInput,
@@ -403,6 +407,9 @@ export async function repinListingProductTypeVersion(
 
 /** Map input image file ids to the `listing_images` rows they expand into. */
 function toListingImages(imageFileIds: string[]): ListingImageInput[] {
+  if (!imageFileIds.every(isOxyFileId)) {
+    throw validationError('Listing images must be synchronized Oxy file IDs.');
+  }
   if (imageFileIds.length > config.catalog.maxImagesPerListing) {
     throw validationError(
       `A listing may have at most ${config.catalog.maxImagesPerListing} images`,
@@ -501,6 +508,7 @@ export async function insertP2PListingWithin(
   input: CreateP2PListingInput,
   now: Date,
 ): Promise<string> {
+  assertDescriptionImagesStored(input.description);
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
 
   const quantity = input.quantity ?? 1;
@@ -689,6 +697,7 @@ function resolveStoreVariants(
 interface StoreProductInsert {
   readonly storeId: string;
   readonly input: CreateStoreProductInput;
+  readonly media?: readonly ListingMedia[];
   /** Already numbered and already carrying their provenance. */
   readonly variants: readonly NewVariant[];
   readonly source: ListingSourceProvenance;
@@ -862,15 +871,19 @@ async function insertStoreProductWithin(
       // the row was written". The derivation leaves it NULL until the listing is
       // first activated.
     },
-    toListingImages(input.imageFileIds),
+    toListingImages(input.imageFileIds ?? []),
     input.options.map((o, position) => ({ name: o.name, values: [...o.values], position })),
     tx,
   );
 
+  if (spec.media) await replaceListingMedia(row.id, spec.media, tx);
+
   await writeListingConditionEvidence(tx, {
     listingId: row.id,
     actor: spec.conditionActor,
-    galleryFileIds: input.imageFileIds,
+    galleryFileIds: spec.media
+      ? spec.media.filter((item) => item.kind === 'image').map((item) => item.fileId)
+      : (input.imageFileIds ?? []),
     resolved: spec.resolvedCondition,
     categoryId,
     categorySlugs,
@@ -920,6 +933,8 @@ export async function createStoreProduct(
   opts: {
     locationId?: string;
     actorOxyUserId?: string;
+    /** Fully verified at the Oxy boundary before opening any transaction. */
+    media?: readonly ListingMedia[];
     /**
      * The four connector-provenance columns, all four or none — see
      * {@link ListingSourceProvenance} for why a half-set is worse than nothing.
@@ -996,6 +1011,8 @@ export async function createStoreProductWithin(
   opts: {
     locationId?: string;
     actorOxyUserId?: string;
+    /** Fully verified at the Oxy boundary before opening any transaction. */
+    media?: readonly ListingMedia[];
     source?: ListingSourceProvenance;
     status?: 'active' | 'draft';
     variantSources?: readonly VariantSourceProvenance[];
@@ -1015,6 +1032,15 @@ export async function createStoreProductWithin(
     productTypeDefinitionId?: string | null;
   } = {},
 ): Promise<ListingRecord> {
+  if (input.mediaFileIds !== undefined && opts.media === undefined)
+    throw validationError('Mixed media must be verified before writing');
+  if (
+    opts.media !== undefined &&
+    (input.imageFileIds !== undefined ||
+      JSON.stringify(input.mediaFileIds) !== JSON.stringify(opts.media.map((item) => item.fileId)))
+  )
+    throw validationError('Verified media must exactly match the requested gallery');
+  assertDescriptionImagesStored(input.description);
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
   const variants = resolveStoreVariants(input, opts.variantSources);
 
@@ -1047,6 +1073,7 @@ export async function createStoreProductWithin(
   return insertStoreProductWithin(tx, {
     storeId,
     input,
+    media: opts.media,
     variants,
     source,
     status: opts.status ?? 'active',
@@ -1127,7 +1154,17 @@ export async function updateListing(
   listingId: string,
   patch: UpdateListingInput,
   actor: ConditionActor,
+  media?: readonly ListingMedia[],
 ): Promise<void> {
+  if (patch.mediaFileIds !== undefined && media === undefined)
+    throw validationError('Mixed media must be verified before writing');
+  if (
+    media !== undefined &&
+    JSON.stringify(patch.mediaFileIds) !== JSON.stringify(media.map((item) => item.fileId))
+  )
+    throw validationError('Verified media must exactly match the requested gallery');
+  if (patch.mediaFileIds !== undefined && patch.imageFileIds !== undefined)
+    throw validationError('Choose mediaFileIds or imageFileIds');
   const listing = await findListingById(listingId);
   if (!listing) {
     throw notFound('Listing not found');
@@ -1139,7 +1176,10 @@ export async function updateListing(
     (actor.kind === 'seller' || actor.kind === 'operator') && listing.sourceConnectionId !== null;
 
   if (patch.title !== undefined) columns.title = patch.title;
-  if (patch.description !== undefined) columns.description = patch.description;
+  if (patch.description !== undefined) {
+    assertDescriptionImagesStored(patch.description);
+    columns.description = patch.description;
+  }
   if (patch.tags !== undefined) columns.tags = [...patch.tags];
   /**
    * A moderation restriction is not the seller's to lift.
@@ -1219,13 +1259,21 @@ export async function updateListing(
   // tightly on purpose: `toUpdatePatch` always sends `imageFileIds`, so reading
   // it unconditionally would add a query per product to every backfill page —
   // and a connector never pins, so it never needs one.
-  const storedImageFileIds =
+  const storedChildren =
     patch.imageFileIds === undefined || pinsApply
-      ? ((await findListingChildren([listingId])).images.get(listingId) ?? []).map(
-          (image) => image.fileId,
-        )
-      : [];
-  const galleryFileIds = patch.imageFileIds ?? storedImageFileIds;
+      ? await findListingChildren([listingId])
+      : undefined;
+  const storedImageFileIds = (storedChildren?.images.get(listingId) ?? []).map(
+    (image) => image.fileId,
+  );
+  const storedMediaFileIds = (
+    storedChildren?.media?.get(listingId) ??
+    storedChildren?.images.get(listingId) ??
+    []
+  ).map((item) => item.fileId);
+  const galleryFileIds = media
+    ? media.filter((item) => item.kind === 'image').map((item) => item.fileId)
+    : (patch.imageFileIds ?? storedImageFileIds);
 
   if (pinsApply) {
     const pins = mergePins(
@@ -1247,6 +1295,13 @@ export async function updateListing(
     if (pins) {
       columns.overriddenFields = pins;
     }
+    if (
+      media &&
+      JSON.stringify(media.map((item) => item.fileId)) !== JSON.stringify(storedMediaFileIds)
+    )
+      columns.overriddenFields = [
+        ...new Set([...(columns.overriddenFields ?? listing.overriddenFields), 'images']),
+      ];
   }
 
   try {
@@ -1281,7 +1336,9 @@ export async function updateListing(
           columns.status === 'archived' ? 'merchant_status_change' : undefined,
         );
       }
-      if (patch.imageFileIds !== undefined) {
+      if (media) {
+        await replaceListingMedia(listingId, media, tx);
+      } else if (patch.imageFileIds !== undefined) {
         await replaceListingImages(listingId, toListingImages(patch.imageFileIds), tx);
       }
 

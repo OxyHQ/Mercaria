@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import en from '../../../packages/dashboard/lib/i18n/locales/en.json';
 import ar from '../../../packages/dashboard/lib/i18n/locales/ar.json';
+import uiEn from '../../../packages/ui/src/i18n/locales/en.json';
+import uiAr from '../../../packages/ui/src/i18n/locales/ar.json';
 import { fixture } from './fixture';
 
 for (const [width, locale, mode] of [
@@ -11,6 +13,7 @@ for (const [width, locale, mode] of [
 ] as const) {
   test(`merchant lists at ${width}px ${locale} ${mode}`, async ({ page }) => {
     const copy = locale === 'ar' ? ar : en;
+    const uiCopy = locale === 'ar' ? uiAr.ui : uiEn.ui;
     const requests = await fixture(page, locale, mode);
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -32,7 +35,7 @@ for (const [width, locale, mode] of [
         id: next ? 'page-two' : 'linen-shirt',
         title: next ? 'Second page product' : search ? 'Alpine jacket' : 'Linen studio shirt',
         status: active ? 'active' : 'draft',
-        images: [{ fileId: 'fixture-product-file', alt: 'Linen shirt', position: 0 }],
+        images: [],
         variants: [{ id: 'variant-1' }],
         quantity: 8,
         price: { amount: 4900, currency: 'EUR' },
@@ -50,12 +53,6 @@ for (const [width, locale, mode] of [
         },
       });
     });
-    await page.route('**/fixture-product-file**', (route) =>
-      route.fulfill({
-        contentType: 'image/svg+xml',
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#ddd6c9"/><path d="M25 12h30l15 18-12 10-5-7v35H27V33l-5 7-12-10z" fill="#f8f6ef"/></svg>',
-      }),
-    );
     await page.route('**/admin/stores/*/orders?**', async (route) => {
       const url = new URL(route.request().url());
       requests.push(url);
@@ -88,9 +85,12 @@ for (const [width, locale, mode] of [
     await page.goto('/products');
     const products = page.getByTestId('merchant-products-list');
     await expect(
-      products.getByRole('button', { name: 'Linen studio shirt', exact: true }),
+      products.getByRole('link', { name: 'Linen studio shirt', exact: true }),
     ).toBeVisible();
-    await expect(products.getByRole('img', { name: 'Linen shirt' })).toBeVisible();
+    await expect(
+      products.getByRole('img', { name: uiCopy.marketplace.noImage, exact: true }),
+    ).toBeVisible();
+    await expect(products.locator('img')).toHaveCount(0);
     await page.screenshot({
       path: `/tmp/mercaria-products-${width}-${locale}-${mode}.png`,
       fullPage: true,
@@ -104,19 +104,24 @@ for (const [width, locale, mode] of [
       products.getByRole('button', { name: copy.resourceList.next, exact: true }),
     ).toBeDisabled();
     await expect(
-      products.getByRole('button', { name: 'Linen studio shirt', exact: true }),
-    ).toBeDisabled();
+      products.getByRole('link', { name: 'Linen studio shirt', exact: true }),
+    ).toHaveCount(0);
+    const staleProduct = products.getByLabel('Linen studio shirt', { exact: true });
+    await expect(staleProduct).toHaveAttribute('aria-disabled', 'true');
+    await expect(staleProduct).toHaveAttribute('tabindex', '-1');
+    await expect(staleProduct).not.toHaveAttribute('href');
+    await staleProduct.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/products$/);
     expect((await products.boundingBox())!.height).toBe(before!.height);
     release!();
     pending = undefined;
     await expect(
-      products.getByRole('button', { name: 'Second page product', exact: true }),
+      products.getByRole('link', { name: 'Second page product', exact: true }),
     ).toBeVisible();
     const search = products.getByRole('textbox', { name: copy.products.searchPlaceholder });
     await search.fill('Alpine');
-    await expect(
-      products.getByRole('button', { name: 'Alpine jacket', exact: true }),
-    ).toBeVisible();
+    await expect(products.getByRole('link', { name: 'Alpine jacket', exact: true })).toBeVisible();
     expect(
       requests
         .filter((url) => url.pathname.endsWith('/products'))
@@ -147,22 +152,20 @@ for (const [width, locale, mode] of [
       .getByRole('button', { name: copy.resourceList.clearFilters, exact: true })
       .click();
     await expect(
-      products.getByRole('button', { name: 'Linen studio shirt', exact: true }),
+      products.getByRole('link', { name: 'Linen studio shirt', exact: true }),
     ).toBeVisible();
     fail = true;
     await search.fill('failure');
     await expect(products.getByText(copy.products.loadFailed, { exact: true })).toBeVisible();
     fail = false;
     await products.getByRole('button', { name: copy.common.retry, exact: true }).click();
-    await expect(
-      products.getByRole('button', { name: 'Alpine jacket', exact: true }),
-    ).toBeVisible();
-    await products.getByRole('button', { name: 'Alpine jacket', exact: true }).click();
+    await expect(products.getByRole('link', { name: 'Alpine jacket', exact: true })).toBeVisible();
+    await products.getByRole('link', { name: 'Alpine jacket', exact: true }).click();
     await expect(page).toHaveURL(/\/products\/linen-shirt$/);
     await page.goto('/orders');
     const orders = page.getByTestId('merchant-orders-list');
     await expect(orders.getByText('Jordan Smith', { exact: true })).toBeVisible();
-    await expect(orders.getByRole('button', { name: '#1001', exact: true })).toBeVisible();
+    await expect(orders.getByRole('link', { name: '#1001', exact: true })).toBeVisible();
     await page.screenshot({
       path: `/tmp/mercaria-orders-${width}-${locale}-${mode}.png`,
       fullPage: true,
@@ -184,7 +187,7 @@ for (const [width, locale, mode] of [
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
-    await orders.getByRole('button', { name: '#1001', exact: true }).click();
+    await orders.getByRole('link', { name: '#1001', exact: true }).click();
     await expect(page).toHaveURL(/\/orders\/order-preview$/);
     expect(errors).toEqual([]);
   });

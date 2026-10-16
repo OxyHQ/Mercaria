@@ -405,6 +405,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'categories.image_file_id', reason: OXY_FILE },
   { column: 'collections.image_file_id', reason: OXY_FILE },
   { column: 'listing_images.file_id', reason: OXY_FILE },
+  { column: 'review_media.file_id', reason: OXY_FILE },
   { column: 'stores.cover_file_id', reason: OXY_FILE },
   { column: 'stores.logo_file_id', reason: OXY_FILE },
 

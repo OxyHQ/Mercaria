@@ -16,6 +16,19 @@ module.exports = (() => {
   // (@mercaria/ui, @mercaria/shared-types) trigger a rebuild.
   config.watchFolders = [monorepoRoot];
 
+  // Worktrees are separate checkouts with their own dependencies. Crawling them
+  // from this workspace duplicates the module graph and can exhaust Metro's heap.
+  // Playwright replaces generated reports while running. Excluding these from
+  // the crawl also prevents ENOENT races in Metro's filesystem watcher.
+  // Scope exclusions to this checkout; it may itself live inside a worktree.
+  const blockList = config.resolver.blockList;
+  config.resolver.blockList = [
+    ...(Array.isArray(blockList) ? blockList : blockList ? [blockList] : []),
+    new RegExp(
+      `${monorepoRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[/\\\\](?:\\.worktrees|test-results|playwright-report)(?:[/\\\\].*|$)`,
+    ),
+  ];
+
   // Resolve modules from both this package and the hoisted root node_modules.
   config.resolver.nodeModulesPaths = [
     path.resolve(projectRoot, 'node_modules'),

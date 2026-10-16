@@ -2,14 +2,20 @@ import { Slot, Stack } from 'expo-router';
 import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppShell, AppShellMenuButton } from '@oxy.so/bloom/app-shell';
-import { AppErrorBoundary } from '@/components/error-boundary';
+import { AppErrorBoundary, ThemedErrorFallback } from '@/components/error-boundary';
 import { AuthGate } from '@/components/AuthGate';
 import { useDashboardSidebar } from '@/components/shell/useDashboardSidebar';
 import { StoreSwitcher } from '@/components/shell/StoreSwitcher';
 import { BottomTabBar } from '@/components/shell/BottomTabBar';
 import { useTranslation } from '@/lib/i18n';
+import { Logo } from '@/components/Logo';
+import { BrandWordmark } from '@/components/BrandWordmark';
 
-const SCREEN_OPTIONS = { headerShown: false } as const;
+// Keep Bloom's AppShell surface visible underneath native routed screens.
+const SCREEN_OPTIONS = {
+  headerShown: false,
+  contentStyle: { backgroundColor: 'transparent' },
+} as const;
 
 const GESTURE_ROOT_STYLE = { flex: 1 } as const;
 
@@ -43,9 +49,17 @@ function Shell() {
       // The drawer carries the account footer, which the bottom bar does not,
       // so below `md` the header keeps its menu button — ours, for its label.
       header={
-        <View className="flex-row items-center justify-between gap-3 px-4 py-2 md:hidden">
-          <AppShellMenuButton accessibilityLabel={t('nav.openNavigation')} />
-          <StoreSwitcher />
+        <View className="gap-2 px-4 py-2 md:hidden">
+          <View className="flex-row items-center justify-between gap-3">
+            <AppShellMenuButton accessibilityLabel={t('nav.openNavigation')} />
+            <View testID="wholesale-mobile-brand" className="flex-row items-center gap-2">
+              <Logo size={28} />
+              <BrandWordmark />
+            </View>
+          </View>
+          <View className="items-end">
+            <StoreSwitcher />
+          </View>
         </View>
       }
       bottomBar={<BottomTabBar />}
@@ -59,7 +73,7 @@ function Shell() {
 
 export default function AppLayout() {
   return (
-    <AppErrorBoundary>
+    <AppErrorBoundary fallback={ThemedErrorFallback}>
       <GestureHandlerRootView style={GESTURE_ROOT_STYLE}>
         <AuthGate>
           <Shell />

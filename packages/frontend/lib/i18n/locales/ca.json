@@ -143,6 +143,7 @@
     "notFound": "No hem trobat aquest producte.",
     "visitA11y": "Visita %{name}",
     "moreFromStore": "Més de %{name}",
+    "youMightAlsoLike": "També et pot agradar",
     "compareOffersA11y": "Compara totes les ofertes d'aquest producte",
     "compareOffers": "Compara totes les ofertes",
     "percentOff": "%{percent}% de descompte",
@@ -236,7 +237,8 @@
       "product": "Sobre aquest producte",
       "variant": "Sobre aquesta configuració",
       "definitionsUnavailable": "Alguns noms es mostren tal com estan desats.",
-      "untranslated": "Alguns noms encara no estan traduïts al teu idioma."
+      "untranslated": "Alguns noms encara no estan traduïts al teu idioma.",
+      "loadError": "No s’han pogut carregar les especificacions. Torna-ho a provar."
     },
     "variants": {
       "unavailable": "no disponible",
@@ -475,6 +477,17 @@
       "count": "A %{formattedCount} els ha resultat útil",
       "error": "No s’ha pogut actualitzar el vot. Torna-ho a provar.",
       "retry": "Torna a carregar els vots"
+    },
+    "media": {
+      "add": "Afegeix una foto o un vídeo",
+      "prompt": "Arrossega un fitxer aquí o",
+      "uploading": "S’està pujant…",
+      "uploaded": "Pujada completada",
+      "invalid": "Fins a 10 fitxers: imatges JPG, PNG, WebP, GIF o AVIF de fins a 20 MB; vídeos MP4 o WebM de fins a 100 MB.",
+      "publicNotice": "Els fitxers pujats són públics. Treure un adjunt aquí no l’elimina dels teus fitxers d’Oxy.",
+      "failed": "No s’ha pogut verificar la pujada. Torna-ho a provar.",
+      "remove": "Treu %{filename}",
+      "removeAction": "Treu"
     }
   },
   "search": {
@@ -676,7 +689,8 @@
       "actionLabel": "Segueix %{name}"
     },
     "linkCard": {
-      "viewProfile": "Mostra el perfil de %{name}"
+      "viewProfile": "Mostra el perfil de %{name}",
+      "visitProfile": "Veure el perfil"
     },
     "report": {
       "action": "Denuncia",
@@ -1218,6 +1232,15 @@
       "collectHere": "Compra en línia i recull aquí",
       "placeRatingSubject": "%{place} a GoWay",
       "photoLabel": "Foto de %{place}"
+    },
+    "contact": {
+      "title": "Contacta amb %{store}",
+      "unavailable": "No s’ha pogut carregar la informació de contacte.",
+      "empty": "Aquesta botiga no ha publicat informació de contacte.",
+      "website": "Lloc web",
+      "copy": "Copia %{value}",
+      "copied": "Copiat",
+      "copyFailed": "No s’ha pogut copiar. Torna-ho a provar."
     }
   },
   "offer": {
@@ -1556,6 +1579,17 @@
       "updateFailed": "No s'ha pogut actualitzar l'adreça",
       "removed": "Adreça eliminada",
       "removeFailed": "No s'ha pogut eliminar l'adreça"
+    },
+    "picker": {
+      "search": "Cerca una adreça amb GoWay",
+      "help": "Cerca un carrer i una ciutat; tria i revisa l’adreça.",
+      "placeholder": "Carrer, número i ciutat",
+      "loading": "Cercant a GoWay…",
+      "error": "La cerca no està disponible. Torna-ho a provar o introdueix l’adreça manualment.",
+      "partial": "Algunes fonts no estan disponibles. Els resultats poden ser incomplets.",
+      "empty": "No s’han trobat adreces. Afegeix una ciutat o introdueix l’adreça manualment.",
+      "review": "Revisa les dades de l’adreça",
+      "manual": "Introdueix l’adreça manualment"
     }
   },
   "shoppingAgents": {

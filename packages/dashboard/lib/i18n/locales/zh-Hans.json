@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "登录",
     "signInBody": "使用你的 Oxy 账户登录，管理你的店铺 —— 商品、订单、库存、客户、折扣和报告。",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "添加渠道",
@@ -92,7 +92,7 @@
       },
       "title": "断开连接"
     },
-    "documentTitle": "销售渠道 | Mercaria Dashboard",
+    "documentTitle": "销售渠道 | Wholesale by Mercaria",
     "empty": {
       "body": "在下方连接一个店铺或商品 Feed，把现有的商品目录导入进来。",
       "title": "只有你的 Mercaria 商品目录"
@@ -263,7 +263,7 @@
     "settings": {
       "autoPublish": "自动发布",
       "autoPublishHint": "拉取到的商品立即发布。关闭时，它们会作为草稿等待审核。",
-      "documentTitle": "渠道设置 | Mercaria Dashboard",
+      "documentTitle": "渠道设置 | Wholesale by Mercaria",
       "inventoryHint": "同步地点的库存数量。",
       "inventoryLabel": "库存",
       "keepLocalEdits": "保留我的本地修改",
@@ -396,7 +396,7 @@
       "canAndCannot": "该渠道能做什么、不能做什么",
       "chooseWhatToImport": "选择要导入的内容",
       "connectedTitle": "%{channel} 已连接",
-      "documentTitle": "连接渠道 | Mercaria Dashboard",
+      "documentTitle": "连接渠道 | Wholesale by Mercaria",
       "everythingChecksOut": "一切正常。激活后会开始第一次同步。",
       "feed": {
         "body": "商品 Feed 在它自己的页面中配置：你可以把文件的列映射到 Mercaria 的字段，并在正式生效前预览结果。",
@@ -490,7 +490,7 @@
     },
     "deleteError": "无法删除产品系列",
     "deleted": "产品系列已删除",
-    "documentTitle": "产品系列 | Mercaria Dashboard",
+    "documentTitle": "产品系列 | Wholesale by Mercaria",
     "empty": {
       "body": "创建一个来整理你的商品目录。",
       "title": "暂无产品系列"
@@ -513,6 +513,73 @@
     "type": {
       "automated": "自动",
       "manual": "手动"
+    },
+    "remove": {
+      "action": "删除%{title}",
+      "title": "删除系列",
+      "confirmation": "删除“%{title}”？商品将保留在你的目录中。此操作无法撤销。"
+    },
+    "editor": {
+      "automated": "此系列的商品由其规则管理。",
+      "details": "系列详情",
+      "handle": "URL 标识",
+      "handleRequired": "请输入 URL 标识。",
+      "published": "已发布",
+      "save": "保存系列",
+      "saveFailed": "无法保存系列。",
+      "saved": "系列已保存",
+      "sortLabel": "商品排序",
+      "browse": "浏览商品",
+      "earlier": "将%{title}向前移动",
+      "emptyProducts": "尚未选择商品。",
+      "later": "将%{title}向后移动",
+      "productUnavailable": "无法加载此商品。",
+      "productsFailed": "无法保存商品。",
+      "productsSaved": "商品已保存",
+      "remove": "移除%{title}",
+      "saveProducts": "保存商品",
+      "sort": {
+        "manual": "手动",
+        "bestSelling": "畅销商品",
+        "priceAscending": "价格从低到高",
+        "priceDescending": "价格从高到低",
+        "newest": "最新优先",
+        "title": "标题：A–Z"
+      }
+    },
+    "rules": {
+      "heading": "条件",
+      "match": "商品必须满足",
+      "all": "所有条件",
+      "any": "任一条件",
+      "empty": "没有条件时，此商品系列不包含任何商品。",
+      "field": "商品字段",
+      "operator": "比较方式",
+      "value": "值",
+      "availability": "库存状态",
+      "inStock": "有货",
+      "outOfStock": "缺货",
+      "price": "价格",
+      "compareAtPrice": "对比价格",
+      "exactElement": "标签和类别标识符按完整值匹配，即使选择“包含”也一样。",
+      "retained": "此现有条件将原样保留。无法在此编辑，但你可以明确删除它。",
+      "remove": "删除条件 %{position}",
+      "add": "添加条件",
+      "failed": "无法保存条件。你的更改已保留。",
+      "saved": "条件已保存",
+      "save": "保存条件",
+      "operators": {
+        "equals": "等于",
+        "notEquals": "不等于",
+        "contains": "包含",
+        "startsWith": "开头是",
+        "endsWith": "结尾是",
+        "gt": "大于",
+        "gte": "大于或等于",
+        "lt": "小于",
+        "lte": "小于或等于"
+      },
+      "categoryIdentifier": "类别标识符"
     }
   },
   "common": {
@@ -540,7 +607,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "客户 | Mercaria Dashboard",
+      "documentTitle": "客户 | Wholesale by Mercaria",
       "lifetimeSpend": "累计消费",
       "loadError": "无法加载客户",
       "noOrders": "暂无订单。",
@@ -548,7 +615,7 @@
       "subtitle": "客户详情",
       "title": "客户"
     },
-    "documentTitle": "客户 | Mercaria Dashboard",
+    "documentTitle": "客户 | Wholesale by Mercaria",
     "empty": {
       "body": "客户在首次下单后会显示在这里。",
       "title": "暂无客户"
@@ -586,7 +653,7 @@
     },
     "deleteError": "无法删除折扣",
     "deleted": "折扣已删除",
-    "documentTitle": "折扣 | Mercaria Dashboard",
+    "documentTitle": "折扣 | Wholesale by Mercaria",
     "empty": {
       "body": "创建一个折扣码或自动折扣。",
       "title": "暂无折扣"
@@ -607,13 +674,13 @@
     "boundaryBody": "发生了意外错误。你可以重试；如果问题持续出现，我们的团队已收到通知。",
     "notFoundAction": "前往仪表板",
     "notFoundBody": "该页面不存在。",
-    "notFoundDocumentTitle": "404 - 页面未找到 | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 - 页面未找到 | Wholesale by Mercaria",
     "notFoundHeading": "哎呀！"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "请先激活一个映射",
-      "documentTitle": "商品 Feed | Mercaria Dashboard",
+      "documentTitle": "商品 Feed | Wholesale by Mercaria",
       "identityColumns": "标识列：%{columns} —— 在该 Feed 的整个生命周期内不可更改。",
       "neverRead": "该 Feed 尚未被读取过。",
       "notFound": "未找到 Feed",
@@ -642,7 +709,7 @@
     "never": "从未",
     "new": {
       "create": "创建 Feed",
-      "documentTitle": "新建商品 Feed | Mercaria Dashboard",
+      "documentTitle": "新建商品 Feed | Wholesale by Mercaria",
       "identityColumnsHint": "用逗号分隔，最多四个。它们之后无法更改：Mercaria 靠它们在前后两个文件之间识别出同一件商品，更改它们看起来就像你替换了整个商品目录。如果需要用不同的列，请新建一个 Feed。",
       "identityColumnsLabel": "用于标识每件商品的列",
       "identityColumnsPlaceholder": "id, sku",
@@ -745,7 +812,7 @@
     }
   },
   "home": {
-    "documentTitle": "仪表板 | Mercaria",
+    "documentTitle": "仪表板 | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "有 %{count} 个已跟踪库存的变体达到或低于低库存阈值。",
@@ -817,7 +884,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "订单 | Mercaria Dashboard",
+      "documentTitle": "订单 | Wholesale by Mercaria",
       "fulfilment": "发货",
       "history": "历史记录",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -836,9 +903,10 @@
       "title": "订单",
       "trackingLabel": "物流单号（选填）",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "无法更新订单"
+      "updateFailed": "无法更新订单",
+      "refundsLoadFailed": "无法加载退款记录。"
     },
-    "documentTitle": "订单 | Mercaria Dashboard",
+    "documentTitle": "订单 | Wholesale by Mercaria",
     "empty": {
       "body": "客户下单后，订单会显示在这里。",
       "title": "暂无订单"
@@ -882,18 +950,21 @@
       },
       "trail": "自提记录",
       "trailEmpty": "柜台还没有任何操作记录。",
-      "viewPlace": "在 GoWay 上查看场所"
+      "viewPlace": "在 GoWay 上查看场所",
+      "loadFailed": "无法加载自提信息。请在交付订单前重试。"
     },
     "refund": {
       "dialogTitle": "订单退款",
-      "failed": "无法处理退款",
+      "failed": "无法确认退款。请使用相同信息重试以检查结果。",
       "itemMax": "%{variant} · 最多 %{quantity}",
-      "processed": "退款已处理",
       "quantityLabel": "%{item} 的退款数量",
       "quantityRequired": "请输入要退款的数量",
       "reasonLabel": "原因（选填）",
       "reasonPlaceholder": "为什么要退这笔款？",
-      "submit": "处理退款"
+      "submit": "处理退款",
+      "loadFailed": "无法加载以前的退款。请在提交前重试。",
+      "quantityInvalid": "请输入0到%{quantity}之间的整数。",
+      "unavailable": "此订单无法退款。"
     },
     "refundState": {
       "canceled": "已取消",
@@ -935,7 +1006,7 @@
       "archiveFailed": "无法归档该商品",
       "archived": "商品已归档",
       "channelSettings": "渠道设置",
-      "documentTitle": "商品 | Mercaria Dashboard",
+      "documentTitle": "商品 | Wholesale by Mercaria",
       "loadFailed": "无法加载商品",
       "pins": {
         "release": "解除",
@@ -961,9 +1032,11 @@
         "tags": "标签",
         "addTag": "添加标签",
         "removeTag": "移除%{tag}"
-      }
+      },
+      "archiveConfirmation": "归档“%{title}”？买家将无法再购买此商品。",
+      "archiveUnsaved": "商品或其变体的未保存更改将被丢弃。取消以继续编辑。"
     },
-    "documentTitle": "商品 | Mercaria Dashboard",
+    "documentTitle": "商品 | Wholesale by Mercaria",
     "empty": {
       "action": "添加你的第一件商品",
       "title": "暂无商品"
@@ -977,7 +1050,7 @@
       "createFailed": "无法创建商品",
       "created": "商品已创建",
       "descriptionPlaceholder": "描述这件商品",
-      "documentTitle": "新建商品 | Mercaria Dashboard",
+      "documentTitle": "新建商品 | Wholesale by Mercaria",
       "optionNameLabel": "选项名称（选填，例如尺码）",
       "optionNamePlaceholder": "尺码",
       "optionValueLabel": "%{option}的值",
@@ -1015,7 +1088,6 @@
     "variants": {
       "add": "添加",
       "addFailed": "无法添加变体",
-      "added": "变体已添加",
       "available": "可售",
       "heading": "变体与库存",
       "inventoryUpdateFailed": "无法更新库存",
@@ -1023,19 +1095,47 @@
       "priceInvalid": "请输入有效的价格",
       "removeFailed": "无法移除变体",
       "removeVariant": "移除变体",
-      "removed": "变体已移除",
       "saveVariant": "保存变体",
       "set": "设置",
       "updateFailed": "无法更新变体",
       "updated": "变体已更新",
-      "valuePlaceholder": "值"
+      "valuePlaceholder": "值",
+      "inventory": {
+        "total": "所有地点可用库存：%{quantity}",
+        "manage": "按地点查看库存",
+        "loadFailed": "无法加载库存",
+        "empty": "没有存货地点",
+        "invalid": "请输入有效的整数数量。"
+      },
+      "optionRequired": "请为每个选项选择一个值。",
+      "duplicateCombination": "此选项组合已存在。",
+      "currencyChanged": "货币已更改。请取消此次编辑以使用当前价格。",
+      "removeConfirmation": "要从此商品中移除“%{variant}”吗？",
+      "keepOneVariant": "商品必须至少保留一个款式。",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "条形码",
+        "cannotClear": "此标识符可以修改，但不能清空。"
+      },
+      "media": {
+        "manage": "编辑款式图片",
+        "fallback": "使用商品图库",
+        "selected": "已选择 %{count} 张",
+        "empty": "没有可供选择的商品图片。",
+        "loadFailed": "无法加载所选图片。",
+        "saveFailed": "无法保存款式图片。",
+        "unavailable": "部分已选图片在此商品图库中已不可用。",
+        "earlier": "向前移动",
+        "later": "向后移动",
+        "useGallery": "使用商品图库"
+      }
     },
     "wizard": {
-      "documentTitle": "创建商品",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "创建商品",
       "readOnly": "此草稿已无法编辑。",
       "start": {
-        "documentTitle": "你要卖什么？",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "你要卖什么？",
         "subtitle": "在目录中找到它，或者描述一件新的商品。",
         "unavailableTitle": "此处无法使用引导式创建",
@@ -1168,8 +1268,7 @@
         "noSoldVariants": "请至少启用一个组合再设置价格。"
       },
       "listing": {
-        "mediaTitle": "照片",
-        "mediaUnavailable": "暂时无法从控制台添加照片。此草稿已有的照片会被保留。"
+        "mediaTitle": "照片"
       },
       "review": {
         "category": "类目",
@@ -1262,12 +1361,54 @@
         "unnamed": "名称未翻译",
         "notice": "部分名称尚未翻译成你的语言。"
       }
+    },
+    "bulk": {
+      "activate": "设为活跃",
+      "draft": "设为草稿",
+      "archive": "归档商品",
+      "selected": "已选择：%{items}",
+      "clear": "清除选择",
+      "result": "已确认：%{updated}。未确认：%{remaining}。",
+      "confirmation": "请检查所选商品。即使部分更改失败，其他更改也可能已生效。",
+      "failed": "无法确认更改：%{title}",
+      "notAttempted": "尚未尝试：%{title}",
+      "retry": "重试剩余商品",
+      "confirm": "应用更改",
+      "select": "选择 %{title}",
+      "selectPage": "选择本页可编辑的商品",
+      "selection": "选择"
+    },
+    "photos": {
+      "add": "添加照片",
+      "prompt": "选择商品照片",
+      "uploading": "正在上传照片",
+      "uploaded": "照片已上传",
+      "invalid": "JPG、PNG、WebP、GIF 或 AVIF，最大 20 MB。",
+      "failed": "无法添加照片。请检查文件并重试。",
+      "notice": "照片公开且属于您的商店。在此移除仅会在保存时删除引用。",
+      "position": "照片 %{position}",
+      "remove": "移除照片 %{position}"
+    },
+    "media": {
+      "add": "添加媒体",
+      "prompt": "选择照片或视频",
+      "uploading": "正在上传媒体",
+      "uploaded": "媒体已上传",
+      "invalid": "照片最大 20 MB；MP4 视频最大 40 MB。",
+      "failed": "无法添加媒体。请检查文件后重试。",
+      "notice": "媒体为公开内容，归您的商店所有。移除项目只会在保存时解除关联。",
+      "position": "媒体 %{position}",
+      "remove": "移除媒体 %{position}",
+      "viewVideo": "查看视频 %{position}",
+      "video": "视频",
+      "unavailable": "无法加载此视频。",
+      "title": "照片和视频"
     }
   },
   "settings": {
-    "documentTitle": "设置 | Mercaria Dashboard",
+    "documentTitle": "设置 | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "平台佣金 | Mercaria 控制台",
+      "documentTitle": "平台佣金 | Wholesale by Mercaria",
       "title": "平台佣金",
       "subtitle": "Mercaria 对每笔销售收取的费用，以及你需要接受的条款。",
       "loadFailed": "无法加载你的佣金条款",
@@ -1316,7 +1457,7 @@
       "defaultFlag": " · 默认",
       "deleteFailed": "无法删除地点",
       "deleted": "地点已删除",
-      "documentTitle": "地点 | Mercaria Dashboard",
+      "documentTitle": "地点 | Wholesale by Mercaria",
       "inactiveFlag": " · 已停用",
       "loadFailed": "无法加载地点",
       "namePlaceholder": "主仓库",
@@ -1333,7 +1474,7 @@
       "placeFlag": " · 已设置 GoWay 场所",
       "noPlaceFlag": " · 尚无 GoWay 场所",
       "editor": {
-        "documentTitle": "编辑地点 | Mercaria Dashboard",
+        "documentTitle": "编辑地点 | Wholesale by Mercaria",
         "title": "地点",
         "subtitle": "它在 GoWay 上的场所，以及它在 Mercaria 上的销售方式",
         "loadFailed": "无法加载此地点",
@@ -1394,14 +1535,15 @@
           "region": "省/州",
           "country": "国家",
           "countryPlaceholder": "CN",
-          "latitude": "纬度",
-          "longitude": "经度",
-          "positionHint": "从搜索结果中选择地址会自动填写位置。",
-          "submit": "创建场所",
+          "positionHint": "选择 GoWay 的搜索结果以设置位置。更改地址后需要重新选择。",
+          "submit": "创建公开营业地点",
           "created": "已在 GoWay 上创建场所",
           "nameRequired": "请为场所命名",
           "countryRequired": "请输入两位字母的国家代码",
-          "positionRequired": "请输入真实的纬度和经度，或从搜索中选择地址"
+          "positionRequired": "在 GoWay 中查找地址并选择结果。",
+          "findAddress": "在 GoWay 中查找地址",
+          "positionSelected": "已从 GoWay 选择位置",
+          "publicNotice": "新地点会在 GoWay 上公开。请勿添加私人住宅或配送地址。"
         },
         "claim": {
           "title": "认领场所",
@@ -1555,7 +1697,8 @@
           "placeTaken": "你的另一个地点已在使用此场所",
           "publicationFailed": "无法保存此地点"
         }
-      }
+      },
+      "deleteAction": "删除 %{name}"
     },
     "members": {
       "convert": {
@@ -1575,7 +1718,7 @@
         "usernameLabel": "组织用户名",
         "warning": "之前可以代表此店铺操作但不在组织中的人将不再有访问权限。"
       },
-      "documentTitle": "成员 | Mercaria Dashboard",
+      "documentTitle": "成员 | Wholesale by Mercaria",
       "loadFailed": "无法加载此店铺的人员",
       "noAccess": "无访问权限",
       "organizationBody": "谁可以代表此店铺操作由 Oxy 中的组织成员决定。Mercaria 只保存对各角色权限的例外。",
@@ -1627,7 +1770,7 @@
     },
     "payments": {
       "beingReviewed": "审核中",
-      "documentTitle": "收款与结算 | Mercaria Dashboard",
+      "documentTitle": "收款与结算 | Wholesale by Mercaria",
       "dueBy": "截止日期",
       "itemCount": {
         "one": "%{count} 项",
@@ -1689,7 +1832,7 @@
       "cancelPlan": "取消套餐",
       "capabilityWithLimit": "%{name} · 最多 %{limit}",
       "choosePlan": "选择 %{plan}",
-      "documentTitle": "套餐与账单 | Mercaria Dashboard",
+      "documentTitle": "套餐与账单 | Wholesale by Mercaria",
       "endsOn": "将于 %{date} 结束。",
       "free": "免费",
       "graceEndsOn": "除非付款成功，否则该套餐的附加功能将于 %{date} 停止。",
@@ -1762,7 +1905,7 @@
       }
     },
     "policies": {
-      "documentTitle": "政策 | Mercaria Dashboard",
+      "documentTitle": "政策 | Wholesale by Mercaria",
       "loadFailed": "无法加载设置",
       "lowStockAlerts": "低库存提醒",
       "notifications": "通知",
@@ -1820,7 +1963,7 @@
     },
     "store": {
       "brandColorLabel": "品牌色",
-      "documentTitle": "店铺资料 | Mercaria Dashboard",
+      "documentTitle": "店铺资料 | Wholesale by Mercaria",
       "loadFailed": "无法加载店铺",
       "nameLabel": "店铺名称",
       "nameRequired": "请填写店铺名称",
@@ -1838,7 +1981,7 @@
       "created": "税率已创建",
       "deleteFailed": "无法删除税率",
       "deleted": "税率已删除",
-      "documentTitle": "税费 | Mercaria Dashboard",
+      "documentTitle": "税费 | Wholesale by Mercaria",
       "emptyBody": "添加一个税率，以便在结账时收税。",
       "emptyTitle": "暂无税率",
       "inactive": "停用",
@@ -1867,7 +2010,7 @@
       "success": "店铺已创建"
     },
     "createStore": "创建店铺",
-    "documentTitle": "店铺 | Mercaria Dashboard",
+    "documentTitle": "店铺 | Wholesale by Mercaria",
     "empty": {
       "body": "创建你的第一家店铺，开始在 Mercaria 上销售。",
       "title": "暂无店铺"
@@ -1891,5 +2034,9 @@
     "price": "价格",
     "date": "日期",
     "customer": "客户"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

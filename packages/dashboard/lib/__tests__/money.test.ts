@@ -51,6 +51,28 @@ describe('toMinorUnits refuses input it cannot convert', () => {
     expect(toMinorUnits('-Infinity')).toBeNull();
   });
 
+  it.each(['EUR', 'FAIR'] as const)(
+    'refuses unsafe and overflowed minor units in %s',
+    (currency) => {
+      expect(toMinorUnits('1e300', currency)).toBeNull();
+      expect(toMinorUnits('1e308', currency)).toBeNull();
+      expect(toMinorUnits('9007199254740992', currency)).toBeNull();
+    },
+  );
+
+  it.each([
+    ['EUR', '90071992547409.91', '90071992547409.92'],
+    ['FAIR', '90071992.54740991', '90071992.54740992'],
+  ] as const)(
+    'accepts the safe minor-unit boundary and rejects its successor in %s',
+    (currency, safe, unsafe) => {
+      expect(toMinorUnits(safe, currency)).toBe(Number.MAX_SAFE_INTEGER);
+      expect(toMinorUnits(unsafe, currency)).toBeNull();
+      expect(toMinorUnits('0', currency)).toBe(0);
+      expect(toMinorUnits('12.34', currency)).toBe(currency === 'EUR' ? 1234 : 1_234_000_000);
+    },
+  );
+
   it('accepts a zero price, which is not the same as an empty field', () => {
     expect(toMinorUnits('0', 'EUR')).toBe(0);
     expect(toMinorUnits('0.00', 'EUR')).toBe(0);

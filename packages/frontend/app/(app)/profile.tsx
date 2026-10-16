@@ -5,7 +5,7 @@ import { openAccountDialog, useOxy } from '@oxy.so/services';
 import { Avatar } from '@oxy.so/bloom/avatar';
 import { Button } from '@oxy.so/bloom/button';
 import { Card } from '@oxy.so/bloom/card';
-import { Image } from 'expo-image';
+import { Image } from '@mercaria/ui';
 import { Heart, MapPin, Settings, ChevronRight, UserRound } from 'lucide-react-native';
 import { Text, toBloomIcon, LucideGlyph, ShopNavigationIcon, useColorScheme } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';

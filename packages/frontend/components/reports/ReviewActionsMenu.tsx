@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
 } from '@oxy.so/bloom/dropdown-menu';
 import type { Review } from '@mercaria/shared-types';
-import { Text, useSharedUiTranslation } from '@mercaria/ui';
+import { Icon, Text, useSharedUiTranslation } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import { AbuseReportDialog } from './AbuseReportDialog';
 
@@ -34,7 +34,8 @@ export function ReviewActionsMenu({ review, iconColor }: { review: Review; iconC
             className="size-space-24 min-h-0 min-w-0 rounded-radius-max p-0"
             hitSlop={10}
           >
-            <MoreHorizontal
+            <Icon
+              as={MoreHorizontal}
               size={20}
               color={iconColor}
               className={iconColor ? undefined : 'text-text-tertiary'}
@@ -46,7 +47,7 @@ export function ReviewActionsMenu({ review, iconColor }: { review: Review; iconC
             variant="destructive"
             onPress={control.open}
             accessibilityLabel={t('reviews.actions.report')}
-            leading={<CircleAlert size={20} className="text-destructive" />}
+            leading={<Icon as={CircleAlert} size={20} className="text-destructive" />}
           >
             <Text className="text-shop-bodySmall text-destructive">
               {t('reviews.actions.report')}

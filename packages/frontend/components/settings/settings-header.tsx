@@ -19,6 +19,7 @@ export function SettingsHeader({ title, subtitle, showBack = false, onBack }: Se
 
   return (
     <PageHeader
+      safeArea={false}
       presentation="bar"
       title={title}
       subtitle={subtitle}

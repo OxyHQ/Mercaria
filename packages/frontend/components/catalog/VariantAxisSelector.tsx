@@ -1,8 +1,8 @@
 import { View } from 'react-native';
-import { Chip } from '@oxy.so/bloom/chip';
+import { RadioGroup } from '@oxy.so/bloom/radio';
 import { Text } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
-import type { VariantAxis, VariantAxisValue, VariantMatrix } from '@/lib/catalog/variant-axes';
+import type { VariantAxis, VariantMatrix } from '@/lib/catalog/variant-axes';
 
 /**
  * The variant selector, one control per ACTUAL axis (#367 workstream 9).
@@ -58,65 +58,36 @@ function AxisRow({
   axis: VariantAxis;
   onChoose: (axisKey: string, normalizedValue: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="gap-space-8">
       <Text className="text-shop-captionBold text-text">{axis.label}</Text>
-      <View
-        className="flex-row flex-wrap gap-space-8"
-        accessibilityRole="radiogroup"
-        accessibilityLabel={axis.label}
-      >
-        {axis.values.map((value) => (
-          <AxisValueChip
-            key={value.normalizedValue}
-            axisKey={axis.key}
-            axisLabel={axis.label}
-            value={value}
-            onChoose={onChoose}
-          />
-        ))}
-      </View>
+      <RadioGroup
+        label={axis.label}
+        variant="chip"
+        size="lg"
+        tone="neutral"
+        appearance="outline"
+        value={axis.values.find((value) => value.selected)?.normalizedValue}
+        onValueChange={(value) => onChoose(axis.key, value)}
+        options={axis.values.map((value) => {
+          // Availability stays in the visible label and the accessible name.
+          const suffix =
+            value.availability === 'unavailable'
+              ? t('catalog.variants.unavailable')
+              : value.availability === 'impossible'
+                ? t('catalog.variants.impossible')
+                : undefined;
+          const label =
+            suffix === undefined ? value.displayValue : `${value.displayValue} — ${suffix}`;
+          return {
+            value: value.normalizedValue,
+            label,
+            accessibilityLabel: `${axis.label}: ${label}`,
+            disabled: !value.selectable,
+          };
+        })}
+      />
     </View>
-  );
-}
-
-function AxisValueChip({
-  axisKey,
-  axisLabel,
-  value,
-  onChoose,
-}: {
-  axisKey: string;
-  axisLabel: string;
-  value: VariantAxisValue;
-  onChoose: (axisKey: string, normalizedValue: string) => void;
-}) {
-  const { t } = useTranslation();
-
-  // The suffix is the availability, in words, in the visible label AND in the
-  // announced one. `available` and `unknown` add nothing: a chip that reads
-  // "Black — available" on every selectable value is noise that hides the two
-  // that matter.
-  const suffix =
-    value.availability === 'unavailable'
-      ? t('catalog.variants.unavailable')
-      : value.availability === 'impossible'
-        ? t('catalog.variants.impossible')
-        : undefined;
-
-  const visible = suffix === undefined ? value.displayValue : `${value.displayValue} — ${suffix}`;
-
-  return (
-    <Chip
-      size="xl"
-      variant="inverted"
-      role="radio"
-      selected={value.selected}
-      disabled={!value.selectable}
-      accessibilityLabel={`${axisLabel}: ${visible}`}
-      onPress={() => onChoose(axisKey, value.normalizedValue)}
-    >
-      {value.selected ? `${visible} ✓` : visible}
-    </Chip>
   );
 }

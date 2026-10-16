@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, Pressable } from 'react-native';
+import { Link } from 'expo-router';
 import Head from 'expo-router/head';
-import { Plus, FolderTree, Trash2 } from 'lucide-react-native';
+import { Plus, FolderTree } from 'lucide-react-native';
 import type { Collection, CollectionType } from '@mercaria/shared-types';
 import { Text, useColorScheme, toBloomIcon } from '@mercaria/ui';
 import { Field } from '@oxy.so/bloom/field';
@@ -16,11 +17,10 @@ import {
 import { toast } from '@oxy.so/bloom/toast';
 import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
 import { RequireStore } from '@/components/shell/RequireStore';
-import {
-  useCollections,
-  useCreateCollection,
-  useDeleteCollection,
-} from '@/lib/hooks/use-collections';
+import { useCollections, useCreateCollection } from '@/lib/hooks/use-collections';
+import { RemoveCollectionButton } from '@/components/collections/RemoveCollectionButton';
+import { canRetainDetailData } from '@/lib/detail-query-state';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 import { useTranslation } from '@/lib/i18n';
 
 /** Slugify a title into a URL-safe handle. */
@@ -39,8 +39,8 @@ export default function CollectionsScreen() {
       <Head>
         <title>{t('collections.documentTitle')}</title>
       </Head>
-      <RequireStore permission="collections:write">
-        {(storeId) => <CollectionsBody storeId={storeId} />}
+      <RequireStore permission="products:read">
+        {(storeId) => <CollectionsBody key={storeId} storeId={storeId} />}
       </RequireStore>
     </>
   );
@@ -48,8 +48,11 @@ export default function CollectionsScreen() {
 
 function CollectionsBody({ storeId }: { storeId: string }) {
   const { t } = useTranslation();
-  const { data, isPending, isError } = useCollections(storeId);
-  const deleteCollection = useDeleteCollection(storeId);
+  const { can } = useActiveStoreContext();
+  const canWrite = can('collections:write');
+  const query = useCollections(storeId);
+  const { isPending, isError, isFetching, refetch } = query;
+  const data = canRetainDetailData(query.error) ? query.data : undefined;
   const createControl = useDialogControl();
 
   const action = (
@@ -61,12 +64,30 @@ function CollectionsBody({ storeId }: { storeId: string }) {
   );
 
   return (
-    <Screen title={t('nav.collections')} subtitle={t('collections.subtitle')} action={action}>
+    <Screen
+      title={t('nav.collections')}
+      subtitle={t('collections.subtitle')}
+      action={canWrite ? action : undefined}
+    >
+      {isError ? (
+        <View className="mb-4 gap-2" accessibilityLiveRegion="polite">
+          <Text className="text-sm text-destructive">{t('collections.loadError')}</Text>
+          <Button
+            size="sm"
+            appearance="outline"
+            material="flat"
+            disabled={isFetching}
+            onPress={() => {
+              void refetch();
+            }}
+          >
+            {t('common.retry')}
+          </Button>
+        </View>
+      ) : null}
       {isPending ? (
         <ScreenLoading />
-      ) : isError ? (
-        <ScreenMessage title={t('collections.loadError')} body={t('common.pleaseTryAgain')} />
-      ) : (data?.length ?? 0) === 0 ? (
+      ) : !data && isError ? null : (data?.length ?? 0) === 0 ? (
         <ScreenMessage title={t('collections.empty.title')} body={t('collections.empty.body')} />
       ) : (
         <View className="gap-2">
@@ -74,23 +95,27 @@ function CollectionsBody({ storeId }: { storeId: string }) {
             <CollectionRow
               key={collection.id}
               collection={collection}
-              onDelete={() =>
-                deleteCollection.mutate(collection.id, {
-                  onSuccess: () => toast.success(t('collections.deleted')),
-                  onError: () => toast.error(t('collections.deleteError')),
-                })
-              }
+              storeId={storeId}
+              canWrite={canWrite}
             />
           ))}
         </View>
       )}
 
-      <CreateCollectionDialog storeId={storeId} control={createControl} />
+      {canWrite ? <CreateCollectionDialog storeId={storeId} control={createControl} /> : null}
     </Screen>
   );
 }
 
-function CollectionRow({ collection, onDelete }: { collection: Collection; onDelete: () => void }) {
+function CollectionRow({
+  collection,
+  storeId,
+  canWrite,
+}: {
+  collection: Collection;
+  storeId: string;
+  canWrite: boolean;
+}) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   // The meta line is composed from three independently-translated facts rather
@@ -112,19 +137,22 @@ function CollectionRow({ collection, onDelete }: { collection: Collection; onDel
       <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
         <FolderTree size={18} color={colors.mutedForeground} />
       </View>
-      <View className="flex-1">
-        <Text className="text-sm font-semibold text-foreground">{collection.title}</Text>
-        <Text className="text-xs text-muted-foreground">
-          {t('collections.rowMeta', {
-            type: typeLabel,
-            items: itemsLabel,
-            state: stateLabel,
-          })}
-        </Text>
-      </View>
-      <Pressable onPress={onDelete} className="p-2 active:opacity-70">
-        <Trash2 size={16} color={colors.mutedForeground} />
-      </Pressable>
+      <Link href={{ pathname: '/collections/[id]', params: { id: collection.id } }} asChild>
+        <Pressable
+          accessibilityLabel={collection.title}
+          className="min-w-0 flex-1 rounded-lg py-2 active:opacity-70 web:hover:opacity-70"
+        >
+          <Text className="text-sm font-semibold text-foreground">{collection.title}</Text>
+          <Text className="text-xs text-muted-foreground">
+            {t('collections.rowMeta', {
+              type: typeLabel,
+              items: itemsLabel,
+              state: stateLabel,
+            })}
+          </Text>
+        </Pressable>
+      </Link>
+      {canWrite ? <RemoveCollectionButton storeId={storeId} collection={collection} /> : null}
     </View>
   );
 }

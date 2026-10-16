@@ -36,7 +36,7 @@ import type {
   ExternalCollection,
   ExternalTaxonomyNoun,
 } from '@mercaria/shared-types';
-import { Text } from '@mercaria/ui';
+import { Icon, Text } from '@mercaria/ui';
 import { Button } from '@oxy.so/bloom/button';
 import { Dialog, useDialogControl } from '@oxy.so/bloom/dialog';
 import { toast } from '@oxy.so/bloom/toast';
@@ -185,7 +185,7 @@ export function CollectionMapping({
 
       {data.external.outcome === 'unavailable' ? (
         <View className="flex-row gap-2 rounded-xl bg-muted p-3">
-          <CircleAlert size={16} className="mt-0.5 text-muted-foreground" />
+          <Icon as={CircleAlert} size={16} className="mt-0.5 text-muted-foreground" />
           <Text className="flex-1 text-xs text-muted-foreground">
             {t(UNAVAILABLE_COPY_KEYS[data.external.reason])}
           </Text>
@@ -194,7 +194,7 @@ export function CollectionMapping({
 
       {data.targets.length === 0 ? (
         <View className="flex-row gap-2 rounded-xl bg-muted p-3">
-          <FolderTree size={16} className="mt-0.5 text-muted-foreground" />
+          <Icon as={FolderTree} size={16} className="mt-0.5 text-muted-foreground" />
           <Text className="flex-1 text-xs text-muted-foreground">
             {t('channels.collectionMapping.noManualCollections')}
           </Text>
@@ -320,7 +320,7 @@ function MappingRow({
           disabled={disabled}
           onPress={onClear}
         >
-          <Link2Off size={14} className="text-muted-foreground" />
+          <Icon as={Link2Off} size={14} className="text-muted-foreground" />
           <Text className="text-xs text-muted-foreground underline">
             {t('channels.collectionMapping.removeMapping')}
           </Text>
@@ -329,7 +329,7 @@ function MappingRow({
 
       {problem ? (
         <View className="flex-row gap-2 rounded-lg bg-destructive/10 p-2">
-          <CircleAlert size={14} className="mt-0.5 text-destructive" />
+          <Icon as={CircleAlert} size={14} className="mt-0.5 text-destructive" />
           <Text className="flex-1 text-xs text-destructive">{problem}</Text>
         </View>
       ) : null}

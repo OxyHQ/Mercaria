@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Button } from '@oxy.so/bloom/button';
 import { View } from 'react-native';
 import { RatingInput } from '@oxy.so/bloom/rating';
+import { useOxy } from '@oxy.so/services';
+import { REVIEW_MEDIA_LIMIT } from '@mercaria/shared-types';
 import type { ReviewEligibility, ReviewScope } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
 import { Textarea } from '@oxy.so/bloom/textarea';
@@ -11,6 +13,8 @@ import {
   useCreateReview,
   useReviewEligibilities,
 } from '@/lib/hooks/use-reviews';
+import type { ReviewAttachment } from '@/lib/reviews/review-uploads';
+import { ReviewMediaUpload } from './ReviewMediaUpload';
 
 /** How many prompts one order-history page shows before "and N more". */
 const VISIBLE_PROMPTS = 4;
@@ -112,19 +116,31 @@ function targetInput(eligibility: ReviewEligibility): Record<string, string> {
  * thing twice is looking at TWO prompts, and sending the id is what makes the
  * one they tapped the one that gets spent.
  */
-function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
+function ReviewPrompt({
+  eligibility,
+  accountId,
+}: {
+  eligibility: ReviewEligibility;
+  accountId: string;
+}) {
   const { t } = useTranslation();
   const [rating, setRating] = useState<number | null>(null);
   const [body, setBody] = useState('');
+  const [media, setMedia] = useState<ReviewAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
   const createReview = useCreateReview();
+  // These scopes have the public product media viewer. Private transaction
+  // feedback never offers a public upload control.
+  const acceptsMedia = eligibility.scope === 'product' || eligibility.scope === 'p2p_listing';
 
   const submit = (): void => {
-    if (rating === null) return;
+    if (rating === null || uploading || createReview.isPending) return;
     createReview.mutate({
       scope: eligibility.scope,
       eligibilityId: eligibility.id,
       rating,
       ...(body.trim() ? { body: body.trim() } : {}),
+      ...(acceptsMedia && media.length ? { mediaFileIds: media.map((item) => item.fileId) } : {}),
       ...targetInput(eligibility),
     });
   };
@@ -140,7 +156,10 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
   }
 
   return (
-    <View className="gap-3 rounded-2xl border border-border bg-card p-4">
+    <View
+      testID={`review-prompt-${eligibility.id}`}
+      className="gap-3 rounded-2xl border border-border bg-card p-4"
+    >
       <View>
         <Text className="text-sm font-bold text-foreground">
           {t(PROMPT_QUESTION_KEYS[eligibility.scope])}
@@ -163,6 +182,7 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
       <RatingInput
         value={rating}
         onChange={setRating}
+        disabled={createReview.isPending}
         size="sm"
         accessibilityLabel={t(REVIEW_SCOPE_HEADING_KEYS[eligibility.scope])}
         formatStarLabel={(choice) =>
@@ -177,9 +197,48 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
         placeholder={t('reviews.notePlaceholder')}
         value={body}
         onValueChange={setBody}
+        disabled={createReview.isPending}
         accessibilityLabel={t(NOTE_LABEL_KEYS[eligibility.scope])}
         autoResize
       />
+
+      {acceptsMedia ? (
+        <>
+          <ReviewMediaUpload
+            accountId={accountId}
+            disabled={createReview.isPending || media.length >= REVIEW_MEDIA_LIMIT}
+            onBusyChange={setUploading}
+            onUploaded={(attachment) =>
+              setMedia((previous) =>
+                previous.some((item) => item.fileId === attachment.fileId) ||
+                previous.length >= REVIEW_MEDIA_LIMIT
+                  ? previous
+                  : [...previous, attachment],
+              )
+            }
+          />
+          {media.map((attachment) => (
+            <View key={attachment.fileId} className="flex-row items-center gap-2">
+              <Text numberOfLines={1} className="min-w-0 flex-1 text-sm text-foreground">
+                {attachment.name}
+              </Text>
+              <Button
+                size="sm"
+                appearance="outline"
+                disabled={createReview.isPending}
+                accessibilityLabel={t('reviews.media.remove', { filename: attachment.name })}
+                onPress={() =>
+                  setMedia((previous) =>
+                    previous.filter((item) => item.fileId !== attachment.fileId),
+                  )
+                }
+              >
+                {t('reviews.media.removeAction')}
+              </Button>
+            </View>
+          ))}
+        </>
+      ) : null}
 
       {createReview.isError ? (
         <Text className="text-xs text-destructive">
@@ -192,7 +251,7 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
       <Button
         tone="accent"
         size="sm"
-        disabled={rating === null || createReview.isPending}
+        disabled={rating === null || createReview.isPending || uploading}
         loading={createReview.isPending}
         onPress={submit}
       >
@@ -221,10 +280,11 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
  */
 export function ReviewEligibilityPrompts() {
   const { t } = useTranslation();
+  const { user, canUsePrivateApi } = useOxy();
   const { data, isLoading } = useReviewEligibilities();
   const eligibilities = data ?? [];
 
-  if (isLoading || eligibilities.length === 0) return null;
+  if (!canUsePrivateApi || !user?.id || isLoading || eligibilities.length === 0) return null;
 
   const visible = eligibilities.slice(0, VISIBLE_PROMPTS);
   const remaining = eligibilities.length - visible.length;
@@ -233,7 +293,11 @@ export function ReviewEligibilityPrompts() {
     <View className="gap-3 px-4 pb-6">
       <Text className="text-sm font-bold text-foreground">{t('reviews.heading')}</Text>
       {visible.map((eligibility) => (
-        <ReviewPrompt key={eligibility.id} eligibility={eligibility} />
+        <ReviewPrompt
+          key={`${user.id}:${eligibility.id}`}
+          eligibility={eligibility}
+          accountId={user.id}
+        />
       ))}
       {remaining > 0 ? (
         <Text className="text-xs text-muted-foreground">

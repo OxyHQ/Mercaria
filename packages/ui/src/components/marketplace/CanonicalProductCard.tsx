@@ -1,5 +1,5 @@
 import { Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import type {
   CatalogProductCard,

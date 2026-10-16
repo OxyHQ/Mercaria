@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { View, Pressable } from 'react-native';
-import type { SearchResult } from '@goway.to/sdk';
+import type { SearchResult, StructuredGeocodeQuery } from '@goway.to/sdk';
 import { Text } from '@mercaria/ui';
 import { Field } from '@oxy.so/bloom/field';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
+import { Loading } from '@oxy.so/bloom/loading';
 import { Button } from '@oxy.so/bloom/button';
 import { toast } from '@oxy.so/bloom/toast';
-import { useCreateGoWayPlace, useGoWaySearch } from '@/lib/goway/hooks';
+import { useCreateGoWayPlace, useGoWaySearch, useGoWayAddress } from '@/lib/goway/hooks';
 import { goWayErrorKey } from '@/lib/goway/errors';
 import {
   EMPTY_PLACE_DRAFT,
   draftFromSearchResult,
+  editPlaceDraft,
+  placeAddressQuery,
   placeCreateInputOf,
   type PlaceDraft,
 } from '@/lib/goway/place-form';
@@ -22,11 +25,10 @@ import { EditorSection } from './EditorSection';
  * Choose the GoWay place this location trades from — find it, or create it
  * (ADR 0013).
  *
- * A search result GoWay already holds a place for (`placeId`) is chosen as it
- * is. One it does not — an address the geocoder found — prefills the create
- * form, POSITION INCLUDED, so a merchant never has to type a coordinate; the
- * latitude and longitude fields are there for a shop no geocoder knows, and
- * there is no map pin on this screen because the dashboard carries no map.
+ * Search results come from GoWay's SDK. An address prefills a public business
+ * draft; editing it invalidates the position and requires a fresh structured
+ * lookup and explicit result selection. The SDK owns geocoding and validation.
+ * Creating a public business is distinct from selecting its Mercaria location.
  *
  * Choosing only picks: nothing is linked until the publication is saved below.
  */
@@ -43,27 +45,47 @@ export function PlacePickerCard({
   const search = useGoWaySearch(debounced);
   const create = useCreateGoWayPlace();
   const [draft, setDraft] = useState<PlaceDraft | null>(null);
+  const [addressQuery, setAddressQuery] = useState<StructuredGeocodeQuery | null>(null);
+  const address = useGoWayAddress(addressQuery);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const waitingForSearch = query.trim() !== debounced.trim();
+  const showSearch = query.trim().length >= 2 && !waitingForSearch;
+  const hasPosition = Boolean(draft?.latitude && draft.longitude);
 
-  const field = (key: keyof PlaceDraft) => ({
+  const chooseAddress = (result: SearchResult, reviewedAddress?: PlaceDraft) => {
+    if (create.isPending) return;
+    setDraft(draftFromSearchResult(result, draft?.name ?? defaultName, reviewedAddress));
+    setAddressQuery(null);
+    setErrorKey(null);
+  };
+  const field = (key: Exclude<keyof PlaceDraft, 'latitude' | 'longitude'>) => ({
     value: draft?.[key] ?? '',
-    onValueChange: (value: string) =>
-      setDraft((current) => ({ ...(current ?? EMPTY_PLACE_DRAFT), [key]: value })),
+    disabled: create.isPending,
+    onValueChange: (value: string) => {
+      if (create.isPending) return;
+      setDraft((current) => editPlaceDraft(current ?? EMPTY_PLACE_DRAFT, key, value));
+      if (key !== 'name') {
+        setAddressQuery(null);
+      }
+      setErrorKey(null);
+    },
   });
 
   const submit = () => {
-    if (draft === null) return;
+    if (draft === null || create.isPending) return;
     const built = placeCreateInputOf(draft);
     if (!built.ok) {
-      toast.error(t(built.errorKey));
+      setErrorKey(built.errorKey);
       return;
     }
+    setErrorKey(null);
     create.mutate(built.input, {
       onSuccess: (place) => {
         toast.success(t('settings.locations.editor.create.created'));
         setDraft(null);
         onChoose(place.id);
       },
-      onError: (error) => toast.error(t(goWayErrorKey(error))),
+      onError: (error) => setErrorKey(goWayErrorKey(error)),
     });
   };
 
@@ -76,32 +98,55 @@ export function PlacePickerCard({
         <TextFieldInput
           label={t('settings.locations.editor.picker.searchLabel')}
           value={query}
+          disabled={create.isPending}
           onValueChange={setQuery}
           placeholder={t('settings.locations.editor.picker.searchPlaceholder')}
         />
       </Field>
-      {search.isError ? (
-        <Text className="text-sm text-muted-foreground">{t(goWayErrorKey(search.error))}</Text>
-      ) : null}
-      {search.data?.length === 0 ? (
-        <Text className="text-sm text-muted-foreground">
-          {t('settings.locations.editor.picker.noResults')}
-        </Text>
-      ) : null}
-      {search.data?.map((result) => (
-        <SearchResultRow
-          key={result.id}
-          result={result}
-          onUse={(placeId) => onChoose(placeId)}
-          onCreateHere={() => setDraft(draftFromSearchResult(result, defaultName))}
-        />
-      ))}
+      <View className="min-h-8 justify-center" accessibilityLiveRegion="polite">
+        {waitingForSearch || (showSearch && search.isFetching) ? (
+          <Loading variant="inline" size="sm" accessibilityLabel={t('common.loading')} />
+        ) : null}
+        {showSearch && search.isError ? (
+          <View className="gap-2">
+            <Text className="text-sm text-muted-foreground">{t(goWayErrorKey(search.error))}</Text>
+            <Button
+              appearance="outline"
+              disabled={search.isFetching || create.isPending}
+              onPress={() => {
+                void search.refetch();
+              }}
+            >
+              {t('common.retry')}
+            </Button>
+          </View>
+        ) : null}
+        {showSearch && !search.isError && search.data?.length === 0 ? (
+          <Text className="text-sm text-muted-foreground">
+            {t('settings.locations.editor.picker.noResults')}
+          </Text>
+        ) : null}
+      </View>
+      {showSearch && !search.isError
+        ? search.data?.map((result) => (
+            <SearchResultRow
+              key={result.id}
+              result={result}
+              disabled={create.isPending}
+              onUse={onChoose}
+              onCreateHere={() => chooseAddress(result)}
+            />
+          ))
+        : null}
 
       {draft === null ? (
         <Button
           appearance="outline"
           tone="neutral"
-          onPress={() => setDraft({ ...EMPTY_PLACE_DRAFT, name: defaultName })}
+          onPress={() => {
+            setDraft({ ...EMPTY_PLACE_DRAFT, name: defaultName });
+            setErrorKey(null);
+          }}
         >
           {t('settings.locations.editor.create.open')}
         </Button>
@@ -170,34 +215,77 @@ export function PlacePickerCard({
               </Field>
             </View>
           </View>
-          <View className="flex-row gap-2">
-            <View className="flex-1">
-              <Field label={t('settings.locations.editor.create.latitude')}>
-                <TextFieldInput
-                  label={t('settings.locations.editor.create.latitude')}
-                  keyboardType="numbers-and-punctuation"
-                  {...field('latitude')}
-                />
-              </Field>
-            </View>
-            <View className="flex-1">
-              <Field label={t('settings.locations.editor.create.longitude')}>
-                <TextFieldInput
-                  label={t('settings.locations.editor.create.longitude')}
-                  keyboardType="numbers-and-punctuation"
-                  {...field('longitude')}
-                />
-              </Field>
-            </View>
-          </View>
           <Text className="text-xs text-muted-foreground">
             {t('settings.locations.editor.create.positionHint')}
           </Text>
+          {hasPosition ? (
+            <Text className="text-sm text-foreground">
+              {t('settings.locations.editor.create.positionSelected')}
+            </Text>
+          ) : (
+            <View className="gap-2">
+              <Button
+                appearance="outline"
+                loading={address.isFetching}
+                disabled={create.isPending || address.isFetching}
+                onPress={() => {
+                  const next = placeAddressQuery(draft);
+                  setAddressQuery(next);
+                  if (JSON.stringify(next) === JSON.stringify(addressQuery)) void address.refetch();
+                }}
+              >
+                {t('settings.locations.editor.create.findAddress')}
+              </Button>
+              {addressQuery && address.isError ? (
+                <Text accessibilityLiveRegion="polite" className="text-sm text-destructive">
+                  {t(goWayErrorKey(address.error))}
+                </Text>
+              ) : null}
+              {addressQuery && !address.isError && address.data?.length === 0 ? (
+                <Text className="text-sm text-muted-foreground">
+                  {t('settings.locations.editor.picker.noResults')}
+                </Text>
+              ) : null}
+              {addressQuery && !address.isError
+                ? address.data?.map((result) => (
+                    <SearchResultRow
+                      key={result.id}
+                      result={result}
+                      disabled={create.isPending}
+                      onUse={onChoose}
+                      onCreateHere={() => chooseAddress(result, draft)}
+                    />
+                  ))
+                : null}
+            </View>
+          )}
+          <Text className="text-sm text-muted-foreground">
+            {t('settings.locations.editor.create.publicNotice')}
+          </Text>
+          {errorKey ? (
+            <Text accessibilityLiveRegion="polite" className="text-sm text-destructive">
+              {t(errorKey)}
+            </Text>
+          ) : null}
           <View className="flex-row gap-2">
-            <Button tone="accent" loading={create.isPending} onPress={submit}>
+            <Button
+              tone="accent"
+              loading={create.isPending}
+              disabled={!hasPosition}
+              onPress={submit}
+            >
               {t('settings.locations.editor.create.submit')}
             </Button>
-            <Button appearance="outline" tone="neutral" onPress={() => setDraft(null)}>
+            <Button
+              appearance="outline"
+              tone="neutral"
+              disabled={create.isPending}
+              onPress={() => {
+                setDraft(null);
+                setAddressQuery(null);
+                setErrorKey(null);
+              }}
+            >
               {t('common.cancel')}
             </Button>
           </View>
@@ -211,8 +299,10 @@ function SearchResultRow({
   result,
   onUse,
   onCreateHere,
+  disabled,
 }: {
   result: SearchResult;
+  disabled: boolean;
   onUse: (placeId: string) => void;
   onCreateHere: () => void;
 }) {
@@ -220,6 +310,9 @@ function SearchResultRow({
   const placeId = result.placeId;
   return (
     <Pressable
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={result.displayName}
       onPress={() => (placeId === undefined ? onCreateHere() : onUse(placeId))}
       className="flex-row items-center gap-3 rounded-xl border border-border p-3 active:opacity-70"
     >

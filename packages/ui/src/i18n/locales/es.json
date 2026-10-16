@@ -873,7 +873,9 @@
       "viewImage": "Ver la imagen %{position}",
       "previous": "Imagen anterior",
       "next": "Imagen siguiente",
-      "open": "Abrir imágenes de %{title}"
+      "open": "Abrir imágenes de %{title}",
+      "viewVideo": "Ver vídeo %{position}",
+      "openVideo": "Abrir vídeo de %{title}"
     },
     "quantity": {
       "remove": "Quitar el artículo",
@@ -881,6 +883,9 @@
       "increase": "Aumentar la cantidad"
     },
     "review": {
+      "loading": "Cargando reseñas…",
+      "loadError": "No se han podido cargar las reseñas. Inténtalo de nuevo.",
+      "retry": "Reintentar",
       "defaultScope": "Reseñas",
       "starsA11y": "Valoración media: %{rating}. Reseñas: %{reviews}.",
       "starsScopedA11y": "%{subject}. Valoración media: %{rating}. Reseñas: %{reviews}.",
@@ -1013,6 +1018,14 @@
       "andSave": "Compra en pack y ahorra",
       "view": "Ver pack",
       "addFailed": "No se pudo añadir el pack. Inténtalo de nuevo."
+    },
+    "reviewMedia": {
+      "title": "Fotos y vídeos de reseñas",
+      "viewImage": "Ver foto de reseña %{position}",
+      "viewVideo": "Ver vídeo de reseña %{position}",
+      "unavailable": "No se pudo cargar este archivo.",
+      "retry": "Reintentar",
+      "more": "Cargar más fotos y vídeos"
     }
   }
 }

@@ -29,6 +29,7 @@ import {
   type PlaceHoursExceptionInput,
   type PlaceUpdateInput,
   type SearchResult,
+  type StructuredGeocodeQuery,
 } from '@goway.to/sdk';
 import { GOWAY_API_URL } from '../config';
 import { useTranslation } from '../i18n';
@@ -73,8 +74,22 @@ export function useGoWaySearch(query: string) {
   const term = query.trim();
   return useQuery<SearchResult[]>({
     queryKey: queryKeys.goway.search(term, locale),
-    queryFn: async () => (await client.search.query({ query: term, limit: SEARCH_LIMIT })).items,
+    queryFn: async ({ signal }) =>
+      (await client.search.query({ query: term, limit: SEARCH_LIMIT }, { signal })).items,
     enabled: term.length >= 2,
+    retry: false,
+  });
+}
+
+/** Resolve a reviewed postal draft without creating any public place. */
+export function useGoWayAddress(query: StructuredGeocodeQuery | null) {
+  const client = useGoWayClient();
+  const { locale } = useTranslation();
+  return useQuery<SearchResult[]>({
+    queryKey: queryKeys.goway.address(query, locale),
+    queryFn: async ({ signal }) =>
+      (await client.geocode.structured({ ...query, limit: SEARCH_LIMIT }, { signal })).items,
+    enabled: query !== null,
     retry: false,
   });
 }
@@ -134,30 +149,48 @@ export function useCreateGoWayPlace() {
 
 /** Edit a place the store's claim lets this session edit: hours, contact. */
 export function useUpdateGoWayPlace(placeId: string) {
+  const queryClient = useQueryClient();
+  const { locale } = useTranslation();
   const client = useGoWayClient();
   const invalidate = useInvalidatePlace();
   return useMutation({
     mutationFn: (input: PlaceUpdateInput) => client.places.update(placeId, input),
-    onSuccess: () => invalidate(placeId),
+    onSuccess: async (place) => {
+      const queryKey = queryKeys.goway.place(placeId, locale);
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      queryClient.setQueryData(queryKey, place);
+      invalidate(placeId);
+    },
   });
 }
 
 /** Apply the accessibility form's writes, one at a time, in order. */
 export function useApplyCapabilityOperations(placeId: string) {
   const client = useGoWayClient();
-  const invalidate = useInvalidatePlace();
+  const queryClient = useQueryClient();
+  const { locale } = useTranslation();
   return useMutation({
     mutationFn: async (operations: readonly CapabilityOperation[]) => {
-      for (const operation of operations) {
-        if (operation.kind === 'put') {
-          await client.places.capabilities.put(placeId, operation.key, operation.assertion);
-        } else {
-          await client.places.capabilities.delete(placeId, operation.key);
+      try {
+        for (const operation of operations) {
+          if (operation.kind === 'put') {
+            await client.places.capabilities.put(placeId, operation.key, operation.assertion);
+          } else {
+            await client.places.capabilities.delete(placeId, operation.key);
+          }
         }
+      } finally {
+        // A partial failure still changed something. DELETE returns 204: only
+        // GoWay can say which weaker assertion is now strongest. Wait for the
+        // authoritative read before allowing the editor to acknowledge a draft.
+        await queryClient.invalidateQueries({ queryKey: ['goway', 'place', placeId] });
       }
+      const state = queryClient.getQueryState<Place>(queryKeys.goway.place(placeId, locale));
+      return {
+        confirmed: state?.status === 'success' && !state.isInvalidated,
+        error: state?.error,
+      };
     },
-    // A partial failure still changed something: re-read either way.
-    onSettled: () => invalidate(placeId),
   });
 }
 

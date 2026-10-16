@@ -148,6 +148,13 @@ export async function applyProductObservationHandler(req: Request, res: Response
       modelYear?: number;
       modelCode?: string;
       images?: { fileId?: string; sourceUrl?: string; alt?: string; locale?: string }[];
+      media?: {
+        kind: 'image' | 'video';
+        fileId?: string;
+        sourceUrl?: string;
+        alt?: string;
+        locale?: string;
+      }[];
       identifiers?: { scheme: IdentifierScheme; rawValue: string }[];
     };
     const productId = routeParam(req, 'productId');
@@ -169,6 +176,7 @@ export async function applyProductObservationHandler(req: Request, res: Response
         ...(body.modelCode === undefined ? {} : { modelCode: body.modelCode }),
       },
       ...(body.images === undefined ? {} : { images: body.images }),
+      ...(body.media === undefined ? {} : { media: body.media }),
     });
 
     // Identifiers go through the identifier service, so a collision becomes a

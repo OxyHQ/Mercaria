@@ -71,7 +71,7 @@ const tables = Object.values(schema).flatMap((value) => (is(value, PgTable) ? [v
  * EXACTLY, rather than as a minimum, is what makes that impossible in both
  * directions.
  */
-const SCHEMA_TABLE_COUNT = 482;
+const SCHEMA_TABLE_COUNT = 483; // review_media: ordered author-owned Oxy attachments.
 
 describe('schema conventions (static)', () => {
   it('exports exactly the tables the gates below are calibrated for', () => {

@@ -10,11 +10,12 @@ import { queryKeys } from './query-keys';
 const STALE_TIME = 1000 * 60 * 5;
 
 /** A store's public shop fronts (`/public/v1`). */
-export function useStoreLocations(storeId: string) {
+export function useStoreLocations(storeId: string, refreshOnMount = false) {
   return useQuery<MercariaLocation[]>({
     queryKey: queryKeys.visitUs.locations(storeId),
-    queryFn: () => fetchStoreLocations(storeId),
+    queryFn: ({ signal }) => fetchStoreLocations(storeId, signal),
     enabled: storeId !== '',
+    refetchOnMount: refreshOnMount ? 'always' : true,
     staleTime: STALE_TIME,
     retry: 1,
   });
@@ -24,10 +25,11 @@ export function useStoreLocations(storeId: string) {
  * One shop front's GoWay place, its name resolved in the shopper's language.
  * A public GoWay read: no Oxy session is sent, so it works signed out.
  */
-export function useGoWayPlace(placeId: string, locale: string) {
+export function useGoWayPlace(placeId: string, locale: string, refreshOnMount = false) {
   return useQuery<Place>({
     queryKey: queryKeys.visitUs.place(placeId, locale),
-    queryFn: () => goWayClient.places.get(placeId, { locale }),
+    queryFn: ({ signal }) => goWayClient.places.get(placeId, { locale, signal }),
+    refetchOnMount: refreshOnMount ? 'always' : true,
     staleTime: STALE_TIME,
     retry: 1,
   });

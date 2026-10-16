@@ -10,6 +10,7 @@ import {
   listMyReviewEligibilities,
   listOrderReviewEligibilities,
   listProductReviews,
+  listProductReviewMedia,
   listReviewHelpfulnessHandler,
   updateReviewHelpfulnessHandler,
 } from '../controllers/reviews.controller.js';
@@ -39,6 +40,11 @@ import {
 const router = Router();
 
 router.get('/product/:canonicalProductId', listProductReviews);
+router.get(
+  '/product/:canonicalProductId/media',
+  validateId('canonicalProductId'),
+  listProductReviewMedia,
+);
 router.get('/merchant/:merchantId', listMerchantReviews);
 
 router.use(authenticateToken);

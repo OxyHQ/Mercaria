@@ -1,14 +1,15 @@
+import { renderListingLink } from '@/lib/catalog/product-links';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
-import { merchantImageSource } from '@mercaria/ui';
+import { Icon, merchantImageSource, resolveCatalogImage } from '@mercaria/ui';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { Rating } from '@oxy.so/bloom/rating';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { vars } from 'nativewind';
-import { Image } from 'expo-image';
+import { BloomColorScope } from '@oxy.so/bloom/theme';
+import { Image } from '@mercaria/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Check, ChevronDown, Search, SlidersHorizontal } from 'lucide-react-native';
 import {
   ProductCard,
@@ -28,12 +29,12 @@ import {
 } from '@oxy.so/bloom/dropdown-menu';
 import { Switch } from '@oxy.so/bloom/switch';
 import { TextField, TextFieldIcon, TextFieldInput } from '@oxy.so/bloom/text-field';
-import type { Listing, StoreSummary } from '@mercaria/shared-types';
+import { isOxyFileId, type Listing, type StoreSummary } from '@mercaria/shared-types';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { StoreFollowButton } from '@/components/store/StoreFollowButton';
 import { StoreMenuSheet } from '@/components/store/StoreMenuSheet';
 import { StoreVisitUs } from '@/components/store/StoreVisitUs';
-import { storeThemeVars } from '@/lib/store-theme';
+import { storeThemeTokens } from '@/lib/store-theme';
 import { useStore, useStoreCollections } from '@/lib/hooks/use-store';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useListings } from '@/lib/hooks/use-listings';
@@ -92,17 +93,13 @@ function toQuerySort(sort: SortValue): 'newest' | 'price_asc' | 'price_desc' | u
 }
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
-function toProductSummary(
-  listing: Listing,
-  brand: string,
-  resolveImage: ReturnType<typeof useImageResolver>,
-): ProductSummary {
-  const firstImage = listing.images[0];
+function toProductSummary(listing: Listing, brand: string): ProductSummary {
+  const firstImage = listing.images.find((image) => isOxyFileId(image.fileId));
   return {
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, 'thumb') : undefined,
+    imageFileId: firstImage?.fileId,
     rating: 0,
     reviewCount: 0,
     price: listing.price,
@@ -137,6 +134,7 @@ function glassStyle(store: StoreSummary) {
 function CollectionPill({
   title,
   imageUrl,
+  imageFileId,
   active,
   toneColor,
   store,
@@ -144,11 +142,13 @@ function CollectionPill({
 }: {
   title: string;
   imageUrl?: string;
+  imageFileId?: string;
   active: boolean;
   toneColor: string;
   store: StoreSummary;
   onPress: () => void;
 }) {
+  const resolvedImage = resolveCatalogImage(imageFileId, imageUrl, useImageResolver());
   return (
     <Pressable
       accessibilityRole="button"
@@ -159,9 +159,13 @@ function CollectionPill({
       }`}
       style={glassStyle(store)}
     >
-      {imageUrl ? (
+      {resolvedImage ? (
         <View className="h-8 w-8 overflow-hidden rounded-full bg-muted">
-          <Image source={{ uri: imageUrl }} contentFit="cover" className="h-8 w-8 rounded-full" />
+          <Image
+            source={{ uri: resolvedImage }}
+            contentFit="cover"
+            className="h-8 w-8 rounded-full"
+          />
         </View>
       ) : null}
       <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: toneColor }}>
@@ -180,12 +184,14 @@ function CollectionPill({
  * (top stays ≤ 0, bottom stays ≥ hero height). On native the offset is 0 — a
  * static, fully-covering hero.
  */
-function ParallaxCover({ uri }: { uri: string }) {
+function ParallaxCover({ uri, fileId }: { uri?: string; fileId?: string }) {
+  const resolveImage = useImageResolver();
+  const source = merchantImageSource(uri, resolveImage, fileId);
   const scrollY = useWindowScrollY();
   const translateY = Math.min(scrollY * PARALLAX_FACTOR, PARALLAX_EXTRA);
   return (
     <Image
-      source={merchantImageSource(uri)}
+      source={source}
       contentFit="cover"
       style={{
         position: 'absolute',
@@ -216,20 +222,15 @@ function StoreBody({
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
-  const router = useRouter();
   const toneColor = store.textTone === 'light' ? TONE_LIGHT : TONE_DARK;
   // Scoped shadcn theme tokens derived from the store's palette. Applied to the
   // page wrapper so every shared component below (cards, inputs, pills, buttons)
   // renders in the merchant's brand palette without per-component edits.
-  const themeVars = useMemo(
-    () => vars(storeThemeVars(store.brandColor, store.textTone)),
+  const themeTokens = useMemo(
+    () => storeThemeTokens(store.brandColor, store.textTone),
     [store.brandColor, store.textTone],
   );
   const { data: collections } = useStoreCollections(handle);
-
-  const onPressProduct = (id: string) => {
-    router.push(`/products/${id}`);
-  };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeCollectionId, setActiveCollectionId] = useState<string | undefined>(
@@ -304,9 +305,10 @@ function StoreBody({
   });
 
   const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(store.logoUrl, resolveImage, store.logoFileId);
   const products = useMemo(
-    () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name, resolveImage)),
-    [data, store.name, resolveImage],
+    () => (data?.data ?? []).map((listing) => toProductSummary(listing, store.name)),
+    [data, store.name],
   );
 
   const hasNextPage = data?.pagination.hasNextPage ?? false;
@@ -314,17 +316,12 @@ function StoreBody({
     SORT_OPTIONS.find((o) => o.value === sort)?.labelKey ?? SORT_OPTIONS[0].labelKey;
 
   return (
-    // Scopes the store's brand palette to the whole page via `themeVars` (the
-    // shadcn theme tokens are remapped so `bg-background` is the brand color,
-    // `bg-card`/`bg-muted` become glassy translucent fills, and text tokens
-    // take the store's tone). Every shared component below inherits the palette.
-    // The enclosing `ScreenShell` paints the brand color across the page via
-    // `surfaceStyle`, so no surface peeks below the hero — this wrapper only
-    // carries the themed token scope.
-    <View style={themeVars}>
+    <BloomColorScope tokens={themeTokens} mode={store.textTone === 'light' ? 'dark' : 'light'}>
       {/* ---- Hero ---- */}
       <View className="relative w-full overflow-hidden" style={{ height: HERO_HEIGHT }}>
-        {store.coverImageUrl ? <ParallaxCover uri={store.coverImageUrl} /> : null}
+        {store.coverFileId || store.coverImageUrl ? (
+          <ParallaxCover uri={store.coverImageUrl} fileId={store.coverFileId} />
+        ) : null}
         <View
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { backgroundColor: COVER_DARK_OVERLAY }]}
@@ -347,37 +344,23 @@ function StoreBody({
           className="absolute start-4 top-4 flex-row items-center gap-2 rounded-full border border-white/30 px-3 py-2 web:shadow"
           style={glassStyle(store)}
         >
-          {store.logoUrl ? (
-            <Image
-              source={merchantImageSource(store.logoUrl)}
-              contentFit="contain"
-              style={{ width: 22, height: 22 }}
-            />
+          {logoSource ? (
+            <Image source={logoSource} contentFit="contain" style={{ width: 22, height: 22 }} />
           ) : null}
           <Text numberOfLines={1} className="text-sm font-bold" style={{ color: toneColor }}>
             {store.name}
           </Text>
         </Pressable>
 
-        {/* Top-right follow control.
-            Unlike everything else on this page it does NOT take the store's
-            palette: Bloom's `Button` reads its colors from the Bloom theme
-            CONTEXT, not from the shadcn CSS vars `themeVars` scopes, so it
-            renders in the app's own accent whatever the merchant's brand color
-            is. That is a property of the shared component, not something to
-            work around here — and it is defensible, since the relationship it
-            manages belongs to the user's Oxy account rather than to this shop.
-            Tinting it would need Bloom to accept an arbitrary color;
-            `BloomColorScope` takes only a named preset. */}
         <View className="absolute end-4 top-4">
           <StoreFollowButton store={store} />
         </View>
 
         {/* Centered wordmark + rating. */}
         <View className="absolute inset-x-0 bottom-6 items-center px-6">
-          {store.logoUrl ? (
+          {logoSource ? (
             <Image
-              source={merchantImageSource(store.logoUrl)}
+              source={logoSource}
               contentFit="contain"
               style={{ height: WORDMARK_HEIGHT, width: '70%', maxWidth: 320 }}
             />
@@ -438,6 +421,7 @@ function StoreBody({
                 key={collection.id}
                 title={collection.title}
                 imageUrl={collection.imageUrl}
+                imageFileId={collection.imageFileId}
                 active={activeCollectionId === collection.id}
                 toneColor={toneColor}
                 store={store}
@@ -454,6 +438,11 @@ function StoreBody({
             <View className="flex-row flex-wrap px-2">
               {publishedCollections.map((collection) => {
                 const isActive = activeCollectionId === collection.id;
+                const image = resolveCatalogImage(
+                  collection.imageFileId,
+                  collection.imageUrl,
+                  resolveImage,
+                );
                 return (
                   <View key={collection.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
                     <Pressable
@@ -465,9 +454,9 @@ function StoreBody({
                       }`}
                     >
                       <View className="relative aspect-[4/3] w-full">
-                        {collection.imageUrl ? (
+                        {image ? (
                           <Image
-                            source={{ uri: collection.imageUrl }}
+                            source={{ uri: image }}
                             contentFit="cover"
                             style={StyleSheet.absoluteFill}
                             className="web:transition-transform web:duration-300 web:group-hover:scale-105"
@@ -520,9 +509,9 @@ function StoreBody({
                 accessibilityLabel={t('store.sort.label')}
                 className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-muted px-4"
               >
-                <SlidersHorizontal size={15} className="text-foreground" />
+                <Icon as={SlidersHorizontal} size={15} className="text-foreground" />
                 <Text className="text-sm font-medium text-foreground">{t(activeSortLabelKey)}</Text>
-                <ChevronDown size={16} className="text-muted-foreground" />
+                <Icon as={ChevronDown} size={16} className="text-muted-foreground" />
               </Pressable>
             </DropdownMenuTrigger>
             <DropdownMenuContent label={t('store.sort.label')}>
@@ -537,7 +526,7 @@ function StoreBody({
                   <DropdownMenuRadioItem
                     key={option.value}
                     value={option.value}
-                    indicator={<Check size={16} className="text-foreground" />}
+                    indicator={<Icon as={Check} size={16} className="text-foreground" />}
                   >
                     {t(option.labelKey)}
                   </DropdownMenuRadioItem>
@@ -579,7 +568,7 @@ function StoreBody({
           <View className="flex-row flex-wrap px-2">
             {products.map((product) => (
               <View key={product.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
-                <ProductCard product={product} onPress={onPressProduct} />
+                <ProductCard product={product} renderLink={renderListingLink} />
               </View>
             ))}
           </View>
@@ -618,7 +607,7 @@ function StoreBody({
           setMenuOpen(false);
         }}
       />
-    </View>
+    </BloomColorScope>
   );
 }
 

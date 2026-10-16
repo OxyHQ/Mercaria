@@ -187,6 +187,16 @@ widening on `db/schema/orders.ts`. Schema decisions:
   no dot folding — and the DISPLAY form (what mail is sent to) is a different
   value from the LOOKUP form (what is hashed). Phone canonicalization never
   invents a country code.
+- **Address selection in the storefront uses the official GoWay SDK.** Both
+  saved-address creation and inline checkout share `AddressPicker`. The client
+  sends only the shopper's explicit geographic search to `geocode.forward`;
+  recipient, unit, phone and email are never appended. Search and results live
+  only in component state, with debounce, cancellation and stale-result checks,
+  outside the persisted query cache and browser navigation URL. Selecting a
+  result copies its structured postal facts into the existing editable draft;
+  incomplete results open review, and an unavailable geocoder has a manual
+  entry path. There is no public Place creation for a residential address and
+  no live geocoding dependency in checkout validation or order placement.
 - **`guest_checkouts` is ONE contact per checkout GROUP**, created inside the
   orders' transaction, immutable by trigger except D15's anonymization and
   #108's verification stage. `ensureGuestCheckout` is `ON CONFLICT DO NOTHING`

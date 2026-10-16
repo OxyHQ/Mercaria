@@ -1,5 +1,6 @@
+import { renderListingLink } from '@/lib/catalog/product-links';
 import { View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { ProductShelf, ThreadShelf } from '@mercaria/ui';
 import { useShoppingHistory, useShoppingHistoryOwner } from '@/lib/stores/shopping-history';
 import { useTranslation } from '@/lib/i18n';
@@ -49,8 +50,12 @@ export function ShoppingHistoryShelves() {
             title={t('home.recentlyViewed')}
             items={recentProducts.slice(0, 12)}
             cardVariant="image-only"
-            onPressTitle={() => router.push('/recently-viewed')}
-            onPressItem={(id) => router.push({ pathname: '/products/[id]', params: { id } })}
+            renderTitleLink={(child) => (
+              <Link href="/recently-viewed" asChild>
+                {child}
+              </Link>
+            )}
+            renderProductLink={renderListingLink}
           />
         </View>
       ) : null}

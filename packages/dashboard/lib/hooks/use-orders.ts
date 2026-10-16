@@ -67,11 +67,11 @@ export function useStoreStats(storeId: string) {
 }
 
 /** Refunds processed against an order. */
-export function useOrderRefunds(storeId: string, orderId: string) {
+export function useOrderRefunds(storeId: string, orderId: string, enabled = true) {
   return useQuery<Refund[]>({
     queryKey: queryKeys.orders.refunds(storeId, orderId),
     queryFn: () => fetchOrderRefunds(storeId, orderId),
-    enabled: Boolean(storeId) && Boolean(orderId),
+    enabled: enabled && Boolean(storeId) && Boolean(orderId),
   });
 }
 
@@ -113,9 +113,9 @@ export function useCreateRefund(storeId: string, orderId: string) {
 /**
  * One order's collection snapshot and audited trail.
  *
- * `retry: false` and no error surfacing by the caller: a 404 here is the
- * ORDINARY answer for a delivery order, not a failure. The desk simply does not
- * render, which is right — an order that is being posted has no counter.
+ * A 404 is the ordinary answer for a delivery order, so automatic retries are
+ * disabled. The caller hides only that absence; other failures expose Retry
+ * and retain this order's cached snapshot only for transient errors.
  */
 export function useOrderPickup(storeId: string, orderId: string) {
   return useQuery<OrderPickupDesk>({

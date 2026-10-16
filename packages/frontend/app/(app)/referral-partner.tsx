@@ -5,6 +5,7 @@ import Head from 'expo-router/head';
 import { Users } from 'lucide-react-native';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
 import {
+  Icon,
   REFERRAL_OUTSTANDING_KEYS,
   REFERRAL_PAYOUT_STATUS_KEYS,
   REFERRAL_REWARD_STATE_EXPLANATION_KEYS,
@@ -204,7 +205,7 @@ function SignedOutInvitation() {
   const { t } = useTranslation();
   return (
     <View className="items-center gap-space-12 rounded-2xl border border-border bg-surface px-space-16 py-space-32">
-      <Users size={EMPTY_ICON_SIZE} className="text-muted-foreground" />
+      <Icon as={Users} size={EMPTY_ICON_SIZE} className="text-muted-foreground" />
       <Text className="text-center text-base font-semibold text-foreground">
         {t('referral.signedOut.title')}
       </Text>

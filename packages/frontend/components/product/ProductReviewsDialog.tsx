@@ -1,10 +1,17 @@
+import { ProductReviewMedia } from './ProductReviewMedia';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, useWindowDimensions, type ScrollView, type TextInput } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useReducedMotion } from 'react-native-reanimated';
 import { Button } from '@oxy.so/bloom/button';
 import { Search } from '@oxy.so/bloom/search';
-import { REVIEW_SEARCH_MAX_LENGTH, type ReviewSortOrder } from '@mercaria/shared-types';
+import * as Skeleton from '@oxy.so/bloom/skeleton';
+import {
+  REVIEW_SEARCH_MAX_LENGTH,
+  type ReviewSortOrder,
+  type ReviewRatingSummary,
+  type ScopedRatingAggregate,
+} from '@mercaria/shared-types';
 import {
   ReviewCard,
   ReviewSummaryCard,
@@ -34,14 +41,7 @@ function ReviewSearchClearIcon({
 }) {
   const { isDarkColorScheme } = useColorScheme();
   return (
-    <Svg
-      width={width}
-      height={height}
-      viewBox="0 0 24 24"
-      fill="none"
-      opacity={0.6}
-      accessible={false}
-    >
+    <Svg width={width} height={height} viewBox="0 0 24 24" fill="none" opacity={0.6} aria-hidden>
       <Path
         fillRule="evenodd"
         clipRule="evenodd"
@@ -91,7 +91,29 @@ export function ProductReviewsDialog({
   const title = t(REVIEW_SCOPE_HEADING_KEYS[scope]);
   const firstPage = query.data?.pages[0];
   const pagination = firstPage?.pagination;
-  const summary = firstPage?.ratingSummary;
+  // The server's rating summary describes the whole target, not the search
+  // results. Keep only that summary through filter requests; retaining old
+  // cards would present unrelated reviews as matches for the new search.
+  const targetKey = `${scope}:${scope === 'product' ? canonicalProductId : listingId}`;
+  const [lastOverview, setLastOverview] = useState<{
+    targetKey: string;
+    summary: ReviewRatingSummary;
+    unverified?: ScopedRatingAggregate['unverified'];
+  }>();
+  useEffect(() => {
+    if (firstPage?.ratingSummary)
+      setLastOverview({
+        targetKey,
+        summary: firstPage.ratingSummary,
+        unverified: firstPage.aggregate?.unverified,
+      });
+  }, [firstPage, targetKey]);
+  const overview = firstPage?.ratingSummary
+    ? { summary: firstPage.ratingSummary, unverified: firstPage.aggregate?.unverified }
+    : lastOverview?.targetKey === targetKey
+      ? lastOverview
+      : undefined;
+  const summary = overview?.summary;
   const reviews = query.data?.pages.flatMap((page) => page.data) ?? [];
   // Offset pagination may overlap if a new review is published mid-scroll.
   const uniqueReviews = [...new Map(reviews.map((review) => [review.id, review])).values()];
@@ -153,6 +175,13 @@ export function ProductReviewsDialog({
         {summary ? (
           <View>
             <ReviewSummaryCard
+              mediaContent={
+                <ProductReviewMedia
+                  scope={scope}
+                  id={scope === 'product' ? (canonicalProductId ?? '') : listingId}
+                  scopeLabel={title}
+                />
+              }
               embedded
               showHeading={false}
               scopeLabel={title}
@@ -160,7 +189,7 @@ export function ProductReviewsDialog({
               total={summary.reviewCount}
               distribution={summary.distribution}
               verifiedOnly={summary.verifiedOnly}
-              unverified={firstPage?.aggregate?.unverified}
+              unverified={overview?.unverified}
               reviews={[]}
               isLoading={false}
             />
@@ -219,9 +248,7 @@ export function ProductReviewsDialog({
             })}
           </Text>
         ) : null}
-        {query.isLoading ? (
-          <Text className="text-shop-bodySmall text-text-tertiary">{t('common.loading')}</Text>
-        ) : null}
+        {query.isLoading ? <ReviewListLoading accessibilityLabel={t('common.loading')} /> : null}
         {query.isError && !query.isFetchNextPageError ? (
           <Button onPress={() => void query.refetch()}>{t('common.tryAgain')}</Button>
         ) : null}
@@ -265,17 +292,42 @@ export function ProductReviewsDialog({
           </View>
         ))}
         {query.isFetchingNextPage ? (
-          <Text
-            accessibilityLiveRegion="polite"
-            className="text-center text-shop-caption text-text-tertiary"
-          >
-            {t('common.loading')}
-          </Text>
+          <ReviewListLoading accessibilityLabel={t('common.loading')} />
         ) : null}
         {query.isFetchNextPageError ? (
           <Button onPress={() => void query.fetchNextPage()}>{t('common.tryAgain')}</Button>
         ) : null}
       </View>
     </MarketplaceSheet>
+  );
+}
+
+/** Shop's three review placeholders; Bloom owns shimmer and reduced motion. */
+function ReviewListLoading({ accessibilityLabel }: { accessibilityLabel: string }) {
+  return (
+    <View
+      testID="review-list-loading"
+      aria-busy
+      accessibilityLabel={accessibilityLabel}
+      className="gap-space-8"
+    >
+      {[0, 1, 2].map((index) => (
+        <View
+          key={index}
+          className="gap-space-8 rounded-radius-20 border-[0.5px] border-border-image bg-transparent p-space-16 shadow-shop-s"
+        >
+          <View className="flex-row gap-space-4">
+            {[0, 1, 2, 3, 4].map((star) => (
+              <Skeleton.Box key={star} width={20} height={20} borderRadius={4} />
+            ))}
+          </View>
+          <View className="gap-space-4">
+            <Skeleton.Box width="70%" height={14} borderRadius={4} />
+            <Skeleton.Box width="86%" height={14} borderRadius={4} />
+            <Skeleton.Box width="53%" height={14} borderRadius={4} />
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }

@@ -101,6 +101,8 @@ vi.mock('../../middleware/auth.js', () => {
     // `createOxyRateLimit` calls it on every request. `{}` would throw at
     // construction and take the whole app with it.
     oxyClient: {
+      cloudURL: 'https://cloud.oxy.so',
+      assets: { publicUrl: (id: string) => `https://cloud.oxy.so/${id}` },
       middleware: {
         auth:
           () =>
@@ -943,6 +945,38 @@ describe('the ETag exchange and locale cache separation', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('the pre-existing catalogue reads still answer', () => {
+  it('serves category file IDs and existing Oxy artwork but never supplier URLs', async () => {
+    const external = 'https://supplier.example/category.jpg';
+    async function rootImage() {
+      const answer = await get('/categories');
+      expect(answer.status).toBe(200);
+      const root = (answer.body['data'] as { id: string; imageUrl?: string }[]).find(
+        (node) => node.id === fx.rootId,
+      );
+      expect(root).toBeDefined();
+      return root?.imageUrl;
+    }
+    try {
+      await db.execute(
+        sql`update categories set image_url = ${external}, image_file_id = null where id = ${fx.rootId}`,
+      );
+      expect(await rootImage()).toBeUndefined();
+      await db.execute(
+        sql`update categories set image_file_id = 'category-file' where id = ${fx.rootId}`,
+      );
+      expect(await rootImage()).toBe('https://cloud.oxy.so/category-file');
+      await db.execute(
+        sql`update categories set image_file_id = null, image_url = 'https://cloud.oxy.so/legacy-category' where id = ${fx.rootId}`,
+      );
+      expect(await rootImage()).toBe('https://cloud.oxy.so/legacy-category');
+    } finally {
+      // This suite owns the root and seeds both presentation fields as NULL.
+      await db.execute(
+        sql`update categories set image_file_id = null, image_url = null where id = ${fx.rootId}`,
+      );
+    }
+  });
+
   it('serves the v1 category tree, which carries no key and no localization', async () => {
     const answer = await get('/categories');
     expect(answer.status).toBe(200);

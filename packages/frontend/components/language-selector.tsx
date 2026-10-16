@@ -1,5 +1,5 @@
 import { View, Pressable } from 'react-native';
-import { LOCALE_ENDONYMS, Text } from '@mercaria/ui';
+import { Icon, LOCALE_ENDONYMS, Text } from '@mercaria/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +39,7 @@ export function LanguageSelector() {
   return (
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
-        <Globe2 size={20} className="text-primary" />
+        <Icon as={Globe2} size={20} className="text-primary" />
         <Text className="text-base font-semibold">{t('settings.appLanguage.title')}</Text>
       </View>
       <Text className="text-sm text-muted-foreground">{t('settings.appLanguage.description')}</Text>
@@ -49,7 +49,7 @@ export function LanguageSelector() {
             <Text className="text-foreground">
               {currentLocale ? LOCALE_ENDONYMS[currentLocale] : LOCALE_ENDONYMS.en}
             </Text>
-            <ChevronDown size={20} className="text-muted-foreground" />
+            <Icon as={ChevronDown} size={20} className="text-muted-foreground" />
           </Pressable>
         </DropdownMenuTrigger>
         <DropdownMenuContent label={t('settings.appLanguage.title')}>
@@ -64,7 +64,7 @@ export function LanguageSelector() {
               <DropdownMenuRadioItem
                 key={code}
                 value={code}
-                indicator={<Check size={16} className="text-foreground" />}
+                indicator={<Icon as={Check} size={16} className="text-foreground" />}
               >
                 {LOCALE_ENDONYMS[code]}
               </DropdownMenuRadioItem>

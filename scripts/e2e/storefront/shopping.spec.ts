@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Feed } from '../../../packages/shared-types/src';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -397,39 +398,68 @@ test('editorial body inherits the panel surface in both themes', async ({ page }
   }
 });
 
-test('home cart shelf matches the merchant layout and checks out only its group', async ({
-  page,
-  request,
-}) => {
-  const feed = await (await request.get('http://localhost:4160/feed')).json();
-  const product = feed.data.sections
-    .filter((s: { kind: string }) => s.kind === 'products')
-    .flatMap((s: { products: { id: string; title: string }[] }) => s.products)
-    .find((p: { title: string }) => p.title === 'Brilliant Eye Brightener');
-  await page.goto(`/products/${product.id}`);
-  await page.getByRole('button', { name: 'Shade: Stella', exact: true }).click();
-  const response = page.waitForResponse(
-    (r) => r.url().endsWith('/cart/items') && r.request().method() === 'POST',
-  );
-  await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
-  const payload = await (await response).json();
-  const group = payload.data.groups[0];
-  await page.goto('/');
-  const shelf = page.getByTestId('cart-shelf');
-  const card = shelf.getByTestId('merchant-cart-card').first();
-  await expect(card).toBeVisible();
-  expect((await card.boundingBox())!.width).toBe(330);
-  await expect(card).toHaveCSS('border-radius', '28px');
-  expect((await card.getByTestId('cart-card-thumbnail-column').boundingBox())!.width).toBe(72);
-  await expect(card.getByTestId('cart-card-count')).toHaveText('1');
-  await shelf.getByRole('link', { name: 'In your cart', exact: true }).click();
-  await expect(page).toHaveURL(/\/cart$/);
-  await page.goto('/');
-  await card.getByRole('button', { name: 'Continue to checkout', exact: true }).click();
-  await expect(page).toHaveURL(
-    new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`),
-  );
-});
+for (const width of [390, 1440])
+  test(`home cart shelf links to its merchant and checks out only its group at ${width}px`, async ({
+    page,
+    request,
+    context,
+  }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const feed = await (await request.get('http://localhost:4160/feed')).json();
+    const product = feed.data.sections
+      .filter((s: { kind: string }) => s.kind === 'products')
+      .flatMap((s: { products: { id: string; title: string }[] }) => s.products)
+      .find((p: { title: string }) => p.title === 'Brilliant Eye Brightener');
+    await page.goto(`/products/${product.id}`);
+    await page.getByRole('button', { name: 'Shade: Stella', exact: true }).click();
+    const response = page.waitForResponse(
+      (r) => r.url().endsWith('/cart/items') && r.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: 'Add to cart', exact: true }).click();
+    const payload = await (await response).json();
+    const group = payload.data.groups[0];
+    await page.goto('/');
+    const shelf = page.getByTestId('cart-shelf');
+    const card = shelf.getByTestId('merchant-cart-card').first();
+    await expect(card).toBeVisible();
+    expect((await card.boundingBox())!.width).toBe(330);
+    await expect(card).toHaveCSS('border-radius', '28px');
+    expect((await card.getByTestId('cart-card-thumbnail-column').boundingBox())!.width).toBe(72);
+    await expect(card.getByTestId('cart-card-count')).toHaveText('1');
+    const vendorPath = `/stores/${group.vendor.handle}`;
+    const vendorLinks = card.getByRole('link');
+    await expect(vendorLinks).toHaveCount(2);
+    for (const link of await vendorLinks.all())
+      await expect(link).toHaveAttribute('href', vendorPath);
+    const popupPromise = context.waitForEvent('page');
+    await vendorLinks.first().click({ modifiers: ['ControlOrMeta'] });
+    const popup = await popupPromise;
+    await expect(popup).toHaveURL(new RegExp(`${vendorPath}$`));
+    await expect(page).toHaveURL(/\/$/);
+    await popup.close();
+    await vendorLinks.last().focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(new RegExp(`${vendorPath}$`));
+    await page.goto('/');
+    const cartHeading = shelf.getByRole('link', { name: 'In your cart', exact: true });
+    await expect(cartHeading).toHaveAttribute('href', '/cart');
+    await cartHeading.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/cart$/);
+    const cartVendor = page.getByRole('link', {
+      name: `Visit ${group.commercial.sellerLabel}`,
+      exact: true,
+    });
+    await expect(cartVendor).toHaveAttribute('href', vendorPath);
+    await cartVendor.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(new RegExp(`${vendorPath}$`));
+    await page.goto('/');
+    await card.getByRole('button', { name: 'Continue to checkout', exact: true }).click();
+    await expect(page).toHaveURL(
+      new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`),
+    );
+  });
 
 test('Keep shopping resumes a persisted conversation including its follow-up', async ({ page }) => {
   await page.goto('/thread?q=Dinner%20party%20gifts&preview=1');
@@ -485,7 +515,16 @@ test('Recently viewed keeps one image-only card per product and opens its full h
 
 test('category mosaics show four independently navigable published categories', async ({
   page,
+  request,
 }) => {
+  const response = await request.get('http://localhost:4160/feed');
+  expect(response.ok()).toBe(true);
+  const { data }: { data: Feed } = await response.json();
+  const fileIds = data.sections.flatMap((section) =>
+    section.kind === 'category-pills' ? section.pills.map((pill) => pill.imageFileId) : [],
+  );
+  expect(fileIds.length).toBeGreaterThan(0);
+  for (const id of fileIds) expect(id).toMatch(/^[A-Za-z0-9_-]+$/);
   await page.goto('/');
   const chips = page.getByTestId('category-pills');
   await expect(chips).toBeVisible();
@@ -508,12 +547,16 @@ test('category mosaics show four independently navigable published categories', 
         ),
     )
     .toBe(chipCount);
+  // Catalog photos are real Oxy files, not bundled assets or supplier hotlinks.
   expect(
-    await chips
-      .locator('img')
-      .evaluateAll((images) =>
-        images.every((image) => new URL(image.src).origin === location.origin),
-      ),
+    await chips.locator('img').evaluateAll(
+      (images, ids) =>
+        images.every((image) => {
+          const url = new URL(image.src);
+          return url.origin === 'https://cloud.oxy.so' && ids.includes(url.pathname.split('/')[1]);
+        }),
+      fileIds,
+    ),
   ).toBe(true);
   const shelf = page.getByTestId('category-mosaic-shelf');
   const first = shelf.getByTestId('category-mosaic').first();
@@ -526,8 +569,16 @@ test('category mosaics show four independently navigable published categories', 
 
 test('category chips retain a visible fallback and navigation when an image fails', async ({
   page,
+  request,
 }) => {
-  await page.route('**/automotive.jpg*', (route) => route.abort());
+  const response = await request.get('http://localhost:4160/feed');
+  expect(response.ok()).toBe(true);
+  const { data }: { data: Feed } = await response.json();
+  const automotiveImage = data.sections
+    .flatMap((section) => (section.kind === 'category-pills' ? section.pills : []))
+    .find((pill) => pill.slug === 'brake-pad-automotive')?.imageFileId;
+  expect(automotiveImage).toMatch(/^[A-Za-z0-9_-]+$/);
+  await page.route(`https://cloud.oxy.so/${automotiveImage}**`, (route) => route.abort());
   await page.goto('/');
   const automotive = page
     .getByTestId('category-pills')

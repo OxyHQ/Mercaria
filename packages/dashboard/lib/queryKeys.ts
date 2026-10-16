@@ -1,3 +1,5 @@
+import type { StructuredGeocodeQuery } from '@goway.to/sdk';
+
 /**
  * Centralized TanStack Query key factory for the dashboard.
  *
@@ -19,10 +21,14 @@ export const queryKeys = {
   oxyAccount: (accountId: string) => ['oxy-account', accountId] as const,
   oxyAccountMembers: (accountId: string) => ['oxy-account', accountId, 'members'] as const,
   products: {
+    write: (storeId: string, productId: string) =>
+      ['stores', storeId, 'products', productId, 'write'] as const,
     list: (storeId: string, page: number, search: string, status: string = 'all') =>
       ['stores', storeId, 'products', { page, search, status }] as const,
     detail: (storeId: string, productId: string) =>
       ['stores', storeId, 'products', productId] as const,
+    images: (storeId: string, productId: string, variantId: string) =>
+      ['stores', storeId, 'products', productId, 'variants', variantId, 'images'] as const,
     levels: (storeId: string, productId: string, variantId: string) =>
       ['stores', storeId, 'products', productId, 'variants', variantId, 'levels'] as const,
   },
@@ -88,6 +94,8 @@ export const queryKeys = {
    */
   goway: {
     place: (placeId: string, locale: string) => ['goway', 'place', placeId, locale] as const,
+    address: (query: StructuredGeocodeQuery | null, locale: string) =>
+      ['goway', 'address', query, locale] as const,
     search: (query: string, locale: string) => ['goway', 'search', query, locale] as const,
     /** Every claim query of one account — the prefix a new claim invalidates. */
     accountClaims: (oxyAccountId: string) => ['goway', 'claims', oxyAccountId] as const,

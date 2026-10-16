@@ -1,0 +1,73 @@
+# Native animation runtime
+
+Mercaria pins the official `react-native-reanimated@4.3.4` in the workspace and
+all four client packages. React Native remains `0.85.3`, Worklets `0.8.3`, and Expo
+`56.0.23`. Reanimated's published compatibility table supports this RN/Worklets
+combination. This is a deliberate patch update beyond Expo 56's exact `4.3.1`
+recommendation, so Expo Doctor reports that mismatch; no exclusion suppresses it.
+
+## Why the patch is needed
+
+[Reanimated PR 9527](https://github.com/software-mansion/react-native-reanimated/pull/9527)
+fixes the native settled-props registry. The older registry could evict completed
+animation updates before a busy JS thread collected them. A later React render
+then reapplied the initial styles: a panel reverted from 600 to 500 dp and its
+completed opacity animation reverted to zero. The fix tracks synchronization
+explicitly instead of evicting updates solely by age. It changes C++, so updating
+JavaScript without rebuilding the application does not test or deliver the fix.
+
+The isolated Pixel 8a baseline used only React Native and Reanimated: animate a
+box from 300 to 450 dp and opacity from zero to one, then update React state.
+Without a JS stall it stayed at 450 dp with text visible. A controlled 2600 ms
+stall beginning 600 ms after animation start reproduced the failure on 4.3.1:
+the measured height returned to 300 dp and the text disappeared.
+
+A separate measurement of the actual store-menu flow recorded an unforced
+3039 ms JS interval beginning about 500 ms after entering reviews. Loading was
+visible before that interval; the loaded body was absent afterwards. This links
+the isolated scheduling reproduction to the real flow without inserting a stall
+into product code. Disabling only Dialog frame resizing prevented the symptom;
+it was a diagnostic control, not a shipped workaround.
+
+After rebuilding with official 4.3.4, both controls measured 449.9048 dp and
+retained the loaded text on the same Pixel. The old APK was preserved; no library
+source or feature flag changed during this comparison. Cold-start acceptance of
+the real store menu also retained the full reviews body in English/LTR and
+Arabic/RTL with all original Dialog and page animations enabled. Four client
+typechecks and eight browser menu/contact regressions passed.
+
+## Verification and limitations
+
+Rebuild and install the Android development binary before loading the changed
+JavaScript. Preserve the previous installed APK for an explicit rollback.
+Check that all apps, Bloom and Services resolve one physical Reanimated version.
+Run the isolated no-stall/stall controls and the actual menu flow in both layout
+directions after a cold start. Keep temporary instrumentation out of app sources.
+
+Expo Doctor currently reports five categories: app-config schema (`splash`),
+direct React Navigation usage with Router 56, duplicate Expo module copies, the
+SDK 56 Hermes memory advisory, and recommended package versions (including this
+intentional Reanimated patch mismatch). No checks are excluded.
+
+This patch does not address those unrelated findings or the separate
+react-native-css dynamic color-mix serialization defect. A later SDK migration
+needs its own compatibility checks; this change does not migrate to SDK 57.
+
+## Separate cold-boot timing investigation
+
+The observed `Application classification timed out` comes from Services 11.1.16's
+five-second public application-registry lookup, before session restoration. That
+lookup decides whether the registered app may use the device-session lane; its
+failure must not be bypassed by assuming Mercaria is trusted.
+
+On the same Pixel after the Reanimated update, two instrumented cold starts
+resolved the real public registry successfully. Direct fetch and the installed
+SDK took 3581/3590 ms on one start and 4299/4236 ms on the other. The latter run
+also recorded a 2259 ms JavaScript interval gap; the same uncached SDK lookup
+twelve seconds into that run took 316 ms. The workstation's public request took
+623 ms. This establishes startup scheduling pressure and successful connectivity
+on those runs, not the exact cause of the earlier timeout or a fix for it.
+Temporary instrumentation logged only timings, status and public application
+type, and was removed. Next investigation should profile native startup work;
+neither extending the classification deadline nor suppressing the error has
+been accepted as a correction.

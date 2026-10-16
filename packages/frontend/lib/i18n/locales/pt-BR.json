@@ -143,6 +143,7 @@
     "notFound": "Não encontramos este produto.",
     "visitA11y": "Visitar %{name}",
     "moreFromStore": "Mais de %{name}",
+    "youMightAlsoLike": "Você também pode gostar",
     "compareOffersA11y": "Comparar todas as ofertas deste produto",
     "compareOffers": "Comparar todas as ofertas",
     "percentOff": "%{percent}% de desconto",
@@ -236,7 +237,8 @@
       "product": "Sobre este produto",
       "variant": "Sobre esta configuração",
       "definitionsUnavailable": "Alguns nomes são exibidos exatamente como estão armazenados.",
-      "untranslated": "Alguns nomes ainda não foram traduzidos para o seu idioma."
+      "untranslated": "Alguns nomes ainda não foram traduzidos para o seu idioma.",
+      "loadError": "Não foi possível carregar as especificações. Tente novamente."
     },
     "variants": {
       "unavailable": "indisponível",
@@ -475,6 +477,17 @@
       "count": "%{formattedCount} acharam útil",
       "error": "Não foi possível atualizar seu voto. Tente novamente.",
       "retry": "Recarregar votos de útil"
+    },
+    "media": {
+      "add": "Adicionar foto ou vídeo",
+      "prompt": "Arraste um arquivo aqui ou",
+      "uploading": "Enviando…",
+      "uploaded": "Envio concluído",
+      "invalid": "Até 10 arquivos: imagens JPG, PNG, WebP, GIF ou AVIF de até 20 MB; vídeos MP4 ou WebM de até 100 MB.",
+      "publicNotice": "Os arquivos enviados são públicos. Remover um anexo aqui não o exclui dos seus arquivos do Oxy.",
+      "failed": "Não foi possível verificar o envio. Tente novamente.",
+      "remove": "Remover %{filename}",
+      "removeAction": "Remover"
     }
   },
   "search": {
@@ -676,7 +689,8 @@
       "actionLabel": "Seguir %{name}"
     },
     "linkCard": {
-      "viewProfile": "Ver o perfil de %{name}"
+      "viewProfile": "Ver o perfil de %{name}",
+      "visitProfile": "Ver perfil"
     },
     "report": {
       "action": "Denunciar",
@@ -1218,6 +1232,15 @@
       "collectHere": "Compre online e retire aqui",
       "placeRatingSubject": "%{place} no GoWay",
       "photoLabel": "Foto de %{place}"
+    },
+    "contact": {
+      "title": "Entrar em contato com %{store}",
+      "unavailable": "Não foi possível carregar as informações de contato.",
+      "empty": "Esta loja não publicou informações de contato.",
+      "website": "Site",
+      "copy": "Copiar %{value}",
+      "copied": "Copiado",
+      "copyFailed": "Não foi possível copiar. Tente novamente."
     }
   },
   "offer": {
@@ -1556,6 +1579,17 @@
       "updateFailed": "Não foi possível atualizar o endereço",
       "removed": "Endereço removido",
       "removeFailed": "Não foi possível remover o endereço"
+    },
+    "picker": {
+      "search": "Buscar um endereço com GoWay",
+      "help": "Busque uma rua e cidade, depois escolha e confira o endereço.",
+      "placeholder": "Rua, número e cidade",
+      "loading": "Buscando no GoWay…",
+      "error": "A busca está indisponível. Tente novamente ou digite o endereço manualmente.",
+      "partial": "Algumas fontes estão indisponíveis. Os resultados podem estar incompletos.",
+      "empty": "Nenhum endereço encontrado. Adicione uma cidade ou digite o endereço manualmente.",
+      "review": "Conferir detalhes do endereço",
+      "manual": "Digitar endereço manualmente"
     }
   },
   "shoppingAgents": {

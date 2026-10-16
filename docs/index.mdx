@@ -22,13 +22,35 @@ schema decision. `HANDOFF.md` holds deferred work.
 - `packages/ui/` — shared components, consumed from source with no dist. Built
   on `@oxy.so/bloom` (Oxy's cross-app UI primitives) plus `@mercaria/ui`'s own
   marketplace-specific components; do not duplicate what Bloom already provides.
+  Render Expo images through the shared `Image` export: it uses NativeWind's
+  public `styled` adapter so `className` reaches native image styles. Direct
+  `expo-image` className consumers can render with zero size on Android even
+  when their Oxy file loads correctly. This adapter does not change media URLs,
+  loading/error events, cache behavior or file ownership.
+  The web entry forwards Expo Image directly: Expo already forwards `className`,
+  and adapting it into `style` would mix RN Web's compiled CSS marker with raw
+  absolute-fill values during Expo's style flattening. A browser regression
+  checks the merchant cover's 330×397 geometry and absence of `styleq` errors.
+  Lucide icons with utility classes use the shared `Icon` export. Its public
+  NativeWind `nativeStyleMapping` delivers resolved text color to Lucide's
+  `color` prop; raw Lucide `className` does not paint native strokes. Icons in
+  Bloom slots use the documented `toBloomIcon` adapter or the component's
+  `renderLeadingIcon`/`renderTrailingIcon` size/color callbacks.
+  Shared `useColorScheme` reads both colors and resolved light/dark mode from
+  Bloom's `useTheme()`. It delegates preference changes to `useBloomTheme()`;
+  it does not resolve the system preference a second time through NativeWind.
   All three apps import `@mercaria/ui/theme/shop-typography.css` for the shared
   marketplace type scale, measured from Shop's public CSS on 2026-10-09.
   Its `text-shop-*` and `font-shop-*` utilities define size, line height, weight
   and tracking without overriding Bloom’s own type tokens. Mercaria keeps Inter as its
-  font family. Use explicit pixel line heights when translating Shop utilities:
-  NativeWind overrides integer `leading-*` utilities with relative multipliers
-  (`leading-7` makes a 24px title 42px high; `leading-[28px]` preserves 28px). The legacy Tailwind preset mirrors these values for v3 consumers.
+  font family. Paired type tokens express line height as a standard CSS unitless
+  ratio, following Bloom's typography contract. For example, an 18px subtitle
+  uses a 20/18 ratio to preserve a 20px line box on web and native; the CSS comments
+  retain the measured pixel geometry. This also follows native font scaling.
+  The legacy Tailwind preset mirrors the ratios for v3 consumers. Avoid replacing
+  them with pixel-valued `--line-height` fallbacks: react-native-css 3.1.0-rc.0
+  still mishandles Tailwind's `var(--tw-leading, 20px)` form. Browser geometry
+  tests cover every role in all three app CSS entries.
   `color-scheme.css` binds Tailwind v4 `dark:` utilities to Bloom’s selected
   theme: the document `.dark` class on web and Appearance’s color scheme on
   native. Every app imports it; the legacy preset’s `darkMode` does not
@@ -110,6 +132,38 @@ schema decision. `HANDOFF.md` holds deferred work.
   Listing and variant image DTOs retain Oxy file IDs; each client resolves the
   requested rendition through Bloom's image resolver. Public integration
   `image.url` fields are resolved separately at the public API projection.
+  Unimported URL-valued file references have the normal missing-image shape;
+  they never become supplier hotlinks. Feed products, featured thumbnails and
+  stores now expose their Oxy image IDs too; the home hero and shared cards use
+  the same client resolver. Feed cache v3 expires old URL-only projections.
+  New listing history retains IDs; legacy URLs render only when they exactly
+  match the configured resolver. Category trees, chips and Explore tiles retain their stored file IDs too.
+  Child preview images pass through the same internal-media verifier; unimported
+  supplier URLs never reach an image source. Home cache v4 and discovery cache v2
+  expire the older category projections.
+  The hero and product cards share `CatalogImage`: failed Oxy requests show
+  the missing-image state, and changing the source resets only the image's
+  instance and failure state. The animated hero card stays mounted. Hero hover,
+  keyboard focus, press and composer focus independently hold the rotation;
+  leaving with the mouse cannot release a keyboard-focused product.
+  Hero product/store cards use Expo Router links, including actual web anchors
+  for Enter activation and browser open-in-new-tab behavior.
+  Shared product cards require an app-owned link renderer, propagated through
+  carousels, shelves and editorial curations. The storefront supplies one typed
+  listing link adapter, including cart recommendations. Image and text links
+  remain separate siblings of the save button; shelf headings also accept real
+  links. Category mosaics keep published destinations visible while imagery is
+  absent and use the same verified Oxy resolver; image availability never gates
+  their navigation. The shared UI has no router dependency.
+  Product merchant headers and identity cards do too: stores use their handle,
+  people their stable Oxy account ID. The mobile person action says “Visit
+  profile”. The shared header receives its router link from the app and carries
+  no route strings. `Seller.avatar` remains an Oxy file ID in both listing and
+  order hydration; only the public SDK's `avatarUrl` projection resolves it to
+  a URL. Seller cards/profiles and order rows use the shared image resolver;
+  older cached avatar URLs must match that resolver before they can render.
+  Existing Oxy URLs in legacy category/order snapshot columns are validated
+  against the SDK namespace, without rewriting immutable order history.
   Changing a variant keeps the gallery mounted: only a different set of image
   URLs resets its index. Canonical reads retain the same product's prior page
   while the new configuration loads, report the offers region as busy, and
@@ -125,6 +179,12 @@ schema decision. `HANDOFF.md` holds deferred work.
   Filter drafts open in a 300px Bloom `Popover` on web from 768px and a bottom
   `Dialog` below it or on native. Apply commits the draft; dismissal discards it.
   Search and clear controls remain owned by Bloom's `Search`.
+  Searching or filtering preserves the mounted target-wide rating summary and
+  control positions while replacing the result cards with three Bloom skeletons.
+  Failed requests offer a retry beside that same summary; old cards are never
+  presented as matches for new filters. Pagination appends placeholders below
+  existing reviews. This retains only the same target's server-provided summary,
+  including its separate unverified count, and does not infer ratings from a page.
   Product descriptions and full reviews share `MarketplaceSheet`: a full-width
   end drawer below 976px and a 500px panel with 16px insets above it. Bloom owns
   its gradient backdrop, 300ms transition, reduced-motion behavior and focus
@@ -167,6 +227,27 @@ bun run dev:frontend   # storefront (also dev:dashboard, dev:pos)
 ```
 
 The full command list is in `AGENTS.md`.
+
+Native testing uses a development build (`bun run android`), not Expo Go:
+the app includes native notifications and payment modules. With Metro already
+running on 8160, Expo CLI does not accept `--port` together with `--no-bundler`.
+Build the existing generated project with its native port explicitly set:
+
+```bash
+cd packages/frontend/android
+ANDROID_HOME="$HOME/Android/Sdk" ./gradlew app:assembleDebug -x lint -x test \
+  --configure-on-demand --build-cache -PreactNativeDevServerPort=8160 \
+  -PreactNativeArchitectures=arm64-v8a
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+The example targets an attached arm64 Android device; select the appropriate ABI
+for other devices. See [Native animation runtime](native-animation-runtime.mdx)
+for the validated Reanimated patch and its SDK compatibility boundary.
+All three apps declare `userInterfaceStyle: automatic` and depend on Expo's
+SDK-compatible `expo-system-ui`; Android ignores that setting without the
+module. Rebuild the native app after changing native dependencies. Generated
+`android/` and `ios/` directories remain untracked.
 
 Run `bun run doctor:oxy` to verify that manifests and the lockfile use the
 canonical Oxy package scope and current supported releases. Dependency update
@@ -306,3 +387,5 @@ automation and the clean-cut migration policy are documented in
 | Analytics privacy and retention | [reviews/2026-08-16-analytics-privacy-retention-review.md](reviews/2026-08-16-analytics-privacy-retention-review.md) |
 | Guest commerce M8 | [reviews/2026-08-16-guest-commerce-m8-review.md](reviews/2026-08-16-guest-commerce-m8-review.md) |
 | Catalog authoring security (#367, ADR 0007) | [reviews/2026-08-17-catalog-authoring-security-review.md](reviews/2026-08-17-catalog-authoring-security-review.md) |
+
+- [Catalog photos and videos](catalog-media.md) — ordered Oxy galleries, image-only compatibility and staged rollout.

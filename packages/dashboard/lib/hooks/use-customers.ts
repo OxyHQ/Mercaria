@@ -28,7 +28,11 @@ export function useCustomers(storeId: string, page: number, search: string) {
         ...(search ? { search } : {}),
       }),
     enabled: Boolean(storeId),
-    placeholderData: (previous, query) => (query?.queryKey[1] === storeId ? previous : undefined),
+    placeholderData: (previous, query) =>
+      query?.queryKey[1] === storeId &&
+      (query.queryKey[3] as { search?: string })?.search === search
+        ? previous
+        : undefined,
   });
 }
 

@@ -68,6 +68,7 @@ it and can only rise.
 | Compatibility | `db/schema/compatibility.ts` | `db/compatibility/` (4) | `generic_compatibility_relations`, `vehicle_makes`, `vehicle_models`, `vehicle_generations`, `vehicle_configurations`, `automotive_fitments`, `compatibility_claims` |
 | External mappings | `db/schema/catalogExternalMappings.ts` | `db/catalogExternalMappings/` (2) | `catalog_external_mappings`, `catalog_external_mapping_reviews`, `catalog_external_token_observations`, `catalog_external_mapping_runs`, `catalog_external_mapping_run_items` |
 | Review helpfulness | `db/schema/reviews.ts` | `db/reviews/reviewHelpfulnessRepository.ts` | `review_helpful_votes` |
+| Review attachments | `db/schema/reviews.ts` | `db/reviews/reviewRepository.ts` | `review_media` |
 | Connector pins | `db/schema/connectorPins.ts` | — | `listing_pin_releases` |
 | Native variant images | `db/schema/catalog.ts` | `db/catalog/variantRepository.ts` | `product_variant_images` |
 | Discovery | `db/schema/discovery.ts` | `db/discovery/` (3) | `discovery_signals`, `discovery_sweep_cursors` |

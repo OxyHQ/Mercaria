@@ -18,7 +18,10 @@ export function toMinorUnits(major: string, currency: CurrencyCode = 'FAIR'): nu
   if (!Number.isFinite(parsed) || parsed < 0) {
     return null;
   }
-  return Math.round(parsed * DECIMAL_RADIX ** CURRENCY_PRECISION[currency]);
+  const minor = Math.round(parsed * DECIMAL_RADIX ** CURRENCY_PRECISION[currency]);
+  // The API and persistence boundary require exactly representable minor units.
+  // A finite major amount can overflow, or lose integer precision, when scaled.
+  return Number.isSafeInteger(minor) ? minor : null;
 }
 
 /** Convenience wrapper for the canonical FAIR currency. */

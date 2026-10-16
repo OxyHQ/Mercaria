@@ -866,7 +866,9 @@
       "viewImage": "View image %{position}",
       "previous": "Previous image",
       "next": "Next image",
-      "open": "Open images of %{title}"
+      "open": "Open images of %{title}",
+      "viewVideo": "View video %{position}",
+      "openVideo": "Open video of %{title}"
     },
     "quantity": {
       "remove": "Remove item",
@@ -874,6 +876,9 @@
       "increase": "Increase quantity"
     },
     "review": {
+      "loading": "Loading reviews…",
+      "loadError": "Reviews couldn't be loaded. Try again.",
+      "retry": "Try again",
       "defaultScope": "Reviews",
       "starsA11y": "Average rating: %{rating}. Reviews: %{reviews}.",
       "starsScopedA11y": "%{subject}. Average rating: %{rating}. Reviews: %{reviews}.",
@@ -1006,6 +1011,14 @@
       "andSave": "Bundle and save",
       "view": "View bundle",
       "addFailed": "Could not add this bundle. Please try again."
+    },
+    "reviewMedia": {
+      "title": "Review photos and videos",
+      "viewImage": "View review photo %{position}",
+      "viewVideo": "View review video %{position}",
+      "unavailable": "This media could not be loaded.",
+      "retry": "Try again",
+      "more": "Load more review media"
     }
   }
 }

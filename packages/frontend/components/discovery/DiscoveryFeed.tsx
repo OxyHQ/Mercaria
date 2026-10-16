@@ -1,6 +1,7 @@
+import { renderListingLink, renderMerchantLink } from '@/lib/catalog/product-links';
 import type { ReactElement } from 'react';
 import { View } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
+import { Link, useRouter, type Href } from 'expo-router';
 import type {
   CategoryTile,
   DiscoverySection,
@@ -113,9 +114,6 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
   const onPressCategoryTile = (id: string, slug: string) =>
     router.push(categoryHref(slug.length > 0 ? slug : id));
 
-  const onPressProduct = (id: string) =>
-    router.push({ pathname: '/products/[id]', params: { id } });
-
   const onPressStore = (handle: string) =>
     router.push({ pathname: '/stores/[handle]', params: { handle } });
 
@@ -132,16 +130,24 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
     const heading = shelfHeading(section.categoryHandle, section.signal, section.categoryName);
     if (heading === undefined) {
       return (
-        <ProductCarousel key={section.id} items={section.products} onPressItem={onPressProduct} />
+        <ProductCarousel
+          key={section.id}
+          items={section.products}
+          renderProductLink={renderListingLink}
+        />
       );
     }
     return (
       <ProductShelf
         key={section.id}
         title={heading.title}
-        onPressTitle={() => router.push(heading.href)}
+        renderTitleLink={(child) => (
+          <Link href={heading.href} asChild>
+            {child}
+          </Link>
+        )}
         items={section.products}
-        onPressItem={onPressProduct}
+        renderProductLink={renderListingLink}
       />
     );
   }
@@ -168,8 +174,8 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
         key={section.id}
         title={title}
         merchants={section.stores}
-        onPressMerchant={onPressStore}
-        onPressProduct={onPressProduct}
+        renderMerchantLink={renderMerchantLink}
+        renderProductLink={renderListingLink}
       />
     );
   }
@@ -242,7 +248,7 @@ export function DiscoveryFeed({ sections, categoryShortcuts, categoryTitle }: Di
                 onPress={() => onPressStore(section.store.handle)}
               />
             </View>
-            <ProductCarousel items={section.products} onPressItem={onPressProduct} />
+            <ProductCarousel items={section.products} renderProductLink={renderListingLink} />
           </View>
         );
       }

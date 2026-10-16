@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "Войти",
     "signInBody": "Войдите с аккаунтом Oxy, чтобы управлять магазином — товары, заказы, запасы, клиенты, скидки и отчёты.",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "Добавить канал",
@@ -98,7 +98,7 @@
       },
       "title": "Отключение"
     },
-    "documentTitle": "Каналы продаж | Mercaria Dashboard",
+    "documentTitle": "Каналы продаж | Wholesale by Mercaria",
     "empty": {
       "body": "Подключите ниже магазин или товарный фид, чтобы перенести существующий каталог.",
       "title": "Только ваш каталог Mercaria"
@@ -277,7 +277,7 @@
     "settings": {
       "autoPublish": "Автопубликация",
       "autoPublishHint": "Публиковать полученные товары сразу. Если выключено, они попадают в черновики на проверку.",
-      "documentTitle": "Настройки канала | Mercaria Dashboard",
+      "documentTitle": "Настройки канала | Wholesale by Mercaria",
       "inventoryHint": "Остатки в вашей синхронизируемой локации.",
       "inventoryLabel": "Запасы",
       "keepLocalEdits": "Сохранять мои правки",
@@ -414,7 +414,7 @@
       "canAndCannot": "Что этот канал может и чего не может",
       "chooseWhatToImport": "Выберите, что импортировать",
       "connectedTitle": "%{channel} подключён",
-      "documentTitle": "Подключение канала | Mercaria Dashboard",
+      "documentTitle": "Подключение канала | Wholesale by Mercaria",
       "everythingChecksOut": "Всё в порядке. Активация запустит первую синхронизацию.",
       "feed": {
         "body": "Товарный фид настраивается на отдельном экране, где вы сопоставляете столбцы файла с полями Mercaria и смотрите результат до того, как что-то станет активным.",
@@ -508,7 +508,7 @@
     },
     "deleteError": "Не удалось удалить коллекцию",
     "deleted": "Коллекция удалена",
-    "documentTitle": "Коллекции | Mercaria Dashboard",
+    "documentTitle": "Коллекции | Wholesale by Mercaria",
     "empty": {
       "body": "Создайте коллекцию, чтобы упорядочить каталог.",
       "title": "Коллекций пока нет"
@@ -535,6 +535,73 @@
     "type": {
       "automated": "автоматическая",
       "manual": "ручная"
+    },
+    "remove": {
+      "action": "Удалить %{title}",
+      "title": "Удалить коллекцию",
+      "confirmation": "Удалить «%{title}»? Товары останутся в вашем каталоге. Это действие нельзя отменить."
+    },
+    "editor": {
+      "automated": "Товары этой коллекции управляются её правилами.",
+      "details": "Сведения о коллекции",
+      "handle": "Идентификатор URL",
+      "handleRequired": "Введите идентификатор URL.",
+      "published": "Опубликована",
+      "save": "Сохранить коллекцию",
+      "saveFailed": "Не удалось сохранить коллекцию.",
+      "saved": "Коллекция сохранена",
+      "sortLabel": "Сортировка товаров",
+      "browse": "Выбрать товары",
+      "earlier": "Переместить %{title} раньше",
+      "emptyProducts": "Товары не выбраны.",
+      "later": "Переместить %{title} позже",
+      "productUnavailable": "Не удалось загрузить этот товар.",
+      "productsFailed": "Не удалось сохранить товары.",
+      "productsSaved": "Товары сохранены",
+      "remove": "Убрать %{title}",
+      "saveProducts": "Сохранить товары",
+      "sort": {
+        "manual": "Вручную",
+        "bestSelling": "По продажам",
+        "priceAscending": "Цена: по возрастанию",
+        "priceDescending": "Цена: по убыванию",
+        "newest": "Сначала новые",
+        "title": "Название: А–Я"
+      }
+    },
+    "rules": {
+      "heading": "Условия",
+      "match": "Товары должны соответствовать",
+      "all": "Всем условиям",
+      "any": "Любому условию",
+      "empty": "Без условий в этой коллекции нет товаров.",
+      "field": "Поле товара",
+      "operator": "Сравнение",
+      "value": "Значение",
+      "availability": "Наличие",
+      "inStock": "В наличии",
+      "outOfStock": "Нет в наличии",
+      "price": "Цена",
+      "compareAtPrice": "Цена для сравнения",
+      "exactElement": "Теги и идентификаторы категорий сопоставляются целиком, в том числе при выборе «содержит».",
+      "retained": "Это существующее условие сохраняется без изменений. Здесь его нельзя изменить, но можно явно удалить.",
+      "remove": "Удалить условие %{position}",
+      "add": "Добавить условие",
+      "failed": "Не удалось сохранить условия. Ваши изменения сохранены в форме.",
+      "saved": "Условия сохранены",
+      "save": "Сохранить условия",
+      "operators": {
+        "equals": "Равно",
+        "notEquals": "Не равно",
+        "contains": "Содержит",
+        "startsWith": "Начинается с",
+        "endsWith": "Заканчивается на",
+        "gt": "Больше",
+        "gte": "Больше или равно",
+        "lt": "Меньше",
+        "lte": "Меньше или равно"
+      },
+      "categoryIdentifier": "Идентификатор категории"
     }
   },
   "common": {
@@ -562,7 +629,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "Клиент | Mercaria Dashboard",
+      "documentTitle": "Клиент | Wholesale by Mercaria",
       "lifetimeSpend": "Всего потрачено",
       "loadError": "Не удалось загрузить клиента",
       "noOrders": "Заказов пока нет.",
@@ -570,7 +637,7 @@
       "subtitle": "Карточка клиента",
       "title": "Клиент"
     },
-    "documentTitle": "Клиенты | Mercaria Dashboard",
+    "documentTitle": "Клиенты | Wholesale by Mercaria",
     "empty": {
       "body": "Клиенты появляются здесь после первого заказа.",
       "title": "Нет клиентов"
@@ -610,7 +677,7 @@
     },
     "deleteError": "Не удалось удалить скидку",
     "deleted": "Скидка удалена",
-    "documentTitle": "Скидки | Mercaria Dashboard",
+    "documentTitle": "Скидки | Wholesale by Mercaria",
     "empty": {
       "body": "Создайте скидку по коду или автоматическую.",
       "title": "Скидок пока нет"
@@ -631,13 +698,13 @@
     "boundaryBody": "Произошла непредвиденная ошибка. Попробуйте ещё раз — если проблема повторится, наша команда уже уведомлена.",
     "notFoundAction": "Перейти в панель управления",
     "notFoundBody": "Такого экрана не существует.",
-    "notFoundDocumentTitle": "404 — Страница не найдена | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 — Страница не найдена | Wholesale by Mercaria",
     "notFoundHeading": "Упс!"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "Сначала активируйте сопоставление",
-      "documentTitle": "Товарный фид | Mercaria Dashboard",
+      "documentTitle": "Товарный фид | Wholesale by Mercaria",
       "identityColumns": "Столбцы идентификации: %{columns} — закреплены на всё время жизни этого фида.",
       "neverRead": "Этот фид ещё ни разу не читали.",
       "notFound": "Фид не найден",
@@ -666,7 +733,7 @@
     "never": "никогда",
     "new": {
       "create": "Создать фид",
-      "documentTitle": "Новый товарный фид | Mercaria Dashboard",
+      "documentTitle": "Новый товарный фид | Wholesale by Mercaria",
       "identityColumnsHint": "Через запятую, не больше четырёх. Позже изменить их нельзя: именно по ним Mercaria узнаёт один и тот же товар в разных файлах, поэтому их смена выглядела бы как полная замена каталога. Если нужны другие столбцы, создайте новый фид.",
       "identityColumnsLabel": "Столбцы, определяющие каждый товар",
       "identityColumnsPlaceholder": "id, sku",
@@ -769,7 +836,7 @@
     }
   },
   "home": {
-    "documentTitle": "Панель управления | Mercaria",
+    "documentTitle": "Панель управления | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "%{count} отслеживаемый вариант с остатком на уровне порога или ниже.",
@@ -845,7 +912,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "Заказ | Mercaria Dashboard",
+      "documentTitle": "Заказ | Wholesale by Mercaria",
       "fulfilment": "Выполнение",
       "history": "История",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -864,9 +931,10 @@
       "title": "Заказ",
       "trackingLabel": "Трек-номер (необязательно)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "Не удалось обновить заказ"
+      "updateFailed": "Не удалось обновить заказ",
+      "refundsLoadFailed": "Не удалось загрузить историю возвратов."
     },
-    "documentTitle": "Заказы | Mercaria Dashboard",
+    "documentTitle": "Заказы | Wholesale by Mercaria",
     "empty": {
       "body": "Заказы появятся здесь, когда клиенты начнут покупать.",
       "title": "Нет заказов"
@@ -910,18 +978,21 @@
       },
       "trail": "Журнал выдачи",
       "trailEmpty": "На стойке выдачи пока ничего не происходило.",
-      "viewPlace": "Открыть место в GoWay"
+      "viewPlace": "Открыть место в GoWay",
+      "loadFailed": "Не удалось загрузить данные самовывоза. Повторите попытку перед выдачей заказа."
     },
     "refund": {
       "dialogTitle": "Возврат по заказу",
-      "failed": "Не удалось выполнить возврат",
+      "failed": "Не удалось подтвердить возврат. Повторите попытку с теми же данными, чтобы проверить результат.",
       "itemMax": "%{variant} · макс. %{quantity}",
-      "processed": "Возврат выполнен",
       "quantityLabel": "Количество к возврату: %{item}",
       "quantityRequired": "Укажите количество к возврату",
       "reasonLabel": "Причина (необязательно)",
       "reasonPlaceholder": "Почему выполняется возврат?",
-      "submit": "Выполнить возврат"
+      "submit": "Выполнить возврат",
+      "loadFailed": "Не удалось загрузить предыдущие возвраты. Повторите попытку перед отправкой.",
+      "quantityInvalid": "Введите целое количество от 0 до %{quantity}.",
+      "unavailable": "Возврат средств по этому заказу недоступен."
     },
     "refundState": {
       "canceled": "Отменён",
@@ -965,7 +1036,7 @@
       "archiveFailed": "Не удалось архивировать товар",
       "archived": "Товар архивирован",
       "channelSettings": "Настройки канала",
-      "documentTitle": "Товар | Mercaria Dashboard",
+      "documentTitle": "Товар | Wholesale by Mercaria",
       "loadFailed": "Не удалось загрузить товар",
       "pins": {
         "release": "Открепить",
@@ -995,9 +1066,11 @@
         "tags": "Метки",
         "addTag": "Добавить метку",
         "removeTag": "Удалить %{tag}"
-      }
+      },
+      "archiveConfirmation": "Архивировать «%{title}»? Товар больше не будет доступен покупателям.",
+      "archiveUnsaved": "Несохранённые изменения товара или его вариантов будут потеряны. Отмените, чтобы продолжить редактирование."
     },
-    "documentTitle": "Товары | Mercaria Dashboard",
+    "documentTitle": "Товары | Wholesale by Mercaria",
     "empty": {
       "action": "Добавьте первый товар",
       "title": "Товаров пока нет"
@@ -1011,7 +1084,7 @@
       "createFailed": "Не удалось создать товар",
       "created": "Товар создан",
       "descriptionPlaceholder": "Опишите товар",
-      "documentTitle": "Новый товар | Mercaria Dashboard",
+      "documentTitle": "Новый товар | Wholesale by Mercaria",
       "optionNameLabel": "Название опции (необязательно, например «Размер»)",
       "optionNamePlaceholder": "Размер",
       "optionValueLabel": "Значение: %{option}",
@@ -1051,7 +1124,6 @@
     "variants": {
       "add": "Добавить",
       "addFailed": "Не удалось добавить вариант",
-      "added": "Вариант добавлен",
       "available": "Доступно",
       "heading": "Варианты и запасы",
       "inventoryUpdateFailed": "Не удалось обновить запасы",
@@ -1059,19 +1131,47 @@
       "priceInvalid": "Введите корректную цену",
       "removeFailed": "Не удалось удалить вариант",
       "removeVariant": "Удалить вариант",
-      "removed": "Вариант удалён",
       "saveVariant": "Сохранить вариант",
       "set": "Задать",
       "updateFailed": "Не удалось обновить вариант",
       "updated": "Вариант обновлён",
-      "valuePlaceholder": "значение"
+      "valuePlaceholder": "значение",
+      "inventory": {
+        "total": "Доступно во всех местах хранения: %{quantity}",
+        "manage": "Запасы по местам хранения",
+        "loadFailed": "Не удалось загрузить запасы",
+        "empty": "Нет мест с запасами",
+        "invalid": "Введите допустимое целое количество."
+      },
+      "optionRequired": "Выберите значение для каждого параметра.",
+      "duplicateCombination": "Такое сочетание параметров уже существует.",
+      "currencyChanged": "Валюта изменилась. Отмените это изменение, чтобы использовать текущую цену.",
+      "removeConfirmation": "Удалить «%{variant}» из этого товара?",
+      "keepOneVariant": "У товара должен остаться хотя бы один вариант.",
+      "identifiers": {
+        "sku": "Артикул (SKU)",
+        "barcode": "Штрихкод",
+        "cannotClear": "Этот идентификатор можно изменить, но нельзя очистить."
+      },
+      "media": {
+        "manage": "Изменить изображения варианта",
+        "fallback": "Используется галерея товара",
+        "selected": "Выбрано: %{count}",
+        "empty": "Нет доступных изображений товара для выбора.",
+        "loadFailed": "Не удалось загрузить выбранные изображения.",
+        "saveFailed": "Не удалось сохранить изображения варианта.",
+        "unavailable": "Некоторые выбранные изображения больше недоступны в галерее товара.",
+        "earlier": "Переместить раньше",
+        "later": "Переместить позже",
+        "useGallery": "Использовать галерею товара"
+      }
     },
     "wizard": {
-      "documentTitle": "Создание товара",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "Создание товара",
       "readOnly": "Этот черновик больше нельзя редактировать.",
       "start": {
-        "documentTitle": "Что вы продаёте?",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "Что вы продаёте?",
         "subtitle": "Найдите товар в каталоге или опишите что-то новое.",
         "unavailableTitle": "Пошаговое создание здесь недоступно",
@@ -1204,8 +1304,7 @@
         "noSoldVariants": "Включите хотя бы одно сочетание, чтобы задать цену."
       },
       "listing": {
-        "mediaTitle": "Фотографии",
-        "mediaUnavailable": "Фотографии пока нельзя добавить из панели. Уже прикреплённые к черновику сохраняются."
+        "mediaTitle": "Фотографии"
       },
       "review": {
         "category": "Категория",
@@ -1298,12 +1397,54 @@
         "unnamed": "Название не переведено",
         "notice": "Некоторые названия ещё не переведены на ваш язык."
       }
+    },
+    "bulk": {
+      "activate": "Сделать активными",
+      "draft": "Перевести в черновики",
+      "archive": "Архивировать товары",
+      "selected": "Выбрано: %{items}",
+      "clear": "Снять выделение",
+      "result": "Подтверждено: %{updated}. Не подтверждено: %{remaining}.",
+      "confirmation": "Проверьте выбранные товары. Некоторые изменения могут примениться, даже если другие завершатся ошибкой.",
+      "failed": "Не удалось подтвердить изменение: %{title}",
+      "notAttempted": "Попытка не выполнена: %{title}",
+      "retry": "Повторить для оставшихся",
+      "confirm": "Применить изменения",
+      "select": "Выбрать %{title}",
+      "selectPage": "Выбрать доступные для изменения товары на этой странице",
+      "selection": "Выбрать"
+    },
+    "photos": {
+      "add": "Добавить фото",
+      "prompt": "Выберите фото товара",
+      "uploading": "Загрузка фото",
+      "uploaded": "Фото загружено",
+      "invalid": "JPG, PNG, WebP, GIF или AVIF, до 20 МБ.",
+      "failed": "Не удалось добавить фото. Проверьте файл и повторите попытку.",
+      "notice": "Фото общедоступны и принадлежат магазину. Удаление здесь убирает только ссылку при сохранении.",
+      "position": "Фото %{position}",
+      "remove": "Убрать фото %{position}"
+    },
+    "media": {
+      "add": "Добавить медиа",
+      "prompt": "Выберите фото или видео",
+      "uploading": "Загрузка медиа",
+      "uploaded": "Медиа загружено",
+      "invalid": "Фото до 20 МБ; видео MP4 до 40 МБ.",
+      "failed": "Не удалось добавить файл. Проверьте его и повторите попытку.",
+      "notice": "Медиа доступны всем и принадлежат вашему магазину. При сохранении удаляется только связь с выбранным файлом.",
+      "position": "Медиа %{position}",
+      "remove": "Удалить медиа %{position}",
+      "viewVideo": "Смотреть видео %{position}",
+      "video": "Видео",
+      "unavailable": "Не удалось загрузить это видео.",
+      "title": "Фото и видео"
     }
   },
   "settings": {
-    "documentTitle": "Настройки | Mercaria Dashboard",
+    "documentTitle": "Настройки | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "Комиссии маркетплейса | Панель Mercaria",
+      "documentTitle": "Комиссии маркетплейса | Wholesale by Mercaria",
       "title": "Комиссии маркетплейса",
       "subtitle": "Сколько Mercaria берёт с каждой продажи и какие условия вы принимаете.",
       "loadFailed": "Не удалось загрузить условия комиссии",
@@ -1352,7 +1493,7 @@
       "defaultFlag": " · по умолчанию",
       "deleteFailed": "Не удалось удалить локацию",
       "deleted": "Локация удалена",
-      "documentTitle": "Локации | Mercaria Dashboard",
+      "documentTitle": "Локации | Wholesale by Mercaria",
       "inactiveFlag": " · неактивна",
       "loadFailed": "Не удалось загрузить локации",
       "namePlaceholder": "Основной склад",
@@ -1369,7 +1510,7 @@
       "placeFlag": " · место в GoWay указано",
       "noPlaceFlag": " · места в GoWay пока нет",
       "editor": {
-        "documentTitle": "Редактирование локации | Mercaria Dashboard",
+        "documentTitle": "Редактирование локации | Wholesale by Mercaria",
         "title": "Локация",
         "subtitle": "Её место в GoWay и то, как она продаёт на Mercaria",
         "loadFailed": "Не удалось загрузить эту локацию",
@@ -1430,14 +1571,15 @@
           "region": "Регион",
           "country": "Страна",
           "countryPlaceholder": "RU",
-          "latitude": "Широта",
-          "longitude": "Долгота",
-          "positionHint": "Если выбрать адрес из поиска, координаты заполнятся сами.",
-          "submit": "Создать место",
+          "positionHint": "Выберите результат GoWay, чтобы задать положение. После изменения адреса нужно выбрать заново.",
+          "submit": "Создать публичное место компании",
           "created": "Место создано в GoWay",
           "nameRequired": "Укажите название места",
           "countryRequired": "Введите двухбуквенный код страны",
-          "positionRequired": "Введите настоящие широту и долготу или выберите адрес из поиска"
+          "positionRequired": "Найдите адрес в GoWay и выберите результат.",
+          "findAddress": "Найти адрес в GoWay",
+          "positionSelected": "Положение выбрано из GoWay",
+          "publicNotice": "Новые места в GoWay общедоступны. Не добавляйте частный домашний адрес или адрес доставки."
         },
         "claim": {
           "title": "Заявить права на место",
@@ -1591,7 +1733,8 @@
           "placeTaken": "Это место уже использует другая ваша локация",
           "publicationFailed": "Не удалось сохранить локацию"
         }
-      }
+      },
+      "deleteAction": "Удалить %{name}"
     },
     "members": {
       "convert": {
@@ -1611,7 +1754,7 @@
         "usernameLabel": "Имя пользователя организации",
         "warning": "Люди, которые раньше могли действовать от имени магазина и не входят в организацию, больше не имеют к нему доступа."
       },
-      "documentTitle": "Участники | Mercaria Dashboard",
+      "documentTitle": "Участники | Wholesale by Mercaria",
       "loadFailed": "Не удалось загрузить людей этого магазина",
       "noAccess": "Нет доступа",
       "organizationBody": "Кто может действовать от имени магазина, определяет состав организации в Oxy. Mercaria хранит только исключения из прав каждой роли.",
@@ -1663,7 +1806,7 @@
     },
     "payments": {
       "beingReviewed": "На проверке",
-      "documentTitle": "Платежи и выплаты | Mercaria Dashboard",
+      "documentTitle": "Платежи и выплаты | Wholesale by Mercaria",
       "dueBy": "Срок до",
       "itemCount": {
         "one": "%{count} пункт",
@@ -1729,7 +1872,7 @@
       "cancelPlan": "Отменить тариф",
       "capabilityWithLimit": "%{name} · до %{limit}",
       "choosePlan": "Выбрать %{plan}",
-      "documentTitle": "Тариф и оплата | Mercaria Dashboard",
+      "documentTitle": "Тариф и оплата | Wholesale by Mercaria",
       "endsOn": "Заканчивается %{date}.",
       "free": "Бесплатно",
       "graceEndsOn": "Дополнительные возможности этого тарифа отключатся %{date}, если платёж не пройдёт.",
@@ -1804,7 +1947,7 @@
       }
     },
     "policies": {
-      "documentTitle": "Правила | Mercaria Dashboard",
+      "documentTitle": "Правила | Wholesale by Mercaria",
       "loadFailed": "Не удалось загрузить настройки",
       "lowStockAlerts": "Оповещения о низком остатке",
       "notifications": "Уведомления",
@@ -1862,7 +2005,7 @@
     },
     "store": {
       "brandColorLabel": "Фирменный цвет",
-      "documentTitle": "Профиль магазина | Mercaria Dashboard",
+      "documentTitle": "Профиль магазина | Wholesale by Mercaria",
       "loadFailed": "Не удалось загрузить магазин",
       "nameLabel": "Название магазина",
       "nameRequired": "Укажите название магазина",
@@ -1880,7 +2023,7 @@
       "created": "Налоговая ставка создана",
       "deleteFailed": "Не удалось удалить ставку",
       "deleted": "Налоговая ставка удалена",
-      "documentTitle": "Налоги | Mercaria Dashboard",
+      "documentTitle": "Налоги | Wholesale by Mercaria",
       "emptyBody": "Добавьте ставку, чтобы начислять налог при оформлении заказа.",
       "emptyTitle": "Нет налоговых ставок",
       "inactive": "неактивна",
@@ -1909,7 +2052,7 @@
       "success": "Магазин создан"
     },
     "createStore": "Создать магазин",
-    "documentTitle": "Магазины | Mercaria Dashboard",
+    "documentTitle": "Магазины | Wholesale by Mercaria",
     "empty": {
       "body": "Создайте первый магазин, чтобы начать продавать на Mercaria.",
       "title": "Магазинов пока нет"
@@ -1935,5 +2078,9 @@
     "price": "Цена",
     "date": "Дата",
     "customer": "Покупатель"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

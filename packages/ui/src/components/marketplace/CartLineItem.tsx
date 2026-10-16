@@ -1,9 +1,11 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import type { CartItemDTO, CartLineReviewReason } from '@mercaria/shared-types';
 import { Text } from '../ui/text';
 import { useSharedUiTranslation } from '../../i18n/ui-translation';
 import { Stepper } from '@oxy.so/bloom/stepper';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { resolveStoredImageUrl } from '../../lib/stored-image-url';
 import { PriceDisplay } from '../PriceDisplay';
 import {
   CART_SAVE_FOR_LATER_KEY,
@@ -55,6 +57,7 @@ export function CartLineItem({
   onSaveForLater,
 }: CartLineItemProps) {
   const t = useSharedUiTranslation();
+  const imageUrl = resolveStoredImageUrl(item.imageUrl, useImageResolver());
   return (
     <View className={`flex-row gap-3${item.stale ? ` ${STALE_OPACITY_CLASS}` : ''}`}>
       {/* Left: image link box */}
@@ -64,12 +67,8 @@ export function CartLineItem({
         onPress={() => onPressItem?.(item.listingId)}
         className="h-20 w-20 overflow-hidden rounded-xl bg-card md:h-28 md:w-28"
       >
-        {item.imageUrl ? (
-          <Image
-            source={{ uri: item.imageUrl }}
-            contentFit="cover"
-            style={StyleSheet.absoluteFill}
-          />
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} contentFit="cover" style={StyleSheet.absoluteFill} />
         ) : null}
       </Pressable>
 

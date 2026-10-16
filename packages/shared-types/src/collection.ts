@@ -68,7 +68,7 @@ export interface Collection extends Timestamps {
   handle: string;
   /** Long-form description. */
   description?: string;
-  /** Oxy media file id (or absolute URL) of the collection image. */
+  /** Opaque Oxy media file ID of the synchronized collection image; never a URL. */
   imageFileId?: string;
   /**
    * Resolved, absolute collection image URL, derived from `imageFileId` through

@@ -1,4 +1,5 @@
 import type React from 'react';
+import Head from 'expo-router/head';
 import { View } from 'react-native';
 import { useOxy, openAccountDialog } from '@oxy.so/services';
 import { Text } from '@mercaria/ui';
@@ -38,9 +39,12 @@ function SignInScreen() {
   const { t } = useTranslation();
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">
+      <Head>
+        <title>{t('auth.signInTitle')}</title>
+      </Head>
       <View className="w-full max-w-sm items-center">
-        <View className="mb-6 h-16 w-16 items-center justify-center rounded-3xl bg-muted">
-          <Logo size={36} />
+        <View className="mb-6 h-16 w-16 items-center justify-center">
+          <Logo size={64} />
         </View>
         <Text className="text-center text-2xl font-bold text-foreground">
           {t('auth.signInTitle')}

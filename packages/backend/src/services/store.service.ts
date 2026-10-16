@@ -33,6 +33,7 @@ import { ensureUniqueSlug } from '../utils/slug.js';
 import { forbidden, notFound, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
 import { assertMayOwnStores, storeAuditActor, type StoreCaller } from './store-access.service.js';
+import { synchronizeStoreDescription } from './catalog-media/description.js';
 
 /** Default brand color for a store created without one. */
 const DEFAULT_BRAND_COLOR = '#1D4ED8';
@@ -45,16 +46,27 @@ const DEFAULT_BRAND_COLOR = '#1D4ED8';
  * Shared by the core store update (`PATCH /admin/stores/:storeId`) and the
  * settings update (`PATCH /admin/stores/:storeId/settings`).
  */
-function policyPatch(patch: UpdateStorePoliciesInput): Partial<StoreRow> {
-  return {
+async function policyPatch(
+  storeId: string,
+  patch: UpdateStorePoliciesInput,
+): Promise<Partial<StoreRow>> {
+  const result: Partial<StoreRow> = {
     ...(patch.returnWindowDays !== undefined
       ? { policiesReturnWindowDays: patch.returnWindowDays }
       : {}),
-    ...(patch.shippingNote !== undefined ? { policiesShippingNote: patch.shippingNote } : {}),
-    ...(patch.refundPolicy !== undefined ? { policiesRefundPolicy: patch.refundPolicy } : {}),
-    ...(patch.privacyPolicy !== undefined ? { policiesPrivacyPolicy: patch.privacyPolicy } : {}),
-    ...(patch.termsOfService !== undefined ? { policiesTermsOfService: patch.termsOfService } : {}),
   };
+  // Complete every import before the one settings/profile UPDATE. A failed
+  // image import must not save supplier hotlinks or half of the settings patch.
+  for (const [field, column] of [
+    ['shippingNote', 'policiesShippingNote'],
+    ['refundPolicy', 'policiesRefundPolicy'],
+    ['privacyPolicy', 'policiesPrivacyPolicy'],
+    ['termsOfService', 'policiesTermsOfService'],
+  ] as const) {
+    if (patch[field] !== undefined)
+      result[column] = await synchronizeStoreDescription(storeId, patch[field]);
+  }
+  return result;
 }
 
 /**
@@ -135,7 +147,7 @@ export async function updateStore(storeId: string, patch: UpdateStoreInput): Pro
     ...(patch.defaultCurrency !== undefined ? { defaultCurrency: patch.defaultCurrency } : {}),
     ...(patch.textTone !== undefined ? { textTone: patch.textTone } : {}),
     ...(patch.status !== undefined ? { status: patch.status } : {}),
-    ...(patch.policies !== undefined ? policyPatch(patch.policies) : {}),
+    ...(patch.policies !== undefined ? await policyPatch(storeId, patch.policies) : {}),
   });
 
   if (!updated) {
@@ -160,7 +172,7 @@ export async function updateStoreSettings(
   const tax = patch.taxSettings;
 
   const updated = await updateStoreColumns(storeId, {
-    ...(patch.policies !== undefined ? policyPatch(patch.policies) : {}),
+    ...(patch.policies !== undefined ? await policyPatch(storeId, patch.policies) : {}),
     ...(notifications?.lowStockAlerts !== undefined
       ? { notificationSettingsLowStockAlerts: notifications.lowStockAlerts }
       : {}),

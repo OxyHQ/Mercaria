@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { View } from 'react-native';
-import { Image, type ImageProps } from 'expo-image';
+import { Image, type ImageProps, type ImageRef } from './image';
 import { cn } from '../../lib/cn';
 
 interface AvatarProps {
@@ -23,11 +23,9 @@ interface AvatarImageProps extends Omit<ImageProps, 'style'> {
   className?: string;
 }
 
-const AvatarImage = React.forwardRef<React.ComponentRef<typeof Image>, AvatarImageProps>(
-  ({ className, ...props }, ref) => (
-    <Image ref={ref} className={cn('aspect-square h-full w-full', className)} {...props} />
-  ),
-);
+const AvatarImage = React.forwardRef<ImageRef, AvatarImageProps>(({ className, ...props }, ref) => (
+  <Image ref={ref} className={cn('aspect-square h-full w-full', className)} {...props} />
+));
 AvatarImage.displayName = 'AvatarImage';
 
 interface AvatarFallbackProps {
