@@ -704,8 +704,8 @@ Stated rather than quietly narrowed.
 - [ ] `PICKUP_COLLECTION_CODE_KEY` provisioned (64 hex) in SSM, and in the
       deploy workflow's explicit secret allow-list **in the same change** as the
       task definition entry.
-- [ ] `GOWAY_API_URL` set — `deploy-aws.yml` pins it into every release
-      revision (repo variable `GOWAY_API_URL`, default `https://api.goway.to`);
+- [ ] `GOWAY_API_URL` set — `deploy-aws.yml`'s `RELEASE_ENVIRONMENT` pins it
+      into every release revision (repo variable `GOWAY_API_URL`, default `https://api.goway.to`);
       mirror it in the oxy-infra task definition's `environment`
       (configuration, not a secret). Without it no location can be published.
 - [ ] GoWay's API serves `GET /places?ids=` and `GET /claims?placeId=`, and its
