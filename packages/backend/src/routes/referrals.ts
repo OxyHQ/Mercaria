@@ -1,9 +1,9 @@
 /**
  * `/referrals/*` — the buyer-facing referral edge (#143).
  *
- * Four routes and no fifth. Each is a BINDING act or the one read a disclosure
- * banner needs; none of them creates, transfers or reveals an attribution's
- * partner.
+ * Five routes and no sixth. Each is a BINDING act, the buyer's consent answer,
+ * or the one read a disclosure banner needs; none of them creates, transfers or
+ * reveals an attribution's partner.
  *
  * ## `resolveCommerceActor` first, limiters after
  *
@@ -28,11 +28,13 @@ import { validateBody } from '../middleware/validate.js';
 import {
   referralBindSchema,
   referralCodeEntrySchema,
+  referralConsentSchema,
   referralMerchantBindingSchema,
 } from '../middleware/referral-schemas.js';
 import {
   referralBindHandler,
   referralCodeEntryHandler,
+  referralConsentHandler,
   referralMerchantBindingHandler,
   referralStateHandler,
 } from '../controllers/referral.controller.js';
@@ -44,6 +46,18 @@ router.use(resolveCommerceActor);
 
 /** GET /referrals/state — what this browser is holding, for the disclosure. */
 router.get('/state', makeActorRateLimiter('referral-bind'), referralStateHandler);
+
+/**
+ * POST /referrals/consent — the buyer allowed, or declined, Mercaria remembering
+ * a followed link. The ONLY route that writes a carrier cookie, and only on
+ * `granted`; the carrier is accepted on the request header and nowhere else.
+ */
+router.post(
+  '/consent',
+  makeActorRateLimiter('referral-bind'),
+  validateBody(referralConsentSchema),
+  referralConsentHandler,
+);
 
 /** POST /referrals/bind — redeem a carried click for the resolved actor. */
 router.post(

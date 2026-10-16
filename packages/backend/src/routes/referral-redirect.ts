@@ -4,13 +4,15 @@
  * Its own router and its own path prefix, deliberately short: a partner pastes
  * this into a post, and `mercaria.co/r/<token>` is the shape ADR 0005 D3 names.
  *
- * ## `resolveCommerceActor`, not `authenticateToken`
+ * ## No actor is resolved, on purpose
  *
- * A referral link is followed by strangers. The resolver is here because the
- * ANSWER differs when a subject already exists — a signed-in shopper's click is
- * recorded immediately against their account, while an anonymous click is
- * carried and bound later (ADR 0003 T10: browsing creates no row). It never
- * refuses: an anonymous caller is a first-class outcome on this route.
+ * The redirect stores nothing on the device and attributes nothing: a click is
+ * not consent (ePrivacy Art. 5(3)), so even a signed-in shopper's click waits
+ * for the storefront's consent prompt and `POST /referrals/consent`. With no
+ * touch to write there is no subject to look up, and not resolving one makes
+ * "the redirect cannot attribute" a property of the route rather than a branch
+ * somebody could restore. The answer is the same for everybody: a 302 whose
+ * fragment carries the signed click evidence.
  *
  * ## No body parser reaches it and it accepts no query
  *
@@ -28,12 +30,11 @@
 
 import { Router } from 'express';
 import { makeRateLimiter } from '../lib/rate-limit.js';
-import { resolveCommerceActor } from '../middleware/commerce-actor.js';
 import { referralRedirectHandler } from '../controllers/referral.controller.js';
 
 const router = Router();
 
-router.use(makeRateLimiter('referral-redirect'), resolveCommerceActor);
+router.use(makeRateLimiter('referral-redirect'));
 
 /** GET /r/:token — resolve, classify, and 302 to one allow-listed destination. */
 router.get('/:token', referralRedirectHandler);

@@ -13,8 +13,10 @@
 
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { derivedSecret } from '../../../lib/derived-secrets.js';
 import {
   mintReferralState,
+  reissueConsentedReferralState,
   referralStateCookieProfile,
   readReferralStateCookie,
   verifyReferralState,
@@ -56,7 +58,7 @@ describe('mintReferralState / verifyReferralState', () => {
     expect(verifyReferralState('mgs_someguestcarttoken', CLICKED_AT)).toBeNull();
   });
 
-  it('carries EXACTLY the two ids, the click, the deadline and a nonce', () => {
+  it('carries EXACTLY the two ids, the click, the deadline, a nonce, a version and consent', () => {
     // Exact key set, not substring matching: a field added to the payload
     // fails here and forces the question of whether it belongs in a value a
     // browser holds. There is nothing here an authorization check could read —
@@ -66,7 +68,67 @@ describe('mintReferralState / verifyReferralState', () => {
     const payload = JSON.parse(
       Buffer.from(payloadB64 ?? '', 'base64url').toString('utf8'),
     ) as Record<string, unknown>;
-    expect(Object.keys(payload).sort()).toEqual(['c', 'l', 'n', 't', 'x']);
+    expect(Object.keys(payload).sort()).toEqual(['c', 'k', 'l', 'n', 't', 'v', 'x']);
+    expect(payload.v).toBe(2);
+  });
+
+  it('says consent `unknown` unless minted or re-issued as granted', () => {
+    // The redirect mints before anybody is asked; only the consent endpoint
+    // re-issues with `granted`.
+    expect(verifyReferralState(mint().token, CLICKED_AT)?.consent).toBe('unknown');
+    const granted = mintReferralState({
+      linkId: 'link-1',
+      codeId: 'code-1',
+      clickedAt: CLICKED_AT,
+      lifetimeSeconds: WINDOW_SECONDS,
+      consent: 'granted',
+    });
+    expect(verifyReferralState(granted.token, CLICKED_AT)?.consent).toBe('granted');
+  });
+
+  it('re-issuing on consent keeps the click instant and the deadline', () => {
+    // Consenting is not a new click: #143 web rule 7 holds across it.
+    const original = mint();
+    const claims = verifyReferralState(original.token, CLICKED_AT);
+    if (claims === null) throw new Error('fixture carrier did not verify');
+    const reissued = reissueConsentedReferralState(claims);
+    expect(reissued.token).not.toBe(original.token);
+    const after = verifyReferralState(reissued.token, CLICKED_AT);
+    expect(after?.consent).toBe('granted');
+    expect(after?.clickedAt.toISOString()).toBe(CLICKED_AT.toISOString());
+    expect(after?.expiresAt.toISOString()).toBe(original.expiresAt.toISOString());
+  });
+
+  it('refuses a consent letter edited from `u` to `g` — it is inside the signature', () => {
+    const { token } = mint();
+    const [payloadB64, sig] = token.slice(REFERRAL_STATE_PREFIX.length).split('.');
+    const payload = JSON.parse(Buffer.from(payloadB64 ?? '', 'base64url').toString('utf8'));
+    payload.k = 'g';
+    const forged = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+    expect(
+      verifyReferralState(`${REFERRAL_STATE_PREFIX}${forged}.${sig ?? ''}`, CLICKED_AT),
+    ).toBeNull();
+  });
+
+  it('still verifies a v1 carrier (no version, no consent) as consent `unknown`', () => {
+    // Every cookie set before consent was asked is a v1; the bump strands
+    // nobody's click, and none of them reads as consented.
+    const payloadB64 = Buffer.from(
+      JSON.stringify({ l: 'link-1', c: 'code-1', t: 1_777_629_600, x: 4_102_444_800, n: 'n' }),
+      'utf8',
+    ).toString('base64url');
+    const sig = createHmac('sha256', derivedSecret('referral-state'))
+      .update(payloadB64)
+      .digest('base64url');
+    const claims = verifyReferralState(`${REFERRAL_STATE_PREFIX}${payloadB64}.${sig}`, CLICKED_AT);
+    expect(claims?.linkId).toBe('link-1');
+    expect(claims?.consent).toBe('unknown');
+  });
+
+  it('only a URL-safe alphabet — it travels in a URL fragment', () => {
+    for (let i = 0; i < 20; i += 1) {
+      expect(mint().token).toMatch(/^mrf_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    }
   });
 
   it('refuses a tampered payload — a client cannot forge the winner', () => {

@@ -6,13 +6,23 @@
  * a second answer to any of them and no response shape here can widen what a
  * projection emits.
  *
- * The one thing these DO own is carriage — cookie versus header, and the cache
- * and referrer headers on the redirect — because that is an HTTP fact rather
- * than a domain one.
+ * The one thing these DO own is carriage — fragment, cookie or header, and the
+ * cache and referrer headers on the redirect — because that is an HTTP fact
+ * rather than a domain one.
+ *
+ * ## Consent first (ePrivacy Art. 5(3))
+ *
+ * Nothing is stored on a buyer's device for referral tracking until they allow
+ * it. The redirect sets no cookie and hands the carrier over in the URL
+ * fragment; `POST /referrals/consent` is the ONLY handler that writes the
+ * carrier cookie, and only for `granted`. A cookie carrier that does not say
+ * the buyer consented — one set by the redirect before consent was asked — is
+ * never acted on, and is cleared wherever it is seen.
  */
 
 import type { Request, Response } from 'express';
 import type {
+  ReferralBindingResult,
   ReferralClientSurface,
   ReferralConsentMode,
   ReferralStateView,
@@ -26,6 +36,7 @@ import {
   bindCarriedReferral,
   bindEnteredCode,
   bindMerchantCandidate,
+  consentToCarriedReferral,
   type ReferralBindContext,
 } from '../services/referrals/binding.service.js';
 import { resolveReferralRedirect } from '../services/referrals/redirect.service.js';
@@ -41,13 +52,11 @@ import {
 import { classifyReferralTraffic, INTERNAL_TRAFFIC_HEADER } from '../services/referrals/traffic.js';
 
 /**
- * The header a NATIVE client may declare consent on.
+ * The header a NATIVE client may declare consent on at click time.
  *
  * A top-level browser navigation cannot set one and this route accepts no query
- * parameter, so on the web the declaration arrives at BIND time instead. The
- * framework that would let a web client declare at click time — a CMP, a stored
- * consent record, a jurisdiction table — does not exist in this repository, and
- * that gap is a named seam rather than a default somebody guessed.
+ * parameter. On the web the buyer answers the storefront's prompt instead, and
+ * the answer reaches `POST /referrals/consent`.
  */
 const CONSENT_HEADER = 'x-mercaria-referral-consent';
 
@@ -83,30 +92,37 @@ function classify(req: Request): ReturnType<typeof classifyReferralTraffic> {
 }
 
 /**
- * How the carrier reaches this client.
+ * The carrier this request presents, and the kind it arrived in.
  *
- * Header when the client PRESENTED one that way, cookie otherwise — the #103
- * rule that a credential is answered in the kind it arrived in, so a native
- * client that stores tokens itself never has a cookie jar it cannot read and a
- * browser never gets a header it will not persist.
+ * Header first (a native client, or the storefront answering the consent
+ * prompt), then the cookie. A COOKIE carrier counts only when the buyer
+ * consented to it: anything else in that cookie was written before consent
+ * was asked, so it is not read for attribution, and it is cleared on this
+ * response — the device keeps nothing it was never allowed to hold.
  */
-function stateTransport(req: Request): ReferralStateTransport {
-  return headerValue(req, REFERRAL_STATE_REQUEST_HEADER) !== undefined ? 'header' : 'cookie';
-}
-
-/** The presented carrier, header first, then cookie. */
-function presentedState(req: Request): string | undefined {
+function presentedCarrier(
+  req: Request,
+  res: Response,
+  now: Date,
+): { token: string | undefined; transport: ReferralStateTransport } {
   const fromHeader = headerValue(req, REFERRAL_STATE_REQUEST_HEADER);
-  if (fromHeader !== undefined) return fromHeader;
+  if (fromHeader !== undefined) return { token: fromHeader, transport: 'header' };
   // `maxAge` is irrelevant to a READ; the profile is consulted for its NAME.
   const profile = referralStateCookieProfile(0);
-  return readReferralStateCookie(req.headers.cookie, profile.name);
+  const fromCookie = readReferralStateCookie(req.headers.cookie, profile.name);
+  if (fromCookie === undefined) return { token: undefined, transport: 'cookie' };
+  if (verifyReferralState(fromCookie, now)?.consent !== 'granted') {
+    clearReferralState(res, 'cookie');
+    return { token: undefined, transport: 'cookie' };
+  }
+  return { token: fromCookie, transport: 'cookie' };
 }
 
 /** The bind context every referral write runs under. */
 function bindContext(
   req: Request,
   surface: ReferralClientSurface | undefined,
+  at: Date,
 ): ReferralBindContext {
   const body = req.body as { consent?: string } | undefined;
   return {
@@ -114,7 +130,7 @@ function bindContext(
     clientSurface: surface ?? 'web',
     consentMode: declaredConsent(body?.consent),
     trafficClass: classify(req).trafficClass,
-    at: new Date(),
+    at,
   };
 }
 
@@ -127,11 +143,14 @@ function bindContext(
  *    browser that stopped asking would keep following a revoked link, stop
  *    spending the click ceiling, and make the operator lever inert.
  *  - `Cache-Control: no-store` plus `Pragma: no-cache`, so no intermediary
- *    holds the `Set-Cookie` this response may carry, and every click reaches
- *    the row that decides.
+ *    holds the per-click carrier in the `Location`, and every click reaches the
+ *    row that decides.
  *  - `Referrer-Policy: no-referrer`, so the destination page never learns the
  *    token from a `Referer` header — the token is the credential-shaped part of
  *    the URL even though it authorizes nothing.
+ *
+ * And what it does NOT send: no `Set-Cookie`, ever. The click's carrier is in
+ * the `Location`'s fragment, which the browser keeps to itself.
  */
 export async function referralRedirectHandler(req: Request, res: Response): Promise<void> {
   const token = routeParam(req, 'token');
@@ -144,12 +163,7 @@ export async function referralRedirectHandler(req: Request, res: Response): Prom
     const outcome = await resolveReferralRedirect({
       token,
       trafficClass: verdict.trafficClass,
-      // A browser navigation is the only thing that reaches this route: a
-      // native app would need a VERIFIED universal link or App Link to
-      // intercept it, and Mercaria declares neither (the named seam).
-      clientSurface: 'web',
       consentMode: declaredConsent(headerValue(req, CONSENT_HEADER)),
-      actor: req.commerceActor ?? { kind: 'anonymous' },
       at: new Date(),
     });
 
@@ -165,9 +179,6 @@ export async function referralRedirectHandler(req: Request, res: Response): Prom
       return;
     }
 
-    if (outcome.state !== undefined) {
-      setReferralState(res, outcome.state.token, stateTransport(req), outcome.state.maxAgeMs);
-    }
     res.redirect(302, outcome.location);
   } catch {
     // A malformed token, a link this deployment does not serve and an expired
@@ -180,27 +191,76 @@ export async function referralRedirectHandler(req: Request, res: Response): Prom
 }
 
 /**
+ * `POST /referrals/consent` — the buyer answered the storefront's prompt about
+ * a link they followed.
+ *
+ * The carrier is accepted ONLY on the `X-Mercaria-Referral-State` request
+ * header — the storefront took it out of the URL fragment and holds it in
+ * memory. Never from the body (the schema is strict and has no field for it),
+ * never from the query, and never from the cookie: a cookie is what consent is
+ * being asked FOR.
+ *
+ *  - `denied`: verify nothing, write nothing, clear any carrier cookie.
+ *  - `granted`, with a subject: bind now (touch consent `granted`), no cookie.
+ *  - `granted`, anonymous: re-issue the carrier with consent signed in and
+ *    store it — the cookie on the web, the response header on native — for
+ *    `POST /referrals/bind` to redeem when a subject appears. `pending`.
+ *  - an unusable carrier: the bounded `state_unusable`.
+ */
+export async function referralConsentHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const body = req.body as { consent: 'granted' | 'denied'; surface?: ReferralClientSurface };
+    if (body.consent === 'denied') {
+      clearReferralState(res, 'cookie');
+      const refused: ReferralBindingResult = { state: 'none', disclosureRequired: false };
+      sendSuccess(res, refused);
+      return;
+    }
+
+    const context = bindContext(req, body.surface, new Date());
+    const { carry, ...view } = await consentToCarriedReferral({
+      stateToken: headerValue(req, REFERRAL_STATE_REQUEST_HEADER),
+      context,
+    });
+    if (carry !== undefined) {
+      setReferralState(
+        res,
+        carry.token,
+        // A browser keeps it in the HttpOnly cookie; a native client stores
+        // what it is handed on the header (it has no jar it can read).
+        context.clientSurface === 'web' ? 'cookie' : 'header',
+        Math.max(carry.expiresAt.getTime() - context.at.getTime(), 0),
+      );
+    }
+    sendSuccess(res, view);
+  } catch (error: unknown) {
+    respondWithError(res, error, 'Failed to record the referral consent');
+  }
+}
+
+/**
  * `POST /referrals/bind` — redeem a carried click for the resolved actor.
  *
  * Idempotent in the way that matters: a redeemed carrier is CLEARED, so a
  * second call finds nothing and answers `none` rather than recording a second
- * touch for one click.
+ * touch for one click. A cookie carrier the buyer consented to records
+ * `granted` on the touch — from the signed carrier, not from the body.
  */
 export async function referralBindHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as { surface?: ReferralClientSurface } | undefined;
-    const context = bindContext(req, body?.surface);
-    const transport = stateTransport(req);
+    const context = bindContext(req, body?.surface, new Date());
+    const presented = presentedCarrier(req, res, context.at);
 
     if (context.consentMode === 'denied') {
       // The declaration's one effect: nothing is written and the carrier goes.
-      clearReferralState(res, transport);
+      clearReferralState(res, presented.transport);
       sendSuccess(res, { state: 'none', reason: 'state_unusable', disclosureRequired: false });
       return;
     }
 
-    const result = await bindCarriedReferral({ stateToken: presentedState(req), context });
-    if (result.redeemed) clearReferralState(res, transport);
+    const result = await bindCarriedReferral({ stateToken: presented.token, context });
+    if (result.redeemed) clearReferralState(res, presented.transport);
     const { redeemed: _redeemed, ...view } = result;
     sendSuccess(res, view);
   } catch (error: unknown) {
@@ -226,7 +286,7 @@ export async function referralCodeEntryHandler(req: Request, res: Response): Pro
     const result = await bindEnteredCode({
       code: body.code,
       moment: body.moment,
-      context: bindContext(req, body.surface),
+      context: bindContext(req, body.surface, new Date()),
     });
     sendSuccess(res, result);
   } catch (error: unknown) {
@@ -238,10 +298,11 @@ export async function referralCodeEntryHandler(req: Request, res: Response): Pro
 export async function referralMerchantBindingHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as { merchantId: string; surface?: ReferralClientSurface };
+    const context = bindContext(req, body.surface, new Date());
     const result = await bindMerchantCandidate({
       merchantId: body.merchantId,
-      stateToken: presentedState(req),
-      context: bindContext(req, body.surface),
+      stateToken: presentedCarrier(req, res, context.at).token,
+      context,
     });
     sendSuccess(res, result);
   } catch (error: unknown) {
@@ -258,9 +319,14 @@ export async function referralMerchantBindingHandler(req: Request, res: Response
  * #143 authenticated rule 7 forbids in both directions. So there is no partner,
  * no program, no code and no attribution id in the response — and no query
  * parameter that could ask for one.
+ *
+ * Since consent is asked first, a web browser only ever holds a carrier here
+ * that the buyer ALLOWED; a fresh click's carrier lives in the storefront's
+ * memory and never reaches this route.
  */
 export function referralStateHandler(req: Request, res: Response): void {
-  const claims = verifyReferralState(presentedState(req), new Date());
+  const now = new Date();
+  const claims = verifyReferralState(presentedCarrier(req, res, now).token, now);
   const view: ReferralStateView = {
     state: claims === null ? 'none' : 'pending',
     // Disclosure travels with the LINK, and a carrier is proof a link was

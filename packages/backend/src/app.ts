@@ -241,6 +241,9 @@ export function createApp(): express.Express {
         'X-Mercaria-Guest-Token',
         'X-Mercaria-Guest-Transport',
         'X-Mercaria-Guest-Client',
+        // The referral carrier the storefront presents to `POST /referrals/consent`
+        // after the buyer allows it — it lives only in page memory until then.
+        'X-Mercaria-Referral-State',
         'X-Oxy-Edge-Region',
         'X-Oxy-Activity-Id',
       ],
