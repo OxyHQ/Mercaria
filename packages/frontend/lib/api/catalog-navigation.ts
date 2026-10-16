@@ -11,11 +11,9 @@ import apiClient from './client';
  *
  * ## Two sources, one shape, and the source is always REPORTED
  *
- * `GET /navigation` is mounted only behind `CATALOG_TAXONOMY_V2_ENABLED`, which
- * defaults OFF — so on a deployment that has not turned it on the router does
- * not exist and the request 404s. That is the rollout working, not a fault, and
- * ADR 0007 D13 conditions the storefront rewire on parity with what shipped
- * before it.
+ * `GET /navigation` answers only with a PUBLISHED tree, and a deployment that
+ * has published none has nothing to serve. That is not a fault, and ADR 0007
+ * D13 conditions the storefront rewire on parity with what shipped before it.
  *
  * So the client falls back to `GET /categories` — the v1 tree, always mounted,
  * reading the SAME `categories` rows — and every consumer is told which source

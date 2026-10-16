@@ -1221,22 +1221,14 @@ export async function requestWebhookReregistration(
  *
  * The population is DERIVED — see
  * `findConnectionsNeedingWebhookRegistration`, which states what it finds and what
- * it deliberately cannot. This function's own share is bounded and gated: one
- * batch per pass, one claim per connection, and a flag that stops the LOOP while
- * leaving every stored fact and the merchant's own retry available.
+ * it deliberately cannot. This function's own share is bounded: one batch per
+ * pass and one claim per connection.
  *
  * A connection whose run throws is logged and skipped rather than aborting the
  * sweep over the rest — the `reconcileAllConnections` posture, and the reason a
  * single unreachable shop cannot stop every other merchant's channel recovering.
  */
 export async function sweepConnectionWebhookRegistrations(): Promise<void> {
-  if (!config.connectors.webhookReregistrationEnabled) {
-    // The LOOP is gated and nothing else: the refusals stay recorded, the attempt
-    // counters stay where they are, and turning it back on drains the backlog.
-    log.general.debug('Connector webhook re-registration sweep is disabled');
-    return;
-  }
-
   const candidates = await findConnectionsNeedingWebhookRegistration({
     limit: config.connectors.webhookReregistrationBatchSize,
   });

@@ -674,12 +674,11 @@ two triggers and no second implementation: both drive the same
   directly, behind `channels:write`. It validates synchronously (404 for a missing or
   cross-store connection, 400 for a disconnected, push-in or credential-less one)
   and answers `202 {status: 'enqueued'}`; the outcome arrives on the connection
-  itself. It stays available while the scheduled sweep is off.
+  itself.
 - **On a schedule:** every 15 minutes, a bounded pass over the connections whose
   registration did not finish — refused topics a retry could take, or an empty
-  `webhookIds`, which is what a registration that THREW leaves behind. Gated by
-  `CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED` (default ON; it gates the LOOP and
-  no stored fact).
+  `webhookIds`, which is what a registration that THREW leaves behind. Always
+  on.
 
 **What to expect on a real store, and what to record:**
 

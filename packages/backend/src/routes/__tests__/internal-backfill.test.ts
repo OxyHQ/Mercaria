@@ -1,11 +1,11 @@
 /**
  * Who may reach `/internal/backfill/*`, and what the canonical READ levers do to
- * the public surfaces — issue #60 feature flags 2, 3 and 5, plus acceptance 5
+ * the public surfaces — issue #60 feature flags 2 and 3, plus acceptance 5
  * ("turning off canonical reads restores the existing listing-first
  * experience") and acceptance 7 (rollback is tested, not just documented).
  *
  * The `internal-offers.test.ts` shape, extended with the thing this issue adds:
- * FOUR apps against four frozen configs, because a lever's effect is a property
+ * THREE apps against three frozen configs, because a lever's effect is a property
  * of the MOUNT and of a middleware that reads a frozen config — neither is
  * observable from a handler test.
  *
@@ -26,9 +26,6 @@
  *  - `CANONICAL_READS=off` 404s the canonical product surfaces and leaves the
  *    offer comparison alone, and vice versa: the two levers bound different
  *    blast radii or they are one lever wearing two names;
- *  - `CANONICAL_PUBLIC_ROUTES_ENABLED=false` removes all three at once — the
- *    blunt rollback, which must not depend on every handler having remembered
- *    its own gate;
  *  - the OPERATOR surface stays reachable through all of it, because the
  *    evidence has to be readable during exactly the incident that turned the
  *    levers off.
@@ -100,7 +97,6 @@ const deployments: Deployment[] = [];
 let enabled: Deployment;
 let noOperators: Deployment;
 let readsOff: Deployment;
-let routesOff: Deployment;
 
 async function listen(app: express.Express): Promise<Deployment> {
   const server = await new Promise<Server>((resolve) => {
@@ -126,7 +122,6 @@ async function buildApp(env: Record<string, string>): Promise<express.Express> {
   process.env.CATALOG_OPERATOR_OXY_USER_IDS = CATALOG_OPERATOR;
   delete process.env.CANONICAL_READS;
   delete process.env.CANONICAL_OFFER_COMPARISON;
-  delete process.env.CANONICAL_PUBLIC_ROUTES_ENABLED;
   for (const [key, value] of Object.entries(env)) process.env[key] = value;
   const { createApp } = await import('../../app.js');
   return createApp();
@@ -136,7 +131,6 @@ beforeAll(async () => {
   enabled = await listen(await buildApp({}));
   noOperators = await listen(await buildApp({ CATALOG_OPERATOR_OXY_USER_IDS: '' }));
   readsOff = await listen(await buildApp({ CANONICAL_READS: 'off' }));
-  routesOff = await listen(await buildApp({ CANONICAL_PUBLIC_ROUTES_ENABLED: 'false' }));
 }, 60_000);
 
 afterAll(async () => {
@@ -144,7 +138,6 @@ afterAll(async () => {
   delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
   delete process.env.CANONICAL_READS;
   delete process.env.CANONICAL_OFFER_COMPARISON;
-  delete process.env.CANONICAL_PUBLIC_ROUTES_ENABLED;
   await Promise.all(
     deployments.map(
       (deployment) =>
@@ -234,16 +227,17 @@ describe('the catalog operator allow-list on the backfill surface', () => {
     const body = (await res.json()) as {
       data: { flags: Record<string, unknown> };
     };
-    // Every lever defaults ON since ADR 0015 (the catalogue autopilot runs the
-    // backfill); the READ levers default to today's behaviour. Both halves
-    // asserted, because a change to either default is a rollout decision and
-    // not a refactor.
-    expect(body.data.flags.graphEnabled).toBe(true);
-    expect(body.data.flags.writePublicationEnabled).toBe(true);
+    // The READ levers default to today's behaviour, and a change to a default
+    // is a rollout decision and not a refactor. The exact key set is asserted
+    // so a lever added or removed has to say so here.
+    expect(Object.keys(body.data.flags).sort()).toEqual([
+      'offerComparison',
+      'readCohorts',
+      'reads',
+      'search',
+    ]);
     expect(body.data.flags.reads).toBe('on');
     expect(body.data.flags.offerComparison).toBe('on');
-    expect(body.data.flags.publicRoutesEnabled).toBe(true);
-    expect(body.data.flags.searchIndexingEnabled).toBe(false);
     expect(body.data.flags.readCohorts).toEqual([]);
   });
 });
@@ -285,23 +279,14 @@ describe('the canonical READ levers (acceptance 5 and 7)', () => {
     expect(offers.status).not.toBe(404);
   });
 
-  it('CANONICAL_PUBLIC_ROUTES_ENABLED=false removes all three at once', async () => {
-    for (const path of [...CANONICAL_PATHS, OFFER_PATH]) {
-      const res = await fetch(`${routesOff.url}${path}`);
-      expect(res.status, path).toBe(404);
-    }
-  });
-
   it('keeps the OPERATOR surface reachable while every read lever is off', async () => {
     // The evidence has to be readable during exactly the incident that turned
     // the levers off, which is why `/internal/backfill` is gated on the operator
     // allow-list and on nothing else.
-    for (const deployment of [readsOff, routesOff]) {
-      const res = await call(deployment.url, {
-        method: 'GET',
-        path: '/internal/backfill/flags',
-      });
-      expect(res.status).toBe(200);
-    }
+    const res = await call(readsOff.url, {
+      method: 'GET',
+      path: '/internal/backfill/flags',
+    });
+    expect(res.status).toBe(200);
   });
 });

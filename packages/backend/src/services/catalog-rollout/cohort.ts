@@ -4,16 +4,17 @@
  *
  * ## What this closes
  *
- * D12 shipped four levers and they are booleans over a whole deployment:
- * `CATALOG_TAXONOMY_V2_ENABLED`, `CATALOG_AUTHORING_ENABLED`,
- * `CATALOG_PROPOSALS_ENABLED`, `FACETS_ENABLED`. It also named a fifth,
+ * D12 shipped four levers and they were booleans over a whole deployment (three
+ * have since been removed: authoring, taxonomy and navigation are always
+ * mounted, proposals are mounted with the operator allow-list, and
+ * `FACETS_ENABLED` remains). It also named a fifth,
  * `CATALOG_AUTHORING_COHORTS`, and nobody built it — so D12 recorded, in its own
  * text, that the rollout order it had decided (internal users → selected stores
  * → selected product types and categories → locales and markets → GA) was **not
  * executable as written**, because nothing narrowed a mount to a cohort.
  *
  * This is that narrowing. It is `CATALOG_ROLLOUT_COHORTS` rather than
- * `CATALOG_AUTHORING_COHORTS` because it narrows all four levers' surfaces and
+ * `CATALOG_AUTHORING_COHORTS` because it narrows all four surfaces and
  * not only authoring, and a variable whose name promises less than it does is
  * the kind a runbook step gets wrong. The rename is recorded in D12 and in
  * `docs/catalog-migration-operations.md`, both of which previously said the

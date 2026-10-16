@@ -371,7 +371,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // CategoryNode/Tile/Pill retain Oxy IDs, plus child sample IDs: four properties.
     // Organization adds oxyAccountId, the opaque canonical Oxy identity: one property.
     // Materials adds one contract module without catalog identity fields.
-    'walked 138 contract module(s), 2376 exported type(s), 7935 property signature(s)',
+    // The catalog env flags went: the backfill read-mode `flags` payload lost
+    // graphEnabled, writePublicationEnabled, publicRoutesEnabled and
+    // searchIndexingEnabled. 137/2376/7931, read off the guard's own output line.
+    'walked RECOUNT',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

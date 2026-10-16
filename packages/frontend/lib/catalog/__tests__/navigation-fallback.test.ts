@@ -4,9 +4,8 @@
  *
  * ## The claim this file exists to defend
  *
- * `docs/runbooks/catalog-rollout-rollback.md` says turning
- * `CATALOG_TAXONOMY_V2_ENABLED` off restores the v1 category tree in the
- * storefront. Until this file, that was the least-defended claim in the runbook:
+ * A taxonomy-v2 navigation read that fails or answers nothing restores the v1
+ * category tree in the storefront. Until this file, that was an undefended claim:
  * the mechanism was real and lived inside a `queryFn` closure inside a `useQuery`,
  * where nothing could reach it, and an audit confirmed with a positive control
  * that `useCatalogNavigation`, `navigationFromCategoryTree` and
@@ -20,7 +19,7 @@
  *
  * ## Three failures, one answer, and that is the point
  *
- * The lever off is a REJECTED promise (404). An unconfigured market is a RESOLVED
+ * A 404 is a REJECTED promise. An unconfigured market is a RESOLVED
  * `{trees: []}`. An unreachable API is a rejection of a different kind. A shopper
  * gets the same menu in all three, and each is asserted separately — a single case
  * would pass against an implementation that handled only the one it was written
@@ -131,7 +130,7 @@ describe('taxonomy v2 answers when it has something to say', () => {
 });
 
 describe('the fallback — three different failures, one answer', () => {
-  it('falls back when the lever is OFF and `/navigation` REJECTS (a 404)', async () => {
+  it('falls back when `/navigation` REJECTS (a 404)', async () => {
     const io = readers({
       trees: () => Promise.reject(new Error('Request failed with status 404')),
     });
@@ -242,7 +241,7 @@ describe('the hook actually calls it — a mechanism can be green and inert', ()
   });
 
   it('keeps `retry: false`, so a deliberately-unmounted route is asked once', () => {
-    // Not cosmetic: without it React Query retries the 404 the lever produces
+    // Not cosmetic: without it React Query retries a 404
     // three times on the first request of every session, and the fallback below
     // it makes every one of those retries pure cost.
     expect(hookSource).toContain('retry: false');

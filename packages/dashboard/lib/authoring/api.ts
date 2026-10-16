@@ -161,20 +161,6 @@ export type DraftPublishOutcome =
     }
   | { readonly outcome: 'refused'; readonly validation: AuthoringValidationResult };
 
-/**
- * Whether the authoring surface is mounted on this deployment at all.
- *
- * `CATALOG_AUTHORING_ENABLED` gates the MOUNT server-side (ADR 0007 D12), so an
- * unconfigured deployment answers 404 to every route here. That 404 IS the
- * fact, and this client deliberately has no flag of its own beside it: a second
- * answer to "is the wizard available" is one that can disagree with the server,
- * and the way it disagrees is a merchant filling in a form whose publish route
- * does not exist.
- */
-export type AuthoringAvailability =
-  | { readonly outcome: 'available'; readonly categories: readonly AuthoringCategoryOption[] }
-  | { readonly outcome: 'unavailable' };
-
 /** The HTTP status of an axios rejection, or `null` for a transport failure. */
 function statusOf(error: unknown): number | null {
   if (!axios.isAxiosError(error)) return null;
@@ -227,24 +213,6 @@ export async function fetchAuthoringCategories(params: {
     },
   });
   return unwrap<{ categories: AuthoringCategoryOption[] }>(data).categories;
-}
-
-/**
- * Probe the surface with the cheapest read it has.
- *
- * A 404 means the deployment has the surface switched off; anything else is a
- * real failure and is rethrown, because reporting an outage as "unavailable"
- * would silently send every merchant back to the legacy form and nobody would
- * find out.
- */
-export async function probeAuthoringAvailability(locale: string): Promise<AuthoringAvailability> {
-  try {
-    const categories = await fetchAuthoringCategories({ roots: true, locale });
-    return { outcome: 'available', categories };
-  } catch (error) {
-    if (statusOf(error) === 404) return { outcome: 'unavailable' };
-    throw error;
-  }
 }
 
 export async function fetchAuthoringProductTypes(params: {

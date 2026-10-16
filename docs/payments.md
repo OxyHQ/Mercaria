@@ -1295,7 +1295,7 @@ GUEST_CHECKOUT_BLOCKED_SUPPLIERS=    # the #107 guest axes, extended by a suppli
 
 `MERCARIA_RETAIL_ENABLED=true` additionally requires a non-empty
 `RETAIL_OPERATOR_OXY_USER_IDS` and the seller legal entity and country —
-half-configured is OFF (the `CROWDSOURCE_ENABLED` pattern). Supplier preflight
+half-configured is OFF (the half-configuration rule). Supplier preflight
 is always on, with its fingerprint key derived from `MERCARIA_SECRET_KEY`.
 Without those, every retail line refuses at checkout anyway, and a catalogue of items nobody can buy with no message saying
 why is worse than the feature being off.
@@ -2208,7 +2208,7 @@ reachable by no one, which reads as a permission bug for as long as it takes
 someone to find the empty variable.
 
 `STRIPE_ENABLED=true` requires the key AND BOTH webhook secrets; half-configured
-logs once at boot and stays OFF, the `CROWDSOURCE_ENABLED` rule. There is no
+logs once at boot and stays OFF, the half-configuration rule. There is no
 `STRIPE_ACCOUNT_ID` (the platform account is implied by the key) and no API
 version variable — that is a code constant, `STRIPE_API_VERSION`, so an event
 payload's shape stays a property of the code that parses it.

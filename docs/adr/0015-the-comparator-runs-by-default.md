@@ -5,8 +5,11 @@
 - **Amends:** ADR 0002 D24, whose environment block ships the two canonical WRITE
   levers (`CANONICAL_GRAPH_ENABLED`, `CANONICAL_WRITE_PUBLICATION_ENABLED`) OFF and
   whose rollout is a sequence of operator steps. Nothing else in ADRs 0001–0014 is
-  reopened: the levers still exist, each is still the rollback for its own blast
-  radius, and every rule the services enforce still applies.
+  reopened: every rule the services enforce still applies. (Those two write
+  levers, along with `CATALOG_INGESTION_ENABLED` and
+  `CATALOG_TAXONOMY_V2_ENABLED`, were later removed in favour of always-on — see
+  `config/index.ts`; the remaining levers below are still each the rollback for
+  their own blast radius.)
 - **Builds on:** #60 (backfill), #62 (ingestion), #58 (matching), #70 (search),
   ADR 0014 (reference seeding).
 
@@ -45,7 +48,12 @@ stay `off`, the migration stays a dry run), `WATCHLISTS_ENABLED`,
 discovery was on this list; since 2026-10 it has no switch and exists exactly
 when `GOWAY_API_URL` is configured.)
 
-Each remains a lever: setting it OFF is the rollback, exactly as D24 describes.
+Each remains a lever: setting it OFF is the rollback, exactly as D24 describes —
+except `CATALOG_INGESTION_ENABLED`, `CANONICAL_GRAPH_ENABLED`,
+`CANONICAL_WRITE_PUBLICATION_ENABLED` and `CATALOG_TAXONOMY_V2_ENABLED`, which
+were later removed in favour of always-on (see `config/index.ts`). Ingestion's
+runtime kill switch is a source's own `paused` status
+(`POST /internal/ingestion/sources/:id/status`).
 
 Deliberately still OFF: `SEO_ROUTES_ENABLED` (turning it on without
 `SEO_INDEXING_MODE` serves `noindex` and an empty sitemap; indexing the catalogue

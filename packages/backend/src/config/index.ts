@@ -300,8 +300,7 @@ function resolveBillingCohortConfigured(): boolean {
  * acceptance 8: "Billing remains feature-flagged until the real initial plan has
  * implemented value and completed production-readiness review").
  *
- * The half-configuration rule, for the reason `CROWDSOURCE_ENABLED` has it: a
- * billing surface without a rail behind it sends merchants to a hosted checkout
+ * The half-configuration rule: a billing surface without a rail behind it sends merchants to a hosted checkout
  * that cannot be created, so the honest state is OFF with a message naming what
  * is missing.
  *
@@ -331,23 +330,17 @@ function resolveMerchantBillingEnabled(): boolean {
   return false;
 }
 
+/**
+ * Whether the CrowdSource integration delivers: on when its credentials are
+ * present, and there is no separate boolean. BOTH are required — a deployment
+ * that can send a case but not verify the verdict webhook would take reports it
+ * can never close. Reports are stored either way and deliver once configured.
+ */
 function resolveCrowdSourceEnabled(): boolean {
-  if (!boolEnv('CROWDSOURCE_ENABLED', false)) return false;
-
-  const hasServiceKey = (process.env.CROWDSOURCE_SERVICE_KEY?.trim() ?? '') !== '';
-  const hasWebhookSecret = (process.env.CROWDSOURCE_WEBHOOK_SECRET?.trim() ?? '') !== '';
-  if (hasServiceKey && hasWebhookSecret) return true;
-
-  const missing = [
-    hasServiceKey ? undefined : 'CROWDSOURCE_SERVICE_KEY',
-    hasWebhookSecret ? undefined : 'CROWDSOURCE_WEBHOOK_SECRET',
-  ].filter((name): name is string => name !== undefined);
-  log.general.error(
-    { missing },
-    '[CrowdSource] CROWDSOURCE_ENABLED is set but the integration is incomplete; ' +
-      'staying OFF. Reports are still stored and will deliver once configured.',
+  return (
+    (process.env.CROWDSOURCE_SERVICE_KEY?.trim() ?? '') !== '' &&
+    (process.env.CROWDSOURCE_WEBHOOK_SECRET?.trim() ?? '') !== ''
   );
-  return false;
 }
 
 /**
@@ -374,7 +367,7 @@ function resolveReferralOperatorIds(): readonly string[] {
 /**
  * Whether the Stripe rail is switched on.
  *
- * The `resolveCrowdSourceEnabled` rule, applied to a rail where the consequence
+ * The half-configuration rule, applied to a rail where the consequence
  * of getting it wrong is money rather than reviewer time. `STRIPE_ENABLED=true`
  * requires the secret key AND BOTH webhook secrets (ADR 0001, "Environment"),
  * because the two endpoints are two independent halves of the same integration:
@@ -1010,7 +1003,11 @@ export interface WebConfig {
 }
 
 export interface CrowdSourceConfig {
-  /** Whether the outbox dispatcher delivers. Never gates the durable record. */
+  /**
+   * DERIVED: both `CROWDSOURCE_SERVICE_KEY` and `CROWDSOURCE_WEBHOOK_SECRET`
+   * are set. Whether the outbox dispatcher delivers; never gates the durable
+   * record.
+   */
   readonly enabled: boolean;
   /**
    * `applicationId:credentialId:secret` — ONE opaque value, parsed by the SDK.
@@ -1597,9 +1594,9 @@ export interface GuestClaimConfig {
    *
    * Detaching a claim is the one operator power in guest commerce that changes
    * who owns a purchase, and the shape of its misuse is a single insider
-   * quietly moving somebody's order history. Default on for the reason
-   * `CATALOG_FOUR_EYES_REQUIRED` is: the flag exists so a deployment with one
-   * operator can function at all, not so a deployment with several can skip it.
+   * quietly moving somebody's order history. Default on: the flag exists so a
+   * deployment with one operator can function at all, not so a deployment with
+   * several can skip it.
    */
   readonly fourEyesRequired: boolean;
   /**
@@ -1856,8 +1853,7 @@ export interface GuestCheckoutRolloutConfig {
  * ## Half-configured is OFF, and the two demands are not decoration
  *
  * `MERCARIA_RETAIL_ENABLED=true` requires supplier preflight to be enabled and
- * an eligibility operator list to exist — the `CROWDSOURCE_ENABLED` validation
- * pattern. Without preflight every retail line refuses at checkout anyway
+ * an eligibility operator list to exist — the half-configuration rule. Without preflight every retail line refuses at checkout anyway
  * (#122's quote answers `unknown` with the loop off), so enabling retail
  * without it produces a catalogue of items nobody can buy and no message saying
  * why. Without `RETAIL_OPERATOR_OXY_USER_IDS` nobody can publish an eligibility
@@ -1904,8 +1900,6 @@ export interface PaginationConfig {
 }
 
 export interface CatalogConfig {
-  /** New video write/import entry only. Reads never hide stored media. */
-  readonly videoWritesEnabled: boolean;
   /** Maximum number of variants a single product (Listing) may have. */
   readonly maxVariantsPerProduct: number;
   /** Maximum number of gallery images a single listing may have. */
@@ -1925,53 +1919,10 @@ export interface CatalogConfig {
    * the list. Empty list = the surface is not mounted at all (404, never 401).
    */
   readonly graphOperatorSurfaceEnabled: boolean;
-  /**
-   * Whether a high-impact canonical-graph act needs a SECOND operator's approval
-   * — `CATALOG_FOUR_EYES_REQUIRED`, defaulting ON.
-   *
-   * TWO domains read it and it is deliberately ONE field: verifying a
-   * badge-producing relationship (#55) and merging or splitting a canonical
-   * entity (#59) are the same kind of decision — irreversible in practice,
-   * invisible to the person it affects — and a deployment that wants one gated
-   * wants the other. A second variable would be a second thing to keep in step
-   * for a distinction nobody has drawn.
-   *
-   * Fail-closed is the right default here specifically because the artefact is a
-   * public claim about who a shopper is dealing with: an "Official store" badge
-   * minted in error misleads a buyer and is invisible to them, so the cost of
-   * requiring a second pair of eyes is a delay and the cost of not requiring one
-   * is a false statement. The merge half is the same argument with the artefact
-   * changed: a wrong merge ends an identity, and the seller whose sales landed
-   * on somebody else's page finds out months later. A single-operator deployment
-   * turns it off deliberately, rather than discovering it was never on.
-   */
-  readonly fourEyesRequired: boolean;
-  /**
-   * Whether the #59 curation dispatcher RUNS — `CURATION_JOBS_ENABLED`,
-   * defaulting on.
-   *
-   * It gates the LOOP and nothing else. An operator may still request a merge
-   * with it off; the job sits `pending` and runs when it comes back. Gating the
-   * REQUEST instead would silently lose work somebody thought they had
-   * scheduled, which is the inversion the payment and moderation outboxes
-   * already record.
-   */
-  readonly curationJobsEnabled: boolean;
-  /** How many merge and split jobs one dispatcher pass claims. */
+  /** How many #59 merge and split jobs one curation dispatcher pass claims. */
   readonly curationBatchSize: number;
   /** How often the dispatcher looks for work. */
   readonly curationPollIntervalMs: number;
-  /**
-   * The extended taxonomy READS — `CATALOG_TAXONOMY_V2_ENABLED`, ADR 0007 D12.
-   *
-   * Default TRUE (ADR 0015): `/navigation` is mounted, and with no published
-   * tree the storefront falls back to its own constants. It gates MOUNTS and
-   * reads, never a stored row — turning it off leaves every navigation tree,
-   * node and label readable, because the evidence has to survive the incident
-   * that turned the lever off (D12, "nothing in a rollback deletes catalog
-   * evidence").
-   */
-  readonly taxonomyV2Enabled: boolean;
   /**
    * The facet, filter and sort-option MOUNT — `FACETS_ENABLED`
    * (#367 Workstream 10).
@@ -2020,8 +1971,7 @@ export interface CatalogConfig {
  *   saves no product save represents. `on` never drops an unmatched P2P
  *   favorite — see `SavedItemsReadMode`, where the reasoning belongs.
  * - `migrationApplyEnabled=false` downgrades every migration request to a DRY
- *   RUN that reports what it would do. The #60 `CANONICAL_WRITE_PUBLICATION_ENABLED`
- *   shape: the request is always answerable, only the write is gated, so an
+ *   RUN that reports what it would do. The #60 dry-run-writer shape: the request is always answerable, only the write is gated, so an
  *   operator can measure the migration before authorising it.
  */
 /**
@@ -2119,8 +2069,8 @@ export interface WatchlistsConfig {
  *
  * ONE lever and two tunables. `materializationEnabled` gates the convergence
  * LOOP and nothing else: catalogue writes keep enqueuing while it is off, so
- * turning it on drains the backlog rather than stranding it (the
- * `CROWDSOURCE_ENABLED` rule — gate the loop, never the durable record).
+ * turning it on drains the backlog rather than stranding it (gate the loop,
+ * never the durable record).
  *
  * There is deliberately no flag over the offer TABLES and none over the READ
  * surface. Rows written while the loop is off stay valid when it turns on, and a
@@ -2130,48 +2080,29 @@ export interface WatchlistsConfig {
  * so there is no state a flag could protect that the shape does not.
  */
 /**
- * Deterministic matching (#58).
- *
- * `MATCH_PIPELINE_ENABLED` gates the LOOP and never the durable record: with it
- * off the queue still accepts every request and drains them once it is switched
- * on. `MATCH_SEMANTIC_ENABLED` is the operational half of the three levers that
- * keep semantic scoring off — the other two are the absence of a registered
- * scorer (the default) and the policy version's own `semantic_enabled`.
+ * Deterministic matching (#58). The queue dispatcher always runs. Semantic
+ * scoring runs only when a scorer is registered (none is, by default) AND the
+ * active policy version's own `semantic_enabled` says so.
  */
 export interface MatchingConfig {
-  /** `MATCH_PIPELINE_ENABLED` — does the queue dispatcher run. */
-  readonly pipelineEnabled: boolean;
   /** How many subjects one drain claims. */
   readonly queueBatchSize: number;
   /** How often the dispatcher polls, in milliseconds. */
   readonly queuePollIntervalMs: number;
   /** How many rows one bulk-sweep PAGE enqueues. */
   readonly sweepBatchSize: number;
-  /**
-   * `MATCH_SEMANTIC_ENABLED` — may a REGISTERED scorer be consulted at all.
-   * Off by default, and off is the shipped state: no scorer exists in this
-   * repository, so the deterministic path is the one that actually runs.
-   */
-  readonly semanticEnabled: boolean;
 }
 
 /**
- * The external ingestion framework (#62).
+ * The external ingestion framework (#62). The dispatcher always runs.
  *
- * `CATALOG_INGESTION_ENABLED` gates the LOOP and never the durable record — the
- * `CROWDSOURCE_ENABLED` rule. A source can be configured, its policy reviewed
- * and published, and a manual run opened while the dispatcher is off; turning it
- * on drains the backlog rather than stranding it.
- *
- * There is deliberately NO flag over the rights, the tables or the operator
- * surface. Rights are per-source and versioned, which is a finer instrument than
- * a global switch and the one an incident actually needs; and the evidence has
- * to stay readable during the incident that turned the loop off, which is why
- * `/internal/ingestion` stays mounted whatever this flag says.
+ * There is deliberately NO global flag over it. Rights are per-source and
+ * versioned, and a source's own `paused` status
+ * (`POST /internal/ingestion/sources/:id/status`) is the runtime kill switch —
+ * a finer instrument than a global switch and the one an incident actually
+ * needs.
  */
 export interface CatalogIngestionConfig {
-  /** `CATALOG_INGESTION_ENABLED` — does the dispatcher run. */
-  readonly enabled: boolean;
   /** How many sources one dispatcher tick claims. */
   readonly batchSize: number;
   /** How often the dispatcher polls, in milliseconds. */
@@ -2514,38 +2445,17 @@ export interface OffersConfig {
 }
 
 /**
- * The canonical-graph ROLLOUT levers (#60, ADR 0002 D24).
+ * The canonical-graph READ levers (#60, ADR 0002 D24).
  *
- * Six independent switches plus two tunables, and the reason they are six rather
- * than one is that each bounds a different blast radius. Turning off the offer
- * comparison must not take the brand pages down with it; taking the public
- * surface off the air is a blunter act than telling a product page to stop
- * answering; and stopping the backfill LOOP is a different decision from
- * forbidding an `apply` run to write.
+ * Three read modes plus tunables. The backfill dispatcher loop, `apply` runs'
+ * graph writes, the public canonical routes and reindex enqueueing are always
+ * on; what remains here is the per-surface read vocabulary, because turning off
+ * the offer comparison must not take the brand pages down with it.
  *
  * `services/backfill/read-mode.ts` holds the table of which lever gates what and
- * the full argument for the defaults. The short version, because it is the part
- * a reader will want here:
- *
- * - Every lever defaults ON (ADR 0015, amending D24's OFF write levers): the
- *   catalogue autopilot runs the backfill unattended, so a deployment that
- *   sets nothing has a working comparator. They stay levers — each is the
- *   rollback for its own blast radius.
- * - The four READ levers default to today's behaviour, because #53–#57 already
- *   SHIPPED the routes they gate. A lever introduced with an `off` default would
- *   withdraw four live public surfaces on the deploy that added it, which is not
- *   a rollout — and #60 acceptance 5 asks that turning reads OFF restores the
- *   listing-first experience, which says nothing about the default.
+ * the full argument for the defaults.
  */
 export interface CanonicalRolloutConfig {
-  /** `CANONICAL_GRAPH_ENABLED` — does the backfill dispatcher LOOP run. */
-  readonly graphEnabled: boolean;
-  /**
-   * `CANONICAL_WRITE_PUBLICATION_ENABLED` — may an `apply` run mutate the
-   * canonical graph. Off downgrades every apply run to the dry-run writer, so
-   * the run still produces its complete report and changes nothing.
-   */
-  readonly writePublicationEnabled: boolean;
   /** `CANONICAL_READS` — `off | shadow | on`, gating canonical PRODUCT reads. */
   readonly reads: CanonicalReadMode;
   /** `CANONICAL_OFFER_COMPARISON` — the same vocabulary, gating `GET /offers`. */
@@ -2557,19 +2467,6 @@ export interface CanonicalRolloutConfig {
    * exactly as it does, which keeps #70 acceptance 8's rollback one variable.
    */
   readonly search: CanonicalReadMode;
-  /**
-   * `CANONICAL_PUBLIC_ROUTES_ENABLED` — whether the public canonical routers are
-   * MOUNTED at all. The blunt lever, for a rollback that must not depend on
-   * every handler having remembered its gate.
-   */
-  readonly publicRoutesEnabled: boolean;
-  /**
-   * `CANONICAL_SEARCH_INDEXING_ENABLED` — may the backfill enqueue reindex
-   * requests. Off by default: #61 owns the consumer and has not landed, and a
-   * queue growing one row per canonical product with nothing draining it is
-   * work nobody asked for.
-   */
-  readonly searchIndexingEnabled: boolean;
   /**
    * `CANONICAL_READ_COHORTS` — which cohorts a canonical read may answer for.
    * EMPTY means every cohort, the `CHECKOUT_DESTINATION_COUNTRIES` rule.
@@ -3219,21 +3116,20 @@ export interface FeedImportConfig {
  * ## Two switches that are deliberately NOT the same lever
  *
  * Issue #65 adapter rule 10 asks for "a hard kill switch for fetch and a
- * separate public-display switch", and they are separate here — but only one of
- * them is an environment variable, on purpose.
+ * separate public-display switch", and they are separate here — and neither is
+ * an environment variable, on purpose.
  *
- * `EBAY_FETCH_ENABLED` is the FETCH kill switch: deployment-wide, in front of
- * every per-source right, and the thing somebody flips at 3am when eBay pages
- * about traffic. The adapter answers it with a RETRYABLE outage, so #62 releases
- * the run with its cursor intact, moves no health, retires nothing, and resumes
- * from the same page the moment it is flipped back.
+ * The FETCH kill switch is the source's own `paused` status
+ * (`POST /internal/ingestion/sources/:id/status`): the thing somebody flips at
+ * 3am when eBay pages about traffic, with no deploy. The adapter is always
+ * registered; whether it is ever called is decided by a configured source, its
+ * credential and its reviewed rights.
  *
  * The DISPLAY switch is `may_display` on the source's own rights policy (#62) —
- * versioned, per source, reviewed and attributable. It is not an environment
- * variable because withdrawing display is a rights decision with a paper trail
- * and a per-market grain, where stopping fetch is a deployment lever. Making it
- * an env var too would create a second answer to a question `catalog_source_policies`
- * already answers, and the two could disagree.
+ * versioned, per source, reviewed and attributable. Withdrawing display is a
+ * rights decision with a paper trail and a per-market grain, and an env var
+ * would create a second answer to a question `catalog_source_policies` already
+ * answers, and the two could disagree.
  *
  * ## `EBAY_MARKETS` is an ALLOW-list, unlike the guest-rollout block lists
  *
@@ -3250,10 +3146,6 @@ export interface FeedImportConfig {
  * has no terms for.
  */
 export interface EbayConfig {
-  /** `EBAY_ENABLED` — is the adapter registered at all. Default false. */
-  readonly enabled: boolean;
-  /** `EBAY_FETCH_ENABLED` — the HARD fetch kill switch. Default true. */
-  readonly fetchEnabled: boolean;
   /** `EBAY_ENVIRONMENT` — `sandbox` or `production`. A sandbox keyset never feeds public pages. */
   readonly environment: EbayEnvironment;
   /** The marketplaces this deployment may query. The rollout cohort; defaults to ES. */
@@ -3271,14 +3163,14 @@ export interface EbayConfig {
 /**
  * The Printful supplier integration (#125), the provider #119 selected.
  *
- * `PRINTFUL_ENABLED` gates the REGISTRATION of the two adapters and nothing
- * durable: supplier accounts, agreements, procurement offers, purchase orders,
- * quotes and every #62 row are stored and readable either way. With it off,
- * every preflight answers `provider_unconfigured` (which blocks) and every
- * purchase order refuses with `adapter_missing`, and turning it on drains the
- * backlog — the `AWIN_ENABLED` arrangement.
+ * There is no on/off variable. `registerPrintfulAdapters()` registers the two
+ * adapters; it is NOT called at boot today (see `docs/suppliers/printful.md`),
+ * so every preflight answers `provider_unconfigured` (which blocks) and every
+ * purchase order refuses with `adapter_missing`. Supplier accounts, agreements,
+ * procurement offers, purchase orders, quotes and every #62 row are stored and
+ * readable either way.
  *
- * **It deliberately demands NO credential**, for Awin's reason rather than
+ * **Registration demands NO credential**, for Awin's reason rather than
  * #63's: Printful's token is a LOCATOR on a `supplier_accounts` row (an SSM
  * path), so an account is storable and reviewable with no secret present, and a
  * deployment that registers the adapter before the locator resolves gets an
@@ -3292,8 +3184,6 @@ export interface EbayConfig {
  * provisioned credential, which is a fact a flag cannot fake.
  */
 export interface PrintfulConfig {
-  /** `PRINTFUL_ENABLED` — register the adapters. Never gates a durable record. */
-  readonly enabled: boolean;
   /** The API root. A code default; overridable only to point a rehearsal elsewhere. */
   readonly baseUrl: string;
 }
@@ -3532,27 +3422,15 @@ export interface GoWayConfig {
 }
 
 /**
- * The catalog authoring surface (#367 step 5, ADR 0007 D10/D12).
+ * The catalog authoring surface (#367 step 5, ADR 0007 D10/D12). Always
+ * mounted: `/catalog-authoring` and `/stores/:storeId/product-drafts`.
  *
- * ONE lever, and it gates the MOUNT and nothing else. `CATALOG_AUTHORING_ENABLED`
- * off means `/catalog-authoring` and `/stores/:storeId/product-drafts` do not
- * exist and the legacy product-creation route is untouched, which is D12's
- * requirement verbatim.
- *
- * What it does NOT gate is a stored row. A draft already saved stays saved and
- * comes back when the flag does — the rollback lever that cost a merchant an
- * afternoon of typing is one nobody would pull, so it would sit unused during
- * exactly the incident it exists for. `catalog-authoring-isolation.test.ts`
- * fails the build if a repository or a read path starts reading it.
- *
- * The three numbers beside it are bounds rather than levers.
+ * The numbers here are bounds rather than levers.
  * `draftTtlSeconds` is how long an abandoned draft survives before the expiry
  * sweep takes it, and it is stamped at CREATION so a later change to this value
  * cannot retroactively shorten a draft somebody is still filling in.
  */
 export interface CatalogAuthoringConfig {
-  /** `CATALOG_AUTHORING_ENABLED` — mounts the authoring surface. Default false. */
-  readonly enabled: boolean;
   /** How long an abandoned draft survives. Stamped at creation, never re-read. */
   readonly draftTtlSeconds: number;
   /** How many drafts one page of a store's list returns. */
@@ -3566,13 +3444,13 @@ export interface CatalogAuthoringConfig {
 /**
  * Catalog proposals and operator review (#367 step 6, ADR 0007 D9/D12).
  *
- * ONE lever, and it gates the MOUNT and nothing else. `CATALOG_PROPOSALS_ENABLED`
- * off means `/catalog-proposals` does not exist; it does NOT gate a stored row, a
- * decision or the operator surface, because the evidence has to be readable
- * during the incident that turned the merchant surface off — the
- * `/internal/product-saves` arrangement, for its reason.
+ * There is no on/off variable: the merchant surface `/catalog-proposals` is
+ * mounted iff `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty
+ * (`catalog.graphOperatorSurfaceEnabled`), the same condition as the operator
+ * surface that decides proposals — a deployment with nobody to decide a
+ * proposal does not take any.
  *
- * The five numbers beside it are BOUNDS rather than levers, and two of them are
+ * The numbers here are BOUNDS rather than levers, and two of them are
  * the durable half of the rate limit. "How many proposals has this store asked
  * for today, across every ECS task" is not a question a per-IP bucket can answer,
  * and the per-IP bucket is the one thing an abusive integration does not have to
@@ -3584,8 +3462,6 @@ export interface CatalogAuthoringConfig {
  * reviewer some context and can never turn a legitimate request away.
  */
 export interface CatalogProposalsConfig {
-  /** `CATALOG_PROPOSALS_ENABLED` — mounts the merchant surface. Default false. */
-  readonly enabled: boolean;
   /** The durable per-account axis, counted in Postgres. */
   readonly maxPerSubmitterPerHour: number;
   /** The durable per-store axis, counted in Postgres. */
@@ -3804,30 +3680,12 @@ export interface DigitalRetailConfig {
 /**
  * External-platform connectors: the #262 webhook re-registration sweep.
  *
- * ONE lever, and it is an INCIDENT lever rather than a rollout one, so it
- * defaults ON. Three things decide that:
- *
- *  - It gates the SWEEP and nothing else. The refused topics, the empty
- *    `webhook_ids` a thrown registration leaves, the attempt counter and the
- *    on-demand re-registration a merchant triggers all work with it off — which
- *    is what the rule asks for, because bringing one channel up by hand is the
- *    supported path during the incident that turned the sweep off.
- *  - Its sibling in the same domain has no lever at all.
- *    `reconcileAllConnections` re-pulls every connected catalogue from the same
- *    two platforms every six hours, unconditionally, whenever Redis is
- *    configured. A lever defaulting OFF would make the remedy for a broken
- *    channel strictly more timid than the routine sweep beside it.
- *  - Shipped off, #262 is not fixed. #218 relies on "self-healing on the next
- *    reconcile" and this sweep IS that reconcile; a feature nobody switches on is
- *    the state the issue describes, with an extra variable in front of it.
- *
- * What an incident actually wants from it is "stop knocking at Shopify", which is
- * exactly what turning it off does — leaving every stored fact and the merchant's
- * own retry button intact.
+ * The sweep always runs, like its sibling `reconcileAllConnections`, which
+ * re-pulls every connected catalogue from the same two platforms every six
+ * hours unconditionally. #218 relies on "self-healing on the next reconcile" and
+ * this sweep IS that reconcile.
  */
 export interface ConnectorsConfig {
-  /** Whether the scheduled webhook re-registration sweep RUNS. */
-  readonly webhookReregistrationEnabled: boolean;
   /** How many connections one sweep pass claims. */
   readonly webhookReregistrationBatchSize: number;
   /**
@@ -3946,16 +3804,12 @@ export const config: AppConfig = Object.freeze({
     maxPageSize: intEnv('PAGE_SIZE_MAX', 100),
   }),
   catalog: Object.freeze({
-    videoWritesEnabled: boolEnv('CATALOG_VIDEO_WRITES_ENABLED', false),
     maxVariantsPerProduct: intEnv('MAX_VARIANTS_PER_PRODUCT', 100),
     maxImagesPerListing: intEnv('MAX_IMAGES_PER_LISTING', 12),
     graphOperatorOxyUserIds: Object.freeze(resolveCatalogOperatorIds()),
     graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0,
-    fourEyesRequired: boolEnv('CATALOG_FOUR_EYES_REQUIRED', true),
-    curationJobsEnabled: boolEnv('CURATION_JOBS_ENABLED', true),
     curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
     curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
-    taxonomyV2Enabled: boolEnv('CATALOG_TAXONOMY_V2_ENABLED', true),
     facetsEnabled: boolEnv('FACETS_ENABLED', true),
     rolloutCohorts: Object.freeze(resolveCatalogRolloutCohorts()),
   }),
@@ -3987,20 +3841,15 @@ export const config: AppConfig = Object.freeze({
     outboxPollIntervalMs: intEnv('OFFER_OUTBOX_POLL_INTERVAL_MS', 5_000),
   }),
   canonicalRollout: Object.freeze({
-    graphEnabled: boolEnv('CANONICAL_GRAPH_ENABLED', true),
-    writePublicationEnabled: boolEnv('CANONICAL_WRITE_PUBLICATION_ENABLED', true),
     reads: resolveCanonicalReadMode('CANONICAL_READS'),
     offerComparison: resolveCanonicalReadMode('CANONICAL_OFFER_COMPARISON'),
     search: resolveCanonicalReadMode('CANONICAL_SEARCH'),
-    publicRoutesEnabled: boolEnv('CANONICAL_PUBLIC_ROUTES_ENABLED', true),
-    searchIndexingEnabled: boolEnv('CANONICAL_SEARCH_INDEXING_ENABLED', false),
     readCohorts: Object.freeze(resolveCanonicalReadCohorts()),
     backfillBatchSize: intEnv('CANONICAL_BACKFILL_BATCH_SIZE', 200),
     backfillPollIntervalMs: intEnv('CANONICAL_BACKFILL_POLL_INTERVAL_MS', 15_000),
     backfillMaxAttempts: intEnv('CATALOG_BACKFILL_MAX_ATTEMPTS', 8),
   }),
   catalogIngestion: Object.freeze({
-    enabled: boolEnv('CATALOG_INGESTION_ENABLED', true),
     batchSize: intEnv('CATALOG_INGESTION_BATCH_SIZE', 5),
     pollIntervalMs: intEnv('CATALOG_INGESTION_POLL_INTERVAL_MS', 30_000),
     leaseMs: intEnv('CATALOG_INGESTION_LEASE_MS', 120_000),
@@ -4133,8 +3982,6 @@ export const config: AppConfig = Object.freeze({
     maxReportEntries: intEnv('FEED_IMPORT_MAX_REPORT_ENTRIES', 10_000),
   }),
   ebay: Object.freeze({
-    enabled: boolEnv('EBAY_ENABLED', false),
-    fetchEnabled: boolEnv('EBAY_FETCH_ENABLED', true),
     environment: resolveEbayEnvironment(),
     markets: Object.freeze(resolveEbayMarkets()),
     campaignId: strEnv('EPN_CAMPAIGN_ID', ''),
@@ -4178,7 +4025,6 @@ export const config: AppConfig = Object.freeze({
     reportLeaseMs: intEnv('AFFILIATE_REPORT_LEASE_MS', 300_000),
   }),
   printful: Object.freeze({
-    enabled: boolEnv('PRINTFUL_ENABLED', false),
     baseUrl: strEnv('PRINTFUL_BASE_URL', PRINTFUL_BASE_URL),
   }),
   moovo: Object.freeze({
@@ -4206,11 +4052,9 @@ export const config: AppConfig = Object.freeze({
     retryMaxDelayMs: intEnv('MOOVO_RETRY_MAX_DELAY_MS', 5_000),
   }),
   matching: Object.freeze({
-    pipelineEnabled: boolEnv('MATCH_PIPELINE_ENABLED', true),
     queueBatchSize: intEnv('MATCH_QUEUE_BATCH_SIZE', 25),
     queuePollIntervalMs: intEnv('MATCH_QUEUE_POLL_INTERVAL_MS', 5_000),
     sweepBatchSize: intEnv('MATCH_SWEEP_BATCH_SIZE', 500),
-    semanticEnabled: boolEnv('MATCH_SEMANTIC_ENABLED', false),
   }),
   merchantClaims: Object.freeze({
     attemptTtlHours: intEnv('MERCHANT_CLAIM_ATTEMPT_TTL_HOURS', 14 * 24),
@@ -4618,7 +4462,6 @@ export const config: AppConfig = Object.freeze({
       : {}),
   }),
   connectors: Object.freeze({
-    webhookReregistrationEnabled: boolEnv('CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED', true),
     webhookReregistrationBatchSize: intEnv('CONNECTOR_WEBHOOK_REREGISTRATION_BATCH_SIZE', 10),
     webhookReregistrationLeaseMs: intEnv('CONNECTOR_WEBHOOK_REREGISTRATION_LEASE_MS', 120_000),
   }),
@@ -4639,14 +4482,12 @@ export const config: AppConfig = Object.freeze({
     placeStaleTtlSeconds: intEnv('GOWAY_PLACE_STALE_TTL_SECONDS', 24 * 60 * 60),
   }),
   catalogAuthoring: Object.freeze({
-    enabled: boolEnv('CATALOG_AUTHORING_ENABLED', false),
     draftTtlSeconds: intEnv('CATALOG_AUTHORING_DRAFT_TTL_SECONDS', 30 * 24 * 60 * 60),
     draftPageSize: intEnv('CATALOG_AUTHORING_DRAFT_PAGE_SIZE', 50),
     categoryPageSize: intEnv('CATALOG_AUTHORING_CATEGORY_PAGE_SIZE', 200),
     canonicalSearchLimit: intEnv('CATALOG_AUTHORING_CANONICAL_SEARCH_LIMIT', 20),
   }),
   catalogProposals: Object.freeze({
-    enabled: boolEnv('CATALOG_PROPOSALS_ENABLED', false),
     maxPerSubmitterPerHour: intEnv('CATALOG_PROPOSAL_MAX_PER_SUBMITTER_PER_HOUR', 20),
     maxPerStorePerDay: intEnv('CATALOG_PROPOSAL_MAX_PER_STORE_PER_DAY', 100),
     duplicateNearLimit: intEnv('CATALOG_PROPOSAL_DUPLICATE_NEAR_LIMIT', 10),

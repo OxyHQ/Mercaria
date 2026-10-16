@@ -3,7 +3,6 @@ import { isOxyFileId, type CatalogMediaSource, type ListingMedia } from '@mercar
 import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
 import { findStoreById } from '../../db/stores/storeRepository.js';
 
-import { config } from '../../config/index.js';
 import { PRODUCT_IMAGE_MAX_BYTES, PRODUCT_VIDEO_MAX_BYTES, matchesProductVideo } from './policy.js';
 const MAX_IMAGE_BYTES = PRODUCT_IMAGE_MAX_BYTES;
 const TIMEOUT_MS = 20_000;
@@ -79,8 +78,6 @@ async function synchronizeMedia(
   if (sources.some((source) => kinds.get(source.reference) !== source.kind))
     throw new CatalogMediaSyncError('Conflicting catalog media types.');
   if (sources.some((source) => source.kind === 'video')) {
-    if (!config.catalog.videoWritesEnabled)
-      throw new CatalogMediaSyncError('Catalog video writes are not enabled.');
     // A declared kind is not proof of the stored MIME. Already-uploaded videos
     // enter through the authenticated metadata-verifying merchant writer.
     if (sources.some((source) => source.kind === 'video' && isOxyFileId(source.reference)))

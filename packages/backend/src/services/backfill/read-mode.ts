@@ -1,19 +1,16 @@
 /**
- * The canonical READ levers (#60 feature flags 2, 3, 5 and 6; ADR 0002 D24).
+ * The canonical READ levers (#60 feature flags 2, 3 and 6; ADR 0002 D24).
  *
- * Six levers, and the reason they are six rather than one is that each bounds a
- * different blast radius. Turning off the offer comparison should not take the
- * brand pages down with it; taking the whole public surface off the air is a
- * different, blunter act than telling a product page to stop answering.
+ * Separate levers because each bounds a different blast radius: turning off the
+ * offer comparison should not take the brand pages down with it. The backfill
+ * dispatcher loop, `apply` runs' graph writes, the public route MOUNTS and
+ * reindex enqueueing have no lever — they are always on.
  *
  * | Lever | Config | Gates |
  * |---|---|---|
- * | The domain | `CANONICAL_GRAPH_ENABLED` | the backfill dispatcher LOOP |
- * | Canonical-write publication | `CANONICAL_WRITE_PUBLICATION_ENABLED` | whether an `apply` run may mutate the graph (`graph-writer.ts`) |
  * | Canonical product reads | `CANONICAL_READS` | `/canonical-products`, `/product-families` handlers |
  * | Native-offer comparison | `CANONICAL_OFFER_COMPARISON` | the `GET /offers` handler |
  * | Canonical search (#70) | `CANONICAL_SEARCH` | the `GET /search` handler |
- * | Public canonical routes | `CANONICAL_PUBLIC_ROUTES_ENABLED` | the MOUNT of all of the above |
  * | Cohorts | `CANONICAL_READ_COHORTS` | which objects a permitted read may answer for |
  *
  * ## Why every lever defaults ON
@@ -30,11 +27,10 @@
  * So the READ levers preserve today's behaviour and exist to be turned OFF,
  * which is exactly what #60 acceptance 5 asks of them ("**turning off** canonical
  * reads restores the existing listing-first experience"). The `GUEST_INLINE_DESTINATION_ENABLED`
- * precedent: an incident lever defaults true. The WRITE levers —
- * `CANONICAL_GRAPH_ENABLED` and `CANONICAL_WRITE_PUBLICATION_ENABLED` — shipped
- * OFF as D24 bound, and ADR 0015 turned them ON: the catalogue autopilot runs
- * the backfill unattended, and a comparator whose graph is never written shows
- * nothing. They remain the rollback for the writes.
+ * precedent: an incident lever defaults true. The WRITE levers shipped OFF as
+ * D24 bound, ADR 0015 turned them ON (the catalogue autopilot runs the backfill
+ * unattended, and a comparator whose graph is never written shows nothing), and
+ * they have since been removed: the writes are simply on.
  *
  * ## What `shadow` means, and what it does not
  *
@@ -107,13 +103,9 @@ export function resetCanonicalShadowReads(): void {
 /** Every lever's current value, as the operator surface projects it. */
 export function canonicalRolloutFlags(): CanonicalRolloutFlags {
   return {
-    graphEnabled: config.canonicalRollout.graphEnabled,
-    writePublicationEnabled: config.canonicalRollout.writePublicationEnabled,
     reads: config.canonicalRollout.reads,
     offerComparison: config.canonicalRollout.offerComparison,
     search: config.canonicalRollout.search,
-    publicRoutesEnabled: config.canonicalRollout.publicRoutesEnabled,
-    searchIndexingEnabled: config.canonicalRollout.searchIndexingEnabled,
     readCohorts: config.canonicalRollout.readCohorts,
   };
 }

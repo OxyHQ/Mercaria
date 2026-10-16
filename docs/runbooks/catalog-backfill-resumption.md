@@ -38,7 +38,7 @@ not finished is the catalogue review desk's.
 
 | Job | Job row | Loop lever | Lease | Durable cursor | Deterministic id | Dead letter | Consumer |
 |---|---|---|---|---|---|---|---|
-| **A. Catalogue backfill runs** (#60; includes the `search_reindex` stage that ENQUEUES for D) | `catalog_backfill_runs` | `CANONICAL_GRAPH_ENABLED` (default false) | **yes** | **yes** | yes | **no** | **yes** — `startCatalogBackfillDispatcher`, `src/index.ts:164` |
+| **A. Catalogue backfill runs** (#60; includes the `search_reindex` stage that ENQUEUES for D) | `catalog_backfill_runs` | none (always runs) | **yes** | **yes** | yes | **no** | **yes** — `startCatalogBackfillDispatcher`, `src/index.ts:164` |
 | **B. External-mapping reprocess runs** (W11) | `catalog_external_mapping_runs` | none | **no** (vestigial columns) | yes | yes | no | **NO — and no producer path either** |
 | **C. Token-observation reprocess** (W11) | `catalog_external_token_observations` | none | **no** (vestigial) | n/a | yes | no | **NO** |
 | **D. Attribute reindex requests** (#94 table, #61's owed drain) | `attribute_reindex_requests` | none | **no** (vestigial) | n/a | yes | no | **NO** |
@@ -148,9 +148,9 @@ hard-coded `state: 'unreachable'`, `consumer: 'absent'`
 
 **A rising `reindex_pending_count` is the expected reading and is not an
 incident.** Full treatment:
-[`catalog-indexing-lag.md`](catalog-indexing-lag.md). On today's defaults not even
-the producer runs — the #60 stage-7 enqueue is gated by
-`CANONICAL_SEARCH_INDEXING_ENABLED`, default false.
+[`catalog-indexing-lag.md`](catalog-indexing-lag.md). The #60 stage-7 enqueue is
+not gated (the autopilot's cycle skips that stage, so it runs only when an
+operator opens it).
 
 > **Docblock that overclaims:** `db/schema/attributeRegistry.ts:544-548` says
 > "claims are leases with an owner check". No claim function exists.

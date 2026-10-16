@@ -58,8 +58,7 @@ import type { useListings } from '@/lib/hooks/use-listings';
  * condition on the screen to find and delete.
  *
  * Neither is wired here, and the reason is that both are gated by
- * `CANONICAL_READS` / `CANONICAL_PUBLIC_ROUTES_ENABLED` / `CANONICAL_SEARCH`,
- * which default OFF — so pointing this grid at one would trade a dead control
+ * `CANONICAL_READS` / `CANONICAL_SEARCH`, which could be OFF — so pointing this grid at one would trade a dead control
  * for an empty page on a default deployment. That is a rollout decision about
  * which catalogue the category page serves, not a repair to this rail.
  */

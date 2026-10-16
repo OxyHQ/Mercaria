@@ -408,13 +408,11 @@ matters.
 
 ## Flags
 
-`CATALOG_PROPOSALS_ENABLED` (default false, ADR 0007 D12) gates the merchant
-MOUNT and never a stored row: a proposal already submitted stays submitted with
-it off, and an operator can still decide it — a rollback that stranded a
-merchant's request with nobody able to answer it is one nobody would pull. The
-operator surface is deliberately NOT gated on it, the `/internal/product-saves`
-arrangement: the evidence has to be readable during the incident that turned the
-merchant surface off.
+There is no on/off flag (ADR 0007 D12's `CATALOG_PROPOSALS_ENABLED` was removed).
+The merchant surface `/catalog-proposals` is mounted iff
+`CATALOG_OPERATOR_OXY_USER_IDS` is non-empty — the same condition as the
+operator surface that decides proposals — because a deployment with nobody to
+decide a proposal should not take any. Neither condition gates a stored row.
 
 The five bounds beside it (`CATALOG_PROPOSAL_MAX_PER_SUBMITTER_PER_HOUR`,
 `_MAX_PER_STORE_PER_DAY`, `_DUPLICATE_NEAR_LIMIT`, `_DUPLICATE_NEAR_THRESHOLD`,

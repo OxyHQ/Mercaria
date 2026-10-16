@@ -48,9 +48,8 @@
  *
  * ## Four eyes is snapshotted, and the reason is #59's
  *
- * `requires_second_approval` is written at PLAN time from the measured impact
- * and `CATALOG_FOUR_EYES_REQUIRED`, never re-derived. The threshold and the
- * flag both move; a request whose approval requirement changed after somebody
+ * `requires_second_approval` is written at PLAN time from the measured impact,
+ * never re-derived. The threshold can move; a request whose approval requirement changed after somebody
  * approved it would either strand a legitimate change or let an unapproved one
  * through. `catalog_merge_jobs` reached the same place for the same reason.
  */
@@ -127,8 +126,8 @@ export const catalogGovernanceChangeRequests = pgTable(
     requestedAt: timestamptz().notNull(),
 
     /**
-     * Snapshotted at PLAN time from the measured impact and
-     * `CATALOG_FOUR_EYES_REQUIRED`. Never re-derived — see the file doc.
+     * Snapshotted at PLAN time from the measured impact. Never re-derived — see
+     * the file doc.
      */
     requiresSecondApproval: boolean().notNull().default(false),
     approvedByOxyUserId: text(),

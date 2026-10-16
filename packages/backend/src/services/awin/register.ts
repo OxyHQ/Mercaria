@@ -7,9 +7,8 @@
  * `AWIN_ENABLED` decides whether this deployment FETCHES Awin. With it off,
  * accounts, advertisers, feeds, quality snapshots, samples and every #62 row are
  * stored and readable, every run refuses with #62's own `adapter_missing`, and
- * turning the flag on drains the backlog. That is `CATALOG_INGESTION_ENABLED`'s
- * arrangement one layer down, and it is why a rollback of this source costs
- * nobody anything they configured.
+ * turning the flag on drains the backlog. That is why a rollback of this source
+ * costs nobody anything they configured.
  *
  * **It deliberately does NOT demand a credential to be set.** Awin's key is a
  * LOCATOR on a row — storable and reviewable with no key present — and a deployment that

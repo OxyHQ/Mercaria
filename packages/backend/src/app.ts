@@ -119,8 +119,7 @@ import internalSupplierPreflightRouter from './routes/internal-supplier-prefligh
 import internalRetailPilotRouter from './routes/internal-retail-pilot.js';
 import internalRetailReconciliationRouter from './routes/internal-retail-reconciliation.js';
 import navigationRouter from './routes/navigation.js';
-// #367 Workstream 1's public taxonomy reads, behind the SAME
-// `CATALOG_TAXONOMY_V2_ENABLED` lever `/navigation` is behind.
+// #367 Workstream 1's public taxonomy reads, mounted beside `/navigation`.
 import taxonomyRouter from './routes/taxonomy.js';
 import internalNavigationRouter from './routes/internal-navigation.js';
 import catalogAuthoringRouter from './routes/catalog-authoring.js';
@@ -344,15 +343,9 @@ export function createApp(): express.Express {
    * optionalAuth)` matches every path under the prefix, so mounting after would
    * run a full Oxy verification on every draft request and then run
    * `authenticateToken`'s again.
-   *
-   * `CATALOG_AUTHORING_ENABLED` (D12) gates the MOUNT and never a stored row: a
-   * draft already saved stays saved with it off, because a rollback that cost a
-   * merchant an afternoon of typing is one nobody would pull.
    */
-  if (config.catalogAuthoring.enabled) {
-    app.use('/stores/:storeId/product-drafts', productDraftsRouter);
-    app.use('/catalog-authoring', catalogAuthoringRouter);
-  }
+  app.use('/stores/:storeId/product-drafts', productDraftsRouter);
+  app.use('/catalog-authoring', catalogAuthoringRouter);
   /**
    * Catalog proposals (#367 step 6, ADR 0007 D9), at the path D10 finalizes.
    * Well after `express.json()` — an ordinary JSON write with no signature to
@@ -360,23 +353,13 @@ export function createApp(): express.Express {
    * is the PUBLIC store page and its own `optionalAuth` matches every path under
    * that prefix.
    *
-   * `CATALOG_PROPOSALS_ENABLED` (D12) gates the MOUNT and never a stored row: a
-   * proposal already submitted stays submitted with it off, and an operator can
-   * still decide it — because a rollback that stranded a merchant's request with
-   * nobody able to answer it is one nobody would pull.
-   */
-  if (config.catalogProposals.enabled) {
-    app.use('/catalog-proposals', catalogProposalsRouter);
-  }
-  /**
-   * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-   * allow-list, and deliberately NOT gated on `CATALOG_PROPOSALS_ENABLED`.
-   *
-   * The `/internal/product-saves` arrangement, for its reason: the evidence has
-   * to be readable during the incident that turned the merchant surface off, and
-   * a request already submitted still deserves an answer.
+   * Mounted iff the `CATALOG_OPERATOR_OXY_USER_IDS` allow-list is non-empty —
+   * the same condition as the operator surface below — because a proposal is a
+   * request for an operator to decide, and a deployment with no operator could
+   * only collect requests nobody can ever answer.
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/catalog-proposals', catalogProposalsRouter);
     app.use('/internal/catalog-proposals', internalCatalogProposalsRouter);
   }
   app.use('/stores', storesRouter);
@@ -564,46 +547,38 @@ export function createApp(): express.Express {
     app.use('/internal/commerce-graph', internalCommerceGraphRouter);
   }
   /**
-   * The canonical PRODUCT layer (#56): public identity reads, behind #60's two
-   * rollout levers.
-   *
-   * `CANONICAL_PUBLIC_ROUTES_ENABLED` gates the MOUNT — the blunt lever, for a
-   * rollback that must not depend on every handler having remembered its gate —
-   * and `CANONICAL_READS` gates the reads themselves in `off | shadow | on`.
-   * Both default to today's behaviour, because these routes SHIPPED with #56 and
-   * a lever that withdrew them on the deploy that added it would be an outage
-   * rather than a rollout; see `services/backfill/read-mode.ts` for the full
-   * argument and ADR 0002 D24 for the vocabulary.
+   * The canonical PRODUCT layer (#56): public identity reads, always mounted,
+   * with `CANONICAL_READS` gating the reads themselves in `off | shadow | on`;
+   * see `services/backfill/read-mode.ts` for the full argument and ADR 0002 D24
+   * for the vocabulary.
    */
-  if (config.canonicalRollout.publicRoutesEnabled) {
-    app.use(
-      '/canonical-products',
-      requireCanonicalReads('canonical-products', resolveCanonicalReadMode),
-      canonicalProductsRouter,
-    );
-    app.use(
-      '/product-families',
-      requireCanonicalReads('product-families', resolveCanonicalReadMode),
-      productFamiliesRouter,
-    );
-    /**
-     * Brand and product-family PAGES (#72) — the composed reads a shopper
-     * navigating from a product actually loads.
-     *
-     * Behind `CANONICAL_READS` and NOT behind `CANONICAL_OFFER_COMPARISON`,
-     * which is the split #60 made for exactly this page: withdrawing price
-     * comparison during an incident must not take the brand and product
-     * identity pages down with it. The offer lever is read INSIDE the handler
-     * instead, and a page whose offer half was withdrawn says so
-     * (`offerContext: 'withdrawn'`) rather than looking like a brand nobody
-     * sells.
-     */
-    app.use(
-      '/catalog-pages',
-      requireCanonicalReads('catalog-pages', resolveCanonicalReadMode),
-      catalogPagesRouter,
-    );
-  }
+  app.use(
+    '/canonical-products',
+    requireCanonicalReads('canonical-products', resolveCanonicalReadMode),
+    canonicalProductsRouter,
+  );
+  app.use(
+    '/product-families',
+    requireCanonicalReads('product-families', resolveCanonicalReadMode),
+    productFamiliesRouter,
+  );
+  /**
+   * Brand and product-family PAGES (#72) — the composed reads a shopper
+   * navigating from a product actually loads.
+   *
+   * Behind `CANONICAL_READS` and NOT behind `CANONICAL_OFFER_COMPARISON`,
+   * which is the split #60 made for exactly this page: withdrawing price
+   * comparison during an incident must not take the brand and product
+   * identity pages down with it. The offer lever is read INSIDE the handler
+   * instead, and a page whose offer half was withdrawn says so
+   * (`offerContext: 'withdrawn'`) rather than looking like a brand nobody
+   * sells.
+   */
+  app.use(
+    '/catalog-pages',
+    requireCanonicalReads('catalog-pages', resolveCanonicalReadMode),
+    catalogPagesRouter,
+  );
   // …and its own operator surface. A SEPARATE router from the graph's above,
   // sharing the ONE operator allow-list — the two surfaces belong to different
   // issues and move at different rates, but who may reshape the catalogue is a
@@ -622,35 +597,31 @@ export function createApp(): express.Express {
    * price comparison during an incident should not take the brand and product
    * identity pages down with it (#60 feature flags 2 and 3).
    */
-  if (config.canonicalRollout.publicRoutesEnabled) {
-    app.use('/offers', requireCanonicalReads('offers', resolveOfferComparisonMode), offersRouter);
-    /**
-     * #129's retail price presentation. Mounted UNCONDITIONALLY, unlike
-     * `/offers`: the canonical read levers gate the comparison surface, and
-     * this answers a question about a variant Mercaria sells itself, which a
-     * deployment with comparison switched off still has to be able to price
-     * honestly. It refuses nothing — with no quote it answers `unquoted`.
-     */
-    app.use('/retail-offers', retailOffersRouter);
-    /**
-     * The RANKED comparison (#74), behind the same canonical-read lever as
-     * `/offers` and for the same reason: it is the same catalogue read, with a
-     * policy applied on top. A deployment that has withdrawn offer comparison
-     * must not keep serving a ranked version of it.
-     */
-    app.use(
-      '/offer-comparison',
-      requireCanonicalReads('offer-comparison', resolveOfferComparisonMode),
-      offerComparisonRouter,
-    );
-  }
+  app.use('/offers', requireCanonicalReads('offers', resolveOfferComparisonMode), offersRouter);
   /**
-   * Grounded product comparison and multi-merchant basket optimization (#96),
-   * behind the SAME blunt MOUNT lever as the canonical surfaces above.
+   * #129's retail price presentation. Mounted UNCONDITIONALLY, unlike
+   * `/offers`: the canonical read levers gate the comparison surface, and
+   * this answers a question about a variant Mercaria sells itself, which a
+   * deployment with comparison switched off still has to be able to price
+   * honestly. It refuses nothing — with no quote it answers `unquoted`.
+   */
+  app.use('/retail-offers', retailOffersRouter);
+  /**
+   * The RANKED comparison (#74), behind the same canonical-read lever as
+   * `/offers` and for the same reason: it is the same catalogue read, with a
+   * policy applied on top. A deployment that has withdrawn offer comparison
+   * must not keep serving a ranked version of it.
+   */
+  app.use(
+    '/offer-comparison',
+    requireCanonicalReads('offer-comparison', resolveOfferComparisonMode),
+    offerComparisonRouter,
+  );
+  /**
+   * Grounded product comparison and multi-merchant basket optimization (#96).
    *
-   * A comparison serves canonical identity plus #74's ranked offers, so a
-   * deployment that has withdrawn the public canonical surface must not keep
-   * answering here. The offers HALF is gated separately inside the handler by
+   * A comparison serves canonical identity plus #74's ranked offers. The offers
+   * HALF is gated inside the handler by
    * `CANONICAL_OFFER_COMPARISON`, and with it off a comparison still answers —
    * with every subject reporting `offer_comparison_withheld` rather than
    * rendering as a product nobody sells.
@@ -659,9 +630,7 @@ export function createApp(): express.Express {
    * writes no row and runs no loop, so a third lever could only gate a read two
    * existing levers already gate.
    */
-  if (config.canonicalRollout.publicRoutesEnabled) {
-    app.use('/comparison', comparisonRouter);
-  }
+  app.use('/comparison', comparisonRouter);
 
   /**
    * Canonical multi-entity product discovery (#70): products, brands, families,
@@ -693,10 +662,8 @@ export function createApp(): express.Express {
    * configurations, every eligible way to acquire it and the verified channels
    * behind them — composed from #56, #74, #57, #68, #90 and #55 in ONE read.
    *
-   * Behind the SAME blunt MOUNT lever as `/canonical-products` — this page
-   * serves canonical identity, so a deployment that has withdrawn the public
-   * canonical surface must not keep answering here — and gated inside the
-   * HANDLER rather than by `requireCanonicalReads`, for the reason `/search`
+   * Gated inside the HANDLER rather than by `requireCanonicalReads`, for the
+   * reason `/search`
    * is: `CANONICAL_READS=shadow` means "compute the canonical answer AND the
    * listing-first one and record the comparison", which a middleware that
    * returns first can never do. `off` and `shadow` are both a 404, so the
@@ -708,9 +675,7 @@ export function createApp(): express.Express {
    * and keeps serving whatever this lever says (#71 acceptance 7), which is
    * what leaves #75 free to migrate the public routes on its own schedule.
    */
-  if (config.canonicalRollout.publicRoutesEnabled) {
-    app.use('/product-page', productPageRouter);
-  }
+  app.use('/product-page', productPageRouter);
 
   /**
    * Nearby discovery (#93), mounted exactly when GoWay is configured
@@ -874,12 +839,6 @@ export function createApp(): express.Express {
    * The staged migration's operator surface (#60), on the SAME allow-list and
    * for the same reason as the four above: migrating the native catalogue into
    * the canonical graph is the same power over the same graph as reshaping it.
-   *
-   * Deliberately NOT gated on `CANONICAL_GRAPH_ENABLED`. That lever stops the
-   * dispatcher LOOP, and an operator must still be able to open a run, read a
-   * report and see the flags while it is off — gating the surface on it would
-   * make "start the migration paused" impossible and would hide the evidence
-   * during exactly the incident that turned the loop off.
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/backfill', internalBackfillRouter);
@@ -913,10 +872,8 @@ export function createApp(): express.Express {
   }
   /**
    * The external ingestion framework's operator surface (#62), on the SAME
-   * allow-list and mounted for the same reason the backfill's is: configuring a
-   * source, reviewing its terms and draining it by hand is how a feed is
-   * brought up BEFORE `CATALOG_INGESTION_ENABLED` is switched on, and the
-   * evidence has to stay readable during the incident that turned the loop off.
+   * allow-list: configuring a source, reviewing its terms, pausing it and
+   * draining it by hand is how a feed is brought up and taken down.
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/ingestion', internalIngestionRouter);
@@ -955,9 +912,8 @@ export function createApp(): express.Express {
    * The eBay Browse source's operator surface (#65), on the SAME allow-list and
    * for the same reason: deciding which eBay categories Mercaria ingests is the
    * same power over the same graph as deciding what any other external source
-   * may do. It stays mounted while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are
-   * off — reading the call budget is exactly what somebody does after flipping
-   * the fetch kill switch.
+   * may do. Reading the call budget is exactly what somebody does after pausing
+   * the source (`POST /internal/ingestion/sources/:id/status`).
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/ebay', internalEbayRouter);
@@ -1060,39 +1016,25 @@ export function createApp(): express.Express {
   /**
    * Navigation trees (#367 step 7, ADR 0007 D3) — the published menus, sections
    * and campaign strips a storefront renders, plus the operator surface that
-   * authors them.
-   *
-   * Behind `CATALOG_TAXONOMY_V2_ENABLED` (D12), default false, so today's
-   * behaviour is unchanged: the storefront keeps its own constants and this
-   * surface does not exist. The lever gates the MOUNT and never a stored row —
-   * every tree, node and label stays readable with it off, because a rollback
-   * must not delete catalog evidence.
+   * authors them. With no published tree the storefront falls back to its own
+   * constants.
    */
-  if (config.catalog.taxonomyV2Enabled) {
-    app.use('/navigation', navigationRouter);
-    /**
-     * …and the extended taxonomy READS the lever is actually named for
-     * (#367 Workstream 1, ADR 0007 D1/D2). Roots, children, ancestors,
-     * descendants, breadcrumbs, localized search and category eligibility — the
-     * `db/taxonomy/taxonomyRepository.ts` reads that had shipped with no
-     * controller calling them.
-     *
-     * Anonymous and mounted here rather than beside `/categories`, which is the
-     * v1 tree (D13) and stays exactly as it is: this is additive, and a new
-     * subpath under `/categories` would sit next to `/:slug/listings` and make
-     * `roots` ambiguous with a category slug.
-     */
-    app.use('/taxonomy', taxonomyRouter);
-  }
+  app.use('/navigation', navigationRouter);
+  /**
+   * …and the extended taxonomy READS (#367 Workstream 1, ADR 0007 D1/D2). Roots, children, ancestors,
+   * descendants, breadcrumbs, localized search and category eligibility — the
+   * `db/taxonomy/taxonomyRepository.ts` reads that had shipped with no
+   * controller calling them.
+   *
+   * Anonymous and mounted here rather than beside `/categories`, which is the
+   * v1 tree (D13) and stays exactly as it is: this is additive, and a new
+   * subpath under `/categories` would sit next to `/:slug/listings` and make
+   * `roots` ambiguous with a category slug.
+   */
+  app.use('/taxonomy', taxonomyRouter);
   /**
    * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-   * allow-list, and deliberately NOT gated on `CATALOG_TAXONOMY_V2_ENABLED`.
-   *
-   * The `/internal/backfill` and `/internal/seo` arrangement, for their reason:
-   * the evidence has to be readable during the incident that turned the public
-   * surface off, and the one moment somebody most needs to preview a navigation
-   * tree is right after switching it off. Empty list = not mounted at all (404,
-   * never 401).
+   * allow-list. Empty list = not mounted at all (404, never 401).
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/navigation', internalNavigationRouter);
@@ -1102,9 +1044,8 @@ export function createApp(): express.Express {
    * surface over all nine catalog domains, on the SAME
    * `CATALOG_OPERATOR_OXY_USER_IDS` allow-list and gated on nothing else.
    *
-   * Deliberately NOT gated on `CATALOG_TAXONOMY_V2_ENABLED`,
-   * `CATALOG_PROPOSALS_ENABLED` or any other domain's rollout lever, for the
-   * reason `/internal/backfill` and `/internal/product-saves` are not: the
+   * Deliberately NOT gated on any domain's rollout lever, for the reason
+   * `/internal/product-saves` is not: the
    * evidence has to be readable during the incident that turned a domain off,
    * and the audit trail of what an operator did to the catalogue is exactly
    * what somebody reaches for at that moment. Empty list = not mounted at all
@@ -1153,13 +1094,10 @@ export function createApp(): express.Express {
   /**
    * Published product-type specification layouts (#367 step 3, ADR 0007 D5).
    *
-   * Not behind `CATALOG_TAXONOMY_V2_ENABLED` and not behind
-   * `CATALOG_AUTHORING_ENABLED`, and the distinction is what the surface serves: a
-   * published product type's group headings are catalogue metadata of the same kind
-   * `/categories` and `/catalog-attributes` already serve unconditionally, while
-   * the authoring lever gates a SELLER's form and everything composed for it. A
-   * key with no published version answers 404, so a deployment that has published
-   * nothing exposes nothing.
+   * A published product type's group headings are catalogue metadata of the same
+   * kind `/categories` and `/catalog-attributes` serve. A key with no published
+   * version answers 404, so a deployment that has published nothing exposes
+   * nothing.
    */
   app.use('/product-types', productTypesRouter);
   /**

@@ -391,7 +391,7 @@ async function resolveCanonicalProduct(
   request: ResolveSeoRequest,
   origin: string,
 ): Promise<SeoDiagnosis> {
-  if (config.canonicalRollout.reads !== 'on' || !config.canonicalRollout.publicRoutesEnabled) {
+  if (config.canonicalRollout.reads !== 'on') {
     // The storefront's own read answers 404 in these states, so the page a
     // crawler would land on does not exist either.
     return { resolution: { outcome: 'not_found' } };

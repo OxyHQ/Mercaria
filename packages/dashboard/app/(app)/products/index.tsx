@@ -33,7 +33,6 @@ import {
 import { useTranslation } from '@/lib/i18n';
 import { useProducts } from '@/lib/hooks/use-products';
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value';
-import { useAuthoringAvailability } from '@/lib/authoring/hooks';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 
 const STATUS_LABEL_KEYS: Record<ListingStatus, string> = {
@@ -61,7 +60,7 @@ export default function ProductsScreen() {
 
 function ProductsBody({ storeId }: { storeId: string }) {
   const router = useRouter();
-  const { t, locale } = useTranslation();
+  const { t } = useTranslation();
   const { can } = useActiveStoreContext();
   const { width } = useWindowDimensions();
   const [selected, setSelected] = useState<Record<string, SelectedProduct>>({});
@@ -80,28 +79,16 @@ function ProductsBody({ storeId }: { storeId: string }) {
   const changingSearch = query !== search.trim();
   const busy = isFetching || changingSearch || bulk.isPending;
   /**
-   * Where "Add product" goes (#367 step 10).
+   * Where "Add product" goes (#367 step 10): the schema-driven wizard, whose
+   * start screen still links the legacy `/products/new` form.
    *
-   * The schema-driven wizard exists only where the deployment has mounted the
-   * authoring surface (`CATALOG_AUTHORING_ENABLED`, ADR 0007 D12), so the
-   * destination is DERIVED from the server's own answer rather than from a
-   * client flag. The legacy `/products/new` stays exactly where it was and is
-   * still the destination everywhere the wizard is not available — parity
-   * first, and retiring it is a separate decision this screen does not make.
-   *
-   * Annotated `RoutePath` rather than with the two literals it can hold, and
-   * that is load-bearing twice over. `route-reachability.test.ts` reads a
-   * navigation edge out of a `const x: RoutePath = …` declaration and records
-   * BOTH sides of the conditional, so this is the one spelling under which the
-   * import graph can see what a user can reach. Writing the narrower union
-   * instead hid the edge — and it hid the two `/products/new` edges this screen
-   * used to carry as literals, which the gate caught as a route that had gone
-   * unreachable. `RoutePath` IS the generated route union, so a target that is
-   * not a real route still fails `tsc` here.
+   * Annotated `RoutePath`: `route-reachability.test.ts` reads a navigation edge
+   * out of a `const x: RoutePath = …` declaration, so this is the spelling under
+   * which the import graph can see what a user can reach. `RoutePath` IS the
+   * generated route union, so a target that is not a real route still fails
+   * `tsc` here.
    */
-  const authoring = useAuthoringAvailability(locale);
-  const createHref: RoutePath =
-    authoring.data?.outcome === 'available' ? '/products/wizard' : '/products/new';
+  const createHref: RoutePath = '/products/wizard';
 
   const filtered = status !== 'all' || search.trim() !== '';
   const products = data?.data ?? [];

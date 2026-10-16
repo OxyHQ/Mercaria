@@ -39,7 +39,6 @@ import {
   type MergeableEntityType,
 } from '@mercaria/shared-types';
 import { and, eq, sql } from 'drizzle-orm';
-import { config } from '../../config/index.js';
 import { assertSameCanonicalOrganization } from '../organizations/directory.js';
 import { log } from '../../lib/logger.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
@@ -236,11 +235,7 @@ export async function requestMerge(input: RequestMergeInput): Promise<CatalogMer
   }
 
   const impact = await estimateMergeImpact(input.entityType, input.loserId, db);
-  const needsApproval = requiresSecondApproval(
-    'merge',
-    impact.totalMoving,
-    config.catalog.fourEyesRequired,
-  );
+  const needsApproval = requiresSecondApproval('merge', impact.totalMoving);
 
   const job = await insertMergeJob(
     {

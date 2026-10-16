@@ -12,11 +12,8 @@
  * operators, never a 401 that would advertise the surface); the gate repeated in
  * middleware because mount and gate live in different files.
  *
- * It is deliberately NOT gated on `CATALOG_PROPOSALS_ENABLED`. The
- * `/internal/product-saves` arrangement, for its reason: the evidence has to be
- * readable during the incident that turned the merchant surface off, and
- * "what did we approve last week" is exactly the question somebody asks after
- * pulling the lever.
+ * The merchant surface `/catalog-proposals` is mounted on the SAME condition:
+ * a deployment with no operator to decide a proposal does not take any.
  *
  * ## The route set is CLOSED, and the omissions are the design
  *

@@ -46,8 +46,6 @@ export async function prepareCatalogMedia(
     const kind = catalogMediaKind(file.mime, file.size);
     if (!kind || (imagesOnly && kind !== 'image'))
       throw validationError('Unsupported catalog media type or size');
-    if (kind === 'video' && !config.catalog.videoWritesEnabled)
-      throw serviceUnavailable('Catalog video writes are not enabled');
     result.push({ fileId, kind, position });
   }
   return result;

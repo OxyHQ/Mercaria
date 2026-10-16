@@ -17,7 +17,6 @@ Task definition (`oxy-infra`, `terraform-uswest2/app-services.tf`,
 `module "mercaria"`):
 
 ```
-CATALOG_INGESTION_ENABLED=true
 OFFER_MATERIALIZATION_ENABLED=true
 OFFER_REFRESH_ENABLED=true
 OFFER_EXPIRY_SWEEP_ENABLED=true
