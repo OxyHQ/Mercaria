@@ -20,11 +20,8 @@
  * money path free of everything built on top of it, which is the same one-way
  * rule `verified-conversion.ts` states for analytics.
  *
- * ## The LOOP is gated; the rows never are
- *
- * `BUYER_REQUEST_RECONCILER_ENABLED` stops the timer and nothing else. A return
- * waiting on a rail is a durable row that a merchant or an operator can also
- * advance by hand, and turning the sweep off during an incident must not make a
+ * A return waiting on a rail is a durable row that a merchant or an operator
+ * can also advance by hand, so a sweep that is not running can never make a
  * buyer's refund unfinishable.
  */
 
@@ -80,13 +77,6 @@ export async function reconcileBuyerRequestRefunds(now: Date = new Date()): Prom
  */
 export function startBuyerRequestReconciler(): void {
   if (timer !== null) return;
-  if (!config.buyerRequests.reconcilerEnabled) {
-    log.general.info(
-      '[BuyerRequests] refund reconciler disabled; returns awaiting a rail are advanced by ' +
-        'the merchant or operator surfaces only',
-    );
-    return;
-  }
   timer = setInterval(() => {
     void reconcileBuyerRequestRefunds().catch((err: unknown) => {
       log.general.error({ err }, '[BuyerRequests] refund reconciler pass failed');

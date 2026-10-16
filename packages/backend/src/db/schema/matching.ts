@@ -193,10 +193,10 @@ export const matchPolicyVersions = pgTable(
     /**
      * Whether this policy consults a semantic scorer at all.
      *
-     * Three independent levers turn semantics off (#58 acceptance 6): this
-     * column, `config.matching.semanticEnabled`, and the absence of a registered
-     * scorer — which is the default. The deterministic stages are identical in
-     * every combination, and a test runs the whole pipeline with all three off.
+     * Two independent conditions turn semantics off (#58 acceptance 6): this
+     * column, and the absence of a registered scorer — which is the default. The
+     * deterministic stages are identical in every combination, and a test runs
+     * the whole pipeline with both off.
      */
     semanticEnabled: boolean().notNull().default(false),
 

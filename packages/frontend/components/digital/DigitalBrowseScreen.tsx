@@ -47,9 +47,9 @@ import { useTranslation } from '@/lib/i18n';
  *    "3D" would hold catalogue identity a data change cannot reach (ADR 0007 D1,
  *    `validate:storefront-catalog-driven` wall 3). Until the read hands one over,
  *    `useFacets` is disabled by its own `enabled: scope !== undefined`.
- * 2. **A 404 is "no rail", never an empty rail.** `FACETS_ENABLED` defaults off
- *    and a client cannot see it, so `data === undefined` means this deployment
- *    offers no filters here — and an empty rail would say there is nothing to
+ * 2. **A 404 is "no rail", never an empty rail.** The catalog rollout-cohort
+ *    gate can refuse it and a client cannot see that, so `data === undefined`
+ *    means this deployment offers no filters here — and an empty rail would say there is nothing to
  *    filter by, which is a different and false statement.
  * 3. **A rail is offered only when the grid can act on the WHOLE selection.**
  *    `selectionApplied` is the read's own answer. `lib/catalog/facet-consumption.ts`

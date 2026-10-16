@@ -18,20 +18,13 @@
  * subject enters — it takes a session id, a checkout id, an email hash or a
  * coarse network range, and nothing else.
  *
- * ## Counting happens whether or not friction is on, and that is deliberate
+ * ## There is no switch
  *
- * `config.guest.governance.abuseControlsEnabled` gates whether FRICTION is
- * applied. It does not gate the counter, so a deployment that switched the
- * controls off during an incident can still see what was happening while they
- * were off, and turning them back on does not start from zero. Gate the loop,
- * never the durable record — applied to a control rather than to a queue.
- *
- * The M8 review (M8-03) found this paragraph contradicted by the code beneath
- * it: the flag was read FIRST and returned before anything was counted. What
- * gates the counter now is the subject KEY alone, because without
- * `GUEST_ABUSE_SUBJECT_HASH_KEY` no subject can be named safely; with the key
- * set and friction off, every attempt is counted and none is refused.
- * `abuse.service.test.ts` pins the order.
+ * The controls run whenever guest commerce runs: every watched action is
+ * COUNTED and friction is applied by the published policy. They were once
+ * behind a flag that, when off, returned before the counter — so the counters
+ * this module promises were never written (M8-03). The subject-digest key is
+ * derived from `MERCARIA_SECRET_KEY`, so nothing can leave them half-on.
  */
 
 import type {
@@ -41,7 +34,6 @@ import type {
   GuestFrictionMeasure,
 } from '@mercaria/shared-types';
 import { GUEST_ABUSE_POLICIES } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -85,10 +77,6 @@ export async function checkGuestAbuse(input: {
 }): Promise<GuestAbuseVerdict> {
   const policy = policyForScope(input.scope);
   if (policy === undefined) return { outcome: 'permitted' };
-  // The KEY, not the friction flag, decides whether a subject can be named:
-  // without one the only digest available is an offline oracle, so nothing is
-  // counted and nothing is applied (`resolveGuestAbuseControlsEnabled`).
-  if (config.guest.governance.abuseSubjectHashKey === '') return { outcome: 'permitted' };
 
   const db = getDb();
   const subjectHash = abuseSubjectHash({
@@ -96,22 +84,6 @@ export async function checkGuestAbuse(input: {
     axis: policy.axis,
     value: input.subjectValue,
   });
-
-  // M8-03: with friction OFF the attempt is still COUNTED, which is what the
-  // module docblock always promised and what the code before the M8 review did
-  // not do — it returned before this line, so turning the controls on started
-  // from zero. No intervention is read or written here: an intervention IS
-  // friction, and recording one nobody applies would be a cooldown the queue
-  // shows and the person never felt.
-  if (!config.guest.governance.abuseControlsEnabled) {
-    await countAbuseAttempt(db, {
-      scope: policy.scope,
-      axis: policy.axis,
-      subjectHash,
-      windowStartedAt: windowStartFor(input.now, policy.windowSeconds),
-    });
-    return { outcome: 'permitted' };
-  }
 
   const live = await findLiveIntervention(db, {
     pattern: policy.pattern,

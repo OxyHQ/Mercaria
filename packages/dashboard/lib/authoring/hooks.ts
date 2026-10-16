@@ -5,20 +5,7 @@
  * list or a default from a category — the composed `AuthoringSchema` is the
  * answer and this file transports it.
  *
- * ## Availability is PROBED, never configured
- *
- * `useAuthoringAvailability` asks the server the cheapest question it has and
- * reads a 404 as "this deployment has the surface switched off"
- * (`CATALOG_AUTHORING_ENABLED`, ADR 0007 D12). There is deliberately no
- * `EXPO_PUBLIC_` flag beside it: a client-side answer to "is the wizard
- * available" is a second representation of one fact, and the way two
- * representations disagree here is a merchant filling in a form whose publish
- * route does not exist. It is also what keeps the legacy `/products/new` in
- * place until a deployment turns the new surface on.
- *
- * A 404 is a stable answer about a deployment, so it is retried once and cached
- * for the session; a transport failure is not, and is rethrown so the screen
- * reports an error instead of quietly falling back.
+ * The authoring surface is always mounted, so there is no availability probe.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -44,25 +31,14 @@ import {
   listProductDrafts,
   patchProductDraft,
   previewDraftUpgrade,
-  probeAuthoringAvailability,
   publishProductDraft,
   searchCanonicalCatalog,
   validateProductDraft,
-  type AuthoringAvailability,
   type CreateDraftPayload,
   type DraftPublishOutcome,
   type DraftSaveOutcome,
   type PatchDraftPayload,
 } from './api';
-
-/** The whole surface is off or on for a deployment; one probe answers it. */
-export function useAuthoringAvailability(locale: string) {
-  return useQuery<AuthoringAvailability>({
-    queryKey: queryKeys.authoring.availability(locale),
-    queryFn: () => probeAuthoringAvailability(locale),
-    staleTime: 5 * 60 * 1000,
-  });
-}
 
 /**
  * One level of the category tree.

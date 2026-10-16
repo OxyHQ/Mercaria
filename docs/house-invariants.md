@@ -19,6 +19,11 @@
 - **A flag gates the LOOP or the MOUNT, never a durable record.** Half-configured
   is OFF. An operator surface stays mounted while its loop is off — the evidence
   has to be readable during the incident that turned the loop off.
+- **An internal key is DERIVED, never a new env var.** Every key Mercaria both
+  mints and verifies (token/state HMACs, keyed digests, its own AES keys) comes
+  from `MERCARIA_SECRET_KEY` via `lib/derived-secrets.ts`, one HKDF purpose per
+  key — a new one is a new purpose. Rotating the root rotates them all
+  (`docs/deploy.md` "Runtime secrets").
 - **An outbox row IS the job:** deterministic id, claims are leases with an owner
   check (`FOR UPDATE SKIP LOCKED`), capped exponential backoff, visible
   `dead_letter`.
@@ -77,7 +82,8 @@
   ENTRY POINT: the v1 condition projection was pinned exhaustively as a pure
   function while the hydration call served a constant, and all 10,500 tests were
   green.
-- **Four eyes** (`CATALOG_FOUR_EYES_REQUIRED` and its siblings) is the ROW's
+- **Four eyes** (always required for catalog acts; `GUEST_CLAIM_FOUR_EYES_REQUIRED`
+  and its siblings elsewhere) is the ROW's
   shape — approvers differing from each other and from the requester, held by a
   CHECK or a partial unique, never by a service comparison.
 - **Isolation between domains is a TEST**, not a convention

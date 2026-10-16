@@ -13,14 +13,12 @@ rather than pointed at `GET /catalog-authoring/categories`, which is a localized
 browse with no text parameter. So an alert naming a fifth surface is reading
 something other than this one.
 
-**Second: on a DEFAULT deployment only two of the four are mounted.**
-`GET /catalog-authoring/schemas/:productTypeKey` sits behind
-`CATALOG_AUTHORING_ENABLED` and `POST /facets` behind `FACETS_ENABLED`, both
-defaulting to false. Those two therefore have no observation and no verdict here —
-and the LATENCY report cannot tell you that, because it omits the verdict for a
-cold task in exactly the same way. **The metrics report is the discriminator**: it
-answers `unmeasured` / `surface_not_mounted` for a route that cannot be served,
-naming the variable to set.
+**Second: all four are mounted on every deployment.** The authoring schema and
+`POST /facets` lost their levers, so no budgeted route can be unmounted. A
+budget with no observation is a cold task, not a withdrawn surface; were a
+budgeted route ever put behind a condition again, the metrics report would be
+the discriminator, answering `unmeasured` / `surface_not_mounted` and naming the
+variable to set.
 
 **Third: the numbers are per ECS TASK and reset on every deploy.** A p95 here is
 "what this task has served since it started", never a historical series. There is
@@ -118,10 +116,6 @@ a duration some request actually took.
   real, very small duration. That LOWERS the p95; it cannot raise it. That lever
   is in the HANDLER, not the mount, which is why `/search` never reports
   `surface_not_mounted`.
-- **Not a breach at all on a surface that is not mounted.** With
-  `CATALOG_AUTHORING_ENABLED` or `FACETS_ENABLED` off there is no observation to
-  breach, and any figure attributed to those two routes came from somewhere other
-  than this report.
 
 ## The first three things to check
 

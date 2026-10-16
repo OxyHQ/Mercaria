@@ -34,7 +34,6 @@
  *   sample floor — so an uncovered category simply cannot be enabled.
  */
 
-import { config } from '../../../config/index.js';
 import { evaluateMatch } from '../pipeline.js';
 import type { MatchPolicy } from '../policy.js';
 import { matchSubjectKey, type MatchSubject } from '../subject.js';
@@ -352,10 +351,9 @@ export function defaultBenchmarkPolicy(): MatchPolicy {
       categoryAgreement: 2,
       semanticSimilarity: 0,
     },
-    // The default is OFF, and `config.matching.semanticEnabled` is off too — so
-    // the CI benchmark measures the deterministic pipeline, which is the one a
-    // default deployment runs (#58 acceptance 6).
-    semanticEnabled: config.matching.semanticEnabled,
+    // OFF, so the CI benchmark measures the deterministic pipeline, which is the
+    // one a default deployment runs (#58 acceptance 6).
+    semanticEnabled: false,
     minBenchmarkPrecision: 0.95,
     minBenchmarkSamples: 20,
   };

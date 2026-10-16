@@ -28,7 +28,7 @@
  * through #110 shipped nine flags and five block lists between them, and the
  * one thing #111 must not do is add a tenth answer to a question one of them
  * already answers. {@link GUEST_FEATURE_GATES} is a REGISTER of the capabilities
- * the issue enumerates and the lever that answers each — including the four it
+ * the issue enumerates and the lever that answers each — including the five it
  * answers with "structurally none, and here is why".
  */
 
@@ -645,11 +645,11 @@ export interface GuestSecuritySignalDefinition {
  * The capabilities #111 "Feature flags" 1–13 asks to be independently gateable,
  * and the lever that answers each.
  *
- * This is a REGISTER, not a set of new levers. Nine flags and five block lists
- * already exist across #103–#110 and ADR 0006, and adding a tenth answer to a
- * question one of them already answers is the specific mistake this file was
- * written to avoid. THREE entries answer `null`, and each states why the
- * absence is a decision:
+ * This is a REGISTER, not a set of new levers. The flags and block lists that
+ * exist across #103–#110 and ADR 0006 already answer every question, and adding
+ * another answer to one of them is the specific mistake this file was written
+ * to avoid. SEVEN entries answer `null`, and each states why the absence is a
+ * decision:
  *
  *  - the ORDER PORTAL, because #108 decided no lever may gate a portal READ and
  *    `guest-portal-isolation.test.ts` fails the build if one starts to;
@@ -657,14 +657,26 @@ export interface GuestSecuritySignalDefinition {
  *    flag, deliberately, until #112;
  *  - the Stripe CLIENT PATH, because ADR 0006 G2 puts both actor kinds on one
  *    component and a guest-only path lever would be a second answer to
- *    `STRIPE_ENABLED`.
+ *    whether the Stripe rail is configured;
+ *  - transactional message DELIVERY and Oxy CLAIMING, because both are always
+ *    on: their incident switches (`GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED`,
+ *    `GUEST_CLAIM_ENABLED`) were removed with every other `*_ENABLED` lever that
+ *    only ever ran at its default;
+ *  - session ISSUANCE and the guest CART, because guest commerce itself is
+ *    always on: `GUEST_COMMERCE_ENABLED` was removed, since its two keys are
+ *    derived from `MERCARIA_SECRET_KEY` and always resolve.
+ *
+ * Guest CHECKOUT creation answers to `GUEST_CHECKOUT_BLOCKED_PLATFORMS` (both
+ * platforms listed = no guest checkout anywhere), which is the off switch for
+ * new guest orders while every session and cart survives.
  *
  * Guest PICKUP was a fourth until #93 landed, and the correction is the reason
  * this register is worth keeping accurate: `null` here does not mean "nobody
- * built a flag", it means "there is nothing to flip". `GUEST_STORE_PICKUP_ENABLED`
- * now exists, so an operator reading this during an incident and finding
- * STRUCTURAL would have gone looking for a broader lever — taking the guest
- * cart or guest checkout down to withdraw one fulfilment mode.
+ * built a flag", it means "there is nothing to flip". Listing `pickup` in
+ * `GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS` withdraws it, so an operator
+ * reading this during an incident and finding STRUCTURAL would have gone
+ * looking for a broader lever — taking the guest cart or guest checkout down to
+ * withdraw one fulfilment mode.
  */
 export const GUEST_FEATURE_GATES = [
   'session_issuance',
@@ -676,7 +688,6 @@ export const GUEST_FEATURE_GATES = [
   'order_portal',
   'recovery_email',
   'oxy_claim',
-  'cancellations_and_returns',
   'pickup',
   'p2p',
   'marketing_experiments',
@@ -1663,32 +1674,41 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
   {
     gate: 'session_issuance',
     title: 'Guest session issuance',
-    lever: 'GUEST_SESSION_ISSUANCE_ENABLED',
+    lever: null,
     scopes: ['environment'],
     whenOff:
-      'No NEW credential is minted. Existing sessions keep resolving, rotating and revoking, ' +
-      'so a shopper mid-purchase is not signed out of their own cart.',
+      'STRUCTURAL: guest commerce is always on — its two keys are derived from ' +
+      'MERCARIA_SECRET_KEY — so there is no issuance switch. New guest ORDERS are stopped with ' +
+      'GUEST_CHECKOUT_BLOCKED_PLATFORMS while sessions keep resolving. Placed orders stay ' +
+      'reachable through the portal.',
     affectsPlacedOrders: false,
-    rollbackOrder: 1,
+    rollbackOrder: 99,
   },
   {
     gate: 'cart_read_write',
     title: 'Guest cart reads and writes',
-    lever: 'GUEST_CART_ENABLED',
+    lever: null,
     scopes: ['environment'],
     whenOff:
-      'Reads answer empty and writes are refused with GUEST_CART_DISABLED. The MERGE stays available.',
+      'STRUCTURAL: guest commerce is always on, so a guest session always owns its cart and ' +
+      'there is no cart switch. New guest ORDERS are stopped with ' +
+      'GUEST_CHECKOUT_BLOCKED_PLATFORMS; carts survive.',
     affectsPlacedOrders: false,
-    rollbackOrder: 3,
+    rollbackOrder: 99,
   },
   {
     gate: 'checkout_ui',
     title: 'Guest checkout creation',
-    lever: 'GUEST_INLINE_DESTINATION_ENABLED',
-    scopes: ['environment', 'country'],
-    whenOff: 'The cart survives and checkout is refused as temporarily unavailable.',
+    lever: 'GUEST_CHECKOUT_BLOCKED_PLATFORMS',
+    scopes: ['environment', 'platform', 'country'],
+    whenOff:
+      'Listing both platforms (web,native) refuses every guest checkout under guest_rollout_blocked; ' +
+      'one platform, or GUEST_CHECKOUT_BLOCKED_MARKETS, narrows it. The cart survives and the ' +
+      'buyer is told to sign in or try later.',
     affectsPlacedOrders: false,
-    rollbackOrder: 2,
+    // FIRST: it stops new guest orders while leaving every cart and session
+    // intact, which is the smallest thing that halts the flow.
+    rollbackOrder: 1,
   },
   {
     gate: 'stripe_payment_creation',
@@ -1719,7 +1739,8 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
     scopes: [],
     whenOff:
       'STRUCTURAL: ADR 0006 G2 puts both actor kinds on one CardPaymentStep, so a guest-only path ' +
-      'lever would be a second answer to STRIPE_ENABLED and would make the two paths diverge ' +
+      'lever would be a second answer to the Stripe rail configuration and would make the two ' +
+      'paths diverge ' +
       'exactly where they must not.',
     affectsPlacedOrders: false,
     rollbackOrder: 99,
@@ -1739,42 +1760,38 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
   {
     gate: 'recovery_email',
     title: 'Transactional message delivery',
-    lever: 'GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED',
-    scopes: ['environment'],
-    whenOff: 'The dispatcher LOOP stops. Rows are still enqueued and send once it is back.',
+    lever: null,
+    scopes: [],
+    whenOff:
+      'STRUCTURAL: the dispatcher always runs and every message is a durable row owed to a buyer ' +
+      'who has paid. With no transport registered each attempt fails transport_unconfigured, ' +
+      'visibly; there is no switch that silently stops what was owed.',
     affectsPlacedOrders: false,
-    rollbackOrder: 5,
+    rollbackOrder: 99,
   },
   {
     gate: 'oxy_claim',
     title: 'Claiming a guest checkout into an Oxy account',
-    lever: 'GUEST_CLAIM_ENABLED',
-    scopes: ['environment'],
-    whenOff: 'The WRITE is refused. Stored claims, and every access they granted, are untouched.',
-    affectsPlacedOrders: false,
-    rollbackOrder: 6,
-  },
-  {
-    gate: 'cancellations_and_returns',
-    title: 'Buyer cancellations, returns and support',
-    lever: 'BUYER_REQUESTS_ENABLED',
-    scopes: ['environment'],
+    lever: null,
+    scopes: [],
     whenOff:
-      'The buyer WRITE mount answers 503 under its own code. Filed requests keep being decided.',
+      'STRUCTURAL: claiming is always available to a buyer holding a verified portal grant, and ' +
+      'nothing configurable reaches a stored claim. Reversing one is an operator revocation, ' +
+      'which always needs a second operator.',
     affectsPlacedOrders: false,
-    rollbackOrder: 7,
+    rollbackOrder: 99,
   },
   {
     gate: 'pickup',
     title: 'Guest pickup',
-    lever: 'GUEST_STORE_PICKUP_ENABLED',
-    scopes: ['environment'],
+    lever: 'GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS',
+    scopes: ['fulfilment'],
     whenOff:
-      'Guest collection is refused with guest_pickup_disabled; AUTHENTICATED collection, the guest ' +
-      'cart and the guest checkout are untouched. Note the ONE-WAY dependency an incident must ' +
-      'not be surprised by: STORE_PICKUP_ENABLED off takes guest pickup with it, and this lever ' +
-      'cannot turn collection on by itself. Neither gates a durable record — a placed collection ' +
-      'order, its code and its desk trail survive both being off (#93 operations rule 10).',
+      'Listing `pickup` refuses guest collection at checkout; AUTHENTICATED collection, the guest ' +
+      'cart and the guest checkout are untouched. Guest pickup otherwise exists exactly when store ' +
+      'pickup does (GoWay configured) and guest commerce is on — there is no separate switch. ' +
+      'Neither gates a durable record — a placed collection order, its code and its desk trail ' +
+      'survive (#93 operations rule 10).',
     affectsPlacedOrders: false,
     // Narrowing WHICH fulfilment modes are offered, without stopping a checkout
     // — the same shape as `payment_methods`, hence the same position. A tie is
@@ -1855,7 +1872,8 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     discipline: 'engineering',
     evidenceKind: 'automated_check',
     requiredFromStage: 'stage_1_staff_canary',
-    criterion: 'STRIPE_ENABLED is true with a key and BOTH webhook secrets configured.',
+    criterion:
+      'The Stripe rail is configured: the secret key and BOTH webhook secrets are present.',
   },
   {
     gate: 'webhooks_reconciliation_runbooks_operational',

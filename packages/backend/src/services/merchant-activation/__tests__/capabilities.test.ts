@@ -160,7 +160,7 @@ describe('a capability that names a fulfilment mode measures THAT mode', () => {
   }
 
   it('WITHHOLDS pickup on a deployment that does not offer collection', () => {
-    // The live wrong answer: `STORE_PICKUP_ENABLED` is off by DEFAULT, and with
+    // The live wrong answer: store pickup is off without GoWay, and with
     // shipping rates configured the shared dependency was satisfied — so this
     // read `granted` for every store on every deployment. The guest set is left
     // non-empty here on purpose, because that is precisely what used to carry

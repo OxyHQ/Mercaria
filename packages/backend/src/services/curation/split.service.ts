@@ -59,7 +59,6 @@ import {
   type CatalogSplitTargetMode,
   type SplittableEntityType,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
@@ -246,11 +245,7 @@ export async function requestSplit(input: RequestSplitInput): Promise<CatalogSpl
     counts[bucket] = (counts[bucket] ?? 0) + 1;
   }
   const impact = splitImpactFromAssignments(counts);
-  const needsApproval = requiresSecondApproval(
-    'split',
-    impact.totalMoving,
-    config.catalog.fourEyesRequired,
-  );
+  const needsApproval = requiresSecondApproval('split', impact.totalMoving);
 
   return db.transaction(async (tx) => {
     const job = await insertSplitJob(

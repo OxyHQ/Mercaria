@@ -242,9 +242,9 @@ export const cartMerges = pgTable(
  *
  * ## Three forms of one email, three different jobs (ADR 0003 D12)
  *
- * `email_ciphertext` is AES-256-GCM under `GUEST_PII_ENCRYPTION_KEY`, key-id
+ * `email_ciphertext` is AES-256-GCM under the derived `guest-pii-encryption` key, key-id
  * prefixed, and is the only form a transactional mail can be sent to.
- * `email_hash` is HMAC-SHA-256 under the SEPARATE `GUEST_EMAIL_HASH_KEY` —
+ * `email_hash` is HMAC-SHA-256 under the SEPARATE derived `guest-email-hash` key —
  * keyed, unlike this schema's token hashes, because an email has
  * dictionary-scale entropy and a plain hash column would be offline-reversible
  * the day the table leaked. `email_redacted` (`j***@example.com`) is the only

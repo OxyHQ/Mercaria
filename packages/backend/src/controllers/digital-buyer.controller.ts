@@ -72,8 +72,8 @@ function requireBuyerKey(req: Request): string {
  * `no_right` is 404 and covers BOTH "no such right" and "somebody else's" —
  * `download.service` already collapses them, and a 403 here would re-open the
  * oracle by telling the two apart at the status line. `downloads_disabled` is
- * 503 because the caller did nothing wrong and retrying later is correct: it is
- * an INCIDENT lever, and every right stays `active` while it is off.
+ * no longer produced (downloads have no deployment lever); it stays in the
+ * stored refusal vocabulary because `asset_download_events`' CHECK carries it.
  */
 const REFUSAL_STATUS: Record<AssetDownloadRefusalReason, number> = {
   no_right: 404,
@@ -243,9 +243,8 @@ export async function redeemDigitalDownloadHandler(req: Request, res: Response):
  * A claim is an ACQUISITION, so it asks the acquisition questions
  * (`resolveDigitalLines` applies all of them: the option is acquirable, the
  * licence version published, the asset listed, its current version acquirable)
- * plus the per-vertical allow-list. It deliberately does NOT ask
- * `paidCheckoutEnabled` — ADR 0010 D13 says a free claim still works with paid
- * checkout off, and that is the whole reason the two are separate levers.
+ * plus the per-vertical allow-list — the same list that opens PAID checkout for
+ * a vertical, so a vertical is either on sale (paid and free) or not at all.
  *
  * "Free" is a fact about the OFFER and not about the deliverable, so the price
  * read is the variant's own — the same columns `nativeUnitPrice` reads at

@@ -309,17 +309,22 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     }
   });
 
-  it('the three STRUCTURAL gates name no lever, and every other names one', () => {
+  it('the seven STRUCTURAL gates name no lever, and every other names one', () => {
     const structural = GUEST_FEATURE_GATE_REGISTER.filter((gate) => gate.lever === null);
-    // EXACT rather than containment: this list may only shrink by somebody
-    // building the lever, and `pickup` leaving it is exactly that — #93 shipped
-    // `GUEST_STORE_PICKUP_ENABLED` and the register went on saying STRUCTURAL,
-    // which is what an operator reads during an incident to decide what to
-    // flip. Reading `null` there sends them to a broader lever: taking the
-    // guest cart or guest checkout down to withdraw one fulfilment mode.
+    // EXACT rather than containment: this list changes only by a decision —
+    // `pickup` left it when #93 shipped a guest pickup lever (today the guest
+    // fulfilment block list), and message delivery, claiming, session issuance
+    // and the guest cart joined it when their `*_ENABLED` switches were removed
+    // (always on). The register is what
+    // an operator reads during an incident to decide what to flip, so `null`
+    // must mean "nothing to flip".
     expect(structural.map((gate) => gate.gate).sort()).toEqual([
+      'cart_read_write',
       'order_portal',
+      'oxy_claim',
       'p2p',
+      'recovery_email',
+      'session_issuance',
       'stripe_client_path',
     ]);
     for (const gate of structural) {
@@ -345,10 +350,12 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     // The floor: a config module that failed to read would make every
     // assertion below pass by matching an empty string.
     expect(configSource.length).toBeGreaterThan(10_000);
-    expect(configSource).toContain('GUEST_STORE_PICKUP_ENABLED');
+    expect(configSource).toContain('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS');
 
     const named = GUEST_FEATURE_GATE_REGISTER.flatMap((gate) => (gate.lever ? [gate.lever] : []));
-    expect(named.length).toBeGreaterThan(5);
+    // Five since session issuance and the guest cart became STRUCTURAL (guest
+    // commerce is always on); the floor still catches a register that emptied.
+    expect(named.length).toBeGreaterThanOrEqual(5);
     for (const lever of named) {
       expect(configSource.includes(lever), `${lever} is named by a gate and read by nothing`).toBe(
         true,
@@ -356,19 +363,27 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     }
 
     // And the specific pairing #93 owes, asserted by name so a future edit that
-    // re-empties it fails HERE rather than in an incident.
+    // re-empties it fails HERE rather than in an incident. Guest pickup has no
+    // switch of its own; its guest-only off switch is the fulfilment block list.
     const pickup = GUEST_FEATURE_GATE_REGISTER.find((gate) => gate.gate === 'pickup');
-    expect(pickup?.lever).toBe('GUEST_STORE_PICKUP_ENABLED');
+    expect(pickup?.lever).toBe('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS');
+    expect(pickup?.scopes).toEqual(['fulfilment']);
   });
 
   it('the rollback order is defined for every gate', () => {
     for (const gate of GUEST_FEATURE_GATE_REGISTER) {
       expect(gate.rollbackOrder).toBeGreaterThan(0);
     }
-    // Issuance goes off FIRST — it is the only lever that stops the population
-    // growing, and every other lever is more useful while it is off.
-    const issuance = GUEST_FEATURE_GATE_REGISTER.find((gate) => gate.gate === 'session_issuance');
-    expect(issuance?.rollbackOrder).toBe(1);
+    // Guest CHECKOUT goes off FIRST — blocking both platforms halts new guest
+    // orders while every cart and session survives. There is no decommission
+    // lever any more: guest commerce is always on (its keys derive from
+    // MERCARIA_SECRET_KEY), so issuance and the guest cart are STRUCTURAL.
+    const checkout = GUEST_FEATURE_GATE_REGISTER.find((gate) => gate.gate === 'checkout_ui');
+    expect(checkout?.rollbackOrder).toBe(1);
+    const levered = GUEST_FEATURE_GATE_REGISTER.filter((gate) => gate.lever !== null);
+    for (const gate of levered) {
+      expect(gate.rollbackOrder).toBeGreaterThanOrEqual(checkout?.rollbackOrder ?? 0);
+    }
   });
 });
 

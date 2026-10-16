@@ -13,19 +13,13 @@
  * allowed one.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   composeReferralDestination,
   referralRedirectOrigin,
   REFERRAL_ROUTE_PREFIXES,
 } from '../redirect.service.js';
 import { referralDestinationPath } from '../destinations.js';
-
-vi.hoisted(() => {
-  process.env.REFERRAL_LINK_TOKEN_SECRET = 'test-referral-link-secret';
-  process.env.REFERRAL_STATE_SECRET = 'test-referral-state-secret';
-  process.env.REFERRAL_REDIRECT_BASE_URL = 'https://mercaria.co';
-});
 
 describe('referralRedirectOrigin', () => {
   it('is an allow-listed browser origin', () => {

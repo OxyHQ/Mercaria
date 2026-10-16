@@ -114,7 +114,7 @@ Two accounts tried to claim one checkout group. One is legitimate (a household);
 
 Rows past their deadline that still exist. The one failure in this domain invisible from  everywhere else: the system works perfectly while a retention guarantee has quietly  stopped being true.
 
-**What to do:** The one failure in this domain invisible from everywhere else: the system works perfectly while a retention guarantee has quietly stopped being true. Check `GET /governance/retention-runs` for a `failed` pass and `GUEST_RETENTION_JOB_ENABLED`. If the job is running and the lag persists, the batch size is below the arrival rate.
+**What to do:** The one failure in this domain invisible from everywhere else: the system works perfectly while a retention guarantee has quietly stopped being true. Check `GET /governance/retention-runs` for a `failed` pass, and for passes that ran as dry runs only (`mode = dry_run`) — there is no scheduled sweep, so erasure happens only when an operator runs a pass with `dryRun: false`. If applied passes are running and the lag persists, the batch size (`GUEST_RETENTION_BATCH_SIZE`) is below the arrival rate.
 
 
 ## `encryption_failure`
@@ -123,7 +123,7 @@ Rows past their deadline that still exist. The one failure in this domain invisi
 
 A contact could not be sealed or opened. Means a key rotation went wrong, and every  affected order becomes unshippable rather than merely unreadable.
 
-**What to do:** A contact could not be sealed or opened, which makes the affected orders UNSHIPPABLE rather than merely unreadable. Check whether `GUEST_PII_ENCRYPTION_KEY` changed. Do NOT rotate the key while investigating — a second rotation makes the first unrecoverable.
+**What to do:** A contact could not be sealed or opened, which makes the affected orders UNSHIPPABLE rather than merely unreadable. Check whether `MERCARIA_SECRET_KEY` (from which the guest-contact key is derived) changed. Do NOT rotate the key while investigating — a second rotation makes the first unrecoverable.
 
 
 ## `notification_delivery_failure`

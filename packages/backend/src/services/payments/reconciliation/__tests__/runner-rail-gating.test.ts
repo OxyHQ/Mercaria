@@ -89,7 +89,6 @@ describe('which sweeps a deployment can serve', () => {
    */
   it('starts the loop on a deployment with no Stripe', () => {
     expect(config.payments.stripe.enabled).toBe(false);
-    expect(config.payments.reconciliation.enabled).toBe(true);
 
     try {
       startPaymentReconciler();

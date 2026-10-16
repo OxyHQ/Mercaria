@@ -1138,8 +1138,6 @@
         "documentTitle": "Wholesale by Mercaria",
         "title": "何を販売しますか？",
         "subtitle": "カタログから探すか、新しいものを説明してください。",
-        "unavailableTitle": "ガイド付き作成はここでは利用できません",
-        "unavailableBody": "この Mercaria 環境ではカタログ編集サービスが有効になっていないため、ガイド付きフォームはまだ使えません。",
         "useLegacy": "かんたんフォームを使う",
         "createFailed": "下書きを作成できませんでした。",
         "linkFailed": "下書きは作成されましたが、カタログ商品を紐づけできませんでした。ウィザード内でもう一度選べます。",

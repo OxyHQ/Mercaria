@@ -381,10 +381,8 @@ condition domain owns.
 
 ## The public read surface
 
-`GET /taxonomy/categories/*`, nine reads, behind `CATALOG_TAXONOMY_V2_ENABLED`
-(default **false**) — the lever `config/index.ts` already calls *"the extended
-taxonomy READS"* and which until this landed gated only `/navigation`. Mount only:
-every category, alias, redirect and localization stays readable with it off.
+`GET /taxonomy/categories/*`, nine reads, always mounted (ADR 0007 D12's
+`CATALOG_TAXONOMY_V2_ENABLED` lever was removed).
 
 ```text
 GET /taxonomy/categories/roots                             ?locale= &limit= &cursor=

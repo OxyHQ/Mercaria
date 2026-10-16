@@ -166,17 +166,13 @@ describe('four-eyes covers exactly the badge-producing kinds', () => {
       'merchant_official_channel_for_brand',
     ]);
     for (const kind of BADGE_RELATIONSHIP_KINDS) {
-      expect(requiresFourEyes(kind, true)).toBe(true);
+      expect(requiresFourEyes(kind)).toBe(true);
     }
   });
 
   it('does not require it for kinds that produce no public badge', () => {
-    expect(requiresFourEyes('organization_owns_brand', true)).toBe(false);
-    expect(requiresFourEyes('organization_manufactures', true)).toBe(false);
-  });
-
-  it('is a deployment switch, and the switch turns it off', () => {
-    expect(requiresFourEyes('merchant_official_channel_for_brand', false)).toBe(false);
+    expect(requiresFourEyes('organization_owns_brand')).toBe(false);
+    expect(requiresFourEyes('organization_manufactures')).toBe(false);
   });
 });
 
@@ -216,7 +212,7 @@ describe('confidence is not verification (issue field 5)', () => {
     // .length` stops at the first defaulted parameter, which is why
     // `canAutoVerify` — whose rule table is defaulted — reports 1.)
     expect(maxReachableStatus.length).toBe(1);
-    expect(requiresFourEyes.length).toBe(2);
+    expect(requiresFourEyes.length).toBe(1);
     expect(findSufficientEvidence.length).toBe(2);
     expect(canAutoVerify.length).toBe(1);
   });

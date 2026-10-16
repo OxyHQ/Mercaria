@@ -96,13 +96,11 @@ export interface EbayAdapterDeps {
    * `external` rather than `affiliate`, and nothing pretends a commission is
    * being earned.
    *
-   * A FUNCTION, like the two switches below and for their reason: it is read
-   * fresh on every page, so removing a campaign id during an incident takes
+   * A FUNCTION, like the marketplace cohort below and for its reason: it is
+   * read fresh on every page, so removing a campaign id during an incident takes
    * effect on the next page rather than on the next process restart.
    */
   readonly attribution: () => EbayAttribution | null;
-  /** The HARD fetch kill switch. Separate from any display right — see the README. */
-  readonly fetchEnabled: () => boolean;
   /** The marketplaces this deployment may query at all — the rollout cohort. */
   readonly enabledMarketplaces: () => readonly EbayMarketplaceId[];
   /** Reads the process environment for the credential the source's locator names. */
@@ -158,25 +156,6 @@ export function createEbayBrowseAdapter(deps: EbayAdapterDeps): CatalogSourceAda
   async function fetchPage(request: AdapterFetchRequest): Promise<AdapterFetchPage> {
     const now = deps.clock.now();
     const startedAt = Date.now();
-
-    /**
-     * THE HARD FETCH KILL SWITCH.
-     *
-     * Raised as a RETRYABLE outage rather than answered with an empty page. #62
-     * then RELEASES the run — the cursor stays exactly where it was, the source
-     * health is not moved, nothing is retired, and the moment the switch flips
-     * back the queued run resumes from the page it was on. An empty page would
-     * instead close the run as `partial_feed`, which is indistinguishable in the
-     * operator's health read from a feed that truncated, and that is precisely
-     * the distinction an incident needs. The message names the lever.
-     */
-    if (!deps.fetchEnabled()) {
-      throw new CatalogSourceFetchError(
-        'source_outage',
-        'eBay fetching is disabled by EBAY_FETCH_ENABLED',
-        { retryable: true },
-      );
-    }
 
     const credential = resolveEbayCredential(request.credentialRef, deps.env);
     const enabled = deps.enabledMarketplaces();

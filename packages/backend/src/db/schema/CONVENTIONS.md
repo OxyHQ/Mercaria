@@ -2002,9 +2002,9 @@ The decisions:
   copies of one fact can disagree, and the place that must not happen is the
   address a receipt is sent to.
 - **Three forms of one email, three columns, three jobs (ADR 0003 D12).**
-  `email_ciphertext` is AES-256-GCM under `GUEST_PII_ENCRYPTION_KEY`, key-id
+  `email_ciphertext` is AES-256-GCM under the derived `guest-pii-encryption` key, key-id
   prefixed (`v1:…`) so a rotation is re-encryption at read rather than a flag
-  day; `email_hash` is HMAC-SHA-256 under the SEPARATE `GUEST_EMAIL_HASH_KEY`;
+  day; `email_hash` is HMAC-SHA-256 under the SEPARATE derived `guest-email-hash` key;
   `email_redacted` is the only form a support surface renders. **Two keys, on
   purpose:** the lookup path must be able to hash without ever being able to
   decrypt. The keyed hash here is the OPPOSITE decision from
@@ -2529,7 +2529,7 @@ is answerable:
   recipient, line, phone or email column, so the redaction is the SHAPE — the
   `purchase_orders` device taken one step further, because a parcel needs a
   street and a QUOTE does not. `request_fingerprint` (an HMAC under
-  `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY`) is what ties a quote to the destination
+  the derived `supplier-preflight-fingerprint` key) is what ties a quote to the destination
   it was taken for: an auditor recomputes it from a destination they already
   hold. It is PROTECTED for `guest_checkouts.email_hash`'s reason — irreversible
   and still an exact-match ORACLE.
@@ -5579,7 +5579,7 @@ reference: `docs/pickup.md`.
   instant SURVIVES the transition, and `markCollected` coalesces one in for a
   shop that hands over without pressing "ready".
 - **`pickup_collection_credentials` holds a rotation COUNTER and no credential.**
-  The code is `HMAC(PICKUP_COLLECTION_CODE_KEY, order_id || ':' || version)`, so
+  The code is `HMAC(collectionCodeKey, order_id || ':' || version)`, so
   an authorized surface can re-derive it for the buyer as often as they ask, a
   counter verifies by re-deriving and comparing in constant time, a rotation is
   `version + 1`, and a database dump contains nothing that opens anything.
@@ -6749,10 +6749,9 @@ same way.
 
 ### `requires_second_approval` is snapshotted, and the state CHECK is what makes it real
 
-The `catalog_merge_jobs` decision for its reason: the threshold and
-`CATALOG_FOUR_EYES_REQUIRED` both move, and a request whose approval requirement
-changed after somebody approved it would either strand a legitimate change or
-let an unapproved one through.
+The `catalog_merge_jobs` decision for its reason: the threshold can move, and a
+request whose approval requirement changed after somebody approved it would
+either strand a legitimate change or let an unapproved one through.
 
 `..._second_approval_check` refuses a request that needs two people leaving
 `planned` without an approver, and `..._approver_distinct_check` refuses the

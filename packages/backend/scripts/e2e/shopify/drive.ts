@@ -165,7 +165,10 @@ registry.register('shopify client secret', credentialsResult.credentials.clientS
 registry.register('shopify client id', credentialsResult.credentials.clientId);
 registry.register('oxy access token', TOKEN);
 registry.register('connector encryption key', requireEnv('CONNECTOR_ENCRYPTION_KEY'));
-registry.register('connector oauth state secret', requireEnv('CONNECTOR_OAUTH_STATE_SECRET'));
+// The OAuth state key is derived from MERCARIA_SECRET_KEY; redact the root when one is set.
+if (process.env.MERCARIA_SECRET_KEY?.trim()) {
+  registry.register('mercaria secret key', process.env.MERCARIA_SECRET_KEY.trim());
+}
 
 const collector = new EvidenceCollector(registry, EVIDENCE_DIR, `shopify-${phase}`);
 collector.describeEnvironment({
@@ -179,7 +182,7 @@ collector.describeEnvironment({
     'SHOPIFY_CLIENT_ID',
     'SHOPIFY_CLIENT_SECRET',
     'CONNECTOR_OAUTH_REDIRECT_BASE_URL',
-    'CONNECTOR_OAUTH_STATE_SECRET',
+    'MERCARIA_SECRET_KEY',
     'CONNECTOR_ENCRYPTION_KEY',
   ].filter((name) => Boolean(process.env[name]?.trim())),
 });

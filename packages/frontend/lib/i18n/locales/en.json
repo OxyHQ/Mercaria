@@ -1015,7 +1015,6 @@
         "review": "You can write a verified-purchase review of what you bought."
       },
       "blocked": {
-        "unavailable": "Saving orders to an Oxy account is temporarily unavailable. Your order is unaffected and you can still open it from your access link.",
         "inboxNotVerified": "Confirm your email address first. Ask for a new access link and open this page from it.",
         "claimedByAnotherAccount": "These orders are already saved to another Oxy account. Contact support if that is not what you expected — Mercaria will not move them automatically."
       }
@@ -1711,7 +1710,7 @@
     "headTitle": "Shopping agents · Mercaria",
     "title": "Shopping agents",
     "intro": "Things you asked Mercaria to keep an eye on. Each one watches the catalogue and tells you when what you asked for becomes true.",
-    "loadError": "We could not load your shopping agents. Check your connection and try again.",
+    "loadError": "We could not load your shopping agents right now. Your agents are unaffected.",
     "findings": {
       "asking": "Asking for another look…",
       "intro": "Everything this agent has seen, newest first. Older observations stay here even after a later one replaces them.",

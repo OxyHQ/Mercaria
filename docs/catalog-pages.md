@@ -384,10 +384,10 @@ already read.
 
 ## Environment
 
-**None.** This domain adds no flag of its own, deliberately: its two rollout
-levers already exist (#60's `CANONICAL_PUBLIC_ROUTES_ENABLED` for the mount,
-`CANONICAL_READS` for the reads, `CANONICAL_OFFER_COMPARISON` for the offer
-half), and a third would be a second answer to a question those already answer.
+**None.** This domain adds no flag of its own, deliberately: its rollout levers
+already exist (`CANONICAL_READS` for the reads, `CANONICAL_OFFER_COMPARISON` for
+the offer half; the mount is unconditional), and another would be a second
+answer to a question those already answer.
 
 ---
 

@@ -387,23 +387,12 @@ in `app.ts` turns exactly the reachability case red.
 
 ## 10. Environment
 
-`REFERRAL_PARTNER_ENROLLMENT_ENABLED` (default **true**) gates the MOUNT of both
-partner surfaces and nothing durable — `GUEST_SESSION_ISSUANCE_ENABLED`'s exact
-shape: it stops NEW enrollment and every partner-facing enrollment write, and
-touches nothing that exists. The operator review surface is deliberately not
-gated by it, so a queue can be worked through during whatever incident turned it
-off.
-
-Default TRUE where #145's three loop levers default FALSE, and the asymmetry is
-the point: those are timers, and a timer nobody armed does nothing, while this
-gates the only path by which a partner can complete D15's tax gate. Shipping it
-OFF would reproduce exactly the state increment 1 left behind, with the symptom
-being silence.
-
-It is deliberately **not** `REFERRALS_ENABLED`: that lever demands both link
-secrets because the redirect cannot work without them, enrollment reads neither,
-and gating there would forbid the ordinary staged rollout of enrolling partners
-before attribution is switched on.
+There is no switch: both partner surfaces (`/referral-partner` and
+`/admin/stores/:storeId/referral-partner`) and the operator review surface are
+always mounted (the operator surface behind `REFERRAL_OPERATOR_OXY_USER_IDS`).
+They are the only path by which a partner can complete D15's tax gate, so a
+deployment without them would leave tax readiness `pending` for every partner
+and every batch blocked, with the symptom being silence.
 
 ---
 

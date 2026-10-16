@@ -9,11 +9,8 @@
  * nobody could defend.
  *
  * Mounted only when that list is non-empty (404 on a deployment with no
- * operators, never a 401 that would advertise the surface), and it stays mounted
- * while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are off — `/internal/backfill`'s
- * rule: the evidence has to be readable during the incident that turned the
- * fetching off, and reading the budget is exactly what somebody does after
- * flipping the switch.
+ * operators, never a 401 that would advertise the surface). Reading the budget
+ * is exactly what somebody does after pausing an eBay source.
  */
 
 import { Router } from 'express';

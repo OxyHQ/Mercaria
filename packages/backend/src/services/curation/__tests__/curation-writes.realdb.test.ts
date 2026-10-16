@@ -2132,9 +2132,9 @@ describe('#663: resuming a merge job whose blocking condition has cleared', () =
      *
      * `requires_second_approval` is snapshotted at request time precisely so a
      * threshold change cannot retroactively unapprove a job, and the gate under
-     * test reads the COLUMN. Raising `config.catalog.fourEyesRequired` instead
-     * would widen a global bound for every file sharing this database, which is
-     * the hazard `~/Oxy/AGENTS.md` records; this touches one row this file owns.
+     * test reads the COLUMN. Lowering the global threshold instead would widen
+     * a bound for every file sharing this database, which is the hazard
+     * `~/Oxy/AGENTS.md` records; this touches one row this file owns.
      */
     await db
       .update(catalogMergeJobs)
@@ -2265,10 +2265,9 @@ describe('#679: a split blocked on its second approval PARKS instead of spinning
    *
    * `requires_second_approval` is snapshotted at request time precisely so a
    * threshold change cannot retroactively unapprove a job, and the gate under
-   * test reads the COLUMN. Raising `config.catalog.fourEyesRequired` instead
-   * would widen a global bound for every file sharing this database — the
-   * hazard `~/Oxy/AGENTS.md` records — where this touches one row this file
-   * owns. #663's four-eyes case does exactly the same.
+   * test reads the COLUMN. Lowering the global threshold instead would widen a
+   * bound for every file sharing this database — the hazard `~/Oxy/AGENTS.md`
+   * records — where this touches one row this file owns. #663's four-eyes case does exactly the same.
    */
   async function seedFourEyesSplit(label: string) {
     const source = await seedProduct(`679${label}-src`);

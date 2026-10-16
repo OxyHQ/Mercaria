@@ -333,8 +333,8 @@ twice a no-op and applying the wrong one undoable.
 
 ### Four eyes
 
-`CATALOG_FOUR_EYES_REQUIRED` (default on) plus
-`CURATION_LARGE_MERGE_IMPACT_THRESHOLD` (100 moving rows). Two independent
+Always required — four eyes is a safety invariant, not a deployment setting —
+above `CURATION_LARGE_MERGE_IMPACT_THRESHOLD` (100 moving rows). Two independent
 mechanisms:
 
 - `approved_by <> requested_by` — a CHECK, so one person with two sessions
@@ -727,16 +727,12 @@ names.
 
 ```
 CATALOG_OPERATOR_OXY_USER_IDS=      # the gate; empty = not mounted (404)
-CATALOG_FOUR_EYES_REQUIRED=true     # ONE flag, read by #55 and #59 alike
-CURATION_JOBS_ENABLED=true          # gates the LOOP, never the request
 CURATION_JOB_BATCH_SIZE=5
 CURATION_JOB_POLL_INTERVAL_MS=10000
 ```
 
-`CURATION_JOBS_ENABLED` gates the dispatcher and nothing else. An operator may
-still request a merge with it off; the job sits `pending` and runs when it comes
-back. Gating the REQUEST would silently lose work somebody thought they had
-scheduled — the inversion the payment and moderation outboxes already record.
+The curation dispatcher always runs, and four eyes is always required; neither
+has a variable.
 
 ---
 

@@ -247,26 +247,25 @@ metric names `affiliate_reports` as its source and that stays true.
 
 ## Environment
 
-| Variable | Default | What it gates |
+`/out/:token` is always mounted. Its HMAC key is derived from
+`MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets"). The report-poll loop
+always runs; a network with no reader or no registered account answers
+`unavailable` and is skipped. Only tunables remain:
+
+| Variable | Default | What it sets |
 |---|---|---|
-| `OUTBOUND_REDIRECT_ENABLED` | `false` | The `/out` MOUNT. Requires `OUTBOUND_TOKEN_SECRET` (half-configuration rule). |
-| `OUTBOUND_TOKEN_SECRET` | — | HMAC key for the opaque token. |
-| `AFFILIATE_RECONCILIATION_ENABLED` | `false` | The report-poll LOOP only. |
 | `AFFILIATE_CLICK_RETENTION_DAYS` | `400` | The click retention deadline. |
 | `AFFILIATE_REPORT_LOOKBACK_DAYS` | `45` | How far back a scheduled poll asks. |
 | `AFFILIATE_REPORT_POLL_INTERVAL_MS` | `3600000` | Between polls. |
 | `AFFILIATE_REPORT_LEASE_MS` | `300000` | One poll's lease. |
 
-The MOUNT gate is the Stripe-webhook reasoning rather than "gate the loop, never
-the record": the token is signed, so without a secret there is nothing to verify
-and resolving one would be acting on a stranger's opinion about which offer to
-redirect to. **It gates no durable record** — clicks are written BY the route, so
-an unmounted route writes none and no queue can strand. With it off the product
-page renders its existing `redirect_unavailable` branch.
+The route gates no durable record — clicks are written BY the route, so nothing
+can strand in a queue. (`OUTBOUND_REDIRECT_ENABLED`, the mount lever, and the
+product page's `redirect_unavailable` branch it fed were removed; so was
+`AFFILIATE_RECONCILIATION_ENABLED`, the poll loop's.)
 
 The operator surface is on `PAYMENT_OPERATOR_OXY_USER_IDS` and is NOT gated on
-the redirect: a host must be approvable before the redirect is switched on, and
-the evidence must be readable during the incident that switched it off.
+the redirect, so the evidence stays readable during an incident.
 
 ---
 

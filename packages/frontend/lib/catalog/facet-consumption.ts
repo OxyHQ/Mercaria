@@ -7,8 +7,8 @@ import type { useListings } from '@/lib/hooks/use-listings';
  * ## The question this answers, and why it is not "is there a rail"
  *
  * `useFacets` already decides whether a rail EXISTS: `POST /facets` is behind
- * `FACETS_ENABLED`, a 404 leaves `data === undefined`, and a consumer renders
- * nothing. That is a fact about the SERVER.
+ * the catalog rollout-cohort gate, a 404 leaves `data === undefined`, and a
+ * consumer renders nothing. That is a fact about the SERVER.
  *
  * This is the other half and nothing was asking it: given that a rail exists,
  * can the grid underneath it do anything with what a shopper picks? A filter
@@ -58,8 +58,7 @@ import type { useListings } from '@/lib/hooks/use-listings';
  * condition on the screen to find and delete.
  *
  * Neither is wired here, and the reason is that both are gated by
- * `CANONICAL_READS` / `CANONICAL_PUBLIC_ROUTES_ENABLED` / `CANONICAL_SEARCH`,
- * which default OFF — so pointing this grid at one would trade a dead control
+ * `CANONICAL_READS` / `CANONICAL_SEARCH`, which could be OFF — so pointing this grid at one would trade a dead control
  * for an empty page on a default deployment. That is a rollout decision about
  * which catalogue the category page serves, not a repair to this rail.
  */

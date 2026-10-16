@@ -72,8 +72,9 @@ export function isRailConfigured(provider: PaymentProviderId): boolean {
  *
  * Peable outranks Stripe because ADR 0009 makes it the destination: a deployment
  * with both configured is mid-migration, and a checkout opening TODAY should
- * open on the rail the migration is heading to. Turning `PEABLE_ENABLED` off is
- * therefore the complete rollback, with no second switch to remember.
+ * open on the rail the migration is heading to. Removing `PEABLE_WEBHOOK_SECRET`
+ * (which turns Peable off) is therefore the complete rollback, with no second
+ * switch to remember.
  */
 const NATIVE_CHECKOUT_RANK: Record<PaymentProviderId, number | null> = {
   external: null,

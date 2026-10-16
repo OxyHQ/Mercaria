@@ -84,27 +84,18 @@ function guestConfigProperties(): readonly { property: string; declaration: stri
   return properties;
 }
 
-/**
- * A declared lever with no reader, tolerated ONLY while a separate change
- * removes it.
- *
- * `GUEST_RETENTION_JOB_ENABLED` is the lever M8-02 found gating nothing, and
- * the owner's decision is that the loop runs unconditionally — so it is being
- * DELETED, not wired. Until that lands the property is declared and unread,
- * which is exactly what this gate refuses everywhere else. The exemption may
- * only shrink: once the declaration is gone it is not consulted.
- */
-const PENDING_REMOVAL = new Set(['retentionJobEnabled']);
-
 describe('every declared guest lever has a reader (M8-04, M8-02)', () => {
   it('reads a real, non-trivial set of declarations and sources (vacuity floor)', () => {
     const properties = guestConfigProperties();
-    expect(properties.length).toBeGreaterThanOrEqual(30);
+    // 27 at the env-flag removals (#1087–#1093), which deleted the guest
+    // `*_ENABLED` levers and the abuse/dry-run settings this walk used to count.
+    expect(properties.length).toBeGreaterThanOrEqual(27);
     // Positive controls: one lever from each nested block the walk must reach.
     const names = properties.map((entry) => entry.property);
-    expect(names).toContain('issuanceEnabled');
+    expect(names).toContain('sessionIdleDays');
+    expect(names).toContain('messageBatchSize');
     expect(names).toContain('retentionPollIntervalMs');
-    expect(names).toContain('abuseControlsEnabled');
+    expect(names).toContain('signalWindowSeconds');
     expect(sourcesOutsideConfig().length).toBeGreaterThan(500);
   });
 
@@ -113,7 +104,6 @@ describe('every declared guest lever has a reader (M8-04, M8-02)', () => {
       .map((file) => file.text)
       .join('\n');
     const unread = guestConfigProperties()
-      .filter((entry) => !PENDING_REMOVAL.has(entry.property))
       .filter((entry) => !new RegExp(`\\.${entry.property}\\b`).test(corpus))
       .map((entry) => `${entry.property} (${entry.declaration})`);
     // `retentionPollIntervalMs` was on this list at the review's revision: the

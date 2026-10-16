@@ -10,11 +10,12 @@
  *
  * ## Env is set BEFORE any import
  *
- * `config/index.ts` freezes at module load. Note what is NOT set here:
- * `GUEST_COMMERCE_ENABLED` is left at its default OFF, deliberately, because
- * the portal must be reachable on a deployment where guest commerce has been
- * switched off — #108 acceptance 10 and ADR 0003 M8. If this file ever needs to
- * turn it on to make the portal answer, that is the regression.
+ * `config/index.ts` freezes at module load. Guest commerce has no switch: it
+ * is on exactly when both M8 keys resolve, and both are derived from
+ * `MERCARIA_SECRET_KEY`, so it is always on and nothing about it is set here.
+ * #108 acceptance 10 — the portal stays reachable with guest commerce off — no
+ * longer has an off deployment to run on; `guest-portal-isolation.test.ts`
+ * still fails the build if a portal read path starts reading the gate.
  *
  * ## Under NODE_ENV=test the DEV cookie profile is active
  *
@@ -40,10 +41,6 @@ let portalCookieProfile: typeof import('../../middleware/guest-portal.js').porta
 let ACKNOWLEDGEMENT: string;
 
 beforeAll(async () => {
-  // The two keys the recovery path needs to hash an address at all. NOT
-  // `GUEST_COMMERCE_ENABLED` — see the module docblock.
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'c'.repeat(64);
-  process.env.GUEST_EMAIL_HASH_KEY = 'd'.repeat(64);
   process.env.GUEST_MAGIC_LINK_BASE_URL = 'https://mercaria.co/guest-orders/portal';
 
   const { createApp } = await import('../../app.js');
@@ -247,17 +244,9 @@ describe('the authenticated surface refuses an absent credential uniformly', () 
   });
 });
 
-describe('the portal is reachable with guest commerce OFF (acceptance 10)', () => {
-  it('the router is mounted — refusals come from the credential, never from a 404 mount', async () => {
-    const { config } = await import('../../config/index.js');
-    // The premise, asserted rather than assumed: this whole file runs on a
-    // deployment where guest commerce is off.
-    expect(config.guest.enabled).toBe(false);
-
-    // The guest SESSION surface is unmounted, which is what a gated mount looks
-    // like...
-    expect((await fetch(`${baseUrl}/guest/session`)).status).toBe(404);
-    // ...and the PORTAL is not. 202 and 401 are answers from the handlers.
+describe('the portal router is mounted (acceptance 10)', () => {
+  it('refusals come from the credential, never from a 404 mount', async () => {
+    // 202 and 401 are answers from the handlers.
     expect((await post('/guest/orders/recover', { email: 'a@example.com' })).status).toBe(202);
     expect((await fetch(`${baseUrl}/guest/orders/session`)).status).toBe(401);
   });

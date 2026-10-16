@@ -18,9 +18,8 @@ import type { CatalogBackfillRunStatus, CatalogBackfillStage } from '@mercaria/s
 
 /**
  * Every whole-catalogue stage, in dependency order. `search_reindex` is left out
- * on purpose: it only enqueues requests for #61's consumer while
- * `CANONICAL_SEARCH_INDEXING_ENABLED` is on, and `/search` reads the canonical
- * tables directly.
+ * on purpose: it only enqueues requests for #61's consumer, which has not
+ * landed, and `/search` reads the canonical tables directly.
  */
 export const AUTOPILOT_STAGE_SEQUENCE: readonly CatalogBackfillStage[] = [
   'store_merchants',

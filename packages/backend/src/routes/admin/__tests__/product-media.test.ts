@@ -11,16 +11,6 @@ vi.mock('../../../capabilities/oxy-service-client.js', () => ({
     serviceToken: async () => 'isolated-service-token',
   }),
 }));
-const flags = vi.hoisted(() => ({ video: false }));
-vi.mock('../../../config/index.js', () => ({
-  config: {
-    catalog: {
-      get videoWritesEnabled() {
-        return flags.video;
-      },
-    },
-  },
-}));
 const originalFetch = globalThis.fetch;
 const upstream = vi.fn();
 let server: Server;
@@ -46,7 +36,6 @@ beforeAll(async () => {
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
 beforeEach(() => {
-  flags.video = false;
   upstream
     .mockReset()
     .mockResolvedValue(
@@ -114,11 +103,8 @@ it.each([
   expect((await send(png)).status).toBe(502);
 });
 
-it('gates new MP4 uploads, derives the owner from store authority and verifies the Oxy kind', async () => {
+it('accepts MP4 uploads, derives the owner from store authority and verifies the Oxy kind', async () => {
   const mp4 = Buffer.from('00000018667479706d703432000000006d70343269736f6d', 'hex');
-  expect((await send(mp4, 'video/mp4')).status).toBe(503);
-  expect(upstream).not.toHaveBeenCalled();
-  flags.video = true;
   expect((await send(mp4, 'video/mp4', 'read')).status).toBe(403);
   expect(upstream).not.toHaveBeenCalled();
   upstream.mockResolvedValueOnce(

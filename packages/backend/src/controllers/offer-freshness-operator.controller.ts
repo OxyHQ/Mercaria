@@ -23,9 +23,9 @@
  *   to catch. A corrected run replaces it, on the record.
  * - **No delete, anywhere.** A quarantine finding, a policy version and a
  *   refresh task are all evidence. Resolution ADDS a verdict beside the finding.
- * - **No flag write.** `OFFER_REFRESH_ENABLED` is read at boot, and a route
- *   that changed it at runtime would make "what was this deployment doing at
- *   14:00" unanswerable from configuration.
+ * - **No runtime switch.** The refresh loop always runs, and a route that
+ *   paused it at runtime would make "what was this deployment doing at 14:00"
+ *   unanswerable from configuration.
  */
 
 import type { Request, Response } from 'express';

@@ -12,7 +12,9 @@
  * migration runner and a test that only wanted the normalizer.
  *
  * `registerEbayBrowseAdapter` is therefore called ONCE, from the application
- * bootstrap, and it is a no-op when `EBAY_ENABLED` is false. #62's registry
+ * bootstrap. Registering it fetches nothing by itself: a run needs a configured
+ * `ebay_browse` source, its credential and its reviewed rights, and pausing the
+ * source (`POST /internal/ingestion/sources/:id/status`) stops it. #62's registry
  * refuses a second registration for one slug rather than replacing it, so a
  * double call throws at bootstrap where it is cheapest to find.
  *
@@ -111,7 +113,6 @@ export function ebayAdapterDeps(): EbayAdapterDeps {
     clock: { now: () => new Date() },
     environment: config.ebay.environment,
     attribution: resolveEbayAttribution,
-    fetchEnabled: () => config.ebay.fetchEnabled,
     enabledMarketplaces: () => config.ebay.markets,
     env: process.env,
     /**
@@ -132,23 +133,14 @@ export function ebayAdapterDeps(): EbayAdapterDeps {
   };
 }
 
-/**
- * Register the eBay adapter, if this deployment has it enabled.
- *
- * Called once from the bootstrap. A no-op with `EBAY_ENABLED=false`, which is
- * the default and which leaves every eBay source configurable, reviewable and
- * refusing its runs with `adapter_missing` — #62's seam that fails closed and
- * reports why.
- */
+/** Register the eBay adapter. Called once from the bootstrap. */
 export function registerEbayBrowseAdapter(): void {
-  if (!config.ebay.enabled) return;
   registerCatalogSourceAdapter(createEbayBrowseAdapter(ebayAdapterDeps()));
   log.general.info(
     {
       environment: config.ebay.environment,
       markets: config.ebay.markets,
       attribution: config.ebay.attributionEnabled,
-      fetchEnabled: config.ebay.fetchEnabled,
     },
     '[eBay] Browse catalog source adapter registered',
   );

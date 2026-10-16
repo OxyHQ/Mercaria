@@ -54,7 +54,6 @@ import type {
   SupplierPreflightDestination,
   SupplierPreflightFailureKind,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
@@ -431,7 +430,6 @@ async function collectGateReasons(
 ): Promise<SupplierPreflightBlockReason[]> {
   const reasons: SupplierPreflightBlockReason[] = [];
 
-  if (!config.supplierPreflight.enabled) reasons.push('preflight_disabled');
   if (!context.hasPolicy) reasons.push('sourcing_policy_missing');
   if (context.supplierStatus !== 'active' || context.accountState !== 'active') {
     reasons.push('account_not_active');

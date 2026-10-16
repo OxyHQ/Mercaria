@@ -1015,7 +1015,6 @@
         "review": "Du kannst eine Bewertung als verifizierter Käufer zu deinem Kauf schreiben."
       },
       "blocked": {
-        "unavailable": "Das Sichern von Bestellungen in einem Oxy-Konto ist vorübergehend nicht verfügbar. Deine Bestellung ist nicht betroffen und du kannst sie weiterhin über deinen Zugangslink öffnen.",
         "inboxNotVerified": "Bestätige zuerst deine E-Mail-Adresse. Fordere einen neuen Zugangslink an und öffne diese Seite darüber.",
         "claimedByAnotherAccount": "Diese Bestellungen sind bereits in einem anderen Oxy-Konto gesichert. Wende dich an den Support, wenn das nicht deinen Erwartungen entspricht — Mercaria verschiebt sie nicht automatisch."
       }
@@ -1711,7 +1710,7 @@
     "headTitle": "Einkaufsagenten · Mercaria",
     "title": "Einkaufsagenten",
     "intro": "Dinge, die Mercaria für dich im Auge behalten soll. Jeder Agent beobachtet den Katalog und sagt dir Bescheid, sobald zutrifft, worum du gebeten hast.",
-    "loadError": "Wir konnten deine Einkaufsagenten nicht laden. Prüfe deine Verbindung und versuche es erneut.",
+    "loadError": "Wir konnten deine Einkaufsagenten gerade nicht laden. Deine Agenten sind davon nicht betroffen.",
     "findings": {
       "asking": "Es wird noch einmal nachgesehen …",
       "intro": "Alles, was dieser Agent gesehen hat, das Neueste zuerst. Ältere Beobachtungen bleiben hier, auch wenn eine spätere sie ersetzt.",

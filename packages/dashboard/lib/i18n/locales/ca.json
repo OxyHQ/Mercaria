@@ -1156,8 +1156,6 @@
         "documentTitle": "Wholesale by Mercaria",
         "title": "Què vols vendre?",
         "subtitle": "Cerca'l al catàleg o descriu-ne un de nou.",
-        "unavailableTitle": "La creació guiada no està disponible aquí",
-        "unavailableBody": "Aquest desplegament de Mercaria no ha activat el servei d'autoria del catàleg, així que el formulari guiat encara no es pot fer servir.",
         "useLegacy": "Fes servir el formulari senzill",
         "createFailed": "No s'ha pogut crear l'esborrany.",
         "linkFailed": "L'esborrany s'ha creat, però no s'ha pogut vincular el producte del catàleg. El pots triar un altre cop dins l'assistent.",

@@ -160,7 +160,7 @@ vi.mock('../../lib/redis.js', () => ({
 }));
 
 // The payment-readiness gate's data source, mocked only so its ABSENCE of calls
-// can be asserted. This suite runs with the Stripe rail OFF (no STRIPE_ENABLED),
+// can be asserted. This suite runs with the Stripe rail OFF (no Stripe secrets),
 // which is the branch every other test in this file implicitly depends on: the
 // gate must not query, must not reach Postgres, and must not change a single
 // existing behaviour. The ON branch lives in `checkout.payment-gate.test.ts`,

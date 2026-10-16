@@ -375,24 +375,3 @@ function emptyToNull(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed === undefined || trimmed === '' ? null : trimmed;
 }
-
-/**
- * Refuse a publication that offers collection this deployment cannot complete.
- *
- * Exported and called from the checkout gate rather than only at publish time,
- * because `PICKUP_COLLECTION_CODE_KEY` can be removed from a running
- * deployment: a location published while it was configured must stop admitting
- * collections the moment it is not, and a check that only ran on the merchant's
- * form would not notice.
- */
-export function assertCollectionRequirementServable(
-  identityRequirement: string,
-  codesAvailable: boolean,
-): void {
-  if (identityRequirement === 'order_number_only') return;
-  if (codesAvailable) return;
-  throw conflict(
-    'Collection codes are not configured on this deployment, so a collection that requires ' +
-      'one cannot be completed.',
-  );
-}

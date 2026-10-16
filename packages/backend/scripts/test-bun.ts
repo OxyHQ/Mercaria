@@ -52,6 +52,11 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/capabilities/__tests__/mercaria-handlers.test.ts',
     'src/capabilities/__tests__/oxy-service-client.test.ts',
     'src/config/__tests__/billing-cohort.test.ts',
+    // These two re-derive the frozen `config` under a stubbed environment
+    // (vi.resetModules + vi.stubEnv), so each case is a fresh import of
+    // config/index.ts; derived-commerce-gates also re-imports a consumer.
+    'src/config/__tests__/derived-commerce-gates.test.ts',
+    'src/config/__tests__/node-env.test.ts',
     'src/connectors/shopify/__tests__/shopify-contract.test.ts',
     'src/connectors/woocommerce/__tests__/woocommerce-contract.test.ts',
     'src/controllers/__tests__/referral-program-operator-list.test.ts',

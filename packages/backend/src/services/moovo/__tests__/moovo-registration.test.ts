@@ -12,19 +12,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const BASE_ENV: Record<string, string> = {
-  MOOVO_ENABLED: 'true',
   MOOVO_BASE_URL: 'https://api.moovo.now',
   MOOVO_RESOURCE_APPLICATION_ID: 'app_moovo_123',
   MOOVO_ENVIRONMENT: 'production',
+  // A production-shaped config refuses to load without the root secret.
+  MERCARIA_SECRET_KEY: 'a'.repeat(64),
 };
 
 const TOUCHED = [
-  'MOOVO_ENABLED',
   'MOOVO_BASE_URL',
   'MOOVO_RESOURCE_APPLICATION_ID',
   'MOOVO_ENVIRONMENT',
   'MOOVO_SCOPES',
   'NODE_ENV',
+  'MERCARIA_SECRET_KEY',
 ];
 
 let saved: Record<string, string | undefined> = {};
@@ -59,12 +60,24 @@ async function loadDomain() {
 }
 
 describe('#156 §"Environment and readiness" — a misconfiguration is a HARD failure', () => {
-  it('is silent and installs nothing when disabled — the shipped default', async () => {
-    setEnv({ MOOVO_ENABLED: 'false', MOOVO_BASE_URL: undefined });
+  it('is silent and installs nothing when unconfigured — every deployment today', async () => {
+    setEnv({
+      MOOVO_BASE_URL: undefined,
+      MOOVO_RESOURCE_APPLICATION_ID: undefined,
+      MOOVO_ENVIRONMENT: undefined,
+    });
     const domain = await loadDomain();
 
     expect(() => domain.registerMoovoClient()).not.toThrow();
     expect(domain.isMoovoBookingAvailable()).toBe(false);
+  });
+
+  it('refuses a PARTIAL configuration by name instead of reading it as unconfigured', async () => {
+    setEnv({ MOOVO_BASE_URL: undefined, MOOVO_RESOURCE_APPLICATION_ID: undefined });
+    const domain = await loadDomain();
+
+    expect(domain.moovoClientConfigured()).toBe(true);
+    expect(() => domain.registerMoovoClient()).toThrow(/MOOVO_BASE_URL is required/);
   });
 
   it('refuses a missing resource application id, naming it', async () => {
@@ -155,8 +168,12 @@ describe('#156 — a configured client with no transport is NOT registered', () 
     domain.resetMoovoLogisticsPort();
   });
 
-  it('a disabled deployment does not register even with a transport present', async () => {
-    setEnv({ MOOVO_ENABLED: 'false' });
+  it('an unconfigured deployment does not register even with a transport present', async () => {
+    setEnv({
+      MOOVO_BASE_URL: undefined,
+      MOOVO_RESOURCE_APPLICATION_ID: undefined,
+      MOOVO_ENVIRONMENT: undefined,
+    });
     const domain = await loadDomain();
     domain.registerMoovoTransport({
       registerTrackingOnlyTransport: () =>

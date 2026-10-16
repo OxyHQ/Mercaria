@@ -45,6 +45,10 @@ bun run test    # Vitest
 
 Copy `packages/backend/.env.example` to `packages/backend/.env` and fill in:
 
+- Runtime: `NODE_ENV` (required — `production`, `development` or `test`; the
+  server refuses to boot without it. `bun run dev` sets `development`, the
+  production image sets `production`. The mock payment rail exists only under
+  `development`/`test`.)
 - Server/CORS: `PORT`, `WEB_URL`
 - PostgreSQL: `DATABASE_URL` (required — the config refuses to load without it)
 - Oxy: `OXY_API_URL`

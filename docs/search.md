@@ -496,9 +496,9 @@ this is it. A realdb test asserts the statement still contains `<->`, because
 ## Rollout
 
 `CANONICAL_SEARCH` is a SEVENTH canonical read lever (`off | shadow | on`),
-beside `CANONICAL_READS`, `CANONICAL_OFFER_COMPARISON`,
-`CANONICAL_PUBLIC_ROUTES_ENABLED`, `CANONICAL_READ_COHORTS` and the two write
-levers. It is the **one that defaults `off`**, and that is the read levers' rule
+beside `CANONICAL_READS`, `CANONICAL_OFFER_COMPARISON` and
+`CANONICAL_READ_COHORTS` (the public-routes and two write levers it once sat
+beside have been removed; those are always on). It is the **one that defaults `off`**, and that is the read levers' rule
 rather than an exception to it: they default to TODAY'S BEHAVIOUR, and today's
 behaviour for `GET /search` is that it does not exist.
 

@@ -56,12 +56,13 @@
  *
  * ## Why no feature lever gates it
  *
- * None of ADR 0010 D13's five levers is consulted, deliberately. A licence row
- * sells nothing, grants nothing and authorizes no download — the levers gate
- * uploads, publication, paid checkout, downloads and a vertical — and D15
+ * No ADR 0010 D13 control is consulted, deliberately. A licence row sells
+ * nothing, grants nothing and authorizes no download — the controls gate paid
+ * checkout, a vertical and the creator upload mount — and D15
  * requires the tax, provider and consumer-law sign-offs to happen BEFORE
- * `DIGITAL_PAID_CHECKOUT_ENABLED` goes on for a market. A seed that refused to
- * run until that flag was on would make preparing the licence catalogue
+ * a vertical is added to `DIGITAL_ENABLED_VERTICALS`, which is what opens paid
+ * checkout for it. A seed that refused to run until that was done would make
+ * preparing the licence catalogue
  * impossible until after the thing it is a prerequisite for.
  *
  * ## What it deliberately does NOT create

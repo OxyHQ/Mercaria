@@ -291,7 +291,7 @@ export const CANCELLATION_INELIGIBILITY_REASONS = [
   'order_already_dispatched',
   /** Already cancelled or fully refunded. There is nothing left to do. */
   'order_already_closed',
-  /** A pickup order, while `STORE_PICKUP_ENABLED` is off in this deployment. */
+  /** A pickup order: buyer-driven cancellation of a collection is not modelled (#110). */
   'pickup_not_supported',
   /** An imported connector order whose lifecycle Mercaria does not drive. */
   'external_order',

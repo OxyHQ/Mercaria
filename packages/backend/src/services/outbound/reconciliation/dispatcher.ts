@@ -1,12 +1,10 @@
 /**
  * The reconciliation loop (#67).
  *
- * `AFFILIATE_RECONCILIATION_ENABLED` gates the LOOP and NEVER a durable record.
- * Turning it off stops Mercaria asking networks what they owe; it cannot delete
- * a transaction, an observation or a posting, and turning it back on drains
- * whatever the networks accumulated meanwhile — the lookback is 45 days, so a
- * pass after an outage re-reads the whole window rather than resuming from a
- * cursor that could have been left mid-page.
+ * The loop runs on every deployment; a network with no reader or no registered
+ * account answers `unavailable` and the pass moves on. A pass after an outage
+ * re-reads the whole window — the lookback is 45 days — rather than resuming
+ * from a cursor that could have been left mid-page.
  *
  * There is deliberately no per-network flag. The eBay half already fails closed
  * on its own terms (`ebay.ts`), and a second lever whose only reachable effect
@@ -67,8 +65,6 @@ export async function runAffiliateReconciliationTick(
 
 /** Start the loop on this task. See the module docblock. */
 export function startAffiliateReconciliationDispatcher(): void {
-  if (!config.affiliateOutbound.reconciliationEnabled) return;
-
   const leaseOwner = `affiliate-reconciliation-${randomUUID()}`;
   const timer = setInterval(
     () => {

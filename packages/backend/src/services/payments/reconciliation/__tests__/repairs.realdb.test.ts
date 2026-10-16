@@ -146,7 +146,6 @@ beforeAll(async () => {
   // Set BEFORE importing anything that reads config — `config/index.ts` reads
   // process.env once at module load and freezes the result, and vitest reuses a
   // worker PROCESS across files, so a sibling's write survives into this one.
-  process.env.STRIPE_ENABLED = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_repairs_not_a_real_one';
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_repairs_connect';

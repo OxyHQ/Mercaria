@@ -12,10 +12,7 @@
  * with different remits could each half-configure one rail.
  *
  * Empty list = the router is not MOUNTED at all (404, never a 401 that would
- * advertise the surface exists), and it stays mounted while
- * `OUTBOUND_REDIRECT_ENABLED` is off — the evidence has to be readable during
- * the incident that turned the redirect off, and a host has to be approvable
- * BEFORE the redirect is switched on.
+ * advertise the surface exists).
  *
  * ## Four routes, and the omissions are the design
  *

@@ -35,13 +35,12 @@ const decryptSecret = vi.fn();
 const enqueueConnectionWebhookReregister = vi.fn();
 
 /**
- * The flag + tunables the service reads; mutated per case.
+ * The tunables the service reads; mutated per case.
  *
  * `vi.hoisted` because a `vi.mock` factory runs before the module body, so a plain
  * top-level const is not initialized when the factory closes over it.
  */
 const connectorsConfig = vi.hoisted(() => ({
-  webhookReregistrationEnabled: true,
   webhookReregistrationBatchSize: 7,
   webhookReregistrationLeaseMs: 120_000,
 }));
@@ -193,7 +192,6 @@ function reconciled(failures: { topic: string; reason: string }[] = []) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  connectorsConfig.webhookReregistrationEnabled = true;
   connectorsConfig.webhookReregistrationBatchSize = 7;
   findConnection.mockResolvedValue(connection());
   claimConnectionWebhookRegistration.mockImplementation(
@@ -459,17 +457,7 @@ describe('#262 re-registration — the secret is REUSED, never rotated', () => {
   });
 });
 
-describe('#262 sweep — the LOOP is gated and nothing else', () => {
-  it('reads NOTHING and calls no platform when the sweep is disabled', async () => {
-    connectorsConfig.webhookReregistrationEnabled = false;
-
-    await sweepConnectionWebhookRegistrations();
-
-    expect(findConnectionsNeedingWebhookRegistration).not.toHaveBeenCalled();
-    expect(claimConnectionWebhookRegistration).not.toHaveBeenCalled();
-    expect(registerWebhooks).not.toHaveBeenCalled();
-  });
-
+describe('#262 sweep', () => {
   it('bounds the pass by the configured batch size', async () => {
     findConnectionsNeedingWebhookRegistration.mockResolvedValue([]);
 

@@ -366,33 +366,29 @@ spread — so a column added later cannot arrive at a public API by inheritance.
 `publisher_direct`, because that is a claim about authorization that belongs in the
 canonical commerce graph behind evidence (ADR 0002), not in a procurement rider.
 
-### D14. Five levers, independent, and the incident lever defaults ON
+### D14. No deployment levers; the kill switches are rows
 
-Mirroring ADR 0010 D13 exactly, and for its reason:
+*Amended 2026-10-16:* the five `DIGITAL_RETAIL_*_ENABLED` switches this decision
+originally listed were removed when the owner retired every `*_ENABLED` flag a
+finished feature does not need. What holds the domain now:
 
-| Variable | Default | Stops |
-|---|---|---|
-| `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED` | off | pulling supplier catalogues |
-| `DIGITAL_RETAIL_PUBLICATION_ENABLED` | off | an offer becoming publishable |
-| `DIGITAL_RETAIL_CHECKOUT_ENABLED` | off | buying |
-| `DIGITAL_RETAIL_PROCUREMENT_ENABLED` | off | submitting anything to a supplier |
-| `DIGITAL_RETAIL_REVEAL_ENABLED` | **on** | revealing an artifact a buyer already owns |
+| Control | Stops |
+|---|---|
+| the retail entry gate (`config.retail.enabled`; `MERCARIA_RETAIL_ENABLED` was removed 2026-10-16 — it is on when the retail seller and operators are configured) | buying — digital-retail checkout is not wired yet (#57), and when it is, it is gated here |
+| a resolvable `DIGITAL_RETAIL_SEAL_KEY_REFERENCE` | submitting anything to a supplier — a deployment that cannot seal what it buys procures nothing |
 
-`revealEnabled` is the only lever that reaches something a buyer already holds,
-which is exactly why it defaults on: the thing you reach for mid-incident must not
-be the thing that destroys what buyers hold. Turning it off refuses new reveals and
-leaves every fulfilment intact.
+Catalogue sync, offer composition and reveal have no switch: nothing pulls a
+catalogue yet, nothing public composes an offer until #57, and a reveal is
+authorized by the buyer's own fulfilment alone.
 
-These are deployment levers. They do NOT replace the per-row kill switches — the
-account's `state = 'killed'`, the capability's own pause — because an incident is
-usually about ONE supplier and a deployment lever cannot be that precise. The epic
-requires eleven independent kill switches; five are environment, the rest are rows.
+The per-row kill switches — the account's `state = 'killed'`, the capability's own
+pause — are what an incident about ONE supplier reaches for, because a deployment
+lever cannot be that precise.
 
 ### D15. Disabling new sales never strands an existing purchase
 
-Every lever above gates an ACQUISITION path. None of them gates the library, the
-reveal of an artifact already sold (except the incident lever, deliberately), the
-support view or the refund path. This is ADR 0010 D13's rule restated for a domain
+Every control above gates an ACQUISITION path. None of them gates the library, the
+reveal of an artifact already sold, the support view or the refund path. This is ADR 0010 D13's rule restated for a domain
 where the consequence is worse: a buyer whose key is dark has paid for something
 they cannot use, and a supplier pause is not their fault.
 
@@ -443,7 +439,7 @@ distinction before a policy can be written against it.
 So `digital_retail_tax_classes` is a closed set on the offer and on the order
 snapshot, and this ADR asserts no rate, no threshold and no jurisdictional
 conclusion. A market whose treatment is unresolved does not launch — the checkout
-lever is per deployment and the sign-offs are recorded in `HANDOFF.md`, as ADR 0010
+gate (the retail entry gate) is per deployment and the sign-offs are recorded in `HANDOFF.md`, as ADR 0010
 D15 already requires for paid digital checkout.
 
 ## What Phase A ships, and what it deliberately does not

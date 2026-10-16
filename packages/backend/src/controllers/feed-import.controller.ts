@@ -61,7 +61,6 @@ import { resolveFeedImport } from '../services/feed-import/resolve.js';
 import { sanitizeUploadFilename, stageUploadedFeed } from '../services/feed-import/upload.js';
 import {
   conflict,
-  forbidden,
   notFound,
   respondWithError,
   validationError,
@@ -762,11 +761,4 @@ export async function traceFeedHandler(req: Request, res: Response): Promise<voi
  */
 export function feedUrlHost(url: string | null): string | null {
   return redactFeedUrl(url);
-}
-
-/** A guard the routers use so an unmounted surface is never half-mounted. */
-export function assertFeedImportEnabled(): void {
-  if (!config.feedImport.enabled) {
-    throw forbidden('The feed importer is not enabled on this deployment.');
-  }
 }

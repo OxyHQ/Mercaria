@@ -3,6 +3,7 @@ import http from 'node:http';
 import { connectPostgres } from './db/postgres.js';
 import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';
+import { assertKnownNodeEnv } from './config/index.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
 import { registerSizeSystemConceptRegistry } from './services/canonical/size-system-registry.js';
@@ -13,6 +14,13 @@ import { initSocket } from './socket.js';
 // Bun loads `.env` from the working directory before any module runs, and every
 // script that starts this server (`dev`, `start`) runs in packages/backend, so it
 // reads packages/backend/.env. Variables already in the environment win.
+
+// Refuse an unset or unknown NODE_ENV before anything else starts: the mock
+// payment rail exists exactly when NODE_ENV says "not production", so an image
+// started without it must not boot. It THROWS at module top level, which exits
+// the process non-zero with the message on stderr — synchronously, so no async
+// log transport can swallow it. See `assertKnownNodeEnv`.
+assertKnownNodeEnv();
 
 // Publish the size-system code registry to the external-mapping resolver
 // (#367 Workstream 11), closing `concept-registry.port.ts`'s `size_system`
@@ -153,19 +161,15 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Payment outbox dispatcher import failed'));
 
       // Converge native offers (#57). The third dispatcher, on the same lease
-      // shape as the two above and gated the same way — a catalogue write keeps
-      // enqueuing while `OFFER_MATERIALIZATION_ENABLED` is off, so switching it
-      // on drains the backlog rather than stranding it. Unlike the two above,
-      // its jobs are a FIXED POINT rather than a delivery: one row per listing,
-      // and running it twice changes nothing the second time.
+      // shape as the two above. Unlike them, its jobs are a FIXED POINT rather
+      // than a delivery: one row per listing, and running it twice changes
+      // nothing the second time.
       import('./services/offers/offer-outbox-dispatcher.js')
         .then(({ startOfferOutboxDispatcher }) => startOfferOutboxDispatcher())
         .catch((err) => log.general.error({ err }, 'Offer outbox dispatcher import failed'));
 
       // Evaluate queued matching subjects (#58). On EVERY task, same lease
-      // shape. The LOOP is gated by `MATCH_PIPELINE_ENABLED` and the queue never
-      // is, so requests taken while matching is paused drain once it is switched
-      // on. This is the loop that closes #57's `native_listing_links` seam: an
+      // shape. This is the loop that closes #57's `native_listing_links` seam: an
       // automatic match writes the attachment and asks the offer converger to
       // run, which is how a native listing becomes a native offer end to end.
       import('./services/matching/match-queue-dispatcher.js')
@@ -173,39 +177,30 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Match queue dispatcher import failed'));
 
       // Page open catalogue-backfill runs (#60). On EVERY task, same lease
-      // shape. The LOOP is gated by `CANONICAL_GRAPH_ENABLED` and the run rows
-      // never are, so an operator can open a run while the loop is off and it
-      // resumes from its cursor once the flag goes on. A canary rollout does not
-      // use this loop at all — it pages by hand from `/internal/backfill` — so
-      // this exists for the unattended remainder and for resuming after a
-      // deploy.
+      // shape. A canary rollout does not use this loop at all — it pages by hand
+      // from `/internal/backfill` — so this exists for the unattended remainder
+      // and for resuming after a deploy.
       import('./services/backfill/backfill-dispatcher.js')
         .then(({ startCatalogBackfillDispatcher }) => startCatalogBackfillDispatcher())
         .catch((err) => log.general.error({ err }, 'Catalog backfill dispatcher import failed'));
       // Run operator merge and split jobs (#59). On EVERY task, same lease
-      // shape. The LOOP is gated by `CURATION_JOBS_ENABLED` and the REQUEST
-      // never is, so a merge an operator scheduled while the loop was off runs
-      // when it comes back — the outbox inversion, applied to a job an operator
-      // is waiting on. A job BLOCKED on an undecided conflict is deliberately
-      // not claimable: retrying a judgement only a person can make would spin
-      // this loop and bury real faults among things waiting for review.
+      // shape. A job BLOCKED on an undecided conflict is deliberately not
+      // claimable: retrying a judgement only a person can make would spin this
+      // loop and bury real faults among things waiting for review.
       import('./services/curation/curation-dispatcher.js')
         .then(({ startCurationDispatcher }) => startCurationDispatcher())
         .catch((err) => log.general.error({ err }, 'Curation dispatcher import failed'));
       // Schedule and page external ingestion runs (#62). On EVERY task, same
       // lease shape, and TWO claims rather than one: a source lease says which
       // task feeds a source, a run lease says which task is driving the current
-      // pass, and a pass outlives a tick. The LOOP is gated by
-      // `CATALOG_INGESTION_ENABLED` and neither the source configuration, its
-      // reviewed policy nor an open run ever is, so turning the flag on drains
-      // the backlog rather than stranding it.
+      // pass, and a pass outlives a tick. A source's own `paused` status is the
+      // runtime kill switch; there is no deployment-wide flag.
       import('./services/ingestion/ingest-dispatcher.js')
         .then(({ startCatalogIngestionDispatcher }) => startCatalogIngestionDispatcher())
         .catch((err) => log.general.error({ err }, 'Catalog ingestion dispatcher import failed'));
       // Keep the comparator's pipeline running with nobody at the console: the
       // baseline matching policy, the open-data sources declared in code, and
-      // one whole-catalogue backfill cycle after another. Each half behind the
-      // lever that already governs it (ingestion; the canonical graph).
+      // one whole-catalogue backfill cycle after another.
       import('./services/catalog-autopilot/autopilot.js')
         .then(({ startCatalogAutopilot }) => startCatalogAutopilot())
         .catch((err) => log.general.error({ err }, 'Catalog autopilot import failed'));
@@ -213,8 +208,8 @@ connectPostgres()
       // Turn refresh TASKS into ingestion RUNS (#68). On EVERY task, with the
       // same lease shape: a claim is `FOR UPDATE SKIP LOCKED` with an owner
       // check, so N tasks share one queue and a dead task's lease is
-      // reclaimed. `OFFER_REFRESH_ENABLED` gates the LOOP and nothing durable —
-      // an alert raised while it is off is served when it comes back.
+      // reclaimed. A task is a durable row, so one raised during a deploy is
+      // served when the loop comes back.
       import('./services/offer-freshness/refresh-dispatcher.js')
         .then(({ startOfferRefreshDispatcher }) => startOfferRefreshDispatcher())
         .catch((err: unknown) =>
@@ -222,40 +217,34 @@ connectPostgres()
         );
 
       // Retire offers whose source's own policy has lapsed, WITH its outage
-      // grace (#68). Turning this off cannot make a stale offer visible: the
-      // freshness verdict is derived at read time against the live policy, so
-      // the sweep only decides when the durable retirement is written down.
+      // grace (#68). The freshness verdict is derived at read time against the
+      // live policy, so the sweep only decides when the durable retirement is
+      // written down; it deletes nothing.
       import('./services/offer-freshness/expiry-sweep.js')
         .then(({ startOfferExpirySweep }) => startOfferExpirySweep())
         .catch((err: unknown) => log.general.error({ err }, 'Offer expiry sweep import failed'));
 
       // Keep derived price series in agreement with the observations behind
-      // them (#78). `PRICE_HISTORY_ENABLED` gates the LOOP and nothing durable:
-      // every offer write records its observation whatever this flag says, and
-      // turning it on drains whatever accumulated while it was off. Turning it
-      // OFF cannot make a stored point disappear either — what stops is the
-      // convergence, and a series reports its own `rebuiltAt` and coverage so a
-      // reader can see exactly how stale it is.
+      // them (#78). Series are enqueued only in the currencies
+      // `PRICE_HISTORY_SERIES_CURRENCIES` lists, so with that empty this loop
+      // finds nothing to do. A series reports its own `rebuiltAt` and coverage
+      // so a reader can see exactly how stale it is.
       import('./services/price-history/rebuild-dispatcher.js')
         .then(({ startPriceSeriesRebuildDispatcher }) => startPriceSeriesRebuildDispatcher())
         .catch((err: unknown) =>
           log.general.error({ err }, 'Price-history rebuild dispatcher import failed'),
         );
-      // Decide which buyers' price alerts a change of offer satisfies (#79).
-      // `PRICE_ALERT_EVALUATION_ENABLED` gates the LOOP: a queue row is written
-      // on every offer write to a WATCHED product whatever this flag says, so
-      // turning it on drains the backlog and turning it off loses no qualifying
-      // event — the offers are still there to be decided against.
+      // Decide which buyers' price alerts a change of offer satisfies (#79). A
+      // queue row is written on every offer write to a WATCHED product, so a
+      // stopped process loses no qualifying event and the next one drains it.
       import('./services/price-alerts/evaluation-dispatcher.js')
         .then(({ startPriceAlertEvaluationDispatcher }) => startPriceAlertEvaluationDispatcher())
         .catch((err: unknown) =>
           log.general.error({ err }, 'Price-alert evaluation dispatcher import failed'),
         );
-      // Deliver what those evaluations decided. `PRICE_ALERT_NOTIFICATIONS_ENABLED`
-      // is issue #79 operations 5's GLOBAL KILL SWITCH, independent of alert
-      // storage: with it off, triggers and delivery rows keep accumulating and
-      // nothing is sent. It is a SEPARATE loop from the evaluator's so a stuck
-      // transport cannot hold the lease that decides prices.
+      // Deliver what those evaluations decided. A SEPARATE loop from the
+      // evaluator's, so a stuck transport cannot hold the lease that decides
+      // prices.
       import('./services/price-alerts/delivery-dispatcher.js')
         .then(({ startPriceAlertDeliveryDispatcher }) => startPriceAlertDeliveryDispatcher())
         .catch((err: unknown) =>
@@ -264,9 +253,9 @@ connectPostgres()
       // #97's three loops, and they are three because they stop
       // independently. The TRIGGER wakes the agents watching a product that
       // moved; the EVALUATOR asks #96 what the saved objective now costs and
-      // appends a finding; the DELIVERY sends what qualified. Every one of them
-      // gates a LOOP and none gates a row, so turning any off loses nothing and
-      // turning it back on drains the backlog.
+      // appends a finding; the DELIVERY sends what qualified. Every stage is a
+      // durable queue row, so a stopped loop loses nothing and the next one
+      // drains the backlog.
       import('./services/shopping-agents/trigger-dispatcher.js')
         .then(({ startShoppingAgentTriggerDispatcher }) => startShoppingAgentTriggerDispatcher())
         .catch((err: unknown) =>
@@ -284,27 +273,19 @@ connectPostgres()
         .catch((err: unknown) =>
           log.general.error({ err }, 'Shopping-agent delivery dispatcher import failed'),
         );
-      // Measure how often a trustworthy price signal can be made (#82).
-      // `PRICE_SIGNALS_ENABLED` gates the LOOP and nothing durable: a policy
-      // version is still publishable and activatable with it off, a merchant
-      // still reads their own competitiveness, a shopper still sees a badge, and
-      // turning it on drains whatever runs an operator queued. A run is never
-      // created by the loop — it is queued explicitly against a named cohort and
-      // a named policy version, which is what makes comparing a candidate against
-      // the live distribution controllable at all.
+      // Measure how often a trustworthy price signal can be made (#82). A run
+      // is never created by the loop — it is queued explicitly against a named
+      // cohort and a named policy version, which is what makes comparing a
+      // candidate against the live distribution controllable at all.
       import('./services/price-signals/sweep-dispatcher.js')
         .then(({ startPriceSignalSweepDispatcher }) => startPriceSignalSweepDispatcher())
         .catch((err: unknown) =>
           log.general.error({ err }, 'Price-signal sweep dispatcher import failed'),
         );
       // Register the universal product-feed adapter (#63) and start its staged-
-      // pass sweep. BOTH are gated by `FEED_IMPORT_ENABLED` and neither is a
-      // durable record: with the flag off, feed configurations, mapping
-      // versions, uploads and reports are all still stored and readable, every
-      // run refuses with `adapter_missing`, and turning it on drains the
-      // backlog. The sweep exists because a stage is a file on this task's own
-      // disk, and a task whose disk fills with abandoned stages stops serving
-      // requests.
+      // pass sweep. The sweep exists because a stage is a file on this task's
+      // own disk, and a task whose disk fills with abandoned stages stops
+      // serving requests.
       import('./services/feed-import/register.js')
         .then(({ registerProductFeedAdapter, startFeedStageSweeper }) => {
           registerProductFeedAdapter();
@@ -316,9 +297,8 @@ connectPostgres()
       // effect, and for #62's own reason one direction over: an adapter that
       // registered itself on import would be live in every process that pulled
       // the module graph in, including the migration runner and a test that only
-      // wanted the normalizer. It is a no-op with `EBAY_ENABLED=false`, which is
-      // the default and which leaves every eBay source configurable, reviewable
-      // and refusing its runs with `adapter_missing`.
+      // wanted the normalizer. Registering fetches nothing by itself: a run
+      // needs a configured eBay source, its credential and its reviewed rights.
       import('./services/ebay/register.js')
         .then(({ registerEbayBrowseAdapter }) => {
           registerEbayBrowseAdapter();
@@ -326,15 +306,13 @@ connectPostgres()
         .catch((err: unknown) =>
           log.general.error({ err }, 'eBay Browse adapter registration failed'),
         );
-      // Register the Awin retailer-network adapter (#66). Gated by
-      // `AWIN_ENABLED` and, like #63's, gating nothing durable: with the flag
-      // off, publisher accounts, advertisers, feeds, quality snapshots, samples
-      // and every #62 row are still stored and readable, every run refuses with
-      // `adapter_missing`, and turning it on drains the backlog. Unlike #63 it
-      // demands no credential up front — Awin's key is a LOCATOR on a row, so a
-      // configuration is storable and reviewable with none present, and a
-      // deployment that registers the adapter early gets an honest
-      // `auth_failure` naming the missing secret rather than a silent no-op.
+      // Register the Awin retailer-network adapter (#66), on every deployment:
+      // registering fetches nothing, a fetch happens only for a configured,
+      // active Awin source. Unlike #63 it demands no credential up front —
+      // Awin's key is a LOCATOR on a row, so a configuration is storable and
+      // reviewable with none present, and a source whose locator does not
+      // resolve gets an honest `auth_failure` naming the missing secret rather
+      // than a silent no-op.
       import('./services/awin/register.js')
         .then(({ registerAwinFeedAdapter }) => {
           registerAwinFeedAdapter();
@@ -356,11 +334,9 @@ connectPostgres()
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
       // every action it takes is an idempotent compare-and-swap, so N tasks
       // running it produce the same end state as one, and a dead task strands
-      // nothing. The LOOP is gated by `SUPPLIER_PREFLIGHT_SWEEP_ENABLED`; what
-      // it records is not — a quote's expiry and a hold's supplier deadline are
-      // both read against the clock at every use, so turning this off cannot
-      // make a stale quote usable, it only stops Mercaria writing down that it
-      // lapsed.
+      // nothing. A quote's expiry and a hold's supplier deadline are both read
+      // against the clock at every use, so a late sweep cannot make a stale
+      // quote usable; it only delays Mercaria writing down that it lapsed.
       import('./services/supplier-preflight/preflight-sweep.js')
         .then(({ startSupplierPreflightSweep }) => {
           startSupplierPreflightSweep();
@@ -371,10 +347,7 @@ connectPostgres()
 
       // Deliver the guest portal's transactional messages (#108). On EVERY
       // task, leased through `FOR UPDATE SKIP LOCKED` like the outboxes above.
-      // The LOOP is gated by `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED` and the
-      // ROW never is: messages keep being enqueued while it is off and drain
-      // when it comes back, so an incident that stops mail going out does not
-      // also erase what was owed. With no transport registered — the shipped
+      // With no transport registered — the shipped
       // state, see `services/guest-portal/transport.ts` — every attempt fails
       // `transport_unconfigured` visibly rather than pretending to send.
       import('./services/guest-portal/message.service.js')
@@ -385,11 +358,9 @@ connectPostgres()
 
       // Drain a completed claim's follow-up work (#109) — the verified-purchase
       // eligibility grant and the "your orders moved" notice. On EVERY task,
-      // leased like the outboxes above. The LOOP is gated by
-      // `GUEST_CLAIM_PROJECTION_ENABLED` and the ROW never is: a claim made
-      // while it is off leaves its work queued and it drains when the lever
-      // comes back, so an incident that stops the projection cannot cost a
-      // buyer the right to review a purchase they own.
+      // leased like the outboxes above. The ROW is written by the claim, so a
+      // pass that fails leaves the work queued rather than costing a buyer the
+      // right to review a purchase they own.
       import('./services/guest-claims/claim-outbox.service.js')
         .then(({ startGuestClaimDispatcher }) => startGuestClaimDispatcher())
         .catch((err: unknown) =>
@@ -400,10 +371,8 @@ connectPostgres()
       // (#110). `refund.service` drains the provider outbox inline, so this
       // catches the slow cases — a rail that took its time, a task that died
       // mid-drain — which would otherwise leave a buyer's portal saying a
-      // refund is on its way forever. The LOOP is gated by
-      // `BUYER_REQUEST_RECONCILER_ENABLED`; the merchant and operator surfaces
-      // drive the same idempotent path, so turning it off cannot make a refund
-      // unfinishable.
+      // refund is on its way forever. The merchant and operator surfaces drive
+      // the same idempotent path.
       import('./services/buyer-requests/reconciler.js')
         .then(({ startBuyerRequestReconciler }) => startBuyerRequestReconciler())
         .catch((err: unknown) =>
@@ -414,10 +383,9 @@ connectPostgres()
       // NO actor and no hook: Stripe restricts an account, a connector stops
       // delivering, a jury restricts a catalogue — and not one of those domains
       // knows this one exists. So the only way such a transition gets audited is
-      // somebody looking, which is what this does. The LOOP is gated by
-      // `MERCHANT_ACTIVATION_OBSERVATION_ENABLED`; with it off every transition a
-      // merchant or an operator causes is still recorded by the write that
-      // caused it, and the verdict itself is unaffected because it is DERIVED.
+      // somebody looking, which is what this does. Every transition a merchant
+      // or an operator causes is also recorded by the write that caused it, and
+      // the verdict itself is DERIVED.
       import('./services/merchant-activation/transitions.service.js')
         .then(({ startMerchantActivationObserver }) => startMerchantActivationObserver())
         .catch((err: unknown) =>
@@ -428,9 +396,8 @@ connectPostgres()
       // notice. A retail request's refund goes back on Mercaria's own timeline
       // and the RAIL answers whenever it answers; without this a buyer whose
       // portal they never revisit would sit at "your refund is on its way"
-      // forever. The LOOP is gated by `RETAIL_SERVICE_RECONCILER_ENABLED` and
-      // the operator surface drives the same idempotent path, so turning it off
-      // cannot make a refund unfinishable.
+      // forever. The operator surface drives the same idempotent path, so a
+      // stalled sweep cannot make a refund unfinishable.
       //
       // `registerRetailServiceConsumers` is beside it and is UNCONDITIONAL: it
       // wires the retail dispute coordination onto #49's port, which is what
@@ -449,13 +416,14 @@ connectPostgres()
         );
 
       // Place, cancel, poll and interpret supplier orders (#124). THREE loops,
-      // on EVERY task, each gated by its own lever and none of them gating a
-      // durable record: with the orchestration off a paid retail order's job is
-      // parked, with provider fetch off webhooks are still received and stored,
-      // and with event processing off events accumulate and nothing
-      // customer-visible moves. The per-supplier kill switch is a different
-      // mechanism (`supplier_accounts.state = 'killed'`) and stops NEW
-      // submissions while status, cancellation and reconciliation carry on.
+      // on EVERY task. They run with no deployment lever: no supplier order
+      // adapter is registered at boot, Printful refuses a `live` account in code
+      // (`LIVE_REFUSED_UNTIL_GATED`), and no purchase order exists until a paid
+      // retail order — which the retail entry gate (`config.retail.enabled`)
+      // holds at checkout entry —
+      // creates one. The per-supplier kill switch
+      // (`supplier_accounts.state = 'killed'`) stops NEW submissions while
+      // status, cancellation and reconciliation carry on.
       import('./services/supplier-orders/dispatcher.js')
         .then(({ startProcurementDispatchers }) => startProcurementDispatchers())
         .catch((err: unknown) =>
@@ -464,8 +432,8 @@ connectPostgres()
 
       // Close #124's two ports with #123's real implementations (ADR 0004 D4).
       //
-      // UNCONDITIONAL, and deliberately not behind `MERCARIA_RETAIL_ENABLED`.
-      // That flag gates checkout ENTRY (D4 concern 13, D13): a rollback must
+      // UNCONDITIONAL, and deliberately not behind `config.retail.enabled`.
+      // That gates checkout ENTRY (D4 concern 13, D13): a rollback must
       // leave in-flight procurement, refunds and reconciliation draining, and
       // registering these behind it would mean turning retail off stopped
       // authorizing procurement for orders whose buyers had already been
@@ -490,11 +458,11 @@ connectPostgres()
       // Registering it anyway is what makes the conformance suite runnable from
       // an ops script against a real account without a second wiring path.
       //
-      // NOT behind `DIGITAL_RETAIL_PROCUREMENT_ENABLED`, for the reason the
-      // retail ports above are not behind `MERCARIA_RETAIL_ENABLED`: that lever
-      // gates SUBMITTING to a supplier, and an in-flight attempt still has to be
-      // recoverable after it is turned off — a purchase order stuck in
-      // `ambiguous` with no adapter to ask is a paid customer nobody can serve.
+      // NOT conditional on procurement being configured (a resolvable
+      // `DIGITAL_RETAIL_SEAL_KEY_REFERENCE`), for the reason the retail ports
+      // above are not behind `config.retail.enabled`: an in-flight attempt
+      // still has to be recoverable — a purchase order stuck in `ambiguous`
+      // with no adapter to ask is a paid customer nobody can serve.
       import('./services/digital-retail/adapter-registry.js')
         .then(({ registerBuiltInDigitalSupplierAdapters }) =>
           registerBuiltInDigitalSupplierAdapters(),
@@ -505,9 +473,9 @@ connectPostgres()
 
       // Install Mercaria's Moovo logistics client (#156).
       //
-      // A no-op on every deployment today, and visibly so: `MOOVO_ENABLED`
-      // defaults false, and even switched on the client is NOT registered while
-      // no transport exists — it logs the blockers instead. That is the honest
+      // A no-op on every deployment today, and visibly so: no deployment sets
+      // `MOOVO_BASE_URL`/`MOOVO_RESOURCE_APPLICATION_ID`/`MOOVO_ENVIRONMENT`, and
+      // even configured the client is NOT registered while no transport exists — it logs the blockers instead. That is the honest
       // state rather than a hidden one, because registering a port that refuses
       // every call would make `chooseFulfilmentMode` select Mode A and strand
       // paid orders that would otherwise fall back to Mode B.
@@ -527,9 +495,9 @@ connectPostgres()
       // It runs its own timer rather than joining the payment reconciliation
       // runner because it reads purchase orders and supplier invoices, and
       // `role-separation.test.ts` forbids `services/payments/` from importing
-      // the procurement domain. `RETAIL_RECONCILIATION_ENABLED` gates this LOOP
-      // and nothing durable: an operator reconciling an order by hand still
-      // writes its revision, raises its exceptions and books what it recognizes.
+      // the procurement domain. An operator reconciling an order by hand writes
+      // the same revision, raises the same exceptions and books what it
+      // recognizes.
       // The referral EARNINGS loops (#145, ADR 0005): vest what has served its
       // hold, build and settle payout batches, and reconcile the reward rows
       // against the ledger. Three levers, and NOT ONE gates a durable record —
@@ -628,11 +596,11 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
 
       // Merchant subscription billing (#89). Registering the rail is gated on
-      // `STRIPE_ENABLED` and deliberately NOT on `MERCHANT_BILLING_ENABLED`:
-      // that flag gates a merchant's ACTIONS, while the adapter is what applies
-      // provider events and reconciles subscriptions that already exist — so
+      // the configured Stripe rail and deliberately NOT on whether merchant
+      // ACTIONS are available (`config.merchantBilling.enabled`): the adapter is
+      // what applies provider events and reconciles subscriptions that already exist, so
       // registering it only when merchants may upgrade would strand every live
-      // subscription the moment somebody pulled the incident lever.
+      // subscription the moment actions became unavailable.
       import('./services/billing/register.js')
         .then(({ registerMerchantBillingProvider }) => registerMerchantBillingProvider())
         .catch((err) => log.general.error({ err }, 'Merchant billing registration failed'));
@@ -659,10 +627,9 @@ connectPostgres()
        * on a flag would leave the `affiliate` funding source permanently
        * unrealizable while looking configured.
        *
-       * `startAffiliateReconciliationDispatcher` is the LOOP, gated by
-       * `AFFILIATE_RECONCILIATION_ENABLED` and returning immediately when it is
-       * off. It gates no durable record: a commission already reported stays
-       * readable, and a poll can still be driven by hand.
+       * `startAffiliateReconciliationDispatcher` is the LOOP. A network with no
+       * reader or no registered account answers `unavailable` and is skipped,
+       * and a poll can still be driven by hand.
        *
        * Both are started on EVERY task, for the reason the dispatchers above
        * are: the poll takes a lease with an owner check, so N tasks share the
@@ -702,9 +669,9 @@ connectPostgres()
         .then(({ startGuestRetentionLoop }) => startGuestRetentionLoop())
         .catch((err: unknown) => log.general.error({ err }, 'Guest retention loop import failed'));
 
-      // Discovery analytics (#77). THREE loops, all no-ops when
-      // `ANALYTICS_ENABLED` is false — production collection stays off until
-      // the privacy and retention review clears (acceptance 8).
+      // Discovery analytics (#77). THREE loops, all no-ops while
+      // `ANALYTICS_COLLECTION_MODE` is `off` — production collection stays off
+      // until the privacy and retention review clears (acceptance 8).
       //
       // The sink is the one that matters for correctness: it is what makes
       // "analytics loss or delay never blocks search, checkout, the order

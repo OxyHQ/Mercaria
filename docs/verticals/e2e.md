@@ -182,7 +182,7 @@ shown to track the position rather than being a constant.
   verbatim into the schema, pinned onto the draft and frozen there. Stating that
   is more useful than an assertion implying otherwise; the market dimension that
   does bite on the read side is `offers.country`, and it is driven above.
-- **With `STRIPE_ENABLED` off, no native offer can appear in an offer
+- **With the Stripe rail unconfigured, no native offer can appear in an offer
   comparison.** `readSellerPaymentReadiness` returns an EMPTY map and
   `offer-projection.ts` coerces the miss to `false`, so
   `deriveNativeCheckoutEligibility` reports `seller_not_payment_ready` and #74's

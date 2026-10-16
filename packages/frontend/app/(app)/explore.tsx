@@ -33,19 +33,15 @@ import { useCatalogSeo } from '@/lib/catalog/use-catalog-seo';
  * arrange categories however it likes: it shows the same menu the rest of the
  * storefront shows, in the order somebody published, rather than a private
  * arrangement that would disagree with the header the moment an operator
- * reordered one. `useCatalogNavigation` is what serves it — taxonomy-v2 trees
- * when `CATALOG_TAXONOMY_V2_ENABLED` is on, the v1 category tree when it is
- * not, REPORTING which answered (ADR 0007 D12).
+ * reordered one. `useCatalogNavigation` is what serves it — the published
+ * taxonomy-v2 tree, or the v1 category tree when none answers, REPORTING which
+ * answered (ADR 0007 D12).
  *
  * The body below no longer calls it. It renders the discovery feed at
  * `scope: 'root'`, and `services/discovery/feed.service.ts` composes that scope
- * from `categoryRepository` directly, with no reading of `GET /navigation` and
- * no involvement of the lever. Two things follow, both true today and neither
- * intended:
+ * from `categoryRepository` directly, with no reading of `GET /navigation`.
+ * One thing follows, true today and not intended:
  *
- * - This page renders identically whether `CATALOG_TAXONOMY_V2_ENABLED` is on
- *   or off, so the rollback visibility `docs/runbooks/catalog-rollout-rollback.md`
- *   §3/§6 promises has no surface here.
  * - The four non-category target kinds (`saved_query`, `collection`,
  *   `product_type`, `campaign`) have no section kind to render as, so
  *   taxonomy-v2-only entries do not appear at all.

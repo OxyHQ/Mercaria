@@ -28,8 +28,9 @@
  *     variable is a list nobody can review, nobody can attribute a line of, and
  *     which silently admits everything on a typo.
  *
- * The one thing that IS a variable is `MERCARIA_RETAIL_ENABLED` (#123), and it
- * stays one: a kill switch has to be flippable without a migration.
+ * The one thing that IS a variable is whether retail is configured at all
+ * (`config.retail.enabled`, #123), and it stays one: turning retail off has to
+ * be possible without a migration.
  *
  * ## What a stop pauses, and what it deliberately does not
  *

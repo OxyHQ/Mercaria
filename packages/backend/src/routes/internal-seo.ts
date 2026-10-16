@@ -6,8 +6,8 @@
  * catalogue says and who may read what a crawler is told about it are the same
  * power over the same graph. Empty list = the router is not mounted at all
  * (404, never a 401 that would advertise the surface), and it STAYS mounted
- * while `SEO_ROUTES_ENABLED` is off — the evidence has to be readable during
- * the incident that turned the public surface off.
+ * while the public `/seo/*` routers are not (`SEO_INDEXING_MODE=off`) — the
+ * evidence has to be readable during the incident that turned them off.
  *
  * ## THREE reads and no write, and the omissions are the design
  *

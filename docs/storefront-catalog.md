@@ -109,14 +109,13 @@ authorities.
 
 ## Navigation: two sources, one shape, and the source is REPORTED
 
-`GET /navigation` is mounted only behind `CATALOG_TAXONOMY_V2_ENABLED`, which
-defaults OFF. ADR 0007 D13 conditions the storefront rewire on parity with what
+`GET /navigation` answers only with a PUBLISHED tree. ADR 0007 D13 conditions the storefront rewire on parity with what
 shipped before it, so `useCatalogNavigation` falls back to `GET /categories` —
 the v1 tree, always mounted, reading the SAME `categories` rows — and every
 consumer is told which source answered.
 
 Three distinct causes take the fallback and it deliberately does not tell them
-apart: the flag being off (a 404), a market nobody has configured (a 200 with an
+apart: a 404 from the read, a market nobody has configured (a 200 with an
 empty tree list), and an unreachable API. None of the three is a state a shopper
 should see a menu-shaped error in. What distinguishes them for anybody who needs
 to know is `CatalogNavigation.source`.
@@ -160,7 +159,8 @@ again. This is the client half; the HTTP 301 a crawler needs is #75's.
 pointing at a brand or a product cannot be applied on a category screen as if it
 were one.
 
-**`SEO_ROUTES_ENABLED` defaults false**, so on most deployments this 404s. The
+**`/seo/*` is mounted only while `SEO_INDEXING_MODE` is `canary` or `on`**, and
+the mode defaults to `off`, so on most deployments this 404s. The
 page then emits its own title and NO canonical tag and NO alternates, which is
 the honest degradation: an absent `rel=canonical` leaves the address as its own
 canonical, which is what it in fact is.
@@ -526,11 +526,9 @@ is about the thing that changed last.
   It carries no `sitemapCollection`, because there is one of it. `NAV_ITEMS`'s
   `explore` entry is `available: true` with an `href`, and
   `app/(app)/categories/index.tsx` renders the PUBLISHED navigation through
-  `useCatalogNavigation` — the taxonomy-v2 trees when
-  `CATALOG_TAXONOMY_V2_ENABLED` is on, the v1 category tree when it is not
-  (ADR 0007 D12). That hook had no consumer until this screen, so the hub is
-  also the surface where the rollback promised by
-  `docs/runbooks/catalog-rollout-rollback.md` is visible.
+  `useCatalogNavigation` — the published taxonomy-v2 tree, or the v1 category
+  tree when none answers (ADR 0007 D12). That hook had no consumer until this
+  screen.
 
 - **The vehicle picker and a verdict for the shopper's OWN car (#367 workstream 5).**
   Fitment itself now RENDERS — `lib/catalog/compatibility.ts`,

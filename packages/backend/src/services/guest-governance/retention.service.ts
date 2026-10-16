@@ -36,12 +36,19 @@
  * found nothing produce identical output otherwise, and the first is the
  * failure this whole domain exists to make visible.
  *
- * ## A dry run is the DEFAULT
+ * ## What authorizes an erasure
  *
- * `GUEST_RETENTION_DRY_RUN` defaults TRUE, which is the one default in this
- * area on the cautious side of every other rollout lever — because the two
- * errors are not symmetric. A dry run that should have erased leaves data for
- * another day; an apply that should not have erased leaves nothing at all.
+ * Recorded acts, and no environment variable. The ACTIVE retention policy for
+ * the class is the decision that its contacts may be minimized — a published
+ * version carries the operator who published it, and with no active version the
+ * pass is refused outright (`policy_missing`). The scheduled loop
+ * (`runScheduledRetention`) acts on that decision alone and APPLIES, for exactly
+ * the classes whose active rule says `minimization_job`. An operator's manual
+ * pass is the other path: the caller passes `dryRun`, and the operator endpoint
+ * defaults it to `true`, so an operator's apply is always an explicit choice in
+ * the request that does it. The two errors are not symmetric — a dry run that
+ * should have erased leaves data for another day; an apply that should not have
+ * erased leaves nothing at all — which is why preview is the operator's default.
  */
 
 import { and, asc, gt, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
@@ -152,6 +159,11 @@ function holdingClassesFor(retentionClass: GuestRetentionClass): readonly GuestR
  * is the authority, and a pass that ran against a rule saying "swept" or
  * "never deleted" would be erasing under a rule that says otherwise.
  *
+ * `dryRun` is REQUIRED rather than defaulted here, so no caller can reach an
+ * apply by omission: the operator endpoint is where the `true` default lives,
+ * and the scheduler passes `false` because it runs only a class whose active
+ * policy says `minimization_job`.
+ *
  * The page is selected `FOR UPDATE SKIP LOCKED` inside one transaction, so the
  * loop running on every task shares the work rather than racing for it: two
  * tasks never examine the same row, and the run counters are not inflated by a
@@ -165,6 +177,7 @@ function holdingClassesFor(retentionClass: GuestRetentionClass): readonly GuestR
  */
 export async function runRetentionPass(input: {
   retentionClass: GuestRetentionClass;
+  dryRun: boolean;
   now: Date;
   afterId?: string | null;
   skipWhenEmpty?: boolean;
@@ -185,7 +198,7 @@ export async function runRetentionPass(input: {
     return { outcome: 'refused', reason: 'mechanism_not_minimization' };
   }
 
-  const mode = config.guest.governance.retentionDryRun ? 'dry_run' : 'apply';
+  const mode = input.dryRun ? 'dry_run' : 'apply';
 
   const held = new Set<string>();
   if (rule.pausableByLegalHold) {
@@ -428,7 +441,16 @@ export async function runScheduledRetention(
 
     let afterId: string | null = null;
     for (let page = 0; page < MAX_RETENTION_PAGES_PER_TICK; page += 1) {
-      const outcome = await runRetentionPass({ retentionClass, now, afterId, skipWhenEmpty: true });
+      // Applies, never previews: the active `minimization_job` row checked
+      // above IS the approved decision to erase, and the scheduler has no
+      // operator in the loop to ask for a second one.
+      const outcome = await runRetentionPass({
+        retentionClass,
+        dryRun: false,
+        now,
+        afterId,
+        skipWhenEmpty: true,
+      });
       if (outcome.outcome !== 'ran') break;
       results.push(outcome.result);
       if (

@@ -262,7 +262,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
      * registers it.
      *
      * Its transport routes to the source the harness is currently driving; its
-     * budget, kill switch and attribution read that source's own state. That is
+     * budget and attribution read that source's own state. That is
      * what makes every case below exercise the adapter production runs rather
      * than a per-test variant of it.
      */
@@ -323,7 +323,6 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
           requireCurrentSource().attributionEnabled
             ? { campaignId: '5338000000', reference: 'mercaria' }
             : null,
-        fetchEnabled: () => requireCurrentSource().fetchEnabled,
         enabledMarketplaces: () => ['EBAY_ES'],
         env: process.env,
         onAttributionLost: () => {
@@ -689,7 +688,6 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
     readonly credentialEnv: string;
     dailyLimit: number;
     attributionEnabled: boolean;
-    fetchEnabled: boolean;
   }
 
   /**
@@ -743,7 +741,6 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
       credentialEnv,
       dailyLimit: options.dailyLimit ?? 5_000,
       attributionEnabled: options.attribution !== false,
-      fetchEnabled: true,
     };
 
     const resolved = await configureIngestionSource({
@@ -1063,38 +1060,6 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
     expect(row?.callsUsed).toBe(4);
     expect(row?.callsRefused).toBe(6);
     await db.delete(ebayCallBudgets).where(eq(ebayCallBudgets.applicationKey, key));
-  });
-
-  // ── 7. The hard fetch kill switch ─────────────────────────────────────────
-  it('makes the fetch kill switch a resumable pause that touches no provider', async () => {
-    const source = await bringUpSource('killswitch', { queries: [{ value: '333' }] });
-    source.fake.items.set('v1|k1|0', ebayItem({ id: 'v1|k1|0', title: 'Killed', seller: 's' }));
-    source.fake.searchPages.set('333', [['v1|k1|0']]);
-    source.fetchEnabled = false;
-
-    const run = await ingestToCompletion(source.sourceId);
-    // Released, not finished: no health moved, no outcome recorded, nothing
-    // retired, and the cursor is exactly where it was.
-    expect(run.outcome).toBeNull();
-    expect(source.fake.calls.search).toBe(0);
-    expect(source.fake.calls.token).toBe(0);
-
-    const [runRow] = await db
-      .select()
-      .from(catalogSourceRuns)
-      .where(eq(catalogSourceRuns.id, run.runId));
-    expect(runRow?.status).toBe('pending');
-    expect(runRow?.cursor).toBeNull();
-
-    // And flipping it back resumes the very same run.
-    source.fetchEnabled = true;
-    const resumed = await ingestToCompletion(source.sourceId);
-    expect(resumed.outcome).toBe('full_feed_success');
-    const objects = await db
-      .select()
-      .from(catalogSourceObjects)
-      .where(eq(catalogSourceObjects.sourceId, source.sourceId));
-    expect(objects).toHaveLength(1);
   });
 
   // ── 8. Marketplace seller vs platform identity (ACCEPTANCE 2) ─────────────

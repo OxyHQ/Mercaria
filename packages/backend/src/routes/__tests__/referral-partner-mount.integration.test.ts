@@ -82,12 +82,6 @@ async function get(path: string): Promise<number> {
 const STORE = '/admin/stores/01a00000-0000-7000-8000-000000000000/referral-partner';
 
 describe('the partner surface is reachable in the real app', () => {
-  it('is enabled by default, which is the premise of everything below', () => {
-    // Stated rather than assumed: with the lever off these routers are
-    // correctly absent and every assertion here would be measuring that.
-    expect(config.referrals.partnerEnrollmentEnabled).toBe(true);
-  });
-
   it('mounts the individual half at /referral-partner', async () => {
     const status = await get('/referral-partner');
     expect(status, '/referral-partner 404d — the router is not mounted').not.toBe(404);

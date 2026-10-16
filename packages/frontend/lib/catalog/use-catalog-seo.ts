@@ -18,7 +18,8 @@ import { queryKeys } from '@/lib/hooks/query-keys';
  *
  * ## Off is not an error, and the page renders anyway
  *
- * `SEO_ROUTES_ENABLED` defaults false, so this 404s on most deployments. The
+ * `/seo/*` is mounted only while `SEO_INDEXING_MODE` is `canary` or `on`, and
+ * the mode defaults to `off`, so this 404s on most deployments. The
  * hook then answers `undefined`, and a page emits its own title and NO canonical
  * tag and NO alternates. That is the honest degradation: an absent `rel=canonical`
  * leaves the address as its own canonical, which is what it in fact is, while a

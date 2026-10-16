@@ -102,7 +102,7 @@ async function buildApp(catalogOperatorIds: string): Promise<express.Express> {
   // The payments operator surface stays configured in BOTH apps, so the
   // cross-list case below proves separation rather than absence.
   process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
   const { createApp } = await import('../../app.js');
   return createApp();
 }

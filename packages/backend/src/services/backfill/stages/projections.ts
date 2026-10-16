@@ -24,22 +24,18 @@
  * `attribute_reindex_requests` (#94) is a durable queue with a lease shape and
  * deliberately NO consumer yet — ADR 0002 D21 forbids adding a search dependency
  * until #61 has benchmarked the real queries. So the honest thing this stage can
- * do is put rows in that queue, gated by `CANONICAL_SEARCH_INDEXING_ENABLED`,
- * and say so. It does not index anything, does not build a projection table and
- * does not add a search engine. When #61 lands its drain, these rows are already
- * waiting.
+ * do is put rows in that queue and say so. It does not index anything, does not
+ * build a projection table and does not add a search engine. When #61 lands its
+ * drain, these rows are already waiting. The ids are deterministic, so the
+ * queue holds at most one backfill row per canonical product.
  *
- * The flag gates the REQUEST rather than the loop, which inverts the usual
- * "gate the loop, never the record" rule on purpose: there is no loop here to
- * gate, and a deployment that will never index does not want a queue growing one
- * row per canonical product. `reindex_disabled` / `skipped` records that the
- * decision was made, so the counter says how much work is waiting to be
- * requested rather than lost.
+ * `reindex_disabled` is a HISTORICAL reason code: it was written while a
+ * deployment flag kept this stage from enqueueing, and stays in the closed set
+ * because report rows carrying it still exist.
  */
 
 import { asc, gt } from 'drizzle-orm';
 import { getDb } from '../../../db/postgres.js';
-import { config } from '../../../config/index.js';
 import { canonicalProducts } from '../../../db/schema/canonicalCatalog.js';
 import { attributeReindexRequests } from '../../../db/schema/attributeRegistry.js';
 import { countVariantsForProduct } from '../../../db/canonical/canonicalVariantRepository.js';
@@ -133,8 +129,7 @@ export async function runRebuildProjectionsPage(context: StageContext): Promise<
 }
 
 /**
- * Enqueue a reindex request per canonical product — or record that this
- * deployment has search indexing off.
+ * Enqueue a reindex request per canonical product.
  *
  * The request id is DETERMINISTIC (`attribute_reindex_requests.id` is a
  * caller-supplied text primary key), so a re-run of this stage converges on the
@@ -150,19 +145,11 @@ export async function runSearchReindexPage(context: StageContext): Promise<Stage
     .orderBy(asc(canonicalProducts.id))
     .limit(context.limit);
 
-  const enabled = config.canonicalRollout.searchIndexingEnabled;
   const counters = await examineAll(
     context,
     rows,
     (row) => ({ kind: 'canonical_product', canonicalProductId: row.id }),
     async (row): Promise<SubjectVerdict> => {
-      if (!enabled) {
-        return {
-          reasonCode: 'reindex_disabled',
-          detail: 'CANONICAL_SEARCH_INDEXING_ENABLED is off',
-          canonicalProductId: row.id,
-        };
-      }
       await db
         .insert(attributeReindexRequests)
         .values({

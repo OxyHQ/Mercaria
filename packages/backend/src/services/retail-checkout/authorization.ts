@@ -127,7 +127,7 @@ export async function readRetailProcurementAuthorization(
  * port registrations, and never conditionally on a feature flag.
  *
  * The flag question is worth stating because getting it wrong is a silent
- * stranding: `MERCARIA_RETAIL_ENABLED` gates ENTRY (ADR 0004 D4 concern 13, D13)
+ * stranding: `config.retail.enabled` gates ENTRY (ADR 0004 D4 concern 13, D13)
  * — offer visibility and new retail checkouts — and never the machinery that
  * finishes orders already placed. Registering this reader behind the flag would
  * mean a rollback stopped authorizing procurement for orders whose buyers had

@@ -912,7 +912,15 @@ or a mount**, never a stored row:
 - `FACETS_ENABLED` — the facet, filter and sort rail (`POST /facets`). Default
   false. **This decision did not name it and should have**: it is a public
   surface this epic added, it is one of the four things a rollback turns off, and
-  the domain it gates owns no table and writes no row.
+  the domain it gates owns no table and writes no row. **Since REMOVED**: the
+  facet rail is mounted unconditionally (still behind the rollout-cohort gate).
+
+> **Later amended — all four levers were removed** in favour of always-on (see
+> `config/index.ts`): `/navigation`, `/taxonomy`, the authoring surface,
+> `/stores/:storeId/product-drafts` and `/facets` are always mounted, and
+> `/catalog-proposals` is mounted iff `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty
+> (the condition its operator review surface already had). No D12 mount lever
+> remains. The census below is historical.
 
 The four levers are read in **six** non-test places, and no repository, outbox
 enqueue, loop or checkout path reads any of them.
@@ -1038,8 +1046,9 @@ time.
   > the N+1 that file is arranged to avoid.
   >
   > So the reader has one consumer, not two — but the authoring path **does**
-  > still serve localized labels, through the resolver, behind
-  > `CATALOG_AUTHORING_ENABLED`. The conclusion holds by both routes; only the
+  > still serve localized labels, through the resolver, on the authoring
+  > surface (behind what was then `CATALOG_AUTHORING_ENABLED`; the surface is
+  > now always mounted). The conclusion holds by both routes; only the
   > route named was wrong. It matters because the paragraph's whole purpose is to
   > tell a future reader **which files to check**, and it sent them to the wrong
   > one.

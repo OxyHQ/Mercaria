@@ -49,7 +49,7 @@ producers are:
 | `services/attributes/attribute-observation.service.ts` | a canonical attribute value was observed or selected |
 | `services/attributes/source-mapping.service.ts` | a source's normalization rules changed |
 | `services/curation/correction.service.ts` | an operator corrected a canonical value |
-| `services/backfill/stages/projections.ts` | #60's backfill stage 7, and only while `CANONICAL_SEARCH_INDEXING_ENABLED` is on — with it off the stage records `reindex_disabled` and enqueues nothing. This one inserts the table DIRECTLY rather than calling `enqueueAttributeReindex`, so a search for the repository function's callers misses it |
+| `services/backfill/stages/projections.ts` | #60's backfill stage 7, whenever that stage runs (the autopilot's cycle skips it, so an operator opens it). `reindex_disabled` in old reports is a HISTORICAL reason code from when a flag kept the stage from enqueueing. This one inserts the table DIRECTLY rather than calling `enqueueAttributeReindex`, so a search for the repository function's callers misses it |
 
 **Do not re-derive that table by hand.** It is
 `CATALOG_EVENT_CONTRACTS.reindex_request.producers` in
@@ -137,11 +137,11 @@ work nobody did.
 ## Likely causes, most likely first
 
 1. **Ordinary accumulation.** The expected state. Somebody published attribute
-   definitions, or a backfill ran with `CANONICAL_SEARCH_INDEXING_ENABLED` on,
+   definitions, or a `search_reindex` backfill stage ran,
    and the rows are waiting for a consumer nobody has built. No action.
 2. **An alert on an absolute threshold.** The alert is wrong, not the system. Fix
    the alert.
-3. **A backfill pass with search indexing on.** #60's stage 7 enqueues one row per
+3. **A `search_reindex` backfill pass.** #60's stage 7 enqueues one row per
    canonical product, so a whole-catalogue pass adds one row per product in a
    single run. Expected, large, and finished when the run is.
 4. **An enqueuer in a loop.** A definition-publication path called repeatedly
@@ -160,7 +160,7 @@ and change its condition.
 |---|---|
 | An absolute-threshold alert on a monotonic count | Change it to a rate, or exclude `reindex_pending_count` from queue-depth alerting entirely — the production-readiness checklist in the reference doc has that as a line item. |
 | A whole-catalogue backfill pass | Nothing. Confirm the run is progressing with `GET /internal/backfill/runs` and `GET /internal/backfill/metrics`. |
-| Search indexing enqueued by mistake | `CANONICAL_SEARCH_INDEXING_ENABLED=false` stops #60's stage from enqueuing. It does not remove the rows already there, and it must not — the rows are correct. |
+| Search indexing enqueued by mistake | Cancel the `search_reindex` run (`POST /internal/backfill/runs/:id/cancel`); there is no flag. The ids are deterministic, so a re-run adds nothing. Do not remove the rows already there — they are correct. |
 | An enqueuer in a loop | Escalate to whoever owns `services/attributes/`. The rows are harmless; the loop is not. |
 | Somebody wants the queue to drain | That is the seam, not an incident: build the consumer, and close `reindex_throughput` in the same change. #61 declined it deliberately because the refresh semantics belong to a projection nobody has adopted. |
 

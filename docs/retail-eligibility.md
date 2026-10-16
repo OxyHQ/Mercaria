@@ -368,8 +368,9 @@ key is the code constant `RETAIL_ELIGIBILITY_POLICY_KEY`
 disagree with the rows it names — the `CROWDSOURCE_APP_ID` reasoning. Publishing
 a NEW VERSION under that key is how the policy changes.
 
-There is also no flag that turns the GATE off. `MERCARIA_RETAIL_ENABLED` (ADR
-0004 D13) gates offer visibility and checkout ENTRY for the retail channel; a
+There is also no flag that turns the GATE off. `config.retail.enabled` (ADR
+0004 D13 — on exactly when the retail seller and its prerequisites are
+configured) gates offer visibility and checkout ENTRY for the retail channel; a
 lever that made this gate answer `eligible` would be the bypass the whole domain
 exists to make unrepresentable.
 

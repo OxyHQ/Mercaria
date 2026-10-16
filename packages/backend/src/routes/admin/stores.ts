@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { config } from '../../config/index.js';
 import { validateBody, validateId } from '../../middleware/validate.js';
 import { loadStore, requireStorePermission } from '../../middleware/store-authz.js';
 import {
@@ -134,9 +133,7 @@ router.use('/:storeId/activation', merchantActivationRouter);
 // Mounting it HERE is how the referral domain consumes the "may this account
 // act for this store" answer instead of deriving a second one — see the
 // router's own docblock.
-if (config.referrals.partnerEnrollmentEnabled) {
-  router.use('/:storeId/referral-partner', referralPartnerRouter);
-}
+router.use('/:storeId/referral-partner', referralPartnerRouter);
 // The store's own plan, entitlements and optional subscription billing (#89).
 // Beside `/fees` and not inside it: a marketplace fee is what Mercaria takes
 // from a SALE, and a plan is what a merchant pays Mercaria for TOOLING. They are

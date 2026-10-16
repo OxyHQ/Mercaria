@@ -256,11 +256,10 @@ tie a publication's success to a projection's.
   reviewer carries every risk of holding somebody's serial number and none of the
   benefit.
 - **Collection is representable and refused** (`pickup_not_supported`). #93 has
-  since landed publication, freshness and collectable inventory, so the refusal
-  no longer rests on missing facts — it rests on a LEVER: `STORE_PICKUP_ENABLED`
-  defaults off, and `resolvePickupForCheckout` refuses every pickup naming
-  `store_pickup_disabled`. Publishing a listing whose collection nothing honours
-  would be worse than saying so.
+  since landed publication, freshness and collectable inventory for STORES, but
+  a P2P seller still has no collection point and `derivePickupEligibility`
+  refuses a `user` seller for every actor. Publishing a listing whose
+  collection nothing honours would be worse than saying so.
 - **#82's price signals are a named seam that fails closed.**
   `registerSellerPriceSignalProvider` is called by nothing, and the default
   reports NO signal rather than a neutral score — a screen cannot tell "the
@@ -279,17 +278,14 @@ tie a publication's success to a projection's.
 ## Environment
 
 ```
-SELL_YOURS_ENABLED=true                       # mounts /seller/drafts; never touches a stored draft
 SELL_YOURS_GUIDANCE_OFFER_SAMPLE_SIZE=100
 SELL_YOURS_GUIDANCE_SOLD_SAMPLE_SIZE=200
 SELL_YOURS_DRAFT_LIST_LIMIT=25
 SELL_YOURS_CANDIDATE_LIMIT=10
 ```
 
-ONE lever, and it gates the MOUNT rather than a loop or a row. There is no
-durable queue here for "gate the loop, never the record" to bite on — the
-analogous mistake would be a flag that DELETED drafts, and nobody would pull that
-lever either. **Deliberately absent: a flag that disables the match gate.** A
+`/seller/drafts` is always mounted; there is no switch for the flow.
+**Deliberately absent: a flag that disables the match gate.** A
 "just attach what the seller said" switch is the false merge with an off-switch,
 and the incident it would be reached for during is precisely the one where it
 must not be available.

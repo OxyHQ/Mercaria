@@ -1,7 +1,7 @@
 /**
  * `/nearby` — the public proximity surface (#93).
  *
- * Mounted only when `NEARBY_DISCOVERY_ENABLED` is on, so an unconfigured
+ * Mounted only when GoWay is configured (`GOWAY_API_URL`), so such a
  * deployment 404s rather than answering with an empty list: "nothing is
  * collectable near you" and "this deployment does not offer nearby discovery"
  * are different facts and a shopper acts differently on each.

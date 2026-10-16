@@ -259,7 +259,7 @@ describe('the activation domain cannot reach what it must not', () => {
     expect(
       from('services/merchant-activation/'),
       'the service walk found nothing',
-    ).toBeGreaterThanOrEqual(9);
+    ).toBeGreaterThanOrEqual(8);
     expect(
       from('db/merchantActivation/'),
       'the repository walk found nothing',

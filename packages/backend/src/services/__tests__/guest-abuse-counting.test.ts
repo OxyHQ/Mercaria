@@ -1,32 +1,18 @@
 /**
- * The ORDER of `checkGuestAbuse` (M8-03): count first, consult the friction flag
- * second.
+ * The ORDER of `checkGuestAbuse` (M8-03): every watched attempt is COUNTED.
  *
- * The M8 review found the flag read on the first line and a `return` before
- * the counter, under a docblock promising the opposite — so a deployment with
- * friction off wrote no counter, and turning friction on started from zero.
- * The real-server half of this is `guest-erasure.realdb.test.ts`, which reads
- * the counter row back; this file pins the branch order across all three
- * configurations, which a database cannot distinguish from "the row was
+ * The M8 review found a friction flag read on the first line and a `return`
+ * before the counter, under a docblock promising the opposite — so a deployment
+ * with friction off wrote no counter, and turning friction on started from
+ * zero. There is no flag any more: the subject-digest key is derived from
+ * `MERCARIA_SECRET_KEY`, so a subject can always be named, and friction is
+ * applied by the published policy. The real-server half of this is
+ * `guest-erasure.realdb.test.ts`, which reads the counter row back; this file
+ * pins the branch order, which a database cannot distinguish from "the row was
  * written for some other reason".
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const governance = {
-  abuseControlsEnabled: false,
-  abuseSubjectHashKey: 'k'.repeat(64),
-};
-
-vi.mock('../../config/index.js', () => ({
-  config: {
-    guest: {
-      get governance() {
-        return governance;
-      },
-    },
-  },
-}));
 
 vi.mock('../../db/postgres.js', () => ({ getDb: () => ({}) }));
 
@@ -53,10 +39,8 @@ beforeEach(() => {
   recordIntervention.mockClear();
 });
 
-describe('checkGuestAbuse counts whether or not friction is on (M8-03)', () => {
-  it('friction OFF, key set: the attempt is COUNTED and nothing is refused', async () => {
-    governance.abuseControlsEnabled = false;
-    governance.abuseSubjectHashKey = 'k'.repeat(64);
+describe('checkGuestAbuse counts every watched attempt (M8-03)', () => {
+  it('below the threshold: the attempt is COUNTED and nothing is refused', async () => {
     const verdict = await checkGuestAbuse({
       scope: 'session_issuance',
       subjectValue: '203.0.113.0/24',
@@ -64,14 +48,10 @@ describe('checkGuestAbuse counts whether or not friction is on (M8-03)', () => {
     });
     expect(verdict).toEqual({ outcome: 'permitted' });
     expect(countAbuseAttempt).toHaveBeenCalledTimes(1);
-    // An intervention IS friction; with friction off none is read or written.
-    expect(findLiveIntervention).not.toHaveBeenCalled();
     expect(recordIntervention).not.toHaveBeenCalled();
   });
 
-  it('friction ON: counts, and still reads the live intervention first', async () => {
-    governance.abuseControlsEnabled = true;
-    governance.abuseSubjectHashKey = 'k'.repeat(64);
+  it('counts, and reads the live intervention first', async () => {
     await checkGuestAbuse({ scope: 'session_issuance', subjectValue: '203.0.113.0/24', now: NOW });
     expect(findLiveIntervention).toHaveBeenCalledTimes(1);
     expect(countAbuseAttempt).toHaveBeenCalledTimes(1);
@@ -80,21 +60,18 @@ describe('checkGuestAbuse counts whether or not friction is on (M8-03)', () => {
     );
   });
 
-  it('no KEY: nothing is counted, because no subject can be named safely', async () => {
-    governance.abuseControlsEnabled = false;
-    governance.abuseSubjectHashKey = '';
+  it('at the threshold: the published policy applies friction', async () => {
+    countAbuseAttempt.mockImplementationOnce(async () => Number.MAX_SAFE_INTEGER);
     const verdict = await checkGuestAbuse({
       scope: 'session_issuance',
       subjectValue: '203.0.113.0/24',
       now: NOW,
     });
-    expect(verdict).toEqual({ outcome: 'permitted' });
-    expect(countAbuseAttempt).not.toHaveBeenCalled();
+    expect(verdict.outcome).toBe('friction');
+    expect(recordIntervention).toHaveBeenCalledTimes(1);
   });
 
   it('a scope no policy watches is permitted without a write', async () => {
-    governance.abuseControlsEnabled = true;
-    governance.abuseSubjectHashKey = 'k'.repeat(64);
     await checkGuestAbuse({ scope: 'cart_write', subjectValue: 'actor-1', now: NOW });
     expect(countAbuseAttempt).not.toHaveBeenCalled();
   });

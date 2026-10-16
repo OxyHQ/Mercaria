@@ -281,8 +281,9 @@ MERCARIA_RETAIL_SELLER_LEGAL_ENTITY=      # the entity named as seller on every 
 MERCARIA_RETAIL_SELLER_COUNTRY=           # ISO-3166-1 alpha-2 of that entity
 ```
 
-Both are demanded by `MERCARIA_RETAIL_ENABLED`'s half-configuration rule
-(ADR 0004 D13), because a role snapshot is written in the buyer's own transaction
+Both are prerequisites of retail being on at all — there is no retail switch;
+naming the seller with a valid country, beside supplier preflight and a retail
+operator list, IS what opens retail checkout (ADR 0004 D13) — because a role snapshot is written in the buyer's own transaction
 and its CHECK refuses an empty entity name — so a deployment that cannot name its
 seller would fail at the moment a buyer paid rather than at boot. Neither is
 defaulted: defaulting the country to `ES` would let a deployment that never

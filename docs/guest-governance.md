@@ -19,9 +19,10 @@ and the single most likely mistake here was a tenth answer to a question one of
 them already answers. So:
 
 - **No new feature flag for a capability an existing lever gates.**
-  `GUEST_FEATURE_GATE_REGISTER` names each of the thirteen capabilities the
-  issue enumerates and the lever that answers it — including four that answer
-  `null` because the absence is structural.
+  `GUEST_FEATURE_GATE_REGISTER` names each capability the issue enumerates
+  that a lever still answers — including those that answer `null` because the
+  absence is structural. Buyer cancellations, returns and support left it when
+  `BUYER_REQUESTS_ENABLED` was removed: that surface is always on.
 - **No `GUEST_ROLLOUT_STAGE` variable.** The current stage is DERIVED from the
   latest permitted advance. A variable naming one would be a second
   representation of a fact the append-only advance history already holds, and
@@ -34,14 +35,15 @@ them already answers. So:
   #111 adds is the class the sweep structurally cannot serve — minimization,
   where the row survives and its identifying columns do not.
 
-Two new levers exist and neither gates a durable record:
-`GUEST_ABUSE_CONTROLS_ENABLED` gates whether friction is APPLIED (the counters
-are written either way, so a deployment that switched the controls off during an
-incident can still see what was happening while they were off), and
-`GUEST_RETENTION_JOB_ENABLED` gates the sweep LOOP (rows keep their deadlines
-and the lag counter keeps rising, which is exactly what must stay true, because
-a paused retention job is the one failure in this domain invisible from
-everywhere else).
+The abuse controls are not a lever: they run whenever guest commerce runs —
+every watched action is counted and friction is applied by the published
+policy — and their subject-digest key is derived from `MERCARIA_SECRET_KEY`.
+(A former `GUEST_ABUSE_CONTROLS_ENABLED` returned before counting, so with it
+off no counter was written at all — the M8-03 finding.) Retention has no lever
+either: the scheduled loop erases exactly the classes whose ACTIVE published
+policy says `minimization_job`, and an operator's manual pass through
+`POST /governance/retention-runs` is a dry run unless the request says
+`dryRun: false` (below).
 
 ---
 
@@ -144,7 +146,8 @@ and there is no environment flag in front of it. Pages are taken `FOR UPDATE
 SKIP LOCKED`, so N tasks share the work; rows are minimized in savepoints; the
 cursor threads from page to page so held or failing rows cannot starve the rest;
 and a page with nothing due writes no run row, because `guest_retention_runs` is
-never swept.
+never swept. The loop APPLIES: the active `minimization_job` row is the approved
+decision to erase, and a scheduler has no operator to ask for a second one.
 
 **`lookup_hash` is carried, not run.** The hash is nulled in the same statement
 as the ciphertext it digests, so the two contact passes perform it and it cannot
@@ -159,10 +162,14 @@ retention job that silently did nothing and one that correctly found nothing
 produce identical output otherwise, and the first is the failure this whole
 domain exists to make visible.
 
-**`GUEST_RETENTION_DRY_RUN` defaults TRUE**, which is the one default here on the
-cautious side of every other rollout lever, because the two errors are not
-symmetric: a dry run that should have erased leaves data for another day, and an
-apply that should not have erased leaves nothing at all.
+**An operator's pass is a DRY RUN unless the request says otherwise.** `POST
+/governance/retention-runs` takes `{ retentionClass, dryRun? }` and `dryRun`
+defaults to `true`; only an explicit `dryRun: false` erases, and the operator who
+sent it is logged beside the run id. The two errors are not symmetric: a dry run
+that should have erased leaves data for another day, and an apply that should
+not have erased leaves nothing at all. There is no environment switch — the
+ACTIVE policy is the recorded decision that a class may be minimized, and the
+explicit `false` is the decision to do it now.
 
 **It refuses to run under no published policy.** `GUEST_RETENTION_SCHEDULE` is
 what somebody publishes; a job that read it directly would make the published
@@ -452,7 +459,7 @@ would advertise it).
 | `GET /inventory` | the sixteen classes, the schedule, and which classes an ACTIVE policy covers |
 | `POST /retention-policy` | publish the reviewed schedule as a version |
 | `GET /retention-runs` | what each pass did |
-| `POST /retention-runs` | run one pass now |
+| `POST /retention-runs` | run one pass now — a dry run unless the body says `dryRun: false` |
 | `POST /legal-holds` | pause one class for one group |
 | `POST /legal-holds/:id/lift` | attributable, dated, explained |
 | `GET /signals` | every security signal over a range, plus the measured cleanup lag |
@@ -484,50 +491,37 @@ would advertise it).
 ## Environment
 
 ```
-GUEST_ABUSE_CONTROLS_ENABLED=false   # may friction be APPLIED; counters are unaffected
-GUEST_ABUSE_SUBJECT_HASH_KEY=        # REQUIRED by the flag above (half-configuration rule)
-GUEST_RETENTION_JOB_ENABLED=true     # gates the LOOP only
-GUEST_RETENTION_BATCH_SIZE=500
-GUEST_RETENTION_POLL_INTERVAL_MS=900000
-GUEST_RETENTION_DRY_RUN=true         # the cautious default, deliberately
+GUEST_RETENTION_BATCH_SIZE=500       # rows one retention pass examines
 GUEST_SIGNAL_WINDOW_SECONDS=300
 ```
 
-`GUEST_ABUSE_CONTROLS_ENABLED` defaults OFF, unlike the three guest levers that
-default on, and the discriminator is whether the flag demands a SECRET.
-`GUEST_COMMERCE_ENABLED` and `SUPPLIER_PREFLIGHT_ENABLED` both do and both
-default off: a flag that defaults ON and demands a key it has not been given
-makes every unconfigured deployment log an error at boot about a feature nobody
-asked for, and an error nobody can act on is one everybody learns to scroll
-past.
-
-An unkeyed subject digest is an offline ORACLE over "has this address bought
-anything" — the preimages are an email, a checkout id and a /24, three spaces
-small enough to enumerate exhaustively — which is why the key is demanded rather
-than defaulted.
+An unkeyed subject digest would be an offline ORACLE over "has this address
+bought anything" — the preimages are an email, a checkout id and a /24, three
+spaces small enough to enumerate exhaustively — which is why every digest is
+keyed, under the `guest-abuse-subject-hash` key derived from
+`MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets").
 
 ---
 
 ## The production-readiness checklist
 
 1. Populate `GUEST_OPERATOR_OXY_USER_IDS`, or none of the above is reachable.
-2. Set `GUEST_ABUSE_SUBJECT_HASH_KEY`. Until it is set no counter is written,
-   because no subject can be named safely; once it is, every attempt is
-   counted whether or not friction is applied.
-3. `POST /governance/retention-policy` once, to publish the reviewed schedule.
+2. `POST /governance/retention-policy` once, to publish the reviewed schedule.
    Until a version is ACTIVE the scheduled loop runs and erases nothing, and an
    operator pass is refused with `policy_missing`. Publishing IS turning
-   retention on.
-4. Leave `GUEST_RETENTION_DRY_RUN=true` for at least one full cycle and read
-   `GET /governance/retention-runs`. The counters are what a review reads before
-   anything is erased.
-5. Record the privacy and retention review (`docs/analytics.md` §"The privacy
+   retention on: from its next tick the loop minimizes every due contact of
+   each class whose active rule says `minimization_job`.
+3. Preview before publishing is not possible (a pass needs an active rule), so
+   read `GET /governance/retention-runs` after the first ticks. An operator pass
+   previews a class with the default `dryRun: true` at any time, and applies one
+   immediately only with an explicit `dryRun: false`.
+4. Record the privacy and retention review (`docs/analytics.md` §"The privacy
    and retention review", plus this document's inventory and schedule) and the
    security review. Both are launch gates and both need a person.
-6. Wire scraping and alerting for the `critical` signals in `oxy-infra`. The
+5. Wire scraping and alerting for the `critical` signals in `oxy-infra`. The
    endpoint is JSON and the counters are process-independent; nothing here
    scrapes itself.
-7. Record sign-offs and request the stage advance. The gate refuses with the
+6. Record sign-offs and request the stage advance. The gate refuses with the
    exact list of unsatisfied gates, and the refusal is recorded.
 
 **One gate cannot be satisfied today** — the transactional sender — so stage 1

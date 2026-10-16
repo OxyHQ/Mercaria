@@ -342,9 +342,7 @@ make a price history say something nobody observed, which is the single property
 that makes it worth keeping.
 
 All three are behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
-#54/#56/#57/#58/#60/#62/#68 use, and the router stays mounted while
-`PRICE_HISTORY_ENABLED` is off — the evidence has to be readable during the
-incident that turned the loop off.
+#54/#56/#57/#58/#60/#62/#68 use.
 
 ### Shard and archival strategy — recorded, not adopted
 
@@ -372,9 +370,10 @@ measured:
 
 ## Environment
 
+The rebuild loop always runs and `/price-history` is always mounted;
+`PRICE_HISTORY_SERIES_CURRENCIES` is the real switch.
+
 ```
-PRICE_HISTORY_ENABLED=false                 # gates the rebuild LOOP, never the record
-PRICE_HISTORY_PUBLIC_READS_ENABLED=false    # gates the /price-history MOUNT
 PRICE_HISTORY_SERIES_CURRENCIES=            # EMPTY by default — no series are built
 PRICE_HISTORY_ANCHOR_INTERVAL_SECONDS=86400
 PRICE_HISTORY_RETENTION_WINDOW_DAYS=400
@@ -388,8 +387,9 @@ PRICE_HISTORY_TRACE_LIMIT=500
 ```
 
 With every default in place a deployment records observations on every offer
-write, enqueues NO series, builds NO charts and serves no public route. The
-durable record is never gated; the derived answer is.
+write, enqueues NO series and builds NO charts; `/price-history` answers every
+range `uncovered`, which the storefront panel renders as nothing. The durable
+record is never gated; the derived answer is.
 
 ---
 
@@ -418,8 +418,8 @@ Each is a NAMED contract, never a stub that lies.
 - **#79 — price alerts: SHIPPED (as its own domain), and this section is now
   stale about scope only.** Nothing here reads or writes an alert and no module
   in this domain may import one (`price-history-isolation.test.ts`); #79 closed
-  #80's `ProductSavePriceAlert` seam separately (both branches now exist,
-  gated on `PRICE_ALERTS_ENABLED`). The rule #68 records — an old price cannot
+  #80's `ProductSavePriceAlert` seam separately (it is now always
+  `supported: true`). The rule #68 records — an old price cannot
   fire a new alert after the offer becomes stale — is already true of anything
   obtained through `mayAppearInComparison`, which is what #79's own evaluator
   re-runs immediately before triggering.
@@ -444,11 +444,9 @@ Each is a NAMED contract, never a stub that lies.
 2. Decide `PRICE_HISTORY_SERIES_CURRENCIES`. Empty is a working configuration
    and means no chart is ever built; every code listed multiplies the series
    count by one.
-3. `PRICE_HISTORY_ENABLED=true` only after the series set is decided — the
-   dispatcher's work is a function of it.
-4. `PRICE_HISTORY_PUBLIC_READS_ENABLED=true` last, and only once at least one
-   series has a non-empty coverage window: until then every read is honest and
-   empty, which is correct and unhelpful.
-5. Alerting on a climbing `seriesDeadLettered`, on `oldestPendingRebuildAgeSeconds`
+   The rebuild dispatcher always runs and its work is a function of this list;
+   until a listed currency has a non-empty coverage window every public read
+   is honest and empty, which is correct and unhelpful.
+3. Alerting on a climbing `seriesDeadLettered`, on `oldestPendingRebuildAgeSeconds`
    exceeding a rebuild interval, and on a `deduplicationRate` that falls to zero
    — the last is what a broken dedup looks like from outside.

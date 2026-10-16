@@ -96,9 +96,6 @@ export interface PickupActorFacts {
 export interface PickupLevers {
   readonly storePickupEnabled: boolean;
   readonly guestPickupEnabled: boolean;
-  /** #85 has not landed; `false` here is `unrecorded`, and see the gate below. */
-  readonly guestSellerActivated: boolean;
-  readonly guestSellerActivationRequired: boolean;
   /** Whether #108's transport registry is non-empty. */
   readonly guestNotificationTransportAvailable: boolean;
   /** Whether this deployment demands one before serving a guest collection. */
@@ -256,18 +253,12 @@ export function derivePickupEligibility(input: {
  * #93's "Guest store pickup readiness" conjunction, minus the seven conditions
  * the discoverability derivation already covers.
  *
- * The three that are genuinely guest-specific:
+ * The two that are genuinely guest-specific:
  *
  *  - **The deployment's own guest-pickup lever.** Independent of
- *    `GUEST_COMMERCE_ENABLED` and of the store lever, so guest collection can
+ *    guest commerce's own gate and of the store lever, so guest collection can
  *    be withdrawn without taking authenticated collection or the guest cart
  *    down with it (#93 operations rule 9).
- *  - **#85's activation.** Reusing #107's EXISTING
- *    `GUEST_SELLER_ACTIVATION_REQUIRED` rather than inventing a parallel one:
- *    "is this merchant activated for guest checkout" already has one answer and
- *    a second lever could only disagree with it. `guestSellerActivated` cannot
- *    be true today, so with the flag on every guest collection is refused by
- *    name — the fail-closed direction.
  *  - **A transactional transport.** #93 readiness condition 6. #108 ships the
  *    portal with an EMPTY transport registry and nothing sends, so demanding
  *    one unconditionally would make guest collection unreachable on every
@@ -277,16 +268,13 @@ export function derivePickupEligibility(input: {
  *    through #108's pulled confirmation grant rather than through an email.
  *
  * Readiness condition 8 ("collection verification is implemented where
- * required") needs no clause at all: `PICKUP_ENABLED` demands
- * `PICKUP_COLLECTION_CODE_KEY`, so a deployment that can offer collection can
- * always mint a code.
+ * required") needs no clause at all: the collection-code key is derived from
+ * `MERCARIA_SECRET_KEY`, so a deployment that can offer collection can always
+ * mint a code.
  */
 function guestReasons(levers: PickupLevers): readonly PickupBlockReason[] {
   const reasons: PickupBlockReason[] = [];
   if (!levers.guestPickupEnabled) reasons.push('guest_pickup_disabled');
-  if (levers.guestSellerActivationRequired && !levers.guestSellerActivated) {
-    reasons.push('guest_seller_not_activated');
-  }
   if (levers.guestNotificationTransportRequired && !levers.guestNotificationTransportAvailable) {
     reasons.push('guest_notifications_unavailable');
   }

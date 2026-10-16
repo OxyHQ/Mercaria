@@ -39,7 +39,8 @@
  *
  * A gate on five surfaces is one route away from being a gate on four. The
  * census DERIVES the catalog mounts from `app.ts` — every `app.use` inside a
- * guard whose config namespace begins with `catalog` — and requires each to be
+ * guard whose config namespace begins with `catalog`, plus the named
+ * unconditional ones whose levers were removed — and requires each to be
  * covered by the middleware, walking the routers' real Express stacks. A new
  * public catalog mount fails the build until it is gated or exempted by the
  * `/internal/` rule.
@@ -99,13 +100,12 @@ vi.mock('../../lib/rate-limit.js', () => ({
     },
 }));
 
-/** The four levers ADR 0007 D12 shipped, which every probe needs switched on. */
-const LEVERS = [
-  'CATALOG_AUTHORING_ENABLED',
-  'CATALOG_PROPOSALS_ENABLED',
-  'FACETS_ENABLED',
-  'CATALOG_TAXONOMY_V2_ENABLED',
-] as const;
+/*
+ * No ADR 0007 D12 lever remains to switch on: the authoring, navigation,
+ * taxonomy and facet surfaces are always mounted, and `/catalog-proposals` is
+ * mounted iff the catalog operator allow-list is non-empty — which is why
+ * `build` sets one.
+ */
 
 /** One request. `value` is substituted into whichever place the surface states it. */
 interface Probe {
@@ -233,10 +233,9 @@ function listen(app: express.Express): Promise<{ server: Server; url: string }> 
  */
 async function build(cohorts: string): Promise<Deployment> {
   vi.resetModules();
-  for (const lever of LEVERS) process.env[lever] = 'true';
   process.env.CATALOG_ROLLOUT_COHORTS = cohorts;
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = '';
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.CATALOG_OPERATOR_OXY_USER_IDS = 'oxy-user-cohort-operator';
+  process.env.STRIPE_SECRET_KEY = '';
 
   const { createApp } = await import('../../app.js');
   const { server, url } = await listen(createApp());
@@ -281,10 +280,9 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  for (const lever of LEVERS) delete process.env[lever];
   delete process.env.CATALOG_ROLLOUT_COHORTS;
   delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
-  delete process.env.STRIPE_ENABLED;
+  delete process.env.STRIPE_SECRET_KEY;
   for (const deployment of opened) await deployment.close();
 });
 
@@ -464,7 +462,31 @@ function catalogMounts(source: string): CatalogMount[] {
     }
     match = guard.exec(code);
   }
-  return mounts;
+  return [...mounts, ...unconditionalCatalogMounts(code)];
+}
+
+/**
+ * The catalog surfaces whose ADR 0007 D12 levers were REMOVED, so they are
+ * mounted with no guard for {@link catalogMounts} to find. Named here because
+ * they still carry the cohort gate inside their routers, and dropping out of the
+ * guard census must not drop them out of the coverage census too.
+ */
+const UNCONDITIONAL_CATALOG_PATHS = [
+  '/stores/:storeId/product-drafts',
+  '/catalog-authoring',
+  '/navigation',
+  '/taxonomy',
+  '/facets',
+] as const;
+
+function unconditionalCatalogMounts(code: string): CatalogMount[] {
+  return UNCONDITIONAL_CATALOG_PATHS.map((path) => {
+    // The paths hold no RegExp metacharacters, so they are spliced in verbatim.
+    const use = new RegExp(`app\\.use\\(\\s*'${path}'\\s*,\\s*([A-Za-z0-9_]+)\\s*\\)`);
+    const found = use.exec(code);
+    if (found === null) throw new Error(`app.ts no longer mounts ${path} unconditionally`);
+    return { path, router: found[1] ?? '', guard: 'unconditional' };
+  });
 }
 
 /** The text between a `{` and its matching `}`, ignoring braces inside strings. */
@@ -553,7 +575,9 @@ describe('the catalog mount census is derived from app.ts and is not empty', () 
       operatorMounts.length,
       'the derived operator catalog mount set collapsed',
     ).toBeGreaterThanOrEqual(20);
-    expect(new Set(mounts.map((mount) => mount.guard)).size).toBeGreaterThanOrEqual(4);
+    // Two guards: the operator allow-list and `unconditional` — every D12 lever
+    // that once made this three or more has been removed.
+    expect(new Set(mounts.map((mount) => mount.guard)).size).toBeGreaterThanOrEqual(2);
   });
 
   it('a negative control: the block matcher does not swallow the file', () => {
@@ -565,7 +589,6 @@ describe('the catalog mount census is derived from app.ts and is not empty', () 
     expect(paths).not.toContain('/listings');
     // …and the positive half, so the control cannot pass by matching nothing.
     expect(paths).toContain('/navigation');
-    expect(paths).toContain('/facets');
   });
 
   it('every public catalog mount is covered by the rollout gate', async () => {

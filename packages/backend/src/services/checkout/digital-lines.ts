@@ -98,7 +98,7 @@ export interface DigitalCheckoutCoherenceInput {
 /**
  * Refuse every incoherent combination of cart and destination.
  *
- * Five refusals, and the order is the #105 ordering: the most specific and most
+ * Four refusals, and the order is the #105 ordering: the most specific and most
  * fixable first.
  */
 export function assertDigitalCheckoutCoherent(input: DigitalCheckoutCoherenceInput): void {
@@ -123,20 +123,14 @@ export function assertDigitalCheckoutCoherent(input: DigitalCheckoutCoherenceInp
   //    nothing ships to. Refusing it would make the destination the buyer's
   //    problem to diagnose. What IS refused is the reverse, above.
 
-  // 3. The deployment lever. AFTER the cart-shape refusals, so a buyer whose cart
-  //    has a genuine problem is told about that rather than about an operator's
-  //    switch — the ordering `assertGuestCheckoutRolloutAllowed` already follows.
-  if (digitalCount > 0 && input.chargesMoney && !config.digital.paidCheckoutEnabled) {
-    throw checkoutRefusal(
-      'destination_unsupported',
-      'Digital purchases are not available yet. Remove the downloads to place the rest of this order.',
-    );
-  }
-
-  // 4. The per-vertical allow-list. An allow-list rather than a block-list, for
-  //    `services/payments/redact.ts`'s reason: a block-list is correct only until a
-  //    new vertical is added, and the new one would be live everywhere on the day
-  //    it merged.
+  // 3. The per-vertical allow-list — the deployment's ONLY digital checkout
+  //    lever: a listed vertical sells, paid or free, and an unlisted one does
+  //    not. AFTER the cart-shape refusals, so a buyer whose cart has a genuine
+  //    problem is told about that rather than about an operator's decision — the
+  //    ordering `assertGuestCheckoutRolloutAllowed` already follows. An
+  //    allow-list rather than a block-list, for `services/payments/redact.ts`'s
+  //    reason: a block-list is correct only until a new vertical is added, and
+  //    the new one would be live everywhere on the day it merged.
   if (digitalCount > 0) {
     const enabled = new Set(config.digital.enabledVerticals);
     const blocked = [...input.digitalByVariant.values()].filter(
@@ -150,7 +144,7 @@ export function assertDigitalCheckoutCoherent(input: DigitalCheckoutCoherenceInp
     }
   }
 
-  // 5. The withdrawal waiver. LAST, because it is the only refusal the buyer fixes
+  // 4. The withdrawal waiver. LAST, because it is the only refusal the buyer fixes
   //    by ticking a box rather than by changing their cart — so telling them about
   //    it before the cart is coherent would be asking them to consent to something
   //    that was not going to happen.

@@ -97,7 +97,7 @@ export const STEPLESS_REQUIREMENTS: Readonly<
   guest_market_currency_allowed:
     'Deployment configuration — which markets and currencies are charged.',
   guest_payment_method_available: 'Deployment configuration — which Stripe surfaces are enabled.',
-  guest_inline_destination_supported: 'A deployment flag (#105).',
+  guest_inline_destination_supported: 'Structural (#105). Guest checkout always takes one.',
   guest_merchant_order_access: 'Structural (#106). Nothing to configure.',
   guest_support_and_returns_available: 'A deployment flag (#110).',
   guest_transactional_contact_operational: 'A named seam (#108). No transport is registered.',

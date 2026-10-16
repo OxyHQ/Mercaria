@@ -38,29 +38,24 @@ let rollout: typeof import('../guest-rollout.js');
 let config: typeof import('../../../config/index.js').config;
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'rollout-test-pii-key';
-  process.env.GUEST_EMAIL_HASH_KEY = 'rollout-test-email-hash-key';
   // Stated rather than inherited: a sibling file sets each of these, and env
   // leaks across files in one worker where a frozen config does not.
   delete process.env.GUEST_CHECKOUT_BLOCKED_PLATFORMS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_MARKETS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_SELLER_KEYS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS;
-  delete process.env.GUEST_SELLER_ACTIVATION_REQUIRED;
 
   ({ config } = await import('../../../config/index.js'));
   rollout = await import('../guest-rollout.js');
 });
 
 describe('the levers are empty by default', () => {
-  it('configures no block list and does not require activation', () => {
+  it('configures no block list', () => {
     const configured = config.guest.checkoutRollout;
     expect(configured.blockedPlatforms).toEqual([]);
     expect(configured.blockedMarkets).toEqual([]);
     expect(configured.blockedSellerKeys).toEqual([]);
     expect(configured.blockedFulfilmentMethods).toEqual([]);
-    expect(configured.sellerActivationRequired).toBe(false);
   });
 
   it('admits a guest checkout on either platform, in any market', async () => {
@@ -81,18 +76,12 @@ describe('the platform is derived from the credential carriage, not from a claim
   });
 });
 
-describe('the #85 gate is not consulted while its flag is off', () => {
+describe('the gate reads no database', () => {
   /**
-   * #85 closed the seam, so `readGuestSellerActivation` can now answer
-   * `activated` — and it reaches eleven tables to do it. This case pins the
-   * property that survived: with `GUEST_SELLER_ACTIVATION_REQUIRED` off, which
-   * is the default ADR 0006 G14 chose, the gate returns before the activation
-   * read is attempted, so a deployment that has not opted in pays nothing for
-   * the gate existing.
-   *
-   * It is asserted by BEHAVIOUR rather than by a spy: this file's whole point
-   * is that nothing is configured, and there is no database in this process at
-   * all — so a call that DID reach the derivation would reject, and the
+   * Every dimension is a synchronous read of a block list; there is no
+   * merchant-activation read (the opt-in #85 gate was removed, ADR 0006 G14).
+   * Asserted by BEHAVIOUR rather than by a spy: there is no database in this
+   * process at all, so a call that reached one would reject, and the
    * `.resolves` below is what catches it.
    */
   it('completes without touching the derivation', async () => {

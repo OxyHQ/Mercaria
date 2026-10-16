@@ -17,11 +17,8 @@
  * operators, never a 401 that would advertise the surface); the gate repeated in
  * middleware because mount and gate live in different files.
  *
- * **It stays mounted while `CATALOG_INGESTION_ENABLED` is off**, deliberately
- * and for `/internal/backfill`'s reason: the evidence has to be readable during
- * the incident that turned the loop off, and configuring a source, reviewing
- * its terms and draining it by hand is how a feed is brought up before the loop
- * is switched on at all.
+ * `POST /sources/:sourceId/status` with `paused` is the runtime kill switch for
+ * one source; there is no deployment-wide flag over ingestion.
  */
 
 import { Router } from 'express';

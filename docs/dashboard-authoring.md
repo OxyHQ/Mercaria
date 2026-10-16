@@ -24,22 +24,15 @@ renders that answer and sends typed values back.
 **No new backend surface, no schema change and no migration.** Every endpoint
 this consumes shipped with #367 step 5.
 
-## Availability is the SERVER's answer, not a client flag
+## The wizard is always available
 
-`CATALOG_AUTHORING_ENABLED` (ADR 0007 D12, default false) gates the MOUNT, so an
-unconfigured deployment answers 404 to every authoring route. `probeAuthoringAvailability`
-reads that 404 as "off" and **anything else is rethrown** — reporting an outage
-as "unavailable" would silently send every merchant back to the legacy form and
-nobody would find out.
+The authoring surface is always mounted (ADR 0007 D12's `CATALOG_AUTHORING_ENABLED`
+lever has been removed), so there is no availability probe and no client flag.
+"Add product" on `/products` opens the wizard.
 
-There is deliberately no `EXPO_PUBLIC_` flag beside it. A second answer to "is
-the wizard available" is one that can disagree with the server, and the way it
-disagrees is a merchant filling in a form whose publish route does not exist.
-
-**The legacy `/products/new` is untouched and stays the destination wherever the
-wizard is unavailable.** `/products` derives which one "Add product" opens.
-Retiring the old form is a separate decision, and the flag it is behind already
-exists.
+**The legacy `/products/new` is untouched** and stays one tap away from the
+wizard's start screen ("Use the simple form"). Retiring the old form is a
+separate decision.
 
 ## The steps, and why they are not the server's list
 

@@ -592,6 +592,49 @@ A NEW secret is also named in Mercaria's task definition in oxy-infra
 (`terraform-uswest2/app-services.tf`), written to SSM BEFORE that change rolls
 out: a task naming a parameter that does not exist fails at start.
 
+### Runtime secrets: one root, every internal key derived
+
+`MERCARIA_SECRET_KEY` (SSM `/oxy/mercaria/MERCARIA_SECRET_KEY`) is the only
+secret for keys Mercaria both mints and verifies itself. Each internal key is
+`HKDF-SHA256(root, fixed salt, "mercaria:<purpose>:v1")`, one purpose per key,
+in `packages/backend/src/lib/derived-secrets.ts` — so keys are independent of
+each other, there is one value to provision and audit, and **a new feature adds
+a purpose, never an environment variable**.
+
+- **Required in production.** `config/index.ts` refuses to load without it, as
+  it does without `DATABASE_URL`. Outside production an unset root falls back to
+  a fixed, PUBLIC development root (logged once), so development, tests and CI
+  need no secret configuration.
+- **Generate** with `openssl rand -hex 32` (hex of 64+ characters, or
+  base64/base64url decoding to 32+ bytes; anything shorter is refused).
+- **Injected by the deploy, not only by terraform.** The service ignores
+  terraform's task definition (`ignore_changes = [task_definition]`), so
+  `deploy-aws.yml` adds `MERCARIA_SECRET_KEY` to `.secrets` when it registers
+  each release from the running definition, and drops the retired
+  `CONNECTOR_OAUTH_STATE_SECRET` and `STRIPE_ONBOARDING_STATE_SECRET` entries.
+
+**It is not routinely rotated: rotating the root rotates EVERY derived key at
+once.** What each purpose loses:
+
+| Purpose | Consequence of a rotation |
+|---|---|
+| `referral-link-token` | Every published referral link (`/r/<token>`) stops verifying — partners must re-share. |
+| `referral-state` | In-flight referral state carriers stop verifying; those clicks attribute nobody. |
+| `outbound-token` | Outbound `/out/<token>` links already rendered stop resolving until the page is reloaded. |
+| `connector-oauth-state` | A connect flow in flight at the moment of rotation fails its callback and must restart. |
+| `stripe-onboarding-state` | A hosted-onboarding round trip in flight fails and must restart. |
+| `guest-pii-encryption` | Every stored guest contact becomes UNREADABLE (no re-encryption path without the old key). |
+| `guest-email-hash` | Magic-link routing and recovery throttles stop matching stored hashes. |
+| `guest-abuse-subject-hash` | Abuse counters restart from zero. |
+| `pickup-collection-code` | Every outstanding collection code changes; buyers must be shown the new one. |
+| `supplier-preflight-fingerprint` | Stored preflight fingerprints stop matching; quotes are re-asked. |
+| `feed-import-auth-encryption` | Every stored feed credential becomes UNREADABLE; merchants re-enter it. |
+
+Not derived, and deliberately: external credentials (Stripe, Shopify, Peable,
+Moovo, CrowdSource, eBay, VAPID), `CONNECTOR_ENCRYPTION_KEY` (data at rest under
+its own key), `*_PREVIOUS` rotation variables, `DIGITAL_RETAIL_SEAL_KEY_*`
+references and `ANALYTICS_INTERNAL_TRAFFIC_TOKEN` (a token a client presents).
+
 ### Topology handoff
 
 - Register 2 Oxy RP client ids (dashboard, POS).
@@ -604,10 +647,11 @@ out: a task naming a parameter that does not exist fails at start.
   `docs/payments.md`, `docs/retail-eligibility.md` and `docs/referral-pilots.md`
   §"Production-readiness checklist".
 - **Referral payouts need FOUR things, not one:** the operator list populated;
-  `STRIPE_ENABLED` plus a payment-ready connected account per partner (with the
-  rail off every partner's readiness reads `unknown`, which BLOCKS); a partner
-  who actually enrolled — agreement AND tax questionnaire
-  (`REFERRAL_PARTNER_ENROLLMENT_ENABLED`, ADR 0005 D15 gate 2); and a published
+  the Stripe rail configured (its key and both webhook secrets — there is no
+  switch) plus a payment-ready connected account per partner (with the rail off
+  every partner's readiness reads `unknown`, which BLOCKS); a partner
+  who actually enrolled — agreement AND tax questionnaire (ADR 0005 D15 gate
+  2; the enrollment surfaces are always mounted); and a published
   pilot cohort, since a programme with no active cohort attributes NOTHING.
 - **`SERVICE_SECRET` is still owed on the infra side and the ORDER is
   load-bearing.** The task definition still names it while the repo no longer

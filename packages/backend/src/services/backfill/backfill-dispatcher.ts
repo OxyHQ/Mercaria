@@ -6,15 +6,6 @@
  * check, so N tasks share the work without handing each other a run, and a dead
  * task's lease is reclaimed rather than stranding a pass halfway.
  *
- * ## The LOOP is gated; the durable record never is
- *
- * `CANONICAL_GRAPH_ENABLED` stops this loop and nothing else. An operator can
- * still OPEN a run while it is off — the row is durable, the cursor is durable,
- * and turning the flag on drains the backlog instead of stranding it. That is
- * the `CROWDSOURCE_ENABLED` rule, and it is what makes "start the migration
- * paused, then turn it on during a quiet window" a supported thing to do rather
- * than a scripting exercise.
- *
  * ## Why this loop is NOT what a canary rollout uses
  *
  * A canary is a cohort-scoped run an operator opens and pages by hand from
@@ -50,14 +41,6 @@ async function tick(): Promise<void> {
 /** Begin paging. Idempotent — a second call is a no-op. */
 export function startCatalogBackfillDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.canonicalRollout.graphEnabled) {
-    log.general.info(
-      '[Backfill] canonical graph backfill disabled; runs opened now are stored and will ' +
-        'resume once CANONICAL_GRAPH_ENABLED is on',
-    );
-    return;
-  }
-
   timer = setInterval(() => {
     void tick();
   }, config.canonicalRollout.backfillPollIntervalMs);
@@ -68,7 +51,6 @@ export function startCatalogBackfillDispatcher(): void {
     {
       pollIntervalMs: config.canonicalRollout.backfillPollIntervalMs,
       batchSize: config.canonicalRollout.backfillBatchSize,
-      writePublicationEnabled: config.canonicalRollout.writePublicationEnabled,
     },
     '[Backfill] dispatcher started',
   );
