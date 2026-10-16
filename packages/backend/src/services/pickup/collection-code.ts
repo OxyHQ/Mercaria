@@ -3,7 +3,10 @@
  *
  * ## The whole design in one line
  *
- * `code = base32(HMAC-SHA256(PICKUP_COLLECTION_CODE_KEY, orderId + ':' + version))`
+ * `code = base32(HMAC-SHA256(collectionCodeKey, orderId + ':' + version))`
+ *
+ * where the key is derived from `MERCARIA_SECRET_KEY` (`lib/derived-secrets.ts`),
+ * so every deployment can derive a code.
  *
  * so `pickup_collection_credentials` holds a rotation counter and four instants
  * and NOTHING that opens anything. Three consequences follow, and each one is a
@@ -41,8 +44,7 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { config } from '../../config/index.js';
-import { conflict } from '../../lib/errors/error-codes.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 
 /**
  * The alphabet a code is rendered in — Crockford base32 minus its
@@ -67,25 +69,11 @@ const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
  */
 const CODE_LENGTH = 10;
 
-/** Whether this deployment can derive a code at all. */
-export function collectionCodesAvailable(): boolean {
-  return config.pickup.collectionCodeKey.trim() !== '';
-}
-
-/**
- * Derive the code for one order at one rotation.
- *
- * Throws rather than returning a placeholder when no key is configured:
- * `resolveStorePickupEnabled` already refuses to enable pickup without one, so
- * reaching this with an empty key means the lever was bypassed, and a
- * placeholder code would be a credential every order shared.
- */
+/** Derive the code for one order at one rotation. */
 export function deriveCollectionCode(orderId: string, version: number): string {
-  const key = config.pickup.collectionCodeKey.trim();
-  if (key === '') {
-    throw conflict('Collection codes are not configured on this deployment.');
-  }
-  const digest = createHmac('sha256', key).update(`${orderId}:${version}`).digest();
+  const digest = createHmac('sha256', derivedSecret('pickup-collection-code'))
+    .update(`${orderId}:${version}`)
+    .digest();
 
   let code = '';
   for (let index = 0; index < CODE_LENGTH; index += 1) {

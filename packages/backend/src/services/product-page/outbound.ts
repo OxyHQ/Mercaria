@@ -33,16 +33,9 @@
  * the source published it — while the redirect itself may hand over the
  * network's attributed link. Disclosing the redirector would name an affiliate
  * network the shopper has never heard of instead of the shop they are going to.
- *
- * ## When the redirect is not mounted
- *
- * `OUTBOUND_REDIRECT_ENABLED` off ⇒ there is no path to offer, so this returns
- * `redirect_unavailable` with the host, exactly as it did before #67. A control
- * pointing at a 404 is worse than a disclosed refusal.
  */
 
 import { OUTBOUND_LINK_REL, type Offer, type ProductPageOutbound } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { affiliateOutboundPath } from '../outbound/disclosure.js';
 
 /**
@@ -100,10 +93,6 @@ export function resolveProductPageOutbound(offer: Offer): ProductPageOutbound {
   const destinationHost = destinationHostOf(offer);
   if (destinationHost === undefined) {
     return { kind: 'unavailable', reason: 'no_destination' };
-  }
-
-  if (!config.affiliateOutbound.redirectEnabled) {
-    return { kind: 'unavailable', reason: 'redirect_unavailable', destinationHost };
   }
 
   return {

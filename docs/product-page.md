@@ -145,9 +145,9 @@ the merchant, the channel, the price in both currencies, the delivery facts,
 the condition, the availability, how recently Mercaria checked, and the
 destination HOST — disclosed alongside the redirect, not instead of it. A
 hostname is a disclosure (#67 rule 5), not a link — it cannot be followed by
-accident and cannot carry tracking parameters, because it is not a URL. With
-`OUTBOUND_REDIRECT_ENABLED` off, `resolveProductPageOutbound` falls back to
-that host-only disclosure, exactly as it did before #67 shipped.
+accident and cannot carry tracking parameters, because it is not a URL. The
+`/out` redirect is always mounted, so an external offer with a destination
+always gets the redirect path; there is no host-only fallback branch.
 
 `ProductPageOutbound`'s external branches carry no variant id and no listing id,
 which is #71 acceptance 3 on this surface: there is nothing an add-to-cart call

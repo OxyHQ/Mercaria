@@ -1,18 +1,21 @@
 /**
  * The three values hosted onboarding cannot run without.
  *
- * Read from `config.payments.stripe`, where they are declared OPTIONAL, and
- * turned into a required triple here — the pattern `connectors/config.ts` uses
- * for its own callback base and state secret, and for the same reason: the
- * process must still boot (and the already-shipped webhook ingress must still
- * work) when onboarding has not been configured yet. Only an actual onboarding
- * operation fails, and it fails naming the variables.
+ * The two URLs are read from `config.payments.stripe`, where they are declared
+ * OPTIONAL, and turned into required values here — the pattern
+ * `connectors/config.ts` uses for its own callback base, and for the same
+ * reason: the process must still boot (and the already-shipped webhook ingress
+ * must still work) when onboarding has not been configured yet. Only an actual
+ * onboarding operation fails, and it fails naming the variables.
  *
- * All three are checked TOGETHER and reported together. Discovering one missing
- * variable per deploy is how a configuration change takes three deploys.
+ * Both URLs are checked TOGETHER and reported together. Discovering one missing
+ * variable per deploy is how a configuration change takes two deploys. The
+ * state token's HMAC key is derived from `MERCARIA_SECRET_KEY`
+ * (`lib/derived-secrets.ts`) and is never missing.
  */
 
 import { config } from '../../../config/index.js';
+import { derivedSecret } from '../../../lib/derived-secrets.js';
 import { validationError } from '../../../lib/errors/error-codes.js';
 
 /** The resolved onboarding endpoints and signing key. */
@@ -45,7 +48,7 @@ function readUrl(name: string, value: string | undefined, missing: string[]): st
  * The onboarding configuration, or a `validationError` naming every missing
  * variable.
  *
- * @throws When any of the three is unset, or a URL cannot be parsed.
+ * @throws When either URL is unset, or a URL cannot be parsed.
  */
 export function stripeOnboardingConfig(): StripeOnboardingConfig {
   const stripe = config.payments.stripe;
@@ -53,10 +56,8 @@ export function stripeOnboardingConfig(): StripeOnboardingConfig {
 
   const baseUrl = readUrl('STRIPE_ONBOARDING_BASE_URL', stripe.onboardingBaseUrl, missing);
   const returnUrl = readUrl('STRIPE_ONBOARDING_RETURN_URL', stripe.onboardingReturnUrl, missing);
-  const stateSecret = stripe.onboardingStateSecret;
-  if (stateSecret === undefined) missing.push('STRIPE_ONBOARDING_STATE_SECRET');
 
-  if (missing.length > 0 || stateSecret === undefined) {
+  if (missing.length > 0) {
     throw validationError(
       `Stripe onboarding is not configured: ${missing.join(', ')} ${
         missing.length === 1 ? 'is' : 'are'
@@ -64,7 +65,7 @@ export function stripeOnboardingConfig(): StripeOnboardingConfig {
     );
   }
 
-  return { baseUrl, returnUrl, stateSecret };
+  return { baseUrl, returnUrl, stateSecret: derivedSecret('stripe-onboarding-state') };
 }
 
 /**
@@ -82,7 +83,6 @@ export function isStripeOnboardingConfigured(): boolean {
   return (
     stripe.enabled &&
     stripe.onboardingBaseUrl !== undefined &&
-    stripe.onboardingReturnUrl !== undefined &&
-    stripe.onboardingStateSecret !== undefined
+    stripe.onboardingReturnUrl !== undefined
   );
 }

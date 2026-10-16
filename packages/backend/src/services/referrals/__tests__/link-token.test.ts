@@ -8,13 +8,9 @@
  */
 
 import { createHmac } from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { derivedSecret } from '../../../lib/derived-secrets.js';
 import { mintReferralLinkToken, verifyReferralLinkToken } from '../link-token.js';
-
-// Hoisted above the imports, so `config/index.ts` reads it at load.
-vi.hoisted(() => {
-  process.env.REFERRAL_LINK_TOKEN_SECRET = 'test-referral-link-secret';
-});
 
 describe('mintReferralLinkToken / verifyReferralLinkToken', () => {
   it('round-trips the link and code ids', () => {
@@ -67,7 +63,7 @@ describe('mintReferralLinkToken / verifyReferralLinkToken', () => {
     // Signed correctly, but the claims are not link claims — a token minted by
     // other code sharing the secret must not verify as a link token.
     const payloadB64 = Buffer.from(JSON.stringify({ foo: 'bar' }), 'utf8').toString('base64url');
-    const sig = createHmac('sha256', 'test-referral-link-secret')
+    const sig = createHmac('sha256', derivedSecret('referral-link-token'))
       .update(payloadB64)
       .digest('base64url');
     expect(() => verifyReferralLinkToken(`${payloadB64}.${sig}`)).toThrow(/invalid/i);

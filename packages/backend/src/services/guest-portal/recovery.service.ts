@@ -47,6 +47,7 @@ import { countRecoveryAttempt } from '../../db/guestPortal/recoveryAttemptReposi
 import { findGuestCheckoutsByEmailHash } from '../../db/guestPortal/contactRoutingRepository.js';
 import { findOrderByOrderNumber } from '../../db/orders/orderRepository.js';
 import { guestEmailHash } from '../../lib/guest-pii.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 import { log } from '../../lib/logger.js';
 import { enqueueGuestMessage } from './message.service.js';
 
@@ -228,23 +229,14 @@ async function count(
  * The AXIS is part of the preimage, so an email hash and an order number that
  * happened to collide would still count separately — and, more usefully, so a
  * digest taken from one axis cannot be tested against another's rows. The key
- * is `GUEST_EMAIL_HASH_KEY`, reused rather than adding a fourth secret: it
- * already exists, it is already separate from the encryption key, and its
+ * is the guest email-hash key (`lib/derived-secrets.ts`), reused rather than
+ * deriving another: it is already separate from the encryption key, and its
  * purpose (make a low-entropy value unguessable at rest) is exactly this one.
  */
 function recoverySubjectHash(axis: GuestRecoveryLimitAxis, subject: string): string {
-  return createHmac('sha256', keyMaterial()).update(`${axis}:${subject}`, 'utf8').digest('hex');
-}
-
-function keyMaterial(): string {
-  const key = config.guest.emailHashKey.trim();
-  if (key === '') {
-    throw new Error(
-      'GUEST_EMAIL_HASH_KEY is not set. Recovery throttling cannot store an unkeyed digest of ' +
-        'an email address — a plain hash column would be offline-reversible the day it leaked.',
-    );
-  }
-  return key;
+  return createHmac('sha256', derivedSecret('guest-email-hash'))
+    .update(`${axis}:${subject}`, 'utf8')
+    .digest('hex');
 }
 
 /**

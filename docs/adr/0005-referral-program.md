@@ -709,16 +709,16 @@ rollback an operational act instead of an amnesty.
 ### Environment
 
 Configuration names come from the packages when #142–#148 land, not from this
-table (the repo's standing rule). This ADR binds only the gating shape:
+table (the repo's standing rule). This ADR binds only the gating shape.
 
-```
-REFERRALS_ENABLED=false     # master gate: mounts the surfaces, runs the loops
-```
-
-plus the loop tunables the outbox pattern always carries. `REFERRALS_ENABLED`
-follows the `CROWDSOURCE_ENABLED` validation pattern: a half-configured
-program stays OFF and logs once at boot. The gate stops loops and surfaces —
-never the durable records already written.
+*Amended 2026-10:* there is no environment switch. The surfaces are always
+mounted and the loops always run; the signing keys are derived from
+`MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets"), so no
+half-configured state exists to fall back from. The gates are operator state —
+a program's status, its `referral_program_controls` row and its pilot cohort —
+and, as before, they stop loops and surfaces, never the durable records already
+written. Only the loop tunables and `REFERRAL_OPERATOR_OXY_USER_IDS` remain in
+the environment.
 
 ---
 

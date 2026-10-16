@@ -277,9 +277,9 @@ export function derivePickupEligibility(input: {
  *    through #108's pulled confirmation grant rather than through an email.
  *
  * Readiness condition 8 ("collection verification is implemented where
- * required") needs no clause at all: `PICKUP_ENABLED` demands
- * `PICKUP_COLLECTION_CODE_KEY`, so a deployment that can offer collection can
- * always mint a code.
+ * required") needs no clause at all: the collection-code key is derived from
+ * `MERCARIA_SECRET_KEY`, so a deployment that can offer collection can always
+ * mint a code.
  */
 function guestReasons(levers: PickupLevers): readonly PickupBlockReason[] {
   const reasons: PickupBlockReason[] = [];

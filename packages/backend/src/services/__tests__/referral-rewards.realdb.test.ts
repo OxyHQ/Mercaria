@@ -18,7 +18,7 @@
  * `referral-writes.realdb` discipline, whose fixture shapes this file follows.
  */
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import type { CurrencyCode } from '@mercaria/shared-types';
@@ -79,12 +79,6 @@ import {
   admitPartnerToReferralPilot,
   deleteReferralPilotFixtures,
 } from '../referral-pilot/__tests__/pilot-fixture.js';
-
-// Hoisted above the imports: `config/index.ts` reads it at load, and issuing a
-// code goes through the instrument service that mints link tokens.
-vi.hoisted(() => {
-  process.env.REFERRAL_LINK_TOKEN_SECRET = 'realdb-referral-reward-secret';
-});
 
 let db: Database;
 

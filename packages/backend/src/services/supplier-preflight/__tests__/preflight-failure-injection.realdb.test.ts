@@ -17,22 +17,9 @@
  * make the same question look new.
  */
 
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { uuidv7 } from '@oxy.so/db';
 
-/**
- * Set the two variables BEFORE any import evaluates.
- *
- * `config/index.ts` reads `process.env` once at module load and freezes the
- * result, and ESM hoists every import above ordinary statements — so setting
- * these in `beforeAll` is too late and every case below would answer
- * `preflight_disabled`, passing for the wrong reason. `vi.hoisted` runs ahead
- * of the imports, which is the only place this can work.
- */
-vi.hoisted(() => {
-  process.env.SUPPLIER_PREFLIGHT_ENABLED = 'true';
-  process.env.SUPPLIER_PREFLIGHT_FINGERPRINT_KEY = 'a'.repeat(64);
-});
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import {
   createSupplier,
@@ -74,8 +61,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   clearSupplierAdapters();
-  delete process.env.SUPPLIER_PREFLIGHT_ENABLED;
-  delete process.env.SUPPLIER_PREFLIGHT_FINGERPRINT_KEY;
   await closePostgres();
 });
 

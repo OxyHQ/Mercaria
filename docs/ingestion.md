@@ -542,8 +542,7 @@ nobody has written.
 Each is a NAMED contract that fails closed, never a stub that lies.
 
 - **#63 — LANDED.** The universal product-feed importer registers the
-  `product_feed` adapter (gated by `FEED_IMPORT_ENABLED`, which gates the LOOP
-  and never the record) and runs this whole contract suite against it over a real
+  `product_feed` adapter (registered on every deployment) and runs this whole contract suite against it over a real
   CSV — see `docs/feed-importer.md`. It surfaced two bugs in THIS framework that
   the fixture adapter could not show, both because its records carry a fixed date
   in the past: `ingestOneRecord` stamped "seen at" from the dispatcher tick while
@@ -585,10 +584,9 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 1. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or the surface is not mounted and
    nobody can configure a source or review a policy.
-2. At least one adapter registered. #63's `product_feed` is registered by
-   `FEED_IMPORT_ENABLED=true` (which additionally requires
-   `FEED_IMPORT_AUTH_ENCRYPTION_KEY`); #65 and #66 ship none yet, and until an
-   adapter exists for a source's provider every run refuses.
+2. At least one adapter registered. #63's `product_feed` is always registered;
+   #65 and #66 ship none yet, and until an adapter exists for a source's
+   provider every run refuses.
 3. For each source: a merchant BOUND (no merchant, no offers), a policy version
    published and reviewed, and the status moved to `active`.
 4. `CATALOG_INGESTION_ENABLED=true` only after a source has been drained by hand

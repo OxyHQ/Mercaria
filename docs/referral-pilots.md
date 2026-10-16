@@ -41,8 +41,8 @@ it, and there is deliberately no code path that widens one.
 
 **This domain therefore adds NO environment variable at all.** What it reads is
 `REFERRAL_OPERATOR_OXY_USER_IDS` (whether the operator surface mounts) and,
-indirectly, `REFERRALS_ENABLED` plus `referral_program_controls`' three row
-levers (#143/#145), all of which are checked before this gate is reached.
+indirectly, `referral_program_controls`' three row levers (#143/#145), all of
+which are checked before this gate is reached.
 
 `referral_programs.cohort_keys` is deliberately NOT reused. It is a rollout
 scoping array on a programme version — no author, no dates, no caps, no
@@ -331,8 +331,8 @@ The fixture is imported by nothing outside a test — a scanned gate.
 1. Populate `REFERRAL_OPERATOR_OXY_USER_IDS`: with it empty `/internal/referrals`
    is not mounted at all, so nobody can publish bounds — and with no bounds
    published, nothing attributes.
-2. Publish a cohort version per programme before turning `REFERRALS_ENABLED` on.
-   All twelve thresholds and at least one allow-listed partner, or the publish
+2. Publish a cohort version per programme before publishing the programme in
+   production (the referral surfaces have no switch). All twelve thresholds and at least one allow-listed partner, or the publish
    is refused.
 3. Decide the seven thresholds ADR 0005 did not quantify. The publish refusal is
    the reminder, not a substitute for the decision.

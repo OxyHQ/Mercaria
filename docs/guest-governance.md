@@ -34,11 +34,13 @@ them already answers. So:
   #111 adds is the class the sweep structurally cannot serve — minimization,
   where the row survives and its identifying columns do not.
 
-Two new levers exist and neither gates a durable record:
-`GUEST_ABUSE_CONTROLS_ENABLED` gates whether friction is APPLIED (the counters
-are written either way, so a deployment that switched the controls off during an
-incident can still see what was happening while they were off), and
-`GUEST_RETENTION_JOB_ENABLED` gates the sweep LOOP (rows keep their deadlines
+The abuse controls are not a lever: they run whenever guest commerce runs —
+every watched action is counted and friction is applied by the published
+policy — and their subject-digest key is derived from `MERCARIA_SECRET_KEY`.
+(A former `GUEST_ABUSE_CONTROLS_ENABLED` returned before counting, so with it
+off no counter was written at all — the M8-03 finding.) One lever exists and it
+does not gate a durable record: `GUEST_RETENTION_JOB_ENABLED` gates the sweep
+LOOP (rows keep their deadlines
 and the lag counter keeps rising, which is exactly what must stay true, because
 a paused retention job is the one failure in this domain invisible from
 everywhere else).
@@ -441,8 +443,6 @@ would advertise it).
 ## Environment
 
 ```
-GUEST_ABUSE_CONTROLS_ENABLED=false   # may friction be APPLIED; counters are unaffected
-GUEST_ABUSE_SUBJECT_HASH_KEY=        # REQUIRED by the flag above (half-configuration rule)
 GUEST_RETENTION_JOB_ENABLED=true     # gates the LOOP only
 GUEST_RETENTION_BATCH_SIZE=500
 GUEST_RETENTION_POLL_INTERVAL_MS=900000
@@ -450,39 +450,30 @@ GUEST_RETENTION_DRY_RUN=true         # the cautious default, deliberately
 GUEST_SIGNAL_WINDOW_SECONDS=300
 ```
 
-`GUEST_ABUSE_CONTROLS_ENABLED` defaults OFF, unlike the three guest levers that
-default on, and the discriminator is whether the flag demands a SECRET.
-`GUEST_COMMERCE_ENABLED` and `SUPPLIER_PREFLIGHT_ENABLED` both do and both
-default off: a flag that defaults ON and demands a key it has not been given
-makes every unconfigured deployment log an error at boot about a feature nobody
-asked for, and an error nobody can act on is one everybody learns to scroll
-past.
-
-An unkeyed subject digest is an offline ORACLE over "has this address bought
-anything" — the preimages are an email, a checkout id and a /24, three spaces
-small enough to enumerate exhaustively — which is why the key is demanded rather
-than defaulted.
+An unkeyed subject digest would be an offline ORACLE over "has this address
+bought anything" — the preimages are an email, a checkout id and a /24, three
+spaces small enough to enumerate exhaustively — which is why every digest is
+keyed, under the `guest-abuse-subject-hash` key derived from
+`MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets").
 
 ---
 
 ## The production-readiness checklist
 
 1. Populate `GUEST_OPERATOR_OXY_USER_IDS`, or none of the above is reachable.
-2. Set `GUEST_ABUSE_SUBJECT_HASH_KEY` and turn `GUEST_ABUSE_CONTROLS_ENABLED`
-   on. Until then no counter is written and no friction is applied.
-3. `POST /governance/retention-policy` once, to publish the reviewed schedule.
+2. `POST /governance/retention-policy` once, to publish the reviewed schedule.
    Until a version is ACTIVE the retention job refuses every pass and says
    `policy_missing`.
-4. Leave `GUEST_RETENTION_DRY_RUN=true` for at least one full cycle and read
+3. Leave `GUEST_RETENTION_DRY_RUN=true` for at least one full cycle and read
    `GET /governance/retention-runs`. The counters are what a review reads before
    anything is erased.
-5. Record the privacy and retention review (`docs/analytics.md` §"The privacy
+4. Record the privacy and retention review (`docs/analytics.md` §"The privacy
    and retention review", plus this document's inventory and schedule) and the
    security review. Both are launch gates and both need a person.
-6. Wire scraping and alerting for the `critical` signals in `oxy-infra`. The
+5. Wire scraping and alerting for the `critical` signals in `oxy-infra`. The
    endpoint is JSON and the counters are process-independent; nothing here
    scrapes itself.
-7. Record sign-offs and request the stage advance. The gate refuses with the
+6. Record sign-offs and request the stage advance. The gate refuses with the
    exact list of unsatisfied gates, and the refusal is recorded.
 
 **One gate cannot be satisfied today** — the transactional sender — so stage 1

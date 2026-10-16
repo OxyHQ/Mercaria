@@ -55,7 +55,6 @@ import { findPublicationByLocationId } from '../../db/pickup/locationPublication
 import { readPlace } from '../goway/places.js';
 import { pickupAddressOf, placeLinkGaps, type PlaceLookup } from '../goway/place-facts.js';
 import { hasGuestMessageTransport } from '../guest-portal/transport.js';
-import { collectionCodesAvailable } from './collection-code.js';
 import { derivePickupEligibility } from './eligibility.js';
 
 /** One line of the checkout, as the gate needs to see it. */
@@ -205,13 +204,6 @@ export async function resolvePickupForCheckout(input: {
     if (eligibility.verdict === 'blocked') {
       for (const reason of eligibility.reasons) blocked.add(reason);
     }
-  }
-
-  // Checked HERE and not only at publish time: the key can be removed from a
-  // running deployment, and a location published while it was configured must
-  // stop admitting collections the moment it is not.
-  if (publication.identityRequirement !== 'order_number_only' && !collectionCodesAvailable()) {
-    blocked.add('store_pickup_disabled');
   }
 
   if (blocked.size > 0) throw refuse(sellerKeys, [...blocked].sort());

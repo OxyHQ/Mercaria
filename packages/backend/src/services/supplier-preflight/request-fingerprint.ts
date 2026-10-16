@@ -41,10 +41,10 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { CurrencyCode, SupplierPreflightDestination } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 
-/** A valid key is 32 bytes ⇔ 64 hex characters — the `guest-pii` shape. */
-const HEX_KEY_PATTERN = /^[0-9a-fA-F]{64}$/;
+/** A stored fingerprint is a SHA-256 HMAC: 32 bytes ⇔ 64 hex characters. */
+const HEX_DIGEST_PATTERN = /^[0-9a-fA-F]{64}$/;
 
 /**
  * Everything that makes two preflight questions the SAME question.
@@ -65,26 +65,13 @@ export interface FingerprintedRequest {
 }
 
 /**
- * The key, read and validated on FIRST USE rather than at import.
- *
- * The `guest-pii.ts` / `connector-crypto.ts` posture, for the same reason: a
- * deployment with supplier preflight switched off must still boot, and
- * `config`'s half-configuration rule has already refused to enable the feature
- * without the key. What must never happen is a SILENT fallback — an unset key
- * throws here rather than producing an unkeyed digest that reads identical and
- * is offline-reversible.
+ * The key, derived from `MERCARIA_SECRET_KEY` under its own purpose
+ * (`lib/derived-secrets.ts`). Always present, so the digest is always keyed: a
+ * country plus a postal code is small enough to enumerate, and an unkeyed
+ * digest would be an offline oracle over buyers' addresses.
  */
 function fingerprintKey(): Buffer {
-  const key = config.supplierPreflight.fingerprintKey;
-  if (!HEX_KEY_PATTERN.test(key)) {
-    throw new Error(
-      'SUPPLIER_PREFLIGHT_FINGERPRINT_KEY must be 64 hex characters (32 bytes). ' +
-        'Supplier preflight refuses to derive an unkeyed request digest: a country plus a ' +
-        'postal code is small enough to enumerate, so an unkeyed digest is an offline ' +
-        'oracle over buyers’ addresses.',
-    );
-  }
-  return Buffer.from(key, 'hex');
+  return derivedSecret('supplier-preflight-fingerprint');
 }
 
 /**
@@ -137,7 +124,7 @@ export function supplierRequestFingerprintMatches(
   stored: string,
   request: FingerprintedRequest,
 ): boolean {
-  if (!HEX_KEY_PATTERN.test(stored)) return false;
+  if (!HEX_DIGEST_PATTERN.test(stored)) return false;
   const expected = Buffer.from(computeSupplierRequestFingerprint(request), 'hex');
   const actual = Buffer.from(stored, 'hex');
   return expected.length === actual.length && timingSafeEqual(expected, actual);

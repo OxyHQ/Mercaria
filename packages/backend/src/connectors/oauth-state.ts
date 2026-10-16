@@ -2,8 +2,8 @@
  * OAuth `state` — a stateless, signed, expiring CSRF token.
  *
  * The connect route mints a `state` bound to the initiating {store, provider,
- * user, shop} plus a random nonce and short expiry, HMAC-SHA256-signed with
- * `CONNECTOR_OAUTH_STATE_SECRET`. The public callback re-validates the signature
+ * user, shop} plus a random nonce and short expiry, HMAC-SHA256-signed with a
+ * key derived from `MERCARIA_SECRET_KEY`. The public callback re-validates the signature
  * (constant-time via `verifySecret`) and expiry before creating any connection,
  * so an attacker cannot forge the `storeId` the callback writes to.
  *

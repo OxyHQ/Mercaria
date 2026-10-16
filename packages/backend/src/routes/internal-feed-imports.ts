@@ -12,12 +12,6 @@
  * ADR 0002 D25(a)'s file-ownership protocol — the same reason #56, #57, #58, #60
  * and #62 each created their own behind this identical gate.
  *
- * **It stays mounted while `FEED_IMPORT_ENABLED` is off**, deliberately and for
- * `/internal/backfill`'s reason: the evidence has to be readable during the
- * incident that turned the importer off, and a merchant's mapping, their
- * validation reports and the reason their last pass failed are exactly that
- * evidence.
- *
  * ## The cross-owner READS write nothing, and that stays true
  *
  * `GET /` and `GET /:configurationId` see every feed, whoever manages it, and

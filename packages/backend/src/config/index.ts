@@ -40,6 +40,7 @@ import { parseThreeDSecureThresholds } from '../services/payments/stripe/three-d
 import { parseHighValueHoldThresholds } from '../services/payments/high-value-hold.js';
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
+import { resolveRootSecret, type RootSecretSource } from '../lib/derived-secrets.js';
 import { parseBillingCohort } from '../services/billing/cohort-config.js';
 import { oxyServiceClient } from '../capabilities/oxy-service-client.js';
 
@@ -190,172 +191,18 @@ function resolveDatabaseUrl(): string {
 }
 
 /**
- * Whether guest commerce is switched on — ADR 0003 M8.
+ * Whether GoWay is configured — and therefore whether store pickup and nearby
+ * discovery exist on this deployment (ADR 0013, ADR 0015).
  *
- * `GUEST_COMMERCE_ENABLED=true` requires BOTH `GUEST_PII_ENCRYPTION_KEY` and
- * `GUEST_EMAIL_HASH_KEY`, the `CROWDSOURCE_ENABLED` half-configuration rule:
- * a deployment able to mint guest sessions but not to encrypt a guest
- * checkout's contact (#105–#107) or route a magic link (#108) would take carts
- * it can never carry to an order confirmation. Half-configured stays OFF and
- * says so once at boot. The two keys are SEPARATE by design (D12): the hash
- * key must be usable by the lookup path without ever being able to decrypt.
- *
- * There is deliberately no `GUEST_TOKEN_PEPPER` and none may be added: the
- * session token hashes are keyless SHA-256 on purpose (256-bit random
- * preimages need no key, and a pepper would make every stored hash
- * unverifiable the day it rotated), while the email hash is keyed for the
- * opposite entropy reason — the ADR's Environment section states both.
- *
- * This flag gates ISSUANCE surfaces (the `/guest/session` mount, new-session
- * minting), never durable records: sessions issued while it was on are purged
- * by the retention sweep on their own schedule whatever this says.
+ * Where a collection point IS comes from GoWay: with no GoWay to ask, every
+ * collection would be refused at checkout, one buyer at a time, and `/nearby`
+ * would answer every request with `503`. So both are ON exactly when
+ * `GOWAY_API_URL` is set and absent otherwise; there is no separate switch that
+ * could disagree with it. The collection-code key is derived from
+ * `MERCARIA_SECRET_KEY` (`lib/derived-secrets.ts`) and is always available.
  */
-function resolveGuestCommerceEnabled(): boolean {
-  if (!boolEnv('GUEST_COMMERCE_ENABLED', false)) return false;
-
-  const missing = (['GUEST_PII_ENCRYPTION_KEY', 'GUEST_EMAIL_HASH_KEY'] as const).filter(
-    (name) => (process.env[name]?.trim() ?? '') === '',
-  );
-  if (missing.length === 0) return true;
-
-  log.general.error(
-    { missing },
-    '[Guest] GUEST_COMMERCE_ENABLED is set but the integration is incomplete; staying OFF. ' +
-      'No guest session is issued and the /guest/session surface is not mounted.',
-  );
-  return false;
-}
-
-/**
- * `GUEST_ABUSE_CONTROLS_ENABLED`, subject to the half-configuration rule (#111).
- *
- * Enabling the controls without `GUEST_ABUSE_SUBJECT_HASH_KEY` would leave every
- * counter subject digested under no key — and the preimages here are an email, a
- * checkout id and a /24, three spaces small enough to enumerate exhaustively. An
- * unkeyed digest is therefore an offline ORACLE over "has this address bought
- * anything" sitting in a table, which is precisely what the digest exists to
- * prevent. `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY`'s reasoning, and it resolves the
- * same way: stay OFF and say so.
- *
- * Staying off is SAFE in the direction that matters and is not free, which is
- * worth stating rather than glossing. The COUNTERS still cannot be written
- * (there is no key to digest a subject with), so a deployment in this state is
- * measuring nothing — unlike the preflight, which still records an `unknown`.
- * What it cannot do is apply friction to somebody based on a subject it could
- * not safely name, which is the failure worth choosing.
- */
-function resolveGuestAbuseControlsEnabled(): boolean {
-  if (!boolEnv('GUEST_ABUSE_CONTROLS_ENABLED', false)) return false;
-  if ((process.env.GUEST_ABUSE_SUBJECT_HASH_KEY?.trim() ?? '') !== '') return true;
-
-  log.general.error(
-    '[Guest] GUEST_ABUSE_CONTROLS_ENABLED is set but GUEST_ABUSE_SUBJECT_HASH_KEY is missing; ' +
-      'staying OFF. No abuse counter is written and no friction is applied.',
-  );
-  return false;
-}
-
-/**
- * `SUPPLIER_PREFLIGHT_ENABLED`, subject to the half-configuration rule (#122).
- *
- * Enabling preflight without `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` would leave
- * the request digest unkeyed, and a country plus a postal code is a space small
- * enough to enumerate — so an unkeyed digest is an offline oracle over buyers'
- * addresses sitting in a column. The same argument `GUEST_COMMERCE_ENABLED`
- * makes for its two keys, and it resolves the same way: stay OFF and say so,
- * rather than run in a weaker mode nobody chose.
- *
- * Staying off is SAFE here in a way it would not be for a delivery queue: every
- * preflight still runs, still records its attempt and still writes a quote —
- * answering `unknown`, which blocks checkout. Nothing is silently permitted.
- */
-function resolveSupplierPreflightEnabled(): boolean {
-  if (!boolEnv('SUPPLIER_PREFLIGHT_ENABLED', false)) return false;
-
-  if ((process.env.SUPPLIER_PREFLIGHT_FINGERPRINT_KEY?.trim() ?? '') !== '') return true;
-
-  log.general.error(
-    { missing: ['SUPPLIER_PREFLIGHT_FINGERPRINT_KEY'] },
-    '[SupplierPreflight] SUPPLIER_PREFLIGHT_ENABLED is set but the fingerprint key is ' +
-      'missing; staying OFF. Every preflight answers `unknown`, which blocks checkout.',
-  );
-  return false;
-}
-
-/**
- * `FEED_IMPORT_ENABLED`, subject to the half-configuration rule (#63).
- *
- * The lever gates two things and neither of them is a durable record: whether
- * the `product_feed` ADAPTER is registered (so whether any feed is fetched at
- * all) and whether the merchant surface is mounted. Configurations, mapping
- * versions, uploads and reports are stored either way, and turning the lever on
- * drains the backlog — the `CATALOG_INGESTION_ENABLED` arrangement one layer up.
- *
- * `FEED_IMPORT_AUTH_ENCRYPTION_KEY` is demanded up front rather than on first
- * use, because a feed whose download URL needs a bearer token cannot be
- * CONFIGURED without it: the credential has nowhere to go. Running without the
- * key would mean accepting authenticated-feed configurations that can never
- * fetch, and reporting each failure as a source outage.
- */
-/**
- * `STORE_PICKUP_ENABLED`, subject to the half-configuration rule (#93).
- *
- * The key is demanded UP FRONT rather than at the counter, because the
- * alternative is a deployment that happily takes collection orders all week and
- * discovers on the first handover that it cannot derive the code the buyer was
- * told to bring. A collection that cannot be verified is not a degraded
- * collection — #93 readiness condition 8 makes verification a precondition of
- * guest pickup, and an unverifiable handover at a counter is exactly the
- * situation `PICKUP_IDENTITY_REQUIREMENTS` exists to stop being the default.
- *
- * Staying OFF is safe in the way it is for supplier preflight: nothing is
- * silently permitted. `resolvePickupForCheckout` refuses every pickup naming
- * `store_pickup_disabled` — the same refusal SHAPE the pre-#93 seam gave, so no
- * client learned anything new from the lever being off — and placed collections
- * are untouched, because no lever in this domain gates a durable record.
- */
-function resolveStorePickupEnabled(): boolean {
-  if (!boolEnv('STORE_PICKUP_ENABLED', false)) return false;
-
-  const missing = [
-    ...((process.env.PICKUP_COLLECTION_CODE_KEY?.trim() ?? '') === ''
-      ? ['PICKUP_COLLECTION_CODE_KEY']
-      : []),
-    // Where a collection point IS comes from GoWay (ADR 0013): with no GoWay
-    // to ask, every collection would be refused at checkout, one buyer at a
-    // time, rather than once here.
-    ...(strEnv('GOWAY_API_URL', '') === '' ? ['GOWAY_API_URL'] : []),
-  ];
-  if (missing.length === 0) return true;
-
-  log.general.error(
-    { missing },
-    '[Pickup] STORE_PICKUP_ENABLED is set but a dependency is missing; staying ' +
-      'OFF. Placed collections, their codes and the portal are untouched.',
-  );
-  return false;
-}
-
-/**
- * `NEARBY_DISCOVERY_ENABLED`, subject to the half-configuration rule.
- *
- * The nearby surface asks GoWay which Mercaria places are near a shopper
- * (ADR 0013). Mounted without `GOWAY_API_URL` it would answer every request
- * with `503` — so it stays unmounted, and the log line says why.
- */
-function resolveNearbyEnabled(): boolean {
-  if (!boolEnv('NEARBY_DISCOVERY_ENABLED', true)) return false;
-  if (strEnv('GOWAY_API_URL', '') !== '') return true;
-
-  // Defaulted on (ADR 0015): a deployment without GoWay simply has no nearby
-  // surface. Only an EXPLICIT request for it is a half-configuration worth a log.
-  if (process.env.NEARBY_DISCOVERY_ENABLED !== undefined) {
-    log.general.error(
-      { missing: ['GOWAY_API_URL'] },
-      '[Pickup] NEARBY_DISCOVERY_ENABLED is set but GOWAY_API_URL is missing; staying OFF.',
-    );
-  }
-  return false;
+function resolveGoWayConfigured(): boolean {
+  return strEnv('GOWAY_API_URL', '') !== '';
 }
 
 /**
@@ -377,38 +224,6 @@ function resolvePlaceCacheTtlSeconds(): number {
     '[GoWay] GOWAY_PLACE_CACHE_TTL_SECONDS is outside 1..60; using 60',
   );
   return ceiling;
-}
-
-/**
- * `GUEST_STORE_PICKUP_ENABLED`, which additionally requires store pickup.
- *
- * A guest lever that outlived the capability it modifies would be a switch
- * somebody could read as "guests may collect" on a deployment where nobody may.
- * The dependency is one-way and stated: turning store pickup off turns guest
- * pickup off with it, and turning guest pickup off leaves authenticated
- * collection working, which is the direction #93 operations rule 10 needs.
- */
-function resolveGuestStorePickupEnabled(): boolean {
-  if (!boolEnv('GUEST_STORE_PICKUP_ENABLED', false)) return false;
-  if (resolveStorePickupEnabled()) return true;
-
-  log.general.warn(
-    '[Pickup] GUEST_STORE_PICKUP_ENABLED is set while store pickup is off; staying OFF.',
-  );
-  return false;
-}
-
-function resolveFeedImportEnabled(): boolean {
-  if (!boolEnv('FEED_IMPORT_ENABLED', false)) return false;
-
-  if ((process.env.FEED_IMPORT_AUTH_ENCRYPTION_KEY?.trim() ?? '') !== '') return true;
-
-  log.general.error(
-    { missing: ['FEED_IMPORT_AUTH_ENCRYPTION_KEY'] },
-    '[FeedImport] FEED_IMPORT_ENABLED is set but the auth encryption key is missing; ' +
-      'staying OFF. Stored configurations, versions and reports are untouched.',
-  );
-  return false;
 }
 
 /**
@@ -442,7 +257,8 @@ function retailSellerLegalEntityCountry(): string {
 function resolveMercariaRetailEnabled(): boolean {
   if (!boolEnv('MERCARIA_RETAIL_ENABLED', false)) return false;
 
-  const hasPreflight = resolveSupplierPreflightEnabled();
+  // Supplier preflight is no longer a demand here: it is always on, and its
+  // fingerprint key is derived from `MERCARIA_SECRET_KEY`.
   const hasRetailOperators = resolveRetailOperatorIds().length > 0;
   // #126: a retail order's role snapshot names the selling entity, is written
   // in the buyer's own transaction, and its CHECK refuses an empty name or a
@@ -450,10 +266,9 @@ function resolveMercariaRetailEnabled(): boolean {
   // into a boot-time message instead of a failed checkout for the first buyer.
   const hasSeller =
     retailSellerLegalEntityName() !== '' && /^[A-Z]{2}$/.test(retailSellerLegalEntityCountry());
-  if (hasPreflight && hasRetailOperators && hasSeller) return true;
+  if (hasRetailOperators && hasSeller) return true;
 
   const missing = [
-    hasPreflight ? undefined : 'SUPPLIER_PREFLIGHT_ENABLED',
     hasRetailOperators ? undefined : 'RETAIL_OPERATOR_OXY_USER_IDS',
     hasSeller ? undefined : 'MERCARIA_RETAIL_SELLER_LEGAL_ENTITY/MERCARIA_RETAIL_SELLER_COUNTRY',
   ].filter((name): name is string => name !== undefined);
@@ -531,71 +346,6 @@ function resolveCrowdSourceEnabled(): boolean {
     { missing },
     '[CrowdSource] CROWDSOURCE_ENABLED is set but the integration is incomplete; ' +
       'staying OFF. Reports are still stored and will deliver once configured.',
-  );
-  return false;
-}
-
-/**
- * Whether the referral domain is switched on (#142, ADR 0005 "Environment").
- *
- * The `resolveCrowdSourceEnabled` rule, applied to the referral program:
- * `REFERRALS_ENABLED=true` requires `REFERRAL_LINK_TOKEN_SECRET`, because a
- * program that can issue codes but not signed links hands partners a
- * half-working instrument set and nothing reports why. Half-configured is
- * treated as OFF and says so once at boot.
- *
- * The gate stops SURFACES and LOOPS, never durable records — programs,
- * partners, attributions and conversions already written remain exactly as
- * they are, the standing rule every gate in this file follows.
- */
-/**
- * `OUTBOUND_REDIRECT_ENABLED`, with the half-configuration rule (#67).
- *
- * The token is HMAC-signed, so a deployment with the flag on and no secret
- * could not verify one — and the failure would arrive as a 500 on every click
- * rather than as a missing feature. Staying OFF makes the product page render
- * its "not available" branch, which is a state it already has and already
- * renders correctly.
- *
- * This gates the MOUNT, unlike most levers here, and that is deliberate for the
- * reason the Stripe webhook mount gives: without a secret there is nothing to
- * verify, so accepting a token to resolve later would be acting on a stranger's
- * opinion about which offer to redirect to. It gates NO durable record — clicks
- * are written by the route, so an unmounted route writes none, and there is no
- * queue that could strand.
- */
-function resolveOutboundRedirectEnabled(): boolean {
-  if (!boolEnv('OUTBOUND_REDIRECT_ENABLED', false)) return false;
-  if ((process.env.OUTBOUND_TOKEN_SECRET?.trim() ?? '') !== '') return true;
-
-  log.general.error(
-    { missing: ['OUTBOUND_TOKEN_SECRET'] },
-    '[Outbound] OUTBOUND_REDIRECT_ENABLED is set but the token secret is missing; staying OFF. ' +
-      'Stored clicks, transactions and commission postings are unaffected.',
-  );
-  return false;
-}
-
-function resolveReferralsEnabled(): boolean {
-  if (!boolEnv('REFERRALS_ENABLED', false)) return false;
-
-  const missing: string[] = [];
-  if ((process.env.REFERRAL_LINK_TOKEN_SECRET?.trim() ?? '') === '') {
-    missing.push('REFERRAL_LINK_TOKEN_SECRET');
-  }
-  // #143 adds the SECOND key to the half-configuration rule. A deployment that
-  // can mint links but cannot sign the state carrier would redirect every
-  // anonymous click and then throw when it tried to hand the browser its
-  // evidence — a program that appears to work and attributes nobody.
-  if ((process.env.REFERRAL_STATE_SECRET?.trim() ?? '') === '') {
-    missing.push('REFERRAL_STATE_SECRET');
-  }
-  if (missing.length === 0) return true;
-
-  log.general.error(
-    { missing },
-    '[Referrals] REFERRALS_ENABLED is set but the integration is incomplete; staying OFF. ' +
-      'Durable referral records are unaffected.',
   );
   return false;
 }
@@ -1389,7 +1139,7 @@ export interface StripeConfig {
    *
    * ## Optional here, REQUIRED at use
    *
-   * The three onboarding values below deliberately do NOT join
+   * The two onboarding URLs below deliberately do NOT join
    * `resolveStripeEnabled`'s required set, unlike the two webhook secrets. That
    * rule exists for a SILENT failure — a deployment missing the Connect secret
    * verifies charges and drops every `account.updated`, so sellers stop becoming
@@ -1399,13 +1149,13 @@ export interface StripeConfig {
    * rail off for it would take payments down to fix an onboarding typo.
    *
    * `stripeOnboardingConfig()` in `services/payments/stripe/onboarding-config.ts`
-   * is the one reader, and it names every missing variable at once.
+   * is the one reader, and it names every missing variable at once. The state
+   * token's HMAC key is derived from `MERCARIA_SECRET_KEY`
+   * (`lib/derived-secrets.ts`), so it is never missing.
    */
   readonly onboardingBaseUrl?: string;
   /** Where the seller's browser lands after the hosted flow — the dashboard. */
   readonly onboardingReturnUrl?: string;
-  /** HMAC secret for the signed, expiring onboarding round-trip state token. */
-  readonly onboardingStateSecret?: string;
   /**
    * How long an account may go unread before the reconciliation sweep refreshes
    * it. Six hours: long enough that the sweep is a safety net rather than a
@@ -1644,10 +1394,22 @@ export interface PaymentsConfig {
  */
 export interface GuestConfig {
   /**
-   * Whether guest commerce exists on this deployment — see
-   * `resolveGuestCommerceEnabled`. Gates the `/guest/session` MOUNT (an
-   * unconfigured deployment answers 404, the `STRIPE_ENABLED` rule) and the
-   * resolver's willingness to read guest credentials at all.
+   * `GUEST_COMMERCE_ENABLED`, default false — whether guest commerce exists on
+   * this deployment. Gates the `/guest/session` MOUNT (an unconfigured
+   * deployment answers 404, the `STRIPE_ENABLED` rule) and the resolver's
+   * willingness to read guest credentials at all.
+   *
+   * It gates ISSUANCE surfaces, never durable records: sessions issued while it
+   * was on are purged by the retention sweep on their own schedule. The two
+   * keys it once demanded — the contact cipher key and the email lookup-hash
+   * key (D12) — are derived from `MERCARIA_SECRET_KEY` under SEPARATE purposes
+   * (`lib/derived-secrets.ts`), so the lookup path still cannot decrypt.
+   *
+   * There is deliberately no `GUEST_TOKEN_PEPPER` and none may be added: the
+   * session token hashes are keyless SHA-256 on purpose (256-bit random
+   * preimages need no key, and a pepper would make every stored hash
+   * unverifiable the day it rotated), while the email hash is keyed for the
+   * opposite entropy reason — the ADR's Environment section states both.
    */
   readonly enabled: boolean;
   /**
@@ -1715,18 +1477,6 @@ export interface GuestConfig {
    * separate flag could only ever disagree with the list.
    */
   readonly operatorSurfaceEnabled: boolean;
-  /**
-   * `GUEST_PII_ENCRYPTION_KEY` — AES-256-GCM key for the guest checkout
-   * contact snapshot (D12). Required for `enabled`; CONSUMED by #105–#107,
-   * carried here so the M8 half-configuration rule holds from day one.
-   */
-  readonly piiEncryptionKey: string;
-  /**
-   * `GUEST_EMAIL_HASH_KEY` — HMAC-SHA-256 key for email routing lookups
-   * (D12). Required for `enabled`; consumed by #108. SEPARATE from the
-   * encryption key by design: the lookup path must never be able to decrypt.
-   */
-  readonly emailHashKey: string;
   /** Idle expiry, enforced by the resolver against `last_seen_at` (D3). */
   readonly sessionIdleDays: number;
   /** Absolute expiry, the `expires_at` column stamped at issuance (D3). */
@@ -1762,12 +1512,14 @@ export interface GuestConfig {
  * at 3am. Advancing is a recorded, gated, attributable act, never an
  * environment change.
  *
- * ## The two levers that DO exist gate a LOOP and an ACTION, never a record
+ * ## Abuse controls are not a lever
  *
- * `abuseControlsEnabled` off still COUNTS: every counter is written, so a
- * deployment that turned the controls off during an incident can still see what
- * was happening while they were off, and turning them back on does not start
- * from zero. What it stops is the INTERVENTION — the friction a person feels.
+ * They run whenever guest commerce runs: every counter is written and friction
+ * is applied by the published policy. Their subject-digest key is derived from
+ * `MERCARIA_SECRET_KEY`, so there is no configuration in which they could be
+ * half-on.
+ *
+ * ## The lever that DOES exist gates a LOOP, never a record
  *
  * `retentionJobEnabled` off stops the sweep and nothing else. Rows keep their
  * deadlines, the lag counter keeps rising, and the operator surface keeps
@@ -1776,24 +1528,6 @@ export interface GuestConfig {
  * everywhere else.
  */
 export interface GuestGovernanceConfig {
-  /**
-   * `GUEST_ABUSE_CONTROLS_ENABLED`, default FALSE — may friction be APPLIED.
-   *
-   * Default off, unlike the three guest levers that default on, and the
-   * discriminator is whether the flag demands a SECRET.
-   * `GUEST_COMMERCE_ENABLED` and `SUPPLIER_PREFLIGHT_ENABLED` both do and both
-   * default off, for the reason this one does: a flag that defaults ON and
-   * demands a key it has not been given makes every unconfigured deployment log
-   * an error at boot about a feature nobody asked for, and an error nobody can
-   * act on is one everybody learns to scroll past.
-   *
-   * Requires {@link abuseSubjectHashKey}: an unkeyed digest over an email or a
-   * network prefix is an offline oracle anybody with the table can run, which
-   * is the `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` rule applied to a counter.
-   */
-  readonly abuseControlsEnabled: boolean;
-  /** `GUEST_ABUSE_SUBJECT_HASH_KEY` — the HMAC key every counter subject is digested under. */
-  readonly abuseSubjectHashKey: string;
   /** `GUEST_RETENTION_JOB_ENABLED`, default true — gates the LOOP only. */
   readonly retentionJobEnabled: boolean;
   /** How many rows one retention pass examines. Bounded, indexed batches. */
@@ -2061,10 +1795,9 @@ export interface GuestCheckoutRolloutConfig {
    * `GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS` — `standard`, `express`,
    * `pickup`.
    *
-   * The fulfilment-path dimension. `pickup` is already refused for every actor
-   * while `STORE_PICKUP_ENABLED` is off, so blocking it changes nothing in a
-   * default deployment; it is on the list because the lever must exist before
-   * the path does, not after.
+   * The fulfilment-path dimension. `pickup` here is the guest-only off switch
+   * for collection: guest pickup is otherwise on whenever store pickup (GoWay
+   * configured) and guest commerce both are.
    */
   readonly blockedFulfilmentMethods: readonly string[];
   /**
@@ -3020,99 +2753,35 @@ export interface FxConfig {
   readonly staticRates: Readonly<Partial<Record<Exclude<CurrencyCode, 'FAIR'>, number>>>;
 }
 
+/**
+ * The referral program (ADR 0005). Its surfaces (`/r`, `/referrals`,
+ * `/referral-partner`) are always mounted and its three #145 loops always run;
+ * the link-token and state-carrier keys are derived from `MERCARIA_SECRET_KEY`
+ * under two DIFFERENT purposes (`lib/derived-secrets.ts`) — a link token is
+ * public by design while a forged state carrier would credit any partner with
+ * any purchase, so one key for both would make a leak of the public half a
+ * mint for the private one.
+ *
+ * Money still needs a person: a payout settles only from an operator-APPROVED
+ * batch, under `referral_program_controls.payout_enabled`, to a payment-ready
+ * partner, over the Stripe rail that `STRIPE_ENABLED` gates. The loops build
+ * DRAFT batches and settle approved ones; they approve nothing.
+ */
 export interface ReferralsConfig {
-  /**
-   * Whether the referral domain's surfaces and loops run — see
-   * `resolveReferralsEnabled`. Durable referral records are written regardless;
-   * the gate follows the standing "gate the loop, never the record" rule.
-   */
-  readonly enabled: boolean;
-  /**
-   * HMAC key for signed referral link tokens (#142). Absent rather than `''`
-   * when unset, so the link-token service names the missing variable instead of
-   * signing with an empty key.
-   */
-  readonly linkTokenSecret?: string;
-  /**
-   * HMAC key for the referral STATE carrier (#143) — the short-lived,
-   * purpose-specific credential a browser holds between a click and the moment
-   * there is a subject to attribute.
-   *
-   * A SECOND key rather than the link token's, because the two are opposite in
-   * kind: a link token is published by a partner and is public by design, while
-   * this one is minted by the server and its forgery would let anybody credit
-   * any partner with any purchase. One key for both would make a leak of the
-   * public half a mint for the private one.
-   */
-  readonly stateSecret?: string;
-  /**
-   * The origin `GET /r/:token` composes its destination on.
-   *
-   * Validated against `lib/allowed-origins.ts` at the first redirect rather
-   * than silently accepted: this value plus an allow-listed relative path IS
-   * the redirect target, so an unlisted origin here would make the route an
-   * open redirect.
-   */
-  readonly redirectBaseUrl: string;
   /** `REFERRAL_OPERATOR_OXY_USER_IDS` — the SEVENTH allow-list. */
   readonly operatorOxyUserIds: readonly string[];
   /** Derived: empty list means `/internal/referrals` is not mounted at all. */
   readonly operatorSurfaceEnabled: boolean;
 
-  /**
-   * `REFERRAL_PARTNER_ENROLLMENT_ENABLED` (#146 increment 2) — the MOUNT of the
-   * two partner-facing enrollment surfaces, and nothing durable.
-   *
-   * `GUEST_SESSION_ISSUANCE_ENABLED`'s exact shape: it stops NEW enrollment and
-   * every partner-facing enrollment write, and touches nothing that already
-   * exists — standing, acceptances, tax declarations, accrued rewards and
-   * payout batches all carry on, and turning it back on resumes where it
-   * stopped. The operator review surface is deliberately NOT gated by it, so a
-   * queue can be worked through during whatever incident turned it off.
-   *
-   * Default TRUE, unlike #145's three loop levers, and the asymmetry is the
-   * point: those are timers, and a timer nobody armed does nothing, while this
-   * gates the only path by which a partner can complete ADR 0005 D15's tax gate.
-   * Shipping it OFF would reproduce exactly the state increment 1 left behind —
-   * tax readiness `pending` for every partner and every batch blocked — with
-   * the added hazard that the symptom is silence.
-   *
-   * It is deliberately NOT `REFERRALS_ENABLED`. That lever demands both link
-   * secrets because the redirect cannot work without them; enrollment reads
-   * neither, so gating it there would demand a secret a surface never uses and
-   * would make "enrol partners first, switch attribution on afterwards" — the
-   * ordinary staged rollout — impossible.
-   */
-  readonly partnerEnrollmentEnabled: boolean;
-
-  // ── #145's three loop levers ───────────────────────────────────────────────
-  //
-  // NOT ONE of them gates a durable record, and a scanned gate says so. The
-  // accrual books its ledger posting INSIDE #144's own transaction with no flag
-  // in the path, holds keep elapsing whatever these say, and turning any of them
-  // back on drains whatever accumulated. Each defaults FALSE because the referral
-  // program itself is not live: a vesting sweep on a deployment with no partners
-  // is a timer doing nothing, and an incident lever that ships ON is one nobody
-  // notices is armed.
-
-  /** `REFERRAL_VESTING_ENABLED` — the hold → vested sweep. */
-  readonly vestingEnabled: boolean;
+  /** The hold → vested sweep. */
   readonly vestingBatchSize: number;
   readonly vestingPollIntervalMs: number;
-  /**
-   * `REFERRAL_PAYOUT_BATCHES_ENABLED` — the batch build-and-settle loop.
-   *
-   * With it off an operator can still open, approve, settle and cancel a batch
-   * by hand, which is the supported path during an incident and the reason
-   * `/internal/referrals` stays mounted while every lever is down.
-   */
-  readonly payoutBatchesEnabled: boolean;
+  /** The batch build-and-settle loop. */
   readonly payoutBatchSize: number;
   readonly payoutPollIntervalMs: number;
   /** How long a FAILED batch waits before the loop retries it on the same key. */
   readonly payoutRetryBackoffMs: number;
-  /** `REFERRAL_RECONCILIATION_ENABLED` — the sweep ADR 0005 gates #145 on. */
-  readonly reconciliationEnabled: boolean;
+  /** The reconciliation sweep ADR 0005 gates #145 on. */
   readonly reconciliationBatchSize: number;
   readonly reconciliationPollIntervalMs: number;
 }
@@ -3334,16 +3003,17 @@ export interface RetailEligibilityConfig {
 /**
  * Live supplier preflight (#122).
  *
- * Four independent levers, and the interaction is the part worth stating:
+ * Preflight itself is always on: whether a provider is called is decided per
+ * supplier account (active, sourcing policy present, adapter registered, no
+ * live suppression), and only retail checkout — itself behind
+ * `MERCARIA_RETAIL_ENABLED` — asks for one. The request-digest key is derived
+ * from `MERCARIA_SECRET_KEY` (`lib/derived-secrets.ts`), so the digest is
+ * always keyed: an unkeyed one would be an offline oracle over buyers' postal
+ * codes. `preflight_disabled` stays in the closed block-reason set only because
+ * stored quotes may carry it.
  *
- *  - `enabled` gates whether a PROVIDER IS CALLED at all. Off, every preflight
- *    still runs, still records its attempt and still writes a durable quote —
- *    one whose availability is `unknown` and whose block reason is
- *    `preflight_disabled`, so checkout refuses. That is deliberately NOT the
- *    "gate the loop, never the record" shape: there is no durable record being
- *    withheld here, only a supplier not being asked, and the answer to not
- *    having asked is `unknown`, which is exactly what the domain's honesty rule
- *    requires.
+ * Two levers, and the interaction is the part worth stating:
+ *
  *  - `sweepEnabled` gates the LOOP that releases lapsed holds and evaluates
  *    health. Off, holds still lapse on the supplier's own clock and quotes
  *    still expire against theirs — what stops is Mercaria recording it, which
@@ -3352,14 +3022,8 @@ export interface RetailEligibilityConfig {
  *    It is double-gated: this flag AND the supplier account being in the `test`
  *    environment, so a `live` account can never be served a fabricated answer
  *    however the flag is set.
- *  - `fingerprintKey` is demanded whenever `enabled` is true — the
- *    half-configuration rule `GUEST_COMMERCE_ENABLED` established. An unset key
- *    would mean an unkeyed request digest, which is an offline oracle over
- *    buyers' postal codes.
  */
 export interface SupplierPreflightConfig {
-  /** `SUPPLIER_PREFLIGHT_ENABLED` — may an adapter be called. Default false. */
-  readonly enabled: boolean;
   /** `SUPPLIER_PREFLIGHT_SWEEP_ENABLED` — does the release/health loop run. */
   readonly sweepEnabled: boolean;
   readonly sweepIntervalMs: number;
@@ -3368,8 +3032,6 @@ export interface SupplierPreflightConfig {
   readonly maxReleaseAttempts: number;
   /** `SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED` — the failure-injection adapter. */
   readonly fakeAdapterEnabled: boolean;
-  /** HMAC key for the request digest. 64 hex characters; validated on first use. */
-  readonly fingerprintKey: string;
   /**
    * The Oxy accounts that may reach `/internal/supplier-preflight/*`. A SIXTH
    * allow-list — see `resolveProcurementOperatorIds`.
@@ -3444,11 +3106,9 @@ export interface ProcurementConfig {
  * and readable either way, every run refuses with #62's own `adapter_missing`,
  * and turning it on drains the backlog.
  *
- * **It deliberately does NOT demand a credential**, unlike `FEED_IMPORT_ENABLED`
- * and unlike the half-configuration rule elsewhere in this file. The difference
- * is real: #63 demands its encryption key because a feed's credential has
- * nowhere to GO without it, so a configuration would be unstorable. Awin's key
- * is a LOCATOR on a row — storable and reviewable with no key present — and a
+ * **It deliberately does NOT demand a credential**, unlike the
+ * half-configuration rule elsewhere in this file. Awin's key is a LOCATOR on a
+ * row — storable and reviewable with no key present — and a
  * deployment that registered the adapter before the locator resolves gets an
  * honest `auth_failure` naming the missing secret rather than a silent no-op.
  *
@@ -3503,18 +3163,12 @@ export interface OpenDataConfig {
 /**
  * Affiliate outbound redirects and commission reconciliation (#67).
  *
- * Two independent levers plus tunables, and NEITHER gates a durable record.
- * `outbound-isolation.test.ts` fails the build if a repository or a read path
- * starts reading one.
+ * `GET /out/:token` is always mounted; its HMAC key is derived from
+ * `MERCARIA_SECRET_KEY` (`lib/derived-secrets.ts`). One lever plus tunables,
+ * and it does not gate a durable record. `outbound-isolation.test.ts` fails the
+ * build if a repository or a read path starts reading it.
  */
 export interface AffiliateOutboundConfig {
-  /**
-   * `OUTBOUND_REDIRECT_ENABLED` — mount `GET /out/:token`. Default false.
-   * Subject to the half-configuration rule; see `resolveOutboundRedirectEnabled`.
-   */
-  readonly redirectEnabled: boolean;
-  /** HMAC key for the opaque token. Absent rather than `''` when unset. */
-  readonly tokenSecret?: string;
   /**
    * `AFFILIATE_RECONCILIATION_ENABLED` — the report-poll LOOP only. Default
    * false. Turning it off cannot make a stored commission unreadable, and a
@@ -3531,11 +3185,12 @@ export interface AffiliateOutboundConfig {
   readonly reportLeaseMs: number;
 }
 
+/**
+ * The product-feed importer (#63). Always registered and mounted; a feed's
+ * stored credential is encrypted under a key derived from `MERCARIA_SECRET_KEY`
+ * (`lib/derived-secrets.ts`). What remains here are its bounds.
+ */
 export interface FeedImportConfig {
-  /** `FEED_IMPORT_ENABLED` — register the adapter and mount the merchant surface. */
-  readonly enabled: boolean;
-  /** AES-256-GCM key for a feed's stored credential. 64 hex chars; validated on first use. */
-  readonly authEncryptionKey: string;
   /** Where a fetched feed and an upload are staged on the task's own disk. */
   readonly stagingDir: string;
   /** Hard cap on bytes read from a source, BEFORE decompression. */
@@ -3797,10 +3452,12 @@ export interface RetailServiceRequestsConfig {
 /**
  * Location publication, nearby discovery and collection (#93).
  *
- * FOUR independent levers, and #93 operations rule 9 asks for exactly that —
- * "independent feature flags for nearby browse, store pickup, guest pickup and
- * P2P guest pickup". Three of the four are here. The fourth is deliberately
- * ABSENT and its absence is a stronger guarantee than a switch defaulting off:
+ * Nearby browse and store pickup are not switches: both exist exactly when
+ * `GOWAY_API_URL` is configured (see `resolveGoWayConfigured`), and guest pickup
+ * exists exactly when store pickup AND guest commerce do — the guest-only off
+ * switch is `GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=pickup`. P2P local
+ * discovery keeps its own flag. Guest P2P pickup is deliberately ABSENT and its
+ * absence is a stronger guarantee than a switch defaulting off:
  * guest P2P checkout is refused at group construction by
  * `assertGuestP2PCheckoutAllowed` (`services/guest-p2p/gate.ts`, ADR 0003 D18),
  * whose `GuestP2PAuthorization` has no member meaning yes, and
@@ -3809,26 +3466,24 @@ export interface RetailServiceRequestsConfig {
  * `docs/guest-p2p/2026-08-10-guest-p2p-checkout-decision.md`; enabling it is a
  * change to that type, not a flag flip.
  *
- * NONE of the four gates a durable record. `order_pickups`, the collection
- * credential, its event trail and the portal all keep working with every lever
+ * NONE of these gates a durable record. `order_pickups`, the collection
+ * credential, its event trail and the portal all keep working with every one
  * off, which is #93 operations rule 10 — "rollback new guest pickup while
  * preserving existing order access, collection, cancellation and refund" — and
  * `pickup-isolation.test.ts` fails the build if a collection, portal or refund
  * path starts reading `config.pickup`.
  */
 export interface PickupConfig {
-  /** `NEARBY_DISCOVERY_ENABLED` — mounts `/nearby`. Default true; needs `GOWAY_API_URL`. */
+  /** DERIVED: `/nearby` is mounted exactly when `GOWAY_API_URL` is configured. */
   readonly nearbyEnabled: boolean;
   /**
-   * `STORE_PICKUP_ENABLED` — may a checkout resolve a pickup destination.
-   *
-   * Default false, and subject to the half-configuration rule: without
-   * {@link collectionCodeKey} a collection code cannot be derived, so a
-   * deployment could take pickup orders it can never hand over; without
-   * `GOWAY_API_URL` no collection point can be described at all.
+   * DERIVED: may a checkout resolve a pickup destination — exactly when
+   * `GOWAY_API_URL` is configured, because without GoWay no collection point
+   * can be described at all. The collection-code key is derived from
+   * `MERCARIA_SECRET_KEY` and is always available.
    */
   readonly storePickupEnabled: boolean;
-  /** `GUEST_STORE_PICKUP_ENABLED` — may a GUEST collect. Default false. */
+  /** DERIVED: may a GUEST collect — store pickup AND guest commerce are both on. */
   readonly guestPickupEnabled: boolean;
   /** `P2P_LOCAL_DISCOVERY_ENABLED` — the coarse P2P proximity surface. Default false. */
   readonly p2pLocalDiscoveryEnabled: boolean;
@@ -3844,17 +3499,6 @@ export interface PickupConfig {
    * this on and gets the strict reading.
    */
   readonly guestPickupRequiresNotificationTransport: boolean;
-  /**
-   * `PICKUP_COLLECTION_CODE_KEY` — the HMAC key collection codes are derived
-   * under. 64 hex characters.
-   *
-   * There is no stored code, hash or ciphertext anywhere in the domain: the code
-   * is `HMAC(key, orderId:version)`, so this key is what makes a code
-   * re-derivable for the buyer who asks again and verifiable at a counter. Its
-   * rotation invalidates every outstanding code at once, which is a blunt
-   * instrument and the right one for a credential leak.
-   */
-  readonly collectionCodeKey: string;
 }
 
 /**
@@ -4013,6 +3657,21 @@ export interface AppConfig {
   readonly digital: DigitalCommerceConfig;
   readonly digitalRetail: DigitalRetailConfig;
   readonly postgres: PostgresConfig;
+  readonly secrets: SecretsConfig;
+}
+
+/**
+ * The root every internal key is derived from (`lib/derived-secrets.ts`).
+ *
+ * Holds only WHERE the root came from, never key material: the keys are
+ * derived at use from `MERCARIA_SECRET_KEY`. Resolving it here is what makes a
+ * production task without the root refuse to start — the `DATABASE_URL` rule,
+ * for the same reason: a task that cannot verify a token or read guest contact
+ * data would otherwise fail one request at a time.
+ */
+export interface SecretsConfig {
+  /** `environment` when `MERCARIA_SECRET_KEY` is set; `development` for the public dev root. */
+  readonly rootSource: RootSecretSource;
 }
 
 /**
@@ -4462,8 +4121,6 @@ export const config: AppConfig = Object.freeze({
     sitemapCacheSeconds: intEnv('SEO_SITEMAP_CACHE_SECONDS', 3_600),
   }),
   feedImport: Object.freeze({
-    enabled: resolveFeedImportEnabled(),
-    authEncryptionKey: strEnv('FEED_IMPORT_AUTH_ENCRYPTION_KEY', ''),
     stagingDir: strEnv('FEED_IMPORT_STAGING_DIR', join(tmpdir(), 'mercaria-feed-import')),
     maxDownloadBytes: intEnv('FEED_IMPORT_MAX_DOWNLOAD_BYTES', 2 * 1024 * 1024 * 1024),
     maxDecompressedBytes: intEnv('FEED_IMPORT_MAX_DECOMPRESSED_BYTES', 16 * 1024 * 1024 * 1024),
@@ -4508,13 +4165,6 @@ export const config: AppConfig = Object.freeze({
     maxDownloadBytes: intEnv('OPEN_DATA_MAX_DOWNLOAD_BYTES', 256 * 1024 * 1024),
   }),
   affiliateOutbound: Object.freeze({
-    redirectEnabled: resolveOutboundRedirectEnabled(),
-    // Spread-when-present, like the referral link secret: absent rather than
-    // `''`, so the token service names the missing variable instead of signing
-    // with an empty key.
-    ...(process.env.OUTBOUND_TOKEN_SECRET?.trim()
-      ? { tokenSecret: process.env.OUTBOUND_TOKEN_SECRET.trim() }
-      : {}),
     reconciliationEnabled: boolEnv('AFFILIATE_RECONCILIATION_ENABLED', false),
     // 400 days. Longer than every network's own correction window, because a
     // click whose commission is reversed eleven months later must still be
@@ -4733,9 +4383,6 @@ export const config: AppConfig = Object.freeze({
       ...(process.env.STRIPE_ONBOARDING_RETURN_URL?.trim()
         ? { onboardingReturnUrl: process.env.STRIPE_ONBOARDING_RETURN_URL.trim() }
         : {}),
-      ...(process.env.STRIPE_ONBOARDING_STATE_SECRET?.trim()
-        ? { onboardingStateSecret: process.env.STRIPE_ONBOARDING_STATE_SECRET.trim() }
-        : {}),
       accountSyncStaleAfterMs: intEnv('STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS', 6 * 60 * 60 * 1_000),
       accountSyncBatchSize: intEnv('STRIPE_ACCOUNT_SYNC_BATCH_SIZE', 25),
       accountSyncIntervalMs: intEnv('STRIPE_ACCOUNT_SYNC_INTERVAL_MS', 15 * 60 * 1_000),
@@ -4758,14 +4405,12 @@ export const config: AppConfig = Object.freeze({
     operatorSurfaceEnabled: resolvePaymentOperatorIds().length > 0,
   }),
   guest: Object.freeze({
-    enabled: resolveGuestCommerceEnabled(),
+    enabled: boolEnv('GUEST_COMMERCE_ENABLED', false),
     issuanceEnabled: boolEnv('GUEST_SESSION_ISSUANCE_ENABLED', true),
     cartEnabled: boolEnv('GUEST_CART_ENABLED', true),
     inlineDestinationEnabled: boolEnv('GUEST_INLINE_DESTINATION_ENABLED', true),
     operatorOxyUserIds: Object.freeze(resolveGuestOperatorIds()),
     operatorSurfaceEnabled: resolveGuestOperatorIds().length > 0,
-    piiEncryptionKey: strEnv('GUEST_PII_ENCRYPTION_KEY', ''),
-    emailHashKey: strEnv('GUEST_EMAIL_HASH_KEY', ''),
     sessionIdleDays: intEnv('GUEST_SESSION_IDLE_DAYS', 30),
     sessionAbsoluteDays: intEnv('GUEST_SESSION_ABSOLUTE_DAYS', 90),
     checkoutRollout: Object.freeze({
@@ -4810,8 +4455,6 @@ export const config: AppConfig = Object.freeze({
       jobMaxAttempts: intEnv('GUEST_CLAIM_JOB_MAX_ATTEMPTS', 8),
     }),
     governance: Object.freeze({
-      abuseControlsEnabled: resolveGuestAbuseControlsEnabled(),
-      abuseSubjectHashKey: strEnv('GUEST_ABUSE_SUBJECT_HASH_KEY', ''),
       retentionJobEnabled: boolEnv('GUEST_RETENTION_JOB_ENABLED', true),
       retentionBatchSize: intEnv('GUEST_RETENTION_BATCH_SIZE', 500),
       retentionPollIntervalMs: intEnv('GUEST_RETENTION_POLL_INTERVAL_MS', 900_000),
@@ -4820,35 +4463,13 @@ export const config: AppConfig = Object.freeze({
     }),
   }),
   referrals: Object.freeze({
-    enabled: resolveReferralsEnabled(),
-    // Spread-when-present, like the Stripe onboarding secret: absent rather
-    // than `''`, so the link-token service can name the missing variable
-    // instead of signing with an empty key.
-    ...(process.env.REFERRAL_LINK_TOKEN_SECRET?.trim()
-      ? { linkTokenSecret: process.env.REFERRAL_LINK_TOKEN_SECRET.trim() }
-      : {}),
-    ...(process.env.REFERRAL_STATE_SECRET?.trim()
-      ? { stateSecret: process.env.REFERRAL_STATE_SECRET.trim() }
-      : {}),
-    // Defaults to the storefront, which is where every referral destination
-    // template resolves. NOT defaulted to `WEB_URL`: that variable widens
-    // `ALLOWED_ORIGINS` for CORS, and a redirect target is a stronger claim
-    // than a readable response.
-    redirectBaseUrl: strEnv('REFERRAL_REDIRECT_BASE_URL', 'https://mercaria.co'),
     operatorOxyUserIds: Object.freeze(resolveReferralOperatorIds()),
     operatorSurfaceEnabled: resolveReferralOperatorIds().length > 0,
-    // #146 increment 2 — see the ReferralsConfig docblock for why this defaults
-    // TRUE where #145's three loop levers default FALSE.
-    partnerEnrollmentEnabled: boolEnv('REFERRAL_PARTNER_ENROLLMENT_ENABLED', true),
-    // #145 — see the ReferralsConfig docblock. Loops only, never records.
-    vestingEnabled: boolEnv('REFERRAL_VESTING_ENABLED', false),
     vestingBatchSize: intEnv('REFERRAL_VESTING_BATCH_SIZE', 200),
     vestingPollIntervalMs: intEnv('REFERRAL_VESTING_POLL_INTERVAL_MS', 300_000),
-    payoutBatchesEnabled: boolEnv('REFERRAL_PAYOUT_BATCHES_ENABLED', false),
     payoutBatchSize: intEnv('REFERRAL_PAYOUT_BATCH_SIZE', 25),
     payoutPollIntervalMs: intEnv('REFERRAL_PAYOUT_POLL_INTERVAL_MS', 900_000),
     payoutRetryBackoffMs: intEnv('REFERRAL_PAYOUT_RETRY_BACKOFF_MS', 900_000),
-    reconciliationEnabled: boolEnv('REFERRAL_RECONCILIATION_ENABLED', false),
     reconciliationBatchSize: intEnv('REFERRAL_RECONCILIATION_BATCH_SIZE', 25),
     reconciliationPollIntervalMs: intEnv('REFERRAL_RECONCILIATION_POLL_INTERVAL_MS', 3_600_000),
   }),
@@ -4933,13 +4554,11 @@ export const config: AppConfig = Object.freeze({
     expiryHorizonDays: intEnv('RETAIL_EVIDENCE_EXPIRY_HORIZON_DAYS', 30),
   }),
   supplierPreflight: Object.freeze({
-    enabled: resolveSupplierPreflightEnabled(),
     sweepEnabled: boolEnv('SUPPLIER_PREFLIGHT_SWEEP_ENABLED', true),
     sweepIntervalMs: intEnv('SUPPLIER_PREFLIGHT_SWEEP_INTERVAL_MS', 30_000),
     sweepBatchSize: intEnv('SUPPLIER_PREFLIGHT_SWEEP_BATCH_SIZE', 50),
     maxReleaseAttempts: intEnv('SUPPLIER_PREFLIGHT_MAX_RELEASE_ATTEMPTS', 5),
     fakeAdapterEnabled: boolEnv('SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED', false),
-    fingerprintKey: strEnv('SUPPLIER_PREFLIGHT_FINGERPRINT_KEY', ''),
     operatorOxyUserIds: Object.freeze(resolveProcurementOperatorIds()),
     operatorSurfaceEnabled: resolveProcurementOperatorIds().length > 0,
   }),
@@ -5004,15 +4623,14 @@ export const config: AppConfig = Object.freeze({
     webhookReregistrationLeaseMs: intEnv('CONNECTOR_WEBHOOK_REREGISTRATION_LEASE_MS', 120_000),
   }),
   pickup: Object.freeze({
-    nearbyEnabled: resolveNearbyEnabled(),
-    storePickupEnabled: resolveStorePickupEnabled(),
-    guestPickupEnabled: resolveGuestStorePickupEnabled(),
+    nearbyEnabled: resolveGoWayConfigured(),
+    storePickupEnabled: resolveGoWayConfigured(),
+    guestPickupEnabled: resolveGoWayConfigured() && boolEnv('GUEST_COMMERCE_ENABLED', false),
     p2pLocalDiscoveryEnabled: boolEnv('P2P_LOCAL_DISCOVERY_ENABLED', false),
     guestPickupRequiresNotificationTransport: boolEnv(
       'GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT',
       false,
     ),
-    collectionCodeKey: strEnv('PICKUP_COLLECTION_CODE_KEY', ''),
   }),
   goway: Object.freeze({
     apiUrl: strEnv('GOWAY_API_URL', ''),
@@ -5063,5 +4681,10 @@ export const config: AppConfig = Object.freeze({
     idleTimeoutSeconds: intEnv('PG_IDLE_TIMEOUT_SECONDS', 30),
     connectTimeoutSeconds: intEnv('PG_CONNECT_TIMEOUT_SECONDS', 10),
     maxLifetimeSeconds: intEnv('PG_MAX_LIFETIME_SECONDS', 1_800),
+  }),
+  secrets: Object.freeze({
+    // Throws in production when `MERCARIA_SECRET_KEY` is unset, and anywhere
+    // when it is malformed — see `SecretsConfig`.
+    rootSource: resolveRootSecret().source,
   }),
 });

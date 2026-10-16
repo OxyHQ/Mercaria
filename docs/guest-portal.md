@@ -192,7 +192,7 @@ named no address would hide a client bug behind a security property.
 | `email_hash` | Postgres | "How often has THIS INBOX been asked for, across every ECS task and every source address" is not a question a per-process bucket can answer. |
 | `order_reference` | Postgres | Same. |
 
-Every subject is an HMAC under `GUEST_EMAIL_HASH_KEY` with the AXIS in the
+Every subject is an HMAC under the derived `guest-email-hash` key with the AXIS in the
 preimage, so the table counts without being able to name an address, an order or
 a client, and a digest from one axis cannot be tested against another's rows.
 There is no user agent, screen metric, TLS characteristic or persistent client

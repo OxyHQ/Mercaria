@@ -756,10 +756,8 @@ turning it on drains the backlog. The download caps, the encoding and the record
 limits are #63's `FEED_IMPORT_*` values — one set of refusal thresholds for
 every feed this deployment reads, not a second set that could disagree.
 
-**`AWIN_ENABLED` does not require a credential to be set**, unlike
-`FEED_IMPORT_ENABLED`. The difference is real: #63 demands its encryption key
-because a feed's credential has nowhere to GO without it, so a configuration
-would be unstorable. Awin's key is a LOCATOR on a row, storable and reviewable
+**`AWIN_ENABLED` does not require a credential to be set.** Awin's key is a
+LOCATOR on a row, storable and reviewable
 with no key present, and a deployment that registered the adapter before the
 locator resolves gets an honest `auth_failure` naming the missing secret rather
 than a silent no-op.

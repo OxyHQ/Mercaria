@@ -313,7 +313,7 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     const structural = GUEST_FEATURE_GATE_REGISTER.filter((gate) => gate.lever === null);
     // EXACT rather than containment: this list may only shrink by somebody
     // building the lever, and `pickup` leaving it is exactly that — #93 shipped
-    // `GUEST_STORE_PICKUP_ENABLED` and the register went on saying STRUCTURAL,
+    // a guest pickup lever and the register went on saying STRUCTURAL,
     // which is what an operator reads during an incident to decide what to
     // flip. Reading `null` there sends them to a broader lever: taking the
     // guest cart or guest checkout down to withdraw one fulfilment mode.
@@ -345,7 +345,7 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     // The floor: a config module that failed to read would make every
     // assertion below pass by matching an empty string.
     expect(configSource.length).toBeGreaterThan(10_000);
-    expect(configSource).toContain('GUEST_STORE_PICKUP_ENABLED');
+    expect(configSource).toContain('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS');
 
     const named = GUEST_FEATURE_GATE_REGISTER.flatMap((gate) => (gate.lever ? [gate.lever] : []));
     expect(named.length).toBeGreaterThan(5);
@@ -356,9 +356,11 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     }
 
     // And the specific pairing #93 owes, asserted by name so a future edit that
-    // re-empties it fails HERE rather than in an incident.
+    // re-empties it fails HERE rather than in an incident. Guest pickup has no
+    // switch of its own; its guest-only off switch is the fulfilment block list.
     const pickup = GUEST_FEATURE_GATE_REGISTER.find((gate) => gate.gate === 'pickup');
-    expect(pickup?.lever).toBe('GUEST_STORE_PICKUP_ENABLED');
+    expect(pickup?.lever).toBe('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS');
+    expect(pickup?.scopes).toEqual(['fulfilment']);
   });
 
   it('the rollback order is defined for every gate', () => {

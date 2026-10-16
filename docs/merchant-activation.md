@@ -89,8 +89,8 @@ answers false. A guest who cannot be told their order number, cannot recover
 access and cannot be sent a return label is a guest whose purchase a store cannot
 support. That is the one that makes guest checkout read `ineligible`.
 
-`pickup_fulfilment_available` is also `unevaluable` on a deployment with
-`STORE_PICKUP_ENABLED` off (the default), owner `deployment` — but it is in the
+`pickup_fulfilment_available` is also `unevaluable` on a deployment without
+store pickup (no `GOWAY_API_URL`), owner `deployment` — but it is in the
 third registry, so it withholds `pickup_checkout` and reaches neither checkout
 state. Which is the whole reason that registry exists.
 
@@ -346,8 +346,8 @@ image writes is broken by it.
   keeping written down because the answer was inverted in BOTH directions at
   once: that requirement asks whether the guest-eligible method set is non-empty,
   which is satisfied by `standard`/`express` alone — so the capability read
-  `granted` for every store on every deployment, including deployments with
-  `STORE_PICKUP_ENABLED` off, and `withheld` for a store whose only remaining
+  `granted` for every store on every deployment, including deployments without
+  store pickup, and `withheld` for a store whose only remaining
   guest method was collection. `shipping_checkout` named the same requirement and
   so could never disagree with it; it now names
   `shipping_fulfilment_available`, and a case in `capabilities.test.ts` asserts

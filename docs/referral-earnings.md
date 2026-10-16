@@ -271,29 +271,27 @@ two-gate rule, a scanned gate plus a runtime walk.
 
 ## Environment
 
-Three loop levers, and **not one gates a durable record**:
+The three loops — vesting (hold -> vested), payout (build DRAFT batches and
+settle APPROVED ones) and reconciliation (the sweep ADR 0005 gates #145 on) —
+always run; only their tunables are in the environment:
 
 ```
-REFERRAL_VESTING_ENABLED=false            # the hold -> vested sweep
 REFERRAL_VESTING_BATCH_SIZE=200
 REFERRAL_VESTING_POLL_INTERVAL_MS=300000
-REFERRAL_PAYOUT_BATCHES_ENABLED=false     # the build-and-settle loop
 REFERRAL_PAYOUT_BATCH_SIZE=25
 REFERRAL_PAYOUT_POLL_INTERVAL_MS=900000
 REFERRAL_PAYOUT_RETRY_BACKOFF_MS=900000
-REFERRAL_RECONCILIATION_ENABLED=false     # the sweep ADR 0005 gates #145 on
 REFERRAL_RECONCILIATION_BATCH_SIZE=25
 REFERRAL_RECONCILIATION_POLL_INTERVAL_MS=3600000
 ```
 
-Each defaults FALSE because the referral program itself is not live: a vesting
-sweep on a deployment with no partners is a timer doing nothing, and an incident
-lever that ships ON is one nobody notices is armed. The accrual books its ledger
-posting inside #144's own transaction with no flag in the path, holds keep
-elapsing whatever these say, and turning any of them back on drains whatever
-accumulated.
+On a deployment with no partners each is a timer doing nothing. None moves money
+on its own: a batch settles only after an operator APPROVES it, under the
+program's `payout_enabled` control, to a payment-ready partner, over the Stripe
+rail `STRIPE_ENABLED` gates. The accrual books its ledger posting inside #144's
+own transaction with no flag in the path.
 
-The fourth lever is a ROW rather than a variable:
+The lever is a ROW rather than a variable:
 `referral_program_controls.payout_enabled`, joined to #143's redirect and
 attribution pair so an incident sets the whole switchboard in one attributable
 act. It is ADR 0005 D18's "program suspension stops new vesting/payout where
@@ -343,9 +341,9 @@ their ordinary lifecycle to payout.
 3. Publish a payout minimum for every currency partners can earn in.
    `REFERRAL_PAYOUT_MINIMUM_MINOR_BY_CURRENCY` carries EUR only, and a currency
    without one blocks every batch.
-4. Turn `REFERRAL_RECONCILIATION_ENABLED` on before the rail carries live money.
-   ADR 0005 requires the sweep, and a sweep nobody runs is the discrepancy
-   nobody notices.
+4. Read the reconciliation sweep's findings before the rail carries live money.
+   ADR 0005 requires the sweep (it always runs), and a finding nobody reads is
+   the discrepancy nobody notices.
 5. Have each partner complete the tax questionnaire (#146, D15 gate 2). Until
    they do, tax readiness is `pending` and the batch blocks. Withholding needs no
    decision — Mercaria withholds nothing and a batch carrying one is refused.

@@ -38,7 +38,7 @@ import {
   AFFILIATE_OUTBOUND_TOKEN_PREFIX,
   type AffiliateOutboundTokenClaims,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 
 /**
@@ -58,20 +58,14 @@ function b64url(value: string): string {
 }
 
 /**
- * Sign a payload, and REFUSE when no secret is configured.
- *
- * An empty key would produce a perfectly valid-looking HMAC that any other
- * deployment could reproduce, which is worse than failing: it is a token that
- * verifies everywhere. `config.affiliateOutbound.tokenSecret` is spread-when-
- * present for exactly this reason, so the absence is visible here rather than
- * silently becoming `''`.
+ * Sign a payload under the outbound-token key, derived from
+ * `MERCARIA_SECRET_KEY` under its own purpose (`lib/derived-secrets.ts`) — so
+ * it is never empty and never shared with the referral link token's key.
  */
 function sign(payloadB64: string): string {
-  const secret = config.affiliateOutbound.tokenSecret;
-  if (secret === undefined || secret === '') {
-    throw validationError('OUTBOUND_TOKEN_SECRET is not configured');
-  }
-  return createHmac('sha256', secret).update(payloadB64).digest('base64url');
+  return createHmac('sha256', derivedSecret('outbound-token'))
+    .update(payloadB64)
+    .digest('base64url');
 }
 
 /** Mint a token naming one offer. The offer is the WHOLE of what it says. */

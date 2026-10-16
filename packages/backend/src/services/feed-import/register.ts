@@ -2,14 +2,8 @@
  * Registering the `product_feed` adapter, and the ONE place its two database
  * dependencies are satisfied (#63).
  *
- * ## The registration is gated and the durable record never is
- *
- * `FEED_IMPORT_ENABLED` decides whether this deployment FETCHES feeds. With it
- * off, configurations, mapping versions, uploads and reports are all still
- * stored and still readable, every run refuses with `adapter_missing` (#62's own
- * report for a provider nobody shipped), and turning the flag on drains the
- * backlog. That is `CATALOG_INGESTION_ENABLED`'s arrangement one layer down, and
- * it is why a rollback of the importer costs a merchant nothing they typed.
+ * The adapter is registered on every deployment: the importer is not a lever,
+ * and a feed credential's encryption key is derived from `MERCARIA_SECRET_KEY`.
  *
  * ## Why the adapter is handed functions rather than importing them
  *
@@ -42,17 +36,8 @@ import { sweepFeedStages } from './staging.js';
 
 let sweepTimer: NodeJS.Timeout | undefined;
 
-/** Register the adapter, unless this deployment does not fetch feeds. */
+/** Register the adapter. */
 export function registerProductFeedAdapter(): void {
-  if (!config.feedImport.enabled) {
-    log.general.info(
-      '[FeedImport] FEED_IMPORT_ENABLED is off; the product_feed adapter is not registered. ' +
-        'Configurations, mapping versions and reports are stored and every run refuses until ' +
-        'it is switched on.',
-    );
-    return;
-  }
-
   registerCatalogSourceAdapter(
     createProductFeedAdapter({
       resolveFeed: async (configurationId) => resolveFeedImport(configurationId),
@@ -101,7 +86,6 @@ const IMPORT_ACTOR = 'system:feed-import';
  */
 export function startFeedStageSweeper(): void {
   if (sweepTimer !== undefined) return;
-  if (!config.feedImport.enabled) return;
 
   sweepTimer = setInterval(() => {
     void sweepFeedStages().catch((error: unknown) => {

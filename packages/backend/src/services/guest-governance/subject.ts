@@ -31,29 +31,22 @@
 
 import { createHmac } from 'node:crypto';
 import type { GuestAbuseAxis, GuestAbuseScope } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 
 /**
  * The subject digest for one (scope, axis, value).
  *
- * Throws when no key is configured rather than falling back to an unkeyed
- * digest. An unkeyed one over an email or a /24 is an offline ORACLE anybody
- * with the table can run, and the whole point of the column is that it is not
- * one — `resolveGuestAbuseControlsEnabled` already keeps the deployment off in
- * that state, so reaching this throw means a caller ignored the flag.
+ * Always KEYED, under a key derived from `MERCARIA_SECRET_KEY` for this purpose
+ * alone (`lib/derived-secrets.ts`). An unkeyed digest over an email or a /24
+ * would be an offline ORACLE anybody with the table can run, and the whole
+ * point of the column is that it is not one.
  */
 export function abuseSubjectHash(input: {
   scope: GuestAbuseScope;
   axis: GuestAbuseAxis;
   value: string;
 }): string {
-  const key = config.guest.governance.abuseSubjectHashKey;
-  if (key === '') {
-    throw new Error(
-      'GUEST_ABUSE_SUBJECT_HASH_KEY is not configured; an unkeyed subject digest is an oracle',
-    );
-  }
-  return createHmac('sha256', key)
+  return createHmac('sha256', derivedSecret('guest-abuse-subject-hash'))
     .update(`${input.scope}:${input.axis}:${input.value}`)
     .digest('hex');
 }

@@ -123,7 +123,7 @@ Rows past their deadline that still exist. The one failure in this domain invisi
 
 A contact could not be sealed or opened. Means a key rotation went wrong, and every  affected order becomes unshippable rather than merely unreadable.
 
-**What to do:** A contact could not be sealed or opened, which makes the affected orders UNSHIPPABLE rather than merely unreadable. Check whether `GUEST_PII_ENCRYPTION_KEY` changed. Do NOT rotate the key while investigating — a second rotation makes the first unrecoverable.
+**What to do:** A contact could not be sealed or opened, which makes the affected orders UNSHIPPABLE rather than merely unreadable. Check whether `MERCARIA_SECRET_KEY` (from which the guest-contact key is derived) changed. Do NOT rotate the key while investigating — a second rotation makes the first unrecoverable.
 
 
 ## `notification_delivery_failure`

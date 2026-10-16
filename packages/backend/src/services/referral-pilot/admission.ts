@@ -25,9 +25,9 @@
  * A PROGRAMME with no active cohort refuses every new attribution —
  * `no_active_cohort` — which is the correct state for a programme that has
  * published no bounds, and is why this domain adds no environment variable of
- * its own: an empty pilot IS the off position. `REFERRALS_ENABLED` (#143) and
- * `referral_program_controls.attribution_enabled` (#143's row lever) remain the
- * flippable ones, and they are checked before this gate is reached.
+ * its own: an empty pilot IS the off position.
+ * `referral_program_controls.attribution_enabled` (#143's row lever) remains
+ * the flippable one, and it is checked before this gate is reached.
  *
  * There is no pilot KEY anywhere in this domain and deliberately none: a cohort
  * is looked up by the PROGRAMME a touch already names, so no configured string

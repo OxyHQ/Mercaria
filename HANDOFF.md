@@ -8,12 +8,11 @@ What changed with #69 is the *shape* of the remaining unknown. It is no longer "
 The connector backend, dashboard "Sales channels" UI, ingestion API, and the WooCommerce plugin (repo `OxyHQ/mercaria-woocommerce`) are all on `main` and deploy with the normal Mercaria pipeline. They are **inert until** the env below is set + a Partner app exists.
 
 ## 1. Env / secrets (SSM `/oxy/mercaria/*`, the only source; `aws ssm put-parameter`)
-Generate + set these on the **Mercaria backend** (ECS):
+Generate + set these on the **Mercaria backend** (ECS). The OAuth `state` (CSRF) key is derived from `MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets") and needs nothing here:
 
 | Var | How | Notes |
 |---|---|---|
 | `CONNECTOR_ENCRYPTION_KEY` | `openssl rand -hex 32` | AES-256-GCM key for connection credentials + channel keys. **If rotated, all stored credentials become undecryptable** — treat as durable. |
-| `CONNECTOR_OAUTH_STATE_SECRET` | `openssl rand -hex 32` | Signs the OAuth `state` (CSRF). |
 | `CONNECTOR_OAUTH_REDIRECT_BASE_URL` | e.g. `https://api.mercaria.co` | Public base of the backend; the Shopify callback is `{base}/channels/oauth/shopify/callback`. |
 | `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` | e.g. `https://dashboard.mercaria.co/channels` | Where the merchant lands after authorizing. |
 | `CONNECTOR_DEFAULT_CATEGORY_SLUG` | e.g. `home` | An existing category slug imported products default to. |
@@ -21,7 +20,7 @@ Generate + set these on the **Mercaria backend** (ECS):
 | `SHOPIFY_SCOPES` | optional — the code default is now the full string in `docs/runbooks/connector-real-store-verification.md` §3.2 | It WAS `read_products` alone, which is what #218 landed a default deployment in. Set it only to request a NARROWER grant, and read the granted `scopes[]` back after connecting either way: a scope Shopify did not grant at install cannot be added without re-authorizing, and a topic it refuses is now recorded on the connection rather than thrown away (§5.3). |
 | `REDIS_URL` | ElastiCache Valkey (already in `oxy-infra`) | **Important:** without it, syncs run INLINE in the request → large backfills time out, and neither scheduled sweep runs — not the 6h catalogue reconcile, nor the 15-minute webhook re-registration sweep (#262), whose merchant-triggered equivalent does still run inline. Required for production. |
 
-Guest commerce (#103, ADR 0003 — DO NOT enable before the M8 security + privacy review): `GUEST_COMMERCE_ENABLED=true` requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (each `openssl rand -hex 32`, two DIFFERENT keys — D12) or it stays OFF and logs once at boot. `GUEST_SESSION_ISSUANCE_ENABLED=false` is the incident kill switch (stops new sessions only). Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
+Guest commerce (#103, ADR 0003 — DO NOT enable before the M8 security + privacy review): `GUEST_COMMERCE_ENABLED=true` turns it on; the contact cipher key and the separate email-hash key (D12) are both derived from `MERCARIA_SECRET_KEY` under different purposes, so there is nothing else to provision. `GUEST_SESSION_ISSUANCE_ENABLED=false` is the incident kill switch (stops new sessions only). Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
 
 FX (optional but recommended): the 15 non-USD/EUR/GBP currencies use env-overridable **static** fallback rates (`FX_STATIC_RATE_JPY`, `…_MXN`, etc.). The live provider only yields FAIR→USD. For correct display and for the presentment side of a cross-currency order, wire a real multi-currency FX source or keep the static rates current. A missing rate is never fabricated: the pair is simply omitted, and a conversion that needs it fails rather than quoting a wrong amount — so a same-currency sale is unaffected by an FX outage, and a cross-currency one is refused.
 
@@ -533,8 +532,8 @@ that would have been needed to make one.
 (repo variable `GOWAY_API_URL`, default `https://api.goway.to`), like
 `OXY_API_URL`. Add it to the task definition's `environment` in oxy-infra
 (`terraform-uswest2/app-services.tf`) as well, so a revision terraform
-registers between deploys keeps it. `NEARBY_DISCOVERY_ENABLED` and
-`STORE_PICKUP_ENABLED` stay off without it.
+registers between deploys keeps it. Nearby discovery and store pickup exist
+exactly when it is set.
 
 **Deferred:**
 

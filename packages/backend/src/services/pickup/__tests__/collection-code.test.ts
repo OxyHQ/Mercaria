@@ -8,26 +8,15 @@
  * read aloud at a counter.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-const KEY = 'a'.repeat(64);
-
-/**
- * The module reads `config.pickup.collectionCodeKey` at CALL time, so the
- * config is mocked rather than the environment set — an env var read at module
- * load would already have been read by the time a test could set it.
- */
-vi.mock('../../../config/index.js', () => ({
-  config: { pickup: { collectionCodeKey: KEY } },
-}));
-
-const {
-  collectionCodesAvailable,
+import { describe, expect, it } from 'vitest';
+import {
   deriveCollectionCode,
   normalizeCollectionCode,
   verifyCollectionCode,
-} = await import('../collection-code.js');
-const { config } = await import('../../../config/index.js');
+} from '../collection-code.js';
+
+// The key is derived from `MERCARIA_SECRET_KEY` (the public dev root here), so
+// every deployment can derive a code — there is no unconfigured state to pin.
 
 describe('deriveCollectionCode', () => {
   it('is deterministic for one order and one version', () => {
@@ -95,21 +84,5 @@ describe('verifyCollectionCode', () => {
     // `timingSafeEqual` throws on a length mismatch, so the guard has to come
     // first — a 500 at a counter is worse than a refusal.
     expect(verifyCollectionCode({ orderId: 'order-1', version: 1, presented: 'AB' })).toBe(false);
-  });
-});
-
-describe('an unconfigured deployment', () => {
-  const original = config.pickup.collectionCodeKey;
-  beforeEach(() => {
-    (config.pickup as { collectionCodeKey: string }).collectionCodeKey = '';
-  });
-  afterEach(() => {
-    (config.pickup as { collectionCodeKey: string }).collectionCodeKey = original;
-  });
-
-  it('reports codes unavailable and THROWS rather than deriving a shared one', () => {
-    // A placeholder code would be a credential every order shared.
-    expect(collectionCodesAvailable()).toBe(false);
-    expect(() => deriveCollectionCode('order-1', 1)).toThrow(/not configured/);
   });
 });

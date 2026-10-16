@@ -1293,10 +1293,11 @@ RETAIL_BLOCKED_MARKETS=              # ISO-3166 alpha-2 destinations withdrawn f
 GUEST_CHECKOUT_BLOCKED_SUPPLIERS=    # the #107 guest axes, extended by a supplier one
 ```
 
-`MERCARIA_RETAIL_ENABLED=true` additionally requires `SUPPLIER_PREFLIGHT_ENABLED`
-and a non-empty `RETAIL_OPERATOR_OXY_USER_IDS` — half-configured is OFF (the
-`CROWDSOURCE_ENABLED` pattern). Without either, every retail line refuses at
-checkout anyway, and a catalogue of items nobody can buy with no message saying
+`MERCARIA_RETAIL_ENABLED=true` additionally requires a non-empty
+`RETAIL_OPERATOR_OXY_USER_IDS` and the seller legal entity and country —
+half-configured is OFF (the `CROWDSOURCE_ENABLED` pattern). Supplier preflight
+is always on, with its fingerprint key derived from `MERCARIA_SECRET_KEY`.
+Without those, every retail line refuses at checkout anyway, and a catalogue of items nobody can buy with no message saying
 why is worse than the feature being off.
 
 **No lever gates anything durable**, and `retail-checkout-isolation.test.ts`
@@ -2156,7 +2157,6 @@ STRIPE_EVENT_LEASE_MS=60000
 
 STRIPE_ONBOARDING_BASE_URL=            # THIS API's public origin (#46)
 STRIPE_ONBOARDING_RETURN_URL=          # where the seller lands afterwards — the dashboard
-STRIPE_ONBOARDING_STATE_SECRET=        # HMAC key for the signed round-trip state
 STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS=21600000   # 6 hours
 STRIPE_ACCOUNT_SYNC_BATCH_SIZE=25
 STRIPE_ACCOUNT_SYNC_INTERVAL_MS=900000        # 15 minutes
@@ -2547,10 +2547,10 @@ restricted key, deploy, then revoke the old one in the Stripe dashboard. Watch
 before the deploy landed shows up as every event handler failing its re-read,
 which is the one visible symptom.
 
-**The onboarding state secret** (`STRIPE_ONBOARDING_STATE_SECRET`) rotates with
-no window either, and the cost is bounded: every in-flight hosted-onboarding
-round trip 400s and the seller starts again from the dashboard. Do it out of
-business hours rather than building a rotation window for a 30-minute token.
+**The onboarding state key** is derived from `MERCARIA_SECRET_KEY` and rotates
+only with the root (`docs/deploy.md` "Runtime secrets"); the cost for this
+purpose is bounded: every in-flight hosted-onboarding round trip 400s and the
+seller starts again from the dashboard.
 
 **`PAYMENT_OPERATOR_OXY_USER_IDS`** is a deploy-time change and an audit event in
 its own right. Removing somebody takes effect on the next task rollout, not
@@ -2744,8 +2744,8 @@ in ADR 0001 — so this list is also the record of what "live" will require.
 - [ ] `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` are set and are
       DIFFERENT from each other. Swapping them makes every delivery fail
       verification, which looks exactly like a compromised endpoint.
-- [ ] `STRIPE_ONBOARDING_STATE_SECRET` is set and is not shared with any other
-      environment.
+- [ ] `MERCARIA_SECRET_KEY` is set and is not shared with any other
+      environment (the onboarding state key is derived from it).
 - [ ] `PAYMENT_OPERATOR_OXY_USER_IDS` names real people, and the list has been
       read by somebody other than whoever wrote it.
 - [ ] The boot log carries no

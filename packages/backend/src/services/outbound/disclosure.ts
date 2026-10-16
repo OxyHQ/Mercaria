@@ -14,7 +14,6 @@
  */
 
 import { OUTBOUND_LINK_REL, type OutboundDisclosure } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import type { OfferRow } from '../../db/offers/offerRepository.js';
 import { outboundDestinationHost } from './destination.js';
 import { mintAffiliateOutboundToken } from './token.js';
@@ -27,19 +26,16 @@ export function affiliateOutboundPath(offerId: string): string {
 /**
  * Compose the disclosure for one offer, or answer `undefined`.
  *
- * `undefined` when the redirect is not mounted (there is no path to offer and
- * a control pointing at a 404 is worse than none) or when the offer publishes
- * no destination at all. Both are states the product page already renders —
- * `redirect_unavailable` and `no_destination` — so this returns absence rather
- * than a half-built disclosure, and the CALLER keeps deciding which of its own
- * reasons to show.
+ * `undefined` when the offer publishes no destination at all — a state the
+ * product page already renders as `no_destination` — so this returns absence
+ * rather than a half-built disclosure, and the CALLER keeps deciding which of
+ * its own reasons to show.
  *
  * A NATIVE offer never reaches here: it has no destination by CHECK, so
  * `outboundDestinationHost` answers `undefined`. That is requirement 6 holding
  * on the render side for the same structural reason it holds on the click side.
  */
 export function resolveOutboundDisclosure(offer: OfferRow): OutboundDisclosure | undefined {
-  if (!config.affiliateOutbound.redirectEnabled) return undefined;
   const destinationHost = outboundDestinationHost(offer);
   if (destinationHost === undefined) return undefined;
   return {

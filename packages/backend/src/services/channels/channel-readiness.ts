@@ -44,7 +44,6 @@ import type {
   ChannelReadinessBlocker,
   ChannelTypeId,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
   findConnectionsByStore,
@@ -76,9 +75,7 @@ export async function deriveChannelReadiness(storeId: string): Promise<ChannelRe
     (connection) => connection.status === 'connected' && connection.fetchPausedAt === null,
   );
 
-  const feeds = config.feedImport.enabled
-    ? await listFeedConfigurationsForOwner(getDb(), storeId)
-    : [];
+  const feeds = await listFeedConfigurationsForOwner(getDb(), storeId);
 
   const connectedChannelTypes: ChannelTypeId[] = [
     ...live.map((connection) => channelTypeForConnection(connection)),

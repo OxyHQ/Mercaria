@@ -107,8 +107,6 @@ import {
   resetReferralPartnerReadinessReader,
 } from '../referrals/earnings/partner-readiness.port.js';
 
-process.env.REFERRAL_LINK_TOKEN_SECRET ??= 'realdb-referral-earnings-secret';
-
 let db: Database;
 
 /** Unique to this run; lower-case hex so it can live inside a code spelling. */

@@ -39,8 +39,6 @@ let config: typeof import('../../../config/index.js').config;
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'rollout-test-pii-key';
-  process.env.GUEST_EMAIL_HASH_KEY = 'rollout-test-email-hash-key';
   // Stated rather than inherited: a sibling file sets each of these, and env
   // leaks across files in one worker where a frozen config does not.
   delete process.env.GUEST_CHECKOUT_BLOCKED_PLATFORMS;

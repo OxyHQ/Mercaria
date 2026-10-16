@@ -59,7 +59,7 @@ URLs from the public internet).
 | Variable | Value | Why |
 |---|---|---|
 | `CONNECTOR_ENCRYPTION_KEY` | `openssl rand -hex 32` | AES-256-GCM for stored credentials + channel keys. Rotating it makes every stored credential undecryptable. |
-| `CONNECTOR_OAUTH_STATE_SECRET` | `openssl rand -hex 32` | Signs the OAuth `state` (CSRF). |
+| `MERCARIA_SECRET_KEY` | unset on a local API (the public dev root); the deployment's own root elsewhere | The OAuth `state` (CSRF) key is derived from it. |
 | `CONNECTOR_OAUTH_REDIRECT_BASE_URL` | the PUBLIC base of the API | Both the callback and the webhook address are built from this one value. **Changing it after a shop is connected orphans that shop's subscriptions** — see the note below. |
 | `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` | the dashboard channels screen | Optional; without it the callback renders a plain success page. |
 | `CONNECTOR_DEFAULT_CATEGORY_SLUG` | an EXISTING category slug | Every imported product is filed here. A slug that does not exist fails the backfill with a clear error. |
@@ -945,8 +945,9 @@ Do NOT enable connectors in production until every line is true.
 
 - [ ] `CONNECTOR_ENCRYPTION_KEY` generated, stored in SSM `/oxy/mercaria/*`, and
       backed up — a lost key makes every stored credential undecryptable.
-- [ ] `CONNECTOR_OAUTH_STATE_SECRET`, `CONNECTOR_OAUTH_REDIRECT_BASE_URL`,
-      `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` set; the redirect base is the real
+- [ ] `CONNECTOR_OAUTH_REDIRECT_BASE_URL` and
+      `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` set (the OAuth state key is derived
+      from `MERCARIA_SECRET_KEY`); the redirect base is the real
       public API origin.
 - [ ] `CONNECTOR_DEFAULT_CATEGORY_SLUG` names a category that EXISTS in
       production.

@@ -12,7 +12,7 @@
  */
 
 import { createHmac } from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   mintReferralState,
   referralStateCookieProfile,
@@ -21,11 +21,6 @@ import {
   REFERRAL_STATE_MAX_LIFETIME_SECONDS,
   REFERRAL_STATE_PREFIX,
 } from '../referral-state.js';
-
-// Hoisted above the imports, so `config/index.ts` reads it at load.
-vi.hoisted(() => {
-  process.env.REFERRAL_STATE_SECRET = 'test-referral-state-secret';
-});
 
 const CLICKED_AT = new Date('2026-05-01T10:00:00.000Z');
 const WINDOW_SECONDS = 30 * 24 * 60 * 60;

@@ -302,7 +302,7 @@ export const REFERRAL_DEFERRED_DEEP_LINK_SUPPORT: readonly ReferralDeferredDeepL
  *
  * Absence of a controls row means BOTH ENABLED — a lever nobody has touched is
  * not a gate somebody has to discover, and the domain is already bounded by
- * `REFERRALS_ENABLED` plus each program's own status.
+ * each program's own status.
  */
 export interface ReferralProgramControlsView {
   programId: string;

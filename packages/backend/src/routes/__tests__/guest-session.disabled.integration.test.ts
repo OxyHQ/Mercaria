@@ -4,10 +4,9 @@
  *
  * The `/guest/session` mount is gated like the Stripe webhook mount and for
  * the same reason: 404 is the truthful answer from a deployment that will
- * never honour the credential, and it advertises no surface to probe. The
- * half-configuration rule (enabled without the two M8 keys stays OFF) is
- * pinned here too, because this is the one place a misconfigured deployment's
- * actual wire behaviour is observable.
+ * never honour the credential, and it advertises no surface to probe. (The two
+ * M8 keys are derived from `MERCARIA_SECRET_KEY`, so there is no longer a
+ * half-configured state to pin.)
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -19,11 +18,7 @@ const servers: Server[] = [];
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 
 beforeAll(async () => {
-  // ENABLED, but missing both M8 keys: the half-configuration rule must
-  // resolve this to OFF — the same deployment shape as fully unset.
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
-  delete process.env.GUEST_PII_ENCRYPTION_KEY;
-  delete process.env.GUEST_EMAIL_HASH_KEY;
+  delete process.env.GUEST_COMMERCE_ENABLED;
 
   const { createApp } = await import('../../app.js');
   const postgres = await import('../../db/postgres.js');
@@ -42,7 +37,7 @@ afterAll(async () => {
   await closePostgres();
 });
 
-describe('GUEST_COMMERCE_ENABLED without the M8 keys — half-configured stays OFF', () => {
+describe('GUEST_COMMERCE_ENABLED unset — guest commerce is OFF', () => {
   it('does not mount the surface at all: every guest-session path answers 404', async () => {
     const ensure = await fetch(`${baseUrl}/guest/session`, {
       method: 'POST',
