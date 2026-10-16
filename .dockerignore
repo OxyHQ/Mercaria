@@ -23,3 +23,5 @@ docs
 **/__tests__
 sst.config.ts
 .do
+
+.artifacts

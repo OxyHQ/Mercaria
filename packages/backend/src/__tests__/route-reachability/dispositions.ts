@@ -72,6 +72,14 @@ export const ROUTE_DISPOSITIONS: Readonly<
         'must not, because arriving without the provider round trip is not a state this screen ' +
         'can serve. An inbound in-app edge would be the defect, not the fix.',
     },
+    '/materials-transport/[id]': {
+      kind: 'deliberate',
+      reason:
+        "A sponsor's payer-approval page. A donation participant shares this link with the " +
+        'person or organization paying for transport (MaterialTransportPanel builds it); the ' +
+        'payer is not a participant in the reservation, so no screen of theirs lists it. An ' +
+        'in-app edge would show a transport to an account that has no reason to see it.',
+    },
     '/referral-partner': {
       kind: 'deliberate',
       reason:

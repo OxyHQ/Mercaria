@@ -1,5 +1,5 @@
 {
-  "id": "b76f7365-3ac2-4857-94d0-a5789cafc01d",
+  "id": "27d41454-07b9-4b33-bb81-8c899e481682",
   "prevId": "2f3afa92-4673-4784-8eda-5a6d934686e7",
   "version": "7",
   "dialect": "postgresql",
@@ -81621,7 +81621,7 @@
         },
         "guest_data_class_dispositions_reason_check": {
           "name": "guest_data_class_dispositions_reason_check",
-          "value": "\"guest_data_class_dispositions\".\"retained_reason\" in ('financial_record', 'open_dispute', 'fraud_investigation', 'legal_hold', 'merchant_fulfilment_copy', 'security_audit', 'provider_record', 'expires_on_schedule')"
+          "value": "\"guest_data_class_dispositions\".\"retained_reason\" in ('financial_record', 'open_dispute', 'fraud_investigation', 'legal_hold', 'merchant_fulfilment_copy', 'security_audit', 'provider_record')"
         },
         "guest_data_class_dispositions_reason_shape_check": {
           "name": "guest_data_class_dispositions_reason_shape_check",
@@ -81794,7 +81794,7 @@
         },
         "guest_data_requests_retained_reasons_check": {
           "name": "guest_data_requests_retained_reasons_check",
-          "value": "\"guest_data_requests\".\"retained_reasons\" <@ array['financial_record', 'open_dispute', 'fraud_investigation', 'legal_hold', 'merchant_fulfilment_copy', 'security_audit', 'provider_record', 'expires_on_schedule']::text[]"
+          "value": "\"guest_data_requests\".\"retained_reasons\" <@ array['financial_record', 'open_dispute', 'fraud_investigation', 'legal_hold', 'merchant_fulfilment_copy', 'security_audit', 'provider_record']::text[]"
         },
         "guest_data_requests_retained_pairing_check": {
           "name": "guest_data_requests_retained_pairing_check",
@@ -82052,7 +82052,7 @@
         },
         "guest_legal_holds_reason_check": {
           "name": "guest_legal_holds_reason_check",
-          "value": "\"guest_legal_holds\".\"reason\" in ('financial_record', 'open_dispute', 'fraud_investigation', 'legal_hold', 'merchant_fulfilment_copy', 'security_audit', 'provider_record', 'expires_on_schedule')"
+          "value": "\"guest_legal_holds\".\"reason\" in ('financial_record', 'open_dispute', 'fraud_investigation', 'legal_hold', 'merchant_fulfilment_copy', 'security_audit', 'provider_record')"
         },
         "guest_legal_holds_lift_shape_check": {
           "name": "guest_legal_holds_lift_shape_check",
@@ -105639,6 +105639,418 @@
         "digital_supply_terms_max_order_cost_check": {
           "name": "digital_supply_terms_max_order_cost_check",
           "value": "num_nonnulls(\"digital_supply_terms\".\"max_order_cost_amount\", \"digital_supply_terms\".\"max_order_cost_currency\") in (0, 2)\n          and (\"digital_supply_terms\".\"max_order_cost_amount\" is null or \"digital_supply_terms\".\"max_order_cost_amount\" > 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.material_offers": {
+      "name": "material_offers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_account_id": {
+          "name": "owner_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "public_area": {
+          "name": "public_area",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pickup_instructions": {
+          "name": "pickup_instructions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by_account_id": {
+          "name": "created_by_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        }
+      },
+      "indexes": {
+        "material_offers_owner_key": {
+          "name": "material_offers_owner_key",
+          "columns": [
+            {
+              "expression": "owner_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "material_offers_status_id_idx": {
+          "name": "material_offers_status_id_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "material_offers_status_check": {
+          "name": "material_offers_status_check",
+          "value": "\"material_offers\".\"status\" in ('active', 'closed')"
+        },
+        "material_offers_quantity_check": {
+          "name": "material_offers_quantity_check",
+          "value": "\"material_offers\".\"quantity\" between 1 and 1000000"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.material_reservation_events": {
+      "name": "material_reservation_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "reservation_id": {
+          "name": "reservation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "acting_account_id": {
+          "name": "acting_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_account_id": {
+          "name": "actor_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        }
+      },
+      "indexes": {
+        "material_reservation_events_action_key": {
+          "name": "material_reservation_events_action_key",
+          "columns": [
+            {
+              "expression": "reservation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "acting_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "material_reservation_events_reservation_id_material_reservations_id_fk": {
+          "name": "material_reservation_events_reservation_id_material_reservations_id_fk",
+          "tableFrom": "material_reservation_events",
+          "tableTo": "material_reservations",
+          "columnsFrom": [
+            "reservation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "material_reservation_events_status_check": {
+          "name": "material_reservation_events_status_check",
+          "value": "\"material_reservation_events\".\"status\" in ('requested', 'accepted', 'cancelled', 'delivered')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.material_reservations": {
+      "name": "material_reservations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "offer_id": {
+          "name": "offer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requester_account_id": {
+          "name": "requester_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "moovo_transport_id": {
+          "name": "moovo_transport_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'requested'"
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by_account_id": {
+          "name": "created_by_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        }
+      },
+      "indexes": {
+        "material_reservations_request_key": {
+          "name": "material_reservations_request_key",
+          "columns": [
+            {
+              "expression": "requester_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "idempotency_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "material_reservations_offer_status_idx": {
+          "name": "material_reservations_offer_status_idx",
+          "columns": [
+            {
+              "expression": "offer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "material_reservations_requester_id_idx": {
+          "name": "material_reservations_requester_id_idx",
+          "columns": [
+            {
+              "expression": "requester_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "material_reservations_offer_id_material_offers_id_fk": {
+          "name": "material_reservations_offer_id_material_offers_id_fk",
+          "tableFrom": "material_reservations",
+          "tableTo": "material_offers",
+          "columnsFrom": [
+            "offer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "material_reservations_status_check": {
+          "name": "material_reservations_status_check",
+          "value": "\"material_reservations\".\"status\" in ('requested', 'accepted', 'cancelled', 'delivered')"
+        },
+        "material_reservations_quantity_check": {
+          "name": "material_reservations_quantity_check",
+          "value": "\"material_reservations\".\"quantity\" between 1 and 1000000"
         }
       },
       "isRLSEnabled": false

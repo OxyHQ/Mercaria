@@ -143,3 +143,11 @@ export function isPublicReadCorsRequest(method: string, path: string): boolean {
   if (!PUBLIC_READ_CORS_METHODS.includes(method.toUpperCase())) return false;
   return path === PUBLIC_READ_CORS_BASE_PATH || path.startsWith(`${PUBLIC_READ_CORS_BASE_PATH}/`);
 }
+
+/** Bearer-only materials mutations; no browser cookies or other writes inherit this allowance. */
+export function isMaterialsCorsRequest(method: string, path: string): boolean {
+  return (
+    ['GET', 'HEAD', 'POST', 'OPTIONS'].includes(method.toUpperCase()) &&
+    path.startsWith('/public/v1/materials/')
+  );
+}

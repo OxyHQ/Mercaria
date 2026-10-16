@@ -904,4 +904,5 @@ export * from './catalog-metrics';
 export * from './shopping-thread';
 export * from './media';
 
+export * from './materials';
 export * from './catalog-media';

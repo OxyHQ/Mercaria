@@ -19,3 +19,5 @@ export * from './requests';
 export * from './json-schema';
 export * from './routes';
 export * from './openapi';
+
+export * from './materials';

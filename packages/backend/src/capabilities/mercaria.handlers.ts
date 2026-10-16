@@ -1,6 +1,7 @@
 import type { CreateRefundInput, OrderStatus, RefundLineInput } from '@mercaria/shared-types';
 import type { CatalogToolHandlers } from '@oxy.so/mcp';
 
+import { listPendingMaterialPickups } from '../services/materials/pending-pickups.js';
 import { config } from '../config/index.js';
 import { notFound, validationError } from '../lib/errors/error-codes.js';
 import {
@@ -69,6 +70,11 @@ export async function executeMercariaCatalogTool(
   actorAccountId: string,
 ): Promise<Record<string, unknown>> {
   switch (toolName) {
+    case 'listPendingMaterialPickups':
+      return listPendingMaterialPickups(effectiveAccountId, {
+        limit: optionalPositiveInteger(input, 'limit', 20),
+        ...(typeof input.cursor === 'string' ? { cursor: input.cursor } : {}),
+      });
     case 'searchProducts': {
       if (config.canonicalRollout.search !== 'on')
         throw notFound('Canonical search is not available');

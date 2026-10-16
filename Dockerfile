@@ -95,7 +95,7 @@ COPY packages/pos/package.json ./packages/pos/package.json
 # `bun install --frozen-lockfile` refuses with "lockfile had changes" — measured
 # against a copy of exactly the files this stage copies, which installs on
 # `main` and fails with the SDK merged. The API never imports the SDK and its
-# source is not copied.
+# source is copied only in the bundle stage for the root postinstall.
 COPY packages/sdk/package.json ./packages/sdk/package.json
 
 # Copy shared-types and contracts source before install so the root
@@ -126,12 +126,15 @@ COPY packages/contracts ./packages/contracts
 # measured).
 # ---------------------------------------------------------------------------
 FROM builder AS prod-deps
-RUN bun install --frozen-lockfile --production
+# Runtime dependencies need no workspace build output: the API bundles the
+# private workspaces. Avoid invoking the SDK development build in this stage.
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # ---------------------------------------------------------------------------
 # Stage 1c: bundle — the full install and the API build.
 # ---------------------------------------------------------------------------
 FROM builder AS bundle
+COPY packages/sdk ./packages/sdk
 
 # Deterministic install from the lockfile, including devDependencies (esbuild,
 # TypeScript) required to bundle the API. The root postinstall builds

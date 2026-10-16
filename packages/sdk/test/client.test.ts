@@ -374,6 +374,20 @@ describe('pagination', () => {
     expect(seen).toEqual(['c1', 'c2', 'c3']);
   });
 
+  it('stops a cursor that cycles back to an earlier page', async () => {
+    let calls = 0;
+    const pages = iterateMercariaPages(async () => ({
+      items: [],
+      nextCursor: ['first', 'second', 'first'][calls++] ?? null,
+    }));
+    await expect(
+      (async () => {
+        for await (const page of pages) void page;
+      })(),
+    ).rejects.toBeInstanceOf(MercariaResponseError);
+    expect(calls).toBe(3);
+  });
+
   it('stops a cursor that does not advance', async () => {
     const { client } = fakeClient(() => ok(pageWire([], 'same')));
     const pages = iterateMercariaPages((cursor) =>

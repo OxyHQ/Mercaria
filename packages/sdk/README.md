@@ -509,3 +509,32 @@ does. See `CHANGELOG.md`.
 ## License
 
 Apache-2.0 — see `LICENSE` and `NOTICE`.
+
+### Donated materials
+
+`client.materials` supports free offers, quantity requests, donor acceptance,
+cancellation and recipient-confirmed receipt. Supply `getAccessToken` for every
+private read or mutation, and preserve each mutation's `idempotencyKey` when
+retrying a lost response. The SDK does not automatically retry writes.
+
+```ts
+for await (const page of client.materials.iterateReservations({
+  accountId: authorizedAccountId,
+  status: 'accepted',
+})) {
+  // Persist only reservation.id; resolve its current facts through Mercaria.
+  showPendingPickups(page.items);
+}
+```
+
+The recipient calls `confirmDelivery` only after receiving the materials.
+Accepted quantities are committed; recipient-confirmed quantities are received.
+There is no payment for the donated items.
+
+### Material transport reference
+
+`client.materials.linkTransport(reservationId, { actingAccountId, transportId })`
+attaches only the opaque Moovo reference after Moovo verifies the reservation.
+Use Moovo's SDK to propose, quote, authorize and book transport directly as the
+user, and to read its current status. Cancelling a Mercaria reservation preserves
+this reference and does not cancel an existing courier booking.

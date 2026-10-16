@@ -37,6 +37,7 @@ export async function authorizeMercariaCatalogInvocation(
   const requiredPermission = STORE_TOOL_PERMISSIONS[toolName];
   if (!requiredPermission) {
     if (
+      toolName === 'listPendingMaterialPickups' ||
       toolName === 'searchProducts' ||
       toolName === 'listBuyerOrders' ||
       toolName === 'readBuyerOrder'

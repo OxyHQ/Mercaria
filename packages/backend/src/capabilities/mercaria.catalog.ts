@@ -44,12 +44,30 @@ function readTool({ capability, limitKeys = [], ...input }: ReadToolInput): Cata
 export const MERCARIA_CAPABILITY_CATALOG: AppCapabilityCatalog = {
   schemaVersion: '1',
   appId: 'mercaria',
-  version: '1.0.0',
+  version: '1.1.0',
   audience: 'oxy-mercaria-api',
   internalBaseUrl: 'https://api.mercaria.co',
   externalMcp: { resource: 'https://mcp.mercaria.oxy.so' },
   accountResourceType: 'mercaria_account',
   tools: [
+    readTool({
+      name: 'listPendingMaterialPickups',
+      description:
+        'Read accepted material reservations awaiting confirmed receipt for the delegated account. Existing transport is a reference only, not proof of its current status; ask the person to review it in Mercaria. Propose collection in Mercaria; booking and payment require the person to confirm there.',
+      capability: 'materials.read',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', minimum: 1, maximum: 100 },
+          cursor: { type: 'string', maxLength: 2000 },
+        },
+        additionalProperties: false,
+      },
+      outputSchema: objectOutput,
+      resourceTypes: ['mercaria_account'],
+      limitKeys: [{ key: 'limit', kind: 'maximum_number' }],
+      invocation: { method: 'POST', path: '/_oxy/capabilities/listPendingMaterialPickups' },
+    }),
     readTool({
       name: 'searchProducts',
       description: "Search Mercaria's canonical product catalog.",
