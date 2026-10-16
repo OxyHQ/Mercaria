@@ -25,13 +25,14 @@ import {
  * that is the owner's conversation. Splitting the read off would build a screen
  * against a permission boundary this API could then not move.
  *
- * ## The router is NOT flag-gated, and the flag is not what protects it
+ * ## The router is NOT gated
  *
- * `MERCHANT_BILLING_ENABLED` gates the two routes that would open a hosted
- * provider session, inside the service. Gating the MOUNT would take the plan
- * screen away from a merchant who already has a subscription the moment somebody
- * pulled the incident lever — and reading your own plan is not a thing an
- * incident lever should be able to remove.
+ * Whether paid-plan actions are available (`config.merchantBilling.enabled`,
+ * derived from a configured rail and a return URL) is checked inside the
+ * service for the routes that would open a hosted provider session. Gating the
+ * MOUNT would take the plan screen away from a merchant who already has a
+ * subscription whenever actions are unavailable — and reading your own plan is
+ * not a thing configuration should be able to remove.
  */
 const router = Router({ mergeParams: true });
 

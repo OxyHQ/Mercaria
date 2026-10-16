@@ -2,8 +2,8 @@
 <!--
   Mercaria by Oxy — the STATIC sitemap.
 
-  This is the FLAG-OFF FLOOR (#75), the sibling of robots.txt beside it. When
-  SEO_ROUTES_ENABLED is on, the worker proxies /sitemap.xml to the API, which
+  This is the FLOOR (#75), the sibling of robots.txt beside it. When
+  SEO_INDEXING_MODE is canary or on, the worker proxies /sitemap.xml to the API, which
   renders an index over four paginated collections with a real per-entity
   lastmod. This copy is what a crawler gets when that lookup cannot answer, so
   it advertises the home page and nothing else: a build-time catalogue listing

@@ -39,7 +39,8 @@
  *
  * A gate on five surfaces is one route away from being a gate on four. The
  * census DERIVES the catalog mounts from `app.ts` — every `app.use` inside a
- * guard whose config namespace begins with `catalog` — and requires each to be
+ * guard whose config namespace begins with `catalog`, plus the named unguarded
+ * ones (`/facets`) — and requires each to be
  * covered by the middleware, walking the routers' real Express stacks. A new
  * public catalog mount fails the build until it is gated or exempted by the
  * `/internal/` rule.
@@ -99,11 +100,14 @@ vi.mock('../../lib/rate-limit.js', () => ({
     },
 }));
 
-/** The four levers ADR 0007 D12 shipped, which every probe needs switched on. */
+/**
+ * The ADR 0007 D12 levers that still exist, which every probe needs switched on.
+ * `/facets` has none: `FACETS_ENABLED` was removed and it is mounted
+ * unconditionally.
+ */
 const LEVERS = [
   'CATALOG_AUTHORING_ENABLED',
   'CATALOG_PROPOSALS_ENABLED',
-  'FACETS_ENABLED',
   'CATALOG_TAXONOMY_V2_ENABLED',
 ] as const;
 
@@ -436,6 +440,17 @@ interface CatalogMount {
 }
 
 /**
+ * Public catalog mounts that no lever guards, so the derivation below cannot
+ * find them — `/facets` lost its guard when `FACETS_ENABLED` was removed. Named
+ * here so the rollout gate's coverage of them is still measured; the census
+ * asserts each one is still mounted, so a removed mount cannot leave a stale
+ * entry passing.
+ */
+const UNGUARDED_CATALOG_MOUNTS: readonly CatalogMount[] = [
+  { path: '/facets', router: 'facetsRouter', guard: 'unconditional' },
+];
+
+/**
  * Every `app.use('<path>', <ident>)` inside a guard whose config namespace starts
  * with `catalog`.
  *
@@ -538,7 +553,10 @@ function layerName(layer: ExpressLayer): string {
 describe('the catalog mount census is derived from app.ts and is not empty', () => {
   const source = readFileSync(join(SRC_ROOT, 'app.ts'), 'utf8');
   const mounts = catalogMounts(source);
-  const publicMounts = mounts.filter((mount) => !mount.path.startsWith('/internal/'));
+  const publicMounts = [
+    ...mounts.filter((mount) => !mount.path.startsWith('/internal/')),
+    ...UNGUARDED_CATALOG_MOUNTS,
+  ];
   const operatorMounts = mounts.filter((mount) => mount.path.startsWith('/internal/'));
 
   it('finds the catalog mounts, both kinds, above a floor', () => {
@@ -565,7 +583,13 @@ describe('the catalog mount census is derived from app.ts and is not empty', () 
     expect(paths).not.toContain('/listings');
     // …and the positive half, so the control cannot pass by matching nothing.
     expect(paths).toContain('/navigation');
-    expect(paths).toContain('/facets');
+  });
+
+  it('every named unguarded catalog mount is still mounted in app.ts', () => {
+    const code = stripComments(source);
+    for (const mount of UNGUARDED_CATALOG_MOUNTS) {
+      expect(code).toContain(`app.use('${mount.path}', ${mount.router})`);
+    }
   });
 
   it('every public catalog mount is covered by the rollout gate', async () => {

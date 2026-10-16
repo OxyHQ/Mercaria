@@ -49,22 +49,9 @@ async function runOnce(startedGeneration: number): Promise<void> {
   }
 }
 
-/**
- * Start the loop, unless this deployment has it switched off.
- *
- * The flag gates the LOOP and nothing durable: a subscription still applies
- * every webhook, still books every invoice and still stops entitling when its
- * grace expires with this off.
- */
+/** Start the loop. Idempotent. */
 export function startMerchantSubscriptionReconciler(): void {
   if (timer) return;
-  if (!config.merchantBilling.reconciliationEnabled) {
-    log.general.info(
-      {},
-      '[MerchantBilling] subscription reconciliation is off; webhooks and grace deadlines are unaffected',
-    );
-    return;
-  }
   afterId = undefined;
   graceAfterId = undefined;
   const startedGeneration = ++generation;

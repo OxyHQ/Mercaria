@@ -372,7 +372,7 @@ unreachable from every ranking module.
 **Flags roll back independently of analytics** (rule 7). Nothing in a rollback
 path reads this domain: a feature flag is `config.*`, evaluated with no database
 access, so an experiment can be turned off while the sink is down, while the
-rollup is stalled, and while `ANALYTICS_ENABLED` is false.
+rollup is stalled, and while analytics collection is off.
 
 Every version declares its stop conditions in advance, from a closed set, so
 nobody has to invent one under pressure — and a stop records WHICH condition
@@ -472,22 +472,23 @@ so a sink that quietly did nothing cannot pass for the wrong reason.
 
 ```
 ANALYTICS_COLLECTION_MODE=off        # off | essential | full — DEFAULT off
-ANALYTICS_ENABLED=false              # a kill switch that can only turn collection DOWN
 ANALYTICS_OPERATOR_OXY_USER_IDS=     # empty ⇒ /internal/analytics is NOT MOUNTED (404)
 ANALYTICS_QUEUE_MAX_EVENTS=10000
 ANALYTICS_FLUSH_INTERVAL_MS=2000
 ANALYTICS_FLUSH_BATCH_SIZE=500
 ANALYTICS_PSEUDONYM_ROTATION_HOURS=24
 ANALYTICS_INTERNAL_TRAFFIC_TOKEN=    # empty ⇒ nothing can declare itself internal
-ANALYTICS_ROLLUP_ENABLED=true        # gates the LOOP only
 ANALYTICS_ROLLUP_INTERVAL_MS=900000
 ANALYTICS_ROLLUP_MAX_BACKFILL_DAYS=30
 ```
 
-`enabled` is DERIVED from the mode and can only narrow it:
-`ANALYTICS_ENABLED=true` with `ANALYTICS_COLLECTION_MODE=off` collects nothing.
-An unrecognised mode falls back to `off` — every other fallback in `config`
-defaults to the permissive side; this one defaults to collecting nothing.
+The mode is the ONE switch: `config.analytics.enabled` is DERIVED from it
+(collection is on iff the mode is not `off`), and the sink, the rollup and the
+retention sweep all run iff it is on. There is no second flag that could
+disagree with it. An unrecognised mode falls back to `off` — every other
+fallback in `config` defaults to the permissive side; this one defaults to
+collecting nothing. The merchant demand surfaces (`docs/merchant-demand.md`)
+follow the same condition.
 
 ---
 

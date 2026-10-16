@@ -293,9 +293,8 @@ describe('collectCatalogMetrics', () => {
         // either way".
         //
         // `surface_not_mounted` is EXPECTED here and is a fact about the
-        // deployment: three of the four budgeted routes sit behind a rollout flag
-        // defaulting to false, so on this test deployment their metrics cannot
-        // measure. It is collected and NAMED below rather than asserted empty.
+        // deployment: the authoring route sits behind a rollout flag defaulting
+        // to false, so on this test deployment its metrics cannot measure. It is collected and NAMED below rather than asserted empty.
         //
         // `source_unavailable` means a reader threw. That is an INCIDENT and must
         // be empty.
@@ -460,14 +459,12 @@ describe('the collector really reads the route store', () => {
     // branch is the one nobody exercises.
     const off = await collectCatalogMetrics({
       facetSampleSize: NO_FACET_SAMPLE,
-      mounted: { catalogAuthoring: false, facets: false },
+      mounted: { catalogAuthoring: false },
     });
     for (const key of [
       'authoring_schema_fetch_latency',
       'authoring_schema_error_rate',
       'authoring_schema_client_cache_hit_rate',
-      'facet_generation_latency',
-      'facet_generation_error_rate',
     ]) {
       const entry = reading(off, key);
       expect(entry?.state, `${key} reported a population instead of an unmounted surface`).toBe(
@@ -477,29 +474,34 @@ describe('the collector really reads the route store', () => {
         expect(entry.reason).toBe('surface_not_mounted');
         // The seam names the variable, so an operator is told what to set rather
         // than left to wonder why a surface looks idle.
-        expect(entry.seam).toMatch(/CATALOG_AUTHORING_ENABLED|FACETS_ENABLED/);
+        expect(entry.seam).toMatch(/CATALOG_AUTHORING_ENABLED/);
         // And it carries no quantity, so it cannot be rendered as zero.
         expect(Object.keys(entry)).not.toContain('numerator');
       }
     }
   });
 
-  it('the two unconditional routes report 5xx, exclude 4xx, and need no mount flag', async () => {
+  it('the unconditional routes report 5xx, exclude 4xx, and need no mount flag', async () => {
     // #913: four routes carry a latency budget and are therefore observed, and
     // two of them reached no metric at all — a 5xx on `/categories` or
     // `/search` was recorded by the middleware and read by nothing.
     resetCatalogRouteObservations();
-    // BOTH flags OFF, deliberately. These two routes are mounted
-    // unconditionally, so unlike the authoring and facet rates they must still
-    // be MEASURED here. A producer that copied a `mounted` guard across would
-    // answer `surface_not_mounted` and this case is what catches it.
+    // The authoring flag OFF, deliberately. These routes are mounted
+    // unconditionally (`/facets` since `FACETS_ENABLED` was removed), so unlike
+    // the authoring rates they must still be MEASURED here. A producer that
+    // copied a `mounted` guard across would answer `surface_not_mounted` and
+    // this case is what catches it.
     const collect = () =>
       collectCatalogMetrics({
         facetSampleSize: NO_FACET_SAMPLE,
-        mounted: { catalogAuthoring: false, facets: false },
+        mounted: { catalogAuthoring: false },
       });
 
-    for (const key of ['taxonomy_read_error_rate', 'search_read_error_rate']) {
+    for (const key of [
+      'taxonomy_read_error_rate',
+      'search_read_error_rate',
+      'facet_generation_error_rate',
+    ]) {
       const before = reading(await collect(), key);
       expect(before?.state, `${key} is gated on a flag it has no business reading`).toBe(
         'measured',
@@ -555,7 +557,7 @@ describe('the collector really reads the route store', () => {
     const collect = () =>
       collectCatalogMetrics({
         facetSampleSize: NO_FACET_SAMPLE,
-        mounted: { catalogAuthoring: true, facets: true },
+        mounted: { catalogAuthoring: true },
       });
 
     const before = reading(await collect(), 'facet_generation_error_rate');
@@ -630,7 +632,7 @@ describe('the collector really reads the route store', () => {
     const collect = () =>
       collectCatalogMetrics({
         facetSampleSize: NO_FACET_SAMPLE,
-        mounted: { catalogAuthoring: true, facets: true },
+        mounted: { catalogAuthoring: true },
       });
     const before = await collect();
 

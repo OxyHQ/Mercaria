@@ -119,9 +119,12 @@ export type InterpretationMode = (typeof INTERPRETATION_MODES)[number];
  * typed, which is the one thing #77's redaction policy keeps out of storage.
  */
 export const INTENT_FALLBACK_REASONS = [
-  /** The deployment-wide lever is off. */
+  /**
+   * The shopper asked for plain text search (`deterministicOnly`). Turns recorded
+   * before the deployment-wide `NL_INTENT_ENABLED` lever was removed also carry it.
+   */
   'parser_disabled',
-  /** The lever is on and no provider is registered — the fail-closed default. */
+  /** No provider is registered — the fail-closed default. */
   'provider_unconfigured',
   /** This market/language cohort is on the incident block list. */
   'cohort_blocked',

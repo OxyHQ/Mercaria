@@ -2,8 +2,9 @@
  * `robots.txt` — TWO artefacts, ONE list (#75 sitemap rule 4).
  *
  * The API renders the served file from `SEO_ROBOTS_DISALLOWED_PATHS`; the
- * storefront ships a STATIC copy for the `SEO_ROUTES_ENABLED=false` state,
- * because that is what a crawler gets when the worker's proxy cannot answer.
+ * storefront ships a STATIC copy for the `SEO_INDEXING_MODE=off` state (the
+ * `/seo/*` routers unmounted), because that is what a crawler gets when the
+ * worker's proxy cannot answer.
  * Two files is one more than anybody wants, and the answer is not to delete one
  * but to gate them — this file parses the static asset and fails the build when
  * its `Disallow` set differs from the rendered one.

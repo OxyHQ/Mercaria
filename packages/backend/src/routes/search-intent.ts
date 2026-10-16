@@ -4,9 +4,9 @@
  * Mounted UNCONDITIONALLY, and that is the decision worth reading. Every other
  * surface in this codebase with a rollout lever gates its MOUNT; this one does
  * not, because the deterministic interpreter is the FLOOR rather than a
- * degraded mode. `NL_INTENT_ENABLED` gates whether a MODEL may be called, and a
- * deployment with it off — the default — still has a working natural-language
- * search box that reads identifiers, locale-aware money, magnitudes against
+ * degraded mode. A MODEL is called only when one is registered and a recorded
+ * benchmark enables it, and a deployment with none — every one today — still
+ * has a working natural-language search box that reads identifiers, locale-aware money, magnitudes against
  * #94's registry, condition, channel and category. A lever that could 404 this
  * route would withdraw a working feature for no benefit.
  *

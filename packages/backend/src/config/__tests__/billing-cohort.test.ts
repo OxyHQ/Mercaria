@@ -23,19 +23,20 @@ async function read(actions: boolean, extra: Record<string, string> = {}) {
     OXY_APPLICATION_SECRET: 'fixture-secret',
     AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '',
     AWS_CONTAINER_CREDENTIALS_FULL_URI: '',
-    MERCHANT_BILLING_ENABLED: String(actions),
+    // Actions are DERIVED: a configured rail plus a return URL.
+    MERCHANT_BILLING_RETURN_URL: actions ? 'https://dashboard.mercaria.co/settings/plan' : '',
     ...extra,
   }))
     vi.stubEnv(name, value);
   return (await import('../index.js')).config;
 }
-it('enables the existing action flag through only the explicit billing cohort', async () => {
+it('enables actions through only the explicit billing cohort', async () => {
   const config = await read(true);
   expect(config.merchantBilling.enabled).toBe(true);
   expect(config.payments.stripe.enabled).toBe(false);
   expect(config.payments.peable.enabled).toBe(false);
 });
-it('keeps new actions off independently of durable cohort maintenance', async () => {
+it('keeps actions off without a return URL, independently of durable cohort maintenance', async () => {
   expect((await read(false)).merchantBilling.enabled).toBe(false);
 });
 // Half a key pair is no identity at all.

@@ -5,7 +5,8 @@
  * recorded both as conventions:
  *
  *  1. **Turning a lever off restores the previous behaviour** — the previous
- *     behaviour being that these six surfaces did not exist.
+ *     behaviour being that these five surfaces did not exist (`/facets`, once a
+ *     sixth, lost its lever and is now unconditional).
  *  2. **No lever gates a durable record** — a draft or a proposal stored with the
  *     lever on is still there, and still reachable, with it off.
  *
@@ -29,7 +30,7 @@
  * unconditional paths are called on BOTH deployments and their statuses compared.
  * The gated paths need the opposite treatment: 404-with-the-lever-off is worthless
  * without 404's absence with it on, or a route deleted outright would satisfy
- * every case here. Both directions are asserted for all six.
+ * every case here. Both directions are asserted for all five.
  *
  * ## The third deployment is the one that shows the failure mode
  *
@@ -108,11 +109,13 @@ vi.mock('../../lib/rate-limit.js', () => ({
     },
 }));
 
-/** The four levers ADR 0007 D12 actually shipped, as env. */
+/**
+ * The ADR 0007 D12 levers that still exist, as env. `FACETS_ENABLED` was
+ * removed; `/facets` is mounted unconditionally and sits in `UNCONDITIONAL`.
+ */
 const LEVERS = [
   'CATALOG_AUTHORING_ENABLED',
   'CATALOG_PROPOSALS_ENABLED',
-  'FACETS_ENABLED',
   'CATALOG_TAXONOMY_V2_ENABLED',
 ] as const;
 
@@ -236,7 +239,7 @@ async function call(deployment: Deployment, target: Call): Promise<number> {
 }
 
 /**
- * The six mounts the four levers gate, one call each.
+ * The five mounts the levers gate, one call each.
  *
  * `/stores/:storeId/product-drafts` is the one to read carefully: `storesRouter`
  * is mounted at `/stores` UNCONDITIONALLY, so with the authoring lever off this
@@ -250,7 +253,6 @@ const GATED: readonly Call[] = [
   { method: 'GET', path: '/catalog-authoring/categories' },
   { method: 'POST', path: '/stores/store-rollout-1/product-drafts', body: {} },
   { method: 'POST', path: '/catalog-proposals', body: {} },
-  { method: 'POST', path: '/facets', body: {} },
   { method: 'GET', path: '/navigation?market=ES&locale=es' },
   /*
    * #367 Workstream 1's public taxonomy reads, behind the SAME
@@ -277,6 +279,8 @@ const UNCONDITIONAL: readonly Call[] = [
   { method: 'GET', path: '/cart' },
   { method: 'POST', path: '/checkout', body: {} },
   { method: 'GET', path: '/catalog-attributes/definitions' },
+  // Unconditional since `FACETS_ENABLED` was removed.
+  { method: 'POST', path: '/facets', body: {} },
   // See `probesMount` on `Call`: its only route 404s for an unpublished key.
   {
     method: 'GET',
@@ -302,7 +306,7 @@ const INTERNAL: readonly string[] = [
   '/internal/taxonomy',
 ];
 
-describe('the four levers gate a MOUNT — and turning them off restores the previous behaviour', () => {
+describe('the levers gate a MOUNT — and turning them off restores the previous behaviour', () => {
   it.each(GATED)('$method $path answers 404 with the levers OFF', async (target) => {
     expect(await call(leversOff, target)).toBe(404);
   });
@@ -317,11 +321,11 @@ describe('the four levers gate a MOUNT — and turning them off restores the pre
     },
   );
 
-  it('withdraws EXACTLY those six mounts and nothing else', async () => {
+  it('withdraws EXACTLY those five mounts and nothing else', async () => {
     // The vacuity floor on the two lists: an empty GATED array would make both
     // cases above pass trivially, and an empty UNCONDITIONAL array would make the
     // sameness case below pass trivially.
-    expect(GATED.length).toBe(6);
+    expect(GATED.length).toBe(5);
     expect(UNCONDITIONAL.length).toBeGreaterThanOrEqual(6);
   });
 });

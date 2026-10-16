@@ -80,10 +80,9 @@ export async function readReconciledAffiliateCommission(input: {
 /**
  * Register the reader. Called ONCE at boot.
  *
- * Not gated by `AFFILIATE_RECONCILIATION_ENABLED`, deliberately: that flag
- * gates the POLL, and a deployment that has stopped polling still holds
- * reconciled commissions a referral rule is entitled to read. Gating this would
- * make an incident lever silently change what a reward is worth.
+ * Ungated, deliberately: a deployment whose poll is failing still holds
+ * reconciled commissions a referral rule is entitled to read, and a gate here
+ * would make an outage silently change what a reward is worth.
  */
 export function registerAffiliateCommissionFundingReader(): void {
   registerAffiliateCommissionReader(readReconciledAffiliateCommission);

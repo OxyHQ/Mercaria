@@ -194,7 +194,7 @@ config value and a pure matcher (`services/catalog-rollout/cohort.ts`).
 |---|---|---|---|
 | `GET /navigation` | `CATALOG_TAXONOMY_V2_ENABLED` | `router.use` | market, locale |
 | `GET /taxonomy/*` | `CATALOG_TAXONOMY_V2_ENABLED` | `router.use` | locale |
-| `POST /facets` | `FACETS_ENABLED` | `router.use`, custom subject | category, locale |
+| `POST /facets` | none — mounted unconditionally | `router.use`, custom subject | category, locale |
 | `GET /catalog-authoring/*` | `CATALOG_AUTHORING_ENABLED` | per route | product type, category, market, locale |
 | `/stores/:storeId/product-drafts/*` | `CATALOG_AUTHORING_ENABLED` | `router.use` | **all five** |
 | `/catalog-proposals/*` | `CATALOG_PROPOSALS_ENABLED` | `router.use` | store |

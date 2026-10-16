@@ -366,9 +366,14 @@ randomized mixed currencies pins the balance; another pins that
 which is the fee surface's reasoning verbatim: the comparison, the upgrade, the
 portal and the cancellation are one conversation and it is the owner's.
 
-**The router is NOT flag-gated.** `MERCHANT_BILLING_ENABLED` gates checkout, Portal and cancellation inside the service. Gating the MOUNT
-would take the plan screen away from a merchant who already has a subscription
-the moment somebody pulled the incident lever.
+**The router is NOT gated.** Checkout, Portal and cancellation are available
+iff a billing rail is configured (general Stripe, or the complete Peable cohort
+plus Mercaria's Oxy identity) AND `MERCHANT_BILLING_RETURN_URL` is set — derived
+in `config` (`resolveMerchantBillingEnabled`) and checked inside the service.
+Gating the MOUNT would take the plan screen away from a merchant who already has
+a subscription whenever actions are unavailable. Being available makes nothing
+purchasable by itself: a checkout needs an operator-activated paid plan version
+with a price on the rail.
 
 The dashboard screen (`settings/plan.tsx`) opens with what is included for
 nothing, deliberately: a plan screen that opens with what a merchant might be
@@ -394,16 +399,15 @@ be able to ask.
 ## Environment
 
 ```
-MERCHANT_BILLING_ENABLED=false                        # actions; requires configured Stripe or registered Peable cohort
-MERCHANT_BILLING_RETURN_URL=                          # where a hosted session returns to
-MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED=true     # the LOOP only
+MERCHANT_BILLING_RETURN_URL=                          # where a hosted session returns to; with a rail, enables the actions
 MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS=21600000
 MERCHANT_SUBSCRIPTION_RECONCILIATION_BATCH_SIZE=50
 ```
 
-**Neither lever gates a durable record.** Entitlements resolve, subscriptions
-apply provider events, invoices book to the ledger and grace deadlines bite
-whatever both say. The isolation gate fails the build if the resolver starts
+**Nothing here gates a durable record**, and the subscription reconciliation
+loop always runs. Entitlements resolve, subscriptions apply provider events,
+invoices book to the ledger and grace deadlines bite whether or not the actions
+are available. The isolation gate fails the build if the resolver starts
 reading configuration at all — feature flags and entitlements solve different
 problems, and collapsing them would let a flag flip grant or remove a paid
 capability for every merchant at once with nothing in any audit trail saying so.
@@ -422,16 +426,17 @@ transport registration alone does not prove an offer exists.
    database's `entitlement_definitions` reflect the code.
 3. A free plan version is drafted and activated (its entitlement set is empty,
    which is correct).
-4. A paid plan version is drafted, priced in both modes for every market it is
-   sold in, and activated — which will now succeed, because its capability is no
-   longer postponed.
-5. `MERCHANT_BILLING_RETURN_URL` is set and either general Stripe is configured
+4. The Stripe platform webhook endpoint is subscribed to the four
+   `STRIPE_BILLING_EVENT_TYPES` in addition to ADR 0001's list.
+5. A terms document exists at the version the plan names.
+6. `MERCHANT_BILLING_RETURN_URL` is set and either general Stripe is configured
    or the exact Peable cohort is registered. General Stripe remains off for a
    cohort-only deployment; see [the availability contract](integrations/i08-billing-cohort.md#merchant-action-availability-and-reconciliation).
-6. The Stripe platform webhook endpoint is subscribed to the four
-   `STRIPE_BILLING_EVENT_TYPES` in addition to ADR 0001's list.
-7. A terms document exists at the version the plan names.
-8. `MERCHANT_BILLING_ENABLED` is turned on.
+7. A paid plan version is drafted, priced in both modes for every market it is
+   sold in, and activated — which will now succeed, because its capability is no
+   longer postponed. **This is the go-live act**: with steps 4–6 done, an active
+   priced paid version is purchasable as soon as it is activated, because there
+   is no separate actions flag.
 
 ---
 

@@ -481,37 +481,37 @@ function resolveBillingCohortConfigured(): boolean {
 }
 
 /**
- * `MERCHANT_BILLING_ENABLED` → may a merchant start or manage a PAID plan (#89
- * acceptance 8: "Billing remains feature-flagged until the real initial plan has
- * implemented value and completed production-readiness review").
+ * May a merchant start or manage a PAID plan — the checkout, Portal and
+ * period-end cancellation actions (#89).
  *
- * The half-configuration rule, for the reason `CROWDSOURCE_ENABLED` has it: a
- * billing surface without a rail behind it sends merchants to a hosted checkout
- * that cannot be created, so the honest state is OFF with a message naming what
- * is missing.
+ * DERIVED, never a flag: on iff a billing rail is configured (the Stripe rail,
+ * or a complete `MERCHANT_BILLING_PEABLE_COHORT` plus Mercaria's Oxy identity)
+ * AND `MERCHANT_BILLING_RETURN_URL` is set. A billing surface without a rail
+ * sends merchants to a hosted checkout that cannot be created, and one without a
+ * return URL sends them to a hosted page that returns nowhere.
  *
- * ## What this flag does NOT gate, and why that matters more than what it does
+ * Being on makes nothing purchasable by itself: a checkout still requires an
+ * operator-published, `active` paid plan version with a price row on the rail
+ * (`startMerchantPlanCheckout`).
  *
- * It gates the two ACTIONS that would open a hosted provider session, and
- * NOTHING durable. Entitlement resolution runs regardless, subscription rows are
- * read and applied regardless, and provider events are stored and processed
- * regardless — because a flag that could strand a merchant who has already paid
- * is not a rollback lever, it is an incident. `merchant-plan-isolation.test.ts`
- * fails the build if the resolver, the event path or the ledger posting starts
- * reading it.
+ * ## What this does NOT gate, and why that matters more than what it does
+ *
+ * It gates the ACTIONS that would open a hosted provider session or change a
+ * subscription, and NOTHING durable. Entitlement resolution runs regardless,
+ * subscription rows are read and applied regardless, and provider events are
+ * stored and processed regardless — because a switch that could strand a
+ * merchant who has already paid is not a rollback lever, it is an incident.
+ * `merchant-plan-isolation.test.ts` fails the build if the resolver, the event
+ * path or the ledger posting starts reading it.
  */
 function resolveMerchantBillingEnabled(): boolean {
-  if (!boolEnv('MERCHANT_BILLING_ENABLED', false)) return false;
+  if (!resolveStripeEnabled() && !resolveBillingCohortConfigured()) return false;
+  if (strEnv('MERCHANT_BILLING_RETURN_URL', '').trim() !== '') return true;
 
-  if (resolveStripeEnabled() || resolveBillingCohortConfigured()) return true;
-
-  log.general.error(
-    {
-      missing: ['STRIPE_ENABLED or a complete MERCHANT_BILLING_PEABLE_COHORT and an Oxy identity'],
-    },
-    '[MerchantBilling] MERCHANT_BILLING_ENABLED is set but no billing rail is configured; ' +
-      'staying OFF. Entitlements, existing subscriptions and provider events are unaffected — ' +
-      'this flag gates starting or managing a paid plan only.',
+  log.general.info(
+    { missing: ['MERCHANT_BILLING_RETURN_URL'] },
+    '[MerchantBilling] a billing rail is configured but no return URL is; paid-plan actions ' +
+      'stay OFF. Entitlements, existing subscriptions and provider events are unaffected.',
   );
   return false;
 }
@@ -1216,15 +1216,13 @@ function resolveAnalyticsCollectionMode(): AnalyticsCollectionMode {
 /**
  * Whether analytics collection is on.
  *
- * DERIVED from the mode, never a separate flag: `ANALYTICS_ENABLED=true` with
- * `ANALYTICS_COLLECTION_MODE=off` is a contradiction, and the failure it
+ * DERIVED from the mode, never a separate flag: a second switch beside
+ * `ANALYTICS_COLLECTION_MODE` could only disagree with it, and the failure that
  * produces — a deployment collecting under a mode it believes is off — is
- * exactly the one acceptance 8 exists to prevent. `ANALYTICS_ENABLED` is still
- * read, as a kill switch that can only ever turn collection DOWN.
+ * exactly the one acceptance 8 exists to prevent. The mode is the privacy gate.
  */
 function resolveAnalyticsEnabled(): boolean {
-  if (resolveAnalyticsCollectionMode() === 'off') return false;
-  return boolEnv('ANALYTICS_ENABLED', false);
+  return resolveAnalyticsCollectionMode() !== 'off';
 }
 
 /**
@@ -2240,18 +2238,9 @@ export interface CatalogConfig {
    */
   readonly taxonomyV2Enabled: boolean;
   /**
-   * The facet, filter and sort-option MOUNT — `FACETS_ENABLED`
-   * (#367 Workstream 10).
-   *
-   * Default TRUE (ADR 0015). It gates the mount and NOTHING durable — the domain has no table, writes no row and holds no state,
-   * so a rollback is one variable and loses no evidence. Every input it reads
-   * (#94's registry, ADR 0007 D5's product types, #57's offers, the taxonomy)
-   * stays readable through its own surface while it is off.
-   */
-  readonly facetsEnabled: boolean;
-  /**
-   * `CATALOG_ROLLOUT_COHORTS` — which slice of the deployment the four levers
-   * above are switched on FOR (ADR 0007 D12, epic Workstream 0 line 117).
+   * `CATALOG_ROLLOUT_COHORTS` — which slice of the deployment the catalog
+   * surfaces (the levers' mounts and the unconditional `/facets`) are switched on
+   * FOR (ADR 0007 D12, epic Workstream 0 line 117).
    *
    * The levers decide WHETHER a catalog surface exists; this decides WHO it
    * exists for, over six dimensions — market, locale, store, category, product
@@ -2469,40 +2458,13 @@ export interface CatalogIngestionConfig {
  * many tasks it claims, how long it holds a lease.
  */
 /**
- * Offer ranking (#74).
- *
- * ONE lever, and it deliberately gates neither a durable record nor the
- * comparison surface itself. Ranking is DERIVED at read time from offers this
- * domain never writes, so the rollback acceptance 7 asks for is activating an
- * earlier policy version — a row, not an environment variable. What an incident
- * needs instead is a way to stop routing anybody to a canary WITHOUT editing the
- * row, so the canary can be resumed once the cause is understood; that is this.
- *
- * There is deliberately no `RANKING_ENABLED`. Turning ranking off would leave
- * the comparison surface with no defined order at all, and a deployment that has
- * published no policy already has one — `BUILTIN_RANKING_POLICY`, a named
- * version every impression records.
- */
-export interface RankingConfig {
-  /**
-   * `RANKING_CANARY_ENABLED` — may a `canary` policy version serve anybody.
-   *
-   * Defaults TRUE, which is not a rollout decision: a canary exists only because
-   * an operator created one, and requiring a second switch to make their own
-   * creation take effect is the half-configuration trap this codebase refuses
-   * elsewhere. Setting it false pins every comparison to the active arm and
-   * leaves the canary row exactly as it was.
-   */
-  readonly canaryEnabled: boolean;
-}
-
-/**
  * Natural-language shopping intent (#95).
  *
- * Two levers and two lists, and the division is the point. `enabled` gates the
- * MODEL half only: with it off — the default — `POST /search-intent` still
- * answers, deterministically, with `fallbackReason: 'parser_disabled'`. There
- * is deliberately NO lever that turns the surface off, because the
+ * The MODEL half runs only for a registered parser that a recorded benchmark
+ * enables for the request's category and language; with none registered — every
+ * deployment today — `POST /search-intent` answers deterministically with
+ * `fallbackReason: 'provider_unconfigured'`. There is deliberately NO lever that
+ * turns the surface off, because the
  * deterministic interpreter is the floor rather than a degraded mode, and a
  * lever that could withdraw it would be a lever that turns a working search box
  * into a 404 for no benefit.
@@ -2517,15 +2479,6 @@ export interface RankingConfig {
  * not need one to do its job.
  */
 export interface SearchIntentConfig {
-  /**
-   * `NL_INTENT_ENABLED` — may a registered model parser be CALLED at all.
-   *
-   * Default false. With no parser registered it changes nothing observable
-   * (`provider_unconfigured` and `parser_disabled` are both a deterministic
-   * answer), and the two are still distinct in the recorded turn so an operator
-   * can tell "we turned it off" from "nobody wired one up".
-   */
-  readonly enabled: boolean;
   /** `NL_INTENT_BLOCKED_COHORTS` — the incident kill switch. EMPTY by default. */
   readonly blockedCohorts: readonly string[];
   /** `NL_INTENT_PARSE_TIMEOUT_MS` — the caller's deadline on a provider call. */
@@ -2721,15 +2674,14 @@ export interface PriceSignalsConfig {
 /**
  * Public routing and the search-engine surface (#75).
  *
- * Two levers with different blast radii, and two cache lifetimes. The argument
- * for the split is in `services/seo/rollout.ts`; the short version is that a
- * correct sharing card and an invitation to index the catalogue are different
- * decisions, so they are different variables.
+ * One lever (`SEO_INDEXING_MODE`, which also decides the `/seo/*` mount) and two
+ * cache lifetimes. The argument is in `services/seo/rollout.ts`.
  */
 export interface SeoConfig {
-  /** `SEO_ROUTES_ENABLED` — are the public `/seo/*` routers MOUNTED at all. */
-  readonly routesEnabled: boolean;
-  /** `SEO_INDEXING_MODE` — `off | canary | on`. */
+  /**
+   * `SEO_INDEXING_MODE` — `off | canary | on`. Also decides whether the public
+   * `/seo/*` routers are mounted (`services/seo/rollout.ts`).
+   */
   readonly indexingMode: SeoIndexingMode;
   /** `SEO_CANARY_CATEGORY_IDS` — which categories `canary` indexes. Empty = none. */
   readonly canaryCategoryIds: readonly string[];
@@ -3122,9 +3074,8 @@ export interface ReferralsConfig {
  *
  * The whole domain is OFF by default and stays off in production until the
  * privacy and retention review #77 acceptance 8 requires has been recorded.
- * That is why `enabled` defaults to `false` while every other flag in this file
- * that gates a mature subsystem defaults to `true`: collecting nothing is the
- * safe failure, and a deployment that forgets to enable it loses telemetry
+ * That is why `ANALYTICS_COLLECTION_MODE` defaults to `off`: collecting nothing
+ * is the safe failure, and a deployment that forgets to set it loses telemetry
  * rather than collecting under an unreviewed policy.
  */
 export interface AnalyticsConfig {
@@ -3138,7 +3089,7 @@ export interface AnalyticsConfig {
    * `off | essential | full` — the collection mode a stored row records
    * (envelope field 11). `off` and `enabled: false` are the same state
    * expressed twice, which is why `enabled` is DERIVED from this rather than
-   * configured beside it: two flags for one fact could disagree, and the
+   * configured beside it: two switches for one fact could disagree, and the
    * disagreement that matters is "we thought collection was off".
    */
   readonly collectionMode: AnalyticsCollectionMode;
@@ -3181,8 +3132,6 @@ export interface AnalyticsConfig {
    * smoke test appearing in a metric, not arbitrary traffic hiding from one.
    */
   readonly internalTrafficToken: string;
-  /** Whether the daily rollup loop runs on this task. Gates the LOOP only. */
-  readonly rollupEnabled: boolean;
   /** How often the rollup looks for a day to compute. */
   readonly rollupIntervalMs: number;
   /** How many days back a cold start will compute before giving up on a pass. */
@@ -3234,12 +3183,13 @@ export interface CheckoutConfig {
 /**
  * Merchant demand analytics and the acquisition pipeline (#86).
  *
- * TWO levers, and NEITHER gates a durable record. A snapshot is a report
- * somebody may need during the incident that turned the surfaces off, and the
- * operator acquisition surface stays mounted on the analytics allow-list while
- * both of these are false — the evidence has to be readable while the merchant
- * surfaces are down, which is the rule every operator surface in this codebase
- * follows.
+ * No lever of its own: the claimed-merchant dashboard and the unclaimed public
+ * preview are mounted iff analytics collection is on (`config.analytics.enabled`,
+ * i.e. `ANALYTICS_COLLECTION_MODE` is not `off`) — figures built from events a
+ * deployment does not collect would be a dashboard of zeros. Nothing durable is
+ * gated: the operator acquisition surface stays mounted on the analytics
+ * allow-list while collection is off, because the evidence has to be readable
+ * then too, which is the rule every operator surface in this codebase follows.
  *
  * There is no `MERCHANT_DEMAND_OPERATOR_OXY_USER_IDS`. The acquisition pipeline
  * runs on `ANALYTICS_OPERATOR_OXY_USER_IDS` because it is exactly the power that
@@ -3247,20 +3197,6 @@ export interface CheckoutConfig {
  * and a seventh allow-list would be a second answer to who has it.
  */
 export interface MerchantDemandConfig {
-  /**
-   * The CLAIMED-merchant dashboard mount. Default false.
-   *
-   * Off, a merchant reads no demand figures and every snapshot already built
-   * stays on file and stays readable by an operator.
-   */
-  readonly dashboardEnabled: boolean;
-  /**
-   * The UNCLAIMED-merchant public preview mount. Default false, and separate
-   * from the dashboard on purpose: the preview is the one surface an
-   * unauthenticated caller can reach, so it has to be switchable off without
-   * taking a verified merchant's own reporting with it.
-   */
-  readonly previewEnabled: boolean;
   /** How long a snapshot is kept. Stamped on the row at write time. */
   readonly snapshotRetentionDays: number;
   /**
@@ -3439,10 +3375,8 @@ export interface ProcurementConfig {
 /**
  * The Awin retailer-network source (#66).
  *
- * `AWIN_ENABLED` gates the ADAPTER's registration and nothing durable: accounts,
- * advertisers, feeds, quality snapshots, samples and every #62 row are stored
- * and readable either way, every run refuses with #62's own `adapter_missing`,
- * and turning it on drains the backlog.
+ * The adapter is registered on every deployment, and registering it fetches
+ * nothing: a fetch happens only for a configured, active Awin source.
  *
  * **It deliberately does NOT demand a credential**, unlike `FEED_IMPORT_ENABLED`
  * and unlike the half-configuration rule elsewhere in this file. The difference
@@ -3459,8 +3393,6 @@ export interface ProcurementConfig {
  * all.
  */
 export interface AwinConfig {
-  /** `AWIN_ENABLED` — register the adapter. Never gates a durable record. */
-  readonly enabled: boolean;
   /** Where the product-data feed list and downloads live. */
   readonly feedListBaseUrl: string;
   /** Where the Publisher API lives. #67 spends it; #66 calls it from nowhere. */
@@ -3503,9 +3435,9 @@ export interface OpenDataConfig {
 /**
  * Affiliate outbound redirects and commission reconciliation (#67).
  *
- * Two independent levers plus tunables, and NEITHER gates a durable record.
- * `outbound-isolation.test.ts` fails the build if a repository or a read path
- * starts reading one.
+ * One lever plus tunables (the report-poll loop always runs), and it gates no
+ * durable record. `outbound-isolation.test.ts` fails the build if a repository
+ * or a read path starts reading one.
  */
 export interface AffiliateOutboundConfig {
   /**
@@ -3515,12 +3447,6 @@ export interface AffiliateOutboundConfig {
   readonly redirectEnabled: boolean;
   /** HMAC key for the opaque token. Absent rather than `''` when unset. */
   readonly tokenSecret?: string;
-  /**
-   * `AFFILIATE_RECONCILIATION_ENABLED` — the report-poll LOOP only. Default
-   * false. Turning it off cannot make a stored commission unreadable, and a
-   * poll run by hand through the operator surface stays available.
-   */
-  readonly reconciliationEnabled: boolean;
   /** How long a click record is kept before the shared expiry sweep removes it. */
   readonly clickRetentionDays: number;
   /** How far back a scheduled poll asks for, per network, per pass. */
@@ -3621,7 +3547,7 @@ export interface EbayConfig {
  * quotes and every #62 row are stored and readable either way. With it off,
  * every preflight answers `provider_unconfigured` (which blocks) and every
  * purchase order refuses with `adapter_missing`, and turning it on drains the
- * backlog — the `AWIN_ENABLED` arrangement.
+ * backlog.
  *
  * **It deliberately demands NO credential**, for Awin's reason rather than
  * #63's: Printful's token is a LOCATOR on a `supplier_accounts` row (an SSM
@@ -3714,12 +3640,11 @@ export interface MoovoConfig {
 /**
  * Merchant activation readiness (#85).
  *
- * TWO variables and neither gates a durable record, which is what a scanned gate
- * enforces: a policy acceptance, a pause switch, an operator hold and the whole
- * capability trail are stored whatever these say. The merchant and operator
- * surfaces are mounted unconditionally too — the evidence has to be readable
- * during the incident that turned something off, and there is nothing here worth
- * withdrawing a merchant's own readiness screen for.
+ * Only the observation sweep's tunables; nothing here gates a durable record,
+ * which is what a scanned gate enforces: a policy acceptance, a pause switch, an
+ * operator hold and the whole capability trail are always stored. The merchant
+ * and operator surfaces are mounted unconditionally — there is nothing here
+ * worth withdrawing a merchant's own readiness screen for.
  *
  * There is deliberately no `MERCHANT_ACTIVATION_ENABLED`. Activation is a
  * derivation over state eight other domains already own; a flag switching it off
@@ -3727,27 +3652,11 @@ export interface MoovoConfig {
  */
 export interface MerchantActivationConfig {
   /**
-   * `MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED` — whether #85 state 12 BLOCKS.
-   *
-   * Default FALSE, and that is a decision rather than a timid default: there is
-   * no launch plan in this repository requiring a test order, and making it
-   * blocking by default would mean no merchant could ever take a first one —
-   * the requirement would refuse the very order that satisfies it. It is always
-   * DERIVED and always reported, on the dashboard and in the operator trace;
-   * this decides only whether the answer withholds a capability.
+   * The observation sweep runs on every deployment. Most activation transitions
+   * have no actor at all — Stripe restricts an account, a connector stops
+   * delivering, a jury restricts a catalogue — so the only way one gets audited
+   * is somebody looking, which is what the sweep does.
    */
-  readonly testOrderRequired: boolean;
-  /**
-   * `MERCHANT_ACTIVATION_OBSERVATION_ENABLED` — the sweep LOOP, never a row.
-   *
-   * Most activation transitions have no actor at all: Stripe restricts an
-   * account, a connector stops delivering, a jury restricts a catalogue. Nothing
-   * in those domains knows this one exists, so the only way a transition gets
-   * audited is somebody looking — which is what the sweep does. With it off,
-   * transitions are still recorded at every point a merchant or an operator
-   * acts, and the derivation itself is unaffected, because it is derived.
-   */
-  readonly observationEnabled: boolean;
   readonly observationIntervalMs: number;
   readonly observationBatchSize: number;
 }
@@ -3830,8 +3739,6 @@ export interface PickupConfig {
   readonly storePickupEnabled: boolean;
   /** `GUEST_STORE_PICKUP_ENABLED` — may a GUEST collect. Default false. */
   readonly guestPickupEnabled: boolean;
-  /** `P2P_LOCAL_DISCOVERY_ENABLED` — the coarse P2P proximity surface. Default false. */
-  readonly p2pLocalDiscoveryEnabled: boolean;
   /**
    * `GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT` — #93 readiness condition 6.
    *
@@ -3968,7 +3875,6 @@ export interface AppConfig {
   readonly matching: MatchingConfig;
   readonly catalogIngestion: CatalogIngestionConfig;
   readonly offerFreshness: OfferFreshnessConfig;
-  readonly ranking: RankingConfig;
   readonly searchIntent: SearchIntentConfig;
   readonly priceHistory: PriceHistoryConfig;
   readonly priceAlerts: PriceAlertsConfig;
@@ -4185,28 +4091,25 @@ export interface ConnectorsConfig {
 /**
  * Merchant plans, entitlements and optional subscription billing (#89).
  *
- * Two levers and four tunables, and NEITHER lever gates a durable record.
- * `enabled` decides whether a merchant may open a hosted provider session;
- * `reconciliationEnabled` decides whether the periodic re-read LOOP runs. A
- * merchant's entitlements resolve, their subscription applies provider events
- * and their invoices book to the ledger whatever both say.
+ * No lever gates a durable record. `enabled` is DERIVED (whether a merchant may
+ * open a hosted provider session); the periodic subscription re-read always
+ * runs. A merchant's entitlements resolve, their subscription applies provider
+ * events and their invoices book to the ledger whatever `enabled` says.
  */
 export interface MerchantBillingConfig {
-  /** Durable routing cohort; independent of the new-action enabled flag. Validated at billing registration. */
+  /** Durable routing cohort; independent of whether actions are enabled. Validated at billing registration. */
   readonly peableCohortJson: string;
-  /** May a merchant start or manage a PAID plan — see `resolveMerchantBillingEnabled`. */
+  /** May a merchant start or manage a PAID plan — DERIVED, see `resolveMerchantBillingEnabled`. */
   readonly enabled: boolean;
   /**
-   * Whether the periodic subscription re-read runs (#89 billing rule 7).
+   * How often the subscription reconciliation sweep runs (#89 billing rule 7).
    *
-   * Defaults ON, unlike `enabled`: webhooks are the normal path and are NOT a
+   * The sweep always runs: webhooks are the normal path and are NOT a
    * substitute for reconciliation — an event that was never delivered is
    * invisible to everything that waits to be told (#50's opening sentence,
    * applied to subscriptions). It costs nothing on a deployment with no
    * subscriptions, because the page comes back empty.
    */
-  readonly reconciliationEnabled: boolean;
-  /** How often the reconciliation sweep runs. */
   readonly reconciliationIntervalMs: number;
   /** Subscriptions re-read per sweep page. */
   readonly reconciliationBatchSize: number;
@@ -4297,7 +4200,6 @@ export const config: AppConfig = Object.freeze({
     curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
     curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
     taxonomyV2Enabled: boolEnv('CATALOG_TAXONOMY_V2_ENABLED', true),
-    facetsEnabled: boolEnv('FACETS_ENABLED', true),
     rolloutCohorts: Object.freeze(resolveCatalogRolloutCohorts()),
   }),
   sellYours: Object.freeze({
@@ -4348,9 +4250,6 @@ export const config: AppConfig = Object.freeze({
     maxBackoffMs: intEnv('CATALOG_INGESTION_MAX_BACKOFF_MS', 6 * 60 * 60 * 1_000),
     retirementBatchSize: intEnv('CATALOG_INGESTION_RETIREMENT_BATCH_SIZE', 500),
     anomalyPriceFactor: intEnv('CATALOG_INGESTION_ANOMALY_PRICE_FACTOR', 20),
-  }),
-  ranking: Object.freeze({
-    canaryEnabled: boolEnv('RANKING_CANARY_ENABLED', true),
   }),
   offerFreshness: Object.freeze({
     refreshEnabled: boolEnv('OFFER_REFRESH_ENABLED', false),
@@ -4451,7 +4350,6 @@ export const config: AppConfig = Object.freeze({
     traceLimit: intEnv('PRICE_SIGNAL_TRACE_LIMIT', 200),
   }),
   seo: Object.freeze({
-    routesEnabled: boolEnv('SEO_ROUTES_ENABLED', false),
     indexingMode: resolveSeoIndexingMode(),
     canaryCategoryIds: Object.freeze(resolveSeoCanaryCategoryIds()),
     // Half of the 50,000-URL sitemap limit, so a collection can double before
@@ -4490,7 +4388,6 @@ export const config: AppConfig = Object.freeze({
     reconciliationSampleSize: intEnv('EBAY_RECONCILIATION_SAMPLE_SIZE', 40),
   }),
   awin: Object.freeze({
-    enabled: boolEnv('AWIN_ENABLED', false),
     feedListBaseUrl: strEnv('AWIN_FEED_LIST_BASE_URL', 'https://productdata.awin.com'),
     publisherApiBaseUrl: strEnv('AWIN_PUBLISHER_API_BASE_URL', 'https://api.awin.com'),
     networkConcurrency: intEnv('AWIN_NETWORK_CONCURRENCY', 2),
@@ -4515,7 +4412,6 @@ export const config: AppConfig = Object.freeze({
     ...(process.env.OUTBOUND_TOKEN_SECRET?.trim()
       ? { tokenSecret: process.env.OUTBOUND_TOKEN_SECRET.trim() }
       : {}),
-    reconciliationEnabled: boolEnv('AFFILIATE_RECONCILIATION_ENABLED', false),
     // 400 days. Longer than every network's own correction window, because a
     // click whose commission is reversed eleven months later must still be
     // traceable to the offer it was for; shorter than the commission record it
@@ -4874,8 +4770,6 @@ export const config: AppConfig = Object.freeze({
    * see {@link MerchantActivationConfig} for why there is no third.
    */
   merchantActivation: Object.freeze({
-    testOrderRequired: boolEnv('MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED', false),
-    observationEnabled: boolEnv('MERCHANT_ACTIVATION_OBSERVATION_ENABLED', false),
     observationIntervalMs: intEnv('MERCHANT_ACTIVATION_OBSERVATION_INTERVAL_MS', 15 * MINUTE_MS),
     observationBatchSize: intEnv('MERCHANT_ACTIVATION_OBSERVATION_BATCH_SIZE', 100),
   }),
@@ -4915,13 +4809,10 @@ export const config: AppConfig = Object.freeze({
     flushBatchSize: intEnv('ANALYTICS_FLUSH_BATCH_SIZE', 500),
     pseudonymRotationHours: intEnv('ANALYTICS_PSEUDONYM_ROTATION_HOURS', 24),
     internalTrafficToken: strEnv('ANALYTICS_INTERNAL_TRAFFIC_TOKEN', ''),
-    rollupEnabled: boolEnv('ANALYTICS_ROLLUP_ENABLED', true),
     rollupIntervalMs: intEnv('ANALYTICS_ROLLUP_INTERVAL_MS', 15 * MINUTE_MS),
     rollupMaxBackfillDays: intEnv('ANALYTICS_ROLLUP_MAX_BACKFILL_DAYS', 30),
   }),
   merchantDemand: Object.freeze({
-    dashboardEnabled: boolEnv('MERCHANT_DEMAND_ENABLED', false),
-    previewEnabled: boolEnv('MERCHANT_DEMAND_PREVIEW_ENABLED', false),
     snapshotRetentionDays: intEnv('MERCHANT_DEMAND_SNAPSHOT_RETENTION_DAYS', 400),
     defaultWindowDays: resolveMerchantDemandWindowDays(),
     markets: Object.freeze(resolveMerchantDemandMarkets()),
@@ -4968,7 +4859,6 @@ export const config: AppConfig = Object.freeze({
     sellerLegalEntityCountry: retailSellerLegalEntityCountry(),
   }),
   searchIntent: Object.freeze({
-    enabled: boolEnv('NL_INTENT_ENABLED', false),
     blockedCohorts: Object.freeze(blockedListEnv('NL_INTENT_BLOCKED_COHORTS', 'upper')),
     parseTimeoutMs: intEnv('NL_INTENT_PARSE_TIMEOUT_MS', 4_000),
     sessionTtlSeconds: intEnv('NL_INTENT_SESSION_TTL_SECONDS', 30 * 60),
@@ -4985,7 +4875,6 @@ export const config: AppConfig = Object.freeze({
       return raw;
     })(),
     enabled: resolveMerchantBillingEnabled(),
-    reconciliationEnabled: boolEnv('MERCHANT_SUBSCRIPTION_RECONCILIATION_ENABLED', true),
     reconciliationIntervalMs: intEnv(
       'MERCHANT_SUBSCRIPTION_RECONCILIATION_INTERVAL_MS',
       6 * 60 * MINUTE_MS,
@@ -5007,7 +4896,6 @@ export const config: AppConfig = Object.freeze({
     nearbyEnabled: resolveNearbyEnabled(),
     storePickupEnabled: resolveStorePickupEnabled(),
     guestPickupEnabled: resolveGuestStorePickupEnabled(),
-    p2pLocalDiscoveryEnabled: boolEnv('P2P_LOCAL_DISCOVERY_ENABLED', false),
     guestPickupRequiresNotificationTransport: boolEnv(
       'GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT',
       false,

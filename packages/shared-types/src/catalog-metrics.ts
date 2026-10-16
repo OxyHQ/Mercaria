@@ -275,11 +275,10 @@ export const CATALOG_UNMEASURED_REASONS = [
    * reading the second as the first is how a dashboard shows a healthy,
    * quiet-looking surface for a feature nobody has switched on.
    *
-   * TWO of the four budgeted routes sit behind a flag — the authoring schema
-   * (`CATALOG_AUTHORING_ENABLED`) and facets (`FACETS_ENABLED`), both defaulting
-   * to false — and FOUR metrics take this reading on a stock deployment, because
-   * three of them hang off the one authoring route. Two routes, two flags, four
-   * metrics; `/categories` and `/search` are mounted unconditionally.
+   * ONE of the four budgeted routes sits behind a flag — the authoring schema
+   * (`CATALOG_AUTHORING_ENABLED`, defaulting to false) — and THREE metrics take
+   * this reading on a stock deployment, because all three hang off that route.
+   * `/categories`, `/search` and `/facets` are mounted unconditionally.
    */
   'surface_not_mounted',
   /**
@@ -1060,7 +1059,7 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     freshnessSeconds: 0,
     attributionLimit:
       'The route every shopper hits and the one with the TIGHTEST latency budget (150 ms), ' +
-      'mounted unconditionally — so unlike the authoring and facet rates beside it there is no ' +
+      'mounted unconditionally — so unlike the authoring rates beside it there is no ' +
       '`surface_not_mounted` branch, because there is no lever that can withdraw it. ' +
       'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
   },
