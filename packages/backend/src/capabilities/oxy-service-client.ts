@@ -29,6 +29,18 @@ export function oxyServiceClient(): OxyServer | null {
   return client;
 }
 
+/**
+ * Whether Mercaria HAS an Oxy service identity — the same rule as
+ * {@link oxyServiceClient}, without building or caching a client, so config can
+ * ask it at module load.
+ */
+export function hasOxyServiceIdentity(): boolean {
+  const key = process.env.OXY_APPLICATION_KEY?.trim();
+  const secret = process.env.OXY_APPLICATION_SECRET?.trim();
+  if (key && secret) return true;
+  return !key && !secret && canAttestWorkloadIdentity();
+}
+
 export async function requiredOxyServiceToken(): Promise<string> {
   const configured = oxyServiceClient();
   if (!configured)

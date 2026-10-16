@@ -97,14 +97,13 @@ that case.
 
 ### What makes step 11 safe
 
-Six questions, in this order, and **none of them reads a payment**:
+Five questions, in this order, and **none of them reads a payment**:
 
-1. `config.digital.downloadsEnabled`
-2. a right exists for THIS caller over this package
-3. its status is `active` — the only authorizing status
-4. its update policy covers the version asked for
-5. that version is in `DOWNLOADABLE_ASSET_VERSION_STATES`
-6. the file is IN the package at that version, and is not `preview_only`
+1. a right exists for THIS caller over this package
+2. its status is `active` — the only authorizing status
+3. its update policy covers the version asked for
+4. that version is in `DOWNLOADABLE_ASSET_VERSION_STATES`
+5. the file is IN the package at that version, and is not `preview_only`
 
 Every refusal happens **before any storage key is read**.
 `asset_files.storage_key` is in `PROTECTED_COLUMNS`, so reading it is an explicit,
@@ -206,19 +205,23 @@ permission for a third-party digital-goods marketplace, the electronically-suppl
 service tax configuration for that market, and the consumer-law review of the waiver
 copy (ADR 0010 D15).
 
-## The five levers
+## Configuration
 
 | Variable | Default | Stops |
 |---|---|---|
-| `DIGITAL_UPLOADS_ENABLED` | off | new files |
-| `DIGITAL_PUBLICATION_ENABLED` | off | a version becoming sellable |
 | `DIGITAL_PAID_CHECKOUT_ENABLED` | off | buying (a free claim still works) |
-| `DIGITAL_DOWNLOADS_ENABLED` | **on** | minting new grants |
 | `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical (an ALLOW-list) |
 
-`downloadsEnabled` is the only lever that reaches an existing right, hence the only
-one defaulting on: it is an incident lever, and the thing you reach for mid-incident
-must not be the thing that destroys what buyers hold.
+There is no uploads, publication or downloads lever:
+
+- **Creator uploads** are mounted when Mercaria has an Oxy service identity (its
+  task role, or `OXY_APPLICATION_KEY`/`OXY_APPLICATION_SECRET`) — registering a file
+  reads the asset service server-to-server — AND `DIGITAL_ENABLED_VERTICALS` names a
+  vertical. Otherwise the creator routes are a 404.
+- **Publication** is gated by the malware-scan and inspection verdicts. With no
+  scanner registered every file scans `error`, so nothing is publishable.
+- **Downloads** are authorized by the buyer's right alone; nothing a deployment
+  sets can take away what a buyer holds.
 
 ## Adding a second digital vertical
 

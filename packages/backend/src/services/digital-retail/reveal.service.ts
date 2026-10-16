@@ -2,14 +2,13 @@
  * Handing a buyer their secret, exactly once per request (#1016 Workstream 11,
  * ADR 0011 D10).
  *
- * ## Six questions, in this order, and none of them reads a payment
+ * ## Five questions, in this order, and none of them reads a payment
  *
- *  1. `config.digitalRetail.revealEnabled` — the incident lever;
- *  2. a fulfilment exists for this id;
- *  3. it belongs to THIS caller;
- *  4. its status still authorizes access;
- *  5. there is an ACTIVE artifact;
- *  6. that artifact carries a secret at all.
+ *  1. a fulfilment exists for this id;
+ *  2. it belongs to THIS caller;
+ *  3. its status still authorizes access;
+ *  4. there is an ACTIVE artifact;
+ *  5. that artifact carries a secret at all.
  *
  * The order is the #1015 download authorizer's, and the reason is the same: every
  * refusal happens before any sealed column is read, so the one function that
@@ -30,7 +29,6 @@
  * exists to prevent.
  */
 
-import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   findActiveArtifact,
@@ -46,7 +44,6 @@ import {
 
 /** Why a reveal did not happen. Closed, and every member is actionable. */
 export type RevealRefusalReason =
-  | 'reveal_disabled'
   | 'not_found'
   | 'fulfilment_not_active'
   | 'no_artifact'
@@ -78,10 +75,6 @@ export async function revealArtifactForBuyer(
 ): Promise<RevealResult> {
   const db = tx ?? getDb();
   const now = input.now ?? new Date();
-
-  if (!config.digitalRetail.revealEnabled) {
-    return { revealed: false, reason: 'reveal_disabled' };
-  }
 
   const fulfilment = await findFulfilment(input.fulfilmentId, db);
   // One answer for two questions, deliberately — see the docblock.
@@ -147,10 +140,6 @@ export interface RevealForOperatorInput {
  * person and a stated reason, and it is the event a privileged-access review
  * actually looks at. A shared function with an optional operator id would make
  * the audited case the easy one to skip.
- *
- * It does NOT bypass the incident lever. If reveals are off because keys are
- * leaking, they are off for support too — support's remedy in that window is the
- * masked hint, which needs no reveal at all.
  */
 export async function revealArtifactForOperator(
   input: RevealForOperatorInput,
@@ -159,9 +148,6 @@ export async function revealArtifactForOperator(
   const db = tx ?? getDb();
   const now = input.now ?? new Date();
 
-  if (!config.digitalRetail.revealEnabled) {
-    return { revealed: false, reason: 'reveal_disabled' };
-  }
   if (input.operatorOxyUserId.trim() === '' || input.reason.trim() === '') {
     throw new Error('an operator reveal requires a named operator and a stated reason');
   }

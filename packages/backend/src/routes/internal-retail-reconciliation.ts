@@ -20,11 +20,6 @@
  * operators, never a 401 that would advertise the surface); the gate repeated in
  * middleware because the mount and the gate live in different files.
  *
- * The surface stays mounted while `RETAIL_RECONCILIATION_ENABLED` is off, and
- * that is deliberate: the evidence has to be readable during the incident that
- * turned the sweep off — the `/internal/backfill` and `/internal/procurement`
- * rule.
- *
  * ## READ, plus a CLOSED set of three writes
  *
  * Each write drives a path the sweep already runs on its own, so this adds a
