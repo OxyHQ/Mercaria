@@ -103,8 +103,8 @@ flowchart LR
         M_Supervised_catalog_review["Supervised catalog review"]
         M_Supervised_purchase_coordination["Supervised purchase coordination"]
         M_Store_access["Store access"]
-        M_Canonical_source_imagery__Oxy_ADR_0041_["Canonical source imagery (Oxy ADR 0043)"]
-        M_Oxy_file_usage__Oxy_ADR_0041_["Oxy file usage (Oxy ADR 0043)"]
+        M_Canonical_source_imagery__Oxy_ADR_0043_["Canonical source imagery (Oxy ADR 0043)"]
+        M_Oxy_file_usage__Oxy_ADR_0043_["Oxy file usage (Oxy ADR 0043)"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
         direction TB
@@ -203,8 +203,8 @@ flowchart LR
     M_Supervised_purchase_coordination --> X_order_items
     M_Supervised_purchase_coordination --> X_payments
     M_Store_access --> X_stores
-    M_Canonical_source_imagery__Oxy_ADR_0041_ --> X_canonical_products
-    M_Canonical_source_imagery__Oxy_ADR_0041_ --> X_source_records
+    M_Canonical_source_imagery__Oxy_ADR_0043_ --> X_canonical_products
+    M_Canonical_source_imagery__Oxy_ADR_0043_ --> X_source_records
 ```
 
 **2 foreign keys point the other way** — from a table outside the epic into
@@ -275,9 +275,9 @@ flowchart LR
     M_Supervised_catalog_review(["Supervised catalog review"])
     M_Supervised_purchase_coordination(["Supervised purchase coordination"])
     M_Store_access(["Store access"])
-    M_Canonical_source_imagery__Oxy_ADR_0041_(["Canonical source imagery (Oxy ADR 0043)"])
-    M_Oxy_file_usage__Oxy_ADR_0041_(["Oxy file usage (Oxy ADR 0043)"])
-    W_db_canonical -->|"1"| M_Canonical_source_imagery__Oxy_ADR_0041_
+    M_Canonical_source_imagery__Oxy_ADR_0043_(["Canonical source imagery (Oxy ADR 0043)"])
+    M_Oxy_file_usage__Oxy_ADR_0043_(["Oxy file usage (Oxy ADR 0043)"])
+    W_db_canonical -->|"1"| M_Canonical_source_imagery__Oxy_ADR_0043_
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
     W_db_catalogAuthoring -->|"4"| M_Authoring
@@ -295,7 +295,7 @@ flowchart LR
     W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
     W_db_oxyFiles -->|"1"| M_Authoring
-    W_db_oxyFiles -->|"5"| M_Oxy_file_usage__Oxy_ADR_0041_
+    W_db_oxyFiles -->|"5"| M_Oxy_file_usage__Oxy_ADR_0043_
     W_db_oxyFiles -->|"1"| M_Review_attachments
     W_db_productTypes -->|"5"| M_Product_types
     W_db_reviews -->|"1"| M_Review_attachments

@@ -374,7 +374,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Kids adds the reviewed shopping module and its bounded presentation DTOs;
     // option labels carry their persisted source-row ids: +1 module, +6 types,
     // +44 properties. Measured by the real guard.
-    'walked 139 contract module(s), 2382 exported type(s), 7979 property signature(s)',
+    // Oxy ADR 0043 adds `oxy-file-references.ts`: the closed value sets of file
+    // usage (entity types, owner kinds, event types, event actions) as four type
+    // aliases and no property: +1 module, +4 types. Measured by the real guard.
+    'walked 140 contract module(s), 2386 exported type(s), 7979 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
