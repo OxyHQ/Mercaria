@@ -243,6 +243,39 @@ jobs:
     if: needs.gate.outputs.deploy == 'true'
     env:
       DEPLOY_SHA: ${{ needs.gate.outputs.target }}
+      # THE REVIEWED PRODUCTION ENVIRONMENT — the one place a non-secret runtime
+      # value reaches Mercaria's task. oxy-infra's ECS module IGNORES
+      # task_definition changes after creation, so every release copies the
+      # RUNNING revision and the resolve step below sets each name listed here
+      # (replace-or-add; every other variable on the revision is carried over
+      # untouched). A value changed by hand on the console is overwritten by
+      # the next release; change it HERE, in a reviewed PR. Secrets stay in SSM.
+      #
+      # - OXY_API_URL: the Oxy API this release authenticates against.
+      # - GOWAY_API_URL: GoWay's API origin (ADR 0013). Without it the backend
+      #   has no GoWay client: every place read answers `goway_unavailable`, so
+      #   no location can be published, the public location reads answer 503
+      #   and a collection fails closed. A repo variable overrides it for
+      #   staging.
+      # - OXY_FILE_REFERENCES_ENABLED / OXY_FILE_RECONCILIATION_ENABLED /
+      #   OXY_FILE_RECONCILIATION_DRY_RUN / CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED:
+      #   the Oxy ADR 0043 levers (docs/catalog-media.md, "Levers and the
+      #   release order"). Reconciliation STAYS a dry run until every entity
+      #   type's dry-run counts on `oxy_file_reference_reconciliations` have
+      #   been read; flipping DRY_RUN to "false" is its own reviewed PR.
+      #   OXY_FILE_EVENTS_ENABLED is deliberately ABSENT (so off, 404): the
+      #   webhook is registered in the Oxy console and its secret set first.
+      #
+      # Values are JSON strings; the resolve step refuses anything else.
+      RELEASE_ENVIRONMENT: |
+        {
+          "OXY_API_URL": "https://api.oxy.so",
+          "GOWAY_API_URL": "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
+          "OXY_FILE_REFERENCES_ENABLED": "true",
+          "OXY_FILE_RECONCILIATION_ENABLED": "true",
+          "OXY_FILE_RECONCILIATION_DRY_RUN": "true",
+          "CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED": "true"
+        }
     # Native arm64, matching the image this job builds.
     #
     # A CORRECTED RECORD, written down so the wrong version is not re-derived:
@@ -364,12 +397,6 @@ jobs:
           # Absent on a `workflow_run` trigger, where only the default is ever right.
           REQUESTED_PHASE: ${{ github.event.inputs.migration_phase }}
           IMAGE_URI: ${{ steps.image.outputs.uri }}
-          # GoWay's API origin (ADR 0013). Pinned into every release revision
-          # beside OXY_API_URL, because without it the backend has no GoWay
-          # client: every place read answers `goway_unavailable`, so no location
-          # can be published, the public location reads answer 503 and a
-          # collection fails closed. A repo variable overrides it for staging.
-          GOWAY_API_URL: ${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}
         run: |
           echo "phase_mode=${REQUESTED_PHASE:-pre-post}" >> "$GITHUB_OUTPUT"
           # A FAILED QUERY AND AN ABSENT SERVICE ARE DIFFERENT FACTS (#608).
@@ -417,11 +444,22 @@ jobs:
             echo "::error::expected exactly one ECS container named $CONTAINER; found $MATCHES"
             exit 1
           fi
+          # The job's RELEASE_ENVIRONMENT, as [{name, value}]. A malformed block,
+          # a non-string or an empty value stops the release here, before any
+          # revision is registered.
+          if ! PINNED_ENV=$(jq -ce '
+              if type == "object" and length > 0
+                 and all(.[]; type == "string" and length > 0)
+              then to_entries | map({name: .key, value: .value})
+              else error("RELEASE_ENVIRONMENT must be an object of non-empty strings") end
+            ' <<<"$RELEASE_ENVIRONMENT"); then
+            echo "::error::RELEASE_ENVIRONMENT is not an object of non-empty string values"
+            exit 1
+          fi
           PAYLOAD=$(jq \
             --arg name "$CONTAINER" \
             --arg image "$IMAGE_URI" \
-            --arg oxy_api_url "https://api.oxy.so" \
-            --arg goway_api_url "$GOWAY_API_URL" \
+            --argjson pinned_env "$PINNED_ENV" \
             '{family, taskRoleArn, executionRoleArn, networkMode,
               containerDefinitions, volumes, placementConstraints,
               requiresCompatibilities, cpu, memory, tags, pidMode, ipcMode,
@@ -431,9 +469,10 @@ jobs:
              | .containerDefinitions |= map(
                  if .name == $name then
                    .image = $image
+                   | ($pinned_env | map(.name)) as $pinned_names
                    | .environment = (
-                       ((.environment // []) | map(select(.name != "OXY_API_URL" and .name != "GOWAY_API_URL")))
-                       + [{name: "OXY_API_URL", value: $oxy_api_url}, {name: "GOWAY_API_URL", value: $goway_api_url}]
+                       ((.environment // []) | map(select(.name as $n | $pinned_names | index($n) | not)))
+                       + $pinned_env
                      )
                    # Mercaria authenticates to Oxy as its task role
                    # (oxy-mercaria-task, bound to the Mercaria application; oxy

@@ -234,6 +234,14 @@ ledger that lags its writes.
 | `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` | off | the external-imagery import LOOP (the source-link trigger queues regardless) |
 | `CANONICAL_SOURCE_MEDIA_*` | see above | its batch, global in-flight cap, per-record and per-product caps, attempts |
 
+**Where the production values live:** the `RELEASE_ENVIRONMENT` list on the
+`deploy` job of `.github/workflows/deploy-aws.yml`. oxy-infra's ECS module ignores
+`task_definition` changes after creation, so every release copies the running
+revision and sets each listed name (replace-or-add); a value edited on the console
+is overwritten by the next release. Production today: references, reconciliation
+and the source-media import ON, reconciliation still a DRY RUN, events OFF (absent
+from the list). Each later step below is a reviewed PR to that list.
+
 Order: Oxy stages 1–4b deployed (digital registration adopts through stage 4b's
 `/assets/service/app/adopt`), Mercaria's application granted
 `files:references:write`, `files:app:write`, `files:app:delete` and

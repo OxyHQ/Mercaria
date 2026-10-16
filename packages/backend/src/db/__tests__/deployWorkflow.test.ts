@@ -42,7 +42,10 @@ interface WorkflowFile {
   };
   jobs: Record<
     string,
-    { steps: { name?: string; if?: string; run?: string; env?: Record<string, string> }[] }
+    {
+      env?: Record<string, string>;
+      steps: { name?: string; if?: string; run?: string; env?: Record<string, string> }[];
+    }
   >;
 }
 
@@ -102,12 +105,26 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(register?.run).toContain('.name != "PEABLE_APP_SECRET"');
     expect(register?.run).not.toContain('/PEABLE_APP_PUBLIC_KEY');
     expect(register?.run).not.toContain('/PEABLE_APP_SECRET');
-    expect(register?.run).toContain('{name: "OXY_API_URL", value: $oxy_api_url}');
-    // No GoWay client means no location can be published (ADR 0013).
-    expect(register?.run).toContain('{name: "GOWAY_API_URL", value: $goway_api_url}');
-    expect(register?.env?.GOWAY_API_URL).toBe(
-      "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
-    );
+    // Every non-secret production value is the job's ONE reviewed list, set
+    // replace-or-add on the revision (oxy-infra ignores task_definition changes,
+    // so a release is the only path a value has to the task).
+    expect(register?.run).toContain('--argjson pinned_env "$PINNED_ENV"');
+    expect(register?.run).toContain('<<<"$RELEASE_ENVIRONMENT"');
+    expect(register?.run).toContain('$pinned_names | index($n) | not');
+    expect(register?.run).toContain('+ $pinned_env');
+    expect(register?.env?.GOWAY_API_URL).toBeUndefined();
+    expect(JSON.parse(jobs.deploy.env?.RELEASE_ENVIRONMENT ?? '{}')).toEqual({
+      OXY_API_URL: 'https://api.oxy.so',
+      // No GoWay client means no location can be published (ADR 0013).
+      GOWAY_API_URL: "${{ vars.GOWAY_API_URL || 'https://api.goway.to' }}",
+      // Oxy ADR 0043 levers. Reconciliation stays DRY until its counts are
+      // read; the events mount stays off (absent) until the webhook is
+      // registered and its secret set (docs/catalog-media.md).
+      OXY_FILE_REFERENCES_ENABLED: 'true',
+      OXY_FILE_RECONCILIATION_ENABLED: 'true',
+      OXY_FILE_RECONCILIATION_DRY_RUN: 'true',
+      CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED: 'true',
+    });
     expect(rollout?.run).toContain('--task-definition');
     expect(catalog?.run).toContain(
       '["bun","packages/backend/dist/register-capability-catalog.js"]',
