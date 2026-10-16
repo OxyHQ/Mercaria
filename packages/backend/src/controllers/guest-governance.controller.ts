@@ -188,6 +188,12 @@ export async function runGuestRetentionPassHandler(req: Request, res: Response):
     sendError(res, ErrorCodes.CONFLICT, `The retention pass was refused: ${outcome.reason}.`, 409);
     return;
   }
+  if (outcome.outcome === 'idle') {
+    // Unreachable from here — only the scheduler asks to skip an empty page —
+    // and answered rather than assumed, so the union stays exhaustive.
+    sendSuccess(res, { examined: 0 }, 202);
+    return;
+  }
   sendSuccess(res, outcome.result, 202);
 }
 
@@ -202,6 +208,17 @@ export async function raiseGuestLegalHoldHandler(req: Request, res: Response): P
       res,
       ErrorCodes.VALIDATION_ERROR,
       'checkoutGroupId, retentionClass and reason are required.',
+      400,
+    );
+    return;
+  }
+  if (reason === 'expires_on_schedule') {
+    // A RECEIPT's reason (M8-01), never a hold's: a hold pauses a deletion, and
+    // this one names a class nothing was asked to delete.
+    sendError(
+      res,
+      ErrorCodes.VALIDATION_ERROR,
+      'expires_on_schedule is not a reason a legal hold can carry.',
       400,
     );
     return;

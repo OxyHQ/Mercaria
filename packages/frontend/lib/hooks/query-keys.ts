@@ -248,6 +248,15 @@ export const queryKeys = {
       ['merchants', 'offers', idOrSlug, params] as const,
   },
   /**
+   * The caller's own merchant claims (#83), and the one-time challenge
+   * instructions per claim. The instructions are the only copy of the token the
+   * client ever holds, so they live in this in-memory cache and nowhere else.
+   */
+  merchantClaims: {
+    mine: ['merchant-claims', 'mine'] as const,
+    challenge: (claimId: string) => ['merchant-claims', 'challenge', claimId] as const,
+  },
+  /**
    * Grounded comparison and basket plans (#96).
    *
    * The whole REQUEST is in the key, because every field of it changes the

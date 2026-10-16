@@ -85,3 +85,27 @@ export async function enterReferralCode(input: {
   );
   return unwrap(data, 'Failed to apply the referral code');
 }
+
+/**
+ * Bind a carried click to a merchant the caller has just opened a claim on
+ * (#83) — `POST /referrals/merchant-binding`. The claim never waits on it and it
+ * never throws: `null` means nothing was bound, and the carrier stays put.
+ *
+ * Here rather than beside the claim calls: the merchant-page isolation gate
+ * scans every `lib/api` file named after the merchant domain for referral
+ * inputs, and this is one.
+ */
+export async function bindMerchantReferral(input: {
+  merchantId: string;
+  surface: ReferralClientSurface;
+}): Promise<ReferralBindingResult | null> {
+  try {
+    const { data } = await apiClient.post<ApiResponse<ReferralBindingResult>>(
+      '/referrals/merchant-binding',
+      { merchantId: input.merchantId, surface: input.surface },
+    );
+    return data.success && data.data !== undefined ? data.data : null;
+  } catch {
+    return null;
+  }
+}

@@ -47,12 +47,31 @@ export const DEV_ORIGINS: readonly string[] = [
 /**
  * Every origin a browser may act from: an optional deployment override plus
  * the two lists above. Frozen — a mutation would widen CORS and CSRF at once.
+ *
+ * `DEV_ORIGINS` are EXCLUDED in production (M8-05). They were included
+ * unconditionally, which allow-listed `http://localhost:5173` and ten other
+ * development origins for credentialed CORS and for the guest CSRF gate on the
+ * live API — inverting ADR 0003 D10, where Origin verification is the control
+ * and `SameSite=Lax` only defence in depth. A production deployment that needs
+ * one more origin names it in `WEB_URL`.
  */
-export const ALLOWED_ORIGINS: readonly string[] = Object.freeze([
-  ...(process.env.WEB_URL ? [process.env.WEB_URL] : []),
-  ...PRODUCTION_ORIGINS,
-  ...DEV_ORIGINS,
-]);
+export const ALLOWED_ORIGINS: readonly string[] = allowedOriginsFor(process.env);
+
+/**
+ * The allow-list a process with this environment computes. {@link ALLOWED_ORIGINS}
+ * is this function applied to `process.env` once, at module load; it is exported
+ * so the production/development difference can be asserted without reloading
+ * the module under a stubbed environment.
+ */
+export function allowedOriginsFor(
+  env: Readonly<{ NODE_ENV?: string; WEB_URL?: string }>,
+): readonly string[] {
+  return Object.freeze([
+    ...(env.WEB_URL ? [env.WEB_URL] : []),
+    ...PRODUCTION_ORIGINS,
+    ...(env.NODE_ENV === 'production' ? [] : DEV_ORIGINS),
+  ]);
+}
 
 /** Membership test both consumers share. `null`/`undefined` is NOT allowed. */
 export function isAllowedBrowserOrigin(origin: string | undefined): boolean {

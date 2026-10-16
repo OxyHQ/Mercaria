@@ -65,6 +65,46 @@ load-bearing:
   references the brand/relationship layer (#55) or native-store linkage (#84).
 - Deferred and NOT implemented here: the native-store flow (#84) — the claim
   records an `native_store_id` INTENT and writes no link; relationship
-  verification (#55); the dashboard/storefront UI (#84/#85). `role_email`
-  delivery, per the transport rule above.
+  verification (#55); the dashboard UI (#84). `role_email` delivery, per the
+  transport rule above.
+
+## The storefront client
+
+The merchant page's `Claim this merchant` button opens
+`components/claims/MerchantClaimDialog.tsx` — a Bloom `Dialog` over the page,
+not a route: the flow is short, always entered from one merchant, and its
+one-time token must never be in a URL. `Contest this claim` appears in the same
+banner exactly when eligibility answers `already_claimed`, and opens the same
+dialog in contest mode. A signed-out press calls `openAccountDialog()` and opens
+nothing. The calls are `lib/api/merchant-claims.ts`; the hooks are
+`lib/hooks/use-merchant-claims.ts`.
+
+- **The step is DERIVED from the server's claim**, never kept beside it. The
+  dialog reads `GET /merchant-claims`, takes the caller's live-or-verified claim
+  on this merchant, and renders what that state needs: `draft`/`challenge_pending`
+  → the domain proof's code and instructions (or the evidence form for
+  `business_document`); `review_pending`, `disputed`, `verified` → a status. An
+  ended claim (`rejected` with its `decisionReason`, `expired`, `revoked`) is
+  explained above a fresh start. Closing and reopening, or reloading, resumes.
+- **Offered here: `dns_txt`, `well_known_file`, `meta_tag`,
+  `business_document`** — the intersection of the server's `availableMethods`
+  and what a storefront can complete. `platform_oauth` and `channel_key` take a
+  connection id only a store's dashboard knows, so they wait for #84's UI.
+- **The challenge token lives in the query cache for the session and nowhere
+  else** (`gcTime: Infinity`, no storage). A `challenge_pending` claim without
+  it — another session, a reload, an expired code — offers a new code, which
+  supersedes the old one server-side.
+- **No claim mutation retries** (the app default is one): a retry would
+  supersede the code just shown, spend verify budget, or 409 on the claim the
+  first try created. Open + first challenge are one pending action.
+- **Refusals are localized by status**, not by the server's English message.
+- After `POST /merchant-claims` succeeds the dialog posts
+  `POST /referrals/merchant-binding` (`bindMerchantReferral` in `lib/api/referrals.ts`) so a
+  carried merchant-referral click binds to the claim — fire and forget, never
+  awaited, a 404 (edge unmounted) or any failure is `null`. It lives in a module
+  NOT named for merchants and is called from `components/claims/`, because
+  `merchant-page-isolation.test.ts` scans every merchant-named client module for
+  commercial inputs.
+- Evidence is a link and/or a note. Uploading a document to Oxy and sending its
+  `oxyFileId` is not built yet.
 

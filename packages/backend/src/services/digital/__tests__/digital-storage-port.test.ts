@@ -299,8 +299,10 @@ describe('putAssetObject stores PRIVATE, ATTACHES, and re-measures what it store
     // The link is the AUTHORIZATION, not bookkeeping: without it the object this
     // call just stored is unservable, because Oxy admits a file only when a link
     // for this app was created by the file's own owner.
+    // Under Mercaria's application id: what Oxy compares with the asking
+    // service token's `appId` (a name would never match).
     expect(assetLink).toHaveBeenCalledWith(STORAGE_KEY, {
-      app: 'mercaria',
+      app: '6a37d0cc5d4b5f15482a9340',
       entityType: 'asset_file',
       entityId: STORAGE_KEY,
     });

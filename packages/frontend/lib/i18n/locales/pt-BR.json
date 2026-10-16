@@ -743,6 +743,8 @@
       "a11yLabel": "Status do comerciante: %{status}",
       "claim": "Reivindicar este comerciante",
       "claimHint": "Comprove que você opera este comerciante para gerenciar a página dele",
+      "contest": "Contestar esta reivindicação",
+      "contestHint": "Avise a Mercaria que o operador verificado deste comerciante não está correto",
       "label": {
         "unclaimed": "Não reivindicado",
         "claimInProgress": "Reivindicação em andamento",
@@ -797,6 +799,117 @@
         "staleSources": "A Mercaria não recebeu dados das fontes deste comerciante recentemente o suficiente para mostrar preços atuais.",
         "filteredOut": "Nenhum produto corresponde a estes filtros."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "Reivindicar %{merchant}",
+    "intro": "Comprove que você opera este comerciante para gerenciar como ele aparece na Mercaria. Uma reivindicação não cria uma loja na Mercaria nem torna você vendedor oficial de nenhuma marca.",
+    "signInPrompt": "Entre com sua conta Oxy para reivindicar este comerciante.",
+    "signIn": "Entrar",
+    "loadFailed": "Não foi possível carregar suas reivindicações.",
+    "noMethods": "No momento não é possível reivindicar por aqui.",
+    "start": "Continuar",
+    "starting": "Iniciando…",
+    "close": "Fechar",
+    "copy": "Copiar %{label}",
+    "copied": "Copiado",
+    "copyFailed": "Não foi possível copiar. Selecione o texto e copie você mesmo.",
+    "method": {
+      "title": "Como você quer comprovar?",
+      "checkedAutomatically": "Verificado automaticamente.",
+      "reviewedByPerson": "Analisado por uma pessoa.",
+      "dnsTxt": {
+        "label": "Registro DNS",
+        "description": "Adicione um registro TXT ao DNS do seu domínio."
+      },
+      "wellKnownFile": {
+        "label": "Arquivo no seu site",
+        "description": "Envie um pequeno arquivo de texto para o seu site."
+      },
+      "metaTag": {
+        "label": "Tag na sua página inicial",
+        "description": "Adicione uma meta tag à página inicial do seu site."
+      },
+      "businessDocument": {
+        "label": "Documentos da empresa",
+        "description": "Compartilhe links para documentos que mostrem que você administra este negócio."
+      }
+    },
+    "domain": {
+      "label": "Domínio do seu site",
+      "help": "O domínio pelo qual este comerciante vende. Sua comprovação cobre apenas este domínio.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "Sua última reivindicação deste comerciante não foi aprovada.",
+      "reason": "Observação de quem analisou: %{reason}",
+      "expired": "Sua última reivindicação deste comerciante expirou antes de ser comprovada. Você pode começar de novo.",
+      "revoked": "Sua verificação deste comerciante foi retirada. Você pode abrir uma nova reivindicação."
+    },
+    "errors": {
+      "tooMany": "Muitas tentativas recentes. Tente novamente mais tarde.",
+      "notFoundYet": "Ainda não encontramos o valor de verificação. Alterações no DNS e no site podem demorar para aparecer, então tente de novo daqui a pouco.",
+      "codeUnusable": "Este código não pode mais ser usado. Gere um novo código e publique-o no lugar.",
+      "cannotOpen": "No momento você não pode abrir uma reivindicação deste comerciante.",
+      "cannotContest": "No momento esta reivindicação não pode ser contestada.",
+      "invalid": "Confira o que você digitou e tente novamente.",
+      "generic": "Algo deu errado. Tente novamente."
+    },
+    "challenge": {
+      "draftIntro": "Sua reivindicação de %{domain} está pronta. Gere um código de verificação para continuar.",
+      "lost": "Os códigos de verificação aparecem só uma vez. Gere um novo código para continuar; ele substitui o anterior.",
+      "getCode": "Gerar código de verificação",
+      "gettingCode": "Gerando código…",
+      "verify": "Verificar agora",
+      "verifying": "Verificando…",
+      "newCode": "Gerar um novo código",
+      "expires": "Este código vale até %{time}.",
+      "dnsTxt": {
+        "step": "Adicione este registro TXT ao DNS de %{domain}:",
+        "nameLabel": "Nome",
+        "valueLabel": "Valor",
+        "note": "Alterações de DNS podem levar alguns minutos, às vezes horas, para aparecer."
+      },
+      "wellKnownFile": {
+        "step": "Publique neste endereço um arquivo contendo exatamente este texto:",
+        "urlLabel": "Endereço",
+        "contentsLabel": "Conteúdo do arquivo"
+      },
+      "metaTag": {
+        "step": "Adicione esta tag dentro do <head> de %{url}:",
+        "tagLabel": "Tag"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "Você é o operador verificado",
+        "body": "Sua reivindicação de %{merchant} está verificada."
+      },
+      "reviewPending": {
+        "title": "Sua reivindicação está em análise",
+        "body": "Uma pessoa está analisando sua reivindicação. Volte aqui para ver a decisão."
+      },
+      "disputed": {
+        "title": "Sua reivindicação está em disputa",
+        "body": "Outra conta já tem uma reivindicação verificada deste comerciante. Uma pessoa vai analisar as duas e decidir."
+      }
+    },
+    "evidence": {
+      "intro": "Adicione um link para documentos que mostrem que você administra este negócio, como um comprovante de inscrição no CNPJ ou um documento fiscal, e uma observação para quem vai analisar. Só essa pessoa verá.",
+      "urlLabel": "Link do documento",
+      "urlPlaceholder": "https://",
+      "noteLabel": "Observação para quem vai analisar",
+      "submit": "Enviar para análise",
+      "submitting": "Enviando…"
+    },
+    "contest": {
+      "title": "Contestar a reivindicação de %{merchant}",
+      "intro": "Este comerciante já tem um operador verificado. Se isso estiver errado, conte por quê. Uma pessoa analisa cada contestação, e o operador atual é avisado de que houve uma contestação, nunca de quem a fez.",
+      "reasonLabel": "Por que a reivindicação atual está errada?",
+      "reasonHelp": "Pelo menos 20 caracteres.",
+      "urlLabel": "Link de apoio (opcional)",
+      "submit": "Enviar contestação",
+      "submitting": "Enviando…"
     }
   },
   "families": {

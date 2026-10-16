@@ -16,7 +16,13 @@
   The privacy gate's criterion additionally says it "is also what unblocks
   `ANALYTICS_COLLECTION_MODE` moving off `off`"
   (`packages/shared-types/src/guest-governance.ts:1817`).
-- **Outcome: NOT SIGNED OFF.** `security_review_complete`'s criterion is "a
+- **Update 2026-10-16: the four High findings are CLOSED**, with M8-05, M8-09
+  and M8-11 — each fix, and the test that holds it, is in §9 at the end of this
+  document. The text above §9 is the review as written at `c25d3c3` and is
+  deliberately left unedited, so the reasoning that found each defect stays
+  readable. The sign-off in §8 still needs a person; §9 changes what that
+  person would be accepting, not who accepts it.
+- **Outcome (at `c25d3c3`): NOT SIGNED OFF.** `security_review_complete`'s criterion is "a
   recorded review covering all five surfaces, **with no unresolved critical or
   high finding**" (`packages/shared-types/src/guest-governance.ts:1810`). Four
   High findings are unresolved. Three of them are in the privacy half, and one
@@ -69,19 +75,19 @@ respectively. All five are covered.
 
 | # | Severity | Finding | Disposition |
 |---|---|---|---|
-| M8-01 | **High** | The buyer-facing D15 erasure path is unreachable dead code that erases nothing and would report success. Being unreachable is the only thing preventing a false erasure receipt. | **Must fix before enabling** |
-| M8-02 | **High** | There is no scheduled contact-minimization loop, and the configuration says there is. `GUEST_RETENTION_JOB_ENABLED` (default `true`) and its poll interval are declared and read by nothing; a controller docblock cites a loop that does not exist. | **Must fix before enabling** |
-| M8-03 | **High** | The documented anti-farming control for session issuance (T10) is inert by default, and with it off no abuse counter is written either — so turning it on later starts from zero, which its own docblock denies. | **Must fix before enabling** |
-| M8-04 | **High** | Nothing could have caught M8-02 or M8-03. The lever-coverage gate runs **register → config only** and the two unread levers are precisely the two the register omits; the retention-policy gate compares two declared numbers; the data-inventory census checks the inventory against a hand-maintained list carrying the same error. All three are green. | **Must fix before enabling** |
-| M8-05 | **Medium** | The production CORS and CSRF allow-list contains eleven development origins unconditionally, inverting D10's stated relationship between Origin verification and `SameSite=Lax`. | **Must fix before enabling** |
+| M8-01 | **High** | The buyer-facing D15 erasure path is unreachable dead code that erases nothing and would report success. Being unreachable is the only thing preventing a false erasure receipt. | ~~Must fix before enabling~~ **Resolved 2026-10-16** (§9) |
+| M8-02 | **High** | There is no scheduled contact-minimization loop, and the configuration says there is. `GUEST_RETENTION_JOB_ENABLED` (default `true`) and its poll interval are declared and read by nothing; a controller docblock cites a loop that does not exist. | ~~Must fix before enabling~~ **Resolved 2026-10-16** (§9) |
+| M8-03 | **High** | The documented anti-farming control for session issuance (T10) is inert by default, and with it off no abuse counter is written either — so turning it on later starts from zero, which its own docblock denies. | ~~Must fix before enabling~~ **Resolved 2026-10-16** (§9) |
+| M8-04 | **High** | Nothing could have caught M8-02 or M8-03. The lever-coverage gate runs **register → config only** and the two unread levers are precisely the two the register omits; the retention-policy gate compares two declared numbers; the data-inventory census checks the inventory against a hand-maintained list carrying the same error. All three are green. | ~~Must fix before enabling~~ **Resolved 2026-10-16** (§9) |
+| M8-05 | **Medium** | The production CORS and CSRF allow-list contains eleven development origins unconditionally, inverting D10's stated relationship between Origin verification and `SameSite=Lax`. | ~~Must fix before enabling~~ **Resolved 2026-10-16** (§9) |
 | M8-06 | **Medium** | `GUEST_EMAIL_HASH_KEY` cannot be rotated: no key id, no previous-key path. A rotation silently and permanently breaks recovery for every existing guest order, with no observable symptom, because the recovery endpoint is deliberately non-enumerating. | **Decision required before enabling** |
 | M8-07 | **Medium** | `GUEST_PII_ENCRYPTION_KEY` rotation is documented as supported and is not implemented. | **Must fix before enabling** (the comment at minimum; the capability before any rotation) |
 | M8-08 | **Medium** | `guest_contact_suppressions.email_hash` survives erasure forever — the same HMAC, key and preimage as the record erasure clears. Deliberately unswept, for a good reason, which makes it a conflict to resolve rather than an oversight to delete. | **Decision required before enabling** |
-| M8-09 | **Medium** | The governance registries contradict each other and the schema: a class declares a mechanism nothing implements, a table is assigned to a sweep it is not in, and the inventory names a table that does not exist. | Fix with M8-02 |
+| M8-09 | **Medium** | The governance registries contradict each other and the schema: a class declares a mechanism nothing implements, a table is assigned to a sweep it is not in, and the inventory names a table that does not exist. | **Resolved 2026-10-16** except the suppression-table conflict, which is M8-08's decision (§9) |
 | M8-10 | **Medium** | `purchase_orders.destination_*` is a second full postal-address copy of a buyer that ADR 0003 D15 does not anticipate and no erasure path reaches. | **Decision required before enabling** |
-| M8-11 | **Medium** | The storefront portal screen accepts the `mgx_` exchange token as a **query parameter** and does not strip it, defeating T4 for any link that arrives in that shape. Latent: nothing here produces such a link. | **Must fix before enabling** |
+| M8-11 | **Medium** | The storefront portal screen accepts the `mgx_` exchange token as a **query parameter** and does not strip it, defeating T4 for any link that arrives in that shape. Latent: nothing here produces such a link. | ~~Must fix before enabling~~ **Resolved 2026-10-16** (§9) |
 | M8-12 | **Low** | D11 presents the 30-day idle window as a retention property. It is an authorization property only: no column, no index, no sweep predicate — an idle session and its cart survive to day 97. | Correct the ADR/doc; decide whether the sweep should honour it |
-| M8-13 | **Low** | Four of six abuse policies have no caller; only `session_issuance` runs. `recovery_spraying` carries a rationale and does not execute. | Fix with M8-03 |
+| M8-13 | **Low** | Four of six abuse policies have no caller; only `session_issuance` runs. `recovery_spraying` carries a rationale and does not execute. | **Still open** (Low) — §9 |
 | M8-14 | **Low** | `PROTECTED_COLUMNS`' implicit-whole-row-read detector cannot see `.returning()`; four live bypasses exist on protected guest tables. A gate gap, not a proven disclosure. | Accepted residual + fix the detector |
 | M8-15 | **Low** | The guest and portal cookie profiles decide both their NAME and their `Secure` flag from `NODE_ENV`, with no boot-time assertion. The same variable also decides `mockPayEnabled` (which defaults **on** when it is unset) and auth debug logging. | Accepted residual + recommended boot assertion |
 | M8-16 | **Informational** | Documentation drift, three instances: `rl:guest-issue:` is described as the primary anti-farming control (it is now the residual); `AGENTS.md` says two of the portal's throttle axes are durable (all three are); guest-prefixed limiters are described as actor-keyed (they key per hashed IP — only the six `makeActorRateLimiter` scopes key per session). | Fix the prose |
@@ -1060,3 +1066,48 @@ Residual risks accepted (tick each, or record its closure):
 Record the signature through `POST /internal/guest-governance/rollout/signoffs`
 (`packages/backend/src/routes/internal-guest-governance.ts:63`) so the gate
 register and this document cannot disagree.
+
+---
+
+## 9. Resolution (2026-10-16, branch `fix/guest-commerce-m8-findings`)
+
+Guest commerce is being switched on (the owner removed `GUEST_COMMERCE_ENABLED`
+in a separate change), so every High below was fixed at its root rather than
+accepted. Each entry says what changed and which test fails if it regresses.
+The realdb suites run in CI against a throwaway server; the non-DB gates run
+anywhere.
+
+| # | What changed | Held by |
+|---|---|---|
+| **M8-01** | `requestGuestData` now PERFORMS ADR 0003 D15 in the transaction that records the receipt: the contact is anonymized by `minimizeGuestCheckoutContact` (the single writer the retention job also uses), every live portal credential for the group is revoked, and the session that placed the checkout is deleted with its cart. Every `affectedRowCount` is a `RETURNING` set from that transaction, and a class the request cannot reach says so: `composeErasureDispositions` is an exhaustive switch over the class (a new class fails `tsc`), and the classes it cannot reach any sooner than their own expiry carry the new bounded reason `expires_on_schedule` (migration `0169`, `pre`, widening three CHECKs) instead of the `deleted`/1 the review found. A legal hold on the contact keeps only the contact. The path is reachable: `POST /guest/orders/:groupId/data-requests` (`routes/guest-orders.ts`), `kind` `deletion` or `minimization`, behind the same FRESH inbox proof "secure my access" needs; the receipt is the response and the portal credential is cleared. The inventory no longer claims `destination_snapshot` is minimized — D15 retains it with the order — nor that an unpaid checkout is deleted (it is minimized, by both paths). | `guest-erasure.realdb.test.ts` reads the database after the request (contact NULL and `deleted`, both grants revoked, session and cart gone) and the STORED per-class counts; a second request stores zeros; a held contact survives while the session still goes; an unknown group is refused. `guest-governance-mechanisms.test.ts` pins the receipt: an erasure that changed nothing reports zero in every class, and every count comes from what was done. |
+| **M8-02** | `startGuestRetentionLoop` exists and `src/index.ts` starts it beside the expiry sweeper, unconditionally, on every task; shutdown stops it. Each tick (`runScheduledRetention`) runs ONLY the minimization classes whose ACTIVE policy row says `minimization_job` — the published policy is the switch, and a deployment that has published none erases nothing. Pages are taken `FOR UPDATE SKIP LOCKED` inside one transaction, rows are minimized in savepoints, and a keyset cursor (`afterId`) moves past held or failing rows so they cannot starve the rest; an empty page writes no run row, so an idle deployment does not grow `guest_retention_runs` every fifteen minutes. `runRetentionPass` now also refuses an active rule naming another mechanism. `GUEST_RETENTION_POLL_INTERVAL_MS` has its reader. `GUEST_RETENTION_JOB_ENABLED` and `GUEST_RETENTION_DRY_RUN` are being DELETED by a separate change (the owner bans `*_ENABLED` switches); this branch reads neither from the loop and left the existing dry-run read in `runRetentionPass` untouched, so until that change lands a pass reports a prediction rather than erasing. | `guest-governance.realdb.test.ts` "the scheduled minimization loop runs under the ACTIVE policy": a pass examines a due contact, skips a held one, records its run under the version that file published, and changes the row only in `apply` mode; the tick reaches the same class. `guest-governance-mechanisms.test.ts`: `src/index.ts` starts and stops the loop, nothing in front of it reads an environment switch, and the tick reads the active policy and never the code constant. |
+| **M8-03** | `checkGuestAbuse` counts the attempt whenever a subject can be NAMED — i.e. whenever `GUEST_ABUSE_SUBJECT_HASH_KEY` is set — and consults the friction flag only after. With friction off, no intervention is read or written (an intervention is friction). The module docblock now describes the code beneath it. Folding the friction flag into "always on with guest commerce" is a separate change and was not made here. | `guest-abuse-counting.test.ts` pins the order in all three configurations; `guest-erasure.realdb.test.ts` reads the `guest_abuse_counters` row back (three attempts, count 3, no intervention) with friction off — the read that was empty at `c25d3c3`. |
+| **M8-04** | The three assertions the review named now exist and would each have failed at `c25d3c3`: every `config.guest` property is read outside `config/` (one exemption, `retentionJobEnabled`, named as pending deletion); the classes declaring `minimization_job` are EXACTLY the job's classes plus the carried ones, and a carried class's carriers never outlive it; and the data-inventory census is checked against the drizzle schema barrel — every named table exists, and every `guest_*` table is classified or is one of six named governance records. | `guest-governance-mechanisms.test.ts` (with a mutation self-test for the reader detector) and `guest-data-inventory-census.test.ts` "checked against the SCHEMA" (with a phantom-detection self-test). |
+| **M8-05** | `DEV_ORIGINS` are excluded from `ALLOWED_ORIGINS` when `NODE_ENV=production`; a deployment that needs one more origin names it in `WEB_URL`. This is the whole API's CORS surface, not only the guest domain's — flagged on the PR for the owner. | `lib/__tests__/allowed-origins.test.ts` re-imports the module under each `NODE_ENV`. |
+| **M8-09** | `lookup_hash` is declared as CARRIED by the two contact passes (`carriedMinimizationClasses`): the hash is nulled in the same statement as the ciphertext, so it cannot outlive it, and a hold on `lookup_hash` pauses those passes and an erasure. A pass of its own is refused as `performed_by_contact_pass` rather than `mechanism_not_minimization`. The phantom `guest_contact_routing` is gone from the inventory and the census. **Not changed:** `guest_contact_suppressions` is still classed under an `expiry_sweep` retention class while `expiryTargets.ts` deliberately never sweeps it — that is M8-08's open decision, not a registry typo. | M8-04's tests above. |
+| **M8-11** | The storefront portal captures the token from the fragment OR a `?token=` query parameter and strips BOTH from the address bar before anything renders (`packages/frontend/lib/portal-link-token.ts`). | `packages/frontend/lib/__tests__/portal-link-token.test.ts`. |
+
+**Superseded by the env-flag removals (#1096).** The levers M8-02 and M8-03
+left in place are gone: the scheduled loop APPLIES under the active
+`minimization_job` policy (an operator pass keeps an explicit `dryRun`,
+default `true`), `GUEST_ABUSE_CONTROLS_ENABLED` no longer exists so friction is
+applied by the published policy, and the abuse subject key is derived from
+`MERCARIA_SECRET_KEY`, so every watched attempt is counted. `retentionJobEnabled`
+and its exemption are deleted, and `allowed-origins.test.ts` now asks the pure
+`allowedOriginsFor(env)` rather than re-importing the module.
+
+### Still open, deliberately
+
+- **M8-13 (Low).** Four of six abuse policies still have no caller, including
+  `recovery_spraying`. Recovery is separately bounded by #108's three durable
+  throttle axes; wiring the policies means a refusal shape per surface and was
+  out of this branch's scope.
+- **M8-06, M8-07, M8-08, M8-10 (Medium, decisions).** Unchanged. M8-08 is the
+  reason the erasure receipt answers `email_verification_and_recovery` as
+  retained for `security_audit`.
+- **M8-12, M8-14, M8-15, M8-16.** Unchanged.
+- **The erasure path's other halves.** A `completed_oxy_claim` requester has a
+  service signature and no route; the storefront has no button that calls the
+  new route yet; and an EXPORT is still unrouted because its receipt would
+  record exportable classes as `deleted` (there is no `exported` disposition).
+  All three are in `HANDOFF.md`.

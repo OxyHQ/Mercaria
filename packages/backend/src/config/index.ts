@@ -1499,6 +1499,12 @@ export interface GuestGovernanceConfig {
   /** How many rows one retention pass examines. Bounded, indexed batches. */
   readonly retentionBatchSize: number;
   /**
+   * How often the scheduled retention loop wakes (`startGuestRetentionLoop`).
+   * A cadence, not a lever: what the loop may erase is decided by the active
+   * retention policy alone.
+   */
+  readonly retentionPollIntervalMs: number;
+  /**
    * How long a security-signal counter's window is, in seconds. One value for
    * every signal: a per-signal window would make two counters incomparable and
    * is a tuning knob nobody would ever set correctly for fifteen signals.
@@ -3855,6 +3861,7 @@ export const config: AppConfig = Object.freeze({
     }),
     governance: Object.freeze({
       retentionBatchSize: intEnv('GUEST_RETENTION_BATCH_SIZE', 500),
+      retentionPollIntervalMs: intEnv('GUEST_RETENTION_POLL_INTERVAL_MS', 900_000),
       signalWindowSeconds: intEnv('GUEST_SIGNAL_WINDOW_SECONDS', 300),
     }),
   }),

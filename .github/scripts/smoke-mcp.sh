@@ -106,6 +106,7 @@ if ! jq -e \
     .bearer_methods_supported == ["header"] and
     ((.scopes_supported | sort) == [
       "commerce.search",
+      "materials.read",
       "orders.read",
       "store.orders.read"
     ])

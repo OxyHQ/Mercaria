@@ -1616,3 +1616,32 @@ runtime/library changes for either issue. Public Oxy classification succeeded on
 two measured native cold starts but approached its deadline; see
 `docs/native-animation-runtime.mdx` for measured JS pressure and the remaining
 profiling task. All temporary boot instrumentation was removed.
+
+## Guest commerce M8 review — Highs closed, what is left — 2026-10-16
+
+The four High findings of `docs/reviews/2026-08-16-guest-commerce-m8-review.md`
+(M8-01 erasure that erased nothing, M8-02 no retention loop, M8-03 abuse
+counters never written, M8-04 no gate that could have caught them) are closed,
+with M8-05 (dev origins in production CORS/CSRF), M8-09 (registries) and M8-11
+(query-string portal token). §9 of the review lists each fix and its test.
+
+Operational consequence: the guest retention loop now runs on every task, and
+retention is turned ON by publishing a policy (`POST
+/internal/guest-commerce/governance/retention-policy`), not by an environment
+variable. Since the env-flag removals (#1096) the scheduled loop APPLIES for
+every class whose active policy says `minimization_job` — publishing is turning
+erasure on — while an operator pass previews unless its request says
+`dryRun: false`. The abuse subject key is derived from `MERCARIA_SECRET_KEY`, so
+every watched attempt is counted with nothing to set.
+
+Still open, deliberately:
+- **Erasure, the other halves.** `requestGuestData` supports a
+  `completed_oxy_claim` requester but no route files one; the storefront portal
+  has no button calling `POST /guest/orders/:groupId/data-requests`; and EXPORT
+  stays unrouted because its receipt records exportable classes as `deleted`
+  (`GUEST_DATA_DISPOSITIONS` has no `exported` value — adding one is a CHECK
+  widening).
+- **M8-13 (Low):** four of six abuse policies have no caller, `recovery_spraying`
+  included.
+- **M8-06/07/08/10** are owner decisions (hash-key versioning, PII key rotation,
+  suppression hash surviving erasure, `purchase_orders.destination_*`).

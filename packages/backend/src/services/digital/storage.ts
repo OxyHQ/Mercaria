@@ -186,21 +186,25 @@ export interface DigitalAssetStoragePort {
 }
 
 /**
- * The Oxy application this service is, as Oxy's `file_links.app` spells it.
+ * The Oxy application this service is, as Oxy's `file_links.app` spells it:
+ * Mercaria's APPLICATION ID in Oxy's registry.
  *
  * It is the left half of the authorization Oxy performs (ADR 0021): a file is
  * servable to Mercaria only when a `file_links` row carries THIS value and was
- * created by the file's own owner. So the constant is not cosmetic — a typo here
- * makes every download refuse, and it makes it refuse in the one way that is
- * indistinguishable from "the creator never attached the file", so nothing in the
- * error says what is wrong.
+ * created by the file's own owner. Oxy compares it with the `appId` of the
+ * service token asking (`isOwnerLinkedToApp` in OxyHQServices'
+ * `routes/assets.ts`), and both of its mints — the key pair's and the attested
+ * workload's — set that from the application's id, never from a name. So the
+ * constant is not cosmetic: any other value makes every download refuse, in the
+ * one way that is indistinguishable from "the creator never attached the file".
+ * It was `'mercaria'` until OxyHQ/Mercaria#1085, which no link could ever match.
  *
- * It is NOT configurable. The value is the application identity Oxy mints this
- * service's tokens for, so a deployment cannot pick a different one and have it
- * mean anything; reading it from the environment would turn a compile-time
- * constant into a silent mismatch.
+ * It is NOT configurable: it is the id of Mercaria's row in Oxy's application
+ * registry (read from `GET /auth/oauth/client/<Mercaria's client id>` on
+ * 2026-10-16), which never changes; reading it from the environment would turn
+ * a fact into a silent mismatch.
  */
-export const MERCARIA_OXY_APP = 'mercaria';
+export const MERCARIA_OXY_APP = '6a37d0cc5d4b5f15482a9340';
 
 /**
  * The `entityType` this service links asset files under.

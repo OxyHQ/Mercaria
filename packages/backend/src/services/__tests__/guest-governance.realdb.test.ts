@@ -10,7 +10,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import {
   guestAbuseCounters,
@@ -44,7 +44,12 @@ import {
   recordStageAdvance,
 } from '../../db/guestGovernance/rolloutRepository.js';
 import { recordDataRequest } from '../../db/guestGovernance/dataRequestRepository.js';
-import { proposedRetentionRules } from '../guest-governance/retention.service.js';
+import { guestCheckouts } from '../../db/schema/guests.js';
+import {
+  proposedRetentionRules,
+  runRetentionPass,
+  runScheduledRetention,
+} from '../guest-governance/retention.service.js';
 
 /** A unique marker per run, so parallel test files cannot collide. */
 const MARKER = randomUUID().slice(0, 8);
@@ -371,6 +376,134 @@ describe('the retention policy register (#111)', () => {
         finishedAt: new Date(),
       }),
     ).rejects.toThrow();
+  });
+});
+
+/**
+ * The scheduled loop's tick against the policy published above (M8-02).
+ *
+ * Runs AFTER the register describe, in file order, so the version this file
+ * published is the active one — and it is the only file that publishes, so no
+ * sibling can supersede it mid-case. The fixtures are contacts created two
+ * YEARS ago with no order behind them, which no other realdb file creates, so
+ * a tick over the shared database reaches only these. Their ids sort after
+ * every uuid, which is what lets the per-pass case scope itself by the keyset
+ * cursor.
+ *
+ * The operator's pass is a dry run (the endpoint's default) and must EXAMINE
+ * the due contact, skip the held one and change nothing; the tick the timer
+ * runs APPLIES, because the active `minimization_job` row is the approved
+ * decision, and must minimize the due contact while the held one survives.
+ */
+describe('the scheduled minimization loop runs under the ACTIVE policy (M8-02)', () => {
+  const longAgo = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000);
+  const dueId = `zzzz-ret-${MARKER}-a`;
+  const heldId = `zzzz-ret-${MARKER}-b`;
+  const dueGroup = `grp-ret-${MARKER}-a`;
+  const heldGroup = `grp-ret-${MARKER}-b`;
+
+  beforeAll(async () => {
+    for (const [id, checkoutGroupId] of [
+      [dueId, dueGroup],
+      [heldId, heldGroup],
+    ] as const) {
+      await db.insert(guestCheckouts).values({
+        id,
+        checkoutGroupId,
+        guestSessionId: `ses-ret-${MARKER}`,
+        emailCiphertext: 'v1:aaa:bbb:ccc',
+        emailHash: `hash-ret-${MARKER}-${id}`,
+        emailRedacted: 'j***@example.com',
+        marketingOptIn: false,
+        createdAt: longAgo,
+      });
+    }
+    // A hold on the CARRIED class pauses the carrier's pass: the hash leaves in
+    // the same statement as the ciphertext, so a hold on it holds the row.
+    await raiseLegalHold(db, {
+      checkoutGroupId: heldGroup,
+      retentionClass: 'lookup_hash',
+      reason: 'open_dispute',
+      raisedByOxyUserId: 'oxy-legal-1',
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(guestLegalHolds).where(eq(guestLegalHolds.checkoutGroupId, heldGroup));
+    await db.delete(guestCheckouts).where(inArray(guestCheckouts.id, [dueId, heldId]));
+  });
+
+  it('a dry pass examines the due contact, skips the held one, and records its run', async () => {
+    const outcome = await runRetentionPass({
+      retentionClass: 'unpaid_pending_checkout',
+      dryRun: true,
+      now: new Date(),
+      afterId: `zzzz-ret-${MARKER}-`,
+    });
+    expect(outcome.outcome).toBe('ran');
+    if (outcome.outcome !== 'ran') return;
+    expect(outcome.result.mode).toBe('dry_run');
+    expect(outcome.result.examined).toBe(2);
+    expect(outcome.result.skippedHeld).toBe(1);
+    expect(outcome.result.minimized).toBe(1);
+    expect(outcome.result.failed).toBe(0);
+
+    const [run] = await db
+      .select({ policyVersion: guestRetentionRuns.policyVersion })
+      .from(guestRetentionRuns)
+      .where(eq(guestRetentionRuns.id, outcome.result.runId));
+    // Under the version THIS file published — the job reads the active
+    // policy row and never the code constant.
+    expect(run?.policyVersion).toBe(`test-${MARKER}`);
+
+    const rows = await db
+      .select({ id: guestCheckouts.id, anonymizedAt: guestCheckouts.anonymizedAt })
+      .from(guestCheckouts)
+      .where(inArray(guestCheckouts.id, [dueId, heldId]));
+    const anonymized = new Map(rows.map((row) => [row.id, row.anonymizedAt !== null]));
+    expect(anonymized.get(heldId)).toBe(false);
+    // A prediction: nothing is erased without `dryRun: false`.
+    expect(anonymized.get(dueId)).toBe(false);
+  });
+
+  it('the tick the timer runs reaches the same contacts and covers only active classes', async () => {
+    const results = await runScheduledRetention(new Date());
+    const unpaid = results.filter((result) => result.retentionClass === 'unpaid_pending_checkout');
+    // A FLOOR, not an equality: the database is shared. What is pinned is that
+    // the tick ran the class at all — the M8 review found no tick to run.
+    expect(unpaid.length).toBeGreaterThanOrEqual(1);
+    expect(unpaid.reduce((sum, result) => sum + result.skippedHeld, 0)).toBeGreaterThanOrEqual(1);
+    for (const result of results) {
+      expect(['unpaid_pending_checkout', 'plaintext_equivalent_contact']).toContain(
+        result.retentionClass,
+      );
+      // The scheduler applies: the active policy row is the decision to erase.
+      expect(result.mode).toBe('apply');
+    }
+
+    const rows = await db
+      .select({ id: guestCheckouts.id, anonymizedAt: guestCheckouts.anonymizedAt })
+      .from(guestCheckouts)
+      .where(inArray(guestCheckouts.id, [dueId, heldId]));
+    const anonymized = new Map(rows.map((row) => [row.id, row.anonymizedAt !== null]));
+    expect(anonymized.get(dueId)).toBe(true);
+    expect(anonymized.get(heldId)).toBe(false);
+  });
+
+  it('refuses the carried class and a non-minimization class by name', async () => {
+    expect(
+      await runRetentionPass({ retentionClass: 'lookup_hash', dryRun: true, now: new Date() }),
+    ).toEqual({
+      outcome: 'refused',
+      reason: 'performed_by_contact_pass',
+    });
+    expect(
+      await runRetentionPass({
+        retentionClass: 'transaction_record',
+        dryRun: true,
+        now: new Date(),
+      }),
+    ).toEqual({ outcome: 'refused', reason: 'mechanism_not_minimization' });
   });
 });
 

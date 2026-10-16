@@ -101,36 +101,29 @@ is where it must be caught.
    (`test/parse.test.ts`).
 4. **`packages/sdk/CHANGELOG.md`** — an entry under the new version.
 5. **Version bump** in `packages/sdk/package.json` per the rules above.
-6. **Merge to `main`**, then publish it by hand (next section).
+6. **Merge to `main`**, then release it (next section).
 
 Steps 1–5 land in ONE pull request, so a published SDK never describes a
 contract the backend at that commit does not serve.
 
 ## How it is published
 
-Releases are published by hand from the maintainer's machine, never from
-GitHub Actions — the same way every Oxy SDK is released. There is no publish
-workflow and no `NPM_TOKEN` secret.
+By GitHub Actions only — Actions → **Release packages** (`release-packages.yml`, which calls
+Oxy's shared `npm-release.yml`), never from a laptop and with no `NPM_TOKEN`: npm trusted
+publishing (OIDC) with provenance. `~/Oxy/docs/npm-releases.md` has the steps.
 
-1. Wait for `ci.yml` to pass on the merged commit. Its `Lint & Test` job lints,
-   typechecks, tests, builds and smoke-tests the SDK.
-2. From a clean checkout of that commit: `bun install`, then
-   `bun run smoke:sdk -- --out <dir>` (it builds first). `smoke.mjs --out` packs the
-   tarball from a staging directory (a manifest whose only dependency is `zod`,
-   no scripts and no `workspace:`), tests the installed tarball from Node ESM
-   and CJS, Bun, a browser bundle, a React Native bundle and a `nodenext`
-   type-check as a Node and as a browser consumer, fails if any shipped file
-   names `@mercaria/`, and keeps that exact tarball.
-3. `npm view @mercaria.co/sdk@<version> version` — a version already on the
-   registry is never republished.
-4. `npm publish ./<dir>/<tarball> --access public`. The `./` is load-bearing:
-   npm reads a bare `dir/x.tgz` as the GitHub shorthand `owner/repo` (#1021).
-5. Tag the commit `sdk-v<version>` and push the tag.
-
-`npm publish <tarball>` runs no lifecycle scripts, which is why the tarball
-published is the one `smoke.mjs` tested, never a re-pack. `prepublishOnly`
-(typecheck, test, build, smoke) only guards an `npm publish` run from
-`packages/sdk`, and that path publishes the unstaged manifest — don't use it.
+1. Dispatch it on `main` with `package` `@mercaria.co/sdk`, the merged commit as
+   `expected_source_sha`, `dry_run` first, then again with `dry_run` off.
+2. The build job runs `prepublishOnly` (typecheck, test, build), then `release:pack`:
+   `smoke.mjs --out` packs the tarball from a staging directory (a manifest whose only
+   dependency is `zod`, no scripts and no `workspace:`), tests the installed tarball from
+   Node ESM and CJS, Bun, a browser bundle, a React Native bundle and a `nodenext`
+   type-check as a Node and as a browser consumer, fails if any shipped file names
+   `@mercaria/`, and keeps that exact tarball. A version already on the registry is refused.
+3. The publish job rebuilds and repacks the same way from a fresh checkout, the bytes must
+   match, and only then `npm publish <tarball>` — the tarball `smoke.mjs` tested, never a
+   re-pack of the package directory.
+4. Tag the commit `sdk-v<version>` and push the tag.
 
 ## The contract test against the real backend
 

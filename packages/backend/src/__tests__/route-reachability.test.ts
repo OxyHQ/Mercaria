@@ -198,6 +198,7 @@ describe('THE GATE: every route is reachable, or says why it is not', () => {
       'frontend/settings',
       'frontend/settings/addresses',
       'frontend/settings/feedback',
+      'frontend/settings/general',
     ]);
 
     expect(

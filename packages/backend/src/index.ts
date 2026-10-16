@@ -658,6 +658,17 @@ connectPostgres()
       // all.
       startExpirySweeper();
 
+      // Minimize guest contact in place on the published retention schedule
+      // (ADR 0003 D11/D15, M8-02) — the one guest retention the sweep above
+      // cannot perform, because the row must survive its contents. On EVERY
+      // task and UNCONDITIONALLY: pages are taken `FOR UPDATE SKIP LOCKED`, and
+      // what decides whether anything is erased is an ACTIVE retention-policy
+      // row, never an environment variable. With no policy published it runs
+      // and erases nothing.
+      import('./services/guest-governance/retention.service.js')
+        .then(({ startGuestRetentionLoop }) => startGuestRetentionLoop())
+        .catch((err: unknown) => log.general.error({ err }, 'Guest retention loop import failed'));
+
       // Discovery analytics (#77). THREE loops, all no-ops while
       // `ANALYTICS_COLLECTION_MODE` is `off` — production collection stays off
       // until the privacy and retention review clears (acceptance 8).
@@ -814,6 +825,10 @@ connectPostgres()
         const { stopFeedStageSweeper } = await import('./services/feed-import/register.js');
         stopFeedStageSweeper();
         stopExpirySweeper();
+        const { stopGuestRetentionLoop } = await import(
+          './services/guest-governance/retention.service.js'
+        );
+        stopGuestRetentionLoop();
         const { stopDiscoverySweep } = await import('./services/discovery/sweep.js');
         stopDiscoverySweep();
         // Analytics last of the loops, and the sink's stop AWAITS one final

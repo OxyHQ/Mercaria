@@ -738,6 +738,8 @@
       "a11yLabel": "Händlerstatus: %{status}",
       "claim": "Diesen Händler beanspruchen",
       "claimHint": "Weise nach, dass du diesen Händler betreibst, um seine Seite zu verwalten",
+      "contest": "Diesen Anspruch anfechten",
+      "contestHint": "Teile Mercaria mit, dass der verifizierte Betreiber dieses Händlers falsch ist",
       "label": {
         "unclaimed": "Nicht beansprucht",
         "claimInProgress": "Beanspruchung läuft",
@@ -790,6 +792,117 @@
         "staleSources": "Mercaria hat von den Quellen dieses Händlers nicht kürzlich genug gehört, um aktuelle Preise zu zeigen.",
         "filteredOut": "Keine Produkte entsprechen diesen Filtern."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "%{merchant} beanspruchen",
+    "intro": "Weise nach, dass du diesen Händler betreibst, um zu verwalten, wie er auf Mercaria erscheint. Ein Anspruch erstellt keinen Mercaria-Shop und macht dich nicht zum offiziellen Verkäufer einer Marke.",
+    "signInPrompt": "Melde dich mit deinem Oxy-Konto an, um diesen Händler zu beanspruchen.",
+    "signIn": "Anmelden",
+    "loadFailed": "Deine Ansprüche konnten nicht geladen werden.",
+    "noMethods": "Das Beanspruchen ist hier gerade nicht verfügbar.",
+    "start": "Weiter",
+    "starting": "Wird gestartet…",
+    "close": "Schließen",
+    "copy": "%{label} kopieren",
+    "copied": "Kopiert",
+    "copyFailed": "Kopieren fehlgeschlagen. Markiere den Text und kopiere ihn selbst.",
+    "method": {
+      "title": "Wie möchtest du es nachweisen?",
+      "checkedAutomatically": "Wird automatisch geprüft.",
+      "reviewedByPerson": "Wird von einer Person geprüft.",
+      "dnsTxt": {
+        "label": "DNS-Eintrag",
+        "description": "Füge dem DNS deiner Domain einen TXT-Eintrag hinzu."
+      },
+      "wellKnownFile": {
+        "label": "Datei auf deiner Website",
+        "description": "Lade eine kleine Textdatei auf deine Website hoch."
+      },
+      "metaTag": {
+        "label": "Tag auf deiner Startseite",
+        "description": "Füge der Startseite deiner Website ein Meta-Tag hinzu."
+      },
+      "businessDocument": {
+        "label": "Geschäftsunterlagen",
+        "description": "Teile Links zu Unterlagen, die zeigen, dass du dieses Unternehmen führst."
+      }
+    },
+    "domain": {
+      "label": "Domain deiner Website",
+      "help": "Die Domain, über die dieser Händler verkauft. Dein Nachweis gilt nur für diese Domain.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "Dein letzter Anspruch auf diesen Händler wurde nicht genehmigt.",
+      "reason": "Hinweis der prüfenden Person: %{reason}",
+      "expired": "Dein letzter Anspruch auf diesen Händler ist abgelaufen, bevor er nachgewiesen wurde. Du kannst neu beginnen.",
+      "revoked": "Deine Verifizierung für diesen Händler wurde zurückgezogen. Du kannst einen neuen Anspruch stellen."
+    },
+    "errors": {
+      "tooMany": "Zu viele Versuche in letzter Zeit. Versuche es später erneut.",
+      "notFoundYet": "Der Verifizierungswert wurde noch nicht gefunden. Änderungen an DNS und Website können eine Weile dauern, versuche es also gleich noch einmal.",
+      "codeUnusable": "Dieser Code kann nicht mehr verwendet werden. Hol dir einen neuen Code und veröffentliche stattdessen diesen.",
+      "cannotOpen": "Du kannst gerade keinen Anspruch auf diesen Händler stellen.",
+      "cannotContest": "Dieser Anspruch kann gerade nicht angefochten werden.",
+      "invalid": "Prüfe deine Eingaben und versuche es erneut.",
+      "generic": "Etwas ist schiefgelaufen. Versuche es erneut."
+    },
+    "challenge": {
+      "draftIntro": "Dein Anspruch für %{domain} ist bereit. Hol dir einen Verifizierungscode, um fortzufahren.",
+      "lost": "Verifizierungscodes werden nur einmal angezeigt. Hol dir einen neuen Code, um fortzufahren; er ersetzt den vorherigen.",
+      "getCode": "Verifizierungscode anfordern",
+      "gettingCode": "Code wird angefordert…",
+      "verify": "Jetzt prüfen",
+      "verifying": "Wird geprüft…",
+      "newCode": "Neuen Code anfordern",
+      "expires": "Dieser Code gilt bis %{time}.",
+      "dnsTxt": {
+        "step": "Füge diesen TXT-Eintrag dem DNS von %{domain} hinzu:",
+        "nameLabel": "Name",
+        "valueLabel": "Wert",
+        "note": "DNS-Änderungen können einige Minuten, manchmal Stunden, dauern, bis sie sichtbar sind."
+      },
+      "wellKnownFile": {
+        "step": "Veröffentliche unter dieser Adresse eine Datei, die genau diesen Text enthält:",
+        "urlLabel": "Adresse",
+        "contentsLabel": "Dateiinhalt"
+      },
+      "metaTag": {
+        "step": "Füge dieses Tag in den <head> von %{url} ein:",
+        "tagLabel": "Tag"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "Du bist der verifizierte Betreiber",
+        "body": "Dein Anspruch auf %{merchant} ist verifiziert."
+      },
+      "reviewPending": {
+        "title": "Dein Anspruch wird geprüft",
+        "body": "Eine Person prüft deinen Anspruch. Schau hier wieder vorbei, um die Entscheidung zu sehen."
+      },
+      "disputed": {
+        "title": "Dein Anspruch ist strittig",
+        "body": "Ein anderes Konto hat bereits einen verifizierten Anspruch auf diesen Händler. Eine Person prüft beide und entscheidet."
+      }
+    },
+    "evidence": {
+      "intro": "Füge einen Link zu Unterlagen hinzu, die zeigen, dass du dieses Unternehmen führst, etwa einen Handelsregisterauszug oder einen Steuerbescheid, sowie einen Hinweis für die prüfende Person. Nur sie sieht diese Angaben.",
+      "urlLabel": "Link zum Dokument",
+      "urlPlaceholder": "https://",
+      "noteLabel": "Hinweis für die prüfende Person",
+      "submit": "Zur Prüfung senden",
+      "submitting": "Wird gesendet…"
+    },
+    "contest": {
+      "title": "Anspruch auf %{merchant} anfechten",
+      "intro": "Dieser Händler hat bereits einen verifizierten Betreiber. Wenn das falsch ist, sag uns warum. Jede Anfechtung wird von einer Person geprüft, und der aktuelle Betreiber erfährt, dass angefochten wurde, aber nie von wem.",
+      "reasonLabel": "Warum ist der aktuelle Anspruch falsch?",
+      "reasonHelp": "Mindestens 20 Zeichen.",
+      "urlLabel": "Unterstützender Link (optional)",
+      "submit": "Anfechtung senden",
+      "submitting": "Wird gesendet…"
     }
   },
   "families": {

@@ -71,7 +71,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
-    "prepublishOnly": "bun run typecheck && bun run test && bun run build && bun run smoke"
+    "prepublishOnly": "bun run typecheck && bun run test && bun run build",
+    "release:pack": "node scripts/smoke.mjs --out"
   },
   "devDependencies": {
     "@mercaria/contracts": "workspace:*",

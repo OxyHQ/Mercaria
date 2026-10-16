@@ -738,6 +738,8 @@
       "a11yLabel": "商家状态：%{status}",
       "claim": "认领此商家",
       "claimHint": "证明你运营此商家，即可管理其页面",
+      "contest": "对此认领提出异议",
+      "contestHint": "告诉 Mercaria 此商家的已验证运营方有误",
       "label": {
         "unclaimed": "未认领",
         "claimInProgress": "认领进行中",
@@ -790,6 +792,117 @@
         "staleSources": "Mercaria 最近未从该商家的来源获取到足够新的数据，无法显示当前价格。",
         "filteredOut": "没有商品符合这些筛选条件。"
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "认领 %{merchant}",
+    "intro": "证明你运营此商家，即可管理它在 Mercaria 上的展示方式。认领不会创建 Mercaria 店铺，也不会让你成为任何品牌的官方卖家。",
+    "signInPrompt": "使用你的 Oxy 账号登录后即可认领此商家。",
+    "signIn": "登录",
+    "loadFailed": "无法加载你的认领。",
+    "noMethods": "目前无法在此认领。",
+    "start": "继续",
+    "starting": "正在开始…",
+    "close": "关闭",
+    "copy": "复制%{label}",
+    "copied": "已复制",
+    "copyFailed": "无法复制。请选中文本后手动复制。",
+    "method": {
+      "title": "你想如何证明？",
+      "checkedAutomatically": "自动检查。",
+      "reviewedByPerson": "由人工审核。",
+      "dnsTxt": {
+        "label": "DNS 记录",
+        "description": "在你域名的 DNS 中添加一条 TXT 记录。"
+      },
+      "wellKnownFile": {
+        "label": "网站上的文件",
+        "description": "向你的网站上传一个小文本文件。"
+      },
+      "metaTag": {
+        "label": "首页上的标签",
+        "description": "在你网站的首页添加一个 meta 标签。"
+      },
+      "businessDocument": {
+        "label": "企业文件",
+        "description": "分享能证明你经营此企业的文件链接。"
+      }
+    },
+    "domain": {
+      "label": "你网站的域名",
+      "help": "此商家用于销售的域名。你的证明仅覆盖此域名。",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "你上次对此商家的认领未获批准。",
+      "reason": "审核人备注：%{reason}",
+      "expired": "你上次对此商家的认领在证明完成前已过期。你可以重新开始。",
+      "revoked": "你对此商家的验证已被撤销。你可以发起新的认领。"
+    },
+    "errors": {
+      "tooMany": "近期尝试次数过多。请稍后再试。",
+      "notFoundYet": "尚未找到验证值。DNS 和网站的更改可能需要一段时间才会生效，请稍后再试。",
+      "codeUnusable": "此验证码已无法使用。请获取新验证码并发布新的验证码。",
+      "cannotOpen": "你目前无法认领此商家。",
+      "cannotContest": "目前无法对此认领提出异议。",
+      "invalid": "请检查你输入的内容，然后重试。",
+      "generic": "出了点问题。请重试。"
+    },
+    "challenge": {
+      "draftIntro": "你对 %{domain} 的认领已准备就绪。获取验证码以继续。",
+      "lost": "验证码只显示一次。获取新验证码以继续；新验证码会替换之前的验证码。",
+      "getCode": "获取验证码",
+      "gettingCode": "正在获取验证码…",
+      "verify": "立即检查",
+      "verifying": "正在检查…",
+      "newCode": "获取新验证码",
+      "expires": "此验证码在 %{time} 前有效。",
+      "dnsTxt": {
+        "step": "在 %{domain} 的 DNS 中添加以下 TXT 记录：",
+        "nameLabel": "名称",
+        "valueLabel": "值",
+        "note": "DNS 更改可能需要几分钟，有时需要几小时才会生效。"
+      },
+      "wellKnownFile": {
+        "step": "在以下地址发布一个文件，内容须与以下文本完全一致：",
+        "urlLabel": "地址",
+        "contentsLabel": "文件内容"
+      },
+      "metaTag": {
+        "step": "在 %{url} 的 <head> 中添加以下标签：",
+        "tagLabel": "标签"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "你是已验证的运营方",
+        "body": "你对 %{merchant} 的认领已验证。"
+      },
+      "reviewPending": {
+        "title": "你的认领正在审核中",
+        "body": "工作人员正在审核你的认领。请回到这里查看结果。"
+      },
+      "disputed": {
+        "title": "你的认领存在争议",
+        "body": "另一个账号已持有此商家的已验证认领。工作人员将审核双方并作出决定。"
+      }
+    },
+    "evidence": {
+      "intro": "添加能证明你经营此企业的文件链接（例如营业执照或税务文件），并给审核人留一条备注。只有审核人能看到这些内容。",
+      "urlLabel": "文件链接",
+      "urlPlaceholder": "https://",
+      "noteLabel": "给审核人的备注",
+      "submit": "提交审核",
+      "submitting": "正在提交…"
+    },
+    "contest": {
+      "title": "对 %{merchant} 的认领提出异议",
+      "intro": "此商家已有已验证的运营方。如果有误，请告诉我们原因。每项异议都由工作人员审核，当前运营方会收到有人提出异议的通知，但不会得知是谁。",
+      "reasonLabel": "为什么当前认领有误？",
+      "reasonHelp": "至少 20 个字符。",
+      "urlLabel": "佐证链接（可选）",
+      "submit": "提交异议",
+      "submitting": "正在提交…"
     }
   },
   "families": {
