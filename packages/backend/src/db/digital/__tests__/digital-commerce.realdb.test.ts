@@ -553,12 +553,12 @@ describe('a creator publishes an asset, and the version is then immutable', () =
     ).rejects.toSatisfy(isCheckViolation);
   });
 
-  it('the storage-move backfill copies a deliverable onto an application file and moves the row', async () => {
+  it('the storage-move backfill adopts a deliverable as an application file and moves the row', async () => {
     const { meshFileId } = await mintPublishedAsset('storage-backfill');
     const [before] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));
     if (!before) throw new Error('fixture: no file');
     const copyKey = `app-copy-${RUN}`;
-    const imports: { url: string; visibility: unknown }[] = [];
+    const adoptions: { fileId: string; visibility: unknown }[] = [];
     const measured = (id: string) => ({
       id,
       url: `https://s3.oxy.test/${id}?X-Amz-Signature=not-real`,
@@ -570,17 +570,18 @@ describe('a creator publishes an asset, and the version is then immutable', () =
     oxy.client = {
       assets: {
         linkedDownloadUrls: async (ids: string[]) => ids.map(measured),
-        importAppFile: async (url: string, options: { visibility: unknown }) => {
-          imports.push({ url, visibility: options.visibility });
+        adoptAppFile: async (fileId: string, options: { visibility: unknown }) => {
+          adoptions.push({ fileId, visibility: options.visibility });
           return {
             file: {
               id: copyKey,
+              sha256: before.contentHash,
               mime: before.mediaType,
               size: before.byteSize,
               visibility: 'private',
             },
-            outcome: 'downloaded',
-            deduplicated: false,
+            outcome: 'adopted',
+            deduplicated: true,
           };
         },
         references: {
@@ -598,12 +599,11 @@ describe('a creator publishes an asset, and the version is then immutable', () =
         {
           fileId: meshFileId,
           storageKeySha256: expect.stringMatching(/^[a-f0-9]{64}$/),
-          oxyTakesIt: false,
           outcome: 'pending',
         },
       ]);
       expect(JSON.stringify(preview)).not.toContain(before.storageKey);
-      expect(imports).toEqual([]);
+      expect(adoptions).toEqual([]);
 
       const applied = await backfillDigitalAssetStorage({
         mode: 'apply',
@@ -611,10 +611,9 @@ describe('a creator publishes an asset, and the version is then immutable', () =
         fileId: meshFileId,
       });
       expect(applied.entries[0]?.outcome).toBe('applied');
-      // Oxy copied the minted source privately, as the application.
-      expect(imports).toEqual([
-        { url: expect.stringContaining('s3.oxy.test'), visibility: 'private' },
-      ]);
+      // Oxy adopted the source's stored bytes privately, as the application —
+      // a mesh (stage 4b takes every type), and no URL handed to an import.
+      expect(adoptions).toEqual([{ fileId: before.storageKey, visibility: 'private' }]);
       const [after] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));
       expect(after?.storageKey).toBe(copyKey);
       expect(after?.contentHash).toBe(before.contentHash);
@@ -637,6 +636,22 @@ describe('a creator publishes an asset, and the version is then immutable', () =
       expect(mismatch.entries[0]?.outcome).toBe('failed');
       const [otherAfter] = await db.select().from(assetFiles).where(eq(assetFiles.id, other));
       expect(otherAfter?.storageKey).toBe(otherBefore?.storageKey);
+
+      // Bytes Oxy refuses as taken down (451) are reported blocked, the row
+      // stays put, and the file is NOT offered for a retry — a rerun cannot
+      // change a claim's outcome.
+      (oxy.client as { assets: { adoptAppFile: unknown } }).assets.adoptAppFile = async () => {
+        throw Object.assign(new Error('Content blocked'), { status: 451 });
+      };
+      const blocked = await backfillDigitalAssetStorage({
+        mode: 'apply',
+        limit: 1,
+        fileId: other,
+      });
+      expect(blocked.entries[0]?.outcome).toBe('blocked');
+      expect(blocked.retryFileIds).toEqual([]);
+      const [otherStill] = await db.select().from(assetFiles).where(eq(assetFiles.id, other));
+      expect(otherStill?.storageKey).toBe(otherBefore?.storageKey);
     } finally {
       oxy.client = null;
     }

@@ -12,6 +12,8 @@ const sdk = vi.hoisted(() => ({
   importUserMedia: vi.fn(),
   uploadAppFile: vi.fn(),
   uploadUserMedia: vi.fn(),
+  uploadAppFileLarge: vi.fn(),
+  adoptAppFile: vi.fn(),
   add: vi.fn(),
   remove: vi.fn(),
   reconcile: vi.fn(),
@@ -26,16 +28,22 @@ vi.mock('../../../capabilities/oxy-service-client.js', () => ({
             importUserMedia: sdk.importUserMedia,
             uploadAppFile: sdk.uploadAppFile,
             uploadUserMedia: sdk.uploadUserMedia,
+            uploadAppFileLarge: sdk.uploadAppFileLarge,
+            adoptAppFile: sdk.adoptAppFile,
             references: { add: sdk.add, remove: sdk.remove, reconcile: sdk.reconcile },
           },
         }
       : null,
 }));
+import { LargeUploadFailedError } from '@oxy.so/core/server';
 import {
   addOxyFileReferences,
+  adoptAsPrivateApplicationFile,
   importOxyFileFromUrl,
+  OxyFilesError,
   removeOxyFileReferences,
   uploadOxyFile,
+  uploadPrivateApplicationFile,
   verifyOxyFileDelivery,
 } from '../oxy-files.js';
 
@@ -126,6 +134,63 @@ describe('upload', () => {
     expect(sdk.uploadUserMedia.mock.calls[0]?.[0]).toBe('owner');
     await uploadOxyFile({ kind: 'application' }, Buffer.from('x'), 'image/png', 'category-art');
     expect(sdk.uploadAppFile.mock.calls[0]?.[2]).toMatchObject({ visibility: 'public' });
+  });
+});
+
+describe('application-owned private files (stage 4b)', () => {
+  const PRIVATE = { ...FILE, id: 'oxy-file-2', mime: 'model/stl', visibility: 'private' };
+
+  it('uploads any type privately by the large upload, passing the Blob through', async () => {
+    sdk.uploadAppFileLarge.mockResolvedValue({ file: PRIVATE, deduplicated: false, uploadId: 'u' });
+    const blob = new Blob(['mesh'], { type: 'model/stl' });
+    expect(
+      await uploadPrivateApplicationFile(blob, 'model/stl', {
+        filename: 'digital-asset',
+        metadata: { assetVersionId: 'v' },
+      }),
+    ).toEqual({ fileId: 'oxy-file-2', mime: 'model/stl', size: 10, visibility: 'private' });
+    expect(sdk.uploadAppFileLarge).toHaveBeenCalledExactlyOnceWith(blob, {
+      mime: 'model/stl',
+      visibility: 'private',
+      filename: 'digital-asset',
+      metadata: { assetVersionId: 'v' },
+    });
+  });
+
+  it('names a large upload that ended without a file by its code', async () => {
+    sdk.uploadAppFileLarge.mockRejectedValue(
+      new LargeUploadFailedError('CONTENT_BLOCKED', 'blocked', 'u'),
+    );
+    const error = await uploadPrivateApplicationFile(new Blob(['x']), 'model/stl', {
+      filename: 'digital-asset',
+    }).catch((caught) => caught);
+    expect(error).toBeInstanceOf(OxyFilesError);
+    expect(error.message).toContain('CONTENT_BLOCKED');
+  });
+
+  it('adopts privately and returns the measured hash', async () => {
+    sdk.adoptAppFile.mockResolvedValue({
+      file: { ...PRIVATE, sha256: 'A'.repeat(64) },
+      outcome: 'adopted',
+      deduplicated: true,
+    });
+    expect(await adoptAsPrivateApplicationFile('source')).toEqual({
+      fileId: 'oxy-file-2',
+      mime: 'model/stl',
+      size: 10,
+      visibility: 'private',
+      sha256: 'a'.repeat(64),
+    });
+    expect(sdk.adoptAppFile).toHaveBeenCalledExactlyOnceWith('source', { visibility: 'private' });
+  });
+
+  it('refuses an adoption answer without a digest, and carries a refusal status', async () => {
+    sdk.adoptAppFile.mockResolvedValue({ file: PRIVATE, outcome: 'adopted', deduplicated: true });
+    await expect(adoptAsPrivateApplicationFile('source')).rejects.toThrow(/did not describe/);
+    sdk.adoptAppFile.mockRejectedValue(Object.assign(new Error('x'), { status: 451 }));
+    const error = await adoptAsPrivateApplicationFile('source').catch((caught) => caught);
+    expect(error).toBeInstanceOf(OxyFilesError);
+    expect(error.status).toBe(451);
   });
 });
 

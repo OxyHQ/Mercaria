@@ -390,8 +390,8 @@ const DEFINITIONS: readonly FileReferenceEntityDefinition[] = [
     // queries may not read it. The storage port registers the reference when it
     // stores or copies an object, and the reconciliation's inventory reads each
     // key through that one function. Since Oxy ADR 0041 the deliverable is an
-    // APPLICATION file where Oxy takes its type, which Oxy collects once nothing
-    // references it — so this type IS reconciled, nightly like the rest.
+    // APPLICATION file, which Oxy collects once nothing references it — so this
+    // type IS reconciled, nightly like the rest.
     entityType: 'digital_asset_file',
     ownerKind: 'application',
     owner: 'creator',

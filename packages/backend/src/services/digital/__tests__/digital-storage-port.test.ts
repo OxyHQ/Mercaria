@@ -34,6 +34,8 @@ const assetLink = vi.fn();
 const referencesAdd = vi.fn();
 const assetDelete = vi.fn();
 const uploadAppFile = vi.fn();
+const uploadAppFileLarge = vi.fn();
+const adoptAppFile = vi.fn();
 const deleteAppFile = vi.fn();
 const importAppFile = vi.fn();
 const linkedDownloadUrls = vi.fn();
@@ -60,6 +62,8 @@ vi.mock('../../../capabilities/oxy-service-client.js', () => ({
       linkedDownloadUrls: (...args: unknown[]) => linkedDownloadUrls(...args),
       references: { add: (...args: unknown[]) => referencesAdd(...args) },
       uploadAppFile: (...args: unknown[]) => uploadAppFile(...args),
+      uploadAppFileLarge: (...args: unknown[]) => uploadAppFileLarge(...args),
+      adoptAppFile: (...args: unknown[]) => adoptAppFile(...args),
       importAppFile: (...args: unknown[]) => importAppFile(...args),
       deleteAppFile: (...args: unknown[]) => deleteAppFile(...args),
     },
@@ -296,26 +300,33 @@ describe('putAssetObject stores an APPLICATION-owned PRIVATE file, registers it,
   const storedPrivate = () => ({
     file: { id: STORAGE_KEY, mime: 'model/stl', size: 4_096, visibility: 'private' },
     deduplicated: false,
+    uploadId: 'upload-1',
   });
 
-  it('uploads as the application, private, registers the use, and describes through the mint', async () => {
+  it('uploads any type through the large upload, private, registers the use, and describes through the mint', async () => {
     const { assetStorage } = await import('../storage.js');
-    uploadAppFile.mockResolvedValue(storedPrivate());
+    uploadAppFileLarge.mockResolvedValue(storedPrivate());
     referencesAdd.mockImplementation(async (refs) => registered(refs));
     linkedDownloadUrls.mockResolvedValue([mintedEntry]);
 
+    const blob = new Blob(['not a real mesh'], { type: 'model/stl' });
     const stored = await assetStorage.putAssetObject({
-      file: new Blob(['not a real mesh'], { type: 'model/stl' }),
+      file: blob,
       metadata: { assetVersionId: 'version-1' },
     });
 
-    // Oxy ADR 0041 D3/D5: owned by the application and readable only through
-    // its own service token, so serving never depends on a creator's link.
-    expect(uploadAppFile).toHaveBeenCalledWith(expect.any(Uint8Array), 'model/stl', {
+    // Oxy ADR 0041 D3/D5 and stage 4b: owned by the application, readable only
+    // through its own service token, and stored by the resumable multipart
+    // upload — the Blob itself, never read whole into a buffer here — so a mesh
+    // or an archive up to 8 GiB is taken.
+    expect(uploadAppFileLarge).toHaveBeenCalledWith(blob, {
+      mime: 'model/stl',
       visibility: 'private',
-      originalName: 'digital-asset',
-      timeout: 25_000,
+      filename: 'digital-asset',
+      metadata: { assetVersionId: 'version-1' },
     });
+    // The 40 MiB image/video route is not used for a deliverable.
+    expect(uploadAppFile).not.toHaveBeenCalled();
     // Neither the session upload nor the session link is used any more.
     expect(uploadRawFile).not.toHaveBeenCalled();
     expect(assetLink).not.toHaveBeenCalled();
@@ -332,12 +343,30 @@ describe('putAssetObject stores an APPLICATION-owned PRIVATE file, registers it,
 
   it('refuses an object the service did not store private', async () => {
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-    uploadAppFile.mockResolvedValue({ file: { ...storedPrivate().file, visibility: 'public' } });
+    uploadAppFileLarge.mockResolvedValue({
+      ...storedPrivate(),
+      file: { ...storedPrivate().file, visibility: 'public' },
+    });
     const failure = await assetStorage
       .putAssetObject({ file: new Blob(['x'], { type: 'model/stl' }) })
       .catch((error) => error);
     expect(isDigitalStorageError(failure)).toBe(true);
     expect(failure.reason).toBe('unresolved');
+    expect(referencesAdd).not.toHaveBeenCalled();
+  });
+
+  it('refuses an upload that ended without a file, naming no URL', async () => {
+    const { assetStorage, isDigitalStorageError } = await import('../storage.js');
+    const { LargeUploadFailedError } = await import('@oxy.so/core/server');
+    uploadAppFileLarge.mockRejectedValue(
+      new LargeUploadFailedError('CHECKSUM_MISMATCH', 'The bytes did not match', 'upload-1'),
+    );
+    const failure = await assetStorage
+      .putAssetObject({ file: new Blob(['x'], { type: 'model/stl' }) })
+      .catch((error) => error);
+    expect(isDigitalStorageError(failure)).toBe(true);
+    expect(failure.reason).toBe('unresolved');
+    expect(String(failure.cause?.message)).toContain('CHECKSUM_MISMATCH');
     expect(referencesAdd).not.toHaveBeenCalled();
   });
 
@@ -354,7 +383,7 @@ describe('putAssetObject stores an APPLICATION-owned PRIVATE file, registers it,
     'refuses when the reference was %s, rather than returning an unregistered object',
     async (_label, arrange) => {
       const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-      uploadAppFile.mockResolvedValue(storedPrivate());
+      uploadAppFileLarge.mockResolvedValue(storedPrivate());
       arrange();
 
       const failure = await assetStorage
@@ -370,7 +399,7 @@ describe('putAssetObject stores an APPLICATION-owned PRIVATE file, registers it,
 
   it('refuses an upload the service will not describe', async () => {
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-    uploadAppFile.mockResolvedValue(storedPrivate());
+    uploadAppFileLarge.mockResolvedValue(storedPrivate());
     referencesAdd.mockImplementation(async (refs) => registered(refs));
     linkedDownloadUrls.mockResolvedValue([]);
     const failure = await assetStorage
@@ -381,7 +410,7 @@ describe('putAssetObject stores an APPLICATION-owned PRIVATE file, registers it,
   });
 });
 
-describe('adoptAssetObject copies a creator upload into an APPLICATION-owned private file', () => {
+describe('adoptAssetObject takes a creator upload as an APPLICATION-owned private file', () => {
   const COPY_KEY = 'oxyfile_application_copy';
   const copied = (overrides: Record<string, unknown> = {}) => ({
     ...mintedEntry,
@@ -389,20 +418,36 @@ describe('adoptAssetObject copies a creator upload into an APPLICATION-owned pri
     url: `https://s3.oxy.test/private/${COPY_KEY}?X-Amz-Signature=not-real`,
     ...overrides,
   });
+  const adoption = (id = COPY_KEY) => ({
+    file: {
+      id,
+      sha256: DIGEST,
+      mime: 'model/stl',
+      size: 4_096,
+      visibility: 'private',
+      ownerApplicationId: 'mercaria',
+    },
+    outcome: 'adopted',
+    deduplicated: true,
+  });
 
-  it('imports the minted source as the application, private, registers it, and returns the measured copy', async () => {
+  it('adopts the source privately — no download, no import — registers it, and returns the measured copy', async () => {
     const { assetStorage } = await import('../storage.js');
     linkedDownloadUrls.mockImplementation(async (ids: string[]) =>
       ids.map((id) => (id === STORAGE_KEY ? mintedEntry : copied())),
     );
-    importAppFile.mockResolvedValue({
-      file: { id: COPY_KEY, mime: 'model/stl', size: 4_096, visibility: 'private' },
-    });
+    adoptAppFile.mockResolvedValue(adoption());
     referencesAdd.mockImplementation(async (refs: object[]) =>
       refs.map((ref) => ({ ...ref, result: 'created' })),
     );
     const adopted = await assetStorage.adoptAssetObject(STORAGE_KEY);
-    expect(importAppFile).toHaveBeenCalledWith(RESOLVED_URL, { visibility: 'private' });
+    // The source is read through the mint FIRST: only a file attached to
+    // Mercaria is adopted, never a stranger's public file.
+    expect(linkedDownloadUrls.mock.calls[0]).toEqual([[STORAGE_KEY]]);
+    expect(adoptAppFile).toHaveBeenCalledWith(STORAGE_KEY, { visibility: 'private' });
+    // Oxy ADR 0041 stage 4b shares the stored bytes: the minted URL is not
+    // handed to an import any more.
+    expect(importAppFile).not.toHaveBeenCalled();
     expect(referencesAdd).toHaveBeenCalledWith([
       { fileId: COPY_KEY, entityType: 'digital_asset_file', entityId: COPY_KEY },
     ]);
@@ -414,21 +459,46 @@ describe('adoptAssetObject copies a creator upload into an APPLICATION-owned pri
     });
   });
 
+  it("answers a file that is already Mercaria's own as it is, registering nothing new", async () => {
+    const { assetStorage } = await import('../storage.js');
+    linkedDownloadUrls.mockResolvedValue([mintedEntry]);
+    adoptAppFile.mockResolvedValue({ ...adoption(STORAGE_KEY), outcome: 'existing' });
+    expect(await assetStorage.adoptAssetObject(STORAGE_KEY)).toEqual({
+      storageKey: STORAGE_KEY,
+      byteSize: 4_096,
+      mediaType: 'model/stl',
+      contentHash: DIGEST,
+    });
+    expect(referencesAdd).not.toHaveBeenCalled();
+  });
+
   it('refuses a copy whose measured bytes differ, and reports an unreadable source as null', async () => {
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
     linkedDownloadUrls.mockImplementation(async (ids: string[]) =>
       ids.map((id) => (id === STORAGE_KEY ? mintedEntry : copied({ sha256: 'b'.repeat(64) }))),
     );
-    importAppFile.mockResolvedValue({
-      file: { id: COPY_KEY, mime: 'model/stl', size: 4_096, visibility: 'private' },
-    });
+    adoptAppFile.mockResolvedValue(adoption());
     referencesAdd.mockImplementation(async (refs: object[]) =>
       refs.map((ref) => ({ ...ref, result: 'created' })),
     );
     const failure = await assetStorage.adoptAssetObject(STORAGE_KEY).catch((error) => error);
     expect(isDigitalStorageError(failure)).toBe(true);
+    adoptAppFile.mockClear();
     linkedDownloadUrls.mockResolvedValue([]);
     expect(await assetStorage.adoptAssetObject(STORAGE_KEY)).toBeNull();
+    // Nothing unreadable is adopted.
+    expect(adoptAppFile).not.toHaveBeenCalled();
+  });
+
+  it("raises Oxy's refusal (taken-down bytes) with its status on the cause", async () => {
+    const { assetStorage, isDigitalStorageError } = await import('../storage.js');
+    linkedDownloadUrls.mockResolvedValue([mintedEntry]);
+    adoptAppFile.mockRejectedValue(Object.assign(new Error('blocked'), { status: 451 }));
+    const failure = await assetStorage.adoptAssetObject(STORAGE_KEY).catch((error) => error);
+    expect(isDigitalStorageError(failure)).toBe(true);
+    expect(failure.reason).toBe('unresolved');
+    expect(failure.cause?.status).toBe(451);
+    expect(referencesAdd).not.toHaveBeenCalled();
   });
 });
 

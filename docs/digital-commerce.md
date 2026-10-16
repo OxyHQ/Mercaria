@@ -110,20 +110,20 @@ Every refusal happens **before any storage key is read**.
 `asset_files.storage_key` is in `PROTECTED_COLUMNS`, so reading it is an explicit,
 greppable act through ONE function, `findAssetFileStorageKey`:
 `services/digital/download.service.ts` calls it after the last refusal, and the
-operator's storage-move backfill (`asset-storage-backfill.ts`) calls it to copy a
+operator's storage-move backfill (`asset-storage-backfill.ts`) calls it to adopt a
 deliverable and reports only a hash of the key.
 
 **Deliverables are Mercaria-application PRIVATE files** (Oxy ADR 0041 D3/D5),
 readable by no person and by Mercaria's service token through the linked-url mint
-— so serving depends on no creator keeping a link (ADR 0021). Registration copies
-a creator's upload (`adoptAssetObject`, the copy's SHA-256 and size measured
-against the source's) where Oxy takes the type; Oxy's application files are image
-and video up to 40 MiB today, so a mesh stays on the creator's upload until Oxy
-takes it and the backfill moves it. A PUBLISHED file's bytes remain immutable: a
-`storage_key` change is refused unless the transaction declared that one row's
-move (`set_config('mercaria.asset_storage_move', <file id>, true)`, migration
-`0172`), which only `replaceAssetFileStorageKey` does, and the hash, size and type
-are refused even then.
+— so serving depends on no creator keeping a link (ADR 0021). Registration adopts
+a creator's upload (`adoptAssetObject`: Oxy ADR 0041 stage 4b's `adoptAppFile`
+shares the stored bytes, any type and size, and the copy's SHA-256 and size are
+measured against the source's); there is no fallback to the creator's upload.
+Rows registered earlier are moved by the storage backfill. A PUBLISHED file's
+bytes remain immutable: a `storage_key` change is refused unless the transaction
+declared that one row's move (`set_config('mercaria.asset_storage_move', <file
+id>, true)`, migration `0172`), which only `replaceAssetFileStorageKey` does, and
+the hash, size and type are refused even then.
 
 **"No right" and "somebody else's right" get the same answer.** Distinguishing them
 would confirm an id exists, which is the enumeration oracle #1015 W12 threat 1 is

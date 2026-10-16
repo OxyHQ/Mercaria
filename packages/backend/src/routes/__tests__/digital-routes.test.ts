@@ -479,7 +479,7 @@ describe('registering a file takes the three facts from the asset service', () =
   const filePath = `/digital/stores/${STORE_ID}/assets/${ASSET_ID}/versions/${VERSION_ID}/files`;
 
   it('writes the MEASURED size, media type and digest — and ignores a body that lies', async () => {
-    describeAssetObject.mockResolvedValue({
+    adoptAssetObject.mockResolvedValue({
       storageKey: STORAGE_KEY,
       byteSize: 4_096,
       mediaType: 'model/stl',
@@ -509,33 +509,32 @@ describe('registering a file takes the three facts from the asset service', () =
     );
   });
 
-  it('registers the APPLICATION-owned private copy when Oxy takes it, and the upload when not', async () => {
+  it('registers the APPLICATION-owned private file adopted from the upload, never the upload', async () => {
     const measured = {
-      storageKey: STORAGE_KEY,
+      storageKey: 'app-owned-copy',
       byteSize: 4_096,
       mediaType: 'model/stl',
       contentHash: DIGEST,
     };
-    describeAssetObject.mockResolvedValue(measured);
     insertAssetFile.mockResolvedValue({ id: FILE_ID });
-    // Oxy ADR 0041: the copy holds the same measured bytes under a new key.
-    adoptAssetObject.mockResolvedValueOnce({ ...measured, storageKey: 'app-owned-copy' });
+    // Oxy ADR 0041 stage 4b: the adopted file shares the measured bytes under a
+    // new key, whatever the type — a mesh included.
+    adoptAssetObject.mockResolvedValueOnce(measured);
     expect((await post(uploadsOn, filePath, body)).status).toBe(201);
     expect(adoptAssetObject).toHaveBeenCalledWith(STORAGE_KEY);
     expect(insertAssetFile).toHaveBeenLastCalledWith(
       expect.objectContaining({ storageKey: 'app-owned-copy', contentHash: DIGEST }),
     );
-    // A copy Oxy refuses (a mesh is not an application media type today) never
-    // fails the registration: the creator's own upload is registered as before.
+    // There is no fallback to the creator's own upload: an adoption that fails
+    // registers nothing.
+    insertAssetFile.mockClear();
     adoptAssetObject.mockRejectedValueOnce({ reason: 'unresolved' });
-    expect((await post(uploadsOn, filePath, body)).status).toBe(201);
-    expect(insertAssetFile).toHaveBeenLastCalledWith(
-      expect.objectContaining({ storageKey: STORAGE_KEY }),
-    );
+    expect((await post(uploadsOn, filePath, body)).status).toBe(502);
+    expect(insertAssetFile).not.toHaveBeenCalled();
   });
 
   it('never answers with the storage key', async () => {
-    describeAssetObject.mockResolvedValue({
+    adoptAssetObject.mockResolvedValue({
       storageKey: STORAGE_KEY,
       byteSize: 4_096,
       mediaType: 'model/stl',
@@ -553,14 +552,14 @@ describe('registering a file takes the three facts from the asset service', () =
   });
 
   it('refuses a file the asset service does not hold, with the same answer as a bad id', async () => {
-    describeAssetObject.mockResolvedValue(null);
+    adoptAssetObject.mockResolvedValue(null);
     const { status } = await post(uploadsOn, filePath, body);
     expect(status).toBe(404);
     expect(insertAssetFile).not.toHaveBeenCalled();
   });
 
   it('answers 503 when the deployment cannot ASK, and never believes the client', async () => {
-    describeAssetObject.mockRejectedValue({ reason: 'unconfigured' });
+    adoptAssetObject.mockRejectedValue({ reason: 'unconfigured' });
     const { status } = await post(uploadsOn, filePath, body);
     expect(status).toBe(503);
     expect(insertAssetFile).not.toHaveBeenCalled();
@@ -573,7 +572,7 @@ describe('registering a file takes the three facts from the asset service', () =
     findAssetVersion.mockResolvedValue({ id: VERSION_ID, assetId: ASSET_ID, state: 'published' });
     const { status } = await post(uploadsOn, filePath, body);
     expect(status).toBe(409);
-    expect(describeAssetObject).not.toHaveBeenCalled();
+    expect(adoptAssetObject).not.toHaveBeenCalled();
   });
 
   it('refuses a format outside the registry', async () => {

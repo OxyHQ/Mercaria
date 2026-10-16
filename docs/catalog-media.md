@@ -68,8 +68,10 @@ the row that will hold the file is not written yet (see "Usage registration").
 **Every call to Oxy Files is in ONE module, `services/catalog-media/oxy-files.ts`**
 (import, upload, references, reconciliation, event-signature verification), so a
 name that changes upstream is a one-file change. The stage-3 helpers
-(`importAppFile`, `importUserMedia`, `verifyFileEventSignature`) are those of the
-unpublished ADR 0041 SDK build and are marked `TODO(stage3-sdk)` there; the
+(`importAppFile`, `importUserMedia`, `verifyFileEventSignature`) and stage 4b's
+(`adoptAppFile`, `uploadAppFileLarge`, `LargeUploadFailedError`) are those of the
+unpublished ADR 0041 SDK build (`@oxy.so/core` 4.15.0) and are marked
+`TODO(stage3-sdk)` there; the
 backend's `@oxy.so/core` pin in `packages/backend/package.json` is the one place
 the release version is set.
 
@@ -81,7 +83,7 @@ the release version is set.
 | A P2P listing's media | the seller's account | `synchronizeAccount*` |
 | Canonical images and canonical description images, category art, brand logos | the **Mercaria application** — never the operator who made the request (it was, until ADR 0041) | `synchronizeApplication*` |
 | Review media, evidence documents | unchanged: the uploading account | (uploaded by the person) |
-| Digital deliverables | the **Mercaria application**, PRIVATE (readable only through Mercaria's service token, ADR 0041 D3/D5) — a creator's upload is copied at registration where Oxy takes the type | `services/digital/storage.ts` (`putAssetObject`, `adoptAssetObject`) |
+| Digital deliverables | the **Mercaria application**, PRIVATE (readable only through Mercaria's service token, ADR 0041 D3/D5) — a creator's upload is adopted at registration, every type and size | `services/digital/storage.ts` (`putAssetObject`, `adoptAssetObject`) |
 
 ### External imagery is copied (owner decision)
 
@@ -119,15 +121,23 @@ regardless. Links made before `0171` are queued by
 
 ### Digital deliverables are application files
 
-`putAssetObject` stores an APPLICATION-owned PRIVATE file and registers it;
-registration of a creator's upload copies it the same way (`adoptAssetObject`:
-Oxy imports the short-lived minted URL privately, Mercaria measures the copy's
-SHA-256 and size against the source's) and registers the copy. Serving then
-depends on no creator link (ADR 0021). Oxy ADR 0041 stage 3 takes only image and
-video application files up to 40 MiB, so a mesh, archive or PDF is refused by Oxy
-today; the registration then keeps the creator's upload, still servable through
-their link, and `scripts/backfill-digital-asset-storage.ts` (preview reports
-`oxyTakesIt` per file) moves it once Oxy takes it. A published file's BYTES stay
+Every deliverable is an APPLICATION-owned PRIVATE file (Oxy ADR 0041 stage 4b),
+whatever its type or size up to 8 GiB:
+
+- `putAssetObject` stores bytes this process holds through Oxy's resumable
+  multipart upload (`uploadAppFileLarge`, private) and registers the use.
+- Registering a creator's upload ADOPTS it (`adoptAssetObject`): the mint first
+  confirms the creator attached the file to Mercaria (adoption alone would take
+  any stranger's public file), then `adoptAppFile` gives Mercaria its own private
+  file sharing the stored bytes — nothing is downloaded or uploaded again — and
+  the copy's SHA-256 and size are measured against the source's before the row
+  points at it. There is no fallback to the creator's upload: a registration
+  whose adoption fails answers 502 and registers nothing.
+- `scripts/backfill-digital-asset-storage.ts` moves rows registered before this
+  onto adopted files the same way; bytes Oxy refuses as taken down (451) are
+  reported `blocked` and not retried.
+
+Serving then depends on no creator link (ADR 0021). A published file's BYTES stay
 immutable; its storage key may move only in a declared, same-hash move
 (migration `0172`, `replaceAssetFileStorageKey`) — `docs/digital-commerce.md`.
 
@@ -159,7 +169,7 @@ like a file id that no entry holds, and on a trigger that disagrees with it.
 | `review_media` | `reviews.id` | `review_media.file_id` | the author | row removed |
 | `return_request_evidence`, `retail_service_request_evidence`, `supplier_agreement_evidence`, `retail_resale_evidence`, `retail_compliance_evidence`, `merchant_claim_evidence`, `relationship_evidence` | the evidence row's `id` | its `file_id` / `oxy_file_id` | the uploader | retained (evidence) |
 | `order_item_image` | `order_items.id` | an Oxy URL in `.image_url` | store / seller | retained — order history is never rewritten |
-| `digital_asset_file` | the storage key itself | `asset_files.storage_key` | the application (a copy), or the creator where Oxy cannot take the type yet | retained |
+| `digital_asset_file` | the storage key itself | `asset_files.storage_key` | the application (adopted or uploaded); the creator only for a row the storage backfill has not moved yet | retained |
 
 **How a write becomes a reference.** A trigger of migration `0170` on every
 holding table (`mercaria_oxy_file_reference_touch`) enqueues the ENTITY into
@@ -226,8 +236,10 @@ ledger that lags its writes.
 | `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` | off | the external-imagery import LOOP (the source-link trigger queues regardless) |
 | `CANONICAL_SOURCE_MEDIA_*` | see above | its batch, global in-flight cap, per-record and per-product caps, attempts |
 
-Order: Oxy stages 1–3 deployed, Mercaria's application granted
-`files:references:write`, `files:app:write` and `files:user-media:write`; deploy
+Order: Oxy stages 1–4b deployed (digital registration adopts through stage 4b's
+`/assets/service/app/adopt`), Mercaria's application granted
+`files:references:write`, `files:app:write`, `files:app:delete` and
+`files:user-media:write`; deploy
 this (migration `0170` is `pre`); `OXY_FILE_REFERENCES_ENABLED=true`;
 `OXY_FILE_RECONCILIATION_ENABLED=true` and read every type's dry-run counts on
 `oxy_file_reference_reconciliations`; `OXY_FILE_RECONCILIATION_DRY_RUN=false`;

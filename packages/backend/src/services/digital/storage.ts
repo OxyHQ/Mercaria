@@ -25,8 +25,9 @@
  * So D17 binds `getServiceLinkedDownloadUrls` (Oxy ADR 0021): a SERVICE-token
  * batch mint that answers for two kinds of file only — one the MERCARIA
  * APPLICATION owns (a private application file, Oxy ADR 0041 D3/D5: what
- * `putAssetObject` stores), and one whose own owner attached it to the
- * `mercaria` application (a creator's upload, registered as it is). Oxy answers
+ * `putAssetObject` stores and `adoptAssetObject` takes), and one whose own owner
+ * attached it to the `mercaria` application (a creator's upload, read once at
+ * registration to measure it and adopt it). Oxy answers
  * *may this application read this file*; this service answers *may this person
  * have it*; neither is derivable from the other, which is the whole division.
  *
@@ -47,7 +48,9 @@
  * for ANY file id, so registration would have accepted a file the creator never
  * attached to Mercaria and the failure would have surfaced months later, to a
  * buyer, as a download that does not work. Reading the mint makes "not attached
- * here" a refusal the CREATOR meets, immediately, in the register call.
+ * here" a refusal the CREATOR meets, immediately, in the register call — and it
+ * is what keeps adoption, which would take any stranger's PUBLIC file, to files
+ * the creator attached here.
  *
  * The cost is a 300-second credential minted and discarded at register time.
  * Taken deliberately: it is never returned, never logged, and the alternative is
@@ -76,8 +79,10 @@
  * because an 8 GiB ceiling (`MAX_ASSET_FILE_BYTES`) and a 10 MB
  * `express.json()` limit are not reconcilable — so the only honest source for the
  * hash, the byte size and the verified media type is the asset service itself,
- * read server-to-server. Without this member the register route would have to
- * believe a client-reported digest, which is the exact value W1 forbids. It
+ * read server-to-server (`adoptAssetObject` reads the source and its adopted
+ * copy through the same path). Without this member the register route would
+ * have to believe a client-reported digest, which is the exact value W1
+ * forbids. It
  * resolves through `getServiceLinkedDownloadUrls`, which is service-token
  * authenticated and therefore needs Mercaria's Oxy identity (its task role, or
  * `OXY_APPLICATION_KEY`/`OXY_APPLICATION_SECRET` off ECS); a deployment with
@@ -89,11 +94,11 @@ import type { OxyFileReferenceEntityType } from '@mercaria/shared-types';
 import { log } from '../../lib/logger.js';
 import {
   addOxyFileReferences,
+  adoptAsPrivateApplicationFile,
   deleteApplicationFile,
-  importOxyFileFromUrl,
   mintPrivateDownloadUrls,
   OxyFilesError,
-  uploadOxyFile,
+  uploadPrivateApplicationFile,
   type ServiceLinkedDownloadUrl,
 } from '../catalog-media/oxy-files.js';
 
@@ -168,7 +173,10 @@ export function isDigitalStorageError(error: unknown): error is DigitalStorageEr
  * implementation of it.
  */
 export interface DigitalAssetStoragePort {
-  /** Store bytes as a PRIVATE object and return what the service measured. */
+  /**
+   * Store bytes as a PRIVATE application-owned object — any deliverable type,
+   * up to 8 GiB — and return what the service measured.
+   */
   putAssetObject(input: PutAssetObjectInput): Promise<StoredAssetObject>;
   /**
    * What the service holds under `storageKey`, measured — or `null` when it
@@ -176,11 +184,11 @@ export interface DigitalAssetStoragePort {
    */
   describeAssetObject(storageKey: string): Promise<StoredAssetObject | null>;
   /**
-   * Copy an object Mercaria may read (a creator's upload attached to it) into
-   * an APPLICATION-owned PRIVATE file holding the same bytes, registered, and
-   * return what the service measured of the copy — or `null` when the source is
-   * not readable. Throws when Oxy refuses the copy (an application file type or
-   * size it does not take) or the copy's measurement disagrees.
+   * Take an object Mercaria may read (a creator's upload attached to it) as an
+   * APPLICATION-owned PRIVATE file sharing the same bytes, registered, and
+   * return what the service measured of it — or `null` when the source is not
+   * readable. Every type and size a creator could upload is taken. Throws when
+   * Oxy refuses (taken-down bytes) or the measurement disagrees.
    */
   adoptAssetObject(storageKey: string): Promise<StoredAssetObject | null>;
   /**
@@ -307,26 +315,48 @@ async function readServableObject(
   };
 }
 
+/**
+ * Register Mercaria's use of an application-owned object it just stored or
+ * adopted. An application's file is collected once nothing references it (ADR
+ * 0041 D5), so the use is registered before the object is reported stored.
+ * `entityId` is the storage key itself: no `asset_files` row exists yet, and
+ * this call is what produces the key the row will hold.
+ */
+async function registerApplicationObject(storageKey: string, failure: string): Promise<void> {
+  try {
+    const [result] = await addOxyFileReferences([
+      { fileId: storageKey, entityType: MERCARIA_ASSET_FILE_ENTITY_TYPE, entityId: storageKey },
+    ]);
+    if (result?.result !== 'created' && result?.result !== 'exists')
+      throw new Error('The asset service did not record the reference.');
+  } catch (cause) {
+    throw new DigitalStorageError('unresolved', failure, { cause });
+  }
+}
+
 /** The ONE implementation: a digital asset file is a private Oxy asset. */
 export const oxyAssetStorage: DigitalAssetStoragePort = {
   async putAssetObject(input: PutAssetObjectInput): Promise<StoredAssetObject> {
     // An APPLICATION-owned PRIVATE file (Oxy ADR 0041 D3/D5): readable by no
     // person, only by Mercaria's own service token through the linked-url mint —
-    // so serving it never depends on a creator's link (ADR 0021). The bytes come
-    // from this process, so they must be a Blob here; a device file descriptor
-    // has no bytes server-side.
+    // so serving it never depends on a creator's link (ADR 0021). Stored by
+    // Oxy's resumable multipart upload (stage 4b), so a deliverable of any type
+    // up to `MAX_ASSET_FILE_BYTES` is taken, read in parts rather than whole. The
+    // bytes come from this process, so they must be a Blob here; a device file
+    // descriptor has no bytes server-side.
     const file = input.file;
     if (!(file instanceof Blob)) {
       throw new DigitalStorageError('unresolved', 'A server-side asset object must be a Blob.');
     }
     let storageKey: string;
     try {
-      const stored = await uploadOxyFile(
-        { kind: 'application' },
-        new Uint8Array(await file.arrayBuffer()),
+      const stored = await uploadPrivateApplicationFile(
+        file,
         file.type || 'application/octet-stream',
-        'digital-asset',
-        { visibility: 'private' },
+        {
+          filename: 'digital-asset',
+          ...(input.metadata ? { metadata: input.metadata } : {}),
+        },
       );
       if (stored.visibility !== 'private')
         throw new Error('The asset service did not store the object private.');
@@ -334,27 +364,10 @@ export const oxyAssetStorage: DigitalAssetStoragePort = {
     } catch (cause) {
       throw new DigitalStorageError('unresolved', 'Storing the asset object failed.', { cause });
     }
-    try {
-      // An application's file is collected once nothing references it (ADR 0041
-      // D5), so the use is registered before the object is reported stored.
-      // `entityId` is the storage key itself: no `asset_files` row exists yet,
-      // and this call is what produces the key the row will hold.
-      const [result] = await addOxyFileReferences([
-        {
-          fileId: storageKey,
-          entityType: MERCARIA_ASSET_FILE_ENTITY_TYPE,
-          entityId: storageKey,
-        },
-      ]);
-      if (result?.result !== 'created' && result?.result !== 'exists')
-        throw new Error('The asset service did not record the reference.');
-    } catch (cause) {
-      throw new DigitalStorageError(
-        'unresolved',
-        'The asset object was stored and could not be attached to this application.',
-        { cause },
-      );
-    }
+    await registerApplicationObject(
+      storageKey,
+      'The asset object was stored and could not be attached to this application.',
+    );
     // Measured, not assumed — even here. The caller knows the length of the
     // buffer it handed over; it does not know what the service stored, and
     // `asset_files.content_hash` is a claim about the latter. It also re-reads
@@ -371,36 +384,30 @@ export const oxyAssetStorage: DigitalAssetStoragePort = {
   },
 
   async adoptAssetObject(storageKey: string): Promise<StoredAssetObject | null> {
+    // The source must be servable to Mercaria FIRST: the mint answers only for a
+    // file Mercaria owns or one its owner attached to Mercaria (ADR 0021),
+    // whereas adoption would also take any stranger's PUBLIC file — so this
+    // read, not the adoption, is what keeps a creator to their own uploads.
     const source = await readServableObject(storageKey);
     if (!source) return null;
     let copyKey: string;
     try {
-      // Oxy fetches the short-lived minted URL itself (ADR 0041 D7); the URL is
-      // a credential and goes nowhere else — not a log line, not an error.
-      const copy = await importOxyFileFromUrl({ kind: 'application' }, source.url, {
-        visibility: 'private',
-      });
+      // Oxy ADR 0041 stage 4b: Mercaria's OWN row of the same stored bytes —
+      // nothing is downloaded or uploaded again, whatever the type or size.
+      const copy = await adoptAsPrivateApplicationFile(storageKey);
       if (copy.visibility !== 'private')
         throw new DigitalStorageError('unresolved', 'The copy was not stored private.');
       copyKey = copy.fileId;
     } catch (cause) {
       if (isDigitalStorageError(cause)) throw cause;
-      throw new DigitalStorageError('unresolved', 'Copying the asset object failed.', { cause });
+      throw new DigitalStorageError('unresolved', 'Taking the asset object failed.', { cause });
     }
+    // Already Mercaria's own file: Oxy answers it as it is.
     if (copyKey === storageKey) return source.object;
-    try {
-      const [result] = await addOxyFileReferences([
-        { fileId: copyKey, entityType: MERCARIA_ASSET_FILE_ENTITY_TYPE, entityId: copyKey },
-      ]);
-      if (result?.result !== 'created' && result?.result !== 'exists')
-        throw new Error('The asset service did not record the reference.');
-    } catch (cause) {
-      throw new DigitalStorageError(
-        'unresolved',
-        'The copied object could not be attached to this application.',
-        { cause },
-      );
-    }
+    await registerApplicationObject(
+      copyKey,
+      'The adopted object could not be attached to this application.',
+    );
     // The bytes must be the SAME bytes — measured, never assumed: the row that
     // will point here records a hash a buyer's licence is about.
     const copied = await readServableObject(copyKey);
@@ -448,11 +455,12 @@ export const oxyAssetStorage: DigitalAssetStoragePort = {
       });
     }
     if (!servable) {
-      // Reached when the creator's file is no longer attached to this
-      // application — they unlinked it, or it was deleted in Oxy. The buyer's
-      // RIGHT is untouched by that (ADR 0010 D6: nothing auto-deletes), so this
-      // is a serving failure and not a revocation, and it must not be reported as
-      // one.
+      // Reached when the file is no longer servable to this application — an
+      // application file taken down (ADR 0041 D10), or a creator's upload the
+      // storage backfill has not moved yet that they unlinked or deleted. The
+      // buyer's RIGHT is untouched by that (ADR 0010 D6: nothing auto-deletes),
+      // so this is a serving failure and not a revocation, and it must not be
+      // reported as one.
       log.general.error(
         {},
         '[Digital] a file with an active right is no longer servable to this application',

@@ -675,11 +675,13 @@ says the importer downloads through `safeFetch` and that canonical images import
 under the operator's account. What is NOT done:
 
 - **Nothing has run against a live Oxy.** Every Oxy call is faked at the SDK
-  boundary in tests. The stage-3 SDK names (`importAppFile`, `importUserMedia`,
-  `verifyFileEventSignature`) are from the unpublished ADR 0041 SDK build
-  (`TODO(stage3-sdk)` in `oxy-files.ts`); npm's `4.13.0` was published from Oxy's
-  `main` without them, so `packages/backend/package.json` (the one place) must pin
-  the version that ships them, and `bun.lock` be regenerated.
+  boundary in tests. The SDK names (stage 3's `importAppFile`, `importUserMedia`,
+  `verifyFileEventSignature`; stage 4b's `adoptAppFile`, `uploadAppFileLarge`,
+  `LargeUploadFailedError`) are from the unpublished ADR 0041 SDK build, core
+  4.15.0 with contracts 4.19.0 (`TODO(stage3-sdk)` in `oxy-files.ts`); npm's
+  `4.13.0` was published from Oxy's `main` without them, so
+  `packages/backend/package.json` (the one place) pins the version that ships them,
+  and `bun.lock` must be regenerated once it is on npm.
 - **Scopes:** Mercaria's application needs `files:references:write`,
   `files:app:write`, `files:app:delete` and `files:user-media:write`.
 - **Release order** (`docs/catalog-media.md`, "Levers and the release order"),
@@ -689,13 +691,6 @@ under the operator's account. What is NOT done:
   `category_image`, `brand_logo`, `canonical_description_image`,
   `canonical_image_duplicates`, `source_media`) and
   `backfill-digital-asset-storage`.
-- **Digital deliverables of 3D/archive/PDF types stay on the creator's upload**
-  until Oxy takes such APPLICATION files: ADR 0041 stage 3 accepts only image and
-  video application files up to 40 MiB (`POST /assets/service/app` and the import
-  share the check). The code copies wherever Oxy accepts, and the backfill's
-  preview names each file Oxy cannot take yet (`oxyTakesIt: false`). An Oxy change
-  is required (application files of any deliverable MIME up to 8 GiB, through an
-  init/complete upload or the import).
 
 ## Storefront product parity — review media upload/acceptance remaining (2026-10-10)
 

@@ -7,7 +7,10 @@
  *   fetcher and remembers it per (owner, URL), so importing an unchanged source
  *   again returns the same file without a download. Mercaria no longer fetches
  *   supplier bytes at all.
- * - **Upload** of bytes Mercaria already holds (a merchant's upload).
+ * - **Upload** of bytes Mercaria already holds (a merchant's upload), and the
+ *   resumable multipart upload of a private deliverable of any type up to 8 GiB.
+ * - **Adoption** (stage 4b): the application's OWN file of a file it can read,
+ *   sharing the stored bytes — a creator's deliverable, without a download.
  * - **References** (D4/D6): the application's own record of which entity uses
  *   which file. The application is always the service token's; nothing here
  *   names it.
@@ -16,7 +19,9 @@
  * Two owners exist (`OxyFileOwner`): an ACCOUNT — a store's media belongs to
  * `stores.oxy_account_id`, a P2P listing's to its seller — imported acting as
  * that account; and the Mercaria APPLICATION, for content no account owns
- * (canonical catalogue media, category art, brand logos).
+ * (canonical catalogue media, category art, brand logos, digital deliverables —
+ * the last PRIVATE: readable by no person, only by Mercaria's service token
+ * through `linkedDownloadUrls`, ADR 0041 D3).
  *
  * Errors never carry a source URL, a signed query or a token: a supplier URL is
  * routinely a capability, and these messages reach sync-run rows and logs.
@@ -31,6 +36,7 @@ import {
 } from '@oxy.so/core';
 import {
   FileEventVerificationError,
+  LargeUploadFailedError,
   verifyFileEventSignature,
   type FileEvent,
   type OxyServer,
@@ -117,22 +123,6 @@ function storedFile(answer: unknown): StoredOxyFile {
 }
 
 /**
- * `public` for catalogue media (anyone with the link). `private` exists only
- * for an APPLICATION file — readable by no person, only by Mercaria's service
- * token through `linkedDownloadUrls` (ADR 0041 D3): a digital deliverable. An
- * account-owned private file would be readable by its owner and not by
- * Mercaria, which is the dependency on ADR 0021's owner link this avoids.
- */
-export type OxyFileVisibility = 'public' | 'private';
-
-function visibilityFor(owner: OxyFileOwner, requested: OxyFileVisibility | undefined) {
-  const visibility = requested ?? 'public';
-  if (visibility === 'private' && owner.kind !== 'application')
-    throw new OxyFilesError('Only an application-owned file is stored private here.');
-  return visibility;
-}
-
-/**
  * Import a public HTTPS source as a PUBLIC file of `owner` (ADR 0041 D7).
  *
  * Oxy fetches it (HTTPS on every hop, public addresses only, bounded bytes and
@@ -148,7 +138,7 @@ function visibilityFor(owner: OxyFileOwner, requested: OxyFileVisibility | undef
  * failed is unreferenced and Oxy collects it — the outcome wanted.
  *
  * TODO(stage3-sdk): `importAppFile` / `importUserMedia` are the names in the
- * UNPUBLISHED `@oxy.so/core` 4.13.0 worktree (Oxy ADR 0041 "Stage 3 as built":
+ * UNPUBLISHED `@oxy.so/core` 4.15.0 build (Oxy ADR 0041 "Stage 3 as built":
  * `POST /assets/service/app/import`, and `/assets/service/user-media/import`
  * owned by the `x-owner-user-id` header). Confirm them against the published
  * package; a rename is a change to these two calls only.
@@ -156,20 +146,19 @@ function visibilityFor(owner: OxyFileOwner, requested: OxyFileVisibility | undef
 export async function importOxyFileFromUrl(
   owner: OxyFileOwner,
   sourceUrl: string,
-  options: { revalidate?: boolean; visibility?: OxyFileVisibility } = {},
+  options: { revalidate?: boolean } = {},
 ): Promise<StoredOxyFile> {
   if (owner.kind === 'account' && !owner.oxyUserId)
     throw new OxyFilesError('An account-owned import needs its owner.');
-  const visibility = visibilityFor(owner, options.visibility);
   const oxy = client();
   const revalidate = options.revalidate ? { revalidate: true } : {};
   let answer: unknown;
   try {
     answer =
       owner.kind === 'application'
-        ? await oxy.assets.importAppFile(sourceUrl, { visibility, ...revalidate })
+        ? await oxy.assets.importAppFile(sourceUrl, { visibility: 'public', ...revalidate })
         : await oxy.assets.importUserMedia(owner.oxyUserId, sourceUrl, {
-            visibility,
+            visibility: 'public',
             ...revalidate,
           });
   } catch (error) {
@@ -188,17 +177,15 @@ export async function uploadOxyFile(
   bytes: Buffer | Uint8Array,
   mime: string,
   originalName: string,
-  options: { visibility?: OxyFileVisibility } = {},
 ): Promise<StoredOxyFile> {
   if (owner.kind === 'account' && !owner.oxyUserId)
     throw new OxyFilesError('An account-owned upload needs its owner.');
-  const visibility = visibilityFor(owner, options.visibility);
   const oxy = client();
   const body = new Uint8Array(bytes);
   try {
     if (owner.kind === 'application') {
       const uploaded = await oxy.assets.uploadAppFile(body, mime, {
-        visibility,
+        visibility: 'public',
         originalName,
         timeout: UPLOAD_TIMEOUT_MS,
       });
@@ -214,6 +201,78 @@ export async function uploadOxyFile(
     if (error instanceof OxyFilesError) throw error;
     throw refusal('store the media', error);
   }
+}
+
+/**
+ * Store bytes this process holds as a PRIVATE file of the Mercaria APPLICATION
+ * (ADR 0041 stage 4b, `uploadAppFileLarge`): any type Oxy does not refuse as
+ * executable or active content (HTML, SVG, XML, scripts — 415), up to 8 GiB, by
+ * a resumable multipart upload whose parts go straight to storage. Oxy hashes
+ * the assembled object before it becomes a file, and the SDK hashes the source
+ * 8 MiB at a time, so neither side holds the whole file in memory. Calling again
+ * for the same bytes resumes an interrupted upload (and an already-stored copy
+ * answers at once, deduplicated).
+ *
+ * No reference is registered here: the caller registers the use under the id
+ * this returns, which it does not know before.
+ *
+ * TODO(stage3-sdk): `uploadAppFileLarge` / `LargeUploadFailedError` are the names
+ * in the UNPUBLISHED `@oxy.so/core` 4.15.0 build; confirm them against the
+ * published package.
+ */
+export async function uploadPrivateApplicationFile(
+  source: Blob,
+  mime: string,
+  options: { filename: string; metadata?: Readonly<Record<string, string>> },
+): Promise<StoredOxyFile> {
+  const oxy = client();
+  let answer: unknown;
+  try {
+    answer = await oxy.assets.uploadAppFileLarge(source, {
+      mime,
+      visibility: 'private',
+      filename: options.filename,
+      ...(options.metadata ? { metadata: { ...options.metadata } } : {}),
+    });
+  } catch (error) {
+    if (error instanceof LargeUploadFailedError)
+      throw new OxyFilesError(`Oxy did not store the upload (${error.code}).`);
+    throw refusal('store the file', error);
+  }
+  return storedFile(answer);
+}
+
+/**
+ * Give the Mercaria APPLICATION its own PRIVATE file of the bytes `fileId`
+ * holds (ADR 0041 stage 4b, `adoptAppFile`): the stored object is SHARED, never
+ * downloaded or uploaded again, and the copy outlives the source, whose owner
+ * may delete theirs. Oxy answers for a file this application can read — a
+ * person's private file its owner attached to Mercaria (ADR 0021), any public
+ * or unlisted file, or Mercaria's own (answered as it is) — and 404 otherwise;
+ * taken-down bytes are 451. Private is the narrowest visibility, so the
+ * "wider than the source" refusal cannot apply. Idempotent per (application,
+ * bytes).
+ *
+ * No reference is registered here, for the same reason as the upload.
+ *
+ * TODO(stage3-sdk): `adoptAppFile` is the name in the UNPUBLISHED `@oxy.so/core`
+ * 4.15.0 build; confirm it against the published package.
+ */
+export async function adoptAsPrivateApplicationFile(
+  fileId: string,
+): Promise<StoredOxyFile & { sha256: string }> {
+  const oxy = client();
+  let answer: Awaited<ReturnType<OxyServer['assets']['adoptAppFile']>>;
+  try {
+    answer = await oxy.assets.adoptAppFile(fileId, { visibility: 'private' });
+  } catch (error) {
+    throw refusal('adopt the file', error);
+  }
+  const stored = storedFile(answer);
+  const sha256 = typeof answer?.file?.sha256 === 'string' ? answer.file.sha256.toLowerCase() : '';
+  if (!/^[0-9a-f]{64}$/.test(sha256))
+    throw new OxyFilesError('Oxy did not describe the stored file.');
+  return { ...stored, sha256 };
 }
 
 /** Register Mercaria's use of files (`files:references:write`). Per-item results. */
@@ -276,7 +335,7 @@ export type VerifiedOxyFileDelivery =
  * the endpoint is set, before the secret has been shown to anybody.
  *
  * TODO(stage3-sdk): `verifyFileEventSignature` is the name in the UNPUBLISHED
- * `@oxy.so/core` 4.13.0 worktree; confirm it against the published package.
+ * `@oxy.so/core` 4.15.0 build; confirm it against the published package.
  */
 export function verifyOxyFileDelivery(
   rawBody: Buffer,
