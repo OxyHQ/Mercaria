@@ -13,7 +13,7 @@ import { insertVariants } from '../../db/catalog/variantRepository.js';
 import { backfillListingMedia } from '../catalog-media/backfill.js';
 
 // Only Oxy is simulated, at the SDK boundary: `importUserMedia` is Oxy's import
-// by URL (ADR 0041 D7). These cases prove maintenance atomicity/identity in real
+// by URL (ADR 0043 D7). These cases prove maintenance atomicity/identity in real
 // PostgreSQL; they do not prove live Oxy imports.
 const { importMedia } = vi.hoisted(() => ({ importMedia: vi.fn() }));
 vi.mock('../../capabilities/oxy-service-client.js', () => ({

@@ -48,7 +48,7 @@ Canonical observations accept `media` with explicit kinds instead of `images`,
 retain source provenance/rights and import before opening their transaction.
 The source rights are checked again inside that transaction.
 
-### Import by URL happens in Oxy (Oxy ADR 0041 D7)
+### Import by URL happens in Oxy (Oxy ADR 0043 D7)
 
 Mercaria no longer downloads supplier bytes. `services/catalog-media/sync.ts`
 validates every reference (an Oxy file id, or HTTPS without credentials) before
@@ -70,20 +70,20 @@ the row that will hold the file is not written yet (see "Usage registration").
 name that changes upstream is a one-file change. The stage-3 helpers
 (`importAppFile`, `importUserMedia`, `verifyFileEventSignature`) and stage 4b's
 (`adoptAppFile`, `uploadAppFileLarge`, `LargeUploadFailedError`) are those of the
-unpublished ADR 0041 SDK build (`@oxy.so/core` 4.15.0) and are marked
+unpublished ADR 0043 SDK build (`@oxy.so/core` 4.15.0) and are marked
 `TODO(stage3-sdk)` there; the
 backend's `@oxy.so/core` pin in `packages/backend/package.json` is the one place
 the release version is set.
 
 ### Who owns the bytes
 
-| Content | Owner (ADR 0041 D1) | Import call |
+| Content | Owner (ADR 0043 D1) | Import call |
 |---|---|---|
 | A store listing's gallery and description images, condition photos, store logo/cover/policy images, collection images, authoring and seller drafts | the STORE's Oxy account, `stores.oxy_account_id` (acting as it) | `synchronizeStore*` |
 | A P2P listing's media | the seller's account | `synchronizeAccount*` |
-| Canonical images and canonical description images, category art, brand logos | the **Mercaria application** — never the operator who made the request (it was, until ADR 0041) | `synchronizeApplication*` |
+| Canonical images and canonical description images, category art, brand logos | the **Mercaria application** — never the operator who made the request (it was, until ADR 0043) | `synchronizeApplication*` |
 | Review media, evidence documents | unchanged: the uploading account | (uploaded by the person) |
-| Digital deliverables | the **Mercaria application**, PRIVATE (readable only through Mercaria's service token, ADR 0041 D3/D5) — a creator's upload is adopted at registration, every type and size | `services/digital/storage.ts` (`putAssetObject`, `adoptAssetObject`) |
+| Digital deliverables | the **Mercaria application**, PRIVATE (readable only through Mercaria's service token, ADR 0043 D3/D5) — a creator's upload is adopted at registration, every type and size | `services/digital/storage.ts` (`putAssetObject`, `adoptAssetObject`) |
 
 ### External imagery is copied (owner decision)
 
@@ -121,7 +121,7 @@ regardless. Links made before `0171` are queued by
 
 ### Digital deliverables are application files
 
-Every deliverable is an APPLICATION-owned PRIVATE file (Oxy ADR 0041 stage 4b),
+Every deliverable is an APPLICATION-owned PRIVATE file (Oxy ADR 0043 stage 4b),
 whatever its type or size up to 8 GiB:
 
 - `putAssetObject` stores bytes this process holds through Oxy's resumable
@@ -141,7 +141,7 @@ Serving then depends on no creator link (ADR 0021). A published file's BYTES sta
 immutable; its storage key may move only in a declared, same-hash move
 (migration `0172`, `replaceAssetFileStorageKey`) — `docs/digital-commerce.md`.
 
-## Usage registration (Oxy ADR 0041 D4–D6, D9)
+## Usage registration (Oxy ADR 0043 D4–D6, D9)
 
 Oxy keeps an APPLICATION-owned file only while some application references it
 (unreferenced for 24 hours → trash → purged 30 days later), and never deletes an
@@ -195,7 +195,7 @@ or copies an object, and reconciled from an inventory that reads each key throug
 `findAssetFileStorageKey`, the one sanctioned reader of that protected column —
 an application-owned deliverable nothing references would be collected).
 
-**Reconciliation** (`file-reference-reconciliation.ts`, ADR 0041 D6) sends Oxy
+**Reconciliation** (`file-reference-reconciliation.ts`, ADR 0043 D6) sends Oxy
 the whole inventory of one entity type, streamed in keyset pages; Oxy adds what
 it is missing and removes what it holds from before the run that the inventory
 lacks. One row per type in `oxy_file_reference_reconciliations` is leased so one
@@ -207,7 +207,7 @@ first run of each type registers every file Mercaria already used.
 `OXY_FILE_RECONCILIATION_DRY_RUN` (default ON) commits every run as a dry run —
 read each type's first counts before switching it off.
 
-**File events** (ADR 0041 D9). `POST /webhooks/oxy-files` is the SIXTH raw-body
+**File events** (ADR 0043 D9). `POST /webhooks/oxy-files` is the SIXTH raw-body
 mount (above `express.json()`, asserted by `oxy-files-webhook.integration.test.ts`).
 It answers Oxy's `webhook.challenge` unsigned, and verifies every event with
 `verifyFileEventSignature` (`oxy-signature`, HMAC over the raw body, five-minute

@@ -62,7 +62,7 @@ describe('review attachment ownership and persistence', () => {
     expect(clients).toHaveBeenCalledTimes(1);
     expect(setAccessToken).toHaveBeenCalledExactlyOnceWith(author.accessToken);
     // The use is registered by the reference outbox after the review commits
-    // (`review_media` rows, Oxy ADR 0041 D4) with Mercaria's service token —
+    // (`review_media` rows, Oxy ADR 0043 D4) with Mercaria's service token —
     // never from the author's session, and never before the write.
     expect(link).not.toHaveBeenCalled();
   });

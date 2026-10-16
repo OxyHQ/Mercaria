@@ -1,5 +1,5 @@
 /**
- * Handle a file event Oxy delivered (ADR 0041 D9/D10).
+ * Handle a file event Oxy delivered (ADR 0043 D9/D10).
  *
  * `file.blocked` (a rights or privacy takedown) and `file.deleted` make
  * Mercaria stop SHOWING the file: each registry entry's `detach` removes the

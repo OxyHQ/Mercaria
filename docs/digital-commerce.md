@@ -113,10 +113,10 @@ greppable act through ONE function, `findAssetFileStorageKey`:
 operator's storage-move backfill (`asset-storage-backfill.ts`) calls it to adopt a
 deliverable and reports only a hash of the key.
 
-**Deliverables are Mercaria-application PRIVATE files** (Oxy ADR 0041 D3/D5),
+**Deliverables are Mercaria-application PRIVATE files** (Oxy ADR 0043 D3/D5),
 readable by no person and by Mercaria's service token through the linked-url mint
 — so serving depends on no creator keeping a link (ADR 0021). Registration adopts
-a creator's upload (`adoptAssetObject`: Oxy ADR 0041 stage 4b's `adoptAppFile`
+a creator's upload (`adoptAssetObject`: Oxy ADR 0043 stage 4b's `adoptAppFile`
 shares the stored bytes, any type and size, and the copy's SHA-256 and size are
 measured against the source's); there is no fallback to the creator's upload.
 Rows registered earlier are moved by the storage backfill. A PUBLISHED file's

@@ -63,7 +63,7 @@ import { connectWithApiKey, runBackfill } from '../connector-sync.service.js';
 import { connectPushIn, ingestProducts } from '../channel-ingest.service.js';
 
 // Only Oxy is replaced, at the SDK boundary (`__tests__/oxy-files-fake.ts`: it
-// imports by URL and deduplicates per owner and URL, as Oxy ADR 0041 D7 does).
+// imports by URL and deduplicates per owner and URL, as Oxy ADR 0043 D7 does).
 // Store ownership, the media adapter, catalog services, repositories and
 // PostgreSQL constraints remain real.
 const oxyFiles = vi.hoisted(() => ({

@@ -1,5 +1,5 @@
 /**
- * What a blocked or deleted Oxy file does to the rows that hold it (ADR 0041
+ * What a blocked or deleted Oxy file does to the rows that hold it (ADR 0043
  * D9/D10) — one function per holding shape, each run inside the file event's
  * transaction and each returning the ids of the ENTITIES it changed (the same
  * entity ids the reference registry uses), so the event can audit them.

@@ -3858,7 +3858,7 @@ export interface PickupConfig {
 }
 
 /**
- * Oxy Files usage registration (Oxy ADR 0041) — three independent levers.
+ * Oxy Files usage registration (Oxy ADR 0043) — three independent levers.
  *
  * Each gates a LOOP or a MOUNT, never a durable record: the triggers of
  * migration `0170` enqueue every change to a file-holding row whatever these
@@ -3879,7 +3879,7 @@ export interface OxyFilesConfig {
   readonly referenceMaxAttempts: number;
   /**
    * `OXY_FILE_RECONCILIATION_ENABLED` — run the nightly per-entity-type
-   * reconciliation (ADR 0041 D6). Default OFF.
+   * reconciliation (ADR 0043 D6). Default OFF.
    */
   readonly reconciliationEnabled: boolean;
   /**

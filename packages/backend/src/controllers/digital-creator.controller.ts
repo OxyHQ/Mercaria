@@ -26,7 +26,7 @@
  * creator uploads to Oxy and posts the `file_id`, and
  * `services/digital/storage.ts` reads the size, the verified media type and the
  * digest back from the asset service — of the APPLICATION-owned private file
- * Mercaria adopts from that upload (Oxy ADR 0041 stage 4b), which is what the
+ * Mercaria adopts from that upload (Oxy ADR 0043 stage 4b), which is what the
  * row stores. A deployment that cannot ask answers 503 and registers nothing; it
  * never falls back to believing the client, or to the creator's own upload.
  *
@@ -284,7 +284,7 @@ export async function registerAssetFileHandler(req: Request, res: Response): Pro
       visibility: AssetFileVisibility;
     };
 
-    // The deliverable becomes an APPLICATION-owned PRIVATE file (Oxy ADR 0041
+    // The deliverable becomes an APPLICATION-owned PRIVATE file (Oxy ADR 0043
     // D3/D5) sharing the creator's stored bytes (stage 4b adoption — nothing is
     // downloaded or uploaded again, whatever the type or size), so serving it
     // never depends on the creator's link staying in place (ADR 0021). The source

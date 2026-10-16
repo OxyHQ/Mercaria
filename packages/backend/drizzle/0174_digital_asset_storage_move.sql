@@ -3,7 +3,7 @@
 -- A published asset file's BYTES stay immutable (#1015 W12 threat 8: no swap
 -- after a sale) — `content_hash`, `byte_size` and `media_type` are still refused
 -- — but WHERE those bytes are stored may move: a creator's upload is copied into
--- an application-owned PRIVATE Oxy file (Oxy ADR 0041 D3/D5) so serving no
+-- an application-owned PRIVATE Oxy file (Oxy ADR 0043 D3/D5) so serving no
 -- longer depends on the creator's link (ADR 0021). A `storage_key` change on a
 -- published file is still refused UNLESS the transaction declared that move for
 -- exactly that row (`set_config('mercaria.asset_storage_move', <file id>, true)`)

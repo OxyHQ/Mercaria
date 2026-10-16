@@ -29,7 +29,7 @@ CREATE INDEX "canonical_source_media_imports_record_idx" ON "canonical_source_me
 -- backfill, an operator's observation). This trigger is the one place that
 -- sees all three, in the writer's own transaction, and queues the observation's
 -- stored imagery to be copied into canonical_images as files the Mercaria
--- application owns (Oxy ADR 0041). Only an observation whose stored payload
+-- application owns (Oxy ADR 0043). Only an observation whose stored payload
 -- names media queues anything; the import is bounded by the dispatcher
 -- (`services/catalog-media/source-media-import.ts`), never done here.
 -- oxy:handwritten-begin=canonical_source_media_enqueue

@@ -1,5 +1,5 @@
 /**
- * External imagery copied into the canonical catalogue (Oxy ADR 0041): an
+ * External imagery copied into the canonical catalogue (Oxy ADR 0043): an
  * observation attached to a canonical product queues its stored `payload.media`
  * (migration 0171's source-link trigger), and the bounded dispatcher imports it
  * as Mercaria-application files into `canonical_images` — with the observation

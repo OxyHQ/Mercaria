@@ -730,7 +730,7 @@ describe('public bundle contents', () => {
       status: 'available',
       components: [{ image: { fileId: variantFile } }],
     });
-    // A supplier URL never leaves the backend (Oxy ADR 0041 audit).
+    // A supplier URL never leaves the backend (Oxy ADR 0043 audit).
     expect(JSON.stringify(first)).not.toContain('example.com');
     await db.delete(canonicalImages).where(eq(canonicalImages.variantId, child.variantIds[0]));
     expect(await read()).toMatchObject({

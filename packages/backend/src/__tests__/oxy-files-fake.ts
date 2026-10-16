@@ -3,7 +3,7 @@
  * so `services/catalog-media/oxy-files.ts`, the ONE adapter, runs for real in
  * every test that imports media.
  *
- * It models the two behaviours Mercaria now relies on (Oxy ADR 0041 D7):
+ * It models the two behaviours Mercaria now relies on (Oxy ADR 0043 D7):
  *
  * - **Import by URL deduplicates per (owner, URL).** The same source imported
  *   again by the same owner answers the SAME file id without a fetch — the

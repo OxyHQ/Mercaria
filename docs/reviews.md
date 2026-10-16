@@ -126,7 +126,7 @@ JPEG, PNG, WebP, GIF and AVIF images up to 20 MiB, or MP4/WebM videos up to 100 
 MIME and size come from Oxy; the caller supplies neither a URL nor a media kind.
 The entire selection is checked before the review is written; the use is then
 registered with Oxy as a `review_media` reference by the reference outbox, with
-Mercaria's service token, after the review commits (Oxy ADR 0041 D4 —
+Mercaria's service token, after the review commits (Oxy ADR 0043 D4 —
 `docs/catalog-media.md`). No link is made from the author's session any more, and
 nothing changes the file's visibility. This path never promotes a private file to
 public. Private transaction reviews

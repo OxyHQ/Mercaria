@@ -1,5 +1,5 @@
 /**
- * Oxy Files usage registration (Oxy ADR 0041 D4/D6/D9).
+ * Oxy Files usage registration (Oxy ADR 0043 D4/D6/D9).
  *
  * Every Mercaria row that holds an Oxy file id tells Oxy so, as a reference
  * `(fileId, entityType, entityId)` owned by the Mercaria application. Oxy keeps
@@ -46,14 +46,14 @@ export const OXY_FILE_REFERENCE_ENTITY_TYPES = [
 export type OxyFileReferenceEntityType = (typeof OXY_FILE_REFERENCE_ENTITY_TYPES)[number];
 
 /**
- * Who owns the bytes an entity type holds (ADR 0041 D1). `account` is a person or
+ * Who owns the bytes an entity type holds (ADR 0043 D1). `account` is a person or
  * an organization — a store's media belongs to `stores.oxy_account_id`, a P2P
  * listing's to its seller; `application` is the Mercaria application itself.
  */
 export const OXY_FILE_OWNER_KINDS = ['account', 'application'] as const;
 export type OxyFileOwnerKind = (typeof OXY_FILE_OWNER_KINDS)[number];
 
-/** The file events Oxy sends an application holding a reference (ADR 0041 D9). */
+/** The file events Oxy sends an application holding a reference (ADR 0043 D9). */
 export const OXY_FILE_EVENT_TYPES = [
   'file.deleted',
   'file.trashed',

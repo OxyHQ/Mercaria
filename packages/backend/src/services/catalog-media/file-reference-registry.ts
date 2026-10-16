@@ -1,5 +1,5 @@
 /**
- * THE registry of every place Mercaria holds an Oxy file id (Oxy ADR 0041 D4):
+ * THE registry of every place Mercaria holds an Oxy file id (Oxy ADR 0043 D4):
  * per reference `entityType`, which rows hold its files, which row id is the
  * `entityId`, who owns the bytes, and what a blocked or deleted file does to the
  * holding row. `docs/catalog-media.md` renders this table for people.
@@ -58,7 +58,7 @@ export type FileReferenceOwner =
   /** `stores.oxy_account_id`, or a P2P listing's seller. */
   | 'store_or_seller'
   | 'store'
-  /** The Mercaria application (ADR 0041 D1): content no account owns. */
+  /** The Mercaria application (ADR 0043 D1): content no account owns. */
   | 'application'
   /** Whoever uploaded it — a buyer's review media, a party's evidence. */
   | 'uploader'
@@ -389,7 +389,7 @@ const DEFINITIONS: readonly FileReferenceEntityDefinition[] = [
     // `findAssetFileStorageKey` (house-invariants) — so the generic holding
     // queries may not read it. The storage port registers the reference when it
     // stores or copies an object, and the reconciliation's inventory reads each
-    // key through that one function. Since Oxy ADR 0041 the deliverable is an
+    // key through that one function. Since Oxy ADR 0043 the deliverable is an
     // APPLICATION file, which Oxy collects once nothing references it — so this
     // type IS reconciled, nightly like the rest.
     entityType: 'digital_asset_file',

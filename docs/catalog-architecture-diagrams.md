@@ -103,8 +103,8 @@ flowchart LR
         M_Supervised_catalog_review["Supervised catalog review"]
         M_Supervised_purchase_coordination["Supervised purchase coordination"]
         M_Store_access["Store access"]
-        M_Canonical_source_imagery__Oxy_ADR_0041_["Canonical source imagery (Oxy ADR 0041)"]
-        M_Oxy_file_usage__Oxy_ADR_0041_["Oxy file usage (Oxy ADR 0041)"]
+        M_Canonical_source_imagery__Oxy_ADR_0041_["Canonical source imagery (Oxy ADR 0043)"]
+        M_Oxy_file_usage__Oxy_ADR_0041_["Oxy file usage (Oxy ADR 0043)"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
         direction TB
@@ -275,8 +275,8 @@ flowchart LR
     M_Supervised_catalog_review(["Supervised catalog review"])
     M_Supervised_purchase_coordination(["Supervised purchase coordination"])
     M_Store_access(["Store access"])
-    M_Canonical_source_imagery__Oxy_ADR_0041_(["Canonical source imagery (Oxy ADR 0041)"])
-    M_Oxy_file_usage__Oxy_ADR_0041_(["Oxy file usage (Oxy ADR 0041)"])
+    M_Canonical_source_imagery__Oxy_ADR_0041_(["Canonical source imagery (Oxy ADR 0043)"])
+    M_Oxy_file_usage__Oxy_ADR_0041_(["Oxy file usage (Oxy ADR 0043)"])
     W_db_canonical -->|"1"| M_Canonical_source_imagery__Oxy_ADR_0041_
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
@@ -1133,7 +1133,7 @@ Also names, from outside the epic: `stores`.
 |---|---|---|
 | `store_permission_overrides` | `0158` | `db/stores` (delete/insert) |
 
-### Canonical source imagery (Oxy ADR 0041)
+### Canonical source imagery (Oxy ADR 0043)
 
 ```mermaid
 erDiagram
@@ -1149,7 +1149,7 @@ Also names, from outside the epic: `canonical_products`, `source_records`.
 |---|---|---|
 | `canonical_source_media_imports` | `0173` | `db/canonical` (delete/insert/update) |
 
-### Oxy file usage (Oxy ADR 0041)
+### Oxy file usage (Oxy ADR 0043)
 
 ```mermaid
 erDiagram

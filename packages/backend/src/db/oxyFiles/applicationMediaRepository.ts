@@ -1,7 +1,7 @@
 /**
  * Maintenance reads and writes for media owned by the MERCARIA APPLICATION (Oxy
- * ADR 0041 D1): canonical images, category art and brand logos. Content no
- * account owns, which until ADR 0041 was imported under whichever operator made
+ * ADR 0043 D1): canonical images, category art and brand logos. Content no
+ * account owns, which until ADR 0043 was imported under whichever operator made
  * the request — or not imported at all and kept as a supplier URL.
  *
  * The import runs outside any transaction; every apply is a compare-and-swap on

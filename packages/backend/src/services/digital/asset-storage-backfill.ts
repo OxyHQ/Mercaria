@@ -16,19 +16,19 @@ export interface AssetStorageBackfillOptions {
 
 /**
  * Move every digital deliverable onto an APPLICATION-owned PRIVATE Oxy file
- * (Oxy ADR 0041 D3/D5) holding the same bytes, so serving it never depends on
+ * (Oxy ADR 0043 D3/D5) holding the same bytes, so serving it never depends on
  * a creator's link (ADR 0021).
  *
  * The storage key is read through `findAssetFileStorageKey` — the one sanctioned
  * reader of that protected column — and never leaves this function: reports
  * carry a SHA-256 of it, never the key. A preview calls nothing. An apply adopts
  * through the storage port (`adoptAssetObject`: Oxy gives Mercaria its own file
- * of the stored bytes — ADR 0041 stage 4b, every type and size — and Mercaria
+ * of the stored bytes — ADR 0043 stage 4b, every type and size — and Mercaria
  * measures the copy's hash and size against the source's) and moves the row
  * with `replaceAssetFileStorageKey`, a compare-and-swap that the published-file
  * trigger admits only as a declared, same-bytes move (migration `0172`).
  *
- * `blocked`: Oxy refused the bytes as taken down (451, ADR 0041 D10). Not
+ * `blocked`: Oxy refused the bytes as taken down (451, ADR 0043 D10). Not
  * retried — the claim decides, not a rerun.
  */
 export async function backfillDigitalAssetStorage(

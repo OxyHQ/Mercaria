@@ -663,9 +663,9 @@ The canonical browser gallery test also supplies deliberately external source
 URLs and asserts zero requests to that origin while rendering Oxy images; its
 real-media seed precondition must pass before that case can establish this.
 
-## Oxy Files ownership and usage registration — open (Oxy ADR 0041, 2026-10-16)
+## Oxy Files ownership and usage registration — open (Oxy ADR 0043, 2026-10-16)
 
-Mercaria's side of Oxy ADR 0041 is in code (`docs/catalog-media.md`): imports go
+Mercaria's side of Oxy ADR 0043 is in code (`docs/catalog-media.md`): imports go
 through Oxy's import by URL (`services/catalog-media/oxy-files.ts`, the one
 adapter); canonical media, category art, brand logos, copied external imagery and
 digital deliverables are owned by the Mercaria APPLICATION; every file use is
@@ -677,7 +677,7 @@ under the operator's account. What is NOT done:
 - **Nothing has run against a live Oxy.** Every Oxy call is faked at the SDK
   boundary in tests. The SDK names (stage 3's `importAppFile`, `importUserMedia`,
   `verifyFileEventSignature`; stage 4b's `adoptAppFile`, `uploadAppFileLarge`,
-  `LargeUploadFailedError`) are from the unpublished ADR 0041 SDK build, core
+  `LargeUploadFailedError`) are from the unpublished ADR 0043 SDK build, core
   4.15.0 with contracts 4.19.0 (`TODO(stage3-sdk)` in `oxy-files.ts`); npm's
   `4.13.0` was published from Oxy's `main` without them, so
   `packages/backend/package.json` (the one place) pins the version that ships them,

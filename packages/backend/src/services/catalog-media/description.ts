@@ -152,7 +152,7 @@ export function synchronizeStoreDescription(storeId: string, description: string
   return synchronizeDescription(description, (sources) => synchronizeStoreImages(storeId, sources));
 }
 
-/** A canonical description's images belong to the Mercaria application (ADR 0041). */
+/** A canonical description's images belong to the Mercaria application (ADR 0043). */
 export function synchronizeApplicationDescription(description: string): Promise<string> {
   return synchronizeDescription(description, (sources) => synchronizeApplicationImages(sources));
 }

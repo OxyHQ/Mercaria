@@ -2,7 +2,7 @@
  * The reference registry is COMPLETE — a census, because the failure it guards
  * is silent: a column holding an Oxy file id that the registry does not know is
  * a usage Oxy never hears about, and Oxy collects an application file nobody
- * references (ADR 0041 D5) while a page still shows it.
+ * references (ADR 0043 D5) while a page still shows it.
  *
  * Three derived populations, each with a floor and a self-test:
  *

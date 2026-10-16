@@ -1,5 +1,5 @@
 /**
- * The nightly reconciliation (Oxy ADR 0041 D6): for each entity type, send Oxy
+ * The nightly reconciliation (Oxy ADR 0043 D6): for each entity type, send Oxy
  * the WHOLE inventory of `(fileId, entityId)` pairs Mercaria's rows hold. Oxy
  * adds the references it is missing and removes the ones created before the run
  * began that the inventory does not list.

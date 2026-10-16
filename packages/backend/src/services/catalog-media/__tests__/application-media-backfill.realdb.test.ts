@@ -1,5 +1,5 @@
 /**
- * The application-media backfill (Oxy ADR 0041): category art, brand logos and
+ * The application-media backfill (Oxy ADR 0043): category art, brand logos and
  * canonical images into files the MERCARIA APPLICATION owns.
  *
  * Only Oxy is replaced, at the SDK boundary (`__tests__/oxy-files-fake.ts`,

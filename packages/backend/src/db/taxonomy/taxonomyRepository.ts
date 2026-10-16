@@ -191,7 +191,7 @@ export async function insertCategory(
 /**
  * Clear category art that shows `fileId` — in `image_file_id`, or as a legacy
  * Oxy URL in `image_url` that `urlNamesFile` recognises — because Oxy blocked or
- * deleted the file (Oxy ADR 0041 D9/D10). Presentation only: neither column
+ * deleted the file (Oxy ADR 0043 D9/D10). Presentation only: neither column
  * feeds a derivation, so no subtree is rewritten. Returns the categories changed.
  */
 export async function clearCategoryImagesByFile(

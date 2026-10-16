@@ -1,5 +1,5 @@
 /**
- * THE adapter between Mercaria and Oxy Files (Oxy ADR 0041). Every call Mercaria
+ * THE adapter between Mercaria and Oxy Files (Oxy ADR 0043). Every call Mercaria
  * makes about a file's bytes, owner or usage goes through this module and only
  * this module, so a name that changes upstream is a change to one file.
  *
@@ -21,7 +21,7 @@
  * that account; and the Mercaria APPLICATION, for content no account owns
  * (canonical catalogue media, category art, brand logos, digital deliverables —
  * the last PRIVATE: readable by no person, only by Mercaria's service token
- * through `linkedDownloadUrls`, ADR 0041 D3).
+ * through `linkedDownloadUrls`, ADR 0043 D3).
  *
  * Errors never carry a source URL, a signed query or a token: a supplier URL is
  * routinely a capability, and these messages reach sync-run rows and logs.
@@ -49,7 +49,7 @@ export type ServiceLinkedDownloadUrl = Awaited<
   ReturnType<OxyServer['assets']['linkedDownloadUrls']>
 >[number];
 
-/** Who a stored file belongs to (ADR 0041 D1). */
+/** Who a stored file belongs to (ADR 0043 D1). */
 export type OxyFileOwner =
   | { readonly kind: 'account'; readonly oxyUserId: string }
   | { readonly kind: 'application' };
@@ -123,7 +123,7 @@ function storedFile(answer: unknown): StoredOxyFile {
 }
 
 /**
- * Import a public HTTPS source as a PUBLIC file of `owner` (ADR 0041 D7).
+ * Import a public HTTPS source as a PUBLIC file of `owner` (ADR 0043 D7).
  *
  * Oxy fetches it (HTTPS on every hop, public addresses only, bounded bytes and
  * time) and keeps `(owner, URL) → file`, so a repeat of an unchanged URL answers
@@ -138,7 +138,7 @@ function storedFile(answer: unknown): StoredOxyFile {
  * failed is unreferenced and Oxy collects it — the outcome wanted.
  *
  * TODO(stage3-sdk): `importAppFile` / `importUserMedia` are the names in the
- * UNPUBLISHED `@oxy.so/core` 4.15.0 build (Oxy ADR 0041 "Stage 3 as built":
+ * UNPUBLISHED `@oxy.so/core` 4.15.0 build (Oxy ADR 0043 "Stage 3 as built":
  * `POST /assets/service/app/import`, and `/assets/service/user-media/import`
  * owned by the `x-owner-user-id` header). Confirm them against the published
  * package; a rename is a change to these two calls only.
@@ -205,7 +205,7 @@ export async function uploadOxyFile(
 
 /**
  * Store bytes this process holds as a PRIVATE file of the Mercaria APPLICATION
- * (ADR 0041 stage 4b, `uploadAppFileLarge`): any type Oxy does not refuse as
+ * (ADR 0043 stage 4b, `uploadAppFileLarge`): any type Oxy does not refuse as
  * executable or active content (HTML, SVG, XML, scripts — 415), up to 8 GiB, by
  * a resumable multipart upload whose parts go straight to storage. Oxy hashes
  * the assembled object before it becomes a file, and the SDK hashes the source
@@ -244,7 +244,7 @@ export async function uploadPrivateApplicationFile(
 
 /**
  * Give the Mercaria APPLICATION its own PRIVATE file of the bytes `fileId`
- * holds (ADR 0041 stage 4b, `adoptAppFile`): the stored object is SHARED, never
+ * holds (ADR 0043 stage 4b, `adoptAppFile`): the stored object is SHARED, never
  * downloaded or uploaded again, and the copy outlives the source, whose owner
  * may delete theirs. Oxy answers for a file this application can read — a
  * person's private file its owner attached to Mercaria (ADR 0021), any public
@@ -302,7 +302,7 @@ export async function removeOxyFileReferences(
 }
 
 /**
- * Send Oxy the whole inventory of one entity type (ADR 0041 D6): Oxy adds the
+ * Send Oxy the whole inventory of one entity type (ADR 0043 D6): Oxy adds the
  * references it is missing and removes the ones created before the run began
  * that the inventory does not list. `dryRun` only counts.
  */
@@ -328,7 +328,7 @@ export type VerifiedOxyFileDelivery =
   | { readonly kind: 'refused'; readonly reason: string };
 
 /**
- * Verify one delivery to the file-events endpoint (ADR 0041 D9): HMAC-SHA256
+ * Verify one delivery to the file-events endpoint (ADR 0043 D9): HMAC-SHA256
  * over `<t>.<raw body>` in `oxy-signature`, `t` within five minutes, compared
  * in constant time — Oxy's own verifier, so there is one. A
  * `webhook.challenge` is returned WITHOUT a signature check: Oxy sends it when
@@ -356,7 +356,7 @@ export function verifyOxyFileDelivery(
 
 /**
  * Mint short-lived download URLs for files this application may read
- * privately: its OWN files (ADR 0041 D3 — an application-owned private
+ * privately: its OWN files (ADR 0043 D3 — an application-owned private
  * deliverable) and a person's file that person attached to it (ADR 0021).
  * Absence is a refusal, not a fact about the file. A failure THROWS; each URL is
  * a live credential and is never logged.

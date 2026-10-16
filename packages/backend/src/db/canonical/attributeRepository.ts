@@ -530,7 +530,7 @@ export async function attachImportedCanonicalImage(
 
 /**
  * Suppress every active canonical image showing `fileId` — Oxy blocked or
- * deleted it (ADR 0041 D9/D10). The row is provenance (which source showed
+ * deleted it (ADR 0043 D9/D10). The row is provenance (which source showed
  * what), so it stays; `suppressed` is the status every read already hides, and
  * the file id stays too, since a row holding only its source URL would be
  * re-imported by the next backfill. Returns the rows changed.

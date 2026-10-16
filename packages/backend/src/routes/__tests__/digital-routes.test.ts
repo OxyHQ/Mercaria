@@ -517,7 +517,7 @@ describe('registering a file takes the three facts from the asset service', () =
       contentHash: DIGEST,
     };
     insertAssetFile.mockResolvedValue({ id: FILE_ID });
-    // Oxy ADR 0041 stage 4b: the adopted file shares the measured bytes under a
+    // Oxy ADR 0043 stage 4b: the adopted file shares the measured bytes under a
     // new key, whatever the type — a mesh included.
     adoptAssetObject.mockResolvedValueOnce(measured);
     expect((await post(uploadsOn, filePath, body)).status).toBe(201);

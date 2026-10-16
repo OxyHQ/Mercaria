@@ -41,7 +41,7 @@ export interface ApplicationMediaBackfillOptions {
 /**
  * - `import` — the row holds a supplier or legacy URL and no file: Oxy imports it.
  * - `adopt` — the row holds a file some ACCOUNT owns (an operator's, before
- *   ADR 0041): Oxy imports the file's own public URL as the application's.
+ *   ADR 0043): Oxy imports the file's own public URL as the application's.
  *   Bytes are shared by content address; the account keeps its file, now
  *   "not in use", for its owner to decide about (D5). Adopting a file the
  *   application already owns returns the same id and changes nothing.
@@ -73,7 +73,7 @@ function planFor(row: ApplicationMediaRow): { plan: ApplicationMediaPlan; source
 }
 
 /**
- * Bring the application's media under the application's ownership (Oxy ADR 0041
+ * Bring the application's media under the application's ownership (Oxy ADR 0043
  * D1/D2): canonical images, category art and brand logos.
  *
  * A preview never imports. Reports carry a SHA-256 of the source, never the URL

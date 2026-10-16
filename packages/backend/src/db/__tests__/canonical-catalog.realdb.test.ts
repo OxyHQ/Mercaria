@@ -878,7 +878,7 @@ describe('acceptance 4 — every selected field and image traces to provenance',
     const imported = importAppFile.mock.calls.length;
     expect(imported).toBe(1);
     expect(publicProduct?.images[0]?.fileId).toMatch(/^oxy-canonical-file-/);
-    // Canonical media belongs to the Mercaria APPLICATION (Oxy ADR 0041), never
+    // Canonical media belongs to the Mercaria APPLICATION (Oxy ADR 0043), never
     // to the operator who made the request.
     expect(importAppFile.mock.calls[0]?.[0]).toBe(`https://example.test/${RUN}.jpg`);
     expect(importUserMedia).not.toHaveBeenCalled();

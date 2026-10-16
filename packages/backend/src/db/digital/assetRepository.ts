@@ -662,7 +662,7 @@ export async function everyFileInspectionAcceptable(
 
 /**
  * Move ONE asset file's bytes to a new storage key — the same bytes, stored as
- * an application-owned private Oxy file (Oxy ADR 0041 D3/D5) — only while the
+ * an application-owned private Oxy file (Oxy ADR 0043 D3/D5) — only while the
  * row still names `previousKey` and records exactly the hash, size and type the
  * new object was MEASURED to hold.
  *

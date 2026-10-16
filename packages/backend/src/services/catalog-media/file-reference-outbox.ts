@@ -1,6 +1,6 @@
 /**
  * Drain `oxy_file_reference_outboxes`: bring each claimed entity's Oxy
- * references into agreement with the files its rows hold NOW (Oxy ADR 0041 D4).
+ * references into agreement with the files its rows hold NOW (Oxy ADR 0043 D4).
  *
  * The convergence is a diff of two sets per entity:
  *

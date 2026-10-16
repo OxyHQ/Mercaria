@@ -10,7 +10,7 @@ import {
 } from '../services/catalog-media/application-media-backfill.js';
 
 /**
- * Mercaria-application media (Oxy ADR 0041). Read-only preview by default;
+ * Mercaria-application media (Oxy ADR 0043). Read-only preview by default;
  * `--apply` acts. Run per target, from the repo root with Bun:
  *
  * - `canonical_image`, `category_image`, `brand_logo` — import a legacy URL or

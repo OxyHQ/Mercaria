@@ -1358,7 +1358,7 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'reviews',
       disposition: 'untouched',
       note:
-        "An owed copy of an observation's imagery (Oxy ADR 0041), a JOB rather than a " +
+        "An owed copy of an observation's imagery (Oxy ADR 0043), a JOB rather than a " +
         'relationship. The worker resolves a tombstone to its winner when it runs ' +
         '(`resolveCanonicalProductRow`), so a job queued against the loser lands its images on ' +
         'the survivor; repointing it here would add nothing and could collide with the ' +
@@ -2582,7 +2582,7 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     disposition: 'untouched',
     idColumns: ['entity_id'],
     reason:
-      "Oxy ADR 0041's takedown audit: which row a blocked or deleted file was removed from. " +
+      "Oxy ADR 0043's takedown audit: which row a blocked or deleted file was removed from. " +
       'Its `entity_type` reaches a brand (`brand_logo`) and a canonical product ' +
       '(`canonical_description_image`), both mergeable, and a merge leaves it where it is — ' +
       'it is a record of what was changed on the entity it was changed on, append-only by ' +

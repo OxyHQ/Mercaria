@@ -2313,7 +2313,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'reference, so the pair is constrained exactly once and in the direction ' +
       'where the evidence is the parent.',
   },
-  // ── Oxy Files usage registration (Oxy ADR 0041) ──────────────────────────
+  // ── Oxy Files usage registration (Oxy ADR 0043) ──────────────────────────
   //
   // Every `entity_id` here is POLYMORPHIC by `entity_type` — a listing, a
   // store, a canonical image, a review… (`file-reference-registry.ts` says

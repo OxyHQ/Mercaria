@@ -315,7 +315,7 @@ describe('putAssetObject stores an APPLICATION-owned PRIVATE file, registers it,
       metadata: { assetVersionId: 'version-1' },
     });
 
-    // Oxy ADR 0041 D3/D5 and stage 4b: owned by the application, readable only
+    // Oxy ADR 0043 D3/D5 and stage 4b: owned by the application, readable only
     // through its own service token, and stored by the resumable multipart
     // upload — the Blob itself, never read whole into a buffer here — so a mesh
     // or an archive up to 8 GiB is taken.
@@ -445,7 +445,7 @@ describe('adoptAssetObject takes a creator upload as an APPLICATION-owned privat
     // Mercaria is adopted, never a stranger's public file.
     expect(linkedDownloadUrls.mock.calls[0]).toEqual([[STORAGE_KEY]]);
     expect(adoptAppFile).toHaveBeenCalledWith(STORAGE_KEY, { visibility: 'private' });
-    // Oxy ADR 0041 stage 4b shares the stored bytes: the minted URL is not
+    // Oxy ADR 0043 stage 4b shares the stored bytes: the minted URL is not
     // handed to an import any more.
     expect(importAppFile).not.toHaveBeenCalled();
     expect(referencesAdd).toHaveBeenCalledWith([
@@ -574,7 +574,7 @@ describe('the digital domain reaches Oxy only through the storage port and the o
     );
     expect(
       namers.map((file) => file.slice(SRC.length + 1)),
-      'ADR 0010 D17 and Oxy ADR 0041: every Oxy file call goes through ' +
+      'ADR 0010 D17 and Oxy ADR 0043: every Oxy file call goes through ' +
         '`services/catalog-media/oxy-files.ts`, and in this domain only the storage port calls it',
     ).toEqual([]);
     const adapterImporters = digitalDomainFiles().filter((file) =>

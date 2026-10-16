@@ -16,7 +16,7 @@ export class CatalogMediaSyncError extends Error {
 /**
  * Import sources BEFORE catalog writes, never while holding a DB transaction.
  *
- * Oxy fetches the bytes (ADR 0041 D7) and remembers each source per owner, so an
+ * Oxy fetches the bytes (ADR 0043 D7) and remembers each source per owner, so an
  * unchanged source imported again returns the SAME file id without a download —
  * a connector that re-sends a whole gallery on every product update therefore
  * re-writes nothing. The owner is decided by the caller's function name, never
@@ -27,7 +27,7 @@ export class CatalogMediaSyncError extends Error {
  *   persisted owner during maintenance: a P2P seller, a store owner in a backfill.
  * - `Application*` — the Mercaria application itself, for content no account
  *   owns: canonical catalogue media, category art, brand logos. Never an
- *   operator's personal account (it was, until ADR 0041 gave products an owner).
+ *   operator's personal account (it was, until ADR 0043 gave products an owner).
  *
  * No reference is registered here: the reference outbox does that after the row
  * holding the file commits.
@@ -48,7 +48,7 @@ export async function synchronizeAccountImages(
   return synchronizeImages(references, async () => accountOwner(ownerOxyUserId));
 }
 
-/** Content no account owns belongs to the Mercaria application (ADR 0041 D1/D2). */
+/** Content no account owns belongs to the Mercaria application (ADR 0043 D1/D2). */
 export async function synchronizeApplicationImages(
   references: readonly string[],
 ): Promise<string[]> {

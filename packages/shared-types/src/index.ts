@@ -908,6 +908,6 @@ export * from './materials';
 export * from './catalog-media';
 export * from './supervised-shopping';
 
-// Oxy Files usage registration (Oxy ADR 0041): the stable reference entity
+// Oxy Files usage registration (Oxy ADR 0043): the stable reference entity
 // types Mercaria registers with Oxy, and the file events it handles.
 export * from './oxy-file-references';

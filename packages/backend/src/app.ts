@@ -322,7 +322,7 @@ export function createApp(): express.Express {
   // where their configuration is exactly what somebody is fixing.
   app.use('/webhooks/suppliers', supplierWebhookRouter);
 
-  // Oxy's file events (Oxy ADR 0041 D9) — the SIXTH raw-body mount: Oxy signs
+  // Oxy's file events (Oxy ADR 0043 D9) — the SIXTH raw-body mount: Oxy signs
   // the bytes it sent, so a parser reaching the stream first breaks every
   // delivery. Gated on `OXY_FILE_EVENTS_ENABLED` (404 when off). Unlike the
   // Stripe mount it is NOT gated on the secret too: Oxy shows the secret only

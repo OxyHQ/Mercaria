@@ -98,7 +98,7 @@ CREATE UNIQUE INDEX "oxy_file_references_entity_file_key" ON "oxy_file_reference
 CREATE INDEX "oxy_file_references_file_id_idx" ON "oxy_file_references" USING btree ("file_id");
 --> statement-breakpoint
 -- Every table that holds an Oxy file id asks for its entity's references to be
--- converged, in the writer's own transaction (Oxy ADR 0041 D4; the design is in
+-- converged, in the writer's own transaction (Oxy ADR 0043 D4; the design is in
 -- `db/schema/oxyFiles.ts`). The trigger names the ENTITY, never the file: the
 -- worker derives the file set from the live rows, which is what lets one trigger
 -- serve a gallery, an HTML description and an array column alike. Absent here on

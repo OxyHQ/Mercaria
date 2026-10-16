@@ -471,7 +471,7 @@ export async function applyProductSourceObservation(
     // No transaction is held across Oxy imports. A refused import cannot
     // partially apply scalar facts or attach source URLs. Canonical media is
     // content no account owns, so it belongs to the Mercaria application (Oxy
-    // ADR 0041) — never to the operator who happened to make the request.
+    // ADR 0043) — never to the operator who happened to make the request.
     const imported = await synchronizeApplicationMedia(pending.map((entry) => entry.source));
     const importedByIndex = new Map(
       pending.map((entry, position) => [entry.index, imported[position]?.fileId]),

@@ -144,7 +144,7 @@ describe('description media import', () => {
   });
 });
 
-describe('the Oxy files a description uses (Oxy ADR 0041)', () => {
+describe('the Oxy files a description uses (Oxy ADR 0043)', () => {
   it('imports a canonical description as the APPLICATION, never an account', async () => {
     const result = await synchronizeApplicationDescription(
       '<img src="https://supplier.test/chart.jpg">',

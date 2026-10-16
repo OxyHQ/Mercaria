@@ -217,7 +217,7 @@ Open Food Facts, Open Prices and OpenStreetMap-derived facts are ODbL.
    dropped and the payload fits in 32 KB.
 5. Add a row to the table above, with the licence and what the account ref means.
 
-## Images (Oxy ADR 0041)
+## Images (Oxy ADR 0043)
 
 Media a provider supplies is stored as URLs in the source record's projection and,
 by the owner's decision, COPIED into files the Mercaria application owns when the

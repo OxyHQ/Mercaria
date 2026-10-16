@@ -910,7 +910,7 @@ archives every listing whose Shopify source is currently a draft or archived.
 
 Both pull connectors and push-in product imports pass their image references
 through `services/catalog-media/sync.ts` before creating or updating a listing.
-HTTPS sources are IMPORTED BY OXY (Oxy ADR 0041 D7, `importUserMedia`), which
+HTTPS sources are IMPORTED BY OXY (Oxy ADR 0043 D7, `importUserMedia`), which
 fetches with its own SSRF-safe fetcher and remembers each source per owner — so
 re-syncing an unchanged product answers the same file ids without a download and
 leaves the gallery untouched. The owner is the store's persisted `oxyAccountId`;

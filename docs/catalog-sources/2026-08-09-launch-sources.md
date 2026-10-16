@@ -261,7 +261,7 @@ outbound links / affiliate params / index / automated refresh).
    merchant-identity normalization consumes.
 6. Exact image-caching duration: **requires account approval** (Buy API
    contract). Superseded (2026-10-16): by the owner's decision Mercaria COPIES
-   source images into Oxy (Oxy ADR 0041) rather than hotlinking, eBay's
+   source images into Oxy (Oxy ADR 0043) rather than hotlinking, eBay's
    included, although this contract restricts caching — a recorded decision,
    not an oversight (`docs/catalog-media.md`).
 

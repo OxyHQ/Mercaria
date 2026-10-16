@@ -5,7 +5,7 @@
  * The owner's decision is that Mercaria shows external imagery by COPYING it —
  * an eBay, Awin, open-data, Shopify-storefront or feed observation's
  * `source_records.payload.media` becomes `canonical_images` rows holding files
- * the Mercaria application owns (Oxy ADR 0041), with `source_url` and
+ * the Mercaria application owns (Oxy ADR 0043), with `source_url` and
  * `source_record_id` as provenance. Nothing displays a supplier URL.
  *
  * ## Why a queue, and why the trigger is on the SOURCE LINK

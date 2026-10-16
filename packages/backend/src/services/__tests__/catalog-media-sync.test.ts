@@ -14,7 +14,7 @@ import {
   synchronizeStoreImages,
 } from '../catalog-media/sync.js';
 
-/** What Oxy answers for an import by URL (ADR 0041 D7). */
+/** What Oxy answers for an import by URL (ADR 0043 D7). */
 function imported(id = 'oxy-file-1', overrides: Record<string, unknown> = {}) {
   return {
     file: { id, mime: 'image/png', size: 10, visibility: 'public', status: 'active', ...overrides },
