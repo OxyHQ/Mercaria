@@ -1,7 +1,7 @@
 {
   "name": "@mercaria/backend",
   "version": "1.0.0",
-  "description": "Mercaria API \u2014 buy/sell marketplace backend by Oxy",
+  "description": "Mercaria API — buy/sell marketplace backend by Oxy",
   "private": true,
   "type": "module",
   "engines": {
