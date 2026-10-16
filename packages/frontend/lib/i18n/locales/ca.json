@@ -30,7 +30,8 @@
     "account": "Compte",
     "signIn": "Inicia la sessió",
     "threeD": "3D",
-    "mainNavigation": "Navegació principal"
+    "mainNavigation": "Navegació principal",
+    "settings": "Configuració"
   },
   "login": {
     "signInButton": "Inicia la sessió"
@@ -46,7 +47,7 @@
       "addresses": "Adreces",
       "watchlists": "Llistes de seguiment",
       "shoppingAgents": "Agents de compra",
-      "referralPartner": "Programa de recomanació"
+      "referrals": "Referits"
     },
     "currency": {
       "title": "Moneda de visualització",
@@ -1310,11 +1311,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Soci de recomanacions · Mercaria",
-    "title": "Soci de recomanacions",
     "loadError": "No hem pogut carregar el teu tauler de recomanacions. Torna-ho a provar.",
     "signedOut": {
-      "title": "Inicia la sessió per veure el teu compte de soci de recomanacions",
+      "title": "Inicia la sessió per veure els teus referits",
       "body": "Els teus enllaços, el que han generat i quan cobraràs.",
       "action": "Inicia la sessió"
     },
@@ -1362,11 +1361,19 @@
       "title": "Rendiment",
       "totals": "%{clicks} clics · %{referrals} recomanacions qualificades, del %{from} al %{through}",
       "empty": "No s'ha registrat res en aquest període.",
-      "row": "%{label}: %{clicks} clics · %{referrals} recomanacions"
+      "row": "%{label}: %{clicks} clics · %{referrals} recomanacions",
+      "breakdownBy": "Desglossa per",
+      "dimension": {
+        "program": "Programa",
+        "campaign": "Campanya",
+        "instrument": "Enllaç o codi",
+        "market": "Mercat",
+        "clientSurface": "Plataforma",
+        "date": "Data"
+      }
     },
     "instruments": {
-      "title": "Els teus enllaços i codis",
-      "empty": "Encara no tens cap codi de recomanació.",
+      "title": "Els teus codis",
       "disclosureIntro": "Publica això amb cada enllaç:",
       "status": {
         "active": "actiu",
@@ -1381,6 +1388,16 @@
       "appeal": "Pots recórrer la decisió sobre la teva participació.",
       "disputes": "Les reclamacions sobre una atribució, una reversió o un pagament encara no es gestionen aquí. Contacta amb el suport i indica la data i l'import que es mostren més amunt.",
       "noEmails": "Encara no enviem correus sobre recomanacions, així que consulta aquesta pàgina per veure els canvis."
+    },
+    "links": {
+      "title": "Els teus enllaços",
+      "create": "Crea un enllaç",
+      "copy": "Copia",
+      "copyLink": "Copia l'enllaç %{url}",
+      "copied": "S'ha copiat l'enllaç",
+      "createFailed": "No s'ha pogut crear l'enllaç. Torna-ho a provar.",
+      "empty": "Crea un enllaç per compartir Mercaria. Els referits que porti se t’atribueixen.",
+      "notPartner": "El teu enllaç apareixerà aquí quan estiguis inscrit en un programa."
     }
   },
   "brand": {

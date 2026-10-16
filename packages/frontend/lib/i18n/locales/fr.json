@@ -30,7 +30,8 @@
     "account": "Compte",
     "signIn": "Se connecter",
     "threeD": "3D",
-    "mainNavigation": "Navigation principale"
+    "mainNavigation": "Navigation principale",
+    "settings": "Paramètres"
   },
   "login": {
     "signInButton": "Se connecter"
@@ -46,7 +47,7 @@
       "addresses": "Adresses",
       "watchlists": "Listes de suivi",
       "shoppingAgents": "Assistants d'achat",
-      "referralPartner": "Programme de parrainage"
+      "referrals": "Parrainage"
     },
     "currency": {
       "title": "Devise d'affichage",
@@ -1310,11 +1311,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Partenaire de parrainage · Mercaria",
-    "title": "Partenaire de parrainage",
     "loadError": "Nous n'avons pas pu charger votre tableau de bord de parrainage. Veuillez réessayer.",
     "signedOut": {
-      "title": "Connectez-vous pour voir votre compte de partenaire de parrainage",
+      "title": "Connectez-vous pour voir votre parrainage",
       "body": "Vos liens, ce qu'ils ont rapporté et quand vous serez payé.",
       "action": "Se connecter"
     },
@@ -1362,11 +1361,19 @@
       "title": "Performance",
       "totals": "%{clicks} clics · %{referrals} parrainages qualifiés, du %{from} au %{through}",
       "empty": "Rien n'a été enregistré sur cette période.",
-      "row": "%{label} : %{clicks} clics · %{referrals} parrainages"
+      "row": "%{label} : %{clicks} clics · %{referrals} parrainages",
+      "breakdownBy": "Ventiler par",
+      "dimension": {
+        "program": "Programme",
+        "campaign": "Campagne",
+        "instrument": "Lien ou code",
+        "market": "Marché",
+        "clientSurface": "Plateforme",
+        "date": "Date"
+      }
     },
     "instruments": {
-      "title": "Vos liens et codes",
-      "empty": "Vous n'avez pas encore de code de parrainage.",
+      "title": "Vos codes",
       "disclosureIntro": "Publiez ceci avec chaque lien :",
       "status": {
         "active": "actif",
@@ -1381,6 +1388,16 @@
       "appeal": "Vous pouvez contester la décision concernant votre participation.",
       "disputes": "Les litiges portant sur une attribution, une annulation ou un paiement ne sont pas encore traités ici. Contactez le support en indiquant la date et le montant affichés ci-dessus.",
       "noEmails": "Nous n'envoyons pas encore d'e-mails de parrainage : consultez cette page pour voir les changements."
+    },
+    "links": {
+      "title": "Vos liens",
+      "create": "Créer un lien",
+      "copy": "Copier",
+      "copyLink": "Copier le lien %{url}",
+      "copied": "Lien copié",
+      "createFailed": "Impossible de créer le lien. Réessayez.",
+      "empty": "Créez un lien pour partager Mercaria. Les parrainages qu’il génère vous sont attribués.",
+      "notPartner": "Votre lien apparaîtra ici une fois inscrit à un programme."
     }
   },
   "brand": {

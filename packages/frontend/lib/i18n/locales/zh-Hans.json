@@ -30,7 +30,8 @@
     "account": "账户",
     "signIn": "登录",
     "threeD": "3D",
-    "mainNavigation": "主导航"
+    "mainNavigation": "主导航",
+    "settings": "设置"
   },
   "login": {
     "signInButton": "登录"
@@ -46,7 +47,7 @@
       "addresses": "收货地址",
       "watchlists": "关注清单",
       "shoppingAgents": "购物助手",
-      "referralPartner": "推荐伙伴"
+      "referrals": "推荐"
     },
     "currency": {
       "title": "显示货币",
@@ -1296,11 +1297,9 @@
     }
   },
   "referral": {
-    "documentTitle": "推荐伙伴 · Mercaria",
-    "title": "推荐伙伴",
     "loadError": "无法加载你的推荐面板，请重试。",
     "signedOut": {
-      "title": "登录后查看你的推荐伙伴账户",
+      "title": "登录以查看你的推荐",
       "body": "你的链接、它们带来的收益，以及你何时会收到款项。",
       "action": "登录"
     },
@@ -1347,11 +1346,19 @@
       "title": "表现",
       "totals": "%{clicks} 次点击 · %{referrals} 笔有效推荐，%{from} 至 %{through}",
       "empty": "此期间没有任何记录。",
-      "row": "%{label}：%{clicks} 次点击 · %{referrals} 笔推荐"
+      "row": "%{label}：%{clicks} 次点击 · %{referrals} 笔推荐",
+      "breakdownBy": "细分维度",
+      "dimension": {
+        "program": "计划",
+        "campaign": "活动",
+        "instrument": "链接或代码",
+        "market": "市场",
+        "clientSurface": "平台",
+        "date": "日期"
+      }
     },
     "instruments": {
-      "title": "你的链接和代码",
-      "empty": "你还没有推荐代码。",
+      "title": "你的代码",
       "disclosureIntro": "发布每个链接时都要附上这段声明：",
       "status": {
         "active": "有效",
@@ -1366,6 +1373,16 @@
       "appeal": "你可以对关于你参与资格的决定提出申诉。",
       "disputes": "关于归因、冲正或付款的争议目前还无法在这里处理。请联系客服，并提供上方显示的日期和金额。",
       "noEmails": "我们还不会发送推荐相关的邮件，请留意本页面的变化。"
+    },
+    "links": {
+      "title": "你的链接",
+      "create": "创建链接",
+      "copy": "复制",
+      "copyLink": "复制链接 %{url}",
+      "copied": "链接已复制",
+      "createFailed": "无法创建链接，请重试。",
+      "empty": "创建链接来分享 Mercaria。通过它带来的推荐会归属于你。",
+      "notPartner": "加入计划后，你的链接会显示在这里。"
     }
   },
   "brand": {

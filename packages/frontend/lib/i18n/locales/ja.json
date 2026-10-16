@@ -30,7 +30,8 @@
     "account": "アカウント",
     "signIn": "ログイン",
     "threeD": "3D",
-    "mainNavigation": "メインナビゲーション"
+    "mainNavigation": "メインナビゲーション",
+    "settings": "設定"
   },
   "login": {
     "signInButton": "ログイン"
@@ -46,7 +47,7 @@
       "addresses": "住所",
       "watchlists": "ウォッチリスト",
       "shoppingAgents": "ショッピングアシスタント",
-      "referralPartner": "紹介プログラム"
+      "referrals": "紹介"
     },
     "currency": {
       "title": "表示通貨",
@@ -1296,11 +1297,9 @@
     }
   },
   "referral": {
-    "documentTitle": "紹介パートナー · Mercaria",
-    "title": "紹介パートナー",
     "loadError": "紹介ダッシュボードを読み込めませんでした。もう一度お試しください。",
     "signedOut": {
-      "title": "紹介パートナーのアカウントを見るにはログインしてください",
+      "title": "紹介を確認するにはサインインしてください",
       "body": "あなたのリンクと、その成果、そして支払いの時期がわかります。",
       "action": "ログイン"
     },
@@ -1347,11 +1346,19 @@
       "title": "実績",
       "totals": "クリック %{clicks} 件 · 有効な紹介 %{referrals} 件、%{from} 〜 %{through}",
       "empty": "この期間に記録はありません。",
-      "row": "%{label}: クリック %{clicks} 件 · 紹介 %{referrals} 件"
+      "row": "%{label}: クリック %{clicks} 件 · 紹介 %{referrals} 件",
+      "breakdownBy": "内訳の基準",
+      "dimension": {
+        "program": "プログラム",
+        "campaign": "キャンペーン",
+        "instrument": "リンクまたはコード",
+        "market": "市場",
+        "clientSurface": "プラットフォーム",
+        "date": "日付"
+      }
     },
     "instruments": {
-      "title": "あなたのリンクとコード",
-      "empty": "紹介コードはまだありません。",
+      "title": "あなたのコード",
       "disclosureIntro": "リンクを掲載するときは、必ずこの表示を添えてください:",
       "status": {
         "active": "有効",
@@ -1366,6 +1373,16 @@
       "appeal": "参加に関する決定には異議を申し立てられます。",
       "disputes": "計上・取り消し・支払いに関する申し立ては、まだここでは受け付けていません。上に表示されている日付と金額を添えてサポートにご連絡ください。",
       "noEmails": "紹介に関するメールはまだ送信していません。変更はこのページでご確認ください。"
+    },
+    "links": {
+      "title": "あなたのリンク",
+      "create": "リンクを作成",
+      "copy": "コピー",
+      "copyLink": "リンク %{url} をコピー",
+      "copied": "リンクをコピーしました",
+      "createFailed": "リンクを作成できませんでした。もう一度お試しください。",
+      "empty": "Mercaria を共有するリンクを作成しましょう。そのリンクからの紹介はあなたに帰属します。",
+      "notPartner": "プログラムに登録すると、ここにリンクが表示されます。"
     }
   },
   "brand": {

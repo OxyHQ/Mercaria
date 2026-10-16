@@ -30,7 +30,8 @@
     "account": "Konto",
     "signIn": "Anmelden",
     "threeD": "3D",
-    "mainNavigation": "Hauptnavigation"
+    "mainNavigation": "Hauptnavigation",
+    "settings": "Einstellungen"
   },
   "login": {
     "signInButton": "Anmelden"
@@ -46,7 +47,7 @@
       "addresses": "Adressen",
       "watchlists": "Merklisten",
       "shoppingAgents": "Einkaufsassistenten",
-      "referralPartner": "Empfehlungsprogramm"
+      "referrals": "Empfehlungen"
     },
     "currency": {
       "title": "Anzeigewährung",
@@ -1296,11 +1297,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Empfehlungspartner · Mercaria",
-    "title": "Empfehlungspartner",
     "loadError": "Wir konnten dein Empfehlungs-Dashboard nicht laden. Bitte versuche es erneut.",
     "signedOut": {
-      "title": "Melde dich an, um dein Empfehlungspartner-Konto zu sehen",
+      "title": "Melde dich an, um deine Empfehlungen zu sehen",
       "body": "Deine Links, was sie eingebracht haben und wann du bezahlt wirst.",
       "action": "Anmelden"
     },
@@ -1347,11 +1346,19 @@
       "title": "Leistung",
       "totals": "%{clicks} Klicks · %{referrals} qualifizierte Empfehlungen, %{from} bis %{through}",
       "empty": "In diesem Zeitraum wurde nichts erfasst.",
-      "row": "%{label}: %{clicks} Klicks · %{referrals} Empfehlungen"
+      "row": "%{label}: %{clicks} Klicks · %{referrals} Empfehlungen",
+      "breakdownBy": "Aufschlüsseln nach",
+      "dimension": {
+        "program": "Programm",
+        "campaign": "Kampagne",
+        "instrument": "Link oder Code",
+        "market": "Markt",
+        "clientSurface": "Plattform",
+        "date": "Datum"
+      }
     },
     "instruments": {
-      "title": "Deine Links und Codes",
-      "empty": "Du hast noch keine Empfehlungscodes.",
+      "title": "Deine Codes",
       "disclosureIntro": "Veröffentliche das mit jedem Link:",
       "status": {
         "active": "aktiv",
@@ -1366,6 +1373,16 @@
       "appeal": "Du kannst die Entscheidung über deine Teilnahme anfechten.",
       "disputes": "Beschwerden über eine Zuordnung, eine Stornierung oder eine Auszahlung werden hier noch nicht bearbeitet. Wende dich an den Support und nenne das Datum und den oben angezeigten Betrag.",
       "noEmails": "Wir versenden noch keine E-Mails zu Empfehlungen – sieh also auf dieser Seite nach Änderungen."
+    },
+    "links": {
+      "title": "Deine Links",
+      "create": "Link erstellen",
+      "copy": "Kopieren",
+      "copyLink": "Link %{url} kopieren",
+      "copied": "Link kopiert",
+      "createFailed": "Der Link konnte nicht erstellt werden. Versuch es noch einmal.",
+      "empty": "Erstelle einen Link, um Mercaria zu teilen. Empfehlungen über diesen Link werden dir zugeordnet.",
+      "notPartner": "Dein Link erscheint hier, sobald du in einem Programm angemeldet bist."
     }
   },
   "brand": {
