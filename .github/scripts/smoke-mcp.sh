@@ -4,7 +4,7 @@ set -euo pipefail
 
 readonly EXTERNAL_DEPENDENCY_EXIT=42
 
-MCP_ORIGIN="${MCP_ORIGIN:-https://mcp.mercaria.oxy.so}"
+MCP_ORIGIN="${MCP_ORIGIN:-https://mcp.mercaria.co}"
 OXY_OAUTH_ORIGIN="${OXY_OAUTH_ORIGIN:-https://api.oxy.so}"
 OXY_AUTHORIZATION_ENDPOINT="${OXY_AUTHORIZATION_ENDPOINT:-https://auth.oxy.so/authorize}"
 MERCARIA_API_ORIGIN="${MERCARIA_API_ORIGIN:-https://api.mercaria.co}"

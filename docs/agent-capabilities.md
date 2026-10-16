@@ -13,7 +13,7 @@ must not be copied into Alia or into a second MCP-only registry.
   resource, tool, capabilities and limits, then asks Oxy for a live authority
   decision before invoking domain code.
 - External clients call `/mcp` with an OAuth access token issued by Oxy for the
-  exact `https://mcp.mercaria.oxy.so` resource and selected Oxy account. The
+  exact `https://mcp.mercaria.co` resource and selected Oxy account. The
   shared `@oxy.so/mcp` transport performs live token introspection and protocol
   validation before Mercaria checks that the effective account owns the store.
 
