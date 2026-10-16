@@ -3,7 +3,7 @@
  * owed to a canonical product (`db/schema/canonicalSourceMedia.ts` says why).
  *
  * New rows come from the `mercaria_canonical_source_media_enqueue` trigger of
- * migration `0171`; {@link requestCanonicalSourceMediaImport} is the same insert
+ * migration `0173`; {@link requestCanonicalSourceMediaImport} is the same insert
  * for the backfill that queues links made before the trigger existed, and its
  * handle is REQUIRED (house-invariants, #584).
  *
@@ -233,7 +233,7 @@ export async function lockCanonicalProductForMedia(
 
 /**
  * One keyset page of ACTIVE source links whose observation names media — the
- * links made before the `0171` trigger existed, which the backfill queues.
+ * links made before the `0173` trigger existed, which the backfill queues.
  */
 export async function findSourceLinksWithMediaPage(
   options: { after?: string; limit: number },

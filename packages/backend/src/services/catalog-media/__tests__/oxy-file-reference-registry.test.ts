@@ -12,7 +12,7 @@
  *    with the reason it holds no Oxy file. Derived from the drizzle barrel, so a
  *    new table's column is in the population the day it is added.
  * 3. Every source of a `trigger`-registered type has the trigger of migration
- *    0170 with exactly its entity type, entity column, mode and columns — and
+ *    0172 with exactly its entity type, entity column, mode and columns — and
  *    no other type has one. Read from the migration SQL, which is what runs.
  */
 

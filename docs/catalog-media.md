@@ -95,7 +95,7 @@ supplier URL. Their terms may restrict caching (eBay and Amazon in particular);
 
 When an observation is attached to a canonical product — the ingestion matcher,
 #60's backfill minting a product, or an operator's observation: all three write an
-active `canonical_product_source_links` row — the trigger of migration `0171`
+active `canonical_product_source_links` row — the trigger of migration `0173`
 queues `canonical_source_media_imports(product, observation)` in the same
 transaction, if the observation's stored `payload.media` names anything. The
 dispatcher (`services/catalog-media/source-media-import.ts`) imports each HTTPS
@@ -116,7 +116,7 @@ its thousandth offer costs one read and no Oxy call. Oxy answers a repeated
 401/403/408/429) is skipped; anything else retries with backoff (1 min doubling to
 6 h) and dead-letters after `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` (8). The loop is
 gated by `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` (default off); the trigger queues
-regardless. Links made before `0171` are queued by
+regardless. Links made before `0173` are queued by
 `backfill-application-media.ts --target=source_media`.
 
 ### Digital deliverables are application files
@@ -139,7 +139,7 @@ whatever its type or size up to 8 GiB:
 
 Serving then depends on no creator link (ADR 0021). A published file's BYTES stay
 immutable; its storage key may move only in a declared, same-hash move
-(migration `0172`, `replaceAssetFileStorageKey`) — `docs/digital-commerce.md`.
+(migration `0174`, `replaceAssetFileStorageKey`) — `docs/digital-commerce.md`.
 
 ## Usage registration (Oxy ADR 0043 D4–D6, D9)
 
@@ -171,7 +171,7 @@ like a file id that no entry holds, and on a trigger that disagrees with it.
 | `order_item_image` | `order_items.id` | an Oxy URL in `.image_url` | store / seller | retained — order history is never rewritten |
 | `digital_asset_file` | the storage key itself | `asset_files.storage_key` | the application (adopted or uploaded); the creator only for a row the storage backfill has not moved yet | retained |
 
-**How a write becomes a reference.** A trigger of migration `0170` on every
+**How a write becomes a reference.** A trigger of migration `0172` on every
 holding table (`mercaria_oxy_file_reference_touch`) enqueues the ENTITY into
 `oxy_file_reference_outboxes`, in the writer's own transaction, on every insert,
 delete and update of a watched column — so a cascade (deleting a listing deletes
@@ -240,7 +240,7 @@ Order: Oxy stages 1–4b deployed (digital registration adopts through stage 4b'
 `/assets/service/app/adopt`), Mercaria's application granted
 `files:references:write`, `files:app:write`, `files:app:delete` and
 `files:user-media:write`; deploy
-this (migration `0170` is `pre`); `OXY_FILE_REFERENCES_ENABLED=true`;
+this (migration `0172` is `pre`); `OXY_FILE_REFERENCES_ENABLED=true`;
 `OXY_FILE_RECONCILIATION_ENABLED=true` and read every type's dry-run counts on
 `oxy_file_reference_reconciliations`; `OXY_FILE_RECONCILIATION_DRY_RUN=false`;
 only then may Oxy switch its sweep to `enforce`. For events:
@@ -271,7 +271,7 @@ reference triggers register what they write.
   bug wrote: per (product or variant, source URL) one survivor (active, then
   holding a file, then oldest), a missing alt text carried over, the rest deleted.
   Nothing references a canonical image row by id.
-- `--target=source_media` — queues the imagery of source links made before 0171.
+- `--target=source_media` — queues the imagery of source links made before 0173.
 - `scripts/backfill-digital-asset-storage.ts` — moves deliverables onto
   application-owned private files (above).
 

@@ -5,7 +5,7 @@
  * open-data and Shopify-storefront readers, every feed — by COPYING it into
  * files the Mercaria application owns (Oxy ADR 0043), never by hotlinking. When
  * an observation is attached to a canonical product (the source-link trigger of
- * migration `0171` queues it), this drains the queue: each HTTPS reference in
+ * migration `0173` queues it), this drains the queue: each HTTPS reference in
  * the observation's stored `payload.media` is imported through the one adapter
  * and attached as a `canonical_images` row with `source_url` and
  * `source_record_id` as provenance. Search, merchant pages, product and offer

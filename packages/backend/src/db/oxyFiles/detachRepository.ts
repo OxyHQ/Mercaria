@@ -15,7 +15,7 @@
  * `attributeRepository.suppressCanonicalImagesByFile`), whose write censuses
  * name them; the registry calls those directly.
  *
- * Every write here also fires the reference triggers of migration `0170`, so the
+ * Every write here also fires the reference triggers of migration `0172`, so the
  * references Oxy holds for the removed usage are withdrawn by the same outbox
  * that registered them.
  */

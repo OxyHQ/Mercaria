@@ -154,7 +154,7 @@ connectPostgres()
 
       // Register every Oxy file Mercaria uses (Oxy ADR 0043). On EVERY task,
       // the offer converger's lease shape. The LOOP is gated by
-      // `OXY_FILE_REFERENCES_ENABLED`; the triggers of migration 0170 queue
+      // `OXY_FILE_REFERENCES_ENABLED`; the triggers of migration 0172 queue
       // every change to a file-holding row whatever it says, so switching it on
       // drains the backlog. The nightly reconciliation is the safety net and
       // how existing data first enters the model, under its own lever.
@@ -164,7 +164,7 @@ connectPostgres()
       // Copy attached observations' imagery into the canonical catalogue as
       // application-owned files, bounded by its own caps (Oxy ADR 0043). Gated
       // by `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED`; the source-link trigger of
-      // migration 0171 queues whatever it says.
+      // migration 0173 queues whatever it says.
       import('./services/catalog-media/source-media-import.js')
         .then(({ startCanonicalSourceMediaImports }) => startCanonicalSourceMediaImports())
         .catch((err) =>

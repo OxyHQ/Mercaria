@@ -6,7 +6,7 @@ import {
 
 /**
  * Move digital deliverables onto application-owned PRIVATE Oxy files (Oxy ADR
- * 0041). Read-only preview by default; `--apply` copies and moves. Reports carry
+ * 0043). Read-only preview by default; `--apply` copies and moves. Reports carry
  * hashes of storage keys, never the keys. From the repo root with Bun:
  *
  *   bun run packages/backend/src/scripts/backfill-digital-asset-storage.ts --limit=50

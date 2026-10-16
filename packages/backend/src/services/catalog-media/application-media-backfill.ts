@@ -271,7 +271,7 @@ export async function backfillCanonicalImageDuplicates(
 }
 
 /**
- * Queue the imagery of every ACTIVE source link made before migration `0171`'s
+ * Queue the imagery of every ACTIVE source link made before migration `0173`'s
  * trigger existed (`canonical_source_media_imports`). Queuing is all it does:
  * the bounded dispatcher imports (`source-media-import.ts`), so a large catalogue
  * is drained at the dispatcher's rate, never by this command.

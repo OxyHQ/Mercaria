@@ -26,7 +26,7 @@ export interface AssetStorageBackfillOptions {
  * of the stored bytes — ADR 0043 stage 4b, every type and size — and Mercaria
  * measures the copy's hash and size against the source's) and moves the row
  * with `replaceAssetFileStorageKey`, a compare-and-swap that the published-file
- * trigger admits only as a declared, same-bytes move (migration `0172`).
+ * trigger admits only as a declared, same-bytes move (migration `0174`).
  *
  * `blocked`: Oxy refused the bytes as taken down (451, ADR 0043 D10). Not
  * retried — the claim decides, not a rerun.

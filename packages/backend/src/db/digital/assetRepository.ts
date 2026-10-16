@@ -668,7 +668,7 @@ export async function everyFileInspectionAcceptable(
  *
  * The one writer of a storage move. On a PUBLISHED version the
  * `asset_files_immutable_once_published` trigger refuses any `storage_key`
- * change the transaction did not declare for this row (migration `0172`), so
+ * change the transaction did not declare for this row (migration `0174`), so
  * this declares it — `set_config(..., true)` is transaction-local — in the same
  * transaction as the update; the trigger still refuses a changed hash, size or
  * type. A draft's file may move freely, as any draft column may.

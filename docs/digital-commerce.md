@@ -122,7 +122,7 @@ measured against the source's); there is no fallback to the creator's upload.
 Rows registered earlier are moved by the storage backfill. A PUBLISHED file's
 bytes remain immutable: a `storage_key` change is refused unless the transaction
 declared that one row's move (`set_config('mercaria.asset_storage_move', <file
-id>, true)`, migration `0172`), which only `replaceAssetFileStorageKey` does, and
+id>, true)`, migration `0174`), which only `replaceAssetFileStorageKey` does, and
 the hash, size and type are refused even then.
 
 **"No right" and "somebody else's right" get the same answer.** Distinguishing them

@@ -318,7 +318,7 @@ async function readServableObject(
 /**
  * Register Mercaria's use of an application-owned object it just stored or
  * adopted. An application's file is collected once nothing references it (ADR
- * 0041 D5), so the use is registered before the object is reported stored.
+ * 0043 D5), so the use is registered before the object is reported stored.
  * `entityId` is the storage key itself: no `asset_files` row exists yet, and
  * this call is what produces the key the row will hold.
  */

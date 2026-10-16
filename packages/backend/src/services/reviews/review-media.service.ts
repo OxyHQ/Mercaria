@@ -61,7 +61,7 @@ export async function prepareReviewMedia(
     media.push({ fileId, kind });
   }
   // No reference is made here. The review write's `review_media` rows fire the
-  // reference trigger (migration 0170), and the outbox registers the use with
+  // reference trigger (migration 0172), and the outbox registers the use with
   // Mercaria's service token after the review commits (Oxy ADR 0043 D4) — a
   // review that fails to save registers nothing. The author's file is theirs
   // and Oxy never collects an account's file (D5), so nothing has to hold it
