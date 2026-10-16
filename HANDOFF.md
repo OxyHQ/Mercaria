@@ -665,42 +665,37 @@ real-media seed precondition must pass before that case can establish this.
 
 ## Oxy Files ownership and usage registration — open (Oxy ADR 0041, 2026-10-16)
 
-Mercaria's side of Oxy ADR 0041 is in code (`docs/catalog-media.md`, "Who owns
-the bytes" and "Usage registration"): imports go through Oxy's import by URL
-(`services/catalog-media/oxy-files.ts`, the one adapter), canonical media,
-category art and brand logos are owned by the Mercaria APPLICATION, every file
-use is registered by trigger + outbox, a nightly reconciliation runs per entity
-type, and `/webhooks/oxy-files` handles takedowns. The section above is
-superseded where it says the importer downloads through `safeFetch` and that
-canonical images import under the operator's account. What is NOT done:
+Mercaria's side of Oxy ADR 0041 is in code (`docs/catalog-media.md`): imports go
+through Oxy's import by URL (`services/catalog-media/oxy-files.ts`, the one
+adapter); canonical media, category art, brand logos, copied external imagery and
+digital deliverables are owned by the Mercaria APPLICATION; every file use is
+registered by trigger + outbox; a nightly reconciliation runs per entity type;
+`/webhooks/oxy-files` handles takedowns. The section above is superseded where it
+says the importer downloads through `safeFetch` and that canonical images import
+under the operator's account. What is NOT done:
 
 - **Nothing has run against a live Oxy.** Every Oxy call is faked at the SDK
   boundary in tests. The stage-3 SDK names (`importAppFile`, `importUserMedia`,
-  `verifyFileEventSignature`) are from the unpublished `@oxy.so/core` worktree
-  build (`TODO(stage3-sdk)` in `oxy-files.ts`); npm's `4.13.0` was published from
-  Oxy's `main` without them, so `packages/backend` must pin the version that
-  actually ships them.
+  `verifyFileEventSignature`) are from the unpublished ADR 0041 SDK build
+  (`TODO(stage3-sdk)` in `oxy-files.ts`); npm's `4.13.0` was published from Oxy's
+  `main` without them, so `packages/backend/package.json` (the one place) must pin
+  the version that ships them, and `bun.lock` be regenerated.
 - **Scopes:** Mercaria's application needs `files:references:write`,
-  `files:app:write` and `files:user-media:write` granted by staff.
-- **Release order** (`docs/catalog-media.md`, "Levers and the release order"):
-  references loop on → reconciliation in dry run, counts read per type → dry run
-  off → only then may Oxy's sweep go to `enforce`.
+  `files:app:write`, `files:app:delete` and `files:user-media:write`.
+- **Release order** (`docs/catalog-media.md`, "Levers and the release order"),
+  then `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED`.
 - **Backfills not run** (preview by default): `backfill-listing-media`,
-  `backfill-store-artwork`, `backfill-application-media` for
-  `canonical_image`, `category_image`, `brand_logo`. Canonical DESCRIPTION images
-  imported under an operator's account are not re-owned by any of them.
-- **Duplicate canonical image rows** written by the pre-ADR identity bug
-  (`image_ref = coalesce(file_id, source_url)`) are not collapsed; new
-  observations no longer add them.
-- **Digital deliverables:** `putAssetObject` now registers its use with
-  `references.add`, but a service-made reference cannot satisfy ADR 0021's
-  owner-linked predicate, so `describeAssetObject` still decides servability. An
-  application-owned private file (`uploadAppFile`, readable by the application
-  through `linkedDownloadUrls`) is the likely real fix and is a digital-domain
-  decision.
-- **External source media** (eBay, Awin, open data) is still a URL in the source
-  record's projection and shown nowhere; enabling an import for a source waits on
-  its caching terms (`docs/catalog-sources/`).
+  `backfill-store-artwork`, `backfill-application-media` (`canonical_image`,
+  `category_image`, `brand_logo`, `canonical_description_image`,
+  `canonical_image_duplicates`, `source_media`) and
+  `backfill-digital-asset-storage`.
+- **Digital deliverables of 3D/archive/PDF types stay on the creator's upload**
+  until Oxy takes such APPLICATION files: ADR 0041 stage 3 accepts only image and
+  video application files up to 40 MiB (`POST /assets/service/app` and the import
+  share the check). The code copies wherever Oxy accepts, and the backfill's
+  preview names each file Oxy cannot take yet (`oxyTakesIt: false`). An Oxy change
+  is required (application files of any deliverable MIME up to 8 GiB, through an
+  init/complete upload or the import).
 
 ## Storefront product parity — review media upload/acceptance remaining (2026-10-10)
 

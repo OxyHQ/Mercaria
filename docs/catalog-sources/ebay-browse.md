@@ -208,7 +208,7 @@ Encoded as #62 rights on the source's own policy version, from #64 §6:
 | Outbound links are `itemAffiliateWebUrl` or the plain item URL only | §7. |
 | No AI training | Not a code path this integration has. Stated here because the contract states it, and because the stored projection is the only eBay content Mercaria holds. |
 | Third-party sellers shown as the merchant | §8 — this is the whole `per_record` seller-identity path. |
-| Image caching duration | **requires account approval** (Buy API contract). Mercaria stores eBay-hosted image URLs in the source record's projection and shows none of them today (an offer carries no image; an earlier version of this row said they were hot-linked, which nothing ever did). The owner has decided Mercaria copies images from every source into Oxy (application-owned, Oxy ADR 0041) — **eBay's terms restrict image caching**, so an import path for this source must not be switched on before the contract's caching answer allows it (`docs/catalog-media.md`). |
+| Image caching duration | **requires account approval** (Buy API contract). Mercaria stores eBay-hosted image URLs in the source record's projection and, by the owner's decision, COPIES them into Oxy (application-owned, Oxy ADR 0041) when the observation is attached to a canonical product, showing the copy (`docs/catalog-media.md`, "External imagery is copied"). It never hot-links (an earlier version of this row said it did; nothing ever did). **eBay's terms restrict image caching**: the copy is the owner's decision against that term, recorded here. |
 
 **Condition** reaches #90 as the eBay **`conditionId`**, never the `condition`
 display name. The display name is LOCALIZED — "Used" on EBAY_GB and "Usado" on

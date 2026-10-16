@@ -260,10 +260,10 @@ outbound links / affiliate params / index / automated refresh).
    must be shown as the merchant on offer surfaces — this is also what #62's
    merchant-identity normalization consumes.
 6. Exact image-caching duration: **requires account approval** (Buy API
-   contract). Superseded in part (2026-10-16): Mercaria shows no source image
-   today and, by the owner's decision, copies images it does show into Oxy
-   (Oxy ADR 0041) rather than hotlinking — which this contract restricts, so
-   no eBay import path may be enabled before the caching answer allows it.
+   contract). Superseded (2026-10-16): by the owner's decision Mercaria COPIES
+   source images into Oxy (Oxy ADR 0041) rather than hotlinking, eBay's
+   included, although this contract restricts caching — a recorded decision,
+   not an oversight (`docs/catalog-media.md`).
 
 **Awin (`awin_feed`)**
 1. Feed data is licensed for promoting the advertiser; a feed's advertiser

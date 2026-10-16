@@ -69,7 +69,9 @@ the row that will hold the file is not written yet (see "Usage registration").
 (import, upload, references, reconciliation, event-signature verification), so a
 name that changes upstream is a one-file change. The stage-3 helpers
 (`importAppFile`, `importUserMedia`, `verifyFileEventSignature`) are those of the
-unpublished `@oxy.so/core` 4.13.0 and are marked `TODO(stage3-sdk)` there.
+unpublished ADR 0041 SDK build and are marked `TODO(stage3-sdk)` there; the
+backend's `@oxy.so/core` pin in `packages/backend/package.json` is the one place
+the release version is set.
 
 ### Who owns the bytes
 
@@ -79,14 +81,55 @@ unpublished `@oxy.so/core` 4.13.0 and are marked `TODO(stage3-sdk)` there.
 | A P2P listing's media | the seller's account | `synchronizeAccount*` |
 | Canonical images and canonical description images, category art, brand logos | the **Mercaria application** — never the operator who made the request (it was, until ADR 0041) | `synchronizeApplication*` |
 | Review media, evidence documents | unchanged: the uploading account | (uploaded by the person) |
-| Digital deliverables | unchanged: `services/digital/storage.ts` | (its own port) |
+| Digital deliverables | the **Mercaria application**, PRIVATE (readable only through Mercaria's service token, ADR 0041 D3/D5) — a creator's upload is copied at registration where Oxy takes the type | `services/digital/storage.ts` (`putAssetObject`, `adoptAssetObject`) |
 
-The owner's decision is that Mercaria copies images from every source it
-imports from, including eBay and Amazon; their terms restrict caching, which the
-source documents under `docs/catalog-sources/` record. External offer media
-(eBay, Awin) is today only a URL in the source record's stored projection: no
-offer surface shows it and nothing imports it. A path that starts importing it
-does so through `synchronizeApplication*`.
+### External imagery is copied (owner decision)
+
+Mercaria copies images from every source it ingests — eBay, Awin, the open-data
+and Shopify-storefront readers, every feed — and shows the copies, never the
+supplier URL. Their terms may restrict caching (eBay and Amazon in particular);
+`docs/catalog-sources/` records which, and the rights flags
+(`may_display_media`, `may_store`) are kept as provenance, not as a gate.
+
+When an observation is attached to a canonical product — the ingestion matcher,
+#60's backfill minting a product, or an operator's observation: all three write an
+active `canonical_product_source_links` row — the trigger of migration `0170`
+queues `canonical_source_media_imports(product, observation)` in the same
+transaction, if the observation's stored `payload.media` names anything. The
+dispatcher (`services/catalog-media/source-media-import.ts`) imports each HTTPS
+reference through the adapter as an application-owned PUBLIC file and attaches it
+as a `canonical_images` row with `source_url` and `source_record_id` as provenance,
+deduplicated by source URL (`attachCanonicalMediaBySource`); a merged product's job
+lands on the winner. Search, merchant pages, product and offer cards already show
+a product's imported canonical images, so nothing else changes.
+
+It is bounded so a million-offer feed cannot stampede Oxy: per task
+`CANONICAL_SOURCE_MEDIA_BATCH_SIZE` (5) jobs per
+`CANONICAL_SOURCE_MEDIA_POLL_INTERVAL_MS` (10 s); across all tasks at most
+`CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT` (10) held at once; per observation
+`CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD` (6) images; and a product that already
+shows `CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT` (10) images imports nothing more —
+its thousandth offer costs one read and no Oxy call. Oxy answers a repeated
+(owner, URL) without a fetch. A source Oxy refuses for good (4xx other than
+401/403/408/429) is skipped; anything else retries with backoff (1 min doubling to
+6 h) and dead-letters after `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` (8). The loop is
+gated by `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` (default off); the trigger queues
+regardless. Links made before `0170` are queued by
+`backfill-application-media.ts --target=source_media`.
+
+### Digital deliverables are application files
+
+`putAssetObject` stores an APPLICATION-owned PRIVATE file and registers it;
+registration of a creator's upload copies it the same way (`adoptAssetObject`:
+Oxy imports the short-lived minted URL privately, Mercaria measures the copy's
+SHA-256 and size against the source's) and registers the copy. Serving then
+depends on no creator link (ADR 0021). Oxy ADR 0041 stage 3 takes only image and
+video application files up to 40 MiB, so a mesh, archive or PDF is refused by Oxy
+today; the registration then keeps the creator's upload, still servable through
+their link, and `scripts/backfill-digital-asset-storage.ts` (preview reports
+`oxyTakesIt` per file) moves it once Oxy takes it. A published file's BYTES stay
+immutable; its storage key may move only in a declared, same-hash move
+(migration `0171`, `replaceAssetFileStorageKey`) — `docs/digital-commerce.md`.
 
 ## Usage registration (Oxy ADR 0041 D4–D6, D9)
 
@@ -116,7 +159,7 @@ like a file id that no entry holds, and on a trigger that disagrees with it.
 | `review_media` | `reviews.id` | `review_media.file_id` | the author | row removed |
 | `return_request_evidence`, `retail_service_request_evidence`, `supplier_agreement_evidence`, `retail_resale_evidence`, `retail_compliance_evidence`, `merchant_claim_evidence`, `relationship_evidence` | the evidence row's `id` | its `file_id` / `oxy_file_id` | the uploader | retained (evidence) |
 | `order_item_image` | `order_items.id` | an Oxy URL in `.image_url` | store / seller | retained — order history is never rewritten |
-| `digital_asset_file` | the storage key itself | `asset_files.storage_key` | the creator | retained |
+| `digital_asset_file` | the storage key itself | `asset_files.storage_key` | the application (a copy), or the creator where Oxy cannot take the type yet | retained |
 
 **How a write becomes a reference.** A trigger of migration `0169` on every
 holding table (`mercaria_oxy_file_reference_touch`) enqueues the ENTITY into
@@ -137,8 +180,10 @@ refuses (`not_found`) is recorded `refused` and asked again by the next write to
 the entity or the next reconciliation. Two types have no trigger: `order_item_image`
 (a checkout write is never made to depend on this — the reconciliation registers
 it, and a trashed file comes back with the reference within Oxy's 30 days) and
-`digital_asset_file` (registered by `services/digital/storage.ts` at upload, and
-not reconciled because `asset_files.storage_key` is read in exactly one place).
+`digital_asset_file` (registered by `services/digital/storage.ts` when it stores
+or copies an object, and reconciled from an inventory that reads each key through
+`findAssetFileStorageKey`, the one sanctioned reader of that protected column —
+an application-owned deliverable nothing references would be collected).
 
 **Reconciliation** (`file-reference-reconciliation.ts`, ADR 0041 D6) sends Oxy
 the whole inventory of one entity type, streamed in keyset pages; Oxy adds what
@@ -178,6 +223,8 @@ ledger that lags its writes.
 | `OXY_FILE_RECONCILIATION_INTERVAL_HOURS` / `_POLL_INTERVAL_MS` | 24 / 60000 | scheduling |
 | `OXY_FILE_EVENTS_ENABLED` | off | the MOUNT (404 when off) |
 | `OXY_FILE_EVENTS_SECRET` | empty | events are refused 503 (Oxy retries ~3.5 days) until set |
+| `CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED` | off | the external-imagery import LOOP (the source-link trigger queues regardless) |
+| `CANONICAL_SOURCE_MEDIA_*` | see above | its batch, global in-flight cap, per-record and per-product caps, attempts |
 
 Order: Oxy stages 1–3 deployed, Mercaria's application granted
 `files:references:write`, `files:app:write` and `files:user-media:write`; deploy
@@ -204,12 +251,22 @@ reference triggers register what they write.
   some account owns (an operator's canonical image) is ADOPTED by importing its
   own public URL as the application's (bytes are shared by content address; the
   account keeps its file, now "not in use", for its owner to decide about).
-  Canonical DESCRIPTION images under an operator's account are not re-owned by it.
+- `--target=canonical_description_image` — the same adoption for every Oxy image
+  in a canonical description, rewriting only those `<img>` sources under a
+  compare-and-swap on the whole description. (Localized canonical descriptions
+  have no writer yet, #367 L2.)
+- `--target=canonical_image_duplicates` — collapses the rows the old identity
+  bug wrote: per (product or variant, source URL) one survivor (active, then
+  holding a file, then oldest), a missing alt text carried over, the rest deleted.
+  Nothing references a canonical image row by id.
+- `--target=source_media` — queues the imagery of source links made before 0170.
+- `scripts/backfill-digital-asset-storage.ts` — moves deliverables onto
+  application-owned private files (above).
 
 The canonical observation fixed on the way: a source's identity is its URL
 (`attachCanonicalMediaBySource`); `image_ref = coalesce(file_id, source_url)` used
 to let a re-import that returned a different file write a second row per
-observation. Rows the bug already duplicated are not collapsed by this change.
+observation.
 
 ## Rollout and rollback
 

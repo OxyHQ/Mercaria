@@ -108,8 +108,22 @@ Six questions, in this order, and **none of them reads a payment**:
 
 Every refusal happens **before any storage key is read**.
 `asset_files.storage_key` is in `PROTECTED_COLUMNS`, so reading it is an explicit,
-greppable act and `services/digital/download.service.ts` is the only module that
-performs one.
+greppable act through ONE function, `findAssetFileStorageKey`:
+`services/digital/download.service.ts` calls it after the last refusal, and the
+operator's storage-move backfill (`asset-storage-backfill.ts`) calls it to copy a
+deliverable and reports only a hash of the key.
+
+**Deliverables are Mercaria-application PRIVATE files** (Oxy ADR 0041 D3/D5),
+readable by no person and by Mercaria's service token through the linked-url mint
+— so serving depends on no creator keeping a link (ADR 0021). Registration copies
+a creator's upload (`adoptAssetObject`, the copy's SHA-256 and size measured
+against the source's) where Oxy takes the type; Oxy's application files are image
+and video up to 40 MiB today, so a mesh stays on the creator's upload until Oxy
+takes it and the backfill moves it. A PUBLISHED file's bytes remain immutable: a
+`storage_key` change is refused unless the transaction declared that one row's
+move (`set_config('mercaria.asset_storage_move', <file id>, true)`, migration
+`0171`), which only `replaceAssetFileStorageKey` does, and the hash, size and type
+are refused even then.
 
 **"No right" and "somebody else's right" get the same answer.** Distinguishing them
 would confirm an id exists, which is the enumeration oracle #1015 W12 threat 1 is

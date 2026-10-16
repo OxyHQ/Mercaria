@@ -219,12 +219,12 @@ Open Food Facts, Open Prices and OpenStreetMap-derived facts are ODbL.
 
 ## Images (Oxy ADR 0041)
 
-Media a provider supplies stays a URL in the source record's stored projection;
-nothing shows it today. The owner's decision is that Mercaria COPIES images from
-every source it shows them from — into files the Mercaria application owns, through
-Oxy's import by URL (`docs/catalog-media.md`) — never a hotlink. Several providers'
-terms restrict that (the licence column above: `ygoprodeck` forbids image
-hotlinking and stores no media; Open Food Facts images are CC BY-SA and carry
-attribution), so an import path for a provider is enabled only after its terms are
-checked for caching and attribution. Amazon and eBay terms restrict image caching
-in particular.
+Media a provider supplies is stored as URLs in the source record's projection and,
+by the owner's decision, COPIED into files the Mercaria application owns when the
+observation is attached to a canonical product (Oxy's import by URL,
+`docs/catalog-media.md`, "External imagery is copied") — never a hotlink. Several
+providers' terms bear on that (the licence column above: `ygoprodeck` forbids image
+hotlinking and stores no media, so it has nothing to copy; Open Food Facts images
+are CC BY-SA and carry attribution, which `source_record_id` provenance keeps).
+Amazon and eBay terms restrict image caching in particular; copying is the owner's
+recorded decision.
