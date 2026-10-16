@@ -460,12 +460,14 @@ verified facts support: automatic delayed capture is a private preview
     Dispute fees are Mercaria's expense. This risk is real and is
     deliberately **not** priced into the customer amount (D3); it is
     covered by D12.5's insurance/loss budget. Diagrams 9, 10, 11.
-13. **Feature rollback with pending operations.** `MERCARIA_RETAIL_ENABLED`
-    gates **entry only** — offer visibility and new retail checkouts. It
+13. **Feature rollback with pending operations.** Retail's entry gate
+    (`config.retail.enabled`, on exactly when the retail seller and its
+    prerequisites are configured) gates **entry only** — offer visibility and new retail checkouts. It
     never gates the outbox, PO orchestration, refunds or reconciliation
     (the durable record and its loops keep draining; the payments rule
     "gate the loop, never the durable record" applies with entry as the
-    gated thing). Rollback: disable the flag; in-flight POs finish or
+    gated thing). Rollback: close entry (a `pilot`-scoped stop, or unset the
+    retail seller identity); in-flight POs finish or
     cancel; the operator may bulk-cancel unaccepted POs, which triggers the
     standard compensating refunds; accepted POs fulfil to completion. No
     retail table is dropped and no migration reversed while any retail
@@ -903,12 +905,15 @@ document existing.
   procurement tables (#118/#124), the ledger accounts and kinds (#128).
   Existing orders backfill `commercialRole: 'connected_marketplace'` in
   the same migration that adds the column.
-- **`MERCARIA_RETAIL_ENABLED=false` is the shipped default.** The flag
-  gates offer visibility and checkout entry for retail lines only (D4
-  concern 13). Half-configured is off: enabling requires at least one
-  eligible supplier adapter configured and the D12 gates recorded, else
-  boot logs once and stays off — the `CROWDSOURCE_ENABLED` validation
-  pattern.
+- **Retail off is the shipped default.** There is no switch (amended
+  2026-10-16, when `MERCARIA_RETAIL_ENABLED` was removed): retail entry is on
+  exactly when `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY`, a two-letter
+  `MERCARIA_RETAIL_SELLER_COUNTRY` and a retail operator list are all
+  configured (supplier preflight is always on, its key derived from
+  `MERCARIA_SECRET_KEY`). The gate covers offer visibility and checkout
+  entry for retail lines only (D4 concern 13). A named seller missing a
+  sibling prerequisite logs once at boot and stays off — the
+  half-configuration rule.
 - **Rollback** is the flag plus the runbook of concern 13: entry closes
   immediately; durable records drain through the existing outbox, refund
   and reconciliation machinery; the operator may bulk-cancel unaccepted
@@ -1191,7 +1196,7 @@ sequenceDiagram
     participant API as Mercaria API
     participant SUP as Supplier
     participant B as Buyer
-    OP->>API: MERCARIA_RETAIL_ENABLED=false (deploy)
+    OP->>API: close retail entry (pilot stop, or retail seller unset + deploy)
     API->>API: retail offers hidden; new retail checkouts refuse —<br/>ENTRY is gated; outbox, POs, refunds, reconciliation keep draining
     par in-flight POs
         SUP-->>API: accepted POs fulfil to completion → buyers receive goods

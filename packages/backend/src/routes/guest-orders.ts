@@ -563,14 +563,6 @@ function refuseClaim(
   refusal: GuestClaimRefusal,
 ): void {
   switch (refusal) {
-    case 'claiming_unavailable':
-      sendError(
-        res,
-        ErrorCodes.GUEST_CLAIM_DISABLED,
-        'Saving orders to an Oxy account is temporarily unavailable. Your order is unaffected.',
-        403,
-      );
-      return;
     case 'claim_scope_missing':
     case 'inbox_not_verified':
       sendError(

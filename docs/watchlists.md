@@ -252,7 +252,7 @@ meant to remove.
 
 ## HTTP surface
 
-Buyer (`authenticateToken`, `rl:listings:`, mounted under `WATCHLISTS_ENABLED`):
+Buyer (`authenticateToken`, `rl:listings:`, always mounted):
 
 | Route | Does |
 |---|---|
@@ -280,16 +280,13 @@ Every mutation carries `expectedVersion` and returns the version it produced.
 ## Environment
 
 ```
-WATCHLISTS_ENABLED=true              # mounts /watchlists; never gates the rows
 WATCHLIST_SNAPSHOT_PAGE_SIZE=50
 WATCHLIST_EVALUATION_CONCURRENCY=6   # offer comparisons per basket, at a time
 ```
 
-ONE flag, and it gates the MOUNT. There is no read mode to roll back to (there
-was no watchlist surface before this issue) and no migration to gate. It does not
-gate the rows: a list already stored stays stored and comes back when the flag
-does, because a rollback lever that cost buyers their lists is one nobody would
-pull during the incident it exists for.
+`/watchlists` is always mounted; there is no switch for it, no read mode to roll
+back to (there was no watchlist surface before this issue) and no migration to
+gate.
 
 ## Deferred, with named seams
 
@@ -303,15 +300,13 @@ pull during the incident it exists for.
 
 ## Production-readiness checklist
 
-1. Deploy with `WATCHLISTS_ENABLED=false`. Confirm `/watchlists` 404s and
-   nothing else moved.
-2. Apply migration `0055` (`pre`, purely additive — four tables, two triggers).
-3. Turn `WATCHLISTS_ENABLED=true` in a staging deployment and create a list of
-   two products priced in different currencies. Confirm the basket names ONE
+1. Apply migration `0055` (`pre`, purely additive — four tables, two triggers).
+2. In a staging deployment, create a list of two products priced in different
+   currencies. Confirm the basket names ONE
    currency, carries both quotes, and labels its basis.
-4. Remove every offer for one of them and confirm the total goes `partial` with
+3. Remove every offer for one of them and confirm the total goes `partial` with
    the item listed and a reason — not smaller and quiet.
-5. Record two snapshots with no change between them and confirm the second is
+4. Record two snapshots with no change between them and confirm the second is
    `deduplicated`.
-6. Confirm `WATCHLIST_EVALUATION_CONCURRENCY` is set for the deployment's offer
-   read budget before enabling for a cohort with long lists.
+5. Confirm `WATCHLIST_EVALUATION_CONCURRENCY` suits the deployment's offer read
+   budget before a cohort with long lists arrives.

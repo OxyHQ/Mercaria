@@ -5,20 +5,18 @@
  * else: different credentials, different levers, different rate-limit keys, and
  * different consequences for getting the authorization wrong.
  *
- * ## The creator MOUNT is gated; the buyer mount is not, and that is the point
+ * ## The creator MOUNT is conditional; the buyer mount is not, and that is the point
  *
- * `DIGITAL_UPLOADS_ENABLED` gates the creator router's mount, the
- * `STRIPE_ENABLED` rule: a deployment that does not do creator uploads answers
- * 404 rather than 401, because a 401 tells an unauthenticated caller that the
- * surface exists here. It defaults OFF (ADR 0010 D13).
+ * The creator router is mounted only when the deployment is configured for it
+ * (an Oxy service identity, which registering
+ * a file needs, and at least one vertical in `DIGITAL_ENABLED_VERTICALS`) — the
+ * Stripe webhook mount rule: an unconfigured surface answers 404 rather than 401,
+ * because a 401 tells an unauthenticated caller that the surface exists here.
  *
  * The BUYER router is mounted unconditionally and deliberately, for the reason
- * `/guest/orders` is: every lever in D13 must be pullable *"without stranding
- * prior purchases"*, and gating this mount would mean that turning uploads off
- * — a creator-side decision — also took away the library of everybody who had
- * already paid. `DIGITAL_DOWNLOADS_ENABLED` is the lever that reaches a download
- * and it is checked INSIDE `download.service`, where it refuses a new grant with
- * `downloads_disabled` and leaves every right `active`.
+ * `/guest/orders` is: a deployment that stops creator uploads must not take away
+ * the library of everybody who had already paid. A download is authorized by the
+ * buyer's right alone, INSIDE `download.service`.
  *
  * ## This is NOT a raw-body mount and must not become one
  *
@@ -38,6 +36,7 @@
 
 import { Router } from 'express';
 import { config } from '../config/index.js';
+import { hasOxyServiceIdentity } from '../capabilities/oxy-service-identity.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { resolveCommerceActor } from '../middleware/commerce-actor.js';
 import { loadStore, requireStorePermission } from '../middleware/store-authz.js';
@@ -251,7 +250,10 @@ buyerRouter.post('/claims', validateBody(claimFreeAssetSchema), claimFreeDigital
 
 const router = Router();
 
-if (config.digital.uploadsEnabled) {
+// Decided HERE, at mount, rather than in config: an Oxy service identity (which
+// registering a file needs) plus at least one enabled vertical. Config stays
+// free of Oxy, so suites that mock the Oxy SDK can still load it.
+if (hasOxyServiceIdentity() && config.digital.enabledVerticals.length > 0) {
   router.use('/stores/:storeId', creatorRouter);
 }
 

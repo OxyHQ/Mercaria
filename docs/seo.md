@@ -311,9 +311,9 @@ withdraws the page.
 #54/#56/#57/#58/#60/#62/#68/#78 use — not a seventh: who may decide what the
 catalogue says and who may read what a crawler is told about it are the same
 power over the same graph. Empty list = the router is not mounted (404, never a
-401 that would advertise it), and it stays mounted while `SEO_ROUTES_ENABLED` is
-off, because "why is this page not indexed" is exactly the question somebody
-asks after pulling the lever.
+401 that would advertise it), and it stays mounted while the public `/seo/*`
+routers are not, because "why is this page not indexed" is exactly the question
+somebody asks after pulling the lever.
 
 | Route | Answers |
 |---|---|
@@ -345,7 +345,7 @@ was asked. This domain owns no table and adds none.
 ## robots.txt — two artefacts, one list
 
 The API renders it from `SEO_ROBOTS_DISALLOWED_PATHS`; the storefront ships a
-static copy for the flag-off state, because that is what a crawler gets when the
+static copy for the `SEO_INDEXING_MODE=off` state, because that is what a crawler gets when the
 worker's proxy cannot answer. `seo-robots.test.ts` parses the static asset and
 fails the build when its `Disallow` set differs from the rendered one.
 
@@ -364,7 +364,7 @@ id along the way.
 ## sitemap.xml — the other floor, and why it is hand-written
 
 The storefront ships a static `sitemap.xml` beside `robots.txt` for the same
-flag-off state. It advertises the home page and NOTHING else: the API's index
+`SEO_INDEXING_MODE=off` state. It advertises the home page and NOTHING else: the API's index
 over the four paginated collections is the only thing that can apply the
 indexability policy, and a build-time catalogue listing would be a second
 sitemap authority, stale from the moment it was written.
@@ -387,22 +387,23 @@ The third is the one that could have caught #371; the artefact itself was always
 well-formed. It deliberately does not assert that the date is not today, which
 would fail on the day somebody legitimately edits it.
 
-## The rollout levers
+## The rollout lever
 
 | Variable | Default | What it gates |
 |---|---|---|
-| `SEO_ROUTES_ENABLED` | `false` | Whether `/seo/*` is MOUNTED at all |
-| `SEO_INDEXING_MODE` | `off` | `off \| canary \| on` — whether anything may be indexed |
+| `SEO_INDEXING_MODE` | `off` | `off \| canary \| on` — whether `/seo/*` is MOUNTED (`canary`/`on`) and what may be indexed |
 | `SEO_CANARY_CATEGORY_IDS` | empty | Which categories `canary` indexes |
 | `SEO_SITEMAP_PAGE_SIZE` | 25,000 | URLs per sitemap page |
 | `SEO_DOCUMENT_CACHE_SECONDS` | 300 | `Cache-Control` on a document |
 | `SEO_SITEMAP_CACHE_SECONDS` | 3,600 | `Cache-Control` on a sitemap or robots.txt |
 
-Two levers because they bound different blast radii. With the routes off the
-worker's lookup 404s and it serves the storefront exactly as it did before #75.
-With indexing off the metadata still renders — a correct title and a correct
-sharing card are worth having before anybody is invited to index the catalogue —
-and every page says `noindex` and every sitemap is empty.
+ONE lever. With the mode `off` — the default — `/seo/*` is not mounted: the
+worker's lookup 404s and it serves the storefront exactly as it did before #75,
+with the static `robots.txt` and `sitemap.xml`. Mounting the routers with
+indexing off would make every page say `noindex` and every sitemap empty, which
+is worse than that static floor, so the mount follows the mode
+(`seoRoutesMounted` in `services/seo/rollout.ts`). `canary` and `on` mount the
+routers and decide what may be indexed.
 
 **`canary` with an empty list indexes NOTHING.** Half-configured is off, and
 this is deliberately the OPPOSITE of `CHECKOUT_DESTINATION_COUNTRIES` and

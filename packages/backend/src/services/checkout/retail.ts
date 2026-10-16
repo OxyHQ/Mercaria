@@ -258,10 +258,11 @@ export interface RetailCheckoutPlan<TLine> {
  *
  * What makes a retail line reach here on a shipping method is NO LONGER the #93
  * seam, which is filled: `assertSellerGroupsAcceptDestination` now accepts an
- * all-collection order and delegates to `resolvePickupForCheckout`. It is that
- * `MERCARIA_RETAIL_ENABLED` and `STORE_PICKUP_ENABLED` both default off, so the
- * combination has no deployment. That is a LEVER pair rather than a structural
- * bar, which is exactly why the `pickup` branch below throws.
+ * all-collection order and delegates to `resolvePickupForCheckout`. Store
+ * pickup is on wherever GoWay is configured, so the combination is reachable
+ * the day retail is (once its seller and prerequisites are configured) — a
+ * LEVER rather than a structural bar, which is exactly why the `pickup` branch
+ * below throws.
  */
 function retailFulfilmentMethod(method: ShippingMethod): RetailFulfilmentMethod {
   switch (method) {

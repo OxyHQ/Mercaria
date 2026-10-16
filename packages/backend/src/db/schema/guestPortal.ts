@@ -443,7 +443,7 @@ export const guestContactSuppressions = pgTable(
   'guest_contact_suppressions',
   {
     id: generatedId(),
-    /** HMAC-SHA-256 of the NORMALIZED address under `GUEST_EMAIL_HASH_KEY`. */
+    /** HMAC-SHA-256 of the NORMALIZED address under the derived `guest-email-hash` key. */
     emailHash: text().notNull(),
     reason: text({ enum: asEnumValues(GUEST_CONTACT_SUPPRESSION_REASONS) }).notNull(),
     /** The Oxy operator who lifted it. No foreign key — Oxy owns identity. */
@@ -487,7 +487,7 @@ export const guestContactSuppressions = pgTable(
  *
  * ## Every subject is HASHED, and none of them is a fingerprint
  *
- * `subject_hash` is an HMAC under `GUEST_EMAIL_HASH_KEY` of the axis value —
+ * `subject_hash` is an HMAC under the derived `guest-email-hash` key of the axis value —
  * the normalized email for `email_hash`, the order number for
  * `order_reference`, the coarse address prefix (IPv4 /24, IPv6 /64) for
  * `network`. So the throttle can count without the table being able to name an

@@ -393,9 +393,10 @@ live hold whose quote reads as finished.
 It needs no lease of its own — every action is an idempotent compare-and-swap,
 so N tasks produce the same end state as one and a dead task strands nothing.
 
-`SUPPLIER_PREFLIGHT_SWEEP_ENABLED` stops the LOOP and nothing else: quotes still
-expire against their own deadline and holds still lapse on the SUPPLIER's clock,
-both read against the clock at every use. What stops is Mercaria RECORDING it.
+The sweep always runs, and it records lapses rather than causing them: quotes
+expire against their own deadline and holds lapse on the SUPPLIER's clock, both
+read against the clock at every use, so a late sweep cannot make a stale quote
+usable.
 
 ### Test mode
 
@@ -404,10 +405,9 @@ names — timeout, cost change, stock loss, reservation expiry — plus rate
 limiting, provider error and an `undeclared_reservation` probe that exercises
 the capability boundary from the other direction.
 
-**Two independent gates, and the second is the load-bearing one:**
-`SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED` must be on for it to be registrable at
-all, AND it refuses a `live` supplier account at call time whatever the flag
-says. A flag is exactly the thing that gets copied between environments, and the
+**Two independent gates, and the second is the load-bearing one:** it is
+registrable only outside `NODE_ENV=production`, AND it refuses a `live` supplier
+account at call time in any environment. Environments get copied, and the
 consequence here is a customer charged against stock that was never checked.
 
 Injection is process-local, which is why it is NOT on the operator surface: an
@@ -419,25 +419,21 @@ their request.
 ## Environment
 
 ```
-SUPPLIER_PREFLIGHT_ENABLED=false          # may an adapter be called at all
-SUPPLIER_PREFLIGHT_FINGERPRINT_KEY=       # 64 hex chars; REQUIRED when enabled
-SUPPLIER_PREFLIGHT_SWEEP_ENABLED=true     # the release/health loop
 SUPPLIER_PREFLIGHT_SWEEP_INTERVAL_MS=30000
 SUPPLIER_PREFLIGHT_SWEEP_BATCH_SIZE=50
 SUPPLIER_PREFLIGHT_MAX_RELEASE_ATTEMPTS=5
-SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED=false
 PROCUREMENT_OPERATOR_OXY_USER_IDS=        # empty = surface not mounted (404)
 ```
 
-`SUPPLIER_PREFLIGHT_ENABLED=true` **requires** the fingerprint key — the
-half-configuration rule `GUEST_COMMERCE_ENABLED` established. An unset key would
-mean an unkeyed request digest, and a country plus a postal code is a space
-small enough to enumerate, so that digest would be an offline oracle over
-buyers' addresses sitting in a column.
-
-Staying OFF is SAFE here in a way it would not be for a delivery queue: every
-preflight still runs, still records its attempt and still writes a quote —
-answering `unknown`, which blocks checkout. Nothing is silently permitted.
+Preflight has no switch. Whether a supplier is asked is decided per account
+(active, sourcing policy present, adapter registered, no live suppression), and
+only retail checkout — behind the retail entry gate (`config.retail.enabled`) —
+asks for one. The
+request digest is always keyed, under the `supplier-preflight-fingerprint` key
+derived from `MERCARIA_SECRET_KEY`: a country plus a postal code is a space
+small enough to enumerate, so an unkeyed digest would be an offline oracle over
+buyers' addresses sitting in a column. `preflight_disabled` stays in the closed
+block-reason set only because stored quotes may carry it.
 
 The sourcing policy key is a code CONSTANT (`mercaria-retail-sourcing`), not a
 variable — the `CROWDSOURCE_APP_ID` reasoning: a variable holding it could only
@@ -485,15 +481,14 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 1. `PROCUREMENT_OPERATOR_OXY_USER_IDS` populated — without it nobody can publish
    a sourcing policy, read a quote trace or stop a failing supplier.
-2. `SUPPLIER_PREFLIGHT_FINGERPRINT_KEY` provisioned (64 hex characters, its own
-   key — never shared with the guest PII or email-hash keys).
+2. `MERCARIA_SECRET_KEY` provisioned — the fingerprint key is derived from it
+   under its own purpose, independent of the guest PII and email-hash keys.
 3. A sourcing policy version published and ACTIVE. Without one every preflight
    answers `sourcing_policy_missing`, which blocks.
 4. At least one real adapter registered by #124, and its declared capabilities
    reviewed against what the provider actually does — the boundary downgrades a
    false claim, but a MISSING declaration silently costs a capability.
-5. `SUPPLIER_PREFLIGHT_FAKE_ADAPTER_ENABLED` confirmed OFF in production.
-6. Alerting on the metrics surface (quote failure rate, expiry rate, lapsed
+5. Alerting on the metrics surface (quote failure rate, expiry rate, lapsed
    unconsumed holds, `provider_contract_violation` count) wired in `oxy-infra` —
    this domain exposes JSON and structured logs and takes no prometheus
    dependency, the `/internal/payments` precedent.

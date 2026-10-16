@@ -14,7 +14,7 @@ them, and they cannot answer a question about yesterday. The publish endpoint
 (`POST /stores/:storeId/product-drafts/:draftId/publish`) is still not an
 observed route. `authoring_schema_error_rate` DOES observe
 real traffic (it is keyed on `GET /catalog-authoring/schemas/:productTypeKey`,
-and answers `surface_not_mounted` while `CATALOG_AUTHORING_ENABLED` is off), but
+a route that is always mounted), but
 it counts only responses with `status >= 500` on the SCHEMA READ, which is neither
 the publish call nor a refusal. So a publication failure is diagnosed from
 **draft OUTCOMES in aggregate** and from **the trace of one publication**. The
@@ -34,7 +34,7 @@ say.
 | `draft_completion_rate` | same report | a fall, read TOGETHER with `draft_open_count` |
 | `schema_version_unavailable` | `GET /internal/catalog-metrics/integrity` | `findings > 0` |
 | `mustStayZero.metricCollectionFailures` | `GET /internal/catalog-metrics` | any non-zero value |
-| `authoring_schema_error_rate` | same report | a rise. 5xx on the SCHEMA composition read, which blocks a merchant before they can publish at all. Read the STATE first: `unmeasured` / `surface_not_mounted` means `CATALOG_AUTHORING_ENABLED` is off and there is no authoring at all; `measured` with `denominator: 0` means the surface is live and nobody has opened a form |
+| `authoring_schema_error_rate` | same report | a rise. 5xx on the SCHEMA composition read, which blocks a merchant before they can publish at all. `measured` with `denominator: 0` means nobody has opened a form on this task |
 
 Both draft rates are `rolling_7d` and are keyed on the drafts CREATED in the
 window, so they move slowly and a spike takes days to appear. They are the
@@ -59,9 +59,9 @@ matching (→ attribute reindex, which does not exist; see the
   changing their minds.
 - **Not that the whole fleet is affected.** The route counters are per ECS task
   and reset on deploy.
-- **Not a failure at all, with the levers off.** `CATALOG_AUTHORING_ENABLED`
-  gates the authoring MOUNT; with it off nothing is published, every draft rate
-  has a denominator of zero, and that reads as a measured `0 / 0` with no ratio.
+- **Not a failure at all, with nothing authored.** With no merchant authoring,
+  every draft rate has a denominator of zero, and that reads as a measured
+  `0 / 0` with no ratio.
 
 ## The first three things to check
 
@@ -129,11 +129,11 @@ recorded under can no longer be re-derived.
    commonest cause and the one with no metric (seam 2). Reproduce with
    `POST /stores/:storeId/product-drafts/:draftId/validate` on a real draft and
    read the field codes.
-3. **The offer convergence dispatcher is off or behind.**
-   `OFFER_MATERIALIZATION_ENABLED` gates the LOOP; rows keep accumulating. Read
+3. **The offer convergence dispatcher is behind.** It always runs and its rows
+   are durable, so a backlog is lag, not loss. Read
    `GET /internal/offers/convergence` for how much is outstanding.
-4. **The match dispatcher is off or behind.** `MATCH_PIPELINE_ENABLED` gates the
-   loop. `unresolved_subject_count` grows and, more usefully,
+4. **The match dispatcher is behind.** It always runs, so a stalled one is a
+   crashed or wedged task. `unresolved_subject_count` grows and, more usefully,
    `unresolved_subject_oldest_age` grows — depth without age cannot tell a deep
    queue draining fast from a shallow one that is stuck.
 5. **A partial enqueue from a write path that is not `publishDraft`.** A listing

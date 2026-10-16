@@ -24,11 +24,14 @@
  * prospective gating must not double as an oracle over which programs exist).
  */
 export type ReferralRedirectDisposition =
-  /** Signature good, row live, program live, traffic organic — click claimed. */
+  /**
+   * Signature good, row live, program live, traffic organic — click claimed and
+   * the carrier handed over in the URL fragment. No touch: that waits for consent.
+   */
   | 'redirected_and_recorded'
   /** Redirected, but the traffic was classified non-organic: no click, no touch. */
   | 'redirected_unattributed'
-  /** Redirected with no state issued because consent was withheld. */
+  /** Redirected with no carrier issued because a native client declared `denied`. */
   | 'redirected_without_state'
   /** The operator lever for this program's redirect is off. */
   | 'refused_redirect_disabled'
@@ -154,12 +157,13 @@ export interface ReferralBindingResult {
 /**
  * What a request declares about consent to persist referral state.
  *
- * Mercaria operates NO consent framework — there is no CMP, no stored consent
- * record and no jurisdiction table anywhere in this repository. So this is a
- * DECLARATION the client makes, recorded verbatim on the touch
- * (`referral_touches.consent_mode`, #142) and acted on in exactly one way:
- * `denied` means no web carrier is written. It is not evidence that consent was
- * collected, and nothing here may present it as such.
+ * Mercaria operates no general consent framework (no CMP, no stored consent
+ * record, no jurisdiction table). The referral web flow asks its OWN question
+ * (see {@link ReferralConsentAnswer}); this is the older, coarser DECLARATION a
+ * client may make on `/referrals/bind` and friends, recorded verbatim on the
+ * touch (`referral_touches.consent_mode`, #142) unless the carrier itself says
+ * the buyer granted consent, and acted on in exactly one way: `denied` means no
+ * carrier is written or kept.
  *
  * Spelled as its own type rather than reusing `ReferralConsentMode` from
  * `referral.ts`: that one is the STORED column's vocabulary, and the two happen
@@ -173,6 +177,20 @@ export const REFERRAL_CONSENT_DECLARATIONS: readonly ReferralConsentDeclaration[
   'denied',
   'unknown',
 ];
+
+/**
+ * The buyer's ANSWER to the storefront's referral consent prompt
+ * (`POST /referrals/consent`).
+ *
+ * Not {@link ReferralConsentDeclaration}: `unknown` is not an answer anybody
+ * gives. ePrivacy Art. 5(3) wants prior consent before referral state is stored
+ * on a device, so the redirect stores nothing and this answer is the one thing
+ * that can make the server write a carrier cookie — and only `granted` does.
+ */
+export type ReferralConsentAnswer = 'granted' | 'denied';
+
+/** Both answers. */
+export const REFERRAL_CONSENT_ANSWERS: readonly ReferralConsentAnswer[] = ['granted', 'denied'];
 
 /**
  * Signals that may NEVER decide, carry or recover a referral identity
@@ -302,7 +320,7 @@ export const REFERRAL_DEFERRED_DEEP_LINK_SUPPORT: readonly ReferralDeferredDeepL
  *
  * Absence of a controls row means BOTH ENABLED — a lever nobody has touched is
  * not a gate somebody has to discover, and the domain is already bounded by
- * `REFERRALS_ENABLED` plus each program's own status.
+ * each program's own status.
  */
 export interface ReferralProgramControlsView {
   programId: string;

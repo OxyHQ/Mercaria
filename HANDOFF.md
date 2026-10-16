@@ -8,12 +8,11 @@ What changed with #69 is the *shape* of the remaining unknown. It is no longer "
 The connector backend, dashboard "Sales channels" UI, ingestion API, and the WooCommerce plugin (repo `OxyHQ/mercaria-woocommerce`) are all on `main` and deploy with the normal Mercaria pipeline. They are **inert until** the env below is set + a Partner app exists.
 
 ## 1. Env / secrets (SSM `/oxy/mercaria/*`, the only source; `aws ssm put-parameter`)
-Generate + set these on the **Mercaria backend** (ECS):
+Generate + set these on the **Mercaria backend** (ECS). The OAuth `state` (CSRF) key is derived from `MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets") and needs nothing here:
 
 | Var | How | Notes |
 |---|---|---|
 | `CONNECTOR_ENCRYPTION_KEY` | `openssl rand -hex 32` | AES-256-GCM key for connection credentials + channel keys. **If rotated, all stored credentials become undecryptable** — treat as durable. |
-| `CONNECTOR_OAUTH_STATE_SECRET` | `openssl rand -hex 32` | Signs the OAuth `state` (CSRF). |
 | `CONNECTOR_OAUTH_REDIRECT_BASE_URL` | e.g. `https://api.mercaria.co` | Public base of the backend; the Shopify callback is `{base}/channels/oauth/shopify/callback`. |
 | `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` | e.g. `https://dashboard.mercaria.co/channels` | Where the merchant lands after authorizing. |
 | `CONNECTOR_DEFAULT_CATEGORY_SLUG` | e.g. `home` | An existing category slug imported products default to. |
@@ -21,7 +20,7 @@ Generate + set these on the **Mercaria backend** (ECS):
 | `SHOPIFY_SCOPES` | optional — the code default is now the full string in `docs/runbooks/connector-real-store-verification.md` §3.2 | It WAS `read_products` alone, which is what #218 landed a default deployment in. Set it only to request a NARROWER grant, and read the granted `scopes[]` back after connecting either way: a scope Shopify did not grant at install cannot be added without re-authorizing, and a topic it refuses is now recorded on the connection rather than thrown away (§5.3). |
 | `REDIS_URL` | ElastiCache Valkey (already in `oxy-infra`) | **Important:** without it, syncs run INLINE in the request → large backfills time out, and neither scheduled sweep runs — not the 6h catalogue reconcile, nor the 15-minute webhook re-registration sweep (#262), whose merchant-triggered equivalent does still run inline. Required for production. |
 
-Guest commerce (#103, ADR 0003 — DO NOT enable before the M8 security + privacy review): `GUEST_COMMERCE_ENABLED=true` requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (each `openssl rand -hex 32`, two DIFFERENT keys — D12) or it stays OFF and logs once at boot. `GUEST_SESSION_ISSUANCE_ENABLED=false` is the incident kill switch (stops new sessions only). Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
+Guest commerce (#103, ADR 0003 — the M8 security + privacy review is still owed): it has no switch and is ON exactly when its two keys resolve — the contact cipher key and the separate email-hash key (D12), both derived from `MERCARIA_SECRET_KEY` under different purposes — so it is ON on every deployment. There is no separate issuance kill switch; `GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native` stops every new guest checkout while carts and sessions survive. Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
 
 FX (optional but recommended): the 15 non-USD/EUR/GBP currencies use env-overridable **static** fallback rates (`FX_STATIC_RATE_JPY`, `…_MXN`, etc.). The live provider only yields FAIR→USD. For correct display and for the presentment side of a cross-currency order, wire a real multi-currency FX source or keep the static rates current. A missing rate is never fabricated: the pair is simply omitted, and a conversion that needs it fails rather than quoting a wrong amount — so a same-currency sale is unaffected by an FX outage, and a cross-currency one is refused.
 
@@ -229,8 +228,8 @@ Left, in order:
 
 # Mercaria Digital (#1015) — what is built, what is inert, and what Phases B–E still need
 
-**Status: Phase A is code-complete, CI-green and INERT.** Four of the five feature
-levers default OFF and nothing has run against real object storage, a real asset
+**Status: Phase A is code-complete, CI-green and INERT.** Paid checkout defaults
+OFF, no version can publish without a malware scanner, and nothing has run against real object storage, a real asset
 file or a real buyer. Binding decisions: [ADR 0010](docs/adr/0010-digital-commerce.md).
 Design: [docs/digital-commerce.md](docs/digital-commerce.md).
 
@@ -238,7 +237,7 @@ Design: [docs/digital-commerce.md](docs/digital-commerce.md).
 
 Migration `0156` creates fifteen tables and seven triggers and runs with the normal
 pipeline, so the schema is live on every deployment. **Nothing uses it** until the
-levers below are set, and a deployment that sets none behaves exactly as it did
+configuration below is set, and a deployment that sets none behaves exactly as it did
 before #1015 — including the address constraint, which is stricter for physical
 orders and otherwise invisible.
 
@@ -246,11 +245,13 @@ orders and otherwise invisible.
 
 | Var | Default | Notes |
 |---|---|---|
-| `DIGITAL_UPLOADS_ENABLED` | `false` | gates the creator upload surface. Off does not touch a published asset. |
-| `DIGITAL_PUBLICATION_ENABLED` | `false` | gates a version becoming sellable. Separate from uploads so work can be staged while publication is paused. |
-| `DIGITAL_PAID_CHECKOUT_ENABLED` | `false` | **the launch gate — see §3.** A free claim still works with it off. |
-| `DIGITAL_DOWNLOADS_ENABLED` | **`true`** | the INCIDENT lever. Off refuses new grants with `downloads_disabled` and leaves every right `active`, so flipping it back restores access with nothing to repair. **Never use it as a rollout lever.** |
-| `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. |
+| `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. **The paid launch gate — see §3:** listing a vertical opens paid checkout (and free claims) for it; there is no separate paid-checkout switch. |
+
+There is no uploads, publication or downloads lever. The creator upload surface is
+mounted when Mercaria has an Oxy service identity AND `DIGITAL_ENABLED_VERTICALS`
+names a vertical; a version becomes sellable only when every file is scanned
+`clean` and inspected acceptably (no scanner is registered, so nothing publishes
+yet); a download is authorized by the right alone.
 
 ## 2. Object storage IS wired now — and the part that is NOT is upload
 
@@ -279,9 +280,9 @@ owner having attached it to the `mercaria` application.
    wanting a whole version's files must go through it.
 
 Until step 2, every download answers `absent`, which surfaces as *"your purchase is
-unaffected — please contact support"* rather than a revocation. `downloadsEnabled`
-defaults **on** (it is the incident lever), so the gate that actually holds is
-`publicationEnabled`.
+unaffected — please contact support"* rather than a revocation. The gate that
+actually holds is publication: with no malware scanner registered, no version is
+publishable.
 
 ### What is still missing: UPLOAD
 
@@ -305,8 +306,9 @@ reconcilable), and that flow carries a client-side obligation:
 
 ## 3. The paid-launch gate (ADR 0010 D15) — three sign-offs, per market
 
-`DIGITAL_PAID_CHECKOUT_ENABLED` must stay off in a market until all three are
-recorded here with a date and a name:
+No vertical may be added to `DIGITAL_ENABLED_VERTICALS` for a market — that is
+what turns paid digital checkout on — until all three are recorded here with a
+date and a name:
 
 | Gate | What it has to establish | Status |
 |---|---|---|
@@ -411,24 +413,17 @@ of the epic's own recommended order plus the library projection. Read
 `docs/digital-retail.md` first — this section is only what is NOT done and what
 each remaining piece needs.
 
-## What is live-but-inert, and the levers that hold it
+## What is live-but-inert, and what holds it
 
-Everything defaults OFF except the incident lever:
-
-| Variable | Default | Stops |
-|---|---|---|
-| `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED` | off | pulling supplier catalogues |
-| `DIGITAL_RETAIL_PUBLICATION_ENABLED` | off | an offer becoming publishable |
-| `DIGITAL_RETAIL_CHECKOUT_ENABLED` | off | buying |
-| `DIGITAL_RETAIL_PROCUREMENT_ENABLED` | off | submitting anything to a supplier |
-| `DIGITAL_RETAIL_REVEAL_ENABLED` | **on** | revealing something a buyer already owns |
+There are no deployment levers. Buying is not wired (#57); when it is, it is gated
+by the retail entry gate (`config.retail.enabled`, on when the retail seller and
+operators are configured). Procurement is on exactly when the seal key resolves:
 
 `DIGITAL_RETAIL_SEAL_KEY_REFERENCE` must name a path under
 `/oxy/mercaria/digital-retail/seal/`, and the key itself is 32 base64 bytes in
 `DIGITAL_RETAIL_SEAL_KEY_<LAST_SEGMENT>`. **Treat it as durable: rotating it makes
 every artifact sealed under it unopenable.** A deployment with no key can seal
-nothing, which is the reason procurement defaults off rather than failing after
-money has been spent.
+nothing, so it procures nothing rather than failing after money has been spent.
 
 ## What is NOT built, and what each needs
 
@@ -533,8 +528,8 @@ that would have been needed to make one.
 (repo variable `GOWAY_API_URL`, default `https://api.goway.to`), like
 `OXY_API_URL`. Add it to the task definition's `environment` in oxy-infra
 (`terraform-uswest2/app-services.tf`) as well, so a revision terraform
-registers between deploys keeps it. `NEARBY_DISCOVERY_ENABLED` and
-`STORE_PICKUP_ENABLED` stay off without it.
+registers between deploys keeps it. Nearby discovery and store pickup exist
+exactly when it is set.
 
 **Deferred:**
 
@@ -1305,8 +1300,8 @@ remain unverified until that upstream contract is deployed and exercised.
 
 Backend417a131f and Wholesale0d0c798e are on main. Migration0167 was applied ONLY
 to local mercaria_dev_canonical_20261010 through src/db/migrate.ts after dry-run
-confirmed exactly one pending migration. CATALOG_VIDEO_WRITES_ENABLED remains
-off. The merchant worktree is clean and preserved at /tmp/mercaria-catalog-video-media.
+confirmed exactly one pending migration. CATALOG_VIDEO_WRITES_ENABLED remained
+off at the time (it has since been removed; video writes are always on). The merchant worktree is clean and preserved at /tmp/mercaria-catalog-video-media.
 Its full suite had817 passing files and only two migration marker gates failing
 before correction; both gates plus canonical-only video/condition concurrency
 now pass in149 targeted tests. Seven merchant browser cases pass. A separate
@@ -1633,9 +1628,11 @@ with M8-05 (dev origins in production CORS/CSRF), M8-09 (registries) and M8-11
 Operational consequence: the guest retention loop now runs on every task, and
 retention is turned ON by publishing a policy (`POST
 /internal/guest-commerce/governance/retention-policy`), not by an environment
-variable. Until `GUEST_RETENTION_DRY_RUN` is removed (a separate change), a
-pass predicts rather than erases. Set `GUEST_ABUSE_SUBJECT_HASH_KEY` in SSM or
-no abuse counter is written.
+variable. Since the env-flag removals (#1096) the scheduled loop APPLIES for
+every class whose active policy says `minimization_job` — publishing is turning
+erasure on — while an operator pass previews unless its request says
+`dryRun: false`. The abuse subject key is derived from `MERCARIA_SECRET_KEY`, so
+every watched attempt is counted with nothing to set.
 
 Still open, deliberately:
 - **Erasure, the other halves.** `requestGuestData` supports a

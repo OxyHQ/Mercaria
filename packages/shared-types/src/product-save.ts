@@ -310,12 +310,13 @@ export type SavedProductOffer =
     };
 
 /**
- * Whether this deployment can turn a saved product into a price alert (#79).
+ * That a saved product can be turned into a price alert (#79).
  *
  * #80 shipped this with ONE branch — the unsupported one — because the thing an
  * action would create did not exist and a control claiming otherwise is worse
- * than no control. #79 built it, and closing the seam is this union gaining a
- * `supported: true` branch that a client renders the affordance from.
+ * than no control. #79 built it and price alerts are always mounted, so the
+ * value is now always `supported: true`. It stays on the wire because installed
+ * clients read `priceAlert.supported`.
  *
  * ## The supported branch carries no alert STATE, deliberately
  *
@@ -326,28 +327,13 @@ export type SavedProductOffer =
  * asks `GET /price-alerts?canonicalProductId=…` for what the buyer has set; the
  * saved list only needs to know whether to offer the button.
  *
- * A STRING discriminant is deliberately not used here: this union is consumed by
- * `@mercaria/ui` and `@mercaria/frontend`, both of which compile under `strict`,
- * so a boolean literal narrows correctly. The backend never switches on it.
  */
-export type ProductSavePriceAlert =
-  | { readonly supported: true }
-  | { readonly supported: false; readonly reason: 'price_alerts_disabled' };
+export interface ProductSavePriceAlert {
+  readonly supported: true;
+}
 
-/** What a projection returns when this deployment has price alerts mounted. */
+/** What every saved-product projection carries. */
 export const PRODUCT_SAVE_PRICE_ALERT_SUPPORTED: ProductSavePriceAlert = { supported: true };
-
-/**
- * What it returns when `PRICE_ALERTS_ENABLED` is off.
- *
- * A deployment-level fact and not a per-save one, which is why the reason names
- * the flag rather than the buyer or the product: there is nothing about THIS
- * save that makes an alert impossible.
- */
-export const PRODUCT_SAVE_PRICE_ALERT_DISABLED: ProductSavePriceAlert = {
-  supported: false,
-  reason: 'price_alerts_disabled',
-};
 
 /** How a save stands with respect to a split that divided its product. */
 export type ProductSaveResolution =

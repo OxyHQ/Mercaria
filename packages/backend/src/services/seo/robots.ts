@@ -5,8 +5,8 @@
  *
  * The served file is composed here from `SEO_ROBOTS_DISALLOWED_PATHS`. The
  * storefront also ships a STATIC `public/robots.txt`, which is what a browser
- * gets when `SEO_ROUTES_ENABLED` is off and the worker's lookup fails — the
- * flag-off floor. Two files is one more than anybody wants, and the answer is
+ * gets when `/seo/*` is not mounted (`SEO_INDEXING_MODE=off`) or the worker's
+ * lookup fails — the floor. Two files is one more than anybody wants, and the answer is
  * not to delete one but to gate them: `seo-robots.test.ts` reads the static
  * asset and fails when its `Disallow` set differs from this module's, so they
  * cannot drift.
@@ -63,7 +63,7 @@ export function renderRobotsTxt(origin: string): string {
   const lines: string[] = [
     '# Mercaria by Oxy',
     '# Served by the API (#75). The storefront ships a static copy for the',
-    '# SEO_ROUTES_ENABLED=false state; a test keeps the two in step.',
+    '# SEO_INDEXING_MODE=off state; a test keeps the two in step.',
     '',
   ];
 

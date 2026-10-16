@@ -22,13 +22,11 @@
  * and creates nothing. Resumability and idempotency are the same property here
  * approached from two sides, which is why neither needed a mechanism of its own.
  *
- * ## The LOOP is gated; the findings never are
+ * ## The loop always runs
  *
- * `PAYMENT_RECONCILIATION_ENABLED=false` stops the timer and nothing else. A
- * discrepancy an operator triggers by hand is still written, still deduped and
- * still resolvable — the same rule the payment outbox follows, for the same
- * reason: switching a loop off during an incident should park work, not lose the
- * record of it.
+ * There is no switch for it. A discrepancy an operator triggers by hand is
+ * written, deduped and resolvable exactly like one the timer finds, so the two
+ * paths never disagree about what was detected.
  *
  * ## The rail is required PER JOB, not for the loop
  *
@@ -367,13 +365,6 @@ async function tick(): Promise<void> {
 /** Begin reconciling. Idempotent — a second call is a no-op. */
 export function startPaymentReconciler(): void {
   if (timer !== undefined) return;
-  if (!config.payments.reconciliation.enabled) {
-    log.general.warn(
-      '[Reconciliation] the sweeps are DISABLED; provider and ledger discrepancies will not ' +
-        'be detected until they are enabled',
-    );
-    return;
-  }
 
   timer = setInterval(() => {
     void tick();

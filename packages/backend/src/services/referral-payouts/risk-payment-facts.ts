@@ -23,7 +23,7 @@
  * `db/schema/orders.ts` and the referral domain's PORT; nothing in either
  * walled domain names this file.
  *
- * ## It reads the RECORD, so `STRIPE_ENABLED` does not gate it
+ * ## It reads the RECORD, so the Stripe rail's configuration does not gate it
  *
  * `readiness.ts` returns before touching Postgres when the rail is off, and
  * that is correct THERE: it asks "may Mercaria send this person money now",

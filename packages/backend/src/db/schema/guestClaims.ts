@@ -299,11 +299,8 @@ export const guestOrderClaimRevocations = pgTable(
  * anywhere says so. These rows commit WITH the claim, so the work is owed
  * durably and a failure is a row an operator can see.
  *
- * ## Gate the LOOP, never the record
- *
- * `GUEST_CLAIM_PROJECTION_ENABLED` stops the dispatcher and never the insert.
- * Claims made while it is off leave their work queued and it drains when the
- * lever comes back.
+ * The dispatcher always runs; work queued while no task was draining is
+ * delivered by the next pass.
  */
 export const guestOrderClaimOutbox = pgTable(
   'guest_order_claim_outbox',

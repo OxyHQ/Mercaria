@@ -50,7 +50,6 @@ vi.mock('../../../config/index.js', async (importOriginal) => {
       merchantBilling: {
         ...original.config.merchantBilling,
         enabled: false,
-        reconciliationEnabled: true,
         reconciliationBatchSize: 1,
         reconciliationIntervalMs: 40,
         get peableCohortJson() {

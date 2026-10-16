@@ -12,11 +12,8 @@
  * ADR 0002 D25(a)'s file-ownership protocol — the same reason #56, #57, #58,
  * #60, #62, #63 and #68 each created their own behind this identical gate.
  *
- * **It stays mounted while `AWIN_ENABLED` is off**, deliberately and for
- * `/internal/ingestion`'s reason: registering an account, polling the feed list
- * and reading what it found is how a network is brought up before the adapter
- * is switched on, and the evidence has to be readable during the incident that
- * turned it off.
+ * Registering an account, polling the feed list and reading what it found is
+ * how a network is brought up before any of its sources is activated.
  */
 
 import { Router } from 'express';

@@ -1587,8 +1587,7 @@ export const referralEvents = pgTable(
  * A program nobody has intervened on has no row here, and both levers read
  * true. The inverse would make every freshly published program silently
  * unusable until an operator discovered a table they had never heard of, and
- * the domain is already bounded twice over — by `REFERRALS_ENABLED` and by the
- * program's own status.
+ * the domain is already bounded by the program's own status.
  *
  * ## What each lever stops, and what it deliberately does not
  *

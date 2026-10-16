@@ -34,7 +34,6 @@ import type {
   RelationshipVerificationState,
 } from '@mercaria/shared-types';
 import { RELATIONSHIP_KIND_DEFINITIONS } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import {
@@ -503,7 +502,7 @@ export async function verifyRelationship(
     );
   }
 
-  if (requiresFourEyes(relationship.kind, config.catalog.fourEyesRequired)) {
+  if (requiresFourEyes(relationship.kind)) {
     const approvals = await listApprovalsForRound(db, {
       relationshipId: relationship.id,
       reviewRound: relationship.reviewRound,
@@ -860,7 +859,7 @@ export async function listCandidateQueue(params: {
         activeEvidenceCount: own.filter((item) => item.status === 'active').length,
         evidenceKinds: [...new Set(own.map((item) => item.kind))],
         approvedByOxyUserIds: roundApprovals.map((item) => item.actorOxyUserId),
-        requiresFourEyes: requiresFourEyes(row.kind, config.catalog.fourEyesRequired),
+        requiresFourEyes: requiresFourEyes(row.kind),
         conflicts: await conflictsFor(db, row, at),
       };
     }),
@@ -889,7 +888,7 @@ export async function getRelationshipForOperator(id: string): Promise<{
     evidence: evidence.map(toEvidenceDTO),
     reviews: reviews.map(toReviewDTO),
     conflicts,
-    requiresFourEyes: requiresFourEyes(row.kind, config.catalog.fourEyesRequired),
+    requiresFourEyes: requiresFourEyes(row.kind),
   };
 }
 

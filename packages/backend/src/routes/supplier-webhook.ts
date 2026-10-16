@@ -32,7 +32,7 @@
  * by a sweep that never re-checked (#124 polling and webhooks 8). Without a
  * credential there is nothing to verify against, so the answer is 401 rather
  * than accepting bytes to interpret later: that would be storing a stranger's
- * opinion, which is the `STRIPE_ENABLED` mount rule.
+ * opinion, which is the Stripe webhook mount rule.
  *
  * A refusal is COUNTED (`readSupplierEventIngestCounters`) so a spray of forged
  * callbacks is visible on the operator metrics, and the log line carries the

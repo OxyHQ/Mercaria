@@ -192,12 +192,12 @@ config value and a pure matcher (`services/catalog-rollout/cohort.ts`).
 
 | Surface | Lever | Gate placement | Dimensions it can answer |
 |---|---|---|---|
-| `GET /navigation` | `CATALOG_TAXONOMY_V2_ENABLED` | `router.use` | market, locale |
-| `GET /taxonomy/*` | `CATALOG_TAXONOMY_V2_ENABLED` | `router.use` | locale |
-| `POST /facets` | `FACETS_ENABLED` | `router.use`, custom subject | category, locale |
-| `GET /catalog-authoring/*` | `CATALOG_AUTHORING_ENABLED` | per route | product type, category, market, locale |
-| `/stores/:storeId/product-drafts/*` | `CATALOG_AUTHORING_ENABLED` | `router.use` | **all five** |
-| `/catalog-proposals/*` | `CATALOG_PROPOSALS_ENABLED` | `router.use` | store |
+| `GET /navigation` | none (always mounted) | `router.use` | market, locale |
+| `GET /taxonomy/*` | none (always mounted) | `router.use` | locale |
+| `POST /facets` | none (always mounted) | `router.use`, custom subject | category, locale |
+| `GET /catalog-authoring/*` | none (always mounted) | per route | product type, category, market, locale |
+| `/stores/:storeId/product-drafts/*` | none (always mounted) | `router.use` | **all five** |
+| `/catalog-proposals/*` | mounted iff `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty | `router.use` | store |
 
 Two placements, and the reason is `product_type`. Its value is a ROUTE parameter
 (`/catalog-authoring/schemas/:productTypeKey`), and Express populates route

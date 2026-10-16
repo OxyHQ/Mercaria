@@ -13,18 +13,51 @@
  * allowed one.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   composeReferralDestination,
   referralRedirectOrigin,
+  withReferralCarrier,
+  REFERRAL_FRAGMENT_KEY,
   REFERRAL_ROUTE_PREFIXES,
 } from '../redirect.service.js';
 import { referralDestinationPath } from '../destinations.js';
+import { mintReferralState, verifyReferralState } from '../referral-state.js';
 
-vi.hoisted(() => {
-  process.env.REFERRAL_LINK_TOKEN_SECRET = 'test-referral-link-secret';
-  process.env.REFERRAL_STATE_SECRET = 'test-referral-state-secret';
-  process.env.REFERRAL_REDIRECT_BASE_URL = 'https://mercaria.co';
+describe('withReferralCarrier — the carrier rides in the FRAGMENT, after composition', () => {
+  const destination = composeReferralDestination(
+    referralDestinationPath({ destinationType: 'listing', destinationRef: 'abc123' }),
+  );
+
+  it('appends exactly `#mercaria_ref=<carrier>` and changes nothing else', () => {
+    const { token } = mintReferralState({
+      linkId: 'link-1',
+      codeId: 'code-1',
+      clickedAt: new Date(),
+      lifetimeSeconds: 3_600,
+    });
+    const location = withReferralCarrier(destination, token);
+    const url = new URL(location);
+    expect(`${url.origin}${url.pathname}${url.search}`).toBe(destination);
+    expect(url.hash).toBe(`#${REFERRAL_FRAGMENT_KEY}=${token}`);
+    // The URL API did not percent-encode anything: the carrier is URL-safe, so
+    // what the storefront reads back is exactly what was signed.
+    const read = new URLSearchParams(url.hash.slice(1)).get(REFERRAL_FRAGMENT_KEY);
+    expect(read).toBe(token);
+    expect(verifyReferralState(read ?? undefined, new Date())?.linkId).toBe('link-1');
+  });
+
+  it('refuses a carrier that is not URL-safe rather than corrupting the fragment', () => {
+    for (const bad of [
+      'mrf_a.b#x',
+      'mrf_a.b&next=//evil.example',
+      'mrf_a%2e.b',
+      'mgs_a.b',
+      'mrf_ab',
+    ]) {
+      expect(() => withReferralCarrier(destination, bad), bad).toThrow();
+    }
+  });
 });
 
 describe('referralRedirectOrigin', () => {

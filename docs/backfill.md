@@ -54,9 +54,11 @@ a broken one, because every stage converges on its own input.
 6. **`rebuild_projections`** — re-derives `canonical_products.variant_count` and
    `canonical_product_families.product_count` from their sources and records
    whether the stored value had drifted.
-7. **`search_reindex`** — enqueues `attribute_reindex_requests` rows, gated by
-   `CANONICAL_SEARCH_INDEXING_ENABLED`. **#61 owns the consumer**; this stage
-   builds no index and adds no search dependency (ADR 0002 D21).
+7. **`search_reindex`** — enqueues `attribute_reindex_requests` rows (ids are
+   deterministic, so at most one backfill row per product). **#61 owns the
+   consumer**; this stage builds no index and adds no search dependency (ADR 0002
+   D21). `reindex_disabled` is a HISTORICAL reason code from when a flag kept
+   this stage from enqueueing; it is no longer produced.
 8. **`consistency`** — the two-way sweep. Three passes, one cursor. See below.
 
 The three ADR 0014 stages seed the catalogue from OPEN reference data, so
@@ -122,9 +124,8 @@ module calls a canonical write service directly.
 stages nobody has written yet. A conditional in each stage would be a property of
 whichever stages remembered.
 
-`CANONICAL_WRITE_PUBLICATION_ENABLED=false` downgrades an `apply` run to the
-dry-run writer at that same one place. The run still produces its complete
-report, which is what makes the lever a rollback rather than an outage.
+An `apply` run always takes the writing writer; there is no deployment flag
+that downgrades it.
 
 A dry-run report row may carry `created`, `matched` or `enqueued`: in dry-run
 mode an outcome is a PREDICTION, and refusing to store one would make the mode
@@ -217,16 +218,14 @@ where "fixing" it would mean relisting something moderation removed.
 
 ## The rollout levers
 
-Six switches and two tunables. Six rather than one because each bounds a
-different blast radius.
+The read levers and two tunables. Separate levers because each bounds a
+different blast radius. The backfill dispatcher LOOP, `apply` runs' graph writes,
+the MOUNT of the public canonical routes and reindex enqueueing have no lever —
+they are always on.
 
 ```
-CANONICAL_GRAPH_ENABLED=true                # the backfill dispatcher LOOP
-CANONICAL_WRITE_PUBLICATION_ENABLED=true    # may an `apply` run mutate the graph
 CANONICAL_READS=on                          # off | shadow | on — canonical PRODUCT reads
 CANONICAL_OFFER_COMPARISON=on               # off | shadow | on — the `GET /offers` comparison
-CANONICAL_PUBLIC_ROUTES_ENABLED=true        # the MOUNT of all of the above
-CANONICAL_SEARCH_INDEXING_ENABLED=false     # may the backfill enqueue reindex requests
 CANONICAL_READ_COHORTS=                     # empty = every cohort; else `<kind>:<value>,…` or `all`
 CANONICAL_BACKFILL_BATCH_SIZE=200
 CANONICAL_BACKFILL_POLL_INTERVAL_MS=15000
@@ -234,8 +233,8 @@ CANONICAL_BACKFILL_POLL_INTERVAL_MS=15000
 
 **Every lever defaults ON** (ADR 0015). The WRITE levers shipped OFF as D24
 bound; they were turned on when the catalogue autopilot (below) took over the
-runbook, because a graph nobody writes is a comparator that shows nothing. They
-remain the rollback. **The READ levers default to today's behaviour.** ADR 0002 D24's environment block shows `CANONICAL_READS=off`, and it
+runbook, because a graph nobody writes is a comparator that shows nothing, and
+have since been removed — the writes are simply on. **The READ levers default to today's behaviour.** ADR 0002 D24's environment block shows `CANONICAL_READS=off`, and it
 was written in phase 0 when the graph had no tables and no routes; by the time
 this issue lands, #53–#57 have SHIPPED `/canonical-products`,
 `/product-families`, `/brand-relationships` and `/offers` with no flag at all. A
@@ -269,9 +268,8 @@ on every task:
 - **Requested by `system:catalog-autopilot`**, so its runs are told apart from an
   operator's in every report.
 
-The levers still govern it: `CANONICAL_GRAPH_ENABLED=false` stops it opening
-runs, and `CANONICAL_WRITE_PUBLICATION_ENABLED=false` turns every run it opens
-into a dry run. An operator can still open, page and cancel runs by hand.
+No deployment flag stops it. An operator can still open, page and cancel runs
+by hand, and cancelling a run is how one is stopped.
 
 ## Runbook
 
@@ -286,25 +284,20 @@ A canary pages by HAND. The dispatcher exists for the unattended remainder.
    pages.
 3. Compare against `GET /internal/backfill/metrics`, which returns the dry-run
    and apply summaries side by side. Check `countsAgree`.
-4. Set `CANONICAL_WRITE_PUBLICATION_ENABLED=true` and repeat with
-   `mode: 'apply'`. The apply's counts should match the rehearsal's.
+4. Repeat with `mode: 'apply'`. The apply's counts should match the
+   rehearsal's.
 5. Widen the cohort. Run `consistency` (cohort `all`) and confirm
-   `orphanedNativeOffers` is 0.
-6. Only then turn `CANONICAL_GRAPH_ENABLED=true` so the dispatcher takes the
+   `orphanedNativeOffers` is 0. The dispatcher and the autopilot take the
    whole-catalogue passes.
 
 ### A rollback
 
 Every migration in this epic is additive, so rollback is a flag flip and nothing
-is deleted.
+is deleted. The graph WRITES have no lever; cancel a run
+(`POST /internal/backfill/runs/:id/cancel`) to stop it.
 
-1. `CANONICAL_WRITE_PUBLICATION_ENABLED=false` — apply runs stop changing the
-   graph and keep reporting.
-2. `CANONICAL_GRAPH_ENABLED=false` — the dispatcher stops. Open runs keep their
-   cursors and resume when it goes back on.
-3. `CANONICAL_OFFER_COMPARISON=off` and/or `CANONICAL_READS=off` — the read
+1. `CANONICAL_OFFER_COMPARISON=off` and/or `CANONICAL_READS=off` — the read
    surfaces withdraw, per surface.
-4. `CANONICAL_PUBLIC_ROUTES_ENABLED=false` — the blunt one, all at once.
 
 **The operator surface stays reachable through all of it**, deliberately: the
 evidence has to be readable during exactly the incident that turned the levers

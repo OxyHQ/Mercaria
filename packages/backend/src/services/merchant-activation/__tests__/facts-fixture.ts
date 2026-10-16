@@ -113,8 +113,6 @@ export function activationFacts(override: ActivationFactsOverride = {}): Merchan
     },
     guest: {
       commerceEnabled: true,
-      cartEnabled: true,
-      inlineDestinationEnabled: true,
       presentmentCurrencies: ['EUR', 'USD'],
       paymentMethods: ['card'],
       markets: ['ES', 'FR'],
@@ -125,7 +123,6 @@ export function activationFacts(override: ActivationFactsOverride = {}): Merchan
       fulfilmentMethods: ['standard', 'express', 'pickup'],
       sellerBlockedByOperator: false,
       transactionalTransportConfigured: true,
-      buyerRequestsEnabled: true,
       ...override.guest,
     },
     nativeSatisfied: override.nativeSatisfied ?? true,

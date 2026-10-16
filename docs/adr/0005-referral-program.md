@@ -625,6 +625,21 @@ sections above; they are the privacy contract #143 and #148 implement.
   order contents, address, or free text, in any form, at any aggregation
   level. Operator surfaces see more; partners never do.
 
+*Amended 2026-10-16 — consent before storage (ePrivacy Art. 5(3)).* Mercaria
+serves the EU, and storing or reading referral state on a buyer's device needs
+their PRIOR consent. The owner decided to ask, and only then store or
+attribute. Binding from this date: a referral click stores nothing on the
+device and writes no touch, whoever makes it — the redirect hands the signed
+click evidence over in the URL fragment only, and the storefront holds it in
+memory and asks. Only the buyer's `granted` answer (`POST /referrals/consent`)
+either attributes the click to the subject present or writes the carrier
+cookie for a later bind; `denied` writes nothing and clears any carrier
+cookie. The consent is signed into the carrier, so the touch records
+`granted` without trusting the client, and a cookie carrier without it is
+never used. A1–A5 are unchanged; this narrows WHEN evidence may exist on a
+device, not what it may contain. Mechanism: `docs/referral-attribution.md`
+("The carrier", "Consent"); record: `docs/referral-privacy-review.md`.
+
 ---
 
 ## Ranking and pricing isolation
@@ -709,16 +724,16 @@ rollback an operational act instead of an amnesty.
 ### Environment
 
 Configuration names come from the packages when #142–#148 land, not from this
-table (the repo's standing rule). This ADR binds only the gating shape:
+table (the repo's standing rule). This ADR binds only the gating shape.
 
-```
-REFERRALS_ENABLED=false     # master gate: mounts the surfaces, runs the loops
-```
-
-plus the loop tunables the outbox pattern always carries. `REFERRALS_ENABLED`
-follows the `CROWDSOURCE_ENABLED` validation pattern: a half-configured
-program stays OFF and logs once at boot. The gate stops loops and surfaces —
-never the durable records already written.
+*Amended 2026-10:* there is no environment switch. The surfaces are always
+mounted and the loops always run; the signing keys are derived from
+`MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets"), so no
+half-configured state exists to fall back from. The gates are operator state —
+a program's status, its `referral_program_controls` row and its pilot cohort —
+and, as before, they stop loops and surfaces, never the durable records already
+written. Only the loop tunables and `REFERRAL_OPERATOR_OXY_USER_IDS` remain in
+the environment.
 
 ---
 

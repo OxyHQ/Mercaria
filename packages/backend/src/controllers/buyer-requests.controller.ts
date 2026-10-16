@@ -29,7 +29,6 @@ import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { log } from '../lib/logger.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
-import { config } from '../config/index.js';
 import {
   authorizeBuyerRequest,
   denialIsAboutTheOrder,
@@ -175,18 +174,6 @@ function idempotencyKey(req: Request): string | undefined {
   return value !== undefined && value.length > 0 ? value : undefined;
 }
 
-/** Refuse a buyer WRITE while the incident lever is down. Reads stay open. */
-function requestsAreOpen(res: Response): boolean {
-  if (config.buyerRequests.requestsEnabled) return true;
-  sendError(
-    res,
-    ErrorCodes.BUYER_REQUESTS_DISABLED,
-    'New requests are temporarily unavailable; existing ones are unaffected',
-    503,
-  );
-  return false;
-}
-
 /**
  * Zod's parse guarantee is invisible to this compiler.
  *
@@ -298,7 +285,6 @@ export const getRequestOptions = handleAs(
 export const createCancellationRequest = handleAs(
   'Failed to file the cancellation request',
   async (req, res) => {
-    if (!requestsAreOpen(res)) return;
     const parsed = buyerRequestBodySchemas.submitCancellation.safeParse(req.body);
     if (!parsed.success) {
       sendError(res, ErrorCodes.VALIDATION_ERROR, 'A valid reason is required', 400);
@@ -374,7 +360,6 @@ export const listCancellations = handleAs(
 export const createReturnRequest = handleAs(
   'Failed to file the return request',
   async (req, res) => {
-    if (!requestsAreOpen(res)) return;
     const parsed = buyerRequestBodySchemas.submitReturn.safeParse(req.body);
     if (!parsed.success) {
       sendError(res, ErrorCodes.VALIDATION_ERROR, 'A valid return request is required', 400);
@@ -457,7 +442,6 @@ export const readBuyerSupportThread = handleAs(
 export const postBuyerSupportMessage = handleAs(
   'Failed to post the support message',
   async (req, res) => {
-    if (!requestsAreOpen(res)) return;
     const parsed = buyerRequestBodySchemas.supportMessage.safeParse(req.body);
     if (!parsed.success) {
       sendError(res, ErrorCodes.VALIDATION_ERROR, 'A message body is required', 400);

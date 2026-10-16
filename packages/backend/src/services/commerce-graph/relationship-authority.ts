@@ -137,14 +137,12 @@ export function acceptableEvidenceKinds(
  *
  * Scoped to the kinds that can produce a PUBLIC BADGE, derived from the same
  * registry the badge itself comes from — a separate list of "high impact" kinds
- * could disagree with which kinds actually reach a shopper. `enabled` is the
- * deployment's switch (`CATALOG_FOUR_EYES_REQUIRED`), defaulting ON: a badge
- * that misleads a buyer about who they are dealing with is the failure worth
- * failing closed on, and a single-operator deployment turns it off deliberately
- * rather than discovering it was never on.
+ * could disagree with which kinds actually reach a shopper. Not configurable: a
+ * badge that misleads a buyer about who they are dealing with is the failure
+ * worth failing closed on, always.
  */
-export function requiresFourEyes(kind: RelationshipKind, enabled: boolean): boolean {
-  return enabled && BADGE_RELATIONSHIP_KINDS.includes(kind);
+export function requiresFourEyes(kind: RelationshipKind): boolean {
+  return BADGE_RELATIONSHIP_KINDS.includes(kind);
 }
 
 /**

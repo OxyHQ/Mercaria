@@ -790,8 +790,13 @@ describe('the composed read (#71 route rules 3 and 5)', () => {
       if (row.seller.kind !== 'merchant') throw new Error('unreachable');
       expect(row.seller.name).toContain(RUN);
       expect(row.seller.storefront?.name).toContain(RUN);
-      // Every external row's action is refused, and no branch carries a URL.
-      expect(row.outbound.kind).toBe('unavailable');
+      // Every external row hands over a `/out` redirect PATH and discloses the
+      // HOST; no branch carries the destination URL, because only the redirect
+      // route re-checks the offer at click time.
+      expect(row.outbound.kind).toBe('outbound');
+      if (row.outbound.kind !== 'outbound') throw new Error('unreachable');
+      expect(row.outbound.redirectPath.startsWith('/out/')).toBe(true);
+      expect(row.outbound.destinationHost).toMatch(/\.example\.test$/);
       expect(JSON.stringify(row.outbound)).not.toContain('https://');
     }
 

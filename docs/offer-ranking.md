@@ -371,17 +371,11 @@ will show.
 
 ## Environment
 
-```
-RANKING_CANARY_ENABLED=true      # may a canary version serve anybody
-```
-
-ONE lever, and it gates neither a durable record nor the comparison surface.
-Rollback is a row (activate an earlier version); what an incident needs is a way
-to stop routing anybody to a canary WITHOUT editing the row, so the ramp somebody
-set survives and the canary can be resumed. It defaults to TRUE because a canary
-exists only because an operator created one, and requiring a second switch to
-make their own creation take effect is the half-configuration trap this codebase
-refuses elsewhere.
+None. Rollback is a row (activate an earlier version), and the canary kill
+switch is the operator route `DELETE /internal/ranking/policies/:id/canary`,
+which stops a canary without promoting it — every subject then falls to the
+active arm. A canary serves only because an operator created one, so no second
+switch is needed to make it take effect.
 
 There is deliberately no `RANKING_ENABLED` and no `RANKING_POLICY_KEY` — the key
 is a code constant, per the house rule every other versioned policy follows.

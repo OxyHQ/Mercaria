@@ -121,7 +121,7 @@ describe('the payout join fills both ports', () => {
       ownerType: 'user',
       ownerId: 'u1',
     });
-    // With `STRIPE_ENABLED` off the join answers `unknown` too — but from the
+    // With the Stripe rail unconfigured the join answers `unknown` too — but from the
     // JOIN's own disabled branch rather than from the port's default, and it
     // returns a fresh object rather than the shared constant. That distinction
     // is what stops this case passing when the registration silently did

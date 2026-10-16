@@ -1087,6 +1087,15 @@ anywhere.
 | **M8-09** | `lookup_hash` is declared as CARRIED by the two contact passes (`carriedMinimizationClasses`): the hash is nulled in the same statement as the ciphertext, so it cannot outlive it, and a hold on `lookup_hash` pauses those passes and an erasure. A pass of its own is refused as `performed_by_contact_pass` rather than `mechanism_not_minimization`. The phantom `guest_contact_routing` is gone from the inventory and the census. **Not changed:** `guest_contact_suppressions` is still classed under an `expiry_sweep` retention class while `expiryTargets.ts` deliberately never sweeps it — that is M8-08's open decision, not a registry typo. | M8-04's tests above. |
 | **M8-11** | The storefront portal captures the token from the fragment OR a `?token=` query parameter and strips BOTH from the address bar before anything renders (`packages/frontend/lib/portal-link-token.ts`). | `packages/frontend/lib/__tests__/portal-link-token.test.ts`. |
 
+**Superseded by the env-flag removals (#1096).** The levers M8-02 and M8-03
+left in place are gone: the scheduled loop APPLIES under the active
+`minimization_job` policy (an operator pass keeps an explicit `dryRun`,
+default `true`), `GUEST_ABUSE_CONTROLS_ENABLED` no longer exists so friction is
+applied by the published policy, and the abuse subject key is derived from
+`MERCARIA_SECRET_KEY`, so every watched attempt is counted. `retentionJobEnabled`
+and its exemption are deleted, and `allowed-origins.test.ts` now asks the pure
+`allowedOriginsFor(env)` rather than re-importing the module.
+
 ### Still open, deliberately
 
 - **M8-13 (Low).** Four of six abuse policies still have no caller, including

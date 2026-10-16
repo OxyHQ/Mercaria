@@ -190,11 +190,9 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
 
   native_checkout_not_paused: (f) => deriveNativeCheckoutNotPaused(f.settings),
 
-  // #85 state 12. Whether it BLOCKS is a deployment policy
-  // (`MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED`), because there is no launch plan
-  // in this repository requiring one and making it blocking by default would
-  // mean no merchant could ever take a first order. It is always EVALUATED and
-  // always reported; `blocking` decides whether the answer withholds anything.
+  // #85 state 12. ADVISORY (`ADVISORY_REQUIREMENTS` in `activation.service.ts`):
+  // making it block would mean no merchant could ever take a first order. It is
+  // always EVALUATED and always reported, and never withholds anything.
   test_order_completed: (f) => (f.completedOrderCount > 0 ? OK : no('no_completed_test_order')),
 
   /* ── Guest ──────────────────────────────────────────────────────────── */
@@ -204,11 +202,7 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   // threshold on somebody else's verdict.
   native_checkout_ready: (f) => (f.nativeSatisfied ? OK : no('native_checkout_not_ready')),
 
-  guest_commerce_enabled: (f) => {
-    if (!f.guest.commerceEnabled) return no('guest_commerce_disabled');
-    if (!f.guest.cartEnabled) return no('guest_cart_disabled');
-    return OK;
-  },
+  guest_commerce_enabled: (f) => (f.guest.commerceEnabled ? OK : no('guest_commerce_disabled')),
 
   guest_market_currency_allowed: (f) =>
     f.guest.presentmentCurrencies.length === 0
@@ -222,15 +216,18 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   guest_payment_method_available: (f) =>
     f.guest.paymentMethods.length > 0 ? OK : no('guest_no_payment_surface'),
 
-  guest_inline_destination_supported: (f) =>
-    f.guest.inlineDestinationEnabled ? OK : no('guest_inline_destination_disabled'),
+  // A guest checkout always takes an inline destination: the #105 lever that
+  // could switch it off is gone. Kept as a requirement for the reason
+  // `guest_merchant_order_access` is — the guarantee stays visible on the
+  // dashboard — and because stored evaluations name this key.
+  guest_inline_destination_supported: () => OK,
 
   // At least one method must be BOTH priceable by this deployment and not
   // withdrawn from guests. `facts.ts` composes that set, and pickup is now IN
   // it whenever #93's two levers are on and this store published somewhere to
   // collect from — it was struck out unconditionally on a premise #93 retired,
-  // and the exclusion had become circular under
-  // `GUEST_SELLER_ACTIVATION_REQUIRED`.
+  // and the exclusion had become circular under the (since removed) opt-in
+  // guest seller-activation gate.
   //
   // This answers "is there any guest-eligible method at all" and deliberately
   // says nothing about WHICH: the two capabilities that name one mode read
@@ -246,16 +243,11 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   // what makes the guarantee visible on the dashboard instead of implicit.
   guest_merchant_order_access: () => OK,
 
-  // #110's buyer WRITE mount, switched off deployment-wide. The reason names
-  // THAT, and the owner is the deployment: #110 shipped, so pointing a merchant
-  // at it would send them to wait for something that already exists. It read
-  // `pickup_not_supported`/`#110` until this fix — a reason belonging to an
-  // unrelated condition, on the merchant's own dashboard, as the stated cause
-  // of their guest checkout being `ineligible`.
-  guest_support_and_returns_available: (f) =>
-    f.guest.buyerRequestsEnabled
-      ? OK
-      : cannotAnswer('guest_support_requests_disabled', 'deployment'),
+  // #110's buyer request path is always mounted, so this is MET structurally,
+  // like the two refund requirements below. It stays in the registry because
+  // it is part of the published readiness contract and of every stored
+  // capability event.
+  guest_support_and_returns_available: () => OK,
 
   // The one that FAILS CLOSED and is not a merchant's fault. Mercaria has no
   // outbound mail transport: #108's registry is empty and every send fails

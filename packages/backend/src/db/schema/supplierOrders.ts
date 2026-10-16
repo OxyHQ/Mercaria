@@ -142,13 +142,11 @@ const MAX_PROVIDER_MESSAGE_LENGTH = 512;
  * — "prevent operator retry from bypassing the same unique key" — held by the
  * primary key rather than by a check in the operator handler.
  *
- * ## The LOOP is gated, never the record
+ * ## The record is never gated
  *
- * Rows are written whatever `PROCUREMENT_ORCHESTRATION_ENABLED` says. A
- * deployment with the dispatcher off parks the work; a per-supplier kill switch
- * (`supplier_accounts.state = 'killed'`) stops new SUBMISSION while status,
- * cancellation, return and reconciliation rows keep draining — which is
- * acceptance 5.
+ * A per-supplier kill switch (`supplier_accounts.state = 'killed'`) stops new
+ * SUBMISSION while status, cancellation, return and reconciliation rows keep
+ * draining — which is acceptance 5.
  */
 export const procurementOutboxes = pgTable(
   'procurement_outboxes',

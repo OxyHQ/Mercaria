@@ -385,9 +385,8 @@ Each is a named contract that fails closed, not a stub that lies.
 2. Create the `referral_campaign_budgets` row before activating a
    `fixed_budget` rule; the accrual refuses `funding_source_unavailable`
    otherwise.
-3. #145 shipped the reconciliation sweep ADR 0005 requires; turn
-   `REFERRAL_RECONCILIATION_ENABLED` on before the rail carries live money. The
-   reward's net and the ledger's `referral_payable` cannot disagree by
+3. #145 shipped the reconciliation sweep ADR 0005 requires, and it always runs;
+   read its findings before the rail carries live money. The reward's net and the ledger's `referral_payable` cannot disagree by
    construction, and a sweep nobody runs is the discrepancy nobody notices.
 4. Nothing in #144 runs on a loop, so there is no flag to set and no dispatcher
-   to enable. `REFERRALS_ENABLED` continues to gate #142's surfaces.
+   to enable.

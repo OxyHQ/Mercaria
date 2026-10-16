@@ -464,8 +464,7 @@ compliance reviewer vetted to verify a product-safety certificate is not thereby
 vetted to see Mercaria's cost base".
 
 EMPTY means the router is NOT MOUNTED — 404, never a 401 that would advertise the
-surface. It stays mounted while `RETAIL_RECONCILIATION_ENABLED` is off: the
-evidence has to be readable during the incident that turned the sweep off.
+surface.
 
 **READ, plus a CLOSED set of three writes**, each driving a path the sweep
 already runs on its own:
@@ -528,21 +527,20 @@ mid-page leaves it where it was and the next run replays it — and a replayed p
 re-derives the same digest and writes nothing. Resumability and idempotency are
 the same property approached from two sides.
 
-**The LOOP is gated; the records never are.** `RETAIL_RECONCILIATION_ENABLED=false`
-stops the timer and nothing else, and a scanned gate fails the build if any module
-but the runner reads the flag.
+**The sweep always runs, and it is not the only writer**: an operator drives the
+same paths by hand. A scanned gate fails the build if any module but the runner
+reads `config.retailReconciliation`.
 
 ---
 
 ## Environment
 
 ```
-RETAIL_RECONCILIATION_ENABLED=false          # the sweep timer only
 RETAIL_RECONCILIATION_BATCH_SIZE=25
 RETAIL_RECONCILIATION_POLL_INTERVAL_MS=60000
 ```
 
-There is deliberately no separate "recognition enabled" lever. Recognizing a
+There is deliberately no "recognition enabled" lever. Recognizing a
 positive variance is what makes D7 proof 2 true, so a deployment that reconciled
 without recognizing would be one whose books report margin on a zero-margin
 channel. The policy KEY is a code constant

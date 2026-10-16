@@ -85,14 +85,12 @@ async function listen(app: express.Express): Promise<{ server: Server; url: stri
 beforeAll(async () => {
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
   // process.env once at module load and freezes the result.
-  process.env.STRIPE_ENABLED = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_routes_platform_not_a_real_one';
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_routes_connect_not_a_real_one';
   process.env.STRIPE_SELLER_COUNTRIES = 'ES';
   process.env.STRIPE_ONBOARDING_BASE_URL = 'https://api.mercaria.test';
   process.env.STRIPE_ONBOARDING_RETURN_URL = 'https://dashboard.mercaria.test/settings/payments';
-  process.env.STRIPE_ONBOARDING_STATE_SECRET = 'routes-onboarding-state-secret';
 
   ({ createOnboardingState } = await import('../../services/payments/stripe/onboarding-state.js'));
   const storeRouter = (await import('../admin/payments.js')).default;

@@ -21,10 +21,10 @@
  *
  * ## Env before any import of the code under test
  *
- * `config/index.ts` reads the environment once at module load, so the keys are
- * set in `beforeAll` and everything is imported dynamically afterwards.
- * `GUEST_ABUSE_CONTROLS_ENABLED` is deliberately NOT set: the counting case is
- * the friction-off one.
+ * `config/index.ts` reads the environment once at module load, so the magic-link
+ * base is set in `beforeAll` and everything is imported dynamically afterwards.
+ * The guest keys (contact encryption, email hash, abuse subject digest) are all
+ * derived from `MERCARIA_SECRET_KEY`, so nothing else needs setting.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -137,10 +137,6 @@ async function storedCounts(requestId: string): Promise<Map<string, number>> {
 }
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'a'.repeat(64);
-  process.env.GUEST_EMAIL_HASH_KEY = 'b'.repeat(64);
-  process.env.GUEST_ABUSE_SUBJECT_HASH_KEY = 'c'.repeat(64);
   process.env.GUEST_MAGIC_LINK_BASE_URL = 'https://mercaria.co/guest-orders/portal';
 
   const postgres = await import('../../db/postgres.js');
@@ -345,7 +341,7 @@ describe('an erasure request erases what its receipt says it erased (M8-01, ADR 
   });
 });
 
-describe('the abuse counter is written while friction is OFF (M8-03)', () => {
+describe('the abuse counter is written below the friction threshold (M8-03)', () => {
   it('counts every attempt and refuses none', async () => {
     const range = `10.${String(Math.floor(Math.random() * 250))}.${MARKER.length}.0/24-${MARKER}`;
     const now = new Date();
@@ -373,6 +369,8 @@ describe('the abuse counter is written while friction is OFF (M8-03)', () => {
       );
     // The positive control the review asked for: with friction off the old
     // code returned before this table was touched, so this read was EMPTY.
+    // There is no friction switch now; three attempts stay under the policy's
+    // threshold, so the row is counted and no intervention is recorded.
     expect(rows).toHaveLength(1);
     expect(Number(rows[0]?.count)).toBe(3);
 

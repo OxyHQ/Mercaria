@@ -665,7 +665,13 @@ export type SupplierOrderRefusalReason =
   | 'payment_not_authorized'
   | 'environment_refused';
 
-/** {@link SupplierOrderRefusalReason} as the tuple the columns and CHECKs read. */
+/**
+ * {@link SupplierOrderRefusalReason} as the tuple the columns and CHECKs read.
+ *
+ * `provider_fetch_disabled` is no longer produced — provider reads have no
+ * deployment lever — and stays because the stored CHECK is rendered from this
+ * tuple, so dropping it is a `post` migration rather than an edit here.
+ */
 export const SUPPLIER_ORDER_REFUSAL_REASONS: readonly SupplierOrderRefusalReason[] = [
   'provider_unconfigured',
   'capability_not_declared',
@@ -697,7 +703,7 @@ export const SUPPLIER_EVENT_DELIVERIES: readonly SupplierEventDelivery[] = [
  * unverified client callback") made structural: an unverified callback has no
  * row shape, so it cannot be stored now and applied later by a sweep that never
  * re-checked. The ingress refuses it, counts it and logs it, and an operator
- * sees the count — the `STRIPE_ENABLED` mount rule, which refuses bytes it
+ * sees the count — the Stripe webhook mount rule, which refuses bytes it
  * cannot verify rather than storing a stranger's opinion.
  */
 export type SupplierEventVerification =

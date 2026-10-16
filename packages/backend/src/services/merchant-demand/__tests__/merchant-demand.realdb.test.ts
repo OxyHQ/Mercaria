@@ -42,8 +42,6 @@ import { inArray, sql } from 'drizzle-orm';
  */
 vi.hoisted(() => {
   process.env.ANALYTICS_COLLECTION_MODE = 'full';
-  process.env.MERCHANT_DEMAND_ENABLED = 'true';
-  process.env.MERCHANT_DEMAND_PREVIEW_ENABLED = 'true';
 });
 
 import { uuidv7 } from '@oxy.so/db';

@@ -78,11 +78,12 @@ const SITEMAP_PREFIX = '/sitemaps/';
 /**
  * A partner's referral link, `mercaria.co/r/<token>` (ADR 0005 D3).
  *
- * REDIRECTED to the API's `GET /r/:token`, never proxied. That route sets the
- * click's carrier as `__Host-mercaria_referral` — host-only by definition — and
- * `POST /referrals/bind` reads it on the API host. Proxied, the cookie would
- * land on `mercaria.co`, which no API request ever carries, and every
- * anonymous click would redirect fine and attribute nobody.
+ * REDIRECTED to the API's `GET /r/:token`, never proxied. That route sets no
+ * cookie: it answers a `302` (no-store, no-referrer) whose `Location` carries
+ * the click's signed carrier in its FRAGMENT, and the storefront asks for
+ * consent before anything is stored (docs/referral-attribution.md, "Consent").
+ * Redirected, that answer reaches the browser untouched, and the route's rate
+ * limit and classification see the real client rather than this worker.
  *
  * The token is the link token's exact shape (`<base64url>.<base64url>`) and
  * nothing else: anything else under `/r/` falls through to the app, and the
@@ -233,9 +234,10 @@ const assetWorker = {
     /**
      * `robots.txt` and the sitemaps come from the API, which renders them from
      * ONE disallow list and one indexability policy. When the API cannot answer
-     * — including when `SEO_ROUTES_ENABLED` is off, which 404s — the static
-     * assets the app ships are served instead. Those are the flag-off floor,
-     * and a backend test keeps their rules in step with the rendered ones.
+     * — including when `SEO_INDEXING_MODE` is `off` and `/seo/*` is not mounted,
+     * which 404s — the static assets the app ships are served instead. Those
+     * are the floor, and a backend test keeps their rules in step with the
+     * rendered ones.
      */
     if (apiOrigin !== '') {
       const artefact = CRAWL_ARTEFACTS.get(pathname);

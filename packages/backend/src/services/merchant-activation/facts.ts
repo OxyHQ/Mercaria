@@ -81,7 +81,7 @@ export interface ActivationPolicyFact {
  * `guest_fulfilment_deterministic`, which answers "is there at least one
  * priceable, unblocked method" and therefore answers the SAME thing for both —
  * so `pickup_checkout` was granted on every deployment with a shipping rate
- * configured, including every deployment with `STORE_PICKUP_ENABLED` off, and
+ * configured, including every deployment without store pickup, and
  * withheld from a store whose only remaining method was collection.
  */
 export interface ActivationFulfilmentFacts {
@@ -94,9 +94,9 @@ export interface ActivationFulfilmentFacts {
    * whether a shipping method can be priced at all.
    */
   readonly shippingMethods: readonly string[];
-  /** `STORE_PICKUP_ENABLED` — whether a checkout may resolve a collection at all. */
+  /** Whether a checkout may resolve a collection at all (GoWay configured). */
   readonly storePickupEnabled: boolean;
-  /** `GUEST_STORE_PICKUP_ENABLED`, which additionally requires the store lever. */
+  /** Whether a GUEST may collect: store pickup AND guest commerce are both on. */
   readonly guestPickupEnabled: boolean;
   /**
    * How many of THIS store's publications a shopper could collect from.
@@ -112,8 +112,6 @@ export interface ActivationFulfilmentFacts {
 /** The guest half, which #85 insists is asked separately. */
 export interface ActivationGuestFacts {
   readonly commerceEnabled: boolean;
-  readonly cartEnabled: boolean;
-  readonly inlineDestinationEnabled: boolean;
   readonly presentmentCurrencies: readonly CurrencyCode[];
   readonly paymentMethods: readonly string[];
   readonly markets: readonly string[];
@@ -121,7 +119,6 @@ export interface ActivationGuestFacts {
   readonly fulfilmentMethods: readonly string[];
   readonly sellerBlockedByOperator: boolean;
   readonly transactionalTransportConfigured: boolean;
-  readonly buyerRequestsEnabled: boolean;
 }
 
 /** Everything `requirements.ts` is allowed to see. */
@@ -286,8 +283,6 @@ export async function readMerchantActivationFacts(
     fulfilment,
     guest: {
       commerceEnabled: config.guest.enabled,
-      cartEnabled: config.guest.cartEnabled,
-      inlineDestinationEnabled: config.guest.inlineDestinationEnabled,
       presentmentCurrencies: stripe.enabled ? stripe.presentmentCurrencies : [],
       paymentMethods: stripe.enabled ? stripe.paymentSurfaceMethods : [],
       markets: config.checkout.destinationCountries,
@@ -295,7 +290,6 @@ export async function readMerchantActivationFacts(
       fulfilmentMethods: guestFulfilmentMethods,
       sellerBlockedByOperator: rollout.blockedSellerKeys.includes(sellerKey),
       transactionalTransportConfigured: hasGuestMessageTransport(),
-      buyerRequestsEnabled: config.buyerRequests.requestsEnabled,
     },
   };
 }
@@ -315,8 +309,8 @@ const PICKUP_METHOD = 'pickup';
  * landed: `assertPickupLocationEligible` is gone and `resolvePickupForCheckout`
  * refuses only what the levers and the publications say to refuse. So the
  * exclusion became a wrong answer in the direction that costs a merchant a
- * sale — and, with `GUEST_SELLER_ACTIVATION_REQUIRED` on, a CIRCULAR one: a
- * store whose only guest-capable fulfilment is collection read
+ * sale — and, under the since-removed opt-in guest seller-activation gate, a
+ * CIRCULAR one: a store whose only guest-capable fulfilment is collection read
  * `guest_fulfilment_method_blocked`, which withheld its guest activation, which
  * `derivePickupEligibility` then read back as `guest_seller_not_activated`.
  *

@@ -24,8 +24,9 @@
  *    rejected one.
  *
  * `surface` and `consent` ARE accepted, and both are DESCRIPTIVE: the first is
- * recorded on the touch and decides nothing at all; the second decides exactly
- * one thing, whether a web carrier is written.
+ * recorded on the touch and decides nothing at all; the second is the buyer's
+ * answer on `/referrals/consent` (the only route that may write a web carrier),
+ * and elsewhere a declaration whose one effect is that `denied` writes nothing.
  */
 
 import { z } from 'zod';
@@ -34,6 +35,7 @@ import {
   MAX_MONEY_MINOR_UNITS,
   REFERRAL_CLIENT_SURFACES,
   REFERRAL_CODE_ENTRY_MOMENTS,
+  REFERRAL_CONSENT_ANSWERS,
   REFERRAL_CONSENT_DECLARATIONS,
   REFERRAL_DISCLOSURE_SURFACES,
   REFERRAL_ENFORCEMENT_ACTIONS,
@@ -43,6 +45,7 @@ import {
   REFERRAL_RISK_SUBJECT_TYPES,
   type ReferralClientSurface,
   type ReferralCodeEntryMoment,
+  type ReferralConsentAnswer,
   type ReferralConsentDeclaration,
 } from '@mercaria/shared-types';
 
@@ -62,6 +65,22 @@ const surface = z
 const consent = z
   .enum(tuple(REFERRAL_CONSENT_DECLARATIONS as readonly ReferralConsentDeclaration[]))
   .optional();
+
+/**
+ * `POST /referrals/consent` — the buyer's answer to the storefront's prompt.
+ *
+ * `consent` is REQUIRED and has two members, not three: the buyer either
+ * allowed it or did not, and "unknown" is not an answer anybody gave. The
+ * carrier is NOT here — it is presented only on the `X-Mercaria-Referral-State`
+ * request header — and `.strict()` refuses a body that tries to carry one, so
+ * there is no second channel to accept it on.
+ */
+export const referralConsentSchema = z
+  .object({
+    consent: z.enum(tuple(REFERRAL_CONSENT_ANSWERS as readonly ReferralConsentAnswer[])),
+    surface,
+  })
+  .strict();
 
 /**
  * `POST /referrals/bind` — redeem a carried click for the resolved actor.

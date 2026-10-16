@@ -17,10 +17,21 @@
  * no row, and a real shopper's touch is recorded against the very session
  * ADR 0005 D6 names.
  *
+ * ## Nothing is stored on the device before the buyer says yes
+ *
+ * ePrivacy Art. 5(3): storing or reading anything on a buyer's device for
+ * referral tracking needs PRIOR consent. So the redirect hands this carrier
+ * over in the destination's URL FRAGMENT (`#mercaria_ref=mrf_…`) — never sent
+ * to a server, never in a `Referer` — and sets no cookie. The storefront holds
+ * it in memory and asks; only `POST /referrals/consent` with `granted` either
+ * binds it at once (a subject exists) or re-issues it with the consent letter
+ * signed in and THEN writes the cookie. The consent rides inside the signature,
+ * so the later bind records `granted` without taking the client's word for it.
+ *
  * ## It cannot authorize anything, structurally
  *
- * The verified payload is `{linkId, codeId, clickedAt}` — three of Mercaria's
- * own row ids and an instant. There is no user id, no session id, no order id
+ * The verified payload is `{linkId, codeId, clickedAt, consent}` — two of
+ * Mercaria's own row ids, an instant and one consent letter. There is no user id, no session id, no order id
  * and no scope list in it, so there is nothing an authorization check could
  * read even if one were written; and no resolver outside this file consumes it.
  * That is ADR 0005 A1 ("codes and click ids are attribution evidence, never
@@ -41,7 +52,7 @@
  * ## The window anchor is INSIDE the signature
  *
  * `clickedAt` is stamped once, at the redirect, and travels signed. Presenting
- * the carrier again does not move it, and neither does re-issuing the cookie —
+ * the carrier again does not move it, and neither does re-issuing it on consent —
  * so "do not extend the window forever through every page view" (#143 web rule
  * 7) is arithmetic on a value the client cannot edit, not a rule some later
  * navigation handler has to remember.
@@ -51,7 +62,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { verifySecret } from '@oxy.so/core/server';
 import { z } from 'zod';
 import type { Response } from 'express';
-import { config } from '../../config/index.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 import { log } from '../../lib/logger.js';
 
 /**
@@ -72,8 +83,8 @@ export const REFERRAL_STATE_REQUEST_HEADER = 'x-mercaria-referral-state';
 /** How the carrier reached, or will reach, the client. */
 export type ReferralStateTransport = 'cookie' | 'header';
 
-/** The signed claims. Short keys: this travels in a cookie on every request. */
-const statePayloadSchema = z
+/** The signed claims of a v1 carrier. Short keys: this travels in a URL and a cookie. */
+const statePayloadV1Schema = z
   .object({
     /** `referral_links.id`. */
     l: z.string().min(1).max(64),
@@ -88,31 +99,75 @@ const statePayloadSchema = z
   })
   .strict();
 
+/**
+ * The v2 claims: v1 plus the buyer's consent, inside the signature.
+ *
+ * `k` is `u` (not asked yet — the carrier the redirect hands over in the URL
+ * fragment) or `g` (the buyer allowed it — the only carrier
+ * `POST /referrals/consent` puts in a cookie). There is no `denied` spelling: a
+ * refusal is answered by issuing NOTHING, so a carrier that says "denied" has
+ * no reason to exist.
+ *
+ * A v1 carrier — every cookie set before consent was asked — still verifies,
+ * as consent `unknown`, so the bump strands nobody's click; and because the
+ * letter is signed, a client cannot turn `u` into `g`.
+ */
+const statePayloadV2Schema = statePayloadV1Schema
+  .extend({
+    v: z.literal(2),
+    k: z.enum(['u', 'g']),
+  })
+  .strict();
+
+const statePayloadSchema = z.union([statePayloadV2Schema, statePayloadV1Schema]);
+
+/**
+ * What a carrier says about consent: `granted` only when the buyer allowed it
+ * through `POST /referrals/consent`, `unknown` for everything else.
+ */
+export type ReferralStateConsent = 'granted' | 'unknown';
+
 /** What a verified carrier yields. */
 export interface ReferralStateClaims {
   linkId: string;
   codeId: string;
   clickedAt: Date;
   expiresAt: Date;
+  /** Whether the buyer allowed Mercaria to remember this click. */
+  consent: ReferralStateConsent;
 }
 
-/** The HMAC key, or a refusal that NAMES the missing variable. */
-function stateSecret(): string {
-  const secret = config.referrals.stateSecret;
-  if (secret === undefined || secret.length === 0) {
-    // Unreachable while `REFERRALS_ENABLED` demands it (the half-configuration
-    // rule in `config/index.ts`), and stated anyway: signing with an empty key
-    // would make every carrier forgeable and nothing would report it.
-    throw new Error(
-      'Referral state is not configured: set REFERRAL_STATE_SECRET (REFERRALS_ENABLED requires it).',
-    );
-  }
-  return secret;
-}
-
-/** HMAC-SHA256 over the encoded payload. */
+/**
+ * HMAC-SHA256 over the encoded payload, under the state-carrier key: derived
+ * from `MERCARIA_SECRET_KEY` under a purpose DIFFERENT from the public link
+ * token's (`lib/derived-secrets.ts`), so a leak of the public half is never a
+ * mint for this one.
+ */
 function sign(payloadB64: string): string {
-  return createHmac('sha256', stateSecret()).update(payloadB64).digest('base64url');
+  return createHmac('sha256', derivedSecret('referral-state'))
+    .update(payloadB64)
+    .digest('base64url');
+}
+
+/** Encode and sign one v2 payload. Every spelling is base64url plus `_` and `.`: URL-safe. */
+function encodeState(input: {
+  linkId: string;
+  codeId: string;
+  clickedAtSeconds: number;
+  expiresAtSeconds: number;
+  consent: ReferralStateConsent;
+}): string {
+  const payload = {
+    v: 2,
+    l: input.linkId,
+    c: input.codeId,
+    t: input.clickedAtSeconds,
+    x: input.expiresAtSeconds,
+    n: randomBytes(9).toString('base64url'),
+    k: input.consent === 'granted' ? 'g' : 'u',
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  return `${REFERRAL_STATE_PREFIX}${payloadB64}.${sign(payloadB64)}`;
 }
 
 /**
@@ -120,13 +175,15 @@ function sign(payloadB64: string): string {
  *
  * `lifetimeSeconds` comes from the program's own attribution window, capped by
  * {@link REFERRAL_STATE_MAX_LIFETIME_SECONDS}: a program may not hand a browser
- * a cookie that outlives any window it could serve.
+ * a carrier that outlives any window it could serve. Consent is `unknown`
+ * unless stated — the redirect mints before anybody has been asked.
  */
 export function mintReferralState(input: {
   linkId: string;
   codeId: string;
   clickedAt: Date;
   lifetimeSeconds: number;
+  consent?: ReferralStateConsent;
 }): { token: string; expiresAt: Date } {
   const clickedAtSeconds = Math.floor(input.clickedAt.getTime() / 1_000);
   const lifetime = Math.min(
@@ -134,17 +191,39 @@ export function mintReferralState(input: {
     REFERRAL_STATE_MAX_LIFETIME_SECONDS,
   );
   const expiresAtSeconds = clickedAtSeconds + lifetime;
-  const payload = {
-    l: input.linkId,
-    c: input.codeId,
-    t: clickedAtSeconds,
-    x: expiresAtSeconds,
-    n: randomBytes(9).toString('base64url'),
-  };
-  const payloadB64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
   return {
-    token: `${REFERRAL_STATE_PREFIX}${payloadB64}.${sign(payloadB64)}`,
+    token: encodeState({
+      linkId: input.linkId,
+      codeId: input.codeId,
+      clickedAtSeconds,
+      expiresAtSeconds,
+      consent: input.consent ?? 'unknown',
+    }),
     expiresAt: new Date(expiresAtSeconds * 1_000),
+  };
+}
+
+/**
+ * Re-issue a VERIFIED carrier as one the buyer consented to.
+ *
+ * The click instant and the deadline are copied, never recomputed: consenting
+ * is not a new click, so it can neither move the attribution window (#143 web
+ * rule 7) nor lengthen the carrier's life. Only the consent letter and the
+ * nonce change.
+ */
+export function reissueConsentedReferralState(claims: ReferralStateClaims): {
+  token: string;
+  expiresAt: Date;
+} {
+  return {
+    token: encodeState({
+      linkId: claims.linkId,
+      codeId: claims.codeId,
+      clickedAtSeconds: Math.floor(claims.clickedAt.getTime() / 1_000),
+      expiresAtSeconds: Math.floor(claims.expiresAt.getTime() / 1_000),
+      consent: 'granted',
+    }),
+    expiresAt: claims.expiresAt,
   };
 }
 
@@ -196,6 +275,7 @@ export function verifyReferralState(
     codeId: parsed.data.c,
     clickedAt: new Date(parsed.data.t * 1_000),
     expiresAt,
+    consent: 'k' in parsed.data && parsed.data.k === 'g' ? 'granted' : 'unknown',
   };
 }
 
@@ -204,9 +284,11 @@ export function verifyReferralState(
  * credential.
  *
  * Production: `__Host-mercaria_referral` — `HttpOnly; Secure; SameSite=Lax;
- * Path=/`, no `Domain`. `SameSite=Lax` rather than `Strict` because the carrier
- * is SET on a top-level navigation arriving from a partner's own site, which is
- * exactly the cross-site case `Strict` drops.
+ * Path=/`, no `Domain`. Written ONLY by `POST /referrals/consent` after the
+ * buyer allowed it — a same-site request from the storefront — and never by the
+ * redirect. `SameSite=Lax` is kept from when the redirect set it: it costs
+ * nothing on a same-site request, and one profile serves every carrier a
+ * browser may still hold.
  *
  * Development: `mercaria_referral_dev` without `Secure`, under a DIFFERENT
  * name, logged once at first use — an explicit downgrade, never a silent one.
@@ -300,8 +382,8 @@ export function setReferralState(
  * Clear the carrier — the supersession half of #143 web rule 8.
  *
  * Called once a carrier has been REDEEMED into a touch, so a second bind of the
- * same click is not even attempted, and when a request declares consent
- * `denied`.
+ * same click is not even attempted; when a request declares consent `denied`;
+ * and when a cookie carrier turns out not to be one the buyer consented to.
  */
 export function clearReferralState(res: Response, transport: ReferralStateTransport): void {
   if (transport === 'header') {

@@ -52,7 +52,6 @@ const REQUIRED_ENV: ReadonlyArray<{ name: string; because: string }> = [
     name: 'CONNECTOR_OAUTH_REDIRECT_BASE_URL',
     because: 'the redirect URL and the webhook address are derived from it',
   },
-  { name: 'CONNECTOR_OAUTH_STATE_SECRET', because: 'the OAuth state cannot be signed' },
   {
     name: 'CONNECTOR_ENCRYPTION_KEY',
     because: 'the access token cannot be stored — and this fails AFTER connect reports success',

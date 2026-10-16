@@ -5,7 +5,7 @@ import type { BillingCohort } from '../peable/adapter.js';
 
 /** Only the transitional account/subscription/invoice/settlement GETs needed to verify an explicit billing cohort.
  * This object exposes no Stripe mutation, payment, Connect or webhook methods.
- * The general Stripe client keeps its independent STRIPE_ENABLED gate.
+ * The general Stripe client keeps its independent gate: the fully configured rail.
  */
 export function createBillingCohortStripeReader(cohort: BillingCohort) {
   const key = config.payments.stripe.secretKey;

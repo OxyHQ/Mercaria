@@ -17,7 +17,7 @@
  * discipline, and the reason no assertion below is an unscoped `count(*)`.
  */
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { and, inArray, isNotNull, sql } from 'drizzle-orm';
@@ -45,24 +45,15 @@ import {
   bindCarriedReferral,
   bindEnteredCode,
   bindMerchantCandidate,
+  consentToCarriedReferral,
   type ReferralBindContext,
 } from '../referrals/binding.service.js';
-import { mintReferralState } from '../referrals/referral-state.js';
-import { resolveReferralRedirect } from '../referrals/redirect.service.js';
+import { mintReferralState, verifyReferralState } from '../referrals/referral-state.js';
 import type { CommerceActor } from '../commerce-actor.js';
 import {
   admitPartnerToReferralPilot,
   deleteReferralPilotFixtures,
 } from '../referral-pilot/__tests__/pilot-fixture.js';
-
-// Hoisted above the imports, so `config/index.ts` reads them at load. The edge
-// is gated by `REFERRALS_ENABLED`, which demands BOTH secrets.
-vi.hoisted(() => {
-  process.env.REFERRALS_ENABLED = 'true';
-  process.env.REFERRAL_LINK_TOKEN_SECRET = 'realdb-edge-link-secret';
-  process.env.REFERRAL_STATE_SECRET = 'realdb-edge-state-secret';
-  process.env.REFERRAL_REDIRECT_BASE_URL = 'https://mercaria.co';
-});
 
 let db: Database;
 let createApp: typeof import('../../app.js').createApp;
@@ -344,15 +335,26 @@ function contextFor(actor: CommerceActor, at = new Date()): ReferralBindContext 
   return { actor, clientSurface: 'web', consentMode: 'granted', trafficClass: 'organic', at };
 }
 
+/** The destination without its fragment, and the carrier the fragment holds. */
+function splitLocation(location: string | null): { destination: string; carrier?: string } {
+  const url = new URL(location ?? '');
+  const params = new URLSearchParams(url.hash.slice(1));
+  url.hash = '';
+  return { destination: url.href, carrier: params.get('mercaria_ref') ?? undefined };
+}
+
 describe('acceptance 1: a valid signed link reaches ONE allow-listed destination', () => {
-  it('302s to the composed Mercaria URL and issues the purpose-specific carrier', async () => {
+  it('302s to the composed Mercaria URL with the carrier in the FRAGMENT and no cookie', async () => {
     const base = await listen();
     const link = await makeLink('a1');
 
+    const before = new Date();
     const response = await click(base, link.token);
 
     expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('https://mercaria.co/listings/abc123');
+    const location = response.headers.get('location');
+    const { destination, carrier } = splitLocation(location);
+    expect(destination).toBe('https://mercaria.co/listings/abc123');
     // A permanent redirect would be cached forever: the click ceiling would
     // stop counting, a revoked link would keep working, and the operator lever
     // would be inert. 302 + no-store is the only pair under which every click
@@ -361,14 +363,24 @@ describe('acceptance 1: a valid signed link reaches ONE allow-listed destination
     // The destination page must not learn the token from a Referer header.
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
 
-    const cookie = response.headers.get('set-cookie') ?? '';
-    expect(cookie).toContain('mercaria_referral');
-    expect(cookie).toContain('HttpOnly');
-    expect(cookie).toContain('SameSite=Lax');
+    // ePrivacy Art. 5(3): nothing is stored on the device before the buyer
+    // allows it — the click is not consent. No cookie of ANY name.
+    expect(response.headers.get('set-cookie')).toBeNull();
+
+    // The evidence travels in the fragment, which is never sent to a server
+    // and never appears in a Referer. Exactly one key, a URL-safe spelling, and
+    // a carrier that verifies: this link, this code, consent not yet asked.
+    expect(location).toMatch(/#mercaria_ref=mrf_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    const claims = verifyReferralState(carrier, new Date());
+    expect(claims?.linkId).toBe(link.linkId);
+    expect(claims?.codeId).toBe(link.codeId);
+    expect(claims?.consent).toBe('unknown');
+    expect(claims?.clickedAt.getTime()).toBeGreaterThanOrEqual(
+      Math.floor(before.getTime() / 1_000) * 1_000,
+    );
     // Not a guest cart credential, not a portal credential.
-    expect(cookie).toContain('mrf_');
-    expect(cookie).not.toContain('mgs_');
-    expect(cookie).not.toContain('mgp_');
+    expect(location).not.toContain('mgs_');
+    expect(location).not.toContain('mgp_');
   });
 
   it('creates ONLY the approved touch state — no touch row for an anonymous click', async () => {
@@ -397,47 +409,171 @@ describe('acceptance 1: a valid signed link reaches ONE allow-listed destination
   });
 });
 
-describe('a click by a request that ALREADY has a subject resolves completely', () => {
-  it('records the touch AND attributes it, with no carrier to redeem', async () => {
-    // The bug this pins, found by re-reading the branch rather than by a
-    // failing test: the redirect recorded the touch and stopped. No carrier is
-    // issued when a subject is present — there is nothing to defer — so
-    // `POST /referrals/bind` would have had nothing to present, and a
-    // signed-in buyer's click would sit unattributed forever, silently earning
-    // the partner nothing. Deleting the `attributeRecordedTouch` call in
-    // `redirect.service.ts` turns this red.
+describe('the redirect attributes nobody, even a request that already has a subject', () => {
+  it('writes no touch and sets no cookie for a click carrying credentials', async () => {
+    // Before consent was asked, a signed-in click was resolved completely at
+    // the redirect. A click is not consent (ePrivacy Art. 5(3)), so the route
+    // no longer resolves a subject at all: whatever credentials the request
+    // carries, the answer is the same 302 with the carrier in the fragment.
+    const base = await listen();
     const link = await makeLink('signedin');
-    const oxyUserId = `buyer-signedin-${TAG}`;
 
-    const outcome = await resolveReferralRedirect({
-      token: link.token,
-      trafficClass: 'organic',
-      clientSurface: 'web',
-      consentMode: 'granted',
-      actor: { kind: 'oxy', oxyUserId },
-      at: new Date(),
+    const response = await click(base, link.token, {
+      authorization: 'Bearer not-even-looked-at',
+      cookie: 'mercaria_guest_dev=mgs_anything',
     });
 
-    expect(outcome.outcome).toBe('redirect');
-    if (outcome.outcome !== 'redirect') return;
-    expect(outcome.location).toBe('https://mercaria.co/listings/abc123');
-    // No carrier: there is nothing to defer.
-    expect(outcome.state).toBeUndefined();
-    expect(outcome.touchId).toBeDefined();
+    expect(response.status).toBe(302);
+    expect(response.headers.get('set-cookie')).toBeNull();
+    expect(splitLocation(response.headers.get('location')).carrier).toMatch(/^mrf_/);
+    expect(await touchesForCode(link.codeId)).toHaveLength(0);
+    expect(await activeAttributionsFor(link.programId)).toHaveLength(0);
+  });
 
+  it('a native `denied` declaration at click time hands over no carrier at all', async () => {
+    const base = await listen();
+    const link = await makeLink('native-denied');
+    const response = await click(base, link.token, { 'x-mercaria-referral-consent': 'denied' });
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('https://mercaria.co/listings/abc123');
+    expect(response.headers.get('set-cookie')).toBeNull();
+  });
+});
+
+describe('POST /referrals/consent: nothing is stored or attributed before Allow', () => {
+  /** A real click's fragment carrier — what the storefront holds in memory. */
+  async function fragmentCarrier(base: string, token: string): Promise<string> {
+    const { carrier } = splitLocation((await click(base, token)).headers.get('location'));
+    if (carrier === undefined) throw new Error('the redirect handed over no carrier');
+    return carrier;
+  }
+
+  async function consent(
+    base: string,
+    body: unknown,
+    headers: Record<string, string> = {},
+    query = '',
+  ): Promise<Response> {
+    return await fetch(`${base}/referrals/consent${query}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': CHROME, ...headers },
+      body: JSON.stringify(body),
+    });
+  }
+
+  const COOKIE = 'mercaria_referral_dev';
+
+  it('`denied` verifies nothing, writes nothing, and clears a carrier cookie', async () => {
+    const base = await listen();
+    const link = await makeLink('deny');
+    const carrier = await fragmentCarrier(base, link.token);
+
+    const response = await consent(
+      base,
+      { consent: 'denied', surface: 'web' },
+      { 'x-mercaria-referral-state': carrier, cookie: `${COOKIE}=${carrier}` },
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: unknown };
+    expect(body.data).toEqual({ state: 'none', disclosureRequired: false });
+    const cleared = response.headers.get('set-cookie') ?? '';
+    expect(cleared).toContain(`${COOKIE}=;`);
+    expect(cleared).toMatch(/Expires=Thu, 01 Jan 1970/);
+    expect(await touchesForCode(link.codeId)).toHaveLength(0);
+  });
+
+  it('`granted` while anonymous sets the cookie, keeps the window, and a later bind records `granted`', async () => {
+    const base = await listen();
+    const link = await makeLink('grant-anon');
+    const carrier = await fragmentCarrier(base, link.token);
+    const original = verifyReferralState(carrier, new Date());
+
+    const response = await consent(
+      base,
+      { consent: 'granted', surface: 'web' },
+      { 'x-mercaria-referral-state': carrier },
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { data: Record<string, unknown> };
+    expect(body.data.state).toBe('pending');
+    expect(body.data.disclosureRequired).toBe(true);
+    // Nothing is written for an anonymous visitor (ADR 0003 T10).
+    expect(await touchesForCode(link.codeId)).toHaveLength(0);
+
+    // The cookie appears NOW — after Allow — with the same profile as ever.
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain(`${COOKIE}=mrf_`);
+    expect(setCookie).toContain('HttpOnly');
+    expect(setCookie).toContain('SameSite=Lax');
+    expect(setCookie).toContain('Path=/');
+    const maxAge = Number(/Max-Age=(\d+)/.exec(setCookie)?.[1]);
+    expect(maxAge).toBeGreaterThan(0);
+    expect(maxAge).toBeLessThanOrEqual(30 * 24 * 3_600);
+
+    // A DIFFERENT spelling, with consent signed in — and the same click
+    // instant and deadline: consenting is not a new click (#143 web rule 7).
+    const stored = decodeURIComponent(/mercaria_referral_dev=([^;]+)/.exec(setCookie)?.[1] ?? '');
+    expect(stored).not.toBe(carrier);
+    const consented = verifyReferralState(stored, new Date());
+    expect(consented?.consent).toBe('granted');
+    expect(consented?.clickedAt.getTime()).toBe(original?.clickedAt.getTime());
+    expect(consented?.expiresAt.getTime()).toBe(original?.expiresAt.getTime());
+
+    // The cookie is what `GET /referrals/state` now sees…
+    const state = await fetch(`${base}/referrals/state`, {
+      headers: { cookie: `${COOKIE}=${stored}`, 'user-agent': CHROME },
+    });
+    expect(((await state.json()) as { data: unknown }).data).toEqual({
+      state: 'pending',
+      disclosureRequired: true,
+    });
+
+    // …and when a subject appears, the bind records `granted` from the signed
+    // carrier — not from the body, which here declares nothing.
+    const guestSessionId = `guest-session-${TAG}-grant`;
+    const bound = await bindCarriedReferral({
+      stateToken: stored,
+      context: {
+        ...contextFor({ kind: 'guest', guestSessionId, transport: 'cookie' }),
+        consentMode: 'unknown',
+      },
+    });
+    expect(bound.state).toBe('attributed');
+    const [touch] = await touchesForCode(link.codeId);
+    expect(touch?.consentMode).toBe('granted');
+    expect(touch?.guestSessionRef).toBe(guestSessionId);
+  });
+
+  it('`granted` with a subject attributes at once, records `granted`, and sets no cookie', async () => {
+    // Service-level, because an authenticated actor over HTTP needs a real Oxy
+    // bearer; the controller adds only carriage, pinned by the cases above.
+    const base = await listen();
+    const link = await makeLink('grant-subject');
+    const carrier = await fragmentCarrier(base, link.token);
+    const oxyUserId = `buyer-grant-${TAG}`;
+
+    const result = await consentToCarriedReferral({
+      stateToken: carrier,
+      context: { ...contextFor({ kind: 'oxy', oxyUserId }), consentMode: 'unknown' },
+    });
+
+    expect(result.state).toBe('attributed');
+    expect(result.carry).toBeUndefined();
     const touches = await touchesForCode(link.codeId);
     expect(touches).toHaveLength(1);
-    expect(touches[0]?.actorKind).toBe('oxy_user');
-
+    expect(touches[0]?.consentMode).toBe('granted');
+    expect(touches[0]?.oxyUserId).toBe(oxyUserId);
     const active = await activeAttributionsFor(link.programId);
     expect(active).toHaveLength(1);
-    expect(active[0]?.subjectKind).toBe('oxy_user');
-    expect(active[0]?.subjectRef).toBe(oxyUserId);
     expect(active[0]?.partnerId).toBe(link.partnerId);
   });
 
-  it('still respects the attribution lever on that branch', async () => {
-    const link = await makeLink('signedin-lever');
+  it('still respects the attribution lever when a subject consents', async () => {
+    const base = await listen();
+    const link = await makeLink('grant-lever');
+    const carrier = await fragmentCarrier(base, link.token);
     await setProgramControls({
       programId: link.programId,
       redirectEnabled: true,
@@ -447,17 +583,91 @@ describe('a click by a request that ALREADY has a subject resolves completely', 
       reason: 'incident drill',
     });
 
-    await resolveReferralRedirect({
-      token: link.token,
-      trafficClass: 'organic',
-      clientSurface: 'web',
-      consentMode: 'granted',
-      actor: { kind: 'oxy', oxyUserId: `buyer-sl-${TAG}` },
-      at: new Date(),
+    await consentToCarriedReferral({
+      stateToken: carrier,
+      context: contextFor({ kind: 'oxy', oxyUserId: `buyer-gl-${TAG}` }),
     });
 
     expect(await touchesForCode(link.codeId)).toHaveLength(1);
     expect(await activeAttributionsFor(link.programId)).toHaveLength(0);
+  });
+
+  it('answers an unusable carrier with the bounded `state_unusable` and sets nothing', async () => {
+    const base = await listen();
+    const link = await makeLink('grant-bad');
+    const expired = mintReferralState({
+      linkId: link.linkId,
+      codeId: link.codeId,
+      clickedAt: new Date(Date.now() - 10_000),
+      lifetimeSeconds: 1,
+    }).token;
+
+    for (const carrier of ['mrf_garbage.sig', expired, 'mgs_a-guest-cart-token']) {
+      const response = await consent(
+        base,
+        { consent: 'granted', surface: 'web' },
+        { 'x-mercaria-referral-state': carrier },
+      );
+      expect(response.status, carrier).toBe(200);
+      expect(((await response.json()) as { data: unknown }).data, carrier).toEqual({
+        state: 'none',
+        reason: 'state_unusable',
+        disclosureRequired: false,
+      });
+      expect(response.headers.get('set-cookie'), carrier).toBeNull();
+    }
+    expect(await touchesForCode(link.codeId)).toHaveLength(0);
+  });
+
+  it('accepts the carrier ONLY on the request header — never body, query or cookie', async () => {
+    const base = await listen();
+    const link = await makeLink('grant-channel');
+    const carrier = await fragmentCarrier(base, link.token);
+    const consented = mintReferralState({
+      linkId: link.linkId,
+      codeId: link.codeId,
+      clickedAt: new Date(),
+      lifetimeSeconds: 30 * 24 * 3_600,
+      consent: 'granted',
+    }).token;
+
+    // Body: the strict schema has no field for it, so the request is refused.
+    const inBody = await consent(base, { consent: 'granted', state: carrier });
+    expect(inBody.status).toBe(400);
+
+    // Query and cookie: read by nothing, so there is no carrier to consent to.
+    for (const [label, response] of [
+      ['query', await consent(base, { consent: 'granted' }, {}, `?state=${carrier}`)],
+      ['cookie', await consent(base, { consent: 'granted' }, { cookie: `${COOKIE}=${consented}` })],
+    ] as const) {
+      expect(((await response.json()) as { data: { reason?: string } }).data.reason, label).toBe(
+        'state_unusable',
+      );
+      expect(response.headers.get('set-cookie'), label).toBeNull();
+    }
+    expect(await touchesForCode(link.codeId)).toHaveLength(0);
+  });
+
+  it('a cookie carrier nobody consented to is neither read nor kept', async () => {
+    // A carrier the redirect set before consent was asked (a v1, or any
+    // `unknown` one) must not be acted on now: it is cleared and ignored.
+    const base = await listen();
+    const link = await makeLink('legacy-cookie');
+    const unconsented = mintReferralState({
+      linkId: link.linkId,
+      codeId: link.codeId,
+      clickedAt: new Date(),
+      lifetimeSeconds: 30 * 24 * 3_600,
+    }).token;
+
+    const response = await fetch(`${base}/referrals/state`, {
+      headers: { cookie: `${COOKIE}=${unconsented}`, 'user-agent': CHROME },
+    });
+    expect(((await response.json()) as { data: unknown }).data).toEqual({
+      state: 'none',
+      disclosureRequired: false,
+    });
+    expect(response.headers.get('set-cookie') ?? '').toContain(`${COOKIE}=;`);
   });
 });
 
@@ -473,9 +683,17 @@ describe('acceptance 2: the redirect is not an open redirect or a campaign injec
     );
 
     // The destination is composed from a configured allow-listed origin and a
-    // closed template. Nothing the caller sent appears in it, and there is no
-    // query string on the target at all.
-    expect(response.headers.get('location')).toBe('https://mercaria.co/listings/abc123');
+    // closed template. Nothing the caller sent appears in it, there is no
+    // query string on the target at all, and the fragment holds the carrier
+    // and nothing else.
+    const location = response.headers.get('location') ?? '';
+    expect(splitLocation(location).destination).toBe('https://mercaria.co/listings/abc123');
+    expect(new URL(location).search).toBe('');
+    expect([...new URLSearchParams(new URL(location).hash.slice(1)).keys()]).toEqual([
+      'mercaria_ref',
+    ]);
+    expect(location).not.toContain('evil.example');
+    expect(location).not.toContain('stolen');
   });
 
   it('cannot be steered by a forged Host or X-Forwarded-Host', async () => {
@@ -485,7 +703,9 @@ describe('acceptance 2: the redirect is not an open redirect or a campaign injec
       'x-forwarded-host': 'evil.example',
       'x-forwarded-proto': 'http',
     });
-    expect(response.headers.get('location')).toBe('https://mercaria.co/listings/abc123');
+    expect(splitLocation(response.headers.get('location')).destination).toBe(
+      'https://mercaria.co/listings/abc123',
+    );
   });
 
   it('answers 404 for garbage, an unknown token and a forged signature', async () => {
@@ -1081,7 +1301,7 @@ describe('acceptance 7: merchant binding survives correction and merge', () => {
 });
 
 describe('acceptance 6: attribution grants no authorization', () => {
-  it('the carrier names two row ids and an instant — nothing that could authorize', async () => {
+  it('the carrier names two row ids, an instant and a consent letter — nothing that could authorize', async () => {
     // ADR 0005 A1, as a property of the payload rather than a rule. There is no
     // user id, session id, order id or scope list in it, so there is nothing an
     // authorization check could read even if somebody wrote one.
@@ -1094,7 +1314,7 @@ describe('acceptance 6: attribution grants no authorization', () => {
     });
     const [payloadB64] = token.slice('mrf_'.length).split('.');
     const payload = JSON.parse(Buffer.from(payloadB64 ?? '', 'base64url').toString('utf8'));
-    expect(Object.keys(payload).sort()).toEqual(['c', 'l', 'n', 't', 'x']);
+    expect(Object.keys(payload).sort()).toEqual(['c', 'k', 'l', 'n', 't', 'v', 'x']);
     expect(payload.l).toBe(link.linkId);
     expect(payload.c).toBe(link.codeId);
   });

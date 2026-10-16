@@ -277,7 +277,8 @@ policy or feed change moved a great many signals at once.
 ## Surfaces
 
 **Public:** `GET /price-signals` — no auth, the `listings` rate-limit budget,
-behind `PRICE_SIGNALS_PUBLIC_READS_ENABLED`. The response carries the signals, the
+always mounted. With no active policy version every signal is `unmeasured` and no
+badge is shown. The response carries the signals, the
 `semantics` (what the numbers mean, which the analytics domain's rule requires)
 and plain `explanation` sentences. The explanation is part of the PAYLOAD for
 #78's reason: a summary composed on three clients is three summaries, and the one
@@ -289,8 +290,8 @@ because one request costs a comparison read per subject examined.
 **Operator:** `/internal/price-signals/*` on the SAME
 `CATALOG_OPERATOR_OXY_USER_IDS` allow-list every other catalogue surface uses —
 deciding what "good price" MEANS is the same power over the same graph as deciding
-which offers exist and in what order they appear. Mounted while the sweep is off
-and while nothing is published, because a deployment with no active version is
+which offers exist and in what order they appear. Mounted while nothing is
+published, because a deployment with no active version is
 exactly when somebody needs to publish one.
 
 **The route set is CLOSED and four absences are the point:** no "set this label",
@@ -302,9 +303,10 @@ the single property that makes it worth publishing.
 
 ## Environment
 
+The measurement loop always runs (it only drains runs an operator queued) and
+`/price-signals` is always mounted.
+
 ```
-PRICE_SIGNALS_ENABLED=false                 # the measurement LOOP, never a record
-PRICE_SIGNALS_PUBLIC_READS_ENABLED=false    # the /price-signals MOUNT
 PRICE_SIGNAL_OFFER_SAMPLE_LIMIT=200
 PRICE_SIGNAL_SWEEP_BATCH_SIZE=25
 PRICE_SIGNAL_SWEEP_POLL_INTERVAL_MS=60000
@@ -322,9 +324,10 @@ out of the environment is reproducible from neither. There is also no
 `PRICE_SIGNAL_POLICY_KEY`: the key is a code constant, per the house rule every
 other versioned policy follows.
 
-With every default in place a deployment publishes no policy, builds no signal,
-serves no public route and runs no sweep — and a merchant's competitiveness read
-answers honestly that nothing has been defined yet.
+With every default in place a deployment publishes no policy and builds no
+signal: `/price-signals` answers every signal `unmeasured`, no sweep has a run to
+drain, and a merchant's competitiveness read answers honestly that nothing has
+been defined yet.
 
 ---
 
@@ -399,12 +402,11 @@ Each is a NAMED contract that fails closed, never a stub that lies.
    `unmeasured` forever.
 2. Publish and ACTIVATE a policy version. Empty is a working configuration and
    means no claim is ever made, which is correct and unhelpful.
-3. `PRICE_SIGNALS_PUBLIC_READS_ENABLED=true` last, and only once a policy is
-   active: until then every read is honest and badge-less.
-4. `PRICE_SIGNALS_ENABLED=true` when somebody is going to read the monitoring.
-   The sweep costs a comparison read per subject and answers questions nobody has
+   Until then every public read is honest and badge-less.
+3. Queue a measurement run when somebody is going to read the monitoring. The
+   sweep costs a comparison read per subject and answers questions nobody has
    asked until a policy has been serving for a while.
-5. Alerting on a climbing `insufficientDataRate`, on `countsAgree` going false —
+4. Alerting on a climbing `insufficientDataRate`, on `countsAgree` going false —
    which is what a swallowed page looks like from outside — and on a mass-change
    `changeRate` that coincides with `policyVersionChanged: false`, which is a feed
    moving rather than a policy.

@@ -218,7 +218,7 @@ DATABASE_URL=… bun src/scripts/backfill-variant-axes.ts --apply --after=<listi
 - **`--apply` is required to write anything**, and there is no environment
   variable for it. A migration that wrote because somebody forgot a flag is the
   one failure neither a report nor a rollback can undo
-  (`PRODUCT_SAVE_MIGRATION_ENABLED`'s decision, one domain over).
+  (the product-save migration's `dryRun` default, one domain over).
 - **A dry run is not a prediction.** Both modes run the identical code inside a
   transaction; a dry run rolls it back. So it exercises every trigger, CHECK and
   unique index the apply would, and a listing that would fail is reported as

@@ -30,6 +30,13 @@ the findings below are docblocks asserting more than the code under them does.
 
 ## The lever inventory, measured rather than quoted
 
+> **Since this audit, all four levers were removed** (the "no `*_ENABLED`
+> switches" decision). The taxonomy-v2/navigation, authoring and facet surfaces
+> are always mounted; `/catalog-proposals` is mounted iff
+> `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty (the same condition as its
+> operator surface). No D12-era mount lever remains. The line references below
+> are the audit's and are historical.
+
 **ADR 0007 D12 originally named six levers; three were never built, and one lever
 a rollout needs was not among the six — so four exist, and the arithmetic is
 `6 − 3 + 1` rather than a subtraction.** D12 has since been corrected (in this
@@ -40,9 +47,9 @@ not exist is worse than no step, and D12 is quoted in five other documents.
 
 | D12 lever | State | Where |
 |---|---|---|
-| `CATALOG_TAXONOMY_V2_ENABLED` | **exists**, default false | `config/index.ts:1936` (decl), `:3721` (read) → `config.catalog.taxonomyV2Enabled` |
-| `CATALOG_AUTHORING_ENABLED` | **exists**, default false | `config/index.ts:3468`, `:4388` → `config.catalogAuthoring.enabled` |
-| `CATALOG_PROPOSALS_ENABLED` | **exists**, default false | `config/index.ts:3501`, `:4395` → `config.catalogProposals.enabled` |
+| Taxonomy v2 / navigation lever | **REMOVED** — always mounted | `/navigation`, `/taxonomy` in `app.ts` |
+| Authoring lever | **REMOVED** — always mounted | `/catalog-authoring`, `/stores/:storeId/product-drafts` in `app.ts` |
+| Proposals lever | **REMOVED** — mounted iff the operator allow-list is non-empty | `config.catalog.graphOperatorSurfaceEnabled` |
 | `CATALOG_LOCALIZATION_ENABLED` | **DOES NOT EXIST** | nowhere in `packages/backend/src` |
 | `PRODUCT_TYPES_ENABLED` | **DOES NOT EXIST** | nowhere in `packages/backend/src` |
 | `CATALOG_AUTHORING_COHORTS` | **BUILT, RENAMED** → `CATALOG_ROLLOUT_COHORTS` | `config/index.ts` `resolveCatalogRolloutCohorts` → `config.catalog.rolloutCohorts` |
@@ -51,7 +58,7 @@ And two levers D12 does not name but a rollout must:
 
 | Lever | State | Where |
 |---|---|---|
-| `FACETS_ENABLED` | **exists**, default false | `config/index.ts:1949`, `:3722` → `config.catalog.facetsEnabled` |
+| `FACETS_ENABLED` | **REMOVED** — `/facets` is mounted unconditionally | `app.ts` |
 | `CATALOG_ROLLOUT_COHORTS` | **exists**, default EMPTY (= every cohort) | `config.catalog.rolloutCohorts`; the gate is `middleware/catalog-rollout.ts` |
 
 Two of the three absences were already recorded by W17
@@ -71,13 +78,15 @@ different in each case and none of them is "the lever was forgotten":
   transitively contained.** `services/catalog-localization/read.service.ts`
   exports exactly two readers (`readLocalizedCategories:54`,
   `readLocalizedAttributeValues:156`) and they have exactly two external
-  consumers: `services/facets/facet.service.ts:82` (behind `FACETS_ENABLED`) and
-  `services/catalog-authoring/schema.service.ts:92` (behind
-  `CATALOG_AUTHORING_ENABLED`). `routes/categories.ts` contains **zero**
+  consumers: `services/facets/facet.service.ts:82` (behind `FACETS_ENABLED` when
+  this was written) and `services/catalog-authoring/schema.service.ts:92`
+  (behind `CATALOG_AUTHORING_ENABLED` when this was written); both levers have
+  since been removed. `routes/categories.ts` contains **zero**
   occurrences of `locale` — positive control: `routes/navigation.ts` contains
   two, so the search finds the word where it exists. So with the four levers off
-  no public surface serves a localized label, and the base-locale behaviour D12
-  promises is what a shopper gets. **This containment has no gate** (see below),
+  no public surface served a localized label, and the base-locale behaviour D12
+  promises was what a shopper got; the facet rail and the authoring schema now
+  serve localized labels unconditionally. **This containment has no gate** (see below),
   which is the whole reason it is written down here.
 - **`CATALOG_AUTHORING_COHORTS` was a real missing capability and it has been
   CLOSED**, as `CATALOG_ROLLOUT_COHORTS` — renamed because it narrows all four
@@ -95,10 +104,11 @@ different in each case and none of them is "the lever was forgotten":
   elsewhere and which of the five was genuinely absent:
   [`catalog-rollout-cohorts.md`](catalog-rollout-cohorts.md).
 
-### Every read site of every surviving lever
+### Every read site of every lever (at the time of the audit)
 
-A comment-stripped census of `packages/backend/src`. The four levers are read in
-**six** places, and four of them are the mount:
+No D12 lever survives; this census is kept as the record of what was removed. A
+comment-stripped census of `packages/backend/src` found the four levers read in
+**six** places, and four of them were the mount:
 
 | Site | Kind |
 |---|---|
@@ -123,17 +133,19 @@ A static census of `app.ts`, attributing all 101 single-quoted `app.use(<path>)`
 mounts to the `if` blocks enclosing them. Reproducible; the completeness control
 is that the 11 residual `app.use(` calls are body parsers, rate limiters, the
 error handler, and four multi-line canonical mounts (`app.ts:486,491,508,548`)
-that belong to #60's `CANONICAL_PUBLIC_ROUTES_ENABLED` (`app.ts:485`) and to no
+that belong to #60's canonical surface (now mounted unconditionally) and to no
 #367 lever.
 
 | Lever off | Mounts withdrawn |
 |---|---|
-| `CATALOG_AUTHORING_ENABLED` | `/stores/:storeId/product-drafts`, `/catalog-authoring` |
-| `CATALOG_PROPOSALS_ENABLED` | `/catalog-proposals` |
-| `FACETS_ENABLED` | `/facets` |
-| `CATALOG_TAXONOMY_V2_ENABLED` | `/navigation` |
+| *(empty `CATALOG_OPERATOR_OXY_USER_IDS`)* | `/catalog-proposals`, with every `/internal/*` catalog surface |
 
-**Five mounts, every one of them a surface this epic ADDED.** Nothing a shopper
+*(At the time of the audit, the four D12 levers withdrew `/stores/:storeId/product-drafts`,
+`/catalog-authoring`, `/catalog-proposals`, `/navigation` and `/facets`; every one of
+those levers has since been removed and the surfaces are always mounted, proposals
+with the operator allow-list.)*
+
+**The five formerly lever-gated mounts were every one of them a surface this epic ADDED.** Nothing a shopper
 or a buyer used before the epic is behind any of them: `/listings`
 (`app.ts:243`), `/categories` (`:245`), `/cart` (`:316`), `/checkout` (`:318`),
 `/search` (`:589`), `/catalog-attributes` (`:729`), `/compatibility` (`:1028`)
@@ -183,9 +195,9 @@ turned the levers off" true.
 
 **What does not hold: the gate.**
 
-- **Three of the four levers have no gate whatsoever.**
-  `CATALOG_TAXONOMY_V2_ENABLED`, `CATALOG_PROPOSALS_ENABLED` and
-  `FACETS_ENABLED` can be read from a repository, an outbox enqueue or a
+- **Three of the four levers had no gate whatsoever** (at the time of the
+  audit). The taxonomy-v2 lever, the proposals lever and
+  `FACETS_ENABLED` could be read from a repository, an outbox enqueue or a
   checkout path with a fully green build.
   `services/facets/__tests__/facet-isolation.test.ts` and
   `services/__tests__/navigation-isolation.test.ts` contain zero occurrences of
@@ -254,13 +266,12 @@ lever off restores listing-first behaviour":
 
 **No test flips any of the four levers.** The only test file naming one is
 `services/catalog-observability/__tests__/metrics.realdb.test.ts:467`, and it
-asserts a *string* in a report (`expect(entry.seam).toMatch(/CATALOG_AUTHORING_ENABLED|FACETS_ENABLED/)`).
+asserted a *string* in a report (the seam naming the authoring or facets lever).
 The house pattern for this exists and is documented —
 `routes/__tests__/search-rollout.realdb.test.ts:1-18` builds one module graph
 per lever value with `vi.resetModules()`, because `config/index.ts` reads
 `process.env` once at import; `routes/__tests__/guest-session.disabled.integration.test.ts`
-and `routes/__tests__/cart-guest.disabled.integration.test.ts` are the
-`*.disabled` counterparts. **The catalog epic has no `*-rollout` or `*.disabled`
+is the `*.disabled` counterpart. **The catalog epic has no `*-rollout` or `*.disabled`
 test.** The levers-off case is covered *incidentally*, because the whole realdb
 suite runs at default env and every existing cart and checkout test is therefore
 a levers-off sellability proof — but that is a coincidence of the defaults, not a
@@ -280,10 +291,10 @@ deliberately not the same shape because the domains are not:
 
 | Lever | Wall | Shape, and why |
 |---|---|---|
-| `CATALOG_AUTHORING_ENABLED` | `catalog-authoring-isolation.test.ts` | Both scanned directories, no exemption (the controller's bounds live outside them), plus the blanket "no configuration at all" wall. Self-test runs the real assertion with one victim PER directory. |
-| `CATALOG_PROPOSALS_ENABLED` | `catalog-proposal-isolation.test.ts` | Names the LEVER, not configuration generally — the services legitimately read six BOUNDS off the same object, so a blanket wall would be refused on its first run and then widened, taking the prohibition with it. Carries a positive control that the domain DOES read its bounds, plus a negative case asserting a bound does not trip it. |
+| Authoring (lever since removed) | `catalog-authoring-isolation.test.ts` | Both scanned directories, no exemption (the controller's bounds live outside them), plus the blanket "no configuration at all" wall. Self-test runs the real assertion with one victim PER directory. |
+| Proposals (lever since removed) | `catalog-proposal-isolation.test.ts` | The lever wall was deleted with the lever; the commercial, write and identity walls remain. |
 | `FACETS_ENABLED` | `facet-isolation.test.ts` | BLANKET, available because the domain reads no config — scoped to the two OWNED directories and NOT the shared controller/route/schema modules, where a page bound legitimately belongs. |
-| `CATALOG_TAXONOMY_V2_ENABLED` | `navigation-isolation.test.ts` | BLANKET over the whole population INCLUDING both routes and the controller, none of which reads config today, with a positive control that those three are inside the scan since they are where a lever read would really appear. |
+| Taxonomy v2 (lever since removed) | `navigation-isolation.test.ts` | The blanket no-configuration wall was deleted with the lever; the write and ranking walls remain. |
 
 Each self-test runs the REAL scan over a population with a mutated member swapped
 in and asserts EXACTLY that file is named. Mutation-tested against production code:
@@ -840,7 +851,7 @@ rather than what to type.
 
 | Signal | Threshold shape | The measurement that would set it |
 |---|---|---|
-| **Failures** | any non-zero on the three `mustStayZero` counters (no calibration needed — the conditions are structurally impossible, so one is as alarming as a thousand); a **rate** on `authoring_schema_error_rate` | for the rate: the p99 of that rate over two weeks of authoring traffic with `CATALOG_AUTHORING_ENABLED` on. Until then it answers `surface_not_mounted`, so there is nothing to calibrate against |
+| **Failures** | any non-zero on the three `mustStayZero` counters (no calibration needed — the conditions are structurally impossible, so one is as alarming as a thousand); a **rate** on `authoring_schema_error_rate` | for the rate: the p99 of that rate over two weeks of authoring traffic (the surface is always mounted, so it is measured from the first request) |
 | **Lag** | an **age** on `unresolved_subject_oldest_age` and `proposal_backlog_oldest_age`, never a depth | the observed distribution of time-to-decision once the review desk is staffed. The age is the right shape because a deep queue draining fast is healthier than a shallow stuck one; the number is a service-level choice somebody makes, not a fact to discover |
 | **Missing translations** | a **drop** in `translation_coverage` per locale relative to its own trailing value, plus an absolute floor per locale before that locale is advertised | the coverage series per locale over one translation cycle. A cross-locale constant is wrong on its face — a launch locale and a long-tail one are not comparable |
 | **Review backlog** | an **age**, as above, plus a rate-of-arrival alert on `proposal_creation_count` (`rolling_7d`) to catch a taxonomy gap rather than a staffing one | the arrival rate once merchants are authoring. The definition's own attribution limit is the trap: a rise means the taxonomy is missing concepts OR that more merchants are authoring, and only the completeness metrics separate them |
@@ -989,8 +1000,9 @@ tree list and a network error alike, and the facet rail rendering absence rather
 than an empty panel (`lib/catalog/use-facets.ts:18-22,73,75`).
 
 **Tested: the levers are, the rehearsal is not.** Two gates landed.
-`routes/__tests__/catalog-rollout.realdb.test.ts` builds three deployments —
-levers on, levers off, and levers off with an EMPTY operator allow-list — in the
+`routes/__tests__/catalog-rollout.realdb.test.ts` built three deployments —
+levers on, levers off, and levers off with an EMPTY operator allow-list (two
+since the levers were removed: with and without the allow-list) — in the
 `search-rollout.realdb.test.ts` shape, and
 `packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts` executes the
 storefront fallback after the decision was extracted out of the hook's closure so

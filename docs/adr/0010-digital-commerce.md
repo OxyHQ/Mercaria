@@ -315,26 +315,30 @@ absence. `inventory_semantics` was not one of the seven prerequisites
 `digital_good`'s exclusion named; #1015 boundary 1 asks anyway, and this is the
 answer.
 
-### D13. Five independent feature levers, and only one touches an existing right
+### D13. No lever may strand a prior purchase
 
 #1015 acceptance criterion 19 requires that uploads, publication, paid checkout,
-downloads and a vertical be disableable **without stranding prior purchases**. One
-master flag could not do that. So:
+downloads and a vertical be disableable **without stranding prior purchases**.
 
-| Lever | Default | What it stops |
+*Amended 2026-10-16:* the owner removed every `*_ENABLED` switch that a finished
+feature does not need. What remains:
+
+| Control | Default | What it stops |
 |---|---|---|
-| `DIGITAL_UPLOADS_ENABLED` | off | new files |
-| `DIGITAL_PUBLICATION_ENABLED` | off | a version becoming sellable |
-| `DIGITAL_PAID_CHECKOUT_ENABLED` | off | buying (a free claim still works) |
-| `DIGITAL_DOWNLOADS_ENABLED` | **on** | minting new grants |
-| `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical |
+| `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical — buying and free claims — and the creator upload mount |
+| Oxy service identity | — | the creator upload mount (registering a file reads the asset service) |
+| malware-scan + inspection verdicts | — | a version becoming sellable (no scanner registered = nothing publishes) |
 
-`downloadsEnabled` is the only one that reaches an existing right, hence the only
-one defaulting on: it is an INCIDENT lever, and the thing you reach for mid-incident
-must not be the thing that destroys what buyers hold. Turning it off refuses new
-grants with `downloads_disabled` and leaves every right `active`.
+`DIGITAL_PAID_CHECKOUT_ENABLED` was among those removed. Paid checkout
+has no lever of its own: a vertical listed in `DIGITAL_ENABLED_VERTICALS` can be
+bought, so listing one IS the paid launch for it (D15). A free-only vertical is no
+longer representable.
 
-Everything else defaults OFF because digital commerce has a launch gate in front of
+Downloads have no lever at all: the right alone authorizes one, so nothing a
+deployment sets can take away what a buyer holds. `downloads_disabled` stays in the
+stored refusal vocabulary only because `asset_download_events`' CHECK carries it.
+
+Paid checkout defaults OFF because digital commerce has a launch gate in front of
 it that is not a code review — see D15.
 
 ### D14. Creator content is not training data, and there is no column saying otherwise
@@ -346,9 +350,9 @@ in the digital schema.
 
 ### D15. Paid digital launch is gated per market, and the gate is not a code review
 
-#1015 W11 requirement 9 and acceptance criterion 15. Before
-`DIGITAL_PAID_CHECKOUT_ENABLED` is turned on for a market, three sign-offs are
-required and recorded in `HANDOFF.md`:
+#1015 W11 requirement 9 and acceptance criterion 15. Before a vertical is added
+to `DIGITAL_ENABLED_VERTICALS` for a market — which is what turns paid checkout
+on for it — three sign-offs are required and recorded in `HANDOFF.md`:
 
 1. the payment provider permits a third-party digital-goods marketplace on this
    account (Peable, and through it whichever provider settles);

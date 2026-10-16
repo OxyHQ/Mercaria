@@ -181,18 +181,15 @@ construction:
    one act stops a supplier for quoting AND ordering.
 3. **The capability** — an operation whose capability the adapter did not
    declare is REFUSED and recorded, never simulated.
-4. **The fetch lever** — read-only operations only. A submission and a
-   cancellation are consequences of money that has already moved, so pausing
-   them silently would strand a paid order.
-5. **The credential** — resolved per call from the approved secret system
+4. **The credential** — resolved per call from the approved secret system
    through `credential.port.ts`, whose default REFUSES. Passed to the adapter
    rather than read by it, so an adapter holds no secret between calls, cannot
    cache one across a rotation, and has nothing to log.
-6. **The provider lease** — #122's `supplier_call_leases`, so the outbound rate
+5. **The provider lease** — #122's `supplier_call_leases`, so the outbound rate
    this domain adds is counted in the same budget the preflight spends from.
-7. **The attempt row**, `in_flight`, committed.
-8. **The call**, with its deadline.
-9. **The attempt row's terminal outcome**, and the lease released.
+6. **The attempt row**, `in_flight`, committed.
+7. **The call**, with its deadline.
+8. **The attempt row's terminal outcome**, and the lease released.
 
 **A refusal is an OUTCOME, not a skipped call.** Every gate writes an attempt
 row with `outcome: 'refused'` and a named reason: "we never asked" and "we asked
@@ -407,14 +404,10 @@ only the value behind it changes.
 
 ---
 
-## Flags
+## Configuration
 
-| variable | default | gates |
+| variable | default | tunes |
 |---|---|---|
-| `PROCUREMENT_ORCHESTRATION_ENABLED` | `false` | the submit/cancel dispatcher LOOP |
-| `PROCUREMENT_PROVIDER_FETCH_ENABLED` | `true` | outbound status reads and polling |
-| `PROCUREMENT_EVENT_PROCESSING_ENABLED` | `true` | APPLYING stored provider events |
-| `PROCUREMENT_FAKE_ADAPTER_ENABLED` | `false` | whether the rehearsal adapter is registrable |
 | `PROCUREMENT_OUTBOX_BATCH_SIZE` / `_POLL_INTERVAL_MS` / `_LEASE_MS` | 25 / 5 000 / 60 000 | the orchestration loop |
 | `PROCUREMENT_EVENT_BATCH_SIZE` / `_POLL_INTERVAL_MS` / `_LEASE_MS` | 50 / 5 000 / 60 000 | the event loop |
 | `PROCUREMENT_POLL_MIN_INTERVAL_MS` | 300 000 | never poll one order more often |
@@ -424,9 +417,18 @@ only the value behind it changes.
 | `PROCUREMENT_CONVERGENCE_GRACE_MS` | 60 000 | how old an unresolved attempt must be |
 | `PROCUREMENT_OPERATOR_OXY_USER_IDS` | empty | `/internal/procurement/*` — empty = NOT MOUNTED (404) |
 
-The first three are genuinely independent levers (#124 polling and webhooks 10),
-and **none of them gates a durable record** — a scanned gate fails the build if
-the ingress, the repositories or the exception path learn to read one.
+The three loops — submit/cancel, status polling, event processing — always run;
+there is no deployment lever. That is safe because nothing reaches a supplier
+without three things that are each false today: a registered order adapter (none
+is registered at boot), an adapter that accepts a `live` account (Printful's
+`LIVE_REFUSED_UNTIL_GATED` refuses one in code), and a purchase order, which only
+a paid retail order creates — and the retail entry gate (`config.retail.enabled`)
+holds that at checkout entry. Should a lever ever return, it may gate a LOOP and never a durable
+record: a scanned gate fails the build if the ingress, the repositories or the
+exception path read `config.procurement.*Enabled`.
+
+The rehearsal (fake) adapter is registrable everywhere except
+`NODE_ENV=production`, and refuses a `live` supplier account in any environment.
 
 The **per-supplier kill switch** is a different mechanism:
 `supplier_accounts.state = 'killed'` (#118) stops NEW submissions while status,

@@ -192,7 +192,7 @@ named no address would hide a client bug behind a security property.
 | `email_hash` | Postgres | "How often has THIS INBOX been asked for, across every ECS task and every source address" is not a question a per-process bucket can answer. |
 | `order_reference` | Postgres | Same. |
 
-Every subject is an HMAC under `GUEST_EMAIL_HASH_KEY` with the AXIS in the
+Every subject is an HMAC under the derived `guest-email-hash` key with the AXIS in the
 preimage, so the table counts without being able to name an address, an order or
 a client, and a digest from one axis cannot be tested against another's rows.
 There is no user agent, screen metric, TLS characteristic or persistent client
@@ -396,15 +396,12 @@ recorded successes answers "did anyone try" with silence.
 
 ## Flags
 
-Five levers now, and the interaction is the part worth knowing:
-
-| Flag | Default | Gates |
-|---|---|---|
-| `GUEST_COMMERCE_ENABLED` | false | the whole guest domain — no credential resolves at all |
-| `GUEST_SESSION_ISSUANCE_ENABLED` | true | NEW sessions only |
-| `GUEST_CART_ENABLED` | true | whether a credential may own commerce state |
-| `GUEST_INLINE_DESTINATION_ENABLED` | true | whether a guest may place an order |
-| `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED` | true | the dispatcher LOOP, never the row |
+No lever. Guest commerce — the whole guest domain — has no switch: it is on
+exactly when its two keys resolve, and both are derived from
+`MERCARIA_SECRET_KEY`, so it is on everywhere. Session issuance, the guest cart,
+the inline checkout destination and message delivery have no switches of their
+own either; stopping new guest CHECKOUTS without touching carts is
+`GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native`.
 
 **No lever gates a portal READ.** The router is mounted unconditionally, the
 exchange resolves unconditionally, and recovery answers unconditionally — #108
@@ -412,13 +409,12 @@ acceptance 10 and ADR 0003 M8, which says the flag gates issuance and guest
 checkout "never the durable records: existing portal grants and magic-link
 recovery for already-placed guest orders keep working with the flag off".
 `guest-portal-isolation.test.ts` fails the build if a read path learns to read
-one, and `guest-portal.integration.test.ts` runs its whole suite on a deployment
-where `GUEST_COMMERCE_ENABLED` is off — asserting the premise, so the file
-cannot quietly start relying on it.
+it. (`guest-portal.integration.test.ts` used to run its whole suite on a
+deployment where guest commerce was off; that deployment no longer exists.)
 
 The ONE interaction that IS real: `POST /guest/orders/confirmation` needs a live
-guest SESSION, which only resolves while `GUEST_COMMERCE_ENABLED` is on. With
-guest commerce switched off mid-flight, a buyer who has already paid reaches
+guest SESSION, which only resolves while guest commerce is on. Were guest
+commerce ever switched off mid-flight, a buyer who has already paid would reach
 their orders through the emailed link rather than from the tab they paid in.
 That is the correct trade — the confirmation grant is a NEW credential derived
 from one the deployment has stopped honouring.
@@ -465,9 +461,9 @@ Everything below is unfinished work, not a suggestion.
    transport, and wire its bounce and complaint feedback into
    `suppressGuestContact`. Until then the suppression list only grows from
    Mercaria's own permanent failures.
-5. **Record the M8 security and privacy review** on #111 before
-   `GUEST_COMMERCE_ENABLED=true` in any non-test environment (ADR 0003
-   acceptance 8).
+5. **Record the M8 security and privacy review** on #111 before guest
+   commerce's two keys resolve in any non-test environment — they are what turn
+   it on (ADR 0003 acceptance 8).
 
 ## Deferred, each a named contract rather than a stub
 

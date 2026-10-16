@@ -76,7 +76,7 @@ export interface CheckoutDestinationFormProps {
    * Supplied by the checkout screen since #93 landed collection: a store's
    * published, collectable locations for the sellers in this group. Empty is
    * still an ordinary answer — a seller with no published shop front, or a
-   * deployment with `STORE_PICKUP_ENABLED` off — and the shipping fields are
+   * deployment without store pickup (no GoWay) — and the shipping fields are
    * what render then, so the chooser appears exactly when there is somewhere
    * to choose.
    */

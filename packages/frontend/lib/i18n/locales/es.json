@@ -1025,7 +1025,6 @@
         "review": "Puedes escribir una reseña de compra verificada de lo que compraste."
       },
       "blocked": {
-        "unavailable": "Guardar pedidos en una cuenta de Oxy no está disponible temporalmente. Tu pedido no se ve afectado y puedes seguir abriéndolo con tu enlace de acceso.",
         "inboxNotVerified": "Confirma primero tu dirección de correo electrónico. Pide un nuevo enlace de acceso y abre esta página desde ese enlace.",
         "claimedByAnotherAccount": "Estos pedidos ya están guardados en otra cuenta de Oxy. Contacta con el servicio de atención si no es lo que esperabas: Mercaria no los moverá automáticamente."
       }
@@ -1526,6 +1525,12 @@
       "title": "Has llegado por un enlace de referido",
       "body": "Quien lo compartió puede recibir una recompensa de Mercaria si compras. No cambia el precio que pagas.",
       "dismiss": "Entendido"
+    },
+    "consent": {
+      "body": "Mercaria recordará esta visita hasta 90 días solo si lo permites.",
+      "allow": "Permitir",
+      "decline": "No, gracias",
+      "failed": "No hemos podido guardar tu elección. Inténtalo de nuevo."
     }
   },
   "brand": {
@@ -1727,7 +1732,7 @@
     "headTitle": "Agentes de compra · Mercaria",
     "title": "Agentes de compra",
     "intro": "Cosas que le has pedido a Mercaria que vigile. Cada agente observa el catálogo y te avisa cuando se cumple lo que pediste.",
-    "loadError": "No hemos podido cargar tus agentes de compra. Comprueba tu conexión e inténtalo de nuevo.",
+    "loadError": "Ahora mismo no hemos podido cargar tus agentes de compra. Tus agentes no se ven afectados.",
     "findings": {
       "asking": "Pidiendo otra revisión…",
       "intro": "Todo lo que ha visto este agente, de lo más reciente a lo más antiguo. Las observaciones anteriores se quedan aquí aunque otra posterior las sustituya.",

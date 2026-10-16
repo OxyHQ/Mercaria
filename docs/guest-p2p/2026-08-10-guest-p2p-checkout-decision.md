@@ -98,8 +98,9 @@ where provider = 'stripe' and owner_type = 'user' and onboarding_state = 'ready'
 ```
 
 A third question — how many guest orders exist — needs no query. Guest commerce
-is gated by `GUEST_COMMERCE_ENABLED`, which defaults to false and refuses to
-enable without both PII keys (`config/index.ts`), and ADR 0003 M8 plus its
+was gated by `GUEST_COMMERCE_ENABLED` (since removed: guest commerce is now on
+exactly when both PII keys resolve, `config/index.ts`), which defaulted to false
+and refused to enable without both PII keys, and ADR 0003 M8 plus its
 acceptance criterion 8 make enabling it in any non-test environment conditional
 on a security and privacy review recorded on #111, which is not merged. **This
 is an inference from code and issue state, not a query result**, and it is
@@ -292,7 +293,8 @@ re-deriving one. This is NOT authorized.
   list — the values in `GUEST_P2P_BOUNDED_SCOPE`.
 - Card only, within the payment surfaces the server already offers.
 - An independent kill switch that stops ENTRY and never touches a placed order,
-  the shape `MERCARIA_RETAIL_ENABLED` and #125's pilot gate already use.
+  the shape retail's entry gate (`config.retail.enabled`) and #125's pilot gate
+  already use.
 - Stop thresholds for fraud, disputes, safety, support load and payment loss,
   each with a named producer. **A threshold nobody measures is a vacuous
   monitor** (#125's `unmeasured` rule): a pilot may not declare a threshold

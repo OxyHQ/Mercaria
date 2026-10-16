@@ -148,10 +148,9 @@ export function navigationFromCategoryTree(categories: readonly CategoryNode[]):
  * package's `vitest.config.ts` states for exactly this case: when a component or
  * a hook grows logic worth a test, extract the logic rather than mount the
  * renderer. The decision used to live inside a closure inside a `useQuery`, where
- * nothing could reach it — and it is the single most load-bearing claim in
- * `docs/runbooks/catalog-rollout-rollback.md`: turning
- * `CATALOG_TAXONOMY_V2_ENABLED` off must restore the v1 menu rather than break
- * the storefront.
+ * nothing could reach it — and it is a load-bearing claim: a taxonomy-v2 read
+ * that fails or answers nothing must restore the v1 menu rather than break the
+ * storefront.
  *
  * Three failures fold into ONE fallback and they are deliberately not
  * distinguished here, because the shopper's answer is the same for all three:

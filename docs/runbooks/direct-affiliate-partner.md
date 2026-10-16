@@ -17,26 +17,14 @@ Task definition (`oxy-infra`, `terraform-uswest2/app-services.tf`,
 `module "mercaria"`):
 
 ```
-CATALOG_INGESTION_ENABLED=true
-FEED_IMPORT_ENABLED=true
-OFFER_MATERIALIZATION_ENABLED=true
-OFFER_REFRESH_ENABLED=true
-OFFER_EXPIRY_SWEEP_ENABLED=true
-OUTBOUND_REDIRECT_ENABLED=true
 CATALOG_OPERATOR_OXY_USER_IDS=<oxy user id>
 PAYMENT_OPERATOR_OXY_USER_IDS=<oxy user id>
 ```
 
-Secret, in BOTH halves — the workflow's `APP_SECRETS` allow-list and the task
-definition's `secrets[]`, in that order, or it never reaches SSM:
-
-```
-OUTBOUND_TOKEN_SECRET     # openssl rand -hex 32
-```
-
-`OUTBOUND_REDIRECT_ENABLED` without the token secret stays OFF and logs once at
-boot (`config/index.ts`'s half-configuration rule). Without the expiry sweep a
-withdrawn offer stays on sale forever, which is the one failure a shopper sees.
+The feed importer, the `/out` redirect, offer materialization, refresh and the
+expiry sweep have no switch, and the outbound token key is derived from
+`MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets"), so there is no
+secret to add.
 
 ## 2. Create the feed configuration, and with it the source
 

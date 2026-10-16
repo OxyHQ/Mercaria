@@ -14,8 +14,8 @@
  *
  * ## Three layers hold the second approval, and none of them is a convention
  *
- * `requiresSecondApproval` is snapshotted at PLAN time from the measured impact
- * and `CATALOG_FOUR_EYES_REQUIRED`; `approveChangeRequest` refuses a
+ * `requiresSecondApproval` is snapshotted at PLAN time from the measured impact;
+ * `approveChangeRequest` refuses a
  * self-approval in code with a message that says why; and
  * `catalog_governance_change_requests_approver_distinct_check` plus
  * `..._second_approval_check` refuse both at the row, so a service bug that
@@ -40,7 +40,6 @@ import {
   CATALOG_GOVERNANCE_ACTION_DOMAINS,
   CATALOG_GOVERNANCE_ACTION_SUBJECTS,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { conflict, notFound } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import type { Database, DatabaseOrTransaction } from '../../db/postgres.js';
@@ -116,7 +115,7 @@ export async function planChange(
   // the incumbent it deprecates. `impact-subjects.ts` carries the measurement.
   const subjects = await resolveImpactSubjects(db, input.action, input.subjectId);
   const impact = await measureImpact(subjectKind, subjects, db);
-  const needsApproval = requiresSecondApproval(impact, config.catalog.fourEyesRequired);
+  const needsApproval = requiresSecondApproval(impact);
   const now = new Date();
 
   const row = await db.transaction(async (tx) => {

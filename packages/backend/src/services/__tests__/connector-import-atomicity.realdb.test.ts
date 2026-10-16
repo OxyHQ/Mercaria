@@ -113,7 +113,6 @@ vi.mock('../../connectors/registry.js', () => ({
 /** The env a connector operation reads AT USE. */
 const REQUIRED_ENV: Readonly<Record<string, string>> = {
   CONNECTOR_ENCRYPTION_KEY: 'b'.repeat(64),
-  CONNECTOR_OAUTH_STATE_SECRET: 'atomicity-suite-state-secret',
   CONNECTOR_OAUTH_REDIRECT_BASE_URL: 'https://api.mercaria.test',
 };
 

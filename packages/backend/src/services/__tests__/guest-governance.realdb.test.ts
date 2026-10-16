@@ -390,9 +390,10 @@ describe('the retention policy register (#111)', () => {
  * every uuid, which is what lets the per-pass case scope itself by the keyset
  * cursor.
  *
- * The mode is read off the run rather than assumed: whichever way the
- * deployment's dry-run setting resolves, the pass must EXAMINE the due contact
- * and skip the held one, and only an `apply` pass may change the row.
+ * The operator's pass is a dry run (the endpoint's default) and must EXAMINE
+ * the due contact, skip the held one and change nothing; the tick the timer
+ * runs APPLIES, because the active `minimization_job` row is the approved
+ * decision, and must minimize the due contact while the held one survives.
  */
 describe('the scheduled minimization loop runs under the ACTIVE policy (M8-02)', () => {
   const longAgo = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000);
@@ -432,14 +433,16 @@ describe('the scheduled minimization loop runs under the ACTIVE policy (M8-02)',
     await db.delete(guestCheckouts).where(inArray(guestCheckouts.id, [dueId, heldId]));
   });
 
-  it('one pass examines the due contact, skips the held one, and records its run', async () => {
+  it('a dry pass examines the due contact, skips the held one, and records its run', async () => {
     const outcome = await runRetentionPass({
       retentionClass: 'unpaid_pending_checkout',
+      dryRun: true,
       now: new Date(),
       afterId: `zzzz-ret-${MARKER}-`,
     });
     expect(outcome.outcome).toBe('ran');
     if (outcome.outcome !== 'ran') return;
+    expect(outcome.result.mode).toBe('dry_run');
     expect(outcome.result.examined).toBe(2);
     expect(outcome.result.skippedHeld).toBe(1);
     expect(outcome.result.minimized).toBe(1);
@@ -459,7 +462,8 @@ describe('the scheduled minimization loop runs under the ACTIVE policy (M8-02)',
       .where(inArray(guestCheckouts.id, [dueId, heldId]));
     const anonymized = new Map(rows.map((row) => [row.id, row.anonymizedAt !== null]));
     expect(anonymized.get(heldId)).toBe(false);
-    expect(anonymized.get(dueId)).toBe(outcome.result.mode === 'apply');
+    // A prediction: nothing is erased without `dryRun: false`.
+    expect(anonymized.get(dueId)).toBe(false);
   });
 
   it('the tick the timer runs reaches the same contacts and covers only active classes', async () => {
@@ -473,16 +477,32 @@ describe('the scheduled minimization loop runs under the ACTIVE policy (M8-02)',
       expect(['unpaid_pending_checkout', 'plaintext_equivalent_contact']).toContain(
         result.retentionClass,
       );
+      // The scheduler applies: the active policy row is the decision to erase.
+      expect(result.mode).toBe('apply');
     }
+
+    const rows = await db
+      .select({ id: guestCheckouts.id, anonymizedAt: guestCheckouts.anonymizedAt })
+      .from(guestCheckouts)
+      .where(inArray(guestCheckouts.id, [dueId, heldId]));
+    const anonymized = new Map(rows.map((row) => [row.id, row.anonymizedAt !== null]));
+    expect(anonymized.get(dueId)).toBe(true);
+    expect(anonymized.get(heldId)).toBe(false);
   });
 
   it('refuses the carried class and a non-minimization class by name', async () => {
-    expect(await runRetentionPass({ retentionClass: 'lookup_hash', now: new Date() })).toEqual({
+    expect(
+      await runRetentionPass({ retentionClass: 'lookup_hash', dryRun: true, now: new Date() }),
+    ).toEqual({
       outcome: 'refused',
       reason: 'performed_by_contact_pass',
     });
     expect(
-      await runRetentionPass({ retentionClass: 'transaction_record', now: new Date() }),
+      await runRetentionPass({
+        retentionClass: 'transaction_record',
+        dryRun: true,
+        now: new Date(),
+      }),
     ).toEqual({ outcome: 'refused', reason: 'mechanism_not_minimization' });
   });
 });

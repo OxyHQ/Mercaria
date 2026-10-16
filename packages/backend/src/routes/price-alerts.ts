@@ -1,11 +1,7 @@
 /**
  * `/price-alerts` — a buyer's own price conditions (#79).
  *
- * Mounted only when `PRICE_ALERTS_ENABLED`, so a deployment that has not adopted
- * #79 answers 404. The ALERTS themselves are never gated by anything: a row
- * already stored stays stored, keeps being evaluated and comes back when the
- * flag does — a flag that hid a person's alerts would make the rollback lever
- * cost them the thing they were waiting for.
+ * Always mounted.
  *
  * Metered on the `'listings'` scope, #80's reasoning exactly: an alert is a
  * catalogue-shaped read/write at the same rate and volume, and every route here

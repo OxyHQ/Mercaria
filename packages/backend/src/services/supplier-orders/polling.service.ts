@@ -104,7 +104,7 @@ export async function pollPurchaseOrderStatus(purchaseOrderId: string): Promise<
 
   if (call.outcome !== 'succeeded') {
     // Every non-success is a reason to try again later, including a refusal:
-    // a paused fetch lever, an exhausted lease and a killed account are all
+    // a suppressed supplier, an exhausted lease and a killed account are all
     // conditions that end, and the poll row is what remembers to come back.
     throw new ProcurementReschedule(nextPollAt());
   }

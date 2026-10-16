@@ -1,4 +1,4 @@
-// The levers and the sealing key, set BEFORE `config` is imported. See the file.
+// The sealing key (which turns procurement on), set BEFORE `config` is imported. See the file.
 import './procurement-env.js';
 
 /**
@@ -607,13 +607,11 @@ describe('the #57 seam', () => {
     unregisterDigitalSupplierAdapter(chain.provider);
   });
 
-  it('refuses to compose a public offer while publication is off', async () => {
-    // The lever is read at module load and this deployment has it OFF, which is
-    // the state every deployment is in until a market's sign-offs are recorded.
+  it('refuses to compose a public offer when no supply is eligible', async () => {
     const chain = await makeChain();
     await makeOffer(chain, `SKU-${uuidv7()}`);
     const result = await composeDigitalRetailOffer([], 'ES');
-    expect(result).toEqual({ composed: false, refusal: 'publication_disabled' });
+    expect(result).toEqual({ composed: false, refusal: 'no_eligible_supply' });
     unregisterDigitalSupplierAdapter(chain.provider);
   });
 });

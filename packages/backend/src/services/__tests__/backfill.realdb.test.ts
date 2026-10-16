@@ -40,13 +40,6 @@
  * worked only because no sibling happened to write the same one.
  */
 
-/**
- * FIRST, and its position is load-bearing: it sets
- * `CANONICAL_WRITE_PUBLICATION_ENABLED` before any later import initialises the
- * frozen `config`. Without it every `apply` run in this file would take the
- * dry-run writer and assert nothing at all.
- */
-import './fixtures/enable-canonical-writes.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';

@@ -84,38 +84,18 @@ export const ErrorCodes = {
   OUT_OF_STOCK: 'OUT_OF_STOCK',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   /**
-   * The guest-session issuance kill switch is thrown
-   * (`GUEST_SESSION_ISSUANCE_ENABLED=false`, ADR 0003). Existing sessions
-   * keep working; only NEW ones are refused, so clients retry later rather
-   * than discarding their state.
+   * A NEW guest session was refused because guest commerce is off on this
+   * deployment (ADR 0003) — the defence-in-depth gate inside
+   * `issueGuestSession`. Existing state is untouched, so clients retry later
+   * rather than discarding it.
    */
   GUEST_ISSUANCE_DISABLED: 'GUEST_ISSUANCE_DISABLED',
   /**
    * A signed-out caller tried to write to a cart on a deployment where guest
-   * carts are switched off (`GUEST_CART_ENABLED=false`, or guest commerce off
-   * entirely — #104). Distinct from `UNAUTHORIZED` on purpose: the client's
+   * commerce is off (#104). Distinct from `UNAUTHORIZED` on purpose: the client's
    * correct response is to offer sign-in, not to retry with a credential.
    */
   GUEST_CART_DISABLED: 'GUEST_CART_DISABLED',
-  /**
-   * Claiming a guest checkout group is switched off on this deployment
-   * (`GUEST_CLAIM_ENABLED=false`, #109). The `GUEST_CART_DISABLED` precedent
-   * and for its reason: the client's correct response is to hide the offer and
-   * carry on, not to retry with a different credential or to tell somebody
-   * their proof was rejected. It is deliberately distinct from `FORBIDDEN`,
-   * which a client should read as "this credential cannot do that".
-   */
-  GUEST_CLAIM_DISABLED: 'GUEST_CLAIM_DISABLED',
-  /**
-   * `BUYER_REQUESTS_ENABLED=false` — the #110 incident lever.
-   *
-   * A 503 rather than a 403, and the difference is the client's correct
-   * response: this deployment DOES do cancellations and returns, it has
-   * temporarily stopped taking NEW ones, and every request already filed is
-   * still readable and still decidable. Retrying later is right; giving up is
-   * not — which is why it does not share `GUEST_CART_DISABLED`'s 403.
-   */
-  BUYER_REQUESTS_DISABLED: 'BUYER_REQUESTS_DISABLED',
   /**
    * A watchlist mutation carried a stale `expectedVersion` (#81 acceptance 4).
    *

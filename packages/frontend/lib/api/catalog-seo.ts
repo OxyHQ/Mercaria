@@ -15,7 +15,8 @@ import apiClient from './client';
  *
  * ## The mount is a lever, and its off state is not an error
  *
- * `SEO_ROUTES_ENABLED` defaults false, so this 404s on most deployments. A page
+ * `/seo/*` is mounted only while `SEO_INDEXING_MODE` is `canary` or `on`, and
+ * the mode defaults to `off`, so this 404s on most deployments. A page
  * that cannot resolve its own address still renders: it shows the content it
  * fetched by handle and emits no canonical tag and no alternates, which is the
  * honest degradation — emitting a canonical URL composed on the client would

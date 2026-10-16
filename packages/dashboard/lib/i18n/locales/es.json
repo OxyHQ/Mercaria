@@ -1156,8 +1156,6 @@
         "documentTitle": "Wholesale by Mercaria",
         "title": "¿Qué vas a vender?",
         "subtitle": "Búscalo en el catálogo o describe algo nuevo.",
-        "unavailableTitle": "La creación guiada no está disponible aquí",
-        "unavailableBody": "Este despliegue de Mercaria no ha activado el servicio de autoría del catálogo, así que el formulario guiado todavía no se puede usar.",
         "useLegacy": "Usar el formulario sencillo",
         "createFailed": "No se ha podido crear el borrador.",
         "linkFailed": "El borrador se ha creado, pero no se ha podido vincular el producto del catálogo. Puedes elegirlo otra vez dentro del asistente.",

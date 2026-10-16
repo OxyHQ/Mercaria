@@ -361,7 +361,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'descendants',
     title: 'Descendants of a mid-depth node, lifecycle-filtered — the facet scope',
     reader: 'db/facets/facetRepository.ts findFacetCategoryScope',
-    route: 'POST /facets (behind FACETS_ENABLED, default off)',
+    route: 'POST /facets (UNCONDITIONAL)',
     // The subtree plus the subject: the `or c.id = $1` disjunct is what adds it.
     minRowsProduced: (seed) => seed.midDescendants + 1,
     statements: 1,
@@ -379,7 +379,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'descendants',
     title: 'Descendants of a mid-depth node — the taxonomy read',
     reader: 'db/taxonomy/taxonomyRepository.ts findCategoryDescendants',
-    route: 'GET /taxonomy/categories/:id/descendants (behind taxonomyV2Enabled, default off)',
+    route: 'GET /taxonomy/categories/:id/descendants',
     minRowsProduced: (seed) => seed.midDescendants,
     statements: 1,
     servableBy: {
@@ -394,7 +394,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'ancestry',
     title: 'Ancestors of a deep leaf',
     reader: 'db/taxonomy/taxonomyRepository.ts findCategoryAncestors',
-    route: 'GET /taxonomy/categories/:id/ancestors (behind taxonomyV2Enabled, default off)',
+    route: 'GET /taxonomy/categories/:id/ancestors',
     minRowsProduced: (seed) => seed.leafAncestors,
     // Two: read the subject row, then read its ancestors by id. Not an index
     // question — both are `categories_pkey` over single-digit row counts.
@@ -413,7 +413,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'breadcrumb',
     title: 'The breadcrumb of a deep leaf — ancestors root-first, then itself',
     reader: 'services/taxonomy/read.service.ts readTaxonomyBreadcrumb',
-    route: 'GET /taxonomy/categories/:id/breadcrumb (behind taxonomyV2Enabled, default off)',
+    route: 'GET /taxonomy/categories/:id/breadcrumb',
     // Ancestors plus the subject, which is the trail the caller renders.
     minRowsProduced: (seed) => seed.leafAncestors + 1,
     // SIX, MEASURED — three category reads plus the three `trailOf` spends
@@ -435,7 +435,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'category_scoped_schema_resolution',
     title: 'The most specific published product type governing a category',
     reader: 'db/facets/facetMetadataRepository.ts findProductTypeForCategory',
-    route: 'POST /facets (behind FACETS_ENABLED, default off)',
+    route: 'POST /facets (UNCONDITIONAL)',
     minRowsProduced: () => 1,
     statements: 1,
     servableBy: {
@@ -469,7 +469,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'category_scoped_schema_resolution',
     title: 'Published product types eligible under a category — the authoring list',
     reader: 'db/catalogAuthoring/schemaSourceRepository.ts listPublishedProductTypesForCategory',
-    route: 'GET /catalog-authoring/product-types (behind CATALOG_AUTHORING_ENABLED, default off)',
+    route: 'GET /catalog-authoring/product-types',
     minRowsProduced: () => 1,
     statements: 2,
     read: async (db, seed) => (await listPublishedProductTypesForCategory(db, seed.leafId)).length,
@@ -479,7 +479,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'category_scoped_schema_resolution',
     title: 'Whether one product type VERSION is eligible under a category',
     reader: 'db/catalogAuthoring/schemaSourceRepository.ts productTypeIsScopedToCategory',
-    route: 'draft validation, per request (behind CATALOG_AUTHORING_ENABLED, default off)',
+    route: 'draft validation, per request',
     minRowsProduced: () => 1,
     statements: 1,
     read: async (db, seed, fixture) =>
@@ -490,7 +490,7 @@ export const CATEGORY_READ_SHAPES: readonly CategoryReadShape[] = [
     kind: 'descendants',
     title: 'Products refined into each child bucket — the taxonomy facet',
     reader: 'db/facets/facetRepository.ts countCategoryBuckets',
-    route: 'POST /facets (behind FACETS_ENABLED, default off)',
+    route: 'POST /facets (UNCONDITIONAL)',
     minRowsProduced: (_seed, fixture) => fixture.bucketIds.length,
     statements: 1,
     servableBy: {

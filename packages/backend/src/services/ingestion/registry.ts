@@ -5,8 +5,7 @@
  * ## The registry gates the LOOP, never the record
  *
  * A `catalog_source_configs` row may name a provider nobody has shipped an
- * adapter for. That is the `CROWDSOURCE_ENABLED` rule one layer down: the
- * durable configuration is accepted, the run refuses with `adapter_missing`,
+ * adapter for. The durable configuration is accepted, the run refuses with `adapter_missing`,
  * and shipping the adapter drains the backlog instead of requiring somebody to
  * re-enter the configuration. `catalog_source_configs.provider` therefore
  * carries a shape CHECK and not a value CHECK, the `offers.provider` decision

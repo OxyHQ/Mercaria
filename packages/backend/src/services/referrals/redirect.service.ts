@@ -29,10 +29,28 @@
  *
  * ## A classification never changes where somebody is sent
  *
- * A bot, a link preview and a shopper all receive the identical `Location`. The
- * classification decides whether a click is CLAIMED and whether evidence is
- * produced — never the destination — because a redirect that varied on the
- * `User-Agent` would be cloaking, and search engines treat it as such.
+ * A bot, a link preview and a shopper all receive the identical destination —
+ * origin, path and (empty) query. The classification decides whether a click
+ * is CLAIMED and whether evidence is produced — never the page — because a
+ * redirect that varied on the `User-Agent` would be cloaking, and search
+ * engines treat it as such. The one difference is the FRAGMENT an organic
+ * click carries, which names no resource and is never sent to a server.
+ *
+ * ## The redirect stores nothing on the device and attributes nothing
+ *
+ * ePrivacy Art. 5(3) wants PRIOR consent before anything is stored on, or read
+ * from, a buyer's device for referral tracking, and a click is not consent. So
+ * this response sets no cookie and writes no touch — not even for a request
+ * that already carries a subject, which this route no longer resolves at all.
+ * The click's evidence, the signed `mrf_` carrier, is appended to the
+ * destination as a URL fragment (`#mercaria_ref=mrf_…`): a fragment is never
+ * sent to a server and never appears in a `Referer`. The storefront reads it,
+ * strips it from the address bar, keeps it in memory and asks; only
+ * `POST /referrals/consent` turns it into a touch or a cookie.
+ *
+ * What still happens here touches no device and names no person: resolving
+ * the link, the redirect lever, classification, and claiming the click
+ * against the link's ceiling.
  *
  * ## Redirect loops
  *
@@ -51,7 +69,6 @@
 
 import type {
   ReferralConsentMode,
-  ReferralClientSurface,
   ReferralRedirectDisposition,
   ReferralTrafficClass,
 } from '@mercaria/shared-types';
@@ -59,11 +76,15 @@ import { getDb } from '../../db/postgres.js';
 import { ALLOWED_ORIGINS } from '../../lib/allowed-origins.js';
 import { config } from '../../config/index.js';
 import { resolveProgramControls } from '../../db/referrals/programControlRepository.js';
-import type { CommerceActor } from '../commerce-actor.js';
-import { claimReferralLinkClick, registerLinkTouch, resolveReferralLink } from './touch.service.js';
-import { attributeRecordedTouch, touchActorFor } from './binding.service.js';
-import { mintReferralState } from './referral-state.js';
+import { claimReferralLinkClick, resolveReferralLink } from './touch.service.js';
+import { mintReferralState, REFERRAL_STATE_PREFIX } from './referral-state.js';
 import { trafficMayAttribute } from './traffic.js';
+
+/**
+ * The fragment key the storefront reads the carrier from
+ * (`packages/frontend/lib/hooks/use-referral-binding.ts` spells it too).
+ */
+export const REFERRAL_FRAGMENT_KEY = 'mercaria_ref';
 
 /**
  * Path prefixes this route serves. A composed destination starting with one
@@ -75,8 +96,9 @@ export const REFERRAL_ROUTE_PREFIXES: readonly string[] = ['/r/', '/r'];
 /**
  * The origin every referral redirect lands on.
  *
- * `REFERRAL_REDIRECT_BASE_URL` when set, else the first production origin. It
- * is validated against `ALLOWED_ORIGINS` — the same list CORS and the guest
+ * The storefront origin, `config.web.origin` (`WEB_URL`, default
+ * `https://mercaria.co`) — where every referral destination template resolves.
+ * It is validated against `ALLOWED_ORIGINS` — the same list CORS and the guest
  * CSRF gate read — so there is no second answer to "where may Mercaria send a
  * browser", which is precisely the shape an open redirect takes when a
  * deployment gets its own list.
@@ -87,10 +109,10 @@ export const REFERRAL_ROUTE_PREFIXES: readonly string[] = ['/r/', '/r'];
  *   be the bug shipping.
  */
 export function referralRedirectOrigin(): string {
-  const configured = config.referrals.redirectBaseUrl;
+  const configured = config.web.origin;
   if (!ALLOWED_ORIGINS.includes(configured)) {
     throw new Error(
-      `REFERRAL_REDIRECT_BASE_URL (${configured}) is not an allowed browser origin. ` +
+      `WEB_URL (${configured}) is not an allowed browser origin. ` +
         'Referral redirects compose their destination from this origin plus an allow-listed ' +
         'relative path; an unlisted origin would make the route an open redirect.',
     );
@@ -130,13 +152,44 @@ export function composeReferralDestination(relativePath: string): string {
   return target.href;
 }
 
-/** Everything the redirect handler learned about one request, already classified. */
+/** The carrier's whole alphabet: its prefix, base64url, and one `.`. */
+const URL_SAFE_CARRIER = new RegExp(`^${REFERRAL_STATE_PREFIX}[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$`);
+
+/**
+ * Append the carrier to an ALREADY COMPOSED destination, as its fragment.
+ *
+ * After composition, never into it: the origin check and the loop guard run on
+ * a fragment-free URL, and this changes nothing they checked — `URL#hash`
+ * cannot alter the origin, the path or the query. The carrier is checked for
+ * its own URL-safe shape (`mrf_` plus base64url and one `.`) rather than
+ * trusted to stay that way, so a payload change that let a `#`, `&` or `%`
+ * into the spelling fails here instead of corrupting the fragment.
+ */
+export function withReferralCarrier(location: string, carrier: string): string {
+  if (!URL_SAFE_CARRIER.test(carrier)) {
+    throw new Error('A referral carrier is not URL-safe; refusing to put it in a fragment.');
+  }
+  const target = new URL(location);
+  target.hash = `${REFERRAL_FRAGMENT_KEY}=${carrier}`;
+  return target.href;
+}
+
+/**
+ * Everything the redirect handler learned about one request, already classified.
+ *
+ * There is no actor and no client surface: the redirect writes no touch, so it
+ * has no use for a subject and deliberately does not resolve one.
+ */
 export interface ReferralRedirectRequest {
   token: string;
   trafficClass: ReferralTrafficClass;
-  clientSurface: ReferralClientSurface;
+  /**
+   * What the caller DECLARED at click time — only a native client can, on
+   * `X-Mercaria-Referral-Consent`. Only `denied` changes anything here (no
+   * carrier at all); a `granted` declaration does not stand in for the buyer
+   * answering the storefront's prompt, so the carrier still says `unknown`.
+   */
   consentMode: ReferralConsentMode;
-  actor: CommerceActor;
   at: Date;
 }
 
@@ -148,13 +201,10 @@ export interface ReferralRedirectRequest {
 export type ReferralRedirectOutcome =
   | {
       outcome: 'redirect';
+      /** The destination, with `#mercaria_ref=<carrier>` when one was issued. */
       location: string;
       disposition: ReferralRedirectDisposition;
       disclosureRequired: boolean;
-      /** Present only when the visitor had no subject and consent permits state. */
-      state?: { token: string; maxAgeMs: number };
-      /** Present when the click was attributed immediately (a subject was present). */
-      touchId?: string;
     }
   | { outcome: 'not_found'; disposition: ReferralRedirectDisposition };
 
@@ -171,10 +221,13 @@ export type ReferralRedirectOutcome =
  *     stranger must not be able to tell "no such link" from "that programme is
  *     paused", which would make the lever an oracle over which programs exist.
  *  3. CLAIM the click, for organic traffic only. A scanner that spent a
- *     limited link's last click would cost the partner the campaign.
- *  4. EVIDENCE. With a subject present, the touch is written now. With none,
- *     the carrier holds the click and `binding.service.ts` writes the touch
- *     when a subject appears — ADR 0003 T10: an anonymous click writes no row.
+ *     limited link's last click would cost the partner the campaign. The claim
+ *     is a counter on the LINK row: it names no person and stores nothing on
+ *     the device.
+ *  4. EVIDENCE — a signed carrier in the destination's fragment, and nothing
+ *     else. No touch is written here, even for a signed-in shopper: the touch
+ *     waits for the buyer's consent (`POST /referrals/consent`), which is also
+ *     the earliest moment a cookie may be written.
  */
 export async function resolveReferralRedirect(
   request: ReferralRedirectRequest,
@@ -191,7 +244,7 @@ export async function resolveReferralRedirect(
   const attributable = trafficMayAttribute(request.trafficClass);
 
   if (!attributable) {
-    // Redirected, nothing claimed, nothing recorded, no state handed over. A
+    // Redirected, nothing claimed, nothing recorded, no carrier handed over. A
     // crawler leaves exactly the trace ADR 0003 T10 wants it to leave: none.
     return {
       outcome: 'redirect',
@@ -208,44 +261,10 @@ export async function resolveReferralRedirect(
     return { outcome: 'not_found', disposition: 'refused_link_unusable' };
   }
 
-  const touchActor = touchActorFor(request.actor);
-  if (touchActor !== null) {
-    // A subject is already present — a signed-in shopper, or a native client
-    // presenting its guest credential — so the click is resolved COMPLETELY
-    // here: the evidence lands where ADR 0005 D6 says it should, and the same
-    // `attributeRecordedTouch` every bind goes through decides the winner.
-    //
-    // Recording the touch and stopping was the first shape of this and it was
-    // wrong: no carrier is issued on this branch (there is nothing to defer),
-    // so `POST /referrals/bind` would have nothing to present and the touch
-    // would sit unattributed forever — a signed-in buyer's click silently
-    // earning a partner nothing.
-    const registered = await registerLinkTouch({
-      linkId: resolved.linkId,
-      codeId: resolved.code.id,
-      occurredAt: request.at,
-      context: {
-        actor: touchActor,
-        clientSurface: request.clientSurface,
-        consentMode: request.consentMode,
-        trafficClass: request.trafficClass,
-        at: request.at,
-      },
-    });
-    await attributeRecordedTouch(registered.touch.id, registered.version.id);
-    return {
-      outcome: 'redirect',
-      location,
-      disposition: 'redirected_and_recorded',
-      disclosureRequired: resolved.disclosureRequired,
-      touchId: registered.touch.id,
-    };
-  }
-
   if (request.consentMode === 'denied') {
-    // The one thing a consent declaration does here: no web state is written.
-    // The redirect still happens — refusing to send somebody where they asked
-    // to go would make consent a punishment rather than a choice.
+    // A native client declared a refusal up front: no carrier at all. The
+    // redirect still happens — refusing to send somebody where they asked to
+    // go would make consent a punishment rather than a choice.
     return {
       outcome: 'redirect',
       location,
@@ -254,21 +273,16 @@ export async function resolveReferralRedirect(
     };
   }
 
-  const lifetimeSeconds = resolved.version.attributionWindowDays * 24 * 60 * 60;
   const minted = mintReferralState({
     linkId: resolved.linkId,
     codeId: resolved.code.id,
     clickedAt: request.at,
-    lifetimeSeconds,
+    lifetimeSeconds: resolved.version.attributionWindowDays * 24 * 60 * 60,
   });
   return {
     outcome: 'redirect',
-    location,
+    location: withReferralCarrier(location, minted.token),
     disposition: 'redirected_and_recorded',
     disclosureRequired: resolved.disclosureRequired,
-    state: {
-      token: minted.token,
-      maxAgeMs: Math.max(minted.expiresAt.getTime() - request.at.getTime(), 0),
-    },
   };
 }

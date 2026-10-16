@@ -706,10 +706,8 @@ in a fetch failure. `rights_suspended` earns no grace, and neither does
 
 On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56/#57/#58/#60/
 #62/#63/#68 use. Empty list = not mounted (404, never a 401 that would advertise
-the surface). It stays mounted while `AWIN_ENABLED` is off, for
-`/internal/ingestion`'s reason: bringing a network up by hand is the supported
-path, and the evidence has to be readable during the incident that turned the
-loop off.
+the surface). Bringing a network up by hand, before any of its sources is
+activated, is the supported path — `/internal/ingestion`'s reason.
 
 | Route | What it does |
 |---|---|
@@ -739,7 +737,6 @@ store nobody registered it under.
 ## Environment
 
 ```
-AWIN_ENABLED=false                        # registers the adapter; gates the LOOP, never a record
 AWIN_FEED_LIST_BASE_URL=https://productdata.awin.com
 AWIN_PUBLISHER_API_BASE_URL=https://api.awin.com
 AWIN_NETWORK_CONCURRENCY=2                # slots per account
@@ -749,17 +746,14 @@ AWIN_LIST_TIMEOUT_MS=30000
 AWIN_SAMPLE_SIZE=25                       # rows checked before an advertiser may activate
 ```
 
-`AWIN_ENABLED` gates the adapter registration and nothing durable: accounts,
-advertisers, feeds, quality snapshots, samples and every #62 row are stored and
-readable either way, every run refuses with #62's own `adapter_missing`, and
-turning it on drains the backlog. The download caps, the encoding and the record
-limits are #63's `FEED_IMPORT_*` values — one set of refusal thresholds for
-every feed this deployment reads, not a second set that could disagree.
+The adapter is registered on every deployment, and registering it fetches
+nothing: a fetch happens only for a configured, active Awin source. The download
+caps, the encoding and the record limits are #63's `FEED_IMPORT_*` values — one
+set of refusal thresholds for every feed this deployment reads, not a second set
+that could disagree.
 
-**`AWIN_ENABLED` does not require a credential to be set**, unlike
-`FEED_IMPORT_ENABLED`. The difference is real: #63 demands its encryption key
-because a feed's credential has nowhere to GO without it, so a configuration
-would be unstorable. Awin's key is a LOCATOR on a row, storable and reviewable
+**The adapter does not require a credential to be set.** Awin's key is a
+LOCATOR on a row, storable and reviewable
 with no key present, and a deployment that registered the adapter before the
 locator resolves gets an honest `auth_failure` naming the missing secret rather
 than a silent no-op.
@@ -805,9 +799,8 @@ Nothing below is green. Each is a gate, in the §9 sense of the #64 decision.
    through this adapter with measured GTIN coverage, duplicate rate and
    field-quality numbers committed as a dated addendum in
    `docs/catalog-sources/`. Blocked until step 1.
-7. `AWIN_ENABLED=true` and `CATALOG_INGESTION_ENABLED=true` only after one
-   advertiser has been drained by hand from `/internal/ingestion/drain` and its
-   metrics read.
+7. The source moved to `active` only after one advertiser has been drained by
+   hand from `/internal/ingestion/drain` and its metrics read.
 8. A bounded market cohort (ES) activated before any network-wide activation
    (acceptance 6).
 9. Alerting on: an account state other than `active`; an advertiser whose

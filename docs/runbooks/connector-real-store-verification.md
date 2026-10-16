@@ -59,7 +59,7 @@ URLs from the public internet).
 | Variable | Value | Why |
 |---|---|---|
 | `CONNECTOR_ENCRYPTION_KEY` | `openssl rand -hex 32` | AES-256-GCM for stored credentials + channel keys. Rotating it makes every stored credential undecryptable. |
-| `CONNECTOR_OAUTH_STATE_SECRET` | `openssl rand -hex 32` | Signs the OAuth `state` (CSRF). |
+| `MERCARIA_SECRET_KEY` | unset on a local API (the public dev root); the deployment's own root elsewhere | The OAuth `state` (CSRF) key is derived from it. |
 | `CONNECTOR_OAUTH_REDIRECT_BASE_URL` | the PUBLIC base of the API | Both the callback and the webhook address are built from this one value. **Changing it after a shop is connected orphans that shop's subscriptions** — see the note below. |
 | `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` | the dashboard channels screen | Optional; without it the callback renders a plain success page. |
 | `CONNECTOR_DEFAULT_CATEGORY_SLUG` | an EXISTING category slug | Every imported product is filed here. A slug that does not exist fails the backfill with a clear error. |
@@ -674,12 +674,11 @@ two triggers and no second implementation: both drive the same
   directly, behind `channels:write`. It validates synchronously (404 for a missing or
   cross-store connection, 400 for a disconnected, push-in or credential-less one)
   and answers `202 {status: 'enqueued'}`; the outcome arrives on the connection
-  itself. It stays available while the scheduled sweep is off.
+  itself.
 - **On a schedule:** every 15 minutes, a bounded pass over the connections whose
   registration did not finish — refused topics a retry could take, or an empty
-  `webhookIds`, which is what a registration that THREW leaves behind. Gated by
-  `CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED` (default ON; it gates the LOOP and
-  no stored fact).
+  `webhookIds`, which is what a registration that THREW leaves behind. Always
+  on.
 
 **What to expect on a real store, and what to record:**
 
@@ -945,8 +944,9 @@ Do NOT enable connectors in production until every line is true.
 
 - [ ] `CONNECTOR_ENCRYPTION_KEY` generated, stored in SSM `/oxy/mercaria/*`, and
       backed up — a lost key makes every stored credential undecryptable.
-- [ ] `CONNECTOR_OAUTH_STATE_SECRET`, `CONNECTOR_OAUTH_REDIRECT_BASE_URL`,
-      `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` set; the redirect base is the real
+- [ ] `CONNECTOR_OAUTH_REDIRECT_BASE_URL` and
+      `CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL` set (the OAuth state key is derived
+      from `MERCARIA_SECRET_KEY`); the redirect base is the real
       public API origin.
 - [ ] `CONNECTOR_DEFAULT_CATEGORY_SLUG` names a category that EXISTS in
       production.

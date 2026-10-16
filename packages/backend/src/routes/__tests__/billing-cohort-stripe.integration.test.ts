@@ -122,14 +122,18 @@ beforeAll(async () => {
   const gatewayUrl = `http://127.0.0.1:${(gateway.address() as { port: number }).port}`;
   vi.stubEnv('PEABLE_BASE_URL', gatewayUrl);
   vi.stubEnv('OXY_API_URL', gatewayUrl);
-  vi.stubEnv('MERCHANT_BILLING_RETURN_URL', 'https://dashboard.mercaria.co/settings/plan');
+  // Actions are DERIVED from a configured rail plus a return URL.
+  vi.stubEnv(
+    'MERCHANT_BILLING_RETURN_URL',
+    actions ? 'https://dashboard.mercaria.co/settings/plan' : '',
+  );
   for (const [key, value] of Object.entries({
     STRIPE_EVENT_POLL_INTERVAL_MS: '25',
-    STRIPE_ENABLED: 'false',
     STRIPE_SECRET_KEY: 'sk_test_fixture',
     STRIPE_WEBHOOK_SECRET: secret,
-    STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_fixture',
-    MERCHANT_BILLING_ENABLED: String(actions),
+    // No Connect secret: the cohort-only shape. With all three the general
+    // Stripe rail would be ON, since it has no switch of its own.
+    STRIPE_CONNECT_WEBHOOK_SECRET: '',
     // Mercaria's Oxy identity, minted from the fixture at OXY_API_URL.
     OXY_APPLICATION_KEY: 'fixture-public',
     OXY_APPLICATION_SECRET: 'fixture-secret',

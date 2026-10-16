@@ -407,17 +407,16 @@ self-test:
 table, writes no row and runs no loop, so a lever could only gate a read two
 existing levers already gate.
 
-- `CANONICAL_PUBLIC_ROUTES_ENABLED` gates the MOUNT, with the other canonical
-  surfaces.
+- The MOUNT is unconditional, like the other canonical surfaces.
 - `CANONICAL_OFFER_COMPARISON` gates the offers HALF, inside the handler. With
   it off a comparison still answers — every subject reports
   `offer_comparison_withheld` rather than rendering as a product nobody sells,
   and every commerce cell is `unknown` rather than zero.
-- `PRICE_HISTORY_PUBLIC_READS_ENABLED` (#78's own) decides whether price signals
-  enter the grounded input at all.
 
-Both are resolved in the controller and passed IN as booleans, so a service
-reading `config` is never a second place a rollout is decided.
+The offers lever is resolved in the controller and passed IN as a boolean, so a
+service reading `config` is never a second place a rollout is decided. #78's
+price signals enter the grounded input only where a built series backs one, which
+needs a currency `PRICE_HISTORY_SERIES_CURRENCIES` lists.
 
 ## The benchmark
 

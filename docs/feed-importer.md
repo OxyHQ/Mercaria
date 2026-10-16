@@ -196,9 +196,10 @@ and `feed-import-isolation.test.ts` pins its caller list at three (itself, the
 resolver, and the revert path). Reading a credential should not look like reading
 a row.
 
-The credential is AES-256-GCM under `FEED_IMPORT_AUTH_ENCRYPTION_KEY` — its own
-key, separate from `CONNECTOR_ENCRYPTION_KEY` and `GUEST_PII_ENCRYPTION_KEY`:
-three keys, three blast radii.
+The credential is AES-256-GCM under the `feed-import-auth-encryption` key derived
+from `MERCARIA_SECRET_KEY` — its own key, separate from `CONNECTOR_ENCRYPTION_KEY`
+and the guest-contact key: three keys, three blast radii (`docs/deploy.md`
+"Runtime secrets").
 
 ### SSRF is `safeFetch` and nothing hand-rolled
 
@@ -414,10 +415,8 @@ feed.
 ### Operator — `/internal/feed-imports/*`
 
 On the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/#60/#62
-use. Mounted while `FEED_IMPORT_ENABLED` is off, deliberately: a merchant's
-mapping, their validation reports and the reason their last pass failed are
-exactly the evidence somebody needs during the incident that turned the importer
-off.
+use: a merchant's mapping, their validation reports and the reason their last
+pass failed.
 
 **Read-only, and that is a decision.** There is no "activate this version", no
 "set this mapping", no "run this feed": every write belongs to the store that
@@ -430,8 +429,6 @@ source whose terms went wrong — already exists on
 ## Environment
 
 ```
-FEED_IMPORT_ENABLED=false               # registers the adapter + mounts the merchant surface
-FEED_IMPORT_AUTH_ENCRYPTION_KEY=        # REQUIRED when enabled (openssl rand -hex 32)
 FEED_IMPORT_STAGING_DIR=<tmpdir>/mercaria-feed-import
 FEED_IMPORT_MAX_DOWNLOAD_BYTES=2147483648
 FEED_IMPORT_MAX_DECOMPRESSED_BYTES=17179869184
@@ -444,14 +441,11 @@ FEED_IMPORT_PREVIEW_SAMPLE_SIZE=50
 FEED_IMPORT_MAX_REPORT_ENTRIES=10000
 ```
 
-`FEED_IMPORT_ENABLED` gates the LOOP, never the durable record: with it off,
-configurations, mapping versions, uploads and reports are all stored and
-readable, every run refuses with `adapter_missing`, and turning it on drains the
-backlog. Enabling it without the encryption key stays OFF and says so — a feed
-whose download needs a bearer token cannot be CONFIGURED without it, so running
-without it would mean accepting configurations that can never fetch.
+The importer has no switch: the `product_feed` adapter is registered and the
+merchant surface mounted on every deployment, and a feed credential's
+encryption key is derived from `MERCARIA_SECRET_KEY`, so it is always present.
 
-Every other value is a REFUSAL threshold rather than a tuning knob. A feed past
+Every value is a REFUSAL threshold rather than a tuning knob. A feed past
 one is rejected with the limit named, never truncated.
 
 ---
@@ -612,8 +606,7 @@ Each is a NAMED contract, not a stub.
 
 ## Production-readiness checklist
 
-1. `FEED_IMPORT_AUTH_ENCRYPTION_KEY` set (32 bytes hex), or `FEED_IMPORT_ENABLED`
-   stays off and says so.
+1. `MERCARIA_SECRET_KEY` provisioned (the credential key is derived from it).
 2. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or `/internal/feed-imports` is not
    mounted and nobody can trace a merchant's feed.
 3. Per feed: a MERCHANT bound on the #62 source (no merchant, no offers), a
@@ -623,7 +616,7 @@ Each is a NAMED contract, not a stub.
    products on sale forever. There is no default for exactly this reason.
 5. A `validation` run read with the merchant before activation, and the error
    report downloaded.
-6. `CATALOG_INGESTION_ENABLED=true` only after a feed has been drained by hand
+6. The source moved to `active` only after a feed has been drained by hand
    from `/internal/ingestion/drain` and its metrics read.
 7. Raise `CATALOG_INGESTION_LEASE_MS` above the time a full stage build takes for
    the largest configured feed. The stage is built inside one page, and a lease

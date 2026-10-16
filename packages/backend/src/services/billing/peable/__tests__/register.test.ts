@@ -37,7 +37,7 @@ vi.mock('../../../../config/index.js', () => ({
 }));
 vi.mock('../../../payments/stripe/client.js', () => ({
   getStripeClient: () => {
-    if (!seam.enabled) throw new Error('STRIPE_ENABLED is off');
+    if (!seam.enabled) throw new Error('the Stripe rail is not configured');
     return { accounts: { retrieve: seam.account }, subscriptions: { retrieve: vi.fn() } };
   },
 }));
@@ -134,7 +134,7 @@ describe('billing cohort registration', () => {
         storeName: 'outside',
         idempotencyKey: 'owned-intent',
       }),
-    ).rejects.toThrow('STRIPE_ENABLED is off');
+    ).rejects.toThrow('the Stripe rail is not configured');
   });
   it('attests the same parsed cohort hash for reordered raw JSON fields', async () => {
     configureAcceptedCohort();
@@ -278,7 +278,7 @@ describe('billing cohort registration', () => {
         storeName: 'outside',
         idempotencyKey: 'owned-intent',
       }),
-    ).rejects.toThrow('STRIPE_ENABLED is off');
+    ).rejects.toThrow('the Stripe rail is not configured');
     expect(seam.merchant).toHaveBeenCalledTimes(1); // Registration only; no cohort fallback.
   });
 });

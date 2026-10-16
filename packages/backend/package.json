@@ -9,7 +9,7 @@
   },
   "main": "dist/index.js",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
+    "dev": "NODE_ENV=development bun --watch src/index.ts",
     "build": "bun build.ts",
     "start": "bun dist/index.js",
     "lint": "biome check .",

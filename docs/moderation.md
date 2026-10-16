@@ -158,7 +158,6 @@ and deduped.
 Names come from the packages, not from a plan table:
 
 ```
-CROWDSOURCE_ENABLED=false
 CROWDSOURCE_SERVICE_KEY=            # applicationId:credentialId:secret, ONE opaque value
 CROWDSOURCE_BASE_URL=               # optional
 CROWDSOURCE_WEBHOOK_SECRET=
@@ -170,10 +169,13 @@ CROWDSOURCE_ENFORCEMENT_MODE=observe
 
 **There is no `CROWDSOURCE_APP_ID`, and never add one.** `applicationId` is read
 off the credential; a variable holding it could only ever disagree, and a surface
-able to carry one independently is a cross-tenant IDOR. `CROWDSOURCE_ENABLED=true`
-requires BOTH the service key and the webhook secret (enforced in
+able to carry one independently is a cross-tenant IDOR.
+
+**There is no `CROWDSOURCE_ENABLED` either.** An integration is on when its
+credentials are present; there is no separate boolean. Delivery is on iff BOTH
+`CROWDSOURCE_SERVICE_KEY` and `CROWDSOURCE_WEBHOOK_SECRET` are set (derived in
 `config/index.ts`), because a half-configured integration sends reports that can
-never come back.
+never come back. Reports are stored either way and deliver once configured.
 
 ### Lifecycle
 

@@ -898,17 +898,18 @@ assumed from this document.
 
 ### D24. Feature flags, rollback, and legacy retirement
 
-- Environment (names final; the `CROWDSOURCE_ENABLED` validation pattern — a
-  half-configured integration stays off and logs once at boot):
+- Environment (names final; the half-configuration rule — a half-configured
+  integration stays off and logs once at boot):
 
   ```
-  CANONICAL_GRAPH_ENABLED=false     # gates the backfill/materialization LOOPS — never the tables
   CANONICAL_READS=off               # off | shadow | on — the read-mode vocabulary (#60/#70 add per-surface overrides)
   CATALOG_OPERATOR_OXY_USER_IDS=    # interim operator allow-list for #59 tooling (payments precedent; empty = tooling not mounted)
   ```
 
   Gate the loop, never the durable record: rows written while a flag is off
-  stay valid when it turns on.
+  stay valid when it turns on. (`CANONICAL_GRAPH_ENABLED`, which gated the
+  backfill loop, was later removed in favour of always-on — see
+  `config/index.ts` and ADR 0015.)
 - **Rollback is a flag flip**, at every phase, because every migration in
   this epic is additive (`pre`) and no legacy read path is removed while any
   flag exists. There is deliberately no "down migration" story: the tables

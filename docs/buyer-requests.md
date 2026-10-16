@@ -554,23 +554,17 @@ ways.
 
 ## Operations
 
-### Levers
+### Configuration
 
-| Variable | Default | What it stops |
+The buyer request surface is always open and the refund-settlement sweep always
+runs; there is no environment switch for either. The merchant and operator
+surfaces drive the same idempotent path the sweep does.
+
+| Variable | Default | What it tunes |
 |---|---|---|
-| `BUYER_REQUESTS_ENABLED` | `true` | NEW buyer requests (503, `BUYER_REQUESTS_DISABLED`). Reads, decisions and every request already filed are unaffected. |
-| `BUYER_REQUEST_RECONCILER_ENABLED` | `true` | The refund-settlement sweep LOOP. The merchant and operator surfaces drive the same idempotent path. |
 | `BUYER_REQUEST_RECONCILE_INTERVAL_MS` | `60000` | — |
 | `BUYER_REQUEST_RECONCILE_BATCH_SIZE` | `50` | — |
 | `BUYER_REQUEST_RECONCILE_GRACE_MS` | `30000` | How long a `refund_pending` return is left to the inline drain before the sweep touches it. |
-
-**Neither lever gates a durable record.** A cancellation request is a buyer
-waiting for an answer, and a flag that stopped the row being written would lose
-it silently.
-
-`BUYER_REQUESTS_DISABLED` is a 503 rather than a 403 on purpose: this deployment
-DOES do cancellations and returns, it has temporarily stopped taking new ones,
-and retrying later is the client's correct response.
 
 ### The operator surface
 
@@ -618,9 +612,11 @@ names would not load at all, which is a data question rather than a seller one.
 
 - [ ] `GUEST_OPERATOR_OXY_USER_IDS` populated — without it the trace is not
       mounted (404), which also means nobody can reconcile a stuck return.
-- [ ] `BUYER_REQUESTS_ENABLED` reviewed. It defaults ON; guest commerce as a
-      whole is still gated by `GUEST_COMMERCE_ENABLED`, which is OFF until the
-      ADR 0003 M8 review clears.
+- [ ] Guest commerce as a whole has no switch: it is on exactly when its two
+      keys resolve, and both are derived from `MERCARIA_SECRET_KEY`, so it is
+      on everywhere. The ADR 0003 M8 review is still owed;
+      `GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native` withholds guest checkout
+      until it clears. Buyer requests themselves are always on.
 - [ ] A transport registered for `guest_portal_messages` (#108's seam). **Until
       then no buyer is told anything** — every message row is created, kept and
       marked `transport_unconfigured`, visibly. The requests themselves work.
@@ -633,11 +629,9 @@ names would not load at all, which is a data question rather than a seller one.
 
 ## Seams left, each a named contract
 
-- **#93 (pickup)** — `pickup_not_supported` is a real branch that is unreachable
-  in a default deployment, because `STORE_PICKUP_ENABLED` defaults off and
-  `resolvePickupForCheckout` refuses every pickup naming `store_pickup_disabled`.
-  Since #93 landed that is a LEVER rather than a missing capability, so enabling
-  it makes the branch reachable. It is kept rather than deleted so a cancellation
+- **#93 (pickup)** — `pickup_not_supported` is a real branch, reachable on every
+  deployment with GoWay configured (where store pickup is on). It is kept rather
+  than relaxed so a cancellation
   cannot quietly take the `release` path and leave a collectable-inventory hold
   nobody modelled.
 - **#112 (guest P2P)** — the reason `refund_path_unavailable` is unreachable for

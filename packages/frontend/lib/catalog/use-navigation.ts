@@ -17,9 +17,9 @@ import { resolveCatalogNavigation, type CatalogNavigation } from './navigation';
  * it asks for the tree it wants, and on any failure asks the always-mounted v1
  * read instead.
  *
- * The catch is broad on purpose. `CATALOG_TAXONOMY_V2_ENABLED` off is a 404, a
- * market nobody configured is a 200 with an empty tree list, an unreachable API
- * is a network error, and none of the three is a state a shopper should see a
+ * The catch is broad on purpose. A 404 from the read is a rejection, a market
+ * nobody configured is a 200 with an empty tree list, an unreachable API is a
+ * network error, and none of the three is a state a shopper should see a
  * menu-shaped error in. What distinguishes them for anybody who needs to know is
  * `source` on the answer, which is reported rather than inferred.
  *

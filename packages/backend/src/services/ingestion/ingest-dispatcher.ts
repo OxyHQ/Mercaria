@@ -16,13 +16,12 @@
  * collapsing the two would either hold a source lease for an hour or let a
  * second task claim the source mid-pass and open a competing run.
  *
- * ## The LOOP is gated; the durable record never is
+ * ## The kill switch is per source
  *
- * `CATALOG_INGESTION_ENABLED` stops this loop and nothing else. Sources can be
- * configured, policies reviewed and published, and manual runs opened while it
- * is off — the rows are durable, the cursors are durable, and turning the flag
- * on drains the backlog. That is the `CROWDSOURCE_ENABLED` rule, and it is what
- * makes "bring a new feed up during a quiet window" a supported thing to do.
+ * There is no deployment-wide flag over this loop. A source's own `paused`
+ * status (`POST /internal/ingestion/sources/:id/status`) stops it reaching out
+ * with no deploy; its rows and cursors are durable, so resuming it carries on
+ * where it stopped.
  *
  * ## Backfills and incremental updates share the same write path
  *
@@ -175,14 +174,6 @@ async function tick(): Promise<void> {
 /** Begin scheduling. Idempotent — a second call is a no-op. */
 export function startCatalogIngestionDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.catalogIngestion.enabled) {
-    log.general.info(
-      '[Ingestion] catalog ingestion disabled; sources configured now are stored and will ' +
-        'run once CATALOG_INGESTION_ENABLED is on',
-    );
-    return;
-  }
-
   timer = setInterval(() => {
     void tick();
   }, config.catalogIngestion.pollIntervalMs);

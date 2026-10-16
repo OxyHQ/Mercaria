@@ -155,8 +155,8 @@ export type GuestActivationRequirement = (typeof GUEST_ACTIVATION_REQUIREMENTS)[
  *
  * It exists because the other two cannot express this shape. A member of either
  * of them enters its conjunction, so a pickup requirement in the native
- * registry would make every store on a deployment with `STORE_PICKUP_ENABLED`
- * off (the default) read `nativeCheckout: disabled` — a far worse answer than
+ * registry would make every store on a deployment without store pickup (no
+ * GoWay configured) read `nativeCheckout: disabled` — a far worse answer than
  * the one it was added to fix. A mode is not a precondition of selling; it is a
  * precondition of selling THAT WAY, and `shipping_checkout` / `pickup_checkout`
  * are exactly the two capabilities that say so.
@@ -262,21 +262,6 @@ export const MERCHANT_ACTIVATION_BLOCK_REASONS = [
   // Capabilities this deployment does not have at all — every one is a NAMED
   // seam whose owner is recorded beside it, never a merchant's fault.
   'transactional_transport_unconfigured',
-  /**
-   * #110's buyer-request mount is switched off in this deployment.
-   *
-   * Its own code, and that is the point. It replaced `pickup_not_supported`,
-   * which described a DIFFERENT condition entirely (#93 had published no
-   * collection state) and reached the merchant's own dashboard as the stated
-   * cause of a guest checkout being ineligible. A merchant told the wrong cause
-   * of their own problem is a wrong answer, not a privacy measure: the
-   * one-code-for-many-dimensions rule (`guest_rollout_blocked`,
-   * `retail_line_ineligible`, `p2p_seller_excluded`) exists for BUYER-facing
-   * refusals where a client varying one input at a time reads out somebody
-   * else's state, and this reader is the store owner asking about their own
-   * store behind `store:manage`.
-   */
-  'guest_support_requests_disabled',
   'p2p_activation_unavailable',
 ] as const;
 

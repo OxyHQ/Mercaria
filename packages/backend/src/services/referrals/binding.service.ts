@@ -58,7 +58,11 @@ import { findProgramVersionById } from '../../db/referrals/programRepository.js'
 import type { CommerceActor } from '../commerce-actor.js';
 import { attributeTouch } from './attribution.service.js';
 import { registerCodeTouch, registerLinkTouch, type TouchActor } from './touch.service.js';
-import { verifyReferralState, type ReferralStateClaims } from './referral-state.js';
+import {
+  reissueConsentedReferralState,
+  verifyReferralState,
+  type ReferralStateClaims,
+} from './referral-state.js';
 
 /**
  * The ONE translation from a resolved `CommerceActor` to a touch actor.
@@ -70,8 +74,7 @@ import { verifyReferralState, type ReferralStateClaims } from './referral-state.
  * ordinary state here rather than a failure.
  *
  * It lives in the BINDING module because binding is the only thing that needs
- * a subject; the redirect imports it from here rather than the other way
- * round, so there is no cycle and no second spelling.
+ * a subject — the redirect, since consent was asked first, resolves none.
  */
 export function touchActorFor(actor: CommerceActor): TouchActor | null {
   switch (actor.kind) {
@@ -147,6 +150,62 @@ export async function bindCarriedReferral(input: {
   return { ...outcome, disclosureRequired: registered.disclosureRequired, redeemed: true };
 }
 
+/**
+ * The buyer ALLOWED Mercaria to remember a followed link — the storefront's
+ * consent prompt answering `granted` for the carrier it took out of the URL
+ * fragment (`POST /referrals/consent`).
+ *
+ * Two outcomes, and neither happens before this call:
+ *
+ *  - **A subject exists** (signed in, or a guest commerce session): the click
+ *    is bound now, exactly as `bindCarriedReferral` binds it, with the touch's
+ *    consent recorded as `granted`. Nothing is left to carry, so `carry` is
+ *    absent and the caller writes no cookie.
+ *  - **No subject yet**: nothing is written (ADR 0003 T10), and the carrier is
+ *    RE-ISSUED with the consent letter signed in — same click instant, same
+ *    deadline — as `carry`, for the caller to store. The later
+ *    `POST /referrals/bind` then records `granted` from the carrier itself.
+ *
+ * `denied` never reaches here: a refusal verifies nothing and writes nothing.
+ */
+export async function consentToCarriedReferral(input: {
+  stateToken: string | undefined;
+  context: ReferralBindContext;
+}): Promise<ReferralBindingResult & { carry?: { token: string; expiresAt: Date } }> {
+  const claims = verifyReferralState(input.stateToken, input.context.at);
+  if (claims === null) return refuse('state_unusable');
+  if (input.context.trafficClass !== 'organic') return refuse('traffic_not_organic');
+
+  const context: ReferralBindContext = { ...input.context, consentMode: 'granted' };
+  if (touchActorFor(context.actor) === null) {
+    // A held carrier is proof a link was followed, so the disclosure is owed —
+    // the same answer `GET /referrals/state` gives for a carrier it can see.
+    return {
+      state: 'pending',
+      reason: 'no_subject',
+      disclosureRequired: true,
+      carry: reissueConsentedReferralState(claims),
+    };
+  }
+
+  const { redeemed: _redeemed, ...bound } = await bindCarriedReferral({
+    stateToken: input.stateToken,
+    context,
+  });
+  return bound;
+}
+
+/**
+ * The consent a touch records: `granted` when the carrier itself says the
+ * buyer allowed it (signed, so not the client's word), else the declaration.
+ */
+function touchConsent(
+  claims: ReferralStateClaims,
+  declared: ReferralConsentMode,
+): ReferralConsentMode {
+  return claims.consent === 'granted' ? 'granted' : declared;
+}
+
 /** Register a carried click, answering `null` for every "no longer usable". */
 async function registerLinkTouchFor(
   claims: ReferralStateClaims,
@@ -163,7 +222,7 @@ async function registerLinkTouchFor(
       context: {
         actor,
         clientSurface: context.clientSurface,
-        consentMode: context.consentMode,
+        consentMode: touchConsent(claims, context.consentMode),
         trafficClass: context.trafficClass,
         at: context.at,
       },
@@ -295,7 +354,7 @@ export async function bindMerchantCandidate(input: {
       context: {
         actor,
         clientSurface: input.context.clientSurface,
-        consentMode: input.context.consentMode,
+        consentMode: touchConsent(carried, input.context.consentMode),
         trafficClass: input.context.trafficClass,
         merchantCandidateRef: input.merchantId,
         at: input.context.at,
@@ -321,12 +380,12 @@ export async function bindMerchantCandidate(input: {
  * arrived" (ADR 0005 D16, D18). The lever is prospective and touches nothing
  * already attributed.
  *
- * Exported because the REDIRECT needs it too: a click by a request that already
- * carries a subject is resolved completely at click time, and there is exactly
+ * Every carried, typed and merchant bind goes through it, so there is exactly
  * one place that decides whether a recorded touch becomes a winner. Two would
- * be two answers to the lever.
+ * be two answers to the lever. (The redirect used to call it for a signed-in
+ * click; since consent is asked first, the redirect records nothing.)
  */
-export async function attributeRecordedTouch(
+async function attributeRecordedTouch(
   touchId: string,
   programVersionId: string,
 ): Promise<ReferralBindingResult> {

@@ -163,14 +163,12 @@ let reconciler: typeof import('../account-reconciler.js');
 beforeAll(async () => {
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
   // process.env once at module load and freezes the result.
-  process.env.STRIPE_ENABLED = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_account_platform_not_a_real_one';
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_account_connect_not_a_real_one';
   process.env.STRIPE_SELLER_COUNTRIES = 'ES,FR';
   process.env.STRIPE_ONBOARDING_BASE_URL = 'https://api.mercaria.test';
   process.env.STRIPE_ONBOARDING_RETURN_URL = 'https://dashboard.mercaria.test/settings/payments';
-  process.env.STRIPE_ONBOARDING_STATE_SECRET = 'onboarding-state-secret-not-a-real-one';
 
   const postgres = await import('../../../../db/postgres.js');
   closePostgres = postgres.closePostgres;

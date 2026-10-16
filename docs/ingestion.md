@@ -405,10 +405,11 @@ who may migrate the native one into it and who may decide what an external
 source may do are the same power over the same graph. Empty list = not mounted
 (404, never a 401 that would advertise the surface).
 
-It stays mounted while `CATALOG_INGESTION_ENABLED` is off, deliberately:
-configuring a source, reviewing its terms and draining it by hand is how a feed
-is brought up before the loop is switched on, and the evidence has to be
-readable during the incident that turned the loop off.
+The dispatcher loop always runs; there is no deployment-wide flag over it. A
+source is fetched only while its status is `active` (or `failed`, retrying), so
+configuring it, reviewing its terms and draining it by hand happens before it is
+activated, and `POST /sources/:id/status` with `paused` is the runtime kill
+switch for one source.
 
 | Route | What it does |
 |---|---|
@@ -436,7 +437,6 @@ any credential read or write; any flag write.
 ## Environment
 
 ```
-CATALOG_INGESTION_ENABLED=true           # gates the LOOP, never the durable record
 CATALOG_INGESTION_BATCH_SIZE=5
 CATALOG_INGESTION_POLL_INTERVAL_MS=30000
 CATALOG_INGESTION_LEASE_MS=120000
@@ -542,8 +542,7 @@ nobody has written.
 Each is a NAMED contract that fails closed, never a stub that lies.
 
 - **#63 — LANDED.** The universal product-feed importer registers the
-  `product_feed` adapter (gated by `FEED_IMPORT_ENABLED`, which gates the LOOP
-  and never the record) and runs this whole contract suite against it over a real
+  `product_feed` adapter (registered on every deployment) and runs this whole contract suite against it over a real
   CSV — see `docs/feed-importer.md`. It surfaced two bugs in THIS framework that
   the fixture adapter could not show, both because its records carry a fixed date
   in the past: `ingestOneRecord` stamped "seen at" from the dispatcher tick while
@@ -554,12 +553,12 @@ Each is a NAMED contract that fails closed, never a stub that lies.
   contention became fatal the moment a SECOND contract runner existed, because
   the suite's wait for the slot outlives vitest's own per-test timeout.
 - **#65 / #66 — LANDED.** eBay Browse and the Awin retailer-network source are
-  both registered adapters now (`EBAY_ENABLED`, `AWIN_ENABLED`) — see
-  `docs/catalog-sources/ebay-browse.md` and `docs/catalog-sources/awin.md`. A
-  deployment that leaves either flag off still configures the source, reviews
-  its policy and sees every run refuse for want of an adapter — the seam that
-  fails closed and reports why is exercised by an off flag rather than by
-  "no adapter exists" now. `catalog_source_configs.provider` still carries a
+  both registered adapters now, on every deployment — see
+  `docs/catalog-sources/ebay-browse.md` and `docs/catalog-sources/awin.md`.
+  Registering either fetches nothing: a fetch happens only for a configured,
+  active source, and a source whose provider has no adapter still sees every
+  run refuse for want of one — the seam that fails closed and reports why.
+  `catalog_source_configs.provider` still carries a
   SHAPE check and not a value check for the general case
   (`offers.provider`'s decision): gating the durable configuration on Mercaria
   having shipped an adapter would invert "gate the loop, never the record", and
@@ -585,14 +584,13 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 
 1. `CATALOG_OPERATOR_OXY_USER_IDS` populated, or the surface is not mounted and
    nobody can configure a source or review a policy.
-2. At least one adapter registered. #63's `product_feed` is registered by
-   `FEED_IMPORT_ENABLED=true` (which additionally requires
-   `FEED_IMPORT_AUTH_ENCRYPTION_KEY`); #65 and #66 ship none yet, and until an
-   adapter exists for a source's provider every run refuses.
+2. At least one adapter registered. #63's `product_feed` is always registered;
+   #65 and #66 ship none yet, and until an adapter exists for a source's
+   provider every run refuses.
 3. For each source: a merchant BOUND (no merchant, no offers), a policy version
    published and reviewed, and the status moved to `active`.
-4. `CATALOG_INGESTION_ENABLED=true` only after a source has been drained by hand
-   from `/internal/ingestion/drain` and its metrics read.
+4. Move a source to `active` only after its policy is reviewed; `paused`
+   (`POST /internal/ingestion/sources/:id/status`) stops it without a deploy.
 5. Alerting on `healthState` other than `full_feed_success`, on a climbing
    `consecutiveFailures`, and on `countsAgree` reading false. Scraping belongs to
    `oxy-infra`.
