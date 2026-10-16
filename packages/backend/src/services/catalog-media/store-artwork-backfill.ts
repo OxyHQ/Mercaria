@@ -18,8 +18,16 @@ export interface StoreArtworkBackfillOptions {
 /** The store-artwork sibling of `backfillListingMedia`: logo, cover and
  * collection images import under the persisted store owner. A preview never
  * downloads or uploads; reports carry source hashes, never source URLs. */
-export async function backfillStoreArtwork(options: StoreArtworkBackfillOptions, db: Database = getDb()) {
-  if (!['preview', 'apply'].includes(options.mode) || !Number.isSafeInteger(options.limit) || options.limit < 1 || options.limit > 500) {
+export async function backfillStoreArtwork(
+  options: StoreArtworkBackfillOptions,
+  db: Database = getDb(),
+) {
+  if (
+    !['preview', 'apply'].includes(options.mode) ||
+    !Number.isSafeInteger(options.limit) ||
+    options.limit < 1 ||
+    options.limit > 500
+  ) {
     throw new Error('Use preview or apply with a store limit between 1 and 500.');
   }
   const ids = await findLegacyArtworkStoreIds({ ...options, limit: options.limit + 1 }, db);
@@ -34,26 +42,42 @@ export async function backfillStoreArtwork(options: StoreArtworkBackfillOptions,
     const entry: (typeof entries)[number] = { storeId, artwork: [], outcome: 'changed' };
     entries.push(entry);
     if (!snapshot) continue;
-    entry.artwork = snapshot.entries.map(item => ({
-      target: item.target, id: item.id, sourceSha256: createHash('sha256').update(item.source).digest('hex'),
+    entry.artwork = snapshot.entries.map((item) => ({
+      target: item.target,
+      id: item.id,
+      sourceSha256: createHash('sha256').update(item.source).digest('hex'),
     }));
     if (entry.artwork.length === 0) continue;
-    if (options.mode === 'preview') { entry.outcome = 'pending'; continue; }
+    if (options.mode === 'preview') {
+      entry.outcome = 'pending';
+      continue;
+    }
     try {
       const fileIds: string[] = [];
       // The synchronizer bounds a batch to 64; the store still commits as one unit.
       for (let start = 0; start < snapshot.entries.length; start += 64) {
-        fileIds.push(...await synchronizeAccountImages(snapshot.ownerOxyUserId, snapshot.entries.slice(start, start + 64).map(item => item.source)));
+        fileIds.push(
+          ...(await synchronizeAccountImages(
+            snapshot.ownerOxyUserId,
+            snapshot.entries.slice(start, start + 64).map((item) => item.source),
+          )),
+        );
       }
       entry.outcome = await applyStoreArtworkImport(snapshot, fileIds, db);
     } catch (error) {
       entry.outcome = 'failed';
-      entry.reason = error instanceof CatalogMediaSyncError ? error.message : 'The store artwork import could not be committed.';
+      entry.reason =
+        error instanceof CatalogMediaSyncError
+          ? error.message
+          : 'The store artwork import could not be committed.';
     }
   }
   return {
-    mode: options.mode, entries,
+    mode: options.mode,
+    entries,
     resumeAfterStoreId: ids.length > options.limit ? ids[options.limit - 1] : null,
-    retryStoreIds: entries.filter(entry => entry.outcome === 'changed' || entry.outcome === 'failed').map(entry => entry.storeId),
+    retryStoreIds: entries
+      .filter((entry) => entry.outcome === 'changed' || entry.outcome === 'failed')
+      .map((entry) => entry.storeId),
   };
 }

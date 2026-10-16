@@ -1193,7 +1193,10 @@ async function seedP2P(counts: SeedCounts): Promise<void> {
       // Condition photos name gallery sources; they persist as the same Oxy IDs.
       itemCondition: {
         ...spec.condition,
-        photoAnnotations: spec.condition.photoAnnotations?.map(photo => ({ ...photo, fileId: seedMediaFileId(photo.fileId) })),
+        photoAnnotations: spec.condition.photoAnnotations?.map((photo) => ({
+          ...photo,
+          fileId: seedMediaFileId(photo.fileId),
+        })),
       },
       category: spec.categorySlug,
       imageFileIds: spec.images.map(seedMediaFileId),

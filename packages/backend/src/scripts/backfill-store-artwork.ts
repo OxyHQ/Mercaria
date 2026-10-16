@@ -1,5 +1,8 @@
 import { closePostgres, connectPostgres } from '../db/postgres.js';
-import { backfillStoreArtwork, type StoreArtworkBackfillOptions } from '../services/catalog-media/store-artwork-backfill.js';
+import {
+  backfillStoreArtwork,
+  type StoreArtworkBackfillOptions,
+} from '../services/catalog-media/store-artwork-backfill.js';
 
 /** Store logo, cover and collection images. Read-only preview by default. */
 async function main() {
@@ -18,8 +21,12 @@ async function main() {
   if (report.retryStoreIds.length) process.exitCode = 1;
 }
 
-main().catch(() => {
-  // Do not print database errors containing the source URL/credentials.
-  process.stderr.write('Store artwork backfill failed. Check arguments and database availability.\n');
-  process.exitCode = 1;
-}).finally(closePostgres);
+main()
+  .catch(() => {
+    // Do not print database errors containing the source URL/credentials.
+    process.stderr.write(
+      'Store artwork backfill failed. Check arguments and database availability.\n',
+    );
+    process.exitCode = 1;
+  })
+  .finally(closePostgres);
