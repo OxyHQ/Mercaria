@@ -886,7 +886,7 @@
     "openNavigation": "Abrir navegação",
     "orders": "Pedidos",
     "products": "Produtos",
-    "settings": "Configurações",
+    "settings": "Configurações da loja",
     "mainNavigation": "Navegação principal",
     "collapseSidebar": "Recolher barra lateral",
     "expandSidebar": "Expandir barra lateral",
@@ -1464,10 +1464,6 @@
         "result": "Comissão %{fee} — você fica com %{net}.",
         "failed": "Não foi possível calcular esse exemplo"
       }
-    },
-    "language": {
-      "description": "O idioma em que este painel é exibido. Salvo neste dispositivo; não muda o que seus clientes veem.",
-      "title": "Idioma"
     },
     "locations": {
       "createFailed": "Não foi possível criar o local",

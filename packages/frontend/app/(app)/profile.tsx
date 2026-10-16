@@ -7,7 +7,14 @@ import { Button } from '@oxy.so/bloom/button';
 import { Card } from '@oxy.so/bloom/card';
 import { Image } from '@mercaria/ui';
 import { Heart, MapPin, Settings, ChevronRight, UserRound } from 'lucide-react-native';
-import { Text, toBloomIcon, LucideGlyph, ShopNavigationIcon, useColorScheme } from '@mercaria/ui';
+import {
+  Text,
+  toBloomIcon,
+  LucideGlyph,
+  ShopNavigationIcon,
+  useColorScheme,
+  useSettingsDialog,
+} from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { useTranslation } from '@/lib/i18n';
 import { useSavedItems } from '@/lib/hooks/use-saves';
@@ -15,6 +22,7 @@ import { useSavedItems } from '@/lib/hooks/use-saves';
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const settings = useSettingsDialog();
   const { user, isAuthenticated, canUsePrivateApi, oxyServices } = useOxy();
   const savedItems = useSavedItems();
   const savedImages = (isAuthenticated && canUsePrivateApi ? (savedItems.data?.pages ?? []) : [])
@@ -139,7 +147,7 @@ export default function ProfileScreen() {
               leadingIcon={toBloomIcon(MapPin)}
               trailingIcon={toBloomIcon(ChevronRight)}
               textStyle={{ flex: 1 }}
-              onPress={() => router.push('/settings/addresses')}
+              onPress={() => settings.open('addresses')}
             >
               {t('settings.sections.addresses')}
             </Button>
@@ -151,7 +159,7 @@ export default function ProfileScreen() {
             leadingIcon={toBloomIcon(Settings)}
             trailingIcon={toBloomIcon(ChevronRight)}
             textStyle={{ flex: 1 }}
-            onPress={() => router.push('/settings/general')}
+            onPress={() => settings.open('general')}
           >
             {t('settings.sections.general')}
           </Button>
@@ -163,7 +171,7 @@ export default function ProfileScreen() {
               leadingIcon={toBloomIcon(UserRound)}
               trailingIcon={toBloomIcon(ChevronRight)}
               textStyle={{ flex: 1 }}
-              onPress={() => router.push('/settings')}
+              onPress={() => settings.open('account')}
             >
               {t('settings.account.title')}
             </Button>

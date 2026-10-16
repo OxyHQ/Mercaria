@@ -6,7 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
 import { OxyProvider, useOxy } from '@oxy.so/services';
 import { BloomProvider } from '@oxy.so/bloom/provider';
-import { OverlayInertBoundary } from '@oxy.so/bloom/portal';
+import { OverlayInertBoundary, PortalOutlet, PortalProvider } from '@oxy.so/bloom/portal';
 import { expoRouterScrollAdapter } from '@oxy.so/bloom/scroll/expo-router';
 import { ImageResolverProvider } from '@oxy.so/bloom/image-resolver';
 import * as Linking from 'expo-linking';
@@ -14,6 +14,7 @@ import { Platform } from 'react-native';
 
 import { AppErrorBoundary } from '@/components/error-boundary';
 import AppSplashScreen from '@/components/AppSplashScreen';
+import { DashboardSettingsProvider } from '@/components/settings/DashboardSettingsProvider';
 import { KeyboardProvider } from '@/lib/keyboard';
 import { SharedUiTranslationProvider, useColorScheme } from '@mercaria/ui';
 import { AppFxProvider } from '@/lib/fx';
@@ -69,26 +70,24 @@ function AppContent() {
   const { colors } = useColorScheme();
 
   return (
-    <AuthSetup>
-      <KeyboardProvider>
-        {/* WEB: <Slot/>, so the matched route stays in normal document flow and
-            Bloom's AppShell can scroll the DOCUMENT (sticky navigation, scroll
-            restoration). A web Stack wraps every scene in a viewport-clamped
-            card, which is a scroll container between the root and the shell. */}
-        {Platform.OS === 'web' ? (
-          <Slot />
-        ) : (
-          <Stack
-            screenOptions={{
-              contentStyle: { backgroundColor: colors.background },
-              headerShown: false,
-            }}
-          >
-            <Stack.Screen name="(app)" options={{ headerShown: false }} />
-          </Stack>
-        )}
-      </KeyboardProvider>
-    </AuthSetup>
+    <KeyboardProvider>
+      {/* WEB: <Slot/>, so the matched route stays in normal document flow and
+          Bloom's AppShell can scroll the DOCUMENT (sticky navigation, scroll
+          restoration). A web Stack wraps every scene in a viewport-clamped
+          card, which is a scroll container between the root and the shell. */}
+      {Platform.OS === 'web' ? (
+        <Slot />
+      ) : (
+        <Stack
+          screenOptions={{
+            contentStyle: { backgroundColor: colors.background },
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="(app)" options={{ headerShown: false }} />
+        </Stack>
+      )}
+    </KeyboardProvider>
   );
 }
 
@@ -140,9 +139,21 @@ function RootLayout() {
             clientId={OXY_CLIENT_ID}
             authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
           >
-            <OverlayInertBoundary testID="app-content-boundary">
-              <AppContent />
-            </OverlayInertBoundary>
+            <AuthSetup>
+              {/* Settings is Bloom's `SettingsModal`, which native draws
+                  through the portal. The OUTLET sits inside the settings
+                  provider and every data provider (`AuthSetup`): a portalled
+                  page reads its context from where the outlet is, and outside
+                  the inert boundary, which disables the app under a modal. */}
+              <PortalProvider>
+                <DashboardSettingsProvider>
+                  <OverlayInertBoundary testID="app-content-boundary">
+                    <AppContent />
+                  </OverlayInertBoundary>
+                  <PortalOutlet />
+                </DashboardSettingsProvider>
+              </PortalProvider>
+            </AuthSetup>
           </OxyProvider>
         </BloomProvider>
       </SharedUiTranslationProvider>

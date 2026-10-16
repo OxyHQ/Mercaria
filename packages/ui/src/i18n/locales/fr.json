@@ -1026,6 +1026,35 @@
       "unavailable": "Impossible de charger ce média.",
       "retry": "Réessayer",
       "more": "Charger plus de photos et vidéos"
+    },
+    "settings": {
+      "dialog": "Paramètres",
+      "nav": "Sections des paramètres",
+      "close": "Fermer les paramètres",
+      "saved": "Enregistré",
+      "back": "Retour",
+      "pages": {
+        "account": "Compte",
+        "appearance": "Apparence",
+        "language": "Langue"
+      },
+      "appearance": {
+        "mode": "Thème",
+        "system": "Système",
+        "light": "Clair",
+        "dark": "Sombre",
+        "color": "Couleur de l'application"
+      },
+      "language": {
+        "title": "Langue",
+        "description": "Enregistrée sur cet appareil.",
+        "restartRequired": "Redémarrez l'application pour appliquer la nouvelle direction de mise en page."
+      },
+      "account": {
+        "oxyAccount": "Compte Oxy",
+        "manageDescription": "Votre nom, votre photo, la sécurité et vos appareils se gèrent dans votre compte Oxy.",
+        "manage": "Gérer"
+      }
     }
   }
 }

@@ -39,20 +39,6 @@
     "account": {
       "title": "Paramètres du compte"
     },
-    "appLanguage": {
-      "title": "Langue de l'application",
-      "description": "Changez la langue d'affichage de l'application",
-      "restartRequired": "Redémarrez l'application pour appliquer la nouvelle direction de mise en page."
-    },
-    "appearance": {
-      "title": "Apparence",
-      "light": "Clair",
-      "dark": "Sombre",
-      "system": "Système"
-    },
-    "accentColor": {
-      "title": "Couleur de l'application"
-    },
     "sections": {
       "account": "Compte",
       "general": "Général",

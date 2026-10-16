@@ -872,7 +872,7 @@
     "openNavigation": "Navigation öffnen",
     "orders": "Bestellungen",
     "products": "Produkte",
-    "settings": "Einstellungen",
+    "settings": "Shop-Einstellungen",
     "mainNavigation": "Hauptnavigation",
     "collapseSidebar": "Seitenleiste einklappen",
     "expandSidebar": "Seitenleiste ausklappen",
@@ -1446,10 +1446,6 @@
         "result": "Gebühr %{fee} — Ihnen bleiben %{net}.",
         "failed": "Dieses Beispiel konnte nicht berechnet werden"
       }
-    },
-    "language": {
-      "description": "Die Sprache, in der dieses Dashboard angezeigt wird. Wird auf diesem Gerät gespeichert; sie ändert nicht, was Ihre Kunden sehen.",
-      "title": "Sprache"
     },
     "locations": {
       "createFailed": "Der Standort konnte nicht erstellt werden",

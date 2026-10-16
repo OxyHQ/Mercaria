@@ -1026,6 +1026,35 @@
       "unavailable": "No s’ha pogut carregar aquest fitxer.",
       "retry": "Torna-ho a provar",
       "more": "Carrega més fotos i vídeos"
+    },
+    "settings": {
+      "dialog": "Configuració",
+      "nav": "Seccions de la configuració",
+      "close": "Tanca la configuració",
+      "saved": "Desat",
+      "back": "Enrere",
+      "pages": {
+        "account": "Compte",
+        "appearance": "Aparença",
+        "language": "Idioma"
+      },
+      "appearance": {
+        "mode": "Tema",
+        "system": "Sistema",
+        "light": "Clar",
+        "dark": "Fosc",
+        "color": "Color de l'aplicació"
+      },
+      "language": {
+        "title": "Idioma",
+        "description": "Es desa en aquest dispositiu.",
+        "restartRequired": "Reinicia l'aplicació per aplicar la nova direcció del disseny."
+      },
+      "account": {
+        "oxyAccount": "Compte d'Oxy",
+        "manageDescription": "El nom, la foto, la seguretat i els dispositius es gestionen al teu compte d'Oxy.",
+        "manage": "Gestiona"
+      }
     }
   }
 }

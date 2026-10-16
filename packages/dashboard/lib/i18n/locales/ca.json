@@ -886,7 +886,7 @@
     "openNavigation": "Obre la navegació",
     "orders": "Comandes",
     "products": "Productes",
-    "settings": "Configuració",
+    "settings": "Configuració de la botiga",
     "mainNavigation": "Navegació principal",
     "collapseSidebar": "Redueix la barra lateral",
     "expandSidebar": "Amplia la barra lateral",
@@ -1464,10 +1464,6 @@
         "result": "Comissió %{fee}: et queden %{net}.",
         "failed": "No s'ha pogut calcular aquest exemple"
       }
-    },
-    "language": {
-      "description": "L'idioma en què es mostra aquest tauler. Es desa en aquest dispositiu; no canvia el que veuen els teus clients.",
-      "title": "Idioma"
     },
     "locations": {
       "createFailed": "No s'ha pogut crear la ubicació",

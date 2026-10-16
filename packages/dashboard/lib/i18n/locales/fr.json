@@ -886,7 +886,7 @@
     "openNavigation": "Ouvrir la navigation",
     "orders": "Commandes",
     "products": "Produits",
-    "settings": "Paramètres",
+    "settings": "Paramètres de la boutique",
     "mainNavigation": "Navigation principale",
     "collapseSidebar": "Réduire le menu latéral",
     "expandSidebar": "Déployer le menu latéral",
@@ -1464,10 +1464,6 @@
         "result": "Commission %{fee} — il vous reste %{net}.",
         "failed": "Impossible de calculer cet exemple"
       }
-    },
-    "language": {
-      "description": "La langue d’affichage de ce tableau de bord. Enregistrée sur cet appareil ; elle ne change rien à ce que voient vos clients.",
-      "title": "Langue"
     },
     "locations": {
       "createFailed": "Impossible de créer l’emplacement",

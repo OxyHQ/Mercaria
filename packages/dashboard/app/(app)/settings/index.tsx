@@ -18,7 +18,6 @@ import type { StorePermission } from '@mercaria/shared-types';
 import { Text, useColorScheme } from '@mercaria/ui';
 import { Screen } from '@/components/shell/Screen';
 import { RequireStore } from '@/components/shell/RequireStore';
-import { LanguagePicker } from '@/components/settings/LanguagePicker';
 import { useTranslation } from '@/lib/i18n';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 
@@ -136,12 +135,10 @@ export default function SettingsScreen() {
         <title>{t('settings.documentTitle')}</title>
       </Head>
       <Screen title={t('settings.title')} subtitle={t('settings.subtitle')}>
+        {/* The interface language is not here: it is the person's, not the
+            store's, and lives in the Settings dialog (account menu → Manage),
+            which needs no permission on the store. */}
         <RequireStore>{() => <SettingsList />}</RequireStore>
-        {/* Outside RequireStore on purpose: the interface language is a property
-            of the person reading the screen, not of the active store, so a
-            staff member with no permission on it must still be able to change
-            it. */}
-        <LanguagePicker />
       </Screen>
     </>
   );

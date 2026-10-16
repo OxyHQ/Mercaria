@@ -39,20 +39,6 @@
     "account": {
       "title": "アカウント設定"
     },
-    "appLanguage": {
-      "title": "アプリの言語",
-      "description": "アプリの表示言語を変更します",
-      "restartRequired": "新しいレイアウト方向を適用するには、アプリを再起動してください。"
-    },
-    "appearance": {
-      "title": "外観",
-      "light": "ライト",
-      "dark": "ダーク",
-      "system": "システムに合わせる"
-    },
-    "accentColor": {
-      "title": "アプリのカラー"
-    },
     "sections": {
       "account": "アカウント",
       "general": "一般",

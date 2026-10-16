@@ -39,20 +39,6 @@
     "account": {
       "title": "إعدادات الحساب"
     },
-    "appLanguage": {
-      "title": "لغة التطبيق",
-      "description": "غيّر لغة عرض التطبيق",
-      "restartRequired": "أعد تشغيل التطبيق لتطبيق اتجاه التخطيط الجديد."
-    },
-    "appearance": {
-      "title": "المظهر",
-      "light": "فاتح",
-      "dark": "داكن",
-      "system": "حسب النظام"
-    },
-    "accentColor": {
-      "title": "لون التطبيق"
-    },
     "sections": {
       "account": "الحساب",
       "general": "عام",

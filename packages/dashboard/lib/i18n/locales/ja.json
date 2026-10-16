@@ -872,7 +872,7 @@
     "openNavigation": "ナビゲーションを開く",
     "orders": "注文",
     "products": "商品",
-    "settings": "設定",
+    "settings": "ストア設定",
     "mainNavigation": "メインナビゲーション",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開",
@@ -1446,10 +1446,6 @@
         "result": "手数料 %{fee} — 手取りは %{net} です。",
         "failed": "その例を計算できませんでした"
       }
-    },
-    "language": {
-      "description": "このダッシュボードを表示する言語です。この端末に保存され、顧客に表示される内容は変わりません。",
-      "title": "言語"
     },
     "locations": {
       "createFailed": "ロケーションを作成できませんでした",
