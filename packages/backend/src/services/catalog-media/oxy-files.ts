@@ -137,11 +137,9 @@ function storedFile(answer: unknown): StoredOxyFile {
  * reference outbox registers it after commit; an application file whose write
  * failed is unreferenced and Oxy collects it — the outcome wanted.
  *
- * TODO(stage3-sdk): `importAppFile` / `importUserMedia` are the names in the
- * UNPUBLISHED `@oxy.so/core` 4.15.0 build (Oxy ADR 0043 "Stage 3 as built":
+ * `importAppFile` / `importUserMedia` (`@oxy.so/core` 4.18.0, Oxy ADR 0043):
  * `POST /assets/service/app/import`, and `/assets/service/user-media/import`
- * owned by the `x-owner-user-id` header). Confirm them against the published
- * package; a rename is a change to these two calls only.
+ * owned by the `x-owner-user-id` header.
  */
 export async function importOxyFileFromUrl(
   owner: OxyFileOwner,
@@ -215,10 +213,6 @@ export async function uploadOxyFile(
  *
  * No reference is registered here: the caller registers the use under the id
  * this returns, which it does not know before.
- *
- * TODO(stage3-sdk): `uploadAppFileLarge` / `LargeUploadFailedError` are the names
- * in the UNPUBLISHED `@oxy.so/core` 4.15.0 build; confirm them against the
- * published package.
  */
 export async function uploadPrivateApplicationFile(
   source: Blob,
@@ -254,9 +248,6 @@ export async function uploadPrivateApplicationFile(
  * bytes).
  *
  * No reference is registered here, for the same reason as the upload.
- *
- * TODO(stage3-sdk): `adoptAppFile` is the name in the UNPUBLISHED `@oxy.so/core`
- * 4.15.0 build; confirm it against the published package.
  */
 export async function adoptAsPrivateApplicationFile(
   fileId: string,
@@ -333,9 +324,6 @@ export type VerifiedOxyFileDelivery =
  * in constant time — Oxy's own verifier, so there is one. A
  * `webhook.challenge` is returned WITHOUT a signature check: Oxy sends it when
  * the endpoint is set, before the secret has been shown to anybody.
- *
- * TODO(stage3-sdk): `verifyFileEventSignature` is the name in the UNPUBLISHED
- * `@oxy.so/core` 4.15.0 build; confirm it against the published package.
  */
 export function verifyOxyFileDelivery(
   rawBody: Buffer,

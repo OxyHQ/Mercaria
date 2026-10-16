@@ -18,12 +18,7 @@ export async function linkMaterialTransport(
   if (!caller) throw new PublicApiError('unauthorized', 'Sign in to manage transport');
   const oxy = new OxyServices({ baseURL: process.env.OXY_API_URL || 'https://api.oxy.so' });
   oxy.session.setAccessToken(caller.accessToken);
-  // `@oxy.so/moovo-sdk` takes `@oxy.so/core` as a PEER, and the one hoisted copy
-  // resolves it at the repository root — the Expo apps' core (pinned by
-  // `@oxy.so/services`) — while the backend runs its own newer core for Oxy ADR
-  // 0041. The two `OxyServices` types differ only in private members; moovo
-  // calls nothing but `createLinkedClient`, which both expose alike.
-  const moovo = moovoForOxy(oxy as unknown as Parameters<typeof moovoForOxy>[0], {
+  const moovo = moovoForOxy(oxy, {
     apiBaseUrl: process.env.MOOVO_API_URL || 'https://api.moovo.now',
   });
   try {

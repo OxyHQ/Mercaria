@@ -675,13 +675,9 @@ says the importer downloads through `safeFetch` and that canonical images import
 under the operator's account. What is NOT done:
 
 - **Nothing has run against a live Oxy.** Every Oxy call is faked at the SDK
-  boundary in tests. The SDK names (stage 3's `importAppFile`, `importUserMedia`,
-  `verifyFileEventSignature`; stage 4b's `adoptAppFile`, `uploadAppFileLarge`,
-  `LargeUploadFailedError`) are from the unpublished ADR 0043 SDK build, core
-  4.15.0 with contracts 4.19.0 (`TODO(stage3-sdk)` in `oxy-files.ts`); npm's
-  `4.13.0` was published from Oxy's `main` without them, so
-  `packages/backend/package.json` (the one place) pins the version that ships them,
-  and `bun.lock` must be regenerated once it is on npm.
+  boundary in tests, against the released ADR 0043 SDK's types (`@oxy.so/core`
+  4.18.0, `@oxy.so/contracts` 4.22.0, `@oxy.so/services` 11.9.0 — one core
+  across the backend and the apps).
 - **Scopes:** Mercaria's application needs `files:references:write`,
   `files:app:write`, `files:app:delete` and `files:user-media:write`.
 - **Release order** (`docs/catalog-media.md`, "Levers and the release order"),

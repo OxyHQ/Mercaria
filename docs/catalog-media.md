@@ -67,13 +67,11 @@ the row that will hold the file is not written yet (see "Usage registration").
 
 **Every call to Oxy Files is in ONE module, `services/catalog-media/oxy-files.ts`**
 (import, upload, references, reconciliation, event-signature verification), so a
-name that changes upstream is a one-file change. The stage-3 helpers
-(`importAppFile`, `importUserMedia`, `verifyFileEventSignature`) and stage 4b's
-(`adoptAppFile`, `uploadAppFileLarge`, `LargeUploadFailedError`) are those of the
-unpublished ADR 0043 SDK build (`@oxy.so/core` 4.15.0) and are marked
-`TODO(stage3-sdk)` there; the
-backend's `@oxy.so/core` pin in `packages/backend/package.json` is the one place
-the release version is set.
+name that changes upstream is a one-file change. It uses `importAppFile`,
+`importUserMedia`, `verifyFileEventSignature`, `adoptAppFile`,
+`uploadAppFileLarge` and `LargeUploadFailedError` from the released ADR 0043 SDK:
+`@oxy.so/core` 4.18.0 with `@oxy.so/contracts` 4.22.0, the one version every
+package resolves (`@oxy.so/services` 11.9.0 in the apps takes core `^4.18.0`).
 
 ### Who owns the bytes
 
