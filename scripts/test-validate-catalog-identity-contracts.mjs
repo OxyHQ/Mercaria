@@ -377,7 +377,8 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // and with price alerts always mounted `ProductSavePriceAlert` lost its
     // `{ supported: false; reason }` variant. 138/2376/7929, read off the
     // guard's own output line.
-    'walked 138 contract module(s), 2376 exported type(s), 7929 property signature(s)',
+    // Referral consent adds the ReferralConsentAnswer type and no property: 2377.
+    'walked 138 contract module(s), 2377 exported type(s), 7929 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
