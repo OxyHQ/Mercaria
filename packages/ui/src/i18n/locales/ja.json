@@ -1019,6 +1019,35 @@
       "unavailable": "このメディアを読み込めませんでした。",
       "retry": "再試行",
       "more": "写真と動画をさらに読み込む"
+    },
+    "settings": {
+      "dialog": "設定",
+      "nav": "設定のセクション",
+      "close": "設定を閉じる",
+      "saved": "保存しました",
+      "back": "戻る",
+      "pages": {
+        "account": "アカウント",
+        "appearance": "外観",
+        "language": "言語"
+      },
+      "appearance": {
+        "mode": "テーマ",
+        "system": "システムに合わせる",
+        "light": "ライト",
+        "dark": "ダーク",
+        "color": "アプリのカラー"
+      },
+      "language": {
+        "title": "言語",
+        "description": "この端末に保存されます。",
+        "restartRequired": "新しいレイアウト方向を適用するには、アプリを再起動してください。"
+      },
+      "account": {
+        "oxyAccount": "Oxy アカウント",
+        "manageDescription": "名前、写真、セキュリティ、デバイスは Oxy アカウントで管理します。",
+        "manage": "管理"
+      }
     }
   }
 }

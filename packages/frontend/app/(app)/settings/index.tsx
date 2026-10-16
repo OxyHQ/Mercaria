@@ -1,28 +1,4 @@
-import { View, ScrollView } from "react-native";
-import { useEffect } from "react";
-import { useOxy } from "@oxy.so/services";
-import { useRouter } from "expo-router";
-import { useTranslation } from "@/lib/i18n";
-import { AccountSection } from "@/components/settings/account-section";
-import { SettingsHeader } from "@/components/settings/settings-header";
+import { createSettingsRoute } from "@/components/settings/SettingsRoute";
 
-export default function SettingsAccountScreen() {
-  const router = useRouter();
-  const { isAuthenticated } = useOxy();
-  const { t } = useTranslation();
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace("/(app)");
-    }
-  }, [isAuthenticated]);
-
-  return (
-    <View className="flex-1 bg-background">
-      <SettingsHeader title={t("settings.sections.account")} />
-      <ScrollView className="flex-1" contentContainerClassName="p-5 max-w-2xl">
-        <AccountSection />
-      </ScrollView>
-    </View>
-  );
-}
+// Settings is a dialog; this address opens it (see `SettingsRoute`).
+export default createSettingsRoute();

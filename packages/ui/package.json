@@ -9,6 +9,7 @@
     "./lib/place-address": "./src/lib/place-address.ts",
     "./lib/bidi": "./src/lib/bidi.ts",
     "./lib/listing-variant-selection": "./src/lib/listing-variant-selection.ts",
+    "./settings": "./src/settings/index.ts",
     "./theme/tailwind.preset": "./src/theme/tailwind.preset.js",
     "./theme/global.css": "./src/theme/global.css",
     "./theme/color-scheme.css": "./src/theme/color-scheme.css",

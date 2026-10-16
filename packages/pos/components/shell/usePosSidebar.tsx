@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo } from "react";
 import { usePathname, useRouter } from "expo-router";
 import type { SidebarProps } from "@oxy.so/bloom/sidebar";
-import { ProfileButton, openAccountDialog, useAuth } from "@oxy.so/services";
-import { toBloomIcon, useSidebarCollapse } from "@mercaria/ui";
+import { ProfileButton, openAccountDialog } from "@oxy.so/services";
+import { toBloomIcon, useSettingsDialog, useSidebarCollapse } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 import { useTranslation } from "@/lib/i18n";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
@@ -24,16 +24,14 @@ export function usePosSidebar(): SidebarProps {
   const router = useRouter();
   const pathname = usePathname();
   const { can } = useActiveStoreContext();
-  const { showBottomSheet } = useAuth();
+  const settings = useSettingsDialog();
   const { collapsed, setCollapsed } = useSidebarCollapse();
 
   const goHome = useCallback(() => router.push("/"), [router]);
 
-  // POS has no per-user settings route, so "Manage account" opens the SDK's
-  // built-in ManageAccount bottom sheet instead of navigating to an app screen.
-  const handleManage = useCallback(() => {
-    showBottomSheet?.("ManageAccount");
-  }, [showBottomSheet]);
+  // "Manage" on the account menu opens the till's Settings dialog (account,
+  // language, theme); the Oxy account sheet is one row inside it.
+  const handleManage = useCallback(() => settings.open(), [settings]);
 
   const visible = useMemo(() => NAV_ITEMS.filter((item) => can(item.permission)), [can]);
   const selected = visible.find((item) => isNavItemActive(item, pathname))?.key;

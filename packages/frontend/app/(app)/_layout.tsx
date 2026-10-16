@@ -59,10 +59,6 @@ function StorefrontLayout() {
       <Stack.Screen name="checkout" />
       <Stack.Screen name="orders/index" />
       <Stack.Screen name="orders/[id]" />
-      <Stack.Screen name="settings/index" />
-      <Stack.Screen name="settings/general" />
-      <Stack.Screen name="settings/addresses" />
-      <Stack.Screen name="settings/feedback" />
       <Stack.Screen name="notifications" />
     </Stack>
   );

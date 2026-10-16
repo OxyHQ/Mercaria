@@ -39,20 +39,6 @@
     "account": {
       "title": "Configuració del compte"
     },
-    "appLanguage": {
-      "title": "Idioma de l'aplicació",
-      "description": "Canvia l'idioma en què es mostra l'aplicació",
-      "restartRequired": "Reinicia l'aplicació per aplicar la nova direcció del disseny."
-    },
-    "appearance": {
-      "title": "Aparença",
-      "light": "Clar",
-      "dark": "Fosc",
-      "system": "Sistema"
-    },
-    "accentColor": {
-      "title": "Color de l'aplicació"
-    },
     "sections": {
       "account": "Compte",
       "general": "General",

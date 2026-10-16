@@ -39,20 +39,6 @@
     "account": {
       "title": "खाता सेटिंग्स"
     },
-    "appLanguage": {
-      "title": "ऐप की भाषा",
-      "description": "ऐप में दिखने वाली भाषा बदलें",
-      "restartRequired": "नई लेआउट दिशा लागू करने के लिए ऐप को पुनः आरंभ करें।"
-    },
-    "appearance": {
-      "title": "दिखावट",
-      "light": "लाइट",
-      "dark": "डार्क",
-      "system": "सिस्टम के अनुसार"
-    },
-    "accentColor": {
-      "title": "ऐप का रंग"
-    },
     "sections": {
       "account": "खाता",
       "general": "सामान्य",

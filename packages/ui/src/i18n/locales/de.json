@@ -1019,6 +1019,35 @@
       "unavailable": "Dieses Medium konnte nicht geladen werden.",
       "retry": "Erneut versuchen",
       "more": "Weitere Fotos und Videos laden"
+    },
+    "settings": {
+      "dialog": "Einstellungen",
+      "nav": "Einstellungsbereiche",
+      "close": "Einstellungen schließen",
+      "saved": "Gespeichert",
+      "back": "Zurück",
+      "pages": {
+        "account": "Konto",
+        "appearance": "Darstellung",
+        "language": "Sprache"
+      },
+      "appearance": {
+        "mode": "Design",
+        "system": "System",
+        "light": "Hell",
+        "dark": "Dunkel",
+        "color": "App-Farbe"
+      },
+      "language": {
+        "title": "Sprache",
+        "description": "Wird auf diesem Gerät gespeichert.",
+        "restartRequired": "Starte die App neu, um die neue Layoutrichtung anzuwenden."
+      },
+      "account": {
+        "oxyAccount": "Oxy-Konto",
+        "manageDescription": "Name, Foto, Sicherheit und Geräte verwalten Sie in Ihrem Oxy-Konto.",
+        "manage": "Verwalten"
+      }
     }
   }
 }

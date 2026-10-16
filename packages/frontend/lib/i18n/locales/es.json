@@ -39,20 +39,6 @@
     "account": {
       "title": "Ajustes de la cuenta"
     },
-    "appLanguage": {
-      "title": "Idioma de la app",
-      "description": "Cambia el idioma de la aplicación",
-      "restartRequired": "Reinicia la aplicación para aplicar la nueva dirección del diseño."
-    },
-    "appearance": {
-      "title": "Apariencia",
-      "light": "Claro",
-      "dark": "Oscuro",
-      "system": "Sistema"
-    },
-    "accentColor": {
-      "title": "Color de la app"
-    },
     "sections": {
       "account": "Cuenta",
       "general": "General",

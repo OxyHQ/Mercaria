@@ -39,20 +39,6 @@
     "account": {
       "title": "账号设置"
     },
-    "appLanguage": {
-      "title": "应用语言",
-      "description": "更改应用的显示语言",
-      "restartRequired": "请重启应用以应用新的布局方向。"
-    },
-    "appearance": {
-      "title": "外观",
-      "light": "浅色",
-      "dark": "深色",
-      "system": "跟随系统"
-    },
-    "accentColor": {
-      "title": "应用主题色"
-    },
     "sections": {
       "account": "账号",
       "general": "通用",

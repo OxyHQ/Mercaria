@@ -11,7 +11,7 @@ import type {
   ProductPageSeller,
 } from '@mercaria/shared-types';
 import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
-import { BundleContents, OfferLabelBadge, ReviewSummaryCard, Text } from '@mercaria/ui';
+import { BundleContents, OfferLabelBadge, ReviewSummaryCard, Text, useSettingsDialog } from '@mercaria/ui';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
 import { Button } from '@oxy.so/bloom/button';
@@ -72,6 +72,7 @@ import { useTranslation } from '@/lib/i18n';
 
 export default function CanonicalProductPageScreen() {
   const router = useRouter();
+  const settings = useSettingsDialog();
   const { canUsePrivateApi } = useOxy();
   const resolveImage = useImageResolver();
   const { t } = useTranslation();
@@ -462,9 +463,9 @@ export default function CanonicalProductPageScreen() {
             for it.
           */}
             <Pressable
-              accessibilityRole="link"
+              accessibilityRole="button"
               accessibilityLabel={t('product.reportProblemA11y')}
-              onPress={() => router.push('/settings/feedback')}
+              onPress={() => settings.open('feedback')}
               className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
             >
               <Text className="text-shop-buttonMedium text-text">{t('product.reportProblem')}</Text>

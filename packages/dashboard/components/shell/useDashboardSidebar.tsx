@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import type { SidebarProps } from "@oxy.so/bloom/sidebar";
 import { ProfileButton, openAccountDialog } from "@oxy.so/services";
-import { toBloomIcon, useColorScheme, useSidebarCollapse } from "@mercaria/ui";
+import { toBloomIcon, useColorScheme, useSettingsDialog, useSidebarCollapse } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { StoreSwitcher } from "./StoreSwitcher";
@@ -32,7 +32,10 @@ export function useDashboardSidebar(): SidebarProps {
   const { collapsed, setCollapsed } = useSidebarCollapse();
 
   const goHome = useCallback(() => router.push("/"), [router]);
-  const goSettings = useCallback(() => router.push("/(app)/settings"), [router]);
+  // "Manage" on the account menu is the person's own Settings dialog; the
+  // store's configuration is the "settings" row below.
+  const settings = useSettingsDialog();
+  const openSettings = useCallback(() => settings.open(), [settings]);
 
   const visible = useMemo(() => NAV_ITEMS.filter((item) => can(item.permission)), [can]);
   const selected = visible.find((item) => isNavItemActive(item, pathname))?.key;
@@ -88,12 +91,12 @@ export function useDashboardSidebar(): SidebarProps {
           <StoreSwitcher compact={railCollapsed} />
           <ProfileButton
             expanded={!railCollapsed}
-            onNavigateManage={goSettings}
+            onNavigateManage={openSettings}
             onAddAccount={() => openAccountDialog()}
           />
         </View>
       ),
     }),
-    [collapsed, colors.background, goHome, goSettings, router, selected, setCollapsed, t, visible],
+    [collapsed, colors.background, goHome, openSettings, router, selected, setCollapsed, t, visible],
   );
 }

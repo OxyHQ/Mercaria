@@ -1026,6 +1026,35 @@
       "unavailable": "No se pudo cargar este archivo.",
       "retry": "Reintentar",
       "more": "Cargar más fotos y vídeos"
+    },
+    "settings": {
+      "dialog": "Ajustes",
+      "nav": "Secciones de ajustes",
+      "close": "Cerrar ajustes",
+      "saved": "Guardado",
+      "back": "Atrás",
+      "pages": {
+        "account": "Cuenta",
+        "appearance": "Apariencia",
+        "language": "Idioma"
+      },
+      "appearance": {
+        "mode": "Tema",
+        "system": "Sistema",
+        "light": "Claro",
+        "dark": "Oscuro",
+        "color": "Color de la app"
+      },
+      "language": {
+        "title": "Idioma",
+        "description": "Se guarda en este dispositivo.",
+        "restartRequired": "Reinicia la aplicación para aplicar la nueva dirección del diseño."
+      },
+      "account": {
+        "oxyAccount": "Cuenta de Oxy",
+        "manageDescription": "Tu nombre, foto, seguridad y dispositivos se gestionan en tu cuenta de Oxy.",
+        "manage": "Gestionar"
+      }
     }
   }
 }

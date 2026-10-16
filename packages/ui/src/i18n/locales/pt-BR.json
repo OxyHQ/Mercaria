@@ -1026,6 +1026,35 @@
       "unavailable": "Não foi possível carregar esta mídia.",
       "retry": "Tentar novamente",
       "more": "Carregar mais fotos e vídeos"
+    },
+    "settings": {
+      "dialog": "Configurações",
+      "nav": "Seções das configurações",
+      "close": "Fechar configurações",
+      "saved": "Salvo",
+      "back": "Voltar",
+      "pages": {
+        "account": "Conta",
+        "appearance": "Aparência",
+        "language": "Idioma"
+      },
+      "appearance": {
+        "mode": "Tema",
+        "system": "Sistema",
+        "light": "Claro",
+        "dark": "Escuro",
+        "color": "Cor do app"
+      },
+      "language": {
+        "title": "Idioma",
+        "description": "Salvo neste dispositivo.",
+        "restartRequired": "Reinicie o aplicativo para aplicar a nova direção do layout."
+      },
+      "account": {
+        "oxyAccount": "Conta Oxy",
+        "manageDescription": "Seu nome, foto, segurança e dispositivos são gerenciados na sua conta Oxy.",
+        "manage": "Gerenciar"
+      }
     }
   }
 }
