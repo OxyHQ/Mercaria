@@ -78,7 +78,7 @@ export function MerchantCard({
     merchant.rating > 0 && merchant.reviewCount > 0 ? (
       <Rating
         {...ratingDisplay({ rating: merchant.rating, reviews: merchant.reviewCount })}
-        size="small"
+        size="sm"
         color={toneColor}
       />
     ) : null;

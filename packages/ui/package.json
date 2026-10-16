@@ -35,8 +35,7 @@
     "parse5": "8.0.1"
   },
   "peerDependencies": {
-    "@goway.to/sdk": "0.3.0",
-    "@oxy.so/bloom": ">=7.30.1 <8",
+    "@oxy.so/bloom": ">=10.0.0",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "clsx": "^2.1.1",
     "expo-blur": "~56.0.3",

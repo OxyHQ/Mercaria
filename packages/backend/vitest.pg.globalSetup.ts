@@ -39,32 +39,13 @@ import { TEST_POOL_SIZE } from './vitest.connection-budget.js';
  * max_prepared_transactions)`, so those migrations contend for a single pool
  * rather than each getting their own budget.
  *
- * Measured on `postgis/postgis:17-3.5` with
- * `scripts/lock-capacity-probe.ts` — N real migrations through the real
- * migrator entrypoint, launched together and raised until `out of shared
- * memory` — on 2026-08-21, at commit 9b18057, with a 133-entry chain costing
- * 5,986 locks per full-chain migration:
- *
- *     64 (the default)  ->   4 concurrent migrations, the 5th fails
- *     256               ->  15 concurrent migrations, the 16th fails
- *
- * At the default the failure does not arrive as a clean refusal — it lands
- * mid-migration on whichever `ALTER TABLE … ADD CONSTRAINT` happened to be
- * executing, in whichever files happened to overlap, so it reads as an
- * unrelated flake that moves between files run to run.
- *
- * ## How many the suite needs is not stated here, deliberately
- *
- * This comment used to say "the suite needs six". It needed twelve, and the
- * only reason nobody noticed is that 256 still carried it (#849). The count is
- * mechanically derivable, so `scripts/validate-lock-capacity.mjs` derives it on
- * every build and fails when the suite outgrows the MEASURED capacity —
- * projected onto the chain as it stands, since a longer chain locks more objects
- * inside one transaction and carries fewer concurrent migrations than it did.
- *
- * The 64 row above is also from the earlier measurement and has not been
- * re-taken; it is kept because nothing sizes off it — the guard refuses any
- * ceiling it holds no measurement row for, and 64 is not one of them.
+ * Re-measured on postgis/postgis:17-3.5 (PostgreSQL 17.5), 2026-10-15,
+ * commit 096013fc: the 168-entry full chain held 6,545 locks alone; at 512,
+ * 28 simultaneous migrations completed and 29 exhausted the shared table.
+ * `scripts/validate-lock-capacity.mjs` records the measurement and derives the
+ * suite requirement from its private-database files plus globalSetup. It
+ * projects capacity as the migration chain grows instead of trusting a stale
+ * test-file count. The three configured ceilings must agree.
  *
  * Asserted here rather than trusted, because the setting is `postmaster`
  * context and the two places that raise it use two different mechanisms:
@@ -76,7 +57,7 @@ import { TEST_POOL_SIZE } from './vitest.connection-budget.js';
  * compares this constant against both servers' literals, so a half-applied
  * change fails the build as well as the run.
  */
-const REQUIRED_MAX_LOCKS_PER_TRANSACTION = 256;
+const REQUIRED_MAX_LOCKS_PER_TRANSACTION = 512;
 
 /**
  * Fail before the first migration when the server cannot support the suite.

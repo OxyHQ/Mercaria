@@ -163,7 +163,7 @@ function CartGroupCard({
               reviews: vendor.reviewCount ?? 0,
               subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
             })}
-            size="small"
+            size="sm"
             style={{ marginTop: 2 }}
           />
         ) : null}

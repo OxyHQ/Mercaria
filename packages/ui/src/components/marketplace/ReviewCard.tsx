@@ -74,7 +74,7 @@ export function ReviewCard({
           variant: 'stars',
           ...(scopeLabel ? { subject: scopeLabel } : {}),
         })}
-        size="small"
+        size="sm"
         variant="stars"
         showValue={false}
         starSize={expanded ? 20 : 12}

@@ -369,7 +369,8 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // module added and no ambiguous identity name: +3 types, +16 properties.
     // ADR 0016 adds the source-scoped productGroupKey: one property.
     // CategoryNode/Tile/Pill retain Oxy IDs, plus child sample IDs: four properties.
-    'walked 137 contract module(s), 2376 exported type(s), 7934 property signature(s)',
+    // Organization adds oxyAccountId, the opaque canonical Oxy identity: one property.
+    'walked 137 contract module(s), 2376 exported type(s), 7935 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

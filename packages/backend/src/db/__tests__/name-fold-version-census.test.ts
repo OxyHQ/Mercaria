@@ -17,7 +17,7 @@
  *
  * ## Two gates, because there are two ways to write these tables
  *
- * 1. **Through the repository.** `nameFoldVersion` is REQUIRED in the four
+ * 1. **Through the repository.** `nameFoldVersion` is REQUIRED in the three
  *    insert input types, so a caller that omits it fails `tsc` — verified by
  *    mutation, and it bites even under this package's `strict: false`
  *    (`Property 'nameFoldVersion' is missing ... but required`). A property the
@@ -52,7 +52,6 @@ const SRC = new URL('../../', import.meta.url).pathname;
 const FOLDED_TABLES = [
   'canonicalProducts',
   'canonicalProductFamilies',
-  'organizations',
   'brands',
   'catalogProposals',
 ] as const;
@@ -61,7 +60,6 @@ const FOLDED_TABLES = [
 const OWNING_REPOSITORIES = [
   'db/canonical/canonicalProductRepository.ts',
   'db/canonical/productFamilyRepository.ts',
-  'db/canonical/organizationRepository.ts',
   'db/canonical/brandRepository.ts',
   'db/catalogProposals/proposalRepository.ts',
 ] as const;
@@ -193,13 +191,13 @@ describe('a name fold and its version are written together', () => {
     expect(files.length, `${String(files.length)} source files walked`).toBeGreaterThan(500);
   });
 
-  it('requires the stamp in all five owning repository input types', () => {
+  it('requires the stamp in all four owning repository input types', () => {
     // The type-system gate, asserted because deleting it makes nothing else
-    // fail. Four re-impose it on a drizzle-inferred insert type; the fifth
+    // fail. Three re-impose it on a drizzle-inferred insert type; the fourth
     // builds its values itself and stamps them there, so it is checked for the
     // stamp rather than for the type.
     const missing: string[] = [];
-    for (const repository of OWNING_REPOSITORIES.slice(0, 4)) {
+    for (const repository of OWNING_REPOSITORIES.slice(0, 3)) {
       const text = files.find((file) => file.path === repository)?.text;
       expect(text, `${repository} is gone`).toBeDefined();
       if (text === undefined) continue;
@@ -207,7 +205,7 @@ describe('a name fold and its version are written together', () => {
     }
     expect(missing, `no required-stamp type: ${missing.join(', ')}`).toEqual([]);
 
-    const proposals = files.find((file) => file.path === OWNING_REPOSITORIES[4])?.text ?? '';
+    const proposals = files.find((file) => file.path === OWNING_REPOSITORIES[3])?.text ?? '';
     expect(proposals, 'proposalRepository stopped stamping').toContain('nameFoldVersion');
   });
 

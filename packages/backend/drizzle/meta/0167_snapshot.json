@@ -1,6 +1,6 @@
 {
-  "id": "cdb90484-9663-49da-b007-04a4c0fe113c",
-  "prevId": "a5b7c78a-7b43-4834-bb75-0bc3034584d6",
+  "id": "c1a14586-10ba-407d-8ae3-657aa0ed3780",
+  "prevId": "8b344cbb-920d-4171-8e71-64c5fcc76cc6",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2533,13 +2533,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'image'"
-        },
         "alt": {
           "name": "alt",
           "type": "text",
@@ -2623,15 +2616,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "listing_images_id_listing_kind_key": {
-          "name": "listing_images_id_listing_kind_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "listing_id",
-            "kind"
-          ]
-        },
         "listing_images_id_listing_id_key": {
           "name": "listing_images_id_listing_id_key",
           "nullsNotDistinct": false,
@@ -2642,12 +2626,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "listing_images_kind_check": {
-          "name": "listing_images_kind_check",
-          "value": "\"listing_images\".\"kind\" in ('image', 'video')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.listing_options": {
@@ -3499,13 +3478,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "media_kind": {
-          "name": "media_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'image'"
-        },
         "position": {
           "name": "position",
           "type": "integer",
@@ -3595,23 +3567,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "product_variant_images_media_kind_fk": {
-          "name": "product_variant_images_media_kind_fk",
-          "tableFrom": "product_variant_images",
-          "tableTo": "listing_images",
-          "columnsFrom": [
-            "listing_image_id",
-            "listing_id",
-            "media_kind"
-          ],
-          "columnsTo": [
-            "id",
-            "listing_id",
-            "kind"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "product_variant_images_variant_fk": {
           "name": "product_variant_images_variant_fk",
           "tableFrom": "product_variant_images",
@@ -3655,12 +3610,7 @@
         }
       },
       "policies": {},
-      "checkConstraints": {
-        "product_variant_images_image_only_check": {
-          "name": "product_variant_images_image_only_check",
-          "value": "\"product_variant_images\".\"media_kind\" = 'image'"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.product_variant_option_values": {
@@ -18598,6 +18548,123 @@
       },
       "isRLSEnabled": false
     },
+    "public.organization_identity_archives": {
+      "name": "organization_identity_archives",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "legal_name": {
+          "name": "legal_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "website_url": {
+          "name": "website_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verified_domains": {
+          "name": "verified_domains",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "country_code": {
+          "name": "country_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "logo_file_id": {
+          "name": "logo_file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "logo_source_record_id": {
+          "name": "logo_source_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "date_trunc('milliseconds', now())"
+        }
+      },
+      "indexes": {
+        "organization_identity_archives_organization_id_key": {
+          "name": "organization_identity_archives_organization_id_key",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "organization_identity_archives_organization_id_organizations_id_fk": {
+          "name": "organization_identity_archives_organization_id_organizations_id_fk",
+          "tableFrom": "organization_identity_archives",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "organization_identity_archives_logo_source_record_id_source_records_id_fk": {
+          "name": "organization_identity_archives_logo_source_record_id_source_records_id_fk",
+          "tableFrom": "organization_identity_archives",
+          "tableTo": "source_records",
+          "columnsFrom": [
+            "logo_source_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.organization_source_links": {
       "name": "organization_source_links",
       "schema": "",
@@ -18762,67 +18829,17 @@
           "primaryKey": true,
           "notNull": true
         },
+        "oxy_account_id": {
+          "name": "oxy_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "slug": {
           "name": "slug",
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "normalized_name": {
-          "name": "normalized_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name_fold_version": {
-          "name": "name_fold_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "legal_name": {
-          "name": "legal_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "website_url": {
-          "name": "website_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "verified_domains": {
-          "name": "verified_domains",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
-        },
-        "country_code": {
-          "name": "country_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "logo_file_id": {
-          "name": "logo_file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "logo_source_record_id": {
-          "name": "logo_source_record_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "merged_into_id": {
           "name": "merged_into_id",
@@ -18876,16 +18893,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "date_trunc('milliseconds', now())"
-        },
-        "search_vector": {
-          "name": "search_vector",
-          "type": "tsvector",
-          "primaryKey": false,
-          "notNull": false,
-          "generated": {
-            "as": "to_tsvector('simple', coalesce(\"organizations\".\"name\", ''))",
-            "type": "stored"
-          }
         }
       },
       "indexes": {
@@ -18904,11 +18911,11 @@
           "method": "btree",
           "with": {}
         },
-        "organizations_normalized_name_idx": {
-          "name": "organizations_normalized_name_idx",
+        "organizations_oxy_account_id_idx": {
+          "name": "organizations_oxy_account_id_idx",
           "columns": [
             {
-              "expression": "normalized_name",
+              "expression": "oxy_account_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -18918,68 +18925,9 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "organizations_normalized_name_trgm_idx": {
-          "name": "organizations_normalized_name_trgm_idx",
-          "columns": [
-            {
-              "expression": "normalized_name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "gin_trgm_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
-        },
-        "organizations_verified_domains_idx": {
-          "name": "organizations_verified_domains_idx",
-          "columns": [
-            {
-              "expression": "verified_domains",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
-        },
-        "organizations_search_vector_idx": {
-          "name": "organizations_search_vector_idx",
-          "columns": [
-            {
-              "expression": "search_vector",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
         }
       },
       "foreignKeys": {
-        "organizations_logo_source_record_id_source_records_id_fk": {
-          "name": "organizations_logo_source_record_id_source_records_id_fk",
-          "tableFrom": "organizations",
-          "tableTo": "source_records",
-          "columnsFrom": [
-            "logo_source_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "organizations_merged_into_id_organizations_id_fk": {
           "name": "organizations_merged_into_id_organizations_id_fk",
           "tableFrom": "organizations",
@@ -19010,9 +18958,9 @@
           "name": "organizations_merged_into_self_check",
           "value": "\"organizations\".\"merged_into_id\" is null or \"organizations\".\"merged_into_id\" <> \"organizations\".\"id\""
         },
-        "organizations_country_code_check": {
-          "name": "organizations_country_code_check",
-          "value": "\"organizations\".\"country_code\" is null or \"organizations\".\"country_code\" ~ '^[A-Z]{2}$'"
+        "organizations_oxy_account_id_nonempty_check": {
+          "name": "organizations_oxy_account_id_nonempty_check",
+          "value": "length(btrim(\"organizations\".\"oxy_account_id\")) > 0"
         }
       },
       "isRLSEnabled": false
@@ -23010,13 +22958,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'image'"
-        },
         "source_url": {
           "name": "source_url",
           "type": "text",
@@ -23244,14 +23185,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "canonical_images_kind_check": {
-          "name": "canonical_images_kind_check",
-          "value": "\"canonical_images\".\"kind\" in ('image', 'video')"
-        },
-        "canonical_images_video_grain_check": {
-          "name": "canonical_images_video_grain_check",
-          "value": "\"canonical_images\".\"kind\" = 'image' or (\"canonical_images\".\"product_id\" is not null and \"canonical_images\".\"file_id\" is not null)"
-        },
         "canonical_images_status_check": {
           "name": "canonical_images_status_check",
           "value": "\"canonical_images\".\"status\" in ('active', 'suppressed')"
@@ -28173,133 +28106,6 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.review_media": {
-      "name": "review_media",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "review_id": {
-          "name": "review_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "file_id": {
-          "name": "file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "date_trunc('milliseconds', now())"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "date_trunc('milliseconds', now())"
-        }
-      },
-      "indexes": {
-        "review_media_review_id_position_key": {
-          "name": "review_media_review_id_position_key",
-          "columns": [
-            {
-              "expression": "review_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "position",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "review_media_review_id_file_id_key": {
-          "name": "review_media_review_id_file_id_key",
-          "columns": [
-            {
-              "expression": "review_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "file_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "review_media_review_id_reviews_id_fk": {
-          "name": "review_media_review_id_reviews_id_fk",
-          "tableFrom": "review_media",
-          "tableTo": "reviews",
-          "columnsFrom": [
-            "review_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "review_media_kind_check": {
-          "name": "review_media_kind_check",
-          "value": "\"review_media\".\"kind\" in ('image', 'video')"
-        },
-        "review_media_file_id_check": {
-          "name": "review_media_file_id_check",
-          "value": "\"review_media\".\"file_id\" ~ '^[A-Za-z0-9_-]+$'"
-        },
-        "review_media_position_check": {
-          "name": "review_media_position_check",
-          "value": "\"review_media\".\"position\" >= 0 and \"review_media\".\"position\" < 10"
-        }
-      },
       "isRLSEnabled": false
     },
     "public.review_target_migrations": {

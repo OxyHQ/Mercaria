@@ -19,7 +19,6 @@ import {
   brandAliases,
   brands,
   brandSourceLinks,
-  organizationAliases,
   organizations,
   organizationSourceLinks,
 } from '../../db/schema/organizations.js';
@@ -59,14 +58,14 @@ export interface CuratedEntityDefinition {
    */
   readonly slugColumn: AnyPgColumn | null;
   /** The display name a `former_name` alias is minted from. Nullable on a variant. */
-  readonly nameColumn: AnyPgColumn;
+  readonly nameColumn: AnyPgColumn | null;
   readonly statusColumn: AnyPgColumn;
   /** The tombstone pointer — set exactly when `status = 'merged'`, by CHECK. */
   readonly mergedIntoColumn: AnyPgColumn;
-  readonly aliasTable: AnyPgTable;
-  readonly aliasEntityColumn: AnyPgColumn;
+  readonly aliasTable: AnyPgTable | null;
+  readonly aliasEntityColumn: AnyPgColumn | null;
   /** The alias's own display column, which `aliasColumns()` normalizes from. */
-  readonly aliasValueColumn: AnyPgColumn;
+  readonly aliasValueColumn: AnyPgColumn | null;
   readonly sourceLinkTable: AnyPgTable;
   readonly sourceLinkEntityColumn: AnyPgColumn;
   readonly sourceLinkRecordColumn: AnyPgColumn;
@@ -99,12 +98,12 @@ export const CURATED_ENTITIES: Readonly<Record<MergeableEntityType, CuratedEntit
     table: organizations,
     idColumn: organizations.id,
     slugColumn: organizations.slug,
-    nameColumn: organizations.name,
+    nameColumn: null, // Oxy owns current and former company names.
     statusColumn: organizations.status,
     mergedIntoColumn: organizations.mergedIntoId,
-    aliasTable: organizationAliases,
-    aliasEntityColumn: organizationAliases.organizationId,
-    aliasValueColumn: organizationAliases.alias,
+    aliasTable: null,
+    aliasEntityColumn: null,
+    aliasValueColumn: null,
     sourceLinkTable: organizationSourceLinks,
     sourceLinkEntityColumn: organizationSourceLinks.organizationId,
     sourceLinkRecordColumn: organizationSourceLinks.sourceRecordId,

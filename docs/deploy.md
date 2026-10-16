@@ -49,6 +49,76 @@ calls `.github/scripts/require-ci-success.mjs`. That asks the Actions API what
 `ci.yml` concluded **for this exact commit** and refuses unless every job it
 defines is present and `success`.
 
+### Since 2026-10: triggered by CI's completion, and the gate never waits
+
+Until October 2026 each deploy triggered on the `push` and its `gate` POLLED
+for CI for up to 30 minutes, holding a runner throughout — four idle runners
+per merge against the org's FREE-plan limit of **20 concurrent jobs**, where
+jobs already waited longer in queue than they ran. It also failed on its own
+terms: on 2026-10-15 the `Deploy to AWS` and `Deploy POS` gates for `b14ebee3`
+timed out after 30 minutes while that commit's CI sat queued and then
+SUCCEEDED, leaving a green commit unshipped.
+
+All four now trigger on `workflow_run` of `CI` (`types: [completed]`,
+`branches: [main]`) plus `workflow_dispatch`. What each run does:
+
+1. **The `gate` job's `if:` admits any `ci.yml` run for a `push` to THIS
+   repository's `main`;** anything else skips every job (`skipped`, ignored
+   by coverage) in its own `-noop-<run id>` concurrency group.
+2. **`resolve-deploy-scope.mjs` resolves the TARGET at run time: the newest
+   CI-green commit on `main`.** Not the commit whose CI completion fired the
+   run, and not "the tip or nothing". Walking `main` from the tip:
+   - a commit with **no `ci.yml` run** is passed over. A merge made with
+     `GITHUB_TOKEN` (`automerge-first-party.yml`'s dependabot merges) starts
+     no workflow at all, so it never gets one, and a tip-only rule strands the
+     green commit beneath it forever — the failure Alia hit. (#1077 shipped
+     that tip-only rule for a few hours; this replaced it.)
+   - a commit whose CI is **queued or in progress HOLDS** the run: that CI's
+     completion fires this workflow again.
+   - a commit whose CI **failed** is passed over and reported: the newest green
+     commit beneath it still ships, and the run's `tip` job goes red, so the
+     red commit stays a red deploy run for `deploy-coverage.yml`, as a refusing
+     gate was before.
+
+   It then rebuilds the old `paths:`/`paths-ignore:` from a diff of the target
+   against the last commit a run of this workflow actually SHIPPED — read from
+   the shipping job's `Shipped commit <sha>` step (a `workflow_run` run's own
+   `head_sha` is `main`'s tip when the event fired, not what it built:
+   measured, a coverage run fired by the deploy of `246ecab3` carried
+   `ebef16a9`), and for the API only from a run whose `Outcome: rollout
+   performed` ran. Never the previous push, so a skip can never hide a failed,
+   evicted, cancelled or hollow deploy. Every doubt (no base, an API error, a
+   diverged history, a truncated file list) answers DEPLOY; the only skips are
+   a complete diff that touches nothing in scope and an identical tree. A
+   dispatch ships exactly the commit it names.
+3. **`require-ci-success.mjs --sha=<target> --no-wait`** asks once — every
+   required job present and `success` on the newest attempt for the target —
+   so nothing ships whose CI did not pass, whatever fired the run. On a
+   dispatch whose CI has not concluded it refuses instead of waiting.
+4. **The shipping job** runs on `needs.gate.outputs.deploy == 'true'` alone and
+   checks out the target. There is deliberately no
+   `workflow_run.conclusion == 'success'` clause: the run fired by a RED
+   commit's CI must still ship the green one beneath it.
+
+Two consequences that are deliberate:
+
+- **Concurrency.** Settings and groups are unchanged, and every run for a push
+  to `main` shares the real group. CI completes out of order (4 of the last
+  100 pushes), so arrival order is no longer push order — but because each run
+  resolves the newest green commit WHEN IT EXECUTES, whichever run survives an
+  eviction (API) or a cancellation (web) ships at least what the displaced one
+  would have. `deployGating.test.ts` asserts the API's group with the noop
+  suffix removed is exactly `deploy-aws-${{ github.ref }}`.
+- **A HELD run is green.** For the API it says so (`Outcome: held — …`), and
+  `deploy-coverage.yml` defers on it like a run in flight; for the web deploys
+  the newest run reads green until the newer commit's run lands.
+
+The cost moved rather than vanished: every green CI on `main` now starts all
+four workflows, and a commit that reaches none of them costs four ~20-second
+gate jobs where it used to cost nothing. A commit that reaches them no longer
+parks four runners for the length of CI, and the three web deploys install
+only `wrangler` in their deploy job instead of a second full `bun install`.
+
 Until #518 the API was the exception: it had a `test` job of its own, and that
 job was a partial copy of `ci.yml` rather than CI. It ran **4 steps where
 `ci.yml`'s `Lint & Test` ran 21** — no `validate:*` guard and no typecheck at
@@ -70,7 +140,13 @@ transpiles rather than typechecks, so a backend type error was deployable.
 
 The three web workflows have no test job to `needs:`, so the two obvious repairs
 are a `workflow_run` trigger or a second copy of the suite inside each workflow.
-Both were rejected:
+Both were rejected in August 2026; the first was ADOPTED in October 2026 (the
+section above), once the runner occupancy of the polling gate was measured as
+the bigger risk. Its two objections are answered there: the narrowing is
+rebuilt from a diff anchored on the last shipped commit and fails toward
+deploying, and the untestable-before-merge part is pinned by
+`deployGating.test.ts` and was verified on the first runs after merge. The
+original reasoning, kept because the second objection still stands:
 
 - **`workflow_run` carries no `paths:`.** The narrowing that stops a docs-only
   change redeploying three apps would have to be rebuilt out of a diff, and the
@@ -116,6 +192,11 @@ proves the app BUNDLES — a missing import, a syntax error — and says nothing
 about the typechecks, the ten guards or the three app test runners.
 
 ### What to do when a gate times out — and the two wrong repairs
+
+> Historical since October 2026: the gate no longer waits, so it cannot time
+> out on a queue. The section is kept because its measurements are why the
+> trigger changed, and because "raise the wait" and "drop the gate" remain the
+> two wrong repairs for any polling gate.
 
 **A gate timing out is a symptom of runner occupancy, not of an impatient
 budget. The two wrong repairs are raising the wait (it hides the queue and
@@ -212,10 +293,14 @@ the condition this check asserts.
 
 **Three things about the implementation that are load-bearing:**
 
-- **It anchors on the newest RUN, never the newest COMMIT.** All four deploys
-  carry `paths:`/`paths-ignore:`, so a docs-only tip legitimately has no run —
-  anchoring on the commit would mean rebuilding those filters out of a diff, the
-  untestable reconstruction §"Why the gate reads CI's result" already rejected.
+- **It anchors on the newest RUN, never the newest COMMIT.** Since October
+  2026 every green CI on `main` produces a run of each deploy; one the commit
+  does not reach ships nothing and says so (a green run for the web deploys;
+  for the API the gate's `Outcome: nothing to ship — …` step, read as
+  `current`, which is truthful because its scope base is the last PERFORMED
+  rollout). A held run defers. A run that is not for a push to `main`
+  concludes `skipped` and is ignored. A run with a red commit above its target
+  is `failure` and still counts.
 - **Coverage is ordered by `run_number`, never by completion time.** An evicted
   run completes in seconds while the run it queued behind takes fifteen minutes,
   so a completion-order sort puts the success ABOVE cancellations it did not
@@ -239,7 +324,8 @@ One successful deploy applies everything pending.
 **What it does NOT claim.** It does not fire for an eviction whose evictor
 succeeded, because nothing was lost — the five-minute window in #574's own
 timeline is a consistent older state, not a torn one, and removing it needs one
-of the rejected options. The guarantee is carried by the hourly `schedule`; the
+of the rejected options. The guarantee is carried by the `schedule` (every six
+hours since October 2026; hourly before); the
 `workflow_run` trigger only makes the answer fast, so nothing rests on whether
 GitHub emits an event for a run cancelled by concurrency.
 

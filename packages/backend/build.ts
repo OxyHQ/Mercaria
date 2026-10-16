@@ -49,6 +49,7 @@ await esbuild.build({
     'src/db/migrate.ts',
     'src/register-capability-catalog.ts',
     'src/scripts/provision-taxonomy.ts',
+    'src/scripts/backfill-central-organizations.ts',
   ],
   bundle: true,
   platform: 'node',

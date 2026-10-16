@@ -50,7 +50,7 @@ import {
   listEvidence,
   listReviews,
 } from '../commerce-graph/relationshipRepository.js';
-import { createOrganization } from '../../services/canonical/organization.service.js';
+import { insertOrganization } from '../canonical/organizationRepository.js';
 import { createBrand } from '../../services/canonical/brand.service.js';
 import { createMerchant } from '../../services/commerce-graph/merchant.service.js';
 import { createProductFamily } from '../../services/canonical/product-family.service.js';
@@ -184,7 +184,7 @@ async function mintProductFamily(name: string): Promise<string> {
 }
 
 async function mintOrganization(name: string): Promise<string> {
-  const row = await createOrganization({ name });
+  const row = await insertOrganization(db, { oxyAccountId: `oxy-${name}`, slug: name });
   createdOrganizationIds.push(row.id);
   return row.id;
 }

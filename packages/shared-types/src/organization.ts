@@ -64,7 +64,10 @@ export interface CanonicalAlias {
 
 /** The public read projection of an organization. */
 export interface Organization {
+  /** Historical Mercaria commerce graph reference, not company identity. */
   id: string;
+  /** Canonical company identity, resolved through Oxy. */
+  oxyAccountId: string;
   /** URL-safe canonical handle; unique forever, never reused after a merge. */
   slug: string;
   status: CanonicalEntityStatus;

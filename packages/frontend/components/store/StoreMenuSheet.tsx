@@ -322,7 +322,7 @@ function StoreReviewCard({
         <Rating
           {...ratingDisplay({ rating: review.rating, variant: 'stars' })}
           variant="stars"
-          size="small"
+          size="sm"
           color={toneColor}
           starColor={STAR_COLOR}
           emptyStarColor={`${toneColor}${EMPTY_STAR_ALPHA}`}
@@ -583,7 +583,7 @@ function MenuPage({
               rating: store.rating,
               reviews: store.reviewCount,
             })}
-            size="small"
+            size="sm"
             color={toneColor}
             style={{ marginTop: 4 }}
           />

@@ -1,6 +1,48 @@
 version: 2
 updates:
+  - package-ecosystem: bun
+    directory: /
+    # Weekly, on Wednesday: a daily bump PR is a full CI run (six jobs) every
+    # day against an org-wide limit of 20 concurrent jobs, and each Oxy repo
+    # takes a different weekday so the fleet's bump PRs do not land at once.
+    # Security updates are not governed by this schedule and still open at once.
+    schedule:
+      interval: weekly
+      day: wednesday
+    open-pull-requests-limit: 5
+    allow:
+      - dependency-name: "@oxy.so/*"
+      - dependency-name: "@alia.onl/*"
+      - dependency-name: "@clarity.surf/*"
+    # First-party SDKs only; third-party updates stay manual. The group
+    # auto-merges via .github/workflows/automerge-first-party.yml.
+    #
+    # Every OTHER minor/patch update the `allow` list admits lands in ONE more
+    # PR rather than one each. Listed after `oxy` so a first-party package keeps
+    # matching `oxy` (Dependabot takes the first group that matches), which is
+    # the branch name automerge-first-party.yml keys on.
+    groups:
+      oxy:
+        patterns:
+          - "@oxy.so/*"
+          - "@alia.onl/*"
+          - "@clarity.surf/*"
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    # One PR per week for every minor/patch action bump, not one per action.
+    groups:
+      actions-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

@@ -80,7 +80,7 @@ interface OutcomeStep {
   conclusion?: string | null;
 }
 interface OutcomeVerdict {
-  state: 'shipped' | 'hollow' | 'unstated' | 'contradictory' | 'unreadable';
+  state: 'shipped' | 'current' | 'held' | 'hollow' | 'unstated' | 'contradictory' | 'unreadable';
   jobCount: number;
   stepCount: number;
   halves: { half: string; absentMeans: string; verdict: string }[];
@@ -96,6 +96,8 @@ interface OutcomeVerdict {
 const coverage: {
   DEPLOY_WORKFLOWS: readonly WatchedWorkflow[];
   DEPLOY_OUTCOME_STEPS: readonly OutcomeHalfSteps[];
+  DEPLOY_NOOP_STEP: string;
+  DEPLOY_HELD_STEP: string;
   POST_PHASE_MARKER: string;
   MIGRATIONS_PATH: string;
   DEFAULT_STALE_RUN_MS: number;
@@ -133,7 +135,7 @@ interface WorkflowFile {
   name?: string;
   on?: {
     push?: { branches?: string[] };
-    workflow_run?: { workflows?: string[]; types?: string[] };
+    workflow_run?: { workflows?: string[]; types?: string[]; branches?: string[] };
     schedule?: { cron: string }[];
     workflow_dispatch?: unknown;
   };
@@ -169,10 +171,18 @@ const CREDENTIAL_FILES = readdirSync(WORKFLOWS_DIR)
   )
   .sort();
 
-/** Of those, the ones a MERGE sets off — the population "unshipped" is about. */
-const DEPLOYING_FILES = CREDENTIAL_FILES.filter((file) =>
-  (readWorkflow(file).on?.push?.branches ?? []).includes('main'),
-).sort();
+/**
+ * Of those, the ones a MERGE sets off — the population "unshipped" is about.
+ * A merge sets a deploy off directly (`push` to `main`) or through `ci.yml`
+ * concluding on `main` (`workflow_run`), which is how all four trigger now.
+ */
+const DEPLOYING_FILES = CREDENTIAL_FILES.filter((file) => {
+  const on = readWorkflow(file).on;
+  return (
+    (on?.push?.branches ?? []).includes('main') ||
+    (on?.workflow_run?.branches ?? []).includes('main')
+  );
+}).sort();
 
 /**
  * Credential-holding workflows a merge does NOT set off.
@@ -405,6 +415,40 @@ describe('judgeCoverage refuses the shapes that read as "everything shipped"', (
       '0f93aecd',
     ]);
     expect(verdict.lastSuccess?.head_sha).toBe('ae3ed27e');
+  });
+
+  it('ignores a SUPERSEDED run, which skipped every job and claimed nothing', () => {
+    // Since `workflow_run`: CI for `bbbbbbbb` finished after `cccccccc` merged,
+    // so that deploy run carries `cccccccc` as its head and skips every job.
+    // The answer belongs to `cccccccc`'s own run, which succeeded.
+    const covered = coverage.judgeCoverage({
+      runs: [
+        done(1, 'aaaaaaaa', 'success', 0),
+        done(2, 'cccccccc', 'success', 5),
+        done(3, 'cccccccc', 'skipped', 6),
+      ],
+      now: minutes(30),
+    });
+    expect(covered.state).toBe('covered');
+    expect(covered.lastSuccess?.run_number).toBe(2);
+
+    // And it must not HIDE a real failure behind it: a `failure` (a gate that
+    // refused a red CI) still counts, skipped run or not.
+    const failed = coverage.judgeCoverage({
+      runs: [
+        done(1, 'aaaaaaaa', 'success', 0),
+        done(2, 'cccccccc', 'failure', 5),
+        done(3, 'cccccccc', 'skipped', 6),
+      ],
+      now: minutes(30),
+    });
+    expect(failed.state).toBe('uncovered');
+    expect(failed.uncovered.map((run) => run.run_number)).toEqual([2]);
+
+    // Only skipped runs reads as no runs at all, never as covered.
+    expect(
+      coverage.judgeCoverage({ runs: [done(1, 'aaaaaaaa', 'skipped', 0)], now: minutes(30) }).state,
+    ).toBe('no_runs');
   });
 
   it('orders coverage by run number, not by when a run FINISHED', () => {
@@ -735,6 +779,53 @@ describe('judgeDeployOutcome refuses every green it did not read a statement fro
       jobs: [{ steps: [{ name: 'Deploy to ECS (rolling)', conclusion: 'success' }] }],
     });
     expect(verdict.state).toBe('unstated');
+  });
+
+  it('reads a lone no-op statement as CURRENT, and nothing else as current', () => {
+    // A docs-only merge since `workflow_run`: the gate states it had nothing to
+    // ship and the deploy job is skipped (zero steps).
+    const noop = [
+      {
+        steps: [
+          { name: 'Require a green CI run for this commit', conclusion: 'success' },
+          { name: coverage.DEPLOY_NOOP_STEP, conclusion: 'success' },
+        ],
+      },
+      { steps: [] },
+    ];
+    expect(coverage.judgeDeployOutcome({ jobs: noop }).state).toBe('current');
+
+    // Declared but SKIPPED (the scope said deploy) is no statement at all.
+    const skipped = [{ steps: [{ name: coverage.DEPLOY_NOOP_STEP, conclusion: 'skipped' }] }];
+    expect(coverage.judgeDeployOutcome({ jobs: skipped }).state).toBe('unstated');
+
+    // Beside a real half it is a contradiction, never a pass.
+    const both = runWith('negative', 'negative');
+    both.push({ steps: [{ name: coverage.DEPLOY_NOOP_STEP, conclusion: 'success' }] });
+    expect(coverage.judgeDeployOutcome({ jobs: both }).state).toBe('contradictory');
+  });
+
+  it('reads a lone HELD statement as held, and never beside anything else', () => {
+    const held = [{ steps: [{ name: coverage.DEPLOY_HELD_STEP, conclusion: 'success' }] }];
+    expect(coverage.judgeDeployOutcome({ jobs: held }).state).toBe('held');
+    const both = [
+      {
+        steps: [
+          { name: coverage.DEPLOY_HELD_STEP, conclusion: 'success' },
+          { name: coverage.DEPLOY_NOOP_STEP, conclusion: 'success' },
+        ],
+      },
+    ];
+    expect(coverage.judgeDeployOutcome({ jobs: both }).state).toBe('contradictory');
+  });
+
+  it('the API deploy declares the no-op and held statements by the names the check reads', () => {
+    const names = declaredStepNames('deploy-aws.yml');
+    for (const statement of [coverage.DEPLOY_NOOP_STEP, coverage.DEPLOY_HELD_STEP]) {
+      expect(names.filter((name) => name === statement)).toHaveLength(1);
+      // Not one of the pair's names, or a statement could satisfy a half.
+      expect(OUTCOME_STEP_NAMES).not.toContain(statement);
+    }
   });
 
   it('refuses a half-stated run', () => {

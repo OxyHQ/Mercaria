@@ -17,8 +17,10 @@ name: Refresh build cache
 # layers it writes are the ones the deploy looks up.
 
 on:
+  # Wednesday, not Monday: ten Oxy repositories ran their image refresh at
+  # 04:17 every Monday, all at once, against one org-wide limit of 20 jobs.
   schedule:
-    - cron: '17 4 * * 1'
+    - cron: '17 4 * * 3'
   workflow_dispatch:
 
 permissions:

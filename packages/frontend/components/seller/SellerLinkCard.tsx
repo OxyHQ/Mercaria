@@ -93,7 +93,7 @@ export function SellerLinkCard({ seller }: { seller: Seller }) {
               reviews: seller.reviewCount,
               subject: t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller),
             })}
-            size="small"
+            size="sm"
           />
           <Text className="text-shop-bodySmall text-text-secondary">
             {t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller)}

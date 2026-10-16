@@ -224,7 +224,7 @@ function StoreLinkCard({ store }: { store: StoreSummary }) {
               rating: store.rating,
               reviews: store.reviewCount,
             })}
-            size="small"
+            size="sm"
             color={toneColor}
             style={{ marginTop: 2 }}
           />

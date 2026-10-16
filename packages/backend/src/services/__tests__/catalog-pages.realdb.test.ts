@@ -33,9 +33,10 @@
  * asserts a global count.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
+import { oxyClient } from '../../middleware/auth.js';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import {
   brands,
@@ -430,9 +431,8 @@ describe('acceptance 4 — a lapsed or revoked claim stops producing a badge', (
     const [organization] = await db
       .insert(organizations)
       .values({
-        name: `Pages Holdings ${RUN}`,
+        oxyAccountId: `oxy-pages-holdings-${RUN}`,
         slug: `pages-holdings-${RUN}`,
-        normalizedName: `pages holdings ${RUN}`,
       })
       .returning({ id: organizations.id });
     if (!organization) throw new Error('the organization was not written');
@@ -444,7 +444,33 @@ describe('acceptance 4 — a lapsed or revoked claim stops producing a badge', (
       organizationId: organization.id,
     });
 
+    const directory = vi.spyOn(oxyClient.organizations, 'batch').mockResolvedValue({
+      items: [
+        {
+          requestedAccountId: `oxy-pages-holdings-${RUN}`,
+          organization: {
+            accountId: `oxy-pages-holdings-${RUN}`,
+            name: `Pages Holdings ${RUN}`,
+            organizationType: 'business',
+            username: null,
+            avatar: null,
+            legalName: null,
+            websiteUrl: null,
+            countryCode: null,
+            aliases: [],
+            verifiedDomains: [],
+            status: 'active',
+            claimStatus: 'unclaimed',
+            mergedIntoAccountId: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      ],
+      missingIds: [],
+    });
     const owned = await readBrandPage({ handle: brandId, offerContext: 'included' }, db);
+    directory.mockRestore();
     expect(owned?.owningOrganization?.organizationId).toBe(organization.id);
     expect(owned?.owningOrganization?.evidence).toBe('verified_relationship');
     // The JSON-LD may assert a legal entity ONLY from that verified claim.

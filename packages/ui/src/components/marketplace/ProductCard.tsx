@@ -196,7 +196,7 @@ export function ProductCard({
                   rating: product.rating,
                   reviews: product.reviewCount,
                 })}
-                size="small"
+                size="sm"
               />
 
               {/* Price row. The primary FAIR figure (plus the optional dual-currency
