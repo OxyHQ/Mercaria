@@ -906,3 +906,4 @@ export * from './media';
 
 export * from './materials';
 export * from './catalog-media';
+export * from './supervised-shopping';

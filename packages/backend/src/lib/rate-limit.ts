@@ -221,6 +221,8 @@ function scopeStore(scope: RateLimitScope): RedisStore | undefined {
   });
 }
 
+const RATE_LIMITED_MESSAGE = 'Too many requests, please try again later.';
+
 /**
  * The body of EVERY 429 a limiter here answers with — `general` above every
  * route, each scope, and the actor-keyed ones — in `~/Oxy/docs/api-conventions.md`'s
@@ -236,7 +238,7 @@ export function rateLimitedBody(_req: Request, res: Response): MercariaErrorBody
   const retryAfterSeconds = Number(res.getHeader('Retry-After'));
   return mercariaErrorBody(
     'rate_limited',
-    'Too many requests, please try again later.',
+    RATE_LIMITED_MESSAGE,
     Number.isSafeInteger(retryAfterSeconds) && retryAfterSeconds >= 0
       ? { retryAfterSeconds }
       : undefined,
@@ -252,13 +254,12 @@ export function makeRateLimiter(
   options: Omit<OxyRateLimitOptions, 'store' | 'message'> = {},
 ): RequestHandler {
   const store = scopeStore(scope);
+  // `createOxyRateLimit` answers the convention's 429 body itself,
+  // `{ error: { code: 'rate_limited', message, details: { retryAfterSeconds } } }`,
+  // with the same message `rateLimitedBody` states.
   return createOxyRateLimit(oxyClient, {
     ...options,
-    // `OxyRateLimitOptions.message` is typed `string`, but `createOxyRateLimit`
-    // hands it to express-rate-limit unchanged, and that accepts a function of
-    // `(req, res)` whose object result it sends as JSON. @oxy.so/core 4.2.0 has
-    // no handler option; widening that type upstream retires this cast.
-    message: rateLimitedBody as unknown as string,
+    message: RATE_LIMITED_MESSAGE,
     ...(store ? { store } : {}),
   });
 }

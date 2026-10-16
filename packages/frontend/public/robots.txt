@@ -28,6 +28,7 @@ Disallow: /compare
 Disallow: /settings/
 Disallow: /cart
 Disallow: /checkout
+Disallow: /supervised-shopping
 Disallow: /orders
 Disallow: /sell
 Disallow: /saved

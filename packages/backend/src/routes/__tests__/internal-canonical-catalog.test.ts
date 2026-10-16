@@ -46,7 +46,9 @@ vi.mock('../../middleware/auth.js', () => ({
   ) => {
     next();
   },
-  oxyClient: {},
+  oxyClient: {
+    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
+  },
   optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
     next();
   },

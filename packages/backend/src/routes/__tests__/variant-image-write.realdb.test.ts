@@ -72,6 +72,7 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
   oxyClient: {
+    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
     // URL-valued presentation fields use this resolver. Gallery fileId fields
     // must remain raw IDs, even though this mock produces a different URL.
     assets: { publicUrl: (fileId: string) => `https://media.test.invalid/${fileId}` },

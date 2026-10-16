@@ -37,6 +37,8 @@
  *   webhook ingress that calls it, which is #48's.
  */
 
+import { recordSupervisedCancellation } from '../supervised-shopping/purchase.service.js';
+
 import type { CurrencyCode, Money, PaymentProviderId, PaymentStatus } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { RETENTION_SECONDS } from '../../db/expiryTargets.js';
@@ -491,7 +493,11 @@ export async function cancelPaymentForCheckoutGroup(checkoutGroupId: string): Pr
   // No payment was ever opened — a checkout on a deployment with no rail, or one
   // abandoned before the rail was engaged. There is nothing to cancel.
   if (!payment) return false;
-  if (!canTransitionPaymentStatus(payment.status, 'canceled')) return false;
+  if (!canTransitionPaymentStatus(payment.status, 'canceled')) {
+    await recordSupervisedCancellation(payment.id, false);
+    return false;
+  }
+  let providerCancellationConfirmed = false;
 
   if (payment.providerObjectId) {
     const { resolvePaymentProvider } = await import('./registry.js');
@@ -505,6 +511,7 @@ export async function cancelPaymentForCheckoutGroup(checkoutGroupId: string): Pr
           // sweep that runs twice must not be able to cancel twice.
           idempotencyKey: `cancel:${payment.id}`,
         });
+        providerCancellationConfirmed = true;
       } catch (error: unknown) {
         // Best effort, and a failure here is INFORMATION: the commonest cause is
         // a capture that beat the sweep, which the local `canceled` below turns
@@ -518,6 +525,7 @@ export async function cancelPaymentForCheckoutGroup(checkoutGroupId: string): Pr
   }
 
   const result = await applyPaymentStatus({ paymentId: payment.id, next: 'canceled' });
+  await recordSupervisedCancellation(payment.id, providerCancellationConfirmed);
   return result.changed;
 }
 

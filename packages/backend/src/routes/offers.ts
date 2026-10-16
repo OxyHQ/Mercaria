@@ -29,7 +29,12 @@ import { validateQuery } from '../middleware/validate.js';
 import { offerListQuerySchema } from '../middleware/offer-schemas.js';
 import { getOfferHandler, listOffersHandler } from '../controllers/offers.controller.js';
 
+import { optionalAuth } from '../middleware/auth.js';
+
 const router = Router();
+
+// A presented supervised session cannot bypass policy through an anonymous catalog route.
+router.use(optionalAuth);
 
 router.use(makeRateLimiter('listings'));
 

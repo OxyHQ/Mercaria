@@ -25,6 +25,11 @@
  * charge for the same goods.
  */
 
+import {
+  permitSupervisedPayment,
+  type SupervisedPurchaseContext,
+} from '../supervised-shopping/purchase.service.js';
+
 import type {
   CheckoutPaymentHandoff,
   CheckoutPaymentMethod,
@@ -178,6 +183,7 @@ export async function openCheckoutPayment(input: {
    * nothing at all — no sum, no read, no allocation.
    */
   orders: readonly OrderRecord[];
+  supervisedPurchase?: SupervisedPurchaseContext;
 }): Promise<CheckoutPaymentHandoff | undefined> {
   if (input.rail !== 'card') return undefined;
 
@@ -203,6 +209,9 @@ export async function openCheckoutPayment(input: {
     presentment: amount,
     ...(input.buyerOxyUserId !== undefined ? { buyerOxyUserId: input.buyerOxyUserId } : {}),
   });
+
+  if (!(await permitSupervisedPayment(payment, input.orders, input.supervisedPurchase)))
+    return undefined;
 
   // ADR 0006 G7's third metadata key, read from the group rather than passed in
   // by the caller. Reading it here is what makes it survive a CONVERGING

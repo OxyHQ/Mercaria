@@ -618,3 +618,4 @@ export * from './digitalRights';
 export * from './digitalRetail';
 
 export * from './materials';
+export * from './supervisedShopping';

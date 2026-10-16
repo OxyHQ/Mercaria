@@ -1960,5 +1960,36 @@
       "delivered": "Delivered",
       "cancelled": "Transport cancelled"
     }
+  },
+  "supervisedShopping": {
+    "title": "Achats supervisés",
+    "intro": "Découvrez des articles vérifiés. Votre responsable approuve l’achat exact avant le paiement.",
+    "unavailable": "Achats indisponibles",
+    "unavailableBody": "Votre accès ou un article a peut-être changé. Réessayez pour afficher les informations actuelles.",
+    "empty": "Aucun article vérifié pour le moment",
+    "emptyBody": "Les articles apparaissent après vérification par la plateforme. Revenez plus tard.",
+    "add": "Ajouter",
+    "remove": "Retirer",
+    "itemUnavailable": "Article indisponible",
+    "reviewPurchase": "Vérifier l’achat",
+    "changeError": "Le panier n’a pas pu être mis à jour. Vérifiez les articles et réessayez.",
+    "approvalIntro": "Saisissez l’adresse de livraison. Votre responsable verra l’achat complet avant d’approuver le paiement.",
+    "prepareError": "L’achat n’a pas pu être préparé. Réessayez pour retrouver le même achat.",
+    "requestApproval": "Demander une approbation",
+    "pending": "En attente de l’approbation du responsable",
+    "approved": "Paiement autorisé",
+    "paid": "Paiement confirmé",
+    "closed": "Cette approbation est clôturée",
+    "shipping": "Livraison",
+    "tax": "Taxes",
+    "discount": "Réduction",
+    "rounding": "Arrondi de conversion",
+    "total": "Total",
+    "viewApproval": "Voir l’approbation dans Oxy",
+    "continuePayment": "Passer au paiement",
+    "paymentError": "Le paiement n’a pas été confirmé. Réessayez le même paiement ou actualisez son état.",
+    "pendingBody": "Votre responsable peut vérifier les articles et le total exacts dans Oxy. Le paiement sera disponible après son approbation.",
+    "refresh": "Actualiser l’état",
+    "account": "Supervision et compte"
   }
 }

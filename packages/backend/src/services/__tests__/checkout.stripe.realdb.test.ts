@@ -34,6 +34,9 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import Stripe from 'stripe';
+import express from 'express';
+import type { Server } from 'node:http';
+import { startSupervisionHttpFixture } from './helpers/supervision-http.js';
 import { and, eq, sql } from 'drizzle-orm';
 
 /**
@@ -66,6 +69,7 @@ const api = vi.hoisted(() => ({
   /** What Stripe keeps, in the settlement currency. */
   fee: 155,
   nextId: 0,
+  acceptThenTimeout: false,
 }));
 
 vi.mock('../payments/stripe/client.js', () => ({
@@ -92,6 +96,10 @@ vi.mock('../payments/stripe/client.js', () => ({
     };
     api.intents.set(id, intent);
     api.byKey.set(idempotencyKey, intent);
+    if (api.acceptThenTimeout) {
+      api.acceptThenTimeout = false;
+      return Promise.reject(new Error('PSP response lost after acceptance'));
+    }
     return Promise.resolve(intent);
   },
   retrieveStripePaymentIntent: (id: string) => {
@@ -193,7 +201,14 @@ let orderSchema: typeof import('../../db/schema/orders.js');
 let catalogSchema: typeof import('../../db/schema/catalog.js');
 let useGoWayTransportForTests: typeof import('../goway/client.js').useGoWayTransportForTests;
 
+let supervision: Awaited<ReturnType<typeof startSupervisionHttpFixture>>;
+let shoppingServer: Server;
+let shoppingUrl: string;
+
 beforeAll(async () => {
+  supervision = await startSupervisionHttpFixture();
+  process.env.OXY_API_URL = supervision.url;
+  process.env.CATALOG_OPERATOR_OXY_USER_IDS = 'catalog-platform-operator';
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
   // process.env once at module load and freezes the result.
   process.env.STRIPE_ENABLED = 'true';
@@ -237,10 +252,56 @@ beforeAll(async () => {
   orderSchema = await import('../../db/schema/orders.js');
   catalogSchema = await import('../../db/schema/catalog.js');
   ({ useGoWayTransportForTests } = await import('../goway/client.js'));
+  const { oxyClient } = await import('../../middleware/auth.js');
+  oxyClient.configureServiceAuth('fixture-key', 'fixture-secret');
+  vi.spyOn(oxyClient, 'serviceToken').mockResolvedValue('fixture-service-token');
+  const app = express();
+  app.use(express.json());
+  app.use('/supervised-shopping', (await import('../../routes/supervised-shopping.js')).default);
+  app.use('/legacy-product-families', (await import('../../routes/product-families.js')).default);
+  app.use('/legacy-listings', (await import('../../routes/listings.js')).default);
+  app.use('/legacy-stores', (await import('../../routes/stores.js')).default);
+  app.use('/legacy-product-page', (await import('../../routes/product-page.js')).default);
+  app.use('/legacy-public-api', (await import('../../routes/public-api.js')).default);
+  app.use('/legacy-merchants', (await import('../../routes/merchants.js')).default);
+  app.use('/legacy-outbound', (await import('../../routes/outbound.js')).default);
+  app.use('/legacy-price-history', (await import('../../routes/price-history.js')).default);
+  app.use('/legacy-compatibility', (await import('../../routes/compatibility.js')).default);
+  app.use('/legacy-price-signals', (await import('../../routes/price-signals.js')).default);
+  app.use('/legacy-storefronts', (await import('../../routes/storefronts.js')).default);
+  app.use('/legacy-facets', (await import('../../routes/facets.js')).default);
+  app.use(
+    '/legacy-catalog-attributes',
+    (await import('../../routes/catalog-attributes.js')).default,
+  );
+  app.use('/legacy-offers', (await import('../../routes/offers.js')).default);
+  app.use('/legacy-retail-offers', (await import('../../routes/retail-offers.js')).default);
+  app.use('/legacy-seo', (await import('../../routes/seo.js')).default);
+  app.use('/legacy-search', (await import('../../routes/search.js')).default);
+  app.use(
+    '/legacy-canonical-products',
+    (await import('../../routes/canonical-products.js')).default,
+  );
+  app.use(
+    '/legacy-brand-relationships',
+    (await import('../../routes/brand-relationships.js')).default,
+  );
+  app.use(
+    '/internal/catalog-safety',
+    (await import('../../routes/internal-catalog-safety.js')).default,
+  );
+  shoppingServer = await new Promise<Server>((resolve) => {
+    const server = app.listen(0, '127.0.0.1', () => resolve(server));
+  });
+  const address = shoppingServer.address();
+  if (!address || typeof address === 'string') throw new Error('Missing app port');
+  shoppingUrl = `http://127.0.0.1:${address.port}`;
 }, 120_000);
 
 afterAll(async () => {
   await closePostgres();
+  await new Promise<void>((resolve) => shoppingServer.close(() => resolve()));
+  await supervision.close();
 });
 
 beforeEach(() => {
@@ -253,6 +314,7 @@ beforeEach(() => {
   api.cancelCalls.length = 0;
   api.exchangeRate = 0.9;
   api.fee = 155;
+  api.acceptThenTimeout = false;
 });
 
 /** A payment-ready seller with a connected account, and their listing. */
@@ -1103,5 +1165,453 @@ describe('the buyer-facing payment status', () => {
         result.checkoutGroupId,
       ),
     ).rejects.toThrow(/not found/i);
+  });
+});
+
+/** Real app routes + real SDK HTTP; only the external Oxy policy service and Stripe API are fixtures. */
+async function shoppingRequest(
+  path: string,
+  token: string | null,
+  method = 'GET',
+  body?: unknown,
+  key?: string,
+) {
+  const response = await fetch(`${shoppingUrl}${path}`, {
+    method,
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'Content-Type': 'application/json',
+      ...(key ? { 'Idempotency-Key': key } : {}),
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  return {
+    status: response.status,
+    body: (await response.json()) as {
+      data: {
+        listing: import('@mercaria/shared-types').ReviewedShoppingListing;
+        items: import('@mercaria/shared-types').ReviewedShoppingListing[];
+        checkoutGroupId: string;
+        purchaseApproval: import('@oxy.so/contracts').PurchaseApproval;
+        payment?: import('@mercaria/shared-types').CheckoutPaymentHandoff;
+      };
+    },
+  };
+}
+async function reviewShoppingListing(listingId: string) {
+  const operator = supervision.token('catalog-platform-operator', false);
+  const candidate = await shoppingRequest(`/internal/catalog-safety/${listingId}`, operator);
+  expect(candidate.status, JSON.stringify(candidate.body)).toBe(200);
+  const result = await shoppingRequest(
+    `/internal/catalog-safety/${listingId}/reviews`,
+    operator,
+    'POST',
+    {
+      contentDigest: candidate.body.data.listing.reviewDigest,
+      decision: 'allow',
+    },
+  );
+  expect(result.status, JSON.stringify(result.body)).toBe(200);
+}
+async function approveShoppingPurchase(approvalId: string) {
+  const details = await fetch(`${supervision.url}/safety/supervision/purchases/${approvalId}`, {
+    headers: { Authorization: 'Bearer guardian-fixture' },
+  });
+  expect(details.status).toBe(200);
+  const evidence = (await details.json()) as import('@oxy.so/contracts').PurchaseApproval;
+  expect(evidence.lineItems.length).toBeGreaterThan(0);
+  expect(
+    evidence.lineItems.reduce((sum, line) => sum + line.lineAmountMinor, 0) +
+      evidence.shippingMinor +
+      evidence.taxMinor -
+      evidence.discountMinor +
+      evidence.roundingAdjustmentMinor,
+  ).toBe(evidence.amountMinor);
+  const response = await fetch(
+    `${supervision.url}/safety/supervision/purchases/${approvalId}/review`,
+    {
+      method: 'POST',
+      headers: { Authorization: 'Bearer guardian-fixture', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision: 'approve' }),
+    },
+  );
+  expect(response.status).toBe(200);
+  return evidence;
+}
+
+describe('supervised shopping through the existing checkout and payment seam', () => {
+  it('public catalog keeps anonymous/adult reads but never downgrades invalid or unavailable authority', async () => {
+    const path = `/legacy-merchants/lookup?domain=missing-${RUN}.example`;
+    expect((await shoppingRequest(path, null)).status).toBe(200);
+    expect((await shoppingRequest(path, supervision.token('catalog-adult', false))).status).toBe(
+      200,
+    );
+    expect((await shoppingRequest(path, 'invalid-token')).status).toBe(401);
+    const valid = supervision.token('catalog-expired', false).split('.');
+    valid[1] = Buffer.from(
+      JSON.stringify({ userId: 'catalog-expired', sessionId: 'session-catalog-expired', exp: 1 }),
+    ).toString('base64url');
+    expect((await shoppingRequest(path, valid.join('.'))).status).toBe(401);
+    const outage = '/session/validate-header/session-catalog-unavailable';
+    supervision.failAlways.add(outage);
+    try {
+      expect((await shoppingRequest(path, supervision.token('catalog-unavailable'))).status).toBe(
+        503,
+      );
+    } finally {
+      supervision.failAlways.delete(outage);
+    }
+  });
+
+  it('refuses explicit supervised sessions on every legacy anonymous catalog router', async () => {
+    const token = supervision.token('legacy-child');
+    for (const name of [
+      'listings',
+      'stores',
+      'product-page',
+      'public-api',
+      'product-families',
+      'merchants',
+      'outbound',
+      'price-history',
+      'compatibility',
+      'price-signals',
+      'storefronts',
+      'facets',
+      'catalog-attributes',
+      'offers',
+      'retail-offers',
+      'seo',
+      'search',
+      'canonical-products',
+      'brand-relationships',
+    ]) {
+      const result = await shoppingRequest(`/legacy-${name}`, token);
+      expect(result.status, name).toBe(403);
+    }
+  });
+
+  it('operator review → child browse/cart → exact multi-seller guardian evidence → PSP timeout/retry → signed webhook', async () => {
+    const first = await seedSeller({ label: 'kids-a', priceMinor: 1200, currency: 'EUR' });
+    const second = await seedSeller({ label: 'kids-b', priceMinor: 800, currency: 'EUR' });
+    const buyer = await seedBuyer({ label: 'kids-main', currency: 'EUR', lines: [] });
+    const token = supervision.token(buyer.buyerId);
+    const seller = supervision.token(first.sellerId, false);
+    const deniedReview = await shoppingRequest(
+      `/internal/catalog-safety/${first.listingId}/reviews`,
+      seller,
+      'POST',
+      { contentDigest: 'a'.repeat(64), decision: 'allow' },
+    );
+    expect(deniedReview.status).toBe(403);
+    const unreviewed = await shoppingRequest('/supervised-shopping/cart/items', token, 'POST', {
+      listingId: first.listingId,
+      variantId: first.variantId,
+      quantity: 1,
+    });
+    expect(unreviewed.status, JSON.stringify(unreviewed.body)).toBe(409);
+    await reviewShoppingListing(first.listingId);
+    await reviewShoppingListing(second.listingId);
+    const browse = await shoppingRequest('/supervised-shopping/catalog', token);
+    expect(browse.status, JSON.stringify(browse.body)).toBe(200);
+    expect(
+      browse.body.data.items.find((row: { id: string }) => row.id === first.listingId),
+    ).not.toHaveProperty('imageFileIds');
+    for (const item of [first, second]) {
+      const added = await shoppingRequest('/supervised-shopping/cart/items', token, 'POST', {
+        listingId: item.listingId,
+        variantId: item.variantId,
+        quantity: 1,
+      });
+      expect(added.status, JSON.stringify(added.body)).toBe(200);
+    }
+    const key = `kids-${RUN}-complete`;
+    const input = { addressId: buyer.addressId, paymentMethod: 'card' };
+    const prepared = await shoppingRequest(
+      '/supervised-shopping/checkout',
+      token,
+      'POST',
+      input,
+      key,
+    );
+    expect(prepared.status, JSON.stringify(prepared.body)).toBe(200);
+    const { checkoutGroupId, purchaseApproval } = prepared.body.data;
+    expect(purchaseApproval.status).toBe('pending');
+    expect(api.intentCalls).toHaveLength(0);
+    expect(purchaseApproval.merchantAccountIds.sort()).toEqual(
+      [first.sellerId, second.sellerId].sort(),
+    );
+    expect(purchaseApproval.lineItems).toHaveLength(2);
+    const beforeStock = await Promise.all([stockOf(first.variantId), stockOf(second.variantId)]);
+    const replay = await shoppingRequest(
+      '/supervised-shopping/checkout',
+      token,
+      'POST',
+      input,
+      key,
+    );
+    expect(replay.status, JSON.stringify(replay.body)).toBe(200);
+    expect(replay.body.data.checkoutGroupId).toBe(checkoutGroupId);
+    expect(replay.body.data.purchaseApproval.id).toBe(purchaseApproval.id);
+    expect(await Promise.all([stockOf(first.variantId), stockOf(second.variantId)])).toEqual(
+      beforeStock,
+    );
+    const changed = await shoppingRequest(
+      '/supervised-shopping/checkout',
+      token,
+      'POST',
+      { ...input, shippingSelections: { [`user:${first.sellerId}`]: 'express' } },
+      key,
+    );
+    expect(changed.status).toBe(409);
+    const premature = await shoppingRequest(
+      `/supervised-shopping/checkout/${checkoutGroupId}/resume`,
+      token,
+      'POST',
+    );
+    expect(premature.status).toBe(200);
+    expect(premature.body.data.payment).toBeUndefined();
+    const evidence = await approveShoppingPurchase(purchaseApproval.id);
+    expect(evidence.amountMinor).toBe(purchaseApproval.amountMinor);
+    api.acceptThenTimeout = true;
+    const lost = await shoppingRequest(
+      `/supervised-shopping/checkout/${checkoutGroupId}/resume`,
+      token,
+      'POST',
+    );
+    expect(lost.status).toBeGreaterThanOrEqual(500);
+    expect(api.intents.size).toBe(1);
+    expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe('reserved');
+    // Approval expiry limits the first reservation, not recovery of an already
+    // reserved PSP operation. Keep the original session valid while passing that deadline.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    let resumed: Awaited<ReturnType<typeof shoppingRequest>>;
+    try {
+      vi.setSystemTime(new Date(Date.parse(purchaseApproval.expiresAt) + 1000));
+      resumed = await shoppingRequest(
+        `/supervised-shopping/checkout/${checkoutGroupId}/resume`,
+        token,
+        'POST',
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(resumed.status, JSON.stringify(resumed.body)).toBe(200);
+    expect(api.intents.size).toBe(1);
+    expect(new Set(api.intentCalls.map((call) => call.idempotencyKey)).size).toBe(1);
+    const payment = await findNativePaymentByCheckoutGroupId(db, checkoutGroupId);
+    if (!payment?.providerObjectId) throw new Error('Expected durable PSP intent');
+    expect(payment.providerObjectId).toBeTruthy();
+    fundIntent(payment.providerObjectId);
+    await deliverIntentEvent({
+      eventId: 'kids-paid',
+      type: 'payment_intent.succeeded',
+      intentId: payment.providerObjectId,
+    });
+    expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe('confirmed');
+    expect(
+      (await findOrdersInCheckoutGroup(checkoutGroupId)).every((order) => order.status === 'paid'),
+    ).toBe(true);
+    await deliverIntentEvent({
+      eventId: 'kids-paid',
+      type: 'payment_intent.succeeded',
+      intentId: payment.providerObjectId,
+    });
+    expect(api.intents.size).toBe(1);
+  });
+
+  it.each([false, true])(
+    'closes approval only with confirmed cancellation; uncertain PSP=%s',
+    async (uncertain) => {
+      const label = uncertain ? 'kids-uncertain-cancel' : 'kids-confirmed-cancel';
+      const item = await seedSeller({ label, priceMinor: 1200, currency: 'EUR' });
+      const buyer = await seedBuyer({ label, currency: 'EUR', lines: [{ ...item, quantity: 1 }] });
+      const token = supervision.token(buyer.buyerId);
+      await reviewShoppingListing(item.listingId);
+      const prepared = await shoppingRequest(
+        '/supervised-shopping/checkout',
+        token,
+        'POST',
+        { addressId: buyer.addressId, paymentMethod: 'card' },
+        `kids-${RUN}-${label}`,
+      );
+      expect(prepared.status).toBe(200);
+      const { checkoutGroupId, purchaseApproval } = prepared.body.data;
+      await approveShoppingPurchase(purchaseApproval.id);
+      api.acceptThenTimeout = uncertain;
+      const resumed = await shoppingRequest(
+        `/supervised-shopping/checkout/${checkoutGroupId}/resume`,
+        token,
+        'POST',
+      );
+      expect(resumed.status).toBe(uncertain ? 500 : 200);
+      expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe('reserved');
+      const payment = await findNativePaymentByCheckoutGroupId(db, checkoutGroupId);
+      if (!payment) throw new Error('Expected durable payment');
+      await db
+        .update(orderSchema.orders)
+        .set({ createdAt: new Date(Date.now() - 3600_000) })
+        .where(eq(orderSchema.orders.checkoutGroupId, checkoutGroupId));
+      await handleExpireReservations();
+      const eventId = `payment:supervised_purchase_cancelled:${payment.id}`;
+      const { drainPaymentOutbox } = await import('../payments/payment-outbox.service.js');
+      const { runPaymentOutboxEvent } = await import('../payments/outbox-handlers.js');
+      await drainPaymentOutbox({ eventId, handler: runPaymentOutboxEvent });
+      expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe(
+        uncertain ? 'reserved' : 'cancelled',
+      );
+      expect((await outboxTypesFor(payment.id)).includes('supervised_purchase_cancelled')).toBe(
+        !uncertain,
+      );
+      // Repeated sweeps and outbox delivery never recycle consent or open a new intent.
+      await handleExpireReservations();
+      await drainPaymentOutbox({ eventId, handler: runPaymentOutboxEvent });
+      expect(api.intents.size).toBe(1);
+      expect(supervision.approvals.get(purchaseApproval.id)?.status).toBe(
+        uncertain ? 'reserved' : 'cancelled',
+      );
+    },
+  );
+
+  it('revokes exposed text and prevents charging after the reviewed item changes', async () => {
+    const item = await seedSeller({ label: 'kids-edit', priceMinor: 1400, currency: 'EUR' });
+    const buyer = await seedBuyer({
+      label: 'kids-edit',
+      currency: 'EUR',
+      lines: [{ ...item, quantity: 1 }],
+    });
+    const token = supervision.token(buyer.buyerId);
+    await reviewShoppingListing(item.listingId);
+    const prepared = await shoppingRequest(
+      '/supervised-shopping/checkout',
+      token,
+      'POST',
+      { addressId: buyer.addressId, paymentMethod: 'card' },
+      `kids-${RUN}-edit`,
+    );
+    expect(prepared.status, JSON.stringify(prepared.body)).toBe(200);
+    const { checkoutGroupId, purchaseApproval } = prepared.body.data;
+    await approveShoppingPurchase(purchaseApproval.id);
+    await db
+      .update(catalogSchema.listings)
+      .set({ title: 'Materially different text' })
+      .where(eq(catalogSchema.listings.id, item.listingId));
+    const resumed = await shoppingRequest(
+      `/supervised-shopping/checkout/${checkoutGroupId}/resume`,
+      token,
+      'POST',
+    );
+    expect(resumed.status).toBe(409);
+    expect(api.intentCalls).toHaveLength(0);
+    const browse = await shoppingRequest('/supervised-shopping/catalog', token);
+    expect(browse.body.data.items.some((row: { id: string }) => row.id === item.listingId)).toBe(
+      false,
+    );
+  });
+
+  it('rolls back every seller order when the second insert fails, then retries without duplicated stock', async () => {
+    const first = await seedSeller({ label: 'kids-atomic-a', priceMinor: 900, currency: 'EUR' });
+    const second = await seedSeller({ label: 'kids-atomic-b', priceMinor: 1100, currency: 'EUR' });
+    const buyer = await seedBuyer({
+      label: 'kids-atomic',
+      currency: 'EUR',
+      lines: [
+        { ...first, quantity: 1 },
+        { ...second, quantity: 1 },
+      ],
+    });
+    const token = supervision.token(buyer.buyerId);
+    await reviewShoppingListing(first.listingId);
+    await reviewShoppingListing(second.listingId);
+    const trigger = `kids_order_fault_${RUN}`.replaceAll('-', '_');
+    // Fixture IDs are generated locally; still quote as SQL literals, never identifier interpolation from requests.
+    const buyerLiteral = `'${buyer.buyerId.replaceAll("'", "''")}'`;
+    await db.execute(
+      sql.raw(`CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.buyer_oxy_user_id = ${buyerLiteral} AND EXISTS
+        (SELECT 1 FROM orders WHERE buyer_oxy_user_id = NEW.buyer_oxy_user_id) THEN
+        RAISE EXCEPTION 'fixture second seller insert failure';
+      END IF; RETURN NEW; END; $$`),
+    );
+    await db.execute(
+      sql.raw(
+        `CREATE TRIGGER ${trigger} BEFORE INSERT ON orders FOR EACH ROW EXECUTE FUNCTION ${trigger}()`,
+      ),
+    );
+    const input = { addressId: buyer.addressId, paymentMethod: 'card' };
+    const key = `kids-${RUN}-atomic`;
+    try {
+      const failed = await shoppingRequest(
+        '/supervised-shopping/checkout',
+        token,
+        'POST',
+        input,
+        key,
+      );
+      expect(failed.status).toBe(500);
+      expect(
+        await db
+          .select({ id: orderSchema.orders.id })
+          .from(orderSchema.orders)
+          .where(eq(orderSchema.orders.buyerOxyUserId, buyer.buyerId)),
+      ).toHaveLength(0);
+      expect(await stockOf(first.variantId)).toEqual({ available: 5, committed: 0 });
+      expect(await stockOf(second.variantId)).toEqual({ available: 5, committed: 0 });
+      expect(api.intents.size).toBe(0);
+    } finally {
+      await db.execute(sql.raw(`DROP TRIGGER ${trigger} ON orders`));
+      await db.execute(sql.raw(`DROP FUNCTION ${trigger}()`));
+    }
+    const retry = await shoppingRequest('/supervised-shopping/checkout', token, 'POST', input, key);
+    expect(retry.status, JSON.stringify(retry.body)).toBe(200);
+    expect(await findOrdersInCheckoutGroup(retry.body.data.checkoutGroupId)).toHaveLength(2);
+    expect(await stockOf(first.variantId)).toEqual({ available: 4, committed: 1 });
+    expect(await stockOf(second.variantId)).toEqual({ available: 4, committed: 1 });
+  });
+
+  it('recovers committed orders after approval preparation fails and refuses changed selection under the original key', async () => {
+    const item = await seedSeller({ label: 'kids-recovery', priceMinor: 1500, currency: 'EUR' });
+    const buyer = await seedBuyer({
+      label: 'kids-recovery',
+      currency: 'EUR',
+      lines: [{ ...item, quantity: 1 }],
+    });
+    const token = supervision.token(buyer.buyerId);
+    await reviewShoppingListing(item.listingId);
+    supervision.failNext.add('/safety/service/purchases');
+    const input = { addressId: buyer.addressId, paymentMethod: 'card' };
+    const key = `kids-${RUN}-recovery`;
+    const failed = await shoppingRequest(
+      '/supervised-shopping/checkout',
+      token,
+      'POST',
+      input,
+      key,
+    );
+    expect(failed.status).toBeGreaterThanOrEqual(500);
+    const persisted = await db
+      .select()
+      .from(orderSchema.orders)
+      .where(eq(orderSchema.orders.buyerOxyUserId, buyer.buyerId));
+    expect(persisted).toHaveLength(1);
+    const retry = await shoppingRequest('/supervised-shopping/checkout', token, 'POST', input, key);
+    expect(retry.status, JSON.stringify(retry.body)).toBe(200);
+    expect(retry.body.data.checkoutGroupId).toBe(persisted[0].checkoutGroupId);
+    expect(await stockOf(item.variantId)).toEqual({ available: 4, committed: 1 });
+    const added = await shoppingRequest('/supervised-shopping/cart/items', token, 'POST', {
+      listingId: item.listingId,
+      variantId: item.variantId,
+      quantity: 2,
+    });
+    expect(added.status).toBe(200);
+    const changed = await shoppingRequest(
+      '/supervised-shopping/checkout',
+      token,
+      'POST',
+      input,
+      key,
+    );
+    expect(changed.status).toBe(409);
+    expect(api.intents.size).toBe(0);
   });
 });

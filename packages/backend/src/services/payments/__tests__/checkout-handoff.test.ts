@@ -50,6 +50,10 @@ vi.mock('../../../db/payments/paymentRepository.js', () => ({
   findNativePaymentByCheckoutGroupId: () => Promise.resolve(undefined),
 }));
 vi.mock('../../../db/postgres.js', () => ({ getDb: () => ({}) }));
+// An ordinary checkout has no supervised purchase operation to guard.
+vi.mock('../../supervised-shopping/purchase.service.js', () => ({
+  permitSupervisedPayment: async () => true,
+}));
 
 let service: typeof import('../checkout-payment.service.js');
 

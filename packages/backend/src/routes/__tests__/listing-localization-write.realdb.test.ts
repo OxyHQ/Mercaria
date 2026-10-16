@@ -72,7 +72,9 @@ vi.mock('../../middleware/auth.js', () => ({
     req.accessToken = 'test-bearer';
     next();
   },
-  oxyClient: {},
+  oxyClient: {
+    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
+  },
   optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     req.userId = SELLER;
     next();

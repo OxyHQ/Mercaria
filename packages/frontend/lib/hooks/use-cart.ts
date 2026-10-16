@@ -123,7 +123,7 @@ export function useRemoveDiscount() {
  * `merged: false` when there is nothing to merge) and native asks its own
  * store, which avoids a pointless request on every cold start.
  */
-export function useGuestCartMerge() {
+export function useGuestCartMerge(enabled = true) {
   const { isAuthenticated } = useOxy();
   const queryClient = useQueryClient();
   const hydrated = useGuestCredentialStore((state) => state.hydrated);
@@ -144,6 +144,7 @@ export function useGuestCartMerge() {
       return result;
     },
     enabled:
+      enabled &&
       isAuthenticated &&
       (USES_HEADER_TRANSPORT
         ? // Native can SEE whether it holds a credential, so it asks only when

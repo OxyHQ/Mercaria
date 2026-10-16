@@ -1944,5 +1944,36 @@
       "delivered": "Delivered",
       "cancelled": "Transport cancelled"
     }
+  },
+  "supervisedShopping": {
+    "title": "見守り付きショッピング",
+    "intro": "確認済みの商品を探せます。支払い前に保護者が購入内容を承認します。",
+    "unavailable": "現在お買い物できません",
+    "unavailableBody": "アクセス権や商品が変更された可能性があります。最新の情報を再読み込みしてください。",
+    "empty": "確認済みの商品はまだありません",
+    "emptyBody": "運営による確認後に商品が表示されます。後ほどご確認ください。",
+    "add": "追加",
+    "remove": "削除",
+    "itemUnavailable": "この商品は利用できません",
+    "reviewPurchase": "購入内容を確認",
+    "changeError": "カートを更新できませんでした。商品を確認して再度お試しください。",
+    "approvalIntro": "配送先住所を入力してください。保護者は支払いを承認する前に購入内容全体を確認できます。",
+    "prepareError": "購入を準備できませんでした。同じ購入を復元するには再度お試しください。",
+    "requestApproval": "保護者に承認を依頼",
+    "pending": "保護者の承認待ち",
+    "approved": "支払いが許可されました",
+    "paid": "支払いを確認しました",
+    "closed": "この承認は終了しました",
+    "shipping": "送料",
+    "tax": "税金",
+    "discount": "割引",
+    "rounding": "通貨換算の丸め",
+    "total": "合計",
+    "viewApproval": "Oxyで承認内容を見る",
+    "continuePayment": "支払いへ進む",
+    "paymentError": "支払いは確認されていません。同じ支払いを再試行するか、状態を更新してください。",
+    "pendingBody": "保護者はOxyで商品と正確な合計金額を確認できます。承認後に支払いが可能になります。",
+    "refresh": "状態を更新",
+    "account": "見守りとアカウント"
   }
 }

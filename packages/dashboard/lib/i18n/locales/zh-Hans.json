@@ -2034,5 +2034,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "购物内容审核",
+    "intro": "平台操作员审核完整的原始文本后，才允许显示无图片的商品信息。",
+    "accessDenied": "需要平台访问权限",
+    "accessBody": "此区域仅对获授权的目录审核人员开放。",
+    "unavailable": "无法审核此商品",
+    "empty": "没有待审核商品",
+    "next": "下一批商品",
+    "select": "选择要审核的商品",
+    "limitBody": "此商品超出审核限制，暂不允许受监护购物用户访问。",
+    "allowed": "当前文本已获批准",
+    "pending": "当前文本尚未获批准",
+    "textOnly": "仅显示标题、规格、选项和价格。不包含照片、描述或评价。",
+    "saveError": "无法保存审核结果。请重新加载商品并审核当前内容。",
+    "saved": "审核已保存",
+    "allow": "允许已审核文本",
+    "withhold": "不予显示"
   }
 }

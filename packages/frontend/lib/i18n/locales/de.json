@@ -1944,5 +1944,36 @@
       "delivered": "Delivered",
       "cancelled": "Transport cancelled"
     }
+  },
+  "supervisedShopping": {
+    "title": "Begleitet einkaufen",
+    "intro": "Entdecke geprüfte Artikel. Deine erziehungsberechtigte Person genehmigt den genauen Einkauf vor der Zahlung.",
+    "unavailable": "Einkaufen nicht verfügbar",
+    "unavailableBody": "Dein Zugriff oder ein Artikel hat sich möglicherweise geändert. Lade die aktuellen Angaben erneut.",
+    "empty": "Noch keine geprüften Artikel",
+    "emptyBody": "Artikel erscheinen nach einer Prüfung durch die Plattform. Schau später wieder vorbei.",
+    "add": "Hinzufügen",
+    "remove": "Entfernen",
+    "itemUnavailable": "Artikel nicht verfügbar",
+    "reviewPurchase": "Einkauf prüfen",
+    "changeError": "Der Warenkorb konnte nicht aktualisiert werden. Prüfe die Artikel und versuche es erneut.",
+    "approvalIntro": "Gib die Lieferadresse ein. Deine erziehungsberechtigte Person sieht den vollständigen Einkauf vor der Zahlungsfreigabe.",
+    "prepareError": "Der Einkauf konnte nicht vorbereitet werden. Versuche es erneut, um denselben Einkauf fortzusetzen.",
+    "requestApproval": "Genehmigung anfordern",
+    "pending": "Warten auf Genehmigung",
+    "approved": "Zur Zahlung freigegeben",
+    "paid": "Zahlung bestätigt",
+    "closed": "Diese Genehmigung ist geschlossen",
+    "shipping": "Versand",
+    "tax": "Steuer",
+    "discount": "Rabatt",
+    "rounding": "Währungsrundung",
+    "total": "Gesamt",
+    "viewApproval": "Genehmigung in Oxy ansehen",
+    "continuePayment": "Weiter zur Zahlung",
+    "paymentError": "Die Zahlung wurde nicht bestätigt. Wiederhole dieselbe Zahlung oder aktualisiere ihren Status.",
+    "pendingBody": "Deine erziehungsberechtigte Person kann die genauen Artikel und den Gesamtbetrag in Oxy prüfen. Die Zahlung wird erst nach ihrer Genehmigung verfügbar.",
+    "refresh": "Status aktualisieren",
+    "account": "Begleitung und Konto"
   }
 }
