@@ -370,7 +370,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // ADR 0016 adds the source-scoped productGroupKey: one property.
     // CategoryNode/Tile/Pill retain Oxy IDs, plus child sample IDs: four properties.
     // Organization adds oxyAccountId, the opaque canonical Oxy identity: one property.
-    'walked 137 contract module(s), 2376 exported type(s), 7935 property signature(s)',
+    // Price alerts are always mounted now, so `ProductSavePriceAlert` lost its
+    // `{ supported: false; reason }` variant: two properties.
+    // 137/2376/7933, read off the guard's own output line.
+    'walked 137 contract module(s), 2376 exported type(s), 7933 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });
