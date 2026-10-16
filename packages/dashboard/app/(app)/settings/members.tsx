@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import Head from 'expo-router/head';
-import { ChevronLeft, Building2, Plus, ShieldCheck, Trash2 } from 'lucide-react-native';
-import type { AccountRole } from '@oxy.so/core';
+import { ChevronLeft, Building2, Mail, Plus, ShieldCheck, Trash2 } from 'lucide-react-native';
+import type { AccountInvitation, AccountRole } from '@oxy.so/core';
 import {
   STORE_PERMISSIONS,
   type Store,
@@ -26,13 +26,17 @@ import { RequireStore } from '@/components/shell/RequireStore';
 import { useTranslation } from '@/lib/i18n';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 import {
+  useCancelInvitation,
   useConvertToOrganization,
+  useInviteToOwnerAccount,
   useOwnerAccount,
+  useOwnerAccountInvitations,
   useOwnerAccountMembers,
   usePermissionOverrides,
+  useResendInvitation,
   useSetPermissionOverride,
   useUsernames,
-  type ConvertInvitee,
+  type Invitee,
 } from '@/lib/hooks/use-store-people';
 
 /**
@@ -43,6 +47,10 @@ import {
  * and edits the one thing Mercaria keeps — a per-person exception to the role
  * map. A store still owned by a PERSONAL account has nobody else in it, so the
  * screen offers to convert it to an organization instead.
+ *
+ * Nobody is added directly: an invitation goes to the person's email, and they
+ * join the organization only once they accept it in Oxy. Until then it is
+ * listed here as pending, where it can be sent again or revoked.
  */
 
 /**
@@ -59,13 +67,10 @@ const ROLE_LABEL_KEYS: Record<AccountRole, string> = {
 };
 
 /** The roles an invitation may carry — Oxy never invites an `owner`. */
-const INVITE_ROLES: ConvertInvitee['role'][] = [
-  'admin',
-  'editor',
-  'developer',
-  'billing',
-  'viewer',
-];
+const INVITE_ROLES: Invitee['role'][] = ['admin', 'editor', 'developer', 'billing', 'viewer'];
+
+/** Oxy validates the address; this only catches an obvious typo before it is sent. */
+const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Display label per permission, as keys. */
 const PERMISSION_LABEL_KEYS: Record<StorePermission, string> = {
@@ -163,7 +168,6 @@ function MembersBody({ storeId }: { storeId: string }) {
             store={store}
             ownerName={owner.data?.account.name?.displayName ?? owner.data?.account.username ?? ''}
             isPersonal={isPersonal}
-            overrides={overrides.data ?? []}
           />
           {isPersonal ? null : (
             <PeopleList
@@ -174,6 +178,12 @@ function MembersBody({ storeId }: { storeId: string }) {
                 role: member.role,
               }))}
               overrides={overrides.data ?? []}
+            />
+          )}
+          {isPersonal ? null : (
+            <InvitationsSection
+              oxyAccountId={store.oxyAccountId}
+              permissions={owner.data?.callerMembership?.permissions ?? []}
             />
           )}
         </View>
@@ -188,13 +198,11 @@ function OwnerCard({
   store,
   ownerName,
   isPersonal,
-  overrides,
 }: {
   storeId: string;
   store: Store;
   ownerName: string;
   isPersonal: boolean;
-  overrides: StorePermissionOverride[];
 }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
@@ -223,7 +231,7 @@ function OwnerCard({
           <Button tone="accent" className="mt-3 self-start" onPress={() => convertControl.open()}>
             {t('settings.members.convert.open')}
           </Button>
-          <ConvertDialog storeId={storeId} control={convertControl} overrides={overrides} />
+          <ConvertDialog storeId={storeId} control={convertControl} />
         </>
       ) : null}
     </View>
@@ -432,40 +440,233 @@ function OverrideDialog({
 }
 
 /**
- * Convert a personally owned store to an organization: create it in Oxy,
- * invite people, then move the store. Prefilled with everyone who holds an
- * exception on this store — the people Mercaria still knows worked here.
+ * The owning organization's pending invitations, and the way to send one. What
+ * the caller may do follows their own Oxy permissions on that account.
  */
-function ConvertDialog({
-  storeId,
-  control,
-  overrides,
+function InvitationsSection({
+  oxyAccountId,
+  permissions,
 }: {
-  storeId: string;
-  control: DialogControlProps;
-  overrides: StorePermissionOverride[];
+  oxyAccountId: string;
+  permissions: readonly string[];
+}) {
+  const { t } = useTranslation();
+  const canRead = permissions.includes('members:read');
+  const canInvite = permissions.includes('members:invite');
+  const canRevoke = permissions.includes('members:remove');
+  const invitations = useOwnerAccountInvitations(oxyAccountId, canRead);
+  const inviteControl = useDialogControl();
+  if (!canRead && !canInvite) return null;
+
+  return (
+    <View className="gap-2">
+      <View className="flex-row items-center gap-3">
+        <View className="flex-1">
+          <Text className="text-sm font-semibold text-foreground">
+            {t('settings.members.invitations.title')}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {t('settings.members.invitations.body')}
+          </Text>
+        </View>
+        {canInvite ? (
+          <Button
+            tone="accent"
+            leadingIcon={toBloomIcon(Plus)}
+            onPress={() => inviteControl.open()}
+          >
+            {t('settings.members.invitations.invite')}
+          </Button>
+        ) : null}
+      </View>
+      {!canRead ? null : invitations.isPending ? (
+        <ScreenLoading />
+      ) : invitations.isError ? (
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.members.invitations.loadFailed')}
+        </Text>
+      ) : invitations.data.length === 0 ? (
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.members.invitations.empty')}
+        </Text>
+      ) : (
+        invitations.data.map((invitation) => (
+          <InvitationRow
+            key={invitation.id}
+            oxyAccountId={oxyAccountId}
+            invitation={invitation}
+            canResend={canInvite}
+            canRevoke={canRevoke}
+          />
+        ))
+      )}
+      {canInvite ? <InviteDialog oxyAccountId={oxyAccountId} control={inviteControl} /> : null}
+    </View>
+  );
+}
+
+function InvitationRow({
+  oxyAccountId,
+  invitation,
+  canResend,
+  canRevoke,
+}: {
+  oxyAccountId: string;
+  invitation: AccountInvitation;
+  canResend: boolean;
+  canRevoke: boolean;
 }) {
   const { colors } = useColorScheme();
   const { t } = useTranslation();
+  const resend = useResendInvitation(oxyAccountId);
+  const revoke = useCancelInvitation(oxyAccountId);
+  const expired = invitation.status === 'expired';
+
+  return (
+    <View className="rounded-2xl border border-border bg-surface p-4">
+      <View className="flex-row items-center gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-muted">
+          <Mail size={18} color={colors.mutedForeground} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+            {invitation.email}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {t(ROLE_LABEL_KEYS[invitation.role])}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {t(
+              expired
+                ? 'settings.members.invitations.expired'
+                : 'settings.members.invitations.pending',
+            )}
+          </Text>
+        </View>
+        {canResend ? (
+          <Button
+            tone="neutral"
+            loading={resend.isPending}
+            onPress={() =>
+              resend.mutate(invitation.id, {
+                onSuccess: () => toast.success(t('settings.members.invitations.resent')),
+                onError: () => toast.error(t('settings.members.invitations.resendFailed')),
+              })
+            }
+          >
+            {t('settings.members.invitations.resend')}
+          </Button>
+        ) : null}
+        {canRevoke ? (
+          <Button
+            tone="danger"
+            appearance="outline"
+            loading={revoke.isPending}
+            onPress={() =>
+              revoke.mutate(invitation.id, {
+                onSuccess: () => toast.success(t('settings.members.invitations.revoked')),
+                onError: () => toast.error(t('settings.members.invitations.revokeFailed')),
+              })
+            }
+          >
+            {t('settings.members.invitations.revoke')}
+          </Button>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** Invite one person, by email, to the organization that owns the store. */
+function InviteDialog({
+  oxyAccountId,
+  control,
+}: {
+  oxyAccountId: string;
+  control: DialogControlProps;
+}) {
+  const { t } = useTranslation();
+  const invite = useInviteToOwnerAccount(oxyAccountId);
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<Invitee['role']>('editor');
+
+  const submit = () => {
+    const address = email.trim();
+    if (!LOOKS_LIKE_EMAIL.test(address)) {
+      toast.error(t('settings.members.invitations.invalidEmail'));
+      return;
+    }
+    invite.mutate(
+      { email: address, role },
+      {
+        onSuccess: () => {
+          toast.success(t('settings.members.invitations.sent', { email: address }));
+          setEmail('');
+          control.close();
+        },
+        onError: () => toast.error(t('settings.members.invitations.sendFailed')),
+      },
+    );
+  };
+
+  return (
+    <Dialog control={control} title={t('settings.members.invitations.dialogTitle')}>
+      <View className="gap-4">
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.members.invitations.body')}
+        </Text>
+        <Field label={t('settings.members.invitations.emailLabel')}>
+          <TextFieldInput
+            label={t('settings.members.invitations.emailLabel')}
+            value={email}
+            onValueChange={setEmail}
+            placeholder={t('settings.members.convert.invitePlaceholder')}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+        </Field>
+        <SegmentedControl type="radio" value={role} onValueChange={setRole}>
+          {INVITE_ROLES.map((option) => (
+            <SegmentedControlItem key={option} value={option}>
+              <SegmentedControlItemText>{t(ROLE_LABEL_KEYS[option])}</SegmentedControlItemText>
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
+        <Button tone="accent" onPress={submit} loading={invite.isPending} className="mt-1">
+          {t('settings.members.invitations.send')}
+        </Button>
+      </View>
+    </Dialog>
+  );
+}
+
+/**
+ * Convert a personally owned store to an organization: create it in Oxy,
+ * invite people by email, then move the store. Each invitee joins once they
+ * accept; the pending invitations then show on this screen.
+ */
+function ConvertDialog({ storeId, control }: { storeId: string; control: DialogControlProps }) {
+  const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const convert = useConvertToOrganization(storeId);
-  const known = useUsernames(overrides.map((o) => o.oxyUserId));
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
-  const [added, setAdded] = useState<ConvertInvitee[]>([]);
-  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const [invitees, setInvitees] = useState<Invitee[]>([]);
   const [draft, setDraft] = useState('');
-  const [draftRole, setDraftRole] = useState<ConvertInvitee['role']>('editor');
-
-  const prefilled: ConvertInvitee[] = [...(known.data?.values() ?? [])].map((name) => ({
-    usernameOrEmail: name,
-    role: 'editor',
-  }));
-  const invitees = [...prefilled, ...added].filter((i) => !removed.has(i.usernameOrEmail));
+  const [draftRole, setDraftRole] = useState<Invitee['role']>('editor');
 
   const addDraft = () => {
     const value = draft.trim();
     if (!value) return;
-    setAdded((prev) => [...prev, { usernameOrEmail: value, role: draftRole }]);
+    if (!LOOKS_LIKE_EMAIL.test(value)) {
+      toast.error(t('settings.members.invitations.invalidEmail'));
+      return;
+    }
+    const key = value.toLowerCase();
+    setInvitees((prev) => [
+      ...prev.filter((i) => i.email.toLowerCase() !== key),
+      { email: value, role: draftRole },
+    ]);
     setDraft('');
   };
 
@@ -516,16 +717,19 @@ function ConvertDialog({
         <Text className="text-sm font-semibold text-foreground">
           {t('settings.members.convert.inviteesTitle')}
         </Text>
+        <Text className="text-xs text-muted-foreground">
+          {t('settings.members.invitations.body')}
+        </Text>
         {invitees.map((invitee) => (
-          <View key={invitee.usernameOrEmail} className="flex-row items-center gap-2">
+          <View key={invitee.email} className="flex-row items-center gap-2">
             <Text className="flex-1 text-sm text-foreground" numberOfLines={1}>
-              {invitee.usernameOrEmail}
+              {invitee.email}
             </Text>
             <Text className="text-xs text-muted-foreground">
               {t(ROLE_LABEL_KEYS[invitee.role])}
             </Text>
             <Pressable
-              onPress={() => setRemoved((prev) => new Set(prev).add(invitee.usernameOrEmail))}
+              onPress={() => setInvitees((prev) => prev.filter((i) => i.email !== invitee.email))}
               className="p-2 active:opacity-70"
             >
               <Trash2 size={16} color={colors.mutedForeground} />
@@ -539,6 +743,7 @@ function ConvertDialog({
             onValueChange={setDraft}
             placeholder={t('settings.members.convert.invitePlaceholder')}
             autoCapitalize="none"
+            keyboardType="email-address"
           />
         </Field>
         <SegmentedControl type="radio" value={draftRole} onValueChange={setDraftRole}>

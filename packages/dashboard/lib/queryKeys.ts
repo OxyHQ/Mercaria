@@ -20,6 +20,7 @@ export const queryKeys = {
    */
   oxyAccount: (accountId: string) => ['oxy-account', accountId] as const,
   oxyAccountMembers: (accountId: string) => ['oxy-account', accountId, 'members'] as const,
+  oxyAccountInvitations: (accountId: string) => ['oxy-account', accountId, 'invitations'] as const,
   products: {
     write: (storeId: string, productId: string) =>
       ['stores', storeId, 'products', productId, 'write'] as const,

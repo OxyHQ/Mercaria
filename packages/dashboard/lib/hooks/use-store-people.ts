@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services';
-import type { AccountMember, AccountNode, AccountRole } from '@oxy.so/core';
+import type { AccountInvitation, AccountMember, AccountNode, AccountRole } from '@oxy.so/core';
 import type {
   SetStorePermissionOverrideInput,
   StorePermissionOverride,
@@ -40,6 +40,54 @@ export function useOwnerAccountMembers(oxyAccountId: string | undefined, enabled
   });
 }
 
+/**
+ * The owning account's pending invitations. Oxy grants access only once the
+ * invitee accepts, so until then they are here and not among the members.
+ */
+export function useOwnerAccountInvitations(oxyAccountId: string | undefined, enabled: boolean) {
+  const { oxyServices } = useOxy();
+  return useQuery<AccountInvitation[]>({
+    queryKey: queryKeys.oxyAccountInvitations(oxyAccountId ?? ''),
+    queryFn: () => oxyServices.accounts.invitations.list(oxyAccountId ?? ''),
+    enabled: Boolean(oxyAccountId) && enabled,
+  });
+}
+
+/** Invite one person, by email, to the owning account. */
+export function useInviteToOwnerAccount(oxyAccountId: string) {
+  const { oxyServices } = useOxy();
+  const queryClient = useQueryClient();
+  return useMutation<AccountInvitation, Error, Invitee>({
+    mutationFn: (invitee) => oxyServices.accounts.invitations.create(oxyAccountId, invitee),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.oxyAccountInvitations(oxyAccountId) }),
+  });
+}
+
+/** Send a pending invitation again, with a fresh link and expiry. */
+export function useResendInvitation(oxyAccountId: string) {
+  const { oxyServices } = useOxy();
+  const queryClient = useQueryClient();
+  return useMutation<AccountInvitation, Error, string>({
+    mutationFn: (invitationId) =>
+      oxyServices.accounts.invitations.resend(oxyAccountId, invitationId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.oxyAccountInvitations(oxyAccountId) }),
+  });
+}
+
+/** Revoke a pending invitation; its link stops working. */
+export function useCancelInvitation(oxyAccountId: string) {
+  const { oxyServices } = useOxy();
+  const queryClient = useQueryClient();
+  return useMutation<unknown, Error, string>({
+    mutationFn: (invitationId) =>
+      oxyServices.accounts.invitations.cancel(oxyAccountId, invitationId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.oxyAccountInvitations(oxyAccountId) }),
+  });
+}
+
 /** The store's permission overrides. */
 export function usePermissionOverrides(storeId: string) {
   return useQuery<StorePermissionOverride[]>({
@@ -68,9 +116,9 @@ export function useSetPermissionOverride(storeId: string) {
   });
 }
 
-/** One person the owner wants in the new organization. */
-export interface ConvertInvitee {
-  usernameOrEmail: string;
+/** One person to invite. Oxy invites by email, and never as `owner`. */
+export interface Invitee {
+  email: string;
   role: Exclude<AccountRole, 'owner'>;
 }
 
@@ -78,7 +126,7 @@ export interface ConvertInvitee {
 export interface ConvertToOrganizationInput {
   username: string;
   displayName: string;
-  invitees: readonly ConvertInvitee[];
+  invitees: readonly Invitee[];
 }
 
 /** The outcome, including any invitation Oxy refused. */
@@ -90,8 +138,9 @@ export interface ConvertToOrganizationResult {
 /**
  * Convert to organization, with the owner's own session:
  *  1. create the organization in Oxy (the caller becomes its owner);
- *  2. invite the people listed — an invitation Oxy refuses (unknown username)
- *     is reported, not fatal: the organization exists either way;
+ *  2. invite the people listed by email — each joins only after accepting the
+ *     invitation in Oxy, and one Oxy refuses is reported, not fatal: the
+ *     organization exists either way;
  *  3. move the store to the organization.
  *
  * Step 3 is the only Mercaria write, and it runs last: a store is never moved
@@ -110,9 +159,9 @@ export function useConvertToOrganization(storeId: string) {
       const failedInvitees: string[] = [];
       for (const invitee of input.invitees) {
         try {
-          await oxyServices.accounts.members.invite(organization.accountId, invitee);
+          await oxyServices.accounts.invitations.create(organization.accountId, invitee);
         } catch {
-          failedInvitees.push(invitee.usernameOrEmail);
+          failedInvitees.push(invitee.email);
         }
       }
       await transferStoreOwnerAccount(storeId, { oxyAccountId: organization.accountId });
@@ -126,10 +175,7 @@ export function useConvertToOrganization(storeId: string) {
   });
 }
 
-/**
- * Usernames for a set of Oxy ids — how the convert flow prefills invitees from
- * the people who hold overrides, since Oxy invites by username or email only.
- */
+/** Usernames for a set of Oxy ids, to name members and override holders. */
 export function useUsernames(oxyUserIds: readonly string[]) {
   const { oxyServices } = useOxy();
   const ids = [...oxyUserIds].sort();

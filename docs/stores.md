@@ -39,9 +39,11 @@ converts it:
 
 1. `oxy.accounts.create({ kind: 'organization', username, name: { displayName } })`
    with the owner's session — they become the organization's `owner`;
-2. `oxy.accounts.members.invite(orgId, { usernameOrEmail, role })` per person
-   (Oxy invites by username or email only; the dashboard resolves the ids it
-   knows with `users.getMany`);
+2. `oxy.accounts.invitations.create(orgId, { email, role })` per person. Each
+   one is emailed and joins only after accepting at accounts.oxy.so/invitation;
+   until then it is pending, and the dashboard's People screen lists, resends
+   and revokes it (`invitations.list` / `resend` / `cancel`, gated on the
+   caller's own `members:read` / `members:invite` / `members:remove`);
 3. `PATCH /admin/stores/:storeId/owner-account { oxyAccountId: orgId }`.
 
 A failure after step 1 leaves an organization with no store; nothing in the SDK
@@ -93,7 +95,8 @@ where not exists (select 1 from store_members m where m.store_id = s.id and m.ro
 
 - There is no service-token endpoint that answers "is X a member of Y", so every
   membership question needs the member's own bearer.
-- `accounts.members.invite` takes a username or email, never an account id.
+- Oxy invites by email only, never by username or account id, and never adds
+  a person without their consent: there is no direct-add call to fall back on.
 - A capability ticket carries the effective account but not the operator, so
   an editor operating an organization through an agent gets the organization's
   full store authority there (D6 of the ADR).
