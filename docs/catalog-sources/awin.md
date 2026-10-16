@@ -323,9 +323,16 @@ rights version survive. That is #62's acceptance 6 (`no UPDATE could delete the
 history and no DELETE anywhere in this domain`) applied to a membership change,
 and it is why revocation is a status transition rather than a cleanup.
 
-**Images are hotlinked, not re-hosted.** Nothing in this domain uploads a
-provider image to Oxy's file service; `NormalizedSourceRecord.media` carries the
-advertiser's own absolute URLs, which is what `may_display_media` licenses.
+**Images are neither hotlinked nor shown today.** `NormalizedSourceRecord.media`
+carries the advertiser's own absolute URLs into the source record's stored
+projection, and no offer surface reads them (an offer carries no image). An
+earlier version of this section said they were hotlinked; nothing ever did.
+When a path starts showing them it IMPORTS them through Oxy, owned by the
+Mercaria application (Oxy ADR 0041; the owner's decision is to copy images from
+every source) — `docs/catalog-media.md`. **Caching terms:** an advertiser's feed
+licence covers promoting its products and may restrict copying or caching their
+images; check the programme terms before an import path for this source is
+switched on, and honour `may_display_media`.
 
 ---
 

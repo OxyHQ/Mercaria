@@ -663,6 +663,45 @@ The canonical browser gallery test also supplies deliberately external source
 URLs and asserts zero requests to that origin while rendering Oxy images; its
 real-media seed precondition must pass before that case can establish this.
 
+## Oxy Files ownership and usage registration — open (Oxy ADR 0041, 2026-10-16)
+
+Mercaria's side of Oxy ADR 0041 is in code (`docs/catalog-media.md`, "Who owns
+the bytes" and "Usage registration"): imports go through Oxy's import by URL
+(`services/catalog-media/oxy-files.ts`, the one adapter), canonical media,
+category art and brand logos are owned by the Mercaria APPLICATION, every file
+use is registered by trigger + outbox, a nightly reconciliation runs per entity
+type, and `/webhooks/oxy-files` handles takedowns. The section above is
+superseded where it says the importer downloads through `safeFetch` and that
+canonical images import under the operator's account. What is NOT done:
+
+- **Nothing has run against a live Oxy.** Every Oxy call is faked at the SDK
+  boundary in tests. The stage-3 SDK names (`importAppFile`, `importUserMedia`,
+  `verifyFileEventSignature`) are from the unpublished `@oxy.so/core` worktree
+  build (`TODO(stage3-sdk)` in `oxy-files.ts`); npm's `4.13.0` was published from
+  Oxy's `main` without them, so `packages/backend` must pin the version that
+  actually ships them.
+- **Scopes:** Mercaria's application needs `files:references:write`,
+  `files:app:write` and `files:user-media:write` granted by staff.
+- **Release order** (`docs/catalog-media.md`, "Levers and the release order"):
+  references loop on → reconciliation in dry run, counts read per type → dry run
+  off → only then may Oxy's sweep go to `enforce`.
+- **Backfills not run** (preview by default): `backfill-listing-media`,
+  `backfill-store-artwork`, `backfill-application-media` for
+  `canonical_image`, `category_image`, `brand_logo`. Canonical DESCRIPTION images
+  imported under an operator's account are not re-owned by any of them.
+- **Duplicate canonical image rows** written by the pre-ADR identity bug
+  (`image_ref = coalesce(file_id, source_url)`) are not collapsed; new
+  observations no longer add them.
+- **Digital deliverables:** `putAssetObject` now registers its use with
+  `references.add`, but a service-made reference cannot satisfy ADR 0021's
+  owner-linked predicate, so `describeAssetObject` still decides servability. An
+  application-owned private file (`uploadAppFile`, readable by the application
+  through `linkedDownloadUrls`) is the likely real fix and is a digital-domain
+  decision.
+- **External source media** (eBay, Awin, open data) is still a URL in the source
+  record's projection and shown nowhere; enabling an import for a source waits on
+  its caching terms (`docs/catalog-sources/`).
+
 ## Storefront product parity — review media upload/acceptance remaining (2026-10-10)
 
 The public Shop [rhode product](https://shop.app/products/8117398765806/peptide-lip-tint-ribbon)

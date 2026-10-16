@@ -96,18 +96,20 @@
 
 ## Raw-body mounts
 
-Five routers must stay mounted BEFORE `express.json()` in `app.ts`, and one more
+Six routers must stay mounted BEFORE `express.json()` in `app.ts`, and one more
 route buffers its own body:
 
 `/channels/webhooks` · `/webhooks/crowdsource` · `/webhooks/stripe` and
 `/webhooks/stripe/connect` · `/webhooks/peable` (ADR 0009) ·
-`/webhooks/suppliers/:supplierAccountId`, plus the feed-import upload route
+`/webhooks/suppliers/:supplierAccountId` · `/webhooks/oxy-files` (Oxy ADR 0041
+D9, gated on `OXY_FILE_EVENTS_ENABLED`), plus the feed-import upload route
 (`express.raw`, refuses a JSON content type).
 
 Asserted against the REAL middleware chain by
-`routes/__tests__/stripe-webhook.integration.test.ts` and
-`routes/__tests__/peable-webhook.integration.test.ts`. `app.ts` exists so the app
-can be built without listening, which is what makes that assertion possible.
+`routes/__tests__/stripe-webhook.integration.test.ts`,
+`routes/__tests__/peable-webhook.integration.test.ts` and
+`routes/__tests__/oxy-files-webhook.integration.test.ts`. `app.ts` exists so the
+app can be built without listening, which is what makes that assertion possible.
 
 **The assertion is PER MOUNT, and that is why there are two files rather than a
 shared one.** A raw-body test proves something about the router it sends bytes
@@ -115,8 +117,8 @@ to; the Stripe file staying green says nothing about a router added afterwards,
 which is exactly how a new webhook acquires a parser above it and nobody notices.
 Each has its own vacuity guard — the same router mounted behind `express.json()`,
 required to REFUSE the identical delivery — so an accepted delivery is positive
-evidence the handler read raw bytes rather than a green that cannot fail. A sixth
-mount brings a sixth file.
+evidence the handler read raw bytes rather than a green that cannot fail. A
+seventh mount brings its own file, as the sixth (`/webhooks/oxy-files`) did.
 
 ## Operator allow-lists
 

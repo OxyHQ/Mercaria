@@ -125,10 +125,10 @@ no second store, no `src/models/` and no rollback target.
 
 ## Things that break silently if you change them
 
-- **Five routers must stay mounted BEFORE `express.json()`** — the webhook mounts
+- **Six routers must stay mounted BEFORE `express.json()`** — the webhook mounts
   plus the feed-import upload route, which buffers its own body. Enumerated in
   `docs/house-invariants.md` and asserted against the real middleware chain PER
-  MOUNT; a sixth mount brings a sixth test file.
+  MOUNT; a seventh mount brings its own test file.
 - **Three moderation ESCAPES are closed in pre-existing commerce code**, invisible
   from `services/moderation/`: `catalog-write.service.updateListing` refuses to set
   `restricted` or to leave it; `archiveListing` refuses a restricted listing at all

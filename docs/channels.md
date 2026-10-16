@@ -910,10 +910,13 @@ archives every listing whose Shopify source is currently a draft or archived.
 
 Both pull connectors and push-in product imports pass their image references
 through `services/catalog-media/sync.ts` before creating or updating a listing.
-HTTPS sources are downloaded using Oxy's DNS-pinned `safeFetch` and uploaded to
-Oxy's durable public user-media endpoint. The owner is the store's persisted
-`oxyAccountId`; the resulting gallery stores only the returned internal file IDs.
-Images protected by a merchant override cause no download.
+HTTPS sources are IMPORTED BY OXY (Oxy ADR 0041 D7, `importUserMedia`), which
+fetches with its own SSRF-safe fetcher and remembers each source per owner — so
+re-syncing an unchanged product answers the same file ids without a download and
+leaves the gallery untouched. The owner is the store's persisted `oxyAccountId`;
+the resulting gallery stores only the returned internal file IDs, and the
+reference triggers register them with Oxy after the write (`docs/catalog-media.md`).
+Images protected by a merchant override cause no import.
 
 Description HTML follows the same boundary through
 `services/catalog-media/description.ts`. It parses visible `img` sources, imports
@@ -926,8 +929,9 @@ renderer's supported content and are never fetched by this importer.
 
 Push and pull imports prepare descriptions before catalog transactions. A
 failed description import preserves existing product facts and cannot relist an
-archived product. Canonical source observations use the same importer with the
-authenticated operator's ownership and source media rights; their provenance
+archived product. Canonical source observations use the same importer, owned by
+the Mercaria APPLICATION (never the operator who made the request) and bounded by
+the source's media rights; their provenance
 record retains the original HTML. Merchant overrides and pinned canonical
 descriptions are not fetched. Direct transactional catalog writers accept only
 already synchronized description images and reject external sources, just as
@@ -935,9 +939,9 @@ gallery writes require internal file IDs; they never perform network IO inside
 a database transaction. Existing historical descriptions are not backfilled by
 this change.
 
-The importer accepts at most 64 references per gallery, limits each image to
-20 MiB, and bounds download/upload time. A failed download, denied upload or
-non-public file result fails that product without changing its gallery or
+The importer accepts at most 64 references per gallery; Oxy bounds each import's
+bytes and time. A failed or denied import, or a non-public or wrong-kind file
+result, fails that product without changing its gallery or
 relisting it. Other products in the batch continue. Source URLs and credentials
 are omitted from media error messages. Existing internal IDs pass through.
 
