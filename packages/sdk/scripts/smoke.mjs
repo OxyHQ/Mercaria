@@ -11,8 +11,8 @@
  *   node scripts/smoke.mjs --out <dir>  # also keep the tested tarball in <dir>
  *
  * `--out` is how a release publishes EXACTLY the tarball this script tested,
- * rather than re-packing afterwards. Releases are published by hand, never
- * from CI (`docs/sdk.md` §"How it is published").
+ * rather than re-packing afterwards: it is the package's `release:pack`, which
+ * the shared GitHub Actions release runs (`docs/sdk.md` §"How it is published").
  *
  * ## Why the tarball is packed from a staging directory
  *
