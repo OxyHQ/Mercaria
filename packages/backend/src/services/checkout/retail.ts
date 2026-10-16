@@ -259,8 +259,9 @@ export interface RetailCheckoutPlan<TLine> {
  * What makes a retail line reach here on a shipping method is NO LONGER the #93
  * seam, which is filled: `assertSellerGroupsAcceptDestination` now accepts an
  * all-collection order and delegates to `resolvePickupForCheckout`. It is that
- * `MERCARIA_RETAIL_ENABLED` and `STORE_PICKUP_ENABLED` both default off, so the
- * combination has no deployment. That is a LEVER pair rather than a structural
+ * retail (off until its seller and prerequisites are configured) and
+ * `STORE_PICKUP_ENABLED` both default off, so the combination has no
+ * deployment. That is a LEVER pair rather than a structural
  * bar, which is exactly why the `pickup` branch below throws.
  */
 function retailFulfilmentMethod(method: ShippingMethod): RetailFulfilmentMethod {

@@ -11,10 +11,11 @@
  * ## Env is set BEFORE any import
  *
  * `config/index.ts` freezes at module load. Note what is NOT set here:
- * `GUEST_COMMERCE_ENABLED` is left at its default OFF, deliberately, because
- * the portal must be reachable on a deployment where guest commerce has been
- * switched off — #108 acceptance 10 and ADR 0003 M8. If this file ever needs to
- * turn it on to make the portal answer, that is the regression.
+ * `GUEST_PII_ENCRYPTION_KEY`. Guest commerce has no switch — it is on exactly
+ * when both M8 keys resolve — so leaving one out is how this file runs on a
+ * deployment where guest commerce is OFF, deliberately, because the portal
+ * must be reachable there — #108 acceptance 10 and ADR 0003 M8. If this file
+ * ever needs to turn it on to make the portal answer, that is the regression.
  *
  * ## Under NODE_ENV=test the DEV cookie profile is active
  *
@@ -40,9 +41,9 @@ let portalCookieProfile: typeof import('../../middleware/guest-portal.js').porta
 let ACKNOWLEDGEMENT: string;
 
 beforeAll(async () => {
-  // The two keys the recovery path needs to hash an address at all. NOT
-  // `GUEST_COMMERCE_ENABLED` — see the module docblock.
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'c'.repeat(64);
+  // The key the recovery path needs to hash an address at all — and ONLY that
+  // one, so guest commerce stays off; see the module docblock.
+  process.env.GUEST_PII_ENCRYPTION_KEY = '';
   process.env.GUEST_EMAIL_HASH_KEY = 'd'.repeat(64);
   process.env.GUEST_MAGIC_LINK_BASE_URL = 'https://mercaria.co/guest-orders/portal';
 

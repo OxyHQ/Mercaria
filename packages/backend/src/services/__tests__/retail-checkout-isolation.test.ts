@@ -19,7 +19,7 @@
  *     unwritable in the modules that compose an amount, so a future author
  *     cannot introduce one under a plausible name.
  *  3. **No feature flag gates a durable record.** ADR 0004 D4 concern 13:
- *     `MERCARIA_RETAIL_ENABLED` gates checkout ENTRY, and a rollback must leave
+ *     `config.retail.enabled` gates checkout ENTRY, and a rollback must leave
  *     procurement, refunds and reconciliation draining. The modules that finish
  *     an order already placed must be unable to read the lever.
  *  4. **A supplier is never a Connect transfer recipient.** ADR 0004 D6.8 — the
@@ -208,7 +208,7 @@ const MARKUP_REFERENCE =
   /markupMinor|marginTarget|marginBps|markupBps|profitMinor|upliftMinor|surchargeMinor|applyMarkup|addMargin|priceCorrection|supplementalCharge/;
 
 /** The retail entry lever, which nothing past entry may read. */
-const RETAIL_FLAG_REFERENCE = /config\.retail\b|MERCARIA_RETAIL_ENABLED/;
+const RETAIL_FLAG_REFERENCE = /config\.retail\b/;
 
 /**
  * The Connect transfer machinery — ADR 0004 D6.8, "procurement is Mercaria

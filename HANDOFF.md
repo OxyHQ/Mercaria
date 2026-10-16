@@ -21,7 +21,7 @@ Generate + set these on the **Mercaria backend** (ECS):
 | `SHOPIFY_SCOPES` | optional — the code default is now the full string in `docs/runbooks/connector-real-store-verification.md` §3.2 | It WAS `read_products` alone, which is what #218 landed a default deployment in. Set it only to request a NARROWER grant, and read the granted `scopes[]` back after connecting either way: a scope Shopify did not grant at install cannot be added without re-authorizing, and a topic it refuses is now recorded on the connection rather than thrown away (§5.3). |
 | `REDIS_URL` | ElastiCache Valkey (already in `oxy-infra`) | **Important:** without it, syncs run INLINE in the request → large backfills time out, and neither scheduled sweep runs — not the 6h catalogue reconcile, nor the 15-minute webhook re-registration sweep (#262), whose merchant-triggered equivalent does still run inline. Required for production. |
 
-Guest commerce (#103, ADR 0003 — DO NOT enable before the M8 security + privacy review): `GUEST_COMMERCE_ENABLED=true` requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (each `openssl rand -hex 32`, two DIFFERENT keys — D12) or it stays OFF and logs once at boot. `GUEST_SESSION_ISSUANCE_ENABLED=false` is the incident kill switch (stops new sessions only). Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
+Guest commerce (#103, ADR 0003 — DO NOT enable before the M8 security + privacy review): it has no switch and is ON exactly when BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` resolve (each `openssl rand -hex 32`, two DIFFERENT keys — D12); with either missing it stays OFF. `GUEST_SESSION_ISSUANCE_ENABLED=false` is the incident kill switch (stops new sessions only). Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
 
 FX (optional but recommended): the 15 non-USD/EUR/GBP currencies use env-overridable **static** fallback rates (`FX_STATIC_RATE_JPY`, `…_MXN`, etc.). The live provider only yields FAIR→USD. For correct display and for the presentment side of a cross-currency order, wire a real multi-currency FX source or keep the static rates current. A missing rate is never fabricated: the pair is simply omitted, and a conversion that needs it fails rather than quoting a wrong amount — so a same-currency sale is unaffected by an FX outage, and a cross-currency one is refused.
 
@@ -248,9 +248,8 @@ orders and otherwise invisible.
 |---|---|---|
 | `DIGITAL_UPLOADS_ENABLED` | `false` | gates the creator upload surface. Off does not touch a published asset. |
 | `DIGITAL_PUBLICATION_ENABLED` | `false` | gates a version becoming sellable. Separate from uploads so work can be staged while publication is paused. |
-| `DIGITAL_PAID_CHECKOUT_ENABLED` | `false` | **the launch gate — see §3.** A free claim still works with it off. |
 | `DIGITAL_DOWNLOADS_ENABLED` | **`true`** | the INCIDENT lever. Off refuses new grants with `downloads_disabled` and leaves every right `active`, so flipping it back restores access with nothing to repair. **Never use it as a rollout lever.** |
-| `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. |
+| `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. **The paid launch gate — see §3:** listing a vertical opens paid checkout (and free claims) for it; there is no separate paid-checkout switch. |
 
 ## 2. Object storage IS wired now — and the part that is NOT is upload
 
@@ -305,8 +304,9 @@ reconcilable), and that flow carries a client-side obligation:
 
 ## 3. The paid-launch gate (ADR 0010 D15) — three sign-offs, per market
 
-`DIGITAL_PAID_CHECKOUT_ENABLED` must stay off in a market until all three are
-recorded here with a date and a name:
+No vertical may be added to `DIGITAL_ENABLED_VERTICALS` for a market — that is
+what turns paid digital checkout on — until all three are recorded here with a
+date and a name:
 
 | Gate | What it has to establish | Status |
 |---|---|---|

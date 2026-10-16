@@ -232,7 +232,6 @@ let checkout: typeof import('../checkout.service.js').checkout;
 beforeAll(async () => {
   // Set BEFORE importing anything that reads config: `config/index.ts` reads
   // process.env once at module load and freezes the result.
-  process.env.STRIPE_ENABLED = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_not_a_real_key';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_gate_platform_not_a_real_one';
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_gate_connect_not_a_real_one';

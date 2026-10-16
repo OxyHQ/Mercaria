@@ -538,7 +538,7 @@ later is the client's correct response. Reads, decisions, refunds, return cases,
 warranty cases, supplier recoveries and every request already filed are
 unaffected.
 
-**Neither is `MERCARIA_RETAIL_ENABLED`, and this domain never reads it.** #127
+**Neither is the retail entry gate (`config.retail.enabled`), and this domain never reads it.** #127
 acceptance 8 is *"existing cases remain operable after new retail checkout or
 supplier integration is paused"*, and the isolation gate fails the build if any
 module here learns to read `config.retail` or a supplier account's `killed`

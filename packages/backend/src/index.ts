@@ -464,8 +464,8 @@ connectPostgres()
 
       // Close #124's two ports with #123's real implementations (ADR 0004 D4).
       //
-      // UNCONDITIONAL, and deliberately not behind `MERCARIA_RETAIL_ENABLED`.
-      // That flag gates checkout ENTRY (D4 concern 13, D13): a rollback must
+      // UNCONDITIONAL, and deliberately not behind `config.retail.enabled`.
+      // That gates checkout ENTRY (D4 concern 13, D13): a rollback must
       // leave in-flight procurement, refunds and reconciliation draining, and
       // registering these behind it would mean turning retail off stopped
       // authorizing procurement for orders whose buyers had already been
@@ -491,7 +491,7 @@ connectPostgres()
       // an ops script against a real account without a second wiring path.
       //
       // NOT behind `DIGITAL_RETAIL_PROCUREMENT_ENABLED`, for the reason the
-      // retail ports above are not behind `MERCARIA_RETAIL_ENABLED`: that lever
+      // retail ports above are not behind `config.retail.enabled`: that lever
       // gates SUBMITTING to a supplier, and an in-flight attempt still has to be
       // recoverable after it is turned off — a purchase order stuck in
       // `ambiguous` with no adapter to ask is a paid customer nobody can serve.
@@ -628,7 +628,7 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
 
       // Merchant subscription billing (#89). Registering the rail is gated on
-      // `STRIPE_ENABLED` and deliberately NOT on `MERCHANT_BILLING_ENABLED`:
+      // the configured Stripe rail and deliberately NOT on `MERCHANT_BILLING_ENABLED`:
       // that flag gates a merchant's ACTIONS, while the adapter is what applies
       // provider events and reconciles subscriptions that already exist — so
       // registering it only when merchants may upgrade would strand every live

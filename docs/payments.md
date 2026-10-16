@@ -354,7 +354,7 @@ and connector webhooks, because Stripe signs the exact bytes it sent:
 The exact lists are ADR 0001's and are pinned by
 `services/payments/stripe/__tests__/event-scopes.test.ts`, which transcribes them
 from the ADR by hand so changing the source alone breaks the test. Both endpoints
-answer **404 when `STRIPE_ENABLED` is off** — the MOUNT is gated, not just the
+answer **404 when the Stripe rail is not configured** — the MOUNT is gated, not just the
 handler, because a deployment with no secret cannot tell a real delivery from a
 forged one, so there is nothing to park.
 
@@ -574,7 +574,7 @@ seller key is and what `ready` means and NOTHING about Stripe — because
 `checkout.service` importing a Stripe module would make the card rail structural
 to placing an order.
 
-**When `STRIPE_ENABLED` is off the gate returns before touching Postgres**, so a
+**When no native rail is configured the gate returns before touching Postgres**, so a
 deployment without Stripe behaves exactly as it did before #46. Both branches are
 pinned: the off branch in `checkout.service.test.ts`
 (`expect(findProviderAccountByOwner).not.toHaveBeenCalled()`), the on branch in
@@ -897,9 +897,12 @@ Issue #47's acceptance criterion 8 asks for enabling Stripe "by environment,
 country and seller cohort". Two of those three already exist and the third is
 deliberately not built:
 
-- **Environment** — `STRIPE_ENABLED`. Off disables the general Stripe marketplace rail and Connect webhook. An
-  explicit merchant-billing cohort can still mount platform billing ingress and
-  register its bounded reader; that separate cohort cannot charge marketplace carts.
+- **Environment** — the rail has no switch: it is ON exactly when
+  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET`
+  are all set. Without them the general Stripe marketplace rail and Connect
+  webhook are off. An explicit merchant-billing cohort (key + platform secret, no
+  Connect secret) can still mount platform billing ingress and register its
+  bounded reader; that separate cohort cannot charge marketplace carts.
 - **Country and cohort** — the seller-side readiness gate IS the cohort. A seller
   can only be sold through once their connected account reaches `ready`, and
   `STRIPE_SELLER_COUNTRIES` bounds which countries may onboard at all. Buyer-side,
@@ -1085,8 +1088,8 @@ settlement, refunds or reconciliation, so a guest checkout switched off while an
 intent is open drains to a terminal state exactly as it would have — orders
 paid, transfers made, the portal row written.
 `guest-stripe-checkout-isolation.test.ts` fails the build if a module in those
-paths learns to read `config.guest`. **`STRIPE_ENABLED=false` is NOT a guest
-rollback lever**: it disables the general marketplace rail and its webhook
+paths learns to read `config.guest`. **Unconfiguring the Stripe rail is NOT a
+guest rollback lever**: it disables the general marketplace rail and its webhook
 routes, stranding verified events.
 
 ### The #85 gate, CLOSED
@@ -1287,17 +1290,20 @@ event).
 ### Configuration
 
 ```
-MERCARIA_RETAIL_ENABLED=false        # ENTRY only; never the outbox, PO, refund or reconciliation
+MERCARIA_RETAIL_SELLER_LEGAL_ENTITY= # names the selling entity; with its siblings, opens retail ENTRY
+MERCARIA_RETAIL_SELLER_COUNTRY=      # ISO-3166 alpha-2
 RETAIL_BLOCKED_SUPPLIERS=            # supplier ids withdrawn from sale, every buyer
 RETAIL_BLOCKED_MARKETS=              # ISO-3166 alpha-2 destinations withdrawn from sale
 GUEST_CHECKOUT_BLOCKED_SUPPLIERS=    # the #107 guest axes, extended by a supplier one
 ```
 
-`MERCARIA_RETAIL_ENABLED=true` additionally requires `SUPPLIER_PREFLIGHT_ENABLED`
-and a non-empty `RETAIL_OPERATOR_OXY_USER_IDS` — half-configured is OFF (the
-`CROWDSOURCE_ENABLED` pattern). Without either, every retail line refuses at
-checkout anyway, and a catalogue of items nobody can buy with no message saying
-why is worse than the feature being off.
+There is no retail switch: retail checkout ENTRY is ON exactly when the seller
+legal entity and a two-letter seller country are set, `SUPPLIER_PREFLIGHT_ENABLED`
+holds and `RETAIL_OPERATOR_OXY_USER_IDS` is non-empty — and it gates ENTRY only,
+never the outbox, PO, refund or reconciliation. A named seller missing a sibling
+prerequisite logs once at boot and stays OFF: without either of the other two,
+every retail line refuses at checkout anyway, and a catalogue of items nobody can
+buy with no message saying why is worse than the feature being off.
 
 **No lever gates anything durable**, and `retail-checkout-isolation.test.ts`
 fails the build if the authorization reader, the fulfilment service, the payment
@@ -1954,7 +1960,7 @@ change and the variable goes away.** It is a stand-in for a claim on a
 credential, not a design to keep.
 
 An EMPTY allow-list does not mount the router at all, so every path answers 404 —
-`STRIPE_ENABLED`'s rule rather than the outbox's, because a 401 would tell an
+the Stripe webhook mount's rule rather than the outbox's, because a 401 would tell an
 unauthenticated caller that an operator surface exists on this deployment. A
 real, authenticated Oxy user who is not on the list gets 403 and a `warn` line
 naming them.
@@ -2139,7 +2145,8 @@ PAYMENT_OUTBOX_BATCH_SIZE=50
 PAYMENT_OUTBOX_POLL_INTERVAL_MS=5000
 PAYMENT_OUTBOX_LEASE_MS=60000
 
-STRIPE_ENABLED=false                   # general rail/Connect off; explicit billing cohort may mount platform ingress
+# The rail is ON exactly when these three are all set (no switch). Key + platform
+# secret alone, beside a billing cohort, is the cohort-only shape: general rail off.
 STRIPE_SECRET_KEY=                     # sk_test_… or sk_live_…; its prefix decides livemode
 STRIPE_WEBHOOK_SECRET=                 # platform-scope endpoint
 STRIPE_WEBHOOK_SECRET_PREVIOUS=        # rotation window
@@ -2207,8 +2214,8 @@ disagreement that matters is `enabled: true` with nobody on the list — a surfa
 reachable by no one, which reads as a permission bug for as long as it takes
 someone to find the empty variable.
 
-`STRIPE_ENABLED=true` requires the key AND BOTH webhook secrets; half-configured
-logs once at boot and stays OFF, the `CROWDSOURCE_ENABLED` rule. There is no
+The rail is ON exactly when the key AND BOTH webhook secrets are set; partly
+configured logs once at boot and stays OFF, the `CROWDSOURCE_ENABLED` rule. There is no
 `STRIPE_ACCOUNT_ID` (the platform account is implied by the key) and no API
 version variable — that is a code constant, `STRIPE_API_VERSION`, so an event
 payload's shape stays a property of the code that parses it.
@@ -2234,10 +2241,13 @@ otherwise become a checkout that refuses every cart naming a currency that does
 not exist. An unrecognised platform currency falls back to EUR rather than being
 dropped, because every transfer and every card ledger leg is denominated in it.
 
-`STRIPE_PUBLISHABLE_KEY` does not join `STRIPE_ENABLED`'s required set either.
-Its absence has a clean fallback — the app's own
-`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` — so a missing value costs nothing, while
-turning the rail off for it would take payments down over a client-side default.
+`STRIPE_PUBLISHABLE_KEY` does not join the rail's required set either. Its
+absence has a fallback — the app's own `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` —
+while turning the rail off for it would take payments down over a client-side
+default. **The fallback is only as good as the build:** an app built WITHOUT
+`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` and served by an API without
+`STRIPE_PUBLISHABLE_KEY` renders "card payments are not configured" on every
+card step, so one of the two must be set wherever the rail is.
 
 `STRIPE_ONBOARDING_BASE_URL` is this API's public origin, configured rather than
 derived from the request: a `Host` header behind an ALB is attacker-controlled,
@@ -2300,16 +2310,17 @@ the live key must not be issued before it is settled.
    | Platform | `connect = false` | `https://<api>/webhooks/stripe` | the `payment_intent.*`, `charge.*`, `transfer.*` list in ADR 0001 |
    | Connect | `connect = true` | `https://<api>/webhooks/stripe/connect` | `account.updated`, `account.application.deauthorized`, `account.external_account.updated`, `payout.paid`, `payout.failed` |
 
-3. Set the environment (see Configuration above). `STRIPE_ENABLED=true` needs the
-   key and BOTH signing secrets, or the rail stays off and says so once at boot.
+3. Set the environment (see Configuration above). The rail turns on when the
+   key and BOTH signing secrets are set; with only some of them it stays off and
+   says so once at boot.
    Set the three `STRIPE_ONBOARDING_*` values too — the rail will come up without
    them and no seller will be able to onboard.
 4. Confirm the mount: `GET /` lists `/stripe/onboarding`, and
    `POST /webhooks/stripe` answers 400 (bad signature) rather than 404. A 404
    means neither general Stripe nor the explicit billing-cohort ingress is mounted —
    for a general-rail deployment, check the boot log for the
-   `[Stripe] STRIPE_ENABLED is set but the integration is incomplete` line, which
-   names the missing variables.
+   `[Stripe] The Stripe rail is partly configured` line, which names the
+   missing variables.
 
 ### 2. Take a test store from not connected to payment ready
 
@@ -2749,7 +2760,7 @@ in ADR 0001 — so this list is also the record of what "live" will require.
 - [ ] `PAYMENT_OPERATOR_OXY_USER_IDS` names real people, and the list has been
       read by somebody other than whoever wrote it.
 - [ ] The boot log carries no
-      `[Stripe] STRIPE_ENABLED is set but the integration is incomplete` line.
+      `[Stripe] The Stripe rail is partly configured` line.
 
 **Webhooks**
 

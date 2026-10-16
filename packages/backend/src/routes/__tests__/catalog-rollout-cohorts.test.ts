@@ -236,7 +236,7 @@ async function build(cohorts: string): Promise<Deployment> {
   for (const lever of LEVERS) process.env[lever] = 'true';
   process.env.CATALOG_ROLLOUT_COHORTS = cohorts;
   process.env.CATALOG_OPERATOR_OXY_USER_IDS = '';
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
 
   const { createApp } = await import('../../app.js');
   const { server, url } = await listen(createApp());
@@ -284,7 +284,7 @@ afterAll(async () => {
   for (const lever of LEVERS) delete process.env[lever];
   delete process.env.CATALOG_ROLLOUT_COHORTS;
   delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
-  delete process.env.STRIPE_ENABLED;
+  delete process.env.STRIPE_SECRET_KEY;
   for (const deployment of opened) await deployment.close();
 });
 

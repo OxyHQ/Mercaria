@@ -58,7 +58,6 @@ const INLINE_ADDRESS = {
 };
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_PII_ENCRYPTION_KEY = 'a'.repeat(64);
   process.env.GUEST_EMAIL_HASH_KEY = 'b'.repeat(64);
   // Explicit, not assumed: vitest may run several files in one worker thread

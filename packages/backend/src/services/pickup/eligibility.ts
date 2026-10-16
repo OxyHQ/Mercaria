@@ -259,7 +259,7 @@ export function derivePickupEligibility(input: {
  * The three that are genuinely guest-specific:
  *
  *  - **The deployment's own guest-pickup lever.** Independent of
- *    `GUEST_COMMERCE_ENABLED` and of the store lever, so guest collection can
+ *    guest commerce's own gate and of the store lever, so guest collection can
  *    be withdrawn without taking authenticated collection or the guest cart
  *    down with it (#93 operations rule 9).
  *  - **#85's activation.** Reusing #107's EXISTING

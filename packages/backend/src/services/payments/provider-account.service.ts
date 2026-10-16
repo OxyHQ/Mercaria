@@ -111,7 +111,7 @@ export async function isSellerPaymentReady(sellerKey: string): Promise<boolean> 
  * a read of twenty offers twenty-one round trips. The verdict is identical:
  * ADR 0001 D9's one stored `onboarding_state`, never re-derived here.
  *
- * With `STRIPE_ENABLED` off it returns before touching Postgres, exactly as
+ * With no native rail configured it returns before touching Postgres, exactly as
  * {@link assertSellerGroupsPaymentReady} does and for the same reason: there is
  * no rail to be ready for, so no account can exist and the question is not
  * merely unanswered but meaningless. Every key maps to `false`, which is the
@@ -163,7 +163,7 @@ export async function readSellerPaymentReadiness(
  *
  * ## The gate is the RAIL, and the disabled branch touches nothing
  *
- * With `STRIPE_ENABLED` off there is no rail to be ready for: no account can
+ * With no native rail configured there is no rail to be ready for: no account can
  * exist, no webhook is mounted, and the only path to `paid` is the dev-only
  * `mockPay` seam. Returning here — before `getDb()`, before any query — is what
  * makes "checkout behaves exactly as it did" a mechanism rather than a claim,

@@ -26,7 +26,7 @@
  * with no active cohort refuses every retail line — `no_active_cohort` — which
  * is the correct state for a deployment that has published no bounds, and is
  * why this domain does not need a kill switch of its own: an empty pilot IS the
- * off position. `MERCARIA_RETAIL_ENABLED` (#123) remains the flippable one.
+ * off position. `config.retail.enabled` (#123) remains the deployment-wide one.
  */
 
 import type {

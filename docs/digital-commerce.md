@@ -200,21 +200,23 @@ zero.
 disjoint. `~/AGENTS.md`'s no-IP invariant holds with no exception.
 
 **Withdrawal** is a closed three-member vocabulary, and the waiver is paired with a
-timestamp by CHECK. **Before `DIGITAL_PAID_CHECKOUT_ENABLED` goes on for a market**,
-three sign-offs are required and recorded in `HANDOFF.md`: the payment provider's
-permission for a third-party digital-goods marketplace, the electronically-supplied-
-service tax configuration for that market, and the consumer-law review of the waiver
-copy (ADR 0010 D15).
+timestamp by CHECK. **Paid digital checkout has no switch of its own: adding a
+vertical to `DIGITAL_ENABLED_VERTICALS` is the decision that turns it on** — a
+listed vertical can be bought (and claimed free), an unlisted one can be neither.
+So **before a vertical is enabled for a market**, three sign-offs are required and
+recorded in `HANDOFF.md`: the payment provider's permission for a third-party
+digital-goods marketplace, the electronically-supplied-service tax configuration
+for that market, and the consumer-law review of the waiver copy (ADR 0010 D15).
+The sign-offs PRECEDE the variable; nothing in code can check that they did.
 
-## The five levers
+## The levers
 
 | Variable | Default | Stops |
 |---|---|---|
 | `DIGITAL_UPLOADS_ENABLED` | off | new files |
 | `DIGITAL_PUBLICATION_ENABLED` | off | a version becoming sellable |
-| `DIGITAL_PAID_CHECKOUT_ENABLED` | off | buying (a free claim still works) |
 | `DIGITAL_DOWNLOADS_ENABLED` | **on** | minting new grants |
-| `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical (an ALLOW-list) |
+| `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical — buying AND free claims (an ALLOW-list; listing a vertical opens paid checkout for it) |
 
 `downloadsEnabled` is the only lever that reaches an existing right, hence the only
 one defaulting on: it is an incident lever, and the thing you reach for mid-incident

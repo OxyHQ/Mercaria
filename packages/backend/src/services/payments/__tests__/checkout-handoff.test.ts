@@ -72,7 +72,6 @@ function capturedMetadata(): Record<string, string> {
 }
 
 beforeAll(async () => {
-  process.env.STRIPE_ENABLED = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_handoff_not_a_real_key';
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_handoff_platform_not_a_real_one';
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_handoff_connect_not_a_real_one';

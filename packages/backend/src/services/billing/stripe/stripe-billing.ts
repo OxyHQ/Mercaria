@@ -321,7 +321,7 @@ export class StripeBillingProvider implements BillingProvider {
 /**
  * Register the Stripe billing rail, when this deployment has one.
  *
- * Gated on `STRIPE_ENABLED` and not on `MERCHANT_BILLING_ENABLED`: the billing
+ * Gated on the configured Stripe rail, not on `MERCHANT_BILLING_ENABLED`: the billing
  * flag gates a merchant's ACTIONS, while the adapter is what applies provider
  * events and reconciles subscriptions that already exist. Registering it only
  * when merchants may upgrade would strand every existing subscription the moment

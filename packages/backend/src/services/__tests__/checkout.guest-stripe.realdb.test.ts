@@ -145,7 +145,6 @@ const INLINE_ADDRESS = {
 beforeAll(async () => {
   // Set BEFORE any import that reads config: `config/index.ts` reads the
   // environment once at module load and freezes the result.
-  process.env.STRIPE_ENABLED = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_guest_not_a_real_key';
   process.env.STRIPE_WEBHOOK_SECRET = PLATFORM_SECRET;
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_guest_connect_not_a_real_one';
@@ -154,7 +153,6 @@ beforeAll(async () => {
   process.env.STRIPE_PRESENTMENT_CURRENCIES = 'EUR,USD';
   process.env.FX_PROVIDER = 'static';
   // Guest commerce, and the two keys the M8 half-configuration rule demands.
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   // A REAL 32-byte key: `lib/guest-pii.ts` refuses anything else, and the
   // contact row is encrypted inside the orders' own transaction.
   process.env.GUEST_PII_ENCRYPTION_KEY = 'a'.repeat(64);
