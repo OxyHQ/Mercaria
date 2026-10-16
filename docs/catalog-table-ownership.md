@@ -80,6 +80,7 @@ it and can only rise.
 | Supervised catalog review | `db/schema/supervisedShopping.ts` | `services/supervised-shopping/catalog-review.service.ts` | `catalog_safety_reviews` — append-only operator evidence bound to the current content digest; Oxy owns audience authorization |
 | Supervised purchase coordination | `db/schema/supervisedShopping.ts` | `services/supervised-shopping/purchase.service.ts` | `supervised_checkout_requests`, `supervised_purchase_operations`, `supervised_purchase_lines` — durable request identity and immutable order effects; Oxy owns guardian consent and its lifecycle |
 | Store access | `db/schema/stores.ts` | `db/stores/storeRepository.ts` | `store_permission_overrides` — per-person EXCEPTIONS to the role map; who may act for a store is the owning Oxy account's membership (ADR 0012), never a table here |
+| Oxy file usage (Oxy ADR 0041) | `db/schema/oxyFiles.ts` | `db/oxyFiles/` (6) — the outbox's only NEW-request writer is the `mercaria_oxy_file_reference_enqueue` trigger function of `0169` | `oxy_file_reference_outboxes`, `oxy_file_references`, `oxy_file_reference_reconciliations`, `oxy_file_events`, `oxy_file_event_actions` — what Mercaria told Oxy about every file it uses, and what a takedown removed; `docs/catalog-media.md` |
 
 **#1016's ten tables are split across TWO rows of one schema module, and the split
 is the ownership decision** (ADR 0011). The supply half — what a counterparty has

@@ -152,6 +152,21 @@ connectPostgres()
         .then(({ startPaymentOutboxDispatcher }) => startPaymentOutboxDispatcher())
         .catch((err) => log.general.error({ err }, 'Payment outbox dispatcher import failed'));
 
+      // Register every Oxy file Mercaria uses (Oxy ADR 0041). On EVERY task,
+      // the offer converger's lease shape. The LOOP is gated by
+      // `OXY_FILE_REFERENCES_ENABLED`; the triggers of migration 0169 queue
+      // every change to a file-holding row whatever it says, so switching it on
+      // drains the backlog. The nightly reconciliation is the safety net and
+      // how existing data first enters the model, under its own lever.
+      import('./services/catalog-media/file-reference-outbox.js')
+        .then(({ startFileReferenceDispatcher }) => startFileReferenceDispatcher())
+        .catch((err) => log.general.error({ err }, 'Oxy file reference dispatcher import failed'));
+      import('./services/catalog-media/file-reference-reconciliation.js')
+        .then(({ startFileReferenceReconciliation }) => startFileReferenceReconciliation())
+        .catch((err) =>
+          log.general.error({ err }, 'Oxy file reference reconciliation import failed'),
+        );
+
       // Converge native offers (#57). The third dispatcher, on the same lease
       // shape as the two above and gated the same way — a catalogue write keeps
       // enqueuing while `OFFER_MATERIALIZATION_ENABLED` is off, so switching it
@@ -837,6 +852,14 @@ connectPostgres()
           './services/offers/offer-outbox-dispatcher.js'
         );
         stopOfferOutboxDispatcher();
+        const { stopFileReferenceDispatcher } = await import(
+          './services/catalog-media/file-reference-outbox.js'
+        );
+        stopFileReferenceDispatcher();
+        const { stopFileReferenceReconciliation } = await import(
+          './services/catalog-media/file-reference-reconciliation.js'
+        );
+        stopFileReferenceReconciliation();
         const { stopMatchQueueDispatcher } = await import(
           './services/matching/match-queue-dispatcher.js'
         );

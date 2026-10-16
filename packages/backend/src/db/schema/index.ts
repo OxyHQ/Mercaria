@@ -619,3 +619,10 @@ export * from './digitalRetail';
 
 export * from './materials';
 export * from './supervisedShopping';
+
+// Oxy Files usage registration (Oxy ADR 0041). After everything above, because
+// it reads every table that holds an Oxy file id — through the triggers of its
+// migration and the reference registry in `services/catalog-media/` — and no
+// table above reads it. Nothing here references a holding row by foreign key:
+// an outbox row whose entity is gone is exactly the removal it exists to send.
+export * from './oxyFiles';

@@ -2566,6 +2566,43 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'out of the plan entirely.',
   },
   {
+    table: 'oxy_file_event_actions',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      "Oxy ADR 0041's takedown audit: which row a blocked or deleted file was removed from. " +
+      'Its `entity_type` reaches a brand (`brand_logo`) and a canonical product ' +
+      '(`canonical_description_image`), both mergeable, and a merge leaves it where it is — ' +
+      'it is a record of what was changed on the entity it was changed on, append-only by ' +
+      'trigger, exactly as `catalog_localization_revisions` is left.',
+  },
+  {
+    table: 'oxy_file_events',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'oxy_file_reference_outboxes',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      'A JOB, not a relationship (the `attribute_reindex_requests` shape): "converge this ' +
+      'entity\'s Oxy file references from what it holds now". A merge keeps the loser as a ' +
+      "tombstone that still holds its logo or description, so the loser's references stay " +
+      "true; the winner's own rows enqueue the winner through their triggers when the merge " +
+      'writes them. Repointing a job would converge the wrong entity.',
+  },
+  {
+    table: 'oxy_file_references',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      'What Oxy acknowledged, keyed by the entity Mercaria TOLD it about. Oxy holds the ' +
+      'reference under the loser id; repointing this row alone would make the ledger disagree ' +
+      'with Oxy, and the next convergence or reconciliation of either entity corrects both ' +
+      'sides from the live rows.',
+  },
+  {
     table: 'payment_discrepancies',
     disposition: 'not_an_entity_reference',
     reason: PAYMENT_COMMERCE_CORRELATION,

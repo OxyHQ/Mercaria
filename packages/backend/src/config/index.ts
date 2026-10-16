@@ -3858,6 +3858,54 @@ export interface PickupConfig {
 }
 
 /**
+ * Oxy Files usage registration (Oxy ADR 0041) — three independent levers.
+ *
+ * Each gates a LOOP or a MOUNT, never a durable record: the triggers of
+ * migration `0169` enqueue every change to a file-holding row whatever these
+ * say, so turning the outbox on drains what accumulated while it was off.
+ */
+export interface OxyFilesConfig {
+  /**
+   * `OXY_FILE_REFERENCES_ENABLED` — drain `oxy_file_reference_outboxes` into
+   * Oxy's `file_references`. Default OFF: it needs Oxy's stage-1 references
+   * routes and the `files:references:write` scope granted to Mercaria.
+   */
+  readonly referencesEnabled: boolean;
+  /** `OXY_FILE_REFERENCE_POLL_INTERVAL_MS` — one drain per interval. Default 5000. */
+  readonly referencePollIntervalMs: number;
+  /** `OXY_FILE_REFERENCE_BATCH_SIZE` — entities claimed per drain. Default 50. */
+  readonly referenceBatchSize: number;
+  /** `OXY_FILE_REFERENCE_MAX_ATTEMPTS` — after this many failures a job is `dead_letter`. Default 12. */
+  readonly referenceMaxAttempts: number;
+  /**
+   * `OXY_FILE_RECONCILIATION_ENABLED` — run the nightly per-entity-type
+   * reconciliation (ADR 0041 D6). Default OFF.
+   */
+  readonly reconciliationEnabled: boolean;
+  /**
+   * `OXY_FILE_RECONCILIATION_DRY_RUN` — commit every reconciliation as a dry
+   * run: Oxy reports what it WOULD add and remove and changes nothing. Default
+   * ON, so the first run of each entity type is read before it acts — the way
+   * existing data enters the model is exactly the run whose numbers somebody
+   * should look at first.
+   */
+  readonly reconciliationDryRun: boolean;
+  /** `OXY_FILE_RECONCILIATION_INTERVAL_HOURS` — between two runs of one entity type. Default 24. */
+  readonly reconciliationIntervalHours: number;
+  /** `OXY_FILE_RECONCILIATION_POLL_INTERVAL_MS` — how often a task looks for a due run. Default 60000. */
+  readonly reconciliationPollIntervalMs: number;
+  /**
+   * `OXY_FILE_EVENTS_ENABLED` — mount `POST /webhooks/oxy-files`. Default OFF
+   * (404). With it on and no secret, the route answers Oxy's endpoint challenge
+   * (which is how the endpoint is registered — Oxy shows the secret only after
+   * the challenge) and refuses every event with 503, which Oxy retries.
+   */
+  readonly eventsEnabled: boolean;
+  /** `OXY_FILE_EVENTS_SECRET` — the signing secret Oxy showed when the endpoint was verified. */
+  readonly eventsSecret: string;
+}
+
+/**
  * GoWay, where every location's place facts live (ADR 0013).
  *
  * Mercaria reads places PUBLICLY — no service credential, the same reads a
@@ -4008,6 +4056,7 @@ export interface AppConfig {
   readonly connectors: ConnectorsConfig;
   readonly pickup: PickupConfig;
   readonly goway: GoWayConfig;
+  readonly oxyFiles: OxyFilesConfig;
   readonly catalogAuthoring: CatalogAuthoringConfig;
   readonly catalogProposals: CatalogProposalsConfig;
   readonly digital: DigitalCommerceConfig;
@@ -5019,6 +5068,18 @@ export const config: AppConfig = Object.freeze({
     timeoutMs: intEnv('GOWAY_TIMEOUT_MS', 2_500),
     placeCacheTtlSeconds: resolvePlaceCacheTtlSeconds(),
     placeStaleTtlSeconds: intEnv('GOWAY_PLACE_STALE_TTL_SECONDS', 24 * 60 * 60),
+  }),
+  oxyFiles: Object.freeze({
+    referencesEnabled: boolEnv('OXY_FILE_REFERENCES_ENABLED', false),
+    referencePollIntervalMs: intEnv('OXY_FILE_REFERENCE_POLL_INTERVAL_MS', 5_000),
+    referenceBatchSize: intEnv('OXY_FILE_REFERENCE_BATCH_SIZE', 50),
+    referenceMaxAttempts: intEnv('OXY_FILE_REFERENCE_MAX_ATTEMPTS', 12),
+    reconciliationEnabled: boolEnv('OXY_FILE_RECONCILIATION_ENABLED', false),
+    reconciliationDryRun: boolEnv('OXY_FILE_RECONCILIATION_DRY_RUN', true),
+    reconciliationIntervalHours: intEnv('OXY_FILE_RECONCILIATION_INTERVAL_HOURS', 24),
+    reconciliationPollIntervalMs: intEnv('OXY_FILE_RECONCILIATION_POLL_INTERVAL_MS', MINUTE_MS),
+    eventsEnabled: boolEnv('OXY_FILE_EVENTS_ENABLED', false),
+    eventsSecret: strEnv('OXY_FILE_EVENTS_SECRET', ''),
   }),
   catalogAuthoring: Object.freeze({
     enabled: boolEnv('CATALOG_AUTHORING_ENABLED', false),

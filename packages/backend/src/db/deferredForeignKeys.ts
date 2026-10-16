@@ -2313,4 +2313,40 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'reference, so the pair is constrained exactly once and in the direction ' +
       'where the evidence is the parent.',
   },
+  // ── Oxy Files usage registration (Oxy ADR 0041) ──────────────────────────
+  //
+  // Every `entity_id` here is POLYMORPHIC by `entity_type` — a listing, a
+  // store, a canonical image, a review… (`file-reference-registry.ts` says
+  // which per type) — and the rows must OUTLIVE their subject: an outbox row
+  // whose entity was deleted is exactly the removal it exists to send, the
+  // ledger row is what that removal withdraws, and the event audit records
+  // what a takedown removed from a row that may be gone.
+  {
+    column: 'oxy_file_reference_outboxes.entity_id',
+    reason:
+      'Polymorphic by entity_type (the attribute_reindex_requests.entity_id shape), and a ' +
+      'JOB: it must survive its entity being deleted, because that deletion is the ' +
+      'reference removal the job exists to send to Oxy.',
+  },
+  {
+    column: 'oxy_file_references.entity_id',
+    reason:
+      'Polymorphic by entity_type. The record of what Oxy acknowledged, which must outlive ' +
+      'the holding row: it is how the outbox knows what to withdraw once the row is gone.',
+  },
+  { column: 'oxy_file_references.file_id', reason: OXY_FILE },
+  {
+    column: 'oxy_file_events.event_id',
+    reason:
+      "Oxy's own event id, the dedupe key of a delivery — a foreign key space, and " +
+      'deliberately never this table’s primary key.',
+  },
+  { column: 'oxy_file_events.file_id', reason: OXY_FILE },
+  {
+    column: 'oxy_file_event_actions.entity_id',
+    reason:
+      AUDIT_CORRELATION +
+      ' Polymorphic by entity_type; it names the row a takedown changed, which may since ' +
+      'have been deleted.',
+  },
 ];
