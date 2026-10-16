@@ -85,7 +85,7 @@ case "$url" in
     if [[ "${BROKEN_CASE:-}" == "wrong-resource" ]]; then
       resource='https://mcp.noted.oxy.test'
     fi
-    scopes='["store.orders.read","orders.read","commerce.search"]'
+    scopes='["store.orders.read","orders.read","materials.read","commerce.search"]'
     if [[ "${BROKEN_CASE:-}" == "wrong-scopes" ]]; then
       scopes='["commerce.search","store.refunds.execute"]'
     fi
