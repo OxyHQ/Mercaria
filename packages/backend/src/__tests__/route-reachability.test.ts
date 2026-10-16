@@ -188,7 +188,7 @@ describe('THE GATE: every route is reachable, or says why it is not', () => {
     expect(
       deliberate.map((entry) => `${entry.app}${entry.route}`).sort(),
       'the DELIBERATE list changed. A route unreachable BY DESIGN is rare — a provider return ' +
-        'URL and the Settings dialog\'s deep-link bridges. Adding one means in-app navigation ' +
+        "URL and the Settings dialog's deep-link bridges. Adding one means in-app navigation " +
         'must never reach that screen; if the truth is "nobody has wired it yet", it is ' +
         'awaiting_product_decision instead.',
     ).toEqual([
@@ -276,12 +276,7 @@ describe('POSITIVE CONTROLS: the walk really is transitive', () => {
     // this way; before this rule existed they all reported unreachable,
     // contradicting #363, which is how the gap was found.
     const result = reachabilityOf('frontend');
-    for (const route of [
-      '/watchlists',
-      '/shopping-agents',
-      '/referral-partner',
-      '/orders',
-    ]) {
+    for (const route of ['/watchlists', '/shopping-agents', '/referral-partner', '/orders']) {
       expect(result.reachable.has(route), `${route} should be reachable via go()`).toBe(true);
     }
   });
