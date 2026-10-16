@@ -88,10 +88,11 @@ const GOWAY_PLACE =
   'A GoWay place id. GoWay owns place identity and every place fact over HTTP (ADR 0013); ' +
   'Mercaria stores only the opaque reference.';
 
-/** An Oxy media file id, resolved through the SDK's canonical media chokepoint. */
+/** An Oxy purchase approval id, issued and owned by Oxy's safety service. */
 const OXY_PURCHASE_APPROVAL =
   'An Oxy purchase approval id, issued by the canonical safety service over HTTP.';
 
+/** An Oxy media file id, resolved through the SDK's canonical media chokepoint. */
 const OXY_FILE = 'An Oxy media file id. Oxy owns the file; Mercaria stores only the id.';
 
 /**

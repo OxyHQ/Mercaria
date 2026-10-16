@@ -20,7 +20,9 @@ vi.mock('../../middleware/auth.js', () => ({
   },
   optionalAuth: (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
     next(),
-  oxyClient: {},
+  oxyClient: {
+    middleware: { auth: () => (_req: unknown, res: express.Response) => res.sendStatus(401) },
+  },
 }));
 vi.mock('../../services/oxy-account-graph.js', () => ({
   readCallerAccountRole: async (_bearer: string, account: string) =>
