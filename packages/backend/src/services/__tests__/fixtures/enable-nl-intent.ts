@@ -8,9 +8,9 @@
  *
  * Its own module because ESM evaluates a file's imports IN ORDER: a test that
  * lists this first has the variable set before `config/index.ts` is initialised
- * by any later import. The `enable-canonical-writes.ts` mechanism, and it only
- * works from a module — a statement at the top of the test file itself would
- * still run after every import in it was hoisted and evaluated.
+ * by any later import. That is the mechanism, and it only works from a module —
+ * a statement at the top of the test file itself would still run after every
+ * import in it was hoisted and evaluated.
  *
  * What it buys is the interesting seam rather than the default one: with the
  * lever ON and no parser registered, the fallback reason is

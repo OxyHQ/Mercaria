@@ -88,10 +88,8 @@ CHECK the database would have refused all looked identical to a green suite.
   a DERIVED population — refused topics whose reason a retry could fix, or an
   empty `webhook_ids`, which is the only trace a registration that THREW leaves —
   plus `POST /admin/stores/:storeId/channels/:connectionId/webhooks/reregister`
-  behind `channels:write`, which stays available while the sweep is off.
-  `CONNECTOR_WEBHOOK_REREGISTRATION_ENABLED` defaults ON: it gates the LOOP, and
-  the catalogue reconcile beside it calls the same platforms every six hours with
-  no lever at all. A re-registration REUSES the stored secret — Mercaria has no
+  behind `channels:write`. The sweep always runs, like the catalogue reconcile
+  beside it, which calls the same platforms every six hours. A re-registration REUSES the stored secret — Mercaria has no
   previous-secret grace for a connection, so minting would 401 every delivery
   already queued. `permission_denied` and `topic_not_supported` dead-letter on
   the FIRST attempt; everything else backs off, capped, over twelve. **The sweep

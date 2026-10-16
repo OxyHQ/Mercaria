@@ -21,7 +21,6 @@
  * with every other realdb file.
  */
 
-import './fixtures/enable-canonical-writes.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, like, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';

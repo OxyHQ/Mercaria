@@ -176,8 +176,8 @@ The ordering is the point — see the remedy.
    `catalog_governance_change_requests.(subject_kind, subject_id)` and
    `catalog_proposals.(type, resolved_entity_id)` — both polymorphic, so no
    foreign key is possible.
-6. **A dispatcher that is off** while claims sit unexpired-then-expired.
-   `CANONICAL_GRAPH_ENABLED` gates #60's backfill loop.
+6. **A dispatcher that is not running** while claims sit unexpired-then-expired.
+   #60's backfill loop has no lever, so a stalled one is a crashed or wedged task.
 
 ## Remedy
 

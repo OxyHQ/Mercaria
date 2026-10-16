@@ -56,21 +56,19 @@ IDs retain the legacy import path, with SQL refusing to relabel a known video.
 
 ## Rollout and rollback
 
-`CATALOG_VIDEO_WRITES_ENABLED` defaults to false. It gates new video upload,
-verification and import, **not reads of stored records**. Deploy in this order:
+New video upload, verification and import are always on; there is no
+`CATALOG_VIDEO_WRITES_ENABLED` any more. The original rollout order still
+explains the constraints:
 
-1. Apply additive migration 0167 through the ordinary migration runner.
-2. Roll out new API **and every catalog/import worker** while video writes remain
-   disabled. New legacy-image writers preserve video rows and slots; old binaries
-   replace every row and could delete videos.
-3. Deploy the new dashboard only after the API rollout completes. Older API
-   binaries do not understand `mediaFileIds` and could silently discard that
-   new update field; new clients must not send it to an old writer.
-4. Verify Oxy metadata and native/web playback with real uploaded files in an
-   authorized environment, then enable new video writes.
+1. Additive migration 0167 through the ordinary migration runner.
+2. New API **and every catalog/import worker** before any video write. New
+   legacy-image writers preserve video rows and slots; old binaries replace
+   every row and could delete videos.
+3. The new dashboard only after the API rollout. Older API binaries do not
+   understand `mediaFileIds` and could silently discard that new update field;
+   new clients must not send it to an old writer.
 
-Disabling the flag does not hide stored media. Do not roll back to an old writer
-while video rows exist. Retain the additive columns and constraints when rolling
+Do not roll back to an old writer while video rows exist. Retain the additive columns and constraints when rolling
 back an application release. No migration or upload in production is part of
 this implementation's test acceptance.
 

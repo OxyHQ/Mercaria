@@ -9,7 +9,6 @@ import {
   PRODUCT_VIDEO_MAX_BYTES,
   PRODUCT_IMAGE_MIMES,
 } from '../../services/catalog-media/policy.js';
-import { config } from '../../config/index.js';
 
 /** Mounted below authenticated loadStore. Image MIME bypasses express.json;
  * permission and MIME validation precede buffering, with a strict byte cap. */
@@ -23,10 +22,6 @@ productMediaRouter.post(
       return;
     }
     const mime = req.get('content-type')?.split(';')[0].trim().toLowerCase();
-    if (mime === 'video/mp4' && !config.catalog.videoWritesEnabled) {
-      sendError(res, ErrorCodes.VALIDATION_ERROR, 'Catalog video writes are not enabled', 503);
-      return;
-    }
     if (mime !== 'video/mp4' && !(PRODUCT_IMAGE_MIMES as readonly string[]).includes(mime)) {
       sendError(res, ErrorCodes.VALIDATION_ERROR, 'Unsupported product media type', 415);
       return;

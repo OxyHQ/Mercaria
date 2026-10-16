@@ -406,8 +406,8 @@ export const CATALOG_EVENT_CONTRACTS: Record<CatalogEventKind, CatalogEventContr
     },
     note:
       'FIVE producers, and the fifth is the one a census over the repository function alone cannot ' +
-      'see: services/backfill/stages/projections.ts inserts the table directly, gated by ' +
-      'CANONICAL_SEARCH_INDEXING_ENABLED. ATTRIBUTE_ENTITY_KINDS is canonical product and variant ' +
+      'see: services/backfill/stages/projections.ts inserts the table directly. ' +
+      'ATTRIBUTE_ENTITY_KINDS is canonical product and variant ' +
       'only, so no native listing id can appear in entity_id and no publication path can enqueue ' +
       'a row naming one.',
   },

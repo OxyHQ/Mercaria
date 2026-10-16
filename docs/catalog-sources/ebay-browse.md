@@ -399,16 +399,13 @@ cannot talk Mercaria into hammering it.
 ### Two switches, deliberately not the same lever
 
 #65 adapter rule 10 asks for a hard fetch kill switch and a separate
-public-display switch. They are separate here, and only one is an environment
-variable:
+public-display switch. They are separate here, and neither is an environment
+variable — the adapter itself is always registered:
 
-- **`EBAY_FETCH_ENABLED`** is the FETCH kill switch: deployment-wide, in front of
-  every per-source right, the thing somebody flips at 3am. The adapter answers it
-  with a RETRYABLE outage, so #62 releases the run with its cursor intact, moves
-  no health, retires nothing, and resumes from the same page when it is flipped
-  back. An empty page would instead close the run as `partial_feed`, which is
-  indistinguishable in the health read from a feed that truncated — precisely the
-  distinction an incident needs.
+- **The FETCH kill switch is the source's own `paused` status**
+  (`POST /internal/ingestion/sources/:id/status`): the thing somebody flips at
+  3am, with no deploy. A paused source is not scheduled, its rows and cursor are
+  durable, and moving it back to `active` resumes it.
 - **The DISPLAY switch is `may_display` on the source's own rights policy**
   (#62): versioned, per source, reviewed, attributable. It is not an environment
   variable because withdrawing display is a rights decision with a paper trail and
@@ -443,9 +440,8 @@ measurement problem by creating a freshness one.
 
 `/internal/ebay/*`, behind the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
 #54/#56/#57/#58/#60/#62 use. Empty = not mounted (404, never a 401 that would
-advertise it). It stays mounted while `EBAY_ENABLED` and `EBAY_FETCH_ENABLED` are
-off, because reading the budget is exactly what somebody does after flipping the
-kill switch.
+advertise it). Reading the budget is exactly what somebody does after pausing
+the source.
 
 | Route | What it does |
 |---|---|
@@ -464,8 +460,6 @@ symptom being eBay throttling the application.
 ## 12. Environment
 
 ```
-EBAY_ENABLED=false                 # registers the adapter at all
-EBAY_FETCH_ENABLED=true            # the HARD fetch kill switch
 EBAY_ENVIRONMENT=sandbox           # sandbox | production; anything else is sandbox
 EBAY_MARKETS=EBAY_ES               # the rollout cohort, an ALLOW-list
 EPN_CAMPAIGN_ID=                   # ten digits; empty means run unattributed
@@ -496,7 +490,7 @@ every line is green.
 8. [ ] A bounded discovery cohort configured (#65 acceptance 7) — start with one
        category in ES.
 9. [ ] Drained by hand from `/internal/ingestion/drain` and its metrics read,
-       BEFORE `CATALOG_INGESTION_ENABLED=true`.
+       BEFORE the source is moved to `active`.
 10. [ ] One reconciliation sweep run and its findings read.
 11. [ ] One real tracked click → conversion → commission row observed through EPN
         reporting before any revenue claim (#64 §9.4).

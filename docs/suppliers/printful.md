@@ -359,11 +359,18 @@ own message never lands in a column** — only the closed code it maps to.
 | POD goods carry no retail GTIN | The catalogue adapter emits NO identifiers — #64 §6's "never fabricate an absent identifier". Putting the variant id in an `mpn` slot would make #58 match it against somebody else's catalogue |
 | v2 is open beta | Pinned to v1 where equivalent, wrapped behind the adapter seam |
 
-**Kill switches, five, and they are independent by construction:**
+**Adapter registration is not a switch, and it is not wired yet.** There is no
+`PRINTFUL_ENABLED`: `registerPrintfulAdapters()` (`services/printful/registration.ts`)
+registers both adapters, and **nothing calls it at boot today**. Until a
+deliberate change wires it into the bootstrap — a money path, so it belongs with
+`MERCARIA_RETAIL_ENABLED`'s rollout rather than with a flag — every preflight
+answers `provider_unconfigured` (which blocks) and every purchase order refuses
+with `adapter_missing`. Stored rows are untouched either way.
+
+**Kill switches, four, and they are independent by construction:**
 
 | Switch | What it stops | Default |
 |---|---|---|
-| `PRINTFUL_ENABLED` | Registers the adapters at all. Off ⇒ every preflight answers `provider_unconfigured` (which blocks) and every purchase order refuses with `adapter_missing`. Never gates a durable record | `false` |
 | `MERCARIA_RETAIL_ENABLED` (#123) | Retail checkout ENTRY | `false` |
 | `PROCUREMENT_ORCHESTRATION_ENABLED` (#124) | Submitting and cancelling supplier orders | `false` |
 | `PROCUREMENT_PROVIDER_FETCH_ENABLED` (#124) | Outbound reads and polling; webhooks are still received and stored | `true` |
@@ -374,7 +381,7 @@ Plus the per-supplier one, which is a different mechanism:
 cancellation, return and reconciliation carry on.
 
 **Catalogue FETCH and public-offer PUBLICATION are independent**, as #125
-requires: `CATALOG_INGESTION_ENABLED` gates the ingestion LOOP, while whether an
+requires: the source's own `paused` status stops its fetch, while whether an
 observation becomes anything public is decided by the source's own #62 rights
 policy — and a Printful source is bound to no merchant, so it produces no public
 offer at all whatever either switch says.
@@ -453,7 +460,8 @@ is what a deployment must additionally do, in order:
 4. ☐ Point `credential_reference` at the SSM path and register a credential
    reader. **Verify the absence case first**: with no secret, a call must be
    refused, not attempted.
-5. ☐ Set `PRINTFUL_ENABLED=true` and confirm both adapters register.
+5. ☐ Wire `registerPrintfulAdapters()` into the bootstrap (it is NOT called at
+   boot today) and confirm both adapters register.
 6. ☐ Record the first `supplier_funding_observations` row after the treasury
    prefund. Until one exists, every retail line is refused
    (`supplier_funding_unavailable`) — verify that, rather than assuming it.
@@ -479,9 +487,10 @@ paths reads any of them.
 4. **Stop procuring** — `PROCUREMENT_ORCHESTRATION_ENABLED=false`. Paid orders'
    jobs park and deliver when it is back on; nothing is lost.
 5. **Stop retail entirely** — `MERCARIA_RETAIL_ENABLED=false`.
-6. **Disconnect Printful** — `PRINTFUL_ENABLED=false`. Every preflight answers
-   `provider_unconfigured`, which blocks; stored rows are untouched and turning
-   it back on drains the backlog.
+6. **Disconnect Printful** — kill its supplier account
+   (`supplier_accounts.state = 'killed'`, #124): new submissions stop while
+   status, cancellation, return and reconciliation carry on. Stored rows are
+   untouched.
 
 **Do not use `STRIPE_ENABLED=false` as a rollback.** It unmounts the webhook
 endpoints and strands verified events — ADR 0006's rule, and it applies here

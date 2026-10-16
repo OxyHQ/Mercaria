@@ -907,8 +907,7 @@ document existing.
   gates offer visibility and checkout entry for retail lines only (D4
   concern 13). Half-configured is off: enabling requires at least one
   eligible supplier adapter configured and the D12 gates recorded, else
-  boot logs once and stays off — the `CROWDSOURCE_ENABLED` validation
-  pattern.
+  boot logs once and stays off — the half-configuration rule.
 - **Rollback** is the flag plus the runbook of concern 13: entry closes
   immediately; durable records drain through the existing outbox, refund
   and reconciliation machinery; the operator may bulk-cancel unaccepted

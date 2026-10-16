@@ -183,11 +183,12 @@ answer different questions about the catalogue — collapsing them makes "how mu
 of our catalogue arrived through proposals" unanswerable. Choose the one that is
 true.
 
-If the inflow is the problem rather than the outflow, the only lever that exists
-is `CATALOG_AUTHORING_ENABLED`, which turns the whole authoring mount off for
-everybody — a decision far larger than a backlog, and one that leaves every
-already-submitted proposal in place and still decidable, because the operator
-surface is deliberately not gated on it.
+If the inflow is the problem rather than the outflow, there is no lever: the
+authoring surface is always mounted, and `/catalog-proposals` is withdrawn only by
+emptying `CATALOG_OPERATOR_OXY_USER_IDS`, which also unmounts the operator
+surface that decides them — never a backlog remedy. Use the per-store and
+per-submitter rate limits (`CATALOG_PROPOSAL_MAX_PER_STORE_PER_DAY`,
+`CATALOG_PROPOSAL_MAX_PER_SUBMITTER_PER_HOUR`) instead.
 
 ## What NOT to do
 

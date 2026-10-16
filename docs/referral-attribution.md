@@ -407,8 +407,8 @@ REFERRAL_REDIRECT_BASE_URL=https://mercaria.co   # must be in lib/allowed-origin
 REFERRAL_OPERATOR_OXY_USER_IDS=    # the SEVENTH list; empty = /internal/referrals unmounted
 ```
 
-`REFERRALS_ENABLED=true` requires **both** secrets — the `CROWDSOURCE_ENABLED`
-half-configuration rule. A deployment that can mint links but cannot sign the
+`REFERRALS_ENABLED=true` requires **both** secrets — the half-configuration
+rule. A deployment that can mint links but cannot sign the
 carrier would redirect every anonymous click and then throw when it tried to
 hand the browser its evidence: a program that appears to work and attributes
 nobody.

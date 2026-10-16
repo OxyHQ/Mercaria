@@ -29,18 +29,9 @@
  * mistake the value for a row: the id is not a uuid, so a foreign key would
  * refuse it, and the report row's `canonical_product_id` columns are left NULL
  * for dry-run mints because the writer reports `persisted: false`.
- *
- * ## The one thing the APPLY writer also refuses
- *
- * `CANONICAL_WRITE_PUBLICATION_ENABLED` off downgrades an apply run to the
- * dry-run writer, at this one place. That is #60 feature flag 1 — canonical-write
- * publication — and it is a lever over the WRITES rather than over the loop, so
- * a run started while it is off still produces a complete report and simply
- * changes nothing.
  */
 
 import type { NativeListingLinkMethod, CatalogBackfillMode } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { insertNativeListingLink } from '../../db/offers/nativeListingLinkRepository.js';
 import { insertCanonicalProductSourceLink } from '../../db/canonical/canonicalProductRepository.js';
@@ -414,20 +405,14 @@ export function applyGraphWriter(tx?: DatabaseOrTransaction): CanonicalGraphWrit
 }
 
 /**
- * The ONE place the writer is chosen.
- *
- * `apply` plus the publication lever ON is the only combination that returns a
- * writing writer; every other combination returns the dry-run one, including an
- * apply run started while the lever is off. The run still produces its complete
- * report, which is what makes the lever a rollback rather than an outage — and
- * the stage that ran cannot tell the difference, which is what makes the
- * guarantee hold for stages nobody has written yet.
+ * The ONE place the writer is chosen: `apply` returns the writing writer, every
+ * other mode the dry-run one. The stage that ran cannot tell the difference,
+ * which is what makes the guarantee hold for stages nobody has written yet.
  */
 export function createGraphWriter(
   mode: CatalogBackfillMode,
   tx?: DatabaseOrTransaction,
 ): CanonicalGraphWriter {
   if (mode !== 'apply') return dryRunGraphWriter;
-  if (!config.canonicalRollout.writePublicationEnabled) return dryRunGraphWriter;
   return applyGraphWriter(tx);
 }

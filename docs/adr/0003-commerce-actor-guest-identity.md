@@ -915,7 +915,7 @@ correct.
    for already-placed guest orders keep working with the flag off ("gate the
    loop, never the durable record"). Enabling requires BOTH
    `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (the
-   `CROWDSOURCE_ENABLED` half-configuration rule in `config/index.ts`).
+   half-configuration rule in `config/index.ts`).
    Staging first, then production, with #111's abuse dashboards watching
    issuance rate and session-per-IP distributions.
 9. **M9 — Compatibility retirement (post).** No column is dropped — every
@@ -945,7 +945,7 @@ correct.
 
 ## Environment
 
-Validation follows the `CROWDSOURCE_ENABLED` pattern: a half-configured
+Validation follows the half-configuration rule: a half-configured
 integration stays OFF and logs once at boot.
 
 ```

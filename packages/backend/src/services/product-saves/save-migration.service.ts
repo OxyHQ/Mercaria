@@ -35,10 +35,10 @@
  * ## A dry run is the default posture
  *
  * `PRODUCT_SAVE_MIGRATION_ENABLED=false` downgrades every request to a dry run
- * that reports exactly what it would do — the #60
- * `CANONICAL_WRITE_PUBLICATION_ENABLED` shape. The request is always answerable
- * and only the WRITE is gated, so an operator measures the migration before
- * authorising it rather than discovering its size afterwards.
+ * that reports exactly what it would do — the #60 dry-run-writer shape. The
+ * request is always answerable and only the WRITE is gated, so an operator
+ * measures the migration before authorising it rather than discovering its size
+ * afterwards.
  */
 
 import type { ProductSaveMigrationReport } from '@mercaria/shared-types';

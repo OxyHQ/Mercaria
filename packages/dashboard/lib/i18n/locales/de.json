@@ -1138,8 +1138,6 @@
         "documentTitle": "Wholesale by Mercaria",
         "title": "Was verkaufst du?",
         "subtitle": "Finde es im Katalog oder beschreibe etwas Neues.",
-        "unavailableTitle": "Die geführte Anlage ist hier nicht verfügbar",
-        "unavailableBody": "In dieser Mercaria-Installation ist der Katalog-Autorendienst nicht aktiviert, deshalb lässt sich das geführte Formular noch nicht nutzen.",
         "useLegacy": "Einfaches Formular verwenden",
         "createFailed": "Der Entwurf konnte nicht angelegt werden.",
         "linkFailed": "Der Entwurf wurde angelegt, aber das Katalogprodukt konnte nicht verknüpft werden. Du kannst es im Assistenten erneut auswählen.",

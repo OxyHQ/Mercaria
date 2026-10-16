@@ -6749,10 +6749,9 @@ same way.
 
 ### `requires_second_approval` is snapshotted, and the state CHECK is what makes it real
 
-The `catalog_merge_jobs` decision for its reason: the threshold and
-`CATALOG_FOUR_EYES_REQUIRED` both move, and a request whose approval requirement
-changed after somebody approved it would either strand a legitimate change or
-let an unapproved one through.
+The `catalog_merge_jobs` decision for its reason: the threshold can move, and a
+request whose approval requirement changed after somebody approved it would
+either strand a legitimate change or let an unapproved one through.
 
 `..._second_approval_check` refuses a request that needs two people leaving
 `planned` without an approver, and `..._approver_distinct_check` refuses the

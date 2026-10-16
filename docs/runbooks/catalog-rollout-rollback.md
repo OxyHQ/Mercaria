@@ -50,7 +50,16 @@ on the list; **404 with an operator's token means the list is empty.**
 
 ## 1. The levers, and what each one actually withdraws
 
-**Four levers exist**, and the arithmetic is worth stating because it is not a
+> **Three of the four levers below have since been REMOVED** (the "no
+> `*_ENABLED` switches" decision): the authoring surface (`/catalog-authoring`,
+> `/stores/:storeId/product-drafts`) and the taxonomy-v2 reads (`/navigation`,
+> `/taxonomy`) are always mounted, and `/catalog-proposals` is mounted iff
+> `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty. **`FACETS_ENABLED` is the only
+> D12-era mount lever left.** Rolling back authoring or navigation is now a DATA
+> change (unpublish the tree or product type, §4) or a code change, not an
+> environment change.
+
+**Four levers existed**, and the arithmetic is worth stating because it is not a
 subtraction: ADR 0007 D12 originally named six, **three of those were never
 built**, and **one lever a rollout needs was not among the six**. So 6 − 3 + 1 = 4.
 Do not quote `CATALOG_LOCALIZATION_ENABLED` or `PRODUCT_TYPES_ENABLED` at
@@ -67,17 +76,19 @@ deployment the four above are switched on for, over market, locale, store,
 category and product type. **It is not a rollback lever and must not be used as
 one**: emptying it WIDENS the rollout to everybody, which is the opposite of what
 an incident wants. To roll a cohort back, remove entries; to roll the surface
-back, set the four levers to `false`. Full reference:
+back, set `FACETS_ENABLED` to `false` (the only mount lever left). Full reference:
 [`../catalog-rollout-cohorts.md`](../catalog-rollout-cohorts.md).
 
 | Set this to `false` | Mounts withdrawn | Blast radius |
 |---|---|---|
-| `CATALOG_AUTHORING_ENABLED` | `/stores/:storeId/product-drafts`, `/catalog-authoring` (`app.ts:258-260`) | merchants cannot author or publish through the new wizard; **every saved draft stays saved** |
-| `CATALOG_PROPOSALS_ENABLED` | `/catalog-proposals` (`:274-275`) | merchants cannot submit; **submitted proposals stay, and an operator can still decide them** through `/internal/catalog-proposals` |
-| `FACETS_ENABLED` | `/facets` (`:737-738`) | the storefront filter rail disappears; the domain owns no table and writes no row, so nothing durable is involved |
-| `CATALOG_TAXONOMY_V2_ENABLED` | `/navigation` (`:978-979`) | the storefront menu falls back to the v1 category tree (§3); **every tree, node and label stays readable** through `/internal/navigation` |
+| `FACETS_ENABLED` | `/facets` | the storefront filter rail disappears; the domain owns no table and writes no row, so nothing durable is involved |
 
-**Five mounts, every one a surface this epic ADDED.** Nothing a shopper or a buyer
+`/catalog-proposals` has no lever of its own: it is withdrawn only together with
+every `/internal/*` catalog surface, by emptying `CATALOG_OPERATOR_OXY_USER_IDS`
+(§0) — which is why that is not a rollback step. **Submitted proposals stay
+either way.**
+
+**Every lever-gated mount was a surface this epic ADDED.** Nothing a shopper or a buyer
 used before the epic is behind any of them: `/listings` (`app.ts:243`),
 `/categories` (`:245`), `/cart` (`:316`), `/checkout` (`:318`), `/search`
 (`:589`), `/catalog-attributes` (`:729`), `/compatibility` (`:1028`) and
@@ -115,10 +126,9 @@ frozen, so an ECS task picks up a changed variable only on a new task.
    nobody has observed; anything you observe belongs in it.
 
 **Nothing in a rollback deletes catalog evidence, and that is structural rather
-than a promise.** The four levers are read in exactly **six** places in
-`packages/backend/src`, and four of those are the mount itself; the other two are
-`services/catalog-observability/metrics.service.ts:745-746`, which decide whether
-a metric reads `surface_not_mounted`. **No repository, no outbox enqueue, no loop
+than a promise.** The remaining lever, `FACETS_ENABLED`, is read at its mount and
+in `services/catalog-observability/metrics.service.ts`, which decides whether a
+metric reads `surface_not_mounted`. **No repository, no outbox enqueue, no loop
 and no checkout path reads one.** That census is the strongest evidence the
 rollback has, and it is reproducible in one grep.
 
@@ -231,9 +241,10 @@ the levers off does not undo the refusal.
 today is that `services/catalog-localization/read.service.ts` exports exactly two
 readers and they have exactly two external consumers —
 `services/facets/facet.service.ts:82` (behind `FACETS_ENABLED`) and
-`services/catalog-authoring/schema.service.ts:92` (behind
-`CATALOG_AUTHORING_ENABLED`) — so turning those two levers off leaves no public
-surface serving a localized label. `routes/categories.ts` contains zero
+`services/catalog-authoring/schema.service.ts:92` (the authoring surface, now
+always mounted) — so turning `FACETS_ENABLED` off still leaves the authoring
+schema serving localized labels to merchants; no shopper-facing surface serves
+one. `routes/categories.ts` contains zero
 occurrences of `locale`; positive control, `routes/navigation.ts` contains two.
 
 **This containment has no gate.** There is no `catalog-localization` isolation
@@ -263,15 +274,12 @@ change.
 
 ## 5. What must NOT be used as a rollback lever
 
-- **`CANONICAL_PUBLIC_ROUTES_ENABLED`** (default **true**, `config/index.ts:3758`,
-  `app.ts:485`) is #60's, and it unmounts `/canonical-products`,
-  `/product-families`, `/catalog-pages` and `/offer-comparison`. Those shipped
-  with #56 and #74; withdrawing them is an outage, not a rollout step
-  (ADR 0002 D24). Same for `CANONICAL_READS` and `CANONICAL_OFFER_COMPARISON`,
-  which default to today's behaviour.
-- **`CANONICAL_GRAPH_ENABLED`** gates the backfill dispatcher LOOP. Turning it off
-  stops backfills; it does not roll anything back, and a run holding a lease will
-  simply sit until you turn it on again
+- **`CANONICAL_READS` and `CANONICAL_OFFER_COMPARISON`** are #60's and default to
+  today's behaviour; `/canonical-products`, `/product-families`, `/catalog-pages`
+  and `/offer-comparison` shipped with #56 and #74, are always mounted, and
+  withdrawing their reads is an outage, not a rollout step (ADR 0002 D24).
+- **The backfill dispatcher LOOP has no lever.** To stop a backfill, cancel the
+  run (`POST /internal/backfill/runs/:id/cancel`); that rolls nothing back
   ([`catalog-backfill-resumption.md`](catalog-backfill-resumption.md)).
 - **`CANONICAL_SEARCH`** is a seventh canonical read lever defaulting `off`; it is
   #70's and unrelated to this epic's surfaces.
@@ -357,17 +365,17 @@ is narrower than it was — and it is the part a test cannot reach: that a real 
 carries the value, that a task picks it up, and that a person watching sees what
 this document says they will.
 
-1. **All four levers on, then all four off, one roll each.** After each roll:
-   the five paths in §1 answer as expected; the eight unconditional paths still
-   answer; `GET /internal/catalog-metrics` returns the same
-   `proposal_backlog_count` and `draft_open_count` as before the roll. *Settles:
-   "turning a lever off does not make a durable record unreachable."*
-2. **Save a draft and submit a proposal with the levers on. Turn both levers off.
-   Read both back through `/internal/*`.** Then turn them on and confirm the
-   merchant can still see and publish the draft. *Settles the sentence
-   `app.ts:254-256` and `:273-276` make about a merchant's afternoon of typing.*
-3. **Load the storefront with `CATALOG_TAXONOMY_V2_ENABLED` off** and confirm the
-   menu renders from the v1 tree and reports
+1. **`FACETS_ENABLED` on, then off, one roll each.** After each roll: `/facets`
+   answers as expected; the unconditional paths still answer;
+   `GET /internal/catalog-metrics` returns the same `proposal_backlog_count` and
+   `draft_open_count` as before the roll. *Settles: "turning a lever off does not
+   make a durable record unreachable."*
+2. **Save a draft and submit a proposal, then read both back through
+   `/internal/*`.** (The authoring and proposals levers that this step used to
+   flip have been removed; the surfaces are always mounted, proposals with the
+   operator allow-list.)
+3. **Load the storefront with no navigation tree published for the market** and
+   confirm the menu renders from the v1 tree and reports
    `source: 'category_tree_fallback'`, with no menu-shaped error. Repeat with
    `FACETS_ENABLED` off and confirm the rail is absent rather than empty.
    *Settles §3, which is currently the least defended claim here.*

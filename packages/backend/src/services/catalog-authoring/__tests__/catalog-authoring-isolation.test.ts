@@ -367,7 +367,7 @@ const WALLS: readonly Wall[] = [
     reads: 'stripped',
     mutations: [
       "import { config } from '../../config/index.js';",
-      '  const mode = process.env.CATALOG_AUTHORING_ENABLED;',
+      '  const ttl = process.env.CATALOG_AUTHORING_DRAFT_TTL_SECONDS;',
     ],
     exempt: [
       {

@@ -19,8 +19,8 @@ exactly what was missing when they landed.
 - Surface: `/internal/catalog-governance/*`, on the **existing**
   `CATALOG_OPERATOR_OXY_USER_IDS` allow-list. Empty list ⇒ not mounted (404,
   never 401).
-- Environment: **none.** This domain adds no variable of its own. It reads
-  `CATALOG_FOUR_EYES_REQUIRED`, which #55 and #59 already read.
+- Environment: **none.** This domain adds no variable of its own. Four eyes is
+  always required, the same rule #55 and #59 apply.
 
 ---
 
@@ -296,15 +296,15 @@ it never happening.
 
 ## Two-person review
 
-`CATALOG_FOUR_EYES_REQUIRED` — the flag #55 and #59 already read, and
-deliberately not a second one. `GOVERNANCE_HIGH_IMPACT_THRESHOLD` (50) is a code
+Always required — the rule #55 and #59 already apply, and deliberately not a
+second one; it is not configurable. `GOVERNANCE_HIGH_IMPACT_THRESHOLD` (50) is a code
 constant for `CURATION_LARGE_MERGE_IMPACT_THRESHOLD`'s reason: a deployment able
 to set it to a million would be one able to switch four eyes off without saying
 so.
 
 `requires_second_approval` is **SNAPSHOTTED at plan time**, never re-derived —
-the `catalog_merge_jobs` decision, for its reason: the threshold and the flag
-both move, and a request whose approval requirement changed after somebody
+the `catalog_merge_jobs` decision, for its reason: the threshold can move, and a
+request whose approval requirement changed after somebody
 approved it would either strand a legitimate change or let an unapproved one
 through.
 

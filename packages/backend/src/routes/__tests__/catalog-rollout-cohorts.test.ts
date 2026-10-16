@@ -99,13 +99,13 @@ vi.mock('../../lib/rate-limit.js', () => ({
     },
 }));
 
-/** The four levers ADR 0007 D12 shipped, which every probe needs switched on. */
-const LEVERS = [
-  'CATALOG_AUTHORING_ENABLED',
-  'CATALOG_PROPOSALS_ENABLED',
-  'FACETS_ENABLED',
-  'CATALOG_TAXONOMY_V2_ENABLED',
-] as const;
+/**
+ * The ADR 0007 D12 lever that remains, which the facet probe needs switched on.
+ * The authoring, navigation and taxonomy surfaces are always mounted, and
+ * `/catalog-proposals` is mounted iff the catalog operator allow-list is
+ * non-empty — which is why `build` sets one.
+ */
+const LEVERS = ['FACETS_ENABLED'] as const;
 
 /** One request. `value` is substituted into whichever place the surface states it. */
 interface Probe {
@@ -235,7 +235,7 @@ async function build(cohorts: string): Promise<Deployment> {
   vi.resetModules();
   for (const lever of LEVERS) process.env[lever] = 'true';
   process.env.CATALOG_ROLLOUT_COHORTS = cohorts;
-  process.env.CATALOG_OPERATOR_OXY_USER_IDS = '';
+  process.env.CATALOG_OPERATOR_OXY_USER_IDS = 'oxy-user-cohort-operator';
   process.env.STRIPE_ENABLED = 'false';
 
   const { createApp } = await import('../../app.js');
@@ -464,7 +464,30 @@ function catalogMounts(source: string): CatalogMount[] {
     }
     match = guard.exec(code);
   }
-  return mounts;
+  return [...mounts, ...unconditionalCatalogMounts(code)];
+}
+
+/**
+ * The catalog surfaces whose ADR 0007 D12 levers were REMOVED, so they are
+ * mounted with no guard for {@link catalogMounts} to find. Named here because
+ * they still carry the cohort gate inside their routers, and dropping out of the
+ * guard census must not drop them out of the coverage census too.
+ */
+const UNCONDITIONAL_CATALOG_PATHS = [
+  '/stores/:storeId/product-drafts',
+  '/catalog-authoring',
+  '/navigation',
+  '/taxonomy',
+] as const;
+
+function unconditionalCatalogMounts(code: string): CatalogMount[] {
+  return UNCONDITIONAL_CATALOG_PATHS.map((path) => {
+    // The paths hold no RegExp metacharacters, so they are spliced in verbatim.
+    const use = new RegExp(`app\\.use\\(\\s*'${path}'\\s*,\\s*([A-Za-z0-9_]+)\\s*\\)`);
+    const found = use.exec(code);
+    if (found === null) throw new Error(`app.ts no longer mounts ${path} unconditionally`);
+    return { path, router: found[1] ?? '', guard: 'unconditional' };
+  });
 }
 
 /** The text between a `{` and its matching `}`, ignoring braces inside strings. */
@@ -553,7 +576,7 @@ describe('the catalog mount census is derived from app.ts and is not empty', () 
       operatorMounts.length,
       'the derived operator catalog mount set collapsed',
     ).toBeGreaterThanOrEqual(20);
-    expect(new Set(mounts.map((mount) => mount.guard)).size).toBeGreaterThanOrEqual(4);
+    expect(new Set(mounts.map((mount) => mount.guard)).size).toBeGreaterThanOrEqual(3);
   });
 
   it('a negative control: the block matcher does not swallow the file', () => {

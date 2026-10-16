@@ -141,7 +141,6 @@ export const queryKeys = {
    * not vary by one.
    */
   authoring: {
-    availability: (locale: string) => ['catalog-authoring', 'availability', locale] as const,
     categories: (parentId: string | null, locale: string) =>
       ['catalog-authoring', 'categories', { parentId, locale }] as const,
     productTypes: (categoryId: string, locale: string) =>

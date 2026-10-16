@@ -14,13 +14,12 @@ import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { Button } from '@oxy.so/bloom/button';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
 import { toast } from '@oxy.so/bloom/toast';
-import { Screen, ScreenMessage } from '@/components/shell/Screen';
+import { Screen } from '@/components/shell/Screen';
 import { RequireStore } from '@/components/shell/RequireStore';
 import { CanonicalSearchPanel } from '@/components/catalog-authoring/CanonicalSearchPanel';
 import { CategoryBrowser } from '@/components/catalog-authoring/CategoryBrowser';
 import { useTranslation } from '@/lib/i18n';
 import {
-  useAuthoringAvailability,
   useAuthoringProductTypes,
   useCreateProductDraft,
   useProductDrafts,
@@ -71,7 +70,6 @@ function StartBody({ storeId }: { storeId: string }) {
   const { t, locale } = useTranslation();
   const { colors } = useColorScheme();
 
-  const availability = useAuthoringAvailability(locale);
   const drafts = useProductDrafts(storeId, 'open');
   const createDraft = useCreateProductDraft(storeId);
 
@@ -81,47 +79,6 @@ function StartBody({ storeId }: { storeId: string }) {
   const [market, setMarket] = useState<string>(() => deviceMarket());
 
   const productTypes = useAuthoringProductTypes(category?.id ?? null, locale);
-
-  if (availability.isPending) {
-    return (
-      <Screen title={t('products.wizard.start.title')}>
-        <View className="gap-3">
-          <Skeleton.Box width="100%" height={96} borderRadius={16} />
-          <Skeleton.Box width="100%" height={96} borderRadius={16} />
-        </View>
-      </Screen>
-    );
-  }
-
-  // The surface is not mounted on this deployment (`CATALOG_AUTHORING_ENABLED`).
-  // The legacy form is still there and is where the merchant is sent, which is
-  // what makes turning the wizard on a deployment decision rather than a
-  // release.
-  if (availability.data?.outcome === 'unavailable') {
-    return (
-      <Screen title={t('products.wizard.start.title')}>
-        <ScreenMessage
-          title={t('products.wizard.start.unavailableTitle')}
-          body={t('products.wizard.start.unavailableBody')}
-        />
-        <Button
-          tone="accent"
-          className="self-center"
-          onPress={() => router.replace('/products/new')}
-        >
-          {t('products.wizard.start.useLegacy')}
-        </Button>
-      </Screen>
-    );
-  }
-
-  if (availability.isError) {
-    return (
-      <Screen title={t('products.wizard.start.title')}>
-        <ScreenMessage title={t('common.somethingWentWrong')} body={t('common.pleaseTryAgain')} />
-      </Screen>
-    );
-  }
 
   const marketValid = isValidMarket(market);
   const canCreate = category !== null && productType !== null && marketValid;
@@ -308,6 +265,16 @@ function StartBody({ storeId }: { storeId: string }) {
           loading={createDraft.isPending}
         >
           {t('products.wizard.start.begin')}
+        </Button>
+        {/* The legacy form stays one tap away: "Add product" now opens this
+            wizard, and retiring the simple form is a separate decision. */}
+        <Button
+          appearance="outline"
+          tone="neutral"
+          className="self-center"
+          onPress={() => router.push('/products/new')}
+        >
+          {t('products.wizard.start.useLegacy')}
         </Button>
       </View>
     </Screen>
