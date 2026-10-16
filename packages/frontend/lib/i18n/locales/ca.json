@@ -1398,6 +1398,21 @@
       "createFailed": "No s'ha pogut crear l'enllaç. Torna-ho a provar.",
       "empty": "Crea un enllaç per compartir Mercaria. Els referits que porti se t’atribueixen.",
       "notPartner": "El teu enllaç apareixerà aquí quan estiguis inscrit en un programa."
+    },
+    "code": {
+      "title": "Codi de referit",
+      "description": "T'han donat un codi? Escriu-lo aquí.",
+      "label": "Codi de referit",
+      "placeholder": "Codi",
+      "apply": "Aplica",
+      "applied": "Codi aplicat",
+      "invalid": "Aquest codi no es pot fer servir.",
+      "failed": "No s'ha pogut aplicar el codi. Torna-ho a provar."
+    },
+    "disclosure": {
+      "title": "Has arribat per un enllaç de referit",
+      "body": "Qui el va compartir pot rebre una recompensa de Mercaria si compres. No canvia el preu que pagues.",
+      "dismiss": "D'acord"
     }
   },
   "brand": {

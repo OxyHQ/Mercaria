@@ -361,6 +361,14 @@ export const queryKeys = {
       ['referral-partner', 'performance', dimension, from, through] as const,
   },
   /**
+   * The BUYER's referral carrier (#143). `bind` is keyed by subject so each
+   * subject that appears — a guest session, then an account — binds once.
+   */
+  referrals: {
+    state: ['referrals', 'state'] as const,
+    bind: (subject: string) => ['referrals', 'bind', subject] as const,
+  },
+  /**
    * The universal catalog surfaces the storefront reads (#367 workstream 9).
    *
    * Every key carries the DIMENSIONS the answer varies by, and the six of them

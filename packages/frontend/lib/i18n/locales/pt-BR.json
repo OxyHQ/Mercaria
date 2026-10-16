@@ -1398,6 +1398,21 @@
       "createFailed": "Não foi possível criar o link. Tente novamente.",
       "empty": "Crie um link para compartilhar a Mercaria. As indicações que ele trouxer são atribuídas a você.",
       "notPartner": "Seu link aparecerá aqui quando você estiver inscrito em um programa."
+    },
+    "code": {
+      "title": "Código de indicação",
+      "description": "Alguém te deu um código? Digite aqui.",
+      "label": "Código de indicação",
+      "placeholder": "Código",
+      "apply": "Aplicar",
+      "applied": "Código aplicado",
+      "invalid": "Esse código não pode ser usado.",
+      "failed": "Não foi possível aplicar o código. Tente novamente."
+    },
+    "disclosure": {
+      "title": "Você chegou por um link de indicação",
+      "body": "Quem compartilhou pode receber uma recompensa da Mercaria se você comprar. Isso não muda o preço que você paga.",
+      "dismiss": "Entendi"
     }
   },
   "brand": {
