@@ -36,6 +36,8 @@ module.exports = {
       'expo-secure-store',
       'expo-web-browser',
       'expo-asset',
+      '@oxy.so/services/plugins/withOxySharedPermissions',
+      '@oxy.so/app-preset/plugin/withOxyAndroidRelease',
       // Native OS splash (Oxy family "Instagram, from Meta" pattern): Mercaria's
       // own logo (white on transparent) centered on the dark brand background,
       // with the shared Oxy symbol pinned to the bottom. `oxySplashScreenPlugin`

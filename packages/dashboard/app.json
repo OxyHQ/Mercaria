@@ -38,7 +38,9 @@
       "expo-image",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-asset"
+      "expo-asset",
+      "@oxy.so/services/plugins/withOxySharedPermissions",
+      "@oxy.so/app-preset/plugin/withOxyAndroidRelease"
     ],
     "experiments": {
       "typedRoutes": true
