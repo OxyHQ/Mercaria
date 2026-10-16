@@ -92,27 +92,31 @@ export async function claimCanonicalSourceMediaImports(
       ),
     ),
   );
-  return (
-    db
-      .update(canonicalSourceMediaImports)
-      .set({
-        status: 'processing',
-        leaseOwner: options.leaseOwner,
-        leaseUntil: new Date(now.getTime() + leaseMs),
-        attempts: sql`${canonicalSourceMediaImports.attempts} + 1`,
-        lastError: null,
-      })
-      // Same-table subquery: its own range entry shadows the outer one.
-      .where(
-        sql`${canonicalSourceMediaImports.id} in (
+  const claimed = await db
+    .update(canonicalSourceMediaImports)
+    .set({
+      status: 'processing',
+      leaseOwner: options.leaseOwner,
+      leaseUntil: new Date(now.getTime() + leaseMs),
+      attempts: sql`${canonicalSourceMediaImports.attempts} + 1`,
+      lastError: null,
+    })
+    // Same-table subquery: its own range entry shadows the outer one.
+    .where(
+      sql`${canonicalSourceMediaImports.id} in (
         select ${canonicalSourceMediaImports.id} from ${canonicalSourceMediaImports}
         where ${due}
         order by ${asc(canonicalSourceMediaImports.availableAt)}
         limit ${room}
         for update skip locked
       )`,
-      )
-      .returning()
+    )
+    .returning();
+  // `UPDATE … RETURNING` answers in no particular order. Run the jobs oldest-due
+  // first, as they were chosen: a drain Oxy's budget stops part-way then defers
+  // the newest, not an arbitrary few.
+  return claimed.sort(
+    (a, b) => a.availableAt.getTime() - b.availableAt.getTime() || a.id.localeCompare(b.id),
   );
 }
 

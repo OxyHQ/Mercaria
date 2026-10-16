@@ -258,6 +258,16 @@ describe('the dispatcher copies imagery as application files, deduplicated and c
       waiting,
       await observe('rate-limited-sibling', [`https://cdn.example.test/${RUN}/sibling.jpg`]),
     );
+    // The claim takes jobs oldest-available first; pin the order so the limited
+    // job runs first and the sibling is the one held behind it.
+    for (const [productId, ageMs] of [
+      [limited, 10_000],
+      [waiting, 5_000],
+    ] as const)
+      await db
+        .update(canonicalSourceMediaImports)
+        .set({ availableAt: new Date(Date.now() - ageMs) })
+        .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
     const client = fake().client;
     const original = client.assets.importAppFile;
     let calls = 0;
