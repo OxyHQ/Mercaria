@@ -5,6 +5,7 @@ import type {
   MerchantClaimChallengeInstructions,
   MerchantClaimMethod,
 } from '@mercaria/shared-types';
+import { MERCHANT_CLAIM_ACTIVE_STATES } from '@mercaria/shared-types';
 import {
   contestMerchantClaim,
   fetchMyMerchantClaims,
@@ -37,12 +38,12 @@ import { queryKeys } from './query-keys';
 /** Ten seconds — a claim moves when a reviewer acts, never on a timer the client sees. */
 const STALE_TIME = 1000 * 10;
 
-/** The states in which a claim on a merchant is still the one to show. */
+/**
+ * The states in which a claim on a merchant is still the one to show: every
+ * LIVE state (the server's own tuple) plus the merchant's current verification.
+ */
 const CURRENT_STATES: ReadonlySet<MerchantClaim['state']> = new Set([
-  'draft',
-  'challenge_pending',
-  'review_pending',
-  'disputed',
+  ...MERCHANT_CLAIM_ACTIVE_STATES,
   'verified',
 ]);
 

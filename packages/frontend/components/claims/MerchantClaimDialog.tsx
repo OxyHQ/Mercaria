@@ -11,7 +11,6 @@ import { Textarea } from '@oxy.so/bloom/textarea';
 import type {
   MerchantClaim,
   MerchantClaimChallengeInstructions,
-  MerchantClaimMethod,
   MerchantClaimMethodOption,
 } from '@mercaria/shared-types';
 import { ShopDetailIcon, Text, formatDateTime } from '@mercaria/ui';
@@ -80,13 +79,6 @@ const STOREFRONT_METHODS: readonly StorefrontMethod[] = [
   'meta_tag',
   'business_document',
 ];
-
-/** The methods whose proof is a value published on the claimant's domain. */
-const DOMAIN_METHODS: ReadonlySet<MerchantClaimMethod> = new Set([
-  'dns_txt',
-  'well_known_file',
-  'meta_tag',
-]);
 
 /**
  * KEYS rather than sentences: module scope, so a `t()` here would resolve
@@ -280,7 +272,11 @@ function StartClaimForm({
   // storefront can complete. Only their intersection is shown.
   const options = STOREFRONT_METHODS.flatMap((method) => {
     const offered = availableMethods.find((option) => option.method === method);
-    return offered ? [{ method, autoVerifies: offered.autoVerifies }] : [];
+    // `subjectKind` is the server's answer to "what does this proof name" — a
+    // `domain` method needs the claimant's domain before the challenge opens.
+    return offered
+      ? [{ method, autoVerifies: offered.autoVerifies, subjectKind: offered.subjectKind }]
+      : [];
   });
   const [method, setMethod] = useState<StorefrontMethod | undefined>(options[0]?.method);
   const [domain, setDomain] = useState('');
@@ -294,7 +290,7 @@ function StartClaimForm({
     return <Text className="text-sm text-muted-foreground">{t('merchantClaim.noMethods')}</Text>;
   }
 
-  const needsDomain = method !== undefined && DOMAIN_METHODS.has(method);
+  const needsDomain = options.find((option) => option.method === method)?.subjectKind === 'domain';
   const trimmedDomain = domain.trim();
   const canStart =
     method !== undefined && (!needsDomain || trimmedDomain.length >= 3) && !start.isPending;
