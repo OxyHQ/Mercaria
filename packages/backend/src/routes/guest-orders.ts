@@ -4,7 +4,9 @@
  * Seven routes and no eighth. Each is one of the four things a person with a
  * placed guest order can legitimately do — get a link, use a link, look at
  * their orders, or cut off everyone else's access — plus the confirmation the
- * paying device pulls and the sign-out that closes its own session.
+ * paying device pulls and the sign-out that closes its own session. Since the
+ * M8 review there is a fifth thing (M8-01): erase the purchase's contact,
+ * behind the same fresh inbox proof "secure my access" needs.
  *
  * ## Mounted UNCONDITIONALLY, and that is acceptance 10
  *
@@ -58,6 +60,7 @@ import {
   requestStepUpLink,
 } from '../services/guest-portal/recovery.service.js';
 import { grantHasScope } from '../services/guest-portal/scopes.js';
+import { requestGuestData } from '../services/guest-governance/data-request.service.js';
 import { getCollectionHandler } from '../controllers/collection-code.controller.js';
 import {
   claimGuestCheckoutGroup,
@@ -113,6 +116,19 @@ const exchangeSchema = z
 const confirmationSchema = z
   .object({
     checkoutGroupId: z.string().trim().min(1).max(64),
+  })
+  .strict();
+
+/**
+ * An erasure request's body: WHICH erasure, and nothing that could say whose.
+ *
+ * `export` is deliberately not accepted — its receipt is not yet honest (see
+ * `composeExportDispositions`). The group comes from the credential, never
+ * from the body.
+ */
+const dataRequestSchema = z
+  .object({
+    kind: z.enum(['deletion', 'minimization']),
   })
   .strict();
 
@@ -382,6 +398,58 @@ async function secureGroup(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * `POST /guest/orders/:groupId/data-requests` — erase this purchase's contact
+ * (ADR 0003 D15, #111 "Guest data export and deletion", M8-01).
+ *
+ * The data subject's own path, and the only one: an operator cannot erase on a
+ * buyer's behalf (`docs/guest-governance.md`). It requires a FRESH inbox proof,
+ * exactly as "secure my access" does — D15 names the magic link as the proof,
+ * and an erasure is the one action here that cannot be undone, so a stolen
+ * credential that is not fresh must not be able to perform it.
+ *
+ * The answer is the per-class RECEIPT, never a sentence claiming everything is
+ * gone. A success clears the portal credential because the erasure revoked it,
+ * along with every other credential for the group.
+ */
+async function fileDataRequest(req: Request, res: Response): Promise<void> {
+  const grant = req.portalGrant;
+  if (grant === undefined || req.params.groupId !== grant.checkoutGroupId) {
+    sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    return;
+  }
+  const parsed = dataRequestSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    sendError(res, ErrorCodes.VALIDATION_ERROR, 'kind must be deletion or minimization', 400);
+    return;
+  }
+  const now = new Date();
+  if (!stepUpSatisfied(grant, now)) {
+    sendError(
+      res,
+      ErrorCodes.FORBIDDEN,
+      'Confirm your email address again before erasing your details',
+      403,
+    );
+    return;
+  }
+  const outcome = await requestGuestData({
+    subject: {
+      proof: 'verified_portal_grant',
+      grantId: grant.id,
+      checkoutGroupId: grant.checkoutGroupId,
+    },
+    kind: parsed.data.kind,
+    now,
+  });
+  if (outcome.outcome === 'refused') {
+    sendError(res, ErrorCodes.NOT_FOUND, 'Order not found', 404);
+    return;
+  }
+  clearPortalCredential(res, req.portalTransport ?? 'cookie');
+  sendSuccess(res, outcome.receipt, 201);
+}
+
+/**
  * `GET /guest/orders/:groupId/claim` — the claim REVIEW screen's read (#109).
  *
  * Requires BOTH proofs, exactly as the POST does, and changes nothing. It is a
@@ -616,6 +684,12 @@ router.post(
   makeRateLimiter('guest-portal'),
   requirePortalSession,
   handle(secureGroup, 'Failed to secure access'),
+);
+router.post(
+  '/:groupId/data-requests',
+  makeRateLimiter('guest-portal'),
+  requirePortalSession,
+  handle(fileDataRequest, 'Failed to erase these details'),
 );
 
 /**

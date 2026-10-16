@@ -59,29 +59,18 @@ import {
 import { useGuestOrderCollection } from '@/lib/hooks/use-nearby';
 import { ORDER_STATUS_LABEL_KEYS } from '@/lib/order-status';
 import { useTranslation } from '@/lib/i18n';
-
-/** The prefix an exchange token carries. Anything else is not one. */
-const EXCHANGE_PREFIX = 'mgx_';
+import { EXCHANGE_PREFIX, takeExchangeTokenFromUrl } from '@/lib/portal-link-token';
 
 /**
- * Read the token out of the URL and REMOVE it, in that order.
+ * Read the token out of the browser URL and REMOVE it, in that order — the
+ * fragment, or a `?token=` query parameter (M8-11), both stripped.
  *
- * Returns `null` on native and whenever there is no fragment — the caller falls
- * back to a route parameter, which is how a verified app link delivers it.
+ * Returns `null` on native — the caller falls back to a route parameter, which
+ * is how a verified app link delivers it and which no browser history holds.
  */
-function takeTokenFromFragment(): string | null {
-  if (typeof window === 'undefined') return null;
-  const fragment = window.location.hash.replace(/^#/, '');
-  if (!fragment.startsWith(EXCHANGE_PREFIX)) return null;
-  // Captured BEFORE the strip: after `replaceState` the value is gone, so the
-  // order of these two statements is the feature.
-  const token = fragment;
-  window.history.replaceState(
-    window.history.state,
-    '',
-    `${window.location.pathname}${window.location.search}`,
-  );
-  return token;
+function takeTokenFromBrowserUrl(): string | null {
+  if (typeof window === 'undefined' || window.location === undefined) return null;
+  return takeExchangeTokenFromUrl(window);
 }
 
 function PortalBody() {
@@ -99,7 +88,9 @@ function PortalBody() {
   useEffect(() => {
     if (attempted.current) return;
     attempted.current = true;
-    const token = takeTokenFromFragment() ?? params.token ?? null;
+    // On the web the browser URL is read FIRST, so a `?token=` arriving as a
+    // route parameter is the same value and has already been stripped.
+    const token = takeTokenFromBrowserUrl() ?? params.token ?? null;
     if (token === null || !token.startsWith(EXCHANGE_PREFIX)) return;
     exchange.mutate(token, { onError: () => setLinkRefused(true) });
     // `exchange` is a stable mutation object and `params.token` is read once by
