@@ -292,7 +292,7 @@ const GRANT_DETECTORS: Readonly<Record<string, RegExp>> = {
   store_permission:
     /grantStorePermission|setStorePermissionOverride|upsertStorePermissionOverride|\.permissions\s*=|permissions:\s*\[/,
   store_membership:
-    /transferStoreOwnerAccount|oxyAccountId:\s*partner|members\.invite\(|accounts\.create\(/,
+    /transferStoreOwnerAccount|oxyAccountId:\s*partner|invitations\.create\(|accounts\.create\(/,
   merchant_claim: /merchant-claims\/|merchantClaimRepository|verifyMerchantClaim|claim_state/,
   payment_onboarding: /providerAccountRepository|insertProviderAccount|createOnboardingLink/,
   oxy_administrative_role: /setOxyRole|grantOxyRole|oxyAdmin|assignRole/,
@@ -873,7 +873,7 @@ describe('each detector actually detects (mutation self-test)', () => {
       store_permission:
         "await upsertStorePermissionOverride({ storeId, oxyUserId, granted: ['products:write'] });",
       store_membership:
-        'await oxy.accounts.members.invite(store.oxyAccountId, { usernameOrEmail, role });',
+        'await oxy.accounts.invitations.create(store.oxyAccountId, { email, role });',
       merchant_claim: "import { verifyMerchantClaim } from '../merchant-claims/claim.js';",
       payment_onboarding: 'await insertProviderAccount(tx, { provider, ownerType, ownerId });',
       oxy_administrative_role: "await grantOxyRole(oxyUserId, 'admin');",
