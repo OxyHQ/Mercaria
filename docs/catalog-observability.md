@@ -534,15 +534,15 @@ justifies it, which is the only way it is accountable to anybody.
 
 ## An unmounted surface is not a seam
 
-**Five of the seven route-observation producers** hang off a flag-gated route —
-three off the authoring schema and two off facets — and **both of those routes
-sit behind a rollout flag that defaults to false**, `CATALOG_AUTHORING_ENABLED`
-and `FACETS_ENABLED`. With a flag off the route is not mounted at all, so the
-surface cannot be served.
+**Two of the seven route-observation producers** hang off a flag-gated route —
+both off facets, which sits behind `FACETS_ENABLED`. With the flag off the route
+is not mounted at all, so the surface cannot be served.
 
-The other two are `taxonomy_read_error_rate` and `search_read_error_rate`
-(#913), and they take **no** mount guard because `/categories` and `/search` are
-mounted unconditionally — there is no lever that can withdraw either route.
+The other five take **no** mount guard: the three authoring-schema producers
+(`/catalog-authoring` is always mounted since its lever was removed), and
+`taxonomy_read_error_rate` and `search_read_error_rate` (#913), because
+`/categories` and `/search` are mounted unconditionally — there is no lever that
+can withdraw any of those routes.
 `CANONICAL_SEARCH` decides what `/search` ANSWERS, which is a different thing:
 with it off every request is a 404, so that metric reads `0 / N` rather than an
 empty population, and mounted-and-refusing stays distinguishable from
@@ -551,15 +551,12 @@ not-mounted.
 Reporting that as `measured, numerator: 0` would assert **that this task served
 none of those requests** — a fact about TRAFFIC — when the truth is a fact about
 the DEPLOYMENT. That is the phantom-template defect one layer over: a quiet,
-healthy-looking tile for a feature nobody switched on. So the five producers
+healthy-looking tile for a feature nobody switched on. So the two facet producers
 answer `unmeasured` with reason `surface_not_mounted` and a seam that **names the
 variable to set**, and says in as many words that no code change is owed.
 
 | Metric | Route | Flag |
 |---|---|---|
-| `authoring_schema_fetch_latency` | `GET /catalog-authoring/schemas/:productTypeKey` | `CATALOG_AUTHORING_ENABLED` |
-| `authoring_schema_error_rate` | same | same |
-| `authoring_schema_client_cache_hit_rate` | same | same |
 | `facet_generation_latency` | `POST /facets` | `FACETS_ENABLED` |
 | `facet_generation_error_rate` | same | same |
 
@@ -567,8 +564,8 @@ Two mechanics worth knowing:
 
 - **The mount facts are resolved ONCE per collection**, in
   `collectCatalogMetrics`, into a `MountedSurfaces` value that every producer
-  reads — never `config` inside each producer. Three metrics hang off one flag,
-  and three producers reading it independently is three chances for one of them to
+  reads — never `config` inside each producer. Two metrics hang off one flag,
+  and two producers reading it independently is two chances for one of them to
   read a different answer. It is the reason every shared read here is taken once.
 - **`CollectCatalogMetricsOptions.mounted` overrides it**, which is what lets
   `metrics.realdb.test.ts` drive BOTH branches: `config` is frozen at module load,
@@ -693,12 +690,11 @@ zero unserved templates and read green forever.
 |---|---|---|
 | `GET /categories` | `routes/categories.ts` `router.get('/')`, mounted unconditionally | **yes** |
 | `GET /search` | `routes/search.ts` `router.get('/')`, mounted unconditionally | **yes** (see the note below) |
-| `GET /catalog-authoring/schemas/:productTypeKey` | `routes/catalog-authoring.ts`, behind `CATALOG_AUTHORING_ENABLED` (default **false**) | no — the metrics say `surface_not_mounted` |
-| `POST /facets` | `routes/facets.ts` `router.post('/')`, behind `FACETS_ENABLED` (default **false**) | no — same |
+| `GET /catalog-authoring/schemas/:productTypeKey` | `routes/catalog-authoring.ts`, mounted unconditionally | **yes** |
+| `POST /facets` | `routes/facets.ts` `router.post('/')`, behind `FACETS_ENABLED` (default **false**) | no — the metrics say `surface_not_mounted` |
 
-**So on a default deployment only `GET /categories` and `GET /search` are
-mounted**, and the authoring and facet budgets observe nothing until those flags
-are on. The metrics report now SAYS that in words —
+**So on a default deployment only the facet budget is unmounted**, and it
+observes nothing until that flag is on. The metrics report now SAYS that in words —
 `unmeasured` / `surface_not_mounted`, with the variable named — rather than
 showing a zero; §"An unmounted surface is not a seam" has the mechanics. The
 LATENCY report does not distinguish it from a cold task, because it omits the
@@ -1037,13 +1033,11 @@ Nine shapes, each CALLING the repository function its HTTP surface calls, run in
 registry of 1,500 published product types and 4,000 active attribute definitions
 seeded on top. Measured on PostgreSQL 17.5.
 
-**Which of these are live matters and is measured, not assumed.** Only
-`/catalog-attributes` (C6) is mounted unconditionally. `/facets` (C1, C5, C9) is
-behind `FACETS_ENABLED`, `/taxonomy` (C2, C3, C4) behind
-`CATALOG_TAXONOMY_V2_ENABLED`, and `/catalog-authoring` (C7, C8) behind
-`CATALOG_AUTHORING_ENABLED` — **all three default to false**. So eight of the
-nine shapes are measurements of what those flags would switch on, which is the
-moment the numbers are worth having.
+**Which of these are live matters and is measured, not assumed.**
+`/catalog-attributes` (C6), `/taxonomy` (C2, C3, C4) and `/catalog-authoring`
+(C7, C8) are mounted unconditionally (the latter two since their levers were
+removed). `/facets` (C1, C5, C9) is behind `FACETS_ENABLED`, so those three
+shapes are measurements of what that flag would switch on.
 
 **Read the two halves of this table differently.** `stmts` and `rows out` are
 functions of the readers and the seeded tree and are stable run to run. `rows
@@ -1813,10 +1807,9 @@ would trip. `/internal/payments` mounts one because its surface can MOVE MONEY.
   collection and nowhere else.
 - **No migration and no new environment variable.** Nothing in this domain is
   gated by a lever of its own; the levers that matter to it belong to the domains
-  it reads (`CATALOG_AUTHORING_ENABLED`, `CATALOG_PROPOSALS_ENABLED`,
-  `FACETS_ENABLED`, `CANONICAL_SEARCH`, `CANONICAL_GRAPH_ENABLED`,
-  `MATCH_PIPELINE_ENABLED`, `OFFER_MATERIALIZATION_ENABLED`,
-  `CANONICAL_SEARCH_INDEXING_ENABLED`).
+  it reads (`FACETS_ENABLED`, `CANONICAL_SEARCH`,
+  `OFFER_MATERIALIZATION_ENABLED`, and the operator allow-list that mounts
+  `/catalog-proposals`).
 
   **TWO of ADR 0007 D12's six levers do not exist in the code and must not be
   quoted at anybody:** `CATALOG_LOCALIZATION_ENABLED` and — the one this note
@@ -1879,7 +1872,7 @@ stops anybody looking.
 
 | Checkbox | State |
 |---|---|
-| Metrics for authoring schema fetch latency / error / cache hit rate | **Done, with one seam, and silent until a flag is on.** All three observe `GET /catalog-authoring/schemas/:productTypeKey` and are proven to move when the store is fed (`metrics.realdb.test.ts`' in-process control); with `CATALOG_AUTHORING_ENABLED` off — the default — they answer `surface_not_mounted` rather than zero. The item's fourth number, the SERVER memo hit rate, remains seam 1: the 304 rate is a different cache. |
+| Metrics for authoring schema fetch latency / error / cache hit rate | **Done, with one seam.** All three observe `GET /catalog-authoring/schemas/:productTypeKey` (always mounted) and are proven to move when the store is fed (`metrics.realdb.test.ts`' in-process control). The item's fourth number, the SERVER memo hit rate, remains seam 1: the 304 rate is a different cache. |
 | Metrics for draft completion, abandonment and validation failures by field code | **Partial.** Completion, abandonment and open count are produced; failures by field code is seam 2. |
 | Metrics for direct canonical selection, automated matching, unresolved records and proposal creation | **Done** — eight metrics. |
 | Metrics for taxonomy/product-type/attribute completeness | **Done** — three, consumed from `readCatalogQuality`. |

@@ -8,8 +8,8 @@
  * off, configurations, mapping versions, uploads and reports are all still
  * stored and still readable, every run refuses with `adapter_missing` (#62's own
  * report for a provider nobody shipped), and turning the flag on drains the
- * backlog. That is `CATALOG_INGESTION_ENABLED`'s arrangement one layer down, and
- * it is why a rollback of the importer costs a merchant nothing they typed.
+ * backlog. That is why a rollback of the importer costs a merchant nothing they
+ * typed.
  *
  * ## Why the adapter is handed functions rather than importing them
  *

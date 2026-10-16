@@ -6,14 +6,6 @@
  * `FOR UPDATE SKIP LOCKED`, holds a lease with an owner check on every terminal
  * transition, backs off exponentially with a cap, and dead-letters visibly.
  *
- * ## Gate the LOOP, never the durable record
- *
- * `CURATION_JOBS_ENABLED` stops this loop and nothing else. An operator can
- * still REQUEST a merge with the flag off; the job sits `pending` and runs when
- * the flag comes back. Gating the request instead would make a queue that
- * silently loses the work an operator thought they had scheduled — the inversion
- * `~/Oxy/AGENTS.md` records the payment and moderation outboxes learning.
- *
  * ## `blocked` is not claimable, and that is the point
  *
  * A job waiting on an operator's conflict decision is not an error and must not
@@ -150,10 +142,6 @@ let timer: NodeJS.Timeout | null = null;
  */
 export function startCurationDispatcher(): void {
   if (timer) return;
-  if (!config.catalog.curationJobsEnabled) {
-    log.general.info('[Curation] job dispatcher disabled; jobs will queue until it is enabled');
-    return;
-  }
   const intervalMs = config.catalog.curationPollIntervalMs;
   timer = setInterval(() => {
     void drainCurationJobs(config.catalog.curationBatchSize).catch((err: unknown) => {

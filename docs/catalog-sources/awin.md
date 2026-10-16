@@ -805,7 +805,7 @@ Nothing below is green. Each is a gate, in the §9 sense of the #64 decision.
    through this adapter with measured GTIN coverage, duplicate rate and
    field-quality numbers committed as a dated addendum in
    `docs/catalog-sources/`. Blocked until step 1.
-7. `AWIN_ENABLED=true` and `CATALOG_INGESTION_ENABLED=true` only after one
+7. `AWIN_ENABLED=true` and the source moved to `active` only after one
    advertiser has been drained by hand from `/internal/ingestion/drain` and its
    metrics read.
 8. A bounded market cohort (ES) activated before any network-wide activation

@@ -2,16 +2,14 @@
  * The catalogue autopilot — what keeps the comparator's pipeline running with
  * nobody at the operator console.
  *
- * Two jobs, each behind the lever that already governs it:
+ * Two jobs:
  *
- * 1. **Sources** (`CATALOG_INGESTION_ENABLED`): publish the baseline matching
- *    policy when none is active, and converge the declared open-data sources
- *    (`services/open-data/sources.ts`). #62's ingestion dispatcher then fetches
- *    them on their cadence.
- * 2. **Stages** (`CANONICAL_GRAPH_ENABLED`): open the next whole-catalogue
- *    backfill run of the cycle (`stage-plan.ts`) in `apply` mode. The backfill
- *    dispatcher pages it like any operator-opened run, and
- *    `CANONICAL_WRITE_PUBLICATION_ENABLED` still decides whether it writes.
+ * 1. **Sources**: publish the baseline matching policy when none is active, and
+ *    converge the declared open-data sources (`services/open-data/sources.ts`).
+ *    #62's ingestion dispatcher then fetches them on their cadence.
+ * 2. **Stages**: open the next whole-catalogue backfill run of the cycle
+ *    (`stage-plan.ts`) in `apply` mode. The backfill dispatcher pages it like
+ *    any operator-opened run.
  *
  * The chain this closes, end to end: Open Prices sees a Mercadona price for a
  * GTIN → Open Food Facts fetches that GTIN as demand → `reference_products`
@@ -22,7 +20,6 @@
  * converges on the open one, so N tasks open one run per stage, not N.
  */
 
-import { config } from '../../config/index.js';
 import { findLatestWholeCatalogueRuns } from '../../db/backfill/backfillRunRepository.js';
 import { log } from '../../lib/logger.js';
 import { openCatalogBackfillRun } from '../backfill/backfill.service.js';
@@ -87,14 +84,11 @@ async function tick(): Promise<void> {
   if (running) return;
   running = true;
   try {
-    if (
-      config.catalogIngestion.enabled &&
-      Date.now() - lastSourcesReconciledAt >= SOURCE_RECONCILE_INTERVAL_MS
-    ) {
+    if (Date.now() - lastSourcesReconciledAt >= SOURCE_RECONCILE_INTERVAL_MS) {
       await reconcileCatalogSources();
       lastSourcesReconciledAt = Date.now();
     }
-    if (config.canonicalRollout.graphEnabled) await advanceCatalogStages();
+    await advanceCatalogStages();
   } catch (error: unknown) {
     // Survive anything one tick throws; the next tick re-reads the state.
     log.general.error({ err: error }, '[CatalogAutopilot] tick failed');
@@ -106,12 +100,6 @@ async function tick(): Promise<void> {
 /** Begin. Idempotent — a second call is a no-op. */
 export function startCatalogAutopilot(): void {
   if (timer !== undefined) return;
-  if (!config.catalogIngestion.enabled && !config.canonicalRollout.graphEnabled) {
-    log.general.info(
-      '[CatalogAutopilot] ingestion and the canonical graph are both off; not started',
-    );
-    return;
-  }
   timer = setInterval(() => {
     void tick();
   }, TICK_INTERVAL_MS);

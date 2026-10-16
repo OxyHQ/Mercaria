@@ -1070,9 +1070,7 @@ export function totalMovingImpact(
 export function requiresSecondApproval(
   action: CatalogRevisionAction,
   totalMoving: number,
-  fourEyesRequired: boolean,
 ): boolean {
-  if (!fourEyesRequired) return false;
   if (!CURATION_SECOND_APPROVAL_ACTIONS.includes(action)) return false;
   return totalMoving >= CURATION_LARGE_MERGE_IMPACT_THRESHOLD;
 }

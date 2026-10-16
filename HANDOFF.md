@@ -1305,8 +1305,8 @@ remain unverified until that upstream contract is deployed and exercised.
 
 Backend417a131f and Wholesale0d0c798e are on main. Migration0167 was applied ONLY
 to local mercaria_dev_canonical_20261010 through src/db/migrate.ts after dry-run
-confirmed exactly one pending migration. CATALOG_VIDEO_WRITES_ENABLED remains
-off. The merchant worktree is clean and preserved at /tmp/mercaria-catalog-video-media.
+confirmed exactly one pending migration. CATALOG_VIDEO_WRITES_ENABLED remained
+off at the time (it has since been removed; video writes are always on). The merchant worktree is clean and preserved at /tmp/mercaria-catalog-video-media.
 Its full suite had817 passing files and only two migration marker gates failing
 before correction; both gates plus canonical-only video/condition concurrency
 now pass in149 targeted tests. Seven merchant browser cases pass. A separate

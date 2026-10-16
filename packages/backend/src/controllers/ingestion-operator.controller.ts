@@ -23,9 +23,9 @@
  * - **No credential WRITE and no credential READ.** The config carries a
  *   LOCATOR; the secret lives where the locator says. A route that accepted a
  *   secret would make this the second place secrets live.
- * - **No flag write.** `CATALOG_INGESTION_ENABLED` is read at boot, and a route
- *   that changed it at runtime would make "what was this deployment doing at
- *   14:00" unanswerable from configuration.
+ *
+ * The runtime kill switch is per source: `POST /sources/:id/status` with
+ * `paused`. There is no deployment-wide flag over the dispatcher.
  */
 
 import type { Request, Response } from 'express';
@@ -37,7 +37,6 @@ import type {
   CatalogSourceStatus,
   SourceRecordExternalType,
 } from '@mercaria/shared-types';
-import { config } from '../config/index.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
@@ -135,7 +134,6 @@ export async function listIngestionSourcesHandler(_req: Request, res: Response):
     sendSuccess(res, {
       sources: sources.map(toSourceDTO),
       registeredProviders: registeredCatalogSourceProviders(),
-      dispatcherEnabled: config.catalogIngestion.enabled,
     });
   } catch (err) {
     respondWithError(res, err, 'Failed to list ingestion sources');
@@ -399,9 +397,7 @@ export async function openSourceRunHandler(req: Request, res: Response): Promise
  * POST `/internal/ingestion/drain` — drive one tick now.
  *
  * The SAME two steps the dispatcher's loop performs, so a manual drain is never
- * a second implementation of the schedule. It works while
- * `CATALOG_INGESTION_ENABLED` is off, which is deliberate: bringing a new feed
- * up by hand before switching the loop on is the supported way to do it.
+ * a second implementation of the schedule.
  */
 export async function drainIngestionHandler(_req: Request, res: Response): Promise<void> {
   try {

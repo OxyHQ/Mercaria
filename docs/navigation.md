@@ -267,12 +267,8 @@ DELETE /internal/navigation/trees/:treeId         a draft nobody published, and 
 POST   /internal/navigation/saved-queries         a curated search a node can point at
 ```
 
-**Mounted while `CATALOG_TAXONOMY_V2_ENABLED` is off**, the `/internal/backfill`
-and `/internal/seo` arrangement, and the reason is specific rather than a
-convention: the evidence has to be readable during the incident that turned the
-public surface off, and the one moment somebody most needs to preview a
-navigation tree is right after switching it off. A separate router from the
-public read for exactly that reason — the two are gated by different things.
+A separate router from the public read, because the two are gated by different
+things: this one by the operator allow-list, the public read by nothing.
 
 **The route set is closed.** No "activate this category", no "publish this
 collection", no "reorder the taxonomy", no "set this node's rank": every one is a
@@ -383,16 +379,10 @@ drift into disagreeing about which tree a module is in.
 
 ## Rollout
 
-One lever, `CATALOG_TAXONOMY_V2_ENABLED` (ADR 0007 D12), default **true** (ADR 0015) —
-which is today's behaviour: the storefront keeps its own constants and the public
-read does not exist. It gates the **public mount**, never a stored row and never
-the operator surface: every tree, node and label stays readable with it off, and
-so does `/internal/navigation`, because the evidence has to survive the incident
-that turned it off.
-
-Turning it on serves whatever is published. It publishes nothing by itself, and
-turning it back off withdraws the read while leaving every row, every draft and
-the whole authoring surface exactly where they were.
+No lever: the public read is always mounted (ADR 0007 D12's
+`CATALOG_TAXONOMY_V2_ENABLED` was removed). It serves whatever is published and
+publishes nothing by itself; with no published tree the storefront falls back to
+the v1 category tree.
 
 ---
 

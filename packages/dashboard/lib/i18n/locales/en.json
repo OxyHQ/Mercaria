@@ -1138,8 +1138,6 @@
         "documentTitle": "Wholesale by Mercaria",
         "title": "What are you selling?",
         "subtitle": "Find it in the catalogue, or describe something new.",
-        "unavailableTitle": "Guided creation is not available here",
-        "unavailableBody": "This Mercaria deployment has not enabled the catalogue authoring service, so the guided form cannot be used yet.",
         "useLegacy": "Use the simple form",
         "createFailed": "That draft could not be created.",
         "linkFailed": "The draft was created, but the catalogue product could not be attached. You can choose it again inside the wizard.",

@@ -37,11 +37,8 @@
  * and its siblings — the row shapes named as defence 1 above — are DECLARED. The
  * file holding the first of the three mechanisms was outside the third.
  *
- * **The two routes** make the lever paragraph below enforceable. It claims
- * `routes/internal-catalog-proposals.ts` is deliberately not gated on
- * `config.catalogProposals.enabled`; until #460 that route was outside the scan,
- * so the claim was a sentence rather than an assertion. It is now measured, and
- * the mount lever is read in exactly one place — `app.ts`, outside this domain.
+ * **The two routes** are where a caller first reaches the domain, so a write
+ * or a submitter-supplied identity there would bypass every wall behind them.
  *
  * All six were measured against all three detector sets on comment-stripped
  * source before being added: zero hits.
@@ -299,66 +296,6 @@ describe('nothing in the domain accepts a submitter-supplied identity', () => {
     const approvalFrom = stripped.indexOf('approveCatalogProposalSchema');
     expect(approvalFrom).toBeGreaterThan(-1);
     expect(/\bkey\s*:/.test(stripped.slice(approvalFrom, approvalFrom + 400))).toBe(true);
-  });
-});
-
-/**
- * ADR 0007 D12: `CATALOG_PROPOSALS_ENABLED` gates the MOUNT and never a stored row.
- *
- * The wall is on the LEVER specifically and NOT on configuration generally, which
- * is the difference between this domain and the facet and navigation ones. These
- * services legitimately read six BOUNDS off the same config object —
- * `pageSize`, `backfillPageSize`, `duplicateNearLimit`, `duplicateNearThreshold`,
- * `maxPerStorePerDay`, `maxPerSubmitterPerHour` — and a blanket "no config" wall
- * here would be refused on its first run, then widened by whoever hit it, and the
- * lever prohibition would go with it. So the pattern names `.enabled`.
- *
- * What it prevents: a service or a repository that read the mount flag could
- * refuse to return, decide or backfill a proposal a merchant already submitted —
- * which is the rollback nobody would pull, and the reason
- * `routes/internal-catalog-proposals.ts` is deliberately not gated on it either.
- */
-const LEVER_PATTERNS: readonly RegExp[] = [/config\s*\.\s*catalogProposals\s*\.\s*enabled/];
-// #723: the loop below is its only reader, so emptying this list makes it a no-op and
-// nothing goes red. The floor is today's count: an addition passes it freely, while a
-// REMOVAL has to move this number in the same diff.
-expect(
-  LEVER_PATTERNS.length,
-  'LEVER_PATTERNS shrank without this floor moving — the assertion below now defends less than it did',
-).toBeGreaterThanOrEqual(1);
-
-describe('the rollout lever gates the MOUNT and never a stored row', () => {
-  it('no module in the domain reads `config.catalogProposals.enabled`', () => {
-    const files = domainFiles();
-    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(
-      13,
-    );
-    for (const file of files) {
-      const found = violations(readFileSync(file.path, 'utf8'), LEVER_PATTERNS);
-      expect(found, `${file.name} reads the rollout lever`).toEqual([]);
-    }
-  });
-
-  it('POSITIVE CONTROL: the domain DOES read its bounds, so the scan is over real config reads', () => {
-    // Without this the wall above would be indistinguishable from one over a
-    // domain that touches no configuration at all — and it would keep passing if
-    // somebody moved every bound out, which is when a `.enabled` read becomes
-    // likely rather than less so.
-    const joined = domainFiles()
-      .map((file) => stripComments(readFileSync(file.path, 'utf8')))
-      .join('\n');
-    expect(/config\s*\.\s*catalogProposals\s*\./.test(joined)).toBe(true);
-  });
-
-  it('MUTATION SELF-TEST: the lever pattern fires through the real path, and not on a comment', () => {
-    for (const pattern of LEVER_PATTERNS) {
-      expect(violations('if (config.catalogProposals.enabled) return null;', [pattern])).toEqual([
-        pattern.source,
-      ]);
-      // A bound must NOT trip it — the whole point of naming `.enabled`.
-      expect(violations('const n = config.catalogProposals.pageSize;', [pattern])).toEqual([]);
-      expect(violations('// config.catalogProposals.enabled\n', [pattern])).toEqual([]);
-    }
   });
 });
 

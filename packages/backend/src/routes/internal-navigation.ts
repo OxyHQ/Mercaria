@@ -8,19 +8,10 @@
  * the catalogue it points into, and a new list would be another thing to keep in
  * step for a separation it does not have.
  *
- * ## Mounted while `CATALOG_TAXONOMY_V2_ENABLED` is OFF, deliberately
- *
- * The `/internal/backfill` / `/internal/ebay` / `/internal/offer-freshness`
- * arrangement, and the reason is specific rather than a convention: the evidence
- * has to be readable during the incident that turned the lever off, and the one
- * moment somebody most needs to preview a navigation tree is right after
- * switching the public surface off. A gate on the rollout lever would make that
- * exact moment the one where preview 404s.
- *
  * The public read is a SEPARATE router (`routes/navigation.ts`) mounted at
- * `/navigation` behind that lever. Two routers rather than one, because they are
- * gated by different things for different reasons — which is precisely what the
- * first draft of this branch got wrong.
+ * `/navigation` for everyone. Two routers rather than one, because they are
+ * gated by different things — which is precisely what the first draft of this
+ * branch got wrong.
  *
  * ## The route set is CLOSED
  *

@@ -1138,8 +1138,6 @@
         "documentTitle": "Wholesale by Mercaria",
         "title": "你要卖什么？",
         "subtitle": "在目录中找到它，或者描述一件新的商品。",
-        "unavailableTitle": "此处无法使用引导式创建",
-        "unavailableBody": "本 Mercaria 部署未启用目录编写服务，因此引导式表单暂时无法使用。",
         "useLegacy": "使用简易表单",
         "createFailed": "无法创建该草稿。",
         "linkFailed": "草稿已创建，但未能关联目录商品。你可以在向导中重新选择。",

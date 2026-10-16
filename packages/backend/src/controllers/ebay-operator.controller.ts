@@ -131,7 +131,6 @@ export async function ebayBudgetHandler(_req: Request, res: Response): Promise<v
       environment: config.ebay.environment,
       markets: config.ebay.markets,
       attributionEnabled: config.ebay.attributionEnabled,
-      fetchEnabled: config.ebay.fetchEnabled,
       days: rows.map((row) => ({
         // The application key is a DIGEST of a locator and is reported to its
         // first eight characters: enough to tell two keysets apart in a report,

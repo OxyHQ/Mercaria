@@ -67,22 +67,16 @@ const resolvePrintfulCredential: PrintfulCredentialResolver = async (providerAcc
 /**
  * Register both Printful adapters.
  *
- * THROWS when the flag is off rather than no-opping, for
- * `registerFakeOrderAdapter`'s reason: a runbook that called this and got
- * silence would go on to assert against whatever the registries did hold, and
- * the failure would read as a missing supplier rather than as a missing flag.
+ * NOT called at boot today: the Printful adapters reach a real supplier that
+ * bills a real wallet, so wiring this into the bootstrap is a deliberate,
+ * separate change tied to `MERCARIA_RETAIL_ENABLED` (see
+ * `docs/suppliers/printful.md`).
  *
  * Both adapters share ONE transport, so they share one credential path, one
  * host allow-list and one `afterWrite` model. Two transports would be two
  * answers to "may this deployment talk to Printful".
  */
 export function registerPrintfulAdapters(): void {
-  if (!config.printful.enabled) {
-    throw new Error(
-      'PRINTFUL_ENABLED is off. The Printful adapters reach a real supplier that bills a real ' +
-        'wallet, so they are registrable only where that is intended.',
-    );
-  }
   const transport = createPrintfulTransport({
     baseUrl: config.printful.baseUrl,
     resolveCredential: resolvePrintfulCredential,

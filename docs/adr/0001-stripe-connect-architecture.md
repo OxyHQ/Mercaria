@@ -473,7 +473,7 @@ sequenceDiagram
   `source_transaction`, but defense in depth).
 - **Connected account defaults:** `debit_negative_balances = true`.
 
-### Environment (names final; validation follows the `CROWDSOURCE_ENABLED` pattern — a half-configured integration stays OFF and logs once at boot)
+### Environment (names final; validation follows the half-configuration rule — a half-configured integration stays OFF and logs once at boot)
 
 ```
 STRIPE_ENABLED=false

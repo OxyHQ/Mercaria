@@ -785,10 +785,10 @@ positive that shaped the rule.
   surface that serves these reads". Two surfaces now serve them —
   `services/facets/facet.service.ts` and
   `services/catalog-authoring/schema.service.ts` — and **the flag was never
-  built, deliberately**: both consumers sit behind their own mounts
-  (`FACETS_ENABLED`, `CATALOG_AUTHORING_ENABLED`), so localized reads are
-  transitively contained and turning those two off leaves no public surface
-  serving a localized label. D12 has been corrected to say so. **The condition
+  built, deliberately**: the facet consumer sits behind its own mount
+  (`FACETS_ENABLED`); the authoring one was behind `CATALOG_AUTHORING_ENABLED`
+  until that lever was removed and the surface became always-on, so localized
+  reads now reach the authoring schema unconditionally. **The condition
   that would flip it:** a THIRD consumer of `readLocalizedCategories` or
   `readLocalizedAttributeValues` on an unconditionally-mounted route makes
   localized reads un-rollbackable, and **nothing gates against that** — there is

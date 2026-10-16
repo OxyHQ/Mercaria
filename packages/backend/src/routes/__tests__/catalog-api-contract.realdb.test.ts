@@ -245,21 +245,15 @@ let fx: Fixture;
 const SEARCH_STEM = TOKEN;
 
 beforeAll(async () => {
-  for (const lever of [
-    'CATALOG_AUTHORING_ENABLED',
-    'CATALOG_PROPOSALS_ENABLED',
-    'CATALOG_TAXONOMY_V2_ENABLED',
-  ]) {
-    process.env[lever] = 'true';
-  }
   process.env.STRIPE_ENABLED = 'false';
-  // #367 line 814: the localization, internal-taxonomy and internal-attribute
-  // surfaces are allow-list gated, and an EMPTY list is 404 FROM THE MOUNT —
-  // so without this the routes would not exist to be censused, and the
-  // coverage assertion below would pass over a surface that was never there.
+  // #367 line 814: the localization, internal-taxonomy, internal-attribute and
+  // merchant proposal surfaces are allow-list gated, and an EMPTY list is 404
+  // FROM THE MOUNT — so without this the routes would not exist to be censused,
+  // and the coverage assertion below would pass over a surface that was never
+  // there.
   process.env.CATALOG_OPERATOR_OXY_USER_IDS = OPERATOR;
   // `config/index.ts` freezes `process.env` at import, and `app.ts` decides every
-  // mount from that frozen value — so the levers have to be set before the module
+  // mount from that frozen value — so the list has to be set before the module
   // graph loads. `catalog-rollout.realdb.test.ts`'s device.
   vi.resetModules();
 

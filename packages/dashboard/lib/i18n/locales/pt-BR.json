@@ -1156,8 +1156,6 @@
         "documentTitle": "Wholesale by Mercaria",
         "title": "O que você vai vender?",
         "subtitle": "Encontre no catálogo ou descreva algo novo.",
-        "unavailableTitle": "A criação guiada não está disponível aqui",
-        "unavailableBody": "Esta instalação do Mercaria não ativou o serviço de autoria do catálogo, então o formulário guiado ainda não pode ser usado.",
         "useLegacy": "Usar o formulário simples",
         "createFailed": "Não foi possível criar o rascunho.",
         "linkFailed": "O rascunho foi criado, mas não foi possível vincular o produto do catálogo. Você pode escolhê-lo de novo dentro do assistente.",

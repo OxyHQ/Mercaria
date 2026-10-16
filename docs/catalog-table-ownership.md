@@ -177,7 +177,7 @@ them**, and that difference is the thing to know before adding a route.
 | controlled values (`attribute_enum_values`) | `db/attributes/definitionRepository.ts:322` | `/internal/catalog-attributes`, and proposal APPROVAL by an operator | **Yes** — `services/catalog-proposals/__tests__/catalog-proposal-isolation.test.ts:157` and `:172`, which also forbid the one writer from minting anything else |
 | `attribute_definitions` | `db/attributes/definitionRepository.ts:51`, `:174` | `/internal/catalog-attributes`, governance apply | **No** — the operator mount is gated and tested, but no repo-wide writer census exists |
 | `brands` | `db/canonical/brandRepository.ts` | nothing: `createBrand` has one caller, the vertical seed, reached only through governance `vertical_package_apply`; `updateBrand` has zero callers | **No** |
-| `canonical_products` | `db/canonical/canonicalProductRepository.ts` | `/internal/canonical-catalog` (operator), plus #60's backfill writer behind `CANONICAL_WRITE_PUBLICATION_ENABLED` | **No** |
+| `canonical_products` | `db/canonical/canonicalProductRepository.ts` | `/internal/canonical-catalog` (operator), plus #60's backfill writer (`apply` runs) | **No** |
 | `canonical_attribute_values` — the SELECTED fact | `db/canonical/attributeRepository.ts` (5 statements) | `/internal/canonical-catalog`, plus #59's operator correction, which flips `selection_state` between rows that already exist | **Yes** — `db/__tests__/canonical-attribute-value-chokepoint.test.ts` walks 1610 production modules and permits exactly three writers; `catalog-authoring-isolation.test.ts` names the table at the domain's own edge |
 
 So: **a new store-permission-gated route that wrote `brands`, `canonical_products`
@@ -356,27 +356,22 @@ curation domain and was caught only by the realdb suite.
 
 ## What a rollback can and cannot reach
 
-Four levers, each gating a MOUNT and none gating a stored row:
+One lever is left, gating a MOUNT and no stored row:
 
 | Lever | Mount |
 |---|---|
-| `CATALOG_TAXONOMY_V2_ENABLED` | `/navigation` |
-| `CATALOG_AUTHORING_ENABLED` | `/catalog-authoring` and `/stores/:storeId/product-drafts` (`app.ts:258`–`:260`) |
-| `CATALOG_PROPOSALS_ENABLED` | `/catalog-proposals` (`app.ts:275`) |
-| `FACETS_ENABLED` | `POST /facets` (`app.ts:738`) |
+| `FACETS_ENABLED` | `POST /facets` |
 
-`catalog-rollout.realdb.test.ts:309` pins the withdrawal at **exactly five
-mounts and nothing else**, which is the assertion to read rather than the count
-of levers: `CATALOG_AUTHORING_ENABLED` gates two.
+The taxonomy-v2/navigation and authoring levers were removed (those surfaces are
+always mounted), and `/catalog-proposals` is mounted iff
+`CATALOG_OPERATOR_OXY_USER_IDS` is non-empty. `catalog-rollout.realdb.test.ts`
+pins the withdrawal at **exactly that one mount and nothing else**.
 
 ADR 0007 D12 says each lever "is read in exactly one place — the `app.use` that
-mounts its router". Measured over the config PROPERTY rather than the env string,
-there are **six** non-test reads: four mounts, plus
-`services/catalog-observability/metrics.service.ts:745` and `:746`, which decide
-whether a metric reports `surface_not_mounted`. D12's substantive claim survives
-— no repository, outbox enqueue, loop or checkout path reads a lever — but the
-count in it does not, and `runbooks/catalog-rollout-rollback.md:109` already
-states the correct six.
+mounts its router". `FACETS_ENABLED` is read there and in
+`services/catalog-observability/metrics.service.ts`, which decides whether a
+metric reports `surface_not_mounted`. No repository, outbox enqueue, loop or
+checkout path reads a lever.
 
 Two levers ADR 0007 D12 originally named do not exist — `PRODUCT_TYPES_ENABLED`
 (deliberately not built) and `CATALOG_LOCALIZATION_ENABLED` (unnecessary while

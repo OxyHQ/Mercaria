@@ -299,6 +299,8 @@ export type CatalogBackfillReasonCode =
   | 'projection_refreshed'
   | 'projection_current'
   | 'reindex_requested'
+  // HISTORICAL: written while a deployment flag kept `search_reindex` from
+  // enqueueing. No longer produced; kept because stored report rows carry it.
   | 'reindex_disabled'
   // ── consistency ────────────────────────────────────────────────────────────
   | 'consistent'
@@ -579,10 +581,6 @@ export interface CatalogBackfillMetrics {
 
 /** What every canonical rollout lever is currently set to (issue flag list). */
 export interface CanonicalRolloutFlags {
-  /** Does the backfill dispatcher LOOP run at all. */
-  readonly graphEnabled: boolean;
-  /** May an `apply` run mutate the canonical graph. */
-  readonly writePublicationEnabled: boolean;
   readonly reads: CanonicalReadMode;
   readonly offerComparison: CanonicalReadMode;
   /**
@@ -597,8 +595,6 @@ export interface CanonicalRolloutFlags {
    * rollout (ADR 0002 D24).
    */
   readonly search: CanonicalReadMode;
-  readonly publicRoutesEnabled: boolean;
-  readonly searchIndexingEnabled: boolean;
   /** Empty means every cohort. Entries are `<kind>:<value>`. */
   readonly readCohorts: readonly string[];
 }

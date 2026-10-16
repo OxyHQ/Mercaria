@@ -407,8 +407,7 @@ self-test:
 table, writes no row and runs no loop, so a lever could only gate a read two
 existing levers already gate.
 
-- `CANONICAL_PUBLIC_ROUTES_ENABLED` gates the MOUNT, with the other canonical
-  surfaces.
+- The MOUNT is unconditional, like the other canonical surfaces.
 - `CANONICAL_OFFER_COMPARISON` gates the offers HALF, inside the handler. With
   it off a comparison still answers — every subject reports
   `offer_comparison_withheld` rather than rendering as a product nobody sells,

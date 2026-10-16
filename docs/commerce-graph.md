@@ -27,8 +27,8 @@ scoped, temporal, evidence-gated CLAIM — never a boolean and never inferable.
 - **Duplicates are impossible, not refused**: a GENERATED `endpoint_key` +
   partial unique `WHERE valid_to IS NULL`. A plain multi-column unique would let
   them through — Postgres treats NULLs as distinct.
-- **Four eyes** covers exactly the badge-producing kinds, defaults ON
-  (`CATALOG_FOUR_EYES_REQUIRED`), and is held by a partial unique on
+- **Four eyes** covers exactly the badge-producing kinds, is always required
+  (not configurable), and is held by a partial unique on
   `relationship_reviews`, not by a service comparison. `review_round` advances
   on every decision so an approval cannot be reused.
 - **The public read never trusts `status` alone** — it requires the validity
@@ -136,9 +136,9 @@ load-bearing:
 - **A semantic score is never the sole authority — and neither is a title.** A
   candidate with no positive value among identifier/brand/model/attribute
   agreement carries `no_deterministic_support`, which is a blocker. Semantics
-  are off in THREE independent places (no scorer is registered, which is the
-  shipped state; `MATCH_SEMANTIC_ENABLED`; the policy version's own flag), and a
-  test runs the whole labelled dataset with all three off and asserts the
+  run only when a scorer is registered (none is — the shipped state) AND the
+  policy version's own `semantic_enabled` says so, and a test runs the whole
+  labelled dataset with both off and asserts the
   decisions are byte-identical.
 - **A category with no recorded qualifying benchmark run cannot match
   automatically.** `match_category_gates` cites its measurement by a NOT NULL
@@ -173,9 +173,8 @@ load-bearing:
   `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57 use — metrics (queue
   AGE and ambiguity rate), traces, the review inbox, policy versions, category
   gates, blocked pairs, and triggers for one evaluation / one drain / one sweep
-  page. Env: `MATCH_PIPELINE_ENABLED` (gates the LOOP only — the queue always
-  accepts), `MATCH_QUEUE_BATCH_SIZE`, `MATCH_QUEUE_POLL_INTERVAL_MS`,
-  `MATCH_SWEEP_BATCH_SIZE`, `MATCH_SEMANTIC_ENABLED`.
+  page. The queue dispatcher always runs. Env: `MATCH_QUEUE_BATCH_SIZE`,
+  `MATCH_QUEUE_POLL_INTERVAL_MS`, `MATCH_SWEEP_BATCH_SIZE`.
 - Deferred to their owners: the correction/merge workflow (#59 — it consumes
   `match_decisions.review_state`, the candidate rows and `match_blocked_pairs`),
   bulk external ingestion (#37), the canonical minting a `create_new` recommends

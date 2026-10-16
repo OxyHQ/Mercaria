@@ -163,9 +163,7 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Offer outbox dispatcher import failed'));
 
       // Evaluate queued matching subjects (#58). On EVERY task, same lease
-      // shape. The LOOP is gated by `MATCH_PIPELINE_ENABLED` and the queue never
-      // is, so requests taken while matching is paused drain once it is switched
-      // on. This is the loop that closes #57's `native_listing_links` seam: an
+      // shape. This is the loop that closes #57's `native_listing_links` seam: an
       // automatic match writes the attachment and asks the offer converger to
       // run, which is how a native listing becomes a native offer end to end.
       import('./services/matching/match-queue-dispatcher.js')
@@ -173,39 +171,30 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Match queue dispatcher import failed'));
 
       // Page open catalogue-backfill runs (#60). On EVERY task, same lease
-      // shape. The LOOP is gated by `CANONICAL_GRAPH_ENABLED` and the run rows
-      // never are, so an operator can open a run while the loop is off and it
-      // resumes from its cursor once the flag goes on. A canary rollout does not
-      // use this loop at all — it pages by hand from `/internal/backfill` — so
-      // this exists for the unattended remainder and for resuming after a
-      // deploy.
+      // shape. A canary rollout does not use this loop at all — it pages by hand
+      // from `/internal/backfill` — so this exists for the unattended remainder
+      // and for resuming after a deploy.
       import('./services/backfill/backfill-dispatcher.js')
         .then(({ startCatalogBackfillDispatcher }) => startCatalogBackfillDispatcher())
         .catch((err) => log.general.error({ err }, 'Catalog backfill dispatcher import failed'));
       // Run operator merge and split jobs (#59). On EVERY task, same lease
-      // shape. The LOOP is gated by `CURATION_JOBS_ENABLED` and the REQUEST
-      // never is, so a merge an operator scheduled while the loop was off runs
-      // when it comes back — the outbox inversion, applied to a job an operator
-      // is waiting on. A job BLOCKED on an undecided conflict is deliberately
-      // not claimable: retrying a judgement only a person can make would spin
-      // this loop and bury real faults among things waiting for review.
+      // shape. A job BLOCKED on an undecided conflict is deliberately not
+      // claimable: retrying a judgement only a person can make would spin this
+      // loop and bury real faults among things waiting for review.
       import('./services/curation/curation-dispatcher.js')
         .then(({ startCurationDispatcher }) => startCurationDispatcher())
         .catch((err) => log.general.error({ err }, 'Curation dispatcher import failed'));
       // Schedule and page external ingestion runs (#62). On EVERY task, same
       // lease shape, and TWO claims rather than one: a source lease says which
       // task feeds a source, a run lease says which task is driving the current
-      // pass, and a pass outlives a tick. The LOOP is gated by
-      // `CATALOG_INGESTION_ENABLED` and neither the source configuration, its
-      // reviewed policy nor an open run ever is, so turning the flag on drains
-      // the backlog rather than stranding it.
+      // pass, and a pass outlives a tick. A source's own `paused` status is the
+      // runtime kill switch; there is no deployment-wide flag.
       import('./services/ingestion/ingest-dispatcher.js')
         .then(({ startCatalogIngestionDispatcher }) => startCatalogIngestionDispatcher())
         .catch((err) => log.general.error({ err }, 'Catalog ingestion dispatcher import failed'));
       // Keep the comparator's pipeline running with nobody at the console: the
       // baseline matching policy, the open-data sources declared in code, and
-      // one whole-catalogue backfill cycle after another. Each half behind the
-      // lever that already governs it (ingestion; the canonical graph).
+      // one whole-catalogue backfill cycle after another.
       import('./services/catalog-autopilot/autopilot.js')
         .then(({ startCatalogAutopilot }) => startCatalogAutopilot())
         .catch((err) => log.general.error({ err }, 'Catalog autopilot import failed'));
@@ -316,9 +305,8 @@ connectPostgres()
       // effect, and for #62's own reason one direction over: an adapter that
       // registered itself on import would be live in every process that pulled
       // the module graph in, including the migration runner and a test that only
-      // wanted the normalizer. It is a no-op with `EBAY_ENABLED=false`, which is
-      // the default and which leaves every eBay source configurable, reviewable
-      // and refusing its runs with `adapter_missing`.
+      // wanted the normalizer. Registering fetches nothing by itself: a run
+      // needs a configured eBay source, its credential and its reviewed rights.
       import('./services/ebay/register.js')
         .then(({ registerEbayBrowseAdapter }) => {
           registerEbayBrowseAdapter();

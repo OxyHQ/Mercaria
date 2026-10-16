@@ -77,7 +77,8 @@
   ENTRY POINT: the v1 condition projection was pinned exhaustively as a pure
   function while the hydration call served a constant, and all 10,500 tests were
   green.
-- **Four eyes** (`CATALOG_FOUR_EYES_REQUIRED` and its siblings) is the ROW's
+- **Four eyes** (always required for catalog acts; `GUEST_CLAIM_FOUR_EYES_REQUIRED`
+  and its siblings elsewhere) is the ROW's
   shape — approvers differing from each other and from the requester, held by a
   CHECK or a partial unique, never by a service comparison.
 - **Isolation between domains is a TEST**, not a convention

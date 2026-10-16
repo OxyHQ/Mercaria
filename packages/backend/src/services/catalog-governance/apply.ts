@@ -7,8 +7,7 @@
  * `publishProductTypeVersion` publishes types, the attribute registry publishes
  * and deprecates definitions, `publishNavigationTree` publishes trees. What
  * this module adds is that each of them is reached only after a plan, an impact
- * measurement and — where the impact is large and `CATALOG_FOUR_EYES_REQUIRED`
- * is on — a second operator.
+ * measurement and — where the impact is large — a second operator.
  *
  * `catalog-governance-isolation.test.ts` fails the build if any module in this
  * domain grows a `.insert(` / `.update(` / `.delete(` against a catalogue

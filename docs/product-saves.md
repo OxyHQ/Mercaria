@@ -190,8 +190,7 @@ grows one.
 ### A dry run is the default posture
 
 `PRODUCT_SAVE_MIGRATION_ENABLED=false` downgrades every request to a dry run
-that reports exactly what it would do — the #60
-`CANONICAL_WRITE_PUBLICATION_ENABLED` shape. A dry-run outcome may read
+that reports exactly what it would do — the #60 dry-run-writer shape. A dry-run outcome may read
 `created`, because in that mode an outcome is a PREDICTION and refusing to
 report one would make the mode unable to answer the question it exists for.
 

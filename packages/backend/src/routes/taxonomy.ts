@@ -26,14 +26,8 @@
  * the taxonomy — structural nodes included, with `selectable` stated as a fact
  * rather than applied as a filter.
  *
- * ## Behind `CATALOG_TAXONOMY_V2_ENABLED`, which is the lever this IS
- *
- * `config/index.ts` describes that lever as *"The extended taxonomy READS"*
- * (ADR 0007 D12) and until now it gated only `/navigation`. Default FALSE, so
- * today's behaviour is unchanged and `GET /categories` — the v1 tree, D13 — keeps
- * answering exactly as it does. It gates the MOUNT and never a stored row: every
- * category, alias, redirect and localization stays readable with it off, because a
- * rollback must not delete catalog evidence.
+ * Always mounted. `GET /categories` — the v1 tree, D13 — keeps answering
+ * exactly as it does beside it.
  *
  * ## Route ORDER is load-bearing
  *

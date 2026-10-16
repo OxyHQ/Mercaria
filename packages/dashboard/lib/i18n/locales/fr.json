@@ -1156,8 +1156,6 @@
         "documentTitle": "Wholesale by Mercaria",
         "title": "Que vendez-vous ?",
         "subtitle": "Trouvez-le dans le catalogue, ou décrivez quelque chose de nouveau.",
-        "unavailableTitle": "La création guidée n'est pas disponible ici",
-        "unavailableBody": "Ce déploiement de Mercaria n'a pas activé le service de rédaction du catalogue : le formulaire guidé n'est donc pas encore utilisable.",
         "useLegacy": "Utiliser le formulaire simple",
         "createFailed": "Ce brouillon n'a pas pu être créé.",
         "linkFailed": "Le brouillon a été créé, mais le produit du catalogue n'a pas pu être rattaché. Vous pouvez le choisir à nouveau dans l'assistant.",

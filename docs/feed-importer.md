@@ -623,7 +623,7 @@ Each is a NAMED contract, not a stub.
    products on sale forever. There is no default for exactly this reason.
 5. A `validation` run read with the merchant before activation, and the error
    report downloaded.
-6. `CATALOG_INGESTION_ENABLED=true` only after a feed has been drained by hand
+6. The source moved to `active` only after a feed has been drained by hand
    from `/internal/ingestion/drain` and its metrics read.
 7. Raise `CATALOG_INGESTION_LEASE_MS` above the time a full stage build takes for
    the largest configured feed. The stage is built inside one page, and a lease

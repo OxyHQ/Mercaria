@@ -1,15 +1,6 @@
 import { Readable } from 'node:stream';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-const state = vi.hoisted(() => ({ enabled: true, download: vi.fn(), upload: vi.fn() }));
-vi.mock('../../config/index.js', () => ({
-  config: {
-    catalog: {
-      get videoWritesEnabled() {
-        return state.enabled;
-      },
-    },
-  },
-}));
+const state = vi.hoisted(() => ({ download: vi.fn(), upload: vi.fn() }));
 vi.mock('@oxy.so/core/server', () => ({
   safeFetch: (...args: unknown[]) => state.download(...args),
 }));
@@ -26,7 +17,6 @@ import { synchronizeStoreMedia } from '../catalog-media/sync.js';
 import { matchesProductVideo, PRODUCT_VIDEO_MAX_BYTES } from '../catalog-media/policy.js';
 const mp4 = Buffer.from('00000018667479706d703432000000006d70343269736f6d', 'hex');
 beforeEach(() => {
-  state.enabled = true;
   state.upload.mockReset();
   state.download.mockReset();
   state.download.mockImplementation(async () => ({
@@ -52,12 +42,7 @@ it('imports verified MP4 bytes under the persisted store owner and returns typed
   expect(state.upload.mock.calls[0][1].headers['x-owner-user-id']).toBe('persisted-owner');
   expect(Buffer.from(state.upload.mock.calls[0][1].body)).toEqual(mp4);
 });
-it('refuses disabled video imports and unverified existing video IDs before network operations', async () => {
-  state.enabled = false;
-  await expect(
-    synchronizeStoreMedia('store', [{ kind: 'video', reference: 'https://supplier.test/a.mp4' }]),
-  ).rejects.toThrow(/not enabled/);
-  state.enabled = true;
+it('refuses unverified existing video IDs before network operations', async () => {
   await expect(
     synchronizeStoreMedia('store', [{ kind: 'video', reference: 'unverified-id' }]),
   ).rejects.toThrow(/verification/);

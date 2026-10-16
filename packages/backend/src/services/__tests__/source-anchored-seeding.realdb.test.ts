@@ -10,7 +10,6 @@
  * offer instead of orphaning it.
  */
 
-import './fixtures/enable-canonical-writes.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';

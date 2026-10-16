@@ -52,8 +52,8 @@ doing exactly what `products:write` names. `products:read` is not used even for
 the reads, because a draft is unpublished work rather than catalogue, and the
 set of people who may see one is the set who may write one.
 
-The whole surface is behind `CATALOG_AUTHORING_ENABLED` (ADR 0007 D12, default
-false). It gates the MOUNT and never a row.
+The whole surface is always mounted (ADR 0007 D12's `CATALOG_AUTHORING_ENABLED`
+lever has been removed).
 
 ### The mount order matters
 
@@ -528,10 +528,8 @@ the HTTP route above (`products-admin.controller.ts`),
 `CreateStoreProductInput` itself. They are the checklist rather than a guess. The
 fourth is `scripts/seed.ts`, which serves no request and is named here so that
 counting the callers and reading this line give the same answer. The dashboard is
-not a fifth: its "Add product" destination is DERIVED from the server's own
-`CATALOG_AUTHORING_ENABLED` answer, so `/products/new` stays the destination on
-every deployment where the wizard is not mounted, and the wizard's own empty
-state routes back to it.
+not a fifth: its "Add product" opens the wizard, and `/products/new` stays
+reachable from the wizard's start screen ("Use the simple form").
 
 **No date is stated and none should be.** `retiresWhen` is prose in this
 repository on purpose — `condition.ts` records that the condition is observable
@@ -580,7 +578,6 @@ about a product nobody made.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `CATALOG_AUTHORING_ENABLED` | `false` | Mounts the surface. Never gates a row. |
 | `CATALOG_AUTHORING_DRAFT_TTL_SECONDS` | 30 days | Stamped at creation, so a later change cannot retroactively shorten a form somebody is filling in. |
 | `CATALOG_AUTHORING_DRAFT_PAGE_SIZE` | 50 | |
 | `CATALOG_AUTHORING_CATEGORY_PAGE_SIZE` | 200 | |

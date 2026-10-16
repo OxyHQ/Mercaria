@@ -312,8 +312,7 @@ describe('#58 acceptance 6: the deterministic pipeline runs with semantics disab
     }
 
     // A scorer that would reorder EVERYTHING if it were ever consulted. The
-    // policy's `semanticEnabled` is false and `config.matching.semanticEnabled`
-    // is false, so it must never be reached.
+    // policy's `semanticEnabled` is false, so it must never be reached.
     let calls = 0;
     registerSemanticScorer({
       id: 'test-scorer',

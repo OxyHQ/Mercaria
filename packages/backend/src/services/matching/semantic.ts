@@ -2,27 +2,24 @@
  * The optional semantic scorer (#58 pipeline 6, acceptance 6).
  *
  * There is no scorer in this repository, and that is the shipped state. What is
- * here is the SEAM one would plug into, plus the three independent levers that
- * keep it off — because "semantic or LLM services can be disabled without
+ * here is the SEAM one would plug into, plus the two independent conditions
+ * that keep it off — because "semantic or LLM services can be disabled without
  * breaking deterministic matching" is only credible if the disabled path is the
  * one that runs by default and is therefore the one that is actually tested.
  *
- * ## Three levers, and why not one
+ * ## Two conditions, and why not one
  *
- * 1. **No scorer is registered.** The module-level slot starts empty. A
+ * 1. **A scorer is registered.** The module-level slot starts empty. A
  *    deployment that never calls {@link registerSemanticScorer} has nothing to
  *    call, so this is not a flag anybody can flip by accident.
- * 2. **`config.matching.semanticEnabled`** — the operational kill switch, off by
- *    default. It exists so an incident can stop a registered scorer without a
- *    deploy, which is the situation a flag is actually for.
- * 3. **`match_policy_versions.semantic_enabled`** — the POLICY's own answer,
+ * 2. **`match_policy_versions.semantic_enabled`** — the POLICY's own answer,
  *    off by default. A policy that never consulted a scorer stays reproducible
  *    forever even if one is later registered, which is what "outcomes can be
- *    compared" (operations 2) requires.
+ *    compared" (operations 2) requires. Stopping a registered scorer during an
+ *    incident is done by activating a policy version with it off.
  *
- * They are three because they answer three different questions — is one
- * available, may we use it right now, and did THIS policy use it — and a single
- * flag would answer the first two and silently lie about the third.
+ * They are two because they answer two different questions — is one available,
+ * and did THIS policy use it.
  *
  * ## What a scorer may and may not do
  *
@@ -35,7 +32,6 @@
  * wins and incapable of creating a merge on its own.
  */
 
-import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 
 /** What a scorer is asked. Ids in, similarities out — no writes, no candidates. */
@@ -73,12 +69,11 @@ export function clearSemanticScorer(): void {
 /**
  * The scorer to use for a policy, or `null`.
  *
- * All three levers, in one place, so no caller can consult two of them and
- * forget the third.
+ * Both conditions, in one place, so no caller can consult one and forget the
+ * other.
  */
 export function resolveSemanticScorer(policySemanticEnabled: boolean): SemanticScorer | null {
   if (!policySemanticEnabled) return null;
-  if (!config.matching.semanticEnabled) return null;
   return registered;
 }
 

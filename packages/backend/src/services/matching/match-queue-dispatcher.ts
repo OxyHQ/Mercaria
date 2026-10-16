@@ -4,13 +4,6 @@
  * Runs on EVERY task. Claims are `FOR UPDATE SKIP LOCKED` with an owner check,
  * so N ECS tasks drain one queue without handing each other the same row and a
  * dead task's expired lease is reclaimable.
- *
- * **The LOOP is gated, never the durable record.** With
- * `MATCH_PIPELINE_ENABLED=false` the queue still accepts rows — every catalogue
- * write, every observation, every operator request keeps enqueueing — and they
- * drain the moment it is switched on. Gating the enqueue instead would silently
- * lose every request taken while matching was paused, which is the failure the
- * moderation outbox's own note warns about.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -169,10 +162,6 @@ async function tick(): Promise<void> {
 
 export function startMatchQueueDispatcher(): void {
   if (timer !== undefined) return;
-  if (!config.matching.pipelineEnabled) {
-    log.general.info('[Matching] pipeline disabled; requests are stored and will run once enabled');
-    return;
-  }
   timer = setInterval(() => {
     void tick();
   }, config.matching.queuePollIntervalMs);

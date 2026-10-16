@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest';
 import { OxyApiError } from '@oxy.so/core';
-const state = vi.hoisted(() => ({ enabled: true, get: vi.fn(), setAccessToken: vi.fn() }));
+const state = vi.hoisted(() => ({ get: vi.fn(), setAccessToken: vi.fn() }));
 vi.mock('@oxy.so/core', async (original) => ({
   ...(await original<typeof import('@oxy.so/core')>()),
   OxyServices: class {
@@ -12,9 +12,6 @@ vi.mock('../../../config/index.js', () => ({
   config: {
     catalog: {
       maxImagesPerListing: 12,
-      get videoWritesEnabled() {
-        return state.enabled;
-      },
     },
   },
 }));
@@ -31,7 +28,6 @@ const metadata = (fileId: string, overrides: Record<string, unknown> = {}) => ({
   },
 });
 beforeEach(() => {
-  state.enabled = true;
   state.get.mockReset().mockImplementation(async (id) => metadata(id));
   state.setAccessToken.mockReset();
 });
@@ -57,15 +53,11 @@ it.each([
     httpStatus: 403,
   });
 });
-it('keeps legacy image writes photographic and refuses new videos while the rollout flag is off', async () => {
+it('keeps legacy image writes photographic', async () => {
   state.get.mockResolvedValue(metadata('clip', { mime: 'video/mp4' }));
   await expect(
     prepareCatalogMedia('store-account', 'bearer', ['clip'], true),
   ).rejects.toMatchObject({ httpStatus: 400 });
-  state.enabled = false;
-  await expect(prepareCatalogMedia('store-account', 'bearer', ['clip'])).rejects.toMatchObject({
-    httpStatus: 503,
-  });
 });
 it.each([[['https://external.test/a.mp4']], [['same', 'same']]])(
   'rejects invalid IDs without contacting Oxy',

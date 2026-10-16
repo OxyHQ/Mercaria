@@ -311,12 +311,11 @@ async function readShared(
  * Which flag-gated catalog surfaces this deployment mounts.
  *
  * Resolved ONCE per collection rather than read from `config` inside each
- * producer, for the reason every shared read here is taken once: three metrics
- * hang off the authoring route, and three producers reading the same flag
- * independently is three chances for one of them to read a different one.
+ * producer, for the reason every shared read here is taken once: two producers
+ * reading the same flag independently is two chances for one of them to read a
+ * different one.
  */
 export interface MountedSurfaces {
-  readonly catalogAuthoring: boolean;
   readonly facets: boolean;
 }
 
@@ -482,22 +481,19 @@ function deskAbsentCount(
  */
 const PRODUCERS: Readonly<Record<string, Producer>> = {
   /* ---- Authoring schema -------------------------------------------------- */
-  authoring_schema_fetch_latency: async (definition, { mounted }) => {
-    if (!mounted.catalogAuthoring) return notMounted(definition, 'CATALOG_AUTHORING_ENABLED');
+  authoring_schema_fetch_latency: async (definition) => {
     return latency(
       definition,
       readRouteObservation('GET', '/catalog-authoring/schemas/:productTypeKey')?.latency,
     );
   },
 
-  authoring_schema_error_rate: async (definition, { mounted }) => {
-    if (!mounted.catalogAuthoring) return notMounted(definition, 'CATALOG_AUTHORING_ENABLED');
+  authoring_schema_error_rate: async (definition) => {
     const observed = readRouteObservation('GET', '/catalog-authoring/schemas/:productTypeKey');
     return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
   },
 
-  authoring_schema_client_cache_hit_rate: async (definition, { mounted }) => {
-    if (!mounted.catalogAuthoring) return notMounted(definition, 'CATALOG_AUTHORING_ENABLED');
+  authoring_schema_client_cache_hit_rate: async (definition) => {
     const observed = readRouteObservation('GET', '/catalog-authoring/schemas/:productTypeKey');
     return ratio(definition, observed?.notModified ?? 0, observed?.requests ?? 0);
   },
@@ -1039,7 +1035,6 @@ export async function collectCatalogMetrics(
   }
 
   const mounted: MountedSurfaces = {
-    catalogAuthoring: options.mounted?.catalogAuthoring ?? config.catalogAuthoring.enabled,
     facets: options.mounted?.facets ?? config.catalog.facetsEnabled,
   };
 

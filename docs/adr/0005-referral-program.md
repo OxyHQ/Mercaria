@@ -716,7 +716,7 @@ REFERRALS_ENABLED=false     # master gate: mounts the surfaces, runs the loops
 ```
 
 plus the loop tunables the outbox pattern always carries. `REFERRALS_ENABLED`
-follows the `CROWDSOURCE_ENABLED` validation pattern: a half-configured
+follows the half-configuration rule: a half-configured
 program stays OFF and logs once at boot. The gate stops loops and surfaces —
 never the durable records already written.
 

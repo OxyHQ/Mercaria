@@ -212,19 +212,17 @@ export function unrewiredRowCount(report: CatalogGovernanceImpactReport): number
  * A code constant and not an environment variable, for the reason
  * `CURATION_LARGE_MERGE_IMPACT_THRESHOLD` is one: it is a policy about when a
  * catalogue change is large, and a deployment able to set it to a million would
- * be a deployment able to switch four-eyes off without saying so — while
- * `CATALOG_FOUR_EYES_REQUIRED` says so in one place, which is the lever the
- * epic names.
+ * be a deployment able to switch four-eyes off without saying so. Four-eyes is a
+ * safety invariant and is not configurable.
  */
 export const GOVERNANCE_HIGH_IMPACT_THRESHOLD = 50;
 
 /**
  * Whether this change needs two people.
  *
- * Reads `CATALOG_FOUR_EYES_REQUIRED` — the flag #55 and #59 already read, and
- * deliberately not a second one. The result is SNAPSHOTTED onto the request at
- * plan time by `change-request.service.ts`: the threshold and the flag both
- * move, and a request whose approval requirement changed after somebody
+ * The rule #55 and #59 already apply, and deliberately not a second one. The
+ * result is SNAPSHOTTED onto the request at plan time by
+ * `change-request.service.ts`: the threshold can move, and a request whose approval requirement changed after somebody
  * approved it would either strand a legitimate change or let an unapproved one
  * through. `catalog_merge_jobs` reached the same place for the same reason.
  *
@@ -234,11 +232,7 @@ export const GOVERNANCE_HIGH_IMPACT_THRESHOLD = 50;
  * re-planning — but recording it as low-impact would put an unmeasurable change
  * in the same bucket as a free one.
  */
-export function requiresSecondApproval(
-  report: CatalogGovernanceImpactReport,
-  fourEyesRequired: boolean,
-): boolean {
-  if (!fourEyesRequired) return false;
+export function requiresSecondApproval(report: CatalogGovernanceImpactReport): boolean {
   if (report.coverage === 'unmeasured') return true;
   return report.total >= GOVERNANCE_HIGH_IMPACT_THRESHOLD;
 }
