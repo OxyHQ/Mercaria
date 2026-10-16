@@ -43,6 +43,7 @@
  * tap from a dashboard converges rather than publishing twice.
  */
 
+import { log } from '../lib/logger.js';
 import type { Request, Response } from 'express';
 import { eq, max } from 'drizzle-orm';
 import type {
@@ -305,6 +306,23 @@ export async function registerAssetFileHandler(req: Request, res: Response): Pro
       // uploaded that this service cannot read": distinguishing them is a probe
       // for which Oxy file ids exist.
       throw notFound('No uploaded file with that id');
+    }
+
+    // Store the deliverable as an APPLICATION-owned PRIVATE file (Oxy ADR 0041
+    // D3/D5), so serving it never depends on the creator's link staying in
+    // place (ADR 0021). The copy holds the SAME bytes, measured. When Oxy will
+    // not take this type or size as an application file, or cannot copy right
+    // now, the creator's own upload is registered as before — still servable
+    // through their link — and `scripts/backfill-digital-asset-storage.ts`
+    // moves it later; a registration never fails because a copy did.
+    try {
+      const adopted = await assetStorage.adoptAssetObject(object.storageKey);
+      if (adopted) object = adopted;
+    } catch (error) {
+      log.general.warn(
+        { reason: isDigitalStorageError(error) ? error.reason : 'unknown' },
+        '[Digital] deliverable kept on the creator upload; copy to an application file failed',
+      );
     }
 
     const file = await insertAssetFile({

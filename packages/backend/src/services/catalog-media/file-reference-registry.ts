@@ -49,6 +49,7 @@ import {
   rewriteHtmlColumnsByFile,
   suppressConditionPhotosByFile,
 } from '../../db/oxyFiles/detachRepository.js';
+import { findAssetFileIdPage, findAssetFileStorageKey } from '../../db/digital/assetRepository.js';
 import { descriptionImageFileIds, withoutDescriptionImage } from './description.js';
 import { storedMediaFileId } from './urls.js';
 
@@ -70,7 +71,7 @@ export type FileReferenceRegistration =
   | 'trigger'
   /** Only the nightly reconciliation registers it; the writer is never made to depend on this. */
   | 'reconciliation'
-  /** Registered by its one writer at write time, and NOT reconciled. */
+  /** Registered by its one writer at write time; reconciled only from a dedicated `inventory`. */
   | 'writer';
 
 export interface FileEventOutcome {
@@ -87,6 +88,15 @@ export interface FileReferenceEntityDefinition {
   readonly registration: FileReferenceRegistration;
   /** The rows that hold this type's files. Empty only for a `writer` type. */
   readonly sources: readonly HoldingSource[];
+  /**
+   * The inventory, when the holding rows cannot be read by the generic holding
+   * queries (a protected column read through its one sanctioned function).
+   * Such a type has no `sources`, so it is never converged by the outbox — only
+   * registered by its writer and reconciled from this.
+   */
+  readonly inventory?: (
+    db: DatabaseOrTransaction,
+  ) => AsyncIterable<{ fileId: string; entityId: string }>;
   /**
    * What a blocked or deleted file does to the holding rows. Absent: the rows
    * are history and are only recorded (`retained`).
@@ -375,16 +385,33 @@ const DEFINITIONS: readonly FileReferenceEntityDefinition[] = [
     sources: [single('order_items', 'id', 'image_url', 'stored_url')],
   },
   {
-    // `asset_files.storage_key` is read in exactly ONE place
-    // (`findAssetFileStorageKey`, house-invariants), so no inventory may read
-    // it: the storage port registers the reference at upload, and the file is
-    // the creator's, which Oxy never collects (ADR 0041 D5).
+    // `asset_files.storage_key` is read in exactly ONE place — the function
+    // `findAssetFileStorageKey` (house-invariants) — so the generic holding
+    // queries may not read it. The storage port registers the reference when it
+    // stores or copies an object, and the reconciliation's inventory reads each
+    // key through that one function. Since Oxy ADR 0041 the deliverable is an
+    // APPLICATION file where Oxy takes its type, which Oxy collects once nothing
+    // references it — so this type IS reconciled, nightly like the rest.
     entityType: 'digital_asset_file',
-    ownerKind: 'account',
+    ownerKind: 'application',
     owner: 'creator',
     entityId: 'the storage key itself (no asset_files row exists yet at upload)',
     registration: 'writer',
     sources: [],
+    inventory: async function* (db) {
+      let after: string | undefined;
+      for (;;) {
+        const ids = await findAssetFileIdPage({ ...(after ? { after } : {}), limit: 500 }, db);
+        if (ids.length === 0) return;
+        after = ids[ids.length - 1];
+        for (const id of ids) {
+          const file = await findAssetFileStorageKey(id, db);
+          if (file && isReferenceableFileId(file.storageKey))
+            yield { fileId: file.storageKey, entityId: file.storageKey };
+        }
+        if (ids.length < 500) return;
+      }
+    },
   },
 ];
 
@@ -434,6 +461,10 @@ export async function* streamEntityInventory(
   db: DatabaseOrTransaction,
   pageSize = 500,
 ): AsyncGenerator<{ fileId: string; entityId: string }> {
+  if (definition.inventory) {
+    yield* definition.inventory(db);
+    return;
+  }
   let after: string | undefined;
   for (;;) {
     const entityIds = await readHoldingEntityPage(definition.sources, after, pageSize, db);

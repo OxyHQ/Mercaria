@@ -48,10 +48,13 @@ import {
 } from './file-reference-registry.js';
 import { reconcileOxyFileReferences } from './oxy-files.js';
 
-/** The types a reconciliation covers: every one but a `writer`-registered type. */
+/**
+ * The types a reconciliation covers: every one with holding rows to read — its
+ * `sources`, or a dedicated `inventory` for a protected column.
+ */
 export function reconciledEntityTypes(): OxyFileReferenceEntityType[] {
   return fileReferenceDefinitions()
-    .filter((definition) => definition.registration !== 'writer')
+    .filter((definition) => definition.sources.length > 0 || definition.inventory !== undefined)
     .map((definition) => definition.entityType);
 }
 
@@ -72,8 +75,8 @@ export async function reconcileEntityType(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReconciliationOutcome> {
   const definition = fileReferenceDefinition(entityType);
-  if (definition.registration === 'writer')
-    throw new Error(`${entityType} is registered by its writer and is not reconciled.`);
+  if (definition.sources.length === 0 && definition.inventory === undefined)
+    throw new Error(`${entityType} has no inventory to reconcile.`);
   let inventory = 0;
   async function* counted() {
     for await (const item of streamEntityInventory(definition, db)) {
@@ -85,7 +88,10 @@ export async function reconcileEntityType(
   const result = await reconcileOxyFileReferences(entityType, counted(), {
     dryRun: options.dryRun,
   });
-  if (!options.dryRun) await rewriteLedgerToInventory(entityType, db, options.onProgress);
+  // A type with no holding sources is never converged through the ledger (its
+  // writer registers it directly), so there is no ledger to rewrite.
+  if (!options.dryRun && definition.sources.length > 0)
+    await rewriteLedgerToInventory(entityType, db, options.onProgress);
   return {
     entityType,
     dryRun: options.dryRun,

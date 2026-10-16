@@ -82,6 +82,7 @@ const mintDownloadGrant = vi.fn();
 const redeemDownloadGrant = vi.fn();
 const resolveDigitalLines = vi.fn();
 const describeAssetObject = vi.fn();
+const adoptAssetObject = vi.fn();
 const resolveAuthorizedUrl = vi.fn();
 const dbSelect = vi.fn();
 const logged = vi.fn();
@@ -162,6 +163,7 @@ vi.mock('../../services/checkout/digital-lines.js', () => ({
 vi.mock('../../services/digital/storage.js', () => ({
   assetStorage: {
     describeAssetObject: (...a: unknown[]) => describeAssetObject(...a),
+    adoptAssetObject: (...a: unknown[]) => adoptAssetObject(...a),
     resolveAuthorizedUrl: (...a: unknown[]) => resolveAuthorizedUrl(...a),
     putAssetObject: vi.fn(),
     deleteAssetObject: vi.fn(),
@@ -504,6 +506,31 @@ describe('registering a file takes the three facts from the asset service', () =
         mediaType: 'model/stl',
         storageKey: STORAGE_KEY,
       }),
+    );
+  });
+
+  it('registers the APPLICATION-owned private copy when Oxy takes it, and the upload when not', async () => {
+    const measured = {
+      storageKey: STORAGE_KEY,
+      byteSize: 4_096,
+      mediaType: 'model/stl',
+      contentHash: DIGEST,
+    };
+    describeAssetObject.mockResolvedValue(measured);
+    insertAssetFile.mockResolvedValue({ id: FILE_ID });
+    // Oxy ADR 0041: the copy holds the same measured bytes under a new key.
+    adoptAssetObject.mockResolvedValueOnce({ ...measured, storageKey: 'app-owned-copy' });
+    expect((await post(uploadsOn, filePath, body)).status).toBe(201);
+    expect(adoptAssetObject).toHaveBeenCalledWith(STORAGE_KEY);
+    expect(insertAssetFile).toHaveBeenLastCalledWith(
+      expect.objectContaining({ storageKey: 'app-owned-copy', contentHash: DIGEST }),
+    );
+    // A copy Oxy refuses (a mesh is not an application media type today) never
+    // fails the registration: the creator's own upload is registered as before.
+    adoptAssetObject.mockRejectedValueOnce({ reason: 'unresolved' });
+    expect((await post(uploadsOn, filePath, body)).status).toBe(201);
+    expect(insertAssetFile).toHaveBeenLastCalledWith(
+      expect.objectContaining({ storageKey: STORAGE_KEY }),
     );
   });
 

@@ -201,6 +201,14 @@ const NOT_THIS_BACKFILL = [
     why: 'operator CLI for legacy store artwork import, not the flag-gated canonical catalogue migration',
   },
   {
+    path: 'services/digital/asset-storage-backfill.ts',
+    why: 'moves digital deliverables onto application-owned private Oxy files (Oxy ADR 0041), not the canonical catalogue migration',
+  },
+  {
+    path: 'scripts/backfill-digital-asset-storage.ts',
+    why: 'operator CLI for the digital deliverable storage move (Oxy ADR 0041), not the flag-gated canonical catalogue migration',
+  },
+  {
     path: 'scripts/backfill-application-media.ts',
     why: 'operator CLI for the application-owned media import (Oxy ADR 0041), not the flag-gated canonical catalogue migration',
   },
@@ -320,14 +328,15 @@ describe('the backfill cannot reach the domains it must not', () => {
     // module somebody adds next. So the proof is the planted control below
     // rather than a number that grew.
     //
-    // The exclusion list is the other finding: TWENTY-THREE modules in this
+    // The exclusion list is the other finding: TWENTY-FIVE modules in this
     // repository are called a backfill and are not this one (the application-
-    // media import of Oxy ADR 0041 and its CLI are the latest two).
+    // media import and the digital storage move of Oxy ADR 0041, with their
+    // CLIs, are the latest four).
     assertNothingOutsideDomainPopulation({
       population: backfillPopulation,
       pattern: BACKFILL_NAMED,
       notThisDomain: NOT_THIS_BACKFILL,
-      expectedExclusions: 23,
+      expectedExclusions: 25,
       sweepFloor: 30,
       plantIn: 'lib',
       plantName: 'backfill-cache.ts',

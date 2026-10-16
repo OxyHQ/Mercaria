@@ -38,6 +38,11 @@ import {
 import { isOxyFileId } from '@mercaria/shared-types';
 import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
 
+/** One minted private download (the SDK does not export the type by name). */
+export type ServiceLinkedDownloadUrl = Awaited<
+  ReturnType<OxyServer['assets']['linkedDownloadUrls']>
+>[number];
+
 /** Who a stored file belongs to (ADR 0041 D1). */
 export type OxyFileOwner =
   | { readonly kind: 'account'; readonly oxyUserId: string }
@@ -112,6 +117,22 @@ function storedFile(answer: unknown): StoredOxyFile {
 }
 
 /**
+ * `public` for catalogue media (anyone with the link). `private` exists only
+ * for an APPLICATION file — readable by no person, only by Mercaria's service
+ * token through `linkedDownloadUrls` (ADR 0041 D3): a digital deliverable. An
+ * account-owned private file would be readable by its owner and not by
+ * Mercaria, which is the dependency on ADR 0021's owner link this avoids.
+ */
+export type OxyFileVisibility = 'public' | 'private';
+
+function visibilityFor(owner: OxyFileOwner, requested: OxyFileVisibility | undefined) {
+  const visibility = requested ?? 'public';
+  if (visibility === 'private' && owner.kind !== 'application')
+    throw new OxyFilesError('Only an application-owned file is stored private here.');
+  return visibility;
+}
+
+/**
  * Import a public HTTPS source as a PUBLIC file of `owner` (ADR 0041 D7).
  *
  * Oxy fetches it (HTTPS on every hop, public addresses only, bounded bytes and
@@ -135,19 +156,20 @@ function storedFile(answer: unknown): StoredOxyFile {
 export async function importOxyFileFromUrl(
   owner: OxyFileOwner,
   sourceUrl: string,
-  options: { revalidate?: boolean } = {},
+  options: { revalidate?: boolean; visibility?: OxyFileVisibility } = {},
 ): Promise<StoredOxyFile> {
   if (owner.kind === 'account' && !owner.oxyUserId)
     throw new OxyFilesError('An account-owned import needs its owner.');
+  const visibility = visibilityFor(owner, options.visibility);
   const oxy = client();
   const revalidate = options.revalidate ? { revalidate: true } : {};
   let answer: unknown;
   try {
     answer =
       owner.kind === 'application'
-        ? await oxy.assets.importAppFile(sourceUrl, { visibility: 'public', ...revalidate })
+        ? await oxy.assets.importAppFile(sourceUrl, { visibility, ...revalidate })
         : await oxy.assets.importUserMedia(owner.oxyUserId, sourceUrl, {
-            visibility: 'public',
+            visibility,
             ...revalidate,
           });
   } catch (error) {
@@ -163,18 +185,20 @@ export async function importOxyFileFromUrl(
  */
 export async function uploadOxyFile(
   owner: OxyFileOwner,
-  bytes: Buffer,
+  bytes: Buffer | Uint8Array,
   mime: string,
   originalName: string,
+  options: { visibility?: OxyFileVisibility } = {},
 ): Promise<StoredOxyFile> {
   if (owner.kind === 'account' && !owner.oxyUserId)
     throw new OxyFilesError('An account-owned upload needs its owner.');
+  const visibility = visibilityFor(owner, options.visibility);
   const oxy = client();
   const body = new Uint8Array(bytes);
   try {
     if (owner.kind === 'application') {
       const uploaded = await oxy.assets.uploadAppFile(body, mime, {
-        visibility: 'public',
+        visibility,
         originalName,
         timeout: UPLOAD_TIMEOUT_MS,
       });
@@ -268,5 +292,34 @@ export function verifyOxyFileDelivery(
     if (error instanceof FileEventVerificationError)
       return { kind: 'refused', reason: error.message };
     throw error;
+  }
+}
+
+/**
+ * Mint short-lived download URLs for files this application may read
+ * privately: its OWN files (ADR 0041 D3 — an application-owned private
+ * deliverable) and a person's file that person attached to it (ADR 0021).
+ * Absence is a refusal, not a fact about the file. A failure THROWS; each URL is
+ * a live credential and is never logged.
+ */
+export async function mintPrivateDownloadUrls(
+  fileIds: readonly string[],
+): Promise<ServiceLinkedDownloadUrl[]> {
+  if (fileIds.length === 0) return [];
+  try {
+    return await client().assets.linkedDownloadUrls([...fileIds]);
+  } catch (error) {
+    if (error instanceof OxyFilesError) throw error;
+    throw refusal('mint a download URL', error);
+  }
+}
+
+/** Delete one of this application's own files (`files:app:delete`). */
+export async function deleteApplicationFile(fileId: string): Promise<void> {
+  try {
+    await client().assets.deleteAppFile(fileId);
+  } catch (error) {
+    if (error instanceof OxyFilesError) throw error;
+    throw refusal('delete the file', error);
   }
 }
