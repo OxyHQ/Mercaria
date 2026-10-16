@@ -273,6 +273,15 @@ reference triggers register what they write.
 - `scripts/backfill-digital-asset-storage.ts` — moves deliverables onto
   application-owned private files (above).
 
+In production each runs through **Actions → Run media backfill**
+(`.github/workflows/run-media-backfill.yml`), the only place Mercaria's Oxy
+authority exists (the ECS task role). Pick `script`, keep `mode=preview`, read
+the report in the run log, then dispatch again with `mode=apply`. `target`
+applies to `application-media` only; `limit` is 1–500 per run, and the report's
+`resumeAfter…` value is the next run's `after`. A report naming retry ids turns
+the run red. From a checkout the same scripts run as
+`bun run packages/backend/src/scripts/<name>.ts`.
+
 The canonical observation fixed on the way: a source's identity is its URL
 (`attachCanonicalMediaBySource`); `image_ref = coalesce(file_id, source_url)` used
 to let a re-import that returned a different file write a second row per
