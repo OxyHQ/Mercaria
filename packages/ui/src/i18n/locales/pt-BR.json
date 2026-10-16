@@ -873,7 +873,9 @@
       "viewImage": "Ver a imagem %{position}",
       "previous": "Imagem anterior",
       "next": "Próxima imagem",
-      "open": "Abrir imagens de %{title}"
+      "open": "Abrir imagens de %{title}",
+      "viewVideo": "Ver vídeo %{position}",
+      "openVideo": "Abrir vídeo de %{title}"
     },
     "quantity": {
       "remove": "Remover o item",
@@ -881,6 +883,9 @@
       "increase": "Aumentar a quantidade"
     },
     "review": {
+      "loading": "Carregando avaliações…",
+      "loadError": "Não foi possível carregar as avaliações. Tente novamente.",
+      "retry": "Tentar novamente",
       "defaultScope": "Avaliações",
       "starsA11y": "Nota média: %{rating}. Avaliações: %{reviews}.",
       "starsScopedA11y": "%{subject}. Nota média: %{rating}. Avaliações: %{reviews}.",
@@ -1013,6 +1018,43 @@
       "andSave": "Compre em conjunto e economize",
       "view": "Ver conjunto",
       "addFailed": "Não foi possível adicionar este conjunto. Tente novamente."
+    },
+    "reviewMedia": {
+      "title": "Fotos e vídeos das avaliações",
+      "viewImage": "Ver foto da avaliação %{position}",
+      "viewVideo": "Ver vídeo da avaliação %{position}",
+      "unavailable": "Não foi possível carregar esta mídia.",
+      "retry": "Tentar novamente",
+      "more": "Carregar mais fotos e vídeos"
+    },
+    "settings": {
+      "dialog": "Configurações",
+      "nav": "Seções das configurações",
+      "close": "Fechar configurações",
+      "saved": "Salvo",
+      "back": "Voltar",
+      "pages": {
+        "account": "Conta",
+        "appearance": "Aparência",
+        "language": "Idioma"
+      },
+      "appearance": {
+        "mode": "Tema",
+        "system": "Sistema",
+        "light": "Claro",
+        "dark": "Escuro",
+        "color": "Cor do app"
+      },
+      "language": {
+        "title": "Idioma",
+        "description": "Salvo neste dispositivo.",
+        "restartRequired": "Reinicie o aplicativo para aplicar a nova direção do layout."
+      },
+      "account": {
+        "oxyAccount": "Conta Oxy",
+        "manageDescription": "Seu nome, foto, segurança e dispositivos são gerenciados na sua conta Oxy.",
+        "manage": "Gerenciar"
+      }
     }
   }
 }

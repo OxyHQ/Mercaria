@@ -621,8 +621,9 @@ export async function getDraftOrder(storeId: string, draftId: string): Promise<D
  * once for the whole sale.
  */
 function firstImageUrl(images: ListingImageRecord[] | undefined): string | undefined {
-  const [first] = images ?? [];
-  return first ? resolveMedia(first.fileId, 'thumb') : undefined;
+  return (images ?? [])
+    .map((image) => resolveMedia(image.fileId, 'thumb'))
+    .find((url) => url !== undefined);
 }
 
 /** Release every reservation made so far, swallowing (and warning) per-release failures. */

@@ -1,14 +1,19 @@
+import { ProductMediaGallery } from '@/components/product/ProductMediaGallery';
+import { renderListingLink } from '@/lib/catalog/product-links';
+import { listingGalleryMedia } from '@/lib/catalog/product-media';
+import { ProductReviewMedia } from '@/components/product/ProductReviewMedia';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { merchantImageSource } from '@mercaria/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useShoppingHistory, useShoppingHistoryOwner } from '@/lib/stores/shopping-history';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Image } from '@mercaria/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { Button } from '@oxy.so/bloom/button';
 import { Rating } from '@oxy.so/bloom/rating';
+import { Screen, useScreen } from '@oxy.so/bloom/screen';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
 import {
   Accordion,
@@ -25,7 +30,6 @@ import {
   MerchantHeader,
   PriceDisplay,
   ProductCarousel,
-  ProductGallery,
   PurchaseOptions,
   ShopDetailIcon,
   useRatingDisplay,
@@ -41,10 +45,13 @@ import {
   type ProductSummary,
 } from '@mercaria/ui';
 import * as Skeleton from '@oxy.so/bloom/skeleton';
-import type { Listing, StoreSummary, Seller } from '@mercaria/shared-types';
+import { isOxyFileId, type Listing, type StoreSummary, type Seller } from '@mercaria/shared-types';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { STOREFRONT_NAV_FROM } from '@/lib/layout';
 import { ProductDescription } from '@/components/product/ProductDescription';
+import { ProductReturnPolicy } from '@/components/product/ProductReturnPolicy';
+import { ProductRelatedGrid } from '@/components/product/ProductRelatedGrid';
+import { ListingSpecifications } from '@/components/product/ListingSpecifications';
 import { PurchasePlanPreview } from '@/components/listing/PurchasePlanPreview';
 import { resolvePurchasePreview } from '@/lib/catalog/purchase-preview';
 import { ProductReviewsDialog } from '@/components/product/ProductReviewsDialog';
@@ -73,17 +80,13 @@ const REVIEW_PAGE_LIMIT = 12;
 const ICON_SIZE = 20;
 
 /** Project a catalog `Listing` into the `ProductSummary` shape the cards consume. */
-function toProductSummary(
-  listing: Listing,
-  brand: string,
-  resolveImage: ReturnType<typeof useImageResolver>,
-): ProductSummary {
-  const firstImage = listing.images[0];
+function toProductSummary(listing: Listing, brand: string): ProductSummary {
+  const firstImage = listing.images.find((image) => isOxyFileId(image.fileId));
   const summary: ProductSummary = {
     id: listing.id,
     title: listing.title,
     brand,
-    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, 'thumb') : undefined,
+    imageFileId: firstImage?.fileId,
     rating: 0,
     reviewCount: 0,
     price: listing.price,
@@ -105,6 +108,7 @@ function brandLabel(listing: Listing): string {
 interface MerchantIdentity {
   name: string;
   logoUrl?: string;
+  logoFileId?: string;
   rating?: number;
   reviewCount?: number;
 }
@@ -114,7 +118,9 @@ function merchantIdentity(listing: Listing): MerchantIdentity {
   const store: StoreSummary | undefined = listing.store;
   const seller: Seller | undefined = listing.seller;
   const identity: MerchantIdentity = { name: brandLabel(listing) };
-  const logoUrl = store?.logoUrl ?? seller?.avatar ?? undefined;
+  const logoFileId = store?.logoFileId ?? (isOxyFileId(seller?.avatar) ? seller.avatar : undefined);
+  if (logoFileId) identity.logoFileId = logoFileId;
+  const logoUrl = store ? store.logoUrl : !logoFileId ? (seller?.avatar ?? undefined) : undefined;
   if (logoUrl) identity.logoUrl = logoUrl;
   const rating = store?.rating ?? seller?.rating;
   if (rating !== undefined) identity.rating = rating;
@@ -123,49 +129,91 @@ function merchantIdentity(listing: Listing): MerchantIdentity {
   return identity;
 }
 
+function ListingMerchantHeader({
+  listing,
+  size,
+  moreAction,
+}: {
+  listing: Listing;
+  size: 'large' | 'compact';
+  moreAction?: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const identity = merchantIdentity(listing);
+  // A person is addressed by their Oxy account id, never by a mutable handle.
+  const href: Href | undefined = listing.store?.handle
+    ? { pathname: '/stores/[handle]', params: { handle: listing.store.handle } }
+    : listing.seller?.oxyUserId
+      ? { pathname: '/sellers/[oxyUserId]', params: { oxyUserId: listing.seller.oxyUserId } }
+      : undefined;
+  return (
+    <MerchantHeader
+      {...identity}
+      renderLink={
+        href
+          ? (child) => (
+              <Link href={href} asChild>
+                {child}
+              </Link>
+            )
+          : undefined
+      }
+      visitLabel={listing.seller ? t('sellers.linkCard.visitProfile') : undefined}
+      moreAction={moreAction}
+      size={size}
+    />
+  );
+}
+
+/** Bloom measures the custom header; the native page owns its existing scroller. */
+function ProductHeaderInset() {
+  const { topInset } = useScreen();
+  return Platform.OS === 'web' ? null : <View style={{ height: topInset }} />;
+}
+
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
-function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () => void }) {
+function StoreLinkCard({ store }: { store: StoreSummary }) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
+  const resolveImage = useImageResolver();
+  const coverSource = merchantImageSource(store.coverImageUrl, resolveImage, store.coverFileId);
+  const logoSource = merchantImageSource(store.logoUrl, resolveImage, store.logoFileId);
   const toneColor = store.textTone === 'light' ? '#FFFFFF' : '#111111';
   return (
     <View
       className="overflow-hidden rounded-radius-28 web:shadow-sm"
       style={{ backgroundColor: store.brandColor }}
     >
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={t('product.visitA11y', { name: store.name })}
-        onPress={onPress}
-        className="relative h-[120px] items-center justify-center"
-      >
-        {store.coverImageUrl ? (
-          <Image
-            source={merchantImageSource(store.coverImageUrl)}
-            contentFit="cover"
+      <Link href={{ pathname: '/stores/[handle]', params: { handle: store.handle } }} asChild>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={t('product.visitA11y', { name: store.name })}
+          className="relative h-[120px] items-center justify-center"
+        >
+          {coverSource ? (
+            <Image source={coverSource} contentFit="cover" style={StyleSheet.absoluteFill} />
+          ) : null}
+          <LinearGradient
+            pointerEvents="none"
+            colors={['transparent', store.brandColor]}
+            locations={[0.2, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFill}
           />
-        ) : null}
-        <LinearGradient
-          pointerEvents="none"
-          colors={['transparent', store.brandColor]}
-          locations={[0.2, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {store.logoUrl ? (
-          <Image
-            source={merchantImageSource(store.logoUrl)}
-            contentFit="contain"
-            style={{ height: 48, width: '60%', maxWidth: 220 }}
-          />
-        ) : (
-          <Text numberOfLines={1} className="text-2xl font-bold" style={{ color: toneColor }}>
-            {store.name}
-          </Text>
-        )}
-      </Pressable>
+          {logoSource ? (
+            <Image
+              source={logoSource}
+              contentFit="contain"
+              style={{ height: 48, width: '60%', maxWidth: 220 }}
+            />
+          ) : (
+            <Text numberOfLines={1} className="text-2xl font-bold" style={{ color: toneColor }}>
+              {store.name}
+            </Text>
+          )}
+        </Pressable>
+      </Link>
       <View className="flex-row items-center justify-between p-space-16">
         <View>
           <Text numberOfLines={1} className="text-sm font-bold" style={{ color: toneColor }}>
@@ -189,17 +237,15 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
 
 /** "More from <store>" related shelf, sourced from the same store's listings. */
 function RelatedFromStore({ store, excludeId }: { store: StoreSummary; excludeId: string }) {
-  const router = useRouter();
   const { t } = useTranslation();
   const { data } = useListings({ storeId: store.id, limit: RELATED_LIMIT });
-  const resolveImage = useImageResolver();
 
   const items = useMemo(
     () =>
       (data?.data ?? [])
         .filter((listing) => listing.id !== excludeId)
-        .map((listing) => toProductSummary(listing, store.name, resolveImage)),
-    [data, excludeId, store.name, resolveImage],
+        .map((listing) => toProductSummary(listing, store.name)),
+    [data, excludeId, store.name],
   );
 
   if (items.length === 0) {
@@ -210,7 +256,7 @@ function RelatedFromStore({ store, excludeId }: { store: StoreSummary; excludeId
     <ProductCarousel
       title={t('product.moreFromStore', { name: store.name })}
       items={items}
-      onPressItem={(id) => router.push({ pathname: '/products/[id]', params: { id } })}
+      renderProductLink={renderListingLink}
     />
   );
 }
@@ -287,12 +333,17 @@ function ProductBody({ listing }: ProductBodyProps) {
     <BundleContents
       contents={selectedVariant ? listing.bundleContentsByVariant?.[selectedVariant.id] : undefined}
       resolveImage={(image) => (image.fileId ? resolveImage?.(image.fileId) : undefined)}
-      onPressComponent={(component) =>
-        router.push({
-          pathname: '/p/[handle]',
-          params: { handle: component.productSlug, variant: component.variantId },
-        })
-      }
+      renderLink={(component, child) => (
+        <Link
+          href={{
+            pathname: '/p/[handle]',
+            params: { handle: component.productSlug, variant: component.variantId },
+          }}
+          asChild
+        >
+          {child}
+        </Link>
+      )}
     />
   );
   const selection = Object.fromEntries(
@@ -356,7 +407,7 @@ function ProductBody({ listing }: ProductBodyProps) {
   const refundPolicy =
     selectedVariant?.commercial?.mode === 'connected_marketplace' &&
     selectedVariant.commercial.sellerKind === 'store'
-      ? listing.store?.refundPolicy
+      ? listing.store?.refundPolicy?.trim()
       : undefined;
   const maxQuantity = selectedVariant?.available;
   const canAddToCart = selectedVariant?.inStock === true;
@@ -387,43 +438,16 @@ function ProductBody({ listing }: ProductBodyProps) {
       }
     });
 
-  const images = useMemo(
-    () =>
-      (selectedVariant?.images?.images ?? listing.images).flatMap((image) => {
-        const uri = resolveImage?.(image.fileId);
-        return uri ? [{ uri, alt: image.alt }] : [];
-      }),
-    [listing.images, selectedVariant?.images, resolveImage],
+  const galleryMedia = useMemo(
+    () => listingGalleryMedia(listing, selectedVariant?.images),
+    [listing, selectedVariant?.images],
   );
-
-  const identity = useMemo(() => merchantIdentity(listing), [listing]);
 
   const selectOption = (name: string, value: string) => {
     const next = chooseListingVariant(listing.variants, selectedVariant, name, value);
     if (next) router.setParams({ variantId: next.id });
     setQuantity(1);
     addToCart.reset();
-  };
-
-  const onPressStore = () => {
-    if (listing.store?.handle) {
-      router.push({
-        pathname: '/stores/[handle]',
-        params: { handle: listing.store.handle },
-      });
-    }
-  };
-
-  // Keyed on the OXY ACCOUNT ID, never on the handle: a handle can change and a
-  // renamed seller's every inbound link would 404, while the account id never
-  // moves. Same reasoning as the follow target's URI.
-  const onPressSeller = () => {
-    if (listing.seller?.oxyUserId) {
-      router.push({
-        pathname: '/sellers/[oxyUserId]',
-        params: { oxyUserId: listing.seller.oxyUserId },
-      });
-    }
   };
 
   const onAddToCart = () => {
@@ -469,27 +493,13 @@ function ProductBody({ listing }: ProductBodyProps) {
   return (
     <View className="web:mx-auto web:w-full web:max-w-[1600px] md:px-5">
       <View className="flex-col">
-        {/* Mobile sticky merchant bar. */}
-        {!desktopNavigation ? (
-          <View className="px-space-16 py-space-12">
-            <MerchantHeader
-              name={identity.name}
-              logoUrl={identity.logoUrl}
-              rating={identity.rating}
-              reviewCount={identity.reviewCount}
-              onPress={onPressStore}
-              size="large"
-            />
-          </View>
-        ) : null}
-
         {/* Top two-column region: large gallery (flex-1) + fixed buy column. */}
-        <View className="flex-col gap-space-16 md:mt-6 md:flex-row md:gap-space-40 md:px-4">
+        <View className="flex-col gap-space-16 pb-space-32 md:mt-6 md:flex-row md:gap-space-40 md:px-4 md:pb-space-64">
           <View className="min-w-0 md:flex-1 md:self-start web:md:sticky web:md:top-8">
-            <ProductGallery
+            <ProductMediaGallery
               className="md:w-full md:flex-none web:md:static web:md:top-auto"
               ref={gallery}
-              images={images}
+              media={galleryMedia}
               title={listing.title}
             />
             {width >= 768 ? bundle : null}
@@ -504,13 +514,16 @@ function ProductBody({ listing }: ProductBodyProps) {
             <View className="gap-space-16" testID="product-summary">
               {desktopNavigation ? (
                 <View>
-                  <MerchantHeader
-                    name={identity.name}
-                    logoUrl={identity.logoUrl}
-                    rating={identity.rating}
-                    reviewCount={identity.reviewCount}
-                    onPress={onPressStore}
-                    moreAction={<ProductActionsMenu listingId={listing.id} title={listing.title} />}
+                  <ListingMerchantHeader
+                    listing={listing}
+                    moreAction={
+                      <ProductActionsMenu
+                        key={listing.id}
+                        listingId={listing.id}
+                        title={listing.title}
+                        store={listing.store}
+                      />
+                    }
                     size="compact"
                   />
                 </View>
@@ -549,7 +562,13 @@ function ProductBody({ listing }: ProductBodyProps) {
                   ) : null}
                 </View>
                 {!desktopNavigation ? (
-                  <ProductActionsMenu listingId={listing.id} title={listing.title} outlined />
+                  <ProductActionsMenu
+                    key={listing.id}
+                    listingId={listing.id}
+                    title={listing.title}
+                    store={listing.store}
+                    outlined
+                  />
                 ) : null}
               </View>
 
@@ -840,16 +859,14 @@ function ProductBody({ listing }: ProductBodyProps) {
                   </AccordionContent>
                 </AccordionItem>
               ) : null}
-              <AccordionItem
-                value="reviews"
-                className={
-                  refundPolicy
-                    ? isDarkColorScheme
-                      ? 'border-white/10'
-                      : 'border-[#183b4e0f]'
-                    : 'border-0'
+              <ListingSpecifications
+                identity={
+                  selectedVariant
+                    ? listing.catalogIdentityByVariant?.[selectedVariant.id]
+                    : undefined
                 }
-              >
+              />
+              <AccordionItem value="reviews" className="border-0">
                 <AccordionTrigger className="px-0 py-space-16">
                   <View className="flex-row items-center">
                     <Text
@@ -886,6 +903,13 @@ function ProductBody({ listing }: ProductBodyProps) {
                   <View className="gap-space-16">
                     {listing.canonicalProductId ? (
                       <ReviewSummaryCard
+                        mediaContent={
+                          <ProductReviewMedia
+                            scope="product"
+                            id={listing.canonicalProductId}
+                            scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
+                          />
+                        }
                         scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
                         embedded
                         onReadMore={() => setReviewScope('product')}
@@ -898,6 +922,11 @@ function ProductBody({ listing }: ProductBodyProps) {
                         distribution={productDistribution}
                         reviews={productReviews}
                         isLoading={productReviewsQuery.isLoading}
+                        isError={productReviewsQuery.isError}
+                        isRetrying={productReviewsQuery.isFetching}
+                        onRetry={() => {
+                          void productReviewsQuery.refetch();
+                        }}
                         {...(productAggregate ? { unverified: productAggregate.unverified } : {})}
                       />
                     ) : null}
@@ -909,8 +938,18 @@ function ProductBody({ listing }: ProductBodyProps) {
               5). A new item's listing feedback carries the same scope and the
               same heading, for the same reason: it describes THIS listing.
             */}
-                    {hasListingReviews || !listing.canonicalProductId ? (
+                    {hasListingReviews ||
+                    listingReviewsQuery.isError ||
+                    listingReviewsQuery.isLoading ||
+                    !listing.canonicalProductId ? (
                       <ReviewSummaryCard
+                        mediaContent={
+                          <ProductReviewMedia
+                            scope="p2p_listing"
+                            id={listing.id}
+                            scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)}
+                          />
+                        }
                         scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)}
                         embedded
                         onReadMore={() => setReviewScope('p2p_listing')}
@@ -924,27 +963,21 @@ function ProductBody({ listing }: ProductBodyProps) {
                         distribution={listingSummary?.distribution}
                         reviews={listingReviews}
                         isLoading={listingReviewsQuery.isLoading}
+                        isError={listingReviewsQuery.isError}
+                        isRetrying={listingReviewsQuery.isFetching}
+                        onRetry={() => {
+                          void listingReviewsQuery.refetch();
+                        }}
                       />
                     ) : null}
                   </View>
                 </AccordionContent>
               </AccordionItem>
-              {refundPolicy ? (
-                <AccordionItem value="returns" className="border-0">
-                  <AccordionTrigger className="px-0 py-space-16">
-                    <Text accessibilityRole="header" className="text-shop-subtitle text-text">
-                      {t('product.returnPolicy')}
-                    </Text>
-                  </AccordionTrigger>
-                  <AccordionContent contentClassName="px-0 pb-space-16">
-                    <Text className="text-shop-bodySmall text-text">{refundPolicy}</Text>
-                  </AccordionContent>
-                </AccordionItem>
-              ) : null}
             </Accordion>
+            {refundPolicy ? <ProductReturnPolicy key={listing.id} policy={refundPolicy} /> : null}
 
             {/* Store link card. */}
-            {listing.store ? <StoreLinkCard store={listing.store} onPress={onPressStore} /> : null}
+            {listing.store ? <StoreLinkCard store={listing.store} /> : null}
 
             {/* Seller link card (#92). Mutually exclusive with the store card
                 by `listings_owner_exclusivity_check`, and deliberately a
@@ -952,20 +985,23 @@ function ProductBody({ listing }: ProductBodyProps) {
                 followed as `mercaria.store` and a person as `oxy.user`, and one
                 control serving both would be one edit from registering a human
                 being under a marketplace's namespace (#26). */}
-            {listing.seller ? (
-              <SellerLinkCard seller={listing.seller} onPress={onPressSeller} />
-            ) : null}
+            {listing.seller ? <SellerLinkCard seller={listing.seller} /> : null}
           </View>
         </View>
 
         <BundleRecommendations
           bundles={selectedVariant ? (listing.bundlesByVariant?.[selectedVariant.id] ?? []) : []}
-          onView={(bundle) =>
-            router.push({
-              pathname: '/products/[id]',
-              params: { id: bundle.listingId, variantId: bundle.variantId },
-            })
-          }
+          renderLink={(bundle, child) => (
+            <Link
+              href={{
+                pathname: '/products/[id]',
+                params: { id: bundle.listingId, variantId: bundle.variantId },
+              }}
+              asChild
+            >
+              {child}
+            </Link>
+          )}
           onAddToCart={async (bundle) => {
             await addBundleToCart.mutateAsync({
               listingId: bundle.listingId,
@@ -977,6 +1013,7 @@ function ProductBody({ listing }: ProductBodyProps) {
 
         {/* Full-width related shelves. */}
         {listing.store ? <RelatedFromStore store={listing.store} excludeId={listing.id} /> : null}
+        <ProductRelatedGrid listing={listing} />
 
         {reviewScope ? (
           <ProductReviewsDialog
@@ -1024,17 +1061,17 @@ function ProductSkeleton() {
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { width } = useWindowDimensions();
   const { t } = useTranslation();
   const { data: listing, isLoading, isError } = useProduct(id ?? '');
   const historyOwner = useShoppingHistoryOwner();
-  const resolveImage = useImageResolver();
   const historyReady = useShoppingHistory((state) => state.hydrated);
   useEffect(() => {
     if (listing && historyReady)
       useShoppingHistory
         .getState()
-        .viewProduct(historyOwner, toProductSummary(listing, brandLabel(listing), resolveImage));
-  }, [listing, historyOwner, historyReady, resolveImage]);
+        .viewProduct(historyOwner, toProductSummary(listing, brandLabel(listing)));
+  }, [listing, historyOwner, historyReady]);
 
   const head = (
     <Head>
@@ -1074,9 +1111,24 @@ export default function ProductScreen() {
   }
 
   return (
-    <ScreenShell>
-      {head}
-      <ProductBody key={listing.id} listing={listing} />
-    </ScreenShell>
+    <Screen
+      documentScroll
+      contentClearance={0}
+      style={{ backgroundColor: 'transparent' }}
+      testID="product-screen"
+      header={
+        width < STOREFRONT_NAV_FROM ? (
+          <View testID="product-merchant-header" className="bg-bg-fill px-space-16 py-space-12">
+            <ListingMerchantHeader listing={listing} size="large" />
+          </View>
+        ) : undefined
+      }
+    >
+      <ScreenShell>
+        <ProductHeaderInset />
+        {head}
+        <ProductBody key={listing.id} listing={listing} />
+      </ScreenShell>
+    </Screen>
   );
 }

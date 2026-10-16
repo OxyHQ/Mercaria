@@ -1,15 +1,10 @@
-import React, { useEffect, useCallback, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import { View, Animated, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  APP_COLOR_PRESETS,
-  ColorEngine,
-  type AppColorName,
-  type PersistedThemeState,
-} from '@oxy.so/bloom/theme';
+import { APP_COLOR_PRESETS, ColorEngine, type AppColorName } from '@oxy.so/bloom/theme';
 import { Logo } from '@/components/Logo';
 import { Loading } from '@oxy.so/bloom/loading';
-import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
+import { BLOOM_DEFAULT_COLOR_PRESET } from '@/lib/themePersistence';
 
 interface AppSplashScreenProps {
   onFadeComplete?: () => void;
@@ -20,21 +15,15 @@ const FADE_DURATION = 500;
 const LOGO_SIZE = 100;
 const SPINNER_SIZE = 28;
 
-// The splash renders during font loading via BloomProvider's `onFontsLoading`,
-// i.e. BEFORE the theme context is available — so it must NOT depend on `useTheme()`
-// (which throws outside the provider). Instead it reads the SAME persisted theme key
-// that the provider writes (`BLOOM_THEME_PERSIST_KEY`) and derives a DARK gradient
-// from the active preset's seed. The logo + spinner are white, so the gradient must
-// stay dark enough for white to pop — we always derive the DARK role set, never the
-// near-white light one.
+// The splash renders before theme context. Wholesale uses the same controlled
+// orange Bloom preset here and in the provider; stored light/dark mode remains
+// Bloom-owned. Derive the dark role set so the white spinner stays legible.
 
-// Safe literal fallback when no preset can be resolved at all (missing key,
-// unparseable JSON, unknown preset, storage unavailable). Both stops are dark.
-const FALLBACK_GRADIENT: readonly [string, string] = ['#1A1A1A', '#005c67'];
+// Safe literal fallback if the recipe registry cannot resolve a preset.
+const FALLBACK_GRADIENT: readonly [string, string] = ['#1A1A1A', '#1A1A1A'];
 
-// `defaultColorPreset` passed to BloomProvider in app/_layout.tsx. Used when
-// nothing is persisted yet so the splash matches the provider's eventual default.
-const DEFAULT_PRESET: AppColorName = 'blue';
+// Matches the provider's controlled colorPreset and defaultColorPreset.
+const DEFAULT_PRESET = BLOOM_DEFAULT_COLOR_PRESET;
 
 // Near-black second stop, shared across presets so the gradient always bottoms out dark.
 const DARK_STOP = '#1A1A1A';
@@ -42,7 +31,7 @@ const DARK_STOP = '#1A1A1A';
 /**
  * Build a DARK two-stop gradient from a preset. Stop 1 is Bloom's own dark
  * `background` role derived from that preset's seed — a near-black tinted with the
- * seed's hue — and stop 2 is near-black, so the white logo/spinner always stay
+ * seed's hue — and stop 2 is near-black, so the brand logo and white spinner always stay
  * clearly visible regardless of preset. Falls back to the safe literal for an
  * unrecognised preset name.
  */
@@ -57,68 +46,11 @@ function buildDarkGradient(presetName: AppColorName): readonly [string, string] 
   return [background, DARK_STOP];
 }
 
-/** Validate an unknown value as a known preset name. */
-function isAppColorName(value: unknown): value is AppColorName {
-  return typeof value === 'string' && value in APP_COLOR_PRESETS;
-}
-
-/**
- * Parse a persisted theme JSON string and return its preset name, or `null` if
- * absent/unparseable/unknown. Best-effort: a malformed stored value must never
- * crash the splash.
- */
-function readPresetFromRaw(raw: string | null): AppColorName | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as PersistedThemeState;
-    return isAppColorName(parsed.colorPreset) ? parsed.colorPreset : null;
-  } catch {
-    // best-effort: a corrupt persisted value falls through to the default preset.
-    return null;
-  }
-}
-
-/**
- * Synchronous web read of the persisted preset. Avoids a flash by resolving the
- * gradient before the first paint. Returns `null` on native or when nothing usable
- * is stored (callers fall back to the default preset).
- */
-function readWebPresetSync(): AppColorName | null {
-  if (Platform.OS !== 'web') return null;
-  const getItem = BLOOM_THEME_STORAGE.getItem(BLOOM_THEME_PERSIST_KEY);
-  // On web the adapter (`webLocalStorage`) is synchronous, so `getItem` is a string.
-  return typeof getItem === 'string' || getItem === null ? readPresetFromRaw(getItem) : null;
-}
-
 const AppSplashScreen: React.FC<AppSplashScreenProps> = ({ onFadeComplete, startFade = false }) => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Web resolves synchronously (no flash); native starts at the default preset and
-  // updates after a single mount-time async read below.
-  const [preset, setPreset] = useState<AppColorName>(() => readWebPresetSync() ?? DEFAULT_PRESET);
-
-  // Native-only: one mount-time async read of the persisted preset. Web already
-  // resolved synchronously in the initial state, so this is gated to native.
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    let cancelled = false;
-    Promise.resolve(BLOOM_THEME_STORAGE.getItem(BLOOM_THEME_PERSIST_KEY))
-      .then((raw) => {
-        if (cancelled) return;
-        const stored = readPresetFromRaw(raw);
-        if (stored) setPreset(stored);
-      })
-      .catch((error: unknown) => {
-        // best-effort: keep the default preset if persisted state can't be read.
-        if (__DEV__) console.warn('AppSplashScreen: failed to read persisted theme', error);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const gradient = useMemo(() => buildDarkGradient(preset), [preset]);
+  const gradient = useMemo(() => buildDarkGradient(DEFAULT_PRESET), []);
 
   const handleFadeComplete = useCallback(
     (finished: boolean) => {
@@ -158,7 +90,7 @@ const AppSplashScreen: React.FC<AppSplashScreenProps> = ({ onFadeComplete, start
     <Animated.View style={containerStyle}>
       <LinearGradient colors={gradient} style={styles.gradient}>
         <View style={styles.logoContainer}>
-          <Logo size={LOGO_SIZE} color="white" />
+          <Logo size={LOGO_SIZE} />
           <View style={styles.spinnerContainer}>
             <Loading iconSize={SPINNER_SIZE} color="white" showText={false} />
           </View>

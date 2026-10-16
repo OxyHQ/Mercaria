@@ -72,7 +72,8 @@ function imageUrlsOf(product: CanonicalProduct): string[] {
     .sort((left, right) => left.position - right.position)
     .map((image) => image.fileId)
     .filter((value): value is string => value !== undefined && value !== '')
-    .map((value) => resolveMedia(value));
+    .map((value) => resolveMedia(value))
+    .filter((value): value is string => value !== undefined);
 }
 
 /** The GTIN-shaped identifiers a product page displays. */
@@ -233,7 +234,8 @@ export function listingPageFacts(listing: Listing): SeoVisibleFacts {
   const imageUrls = listing.images
     .filter((image) => image.fileId !== '')
     .sort((left, right) => left.position - right.position)
-    .map((image) => resolveMedia(image.fileId));
+    .map((image) => resolveMedia(image.fileId))
+    .filter((value): value is string => value !== undefined);
 
   return {
     title: listing.title,
@@ -284,7 +286,10 @@ export function catalogueEntityFacts(input: CatalogueEntityFactsInput): SeoVisib
   return {
     title: input.name,
     ...(description === '' ? {} : { description }),
-    imageUrls: input.logoFileId === undefined ? [] : [resolveMedia(input.logoFileId)],
+    imageUrls:
+      input.logoFileId === undefined
+        ? []
+        : [resolveMedia(input.logoFileId)].filter((value): value is string => value !== undefined),
     breadcrumbs: [
       { name: 'Home', path: buildRoutePath('home') },
       { name: input.name, path },
@@ -400,7 +405,10 @@ export function nativeStoreFacts(store: NativeStoreFactsInput): SeoVisibleFacts 
   return {
     title: store.name,
     ...(store.description.trim() === '' ? {} : { description: store.description }),
-    imageUrls: store.logoFileId === null ? [] : [resolveMedia(store.logoFileId)],
+    imageUrls:
+      store.logoFileId === null
+        ? []
+        : [resolveMedia(store.logoFileId)].filter((value): value is string => value !== undefined),
     breadcrumbs: [
       { name: 'Home', path: buildRoutePath('home') },
       { name: store.name, path },

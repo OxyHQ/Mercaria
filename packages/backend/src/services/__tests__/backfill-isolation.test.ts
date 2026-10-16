@@ -93,7 +93,7 @@ function backfillPopulation(readDir: DirectoryReader = readSrcDirectory): string
 /**
  * Everything else in `src/` that is called a backfill and is NOT this domain.
  *
- * SEVENTEEN, which is the finding: this repository has six different things
+ * NINETEEN, which is the finding: this repository has six different things
  * called "backfill", and #60's flag-gated catalogue backfill — the one these
  * walls are about — is one of them. An EXACT list of exact paths (#448, and
  * `domain-population.ts`'s rule that a directory-shaped exclusion excuses
@@ -107,6 +107,14 @@ function backfillPopulation(readDir: DirectoryReader = readSrcDirectory): string
  * silence. The failure message names the file and this list.
  */
 const NOT_THIS_BACKFILL = [
+  {
+    path: 'scripts/backfill-central-organizations.ts',
+    why: 'reviewed source-ID migration to the Oxy company directory, not catalogue publication',
+  },
+  {
+    path: 'services/organizations/backfill.ts',
+    why: 'idempotent company source mapping and evidence validation, covered by organization backfill tests',
+  },
   // #61's catalogue classification backfill, gated by
   // `services/catalog-backfill/__tests__/catalog-backfill-isolation.test.ts`.
   {
@@ -158,6 +166,10 @@ const NOT_THIS_BACKFILL = [
     path: 'services/catalog-media/backfill.ts',
     why: 'legacy listing image import through Oxy; preserves gallery identity, not the canonical catalogue migration',
   },
+  {
+    path: 'services/catalog-media/store-artwork-backfill.ts',
+    why: 'legacy store logo, cover and collection image import through Oxy, not the canonical catalogue migration',
+  },
   // One-off operator scripts, in no domain and behind no gate. They are not
   // silently excused: they are named, so a person decided they are scripts.
   {
@@ -179,6 +191,10 @@ const NOT_THIS_BACKFILL = [
   {
     path: 'scripts/backfill-listing-media.ts',
     why: 'operator CLI for legacy listing image import, not the flag-gated canonical catalogue migration',
+  },
+  {
+    path: 'scripts/backfill-store-artwork.ts',
+    why: 'operator CLI for legacy store artwork import, not the flag-gated canonical catalogue migration',
   },
 ];
 
@@ -296,13 +312,13 @@ describe('the backfill cannot reach the domains it must not', () => {
     // module somebody adds next. So the proof is the planted control below
     // rather than a number that grew.
     //
-    // The exclusion list is the other finding: SEVENTEEN modules in this
+    // The exclusion list is the other finding: TWENTY-ONE modules in this
     // repository are called a backfill and are not this one.
     assertNothingOutsideDomainPopulation({
       population: backfillPopulation,
       pattern: BACKFILL_NAMED,
       notThisDomain: NOT_THIS_BACKFILL,
-      expectedExclusions: 17,
+      expectedExclusions: 21,
       sweepFloor: 30,
       plantIn: 'lib',
       plantName: 'backfill-cache.ts',

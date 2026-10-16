@@ -866,7 +866,9 @@
       "viewImage": "Bild %{position} ansehen",
       "previous": "Vorheriges Bild",
       "next": "Nächstes Bild",
-      "open": "Bilder von %{title} öffnen"
+      "open": "Bilder von %{title} öffnen",
+      "viewVideo": "Video %{position} ansehen",
+      "openVideo": "Video von %{title} öffnen"
     },
     "quantity": {
       "remove": "Artikel entfernen",
@@ -874,6 +876,9 @@
       "increase": "Menge erhöhen"
     },
     "review": {
+      "loading": "Bewertungen werden geladen…",
+      "loadError": "Die Bewertungen konnten nicht geladen werden. Versuche es erneut.",
+      "retry": "Erneut versuchen",
       "defaultScope": "Bewertungen",
       "starsA11y": "Durchschnittsbewertung: %{rating}. Bewertungen: %{reviews}.",
       "starsScopedA11y": "%{subject}. Durchschnittsbewertung: %{rating}. Bewertungen: %{reviews}.",
@@ -1006,6 +1011,43 @@
       "andSave": "Im Set kaufen und sparen",
       "view": "Set ansehen",
       "addFailed": "Das Set konnte nicht hinzugefügt werden. Bitte erneut versuchen."
+    },
+    "reviewMedia": {
+      "title": "Fotos und Videos aus Bewertungen",
+      "viewImage": "Bewertungsfoto %{position} ansehen",
+      "viewVideo": "Bewertungsvideo %{position} ansehen",
+      "unavailable": "Dieses Medium konnte nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "more": "Weitere Fotos und Videos laden"
+    },
+    "settings": {
+      "dialog": "Einstellungen",
+      "nav": "Einstellungsbereiche",
+      "close": "Einstellungen schließen",
+      "saved": "Gespeichert",
+      "back": "Zurück",
+      "pages": {
+        "account": "Konto",
+        "appearance": "Darstellung",
+        "language": "Sprache"
+      },
+      "appearance": {
+        "mode": "Design",
+        "system": "System",
+        "light": "Hell",
+        "dark": "Dunkel",
+        "color": "App-Farbe"
+      },
+      "language": {
+        "title": "Sprache",
+        "description": "Wird auf diesem Gerät gespeichert.",
+        "restartRequired": "Starte die App neu, um die neue Layoutrichtung anzuwenden."
+      },
+      "account": {
+        "oxyAccount": "Oxy-Konto",
+        "manageDescription": "Name, Foto, Sicherheit und Geräte verwalten Sie in Ihrem Oxy-Konto.",
+        "manage": "Verwalten"
+      }
     }
   }
 }

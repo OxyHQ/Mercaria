@@ -47,12 +47,16 @@
  *
  * Three things about the first clause's phrasing are load-bearing:
  *
- *  - **It is anchored on the newest RUN, never on the newest COMMIT.** All four
- *    deploy workflows carry `paths:`/`paths-ignore:` filters, so a docs-only
- *    tip legitimately has no run at all. Anchoring on the commit would mean
- *    rebuilding those filters out of a diff — the untestable reconstruction
- *    `docs/deploy.md` §"Why the gate reads CI's result" already rejected — and
- *    it would report a gap on every docs merge.
+ *  - **It is anchored on the newest RUN, never on the newest COMMIT.** The four
+ *    deploys trigger on `ci.yml`'s `workflow_run` and decide for themselves
+ *    whether a commit reaches them (`resolve-deploy-scope.mjs`), so a commit
+ *    that does not reach a deploy produces a run that ships nothing and says
+ *    so — a green run for the web deploys, the `DEPLOY_NOOP_STEP` statement
+ *    for the API. Each run ships the newest CI-green commit on `main` when it
+ *    executes; one that waits on a newer commit's CI says it is HELD and
+ *    defers this check (`DEPLOY_HELD_STEP`). A run for a `ci.yml` run that was
+ *    not a push to `main` skips every job and concludes `skipped`; those are
+ *    IGNORED here (`judgeCoverage`).
  *  - **Coverage is by CREATION order, never by completion order.** An evicted
  *    run completes in seconds while the run it was queued behind takes fifteen
  *    minutes, so ordering by `updated_at` puts the success BEFORE the
@@ -194,6 +198,29 @@ export const DEPLOY_OUTCOME_STEPS = Object.freeze([
 ]);
 
 /**
+ * The statement a run makes when it had NOTHING to ship (`deploy-aws.yml`'s
+ * gate). Its scope step diffs against the last commit whose rollout a run
+ * PERFORMED and found no deployable change, so production already serves
+ * everything this commit could change; the deploy job is skipped and states
+ * neither half of `DEPLOY_OUTCOME_STEPS`. Without this, the newest run on a
+ * docs-only merge would read as `unstated` — a hollow green on every docs PR.
+ *
+ * Accepted ONLY when no step of either half ran at all: a run that states the
+ * no-op AND any half is `contradictory`, never `current`.
+ */
+export const DEPLOY_NOOP_STEP =
+  'Outcome: nothing to ship — production already has every deployable change';
+
+/**
+ * The statement a run makes when it HELD: a commit newer than every green one
+ * has a `ci.yml` run still in flight, whose completion triggers the next
+ * deploy. Read as `held`, which DEFERS like a deploy run still in flight —
+ * the work is in hand, so reporting it would be the alarm that gets muted.
+ * Like the no-op, it stands only alone.
+ */
+export const DEPLOY_HELD_STEP = 'Outcome: held — a newer commit has CI still running';
+
+/**
  * The phase marker a `post` migration carries.
  *
  * A copy of `@oxy.so/db`'s `POST_PHASE_GREP_PATTERN` without the anchors, for
@@ -219,8 +246,8 @@ export const MIGRATIONS_PATH = 'packages/backend/drizzle';
 /**
  * How long an in-flight run may defer the verdict before it stops counting.
  *
- * Above a healthy run's whole duration — `deploy-aws.yml`'s `gate` job alone
- * budgets 40 minutes, and the build plus rollout adds roughly fifteen more. A
+ * Above a healthy run's whole duration — the build plus rollout takes 7-13
+ * minutes, and a run may sit queued behind another in its group. A
  * run stuck `queued` past this is not about to rescue anything, and letting it
  * defer forever would give the check a permanent way to be silent.
  */
@@ -276,7 +303,13 @@ export function sortNewestFirst(runs) {
  * and a page with no successful run in it at all.
  */
 export function judgeCoverage({ runs, now = Date.now(), staleRunMs = DEFAULT_STALE_RUN_MS }) {
-  const ordered = sortNewestFirst(runs);
+  // A `skipped` run is one whose every job the deploy's `if:` skipped: its
+  // `ci.yml` run was not a push to this repository's `main`. It shipped
+  // nothing and claimed nothing about `main`, so it is not in the population.
+  // A deploy that went red (a gate refusal, or a newer commit whose CI
+  // failed) is `failure`, never `skipped`, and still counts. Before
+  // `workflow_run` no deploy run could conclude `skipped`.
+  const ordered = sortNewestFirst(runs.filter((run) => run.conclusion !== 'skipped'));
 
   // Distinct from `covered` on purpose. A workflow with no runs at all reports
   // exactly what a broken query reports, and "I found none" must never render
@@ -378,6 +411,18 @@ export function judgeDeployOutcome({ jobs }) {
   }));
 
   const base = { jobCount: jobList.length, stepCount: steps.length, halves };
+  const said = (name) =>
+    (byName.get(name) ?? []).filter((step) => step.conclusion === 'success').length;
+  const noop = said(DEPLOY_NOOP_STEP);
+  const held = said(DEPLOY_HELD_STEP);
+  if (noop + held > 0) {
+    // Each stands only alone; with the other, or any half, beside it the run
+    // claims incompatible things.
+    if (noop + held === 1 && halves.every((entry) => entry.verdict === 'unstated')) {
+      return { state: noop === 1 ? 'current' : 'held', ...base };
+    }
+    return { state: 'contradictory', ...base };
+  }
   if (halves.every((entry) => entry.verdict === 'unstated')) return { state: 'unstated', ...base };
   if (halves.some((entry) => entry.verdict === 'unstated' || entry.verdict === 'ambiguous')) {
     return { state: 'contradictory', ...base };
@@ -596,7 +641,9 @@ async function readMigrationListing({ repository, ref, token }) {
  * stretch would otherwise walk the whole page. Exhausting the bound is its own
  * answer — `null` — never a fallback to a weaker anchor.
  */
-async function findNewestMigratingRun({ repository, runs, token, maxJobReads = 12 }) {
+// 25 rather than 12 since `workflow_run`: a docs-only merge now produces a
+// no-op run, which costs a read here without being a candidate.
+async function findNewestMigratingRun({ repository, runs, token, maxJobReads = 25 }) {
   let reads = 0;
   for (const run of sortNewestFirst(runs)) {
     if (run.status !== 'completed' || run.conclusion !== 'success') continue;
@@ -813,6 +860,21 @@ export async function checkDeployCoverage({
       if (workflow.statesOutcome) {
         const jobs = await readRunJobs({ repository, runId: verdict.lastSuccess.id, token });
         const outcome = judgeDeployOutcome({ jobs });
+        if (outcome.state === 'held') {
+          deferred.push(workflow.name);
+          log(
+            `${workflow.name}: held for a newer commit's CI, deferring — ` +
+              describeRun(verdict.lastSuccess),
+          );
+          continue;
+        }
+        if (outcome.state === 'current') {
+          log(
+            `${workflow.name}: current — newest run had nothing to ship since the last ` +
+              `rollout: ${describeRun(verdict.lastSuccess)}`,
+          );
+          continue;
+        }
         if (outcome.state !== 'shipped') {
           problems.push(describeHollowGreen(workflow, verdict.lastSuccess, outcome));
           continue;

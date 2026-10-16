@@ -36,7 +36,7 @@
     font-weight: 600;
   }
   .shop-rich-text a {
-    color: var(--color-text-brand);
+    color: var(--primary);
     text-decoration: underline;
   }
   .shop-rich-text a:hover {
@@ -44,11 +44,11 @@
   }
   .shop-rich-text table {
     border-collapse: collapse;
-    border-bottom: 1px solid var(--color-bg-fill-secondary);
+    border-bottom: 1px solid var(--muted);
     margin-block: 24px;
   }
   .shop-rich-text tr:nth-child(odd) {
-    background-color: var(--color-bg-fill-secondary);
+    background-color: var(--muted);
   }
   .shop-rich-text td,
   .shop-rich-text th {

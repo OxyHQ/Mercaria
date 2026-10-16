@@ -1,3 +1,4 @@
+import { ProductReviewMedia } from '@/components/product/ProductReviewMedia';
 import { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
@@ -227,12 +228,24 @@ export default function DigitalAssetScreen() {
                   {t('digital.asset.reviewsTitle')}
                 </Text>
                 <ReviewSummaryCard
+                  mediaContent={
+                    <ProductReviewMedia
+                      scope="product"
+                      id={view.canonicalProductId}
+                      scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
+                    />
+                  }
                   scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
                   average={aggregate?.rating ?? 0}
                   total={aggregate?.reviewCount ?? 0}
                   distribution={distribution}
                   reviews={reviews}
                   isLoading={reviewsQuery.isLoading}
+                  isError={reviewsQuery.isError}
+                  isRetrying={reviewsQuery.isFetching}
+                  onRetry={() => {
+                    void reviewsQuery.refetch();
+                  }}
                   onReadMore={() => setReviewsOpen(true)}
                   onReviewPress={(id) => {
                     setInitialReviewId(id);

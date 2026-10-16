@@ -1,70 +1,19 @@
-/**
- * Reads and writes for `organizations`, `organization_aliases` and
- * `organization_source_links`.
- *
- * The DELIBERATE mirror of `brandRepository.ts` — same conventions (`db` first,
- * convergence inserts, the merge CAS), same reasoning, per-entity tables per
- * ADR 0002 D16 so every row keeps a REAL foreign key. Read that file's
- * docblocks for the why; this one only notes where organizations differ:
- * `verified_domains` (evidence-backed, versus a brand's observed ones) and no
- * derived counts.
- */
-
-import { and, arrayContains, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
-import type {
-  CanonicalAliasKind,
-  SourceLinkMethod,
-  SourceLinkStatus,
-} from '@mercaria/shared-types';
+/** Commerce company references and historical evidence; Oxy owns identity. */
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
+import type { SourceLinkMethod, SourceLinkStatus } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
-import {
-  organizationAliases,
-  organizations,
-  organizationSourceLinks,
-} from '../schema/organizations.js';
+import { organizations, organizationSourceLinks } from '../schema/organizations.js';
 
 /** An organization row as the services read it back. */
 export type OrganizationRow = typeof organizations.$inferSelect;
 
-/** An alias row as the services read it back. */
-export type OrganizationAliasRow = typeof organizationAliases.$inferSelect;
-
 /** A source-link row as the services read it back. */
 export type OrganizationSourceLinkRow = typeof organizationSourceLinks.$inferSelect;
 
-/** What the write service supplies to mint an organization. */
-/**
- * #915: `nameFoldVersion` is REQUIRED here, though the column has a DEFAULT.
- *
- * The database default is load-bearing — the serving image writes none of these
- * columns and they are NOT NULL — but a default also makes `$inferInsert` mark
- * the field OPTIONAL, which is how a new writer folds a name and silently takes
- * version 1 while folding under 2. The requirement is re-imposed at the input
- * type instead. Reasoning in full: `canonicalProductRepository.ts`.
- */
-export type InsertOrganizationInput = typeof organizations.$inferInsert &
-  Required<Pick<typeof organizations.$inferInsert, 'nameFoldVersion'>>;
-
-/** The columns an organization update may touch. Identity columns are absent. */
+export type InsertOrganizationInput = typeof organizations.$inferInsert;
+/** Only Mercaria relationship lifecycle metadata is writable here. */
 export type OrganizationPatch = Partial<
-  Pick<
-    OrganizationRow,
-    | 'name'
-    | 'normalizedName'
-    // #915: patchable so a re-fold moves the value and its version together.
-    | 'nameFoldVersion'
-    | 'legalName'
-    | 'websiteUrl'
-    | 'verifiedDomains'
-    | 'countryCode'
-    | 'logoFileId'
-    | 'logoSourceRecordId'
-    | 'status'
-    | 'lastSeenAt'
-    | 'lastReviewedAt'
-    | 'firstSeenAt'
-    | 'pinnedFields'
-  >
+  Pick<OrganizationRow, 'status' | 'lastSeenAt' | 'lastReviewedAt' | 'firstSeenAt' | 'pinnedFields'>
 >;
 
 export async function insertOrganization(
@@ -115,101 +64,6 @@ export async function findOrganizationsByIds(
     .select()
     .from(organizations)
     .where(inArray(organizations.id, [...ids]));
-}
-
-/** Exact-normalization candidates — equality on the service-maintained column. */
-export async function findOrganizationsByNormalizedName(
-  db: DatabaseOrTransaction,
-  normalizedName: string,
-): Promise<OrganizationRow[]> {
-  return db.select().from(organizations).where(eq(organizations.normalizedName, normalizedName));
-}
-
-/** A trigram candidate with pg_trgm's own similarity score. */
-export interface OrganizationNameCandidate {
-  organization: OrganizationRow;
-  similarity: number;
-}
-
-/** See `searchBrandsByNameSimilarity` — same operator, same reasoning. */
-export async function searchOrganizationsByNameSimilarity(
-  db: DatabaseOrTransaction,
-  normalizedName: string,
-  limit: number,
-): Promise<OrganizationNameCandidate[]> {
-  const score = sql<number>`similarity(${organizations.normalizedName}, ${normalizedName})`;
-  const rows = await db
-    .select({ organization: organizations, similarity: score })
-    .from(organizations)
-    .where(sql`${organizations.normalizedName} % ${normalizedName}`)
-    .orderBy(desc(score))
-    .limit(limit);
-  return rows;
-}
-
-/** Organizations whose VERIFIED domain set contains this domain. */
-export async function findOrganizationsByVerifiedDomain(
-  db: DatabaseOrTransaction,
-  domain: string,
-): Promise<OrganizationRow[]> {
-  return db
-    .select()
-    .from(organizations)
-    .where(arrayContains(organizations.verifiedDomains, [domain]));
-}
-
-export interface InsertOrganizationAliasInput {
-  organizationId: string;
-  alias: string;
-  kind: CanonicalAliasKind;
-  language?: string;
-  sourceRecordId?: string;
-  createdByOxyUserId?: string;
-}
-
-/** See `insertBrandAlias` — converges on `(organization_id, normalized_alias)`. */
-export async function insertOrganizationAlias(
-  db: DatabaseOrTransaction,
-  input: InsertOrganizationAliasInput,
-): Promise<OrganizationAliasRow | undefined> {
-  const rows = await db
-    .insert(organizationAliases)
-    .values({
-      organizationId: input.organizationId,
-      alias: input.alias,
-      kind: input.kind,
-      language: input.language ?? null,
-      sourceRecordId: input.sourceRecordId ?? null,
-      createdByOxyUserId: input.createdByOxyUserId ?? null,
-    })
-    .onConflictDoNothing({
-      target: [organizationAliases.organizationId, organizationAliases.normalizedAlias],
-    })
-    .returning();
-  return rows[0];
-}
-
-export async function listOrganizationAliases(
-  db: DatabaseOrTransaction,
-  organizationId: string,
-): Promise<OrganizationAliasRow[]> {
-  return db
-    .select()
-    .from(organizationAliases)
-    .where(eq(organizationAliases.organizationId, organizationId))
-    .orderBy(asc(organizationAliases.createdAt), asc(organizationAliases.id));
-}
-
-/** Distinct organization ids any alias with this normalization points at. */
-export async function findOrganizationIdsByNormalizedAlias(
-  db: DatabaseOrTransaction,
-  normalizedAlias: string,
-): Promise<string[]> {
-  const rows = await db
-    .selectDistinct({ organizationId: organizationAliases.organizationId })
-    .from(organizationAliases)
-    .where(eq(organizationAliases.normalizedAlias, normalizedAlias));
-  return rows.map((row) => row.organizationId);
 }
 
 export interface InsertOrganizationSourceLinkInput {
@@ -282,34 +136,6 @@ export async function findOrganizationIdsBySourceRecordIds(
   return rows.map((row) => row.organizationId);
 }
 
-/** See `repointBrandAliases` — same collision rule, same one legitimate delete. */
-export async function repointOrganizationAliases(
-  db: DatabaseOrTransaction,
-  loserId: string,
-  winnerId: string,
-): Promise<void> {
-  const winnerAliases = await db
-    .select({ normalizedAlias: organizationAliases.normalizedAlias })
-    .from(organizationAliases)
-    .where(eq(organizationAliases.organizationId, winnerId));
-  const taken = winnerAliases.map((row) => row.normalizedAlias);
-
-  if (taken.length > 0) {
-    await db
-      .delete(organizationAliases)
-      .where(
-        and(
-          eq(organizationAliases.organizationId, loserId),
-          inArray(organizationAliases.normalizedAlias, taken),
-        ),
-      );
-  }
-  await db
-    .update(organizationAliases)
-    .set({ organizationId: winnerId })
-    .where(eq(organizationAliases.organizationId, loserId));
-}
-
 /** See `repointBrandSourceLinks` — every mapping retained, none deleted. */
 export async function repointOrganizationSourceLinks(
   db: DatabaseOrTransaction,
@@ -380,7 +206,7 @@ export async function listOrganizationsPage(
   const rows = await db
     .select()
     .from(organizations)
-    .orderBy(asc(organizations.name), asc(organizations.id))
+    .orderBy(asc(organizations.id))
     .offset(offset)
     .limit(limit);
   const counted = await db.select({ count: sql<number>`count(*)::int` }).from(organizations);

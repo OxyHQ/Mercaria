@@ -20,6 +20,7 @@ import {
   listReviews,
   listReviewsForStoreHandle,
   listScopedReviewsWithAggregate,
+  listPublicReviewMedia,
 } from '../services/review.service.js';
 import {
   listEligibilitiesForOrder,
@@ -35,6 +36,29 @@ import {
 
 /** How many open eligibilities one order-history page asks for. */
 const ELIGIBILITY_PAGE_LIMIT = 50;
+
+async function sendReviewMediaPage(
+  req: Request,
+  res: Response,
+  kind: 'product' | 'listing',
+  id: string,
+): Promise<void> {
+  try {
+    const { page, limit } = parsePagination(req.query);
+    const result = await listPublicReviewMedia(kind, id, { page, limit });
+    sendPaginated(res, result.data, buildPagination(page, limit, result.total));
+  } catch (err) {
+    respondWithError(res, err, 'Failed to load review media');
+  }
+}
+
+export async function listProductReviewMedia(req: Request, res: Response): Promise<void> {
+  await sendReviewMediaPage(req, res, 'product', routeParam(req, 'canonicalProductId'));
+}
+
+export async function listListingReviewMedia(req: Request, res: Response): Promise<void> {
+  await sendReviewMediaPage(req, res, 'listing', routeParam(req, 'id'));
+}
 
 /** Personal vote state is never mixed into cacheable public review pages. */
 export async function listReviewHelpfulnessHandler(req: Request, res: Response): Promise<void> {

@@ -30,7 +30,8 @@
     "account": "Compte",
     "signIn": "Inicia la sessió",
     "threeD": "3D",
-    "mainNavigation": "Navegació principal"
+    "mainNavigation": "Navegació principal",
+    "settings": "Configuració"
   },
   "login": {
     "signInButton": "Inicia la sessió"
@@ -39,20 +40,6 @@
     "account": {
       "title": "Configuració del compte"
     },
-    "appLanguage": {
-      "title": "Idioma de l'aplicació",
-      "description": "Canvia l'idioma en què es mostra l'aplicació",
-      "restartRequired": "Reinicia l'aplicació per aplicar la nova direcció del disseny."
-    },
-    "appearance": {
-      "title": "Aparença",
-      "light": "Clar",
-      "dark": "Fosc",
-      "system": "Sistema"
-    },
-    "accentColor": {
-      "title": "Color de l'aplicació"
-    },
     "sections": {
       "account": "Compte",
       "general": "General",
@@ -60,7 +47,7 @@
       "addresses": "Adreces",
       "watchlists": "Llistes de seguiment",
       "shoppingAgents": "Agents de compra",
-      "referralPartner": "Programa de recomanació"
+      "referrals": "Referits"
     },
     "currency": {
       "title": "Moneda de visualització",
@@ -143,6 +130,7 @@
     "notFound": "No hem trobat aquest producte.",
     "visitA11y": "Visita %{name}",
     "moreFromStore": "Més de %{name}",
+    "youMightAlsoLike": "També et pot agradar",
     "compareOffersA11y": "Compara totes les ofertes d'aquest producte",
     "compareOffers": "Compara totes les ofertes",
     "percentOff": "%{percent}% de descompte",
@@ -236,7 +224,8 @@
       "product": "Sobre aquest producte",
       "variant": "Sobre aquesta configuració",
       "definitionsUnavailable": "Alguns noms es mostren tal com estan desats.",
-      "untranslated": "Alguns noms encara no estan traduïts al teu idioma."
+      "untranslated": "Alguns noms encara no estan traduïts al teu idioma.",
+      "loadError": "No s’han pogut carregar les especificacions. Torna-ho a provar."
     },
     "variants": {
       "unavailable": "no disponible",
@@ -475,6 +464,17 @@
       "count": "A %{formattedCount} els ha resultat útil",
       "error": "No s’ha pogut actualitzar el vot. Torna-ho a provar.",
       "retry": "Torna a carregar els vots"
+    },
+    "media": {
+      "add": "Afegeix una foto o un vídeo",
+      "prompt": "Arrossega un fitxer aquí o",
+      "uploading": "S’està pujant…",
+      "uploaded": "Pujada completada",
+      "invalid": "Fins a 10 fitxers: imatges JPG, PNG, WebP, GIF o AVIF de fins a 20 MB; vídeos MP4 o WebM de fins a 100 MB.",
+      "publicNotice": "Els fitxers pujats són públics. Treure un adjunt aquí no l’elimina dels teus fitxers d’Oxy.",
+      "failed": "No s’ha pogut verificar la pujada. Torna-ho a provar.",
+      "remove": "Treu %{filename}",
+      "removeAction": "Treu"
     }
   },
   "search": {
@@ -676,7 +676,8 @@
       "actionLabel": "Segueix %{name}"
     },
     "linkCard": {
-      "viewProfile": "Mostra el perfil de %{name}"
+      "viewProfile": "Mostra el perfil de %{name}",
+      "visitProfile": "Veure el perfil"
     },
     "report": {
       "action": "Denuncia",
@@ -1218,6 +1219,15 @@
       "collectHere": "Compra en línia i recull aquí",
       "placeRatingSubject": "%{place} a GoWay",
       "photoLabel": "Foto de %{place}"
+    },
+    "contact": {
+      "title": "Contacta amb %{store}",
+      "unavailable": "No s’ha pogut carregar la informació de contacte.",
+      "empty": "Aquesta botiga no ha publicat informació de contacte.",
+      "website": "Lloc web",
+      "copy": "Copia %{value}",
+      "copied": "Copiat",
+      "copyFailed": "No s’ha pogut copiar. Torna-ho a provar."
     }
   },
   "offer": {
@@ -1301,11 +1311,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Soci de recomanacions · Mercaria",
-    "title": "Soci de recomanacions",
     "loadError": "No hem pogut carregar el teu tauler de recomanacions. Torna-ho a provar.",
     "signedOut": {
-      "title": "Inicia la sessió per veure el teu compte de soci de recomanacions",
+      "title": "Inicia la sessió per veure els teus referits",
       "body": "Els teus enllaços, el que han generat i quan cobraràs.",
       "action": "Inicia la sessió"
     },
@@ -1353,11 +1361,19 @@
       "title": "Rendiment",
       "totals": "%{clicks} clics · %{referrals} recomanacions qualificades, del %{from} al %{through}",
       "empty": "No s'ha registrat res en aquest període.",
-      "row": "%{label}: %{clicks} clics · %{referrals} recomanacions"
+      "row": "%{label}: %{clicks} clics · %{referrals} recomanacions",
+      "breakdownBy": "Desglossa per",
+      "dimension": {
+        "program": "Programa",
+        "campaign": "Campanya",
+        "instrument": "Enllaç o codi",
+        "market": "Mercat",
+        "clientSurface": "Plataforma",
+        "date": "Data"
+      }
     },
     "instruments": {
-      "title": "Els teus enllaços i codis",
-      "empty": "Encara no tens cap codi de recomanació.",
+      "title": "Els teus codis",
       "disclosureIntro": "Publica això amb cada enllaç:",
       "status": {
         "active": "actiu",
@@ -1372,6 +1388,16 @@
       "appeal": "Pots recórrer la decisió sobre la teva participació.",
       "disputes": "Les reclamacions sobre una atribució, una reversió o un pagament encara no es gestionen aquí. Contacta amb el suport i indica la data i l'import que es mostren més amunt.",
       "noEmails": "Encara no enviem correus sobre recomanacions, així que consulta aquesta pàgina per veure els canvis."
+    },
+    "links": {
+      "title": "Els teus enllaços",
+      "create": "Crea un enllaç",
+      "copy": "Copia",
+      "copyLink": "Copia l'enllaç %{url}",
+      "copied": "S'ha copiat l'enllaç",
+      "createFailed": "No s'ha pogut crear l'enllaç. Torna-ho a provar.",
+      "empty": "Crea un enllaç per compartir Mercaria. Els referits que porti se t’atribueixen.",
+      "notPartner": "El teu enllaç apareixerà aquí quan estiguis inscrit en un programa."
     }
   },
   "brand": {
@@ -1556,6 +1582,17 @@
       "updateFailed": "No s'ha pogut actualitzar l'adreça",
       "removed": "Adreça eliminada",
       "removeFailed": "No s'ha pogut eliminar l'adreça"
+    },
+    "picker": {
+      "search": "Cerca una adreça amb GoWay",
+      "help": "Cerca un carrer i una ciutat; tria i revisa l’adreça.",
+      "placeholder": "Carrer, número i ciutat",
+      "loading": "Cercant a GoWay…",
+      "error": "La cerca no està disponible. Torna-ho a provar o introdueix l’adreça manualment.",
+      "partial": "Algunes fonts no estan disponibles. Els resultats poden ser incomplets.",
+      "empty": "No s’han trobat adreces. Afegeix una ciutat o introdueix l’adreça manualment.",
+      "review": "Revisa les dades de l’adreça",
+      "manual": "Introdueix l’adreça manualment"
     }
   },
   "shoppingAgents": {

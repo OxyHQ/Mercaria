@@ -2,15 +2,16 @@
 /**
  * Refuse a production deploy unless CI actually passed for THIS commit.
  *
- * ## Why this exists rather than `needs:` or `workflow_run`
+ * ## Why this still exists now that the deploys trigger on `workflow_run`
  *
- * The three web apps deploy from their own workflows, each triggered by a
- * `push` to `main` with a `paths:` filter. They have no job to `needs:`, and
- * they cannot be switched to `workflow_run` without giving up that filter —
- * `workflow_run` carries no `paths:`, so the narrowing that stops a docs-only
- * change redeploying three apps would have to be rebuilt out of a diff. So the
- * dependency is expressed the third way: the deploy job `needs:` a gate job,
- * and the gate ASKS the API what `ci.yml` concluded for this exact commit.
+ * The four deploys used to trigger on `push` and POLL here for up to 30
+ * minutes, each holding a runner while `ci.yml` ran — four idle runners per
+ * merge against an org-wide limit of 20. They now trigger on `ci.yml`'s
+ * `workflow_run` completion, so by the time this runs the verdict exists and it
+ * is asked ONCE (`--no-wait`). It is kept rather than trusting
+ * `workflow_run.conclusion` alone because a run-level `success` is weaker than
+ * what this asserts: every required job PRESENT and `success`, on the newest
+ * attempt for the sha. See `docs/deploy.md` §"What gates a deploy".
  *
  * That keeps ONE definition of "CI passed" — `ci.yml`'s own run — instead of a
  * second copy of the suite inside each deploy workflow, which is the shape that
@@ -292,6 +293,12 @@ async function requireCiSuccess({
   findRuns = findRunsForSha,
   readRunJobs = readJobs,
   sleepFor = sleep,
+  // `false` asks ONCE: a run that is absent or unfinished is refused at once
+  // instead of waited for. The deploys pass `--no-wait` because they trigger on
+  // `ci.yml`'s completion, so a wait could only ever hold a runner idle — which
+  // is the cost this mode exists to remove. Transport retries still apply: a
+  // socket fault is still not a verdict.
+  wait = true,
 }) {
   const startedAt = now();
   let seenRun = null;
@@ -335,10 +342,11 @@ async function requireCiSuccess({
     const run = runs[0];
 
     if (!run) {
-      if (now() - startedAt > APPEAR_TIMEOUT_MS) {
+      if (!wait || now() - startedAt > APPEAR_TIMEOUT_MS) {
         throw new GateFailure(
-          `No \`${CI_WORKFLOW_FILE}\` run exists for ${sha} after ` +
-            `${Math.round(APPEAR_TIMEOUT_MS / 60000)} minutes. A commit with no CI run has ` +
+          `No \`${CI_WORKFLOW_FILE}\` run exists for ${sha}` +
+            (wait ? ` after ${Math.round(APPEAR_TIMEOUT_MS / 60000)} minutes` : '') +
+            `. A commit with no CI run has ` +
             `no verdict to deploy on. If CI was skipped by a \`paths-ignore\`, that is the ` +
             `thing to fix — this gate cannot tell "CI passed" from "CI never ran".`,
         );
@@ -354,6 +362,13 @@ async function requireCiSuccess({
     }
 
     if (run.status !== 'completed') {
+      if (!wait) {
+        throw new GateFailure(
+          `CI run ${run.id} for ${sha} is still \`${run.status}\` and this gate does not wait ` +
+            `(--no-wait). Its completion triggers the deploy again through \`workflow_run\`; ` +
+            `for a manual dispatch, dispatch again once it has concluded.\n${run.html_url}`,
+        );
+      }
       if (now() - startedAt > CONCLUDE_TIMEOUT_MS) {
         throw new GateFailure(
           `CI run ${run.id} for ${sha} was still \`${run.status}\` after ` +
@@ -415,14 +430,17 @@ async function main() {
   const repository = args.get('repository') ?? process.env.GITHUB_REPOSITORY;
   const sha = args.get('sha') ?? process.env.GITHUB_SHA;
   const token = args.get('token') ?? process.env.GITHUB_TOKEN;
+  const wait = !args.has('no-wait');
 
   if (!repository || !sha) {
-    console.error('usage: require-ci-success.mjs --repository=owner/name --sha=<sha> [--token=]');
+    console.error(
+      'usage: require-ci-success.mjs --repository=owner/name --sha=<sha> [--token=] [--no-wait]',
+    );
     process.exit(2);
   }
 
   try {
-    await requireCiSuccess({ repository, sha, token });
+    await requireCiSuccess({ repository, sha, token, wait });
   } catch (error) {
     if (error instanceof GateFailure) {
       console.error(`\nRefusing to deploy.\n\n${error.message}\n`);

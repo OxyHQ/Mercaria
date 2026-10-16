@@ -18,6 +18,7 @@
 // Helpers / hooks
 // ---------------------------------------------------------------------------
 export { cn } from './lib/cn';
+export { Image, type ImageProps } from './components/ui/image';
 
 // ---------------------------------------------------------------------------
 // The locale registry (#398). ONE supported-locale tuple, ONE alias policy and
@@ -81,6 +82,17 @@ export { syncLayoutDirection, type DirectionSyncResult } from './i18n/layout-dir
 export { useShopControlClassName } from './lib/useShopControlClassName';
 export { useColorScheme } from './lib/useColorScheme';
 export { useSidebarCollapse } from './lib/useSidebarCollapse';
+
+// Settings is one Bloom `SettingsModal` per app (the Oxy-wide surface). The
+// provider and the hook every screen opens it with live here; the dialog and its
+// shared pages are the `@mercaria/ui/settings` subpath, loaded on first open.
+export {
+  SettingsDialogProvider,
+  useSettingsDialog,
+  type SettingsDialog,
+  type SettingsDialogProviderProps,
+  type SettingsDialogState,
+} from './settings/SettingsDialogProvider';
 
 // `./lib/bidi`'s `isolateBidi` is deliberately NOT exported from this BARREL,
 // and #740 gave it a consumer without changing that. The reason is now sharper
@@ -330,7 +342,12 @@ export {
 // ---------------------------------------------------------------------------
 // Marketplace presentational components
 // ---------------------------------------------------------------------------
-export { ProductCard, type ProductCardProps } from './components/marketplace/ProductCard';
+export { CatalogImage } from './components/marketplace/CatalogImage';
+export {
+  ProductCard,
+  type ProductCardProps,
+  type ProductLinkRenderer,
+} from './components/marketplace/ProductCard';
 // Every rating renders `@oxy.so/bloom/rating` through `useRatingDisplay`; over a
 // brand colour the caller passes Bloom's `color` / `starColor` / `emptyStarColor`.
 export {
@@ -355,7 +372,11 @@ export { ShopDetailIcon } from './components/marketplace/ShopDetailIcon';
 export { useShelfCarouselProps } from './lib/shelf-carousel';
 export { ListingSaveProvider } from './components/marketplace/ListingSaveProvider';
 export { CategoryPills, type CategoryPillsProps } from './components/marketplace/CategoryPills';
-export { MerchantCard, type MerchantCardProps } from './components/marketplace/MerchantCard';
+export {
+  MerchantCard,
+  type MerchantCardProps,
+  type MerchantLinkRenderer,
+} from './components/marketplace/MerchantCard';
 export {
   MerchantCarousel,
   type MerchantCarouselProps,
@@ -739,6 +760,7 @@ export {
 } from './lib/digital-asset-labels';
 
 export { merchantImageSource } from './lib/shop-merchant-images';
+export { resolveCatalogImage, resolveStoredImageUrl } from './lib/stored-image-url';
 
 export {
   StoreOfferHeader,
@@ -754,3 +776,12 @@ export {
   type ProductRichTextProps,
 } from './components/marketplace/ProductRichText';
 export { prepareProductDescription } from './lib/product-description';
+
+export {
+  ReviewMediaStrip,
+  ReviewMediaViewer,
+  ReviewMediaImage,
+  type ReviewMediaViewerProps,
+} from './components/marketplace/ReviewMedia';
+
+export { placeAddressLine } from './lib/place-address';

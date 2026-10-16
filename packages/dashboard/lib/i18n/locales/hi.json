@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "साइन इन",
     "signInBody": "अपने Oxy अकाउंट से साइन इन करके अपना स्टोर संभालें — प्रोडक्ट, ऑर्डर, इन्वेंटरी, ग्राहक, डिस्काउंट और रिपोर्ट।",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "चैनल जोड़ें",
@@ -92,7 +92,7 @@
       },
       "title": "डिस्कनेक्ट"
     },
-    "documentTitle": "सेल्स चैनल | Mercaria Dashboard",
+    "documentTitle": "सेल्स चैनल | Wholesale by Mercaria",
     "empty": {
       "body": "मौजूदा कैटलॉग लाने के लिए नीचे कोई स्टोर या प्रोडक्ट फ़ीड कनेक्ट करें।",
       "title": "सिर्फ़ आपका Mercaria कैटलॉग"
@@ -263,7 +263,7 @@
     "settings": {
       "autoPublish": "ऑटो-पब्लिश",
       "autoPublishHint": "पुल किए गए प्रोडक्ट तुरंत पब्लिश करें। बंद होने पर वे समीक्षा के लिए ड्राफ्ट में आते हैं।",
-      "documentTitle": "चैनल सेटिंग्स | Mercaria Dashboard",
+      "documentTitle": "चैनल सेटिंग्स | Wholesale by Mercaria",
       "inventoryHint": "आपकी सिंक की गई लोकेशन पर स्टॉक।",
       "inventoryLabel": "इन्वेंटरी",
       "keepLocalEdits": "मेरे किए बदलाव बनाए रखें",
@@ -396,7 +396,7 @@
       "canAndCannot": "यह चैनल क्या कर सकता है और क्या नहीं",
       "chooseWhatToImport": "चुनें कि क्या इम्पोर्ट करना है",
       "connectedTitle": "%{channel} कनेक्ट हो गया",
-      "documentTitle": "चैनल कनेक्ट करें | Mercaria Dashboard",
+      "documentTitle": "चैनल कनेक्ट करें | Wholesale by Mercaria",
       "everythingChecksOut": "सब ठीक है। चालू करते ही पहला सिंक शुरू हो जाएगा।",
       "feed": {
         "body": "प्रोडक्ट फ़ीड अपनी अलग स्क्रीन पर सेट होता है, जहाँ आप फ़ाइल के कॉलम Mercaria की फ़ील्ड से मैप करते हैं और कुछ भी लाइव होने से पहले नतीजा देख लेते हैं।",
@@ -490,7 +490,7 @@
     },
     "deleteError": "कलेक्शन मिटाया नहीं जा सका",
     "deleted": "कलेक्शन मिट गया",
-    "documentTitle": "कलेक्शन | Mercaria Dashboard",
+    "documentTitle": "कलेक्शन | Wholesale by Mercaria",
     "empty": {
       "body": "अपना कैटलॉग व्यवस्थित करने के लिए एक बनाएँ।",
       "title": "अभी कोई कलेक्शन नहीं"
@@ -513,6 +513,73 @@
     "type": {
       "automated": "ऑटोमेटेड",
       "manual": "मैनुअल"
+    },
+    "remove": {
+      "action": "%{title} हटाएँ",
+      "title": "संग्रह हटाएँ",
+      "confirmation": "“%{title}” हटाएँ? उत्पाद आपके कैटलॉग में बने रहेंगे। इस कार्रवाई को वापस नहीं लिया जा सकता।"
+    },
+    "editor": {
+      "automated": "इस संग्रह के उत्पाद इसके नियमों से प्रबंधित होते हैं।",
+      "details": "संग्रह का विवरण",
+      "handle": "URL पहचानकर्ता",
+      "handleRequired": "URL पहचानकर्ता दर्ज करें।",
+      "published": "प्रकाशित",
+      "save": "संग्रह सहेजें",
+      "saveFailed": "संग्रह सहेजा नहीं जा सका।",
+      "saved": "संग्रह सहेजा गया",
+      "sortLabel": "उत्पाद क्रमबद्ध करें",
+      "browse": "उत्पाद देखें",
+      "earlier": "%{title} को पहले ले जाएँ",
+      "emptyProducts": "कोई उत्पाद चयनित नहीं है।",
+      "later": "%{title} को बाद में ले जाएँ",
+      "productUnavailable": "यह उत्पाद लोड नहीं हो सका।",
+      "productsFailed": "उत्पाद सहेजे नहीं जा सके।",
+      "productsSaved": "उत्पाद सहेजे गए",
+      "remove": "%{title} हटाएँ",
+      "saveProducts": "उत्पाद सहेजें",
+      "sort": {
+        "manual": "मैन्युअल",
+        "bestSelling": "सबसे अधिक बिकने वाले",
+        "priceAscending": "कीमत: कम से अधिक",
+        "priceDescending": "कीमत: अधिक से कम",
+        "newest": "नवीनतम पहले",
+        "title": "शीर्षक: A–Z"
+      }
+    },
+    "rules": {
+      "heading": "शर्तें",
+      "match": "उत्पादों को मिलना चाहिए",
+      "all": "सभी शर्तों से",
+      "any": "किसी भी शर्त से",
+      "empty": "शर्तों के बिना इस संग्रह में कोई उत्पाद नहीं होता।",
+      "field": "उत्पाद फ़ील्ड",
+      "operator": "तुलना",
+      "value": "मान",
+      "availability": "उपलब्धता",
+      "inStock": "स्टॉक में",
+      "outOfStock": "स्टॉक में नहीं",
+      "price": "कीमत",
+      "compareAtPrice": "तुलना कीमत",
+      "exactElement": "टैग और श्रेणी पहचानकर्ता पूरे मान से मेल खाते हैं, “शामिल है” चुनने पर भी।",
+      "retained": "यह मौजूदा शर्त बिना बदलाव सुरक्षित रहती है। यहाँ इसे संपादित नहीं कर सकते; आप इसे स्पष्ट रूप से हटा सकते हैं।",
+      "remove": "शर्त %{position} हटाएँ",
+      "add": "शर्त जोड़ें",
+      "failed": "शर्तें सहेजी नहीं जा सकीं। आपके बदलाव सुरक्षित हैं।",
+      "saved": "शर्तें सहेजी गईं",
+      "save": "शर्तें सहेजें",
+      "operators": {
+        "equals": "बराबर है",
+        "notEquals": "बराबर नहीं है",
+        "contains": "शामिल है",
+        "startsWith": "से शुरू होता है",
+        "endsWith": "पर समाप्त होता है",
+        "gt": "से अधिक",
+        "gte": "से अधिक या बराबर",
+        "lt": "से कम",
+        "lte": "से कम या बराबर"
+      },
+      "categoryIdentifier": "श्रेणी पहचानकर्ता"
     }
   },
   "common": {
@@ -540,7 +607,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "ग्राहक | Mercaria Dashboard",
+      "documentTitle": "ग्राहक | Wholesale by Mercaria",
       "lifetimeSpend": "कुल खर्च",
       "loadError": "ग्राहक लोड नहीं हो सका",
       "noOrders": "अभी कोई ऑर्डर नहीं।",
@@ -548,7 +615,7 @@
       "subtitle": "ग्राहक की जानकारी",
       "title": "ग्राहक"
     },
-    "documentTitle": "ग्राहक | Mercaria Dashboard",
+    "documentTitle": "ग्राहक | Wholesale by Mercaria",
     "empty": {
       "body": "पहला ऑर्डर आने के बाद ग्राहक यहाँ दिखेंगे।",
       "title": "कोई ग्राहक नहीं"
@@ -586,7 +653,7 @@
     },
     "deleteError": "डिस्काउंट मिटाया नहीं जा सका",
     "deleted": "डिस्काउंट मिट गया",
-    "documentTitle": "डिस्काउंट | Mercaria Dashboard",
+    "documentTitle": "डिस्काउंट | Wholesale by Mercaria",
     "empty": {
       "body": "कोड वाला या ऑटोमैटिक डिस्काउंट बनाएँ।",
       "title": "अभी कोई डिस्काउंट नहीं"
@@ -607,13 +674,13 @@
     "boundaryBody": "कोई अनपेक्षित गड़बड़ हुई। आप फिर कोशिश कर सकते हैं; दिक्कत बनी रहे तो हमारी टीम को इसकी सूचना मिल चुकी है।",
     "notFoundAction": "डैशबोर्ड पर जाएँ",
     "notFoundBody": "यह स्क्रीन मौजूद नहीं है।",
-    "notFoundDocumentTitle": "404 - नहीं मिला | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 - नहीं मिला | Wholesale by Mercaria",
     "notFoundHeading": "ओह!"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "पहले कोई मैपिंग चालू करें",
-      "documentTitle": "प्रोडक्ट फ़ीड | Mercaria Dashboard",
+      "documentTitle": "प्रोडक्ट फ़ीड | Wholesale by Mercaria",
       "identityColumns": "पहचान वाले कॉलम: %{columns} — इस फ़ीड के लिए हमेशा के लिए तय।",
       "neverRead": "यह फ़ीड अभी तक पढ़ी नहीं गई है।",
       "notFound": "फ़ीड नहीं मिली",
@@ -642,7 +709,7 @@
     "never": "कभी नहीं",
     "new": {
       "create": "फ़ीड बनाएँ",
-      "documentTitle": "नई प्रोडक्ट फ़ीड | Mercaria Dashboard",
+      "documentTitle": "नई प्रोडक्ट फ़ीड | Wholesale by Mercaria",
       "identityColumnsHint": "कॉमा से अलग करके, ज़्यादा से ज़्यादा चार। इन्हें बाद में नहीं बदला जा सकता: Mercaria इन्हीं से पहचानता है कि एक फ़ाइल और अगली फ़ाइल में यह वही प्रोडक्ट है, इसलिए इन्हें बदलना ऐसा दिखेगा जैसे आपने पूरा कैटलॉग ही बदल दिया हो। अलग कॉलम चाहिए तो नई फ़ीड बनाएँ।",
       "identityColumnsLabel": "हर प्रोडक्ट की पहचान बताने वाले कॉलम",
       "identityColumnsPlaceholder": "id, sku",
@@ -745,7 +812,7 @@
     }
   },
   "home": {
-    "documentTitle": "डैशबोर्ड | Mercaria",
+    "documentTitle": "डैशबोर्ड | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "%{count} ट्रैक किया गया वेरिएंट लो-स्टॉक सीमा पर या उससे नीचे है।",
@@ -805,7 +872,7 @@
     "openNavigation": "नेविगेशन खोलें",
     "orders": "ऑर्डर",
     "products": "प्रोडक्ट",
-    "settings": "सेटिंग्स",
+    "settings": "स्टोर सेटिंग्स",
     "mainNavigation": "मुख्य नेविगेशन",
     "collapseSidebar": "साइडबार समेटें",
     "expandSidebar": "साइडबार फैलाएँ",
@@ -817,7 +884,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "ऑर्डर | Mercaria Dashboard",
+      "documentTitle": "ऑर्डर | Wholesale by Mercaria",
       "fulfilment": "फ़ुलफ़िलमेंट",
       "history": "हिस्ट्री",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -836,9 +903,10 @@
       "title": "ऑर्डर",
       "trackingLabel": "ट्रैकिंग नंबर (वैकल्पिक)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "ऑर्डर अपडेट नहीं हो सका"
+      "updateFailed": "ऑर्डर अपडेट नहीं हो सका",
+      "refundsLoadFailed": "रिफ़ंड का इतिहास लोड नहीं हो सका।"
     },
-    "documentTitle": "ऑर्डर | Mercaria Dashboard",
+    "documentTitle": "ऑर्डर | Wholesale by Mercaria",
     "empty": {
       "body": "ग्राहकों के खरीदते ही ऑर्डर यहाँ दिखेंगे।",
       "title": "कोई ऑर्डर नहीं"
@@ -882,18 +950,21 @@
       },
       "trail": "पिकअप का रिकॉर्ड",
       "trailEmpty": "काउंटर पर अभी तक कुछ नहीं हुआ है।",
-      "viewPlace": "GoWay पर जगह देखें"
+      "viewPlace": "GoWay पर जगह देखें",
+      "loadFailed": "पिकअप की जानकारी लोड नहीं हो सकी। ऑर्डर सौंपने से पहले फिर से कोशिश करें।"
     },
     "refund": {
       "dialogTitle": "ऑर्डर रिफंड करें",
-      "failed": "रिफंड नहीं हो सका",
+      "failed": "रिफ़ंड की पुष्टि नहीं हो सकी। परिणाम जाँचने के लिए उन्हीं विवरणों के साथ दोबारा कोशिश करें।",
       "itemMax": "%{variant} · ज़्यादा से ज़्यादा %{quantity}",
-      "processed": "रिफंड हो गया",
       "quantityLabel": "%{item} के लिए रिफ़ंड मात्रा",
       "quantityRequired": "रिफंड करने की मात्रा डालें",
       "reasonLabel": "वजह (वैकल्पिक)",
       "reasonPlaceholder": "यह रिफंड क्यों हो रहा है?",
-      "submit": "रिफंड करें"
+      "submit": "रिफंड करें",
+      "loadFailed": "पिछले रिफ़ंड लोड नहीं हो सके। भेजने से पहले दोबारा कोशिश करें।",
+      "quantityInvalid": "0 से %{quantity} तक एक पूर्ण संख्या दर्ज करें।",
+      "unavailable": "इस ऑर्डर के लिए रिफ़ंड उपलब्ध नहीं है।"
     },
     "refundState": {
       "canceled": "रद्द",
@@ -935,7 +1006,7 @@
       "archiveFailed": "प्रोडक्ट आर्काइव नहीं हो सका",
       "archived": "प्रोडक्ट आर्काइव हो गया",
       "channelSettings": "चैनल सेटिंग्स",
-      "documentTitle": "प्रोडक्ट | Mercaria Dashboard",
+      "documentTitle": "प्रोडक्ट | Wholesale by Mercaria",
       "loadFailed": "प्रोडक्ट लोड नहीं हो सका",
       "pins": {
         "release": "रिलीज़ करें",
@@ -961,9 +1032,11 @@
         "tags": "टैग",
         "addTag": "टैग जोड़ें",
         "removeTag": "%{tag} हटाएँ"
-      }
+      },
+      "archiveConfirmation": "“%{title}” को संग्रहित करें? यह खरीदारों के लिए उपलब्ध नहीं रहेगा।",
+      "archiveUnsaved": "उत्पाद या उसके वेरिएंट में बिना सहेजे बदलाव हट जाएँगे। संपादन जारी रखने के लिए रद्द करें।"
     },
-    "documentTitle": "प्रोडक्ट | Mercaria Dashboard",
+    "documentTitle": "प्रोडक्ट | Wholesale by Mercaria",
     "empty": {
       "action": "अपना पहला प्रोडक्ट जोड़ें",
       "title": "अभी कोई प्रोडक्ट नहीं"
@@ -977,7 +1050,7 @@
       "createFailed": "प्रोडक्ट नहीं बन सका",
       "created": "प्रोडक्ट बन गया",
       "descriptionPlaceholder": "प्रोडक्ट के बारे में बताएँ",
-      "documentTitle": "नया प्रोडक्ट | Mercaria Dashboard",
+      "documentTitle": "नया प्रोडक्ट | Wholesale by Mercaria",
       "optionNameLabel": "ऑप्शन का नाम (वैकल्पिक, जैसे साइज़)",
       "optionNamePlaceholder": "साइज़",
       "optionValueLabel": "%{option} की वैल्यू",
@@ -1015,7 +1088,6 @@
     "variants": {
       "add": "जोड़ें",
       "addFailed": "वेरिएंट नहीं जुड़ सका",
-      "added": "वेरिएंट जुड़ गया",
       "available": "उपलब्ध",
       "heading": "वेरिएंट और इन्वेंटरी",
       "inventoryUpdateFailed": "इन्वेंटरी अपडेट नहीं हो सकी",
@@ -1023,19 +1095,47 @@
       "priceInvalid": "मान्य कीमत डालें",
       "removeFailed": "वेरिएंट हटाया नहीं जा सका",
       "removeVariant": "वेरिएंट हटाएँ",
-      "removed": "वेरिएंट हट गया",
       "saveVariant": "वेरिएंट सेव करें",
       "set": "सेट करें",
       "updateFailed": "वेरिएंट अपडेट नहीं हो सका",
       "updated": "वेरिएंट अपडेट हो गया",
-      "valuePlaceholder": "वैल्यू"
+      "valuePlaceholder": "वैल्यू",
+      "inventory": {
+        "total": "सभी स्थानों पर उपलब्ध: %{quantity}",
+        "manage": "स्थान के अनुसार स्टॉक",
+        "loadFailed": "स्टॉक लोड नहीं हो सका",
+        "empty": "किसी स्थान पर स्टॉक नहीं है",
+        "invalid": "मान्य पूर्ण संख्या में मात्रा दर्ज करें।"
+      },
+      "optionRequired": "हर विकल्प के लिए एक मान चुनें।",
+      "duplicateCombination": "विकल्पों का यह संयोजन पहले से मौजूद है।",
+      "currencyChanged": "मुद्रा बदल गई है। मौजूदा कीमत इस्तेमाल करने के लिए यह बदलाव रद्द करें।",
+      "removeConfirmation": "इस उत्पाद से “%{variant}” हटाएँ?",
+      "keepOneVariant": "उत्पाद में कम से कम एक वैरिएंट होना चाहिए।",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "बारकोड",
+        "cannotClear": "यह पहचानकर्ता बदला जा सकता है, लेकिन हटाया नहीं जा सकता।"
+      },
+      "media": {
+        "manage": "वेरिएंट की तस्वीरें संपादित करें",
+        "fallback": "उत्पाद की गैलरी का उपयोग करता है",
+        "selected": "%{count} चयनित",
+        "empty": "चुनने के लिए उत्पाद की कोई तस्वीर उपलब्ध नहीं है।",
+        "loadFailed": "चयनित तस्वीरें लोड नहीं हो सकीं।",
+        "saveFailed": "वेरिएंट की तस्वीरें सहेजी नहीं जा सकीं।",
+        "unavailable": "कुछ चयनित तस्वीरें अब इस उत्पाद की गैलरी में उपलब्ध नहीं हैं।",
+        "earlier": "पहले ले जाएँ",
+        "later": "बाद में ले जाएँ",
+        "useGallery": "उत्पाद की गैलरी उपयोग करें"
+      }
     },
     "wizard": {
-      "documentTitle": "उत्पाद बनाएँ",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "उत्पाद बनाएँ",
       "readOnly": "इस ड्राफ़्ट को अब संपादित नहीं किया जा सकता।",
       "start": {
-        "documentTitle": "आप क्या बेच रहे हैं?",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "आप क्या बेच रहे हैं?",
         "subtitle": "इसे कैटलॉग में ढूँढें, या कुछ नया बताएँ।",
         "unavailableTitle": "यहाँ निर्देशित निर्माण उपलब्ध नहीं है",
@@ -1168,8 +1268,7 @@
         "noSoldVariants": "कीमत तय करने के लिए कम से कम एक संयोजन चालू करें."
       },
       "listing": {
-        "mediaTitle": "तस्वीरें",
-        "mediaUnavailable": "डैशबोर्ड से तस्वीरें अभी नहीं जोड़ी जा सकतीं। इस ड्राफ़्ट में पहले से लगी तस्वीरें बनी रहती हैं।"
+        "mediaTitle": "तस्वीरें"
       },
       "review": {
         "category": "श्रेणी",
@@ -1262,12 +1361,54 @@
         "unnamed": "नाम अनूदित नहीं है",
         "notice": "कुछ नाम अभी आपकी भाषा में अनूदित नहीं हैं।"
       }
+    },
+    "bulk": {
+      "activate": "सक्रिय करें",
+      "draft": "ड्राफ़्ट बनाएँ",
+      "archive": "उत्पाद संग्रहित करें",
+      "selected": "चुने गए: %{items}",
+      "clear": "चयन हटाएँ",
+      "result": "पुष्टि हुई: %{updated}। अपुष्ट: %{remaining}।",
+      "confirmation": "चुने गए उत्पाद जाँचें। कुछ बदलाव विफल होने पर भी दूसरे बदलाव लागू हो सकते हैं।",
+      "failed": "बदलाव की पुष्टि नहीं हो सकी: %{title}",
+      "notAttempted": "प्रयास नहीं किया गया: %{title}",
+      "retry": "शेष के लिए फिर प्रयास करें",
+      "confirm": "बदलाव लागू करें",
+      "select": "%{title} चुनें",
+      "selectPage": "इस पेज के संपादन योग्य उत्पाद चुनें",
+      "selection": "चुनें"
+    },
+    "photos": {
+      "add": "फ़ोटो जोड़ें",
+      "prompt": "उत्पाद की फ़ोटो चुनें",
+      "uploading": "फ़ोटो अपलोड हो रही है",
+      "uploaded": "फ़ोटो अपलोड हुई",
+      "invalid": "JPG, PNG, WebP, GIF या AVIF, अधिकतम 20 MB।",
+      "failed": "फ़ोटो नहीं जोड़ी जा सकी। फ़ाइल जाँचें और फिर कोशिश करें।",
+      "notice": "फ़ोटो सार्वजनिक हैं और आपके स्टोर की हैं। यहाँ हटाने पर सहेजते समय केवल संदर्भ हटता है।",
+      "position": "फ़ोटो %{position}",
+      "remove": "फ़ोटो %{position} हटाएँ"
+    },
+    "media": {
+      "add": "मीडिया जोड़ें",
+      "prompt": "फ़ोटो या वीडियो चुनें",
+      "uploading": "मीडिया अपलोड हो रहा है",
+      "uploaded": "मीडिया अपलोड हो गया",
+      "invalid": "20 MB तक की फ़ोटो; 40 MB तक के MP4 वीडियो।",
+      "failed": "मीडिया नहीं जोड़ा जा सका। फ़ाइल जाँचें और फिर कोशिश करें।",
+      "notice": "मीडिया सार्वजनिक है और आपके स्टोर का है। किसी आइटम को हटाने से सहेजते समय केवल उसका लिंक हटता है।",
+      "position": "मीडिया %{position}",
+      "remove": "मीडिया %{position} हटाएँ",
+      "viewVideo": "वीडियो %{position} देखें",
+      "video": "वीडियो",
+      "unavailable": "यह वीडियो लोड नहीं हो सका।",
+      "title": "फ़ोटो और वीडियो"
     }
   },
   "settings": {
-    "documentTitle": "सेटिंग्स | Mercaria Dashboard",
+    "documentTitle": "सेटिंग्स | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "मार्केटप्लेस शुल्क | Mercaria डैशबोर्ड",
+      "documentTitle": "मार्केटप्लेस शुल्क | Wholesale by Mercaria",
       "title": "मार्केटप्लेस शुल्क",
       "subtitle": "हर बिक्री पर Mercaria क्या लेता है, और आप कौन-सी शर्तें स्वीकार करते हैं।",
       "loadFailed": "आपकी शुल्क शर्तें लोड नहीं हो सकीं",
@@ -1306,17 +1447,13 @@
         "failed": "वह उदाहरण नहीं निकाला जा सका"
       }
     },
-    "language": {
-      "description": "यह डैशबोर्ड किस भाषा में दिखे। यह इसी डिवाइस पर सेव होता है; इससे आपके ग्राहकों को दिखने वाली भाषा नहीं बदलती।",
-      "title": "भाषा"
-    },
     "locations": {
       "createFailed": "लोकेशन नहीं बन सकी",
       "created": "लोकेशन बन गई",
       "defaultFlag": " · डिफ़ॉल्ट",
       "deleteFailed": "लोकेशन मिटाई नहीं जा सकी",
       "deleted": "लोकेशन मिट गई",
-      "documentTitle": "लोकेशन | Mercaria Dashboard",
+      "documentTitle": "लोकेशन | Wholesale by Mercaria",
       "inactiveFlag": " · बंद",
       "loadFailed": "लोकेशन लोड नहीं हो सकीं",
       "namePlaceholder": "मुख्य गोदाम",
@@ -1333,7 +1470,7 @@
       "placeFlag": " · GoWay जगह सेट है",
       "noPlaceFlag": " · अभी कोई GoWay जगह नहीं",
       "editor": {
-        "documentTitle": "लोकेशन एडिट करें | Mercaria Dashboard",
+        "documentTitle": "लोकेशन एडिट करें | Wholesale by Mercaria",
         "title": "लोकेशन",
         "subtitle": "GoWay पर इसकी जगह, और Mercaria पर यह कैसे बेचती है",
         "loadFailed": "यह लोकेशन लोड नहीं हो सकी",
@@ -1394,14 +1531,15 @@
           "region": "राज्य",
           "country": "देश",
           "countryPlaceholder": "IN",
-          "latitude": "अक्षांश",
-          "longitude": "देशांतर",
-          "positionHint": "खोज से पता चुनने पर पोज़िशन अपने-आप भर जाती है।",
-          "submit": "जगह बनाएं",
+          "positionHint": "स्थान तय करने के लिए GoWay का एक परिणाम चुनें। पता बदलने पर दोबारा चुनना होगा।",
+          "submit": "सार्वजनिक व्यावसायिक स्थान बनाएँ",
           "created": "GoWay पर जगह बन गई",
           "nameRequired": "जगह को नाम दें",
           "countryRequired": "दो अक्षरों वाला देश कोड डालें",
-          "positionRequired": "असली अक्षांश और देशांतर डालें, या खोज से पता चुनें"
+          "positionRequired": "GoWay पर पता खोजें और एक परिणाम चुनें।",
+          "findAddress": "GoWay पर पता खोजें",
+          "positionSelected": "GoWay से स्थान चुना गया",
+          "publicNotice": "GoWay पर नए स्थान सार्वजनिक होते हैं। निजी घर या डिलीवरी का पता न जोड़ें।"
         },
         "claim": {
           "title": "जगह क्लेम करें",
@@ -1555,7 +1693,8 @@
           "placeTaken": "आपकी कोई दूसरी लोकेशन पहले से यह जगह इस्तेमाल कर रही है",
           "publicationFailed": "लोकेशन सेव नहीं हो सकी"
         }
-      }
+      },
+      "deleteAction": "%{name} हटाएँ"
     },
     "members": {
       "convert": {
@@ -1575,7 +1714,7 @@
         "usernameLabel": "संगठन का उपयोगकर्ता नाम",
         "warning": "जो लोग पहले इस स्टोर के लिए काम कर सकते थे और संगठन में नहीं हैं, उनके पास अब पहुँच नहीं है।"
       },
-      "documentTitle": "मेंबर | Mercaria Dashboard",
+      "documentTitle": "मेंबर | Wholesale by Mercaria",
       "loadFailed": "इस स्टोर के लोगों को लोड नहीं किया जा सका",
       "noAccess": "कोई पहुँच नहीं",
       "organizationBody": "इस स्टोर के लिए कौन काम कर सकता है, यह Oxy में संगठन की सदस्यता तय करती है। Mercaria केवल हर भूमिका की अनुमतियों के अपवाद रखता है।",
@@ -1627,7 +1766,7 @@
     },
     "payments": {
       "beingReviewed": "समीक्षा हो रही है",
-      "documentTitle": "पेमेंट और पेआउट | Mercaria Dashboard",
+      "documentTitle": "पेमेंट और पेआउट | Wholesale by Mercaria",
       "dueBy": "इस तारीख तक",
       "itemCount": {
         "one": "%{count} आइटम",
@@ -1689,7 +1828,7 @@
       "cancelPlan": "प्लान रद्द करें",
       "capabilityWithLimit": "%{name} · %{limit} तक",
       "choosePlan": "%{plan} चुनें",
-      "documentTitle": "प्लान और बिलिंग | Mercaria Dashboard",
+      "documentTitle": "प्लान और बिलिंग | Wholesale by Mercaria",
       "endsOn": "%{date} को खत्म होगा।",
       "free": "मुफ़्त",
       "graceEndsOn": "पेमेंट सफल न हुआ तो इस प्लान की अतिरिक्त सुविधाएँ %{date} को बंद हो जाएँगी।",
@@ -1762,7 +1901,7 @@
       }
     },
     "policies": {
-      "documentTitle": "पॉलिसी | Mercaria Dashboard",
+      "documentTitle": "पॉलिसी | Wholesale by Mercaria",
       "loadFailed": "सेटिंग्स लोड नहीं हो सकीं",
       "lowStockAlerts": "लो-स्टॉक अलर्ट",
       "notifications": "नोटिफ़िकेशन",
@@ -1820,7 +1959,7 @@
     },
     "store": {
       "brandColorLabel": "ब्रांड रंग",
-      "documentTitle": "स्टोर प्रोफ़ाइल | Mercaria Dashboard",
+      "documentTitle": "स्टोर प्रोफ़ाइल | Wholesale by Mercaria",
       "loadFailed": "स्टोर लोड नहीं हो सका",
       "nameLabel": "स्टोर का नाम",
       "nameRequired": "स्टोर का नाम ज़रूरी है",
@@ -1838,7 +1977,7 @@
       "created": "टैक्स रेट बन गया",
       "deleteFailed": "रेट मिटाया नहीं जा सका",
       "deleted": "टैक्स रेट मिट गया",
-      "documentTitle": "टैक्स | Mercaria Dashboard",
+      "documentTitle": "टैक्स | Wholesale by Mercaria",
       "emptyBody": "चेकआउट पर टैक्स लगाने के लिए रेट जोड़ें।",
       "emptyTitle": "कोई टैक्स रेट नहीं",
       "inactive": "बंद",
@@ -1867,7 +2006,7 @@
       "success": "स्टोर बन गया"
     },
     "createStore": "स्टोर बनाएँ",
-    "documentTitle": "स्टोर | Mercaria Dashboard",
+    "documentTitle": "स्टोर | Wholesale by Mercaria",
     "empty": {
       "body": "Mercaria पर बेचना शुरू करने के लिए अपना पहला स्टोर बनाएँ।",
       "title": "अभी कोई स्टोर नहीं"
@@ -1891,5 +2030,9 @@
     "price": "कीमत",
     "date": "तारीख",
     "customer": "ग्राहक"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

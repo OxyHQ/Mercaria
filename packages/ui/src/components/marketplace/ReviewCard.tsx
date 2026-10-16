@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import type { Review } from '@mercaria/shared-types';
 import { Text } from '../ui/text';
 import { Rating } from '@oxy.so/bloom/rating';
@@ -9,6 +9,8 @@ import { useRatingDisplay } from '../../lib/rating-display';
 import { useSharedUiLocale, useSharedUiTranslation } from '../../i18n/ui-translation';
 import { formatDate } from '../../lib/date';
 import { useColorScheme } from '../../lib/useColorScheme';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { resolveStoredImageUrl } from '../../lib/stored-image-url';
 
 /**
  * Fallback author label when the Oxy profile does not resolve.
@@ -33,6 +35,8 @@ export interface ReviewCardProps {
   review: Review;
   /** Expanded review list: full text and container width. */
   expanded?: boolean;
+  /** Plain review content inside the media viewer. */
+  embedded?: boolean;
   /** Open this preview in the complete review list. Expanded cards are static. */
   onPress?: () => void;
   /** What this review's rating is about (#76 UI rule 6), for the star label. */
@@ -50,6 +54,7 @@ export function ReviewCard({
   review,
   scopeLabel,
   expanded = false,
+  embedded = false,
   onPress,
   footerActions,
 }: ReviewCardProps) {
@@ -57,6 +62,7 @@ export function ReviewCard({
   const t = useSharedUiTranslation();
   const date = formatDate(review.createdAt, locale);
   const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
+  const avatar = resolveStoredImageUrl(review.author?.avatar ?? undefined, useImageResolver());
   const ratingDisplay = useRatingDisplay();
   const { isDarkColorScheme } = useColorScheme();
 
@@ -107,9 +113,9 @@ export function ReviewCard({
       ) : null}
       <View className="mt-auto flex-row items-center gap-space-8">
         <View className="size-space-24 overflow-hidden rounded-radius-max border border-border-image bg-bg-fill-secondary">
-          {review.author?.avatar ? (
+          {avatar ? (
             <Image
-              source={{ uri: review.author.avatar }}
+              source={{ uri: avatar }}
               contentFit="cover"
               className="size-space-24 rounded-radius-max"
             />
@@ -126,13 +132,15 @@ export function ReviewCard({
       </View>
     </View>
   );
-  const className = `h-auto min-h-[140px] w-full shrink-0 rounded-radius-20 border-[0.5px] p-space-16 ${
-    expanded
-      ? `bg-transparent shadow-shop-s ${isDarkColorScheme ? 'border-white/10' : 'border-[#183b4e0f]'}`
-      : isDarkColorScheme
-        ? 'border-white/20 bg-[#121212]'
-        : 'border-black/10 bg-white'
-  }`;
+  const className = embedded
+    ? 'w-full'
+    : `h-auto min-h-[140px] w-full shrink-0 rounded-radius-20 border-[0.5px] p-space-16 ${
+        expanded
+          ? `bg-transparent shadow-shop-s ${isDarkColorScheme ? 'border-white/10' : 'border-[#183b4e0f]'}`
+          : isDarkColorScheme
+            ? 'border-white/20 bg-[#121212]'
+            : 'border-black/10 bg-white'
+      }`;
   return onPress && !expanded ? (
     <Button
       material="flat"

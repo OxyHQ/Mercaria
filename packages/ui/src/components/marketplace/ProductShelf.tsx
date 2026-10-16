@@ -1,3 +1,5 @@
+import type { ReactElement, ReactNode } from 'react';
+import type { ProductLinkRenderer } from './ProductCard';
 import { View } from 'react-native';
 import { ProductCarousel } from './ProductCarousel';
 import { SectionHeader } from './SectionHeader';
@@ -13,8 +15,8 @@ export interface ProductShelfProps {
    * is the plain text node it has always been — a shelf whose whole content is
    * already on screen has nowhere to send anyone.
    */
-  onPressTitle?: () => void;
-  onPressItem?: (id: string) => void;
+  renderTitleLink?: (child: ReactElement) => ReactNode;
+  renderProductLink: ProductLinkRenderer;
   onToggleSaveItem?: (id: string, nextSaved: boolean) => void;
 }
 
@@ -27,8 +29,8 @@ export interface ProductShelfProps {
 export function ProductShelf({
   title,
   items,
-  onPressTitle,
-  onPressItem,
+  renderTitleLink,
+  renderProductLink,
   onToggleSaveItem,
   cardVariant,
 }: ProductShelfProps) {
@@ -42,14 +44,14 @@ export function ProductShelf({
         header={
           <SectionHeader
             title={title}
-            onPress={onPressTitle}
-            showChevron={onPressTitle !== undefined}
+            renderLink={renderTitleLink}
+            showChevron={renderTitleLink !== undefined}
             inset={false}
             chevronPosition="after-title"
           />
         }
         items={items}
-        onPressItem={onPressItem}
+        renderProductLink={renderProductLink}
         onToggleSaveItem={onToggleSaveItem}
       />
     </View>

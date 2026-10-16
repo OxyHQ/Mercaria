@@ -40,6 +40,7 @@ import {
 } from '@mercaria/shared-types';
 import { and, eq, sql } from 'drizzle-orm';
 import { config } from '../../config/index.js';
+import { assertSameCanonicalOrganization } from '../organizations/directory.js';
 import { log } from '../../lib/logger.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
@@ -129,7 +130,7 @@ async function requireEntity(
     .select({
       status: sql<string>`${definition.statusColumn}`,
       mergedIntoId: sql<string | null>`${definition.mergedIntoColumn}`,
-      name: sql<string | null>`${definition.nameColumn}`,
+      name: definition.nameColumn ? sql<string | null>`${definition.nameColumn}` : sql<null>`null`,
     })
     .from(definition.table)
     .where(eq(definition.idColumn, id))
@@ -188,6 +189,8 @@ async function requireEntity(
  * collisions and records a conflict the job then blocks on. See #694.
  */
 export async function requestMerge(input: RequestMergeInput): Promise<CatalogMergeJobRow> {
+  if (input.entityType === 'organization')
+    await assertSameCanonicalOrganization(input.loserId, input.winnerId);
   if (input.loserId === input.winnerId) {
     throw validationError('A thing cannot be merged into itself.');
   }
@@ -944,7 +947,12 @@ async function runRedirectPhase(
   // 1. The FORMER NAME alias, so search still finds the losing identity by the
   //    name it had (ADR 0002 D16's worked example). `ON CONFLICT DO NOTHING`:
   //    the winner may already answer that name.
-  if (loser.name && loser.name.trim() !== '') {
+  if (
+    definition.aliasTable &&
+    definition.aliasEntityColumn &&
+    loser.name &&
+    loser.name.trim() !== ''
+  ) {
     await db
       .insert(definition.aliasTable)
       .values({
@@ -1148,6 +1156,8 @@ export async function runMergeJob(jobId: string, leaseOwner: string): Promise<Ru
   const db = getDb();
   let job = await findMergeJobById(jobId, db);
   if (!job) throw notFound(`No merge job ${jobId}.`);
+  if (job.entityType === 'organization')
+    await assertSameCanonicalOrganization(job.loserId, job.winnerId);
   let totalRows = 0;
 
   for (;;) {

@@ -569,6 +569,59 @@ The audit and current implementation:
   history and POS resolve them through Bloom/Oxy. Public `/public/v1` image
   `url` fields still resolve at their projection boundary, preserving the SDK
   contract. Legacy rows whose stored value is already a URL still need import.
+- Backend `resolveMedia` now refuses URL-valued IDs. Feed, cart, checkout,
+  draft-order, store, review and SEO projections omit unavailable images; public
+  API galleries keep only resolved images and select their first valid primary.
+  Category art prefers `imageFileId`; its legacy `imageUrl` and immutable order
+  snapshot URLs are displayed only when they name the configured Oxy namespace.
+  The order records themselves are not rewritten. Feed cache v2 invalidates
+  responses assembled before this rule. Full backend validation: 804 files,
+  12,654 tests passed, five skipped (2026-10-10).
+- Device-local history can still contain earlier URL-valued DTOs. ProductCard
+  and ThreadShelf now display those URLs only if they match the current
+  Bloom/Oxy resolver output for the file/rendition. Titles, conversation text
+  and navigation are retained. Two real browser cases at 390/1440px load old
+  history and open its thread/product without any supplier image request; no
+  image or API interception is used in those cases. This validates withholding
+  stale hotlinks, not a completed media import.
+- Order history and cart lines now apply the same resolver check to projected
+  or cached image URLs. Saved items resolve only valid file IDs, using their
+  supplied resolver or the shared Bloom provider; there is no raw-ID/URL
+  fallback. Historical order snapshots themselves remain unchanged. Review avatars and
+  store-menu collection/review thumbnails now use this same boundary; three
+  browser viewer cases reject an injected old external avatar URL. Rich product
+  descriptions apply the same check on web and native, preserving image alt text
+  when the URL is external. Importing those embedded HTML images is still pending;
+  hiding an external source is not a successful synchronization.
+  The remaining successful SVG image interceptors in storefront orders and
+  dashboard list/gallery tests were removed. Their replacement coverage uses
+  missing-file responses and checks usable rows, placeholders and zero requests
+  to supplier origins; successful real-media rendering remains unverified.
+- The home hero now resolves `ProductSummary.imageFileId`; feed/store
+  hydration exposes image/logo/cover IDs and cache v3 invalidates URL-only
+  payloads. Shared product and merchant cards use the same resolver boundary,
+  and new listing history stores IDs rather than projected URLs. Merchant
+  artwork permits bundled files or verified Oxy URLs, without the former
+  arbitrary `{ uri }` fallback. A browser regression injects malformed feed
+  metadata and checks zero supplier requests plus preserved product navigation;
+  it does not intercept image responses or demonstrate a successful upload.
+- Hero and product shelves now share `CatalogImage`, including Oxy request
+  failures and source-keyed image state. Failed images retain a usable product
+  link and a missing-image label; a rotating hero resets only that image, not
+  the animated card. Hover, keyboard focus and press pause independently, so
+  mouse-out no longer changes a keyboard-selected product. Browser coverage
+  exercises deliberately missing Oxy files, rotation and keyboard activation;
+  this is failure/identity coverage, not live-import acceptance. The current
+  local feed still has zero usable file IDs across its 16 product entries.
+  Product/store hero cards now use actual Expo Router links; the previous
+  `Pressable` with `role="link"` but no `href` did not activate with Enter on web.
+- Home category mosaics no longer discard published destinations when artwork
+  is absent; labels and real links remain visible through the shared missing-image
+  state. Their image URLs must match the current Oxy resolver. The original
+  `shopping.spec.ts` illustrated-category acceptance case still fails its image
+  count precondition against the unsynchronized local seed; it was not weakened
+  or replaced by successful image interceptors. Keyboard/link coverage is separate
+  from that outstanding successful-media acceptance.
 - Local preview seeds also put external URLs into image fields. Some category
   and merchant artwork is already bundled locally; this does not prove all
   catalog media is synchronized.
@@ -597,8 +650,7 @@ before migrating stored references.
 
 Remaining work: authorize and verify the live upload path, retain
 source URLs as provenance only, migrate existing media without dropping gallery
-identity/order, remove the legacy URL pass-through in `resolveMedia` together
-with its remaining feed/cart/store/SEO consumers, and verify all browser
+identity/order, audit remaining independent image consumers, and verify all browser
 requests never fetch supplier image origins. Existing unsynchronized listing
 gallery rows now show the normal placeholder instead of fetching the supplier.
 The temporary browser image interceptor was removed after user review: browser
@@ -608,7 +660,69 @@ transport mocks remain in isolated backend tests for error/atomicity coverage.
 New dashboard list rows and bundle recommendation cards already reject URL
 values in `fileId`; this is not a claim that other surfaces are corrected.
 The canonical browser gallery test also supplies deliberately external source
-URLs and proves zero requests to that origin while rendering Oxy images.
+URLs and asserts zero requests to that origin while rendering Oxy images; its
+real-media seed precondition must pass before that case can establish this.
+
+## Storefront product parity — review media upload/acceptance remaining (2026-10-10)
+
+The public Shop [rhode product](https://shop.app/products/8117398765806/peptide-lip-tint-ribbon)
+contains a ten-photo buyer-review strip (`pdp-reviews-media-strip-media-*`). Its
+public `ReviewsSheetContent` module also renders an all-reviews strip and opens
+`ReviewMediaViewer`, with the associated review rather than a product-gallery
+image substituted for it. Mercaria now has `Review.media`, ordered `review_media`
+children (additive migration 0165), and `mediaFileIds` on creation. The backend
+checks each file against the author's Oxy metadata before durable linking;
+public hydration excludes hidden parents and private transaction targets.
+Eligibility consumption, review, dimensions and attachments commit atomically.
+Focused tests include a real PostgreSQL rollback through `createReview`, the
+public media DTO and separately mocked Oxy validation failures; these do not
+prove live uploads. The complete integrated backend run passes 809 files (12,716 tests; five
+skipped), including the new-table governance checks. Backend, shared UI and all
+three app typechecks passed; backend lint has no errors.
+
+Product-wide media reads now page attachments through
+`/reviews/product/:canonicalProductId/media` and `/listings/:id/reviews/media`,
+independently of text review pages; each entry includes its associated review.
+PostgreSQL tests cover older photos beneath newer text-only reviews, ordering,
+pagination totals, hidden reviews and other-target exclusion; HTTP tests cover
+anonymous access and invalid IDs. The frontend client/cache hook is ready.
+
+The strip and Bloom viewer now render on listing, canonical and digital PDPs
+and the full review sheet. The viewer includes the associated ReviewCard and
+its helpful/report actions, follows attachment IDs through pagination, and
+handles image/video failures with retry. Expo-video 56.1.4 is a frontend-only
+player dependency; shared UI receives a render slot. Source geometry was
+checked against Shop's public ReviewMediaViewer module (current build
+0f5768e5d9bc8a19d837645055c9402f1961d641) and the previously captured PDP HTML.
+The current live PDP returned Shop's error shell, so this is not a claim of
+fresh live interaction parity. Browser cases use deliberate missing files and
+503/404 failures, never replacement image bytes or successful-upload fixtures.
+
+The creation form now uploads new product/listing attachments through Oxy's
+authenticated `useUploadFile` and a controlled Bloom FileUpload (native selection
+uses Expo DocumentPicker). It discloses public visibility before selection,
+checks returned metadata and accepts only verified author-owned file IDs.
+The general Oxy FileManagement picker is deliberately unsuitable here: in
+Services 11.1.10 selecting or deselecting an existing file changes its visibility
+before confirmation. This flow never selects or promotes existing private files.
+Eligibility queries and form identity are scoped to the active account; upload
+and publish failures preserve the review draft. Private transaction prompts
+have no public-media uploader.
+
+The review-media pass pinned published Bloom 7.24.1 and Services 11.1.11. Bloom fixes
+first-click star activation and hidden uploader status accessibility at source
+(PR 301); the Services maintenance release verifies the compatible peer range.
+All apps, shared UI and Services resolve one physical Bloom copy. Two real
+browser refusal cases (390/1440px) pass against those official packages, including
+actual star selection, pending upload, transport failure, private-file rejection,
+retry and preservation of the draft. Three hero and two order cases also pass.
+These intentionally do not provide synthetic successful image/upload responses.
+
+Still missing: successful acceptance with real author-owned Oxy files and
+cross-device/native playback validation. Unit tests with metadata and browser
+transport-refusal cases do not prove live uploads. Keep purchase verification and
+moderation intact; supplier URLs or synthetic file IDs are not review media.
+Full Shop parity remains unproven.
 
 # Open-data providers — what is built and what is next
 
@@ -639,3 +753,871 @@ catalogue autopilot converges them and cycles the backfill stages.
   button plus a "Data: {name} · {licence}" line. Still to do: a public
   `/data-sources` page linking each provider, and the ODbL subset export.
   Both need legal review before production.
+
+## Local integration database — 2026-10-10
+
+The published `origin/main` migration `0165_youthful_rictor` is authoritative.
+The unpublished review-media migration was regenerated after it as
+`0166_faulty_inertia` (pre, derived), with shared types rebuilt first. Do not
+apply this sequence over a developer database that already applied the old
+`0165_brave_johnny_blaze` / `0166_typical_kid_colt` sequence or rewrite its ledger.
+
+This session's backend now uses local `mercaria_dev_canonical_20261010` on
+Postgres port 5435. It was created through the canonical migration runner and
+received a data-only restore of all 482 application tables after stopping the
+local API. All 6,379 rows and sorted JSON row checksums matched before restart;
+the original `mercaria_dev` remains untouched as a backup. The restored database
+retains its own canonical migration ledger. Local dump, restore log and per-table
+verification are under `/tmp/mercaria-local-db-preserved-20261010/`; they are not
+repository fixtures. Only the ignored backend `.env` database path changed.
+No production migration or data write was performed.
+
+## Category media boundary — 2026-10-10
+
+CategoryNode, CategoryPill and CategoryTile now carry `imageFileId`; Explore
+child previews carry `sampleImageFileIds`. Both feeds and the tree use the
+product hydration media verifier. This closes Explore's raw `imageUrl`
+passthrough and the chips/grid's arbitrary-URI fallback. Verified old Oxy URLs
+retain compatibility; supplier URLs are withheld until imported. Real database
+projection and negative media-reference tests do not prove file upload or image
+byte availability. The local catalog still needs authorized Oxy media imports;
+the existing illustrated-category acceptance test remains unchanged.
+
+## Catalog media recovery — 2026-10-10
+
+The explicitly approved Oxy application + existing service credential scope grant
+`files:user-media:write` was applied atomically, preserving the six existing scopes
+and keys. The ECS operator receipt is task
+`9fb8c20091f34199ae2e16293cbc955d` in `/oxy/ecs`; both temporary maintenance tasks
+were stopped after completion. A fresh service token confirmed the new scope.
+No production Mercaria catalog rows were changed.
+
+The local `mercaria_dev_canonical_20261010` catalog now has real imported Oxy files:
+66 source references covering 27 listing images, 6 canonical images, 39 category
+images and store logos/covers (sources shared between rows). Local demo images
+were imported under the verified Oxy seed operator account, without rewriting
+fake fixture store/seller ownership. Listing row IDs, variant-image links,
+canonical source observations and ordering were retained. The public source→file
+mapping is `packages/backend/src/scripts/seed-media-manifest.json`; it contains
+actual returned IDs, not image test doubles. Future dev seeds use that manifest
+and validate all references before clearing tables. Add new fixture imagery by
+importing it into Oxy first and recording the returned ID; never fabricate IDs.
+The local ignored backend environment has the authorized application credentials.
+
+The listing create/update service and HTTP schemas now reject URLs as file IDs.
+Connector/channel and canonical import services already synchronize sources before
+writes. Live browser acceptance is `scripts/e2e/storefront/live-catalog-media.spec.ts`:
+1440/390 px, no request interception, actual loaded image dimensions and no supplier
+CDN requests. Both passed. Successful byte delivery was also verified directly
+from `cloud.oxy.so`. This closes the earlier live-media import prerequisite;
+negative fixture tests remain error-boundary tests only.
+
+The dashboard now uploads new product photos through the authenticated store
+media endpoint, deriving ownership from the persisted store. A real local-service
+probe uploaded JPEG bytes through Oxy and fetched the returned public file with
+HTTP 200 (`image/jpeg`, 19,828 bytes). This verifies the storage integration,
+not a signed-in merchant browser journey; the latter still needs a real session.
+Backend integration validation passed 814 files / 12,770 tests (five skipped).
+Test workers explicitly clear application service credentials so local development
+credentials cannot make mocked suites contact production.
+
+The illustrated-category browser acceptance also passes with the real imported
+files: every chip image loads and its Oxy URL contains a file ID returned by the
+feed. A separate failure case aborts the actual imported category file and retains
+the fallback and navigation. The old same-web-origin assertion described bundled
+fixtures and was replaced with the catalog's Oxy ownership boundary.
+
+## Configuration controls and official Bloom adoption — 2026-10-10
+
+All three apps now pin official Bloom 7.26.0 and Services 11.1.12, with one
+physical Bloom copy shared by the apps and Services. Services retains its
+11.1.11 implementation; this maintenance release updates its tested Bloom peer
+range. Named configurations and catalog axes use the published radio-chip API,
+without application keyboard handlers or hidden radio indicators.
+
+Four browser cases cover keyboard selection at 1440px/en and 390px/ar, including
+disabled values, Home/End, clearing a named configuration, one tab stop, stable
+history and mounted gallery. Seven existing selection/failure cases also pass.
+All app/UI typechecks and 148 storefront unit tests pass. Full Shop parity,
+successful author-owned review-media acceptance and import of description HTML
+images remain outstanding; these control checks do not prove those workflows.
+
+## GoWay buyer address selection — 2026-10-10
+
+Saved addresses and inline guest/signed-in checkout now share an official-SDK
+address picker (`geocode.forward`, installed published SDK 0.3.0). It presents
+explicit results, copies structured postal fields, opens review for missing
+facts, and retains a manual recovery path. Recipient, apartment, phone and email
+are separate; no residential Place is created. Searches have debounce,
+cancellation and term/locale identity, stay out of persistent query state, and
+never change checkout validation or immutable order snapshots.
+
+Five browser cases passed: desktop/en and mobile/ar selection, superseded/error/
+partial responses, actual GoWay HTTP/CORS from localhost, and saved-address form
+submission. Cart/auth/address-write fixtures in the form cases are isolated
+transport fixtures, not evidence of a real account write. The live geocoding case
+does not intercept GoWay. All 151 frontend unit tests, frontend types/lint (five
+existing warnings), i18n/RTL/route gates passed. Apps remain on 8160/8161 with the
+local backend on 4160. No SDK patch was needed for address lookup.
+
+## GoWay Wholesale business locations — 2026-10-10
+
+The location editor uses the official GoWay SDK's search and structured geocoder.
+Changing postal fields invalidates the selected position; selecting a fresh
+result is required before creating the public business place. Provider-omitted
+postal fields can retain the merchant's reviewed structured input. Search and
+lookup requests are cancellable, late results cannot select a position, and
+failed creation preserves the draft. Pending creation disables draft changes.
+Selecting or creating a place does not publish a Mercaria location or establish
+a business claim; ADR 0013's claimed-business backlink remains authoritative.
+The public-business CTA is explicit. Private buyer addresses use the separate
+transient geocoder flow above, never public place creation.
+
+Validation: 35 dashboard GoWay unit tests, dashboard types/lint (two existing
+channel warnings), and two isolated browser scenarios at 1440px English and
+390px Arabic passed. Those scenarios exercise SDK transport failures/retries,
+late lookup results, keyboard selection, pending controls and zero Mercaria
+publication writes. They also caught and fixed a mobile overflow in pickup
+identity options by using Bloom RadioGroup. Global i18n 66, RTL 12 and route
+checks passed. A separate real read-only SDK structured lookup for Passeig de
+Gràcia 43, Barcelona returned two candidates from photon/goway; no real public
+place, claim or publication was created. Authenticated merchant writes remain
+unverified live. The installed headless SDK does not provide a map renderer;
+this editor does not invent one.
+
+## Description image imports — 2026-10-10
+
+Pull connectors, push channels and canonical source observations now import
+description image bytes through the same durable Oxy importer as galleries.
+`parse5` handles the HTML tree and decoded attributes; standard HTML `src` values
+use the SDK's public URL, while file-ID columns remain IDs. External responsive
+candidates are removed after importing their fallback. Unsupported source-only
+markup is refused, not silently dropped. Direct catalog writers reject
+unprepared external description images and never import inside transactions.
+The storefront's existing sanitized renderer remains the rendering boundary.
+
+Canonical observations retain the supplier's original HTML as provenance and
+enforce media rights before IO. Pinned descriptions and merchant overrides cause
+no image fetch. Import failures cannot replace existing facts or restore archived
+products. Local read-only inspection found zero descriptions requiring import in
+12 listings and 4,918 canonical products; no historical or production catalog
+backfill was performed.
+
+Validation: the full backend suite passed 815 files / 12,782 tests (five skipped),
+then the final description/canonical suites passed 52 tests, including added
+pin and description-only rights cases. Backend types pass; lint has zero errors
+and ten warnings in unchanged files. A real importer call downloaded supplier
+bytes, uploaded through the authorized Oxy account and fetched the resulting
+public JPEG successfully (HTTP 200, 19,828 bytes). Two desktop/mobile browser
+cases load actual Oxy description images with positive natural dimensions and
+no supplier requests. Only description metadata is varied in those browser
+cases; image requests and bytes are not intercepted. This closes the description
+import prerequisite above, not the still-open full Shop parity or real
+author-owned review-media acceptance.
+
+## Wholesale variant headings — 2026-10-10
+
+Long variant option titles no longer force a horizontal overflow in the product
+editor. On mobile the price follows the wrapping title; desktop retains a
+flexible row. Before the correction an ordinary 83-character title widened a
+390px viewport to 737px and shifted the Arabic page beyond its left edge.
+`variant-layout.spec.ts` now passes at 390px English/Arabic and 1440px English,
+including an unbroken option value, full title retention, visible price and zero
+writes. Dashboard types and RTL checks pass. This is independent of the archive
+dialog's pending upstream Bloom keyboard fix.
+
+## Public store contact sheet — 2026-10-10
+
+Listing More actions now exposes contact for stores with published locations.
+The Bloom marketplace sheet reads public Mercaria locations and official GoWay
+SDK place facts, refreshed on each opening. It checks the current active place's
+trusted location backlink before displaying phone, email, website or address;
+a revoked link hides them and an outage offers retry. Person-to-person listings
+and stores without published locations do not gain invented contacts. Clipboard
+success/failure is visible; cancellation reaches both public read transports.
+Private store-admin/Oxy profile data is never a source.
+
+Validation: frontend/UI types, 153 frontend unit tests, frontend lint (zero
+errors/five existing warnings), i18n, RTL and route gates pass. Two browser
+scenarios pass at desktop English/mobile Arabic with actual clipboard reads,
+keyboard focus restoration, an outage/retry and a revoked backlink. Only public
+location/GoWay metadata is varied; listing data and image delivery remain real.
+This does not prove a live merchant's authenticated GoWay contact publication.
+
+The extra bidi guard exposed a stale test assumption: ICU 78.3 resolves bare
+`ar` to Latin digits. The formatter already follows Intl correctly. The guard
+now covers exact Arabic-Indic output for `ar-EG` and `ar-u-nu-arab`, exact Latin
+output for `ar-u-nu-latn`, and the runtime's CLDR default for bare `ar`, retaining
+isolation assertions. No production formatter behavior was changed.
+
+## Store collection image identity — 2026-10-10
+
+Store collection chips, grid tiles and menu rows now resolve `imageFileId`
+through the shared Bloom/Oxy resolver. An invalid present ID cannot fall back to
+`imageUrl`; older URL-only DTOs are accepted only when the current resolver
+produces that exact Oxy URL. External URLs never become image requests.
+Collection create/update request schemas and the service boundary reject URL
+values in `imageFileId`, including direct service calls. The DTO documentation
+now describes an opaque ID rather than permitting absolute URLs.
+
+Validation: 18 service tests and six request-schema tests, frontend/backend
+checks of types and lint (zero errors; existing warnings), plus two real-image
+browser cases at 390/1440px pass. Browser tests vary only collection metadata;
+the synchronized file ID and delivered image bytes come from the real local
+catalog. Local read-only census found two collections, neither carrying an
+image; no historical data or production database was rewritten.
+
+The same public-contact sheet is also reachable from the store menu. Desktop
+English and mobile Arabic browser scenarios now check the nested Bloom sheet:
+Escape closes contact and returns focus to its menu row; a second Escape closes
+the store menu. Both pass, along with frontend types and lint. No second contact
+store or private profile lookup was introduced.
+
+## Product return-policy sheet — 2026-10-10
+
+The listing's published merchant policy now opens from Shop's 40px tertiary
+action in an opaque Bloom marketplace sheet instead of printing HTML inside an
+accordion. Existing safe rich-text rendering preserves headings, paragraphs,
+lists and links; plain policies remain selectable. Commercial-mode authority is
+unchanged: only the selected connected-store offer supplies this policy.
+
+Validation: two browser cases at 390/1440px check final sheet geometry, opaque
+paint, authored formatting, script exclusion, keyboard open/close and focus,
+and omission for person/retail offers. The existing policy/share journey also
+passes. Frontend/UI types, frontend lint, 153 frontend unit tests and i18n/RTL/
+route gates pass. Policy metadata alone is varied; catalog images remain actual
+Oxy delivery. Separate nested-contact focus validation is being investigated;
+this policy validation does not establish full Shop parity.
+
+## Official Bloom 7.26.1 and Wholesale archive — 2026-10-10
+
+All three apps now pin published Bloom 7.26.1 with Services 11.1.12. The public
+npm tarball SHA1 is `0de148e516354069b467b51cc743ded94311cecf`; installation
+uses the registry and yields one physical Bloom copy. Bloom PR305 fixes empty
+focus traps and focusable chat fallback panels. No dependency files were patched.
+
+Wholesale archive is committed in `187250f1`: cancel/error preserve drafts,
+pending edits and archive exclude each other, and failures remain retryable.
+With official Bloom, dashboard types, 13 hook tests and both desktop/mobile
+archive browser scenarios pass, including focus retention while all actions are
+disabled. Browser archive transport is isolated; no real product was archived.
+All other app/UI typechecks and 153 frontend unit tests also pass.
+
+The expanded storefront run passes descriptions/policy cases and Arabic mobile
+contact, but desktop nested contact failed to return focus to its parent menu
+row once. The Bloom agent is isolating the focus lifecycle before classifying a
+regression or publishing another fix. Preserve that assertion and do not treat
+the dependency update as complete acceptance of all dialogs.
+
+## Remaining Mercaria worktree integration — 2026-10-10
+
+`edb4cc5a` merges the remaining `chore/remove-mongo-mentions` branch, including
+`020ba163` and its prior `7efb37e0` ancestry. The branch was clean and merged
+without conflicts. Its runtime TypeScript is unchanged after comment removal;
+the four semantic deltas are test descriptions and the census of deleted legacy
+guards. The related 72 tests, AGENTS budget and 287 bidi assertions pass.
+
+Every current local branch/worktree commit (including the detached SDK release
+worktree) is now an ancestor of main. The SDK tarball and publisher-census
+`.integration-evidence/` remain in their original worktrees as untracked build/
+verification artifacts; neither was deleted or added to application source.
+This is local integration, not a production deployment.
+
+## Wholesale concurrent drafts and refund reads — 2026-10-10
+
+`13716799` fixes three distinct state bugs. Place contact edits use GoWay SDK
+0.3.0's merge-patch contract: only edited fields are sent, and an explicit empty
+field sends `null`. The acknowledged response updates the query cache before
+clearing only the submitted edits; newer in-flight edits remain. Publication
+forms retain stable location identity across the first persisted ID, combine
+untouched values with the current DTO, retain later edits and remain mounted
+through recoverable refetch errors. Permission/not-found failures still hide
+protected cached data.
+
+Order refund history now distinguishes failed reads from confirmed empty data,
+shows a retry, retains cached history only for recoverable errors, and keeps a
+confirmed empty card hidden during background refresh. Four browser cases pass
+at desktop English/light and mobile Arabic/dark, along with 44 form/cache tests,
+dashboard and E2E types, lint (two existing warnings) and i18n/RTL/routes. Their
+API writes are isolated fixtures, not real GoWay or commercial mutations. The
+refund fixture is a typed physical order with a valid immutable destination;
+absence of an address was an incomplete fixture, not evidence of a production
+address bug under the database's digital-order invariant.
+
+## Bloom rapid-close focus correction adopted — 2026-10-10
+
+All three apps now pin official Bloom 7.26.2 with Services 11.1.12 and resolve
+one physical Bloom copy. The public npm tarball's SHA1 is
+`ff14bb164c90e3f8c6238e6d20bdd07d8b7c9238`; published main/tag is
+`51d1982819427c3ece3dc1da0e42834a9298a21d`. PR307 closes the entry-RAF focus race
+with an already-closing child; PR306's touch-scrolling correction is included.
+The combined upstream tree passed 109 tests, 19 focus scenarios and nine swipe
+checks before publication. Local Metros were restarted after the Bun install.
+
+Mercaria acceptance: all three app/UI types, 155 frontend tests, two nested
+store-contact browser cases (desktop English/mobile Arabic), and four Wholesale
+Archive/GoWay-address browser cases pass. The nested contact cases retain both
+focus assertions and use actual catalog images. These results establish this
+upgrade's acceptance, not full Shop parity or native-device acceptance.
+
+Further store-menu review found that its custom `vars(storeThemeVars(...))`
+wrapper is still separate from Bloom's current scope APIs; the page applies it
+to a plain View. Bloom documents that react-native-css v3 can drop those native
+variables. This needs a measured native/theming audit, not an unverified CSS
+workaround. Store policies also still print their authored body as plain Text.
+These are further parity work, separate from the validated listing-policy sheet.
+
+## Store-menu page motion — 2026-10-10
+
+`StoreMenuTransition` now reproduces the public merchant bundle's incoming
+push/pop movement (40% of page width, 300ms, `.32,.72,0,1`) and initial 150ms
+fade through Reanimated. Progress is bounded and RTL mirrors its direction.
+Bloom's `useDialogFrame` declares the navigation changes and morphs mobile
+sheet height; the mounted Dialog retains its focus ownership. Four browser
+cases pass at desktop English/mobile Arabic with motion enabled/disabled,
+including actual intermediate page positions and mobile height interpolation,
+final geometry, overflow and Escape focus. No image interception. Frontend
+types/lint and i18n/RTL/route guards pass. Native device acceptance is outstanding.
+
+## Product category recommendations — 2026-10-10
+
+The listing page now includes the missing “You might also like” wrapping grid
+below its same-store carousel. This is category discovery, not a personalized
+ranking claim: it uses the existing `/discovery/signal` `new` ordering and its
+server-owned ProductSummary projection, filters the current listing, and keeps
+real prices/ratings/Oxy file IDs. Empty/missing categories omit the section.
+Pagination retains mounted cards through a failed next-page read and offers
+retry; it never substitutes global products for a failed category lookup.
+
+FeedGrid gained an opt-in container-measured column layout: mobile two columns
+and 16px gaps; desktop auto-fit 220px minimum columns and 32px gaps, measured
+from Shop's public product markup. Existing callers retain their class layout.
+All 12 storefront locales have the heading. Two live browser cases verify
+real image bytes, links, category changes and layout; two isolated read-failure
+cases split the real category DTO into pages and prove retry/card retention.
+A fifth browser case fills rows with real root-discovery DTOs under isolated
+category membership and verifies resizing at 390/768/1024/1440/1920px.
+No image request is intercepted. The initial desktop failure was an invalid
+Button appearance in the new component, corrected to Bloom's public outline
+appearance before final types and rerun. Current native acceptance is unproven.
+
+## Merchant reading surfaces and Wholesale recovery — 2026-10-10
+
+MarketplaceSheet now takes its surface from Bloom's resolved background (using
+its public `withAlpha` for the translucent web recipe). The close control and
+rich-text links/tables read canonical tokens, so a local palette can reach them
+without inheriting a root-resolved alias. The shared typography registers the
+missing Shop `heroNormal` (36/42, 600) and `bodyLarge` (16/22, 400) tokens in both
+CSS, the legacy preset and class merging. Eleven description/return-policy/
+contact browser cases, 155 frontend unit tests and UI types pass. Return-policy
+acceptance still requires an opaque surface, now compared with the actual Bloom
+recipe rather than assuming every light theme is white.
+
+Wholesale recovery is committed separately as c6ef5297. Its inner error boundary
+uses the active Bloom context/Button; the outer recovery uses the public
+`buildTheme` with Wholesale's orange recipe and the system mode, without requiring
+a healthy provider. Four isolated real-component browser tests cover both modes
+and keyboard retry; dashboard types/lint and direct i18n/RTL/routes pass.
+
+Exact merchant scope adoption is NOT complete. Bloom PR308 is green and queued
+for merge; no candidate dependency was installed. Working-tree store-policy HTML
+rendering has passed content/motion checks, but two new opposite-mode theme
+checks deliberately still reproduce the old manual scope defect. The prepared
+`/tmp/mercaria-official-color-scope.patch` replaces that manual scope with the
+public 7.27 API after official Bloom and compatible Services publication. Do not
+call those color checks passing or the native-device acceptance complete.
+
+## Policy media write boundary — 2026-10-10
+
+Both `updateStore` and `updateStoreSettings` synchronize images in supplied
+policy bodies through the existing store-owned description importer before the
+single column update. An import failure prevents all requested settings/profile
+writes; omitted fields remain untouched, plain copy is preserved and an empty
+string still clears a policy. Existing policy rows are not backfilled or mutated
+on reads. No new image transport or browser supplier fallback was introduced.
+
+Forty service/HTML-import tests and 37 storage-port/real-Postgres repository tests
+pass, with backend types and lint. The new service tests use the real HTML parser
+and replace the byte-storage port; they do not establish a new live upload run.
+
+## Native appearance dependency — 2026-10-10
+
+Added Expo SDK 56's `expo-system-ui` 56.0.5 to all three apps. Each declares
+automatic appearance, which Android otherwise ignores. Official prebuild now
+emits `expo_system_ui_user_interface_style=automatic` without the missing-module
+warning; all three app typechecks pass. Local native build directories stay
+ignored. A connected Pixel 8a loaded the JavaScript bundle in Expo Go, but its
+unsupported native notifications stopped startup. A real development build is
+being prepared; that failed Expo Go launch is not native UI acceptance.
+
+## Native lazy imports — 2026-10-10
+
+The real development build reproduced Expo 56.0.11's upstream lazy-import
+failure (`Requiring unknown module`), including after a fresh Metro graph.
+Updated the shared Expo pin and all app manifests to SDK 56 patch 56.0.23;
+the official runtime includes expo/expo#46870's native load-before-import fix.
+Native entry files now use the public `expo-router/entry`. No runtime patch,
+disabled lazy loading or error suppression was introduced. All app/UI types,
+155 storefront units and nine browser selection/return-policy cases pass.
+The rebuilt APK starts on the Pixel 8a without that red screen. Its first home
+inspection still shows missing imagery and excessive vertical spacing; native
+visual acceptance remains open. Do not treat successful startup as full parity.
+
+Wholesale accessibility was corrected separately in 6a3821a0: drafts contain
+only explicit flags, retain edits made while a save is pending, and reconcile
+with the authoritative GoWay reread after DELETE204. Forty-four unit tests and
+two isolated browser cases pass; no live writes were made in those checks.
+
+## Official merchant color scope — 2026-10-10
+
+Adopted registry Bloom 7.27.0 (cb6fece83594380464151201872a7ed2d86c53e8)
+and compatible Services 11.1.13 (5271367057682732f542c25572d93bdea0659426)
+in all apps. All resolve one physical Bloom installation. Store pages now use
+public `BloomColorScope` tokens/mode; removed Mercaria's duplicate token aliases,
+parser and portal scope plumbing. Authored policy HTML renders with the shared
+safe rich-text tree. Eight contact/policy/motion browser cases pass, including
+opposite app/store modes, nested contact colors, global-theme preservation and
+RTL/reduced motion. The initial two final assertions captured the global theme
+before app hydration; the test now waits for the visible menu and resolved app
+theme before comparing it across the interaction. All app/UI types pass.
+
+## Native media and routed surfaces — 2026-10-10
+
+The Pixel's blank images were a styling boundary error: raw Expo Image does not
+resolve NativeWind className into its native style. All three apps and shared
+components now consume one shared `Image = styled(ExpoImage, {className: 'style'})`
+adapter. Category chips/mosaics and a product photo/logo are visibly loaded on
+the physical Pixel from actual Oxy files; neither media responses nor file IDs
+were substituted. Seven hero/contact/policy browser cases, all app/UI types,
+frontend lint and i18n/RTL/routes pass. Native nested stacks now have transparent
+scene backgrounds so Bloom's AppShell paints the surface; this fixes dark-mode text
+tokens appearing on React Navigation's default light background. The Pixel
+product screen confirms the dark Bloom surface and readable foreground.
+
+Native typography is still incorrect in installed react-native-css 3.0.7:
+its compiler/runtime multiplies a 20px line height by font size18 to produce360.
+This was reproduced from the actual compiler and native hierarchy. Upstream's
+official NativeWind5.0.0-rc.0/react-native-css3.1.0-rc.0 pair fixes it, but Bloom
+and Services must adopt compatible declarations and pass their checks before
+Mercaria upgrades. That work is in progress; no local runtime patch was applied.
+
+Wholesale hours need an upstream contract fix before changing the editor:
+published GoWay SDK0.3.0 updates the entire `openingHours.intervals` collection
+without a revision condition. A client GET followed by PATCH can still overwrite
+another day's concurrent change. The merchant agent is inspecting current GoWay
+remote main in an isolated worktree for an atomic day-level patch and SDK support.
+It must preserve opening-day ownership of overnight/24-hour intervals and reject
+partial edits of unknown raw schedules. No production rollout or client use of
+an unavailable endpoint has been authorized by this implementation step.
+
+## Review rail, theme authority and upstream release state — 2026-10-10
+
+853e1ce5 fixes the review viewer's horizontal thumbnail offsets in RTL. The
+new actual-browser regression passed in English and failed in Arabic before
+the fix; afterwards all five review-media cases pass, including resize and
+return to the first attachment. Missing-file fixtures exercise navigation only,
+never successful media delivery. Shared UI types and RTL gates pass.
+489b56fd removes duplicate NativeWind mode resolution from `useColorScheme`;
+Bloom's `theme.mode`/`theme.isDark` now accompany its own color values. Ten browser
+review/policy/theme checks pass, including opposite merchant/app scopes.
+
+Bloom 7.28.0 is now published from OxyHQ/Bloom#309, with the official NativeWind
+5.0.0-rc.0 / react-native-css 3.1.0-rc.0 pair. Public tarball SHA1 is
+870befb9be7c22b5e18ed408f541c1146da36eb4. Compatible Services 11.1.14 is publicly verified too (SHA1
+8c705291be418c8a79617cc3c55f3e12ce366e1d). It passed 1040 tests on both SDK56 and
+SDK57. Commit e5244298 installs Bloom7.28.0/Services11.1.14 with the official RC
+pair in all three apps. Four client typechecks, doctor and nine theme/typography
+checks pass. Metro was restarted. Autolinking differs only in the Services JS
+package version, so the existing Pixel development build remains usable.
+
+The RC fixes alpha-color compilation but DOES NOT fix Tailwind's pixel-valued
+`var(--tw-leading, 20px)` fallback. A real runtime probe still produced360px.
+Commit d5b2a25c adopts Bloom's standard unitless line-height convention in both
+Mercaria token definitions: 20/18 means20px at18px font size, consistently on
+web/native and under font scaling. Three browser cases measure all20 roles.
+After clearing Metro, the physical Pixel8a's Recently viewed text frame shrank
+from945px to58px including native font padding. Evidence:
+`/tmp/mercaria-native-relative-typography-{loaded.png,fresh.xml}`. The price-pill
+background remains broken even AFTER RC adoption: the direct compiler tests
+pass, but the actual Metro serialization boundary does not. See the native alpha
+follow-up below; those compiler checks are not native rendering acceptance.
+
+Commit c07201f0 keeps common product detail photos when selecting a variant,
+excludes photos explicitly assigned to other configurations, and prepends the
+selected photos. Nine unit checks and two browser cases pass; the gallery stays
+mounted and opaque throughout the change at390px/1440px. Video DTOs landed as
+3e00470e, but backend/video editor/player integration is still in progress in
+`/tmp/mercaria-catalog-video-media`. Videos are not yet a completed feature.
+
+GoWay's atomic weekday update is ready in OxyHQ/GoWay#110 (bcddf0c), with all
+remote CI checks green, 943 backend tests and 192 SDK tests passing. It extends
+the existing authenticated PATCH with `openingHoursDays`, preserves omitted
+days under the existing row lock, rejects partial edits to unknown schedules,
+and checks the resulting weekly interval limit. Current GoWay treats every
+empty week as unknown; the change preserves that contract rather than claiming
+an all-week closure. The isolated worktree is `/tmp/goway-atomic-weekday-hours`.
+An asynchronous user approval question is pending: merging this PR automatically
+deploys the shared production API through GoWay's `.github/workflows/ci.yml`.
+Do not merge/deploy until answered. After rollout, publish the SDK and update
+all Mercaria pins together before using the new field. GoWay main's SDK0.4 has
+taxonomy changes, but the audit found no removed exports in Mercaria's consumers;
+recheck visit-us capability labels because 0.4 translates all twelve locales.
+
+
+## Native alpha serialization and web image boundary — 2026-10-10
+
+Commit 04a77bfa gives the shared image adapter a web entry that forwards Expo
+Image directly. Adapting web className into style mixed RN Web compiled markers
+with absolute-fill values, producing styleq errors and a zero-sized merchant
+cover. The browser regression verifies the real 330×397 cover and no such errors.
+Metro needed a restart to pick the new platform entry. Commit c0b3bc12 enables
+Bloom AppShell safeArea on native; the physical Pixel home now clears the status
+bar. The nested settings header does not apply safeArea twice.
+
+Native price backgrounds are still unresolved. The actual Android bundle
+`/tmp/mercaria-728-native.bundle` has the current RC runtime, but JSON serializes
+omitted color-mix weights as null. Runtime then rejects that descriptor and
+removes backgroundColor. A temporary native style probe confirmed the missing
+property with valid theme variables; it was removed from ProductCard after the
+diagnosis. JSON-roundtrip native renderer probes reproduce all four failures.
+`bun scripts/probes/native-alpha-serialization.mjs` is a standalone diagnostic
+that currently exits1 for all twelve app/color pairs, using the actual Metro
+inlineVariables:false setting. It does not alter dependencies or hide the error.
+Official fix remains open at https://github.com/nativewind/react-native-css/pull/464
+and the matching issue is https://github.com/nativewind/nativewind/issues/1870.
+No later official release was available when checked. Do not mark native alpha
+fixed based on in-memory compilation, or replace it with a local dependency patch.
+
+Bloom7.29/Services11.1.15 is being released separately for the public gallery
+onOpenChange lifecycle contract (OxyHQ/Bloom#310). This does not fix NativeWind
+serialization. Catalog video integration remains incomplete until backend/editor
+changes and the storefront player lifecycle are integrated and verified.
+
+Wholesale/catalog-media review also found that Oxy GET/assets/:id omits its
+existing visibility field. Draft OxyHQ/oxy#1625 adds the real persisted value,
+with seven route tests and API build passing. It has not been merged/deployed.
+Mercaria continues to require active, public, owner-authorized media; do not
+assume public visibility when absent. Successful live merchant/review uploads
+remain unverified until that upstream contract is deployed and exercised.
+
+
+## Mixed catalog/editor integrated, storefront playback work — 2026-10-10
+
+Backend417a131f and Wholesale0d0c798e are on main. Migration0167 was applied ONLY
+to local mercaria_dev_canonical_20261010 through src/db/migrate.ts after dry-run
+confirmed exactly one pending migration. CATALOG_VIDEO_WRITES_ENABLED remains
+off. The merchant worktree is clean and preserved at /tmp/mercaria-catalog-video-media.
+Its full suite had817 passing files and only two migration marker gates failing
+before correction; both gates plus canonical-only video/condition concurrency
+now pass in149 targeted tests. Seven merchant browser cases pass. A separate
+404/retry/close probe on integrated8161 records no pageerror and no retained video.
+
+Bloom7.29/Services11.1.15 official tarballs are installed by bde419f8. SHA1s:
+276458e2ba5eec9dde54b3c8759696884ba95acc and
+6795b8297e9d01479398c68cb769d45d6df125e2. All four clients typechecked before
+the final gallery loading-state change; UI/frontend types pass again afterwards.
+Doctor passes with the existing core/contracts October18 upgrade warnings.
+Metro storefront8160 and Wholesale8161 were restarted for these packages.
+
+Storefront mixed gallery now uses app-owned Expo players and Bloom surfaces.
+Nine selection/missing-video browser cases pass; three video cases pass after
+729 adoption, including inline detach/reattach through fullscreen close. These
+are negative transport/lifecycle acceptance, NOT successful playback. Constructor
+sessions avoid Expo web replaceAsync's unconditional play/unhandled rejection;
+retries replace only the failed session and retain the active gallery slot.
+A follow-up Bloom7.30 public renderVideoOverlay slot is in development by the
+Bloom agent to show errors that occur while fullscreen is already open. Do not
+claim that case or real playback complete yet. Native alpha remains independently
+blocked on react-native-css upstream464, with no local dependency patch.
+
+OxyPR1625 now has all remote CI green. A NEW asynchronous approval question asks
+whether to merge/deploy it; API changes trigger production deploy via Oxy's
+.github/workflows/deploy-aws.yml. No answer yet. This is separate from the still
+pending GoWayPR110 approval; do not deploy either on elapsed time alone.
+
+## Native Lucide token delivery — 2026-10-10
+
+Shared Icon now uses NativeWind's public nativeStyleMapping to deliver resolved
+text color to Lucide's color prop (and currentColor fills); explicit colors do
+not acquire a competing default foreground class. Direct Lucide className uses
+in storefront, shared marketplace and Wholesale collection mapping now use it,
+including dynamic notification/feedback glyphs. ProductGallery's expand button
+uses Bloom's public renderLeadingIcon size/color contract.
+
+All four client typechecks pass. Eight existing policy/theme browser checks
+pass; the theme compiler checks still do NOT establish native serialized alpha
+acceptance (see upstream464 above). Separate actual-page light/dark probes show
+product-menu/report SVG strokes match their theme text. Pixel8a screenshots
+/tmp/mercaria-native-icon-after.png and /tmp/mercaria-native-icon-menu.png confirm
+the previously black ellipsis and destructive report glyph now have theme color.
+Wholesale's existing toBloomIcon adapters were independently checked against
+Bloom's documented contract and in both browser themes; no replacement needed.
+
+## Bloom7.30 adoption waiting for public registry — 2026-10-10 13:26UTC
+
+Icon correction4507df39 is complete and running on both local Metros. BloomPR311
+merged as d7d4f5e7bda631ff8d7eeec917c2edcbda7c7621; the agent reports bun publish
+exit0 at13:19:32UTC, expected SHA1 b5c9c5f9d6a30629ce02d459f49523011bf3ce3c
+(30,859,430bytes). At13:26:07, independent public version and packument reads
+still omit730/return404, including no-cache/fresh-query reads. Installed packages
+remain729/Services1115; do not use a local tarball or republish to bypass this.
+Bloom agent watchers37973/8287 own publication and verification; Services1116
+waits for public730 (forward-port1626 merged19c0308f). No production approval
+has arrived for Oxy1625 or GoWay110.
+
+Two new browser cases in scripts/e2e/storefront/product-video.spec.ts are an
+UNCOMMITTED regression test for the pending overlay integration. Both fail on729
+at the expected missing fullscreen alert, at390/1440px:
+/tmp/mercaria-open-video-before.log. Preserve this work and complete it after
+verified official730/1116 adoption: pass renderVideoStatus through Bloom's new
+renderVideoOverlay, render inline status only for the active non-fullscreen
+surface, rerun the five video cases. Retry intentionally disposes the viewer
+snapshot and returns to the same inline slot; Bloom has no public replacement
+API for an already-open snapshot. Do not add timed reopening or mutate internals.
+Then update docs/catalog-media.md and all app/UI pins, validate types and doctor,
+restart Metros and commit the tested implementation with these cases.
+
+## Official Bloom7.30 adopted and fullscreen errors fixed — 2026-10-10
+
+Supersedes the registry-wait section above: public Bloom7.30.0 and
+Services11.1.16 tarballs independently downloaded and SHA1-verified before normal
+bun install. Bloom b5c9c5f9d6a30629ce02d459f49523011bf3ce3c;
+Services f9c9246b7679613a68907297fb058a2184792899. All three apps pin these
+versions; UI's peer floor is7.30. The public renderVideoOverlay slot now receives
+app-owned status/retry controls, with inline status only for the active surface.
+Both previously red fullscreen-failure cases pass; retry replaces the failed
+session and returns to its inline slot. Five video plus seven selection browser
+cases pass (/tmp/mercaria-bloom730-browser.log); all four client typechecks pass
+(/tmp/mercaria-bloom730-types.log). Doctor passes with existing Core/Contracts
+upgrade warnings only. Real authenticated upload and successful playback remain
+unverified; Oxy1625 and GoWay110 production approvals are still unanswered.
+
+Metro restart exposed an ENOENT race when Playwright removes its previous output
+directories during Metro's crawl. da0dd878 excludes only this checkout's generated
+test-results/playwright-report and nested .worktrees in all three Metro configs.
+Both apps stayed running through the passing browser suite (8160/8161).
+
+## Native variant grid height isolated — 2026-10-10
+
+Pixel8a's twelve shade pills occupy three40dp rows separated by8dp, but their
+container measures568dp instead of136dp, leaving432dp blank before Quantity.
+An actual-device control gives136dp with plain RN Pressable; adding Bloom's
+same inner content View produces568dp, as do Bloom style/className controls.
+Temporary measurement components were restored from a pristine backup: none
+are in the app. Logs /tmp/mercaria-native-variant-intrinsic-proof.log and native
+screens /tmp/mercaria-product-buy.png document the original issue.
+
+Bloom agent reproduced this with RN0.85.3's exact Yoga plus YGErrataAll (RN's
+compatibility mode); the default engine mode alone did not reproduce it. Work is
+in a separate Bloom branch: preserve content/loading identity and explicit-width
+justification while removing intrinsic growth inflation. Do not patch installed
+packages, change Mercaria spacing to conceal the error, or claim it fixed before
+an official release and another physical-device check. Native serialized alpha
+remains independently unresolved upstream (react-native-css PR464).
+
+## Merchant scroll ownership and Wholesale exceptions — 2026-10-10
+
+Wholesale fbccdc2c fixes dated-hours request races with the current GoWay SDK:
+fields are disabled during POST, errors retain the draft, deleting cannot issue
+duplicate pending requests, GET errors offer Retry and drafts belong to placeId.
+Types/lint,26 pure tests and2 browser scenarios (1440EN/390AR) pass. No deployment
+or live service write; the separate atomic weekly-hours rollout stays pending.
+
+Pixel8a exposed invisible merchant review pages after menu→reviews. The header
+and expanded panel remained visible, but UIAutomator reported only5 text nodes;
+no review content appeared. Temporary probes showed incoming progress=1 and a
+fully measured4287dp page. Fade-only and slide-only controls rendered; the full
+transition plus an inner ScrollView detached its content. All probes are restored.
+The actual correction removes the three nested ScrollViews (menu/reviews/policy):
+Bloom Dialog already owns scrolling and natural-height measurement. Page Views
+preserve all spacing and full fade/translation. No clipping override, animation
+delay or dependency patch remains. Pixel now exposes44 text nodes including the
+first review, and eight upward swipes reach Page1of2/Next. Screenshot before:
+/tmp/mercaria-native730-store-reviews.png; after:
+/tmp/mercaria-native-store-reviews-scroll-owner.png. Six browser motion/policy
+cases pass and frontend types pass. The toolbar currently still scrolls with the
+body on native; moving it to Bloom Dialog's official header.left/right slots is
+remaining work (avoid claiming pinned-header acceptance).
+
+Bloom Button release continuation: PR312
+https://github.com/OxyHQ/Bloom/pull/312 headc4cb4d692ee384ad9212b77a7edaf49a16c80e08
+is in CI38057179679 (build+nine shards, no failure reported). Local17 Yoga cases
+pass on RN0.83.2 and0.85.3,225 other tests and16 Chromium cases pass, source and
+consumer types/build/package/freshness pass. Agent-owned publisher73259 waits for
+merge/rebuild; watcher87953 waits for official7.30.1 metadata/tgz verification.
+Services11.1.16 already admits the patch. Do not adopt unpublished bits or start
+another publisher. After public verification, pin all3apps and UIpeer floor, bun
+install, repeat affected checks and Pixel grid136dp acceptance. Main is local
+118commits ahead of origin at8df62ecb; do not treat that as a production rollout.
+
+## Native merchant header and card typography — 2026-10-10
+
+273e60de completes the previously pending merchant header: public Bloom Dialog
+header.left/right own the memoized Back/Close and Share/Follow controls. Pixel8a
+Back bounds [42,132][158,247] and Share [923,132][1038,247] remain unchanged after
+eight review-list swipes to pagination; Back returns to the menu. Eight browser
+motion/policy/sticky-header cases pass, frontend types pass, lint has no errors.
+Native RTL/reduced-motion timing is still unverified. Screenshot:
+/tmp/mercaria-native-store-sticky-end.png.
+
+06aa9601 fixes the i18n guard's bundle ownership lookup for t('ui.*'): shared keys
+are checked against the shared bundle instead of each app. No alias workaround
+or duplicated strings. Full guard and all68 mutation cases pass.
+
+f392a61d removes inherited leading-[16px] from ProductCard's wrapping Pressable;
+each child already owns text-xs typography. Pixel title bounds shrink from504px
+to48px. Direct leading-[40px] on Explore's heading correctly measures105physical
+pixels (40dp), so there is no indiscriminate replacement of direct text classes.
+UI typecheck and two real-catalog keyboard/new-tab browser cases pass. Evidence:
+/tmp/mercaria-native-card-leading-{before,after}.png and
+/tmp/mercaria-card-{before,after}.xml. No fixed-height or clipping workaround.
+
+Bloom PR312 head d38d9a8e12ee782e4ae3bb0a04055774e43b21d6 passed head CI after
+regenerating its adoption matrix. Merge-group38057973742 is still running; agent
+owns publisher37872 and public watcher87953. Installed Bloom remains official
+7.30.0 until7.30.1 is published and independently verified. Native alpha remains
+separately blocked on upstream react-native-css PR464 (still open).
+
+Wholesale f3b0caa0 distinguishes pending/failed/empty GoWay claim reads. A failed
+read offers SDK refetch, preserves cached claim data, and does not expose the
+claim-creation form; only a confirmed successful eligible state does. Dashboard
+types/lint and two browser cases (1440EN/390AR) pass, without real GoWay writes or
+deployment. Logs /tmp/mercaria-merchant-claims-{types,lint,browser}.log.
+
+68c268b2 fixes native locale persistence: the provisional device locale could
+write the opposite next-launch direction, then hydration skipped restoring the
+saved locale because the RUNNING process's isRTL already matched. Always persist
+forceRTL; only the restart-required result compares the running constant. Three
+new boundary cases fail before/four pass after, direction guard/frontend types
+pass and lint has0errors/5existingwarnings. Pixel Arabic picker + repeated cold
+launches now leave forceRTL=true and mirror merchant and bottom navigation.
+English was restored through the real picker afterward (forceRTL=false).
+
+dc0d60b4 adopts PUBLIC Bloom7.30.1 in all3apps/UIpeer; Services11.1.16 unchanged.
+Metadata/tarball independently verified SHA1
+3e76f0787baeb604acc6f596e1f0afdaf752ee42,30861406bytes. Four client typechecks,
+Oxy Doctor (existing Core/Contracts upgrade warnings only) and13browser cases
+(selection + merchant motion/stickyheader, EN/AR) pass. Local Metro PIDs now
+1845054 storefront8160 (session93826),1845043 dashboard8161 (session94139).
+
+Cold-start Arabic revealed merchant review body still invisible while header
+works. /tmp/mercaria-rtl-reviews.png and /tmp/mercaria-7301-rtl-reviews.xml expose
+no body text. Temporary logs report incoming progress1,rtltrue,width411.43,
+height4286.86,x0,y0. Removing page overflow:hidden appeared to help after Fast
+Refresh (25visibletextnodes), but FAILED cold-start acceptance, so that change
+and all transition probes were restored. Do NOT claim it fixed. Bloom agent
+investigates read-only; suggested next control is Dialog morph={false} (not
+useDialogFrame morph:false, which keeps its fade). No dependency patch is allowed.
+
+Official7.30.1 Pixel acceptance: temporary onLayout on the unmodified swatch grid
+reports Shade height136,width379.4286,y26.2857 (before568dp). Probe was restored
+from /tmp/mercaria-variant-before-7301-measure.tsx. Evidence line BLOOM_7301_GRID
+in /tmp/mercaria-metro.log and /tmp/mercaria-7301-product.png. No sizing override.
+
+Merchant cold-RTL controls now isolate the size morph: Dialog morph=false makes
+body visible (/tmp/mercaria-morph-off-reviews-ready.xml); restoring the normal
+Dialog and setting only useDialogFrame({key:page,morph:false}) also works, both
+loading and40reviews after the query settles (/tmp/mercaria-frame-no-resize.xml,
+/tmp/mercaria-frame-no-resize-settled.xml). Thus Bloom's fade AND Mercaria's full
+opacity/translate animation can coexist; investigate panel height pin/morph and
+the loading→tall-content arrival. All temporary overrides restored to defaults.
+Bloom agent owns further root-cause reproduction in its worktree; no new release
+without reproduction/review. First two morph-off XMLs ending -menu/-reviews were
+captured on Home because startup navigation was not ready; they are NOT evidence.
+
+Product merchant header now uses official Bloom Screen.header with measured
+native clearance, keeping the same gallery/variant across responsive changes.
+8 browser cases (4 header/resize,4 existing merchant links), frontend types/lint,
+route/RTL/i18n guards pass; final spacing change rechecked by4headercases.
+Pixel8a EN/dark: merchant label [179,154][733,216] and Visit store
+[799,186][991,234] unchanged after2swipes; tapping opens real milkmakeup store.
+Evidence /tmp/mercaria-product-header-{before,after,visit}.xml and
+/tmp/mercaria-product-header-native.png. Product details regain captured Shop
+bottom clearance32mobile/64desktop. Native Arabic header acceptance not claimed.
+
+f0c98a75 fixes Wholesale inventory late-read overwrite after a successful PATCH
+while its panel is folded: cancel exact query before publishing confirmed DTO.
+2new cases fail before,4hooktests +6browsercases and dashboard types/lint pass.
+Other-location drafts survive; transport tests perform no real commercial writes.
+
+Bloom explicit500→600 diagnostic also reproduced invisible body/rollback500;
+adding measurement logs produced a visible600 result instead. Thus size-morph
+failure is timing-sensitive, not limited to natural-height targets. Both
+StoreMenu probes restored byte-for-byte before header native acceptance. Agent
+is preparing an isolated RN/Reanimated reproduction; stale settled-style collector
+is a hypothesis, not a proven cause. Do not publish a purported fix yet.
+
+9228d459 extends confirmed-write cache protection to product edits and variant
+create/update/delete: cancel exact preceding detail read before publishing DTO.
+8 new QueryClient cases fail before/pass after;12hooktests total,4desktopbrowser,
+dashboard types/lint pass. Isolated test transport only, no production writes.
+
+Bundle component and upsell navigation now takes app-owned link renderers rather
+than onPress-only destinations. Listing/variant and canonical/configuration IDs
+remain explicit; images/titles/configurable-pack action support keyboard/new tabs.
+Stale canonical configurations expose no href until data is current.9browsercases
+(new links at390/1440 plus selection/refusal/no-remount),UI/frontend types,
+frontend lint and route/RTL guards pass. Carousel geometry EN/AR also passes.
+No successful image interception; real Oxy delivery is retained.
+
+Native investigation made progress beyond a hypothesis: minimal RN/Reanimated
+300→450/opacity0→1 keeps final state normally, but with diagnostic2600ms JS stall
+rolls back to300 and loses text. The REAL Mercaria review transition also logged
+3038.94ms JS gap without synthetic stall and then lost its body. Official upstream
+PR9527 fixes settled-style eviction/invalidation; public Reanimated4.3.4 includes
+it. Agent is adopting that verified patch (5manifests+lock, RN/Worklets unchanged)
+and rebuilding Android; native acceptance is NOT yet complete. Expo56.0.23's
+recommended exact4.3.1 will warn; do not silence it with exclude/override. OldAPK
+preserved /tmp/mercaria-native-before-reanimated434/mercaria-reanimated431.apk.
+
+ReviewSummaryCard now separates initial loading/error/confirmed empty states and
+exposes scoped retry on listing, canonical and3D product pages. Transient failed
+refreshes retain cached ratings/cards; product and listing failures/retries remain
+independent. New UI-owned copy ships in all12bundles.3browsercases pass (1440EN,
+390AR with actual offline/reconnect and stale cache; combined scopes andcanonical
+route). Final390AR visual rerun passes; initial-error screenshot inspected at
+/tmp/mercaria-review-summary-error-390-ar.png. UI/frontend types, frontend lint
+(0errors/5priorwarnings), i18n scan +73guardcases pass. No review/media success
+substitution in transport tests; retry reaches the real local review endpoint.
+
+b7db630f fixes i18n source census for actual test conventions (.test/.spec.ts[x],
+__tests__ directory). Fixtures no longer count as app copy OR as translation-key
+usage.73tests verify true tests, production near-matches and test-only dead keys.
+New cached-product tests keep their original fixture labels.
+
+Official Reanimated4.3.4 native acceptance has progressed: rebuilt APK's isolated
+normal/stall controls retain449.9048dp and text, then real cold EN and AR merchant
+review flows retain loaded bodies with original animations/Bloom7.30.1.8web menu/
+contact cases pass. Agent finishes physical scroll/Back andEnglish restoration;
+manifest/lock/native-runtime docs commit remains agent-owned until final report.
+Native alpha serialization and real video/media acceptance remain separate open
+items; this does not claim full Shop parity or resolve production approvals.
+
+fc4e76c2 completes official Reanimated4.3.4 adoption and native verification.
+Pixel real EN/AR cold-start reviews, scrolling to pagination and Back PASS; final
+English restored through UI+cold start (/tmp/bloom434-restored-en.xml). Root
+independently inspected Arabic screenshot and XML pagination/Back evidence;
+installed version4.3.4 confirmed. Probes gone, clean worktree. Metro8160/8161
+sessions51598/11958 are active. Oxy cold-boot application-classification timeout
+still appears in native logs/LogBox and is NOT fixed by this animation patch.
+Next native audits must keep it and the alpha-serialization defect distinct.
+
+## Cart vendor navigation and native follow-up — 2026-10-10
+
+Home's cart shelf now supplies real Expo links for the catalogue logo and, when
+seller and vendor are the same, the seller name. The full cart uses the same
+route renderer for store handles and stable Oxy seller ids. Missing store handles
+render ordinary content; a Mercaria-retail seller label never links to its
+catalogue vendor. Checkout remains a group-scoped action. Browser regressions
+cover keyboard/new-tab navigation and checkout at 390/1440px, plus the retail,
+missing-handle and person projections without substituting image transport.
+
+Rechecking react-native-css found no published correction for serialized alpha:
+PR464 remains open and the installed resolver still fails after JSON serialization.
+The settings miniature's variable warning is a separate upstream false positive:
+the real renderer preserves its child identity when inline vars exist throughout.
+Do not add `will-change-variable` merely to hide that warning. Root made no
+runtime/library changes for either issue. Public Oxy classification succeeded on
+two measured native cold starts but approached its deadline; see
+`docs/native-animation-runtime.mdx` for measured JS pressure and the remaining
+profiling task. All temporary boot instrumentation was removed.

@@ -187,10 +187,17 @@ describe('THE GATE: every route is reachable, or says why it is not', () => {
 
     expect(
       deliberate.map((entry) => `${entry.app}${entry.route}`).sort(),
-      'the DELIBERATE list changed. A route unreachable BY DESIGN is rare — the only one is a ' +
-        'provider return URL. Adding one means in-app navigation must never reach that screen; ' +
-        'if the truth is "nobody has wired it yet", it is awaiting_product_decision instead.',
-    ).toEqual(['frontend/checkout/return']);
+      'the DELIBERATE list changed. A route unreachable BY DESIGN is rare — a provider return ' +
+        "URL and the Settings dialog's deep-link bridges. Adding one means in-app navigation " +
+        'must never reach that screen; if the truth is "nobody has wired it yet", it is ' +
+        'awaiting_product_decision instead.',
+    ).toEqual([
+      'frontend/checkout/return',
+      'frontend/referral-partner',
+      'frontend/settings',
+      'frontend/settings/addresses',
+      'frontend/settings/feedback',
+    ]);
 
     expect(
       awaiting.length,
@@ -239,13 +246,16 @@ describe('POSITIVE CONTROLS: the walk really is transitive', () => {
    * Its shelf life is the shelf life of those edges: if one is removed, this
    * fails alongside the gate itself, which is the correct outcome and not a
    * reason to soften it.
+   *
+   * Five now, by a decision rather than a lost edge: `/referral-partner` stopped
+   * being a screen when Referrals became a page of the Settings dialog, and is a
+   * deliberate deep-link bridge in `ROUTE_DISPOSITIONS`.
    */
   it("#363's six: every screen that commit wired is reachable", () => {
     const result = reachabilityOf('frontend');
     const wiredBy363 = [
       '/brands/[handle]',
       '/families/[handle]',
-      '/referral-partner',
       '/shopping-agents',
       '/watchlists',
       '/watchlists/[watchlistId]',
@@ -257,25 +267,20 @@ describe('POSITIVE CONTROLS: the walk really is transitive', () => {
         'them, it would have called the tree clean when two shipped features (#97, #147) were ' +
         'unreachable — which is the exact failure this gate exists to prevent.',
     ).toEqual([]);
-    // The vacuity floor on the control itself: all six must still EXIST, or
+    // The vacuity floor on the control itself: all five must still EXIST, or
     // "none missing" is what a deleted-screen list also reports.
     const routes = new Set(result.routes.map((route) => route.route));
-    expect(wiredBy363.filter((route) => routes.has(route))).toHaveLength(6);
+    expect(wiredBy363.filter((route) => routes.has(route))).toHaveLength(5);
   });
 
   it('reads a route that travels through a `RoutePath`-typed helper', () => {
-    // `account-section.tsx` navigates with `go = (route: RoutePath) => ...` and
-    // passes `"/(app)/watchlists"` as a CALL ARGUMENT — a position no
-    // `router.push`/`href` rule sees. Five of the storefront's account
-    // shortcuts travel this way; before this rule existed they all reported
-    // unreachable, contradicting #363, which is how the gap was found.
+    // `StorefrontSettingsDialog.tsx` navigates with `go = (route: RoutePath) => ...`
+    // and passes `"/(app)/watchlists"` as a CALL ARGUMENT — a position no
+    // `router.push`/`href` rule sees. The storefront's account shortcuts travel
+    // this way; before this rule existed they all reported unreachable,
+    // contradicting #363, which is how the gap was found.
     const result = reachabilityOf('frontend');
-    for (const route of [
-      '/watchlists',
-      '/shopping-agents',
-      '/referral-partner',
-      '/settings/addresses',
-    ]) {
+    for (const route of ['/watchlists', '/shopping-agents', '/orders']) {
       expect(result.reachable.has(route), `${route} should be reachable via go()`).toBe(true);
     }
   });

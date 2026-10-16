@@ -11,7 +11,7 @@
  * ONLY place order DTOs are built; controllers never hand-assemble order shapes.
  */
 
-import { deriveOrderItemCondition } from '@mercaria/shared-types';
+import { deriveOrderItemCondition, isOxyFileId } from '@mercaria/shared-types';
 import type {
   BuyerContactProjection,
   CurrencyCode,
@@ -55,7 +55,11 @@ import { getProfiles, type OxyProfile } from './oxy-user.service.js';
 import { resolveOrderCommercialPresentations } from './commercial-presentation/order-commercial.service.js';
 import { readRetailOrderExperience } from './commercial-presentation/retail-order.service.js';
 import { orderBuyerOf } from './orders/order-buyer.js';
-import { resolveMedia, toStoreSummary } from './catalog-hydration.service.js';
+import {
+  resolveMedia,
+  resolveStoredMediaUrl,
+  toStoreSummary,
+} from './catalog-hydration.service.js';
 
 /**
  * The four columns of a `DualMoney`, reassembled.
@@ -112,7 +116,7 @@ function toSeller(
     oxyUserId,
     displayName: oxyProfile?.displayName ?? oxyUserId,
     username: oxyProfile?.username ?? oxyUserId,
-    avatar: oxyProfile?.avatar ? resolveMedia(oxyProfile.avatar) : (oxyProfile?.avatar ?? null),
+    avatar: isOxyFileId(oxyProfile?.avatar) ? oxyProfile.avatar : null,
     isVerified: profile?.isVerified ?? false,
   };
   if (profile && profile.reviewCount > 0) {
@@ -157,8 +161,9 @@ export function toOrderItemDTO(item: OrderItemRecord): OrderItem {
       item.lineTotalPresentmentCurrency,
     ),
   };
-  if (item.imageUrl) {
-    dto.imageUrl = item.imageUrl;
+  const imageUrl = resolveStoredMediaUrl(item.imageUrl);
+  if (imageUrl) {
+    dto.imageUrl = imageUrl;
   }
   const discountTotal = optionalDual(
     item.discountTotalShopAmount,
@@ -787,9 +792,10 @@ export async function summarizeOrders(orders: OrderRecord[]): Promise<OrderSumma
         order.totalsGrandTotalPresentmentCurrency,
       ),
       itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
-      images: order.items.flatMap((item) =>
-        item.imageUrl ? [{ url: item.imageUrl, alt: item.title }] : [],
-      ),
+      images: order.items.flatMap((item) => {
+        const url = resolveStoredMediaUrl(item.imageUrl);
+        return url ? [{ url, alt: item.title }] : [];
+      }),
       sellerType: order.sellerType,
       createdAt: order.createdAt.toISOString(),
     };

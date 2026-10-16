@@ -36,7 +36,7 @@
  * rule.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { and, eq, inArray, or } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
@@ -52,6 +52,7 @@ import {
   reviewDimensions,
   reviewEligibilities,
   reviewHelpfulVotes,
+  reviewMedia,
   reviews,
   reviewTargetMigrations,
 } from '../schema/reviews.js';
@@ -62,6 +63,8 @@ import {
   findReviewsPage,
   findScopedReviewsPage,
   findListingReviewsPage,
+  findMediaForReviews,
+  findReviewMediaPage,
 } from '../reviews/reviewRepository.js';
 import { consumeEligibility, insertEligibility } from '../reviews/reviewEligibilityRepository.js';
 import { findPurchasedVariantsForReviews } from '../reviews/reviewPurchaseContextRepository.js';
@@ -70,6 +73,9 @@ import { updateReviewHelpfulness } from '../../services/reviews/review-helpfulne
 import { recordTargetMigration } from '../reviews/reviewMigrationRepository.js';
 import { rebuildScopedAggregate } from '../../services/reviews/review-aggregate.service.js';
 import { deleteTestCanonicalRows } from './canonical-teardown.js';
+import * as mediaPreparation from '../../services/reviews/review-media.service.js';
+import * as selfReview from '../../services/reviews/review-self-review.js';
+import { createReview } from '../../services/review.service.js';
 
 let db: Database;
 
@@ -1508,5 +1514,205 @@ describe('published review helpfulness', () => {
         .from(reviewHelpfulVotes)
         .where(eq(reviewHelpfulVotes.reviewId, id)),
     ).toEqual([]);
+  });
+});
+
+// These are SQL contract fixtures, not uploaded Oxy media. Live file validation
+// is a separate integration precondition; no image requests are intercepted here.
+describe('ordered review attachments and atomic eligibility consumption', () => {
+  async function publicReview() {
+    const row = await insertReview(
+      {
+        authorOxyUserId: userId('media'),
+        scope: 'product',
+        targetType: 'canonical_product',
+        targetId: await makeCanonicalProduct(),
+        rating: 5,
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'native',
+        media: [
+          { fileId: 'sql-fixture-video', kind: 'video' },
+          { fileId: 'sql-fixture-image', kind: 'image' },
+        ],
+      },
+      db,
+    );
+    createdReviewIds.push(row.id);
+    return row;
+  }
+
+  it('reads attachments in display order and removes them with the parent', async () => {
+    const row = await publicReview();
+    expect(
+      (await findMediaForReviews([row.id], db)).map(({ fileId, kind, position }) => ({
+        fileId,
+        kind,
+        position,
+      })),
+    ).toEqual([
+      { fileId: 'sql-fixture-video', kind: 'video', position: 0 },
+      { fileId: 'sql-fixture-image', kind: 'image', position: 1 },
+    ]);
+    await db.delete(reviews).where(eq(reviews.id, row.id));
+    expect(await db.select().from(reviewMedia).where(eq(reviewMedia.reviewId, row.id))).toEqual([]);
+  });
+
+  it('does not project media from a hidden parent even when its ID is explicitly requested', async () => {
+    const row = await publicReview();
+    expect(await setReviewStatusIfIn(row.id, 'hidden', ['published'], db)).toBe(true);
+    expect(await findMediaForReviews([row.id], db)).toEqual([]);
+    expect(
+      await db.select().from(reviewMedia).where(eq(reviewMedia.reviewId, row.id)),
+    ).toHaveLength(2);
+  });
+
+  it('does not project private order-item media', async () => {
+    const buyer = userId('private-media');
+    const { lineId } = await makeOrderWithLine(await makeStore(), buyer);
+    const row = await insertReview(
+      {
+        authorOxyUserId: buyer,
+        scope: 'native_transaction',
+        targetType: 'order_item',
+        targetId: lineId,
+        rating: 4,
+        verification: 'unverified',
+        incentiveDisclosure: 'none',
+        classificationState: 'native',
+        media: [{ fileId: 'sql-fixture-private', kind: 'image' }],
+      },
+      db,
+    );
+    createdReviewIds.push(row.id);
+    expect(await findMediaForReviews([row.id], db)).toEqual([]);
+  });
+
+  it.each([
+    { fileId: 'https://external.example/photo.jpg', kind: 'image' as const, position: 2 },
+    { fileId: 'sql-fixture-extra', kind: 'image' as const, position: -1 },
+    { fileId: 'sql-fixture-extra', kind: 'image' as const, position: 10 },
+  ])('enforces the database ID/position checks: %j', async (values) => {
+    const row = await publicReview();
+    const error = await db
+      .insert(reviewMedia)
+      .values({ reviewId: row.id, ...values })
+      .catch((error) => error);
+    expect(isCheckViolation(error)).toBe(true);
+  });
+
+  it('refuses duplicate files and positions within the same review', async () => {
+    const row = await publicReview();
+    for (const values of [
+      { fileId: 'sql-fixture-video', position: 2 },
+      { fileId: 'sql-fixture-extra', position: 0 },
+    ]) {
+      const error = await db
+        .insert(reviewMedia)
+        .values({ reviewId: row.id, kind: 'image', ...values })
+        .catch((error) => error);
+      expect(isUniqueViolation(error)).toBe(true);
+    }
+  });
+
+  it('rolls back the actual createReview eligibility spend when the attachment INSERT fails', async () => {
+    const buyer = userId('rollback-media');
+    const { orderId, lineId } = await makeOrderWithLine(await makeStore(), buyer);
+    const productId = await makeCanonicalProduct();
+    const grant = await insertEligibility({
+      oxyUserId: buyer,
+      orderId,
+      orderItemId: lineId,
+      scope: 'product',
+      targetType: 'canonical_product',
+      targetId: productId,
+      evidenceType: 'authenticated_purchase',
+      policyVersion: 'test',
+    });
+    expect(grant).not.toBeNull();
+    // Inject a post-validation storage fault. Only the external author/media
+    // checks are stubbed; the service, CAS, INSERTs and rollback are real SQL.
+    const check = vi.spyOn(selfReview, 'assertNotSelfPurchase').mockResolvedValue(undefined);
+    const prepare = vi
+      .spyOn(mediaPreparation, 'prepareReviewMedia')
+      .mockResolvedValue([{ fileId: 'https://invalid-at-storage.example/image', kind: 'image' }]);
+    try {
+      const error = await createReview(
+        { accountId: buyer, actorAccountId: buyer, delegated: false, accessToken: 'test-only' },
+        {
+          scope: 'product',
+          canonicalProductId: productId,
+          eligibilityId: grant?.id,
+          rating: 5,
+          mediaFileIds: ['sql-fixture-image'],
+          dimensions: [{ key: 'quality', rating: 5 }],
+        },
+      ).catch((error) => error);
+      expect(isCheckViolation(error)).toBe(true);
+      const [evidence] = await db
+        .select()
+        .from(reviewEligibilities)
+        .where(eq(reviewEligibilities.id, grant?.id ?? ''));
+      expect(evidence).toMatchObject({ state: 'open', consumedAt: null });
+      expect(
+        await db.select().from(reviews).where(eq(reviews.canonicalProductId, productId)),
+      ).toEqual([]);
+    } finally {
+      prepare.mockRestore();
+      check.mockRestore();
+    }
+  });
+});
+
+describe('public review gallery pagination', () => {
+  it('counts and pages attachments across all reviews, excluding hidden and other targets', async () => {
+    const productId = await makeCanonicalProduct();
+    const otherId = await makeCanonicalProduct();
+    async function add(targetId: string, date: string, files: string[]) {
+      const row = await insertReview(
+        {
+          authorOxyUserId: userId('gallery'),
+          targetType: 'canonical_product',
+          scope: 'product',
+          targetId,
+          rating: 5,
+          verification: 'unverified',
+          classificationState: 'native',
+          incentiveDisclosure: 'none',
+          media: files.map((fileId) => ({ fileId, kind: 'image' })),
+        },
+        db,
+      );
+      createdReviewIds.push(row.id);
+      await db
+        .update(reviews)
+        .set({ createdAt: new Date(date) })
+        .where(eq(reviews.id, row.id));
+      return row;
+    }
+    const oldest = await add(productId, '2026-01-01', ['fixture-old-0', 'fixture-old-1']);
+    const recent = await add(productId, '2026-01-02', ['fixture-recent']);
+    // A text-only first review must not suppress older photos from the gallery.
+    await add(productId, '2026-01-03', []);
+    const hidden = await add(productId, '2026-01-04', ['fixture-hidden']);
+    await setReviewStatusIfIn(hidden.id, 'hidden', ['published'], db);
+    await add(otherId, '2026-01-05', ['fixture-other-product']);
+    const target = {
+      scope: 'product' as const,
+      targetType: 'canonical_product' as const,
+      targetId: productId,
+    };
+    const first = await findReviewMediaPage(target, 1, 2, db);
+    const second = await findReviewMediaPage(target, 2, 2, db);
+    expect(first.total).toBe(3);
+    expect(second.total).toBe(3);
+    expect(first.rows.map((row) => [row.review.id, row.media.fileId, row.media.position])).toEqual([
+      [recent.id, 'fixture-recent', 0],
+      [oldest.id, 'fixture-old-0', 0],
+    ]);
+    expect(second.rows.map((row) => [row.review.id, row.media.fileId, row.media.position])).toEqual(
+      [[oldest.id, 'fixture-old-1', 1]],
+    );
+    expect((await findReviewMediaPage(target, 3, 2, db)).rows).toEqual([]);
   });
 });

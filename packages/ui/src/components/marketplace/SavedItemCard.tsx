@@ -1,5 +1,8 @@
+import { Icon } from '../ui/icon';
 import { Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { resolveCatalogImage } from '../../lib/stored-image-url';
 import { Bell, Heart, Package, TrendingDown, TrendingUp } from 'lucide-react-native';
 import { ALL_CURRENCY_CODES, type CurrencyCode, type SavedItem } from '@mercaria/shared-types';
 import { Text } from '../ui/text';
@@ -76,7 +79,13 @@ export function SavedItemCard({
   onCreatePriceAlert,
 }: SavedItemCardProps) {
   const t = useSharedUiTranslation();
+  const imageResolver = useImageResolver();
   const imageSource = item.kind === 'product' ? item.product.imageFileId : item.imageFileId;
+  const imageUrl = resolveCatalogImage(
+    imageSource ?? undefined,
+    undefined,
+    resolveImage ?? imageResolver,
+  );
 
   return (
     <View className="flex-row gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
@@ -86,15 +95,15 @@ export function SavedItemCard({
         onPress={() => onPress?.(item)}
         className="size-space-64 overflow-hidden rounded-radius-12 bg-bg-fill-secondary"
       >
-        {imageSource ? (
+        {imageUrl ? (
           <Image
-            source={{ uri: resolveImage ? resolveImage(imageSource) : imageSource }}
+            source={{ uri: imageUrl }}
             style={{ width: '100%', height: '100%' }}
             contentFit="cover"
           />
         ) : (
           <View className="size-full items-center justify-center">
-            <Package size={ICON_SIZE} className="text-text-tertiary" />
+            <Icon as={Package} size={ICON_SIZE} className="text-text-tertiary" />
           </View>
         )}
       </Pressable>
@@ -119,7 +128,7 @@ export function SavedItemCard({
         onPress={() => onRemove?.(item)}
         className="size-space-32 items-center justify-center rounded-radius-max"
       >
-        <Heart size={ICON_SIZE} className="text-text-brand" fill="currentColor" />
+        <Icon as={Heart} size={ICON_SIZE} className="text-text-brand" fill="currentColor" />
       </Pressable>
     </View>
   );
@@ -165,9 +174,9 @@ function ProductBody({
       {item.priceChange.known && item.priceChange.direction !== 'unchanged' ? (
         <View className="flex-row items-center gap-space-4">
           {item.priceChange.direction === 'down' ? (
-            <TrendingDown size={ICON_SIZE} className="text-text-brand" />
+            <Icon as={TrendingDown} size={ICON_SIZE} className="text-text-brand" />
           ) : (
-            <TrendingUp size={ICON_SIZE} className="text-text-tertiary" />
+            <Icon as={TrendingUp} size={ICON_SIZE} className="text-text-tertiary" />
           )}
           <Text className="text-shop-caption text-text-tertiary">
             {t(
@@ -214,7 +223,7 @@ function ProductBody({
           onPress={() => onCreatePriceAlert(item)}
           className="mt-space-4 flex-row items-center gap-space-4 self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-4"
         >
-          <Bell size={ICON_SIZE - 4} className="text-text-secondary" />
+          <Icon as={Bell} size={ICON_SIZE - 4} className="text-text-secondary" />
           <Text className="text-shop-caption text-text">{t(SAVED_ITEM_SET_ALERT_KEY)}</Text>
         </Pressable>
       ) : null}

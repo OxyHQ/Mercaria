@@ -1,3 +1,4 @@
+import type { ListingMedia } from '@mercaria/shared-types';
 import { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -19,6 +20,7 @@ import { RequireStore } from '@/components/shell/RequireStore';
 import { useTranslation } from '@/lib/i18n';
 import { useCreateProduct } from '@/lib/hooks/use-products';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
+import { ProductPhotoEditor } from '@/components/products/ProductPhotoEditor';
 import { toMinorUnits } from '@/lib/money';
 
 /** A single editable variant row in the builder. */
@@ -44,7 +46,7 @@ export default function NewProductScreen() {
         <title>{t('products.new.documentTitle')}</title>
       </Head>
       <RequireStore permission="products:write">
-        {(storeId) => <NewProductBody storeId={storeId} />}
+        {(storeId) => <NewProductBody key={storeId} storeId={storeId} />}
       </RequireStore>
     </>
   );
@@ -65,6 +67,8 @@ function NewProductBody({ storeId }: { storeId: string }) {
    */
   const { store } = useActiveStoreContext();
 
+  const [media, setMedia] = useState<ListingMedia[]>([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -85,6 +89,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
   const currency = store?.defaultCurrency;
 
   const submit = () => {
+    if (uploadingPhoto || createProduct.isPending) return;
     if (!title.trim()) {
       toast.error(t('products.new.titleRequired'));
       return;
@@ -131,7 +136,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
       title: title.trim(),
       description: description.trim(),
       category: category.trim(),
-      imageFileIds: [],
+      mediaFileIds: media.map((item) => item.fileId),
       options,
       variants: builtVariants,
       ...(vendor.trim() ? { vendor: vendor.trim() } : {}),
@@ -187,6 +192,15 @@ function NewProductBody({ storeId }: { storeId: string }) {
           </View>
         </View>
 
+        <ProductPhotoEditor
+          storeId={storeId}
+          images={media.filter((item) => item.kind === 'image')}
+          media={media}
+          onMediaChange={setMedia}
+          title={title}
+          disabled={createProduct.isPending}
+          onBusyChange={setUploadingPhoto}
+        />
         <View className="rounded-2xl border border-border bg-surface p-4">
           <Text className="mb-3 text-sm font-semibold text-foreground">
             {t('products.new.optionsHeading')}
@@ -293,6 +307,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
             tone="accent"
             className="flex-1"
             onPress={submit}
+            disabled={uploadingPhoto || createProduct.isPending}
             loading={createProduct.isPending}
           >
             {t('products.new.submit')}

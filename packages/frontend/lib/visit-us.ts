@@ -54,21 +54,8 @@ export function orderLocations<T extends { ref: { id: string } }>(
   return [...focused, ...locations.filter((location) => location.ref.id !== focusId)];
 }
 
-/**
- * The place's address as one line: GoWay's own formatting when it has one,
- * else the parts it publishes, joined. Empty when it publishes none.
- */
-export function placeAddressLine(place: Pick<Place, 'address'>): string {
-  const address = place.address;
-  if (address === undefined) return '';
-  if (address.formatted !== undefined && address.formatted.trim() !== '')
-    return address.formatted.trim();
-  const street = [address.street, address.houseNumber].filter(present).join(' ');
-  const town = [address.postalCode, address.city].filter(present).join(' ');
-  return [street, address.locality, town, address.region, address.country]
-    .filter(present)
-    .join(', ');
-}
+// The storefront and Wholesale render the same live GoWay facts.
+export { placeAddressLine } from '@mercaria/ui/lib/place-address';
 
 /** Open right now, and when that changes today — GoWay's evaluation, as the shared wording reads it. */
 export function placeOpenState(
@@ -205,8 +192,4 @@ export function visitPhotos(media: readonly PlaceMedia[]): PlaceMedia[] {
 
 function tierOf(verification: CapabilityVerification): number {
   return CAPABILITY_VERIFICATIONS.indexOf(verification);
-}
-
-function present(value: string | undefined): value is string {
-  return value !== undefined && value.trim() !== '';
 }

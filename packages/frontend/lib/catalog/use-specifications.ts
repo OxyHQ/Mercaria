@@ -61,6 +61,8 @@ export interface UseSpecificationTableInput {
 export interface SpecificationTableState {
   readonly table: SpecificationTable;
   readonly isLoading: boolean;
+  readonly isError: boolean;
+  readonly retry: () => Promise<void>;
   /** The definitions did not answer, so every label is the value projection's. */
   readonly definitionsUnavailable: boolean;
 }
@@ -92,7 +94,15 @@ export function useSpecificationTable(input: UseSpecificationTableInput): Specif
 
   return {
     table,
-    isLoading: productValues.isLoading || variantValues.isLoading,
+    isLoading: definitions.isLoading || productValues.isLoading || variantValues.isLoading,
+    isError: productValues.isError || variantValues.isError,
+    retry: async () => {
+      await Promise.all([
+        ...(input.categoryId ? [definitions.refetch()] : []),
+        ...(input.canonicalProductId ? [productValues.refetch()] : []),
+        ...(input.canonicalVariantId ? [variantValues.refetch()] : []),
+      ]);
+    },
     definitionsUnavailable: definitions.isError || definitions.data === undefined,
   };
 }

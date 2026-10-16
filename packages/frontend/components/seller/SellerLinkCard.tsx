@@ -1,9 +1,10 @@
 import { Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
-import { useOxy } from '@oxy.so/services';
-import type { Seller } from '@mercaria/shared-types';
+import { Image } from '@mercaria/ui';
+import { Link } from 'expo-router';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { isOxyFileId, type Seller } from '@mercaria/shared-types';
 import { Rating } from '@oxy.so/bloom/rating';
-import { Text, useRatingDisplay } from '@mercaria/ui';
+import { Text, useRatingDisplay, resolveCatalogImage } from '@mercaria/ui';
 import { SellerFollowButton } from '@/components/seller/SellerFollowButton';
 import { useTranslation } from '@/lib/i18n';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
@@ -34,47 +35,55 @@ const AVATAR_SIZE = 44;
  * rating and NOT the product's quality rating, both of which can appear
  * elsewhere on the same page, so the label travels with the stars.
  */
-export function SellerLinkCard({ seller, onPress }: { seller: Seller; onPress: () => void }) {
+export function SellerLinkCard({ seller }: { seller: Seller }) {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
-  const { oxyServices } = useOxy();
-  const avatarUrl = seller.avatar ? oxyServices.assets.publicUrl(seller.avatar, 'thumb') : null;
+  const avatarUrl = resolveCatalogImage(
+    isOxyFileId(seller.avatar) ? seller.avatar : undefined,
+    seller.avatar ?? undefined,
+    useImageResolver(),
+    'thumb',
+  );
 
   return (
     <View className="gap-space-12 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={t('sellers.linkCard.viewProfile', { name: seller.displayName })}
-        onPress={onPress}
-        className="flex-row items-center gap-3"
+      <Link
+        href={{ pathname: '/sellers/[oxyUserId]', params: { oxyUserId: seller.oxyUserId } }}
+        asChild
       >
-        <View
-          className="items-center justify-center overflow-hidden rounded-full bg-muted"
-          style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={t('sellers.linkCard.viewProfile', { name: seller.displayName })}
+          className="flex-row items-center gap-3"
         >
-          {avatarUrl ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              contentFit="cover"
-              style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
-              transition={150}
-            />
-          ) : (
-            <Text className="text-base font-bold text-muted-foreground">
-              {seller.displayName.slice(0, 1).toUpperCase()}
-            </Text>
-          )}
-        </View>
+          <View
+            className="items-center justify-center overflow-hidden rounded-full bg-muted"
+            style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+          >
+            {avatarUrl ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                contentFit="cover"
+                style={{ width: AVATAR_SIZE, height: AVATAR_SIZE }}
+                transition={150}
+              />
+            ) : (
+              <Text className="text-base font-bold text-muted-foreground">
+                {seller.displayName.slice(0, 1).toUpperCase()}
+              </Text>
+            )}
+          </View>
 
-        <View className="flex-1 gap-0.5">
-          <Text numberOfLines={1} className="text-shop-sectionTitle text-text">
-            {seller.displayName}
-          </Text>
-          <Text numberOfLines={1} className="text-shop-bodySmall text-text-secondary">
-            {`@${seller.username}`}
-          </Text>
-        </View>
-      </Pressable>
+          <View className="flex-1 gap-0.5">
+            <Text numberOfLines={1} className="text-shop-sectionTitle text-text">
+              {seller.displayName}
+            </Text>
+            <Text numberOfLines={1} className="text-shop-bodySmall text-text-secondary">
+              {`@${seller.username}`}
+            </Text>
+          </View>
+        </Pressable>
+      </Link>
 
       {seller.rating !== undefined && seller.reviewCount !== undefined && seller.reviewCount > 0 ? (
         <View className="flex-row items-center gap-2">

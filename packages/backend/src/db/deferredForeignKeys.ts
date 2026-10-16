@@ -429,6 +429,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'categories.image_file_id', reason: OXY_FILE },
   { column: 'collections.image_file_id', reason: OXY_FILE },
   { column: 'listing_images.file_id', reason: OXY_FILE },
+  { column: 'review_media.file_id', reason: OXY_FILE },
   { column: 'stores.cover_file_id', reason: OXY_FILE },
   { column: 'stores.logo_file_id', reason: OXY_FILE },
 
@@ -779,7 +780,8 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       "The SOURCE's own id for the observed external object (ADR 0002 D19) — a foreign " +
       "system's key space, stored verbatim and never minted or validated by Mercaria.",
   },
-  { column: 'organizations.logo_file_id', reason: OXY_FILE },
+  { column: 'organizations.oxy_account_id', reason: OXY_ACCOUNT },
+  { column: 'organization_identity_archives.logo_file_id', reason: OXY_FILE },
   { column: 'brands.logo_file_id', reason: OXY_FILE },
   { column: 'organization_aliases.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'brand_aliases.created_by_oxy_user_id', reason: OXY_ACCOUNT },

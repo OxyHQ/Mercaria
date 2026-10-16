@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { cn } from '../../lib/cn';
 
@@ -22,6 +22,8 @@ export interface FeedGridProps<T> {
    * same reasoning as `slotClassName`.
    */
   rowGapClassName: string;
+  /** Fit columns to the actual container, with explicit cross-platform gutters. */
+  autoColumns?: { minWidth: number; gap: number; minimumColumns: number };
 }
 
 /**
@@ -29,9 +31,11 @@ export interface FeedGridProps<T> {
  * `@mercaria/ui` is a horizontal carousel; this is the only component that
  * wraps items onto multiple rows.
  *
- * Each slot carries its own `px-space-*` gutter and the row cancels it with a
+ * By default each slot carries its own `px-space-*` gutter and the row cancels it with a
  * matching negative margin, so the row's outer edge lines up with the page
  * gutter instead of sitting one slot-padding further in.
+ * `autoColumns` instead uses the measured row width and native gap, fitting as
+ * many minimum-width columns as its content allows without empty desktop tracks.
  *
  * Mirrors the card shelves' two defences (`uniqueByKey` in
  * `lib/shelf-carousel.ts`) for the same reasons that helper states them: `items` can arrive `undefined` from a partial/in-transition feed
@@ -44,7 +48,9 @@ export function FeedGrid<T>({
   renderItem,
   slotClassName,
   rowGapClassName,
+  autoColumns,
 }: FeedGridProps<T>) {
+  const [width, setWidth] = useState(0);
   const seenKeys = new Set<string>();
   const safeItems = (items ?? []).filter((item) => {
     const key = keyExtractor(item);
@@ -52,6 +58,16 @@ export function FeedGrid<T>({
     seenKeys.add(key);
     return true;
   });
+  const columns = autoColumns
+    ? Math.max(
+        autoColumns.minimumColumns,
+        Math.min(
+          safeItems.length,
+          Math.floor((width + autoColumns.gap) / (autoColumns.minWidth + autoColumns.gap)),
+        ),
+      )
+    : 0;
+  const slotWidth = autoColumns ? (width - (columns - 1) * autoColumns.gap) / columns : undefined;
 
   return (
     // The reference writes this row as `flex flex-wrap` — a bare `flex` sets
@@ -60,12 +76,25 @@ export function FeedGrid<T>({
     // spells `flex-row flex-wrap` for exactly that reason (e.g.
     // `SearchInterpretation.tsx`, `VariantSwatches.tsx`); omitting it here
     // would stack every slot in a single column instead of wrapping.
-    <View className={cn('flex-row flex-wrap -mx-space-4 md:-mx-space-8', rowGapClassName)}>
-      {safeItems.map((item) => (
-        <View key={keyExtractor(item)} className={slotClassName}>
-          {renderItem(item)}
-        </View>
-      ))}
+    <View
+      className={cn(
+        'flex-row flex-wrap',
+        !autoColumns && '-mx-space-4 md:-mx-space-8',
+        rowGapClassName,
+      )}
+      onLayout={autoColumns ? (event) => setWidth(event.nativeEvent.layout.width) : undefined}
+      style={autoColumns ? { gap: autoColumns.gap } : undefined}
+    >
+      {(!autoColumns || width > 0) &&
+        safeItems.map((item) => (
+          <View
+            key={keyExtractor(item)}
+            className={slotClassName}
+            style={autoColumns ? { width: slotWidth } : undefined}
+          >
+            {renderItem(item)}
+          </View>
+        ))}
     </View>
   );
 }

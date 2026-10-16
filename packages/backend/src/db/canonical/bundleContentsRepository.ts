@@ -63,6 +63,7 @@ export async function readBundleImages(
     .where(
       and(
         eq(canonicalImages.status, 'active'),
+        eq(canonicalImages.kind, 'image'),
         or(
           inArray(canonicalImages.productId, productIds),
           inArray(canonicalImages.variantId, variantIds),

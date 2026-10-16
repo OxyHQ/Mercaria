@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "Se connecter",
     "signInBody": "Connectez-vous avec votre compte Oxy pour gérer votre boutique — produits, commandes, stock, clients, réductions et rapports.",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "Ajouter un canal",
@@ -95,7 +95,7 @@
       },
       "title": "Déconnexion"
     },
-    "documentTitle": "Canaux de vente | Mercaria Dashboard",
+    "documentTitle": "Canaux de vente | Wholesale by Mercaria",
     "empty": {
       "body": "Connectez une boutique ou un flux de produits ci-dessous pour importer un catalogue existant.",
       "title": "Uniquement votre catalogue Mercaria"
@@ -270,7 +270,7 @@
     "settings": {
       "autoPublish": "Publication automatique",
       "autoPublishHint": "Publier immédiatement les produits importés. Si désactivé, ils arrivent en brouillon pour vérification.",
-      "documentTitle": "Paramètres du canal | Mercaria Dashboard",
+      "documentTitle": "Paramètres du canal | Wholesale by Mercaria",
       "inventoryHint": "Les niveaux de stock de votre emplacement synchronisé.",
       "inventoryLabel": "Inventaire",
       "keepLocalEdits": "Conserver mes modifications locales",
@@ -405,7 +405,7 @@
       "canAndCannot": "Ce que ce canal peut et ne peut pas faire",
       "chooseWhatToImport": "Choisissez ce qu’il faut importer",
       "connectedTitle": "%{channel} connecté",
-      "documentTitle": "Connecter un canal | Mercaria Dashboard",
+      "documentTitle": "Connecter un canal | Wholesale by Mercaria",
       "everythingChecksOut": "Tout est en ordre. L’activation lance la première synchronisation.",
       "feed": {
         "body": "Un flux de produits se configure sur son propre écran, où vous faites correspondre les colonnes du fichier aux champs de Mercaria et prévisualisez le résultat avant toute mise en ligne.",
@@ -499,7 +499,7 @@
     },
     "deleteError": "Impossible de supprimer la collection",
     "deleted": "Collection supprimée",
-    "documentTitle": "Collections | Mercaria Dashboard",
+    "documentTitle": "Collections | Wholesale by Mercaria",
     "empty": {
       "body": "Créez-en une pour organiser votre catalogue.",
       "title": "Aucune collection pour l’instant"
@@ -524,6 +524,73 @@
     "type": {
       "automated": "automatisée",
       "manual": "manuelle"
+    },
+    "remove": {
+      "action": "Supprimer %{title}",
+      "title": "Supprimer la collection",
+      "confirmation": "Supprimer « %{title} » ? Les produits resteront dans votre catalogue. Cette action est irréversible."
+    },
+    "editor": {
+      "automated": "Les produits de cette collection sont gérés par ses règles.",
+      "details": "Détails de la collection",
+      "handle": "Identifiant d’URL",
+      "handleRequired": "Saisissez un identifiant d’URL.",
+      "published": "Publiée",
+      "save": "Enregistrer la collection",
+      "saveFailed": "Impossible d’enregistrer la collection.",
+      "saved": "Collection enregistrée",
+      "sortLabel": "Trier les produits",
+      "browse": "Parcourir les produits",
+      "earlier": "Avancer %{title}",
+      "emptyProducts": "Aucun produit sélectionné.",
+      "later": "Reculer %{title}",
+      "productUnavailable": "Impossible de charger ce produit.",
+      "productsFailed": "Impossible d’enregistrer les produits.",
+      "productsSaved": "Produits enregistrés",
+      "remove": "Retirer %{title}",
+      "saveProducts": "Enregistrer les produits",
+      "sort": {
+        "manual": "Manuel",
+        "bestSelling": "Meilleures ventes",
+        "priceAscending": "Prix croissant",
+        "priceDescending": "Prix décroissant",
+        "newest": "Les plus récents",
+        "title": "Titre : A–Z"
+      }
+    },
+    "rules": {
+      "heading": "Conditions",
+      "match": "Les produits doivent remplir",
+      "all": "Toutes les conditions",
+      "any": "Au moins une condition",
+      "empty": "Sans conditions, cette collection ne contient aucun produit.",
+      "field": "Champ du produit",
+      "operator": "Comparaison",
+      "value": "Valeur",
+      "availability": "Disponibilité",
+      "inStock": "En stock",
+      "outOfStock": "Rupture de stock",
+      "price": "Prix",
+      "compareAtPrice": "Prix de comparaison",
+      "exactElement": "Les étiquettes et identifiants de catégorie correspondent à des valeurs entières, même avec « contient ».",
+      "retained": "Cette condition existante est conservée sans modification. Elle ne peut pas être modifiée ici ; vous pouvez la supprimer explicitement.",
+      "remove": "Supprimer la condition %{position}",
+      "add": "Ajouter une condition",
+      "failed": "Impossible d’enregistrer les conditions. Vos modifications sont conservées.",
+      "saved": "Conditions enregistrées",
+      "save": "Enregistrer les conditions",
+      "operators": {
+        "equals": "Est égal à",
+        "notEquals": "N’est pas égal à",
+        "contains": "Contient",
+        "startsWith": "Commence par",
+        "endsWith": "Se termine par",
+        "gt": "Supérieur à",
+        "gte": "Supérieur ou égal à",
+        "lt": "Inférieur à",
+        "lte": "Inférieur ou égal à"
+      },
+      "categoryIdentifier": "Identifiant de catégorie"
     }
   },
   "common": {
@@ -551,7 +618,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "Client | Mercaria Dashboard",
+      "documentTitle": "Client | Wholesale by Mercaria",
       "lifetimeSpend": "Dépenses totales",
       "loadError": "Impossible de charger le client",
       "noOrders": "Aucune commande pour l’instant.",
@@ -559,7 +626,7 @@
       "subtitle": "Détail du client",
       "title": "Client"
     },
-    "documentTitle": "Clients | Mercaria Dashboard",
+    "documentTitle": "Clients | Wholesale by Mercaria",
     "empty": {
       "body": "Les clients apparaissent ici après leur première commande.",
       "title": "Aucun client"
@@ -598,7 +665,7 @@
     },
     "deleteError": "Impossible de supprimer la réduction",
     "deleted": "Réduction supprimée",
-    "documentTitle": "Réductions | Mercaria Dashboard",
+    "documentTitle": "Réductions | Wholesale by Mercaria",
     "empty": {
       "body": "Créez un code ou une réduction automatique.",
       "title": "Aucune réduction pour l’instant"
@@ -619,13 +686,13 @@
     "boundaryBody": "Une erreur inattendue est survenue. Vous pouvez réessayer ; si le problème persiste, notre équipe en a été informée.",
     "notFoundAction": "Aller au tableau de bord",
     "notFoundBody": "Cet écran n’existe pas.",
-    "notFoundDocumentTitle": "404 - Introuvable | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 - Introuvable | Wholesale by Mercaria",
     "notFoundHeading": "Oups !"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "Activez d’abord une correspondance",
-      "documentTitle": "Flux de produits | Mercaria Dashboard",
+      "documentTitle": "Flux de produits | Wholesale by Mercaria",
       "identityColumns": "Colonnes d’identité : %{columns} — figées pour toute la durée de vie de ce flux.",
       "neverRead": "Ce flux n’a pas encore été lu.",
       "notFound": "Flux introuvable",
@@ -654,7 +721,7 @@
     "never": "jamais",
     "new": {
       "create": "Créer le flux",
-      "documentTitle": "Nouveau flux de produits | Mercaria Dashboard",
+      "documentTitle": "Nouveau flux de produits | Wholesale by Mercaria",
       "identityColumnsHint": "Séparées par des virgules, quatre au maximum. Elles ne pourront pas être modifiées ensuite : c’est ainsi que Mercaria reconnaît un même produit d’un fichier au suivant, et les changer reviendrait à remplacer tout votre catalogue. S’il vous faut d’autres colonnes, créez un nouveau flux.",
       "identityColumnsLabel": "Colonnes qui identifient chaque produit",
       "identityColumnsPlaceholder": "id, sku",
@@ -757,7 +824,7 @@
     }
   },
   "home": {
-    "documentTitle": "Tableau de bord | Mercaria",
+    "documentTitle": "Tableau de bord | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "%{count} variante suivie est au seuil de stock faible ou en dessous.",
@@ -819,7 +886,7 @@
     "openNavigation": "Ouvrir la navigation",
     "orders": "Commandes",
     "products": "Produits",
-    "settings": "Paramètres",
+    "settings": "Paramètres de la boutique",
     "mainNavigation": "Navigation principale",
     "collapseSidebar": "Réduire le menu latéral",
     "expandSidebar": "Déployer le menu latéral",
@@ -831,7 +898,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "Commande | Mercaria Dashboard",
+      "documentTitle": "Commande | Wholesale by Mercaria",
       "fulfilment": "Traitement",
       "history": "Historique",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -850,9 +917,10 @@
       "title": "Commande",
       "trackingLabel": "Numéro de suivi (facultatif)",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "Impossible de mettre à jour la commande"
+      "updateFailed": "Impossible de mettre à jour la commande",
+      "refundsLoadFailed": "Impossible de charger l’historique des remboursements."
     },
-    "documentTitle": "Commandes | Mercaria Dashboard",
+    "documentTitle": "Commandes | Wholesale by Mercaria",
     "empty": {
       "body": "Les commandes apparaîtront ici dès que des clients achèteront.",
       "title": "Aucune commande"
@@ -896,18 +964,21 @@
       },
       "trail": "Historique du retrait",
       "trailEmpty": "Rien ne s’est encore passé au comptoir.",
-      "viewPlace": "Voir le lieu sur GoWay"
+      "viewPlace": "Voir le lieu sur GoWay",
+      "loadFailed": "Impossible de charger le retrait. Réessayez avant de remettre la commande."
     },
     "refund": {
       "dialogTitle": "Rembourser la commande",
-      "failed": "Impossible de traiter le remboursement",
+      "failed": "Le remboursement n’a pas pu être confirmé. Réessayez avec les mêmes informations pour vérifier le résultat.",
       "itemMax": "%{variant} · max. %{quantity}",
-      "processed": "Remboursement effectué",
       "quantityLabel": "Quantité à rembourser pour %{item}",
       "quantityRequired": "Saisissez une quantité à rembourser",
       "reasonLabel": "Motif (facultatif)",
       "reasonPlaceholder": "Pourquoi ce remboursement ?",
-      "submit": "Effectuer le remboursement"
+      "submit": "Effectuer le remboursement",
+      "loadFailed": "Impossible de charger les remboursements précédents. Réessayez avant de valider.",
+      "quantityInvalid": "Saisissez une quantité entière entre 0 et %{quantity}.",
+      "unavailable": "Cette commande ne peut pas être remboursée."
     },
     "refundState": {
       "canceled": "Annulé",
@@ -950,7 +1021,7 @@
       "archiveFailed": "Impossible d’archiver le produit",
       "archived": "Produit archivé",
       "channelSettings": "Paramètres du canal",
-      "documentTitle": "Produit | Mercaria Dashboard",
+      "documentTitle": "Produit | Wholesale by Mercaria",
       "loadFailed": "Impossible de charger le produit",
       "pins": {
         "release": "Libérer",
@@ -978,9 +1049,11 @@
         "tags": "Étiquettes",
         "addTag": "Ajouter une étiquette",
         "removeTag": "Retirer %{tag}"
-      }
+      },
+      "archiveConfirmation": "Archiver « %{title} » ? Ce produit ne sera plus disponible pour les acheteurs.",
+      "archiveUnsaved": "Les modifications non enregistrées du produit ou de ses variantes seront perdues. Annulez pour continuer à modifier."
     },
-    "documentTitle": "Produits | Mercaria Dashboard",
+    "documentTitle": "Produits | Wholesale by Mercaria",
     "empty": {
       "action": "Ajouter votre premier produit",
       "title": "Aucun produit pour l’instant"
@@ -994,7 +1067,7 @@
       "createFailed": "Impossible de créer le produit",
       "created": "Produit créé",
       "descriptionPlaceholder": "Décrivez le produit",
-      "documentTitle": "Nouveau produit | Mercaria Dashboard",
+      "documentTitle": "Nouveau produit | Wholesale by Mercaria",
       "optionNameLabel": "Nom de l’option (facultatif, par ex. Taille)",
       "optionNamePlaceholder": "Taille",
       "optionValueLabel": "Valeur de %{option}",
@@ -1033,7 +1106,6 @@
     "variants": {
       "add": "Ajouter",
       "addFailed": "Impossible d’ajouter la variante",
-      "added": "Variante ajoutée",
       "available": "Disponible",
       "heading": "Variantes et stock",
       "inventoryUpdateFailed": "Impossible de mettre à jour le stock",
@@ -1041,19 +1113,47 @@
       "priceInvalid": "Saisissez un prix valide",
       "removeFailed": "Impossible de supprimer la variante",
       "removeVariant": "Supprimer la variante",
-      "removed": "Variante supprimée",
       "saveVariant": "Enregistrer la variante",
       "set": "Définir",
       "updateFailed": "Impossible de mettre à jour la variante",
       "updated": "Variante mise à jour",
-      "valuePlaceholder": "valeur"
+      "valuePlaceholder": "valeur",
+      "inventory": {
+        "total": "Disponible dans tous les emplacements : %{quantity}",
+        "manage": "Stock par emplacement",
+        "loadFailed": "Impossible de charger le stock",
+        "empty": "Aucun emplacement avec du stock",
+        "invalid": "Saisissez une quantité entière valide."
+      },
+      "optionRequired": "Choisissez une valeur pour chaque option.",
+      "duplicateCombination": "Cette combinaison d’options existe déjà.",
+      "currencyChanged": "La devise a changé. Annulez cette modification pour utiliser le prix actuel.",
+      "removeConfirmation": "Supprimer « %{variant} » de ce produit ?",
+      "keepOneVariant": "Un produit doit conserver au moins une variante.",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "Code-barres",
+        "cannotClear": "Cet identifiant peut être modifié, mais ne peut pas être effacé."
+      },
+      "media": {
+        "manage": "Modifier les images de la variante",
+        "fallback": "Utilise la galerie du produit",
+        "selected": "%{count} sélectionnées",
+        "empty": "Aucune image du produit ne peut être sélectionnée.",
+        "loadFailed": "Impossible de charger les images sélectionnées.",
+        "saveFailed": "Impossible d’enregistrer les images de la variante.",
+        "unavailable": "Certaines images sélectionnées ne sont plus disponibles dans la galerie du produit.",
+        "earlier": "Déplacer avant",
+        "later": "Déplacer après",
+        "useGallery": "Utiliser la galerie du produit"
+      }
     },
     "wizard": {
-      "documentTitle": "Créer un produit",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "Créer un produit",
       "readOnly": "Ce brouillon ne peut plus être modifié.",
       "start": {
-        "documentTitle": "Que vendez-vous ?",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "Que vendez-vous ?",
         "subtitle": "Trouvez-le dans le catalogue, ou décrivez quelque chose de nouveau.",
         "unavailableTitle": "La création guidée n'est pas disponible ici",
@@ -1186,8 +1286,7 @@
         "noSoldVariants": "Activez au moins une combinaison pour lui donner un prix."
       },
       "listing": {
-        "mediaTitle": "Photographies",
-        "mediaUnavailable": "Les photographies ne peuvent pas encore être ajoutées depuis le tableau de bord. Celles déjà rattachées à ce brouillon sont conservées."
+        "mediaTitle": "Photographies"
       },
       "review": {
         "category": "Catégorie",
@@ -1280,12 +1379,54 @@
         "unnamed": "Nom non traduit",
         "notice": "Certains noms ne sont pas encore traduits dans votre langue."
       }
+    },
+    "bulk": {
+      "activate": "Rendre actifs",
+      "draft": "Passer en brouillon",
+      "archive": "Archiver les produits",
+      "selected": "Sélectionnés : %{items}",
+      "clear": "Effacer la sélection",
+      "result": "Confirmés : %{updated}. Non confirmés : %{remaining}.",
+      "confirmation": "Vérifiez les produits sélectionnés. Certaines modifications peuvent réussir même si d’autres échouent.",
+      "failed": "Modification non confirmée : %{title}",
+      "notAttempted": "Non tenté : %{title}",
+      "retry": "Réessayer les restants",
+      "confirm": "Appliquer les modifications",
+      "select": "Sélectionner %{title}",
+      "selectPage": "Sélectionner les produits modifiables de cette page",
+      "selection": "Choisir"
+    },
+    "photos": {
+      "add": "Ajouter une photo",
+      "prompt": "Sélectionnez une photo du produit",
+      "uploading": "Envoi de la photo",
+      "uploaded": "Photo envoyée",
+      "invalid": "JPG, PNG, WebP, GIF ou AVIF, jusqu’à 20 Mo.",
+      "failed": "Impossible d’ajouter la photo. Vérifiez le fichier et réessayez.",
+      "notice": "Les photos sont publiques et appartiennent à votre boutique. Les retirer ici supprime uniquement leur référence à l’enregistrement.",
+      "position": "Photo %{position}",
+      "remove": "Retirer la photo %{position}"
+    },
+    "media": {
+      "add": "Ajouter un média",
+      "prompt": "Sélectionnez une photo ou une vidéo",
+      "uploading": "Importation du média",
+      "uploaded": "Média importé",
+      "invalid": "Photos jusqu’à 20 Mo ; vidéos MP4 jusqu’à 40 Mo.",
+      "failed": "Impossible d’ajouter le média. Vérifiez le fichier et réessayez.",
+      "notice": "Les médias sont publics et appartiennent à votre boutique. Supprimer un élément retire uniquement son association lors de l’enregistrement.",
+      "position": "Média %{position}",
+      "remove": "Supprimer le média %{position}",
+      "viewVideo": "Voir la vidéo %{position}",
+      "video": "Vidéo",
+      "unavailable": "Impossible de charger cette vidéo.",
+      "title": "Photos et vidéos"
     }
   },
   "settings": {
-    "documentTitle": "Paramètres | Mercaria Dashboard",
+    "documentTitle": "Paramètres | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "Commissions de la place de marché | Tableau de bord Mercaria",
+      "documentTitle": "Commissions de la place de marché | Wholesale by Mercaria",
       "title": "Commissions de la place de marché",
       "subtitle": "Ce que Mercaria facture sur chaque vente et les conditions que vous acceptez.",
       "loadFailed": "Impossible de charger vos conditions de commission",
@@ -1324,17 +1465,13 @@
         "failed": "Impossible de calculer cet exemple"
       }
     },
-    "language": {
-      "description": "La langue d’affichage de ce tableau de bord. Enregistrée sur cet appareil ; elle ne change rien à ce que voient vos clients.",
-      "title": "Langue"
-    },
     "locations": {
       "createFailed": "Impossible de créer l’emplacement",
       "created": "Emplacement créé",
       "defaultFlag": " · par défaut",
       "deleteFailed": "Impossible de supprimer l’emplacement",
       "deleted": "Emplacement supprimé",
-      "documentTitle": "Emplacements | Mercaria Dashboard",
+      "documentTitle": "Emplacements | Wholesale by Mercaria",
       "inactiveFlag": " · inactif",
       "loadFailed": "Impossible de charger les emplacements",
       "namePlaceholder": "Entrepôt principal",
@@ -1351,7 +1488,7 @@
       "placeFlag": " · lieu GoWay défini",
       "noPlaceFlag": " · pas encore de lieu GoWay",
       "editor": {
-        "documentTitle": "Modifier l'emplacement | Mercaria Dashboard",
+        "documentTitle": "Modifier l'emplacement | Wholesale by Mercaria",
         "title": "Emplacement",
         "subtitle": "Son lieu sur GoWay et sa façon de vendre sur Mercaria",
         "loadFailed": "Impossible de charger cet emplacement",
@@ -1412,14 +1549,15 @@
           "region": "Région",
           "country": "Pays",
           "countryPlaceholder": "FR",
-          "latitude": "Latitude",
-          "longitude": "Longitude",
-          "positionHint": "Choisir une adresse dans la recherche remplit la position pour vous.",
-          "submit": "Créer le lieu",
+          "positionHint": "Choisissez un résultat GoWay pour définir la position. Si vous modifiez l’adresse, choisissez à nouveau.",
+          "submit": "Créer un établissement public",
           "created": "Lieu créé sur GoWay",
           "nameRequired": "Donnez un nom au lieu",
           "countryRequired": "Saisissez le code pays à deux lettres",
-          "positionRequired": "Saisissez une latitude et une longitude réelles, ou choisissez une adresse dans la recherche"
+          "positionRequired": "Recherchez l’adresse sur GoWay et choisissez un résultat.",
+          "findAddress": "Rechercher l’adresse sur GoWay",
+          "positionSelected": "Position sélectionnée sur GoWay",
+          "publicNotice": "Les nouveaux lieux sont publics sur GoWay. N’ajoutez pas de domicile privé ni d’adresse de livraison."
         },
         "claim": {
           "title": "Revendiquer le lieu",
@@ -1573,7 +1711,8 @@
           "placeTaken": "Un autre de vos emplacements utilise déjà ce lieu",
           "publicationFailed": "Impossible d'enregistrer l'emplacement"
         }
-      }
+      },
+      "deleteAction": "Supprimer %{name}"
     },
     "members": {
       "convert": {
@@ -1593,7 +1732,7 @@
         "usernameLabel": "Nom d'utilisateur de l'organisation",
         "warning": "Les personnes qui pouvaient agir pour cette boutique et qui ne font pas partie de l'organisation n'y ont plus accès."
       },
-      "documentTitle": "Membres | Mercaria Dashboard",
+      "documentTitle": "Membres | Wholesale by Mercaria",
       "loadFailed": "Impossible de charger les personnes de cette boutique",
       "noAccess": "Aucun accès",
       "organizationBody": "Qui peut agir pour cette boutique dépend des membres de l'organisation dans Oxy. Mercaria ne conserve que des exceptions aux autorisations de chaque rôle.",
@@ -1645,7 +1784,7 @@
     },
     "payments": {
       "beingReviewed": "En cours d’examen",
-      "documentTitle": "Paiements et versements | Mercaria Dashboard",
+      "documentTitle": "Paiements et versements | Wholesale by Mercaria",
       "dueBy": "Échéance",
       "itemCount": {
         "one": "%{count} élément",
@@ -1709,7 +1848,7 @@
       "cancelPlan": "Annuler le forfait",
       "capabilityWithLimit": "%{name} · jusqu’à %{limit}",
       "choosePlan": "Choisir %{plan}",
-      "documentTitle": "Forfait et facturation | Mercaria Dashboard",
+      "documentTitle": "Forfait et facturation | Wholesale by Mercaria",
       "endsOn": "Se termine le %{date}.",
       "free": "Gratuit",
       "graceEndsOn": "Les options de ce forfait s’arrêtent le %{date} si le paiement n’aboutit pas.",
@@ -1783,7 +1922,7 @@
       }
     },
     "policies": {
-      "documentTitle": "Politiques | Mercaria Dashboard",
+      "documentTitle": "Politiques | Wholesale by Mercaria",
       "loadFailed": "Impossible de charger les paramètres",
       "lowStockAlerts": "Alertes de stock faible",
       "notifications": "Notifications",
@@ -1841,7 +1980,7 @@
     },
     "store": {
       "brandColorLabel": "Couleur de marque",
-      "documentTitle": "Profil de la boutique | Mercaria Dashboard",
+      "documentTitle": "Profil de la boutique | Wholesale by Mercaria",
       "loadFailed": "Impossible de charger la boutique",
       "nameLabel": "Nom de la boutique",
       "nameRequired": "Le nom de la boutique est obligatoire",
@@ -1859,7 +1998,7 @@
       "created": "Taux de taxe créé",
       "deleteFailed": "Impossible de supprimer le taux",
       "deleted": "Taux de taxe supprimé",
-      "documentTitle": "Taxes | Mercaria Dashboard",
+      "documentTitle": "Taxes | Wholesale by Mercaria",
       "emptyBody": "Ajoutez un taux pour appliquer une taxe au paiement.",
       "emptyTitle": "Aucun taux de taxe",
       "inactive": "inactif",
@@ -1888,7 +2027,7 @@
       "success": "Boutique créée"
     },
     "createStore": "Créer une boutique",
-    "documentTitle": "Boutiques | Mercaria Dashboard",
+    "documentTitle": "Boutiques | Wholesale by Mercaria",
     "empty": {
       "body": "Créez votre première boutique pour commencer à vendre sur Mercaria.",
       "title": "Aucune boutique pour l’instant"
@@ -1913,5 +2052,9 @@
     "price": "Prix",
     "date": "Date",
     "customer": "Client"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

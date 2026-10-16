@@ -1,3 +1,4 @@
+import { AddressPicker } from '@/components/address/AddressPicker';
 import { useMemo } from 'react';
 import { Button } from '@oxy.so/bloom/button';
 import { Field } from '@oxy.so/bloom/field';
@@ -228,17 +229,85 @@ export function CheckoutDestinationForm({
               returnKeyType="next"
             />
           </Field>
-          <Field label={t('checkout.form.line1Label')}>
-            <TextFieldInput
-              label={t('checkout.form.line1A11y')}
-              value={draft.address.line1}
-              onValueChange={setAddress('line1')}
-              placeholder={t('checkout.form.line1Placeholder')}
-              autoComplete="street-address"
-              textContentType="streetAddressLine1"
-              returnKeyType="next"
-            />
-          </Field>
+          <AddressPicker
+            value={draft.address}
+            onChange={(address) =>
+              onChange({ ...draft, address: { ...draft.address, ...address, line2: '' } })
+            }
+          >
+            <Field label={t('checkout.form.line1Label')}>
+              <TextFieldInput
+                label={t('checkout.form.line1A11y')}
+                value={draft.address.line1}
+                onValueChange={setAddress('line1')}
+                placeholder={t('checkout.form.line1Placeholder')}
+                autoComplete="street-address"
+                textContentType="streetAddressLine1"
+                returnKeyType="next"
+              />
+            </Field>
+
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <Field label={t('checkout.form.cityLabel')}>
+                  <TextFieldInput
+                    label={t('checkout.form.cityLabel')}
+                    value={draft.address.city}
+                    onValueChange={setAddress('city')}
+                    placeholder={t('checkout.form.cityPlaceholder')}
+                    autoComplete="postal-address-locality"
+                    textContentType="addressCity"
+                    returnKeyType="next"
+                  />
+                </Field>
+              </View>
+              <View className="flex-1">
+                <Field label={t('checkout.form.regionLabel')}>
+                  <TextFieldInput
+                    label={t('checkout.form.regionA11y')}
+                    value={draft.address.region ?? ''}
+                    onValueChange={setAddress('region')}
+                    placeholder={t('checkout.form.regionPlaceholder')}
+                    autoComplete="postal-address-region"
+                    textContentType="addressState"
+                    returnKeyType="next"
+                  />
+                </Field>
+              </View>
+            </View>
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <Field label={t('checkout.form.postalLabel')}>
+                  <TextFieldInput
+                    label={t('checkout.form.postalA11y')}
+                    value={draft.address.postalCode}
+                    onValueChange={setAddress('postalCode')}
+                    placeholder="46004"
+                    inputMode="text"
+                    autoComplete="postal-code"
+                    textContentType="postalCode"
+                    returnKeyType="next"
+                  />
+                </Field>
+              </View>
+              <View className="flex-1">
+                <Field label={t('checkout.form.countryLabel')}>
+                  <TextFieldInput
+                    label={t('checkout.form.countryA11y')}
+                    value={draft.address.country}
+                    onValueChange={setAddress('country')}
+                    placeholder={t('checkout.form.countryPlaceholder')}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    maxLength={2}
+                    autoComplete="postal-address-country"
+                    textContentType="countryName"
+                    returnKeyType="next"
+                  />
+                </Field>
+              </View>
+            </View>
+          </AddressPicker>
           <Field label={t('checkout.form.line2Label')}>
             <TextFieldInput
               label={t('checkout.form.line2A11y')}
@@ -249,66 +318,6 @@ export function CheckoutDestinationForm({
               returnKeyType="next"
             />
           </Field>
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <Field label={t('checkout.form.cityLabel')}>
-                <TextFieldInput
-                  label={t('checkout.form.cityLabel')}
-                  value={draft.address.city}
-                  onValueChange={setAddress('city')}
-                  placeholder={t('checkout.form.cityPlaceholder')}
-                  autoComplete="postal-address-locality"
-                  textContentType="addressCity"
-                  returnKeyType="next"
-                />
-              </Field>
-            </View>
-            <View className="flex-1">
-              <Field label={t('checkout.form.regionLabel')}>
-                <TextFieldInput
-                  label={t('checkout.form.regionA11y')}
-                  value={draft.address.region ?? ''}
-                  onValueChange={setAddress('region')}
-                  placeholder={t('checkout.form.regionPlaceholder')}
-                  autoComplete="postal-address-region"
-                  textContentType="addressState"
-                  returnKeyType="next"
-                />
-              </Field>
-            </View>
-          </View>
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <Field label={t('checkout.form.postalLabel')}>
-                <TextFieldInput
-                  label={t('checkout.form.postalA11y')}
-                  value={draft.address.postalCode}
-                  onValueChange={setAddress('postalCode')}
-                  placeholder="46004"
-                  inputMode="text"
-                  autoComplete="postal-code"
-                  textContentType="postalCode"
-                  returnKeyType="next"
-                />
-              </Field>
-            </View>
-            <View className="flex-1">
-              <Field label={t('checkout.form.countryLabel')}>
-                <TextFieldInput
-                  label={t('checkout.form.countryA11y')}
-                  value={draft.address.country}
-                  onValueChange={setAddress('country')}
-                  placeholder={t('checkout.form.countryPlaceholder')}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  maxLength={2}
-                  autoComplete="postal-address-country"
-                  textContentType="countryName"
-                  returnKeyType="next"
-                />
-              </Field>
-            </View>
-          </View>
           <Field label={t('checkout.form.deliveryPhoneLabel')}>
             <TextFieldInput
               label={t('checkout.form.deliveryPhoneA11y')}

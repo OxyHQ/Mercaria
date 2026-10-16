@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { ProductSummary } from '@mercaria/shared-types';
 import { Text } from '../ui/text';
 import { CurationImage } from './CurationCard';
-import { ProductCard } from './ProductCard';
+import { ProductCard, type ProductLinkRenderer } from './ProductCard';
 
 export interface EditorialStory {
   id: string;
@@ -130,7 +130,7 @@ export function EditorialCuration({
   heroImageUrl,
   mobileHeroImageUrl,
   stories,
-  onPressProduct,
+  renderProductLink,
 }: {
   title: string;
   subtitle: string;
@@ -139,7 +139,7 @@ export function EditorialCuration({
   heroImageUrl?: string;
   mobileHeroImageUrl?: string;
   stories: EditorialStory[];
-  onPressProduct: (id: string) => void;
+  renderProductLink: ProductLinkRenderer;
 }) {
   const { width } = useWindowDimensions();
   const tablet = width >= 768;
@@ -320,7 +320,7 @@ export function EditorialCuration({
                       return (
                         <View key={column} className="min-w-0 flex-1">
                           {product ? (
-                            <ProductCard product={product} onPress={onPressProduct} />
+                            <ProductCard product={product} renderLink={renderProductLink} />
                           ) : null}
                         </View>
                       );

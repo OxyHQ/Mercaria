@@ -30,7 +30,8 @@
     "account": "账户",
     "signIn": "登录",
     "threeD": "3D",
-    "mainNavigation": "主导航"
+    "mainNavigation": "主导航",
+    "settings": "设置"
   },
   "login": {
     "signInButton": "登录"
@@ -39,20 +40,6 @@
     "account": {
       "title": "账号设置"
     },
-    "appLanguage": {
-      "title": "应用语言",
-      "description": "更改应用的显示语言",
-      "restartRequired": "请重启应用以应用新的布局方向。"
-    },
-    "appearance": {
-      "title": "外观",
-      "light": "浅色",
-      "dark": "深色",
-      "system": "跟随系统"
-    },
-    "accentColor": {
-      "title": "应用主题色"
-    },
     "sections": {
       "account": "账号",
       "general": "通用",
@@ -60,7 +47,7 @@
       "addresses": "收货地址",
       "watchlists": "关注清单",
       "shoppingAgents": "购物助手",
-      "referralPartner": "推荐伙伴"
+      "referrals": "推荐"
     },
     "currency": {
       "title": "显示货币",
@@ -143,6 +130,7 @@
     "notFound": "未找到该商品。",
     "visitA11y": "访问 %{name}",
     "moreFromStore": "%{name} 的更多商品",
+    "youMightAlsoLike": "你可能还喜欢",
     "compareOffersA11y": "比较该商品的所有报价",
     "compareOffers": "比较所有报价",
     "percentOff": "省 %{percent}%",
@@ -234,7 +222,8 @@
       "product": "关于此商品",
       "variant": "关于此配置",
       "definitionsUnavailable": "部分名称按存储的原样显示。",
-      "untranslated": "部分名称尚未翻译成你的语言。"
+      "untranslated": "部分名称尚未翻译成你的语言。",
+      "loadError": "无法加载规格。请重试。"
     },
     "variants": {
       "unavailable": "暂无供应",
@@ -472,6 +461,17 @@
       "count": "%{formattedCount}人觉得有帮助",
       "error": "无法更新你的投票。请重试。",
       "retry": "重新加载投票"
+    },
+    "media": {
+      "add": "添加照片或视频",
+      "prompt": "将文件拖到此处或",
+      "uploading": "正在上传…",
+      "uploaded": "上传完成",
+      "invalid": "最多10个文件：JPG、PNG、WebP、GIF或AVIF图片不超过20 MB；MP4或WebM视频不超过100 MB。",
+      "publicNotice": "上传的文件是公开的。在此移除附件不会将其从你的Oxy文件中删除。",
+      "failed": "无法验证上传，请重试。",
+      "remove": "移除%{filename}",
+      "removeAction": "移除"
     }
   },
   "search": {
@@ -673,7 +673,8 @@
       "actionLabel": "关注 %{name}"
     },
     "linkCard": {
-      "viewProfile": "查看 %{name} 的主页"
+      "viewProfile": "查看 %{name} 的主页",
+      "visitProfile": "查看个人资料"
     },
     "report": {
       "action": "举报",
@@ -1207,6 +1208,15 @@
       "collectHere": "在线下单，到店自取",
       "placeRatingSubject": "GoWay 上的%{place}",
       "photoLabel": "%{place}的照片"
+    },
+    "contact": {
+      "title": "联系%{store}",
+      "unavailable": "无法加载联系信息。",
+      "empty": "此商店尚未公布联系信息。",
+      "website": "网站",
+      "copy": "复制%{value}",
+      "copied": "已复制",
+      "copyFailed": "无法复制。请重试。"
     }
   },
   "offer": {
@@ -1287,11 +1297,9 @@
     }
   },
   "referral": {
-    "documentTitle": "推荐伙伴 · Mercaria",
-    "title": "推荐伙伴",
     "loadError": "无法加载你的推荐面板，请重试。",
     "signedOut": {
-      "title": "登录后查看你的推荐伙伴账户",
+      "title": "登录以查看你的推荐",
       "body": "你的链接、它们带来的收益，以及你何时会收到款项。",
       "action": "登录"
     },
@@ -1338,11 +1346,19 @@
       "title": "表现",
       "totals": "%{clicks} 次点击 · %{referrals} 笔有效推荐，%{from} 至 %{through}",
       "empty": "此期间没有任何记录。",
-      "row": "%{label}：%{clicks} 次点击 · %{referrals} 笔推荐"
+      "row": "%{label}：%{clicks} 次点击 · %{referrals} 笔推荐",
+      "breakdownBy": "细分维度",
+      "dimension": {
+        "program": "计划",
+        "campaign": "活动",
+        "instrument": "链接或代码",
+        "market": "市场",
+        "clientSurface": "平台",
+        "date": "日期"
+      }
     },
     "instruments": {
-      "title": "你的链接和代码",
-      "empty": "你还没有推荐代码。",
+      "title": "你的代码",
       "disclosureIntro": "发布每个链接时都要附上这段声明：",
       "status": {
         "active": "有效",
@@ -1357,6 +1373,16 @@
       "appeal": "你可以对关于你参与资格的决定提出申诉。",
       "disputes": "关于归因、冲正或付款的争议目前还无法在这里处理。请联系客服，并提供上方显示的日期和金额。",
       "noEmails": "我们还不会发送推荐相关的邮件，请留意本页面的变化。"
+    },
+    "links": {
+      "title": "你的链接",
+      "create": "创建链接",
+      "copy": "复制",
+      "copyLink": "复制链接 %{url}",
+      "copied": "链接已复制",
+      "createFailed": "无法创建链接，请重试。",
+      "empty": "创建链接来分享 Mercaria。通过它带来的推荐会归属于你。",
+      "notPartner": "加入计划后，你的链接会显示在这里。"
     }
   },
   "brand": {
@@ -1540,6 +1566,17 @@
       "updateFailed": "无法更新该地址",
       "removed": "地址已删除",
       "removeFailed": "无法删除该地址"
+    },
+    "picker": {
+      "search": "使用 GoWay 查找地址",
+      "help": "搜索街道和城市，然后选择并核对地址。",
+      "placeholder": "街道、门牌号和城市",
+      "loading": "正在搜索 GoWay…",
+      "error": "暂时无法搜索地址。请重试或手动输入地址。",
+      "partial": "部分地址来源暂不可用，结果可能不完整。",
+      "empty": "未找到地址。请添加城市或手动输入地址。",
+      "review": "核对地址详情",
+      "manual": "手动输入地址"
     }
   },
   "shoppingAgents": {

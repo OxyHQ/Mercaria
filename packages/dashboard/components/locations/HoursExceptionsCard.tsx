@@ -32,6 +32,10 @@ import { EditorSection } from './EditorSection';
  * exception can be withdrawn; GoWay refuses the rest and the error says so.
  */
 export function HoursExceptionsCard({ placeId }: { placeId: string }) {
+  return <HoursExceptionsEditor key={placeId} placeId={placeId} />;
+}
+
+function HoursExceptionsEditor({ placeId }: { placeId: string }) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
   const exceptions = useHoursExceptions(placeId);
@@ -39,7 +43,10 @@ export function HoursExceptionsCard({ placeId }: { placeId: string }) {
   const remove = useDeleteHoursException(placeId);
   const [draft, setDraft] = useState<ExceptionDraft>(EMPTY_EXCEPTION_DRAFT);
 
+  const busy = create.isPending || remove.isPending;
+
   const add = () => {
+    if (busy) return;
     const built = hoursExceptionInputOf(draft);
     if (!built.ok) {
       toast.error(t(built.errorKey));
@@ -56,6 +63,7 @@ export function HoursExceptionsCard({ placeId }: { placeId: string }) {
 
   const field = (key: 'startsOn' | 'endsOn' | 'hours' | 'note') => ({
     value: draft[key],
+    disabled: create.isPending,
     onValueChange: (value: string) => setDraft((current) => ({ ...current, [key]: value })),
   });
 
@@ -65,7 +73,20 @@ export function HoursExceptionsCard({ placeId }: { placeId: string }) {
       description={t('settings.locations.editor.exceptions.description')}
     >
       {exceptions.isError ? (
-        <Text className="text-sm text-muted-foreground">{t(goWayErrorKey(exceptions.error))}</Text>
+        <View className="gap-2" accessibilityLiveRegion="polite">
+          <Text className="text-sm text-muted-foreground">
+            {t(goWayErrorKey(exceptions.error))}
+          </Text>
+          <Button
+            appearance="outline"
+            disabled={exceptions.isFetching}
+            onPress={() => {
+              void exceptions.refetch();
+            }}
+          >
+            {t('common.retry')}
+          </Button>
+        </View>
       ) : exceptions.data?.length === 0 ? (
         <Text className="text-sm text-muted-foreground">
           {t('settings.locations.editor.exceptions.none')}
@@ -76,12 +97,14 @@ export function HoursExceptionsCard({ placeId }: { placeId: string }) {
           key={exception.id}
           exception={exception}
           iconColor={colors.mutedForeground}
-          onRemove={() =>
+          disabled={busy}
+          onRemove={() => {
+            if (busy) return;
             remove.mutate(exception.id, {
               onSuccess: () => toast.success(t('settings.locations.editor.exceptions.removed')),
               onError: (error) => toast.error(t(goWayErrorKey(error))),
-            })
-          }
+            });
+          }}
         />
       ))}
 
@@ -112,6 +135,7 @@ export function HoursExceptionsCard({ placeId }: { placeId: string }) {
           </Text>
           <Switch
             checked={draft.closed}
+            disabled={create.isPending}
             onCheckedChange={(closed) => setDraft((current) => ({ ...current, closed }))}
             accessibilityLabel={t('settings.locations.editor.exceptions.closed')}
           />
@@ -131,7 +155,7 @@ export function HoursExceptionsCard({ placeId }: { placeId: string }) {
             {...field('note')}
           />
         </Field>
-        <Button tone="accent" loading={create.isPending} onPress={add}>
+        <Button tone="accent" loading={create.isPending} disabled={busy} onPress={add}>
           {t('settings.locations.editor.exceptions.add')}
         </Button>
       </View>
@@ -143,10 +167,12 @@ function ExceptionRow({
   exception,
   iconColor,
   onRemove,
+  disabled,
 }: {
   exception: PlaceHoursException;
   iconColor: string;
   onRemove: () => void;
+  disabled: boolean;
 }) {
   const { t } = useTranslation();
   const dates =
@@ -171,6 +197,8 @@ function ExceptionRow({
       </View>
       {exception.verification === 'business_asserted' ? (
         <Pressable
+          disabled={disabled}
+          accessibilityRole="button"
           onPress={onRemove}
           accessibilityLabel={t('settings.locations.editor.exceptions.remove')}
           className="p-2 active:opacity-70"

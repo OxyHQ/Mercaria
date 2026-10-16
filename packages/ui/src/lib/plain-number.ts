@@ -13,8 +13,8 @@ import { isolateBidi } from './bidi';
  * sentence had two options: this, or an ASCII integer.
  *
  * The ASCII integer is what `%{seats}` produces on its own, and it is wrong in
- * two of the twelve locales the registry ships — `ar` and `bn` render their own
- * digits, which is CLDR's answer for them (#500) — and visually wrong in the six
+ * locales using non-Latin digits — `bn` and `ar-EG`, for example, according to
+ * CLDR (#500); bare `ar` can default to Latin digits in newer runtimes — and visually wrong in the six
  * that group thousands with a different separator.
  *
  * It is NOT in `./format` for the reason `./byte-size` is not: that module is
@@ -34,7 +34,7 @@ const formatterCache = new Map<string, Intl.NumberFormat>();
 /**
  * Format `value` as a whole number for `locale`.
  *
- * `formatWholeNumber(1200, "en")` → `1,200`; `"de"` → `1.200`; `"ar"` →
+ * `formatWholeNumber(1200, "en")` → `1,200`; `"de"` → `1.200`; `"ar-EG"` →
  * `١٢٠٠` in Arabic-Indic digits. Wrapped in one `FSI`…`PDI` pair so it cannot
  * reorder inside an Arabic sentence (see `./bidi`).
  *

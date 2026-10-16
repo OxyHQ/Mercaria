@@ -17,6 +17,7 @@ import {
   type PlaceCreateInput,
   type PlaceHoursExceptionInput,
   type SearchResult,
+  type StructuredGeocodeQuery,
 } from '@goway.to/sdk';
 import { parseRanges } from './hours';
 
@@ -48,21 +49,49 @@ export const EMPTY_PLACE_DRAFT: PlaceDraft = {
 /**
  * A draft prefilled from a search result that GoWay holds no place for — an
  * address or a street the geocoder found. Its position is GoWay's answer, so a
- * merchant creating the shop there never types a coordinate.
+ * merchant creating the shop there never types a coordinate. A structured lookup
+ * may preserve reviewed input fields which its provider omitted from the answer.
  */
-export function draftFromSearchResult(result: SearchResult, name: string): PlaceDraft {
+export function draftFromSearchResult(
+  result: SearchResult,
+  name: string,
+  reviewedAddress?: PlaceDraft,
+): PlaceDraft {
   const address = result.address ?? {};
   return {
     name,
-    street: address.street ?? '',
-    houseNumber: address.houseNumber ?? '',
-    postalCode: address.postalCode ?? '',
-    city: address.city ?? result.context?.city ?? '',
-    region: address.region ?? result.context?.region ?? '',
-    countryCode: address.countryCode ?? result.context?.countryCode ?? '',
+    street: address.street ?? reviewedAddress?.street ?? '',
+    houseNumber: address.houseNumber ?? reviewedAddress?.houseNumber ?? '',
+    postalCode: address.postalCode ?? reviewedAddress?.postalCode ?? '',
+    city: address.city ?? result.context?.city ?? reviewedAddress?.city ?? '',
+    region: address.region ?? result.context?.region ?? reviewedAddress?.region ?? '',
+    countryCode:
+      address.countryCode ?? result.context?.countryCode ?? reviewedAddress?.countryCode ?? '',
     latitude: String(result.coordinate.latitude),
     longitude: String(result.coordinate.longitude),
   };
+}
+
+/** Changing postal facts invalidates the selected GoWay position. */
+export function editPlaceDraft(
+  draft: PlaceDraft,
+  key: Exclude<keyof PlaceDraft, 'latitude' | 'longitude'>,
+  value: string,
+): PlaceDraft {
+  if (draft[key] === value) return draft;
+  return { ...draft, [key]: value, ...(key === 'name' ? {} : { latitude: '', longitude: '' }) };
+}
+
+/** Official structured geocoder input; coordinates are never inferred locally. */
+export function placeAddressQuery(draft: PlaceDraft): StructuredGeocodeQuery {
+  return Object.fromEntries(
+    (['street', 'houseNumber', 'city', 'region', 'postalCode', 'countryCode'] as const).flatMap(
+      (key) =>
+        draft[key].trim()
+          ? [[key, key === 'countryCode' ? draft[key].trim().toUpperCase() : draft[key].trim()]]
+          : [],
+    ),
+  );
 }
 
 function nonEmpty(value: string): string | undefined {
@@ -147,32 +176,23 @@ export type ContactPatch = {
   website?: string | null;
 };
 
-/**
- * The `contact` update a draft says, as a merge patch (`PATCH /places/{id}`).
- *
- * A filled field is sent; a field the merchant EMPTIED — the place has a value
- * and the draft no longer does — is sent as `null`, which clears it on GoWay; a
- * field that was empty and still is, is not sent at all. The editor says
- * beside the fields that emptying one removes it.
- */
+/** Only edited fields enter the merge patch; an explicit empty value clears that field. */
 export function contactInputOf(
-  draft: ContactDraft,
-  current?: PlaceContact,
+  draft: Partial<ContactDraft>,
 ): { ok: true; contact: ContactPatch } | { ok: false; errorKey: string } {
-  const website = nonEmpty(draft.website);
+  const website = nonEmpty(draft.website ?? '');
   if (website !== undefined && !/^https?:\/\//i.test(website)) {
     return { ok: false, errorKey: 'settings.locations.editor.contact.websiteInvalid' };
   }
-  const email = nonEmpty(draft.email);
+  const email = nonEmpty(draft.email ?? '');
   if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { ok: false, errorKey: 'settings.locations.editor.contact.emailInvalid' };
   }
-  const phone = nonEmpty(draft.phone);
+  const phone = nonEmpty(draft.phone ?? '');
   const part = (key: keyof ContactDraft, value: string | undefined): ContactPatch => {
     const patch: ContactPatch = {};
-    const held = current?.[key];
-    if (value !== undefined) patch[key] = value;
-    else if (typeof held === 'string' && held.trim() !== '') patch[key] = null;
+    if (draft[key] === undefined) return patch;
+    patch[key] = value ?? null;
     return patch;
   };
   return {
@@ -193,6 +213,26 @@ export type AccessibilityFlag = (typeof ACCESSIBILITY_FLAGS)[number];
 
 /** The three-valued wheelchair key GoWay reads from OpenStreetMap. */
 export const WHEELCHAIR_KEY = 'accessibility.wheelchair' as const;
+
+/** Only explicit merchant changes; untouched capabilities always follow GoWay. */
+export type AccessibilityEdits = Partial<
+  Record<AccessibilityFlag, FlagChoice> & Record<typeof WHEELCHAIR_KEY, WheelchairChoice>
+>;
+
+export function accessibilityChoicesWithEdits(
+  current: AccessibilityChoices,
+  edits: AccessibilityEdits,
+): AccessibilityChoices {
+  const desired = {
+    wheelchair: edits[WHEELCHAIR_KEY] ?? current.wheelchair,
+    flags: { ...current.flags },
+  };
+  for (const key of ACCESSIBILITY_FLAGS) {
+    const choice = edits[key];
+    if (choice !== undefined) desired.flags[key] = choice;
+  }
+  return desired;
+}
 
 /** What the editor shows per key: the place's strongest assertion, or none. */
 export type FlagChoice = 'yes' | 'no' | 'unset';

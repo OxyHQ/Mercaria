@@ -9,7 +9,7 @@ import { surfaceStyle } from '@oxy.so/bloom/shapes';
 import { useIsRtl } from '@oxy.so/bloom/hooks';
 import { Popover, PopoverTrigger, PopoverContent } from '@oxy.so/bloom/popover';
 import { REVIEW_SORT_ORDERS, type ReviewSortOrder } from '@mercaria/shared-types';
-import { Text, useColorScheme, useFormatters } from '@mercaria/ui';
+import { Icon, Text, useColorScheme, useFormatters } from '@mercaria/ui';
 import { ChevronDown } from 'lucide-react-native';
 import { useTranslation } from '@/lib/i18n';
 
@@ -60,7 +60,11 @@ function ReviewFilterPanel({
         >
           {label}
         </Text>
-        <ChevronDown size={16} className={active ? 'text-white dark:text-black' : 'text-text'} />
+        <Icon
+          as={ChevronDown}
+          size={16}
+          className={active ? 'text-white dark:text-black' : 'text-text'}
+        />
       </View>
     </Button>
   );

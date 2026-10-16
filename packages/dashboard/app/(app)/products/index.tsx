@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { View, Pressable, useWindowDimensions } from 'react-native';
-import { useRouter, type RoutePath } from 'expo-router';
+import { Link, useRouter, type RoutePath } from 'expo-router';
 import Head from 'expo-router/head';
 import { Plus, Search as SearchIcon } from 'lucide-react-native';
 import { ALL_LISTING_STATUSES, type Listing, type ListingStatus } from '@mercaria/shared-types';
+import { useOxy } from '@oxy.so/services';
+import { Checkbox } from '@oxy.so/bloom/checkbox';
+import { useBulkProductStatus } from '@/lib/hooks/use-bulk-product-status';
+import { BulkProductActions } from '@/components/products/BulkProductActions';
+import type { SelectedProduct } from '@/lib/bulk-product-status';
 import { Badge } from '@oxy.so/bloom/badge';
 import { Button } from '@oxy.so/bloom/button';
 import {
@@ -41,13 +46,14 @@ const STATUS_LABEL_KEYS: Record<ListingStatus, string> = {
 
 export default function ProductsScreen() {
   const { t } = useTranslation();
+  const { activeSessionId } = useOxy();
   return (
     <>
       <Head>
         <title>{t('products.documentTitle')}</title>
       </Head>
       <RequireStore permission="products:read">
-        {(storeId) => <ProductsBody key={storeId} storeId={storeId} />}
+        {(storeId) => <ProductsBody key={`${storeId}:${activeSessionId}`} storeId={storeId} />}
       </RequireStore>
     </>
   );
@@ -58,6 +64,9 @@ function ProductsBody({ storeId }: { storeId: string }) {
   const { t, locale } = useTranslation();
   const { can } = useActiveStoreContext();
   const { width } = useWindowDimensions();
+  const [selected, setSelected] = useState<Record<string, SelectedProduct>>({});
+  const canWrite = can('products:write');
+  const bulk = useBulkProductStatus(storeId, canWrite);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ListingStatus | 'all'>('all');
@@ -69,7 +78,7 @@ function ProductsBody({ storeId }: { storeId: string }) {
     status,
   );
   const changingSearch = query !== search.trim();
-  const busy = isFetching || changingSearch;
+  const busy = isFetching || changingSearch || bulk.isPending;
   /**
    * Where "Add product" goes (#367 step 10).
    *
@@ -96,12 +105,33 @@ function ProductsBody({ storeId }: { storeId: string }) {
 
   const filtered = status !== 'all' || search.trim() !== '';
   const products = data?.data ?? [];
+  const selectDisabled = busy || isPlaceholderData || isError || !canWrite;
+  const selectable = products.filter((product) => product.status !== 'restricted');
+  const allSelected =
+    selectable.length > 0 && selectable.every((product) => Boolean(selected[product.id]));
+  const toggle = (product: Listing, checked: boolean) => {
+    if (selectDisabled || (checked && product.status === 'restricted')) return;
+    setSelected((current) => {
+      const next = { ...current };
+      if (checked) next[product.id] = { id: product.id, title: product.title };
+      else delete next[product.id];
+      return next;
+    });
+  };
+  const selection = (product: Listing) =>
+    canWrite ? (
+      <Checkbox
+        checked={Boolean(selected[product.id])}
+        disabled={selectDisabled || (product.status === 'restricted' && !selected[product.id])}
+        accessibilityLabel={t('products.bulk.select', { title: product.title })}
+        onCheckedChange={(checked) => toggle(product, checked)}
+      />
+    ) : null;
   const clear = () => {
     setSearch('');
     setStatus('all');
     setPage(1);
   };
-  const openProduct = (id: string) => router.push({ pathname: '/products/[id]', params: { id } });
   const statusOptions = [
     { value: 'all' as const, label: t('common.all') },
     ...ALL_LISTING_STATUSES.map((value) => ({ value, label: t(STATUS_LABEL_KEYS[value]) })),
@@ -123,30 +153,69 @@ function ProductsBody({ storeId }: { storeId: string }) {
         testID="merchant-products-list"
         busy={busy}
         toolbar={
-          <View className="gap-3 md:flex-row md:items-center">
-            <StatusFilter
-              value={status}
-              options={statusOptions}
-              onChange={(next) => {
-                setStatus(next);
-                setPage(1);
-              }}
-            />
-            <View className="md:flex-1">
-              <TextField radius={8}>
-                <TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
-                <TextFieldInput
-                  label={t('products.searchPlaceholder')}
-                  value={search}
-                  maxLength={200}
-                  onValueChange={(value) => {
-                    setSearch(value);
-                    setPage(1);
-                  }}
-                  returnKeyType="search"
-                />
-              </TextField>
+          <View className="gap-3">
+            <View className="gap-3 md:flex-row md:items-center">
+              <StatusFilter
+                disabled={bulk.isPending}
+                value={status}
+                options={statusOptions}
+                onChange={(next) => {
+                  setStatus(next);
+                  setPage(1);
+                }}
+              />
+              <View className="md:flex-1">
+                <TextField radius={8}>
+                  <TextFieldIcon icon={toBloomFieldIcon(SearchIcon)} />
+                  <TextFieldInput
+                    label={t('products.searchPlaceholder')}
+                    value={search}
+                    maxLength={200}
+                    disabled={bulk.isPending}
+                    onValueChange={(value) => {
+                      setSearch(value);
+                      setPage(1);
+                    }}
+                    returnKeyType="search"
+                  />
+                </TextField>
+              </View>
             </View>
+            {canWrite && products.length ? (
+              <Checkbox
+                checked={allSelected}
+                indeterminate={
+                  !allSelected && selectable.some((product) => Boolean(selected[product.id]))
+                }
+                disabled={selectDisabled || !selectable.length}
+                accessibilityLabel={t('products.bulk.selectPage')}
+                labelContent={
+                  <Text className="text-sm text-foreground">{t('products.bulk.selectPage')}</Text>
+                }
+                onCheckedChange={(checked) => {
+                  if (!selectDisabled)
+                    setSelected((current) => {
+                      const next = { ...current };
+                      for (const product of selectable) {
+                        if (checked) next[product.id] = { id: product.id, title: product.title };
+                        else delete next[product.id];
+                      }
+                      return next;
+                    });
+                }}
+              />
+            ) : null}
+            <BulkProductActions
+              selected={Object.values(selected)}
+              allowed={canWrite}
+              mutation={bulk}
+              onClear={() => setSelected({})}
+              onUpdated={(ids) =>
+                setSelected((current) =>
+                  Object.fromEntries(Object.entries(current).filter(([id]) => !ids.includes(id))),
+                )
+              }
+            />
           </View>
         }
         footer={
@@ -180,6 +249,13 @@ function ProductsBody({ storeId }: { storeId: string }) {
         ) : width >= 768 ? (
           <Table accessibilityLabel={t('products.title')} size="sm" minWidth={600}>
             <TableHeader>
+              {canWrite ? (
+                <TableColumn width={64}>
+                  <Text className="text-xs text-muted-foreground">
+                    {t('products.bulk.selection')}
+                  </Text>
+                </TableColumn>
+              ) : null}
               <TableColumn flex={3}>
                 <Text className="text-xs font-semibold text-muted-foreground">
                   {t('common.title')}
@@ -204,12 +280,9 @@ function ProductsBody({ storeId }: { storeId: string }) {
             <TableBody>
               {products.map((product) => (
                 <TableRow key={product.id} testID="merchant-product-row">
+                  {canWrite ? <TableCell>{selection(product)}</TableCell> : null}
                   <TableCell>
-                    <ProductIdentity
-                      product={product}
-                      disabled={isPlaceholderData}
-                      onPress={() => openProduct(product.id)}
-                    />
+                    <ProductIdentity product={product} disabled={isPlaceholderData} />
                   </TableCell>
                   <TableCell>
                     <ProductStatus status={product.status} />
@@ -237,11 +310,12 @@ function ProductsBody({ storeId }: { storeId: string }) {
                 testID="merchant-product-row"
                 className="gap-3 border-b border-border p-4"
               >
-                <ProductIdentity
-                  product={product}
-                  disabled={isPlaceholderData}
-                  onPress={() => openProduct(product.id)}
-                />
+                <View className="flex-row items-center gap-3">
+                  {selection(product)}
+                  <View className="min-w-0 flex-1">
+                    <ProductIdentity product={product} disabled={isPlaceholderData} />
+                  </View>
+                </View>
                 <View className="flex-row items-center justify-between gap-2">
                   <ProductStatus status={product.status} />
                   <PriceDisplay price={product.price} primaryClassName="text-sm" />
@@ -273,20 +347,10 @@ function ProductStatus({ status }: { status: ListingStatus }) {
   );
 }
 
-function ProductIdentity({
-  product,
-  onPress,
-  disabled,
-}: {
-  product: Listing;
-  onPress: () => void;
-  disabled: boolean;
-}) {
-  return (
+function ProductIdentity({ product, disabled }: { product: Listing; disabled: boolean }) {
+  const content = (
     <Pressable
-      onPress={onPress}
       disabled={disabled}
-      accessibilityRole="button"
       accessibilityLabel={product.title}
       className="flex-row items-center gap-3 rounded-lg py-1 active:opacity-70 web:hover:opacity-70"
     >
@@ -303,5 +367,12 @@ function ProductIdentity({
         {product.source ? <SourceBadge provider={product.source.provider} /> : null}
       </View>
     </Pressable>
+  );
+  return disabled ? (
+    content
+  ) : (
+    <Link href={{ pathname: '/products/[id]', params: { id: product.id } }} asChild>
+      {content}
+    </Link>
   );
 }

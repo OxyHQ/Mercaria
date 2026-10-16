@@ -47,6 +47,9 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type express from 'express';
 import { uuidv7 } from '@oxy.so/db';
+import { asc, eq } from 'drizzle-orm';
+import { listingImages } from '../../db/schema/catalog.js';
+import { stores } from '../../db/schema/stores.js';
 import {
   MERCARIA_PUBLIC_API_BASE_PATH,
   MERCARIA_PUBLIC_ROUTES,
@@ -349,6 +352,60 @@ describe('GET /public/v1/products', () => {
 });
 
 describe('GET /public/v1/products/:id', () => {
+  it('withholds legacy supplier URLs while preserving nullable public image contracts', async () => {
+    const original = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, ids.inStock))
+      .orderBy(asc(listingImages.position));
+    const [store] = await db.select().from(stores).where(eq(stores.id, ids.storeA));
+    expect(original.length).toBeGreaterThanOrEqual(2);
+    const external = 'https://supplier.example/legacy.jpg?signature=private';
+    try {
+      await db
+        .update(listingImages)
+        .set({ fileId: external })
+        .where(eq(listingImages.listingId, ids.inStock));
+      await db
+        .update(stores)
+        .set({ logoFileId: external, coverFileId: external })
+        .where(eq(stores.id, ids.storeA));
+      const answer = await call(api(`/products/${ids.inStock}`), { shape: 'product' });
+      expect(answer.status, answer.text).toBe(200);
+      expect(dataOf(answer)['primaryImage']).toBeNull();
+      expect(dataOf(answer)['images']).toEqual([]);
+      expect((dataOf(answer)['seller'] as { logoUrl: unknown }).logoUrl).toBeNull();
+      expect(answer.text).not.toContain('supplier.example');
+      const storeAnswer = await call(api(`/stores/${ids.storeA}`), { shape: 'store' });
+      expect(storeAnswer.status, storeAnswer.text).toBe(200);
+      expect(dataOf(storeAnswer)['logoUrl']).toBeNull();
+      expect(dataOf(storeAnswer)['coverImageUrl']).toBeNull();
+      // A later imported photograph remains usable even while the first row
+      // still needs backfill. Gallery identity/order in the DB is unchanged.
+      await db
+        .update(listingImages)
+        .set({ fileId: original[1].fileId })
+        .where(eq(listingImages.id, original[1].id));
+      const partial = await call(api(`/products/${ids.inStock}`), { shape: 'product' });
+      expect(partial.status, partial.text).toBe(200);
+      expect(dataOf(partial)['primaryImage']).toEqual({
+        url: mediaUrl(original[1].fileId),
+        alt: null,
+      });
+      expect(dataOf(partial)['images']).toHaveLength(1);
+    } finally {
+      for (const row of original)
+        await db
+          .update(listingImages)
+          .set({ fileId: row.fileId })
+          .where(eq(listingImages.id, row.id));
+      await db
+        .update(stores)
+        .set({ logoFileId: store.logoFileId, coverFileId: store.coverFileId })
+        .where(eq(stores.id, store.id));
+    }
+  });
+
   it('projects a live store product field by field', async () => {
     const answer = await call(api(`/products/${ids.inStock}`), { shape: 'product' });
     expect(answer.status, answer.text).toBe(200);

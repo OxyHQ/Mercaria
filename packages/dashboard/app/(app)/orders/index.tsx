@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Pressable, useWindowDimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import Head from 'expo-router/head';
 import type { OrderStatus, MerchantOrderSummary } from '@mercaria/shared-types';
 import {
@@ -39,7 +39,6 @@ export default function OrdersScreen() {
 }
 
 function OrdersBody({ storeId }: { storeId: string }) {
-  const router = useRouter();
   const { t, locale } = useTranslation();
   const { width } = useWindowDimensions();
   const [status, setStatus] = useState<OrderStatus | 'all'>('all');
@@ -57,18 +56,24 @@ function OrdersBody({ storeId }: { storeId: string }) {
       label: t(ORDER_STATUS_LABEL_KEYS[value]),
     })),
   ];
-  const openOrder = (id: string) => router.push({ pathname: '/orders/[id]', params: { id } });
-  const orderLink = (order: MerchantOrderSummary) => (
-    <Pressable
-      disabled={isPlaceholderData}
-      onPress={() => openOrder(order.id)}
-      accessibilityRole="button"
-      accessibilityLabel={order.orderNumber}
-      className="rounded py-2 active:opacity-70 web:hover:opacity-70"
-    >
-      <Text className="text-sm font-semibold text-foreground">{order.orderNumber}</Text>
-    </Pressable>
-  );
+  const orderLink = (order: MerchantOrderSummary) => {
+    const content = (
+      <Pressable
+        disabled={isPlaceholderData}
+        accessibilityLabel={order.orderNumber}
+        className="rounded py-2 active:opacity-70 web:hover:opacity-70"
+      >
+        <Text className="text-sm font-semibold text-foreground">{order.orderNumber}</Text>
+      </Pressable>
+    );
+    return isPlaceholderData ? (
+      content
+    ) : (
+      <Link href={{ pathname: '/orders/[id]', params: { id: order.id } }} asChild>
+        {content}
+      </Link>
+    );
+  };
   return (
     <Screen title={t('orders.title')}>
       <ResourceList

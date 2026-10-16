@@ -43,7 +43,7 @@ import type {
 import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import { findCurrentRelationships } from '../../db/commerce-graph/relationshipRepository.js';
 import { findMerchantRefs } from '../../db/catalogPages/catalogPageRepository.js';
-import { findOrganizationById } from '../../db/canonical/organizationRepository.js';
+import { getPublicOrganizations } from '../organizations/directory.js';
 import { listBrandChannels } from '../commerce-graph/relationship-resolution.js';
 
 /**
@@ -124,9 +124,13 @@ export async function readBrandOwningOrganization(
     at: input.now,
   });
 
+  const organizations = await getPublicOrganizations(
+    rows.flatMap((row) => (row.organizationId ? [row.organizationId] : [])),
+    db,
+  );
   for (const row of rows) {
     if (row.organizationId === null) continue;
-    const organization = await findOrganizationById(db, row.organizationId);
+    const organization = organizations.get(row.organizationId);
     if (!organization) continue;
     return {
       organizationId: organization.id,

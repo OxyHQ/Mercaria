@@ -2,7 +2,7 @@
   "auth": {
     "signInAction": "サインイン",
     "signInBody": "Oxyアカウントでサインインしてストアを管理します。商品、注文、在庫、顧客、割引、レポートを扱えます。",
-    "signInTitle": "Mercaria Dashboard"
+    "signInTitle": "Wholesale by Mercaria"
   },
   "channels": {
     "addChannel": "チャネルを追加",
@@ -92,7 +92,7 @@
       },
       "title": "接続解除"
     },
-    "documentTitle": "販売チャネル | Mercaria Dashboard",
+    "documentTitle": "販売チャネル | Wholesale by Mercaria",
     "empty": {
       "body": "下からストアまたは商品フィードを接続すると、既存のカタログを取り込めます。",
       "title": "Mercariaのカタログのみ"
@@ -263,7 +263,7 @@
     "settings": {
       "autoPublish": "自動公開",
       "autoPublishHint": "取り込んだ商品をすぐに公開します。オフの場合は、確認用の下書きとして取り込まれます。",
-      "documentTitle": "チャネル設定 | Mercaria Dashboard",
+      "documentTitle": "チャネル設定 | Wholesale by Mercaria",
       "inventoryHint": "同期先ロケーションの在庫数。",
       "inventoryLabel": "在庫",
       "keepLocalEdits": "Mercariaでの編集を保持",
@@ -396,7 +396,7 @@
       "canAndCannot": "このチャネルにできること・できないこと",
       "chooseWhatToImport": "インポートする対象を選択",
       "connectedTitle": "%{channel}に接続しました",
-      "documentTitle": "チャネルを接続 | Mercaria Dashboard",
+      "documentTitle": "チャネルを接続 | Wholesale by Mercaria",
       "everythingChecksOut": "問題ありません。有効化すると最初の同期が始まります。",
       "feed": {
         "body": "商品フィードは専用の画面で設定します。そこでファイルの列をMercariaの項目に対応付け、公開前に結果をプレビューできます。",
@@ -490,7 +490,7 @@
     },
     "deleteError": "コレクションを削除できませんでした",
     "deleted": "コレクションを削除しました",
-    "documentTitle": "コレクション | Mercaria Dashboard",
+    "documentTitle": "コレクション | Wholesale by Mercaria",
     "empty": {
       "body": "コレクションを作成してカタログを整理しましょう。",
       "title": "コレクションがまだありません"
@@ -513,6 +513,73 @@
     "type": {
       "automated": "自動",
       "manual": "手動"
+    },
+    "remove": {
+      "action": "%{title}を削除",
+      "title": "コレクションを削除",
+      "confirmation": "「%{title}」を削除しますか？商品はカタログに残ります。この操作は取り消せません。"
+    },
+    "editor": {
+      "automated": "このコレクションの商品はルールに従って管理されます。",
+      "details": "コレクションの詳細",
+      "handle": "URLハンドル",
+      "handleRequired": "URLハンドルを入力してください。",
+      "published": "公開済み",
+      "save": "コレクションを保存",
+      "saveFailed": "コレクションを保存できませんでした。",
+      "saved": "コレクションを保存しました",
+      "sortLabel": "商品の並び順",
+      "browse": "商品を探す",
+      "earlier": "%{title}を前へ移動",
+      "emptyProducts": "商品が選択されていません。",
+      "later": "%{title}を後ろへ移動",
+      "productUnavailable": "この商品を読み込めませんでした。",
+      "productsFailed": "商品を保存できませんでした。",
+      "productsSaved": "商品を保存しました",
+      "remove": "%{title}を削除",
+      "saveProducts": "商品を保存",
+      "sort": {
+        "manual": "手動",
+        "bestSelling": "売上順",
+        "priceAscending": "価格の低い順",
+        "priceDescending": "価格の高い順",
+        "newest": "新しい順",
+        "title": "タイトル：A–Z"
+      }
+    },
+    "rules": {
+      "heading": "条件",
+      "match": "商品の一致条件",
+      "all": "すべての条件",
+      "any": "いずれかの条件",
+      "empty": "条件がない場合、このコレクションには商品が含まれません。",
+      "field": "商品フィールド",
+      "operator": "比較",
+      "value": "値",
+      "availability": "在庫状況",
+      "inStock": "在庫あり",
+      "outOfStock": "在庫なし",
+      "price": "価格",
+      "compareAtPrice": "比較価格",
+      "exactElement": "タグとカテゴリー識別子は、「含む」を選んだ場合も値全体で一致判定されます。",
+      "retained": "この既存の条件は変更せず保持されます。ここでは編集できませんが、明示的に削除できます。",
+      "remove": "条件 %{position} を削除",
+      "add": "条件を追加",
+      "failed": "条件を保存できませんでした。変更内容は保持されています。",
+      "saved": "条件を保存しました",
+      "save": "条件を保存",
+      "operators": {
+        "equals": "等しい",
+        "notEquals": "等しくない",
+        "contains": "含む",
+        "startsWith": "で始まる",
+        "endsWith": "で終わる",
+        "gt": "より大きい",
+        "gte": "以上",
+        "lt": "より小さい",
+        "lte": "以下"
+      },
+      "categoryIdentifier": "カテゴリー識別子"
     }
   },
   "common": {
@@ -540,7 +607,7 @@
   },
   "customers": {
     "detail": {
-      "documentTitle": "顧客 | Mercaria Dashboard",
+      "documentTitle": "顧客 | Wholesale by Mercaria",
       "lifetimeSpend": "累計購入額",
       "loadError": "顧客を読み込めませんでした",
       "noOrders": "注文はまだありません。",
@@ -548,7 +615,7 @@
       "subtitle": "顧客の詳細",
       "title": "顧客"
     },
-    "documentTitle": "顧客 | Mercaria Dashboard",
+    "documentTitle": "顧客 | Wholesale by Mercaria",
     "empty": {
       "body": "初回の注文のあと、顧客がここに表示されます。",
       "title": "顧客がいません"
@@ -586,7 +653,7 @@
     },
     "deleteError": "割引を削除できませんでした",
     "deleted": "割引を削除しました",
-    "documentTitle": "割引 | Mercaria Dashboard",
+    "documentTitle": "割引 | Wholesale by Mercaria",
     "empty": {
       "body": "コード割引または自動割引を作成しましょう。",
       "title": "割引がまだありません"
@@ -607,13 +674,13 @@
     "boundaryBody": "予期しないエラーが発生しました。もう一度お試しください。問題が解決しない場合も、担当チームに通知済みです。",
     "notFoundAction": "ダッシュボードへ移動",
     "notFoundBody": "この画面は存在しません。",
-    "notFoundDocumentTitle": "404 - ページが見つかりません | Mercaria Dashboard",
+    "notFoundDocumentTitle": "404 - ページが見つかりません | Wholesale by Mercaria",
     "notFoundHeading": "ページが見つかりません"
   },
   "feeds": {
     "detail": {
       "activateMappingFirst": "先にマッピングを有効化してください",
-      "documentTitle": "商品フィード | Mercaria Dashboard",
+      "documentTitle": "商品フィード | Wholesale by Mercaria",
       "identityColumns": "識別用の列：%{columns} — このフィードでは変更できません。",
       "neverRead": "このフィードはまだ読み取られていません。",
       "notFound": "フィードが見つかりません",
@@ -642,7 +709,7 @@
     "never": "なし",
     "new": {
       "create": "フィードを作成",
-      "documentTitle": "新規商品フィード | Mercaria Dashboard",
+      "documentTitle": "新規商品フィード | Wholesale by Mercaria",
       "identityColumnsHint": "カンマ区切りで最大4つ。あとから変更できません。これはMercariaが前回のファイルと今回のファイルで同じ商品を見分ける手がかりであり、変更するとカタログをすべて入れ替えたように見えてしまいます。別の列が必要な場合は、新しいフィードを作成してください。",
       "identityColumnsLabel": "各商品を識別する列",
       "identityColumnsPlaceholder": "id, sku",
@@ -745,7 +812,7 @@
     }
   },
   "home": {
-    "documentTitle": "ダッシュボード | Mercaria",
+    "documentTitle": "ダッシュボード | Wholesale by Mercaria",
     "inventory": {
       "lowStock": {
         "one": "在庫を管理しているバリエーションのうち%{count}件が、在庫僅少のしきい値以下です。",
@@ -805,7 +872,7 @@
     "openNavigation": "ナビゲーションを開く",
     "orders": "注文",
     "products": "商品",
-    "settings": "設定",
+    "settings": "ストア設定",
     "mainNavigation": "メインナビゲーション",
     "collapseSidebar": "サイドバーを折りたたむ",
     "expandSidebar": "サイドバーを展開",
@@ -817,7 +884,7 @@
   },
   "orders": {
     "detail": {
-      "documentTitle": "注文 | Mercaria Dashboard",
+      "documentTitle": "注文 | Wholesale by Mercaria",
       "fulfilment": "フルフィルメント",
       "history": "履歴",
       "itemVariantQuantity": "%{variant} · ×%{quantity}",
@@ -836,9 +903,10 @@
       "title": "注文",
       "trackingLabel": "追跡番号（任意）",
       "trackingPlaceholder": "1Z…",
-      "updateFailed": "注文を更新できませんでした"
+      "updateFailed": "注文を更新できませんでした",
+      "refundsLoadFailed": "返金履歴を読み込めませんでした。"
     },
-    "documentTitle": "注文 | Mercaria Dashboard",
+    "documentTitle": "注文 | Wholesale by Mercaria",
     "empty": {
       "body": "顧客が購入すると、注文がここに表示されます。",
       "title": "注文がありません"
@@ -882,18 +950,21 @@
       },
       "trail": "受け取り履歴",
       "trailEmpty": "カウンターではまだ何も行われていません。",
-      "viewPlace": "GoWay で場所を見る"
+      "viewPlace": "GoWay で場所を見る",
+      "loadFailed": "受け取り情報を読み込めませんでした。注文を引き渡す前に再試行してください。"
     },
     "refund": {
       "dialogTitle": "注文を返金",
-      "failed": "返金を処理できませんでした",
+      "failed": "返金を確認できませんでした。同じ内容で再試行して結果を確認してください。",
       "itemMax": "%{variant} · 最大%{quantity}",
-      "processed": "返金を処理しました",
       "quantityLabel": "%{item} の返金数量",
       "quantityRequired": "返金する数量を入力してください",
       "reasonLabel": "理由（任意）",
       "reasonPlaceholder": "返金の理由は？",
-      "submit": "返金を処理"
+      "submit": "返金を処理",
+      "loadFailed": "以前の返金を読み込めませんでした。送信前に再試行してください。",
+      "quantityInvalid": "0から%{quantity}までの整数を入力してください。",
+      "unavailable": "この注文は返金できません。"
     },
     "refundState": {
       "canceled": "キャンセル済み",
@@ -935,7 +1006,7 @@
       "archiveFailed": "商品をアーカイブできませんでした",
       "archived": "商品をアーカイブしました",
       "channelSettings": "チャネル設定",
-      "documentTitle": "商品 | Mercaria Dashboard",
+      "documentTitle": "商品 | Wholesale by Mercaria",
       "loadFailed": "商品を読み込めませんでした",
       "pins": {
         "release": "解除",
@@ -961,9 +1032,11 @@
         "tags": "タグ",
         "addTag": "タグを追加",
         "removeTag": "%{tag}を削除"
-      }
+      },
+      "archiveConfirmation": "「%{title}」をアーカイブしますか？購入者は購入できなくなります。",
+      "archiveUnsaved": "商品やバリエーションの未保存の変更は失われます。編集を続けるにはキャンセルしてください。"
     },
-    "documentTitle": "商品 | Mercaria Dashboard",
+    "documentTitle": "商品 | Wholesale by Mercaria",
     "empty": {
       "action": "最初の商品を追加",
       "title": "商品がまだありません"
@@ -977,7 +1050,7 @@
       "createFailed": "商品を作成できませんでした",
       "created": "商品を作成しました",
       "descriptionPlaceholder": "商品の説明を入力",
-      "documentTitle": "新規商品 | Mercaria Dashboard",
+      "documentTitle": "新規商品 | Wholesale by Mercaria",
       "optionNameLabel": "オプション名（任意、例：サイズ）",
       "optionNamePlaceholder": "サイズ",
       "optionValueLabel": "%{option}の値",
@@ -1015,7 +1088,6 @@
     "variants": {
       "add": "追加",
       "addFailed": "バリエーションを追加できませんでした",
-      "added": "バリエーションを追加しました",
       "available": "販売可能",
       "heading": "バリエーションと在庫",
       "inventoryUpdateFailed": "在庫を更新できませんでした",
@@ -1023,19 +1095,47 @@
       "priceInvalid": "有効な価格を入力してください",
       "removeFailed": "バリエーションを削除できませんでした",
       "removeVariant": "バリエーションを削除",
-      "removed": "バリエーションを削除しました",
       "saveVariant": "バリエーションを保存",
       "set": "設定",
       "updateFailed": "バリエーションを更新できませんでした",
       "updated": "バリエーションを更新しました",
-      "valuePlaceholder": "値"
+      "valuePlaceholder": "値",
+      "inventory": {
+        "total": "全拠点の販売可能数：%{quantity}",
+        "manage": "拠点別の在庫",
+        "loadFailed": "在庫を読み込めませんでした",
+        "empty": "在庫のある拠点はありません",
+        "invalid": "有効な整数の数量を入力してください。"
+      },
+      "optionRequired": "すべてのオプションに値を指定してください。",
+      "duplicateCombination": "このオプションの組み合わせはすでに存在します。",
+      "currencyChanged": "通貨が変更されました。現在の価格を使用するには、この編集をキャンセルしてください。",
+      "removeConfirmation": "この商品から「%{variant}」を削除しますか？",
+      "keepOneVariant": "商品には少なくとも1つのバリエーションが必要です。",
+      "identifiers": {
+        "sku": "SKU",
+        "barcode": "バーコード",
+        "cannotClear": "この識別子は変更できますが、空欄にはできません。"
+      },
+      "media": {
+        "manage": "バリエーションの画像を編集",
+        "fallback": "商品のギャラリーを使用",
+        "selected": "%{count}枚を選択中",
+        "empty": "選択できる商品画像がありません。",
+        "loadFailed": "選択した画像を読み込めませんでした。",
+        "saveFailed": "バリエーションの画像を保存できませんでした。",
+        "unavailable": "選択した画像の一部は、この商品のギャラリーで利用できなくなりました。",
+        "earlier": "前に移動",
+        "later": "後ろに移動",
+        "useGallery": "商品のギャラリーを使用"
+      }
     },
     "wizard": {
-      "documentTitle": "商品を作成",
+      "documentTitle": "Wholesale by Mercaria",
       "title": "商品を作成",
       "readOnly": "この下書きはもう編集できません。",
       "start": {
-        "documentTitle": "何を販売しますか？",
+        "documentTitle": "Wholesale by Mercaria",
         "title": "何を販売しますか？",
         "subtitle": "カタログから探すか、新しいものを説明してください。",
         "unavailableTitle": "ガイド付き作成はここでは利用できません",
@@ -1168,8 +1268,7 @@
         "noSoldVariants": "価格を付けるには、少なくとも 1 つの組み合わせを有効にしてください。"
       },
       "listing": {
-        "mediaTitle": "写真",
-        "mediaUnavailable": "写真はまだダッシュボードから追加できません。この下書きに付いている写真はそのまま保持されます。"
+        "mediaTitle": "写真"
       },
       "review": {
         "category": "カテゴリー",
@@ -1262,12 +1361,54 @@
         "unnamed": "名称は未翻訳です",
         "notice": "一部の項目名はまだあなたの言語に翻訳されていません。"
       }
+    },
+    "bulk": {
+      "activate": "有効にする",
+      "draft": "下書きにする",
+      "archive": "商品をアーカイブ",
+      "selected": "選択済み: %{items}",
+      "clear": "選択を解除",
+      "result": "確認済み: %{updated}。未確認: %{remaining}。",
+      "confirmation": "選択した商品を確認してください。一部の変更が失敗しても、他の変更は適用される場合があります。",
+      "failed": "変更を確認できませんでした: %{title}",
+      "notAttempted": "未実行: %{title}",
+      "retry": "残りを再試行",
+      "confirm": "変更を適用",
+      "select": "%{title} を選択",
+      "selectPage": "このページの編集可能な商品を選択",
+      "selection": "選択"
+    },
+    "photos": {
+      "add": "写真を追加",
+      "prompt": "商品写真を選択",
+      "uploading": "写真をアップロード中",
+      "uploaded": "写真をアップロードしました",
+      "invalid": "JPG、PNG、WebP、GIF、AVIF、最大20 MB。",
+      "failed": "写真を追加できませんでした。ファイルを確認して再試行してください。",
+      "notice": "写真は公開され、ストアに属します。ここで削除しても、保存時に参照だけが削除されます。",
+      "position": "写真 %{position}",
+      "remove": "写真 %{position} を削除"
+    },
+    "media": {
+      "add": "メディアを追加",
+      "prompt": "写真または動画を選択",
+      "uploading": "メディアをアップロード中",
+      "uploaded": "メディアをアップロードしました",
+      "invalid": "写真は20 MBまで、MP4動画は40 MBまで。",
+      "failed": "ファイルを追加できませんでした。確認して再試行してください。",
+      "notice": "メディアは公開され、ストアが所有します。削除すると保存時に関連付けのみが解除されます。",
+      "position": "メディア %{position}",
+      "remove": "メディア %{position} を削除",
+      "viewVideo": "動画 %{position} を見る",
+      "video": "動画",
+      "unavailable": "この動画を読み込めませんでした。",
+      "title": "写真と動画"
     }
   },
   "settings": {
-    "documentTitle": "設定 | Mercaria Dashboard",
+    "documentTitle": "設定 | Wholesale by Mercaria",
     "fees": {
-      "documentTitle": "マーケットプレイス手数料 | Mercaria ダッシュボード",
+      "documentTitle": "マーケットプレイス手数料 | Wholesale by Mercaria",
       "title": "マーケットプレイス手数料",
       "subtitle": "Mercaria が各販売で請求する金額と、承諾いただく条件です。",
       "loadFailed": "手数料条件を読み込めませんでした",
@@ -1306,17 +1447,13 @@
         "failed": "その例を計算できませんでした"
       }
     },
-    "language": {
-      "description": "このダッシュボードを表示する言語です。この端末に保存され、顧客に表示される内容は変わりません。",
-      "title": "言語"
-    },
     "locations": {
       "createFailed": "ロケーションを作成できませんでした",
       "created": "ロケーションを作成しました",
       "defaultFlag": " · デフォルト",
       "deleteFailed": "ロケーションを削除できませんでした",
       "deleted": "ロケーションを削除しました",
-      "documentTitle": "ロケーション | Mercaria Dashboard",
+      "documentTitle": "ロケーション | Wholesale by Mercaria",
       "inactiveFlag": " · 無効",
       "loadFailed": "ロケーションを読み込めませんでした",
       "namePlaceholder": "メイン倉庫",
@@ -1333,7 +1470,7 @@
       "placeFlag": " · GoWay の場所を設定済み",
       "noPlaceFlag": " · GoWay の場所が未設定",
       "editor": {
-        "documentTitle": "ロケーションを編集 | Mercaria Dashboard",
+        "documentTitle": "ロケーションを編集 | Wholesale by Mercaria",
         "title": "ロケーション",
         "subtitle": "GoWay 上の場所と、Mercaria での販売方法",
         "loadFailed": "このロケーションを読み込めませんでした",
@@ -1394,14 +1531,15 @@
           "region": "都道府県",
           "country": "国",
           "countryPlaceholder": "JP",
-          "latitude": "緯度",
-          "longitude": "経度",
-          "positionHint": "検索結果から住所を選ぶと、位置が自動で入力されます。",
-          "submit": "場所を作成",
+          "positionHint": "GoWayの検索結果を選んで位置を設定します。住所を変更した場合は、もう一度選択してください。",
+          "submit": "公開する事業所を作成",
           "created": "GoWay に場所を作成しました",
           "nameRequired": "場所の名前を入力してください",
           "countryRequired": "2 文字の国コードを入力してください",
-          "positionRequired": "実際の緯度と経度を入力するか、検索から住所を選んでください"
+          "positionRequired": "GoWayで住所を検索し、結果を選択してください。",
+          "findAddress": "GoWayで住所を検索",
+          "positionSelected": "GoWayから位置を選択しました",
+          "publicNotice": "新しい場所はGoWayで公開されます。個人の自宅や配送先住所を追加しないでください。"
         },
         "claim": {
           "title": "場所を申請する",
@@ -1555,7 +1693,8 @@
           "placeTaken": "この場所はすでに別のロケーションで使われています",
           "publicationFailed": "ロケーションを保存できませんでした"
         }
-      }
+      },
+      "deleteAction": "%{name} を削除"
     },
     "members": {
       "convert": {
@@ -1575,7 +1714,7 @@
         "usernameLabel": "組織のユーザー名",
         "warning": "これまでこのストアを操作できた人で、組織に含まれない人はアクセスできなくなります。"
       },
-      "documentTitle": "メンバー | Mercaria Dashboard",
+      "documentTitle": "メンバー | Wholesale by Mercaria",
       "loadFailed": "このストアのメンバーを読み込めませんでした",
       "noAccess": "アクセス権なし",
       "organizationBody": "このストアで操作できる人は、Oxy の組織メンバーによって決まります。Mercaria は各ロールの権限に対する例外だけを保存します。",
@@ -1627,7 +1766,7 @@
     },
     "payments": {
       "beingReviewed": "審査中",
-      "documentTitle": "決済と入金 | Mercaria Dashboard",
+      "documentTitle": "決済と入金 | Wholesale by Mercaria",
       "dueBy": "期限",
       "itemCount": {
         "one": "%{count}件",
@@ -1689,7 +1828,7 @@
       "cancelPlan": "プランを解約",
       "capabilityWithLimit": "%{name} · %{limit}まで",
       "choosePlan": "%{plan}を選択",
-      "documentTitle": "プランと請求 | Mercaria Dashboard",
+      "documentTitle": "プランと請求 | Wholesale by Mercaria",
       "endsOn": "%{date}に終了します。",
       "free": "無料",
       "graceEndsOn": "支払いが完了しない場合、このプランの追加機能は%{date}に停止します。",
@@ -1762,7 +1901,7 @@
       }
     },
     "policies": {
-      "documentTitle": "ポリシー | Mercaria Dashboard",
+      "documentTitle": "ポリシー | Wholesale by Mercaria",
       "loadFailed": "設定を読み込めませんでした",
       "lowStockAlerts": "在庫僅少アラート",
       "notifications": "通知",
@@ -1820,7 +1959,7 @@
     },
     "store": {
       "brandColorLabel": "ブランドカラー",
-      "documentTitle": "ストアプロフィール | Mercaria Dashboard",
+      "documentTitle": "ストアプロフィール | Wholesale by Mercaria",
       "loadFailed": "ストアを読み込めませんでした",
       "nameLabel": "ストア名",
       "nameRequired": "ストア名は必須です",
@@ -1838,7 +1977,7 @@
       "created": "税率を作成しました",
       "deleteFailed": "税率を削除できませんでした",
       "deleted": "税率を削除しました",
-      "documentTitle": "税金 | Mercaria Dashboard",
+      "documentTitle": "税金 | Wholesale by Mercaria",
       "emptyBody": "チェックアウトで税を課すには、税率を追加してください。",
       "emptyTitle": "税率がありません",
       "inactive": "無効",
@@ -1867,7 +2006,7 @@
       "success": "ストアを作成しました"
     },
     "createStore": "ストアを作成",
-    "documentTitle": "ストア | Mercaria Dashboard",
+    "documentTitle": "ストア | Wholesale by Mercaria",
     "empty": {
       "body": "最初のストアを作成して、Mercariaで販売を始めましょう。",
       "title": "ストアがまだありません"
@@ -1891,5 +2030,9 @@
     "price": "価格",
     "date": "日付",
     "customer": "顧客"
+  },
+  "brand": {
+    "name": "Wholesale",
+    "byline": "by Mercaria"
   }
 }

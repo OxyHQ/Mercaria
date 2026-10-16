@@ -20,6 +20,56 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const width of [390, 1440]) {
+  test(`synchronized description images load real Oxy bytes at ${width}px`, async ({
+    page,
+    request,
+  }) => {
+    const id = await productId(request);
+    const listing = (await (await request.get(`http://localhost:4160/listings/${id}`)).json()).data;
+    const fileId = listing.images[0]?.fileId;
+    expect(fileId, 'Requires the real synchronized local catalog').toMatch(/^[A-Za-z0-9_-]+$/);
+    const supplierRequests: string[] = [];
+    page.on('request', (request) => {
+      if (/shopifycdn\.com|cdn\.shopify\.com/.test(request.url()))
+        supplierRequests.push(request.url());
+    });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/products/${id}`);
+    // Read the official app resolver's URL from a real catalog image. Only the
+    // description metadata is varied; neither Oxy requests nor bytes are mocked.
+    const photo = page.locator(`img[src*="${fileId}"]`).first();
+    await expect(photo).toBeVisible();
+    const src = await photo.getAttribute('src');
+    expect(src).toBeTruthy();
+    const response = await request.get(src!);
+    expect(response.ok()).toBe(true);
+    expect(response.headers()['content-type']).toMatch(/^image\//);
+    expect((await response.body()).length).toBeGreaterThan(0);
+    await page.route(`**/listings/${id}`, async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.data.description = `<p>${'Product care and sizing. '.repeat(30)}</p><img src="${src!.replaceAll('&', '&amp;')}" alt="Imported product diagram">`;
+      await route.fulfill({ response, json: body });
+    });
+    await page.reload();
+    await page
+      .getByTestId('product-description')
+      .getByRole('button', { name: 'Read more', exact: true })
+      .click();
+    const sheet = page.getByTestId('product-description-dialog');
+    const image = sheet.getByRole('img', { name: 'Imported product diagram' });
+    await image.scrollIntoViewIfNeeded();
+    await expect
+      .poll(() =>
+        image.evaluate(
+          (node) => node instanceof HTMLImageElement && node.complete && node.naturalWidth > 0,
+        ),
+      )
+      .toBe(true);
+    expect(supplierRequests).toEqual([]);
+    await page.screenshot({ path: `/tmp/mercaria-description-image-${width}.png` });
+  });
+
   test(`imported descriptions preserve paragraphs, lists, tables and links at ${width}px`, async ({
     page,
     request,
@@ -128,13 +178,16 @@ test('a short rich description renders formatting without an unnecessary sheet l
 
 test('merchant HTML cannot execute code or inject page styles', async ({ page, request }) => {
   const id = await productId(request);
+  const externalImages: string[] = [];
+  page.on('request', (request) => {
+    if (request.url() === 'https://example.com/broken.png') externalImages.push(request.url());
+  });
   await page.route(`**/listings/${id}`, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     body.data.description = `<p>${'Safe content. '.repeat(35)}<a href="javascript:document.body.dataset.executed='yes'">Blocked link</a></p><style>body{display:none}</style><script>document.body.dataset.executed='yes'</script><img src="https://example.com/broken.png" alt="Diagram" onerror="document.body.dataset.executed='yes'">`;
     await route.fulfill({ response, json: body });
   });
-  await page.route('https://example.com/broken.png', (route) => route.abort());
   await page.goto(`/products/${id}`);
   await page
     .getByTestId('product-description')
@@ -145,6 +198,9 @@ test('merchant HTML cannot execute code or inject page styles', async ({ page, r
   await expect(sheet.getByText('Blocked link', { exact: true })).toBeVisible();
   await expect(sheet.getByRole('link', { name: 'Blocked link' })).toHaveCount(0);
   await expect(sheet.locator('script, style, [onerror], [onclick]')).toHaveCount(0);
+  await expect(sheet).toContainText('Diagram');
+  await expect(sheet.locator('img')).toHaveCount(0);
+  expect(externalImages).toEqual([]);
   await expect(page.locator('body')).not.toHaveAttribute('data-executed');
 });
 

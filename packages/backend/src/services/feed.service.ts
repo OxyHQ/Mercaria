@@ -38,13 +38,17 @@ import {
   type ListingImageRecord,
   type ListingRecord,
 } from '../db/catalog/listingRepository.js';
-import { toProductSummaries, toStoreSummary } from './catalog-hydration.service.js';
+import {
+  toCategoryImage,
+  toProductSummaries,
+  toStoreSummary,
+} from './catalog-hydration.service.js';
 import { config } from '../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
 
-/** Bump when the assembled feed shape changes so stale cache entries are ignored. */
-const FEED_CACHE_VERSION = 'v1';
+/** v4 includes category Oxy file IDs and expires URL-only projections. */
+const FEED_CACHE_VERSION = 'v4';
 
 function feedCacheKey(viewerId: string | undefined): string {
   return `feed:home:${FEED_CACHE_VERSION}:${viewerId ?? 'anon'}`;
@@ -54,9 +58,7 @@ function feedCacheKey(viewerId: string | undefined): string {
 function buildCategoryPills(topLevel: CategoryRecord[]): CategoryPill[] {
   return topLevel.map((c) => {
     const pill: CategoryPill = { id: c.id, name: c.name, slug: c.slug };
-    if (c.imageUrl) {
-      pill.imageUrl = c.imageUrl;
-    }
+    Object.assign(pill, toCategoryImage(c));
     return pill;
   });
 }
@@ -84,9 +86,7 @@ function buildShopByCategory(topLevel: CategoryRecord[], children: CategoryRecor
       .slice(0, config.feed.categoryTilesPerCard)
       .map((child) => {
         const tile: CategoryTile = { id: child.id, name: child.name, slug: child.slug };
-        if (child.imageUrl) {
-          tile.imageUrl = child.imageUrl;
-        }
+        Object.assign(tile, toCategoryImage(child));
         return tile;
       });
     return { id: parent.id, name: parent.name, slug: parent.slug, subcategories: tiles };

@@ -258,6 +258,16 @@ makes `variant_selected` a number nobody can act on. They belong to #111 with
 - The variant selector and the intent picker are RADIO GROUPS with `checked`
   state, so a screen reader announces "2 of 5, selected" rather than five
   unrelated buttons (#71 UX rule 2).
+  Named configurations and catalog axes use Bloom's `RadioGroup variant="chip"`:
+  one tab stop, mirrored arrow navigation, Home/End, disabled-option skipping
+  and non-toggle Space/Enter activation. Availability remains visible text.
+  Bloom owns those interactions; the page retains selection in its URL without
+  pushing a history entry or remounting its gallery.
+  The listing gallery prepends the selected variant's assigned photos, retains
+  common product photos, and excludes photos assigned to other configurations.
+  Only `source: 'variant'` establishes an assignment; a `listing_fallback` does
+  not claim every product photo. The shared variant-resolution contract remains
+  unchanged. Browser checks cover retained gallery identity at 390px and 1440px.
 - Every badge is text on neutral chrome — never colour alone (#71 UX rule 4,
   #90 policy rule 3), and never a colour scale, which would additionally read as
   a quality verdict on a correctly-labelled for-parts item.
@@ -350,8 +360,41 @@ listing id. It is available in the desktop merchant header and beside the
 mobile Save/Share controls, including secondhand listings. Guests see the
 existing Oxy sign-in action; no report is submitted without authentication.
 Store policies and **Report store** remain in the store page's own menu.
-Contact information is not shown because `StoreSummary` has no published
-contact fields; private admin or Oxy account fields are not a substitute.
+**Contact store**, also available from the store menu, reads the store's public locations from `/public/v1`, then
+uses the official GoWay SDK to show each place's published phone, email,
+website and formatted address in the shared Bloom marketplace sheet. Opening
+it refreshes both reads and checks the current active place's trusted
+`commerce.mercaria.store` backlink against the location ID. A revoked link
+shows no contact facts; failures offer retry, not stale contact details.
+Phone/email links and copy controls use the published values. Neither a
+private admin profile nor an Oxy account is a contact source. Stores without
+published locations and person-to-person listings have no contact entry.
+The browser regression varies only public location/GoWay response metadata;
+product images continue through actual Oxy delivery. This is not evidence of
+a production merchant's place publication or contact-edit workflow.
+
+## Specifications on a listing
+
+The listing detail route also returns `catalogIdentityByVariant` for exact active
+native-to-catalog attachments. It omits revoked or superseded links, foreign
+native variants, and catalog products or configurations outside the shared
+shopper-visible status set. This detail-only projection carries public IDs and
+the category, never matching evidence. A product-level barcode match alone
+cannot establish which configuration's specifications belong to an option.
+
+`/products/[id]` uses that mapping for its Specifications accordion, sharing the
+attribute registry queries and `SpecificationGroups` with the canonical page.
+The section starts collapsed, matching Shop's public product accordion.
+Selecting another option changes the value query keys without remounting the
+gallery. Loading and failed reads hide the previous option's facts; retry uses
+the current identity. An unmapped option or a successful empty result omits the
+section. Product and configuration scopes remain separate, and unavailable
+definitions retain the existing label fallback notice.
+
+The real PostgreSQL product-page suite checks the anonymous listing route and
+attachment visibility. Browser coverage at 390 and 1440 pixels checks delayed
+reads, failure/retry, unmapped options and a retained gallery element using
+isolated attribute data; it does not demonstrate imported product images.
 
 ## Reaching the page
 
@@ -416,3 +459,95 @@ Each is a named contract that fails closed, not a stub that lies:
 - **#73** — the brand page. This page links to `/brands/:id`; whoever builds that
   route owns it.
 - **#95 / #96** — natural-language intent and grounded comparison.
+
+### Review preview availability
+
+Review previews distinguish a pending request, a failed request and a confirmed
+empty result. The shared summary exposes loading and retry states in its own
+locale bundles. Listing, canonical-product and 3D-product pages pass their own
+query state and retry callback; product and listing feedback remain independent.
+A failed background refresh retains the cached rating and preview cards with an
+error notice. An initial failure never claims that the product has no reviews.
+
+### Merchant return-policy reader
+
+The listing page's mobile merchant header uses Bloom `Screen.header` so it stays
+visible while the product scrolls. This follows the sticky merchant bar in Shop's
+captured public product module. Bloom measures the header: document mode reserves
+the web inset, and the existing native scroller reserves `useScreen().topInset`.
+The desktop merchant header remains in the buy column. The `Screen` stays mounted
+across breakpoint changes so the gallery and selected variant keep their identity.
+Browser acceptance covers 390px English/Arabic, 820px English, keyboard navigation
+after scrolling and a 1440→390→1440 resize with the same gallery node. On Pixel8a
+in English/dark mode, the merchant name and Visit store action retain identical
+bounds after two full swipes; tapping the pinned action opens the real store.
+The product detail region also reserves
+Shop's 32px mobile / 64px desktop bottom spacing before related sections.
+
+The merchant menu's internal pages use incoming push/pop transitions measured
+from Shop's public merchant bundle: 40% of the page width over 300ms with
+`cubic-bezier(.32,.72,0,1)`, and a 150ms initial fade. `StoreMenuTransition`
+uses Reanimated's bounded progress, mirrors direction in RTL, and skips motion
+for reduced-motion users. The Dialog and header stay mounted. Its public
+`useDialogFrame` API declares page changes so Bloom also morphs the mobile
+bottom sheet's natural height; Mercaria does not measure or resize the panel.
+Browser acceptance covers both directions, retained dialog identity, bounded
+movement, mobile height interpolation, Escape focus restoration and reduced
+motion at desktop English and mobile Arabic. On Pixel8a, the combined slide/fade
+initially hid review contents inside nested ScrollViews. The three menu pages now
+render ordinary Views: Bloom Dialog owns scrolling and natural-height measurement.
+The complete animation reveals reviews on the device and the list scrolls to its
+pagination controls. The cold-start body disappearance was traced to Reanimated's
+settled-style synchronization: a delayed JS collection could restore the initial
+height and opacity. The official 4.3.4 patch, with a rebuilt Android binary,
+retains the body after cold starts in English and Arabic. Bloom's size morph and
+Mercaria's slide/fade remain enabled. See [native animation runtime](native-animation-runtime.mdx)
+for the isolated reproduction, compatibility exception and device evidence.
+Close/Back and Follow/Share use Bloom's public
+`header.left`/`header.right` slots, with stable memoized nodes. The navigation bar
+stays fixed while the dialog scrolls policies and reviews; browser tests cover
+desktop English and mobile Arabic with wheel input, and Pixel8a bounds are
+unchanged from the first review to the pagination controls. Native
+reduced-motion timing acceptance remains pending.
+
+A selected connected-store offer exposes its published return policy through a
+40px Bloom button and an opaque `MarketplaceSheet`, matching the policy action
+in Shop's public product bundle. The complete authored body uses the existing
+safe rich-text parser/renderer; plain text retains its line breaks. Empty
+policies, person-to-person offers and Mercaria-retail offers do not inherit a
+store policy. No return-window or free-return claim is inferred from prose.
+Shipping remains hidden under the logistics boundary.
+
+### Bundle navigation
+
+Bundle navigation uses app-owned Expo links supplied to the shared UI. Included
+components target the canonical product and exact configuration; recommended
+packs target the listing and exact variant. Images, titles and the configurable
+pack action expose real web anchors, including keyboard and new-tab navigation.
+The add-to-cart action remains a button. A stale canonical selection removes
+the component destination until the current configuration is confirmed, so an
+old pack cannot be opened through a modified click while its new data loads.
+
+### Related category discovery
+
+Below the same-store shelf, “You might also like” uses the category's existing
+`new` discovery signal and its server-serialized product cards. This is a
+category-based selection, not personalized ranking. The current listing is
+excluded; ratings, saved state, money and Oxy media come from that projection.
+Missing categories and confirmed empty results add no section. Later pages keep
+the first cards mounted, and a failed read offers retry without implying an
+empty catalog or replacing the category with global results.
+
+The shared `FeedGrid` auto-column option measures its container: two columns
+and 16px gaps on mobile, fitting 220px-minimum columns with 32px gaps on desktop.
+It works through native flex layout and leaves existing class-sized grids
+unchanged. Live browser checks cover Oxy image delivery, navigation, exclusion
+and responsive geometry in English/Arabic; pagination tests vary only read
+responses built from the real local category DTO.
+
+Product-card typography belongs to each text component. Do not place an absolute
+`leading-[16px]` on the wrapping Pressable: native inherited line-height treats
+that value as a multiplier, making 12dp text occupy 192dp before font padding.
+Removing that inherited override retains each child's `text-xs` typography.
+On Pixel8a, the title's measured bounds shrink from 504px to 48px; keyboard and
+new-tab navigation also pass at 390px and 1440px in the browser.

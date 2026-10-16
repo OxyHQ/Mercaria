@@ -16,12 +16,15 @@ import {
   ACCESSIBILITY_FLAGS,
   ACCESSIBILITY_FLAG_LABEL_KEYS,
   accessibilityChoicesOf,
+  accessibilityChoicesWithEdits,
+  WHEELCHAIR_KEY,
   accessibilityOperations,
-  type AccessibilityChoices,
+  type AccessibilityEdits,
   type FlagChoice,
   type WheelchairChoice,
 } from '@/lib/goway/place-form';
 import { useTranslation } from '@/lib/i18n';
+import { retainLaterEdits } from '@/lib/locations/retain-later-edits';
 import { EditorSection } from './EditorSection';
 
 const FLAG_CHOICES: FlagChoice[] = ['yes', 'no', 'unset'];
@@ -46,13 +49,28 @@ export function PlaceAccessibilityCard({ place }: { place: Place }) {
   const { t } = useTranslation();
   const apply = useApplyCapabilityOperations(place.id);
   const current = accessibilityChoicesOf(place);
-  const [desired, setDesired] = useState<AccessibilityChoices>(current);
+  const [edits, setEdits] = useState<AccessibilityEdits>({});
+  const desired = accessibilityChoicesWithEdits(current, edits);
+  const operations = accessibilityOperations(current, desired);
 
   const save = () => {
-    const operations = accessibilityOperations(current, desired);
-    if (operations.length === 0) return;
+    if (apply.isPending) return;
+    const submitted = edits;
+    // A later successful read may already confirm a previously uncertain save.
+    // Acknowledge it locally rather than asserting the same capability again.
+    if (operations.length === 0) {
+      setEdits({});
+      return;
+    }
     apply.mutate(operations, {
-      onSuccess: () => toast.success(t('settings.locations.editor.accessibility.saved')),
+      onSuccess: ({ confirmed, error }) => {
+        if (!confirmed) {
+          toast.error(t(goWayErrorKey(error)));
+          return;
+        }
+        setEdits((latest) => retainLaterEdits(latest, submitted));
+        toast.success(t('settings.locations.editor.accessibility.saved'));
+      },
       onError: (error) => toast.error(t(goWayErrorKey(error))),
     });
   };
@@ -66,7 +84,9 @@ export function PlaceAccessibilityCard({ place }: { place: Place }) {
         <SegmentedControl
           type="radio"
           value={desired.wheelchair}
-          onValueChange={(wheelchair) => setDesired((state) => ({ ...state, wheelchair }))}
+          onValueChange={(wheelchair) =>
+            setEdits((state) => ({ ...state, [WHEELCHAIR_KEY]: wheelchair }))
+          }
         >
           {WHEELCHAIR_CHOICES.map((choice) => (
             <SegmentedControlItem key={choice} value={choice}>
@@ -80,9 +100,7 @@ export function PlaceAccessibilityCard({ place }: { place: Place }) {
           <SegmentedControl
             type="radio"
             value={desired.flags[key]}
-            onValueChange={(choice) =>
-              setDesired((state) => ({ ...state, flags: { ...state.flags, [key]: choice } }))
-            }
+            onValueChange={(choice) => setEdits((state) => ({ ...state, [key]: choice }))}
           >
             {FLAG_CHOICES.map((choice) => (
               <SegmentedControlItem key={choice} value={choice}>
@@ -96,7 +114,12 @@ export function PlaceAccessibilityCard({ place }: { place: Place }) {
         <Text className="text-xs text-muted-foreground">
           {t('settings.locations.editor.accessibility.hint')}
         </Text>
-        <Button tone="accent" loading={apply.isPending} onPress={save}>
+        <Button
+          tone="accent"
+          loading={apply.isPending}
+          disabled={apply.isPending || Object.keys(edits).length === 0}
+          onPress={save}
+        >
           {t('settings.locations.editor.accessibility.save')}
         </Button>
       </View>

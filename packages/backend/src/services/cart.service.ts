@@ -87,8 +87,9 @@ import { conflict, notFound, validationError } from '../lib/errors/error-codes.j
  * from the page's batched read rather than read off the listing.
  */
 function firstImageUrl(images: ListingImageRecord[] | undefined): string | undefined {
-  const [first] = images ?? [];
-  return first ? resolveMedia(first.fileId, 'thumb') : undefined;
+  return (images ?? [])
+    .map((image) => resolveMedia(image.fileId, 'thumb'))
+    .find((url) => url !== undefined);
 }
 
 /**

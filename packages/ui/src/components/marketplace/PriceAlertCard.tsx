@@ -1,3 +1,4 @@
+import { Icon } from '../ui/icon';
 import { Pressable, View } from 'react-native';
 import { Bell, BellOff, Trash2 } from 'lucide-react-native';
 import type { PriceAlert, PriceAlertSplitResolution } from '@mercaria/shared-types';
@@ -153,7 +154,7 @@ export function PriceAlertCard({
           <RowAction
             label={t(PRICE_ALERT_PAUSE_A11Y_KEY)}
             text={t(PRICE_ALERT_PAUSE_KEY)}
-            icon={<BellOff size={ICON_SIZE} className="text-text-secondary" />}
+            icon={<Icon as={BellOff} size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onPause?.(alert)}
           />
         ) : null}
@@ -161,14 +162,14 @@ export function PriceAlertCard({
           <RowAction
             label={t(PRICE_ALERT_RESUME_A11Y_KEY)}
             text={t(PRICE_ALERT_RESUME_KEY)}
-            icon={<Bell size={ICON_SIZE} className="text-text-secondary" />}
+            icon={<Icon as={Bell} size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onResume?.(alert)}
           />
         ) : null}
         <RowAction
           label={t(PRICE_ALERT_DELETE_A11Y_KEY)}
           text={t(PRICE_ALERT_DELETE_KEY)}
-          icon={<Trash2 size={ICON_SIZE} className="text-text-secondary" />}
+          icon={<Icon as={Trash2} size={ICON_SIZE} className="text-text-secondary" />}
           onPress={() => onDelete?.(alert)}
         />
       </View>

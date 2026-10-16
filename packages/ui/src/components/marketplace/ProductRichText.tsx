@@ -1,10 +1,12 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import { Linking, Text as InlineText, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import { Table, TableBody, TableCell, TableColumn, TableRow } from '@oxy.so/bloom/table';
 import { useColorScheme } from '../../lib/useColorScheme';
 import type { DescriptionNode } from '../../lib/product-description';
 import { Text } from '../ui/text';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import { resolveStoredImageUrl } from '../../lib/stored-image-url';
 
 export interface ProductRichTextProps {
   nodes: DescriptionNode[];
@@ -17,9 +19,11 @@ const isInline = (node: DescriptionNode) => typeof node === 'string' || inlineTa
 
 function DescriptionImage({ node }: { node: Exclude<DescriptionNode, string> }) {
   const [aspectRatio, setAspectRatio] = useState(1);
+  const uri = resolveStoredImageUrl(node.src, useImageResolver());
+  if (!uri) return node.alt ? <Text>{node.alt}</Text> : null;
   return (
     <Image
-      source={{ uri: node.src }}
+      source={{ uri }}
       accessibilityLabel={node.alt}
       accessible={!!node.alt}
       style={{ width: '100%', aspectRatio }}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '@mercaria/ui';
 import { Package } from 'lucide-react-native';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { isOxyFileId } from '@mercaria/shared-types';
@@ -11,10 +11,12 @@ export function OxyProductImage({
   fileId,
   alt,
   size,
+  thumbnailOnly = false,
 }: {
   fileId?: string;
   alt: string;
   size: number;
+  thumbnailOnly?: boolean;
 }) {
   const resolveImage = useImageResolver();
   const { colors } = useColorScheme();
@@ -22,7 +24,7 @@ export function OxyProductImage({
   const [failed, setFailed] = useState<readonly string[]>([]);
   const id = isOxyFileId(fileId) ? fileId : undefined;
   const thumbnail = id ? resolveImage?.(id, 'thumb') : undefined;
-  const original = id ? resolveImage?.(id) : undefined;
+  const original = id && !thumbnailOnly ? resolveImage?.(id) : undefined;
   // A missing rendition must not hide a valid original of the SAME Oxy file.
   const uri = [thumbnail, original].find((candidate) => candidate && !failed.includes(candidate));
   return (

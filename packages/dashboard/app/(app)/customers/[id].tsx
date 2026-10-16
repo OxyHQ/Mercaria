@@ -1,12 +1,16 @@
 import { View, Pressable } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import Head from 'expo-router/head';
 import { ChevronLeft, User } from 'lucide-react-native';
 import type { Customer, OrderSummary } from '@mercaria/shared-types';
 import { Text, PriceDisplay, formatDate, useColorScheme } from '@mercaria/ui';
-import { Screen, ScreenLoading, ScreenMessage } from '@/components/shell/Screen';
+import { Screen, ScreenLoading } from '@/components/shell/Screen';
+import { Button } from '@oxy.so/bloom/button';
+import { DetailContent } from '@/components/shell/DetailContent';
+import { canRetainDetailData } from '@/lib/detail-query-state';
 import { RequireStore } from '@/components/shell/RequireStore';
 import { OrderStatusBadge } from '@/components/orders/OrderStatusBadge';
+import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 import { useCustomer, useCustomerOrders } from '@/lib/hooks/use-customers';
 import { useTranslation } from '@/lib/i18n';
 
@@ -19,7 +23,9 @@ export default function CustomerDetailScreen() {
         <title>{t('customers.detail.documentTitle')}</title>
       </Head>
       <RequireStore permission="customers:read">
-        {(storeId) => <CustomerDetailBody storeId={storeId} customerId={String(id)} />}
+        {(storeId) => (
+          <CustomerDetailBody key={`${storeId}:${id}`} storeId={storeId} customerId={String(id)} />
+        )}
       </RequireStore>
     </>
   );
@@ -29,11 +35,13 @@ function CustomerDetailBody({ storeId, customerId }: { storeId: string; customer
   const router = useRouter();
   const { colors } = useColorScheme();
   const { t } = useTranslation();
+  const { can } = useActiveStoreContext();
   const customer = useCustomer(storeId, customerId);
   const orders = useCustomerOrders(storeId, customerId);
 
   const back = (
     <Pressable
+      accessibilityRole="button"
       onPress={() => router.back()}
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
@@ -42,50 +50,74 @@ function CustomerDetailBody({ storeId, customerId }: { storeId: string; customer
     </Pressable>
   );
 
-  if (customer.isPending) {
-    return (
-      <Screen title={t('customers.detail.title')} action={back}>
-        <ScreenLoading />
-      </Screen>
-    );
-  }
-  if (customer.isError || !customer.data) {
-    return (
-      <Screen title={t('customers.detail.title')} action={back}>
-        <ScreenMessage title={t('customers.detail.loadError')} body={t('common.pleaseTryAgain')} />
-      </Screen>
-    );
-  }
-
-  const c = customer.data;
-  const name =
-    c.displayName ?? c.email ?? (c.isWalkIn ? t('customers.walkIn') : t('customers.fallbackName'));
+  const c = canRetainDetailData(customer.error) ? customer.data : undefined;
+  const history = canRetainDetailData(orders.error) ? orders.data : undefined;
+  const name = c
+    ? (c.displayName ??
+      c.email ??
+      (c.isWalkIn ? t('customers.walkIn') : t('customers.fallbackName')))
+    : t('customers.detail.title');
 
   return (
     <Screen title={name} subtitle={t('customers.detail.subtitle')} action={back}>
-      <View className="gap-5">
-        <CustomerCard customer={c} name={name} />
-        <View className="rounded-2xl border border-border bg-surface p-4">
-          <Text className="mb-3 text-sm font-semibold text-foreground">
-            {t('customers.detail.orders')}
-          </Text>
-          {orders.isPending ? (
-            <ScreenLoading />
-          ) : (orders.data?.length ?? 0) === 0 ? (
-            <Text className="text-sm text-muted-foreground">{t('customers.detail.noOrders')}</Text>
-          ) : (
-            <View className="gap-2">
-              {orders.data?.map((order) => (
-                <OrderRow
-                  key={order.id}
-                  order={order}
-                  onPress={() => router.push(`/orders/${order.id}`)}
-                />
-              ))}
+      <DetailContent
+        testID="merchant-customer-detail"
+        hasData={Boolean(c)}
+        pending={customer.isPending}
+        fetching={customer.isFetching}
+        error={customer.isError}
+        errorTitle={t('customers.detail.loadError')}
+        onRetry={() => {
+          void customer.refetch();
+        }}
+      >
+        {c ? (
+          <View className="gap-5">
+            <CustomerCard customer={c} name={name} />
+            <View
+              testID="merchant-customer-orders"
+              className="rounded-2xl border border-border bg-surface p-4"
+            >
+              <Text className="text-sm font-semibold text-foreground">
+                {t('customers.detail.orders')}
+              </Text>
+              <View className="min-h-14 justify-center" accessibilityLiveRegion="polite">
+                {orders.isError ? (
+                  <View className="flex-row flex-wrap items-center justify-between gap-2">
+                    <Text className="text-sm text-foreground">{t('orders.loadFailed')}</Text>
+                    <Button
+                      size="sm"
+                      appearance="outline"
+                      material="flat"
+                      disabled={orders.isFetching}
+                      onPress={() => {
+                        void orders.refetch();
+                      }}
+                    >
+                      {t('common.retry')}
+                    </Button>
+                  </View>
+                ) : orders.isFetching && history ? (
+                  <Text className="text-xs text-muted-foreground">{t('common.loading')}</Text>
+                ) : null}
+              </View>
+              {orders.isPending ? (
+                <ScreenLoading />
+              ) : history?.length ? (
+                <View className="gap-2">
+                  {history.map((order) => (
+                    <OrderRow key={order.id} order={order} canOpen={can('orders:read')} />
+                  ))}
+                </View>
+              ) : !orders.isError && history ? (
+                <Text className="text-sm text-muted-foreground">
+                  {t('customers.detail.noOrders')}
+                </Text>
+              ) : null}
             </View>
-          )}
-        </View>
-      </View>
+          </View>
+        ) : null}
+      </DetailContent>
     </Screen>
   );
 }
@@ -94,7 +126,10 @@ function CustomerCard({ customer, name }: { customer: Customer; name: string }) 
   const { colors } = useColorScheme();
   const { t } = useTranslation();
   return (
-    <View className="rounded-2xl border border-border bg-surface p-4">
+    <View
+      testID="merchant-customer-card"
+      className="rounded-2xl border border-border bg-surface p-4"
+    >
       <View className="flex-row items-center gap-3">
         <View className="h-12 w-12 items-center justify-center rounded-full bg-muted">
           <User size={22} color={colors.mutedForeground} />
@@ -127,11 +162,12 @@ function CustomerCard({ customer, name }: { customer: Customer; name: string }) 
   );
 }
 
-function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
+function OrderRow({ order, canOpen }: { order: OrderSummary; canOpen: boolean }) {
   const { locale } = useTranslation();
-  return (
+  const content = (
     <Pressable
-      onPress={onPress}
+      disabled={!canOpen}
+      accessibilityLabel={order.orderNumber}
       className="flex-row items-center justify-between gap-3 rounded-xl border border-border p-3 active:opacity-80"
     >
       <View className="flex-1">
@@ -144,5 +180,12 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
       <PriceDisplay price={order.grandTotal.shop} primaryClassName="text-sm font-semibold" />
       <OrderStatusBadge status={order.status} />
     </Pressable>
+  );
+  return canOpen ? (
+    <Link href={{ pathname: '/orders/[id]', params: { id: order.id } }} asChild>
+      {content}
+    </Link>
+  ) : (
+    content
   );
 }

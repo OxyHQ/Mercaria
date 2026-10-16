@@ -78,6 +78,7 @@ holds the pre-existing catalogue and commerce tables the epic attaches to and do
 flowchart LR
     subgraph epic["#367 catalog modules"]
         direction TB
+        M_Organization_migration_evidence["Organization migration evidence"]
         M_Taxonomy["Taxonomy"]
         M_Classification["Classification"]
         M_Product_types["Product types"]
@@ -90,6 +91,7 @@ flowchart LR
         M_Compatibility["Compatibility"]
         M_External_mappings["External mappings"]
         M_Review_helpfulness["Review helpfulness"]
+        M_Review_attachments["Review attachments"]
         M_Connector_pins["Connector pins"]
         M_Native_variant_images["Native variant images"]
         M_Discovery["Discovery"]
@@ -115,6 +117,7 @@ flowchart LR
         X_listings[("listings")]
         X_order_items[("order_items")]
         X_orders[("orders")]
+        X_organizations[("organizations")]
         X_product_variants[("product_variants")]
         X_reviews[("reviews")]
         X_source_records[("source_records")]
@@ -132,6 +135,8 @@ flowchart LR
     M_External_mappings --> M_Product_types
     M_Digital_licences_and_buyer_rights --> M_Digital_deliverables
     M_Digital_retail_procurement_and_fulfilment --> M_Digital_retail_supply
+    M_Organization_migration_evidence --> X_organizations
+    M_Organization_migration_evidence --> X_source_records
     M_Taxonomy --> X_catalog_sources
     M_Taxonomy --> X_categories
     M_Classification --> X_canonical_products
@@ -170,6 +175,7 @@ flowchart LR
     M_External_mappings --> X_catalog_sources
     M_External_mappings --> X_source_records
     M_Review_helpfulness --> X_reviews
+    M_Review_attachments --> X_reviews
     M_Connector_pins --> X_listings
     M_Native_variant_images --> X_listing_images
     M_Native_variant_images --> X_listings
@@ -202,9 +208,9 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**20 modules**, **18 writing directories**,
+**22 modules**, **18 writing directories**,
 **4 tables written from more than one directory** and
-**4 written by no application code at all**. The exceptions are drawn by name,
+**5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
 "one module owns a table", and these are the places where more than one directory issues the
 statements.
@@ -229,6 +235,7 @@ flowchart LR
     W_db_variantAxes["db/variantAxes"]
     W_scripts_seed_verticals["scripts/seed-verticals"]
     W_services_curation["services/curation"]
+    M_Organization_migration_evidence(["Organization migration evidence"])
     M_Taxonomy(["Taxonomy"])
     M_Classification(["Classification"])
     M_Product_types(["Product types"])
@@ -241,6 +248,7 @@ flowchart LR
     M_Compatibility(["Compatibility"])
     M_External_mappings(["External mappings"])
     M_Review_helpfulness(["Review helpfulness"])
+    M_Review_attachments(["Review attachments"])
     M_Connector_pins(["Connector pins"])
     M_Native_variant_images(["Native variant images"])
     M_Discovery(["Discovery"])
@@ -266,6 +274,7 @@ flowchart LR
     W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
     W_db_productTypes -->|"5"| M_Product_types
+    W_db_reviews -->|"1"| M_Review_attachments
     W_db_reviews -->|"1"| M_Review_helpfulness
     W_db_stores -->|"1"| M_Store_access
     W_db_taxonomy -->|"2"| M_Classification
@@ -293,6 +302,7 @@ flowchart LR
         T_canonical_product_family_localizations[("canonical_product_family_localizations")]
         T_canonical_product_localizations[("canonical_product_localizations")]
         T_catalog_localization_revisions[("catalog_localization_revisions")]
+        T_organization_identity_archives[("organization_identity_archives")]
         T_product_type_aliases[("product_type_aliases")]
     end
 ```
@@ -319,6 +329,7 @@ acquire a writer nobody argues about, so it is named here rather than left as an
 | `canonical_product_family_localizations` | Localization | a database trigger, or nothing yet |
 | `canonical_product_localizations` | Localization | a database trigger, or nothing yet |
 | `catalog_localization_revisions` | Localization | a database trigger, or nothing yet |
+| `organization_identity_archives` | Organization migration evidence | a database trigger, or nothing yet |
 | `product_type_aliases` | Product types | a database trigger, or nothing yet |
 
 **What this scan cannot see**, stated so an empty result is never read as proof of absence: a
@@ -329,9 +340,25 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 86 tables created by a migration at or after `0088`
+All 88 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
+
+### Organization migration evidence
+
+```mermaid
+erDiagram
+    organization_identity_archives {
+    }
+    organizations ||--o| organization_identity_archives : "organization_id · restrict"
+    source_records |o--o{ organization_identity_archives : "logo_source_record_id · restrict"
+```
+
+Also names, from outside the epic: `organizations`, `source_records`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `organization_identity_archives` | `0166` | — *no application writer* |
 
 ### Taxonomy
 
@@ -764,6 +791,21 @@ Also names, from outside the epic: `reviews`.
 |---|---|---|
 | `review_helpful_votes` | `0163` | `db/reviews` (delete/insert) |
 
+### Review attachments
+
+```mermaid
+erDiagram
+    review_media {
+    }
+    reviews ||--o{ review_media : "review_id · cascade"
+```
+
+Also names, from outside the epic: `reviews`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `review_media` | `0168` | `db/reviews` (insert) |
+
 ### Connector pins
 
 ```mermaid
@@ -786,6 +828,7 @@ erDiagram
     product_variant_images {
     }
     listing_images ||--o{ product_variant_images : "listing_image_id + listing_id · cascade"
+    listing_images ||--o{ product_variant_images : "listing_image_id + listing_id + media_kind · cascade"
     listings ||--o{ product_variant_images : "listing_id · cascade"
     product_variants ||--o{ product_variant_images : "variant_id + listing_id · cascade"
 ```
@@ -1007,21 +1050,22 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 86 |
-| Modules they are grouped into | 20 |
-| Foreign keys out of an epic table | 179 |
+| Tables in the population | 88 |
+| Modules they are grouped into | 22 |
+| Foreign keys out of an epic table | 183 |
 | Foreign keys into one, from outside the epic | 2 |
-| Pre-existing tables the epic attaches to | 21 |
-| Relationships the schema proves are 1:1 | 3 |
-| Relationships whose parent is optional (nullable FK) | 82 |
+| Pre-existing tables the epic attaches to | 22 |
+| Relationships the schema proves are 1:1 | 4 |
+| Relationships whose parent is optional (nullable FK) | 83 |
 | Directories that write an epic table | 18 |
 | Tables written from more than one directory | 4 |
-| Tables no application code writes | 4 |
+| Tables no application code writes | 5 |
 
-`ON DELETE` across those 179 foreign keys: **46** `cascade`, **2** `no action`, **128** `restrict`, **3** `set null`.
+`ON DELETE` across those 183 foreign keys: **48** `cascade`, **2** `no action`, **130** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 
 - `digital_purchase_orders` → `digital_fulfilments` on `purchase_order_id`, because a unique constraint covers those columns.
 - `supplier_agreements` → `digital_supply_terms` on `agreement_id`, because a unique constraint covers those columns.
 - `product_variants` → `native_variant_signatures` on `variant_id`, because a unique constraint covers those columns.
+- `organizations` → `organization_identity_archives` on `organization_id`, because a unique constraint covers those columns.

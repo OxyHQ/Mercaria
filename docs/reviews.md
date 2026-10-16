@@ -95,7 +95,76 @@ migration replay and two concurrent grants all end at exactly one row.
 `createReview` resolves the eligibility, refuses a self-review, refuses a
 duplicate, then SPENDS it before writing. The spend is a CAS on `state = 'open'`,
 so two concurrent submissions produce one winner; `reviews_eligibility_id_key`
-is the second, independent wall.
+is the second, independent wall. The spend and the review, dimensions and media
+inserts share one transaction: a failed write must leave the eligibility open.
+External file checks finish before this transaction starts.
+
+### Review attachments
+
+The PDP summary and full review sheet share a separate media query across all
+public review pages. A 60 px thumbnail strip opens a Bloom dialog: a 68 px
+vertical rail and associated review on desktop, a 44 px horizontal rail with
+the review below on mobile. The desktop panel follows Shop's 1159/741 aspect
+ratio and 40 px round corners. Image IDs resolve through the Oxy provider;
+there is no supplier URL fallback. Videos use the Expo SDK 56 player with
+controls and start muted; only the selected clip owns a player.
+
+Selection follows the attachment ID, so overlapping or appended pages do not
+retarget it. Hidden/private/mismatched entries are withheld. The next media page
+prefetches near the loaded end; failures keep the current media and review,
+with retry. Search/rating filters belong to the text query and cannot overwrite
+the media query. Closing the viewer restores focus to its thumbnail and keeps
+the underlying review sheet open. Image/video errors remain explicit and
+retryable. Browser tests cover these **failure paths** using 404 responses,
+not substituted image bytes; they do not establish a successful Oxy upload.
+
+
+`CreateReviewInput.mediaFileIds` accepts up to ten distinct Oxy file IDs, in display
+order. The backend reads each file using the author's bearer on a fresh Oxy client
+and requires the exact ID, owner, active status and public visibility. It accepts
+JPEG, PNG, WebP, GIF and AVIF images up to 20 MiB, or MP4/WebM videos up to 100 MiB.
+MIME and size come from Oxy; the caller supplies neither a URL nor a media kind.
+The entire selection is checked before durable Mercaria asset links are created.
+This path never promotes a private file to public. Private transaction reviews
+cannot accept these public attachments.
+
+The product/listing review form uses Bloom FileUpload with controlled file and
+progress state, backed by Oxy's authenticated `useUploadFile`. Expo DocumentPicker
+provides native selection. New uploads are explicitly public; the form discloses
+this before selection. Removing an attachment does not delete the Oxy file.
+The client checks returned metadata before accepting an ID and the backend
+independently checks it again at publication. Shared `reviewMediaKind` enforces
+the same MIME and size limits at both boundaries. The form disables publication
+during upload and retains its draft on upload/publication failures.
+
+Eligibility cache keys include the active Oxy account; prompts exclude another
+account's or consumed grants, and account changes remount the form. Late upload
+callbacks cannot append to an unmounted form. Private transaction reviews have
+no uploader. The general Oxy FileManagement selector is not used: Services
+11.1.10 changes existing file visibility during selection, before confirmation.
+Live acceptance with an actual author's Oxy upload remains to be verified;
+metadata unit tests and browser refusal tests are not evidence of that path.
+
+`review_media` stores ordered child rows, with unique positions and file IDs per
+review. It has no independent moderation state: public hydration joins the parent
+and excludes hidden reviews and transaction targets. Deleting a review cascades
+to its attachment rows; Oxy owns the underlying file lifetime. Media reads on a
+paginated review response describe that page, not a complete product media strip.
+The public `GET /reviews/product/:canonicalProductId/media` and
+`GET /listings/:id/reviews/media` page attachments across all published reviews
+of the target. Each entry carries the attachment and its hydrated review; the
+pagination total counts attachments. Sorting is newest review first, then review
+ID, then attachment position. A review hidden during hydration is omitted from
+the response. These reads never include private transaction reviews.
+
+The media viewer keeps selection by attachment ID while pages arrive. Its
+thumbnail rail measures its content and viewport again on resize, then converts
+distance from the reading-direction start into the platform's scroll offset
+(negative on RTL web, physical on Android, logical on iOS). This keeps the active
+thumbnail visible without replacing the selected photo or its associated review.
+Browser navigation tests cover English and Arabic, including resizing and return
+to the first photo; deliberate missing-file responses exercise navigation without
+claiming successful media delivery.
 
 A review with no eligibility is written `unverified` — labelled, counted
 separately, never blended into the headline rating. It is not refused: that is a

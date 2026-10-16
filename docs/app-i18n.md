@@ -244,6 +244,16 @@ correctly is a property of a real device or a foregrounded tab, and neither
 `validate:rtl-classes` nor `validate:rtl-direction` runs one — they check
 classes and a pure decision.
 
+The storefront has since been checked on Pixel8a: selecting Arabic and restarting
+mirrors the bottom navigation and merchant menu controls. This exposed a separate
+bootstrap bug: the provisional device locale could overwrite the next-launch
+preference, then the saved locale skipped restoring it because the running
+`I18nManager.isRTL` already matched. `syncLayoutDirection` now always persists
+the requested direction and uses the running constant only to report whether a
+restart is needed. Four boundary tests cover hydration in both directions,
+cancelling a change before restart, and the outstanding restart. They do not
+claim rendering coverage for the dashboard or POS.
+
 The residual the bundles could not have fixed on their own is now closed. #429
 item 4 replaced the sliding surfaces' physical `side: 'left' | 'right'` with a
 logical `LogicalSide` (`start` / `end`), a clean cut with no alias accepting

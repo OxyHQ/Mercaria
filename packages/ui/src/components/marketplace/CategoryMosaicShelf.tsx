@@ -1,22 +1,23 @@
-import { useState } from 'react';
+import { Fragment, useState, type ReactElement, type ReactNode } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { CatalogImage } from './CatalogImage';
 import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
 import { Text } from '../ui/text';
 import { SectionHeader } from './SectionHeader';
 import { useShelfCarouselProps } from '../../lib/shelf-carousel';
-import { categoryImageSource } from '../../lib/shop-category-images';
 
 export interface CategoryMosaicItem {
   key: string;
   label: string;
   imageUrl?: string;
-  onPress: () => void;
+  imageFileId?: string;
+  renderLink: (child: ReactElement) => ReactNode;
 }
 export interface CategoryMosaicGroup {
   key: string;
   label: string;
-  onPress?: () => void;
+  renderLink?: (child: ReactElement) => ReactNode;
   children: CategoryMosaicItem[];
 }
 /** Four independent category links per tile; five fluid columns from Shop's xxl. */
@@ -57,8 +58,8 @@ export function CategoryMosaicShelf({
             <View className={large ? 'gap-space-16 pb-[38px]' : 'gap-space-12 pb-space-32'}>
               <SectionHeader
                 title={group.label}
-                onPress={group.onPress}
-                showChevron={Boolean(group.onPress)}
+                renderLink={group.renderLink}
+                showChevron={Boolean(group.renderLink)}
                 chevronPosition="after-title"
                 inset={false}
               />
@@ -74,32 +75,39 @@ export function CategoryMosaicShelf({
                 {[0, 1].map((row) => (
                   <View key={row} className={`flex-1 flex-row gap-0.5 ${row ? 'mt-0.5' : ''}`}>
                     {group.children.slice(row * 2, row * 2 + 2).map((item) => (
-                      <Pressable
-                        key={item.key}
-                        accessibilityRole="link"
-                        accessibilityLabel={item.label}
-                        onPress={item.onPress}
-                        className="group relative flex-1 justify-end overflow-hidden bg-muted"
-                      >
-                        {item.imageUrl ? (
-                          <Image
-                            source={categoryImageSource(item.imageUrl)}
-                            contentFit="cover"
-                            className="absolute inset-0 h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-110 web:motion-reduce:transition-none web:motion-reduce:transform-none"
-                          />
-                        ) : null}
-                        <Text
-                          className={`text-white web:drop-shadow-sm ${
-                            extraLarge
-                              ? 'm-[18px] text-shop-bodyTitleLarge'
-                              : large
-                                ? 'm-space-12 text-[14px] font-semibold leading-tight'
-                                : 'm-space-8 text-shop-captionBold leading-tight'
-                          }`}
-                        >
-                          {item.label}
-                        </Text>
-                      </Pressable>
+                      <Fragment key={item.key}>
+                        {item.renderLink(
+                          <Pressable
+                            accessibilityRole="link"
+                            accessibilityLabel={item.label}
+                            className="group relative flex-1 justify-end overflow-hidden bg-muted"
+                          >
+                            <CatalogImage
+                              fileId={item.imageFileId}
+                              legacyUrl={item.imageUrl}
+                              accessibilityLabel={item.label}
+                              contentFit="cover"
+                              className="absolute inset-0 h-full w-full web:transition-transform web:duration-150 web:group-hover:scale-110 web:motion-reduce:transition-none web:motion-reduce:transform-none"
+                            />
+                            <LinearGradient
+                              pointerEvents="none"
+                              colors={['transparent', 'rgba(0,0,0,0.55)']}
+                              className="absolute bottom-0 h-20 w-full"
+                            />
+                            <Text
+                              className={`text-white web:drop-shadow-sm ${
+                                extraLarge
+                                  ? 'm-[18px] text-shop-bodyTitleLarge'
+                                  : large
+                                    ? 'm-space-12 text-[14px] font-semibold leading-tight'
+                                    : 'm-space-8 text-shop-captionBold leading-tight'
+                              }`}
+                            >
+                              {item.label}
+                            </Text>
+                          </Pressable>,
+                        )}
+                      </Fragment>
                     ))}
                   </View>
                 ))}

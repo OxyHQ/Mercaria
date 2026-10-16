@@ -72,20 +72,20 @@
     "typescript": "^5.9.3"
   },
   "overrides": {
-    "@oxy.so/contracts": "4.12.0",
+    "@oxy.so/contracts": "4.16.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
     "react-native-svg": "15.15.5",
     "react-native-worklets": "0.8.3",
-    "react-native-reanimated": "4.3.1",
+    "react-native-reanimated": "4.3.4",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo-secure-store": "56.0.4",
     "expo-file-system": "56.0.8",
     "react-native-screens": "4.25.2",
     "react-native-gesture-handler": "2.31.1",
     "react-native-keyboard-controller": "1.21.6",
-    "expo": "56.0.11",
+    "expo": "56.0.23",
     "expo-blur": "56.0.3",
     "expo-constants": "56.0.18",
     "expo-font": "56.0.6",
@@ -93,19 +93,19 @@
     "@react-native/babel-preset": "0.85.3",
     "@react-native/metro-babel-transformer": "0.85.3",
     "@react-native/metro-config": "0.85.3",
-    "@oxy.so/core": "4.5.0",
+    "@oxy.so/core": "4.10.0",
     "lightningcss": "1.30.1",
     "lightningcss-linux-x64-gnu": "1.30.1",
     "lightningcss-linux-x64-musl": "1.30.1"
   },
   "dependencies": {
-    "@oxy.so/core": "4.5.0"
+    "@oxy.so/core": "4.10.0"
   },
   "trustedDependencies": [
     "@parcel/watcher",
     "@swc/core"
   ],
   "resolutions": {
-    "@oxy.so/contracts": "4.12.0"
+    "@oxy.so/contracts": "4.16.0"
   }
 }

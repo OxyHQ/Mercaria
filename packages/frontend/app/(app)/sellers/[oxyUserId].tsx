@@ -1,15 +1,22 @@
+import { renderListingLink } from '@/lib/catalog/product-links';
 import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { useMemo } from 'react';
 import { Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '@mercaria/ui';
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useOxy } from '@oxy.so/services';
+import { useLocalSearchParams } from 'expo-router';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { useDialogControl } from '@oxy.so/bloom/dialog';
 import { Rating } from '@oxy.so/bloom/rating';
 import type { Listing, ProductSummary, PublicSellerProfile } from '@mercaria/shared-types';
-import { ProductCard, SectionHeader, Text, useRatingDisplay } from '@mercaria/ui';
+import { isOxyFileId } from '@mercaria/shared-types';
+import {
+  ProductCard,
+  SectionHeader,
+  Text,
+  useRatingDisplay,
+  resolveCatalogImage,
+} from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { SellerFollowButton } from '@/components/seller/SellerFollowButton';
 import { ReportSellerDialog } from '@/components/seller/ReportSellerDialog';
@@ -51,17 +58,13 @@ const TRUST_TIER_LABEL_KEYS: Readonly<Record<string, string>> = {
 Object.freeze(TRUST_TIER_LABEL_KEYS);
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
-function toProductSummary(
-  listing: Listing,
-  sellerName: string,
-  resolveImage: ReturnType<typeof useImageResolver>,
-): ProductSummary {
-  const firstImage = listing.images[0];
+function toProductSummary(listing: Listing, sellerName: string): ProductSummary {
+  const firstImage = listing.images.find((image) => isOxyFileId(image.fileId));
   return {
     id: listing.id,
     title: listing.title,
     brand: sellerName,
-    imageUrl: firstImage ? resolveImage?.(firstImage.fileId, 'thumb') : undefined,
+    imageFileId: firstImage?.fileId,
     // A LISTING's own rating, not the seller's. Zero here means "this page does
     // not carry per-item ratings", which is honest: the seller's reputation is
     // rendered once, above, under its own scope label.
@@ -93,13 +96,18 @@ function Stat({ label, value }: { label: string; value: string }) {
  */
 function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
   const { t } = useTranslation();
-  const { oxyServices } = useOxy();
+  const resolveImage = useImageResolver();
   const reportControl = useDialogControl();
   const identity = profile.identity;
 
   if (!identity) return null;
 
-  const avatarUrl = identity.avatar ? oxyServices.assets.publicUrl(identity.avatar, 'thumb') : null;
+  const avatarUrl = resolveCatalogImage(
+    isOxyFileId(identity.avatar) ? identity.avatar : undefined,
+    identity.avatar ?? undefined,
+    resolveImage,
+    'thumb',
+  );
 
   return (
     <View className="gap-4 px-4 pt-6">
@@ -245,7 +253,6 @@ function WithheldNotice({ profile }: { profile: PublicSellerProfile }) {
 
 export default function SellerScreen() {
   const { oxyUserId } = useLocalSearchParams<{ oxyUserId: string }>();
-  const router = useRouter();
   const { t } = useTranslation();
   const { data: profile, isLoading, isError } = useSellerProfile(oxyUserId);
 
@@ -258,14 +265,11 @@ export default function SellerScreen() {
     isFetchingNextPage,
   } = useSellerListings(oxyUserId, isVisible);
 
-  const resolveImage = useImageResolver();
   const sellerName = profile?.identity?.displayName ?? t('sellers.fallbackName');
   const products = useMemo(
     () =>
-      (pages ?? []).flatMap((page) =>
-        page.listings.map((l) => toProductSummary(l, sellerName, resolveImage)),
-      ),
-    [pages, sellerName, resolveImage],
+      (pages ?? []).flatMap((page) => page.listings.map((l) => toProductSummary(l, sellerName))),
+    [pages, sellerName],
   );
 
   const head = (
@@ -338,10 +342,7 @@ export default function SellerScreen() {
               <View className="flex-row flex-wrap px-2">
                 {products.map((product) => (
                   <View key={product.id} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
-                    <ProductCard
-                      product={product}
-                      onPress={(id) => router.push(`/products/${id}`)}
-                    />
+                    <ProductCard product={product} renderLink={renderListingLink} />
                   </View>
                 ))}
               </View>

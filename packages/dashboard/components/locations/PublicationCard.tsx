@@ -12,6 +12,7 @@ import { Field } from '@oxy.so/bloom/field';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { Textarea } from '@oxy.so/bloom/textarea';
 import { Button } from '@oxy.so/bloom/button';
+import { RadioGroup } from '@oxy.so/bloom/radio';
 import { Switch } from '@oxy.so/bloom/switch';
 import {
   SegmentedControl,
@@ -31,6 +32,7 @@ import {
   type PublicationDraft,
 } from '@/lib/locations/publication-form';
 import { useTranslation } from '@/lib/i18n';
+import { retainLaterEdits } from '@/lib/locations/retain-later-edits';
 import { EditorSection } from './EditorSection';
 
 const IDENTITY_REQUIREMENTS: PickupIdentityRequirement[] = [
@@ -77,20 +79,26 @@ export function PublicationCard({
   const save = useSaveLocationPublication(storeId, locationId);
   const setState = useSetLocationPublicationState(storeId, locationId);
   const setPause = useSetLocationPickupPause(storeId, locationId);
-  const [draft, setDraft] = useState<PublicationDraft>(() => publicationDraftOf(publication));
+  const [edits, setEdits] = useState<Partial<PublicationDraft>>({});
+  const draft = { ...publicationDraftOf(publication), ...edits };
   const [pauseReason, setPauseReason] = useState('');
 
   const patch = (next: Partial<PublicationDraft>) =>
-    setDraft((current) => ({ ...current, ...next }));
+    setEdits((current) => ({ ...current, ...next }));
 
   const submit = () => {
+    if (save.isPending || setState.isPending || setPause.isPending) return;
+    const submitted = edits;
     const built = publicationInputOf(draft, goWayPlaceId);
     if (!built.ok) {
       toast.error(t(built.errorKey));
       return;
     }
     save.mutate(built.input, {
-      onSuccess: () => toast.success(t('settings.locations.editor.publication.saved')),
+      onSuccess: () => {
+        setEdits((current) => retainLaterEdits(current, submitted));
+        toast.success(t('settings.locations.editor.publication.saved'));
+      },
       onError: (error) => toast.error(t(publicationErrorKey(error))),
     });
   };
@@ -136,19 +144,14 @@ export function PublicationCard({
         />
       </Field>
       <Field label={t('settings.locations.editor.publication.identity')}>
-        <SegmentedControl
-          type="radio"
+        <RadioGroup
           value={draft.identityRequirement}
           onValueChange={(identityRequirement) => patch({ identityRequirement })}
-        >
-          {IDENTITY_REQUIREMENTS.map((requirement) => (
-            <SegmentedControlItem key={requirement} value={requirement}>
-              <SegmentedControlItemText>
-                {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[requirement])}
-              </SegmentedControlItemText>
-            </SegmentedControlItem>
-          ))}
-        </SegmentedControl>
+          options={IDENTITY_REQUIREMENTS.map((value) => ({
+            value,
+            label: t(PICKUP_IDENTITY_REQUIREMENT_KEYS[value]),
+          }))}
+        />
       </Field>
       <Field label={t('settings.locations.editor.publication.inventorySource')}>
         <SegmentedControl
@@ -203,7 +206,9 @@ export function PublicationCard({
       <Button
         tone="accent"
         loading={save.isPending}
-        disabled={goWayPlaceId === undefined}
+        disabled={
+          goWayPlaceId === undefined || save.isPending || setState.isPending || setPause.isPending
+        }
         onPress={submit}
       >
         {t('settings.locations.editor.publication.save')}
@@ -236,12 +241,18 @@ export function PublicationCard({
                 tone="neutral"
                 appearance="outline"
                 loading={setState.isPending}
+                disabled={save.isPending || setState.isPending || setPause.isPending}
                 onPress={() => move('withdrawn')}
               >
                 {t('settings.locations.editor.publication.withdraw')}
               </Button>
             ) : (
-              <Button tone="accent" loading={setState.isPending} onPress={() => move('published')}>
+              <Button
+                tone="accent"
+                loading={setState.isPending}
+                disabled={save.isPending || setState.isPending || setPause.isPending}
+                onPress={() => move('published')}
+              >
                 {t('settings.locations.editor.publication.publish')}
               </Button>
             )}
@@ -250,6 +261,7 @@ export function PublicationCard({
                 tone="neutral"
                 appearance="outline"
                 loading={setState.isPending}
+                disabled={save.isPending || setState.isPending || setPause.isPending}
                 onPress={() => move('draft')}
               >
                 {t('settings.locations.editor.publication.toDraft')}
@@ -268,6 +280,7 @@ export function PublicationCard({
                 tone="neutral"
                 appearance="outline"
                 loading={setPause.isPending}
+                disabled={save.isPending || setState.isPending || setPause.isPending}
                 onPress={() =>
                   setPause.mutate(
                     { paused: false },
@@ -290,7 +303,12 @@ export function PublicationCard({
               <Button
                 tone="neutral"
                 appearance="outline"
-                disabled={pauseReason.trim() === ''}
+                disabled={
+                  pauseReason.trim() === '' ||
+                  save.isPending ||
+                  setState.isPending ||
+                  setPause.isPending
+                }
                 loading={setPause.isPending}
                 onPress={() =>
                   setPause.mutate(

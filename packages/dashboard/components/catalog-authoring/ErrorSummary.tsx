@@ -64,7 +64,7 @@ export function ErrorSummary({ findings, onNavigate }: ErrorSummaryProps) {
         {findings.map((finding, index) => (
           <Pressable
             key={`${finding.code}-${finding.path}-${index}`}
-            accessibilityRole="link"
+            accessibilityRole="button"
             accessibilityLabel={t(findingMessageKey(finding.code))}
             onPress={() => onNavigate(finding)}
             className="flex-row items-start gap-2 rounded-lg px-1 py-1 active:bg-muted"

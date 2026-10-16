@@ -2171,6 +2171,8 @@ export interface PaginationConfig {
 }
 
 export interface CatalogConfig {
+  /** New video write/import entry only. Reads never hide stored media. */
+  readonly videoWritesEnabled: boolean;
   /** Maximum number of variants a single product (Listing) may have. */
   readonly maxVariantsPerProduct: number;
   /** Maximum number of gallery images a single listing may have. */
@@ -4285,6 +4287,7 @@ export const config: AppConfig = Object.freeze({
     maxPageSize: intEnv('PAGE_SIZE_MAX', 100),
   }),
   catalog: Object.freeze({
+    videoWritesEnabled: boolEnv('CATALOG_VIDEO_WRITES_ENABLED', false),
     maxVariantsPerProduct: intEnv('MAX_VARIANTS_PER_PRODUCT', 100),
     maxImagesPerListing: intEnv('MAX_IMAGES_PER_LISTING', 12),
     graphOperatorOxyUserIds: Object.freeze(resolveCatalogOperatorIds()),

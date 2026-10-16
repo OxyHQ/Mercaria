@@ -1,5 +1,6 @@
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { Pressable, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import type { DiscountSummary, StoreSummary } from '@mercaria/shared-types';
 import { Text } from '../ui/text';
 import { IncentiveHalo } from './IncentiveHalo';
@@ -18,6 +19,8 @@ export interface StoreOfferHeaderProps {
  * subtotal. These are the store discount's native amounts, not item markdowns. */
 export function StoreOfferHeader({ store, discount, onPress }: StoreOfferHeaderProps) {
   const t = useSharedUiTranslation();
+  const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(store.logoUrl, resolveImage, store.logoFileId);
   const { formatMoney } = useFormatters();
   const locale = useSharedUiLocale();
   // Stored rates have basis-point precision. Preserve fractional rates without
@@ -41,12 +44,8 @@ export function StoreOfferHeader({ store, discount, onPress }: StoreOfferHeaderP
       : undefined;
   const logo = (
     <View className="size-space-44 items-center justify-center overflow-hidden rounded-radius-max border-[0.5px] border-border-image bg-bg-fill-secondary">
-      {store.logoUrl ? (
-        <Image
-          source={merchantImageSource(store.logoUrl)}
-          contentFit="cover"
-          style={{ width: 44, height: 44 }}
-        />
+      {logoSource ? (
+        <Image source={logoSource} contentFit="cover" style={{ width: 44, height: 44 }} />
       ) : (
         <Text className="text-shop-bodyTitleLarge text-text">{Array.from(store.name)[0]}</Text>
       )}

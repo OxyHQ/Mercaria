@@ -125,6 +125,7 @@ for (const width of [390, 1440]) {
     await page.getByRole('radio', { name: /Configuration 2,/ }).click();
     await expect(page.getByTestId('product-update-error')).toBeVisible();
     await expect(page.getByTestId('bundled-product-card')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('bundled-product-card')).not.toHaveAttribute('href');
     await expect(page.getByTestId('product-offers')).not.toHaveAttribute('aria-busy', 'true');
     failing = false;
     await page.getByTestId('product-update-error').getByRole('button').click();
@@ -196,6 +197,7 @@ for (const width of [390, 1440]) {
     await expect.poll(() => started).toBe(true);
     await expect(page.getByTestId('product-offers')).toHaveAttribute('aria-busy', 'true');
     await expect(page.getByTestId('bundled-product-card')).toHaveAttribute('aria-disabled', 'true');
+    await expect(page.getByTestId('bundled-product-card')).not.toHaveAttribute('href');
     await page.waitForTimeout(1200);
     release();
     await expect(page.getByTestId('bundle-quantity')).toHaveText('×2');
@@ -227,6 +229,7 @@ for (const width of [390, 1440]) {
       'Import the seed images through the backend before this integration test',
     ).toBe(true);
     const [first, second] = listing.variants;
+    first.images = { source: 'variant', images: [listing.images[0]] };
     second.images = { source: 'variant', images: [listing.images[1]] };
     listing.bundleContentsByVariant = Object.fromEntries(
       [first, second].map((variant, index) => [
@@ -262,11 +265,26 @@ for (const width of [390, 1440]) {
     await page.getByRole('button', { name: `Shade: ${second.title}`, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`variantId=${second.id}`));
     await expect(page.getByTestId('bundle-quantity')).toHaveText('×2');
-    await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveCount(1);
-    await expect(page.getByTestId('product-gallery-carousel').locator('img')).toHaveAttribute(
+    const photos = page.getByTestId('product-gallery-carousel').locator('img');
+    // Selected configuration first, followed by shared detail photos. The
+    // previous configuration's assigned photo must disappear, not all photos.
+    await expect(photos).toHaveCount(listing.images.length - 1);
+    await expect(photos.first()).toHaveAttribute(
       'src',
       `https://cloud.oxy.so/${listing.images[1].fileId}`,
     );
+    await expect
+      .poll(() => photos.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('src'))))
+      .toEqual(
+        [listing.images[1], ...listing.images.slice(2)].map(
+          (image) => `https://cloud.oxy.so/${image.fileId}`,
+        ),
+      );
+    await expect(
+      page
+        .getByTestId('product-gallery-carousel')
+        .locator(`img[src="https://cloud.oxy.so/${listing.images[0].fileId}"]`),
+    ).toHaveCount(0);
     await page.waitForTimeout(300);
     const result = await audit.evaluate((value) => {
       value.running = false;

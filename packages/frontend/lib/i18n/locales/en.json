@@ -30,7 +30,8 @@
     "account": "Account",
     "signIn": "Sign in",
     "threeD": "3D",
-    "mainNavigation": "Main navigation"
+    "mainNavigation": "Main navigation",
+    "settings": "Settings"
   },
   "login": {
     "signInButton": "Sign in"
@@ -39,20 +40,6 @@
     "account": {
       "title": "Account Settings"
     },
-    "appLanguage": {
-      "title": "App Language",
-      "description": "Change the app's display language",
-      "restartRequired": "Restart the app to apply the new layout direction."
-    },
-    "appearance": {
-      "title": "Appearance",
-      "light": "Light",
-      "dark": "Dark",
-      "system": "System"
-    },
-    "accentColor": {
-      "title": "App Color"
-    },
     "sections": {
       "account": "Account",
       "general": "General",
@@ -60,7 +47,7 @@
       "addresses": "Addresses",
       "watchlists": "Watchlists",
       "shoppingAgents": "Shopping agents",
-      "referralPartner": "Referral partner"
+      "referrals": "Referrals"
     },
     "currency": {
       "title": "Display currency",
@@ -143,6 +130,7 @@
     "notFound": "We couldn't find this product.",
     "visitA11y": "Visit %{name}",
     "moreFromStore": "More from %{name}",
+    "youMightAlsoLike": "You might also like",
     "compareOffersA11y": "Compare every offer for this product",
     "compareOffers": "Compare all offers",
     "percentOff": "%{percent}% off",
@@ -234,7 +222,8 @@
       "product": "About this product",
       "variant": "About this configuration",
       "definitionsUnavailable": "Some names are shown exactly as they are stored.",
-      "untranslated": "Some names are not translated into your language yet."
+      "untranslated": "Some names are not translated into your language yet.",
+      "loadError": "Could not load specifications. Try again."
     },
     "variants": {
       "unavailable": "not available",
@@ -472,6 +461,17 @@
       "count": "%{formattedCount} found this helpful",
       "error": "Could not update your vote. Please try again.",
       "retry": "Retry loading helpful votes"
+    },
+    "media": {
+      "add": "Add photo or video",
+      "prompt": "Drop a file here or",
+      "uploading": "Uploading…",
+      "uploaded": "Upload complete",
+      "invalid": "Up to 10 files: JPG, PNG, WebP, GIF or AVIF images up to 20 MB; MP4 or WebM videos up to 100 MB.",
+      "publicNotice": "Uploads are public. Removing an attachment here does not delete it from your Oxy files.",
+      "failed": "The upload could not be verified. Try again.",
+      "remove": "Remove %{filename}",
+      "removeAction": "Remove"
     }
   },
   "search": {
@@ -673,7 +673,8 @@
       "actionLabel": "Follow %{name}"
     },
     "linkCard": {
-      "viewProfile": "View %{name}'s profile"
+      "viewProfile": "View %{name}'s profile",
+      "visitProfile": "Visit profile"
     },
     "report": {
       "action": "Report",
@@ -1207,6 +1208,15 @@
       "collectHere": "Order online, collect here",
       "placeRatingSubject": "%{place} on GoWay",
       "photoLabel": "Photo of %{place}"
+    },
+    "contact": {
+      "title": "Contact %{store}",
+      "unavailable": "Contact information could not be loaded.",
+      "empty": "This store has not published contact information.",
+      "website": "Website",
+      "copy": "Copy %{value}",
+      "copied": "Copied",
+      "copyFailed": "Could not copy. Try again."
     }
   },
   "offer": {
@@ -1287,11 +1297,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Referral partner · Mercaria",
-    "title": "Referral partner",
     "loadError": "We could not load your referral dashboard. Please try again.",
     "signedOut": {
-      "title": "Sign in to see your referral partner account",
+      "title": "Sign in to see your referrals",
       "body": "Your links, what they have earned and when you will be paid.",
       "action": "Sign in"
     },
@@ -1338,11 +1346,19 @@
       "title": "Performance",
       "totals": "%{clicks} clicks · %{referrals} qualified referrals, %{from} to %{through}",
       "empty": "Nothing recorded in this period.",
-      "row": "%{label}: %{clicks} clicks · %{referrals} referrals"
+      "row": "%{label}: %{clicks} clicks · %{referrals} referrals",
+      "breakdownBy": "Break down by",
+      "dimension": {
+        "program": "Programme",
+        "campaign": "Campaign",
+        "instrument": "Link or code",
+        "market": "Market",
+        "clientSurface": "Platform",
+        "date": "Date"
+      }
     },
     "instruments": {
-      "title": "Your links and codes",
-      "empty": "You have no referral codes yet.",
+      "title": "Your codes",
       "disclosureIntro": "Publish this with every link:",
       "status": {
         "active": "active",
@@ -1357,6 +1373,16 @@
       "appeal": "You can appeal the decision on your participation.",
       "disputes": "Disputes about an attribution, a reversal or a payout are not yet handled here. Contact support and quote the date and amount shown above.",
       "noEmails": "We do not send referral emails yet, so check this page for changes."
+    },
+    "links": {
+      "title": "Your links",
+      "create": "Create link",
+      "copy": "Copy",
+      "copyLink": "Copy link %{url}",
+      "copied": "Link copied",
+      "createFailed": "We couldn't create a link. Please try again.",
+      "empty": "Create a link to share Mercaria. Referrals it brings are attributed to you.",
+      "notPartner": "Your link appears here once you are enrolled in a programme."
     }
   },
   "brand": {
@@ -1540,6 +1566,17 @@
       "updateFailed": "Couldn't update the address",
       "removed": "Address removed",
       "removeFailed": "Couldn't remove the address"
+    },
+    "picker": {
+      "search": "Find an address with GoWay",
+      "help": "Search for a street and city, then choose and review an address.",
+      "placeholder": "Street, number and city",
+      "loading": "Searching GoWay…",
+      "error": "Address search is unavailable. Try again or enter the address manually.",
+      "partial": "Some address sources are unavailable. Results may be incomplete.",
+      "empty": "No addresses found. Add a city or enter the address manually.",
+      "review": "Review address details",
+      "manual": "Enter address manually"
     }
   },
   "shoppingAgents": {

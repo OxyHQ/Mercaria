@@ -14,7 +14,8 @@
  * and never writes one.
  */
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { isOxyFileId } from '@mercaria/shared-types';
 import { assertLocalizedRow } from '../../lib/localized-text.js';
 import type {
   AttributeComponentAxis,
@@ -364,12 +365,20 @@ export async function insertCanonicalImage(
   db: DatabaseOrTransaction,
   input: InsertCanonicalImageInput,
 ): Promise<CanonicalImageRow | undefined> {
+  return insertCanonicalMedia(db, { ...input, kind: 'image' });
+}
+
+export async function insertCanonicalMedia(
+  db: DatabaseOrTransaction,
+  input: InsertCanonicalImageInput & { kind: 'image' | 'video' },
+): Promise<CanonicalImageRow | undefined> {
   const isProduct = input.grain.kind === 'product';
   const rows = await db
     .insert(canonicalImages)
     .values({
       productId: isProduct ? input.grain.id : null,
       variantId: isProduct ? null : input.grain.id,
+      kind: input.kind,
       fileId: input.fileId ?? null,
       sourceUrl: input.sourceUrl ?? null,
       sourceRecordId: input.sourceRecordId,
@@ -403,8 +412,46 @@ export async function listCanonicalImages(
   return db
     .select()
     .from(canonicalImages)
+    .where(and(owner, eq(canonicalImages.kind, 'image')))
+    .orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
+}
+
+export async function listCanonicalMedia(
+  db: DatabaseOrTransaction,
+  grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>,
+): Promise<CanonicalImageRow[]> {
+  const owner =
+    grain.kind === 'product'
+      ? eq(canonicalImages.productId, grain.id)
+      : eq(canonicalImages.variantId, grain.id);
+  return db
+    .select()
+    .from(canonicalImages)
     .where(owner)
     .orderBy(asc(canonicalImages.position), asc(canonicalImages.id));
+}
+
+/** Retain the source observation, row identity and variant grain when importing
+ * legacy source-hosted imagery. A concurrent replacement must win. */
+export async function attachImportedCanonicalImage(
+  db: DatabaseOrTransaction,
+  imageId: string,
+  sourceUrl: string,
+  fileId: string,
+): Promise<boolean> {
+  if (!isOxyFileId(fileId)) throw new Error('Expected an Oxy file ID.');
+  const rows = await db
+    .update(canonicalImages)
+    .set({ fileId })
+    .where(
+      and(
+        eq(canonicalImages.id, imageId),
+        eq(canonicalImages.sourceUrl, sourceUrl),
+        isNull(canonicalImages.fileId),
+      ),
+    )
+    .returning({ id: canonicalImages.id });
+  return rows.length === 1;
 }
 
 export interface RecordFieldProvenanceInput {

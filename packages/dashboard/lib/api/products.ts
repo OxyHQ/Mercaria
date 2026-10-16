@@ -3,6 +3,7 @@ import type {
   PaginatedResponse,
   Listing,
   ListingStatus,
+  ListingImage,
   Money,
   CreateStoreProductInput,
   UpdateListingInput,
@@ -98,8 +99,8 @@ export async function createVariant(
   storeId: string,
   id: string,
   input: CreateStoreProductVariantInput,
-): Promise<ProductVariantDTO> {
-  const { data } = await apiClient.post<ApiResponse<ProductVariantDTO>>(
+): Promise<Listing> {
+  const { data } = await apiClient.post<ApiResponse<Listing>>(
     `${base(storeId)}/${id}/variants`,
     input,
   );
@@ -112,8 +113,8 @@ export async function updateVariant(
   id: string,
   variantId: string,
   input: UpdateVariantInput,
-): Promise<ProductVariantDTO> {
-  const { data } = await apiClient.patch<ApiResponse<ProductVariantDTO>>(
+): Promise<Listing> {
+  const { data } = await apiClient.patch<ApiResponse<Listing>>(
     `${base(storeId)}/${id}/variants/${variantId}`,
     input,
   );
@@ -125,8 +126,8 @@ export async function deleteVariant(
   storeId: string,
   id: string,
   variantId: string,
-): Promise<ProductVariantDTO> {
-  const { data } = await apiClient.delete<ApiResponse<ProductVariantDTO>>(
+): Promise<Listing> {
+  const { data } = await apiClient.delete<ApiResponse<Listing>>(
     `${base(storeId)}/${id}/variants/${variantId}`,
   );
   return unwrap(data);
@@ -169,6 +170,32 @@ export async function setVariantLevelInventory(
   const { data } = await apiClient.patch<ApiResponse<InventoryLevelDTO[]>>(
     `${base(storeId)}/${id}/variants/${variantId}/levels/${locationId}`,
     { available },
+  );
+  return unwrap(data);
+}
+
+/** Authoring selection, without the listing-gallery fallback. */
+export async function fetchVariantImages(
+  storeId: string,
+  productId: string,
+  variantId: string,
+): Promise<ListingImage[]> {
+  const { data } = await apiClient.get<ApiResponse<ListingImage[]>>(
+    `${base(storeId)}/${productId}/variants/${variantId}/images`,
+  );
+  return unwrap(data);
+}
+
+/** Replace the ordered selection with files already in this product's gallery. */
+export async function replaceVariantImages(
+  storeId: string,
+  productId: string,
+  variantId: string,
+  fileIds: readonly string[],
+): Promise<ListingImage[]> {
+  const { data } = await apiClient.put<ApiResponse<ListingImage[]>>(
+    `${base(storeId)}/${productId}/variants/${variantId}/images`,
+    { fileIds },
   );
   return unwrap(data);
 }

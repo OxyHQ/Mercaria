@@ -14,21 +14,23 @@ name: Deploy POS
 # BUNDLES, and nothing about whether it is correct. Until #505 this workflow had
 # no gate at all. See `docs/deploy.md` §"What gates a deploy".
 
+# Triggered by `ci.yml` COMPLETING on `main`, not by the push (see
+# `docs/deploy.md` §"What gates a deploy"). The old push trigger made the gate
+# POLL for CI for up to 30 minutes, holding a runner the whole time — one of
+# four idle runners per merge on an org-wide limit of 20 concurrent jobs.
+# `workflow_run` carries no `paths:`, so the old filter is the `DEPLOY_PATHS`
+# list on the gate's scope step below, diffed against the last commit this
+# workflow actually shipped.
 on:
-  workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - '.github/workflows/deploy-pos.yml'
-      - '.github/scripts/require-ci-success.mjs'
-      - 'packages/pos/**'
-      - 'packages/ui/**'
-      - 'packages/shared-types/**'
-      - 'package.json'
-      - 'bun.lock'
+  workflow_dispatch:
 
 # The deploy authenticates to Cloudflare with its own secret; the workflow token
-# needs only enough to check out the gate script and read this commit's CI run.
+# needs only enough to check out the gate script, read this commit's CI run and
+# compare it with the last shipped commit.
 permissions:
   contents: read
   actions: read
@@ -38,37 +40,80 @@ permissions:
 # `wrangler deploy` is safe, and why the group must be keyed PER APP rather than
 # shared — is written out once in `deploy-cloudflare.yml`.
 concurrency:
-  group: deploy-pos-${{ github.ref }}
+  group: deploy-pos-${{ github.ref }}${{ github.event_name == 'workflow_run' && (github.event.workflow_run.event != 'push' || github.event.workflow_run.head_repository.full_name != github.repository) && format('-noop-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
   gate:
     name: CI passed for this commit
+    # Runs on a dispatch, or on any `ci.yml` run for a PUSH to THIS
+    # repository's `main`; anything else skips every job (conclusion `skipped`,
+    # which `require-deploy-coverage.mjs` ignores) in its own concurrency group.
+    #
+    # The commit it ships is NOT necessarily the one whose CI just finished:
+    # the scope step resolves the newest CI-green commit on `main` at run time
+    # (a commit with no CI run, such as a GITHUB_TOKEN automerge, is passed
+    # over; one whose CI is still running HOLDS the run, and its completion
+    # triggers this workflow again). So whichever run executes ships the newest
+    # verified code, and a run cancelled by a newer one loses nothing.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
-    # Above the script's own 30-minute wait for a run to conclude, so a genuine
-    # refusal is reported by the script with its reason rather than by the runner
-    # killing the job.
-    timeout-minutes: 40
+    # Nothing here waits any more: CI has concluded before this run exists.
+    timeout-minutes: 10
+    outputs:
+      deploy: ${{ steps.scope.outputs.deploy }}
+      target: ${{ steps.scope.outputs.target }}
+      tip_failed: ${{ steps.scope.outputs.tip_failed }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: '24.20.0'
-      - name: Require a green CI run for this commit
-        run: node .github/scripts/require-ci-success.mjs
+      # The old `on.push.paths`, diffed against the last commit this workflow
+      # SHIPPED (not the previous push), so a skipped run can never hide one
+      # that failed. Any doubt answers `deploy=true`.
+      - name: Decide whether this commit changes the pos app
+        id: scope
+        run: node .github/scripts/resolve-deploy-scope.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKFLOW_FILE: deploy-pos.yml
+          SHIPPING_JOB: deploy-pos
+          DEPLOY_PATHS: |
+            .github/workflows/deploy-pos.yml
+            .github/scripts/require-ci-success.mjs
+            .github/scripts/resolve-deploy-scope.mjs
+            packages/pos/**
+            packages/ui/**
+            packages/shared-types/**
+            package.json
+            bun.lock
+      # Asked ONCE, of the TARGET: every required job present and `success` on
+      # the newest attempt for that sha — stricter than a run-level conclusion.
+      - name: Require a green CI run for this commit
+        if: steps.scope.outputs.target != ''
+        run: node .github/scripts/require-ci-success.mjs --sha="$TARGET" --no-wait
+        env:
+          TARGET: ${{ steps.scope.outputs.target }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # The Expo export needs nothing the gate protects: no secret, only the public
-  # EXPO_PUBLIC_* build config, and it ships nothing. So it runs WHILE the gate
-  # waits for ci.yml (~12 min) instead of after it, and the job that holds the
-  # Cloudflare token still needs the gate and only uploads what this built.
-  # Measured: the export was 58-59s of a ~90s deploy job that started only once
-  # the gate passed (runs of deploy-dashboard/deploy-pos, 2026-09).
+  # The Expo export needs no secret, only the public EXPO_PUBLIC_* build config,
+  # and ships nothing. It used to run WHILE the gate polled for ci.yml; now
+  # that the gate answers in seconds it waits for it, so a commit that does not
+  # reach this app (or whose CI failed) builds nothing at all.
   build:
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.target }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24.20.0'
@@ -78,7 +123,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Build POS (Expo web export)
         run: bun run build:pos
-        timeout-minutes: 60
+        timeout-minutes: 25
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
           NODE_ENV: production
@@ -99,13 +144,27 @@ jobs:
 
   deploy-pos:
     needs: [gate, build]
+    # `deploy` is true only after the gate verified `target`'s CI job by job
+    # (`require-ci-success.mjs`), so nothing here ships a commit whose CI did
+    # not pass. There is deliberately no `workflow_run.conclusion` clause: the
+    # run triggered by a RED commit's CI must still ship the newest green one
+    # beneath it, or a green commit held behind it would be stranded.
+    if: needs.gate.outputs.deploy == 'true'
+    env:
+      DEPLOY_SHA: ${{ needs.gate.outputs.target }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
+      # Only `wrangler.jsonc` and the built `dist/` are read here. No
+      # `bun install`: `_worker.js` imports nothing, so wrangler bundles it
+      # without node_modules, and `bunx wrangler@4` resolves wrangler on its
+      # own exactly as it did after the install (wrangler is not in bun.lock).
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.gate.outputs.target }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.3'
-      - run: bun install --frozen-lockfile
       - uses: actions/download-artifact@v8
         with:
           name: pos-dist
@@ -116,3 +175,23 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # What shipped, by step NAME — the only channel `/actions/runs/{id}/jobs`
+      # returns. `resolve-deploy-scope.mjs` reads it as the next run's diff base.
+      - name: Shipped commit ${{ needs.gate.outputs.target }}
+        run: echo "shipped $DEPLOY_SHA"
+
+  # Red when a commit NEWER than the one shipped has a CI run that did not
+  # succeed. The newest green commit still ships above; this keeps the red one
+  # a red deploy run, which is what `deploy-coverage.yml` reports — exactly as
+  # a refusing gate did before `workflow_run`.
+  tip:
+    name: Newer commits on main passed CI
+    needs: [gate, deploy-pos]
+    if: ${{ !cancelled() && needs.gate.outputs.tip_failed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report the commit(s) above the shipped one whose CI failed
+        run: |
+          echo "::error::A commit on main newer than the one this run shipped has a CI run that did not succeed. See the gate's log for which; it ships once a fix lands."
+          exit 1

@@ -55,11 +55,17 @@ function useInvalidatePublication(storeId: string, locationId: string) {
 
 /** Save the GoWay place and the commerce fields. */
 export function useSaveLocationPublication(storeId: string, locationId: string) {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidatePublication(storeId, locationId);
   return useMutation({
     mutationFn: (input: UpsertLocationPublicationInput) =>
       saveLocationPublication(storeId, locationId, input),
-    onSuccess: invalidate,
+    onSuccess: async (publication) => {
+      const queryKey = queryKeys.locationPublication(storeId, locationId);
+      await queryClient.cancelQueries({ queryKey, exact: true });
+      queryClient.setQueryData(queryKey, publication);
+      invalidate();
+    },
   });
 }
 

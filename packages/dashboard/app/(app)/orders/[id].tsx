@@ -18,7 +18,8 @@ import {
 import { Field } from '@oxy.so/bloom/field';
 import { TextFieldInput } from '@oxy.so/bloom/text-field';
 import { Button } from '@oxy.so/bloom/button';
-import { Dialog, useDialogControl, type DialogControlProps } from '@oxy.so/bloom/dialog';
+import { Loading } from '@oxy.so/bloom/loading';
+import { RefundDialog } from '@/components/orders/RefundDialog';
 import { toast } from '@oxy.so/bloom/toast';
 import { Screen } from '@/components/shell/Screen';
 import { canRetainDetailData } from '@/lib/detail-query-state';
@@ -26,12 +27,7 @@ import { DetailContent } from '@/components/shell/DetailContent';
 import { RequireStore } from '@/components/shell/RequireStore';
 import { OrderStatusBadge, ORDER_STATUS_LABEL_KEYS } from '@/components/orders/OrderStatusBadge';
 import { PickupDeskCard } from '@/components/orders/PickupDeskCard';
-import {
-  useOrder,
-  usePatchOrderStatus,
-  useCreateRefund,
-  useOrderRefunds,
-} from '@/lib/hooks/use-orders';
+import { useOrder, usePatchOrderStatus, useOrderRefunds } from '@/lib/hooks/use-orders';
 import { useActiveStoreContext } from '@/lib/hooks/use-stores';
 import { useTranslation } from '@/lib/i18n';
 import type { FulfillmentStatus } from '@/lib/api/orders';
@@ -338,11 +334,11 @@ function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder
   // No extra `can("orders:read")` gate: the whole screen already sits behind
   // `RequireStore permission="orders:read"`, which is exactly what the GET
   // endpoint enforces, so a second check here could only ever agree with it.
-  const { data } = useOrderRefunds(storeId, order.id);
+  const refunds = useOrderRefunds(storeId, order.id);
+  const data = canRetainDetailData(refunds.error) ? refunds.data : undefined;
 
-  // Most orders are never refunded, so an always-mounted empty card would be
-  // noise on every order detail — the card appears only once there is history.
-  if (!data || data.length === 0) {
+  // Hide only a confirmed empty history. Failed reads are never an empty result.
+  if (refunds.isSuccess && data?.length === 0) {
     return null;
   }
 
@@ -351,8 +347,29 @@ function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder
       <Text className="mb-3 text-sm font-semibold text-foreground">
         {t('orders.detail.refunds')}
       </Text>
-      <View className="gap-3">
-        {data.map((refund) => (
+      <View testID="merchant-refund-history-status" accessibilityLiveRegion="polite">
+        {refunds.isError ? (
+          <View className="mb-3 flex-row flex-wrap items-center justify-between gap-2">
+            <Text className="text-sm text-foreground">{t('orders.detail.refundsLoadFailed')}</Text>
+            <Button
+              size="sm"
+              appearance="outline"
+              material="flat"
+              disabled={refunds.isFetching}
+              onPress={() => {
+                void refunds.refetch();
+              }}
+            >
+              {t('common.retry')}
+            </Button>
+          </View>
+        ) : null}
+        {refunds.isFetching ? (
+          <Loading variant="inline" size="sm" accessibilityLabel={t('common.loading')} />
+        ) : null}
+      </View>
+      <View testID="merchant-refund-history" className="gap-3">
+        {data?.map((refund) => (
           <RefundRow key={refund.id} refund={refund} />
         ))}
       </View>
@@ -430,7 +447,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
   const { can } = useActiveStoreContext();
   const patch = usePatchOrderStatus(storeId, order.id);
   const [tracking, setTracking] = useState(order.shipping.trackingNumber ?? '');
-  const refundControl = useDialogControl();
+  const [refundOpen, setRefundOpen] = useState(false);
 
   const canFulfil = can('orders:fulfill');
   const canRefund = can('refunds:write');
@@ -494,102 +511,18 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
           tone="danger"
           className="mt-4 self-start"
           size="sm"
-          onPress={() => refundControl.open()}
+          onPress={() => setRefundOpen(true)}
         >
           {t('orders.detail.refund')}
         </Button>
       ) : null}
 
-      <RefundDialog storeId={storeId} order={order} control={refundControl} />
+      <RefundDialog
+        storeId={storeId}
+        order={order}
+        open={refundOpen}
+        onClose={() => setRefundOpen(false)}
+      />
     </View>
-  );
-}
-
-function RefundDialog({
-  storeId,
-  order,
-  control,
-}: {
-  storeId: string;
-  order: MerchantOrder;
-  control: DialogControlProps;
-}) {
-  const { t } = useTranslation();
-  const createRefund = useCreateRefund(storeId, order.id);
-  const [quantities, setQuantities] = useState<Record<string, string>>({});
-  const [reason, setReason] = useState('');
-
-  const submit = () => {
-    const lineItems = order.items
-      .map((item) => {
-        const qty = Number.parseInt(quantities[item.variantId] ?? '0', 10) || 0;
-        return { variantId: item.variantId, quantity: Math.min(qty, item.quantity) };
-      })
-      .filter((line) => line.quantity > 0);
-
-    if (lineItems.length === 0) {
-      toast.error(t('orders.refund.quantityRequired'));
-      return;
-    }
-
-    createRefund.mutate(
-      { lineItems, ...(reason.trim() ? { reason: reason.trim() } : {}) },
-      {
-        onSuccess: () => {
-          toast.success(t('orders.refund.processed'));
-          control.close();
-          setQuantities({});
-          setReason('');
-        },
-        onError: () => toast.error(t('orders.refund.failed')),
-      },
-    );
-  };
-
-  return (
-    <Dialog control={control} title={t('orders.refund.dialogTitle')}>
-      <View className="gap-3">
-        {order.items.map((item, idx) => (
-          <View
-            key={`${item.variantId}-${idx}`}
-            className="flex-row items-center justify-between gap-3"
-          >
-            <View className="flex-1">
-              <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                {t('orders.refund.itemMax', {
-                  variant: item.variantTitle,
-                  quantity: item.quantity,
-                })}
-              </Text>
-            </View>
-            <View className="w-20">
-              <TextFieldInput
-                label={t('orders.refund.quantityLabel', { item: item.title })}
-                value={quantities[item.variantId] ?? ''}
-                onValueChange={(value) =>
-                  setQuantities((prev) => ({ ...prev, [item.variantId]: value }))
-                }
-                keyboardType="number-pad"
-                placeholder="0"
-              />
-            </View>
-          </View>
-        ))}
-        <Field label={t('orders.refund.reasonLabel')}>
-          <TextFieldInput
-            label={t('orders.refund.reasonLabel')}
-            value={reason}
-            onValueChange={setReason}
-            placeholder={t('orders.refund.reasonPlaceholder')}
-          />
-        </Field>
-        <Button tone="danger" onPress={submit} loading={createRefund.isPending} className="mt-1">
-          {t('orders.refund.submit')}
-        </Button>
-      </View>
-    </Dialog>
   );
 }

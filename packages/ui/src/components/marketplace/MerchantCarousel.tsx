@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { Carousel, CarouselItem } from '@oxy.so/bloom/carousel';
-import { MerchantCard } from './MerchantCard';
+import { MerchantCard, type MerchantCardProps } from './MerchantCard';
 import { SectionHeader } from './SectionHeader';
 import type { StoreSummary } from '@mercaria/shared-types';
 import { useSharedUiTranslation } from '../../i18n/ui-translation';
@@ -18,8 +18,9 @@ export interface MerchantCarouselProps {
    */
   title?: string;
   merchants: StoreSummary[];
-  onPressMerchant?: (handle: string) => void;
-  onPressProduct?: (id: string) => void;
+  renderMerchantLink: MerchantCardProps['renderMerchantLink'];
+  renderProductLink: MerchantCardProps['renderProductLink'];
+  cardVariant?: MerchantCardProps['variant'];
 }
 
 /**
@@ -31,8 +32,9 @@ export interface MerchantCarouselProps {
 export function MerchantCarousel({
   title,
   merchants,
-  onPressMerchant,
-  onPressProduct,
+  renderMerchantLink,
+  renderProductLink,
+  cardVariant,
 }: MerchantCarouselProps) {
   const t = useSharedUiTranslation();
   const shelf = useShelfCarouselProps();
@@ -50,8 +52,9 @@ export function MerchantCarousel({
           <CarouselItem key={merchant.id} width={MERCHANT_SLOT_WIDTH}>
             <MerchantCard
               merchant={merchant}
-              onPressMerchant={onPressMerchant}
-              onPressProduct={onPressProduct}
+              renderMerchantLink={renderMerchantLink}
+              renderProductLink={renderProductLink}
+              variant={cardVariant}
             />
           </CarouselItem>
         ))}

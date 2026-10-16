@@ -443,6 +443,16 @@ desk, `orders:read` to look one up.
 - `locations/:id/pickups` — one BRANCH's queue
 - `orders/:id/pickup` and `…/pickup/{ready,collect,cancel,rotate-code}`
 
+Wholesale's location detail and the storefront use `@mercaria/ui`'s
+`placeAddressLine` for live GoWay addresses. It prefers a nonempty `formatted`
+value, otherwise displays only supplied structured parts (including a supplied
+country code when no country name is present). An absent address stays absent;
+no location fact is inferred or stored in Mercaria. Historical pickup snapshots
+continue through `formatPublicAddress` and are not replaced with live place data.
+The regression uses the structured address returned by GoWay for Casa Batlló
+without `formatted`; browser coverage renders it in English and Arabic and
+checks that an empty follow-up read does not retain the old address.
+
 There is deliberately **no route that returns the current code to a merchant**. A
 code is the buyer's; a desk verifies one by having it presented. Rotation returns
 the NEW code, because the shop is the party that has to tell the customer it

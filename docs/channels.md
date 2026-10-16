@@ -915,6 +915,26 @@ Oxy's durable public user-media endpoint. The owner is the store's persisted
 `oxyAccountId`; the resulting gallery stores only the returned internal file IDs.
 Images protected by a merchant override cause no download.
 
+Description HTML follows the same boundary through
+`services/catalog-media/description.ts`. It parses visible `img` sources, imports
+their bytes with the gallery importer, and writes SDK-generated Oxy public URLs
+into standard HTML `src` attributes. These are HTML URLs, not values stored in
+file-ID columns. Responsive image candidates are removed after importing the
+fallback image; source-set-only markup without a fallback is refused, not
+silently discarded. Scripts, embedded documents and styles remain outside the
+renderer's supported content and are never fetched by this importer.
+
+Push and pull imports prepare descriptions before catalog transactions. A
+failed description import preserves existing product facts and cannot relist an
+archived product. Canonical source observations use the same importer with the
+authenticated operator's ownership and source media rights; their provenance
+record retains the original HTML. Merchant overrides and pinned canonical
+descriptions are not fetched. Direct transactional catalog writers accept only
+already synchronized description images and reject external sources, just as
+gallery writes require internal file IDs; they never perform network IO inside
+a database transaction. Existing historical descriptions are not backfilled by
+this change.
+
 The importer accepts at most 64 references per gallery, limits each image to
 20 MiB, and bounds download/upload time. A failed download, denied upload or
 non-public file result fails that product without changing its gallery or
@@ -1180,3 +1200,5 @@ Each is a named contract rather than a stub that lies.
 - [ ] A real Shopify store and a real WooCommerce site exercised end to end
       through the wizard. #69 acceptance 7 is still NOT met — no real store has
       been connected — and nothing in this issue changes that.
+
+Typed mixed galleries use `mediaSources` while legacy image inputs remain photographic. See [catalog media](catalog-media.md) for ownership verification, video limits, and API/worker rollout order.

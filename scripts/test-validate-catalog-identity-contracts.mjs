@@ -363,11 +363,15 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // `seo.ts` gained fields. The guard's verdict on all of it is GREEN — none of
     // the new names is identity-shaped (a provider is a `slug`, media an Oxy
     // file id). 136/2369/7899, READ OFF the guard's own output line.
-    // `ingestion.ts`'s `NormalizedSourceRecord` gained `productGroupKey`
-    // (ADR 0016) — a source's own product id, opaque and source-scoped, not an
-    // identity-shaped name. 136/2369/7900.
+    // Review attachments added three exported types and eight properties;
+    // ProductSummary/ProductThumbnail/StoreSummary gained four Oxy IDs, and
+    // Listing's exact per-variant catalog identity adds four properties. No
+    // module added and no ambiguous identity name: +3 types, +16 properties.
+    // ADR 0016 adds the source-scoped productGroupKey: one property.
+    // CategoryNode/Tile/Pill retain Oxy IDs, plus child sample IDs: four properties.
+    // Organization adds oxyAccountId, the opaque canonical Oxy identity: one property.
     // Materials adds one contract module without catalog identity fields.
-    'walked 137 contract module(s), 2369 exported type(s), 7900 property signature(s)',
+    'walked 138 contract module(s), 2376 exported type(s), 7935 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

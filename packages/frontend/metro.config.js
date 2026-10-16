@@ -21,12 +21,14 @@ module.exports = (() => {
 
   // Worktrees are separate checkouts with their own dependencies. Crawling them
   // from this workspace duplicates the module graph and can exhaust Metro's heap.
-  // Match only descendants; this checkout can itself live inside a worktree.
+  // Playwright replaces generated reports while running. Excluding these from
+  // the crawl also prevents ENOENT races in Metro's filesystem watcher.
+  // Scope exclusions to this checkout; it may itself live inside a worktree.
   const blockList = config.resolver.blockList;
   config.resolver.blockList = [
     ...(Array.isArray(blockList) ? blockList : blockList ? [blockList] : []),
     new RegExp(
-      `${monorepoRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[/\\\\]\\.worktrees[/\\\\].*`,
+      `${monorepoRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[/\\\\](?:\\.worktrees|test-results|playwright-report)(?:[/\\\\].*|$)`,
     ),
   ];
 

@@ -30,7 +30,8 @@
     "account": "Compte",
     "signIn": "Se connecter",
     "threeD": "3D",
-    "mainNavigation": "Navigation principale"
+    "mainNavigation": "Navigation principale",
+    "settings": "Paramètres"
   },
   "login": {
     "signInButton": "Se connecter"
@@ -39,20 +40,6 @@
     "account": {
       "title": "Paramètres du compte"
     },
-    "appLanguage": {
-      "title": "Langue de l'application",
-      "description": "Changez la langue d'affichage de l'application",
-      "restartRequired": "Redémarrez l'application pour appliquer la nouvelle direction de mise en page."
-    },
-    "appearance": {
-      "title": "Apparence",
-      "light": "Clair",
-      "dark": "Sombre",
-      "system": "Système"
-    },
-    "accentColor": {
-      "title": "Couleur de l'application"
-    },
     "sections": {
       "account": "Compte",
       "general": "Général",
@@ -60,7 +47,7 @@
       "addresses": "Adresses",
       "watchlists": "Listes de suivi",
       "shoppingAgents": "Assistants d'achat",
-      "referralPartner": "Programme de parrainage"
+      "referrals": "Parrainage"
     },
     "currency": {
       "title": "Devise d'affichage",
@@ -143,6 +130,7 @@
     "notFound": "Nous n'avons pas trouvé ce produit.",
     "visitA11y": "Voir %{name}",
     "moreFromStore": "Plus de %{name}",
+    "youMightAlsoLike": "Vous aimerez aussi",
     "compareOffersA11y": "Comparer toutes les offres pour ce produit",
     "compareOffers": "Comparer toutes les offres",
     "percentOff": "%{percent} % de réduction",
@@ -236,7 +224,8 @@
       "product": "À propos de ce produit",
       "variant": "À propos de cette configuration",
       "definitionsUnavailable": "Certains noms sont affichés tels qu'ils sont enregistrés.",
-      "untranslated": "Certains noms ne sont pas encore traduits dans votre langue."
+      "untranslated": "Certains noms ne sont pas encore traduits dans votre langue.",
+      "loadError": "Impossible de charger les caractéristiques. Réessayez."
     },
     "variants": {
       "unavailable": "non disponible",
@@ -475,6 +464,17 @@
       "count": "%{formattedCount} ont trouvé cet avis utile",
       "error": "Impossible de mettre à jour votre vote. Réessayez.",
       "retry": "Recharger les votes utiles"
+    },
+    "media": {
+      "add": "Ajouter une photo ou une vidéo",
+      "prompt": "Déposez un fichier ici ou",
+      "uploading": "Envoi en cours…",
+      "uploaded": "Envoi terminé",
+      "invalid": "Jusqu’à 10 fichiers : images JPG, PNG, WebP, GIF ou AVIF de 20 Mo maximum ; vidéos MP4 ou WebM de 100 Mo maximum.",
+      "publicNotice": "Les fichiers envoyés sont publics. Retirer une pièce jointe ici ne la supprime pas de vos fichiers Oxy.",
+      "failed": "Impossible de vérifier l’envoi. Réessayez.",
+      "remove": "Retirer %{filename}",
+      "removeAction": "Retirer"
     }
   },
   "search": {
@@ -676,7 +676,8 @@
       "actionLabel": "Suivre %{name}"
     },
     "linkCard": {
-      "viewProfile": "Voir le profil de %{name}"
+      "viewProfile": "Voir le profil de %{name}",
+      "visitProfile": "Voir le profil"
     },
     "report": {
       "action": "Signaler",
@@ -1218,6 +1219,15 @@
       "collectHere": "Commandez en ligne, retirez ici",
       "placeRatingSubject": "%{place} sur GoWay",
       "photoLabel": "Photo de %{place}"
+    },
+    "contact": {
+      "title": "Contacter %{store}",
+      "unavailable": "Impossible de charger les coordonnées.",
+      "empty": "Cette boutique n’a pas publié de coordonnées.",
+      "website": "Site web",
+      "copy": "Copier %{value}",
+      "copied": "Copié",
+      "copyFailed": "Impossible de copier. Réessayez."
     }
   },
   "offer": {
@@ -1301,11 +1311,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Partenaire de parrainage · Mercaria",
-    "title": "Partenaire de parrainage",
     "loadError": "Nous n'avons pas pu charger votre tableau de bord de parrainage. Veuillez réessayer.",
     "signedOut": {
-      "title": "Connectez-vous pour voir votre compte de partenaire de parrainage",
+      "title": "Connectez-vous pour voir votre parrainage",
       "body": "Vos liens, ce qu'ils ont rapporté et quand vous serez payé.",
       "action": "Se connecter"
     },
@@ -1353,11 +1361,19 @@
       "title": "Performance",
       "totals": "%{clicks} clics · %{referrals} parrainages qualifiés, du %{from} au %{through}",
       "empty": "Rien n'a été enregistré sur cette période.",
-      "row": "%{label} : %{clicks} clics · %{referrals} parrainages"
+      "row": "%{label} : %{clicks} clics · %{referrals} parrainages",
+      "breakdownBy": "Ventiler par",
+      "dimension": {
+        "program": "Programme",
+        "campaign": "Campagne",
+        "instrument": "Lien ou code",
+        "market": "Marché",
+        "clientSurface": "Plateforme",
+        "date": "Date"
+      }
     },
     "instruments": {
-      "title": "Vos liens et codes",
-      "empty": "Vous n'avez pas encore de code de parrainage.",
+      "title": "Vos codes",
       "disclosureIntro": "Publiez ceci avec chaque lien :",
       "status": {
         "active": "actif",
@@ -1372,6 +1388,16 @@
       "appeal": "Vous pouvez contester la décision concernant votre participation.",
       "disputes": "Les litiges portant sur une attribution, une annulation ou un paiement ne sont pas encore traités ici. Contactez le support en indiquant la date et le montant affichés ci-dessus.",
       "noEmails": "Nous n'envoyons pas encore d'e-mails de parrainage : consultez cette page pour voir les changements."
+    },
+    "links": {
+      "title": "Vos liens",
+      "create": "Créer un lien",
+      "copy": "Copier",
+      "copyLink": "Copier le lien %{url}",
+      "copied": "Lien copié",
+      "createFailed": "Impossible de créer le lien. Réessayez.",
+      "empty": "Créez un lien pour partager Mercaria. Les parrainages qu’il génère vous sont attribués.",
+      "notPartner": "Votre lien apparaîtra ici une fois inscrit à un programme."
     }
   },
   "brand": {
@@ -1556,6 +1582,17 @@
       "updateFailed": "Impossible de mettre à jour l'adresse",
       "removed": "Adresse supprimée",
       "removeFailed": "Impossible de supprimer l'adresse"
+    },
+    "picker": {
+      "search": "Rechercher une adresse avec GoWay",
+      "help": "Recherchez une rue et une ville, puis choisissez et vérifiez une adresse.",
+      "placeholder": "Rue, numéro et ville",
+      "loading": "Recherche sur GoWay…",
+      "error": "La recherche est indisponible. Réessayez ou saisissez l’adresse manuellement.",
+      "partial": "Certaines sources sont indisponibles. Les résultats peuvent être incomplets.",
+      "empty": "Aucune adresse trouvée. Ajoutez une ville ou saisissez l’adresse manuellement.",
+      "review": "Vérifier les détails de l’adresse",
+      "manual": "Saisir l’adresse manuellement"
     }
   },
   "shoppingAgents": {

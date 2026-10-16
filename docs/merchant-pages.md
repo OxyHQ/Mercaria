@@ -301,6 +301,22 @@ inside its Bloom sheet. `toStoreSummary(..., { includePolicies: true })` project
 only nonblank public policy text on store and listing detail reads; feed cards
 omit it. Missing policies produce no menu row. The report action uses the shared
 abuse-report form with the store id; guests enter the existing Oxy sign-in flow.
+Policy sub-pages use the shared safe description parser and `ProductRichText`
+renderer, retaining authored headings, lists, tables and safe links. Plain text
+retains line breaks. Author scripts and CSS are discarded; images must resolve
+through the existing Oxy resolver. The title uses Shop's public `heroNormal`
+scale (36/42px, weight 600), with 20px top and 24px bottom spacing.
+Both store-profile and settings writes synchronize images in supplied policy
+bodies through the existing store-owned Oxy media importer before their single
+database update. Import failure leaves the entire patch unapplied; absent fields
+stay untouched and empty text still clears a policy. Existing stored policy HTML
+is not silently rewritten on reads.
+
+The store page uses Bloom's public `BloomColorScope` with its catalog brand
+tokens and text-tone mode. Bloom owns native variable propagation, theme context
+and portal inheritance, including nested contact/report dialogs. The app's blue
+recipe and saved appearance are not changed by a merchant scope. Do not recreate
+this scope with manually duplicated CSS aliases or a second theme provider.
 
 There is deliberately no `payment_onboarding` member and no `inventory_location`
 member. A Stripe onboarding address is a legal-entity record a seller gave a

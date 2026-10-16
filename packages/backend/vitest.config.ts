@@ -39,6 +39,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Bun loads the developer's .env before starting Vitest. Real application
+    // credentials belong to the running API, never to the test workers. Tests
+    // that exercise service auth provide their own explicit fixture credentials.
+    env: { OXY_APPLICATION_KEY: '', OXY_APPLICATION_SECRET: '' },
     /**
      * `scripts/**` is here as well as `src/**`, and that is deliberate rather
      * than convenient: the #69 evidence harness carries the redaction controls,

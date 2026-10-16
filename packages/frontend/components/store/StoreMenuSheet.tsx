@@ -1,9 +1,14 @@
-import { merchantImageSource } from '@mercaria/ui';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
+import {
+  merchantImageSource,
+  resolveStoredImageUrl,
+  resolveCatalogImage,
+  ShopDetailIcon,
+} from '@mercaria/ui';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
-import { Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
-import { vars } from 'nativewind';
-import { Image } from 'expo-image';
+import { useCallback, useMemo, useState } from 'react';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
+import { Image } from '@mercaria/ui';
 import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -23,9 +28,21 @@ import { Button } from '@oxy.so/bloom/button';
 import { useIsRtl } from '@oxy.so/bloom/hooks';
 import { Rating } from '@oxy.so/bloom/rating';
 import { openAccountDialog, useFollowTarget, useOxy } from '@oxy.so/services';
-import { Text, formatDate, useFormatters, useRatingDisplay } from '@mercaria/ui';
+import {
+  Text,
+  ProductRichText,
+  prepareProductDescription,
+  formatDate,
+  useFormatters,
+  useRatingDisplay,
+} from '@mercaria/ui';
 import type { Collection, StoreSummary, Review, ReviewHelpfulness } from '@mercaria/shared-types';
-import { storeThemeVars } from '@/lib/store-theme';
+import { StoreContactDialog } from '@/components/store/StoreContactDialog';
+import {
+  StoreMenuTransition,
+  type StoreMenuDirection,
+} from '@/components/store/StoreMenuTransition';
+import { useStoreLocations } from '@/lib/hooks/use-visit-us';
 import { useStoreReviews } from '@/lib/hooks/use-store';
 import { REVIEW_SCOPE_HEADING_KEYS, useReviewHelpfulness } from '@/lib/hooks/use-reviews';
 import { ReviewHelpfulButton } from '@/components/reviews/ReviewHelpfulButton';
@@ -95,6 +112,26 @@ const FALLBACK_AUTHOR_KEY = 'store.reviews.fallbackAuthor';
 type PolicyPage = 'privacy' | 'returns';
 type SheetPage = 'menu' | 'reviews' | PolicyPage;
 
+/** Preserve authored policy structure using the same safe tree as product
+ * descriptions. Plain text stays selectable and retains its line breaks. */
+function PolicyPageContent({ title, policy }: { title: string; policy: string }) {
+  const { html, full } = useMemo(() => prepareProductDescription(policy), [policy]);
+  return (
+    <View style={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 24 }}>
+      <Text accessibilityRole="header" className="mb-space-24 text-shop-heroNormal text-text">
+        {title}
+      </Text>
+      {html ? (
+        <ProductRichText nodes={full} />
+      ) : (
+        <Text selectable className="text-shop-bodySmall text-text">
+          {policy}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 interface StoreMenuSheetProps {
   /** The store whose menu this sheet presents (drives palette + header). */
   store: StoreSummary;
@@ -147,14 +184,17 @@ function ControlButton({
 function CollectionRow({
   title,
   imageUrl,
+  imageFileId,
   toneColor,
   onPress,
 }: {
   title: string;
   imageUrl?: string;
+  imageFileId?: string;
   toneColor: string;
   onPress: () => void;
 }) {
+  const resolvedImage = resolveCatalogImage(imageFileId, imageUrl, useImageResolver());
   return (
     <Pressable
       accessibilityRole="button"
@@ -170,9 +210,9 @@ function CollectionRow({
           backgroundColor: GLASS_FILL,
         }}
       >
-        {imageUrl ? (
+        {resolvedImage ? (
           <Image
-            source={{ uri: imageUrl }}
+            source={{ uri: resolvedImage }}
             contentFit="cover"
             style={{ width: ROW_THUMB_SIZE, height: ROW_THUMB_SIZE }}
           />
@@ -241,6 +281,9 @@ function StoreReviewCard({
   const date = formatDate(review.createdAt, locale);
   const ratingDisplay = useRatingDisplay();
   const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
+  const resolveImage = useImageResolver();
+  const productImage = resolveStoredImageUrl(review.product?.imageUrl, resolveImage);
+  const avatar = resolveStoredImageUrl(review.author?.avatar ?? undefined, resolveImage);
 
   return (
     <View
@@ -261,9 +304,9 @@ function StoreReviewCard({
             backgroundColor: GLASS_FILL,
           }}
         >
-          {review.product.imageUrl ? (
+          {productImage ? (
             <Image
-              source={{ uri: review.product.imageUrl }}
+              source={{ uri: productImage }}
               contentFit="cover"
               style={{ width: REVIEW_THUMB_SIZE, height: REVIEW_THUMB_SIZE }}
             />
@@ -312,9 +355,9 @@ function StoreReviewCard({
               backgroundColor: GLASS_FILL,
             }}
           >
-            {review.author?.avatar ? (
+            {avatar ? (
               <Image
-                source={{ uri: review.author.avatar }}
+                source={{ uri: avatar }}
                 contentFit="cover"
                 style={{
                   width: REVIEW_AVATAR_SIZE,
@@ -372,9 +415,8 @@ function ReviewsPage({
   const total = data?.pagination.total ?? store.reviewCount;
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
+    <View
+      style={{
         paddingHorizontal: 16,
         paddingBottom: 24,
         gap: 16,
@@ -466,7 +508,7 @@ function ReviewsPage({
           </View>
         </View>
       ) : null}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -481,6 +523,7 @@ function MenuPage({
   onSelectCollection,
   onOpenReviews,
   onOpenPolicy,
+  onContact,
   onReport,
 }: {
   store: StoreSummary;
@@ -489,19 +532,23 @@ function MenuPage({
   onSelectCollection: (id?: string) => void;
   onOpenReviews: () => void;
   onOpenPolicy: (page: PolicyPage) => void;
+  onContact: () => void;
   onReport: () => void;
 }) {
+  const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(store.logoUrl, resolveImage, store.logoFileId);
   // The review row's chevron points the reading direction.
   const Chevron = useIsRtl() ? ChevronLeft : ChevronRight;
   const { t } = useTranslation();
   const { formatReviewCount } = useFormatters();
   const ratingDisplay = useRatingDisplay();
   const hasReviews = store.reviewCount > 0;
+  const locations = useStoreLocations(store.id);
+  const hasContact = locations.isError || (locations.data?.length ?? 0) > 0;
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
+    <View
+      style={{
         paddingHorizontal: 16,
         paddingBottom: 24,
         gap: 24,
@@ -517,9 +564,9 @@ function MenuPage({
             backgroundColor: GLASS_FILL,
           }}
         >
-          {store.logoUrl ? (
+          {logoSource ? (
             <Image
-              source={merchantImageSource(store.logoUrl)}
+              source={logoSource}
               contentFit="cover"
               style={{ width: HEADER_LOGO_SIZE, height: HEADER_LOGO_SIZE }}
             />
@@ -555,6 +602,7 @@ function MenuPage({
             key={collection.id}
             title={collection.title}
             imageUrl={collection.imageUrl}
+            imageFileId={collection.imageFileId}
             toneColor={toneColor}
             onPress={() => onSelectCollection(collection.id)}
           />
@@ -629,6 +677,17 @@ function MenuPage({
         </View>
       ) : null}
 
+      {hasContact ? (
+        <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
+          <PolicyRow
+            label={t('store.contact.title', { store: store.name })}
+            toneColor={toneColor}
+            icon={<ShopDetailIcon name="shopChat" size={ROW_ICON_SIZE} color={toneColor} />}
+            onPress={onContact}
+          />
+        </View>
+      ) : null}
+
       {/* ---- Report store ---- */}
       <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
         <PolicyRow
@@ -638,7 +697,7 @@ function MenuPage({
           onPress={onReport}
         />
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -656,14 +715,16 @@ function MenuPage({
  * (`SheetPage[]`) with the menu as the root, a contextual top bar (Close (X) at
  * the root, Back (←) on a sub-page, with Follow/Share on the right), and the
  * Menu, Reviews and authored-policy pages. Each sub-page is rendered
- * within the same sheet.
+ * within the same sheet. Dialog owns scrolling and natural-height measurement;
+ * pages supply ordinary Views. A nested ScrollView can detach its contents
+ * during the horizontal transition on Android.
  *
  * `Dialog` is controlled here (driven by `open`) and keeps its children mounted
  * across the close transition, so closing also resets the internal stack to the
  * menu root (`handleClose`) — each reopen starts fresh at the menu, with no
- * `useEffect`. The store palette is scoped on the overlay container via
- * `storeThemeVars` + `vars()`, and the panel is explicitly painted with the
- * brand color so glassy `rgba(255,255,255,0.2)` cards read correctly over it.
+ * `useEffect`. The parent BloomColorScope supplies the store palette. Bloom
+ * carries that scope through this dialog and its nested contact/report portals;
+ * the panel uses the merchant's brand background.
  */
 export function StoreMenuSheet({
   store,
@@ -674,7 +735,12 @@ export function StoreMenuSheet({
 }: StoreMenuSheetProps) {
   const { t } = useTranslation();
   const reportControl = useDialogControl();
-  const shareLink = useShareLink(store.name, `/stores/${encodeURIComponent(store.handle)}`);
+  const [contactOpen, setContactOpen] = useState(false);
+  const {
+    share,
+    copied,
+    failed: shareFailed,
+  } = useShareLink(store.name, `/stores/${encodeURIComponent(store.handle)}`);
   const router = useRouter();
   // Offset the overlay past the nav rail on desktop so the side-sheet + backdrop
   // sit inside the content shell (not over the rail). On small screens the rail
@@ -712,6 +778,7 @@ export function StoreMenuSheet({
       };
   // Internal navigation stack: the menu is always the root.
   const [stack, setStack] = useState<SheetPage[]>(['menu']);
+  const [direction, setDirection] = useState<StoreMenuDirection>('initial');
   const current = stack[stack.length - 1];
 
   const toneColor = store.textTone === 'light' ? TONE_LIGHT : TONE_DARK;
@@ -727,7 +794,7 @@ export function StoreMenuSheet({
   const { data: followTargetId } = useStoreFollowTarget(store);
   const { isFollowing, isUnknown, isPending, follow, unfollow } = useFollowTarget(followTargetId);
 
-  const onPressFollow = () => {
+  const onPressFollow = useCallback(() => {
     // Signed out: nothing to press until there is a session, so ask for one.
     if (!canUsePrivateApi) {
       openAccountDialog();
@@ -739,17 +806,25 @@ export function StoreMenuSheet({
     // `follow`/`unfollow` surface their own failures through the shared store
     // and never reject, so there is no rejection to handle here.
     void (isFollowing ? unfollow() : follow());
-  };
+  }, [canUsePrivateApi, followTargetId, isUnknown, isPending, isFollowing, unfollow, follow]);
 
-  const push = (page: SheetPage) => setStack((prev) => [...prev, page]);
-  const pop = () => setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  const push = (page: SheetPage) => {
+    setDirection('forward');
+    setStack((prev) => [...prev, page]);
+  };
+  const pop = useCallback(() => {
+    setDirection('backward');
+    setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  }, []);
 
   // Dismiss the sheet AND reset the internal stack to the menu root, so the
   // next open starts fresh at the menu rather than on a lingering sub-page.
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    setContactOpen(false);
+    setDirection('initial');
     setStack(['menu']);
     onClose();
-  };
+  }, [onClose]);
 
   const onPressProduct = (productId: string) => {
     if (!productId) return;
@@ -757,9 +832,57 @@ export function StoreMenuSheet({
     router.push({ pathname: '/products/[id]', params: { id: productId } });
   };
 
+  const headerLeft = useMemo(
+    () =>
+      atRoot ? (
+        <ControlButton label={t('store.menu.close', { store: store.name })} onPress={handleClose}>
+          <X size={CONTROL_ICON_SIZE} color={toneColor} />
+        </ControlButton>
+      ) : (
+        <ControlButton label={t('common.back')} onPress={pop}>
+          {rtl ? (
+            <ArrowRight size={CONTROL_ICON_SIZE} color={toneColor} />
+          ) : (
+            <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />
+          )}
+        </ControlButton>
+      ),
+    [atRoot, t, store.name, handleClose, pop, rtl, toneColor],
+  );
+  const headerRight = useMemo(
+    () => (
+      <View className="flex-row items-center gap-space-12">
+        <ControlButton
+          label={t(isFollowing ? 'store.follow.unfollowStore' : 'store.follow.followStore', {
+            store: store.name,
+          })}
+          onPress={onPressFollow}
+        >
+          <Heart
+            size={CONTROL_ICON_SIZE}
+            color={toneColor}
+            fill={isFollowing ? toneColor : 'transparent'}
+          />
+        </ControlButton>
+        <ControlButton
+          label={copied ? t('common.linkCopied') : t('store.menu.share', { store: store.name })}
+          onPress={() => void share()}
+        >
+          <Share2 size={CONTROL_ICON_SIZE} color={toneColor} />
+        </ControlButton>
+      </View>
+    ),
+    [t, isFollowing, store.name, onPressFollow, toneColor, copied, share],
+  );
+  const header = useMemo(
+    () => ({ left: headerLeft, right: headerRight, largeTitle: false }),
+    [headerLeft, headerRight],
+  );
+
   return (
     <Dialog
       open={open}
+      header={header}
       onClose={handleClose}
       placement={{ base: 'bottom', md: 'start' }}
       width={SHEET_WIDTH}
@@ -768,54 +891,11 @@ export function StoreMenuSheet({
       showHandle
       dismissOnBackdrop
       contentPadding={0}
-      containerStyle={[vars(storeThemeVars(store.brandColor, store.textTone)), railOffset]}
+      containerStyle={railOffset}
       panelStyle={{ backgroundColor: store.brandColor }}
       label={t('store.menu.dialogLabel', { store: store.name })}
     >
-      {/* Pinned top bar: contextual Close/Back (start), Follow + Share (end). */}
-      <View className="flex-row items-center justify-between px-space-16 pb-space-12 pt-space-16">
-        {atRoot ? (
-          <ControlButton label={t('store.menu.close', { store: store.name })} onPress={handleClose}>
-            <X size={CONTROL_ICON_SIZE} color={toneColor} />
-          </ControlButton>
-        ) : (
-          <ControlButton label={t('common.back')} onPress={pop}>
-            {rtl ? (
-              <ArrowRight size={CONTROL_ICON_SIZE} color={toneColor} />
-            ) : (
-              <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />
-            )}
-          </ControlButton>
-        )}
-        <View className="flex-row items-center gap-space-12">
-          <ControlButton
-            label={
-              isFollowing
-                ? t('store.follow.unfollowStore', { store: store.name })
-                : t('store.follow.followStore', { store: store.name })
-            }
-            onPress={onPressFollow}
-          >
-            <Heart
-              size={CONTROL_ICON_SIZE}
-              color={toneColor}
-              fill={isFollowing ? toneColor : 'transparent'}
-            />
-          </ControlButton>
-          <ControlButton
-            label={
-              shareLink.copied
-                ? t('common.linkCopied')
-                : t('store.menu.share', { store: store.name })
-            }
-            onPress={() => void shareLink.share()}
-          >
-            <Share2 size={CONTROL_ICON_SIZE} color={toneColor} />
-          </ControlButton>
-        </View>
-      </View>
-
-      {shareLink.failed ? (
+      {shareFailed ? (
         <Text
           accessibilityRole="alert"
           className="px-space-16 text-shop-caption"
@@ -824,7 +904,7 @@ export function StoreMenuSheet({
           {t('common.shareError')}
         </Text>
       ) : null}
-      {shareLink.copied ? (
+      {copied ? (
         <Text
           accessibilityLiveRegion="polite"
           className="px-space-16 text-shop-caption"
@@ -835,7 +915,7 @@ export function StoreMenuSheet({
       ) : null}
 
       {/* Sub-page region: the current page from the internal stack. */}
-      <View className="flex-1">
+      <StoreMenuTransition page={current} direction={direction}>
         {atRoot ? (
           <MenuPage
             store={store}
@@ -844,31 +924,25 @@ export function StoreMenuSheet({
             onSelectCollection={onSelectCollection}
             onOpenReviews={() => push('reviews')}
             onOpenPolicy={push}
+            onContact={() => setContactOpen(true)}
             onReport={() => reportControl.open()}
           />
         ) : current === 'reviews' ? (
           <ReviewsPage store={store} toneColor={toneColor} onPressProduct={onPressProduct} />
         ) : (
-          <ScrollView
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingBottom: 24,
-              gap: 16,
-            }}
-          >
-            <Text
-              accessibilityRole="header"
-              className="text-shop-subtitle"
-              style={{ color: toneColor }}
-            >
-              {t(current === 'privacy' ? 'store.policies.privacy' : 'store.policies.returns')}
-            </Text>
-            <Text selectable className="text-shop-body" style={{ color: toneColor }}>
-              {current === 'privacy' ? store.privacyPolicy : store.refundPolicy}
-            </Text>
-          </ScrollView>
+          <PolicyPageContent
+            title={t(current === 'privacy' ? 'store.policies.privacy' : 'store.policies.returns')}
+            policy={(current === 'privacy' ? store.privacyPolicy : store.refundPolicy) ?? ''}
+          />
         )}
-      </View>
+      </StoreMenuTransition>
+      <StoreContactDialog
+        key={store.id}
+        storeId={store.id}
+        storeName={store.name}
+        open={contactOpen && open}
+        onClose={() => setContactOpen(false)}
+      />
       <AbuseReportDialog
         reportedType="store"
         reportedId={store.id}

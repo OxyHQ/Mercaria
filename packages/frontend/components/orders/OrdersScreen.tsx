@@ -1,18 +1,26 @@
 import { useState } from 'react';
 import { Button } from '@oxy.so/bloom/button';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { View, Pressable } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '@mercaria/ui';
 import Head from 'expo-router/head';
 import { Link, useRouter } from 'expo-router';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
 import { EmptyState } from '@oxy.so/bloom/empty-state';
-import { BUYER_ORDER_VIEWS, type BuyerOrderView, type OrderSummary } from '@mercaria/shared-types';
+import {
+  BUYER_ORDER_VIEWS,
+  isOxyFileId,
+  type BuyerOrderView,
+  type OrderSummary,
+} from '@mercaria/shared-types';
 import {
   shopNavigationIcon,
   Text,
   commercialSellerLabel,
   formatDate,
   useFormatters,
+  resolveStoredImageUrl,
+  resolveCatalogImage,
 } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { ReviewEligibilityPrompts } from '@/components/reviews/ReviewEligibilityPrompts';
@@ -23,9 +31,21 @@ import { useTranslation } from '@/lib/i18n';
 function OrderRow({ order, view }: { order: OrderSummary; view: BuyerOrderView }) {
   const { t, locale } = useTranslation();
   const { formatReviewCount } = useFormatters();
+  const resolveImage = useImageResolver();
   const [failedImages, setFailedImages] = useState<Set<string>>(() => new Set());
-  const images = order.images?.filter((image) => !failedImages.has(image.url)) ?? [];
-  const logo = order.store?.logoUrl ?? order.seller?.avatar;
+  const images =
+    order.images?.flatMap((image) => {
+      const url = resolveStoredImageUrl(image.url, resolveImage);
+      return url && !failedImages.has(url) ? [{ ...image, url }] : [];
+    }) ?? [];
+  const logo = order.store
+    ? resolveCatalogImage(order.store.logoFileId, order.store.logoUrl, resolveImage)
+    : resolveCatalogImage(
+        isOxyFileId(order.seller?.avatar) ? order.seller.avatar : undefined,
+        order.seller?.avatar ?? undefined,
+        resolveImage,
+        'thumb',
+      );
   // From the order's own commercial presentation (#129): a `platform` order has
   // neither `store` nor `seller`, so the old coalesce left Mercaria's own sales
   // with no seller in the list at all.

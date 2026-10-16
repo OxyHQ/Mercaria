@@ -1,6 +1,6 @@
 import { useCallback, useState, type ComponentType, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '../ui/image';
 import { Activity, Grid3x3, Maximize2, Minimize2, RotateCcw } from 'lucide-react-native';
 import { Text } from '../ui/text';
 import { useSharedUiTranslation } from '../../i18n/ui-translation';

@@ -1,5 +1,5 @@
 import { View, ScrollView, Pressable, Platform } from 'react-native';
-import { Text } from '@mercaria/ui';
+import { Icon, Text } from '@mercaria/ui';
 import { Switch } from '@oxy.so/bloom/switch';
 import { useRouter } from 'expo-router';
 import {
@@ -157,7 +157,7 @@ export default function NotificationsScreen() {
             <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
           </Pressable>
           <Pressable onPress={() => setShowSettings((s) => !s)} className="p-2">
-            <Bell size={18} className="text-muted-foreground" />
+            <Icon as={Bell} size={18} className="text-muted-foreground" />
           </Pressable>
         </View>
         <View className="flex-row items-center justify-between">
@@ -176,7 +176,7 @@ export default function NotificationsScreen() {
               onPress={() => markAllAsRead.mutate()}
               className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted active:bg-muted/80"
             >
-              <CheckCheck size={14} className="text-muted-foreground" />
+              <Icon as={CheckCheck} size={14} className="text-muted-foreground" />
               <Text className="text-xs text-muted-foreground">
                 {t('notifications.markAllRead')}
               </Text>
@@ -191,7 +191,7 @@ export default function NotificationsScreen() {
           <View className="px-6 py-4 border-b border-border bg-muted/30">
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3 flex-1">
-                <StatusIcon size={20} className="text-muted-foreground" />
+                <Icon as={StatusIcon} size={20} className="text-muted-foreground" />
                 <View className="flex-1">
                   <Text className="text-sm font-medium text-foreground">
                     {t('notifications.pushNotifications')}
@@ -233,7 +233,7 @@ export default function NotificationsScreen() {
       ) : (
         <View className="py-2">
           {notifications.map((notification) => {
-            const Icon = TYPE_ICONS[notification.type] || Bell;
+            const NotificationIcon = TYPE_ICONS[notification.type] || Bell;
             const isUnread = notification.status !== 'read' && notification.status !== 'dismissed';
             const priorityBorder = PRIORITY_COLORS[notification.priority] || PRIORITY_COLORS.normal;
 
@@ -245,7 +245,7 @@ export default function NotificationsScreen() {
               >
                 <View className="flex-row items-start gap-3">
                   <View className={`mt-0.5 ${isUnread ? 'opacity-100' : 'opacity-50'}`}>
-                    <Icon size={16} className="text-muted-foreground" />
+                    <Icon as={NotificationIcon} size={16} className="text-muted-foreground" />
                   </View>
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between mb-1">
@@ -267,7 +267,7 @@ export default function NotificationsScreen() {
                           className="p-1"
                           hitSlop={8}
                         >
-                          <X size={12} className="text-muted-foreground" />
+                          <Icon as={X} size={12} className="text-muted-foreground" />
                         </Pressable>
                       </View>
                     </View>

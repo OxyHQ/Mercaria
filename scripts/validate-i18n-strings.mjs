@@ -570,6 +570,10 @@ const MINIMUM_APP_BUNDLES = fixtureFloors ? 1 : 30;
 // Bundles are DATA and are never analysed for hardcoded strings — every value in
 // one IS a user-facing string. They are read as JSON by parts B and C instead.
 const SOURCE_FILE = /\.tsx?$/;
+// Test DTOs/render assertions are not shipped copy. Exclude the established
+// test conventions from the entire source census: they must neither require
+// translation nor count as usage that keeps dead application keys alive.
+const TEST_SOURCE_FILE = /(?:^|\/)__tests__\/|\.(?:test|spec)\.tsx?$/;
 
 /**
  * JSX attributes whose string value a person reads.
@@ -2763,6 +2767,7 @@ for (const source of PROVIDER_CONTROL_NOT_MOUNTED) {
 const sources = tracked.filter(
   (path) =>
     SOURCE_FILE.test(path) &&
+    !TEST_SOURCE_FILE.test(path) &&
     OWNERS.some((owner) => path.startsWith(owner.prefix)) &&
     !GUARD_OWN_FILES.has(path),
 );
@@ -3445,12 +3450,17 @@ for (const app of OWNERS) {
       );
     }
   }
-  // C. every `t('literal')` names a real key.
-  const resolvable = knownKeysByApp.get(app.name) ?? new Set();
+  // C. every `t('literal')` names a real key. App roots merge the shared
+  // vocabulary under `ui`; check D verifies that ownership/provider contract.
+  // Resolve that namespace at its owner instead of requiring duplicated app copy.
   for (const site of translateSitesByApp.get(app.name) ?? []) {
+    const keyOwner = site.key.startsWith(`${SHARED_UI_NAMESPACE}.`)
+      ? OWNERS.find((owner) => owner.name === SHARED_UI_OWNER)
+      : app;
+    const resolvable = knownKeysByApp.get(keyOwner.name) ?? new Set();
     if (resolvable.has(site.key)) continue;
     failures.push(
-      `${site.file}:${site.line}: t(${JSON.stringify(site.key)}) names no key in ${englishPath}. ` +
+      `${site.file}:${site.line}: t(${JSON.stringify(site.key)}) names no key in ${keyOwner.locales}/en.json. ` +
         'i18n-js renders a humanised guess of the key, which reads like real copy.',
     );
   }

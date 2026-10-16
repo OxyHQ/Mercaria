@@ -15,7 +15,8 @@ import { CanonicalSearchPanel } from '@/components/catalog-authoring/CanonicalSe
 import { ErrorSummary } from '@/components/catalog-authoring/ErrorSummary';
 import { PricingRows } from '@/components/catalog-authoring/PricingRows';
 import { ProductFields } from '@/components/catalog-authoring/ProductFields';
-import { ProductMedia } from '@/components/products/ProductMedia';
+import { ProductPhotoEditor } from '@/components/products/ProductPhotoEditor';
+import { Collapsible } from '@oxy.so/bloom/collapsible';
 import { ReviewPanel } from '@/components/catalog-authoring/ReviewPanel';
 import { SaveStateBadge, StepNav } from '@/components/catalog-authoring/WizardChrome';
 import { VariantAxes } from '@/components/catalog-authoring/VariantAxes';
@@ -135,6 +136,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const [step, setStep] = useState<WizardStepId>('classification');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [truncated, setTruncated] = useState(false);
 
   const published = draft.status === 'published';
@@ -162,6 +164,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
   };
 
   const publish = async () => {
+    if (uploadingPhoto) return;
     const outcome = await wizard.publish();
     if (outcome === null) return;
     if (outcome.outcome === 'refused') {
@@ -331,7 +334,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
           />
         ) : null}
 
-        {step === 'listing' ? (
+        <Collapsible open={step === 'listing'} testID="merchant-wizard-listing-panel">
           <View className="gap-5">
             <Field label={t('common.title')}>
               <TextFieldInput
@@ -349,25 +352,23 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
               disabled={!canEdit}
             />
             <View className="gap-1.5 rounded-2xl border border-border bg-surface p-4">
-              {draft.imageFileIds.length ? (
-                <ProductMedia
-                  images={draft.imageFileIds.map((fileId, position) => ({ fileId, position }))}
-                  title={form.title}
-                />
-              ) : (
-                <Text className="text-sm font-semibold text-foreground">
-                  {t('products.wizard.listing.mediaTitle')}
-                </Text>
-              )}
-              <Text className="text-xs text-muted-foreground">
-                {t('products.wizard.listing.mediaUnavailable')}
-              </Text>
+              <ProductPhotoEditor
+                storeId={storeId}
+                title={form.title}
+                images={(form.imageFileIds ?? draft.imageFileIds).map((fileId, position) => ({
+                  fileId,
+                  position,
+                }))}
+                disabled={!canEdit || conflicted}
+                onChange={(imageFileIds) => setForm((current) => ({ ...current, imageFileIds }))}
+                onBusyChange={setUploadingPhoto}
+              />
             </View>
           </View>
-        ) : null}
+        </Collapsible>
 
         {step === 'review' ? (
-          <View className="gap-4">
+          <View testID="merchant-wizard-review" className="gap-4">
             <ReviewPanel draft={draft} schema={schema} form={form} />
             <ErrorSummary
               findings={findings}
@@ -392,7 +393,7 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
                 onPress={() => {
                   void publish();
                 }}
-                disabled={!canEdit || conflicted}
+                disabled={!canEdit || conflicted || uploadingPhoto}
                 loading={wizard.isPublishing}
               >
                 {t('products.wizard.publish.publish')}

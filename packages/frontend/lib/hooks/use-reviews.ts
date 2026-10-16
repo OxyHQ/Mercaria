@@ -13,6 +13,7 @@ import {
   fetchListingReviews,
   fetchMerchantReviews,
   fetchProductReviews,
+  fetchReviewMedia,
   fetchReviewEligibilities,
   fetchReviewHelpfulness,
   updateReviewHelpfulness,
@@ -22,6 +23,20 @@ import { queryKeys } from './query-keys';
 
 /** Two minutes — a review page stays fresh for a reasonable session window. */
 const STALE_TIME = 1000 * 60 * 2;
+
+/** A separate cache prevents text filtering from replacing gallery contents. */
+export function useInfiniteReviewMedia(scope: 'product' | 'p2p_listing', id: string, limit = 10) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.reviews.media(scope, id, limit),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => fetchReviewMedia(scope, id, { page: pageParam, limit }),
+    getNextPageParam: (page) =>
+      page.pagination.hasNextPage ? page.pagination.page + 1 : undefined,
+    enabled: !!id,
+    staleTime: STALE_TIME,
+    retry: 2,
+  });
+}
 
 /** One bounded batch per visible page, scoped to the current Oxy account. */
 export function useReviewHelpfulness(reviewIds: string[]) {
@@ -186,18 +201,20 @@ export function useMerchantReviews(
  * no fake author to invent.
  */
 export function useReviewEligibilities() {
-  const { isAuthenticated } = useOxy();
+  const { user, canUsePrivateApi } = useOxy();
 
   return useQuery<ReviewEligibility[]>({
-    queryKey: queryKeys.reviews.eligibilities,
-    queryFn: async () => {
-      const response = await fetchReviewEligibilities();
+    queryKey: queryKeys.reviews.eligibilities(user?.id ?? ''),
+    queryFn: async ({ signal }) => {
+      const response = await fetchReviewEligibilities(signal);
       if (!response.success || !response.data) {
         throw new Error(response.error ?? response.message ?? 'Failed to load review options');
       }
-      return response.data;
+      return response.data.filter(
+        (eligibility) => eligibility.oxyUserId === user?.id && eligibility.state === 'open',
+      );
     },
-    enabled: isAuthenticated,
+    enabled: canUsePrivateApi && !!user?.id,
     staleTime: STALE_TIME,
     retry: 1,
   });
@@ -214,17 +231,20 @@ export function useReviewEligibilities() {
  */
 export function useCreateReview() {
   const queryClient = useQueryClient();
+  const { user, canUsePrivateApi } = useOxy();
 
   return useMutation({
     mutationFn: async (input: CreateReviewInput) => {
+      if (!user?.id || !canUsePrivateApi) throw new Error('Sign in to publish a review');
+      const account = user.id;
       const response = await createReview(input);
       if (!response.success || !response.data) {
         throw new Error(response.error ?? response.message ?? 'Failed to publish review');
       }
-      return response.data;
+      return { account, review: response.data };
     },
-    onSuccess: (review) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.eligibilities });
+    onSuccess: ({ account, review }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reviews.eligibilities(account) });
       if (review.canonicalProductId) {
         void queryClient.invalidateQueries({
           queryKey: queryKeys.reviews.productAll(review.canonicalProductId),

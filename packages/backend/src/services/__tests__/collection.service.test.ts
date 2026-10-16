@@ -59,6 +59,7 @@ vi.mock('../../db/catalog/listingRepository.js', () => ({
 
 import {
   createCollection,
+  updateCollection,
   materializeMembership,
   recomputeAutomatedMembershipForListing,
   setCollectionProducts,
@@ -302,5 +303,44 @@ describe('createCollection', () => {
       (err: unknown) => isMercariaError(err) && err.code === ErrorCodes.VALIDATION_ERROR,
     );
     expect(insertCollection).not.toHaveBeenCalled();
+  });
+});
+
+describe('collection image identity', () => {
+  it.each([
+    'https://supplier.example/cover.jpg',
+    'data:image/png;base64,AAAA',
+    '//cdn.example/image',
+  ])('refuses an image URL before any create/update write: %s', async (imageFileId) => {
+    await expect(
+      createCollection(STORE_ID, { title: 'Image', handle: 'image', type: 'manual', imageFileId }),
+    ).rejects.toThrow('Expected an Oxy file ID');
+    await expect(updateCollection(STORE_ID, COLLECTION_ID, { imageFileId })).rejects.toThrow(
+      'Expected an Oxy file ID',
+    );
+    expect(insertCollection).not.toHaveBeenCalled();
+    expect(updateCollectionRow).not.toHaveBeenCalled();
+    expect(replaceManualMembership).not.toHaveBeenCalled();
+  });
+
+  it('keeps a synchronized opaque ID through create and update', async () => {
+    const imageFileId = '01a12013-53f2-7bc7-a7a6-847d87f6f960';
+    const row = collection({ imageFileId });
+    insertCollection.mockResolvedValueOnce(row);
+    findCollectionById.mockResolvedValueOnce(collection());
+    updateCollectionRow.mockResolvedValueOnce(row);
+    expect(
+      (
+        await createCollection(STORE_ID, {
+          title: row.title,
+          handle: row.handle,
+          type: 'manual',
+          imageFileId,
+        })
+      ).imageFileId,
+    ).toBe(imageFileId);
+    expect((await updateCollection(STORE_ID, COLLECTION_ID, { imageFileId })).imageFileId).toBe(
+      imageFileId,
+    );
   });
 });

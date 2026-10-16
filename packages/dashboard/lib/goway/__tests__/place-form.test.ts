@@ -12,9 +12,12 @@ import type { PlaceCapability, SearchResult } from '@goway.to/sdk';
 import {
   EMPTY_PLACE_DRAFT,
   accessibilityChoicesOf,
+  accessibilityChoicesWithEdits,
   accessibilityOperations,
   contactInputOf,
   draftFromSearchResult,
+  editPlaceDraft,
+  placeAddressQuery,
   hoursExceptionInputOf,
   placeCreateInputOf,
   type AccessibilityChoices,
@@ -81,36 +84,94 @@ describe('placeCreateInputOf', () => {
   });
 });
 
+describe('GoWay address selection', () => {
+  it('invalidates both coordinates when any postal field changes', () => {
+    for (const key of [
+      'street',
+      'houseNumber',
+      'city',
+      'region',
+      'postalCode',
+      'countryCode',
+    ] as const) {
+      const changed = editPlaceDraft(BARCELONA, key, 'changed');
+      expect(changed).toMatchObject({ [key]: 'changed', latitude: '', longitude: '' });
+      expect(placeCreateInputOf(changed).ok).toBe(false);
+    }
+  });
+  it('preserves a selected position when renaming the business or leaving a value unchanged', () => {
+    expect(editPlaceDraft(BARCELONA, 'name', 'Other name')).toMatchObject({
+      latitude: BARCELONA.latitude,
+      longitude: BARCELONA.longitude,
+    });
+    expect(editPlaceDraft(BARCELONA, 'countryCode', BARCELONA.countryCode)).toBe(BARCELONA);
+  });
+  it('keeps reviewed fields omitted by a structured result, while using its returned position', () => {
+    const result: SearchResult = {
+      id: 'r2',
+      displayName: 'Public shop',
+      kind: 'poi',
+      source: 'goway',
+      coordinate: { latitude: 41.4, longitude: 2.2 },
+      address: { street: 'Resolved street' },
+    };
+    const draft = draftFromSearchResult(result, 'Shop', {
+      ...BARCELONA,
+      street: 'Typed street',
+      houseNumber: '43',
+      postalCode: '08007',
+    });
+    expect(draft).toMatchObject({
+      street: 'Resolved street',
+      countryCode: 'es',
+      houseNumber: '43',
+      postalCode: '08007',
+      latitude: '41.4',
+      longitude: '2.2',
+    });
+    // A general search has no reviewed address and must not inherit another place.
+    expect(draftFromSearchResult(result, 'Shop').countryCode).toBe('');
+  });
+  it('sends only trimmed structured postal fields to the official geocoder', () => {
+    expect(
+      placeAddressQuery({
+        ...BARCELONA,
+        street: ' Passeig de Gràcia ',
+        houseNumber: ' 43 ',
+        city: ' Barcelona ',
+        region: '  ',
+      }),
+    ).toEqual({
+      street: 'Passeig de Gràcia',
+      houseNumber: '43',
+      city: 'Barcelona',
+      countryCode: 'ES',
+    });
+  });
+});
+
 describe('contactInputOf', () => {
-  it('sends only filled fields and refuses a website that is not a link', () => {
-    expect(contactInputOf({ phone: ' +34 600 ', email: '', website: '' })).toEqual({
+  it('sends only edited fields, never stale values from an earlier DTO', () => {
+    expect(contactInputOf({ email: ' new@example.org ' })).toEqual({
+      ok: true,
+      contact: { email: 'new@example.org' },
+    });
+    expect(contactInputOf({ phone: ' +34 600 ' })).toEqual({
       ok: true,
       contact: { phone: '+34 600' },
     });
-    expect(contactInputOf({ phone: '', email: '', website: 'example.org' })).toMatchObject({
-      ok: false,
-    });
-    expect(contactInputOf({ phone: '', email: 'not-an-email', website: '' })).toMatchObject({
-      ok: false,
+    expect(contactInputOf({})).toEqual({ ok: true, contact: {} });
+  });
+  it('clears an explicitly emptied field even when an earlier read had no value', () => {
+    expect(contactInputOf({ phone: '' })).toEqual({ ok: true, contact: { phone: null } });
+    expect(contactInputOf({ website: '   ', email: '' })).toEqual({
+      ok: true,
+      contact: { website: null, email: null },
     });
   });
-
-  it('clears a field the merchant EMPTIED with null — PATCH is a merge patch — and leaves an empty one alone', () => {
-    const current = { phone: '+34 600 000 000', email: 'shop@example.org' };
-    expect(contactInputOf({ phone: '', email: 'shop@example.org', website: '' }, current)).toEqual({
-      ok: true,
-      contact: { phone: null, email: 'shop@example.org' },
-    });
-    // Nothing was there and nothing is: nothing to clear, nothing sent.
-    expect(contactInputOf({ phone: '', email: '', website: '' }, {})).toEqual({
-      ok: true,
-      contact: {},
-    });
-    // A whitespace-only draft is empty too.
-    expect(contactInputOf({ phone: '   ', email: '', website: '' }, current)).toEqual({
-      ok: true,
-      contact: { phone: null, email: null },
-    });
+  it('validates only edited email and website fields', () => {
+    expect(contactInputOf({ website: 'example.org' })).toMatchObject({ ok: false });
+    expect(contactInputOf({ email: 'not-an-email' })).toMatchObject({ ok: false });
   });
 });
 
@@ -221,5 +282,36 @@ describe('hoursExceptionInputOf', () => {
         note: '',
       }),
     ).toMatchObject({ ok: false });
+  });
+});
+
+describe('accessibility drafts after a remote update', () => {
+  it('never reverts an untouched capability from the latest GoWay read', () => {
+    const remote = accessibilityChoicesOf({
+      capabilities: [capability('accessibility.step_free_entrance', true)],
+    });
+    const desired = accessibilityChoicesWithEdits(remote, { 'accessibility.hearing_loop': 'yes' });
+    expect(desired.flags['accessibility.step_free_entrance']).toBe('yes');
+    expect(accessibilityOperations(remote, desired)).toEqual([
+      { kind: 'put', key: 'accessibility.hearing_loop', assertion: { value: true } },
+    ]);
+    expect(accessibilityOperations(remote, accessibilityChoicesWithEdits(remote, {}))).toEqual([]);
+  });
+  it('keeps an explicit withdrawal and wheelchair choice while other facts refresh', () => {
+    const remote = accessibilityChoicesOf({
+      capabilities: [capability('accessibility.hearing_loop', true)],
+    });
+    expect(
+      accessibilityOperations(
+        remote,
+        accessibilityChoicesWithEdits(remote, {
+          'accessibility.hearing_loop': 'unset',
+          'accessibility.wheelchair': 'limited',
+        }),
+      ),
+    ).toEqual([
+      { kind: 'delete', key: 'accessibility.hearing_loop' },
+      { kind: 'put', key: 'accessibility.wheelchair', assertion: { value: 'limited' } },
+    ]);
   });
 });

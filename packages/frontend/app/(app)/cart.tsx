@@ -1,7 +1,10 @@
+import { renderCartVendorLink } from '@/lib/catalog/cart-vendor-links';
+import { renderListingLink } from '@/lib/catalog/product-links';
+import { useImageResolver } from '@oxy.so/bloom/image-resolver';
 import { merchantImageSource } from '@mercaria/ui';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from '@mercaria/ui';
 import Head from 'expo-router/head';
 import { useRouter } from 'expo-router';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
@@ -19,7 +22,7 @@ import {
   useRatingDisplay,
   type ProductSummary,
 } from '@mercaria/ui';
-import type { CartGroup, CartVendor, Money } from '@mercaria/shared-types';
+import type { CartGroup, Money } from '@mercaria/shared-types';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/lib/hooks/use-cart';
@@ -111,13 +114,11 @@ function GuestStorageWarning() {
 /** One merchant's cart card: vendor header, its lines, its subtotal + checkout. */
 function CartGroupCard({
   group,
-  onPressVendor,
   onChangeQuantity,
   onRemove,
   onCheckout,
 }: {
   group: CartGroup;
-  onPressVendor: (vendor: CartVendor) => void;
   onChangeQuantity: (variantId: string, qty: number) => void;
   onRemove: (variantId: string) => void;
   onCheckout: (group: CartGroup) => void;
@@ -125,6 +126,8 @@ function CartGroupCard({
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
   const { vendor, commercial } = group;
+  const resolveImage = useImageResolver();
+  const logoSource = merchantImageSource(vendor.logoUrl, resolveImage);
   // #129 cart rules 1-3: the SELLER a buyer reads comes from the group's
   // commercial presentation, never from `vendor.name`. `vendor` names whose
   // CATALOGUE the lines came from, which is what the logo and the storefront
@@ -137,52 +140,58 @@ function CartGroupCard({
   // relabelled.
   const showRating = vendor.rating !== undefined && commercial.mode === 'connected_marketplace';
   const linksToVendor = commercial.mode === 'connected_marketplace';
+  const headerContent = (
+    <>
+      <View
+        className="overflow-hidden rounded-full bg-muted"
+        style={{ width: VENDOR_LOGO_SIZE, height: VENDOR_LOGO_SIZE }}
+      >
+        {logoSource ? (
+          <Image source={logoSource} contentFit="cover" style={StyleSheet.absoluteFill} />
+        ) : null}
+      </View>
+      <View className="min-w-0 flex-1">
+        <Text numberOfLines={1} className="text-base font-bold text-foreground">
+          {sellerName}
+        </Text>
+        {showRating ? (
+          // Named scope (#76 UI rule 6): this is the SELLER's service
+          // rating, not a rating of what is in the basket.
+          <Rating
+            {...ratingDisplay({
+              rating: vendor.rating ?? 0,
+              reviews: vendor.reviewCount ?? 0,
+              subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
+            })}
+            size="sm"
+            style={{ marginTop: 2 }}
+          />
+        ) : null}
+      </View>
+    </>
+  );
 
   return (
     <View className="mb-4 overflow-hidden rounded-3xl border border-border bg-card p-4 web:shadow">
       {/* Header: the seller, linked to the vendor page only when they are one. */}
-      <Pressable
-        accessibilityRole={linksToVendor ? 'link' : 'text'}
-        accessibilityLabel={
-          linksToVendor
-            ? t('cart.group.visitSellerA11yLabel', { seller: sellerName })
-            : t('cart.group.soldByA11yLabel', { seller: sellerName })
-        }
-        disabled={!linksToVendor}
-        onPress={() => onPressVendor(vendor)}
-        className="flex-row items-center gap-3"
-      >
+      {(linksToVendor
+        ? renderCartVendorLink(
+            vendor,
+            <Pressable
+              accessibilityLabel={t('cart.group.visitSellerA11yLabel', { seller: sellerName })}
+              className="flex-row items-center gap-3"
+            >
+              {headerContent}
+            </Pressable>,
+          )
+        : null) ?? (
         <View
-          className="overflow-hidden rounded-full bg-muted"
-          style={{ width: VENDOR_LOGO_SIZE, height: VENDOR_LOGO_SIZE }}
+          accessibilityLabel={t('cart.group.soldByA11yLabel', { seller: sellerName })}
+          className="flex-row items-center gap-3"
         >
-          {vendor.logoUrl ? (
-            <Image
-              source={merchantImageSource(vendor.logoUrl)}
-              contentFit="cover"
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null}
+          {headerContent}
         </View>
-        <View className="min-w-0 flex-1">
-          <Text numberOfLines={1} className="text-base font-bold text-foreground">
-            {sellerName}
-          </Text>
-          {showRating ? (
-            // Named scope (#76 UI rule 6): this is the SELLER's service
-            // rating, not a rating of what is in the basket.
-            <Rating
-              {...ratingDisplay({
-                rating: vendor.rating ?? 0,
-                reviews: vendor.reviewCount ?? 0,
-                subject: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
-              })}
-              size="sm"
-              style={{ marginTop: 2 }}
-            />
-          ) : null}
-        </View>
-      </Pressable>
+      )}
 
       {/* What this group's commercial mode means, from the server's own list. */}
       <View className="mt-3">
@@ -269,12 +278,6 @@ function CartBody() {
 
   const updateItem = useUpdateCartItem();
   const removeItem = useRemoveCartItem();
-
-  const onPressVendor = (vendor: CartVendor) => {
-    if (vendor.kind === 'store' && vendor.handle) {
-      router.push(`/stores/${vendor.handle}`);
-    }
-  };
 
   const onChangeQuantity = (variantId: string, qty: number) => {
     updateItem.mutate({ variantId, input: { quantity: qty } });
@@ -378,7 +381,6 @@ function CartBody() {
             <CartGroupCard
               key={`${group.vendor.kind}:${group.vendor.id}`}
               group={group}
-              onPressVendor={onPressVendor}
               onChangeQuantity={onChangeQuantity}
               onRemove={onRemove}
               onCheckout={onCheckout}
@@ -431,7 +433,11 @@ function CartBody() {
       {recommendations.length > 0 ? (
         <View className="mt-6">
           {/* Heading of the bottom recommendation shelf. */}
-          <ProductShelf title={t('cart.recommendations.title')} items={recommendations} />
+          <ProductShelf
+            title={t('cart.recommendations.title')}
+            items={recommendations}
+            renderProductLink={renderListingLink}
+          />
         </View>
       ) : null}
 

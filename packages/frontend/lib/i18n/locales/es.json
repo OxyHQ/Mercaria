@@ -30,7 +30,8 @@
     "account": "Cuenta",
     "signIn": "Iniciar sesión",
     "threeD": "3D",
-    "mainNavigation": "Navegación principal"
+    "mainNavigation": "Navegación principal",
+    "settings": "Ajustes"
   },
   "login": {
     "signInButton": "Iniciar sesión"
@@ -39,20 +40,6 @@
     "account": {
       "title": "Ajustes de la cuenta"
     },
-    "appLanguage": {
-      "title": "Idioma de la app",
-      "description": "Cambia el idioma de la aplicación",
-      "restartRequired": "Reinicia la aplicación para aplicar la nueva dirección del diseño."
-    },
-    "appearance": {
-      "title": "Apariencia",
-      "light": "Claro",
-      "dark": "Oscuro",
-      "system": "Sistema"
-    },
-    "accentColor": {
-      "title": "Color de la app"
-    },
     "sections": {
       "account": "Cuenta",
       "general": "General",
@@ -60,7 +47,7 @@
       "addresses": "Direcciones",
       "watchlists": "Listas de seguimiento",
       "shoppingAgents": "Agentes de compra",
-      "referralPartner": "Programa de referidos"
+      "referrals": "Referidos"
     },
     "currency": {
       "title": "Moneda de visualización",
@@ -143,6 +130,7 @@
     "notFound": "No hemos encontrado este producto.",
     "visitA11y": "Visitar %{name}",
     "moreFromStore": "Más de %{name}",
+    "youMightAlsoLike": "También te puede gustar",
     "compareOffersA11y": "Comparar todas las ofertas de este producto",
     "compareOffers": "Comparar todas las ofertas",
     "percentOff": "%{percent}% de descuento",
@@ -236,7 +224,8 @@
       "product": "Sobre este producto",
       "variant": "Sobre esta configuración",
       "definitionsUnavailable": "Algunos nombres se muestran tal y como están almacenados.",
-      "untranslated": "Algunos nombres todavía no están traducidos a tu idioma."
+      "untranslated": "Algunos nombres todavía no están traducidos a tu idioma.",
+      "loadError": "No se pudieron cargar las especificaciones. Inténtalo de nuevo."
     },
     "variants": {
       "unavailable": "no disponible",
@@ -475,6 +464,17 @@
       "count": "A %{formattedCount} les resultó útil",
       "error": "No se pudo actualizar tu voto. Inténtalo de nuevo.",
       "retry": "Volver a cargar los votos"
+    },
+    "media": {
+      "add": "Añadir foto o vídeo",
+      "prompt": "Arrastra un archivo aquí o",
+      "uploading": "Subiendo…",
+      "uploaded": "Subida completada",
+      "invalid": "Hasta 10 archivos: imágenes JPG, PNG, WebP, GIF o AVIF de hasta 20 MB; vídeos MP4 o WebM de hasta 100 MB.",
+      "publicNotice": "Los archivos subidos son públicos. Quitar un adjunto aquí no lo elimina de tus archivos de Oxy.",
+      "failed": "No se pudo verificar la subida. Inténtalo de nuevo.",
+      "remove": "Quitar %{filename}",
+      "removeAction": "Quitar"
     }
   },
   "search": {
@@ -676,7 +676,8 @@
       "actionLabel": "Seguir a %{name}"
     },
     "linkCard": {
-      "viewProfile": "Ver el perfil de %{name}"
+      "viewProfile": "Ver el perfil de %{name}",
+      "visitProfile": "Ver perfil"
     },
     "report": {
       "action": "Denunciar",
@@ -1218,6 +1219,15 @@
       "collectHere": "Compra online y recoge aquí",
       "placeRatingSubject": "%{place} en GoWay",
       "photoLabel": "Foto de %{place}"
+    },
+    "contact": {
+      "title": "Contactar con %{store}",
+      "unavailable": "No se pudo cargar la información de contacto.",
+      "empty": "Esta tienda no ha publicado información de contacto.",
+      "website": "Sitio web",
+      "copy": "Copiar %{value}",
+      "copied": "Copiado",
+      "copyFailed": "No se pudo copiar. Inténtalo de nuevo."
     }
   },
   "offer": {
@@ -1301,11 +1311,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Socio de recomendaciones · Mercaria",
-    "title": "Socio de recomendaciones",
     "loadError": "No hemos podido cargar tu panel de recomendaciones. Inténtalo de nuevo.",
     "signedOut": {
-      "title": "Inicia sesión para ver tu cuenta de socio de recomendaciones",
+      "title": "Inicia sesión para ver tus referidos",
       "body": "Tus enlaces, lo que han generado y cuándo cobrarás.",
       "action": "Iniciar sesión"
     },
@@ -1353,11 +1361,19 @@
       "title": "Rendimiento",
       "totals": "%{clicks} clics · %{referrals} recomendaciones cualificadas, del %{from} al %{through}",
       "empty": "No se ha registrado nada en este periodo.",
-      "row": "%{label}: %{clicks} clics · %{referrals} recomendaciones"
+      "row": "%{label}: %{clicks} clics · %{referrals} recomendaciones",
+      "breakdownBy": "Desglosar por",
+      "dimension": {
+        "program": "Programa",
+        "campaign": "Campaña",
+        "instrument": "Enlace o código",
+        "market": "Mercado",
+        "clientSurface": "Plataforma",
+        "date": "Fecha"
+      }
     },
     "instruments": {
-      "title": "Tus enlaces y códigos",
-      "empty": "Todavía no tienes códigos de recomendación.",
+      "title": "Tus códigos",
       "disclosureIntro": "Publica esto con cada enlace:",
       "status": {
         "active": "activo",
@@ -1372,6 +1388,16 @@
       "appeal": "Puedes recurrir la decisión sobre tu participación.",
       "disputes": "Las reclamaciones sobre una atribución, una reversión o un pago todavía no se gestionan aquí. Contacta con el soporte e indica la fecha y el importe que se muestran arriba.",
       "noEmails": "Todavía no enviamos correos sobre recomendaciones, así que consulta esta página para ver los cambios."
+    },
+    "links": {
+      "title": "Tus enlaces",
+      "create": "Crear enlace",
+      "copy": "Copiar",
+      "copyLink": "Copiar el enlace %{url}",
+      "copied": "Enlace copiado",
+      "createFailed": "No se pudo crear el enlace. Inténtalo de nuevo.",
+      "empty": "Crea un enlace para compartir Mercaria. Los referidos que traiga se te atribuyen.",
+      "notPartner": "Tu enlace aparecerá aquí cuando estés inscrito en un programa."
     }
   },
   "brand": {
@@ -1556,6 +1582,17 @@
       "updateFailed": "No se ha podido actualizar la dirección",
       "removed": "Dirección eliminada",
       "removeFailed": "No se ha podido eliminar la dirección"
+    },
+    "picker": {
+      "search": "Buscar una dirección con GoWay",
+      "help": "Busca una calle y ciudad; elige y revisa la dirección.",
+      "placeholder": "Calle, número y ciudad",
+      "loading": "Buscando en GoWay…",
+      "error": "La búsqueda no está disponible. Reintenta o introduce la dirección manualmente.",
+      "partial": "Algunas fuentes no están disponibles. Los resultados pueden estar incompletos.",
+      "empty": "No se encontraron direcciones. Añade una ciudad o introduce la dirección manualmente.",
+      "review": "Revisar los datos de la dirección",
+      "manual": "Introducir dirección manualmente"
     }
   },
   "shoppingAgents": {

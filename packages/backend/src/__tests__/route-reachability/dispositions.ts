@@ -72,6 +72,38 @@ export const ROUTE_DISPOSITIONS: Readonly<
         'must not, because arriving without the provider round trip is not a state this screen ' +
         'can serve. An inbound in-app edge would be the defect, not the fix.',
     },
+    '/referral-partner': {
+      kind: 'deliberate',
+      reason:
+        'Referrals is a page of the Settings dialog (Bloom SettingsModal); this address is the ' +
+        'bridge that keeps an old link landing on it — it opens the dialog on that page and ' +
+        'steps back off itself. In-app code opens it with useSettingsDialog().open(' +
+        "'referrals') and must never navigate here.",
+    },
+    '/settings': {
+      kind: 'deliberate',
+      reason:
+        'A deep-link bridge into the Settings dialog (Bloom SettingsModal), kept so an old ' +
+        'link or a bookmark still lands on the right page: it opens the dialog and steps back ' +
+        'off itself. In-app code opens Settings with useSettingsDialog().open() and must never ' +
+        'navigate here — that would push a screen whose only act is to pop itself.',
+    },
+    '/settings/addresses': {
+      kind: 'deliberate',
+      reason:
+        'A deep-link bridge into the Settings dialog (Bloom SettingsModal), kept so an old ' +
+        'link or a bookmark still lands on the right page: it opens the dialog and steps back ' +
+        'off itself. In-app code opens Settings with useSettingsDialog().open() and must never ' +
+        'navigate here — that would push a screen whose only act is to pop itself.',
+    },
+    '/settings/feedback': {
+      kind: 'deliberate',
+      reason:
+        'A deep-link bridge into the Settings dialog (Bloom SettingsModal), kept so an old ' +
+        'link or a bookmark still lands on the right page: it opens the dialog and steps back ' +
+        'off itself. In-app code opens Settings with useSettingsDialog().open() and must never ' +
+        'navigate here — that would push a screen whose only act is to pop itself.',
+    },
     '/sell': {
       kind: 'awaiting_product_decision',
       question:

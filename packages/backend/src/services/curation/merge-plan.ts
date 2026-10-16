@@ -66,6 +66,7 @@ import {
   brandSourceLinks,
   organizationAliases,
   organizations,
+  organizationIdentityArchives,
   organizationSourceLinks,
 } from '../../db/schema/organizations.js';
 import {
@@ -622,8 +623,19 @@ const NAVIGATION_NODE_NOTE =
 
 export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly RehomeTarget[]>> = {
   organization: [
+    {
+      column: organizationIdentityArchives.organizationId,
+      phase: 'children',
+      disposition: 'untouched',
+      note: 'Immutable evidence of the original Mercaria identity before centralization. The archive remains attached to its historical reference; a merge tombstones rather than deletes that reference. Repointing would falsify source provenance and is forbidden by its database trigger.',
+    },
     flattenTarget(organizations.mergedIntoId),
-    aliasTarget(organizationAliases.organizationId, organizationAliases.normalizedAlias),
+    {
+      column: organizationAliases.organizationId,
+      phase: 'aliases',
+      disposition: 'untouched',
+      note: 'Frozen pre-centralization name evidence remains attached to its original reference. Oxy owns aliases and identity merges; rehoming or deleting these records would alter historical provenance.',
+    },
     sourceLinkTarget(
       organizationSourceLinks.organizationId,
       organizationSourceLinks.sourceRecordId,

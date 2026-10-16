@@ -410,6 +410,50 @@ export interface ReviewDimension {
   rating: number;
 }
 
+/** Ordered, author-owned public Oxy attachments. Their media kind is verified
+ * by the server against Oxy metadata, never accepted from review input. */
+export const REVIEW_MEDIA_KINDS = ['image', 'video'] as const;
+export type ReviewMediaKind = (typeof REVIEW_MEDIA_KINDS)[number];
+export const REVIEW_MEDIA_LIMIT = 10;
+export const REVIEW_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+export const REVIEW_VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+export const REVIEW_IMAGE_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+] as const;
+export const REVIEW_VIDEO_MIME_TYPES = ['video/mp4', 'video/webm'] as const;
+
+/** Shared picker/server limits; ownership and public visibility remain server checks. */
+export function reviewMediaKind(mime: string, size: number): ReviewMediaKind | undefined {
+  if (!Number.isSafeInteger(size) || size <= 0) return undefined;
+  if (
+    (REVIEW_IMAGE_MIME_TYPES as readonly string[]).includes(mime) &&
+    size <= REVIEW_IMAGE_MAX_BYTES
+  )
+    return 'image';
+  if (
+    (REVIEW_VIDEO_MIME_TYPES as readonly string[]).includes(mime) &&
+    size <= REVIEW_VIDEO_MAX_BYTES
+  )
+    return 'video';
+  return undefined;
+}
+export interface ReviewMedia {
+  id: string;
+  fileId: string;
+  kind: ReviewMediaKind;
+  position: number;
+}
+
+/** One gallery entry with the review it illustrates, independent of text pagination. */
+export interface ReviewMediaItem {
+  media: ReviewMedia;
+  review: Review;
+}
+
 /**
  * A published (or hidden) review, with the relevant target id set and the
  * author hydrated for display.
@@ -465,6 +509,8 @@ export interface Review extends Timestamps {
   title?: string;
   /** Optional free-text body. */
   body?: string;
+  /** Absent for private transaction reviews and reviews with no attachments. */
+  media?: ReviewMedia[];
   /** Read-only purchased option title from the verified order-line snapshot.
    * Absent without matching purchase evidence or for a default/no-option variant.
    * Never inferred from the current catalog or accepted as review input.
@@ -522,6 +568,9 @@ export interface CreateReviewInput {
   title?: string;
   /** Optional free-text body. */
   body?: string;
+  /** Oxy files already uploaded by this author as public media, in display order.
+   * Private transaction reviews do not accept public attachments. */
+  mediaFileIds?: string[];
   /** BCP-47 tag of the language the review is written in. */
   locale?: string;
   /** Whether the reviewer received an incentive. Defaults to `none`. */

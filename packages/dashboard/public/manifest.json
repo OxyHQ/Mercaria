@@ -1,7 +1,7 @@
 {
-  "name": "Mercaria Dashboard",
-  "short_name": "Mercaria Admin",
-  "description": "Mercaria store & merchant admin dashboard.",
+  "name": "Wholesale by Mercaria",
+  "short_name": "Wholesale",
+  "description": "Wholesale by Mercaria — manage your store, products, orders and inventory.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#040711",

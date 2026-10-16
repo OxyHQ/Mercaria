@@ -21,8 +21,10 @@ export function StatusFilter<T extends string>({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   value: T;
+  disabled?: boolean;
   options: { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
@@ -30,6 +32,7 @@ export function StatusFilter<T extends string>({
   return (
     <View className="min-w-40">
       <Select
+        disabled={disabled}
         value={value}
         onValueChange={(next) => {
           const option = options.find((item) => item.value === next);

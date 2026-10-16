@@ -94,14 +94,12 @@ export function parseFindingPath(path: string): FindingTarget {
   if (path === 'listing.description') return { kind: 'listing', field: 'description' };
   // `listing.imageFileIds`, and `listing.imageFileIds[2]` for a duplicate at one
   // gallery position. Both land on the LISTING step, which is where the
-  // `products.wizard.listing.mediaUnavailable` notice renders — so a media
-  // finding appears on the screen that talks about media rather than falling
+  // product photo editor renders, so a media finding appears there rather than falling
   // through to `unknown` and being shown on `review`.
   //
   // The position is deliberately DISCARDED rather than carried: there is no
-  // media control in this wizard to anchor to, so a slot index would be a
-  // number pointing at nothing. When a picker lands, the index is what a jump
-  // target would use and this is the line that carries it.
+  // per-image finding anchor in this wizard, so a slot index would be a
+  // number pointing at nothing. A future per-image jump can carry it here.
   if (path === 'listing.imageFileIds' || path.startsWith('listing.imageFileIds[')) {
     return { kind: 'listing', field: 'imageFileIds' };
   }

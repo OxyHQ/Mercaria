@@ -106,7 +106,7 @@ function productLastmodExpression() {
       select max(${qualified(canonicalImages.updatedAt)})
       from ${canonicalImages}
       where ${qualified(canonicalImages.productId)} = ${qualified(canonicalProducts.id)}
-        and ${qualified(canonicalImages.status)} = 'active'
+        and ${qualified(canonicalImages.status)} = 'active' and ${qualified(canonicalImages.kind)} = 'image'
     )
   )`;
 }
@@ -193,7 +193,7 @@ export async function listCanonicalProductSitemapPage(
         select count(*)::int
         from ${canonicalImages}
         where ${qualified(canonicalImages.productId)} = ${qualified(canonicalProducts.id)}
-          and ${qualified(canonicalImages.status)} = 'active'
+          and ${qualified(canonicalImages.status)} = 'active' and ${qualified(canonicalImages.kind)} = 'image'
       )`,
       identifierCount: sql<number>`(
         select count(*)::int

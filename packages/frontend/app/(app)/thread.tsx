@@ -1,3 +1,4 @@
+import { renderListingLink } from '@/lib/catalog/product-links';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import Head from 'expo-router/head';
@@ -300,15 +301,7 @@ function ShoppingThreadBody({
                 <View className="flex-row flex-wrap gap-3" testID="thread-preview-products">
                   {message.examples.map((product) => (
                     <View key={product.id} className="w-[47%] sm:w-[23%]">
-                      <ProductCard
-                        product={product}
-                        onPress={(id) =>
-                          router.push({
-                            pathname: '/products/[id]',
-                            params: { id },
-                          })
-                        }
-                      />
+                      <ProductCard product={product} renderLink={renderListingLink} />
                     </View>
                   ))}
                 </View>

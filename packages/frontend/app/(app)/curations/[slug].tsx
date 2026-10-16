@@ -1,3 +1,4 @@
+import { renderListingLink } from '@/lib/catalog/product-links';
 import { View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -80,7 +81,7 @@ export default function CurationScreen() {
             heroImageUrl={curation.imageUrl}
             mobileHeroImageUrl={curation.mobileImageUrl}
             stories={stories}
-            onPressProduct={(id) => router.push({ pathname: '/products/[id]', params: { id } })}
+            renderProductLink={renderListingLink}
           />
           <CurationHighlights />
         </>
