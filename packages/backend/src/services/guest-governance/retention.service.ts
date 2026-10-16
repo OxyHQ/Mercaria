@@ -26,12 +26,17 @@
  * found nothing produce identical output otherwise, and the first is the
  * failure this whole domain exists to make visible.
  *
- * ## A dry run is the DEFAULT
+ * ## What authorizes an erasure
  *
- * `GUEST_RETENTION_DRY_RUN` defaults TRUE, which is the one default in this
- * area on the cautious side of every other rollout lever — because the two
- * errors are not symmetric. A dry run that should have erased leaves data for
- * another day; an apply that should not have erased leaves nothing at all.
+ * Two recorded acts, and no environment variable. The ACTIVE retention policy
+ * for the class is the decision that its contacts may be minimized — a
+ * published version carries the operator who published it, and with no active
+ * version the pass is refused outright (`policy_missing`). The REQUEST is the
+ * decision to act on it now: the caller passes `dryRun`, and the operator
+ * endpoint defaults it to `true`, so applying is always an explicit choice in
+ * the request that does it. The two errors are not symmetric — a dry run that
+ * should have erased leaves data for another day; an apply that should not have
+ * erased leaves nothing at all — which is why preview is the default.
  */
 
 import { and, asc, eq, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
@@ -92,9 +97,13 @@ export function minimizationClasses(): readonly GuestRetentionClass[] {
  * what somebody PUBLISHES; a job that read it directly would make the published
  * version decorative and would delete under a rule nobody approved — the
  * `#58 policy_missing` posture, applied to a deletion.
+ *
+ * `dryRun` is REQUIRED rather than defaulted here, so no caller can reach an
+ * apply by omission; the operator endpoint is where the `true` default lives.
  */
 export async function runRetentionPass(input: {
   retentionClass: GuestRetentionClass;
+  dryRun: boolean;
   now: Date;
 }): Promise<RetentionRunOutcome> {
   if (!MINIMIZATION_CLASSES.includes(input.retentionClass)) {
@@ -107,7 +116,7 @@ export async function runRetentionPass(input: {
     return { outcome: 'refused', reason: 'policy_missing' };
   }
 
-  const mode = config.guest.governance.retentionDryRun ? 'dry_run' : 'apply';
+  const mode = input.dryRun ? 'dry_run' : 'apply';
   const runId = await openRetentionRun(db, {
     retentionClass: input.retentionClass,
     policyVersion: rule.version,

@@ -174,14 +174,10 @@ export async function resolveGuestSessionByToken(
   return { session, matchedPrevious: session.tokenHash !== hash };
 }
 
-/** Why {@link issueGuestSession} refused — the two config gates. */
+/** {@link issueGuestSession} refused: guest commerce is off on this deployment. */
 export class GuestIssuanceDisabledError extends Error {
-  constructor(reason: 'disabled' | 'kill_switch') {
-    super(
-      reason === 'disabled'
-        ? 'Guest commerce is not enabled on this deployment'
-        : 'Guest session issuance is temporarily disabled',
-    );
+  constructor() {
+    super('Guest commerce is not enabled on this deployment');
     this.name = 'GuestIssuanceDisabledError';
   }
 }
@@ -191,16 +187,15 @@ export class GuestIssuanceDisabledError extends Error {
  *
  * Callers reach this only from an eligible stateful write or the explicit
  * ensure endpoint, never from a page view (D3: browsing creates NO row), and
- * only behind the per-IP `rl:guest-issue:` rate limit. Both config gates are
- * re-checked here as defence in depth: a route wired past its own gate still
- * cannot mint with the kill switch thrown.
+ * only behind the per-IP `rl:guest-issue:` rate limit. The guest-commerce gate
+ * is re-checked here as defence in depth: a route wired past its own gate still
+ * cannot mint on a deployment without guest commerce.
  */
 export async function issueGuestSession(input: {
   clientClass: GuestClientClass;
   now: Date;
 }): Promise<{ session: GuestSessionRow; token: string }> {
-  if (!config.guest.enabled) throw new GuestIssuanceDisabledError('disabled');
-  if (!config.guest.issuanceEnabled) throw new GuestIssuanceDisabledError('kill_switch');
+  if (!config.guest.enabled) throw new GuestIssuanceDisabledError();
 
   const { token, tokenHash } = mintGuestToken();
   const session = await insertGuestSession(getDb(), {

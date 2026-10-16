@@ -61,11 +61,6 @@ beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_PII_ENCRYPTION_KEY = 'a'.repeat(64);
   process.env.GUEST_EMAIL_HASH_KEY = 'b'.repeat(64);
-  // Explicit, not assumed: vitest may run several files in one worker thread
-  // and a sibling file sets these — env leaks, configs do not.
-  process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
-  process.env.GUEST_CART_ENABLED = 'true';
-  process.env.GUEST_INLINE_DESTINATION_ENABLED = 'true';
 
   const { createApp } = await import('../../app.js');
   const postgres = await import('../../db/postgres.js');

@@ -159,16 +159,12 @@ beforeAll(async () => {
   // contact row is encrypted inside the orders' own transaction.
   process.env.GUEST_PII_ENCRYPTION_KEY = 'a'.repeat(64);
   process.env.GUEST_EMAIL_HASH_KEY = 'b'.repeat(64);
-  process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
-  process.env.GUEST_CART_ENABLED = 'true';
-  process.env.GUEST_INLINE_DESTINATION_ENABLED = 'true';
   // No lever set: this file is about the rail, and a kill switch firing would
   // refuse every case in it for the wrong reason.
   delete process.env.GUEST_CHECKOUT_BLOCKED_PLATFORMS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_MARKETS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_SELLER_KEYS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS;
-  delete process.env.GUEST_SELLER_ACTIVATION_REQUIRED;
 
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;

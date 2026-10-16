@@ -29,8 +29,8 @@
  *
  * So the READ levers preserve today's behaviour and exist to be turned OFF,
  * which is exactly what #60 acceptance 5 asks of them ("**turning off** canonical
- * reads restores the existing listing-first experience"). The `GUEST_INLINE_DESTINATION_ENABLED`
- * precedent: an incident lever defaults true. The WRITE levers —
+ * reads restores the existing listing-first experience"). An incident lever
+ * defaults true. The WRITE levers —
  * `CANONICAL_GRAPH_ENABLED` and `CANONICAL_WRITE_PUBLICATION_ENABLED` — shipped
  * OFF as D24 bound, and ADR 0015 turned them ON: the catalogue autopilot runs
  * the backfill unattended, and a comparator whose graph is never written shows

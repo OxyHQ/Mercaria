@@ -902,7 +902,6 @@
         "review": "你可以为所购商品撰写已验证购买的评价。"
       },
       "blocked": {
-        "unavailable": "暂时无法将订单保存到 Oxy 账户。你的订单不受影响，仍可通过访问链接打开。",
         "inboxNotVerified": "请先确认你的电子邮件地址。请索取新的访问链接，并通过它打开此页面。",
         "claimedByAnotherAccount": "这些订单已保存到另一个 Oxy 账户。如果这与你的预期不符，请联系客服——Mercaria 不会自动转移它们。"
       }

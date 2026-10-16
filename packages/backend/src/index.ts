@@ -3,6 +3,7 @@ import http from 'node:http';
 import { connectPostgres } from './db/postgres.js';
 import { startExpirySweeper, stopExpirySweeper } from './db/expirySweeper.js';
 import { createApp } from './app.js';
+import { assertKnownNodeEnv } from './config/index.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
 import { registerSizeSystemConceptRegistry } from './services/canonical/size-system-registry.js';
@@ -13,6 +14,13 @@ import { initSocket } from './socket.js';
 // Bun loads `.env` from the working directory before any module runs, and every
 // script that starts this server (`dev`, `start`) runs in packages/backend, so it
 // reads packages/backend/.env. Variables already in the environment win.
+
+// Refuse an unset or unknown NODE_ENV before anything else starts: the mock
+// payment rail exists exactly when NODE_ENV says "not production", so an image
+// started without it must not boot. It THROWS at module top level, which exits
+// the process non-zero with the message on stderr — synchronously, so no async
+// log transport can swallow it. See `assertKnownNodeEnv`.
+assertKnownNodeEnv();
 
 // Publish the size-system code registry to the external-mapping resolver
 // (#367 Workstream 11), closing `concept-registry.port.ts`'s `size_system`
@@ -371,10 +379,7 @@ connectPostgres()
 
       // Deliver the guest portal's transactional messages (#108). On EVERY
       // task, leased through `FOR UPDATE SKIP LOCKED` like the outboxes above.
-      // The LOOP is gated by `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED` and the
-      // ROW never is: messages keep being enqueued while it is off and drain
-      // when it comes back, so an incident that stops mail going out does not
-      // also erase what was owed. With no transport registered — the shipped
+      // With no transport registered — the shipped
       // state, see `services/guest-portal/transport.ts` — every attempt fails
       // `transport_unconfigured` visibly rather than pretending to send.
       import('./services/guest-portal/message.service.js')
@@ -385,11 +390,9 @@ connectPostgres()
 
       // Drain a completed claim's follow-up work (#109) — the verified-purchase
       // eligibility grant and the "your orders moved" notice. On EVERY task,
-      // leased like the outboxes above. The LOOP is gated by
-      // `GUEST_CLAIM_PROJECTION_ENABLED` and the ROW never is: a claim made
-      // while it is off leaves its work queued and it drains when the lever
-      // comes back, so an incident that stops the projection cannot cost a
-      // buyer the right to review a purchase they own.
+      // leased like the outboxes above. The ROW is written by the claim, so a
+      // pass that fails leaves the work queued rather than costing a buyer the
+      // right to review a purchase they own.
       import('./services/guest-claims/claim-outbox.service.js')
         .then(({ startGuestClaimDispatcher }) => startGuestClaimDispatcher())
         .catch((err: unknown) =>
@@ -505,9 +508,9 @@ connectPostgres()
 
       // Install Mercaria's Moovo logistics client (#156).
       //
-      // A no-op on every deployment today, and visibly so: `MOOVO_ENABLED`
-      // defaults false, and even switched on the client is NOT registered while
-      // no transport exists — it logs the blockers instead. That is the honest
+      // A no-op on every deployment today, and visibly so: no deployment sets
+      // `MOOVO_BASE_URL`/`MOOVO_RESOURCE_APPLICATION_ID`/`MOOVO_ENVIRONMENT`, and
+      // even configured the client is NOT registered while no transport exists — it logs the blockers instead. That is the honest
       // state rather than a hidden one, because registering a port that refuses
       // every call would make `chooseFulfilmentMode` select Mode A and strand
       // paid orders that would otherwise fall back to Mode B.

@@ -177,8 +177,8 @@ describe('each requirement refuses on its own fact', () => {
     },
     {
       requirement: 'guest_commerce_enabled',
-      facts: { guest: { cartEnabled: false } },
-      reason: 'guest_cart_disabled',
+      facts: { guest: { commerceEnabled: false } },
+      reason: 'guest_commerce_disabled',
     },
     {
       requirement: 'guest_payment_method_available',
@@ -326,7 +326,7 @@ describe('the guest fulfilment set', () => {
   });
 
   it('leaves a store whose ONLY guest method is collection with a non-empty set', () => {
-    // The circular case. With `GUEST_SELLER_ACTIVATION_REQUIRED` on, an empty
+    // The circular case. Under the since-removed guest activation gate, an empty
     // set withheld guest activation, which `derivePickupEligibility` then read
     // back as `guest_seller_not_activated` — a store refused for not being
     // activated, and unable to become activated because it was refused.
