@@ -21,7 +21,6 @@ import type { Request, Response } from 'express';
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import type { MerchantActivationPolicy, MerchantActivationTrace } from '@mercaria/shared-types';
 import { MERCHANT_ACTIVATION_POLICIES } from '@mercaria/shared-types';
-import { config } from '../config/index.js';
 import { listPolicyAcceptancesForOwner } from '../db/merchantActivation/policyAcceptanceRepository.js';
 import { notFound, respondWithError, validationError } from '../lib/errors/error-codes.js';
 import { log } from '../lib/logger.js';
@@ -277,11 +276,7 @@ export async function observeActivationHandler(req: Request, res: Response): Pro
       oxyUserId: getRequiredOxyUserId(req),
       cause: 'operator_reevaluation',
     });
-    sendSuccess(res, {
-      storeId,
-      transitions,
-      sweepEnabled: config.merchantActivation.observationEnabled,
-    });
+    sendSuccess(res, { storeId, transitions });
   } catch (err) {
     log.general.error({ err }, 'Failed to observe merchant activation');
     respondWithError(res, err, 'Failed to observe activation');

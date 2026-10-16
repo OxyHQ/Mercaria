@@ -25,13 +25,6 @@
  * teardown deletes exactly what it made. Global counts are never asserted.
  */
 
-/**
- * FIRST, and its position is load-bearing: it sets `NL_INTENT_ENABLED` before
- * any later import initialises the frozen `config`. Without it every case below
- * would stop at the FIRST enablement gate and report `parser_disabled`, hiding
- * the fail-closed provider default this file exists to prove.
- */
-import './fixtures/enable-nl-intent.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';

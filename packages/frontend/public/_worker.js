@@ -204,9 +204,10 @@ const assetWorker = {
     /**
      * `robots.txt` and the sitemaps come from the API, which renders them from
      * ONE disallow list and one indexability policy. When the API cannot answer
-     * — including when `SEO_ROUTES_ENABLED` is off, which 404s — the static
-     * assets the app ships are served instead. Those are the flag-off floor,
-     * and a backend test keeps their rules in step with the rendered ones.
+     * — including when `SEO_INDEXING_MODE` is `off` and `/seo/*` is not mounted,
+     * which 404s — the static assets the app ships are served instead. Those
+     * are the floor, and a backend test keeps their rules in step with the
+     * rendered ones.
      */
     if (apiOrigin !== '') {
       const artefact = CRAWL_ARTEFACTS.get(pathname);

@@ -15,10 +15,9 @@
  *
  * ## Mounted while the merchant surfaces are OFF
  *
- * `MERCHANT_DEMAND_ENABLED` and `MERCHANT_DEMAND_PREVIEW_ENABLED` gate the
- * merchant-facing routers and never this one. The evidence has to be readable
- * during the incident that turned them off — the rule every operator surface in
- * this codebase follows.
+ * Analytics collection (`ANALYTICS_COLLECTION_MODE`) gates the merchant-facing
+ * routers and never this one. The evidence has to be readable while they are
+ * down — the rule every operator surface in this codebase follows.
  *
  * ## The write set is CLOSED and there is no send
  *

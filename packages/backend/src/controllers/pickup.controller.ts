@@ -24,11 +24,10 @@
 
 import type { Request, Response } from 'express';
 import type { ItemConditionKey } from '@mercaria/shared-types';
-import { config } from '../config/index.js';
 import { assertUsableCoordinate } from '../services/pickup/geo.js';
 import { findNearbyAvailability, suggestNearbyPlaces } from '../services/pickup/nearby.service.js';
 import { findNearbyP2pListings } from '../services/pickup/local-discovery.service.js';
-import { sendError, sendSuccess, ErrorCodes } from '../utils/api-response.js';
+import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError } from '../lib/errors/error-codes.js';
 
 /** The posture every response in this file carries — see the module docblock. */
@@ -122,21 +121,9 @@ export async function nearbyPlacesHandler(req: Request, res: Response): Promise<
   }
 }
 
-/**
- * `GET /nearby/p2p` — coarse local discovery of P2P listings.
- *
- * A 404 rather than an empty list when the lever is off: a surface this
- * deployment has not rolled out is a page that does not exist here, and an
- * empty list would read as "nobody near you is selling anything", which is a
- * different and wrong claim.
- */
+/** `GET /nearby/p2p` — coarse local discovery of P2P listings. */
 export async function nearbyP2pHandler(req: Request, res: Response): Promise<void> {
   withoutCaching(res);
-  if (!config.pickup.p2pLocalDiscoveryEnabled) {
-    sendError(res, ErrorCodes.NOT_FOUND, 'Not found', 404);
-    return;
-  }
-
   const query = req.query as unknown as {
     latitude: number;
     longitude: number;

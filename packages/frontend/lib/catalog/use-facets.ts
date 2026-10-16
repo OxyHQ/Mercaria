@@ -17,8 +17,8 @@ import { serializeFacetSelection } from './facet-selection';
  *
  * ## A 404 is "no rail", never an empty rail
  *
- * `FACETS_ENABLED` defaults off. `enabled` is not conditioned on the flag —
- * the client cannot see it — so the query runs and fails, and consumers read
+ * The catalog rollout-cohort gate can 404 it. `enabled` is not conditioned on
+ * that — the client cannot see it — so the query runs and fails, and consumers read
  * `data === undefined` as "this deployment offers no filters here". They render
  * no rail rather than an empty one: an empty rail says there is nothing to
  * filter by, which is a different and false statement.

@@ -30,7 +30,6 @@ import type {
   MerchantCheckoutState,
 } from '@mercaria/shared-types';
 import { MERCHANT_ACTIVATION_POLICIES } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { notFound } from '../../lib/errors/error-codes.js';
 import { deriveCapabilities } from './capabilities.js';
 import { readMerchantActivationFacts, type MerchantActivationFacts } from './facts.js';
@@ -49,19 +48,13 @@ import {
 /**
  * Requirements that are DERIVED and REPORTED but do not withhold anything.
  *
- * Exactly one member today, and it is a deployment policy rather than a
- * judgement about a merchant: there is no launch plan in this repository
- * requiring a test order, and making it blocking by default would mean no
- * merchant could ever take a first one. A deployment that runs a pilot sets
- * `MERCHANT_ACTIVATION_TEST_ORDER_REQUIRED=true` and it starts biting.
- *
- * The list is computed per call rather than frozen at import, because a test
- * that flips the variable must see the change — and because a gate whose
- * behaviour was decided at module load is one nobody can exercise.
+ * Exactly one member, and it is a policy rather than a judgement about a
+ * merchant: making a completed test order BLOCK would mean no merchant could
+ * ever take a first one — the requirement would refuse the very order that
+ * satisfies it. It is still derived and reported on the dashboard and in the
+ * operator trace.
  */
-function advisoryRequirements(): readonly MerchantActivationRequirementKey[] {
-  return config.merchantActivation.testOrderRequired ? [] : ['test_order_completed'];
-}
+const ADVISORY_REQUIREMENTS: readonly MerchantActivationRequirementKey[] = ['test_order_completed'];
 
 /** The composed derivation, before it is projected for anybody. */
 export interface DerivedMerchantActivation {
@@ -91,7 +84,7 @@ export async function deriveMerchantActivation(
   const base = await readMerchantActivationFacts(storeId);
   if (!base) return null;
 
-  const advisory = advisoryRequirements();
+  const advisory = ADVISORY_REQUIREMENTS;
 
   // The native half is derived against a facts object whose `nativeSatisfied` is
   // not yet known. No native derivation reads it — the field belongs to the

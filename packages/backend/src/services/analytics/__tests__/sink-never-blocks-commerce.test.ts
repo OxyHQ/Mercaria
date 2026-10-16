@@ -51,7 +51,6 @@ vi.mock('../../../config/index.js', () => ({
       flushBatchSize: 10,
       pseudonymRotationHours: 24,
       internalTrafficToken: '',
-      rollupEnabled: false,
       rollupIntervalMs: 60_000,
       rollupMaxBackfillDays: 30,
     },

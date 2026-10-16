@@ -65,12 +65,10 @@
  * **A comparison is a relation between two implementations, so a surface with
  * no predecessor cannot have one.** That is a fact about the surface rather
  * than about the work: `POST /facets` is canonical-only and always was — there
- * is no listing-first filter path in this backend to compare against, and
- * `FACETS_ENABLED` is a boolean rather than a read mode — so #367's "shadow
- * facet comparisons" is UNBUILDABLE rather than unbuilt. The only thing
- * available there is the demand counter above, which turning the surface on
- * supersedes immediately, with real latency and error numbers instead of
- * refusals.
+ * is no listing-first filter path in this backend to compare against, and the
+ * surface has no read mode — so #367's "shadow facet comparisons" is
+ * UNBUILDABLE rather than unbuilt. The surface is mounted unconditionally, so
+ * its real latency and error numbers are what measure it.
  */
 
 import type { NextFunction, Request, Response } from 'express';

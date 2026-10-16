@@ -356,14 +356,14 @@ curation domain and was caught only by the realdb suite.
 
 ## What a rollback can and cannot reach
 
-Four levers, each gating a MOUNT and none gating a stored row:
+Three levers, each gating a MOUNT and none gating a stored row (`POST /facets`
+has none — `FACETS_ENABLED` was removed and it is mounted unconditionally):
 
 | Lever | Mount |
 |---|---|
 | `CATALOG_TAXONOMY_V2_ENABLED` | `/navigation` |
 | `CATALOG_AUTHORING_ENABLED` | `/catalog-authoring` and `/stores/:storeId/product-drafts` (`app.ts:258`–`:260`) |
 | `CATALOG_PROPOSALS_ENABLED` | `/catalog-proposals` (`app.ts:275`) |
-| `FACETS_ENABLED` | `POST /facets` (`app.ts:738`) |
 
 `catalog-rollout.realdb.test.ts:309` pins the withdrawal at **exactly five
 mounts and nothing else**, which is the assertion to read rather than the count

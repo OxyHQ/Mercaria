@@ -534,15 +534,16 @@ justifies it, which is the only way it is accountable to anybody.
 
 ## An unmounted surface is not a seam
 
-**Five of the seven route-observation producers** hang off a flag-gated route —
-three off the authoring schema and two off facets — and **both of those routes
-sit behind a rollout flag that defaults to false**, `CATALOG_AUTHORING_ENABLED`
-and `FACETS_ENABLED`. With a flag off the route is not mounted at all, so the
-surface cannot be served.
+**Three of the seven route-observation producers** hang off a flag-gated route —
+the authoring schema, behind `CATALOG_AUTHORING_ENABLED`, which defaults to
+false. With the flag off the route is not mounted at all, so the surface cannot
+be served.
 
-The other two are `taxonomy_read_error_rate` and `search_read_error_rate`
-(#913), and they take **no** mount guard because `/categories` and `/search` are
-mounted unconditionally — there is no lever that can withdraw either route.
+The other four — `taxonomy_read_error_rate`, `search_read_error_rate` (#913),
+`facet_generation_latency` and `facet_generation_error_rate` — take **no** mount
+guard because `/categories`, `/search` and `/facets` are mounted unconditionally
+(`/facets` since `FACETS_ENABLED` was removed) — there is no lever that can
+withdraw any of those routes.
 `CANONICAL_SEARCH` decides what `/search` ANSWERS, which is a different thing:
 with it off every request is a 404, so that metric reads `0 / N` rather than an
 empty population, and mounted-and-refusing stays distinguishable from
@@ -560,8 +561,6 @@ variable to set**, and says in as many words that no code change is owed.
 | `authoring_schema_fetch_latency` | `GET /catalog-authoring/schemas/:productTypeKey` | `CATALOG_AUTHORING_ENABLED` |
 | `authoring_schema_error_rate` | same | same |
 | `authoring_schema_client_cache_hit_rate` | same | same |
-| `facet_generation_latency` | `POST /facets` | `FACETS_ENABLED` |
-| `facet_generation_error_rate` | same | same |
 
 Two mechanics worth knowing:
 
@@ -694,11 +693,10 @@ zero unserved templates and read green forever.
 | `GET /categories` | `routes/categories.ts` `router.get('/')`, mounted unconditionally | **yes** |
 | `GET /search` | `routes/search.ts` `router.get('/')`, mounted unconditionally | **yes** (see the note below) |
 | `GET /catalog-authoring/schemas/:productTypeKey` | `routes/catalog-authoring.ts`, behind `CATALOG_AUTHORING_ENABLED` (default **false**) | no — the metrics say `surface_not_mounted` |
-| `POST /facets` | `routes/facets.ts` `router.post('/')`, behind `FACETS_ENABLED` (default **false**) | no — same |
+| `POST /facets` | `routes/facets.ts` `router.post('/')`, mounted unconditionally | **yes** |
 
-**So on a default deployment only `GET /categories` and `GET /search` are
-mounted**, and the authoring and facet budgets observe nothing until those flags
-are on. The metrics report now SAYS that in words —
+**So on a default deployment `GET /categories`, `GET /search` and `POST /facets`
+are mounted**, and the authoring budget observes nothing until its flag is on. The metrics report now SAYS that in words —
 `unmeasured` / `surface_not_mounted`, with the variable named — rather than
 showing a zero; §"An unmounted surface is not a seam" has the mechanics. The
 LATENCY report does not distinguish it from a cold task, because it omits the
@@ -1037,13 +1035,12 @@ Nine shapes, each CALLING the repository function its HTTP surface calls, run in
 registry of 1,500 published product types and 4,000 active attribute definitions
 seeded on top. Measured on PostgreSQL 17.5.
 
-**Which of these are live matters and is measured, not assumed.** Only
-`/catalog-attributes` (C6) is mounted unconditionally. `/facets` (C1, C5, C9) is
-behind `FACETS_ENABLED`, `/taxonomy` (C2, C3, C4) behind
+**Which of these are live matters and is measured, not assumed.**
+`/catalog-attributes` (C6) and — since `FACETS_ENABLED` was removed — `/facets`
+(C1, C5, C9) are mounted unconditionally. `/taxonomy` (C2, C3, C4) is behind
 `CATALOG_TAXONOMY_V2_ENABLED`, and `/catalog-authoring` (C7, C8) behind
-`CATALOG_AUTHORING_ENABLED` — **all three default to false**. So eight of the
-nine shapes are measurements of what those flags would switch on, which is the
-moment the numbers are worth having.
+`CATALOG_AUTHORING_ENABLED`. So the shapes behind those two are measurements of
+what the flags would switch on, which is the moment the numbers are worth having.
 
 **Read the two halves of this table differently.** `stmts` and `rows out` are
 functions of the readers and the seeded tree and are stable run to run. `rows
@@ -1135,10 +1132,8 @@ difference. The forced plan is the cheaper of the two, so the index is not merel
 usable, it is worth using, and the planner is not reliably choosing it at this
 scale.
 
-`POST /facets` is behind `FACETS_ENABLED`, **default off**, so this is not a
-live shopper cost today — which is the reason to record it now rather than the
-reason not to. It is the read that turning that flag on would switch into the
-shopper path, and this is what it would cost.
+`POST /facets` is mounted unconditionally (`FACETS_ENABLED` was removed), so this
+is a live shopper cost.
 
 That is recorded and NOT acted on here, because the available actions are all
 worse than the finding. No index is missing, so there is none to add. Asserting
@@ -1885,7 +1880,7 @@ stops anybody looking.
 | Metrics for taxonomy/product-type/attribute completeness | **Done** — three, consumed from `readCatalogQuality`. |
 | Metrics for translation coverage, fallback use, stale/missing, machine-vs-reviewed | **Partial.** Coverage, machine share, stale and missing are produced; fallback use is seam 3. |
 | Metrics for search zero-result rate by locale/market | **Partial.** `search_zero_result_rate_by_market` is produced, bucketed by market, narrowed to `traffic_class = 'human'` and excluding NULL-market rows from BOTH halves; `search_zero_result_rate_by_locale` is seam 4. Analytics collection is off by default, so an empty population means "not collecting". |
-| Metrics for facet usage, latency and empty/invalid facet generation | **Partial, and `invalid` is now PARTLY refused rather than wholly unmeasured.** Empty generation is produced; latency is produced on `POST /facets`, and answers `surface_not_mounted` while `FACETS_ENABLED` is off (the default); usage is seam 5. **`invalid` splits**: generation that FAILED is measured, live by `facet_generation_error_rate` (5xx on `POST /facets`, `since_process_start`) and in batch by `facet_scope_generation_failure_rate` (`failed / drawn`) — both counts already existed and were read by nothing. A facet that was generated, returned and is UNUSABLE stays unmeasured, because nothing validates facet output anywhere; that half needs a verdict in `services/facets`. |
+| Metrics for facet usage, latency and empty/invalid facet generation | **Partial, and `invalid` is now PARTLY refused rather than wholly unmeasured.** Empty generation is produced; latency is produced on `POST /facets`, which is mounted unconditionally; usage is seam 5. **`invalid` splits**: generation that FAILED is measured, live by `facet_generation_error_rate` (5xx on `POST /facets`, `since_process_start`) and in batch by `facet_scope_generation_failure_rate` (`failed / drawn`) — both counts already existed and were read by nothing. A facet that was generated, returned and is UNUSABLE stays unmeasured, because nothing validates facet output anywhere; that half needs a verdict in `services/facets`. |
 | Metrics for mapping coverage and ambiguity by external source | **Done** — three. |
 | Metrics for backfill/reindex progress, retries and dead letters | **Partial.** Progress, retries, failed runs and pending reindex are produced; throughput is seam 7 and dead letters are seam 6. |
 | Structured logs with entity ids, schema versions and correlation ids without leaking | **Done** — a closed field set, a disjoint prohibition list, a mutation-tested guard. |

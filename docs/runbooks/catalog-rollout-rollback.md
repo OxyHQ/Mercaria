@@ -54,30 +54,32 @@ on the list; **404 with an operator's token means the list is empty.**
 subtraction: ADR 0007 D12 originally named six, **three of those were never
 built**, and **one lever a rollout needs was not among the six**. So 6 − 3 + 1 = 4.
 Do not quote `CATALOG_LOCALIZATION_ENABLED` or `PRODUCT_TYPES_ENABLED` at
-anybody — they appear nowhere in `packages/backend/src` — and do not forget
-`FACETS_ENABLED`, which D12 did not mention and which turns off a live public
-surface. **D12 has since been corrected** to name the four and to record why each
-absent one is absent. Full inventory:
+anybody — they appear nowhere in `packages/backend/src`. **D12 has since been
+corrected** to name the four and to record why each absent one is absent.
+**`FACETS_ENABLED`, the fourth, has since been REMOVED**: `/facets` is mounted
+unconditionally and cannot be rolled back by configuration, so three levers
+remain. Full inventory:
 [`../catalog-migration-operations.md`](../catalog-migration-operations.md)
 §"The lever inventory".
 
 **`CATALOG_AUTHORING_COHORTS` was the third absence and it has been CLOSED**, as
-**`CATALOG_ROLLOUT_COHORTS`** — a fifth lever that narrows which slice of the
-deployment the four above are switched on for, over market, locale, store,
+**`CATALOG_ROLLOUT_COHORTS`** — a further lever that narrows which slice of the
+deployment the catalog surfaces (the levers' mounts and the unconditional
+`/facets`) are switched on for, over market, locale, store,
 category and product type. **It is not a rollback lever and must not be used as
 one**: emptying it WIDENS the rollout to everybody, which is the opposite of what
 an incident wants. To roll a cohort back, remove entries; to roll the surface
-back, set the four levers to `false`. Full reference:
+back, set the three levers to `false` (`/facets` has none; narrow it with a
+cohort). Full reference:
 [`../catalog-rollout-cohorts.md`](../catalog-rollout-cohorts.md).
 
 | Set this to `false` | Mounts withdrawn | Blast radius |
 |---|---|---|
 | `CATALOG_AUTHORING_ENABLED` | `/stores/:storeId/product-drafts`, `/catalog-authoring` (`app.ts:258-260`) | merchants cannot author or publish through the new wizard; **every saved draft stays saved** |
 | `CATALOG_PROPOSALS_ENABLED` | `/catalog-proposals` (`:274-275`) | merchants cannot submit; **submitted proposals stay, and an operator can still decide them** through `/internal/catalog-proposals` |
-| `FACETS_ENABLED` | `/facets` (`:737-738`) | the storefront filter rail disappears; the domain owns no table and writes no row, so nothing durable is involved |
 | `CATALOG_TAXONOMY_V2_ENABLED` | `/navigation` (`:978-979`) | the storefront menu falls back to the v1 category tree (§3); **every tree, node and label stays readable** through `/internal/navigation` |
 
-**Five mounts, every one a surface this epic ADDED.** Nothing a shopper or a buyer
+**Four mounts (`/facets`, once a fifth, is now unconditional), every one a surface this epic ADDED.** Nothing a shopper or a buyer
 used before the epic is behind any of them: `/listings` (`app.ts:243`),
 `/categories` (`:245`), `/cart` (`:316`), `/checkout` (`:318`), `/search`
 (`:589`), `/catalog-attributes` (`:729`), `/compatibility` (`:1028`) and
@@ -230,10 +232,10 @@ the levers off does not undo the refusal.
 `CATALOG_LOCALIZATION_ENABLED`. What makes D12's "default ⇒ base locale" true
 today is that `services/catalog-localization/read.service.ts` exports exactly two
 readers and they have exactly two external consumers —
-`services/facets/facet.service.ts:82` (behind `FACETS_ENABLED`) and
-`services/catalog-authoring/schema.service.ts:92` (behind
-`CATALOG_AUTHORING_ENABLED`) — so turning those two levers off leaves no public
-surface serving a localized label. `routes/categories.ts` contains zero
+`services/facets/facet.service.ts:82` (unconditional since `FACETS_ENABLED`
+was removed) and `services/catalog-authoring/schema.service.ts:92` (behind
+`CATALOG_AUTHORING_ENABLED`) — so turning the authoring lever off leaves only
+the facet rail serving a localized label. `routes/categories.ts` contains zero
 occurrences of `locale`; positive control, `routes/navigation.ts` contains two.
 
 **This containment has no gate.** There is no `catalog-localization` isolation
@@ -368,8 +370,7 @@ this document says they will.
    `app.ts:254-256` and `:273-276` make about a merchant's afternoon of typing.*
 3. **Load the storefront with `CATALOG_TAXONOMY_V2_ENABLED` off** and confirm the
    menu renders from the v1 tree and reports
-   `source: 'category_tree_fallback'`, with no menu-shaped error. Repeat with
-   `FACETS_ENABLED` off and confirm the rail is absent rather than empty.
+   `source: 'category_tree_fallback'`, with no menu-shaped error.
    *Settles §3, which is currently the least defended claim here.*
 4. **Empty `CATALOG_OPERATOR_OXY_USER_IDS` deliberately and confirm the nine
    surfaces 404 with a real operator token.** *Settles §0, and is the one step

@@ -78,6 +78,7 @@ import internalPriceHistoryRouter from './routes/internal-price-history.js';
 import priceAlertsRouter from './routes/price-alerts.js';
 import shoppingAgentsRouter from './routes/shopping-agents.js';
 import seoRouter from './routes/seo.js';
+import { seoRoutesMounted } from './services/seo/rollout.js';
 import internalSeoRouter from './routes/internal-seo.js';
 import internalPriceAlertsRouter from './routes/internal-price-alerts.js';
 import internalShoppingAgentsRouter from './routes/internal-shopping-agents.js';
@@ -692,9 +693,9 @@ export function createApp(): express.Express {
   app.use('/search', searchRouter);
   // Natural-language shopping intent (#95). Mounted UNCONDITIONALLY, unlike
   // `/search` itself: the deterministic interpreter is the FLOOR rather than a
-  // degraded mode, so `NL_INTENT_ENABLED` gates whether a MODEL may be called
-  // and never whether the surface exists. A deployment with it off still has a
-  // working natural-language search box.
+  // degraded mode, so a model is called only when one is registered and
+  // benchmark-enabled, and nothing gates whether the surface exists. A
+  // deployment with no model still has a working natural-language search box.
   app.use('/search-intent', searchIntentRouter);
   app.use('/shopping-thread', shoppingThreadRouter);
 
@@ -803,20 +804,18 @@ export function createApp(): express.Express {
    * What the Cloudflare Worker asks before it serves a page: which document a
    * URL resolves to, whether it redirects, the crawl rules and the sitemaps.
    *
-   * `SEO_ROUTES_ENABLED` gates the MOUNT — the blunt lever, so a rollback does
-   * not depend on every handler having remembered its gate. Off, the worker's
-   * lookup 404s, it serves the storefront shell exactly as it does today, and
-   * the static `robots.txt` and `sitemap.xml` the app ships are what a crawler
-   * gets. Indexing has its OWN lever (`SEO_INDEXING_MODE`), because a correct
-   * title and a correct sharing card are worth having before anybody is invited
-   * to index the catalogue.
+   * Mounted iff `SEO_INDEXING_MODE` is `canary` or `on` (`seoRoutesMounted`),
+   * so a rollback does not depend on every handler having remembered its gate.
+   * With the mode `off` — the default — the worker's lookup 404s, it serves the
+   * storefront shell, and the static `robots.txt` and `sitemap.xml` the app
+   * ships are what a crawler gets.
    */
-  if (config.seo.routesEnabled) {
+  if (seoRoutesMounted()) {
     app.use('/seo', seoRouter);
   }
   /**
    * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
-   * allow-list, and NOT gated on `SEO_ROUTES_ENABLED`.
+   * allow-list, and NOT gated on `SEO_INDEXING_MODE`.
    *
    * The `/internal/price-history` arrangement, for its reason: the evidence has
    * to be readable during the incident that turned the public surface off, and
@@ -833,14 +832,9 @@ export function createApp(): express.Express {
   app.use('/catalog-attributes', catalogAttributesRouter);
   // The facet, filter and sort-option rail (#367 Workstream 10), well after
   // `express.json()` — it is an ordinary JSON read with no signature to verify.
-  // Behind `FACETS_ENABLED` because it is a new public surface; the lever gates
-  // the MOUNT and nothing durable, since the domain owns no table and writes no
-  // row. It reads #94's registry, ADR 0007 D5's product types, the taxonomy and
-  // #57's offers, every one of which stays readable through its own surface
-  // while this one is off.
-  if (config.catalog.facetsEnabled) {
-    app.use('/facets', facetsRouter);
-  }
+  // Unconditional; the router carries the catalog rollout-cohort gate. The
+  // domain owns no table and writes no row.
+  app.use('/facets', facetsRouter);
   // …and their operator surfaces, on the SAME allow-list the ones above use:
   // who may reshape the catalogue, who may withdraw an offer from a comparison
   // and who may change what an attribute MEANS are the same power over the same
@@ -980,11 +974,10 @@ export function createApp(): express.Express {
     app.use('/internal/ebay', internalEbayRouter);
   }
   /**
-   * The Awin retailer-network operator surface (#66), on the SAME allow-list and
-   * mounted while `AWIN_ENABLED` is off — for `/internal/ingestion`'s reason:
-   * registering a publisher account, polling the feed list and reading what it
-   * found is how a network is brought up BEFORE the adapter is switched on, and
-   * the evidence has to stay readable during the incident that turned it off.
+   * The Awin retailer-network operator surface (#66), on the SAME allow-list,
+   * for `/internal/ingestion`'s reason: registering a publisher account, polling
+   * the feed list and reading what it found is how a network is brought up
+   * BEFORE any source is activated.
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/awin', internalAwinRouter);
@@ -1021,20 +1014,18 @@ export function createApp(): express.Express {
   if (config.analytics.operatorSurfaceEnabled) {
     app.use('/internal/analytics', internalAnalyticsRouter);
   }
-  // Merchant demand analytics (#86). The MERCHANT-facing router mounts only
-  // when at least one of its two levers is on: the dashboard and the public
-  // preview are separate switches because the preview is the one surface an
-  // unauthenticated caller reaches, and turning it off must not take a claimed
-  // merchant's own reporting with it. Each route re-reads its own lever, so the
-  // mount is a cheap outer guard rather than the authority.
-  if (config.merchantDemand.dashboardEnabled || config.merchantDemand.previewEnabled) {
+  // Merchant demand analytics (#86). The MERCHANT-facing router (the claimed
+  // dashboard and the unclaimed public preview) mounts iff analytics collection
+  // is on: its figures are built from events, and with `ANALYTICS_COLLECTION_MODE`
+  // off there are none. Each route re-reads the same condition, so the mount is
+  // a cheap outer guard rather than the authority.
+  if (config.analytics.enabled) {
     app.use('/merchant-demand', merchantDemandRouter);
   }
   // …and the operator acquisition pipeline, on the SAME analytics allow-list —
   // deliberately not a seventh list, because reading what demand is doing
   // across the marketplace is the power that list already grants. It mounts
-  // while BOTH merchant levers are off: the evidence has to be readable during
-  // the incident that turned them off.
+  // while collection is off: the evidence has to be readable then too.
   if (config.analytics.operatorSurfaceEnabled) {
     app.use('/internal/merchant-demand', internalMerchantDemandRouter);
   }

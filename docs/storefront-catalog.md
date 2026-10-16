@@ -160,7 +160,8 @@ again. This is the client half; the HTTP 301 a crawler needs is #75's.
 pointing at a brand or a product cannot be applied on a category screen as if it
 were one.
 
-**`SEO_ROUTES_ENABLED` defaults false**, so on most deployments this 404s. The
+**`/seo/*` is mounted only while `SEO_INDEXING_MODE` is `canary` or `on`**, and
+the mode defaults to `off`, so on most deployments this 404s. The
 page then emits its own title and NO canonical tag and NO alternates, which is
 the honest degradation: an absent `rel=canonical` leaves the address as its own
 canonical, which is what it in fact is.

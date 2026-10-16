@@ -109,7 +109,6 @@ async function buildApp(analyticsOperatorIds: string): Promise<express.Express> 
   // Collection ON for the ingest cases; the enabled/disabled distinction under
   // test here is the OPERATOR list, not the collection flag.
   process.env.ANALYTICS_COLLECTION_MODE = 'full';
-  process.env.ANALYTICS_ENABLED = 'true';
   process.env.STRIPE_ENABLED = 'false';
   const { createApp } = await import('../../app.js');
   return createApp();
@@ -124,7 +123,6 @@ afterAll(async () => {
   delete process.env.ANALYTICS_OPERATOR_OXY_USER_IDS;
   delete process.env.PAYMENT_OPERATOR_OXY_USER_IDS;
   delete process.env.ANALYTICS_COLLECTION_MODE;
-  delete process.env.ANALYTICS_ENABLED;
   await Promise.all(
     [enabledServer, disabledServer].map(
       (server) =>

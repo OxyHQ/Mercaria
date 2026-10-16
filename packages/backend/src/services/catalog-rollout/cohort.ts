@@ -6,7 +6,8 @@
  *
  * D12 shipped four levers and they are booleans over a whole deployment:
  * `CATALOG_TAXONOMY_V2_ENABLED`, `CATALOG_AUTHORING_ENABLED`,
- * `CATALOG_PROPOSALS_ENABLED`, `FACETS_ENABLED`. It also named a fifth,
+ * `CATALOG_PROPOSALS_ENABLED`, `FACETS_ENABLED` (since removed; `/facets` is
+ * mounted unconditionally and still cohort-gated). It also named a fifth,
  * `CATALOG_AUTHORING_COHORTS`, and nobody built it — so D12 recorded, in its own
  * text, that the rollout order it had decided (internal users → selected stores
  * → selected product types and categories → locales and markets → GA) was **not

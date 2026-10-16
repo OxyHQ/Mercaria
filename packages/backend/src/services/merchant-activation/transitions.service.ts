@@ -143,16 +143,12 @@ export async function sweepMerchantActivation(): Promise<{ stores: number; trans
 /**
  * Start the observation loop.
  *
- * Gates the LOOP and never a row — every transition a merchant or an operator
- * causes is still recorded by the write that caused it, and the derivation is
- * unaffected because it is derived. `unref` so a stalled timer cannot hold jest
- * or a shutdown open.
+ * Most transitions have no actor (Stripe restricts an account, a connector stops
+ * delivering), so the sweep is what audits them; every transition a merchant or
+ * an operator causes is also recorded by the write that caused it. `unref` so a
+ * stalled timer cannot hold jest or a shutdown open.
  */
 export function startMerchantActivationObserver(): void {
-  if (!config.merchantActivation.observationEnabled) {
-    log.general.info('[Activation] observation sweep disabled');
-    return;
-  }
   const interval = setInterval(() => {
     void sweepMerchantActivation()
       .then((result) => {
