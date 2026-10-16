@@ -42,7 +42,7 @@ import type {
   MerchantOfferPage,
   Offer,
 } from '@mercaria/shared-types';
-import { mayAppearInComparison } from '@mercaria/shared-types';
+import { isOxyFileId, mayAppearInComparison } from '@mercaria/shared-types';
 import { getDb } from '../../db/postgres.js';
 import {
   countScopedOffers,
@@ -208,9 +208,12 @@ export async function getMerchantCatalog(
         ? {}
         : { brand: { id: brand.id, slug: brand.slug, name: brand.name } }),
       ...(product.categoryId === null ? {} : { categoryId: product.categoryId }),
-      ...(image === undefined
+      // The imported Oxy file only. `sourceUrl` stays in the wire shape (a
+      // shipped client reads it as nullable) and is always null: a supplier URL
+      // is an import input and never leaves the backend.
+      ...(image === undefined || !isOxyFileId(image.fileId)
         ? {}
-        : { image: { fileId: image.fileId, sourceUrl: image.sourceUrl, alt: image.alt } }),
+        : { image: { fileId: image.fileId, sourceUrl: null, alt: image.alt } }),
     };
     const entry = toMerchantCatalogEntry({
       product: entryProduct,

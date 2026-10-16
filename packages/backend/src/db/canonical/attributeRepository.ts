@@ -401,6 +401,80 @@ export async function insertCanonicalMedia(
   return rows[0];
 }
 
+/**
+ * Attach a source's medium, converging on the row that already carries the SAME
+ * SOURCE URL before falling back to `(entity, image_ref)`.
+ *
+ * `image_ref` is `coalesce(file_id, source_url)`, so once a source was imported
+ * its row's identity is the FILE, and a later observation of the same source
+ * whose import produced a different file (a different owner, re-encoded bytes)
+ * missed the unique and wrote a second row for one image — every re-observation
+ * a new duplicate. A source's identity is its URL: when a row for this entity
+ * already names `sourceUrl`, this writes no new row. It fills that row's missing
+ * file id (a legacy source-hosted row) unless another row of the entity already
+ * holds that file, which would be the same image twice.
+ *
+ * The caller's transaction serializes concurrent observations of one product on
+ * the product row (`updateProductRow` runs before the media), so the read-then-
+ * insert here is not a race between two observations of the same product.
+ */
+export async function attachCanonicalMediaBySource(
+  db: DatabaseOrTransaction,
+  input: InsertCanonicalImageInput & { kind: 'image' | 'video' },
+): Promise<CanonicalImageRow | undefined> {
+  if (input.sourceUrl !== undefined) {
+    const owner =
+      input.grain.kind === 'product'
+        ? eq(canonicalImages.productId, input.grain.id)
+        : eq(canonicalImages.variantId, input.grain.id);
+    const [existing] = await db
+      .select({ id: canonicalImages.id, fileId: canonicalImages.fileId })
+      .from(canonicalImages)
+      .where(and(owner, eq(canonicalImages.sourceUrl, input.sourceUrl)))
+      .orderBy(asc(canonicalImages.createdAt), asc(canonicalImages.id))
+      .limit(1);
+    if (existing) {
+      if (existing.fileId === null && input.fileId !== undefined) {
+        const grainColumn = input.grain.kind === 'product' ? 'product_id' : 'variant_id';
+        await db
+          .update(canonicalImages)
+          .set({ fileId: input.fileId })
+          .where(
+            and(
+              eq(canonicalImages.id, existing.id),
+              isNull(canonicalImages.fileId),
+              sql`not exists (
+                select 1 from canonical_images other
+                where other.${sql.raw(grainColumn)} = ${input.grain.id}
+                  and other.image_ref = ${input.fileId}
+              )`,
+            ),
+          );
+      }
+      return undefined;
+    }
+  }
+  return insertCanonicalMedia(db, input);
+}
+
+/** Every product-grain row of a product that has an imported file, by source URL. */
+export async function findCanonicalProductMediaFileIdsBySource(
+  db: DatabaseOrTransaction,
+  productId: string,
+): Promise<Map<string, string>> {
+  const rows = await db
+    .select({ sourceUrl: canonicalImages.sourceUrl, fileId: canonicalImages.fileId })
+    .from(canonicalImages)
+    .where(eq(canonicalImages.productId, productId))
+    .orderBy(asc(canonicalImages.createdAt), asc(canonicalImages.id));
+  const bySource = new Map<string, string>();
+  for (const row of rows) {
+    if (row.sourceUrl !== null && row.fileId !== null && !bySource.has(row.sourceUrl))
+      bySource.set(row.sourceUrl, row.fileId);
+  }
+  return bySource;
+}
+
 export async function listCanonicalImages(
   db: DatabaseOrTransaction,
   grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>,
@@ -448,6 +522,60 @@ export async function attachImportedCanonicalImage(
         eq(canonicalImages.id, imageId),
         eq(canonicalImages.sourceUrl, sourceUrl),
         isNull(canonicalImages.fileId),
+      ),
+    )
+    .returning({ id: canonicalImages.id });
+  return rows.length === 1;
+}
+
+/**
+ * Suppress every active canonical image showing `fileId` — Oxy blocked or
+ * deleted it (ADR 0041 D9/D10). The row is provenance (which source showed
+ * what), so it stays; `suppressed` is the status every read already hides, and
+ * the file id stays too, since a row holding only its source URL would be
+ * re-imported by the next backfill. Returns the rows changed.
+ */
+export async function suppressCanonicalImagesByFile(
+  db: DatabaseOrTransaction,
+  fileId: string,
+): Promise<string[]> {
+  const rows = await db
+    .update(canonicalImages)
+    .set({ status: 'suppressed' })
+    .where(and(eq(canonicalImages.fileId, fileId), eq(canonicalImages.status, 'active')))
+    .returning({ id: canonicalImages.id });
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Point a canonical image at `fileId` — the application-owned copy of what it
+ * shows — only while it still holds `previousFileId`, and never when another
+ * row of the same product or variant already holds `fileId` (the same image
+ * twice, which `canonical_images_*_ref_key` would refuse anyway).
+ */
+export async function replaceCanonicalImageFile(
+  db: DatabaseOrTransaction,
+  imageId: string,
+  previousFileId: string | null,
+  fileId: string,
+): Promise<boolean> {
+  if (!isOxyFileId(fileId)) throw new Error('Expected an Oxy file ID.');
+  const rows = await db
+    .update(canonicalImages)
+    .set({ fileId })
+    .where(
+      and(
+        eq(canonicalImages.id, imageId),
+        previousFileId === null
+          ? isNull(canonicalImages.fileId)
+          : eq(canonicalImages.fileId, previousFileId),
+        sql`not exists (
+          select 1 from canonical_images other
+          join canonical_images self on self.id = ${imageId}
+          where other.id <> self.id
+            and other.image_ref = ${fileId}
+            and (other.product_id = self.product_id or other.variant_id = self.variant_id)
+        )`,
       ),
     )
     .returning({ id: canonicalImages.id });

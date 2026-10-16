@@ -83,6 +83,7 @@
 
 import type { AssetUploadInput } from '@oxy.so/core';
 import type { OxyServer } from '@oxy.so/core/server';
+import type { OxyFileReferenceEntityType } from '@mercaria/shared-types';
 
 type ServiceLinkedDownloadUrl = Awaited<
   ReturnType<OxyServer['assets']['linkedDownloadUrls']>
@@ -90,6 +91,7 @@ type ServiceLinkedDownloadUrl = Awaited<
 import { oxyClient } from '../../middleware/auth.js';
 import { oxyServiceClient } from '../../capabilities/oxy-service-client.js';
 import { log } from '../../lib/logger.js';
+import { addOxyFileReferences } from '../catalog-media/oxy-files.js';
 
 /**
  * One stored object, described by MEASUREMENT rather than by a claim.
@@ -186,18 +188,23 @@ export interface DigitalAssetStoragePort {
 }
 
 /**
- * The Oxy application this service is, as Oxy's `file_links.app` spells it:
- * Mercaria's APPLICATION ID in Oxy's registry.
+ * The Oxy application this service is: Mercaria's APPLICATION ID in Oxy's
+ * registry.
  *
- * It is the left half of the authorization Oxy performs (ADR 0021): a file is
- * servable to Mercaria only when a `file_links` row carries THIS value and was
- * created by the file's own owner. Oxy compares it with the `appId` of the
- * service token asking (`isOwnerLinkedToApp` in OxyHQServices'
- * `routes/assets.ts`), and both of its mints — the key pair's and the attested
- * workload's — set that from the application's id, never from a name. So the
- * constant is not cosmetic: any other value makes every download refuse, in the
- * one way that is indistinguishable from "the creator never attached the file".
- * It was `'mercaria'` until OxyHQ/Mercaria#1085, which no link could ever match.
+ * It names the authorization Oxy performs (ADR 0021): a file is servable to
+ * Mercaria when Mercaria owns it (an application file, Oxy ADR 0041 D3) or when
+ * its own owner attached it to THIS application — a creator does that from their
+ * session in the creator surface, and the link records the application id. Oxy
+ * compares that with the `appId` of the service token asking
+ * (`isOwnerLinkedToApp` in OxyHQServices' `routes/assets.ts`), and both of its
+ * mints — the key pair's and the attested workload's — set that from the
+ * application's id, never from a name. So the constant is not cosmetic: any
+ * other value makes every creator-linked download refuse, in the one way that is
+ * indistinguishable from "the creator never attached the file". It was
+ * `'mercaria'` until OxyHQ/Mercaria#1085, which no link could ever match.
+ * Nothing in this module sends it: the references it registers are made with
+ * the service token, which IS the application (ADR 0041 D4), and Oxy records the
+ * token's application id on them.
  *
  * It is NOT configurable: it is the id of Mercaria's row in Oxy's application
  * registry (read from `GET /auth/oauth/client/<Mercaria's client id>` on
@@ -207,14 +214,17 @@ export interface DigitalAssetStoragePort {
 export const MERCARIA_OXY_APP = '6a37d0cc5d4b5f15482a9340';
 
 /**
- * The `entityType` this service links asset files under.
+ * The `entityType` this service registers asset files under (Oxy ADR 0041 D4).
  *
- * Oxy stores the link's `entityType`/`entityId` and authorizes on neither — only
- * `app` and `created_by` decide. So this is a label for whoever reads a file's
- * links in the Oxy console, and its value is chosen to say which Mercaria row the
- * file belongs to rather than to gate anything here.
+ * One of `OXY_FILE_REFERENCE_ENTITY_TYPES`, registered by THIS writer at upload
+ * and never by the nightly reconciliation: `asset_files.storage_key` is read in
+ * exactly one place (`findAssetFileStorageKey`), and an inventory would be a
+ * second reader. It was `asset_file` on the session link this replaces; the
+ * first reconciliation of Mercaria's references removes nothing under that name
+ * (it reconciles only registry types), so those legacy links stay harmless.
  */
-export const MERCARIA_ASSET_FILE_ENTITY_TYPE = 'asset_file';
+export const MERCARIA_ASSET_FILE_ENTITY_TYPE =
+  'digital_asset_file' as const satisfies OxyFileReferenceEntityType;
 
 /**
  * The client the SERVICE-authenticated reads use.
@@ -332,24 +342,26 @@ export const oxyAssetStorage: DigitalAssetStoragePort = {
       );
     }
     try {
-      // The link is NOT bookkeeping — it is the authorization (Oxy ADR 0021). A
-      // file with no `mercaria` link created by its own owner is unservable, and
-      // `describeAssetObject` below would answer `null` for an object that was
-      // just stored successfully. Linking here is what makes `created_by` equal
-      // `owner_user_id`: this client uploaded the object, so it owns it, so its
-      // own link satisfies the predicate.
+      // Register Mercaria's use of the object (Oxy ADR 0041 D4) with the
+      // application's own service token — the session route this used to call
+      // (`assets.link`) does not accept a server client with no user session,
+      // and Oxy's ADR names this call as the one to move. `entityId` is the
+      // storage key itself: no `asset_files` row exists yet, and this call is
+      // what produces the key the row will hold.
       //
-      // `entityId` is the storage key itself. An asset-file row does not exist
-      // yet — this call is what produces the key the row will hold — and the
-      // alternative of linking later, from the register path, would be linking as
-      // a DIFFERENT principal whenever the upload and the registration were not
-      // the same caller. Oxy authorizes on `app` and `created_by` only, so the
-      // value is a label; a self-reference is the one label that cannot go stale.
-      await oxyClient.assets.link(storageKey, {
-        app: MERCARIA_OXY_APP,
-        entityType: MERCARIA_ASSET_FILE_ENTITY_TYPE,
-        entityId: storageKey,
-      });
+      // NOT an authorization: a service-made reference has no creator, so it
+      // cannot satisfy ADR 0021's owner-linked predicate that
+      // `linkedDownloadUrls` checks. `describeAssetObject` below is what still
+      // decides whether the object is servable, and refuses here if it is not.
+      const [result] = await addOxyFileReferences([
+        {
+          fileId: storageKey,
+          entityType: MERCARIA_ASSET_FILE_ENTITY_TYPE,
+          entityId: storageKey,
+        },
+      ]);
+      if (result?.result !== 'created' && result?.result !== 'exists')
+        throw new Error('The asset service did not record the reference.');
     } catch (cause) {
       throw new DigitalStorageError(
         'unresolved',

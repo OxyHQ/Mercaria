@@ -927,8 +927,7 @@ export async function loadStorefrontRows(
  */
 export type ProductImageRow = {
   productId: string;
-  fileId: string | null;
-  sourceUrl: string | null;
+  fileId: string;
   alt: string | null;
 };
 
@@ -941,11 +940,14 @@ export async function loadPrimaryProductImages(
     select distinct on (${canonicalImages.productId})
       ${canonicalImages.productId} as "productId",
       ${canonicalImages.fileId} as "fileId",
-      ${canonicalImages.sourceUrl} as "sourceUrl",
       ${canonicalImages.alt} as "alt"
     from ${canonicalImages}
     where ${canonicalImages.productId} = any(${sql.param([...productIds])}::text[])
       and ${canonicalImages.status} = 'active' and ${canonicalImages.kind} = 'image'
+      -- Only an IMPORTED image is a primary image: a row still holding just its
+      -- source URL has nothing Mercaria may show (supplier URLs are import
+      -- inputs, never a hotlink), and must not hide an imported one behind it.
+      and ${canonicalImages.fileId} is not null
     order by ${canonicalImages.productId}, ${canonicalImages.position}, ${canonicalImages.id}`);
   return [...rows];
 }

@@ -31,6 +31,7 @@ const getFileDownloadUrlAsync = vi.fn();
 const getFileDownloadUrl = vi.fn();
 const uploadRawFile = vi.fn();
 const assetLink = vi.fn();
+const referencesAdd = vi.fn();
 const assetDelete = vi.fn();
 const linkedDownloadUrls = vi.fn();
 const logError = vi.fn();
@@ -52,7 +53,10 @@ vi.mock('../../../middleware/auth.js', () => ({
 }));
 vi.mock('../../../capabilities/oxy-service-client.js', () => ({
   oxyServiceClient: () => ({
-    assets: { linkedDownloadUrls: (...args: unknown[]) => linkedDownloadUrls(...args) },
+    assets: {
+      linkedDownloadUrls: (...args: unknown[]) => linkedDownloadUrls(...args),
+      references: { add: (...args: unknown[]) => referencesAdd(...args) },
+    },
   }),
 }));
 vi.mock('../../../lib/logger.js', () => ({
@@ -280,11 +284,14 @@ describe('describeAssetObject reads the SAME mint, and discards the credential',
   });
 });
 
-describe('putAssetObject stores PRIVATE, ATTACHES, and re-measures what it stored', () => {
-  it('names `private` explicitly, links to this app, and describes the result', async () => {
+describe('putAssetObject stores PRIVATE, REGISTERS its use, and re-measures what it stored', () => {
+  const registered = (refs: { fileId: string; entityType: string; entityId: string }[]) =>
+    refs.map((ref) => ({ ...ref, result: 'created' }));
+
+  it('names `private` explicitly, registers the reference with the service token, and describes the result', async () => {
     const { assetStorage } = await import('../storage.js');
     uploadRawFile.mockResolvedValue({ id: STORAGE_KEY });
-    assetLink.mockResolvedValue({});
+    referencesAdd.mockImplementation(async (refs) => registered(refs));
     linkedDownloadUrls.mockResolvedValue([mintedEntry]);
 
     const stored = await assetStorage.putAssetObject({
@@ -296,42 +303,50 @@ describe('putAssetObject stores PRIVATE, ATTACHES, and re-measures what it store
       visibility: 'private',
       metadata: { assetVersionId: 'version-1' },
     });
-    // The link is the AUTHORIZATION, not bookkeeping: without it the object this
-    // call just stored is unservable, because Oxy admits a file only when a link
-    // for this app was created by the file's own owner.
-    // Under Mercaria's application id: what Oxy compares with the asking
-    // service token's `appId` (a name would never match).
-    expect(assetLink).toHaveBeenCalledWith(STORAGE_KEY, {
-      app: '6a37d0cc5d4b5f15482a9340',
-      entityType: 'asset_file',
-      entityId: STORAGE_KEY,
-    });
+    // Oxy ADR 0041 D4: the application's own reference, made with its service
+    // token. The session route (`assets.link`) is no longer called — it does
+    // not accept a server client with no user session.
+    expect(referencesAdd).toHaveBeenCalledWith([
+      { fileId: STORAGE_KEY, entityType: 'digital_asset_file', entityId: STORAGE_KEY },
+    ]);
+    expect(assetLink).not.toHaveBeenCalled();
     expect(stored.contentHash).toBe(DIGEST);
     // Measured, not taken from the caller: the byte size comes back from the
     // service rather than from the length of the buffer handed over.
     expect(stored.byteSize).toBe(4_096);
   });
 
-  it('refuses when the link did not take, rather than returning an unservable object', async () => {
-    const { assetStorage, isDigitalStorageError } = await import('../storage.js');
-    uploadRawFile.mockResolvedValue({ id: STORAGE_KEY });
-    assetLink.mockRejectedValue(new Error('link failed'));
+  it.each([
+    ['rejected', () => referencesAdd.mockRejectedValue(new Error('references failed'))],
+    [
+      'refused',
+      () =>
+        referencesAdd.mockImplementation(async (refs: { fileId: string }[]) =>
+          refs.map((ref) => ({ ...ref, result: 'not_found' })),
+        ),
+    ],
+  ])(
+    'refuses when the reference was %s, rather than returning an unregistered object',
+    async (_label, arrange) => {
+      const { assetStorage, isDigitalStorageError } = await import('../storage.js');
+      uploadRawFile.mockResolvedValue({ id: STORAGE_KEY });
+      arrange();
 
-    const failure = await assetStorage
-      .putAssetObject({ file: new Blob(['x']) })
-      .catch((error) => error);
+      const failure = await assetStorage
+        .putAssetObject({ file: new Blob(['x']) })
+        .catch((error) => error);
 
-    expect(isDigitalStorageError(failure)).toBe(true);
-    expect(failure.reason).toBe('unresolved');
-    // It did not go on to describe: an object nobody can serve must not be
-    // reported as stored.
-    expect(linkedDownloadUrls).not.toHaveBeenCalled();
-  });
+      expect(isDigitalStorageError(failure)).toBe(true);
+      expect(failure.reason).toBe('unresolved');
+      // It did not go on to describe.
+      expect(linkedDownloadUrls).not.toHaveBeenCalled();
+    },
+  );
 
   it('refuses an upload the service will not describe', async () => {
     const { assetStorage, isDigitalStorageError } = await import('../storage.js');
     uploadRawFile.mockResolvedValue({ id: STORAGE_KEY });
-    assetLink.mockResolvedValue({});
+    referencesAdd.mockImplementation(async (refs) => registered(refs));
     linkedDownloadUrls.mockResolvedValue([]);
     const failure = await assetStorage
       .putAssetObject({ file: new Blob(['x']) })

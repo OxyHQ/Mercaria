@@ -117,6 +117,7 @@ export interface ProductBundleComponent {
   readonly name: string;
   readonly variantName?: string;
   readonly quantity: number;
+  /** `sourceUrl` is never sent (a supplier URL never leaves the backend); kept for old readers. */
   readonly image?: { readonly sourceUrl?: string; readonly fileId?: string; readonly alt?: string };
 }
 

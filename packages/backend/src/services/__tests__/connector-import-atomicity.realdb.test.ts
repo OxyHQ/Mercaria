@@ -38,7 +38,6 @@
  * wire.
  */
 
-import { Readable } from 'node:stream';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,32 +62,19 @@ import { createStoreProduct } from '../catalog-write.service.js';
 import { connectWithApiKey, runBackfill } from '../connector-sync.service.js';
 import { connectPushIn, ingestProducts } from '../channel-ingest.service.js';
 
-// Only external image transports are replaced. Store ownership, media sync,
-// catalog services, repositories and PostgreSQL constraints remain real.
-const { mediaUpload } = vi.hoisted(() => ({ mediaUpload: vi.fn() }));
-vi.mock('@oxy.so/core/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@oxy.so/core/server')>()),
-  safeFetch: async () => ({
-    status: 200,
-    headers: { 'content-type': 'image/png' },
-    response: Readable.from([Buffer.from('fixture image')]),
-  }),
+// Only Oxy is replaced, at the SDK boundary (`__tests__/oxy-files-fake.ts`: it
+// imports by URL and deduplicates per owner and URL, as Oxy ADR 0041 D7 does).
+// Store ownership, the media adapter, catalog services, repositories and
+// PostgreSQL constraints remain real.
+const oxyFiles = vi.hoisted(() => ({
+  current: undefined as undefined | import('../../__tests__/oxy-files-fake.js').FakeOxyFiles,
 }));
-vi.mock('../../capabilities/oxy-service-client.js', () => ({
-  oxyServiceClient: () => ({
-    baseURL: 'https://api.oxy.test',
-    serviceToken: async () => 'fixture-token',
-  }),
-}));
-beforeEach(() => {
-  mediaUpload.mockReset().mockImplementation(async () =>
-    Response.json({
-      data: { file: { id: 'oxy-synchronized-image', visibility: 'public' } },
-    }),
-  );
-  vi.stubGlobal('fetch', mediaUpload);
+vi.mock('../../capabilities/oxy-service-client.js', async () => {
+  const { createFakeOxyFiles } = await import('../../__tests__/oxy-files-fake.js');
+  oxyFiles.current = createFakeOxyFiles();
+  return { oxyServiceClient: () => oxyFiles.current?.client };
 });
-afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => oxyFiles.current?.reset());
 
 /**
  * The provider `getConnectorProvider` currently answers with.
@@ -1141,8 +1127,15 @@ describe('catalog media uses stored Oxy IDs in PostgreSQL', () => {
     const gallery = () =>
       db.select().from(listingImages).where(eq(listingImages.listingId, listing.id));
     const before = await gallery();
-    expect(before.map((row) => row.fileId)).toEqual(['oxy-synchronized-image']);
-    expect(mediaUpload.mock.calls[0][1].headers['x-owner-user-id']).toMatch(/^owner-/);
+    const fake = oxyFiles.current;
+    if (!fake) throw new Error('fixture: no Oxy fake');
+    // Imported acting as the STORE's account — never a request header, never staff.
+    expect(fake.imports.map((entry) => entry.owner)).toEqual([
+      expect.stringMatching(/^user:owner-/),
+    ]);
+    expect(before.map((row) => row.fileId)).toEqual([
+      fake.fileIdFor(fake.imports[0]?.owner ?? '', 'https://cdn.example.test/atomicity-tee.jpg'),
+    ]);
 
     installProviderYielding([
       normalizedProduct({
@@ -1150,10 +1143,37 @@ describe('catalog media uses stored Oxy IDs in PostgreSQL', () => {
         imageUrls: ['https://supplier.example/new.png'],
       }),
     ]);
-    mediaUpload.mockResolvedValue(new Response('Denied', { status: 403 }));
+    fake.failNext(403);
     const failed = await runBackfill(fixture.storeId, fixture.connection.id);
     expect(failed.countsFailed).toBe(1);
     expect(await gallery()).toEqual(before);
     expect((await listingsOf(fixture.storeId))[0].title).toBe(listing.title);
+  });
+
+  it('re-syncing an unchanged gallery downloads nothing and keeps the same file ids and rows', async () => {
+    // The audit's bug: every product UPDATE re-downloaded and re-uploaded the
+    // whole gallery. Oxy now remembers each source per owner, so the second
+    // sync's import answers the existing file and the gallery is left alone.
+    const fixture = await makePullFixture();
+    installProviderYielding([normalizedProduct()]);
+    await runBackfill(fixture.storeId, fixture.connection.id);
+    const [listing] = await listingsOf(fixture.storeId);
+    const gallery = () =>
+      db.select().from(listingImages).where(eq(listingImages.listingId, listing.id));
+    const before = await gallery();
+    const fake = oxyFiles.current;
+    if (!fake) throw new Error('fixture: no Oxy fake');
+    expect(fake.downloads).toHaveLength(1);
+
+    installProviderYielding([
+      normalizedProduct({
+        title: 'Renamed, same photos',
+        externalUpdatedAt: new Date('2026-08-02T10:00:00Z'),
+      }),
+    ]);
+    await runBackfill(fixture.storeId, fixture.connection.id);
+    expect((await listingsOf(fixture.storeId))[0].title).toBe('Renamed, same photos');
+    expect(fake.downloads).toHaveLength(1);
+    expect(await gallery()).toEqual(before);
   });
 });

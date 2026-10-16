@@ -53,7 +53,7 @@ describe('review attachment ownership and persistence', () => {
     expect(clients).not.toHaveBeenCalled();
   });
 
-  it('uses the author bearer and metadata kind, preserves order and links without a visibility override', async () => {
+  it('uses the author bearer and metadata kind, preserves order, and makes no link from the session', async () => {
     get.mockImplementation(async (id) => metadata(id, id === 'clip' ? { mime: 'video/mp4' } : {}));
     expect(await prepareReviewMedia(author, 'product', ['photo', 'clip'])).toEqual([
       { fileId: 'photo', kind: 'image' },
@@ -61,15 +61,10 @@ describe('review attachment ownership and persistence', () => {
     ]);
     expect(clients).toHaveBeenCalledTimes(1);
     expect(setAccessToken).toHaveBeenCalledExactlyOnceWith(author.accessToken);
-    expect(link.mock.calls).toEqual(
-      ['photo', 'clip'].map((id) => [
-        id,
-        { app: 'mercaria', entityType: 'review_media', entityId: id },
-      ]),
-    );
-    expect(Math.max(...get.mock.invocationCallOrder)).toBeLessThan(
-      link.mock.invocationCallOrder[0],
-    );
+    // The use is registered by the reference outbox after the review commits
+    // (`review_media` rows, Oxy ADR 0041 D4) with Mercaria's service token —
+    // never from the author's session, and never before the write.
+    expect(link).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -126,11 +121,4 @@ describe('review attachment ownership and persistence', () => {
       expect(link).not.toHaveBeenCalled();
     },
   );
-
-  it('reports a failed durable link instead of returning a partially prepared selection', async () => {
-    link.mockRejectedValue(new Error('upstream unavailable'));
-    await expect(prepareReviewMedia(author, 'product', ['photo'])).rejects.toMatchObject({
-      httpStatus: 503,
-    });
-  });
 });
