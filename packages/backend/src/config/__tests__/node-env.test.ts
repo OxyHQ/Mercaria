@@ -14,6 +14,10 @@ afterEach(() => {
 async function load(nodeEnv: string | undefined) {
   vi.resetModules();
   vi.stubEnv('NODE_ENV', nodeEnv);
+  // Production refuses to load config without the root secret
+  // (`lib/derived-secrets.ts`), which is a different boot check from this
+  // file's. A fixed test root keeps the production cases about NODE_ENV alone.
+  vi.stubEnv('MERCARIA_SECRET_KEY', 'a'.repeat(64));
   return import('../index.js');
 }
 
