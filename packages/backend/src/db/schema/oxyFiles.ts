@@ -9,7 +9,7 @@
  *
  * - `oxy_file_reference_outboxes` — "this entity's file usage may have changed".
  *   One row per `(entity_type, entity_id)`, written by a TRIGGER on every table
- *   that holds a file id (migration `0169`), in the writer's own transaction.
+ *   that holds a file id (migration `0170`), in the writer's own transaction.
  * - `oxy_file_references` — what Oxy has acknowledged: the references Mercaria
  *   registered and has not yet removed.
  * - `oxy_file_reference_reconciliations` — the nightly safety net (D6), one row

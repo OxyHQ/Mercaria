@@ -299,7 +299,7 @@ describe('application-owned media backfill', () => {
       method: 'connector_declared',
       matchRule: 'test.app-media',
     });
-    // The trigger queued it; simulate a link made before 0170 by removing the job.
+    // The trigger queued it; simulate a link made before 0171 by removing the job.
     await db
       .delete(canonicalSourceMediaImports)
       .where(

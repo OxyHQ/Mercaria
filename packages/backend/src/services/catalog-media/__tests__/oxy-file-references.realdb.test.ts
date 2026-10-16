@@ -1,6 +1,6 @@
 /**
  * Oxy file usage registration against the REAL schema (Oxy ADR 0041):
- * the triggers of migration 0169, the outbox's revision pair, the ledger diff,
+ * the triggers of migration 0170, the outbox's revision pair, the ledger diff,
  * the file-event detach and its append-only audit, and the reconciliation's
  * inventory.
  *

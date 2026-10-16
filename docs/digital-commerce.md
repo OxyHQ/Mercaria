@@ -122,7 +122,7 @@ and video up to 40 MiB today, so a mesh stays on the creator's upload until Oxy
 takes it and the backfill moves it. A PUBLISHED file's bytes remain immutable: a
 `storage_key` change is refused unless the transaction declared that one row's
 move (`set_config('mercaria.asset_storage_move', <file id>, true)`, migration
-`0171`), which only `replaceAssetFileStorageKey` does, and the hash, size and type
+`0172`), which only `replaceAssetFileStorageKey` does, and the hash, size and type
 are refused even then.
 
 **"No right" and "somebody else's right" get the same answer.** Distinguishing them

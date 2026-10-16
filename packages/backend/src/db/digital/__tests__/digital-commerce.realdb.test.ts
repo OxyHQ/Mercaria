@@ -500,7 +500,7 @@ describe('a creator publishes an asset, and the version is then immutable', () =
   it('admits a DECLARED same-bytes storage move on a published file, and nothing else', async () => {
     // Oxy ADR 0041: a deliverable moves onto an application-owned private file
     // holding the SAME bytes. `replaceAssetFileStorageKey` declares the move for
-    // this one row in its own transaction (migration 0171); the hash, size and
+    // this one row in its own transaction (migration 0172); the hash, size and
     // type stay refused inside it, and an undeclared move stays refused (above).
     const { meshFileId } = await mintPublishedAsset('storage-move');
     const [before] = await db.select().from(assetFiles).where(eq(assetFiles.id, meshFileId));

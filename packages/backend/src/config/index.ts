@@ -3861,7 +3861,7 @@ export interface PickupConfig {
  * Oxy Files usage registration (Oxy ADR 0041) — three independent levers.
  *
  * Each gates a LOOP or a MOUNT, never a durable record: the triggers of
- * migration `0169` enqueue every change to a file-holding row whatever these
+ * migration `0170` enqueue every change to a file-holding row whatever these
  * say, so turning the outbox on drains what accumulated while it was off.
  */
 export interface OxyFilesConfig {

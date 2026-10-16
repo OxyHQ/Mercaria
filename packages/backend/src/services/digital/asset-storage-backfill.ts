@@ -41,7 +41,7 @@ function oxyTakesAsApplicationFile(mediaType: string, byteSize: number): boolean
  * through the storage port (`adoptAssetObject`: Oxy copies, Mercaria measures the
  * copy's hash and size against the source's) and moves the row with
  * `replaceAssetFileStorageKey`, a compare-and-swap that the published-file
- * trigger admits only as a declared, same-bytes move (migration `0171`).
+ * trigger admits only as a declared, same-bytes move (migration `0172`).
  */
 export async function backfillDigitalAssetStorage(
   options: AssetStorageBackfillOptions,

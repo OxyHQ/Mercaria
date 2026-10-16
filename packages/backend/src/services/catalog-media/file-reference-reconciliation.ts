@@ -5,7 +5,7 @@
  * began that the inventory does not list.
  *
  * It is the safety net under the reference outbox — a crash between the Oxy
- * call and the ledger write, a row written before migration `0169` existed, an
+ * call and the ledger write, a row written before migration `0170` existed, an
  * order snapshot (registered only here) — and it is HOW EXISTING DATA ENTERS the
  * model: the first run of each type registers every file Mercaria already used.
  *

@@ -4,7 +4,7 @@
  *
  * There is deliberately no TypeScript enqueue. The only writer of a new request
  * is `mercaria_oxy_file_reference_enqueue`, called by the triggers of migration
- * `0169` on every table that holds a file id, inside the writer's own
+ * `0170` on every table that holds a file id, inside the writer's own
  * transaction (`db/schema/oxyFiles.ts` says why a trigger, not an `enqueue*`).
  * {@link requestFileReferenceConvergence} calls that same function for the two
  * paths no trigger sees (a re-drive by an operator, a test) and is therefore an

@@ -17,7 +17,7 @@ import {
  *   adopt an account-owned file as the application's;
  * - `canonical_description_image` — adopt the images of canonical descriptions;
  * - `canonical_image_duplicates` — collapse rows the old identity bug duplicated;
- * - `source_media` — queue the imagery of source links made before migration 0170.
+ * - `source_media` — queue the imagery of source links made before migration 0171.
  *
  *
  *   bun run packages/backend/src/scripts/backfill-application-media.ts --target=category_image

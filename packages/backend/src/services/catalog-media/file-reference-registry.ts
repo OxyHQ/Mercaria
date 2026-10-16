@@ -67,7 +67,7 @@ export type FileReferenceOwner =
 
 /** How a holding row learns its reference changed. */
 export type FileReferenceRegistration =
-  /** A trigger of migration `0169` enqueues every write (the default). */
+  /** A trigger of migration `0170` enqueues every write (the default). */
   | 'trigger'
   /** Only the nightly reconciliation registers it; the writer is never made to depend on this. */
   | 'reconciliation'

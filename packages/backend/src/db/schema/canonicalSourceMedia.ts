@@ -13,7 +13,7 @@
  * Every path that attaches an observation to a canonical product writes an
  * active `canonical_product_source_links` row — the ingestion matcher, #60's
  * backfill minting a product, an operator's observation — so a trigger there
- * (migration `0170`) is the one place that sees all three, in the writer's own
+ * (migration `0171`) is the one place that sees all three, in the writer's own
  * transaction. It enqueues only when the observation's stored payload actually
  * names media. The import itself runs later, bounded: a feed of a million
  * offers enqueues a million cheap rows and is drained at the dispatcher's rate,
