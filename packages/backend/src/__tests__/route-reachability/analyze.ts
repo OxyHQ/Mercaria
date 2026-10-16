@@ -109,13 +109,15 @@ export interface AppReachability {
 /**
  * Expo-router files that declare no navigable screen.
  *
- * An EXACT set rather than a prefix rule: `+html` is the web document shell and
+ * An EXACT set rather than a prefix rule: `+html` is the web document shell,
  * `+not-found` is the fallback expo-router renders for an unmatched URL, which
- * is by definition not a destination anybody links to. Any OTHER `_`- or
+ * is by definition not a destination anybody links to, and `+native-intent`
+ * rewrites an incoming native link before routing (the storefront's opens the
+ * Settings dialog instead of a screen). Any OTHER `_`- or
  * `+`-prefixed file is refused rather than guessed at, because silently
  * dropping a file from the census is how a screen stops being counted.
  */
-const NON_ROUTE_FILES: ReadonlySet<string> = new Set(['+html', '+not-found']);
+const NON_ROUTE_FILES: ReadonlySet<string> = new Set(['+html', '+not-found', '+native-intent']);
 
 /** Layout files, which are not routes but ARE part of a route's closure. */
 const LAYOUT_FILE = '_layout';
@@ -237,7 +239,7 @@ function parseRouteSegments(route: string): RouteSegment[] {
 /**
  * Every route an app declares.
  *
- * A file under `app/` is a route, a layout, or one of the two expo-router
+ * A file under `app/` is a route, a layout, or one of the named expo-router
  * specials — and anything else THROWS. That is the same refusal
  * `merge-plan-census.test.ts` makes for a foreign key with no disposition: a
  * file quietly dropped from the census is a screen that stops being counted,

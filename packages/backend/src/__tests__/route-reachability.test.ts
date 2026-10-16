@@ -187,10 +187,16 @@ describe('THE GATE: every route is reachable, or says why it is not', () => {
 
     expect(
       deliberate.map((entry) => `${entry.app}${entry.route}`).sort(),
-      'the DELIBERATE list changed. A route unreachable BY DESIGN is rare — the only one is a ' +
-        'provider return URL. Adding one means in-app navigation must never reach that screen; ' +
-        'if the truth is "nobody has wired it yet", it is awaiting_product_decision instead.',
-    ).toEqual(['frontend/checkout/return']);
+      'the DELIBERATE list changed. A route unreachable BY DESIGN is rare — a provider return ' +
+        'URL and the Settings dialog\'s deep-link bridges. Adding one means in-app navigation ' +
+        'must never reach that screen; if the truth is "nobody has wired it yet", it is ' +
+        'awaiting_product_decision instead.',
+    ).toEqual([
+      'frontend/checkout/return',
+      'frontend/settings',
+      'frontend/settings/addresses',
+      'frontend/settings/feedback',
+    ]);
 
     expect(
       awaiting.length,
@@ -264,17 +270,17 @@ describe('POSITIVE CONTROLS: the walk really is transitive', () => {
   });
 
   it('reads a route that travels through a `RoutePath`-typed helper', () => {
-    // `account-section.tsx` navigates with `go = (route: RoutePath) => ...` and
-    // passes `"/(app)/watchlists"` as a CALL ARGUMENT — a position no
-    // `router.push`/`href` rule sees. Five of the storefront's account
-    // shortcuts travel this way; before this rule existed they all reported
-    // unreachable, contradicting #363, which is how the gap was found.
+    // `StorefrontSettingsDialog.tsx` navigates with `go = (route: RoutePath) => ...`
+    // and passes `"/(app)/watchlists"` as a CALL ARGUMENT — a position no
+    // `router.push`/`href` rule sees. The storefront's account shortcuts travel
+    // this way; before this rule existed they all reported unreachable,
+    // contradicting #363, which is how the gap was found.
     const result = reachabilityOf('frontend');
     for (const route of [
       '/watchlists',
       '/shopping-agents',
       '/referral-partner',
-      '/settings/addresses',
+      '/orders',
     ]) {
       expect(result.reachable.has(route), `${route} should be reachable via go()`).toBe(true);
     }
