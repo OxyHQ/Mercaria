@@ -16,6 +16,17 @@ import { brands } from '../../../db/schema/organizations.js';
 import { categories } from '../../../db/schema/catalog.js';
 import { insertCategory } from '../../../db/taxonomy/taxonomyRepository.js';
 import { createBrand } from '../../canonical/brand.service.js';
+import { createHash } from 'node:crypto';
+import { and } from 'drizzle-orm';
+import { canonicalImages, canonicalProducts } from '../../../db/schema/canonicalCatalog.js';
+import { canonicalSourceMediaImports } from '../../../db/schema/canonicalSourceMedia.js';
+import {
+  ensureCatalogSource,
+  recordSourceObservation,
+} from '../../../db/canonical/provenanceRepository.js';
+import { insertCanonicalProductSourceLink } from '../../../db/canonical/canonicalProductRepository.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
+import { createCanonicalProduct } from '../../canonical/canonical-product.service.js';
 import type { FakeOxyFiles } from '../../../__tests__/oxy-files-fake.js';
 
 const oxyFiles = vi.hoisted(() => ({ current: undefined as undefined | FakeOxyFiles }));
@@ -25,7 +36,12 @@ vi.mock('../../../capabilities/oxy-service-client.js', async () => {
   return { oxyServiceClient: () => oxyFiles.current?.client };
 });
 
-const { backfillApplicationMedia } = await import('../application-media-backfill.js');
+const {
+  backfillApplicationMedia,
+  backfillCanonicalDescriptionImages,
+  backfillCanonicalImageDuplicates,
+  backfillCanonicalSourceMediaQueue,
+} = await import('../application-media-backfill.js');
 const { resolveMedia } = await import('../urls.js');
 
 const RUN = uuidv7().slice(-12);
@@ -40,9 +56,39 @@ let db: Database;
 beforeAll(async () => {
   db = await connectPostgres();
 }, 120_000);
+const productIds: string[] = [];
 afterAll(async () => {
+  await deleteTestCanonicalRows(db, { productIds });
   await closePostgres();
 });
+
+async function mintProduct(label: string, description?: string): Promise<string> {
+  const product = await createCanonicalProduct({
+    name: `App media ${label} ${RUN}`,
+    ...(description === undefined ? {} : { description }),
+  });
+  productIds.push(product.id);
+  return product.id;
+}
+
+async function observation(label: string, payload?: Record<string, unknown>): Promise<string> {
+  const source = await ensureCatalogSource(db, {
+    kind: 'feed',
+    name: `app-media-${RUN}`,
+    mayDisplay: true,
+    mayStore: true,
+    attributionRequired: false,
+  });
+  const { record } = await recordSourceObservation(db, {
+    sourceId: source.id,
+    externalType: 'product',
+    externalId: `app-media-${label}-${RUN}`,
+    observedAt: new Date(),
+    contentHash: createHash('sha256').update(`${label}-${RUN}`).digest('hex'),
+    ...(payload === undefined ? {} : { payload }),
+  });
+  return record.id;
+}
 beforeEach(() => oxyFiles.current?.reset());
 
 describe('application-owned media backfill', () => {
@@ -154,5 +200,130 @@ describe('application-owned media backfill', () => {
     } finally {
       client.assets.importAppFile = original;
     }
+  });
+
+  it('re-owns the images of a canonical description, rewriting only those <img> sources', async () => {
+    const operatorFile = `operator-description-${RUN}`;
+    const description = `<p>Size chart</p><img src="https://cloud.oxy.so/${operatorFile}" alt="chart">`;
+    const productId = await mintProduct('description', description);
+    const preview = await backfillCanonicalDescriptionImages(
+      { mode: 'preview', limit: 1, id: productId },
+      db,
+    );
+    expect(preview.entries).toEqual([
+      { id: productId, images: [expect.stringMatching(/^[a-f0-9]{64}$/)], outcome: 'pending' },
+    ]);
+    const applied = await backfillCanonicalDescriptionImages(
+      { mode: 'apply', limit: 1, id: productId },
+      db,
+    );
+    expect(applied.entries[0]?.outcome).toBe('applied');
+    const appFile = present(oxyFiles.current, 'Oxy fake').fileIdFor(
+      'app',
+      present(resolveMedia(operatorFile), 'public URL'),
+    );
+    const [row] = await db
+      .select({ description: canonicalProducts.description })
+      .from(canonicalProducts)
+      .where(eq(canonicalProducts.id, productId));
+    expect(row?.description).toBe(
+      `<p>Size chart</p><img src="https://cloud.oxy.so/${appFile}" alt="chart">`,
+    );
+  });
+
+  it('collapses rows the old identity bug duplicated onto one survivor', async () => {
+    const productId = await mintProduct('duplicates');
+    const recordId = await observation('duplicates');
+    const sourceUrl = `https://supplier.example.test/${RUN}/dup.jpg`;
+    const inserted = await db
+      .insert(canonicalImages)
+      .values([
+        { productId, sourceRecordId: recordId, sourceUrl, fileId: `dup-a-${RUN}`, position: 0 },
+        {
+          productId,
+          sourceRecordId: recordId,
+          sourceUrl,
+          fileId: `dup-b-${RUN}`,
+          position: 1,
+          alt: 'Front',
+        },
+        {
+          productId,
+          sourceRecordId: recordId,
+          sourceUrl: `${sourceUrl}?other`,
+          fileId: `keep-${RUN}`,
+          position: 2,
+        },
+      ])
+      .returning({ id: canonicalImages.id, fileId: canonicalImages.fileId });
+    const pair = [present(inserted[0], 'row').id, present(inserted[1], 'row').id];
+    const preview = await backfillCanonicalImageDuplicates({ mode: 'preview', limit: 500 }, db);
+    const mine = preview.entries.find((entry) => pair.includes(entry.survivorId));
+    if (!mine) throw new Error('fixture: the duplicate group was not found');
+    // Both rows are active and hold a file and share a created_at, so the id
+    // decides; the other row of the pair is the duplicate.
+    const survivor = mine.survivorId;
+    expect(mine).toMatchObject({
+      duplicateIds: pair.filter((id) => id !== survivor),
+      outcome: 'pending',
+    });
+    expect(JSON.stringify(mine)).not.toContain('supplier.example');
+    // Apply scoped to this group: resume from just before the survivor.
+    const groups = preview.entries.map((entry) => entry.survivorId).sort();
+    const index = groups.indexOf(survivor);
+    const applied = await backfillCanonicalImageDuplicates(
+      { mode: 'apply', limit: 1, ...(index > 0 ? { after: groups[index - 1] } : {}) },
+      db,
+    );
+    expect(applied.entries[0]).toMatchObject({ survivorId: survivor, outcome: 'applied' });
+    const rows = await db
+      .select({ id: canonicalImages.id, alt: canonicalImages.alt })
+      .from(canonicalImages)
+      .where(eq(canonicalImages.productId, productId));
+    expect(rows.map((row) => row.id).sort()).toEqual(
+      [survivor, present(inserted[2], 'row').id].sort(),
+    );
+    // The survivor keeps an alt text: its own, or the one only the duplicate had.
+    expect(rows.find((row) => row.id === survivor)?.alt).toBe('Front');
+  });
+
+  it('queues the imagery of source links made before the trigger, idempotently', async () => {
+    const productId = await mintProduct('queue');
+    const recordId = await observation('queue', {
+      title: 'queue',
+      media: [`https://supplier.example.test/${RUN}/queue.jpg`],
+    });
+    await insertCanonicalProductSourceLink(db, {
+      productId,
+      sourceRecordId: recordId,
+      method: 'connector_declared',
+      matchRule: 'test.app-media',
+    });
+    // The trigger queued it; simulate a link made before 0170 by removing the job.
+    await db
+      .delete(canonicalSourceMediaImports)
+      .where(
+        and(
+          eq(canonicalSourceMediaImports.canonicalProductId, productId),
+          eq(canonicalSourceMediaImports.sourceRecordId, recordId),
+        ),
+      );
+    let after: string | undefined;
+    let found: { outcome: string } | undefined;
+    for (let page = 0; page < 100 && !found; page += 1) {
+      const report = await backfillCanonicalSourceMediaQueue(
+        { mode: 'apply', limit: 500, ...(after ? { after } : {}) },
+        db,
+      );
+      found = report.entries.find((entry) => entry.productId === productId);
+      if (!report.resumeAfterId) break;
+      after = report.resumeAfterId;
+    }
+    expect(found?.outcome).toBe('queued');
+    const queued = await db
+      .select()
+      .from(canonicalSourceMediaImports)
+      .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
+    expect(queued).toHaveLength(1);
   });
 });

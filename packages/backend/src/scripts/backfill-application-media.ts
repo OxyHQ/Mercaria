@@ -3,16 +3,31 @@ import { closePostgres, connectPostgres } from '../db/postgres.js';
 import {
   APPLICATION_MEDIA_TARGETS,
   backfillApplicationMedia,
+  backfillCanonicalDescriptionImages,
+  backfillCanonicalImageDuplicates,
+  backfillCanonicalSourceMediaQueue,
   type ApplicationMediaBackfillOptions,
 } from '../services/catalog-media/application-media-backfill.js';
 
 /**
- * Canonical images, category art and brand logos into files owned by the
- * Mercaria application (Oxy ADR 0041). Read-only preview by default; `--apply`
- * imports. Run per target, from the repo root with Bun:
+ * Mercaria-application media (Oxy ADR 0041). Read-only preview by default;
+ * `--apply` acts. Run per target, from the repo root with Bun:
+ *
+ * - `canonical_image`, `category_image`, `brand_logo` — import a legacy URL or
+ *   adopt an account-owned file as the application's;
+ * - `canonical_description_image` — adopt the images of canonical descriptions;
+ * - `canonical_image_duplicates` — collapse rows the old identity bug duplicated;
+ * - `source_media` — queue the imagery of source links made before migration 0170.
+ *
  *
  *   bun run packages/backend/src/scripts/backfill-application-media.ts --target=category_image
  */
+const EXTRA_TARGETS = [
+  'canonical_description_image',
+  'canonical_image_duplicates',
+  'source_media',
+] as const;
+
 async function main() {
   const options: ApplicationMediaBackfillOptions = {
     target: 'canonical_image',
@@ -29,11 +44,20 @@ async function main() {
     else if (/^--id=[A-Za-z0-9_-]+$/.test(arg)) options.id = arg.slice(5);
     else throw new Error('Unknown or invalid application-media backfill argument.');
   }
-  if (!target || !(APPLICATION_MEDIA_TARGETS as readonly string[]).includes(target))
-    throw new Error('Name a --target.');
-  options.target = target as ApplicationMediaTarget;
   const db = await connectPostgres();
-  const report = await backfillApplicationMedia(options, db);
+  let report: { retryIds: readonly string[] };
+  if (target === 'canonical_description_image')
+    report = await backfillCanonicalDescriptionImages(options, db);
+  else if (target === 'canonical_image_duplicates')
+    report = await backfillCanonicalImageDuplicates(options, db);
+  else if (target === 'source_media') report = await backfillCanonicalSourceMediaQueue(options, db);
+  else if (target && (APPLICATION_MEDIA_TARGETS as readonly string[]).includes(target)) {
+    options.target = target as ApplicationMediaTarget;
+    report = await backfillApplicationMedia(options, db);
+  } else
+    throw new Error(
+      `Name a --target: ${[...APPLICATION_MEDIA_TARGETS, ...EXTRA_TARGETS].join(', ')}.`,
+    );
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   if (report.retryIds.length) process.exitCode = 1;
 }

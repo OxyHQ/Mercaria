@@ -685,3 +685,85 @@ export async function findFieldProvenance(
     .limit(1);
   return rows[0];
 }
+
+/**
+ * One keyset page of canonical images that DUPLICATE another row of the same
+ * product or variant by source URL — the rows the pre-ADR-0041 identity bug
+ * wrote (`image_ref = coalesce(file_id, source_url)` let a re-import that
+ * returned a different file in as a second row). Grouped per (grain, entity,
+ * source URL), ordered by the survivor's id; every row id of the group is
+ * returned, survivor first: active before suppressed, a held file before none,
+ * then the oldest.
+ */
+export async function findDuplicateCanonicalImageGroups(
+  db: DatabaseOrTransaction,
+  options: { after?: string; limit: number },
+): Promise<{ survivorId: string; sourceUrl: string; rowIds: string[] }[]> {
+  const rows = await db.execute<{ survivor_id: string; source_url: string; row_ids: string[] }>(sql`
+    with ranked as (
+      select id, source_url,
+             coalesce('p:' || product_id, 'v:' || variant_id) as entity,
+             row_number() over (
+               partition by coalesce('p:' || product_id, 'v:' || variant_id), source_url
+               order by (status = 'active') desc, (file_id is not null) desc, created_at, id
+             ) as rank
+        from canonical_images
+       where source_url is not null
+    ),
+    groups as (
+      select entity, source_url,
+             array_agg(id order by rank) as row_ids,
+             (array_agg(id order by rank))[1] as survivor_id
+        from ranked
+       group by entity, source_url
+      having count(*) > 1
+    )
+    select survivor_id, source_url, row_ids
+      from groups
+     ${options.after === undefined ? sql`` : sql`where survivor_id > ${options.after}`}
+     order by survivor_id
+     limit ${options.limit}`);
+  return rows.map((row) => ({
+    survivorId: String(row.survivor_id),
+    sourceUrl: String(row.source_url),
+    rowIds: [...row.row_ids].map(String),
+  }));
+}
+
+/**
+ * Collapse one duplicate group onto its survivor: the survivor takes a
+ * missing alt text from a duplicate, and the duplicates are deleted — only
+ * while every row still exists with the same source URL, so a concurrent edit
+ * leaves the group for a retry. Nothing references a `canonical_images` row by
+ * id (a merge repoints rows; it does not point at them), and the deletions fire
+ * the reference trigger, so Oxy hears that the duplicates' files lost a use.
+ */
+export async function collapseCanonicalImageDuplicates(
+  db: DatabaseOrTransaction,
+  group: { survivorId: string; sourceUrl: string; rowIds: readonly string[] },
+): Promise<'applied' | 'changed'> {
+  const duplicates = group.rowIds.filter((id) => id !== group.survivorId);
+  return db.transaction(async (tx) => {
+    const current = await tx
+      .select({ id: canonicalImages.id, alt: canonicalImages.alt })
+      .from(canonicalImages)
+      .where(
+        and(
+          inArray(canonicalImages.id, [...group.rowIds]),
+          eq(canonicalImages.sourceUrl, group.sourceUrl),
+        ),
+      )
+      .for('update');
+    if (current.length !== group.rowIds.length) return 'changed';
+    const survivor = current.find((row) => row.id === group.survivorId);
+    const alt = current.find((row) => row.id !== group.survivorId && row.alt !== null)?.alt;
+    if (survivor && survivor.alt === null && alt) {
+      await tx
+        .update(canonicalImages)
+        .set(assertLocalizedRow('canonical_images', { alt }))
+        .where(eq(canonicalImages.id, group.survivorId));
+    }
+    await tx.delete(canonicalImages).where(inArray(canonicalImages.id, duplicates));
+    return 'applied';
+  });
+}
