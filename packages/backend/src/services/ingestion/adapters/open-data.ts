@@ -112,7 +112,13 @@ export function createOpenDataAdapter(
         // A pass is complete only on its LAST page: a provider that reported
         // completeness with a further page queued would retire everything
         // that page was about to deliver.
-        complete: page.complete && page.next === null,
+        //
+        // And only in `full_snapshot`, the one mode that may establish an
+        // absence. A provider that reads the whole dump on every pass (Open
+        // Prices) still says `complete` on an incremental one, and
+        // `catalog_source_runs_complete_mode_check` then refuses the page's
+        // bookkeeping, so the run is retried every tick and never closes.
+        complete: request.mode === 'full_snapshot' && page.complete && page.next === null,
         fetchDurationMs: Date.now() - startedAt,
         rateLimitHits: page.rateLimitHits ?? 0,
       };
