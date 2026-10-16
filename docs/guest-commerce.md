@@ -46,9 +46,9 @@ appearing where an Oxy id is expected.
   a 60 s `previous_token_hash` grace; the 7-day activity rotation answers in
   kind from the resolver. Purge = two expiry-sweep targets (7 d past
   expiry/revocation), hard DELETE.
-- **Flags (M8):** `GUEST_COMMERCE_ENABLED` (default false) gates the MOUNT and
-  requires BOTH `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (the
-  half-configuration rule; keys are consumed by #105+/#108 but demanded now).
+- **Flags (M8):** `GUEST_COMMERCE_ENABLED` (default false) gates the MOUNT. The
+  contact cipher key and the separate email-hash key (D12) are derived from
+  `MERCARIA_SECRET_KEY` under different purposes, so nothing else is needed.
   `GUEST_SESSION_ISSUANCE_ENABLED` (default true) is the incident kill switch:
   stops NEW sessions only — existing ones keep resolving/rotating/revoking.
   `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`. Production

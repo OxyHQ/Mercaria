@@ -42,8 +42,6 @@ let ACKNOWLEDGEMENT: string;
 beforeAll(async () => {
   // The two keys the recovery path needs to hash an address at all. NOT
   // `GUEST_COMMERCE_ENABLED` — see the module docblock.
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'c'.repeat(64);
-  process.env.GUEST_EMAIL_HASH_KEY = 'd'.repeat(64);
   process.env.GUEST_MAGIC_LINK_BASE_URL = 'https://mercaria.co/guest-orders/portal';
 
   const { createApp } = await import('../../app.js');

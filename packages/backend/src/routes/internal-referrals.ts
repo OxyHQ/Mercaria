@@ -19,10 +19,8 @@
  * delete. Each would be a way to make the record say something nobody observed.
  * Every write below drives an existing idempotent path a machine already takes.
  *
- * Mounted while every lever is down and while `REFERRALS_ENABLED` is off — the
- * standing rule that the evidence has to be readable during the incident that
- * turned the surface off, and the reason an operator can settle a batch by hand
- * with `REFERRAL_PAYOUT_BATCHES_ENABLED` off.
+ * Mounted while every program lever is down — the standing rule that the
+ * evidence has to be readable during the incident that turned a program off.
  */
 
 import { Router } from 'express';
@@ -139,9 +137,7 @@ router.use(requireReferralOperator);
 //
 // On this SAME list rather than an eighth: deciding whether somebody may be a
 // referral partner and approving what they are paid are the same economy, which
-// is the argument #145 made when it joined. Deliberately NOT gated by
-// `REFERRAL_PARTNER_ENROLLMENT_ENABLED` — that lever stops NEW enrollment, and
-// a queue has to be workable through exactly the incident that turned it off.
+// is the argument #145 made when it joined.
 
 /** The review inbox. Filtered by STATE only; there is no name or email search. */
 router.get('/partners', listReferralPartnerInboxHandler);

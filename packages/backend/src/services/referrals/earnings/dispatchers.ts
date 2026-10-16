@@ -1,24 +1,15 @@
 /**
  * The three referral-earnings loops (#145).
  *
- * Each gates the LOOP and never a durable record, which is ADR 0005 D18's
- * "gating loops and gates, never records" and the standing house rule it
- * restates. Turning any of them off loses nothing: the rewards keep accruing and
- * their postings keep committing (the accrual books INSIDE #144's own
- * transaction and no flag reaches it), the holds keep elapsing, and turning a
- * loop back on drains whatever accumulated.
+ * All three run on every task; none is a lever. What they do:
  *
- * What each one stops:
- *
- *  - `REFERRAL_VESTING_ENABLED` off — held rewards stop becoming `vested`. They
- *    are still owed, still visible, and vest on the first pass after it is back.
- *  - `REFERRAL_PAYOUT_BATCHES_ENABLED` off — no batch is BUILT by the loop. An
- *    operator can still open, approve, settle and cancel one by hand, which is
- *    the supported path during an incident and the reason the surface stays
- *    mounted.
- *  - `REFERRAL_RECONCILIATION_ENABLED` off — nobody is looking. Nothing changes
- *    about what is true, which is the whole reason the sweep detects and never
- *    repairs.
+ *  - vesting — held rewards whose hold elapsed become `vested`.
+ *  - payout — DRAFT batches are built for payable partners, and batches an
+ *    operator APPROVED are settled. The loop approves nothing: money moves only
+ *    from an operator-approved batch, under the program's
+ *    `referral_program_controls.payout_enabled`, to a payment-ready partner,
+ *    over the Stripe rail `STRIPE_ENABLED` gates (`referral-payouts/rail.ts`).
+ *  - reconciliation — detects discrepancies and never repairs them.
  *
  * `unref()` on every timer: a module-level `setInterval` keeps the Node event
  * loop alive and hangs a vitest run non-deterministically.
@@ -134,7 +125,6 @@ export async function runReferralReconciliationTick(now: Date = new Date()): Pro
 
 /** Start the vesting loop on this task. */
 export function startReferralVestingDispatcher(): void {
-  if (!config.referrals.vestingEnabled) return;
   const timer = setInterval(() => {
     void runReferralVestingTick().catch((err: unknown) => {
       log.general.warn({ err }, '[Referrals] vesting tick failed');
@@ -145,7 +135,6 @@ export function startReferralVestingDispatcher(): void {
 
 /** Start the payout build-and-settle loop on this task. */
 export function startReferralPayoutDispatcher(): void {
-  if (!config.referrals.payoutBatchesEnabled) return;
   const timer = setInterval(() => {
     void runReferralPayoutTick().catch((err: unknown) => {
       log.general.warn({ err }, '[Referrals] payout tick failed');
@@ -156,7 +145,6 @@ export function startReferralPayoutDispatcher(): void {
 
 /** Start the reconciliation sweep on this task. */
 export function startReferralReconciliationDispatcher(): void {
-  if (!config.referrals.reconciliationEnabled) return;
   const timer = setInterval(() => {
     void runReferralReconciliationTick().catch((err: unknown) => {
       log.general.warn({ err }, '[Referrals] reconciliation tick failed');

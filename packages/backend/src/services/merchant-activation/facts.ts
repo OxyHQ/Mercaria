@@ -81,7 +81,7 @@ export interface ActivationPolicyFact {
  * `guest_fulfilment_deterministic`, which answers "is there at least one
  * priceable, unblocked method" and therefore answers the SAME thing for both —
  * so `pickup_checkout` was granted on every deployment with a shipping rate
- * configured, including every deployment with `STORE_PICKUP_ENABLED` off, and
+ * configured, including every deployment without store pickup, and
  * withheld from a store whose only remaining method was collection.
  */
 export interface ActivationFulfilmentFacts {
@@ -94,9 +94,9 @@ export interface ActivationFulfilmentFacts {
    * whether a shipping method can be priced at all.
    */
   readonly shippingMethods: readonly string[];
-  /** `STORE_PICKUP_ENABLED` — whether a checkout may resolve a collection at all. */
+  /** Whether a checkout may resolve a collection at all (GoWay configured). */
   readonly storePickupEnabled: boolean;
-  /** `GUEST_STORE_PICKUP_ENABLED`, which additionally requires the store lever. */
+  /** Whether a GUEST may collect: store pickup AND guest commerce are both on. */
   readonly guestPickupEnabled: boolean;
   /**
    * How many of THIS store's publications a shopper could collect from.

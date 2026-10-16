@@ -51,7 +51,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { verifySecret } from '@oxy.so/core/server';
 import { z } from 'zod';
 import type { Response } from 'express';
-import { config } from '../../config/index.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 import { log } from '../../lib/logger.js';
 
 /**
@@ -96,23 +96,16 @@ export interface ReferralStateClaims {
   expiresAt: Date;
 }
 
-/** The HMAC key, or a refusal that NAMES the missing variable. */
-function stateSecret(): string {
-  const secret = config.referrals.stateSecret;
-  if (secret === undefined || secret.length === 0) {
-    // Unreachable while `REFERRALS_ENABLED` demands it (the half-configuration
-    // rule in `config/index.ts`), and stated anyway: signing with an empty key
-    // would make every carrier forgeable and nothing would report it.
-    throw new Error(
-      'Referral state is not configured: set REFERRAL_STATE_SECRET (REFERRALS_ENABLED requires it).',
-    );
-  }
-  return secret;
-}
-
-/** HMAC-SHA256 over the encoded payload. */
+/**
+ * HMAC-SHA256 over the encoded payload, under the state-carrier key: derived
+ * from `MERCARIA_SECRET_KEY` under a purpose DIFFERENT from the public link
+ * token's (`lib/derived-secrets.ts`), so a leak of the public half is never a
+ * mint for this one.
+ */
 function sign(payloadB64: string): string {
-  return createHmac('sha256', stateSecret()).update(payloadB64).digest('base64url');
+  return createHmac('sha256', derivedSecret('referral-state'))
+    .update(payloadB64)
+    .digest('base64url');
 }
 
 /**

@@ -1,20 +1,6 @@
 /**
  * The link relationship reaches a client — #67 outbound rule 8.
  *
- * ## Why this file exists separately
- *
- * `resolveProductPageOutbound`'s `outbound` branch is reachable only when
- * `OUTBOUND_REDIRECT_ENABLED` is set, and `config/index.ts` reads `process.env`
- * ONCE at module load and freezes the result. `product-page-rules.test.ts`
- * imports the module statically and therefore exercises the three
- * `unavailable` branches and nothing else — which is how the `outbound` branch
- * came to be served to the storefront with no test looking at its shape.
- *
- * So the environment is set BEFORE a dynamic import, the pattern every realdb
- * file with a config dependency in this repository uses. A static import here
- * would pull config first and the branch would be permanently `unavailable` —
- * a green-looking file measuring nothing.
- *
  * ## What went wrong, and what this pins
  *
  * `OUTBOUND_LINK_REL` and `resolveOutboundDisclosure` were both built, both
@@ -35,8 +21,6 @@ import { OUTBOUND_LINK_REL, type Offer } from '@mercaria/shared-types';
 let resolveProductPageOutbound: typeof import('../outbound.js').resolveProductPageOutbound;
 
 beforeAll(async () => {
-  process.env.OUTBOUND_REDIRECT_ENABLED = 'true';
-  process.env.OUTBOUND_TOKEN_SECRET = 'product-page-outbound-disclosure-secret';
   ({ resolveProductPageOutbound } = await import('../outbound.js'));
 });
 
@@ -76,8 +60,7 @@ function outboundBranch(offer: Offer) {
   if (resolved.kind !== 'outbound') {
     throw new Error(
       `expected an outbound branch; got ${resolved.kind}` +
-        (resolved.kind === 'unavailable' ? ` (${resolved.reason})` : '') +
-        ' — OUTBOUND_REDIRECT_ENABLED must be set before config loads',
+        (resolved.kind === 'unavailable' ? ` (${resolved.reason})` : ''),
     );
   }
   return resolved;

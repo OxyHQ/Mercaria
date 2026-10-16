@@ -190,17 +190,6 @@ export type ProductPageSeller =
 
 /** Why an external offer cannot be followed from this page today. */
 export type ProductPageOutboundUnavailableReason =
-  /**
-   * #37's outbound redirect is not built in this deployment.
-   *
-   * The page deliberately does NOT fall back to the stored `destinationUrl`.
-   * #68's `assertOfferOutboundEligible` exists precisely because an offer that
-   * was current when a page rendered is the one that is not current when
-   * somebody finally clicks it, and only a redirect route can re-check at click
-   * time. A raw link would also discard the commercial relationship an
-   * `affiliate` offer exists under, silently.
-   */
-  | 'redirect_unavailable'
   /** The offer names no destination at all — an `informational` observation. */
   | 'no_destination'
   /**
@@ -215,7 +204,7 @@ export type ProductPageOutboundUnavailableReason =
   | 'native_not_purchasable';
 
 export const PRODUCT_PAGE_OUTBOUND_UNAVAILABLE_REASONS: readonly ProductPageOutboundUnavailableReason[] =
-  ['redirect_unavailable', 'no_destination', 'native_not_purchasable'];
+  ['no_destination', 'native_not_purchasable'];
 
 /**
  * What a row's primary action can do (#71 actions 1 and 2).
@@ -226,10 +215,11 @@ export const PRODUCT_PAGE_OUTBOUND_UNAVAILABLE_REASONS: readonly ProductPageOutb
  * there is nothing an add-to-cart call could be handed.
  *
  * The `available` external branch carries a REDIRECT PATH — never a destination
- * URL. #67 landed the redirect, so that path is a real `/out/:token`; the
- * unavailable branch is now reached only when the deployment has not mounted it,
- * when the offer names no destination, or when a native offer's checkout verdict
- * refuses.
+ * URL. #67 landed the redirect, so that path is a real `/out/:token` and is
+ * always mounted; the unavailable branch is reached only when the offer names no
+ * destination, or when a native offer's checkout verdict refuses. The page never
+ * falls back to the stored `destinationUrl`: only the redirect route can
+ * re-check an offer at click time (#68's `assertOfferOutboundEligible`).
  */
 export type ProductPageOutbound =
   | {

@@ -35,8 +35,9 @@ function unwrap<T>(body: ApiResponse<T>, fallback: string): T {
 }
 
 /**
- * `REFERRALS_ENABLED=false` unmounts `/referrals/*`, so a 404 is the edge being
- * off — an ordinary deployment state, not an error to retry or show.
+ * `/referrals/*` is always mounted on a current API, but the storefront deploys
+ * independently of it, so a 404 (an API that predates the edge) reads as "no
+ * referral" — an ordinary state, not an error to retry or show.
  */
 function isUnmounted(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 404;

@@ -39,7 +39,7 @@
  *
  * `pickup_collection_credentials` holds a ROTATION COUNTER and a lifecycle and
  * no code, no hash and no ciphertext. The code is
- * `HMAC(PICKUP_COLLECTION_CODE_KEY, orderId || ':' || version)` rendered into an
+ * `HMAC(collectionCodeKey, orderId || ':' || version)` rendered into an
  * unambiguous alphabet, so an authorized order surface can RE-DERIVE it for the
  * buyer as often as they ask, a counter can verify it by re-deriving and
  * comparing in constant time, a rotation is `version + 1`, and a database dump
@@ -405,7 +405,7 @@ export const orderPickups = pgTable(
  * collection code. It holds no code.
  *
  * See the module docblock: the code is derived from `(order_id, version)` under
- * `PICKUP_COLLECTION_CODE_KEY`, so this table stores a counter and four
+ * the derived `pickup-collection-code` key, so this table stores a counter and four
  * instants and a dump of it opens nothing. Rotation is `version + 1` — which is
  * also what makes rotation INSTANTLY effective against a code somebody wrote
  * down, with no revocation list to propagate.

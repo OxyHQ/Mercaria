@@ -16,6 +16,8 @@ const BASE_ENV: Record<string, string> = {
   MOOVO_BASE_URL: 'https://api.moovo.now',
   MOOVO_RESOURCE_APPLICATION_ID: 'app_moovo_123',
   MOOVO_ENVIRONMENT: 'production',
+  // A production-shaped config refuses to load without the root secret.
+  MERCARIA_SECRET_KEY: 'a'.repeat(64),
 };
 
 const TOUCHED = [
@@ -25,6 +27,7 @@ const TOUCHED = [
   'MOOVO_ENVIRONMENT',
   'MOOVO_SCOPES',
   'NODE_ENV',
+  'MERCARIA_SECRET_KEY',
 ];
 
 let saved: Record<string, string | undefined> = {};

@@ -170,7 +170,6 @@ beforeAll(async () => {
   process.env.STRIPE_SELLER_COUNTRIES = 'ES,FR';
   process.env.STRIPE_ONBOARDING_BASE_URL = 'https://api.mercaria.test';
   process.env.STRIPE_ONBOARDING_RETURN_URL = 'https://dashboard.mercaria.test/settings/payments';
-  process.env.STRIPE_ONBOARDING_STATE_SECRET = 'onboarding-state-secret-not-a-real-one';
 
   const postgres = await import('../../../../db/postgres.js');
   closePostgres = postgres.closePostgres;

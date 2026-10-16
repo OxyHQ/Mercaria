@@ -92,7 +92,6 @@ beforeAll(async () => {
   process.env.STRIPE_SELLER_COUNTRIES = 'ES';
   process.env.STRIPE_ONBOARDING_BASE_URL = 'https://api.mercaria.test';
   process.env.STRIPE_ONBOARDING_RETURN_URL = 'https://dashboard.mercaria.test/settings/payments';
-  process.env.STRIPE_ONBOARDING_STATE_SECRET = 'routes-onboarding-state-secret';
 
   ({ createOnboardingState } = await import('../../services/payments/stripe/onboarding-state.js'));
   const storeRouter = (await import('../admin/payments.js')).default;

@@ -650,10 +650,11 @@ export interface GuestSecuritySignalDefinition {
  *
  * Guest PICKUP was a fourth until #93 landed, and the correction is the reason
  * this register is worth keeping accurate: `null` here does not mean "nobody
- * built a flag", it means "there is nothing to flip". `GUEST_STORE_PICKUP_ENABLED`
- * now exists, so an operator reading this during an incident and finding
- * STRUCTURAL would have gone looking for a broader lever — taking the guest
- * cart or guest checkout down to withdraw one fulfilment mode.
+ * built a flag", it means "there is nothing to flip". Listing `pickup` in
+ * `GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS` withdraws it, so an operator
+ * reading this during an incident and finding STRUCTURAL would have gone
+ * looking for a broader lever — taking the guest cart or guest checkout down to
+ * withdraw one fulfilment mode.
  */
 export const GUEST_FEATURE_GATES = [
   'session_issuance',
@@ -1742,14 +1743,14 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
   {
     gate: 'pickup',
     title: 'Guest pickup',
-    lever: 'GUEST_STORE_PICKUP_ENABLED',
-    scopes: ['environment'],
+    lever: 'GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS',
+    scopes: ['fulfilment'],
     whenOff:
-      'Guest collection is refused with guest_pickup_disabled; AUTHENTICATED collection, the guest ' +
-      'cart and the guest checkout are untouched. Note the ONE-WAY dependency an incident must ' +
-      'not be surprised by: STORE_PICKUP_ENABLED off takes guest pickup with it, and this lever ' +
-      'cannot turn collection on by itself. Neither gates a durable record — a placed collection ' +
-      'order, its code and its desk trail survive both being off (#93 operations rule 10).',
+      'Listing `pickup` refuses guest collection at checkout; AUTHENTICATED collection, the guest ' +
+      'cart and the guest checkout are untouched. Guest pickup otherwise exists exactly when store ' +
+      'pickup does (GoWay configured) and guest commerce is on — there is no separate switch. ' +
+      'Neither gates a durable record — a placed collection order, its code and its desk trail ' +
+      'survive (#93 operations rule 10).',
     affectsPlacedOrders: false,
     // Narrowing WHICH fulfilment modes are offered, without stopping a checkout
     // — the same shape as `payment_methods`, hence the same position. A tie is

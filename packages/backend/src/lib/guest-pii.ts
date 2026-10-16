@@ -6,13 +6,13 @@
  * different reason, and the separation is the design rather than an accident of
  * implementation:
  *
- *  - **`encryptGuestPii`** — AES-256-GCM under `GUEST_PII_ENCRYPTION_KEY`.
+ *  - **`encryptGuestPii`** — AES-256-GCM under the guest-contact key.
  *    This is the only form that can be turned back into the address the buyer
  *    typed, which is what a transactional mail has to be sent to. It is a
  *    self-describing string, key-id prefixed, so rotation is re-encryption at
  *    read rather than a flag day.
- *  - **`guestEmailHash`** — HMAC-SHA-256 under the SEPARATE
- *    `GUEST_EMAIL_HASH_KEY`. KEYED, unlike this codebase's token hashes, and
+ *  - **`guestEmailHash`** — HMAC-SHA-256 under the SEPARATE email-hash
+ *    key. KEYED, unlike this codebase's token hashes, and
  *    for the opposite entropy reason: a 256-bit random token needs no key
  *    because it cannot be guessed, while an email address has dictionary-scale
  *    entropy and a plain SHA-256 column would be offline-reversible the day the
@@ -30,26 +30,20 @@
  * purpose yet, which is precisely why the projection this domain exposes has no
  * field for it (`guest-checkout.service.ts`).
  *
- * ## The keys are validated on FIRST USE, never at import
+ * ## Both keys are derived, under DIFFERENT purposes
  *
- * The `connector-crypto.ts` posture, for the same reason: a deployment with
- * guest commerce switched off must still boot, and `config`'s
- * half-configuration rule has already refused to enable the feature without
- * both keys. What must never happen is a SILENT fallback — an unset key throws
- * here rather than storing a guest's address in the clear.
+ * `lib/derived-secrets.ts` derives each from `MERCARIA_SECRET_KEY` with its own
+ * HKDF label, so they are always present and never equal — the lookup path
+ * holds a key that cannot decrypt, by construction.
  */
 
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
-import { config } from '../config/index.js';
+import { derivedSecret } from './derived-secrets.js';
 
 /** AES-256-GCM: authenticated encryption, so tampering is a decrypt failure. */
 const ALGORITHM = 'aes-256-gcm';
-/** 256-bit key. */
-const KEY_BYTES = 32;
 /** 96-bit nonce — the GCM-recommended size. */
 const IV_BYTES = 12;
-/** A valid key is exactly `KEY_BYTES` bytes ⇔ `KEY_BYTES * 2` hex characters. */
-const HEX_KEY_PATTERN = new RegExp(`^[0-9a-fA-F]{${KEY_BYTES * 2}}$`);
 
 /**
  * The key id every ciphertext carries.
@@ -60,21 +54,6 @@ const HEX_KEY_PATTERN = new RegExp(`^[0-9a-fA-F]{${KEY_BYTES * 2}}$`);
  * every row to be rewritten before the new key can be used anywhere.
  */
 const CURRENT_KEY_ID = 'v1';
-
-/** Resolve and validate a hex key from config, or throw a directive error. */
-function resolveKey(value: string, name: string): Buffer {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    throw new Error(
-      `${name} is not set. Guest contact cannot be stored without it. ` +
-        'Generate a 32-byte key with `openssl rand -hex 32`.',
-    );
-  }
-  if (!HEX_KEY_PATTERN.test(trimmed)) {
-    throw new Error(`${name} must be a 64-character hex string (32 bytes).`);
-  }
-  return Buffer.from(trimmed, 'hex');
-}
 
 /**
  * Encrypt a guest contact value for storage.
@@ -90,7 +69,7 @@ function resolveKey(value: string, name: string): Buffer {
  * lookup key and the HMAC exists.
  */
 export function encryptGuestPii(plaintext: string): string {
-  const key = resolveKey(config.guest.piiEncryptionKey, 'GUEST_PII_ENCRYPTION_KEY');
+  const key = derivedSecret('guest-pii-encryption');
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(ALGORITHM, key, iv);
   const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
@@ -122,7 +101,7 @@ export function decryptGuestPii(stored: string): string {
     // that reads as a valid address.
     throw new Error(`Stored guest contact uses unknown key id "${keyId}".`);
   }
-  const key = resolveKey(config.guest.piiEncryptionKey, 'GUEST_PII_ENCRYPTION_KEY');
+  const key = derivedSecret('guest-pii-encryption');
   const decipher = createDecipheriv(ALGORITHM, key, Buffer.from(iv, 'base64url'));
   decipher.setAuthTag(Buffer.from(tag, 'base64url'));
   return Buffer.concat([
@@ -141,7 +120,7 @@ export function decryptGuestPii(stored: string): string {
  * call sites produce two different hashes for one inbox.
  */
 export function guestEmailHash(normalizedEmail: string): string {
-  const key = resolveKey(config.guest.emailHashKey, 'GUEST_EMAIL_HASH_KEY');
+  const key = Buffer.from(derivedSecret('guest-email-hash'), 'hex');
   return createHmac('sha256', key).update(normalizedEmail, 'utf8').digest('hex');
 }
 

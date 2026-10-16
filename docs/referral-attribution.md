@@ -47,7 +47,8 @@ D3's `mercaria.co/r/<token>`.
 Nothing on this path accepts a URL. The absolute location is composed from
 exactly two pieces:
 
-1. `REFERRAL_REDIRECT_BASE_URL`, which must be a member of
+1. The storefront origin, `WEB_URL` (`config.web.origin`, default
+   `https://mercaria.co`), which must be a member of
    `lib/allowed-origins.ts` — the ONE origin authority this backend keeps,
    shared with CORS and the guest CSRF gate. A deployment-local second list is
    the shape an open redirect takes.
@@ -160,8 +161,9 @@ A short-lived, purpose-specific credential that **authorizes nothing**.
   (exchange). ADR 0003 I5 scopes credentials by table, resolver and prefix, and
   this shares none of the three: it is STATELESS, so there is no table, and no
   guest resolver will look at it.
-- **Stateless**: `mrf_<payloadB64url>.<sig>`, HMAC-SHA256 under
-  `REFERRAL_STATE_SECRET` — its **own key**, not the link token's. A link token
+- **Stateless**: `mrf_<payloadB64url>.<sig>`, HMAC-SHA256 under the
+  `referral-state` key derived from `MERCARIA_SECRET_KEY` — its **own
+  purpose**, not the link token's (`lib/derived-secrets.ts`). A link token
   is published by a partner and public by design; this one is minted by the
   server, and one key for both would make a leak of the public half a mint for
   the private one.
@@ -243,8 +245,8 @@ true by construction rather than by a merge rule, and a realdb case drives it.
   during an incident would edit the terms somebody was attributed under.
 - **Absence means BOTH ENABLED.** The inverse would make every freshly published
   program silently unusable until an operator discovered a table they had never
-  heard of; the domain is already bounded by `REFERRALS_ENABLED` and each
-  program's own status.
+  heard of; the domain is already bounded by each program's own status and,
+  for attribution, by a published pilot cohort.
 - **`redirect_enabled = false`** stops `/r/:token` for that program's links. A
   code typed at checkout still attributes — that is what "independently" means.
 - **`attribution_enabled = false`** stops NEW attributions and **still records
@@ -276,8 +278,8 @@ an operator legitimately makes already exist in #142 (`invalidateAttribution`,
 `correctAttribution`), append-only and attributable. The trace opens from an
 **attribution id** and nothing else.
 
-Mounted while both levers are down and while `REFERRALS_ENABLED` is off — the
-evidence has to be readable during the incident that turned the surface off.
+Mounted while both levers are down — the evidence has to be readable during
+the incident that turned a program off.
 
 ---
 
@@ -400,29 +402,25 @@ boolean — tripped the request-derived-destination detector. The pattern gained
 ## Environment
 
 ```
-REFERRALS_ENABLED=false            # gates the MOUNT of /r and /referrals, never a record
-REFERRAL_LINK_TOKEN_SECRET=        # #142's public link token
-REFERRAL_STATE_SECRET=             # #143's carrier — a SECOND key, required together
-REFERRAL_REDIRECT_BASE_URL=https://mercaria.co   # must be in lib/allowed-origins.ts
 REFERRAL_OPERATOR_OXY_USER_IDS=    # the SEVENTH list; empty = /internal/referrals unmounted
 ```
 
-`REFERRALS_ENABLED=true` requires **both** secrets — the `CROWDSOURCE_ENABLED`
-half-configuration rule. A deployment that can mint links but cannot sign the
-carrier would redirect every anonymous click and then throw when it tried to
-hand the browser its evidence: a program that appears to work and attributes
-nobody.
+There is no switch: `/r` and `/referrals` are always mounted. The link-token
+and state-carrier keys are derived from `MERCARIA_SECRET_KEY` under two
+DIFFERENT purposes (`lib/derived-secrets.ts`, `docs/deploy.md` "Runtime
+secrets"), so a deployment can never mint links it cannot carry evidence for,
+and redirects land on `WEB_URL`, checked against `lib/allowed-origins.ts` at the
+first redirect. What keeps a program from attributing anybody is operator
+state, not environment: an unpublished program, a paused
+`referral_program_controls` row, or no active pilot cohort.
 
 ---
 
 ## Production-readiness checklist
 
-- [ ] `REFERRAL_STATE_SECRET` provisioned (SSM `/oxy/mercaria/*`), distinct from
-      `REFERRAL_LINK_TOKEN_SECRET`.
-- [ ] `REFERRAL_REDIRECT_BASE_URL` set and present in `PRODUCTION_ORIGINS`.
 - [ ] `REFERRAL_OPERATOR_OXY_USER_IDS` populated — until it is, nobody can pause
       a program or trace an attribution.
 - [ ] `ANALYTICS_INTERNAL_TRAFFIC_TOKEN` set, or staff traffic classifies
       `organic` and enters attribution.
-- [ ] The privacy review ADR 0005 A1–A5 owes, recorded, before
-      `REFERRALS_ENABLED=true` in production.
+- [ ] The privacy review ADR 0005 A1–A5 owes, recorded, before a program and
+      its pilot cohort are published in production.

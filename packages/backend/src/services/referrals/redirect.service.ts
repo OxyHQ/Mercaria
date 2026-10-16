@@ -75,8 +75,9 @@ export const REFERRAL_ROUTE_PREFIXES: readonly string[] = ['/r/', '/r'];
 /**
  * The origin every referral redirect lands on.
  *
- * `REFERRAL_REDIRECT_BASE_URL` when set, else the first production origin. It
- * is validated against `ALLOWED_ORIGINS` — the same list CORS and the guest
+ * The storefront origin, `config.web.origin` (`WEB_URL`, default
+ * `https://mercaria.co`) — where every referral destination template resolves.
+ * It is validated against `ALLOWED_ORIGINS` — the same list CORS and the guest
  * CSRF gate read — so there is no second answer to "where may Mercaria send a
  * browser", which is precisely the shape an open redirect takes when a
  * deployment gets its own list.
@@ -87,10 +88,10 @@ export const REFERRAL_ROUTE_PREFIXES: readonly string[] = ['/r/', '/r'];
  *   be the bug shipping.
  */
 export function referralRedirectOrigin(): string {
-  const configured = config.referrals.redirectBaseUrl;
+  const configured = config.web.origin;
   if (!ALLOWED_ORIGINS.includes(configured)) {
     throw new Error(
-      `REFERRAL_REDIRECT_BASE_URL (${configured}) is not an allowed browser origin. ` +
+      `WEB_URL (${configured}) is not an allowed browser origin. ` +
         'Referral redirects compose their destination from this origin plus an allow-listed ' +
         'relative path; an unlisted origin would make the route an open redirect.',
     );

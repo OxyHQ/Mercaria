@@ -38,8 +38,6 @@ let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'integration-test-pii-key';
-  process.env.GUEST_EMAIL_HASH_KEY = 'integration-test-email-hash-key';
   // Explicit, not assumed: vitest may run several files in one worker thread,
   // and the kill-switch file sets this to 'false' — env leaks, configs do not.
   process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';

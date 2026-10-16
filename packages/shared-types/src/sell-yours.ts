@@ -310,10 +310,9 @@ export type SellerMatchGateOutcome =
  *
  * `offered` is REPRESENTABLE and REFUSED at publication under
  * `pickup_not_supported`, the `role_email` device. #93 has since landed pickup
- * publication, freshness and collectable inventory, so the refusal rests on a
- * LEVER rather than on missing facts: `STORE_PICKUP_ENABLED` defaults off and
- * `resolvePickupForCheckout` refuses every pickup naming `store_pickup_disabled`.
- * Modelling it as unrepresentable would hide the gap; accepting it and
+ * publication, freshness and collectable inventory for STORES; a P2P seller
+ * still has no collection point, and `derivePickupEligibility` refuses a `user`
+ * seller for every actor. Modelling it as unrepresentable would hide the gap; accepting it and
  * publishing a listing whose pickup nothing honours would be worse.
  */
 export type SellerPickupAvailability = 'not_offered' | 'offered';

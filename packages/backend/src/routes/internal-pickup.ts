@@ -10,8 +10,8 @@
  *
  * Mounted only when that list is non-empty — 404 on a deployment with no
  * operators, never a 401 that would advertise the surface — and it stays
- * mounted while `NEARBY_DISCOVERY_ENABLED` is off, because the evidence has to
- * be readable during the incident that turned discovery off.
+ * mounted whether or not GoWay is configured, because the evidence has to stay
+ * readable.
  */
 
 import { Router } from 'express';

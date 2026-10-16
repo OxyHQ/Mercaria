@@ -59,8 +59,6 @@ const INLINE_ADDRESS = {
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'a'.repeat(64);
-  process.env.GUEST_EMAIL_HASH_KEY = 'b'.repeat(64);
   // Explicit, not assumed: vitest may run several files in one worker thread
   // and a sibling file sets these — env leaks, configs do not.
   process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
@@ -398,9 +396,9 @@ describe('what a guest checkout is refused', () => {
     expect(body.message).toMatch(/Oxy account/);
   });
 
-  it('refuses pickup while STORE_PICKUP_ENABLED is off (#93), naming the seller', async () => {
-    // #93 landed and pickup is REACHABLE; what makes it refuse here is the
-    // deployment lever, which is off by default and off in this suite. The
+  it('refuses pickup on a deployment without GoWay (#93), naming the seller', async () => {
+    // #93 landed and pickup is REACHABLE; what makes it refuse here is that
+    // this suite configures no `GOWAY_API_URL`, so store pickup is off. The
     // refusal is the same shape it was when the seam failed closed
     // unconditionally — a `destination_incomplete` naming the seller keys —
     // which is exactly what #105 built the contract around, so no client had

@@ -449,14 +449,7 @@ export function createApp(): express.Express {
   // `/sellers` is the public P2P profile, `/seller` is a seller's management
   // surface — and a referral partner need not be a seller at all.
   //
-  // Gated by `REFERRAL_PARTNER_ENROLLMENT_ENABLED` (default TRUE) and
-  // deliberately NOT by `REFERRALS_ENABLED`: enrollment reads neither link
-  // secret, so gating it there would demand a secret this surface never uses
-  // and would forbid the ordinary staged rollout of enrolling partners before
-  // attribution is switched on.
-  if (config.referrals.partnerEnrollmentEnabled) {
-    app.use('/referral-partner', referralPartnerSelfRouter);
-  }
+  app.use('/referral-partner', referralPartnerSelfRouter);
   // `/sellers` (PLURAL) is the PUBLIC P2P seller profile (#92); `/seller`
   // (singular, above) is the authenticated seller's own management surface.
   // One letter apart and opposite in who may read them — hence two routers.
@@ -497,10 +490,7 @@ export function createApp(): express.Express {
   // The affiliate outbound operator surface (#67), on the SAME payment
   // allow-list and deliberately not a seventh: approving a destination host
   // decides where Mercaria sends its buyers and therefore which relationships
-  // can earn, and the report reads what Mercaria earned. It is NOT gated on
-  // `OUTBOUND_REDIRECT_ENABLED` — a host has to be approvable BEFORE the
-  // redirect is switched on, and the evidence has to be readable during the
-  // incident that switched it off.
+  // can earn, and the report reads what Mercaria earned.
   if (config.payments.operatorSurfaceEnabled) {
     app.use('/internal/affiliate', internalAffiliateRouter);
   }
@@ -520,13 +510,10 @@ export function createApp(): express.Express {
   // say "claim this" is a dead end for the one person entitled to fix it.
   app.use('/merchant-claims', merchantClaimsRouter);
   /**
-   * The referral edge (#143), gated by `REFERRALS_ENABLED`.
-   *
-   * The MOUNT and nothing else. Programs, partners, codes, links, touches,
-   * attributions and conversions already written are untouched by this lever —
-   * ADR 0005 D18's "gating loops and gates, never records" — and the operator
-   * surface below stays mounted while it is off, because the evidence has to be
-   * readable during the incident that turned it off.
+   * The referral edge (#143). Always mounted: its link-token and state-carrier
+   * keys are derived from `MERCARIA_SECRET_KEY` (`lib/derived-secrets.ts`), so
+   * there is no configuration in which it could only half work. Pausing a
+   * program is `referral_program_controls`, a recorded operator act.
    *
    * `/r` is deliberately its own short prefix rather than a path under
    * `/referrals`: it is what a partner pastes into a post (ADR 0005 D3's
@@ -534,10 +521,8 @@ export function createApp(): express.Express {
    * reaches. The outbound external-offer redirect (#37/#67) is a different
    * route that does not exist yet, and this one must not become it.
    */
-  if (config.referrals.enabled) {
-    app.use('/r', referralRedirectRouter);
-    app.use('/referrals', referralsRouter);
-  }
+  app.use('/r', referralRedirectRouter);
+  app.use('/referrals', referralsRouter);
 
   /*
    * `GET /out/:token` — the affiliate outbound redirect (#67, part of #37).
@@ -548,18 +533,11 @@ export function createApp(): express.Express {
    * different risk — collapsing them would put the strongest external-facing
    * risk in this repository behind the more permissive of the two designs.
    *
-   * The MOUNT is gated, unlike most levers here, and for the Stripe webhook's
-   * reason rather than the "gate the loop, never the record" one: the token is
-   * HMAC-signed, so without a secret there is nothing to verify and resolving
-   * one would be acting on a stranger's opinion about which offer to redirect
-   * to. It gates no durable record — clicks are written BY this route, so an
-   * unmounted route writes none and there is no queue that could strand. With
-   * it off the product page renders its existing "not available" branch, which
-   * is a state it already had.
+   * Always mounted: the token is HMAC-signed under a key derived from
+   * `MERCARIA_SECRET_KEY` (`lib/derived-secrets.ts`), so there is always a key
+   * to verify against and never a stranger's opinion to act on.
    */
-  if (config.affiliateOutbound.redirectEnabled) {
-    app.use('/out', affiliateOutboundRouter);
-  }
+  app.use('/out', affiliateOutboundRouter);
   // Merchant → native store linkage (#84), where a verified claim ends. Also
   // outside `/admin`, and for a sharper reason than the claim surface has:
   // `loadStore` resolves `:storeId` from the PATH, while a linkage request
@@ -723,15 +701,11 @@ export function createApp(): express.Express {
   }
 
   /**
-   * Nearby discovery (#93), behind its OWN read lever.
-   *
-   * `NEARBY_DISCOVERY_ENABLED` gates the MOUNT and nothing durable: a
+   * Nearby discovery (#93), mounted exactly when GoWay is configured
+   * (`GOWAY_API_URL`, ADR 0013): where a place IS comes from GoWay, so without
+   * it there is nothing to answer. Nothing durable depends on the mount — a
    * publication, its hours, its closures and every collection already placed
-   * are untouched by it, and the merchant surface that composes them stays
-   * mounted under `/admin` regardless. What the lever withdraws is the buyer's
-   * ability to ASK where something is — which is the half that can be wrong in
-   * public, exactly as `PRICE_HISTORY_PUBLIC_READS_ENABLED` above gates a chart
-   * and never an observation.
+   * are untouched, and the merchant surface stays mounted under `/admin`.
    *
    * A 404 rather than an empty answer, for the same reason `/search` 404s while
    * its lever is off: "nothing is collectable near you" and "this deployment
@@ -742,8 +716,7 @@ export function createApp(): express.Express {
     app.use('/nearby', nearbyRouter);
   }
   // …and #93's operator surface, on the SAME catalogue allow-list. Mounted
-  // whatever the nearby lever says: the evidence has to be readable during the
-  // incident that turned discovery off.
+  // whether or not GoWay is configured: the evidence has to stay readable.
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/pickup', internalPickupRouter);
   }
@@ -958,12 +931,10 @@ export function createApp(): express.Express {
     app.use('/internal/ranking', internalRankingRouter);
   }
   /**
-   * The feed importer's operator surface (#63), on the SAME allow-list and
-   * mounted while `FEED_IMPORT_ENABLED` is off — for `/internal/backfill`'s
-   * reason: a merchant's mapping, their validation reports and the reason their
-   * last pass failed are exactly the evidence somebody needs during the incident
-   * that turned the importer off. It is read-only; every write belongs to the
-   * store that owns the feed.
+   * The feed importer's operator surface (#63), on the SAME allow-list: a
+   * merchant's mapping, their validation reports and the reason their last pass
+   * failed. It is read-only; every write belongs to the store that owns the
+   * feed.
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/feed-imports', internalFeedImportsRouter);
@@ -1000,9 +971,7 @@ export function createApp(): express.Express {
   // program's attribution stops partners earning and the trace says which
   // partner was credited for which subject; an operator vetted to repair a
   // payment or trace a cart merge has been vetted for neither. Empty = not
-  // mounted, 404 — see middleware/referral-operator-authz.ts. Deliberately NOT
-  // gated on `REFERRALS_ENABLED`: turning that off is exactly when somebody
-  // needs to read why.
+  // mounted, 404 — see middleware/referral-operator-authz.ts.
   if (config.referrals.operatorSurfaceEnabled) {
     app.use('/internal/referrals', internalReferralsRouter);
   }

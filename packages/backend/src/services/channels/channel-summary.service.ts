@@ -23,7 +23,6 @@ import type {
   ChannelPauseScope,
   ChannelSummary,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
   findConnectionsByStore,
@@ -80,22 +79,20 @@ export async function listStoreChannels(storeId: string): Promise<ChannelSummary
     };
   });
 
-  if (config.feedImport.enabled) {
-    for (const feed of await listFeedConfigurationsForOwner(getDb(), storeId)) {
-      summaries.push({
-        id: feed.id,
-        channelType: 'product_feed',
-        // A feed's health lives in its own #62 run history, which the feed
-        // surface already serves in full. Reporting `healthy` here off a
-        // configuration row would be a claim about a run nobody read — so the
-        // list shows it as connected and links to the detail that can answer.
-        state: 'healthy',
-        label: feed.label,
-        pausedScopes: [],
-        lastSyncAt: feed.lastFetchedAt?.toISOString(),
-        supportsNativeCheckout: false,
-      });
-    }
+  for (const feed of await listFeedConfigurationsForOwner(getDb(), storeId)) {
+    summaries.push({
+      id: feed.id,
+      channelType: 'product_feed',
+      // A feed's health lives in its own #62 run history, which the feed
+      // surface already serves in full. Reporting `healthy` here off a
+      // configuration row would be a claim about a run nobody read — so the
+      // list shows it as connected and links to the detail that can answer.
+      state: 'healthy',
+      label: feed.label,
+      pausedScopes: [],
+      lastSyncAt: feed.lastFetchedAt?.toISOString(),
+      supportsNativeCheckout: false,
+    });
   }
 
   const store = await findStoreById(storeId);

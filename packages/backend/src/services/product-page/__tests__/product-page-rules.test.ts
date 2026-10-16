@@ -185,16 +185,15 @@ describe('highlights point at rows and never copy them', () => {
   });
 });
 
-describe('the outbound seam fails closed (#71 actions 2, #37)', () => {
-  it('refuses every external handoff and discloses the HOST rather than a link', () => {
+describe('the outbound seam (#71 actions 2, #37)', () => {
+  it('hands an external offer a /out redirect PATH and the HOST, never a link', () => {
     const outbound = resolveProductPageOutbound(externalOffer());
-    expect(outbound).toEqual({
-      kind: 'unavailable',
-      reason: 'redirect_unavailable',
-      destinationHost: 'shop.example.test',
-    });
-    // The whole point: no branch of the refusal carries a URL, so nothing can
-    // navigate by reading one field it did not check.
+    expect(outbound).toMatchObject({ kind: 'outbound', destinationHost: 'shop.example.test' });
+    if (outbound.kind !== 'outbound') throw new Error('expected the outbound branch');
+    expect(outbound.redirectPath.startsWith('/out/')).toBe(true);
+    // The whole point: no branch carries the destination URL, so nothing can
+    // navigate by reading one field it did not check — only the redirect route,
+    // which re-checks the offer at click time.
     expect(JSON.stringify(outbound)).not.toContain('https://');
   });
 

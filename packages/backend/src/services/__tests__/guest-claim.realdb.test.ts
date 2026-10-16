@@ -225,8 +225,6 @@ async function expectPgRejection(promise: Promise<unknown>, pattern: RegExp): Pr
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'a'.repeat(64);
-  process.env.GUEST_EMAIL_HASH_KEY = 'b'.repeat(64);
   process.env.GUEST_MAGIC_LINK_BASE_URL = 'https://mercaria.co/guest-orders/portal';
 
   const postgres = await import('../../db/postgres.js');

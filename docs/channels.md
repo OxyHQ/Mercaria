@@ -741,9 +741,9 @@ this listing's fields the merchant's own edits pinned against a later sync
   `/internal/ingestion` or `/internal/commerce-graph`, behind
   `CATALOG_OPERATOR_OXY_USER_IDS`, which already reads sources and merchants.
 - **No environment flag of its own.** Nothing here gates a durable record, and
-  the levers that matter already exist: `FEED_IMPORT_ENABLED` decides whether the
-  feed channel is available, the connector OAuth configuration decides whether
-  Shopify is, and both are REPORTED through `availability` rather than hidden.
+  the levers that matter already exist: the connector OAuth configuration
+  decides whether Shopify is available (the feed channel always is), and that is
+  REPORTED through `availability` rather than hidden.
 - **No second cadence.** `nextScheduledSyncAt` is read from
   `CONNECTOR_RECONCILE_INTERVAL_MS`, the same constant the scheduler gives
   BullMQ, and is absent entirely when Redis is not configured — because then
@@ -1195,8 +1195,6 @@ Each is a named contract rather than a stub that lies.
 - [ ] `CONNECTOR_OAUTH_REDIRECT_BASE_URL` set, or the catalog correctly reports
       every connector as `not_configured` (it does — verify on the real
       deployment rather than trusting this line).
-- [ ] `FEED_IMPORT_ENABLED` decided for this deployment; with it off the feed
-      channel reports `not_configured` and its routes are not mounted.
 - [ ] A real Shopify store and a real WooCommerce site exercised end to end
       through the wizard. #69 acceptance 7 is still NOT met — no real store has
       been connected — and nothing in this issue changes that.

@@ -117,6 +117,31 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(ecsTaskScript).toContain('EXIT_CODE');
   });
 
+  it('injects the ONE root secret at register time and retires the two derived ones', () => {
+    // The service ignores terraform's task definition (`ignore_changes =
+    // [task_definition]` in oxy-infra), so a secret only reaches a running
+    // revision through this jq. Without MERCARIA_SECRET_KEY a production task
+    // refuses to start (`lib/derived-secrets.ts`).
+    const register = (parse(workflow) as WorkflowFile).jobs.deploy.steps.find((step) =>
+      step.name?.startsWith('Resolve the ECS one-shot shape'),
+    );
+    expect(register?.env?.MERCARIA_SECRET_KEY_ARN).toBe(
+      'arn:aws:ssm:${{ env.AWS_REGION }}:237343248947:parameter/oxy/mercaria/MERCARIA_SECRET_KEY',
+    );
+    expect(register?.run).toContain('--arg secret_key_arn "$MERCARIA_SECRET_KEY_ARN"');
+    // Dropped first, then appended exactly once — a re-deploy never duplicates it.
+    expect(register?.run).toContain('.name != "MERCARIA_SECRET_KEY"');
+    expect(register?.run).toContain(
+      '+ [{name: "MERCARIA_SECRET_KEY", valueFrom: $secret_key_arn}]',
+    );
+    // Both keys are derived from the root now; a revision still naming the old
+    // parameters must not carry them forward.
+    expect(register?.run).toContain('.name != "CONNECTOR_OAUTH_STATE_SECRET"');
+    expect(register?.run).toContain('.name != "STRIPE_ONBOARDING_STATE_SECRET"');
+    expect(register?.run).not.toContain('/CONNECTOR_OAUTH_STATE_SECRET');
+    expect(register?.run).not.toContain('/STRIPE_ONBOARDING_STATE_SECRET');
+  });
+
   it('verifies the exact ECS candidate before destructive migrations or catalog publication', () => {
     const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
     const resolve = steps.find((step) => step.name?.startsWith('Resolve the ECS one-shot shape'));
