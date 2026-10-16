@@ -912,7 +912,6 @@
         "review": "Puedes escribir una reseña de compra verificada de lo que compraste."
       },
       "blocked": {
-        "unavailable": "Guardar pedidos en una cuenta de Oxy no está disponible temporalmente. Tu pedido no se ve afectado y puedes seguir abriéndolo con tu enlace de acceso.",
         "inboxNotVerified": "Confirma primero tu dirección de correo electrónico. Pide un nuevo enlace de acceso y abre esta página desde ese enlace.",
         "claimedByAnotherAccount": "Estos pedidos ya están guardados en otra cuenta de Oxy. Contacta con el servicio de atención si no es lo que esperabas: Mercaria no los moverá automáticamente."
       }

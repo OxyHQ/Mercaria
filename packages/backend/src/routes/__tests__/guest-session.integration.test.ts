@@ -38,9 +38,6 @@ let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  // Explicit, not assumed: vitest may run several files in one worker thread,
-  // and the kill-switch file sets this to 'false' — env leaks, configs do not.
-  process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
 
   const { createApp } = await import('../../app.js');
   const postgres = await import('../../db/postgres.js');

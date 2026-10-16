@@ -25,9 +25,10 @@
  * a second id, because one person can type two ids — the same reason #55 holds
  * four eyes with a review ROW rather than a comparison.
  *
- * `four_eyes_required` is snapshotted onto the request at open time, so
- * flipping the flag can neither retroactively unapprove an executed correction
- * nor silently approve a pending one (#59's `catalog_merge_jobs` device).
+ * Every NEW request requires a second operator — there is no setting for it.
+ * `four_eyes_required` is still stored per request (#59's `catalog_merge_jobs`
+ * device) so rows opened when a single-operator deployment could switch it off
+ * stay valid and keep meaning what they meant when they were opened.
  *
  * ## What a revocation does NOT touch
  *
@@ -41,7 +42,6 @@
  */
 
 import type { GuestClaimRevocationReason } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   findActiveClaimForGroupForUpdate,
@@ -119,9 +119,9 @@ export async function requestClaimRevocation(input: {
     reason: input.reason,
     evidenceRef: input.evidenceRef,
     requestedByOxyUserId: input.requestedByOxyUserId,
-    // SNAPSHOTTED here and read nowhere else afterwards. See the module
-    // docblock: the flag decides what THIS request needs, once.
-    fourEyesRequired: config.guest.claim.fourEyesRequired,
+    // Always true for a new request. See the module docblock for why the
+    // column survives.
+    fourEyesRequired: true,
   });
   if (created === null) {
     // Another operator already opened one. Refusing rather than returning
@@ -151,10 +151,9 @@ export async function requestClaimRevocation(input: {
  * service check produces a legible refusal an operator can act on, and the
  * CHECK is what holds when a future path forgets to make it.
  *
- * With `fourEyesRequired` false the requester may approve their own — that IS
- * what the flag means, and it exists so a deployment with one operator can
- * function. The row still records who approved, so the audit is complete either
- * way.
+ * The comparison reads the ROW's `fourEyesRequired`, not a constant: a request
+ * stored with it false (opened before four eyes became unconditional) keeps the
+ * meaning it was opened under. The row records who approved either way.
  */
 export async function approveClaimRevocation(input: {
   revocationId: string;

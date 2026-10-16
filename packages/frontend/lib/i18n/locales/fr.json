@@ -912,7 +912,6 @@
         "review": "Vous pouvez écrire un avis d'achat vérifié sur ce que vous avez acheté."
       },
       "blocked": {
-        "unavailable": "L'enregistrement des commandes dans un compte Oxy est temporairement indisponible. Votre commande n'est pas affectée et vous pouvez toujours l'ouvrir avec votre lien d'accès.",
         "inboxNotVerified": "Confirmez d'abord votre adresse e-mail. Demandez un nouveau lien d'accès et ouvrez cette page depuis celui-ci.",
         "claimedByAnotherAccount": "Ces commandes sont déjà enregistrées dans un autre compte Oxy. Contactez le service client si ce n'est pas ce que vous attendiez — Mercaria ne les déplacera pas automatiquement."
       }

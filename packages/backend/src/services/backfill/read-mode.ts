@@ -26,11 +26,11 @@
  *
  * So the READ levers preserve today's behaviour and exist to be turned OFF,
  * which is exactly what #60 acceptance 5 asks of them ("**turning off** canonical
- * reads restores the existing listing-first experience"). The `GUEST_INLINE_DESTINATION_ENABLED`
- * precedent: an incident lever defaults true. The WRITE levers shipped OFF as
- * D24 bound, ADR 0015 turned them ON (the catalogue autopilot runs the backfill
- * unattended, and a comparator whose graph is never written shows nothing), and
- * they have since been removed: the writes are simply on.
+ * reads restores the existing listing-first experience"). An incident lever
+ * defaults true. The WRITE levers shipped OFF as D24 bound, ADR 0015 turned them
+ * ON (the catalogue autopilot runs the backfill unattended, and a comparator
+ * whose graph is never written shows nothing), and they have since been
+ * removed: the writes are simply on.
  *
  * ## What `shadow` means, and what it does not
  *

@@ -396,15 +396,11 @@ recorded successes answers "did anyone try" with silence.
 
 ## Flags
 
-Five levers now, and the interaction is the part worth knowing:
-
-| Flag | Default | Gates |
-|---|---|---|
-| `GUEST_COMMERCE_ENABLED` | false | the whole guest domain — no credential resolves at all |
-| `GUEST_SESSION_ISSUANCE_ENABLED` | true | NEW sessions only |
-| `GUEST_CART_ENABLED` | true | whether a credential may own commerce state |
-| `GUEST_INLINE_DESTINATION_ENABLED` | true | whether a guest may place an order |
-| `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED` | true | the dispatcher LOOP, never the row |
+One lever, `GUEST_COMMERCE_ENABLED` (default false): the whole guest domain —
+off, no guest credential resolves at all. Session issuance, the guest cart, the
+inline checkout destination and message delivery have no switches of their own
+and are always on while it is; stopping new guest CHECKOUTS without touching
+carts is `GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native`.
 
 **No lever gates a portal READ.** The router is mounted unconditionally, the
 exchange resolves unconditionally, and recovery answers unconditionally — #108
@@ -412,7 +408,7 @@ acceptance 10 and ADR 0003 M8, which says the flag gates issuance and guest
 checkout "never the durable records: existing portal grants and magic-link
 recovery for already-placed guest orders keep working with the flag off".
 `guest-portal-isolation.test.ts` fails the build if a read path learns to read
-one, and `guest-portal.integration.test.ts` runs its whole suite on a deployment
+it, and `guest-portal.integration.test.ts` runs its whole suite on a deployment
 where `GUEST_COMMERCE_ENABLED` is off — asserting the premise, so the file
 cannot quietly start relying on it.
 

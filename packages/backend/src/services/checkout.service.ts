@@ -820,10 +820,8 @@ export async function checkout(
   // checkout is a read of a cart, and "which cart may this actor check out" has
   // to be the same question as "which cart may this actor see".
   //
-  // `null` means the actor owns no cart — an anonymous caller, or a guest on a
-  // deployment with `GUEST_CART_ENABLED` off. Both are refused with the same
-  // sentence, because from the buyer's side they are the same situation and
-  // distinguishing them would tell an anonymous caller which levers are set.
+  // `null` means the actor owns no cart — an anonymous caller. Refused with a
+  // sentence that names the remedy rather than the reason.
   const owner = cartOwnerForActor(actor);
   if (!owner) {
     throw conflict('Sign in to place this order.');

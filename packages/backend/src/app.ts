@@ -385,9 +385,7 @@ export function createApp(): express.Express {
   // Guest sessions (ADR 0003, #103). The MOUNT is gated like the Stripe routes
   // above and for the same reason: a deployment without guest commerce answers
   // 404 — the truthful answer — rather than advertising a credential surface
-  // it will refuse. The issuance KILL SWITCH is a different lever
-  // (`GUEST_SESSION_ISSUANCE_ENABLED`): it stops only NEW sessions, inside the
-  // router, so existing guests keep resolving during an incident.
+  // it will refuse.
   if (config.guest.enabled) {
     app.use('/guest/session', guestSessionRouter);
   }

@@ -112,8 +112,6 @@ export interface ActivationFulfilmentFacts {
 /** The guest half, which #85 insists is asked separately. */
 export interface ActivationGuestFacts {
   readonly commerceEnabled: boolean;
-  readonly cartEnabled: boolean;
-  readonly inlineDestinationEnabled: boolean;
   readonly presentmentCurrencies: readonly CurrencyCode[];
   readonly paymentMethods: readonly string[];
   readonly markets: readonly string[];
@@ -285,8 +283,6 @@ export async function readMerchantActivationFacts(
     fulfilment,
     guest: {
       commerceEnabled: config.guest.enabled,
-      cartEnabled: config.guest.cartEnabled,
-      inlineDestinationEnabled: config.guest.inlineDestinationEnabled,
       presentmentCurrencies: stripe.enabled ? stripe.presentmentCurrencies : [],
       paymentMethods: stripe.enabled ? stripe.paymentSurfaceMethods : [],
       markets: config.checkout.destinationCountries,
@@ -313,8 +309,8 @@ const PICKUP_METHOD = 'pickup';
  * landed: `assertPickupLocationEligible` is gone and `resolvePickupForCheckout`
  * refuses only what the levers and the publications say to refuse. So the
  * exclusion became a wrong answer in the direction that costs a merchant a
- * sale — and, with `GUEST_SELLER_ACTIVATION_REQUIRED` on, a CIRCULAR one: a
- * store whose only guest-capable fulfilment is collection read
+ * sale — and, under the since-removed opt-in guest seller-activation gate, a
+ * CIRCULAR one: a store whose only guest-capable fulfilment is collection read
  * `guest_fulfilment_method_blocked`, which withheld its guest activation, which
  * `derivePickupEligibility` then read back as `guest_seller_not_activated`.
  *

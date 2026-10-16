@@ -59,11 +59,6 @@ const INLINE_ADDRESS = {
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  // Explicit, not assumed: vitest may run several files in one worker thread
-  // and a sibling file sets these — env leaks, configs do not.
-  process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
-  process.env.GUEST_CART_ENABLED = 'true';
-  process.env.GUEST_INLINE_DESTINATION_ENABLED = 'true';
 
   const { createApp } = await import('../../app.js');
   const postgres = await import('../../db/postgres.js');

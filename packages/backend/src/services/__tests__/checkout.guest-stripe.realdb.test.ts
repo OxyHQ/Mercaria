@@ -153,20 +153,15 @@ beforeAll(async () => {
   process.env.STRIPE_PLATFORM_CURRENCY = 'EUR';
   process.env.STRIPE_PRESENTMENT_CURRENCIES = 'EUR,USD';
   process.env.FX_PROVIDER = 'static';
-  // Guest commerce, and the two keys the M8 half-configuration rule demands.
+  // Guest commerce. Its PII and email-hash keys are derived from
+  // `MERCARIA_SECRET_KEY` (the public dev root under test), so none is set here.
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  // A REAL 32-byte key: `lib/guest-pii.ts` refuses anything else, and the
-  // contact row is encrypted inside the orders' own transaction.
-  process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
-  process.env.GUEST_CART_ENABLED = 'true';
-  process.env.GUEST_INLINE_DESTINATION_ENABLED = 'true';
   // No lever set: this file is about the rail, and a kill switch firing would
   // refuse every case in it for the wrong reason.
   delete process.env.GUEST_CHECKOUT_BLOCKED_PLATFORMS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_MARKETS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_SELLER_KEYS;
   delete process.env.GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS;
-  delete process.env.GUEST_SELLER_ACTIVATION_REQUIRED;
 
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;

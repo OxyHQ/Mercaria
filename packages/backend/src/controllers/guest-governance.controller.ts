@@ -41,6 +41,7 @@ import {
 import { getRequiredOxyUserId } from '@oxy.so/core/server';
 import { ErrorCodes, sendError, sendSuccess } from '../utils/api-response.js';
 import { getDb } from '../db/postgres.js';
+import { log } from '../lib/logger.js';
 import {
   listRecentInterventions,
   readInterventionRates,
@@ -152,11 +153,11 @@ export async function listGuestRetentionRunsHandler(_req: Request, res: Response
 /**
  * `POST /governance/retention-runs` — run one pass now.
  *
- * Drives the SAME function the scheduled loop drives, so this surface adds a
- * trigger and no second way to delete anything. Whether it dry-runs is
- * `GUEST_RETENTION_DRY_RUN`'s decision and not a body field — an operator able
- * to pass `mode: 'apply'` past a deployment that chose dry-run would make the
- * flag decorative.
+ * `dryRun` defaults to `true`: a pass only ERASES when the body says
+ * `dryRun: false`, and even then only for a class with an ACTIVE published
+ * retention policy (the service refuses `policy_missing` otherwise). The
+ * policy is the recorded decision that contacts may be minimized; the explicit
+ * `false` is the operator's decision to do it now, attributable to the request.
  */
 export async function runGuestRetentionPassHandler(req: Request, res: Response): Promise<void> {
   const retentionClass = req.body?.retentionClass as GuestRetentionClass | undefined;
@@ -169,7 +170,20 @@ export async function runGuestRetentionPassHandler(req: Request, res: Response):
     );
     return;
   }
-  const outcome = await runRetentionPass({ retentionClass, now: new Date() });
+  const dryRun: unknown = req.body?.dryRun ?? true;
+  if (typeof dryRun !== 'boolean') {
+    sendError(res, ErrorCodes.VALIDATION_ERROR, 'dryRun must be a boolean when given.', 400);
+    return;
+  }
+  const outcome = await runRetentionPass({ retentionClass, dryRun, now: new Date() });
+  if (!dryRun && outcome.outcome === 'ran') {
+    // The run row carries the policy version and the counters; WHO chose to
+    // apply is the request's, so it is logged beside the run id.
+    log.guest.warn(
+      { runId: outcome.result.runId, retentionClass, appliedBy: getRequiredOxyUserId(req) },
+      '[GuestRetention] an operator applied a retention pass',
+    );
+  }
   if (outcome.outcome === 'refused') {
     sendError(res, ErrorCodes.CONFLICT, `The retention pass was refused: ${outcome.reason}.`, 409);
     return;

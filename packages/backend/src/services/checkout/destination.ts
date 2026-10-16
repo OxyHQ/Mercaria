@@ -37,7 +37,6 @@
  */
 
 import type { CheckoutDestination, CheckoutInput, ShippingMethod } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { findAddress } from '../../db/buyers/addressRepository.js';
 import { forbidden, notFound, validationError } from '../../lib/errors/error-codes.js';
 import type { CommerceActor } from '../commerce-actor.js';
@@ -262,12 +261,6 @@ async function resolveFulfilment(
     }
 
     case 'inline_shipping_address': {
-      if (actor.kind === 'guest' && !config.guest.inlineDestinationEnabled) {
-        // The #105 lever, independent of the cart lever — see `config`. A guest
-        // whose credential still owns a cart is told plainly that checkout is
-        // off rather than being handed a validation error about a field.
-        throw forbidden('Guest checkout is temporarily unavailable. Sign in to place this order.');
-      }
       if (actor.kind === 'anonymous') {
         throw forbidden('Add something to your cart before checking out.');
       }
@@ -290,20 +283,12 @@ async function resolveFulfilment(
       if (actor.kind === 'anonymous') {
         throw forbidden('Add something to your cart before checking out.');
       }
-      if (actor.kind === 'guest' && !config.guest.inlineDestinationEnabled) {
-        // The same lever the other two non-saved branches read. A digital cart is
-        // not a reason to let a guest through a gate that is closed for parcels.
-        throw forbidden('Guest checkout is temporarily unavailable. Sign in to place this order.');
-      }
       return { kind: 'digital' };
     }
 
     case 'pickup': {
       if (actor.kind === 'anonymous') {
         throw forbidden('Add something to your cart before checking out.');
-      }
-      if (actor.kind === 'guest' && !config.guest.inlineDestinationEnabled) {
-        throw forbidden('Guest checkout is temporarily unavailable. Sign in to place this order.');
       }
       const locationId = destination.locationId.trim();
       if (locationId.length === 0) {

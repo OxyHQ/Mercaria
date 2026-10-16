@@ -39,12 +39,10 @@ The abuse controls are not a lever: they run whenever guest commerce runs —
 every watched action is counted and friction is applied by the published
 policy — and their subject-digest key is derived from `MERCARIA_SECRET_KEY`.
 (A former `GUEST_ABUSE_CONTROLS_ENABLED` returned before counting, so with it
-off no counter was written at all — the M8-03 finding.) One lever exists and it
-does not gate a durable record: `GUEST_RETENTION_JOB_ENABLED` gates the sweep
-LOOP (rows keep their deadlines
-and the lag counter keeps rising, which is exactly what must stay true, because
-a paused retention job is the one failure in this domain invisible from
-everywhere else).
+off no counter was written at all — the M8-03 finding.) Retention has no lever
+either: there is no scheduled sweep, a pass is run by an operator through
+`POST /governance/retention-runs`, and whether it ERASES is decided per request
+under an active published policy (below).
 
 ---
 
@@ -144,10 +142,14 @@ retention job that silently did nothing and one that correctly found nothing
 produce identical output otherwise, and the first is the failure this whole
 domain exists to make visible.
 
-**`GUEST_RETENTION_DRY_RUN` defaults TRUE**, which is the one default here on the
-cautious side of every other rollout lever, because the two errors are not
-symmetric: a dry run that should have erased leaves data for another day, and an
-apply that should not have erased leaves nothing at all.
+**A pass is a DRY RUN unless the request says otherwise.** `POST
+/governance/retention-runs` takes `{ retentionClass, dryRun? }` and `dryRun`
+defaults to `true`; only an explicit `dryRun: false` erases, and the operator who
+sent it is logged beside the run id. The two errors are not symmetric: a dry run
+that should have erased leaves data for another day, and an apply that should
+not have erased leaves nothing at all. There is no environment switch — the
+ACTIVE policy is the recorded decision that a class may be minimized, and the
+explicit `false` is the decision to do it now.
 
 **It refuses to run under no published policy.** `GUEST_RETENTION_SCHEDULE` is
 what somebody publishes; a job that read it directly would make the published
@@ -413,7 +415,7 @@ would advertise it).
 | `GET /inventory` | the sixteen classes, the schedule, and which classes an ACTIVE policy covers |
 | `POST /retention-policy` | publish the reviewed schedule as a version |
 | `GET /retention-runs` | what each pass did |
-| `POST /retention-runs` | run one pass now |
+| `POST /retention-runs` | run one pass now — a dry run unless the body says `dryRun: false` |
 | `POST /legal-holds` | pause one class for one group |
 | `POST /legal-holds/:id/lift` | attributable, dated, explained |
 | `GET /signals` | every security signal over a range, plus the measured cleanup lag |
@@ -444,10 +446,7 @@ would advertise it).
 ## Environment
 
 ```
-GUEST_RETENTION_JOB_ENABLED=true     # gates the LOOP only
-GUEST_RETENTION_BATCH_SIZE=500
-GUEST_RETENTION_POLL_INTERVAL_MS=900000
-GUEST_RETENTION_DRY_RUN=true         # the cautious default, deliberately
+GUEST_RETENTION_BATCH_SIZE=500       # rows one retention pass examines
 GUEST_SIGNAL_WINDOW_SECONDS=300
 ```
 
@@ -465,9 +464,9 @@ keyed, under the `guest-abuse-subject-hash` key derived from
 2. `POST /governance/retention-policy` once, to publish the reviewed schedule.
    Until a version is ACTIVE the retention job refuses every pass and says
    `policy_missing`.
-3. Leave `GUEST_RETENTION_DRY_RUN=true` for at least one full cycle and read
+3. Run each class as a dry run first (the default) and read
    `GET /governance/retention-runs`. The counters are what a review reads before
-   anything is erased.
+   anything is erased with `dryRun: false`.
 4. Record the privacy and retention review (`docs/analytics.md` §"The privacy
    and retention review", plus this document's inventory and schedule) and the
    security review. Both are launch gates and both need a person.

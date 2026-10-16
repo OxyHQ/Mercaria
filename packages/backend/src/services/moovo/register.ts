@@ -35,6 +35,26 @@ import {
   moovoTransportBlockerSummary,
 } from './transport.js';
 
+/**
+ * Whether this deployment configured the Moovo client at all: ANY of the three
+ * identifying variables is set. There is no separate on/off switch — a
+ * deployment that names a Moovo wants it, and one that names none (every
+ * deployment today; shipping stays hidden) gets nothing.
+ *
+ * ANY rather than ALL on purpose: a deployment that set two of the three has
+ * asked for Moovo and got the third wrong, and that must reach
+ * {@link assertMoovoClientConfigured} and be refused by name rather than be read
+ * as "not configured" and ignored in silence. The raw `MOOVO_ENVIRONMENT` is
+ * read, not the parsed one, because a typo there is a request too.
+ */
+export function moovoClientConfigured(): boolean {
+  return (
+    config.moovo.baseUrl !== '' ||
+    config.moovo.resourceApplicationId !== '' ||
+    (process.env.MOOVO_ENVIRONMENT?.trim() ?? '') !== ''
+  );
+}
+
 /** Everything wrong with the current configuration. Empty means it is usable. */
 export function moovoConfigurationProblems(): readonly string[] {
   const problems: string[] = [];
@@ -104,7 +124,7 @@ export function assertMoovoClientConfigured(): void {
   // environment word, which is a member of a published closed set and cannot be
   // a secret. `MOOVO_RESOURCE_APPLICATION_ID`'s value is never echoed: it is not
   // a credential, but it is an identifier of somebody else's tenant.
-  throw new Error(`Moovo client is enabled and misconfigured:\n- ${problems.join('\n- ')}`);
+  throw new Error(`Moovo client is configured and misconfigured:\n- ${problems.join('\n- ')}`);
 }
 
 /**
@@ -113,14 +133,15 @@ export function assertMoovoClientConfigured(): void {
  * Called unconditionally at boot. The three outcomes are deliberately
  * different, and only one of them is silent:
  *
- *  - disabled — nothing happens, no log. This is the shipped default.
- *  - enabled and misconfigured — THROWS. See the module docblock.
- *  - enabled, configured, no transport — the client is NOT registered and the
+ *  - not configured (no `MOOVO_BASE_URL`, `MOOVO_RESOURCE_APPLICATION_ID` or
+ *    `MOOVO_ENVIRONMENT`) — nothing happens, no log. Every deployment today.
+ *  - partly or wrongly configured — THROWS. See the module docblock.
+ *  - configured, no transport — the client is NOT registered and the
  *    blockers are logged once at startup, so the reason is in the log of the
  *    deployment that expected Moovo to work rather than in an issue tracker.
  */
 export function registerMoovoClient(): void {
-  if (!config.moovo.enabled) return;
+  if (!moovoClientConfigured()) return;
   assertMoovoClientConfigured();
 
   const transport = moovoTransport();

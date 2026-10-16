@@ -309,17 +309,19 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     }
   });
 
-  it('the three STRUCTURAL gates name no lever, and every other names one', () => {
+  it('the five STRUCTURAL gates name no lever, and every other names one', () => {
     const structural = GUEST_FEATURE_GATE_REGISTER.filter((gate) => gate.lever === null);
-    // EXACT rather than containment: this list may only shrink by somebody
-    // building the lever, and `pickup` leaving it is exactly that — #93 shipped
-    // a guest pickup lever and the register went on saying STRUCTURAL,
-    // which is what an operator reads during an incident to decide what to
-    // flip. Reading `null` there sends them to a broader lever: taking the
-    // guest cart or guest checkout down to withdraw one fulfilment mode.
+    // EXACT rather than containment: this list changes only by a decision —
+    // `pickup` left it when #93 shipped a guest pickup lever (today the guest
+    // fulfilment block list), and message delivery and claiming joined it when
+    // their `*_ENABLED` switches were removed (always on). The register is what
+    // an operator reads during an incident to decide what to flip, so `null`
+    // must mean "nothing to flip".
     expect(structural.map((gate) => gate.gate).sort()).toEqual([
       'order_portal',
+      'oxy_claim',
       'p2p',
+      'recovery_email',
       'stripe_client_path',
     ]);
     for (const gate of structural) {
@@ -367,10 +369,22 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     for (const gate of GUEST_FEATURE_GATE_REGISTER) {
       expect(gate.rollbackOrder).toBeGreaterThan(0);
     }
-    // Issuance goes off FIRST — it is the only lever that stops the population
-    // growing, and every other lever is more useful while it is off.
-    const issuance = GUEST_FEATURE_GATE_REGISTER.find((gate) => gate.gate === 'session_issuance');
-    expect(issuance?.rollbackOrder).toBe(1);
+    // Guest CHECKOUT goes off FIRST — blocking both platforms halts new guest
+    // orders while every cart and session survives — and the decommission
+    // (`GUEST_COMMERCE_ENABLED`, which is all issuance and the guest cart answer
+    // to now) goes off LAST, after every narrower lever.
+    const checkout = GUEST_FEATURE_GATE_REGISTER.find((gate) => gate.gate === 'checkout_ui');
+    expect(checkout?.rollbackOrder).toBe(1);
+    const levered = GUEST_FEATURE_GATE_REGISTER.filter((gate) => gate.lever !== null);
+    const decommission = levered.filter((gate) => gate.lever === 'GUEST_COMMERCE_ENABLED');
+    expect(decommission.map((gate) => gate.gate).sort()).toEqual([
+      'cart_read_write',
+      'session_issuance',
+    ]);
+    for (const gate of levered) {
+      if (gate.lever === 'GUEST_COMMERCE_ENABLED') continue;
+      expect(gate.rollbackOrder).toBeLessThan(decommission[0]?.rollbackOrder ?? 0);
+    }
   });
 });
 

@@ -202,11 +202,7 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   // threshold on somebody else's verdict.
   native_checkout_ready: (f) => (f.nativeSatisfied ? OK : no('native_checkout_not_ready')),
 
-  guest_commerce_enabled: (f) => {
-    if (!f.guest.commerceEnabled) return no('guest_commerce_disabled');
-    if (!f.guest.cartEnabled) return no('guest_cart_disabled');
-    return OK;
-  },
+  guest_commerce_enabled: (f) => (f.guest.commerceEnabled ? OK : no('guest_commerce_disabled')),
 
   guest_market_currency_allowed: (f) =>
     f.guest.presentmentCurrencies.length === 0
@@ -220,15 +216,18 @@ const DERIVATIONS: Readonly<Record<MerchantActivationRequirementKey, Derivation>
   guest_payment_method_available: (f) =>
     f.guest.paymentMethods.length > 0 ? OK : no('guest_no_payment_surface'),
 
-  guest_inline_destination_supported: (f) =>
-    f.guest.inlineDestinationEnabled ? OK : no('guest_inline_destination_disabled'),
+  // A guest checkout always takes an inline destination: the #105 lever that
+  // could switch it off is gone. Kept as a requirement for the reason
+  // `guest_merchant_order_access` is — the guarantee stays visible on the
+  // dashboard — and because stored evaluations name this key.
+  guest_inline_destination_supported: () => OK,
 
   // At least one method must be BOTH priceable by this deployment and not
   // withdrawn from guests. `facts.ts` composes that set, and pickup is now IN
   // it whenever #93's two levers are on and this store published somewhere to
   // collect from — it was struck out unconditionally on a premise #93 retired,
-  // and the exclusion had become circular under
-  // `GUEST_SELLER_ACTIVATION_REQUIRED`.
+  // and the exclusion had become circular under the (since removed) opt-in
+  // guest seller-activation gate.
   //
   // This answers "is there any guest-eligible method at all" and deliberately
   // says nothing about WHICH: the two capabilities that name one mode read

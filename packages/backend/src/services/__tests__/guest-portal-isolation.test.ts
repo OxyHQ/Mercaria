@@ -151,7 +151,7 @@ function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] 
  * guest commerce is switched off (#108 acceptance 10, ADR 0003 M8).
  *
  * DERIVED as the whole domain, which is a widening: the list this replaces named
- * four modules of eighteen. No module in the domain reads one of the four levers
+ * four modules of eighteen. No module in the domain reads the guest lever
  * (measured), so the stronger statement — *nothing in the portal is gated by a
  * guest lever* — is the one that holds today, and a module added tomorrow is
  * held to it by default rather than landing outside every wall.
@@ -161,22 +161,22 @@ function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] 
  * base-URL accessor, which is a setting rather than a switch. A ban on the whole
  * `config.guest` namespace would be a gate nobody could satisfy without moving
  * the portal's own settings somewhere arbitrary, so `GUEST_LEVER_REFERENCE`
- * names the four switches individually.
+ * names the switch itself.
  *
- * The fifth lever, `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED`, gates the dispatcher
- * LOOP and never a row, and is deliberately not among the four.
+ * The three inner levers this used to list beside it (session issuance, guest
+ * cart, inline destination) and the message-delivery loop switch were removed:
+ * those capabilities are always on, so there is nothing left to gate a read.
  */
 const PORTAL_READ_PATHS = PORTAL_PATHS;
 
 /**
- * The four guest LEVERS. None of them may gate a portal read.
+ * The guest LEVER. It may not gate a portal read.
  *
  * `GUEST_COMMERCE_ENABLED` off must stop new sessions and new guest checkouts
  * and must NOT strand a person who already paid — which is the exact moment
  * they would be trying to find their order.
  */
-const GUEST_LEVER_REFERENCE =
-  /guest\.enabled|guest\.issuanceEnabled|guest\.cartEnabled|guest\.inlineDestinationEnabled/;
+const GUEST_LEVER_REFERENCE = /guest\.enabled/;
 
 /**
  * The plaintext decrypt. Permitted in exactly ONE module — the send path — and
@@ -496,7 +496,6 @@ describe('guest portal isolation (static)', () => {
    * distinguish success from failure is worse than no check.
    */
   it('every detector fires on a seeded positive', () => {
-    expect(GUEST_LEVER_REFERENCE.test('if (config.guest.cartEnabled) return;')).toBe(true);
     expect(GUEST_LEVER_REFERENCE.test('if (config.guest.enabled) return;')).toBe(true);
     expect(DECRYPT_REFERENCE.test('const email = decryptGuestPii(row.emailCiphertext);')).toBe(
       true,

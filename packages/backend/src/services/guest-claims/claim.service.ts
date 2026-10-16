@@ -81,7 +81,6 @@ import type {
   GuestClaimPreview,
   GuestClaimResult,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { RETENTION_SECONDS } from '../../db/expiryTargets.js';
 import type { GuestOrderAccessGrantRow } from '../../db/guestPortal/grantRepository.js';
@@ -119,8 +118,6 @@ export const CLAIM_STATUS_NOTE = 'Order access moved to an Oxy account (guest cl
 
 /** Why a claim was refused. Bounded, so a route can map it and a test can drive it. */
 export type GuestClaimRefusal =
-  /** `GUEST_CLAIM_ENABLED` is off on this deployment. */
-  | 'claiming_unavailable'
   /** The presented credential does not carry `claim:write`. */
   | 'claim_scope_missing'
   /** The presented credential has no proven inbox behind it (ADR 0003 D17). */
@@ -156,7 +153,6 @@ export interface GuestClaimInput {
 
 /** The proofs that can be judged without touching the database. */
 function refusalFromProofs(grant: GuestOrderAccessGrantRow): GuestClaimRefusal | null {
-  if (!config.guest.claim.enabled) return 'claiming_unavailable';
   if (!grantHasScope(grant.scopes, 'claim:write')) return 'claim_scope_missing';
   // `email_verified_at` and not a derived boolean: D17 puts claiming firmly on
   // the proven-inbox side, and a `post_checkout` credential — proof of a DEVICE
@@ -192,15 +188,13 @@ export async function previewGuestClaim(input: {
   const refusal = refusalFromProofs(input.grant);
 
   const blockReason =
-    refusal === 'claiming_unavailable'
-      ? ('claiming_unavailable' as const)
-      : refusal === 'claim_scope_missing'
-        ? ('claim_scope_missing' as const)
-        : refusal === 'inbox_not_verified'
-          ? ('inbox_not_verified' as const)
-          : existing !== null && !alreadyClaimedByYou
-            ? ('claimed_by_another_account' as const)
-            : null;
+    refusal === 'claim_scope_missing'
+      ? ('claim_scope_missing' as const)
+      : refusal === 'inbox_not_verified'
+        ? ('inbox_not_verified' as const)
+        : existing !== null && !alreadyClaimedByYou
+          ? ('claimed_by_another_account' as const)
+          : null;
 
   // Hydrated only for the seller's public display name, which is a live Oxy or
   // store read rather than an order column — the same one `GuestOrderStatusView`

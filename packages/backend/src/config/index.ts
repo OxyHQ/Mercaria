@@ -112,6 +112,35 @@ function readMoovoEnvironment(): MoovoEnvironment | null {
 
 const MINUTE_MS = 60_000;
 
+/**
+ * The `NODE_ENV` values the API may run under. A CLOSED set, because the value
+ * decides security-relevant behaviour (the mock payment rail exists only
+ * outside production) and the dangerous misconfiguration is not a wrong value
+ * but a MISSING one: a production image started without `NODE_ENV` would read
+ * as "not production" everywhere that asks.
+ */
+export const KNOWN_NODE_ENVS = ['production', 'development', 'test'] as const;
+
+/**
+ * Refuse to boot under an unset or unrecognised `NODE_ENV`. Called by the
+ * server entry (`index.ts`) before anything listens; vitest sets `test` itself.
+ *
+ * FAILING rather than reading unset as production: a silent "production"
+ * default would also flip every other `NODE_ENV` reader (Stripe `livemode`,
+ * the FX provider, Moovo's environment rule) on a developer's laptop, while a
+ * refusal names the variable once and is fixed in one line. The production
+ * Dockerfile sets `NODE_ENV=production`; `bun run dev` sets `development`.
+ */
+export function assertKnownNodeEnv(): void {
+  const raw = process.env.NODE_ENV;
+  if ((KNOWN_NODE_ENVS as readonly (string | undefined)[]).includes(raw)) return;
+  throw new Error(
+    `NODE_ENV=${JSON.stringify(raw ?? null)} is not one of ${KNOWN_NODE_ENVS.join(', ')}. ` +
+      'Set it explicitly: an unset NODE_ENV would read as "not production" and expose the ' +
+      'development-only mock payment rail.',
+  );
+}
+
 /** The FX rate provider strategy. */
 type FxProviderName = 'faircoin_explorer' | 'static';
 
@@ -120,7 +149,7 @@ const FX_PROVIDERS: readonly FxProviderName[] = ['faircoin_explorer', 'static'];
 
 /**
  * Resolve the configured FX provider. Defaults to the live FairCoin Explorer in
- * production and the static dev fallback otherwise (mirrors `mockPayEnabled`).
+ * production and the static dev fallback otherwise.
  * An explicitly-set but invalid `FX_PROVIDER` falls back to the default rather
  * than throwing at import time.
  */
@@ -1045,7 +1074,7 @@ export interface StripeConfig {
    * the truthful answer and stops an endpoint being registered in the Stripe
    * dashboard against a deployment that could never verify its deliveries.
    *
-   * Note this is NOT the `crowdSource.enabled`/`payments.outboxEnabled` shape,
+   * Note this is NOT the `crowdSource.enabled` shape,
    * where the loop is gated and the durable record never is. There is nothing to
    * park here: an unconfigured deployment has no secret and therefore cannot
    * tell a real delivery from a forged one, so accepting the bytes to process
@@ -1254,13 +1283,6 @@ export interface StripeConfig {
  * missing webhook secret is silent.
  */
 export interface ReconciliationConfig {
-  /**
-   * Whether the sweeps RUN. Like the outbox's flag and unlike `STRIPE_ENABLED`,
-   * this gates only the loop: the discrepancy rows a manual run writes are
-   * durable whatever it says, and switching it off during an incident stops the
-   * sweeps competing with whatever an operator is doing by hand.
-   */
-  readonly enabled: boolean;
   /** How often a task tries to claim a sweep. Only one task wins per job. */
   readonly intervalMs: number;
   /** Rows (or provider objects) one page of a sweep handles. */
@@ -1338,19 +1360,6 @@ export interface PeableConfig {
 }
 
 export interface PaymentsConfig {
-  /**
-   * Whether the payment outbox DISPATCHER runs. The durable record is never
-   * gated: rows are written whatever this says, so switching it on delivers the
-   * backlog rather than stranding it, and switching it off during an incident
-   * parks work instead of losing it. Exactly the `crowdSource.enabled` rule, for
-   * exactly the same reason.
-   *
-   * Defaults ON, unlike CrowdSource's — this loop has no external dependency to
-   * be half-configured against. It drains Mercaria's own consequences of a
-   * payment (an order reaching `paid`, a seller being told), and a deployment
-   * that quietly did not do those would be a worse default than one that does.
-   */
-  readonly outboxEnabled: boolean;
   /** Rows drained per tick. */
   readonly outboxBatchSize: number;
   /** How often the dispatcher looks for due work. */
@@ -1412,60 +1421,6 @@ export interface GuestConfig {
    */
   readonly enabled: boolean;
   /**
-   * The issuance KILL SWITCH — `GUEST_SESSION_ISSUANCE_ENABLED`, default true.
-   *
-   * Distinct from `enabled` on purpose: flipping THIS off during an abuse
-   * incident stops new sessions being minted while every existing session
-   * keeps resolving, rotating and revoking — nobody's cart is destroyed to
-   * stop a farmer. Flipping `enabled` off is a decommission, not a lever.
-   */
-  readonly issuanceEnabled: boolean;
-  /**
-   * Whether a guest session may OWN a cart — `GUEST_CART_ENABLED`, default
-   * true, meaningful only while `enabled` is on (#104 acceptance 10).
-   *
-   * The third lever, independent of the two above because it answers a
-   * different question. `enabled` is "does this deployment have guest commerce
-   * at all"; `issuanceEnabled` is "may new credentials be minted right now";
-   * this is "may a credential own commerce state". Guest CHECKOUT (#105–#107)
-   * gets a fourth for the same reason, which is what "feature flags support
-   * guest cart independently from guest checkout" asks for.
-   *
-   * With this OFF, guest cart reads answer empty and guest cart writes are
-   * refused — but the MERGE stays available, because gating it would strand
-   * every cart created while it was on. Gate the loop, never the durable
-   * record.
-   */
-  readonly cartEnabled: boolean;
-  /**
-   * Whether a guest may place an ORDER with an inline destination —
-   * `GUEST_INLINE_DESTINATION_ENABLED`, default true, meaningful only while
-   * `enabled` is on (#105 migration rule 8).
-   *
-   * The fourth lever, and separate from `cartEnabled` because the two bound
-   * different blast radii. The three states worth knowing:
-   *
-   *  - **`enabled` off** — no guest credential resolves at all; a signed-out
-   *    buyer is `anonymous`, has no cart, and checkout tells them to sign in.
-   *    This is a decommission, not a lever.
-   *  - **`cartEnabled` off, this on** — a guest session still resolves but owns
-   *    no cart, so there is nothing to check out and the refusal comes from the
-   *    cart surface. Turning THIS on cannot rescue that; the two compose, they
-   *    do not substitute.
-   *  - **`cartEnabled` on, this off** — the incident lever this issue adds. A
-   *    guest keeps their cart, keeps browsing, and is told plainly at checkout
-   *    that placing an order needs an account right now. Nothing durable is
-   *    gated: guest orders ALREADY placed keep their contact record, their
-   *    payment drains through the rail, and the webhook chain never reads this
-   *    flag (ADR 0006 G17 — gate the loop, never the durable record).
-   *
-   * Default TRUE rather than false, matching `cartEnabled`: `enabled` is the
-   * flag that is off by default and gates the whole domain, and an inner lever
-   * defaulting off would mean two switches to find during a rollout and one to
-   * forget.
-   */
-  readonly inlineDestinationEnabled: boolean;
-  /**
    * `GUEST_OPERATOR_OXY_USER_IDS` — who may read the guest-commerce
    * diagnostic. See `resolveGuestOperatorIds`.
    */
@@ -1518,31 +1473,15 @@ export interface GuestConfig {
  * `MERCARIA_SECRET_KEY`, so there is no configuration in which they could be
  * half-on.
  *
- * ## The lever that DOES exist gates a LOOP, never a record
+ * ## Retention is not a lever either
  *
- * `retentionJobEnabled` off stops the sweep and nothing else. Rows keep their
- * deadlines, the lag counter keeps rising, and the operator surface keeps
- * reporting it — which is exactly what has to remain true, because a paused
- * retention job is the one failure in this domain that is invisible from
- * everywhere else.
+ * Retention has no lever at all. Whether a pass DELETES is the approved
+ * `active` retention policy for that class — a recorded, attributable decision
+ * — and never an environment variable (see `retention.service.ts`).
  */
 export interface GuestGovernanceConfig {
-  /** `GUEST_RETENTION_JOB_ENABLED`, default true — gates the LOOP only. */
-  readonly retentionJobEnabled: boolean;
   /** How many rows one retention pass examines. Bounded, indexed batches. */
   readonly retentionBatchSize: number;
-  /** How often the retention loop wakes. */
-  readonly retentionPollIntervalMs: number;
-  /**
-   * `GUEST_RETENTION_DRY_RUN`, default TRUE — the one default in this file that
-   * is deliberately the cautious side of every other rollout lever.
-   *
-   * A retention job DELETES, and the cost of the two errors is not symmetric: a
-   * dry run that should have deleted leaves data for another day, and an apply
-   * that should not have deleted leaves nothing at all. The `observe` default
-   * `CROWDSOURCE_ENFORCEMENT_MODE` chose, for the same asymmetry.
-   */
-  readonly retentionDryRun: boolean;
   /**
    * How long a security-signal counter's window is, in seconds. One value for
    * every signal: a per-signal window would make two counters incomparable and
@@ -1554,58 +1493,13 @@ export interface GuestGovernanceConfig {
 /**
  * Claiming a guest checkout group into an Oxy account (#109, ADR 0003 D14).
  *
- * ## Three levers, and NOT ONE of them gates a stored claim
- *
- * A claim is an ownership record. Turning a lever off must never make an
- * already-claimed order stop belonging to the account that claimed it, stop
- * appearing in its history, or stop being readable by an operator — so
- * `authorizeOrderAccess`, the buyer list predicate, the claim trace and the
- * consistency probe read NONE of these, and
- * `guest-claim-isolation.test.ts` fails the build if one starts to.
- *
- *  - **`enabled`** gates the claim WRITE. This is the `GUEST_CART_ENABLED`
- *    shape rather than the outbox one: refusing a claim writes nothing at all,
- *    so there is no durable record being suppressed. What it must not do — and
- *    does not — is gate the READ of a claim already made.
- *  - **`projectionEnabled`** gates the dispatcher LOOP. Follow-up work keeps
- *    being enqueued while it is off and drains when it comes back, the
- *    moderation-outbox rule.
- *  - **`fourEyesRequired`** decides whether a revocation needs a SECOND
- *    operator, and it is snapshotted onto the request row when the request is
- *    opened (the `catalog_merge_jobs` device, #59) — so flipping it can never
- *    retroactively unapprove a correction somebody already executed, nor
- *    silently approve one already pending.
+ * Only the follow-up dispatcher's TUNABLES. Claiming is always on, and a claim
+ * revocation always needs a second operator; nothing here can make an
+ * already-claimed order stop belonging to the account that claimed it —
+ * `guest-claim-isolation.test.ts` fails the build if a claim read path starts
+ * reading guest configuration.
  */
 export interface GuestClaimConfig {
-  /**
-   * `GUEST_CLAIM_ENABLED` — may a group be claimed right now. Default TRUE.
-   *
-   * Default true rather than false, matching `cartEnabled` and
-   * `inlineDestinationEnabled`: `GUEST_COMMERCE_ENABLED` is the flag that is
-   * off by default and gates the whole domain, and an inner lever defaulting
-   * off would mean a deployment that turned the portal on gets a claim endpoint
-   * refusing for a reason nobody chose. This is an incident lever — the case it
-   * exists for is an abuse pattern in claiming specifically, where the remedy
-   * must not be switching guest commerce off underneath people who have already
-   * paid.
-   */
-  readonly enabled: boolean;
-  /**
-   * `GUEST_CLAIM_FOUR_EYES_REQUIRED` — must a revocation be approved by a
-   * SECOND operator. Default TRUE.
-   *
-   * Detaching a claim is the one operator power in guest commerce that changes
-   * who owns a purchase, and the shape of its misuse is a single insider
-   * quietly moving somebody's order history. Default on: the flag exists so a
-   * deployment with one operator can function at all, not so a deployment with
-   * several can skip it.
-   */
-  readonly fourEyesRequired: boolean;
-  /**
-   * `GUEST_CLAIM_PROJECTION_ENABLED` — the follow-up dispatcher LOOP, default
-   * true. Never the row.
-   */
-  readonly projectionEnabled: boolean;
   /** `GUEST_CLAIM_JOB_BATCH_SIZE` — rows claimed per dispatcher pass. */
   readonly jobBatchSize: number;
   /** `GUEST_CLAIM_JOB_POLL_INTERVAL_MS` — how often the dispatcher wakes. */
@@ -1630,11 +1524,9 @@ export interface GuestClaimConfig {
  *
  * "Existing guest orders remain accessible when guest checkout creation is
  * feature-disabled later" — so the portal router mounts unconditionally, the
- * exchange resolves unconditionally, and recovery answers unconditionally. Not
- * one of the four levers above (`GUEST_COMMERCE_ENABLED`,
- * `GUEST_SESSION_ISSUANCE_ENABLED`, `GUEST_CART_ENABLED`,
- * `GUEST_INLINE_DESTINATION_ENABLED`) is read by any portal read path, and
- * `guest-portal-isolation.test.ts` fails the build if one starts to be. ADR
+ * exchange resolves unconditionally, and recovery answers unconditionally.
+ * `GUEST_COMMERCE_ENABLED` is not read by any portal read path, and
+ * `guest-portal-isolation.test.ts` fails the build if it starts to be. ADR
  * 0003 M8 states it in as many words: the flag gates issuance and guest
  * checkout, "never the durable records: existing portal grants and magic-link
  * recovery for already-placed guest orders keep working with the flag off".
@@ -1647,14 +1539,6 @@ export interface GuestClaimConfig {
  * rather than from the tab they paid in. That is the correct trade: the
  * confirmation grant is a NEW credential derived from a credential the
  * deployment has stopped honouring.
- *
- * ## The fifth lever gates a LOOP
- *
- * `deliveryEnabled` stops the dispatcher, never the row: messages keep being
- * enqueued while it is off and drain when it is switched back on, the
- * moderation-outbox rule. An incident in which mail must stop going out is the
- * case it exists for, and losing the record of what was owed would turn a
- * two-hour pause into a permanent gap.
  */
 export interface GuestPortalConfig {
   /**
@@ -1692,11 +1576,6 @@ export interface GuestPortalConfig {
    * broken URL.
    */
   readonly magicLinkBaseUrl: string;
-  /**
-   * `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED` — the dispatcher LOOP, default
-   * true. See the interface docblock: the row is never gated.
-   */
-  readonly deliveryEnabled: boolean;
   /** `GUEST_PORTAL_MESSAGE_BATCH_SIZE` — rows claimed per dispatcher pass. */
   readonly messageBatchSize: number;
   /** `GUEST_PORTAL_MESSAGE_POLL_INTERVAL_MS` — how often the dispatcher wakes. */
@@ -1799,24 +1678,6 @@ export interface GuestCheckoutRolloutConfig {
    * configured) and guest commerce both are.
    */
   readonly blockedFulfilmentMethods: readonly string[];
-  /**
-   * `GUEST_SELLER_ACTIVATION_REQUIRED` — the #85 gate, default FALSE.
-   *
-   * #85 LANDED, so `readGuestSellerActivation` now answers the guest
-   * conjunction per seller (`services/merchant-activation/guest-activation.ts`)
-   * instead of being unable to report anybody as activated. What this flag
-   * decides is whether the question is ASKED at all; the early return is also
-   * what keeps the default path free of a database read.
-   *
-   * OFF by default because that is ADR 0006 G14's decision, not an omission:
-   * guest eligibility is the intersection of the gates that already exist, and
-   * defaulting this on would refuse a checkout the ADR says is eligible. There
-   * is still no per-merchant guest OPT-IN list, and `activated` is still not a
-   * value anybody can set — it is a conjunction over eleven tables, which is
-   * what stops it becoming a second, drifting answer to what `onboarding_state`
-   * already answers.
-   */
-  readonly sellerActivationRequired: boolean;
   /**
    * `GUEST_CHECKOUT_BLOCKED_SUPPLIERS` — supplier ids, the #123 axis.
    *
@@ -2465,7 +2326,11 @@ export interface OrdersConfig {
    */
   readonly reservationTtlMs: number;
   /**
-   * Whether the test-only mock-pay endpoint is enabled. Off in production.
+   * Whether the development-only mock payment rail exists — DERIVED, there is
+   * no variable for it: `NODE_ENV` is `development` or `test`. An allow-list
+   * rather than `!== 'production'`, so a process that imports this module
+   * without passing {@link assertKnownNodeEnv} (a script, a worker) and has no
+   * `NODE_ENV` still gets no mock rail.
    */
   readonly mockPayEnabled: boolean;
   /**
@@ -3015,20 +2880,10 @@ export type MoovoEnvironment = (typeof MOOVO_ENVIRONMENTS)[number];
  * `resourceApplicationId` is NOT that credential — it names the Moovo Oxy
  * Application a token must be minted FOR, and it is the value the whole
  * integration is audience-bound to. It is required whenever the client is
- * enabled precisely so that "which Moovo are we talking to" can never be
+ * configured at all, precisely so that "which Moovo are we talking to" can never be
  * implicit.
  */
 export interface MoovoConfig {
-  /**
-   * `MOOVO_ENABLED` — may the Moovo logistics client be registered at all.
-   *
-   * It gates a REGISTRATION and never a durable record: nothing in the
-   * retail-fulfilment domain is stored, withheld or erased on account of it.
-   * With it on and no transport registered the client is still not installed,
-   * because a registered port makes `chooseFulfilmentMode` choose Mode A —
-   * see `services/moovo/transport.ts`.
-   */
-  readonly enabled: boolean;
   /** `MOOVO_BASE_URL` — the Moovo API root. HTTPS, and validated at registration. */
   readonly baseUrl: string;
   /** `MOOVO_RESOURCE_APPLICATION_ID` — the Moovo Oxy Application a token is bound to. */
@@ -3040,7 +2895,7 @@ export interface MoovoConfig {
    * registration rather than here: reading a typo as a default is how a
    * production deployment quietly addresses a rehearsal, and THROWING at module
    * load would take the whole API down over a variable that matters only when
-   * `enabled` is true. So the value fails closed and the refusal is raised by
+   * the client is configured at all. So the value fails closed and the refusal is raised by
    * `assertMoovoClientConfigured`, where it can name what was wrong.
    */
   readonly environment: MoovoEnvironment | null;
@@ -3710,7 +3565,6 @@ export const config: AppConfig = Object.freeze({
     baseUrl: strEnv('PRINTFUL_BASE_URL', PRINTFUL_BASE_URL),
   }),
   moovo: Object.freeze({
-    enabled: boolEnv('MOOVO_ENABLED', false),
     // No default host. A default would make "which Moovo" implicit, and the one
     // value it could sensibly default to is production's.
     baseUrl: strEnv('MOOVO_BASE_URL', ''),
@@ -3775,8 +3629,7 @@ export const config: AppConfig = Object.freeze({
   }),
   orders: Object.freeze({
     reservationTtlMs: intEnv('RESERVATION_TTL_MS', 15 * MINUTE_MS),
-    mockPayEnabled:
-      process.env.NODE_ENV === 'production' ? false : boolEnv('MOCK_PAY_ENABLED', true),
+    mockPayEnabled: process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test',
     shippingRates: Object.freeze({
       standard: intEnv('SHIPPING_RATE_STANDARD', 500),
       express: intEnv('SHIPPING_RATE_EXPRESS', 1500),
@@ -3834,7 +3687,6 @@ export const config: AppConfig = Object.freeze({
     enforcementMode: resolveEnforcementMode(),
   }),
   payments: Object.freeze({
-    outboxEnabled: boolEnv('PAYMENT_OUTBOX_ENABLED', true),
     outboxBatchSize: intEnv('PAYMENT_OUTBOX_BATCH_SIZE', 50),
     outboxPollIntervalMs: intEnv('PAYMENT_OUTBOX_POLL_INTERVAL_MS', 5_000),
     outboxLeaseMs: intEnv('PAYMENT_OUTBOX_LEASE_MS', 60_000),
@@ -3921,7 +3773,6 @@ export const config: AppConfig = Object.freeze({
         : {}),
     }),
     reconciliation: Object.freeze({
-      enabled: boolEnv('PAYMENT_RECONCILIATION_ENABLED', true),
       intervalMs: intEnv('PAYMENT_RECONCILIATION_INTERVAL_MS', 5 * MINUTE_MS),
       batchSize: intEnv('PAYMENT_RECONCILIATION_BATCH_SIZE', 100),
       openPaymentMinAgeMs: intEnv('PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS', 10 * MINUTE_MS),
@@ -3932,9 +3783,6 @@ export const config: AppConfig = Object.freeze({
   }),
   guest: Object.freeze({
     enabled: boolEnv('GUEST_COMMERCE_ENABLED', false),
-    issuanceEnabled: boolEnv('GUEST_SESSION_ISSUANCE_ENABLED', true),
-    cartEnabled: boolEnv('GUEST_CART_ENABLED', true),
-    inlineDestinationEnabled: boolEnv('GUEST_INLINE_DESTINATION_ENABLED', true),
     operatorOxyUserIds: Object.freeze(resolveGuestOperatorIds()),
     operatorSurfaceEnabled: resolveGuestOperatorIds().length > 0,
     sessionIdleDays: intEnv('GUEST_SESSION_IDLE_DAYS', 30),
@@ -3953,7 +3801,6 @@ export const config: AppConfig = Object.freeze({
       blockedFulfilmentMethods: Object.freeze(
         blockedListEnv('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS', 'lower'),
       ),
-      sellerActivationRequired: boolEnv('GUEST_SELLER_ACTIVATION_REQUIRED', false),
       blockedSuppliers: Object.freeze(blockedListEnv('GUEST_CHECKOUT_BLOCKED_SUPPLIERS', 'lower')),
     }),
     portal: Object.freeze({
@@ -3961,7 +3808,6 @@ export const config: AppConfig = Object.freeze({
       magicLinkMinutes: intEnv('GUEST_MAGIC_LINK_MINUTES', 15),
       stepUpMinutes: intEnv('GUEST_PORTAL_STEP_UP_MINUTES', 15),
       magicLinkBaseUrl: strEnv('GUEST_MAGIC_LINK_BASE_URL', ''),
-      deliveryEnabled: boolEnv('GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED', true),
       messageBatchSize: intEnv('GUEST_PORTAL_MESSAGE_BATCH_SIZE', 25),
       messagePollIntervalMs: intEnv('GUEST_PORTAL_MESSAGE_POLL_INTERVAL_MS', 5_000),
       messageLeaseMs: intEnv('GUEST_PORTAL_MESSAGE_LEASE_MS', 60_000),
@@ -3972,19 +3818,13 @@ export const config: AppConfig = Object.freeze({
       recoveryMaxPerNetwork: intEnv('GUEST_RECOVERY_MAX_PER_NETWORK', 30),
     }),
     claim: Object.freeze({
-      enabled: boolEnv('GUEST_CLAIM_ENABLED', true),
-      fourEyesRequired: boolEnv('GUEST_CLAIM_FOUR_EYES_REQUIRED', true),
-      projectionEnabled: boolEnv('GUEST_CLAIM_PROJECTION_ENABLED', true),
       jobBatchSize: intEnv('GUEST_CLAIM_JOB_BATCH_SIZE', 25),
       jobPollIntervalMs: intEnv('GUEST_CLAIM_JOB_POLL_INTERVAL_MS', 5_000),
       jobLeaseMs: intEnv('GUEST_CLAIM_JOB_LEASE_MS', 60_000),
       jobMaxAttempts: intEnv('GUEST_CLAIM_JOB_MAX_ATTEMPTS', 8),
     }),
     governance: Object.freeze({
-      retentionJobEnabled: boolEnv('GUEST_RETENTION_JOB_ENABLED', true),
       retentionBatchSize: intEnv('GUEST_RETENTION_BATCH_SIZE', 500),
-      retentionPollIntervalMs: intEnv('GUEST_RETENTION_POLL_INTERVAL_MS', 900_000),
-      retentionDryRun: boolEnv('GUEST_RETENTION_DRY_RUN', true),
       signalWindowSeconds: intEnv('GUEST_SIGNAL_WINDOW_SECONDS', 300),
     }),
   }),
@@ -4000,8 +3840,8 @@ export const config: AppConfig = Object.freeze({
     reconciliationPollIntervalMs: intEnv('REFERRAL_RECONCILIATION_POLL_INTERVAL_MS', 3_600_000),
   }),
   /**
-   * #85. Neither lever gates a durable record and neither gates a surface —
-   * see {@link MerchantActivationConfig} for why there is no third.
+   * #85. Only the observation sweep's tunables — see
+   * {@link MerchantActivationConfig} for why there is no lever.
    */
   merchantActivation: Object.freeze({
     observationIntervalMs: intEnv('MERCHANT_ACTIVATION_OBSERVATION_INTERVAL_MS', 15 * MINUTE_MS),

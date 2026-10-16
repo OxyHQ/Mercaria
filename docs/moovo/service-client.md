@@ -77,8 +77,11 @@ it, plus the measurement of why it cannot yet.
   (#156 acceptance 3). `moovo-client-isolation.test.ts` is five walls — carrier
   client, outbound HTTP, buyer impersonation, duplicate token cache/verifier,
   environment credential — each with a mutation self-test and a vacuity floor.
-- Env: `MOOVO_ENABLED` (default false; gates a REGISTRATION, never a durable
-  record), `MOOVO_BASE_URL` (no default, HTTPS with **no localhost exemption**),
+- Env: no on/off switch — registration is attempted once ANY of
+  `MOOVO_BASE_URL`, `MOOVO_RESOURCE_APPLICATION_ID`, `MOOVO_ENVIRONMENT` is set
+  (all three are then required; production sets none), and it gates a
+  REGISTRATION, never a durable record. `MOOVO_BASE_URL` (no default, HTTPS with
+  **no localhost exemption**),
   `MOOVO_RESOURCE_APPLICATION_ID`, `MOOVO_ENVIRONMENT` (no default and no
   fallback member — an unrecognised value is a hard failure, because reading a
   typo as a default points a production deployment at a rehearsal),

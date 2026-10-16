@@ -58,10 +58,6 @@ function isAppendOnlyRefusal(error: unknown): boolean {
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  // Explicit, not assumed: vitest may run several files in one worker thread,
-  // and a sibling file sets this to 'false' — env leaks, configs do not.
-  process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
-  process.env.GUEST_CART_ENABLED = 'true';
 
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;
