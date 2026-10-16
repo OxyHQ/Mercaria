@@ -5,10 +5,14 @@ import { config } from '../../config/index.js';
 import { importOxyFileFromUrl, OxyFilesError, type OxyFileOwner } from './oxy-files.js';
 import { catalogMediaKind } from './policy.js';
 
-/** No source URL, signed query or credential reaches a sync-run error. */
+/**
+ * No source URL, signed query or credential reaches a sync-run error. `cause`
+ * is the adapter's `OxyFilesError` when Oxy refused (its message is as safe),
+ * so a caller can tell Oxy's rate limit (`isOxyRateLimited`) from a refusal.
+ */
 export class CatalogMediaSyncError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
     this.name = 'CatalogMediaSyncError';
   }
 }
@@ -153,7 +157,8 @@ async function synchronizeImages(
     try {
       stored = await importOxyFileFromUrl(owner, reference);
     } catch (error) {
-      if (error instanceof OxyFilesError) throw new CatalogMediaSyncError(error.message);
+      if (error instanceof OxyFilesError)
+        throw new CatalogMediaSyncError(error.message, { cause: error });
       throw new CatalogMediaSyncError('Catalog image synchronization failed.');
     }
     if (stored.visibility !== 'public')

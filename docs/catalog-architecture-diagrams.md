@@ -295,7 +295,7 @@ flowchart LR
     W_db_discovery -->|"2"| M_Discovery
     W_db_navigation -->|"5"| M_Navigation
     W_db_oxyFiles -->|"1"| M_Authoring
-    W_db_oxyFiles -->|"5"| M_Oxy_file_usage__Oxy_ADR_0043_
+    W_db_oxyFiles -->|"6"| M_Oxy_file_usage__Oxy_ADR_0043_
     W_db_oxyFiles -->|"1"| M_Review_attachments
     W_db_productTypes -->|"5"| M_Product_types
     W_db_reviews -->|"1"| M_Review_attachments
@@ -372,7 +372,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 101 tables created by a migration at or after `0088`
+All 102 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -1163,6 +1163,8 @@ erDiagram
     }
     oxy_file_event_actions {
     }
+    oxy_application_files {
+    }
     oxy_file_events ||--o{ oxy_file_event_actions : "oxy_file_event_id · restrict"
 ```
 
@@ -1173,6 +1175,7 @@ erDiagram
 | `oxy_file_reference_reconciliations` | `0172` | `db/oxyFiles` (insert/update) |
 | `oxy_file_events` | `0172` | `db/oxyFiles` (insert) |
 | `oxy_file_event_actions` | `0172` | `db/oxyFiles` (insert) |
+| `oxy_application_files` | `0175` | `db/oxyFiles` (insert) |
 
 ## 4. What the derivation found
 
@@ -1181,7 +1184,7 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 101 |
+| Tables in the population | 102 |
 | Modules they are grouped into | 27 |
 | Foreign keys out of an epic table | 192 |
 | Foreign keys into one, from outside the epic | 2 |

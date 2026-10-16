@@ -35,7 +35,9 @@ vi.mock('../../../capabilities/oxy-service-client.js', async () => {
   return { oxyServiceClient: () => oxyFiles.current?.client };
 });
 
-const { drainCanonicalSourceMediaImports } = await import('../source-media-import.js');
+const { drainCanonicalSourceMediaImports, SourceMediaImportPacer } = await import(
+  '../source-media-import.js'
+);
 
 const RUN = uuidv7().slice(-12);
 let db: Database;
@@ -95,7 +97,11 @@ async function images(productId: string) {
     .orderBy(canonicalImages.position);
 }
 
-function drain(only: string[], limits = { maxPerRecord: 6, maxPerProduct: 10 }) {
+function drain(
+  only: string[],
+  limits = { maxPerRecord: 6, maxPerProduct: 10 },
+  pacer?: InstanceType<typeof SourceMediaImportPacer>,
+) {
   return drainCanonicalSourceMediaImports({
     leaseOwner: `test-${RUN}`,
     batchSize: 10,
@@ -103,6 +109,7 @@ function drain(only: string[], limits = { maxPerRecord: 6, maxPerProduct: 10 }) 
     maxAttempts: 3,
     limits,
     onlyProductIds: only,
+    ...(pacer === undefined ? {} : { pacer }),
   });
 }
 
@@ -231,7 +238,7 @@ describe('the dispatcher copies imagery as application files, deduplicated and c
       limits: { maxPerRecord: 6, maxPerProduct: 10 },
       onlyProductIds: [productId],
     });
-    expect(none).toEqual({ completed: 0, failed: 0, attached: 0 });
+    expect(none).toEqual({ completed: 0, failed: 0, deferred: 0, attached: 0 });
     expect((await jobs(productId))[0]?.status).toBe('pending');
     expect(
       await db
@@ -239,5 +246,99 @@ describe('the dispatcher copies imagery as application files, deduplicated and c
         .from(canonicalImages)
         .where(inArray(canonicalImages.productId, [productId])),
     ).toHaveLength(0);
+  });
+
+  it('DEFERS a job Oxy rate-limits: keeps what it imported, refunds the attempt, holds the batch', async () => {
+    const limited = await mintProduct('rate-limited');
+    const waiting = await mintProduct('rate-limited-sibling');
+    const first = `https://cdn.example.test/${RUN}/limited-1.jpg`;
+    const second = `https://cdn.example.test/${RUN}/limited-2.jpg`;
+    await attach(limited, await observe('rate-limited', [first, second]));
+    await attach(
+      waiting,
+      await observe('rate-limited-sibling', [`https://cdn.example.test/${RUN}/sibling.jpg`]),
+    );
+    const client = fake().client;
+    const original = client.assets.importAppFile;
+    let calls = 0;
+    // The first import lands; then Oxy's budget is spent for an hour — a wait
+    // longer than the adapter's own two minutes, so it gives the 429 back at once.
+    client.assets.importAppFile = async (sourceUrl, options) => {
+      calls += 1;
+      if (calls > 1)
+        throw Object.assign(new Error('Too many application file uploads.'), {
+          status: 429,
+          details: { retryAfterSeconds: 3600 },
+        });
+      return original(sourceUrl, options);
+    };
+    try {
+      const startedAt = Date.now();
+      const result = await drain([limited, waiting]);
+      expect(result).toEqual({ completed: 0, failed: 0, deferred: 2, attached: 1 });
+      // Never a second call after the refusal: the sibling waits with the batch.
+      expect(calls).toBe(2);
+      expect((await images(limited)).map((image) => image.sourceUrl)).toEqual([first]);
+      for (const productId of [limited, waiting]) {
+        const [job] = await jobs(productId);
+        expect(job?.status).toBe('pending');
+        // Deferred, not failed: the claim's attempt is given back.
+        expect(job?.attempts).toBe(0);
+        expect(job?.lastError).toMatch(/budget/);
+        expect(job?.availableAt.getTime()).toBeGreaterThanOrEqual(startedAt + 3_599_000);
+      }
+    } finally {
+      client.assets.importAppFile = original;
+    }
+    // Once the budget is back the job finishes, asking Oxy only for the rest.
+    await db
+      .update(canonicalSourceMediaImports)
+      .set({ availableAt: new Date(Date.now() - 1_000) })
+      .where(inArray(canonicalSourceMediaImports.canonicalProductId, [limited, waiting]));
+    fake().reset();
+    expect(await drain([limited, waiting])).toMatchObject({ completed: 2, deferred: 0 });
+    expect(fake().imports.map((entry) => entry.sourceUrl)).not.toContain(first);
+    expect((await images(limited)).map((image) => image.sourceUrl)).toEqual([first, second]);
+  });
+
+  it('paces a task under its share of Oxy’s budget, deferring what is past it', async () => {
+    const productId = await mintProduct('paced');
+    const urls = [0, 1, 2].map((index) => `https://cdn.example.test/${RUN}/paced-${index}.jpg`);
+    await attach(productId, await observe('paced', urls));
+    let clock = Date.now();
+    const pacer = new SourceMediaImportPacer(2, () => clock);
+    const startedAt = Date.now();
+    expect(await drain([productId], undefined, pacer)).toEqual({
+      completed: 0,
+      failed: 0,
+      deferred: 1,
+      attached: 2,
+    });
+    expect(fake().imports).toHaveLength(2);
+    const [job] = await jobs(productId);
+    expect(job?.attempts).toBe(0);
+    // Back when the oldest of the minute's imports leaves the window.
+    expect(job?.availableAt.getTime()).toBeGreaterThanOrEqual(startedAt + 55_000);
+    clock += 60_000;
+    await db
+      .update(canonicalSourceMediaImports)
+      .set({ availableAt: new Date(Date.now() - 1_000) })
+      .where(eq(canonicalSourceMediaImports.canonicalProductId, productId));
+    expect(await drain([productId], undefined, pacer)).toMatchObject({ completed: 1, attached: 1 });
+    expect(await images(productId)).toHaveLength(3);
+  });
+});
+
+describe('SourceMediaImportPacer', () => {
+  it('admits N per rolling minute and names the wait for the next', () => {
+    let now = 1_000_000;
+    const pacer = new SourceMediaImportPacer(2, () => now);
+    expect(pacer.take()).toEqual({ ok: true });
+    now += 10_000;
+    expect(pacer.take()).toEqual({ ok: true });
+    expect(pacer.take()).toEqual({ ok: false, waitMs: 50_000 });
+    now += 50_000;
+    expect(pacer.take()).toEqual({ ok: true });
+    expect(pacer.take()).toEqual({ ok: false, waitMs: 10_000 });
   });
 });

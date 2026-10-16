@@ -39,6 +39,7 @@ import {
   PUBLISHABLE_ASSET_SCAN_VERDICTS,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
+import { notApplicationOwned } from '../oxyFiles/applicationFileRepository.js';
 import {
   assetFileInspections,
   assetFiles,
@@ -707,7 +708,17 @@ export async function replaceAssetFileStorageKey(
 
 /** One keyset page of asset file ids — the storage-move backfill's cursor. */
 export async function findAssetFileIdPage(
-  options: { after?: string; fileId?: string; limit: number },
+  options: {
+    after?: string;
+    fileId?: string;
+    limit: number;
+    /**
+     * Only files whose stored object Oxy has not answered as the APPLICATION's
+     * own (`oxy_application_files`) — the storage backfill's work list. The key
+     * is compared in SQL and never selected.
+     */
+    notApplicationOwned?: boolean;
+  },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<string[]> {
   const rows = await db
@@ -717,6 +728,7 @@ export async function findAssetFileIdPage(
       and(
         options.after ? sql`${assetFiles.id} > ${options.after}` : undefined,
         options.fileId ? eq(assetFiles.id, options.fileId) : undefined,
+        options.notApplicationOwned ? notApplicationOwned(assetFiles.storageKey) : undefined,
       ),
     )
     .orderBy(asc(assetFiles.id))

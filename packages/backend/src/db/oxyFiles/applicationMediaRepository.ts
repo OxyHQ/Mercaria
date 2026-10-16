@@ -7,10 +7,17 @@
  * The import runs outside any transaction; every apply is a compare-and-swap on
  * the value the preview read, so an edit made while the network was in flight
  * wins and the row is reported `changed` for an explicit retry.
+ *
+ * A page holds only rows that still need Oxy: a legacy URL with no file, or a
+ * file Oxy has not answered as the application's (`oxy_application_files`). A
+ * finished row is never selected again, so a rerun spends none of Oxy's
+ * 30-a-minute upload budget on it — re-importing it answered the same file and
+ * still spent a unit, which is what starved the tail of a production run.
  */
 
 import { and, asc, eq, gt, isNotNull, isNull, or } from 'drizzle-orm';
 import { replaceCanonicalImageFile } from '../canonical/attributeRepository.js';
+import { notApplicationOwned } from './applicationFileRepository.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { replaceCategoryImageFile } from '../taxonomy/taxonomyRepository.js';
 import { categories } from '../schema/catalog.js';
@@ -47,6 +54,10 @@ export async function findApplicationMediaPage(
         .where(
           and(
             eq(canonicalImages.status, 'active'),
+            or(
+              and(isNull(canonicalImages.fileId), isNotNull(canonicalImages.sourceUrl)),
+              and(isNotNull(canonicalImages.fileId), notApplicationOwned(canonicalImages.fileId)),
+            ),
             options.after ? gt(canonicalImages.id, options.after) : undefined,
             options.id ? eq(canonicalImages.id, options.id) : undefined,
           ),
@@ -63,7 +74,10 @@ export async function findApplicationMediaPage(
         .from(categories)
         .where(
           and(
-            or(isNotNull(categories.imageFileId), isNotNull(categories.imageUrl)),
+            or(
+              and(isNull(categories.imageFileId), isNotNull(categories.imageUrl)),
+              and(isNotNull(categories.imageFileId), notApplicationOwned(categories.imageFileId)),
+            ),
             options.after ? gt(categories.id, options.after) : undefined,
             options.id ? eq(categories.id, options.id) : undefined,
           ),
@@ -79,6 +93,7 @@ export async function findApplicationMediaPage(
         .where(
           and(
             isNotNull(brands.logoFileId),
+            notApplicationOwned(brands.logoFileId),
             options.after ? gt(brands.id, options.after) : undefined,
             options.id ? eq(brands.id, options.id) : undefined,
           ),

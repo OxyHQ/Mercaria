@@ -2342,6 +2342,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'deliberately never this table’s primary key.',
   },
   { column: 'oxy_file_events.file_id', reason: OXY_FILE },
+  { column: 'oxy_application_files.file_id', reason: OXY_FILE },
   {
     column: 'oxy_file_event_actions.entity_id',
     reason:

@@ -47,6 +47,8 @@ const NOT_OXY_FILES: Readonly<Record<string, string>> = {
   'asset_download_events.file_id': 'an `asset_files` row id (a Mercaria foreign key)',
   'oxy_file_references.file_id': "the registry's own ledger of what Oxy acknowledged",
   'oxy_file_events.file_id': "the registry's own event audit",
+  'oxy_application_files.file_id':
+    "the adapter's record of which files Oxy answered as the application's own",
 };
 
 const FILE_ID_NAME = /(?:^|_)file_ids?$/;

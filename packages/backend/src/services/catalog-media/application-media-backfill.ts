@@ -19,6 +19,7 @@ import {
   findSourceLinksWithMediaPage,
   requestCanonicalSourceMediaImport,
 } from '../../db/canonical/sourceMediaImportRepository.js';
+import { findApplicationFileIds } from '../../db/oxyFiles/applicationFileRepository.js';
 import { descriptionImageFileIds, withDescriptionImagesReplaced } from './description.js';
 import { importOxyFileFromUrl, OxyFilesError } from './oxy-files.js';
 import { catalogMediaKind } from './policy.js';
@@ -165,6 +166,12 @@ function assertBounds(options: { mode: string; limit: number }): void {
  * application's copies — a compare-and-swap on the whole description, so an
  * edit made meanwhile wins. Localized descriptions are not walked: nothing
  * writes `canonical_product_localizations` yet (#367 L2).
+ *
+ * Only images Oxy has not answered as the application's are asked about
+ * (`oxy_application_files`), and a description with none left is not reported:
+ * asking again would answer the same file and spend a unit of Oxy's
+ * 30-a-minute budget for nothing. The file ids are inside HTML, so the page is
+ * filtered here rather than in SQL; the cursor still advances over it.
  */
 export async function backfillCanonicalDescriptionImages(
   options: { mode: 'preview' | 'apply'; limit: number; after?: string; id?: string },
@@ -181,8 +188,16 @@ export async function backfillCanonicalDescriptionImages(
     outcome: 'pending' | 'applied' | 'unchanged' | 'changed' | 'failed' | 'skipped';
     reason?: string;
   }> = [];
-  for (const row of rows.slice(0, options.limit)) {
-    const fileIds = descriptionImageFileIds(row.description);
+  const page = rows.slice(0, options.limit);
+  const owned = await findApplicationFileIds(
+    page.flatMap((row) => descriptionImageFileIds(row.description)),
+    db,
+  );
+  for (const row of page) {
+    const all = descriptionImageFileIds(row.description);
+    const fileIds = all.filter((fileId) => !owned.has(fileId));
+    // Every image is already the application's: nothing to do, nothing to report.
+    if (all.length > 0 && fileIds.length === 0) continue;
     const entry: (typeof entries)[number] = {
       id: row.id,
       images: fileIds.map((fileId) => createHash('sha256').update(fileId).digest('hex')),

@@ -147,12 +147,21 @@ export async function releaseCanonicalSourceMediaImport(
     availableAt: Date;
     error: string;
     now?: Date;
+    /**
+     * Give back the attempt the claim counted: the job was DEFERRED (Oxy's rate
+     * limit, or this task's own pacing), not failed, so it never nears
+     * `dead_letter` however long Oxy stays busy.
+     */
+    refundAttempt?: boolean;
   },
   db: DatabaseOrTransaction = getDb(),
 ): Promise<boolean> {
   const rows = await db
     .update(canonicalSourceMediaImports)
     .set({
+      ...(options.refundAttempt
+        ? { attempts: sql`greatest(${canonicalSourceMediaImports.attempts} - 1, 0)` }
+        : {}),
       status: options.deadLettered ? 'dead_letter' : 'pending',
       availableAt: options.availableAt,
       lastError: options.error.slice(0, CANONICAL_SOURCE_MEDIA_MAX_LAST_ERROR_LENGTH),

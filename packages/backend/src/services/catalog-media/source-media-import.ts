@@ -25,6 +25,19 @@
  *   cap that makes a popular product's thousandth offer cost one read;
  * - a URL the product already holds is never imported again (identity is the
  *   source URL), and Oxy itself answers a repeated (owner, URL) without a fetch.
+ *
+ * ## Paced under Oxy's budget, and deferred — never failed — past it
+ *
+ * Oxy allows the application 30 imports, uploads and adoptions a minute across
+ * every Mercaria process. Unpaced, one task here could start 5 jobs × 6 images
+ * every 10 s — 180 a minute — and take the whole budget from operators and
+ * creators. So each task starts at most `sourceMediaMaxImportsPerMinute` (15)
+ * imports in any minute ({@link SourceMediaImportPacer}). A job that reaches the
+ * pace, or that Oxy still refuses with 429 after the adapter's own bounded
+ * retries, is DEFERRED: what it imported so far is attached, the job goes back
+ * to `pending` for when the budget returns with its attempt REFUNDED (so a busy
+ * Oxy never dead-letters it), and the rest of the drain's claimed jobs are
+ * released untouched for the same time.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -48,7 +61,7 @@ import {
   type CanonicalSourceMediaImportRow,
 } from '../../db/canonical/sourceMediaImportRepository.js';
 import { resolveCanonicalProductRow } from '../canonical/canonical-product.service.js';
-import { importOxyFileFromUrl, OxyFilesError } from './oxy-files.js';
+import { importOxyFileFromUrl, isOxyRateLimited, OxyFilesError } from './oxy-files.js';
 import { catalogMediaKind } from './policy.js';
 
 export interface SourceMediaLimits {
@@ -66,6 +79,38 @@ export interface SourceMediaImportOutcome {
   readonly refused: number;
   /** Whether the product's cap stopped the import. */
   readonly capped: boolean;
+  /**
+   * Set when Oxy's budget (its 429, or this task's pace) stopped the job before
+   * every source was asked: re-queue it after this many ms. What was imported
+   * before the stop IS attached.
+   */
+  readonly deferredMs?: number;
+}
+
+/** A minute: Oxy's rate-limit window, and the wait when Oxy names none. */
+const RATE_WINDOW_MS = 60_000;
+
+/**
+ * At most `maxPerMinute` imports started in any rolling minute, per process.
+ * `take` claims one now or answers how long until one is free.
+ */
+export class SourceMediaImportPacer {
+  private readonly started: number[] = [];
+  constructor(
+    private readonly maxPerMinute: number,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  take(): { ok: true } | { ok: false; waitMs: number } {
+    const at = this.now();
+    while (this.started.length > 0 && (this.started[0] ?? 0) <= at - RATE_WINDOW_MS)
+      this.started.shift();
+    if (this.started.length < this.maxPerMinute) {
+      this.started.push(at);
+      return { ok: true };
+    }
+    return { ok: false, waitMs: (this.started[0] ?? at) + RATE_WINDOW_MS - at };
+  }
 }
 
 /** An HTTPS reference without credentials, or nothing. A bare provider id is not a source. */
@@ -93,10 +138,14 @@ function refusedForGood(error: unknown): boolean {
   );
 }
 
-/** Run ONE job. Throws when Oxy could not answer, so the job is retried. */
+/**
+ * Run ONE job. Throws when Oxy could not answer, so the job is retried with
+ * backoff; answers `deferredMs` when Oxy's budget stopped it (see module doc).
+ */
 export async function importSourceMediaForProduct(
   job: Pick<CanonicalSourceMediaImportRow, 'canonicalProductId' | 'sourceRecordId'>,
   limits: SourceMediaLimits,
+  pacer?: SourceMediaImportPacer,
 ): Promise<SourceMediaImportOutcome> {
   const db = getDb();
   const loaded = await findCanonicalProductById(db, job.canonicalProductId);
@@ -119,8 +168,15 @@ export async function importSourceMediaForProduct(
 
   const imported: { sourceUrl: string; fileId: string }[] = [];
   let refused = 0;
+  let deferredMs: number | undefined;
   for (const sourceUrl of toImport) {
+    const turn = pacer?.take();
+    if (turn?.ok === false) {
+      deferredMs = turn.waitMs;
+      break;
+    }
     try {
+      // The adapter has already waited out Oxy's 429 within its own bound.
       const stored = await importOxyFileFromUrl({ kind: 'application' }, sourceUrl);
       if (
         stored.visibility !== 'public' ||
@@ -135,6 +191,11 @@ export async function importSourceMediaForProduct(
       if (refusedForGood(error)) {
         refused += 1;
         continue;
+      }
+      if (isOxyRateLimited(error)) {
+        deferredMs =
+          (error instanceof OxyFilesError ? error.retryAfterMs : undefined) ?? RATE_WINDOW_MS;
+        break;
       }
       throw error;
     }
@@ -173,6 +234,7 @@ export async function importSourceMediaForProduct(
     alreadyHeld: sources.length - pending.length,
     refused,
     capped: pending.length > room,
+    ...(deferredMs === undefined ? {} : { deferredMs }),
   };
 }
 
@@ -181,16 +243,20 @@ export function sourceMediaBackoffMs(attempts: number): number {
   return Math.min(6 * 60 * 60_000, 60_000 * 2 ** Math.max(0, attempts - 1));
 }
 
-/** One drain: claim within the global cap, run each job, complete or release. */
+/** The least a deferred job waits: Oxy's window turns over, a pace frees up. */
+const MIN_DEFER_MS = 5_000;
+
+/** One drain: claim within the global cap, run each job, complete, defer or release. */
 export async function drainCanonicalSourceMediaImports(options: {
   leaseOwner: string;
   batchSize: number;
   maxInFlight: number;
   maxAttempts: number;
   limits: SourceMediaLimits;
+  pacer?: SourceMediaImportPacer;
   now?: () => Date;
   onlyProductIds?: readonly string[];
-}): Promise<{ completed: number; failed: number; attached: number }> {
+}): Promise<{ completed: number; failed: number; deferred: number; attached: number }> {
   const now = options.now ?? (() => new Date());
   const jobs = await claimCanonicalSourceMediaImports({
     leaseOwner: options.leaseOwner,
@@ -201,11 +267,35 @@ export async function drainCanonicalSourceMediaImports(options: {
   });
   let completed = 0;
   let failed = 0;
+  let deferred = 0;
   let attached = 0;
+  /** Once Oxy's budget stopped one job, the rest of the batch waits with it. */
+  let deferUntil: Date | undefined;
+  const defer = async (jobId: string) => {
+    deferred += 1;
+    await releaseCanonicalSourceMediaImport({
+      id: jobId,
+      leaseOwner: options.leaseOwner,
+      deadLettered: false,
+      refundAttempt: true,
+      availableAt: deferUntil ?? now(),
+      error: "Deferred: Oxy's upload budget for Mercaria is spent; retried when it returns.",
+      now: now(),
+    });
+  };
   for (const job of jobs) {
+    if (deferUntil !== undefined) {
+      await defer(job.id);
+      continue;
+    }
     try {
-      const outcome = await importSourceMediaForProduct(job, options.limits);
+      const outcome = await importSourceMediaForProduct(job, options.limits, options.pacer);
       attached += outcome.attached;
+      if (outcome.deferredMs !== undefined) {
+        deferUntil = new Date(now().getTime() + Math.max(MIN_DEFER_MS, outcome.deferredMs));
+        await defer(job.id);
+        continue;
+      }
       if (await completeCanonicalSourceMediaImport(job.id, options.leaseOwner, now()))
         completed += 1;
     } catch (error) {
@@ -221,7 +311,7 @@ export async function drainCanonicalSourceMediaImports(options: {
       });
     }
   }
-  return { completed, failed, attached };
+  return { completed, failed, deferred, attached };
 }
 
 let timer: NodeJS.Timeout | undefined;
@@ -242,6 +332,11 @@ export function startCanonicalSourceMediaImports(): void {
     );
     return;
   }
+  // One pace per task: Oxy's budget is the application's, so the pace is what
+  // this task may take of it.
+  const taskPacer = new SourceMediaImportPacer(
+    Math.max(1, settings.sourceMediaMaxImportsPerMinute),
+  );
   timer = setInterval(() => {
     if (running) return;
     running = true;
@@ -250,13 +345,14 @@ export function startCanonicalSourceMediaImports(): void {
       batchSize: settings.sourceMediaBatchSize,
       maxInFlight: settings.sourceMediaMaxInFlight,
       maxAttempts: settings.sourceMediaMaxAttempts,
+      pacer: taskPacer,
       limits: {
         maxPerRecord: settings.sourceMediaMaxPerRecord,
         maxPerProduct: settings.sourceMediaMaxPerProduct,
       },
     })
       .then((result) => {
-        if (result.completed > 0 || result.failed > 0)
+        if (result.completed > 0 || result.failed > 0 || result.deferred > 0)
           log.general.debug(result, '[OxyFiles] source media imports drained');
       })
       .catch((error: unknown) =>
@@ -268,7 +364,11 @@ export function startCanonicalSourceMediaImports(): void {
   }, settings.sourceMediaPollIntervalMs);
   timer.unref?.();
   log.general.info(
-    { batchSize: settings.sourceMediaBatchSize, maxInFlight: settings.sourceMediaMaxInFlight },
+    {
+      batchSize: settings.sourceMediaBatchSize,
+      maxInFlight: settings.sourceMediaMaxInFlight,
+      maxImportsPerMinute: settings.sourceMediaMaxImportsPerMinute,
+    },
     '[OxyFiles] source media import started',
   );
 }

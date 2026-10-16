@@ -3924,6 +3924,14 @@ export interface OxyFilesConfig {
   readonly sourceMediaMaxPerProduct: number;
   /** `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` — failures before `dead_letter`. Default 8. */
   readonly sourceMediaMaxAttempts: number;
+  /**
+   * `CANONICAL_SOURCE_MEDIA_MAX_IMPORTS_PER_MINUTE` — imports one TASK starts in
+   * any minute. Oxy allows the application 30 imports, uploads and adoptions a
+   * minute across EVERY Mercaria process (backfills, operator writes, digital
+   * registrations), so the default 15 leaves half to them; tasks × this should
+   * stay under 30. Past it a job is re-queued, never failed. Default 15.
+   */
+  readonly sourceMediaMaxImportsPerMinute: number;
 }
 
 /**
@@ -5108,6 +5116,7 @@ export const config: AppConfig = Object.freeze({
     sourceMediaMaxPerRecord: intEnv('CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD', 6),
     sourceMediaMaxPerProduct: intEnv('CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT', 10),
     sourceMediaMaxAttempts: intEnv('CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS', 8),
+    sourceMediaMaxImportsPerMinute: intEnv('CANONICAL_SOURCE_MEDIA_MAX_IMPORTS_PER_MINUTE', 15),
   }),
   catalogAuthoring: Object.freeze({
     enabled: boolEnv('CATALOG_AUTHORING_ENABLED', false),
