@@ -38,7 +38,7 @@ import {
 /**
  * The port's implementation.
  *
- * With `STRIPE_ENABLED` off this returns `unknown` for both summaries and no
+ * With the Stripe rail unconfigured this returns `unknown` for both summaries and no
  * beneficiary, BEFORE touching Postgres — and that is deliberately NOT the
  * `readSellerPaymentReadiness` treatment, which maps every seller to `false`.
  * The two questions differ: a checkout affordance asks "may this seller be sold

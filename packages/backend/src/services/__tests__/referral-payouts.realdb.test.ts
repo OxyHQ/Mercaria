@@ -284,7 +284,7 @@ describe('the tax questionnaire is the D15 gate 2 record', () => {
 
 describe('identity and payout readiness come from #46, and fail closed', () => {
   it('answers `unknown` with no rail configured, and names no beneficiary', async () => {
-    // `STRIPE_ENABLED` is off in the test environment, which is the state of
+    // The Stripe rail is unconfigured in the test environment, which is the state of
     // every deployment that has not configured the rail. `unknown` BLOCKS in
     // `deriveRewardPayability`, which is the fail-closed direction — and it is
     // deliberately not `blocked`, which would assert something is wrong with

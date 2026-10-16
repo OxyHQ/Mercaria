@@ -8,7 +8,7 @@
  *    operator APPROVED are settled. The loop approves nothing: money moves only
  *    from an operator-approved batch, under the program's
  *    `referral_program_controls.payout_enabled`, to a payment-ready partner,
- *    over the Stripe rail `STRIPE_ENABLED` gates (`referral-payouts/rail.ts`).
+ *    over the Stripe rail, on when fully configured (`referral-payouts/rail.ts`).
  *  - reconciliation — detects discrepancies and never repairs them.
  *
  * `unref()` on every timer: a module-level `setInterval` keeps the Node event

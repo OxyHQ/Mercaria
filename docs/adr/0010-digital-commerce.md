@@ -325,10 +325,14 @@ feature does not need. What remains:
 
 | Control | Default | What it stops |
 |---|---|---|
-| `DIGITAL_PAID_CHECKOUT_ENABLED` | off | buying (a free claim still works) |
-| `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical, and the creator upload mount |
+| `DIGITAL_ENABLED_VERTICALS` | empty | a whole vertical — buying and free claims — and the creator upload mount |
 | Oxy service identity | — | the creator upload mount (registering a file reads the asset service) |
 | malware-scan + inspection verdicts | — | a version becoming sellable (no scanner registered = nothing publishes) |
+
+`DIGITAL_PAID_CHECKOUT_ENABLED` was among those removed. Paid checkout
+has no lever of its own: a vertical listed in `DIGITAL_ENABLED_VERTICALS` can be
+bought, so listing one IS the paid launch for it (D15). A free-only vertical is no
+longer representable.
 
 Downloads have no lever at all: the right alone authorizes one, so nothing a
 deployment sets can take away what a buyer holds. `downloads_disabled` stays in the
@@ -346,9 +350,9 @@ in the digital schema.
 
 ### D15. Paid digital launch is gated per market, and the gate is not a code review
 
-#1015 W11 requirement 9 and acceptance criterion 15. Before
-`DIGITAL_PAID_CHECKOUT_ENABLED` is turned on for a market, three sign-offs are
-required and recorded in `HANDOFF.md`:
+#1015 W11 requirement 9 and acceptance criterion 15. Before a vertical is added
+to `DIGITAL_ENABLED_VERTICALS` for a market — which is what turns paid checkout
+on for it — three sign-offs are required and recorded in `HANDOFF.md`:
 
 1. the payment provider permits a third-party digital-goods marketplace on this
    account (Peable, and through it whichever provider settles);

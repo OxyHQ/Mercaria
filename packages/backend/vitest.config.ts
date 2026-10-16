@@ -42,7 +42,23 @@ export default defineConfig({
     // Bun loads the developer's .env before starting Vitest. Real application
     // credentials belong to the running API, never to the test workers. Tests
     // that exercise service auth provide their own explicit fixture credentials.
-    env: { OXY_APPLICATION_KEY: '', OXY_APPLICATION_SECRET: '' },
+    // The payment rails, retail and paid digital checkout have no switch —
+    // holding their configuration turns them on — so a developer's values must
+    // not reach a worker either; a suite that wants one sets its own. The root
+    // secret is blanked too, so every worker derives its internal keys from the
+    // public development root rather than from a developer's real one.
+    env: {
+      OXY_APPLICATION_KEY: '',
+      OXY_APPLICATION_SECRET: '',
+      STRIPE_SECRET_KEY: '',
+      STRIPE_WEBHOOK_SECRET: '',
+      STRIPE_CONNECT_WEBHOOK_SECRET: '',
+      PEABLE_WEBHOOK_SECRET: '',
+      MERCARIA_SECRET_KEY: '',
+      MERCARIA_RETAIL_SELLER_LEGAL_ENTITY: '',
+      MERCARIA_RETAIL_SELLER_COUNTRY: '',
+      DIGITAL_ENABLED_VERTICALS: '',
+    },
     /**
      * `scripts/**` is here as well as `src/**`, and that is deliberate rather
      * than convenient: the #69 evidence harness carries the redaction controls,

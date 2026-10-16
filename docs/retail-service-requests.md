@@ -532,7 +532,7 @@ RETAIL_SERVICE_RECONCILE_GRACE_MS=30000
 The buyer-facing paths and the settlement sweep are always on: a deployment that
 sells retail owes its buyers a way to cancel and return. These tune the sweep.
 
-**This domain never reads `MERCARIA_RETAIL_ENABLED`.** #127
+**This domain never reads the retail entry gate (`config.retail.enabled`).** #127
 acceptance 8 is *"existing cases remain operable after new retail checkout or
 supplier integration is paused"*, and the isolation gate fails the build if any
 module here learns to read `config.retail` or a supplier account's `killed`

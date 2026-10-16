@@ -45,7 +45,6 @@ let service: {
 beforeAll(async () => {
   // Before the dynamic import: `config/index.ts` freezes at module load, and
   // the resolver only reads guest credentials when guest commerce is enabled.
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
 
   middleware = await import('../commerce-actor.js');
   service = (await import('../../services/guest-session.service.js')) as unknown as typeof service;

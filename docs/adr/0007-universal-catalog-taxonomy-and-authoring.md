@@ -913,14 +913,13 @@ or a mount**, never a stored row:
   false. **This decision did not name it and should have**: it is a public
   surface this epic added, it is one of the four things a rollback turns off, and
   the domain it gates owns no table and writes no row. **Since REMOVED**: the
-  facet rail is mounted unconditionally (still behind the rollout-cohort gate),
-  so three mount levers remain.
+  facet rail is mounted unconditionally (still behind the rollout-cohort gate).
 
-> **Later amended — three of the four levers were removed** in favour of
-> always-on (see `config/index.ts`): `/navigation`, `/taxonomy`, the authoring
-> surface and `/stores/:storeId/product-drafts` are always mounted, and
+> **Later amended — all four levers were removed** in favour of always-on (see
+> `config/index.ts`): `/navigation`, `/taxonomy`, the authoring surface,
+> `/stores/:storeId/product-drafts` and `/facets` are always mounted, and
 > `/catalog-proposals` is mounted iff `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty
-> (the condition its operator review surface already had). `FACETS_ENABLED`
+> (the condition its operator review surface already had). No D12 mount lever
 > remains. The census below is historical.
 
 The four levers are read in **six** non-test places, and no repository, outbox

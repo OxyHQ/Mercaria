@@ -10,7 +10,7 @@
  * The creator router is mounted only when the deployment is configured for it
  * (an Oxy service identity, which registering
  * a file needs, and at least one vertical in `DIGITAL_ENABLED_VERTICALS`) — the
- * `STRIPE_ENABLED` rule: an unconfigured surface answers 404 rather than 401,
+ * Stripe webhook mount rule: an unconfigured surface answers 404 rather than 401,
  * because a 401 tells an unauthenticated caller that the surface exists here.
  *
  * The BUYER router is mounted unconditionally and deliberately, for the reason

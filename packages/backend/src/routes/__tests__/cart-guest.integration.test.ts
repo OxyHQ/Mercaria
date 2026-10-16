@@ -55,7 +55,6 @@ let listingId: string;
 let variantId: string;
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
 
   const { createApp } = await import('../../app.js');
   const postgres = await import('../../db/postgres.js');

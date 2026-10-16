@@ -427,7 +427,8 @@ PROCUREMENT_OPERATOR_OXY_USER_IDS=        # empty = surface not mounted (404)
 
 Preflight has no switch. Whether a supplier is asked is decided per account
 (active, sourcing policy present, adapter registered, no live suppression), and
-only retail checkout — behind `MERCARIA_RETAIL_ENABLED` — asks for one. The
+only retail checkout — behind the retail entry gate (`config.retail.enabled`) —
+asks for one. The
 request digest is always keyed, under the `supplier-preflight-fingerprint` key
 derived from `MERCARIA_SECRET_KEY`: a country plus a postal code is a space
 small enough to enumerate, so an unkeyed digest would be an offline oracle over

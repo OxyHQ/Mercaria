@@ -363,7 +363,7 @@ own message never lands in a column** — only the closed code it maps to.
 `PRINTFUL_ENABLED`: `registerPrintfulAdapters()` (`services/printful/registration.ts`)
 registers both adapters, and **nothing calls it at boot today**. Until a
 deliberate change wires it into the bootstrap — a money path, so it belongs with
-`MERCARIA_RETAIL_ENABLED`'s rollout rather than with a flag — every preflight
+retail's rollout (the retail entry gate) rather than with a flag — every preflight
 answers `provider_unconfigured` (which blocks) and every purchase order refuses
 with `adapter_missing`. Stored rows are untouched either way.
 
@@ -371,7 +371,7 @@ with `adapter_missing`. Stored rows are untouched either way.
 
 | Switch | What it stops | Default |
 |---|---|---|
-| `MERCARIA_RETAIL_ENABLED` (#123) | Retail checkout ENTRY | `false` |
+| The retail seller identity (#123) — `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` + `MERCARIA_RETAIL_SELLER_COUNTRY`; with `RETAIL_OPERATOR_OXY_USER_IDS` it opens retail (no `*_ENABLED` switch) | Retail checkout ENTRY | unset (off) |
 | A published pilot cohort | Everything. **No active cohort ⇒ every retail line is refused** (`no_active_cohort`), which is why the pilot needs no kill switch of its own: an empty pilot IS the off position | none published |
 
 Plus the per-supplier one, which is a different mechanism:
@@ -466,8 +466,10 @@ is what a deployment must additionally do, in order:
 7. ☐ Draft a pilot cohort version with all thirteen stop thresholds, the ≤ 25
    allow-listed SKUs and the §10 bounds; publish it. The operator surface
    refuses a draft missing any threshold.
-8. ☐ Set `MERCARIA_RETAIL_ENABLED=true`. The procurement loops always run, so
-   the first paid retail order is submitted on the next dispatcher tick.
+8. ☐ Set `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` and
+   `MERCARIA_RETAIL_SELLER_COUNTRY` (which, with the operator list above, opens
+   retail entry). The procurement loops always run, so the first paid retail
+   order is submitted on the next dispatcher tick.
 
 ## Rollback procedure
 
@@ -486,12 +488,14 @@ paths reads any of them.
    (`supplier_accounts.state = 'killed'`). The one step here that reaches a
    placed order: a submission not yet made is refused and recorded, never
    silently dropped; status, cancellation, return and reconciliation carry on.
-5. **Stop retail entirely** — `MERCARIA_RETAIL_ENABLED=false`.
+5. **Stop retail entirely** — unset `MERCARIA_RETAIL_SELLER_LEGAL_ENTITY` (retail
+   has no switch; without a named seller it is off). Prefer a `pilot`-scoped stop
+   (step 3), which needs no deploy.
 6. **Disconnect Printful** — kill its supplier account
    (`supplier_accounts.state = 'killed'`, #124): new submissions stop while
    status, cancellation, return and reconciliation carry on. Stored rows are
    untouched.
 
-**Do not use `STRIPE_ENABLED=false` as a rollback.** It unmounts the webhook
-endpoints and strands verified events — ADR 0006's rule, and it applies here
-unchanged.
+**Do not unconfigure the Stripe rail as a rollback.** Removing a Stripe secret
+turns the rail off, which unmounts the webhook endpoints and strands verified
+events — ADR 0006's rule, and it applies here unchanged.

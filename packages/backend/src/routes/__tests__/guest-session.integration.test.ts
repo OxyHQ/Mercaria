@@ -11,8 +11,8 @@
  *
  * `config/index.ts` freezes at module load and `app.ts` gates the
  * `/guest/session` MOUNT on the frozen value, so everything is imported
- * dynamically after `beforeAll` sets `GUEST_COMMERCE_ENABLED` and the two M8
- * keys. The kill-switch and disabled-mount deployments are each their own
+ * dynamically after `beforeAll` sets the two M8 keys that turn guest commerce
+ * on. The kill-switch and disabled-mount deployments are each their own
  * file for the same reason — one process, one frozen config.
  *
  * ## Under NODE_ENV=test the DEV cookie profile is active
@@ -37,7 +37,6 @@ const servers: Server[] = [];
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
 
   const { createApp } = await import('../../app.js');
   const postgres = await import('../../db/postgres.js');

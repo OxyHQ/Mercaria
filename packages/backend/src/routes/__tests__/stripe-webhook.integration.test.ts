@@ -89,7 +89,6 @@ let paymentProviderEvents: typeof import('../../db/schema/payments.js').paymentP
  * this whole file would be testing a deployment with Stripe switched off.
  */
 beforeAll(async () => {
-  process.env.STRIPE_ENABLED = 'true';
   // `sk_test_` is what makes `config.payments.stripe.livemode` false, which is
   // what the livemode-mismatch case below is measured against. It is not a real
   // key and nothing in this file makes a Stripe API call.
@@ -452,10 +451,10 @@ describe('Stripe webhook rate limiting', () => {
 describe('Stripe webhook when the rail is not configured', () => {
   it('mounts nothing and answers 404', async () => {
     vi.resetModules();
-    const previous = process.env.STRIPE_ENABLED;
-    process.env.STRIPE_ENABLED = 'false';
+    const previous = process.env.STRIPE_SECRET_KEY;
+    process.env.STRIPE_SECRET_KEY = '';
     const { createApp: disabledCreateApp } = await import('../../app.js');
-    process.env.STRIPE_ENABLED = previous;
+    process.env.STRIPE_SECRET_KEY = previous;
 
     const payload = eventBody({ id: 'evt_disabled' });
     const signature = await sign(payload, PLATFORM_SECRET);

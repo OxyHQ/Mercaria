@@ -301,12 +301,12 @@ are *structural* to its model under a zero-markup policy with no warehouse.
   ≤ 5; per-order minimum €15 (so carriage does not dwarf the goods — an
   honesty bound, not a margin device).
 - **Volume cap:** cumulative supplier spend ≤ €2,000/month during the pilot;
-  `MERCARIA_RETAIL_ENABLED` off beyond it until the operator reviews.
+  retail entry stopped beyond it (a `pilot`-scoped stop) until the operator reviews.
 - **Prefund bound:** Wallet float ≤ €500 equivalent at any time (bounds FX
   exposure and idle cash).
 
-**Stop thresholds** — any of these halts entry (`MERCARIA_RETAIL_ENABLED=false`;
-drain per ADR 0004 D13) and pages the owner:
+**Stop thresholds** — any of these halts entry (a `pilot`-scoped stop, or retail
+unconfigured; drain per ADR 0004 D13) and pages the owner:
 
 | Trigger | Threshold |
 |---|---|

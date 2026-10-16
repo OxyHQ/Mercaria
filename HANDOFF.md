@@ -20,7 +20,7 @@ Generate + set these on the **Mercaria backend** (ECS). The OAuth `state` (CSRF)
 | `SHOPIFY_SCOPES` | optional — the code default is now the full string in `docs/runbooks/connector-real-store-verification.md` §3.2 | It WAS `read_products` alone, which is what #218 landed a default deployment in. Set it only to request a NARROWER grant, and read the granted `scopes[]` back after connecting either way: a scope Shopify did not grant at install cannot be added without re-authorizing, and a topic it refuses is now recorded on the connection rather than thrown away (§5.3). |
 | `REDIS_URL` | ElastiCache Valkey (already in `oxy-infra`) | **Important:** without it, syncs run INLINE in the request → large backfills time out, and neither scheduled sweep runs — not the 6h catalogue reconcile, nor the 15-minute webhook re-registration sweep (#262), whose merchant-triggered equivalent does still run inline. Required for production. |
 
-Guest commerce (#103, ADR 0003 — DO NOT enable before the M8 security + privacy review): `GUEST_COMMERCE_ENABLED=true` turns it on; the contact cipher key and the separate email-hash key (D12) are both derived from `MERCARIA_SECRET_KEY` under different purposes, so there is nothing else to provision. There is no separate issuance kill switch; `GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native` stops every new guest checkout while carts and sessions survive. Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
+Guest commerce (#103, ADR 0003 — the M8 security + privacy review is still owed): it has no switch and is ON exactly when its two keys resolve — the contact cipher key and the separate email-hash key (D12), both derived from `MERCARIA_SECRET_KEY` under different purposes — so it is ON on every deployment. There is no separate issuance kill switch; `GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native` stops every new guest checkout while carts and sessions survive. Tunables `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`.
 
 FX (optional but recommended): the 15 non-USD/EUR/GBP currencies use env-overridable **static** fallback rates (`FX_STATIC_RATE_JPY`, `…_MXN`, etc.). The live provider only yields FAIR→USD. For correct display and for the presentment side of a cross-currency order, wire a real multi-currency FX source or keep the static rates current. A missing rate is never fabricated: the pair is simply omitted, and a conversion that needs it fails rather than quoting a wrong amount — so a same-currency sale is unaffected by an FX outage, and a cross-currency one is refused.
 
@@ -245,8 +245,7 @@ orders and otherwise invisible.
 
 | Var | Default | Notes |
 |---|---|---|
-| `DIGITAL_PAID_CHECKOUT_ENABLED` | `false` | **the launch gate — see §3.** A free claim still works with it off. |
-| `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. |
+| `DIGITAL_ENABLED_VERTICALS` | empty | comma-separated `DigitalVertical` keys; an ALLOW-list. `three_d` is the only one with a format registry today. **The paid launch gate — see §3:** listing a vertical opens paid checkout (and free claims) for it; there is no separate paid-checkout switch. |
 
 There is no uploads, publication or downloads lever. The creator upload surface is
 mounted when Mercaria has an Oxy service identity AND `DIGITAL_ENABLED_VERTICALS`
@@ -307,8 +306,9 @@ reconcilable), and that flow carries a client-side obligation:
 
 ## 3. The paid-launch gate (ADR 0010 D15) — three sign-offs, per market
 
-`DIGITAL_PAID_CHECKOUT_ENABLED` must stay off in a market until all three are
-recorded here with a date and a name:
+No vertical may be added to `DIGITAL_ENABLED_VERTICALS` for a market — that is
+what turns paid digital checkout on — until all three are recorded here with a
+date and a name:
 
 | Gate | What it has to establish | Status |
 |---|---|---|
@@ -416,7 +416,8 @@ each remaining piece needs.
 ## What is live-but-inert, and what holds it
 
 There are no deployment levers. Buying is not wired (#57); when it is, it is gated
-by `MERCARIA_RETAIL_ENABLED`. Procurement is on exactly when the seal key resolves:
+by the retail entry gate (`config.retail.enabled`, on when the retail seller and
+operators are configured). Procurement is on exactly when the seal key resolves:
 
 `DIGITAL_RETAIL_SEAL_KEY_REFERENCE` must name a path under
 `/oxy/mercaria/digital-retail/seal/`, and the key itself is 32 base64 bytes in

@@ -38,7 +38,6 @@ let rollout: typeof import('../guest-rollout.js');
 let config: typeof import('../../../config/index.js').config;
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   // Stated rather than inherited: a sibling file sets each of these, and env
   // leaks across files in one worker where a frozen config does not.
   delete process.env.GUEST_CHECKOUT_BLOCKED_PLATFORMS;

@@ -8,8 +8,8 @@
  *
  * The loops always run. What stops a supplier is the per-supplier kill switch
  * (`supplier_accounts.state = 'killed'`), read at the provider-call chokepoint;
- * what keeps a new retail order out of this domain is `MERCARIA_RETAIL_ENABLED`
- * at checkout entry. Neither gates a durable record, so a paused supplier's work
+ * what keeps a new retail order out of this domain is the retail entry gate
+ * (`config.retail.enabled`) at checkout entry. Neither gates a durable record, so a paused supplier's work
  * waits rather than being lost.
  *
  * ## Why THREE loops and not one

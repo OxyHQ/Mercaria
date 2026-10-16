@@ -288,7 +288,7 @@ REFERRAL_RECONCILIATION_POLL_INTERVAL_MS=3600000
 On a deployment with no partners each is a timer doing nothing. None moves money
 on its own: a batch settles only after an operator APPROVES it, under the
 program's `payout_enabled` control, to a payment-ready partner, over the Stripe
-rail `STRIPE_ENABLED` gates. The accrual books its ledger posting inside #144's
+rail, which is on when fully configured. The accrual books its ledger posting inside #144's
 own transaction with no flag in the path.
 
 The lever is a ROW rather than a variable:
@@ -334,8 +334,9 @@ their ordinary lifecycle to payout.
 1. Populate `REFERRAL_OPERATOR_OXY_USER_IDS` before any partner earns: with it
    empty `/internal/referrals` is not mounted at all, which also means nobody
    can approve, settle, cancel, freeze or trace anything.
-2. Set `STRIPE_ENABLED` and onboard each partner to a payment-ready connected
-   account. The rail is registered (#146), but with Stripe off every partner's
+2. Configure the Stripe rail (its key and both webhook secrets — it has no
+   switch) and onboard each partner to a payment-ready connected account. The
+   rail is registered (#146), but with Stripe off every partner's
    identity and payout readiness derives as `unknown`, which BLOCKS — and a
    partner with no `provider_accounts` row has no beneficiary to pay.
 3. Publish a payout minimum for every currency partners can earn in.

@@ -69,8 +69,9 @@ let client: Stripe | undefined;
 export function getStripeClient(): Stripe {
   if (!config.payments.stripe.enabled) {
     throw new Error(
-      'The Stripe client was requested but STRIPE_ENABLED is off (or the integration is ' +
-        'half-configured — see the boot log). No Stripe route is mounted in that state.',
+      'The Stripe client was requested but the Stripe rail is not configured (it needs ' +
+        'STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET and STRIPE_CONNECT_WEBHOOK_SECRET — see the ' +
+        'boot log). No Stripe route is mounted in that state.',
     );
   }
   client ??= new Stripe(config.payments.stripe.secretKey, {

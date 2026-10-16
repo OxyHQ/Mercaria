@@ -69,7 +69,7 @@ const resolvePrintfulCredential: PrintfulCredentialResolver = async (providerAcc
  *
  * NOT called at boot today: the Printful adapters reach a real supplier that
  * bills a real wallet, so wiring this into the bootstrap is a deliberate,
- * separate change tied to `MERCARIA_RETAIL_ENABLED` (see
+ * separate change tied to the retail entry gate, `config.retail.enabled` (see
  * `docs/suppliers/printful.md`).
  *
  * Both adapters share ONE transport, so they share one credential path, one

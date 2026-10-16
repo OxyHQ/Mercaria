@@ -243,9 +243,8 @@ export async function redeemDigitalDownloadHandler(req: Request, res: Response):
  * A claim is an ACQUISITION, so it asks the acquisition questions
  * (`resolveDigitalLines` applies all of them: the option is acquirable, the
  * licence version published, the asset listed, its current version acquirable)
- * plus the per-vertical allow-list. It deliberately does NOT ask
- * `paidCheckoutEnabled` — ADR 0010 D13 says a free claim still works with paid
- * checkout off, and that is the whole reason the two are separate levers.
+ * plus the per-vertical allow-list — the same list that opens PAID checkout for
+ * a vertical, so a vertical is either on sale (paid and free) or not at all.
  *
  * "Free" is a fact about the OFFER and not about the deliverable, so the price
  * read is the variant's own — the same columns `nativeUnitPrice` reads at

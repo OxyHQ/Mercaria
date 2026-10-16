@@ -637,7 +637,7 @@ export interface GuestSecuritySignalDefinition {
  * This is a REGISTER, not a set of new levers. The flags and block lists that
  * exist across #103–#110 and ADR 0006 already answer every question, and adding
  * another answer to one of them is the specific mistake this file was written
- * to avoid. FIVE entries answer `null`, and each states why the absence is a
+ * to avoid. SEVEN entries answer `null`, and each states why the absence is a
  * decision:
  *
  *  - the ORDER PORTAL, because #108 decided no lever may gate a portal READ and
@@ -646,16 +646,18 @@ export interface GuestSecuritySignalDefinition {
  *    flag, deliberately, until #112;
  *  - the Stripe CLIENT PATH, because ADR 0006 G2 puts both actor kinds on one
  *    component and a guest-only path lever would be a second answer to
- *    `STRIPE_ENABLED`;
+ *    whether the Stripe rail is configured;
  *  - transactional message DELIVERY and Oxy CLAIMING, because both are always
  *    on: their incident switches (`GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED`,
  *    `GUEST_CLAIM_ENABLED`) were removed with every other `*_ENABLED` lever that
- *    only ever ran at its default.
+ *    only ever ran at its default;
+ *  - session ISSUANCE and the guest CART, because guest commerce itself is
+ *    always on: `GUEST_COMMERCE_ENABLED` was removed, since its two keys are
+ *    derived from `MERCARIA_SECRET_KEY` and always resolve.
  *
- * Session issuance and the guest cart no longer have levers of their own
- * either: they answer to `GUEST_COMMERCE_ENABLED`, the decommission, and guest
- * CHECKOUT creation answers to `GUEST_CHECKOUT_BLOCKED_PLATFORMS` (both
- * platforms listed = no guest checkout anywhere).
+ * Guest CHECKOUT creation answers to `GUEST_CHECKOUT_BLOCKED_PLATFORMS` (both
+ * platforms listed = no guest checkout anywhere), which is the off switch for
+ * new guest orders while every session and cart survives.
  *
  * Guest PICKUP was a fourth until #93 landed, and the correction is the reason
  * this register is worth keeping accurate: `null` here does not mean "nobody
@@ -1647,26 +1649,27 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
   {
     gate: 'session_issuance',
     title: 'Guest session issuance',
-    lever: 'GUEST_COMMERCE_ENABLED',
+    lever: null,
     scopes: ['environment'],
     whenOff:
-      'There is no issuance-only switch. With guest commerce off no guest session is minted or ' +
-      'resolved: a signed-out shopper browses with no cart and is asked to sign in at checkout. ' +
-      'A decommission, so it is pulled LAST. Placed orders stay reachable through the portal.',
+      'STRUCTURAL: guest commerce is always on — its two keys are derived from ' +
+      'MERCARIA_SECRET_KEY — so there is no issuance switch. New guest ORDERS are stopped with ' +
+      'GUEST_CHECKOUT_BLOCKED_PLATFORMS while sessions keep resolving. Placed orders stay ' +
+      'reachable through the portal.',
     affectsPlacedOrders: false,
-    rollbackOrder: 9,
+    rollbackOrder: 99,
   },
   {
     gate: 'cart_read_write',
     title: 'Guest cart reads and writes',
-    lever: 'GUEST_COMMERCE_ENABLED',
+    lever: null,
     scopes: ['environment'],
     whenOff:
-      'There is no cart-only switch. With guest commerce off no guest session resolves, so no ' +
-      'guest cart is read or written and writes are refused with GUEST_CART_DISABLED. Rows are ' +
-      'not deleted.',
+      'STRUCTURAL: guest commerce is always on, so a guest session always owns its cart and ' +
+      'there is no cart switch. New guest ORDERS are stopped with ' +
+      'GUEST_CHECKOUT_BLOCKED_PLATFORMS; carts survive.',
     affectsPlacedOrders: false,
-    rollbackOrder: 9,
+    rollbackOrder: 99,
   },
   {
     gate: 'checkout_ui',
@@ -1711,7 +1714,8 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
     scopes: [],
     whenOff:
       'STRUCTURAL: ADR 0006 G2 puts both actor kinds on one CardPaymentStep, so a guest-only path ' +
-      'lever would be a second answer to STRIPE_ENABLED and would make the two paths diverge ' +
+      'lever would be a second answer to the Stripe rail configuration and would make the two ' +
+      'paths diverge ' +
       'exactly where they must not.',
     affectsPlacedOrders: false,
     rollbackOrder: 99,
@@ -1843,7 +1847,8 @@ export const GUEST_LAUNCH_GATE_REGISTER: readonly GuestLaunchGateDefinition[] = 
     discipline: 'engineering',
     evidenceKind: 'automated_check',
     requiredFromStage: 'stage_1_staff_canary',
-    criterion: 'STRIPE_ENABLED is true with a key and BOTH webhook secrets configured.',
+    criterion:
+      'The Stripe rail is configured: the secret key and BOTH webhook secrets are present.',
   },
   {
     gate: 'webhooks_reconciliation_runbooks_operational',

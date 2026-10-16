@@ -491,8 +491,8 @@ GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT=false
 
 Nearby discovery (`/nearby`) and store pickup have no switches: both exist
 exactly when `GOWAY_API_URL` is configured, because where a collection point IS
-comes from GoWay (ADR 0013). Guest pickup exists exactly when store pickup AND
-guest commerce (`GUEST_COMMERCE_ENABLED`) do; the guest-only off switch is
+comes from GoWay (ADR 0013). Guest pickup exists exactly when store pickup does
+(guest commerce is always on); the guest-only off switch is
 `GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=pickup`, which leaves authenticated
 collection working — the direction #93 operations rule 10 needs. The
 collection-code key is derived from `MERCARIA_SECRET_KEY`.

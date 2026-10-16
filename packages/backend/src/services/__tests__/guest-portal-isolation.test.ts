@@ -172,7 +172,7 @@ const PORTAL_READ_PATHS = PORTAL_PATHS;
 /**
  * The guest LEVER. It may not gate a portal read.
  *
- * `GUEST_COMMERCE_ENABLED` off must stop new sessions and new guest checkouts
+ * Guest commerce off (`guest.enabled`) must stop new sessions and new guest checkouts
  * and must NOT strand a person who already paid — which is the exact moment
  * they would be trying to find their order.
  */

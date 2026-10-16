@@ -137,7 +137,6 @@ async function rawGrantInsert(
 }
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_MAGIC_LINK_BASE_URL = 'https://mercaria.co/guest-orders/portal';
 
   const postgres = await import('../../db/postgres.js');

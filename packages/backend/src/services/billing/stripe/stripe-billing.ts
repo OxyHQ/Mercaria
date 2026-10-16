@@ -321,8 +321,8 @@ export class StripeBillingProvider implements BillingProvider {
 /**
  * Register the Stripe billing rail, when this deployment has one.
  *
- * Gated on `STRIPE_ENABLED` and not on whether merchant ACTIONS are available
- * (`config.merchantBilling.enabled`): the adapter is what applies provider
+ * Gated on the configured Stripe rail and not on whether merchant ACTIONS are
+ * available (`config.merchantBilling.enabled`): the adapter is what applies provider
  * events and reconciles subscriptions that already exist. Registering it only
  * when merchants may upgrade would strand every existing subscription the moment
  * actions became unavailable, which is the failure the "no lever gates a

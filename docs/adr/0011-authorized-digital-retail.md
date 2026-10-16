@@ -374,7 +374,7 @@ finished feature does not need. What holds the domain now:
 
 | Control | Stops |
 |---|---|
-| `MERCARIA_RETAIL_ENABLED` | buying — digital-retail checkout is not wired yet (#57), and when it is, it is gated here |
+| the retail entry gate (`config.retail.enabled`; `MERCARIA_RETAIL_ENABLED` was removed 2026-10-16 — it is on when the retail seller and operators are configured) | buying — digital-retail checkout is not wired yet (#57), and when it is, it is gated here |
 | a resolvable `DIGITAL_RETAIL_SEAL_KEY_REFERENCE` | submitting anything to a supplier — a deployment that cannot seal what it buys procures nothing |
 
 Catalogue sync, offer composition and reveal have no switch: nothing pulls a
@@ -439,7 +439,7 @@ distinction before a policy can be written against it.
 So `digital_retail_tax_classes` is a closed set on the offer and on the order
 snapshot, and this ADR asserts no rate, no threshold and no jurisdictional
 conclusion. A market whose treatment is unresolved does not launch — the checkout
-gate (`MERCARIA_RETAIL_ENABLED`) is per deployment and the sign-offs are recorded in `HANDOFF.md`, as ADR 0010
+gate (the retail entry gate) is per deployment and the sign-offs are recorded in `HANDOFF.md`, as ADR 0010
 D15 already requires for paid digital checkout.
 
 ## What Phase A ships, and what it deliberately does not

@@ -73,7 +73,6 @@ async function refusalMessageOf(run: () => Promise<void>): Promise<string> {
 }
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_CHECKOUT_BLOCKED_PLATFORMS = 'native';
   process.env.GUEST_CHECKOUT_BLOCKED_MARKETS = 'fr, pt';
   // Mixed case on purpose: a seller key embeds a uuid and must NOT be folded,

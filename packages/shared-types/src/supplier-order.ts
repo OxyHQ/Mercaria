@@ -703,7 +703,7 @@ export const SUPPLIER_EVENT_DELIVERIES: readonly SupplierEventDelivery[] = [
  * unverified client callback") made structural: an unverified callback has no
  * row shape, so it cannot be stored now and applied later by a sweep that never
  * re-checked. The ingress refuses it, counts it and logs it, and an operator
- * sees the count — the `STRIPE_ENABLED` mount rule, which refuses bytes it
+ * sees the count — the Stripe webhook mount rule, which refuses bytes it
  * cannot verify rather than storing a stranger's opinion.
  */
 export type SupplierEventVerification =

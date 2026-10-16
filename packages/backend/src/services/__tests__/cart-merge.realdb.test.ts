@@ -57,7 +57,6 @@ function isAppendOnlyRefusal(error: unknown): boolean {
 }
 
 beforeAll(async () => {
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
 
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;

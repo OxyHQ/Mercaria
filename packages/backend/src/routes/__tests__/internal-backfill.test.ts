@@ -118,7 +118,7 @@ async function listen(app: express.Express): Promise<Deployment> {
 async function buildApp(env: Record<string, string>): Promise<express.Express> {
   vi.resetModules();
   process.env.PAYMENT_OPERATOR_OXY_USER_IDS = PAYMENTS_OPERATOR;
-  process.env.STRIPE_ENABLED = 'false';
+  process.env.STRIPE_SECRET_KEY = '';
   process.env.CATALOG_OPERATOR_OXY_USER_IDS = CATALOG_OPERATOR;
   delete process.env.CANONICAL_READS;
   delete process.env.CANONICAL_OFFER_COMPARISON;

@@ -419,7 +419,8 @@ connectPostgres()
       // on EVERY task. They run with no deployment lever: no supplier order
       // adapter is registered at boot, Printful refuses a `live` account in code
       // (`LIVE_REFUSED_UNTIL_GATED`), and no purchase order exists until a paid
-      // retail order — which `MERCARIA_RETAIL_ENABLED` gates at checkout entry —
+      // retail order — which the retail entry gate (`config.retail.enabled`)
+      // holds at checkout entry —
       // creates one. The per-supplier kill switch
       // (`supplier_accounts.state = 'killed'`) stops NEW submissions while
       // status, cancellation and reconciliation carry on.
@@ -431,8 +432,8 @@ connectPostgres()
 
       // Close #124's two ports with #123's real implementations (ADR 0004 D4).
       //
-      // UNCONDITIONAL, and deliberately not behind `MERCARIA_RETAIL_ENABLED`.
-      // That flag gates checkout ENTRY (D4 concern 13, D13): a rollback must
+      // UNCONDITIONAL, and deliberately not behind `config.retail.enabled`.
+      // That gates checkout ENTRY (D4 concern 13, D13): a rollback must
       // leave in-flight procurement, refunds and reconciliation draining, and
       // registering these behind it would mean turning retail off stopped
       // authorizing procurement for orders whose buyers had already been
@@ -459,7 +460,7 @@ connectPostgres()
       //
       // NOT conditional on procurement being configured (a resolvable
       // `DIGITAL_RETAIL_SEAL_KEY_REFERENCE`), for the reason the retail ports
-      // above are not behind `MERCARIA_RETAIL_ENABLED`: an in-flight attempt
+      // above are not behind `config.retail.enabled`: an in-flight attempt
       // still has to be recoverable — a purchase order stuck in `ambiguous`
       // with no adapter to ask is a paid customer nobody can serve.
       import('./services/digital-retail/adapter-registry.js')
@@ -595,9 +596,9 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
 
       // Merchant subscription billing (#89). Registering the rail is gated on
-      // `STRIPE_ENABLED` and deliberately NOT on whether merchant ACTIONS are
-      // available (`config.merchantBilling.enabled`): the adapter is what applies
-      // provider events and reconciles subscriptions that already exist, so
+      // the configured Stripe rail and deliberately NOT on whether merchant
+      // ACTIONS are available (`config.merchantBilling.enabled`): the adapter is
+      // what applies provider events and reconciles subscriptions that already exist, so
       // registering it only when merchants may upgrade would strand every live
       // subscription the moment actions became unavailable.
       import('./services/billing/register.js')

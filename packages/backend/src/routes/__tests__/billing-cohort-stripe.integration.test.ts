@@ -129,10 +129,11 @@ beforeAll(async () => {
   );
   for (const [key, value] of Object.entries({
     STRIPE_EVENT_POLL_INTERVAL_MS: '25',
-    STRIPE_ENABLED: 'false',
     STRIPE_SECRET_KEY: 'sk_test_fixture',
     STRIPE_WEBHOOK_SECRET: secret,
-    STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_fixture',
+    // No Connect secret: the cohort-only shape. With all three the general
+    // Stripe rail would be ON, since it has no switch of its own.
+    STRIPE_CONNECT_WEBHOOK_SECRET: '',
     // Mercaria's Oxy identity, minted from the fixture at OXY_API_URL.
     OXY_APPLICATION_KEY: 'fixture-public',
     OXY_APPLICATION_SECRET: 'fixture-secret',

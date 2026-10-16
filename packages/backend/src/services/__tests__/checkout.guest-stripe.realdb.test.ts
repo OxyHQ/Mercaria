@@ -145,7 +145,6 @@ const INLINE_ADDRESS = {
 beforeAll(async () => {
   // Set BEFORE any import that reads config: `config/index.ts` reads the
   // environment once at module load and freezes the result.
-  process.env.STRIPE_ENABLED = 'true';
   process.env.STRIPE_SECRET_KEY = 'sk_test_guest_not_a_real_key';
   process.env.STRIPE_WEBHOOK_SECRET = PLATFORM_SECRET;
   process.env.STRIPE_CONNECT_WEBHOOK_SECRET = 'whsec_guest_connect_not_a_real_one';
@@ -153,9 +152,8 @@ beforeAll(async () => {
   process.env.STRIPE_PLATFORM_CURRENCY = 'EUR';
   process.env.STRIPE_PRESENTMENT_CURRENCIES = 'EUR,USD';
   process.env.FX_PROVIDER = 'static';
-  // Guest commerce. Its PII and email-hash keys are derived from
+  // Guest commerce is always on: its PII and email-hash keys are derived from
   // `MERCARIA_SECRET_KEY` (the public dev root under test), so none is set here.
-  process.env.GUEST_COMMERCE_ENABLED = 'true';
   // No lever set: this file is about the rail, and a kill switch firing would
   // refuse every case in it for the wrong reason.
   delete process.env.GUEST_CHECKOUT_BLOCKED_PLATFORMS;

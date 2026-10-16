@@ -391,7 +391,7 @@ export function createApp(): express.Express {
   }
   // The guest order PORTAL (#108) — mounted UNCONDITIONALLY, and the contrast
   // with the line above is the decision, not an oversight. ADR 0003 M8 gates
-  // ISSUANCE and guest checkout on `GUEST_COMMERCE_ENABLED` and binds the
+  // ISSUANCE and guest checkout on guest commerce being configured and binds the
   // opposite for durable records: "existing portal grants and magic-link
   // recovery for already-placed guest orders keep working with the flag off".
   // #108 acceptance 10 says the same thing from the buyer's side. Gating this
@@ -404,7 +404,7 @@ export function createApp(): express.Express {
    * Digital commerce (#1015, ADR 0010). ONE mount carrying two routers: the
    * creator surface under `/digital/stores/:storeId/*`, mounted inside the router
    * only when the deployment is configured for it (an Oxy service identity and a vertical;
-   * the `STRIPE_ENABLED` rule — an unconfigured deployment answers 404, never
+   * the Stripe webhook mount rule — an unconfigured deployment answers 404, never
    * 401), and the buyer surface (`/digital/library`, `/digital/downloads`,
    * `/digital/claims`).
    *

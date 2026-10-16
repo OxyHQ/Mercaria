@@ -125,7 +125,7 @@ describe('explicit cohort reader with the general Stripe rail disabled', () => {
     expect(seam.fetch).not.toHaveBeenCalled();
   });
   it('keeps the general client and all direct legacy mutations disabled', async () => {
-    expect(() => getStripeClient()).toThrow('STRIPE_ENABLED is off');
+    expect(() => getStripeClient()).toThrow('the Stripe rail is not configured');
     const legacy = new StripeBillingProvider();
     await expect(
       legacy.ensureCustomer({
@@ -133,7 +133,7 @@ describe('explicit cohort reader with the general Stripe rail disabled', () => {
         storeName: 'outside',
         idempotencyKey: 'existing-intent',
       }),
-    ).rejects.toThrow('STRIPE_ENABLED is off');
+    ).rejects.toThrow('the Stripe rail is not configured');
     await expect(
       legacy.createCheckoutSession({
         providerCustomerId: 'cus_fixture',
@@ -144,14 +144,16 @@ describe('explicit cohort reader with the general Stripe rail disabled', () => {
         returnUrl: 'https://mercaria.co',
         idempotencyKey: 'existing-intent',
       }),
-    ).rejects.toThrow('STRIPE_ENABLED is off');
+    ).rejects.toThrow('the Stripe rail is not configured');
     await expect(
       legacy.createPortalSession({
         providerCustomerId: 'cus_fixture',
         returnUrl: 'https://mercaria.co',
       }),
-    ).rejects.toThrow('STRIPE_ENABLED is off');
-    await expect(legacy.cancelAtPeriodEnd('sub_fixture')).rejects.toThrow('STRIPE_ENABLED is off');
+    ).rejects.toThrow('the Stripe rail is not configured');
+    await expect(legacy.cancelAtPeriodEnd('sub_fixture')).rejects.toThrow(
+      'the Stripe rail is not configured',
+    );
     expect(seam.constructed).not.toHaveBeenCalled();
     expect(seam.fetch).not.toHaveBeenCalled();
   });

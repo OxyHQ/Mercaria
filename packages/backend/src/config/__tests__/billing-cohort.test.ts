@@ -14,9 +14,10 @@ afterEach(() => {
 async function read(actions: boolean, extra: Record<string, string> = {}) {
   vi.resetModules();
   for (const [name, value] of Object.entries({
-    STRIPE_ENABLED: 'false',
     STRIPE_SECRET_KEY: 'sk_test_fixture',
     STRIPE_WEBHOOK_SECRET: 'whsec_fixture',
+    // No Connect secret, so the general rail stays off: the cohort-only shape.
+    STRIPE_CONNECT_WEBHOOK_SECRET: '',
     MERCHANT_BILLING_PEABLE_COHORT: JSON.stringify(cohort),
     // Mercaria's Oxy identity off ECS; no task role to attest here.
     OXY_APPLICATION_KEY: 'fixture-public',
@@ -82,7 +83,6 @@ it('rejects malformed cohort even when new actions are off', async () => {
 
 it('preserves broad Stripe actions for non-cohort stores when the general rail is enabled', async () => {
   const config = await read(true, {
-    STRIPE_ENABLED: 'true',
     STRIPE_CONNECT_WEBHOOK_SECRET: 'whsec_connect_fixture',
     MERCHANT_BILLING_PEABLE_COHORT: '',
     MERCHANT_BILLING_RETURN_URL: 'https://dashboard.mercaria.co/settings/plan',

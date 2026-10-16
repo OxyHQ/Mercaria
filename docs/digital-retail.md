@@ -196,7 +196,8 @@ by `services/digital-retail/__tests__/procurement.realdb.test.ts`.
 There are no `DIGITAL_RETAIL_*_ENABLED` switches.
 
 - **Buying** is not wired yet. When #57 wires digital-retail checkout, it is gated
-  by `MERCARIA_RETAIL_ENABLED`, like every other retail checkout.
+  by the retail entry gate (`config.retail.enabled`, on when the retail seller
+  and operators are configured), like every other retail checkout.
 - **Procurement** (submitting anything to a supplier) is on exactly when
   `DIGITAL_RETAIL_SEAL_KEY_REFERENCE` is set and resolves to a key — empty means
   this deployment can seal nothing, so it buys nothing.

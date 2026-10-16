@@ -160,7 +160,7 @@ no second store, no `src/models/` and no rollback target.
   LINE on the consumer COUNTRY alone, and `asset_rights` alone authorizes a download.
   Retail: a partial unique bounds ONE live purchase order per order line, a timeout
   only reaches `ambiguous`, a key has no plaintext column, a gift card is
-  unrepresentable. The one lever is `DIGITAL_PAID_CHECKOUT_ENABLED`, default OFF.
+  unrepresentable. No lever: `DIGITAL_ENABLED_VERTICALS` (empty) is the paid launch.
   `docs/digital-{commerce,retail}.md`.
 - **Shipping UI is HIDDEN and Moovo owns logistics entirely** — do NOT build
   shipping zones or rates, and the Moovo port is registered on no deployment.

@@ -422,8 +422,8 @@ there is no deployment lever. That is safe because nothing reaches a supplier
 without three things that are each false today: a registered order adapter (none
 is registered at boot), an adapter that accepts a `live` account (Printful's
 `LIVE_REFUSED_UNTIL_GATED` refuses one in code), and a purchase order, which only
-a paid retail order creates — and `MERCARIA_RETAIL_ENABLED` gates that at
-checkout entry. Should a lever ever return, it may gate a LOOP and never a durable
+a paid retail order creates — and the retail entry gate (`config.retail.enabled`)
+holds that at checkout entry. Should a lever ever return, it may gate a LOOP and never a durable
 record: a scanned gate fails the build if the ingress, the repositories or the
 exception path read `config.procurement.*Enabled`.
 

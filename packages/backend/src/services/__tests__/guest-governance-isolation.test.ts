@@ -309,19 +309,22 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     }
   });
 
-  it('the five STRUCTURAL gates name no lever, and every other names one', () => {
+  it('the seven STRUCTURAL gates name no lever, and every other names one', () => {
     const structural = GUEST_FEATURE_GATE_REGISTER.filter((gate) => gate.lever === null);
     // EXACT rather than containment: this list changes only by a decision —
     // `pickup` left it when #93 shipped a guest pickup lever (today the guest
-    // fulfilment block list), and message delivery and claiming joined it when
-    // their `*_ENABLED` switches were removed (always on). The register is what
+    // fulfilment block list), and message delivery, claiming, session issuance
+    // and the guest cart joined it when their `*_ENABLED` switches were removed
+    // (always on). The register is what
     // an operator reads during an incident to decide what to flip, so `null`
     // must mean "nothing to flip".
     expect(structural.map((gate) => gate.gate).sort()).toEqual([
+      'cart_read_write',
       'order_portal',
       'oxy_claim',
       'p2p',
       'recovery_email',
+      'session_issuance',
       'stripe_client_path',
     ]);
     for (const gate of structural) {
@@ -350,7 +353,9 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
     expect(configSource).toContain('GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS');
 
     const named = GUEST_FEATURE_GATE_REGISTER.flatMap((gate) => (gate.lever ? [gate.lever] : []));
-    expect(named.length).toBeGreaterThan(5);
+    // Five since session issuance and the guest cart became STRUCTURAL (guest
+    // commerce is always on); the floor still catches a register that emptied.
+    expect(named.length).toBeGreaterThanOrEqual(5);
     for (const lever of named) {
       expect(configSource.includes(lever), `${lever} is named by a gate and read by nothing`).toBe(
         true,
@@ -370,20 +375,14 @@ describe('no feature gate reaches a placed order (#111 acceptance 7 and 13)', ()
       expect(gate.rollbackOrder).toBeGreaterThan(0);
     }
     // Guest CHECKOUT goes off FIRST — blocking both platforms halts new guest
-    // orders while every cart and session survives — and the decommission
-    // (`GUEST_COMMERCE_ENABLED`, which is all issuance and the guest cart answer
-    // to now) goes off LAST, after every narrower lever.
+    // orders while every cart and session survives. There is no decommission
+    // lever any more: guest commerce is always on (its keys derive from
+    // MERCARIA_SECRET_KEY), so issuance and the guest cart are STRUCTURAL.
     const checkout = GUEST_FEATURE_GATE_REGISTER.find((gate) => gate.gate === 'checkout_ui');
     expect(checkout?.rollbackOrder).toBe(1);
     const levered = GUEST_FEATURE_GATE_REGISTER.filter((gate) => gate.lever !== null);
-    const decommission = levered.filter((gate) => gate.lever === 'GUEST_COMMERCE_ENABLED');
-    expect(decommission.map((gate) => gate.gate).sort()).toEqual([
-      'cart_read_write',
-      'session_issuance',
-    ]);
     for (const gate of levered) {
-      if (gate.lever === 'GUEST_COMMERCE_ENABLED') continue;
-      expect(gate.rollbackOrder).toBeLessThan(decommission[0]?.rollbackOrder ?? 0);
+      expect(gate.rollbackOrder).toBeGreaterThanOrEqual(checkout?.rollbackOrder ?? 0);
     }
   });
 });

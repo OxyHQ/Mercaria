@@ -46,13 +46,14 @@ appearing where an Oxy id is expected.
   a 60 s `previous_token_hash` grace; the 7-day activity rotation answers in
   kind from the resolver. Purge = two expiry-sweep targets (7 d past
   expiry/revocation), hard DELETE.
-- **Flags (M8):** `GUEST_COMMERCE_ENABLED` (default false) gates the MOUNT. The
-  contact cipher key and the separate email-hash key (D12) are derived from
-  `MERCARIA_SECRET_KEY` under different purposes, so nothing else is needed.
-  There is no separate issuance kill switch: while guest commerce is on,
-  issuance is on (behind the per-IP `rl:guest-issue:` limit).
+- **Flags (M8):** guest commerce has no switch: it is ON exactly when its two
+  keys resolve — the contact cipher key and the separate email-hash key (D12),
+  both derived from `MERCARIA_SECRET_KEY` under different purposes — so it is
+  ON on every deployment, and that gates the MOUNT. There is no separate
+  issuance kill switch: issuance is on (behind the per-IP `rl:guest-issue:`
+  limit).
   `GUEST_SESSION_IDLE_DAYS=30`, `GUEST_SESSION_ABSOLUTE_DAYS=90`. Production
-  stays OFF until the M8 security + privacy review clears.
+  must not hold both keys until the M8 security + privacy review clears.
 - **Conversion is a SEAM here:** `converted_at`/`converted_to_oxy_user_id` are
   written only by #104/#109; there is deliberately no generic "reassign
   session" endpoint, and `/guest/session` is the WHOLE public surface
@@ -115,10 +116,10 @@ there is nothing guest-shaped to fork, and no `GuestCart` model.
   referral attribution (#141/#143) and a "discard instead of merge" mode (which
   ADR 0003 does not grant — not calling the endpoint IS the choice) are all
   deliberately absent.
-- **One flag, `GUEST_COMMERCE_ENABLED` (the domain).** The issuance and
-  guest-cart levers were removed: while guest commerce is on, a guest session
-  always owns its cart. With guest commerce off, a signed-out cart write gets
-  `GUEST_CART_DISABLED` (403).
+- **No flag.** Guest commerce (the domain) is always on, and the issuance and
+  guest-cart levers were removed: a guest session always owns its cart. (The
+  `GUEST_CART_DISABLED` (403) answer for a signed-out cart write belonged to a
+  deployment with guest commerce off, which no longer exists.)
 - **`GUEST_OPERATOR_OXY_USER_IDS`** gates `/internal/guest-commerce/*`
   (cart-merge trace by correlation id + a consistency check), a THIRD
   allow-list beside payments and catalog for the reason those two are separate.
@@ -206,11 +207,11 @@ widening on `db/schema/orders.ts`. Schema decisions:
   contact the orders reference by FK and it must commit with them, or an
   idempotency converge would strand one. `placeOrders` is the same body either
   way (ADR 0003 I9).
-- **Levers:** `GUEST_COMMERCE_ENABLED` off = no credential resolves at all
-  (decommission); `GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native` = the cart
+- **Levers:** `GUEST_CHECKOUT_BLOCKED_PLATFORMS=web,native` = the cart
   survives and every guest checkout is refused with `guest_rollout_blocked`
-  (the #105 inline-destination lever was merged into it). Placed guest orders
-  and their payments are never gated (ADR 0006 G17). `CHECKOUT_DESTINATION_COUNTRIES` is empty by default,
+  (the #105 inline-destination lever was merged into it). Guest commerce
+  itself has no off switch. Placed guest orders and their payments are never
+  gated (ADR 0006 G17). `CHECKOUT_DESTINATION_COUNTRIES` is empty by default,
   which means unrestricted — today's behaviour exactly.
 - **Privacy:** three encrypted/hashed columns are in `PROTECTED_COLUMNS` (the
   hash too — it is an exact-match ORACLE, not merely irreversible); no refusal
