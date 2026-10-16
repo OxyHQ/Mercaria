@@ -57,7 +57,6 @@ function isAppendOnlyRefusal(error: unknown): boolean {
 }
 
 beforeAll(async () => {
-
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;
   db = await postgres.connectPostgres();

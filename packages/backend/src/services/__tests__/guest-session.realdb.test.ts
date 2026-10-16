@@ -51,7 +51,6 @@ async function issueTracked(): Promise<{
 }
 
 beforeAll(async () => {
-
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;
   db = await postgres.connectPostgres();

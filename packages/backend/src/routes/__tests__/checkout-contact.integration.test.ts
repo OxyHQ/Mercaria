@@ -58,7 +58,6 @@ const INLINE_ADDRESS = {
 };
 
 beforeAll(async () => {
-
   const { createApp } = await import('../../app.js');
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;
