@@ -743,6 +743,8 @@
       "a11yLabel": "Statut du marchand : %{status}",
       "claim": "Revendiquer ce marchand",
       "claimHint": "Prouvez que vous exploitez ce marchand pour gérer sa page",
+      "contest": "Contester cette revendication",
+      "contestHint": "Signalez à Mercaria que l'exploitant vérifié de ce marchand n'est pas le bon",
       "label": {
         "unclaimed": "Non revendiqué",
         "claimInProgress": "Revendication en cours",
@@ -797,6 +799,117 @@
         "staleSources": "Mercaria n'a pas eu de nouvelles assez récentes des sources de ce marchand pour afficher des prix actuels.",
         "filteredOut": "Aucun produit ne correspond à ces filtres."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "Revendiquer %{merchant}",
+    "intro": "Prouvez que vous exploitez ce marchand pour gérer la façon dont il apparaît sur Mercaria. Une revendication ne crée pas de boutique Mercaria et ne fait pas de vous le vendeur officiel d'une marque.",
+    "signInPrompt": "Connectez-vous avec votre compte Oxy pour revendiquer ce marchand.",
+    "signIn": "Se connecter",
+    "loadFailed": "Impossible de charger vos revendications.",
+    "noMethods": "La revendication n'est pas disponible ici pour le moment.",
+    "start": "Continuer",
+    "starting": "Démarrage…",
+    "close": "Fermer",
+    "copy": "Copier %{label}",
+    "copied": "Copié",
+    "copyFailed": "Copie impossible. Sélectionnez le texte et copiez-le vous-même.",
+    "method": {
+      "title": "Comment voulez-vous le prouver ?",
+      "checkedAutomatically": "Vérifié automatiquement.",
+      "reviewedByPerson": "Examiné par une personne.",
+      "dnsTxt": {
+        "label": "Enregistrement DNS",
+        "description": "Ajoutez un enregistrement TXT au DNS de votre domaine."
+      },
+      "wellKnownFile": {
+        "label": "Fichier sur votre site",
+        "description": "Déposez un petit fichier texte sur votre site web."
+      },
+      "metaTag": {
+        "label": "Balise sur votre page d'accueil",
+        "description": "Ajoutez une balise meta à la page d'accueil de votre site web."
+      },
+      "businessDocument": {
+        "label": "Documents d'entreprise",
+        "description": "Partagez des liens vers des documents montrant que vous dirigez cette entreprise."
+      }
+    },
+    "domain": {
+      "label": "Domaine de votre site web",
+      "help": "Le domaine depuis lequel ce marchand vend. Votre preuve ne couvre que ce domaine.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "Votre dernière revendication de ce marchand n'a pas été approuvée.",
+      "reason": "Note de la personne chargée de l’examen : %{reason}",
+      "expired": "Votre dernière revendication de ce marchand a expiré avant d’être prouvée. Vous pouvez recommencer.",
+      "revoked": "Votre vérification pour ce marchand a été retirée. Vous pouvez ouvrir une nouvelle revendication."
+    },
+    "errors": {
+      "tooMany": "Trop de tentatives récemment. Réessayez plus tard.",
+      "notFoundYet": "Nous n'avons pas encore trouvé la valeur de vérification. Les modifications du DNS et du site peuvent mettre du temps à apparaître : réessayez dans un moment.",
+      "codeUnusable": "Ce code n'est plus utilisable. Obtenez un nouveau code et publiez-le à la place.",
+      "cannotOpen": "Vous ne pouvez pas revendiquer ce marchand pour le moment.",
+      "cannotContest": "Cette revendication ne peut pas être contestée pour le moment.",
+      "invalid": "Vérifiez votre saisie et réessayez.",
+      "generic": "Une erreur s'est produite. Réessayez."
+    },
+    "challenge": {
+      "draftIntro": "Votre revendication pour %{domain} est prête. Obtenez un code de vérification pour continuer.",
+      "lost": "Les codes de vérification ne s'affichent qu'une fois. Obtenez un nouveau code pour continuer ; il remplace le précédent.",
+      "getCode": "Obtenir un code de vérification",
+      "gettingCode": "Obtention du code…",
+      "verify": "Vérifier maintenant",
+      "verifying": "Vérification…",
+      "newCode": "Obtenir un nouveau code",
+      "expires": "Ce code est valable jusqu'au %{time}.",
+      "dnsTxt": {
+        "step": "Ajoutez cet enregistrement TXT au DNS de %{domain} :",
+        "nameLabel": "Nom",
+        "valueLabel": "Valeur",
+        "note": "Les modifications DNS peuvent mettre quelques minutes, parfois quelques heures, à apparaître."
+      },
+      "wellKnownFile": {
+        "step": "Publiez à cette adresse un fichier contenant exactement ce texte :",
+        "urlLabel": "Adresse",
+        "contentsLabel": "Contenu du fichier"
+      },
+      "metaTag": {
+        "step": "Ajoutez cette balise dans le <head> de %{url} :",
+        "tagLabel": "Balise"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "Vous êtes l'exploitant vérifié",
+        "body": "Votre revendication de %{merchant} est vérifiée."
+      },
+      "reviewPending": {
+        "title": "Votre revendication est en cours d’examen",
+        "body": "Une personne examine votre revendication. Revenez ici pour voir la décision."
+      },
+      "disputed": {
+        "title": "Votre revendication est contestée",
+        "body": "Un autre compte détient déjà une revendication vérifiée de ce marchand. Une personne examinera les deux et tranchera."
+      }
+    },
+    "evidence": {
+      "intro": "Ajoutez un lien vers des documents montrant que vous dirigez cette entreprise, comme un extrait Kbis ou un avis d'imposition, ainsi qu'une note pour la personne chargée de l’examen. Elle seule les verra.",
+      "urlLabel": "Lien vers le document",
+      "urlPlaceholder": "https://",
+      "noteLabel": "Note pour la personne chargée de l’examen",
+      "submit": "Envoyer pour examen",
+      "submitting": "Envoi…"
+    },
+    "contest": {
+      "title": "Contester la revendication de %{merchant}",
+      "intro": "Ce marchand a déjà un exploitant vérifié. Si c'est une erreur, dites-nous pourquoi. Une personne examine chaque contestation, et l'exploitant actuel est informé qu'une contestation a eu lieu, jamais de son auteur.",
+      "reasonLabel": "Pourquoi la revendication actuelle est-elle erronée ?",
+      "reasonHelp": "Au moins 20 caractères.",
+      "urlLabel": "Lien justificatif (facultatif)",
+      "submit": "Envoyer la contestation",
+      "submitting": "Envoi…"
     }
   },
   "families": {

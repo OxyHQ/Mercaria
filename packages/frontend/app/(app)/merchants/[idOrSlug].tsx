@@ -3,6 +3,8 @@ import { EmptyState } from '@oxy.so/bloom/empty-state';
 import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { Badge } from '@oxy.so/bloom/badge';
+import { useDialogControl } from '@oxy.so/bloom/dialog';
+import { openAccountDialog, useOxy } from '@oxy.so/services';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import type {
   MerchantCatalogEmptyReason,
@@ -16,6 +18,7 @@ import { MerchantBrandStandings } from '@/components/merchant/MerchantBrandStand
 import { MerchantChannelPicker } from '@/components/merchant/MerchantChannelPicker';
 import { MerchantProductCard } from '@/components/merchant/MerchantProductCard';
 import { MerchantStandingBanner } from '@/components/merchant/MerchantStandingBanner';
+import { MerchantClaimDialog } from '@/components/claims/MerchantClaimDialog';
 import { useTranslation } from '@/lib/i18n';
 import { ProductGridSkeleton } from '@/components/catalog/ProductGridSkeleton';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
@@ -140,6 +143,20 @@ export default function MerchantScreen() {
   const { t } = useTranslation();
   const ratingDisplay = useRatingDisplay();
   const [storefrontId, setStorefrontId] = useState<string | undefined>(undefined);
+  const { isAuthenticated } = useOxy();
+  const claimControl = useDialogControl();
+  const [claimMode, setClaimMode] = useState<'claim' | 'contest'>('claim');
+  // Claiming and contesting are made by a PERSON under their own Oxy session
+  // (#83), so a signed-out press asks for one rather than opening a form that
+  // could only fail.
+  const openClaimFlow = (mode: 'claim' | 'contest') => {
+    if (!isAuthenticated) {
+      openAccountDialog();
+      return;
+    }
+    setClaimMode(mode);
+    claimControl.open();
+  };
 
   const { data: page, isLoading, isError } = useMerchantPage(idOrSlug);
   const browseParams = useMemo(
@@ -243,9 +260,15 @@ export default function MerchantScreen() {
 
       <MerchantStandingBanner
         standing={page.standing}
-        onClaim={() =>
-          router.push(`/settings/general?claimMerchant=${encodeURIComponent(page.merchant.id)}`)
-        }
+        onClaim={() => openClaimFlow('claim')}
+        onContest={() => openClaimFlow('contest')}
+      />
+      <MerchantClaimDialog
+        merchantId={page.merchant.id}
+        merchantName={page.merchant.name}
+        mode={claimMode}
+        availableMethods={page.standing.eligibility.availableMethods}
+        control={claimControl}
       />
 
       {page.reviews ? (
