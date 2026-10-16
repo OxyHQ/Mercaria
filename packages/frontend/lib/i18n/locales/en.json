@@ -738,6 +738,8 @@
       "a11yLabel": "Merchant status: %{status}",
       "claim": "Claim this merchant",
       "claimHint": "Prove that you operate this merchant to manage its page",
+      "contest": "Contest this claim",
+      "contestHint": "Tell Mercaria the verified operator of this merchant is wrong",
       "label": {
         "unclaimed": "Unclaimed",
         "claimInProgress": "Claim in progress",
@@ -790,6 +792,117 @@
         "staleSources": "Mercaria has not heard from this merchant’s sources recently enough to show current prices.",
         "filteredOut": "No products match these filters."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "Claim %{merchant}",
+    "intro": "Prove that you operate this merchant to manage how it appears on Mercaria. A claim doesn't create a Mercaria store or make you an official seller of any brand.",
+    "signInPrompt": "Sign in with your Oxy account to claim this merchant.",
+    "signIn": "Sign in",
+    "loadFailed": "We couldn't load your claims.",
+    "noMethods": "Claiming isn't available here right now.",
+    "start": "Continue",
+    "starting": "Starting…",
+    "close": "Close",
+    "copy": "Copy %{label}",
+    "copied": "Copied",
+    "copyFailed": "Couldn't copy. Select the text and copy it instead.",
+    "method": {
+      "title": "How do you want to prove it?",
+      "checkedAutomatically": "Checked automatically.",
+      "reviewedByPerson": "Reviewed by a person.",
+      "dnsTxt": {
+        "label": "DNS record",
+        "description": "Add a TXT record to your domain's DNS."
+      },
+      "wellKnownFile": {
+        "label": "File on your website",
+        "description": "Upload a small text file to your website."
+      },
+      "metaTag": {
+        "label": "Tag on your home page",
+        "description": "Add a meta tag to your website's home page."
+      },
+      "businessDocument": {
+        "label": "Business documents",
+        "description": "Share links to documents that show you run this business."
+      }
+    },
+    "domain": {
+      "label": "Your website's domain",
+      "help": "The domain this merchant sells from. Your proof covers this domain only.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "Your last claim on this merchant wasn't approved.",
+      "reason": "Reviewer's note: %{reason}",
+      "expired": "Your last claim on this merchant expired before it was proven. You can start again.",
+      "revoked": "Your verification for this merchant was withdrawn. You can start a new claim."
+    },
+    "errors": {
+      "tooMany": "Too many attempts recently. Try again later.",
+      "notFoundYet": "We couldn't find the verification value yet. DNS and website changes can take a while to appear, so try again shortly.",
+      "codeUnusable": "This code can't be used any more. Get a new code and publish that instead.",
+      "cannotOpen": "You can't open a claim on this merchant right now.",
+      "cannotContest": "This claim can't be contested right now.",
+      "invalid": "Check what you entered and try again.",
+      "generic": "Something went wrong. Try again."
+    },
+    "challenge": {
+      "draftIntro": "Your claim for %{domain} is ready. Get a verification code to continue.",
+      "lost": "Verification codes are shown only once. Get a new code to continue; it replaces the previous one.",
+      "getCode": "Get verification code",
+      "gettingCode": "Getting code…",
+      "verify": "Check now",
+      "verifying": "Checking…",
+      "newCode": "Get a new code",
+      "expires": "This code works until %{time}.",
+      "dnsTxt": {
+        "step": "Add this TXT record to the DNS for %{domain}:",
+        "nameLabel": "Name",
+        "valueLabel": "Value",
+        "note": "DNS changes can take a few minutes, sometimes hours, to appear."
+      },
+      "wellKnownFile": {
+        "step": "Publish a file at this address containing exactly this text:",
+        "urlLabel": "Address",
+        "contentsLabel": "File contents"
+      },
+      "metaTag": {
+        "step": "Add this tag inside the <head> of %{url}:",
+        "tagLabel": "Tag"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "You're the verified operator",
+        "body": "Your claim on %{merchant} is verified."
+      },
+      "reviewPending": {
+        "title": "Your claim is being reviewed",
+        "body": "A person is reviewing your claim. Come back here to see the decision."
+      },
+      "disputed": {
+        "title": "Your claim is in dispute",
+        "body": "Another account already holds a verified claim on this merchant. A person will review both and decide."
+      }
+    },
+    "evidence": {
+      "intro": "Add a link to documents that show you run this business, such as a business registration or a tax record, and a note for the reviewer. Only the reviewer sees them.",
+      "urlLabel": "Document link",
+      "urlPlaceholder": "https://",
+      "noteLabel": "Note for the reviewer",
+      "submit": "Send for review",
+      "submitting": "Sending…"
+    },
+    "contest": {
+      "title": "Contest the claim on %{merchant}",
+      "intro": "This merchant already has a verified operator. If that's wrong, tell us why. A person reviews every contest, and the current operator is told a contest was made, never by whom.",
+      "reasonLabel": "Why is the current claim wrong?",
+      "reasonHelp": "At least 20 characters.",
+      "urlLabel": "Supporting link (optional)",
+      "submit": "Send contest",
+      "submitting": "Sending…"
     }
   },
   "families": {

@@ -743,6 +743,8 @@
       "a11yLabel": "Estat del comerciant: %{status}",
       "claim": "Reclama aquest comerciant",
       "claimHint": "Demostra que operes aquest comerciant per gestionar-ne la pàgina",
+      "contest": "Impugna aquesta reclamació",
+      "contestHint": "Avisa Mercaria que l'operador verificat d'aquest comerciant no és correcte",
       "label": {
         "unclaimed": "Sense reclamar",
         "claimInProgress": "Reclamació en curs",
@@ -797,6 +799,117 @@
         "staleSources": "Mercaria no ha rebut prou recentment dades de les fonts d'aquest comerciant per mostrar preus actuals.",
         "filteredOut": "Cap producte coincideix amb aquests filtres."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "Reclama %{merchant}",
+    "intro": "Demostra que operes aquest comerciant per gestionar com apareix a Mercaria. Una reclamació no crea cap botiga a Mercaria ni et converteix en venedor oficial de cap marca.",
+    "signInPrompt": "Inicia la sessió amb el teu compte d'Oxy per reclamar aquest comerciant.",
+    "signIn": "Inicia la sessió",
+    "loadFailed": "No s'han pogut carregar les teves reclamacions.",
+    "noMethods": "Ara mateix no es pot reclamar des d’aquí.",
+    "start": "Continua",
+    "starting": "S’està iniciant…",
+    "close": "Tanca",
+    "copy": "Copia %{label}",
+    "copied": "Copiat",
+    "copyFailed": "No s'ha pogut copiar. Selecciona el text i copia'l tu.",
+    "method": {
+      "title": "Com ho vols demostrar?",
+      "checkedAutomatically": "Es comprova automàticament.",
+      "reviewedByPerson": "Ho revisa una persona.",
+      "dnsTxt": {
+        "label": "Registre DNS",
+        "description": "Afegeix un registre TXT al DNS del teu domini."
+      },
+      "wellKnownFile": {
+        "label": "Fitxer al teu lloc web",
+        "description": "Puja un petit fitxer de text al teu lloc web."
+      },
+      "metaTag": {
+        "label": "Etiqueta a la pàgina d'inici",
+        "description": "Afegeix una metaetiqueta a la pàgina d'inici del teu lloc web."
+      },
+      "businessDocument": {
+        "label": "Documents de l'empresa",
+        "description": "Comparteix enllaços a documents que mostrin que dirigeixes aquest negoci."
+      }
+    },
+    "domain": {
+      "label": "Domini del teu lloc web",
+      "help": "El domini des del qual ven aquest comerciant. La teva prova només cobreix aquest domini.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "La teva última reclamació d'aquest comerciant no s'ha aprovat.",
+      "reason": "Nota de la persona revisora: %{reason}",
+      "expired": "La teva última reclamació d'aquest comerciant ha caducat abans de demostrar-se. Pots tornar a començar.",
+      "revoked": "S'ha retirat la teva verificació d'aquest comerciant. Pots obrir una nova reclamació."
+    },
+    "errors": {
+      "tooMany": "Massa intents recents. Torna-ho a provar més tard.",
+      "notFoundYet": "Encara no hem trobat el valor de verificació. Els canvis al DNS i al lloc web poden trigar a aparèixer, així que torna-ho a provar d'aquí a una estona.",
+      "codeUnusable": "Aquest codi ja no es pot fer servir. Obtén un codi nou i publica aquest.",
+      "cannotOpen": "Ara mateix no pots obrir una reclamació d'aquest comerciant.",
+      "cannotContest": "Ara mateix no es pot impugnar aquesta reclamació.",
+      "invalid": "Revisa el que has introduït i torna-ho a provar.",
+      "generic": "Alguna cosa ha fallat. Torna-ho a provar."
+    },
+    "challenge": {
+      "draftIntro": "La teva reclamació de %{domain} ja està a punt. Obtén un codi de verificació per continuar.",
+      "lost": "Els codis de verificació només es mostren una vegada. Obtén un codi nou per continuar; substitueix l'anterior.",
+      "getCode": "Obtén el codi de verificació",
+      "gettingCode": "S’està obtenint el codi…",
+      "verify": "Comprova-ho ara",
+      "verifying": "S’està comprovant…",
+      "newCode": "Obtén un codi nou",
+      "expires": "Aquest codi és vàlid fins al %{time}.",
+      "dnsTxt": {
+        "step": "Afegeix aquest registre TXT al DNS de %{domain}:",
+        "nameLabel": "Nom",
+        "valueLabel": "Valor",
+        "note": "Els canvis de DNS poden trigar uns minuts, de vegades hores, a aparèixer."
+      },
+      "wellKnownFile": {
+        "step": "Publica en aquesta adreça un fitxer que contingui exactament aquest text:",
+        "urlLabel": "Adreça",
+        "contentsLabel": "Contingut del fitxer"
+      },
+      "metaTag": {
+        "step": "Afegeix aquesta etiqueta dins del <head> de %{url}:",
+        "tagLabel": "Etiqueta"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "Ets l'operador verificat",
+        "body": "La teva reclamació de %{merchant} està verificada."
+      },
+      "reviewPending": {
+        "title": "S'està revisant la teva reclamació",
+        "body": "Una persona està revisant la teva reclamació. Torna aquí per veure la decisió."
+      },
+      "disputed": {
+        "title": "La teva reclamació està en disputa",
+        "body": "Un altre compte ja té una reclamació verificada d'aquest comerciant. Una persona revisarà totes dues i decidirà."
+      }
+    },
+    "evidence": {
+      "intro": "Afegeix un enllaç a documents que mostrin que dirigeixes aquest negoci, com ara un registre mercantil o un document fiscal, i una nota per a la persona revisora. Només ella els veurà.",
+      "urlLabel": "Enllaç al document",
+      "urlPlaceholder": "https://",
+      "noteLabel": "Nota per a la persona revisora",
+      "submit": "Envia a revisió",
+      "submitting": "S’està enviant…"
+    },
+    "contest": {
+      "title": "Impugna la reclamació de %{merchant}",
+      "intro": "Aquest comerciant ja té un operador verificat. Si no és correcte, explica'ns per què. Una persona revisa cada impugnació, i a l'operador actual se li comunica que s'ha impugnat, mai qui ho ha fet.",
+      "reasonLabel": "Per què no és correcta la reclamació actual?",
+      "reasonHelp": "Com a mínim 20 caràcters.",
+      "urlLabel": "Enllaç de suport (opcional)",
+      "submit": "Envia la impugnació",
+      "submitting": "S’està enviant…"
     }
   },
   "families": {

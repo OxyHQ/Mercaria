@@ -25,6 +25,14 @@ import { useTranslation } from '@/lib/i18n';
  * #83's own rule and the reason `claimInProgress` is a signal rather than a
  * refusal.
  *
+ * ## Contesting is offered where claiming is not
+ *
+ * A merchant that already has a verified operator answers `already_claimed`,
+ * and the server's own refusal says what to do instead: contest the existing
+ * claim. So exactly that reason swaps the claim action for a contest action.
+ * Nothing here says WHO holds the claim — the eligibility read cannot say it —
+ * and a person decides every contest.
+ *
  * Both maps hold KEYS rather than sentences: they are module scope, so a `t()`
  * here would resolve before the locale store rehydrates and freeze whichever
  * language loaded first. The keys are literals so the i18n guard can see each
@@ -49,9 +57,11 @@ Object.freeze(STANDING_EXPLANATION_KEYS);
 export function MerchantStandingBanner({
   standing,
   onClaim,
+  onContest,
 }: {
   standing: MerchantPageStanding;
   onClaim: () => void;
+  onContest: () => void;
 }) {
   const { t } = useTranslation();
   const label = t(STANDING_LABEL_KEYS[standing.standing]);
@@ -78,6 +88,19 @@ export function MerchantStandingBanner({
           >
             <Text className="text-sm font-medium text-foreground">
               {t('merchants.standing.claim')}
+            </Text>
+          </Pressable>
+        ) : null}
+        {standing.eligibility.reason === 'already_claimed' ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('merchants.standing.contest')}
+            accessibilityHint={t('merchants.standing.contestHint')}
+            onPress={onContest}
+            className="rounded-full px-3 py-2"
+          >
+            <Text className="text-xs font-medium text-muted-foreground underline">
+              {t('merchants.standing.contest')}
             </Text>
           </Pressable>
         ) : null}

@@ -743,6 +743,8 @@
       "a11yLabel": "Estado del comercio: %{status}",
       "claim": "Reclamar este comercio",
       "claimHint": "Demuestra que operas este comercio para gestionar su página",
+      "contest": "Impugnar esta reclamación",
+      "contestHint": "Avisa a Mercaria de que el operador verificado de este comercio no es correcto",
       "label": {
         "unclaimed": "Sin reclamar",
         "claimInProgress": "Reclamación en curso",
@@ -797,6 +799,117 @@
         "staleSources": "Mercaria no ha recibido datos de las fuentes de este comercio lo bastante recientemente como para mostrar precios actuales.",
         "filteredOut": "Ningún producto coincide con estos filtros."
       }
+    }
+  },
+  "merchantClaim": {
+    "title": "Reclamar %{merchant}",
+    "intro": "Demuestra que operas este comercio para gestionar cómo aparece en Mercaria. Una reclamación no crea una tienda en Mercaria ni te convierte en vendedor oficial de ninguna marca.",
+    "signInPrompt": "Inicia sesión con tu cuenta de Oxy para reclamar este comercio.",
+    "signIn": "Iniciar sesión",
+    "loadFailed": "No pudimos cargar tus reclamaciones.",
+    "noMethods": "Ahora mismo no se puede reclamar desde aquí.",
+    "start": "Continuar",
+    "starting": "Iniciando…",
+    "close": "Cerrar",
+    "copy": "Copiar %{label}",
+    "copied": "Copiado",
+    "copyFailed": "No se pudo copiar. Selecciona el texto y cópialo tú.",
+    "method": {
+      "title": "¿Cómo quieres demostrarlo?",
+      "checkedAutomatically": "Se comprueba automáticamente.",
+      "reviewedByPerson": "Lo revisa una persona.",
+      "dnsTxt": {
+        "label": "Registro DNS",
+        "description": "Añade un registro TXT al DNS de tu dominio."
+      },
+      "wellKnownFile": {
+        "label": "Archivo en tu sitio web",
+        "description": "Sube un pequeño archivo de texto a tu sitio web."
+      },
+      "metaTag": {
+        "label": "Etiqueta en tu página de inicio",
+        "description": "Añade una metaetiqueta a la página de inicio de tu sitio web."
+      },
+      "businessDocument": {
+        "label": "Documentos de empresa",
+        "description": "Comparte enlaces a documentos que muestren que diriges este negocio."
+      }
+    },
+    "domain": {
+      "label": "Dominio de tu sitio web",
+      "help": "El dominio desde el que vende este comercio. Tu prueba cubre solo este dominio.",
+      "placeholder": "example.com"
+    },
+    "previous": {
+      "rejected": "Tu última reclamación de este comercio no se aprobó.",
+      "reason": "Nota de la persona revisora: %{reason}",
+      "expired": "Tu última reclamación de este comercio caducó antes de demostrarse. Puedes empezar de nuevo.",
+      "revoked": "Se retiró tu verificación de este comercio. Puedes abrir una nueva reclamación."
+    },
+    "errors": {
+      "tooMany": "Demasiados intentos recientes. Inténtalo más tarde.",
+      "notFoundYet": "Todavía no encontramos el valor de verificación. Los cambios en el DNS y en el sitio web pueden tardar en aparecer, así que vuelve a intentarlo en un rato.",
+      "codeUnusable": "Este código ya no se puede usar. Obtén un código nuevo y publica ese.",
+      "cannotOpen": "Ahora mismo no puedes abrir una reclamación de este comercio.",
+      "cannotContest": "Ahora mismo no se puede impugnar esta reclamación.",
+      "invalid": "Revisa lo que has introducido e inténtalo de nuevo.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "challenge": {
+      "draftIntro": "Tu reclamación de %{domain} está lista. Obtén un código de verificación para continuar.",
+      "lost": "Los códigos de verificación solo se muestran una vez. Obtén un código nuevo para continuar; sustituye al anterior.",
+      "getCode": "Obtener código de verificación",
+      "gettingCode": "Obteniendo código…",
+      "verify": "Comprobar ahora",
+      "verifying": "Comprobando…",
+      "newCode": "Obtener un código nuevo",
+      "expires": "Este código es válido hasta el %{time}.",
+      "dnsTxt": {
+        "step": "Añade este registro TXT al DNS de %{domain}:",
+        "nameLabel": "Nombre",
+        "valueLabel": "Valor",
+        "note": "Los cambios de DNS pueden tardar unos minutos, a veces horas, en aparecer."
+      },
+      "wellKnownFile": {
+        "step": "Publica en esta dirección un archivo que contenga exactamente este texto:",
+        "urlLabel": "Dirección",
+        "contentsLabel": "Contenido del archivo"
+      },
+      "metaTag": {
+        "step": "Añade esta etiqueta dentro del <head> de %{url}:",
+        "tagLabel": "Etiqueta"
+      }
+    },
+    "status": {
+      "verified": {
+        "title": "Eres el operador verificado",
+        "body": "Tu reclamación de %{merchant} está verificada."
+      },
+      "reviewPending": {
+        "title": "Tu reclamación está en revisión",
+        "body": "Una persona está revisando tu reclamación. Vuelve aquí para ver la decisión."
+      },
+      "disputed": {
+        "title": "Tu reclamación está en disputa",
+        "body": "Otra cuenta ya tiene una reclamación verificada de este comercio. Una persona revisará ambas y decidirá."
+      }
+    },
+    "evidence": {
+      "intro": "Añade un enlace a documentos que muestren que diriges este negocio, como un registro mercantil o un documento fiscal, y una nota para la persona revisora. Solo ella los verá.",
+      "urlLabel": "Enlace al documento",
+      "urlPlaceholder": "https://",
+      "noteLabel": "Nota para la persona revisora",
+      "submit": "Enviar a revisión",
+      "submitting": "Enviando…"
+    },
+    "contest": {
+      "title": "Impugnar la reclamación de %{merchant}",
+      "intro": "Este comercio ya tiene un operador verificado. Si no es correcto, cuéntanos por qué. Una persona revisa cada impugnación, y al operador actual se le avisa de que se ha impugnado, nunca de quién lo ha hecho.",
+      "reasonLabel": "¿Por qué no es correcta la reclamación actual?",
+      "reasonHelp": "Al menos 20 caracteres.",
+      "urlLabel": "Enlace de apoyo (opcional)",
+      "submit": "Enviar impugnación",
+      "submitting": "Enviando…"
     }
   },
   "families": {

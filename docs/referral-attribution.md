@@ -303,6 +303,10 @@ with every gate green.
   Checkout stays referral-free (`commercial-presentation-isolation.test.ts`).
 - **Links.** Shared as `mercaria.co/r/<token>`; the storefront worker redirects
   them to this route (docs/referral-dashboards.md says why never a proxy).
+- **Merchant binding.** The storefront claim flow posts
+  `POST /referrals/merchant-binding` right after a claim opens, fire and forget,
+  so a carried click binds to the claimed merchant (`docs/merchant-claims.md`
+  §"The storefront client").
 - **Consent.** Never declared: with no consent framework the honest declaration
   is none, recorded as `unknown`.
 
@@ -378,9 +382,6 @@ boolean — tripped the request-derived-destination detector. The pattern gained
   for how it ENDS: #85 supplied the capability, and the change that supplied it
   (#324) is the change that added `{state: 'activated'}`.
 - **A consent framework** (web rule 5), as above.
-- **Merchant binding has no client.** `POST /referrals/merchant-binding` binds
-  a carried click to a merchant the caller holds a claim on, and no app creates
-  a merchant claim yet, so nothing calls it.
 - **A merge does not rehome a standing attribution.** #142's
   `recordSubjectMerge` is explicit that "history keeps its references; reads and
   NEW attributions resolve through the redirect", and its own realdb file pins
