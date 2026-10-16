@@ -142,6 +142,17 @@ describe('the deploy workflow and the migrator agree', () => {
     expect(register?.run).not.toContain('/STRIPE_ONBOARDING_STATE_SECRET');
   });
 
+  it('withholds the Stripe Connect webhook secret while the marketplace rail is not launched', () => {
+    // The rail is on exactly when its three credentials are present; the key
+    // plus platform webhook secret beside the billing cohort is "cohort only".
+    // Launching is injecting this secret here — a reviewed change, not a flag.
+    const register = (parse(workflow) as WorkflowFile).jobs.deploy.steps.find((step) =>
+      step.name?.startsWith('Resolve the ECS one-shot shape'),
+    );
+    expect(register?.run).toContain('.name != "STRIPE_CONNECT_WEBHOOK_SECRET"');
+    expect(register?.run).not.toContain('/STRIPE_CONNECT_WEBHOOK_SECRET');
+  });
+
   it('verifies the exact ECS candidate before destructive migrations or catalog publication', () => {
     const steps = (parse(workflow) as WorkflowFile).jobs.deploy.steps;
     const resolve = steps.find((step) => step.name?.startsWith('Resolve the ECS one-shot shape'));

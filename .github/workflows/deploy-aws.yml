@@ -457,6 +457,15 @@ jobs:
                    # Any existing entry is dropped first so exactly one remains.
                    # CONNECTOR_OAUTH_STATE_SECRET and STRIPE_ONBOARDING_STATE_SECRET
                    # are retired: both keys are now derived from the root.
+                   #
+                   # STRIPE_CONNECT_WEBHOOK_SECRET is withheld because the
+                   # marketplace card rail is NOT launched (owner, 2026-10-16).
+                   # There is no switch: the rail is on exactly when its three
+                   # credentials are present (`resolveStripeEnabled`), and the key
+                   # plus platform webhook secret beside the billing cohort is the
+                   # chosen "cohort only" shape. Launching the rail is injecting
+                   # this secret here (it stays in SSM), together with a
+                   # STRIPE_PUBLISHABLE_KEY — see docs/payments.md.
                    | .secrets = (
                        ((.secrets // []) | map(select(
                          .name != "OXY_APPLICATION_KEY" and
@@ -465,7 +474,8 @@ jobs:
                          .name != "PEABLE_APP_SECRET" and
                          .name != "MERCARIA_SECRET_KEY" and
                          .name != "CONNECTOR_OAUTH_STATE_SECRET" and
-                         .name != "STRIPE_ONBOARDING_STATE_SECRET"
+                         .name != "STRIPE_ONBOARDING_STATE_SECRET" and
+                         .name != "STRIPE_CONNECT_WEBHOOK_SECRET"
                        )))
                        + [{name: "MERCARIA_SECRET_KEY", valueFrom: $secret_key_arn}]
                      )

@@ -23,6 +23,26 @@ an adapter behind one interface.
 
 ---
 
+## Launching the marketplace card rail
+
+There is no switch: the Stripe rail is on exactly when `STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET` and `STRIPE_CONNECT_WEBHOOK_SECRET` are all present
+(`resolveStripeEnabled`). Production holds all three in SSM but the rail is NOT
+launched (owner, 2026-10-16): `deploy-aws.yml` withholds
+`STRIPE_CONNECT_WEBHOOK_SECRET` from every revision, which leaves the
+"billing cohort only" shape. Launching is one reviewed change, in this order:
+
+1. Put `STRIPE_PUBLISHABLE_KEY` (`pk_live_…`) in SSM and inject it at register
+   time like `MERCARIA_SECRET_KEY`; without it the card step answers "not
+   configured".
+2. Payment operators must exist to publish a fee schedule, or the commission
+   is zero.
+3. Stop withholding `STRIPE_CONNECT_WEBHOOK_SECRET` in `deploy-aws.yml`
+   (and its `deployWorkflow.test.ts` case). Both webhook endpoints are already
+   registered in the live Stripe account.
+4. Sellers onboard through Connect (dashboard → Settings → Payments); a seller
+   with no ready account is refused at checkout before anything is reserved.
+
 ## Why the ledger is load-bearing on day one
 
 ADR 0001 D3 chooses separate charges and transfers, which means Mercaria's
