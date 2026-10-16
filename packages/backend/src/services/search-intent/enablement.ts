@@ -2,13 +2,12 @@
  * May the model parser run for this request (#95 deterministic-fallback rule 7,
  * acceptance 7).
  *
- * Four gates, evaluated in a fixed order, and each answers with the
+ * Three gates, evaluated in a fixed order, and each answers with the
  * {@link IntentFallbackReason} it would produce — so "why did this fall back"
  * is a value from a closed set at the moment the decision is made, rather than
  * something reconstructed afterwards from a log.
  *
  * ```
- * NL_INTENT_ENABLED        →  parser_disabled
  * a registered parser      →  provider_unconfigured
  * the cohort kill switch   →  cohort_blocked
  * the benchmark enablement →  not_enabled_for_category_language
@@ -86,10 +85,10 @@ export function isCohortBlocked(
 /**
  * Decide whether a model may be asked.
  *
- * Reads the database only when the three cheap gates have passed, which is not
- * an optimisation: with the feature off — the default — this function makes no
- * query at all, so adopting #95 costs a deployment that has not enabled it
- * exactly nothing on the hottest path it adds.
+ * Reads the database only when the cheap gates have passed, which is not an
+ * optimisation: with no parser registered — every deployment today — this
+ * function makes no query at all, so #95 costs a deployment that has not wired
+ * a model exactly nothing on the hottest path it adds.
  */
 export async function decideEnablement(
   db: DatabaseOrTransaction,
@@ -101,9 +100,6 @@ export async function decideEnablement(
     // deterministic answer carries a reason, so it reuses the disabled one
     // rather than growing a member that would inflate the incident metric with
     // a shopper's own preference.
-    return { status: 'deterministic', reason: 'parser_disabled' };
-  }
-  if (!config.searchIntent.enabled) {
     return { status: 'deterministic', reason: 'parser_disabled' };
   }
   if (!hasShoppingIntentParser()) {

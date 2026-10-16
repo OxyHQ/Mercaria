@@ -5,16 +5,16 @@ previous behaviour back. Reference:
 [`../catalog-migration-operations.md`](../catalog-migration-operations.md) and
 ADR 0007 D12/D13.
 
-**The levers are now GATED BY TESTS; the production rehearsal has still never been
-run. Read §6 before you believe any of it.** Two things changed and they are not
-the same thing. `routes/__tests__/catalog-rollout.realdb.test.ts` builds three
-real deployments — levers on, levers off, and levers off with an EMPTY operator
-allow-list — and asserts what each withdraws, what each keeps, and that a stored
-proposal survives; `packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts`
+**The levers are GONE, and what is left is GATED BY TESTS; the production
+rehearsal has still never been run. Read §6 before you believe any of it.** All
+four D12 mount levers were removed (the "no `*_ENABLED` switches" decision).
+`routes/__tests__/catalog-rollout.realdb.test.ts` builds two real deployments —
+with the operator allow-list and with an EMPTY one — and asserts what each
+mounts and that a stored proposal stays readable; `packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts`
 executes the storefront's fallback. So the claims below are no longer conventions.
-What remains un-rehearsed is a lever flipped on a RUNNING deployment: no operator
-has watched a route stop answering and start again, and §6 lists exactly which
-steps that leaves open.
+What remains un-rehearsed is a cohort narrowed on a RUNNING deployment: no
+operator has watched a route stop answering and start again, and §6 lists
+exactly which steps that leaves open.
 
 **Owner:** the on-call engineer for the Mercaria API. Withdrawing a published
 taxonomy or navigation tree is the catalogue operator's, and is a data change
@@ -50,74 +50,67 @@ on the list; **404 with an operator's token means the list is empty.**
 
 ## 1. The levers, and what each one actually withdraws
 
-> **Three of the four levers below have since been REMOVED** (the "no
-> `*_ENABLED` switches" decision): the authoring surface (`/catalog-authoring`,
-> `/stores/:storeId/product-drafts`) and the taxonomy-v2 reads (`/navigation`,
-> `/taxonomy`) are always mounted, and `/catalog-proposals` is mounted iff
-> `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty. **`FACETS_ENABLED` is the only
-> D12-era mount lever left.** Rolling back authoring or navigation is now a DATA
-> change (unpublish the tree or product type, §4) or a code change, not an
-> environment change.
+> **All four levers below have since been REMOVED** (the "no `*_ENABLED`
+> switches" decision): the authoring surface (`/catalog-authoring`,
+> `/stores/:storeId/product-drafts`), the taxonomy-v2 reads (`/navigation`,
+> `/taxonomy`) and `/facets` are always mounted, and `/catalog-proposals` is
+> mounted iff `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty. **No D12-era mount
+> lever is left.** Rolling a catalog surface back is now a cohort narrowing
+> (below), a DATA change (unpublish the tree or product type, §4) or a code
+> change, not an environment switch.
 
 **Four levers existed**, and the arithmetic is worth stating because it is not a
 subtraction: ADR 0007 D12 originally named six, **three of those were never
 built**, and **one lever a rollout needs was not among the six**. So 6 − 3 + 1 = 4.
 Do not quote `CATALOG_LOCALIZATION_ENABLED` or `PRODUCT_TYPES_ENABLED` at
-anybody — they appear nowhere in `packages/backend/src` — and do not forget
-`FACETS_ENABLED`, which D12 did not mention and which turns off a live public
-surface. **D12 has since been corrected** to name the four and to record why each
-absent one is absent. Full inventory:
+anybody — they appear nowhere in `packages/backend/src`. **D12 has since been
+corrected** to name the four and to record why each absent one is absent.
+All four have since been REMOVED (the note above); none remains. Full inventory:
 [`../catalog-migration-operations.md`](../catalog-migration-operations.md)
 §"The lever inventory".
 
 **`CATALOG_AUTHORING_COHORTS` was the third absence and it has been CLOSED**, as
-**`CATALOG_ROLLOUT_COHORTS`** — a fifth lever that narrows which slice of the
-deployment the four above are switched on for, over market, locale, store,
+**`CATALOG_ROLLOUT_COHORTS`** — a further lever that narrows which slice of the
+deployment the catalog surfaces (all now mounted unconditionally) are switched
+on for, over market, locale, store,
 category and product type. **It is not a rollback lever and must not be used as
 one**: emptying it WIDENS the rollout to everybody, which is the opposite of what
 an incident wants. To roll a cohort back, remove entries; to roll the surface
-back, set `FACETS_ENABLED` to `false` (the only mount lever left). Full reference:
+back, there is no mount lever left — narrow the cohort. Full reference:
 [`../catalog-rollout-cohorts.md`](../catalog-rollout-cohorts.md).
 
-| Set this to `false` | Mounts withdrawn | Blast radius |
-|---|---|---|
-| `FACETS_ENABLED` | `/facets` | the storefront filter rail disappears; the domain owns no table and writes no row, so nothing durable is involved |
+There is no lever left to set to `false`. `/catalog-proposals` has no lever of
+its own: it is withdrawn only together with every `/internal/*` catalog surface,
+by emptying `CATALOG_OPERATOR_OXY_USER_IDS` (§0) — which is why that is not a
+rollback step. **Submitted proposals stay either way.**
 
-`/catalog-proposals` has no lever of its own: it is withdrawn only together with
-every `/internal/*` catalog surface, by emptying `CATALOG_OPERATOR_OXY_USER_IDS`
-(§0) — which is why that is not a rollback step. **Submitted proposals stay
-either way.**
-
-**Every lever-gated mount was a surface this epic ADDED.** Nothing a shopper or a buyer
+**Every formerly lever-gated mount was a surface this epic ADDED.** Nothing a shopper or a buyer
 used before the epic is behind any of them: `/listings` (`app.ts:243`),
 `/categories` (`:245`), `/cart` (`:316`), `/checkout` (`:318`), `/search`
 (`:589`), `/catalog-attributes` (`:729`), `/compatibility` (`:1028`) and
 `/product-types` (`:1040`) are all unconditional.
 
-**Order does not matter and there is no ordering constraint between them** — each
-guards an independent `app.use` and none reads another. **A restart is required**:
-`config/index.ts` reads `process.env` once at import and the config object is
-frozen, so an ECS task picks up a changed variable only on a new task.
+**A restart is required** for any environment change here (a cohort, the
+operator allow-list): `config/index.ts` reads `process.env` once at import and
+the config object is frozen, so an ECS task picks up a changed variable only on a
+new task.
 
 ---
 
 ## 2. The rollback itself
 
 1. Confirm §0.
-2. Set the levers you need to `false` in SSM (`/oxy/mercaria/…`) and roll the
-   service. **Change one lever at a time if you can afford the rolls**, because
-   nothing here has been rehearsed and a per-lever roll is the only way to
-   attribute a surprise.
-3. Verify the withdrawal is the one you wanted, per lever: the five paths in §1
-   answer 404, and the eight unconditional paths in §1 still answer.
+2. Narrow `CATALOG_ROLLOUT_COHORTS` in SSM (`/oxy/mercaria/…`) and roll the
+   service, or make the data change §4 names. **Change one thing at a time if
+   you can afford the rolls**, because nothing here has been rehearsed and a
+   per-change roll is the only way to attribute a surprise.
+3. Verify the narrowing is the one you wanted: a request outside the cohort
+   answers 404, and the unconditional paths in §1 still answer.
 4. Verify nothing durable moved. All of these read through
    `/internal/*`, which is unaffected:
    - `GET /internal/catalog-metrics` — `proposal_backlog_count` and
      `draft_open_count` are the same numbers as before the roll. They read stored
-     ROWS, so they keep working whatever the route flags say. Note that
-     `authoring_schema_*` and the facet metrics will now answer
-     **`surface_not_mounted`** rather than zero, and that is the correct reading —
-     render it as "not switched on here", never as a seam or a zero.
+     ROWS, so they keep working whatever the cohort says.
    - `GET /internal/catalog-governance/queues` — the unresolved-claim counts are
      unchanged.
    - `GET /internal/navigation` — every published tree is still there.
@@ -126,10 +119,9 @@ frozen, so an ECS task picks up a changed variable only on a new task.
    nobody has observed; anything you observe belongs in it.
 
 **Nothing in a rollback deletes catalog evidence, and that is structural rather
-than a promise.** The remaining lever, `FACETS_ENABLED`, is read at its mount and
-in `services/catalog-observability/metrics.service.ts`, which decides whether a
-metric reads `surface_not_mounted`. **No repository, no outbox enqueue, no loop
-and no checkout path reads one.** That census is the strongest evidence the
+than a promise.** No catalog mount lever remains, and the cohort gate narrows a
+mounted surface per request. **No repository, no outbox enqueue, no loop and no
+checkout path reads either.** That census is the strongest evidence the
 rollback has, and it is reproducible in one grep.
 
 ---
@@ -240,11 +232,11 @@ the levers off does not undo the refusal.
 `CATALOG_LOCALIZATION_ENABLED`. What makes D12's "default ⇒ base locale" true
 today is that `services/catalog-localization/read.service.ts` exports exactly two
 readers and they have exactly two external consumers —
-`services/facets/facet.service.ts:82` (behind `FACETS_ENABLED`) and
-`services/catalog-authoring/schema.service.ts:92` (the authoring surface, now
-always mounted) — so turning `FACETS_ENABLED` off still leaves the authoring
-schema serving localized labels to merchants; no shopper-facing surface serves
-one. `routes/categories.ts` contains zero
+`services/facets/facet.service.ts:82` and
+`services/catalog-authoring/schema.service.ts:92`, both on surfaces that are now
+always mounted (their levers were removed) — so the facet rail serves localized
+labels to shoppers and the authoring schema to merchants, and no lever
+withdraws either. `routes/categories.ts` contains zero
 occurrences of `locale`; positive control, `routes/navigation.ts` contains two.
 
 **This containment has no gate.** There is no `catalog-localization` isolation
@@ -306,8 +298,10 @@ change.
 
 **NOW GATED BY TESTS — what changed, and each gate's mutation evidence:**
 
-- **`routes/__tests__/catalog-rollout.realdb.test.ts`** builds three real
-  deployments through `createApp()`, one module graph each. It asserts the five
+- **`routes/__tests__/catalog-rollout.realdb.test.ts`** (as first written; it
+  now builds two deployments, since every lever it flipped has been removed, and
+  asserts every catalog surface mounted plus the allow-list cases) built three
+  real deployments through `createApp()`, one module graph each. It asserted the five
   gated mounts 404 with the levers off AND are not 404 with them on; that the
   pre-existing catalogue and commerce paths (`/categories`, `/listings`, `/cart`,
   `/checkout`, `/catalog-attributes`) answer IDENTICALLY across lever states, with
@@ -365,10 +359,11 @@ is narrower than it was — and it is the part a test cannot reach: that a real 
 carries the value, that a task picks it up, and that a person watching sees what
 this document says they will.
 
-1. **`FACETS_ENABLED` on, then off, one roll each.** After each roll: `/facets`
-   answers as expected; the unconditional paths still answer;
+1. **Narrow `CATALOG_ROLLOUT_COHORTS` to one cohort, then widen it again, one
+   roll each.** After each roll: the catalog surfaces answer (or 404 outside the
+   cohort) as expected; the unconditional paths still answer;
    `GET /internal/catalog-metrics` returns the same `proposal_backlog_count` and
-   `draft_open_count` as before the roll. *Settles: "turning a lever off does not
+   `draft_open_count` as before the roll. *Settles: "narrowing a surface does not
    make a durable record unreachable."*
 2. **Save a draft and submit a proposal, then read both back through
    `/internal/*`.** (The authoring and proposals levers that this step used to
@@ -376,14 +371,13 @@ this document says they will.
    operator allow-list.)
 3. **Load the storefront with no navigation tree published for the market** and
    confirm the menu renders from the v1 tree and reports
-   `source: 'category_tree_fallback'`, with no menu-shaped error. Repeat with
-   `FACETS_ENABLED` off and confirm the rail is absent rather than empty.
+   `source: 'category_tree_fallback'`, with no menu-shaped error.
    *Settles §3, which is currently the least defended claim here.*
 4. **Empty `CATALOG_OPERATOR_OXY_USER_IDS` deliberately and confirm the nine
    surfaces 404 with a real operator token.** *Settles §0, and is the one step
    that shows the failure mode rather than the success.*
-5. **Mark a category `selectable = false`, then turn every lever off and attempt a
-   legacy listing write against it.** Confirm `restrict_violation`, then mark it
+5. **Mark a category `selectable = false`, then attempt a legacy listing write
+   against it.** Confirm `restrict_violation`, then mark it
    selectable and confirm the write succeeds. *Settles §4 item 2, the one
    behaviour change no lever undoes.*
 

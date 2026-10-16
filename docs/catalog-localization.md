@@ -785,15 +785,14 @@ positive that shaped the rule.
   surface that serves these reads". Two surfaces now serve them —
   `services/facets/facet.service.ts` and
   `services/catalog-authoring/schema.service.ts` — and **the flag was never
-  built, deliberately**: the facet consumer sits behind its own mount
-  (`FACETS_ENABLED`); the authoring one was behind `CATALOG_AUTHORING_ENABLED`
-  until that lever was removed and the surface became always-on, so localized
-  reads now reach the authoring schema unconditionally. **The condition
-  that would flip it:** a THIRD consumer of `readLocalizedCategories` or
-  `readLocalizedAttributeValues` on an unconditionally-mounted route makes
-  localized reads un-rollbackable, and **nothing gates against that** — there is
-  no isolation test for this domain. Such a consumer means either building the
-  lever or gating the new route. See
+  built, deliberately**: both consumers sat behind their own mounts
+  (`FACETS_ENABLED`, `CATALOG_AUTHORING_ENABLED`), so localized reads were
+  transitively contained, and D12 was corrected to say so. **Both levers have
+  since been removed** and both surfaces are always mounted, so the condition
+  that would flip it — a consumer on an unconditionally-mounted route — is now
+  met: localized reads reach the facet rail and the authoring schema
+  unconditionally and are not rollbackable by configuration. **Nothing gates a
+  further consumer** — there is no isolation test for this domain. See
   [catalog-migration-operations.md](catalog-migration-operations.md).
 - **Any jsonb.** Every localized string, its status, its provenance and its
   review audit are real columns with real constraints (ADR 0007 D14).

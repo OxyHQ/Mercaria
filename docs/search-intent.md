@@ -321,7 +321,6 @@ catalogue's coverage rather than the parser's accuracy.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `NL_INTENT_ENABLED` | `false` | may a registered model parser be CALLED at all |
 | `NL_INTENT_BLOCKED_COHORTS` | empty | the incident kill switch |
 | `NL_INTENT_PARSE_TIMEOUT_MS` | `4000` | the caller's deadline on a provider call |
 | `NL_INTENT_SESSION_TTL_SECONDS` | `1800` | how long a clarification session lives |
@@ -329,9 +328,11 @@ catalogue's coverage rather than the parser's accuracy.
 **There is deliberately no lever that turns the SURFACE off**, and that is the
 divergence from every other rollout lever in this codebase. The deterministic
 interpreter is the floor rather than a degraded mode, so a lever that could 404
-`POST /search-intent` would withdraw a working feature for no benefit.
-`NL_INTENT_ENABLED` gates the model half only, and with it off the surface
-answers deterministically with `fallbackReason: 'parser_disabled'`.
+`POST /search-intent` would withdraw a working feature for no benefit. The model
+half runs only for a registered, benchmark-enabled parser; with none registered
+— every deployment today — the surface answers deterministically with
+`fallbackReason: 'provider_unconfigured'`. `parser_disabled` now means only that
+the shopper asked for plain text search (`deterministicOnly`).
 
 `NL_INTENT_BLOCKED_COHORTS` is a BLOCK list rather than this codebase's usual
 allow-list — the ADR 0006 incident-lever shape — because turning a cohort off at
@@ -343,12 +344,11 @@ whole design exists to avoid, and a kill switch does not need one to do its job.
 
 ### The enablement gate (acceptance 7)
 
-Four gates, in a fixed order, each answering with the `IntentFallbackReason` it
+Three gates, in a fixed order, each answering with the `IntentFallbackReason` it
 would produce — so "why did this fall back" is a value from a closed set at the
 moment the decision is made rather than something reconstructed from a log:
 
 ```
-NL_INTENT_ENABLED        →  parser_disabled
 a registered parser      →  provider_unconfigured
 the cohort kill switch   →  cohort_blocked
 the benchmark enablement →  not_enabled_for_category_language
@@ -397,8 +397,8 @@ operator who needs a different reading ships a rule.
 It is on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#56/#57/#58/
 #60/#62/#68/#70/#78 use rather than a seventh list: reading how a query was
 interpreted is the same power over the same graph as reading what a query
-returns. It stays mounted while `NL_INTENT_ENABLED` is off, the
-`/internal/backfill` rule — the benchmark an operator runs to turn it back ON
+returns. It stays mounted whether or not a model is registered, the
+`/internal/backfill` rule — the benchmark an operator runs to enable a model
 lives here, and so does the evidence they would be reading during the incident
 that turned it off.
 

@@ -275,10 +275,10 @@ export const CATALOG_UNMEASURED_REASONS = [
    * reading the second as the first is how a dashboard shows a healthy,
    * quiet-looking surface for a feature nobody has switched on.
    *
-   * ONE of the four budgeted routes sits behind a flag — facets
-   * (`FACETS_ENABLED`) — and its metrics take this reading when it is off. The
-   * authoring schema route, `/categories` and `/search` are mounted
-   * unconditionally.
+   * NONE of the four budgeted routes sits behind a flag any more — the
+   * authoring schema, `/categories`, `/search` and `/facets` are all mounted
+   * unconditionally — so no shipped metric takes this reading today. The reason
+   * stays in the closed set for a future surface that is mounted conditionally.
    */
   'surface_not_mounted',
   /**
@@ -1059,7 +1059,7 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     freshnessSeconds: 0,
     attributionLimit:
       'The route every shopper hits and the one with the TIGHTEST latency budget (150 ms), ' +
-      'mounted unconditionally — so unlike the facet rates beside it there is no ' +
+      'mounted unconditionally — so, like every rate beside it, there is no ' +
       '`surface_not_mounted` branch, because there is no lever that can withdraw it. ' +
       'Counts only 5xx, the `authoring_schema_error_rate` decision for the third and fourth time. A 4xx on this route is a CORRECT answer — a malformed request, an unknown handle, or a rollout lever answering 404 — and folding those in would make a stale client and a deliberately-off surface raise the same number a server fault does. `clientErrors` is recorded by the middleware for every observed route and is deliberately published by nothing (#913). Per TASK and since ITS start: a deploy or a restart zeroes it, tasks do not share it. `0 / 0` — a task that has served none of these — reports NO ratio, which is not a zero error rate.',
   },

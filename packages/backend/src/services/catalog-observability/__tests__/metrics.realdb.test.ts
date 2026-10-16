@@ -293,9 +293,10 @@ describe('collectCatalogMetrics', () => {
         // either way".
         //
         // `surface_not_mounted` is EXPECTED here and is a fact about the
-        // deployment: a budgeted route may sit behind a rollout flag that is off,
-        // so on this test deployment its metrics cannot measure. It is collected
-        // and NAMED below rather than asserted empty.
+        // deployment: a route behind a rollout flag that is off cannot measure.
+        // No budgeted route has such a flag any more, so this list is empty on
+        // a stock deployment; it is still collected and NAMED below rather than
+        // asserted empty, so a future conditionally-mounted surface is visible.
         //
         // `source_unavailable` means a reader threw. That is an INCIDENT and must
         // be empty.
@@ -452,48 +453,22 @@ describe('collectCatalogMetrics', () => {
 /* -------------------------------------------------------------------------- */
 
 describe('the collector really reads the route store', () => {
-  it('reports `surface_not_mounted` when the route is behind an off rollout flag', async () => {
-    resetCatalogRouteObservations();
-    // The DEFAULT for this test deployment, and the point of the case: a route
-    // that cannot be served must not report a population of zero, because that
-    // asserts something about traffic. Both halves are driven here, so neither
-    // branch is the one nobody exercises.
-    const off = await collectCatalogMetrics({
-      facetSampleSize: NO_FACET_SAMPLE,
-      mounted: { facets: false },
-    });
-    for (const key of ['facet_generation_latency', 'facet_generation_error_rate']) {
-      const entry = reading(off, key);
-      expect(entry?.state, `${key} reported a population instead of an unmounted surface`).toBe(
-        'unmeasured',
-      );
-      if (entry?.state === 'unmeasured') {
-        expect(entry.reason).toBe('surface_not_mounted');
-        // The seam names the variable, so an operator is told what to set rather
-        // than left to wonder why a surface looks idle.
-        expect(entry.seam).toMatch(/FACETS_ENABLED/);
-        // And it carries no quantity, so it cannot be rendered as zero.
-        expect(Object.keys(entry)).not.toContain('numerator');
-      }
-    }
-  });
-
-  it('the two unconditional routes report 5xx, exclude 4xx, and need no mount flag', async () => {
+  it('the unconditional routes report 5xx, exclude 4xx, and need no mount flag', async () => {
     // #913: four routes carry a latency budget and are therefore observed, and
     // two of them reached no metric at all — a 5xx on `/categories` or
     // `/search` was recorded by the middleware and read by nothing.
     resetCatalogRouteObservations();
-    // The flag OFF, deliberately. These two routes are mounted
-    // unconditionally, so unlike the facet rates they must still
-    // be MEASURED here. A producer that copied a `mounted` guard across would
-    // answer `surface_not_mounted` and this case is what catches it.
-    const collect = () =>
-      collectCatalogMetrics({
-        facetSampleSize: NO_FACET_SAMPLE,
-        mounted: { facets: false },
-      });
+    // These routes are mounted unconditionally (`/facets` since
+    // `FACETS_ENABLED` was removed), so they must be MEASURED here. A producer
+    // that grew a `mounted` guard would answer `surface_not_mounted` and this
+    // case is what catches it.
+    const collect = () => collectCatalogMetrics({ facetSampleSize: NO_FACET_SAMPLE });
 
-    for (const key of ['taxonomy_read_error_rate', 'search_read_error_rate']) {
+    for (const key of [
+      'taxonomy_read_error_rate',
+      'search_read_error_rate',
+      'facet_generation_error_rate',
+    ]) {
       const before = reading(await collect(), key);
       expect(before?.state, `${key} is gated on a flag it has no business reading`).toBe(
         'measured',
@@ -546,11 +521,7 @@ describe('the collector really reads the route store', () => {
     // budget, so `requests`/`serverErrors`/`clientErrors` were recorded for it
     // and only `latency` was ever read.
     resetCatalogRouteObservations();
-    const collect = () =>
-      collectCatalogMetrics({
-        facetSampleSize: NO_FACET_SAMPLE,
-        mounted: { facets: true },
-      });
+    const collect = () => collectCatalogMetrics({ facetSampleSize: NO_FACET_SAMPLE });
 
     const before = reading(await collect(), 'facet_generation_error_rate');
     expect(before?.state).toBe('measured');

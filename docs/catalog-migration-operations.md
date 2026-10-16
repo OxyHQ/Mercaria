@@ -30,12 +30,12 @@ the findings below are docblocks asserting more than the code under them does.
 
 ## The lever inventory, measured rather than quoted
 
-> **Since this audit, three of the four levers were removed** (the "no
-> `*_ENABLED` switches" decision). The taxonomy-v2/navigation and authoring
-> surfaces are always mounted; `/catalog-proposals` is mounted iff
+> **Since this audit, all four levers were removed** (the "no `*_ENABLED`
+> switches" decision). The taxonomy-v2/navigation, authoring and facet surfaces
+> are always mounted; `/catalog-proposals` is mounted iff
 > `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty (the same condition as its
-> operator surface). Only `FACETS_ENABLED` remains a D12-era mount lever. The
-> line references below are the audit's and are historical.
+> operator surface). No D12-era mount lever remains. The line references below
+> are the audit's and are historical.
 
 **ADR 0007 D12 originally named six levers; three were never built, and one lever
 a rollout needs was not among the six — so four exist, and the arithmetic is
@@ -58,7 +58,7 @@ And two levers D12 does not name but a rollout must:
 
 | Lever | State | Where |
 |---|---|---|
-| `FACETS_ENABLED` | **exists**, default false | `config/index.ts:1949`, `:3722` → `config.catalog.facetsEnabled` |
+| `FACETS_ENABLED` | **REMOVED** — `/facets` is mounted unconditionally | `app.ts` |
 | `CATALOG_ROLLOUT_COHORTS` | **exists**, default EMPTY (= every cohort) | `config.catalog.rolloutCohorts`; the gate is `middleware/catalog-rollout.ts` |
 
 Two of the three absences were already recorded by W17
@@ -78,13 +78,15 @@ different in each case and none of them is "the lever was forgotten":
   transitively contained.** `services/catalog-localization/read.service.ts`
   exports exactly two readers (`readLocalizedCategories:54`,
   `readLocalizedAttributeValues:156`) and they have exactly two external
-  consumers: `services/facets/facet.service.ts:82` (behind `FACETS_ENABLED`) and
-  `services/catalog-authoring/schema.service.ts:92` (the authoring surface,
-  now always mounted). `routes/categories.ts` contains **zero**
+  consumers: `services/facets/facet.service.ts:82` (behind `FACETS_ENABLED` when
+  this was written) and `services/catalog-authoring/schema.service.ts:92`
+  (behind `CATALOG_AUTHORING_ENABLED` when this was written); both levers have
+  since been removed. `routes/categories.ts` contains **zero**
   occurrences of `locale` — positive control: `routes/navigation.ts` contains
   two, so the search finds the word where it exists. So with the four levers off
-  no public surface serves a localized label, and the base-locale behaviour D12
-  promises is what a shopper gets. **This containment has no gate** (see below),
+  no public surface served a localized label, and the base-locale behaviour D12
+  promises was what a shopper got; the facet rail and the authoring schema now
+  serve localized labels unconditionally. **This containment has no gate** (see below),
   which is the whole reason it is written down here.
 - **`CATALOG_AUTHORING_COHORTS` was a real missing capability and it has been
   CLOSED**, as `CATALOG_ROLLOUT_COHORTS` — renamed because it narrows all four
@@ -102,10 +104,11 @@ different in each case and none of them is "the lever was forgotten":
   elsewhere and which of the five was genuinely absent:
   [`catalog-rollout-cohorts.md`](catalog-rollout-cohorts.md).
 
-### Every read site of every surviving lever
+### Every read site of every lever (at the time of the audit)
 
-A comment-stripped census of `packages/backend/src`. The four levers are read in
-**six** places, and four of them are the mount:
+No D12 lever survives; this census is kept as the record of what was removed. A
+comment-stripped census of `packages/backend/src` found the four levers read in
+**six** places, and four of them were the mount:
 
 | Site | Kind |
 |---|---|
@@ -135,13 +138,14 @@ that belong to #60's canonical surface (now mounted unconditionally) and to no
 
 | Lever off | Mounts withdrawn |
 |---|---|
-| `FACETS_ENABLED` | `/facets` |
 | *(empty `CATALOG_OPERATOR_OXY_USER_IDS`)* | `/catalog-proposals`, with every `/internal/*` catalog surface |
 
-*(At the time of the audit, two more levers withdrew `/stores/:storeId/product-drafts`,
-`/catalog-authoring` and `/navigation`; those surfaces are now always mounted.)*
+*(At the time of the audit, the four D12 levers withdrew `/stores/:storeId/product-drafts`,
+`/catalog-authoring`, `/catalog-proposals`, `/navigation` and `/facets`; every one of
+those levers has since been removed and the surfaces are always mounted, proposals
+with the operator allow-list.)*
 
-**Five mounts, every one of them a surface this epic ADDED.** Nothing a shopper
+**The five formerly lever-gated mounts were every one of them a surface this epic ADDED.** Nothing a shopper
 or a buyer used before the epic is behind any of them: `/listings`
 (`app.ts:243`), `/categories` (`:245`), `/cart` (`:316`), `/checkout` (`:318`),
 `/search` (`:589`), `/catalog-attributes` (`:729`), `/compatibility` (`:1028`)
@@ -997,8 +1001,9 @@ tree list and a network error alike, and the facet rail rendering absence rather
 than an empty panel (`lib/catalog/use-facets.ts:18-22,73,75`).
 
 **Tested: the levers are, the rehearsal is not.** Two gates landed.
-`routes/__tests__/catalog-rollout.realdb.test.ts` builds three deployments —
-levers on, levers off, and levers off with an EMPTY operator allow-list — in the
+`routes/__tests__/catalog-rollout.realdb.test.ts` built three deployments —
+levers on, levers off, and levers off with an EMPTY operator allow-list (two
+since the levers were removed: with and without the allow-list) — in the
 `search-rollout.realdb.test.ts` shape, and
 `packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts` executes the
 storefront fallback after the decision was extracted out of the hook's closure so

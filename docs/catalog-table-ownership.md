@@ -357,22 +357,14 @@ curation domain and was caught only by the realdb suite.
 
 ## What a rollback can and cannot reach
 
-One lever is left, gating a MOUNT and no stored row:
+No lever is left. ADR 0007 D12's four — `CATALOG_TAXONOMY_V2_ENABLED`,
+`CATALOG_AUTHORING_ENABLED`, `CATALOG_PROPOSALS_ENABLED` and `FACETS_ENABLED` —
+have all been removed, and none of them ever gated a stored row.
 
-| Lever | Mount |
-|---|---|
-| `FACETS_ENABLED` | `POST /facets` |
-
-The taxonomy-v2/navigation and authoring levers were removed (those surfaces are
-always mounted), and `/catalog-proposals` is mounted iff
-`CATALOG_OPERATOR_OXY_USER_IDS` is non-empty. `catalog-rollout.realdb.test.ts`
-pins the withdrawal at **exactly that one mount and nothing else**.
-
-ADR 0007 D12 says each lever "is read in exactly one place — the `app.use` that
-mounts its router". `FACETS_ENABLED` is read there and in
-`services/catalog-observability/metrics.service.ts`, which decides whether a
-metric reports `surface_not_mounted`. No repository, outbox enqueue, loop or
-checkout path reads a lever.
+The navigation, taxonomy, authoring and facet surfaces are always mounted, and
+`/catalog-proposals` is mounted iff `CATALOG_OPERATOR_OXY_USER_IDS` is
+non-empty. `catalog-rollout.realdb.test.ts` pins both. No repository, outbox
+enqueue, loop or checkout path reads a mount condition.
 
 Two levers ADR 0007 D12 originally named do not exist — `PRODUCT_TYPES_ENABLED`
 (deliberately not built) and `CATALOG_LOCALIZATION_ENABLED` (unnecessary while
@@ -385,8 +377,7 @@ D12 is corrected in place and states each reason; the operational detail is
 [`catalog-migration-operations.md`](catalog-migration-operations.md) and
 [`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md).
 
-**Turning every lever off leaves every row readable — conditionally.** The nine
-`/internal/*` catalog surfaces are gated on `CATALOG_OPERATOR_OXY_USER_IDS`
-being non-empty, and an empty list answers 404. The evidence has to be readable
-during the incident that turned the levers off, so that list is part of the
-rollback plan and not an afterthought.
+**Every row stays readable — conditionally.** The `/internal/*` catalog
+surfaces are gated on `CATALOG_OPERATOR_OXY_USER_IDS` being non-empty, and an
+empty list answers 404. The evidence has to be readable during an incident, so
+that list is part of the rollback plan and not an afterthought.

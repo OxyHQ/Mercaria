@@ -1,54 +1,47 @@
 /**
  * ADR 0007 D12's rollback, as a measurement rather than a document.
  *
- * D12 claims two things and until now neither had a test. `docs/catalog-migration-operations.md`
- * recorded both as conventions:
+ * D12 claimed two things, and `docs/catalog-migration-operations.md` recorded
+ * both as conventions:
  *
  *  1. **Turning a lever off restores the previous behaviour** — the previous
  *     behaviour being that the surface did not exist.
  *  2. **No lever gates a durable record** — a proposal stored while its surface
  *     was mounted is still there, and still reachable, once it is not.
  *
- * D12 shipped four levers; three have since been removed (authoring, taxonomy and
- * navigation are always mounted, and `/catalog-proposals` is mounted iff the
- * catalog operator allow-list is non-empty). `FACETS_ENABLED` remains. A census
- * is real evidence and it is not a gate — it goes stale the moment somebody adds a
- * read, and nothing fails. This file is the gate.
+ * D12 shipped four levers and all four have since been removed: authoring,
+ * taxonomy, navigation and facets are always mounted, and `/catalog-proposals`
+ * is mounted iff the catalog operator allow-list is non-empty. So (1) has no
+ * lever left to measure, and what remains is the allow-list — the one mount
+ * condition left on the catalog — and claim (2) against it. A census is real
+ * evidence and it is not a gate — it goes stale the moment somebody adds a read,
+ * and nothing fails. This file is the gate.
  *
- * ## Three deployments, three module graphs
+ * ## Two deployments, two module graphs
  *
  * `config/index.ts` reads `process.env` once at import and freezes the result, and
  * `app.ts` decides every mount from that frozen value — so a test that mutated the
  * environment after loading the app would assert against a config nobody serves.
  * `vi.resetModules()` per deployment, the `internal-offers.test.ts` device.
  *
- * ## Why the assertions compare ON against OFF rather than naming expected codes
- *
- * "Existing products remain readable and sellable" is a claim about SAMENESS, and
- * a test that asserted `/categories` answers 200 would keep passing if the lever
- * had quietly changed its body, its shape or its status to another success. So the
- * unconditional paths are called on BOTH deployments and their statuses compared.
- * The gated paths need the opposite treatment: 404-with-the-lever-off is worthless
- * without 404's absence with it on, or a route deleted outright would satisfy
- * every case here. Both directions are asserted for all six.
- *
- * ## The third deployment is the one that shows the failure mode
+ * ## The second deployment is the one that shows the failure mode
  *
  * `config.catalog.graphOperatorSurfaceEnabled` is DERIVED —
  * `resolveCatalogOperatorIds().length > 0` — so an EMPTY
- * `CATALOG_OPERATOR_OXY_USER_IDS` unmounts all nine `/internal/*` catalog
- * surfaces. Combined with every rollout lever off, that is a rollback in which the
- * catalogue evidence is reachable through no HTTP surface at all, which is exactly
- * the state an operator discovers during the incident that caused it. The
- * deployment exists so that failure is a red test rather than a paragraph.
+ * `CATALOG_OPERATOR_OXY_USER_IDS` unmounts all ten `/internal/*` catalog
+ * surfaces and the merchant proposal surface. That is a deployment in which the
+ * catalogue evidence is reachable through no HTTP surface at all, which is
+ * exactly the state an operator discovers during an incident. The deployment
+ * exists so that failure is a red test rather than a paragraph.
  *
  * ## A real database, because half the claim is about a stored row
  *
  * The mount assertions never reach Postgres — a 403 or a 404 is decided before any
- * query. The durable-record assertions must: the point is that the ROW outlived a
- * config change, and a stubbed repository would make the case indistinguishable
- * from one where the lever had dropped it. The third deployment opens no pool at
- * all, because every path this file sends it 404s at the mount.
+ * query. The durable-record assertions must: the point is that the ROW is still
+ * there and reachable, and a stubbed repository would make the case
+ * indistinguishable from one where a mount condition had dropped it. The
+ * no-operator deployment opens no pool at all, because every path this file
+ * sends it 404s at the mount.
  *
  * ## This file is a FOURTH inserter into `catalog_proposals`, which is shared
  *
@@ -109,20 +102,16 @@ vi.mock('../../lib/rate-limit.js', () => ({
     },
 }));
 
-/** The ADR 0007 D12 lever that remains, as env. */
-const LEVERS = ['FACETS_ENABLED'] as const;
-
 interface Deployment {
   readonly url: string;
   readonly server: Server;
   readonly close: () => Promise<void>;
 }
 
-let leversOn: Deployment;
-let leversOff: Deployment;
-let leversOffNoOperators: Deployment;
+let serving: Deployment;
+let noOperators: Deployment;
 
-/** The `leversOn` graph's database handle, for writing the fixture rows. */
+/** The `serving` graph's database handle, for writing the fixture rows. */
 let writeDb: Awaited<ReturnType<typeof import('../../db/postgres.js').connectPostgres>>;
 let insertProposal: typeof import('../../db/catalogProposals/proposalRepository.js').insertProposal;
 
@@ -141,17 +130,15 @@ function listen(app: express.Express): Promise<{ server: Server; url: string }> 
  * Build one deployment with its own frozen config and its own module graph.
  *
  * `withDatabase` is false for the deployment whose every request 404s at the
- * mount: three module graphs each holding a connection pool against a database
+ * mount: module graphs each holding a connection pool against a database
  * every parallel test file shares is a real cost, and this one is avoidable —
  * the `search-rollout.realdb.test.ts` reasoning.
  */
 async function build(options: {
-  readonly levers: boolean;
   readonly operators: string;
   readonly withDatabase: boolean;
 }): Promise<Deployment & { readonly graph: typeof import('../../db/postgres.js') | null }> {
   vi.resetModules();
-  for (const lever of LEVERS) process.env[lever] = options.levers ? 'true' : 'false';
   process.env.CATALOG_OPERATOR_OXY_USER_IDS = options.operators;
   process.env.STRIPE_ENABLED = 'false';
 
@@ -172,25 +159,23 @@ async function build(options: {
 }
 
 beforeAll(async () => {
-  const on = await build({ levers: true, operators: CATALOG_OPERATOR, withDatabase: true });
-  leversOn = on;
-  // The fixture rows are written through the ON graph, which is the deployment
-  // that would really have created them.
+  const on = await build({ operators: CATALOG_OPERATOR, withDatabase: true });
+  serving = on;
+  // The fixture rows are written through the serving graph, which is the
+  // deployment that would really have created them.
   if (on.graph) writeDb = on.graph.getDb();
   ({ insertProposal } = await import('../../db/catalogProposals/proposalRepository.js'));
 
-  leversOff = await build({ levers: false, operators: CATALOG_OPERATOR, withDatabase: true });
-  leversOffNoOperators = await build({ levers: false, operators: '', withDatabase: false });
+  noOperators = await build({ operators: '', withDatabase: false });
 }, 180_000);
 
 afterAll(async () => {
-  for (const lever of LEVERS) delete process.env[lever];
   delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
   // `build()` sets this too. Vitest isolates files, so leaving it set changes
   // nothing today — but an afterAll that unsets some of what its setup set is a
   // half-cleanup somebody later trusts.
   delete process.env.STRIPE_ENABLED;
-  for (const deployment of [leversOn, leversOff, leversOffNoOperators]) {
+  for (const deployment of [serving, noOperators]) {
     if (deployment) await deployment.close();
   }
 });
@@ -209,8 +194,7 @@ interface Call {
    * and a key with no published version answers 404 — which is the documented
    * behaviour that made `PRODUCT_TYPES_ENABLED` unnecessary in the first place. So
    * a 404 there is indistinguishable from an unmounted router, and asserting
-   * not-404 would assert nothing. Its SAMENESS across lever states is still
-   * measured, which is the box-1 property; its unconditional mount is established
+   * not-404 would assert nothing. Its unconditional mount is established
    * by the `app.ts` census in `docs/catalog-migration-operations.md` and could be
    * asserted here only by router-stack introspection, which is a different
    * instrument from behaviour.
@@ -231,11 +215,9 @@ async function call(deployment: Deployment, target: Call): Promise<number> {
   return response.status;
 }
 
-/** The mount the remaining lever gates. */
-const GATED: readonly Call[] = [{ method: 'POST', path: '/facets', body: {} }];
-
 /**
- * Surfaces that predate this epic and must not move when a lever does.
+ * Public catalog surfaces, and the ones that predate this epic, that must be
+ * mounted on every deployment — with or without an operator allow-list.
  *
  * `/cart` and `/checkout` are the sellability half and are the reason this list
  * is not just catalogue reads: box 1 is "readable AND sellable".
@@ -246,14 +228,15 @@ const UNCONDITIONAL: readonly Call[] = [
   { method: 'GET', path: '/cart' },
   { method: 'POST', path: '/checkout', body: {} },
   { method: 'GET', path: '/catalog-attributes/definitions' },
-  // ADR 0007 D12's authoring, navigation and taxonomy surfaces, whose levers were
-  // removed: always mounted now. `/taxonomy/categories/roots` rather than a
-  // `:categoryId` path, because a probe naming an id would 404 for the id as
-  // well as for the mount.
+  // ADR 0007 D12's authoring, navigation, taxonomy and facet surfaces, whose
+  // levers were removed: always mounted now. `/taxonomy/categories/roots`
+  // rather than a `:categoryId` path, because a probe naming an id would 404 for
+  // the id as well as for the mount.
   { method: 'GET', path: '/catalog-authoring/categories' },
   { method: 'POST', path: '/stores/store-rollout-1/product-drafts', body: {} },
   { method: 'GET', path: '/navigation?market=ES&locale=es' },
   { method: 'GET', path: '/taxonomy/categories/roots' },
+  { method: 'POST', path: '/facets', body: {} },
   // See `probesMount` on `Call`: its only route 404s for an unpublished key.
   {
     method: 'GET',
@@ -279,46 +262,17 @@ const INTERNAL: readonly string[] = [
   '/internal/taxonomy',
 ];
 
-describe('the lever gates a MOUNT — and turning it off restores the previous behaviour', () => {
-  it.each(GATED)('$method $path answers 404 with the levers OFF', async (target) => {
-    expect(await call(leversOff, target)).toBe(404);
+describe('existing products remain readable and sellable, and the catalog surfaces are mounted', () => {
+  it('names the surfaces — the vacuity floor on the case below', () => {
+    expect(UNCONDITIONAL.length).toBeGreaterThanOrEqual(11);
   });
-
-  it.each(GATED)(
-    'POSITIVE CONTROL — $method $path is NOT 404 with the levers ON',
-    async (target) => {
-      // Without this the case above would pass against a route deleted outright,
-      // which is the one failure a 404-only assertion cannot distinguish from the
-      // rollback working.
-      expect(await call(leversOn, target)).not.toBe(404);
-    },
-  );
-
-  it('withdraws EXACTLY that mount and nothing else', async () => {
-    // The vacuity floor on the two lists: an empty GATED array would make both
-    // cases above pass trivially, and an empty UNCONDITIONAL array would make the
-    // sameness case below pass trivially.
-    expect(GATED.length).toBe(1);
-    expect(UNCONDITIONAL.length).toBeGreaterThanOrEqual(10);
-  });
-});
-
-describe('existing products remain readable and sellable with every lever off', () => {
-  it.each(UNCONDITIONAL)(
-    '$method $path answers IDENTICALLY with the levers on and off',
-    async (target) => {
-      const [on, off] = await Promise.all([call(leversOn, target), call(leversOff, target)]);
-      expect(off, `${target.path} changed between lever states`).toBe(on);
-    },
-  );
 
   it.each(UNCONDITIONAL.filter((target) => target.probesMount !== false))(
     '$method $path is mounted at all — not 404',
     async (target) => {
-      // The floor under the sameness assertion above: two 404s are identical, so
-      // without this a route that had been removed from BOTH deployments would
-      // satisfy every case in this describe.
-      expect(await call(leversOff, target)).not.toBe(404);
+      // A route removed from the app, or put back behind a condition this
+      // deployment does not meet, answers 404 here.
+      expect(await call(serving, target)).not.toBe(404);
     },
   );
 
@@ -365,13 +319,13 @@ describe('no mount condition gates a durable record', () => {
 
   it('the merchant surface is mounted iff the operator allow-list is non-empty', async () => {
     const proposal: Call = { method: 'POST', path: '/catalog-proposals', body: {} };
-    expect(await call(leversOff, proposal)).not.toBe(404);
-    expect(await call(leversOffNoOperators, proposal)).toBe(404);
+    expect(await call(serving, proposal)).not.toBe(404);
+    expect(await call(noOperators, proposal)).toBe(404);
   });
 
   it('and the row is READABLE over HTTP, through the operator surface', async () => {
     currentUser = CATALOG_OPERATOR;
-    const response = await fetch(`${leversOff.url}/internal/catalog-proposals/${proposalId}`);
+    const response = await fetch(`${serving.url}/internal/catalog-proposals/${proposalId}`);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { success: boolean; data?: unknown };
     expect(body.success).toBe(true);
@@ -379,13 +333,13 @@ describe('no mount condition gates a durable record', () => {
   });
 });
 
-describe('the ten internal catalog surfaces are gated on the allow-list and on NO lever', () => {
-  it.each(INTERNAL)('%s is MOUNTED with every lever off', async (path) => {
+describe('the ten internal catalog surfaces are gated on the allow-list alone', () => {
+  it.each(INTERNAL)('%s is MOUNTED with a non-empty allow-list', async (path) => {
     // A 403 rather than a 404: the surface exists and this caller is not on the
     // list. That is the discrimination the whole allow-list convention rests on,
     // and it is only meaningful next to the empty-list case below.
     currentUser = ORDINARY_USER;
-    const status = await call(leversOff, { method: 'GET', path });
+    const status = await call(serving, { method: 'GET', path });
     currentUser = CATALOG_OPERATOR;
     expect(status).toBe(403);
   });
@@ -394,12 +348,12 @@ describe('the ten internal catalog surfaces are gated on the allow-list and on N
     'THE FAILURE MODE — %s answers 404 when the operator allow-list is EMPTY',
     async (path) => {
       // `graphOperatorSurfaceEnabled` is derived from the list's LENGTH, so an
-      // empty list plus every lever off is a rollback in which the catalogue
-      // evidence is reachable through no HTTP surface at all. An operator's own
+      // empty list is a deployment in which the catalogue evidence is reachable
+      // through no HTTP surface at all. An operator's own
       // token gets the same 404, which is why this is a trap rather than a
       // permission error somebody would recognise.
       currentUser = CATALOG_OPERATOR;
-      expect(await call(leversOffNoOperators, { method: 'GET', path })).toBe(404);
+      expect(await call(noOperators, { method: 'GET', path })).toBe(404);
     },
   );
 

@@ -4,10 +4,10 @@
  *
  * ## What this closes
  *
- * D12 shipped four levers and they were booleans over a whole deployment (three
- * have since been removed: authoring, taxonomy and navigation are always
- * mounted, proposals are mounted with the operator allow-list, and
- * `FACETS_ENABLED` remains). It also named a fifth,
+ * D12 shipped four levers and they were booleans over a whole deployment (all
+ * four have since been removed: authoring, taxonomy/navigation and facets are
+ * always mounted, and proposals are mounted with the operator allow-list). It
+ * also named a fifth,
  * `CATALOG_AUTHORING_COHORTS`, and nobody built it — so D12 recorded, in its own
  * text, that the rollout order it had decided (internal users → selected stores
  * → selected product types and categories → locales and markets → GA) was **not

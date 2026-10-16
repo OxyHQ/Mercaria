@@ -298,15 +298,13 @@ connectPostgres()
         .catch((err: unknown) =>
           log.general.error({ err }, 'eBay Browse adapter registration failed'),
         );
-      // Register the Awin retailer-network adapter (#66). Gated by
-      // `AWIN_ENABLED` and, like #63's, gating nothing durable: with the flag
-      // off, publisher accounts, advertisers, feeds, quality snapshots, samples
-      // and every #62 row are still stored and readable, every run refuses with
-      // `adapter_missing`, and turning it on drains the backlog. Unlike #63 it
-      // demands no credential up front — Awin's key is a LOCATOR on a row, so a
-      // configuration is storable and reviewable with none present, and a
-      // deployment that registers the adapter early gets an honest
-      // `auth_failure` naming the missing secret rather than a silent no-op.
+      // Register the Awin retailer-network adapter (#66), on every deployment:
+      // registering fetches nothing, a fetch happens only for a configured,
+      // active Awin source. Unlike #63 it demands no credential up front —
+      // Awin's key is a LOCATOR on a row, so a configuration is storable and
+      // reviewable with none present, and a source whose locator does not
+      // resolve gets an honest `auth_failure` naming the missing secret rather
+      // than a silent no-op.
       import('./services/awin/register.js')
         .then(({ registerAwinFeedAdapter }) => {
           registerAwinFeedAdapter();
@@ -382,10 +380,9 @@ connectPostgres()
       // NO actor and no hook: Stripe restricts an account, a connector stops
       // delivering, a jury restricts a catalogue — and not one of those domains
       // knows this one exists. So the only way such a transition gets audited is
-      // somebody looking, which is what this does. The LOOP is gated by
-      // `MERCHANT_ACTIVATION_OBSERVATION_ENABLED`; with it off every transition a
-      // merchant or an operator causes is still recorded by the write that
-      // caused it, and the verdict itself is unaffected because it is DERIVED.
+      // somebody looking, which is what this does. Every transition a merchant
+      // or an operator causes is also recorded by the write that caused it, and
+      // the verdict itself is DERIVED.
       import('./services/merchant-activation/transitions.service.js')
         .then(({ startMerchantActivationObserver }) => startMerchantActivationObserver())
         .catch((err: unknown) =>
@@ -595,11 +592,11 @@ connectPostgres()
         .catch((err) => log.general.error({ err }, 'Payment reconciler import failed'));
 
       // Merchant subscription billing (#89). Registering the rail is gated on
-      // `STRIPE_ENABLED` and deliberately NOT on `MERCHANT_BILLING_ENABLED`:
-      // that flag gates a merchant's ACTIONS, while the adapter is what applies
-      // provider events and reconciles subscriptions that already exist — so
+      // `STRIPE_ENABLED` and deliberately NOT on whether merchant ACTIONS are
+      // available (`config.merchantBilling.enabled`): the adapter is what applies
+      // provider events and reconciles subscriptions that already exist, so
       // registering it only when merchants may upgrade would strand every live
-      // subscription the moment somebody pulled the incident lever.
+      // subscription the moment actions became unavailable.
       import('./services/billing/register.js')
         .then(({ registerMerchantBillingProvider }) => registerMerchantBillingProvider())
         .catch((err) => log.general.error({ err }, 'Merchant billing registration failed'));
@@ -626,10 +623,9 @@ connectPostgres()
        * on a flag would leave the `affiliate` funding source permanently
        * unrealizable while looking configured.
        *
-       * `startAffiliateReconciliationDispatcher` is the LOOP, gated by
-       * `AFFILIATE_RECONCILIATION_ENABLED` and returning immediately when it is
-       * off. It gates no durable record: a commission already reported stays
-       * readable, and a poll can still be driven by hand.
+       * `startAffiliateReconciliationDispatcher` is the LOOP. A network with no
+       * reader or no registered account answers `unavailable` and is skipped,
+       * and a poll can still be driven by hand.
        *
        * Both are started on EVERY task, for the reason the dispatchers above
        * are: the poll takes a lease with an owner check, so N tasks share the
@@ -658,9 +654,9 @@ connectPostgres()
       // all.
       startExpirySweeper();
 
-      // Discovery analytics (#77). THREE loops, all no-ops when
-      // `ANALYTICS_ENABLED` is false — production collection stays off until
-      // the privacy and retention review clears (acceptance 8).
+      // Discovery analytics (#77). THREE loops, all no-ops while
+      // `ANALYTICS_COLLECTION_MODE` is `off` — production collection stays off
+      // until the privacy and retention review clears (acceptance 8).
       //
       // The sink is the one that matters for correctness: it is what makes
       // "analytics loss or delay never blocks search, checkout, the order

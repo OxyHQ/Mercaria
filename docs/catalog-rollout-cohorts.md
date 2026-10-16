@@ -194,7 +194,7 @@ config value and a pure matcher (`services/catalog-rollout/cohort.ts`).
 |---|---|---|---|
 | `GET /navigation` | none (always mounted) | `router.use` | market, locale |
 | `GET /taxonomy/*` | none (always mounted) | `router.use` | locale |
-| `POST /facets` | `FACETS_ENABLED` | `router.use`, custom subject | category, locale |
+| `POST /facets` | none (always mounted) | `router.use`, custom subject | category, locale |
 | `GET /catalog-authoring/*` | none (always mounted) | per route | product type, category, market, locale |
 | `/stores/:storeId/product-drafts/*` | none (always mounted) | `router.use` | **all five** |
 | `/catalog-proposals/*` | mounted iff `CATALOG_OPERATOR_OXY_USER_IDS` is non-empty | `router.use` | store |

@@ -553,11 +553,12 @@ Each is a NAMED contract that fails closed, never a stub that lies.
   contention became fatal the moment a SECOND contract runner existed, because
   the suite's wait for the slot outlives vitest's own per-test timeout.
 - **#65 / #66 — LANDED.** eBay Browse and the Awin retailer-network source are
-  both registered adapters now (eBay always; Awin behind `AWIN_ENABLED`) — see
-  `docs/catalog-sources/ebay-browse.md` and `docs/catalog-sources/awin.md`. A
-  deployment that leaves `AWIN_ENABLED` off still configures the source, reviews
-  its policy and sees every run refuse for want of an adapter — the seam that
-  fails closed and reports why. `catalog_source_configs.provider` still carries a
+  both registered adapters now, on every deployment — see
+  `docs/catalog-sources/ebay-browse.md` and `docs/catalog-sources/awin.md`.
+  Registering either fetches nothing: a fetch happens only for a configured,
+  active source, and a source whose provider has no adapter still sees every
+  run refuse for want of one — the seam that fails closed and reports why.
+  `catalog_source_configs.provider` still carries a
   SHAPE check and not a value check for the general case
   (`offers.provider`'s decision): gating the durable configuration on Mercaria
   having shipped an adapter would invert "gate the loop, never the record", and

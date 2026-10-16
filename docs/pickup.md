@@ -411,7 +411,7 @@ no member meaning yes.
 |---|---|
 | `GET /nearby` | Mounted only when `GOWAY_API_URL` is configured. `resolveCommerceActor`, so signed-out browsing works. `Cache-Control: private, no-store`. `?locale=` for place names; the cursor is GoWay's, passed through |
 | `GET /nearby/places` | The manual fallback: `?q=` a town |
-| `GET /nearby/p2p` | 404 while `P2P_LOCAL_DISCOVERY_ENABLED` is off |
+| `GET /nearby/p2p` | Coarse P2P local discovery; served wherever `/nearby` is mounted |
 | `GET /search?nearLatitude=&nearLongitude=` | #70's filter 10, a CONTRACT CHANGE rather than a parameter that was accepted and ignored. A MEMBERSHIP filter, never an ordering |
 
 ### Public integration (`/public/v1`)
@@ -486,7 +486,6 @@ GOWAY_API_URL=                            # GoWay's API origin; turns on nearby 
 GOWAY_TIMEOUT_MS=2500
 GOWAY_PLACE_CACHE_TTL_SECONDS=60          # at most 60, the shortest stock interval
 GOWAY_PLACE_STALE_TTL_SECONDS=86400       # last-good place during an outage
-P2P_LOCAL_DISCOVERY_ENABLED=false         # the coarse P2P surface
 GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT=false
 ```
 

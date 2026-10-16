@@ -52,7 +52,6 @@ import {
   type LocalizedEntityKind,
   SUPPORTED_LOCALES,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { readVariantAxisShadowCounters } from '../variant-axes/projection.js';
 import { readAuthoringPublicationCounters } from '../catalog-authoring/publication-observation.js';
 import { readLocalizationReadCounters } from '../catalog-localization/read-observation.js';
@@ -307,23 +306,10 @@ async function readShared(
 /* Producers                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Which flag-gated catalog surfaces this deployment mounts.
- *
- * Resolved ONCE per collection rather than read from `config` inside each
- * producer, for the reason every shared read here is taken once: two producers
- * reading the same flag independently is two chances for one of them to read a
- * different one.
- */
-export interface MountedSurfaces {
-  readonly facets: boolean;
-}
-
 /** What a producer is handed. */
 interface ProducerContext {
   readonly db: DatabaseOrTransaction;
   readonly shared: SharedReads;
-  readonly mounted: MountedSurfaces;
 }
 
 type Producer = (
@@ -646,10 +632,8 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
   },
 
   /* ---- Facets ------------------------------------------------------------ */
-  facet_generation_latency: async (definition, { mounted }) => {
-    if (!mounted.facets) return notMounted(definition, 'FACETS_ENABLED');
-    return latency(definition, readRouteObservation('POST', '/facets')?.latency);
-  },
+  facet_generation_latency: async (definition) =>
+    latency(definition, readRouteObservation('POST', '/facets')?.latency),
 
   /**
    * A facet request this process ANSWERED 5xx — the live half of W17's
@@ -661,10 +645,7 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
    * always recorded `requests`, `serverErrors` and `clientErrors` for it, and
    * only `latency` was ever read.
    *
-   * `mounted.facets` first, for `facet_generation_latency`'s reason: with
-   * `FACETS_ENABLED` off the route is not mounted, and a `0 / 0` there would say
-   * "this task served no failing facet requests" about a surface that cannot be
-   * requested at all.
+   * No `mounted` guard: the route is mounted unconditionally.
    */
   /**
    * The two unconditionally-mounted observed routes, which had NO metric at all
@@ -676,10 +657,10 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
    * the latency BUDGET report — so a 5xx on `/categories` or `/search` reached
    * no surface at all.
    *
-   * No `mounted` guard on either, and that is not an omission: `MountedSurfaces`
-   * carries the two FLAG-GATED surfaces, and neither of these has a lever that
-   * can withdraw the route. `/search`'s lever decides what it ANSWERS, which is
-   * a different thing and is why its own attribution limit says so.
+   * No `mounted` guard on either, and that is not an omission: no observed
+   * route has a lever that can withdraw it any more. `/search`'s lever decides
+   * what it ANSWERS, which is a different thing and is why its own attribution
+   * limit says so.
    *
    * Latency for both is deliberately NOT published as a metric — the budget
    * report at `GET /internal/catalog-metrics/latency` already walks every entry
@@ -696,8 +677,7 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
     return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
   },
 
-  facet_generation_error_rate: async (definition, { mounted }) => {
-    if (!mounted.facets) return notMounted(definition, 'FACETS_ENABLED');
+  facet_generation_error_rate: async (definition) => {
     const observed = readRouteObservation('POST', '/facets');
     return ratio(definition, observed?.serverErrors ?? 0, observed?.requests ?? 0);
   },
@@ -897,35 +877,6 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
  * built this" from "this broke just now". The counter incremented at the failure
  * site is the other half of that signal.
  */
-/**
- * The reading for a metric whose ROUTE IS NOT MOUNTED in this deployment.
- *
- * The distinction this domain exists to make, applied to its own blind spot.
- * `measured, numerator: 0` asserts that this task served none of those requests —
- * a fact about traffic. A route behind a rollout flag that is off cannot be
- * served at all, which is a fact about the deployment, and reading the second as
- * the first puts a quiet, healthy-looking tile on a dashboard for a feature
- * nobody switched on.
- *
- * TWO of the four budgeted routes sit behind a flag defaulting to false, and FOUR
- * metrics answer this on a stock deployment — three of them hang off the one
- * authoring route. Two routes, two flags, four metrics. An operator reading it is
- * told which variable to set rather than left to wonder why a surface looks idle.
- */
-function notMounted(definition: CatalogMetricDefinition, flag: string): CatalogMetricReading {
-  return {
-    state: 'unmeasured',
-    key: definition.key,
-    kind: definition.kind,
-    reason: 'surface_not_mounted',
-    seam:
-      `The route this metric observes is not mounted: ${flag} is off in this deployment, so the ` +
-      'surface cannot be served and a population of zero would be a statement about traffic ' +
-      'rather than about the deployment. Setting it makes this metric measure immediately; no ' +
-      'code change is owed.',
-  };
-}
-
 function unavailable(definition: CatalogMetricDefinition): CatalogMetricReading {
   return {
     state: 'unmeasured',
@@ -997,16 +948,6 @@ export interface CollectCatalogMetricsOptions {
   readonly db?: DatabaseOrTransaction;
   /** Lowered in tests; the default keeps one collection to a bounded amount of facet planning. */
   readonly facetSampleSize?: number;
-  /**
-   * Override which flag-gated surfaces count as mounted.
-   *
-   * Defaults to this deployment's own configuration, which is the production
-   * path. It is an explicit input rather than a `config` read inside each
-   * producer so a test can drive the store-reading arithmetic without a second
-   * process — `config` is frozen at module load, so the alternative would be
-   * asserting the mount refusal and nothing beyond it.
-   */
-  readonly mounted?: Partial<MountedSurfaces>;
 }
 
 /**
@@ -1034,12 +975,8 @@ export async function collectCatalogMetrics(
     );
   }
 
-  const mounted: MountedSurfaces = {
-    facets: options.mounted?.facets ?? config.catalog.facetsEnabled,
-  };
-
   const shared = await readShared(db, facetSampleSize);
-  const context: ProducerContext = { db, shared, mounted };
+  const context: ProducerContext = { db, shared };
 
   const readings: CatalogMetricReading[] = [];
   for (const definition of CATALOG_METRICS) {
