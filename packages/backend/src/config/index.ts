@@ -41,7 +41,7 @@ import { parseHighValueHoldThresholds } from '../services/payments/high-value-ho
 import { join } from 'node:path';
 import { log } from '../lib/logger.js';
 import { parseBillingCohort } from '../services/billing/cohort-config.js';
-import { hasOxyServiceIdentity, oxyServiceClient } from '../capabilities/oxy-service-client.js';
+import { oxyServiceClient } from '../capabilities/oxy-service-client.js';
 import { sealKeyReferenceResolves } from '../services/digital-retail/secrets.js';
 
 /**
@@ -3987,14 +3987,6 @@ export interface AppConfig {
  */
 export interface DigitalCommerceConfig {
   /**
-   * Whether the creator upload routes are MOUNTED — DERIVED: Mercaria has an Oxy
-   * service identity (the asset service is read server-to-server for every
-   * registered file) AND `DIGITAL_ENABLED_VERTICALS` names at least one
-   * vertical. Unmounted is a 404, the `STRIPE_ENABLED` rule: an unconfigured
-   * surface does not exist rather than answering 401.
-   */
-  readonly uploadsEnabled: boolean;
-  /**
    * Whether a digital offer may be CHECKED OUT for money —
    * `DIGITAL_PAID_CHECKOUT_ENABLED`.
    *
@@ -4941,7 +4933,6 @@ export const config: AppConfig = Object.freeze({
     pageSize: intEnv('CATALOG_PROPOSAL_PAGE_SIZE', 50),
   }),
   digital: Object.freeze({
-    uploadsEnabled: hasOxyServiceIdentity() && resolveDigitalEnabledVerticals().length > 0,
     paidCheckoutEnabled: boolEnv('DIGITAL_PAID_CHECKOUT_ENABLED', false),
     enabledVerticals: Object.freeze(resolveDigitalEnabledVerticals()),
   }),

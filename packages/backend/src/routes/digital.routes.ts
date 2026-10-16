@@ -8,7 +8,7 @@
  * ## The creator MOUNT is conditional; the buyer mount is not, and that is the point
  *
  * The creator router is mounted only when the deployment is configured for it
- * (`config.digital.uploadsEnabled`: an Oxy service identity, which registering
+ * (an Oxy service identity, which registering
  * a file needs, and at least one vertical in `DIGITAL_ENABLED_VERTICALS`) — the
  * `STRIPE_ENABLED` rule: an unconfigured surface answers 404 rather than 401,
  * because a 401 tells an unauthenticated caller that the surface exists here.
@@ -36,6 +36,7 @@
 
 import { Router } from 'express';
 import { config } from '../config/index.js';
+import { hasOxyServiceIdentity } from '../capabilities/oxy-service-identity.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { resolveCommerceActor } from '../middleware/commerce-actor.js';
 import { loadStore, requireStorePermission } from '../middleware/store-authz.js';
@@ -249,7 +250,10 @@ buyerRouter.post('/claims', validateBody(claimFreeAssetSchema), claimFreeDigital
 
 const router = Router();
 
-if (config.digital.uploadsEnabled) {
+// Decided HERE, at mount, rather than in config: an Oxy service identity (which
+// registering a file needs) plus at least one enabled vertical. Config stays
+// free of Oxy, so suites that mock the Oxy SDK can still load it.
+if (hasOxyServiceIdentity() && config.digital.enabledVerticals.length > 0) {
   router.use('/stores/:storeId', creatorRouter);
 }
 

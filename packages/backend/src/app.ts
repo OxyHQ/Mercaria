@@ -421,7 +421,7 @@ export function createApp(): express.Express {
   /**
    * Digital commerce (#1015, ADR 0010). ONE mount carrying two routers: the
    * creator surface under `/digital/stores/:storeId/*`, mounted inside the router
-   * only when the deployment is configured for it (`config.digital.uploadsEnabled`;
+   * only when the deployment is configured for it (an Oxy service identity and a vertical;
    * the `STRIPE_ENABLED` rule — an unconfigured deployment answers 404, never
    * 401), and the buyer surface (`/digital/library`, `/digital/downloads`,
    * `/digital/claims`).
