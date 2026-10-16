@@ -17,10 +17,6 @@ or Wallapop style. A Shopify-grade commerce backend serving three Expo apps
 
 ## Commands
 
-npm releases: only Actions → Release packages (`release-packages.yml`, Oxy's shared
-workflow, OIDC); a package's gates are its `prepublishOnly`. Never publish from a laptop —
-`~/Oxy/docs/npm-releases.md`.
-
 `bun` only, from the repo root. Postgres must be up for the backend suite:
 `docker compose -f docker-compose.postgres.yml up -d` (5435).
 
