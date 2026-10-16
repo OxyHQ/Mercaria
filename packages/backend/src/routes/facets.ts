@@ -26,7 +26,12 @@ import { validateBody } from '../middleware/validate.js';
 import { facetRequestSchema } from '../middleware/facet-schemas.js';
 import { facetsHandler } from '../controllers/facets.controller.js';
 
+import { optionalAuth } from '../middleware/auth.js';
+
 const router = Router();
+
+// A presented supervised session cannot bypass policy through an anonymous catalog route.
+router.use(optionalAuth);
 
 router.use(makeRateLimiter('listings'));
 /**

@@ -2056,5 +2056,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "Revisión de contenido de compras",
+    "intro": "Los operadores de la plataforma revisan el texto completo antes de mostrar los artículos sin imágenes.",
+    "accessDenied": "Acceso de plataforma necesario",
+    "accessBody": "Esta área solo está disponible para revisores autorizados del catálogo.",
+    "unavailable": "No se puede revisar este artículo",
+    "empty": "No hay artículos para revisar",
+    "next": "Siguientes artículos",
+    "select": "Selecciona un artículo para revisar",
+    "limitBody": "Este artículo supera los límites de revisión. No estará disponible para compras con supervisión.",
+    "allowed": "El texto actual está aprobado",
+    "pending": "El texto actual no está aprobado",
+    "textOnly": "Solo se mostrarán el título, las variantes, las opciones y el precio. No se incluyen fotos, descripciones ni reseñas.",
+    "saveError": "No se pudo guardar la revisión. Recarga el artículo y revisa su contenido actual.",
+    "saved": "Revisión guardada",
+    "allow": "Permitir texto revisado",
+    "withhold": "No mostrar"
   }
 }

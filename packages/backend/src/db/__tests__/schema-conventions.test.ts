@@ -71,7 +71,7 @@ const tables = Object.values(schema).flatMap((value) => (is(value, PgTable) ? [v
  * EXACTLY, rather than as a minimum, is what makes that impossible in both
  * directions.
  */
-const SCHEMA_TABLE_COUNT = 486; // review_media; material_offers, material_reservations, material_reservation_events.
+const SCHEMA_TABLE_COUNT = 490; // review_media; material_offers, material_reservations, material_reservation_events; catalog_safety_reviews and the three supervised purchase tables.
 
 describe('schema conventions (static)', () => {
   it('exports exactly the tables the gates below are calibrated for', () => {

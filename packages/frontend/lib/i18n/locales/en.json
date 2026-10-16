@@ -1944,5 +1944,36 @@
       "delivered": "Delivered",
       "cancelled": "Transport cancelled"
     }
+  },
+  "supervisedShopping": {
+    "title": "Supervised shopping",
+    "intro": "Browse reviewed items. A guardian approves the exact purchase before payment.",
+    "unavailable": "Shopping is unavailable",
+    "unavailableBody": "Your access or an item may have changed. Try again to load the current details.",
+    "empty": "No reviewed items yet",
+    "emptyBody": "Items appear here after a platform review. Check again later.",
+    "add": "Add",
+    "remove": "Remove",
+    "itemUnavailable": "Item unavailable",
+    "reviewPurchase": "Review purchase",
+    "changeError": "The basket could not be updated. Check the current items and try again.",
+    "approvalIntro": "Enter the delivery address. Your guardian will see the complete purchase before approving payment.",
+    "prepareError": "The purchase could not be prepared. Retry to recover the same purchase.",
+    "requestApproval": "Request guardian approval",
+    "pending": "Waiting for guardian approval",
+    "approved": "Approved for payment",
+    "paid": "Payment confirmed",
+    "closed": "This approval is closed",
+    "shipping": "Shipping",
+    "tax": "Tax",
+    "discount": "Discount",
+    "rounding": "Currency rounding",
+    "total": "Total",
+    "viewApproval": "View approval in Oxy",
+    "continuePayment": "Continue to payment",
+    "paymentError": "Payment has not been confirmed. Retry the same payment or refresh its status.",
+    "pendingBody": "Your guardian can review the exact items and total in Oxy. Payment stays unavailable until they approve.",
+    "refresh": "Refresh status",
+    "account": "Supervision and account"
   }
 }

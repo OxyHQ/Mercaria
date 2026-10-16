@@ -89,12 +89,12 @@ async function fetchCurrencyPreference(): Promise<CurrencyPreference> {
  * on auth — an anonymous shopper has no server preference and falls back to
  * FAIR + a locale-derived secondary.
  */
-export function useCurrencyPreferenceQuery() {
+export function useCurrencyPreferenceQuery(enabled = true) {
   const { isAuthenticated } = useOxy();
   return useQuery<CurrencyPreference>({
     queryKey: CURRENCY_PREFERENCE_QUERY_KEY,
     queryFn: fetchCurrencyPreference,
-    enabled: isAuthenticated,
+    enabled: enabled && isAuthenticated,
     staleTime: PREFERENCE_STALE_TIME,
   });
 }
@@ -152,9 +152,16 @@ function resolveLocaleSecondary(): CurrencyCode {
  * one or a locale default. Must be mounted INSIDE the Oxy/Query provider so the
  * queries (and any bearer token) work.
  */
-export function AppFxProvider({ children }: { children: React.ReactNode }) {
+export function AppFxProvider({
+  children,
+  allowPreference = true,
+}: {
+  children: React.ReactNode;
+  allowPreference?: boolean;
+}) {
   const { data: rates } = useRatesQuery();
-  const { data: preference } = useCurrencyPreferenceQuery();
+  const { data: storedPreference } = useCurrencyPreferenceQuery(allowPreference);
+  const preference = allowPreference ? storedPreference : undefined;
 
   const localeSecondary = useMemo(() => resolveLocaleSecondary(), []);
 

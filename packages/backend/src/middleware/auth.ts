@@ -86,22 +86,17 @@ export const authenticateToken = createOxyAuthMiddleware(oxyClient, {
   auth: { debug: AUTH_DEBUG },
 });
 
-/**
- * Optional auth — attaches the Oxy user when a token verifies, and continues
- * without one otherwise.
- *
- * Measured against the SDK rather than assumed: `createOptionalOxyAuth` passes
- * `optional: true`, and on that path a token that fails to decode OR fails
- * session validation sets `userId`/`user` to `null` and calls `next()`. So this
- * middleware DOES downgrade a bad credential to anonymous. The stricter rule —
- * ADR 0003 D2's "a presented `Bearer` that did not verify is a 401, never a
- * downgrade" — is `resolveCommerceActor`'s own, applied after this runs by
- * re-reading the `Authorization` header. Do not restate it here; a route that
- * needs it mounts that middleware.
+/** Anonymous public reads stay available. A supplied bearer must verify:
+ * malformed/expired credentials are 401, explicit policy denial is 403, and an
+ * authority outage is 503. All of those decisions remain inside the Oxy SDK.
  */
-const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, { auth: { debug: AUTH_DEBUG } });
+const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, {
+  auth: { debug: AUTH_DEBUG, strictOptionalBearer: true },
+});
 
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
-  // Uses @oxy.so/core/server optional auth — attaches user if valid, continues if not.
+  // Authenticated policy denials must never be reused by a shared public cache.
+  res.vary('Authorization');
+  // Only a request without a credential may continue anonymously.
   oxyOptionalAuth(req, res, next);
 }

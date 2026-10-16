@@ -1960,5 +1960,36 @@
       "delivered": "Delivered",
       "cancelled": "Transport cancelled"
     }
+  },
+  "supervisedShopping": {
+    "title": "Compres amb supervisió",
+    "intro": "Explora articles revisats. El tutor aprova la compra exacta abans del pagament.",
+    "unavailable": "Compres no disponibles",
+    "unavailableBody": "Pot haver canviat el teu accés o algun article. Torna-ho a provar per veure els detalls actuals.",
+    "empty": "Encara no hi ha articles revisats",
+    "emptyBody": "Els articles apareixen després de la revisió de la plataforma. Torna més tard.",
+    "add": "Afegir",
+    "remove": "Eliminar",
+    "itemUnavailable": "Article no disponible",
+    "reviewPurchase": "Revisar compra",
+    "changeError": "No s’ha pogut actualitzar la cistella. Revisa els articles i torna-ho a provar.",
+    "approvalIntro": "Introdueix l’adreça de lliurament. El tutor veurà la compra completa abans d’aprovar el pagament.",
+    "prepareError": "No s’ha pogut preparar la compra. Reintenta-ho per recuperar la mateixa compra.",
+    "requestApproval": "Sol·licitar aprovació del tutor",
+    "pending": "Esperant l’aprovació del tutor",
+    "approved": "Aprovada per al pagament",
+    "paid": "Pagament confirmat",
+    "closed": "Aquesta aprovació està tancada",
+    "shipping": "Enviament",
+    "tax": "Impostos",
+    "discount": "Descompte",
+    "rounding": "Arrodoniment de divisa",
+    "total": "Total",
+    "viewApproval": "Veure aprovació a Oxy",
+    "continuePayment": "Continuar al pagament",
+    "paymentError": "El pagament no s’ha confirmat. Reintenta el mateix pagament o actualitza’n l’estat.",
+    "pendingBody": "El tutor pot revisar els articles i el total exactes a Oxy. El pagament estarà disponible quan ho aprovi.",
+    "refresh": "Actualitzar estat",
+    "account": "Supervisió i compte"
   }
 }

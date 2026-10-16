@@ -100,6 +100,8 @@ flowchart LR
         M_Digital_retail_supply["Digital retail supply"]
         M_Digital_retail_procurement_and_fulfilment["Digital retail procurement and fulfilment"]
         M_Donated_materials["Donated materials"]
+        M_Supervised_catalog_review["Supervised catalog review"]
+        M_Supervised_purchase_coordination["Supervised purchase coordination"]
         M_Store_access["Store access"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
@@ -119,6 +121,7 @@ flowchart LR
         X_order_items[("order_items")]
         X_orders[("orders")]
         X_organizations[("organizations")]
+        X_payments[("payments")]
         X_product_variants[("product_variants")]
         X_reviews[("reviews")]
         X_source_records[("source_records")]
@@ -194,6 +197,9 @@ flowchart LR
     M_Digital_retail_supply --> X_suppliers
     M_Digital_retail_procurement_and_fulfilment --> X_supplier_accounts
     M_Digital_retail_procurement_and_fulfilment --> X_suppliers
+    M_Supervised_catalog_review --> X_listings
+    M_Supervised_purchase_coordination --> X_order_items
+    M_Supervised_purchase_coordination --> X_payments
     M_Store_access --> X_stores
 ```
 
@@ -209,7 +215,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**23 modules**, **19 writing directories**,
+**25 modules**, **20 writing directories**,
 **4 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -237,6 +243,7 @@ flowchart LR
     W_scripts_seed_verticals["scripts/seed-verticals"]
     W_services_curation["services/curation"]
     W_services_materials["services/materials"]
+    W_services_supervised_shopping["services/supervised-shopping"]
     M_Organization_migration_evidence(["Organization migration evidence"])
     M_Taxonomy(["Taxonomy"])
     M_Classification(["Classification"])
@@ -259,6 +266,8 @@ flowchart LR
     M_Digital_retail_supply(["Digital retail supply"])
     M_Digital_retail_procurement_and_fulfilment(["Digital retail procurement and fulfilment"])
     M_Donated_materials(["Donated materials"])
+    M_Supervised_catalog_review(["Supervised catalog review"])
+    M_Supervised_purchase_coordination(["Supervised purchase coordination"])
     M_Store_access(["Store access"])
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
@@ -286,6 +295,8 @@ flowchart LR
     W_scripts_seed_verticals -->|"1"| M_Localization
     W_services_curation -->|"1"| M_Compatibility
     W_services_materials -->|"3"| M_Donated_materials
+    W_services_supervised_shopping -->|"1"| M_Supervised_catalog_review
+    W_services_supervised_shopping -->|"3"| M_Supervised_purchase_coordination
     subgraph shared["Written from more than one directory"]
         direction TB
         T_catalog_authoring_draft_values[("catalog_authoring_draft_values")]
@@ -344,7 +355,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 91 tables created by a migration at or after `0088`
+All 95 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -1052,6 +1063,44 @@ erDiagram
 | `material_reservations` | `0169` | `services/materials` (insert/update) |
 | `material_reservation_events` | `0169` | `services/materials` (insert) |
 
+### Supervised catalog review
+
+```mermaid
+erDiagram
+    catalog_safety_reviews {
+    }
+    listings ||--o{ catalog_safety_reviews : "listing_id · restrict"
+```
+
+Also names, from outside the epic: `listings`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `catalog_safety_reviews` | `0171` | `services/supervised-shopping` (insert) |
+
+### Supervised purchase coordination
+
+```mermaid
+erDiagram
+    supervised_checkout_requests {
+    }
+    supervised_purchase_operations {
+    }
+    supervised_purchase_lines {
+    }
+    order_items ||--o| supervised_purchase_lines : "order_item_id · restrict"
+    supervised_purchase_operations ||--o{ supervised_purchase_lines : "operation_id · restrict"
+    payments ||--o| supervised_purchase_operations : "payment_id · restrict"
+```
+
+Also names, from outside the epic: `order_items`, `payments`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `supervised_checkout_requests` | `0171` | `services/supervised-shopping` (insert) |
+| `supervised_purchase_operations` | `0171` | `services/supervised-shopping` (insert/update) |
+| `supervised_purchase_lines` | `0171` | `services/supervised-shopping` (insert) |
+
 ### Store access
 
 ```mermaid
@@ -1074,18 +1123,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 91 |
-| Modules they are grouped into | 23 |
-| Foreign keys out of an epic table | 185 |
+| Tables in the population | 95 |
+| Modules they are grouped into | 25 |
+| Foreign keys out of an epic table | 189 |
 | Foreign keys into one, from outside the epic | 2 |
-| Pre-existing tables the epic attaches to | 22 |
-| Relationships the schema proves are 1:1 | 4 |
+| Pre-existing tables the epic attaches to | 23 |
+| Relationships the schema proves are 1:1 | 6 |
 | Relationships whose parent is optional (nullable FK) | 83 |
-| Directories that write an epic table | 19 |
+| Directories that write an epic table | 20 |
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 185 foreign keys: **48** `cascade`, **2** `no action`, **132** `restrict`, **3** `set null`.
+`ON DELETE` across those 189 foreign keys: **48** `cascade`, **2** `no action`, **136** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 
@@ -1093,3 +1142,5 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 - `supplier_agreements` → `digital_supply_terms` on `agreement_id`, because a unique constraint covers those columns.
 - `product_variants` → `native_variant_signatures` on `variant_id`, because a unique constraint covers those columns.
 - `organizations` → `organization_identity_archives` on `organization_id`, because a unique constraint covers those columns.
+- `order_items` → `supervised_purchase_lines` on `order_item_id`, because a unique constraint covers those columns.
+- `payments` → `supervised_purchase_operations` on `payment_id`, because a unique constraint covers those columns.

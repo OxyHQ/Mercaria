@@ -2034,5 +2034,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "Shopping content review",
+    "intro": "Platform operators review the complete source text before making a text-only shopping projection available.",
+    "accessDenied": "Platform access required",
+    "accessBody": "This area is available only to authorized catalog reviewers.",
+    "unavailable": "Item cannot be reviewed",
+    "empty": "No items to review",
+    "next": "Next items",
+    "select": "Select an item to review",
+    "limitBody": "This item exceeds the review limits. It stays unavailable for supervised shopping.",
+    "allowed": "Current text is approved",
+    "pending": "Current text is not approved",
+    "textOnly": "Only the title, variants, options and price will be shown. Photos, descriptions and reviews are not included.",
+    "saveError": "The review could not be saved. Reload the item and review its current content.",
+    "saved": "Review saved",
+    "allow": "Allow reviewed text",
+    "withhold": "Withhold"
   }
 }

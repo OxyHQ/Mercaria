@@ -1960,5 +1960,36 @@
       "delivered": "Entregado",
       "cancelled": "Transporte cancelado"
     }
+  },
+  "supervisedShopping": {
+    "title": "Compras con supervisión",
+    "intro": "Explora artículos revisados. Tu tutor aprueba la compra exacta antes del pago.",
+    "unavailable": "Compras no disponibles",
+    "unavailableBody": "Puede haber cambiado tu acceso o algún artículo. Reintenta para cargar los detalles actuales.",
+    "empty": "Aún no hay artículos revisados",
+    "emptyBody": "Los artículos aparecen aquí tras una revisión de la plataforma. Vuelve más tarde.",
+    "add": "Añadir",
+    "remove": "Eliminar",
+    "itemUnavailable": "Artículo no disponible",
+    "reviewPurchase": "Revisar compra",
+    "changeError": "No se pudo actualizar la cesta. Revisa los artículos actuales y vuelve a intentarlo.",
+    "approvalIntro": "Introduce la dirección de entrega. Tu tutor verá la compra completa antes de aprobar el pago.",
+    "prepareError": "No se pudo preparar la compra. Reintenta para recuperar la misma compra.",
+    "requestApproval": "Solicitar aprobación del tutor",
+    "pending": "Esperando la aprobación de tu tutor",
+    "approved": "Aprobada para el pago",
+    "paid": "Pago confirmado",
+    "closed": "Esta aprobación está cerrada",
+    "shipping": "Envío",
+    "tax": "Impuestos",
+    "discount": "Descuento",
+    "rounding": "Redondeo de divisa",
+    "total": "Total",
+    "viewApproval": "Ver aprobación en Oxy",
+    "continuePayment": "Continuar al pago",
+    "paymentError": "El pago no se ha confirmado. Reintenta el mismo pago o actualiza su estado.",
+    "pendingBody": "Tu tutor puede revisar los artículos y el total exactos en Oxy. El pago estará disponible cuando lo apruebe.",
+    "refresh": "Actualizar estado",
+    "account": "Supervisión y cuenta"
   }
 }

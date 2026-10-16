@@ -371,7 +371,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // CategoryNode/Tile/Pill retain Oxy IDs, plus child sample IDs: four properties.
     // Organization adds oxyAccountId, the opaque canonical Oxy identity: one property.
     // Materials adds one contract module without catalog identity fields.
-    'walked 138 contract module(s), 2376 exported type(s), 7935 property signature(s)',
+    // Kids adds the reviewed shopping module and its bounded presentation DTOs;
+    // option labels carry their persisted source-row ids: +1 module, +6 types,
+    // +44 properties. Measured by the real guard.
+    'walked 139 contract module(s), 2382 exported type(s), 7979 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

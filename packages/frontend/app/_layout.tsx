@@ -5,6 +5,7 @@ import { Slot, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
 import { OxyProvider, useOxy } from '@oxy.so/services';
+import { useSupervision } from '@oxy.so/services/ui';
 import { BloomProvider } from '@oxy.so/bloom/provider';
 import { OverlayInertBoundary, PortalOutlet, PortalProvider } from '@oxy.so/bloom/portal';
 import { expoRouterScrollAdapter } from '@oxy.so/bloom/scroll/expo-router';
@@ -44,7 +45,13 @@ const OXY_API_URL = process.env.EXPO_PUBLIC_OXY_API_URL || 'https://api.oxy.so';
 const AUTH_REDIRECT_URI = Linking.createURL('/');
 
 function AuthSetup({ children }: { children: React.ReactNode }) {
-  const { oxyServices } = useOxy();
+  const { oxyServices, user, isAuthenticated } = useOxy();
+  const supervision = useSupervision();
+  const ordinaryShopping =
+    !isAuthenticated ||
+    (!!user && user.kind !== 'personal') ||
+    (!!supervision.data &&
+      (supervision.data.self === null || supervision.data.self.status === 'ended'));
 
   setTokenGetter(() => oxyServices.session.accessToken || null);
 
@@ -54,7 +61,7 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
   // it exactly once, deduplicates, retries a failure and never re-runs — which
   // is the scheduling an effect would otherwise have to reimplement. Calling it
   // twice would converge anyway, server-side.
-  useGuestCartMerge();
+  useGuestCartMerge(ordinaryShopping);
 
   // A followed referral link pays nobody until the click is bound to a subject
   // (#143), and the subject — a sign-in, the first cart write — can appear on
@@ -76,7 +83,7 @@ function AuthSetup({ children }: { children: React.ReactNode }) {
     <ImageResolverProvider value={resolveImageSource}>
       {/* FX provider sits inside Oxy/Query (so the /rates query + bearer token
           work) and supplies display-side dual-currency state to PriceDisplay. */}
-      <AppFxProvider>{children}</AppFxProvider>
+      <AppFxProvider allowPreference={ordinaryShopping}>{children}</AppFxProvider>
     </ImageResolverProvider>
   );
 }

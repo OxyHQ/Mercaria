@@ -2056,5 +2056,23 @@
   "brand": {
     "name": "Wholesale",
     "byline": "by Mercaria"
+  },
+  "catalogSafety": {
+    "title": "Revisió de contingut de compres",
+    "intro": "Els operadors de la plataforma revisen tot el text abans de mostrar articles sense imatges.",
+    "accessDenied": "Cal accés de plataforma",
+    "accessBody": "Aquesta àrea només està disponible per a revisors autoritzats del catàleg.",
+    "unavailable": "No es pot revisar l’article",
+    "empty": "No hi ha articles per revisar",
+    "next": "Articles següents",
+    "select": "Selecciona un article per revisar",
+    "limitBody": "Aquest article supera els límits de revisió i no estarà disponible per a compres amb supervisió.",
+    "allowed": "El text actual està aprovat",
+    "pending": "El text actual no està aprovat",
+    "textOnly": "Només es mostraran el títol, les variants, les opcions i el preu. No s’inclouen fotos, descripcions ni ressenyes.",
+    "saveError": "No s’ha pogut desar la revisió. Recarrega l’article i revisa el contingut actual.",
+    "saved": "Revisió desada",
+    "allow": "Permetre text revisat",
+    "withhold": "No mostrar"
   }
 }

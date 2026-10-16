@@ -89,6 +89,9 @@ const GOWAY_PLACE =
   'Mercaria stores only the opaque reference.';
 
 /** An Oxy media file id, resolved through the SDK's canonical media chokepoint. */
+const OXY_PURCHASE_APPROVAL =
+  'An Oxy purchase approval id, issued by the canonical safety service over HTTP.';
+
 const OXY_FILE = 'An Oxy media file id. Oxy owns the file; Mercaria stores only the id.';
 
 /**
@@ -256,6 +259,7 @@ export const MERCARIA_ROW_ID_REASONS: readonly string[] = [
 export const FOREIGN_KEY_SPACE_ID_REASONS: readonly string[] = [
   OXY_ACCOUNT,
   OXY_FILE,
+  OXY_PURCHASE_APPROVAL,
   GOWAY_PLACE,
   EXTERNAL_PLATFORM,
   PROVIDER_OBJECT,
@@ -275,6 +279,10 @@ export const FOREIGN_KEY_SPACE_ID_REASONS: readonly string[] = [
  * #367 added one there and it took a reviewer, not a gate, to notice.
  */
 export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: string }[] = [
+  { column: 'catalog_safety_reviews.reviewer_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supervised_checkout_requests.buyer_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'supervised_purchase_lines.merchant_account_id', reason: OXY_ACCOUNT },
+  { column: 'supervised_purchase_operations.approval_id', reason: OXY_PURCHASE_APPROVAL },
   // ── Oxy account ids ───────────────────────────────────────────────────────
   { column: 'abuse_reports.reporter_oxy_user_id', reason: OXY_ACCOUNT },
   // Donated materials: owners, requesters and acting accounts are people or
