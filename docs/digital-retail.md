@@ -191,25 +191,24 @@ All of them are exercised against a real server by
 `db/digitalRetail/__tests__/digital-retail.realdb.test.ts`, and the orchestration
 by `services/digital-retail/__tests__/procurement.realdb.test.ts`.
 
-## The five levers
+## What gates it
 
-| Variable | Default | Stops |
-|---|---|---|
-| `DIGITAL_RETAIL_CATALOG_SYNC_ENABLED` | off | pulling supplier catalogues |
-| `DIGITAL_RETAIL_PUBLICATION_ENABLED` | off | an offer becoming publishable |
-| `DIGITAL_RETAIL_CHECKOUT_ENABLED` | off | buying |
-| `DIGITAL_RETAIL_PROCUREMENT_ENABLED` | off | submitting anything to a supplier |
-| `DIGITAL_RETAIL_REVEAL_ENABLED` | **on** | revealing an artifact a buyer already owns |
+There are no `DIGITAL_RETAIL_*_ENABLED` switches.
 
-Plus `DIGITAL_RETAIL_SEAL_KEY_REFERENCE` (the path new artifacts are sealed
-with — empty means this deployment can seal nothing, which is why procurement
-defaults off) and `DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS`.
+- **Buying** is not wired yet. When #57 wires digital-retail checkout, it is gated
+  by `MERCARIA_RETAIL_ENABLED`, like every other retail checkout.
+- **Procurement** (submitting anything to a supplier) is on exactly when
+  `DIGITAL_RETAIL_SEAL_KEY_REFERENCE` is set and resolves to a key — empty means
+  this deployment can seal nothing, so it buys nothing.
+- **Catalogue sync, offer composition and reveal** have no switch. A reveal is
+  authorized by the buyer's own delivered fulfilment.
 
-**These are deployment levers and they do not replace the per-row kill
-switches.** `supplier_accounts.state = 'killed'` and
-`digital_supplier_capabilities.state` are what an incident about ONE supplier
-reaches for. None of them gates the library, a reveal of something already sold
-(except the incident lever, deliberately), support or refunds.
+`DIGITAL_RETAIL_RECOVERY_DELAY_SECONDS` tunes the ambiguity recovery.
+
+An incident about ONE supplier reaches for the per-row kill switches:
+`supplier_accounts.state = 'killed'` and `digital_supplier_capabilities.state`.
+None of them gates the library, a reveal of something already sold, support or
+refunds.
 
 ## Adding an authorized digital supplier
 

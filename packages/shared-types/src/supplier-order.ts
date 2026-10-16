@@ -665,7 +665,13 @@ export type SupplierOrderRefusalReason =
   | 'payment_not_authorized'
   | 'environment_refused';
 
-/** {@link SupplierOrderRefusalReason} as the tuple the columns and CHECKs read. */
+/**
+ * {@link SupplierOrderRefusalReason} as the tuple the columns and CHECKs read.
+ *
+ * `provider_fetch_disabled` is no longer produced — provider reads have no
+ * deployment lever — and stays because the stored CHECK is rendered from this
+ * tuple, so dropping it is a `post` migration rather than an edit here.
+ */
 export const SUPPLIER_ORDER_REFUSAL_REASONS: readonly SupplierOrderRefusalReason[] = [
   'provider_unconfigured',
   'capability_not_declared',

@@ -367,13 +367,11 @@ deliberate change wires it into the bootstrap — a money path, so it belongs wi
 answers `provider_unconfigured` (which blocks) and every purchase order refuses
 with `adapter_missing`. Stored rows are untouched either way.
 
-**Kill switches, four, and they are independent by construction:**
+**Kill switches, two, and they are independent by construction:**
 
 | Switch | What it stops | Default |
 |---|---|---|
 | `MERCARIA_RETAIL_ENABLED` (#123) | Retail checkout ENTRY | `false` |
-| `PROCUREMENT_ORCHESTRATION_ENABLED` (#124) | Submitting and cancelling supplier orders | `false` |
-| `PROCUREMENT_PROVIDER_FETCH_ENABLED` (#124) | Outbound reads and polling; webhooks are still received and stored | `true` |
 | A published pilot cohort | Everything. **No active cohort ⇒ every retail line is refused** (`no_active_cohort`), which is why the pilot needs no kill switch of its own: an empty pilot IS the off position | none published |
 
 Plus the per-supplier one, which is a different mechanism:
@@ -468,8 +466,8 @@ is what a deployment must additionally do, in order:
 7. ☐ Draft a pilot cohort version with all thirteen stop thresholds, the ≤ 25
    allow-listed SKUs and the §10 bounds; publish it. The operator surface
    refuses a draft missing any threshold.
-8. ☐ Set `MERCARIA_RETAIL_ENABLED=true` and
-   `PROCUREMENT_ORCHESTRATION_ENABLED=true`, in that order.
+8. ☐ Set `MERCARIA_RETAIL_ENABLED=true`. The procurement loops always run, so
+   the first paid retail order is submitted on the next dispatcher tick.
 
 ## Rollback procedure
 
@@ -484,8 +482,10 @@ paths reads any of them.
    `market`-scoped stop.
 3. **The whole pilot is wrong** — raise a `pilot`-scoped stop. Retail entry
    stops; the catalogue, the marketplace and every placed order are untouched.
-4. **Stop procuring** — `PROCUREMENT_ORCHESTRATION_ENABLED=false`. Paid orders'
-   jobs park and deliver when it is back on; nothing is lost.
+4. **Stop procuring** — kill the supplier account
+   (`supplier_accounts.state = 'killed'`). The one step here that reaches a
+   placed order: a submission not yet made is refused and recorded, never
+   silently dropped; status, cancellation, return and reconciliation carry on.
 5. **Stop retail entirely** — `MERCARIA_RETAIL_ENABLED=false`.
 6. **Disconnect Printful** — kill its supplier account
    (`supplier_accounts.state = 'killed'`, #124): new submissions stop while

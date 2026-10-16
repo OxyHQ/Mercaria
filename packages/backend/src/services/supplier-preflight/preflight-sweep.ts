@@ -2,15 +2,14 @@
  * The loop that hands back lapsed holds, releases lapsed quotes and evaluates
  * supplier health (#122 concurrency 9, operations 6).
  *
- * ## The LOOP is gated; nothing durable is
+ * ## The loop records lapses; it does not cause them
  *
- * `SUPPLIER_PREFLIGHT_SWEEP_ENABLED` stops this loop and nothing else. Quotes
- * still expire against their own deadline and supplier holds still lapse on the
+ * Quotes expire against their own deadline and supplier holds lapse on the
  * SUPPLIER's clock — `deriveSupplierQuoteUsage` and the reservation's
- * `provider_expires_at` are both read against the clock at every use, so
- * turning the sweep off cannot make a stale quote usable. What stops is
- * Mercaria RECORDING that they lapsed, which is the ordinary outbox inversion:
- * switching it back on drains the backlog rather than stranding it.
+ * `provider_expires_at` are both read against the clock at every use, so a
+ * sweep that is late or down cannot make a stale quote usable. What it does is
+ * RECORD that they lapsed, and a pass after downtime drains the backlog rather
+ * than stranding it.
  *
  * That is why this sweep needs no lease of its own. Every action it takes is an
  * idempotent compare-and-swap — `releaseSupplierQuote` and
@@ -190,14 +189,6 @@ let timer: ReturnType<typeof setInterval> | undefined;
  */
 export function startSupplierPreflightSweep(): void {
   if (timer) return;
-  if (!config.supplierPreflight.sweepEnabled) {
-    log.general.info(
-      '[SupplierPreflight] sweep disabled (SUPPLIER_PREFLIGHT_SWEEP_ENABLED=false); quotes and ' +
-        'holds still lapse against their own clocks, they are simply not recorded as lapsed',
-    );
-    return;
-  }
-
   timer = setInterval(() => {
     void runSupplierPreflightSweep().catch((err: unknown) => {
       log.general.error({ err }, '[SupplierPreflight] sweep pass failed');

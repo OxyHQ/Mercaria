@@ -85,34 +85,59 @@ const KEY_REFERENCE_SHAPE = /^\/[A-Za-z0-9/_.-]+$/;
  * plausibly-named variable.
  */
 export function environmentKeyResolver(env: NodeJS.ProcessEnv = process.env): SealingKeyResolver {
-  const PREFIX = '/oxy/mercaria/digital-retail/seal/';
   return {
     async resolve(keyReference: string): Promise<Buffer> {
-      if (!keyReference.startsWith(PREFIX)) {
-        throw new Error(
-          `digital-retail sealing key reference must live under ${PREFIX}; received ${keyReference}`,
-        );
-      }
-      const name = keyReference
-        .slice(PREFIX.length)
-        .replace(/[^A-Za-z0-9]/g, '_')
-        .toUpperCase();
-      const value = env[`DIGITAL_RETAIL_SEAL_KEY_${name}`];
-      if (!value) {
-        throw new Error(
-          `no sealing key configured for ${keyReference} ` +
-            `(expected DIGITAL_RETAIL_SEAL_KEY_${name})`,
-        );
-      }
-      const key = Buffer.from(value, 'base64');
-      if (key.length !== 32) {
-        throw new Error(
-          `sealing key ${keyReference} must be 32 bytes base64-encoded, received ${key.length}`,
-        );
-      }
-      return key;
+      return environmentSealKey(keyReference, env);
     },
   };
+}
+
+const ENVIRONMENT_KEY_PREFIX = '/oxy/mercaria/digital-retail/seal/';
+
+/** {@link environmentKeyResolver}'s mapping, synchronously. THROWS when unresolvable. */
+function environmentSealKey(keyReference: string, env: NodeJS.ProcessEnv): Buffer {
+  if (!keyReference.startsWith(ENVIRONMENT_KEY_PREFIX)) {
+    throw new Error(
+      `digital-retail sealing key reference must live under ${ENVIRONMENT_KEY_PREFIX}; ` +
+        `received ${keyReference}`,
+    );
+  }
+  const name = keyReference
+    .slice(ENVIRONMENT_KEY_PREFIX.length)
+    .replace(/[^A-Za-z0-9]/g, '_')
+    .toUpperCase();
+  const value = env[`DIGITAL_RETAIL_SEAL_KEY_${name}`];
+  if (!value) {
+    throw new Error(
+      `no sealing key configured for ${keyReference} (expected DIGITAL_RETAIL_SEAL_KEY_${name})`,
+    );
+  }
+  const key = Buffer.from(value, 'base64');
+  if (key.length !== 32) {
+    throw new Error(
+      `sealing key ${keyReference} must be 32 bytes base64-encoded, received ${key.length}`,
+    );
+  }
+  return key;
+}
+
+/**
+ * Whether this deployment can seal anything: the reference is a secret-store
+ * path AND the environment resolver turns it into a 32-byte key. Config derives
+ * `digitalRetail.procurementEnabled` from it, so a deployment never buys what it
+ * could not seal.
+ */
+export function sealKeyReferenceResolves(
+  keyReference: string,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (!KEY_REFERENCE_SHAPE.test(keyReference) || keyReference.length > 512) return false;
+  try {
+    environmentSealKey(keyReference, env);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** The tail of a secret, bounded to four characters. Never its head. */

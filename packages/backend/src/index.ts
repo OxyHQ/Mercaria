@@ -340,11 +340,9 @@ connectPostgres()
       // supplier health (#122). On EVERY task, and deliberately WITHOUT a lease:
       // every action it takes is an idempotent compare-and-swap, so N tasks
       // running it produce the same end state as one, and a dead task strands
-      // nothing. The LOOP is gated by `SUPPLIER_PREFLIGHT_SWEEP_ENABLED`; what
-      // it records is not — a quote's expiry and a hold's supplier deadline are
-      // both read against the clock at every use, so turning this off cannot
-      // make a stale quote usable, it only stops Mercaria writing down that it
-      // lapsed.
+      // nothing. A quote's expiry and a hold's supplier deadline are both read
+      // against the clock at every use, so a late sweep cannot make a stale
+      // quote usable; it only delays Mercaria writing down that it lapsed.
       import('./services/supplier-preflight/preflight-sweep.js')
         .then(({ startSupplierPreflightSweep }) => {
           startSupplierPreflightSweep();
@@ -412,9 +410,8 @@ connectPostgres()
       // notice. A retail request's refund goes back on Mercaria's own timeline
       // and the RAIL answers whenever it answers; without this a buyer whose
       // portal they never revisit would sit at "your refund is on its way"
-      // forever. The LOOP is gated by `RETAIL_SERVICE_RECONCILER_ENABLED` and
-      // the operator surface drives the same idempotent path, so turning it off
-      // cannot make a refund unfinishable.
+      // forever. The operator surface drives the same idempotent path, so a
+      // stalled sweep cannot make a refund unfinishable.
       //
       // `registerRetailServiceConsumers` is beside it and is UNCONDITIONAL: it
       // wires the retail dispute coordination onto #49's port, which is what
@@ -433,13 +430,13 @@ connectPostgres()
         );
 
       // Place, cancel, poll and interpret supplier orders (#124). THREE loops,
-      // on EVERY task, each gated by its own lever and none of them gating a
-      // durable record: with the orchestration off a paid retail order's job is
-      // parked, with provider fetch off webhooks are still received and stored,
-      // and with event processing off events accumulate and nothing
-      // customer-visible moves. The per-supplier kill switch is a different
-      // mechanism (`supplier_accounts.state = 'killed'`) and stops NEW
-      // submissions while status, cancellation and reconciliation carry on.
+      // on EVERY task. They run with no deployment lever: no supplier order
+      // adapter is registered at boot, Printful refuses a `live` account in code
+      // (`LIVE_REFUSED_UNTIL_GATED`), and no purchase order exists until a paid
+      // retail order — which `MERCARIA_RETAIL_ENABLED` gates at checkout entry —
+      // creates one. The per-supplier kill switch
+      // (`supplier_accounts.state = 'killed'`) stops NEW submissions while
+      // status, cancellation and reconciliation carry on.
       import('./services/supplier-orders/dispatcher.js')
         .then(({ startProcurementDispatchers }) => startProcurementDispatchers())
         .catch((err: unknown) =>
@@ -474,11 +471,11 @@ connectPostgres()
       // Registering it anyway is what makes the conformance suite runnable from
       // an ops script against a real account without a second wiring path.
       //
-      // NOT behind `DIGITAL_RETAIL_PROCUREMENT_ENABLED`, for the reason the
-      // retail ports above are not behind `MERCARIA_RETAIL_ENABLED`: that lever
-      // gates SUBMITTING to a supplier, and an in-flight attempt still has to be
-      // recoverable after it is turned off — a purchase order stuck in
-      // `ambiguous` with no adapter to ask is a paid customer nobody can serve.
+      // NOT conditional on procurement being configured (a resolvable
+      // `DIGITAL_RETAIL_SEAL_KEY_REFERENCE`), for the reason the retail ports
+      // above are not behind `MERCARIA_RETAIL_ENABLED`: an in-flight attempt
+      // still has to be recoverable — a purchase order stuck in `ambiguous`
+      // with no adapter to ask is a paid customer nobody can serve.
       import('./services/digital-retail/adapter-registry.js')
         .then(({ registerBuiltInDigitalSupplierAdapters }) =>
           registerBuiltInDigitalSupplierAdapters(),
@@ -511,9 +508,9 @@ connectPostgres()
       // It runs its own timer rather than joining the payment reconciliation
       // runner because it reads purchase orders and supplier invoices, and
       // `role-separation.test.ts` forbids `services/payments/` from importing
-      // the procurement domain. `RETAIL_RECONCILIATION_ENABLED` gates this LOOP
-      // and nothing durable: an operator reconciling an order by hand still
-      // writes its revision, raises its exceptions and books what it recognizes.
+      // the procurement domain. An operator reconciling an order by hand writes
+      // the same revision, raises the same exceptions and books what it
+      // recognizes.
       // The referral EARNINGS loops (#145, ADR 0005): vest what has served its
       // hold, build and settle payout batches, and reconcile the reward rows
       // against the ledger. Three levers, and NOT ONE gates a durable record —
