@@ -30,7 +30,8 @@
     "account": "Conta",
     "signIn": "Entrar",
     "threeD": "3D",
-    "mainNavigation": "Navegação principal"
+    "mainNavigation": "Navegação principal",
+    "settings": "Configurações"
   },
   "login": {
     "signInButton": "Entrar"
@@ -46,7 +47,7 @@
       "addresses": "Endereços",
       "watchlists": "Listas de interesse",
       "shoppingAgents": "Assistentes de compra",
-      "referralPartner": "Programa de indicação"
+      "referrals": "Indicações"
     },
     "currency": {
       "title": "Moeda de exibição",
@@ -1310,11 +1311,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Parceiro de indicações · Mercaria",
-    "title": "Parceiro de indicações",
     "loadError": "Não foi possível carregar o seu painel de indicações. Tente novamente.",
     "signedOut": {
-      "title": "Entre para ver a sua conta de parceiro de indicações",
+      "title": "Entre para ver suas indicações",
       "body": "Seus links, o que eles renderam e quando você será pago.",
       "action": "Entrar"
     },
@@ -1362,11 +1361,19 @@
       "title": "Desempenho",
       "totals": "%{clicks} cliques · %{referrals} indicações qualificadas, de %{from} a %{through}",
       "empty": "Nada registrado neste período.",
-      "row": "%{label}: %{clicks} cliques · %{referrals} indicações"
+      "row": "%{label}: %{clicks} cliques · %{referrals} indicações",
+      "breakdownBy": "Detalhar por",
+      "dimension": {
+        "program": "Programa",
+        "campaign": "Campanha",
+        "instrument": "Link ou código",
+        "market": "Mercado",
+        "clientSurface": "Plataforma",
+        "date": "Data"
+      }
     },
     "instruments": {
-      "title": "Seus links e códigos",
-      "empty": "Você ainda não tem códigos de indicação.",
+      "title": "Seus códigos",
       "disclosureIntro": "Publique isto com cada link:",
       "status": {
         "active": "ativo",
@@ -1381,6 +1388,16 @@
       "appeal": "Você pode recorrer da decisão sobre a sua participação.",
       "disputes": "Contestações sobre uma atribuição, um estorno ou um pagamento ainda não são tratadas aqui. Entre em contato com o suporte informando a data e o valor mostrados acima.",
       "noEmails": "Ainda não enviamos e-mails de indicação, então acompanhe as mudanças nesta página."
+    },
+    "links": {
+      "title": "Seus links",
+      "create": "Criar link",
+      "copy": "Copiar",
+      "copyLink": "Copiar o link %{url}",
+      "copied": "Link copiado",
+      "createFailed": "Não foi possível criar o link. Tente novamente.",
+      "empty": "Crie um link para compartilhar a Mercaria. As indicações que ele trouxer são atribuídas a você.",
+      "notPartner": "Seu link aparecerá aqui quando você estiver inscrito em um programa."
     }
   },
   "brand": {

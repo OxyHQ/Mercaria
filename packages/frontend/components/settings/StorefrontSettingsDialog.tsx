@@ -24,6 +24,7 @@ import { STOREFRONT_LOCALES, useTranslation } from '@/lib/i18n';
 import { useCurrencySettingsSection } from './currency-section';
 import { AddressesSettingsPage } from './addresses-page';
 import { FeedbackSettingsPage } from './feedback-page';
+import { ReferralsSettingsPage } from './referrals-page';
 import type { StorefrontSettingsPage } from './settings-routes';
 
 function GeneralSettingsPage() {
@@ -120,6 +121,15 @@ export default function StorefrontSettingsDialog(state: SettingsDialogState) {
             label: t('settings.sections.addresses'),
             icon: RiMapPin2Line,
           },
+          // Shown enrolled or not: the server's dashboard has an explicit "not
+          // enrolled" branch with the joinable programmes, and gating the row on
+          // enrolment would make enrolment unreachable.
+          {
+            key: 'referrals',
+            page: 'referrals',
+            label: t('settings.sections.referrals'),
+            icon: RiTeamLine,
+          },
         ]
       : []),
     { key: 'feedback', page: 'feedback', label: t('feedback.title'), icon: RiFeedbackLine },
@@ -128,14 +138,10 @@ export default function StorefrontSettingsDialog(state: SettingsDialogState) {
     { key: 'settings', label: titles.settings, items: settingsItems },
   ];
   if (isAuthenticated) {
-    // Watchlists, Shopping agents and Referral partner have no other inbound
-    // edge: each is scoped to the signed-in Oxy account the way Orders is, and
-    // the nav bar (`components/shell/nav-items.ts`) is the four browse
-    // destinations. They leave Settings, so they close it first.
-    //
-    // Referral partner is shown enrolled or not, because the server's dashboard
-    // route has an explicit "not enrolled" branch with the joinable programmes;
-    // gating the row on enrolment would make enrolment unreachable.
+    // Watchlists and Shopping agents have no other inbound edge: each is scoped
+    // to the signed-in Oxy account the way Orders is, and the nav bar
+    // (`components/shell/nav-items.ts`) is the four browse destinations. They
+    // leave Settings, so they close it first.
     groups.push({
       key: 'shopping',
       label: t('profile.title'),
@@ -158,12 +164,6 @@ export default function StorefrontSettingsDialog(state: SettingsDialogState) {
           icon: RiRobot2Line,
           onPress: go('/(app)/shopping-agents'),
         },
-        {
-          key: 'referral-partner',
-          label: t('settings.sections.referralPartner'),
-          icon: RiTeamLine,
-          onPress: go('/(app)/referral-partner'),
-        },
       ],
     });
   }
@@ -174,6 +174,7 @@ export default function StorefrontSettingsDialog(state: SettingsDialogState) {
     appearance: { title: titles.appearance, content: <AppearanceSettingsPage accent /> },
     addresses: { title: t('settings.sections.addresses'), content: <AddressesSettingsPage /> },
     feedback: { title: t('feedback.title'), content: <FeedbackSettingsPage /> },
+    referrals: { title: t('settings.sections.referrals'), content: <ReferralsSettingsPage /> },
   };
 
   return <SettingsDialogShell {...state} groups={groups} pages={pages} />;

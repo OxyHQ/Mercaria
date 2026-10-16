@@ -342,10 +342,37 @@ Also deliberately absent:
 - **The dashboard-app (merchant) SCREENS.** The store mount already serves the
   whole surface at `/admin/stores/:storeId/referral-partner/*`; what is missing
   is a screen in `packages/dashboard`, not an endpoint.
-- **Instrument CREATION from the storefront screen.** The endpoints exist
-  (`POST /codes`, `POST /links`) and the client functions and mutation hooks are
-  written and typed; the screen renders the list, the status and the disclosure
-  and has no create form yet.
+
+## Referrals is a page of the storefront's Settings dialog
+
+The partner dashboard is the **Referrals** page of the storefront's Settings
+dialog (Bloom `SettingsModal`, `components/settings/referrals-page.tsx`), not a
+screen. `/referral-partner` survives only as a deep-link bridge that opens the
+dialog on that page, excused as `deliberate` in the route-reachability gate; on
+native, `+native-intent` maps it before routing. "Referral partner" was internal
+vocabulary — the reader-facing name is "Referrals".
+
+The page leads with the partner's LINKS, the thing they came for: each active
+link with a Copy control, and **Create link**, which issues a link under the
+partner's active code — or first a code under a programme whose current terms
+they accepted — and copies it. The server re-checks every condition; the client
+only hides a control that would certainly be refused. Retiring a code and
+revoking a link are still not offered here.
+
+Moving it into rows changed the layout and nothing the surface says: every
+figure still renders its definition, percentages name their base, there is no
+conversion rate, a withheld breakdown explains itself, the disclosure is
+verbatim and no state relies on colour. The breakdown dimensions now render
+translated labels rather than the raw enum member.
+
+### The shared URL is the API's `/r/<token>`, not `mercaria.co/r/<token>`
+
+ADR 0005 D3 names `mercaria.co/r/<token>`, but `GET /r/:token` is served by the
+API only: the storefront's Cloudflare worker (`public/_worker.js`) does not
+forward `/r/*`, so a `mercaria.co/r/...` link would land on the app and
+attribute nobody. The page therefore composes `${apiUrl}/r/<token>`
+(`api.mercaria.co` in production). Forwarding `/r/*` in the worker is what
+lets the page switch to the storefront host.
 
 ## A `ScreenShell` hazard this screen found, still open on native
 

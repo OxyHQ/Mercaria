@@ -4,7 +4,13 @@ import type { SidebarProps } from '@oxy.so/bloom/sidebar';
 import { useOxy } from '@oxy.so/services';
 import { Avatar } from '@oxy.so/bloom/avatar';
 import { Button } from '@oxy.so/bloom/button';
-import { CartFlightTarget, ShopNavigationIcon, shopNavigationIcon } from '@mercaria/ui';
+import { RiSettings3Line } from '@oxy.so/bloom/icons/RiSettings3Line';
+import {
+  CartFlightTarget,
+  ShopNavigationIcon,
+  shopNavigationIcon,
+  useSettingsDialog,
+} from '@mercaria/ui';
 import { Logo } from '@/components/Logo';
 import { useTranslation } from '@/lib/i18n';
 import { useCart } from '@/lib/hooks/use-cart';
@@ -42,6 +48,8 @@ export function useStorefrontSidebar(): SidebarProps {
 
   const goHome = useCallback(() => router.push('/'), [router]);
   const goProfile = useCallback(() => router.push('/profile'), [router]);
+  const settings = useSettingsDialog();
+  const openSettings = useCallback(() => settings.open(), [settings]);
 
   const available = useMemo(
     () => NAV_ITEMS.filter((item): item is AvailableNavItem => item.available),
@@ -79,6 +87,16 @@ export function useStorefrontSidebar(): SidebarProps {
         // hands back, so every push is checked against the real route tree.
         onPress: () => router.push(item.href),
       })),
+      // Settings is the Oxy-wide dialog, not a destination: an action row, as
+      // in every Oxy app's sidebar.
+      secondaryItems: [
+        {
+          key: 'settings',
+          label: t('nav.settings'),
+          icon: RiSettings3Line,
+          onPress: openSettings,
+        },
+      ],
       footer: () => (
         <Button
           appearance="plain"
@@ -96,6 +114,6 @@ export function useStorefrontSidebar(): SidebarProps {
         />
       ),
     }),
-    [available, avatar, cartCount, goHome, goProfile, router, selected, t, user],
+    [available, avatar, cartCount, goHome, goProfile, openSettings, router, selected, t, user],
   );
 }

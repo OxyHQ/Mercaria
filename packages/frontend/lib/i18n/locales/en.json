@@ -30,7 +30,8 @@
     "account": "Account",
     "signIn": "Sign in",
     "threeD": "3D",
-    "mainNavigation": "Main navigation"
+    "mainNavigation": "Main navigation",
+    "settings": "Settings"
   },
   "login": {
     "signInButton": "Sign in"
@@ -46,7 +47,7 @@
       "addresses": "Addresses",
       "watchlists": "Watchlists",
       "shoppingAgents": "Shopping agents",
-      "referralPartner": "Referral partner"
+      "referrals": "Referrals"
     },
     "currency": {
       "title": "Display currency",
@@ -1296,11 +1297,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Referral partner · Mercaria",
-    "title": "Referral partner",
     "loadError": "We could not load your referral dashboard. Please try again.",
     "signedOut": {
-      "title": "Sign in to see your referral partner account",
+      "title": "Sign in to see your referrals",
       "body": "Your links, what they have earned and when you will be paid.",
       "action": "Sign in"
     },
@@ -1347,11 +1346,19 @@
       "title": "Performance",
       "totals": "%{clicks} clicks · %{referrals} qualified referrals, %{from} to %{through}",
       "empty": "Nothing recorded in this period.",
-      "row": "%{label}: %{clicks} clicks · %{referrals} referrals"
+      "row": "%{label}: %{clicks} clicks · %{referrals} referrals",
+      "breakdownBy": "Break down by",
+      "dimension": {
+        "program": "Programme",
+        "campaign": "Campaign",
+        "instrument": "Link or code",
+        "market": "Market",
+        "clientSurface": "Platform",
+        "date": "Date"
+      }
     },
     "instruments": {
-      "title": "Your links and codes",
-      "empty": "You have no referral codes yet.",
+      "title": "Your codes",
       "disclosureIntro": "Publish this with every link:",
       "status": {
         "active": "active",
@@ -1366,6 +1373,16 @@
       "appeal": "You can appeal the decision on your participation.",
       "disputes": "Disputes about an attribution, a reversal or a payout are not yet handled here. Contact support and quote the date and amount shown above.",
       "noEmails": "We do not send referral emails yet, so check this page for changes."
+    },
+    "links": {
+      "title": "Your links",
+      "create": "Create link",
+      "copy": "Copy",
+      "copyLink": "Copy link %{url}",
+      "copied": "Link copied",
+      "createFailed": "We couldn't create a link. Please try again.",
+      "empty": "Create a link to share Mercaria. Referrals it brings are attributed to you.",
+      "notPartner": "Your link appears here once you are enrolled in a programme."
     }
   },
   "brand": {

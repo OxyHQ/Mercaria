@@ -30,7 +30,8 @@
     "account": "Cuenta",
     "signIn": "Iniciar sesión",
     "threeD": "3D",
-    "mainNavigation": "Navegación principal"
+    "mainNavigation": "Navegación principal",
+    "settings": "Ajustes"
   },
   "login": {
     "signInButton": "Iniciar sesión"
@@ -46,7 +47,7 @@
       "addresses": "Direcciones",
       "watchlists": "Listas de seguimiento",
       "shoppingAgents": "Agentes de compra",
-      "referralPartner": "Programa de referidos"
+      "referrals": "Referidos"
     },
     "currency": {
       "title": "Moneda de visualización",
@@ -1310,11 +1311,9 @@
     }
   },
   "referral": {
-    "documentTitle": "Socio de recomendaciones · Mercaria",
-    "title": "Socio de recomendaciones",
     "loadError": "No hemos podido cargar tu panel de recomendaciones. Inténtalo de nuevo.",
     "signedOut": {
-      "title": "Inicia sesión para ver tu cuenta de socio de recomendaciones",
+      "title": "Inicia sesión para ver tus referidos",
       "body": "Tus enlaces, lo que han generado y cuándo cobrarás.",
       "action": "Iniciar sesión"
     },
@@ -1362,11 +1361,19 @@
       "title": "Rendimiento",
       "totals": "%{clicks} clics · %{referrals} recomendaciones cualificadas, del %{from} al %{through}",
       "empty": "No se ha registrado nada en este periodo.",
-      "row": "%{label}: %{clicks} clics · %{referrals} recomendaciones"
+      "row": "%{label}: %{clicks} clics · %{referrals} recomendaciones",
+      "breakdownBy": "Desglosar por",
+      "dimension": {
+        "program": "Programa",
+        "campaign": "Campaña",
+        "instrument": "Enlace o código",
+        "market": "Mercado",
+        "clientSurface": "Plataforma",
+        "date": "Fecha"
+      }
     },
     "instruments": {
-      "title": "Tus enlaces y códigos",
-      "empty": "Todavía no tienes códigos de recomendación.",
+      "title": "Tus códigos",
       "disclosureIntro": "Publica esto con cada enlace:",
       "status": {
         "active": "activo",
@@ -1381,6 +1388,16 @@
       "appeal": "Puedes recurrir la decisión sobre tu participación.",
       "disputes": "Las reclamaciones sobre una atribución, una reversión o un pago todavía no se gestionan aquí. Contacta con el soporte e indica la fecha y el importe que se muestran arriba.",
       "noEmails": "Todavía no enviamos correos sobre recomendaciones, así que consulta esta página para ver los cambios."
+    },
+    "links": {
+      "title": "Tus enlaces",
+      "create": "Crear enlace",
+      "copy": "Copiar",
+      "copyLink": "Copiar el enlace %{url}",
+      "copied": "Enlace copiado",
+      "createFailed": "No se pudo crear el enlace. Inténtalo de nuevo.",
+      "empty": "Crea un enlace para compartir Mercaria. Los referidos que traiga se te atribuyen.",
+      "notPartner": "Tu enlace aparecerá aquí cuando estés inscrito en un programa."
     }
   },
   "brand": {

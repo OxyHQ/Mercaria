@@ -17,6 +17,7 @@ export const STOREFRONT_SETTINGS_PAGES = [
   'appearance',
   'addresses',
   'feedback',
+  'referrals',
 ] as const;
 export type StorefrontSettingsPage = (typeof STOREFRONT_SETTINGS_PAGES)[number];
 
@@ -29,6 +30,8 @@ const pageIds: ReadonlySet<string> = new Set(STOREFRONT_SETTINGS_PAGES);
 export function settingsPageFromRoute(route: string): StorefrontSettingsPage | undefined | null {
   const pathname = route.split(/[?#]/)[0]?.replace(/\/$/, '') ?? '';
   if (pathname === '/settings') return undefined;
+  // Referrals' old address, from before it was a Settings page (#147).
+  if (pathname === '/referral-partner') return 'referrals';
   if (!pathname.startsWith('/settings/')) return null;
   const id = pathname.slice('/settings/'.length);
   return pageIds.has(id) ? (id as StorefrontSettingsPage) : null;
