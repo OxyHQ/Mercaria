@@ -259,8 +259,7 @@ The house pattern for this exists and is documented —
 `routes/__tests__/search-rollout.realdb.test.ts:1-18` builds one module graph
 per lever value with `vi.resetModules()`, because `config/index.ts` reads
 `process.env` once at import; `routes/__tests__/guest-session.disabled.integration.test.ts`
-and `routes/__tests__/cart-guest.disabled.integration.test.ts` are the
-`*.disabled` counterparts. **The catalog epic has no `*-rollout` or `*.disabled`
+is the `*.disabled` counterpart. **The catalog epic has no `*-rollout` or `*.disabled`
 test.** The levers-off case is covered *incidentally*, because the whole realdb
 suite runs at default env and every existing cart and checkout test is therefore
 a levers-off sellability proof — but that is a coincidence of the defaults, not a

@@ -912,7 +912,6 @@
         "review": "Pots escriure una ressenya de compra verificada del que has comprat."
       },
       "blocked": {
-        "unavailable": "Desar comandes en un compte d'Oxy no està disponible temporalment. La teva comanda no es veu afectada i encara la pots obrir amb el teu enllaç d'accés.",
         "inboxNotVerified": "Confirma primer la teva adreça electrònica. Demana un enllaç d'accés nou i obre aquesta pàgina des d'aquest enllaç.",
         "claimedByAnotherAccount": "Aquestes comandes ja estan desades en un altre compte d'Oxy. Contacta amb el servei d'atenció si no és el que esperaves: Mercaria no les mourà automàticament."
       }

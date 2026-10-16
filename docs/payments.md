@@ -330,9 +330,9 @@ column names so the two claim queries are the same query.
 - **Backoff is exponential, capped at six hours**, and after 25 attempts (or on a
   non-retryable failure) the row becomes a VISIBLE `dead_letter` rather than
   accumulating attempts nobody reads.
-- **The LOOP is gated, never the record.** Rows are written whatever
-  `PAYMENT_OUTBOX_ENABLED` says, so switching the dispatcher off during an
-  incident parks work and switching it on delivers the backlog.
+- **The dispatcher always runs; the record is written by the transaction that
+  produced it.** A row written while no task was draining (a deploy, a crash) is
+  delivered by the next tick.
 
 An event type this version does not handle THROWS rather than completing as if
 handled, so during a rolling deploy the task running the newer code claims it.
@@ -1089,35 +1089,21 @@ paths learns to read `config.guest`. **`STRIPE_ENABLED=false` is NOT a guest
 rollback lever**: it disables the general marketplace rail and its webhook
 routes, stranding verified events.
 
-### The #85 gate, CLOSED
+### The #85 gate, REMOVED
 
-`readGuestSellerActivation` is the ONE function that decides whether a seller
-may sell to a guest beyond what payment readiness already decided. It shipped as
-a SEAM — `GuestSellerActivation` had no `activated` member, so
-`GUEST_SELLER_ACTIVATION_REQUIRED=true` refused EVERY guest checkout by name
-until #85 supplied the state.
+The guest checkout gate could once also refuse a seller whose guest conjunction
+did not hold (`readGuestSellerActivation`, `guest_seller_not_activated`), behind
+the opt-in `GUEST_SELLER_ACTIVATION_REQUIRED`. That flag only ever ran at its
+default — OFF, ADR 0006 G14's decision: guest eligibility at launch is the
+intersection of the gates that already exist, and a separate per-merchant guest
+OPT-IN would be a second, drifting answer to the question `onboarding_state`
+already answers — so the check was removed. The four block lists above are the
+whole guest rollout gate. The guest requirement set is still derived and shown
+to merchants (`docs/merchant-activation.md`).
 
-**#85 landed.** The union has its third member, the read lives in
-`services/merchant-activation/guest-activation.ts`, and `activated` means the
-GUEST CONJUNCTION holds — payment readiness plus the twelve facts #85 guest 2–14
-name (`docs/merchant-activation.md`). Nothing else in the checkout path moved:
-the four kill switches, the refusal shape, the reason code and the position in
-the gate order are unchanged. `guest_seller_not_activated` stays separate from
-`seller_not_payment_ready` because one seller cannot be PAID and the other has
-not been ACTIVATED, and a merchant sent to the wrong screen stays stuck.
-
-The flag still decides whether the question is ASKED, and still defaults OFF
-because that is ADR 0006 G14's decision rather than an omission — guest
-eligibility at launch is the intersection of the gates that already exist, and a
-separate per-merchant guest OPT-IN list would be a second, drifting answer to the
-question `onboarding_state` already answers. That survives: there is no column
-anybody can set to `activated`, and the early return keeps the default path free
-of a database read.
-
-#85 additionally added `seller_not_activated` — the AUTHENTICATED path's own
-reason code, for an operator hold, a merchant's own pause and an unaccepted fee
-schedule. It is deliberately not this one: "guest checkout is off for this store"
-and "this store is not selling at all" are different facts.
+#85 also added `seller_not_activated` — the AUTHENTICATED path's own reason
+code, for an operator hold, a merchant's own pause and an unaccepted fee
+schedule. That one is live.
 
 ### What a guest still cannot do
 
@@ -1139,7 +1125,6 @@ GUEST_CHECKOUT_BLOCKED_PLATFORMS=            # web,native — EMPTY = nothing bl
 GUEST_CHECKOUT_BLOCKED_MARKETS=              # ISO-3166 alpha-2
 GUEST_CHECKOUT_BLOCKED_SELLER_KEYS=          # store:<id>,user:<id> — case-sensitive
 GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=   # standard,express,pickup
-GUEST_SELLER_ACTIVATION_REQUIRED=false       # the #85 gate; true enforces the guest conjunction per seller
 ```
 
 ### What has NOT been verified
@@ -2067,7 +2052,7 @@ no adapter can produce is an invitation to write a row nothing can reconcile.
 |---|---|---|---|
 | `external` | none | **No** | Captured on Shopify/WooCommerce. Recorded so the order is explicable; no Mercaria money moved (ADR D12). |
 | `manual_pos` | none | **No** | Cash or a card terminal at a register. The money is in the merchant's drawer and never passes through Mercaria. |
-| `mock` | `SyntheticPaymentProvider` | Yes | The dev seam and the contract suite's subject. Hard-gated by `config.orders.mockPayEnabled`, off in production. |
+| `mock` | `SyntheticPaymentProvider` | Yes | The dev seam and the contract suite's subject. Exists only when `NODE_ENV` is `development` or `test` (`config.orders.mockPayEnabled`, derived — no variable); the API refuses to boot with `NODE_ENV` unset. |
 | `stripe` | `StripePaymentProvider` (#47); event side #48 | Yes | The card rail. Mercaria is merchant of record (ADR D1), so money arrives on the platform balance and each seller's share is a payable. |
 
 `external` and `manual_pos` having no adapter is the distinction the set encodes:
@@ -2134,8 +2119,7 @@ never carry a payload or a secret.
 ## Configuration
 
 ```
-PAYMENT_OUTBOX_ENABLED=true            # gates the LOOP, never the durable record
-PAYMENT_OUTBOX_BATCH_SIZE=50
+PAYMENT_OUTBOX_BATCH_SIZE=50           # the dispatcher always runs
 PAYMENT_OUTBOX_POLL_INTERVAL_MS=5000
 PAYMENT_OUTBOX_LEASE_MS=60000
 
@@ -2161,8 +2145,7 @@ STRIPE_ACCOUNT_SYNC_STALE_AFTER_MS=21600000   # 6 hours
 STRIPE_ACCOUNT_SYNC_BATCH_SIZE=25
 STRIPE_ACCOUNT_SYNC_INTERVAL_MS=900000        # 15 minutes
 
-PAYMENT_RECONCILIATION_ENABLED=true           # gates the LOOP, never the findings (#50)
-PAYMENT_RECONCILIATION_INTERVAL_MS=300000     # 5 minutes
+PAYMENT_RECONCILIATION_INTERVAL_MS=300000     # 5 minutes; the sweeps always run (#50)
 PAYMENT_RECONCILIATION_BATCH_SIZE=100
 PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS=600000   # 10 minutes
 PAYMENT_RECONCILIATION_LOOKBACK_MS=604800000            # 7 days, first pass only
@@ -2175,7 +2158,6 @@ GUEST_CHECKOUT_BLOCKED_PLATFORMS=             # the four guest kill switches (#1
 GUEST_CHECKOUT_BLOCKED_MARKETS=               # every one EMPTY = nothing blocked
 GUEST_CHECKOUT_BLOCKED_SELLER_KEYS=
 GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=
-GUEST_SELLER_ACTIVATION_REQUIRED=false        # the #85 gate; true enforces the guest conjunction per seller
 ```
 
 `PAYMENT_RECONCILIATION_*` values bound WORK rather than correctness, which is
@@ -2707,7 +2689,7 @@ Run these four, in order, before letting the task serve traffic:
    `ledgerImbalanceAttempts` must be 0. If a currency does not net to zero, the
    restore is torn — stop and go back to infra.
 2. **A full discrepancy sweep has run.** Force one by restarting a task
-   (`PAYMENT_RECONCILIATION_ENABLED=true`) and watch
+   (the sweeps always run) and watch
    `reconciliation.cursors[].lastCompletedAt` advance for all five jobs. The
    `provider_objects` window must be widened for this pass — set
    `PAYMENT_RECONCILIATION_LOOKBACK_MS` past the restore gap, since the cursor
@@ -2778,8 +2760,8 @@ in ADR 0001 — so this list is also the record of what "live" will require.
 
 **Reconciliation**
 
-- [ ] `PAYMENT_RECONCILIATION_ENABLED` is true and all four cursors show a
-      `lastCompletedAt` within the last hour.
+- [ ] All four reconciliation cursors show a `lastCompletedAt` within the last
+      hour.
 - [ ] `PAYMENT_RECONCILIATION_OPEN_PAYMENT_MIN_AGE_MS` is comfortably below
       `RESERVATION_TTL_MS` (default 10 minutes against 15), so a missed success
       is converged BEFORE the reservation sweep releases the stock.

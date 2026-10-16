@@ -15,7 +15,6 @@ Code:
 | `services/merchant-activation/facts.ts` | The ONE module that reads. |
 | `services/merchant-activation/activation.service.ts` | Composes and projects. |
 | `services/merchant-activation/checkout-gate.ts` | The narrow gate on checkout. |
-| `services/merchant-activation/guest-activation.ts` | #107's seam, closed. |
 | `services/merchant-activation/settings.service.ts` | The writes, each with its audit. |
 | `services/merchant-activation/transitions.service.ts` | Observation, the sweep, the trace. |
 | `db/merchantActivation/` | Three repositories. |
@@ -179,26 +178,20 @@ moderation fact about somebody else's business.
 **A deployment that has published no fee schedule is unaffected**: no applicable
 schedule is #88's honest zero and the predicate reads it as satisfied.
 
-## #107's `#85` seam is CLOSED
+## #107's `#85` seam is GONE
 
-`GuestSellerActivation` gains its third member, `activated`, and
-`readGuestSellerActivation` is now a real read in
-`services/merchant-activation/guest-activation.ts`. Nothing else in the checkout
-path moved: the four kill switches, the refusal shape, the reason code
-(`guest_seller_not_activated`) and the position in the gate order are unchanged.
+The guest checkout gate used to be able to ask, per seller, whether the guest
+conjunction holds (`readGuestSellerActivation`), behind the opt-in
+`GUEST_SELLER_ACTIVATION_REQUIRED` flag. The flag only ever ran at its default
+(OFF — ADR 0006 G14: guest eligibility is the intersection of the gates that
+already exist), so the check, the read and the `guest_seller_not_activated`
+checkout refusal were removed rather than kept as a dormant second answer. The
+four rollout block lists are the only guest-checkout gates in `guest-rollout.ts`.
 
-`GUEST_SELLER_ACTIVATION_REQUIRED` still gates whether the question is ASKED, and
-still defaults OFF — ADR 0006 G14's decision, not an omission. The early return
-is also what keeps the default path free of a database read.
-
-`activated` means the guest CONJUNCTION holds. There is no column a merchant or
-an operator could set to `activated` directly and no configuration that produces
-one, which is ADR 0006 G14's "a per-merchant guest opt-in list would be a second,
-drifting answer to what `onboarding_state` already answers" surviving intact.
-
-An individual seller answers `not_activated` / `p2p_activation_unavailable`,
-always — the fail-closed direction on the one path where two gates disagreeing
-would matter.
+The guest requirement set itself is unchanged: the dashboard still derives and
+reports it per store (`activated` means the guest CONJUNCTION holds, and there is
+no column or configuration that produces one). `guest_seller_not_activated`
+stays in `ANALYTICS_REASON_CODES` because stored analytics rows may carry it.
 
 ## #112's `policies_accepted` criterion is CLOSED
 
@@ -315,7 +308,7 @@ image writes is broken by it.
 | 6 | Every readiness failure has an owner-facing explanation and an operator trace | **MET.** A closed reason-code set per requirement, plus the transition trail. |
 | 7 | Feature flags support pilot merchants and market-by-market activation | **PARTIAL, and stated.** The per-merchant and per-market levers exist (`GUEST_CHECKOUT_BLOCKED_SELLER_KEYS`, `GUEST_CHECKOUT_BLOCKED_MARKETS`, `CHECKOUT_DESTINATION_COUNTRIES`) and this domain reads them. A POSITIVE cohort model is #111's, and `guest_cohort_enabled` reads the block list rather than claiming a cohort that does not exist. |
 | 8 | Guest readiness is separate from general native checkout and cannot be inferred from Stripe readiness alone | **MET.** Two disjoint registries; guest names twelve facts Stripe does not answer. |
-| 9 | A signed-out buyer sees guest checkout only for an actually eligible offer and fulfilment path | **MET on the server.** `readGuestSellerActivation` answers the guest conjunction and the gate refuses. The storefront affordance is #111's rollout work. |
+| 9 | A signed-out buyer sees guest checkout only for an actually eligible offer and fulfilment path | **Not a separate gate.** ADR 0006 G14: the existing gates (payment readiness, the P2P exclusion, market, currency and fulfilment eligibility, the rollout block lists) ARE guest eligibility; the opt-in per-seller activation check that duplicated them was removed. The storefront affordance is #111's rollout work. |
 | 10 | Merchant staff can fulfil, refund and support guest orders without an Oxy buyer profile or access to guest security data | **MET, and it was #106's.** `MerchantOrder` `Omit`s the buyer fields and `order_status_history.actor_guest_session_id` is in `PROTECTED_COLUMNS`. What #85 adds is `guest_buyer_data_permissions_scoped` — a requirement that SOMEBODY on the store holds the permission. Since ADR 0012 it is met by construction: the store's owning Oxy account holds every permission and no override can take one from it, so the requirement (and `guest_refund_operations_available`) stays in the published registry and is satisfied structurally rather than by a read. |
 | 11 | Pausing new guest checkout preserves portal, support, refund and fulfilment operations for existing orders | **MET.** The pause is an intent column read only by the derivation; #108's portal router mounts unconditionally and a scanned gate there forbids a read path from reading a guest lever. |
 | 12 | P2P guest checkout remains false until #112 passes its independent gate | **MET.** `GuestP2PAuthorization` still has no member meaning yes, and `guest_p2p_checkout` is `not_applicable` for a store. |
@@ -335,8 +328,8 @@ image writes is broken by it.
   own publications through #93's own `locationCollectionBlockers`. Pickup is in
   the guest fulfilment set on the same three conjuncts.
 
-  The exclusion it replaced was not merely stale, it was CIRCULAR under
-  `GUEST_SELLER_ACTIVATION_REQUIRED`: a store whose only guest-capable
+  The exclusion it replaced was not merely stale, it was CIRCULAR under the
+  since-removed `GUEST_SELLER_ACTIVATION_REQUIRED` gate: a store whose only guest-capable
   fulfilment was collection read `guest_fulfilment_method_blocked`, which
   withheld its guest activation, which `derivePickupEligibility` then read
   BACK as `guest_seller_not_activated` — two refusals citing each other with

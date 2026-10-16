@@ -29,17 +29,12 @@ const DEFAULT_HTTP_STATUS: Record<ErrorCode, number> = {
   [ErrorCodes.RATE_LIMITED]: 429,
   [ErrorCodes.OUT_OF_STOCK]: 409,
   [ErrorCodes.INTERNAL_ERROR]: 500,
-  // 503, not 4xx: the caller did nothing wrong — the issuance kill switch is
-  // thrown (ADR 0003), and retrying later is the correct client behaviour.
+  // 503, not 4xx: the caller did nothing wrong — issuance was refused by the
+  // deployment (ADR 0003), and retrying later is the correct client behaviour.
   [ErrorCodes.GUEST_ISSUANCE_DISABLED]: 503,
   // 403, not 503: this deployment does not do guest carts at all, so retrying
   // never helps. The client's correct response is to offer sign-in (#104).
   [ErrorCodes.GUEST_CART_DISABLED]: 403,
-  // 403, matching `GUEST_CART_DISABLED` rather than the 503 above: claiming is
-  // switched off for this deployment, so retrying later is not the client's
-  // correct behaviour — hiding the offer is. The buyer's ORDER is unaffected
-  // either way, which is what the message says (#109).
-  [ErrorCodes.GUEST_CLAIM_DISABLED]: 403,
   // 503: the capability exists and is paused. See the code's own docblock.
   [ErrorCodes.BUYER_REQUESTS_DISABLED]: 503,
   // 409: two clients edited one list and this one lost. The remedy is the

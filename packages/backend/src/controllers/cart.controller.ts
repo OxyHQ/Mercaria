@@ -109,9 +109,9 @@ async function cartViewForWrite(req: Request, res: Response): Promise<CartView |
 
   const actor = req.commerceActor;
   if (!actor || !mayIssueGuestCart(actor)) {
-    // A guest actor whose owner resolved to null means guest carts are off on
-    // this deployment; a missing actor means the resolver did not run, which is
-    // a wiring bug and must not silently write.
+    // Guest commerce is off on this deployment (or the caller is already a
+    // guest or an Oxy buyer); a missing actor means the resolver did not run,
+    // which is a wiring bug and must not silently write.
     // #77 guest event 14 — "a feature flag or cohort gate blocked the flow".
     // The ONE guest gate this backend can classify honestly today: the refusal
     // is a bounded ErrorCode rather than a sentence, so the reason code is read
@@ -348,17 +348,15 @@ export async function mergeGuestCartHandler(req: Request, res: Response): Promis
 }
 
 /**
- * Answer the issuance kill switch (`GUEST_SESSION_ISSUANCE_ENABLED=false`) as
- * a retryable 503, matching the `/guest/session` surface exactly.
- *
- * A buyer whose add-to-cart lands during an abuse incident is told to try
- * again, not handed a 500 that reads as "the shop is broken".
+ * Answer an issuance refusal (`GuestIssuanceDisabledError`, the guest-commerce
+ * gate re-checked inside `issueGuestSession`) as a 503, matching the
+ * `/guest/session` surface exactly, rather than a 500 that reads as "the shop
+ * is broken".
  */
 function respondIfIssuanceDisabled(req: Request, res: Response, err: unknown): boolean {
   if (!(err instanceof GuestIssuanceDisabledError)) return false;
-  // The second real gate, and the same bounded-code reasoning as the cart one
-  // above: the incident kill switch is a decision this code MADE, not a
-  // sentence it has to parse back.
+  // The same bounded-code reasoning as the cart gate above: the refusal is a
+  // decision this code MADE, not a sentence it has to parse back.
   emitAnalyticsEvent(req, {
     eventType: 'guest_feature_gate_blocked',
     reasonCode: 'guest_issuance_disabled',

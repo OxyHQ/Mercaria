@@ -242,33 +242,21 @@ const AUTOMATIC_BENEFIT_REFERENCE =
   /insertAddress|updateAddress|addressRepository|marketingOptIn|marketing_opt_in|subscribeToMarketing|savePaymentMethod/;
 
 /**
- * The modules that must not read a claim FLAG (#109's own levers).
+ * The modules that may read guest CONFIGURATION at all — and only tunables.
  *
- * A claim is an ownership record: turning a lever off must never make an
+ * A claim is an ownership record: nothing configurable may ever make an
  * already-claimed order stop belonging to the account that claimed it, stop
- * appearing in its history, or stop being readable by an operator. So the read
- * paths, the projection and the operator surface read no lever — the WRITE
- * path (`claim.service.ts`) and the LOOP (`claim-outbox.service.ts`) do, which
- * is why they are absent from this list rather than exempted inside it.
+ * appearing in its history, or stop being readable by an operator. #109's three
+ * levers (the claim write, the projection loop, the four-eyes policy) are gone —
+ * claiming is always on and a revocation always needs a second operator — so
+ * the one module left reading `config.guest` is the dispatcher, for its batch,
+ * poll, lease and attempt TUNABLES.
  */
 const FLAG_READING_CLAIM_MODULES = [
   {
-    path: 'services/guest-claims/claim.service.ts',
-    reads: /config\.guest\.claim\.enabled/,
-    why: 'the WRITE path — `GUEST_CLAIM_ENABLED` refuses a NEW claim and never hides a stored one',
-  },
-  {
     path: 'services/guest-claims/claim-outbox.service.ts',
-    reads: /config\.guest\.claim\.projectionEnabled/,
-    why: 'the LOOP — `GUEST_CLAIM_PROJECTION_ENABLED` gates the dispatcher, never the durable row',
-  },
-  {
-    path: 'services/guest-claims/revocation.service.ts',
-    reads: /config\.guest\.claim\.fourEyesRequired/,
-    why:
-      'the four-eyes POLICY, and it is SNAPSHOTTED onto the request at creation — the lever ' +
-      'decides how many approvers a NEW revocation needs, once, and is then a stored column. ' +
-      'It cannot hide, gate or unread a claim that already exists',
+    reads: /config\.guest\.claim\.job(BatchSize|PollIntervalMs|LeaseMs|MaxAttempts)/,
+    why: 'the dispatcher TUNABLES — they pace the loop and gate nothing',
   },
 ] as const;
 
@@ -297,7 +285,7 @@ const NO_FLAG_PATHS = [
 ];
 
 /** Reading a guest feature lever. */
-const GUEST_FLAG_REFERENCE = /config\.guest|GUEST_CLAIM_ENABLED|GUEST_COMMERCE_ENABLED/;
+const GUEST_FLAG_REFERENCE = /config\.guest|GUEST_COMMERCE_ENABLED/;
 
 /** Read a path in the claim set, refusing an empty or moved file. */
 function readClaimSource(relative: string): string {
@@ -688,8 +676,8 @@ describe('the guest claim path cannot reach what it must not', () => {
     // may grow is the wall switching itself off a defensible module at a time.
     expect(
       FLAG_READING_CLAIM_MODULES.length,
-      'a fourth module was excused from the flag wall',
-    ).toBe(3);
+      'a second module was excused from the flag wall',
+    ).toBe(1);
     expect(NO_FLAG_PATHS.length, 'the flag wall covers too few modules').toBeGreaterThanOrEqual(4);
 
     for (const relative of NO_FLAG_PATHS) {
@@ -715,11 +703,10 @@ describe('the guest claim path cannot reach what it must not', () => {
       ).toBe(true);
       expect(NO_FLAG_PATHS, `${path} is both excused and scanned`).not.toContain(path);
       // The half that makes the exception SAFE rather than merely justified:
-      // the levers it reads must be the ones it was excused for. `revocation`
-      // reading a POLICY is why it is here; `revocation` learning to read an
-      // enablement flag would be the exact defect this wall exists to catch,
-      // and an exemption keyed on the module rather than on the lever would
-      // swallow it silently.
+      // what it reads must be what it was excused for. The dispatcher learning
+      // to read an enablement flag would be the exact defect this wall exists
+      // to catch, and an exemption keyed on the module rather than on the
+      // value would swallow it silently.
       const levers = [...code.matchAll(/config\.guest\.[A-Za-z.]+/gu)].map((match) => match[0]);
       expect(
         levers.length,

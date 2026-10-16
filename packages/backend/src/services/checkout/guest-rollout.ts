@@ -1,6 +1,10 @@
 /**
- * The guest-checkout rollout gates (#107 acceptance 13, fraud rule 8) and the
- * #85 merchant-activation seam.
+ * The guest-checkout rollout gates (#107 acceptance 13, fraud rule 8).
+ *
+ * There is no merchant-activation gate here: ADR 0006 G14 decided guest
+ * eligibility is the intersection of the gates that already exist, so the
+ * opt-in `GUEST_SELLER_ACTIVATION_REQUIRED` check (default off, never enabled)
+ * was removed rather than kept as a dormant second answer.
  *
  * ## Where this sits, and why it is not one more clause in the eligibility gate
  *
@@ -48,7 +52,6 @@ import type { ShippingMethod } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import type { CommerceActor, GuestActor } from '../commerce-actor.js';
-import { readGuestSellerActivation } from '../merchant-activation/guest-activation.js';
 import { checkoutRefusal } from './refusal.js';
 import type { EligibilitySellerGroup } from './fulfilment-eligibility.js';
 
@@ -76,29 +79,6 @@ export type GuestCheckoutPlatform = 'web' | 'native';
 export function guestCheckoutPlatform(actor: GuestActor): GuestCheckoutPlatform {
   return actor.transport === 'cookie' ? 'web' : 'native';
 }
-
-/**
- * The #85 seam, CLOSED.
- *
- * This file shipped `GuestSellerActivation` with two members and no `activated`,
- * so `GUEST_SELLER_ACTIVATION_REQUIRED=true` refused every guest checkout by
- * name until #85 supplied the state. #85 landed; the union, the read and the
- * verdict now live in `services/merchant-activation/guest-activation.ts`, beside
- * the derivation that answers them, and this file re-exports the type so nothing
- * that imported it from here had to move.
- *
- * A clean cut rather than a compat shim: the old two-member union is GONE, the
- * old `readGuestSellerActivation` is GONE, and the gate below now awaits the
- * real answer. What did NOT change is everything around it — the four kill
- * switches, the refusal shape, the reason code and the ordering — which is what
- * the seam existed to make true.
- *
- * The same thing happened to the pickup seam beside it: #93's
- * `assertPickupLocationEligible` refused unconditionally until the facts
- * existed, and #93 replaced its body without touching a caller. Two seams, two
- * fillings, no caller edited either time — which is the shape a seam is for.
- */
-export type { GuestSellerActivation } from '../merchant-activation/guest-activation.js';
 
 /**
  * Refuse a guest checkout an operator has switched off — BEFORE anything is
@@ -132,10 +112,6 @@ export async function assertGuestCheckoutRolloutAllowed(input: {
     refuse('market', { market: input.destinationCountry });
   }
 
-  // Read straight off the block list rather than through
-  // `readGuestSellerActivation`: this is the KILL SWITCH dimension, it is
-  // synchronous, and it must refuse before the activation read is even attempted
-  // — an operator withdrawing a merchant at 3am should not wait on eleven tables.
   const blockedSellers = input.groups
     .filter((group) => rollout.blockedSellerKeys.includes(group.sellerKey))
     .map((group) => group.sellerKey);
@@ -149,69 +125,6 @@ export async function assertGuestCheckoutRolloutAllowed(input: {
   if (blockedMethods.length > 0) {
     refuse('fulfilment', { methods: blockedMethods });
   }
-
-  await assertGuestSellersActivated(input.groups);
-}
-
-/**
- * The #85 gate proper: with `GUEST_SELLER_ACTIVATION_REQUIRED` on, a seller
- * whose guest conjunction does not hold cannot sell to a guest.
- *
- * ## The flag still decides whether the question is ASKED
- *
- * OFF by default, which is ADR 0006 G14's decision and not an omission: guest
- * eligibility is the intersection of the gates that already exist, and
- * defaulting this on would refuse a checkout the ADR says is eligible. The
- * early return is also what keeps the default path free of a database read —
- * a deployment that has not opted in pays nothing for this gate existing.
- *
- * ## What changed when #85 landed, and what did not
- *
- * Before: no configuration could produce `activated`, so turning the flag on
- * refused EVERY guest checkout. Now the answer is the guest requirement set,
- * derived per seller. The reason code, the message, the position in the gate
- * order and the fail-closed direction are all unchanged — a seller Mercaria
- * cannot answer for is `not_activated`, never a soft yes.
- *
- * A separate function from the four levers above because it is a different KIND
- * of refusal — a policy this deployment has chosen to enforce, not an incident
- * switch — and it earns its own reason code for the same reason
- * `seller_not_payment_ready` has one: the remedy is a merchant action, and a
- * merchant sent to the wrong screen stays stuck.
- */
-async function assertGuestSellersActivated(
-  groups: readonly EligibilitySellerGroup[],
-): Promise<void> {
-  if (!config.guest.checkoutRollout.sellerActivationRequired) return;
-
-  const verdicts = await Promise.all(
-    groups.map(async (group) => ({
-      sellerKey: group.sellerKey,
-      activation: await readGuestSellerActivation(group.sellerKey),
-    })),
-  );
-  const unactivated = verdicts
-    .filter((verdict) => verdict.activation.state === 'not_activated')
-    .map((verdict) => verdict.sellerKey)
-    .sort();
-  if (unactivated.length === 0) return;
-
-  log.guest.warn(
-    {
-      sellerKeys: unactivated,
-      reasons: verdicts
-        .filter((verdict) => verdict.activation.state === 'not_activated')
-        .map((verdict) =>
-          verdict.activation.state === 'not_activated' ? verdict.activation.reason : 'unknown',
-        ),
-    },
-    '[Guest] GUEST_SELLER_ACTIVATION_REQUIRED is on and a seller is not activated for guest checkout',
-  );
-  throw checkoutRefusal(
-    'guest_seller_not_activated',
-    `These sellers have not been activated for guest checkout: ${unactivated.join(', ')}. ` +
-      'Sign in to buy from them, or remove them to check out with the rest.',
-  );
 }
 
 /** Every distinct fulfilment method the selected groups asked for, sorted. */
