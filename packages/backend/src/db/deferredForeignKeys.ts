@@ -275,32 +275,16 @@ export const FOREIGN_KEY_SPACE_ID_REASONS: readonly string[] = [
  * #367 added one there and it took a reviewer, not a gate, to notice.
  */
 export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: string }[] = [
-  {
-    column: 'material_offers.owner_account_id',
-    reason: 'Oxy owns account identity; read current membership via its SDK.',
-  },
-  {
-    column: 'material_offers.created_by_account_id',
-    reason: 'Oxy owns account identity; read current membership via its SDK.',
-  },
-  {
-    column: 'material_reservations.requester_account_id',
-    reason: 'Oxy owns account identity; read current membership via its SDK.',
-  },
-  {
-    column: 'material_reservations.created_by_account_id',
-    reason: 'Oxy owns account identity; read current membership via its SDK.',
-  },
-  {
-    column: 'material_reservation_events.acting_account_id',
-    reason: 'Oxy owns account identity; read current membership via its SDK.',
-  },
-  {
-    column: 'material_reservation_events.actor_account_id',
-    reason: 'Oxy owns account identity; read current membership via its SDK.',
-  },
   // ── Oxy account ids ───────────────────────────────────────────────────────
   { column: 'abuse_reports.reporter_oxy_user_id', reason: OXY_ACCOUNT },
+  // Donated materials: owners, requesters and acting accounts are people or
+  // organizations; current membership is read from Oxy on every action.
+  { column: 'material_offers.owner_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_offers.created_by_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_reservations.requester_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_reservations.created_by_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_reservation_events.acting_account_id', reason: OXY_ACCOUNT },
+  { column: 'material_reservation_events.actor_account_id', reason: OXY_ACCOUNT },
   // #66's three operator stamps. Oxy ids like every other row in this block,
   // and two of them sit on APPEND-ONLY tables whose whole purpose is to answer
   // "who decided this" — an actor column that could be erased with the account
@@ -1574,6 +1558,13 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'second source of truth the whole design exists to avoid. The Mercaria half of the pairing ' +
       'is `moovo_source_reference`, which is GENERATED from this row and is what an inbound Moovo ' +
       'event resolves against.',
+  },
+  {
+    column: 'material_reservations.moovo_transport_id',
+    reason:
+      "MOOVO's own id for a donation's transport, in another Oxy service's key space. Moovo " +
+      'owns the transport, its quote and its payer authorization; Mercaria keeps only this ' +
+      'reference and reads the transport through the Moovo SDK.',
   },
   // ── The ranking policy register (#74) ─────────────────────────────────────
   // The whole of what this table holds about a person: who drafted a policy

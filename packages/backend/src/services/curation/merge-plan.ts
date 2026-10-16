@@ -2046,6 +2046,13 @@ const SELF_REFERENCE_DRIZZLE_OMITS =
   'both the migration and the snapshot. It names a row of its own kind, never one of the ' +
   'seven, so a merge has nothing to do with it.';
 
+/** A donation reservation's Moovo transport reference. */
+const MATERIAL_DONATION =
+  'A donated-material reservation: its status discriminates a lifecycle, not an entity kind, ' +
+  "and `moovo_transport_id` is Moovo's key space (filed bespoke in the ledger). Its FK names " +
+  "a material offer and its accounts are Oxy's; nothing names one of the seven, so a merge " +
+  'has nothing to move.';
+
 /** A real Mercaria row outside the seven. */
 const MERCARIA_ROW_OUTSIDE_THE_SEVEN =
   'A real row in this database that is not one of the seven mergeable entities — an affiliate ' +
@@ -2449,6 +2456,11 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     table: 'ledger_transactions',
     disposition: 'not_an_entity_reference',
     reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'material_reservations',
+    disposition: 'not_an_entity_reference',
+    reason: MATERIAL_DONATION,
   },
   {
     table: 'merchant_acquisition_audits',

@@ -76,6 +76,12 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/3d/game-assets.tsx',
   'app/(app)/3d/[slug].tsx',
   'app/(app)/creators/[slug].tsx',
+  // Donated materials (docs/materials.md): an account's own offers, requests and
+  // reservations, and a payer's transport-approval link. Read with the caller's
+  // credential and account-scoped; `/materials` is in `SEO_ROBOTS_DISALLOWED_PATHS`,
+  // which covers the transport page by prefix.
+  'app/(app)/materials.tsx',
+  'app/(app)/materials-transport/[id].tsx',
   'app/(app)/notifications.tsx',
   'app/(app)/price-alerts.tsx',
   // The referral partner dashboard (#147) — one account's own instruments,

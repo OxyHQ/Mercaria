@@ -16,9 +16,9 @@ import {
 } from '@mercaria/contracts';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
-  materialOffers as offers,
-  materialReservations as reservations,
-  materialReservationEvents as events,
+  materialOffers,
+  materialReservations,
+  materialReservationEvents,
 } from '../../db/schema/materials.js';
 import { PublicApiError } from '../public-api/errors.js';
 import { publicCursorFingerprint } from '../public-api/cursor.js';
@@ -27,23 +27,23 @@ import { MercariaError } from '../../lib/errors/error-codes.js';
 import type { StoreCaller } from '../store-access.service.js';
 
 const offerColumns = {
-  id: offers.id,
-  ownerAccountId: offers.ownerAccountId,
-  title: offers.title,
-  description: offers.description,
-  publicArea: offers.publicArea,
-  quantity: offers.quantity,
-  unit: offers.unit,
-  pickupInstructions: offers.pickupInstructions,
-  status: offers.status,
-  idempotencyKey: offers.idempotencyKey,
-  createdByAccountId: offers.createdByAccountId,
-  createdAt: offers.createdAt,
-  updatedAt: offers.updatedAt,
+  id: materialOffers.id,
+  ownerAccountId: materialOffers.ownerAccountId,
+  title: materialOffers.title,
+  description: materialOffers.description,
+  publicArea: materialOffers.publicArea,
+  quantity: materialOffers.quantity,
+  unit: materialOffers.unit,
+  pickupInstructions: materialOffers.pickupInstructions,
+  status: materialOffers.status,
+  idempotencyKey: materialOffers.idempotencyKey,
+  createdByAccountId: materialOffers.createdByAccountId,
+  createdAt: materialOffers.createdAt,
+  updatedAt: materialOffers.updatedAt,
 };
-const reservationColumns = getTableColumns(reservations);
-type OfferRow = typeof offers.$inferSelect;
-type ReservationRow = typeof reservations.$inferSelect;
+const reservationColumns = getTableColumns(materialReservations);
+type OfferRow = typeof materialOffers.$inferSelect;
+type ReservationRow = typeof materialReservations.$inferSelect;
 
 /** No role cache: a removed organization member cannot act using a prior materials response. */
 async function authorize(caller: StoreCaller | null, accountId: string): Promise<string> {
@@ -80,19 +80,19 @@ const check = <T>(schema: z.ZodType<T>, value: unknown): T => {
 };
 
 async function findOffer(id: string, db: DatabaseOrTransaction, lock = false): Promise<OfferRow> {
-  const q = db.select(offerColumns).from(offers).where(eq(offers.id, id));
+  const q = db.select(offerColumns).from(materialOffers).where(eq(materialOffers.id, id));
   const [row] = await (lock ? q.for('update') : q);
   return row ?? missing();
 }
 async function findReservation(id: string, db: DatabaseOrTransaction): Promise<ReservationRow> {
   const [row] = await db
     .select(reservationColumns)
-    .from(reservations)
-    .where(eq(reservations.id, id));
+    .from(materialReservations)
+    .where(eq(materialReservations.id, id));
   return row ?? missing();
 }
 
-/** Aggregate only this page's offers. No stored counter can drift from reservation state. */
+/** Aggregate only this page's materialOffers. No stored counter can drift from reservation state. */
 async function projectOffers(
   rows: OfferRow[],
   db: DatabaseOrTransaction,
@@ -100,18 +100,18 @@ async function projectOffers(
   if (!rows.length) return [];
   const quantities = await db
     .select({
-      offerId: reservations.offerId,
-      committed: sql<number>`coalesce(sum(${reservations.quantity}) filter (where ${reservations.status} = 'accepted'), 0)::int`,
-      received: sql<number>`coalesce(sum(${reservations.quantity}) filter (where ${reservations.status} = 'delivered'), 0)::int`,
+      offerId: materialReservations.offerId,
+      committed: sql<number>`coalesce(sum(${materialReservations.quantity}) filter (where ${materialReservations.status} = 'accepted'), 0)::int`,
+      received: sql<number>`coalesce(sum(${materialReservations.quantity}) filter (where ${materialReservations.status} = 'delivered'), 0)::int`,
     })
-    .from(reservations)
+    .from(materialReservations)
     .where(
       inArray(
-        reservations.offerId,
+        materialReservations.offerId,
         rows.map((row) => row.id),
       ),
     )
-    .groupBy(reservations.offerId);
+    .groupBy(materialReservations.offerId);
   const byOffer = new Map(quantities.map((row) => [row.offerId, row]));
   return rows.map((row) => {
     const totals = byOffer.get(row.id);
@@ -157,7 +157,7 @@ export async function createMaterialOffer(caller: StoreCaller | null, input: Mat
   const actor = await authorize(caller, body.ownerAccountId);
   return getDb().transaction(async (tx) => {
     const [created] = await tx
-      .insert(offers)
+      .insert(materialOffers)
       .values({ ...body, createdByAccountId: actor })
       .onConflictDoNothing()
       .returning(offerColumns);
@@ -165,11 +165,11 @@ export async function createMaterialOffer(caller: StoreCaller | null, input: Mat
       ? [created]
       : await tx
           .select(offerColumns)
-          .from(offers)
+          .from(materialOffers)
           .where(
             and(
-              eq(offers.ownerAccountId, body.ownerAccountId),
-              eq(offers.idempotencyKey, body.idempotencyKey),
+              eq(materialOffers.ownerAccountId, body.ownerAccountId),
+              eq(materialOffers.idempotencyKey, body.idempotencyKey),
             ),
           );
     if (!existing) return missing();
@@ -198,9 +198,9 @@ export async function closeMaterialOffer(
     const row = await findOffer(id, tx, true);
     if (row.ownerAccountId !== body.actingAccountId) return missing();
     const [closed] = await tx
-      .update(offers)
+      .update(materialOffers)
       .set({ status: 'closed', updatedAt: new Date() })
-      .where(eq(offers.id, id))
+      .where(eq(materialOffers.id, id))
       .returning(offerColumns);
     return (await projectOffers([closed], tx))[0];
   });
@@ -218,11 +218,11 @@ export async function requestMaterial(
       conflict('An account cannot request its own donation');
     const [existing] = await tx
       .select(reservationColumns)
-      .from(reservations)
+      .from(materialReservations)
       .where(
         and(
-          eq(reservations.requesterAccountId, body.requesterAccountId),
-          eq(reservations.idempotencyKey, body.idempotencyKey),
+          eq(materialReservations.requesterAccountId, body.requesterAccountId),
+          eq(materialReservations.idempotencyKey, body.idempotencyKey),
         ),
       );
     if (existing) {
@@ -233,12 +233,12 @@ export async function requestMaterial(
     if (offer.status !== 'active') conflict('This offer is closed');
     if (body.quantity > offer.quantity) conflict('The requested quantity exceeds this offer');
     const [created] = await tx
-      .insert(reservations)
+      .insert(materialReservations)
       .values({ ...body, offerId, createdByAccountId: actor })
       .onConflictDoNothing()
       .returning(reservationColumns);
     if (!created) conflict('This idempotency key was already used for another request');
-    await tx.insert(events).values({
+    await tx.insert(materialReservationEvents).values({
       reservationId: created.id,
       actingAccountId: body.requesterAccountId,
       actorAccountId: actor,
@@ -273,13 +273,13 @@ export async function transitionMaterialReservation(
           : 'Only the recipient can confirm receipt',
       );
     const [replay] = await tx
-      .select({ status: events.status })
-      .from(events)
+      .select({ status: materialReservationEvents.status })
+      .from(materialReservationEvents)
       .where(
         and(
-          eq(events.reservationId, id),
-          eq(events.actingAccountId, body.actingAccountId),
-          eq(events.idempotencyKey, body.idempotencyKey),
+          eq(materialReservationEvents.reservationId, id),
+          eq(materialReservationEvents.actingAccountId, body.actingAccountId),
+          eq(materialReservationEvents.idempotencyKey, body.idempotencyKey),
         ),
       );
     if (replay) {
@@ -288,7 +288,7 @@ export async function transitionMaterialReservation(
       return projectReservation(row, offer);
     }
     if (row.status === target) {
-      await tx.insert(events).values({
+      await tx.insert(materialReservationEvents).values({
         reservationId: id,
         actingAccountId: body.actingAccountId,
         actorAccountId: actor,
@@ -308,11 +308,11 @@ export async function transitionMaterialReservation(
     } else if (row.status !== 'requested' && row.status !== 'accepted')
       conflict('A received donation cannot be cancelled');
     const [updated] = await tx
-      .update(reservations)
+      .update(materialReservations)
       .set({ status: target, updatedAt: new Date() })
-      .where(eq(reservations.id, id))
+      .where(eq(materialReservations.id, id))
       .returning(reservationColumns);
-    await tx.insert(events).values({
+    await tx.insert(materialReservationEvents).values({
       reservationId: id,
       actingAccountId: body.actingAccountId,
       actorAccountId: actor,
@@ -369,15 +369,15 @@ export async function listMaterialOffers(input: MaterialOfferQuery) {
   const last = after(query.cursor, fingerprint);
   const rows = await getDb()
     .select(offerColumns)
-    .from(offers)
+    .from(materialOffers)
     .where(
       and(
-        eq(offers.status, 'active'),
-        query.ownerAccountId ? eq(offers.ownerAccountId, query.ownerAccountId) : undefined,
-        last ? lt(offers.id, last) : undefined,
+        eq(materialOffers.status, 'active'),
+        query.ownerAccountId ? eq(materialOffers.ownerAccountId, query.ownerAccountId) : undefined,
+        last ? lt(materialOffers.id, last) : undefined,
       ),
     )
-    .orderBy(desc(offers.id))
+    .orderBy(desc(materialOffers.id))
     .limit(limit + 1);
   return {
     items: await projectOffers(rows.slice(0, limit), getDb()),
@@ -402,20 +402,20 @@ export async function listMaterialReservations(
   const last = after(query.cursor, fingerprint);
   const rows = await getDb()
     .select({ reservation: reservationColumns, offer: offerColumns })
-    .from(reservations)
-    .innerJoin(offers, eq(offers.id, reservations.offerId))
+    .from(materialReservations)
+    .innerJoin(materialOffers, eq(materialOffers.id, materialReservations.offerId))
     .where(
       and(
         or(
-          eq(reservations.requesterAccountId, query.accountId),
-          eq(offers.ownerAccountId, query.accountId),
+          eq(materialReservations.requesterAccountId, query.accountId),
+          eq(materialOffers.ownerAccountId, query.accountId),
         ),
-        query.status ? eq(reservations.status, query.status) : undefined,
-        query.offerId ? eq(reservations.offerId, query.offerId) : undefined,
-        last ? lt(reservations.id, last) : undefined,
+        query.status ? eq(materialReservations.status, query.status) : undefined,
+        query.offerId ? eq(materialReservations.offerId, query.offerId) : undefined,
+        last ? lt(materialReservations.id, last) : undefined,
       ),
     )
-    .orderBy(desc(reservations.id))
+    .orderBy(desc(materialReservations.id))
     .limit(limit + 1);
   return {
     items: rows.slice(0, limit).map((row) => projectReservation(row.reservation, row.offer)),

@@ -99,6 +99,7 @@ flowchart LR
         M_Digital_licences_and_buyer_rights["Digital licences and buyer rights"]
         M_Digital_retail_supply["Digital retail supply"]
         M_Digital_retail_procurement_and_fulfilment["Digital retail procurement and fulfilment"]
+        M_Donated_materials["Donated materials"]
         M_Store_access["Store access"]
     end
     subgraph outside["Pre-existing tables the epic attaches to"]
@@ -208,7 +209,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**22 modules**, **18 writing directories**,
+**23 modules**, **19 writing directories**,
 **4 tables written from more than one directory** and
 **5 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -235,6 +236,7 @@ flowchart LR
     W_db_variantAxes["db/variantAxes"]
     W_scripts_seed_verticals["scripts/seed-verticals"]
     W_services_curation["services/curation"]
+    W_services_materials["services/materials"]
     M_Organization_migration_evidence(["Organization migration evidence"])
     M_Taxonomy(["Taxonomy"])
     M_Classification(["Classification"])
@@ -256,6 +258,7 @@ flowchart LR
     M_Digital_licences_and_buyer_rights(["Digital licences and buyer rights"])
     M_Digital_retail_supply(["Digital retail supply"])
     M_Digital_retail_procurement_and_fulfilment(["Digital retail procurement and fulfilment"])
+    M_Donated_materials(["Donated materials"])
     M_Store_access(["Store access"])
     W_db_catalog -->|"1"| M_Connector_pins
     W_db_catalog -->|"1"| M_Native_variant_images
@@ -282,6 +285,7 @@ flowchart LR
     W_db_variantAxes -->|"5"| M_Variant_axes_and_claims
     W_scripts_seed_verticals -->|"1"| M_Localization
     W_services_curation -->|"1"| M_Compatibility
+    W_services_materials -->|"3"| M_Donated_materials
     subgraph shared["Written from more than one directory"]
         direction TB
         T_catalog_authoring_draft_values[("catalog_authoring_draft_values")]
@@ -340,7 +344,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 88 tables created by a migration at or after `0088`
+All 91 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -1028,6 +1032,26 @@ Also names, from outside the epic: `supplier_accounts`, `suppliers`.
 | `digital_fulfilment_reveals` | `0157` | `db/digitalRetail` (insert) |
 | `digital_fulfilment_incidents` | `0157` | `db/digitalRetail` (insert/update) |
 
+### Donated materials
+
+```mermaid
+erDiagram
+    material_offers {
+    }
+    material_reservations {
+    }
+    material_reservation_events {
+    }
+    material_reservations ||--o{ material_reservation_events : "reservation_id · restrict"
+    material_offers ||--o{ material_reservations : "offer_id · restrict"
+```
+
+| Table | Created by | Written by |
+|---|---|---|
+| `material_offers` | `0169` | `services/materials` (insert/update) |
+| `material_reservations` | `0169` | `services/materials` (insert/update) |
+| `material_reservation_events` | `0169` | `services/materials` (insert) |
+
 ### Store access
 
 ```mermaid
@@ -1050,18 +1074,18 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 88 |
-| Modules they are grouped into | 22 |
-| Foreign keys out of an epic table | 183 |
+| Tables in the population | 91 |
+| Modules they are grouped into | 23 |
+| Foreign keys out of an epic table | 185 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 22 |
 | Relationships the schema proves are 1:1 | 4 |
 | Relationships whose parent is optional (nullable FK) | 83 |
-| Directories that write an epic table | 18 |
+| Directories that write an epic table | 19 |
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 5 |
 
-`ON DELETE` across those 183 foreign keys: **48** `cascade`, **2** `no action`, **130** `restrict`, **3** `set null`.
+`ON DELETE` across those 185 foreign keys: **48** `cascade`, **2** `no action`, **132** `restrict`, **3** `set null`.
 
 ### The relationships the schema proves are 1:1
 
