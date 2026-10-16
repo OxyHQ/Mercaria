@@ -633,11 +633,9 @@ names would not load at all, which is a data question rather than a seller one.
 
 ## Seams left, each a named contract
 
-- **#93 (pickup)** — `pickup_not_supported` is a real branch that is unreachable
-  in a default deployment, because `STORE_PICKUP_ENABLED` defaults off and
-  `resolvePickupForCheckout` refuses every pickup naming `store_pickup_disabled`.
-  Since #93 landed that is a LEVER rather than a missing capability, so enabling
-  it makes the branch reachable. It is kept rather than deleted so a cancellation
+- **#93 (pickup)** — `pickup_not_supported` is a real branch, reachable on every
+  deployment with GoWay configured (where store pickup is on). It is kept rather
+  than relaxed so a cancellation
   cannot quietly take the `release` path and leave a collectable-inventory hold
   nobody modelled.
 - **#112 (guest P2P)** — the reason `refund_path_unavailable` is unreachable for

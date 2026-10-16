@@ -41,8 +41,9 @@ compares nothing.
 read MOUNTS that need no secret and gate nothing durable:
 `CATALOG_TAXONOMY_V2_ENABLED`, `FACETS_ENABLED`, `PRODUCT_SAVES_ENABLED` (reads
 stay `off`, the migration stays a dry run), `WATCHLISTS_ENABLED`,
-`PRICE_ALERTS_ENABLED`, `PRICE_ALERT_EVALUATION_ENABLED` and
-`NEARBY_DISCOVERY_ENABLED` (which still stays off without `GOWAY_API_URL`).
+`PRICE_ALERTS_ENABLED` and `PRICE_ALERT_EVALUATION_ENABLED`. (Nearby
+discovery was on this list; since 2026-10 it has no switch and exists exactly
+when `GOWAY_API_URL` is configured.)
 
 Each remains a lever: setting it OFF is the rollback, exactly as D24 describes.
 

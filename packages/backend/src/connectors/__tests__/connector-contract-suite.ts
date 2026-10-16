@@ -296,7 +296,6 @@ export interface ConnectorContractHarness {
 /** The env every case needs; a connector operation reads these AT USE. */
 const REQUIRED_ENV: Readonly<Record<string, string>> = {
   CONNECTOR_ENCRYPTION_KEY: 'a'.repeat(64),
-  CONNECTOR_OAUTH_STATE_SECRET: 'contract-suite-state-secret',
   CONNECTOR_OAUTH_REDIRECT_BASE_URL: 'https://api.mercaria.test',
   SHOPIFY_CLIENT_ID: 'contract-suite-client-id',
   SHOPIFY_CLIENT_SECRET: 'contract-suite-client-secret',

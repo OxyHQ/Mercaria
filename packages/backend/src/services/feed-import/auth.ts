@@ -2,7 +2,8 @@
  * A feed's stored credential, and how it reaches the request (#63 §"Feed
  * configuration" 3, security 5).
  *
- * AES-256-GCM under `FEED_IMPORT_AUTH_ENCRYPTION_KEY`, in the ONE
+ * AES-256-GCM under a key derived from `MERCARIA_SECRET_KEY` for this purpose
+ * alone (`lib/derived-secrets.ts`), in the ONE
  * self-describing, key-id-prefixed string `lib/guest-pii.ts` established — so a
  * key rotation is re-encryption on read rather than a flag day, and the
  * anonymization of a configuration is a single `SET … = NULL` rather than a
@@ -10,46 +11,26 @@
  *
  * ## A separate key from every other secret in this backend
  *
- * `CONNECTOR_ENCRYPTION_KEY` protects a store's platform access token and
- * `GUEST_PII_ENCRYPTION_KEY` protects a buyer's contact. Sharing one would mean
- * a compromise of the feed importer's key — the least privileged of the three,
+ * `CONNECTOR_ENCRYPTION_KEY` protects a store's platform access token and the
+ * guest-contact key protects a buyer's contact. Sharing one would mean a
+ * compromise of the feed importer's key — the least privileged of the three,
  * held by a component that talks to arbitrary merchant-supplied hosts — reads a
- * buyer's email and a merchant's Shopify token. Three keys, three blast radii.
- *
- * ## The key is validated on FIRST USE, never at import
- *
- * `connector-crypto.ts`'s posture, for its reason: a deployment with the feed
- * importer off must still boot. `config`'s half-configuration rule has already
- * refused to enable the feature without the key, so what remains is that an
- * unset key THROWS here rather than silently storing a credential in the clear.
+ * buyer's email and a merchant's Shopify token. Three keys, three blast radii;
+ * HKDF purpose separation keeps the two derived ones independent.
  */
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { FeedAuthKind } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 
 const ALGORITHM = 'aes-256-gcm';
-const KEY_BYTES = 32;
 const IV_BYTES = 12;
-const HEX_KEY_PATTERN = new RegExp(`^[0-9a-fA-F]{${KEY_BYTES * 2}}$`);
 
 /** The key id every ciphertext carries, so rotation is lazy re-encryption. */
 const CURRENT_KEY_ID = 'v1';
 
 function resolveKey(): Buffer {
-  const raw = config.feedImport.authEncryptionKey.trim();
-  if (raw === '') {
-    throw new Error(
-      'FEED_IMPORT_AUTH_ENCRYPTION_KEY is not set. A feed credential cannot be stored without ' +
-        'it. Generate a 32-byte key with `openssl rand -hex 32`.',
-    );
-  }
-  if (!HEX_KEY_PATTERN.test(raw)) {
-    throw new Error(
-      'FEED_IMPORT_AUTH_ENCRYPTION_KEY must be a 64-character hex string (32 bytes).',
-    );
-  }
-  return Buffer.from(raw, 'hex');
+  return derivedSecret('feed-import-auth-encryption');
 }
 
 /** Encrypt a feed credential for storage. `v1:<iv>:<tag>:<ciphertext>`, base64url. */

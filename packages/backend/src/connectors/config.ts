@@ -10,12 +10,12 @@
  */
 
 import { validationError } from '../lib/errors/error-codes.js';
+import { derivedSecret } from '../lib/derived-secrets.js';
 import type { ConnectorProviderId } from '@mercaria/shared-types';
 
 /** Env var: the PUBLIC base URL of this backend (used to build OAuth callbacks). */
 const REDIRECT_BASE_ENV = 'CONNECTOR_OAUTH_REDIRECT_BASE_URL';
-/** Env var: HMAC secret used to sign/verify the OAuth `state` CSRF token. */
-const STATE_SECRET_ENV = 'CONNECTOR_OAUTH_STATE_SECRET';
+
 /** Env var: where to send the merchant's browser after a successful connect. */
 const SUCCESS_REDIRECT_ENV = 'CONNECTOR_OAUTH_SUCCESS_REDIRECT_URL';
 
@@ -50,9 +50,12 @@ export function getWebhookAddress(provider: ConnectorProviderId): string {
   return `${base}/channels/webhooks/${provider}`;
 }
 
-/** The HMAC secret for the OAuth `state` token. */
+/**
+ * The HMAC secret for the OAuth `state` token, derived from
+ * `MERCARIA_SECRET_KEY` (`lib/derived-secrets.ts`) — never missing.
+ */
 export function getOAuthStateSecret(): string {
-  return requireEnv(STATE_SECRET_ENV);
+  return derivedSecret('connector-oauth-state');
 }
 
 /**

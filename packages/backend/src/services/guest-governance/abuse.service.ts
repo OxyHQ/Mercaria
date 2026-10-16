@@ -18,13 +18,13 @@
  * subject enters — it takes a session id, a checkout id, an email hash or a
  * coarse network range, and nothing else.
  *
- * ## Counting happens BEFORE the flag is consulted, and that is deliberate
+ * ## There is no switch
  *
- * `config.guest.governance.abuseControlsEnabled` gates whether FRICTION is
- * applied. It does not gate the counter, so a deployment that switched the
- * controls off during an incident can still see what was happening while they
- * were off, and turning them back on does not start from zero. Gate the loop,
- * never the durable record — applied to a control rather than to a queue.
+ * The controls run whenever guest commerce runs: every watched action is
+ * COUNTED and friction is applied by the published policy. They were once
+ * behind a flag that, when off, returned before the counter — so the counters
+ * this module promises were never written (M8-03). The subject-digest key is
+ * derived from `MERCARIA_SECRET_KEY`, so nothing can leave them half-on.
  */
 
 import type {
@@ -34,7 +34,6 @@ import type {
   GuestFrictionMeasure,
 } from '@mercaria/shared-types';
 import { GUEST_ABUSE_POLICIES } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { getDb } from '../../db/postgres.js';
 import {
@@ -78,7 +77,6 @@ export async function checkGuestAbuse(input: {
 }): Promise<GuestAbuseVerdict> {
   const policy = policyForScope(input.scope);
   if (policy === undefined) return { outcome: 'permitted' };
-  if (!config.guest.governance.abuseControlsEnabled) return { outcome: 'permitted' };
 
   const db = getDb();
   const subjectHash = abuseSubjectHash({

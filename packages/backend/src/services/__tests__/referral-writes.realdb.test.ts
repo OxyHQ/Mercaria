@@ -18,7 +18,7 @@
  * GLOBAL and case-insensitive, so every requested code embeds the run tag.
  */
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, inArray, isNotNull, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxy.so/db';
 import { closePostgres, connectPostgres, getDb, type Database } from '../../db/postgres.js';
@@ -65,12 +65,6 @@ import {
   admitPartnerToReferralPilot,
   deleteReferralPilotFixtures,
 } from '../referral-pilot/__tests__/pilot-fixture.js';
-
-// Hoisted above the imports, so `config/index.ts` reads it at load — link
-// issuance mints signed tokens and needs the secret.
-vi.hoisted(() => {
-  process.env.REFERRAL_LINK_TOKEN_SECRET = 'realdb-referral-link-secret';
-});
 
 let db: Database;
 

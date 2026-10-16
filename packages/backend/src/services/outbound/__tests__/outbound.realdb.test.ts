@@ -93,13 +93,9 @@ import type { OutboundRedirectDecision } from '../redirect.service.js';
  * environment below is set.
  *
  * `config/index.ts` reads `process.env` once at module load and freezes the
- * result, and two of this file's proofs depend on values it reads:
- * `OUTBOUND_TOKEN_SECRET` (without which `mintAffiliateOutboundToken` throws
- * rather than signing with an empty key) and `OUTBOUND_REDIRECT_ENABLED`
- * (without which `resolveOutboundDisclosure` returns `undefined`). A STATIC
- * import of anything reaching config would pull it before those exist, and the
- * failure would be a disclosure that is always absent — a green-looking file
- * measuring nothing. Every realdb file with an env dependency does this.
+ * result, and this file clears `ANALYTICS_INTERNAL_TRAFFIC_TOKEN` before it
+ * does. A STATIC import of anything reaching config would pull it first. Every
+ * realdb file with an env dependency does this.
  */
 let db: import('../../../db/postgres.js').Database;
 let closePostgres: typeof import('../../../db/postgres.js').closePostgres;
@@ -190,8 +186,6 @@ async function rejectionMessage(run: () => Promise<unknown>): Promise<string> {
 
 beforeAll(async () => {
   // BEFORE the imports below. See the binding block's docblock.
-  process.env.OUTBOUND_TOKEN_SECRET = `outbound-realdb-secret-${RUN}`;
-  process.env.OUTBOUND_REDIRECT_ENABLED = 'true';
   // Explicit, not assumed: a sibling in the same worker may have set it, and an
   // internal-traffic token that happened to match would classify every request
   // here `internal` and silently make proof 6's organic case unreachable.
@@ -1710,9 +1704,7 @@ describe('the disclosure names the merchant while the redirect hands over the ne
 
     const disclosure = resolveOutboundDisclosure(offer);
     if (disclosure === undefined) {
-      throw new Error(
-        'the disclosure was absent — OUTBOUND_REDIRECT_ENABLED must be set before config loads',
-      );
+      throw new Error('the disclosure was absent for an offer with a destination');
     }
     // The MERCHANT, from `destination_url`.
     expect(disclosure.destinationHost).toBe(retailerHost);

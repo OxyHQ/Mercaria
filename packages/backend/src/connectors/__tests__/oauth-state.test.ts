@@ -8,7 +8,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createOAuthState, verifyOAuthState } from '../oauth-state.js';
 
-const ENV_VAR = 'CONNECTOR_OAUTH_STATE_SECRET';
+// The state key is derived from the root; pin an explicit one for the file.
+const ENV_VAR = 'MERCARIA_SECRET_KEY';
 let saved: string | undefined;
 
 beforeEach(() => {

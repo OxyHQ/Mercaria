@@ -33,7 +33,6 @@
 
 import type { Request, Response } from 'express';
 import type { OutboundClientSurface } from '@mercaria/shared-types';
-import { config } from '../config/index.js';
 import { log } from '../lib/logger.js';
 import { resolveOutboundRedirect } from '../services/outbound/redirect.service.js';
 import { INTERNAL_TRAFFIC_HEADER } from '../services/referrals/traffic.js';
@@ -117,9 +116,4 @@ export async function affiliateOutboundHandler(req: Request, res: Response): Pro
   }
 
   res.redirect(302, decision.url);
-}
-
-/** Whether the route may be mounted at all. Read by `app.ts`. */
-export function affiliateOutboundEnabled(): boolean {
-  return config.affiliateOutbound.redirectEnabled;
 }

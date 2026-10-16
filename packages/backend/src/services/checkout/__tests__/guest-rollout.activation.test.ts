@@ -67,8 +67,6 @@ let rollout: typeof import('../guest-rollout.js');
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'activation-test-pii-key';
-  process.env.GUEST_EMAIL_HASH_KEY = 'activation-test-email-hash-key';
   process.env.GUEST_SELLER_ACTIVATION_REQUIRED = 'true';
   // The four incident levers stay OFF: this file is about the #85 policy gate,
   // and a refusal from a kill switch would prove nothing about it.

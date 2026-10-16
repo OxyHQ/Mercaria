@@ -283,8 +283,12 @@ address.
 ## 9. The collection credential
 
 ```
-code = base32(HMAC-SHA256(PICKUP_COLLECTION_CODE_KEY, orderId + ':' + version))
+code = base32(HMAC-SHA256(collectionCodeKey, orderId + ':' + version))
 ```
+
+`collectionCodeKey` is the `pickup-collection-code` key derived from
+`MERCARIA_SECRET_KEY` (`docs/deploy.md` "Runtime secrets"), so every deployment
+can derive a code; rotating the root changes every outstanding code.
 
 Ten characters of a Crockford-style alphabet with `I`, `L`, `O` and `U` removed —
 the first three are misread off a phone screen and the fourth turns up in words
@@ -354,7 +358,7 @@ listing). The three that are genuinely guest-specific:
 |---|---|
 | The store passes #85 guest checkout readiness | #107's EXISTING `GUEST_SELLER_ACTIVATION_REQUIRED`. `guestSellerActivated` cannot be `true` today, so turning it on refuses EVERY guest collection by name — the fail-closed direction |
 | The guest portal and transactional notifications are operational | `GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT`, default OFF |
-| Collection verification is implemented | No clause needed: `STORE_PICKUP_ENABLED` demands `PICKUP_COLLECTION_CODE_KEY` |
+| Collection verification is implemented | No clause needed: the collection-code key is derived from `MERCARIA_SECRET_KEY`, so every deployment can mint a code |
 
 The notification default is the honest one rather than the lax one. #108 ships
 the portal with an EMPTY transport registry and nothing sends; a buyer
@@ -405,7 +409,7 @@ no member meaning yes.
 
 | Route | Notes |
 |---|---|
-| `GET /nearby` | Mounted only when `NEARBY_DISCOVERY_ENABLED` is on. `resolveCommerceActor`, so signed-out browsing works. `Cache-Control: private, no-store`. `?locale=` for place names; the cursor is GoWay's, passed through |
+| `GET /nearby` | Mounted only when `GOWAY_API_URL` is configured. `resolveCommerceActor`, so signed-out browsing works. `Cache-Control: private, no-store`. `?locale=` for place names; the cursor is GoWay's, passed through |
 | `GET /nearby/places` | The manual fallback: `?q=` a town |
 | `GET /nearby/p2p` | 404 while `P2P_LOCAL_DISCOVERY_ENABLED` is off |
 | `GET /search?nearLatitude=&nearLongitude=` | #70's filter 10, a CONTRACT CHANGE rather than a parameter that was accepted and ignored. A MEMBERSHIP filter, never an ordering |
@@ -478,24 +482,21 @@ both already have their own authenticated surface.
 ## 14. Environment
 
 ```
-GOWAY_API_URL=                            # GoWay's API origin; needed by the two levers below
+GOWAY_API_URL=                            # GoWay's API origin; turns on nearby + store pickup
 GOWAY_TIMEOUT_MS=2500
 GOWAY_PLACE_CACHE_TTL_SECONDS=60          # at most 60, the shortest stock interval
 GOWAY_PLACE_STALE_TTL_SECONDS=86400       # last-good place during an outage
-NEARBY_DISCOVERY_ENABLED=true             # mounts /nearby
-STORE_PICKUP_ENABLED=false                # may a checkout resolve a pickup
-GUEST_STORE_PICKUP_ENABLED=false          # may a GUEST collect
 P2P_LOCAL_DISCOVERY_ENABLED=false         # the coarse P2P surface
 GUEST_PICKUP_REQUIRE_NOTIFICATION_TRANSPORT=false
-PICKUP_COLLECTION_CODE_KEY=               # 64 hex; demanded by STORE_PICKUP_ENABLED
 ```
 
-`STORE_PICKUP_ENABLED=true` **requires** `PICKUP_COLLECTION_CODE_KEY` and
-`GOWAY_API_URL`, and `NEARBY_DISCOVERY_ENABLED=true` requires `GOWAY_API_URL`
-(the half-configuration rule), and `GUEST_STORE_PICKUP_ENABLED` additionally requires
-store pickup — the dependency is one-way, so turning guest pickup off leaves
-authenticated collection working, which is the direction #93 operations rule 10
-needs.
+Nearby discovery (`/nearby`) and store pickup have no switches: both exist
+exactly when `GOWAY_API_URL` is configured, because where a collection point IS
+comes from GoWay (ADR 0013). Guest pickup exists exactly when store pickup AND
+guest commerce (`GUEST_COMMERCE_ENABLED`) do; the guest-only off switch is
+`GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=pickup`, which leaves authenticated
+collection working — the direction #93 operations rule 10 needs. The
+collection-code key is derived from `MERCARIA_SECRET_KEY`.
 
 ### The fourth lever #93 asks for is deliberately ABSENT
 
@@ -701,21 +702,21 @@ Stated rather than quietly narrowed.
 
 ## 18. Production-readiness checklist
 
-- [ ] `PICKUP_COLLECTION_CODE_KEY` provisioned (64 hex) in SSM, and in the
-      deploy workflow's explicit secret allow-list **in the same change** as the
-      task definition entry.
+- [ ] `MERCARIA_SECRET_KEY` provisioned (the collection-code key is derived
+      from it).
 - [ ] `GOWAY_API_URL` set — `deploy-aws.yml` pins it into every release
       revision (repo variable `GOWAY_API_URL`, default `https://api.goway.to`);
       mirror it in the oxy-infra task definition's `environment`
-      (configuration, not a secret). Without it no location can be published.
+      (configuration, not a secret). Without it no location can be published,
+      and nearby discovery and store pickup are off.
 - [ ] GoWay's API serves `GET /places?ids=` and `GET /claims?placeId=`, and its
       `CORS_APP_ORIGINS` carries `https://mercaria.co` and
       `https://dashboard.mercaria.co` (GoWay's runtime template).
-- [ ] `NEARBY_DISCOVERY_ENABLED=true` only after a merchant has published at
-      least one linked location — the surface is honest but empty otherwise.
-- [ ] `STORE_PICKUP_ENABLED=true` only after the collection-desk flow has been
-      walked end to end on a real store with real staff permissions.
-- [ ] `GUEST_STORE_PICKUP_ENABLED` stays OFF until #111's rollout review.
+- [ ] The collection-desk flow walked end to end on a real store with real
+      staff permissions before a merchant is asked to publish a collectable
+      location (`/nearby` is honest but empty until one is).
+- [ ] Guest collection: `GUEST_CHECKOUT_BLOCKED_FULFILMENT_METHODS=pickup`
+      until #111's rollout review, if guest commerce is on before then.
 - [ ] `CATALOG_OPERATOR_OXY_USER_IDS` non-empty, or `/internal/pickup/*` is not
       mounted and nobody can restrict a location or read the probes.
 - [ ] PostGIS present on the target database — no runtime read uses it any

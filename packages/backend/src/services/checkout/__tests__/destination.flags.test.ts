@@ -38,8 +38,6 @@ let config: typeof import('../../../config/index.js').config;
 
 beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'flag-test-pii-key';
-  process.env.GUEST_EMAIL_HASH_KEY = 'flag-test-email-hash-key';
   // The cart lever stays ON. That is the point of the file: the two levers are
   // independent, so a guest who still owns a cart is refused at CHECKOUT rather
   // than losing their basket.

@@ -20,9 +20,9 @@
  * checkable rather than merely stated.
  *
  * **Availability is resolved per deployment, at read time.** Whether Shopify can
- * be connected depends on whether this deployment configured an OAuth app, and
- * whether a feed can be depends on `FEED_IMPORT_ENABLED`. A descriptor frozen at
- * import would tell a merchant to start a flow that fails on its first step.
+ * be connected depends on whether this deployment configured an OAuth app. A
+ * descriptor frozen at import would tell a merchant to start a flow that fails
+ * on its first step.
  */
 
 import type {
@@ -33,7 +33,6 @@ import type {
   ConnectionMode,
   ConnectorProviderId,
 } from '@mercaria/shared-types';
-import { config } from '../../config/index.js';
 import { deriveChannelEntityCoverage } from './channel-entity-coverage.js';
 import { getConnectorProvider, isImplementedProvider } from '../../connectors/registry.js';
 import { hasShopifyCredentials } from '../../connectors/shopify/config.js';
@@ -195,7 +194,6 @@ function availabilityFor(channelType: ChannelTypeId): ChannelTypeDescriptor['ava
       // and the pull connector both register webhooks against a public address.
       return getConnectorRedirectBase() !== undefined ? 'available' : 'not_configured';
     case 'product_feed':
-      return config.feedImport.enabled ? 'available' : 'not_configured';
     case 'native':
       return 'available';
     case 'etsy':

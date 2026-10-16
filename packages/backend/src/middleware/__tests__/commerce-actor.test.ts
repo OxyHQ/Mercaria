@@ -27,6 +27,13 @@ vi.mock('../../services/guest-session.service.js', () => ({
   rotationDue: vi.fn(() => false),
 }));
 
+// The abuse controls always run with guest commerce, and they count in
+// Postgres. This file is the middleware's unit test, so the decision is stubbed
+// to `permitted`; the counters themselves are covered by the realdb suites.
+vi.mock('../../services/guest-governance/abuse.service.js', () => ({
+  checkGuestAbuse: vi.fn(async () => ({ outcome: 'permitted' })),
+}));
+
 let middleware: typeof import('../commerce-actor.js');
 let service: {
   issueGuestSession: ReturnType<typeof vi.fn>;
@@ -39,8 +46,6 @@ beforeAll(async () => {
   // Before the dynamic import: `config/index.ts` freezes at module load, and
   // the resolver only reads guest credentials when guest commerce is enabled.
   process.env.GUEST_COMMERCE_ENABLED = 'true';
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'unit-test-pii-key';
-  process.env.GUEST_EMAIL_HASH_KEY = 'unit-test-email-hash-key';
 
   middleware = await import('../commerce-actor.js');
   service = (await import('../../services/guest-session.service.js')) as unknown as typeof service;

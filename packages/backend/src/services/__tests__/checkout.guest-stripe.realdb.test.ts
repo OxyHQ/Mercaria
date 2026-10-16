@@ -157,8 +157,6 @@ beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
   // A REAL 32-byte key: `lib/guest-pii.ts` refuses anything else, and the
   // contact row is encrypted inside the orders' own transaction.
-  process.env.GUEST_PII_ENCRYPTION_KEY = 'a'.repeat(64);
-  process.env.GUEST_EMAIL_HASH_KEY = 'b'.repeat(64);
   process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
   process.env.GUEST_CART_ENABLED = 'true';
   process.env.GUEST_INLINE_DESTINATION_ENABLED = 'true';

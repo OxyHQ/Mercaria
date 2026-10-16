@@ -155,8 +155,8 @@ export type GuestActivationRequirement = (typeof GUEST_ACTIVATION_REQUIREMENTS)[
  *
  * It exists because the other two cannot express this shape. A member of either
  * of them enters its conjunction, so a pickup requirement in the native
- * registry would make every store on a deployment with `STORE_PICKUP_ENABLED`
- * off (the default) read `nativeCheckout: disabled` — a far worse answer than
+ * registry would make every store on a deployment without store pickup (no
+ * GoWay configured) read `nativeCheckout: disabled` — a far worse answer than
  * the one it was added to fix. A mode is not a precondition of selling; it is a
  * precondition of selling THAT WAY, and `shipping_checkout` / `pickup_checkout`
  * are exactly the two capabilities that say so.

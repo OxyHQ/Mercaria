@@ -217,9 +217,8 @@ export async function approveReferralPayoutBatchHandler(
 /**
  * `POST /internal/referrals/payout-batches/:batchId/settle`.
  *
- * The SAME function the loop calls. With `REFERRAL_PAYOUT_BATCHES_ENABLED` off
- * this is how a batch settles at all, which is why the surface stays mounted
- * while every lever is down.
+ * The SAME function the loop calls, for an operator who will not wait for the
+ * next pass. It settles only an APPROVED batch, exactly as the loop does.
  */
 export async function settleReferralPayoutBatchHandler(req: Request, res: Response): Promise<void> {
   try {

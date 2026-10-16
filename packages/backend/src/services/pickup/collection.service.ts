@@ -64,11 +64,7 @@ import {
   type OrderPickupRow,
 } from '../../db/pickup/orderPickupRepository.js';
 import { notifyGuestOrderLifecycle } from '../guest-portal/message.service.js';
-import {
-  collectionCodesAvailable,
-  deriveCollectionCode,
-  verifyCollectionCode,
-} from './collection-code.js';
+import { deriveCollectionCode, verifyCollectionCode } from './collection-code.js';
 
 /** The three order columns this domain needs, and no more. */
 export interface CollectionOrderFacts {
@@ -123,8 +119,6 @@ export async function readCollectionCode(
   orderId: string,
   at: Date,
 ): Promise<PickupCollectionCode | null> {
-  if (!collectionCodesAvailable()) return null;
-
   const pickup = await findOrderPickup(orderId);
   if (!pickup) return null;
   if (pickup.identityRequirement === 'order_number_only') return null;

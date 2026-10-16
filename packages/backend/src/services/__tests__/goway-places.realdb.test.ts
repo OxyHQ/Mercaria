@@ -30,7 +30,6 @@ vi.mock('../../config/index.js', async (importOriginal) => {
         ...actual.config.pickup,
         nearbyEnabled: true,
         storePickupEnabled: true,
-        collectionCodeKey: 'a'.repeat(64),
       },
       goway: {
         ...actual.config.goway,

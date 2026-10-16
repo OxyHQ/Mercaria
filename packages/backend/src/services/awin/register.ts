@@ -11,11 +11,8 @@
  * arrangement one layer down, and it is why a rollback of this source costs
  * nobody anything they configured.
  *
- * **It deliberately does NOT demand a credential to be set**, unlike #63's
- * `FEED_IMPORT_ENABLED`. The difference is real rather than an inconsistency:
- * #63 demands its encryption key because a feed's credential has nowhere to GO
- * without it, so a configuration would be unstorable. Awin's key is a LOCATOR on
- * a row — storable and reviewable with no key present — and a deployment that
+ * **It deliberately does NOT demand a credential to be set.** Awin's key is a
+ * LOCATOR on a row — storable and reviewable with no key present — and a deployment that
  * registered the adapter before the locator resolves gets an honest
  * `auth_failure` naming the missing secret rather than a silent no-op.
  *

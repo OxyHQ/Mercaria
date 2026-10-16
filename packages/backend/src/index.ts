@@ -298,13 +298,9 @@ connectPostgres()
           log.general.error({ err }, 'Price-signal sweep dispatcher import failed'),
         );
       // Register the universal product-feed adapter (#63) and start its staged-
-      // pass sweep. BOTH are gated by `FEED_IMPORT_ENABLED` and neither is a
-      // durable record: with the flag off, feed configurations, mapping
-      // versions, uploads and reports are all still stored and readable, every
-      // run refuses with `adapter_missing`, and turning it on drains the
-      // backlog. The sweep exists because a stage is a file on this task's own
-      // disk, and a task whose disk fills with abandoned stages stops serving
-      // requests.
+      // pass sweep. The sweep exists because a stage is a file on this task's
+      // own disk, and a task whose disk fills with abandoned stages stops
+      // serving requests.
       import('./services/feed-import/register.js')
         .then(({ registerProductFeedAdapter, startFeedStageSweeper }) => {
           registerProductFeedAdapter();

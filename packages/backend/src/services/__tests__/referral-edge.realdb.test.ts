@@ -17,7 +17,7 @@
  * discipline, and the reason no assertion below is an unscoped `count(*)`.
  */
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { and, inArray, isNotNull, sql } from 'drizzle-orm';
@@ -54,15 +54,6 @@ import {
   admitPartnerToReferralPilot,
   deleteReferralPilotFixtures,
 } from '../referral-pilot/__tests__/pilot-fixture.js';
-
-// Hoisted above the imports, so `config/index.ts` reads them at load. The edge
-// is gated by `REFERRALS_ENABLED`, which demands BOTH secrets.
-vi.hoisted(() => {
-  process.env.REFERRALS_ENABLED = 'true';
-  process.env.REFERRAL_LINK_TOKEN_SECRET = 'realdb-edge-link-secret';
-  process.env.REFERRAL_STATE_SECRET = 'realdb-edge-state-secret';
-  process.env.REFERRAL_REDIRECT_BASE_URL = 'https://mercaria.co';
-});
 
 let db: Database;
 let createApp: typeof import('../../app.js').createApp;

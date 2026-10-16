@@ -28,7 +28,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import { verifySecret } from '@oxy.so/core/server';
 import { z } from 'zod';
-import { config } from '../../config/index.js';
+import { derivedSecret } from '../../lib/derived-secrets.js';
 import { validationError } from '../../lib/errors/error-codes.js';
 
 /** The signed claims carried in a referral link token. */
@@ -47,25 +47,20 @@ export interface ReferralLinkTokenClaims {
   codeId: string;
 }
 
-/** The HMAC key, or a refusal that NAMES the missing variable. */
-function linkTokenSecret(): string {
-  const secret = config.referrals.linkTokenSecret;
-  if (secret === undefined || secret.length === 0) {
-    throw validationError(
-      'Referral link tokens are not configured: set REFERRAL_LINK_TOKEN_SECRET.',
-    );
-  }
-  return secret;
-}
-
 /** base64url-encode a UTF-8 string. */
 function b64url(input: string): string {
   return Buffer.from(input, 'utf8').toString('base64url');
 }
 
-/** HMAC-SHA256 the payload with the link token secret, base64url-encoded. */
+/**
+ * HMAC-SHA256 the payload under the link-token key, base64url-encoded. The key
+ * is derived from `MERCARIA_SECRET_KEY` under its own purpose, DIFFERENT from
+ * the state carrier's (`lib/derived-secrets.ts`).
+ */
 function sign(payloadB64: string): string {
-  return createHmac('sha256', linkTokenSecret()).update(payloadB64).digest('base64url');
+  return createHmac('sha256', derivedSecret('referral-link-token'))
+    .update(payloadB64)
+    .digest('base64url');
 }
 
 /** Mint the signed opaque token for one link. */

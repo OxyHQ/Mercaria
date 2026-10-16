@@ -42,7 +42,6 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 
 const SHOPIFY_SECRET = 'shopify-app-secret-not-a-real-one';
-const STATE_SECRET = 's'.repeat(64);
 
 /**
  * The platform, faked at the socket. `exchangeCode` is what the real
@@ -95,7 +94,6 @@ let baseUrl: string;
 const createdStoreIds: string[] = [];
 
 beforeAll(async () => {
-  process.env.CONNECTOR_OAUTH_STATE_SECRET = STATE_SECRET;
   process.env.CONNECTOR_OAUTH_REDIRECT_BASE_URL = 'https://api.mercaria.test';
   process.env.CONNECTOR_ENCRYPTION_KEY = 'e'.repeat(64);
   process.env.SHOPIFY_CLIENT_ID = 'shopify-client-id';

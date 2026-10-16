@@ -199,8 +199,8 @@ same transaction as the group's orders:
 | `id` | text PK | uuid v7. What `orders.buyer_guest_checkout_id` references. |
 | `checkout_group_id` | text NOT NULL | Unique `guest_checkouts_checkout_group_id_key` — one contact snapshot per group, shared by sibling orders, never copied per order (two copies of one fact can disagree). |
 | `guest_session_id` | text NOT NULL | CORRELATION with **no foreign key** — sessions are purged on retention (D11) and the checkout must survive them, the same rule every payment↔commerce link in this schema follows. |
-| `email_ciphertext` | text | AES-256-GCM under `GUEST_PII_ENCRYPTION_KEY`, key-id prefixed (`v1:`) for rotation. NULL only after anonymization. |
-| `email_hash` | text | HMAC-SHA-256 of the normalized email under `GUEST_EMAIL_HASH_KEY` (D12). Index `guest_checkouts_email_hash_idx` (non-unique — one inbox, many checkouts). |
+| `email_ciphertext` | text | AES-256-GCM under the derived `guest-pii-encryption` key, key-id prefixed (`v1:`) for rotation. NULL only after anonymization. |
+| `email_hash` | text | HMAC-SHA-256 of the normalized email under the derived `guest-email-hash` key (D12). Index `guest_checkouts_email_hash_idx` (non-unique — one inbox, many checkouts). |
 | `email_redacted` | text NOT NULL | `j***@example.com` — the support-surface display form (T15). |
 | `locale` | text | For transactional email language. |
 | `anonymized_at` | timestamptz | D15. |
@@ -451,10 +451,10 @@ reclaimed.
   merge addresses their owner deliberately keeps distinct. The stored
   ciphertext preserves the address exactly as typed (it is what transactional
   mail is sent to).
-- **Encryption:** AES-256-GCM under `GUEST_PII_ENCRYPTION_KEY`, ciphertext
+- **Encryption:** AES-256-GCM under the `guest-pii-encryption` key, ciphertext
   prefixed with a key id (`v1:`) so rotation is re-encryption at read, not a
   flag day.
-- **Hashing:** HMAC-SHA-256 under the SEPARATE `GUEST_EMAIL_HASH_KEY` —
+- **Hashing:** HMAC-SHA-256 under the SEPARATE `guest-email-hash` key —
   keyed, unlike the token hashes, because an email has dictionary-scale
   entropy and a plain hash column would be offline-reversible the day the
   table leaks. Two keys, because the hash key must be usable by the lookup
@@ -913,10 +913,9 @@ correct.
    default. The flag gates ISSUANCE of new sessions and guest checkout —
    never the durable records: existing portal grants and magic-link recovery
    for already-placed guest orders keep working with the flag off ("gate the
-   loop, never the durable record"). Enabling requires BOTH
-   `GUEST_PII_ENCRYPTION_KEY` and `GUEST_EMAIL_HASH_KEY` (the
-   `CROWDSOURCE_ENABLED` half-configuration rule in `config/index.ts`).
-   Staging first, then production, with #111's abuse dashboards watching
+   loop, never the durable record"). Both D12 keys are derived from
+   `MERCARIA_SECRET_KEY` (amended 2026-10, see Environment), so enabling needs
+   nothing else. Staging first, then production, with #111's abuse dashboards watching
    issuance rate and session-per-IP distributions.
 9. **M9 — Compatibility retirement (post).** No column is dropped — every
    legacy column is the live origin-owner data. What retires: the temp-name
@@ -945,13 +944,14 @@ correct.
 
 ## Environment
 
-Validation follows the `CROWDSOURCE_ENABLED` pattern: a half-configured
-integration stays OFF and logs once at boot.
+*Amended 2026-10:* the two D12 keys are no longer variables. Both are derived
+from `MERCARIA_SECRET_KEY` with HKDF under DIFFERENT purposes
+(`guest-pii-encryption`, `guest-email-hash` — `lib/derived-secrets.ts`,
+`docs/deploy.md` "Runtime secrets"), so they are always present and the lookup
+path still holds a key that cannot decrypt. Ciphertexts keep their `v1:` key id.
 
 ```
 GUEST_COMMERCE_ENABLED=false
-GUEST_PII_ENCRYPTION_KEY=        # AES-256-GCM; ciphertexts carry a key id (v1:) for rotation
-GUEST_EMAIL_HASH_KEY=            # HMAC-SHA-256; SEPARATE from the encryption key by design (D12)
 GUEST_SESSION_IDLE_DAYS=30
 GUEST_SESSION_ABSOLUTE_DAYS=90
 GUEST_PORTAL_GRANT_DAYS=30
@@ -959,7 +959,7 @@ GUEST_MAGIC_LINK_MINUTES=15
 GUEST_MAGIC_LINK_BASE_URL=       # https universal-link base for portal exchange (T14)
 ```
 
-`GUEST_COMMERCE_ENABLED=true` requires both keys. There is no
+There is no
 `GUEST_TOKEN_PEPPER` and none should be added: the token hashes are keyless
 SHA-256 on purpose (256-bit random preimages need no key, and a pepper would
 make every stored hash unverifiable the day the pepper rotates), while the

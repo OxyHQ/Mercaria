@@ -80,7 +80,7 @@ const CAPABILITY_DEPENDENCIES: Readonly<
   // Both used to name `guest_fulfilment_deterministic`, which is a fact about
   // the set of guest-eligible methods being non-empty — one answer, handed to
   // two capabilities that ask different questions, so neither of them measured
-  // itself. On a default deployment (`STORE_PICKUP_ENABLED` off, shipping rates
+  // itself. On a deployment without store pickup (no GoWay, shipping rates
   // configured) it read GRANTED for every store on earth, and with the two
   // shipping methods withdrawn from guests it read WITHHELD for a store whose
   // collection desk was open — the answer inverted in both directions at once.
