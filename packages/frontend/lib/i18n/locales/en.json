@@ -1598,7 +1598,7 @@
     "headTitle": "Shopping agents · Mercaria",
     "title": "Shopping agents",
     "intro": "Things you asked Mercaria to keep an eye on. Each one watches the catalogue and tells you when what you asked for becomes true.",
-    "loadError": "We could not load your shopping agents. Check your connection and try again.",
+    "loadError": "We could not load your shopping agents right now. Your agents are unaffected.",
     "findings": {
       "asking": "Asking for another look…",
       "intro": "Everything this agent has seen, newest first. Older observations stay here even after a later one replaces them.",

@@ -1,11 +1,7 @@
 /**
  * `/shopping-agents` — a shopper's own saved objectives (#97).
  *
- * Mounted only when `SHOPPING_AGENTS_ENABLED`, so a deployment that has not
- * adopted #97 answers 404. The AGENTS themselves are never gated by anything: a
- * row already stored stays stored, keeps being evaluated and comes back when
- * the flag does — a flag that hid a person's agents would make the rollback
- * lever cost them the thing they were waiting for.
+ * Always mounted.
  *
  * ## The route set is CLOSED, and the omissions are the design
  *

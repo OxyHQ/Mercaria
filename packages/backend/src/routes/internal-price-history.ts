@@ -6,9 +6,7 @@
  * #62/#68 use, and deliberately not a seventh list: who may decide what a
  * source is permitted to publish and who may read what it published are the
  * same power over the same graph. Empty list = the router is not mounted at all
- * (404, never a 401 that would advertise the surface), and it STAYS mounted
- * while `PRICE_HISTORY_ENABLED` is off — the evidence has to be readable during
- * the incident that turned the loop off.
+ * (404, never a 401 that would advertise the surface).
  *
  * ## Two reads and ONE write, and the omissions are the design
  *

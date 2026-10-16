@@ -1815,8 +1815,7 @@ would trip. `/internal/payments` mounts one because its surface can MOVE MONEY.
   gated by a lever of its own; the levers that matter to it belong to the domains
   it reads (`CATALOG_AUTHORING_ENABLED`, `CATALOG_PROPOSALS_ENABLED`,
   `FACETS_ENABLED`, `CANONICAL_SEARCH`, `CANONICAL_GRAPH_ENABLED`,
-  `MATCH_PIPELINE_ENABLED`, `OFFER_MATERIALIZATION_ENABLED`,
-  `CANONICAL_SEARCH_INDEXING_ENABLED`).
+  `MATCH_PIPELINE_ENABLED`, `CANONICAL_SEARCH_INDEXING_ENABLED`).
 
   **TWO of ADR 0007 D12's six levers do not exist in the code and must not be
   quoted at anybody:** `CATALOG_LOCALIZATION_ENABLED` and — the one this note

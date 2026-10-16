@@ -189,9 +189,11 @@ grows one.
 
 ### A dry run is the default posture
 
-`PRODUCT_SAVE_MIGRATION_ENABLED=false` downgrades every request to a dry run
-that reports exactly what it would do — the #60
-`CANONICAL_WRITE_PUBLICATION_ENABLED` shape. A dry-run outcome may read
+A migration page WRITES only when the request says `dryRun: false` explicitly;
+`runMigrationSchema.dryRun` defaults to `true`, and a direct caller of
+`runFavoriteMigrationPage` that omits it gets a dry run too. Every other request
+is a dry run that reports exactly what it would do. The safety lives in the
+request rather than in the environment. A dry-run outcome may read
 `created`, because in that mode an outcome is a PREDICTION and refusing to
 report one would make the mode unable to answer the question it exists for.
 
@@ -309,29 +311,16 @@ see.
 ## Environment
 
 ```
-PRODUCT_SAVES_ENABLED=true             # mounts /product-saves and /saved-items
 PRODUCT_SAVE_READS=off                 # off | dual | on
-PRODUCT_SAVE_MIGRATION_ENABLED=false   # may a migration page WRITE?
 PRODUCT_SAVE_MIGRATION_BATCH_SIZE=200
 PRODUCT_SAVE_COUNTER_SWEEP_BATCH_SIZE=500
 ```
 
-The three levers are independent and the interaction matters:
-
-- `PRODUCT_SAVES_ENABLED=false` is the full withdrawal. Both routes 404,
-  `/favorites` is untouched, and a deployment behaves exactly as it did before
-  #80. It does NOT gate the ROWS: saves already stored stay stored and come back
-  when the flag does, because a rollback lever that cost buyers their list is not
-  one anybody would pull.
-- `PRODUCT_SAVE_READS` is the rollback INSIDE an enabled deployment.
-- `PRODUCT_SAVE_MIGRATION_ENABLED` gates only the WRITE, so an operator can
-  measure the migration before authorising it.
-
-`/internal/product-saves/*` is deliberately NOT gated on
-`PRODUCT_SAVES_ENABLED`: an operator must still be able to read counter drift,
-rebuild a counter and erase an account's saves while the buyer surface is off —
-gating it would hide the evidence during exactly the incident that turned the
-buyer surface off (#60's reasoning for `/internal/backfill`).
+`/product-saves` and `/saved-items` are always mounted and `/favorites` is
+untouched. `PRODUCT_SAVE_READS` decides what the saved list is made of, and `off`
+is the rollback: it serves exactly the listing saves buyers had before #80. The
+migration's write gate is the request's own `dryRun` (above), so an operator
+measures the migration before authorising it.
 
 ## HTTP surface
 
@@ -369,7 +358,7 @@ person — it needs the subject by definition — and it returns two numbers.
 | Owner | What |
 |---|---|
 | **#78** | the price-history table this domain reads from (row 58 above). |
-| **#79 — CLOSED** | price alerts. `ProductSavePriceAlert` now has BOTH branches (`supported: true` once `PRICE_ALERTS_ENABLED`); the supported branch still carries no alert id or state — `product-save-isolation.test.ts` still refuses this domain reaching #79's, so a client asks `GET /price-alerts?canonicalProductId=…` for what the buyer already set. |
+| **#79 — CLOSED** | price alerts. `ProductSavePriceAlert` is now always `supported: true`; it still carries no alert id or state — `product-save-isolation.test.ts` still refuses this domain reaching #79's, so a client asks `GET /price-alerts?canonicalProductId=…` for what the buyer already set. |
 | **#74** | whether saves are a ranking signal. A scanned gate fails the build if a discovery module reaches this domain. |
 | **#71** | the canonical product PAGE. `SavedItemCard` links a product entry at `/products/:slug`; the richer surface is #71's. |
 | **#59** | the operator review of an ambiguous listing→product mapping. This domain refuses such a listing and never picks. |
@@ -379,17 +368,16 @@ person — it needs the subject by definition — and it returns two numbers.
 1. Set `CATALOG_OPERATOR_OXY_USER_IDS` — without it there is no way to read
    counter drift, rebuild a counter, run the migration or erase an account's
    saves.
-2. Deploy with `PRODUCT_SAVES_ENABLED=false`. Confirm `/favorites` is unchanged
-   and both new paths 404.
-3. Run `POST /internal/product-saves/migrations` with `dryRun: true` over the
-   whole catalogue and read the report. `unmatched` plus `pinPreserved` is the
+2. Keep `PRODUCT_SAVE_READS=off` (the default). Confirm `/favorites` is
+   unchanged and the saved page serves exactly the listing saves buyers already
+   had.
+3. Run `POST /internal/product-saves/migrations` without `dryRun` (a dry run)
+   over the whole catalogue and read the report. `unmatched` plus `pinPreserved` is the
    part of the catalogue the migration deliberately leaves as listing saves; if
    `created` is implausibly small, the canonical attachments (#58/#60) are the
    thing to check, not this domain.
-4. Set `PRODUCT_SAVE_MIGRATION_ENABLED=true` and run the migration to
-   completion, page by page, following the cursor.
+4. Run the migration to completion with `dryRun: false`, page by page,
+   following the cursor.
 5. Check `GET /internal/product-saves/counters/drift` reports nothing.
-6. Set `PRODUCT_SAVES_ENABLED=true` with `PRODUCT_SAVE_READS=off`. The saved
-   page then serves exactly the listing saves buyers already had.
-7. Move to `dual`, compare, then to `on`. Rolling back is one variable and
+6. Move to `dual`, compare, then to `on`. Rolling back is one variable and
    deletes nothing.

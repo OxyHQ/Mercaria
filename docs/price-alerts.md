@@ -309,10 +309,11 @@ table nobody reviews.
 
 ## Environment
 
+The buyer surface is always mounted and the evaluation and delivery loops always
+run. There is no `*_ENABLED` switch; what is configurable is the loops' shape
+and the abuse bounds.
+
 ```
-PRICE_ALERTS_ENABLED=true                   # the buyer MOUNT
-PRICE_ALERT_EVALUATION_ENABLED=true         # the evaluation LOOP
-PRICE_ALERT_NOTIFICATIONS_ENABLED=true      # the GLOBAL notification kill switch
 PRICE_ALERT_MAX_ACTIVE_PER_USER=200
 PRICE_ALERT_CREATE_RATE_LIMIT=60
 PRICE_ALERT_CREATE_RATE_WINDOW_MS=3600000
@@ -329,19 +330,19 @@ PRICE_ALERT_NOTIFICATION_MAX_ATTEMPTS=8
 PRICE_ALERT_TRACE_LIMIT=100
 ```
 
-**`PRICE_ALERT_NOTIFICATIONS_ENABLED` is issue operations 5's global kill switch,
-independent of alert storage**, which is why it is a third lever rather than a
-branch of the first: with it off, alerts keep being evaluated, triggers keep
-being written and delivery rows keep being queued — nothing is lost and nothing
-is sent, and flipping it back drains the backlog in queue order. It defaults ON,
-unlike the two rollout levers beside it, because an incident lever that ships in
-the off position is a feature nobody notices is missing.
+**Issue operations 5's "notification stop independent of alert storage" is a
+deploy, not an environment switch.** The old `PRICE_ALERT_NOTIFICATIONS_ENABLED`
+was read once at boot into frozen config, so flipping it already meant a
+redeploy; it is gone. Stopping delivery means shipping a build that does not
+start the delivery dispatcher: alerts keep being evaluated, triggers keep being
+written and delivery rows keep being queued — nothing is lost and nothing is
+sent, and the next build that starts the loop drains the backlog in queue order.
+A separate delivery loop is what makes that possible without touching
+evaluation.
 
-**NOT ONE of the three gates a durable record**, and a scanned gate fails the
-build if a repository or the evaluator learns to read one.
-
-With every default in place a deployment stores no alerts (the surface is not
-mounted), evaluates nothing and delivers nothing.
+**No lever may gate a durable record**, and a scanned gate fails the build if a
+repository or the evaluator learns to read one, should one ever be
+reintroduced.
 
 ---
 

@@ -665,7 +665,6 @@ export const GUEST_FEATURE_GATES = [
   'order_portal',
   'recovery_email',
   'oxy_claim',
-  'cancellations_and_returns',
   'pickup',
   'p2p',
   'marketing_experiments',
@@ -1728,16 +1727,6 @@ export const GUEST_FEATURE_GATE_REGISTER: readonly GuestFeatureGateRecord[] = [
     whenOff: 'The WRITE is refused. Stored claims, and every access they granted, are untouched.',
     affectsPlacedOrders: false,
     rollbackOrder: 6,
-  },
-  {
-    gate: 'cancellations_and_returns',
-    title: 'Buyer cancellations, returns and support',
-    lever: 'BUYER_REQUESTS_ENABLED',
-    scopes: ['environment'],
-    whenOff:
-      'The buyer WRITE mount answers 503 under its own code. Filed requests keep being decided.',
-    affectsPlacedOrders: false,
-    rollbackOrder: 7,
   },
   {
     gate: 'pickup',

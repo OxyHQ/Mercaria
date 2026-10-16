@@ -1,11 +1,7 @@
 /**
  * `/product-saves` — the buyer's canonical product saves (#80).
  *
- * Mounted only when `PRODUCT_SAVES_ENABLED`, so a deployment that has not
- * adopted #80 answers 404 and serves `/favorites` exactly as it always did. The
- * SAVES themselves are never gated by anything: a row already stored stays
- * stored and comes back when the flag does, because a flag that hid a person's
- * data would make the rollback lever cost them their list.
+ * Always mounted, beside `/favorites`, which serves exactly as it always did.
  *
  * Metered on the `'listings'` scope — a save is a catalogue-shaped read/write
  * at the same rate and volume, and a dedicated bucket would be a fourth budget

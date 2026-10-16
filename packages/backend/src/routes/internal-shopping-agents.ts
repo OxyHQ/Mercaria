@@ -16,9 +16,7 @@
  * refused.
  *
  * Mounted on the SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
- * #54/#56/#57/#58/#60/#62/#68/#70/#78/#79 use, and deliberately NOT gated on
- * `SHOPPING_AGENTS_ENABLED`: the evidence has to be readable during the
- * incident that turned the shopper surface off.
+ * #54/#56/#57/#58/#60/#62/#68/#70/#78/#79 use.
  */
 
 import { Router } from 'express';

@@ -107,7 +107,8 @@ export const ErrorCodes = {
    */
   GUEST_CLAIM_DISABLED: 'GUEST_CLAIM_DISABLED',
   /**
-   * `BUYER_REQUESTS_ENABLED=false` — the #110 incident lever.
+   * `RETAIL_SERVICE_REQUESTS_ENABLED=false` — #127's retail intake pause (the
+   * name is #110's, whose own buyer-request switch is gone).
    *
    * A 503 rather than a 403, and the difference is the client's correct
    * response: this deployment DOES do cancellations and returns, it has

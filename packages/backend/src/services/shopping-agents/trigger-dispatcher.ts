@@ -2,11 +2,9 @@
  * The TRIGGER loop — one canonical product's fan-out (#97 evaluation 1,
  * cost 2 and 8).
  *
- * `SHOPPING_AGENT_TRIGGER_ENABLED` gates the LOOP and never the durable record:
- * a trigger row is written on every offer write to a watched product whatever
- * this flag says, and turning it on drains whatever accumulated while it was
- * off. Turning it off cannot lose an event either — what stops is the WAKING,
- * and the catalogue is still there to be evaluated against when it comes back.
+ * A trigger row is written on every offer write to a watched product, so work
+ * outstanding when a process stops is drained by the next one: a stopped loop
+ * stops the WAKING and never loses an event.
  *
  * ## The fan-out is BOUNDED and the row CONVERGES, which is #97 cost rule 8
  *
@@ -98,8 +96,6 @@ export async function runShoppingAgentTriggerTick(
  * singleton follows.
  */
 export function startShoppingAgentTriggerDispatcher(): void {
-  if (!config.shoppingAgents.triggerEnabled) return;
-
   const leaseOwner = `shopping-agent-trigger-${randomUUID()}`;
   const timer = setInterval(() => {
     void runShoppingAgentTriggerTick(leaseOwner).catch((err: unknown) => {

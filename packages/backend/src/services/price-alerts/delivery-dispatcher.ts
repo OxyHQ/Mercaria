@@ -1,15 +1,11 @@
 /**
- * The delivery loop, and issue operations 5's GLOBAL NOTIFICATION KILL SWITCH.
+ * The delivery loop (#79).
  *
- * `PRICE_ALERT_NOTIFICATIONS_ENABLED` gates this loop and NOTHING else. That is
- * the whole of "a global notification kill switch independent of alert storage":
- * with it off, alerts keep being evaluated, triggers keep being written and
- * delivery rows keep being queued — nothing is lost and nothing is sent, and
- * flipping it back drains the backlog in queue order.
- *
- * It defaults ON, unlike the two rollout levers beside it, because it is an
- * INCIDENT lever: a switch that ships in the off position is a feature nobody
- * notices is missing.
+ * Issue operations 5's "notification stop independent of alert storage" is a
+ * deploy, not an environment switch: delivery rows are durable queue rows, so a
+ * process that stops delivering loses nothing — alerts keep being evaluated and
+ * triggers keep being written — and the next one drains the backlog in queue
+ * order.
  *
  * A separate dispatcher from the evaluator's rather than a second branch in it,
  * because issue evaluation 10 asks for separate durable jobs "so a notification
@@ -57,8 +53,6 @@ export async function runPriceAlertDeliveryTick(
 
 /** Start the loop on this task. `unref()` immediately — see the evaluator's note. */
 export function startPriceAlertDeliveryDispatcher(): void {
-  if (!config.priceAlerts.notificationsEnabled) return;
-
   const leaseOwner = `price-alert-delivery-${randomUUID()}`;
   const timer = setInterval(() => {
     void runPriceAlertDeliveryTick(leaseOwner).catch((err: unknown) => {

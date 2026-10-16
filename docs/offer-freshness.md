@@ -429,15 +429,16 @@ difference, so the discriminant is a string.
 
 ## Environment
 
+The refresh dispatcher and the expiry sweep always run; there is no switch for
+either.
+
 ```
-OFFER_REFRESH_ENABLED=false            # gates the LOOP, never the durable record
 OFFER_REFRESH_BATCH_SIZE=25
 OFFER_REFRESH_POLL_INTERVAL_MS=15000
 OFFER_REFRESH_LEASE_MS=120000
 OFFER_REFRESH_MAX_BACKOFF_MS=21600000
 OFFER_REFRESH_DEFAULT_CONCURRENCY=2
 OFFER_REFRESH_DEFAULT_CALLS_PER_MINUTE=60
-OFFER_EXPIRY_SWEEP_ENABLED=false       # gates the LOOP; display needs no sweep
 OFFER_EXPIRY_SWEEP_BATCH_SIZE=500
 OFFER_EXPIRY_SWEEP_INTERVAL_MS=60000
 ```
@@ -447,9 +448,9 @@ and there must never be one — see the top of this document. What lives here is
 the LOOP's shape and how hard Mercaria knocks when a source states no limits of
 its own.
 
-Turning the expiry sweep off cannot make a stale offer visible: the freshness
+The expiry sweep cannot make a stale offer visible or invisible: the freshness
 verdict is derived at read time against the live policy, so the sweep only
-decides when the durable retirement is written down.
+decides when the durable retirement is written down, and it deletes nothing.
 
 ---
 
@@ -459,8 +460,7 @@ decides when the durable retirement is written down.
 allow-list #54/#56/#57/#58/#60/#62 use — who may decide what an external source
 is permitted to do and who may decide how long its facts are worth showing are
 the same power over the same graph. Empty list = not mounted (404, never a 401
-that would advertise the surface). It stays mounted while
-`OFFER_REFRESH_ENABLED` is off.
+that would advertise the surface).
 
 | Route | What it does |
 |---|---|
@@ -560,10 +560,11 @@ Each is a NAMED contract that fails closed, never a stub that lies.
 2. For each source: a freshness version published, reviewed, and its thresholds
    set against that provider's own contract — the `source_configuration`
    fallback is a safe default, not a reviewed decision.
-3. `OFFER_REFRESH_ENABLED=true` only after a source has been drained by hand
-   from `/internal/offer-freshness/drain` and its health read.
-4. `OFFER_EXPIRY_SWEEP_ENABLED=true` once at least one source has a published
-   grace window; until then lapsed offers are already invisible and simply are
-   not retired.
+3. Before a new source's first refresh, drain it by hand from
+   `/internal/offer-freshness/drain` and read its health — the refresh loop is
+   always running and will pick up its tasks.
+4. Publish a grace window for each source; until then the always-on expiry
+   sweep retires lapsed offers with no outage grace (they are already invisible
+   at read time either way).
 5. Alerting on a non-empty quarantine board, on a climbing `deadLettered` count,
    and on any market or advertiser whose current-offer count falls to zero.
