@@ -93,13 +93,12 @@ const REFUSAL_REASON_TO_ANALYTICS: Record<CheckoutRefusalReason, AnalyticsReason
   destination_unsupported: 'destination_unsupported',
   destination_incomplete: 'destination_incomplete',
   seller_not_payment_ready: 'seller_not_payment_ready',
-  // #107's rollout levers. Both are ELIGIBILITY outcomes and neither is a
+  // #107's rollout levers. An ELIGIBILITY outcome and not a
   // destination one — a market withdrawn from guests is a decision about the
   // parties, not about whether the address can be delivered to, and counting it
   // as a destination failure would put an operator's switch into a metric
   // merchants read as "our addresses do not validate".
   guest_rollout_blocked: 'guest_rollout_blocked',
-  guest_seller_not_activated: 'guest_seller_not_activated',
   // #123. An ELIGIBILITY outcome, not a destination one: a retail line refused
   // for unknown supplier stock or an incomplete cost is a fact about what
   // Mercaria can source, and counting it as a destination failure would tell a

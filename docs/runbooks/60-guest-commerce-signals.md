@@ -114,7 +114,7 @@ Two accounts tried to claim one checkout group. One is legitimate (a household);
 
 Rows past their deadline that still exist. The one failure in this domain invisible from  everywhere else: the system works perfectly while a retention guarantee has quietly  stopped being true.
 
-**What to do:** The one failure in this domain invisible from everywhere else: the system works perfectly while a retention guarantee has quietly stopped being true. Check `GET /governance/retention-runs` for a `failed` pass and `GUEST_RETENTION_JOB_ENABLED`. If the job is running and the lag persists, the batch size is below the arrival rate.
+**What to do:** The one failure in this domain invisible from everywhere else: the system works perfectly while a retention guarantee has quietly stopped being true. Check `GET /governance/retention-runs` for a `failed` pass, and for passes that ran as dry runs only (`mode = dry_run`) — there is no scheduled sweep, so erasure happens only when an operator runs a pass with `dryRun: false`. If applied passes are running and the lag persists, the batch size (`GUEST_RETENTION_BATCH_SIZE`) is below the arrival rate.
 
 
 ## `encryption_failure`

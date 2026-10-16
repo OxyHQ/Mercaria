@@ -61,8 +61,6 @@ const OXY_STORE_BUYER: PickupActorFacts = { actorKind: 'oxy', sellerType: 'store
 const LEVERS_ON: PickupLevers = {
   storePickupEnabled: true,
   guestPickupEnabled: true,
-  guestSellerActivated: false,
-  guestSellerActivationRequired: false,
   guestNotificationTransportAvailable: false,
   guestNotificationTransportRequired: false,
 };
@@ -268,19 +266,6 @@ describe('derivePickupEligibility', () => {
     // The direction #93 operations rule 10 needs: withdrawing guest collection
     // leaves authenticated collection working.
     expect(derivePickupEligibility({ ...base, levers })).toEqual({ verdict: 'eligible' });
-  });
-
-  it('refuses EVERY guest when #85 activation is demanded, because nothing can be activated', () => {
-    // `guestSellerActivated` cannot be `true` today: there is no table. Turning
-    // the flag on therefore refuses every guest collection BY NAME, which is
-    // the fail-closed direction and the whole value of shipping the lever.
-    expect(
-      derivePickupEligibility({
-        ...base,
-        actor: { actorKind: 'guest', sellerType: 'store' },
-        levers: { ...LEVERS_ON, guestSellerActivationRequired: true },
-      }),
-    ).toEqual({ verdict: 'blocked', reasons: ['guest_seller_not_activated'] });
   });
 
   it('refuses a guest when a transport is DEMANDED and none is registered', () => {

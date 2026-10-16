@@ -60,10 +60,6 @@ beforeAll(async () => {
   process.env.GUEST_COMMERCE_ENABLED = 'true';
   process.env.GUEST_PII_ENCRYPTION_KEY = 'cart-merge-realdb-pii-key';
   process.env.GUEST_EMAIL_HASH_KEY = 'cart-merge-realdb-email-hash-key';
-  // Explicit, not assumed: vitest may run several files in one worker thread,
-  // and a sibling file sets this to 'false' — env leaks, configs do not.
-  process.env.GUEST_SESSION_ISSUANCE_ENABLED = 'true';
-  process.env.GUEST_CART_ENABLED = 'true';
 
   const postgres = await import('../../db/postgres.js');
   closePostgres = postgres.closePostgres;

@@ -435,6 +435,7 @@ describe('the scheduled minimization loop runs under the ACTIVE policy (M8-02)',
   it('one pass examines the due contact, skips the held one, and records its run', async () => {
     const outcome = await runRetentionPass({
       retentionClass: 'unpaid_pending_checkout',
+      dryRun: true,
       now: new Date(),
       afterId: `zzzz-ret-${MARKER}-`,
     });
@@ -477,12 +478,18 @@ describe('the scheduled minimization loop runs under the ACTIVE policy (M8-02)',
   });
 
   it('refuses the carried class and a non-minimization class by name', async () => {
-    expect(await runRetentionPass({ retentionClass: 'lookup_hash', now: new Date() })).toEqual({
+    expect(
+      await runRetentionPass({ retentionClass: 'lookup_hash', dryRun: true, now: new Date() }),
+    ).toEqual({
       outcome: 'refused',
       reason: 'performed_by_contact_pass',
     });
     expect(
-      await runRetentionPass({ retentionClass: 'transaction_record', now: new Date() }),
+      await runRetentionPass({
+        retentionClass: 'transaction_record',
+        dryRun: true,
+        now: new Date(),
+      }),
     ).toEqual({ outcome: 'refused', reason: 'mechanism_not_minimization' });
   });
 });

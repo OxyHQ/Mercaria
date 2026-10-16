@@ -192,8 +192,6 @@ export const GUEST_CLAIM_POLICY_VERSION = '2026-08-10.1';
  * rival claimant may learn.
  */
 export const GUEST_CLAIM_BLOCK_REASONS = [
-  /** Claiming is switched off on this deployment. */
-  'claiming_unavailable',
   /** The presented credential does not carry `claim:write`. */
   'claim_scope_missing',
   /** The presented credential has no proven inbox behind it (ADR 0003 D17). */

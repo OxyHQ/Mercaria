@@ -388,7 +388,7 @@ in `app.ts` turns exactly the reachability case red.
 ## 10. Environment
 
 `REFERRAL_PARTNER_ENROLLMENT_ENABLED` (default **true**) gates the MOUNT of both
-partner surfaces and nothing durable — `GUEST_SESSION_ISSUANCE_ENABLED`'s exact
+partner surfaces and nothing durable — an issuance kill switch's exact
 shape: it stops NEW enrollment and every partner-facing enrollment write, and
 touches nothing that exists. The operator review surface is deliberately not
 gated by it, so a queue can be worked through during whatever incident turned it

@@ -73,7 +73,6 @@ const CLAIM_BENEFIT_KEYS = [
  * the group is taken.
  */
 const CLAIM_BLOCK_MESSAGE_KEYS: Record<GuestClaimBlockReason, string> = {
-  claiming_unavailable: 'guestOrders.claim.blocked.unavailable',
   claim_scope_missing: 'guestOrders.claim.blocked.inboxNotVerified',
   inbox_not_verified: 'guestOrders.claim.blocked.inboxNotVerified',
   claimed_by_another_account: 'guestOrders.claim.blocked.claimedByAnotherAccount',

@@ -110,8 +110,8 @@ export async function listCartMergesHandler(req: Request, res: Response): Promis
  *    about their buyer, a PARTIALLY claimed group, and a guest contact with no
  *    order. See `readBuyerIdentityConsistency` for what each one means.
  *
- * Guest CART enablement is reported too: an operator reading a zero merge count
- * during an incident should be able to see whether the flag is simply off.
+ * Guest commerce enablement is reported too: an operator reading a zero merge
+ * count should be able to see whether the domain is simply off.
  */
 export async function guestCommerceConsistencyHandler(_req: Request, res: Response): Promise<void> {
   try {
@@ -123,8 +123,6 @@ export async function guestCommerceConsistencyHandler(_req: Request, res: Respon
 
     sendSuccess(res, {
       guestCommerceEnabled: config.guest.enabled,
-      guestCartEnabled: config.guest.cartEnabled,
-      guestSessionIssuanceEnabled: config.guest.issuanceEnabled,
       convertedSessionsWithCarts: convertedWithCarts.length,
       // Row IDS, never cart contents — enough to open a trace, nothing more.
       convertedSessionsWithCartsSample: convertedWithCarts,

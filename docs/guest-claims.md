@@ -229,9 +229,10 @@ The correction is **two operators and two requests**: one records a bounded
 reason and an evidence reference, a DIFFERENT one approves, and the approval is
 what executes. Two calls rather than one naming a second id, because one person
 can type two ids — the reason #55 holds four eyes with a review ROW rather than
-a comparison. `four_eyes_required` is SNAPSHOTTED at request time, so flipping
-the flag can neither retroactively unapprove an executed correction nor silently
-approve a pending one.
+a comparison. Every new request requires the second operator — there is no
+setting for it. `four_eyes_required` is still stored per request, so a row opened
+while `GUEST_CLAIM_FOUR_EYES_REQUIRED` could still switch it off keeps the
+meaning it was opened under.
 
 What a revocation does NOT touch: seller fulfilment access, financial history,
 payments, refunds, shipping snapshots, `buyer_origin`, the guest contact record
@@ -319,22 +320,22 @@ was.
 
 ## Environment
 
-| Variable | Default | What it gates |
+Claiming and the follow-up dispatcher are always on, and a revocation always
+needs a second operator; only the dispatcher's tunables are configurable.
+
+| Variable | Default | What it sets |
 |---|---|---|
-| `GUEST_CLAIM_ENABLED` | `true` | The claim WRITE. Never the read of a claim already made |
-| `GUEST_CLAIM_FOUR_EYES_REQUIRED` | `true` | Whether a revocation needs a second operator. Snapshotted per request |
-| `GUEST_CLAIM_PROJECTION_ENABLED` | `true` | The follow-up dispatcher LOOP. Never the row |
 | `GUEST_CLAIM_JOB_BATCH_SIZE` | `25` | Rows per dispatcher pass |
 | `GUEST_CLAIM_JOB_POLL_INTERVAL_MS` | `5000` | How often it wakes |
 | `GUEST_CLAIM_JOB_LEASE_MS` | `60000` | How long a claimed row stays claimed |
 | `GUEST_CLAIM_JOB_MAX_ATTEMPTS` | `8` | Attempts before `dead_letter` |
 
-**Not one of them gates a stored claim.** A claim is an ownership record:
-turning a lever off must never make an already-claimed order stop belonging to
-the account that claimed it, stop appearing in its history, or stop being
-readable by an operator. `guest-claim-isolation.test.ts` fails the build if
+**Nothing configurable reaches a stored claim.** A claim is an ownership record:
+no setting may make an already-claimed order stop belonging to the account that
+claimed it, stop appearing in its history, or stop being readable by an
+operator. `guest-claim-isolation.test.ts` fails the build if
 `order-access.service.ts`, `order-buyer.ts`, the projection or the operator
-surface starts reading one.
+surface starts reading guest configuration.
 
 ---
 

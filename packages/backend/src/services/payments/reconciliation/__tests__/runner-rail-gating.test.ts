@@ -79,7 +79,6 @@ describe('which sweeps a deployment can serve', () => {
    */
   it('starts the loop on a deployment with no card rail', () => {
     expect(config.payments.peable.enabled).toBe(false);
-    expect(config.payments.reconciliation.enabled).toBe(true);
 
     try {
       startPaymentReconciler();

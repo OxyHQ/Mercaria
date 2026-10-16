@@ -69,14 +69,6 @@ export const CHECKOUT_REFUSAL_REASONS = [
    */
   'guest_rollout_blocked',
   /**
-   * #107: the #85 merchant-activation seam refused. Separate from
-   * `seller_not_payment_ready` because the two say different things about the
-   * same seller — one cannot be PAID, the other has not ACCEPTED — and the
-   * remedies differ (finish Stripe onboarding vs accept the guest-checkout
-   * terms). Collapsing them would send a merchant to the wrong screen.
-   */
-  'guest_seller_not_activated',
-  /**
    * #123: a `mercaria_retail` line failed the ten-way conjunction — ADR 0004
    * D3's fail-closed rule made visible at the gate.
    *
@@ -100,11 +92,7 @@ export const CHECKOUT_REFUSAL_REASONS = [
    * somebody else's business.
    *
    * Deliberately NOT `seller_not_payment_ready`: one seller cannot be PAID, the
-   * other has not been ACTIVATED, and the remedies are different screens. It is
-   * also not `guest_seller_not_activated`, which is the same word about the
-   * GUEST conjunction — collapsing them would make "authenticated checkout is
-   * off for this store" and "guest checkout is off for this store"
-   * indistinguishable in every metric that reads either.
+   * other has not been ACTIVATED, and the remedies are different screens.
    */
   'seller_not_activated',
 ] as const;

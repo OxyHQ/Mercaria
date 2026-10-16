@@ -36,12 +36,17 @@
  * found nothing produce identical output otherwise, and the first is the
  * failure this whole domain exists to make visible.
  *
- * ## A dry run is the DEFAULT
+ * ## What authorizes an erasure
  *
- * `GUEST_RETENTION_DRY_RUN` defaults TRUE, which is the one default in this
- * area on the cautious side of every other rollout lever — because the two
- * errors are not symmetric. A dry run that should have erased leaves data for
- * another day; an apply that should not have erased leaves nothing at all.
+ * Two recorded acts, and no environment variable. The ACTIVE retention policy
+ * for the class is the decision that its contacts may be minimized — a
+ * published version carries the operator who published it, and with no active
+ * version the pass is refused outright (`policy_missing`). The REQUEST is the
+ * decision to act on it now: the caller passes `dryRun`, and the operator
+ * endpoint defaults it to `true`, so applying is always an explicit choice in
+ * the request that does it. The two errors are not symmetric — a dry run that
+ * should have erased leaves data for another day; an apply that should not have
+ * erased leaves nothing at all — which is why preview is the default.
  */
 
 import { and, asc, gt, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
@@ -165,6 +170,7 @@ function holdingClassesFor(retentionClass: GuestRetentionClass): readonly GuestR
  */
 export async function runRetentionPass(input: {
   retentionClass: GuestRetentionClass;
+  dryRun: boolean;
   now: Date;
   afterId?: string | null;
   skipWhenEmpty?: boolean;
@@ -185,7 +191,7 @@ export async function runRetentionPass(input: {
     return { outcome: 'refused', reason: 'mechanism_not_minimization' };
   }
 
-  const mode = config.guest.governance.retentionDryRun ? 'dry_run' : 'apply';
+  const mode = input.dryRun ? 'dry_run' : 'apply';
 
   const held = new Set<string>();
   if (rule.pausableByLegalHold) {
@@ -428,7 +434,14 @@ export async function runScheduledRetention(
 
     let afterId: string | null = null;
     for (let page = 0; page < MAX_RETENTION_PAGES_PER_TICK; page += 1) {
-      const outcome = await runRetentionPass({ retentionClass, now, afterId, skipWhenEmpty: true });
+      // The scheduled loop only ever dry-runs; an erase is an explicit operator request.
+      const outcome = await runRetentionPass({
+        retentionClass,
+        dryRun: true,
+        now,
+        afterId,
+        skipWhenEmpty: true,
+      });
       if (outcome.outcome !== 'ran') break;
       results.push(outcome.result);
       if (
