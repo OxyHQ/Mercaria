@@ -1,0 +1,242 @@
+import { View, Platform, Pressable } from 'react-native';
+import { Button } from '@oxy.so/bloom/button';
+import { Icon, Text, useSettingsDialog } from '@mercaria/ui';
+import { Textarea } from '@oxy.so/bloom/textarea';
+import { useState } from 'react';
+import { useOxy } from '@oxy.so/services';
+import { generateAPIUrl } from '@/lib/generate-api-url';
+import {
+  MessageSquare,
+  Bug,
+  Lightbulb,
+  Sparkles,
+  Star,
+  type LucideIcon,
+} from 'lucide-react-native';
+import { toast } from '@oxy.so/bloom/toast';
+import { useTranslation } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
+
+type FeedbackType = 'bug' | 'feature' | 'improvement' | 'other';
+
+interface FeedbackTypeOption {
+  type: FeedbackType;
+  labelKey: string;
+  descriptionKey: string;
+  icon: LucideIcon;
+}
+
+const feedbackTypes: FeedbackTypeOption[] = [
+  {
+    type: 'bug',
+    labelKey: 'feedback.bugReport',
+    descriptionKey: 'feedback.bugDescription',
+    icon: Bug,
+  },
+  {
+    type: 'feature',
+    labelKey: 'feedback.featureRequest',
+    descriptionKey: 'feedback.featureDescription',
+    icon: Lightbulb,
+  },
+  {
+    type: 'improvement',
+    labelKey: 'feedback.improvement',
+    descriptionKey: 'feedback.improvementDescription',
+    icon: Sparkles,
+  },
+  {
+    type: 'other',
+    labelKey: 'feedback.other',
+    descriptionKey: 'feedback.otherDescription',
+    icon: MessageSquare,
+  },
+];
+
+/**
+ * Bug reports and ideas, as a Settings page. Sending one closes the dialog;
+ * the dialog owns the scrolling and the title.
+ */
+export function FeedbackSettingsPage() {
+  const { t } = useTranslation();
+  const { close } = useSettingsDialog();
+  const { oxyServices } = useOxy();
+  const [selectedType, setSelectedType] = useState<FeedbackType | null>(null);
+  const [message, setMessage] = useState('');
+  const [rating, setRating] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!selectedType) {
+      toast.error(t('feedback.selectType'));
+      return;
+    }
+
+    if (!message.trim()) {
+      toast.error(t('feedback.enterMessage'));
+      return;
+    }
+
+    if (message.trim().length < 10) {
+      toast.error(t('feedback.moreDetails'));
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      const apiUrl = generateAPIUrl('/feedback');
+      const token = oxyServices.session.accessToken;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          type: selectedType,
+          message: message.trim(),
+          rating: rating,
+          metadata: {
+            platform: Platform.OS,
+            appVersion: '1.0.0',
+          },
+        }),
+      });
+
+      if (response.ok) {
+        toast.success(t('feedback.thankYou'));
+        setSelectedType(null);
+        setMessage('');
+        setRating(null);
+        close();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || t('feedback.submitFailed'));
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Error submitting feedback:', error);
+      }
+      toast.error(t('feedback.submitFailed'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const ratingLabels: Record<number, string> = {
+    1: t('feedback.veryPoor'),
+    2: t('feedback.poor'),
+    3: t('feedback.average'),
+    4: t('feedback.good'),
+    5: t('feedback.excellent'),
+  };
+
+  const placeholderMap: Record<FeedbackType, string> = {
+    bug: t('feedback.bugPlaceholder'),
+    feature: t('feedback.featurePlaceholder'),
+    improvement: t('feedback.improvementPlaceholder'),
+    other: t('feedback.otherPlaceholder'),
+  };
+
+  return (
+    <View className="w-full gap-6 px-3">
+      <Text className="text-sm text-muted-foreground">{t('feedback.subtitle')}</Text>
+      {/* Feedback Type Selection */}
+      <View className="gap-3">
+        <Text className="text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+          {t('feedback.typeQuestion')}
+        </Text>
+        <View className="gap-2">
+          {feedbackTypes.map((option) => {
+            const FeedbackIcon = option.icon;
+            const isSelected = selectedType === option.type;
+            return (
+              <Pressable
+                key={option.type}
+                onPress={() => setSelectedType(option.type)}
+                className={cn(
+                  'flex-row items-center gap-3 p-4 rounded-xl border',
+                  isSelected ? 'border-foreground bg-foreground/5' : 'border-border bg-muted/30',
+                )}
+              >
+                <View
+                  className={cn('p-2 rounded-full', isSelected ? 'bg-foreground/10' : 'bg-muted')}
+                >
+                  <Icon
+                    as={FeedbackIcon}
+                    size={20}
+                    className={isSelected ? 'text-foreground' : 'text-muted-foreground'}
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-medium text-foreground">{t(option.labelKey)}</Text>
+                  <Text className="text-xs text-muted-foreground">{t(option.descriptionKey)}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Rating (Optional) */}
+      <View className="gap-3">
+        <Text className="text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+          {t('feedback.rateExperience')}
+        </Text>
+        <View className="flex-row gap-2">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <Pressable
+              key={star}
+              onPress={() => setRating(rating === star ? null : star)}
+              className="p-1.5 active:opacity-70"
+            >
+              <Icon
+                as={Star}
+                size={24}
+                className={rating && star <= rating ? 'text-yellow-500' : 'text-muted-foreground'}
+                fill={rating && star <= rating ? '#eab308' : 'transparent'}
+              />
+            </Pressable>
+          ))}
+        </View>
+        {rating && <Text className="text-xs text-muted-foreground">{ratingLabels[rating]}</Text>}
+      </View>
+
+      {/* Message */}
+      <View className="gap-3">
+        <Text className="text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+          {t('feedback.yourFeedback')}
+        </Text>
+        <Textarea
+          accessibilityLabel={t('feedback.yourFeedback')}
+          placeholder={selectedType ? placeholderMap[selectedType] : t('feedback.otherPlaceholder')}
+          value={message}
+          onValueChange={setMessage}
+          rows={7}
+          autoResize
+        />
+        <Text className="text-xs text-muted-foreground">
+          {t('feedback.characterCount', { count: message.length })}
+        </Text>
+      </View>
+
+      {/* Submit Button */}
+      <View className="gap-4 pt-2">
+        <Button
+          tone="accent"
+          onPress={handleSubmit}
+          disabled={submitting || !selectedType || !message.trim()}
+          loading={submitting}
+        >
+          {t('feedback.submitButton')}
+        </Button>
+
+        <Text className="text-xs text-center text-muted-foreground">
+          {t('feedback.footerText')}
+        </Text>
+      </View>
+    </View>
+  );
+}

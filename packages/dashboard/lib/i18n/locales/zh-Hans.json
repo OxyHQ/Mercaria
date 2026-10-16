@@ -872,7 +872,7 @@
     "openNavigation": "打开导航",
     "orders": "订单",
     "products": "商品",
-    "settings": "设置",
+    "settings": "店铺设置",
     "mainNavigation": "主导航",
     "collapseSidebar": "收起侧边栏",
     "expandSidebar": "展开侧边栏",
@@ -1446,10 +1446,6 @@
         "result": "佣金 %{fee}——你可得 %{net}。",
         "failed": "无法计算该示例"
       }
-    },
-    "language": {
-      "description": "此仪表板显示所用的语言。仅保存在本设备上，不会改变你的客户看到的内容。",
-      "title": "语言"
     },
     "locations": {
       "createFailed": "无法创建地点",

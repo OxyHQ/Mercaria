@@ -872,7 +872,7 @@
     "openNavigation": "Open navigation",
     "orders": "Orders",
     "products": "Products",
-    "settings": "Settings",
+    "settings": "Store settings",
     "mainNavigation": "Main navigation",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
@@ -1446,10 +1446,6 @@
         "result": "Fee %{fee} — you keep %{net}.",
         "failed": "Couldn't work out that example"
       }
-    },
-    "language": {
-      "description": "The language this dashboard is shown in. Saved on this device; it does not change what your customers see.",
-      "title": "Language"
     },
     "locations": {
       "createFailed": "Couldn't create the location",

@@ -1,4 +1,4 @@
-import { createAppI18n, createI18nStore, syncLayoutDirection } from '@mercaria/ui';
+import { createAppI18n, createI18nStore, shippedLocales, syncLayoutDirection } from '@mercaria/ui';
 import ar from './locales/ar.json';
 import bn from './locales/bn.json';
 import ca from './locales/ca.json';
@@ -41,10 +41,11 @@ const bundles = {
 
 const i18n = createAppI18n(bundles);
 
-// There is deliberately no `POS_LOCALES` export and no language picker: the
-// till follows the device, and the POS has no settings surface to put one on.
-// A picker arrives with the screen that hosts it, reading `shippedLocales`
-// exactly as the dashboard's does.
+// The till starts from the device's language; the Settings dialog (account
+// menu → Manage) offers exactly what this app ships, read the same way as the
+// dashboard's picker.
+export const POS_LOCALES = shippedLocales(bundles);
+
 export const { useTranslation } = createI18nStore({
   i18n,
   // Distinct from the dashboard's and the storefront's: three Mercaria apps can
@@ -54,13 +55,12 @@ export const { useTranslation } = createI18nStore({
   // The layout mirrors from LOGICAL utilities (#434), which resolve against the
   // platform's direction — so the direction has to be set, or the migration
   // mirrors nothing. Applied from the store's own funnel rather than an effect:
-  // it must be settled before the tree renders. The till has no picker, so the
-  // locale here only ever comes from the device or from rehydration, which is
-  // exactly why the hook has to cover both and not just `setLocale`.
+  // it must be settled before the tree renders. The locale comes from the
+  // device, from rehydration or from the Settings picker, which is why the hook
+  // has to cover all three and not just `setLocale`.
   //
-  // `ar` is in `bundles` above as of #434, so this now mirrors for an Arabic
-  // locale. The till has no picker, so that direction comes from the device or
-  // from rehydration — and on native it takes effect on the NEXT launch, which
-  // for a till means the next time the app is opened.
+  // `ar` is in `bundles` above as of #434, so this mirrors for an Arabic
+  // locale. On native the direction takes effect on the NEXT launch, which for
+  // a till means the next time the app is opened; the picker says so.
   onLocaleApplied: (locale) => syncLayoutDirection(i18n, locale),
 });

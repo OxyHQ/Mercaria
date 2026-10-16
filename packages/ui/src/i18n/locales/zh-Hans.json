@@ -1019,6 +1019,35 @@
       "unavailable": "无法加载此媒体。",
       "retry": "重试",
       "more": "加载更多照片和视频"
+    },
+    "settings": {
+      "dialog": "设置",
+      "nav": "设置分区",
+      "close": "关闭设置",
+      "saved": "已保存",
+      "back": "返回",
+      "pages": {
+        "account": "账号",
+        "appearance": "外观",
+        "language": "语言"
+      },
+      "appearance": {
+        "mode": "主题",
+        "system": "跟随系统",
+        "light": "浅色",
+        "dark": "深色",
+        "color": "应用主题色"
+      },
+      "language": {
+        "title": "语言",
+        "description": "仅保存在本设备上。",
+        "restartRequired": "请重启应用以应用新的布局方向。"
+      },
+      "account": {
+        "oxyAccount": "Oxy 账号",
+        "manageDescription": "你的姓名、照片、安全和设备均在 Oxy 账号中管理。",
+        "manage": "管理"
+      }
     }
   }
 }

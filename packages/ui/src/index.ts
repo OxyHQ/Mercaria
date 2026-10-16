@@ -83,6 +83,17 @@ export { useShopControlClassName } from './lib/useShopControlClassName';
 export { useColorScheme } from './lib/useColorScheme';
 export { useSidebarCollapse } from './lib/useSidebarCollapse';
 
+// Settings is one Bloom `SettingsModal` per app (the Oxy-wide surface). The
+// provider and the hook every screen opens it with live here; the dialog and its
+// shared pages are the `@mercaria/ui/settings` subpath, loaded on first open.
+export {
+  SettingsDialogProvider,
+  useSettingsDialog,
+  type SettingsDialog,
+  type SettingsDialogProviderProps,
+  type SettingsDialogState,
+} from './settings/SettingsDialogProvider';
+
 // `./lib/bidi`'s `isolateBidi` is deliberately NOT exported from this BARREL,
 // and #740 gave it a consumer without changing that. The reason is now sharper
 // than "an export with no consumer is an invitation": this barrel reaches

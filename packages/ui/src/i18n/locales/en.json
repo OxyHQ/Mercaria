@@ -1019,6 +1019,35 @@
       "unavailable": "This media could not be loaded.",
       "retry": "Try again",
       "more": "Load more review media"
+    },
+    "settings": {
+      "dialog": "Settings",
+      "nav": "Settings sections",
+      "close": "Close settings",
+      "saved": "Saved",
+      "back": "Back",
+      "pages": {
+        "account": "Account",
+        "appearance": "Appearance",
+        "language": "Language"
+      },
+      "appearance": {
+        "mode": "Theme",
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark",
+        "color": "App Color"
+      },
+      "language": {
+        "title": "Language",
+        "description": "Saved on this device.",
+        "restartRequired": "Restart the app to apply the new layout direction."
+      },
+      "account": {
+        "oxyAccount": "Oxy account",
+        "manageDescription": "Your name, photo, security and devices are managed in your Oxy account.",
+        "manage": "Manage"
+      }
     }
   }
 }
