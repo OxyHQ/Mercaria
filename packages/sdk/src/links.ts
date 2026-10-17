@@ -3,6 +3,7 @@ import type {
   MercariaCollectionRef,
   MercariaLocation,
   MercariaLocationRef,
+  MercariaOfferAction,
   MercariaProductRef,
   MercariaProductSummary,
 } from './contract';
@@ -19,6 +20,12 @@ import { parseMercariaRef } from './refs';
  * - store:      `${web}/stores/${encodeURIComponent(storeHandle)}`
  * - collection: `${web}/stores/${encodeURIComponent(storeHandle)}?collection=${encodeURIComponent(collectionId)}`
  * - location:   `${web}/stores/${encodeURIComponent(storeHandle)}?location=${encodeURIComponent(locationId)}`
+ *
+ * A catalog product's `url` is built from its CURRENT slug, which no ref
+ * carries, so there is no builder for it: use the `url` the body serves.
+ * {@link MercariaLinks.offer} is the exception the other way round — an
+ * outbound offer's body carries a path RELATIVE to the API origin, which only
+ * the client knows.
  *
  * A store URL is built from the store's HANDLE, which a merchant can change,
  * so it cannot be built from a store ref alone: hydrate the store (or use the
@@ -49,6 +56,9 @@ export type MercariaLocationLinkTarget =
   | MercariaLocationRef
   | Pick<MercariaLocation, 'ref'>;
 
+/** An offer as {@link MercariaLinks.offer} accepts it: the offer, or its action. */
+export type MercariaOfferLinkTarget = MercariaOfferAction | { action: MercariaOfferAction };
+
 /** The link builders on a client. */
 export interface MercariaLinks {
   /** The product page, from an id, a product ref, or any object with a product `ref`. */
@@ -68,6 +78,13 @@ export interface MercariaLinks {
    * carries its store's current handle: `links.location(location, location.store)`.
    */
   location(location: MercariaLocationLinkTarget, store: string | MercariaHandleSource): string;
+  /**
+   * Where following a catalog offer goes, or `null` when there is nowhere: the
+   * Mercaria redirect (on this client's API origin) for an outbound offer —
+   * publish it with the action's `rel` and name its `destinationHost` beside
+   * it — or the product page for a native one.
+   */
+  offer(offer: MercariaOfferLinkTarget): string | null;
 }
 
 function nonEmpty(value: unknown, what: string): string {
@@ -98,7 +115,18 @@ function handleOf(value: unknown): string {
   throw new MercariaValidationError('expected a store handle or an object carrying one');
 }
 
-export function createLinks(webBaseUrl: string): MercariaLinks {
+function actionOf(value: unknown): MercariaOfferAction {
+  const candidate =
+    typeof value === 'object' && value !== null && 'action' in value
+      ? (value as { action: unknown }).action
+      : value;
+  if (typeof candidate === 'object' && candidate !== null && 'kind' in candidate) {
+    return candidate as MercariaOfferAction;
+  }
+  throw new MercariaValidationError('expected a catalog offer or its action');
+}
+
+export function createLinks(webBaseUrl: string, apiBaseUrl: string): MercariaLinks {
   return Object.freeze({
     product: (product: MercariaProductLinkTarget) =>
       `${webBaseUrl}/products/${encodeURIComponent(refId(product, 'product'))}`,
@@ -112,5 +140,21 @@ export function createLinks(webBaseUrl: string): MercariaLinks {
       `${webBaseUrl}/stores/${encodeURIComponent(handleOf(store))}?location=${encodeURIComponent(
         refId(location, 'location'),
       )}`,
+    offer: (offer: MercariaOfferLinkTarget) => {
+      const action = actionOf(offer);
+      switch (action.kind) {
+        case 'outbound':
+          if (!/^\/out\/[A-Za-z0-9_.~-]+$/.test(action.path)) {
+            throw new MercariaValidationError('not a Mercaria redirect path');
+          }
+          return `${apiBaseUrl}${action.path}`;
+        case 'mercaria_checkout':
+          return action.url;
+        case 'none':
+          return null;
+        default:
+          throw new MercariaValidationError('expected a catalog offer or its action');
+      }
+    },
   });
 }

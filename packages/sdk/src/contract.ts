@@ -19,6 +19,8 @@
 
 export {
   MERCARIA_LOCATION_AVAILABILITIES,
+  MERCARIA_OFFER_AVAILABILITIES,
+  MERCARIA_OFFER_KINDS,
   MERCARIA_PRODUCT_AVAILABILITIES,
   MERCARIA_PRODUCT_SORTS,
   MERCARIA_PUBLIC_API_BASE_PATH,
@@ -27,6 +29,10 @@ export {
   MERCARIA_PUBLIC_PAGE_LIMIT_DEFAULT,
   MERCARIA_PUBLIC_PAGE_LIMIT_MAX,
   MERCARIA_REF_KINDS,
+  MercariaCatalogProductRefSchema,
+  MercariaCatalogProductSchema,
+  MercariaCatalogProductSearchQuerySchema,
+  MercariaCatalogProductSummaryPageSchema,
   MercariaCollectionPageSchema,
   MercariaCollectionRefSchema,
   MercariaCollectionSchema,
@@ -52,6 +58,10 @@ export {
 } from '@mercaria/contracts';
 
 export type {
+  MercariaCatalogProduct,
+  MercariaCatalogProductRef,
+  MercariaCatalogProductSummary,
+  MercariaCatalogVariant,
   MercariaCollection,
   MercariaCollectionRef,
   MercariaErrorDetails,
@@ -63,6 +73,13 @@ export type {
   MercariaLocationRef,
   MercariaLocationStore,
   MercariaMoney,
+  MercariaOffer,
+  MercariaOfferAction,
+  MercariaOfferAvailability,
+  MercariaOfferKind,
+  MercariaOfferSeller,
+  MercariaOfferSource,
+  MercariaOfferSummary,
   MercariaPage,
   MercariaProduct,
   MercariaProductAvailability,

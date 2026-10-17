@@ -35,6 +35,7 @@ import type { ContractJsonSchemaName } from './json-schema';
 import type { MercariaPublicErrorCode } from './errors';
 import type { MercariaPublicCursorKind } from './pagination';
 import {
+  MercariaCatalogProductSearchQuerySchema,
   MercariaIdParamsSchema,
   MercariaLocationListQuerySchema,
   MercariaLocationProductsQuerySchema,
@@ -49,7 +50,7 @@ import {
 export const MERCARIA_PUBLIC_API_BASE_PATH = '/public/v1' as const;
 
 /** The version the OpenAPI document states. Bumped with any contract change. */
-export const MERCARIA_PUBLIC_API_VERSION = '1.2.0' as const;
+export const MERCARIA_PUBLIC_API_VERSION = '1.3.0' as const;
 
 /** The production origin the OpenAPI document names as its server. */
 export const MERCARIA_PUBLIC_API_ORIGIN = 'https://api.mercaria.co' as const;
@@ -61,6 +62,7 @@ export const MERCARIA_PUBLIC_ROUTE_TAGS = [
   'locations',
   'meta',
   'materials',
+  'catalog',
 ] as const;
 export type MercariaPublicRouteTag = (typeof MERCARIA_PUBLIC_ROUTE_TAGS)[number];
 
@@ -539,6 +541,39 @@ export const MERCARIA_PUBLIC_ROUTES = [
     response: 'MercariaLocationProductPage',
     cursorKind: 'location-products',
     errors: ['validation_failed', ...LOCATION_ERRORS],
+  },
+  {
+    operationId: 'searchCatalogProducts',
+    method: 'get',
+    path: '/catalog/products',
+    tag: 'catalog',
+    summary: 'Search the comparison catalogue',
+    description:
+      'Canonical products — the model every seller of it is compared under — with a summary of ' +
+      'their current offers, native and external, in Mercaria’s relevance order. A GTIN as `q` is ' +
+      'answered by exact identifier. `service_unavailable` while this deployment is not serving ' +
+      'catalogue search.',
+    params: null,
+    query: MercariaCatalogProductSearchQuerySchema,
+    response: 'MercariaCatalogProductSummaryPage',
+    cursorKind: 'catalog-products',
+    errors: ['validation_failed', 'service_unavailable'],
+  },
+  {
+    operationId: 'getCatalogProduct',
+    method: 'get',
+    path: '/catalog/products/{id}',
+    tag: 'catalog',
+    summary: 'Read one catalog product and its offers',
+    description:
+      'A canonical product’s identity, configurations and every current offer, in Mercaria’s ' +
+      'ranked order, prices in each offer’s native currency. A merged product answers as the ' +
+      'product it merged into (persist the returned `ref`); a withdrawn one is a 410.',
+    params: MercariaIdParamsSchema,
+    query: MercariaNoQuerySchema,
+    response: 'MercariaCatalogProduct',
+    cursorKind: null,
+    errors: [...ENTITY_ERRORS, 'service_unavailable'],
   },
   {
     operationId: 'getOpenApiDocument',

@@ -1,6 +1,9 @@
 import { createMaterialsApi, type MercariaMaterialsApi } from './materials';
 import type { z } from 'zod';
 import {
+  MercariaCatalogProductSchema,
+  MercariaCatalogProductSearchQuerySchema,
+  MercariaCatalogProductSummaryPageSchema,
   MercariaCollectionPageSchema,
   MercariaCollectionSchema,
   MercariaLocationListQuerySchema,
@@ -18,6 +21,9 @@ import {
   classifyRequestIssues,
 } from './contract';
 import type {
+  MercariaCatalogProduct,
+  MercariaCatalogProductRef,
+  MercariaCatalogProductSummary,
   MercariaCollection,
   MercariaCollectionRef,
   MercariaLocation,
@@ -250,9 +256,49 @@ export interface MercariaLocationsApi {
   ): Promise<MercariaPage<MercariaLocationProduct>>;
 }
 
+/** Input to {@link MercariaCatalogApi.search}. */
+export interface MercariaCatalogSearchInput extends MercariaPageOptions {
+  /** Required. Words, or a GTIN — a barcode is answered by exact identifier. */
+  query: string;
+  /** Only offers published for this country, ISO 3166-1 alpha-2 (`ES`). */
+  market?: string;
+}
+
+/**
+ * The comparison catalogue: canonical products — the model every seller of it
+ * is compared under — and every current offer for each, native or external.
+ * A different grain from {@link MercariaProductsApi}, whose product is ONE
+ * seller's listing; a native offer here names that listing's variant ref.
+ */
+export interface MercariaCatalogApi {
+  /**
+   * One page of catalog products matching `query`, in Mercaria's relevance
+   * order, each with a summary of its current offers. Rejects with
+   * `MercariaUnavailableError` while the deployment is not serving catalogue
+   * search — never an empty page.
+   */
+  search(input: MercariaCatalogSearchInput): Promise<MercariaPage<MercariaCatalogProductSummary>>;
+  /**
+   * A catalog product's identity, configurations (with their GTINs) and every
+   * current offer in Mercaria's ranked order. A merged product answers as the
+   * product it merged into: persist the returned `ref`. Rejects with
+   * `MercariaGoneError` once it is withdrawn.
+   */
+  get(
+    product: MercariaCatalogProductRef | string,
+    options?: MercariaRequestOptions,
+  ): Promise<MercariaCatalogProduct>;
+  /** Hydrate a persisted catalog product ref. */
+  resolveRef(
+    ref: MercariaCatalogProductRef,
+    options?: MercariaRequestOptions,
+  ): Promise<MercariaCatalogProduct>;
+}
+
 export interface MercariaClient {
   readonly materials: MercariaMaterialsApi;
   readonly products: MercariaProductsApi;
+  readonly catalog: MercariaCatalogApi;
   readonly stores: MercariaStoresApi;
   readonly collections: MercariaCollectionsApi;
   readonly locations: MercariaLocationsApi;
@@ -304,7 +350,7 @@ function extraHeaders(value: unknown): Readonly<Record<string, string>> {
 
 // ── Input validation (→ MercariaValidationError, no request sent) ───────────
 
-type EntityKind = 'product' | 'store' | 'collection' | 'location';
+type EntityKind = 'product' | 'store' | 'collection' | 'location' | 'catalog_product';
 
 function idOf(value: unknown, kind: EntityKind): string {
   if (typeof value === 'string') return pathSegment(value, `${kind} id`);
@@ -457,6 +503,41 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
       ),
   });
 
+  const getCatalogProduct = async (id: string, callOptions: MercariaRequestOptions = {}) =>
+    request(
+      config,
+      `/catalog/products/${id}`,
+      {},
+      MercariaCatalogProductSchema,
+      callOptions.signal,
+    );
+
+  const catalog: MercariaCatalogApi = Object.freeze({
+    search: async (input: MercariaCatalogSearchInput) => {
+      const { query, market } = (input ?? {}) as Partial<MercariaCatalogSearchInput>;
+      return request(
+        config,
+        '/catalog/products',
+        checkedQuery(MercariaCatalogProductSearchQuerySchema, {
+          ...pageQuery(input ?? {}),
+          // Sent trimmed: one page, one URL. Blank is refused as missing.
+          q: typeof query === 'string' ? query.trim() || undefined : wire(query),
+          market: wire(market),
+        }),
+        MercariaCatalogProductSummaryPageSchema,
+        input?.signal,
+      );
+    },
+
+    get: async (
+      product: MercariaCatalogProductRef | string,
+      callOptions?: MercariaRequestOptions,
+    ) => getCatalogProduct(idOf(product, 'catalog_product'), callOptions),
+
+    resolveRef: async (ref: MercariaCatalogProductRef, callOptions?: MercariaRequestOptions) =>
+      getCatalogProduct(refIdOf(ref, 'catalog_product'), callOptions),
+  });
+
   const getStore = async (id: string, callOptions: MercariaRequestOptions = {}) =>
     request(config, `/stores/${id}`, {}, MercariaStoreSchema, callOptions.signal);
 
@@ -578,9 +659,10 @@ export function createMercariaClient(options: MercariaClientOptions = {}): Merca
   return Object.freeze({
     materials: createMaterialsApi(config),
     products,
+    catalog,
     stores,
     collections,
     locations,
-    links: createLinks(webBaseUrl),
+    links: createLinks(webBaseUrl, config.apiBaseUrl),
   });
 }

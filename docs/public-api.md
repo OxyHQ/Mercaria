@@ -16,12 +16,13 @@ failures with snake_case codes, `{ items, nextCursor }` pages, and an OpenAPI
 | Controller (handler per `operationId`, request parsing, response parsing, defaults) | `packages/backend/src/controllers/public-api.controller.ts` |
 | Refusals in the contract's codes (`PublicApiError`) | `packages/backend/src/services/public-api/errors.ts` |
 | Reads and status rules | `packages/backend/src/services/public-api/public-api.service.ts` |
+| The comparison catalogue's reads and projection (`/catalog/*`) | `packages/backend/src/services/public-api/catalog-products.service.ts`, `catalog-products.projection.ts` |
 | Location rows and per-location stock | `packages/backend/src/db/pickup/publicLocationRepository.ts` |
 | Field-by-field projection | `packages/backend/src/services/public-api/projection.ts` |
 | URL builders | `packages/backend/src/services/public-api/urls.ts` |
 | Cursor | `packages/backend/src/services/public-api/cursor.ts` |
 | CORS decision | `isPublicReadCorsRequest` in `packages/backend/src/lib/allowed-origins.ts` |
-| Proof | `routes/__tests__/public-api.realdb.test.ts` (the wire), `routes/__tests__/public-api-locations.realdb.test.ts` (the location reads, against a fake GoWay), `routes/__tests__/public-api-sdk-contract.realdb.test.ts` (the SDK against both), `services/public-api/__tests__/urls-and-cursor.test.ts`, `packages/contracts/test/`, `validate:openapi` and `validate:contract-json-schemas` |
+| Proof | `routes/__tests__/public-api.realdb.test.ts` (the wire), `routes/__tests__/public-api-locations.realdb.test.ts` (the location reads, against a fake GoWay), `routes/__tests__/public-api-sdk-contract.realdb.test.ts` (the SDK against both), `routes/__tests__/public-api-catalog.realdb.test.ts` (the catalogue, wire and SDK), `services/public-api/__tests__/catalog-products.projection.test.ts`, `services/public-api/__tests__/urls-and-cursor.test.ts`, `packages/contracts/test/`, `validate:openapi` and `validate:contract-json-schemas` |
 
 ## Routes
 
@@ -46,6 +47,8 @@ handler (the controller's handler map is typed by the registry).
 | `GET /public/v1/locations` | `goWayPlaceId` (required) `limit` `cursor` | `MercariaPage<MercariaLocation>` — the shop fronts trading from one GoWay place |
 | `GET /public/v1/locations/:id` | — | `MercariaLocation` |
 | `GET /public/v1/locations/:id/products` | `q` `inStock` `sort` `locale` `limit` `cursor` | `MercariaPage<MercariaLocationProduct>` — the store's live products stocked there |
+| `GET /public/v1/catalog/products` | `q` (required; words or a GTIN) `market` `limit` `cursor` | `MercariaPage<MercariaCatalogProductSummary>` — canonical products, relevance order |
+| `GET /public/v1/catalog/products/:id` | — | `MercariaCatalogProduct` — identity, configurations with GTINs, every current offer ranked |
 | `GET /public/v1/openapi.json` | — | this surface's OpenAPI 3.1 document |
 
 `/stores/lookup` is registered before `/stores/:id` (registry order).
@@ -106,6 +109,7 @@ gone". Decided once per kind in `public-api.service.ts`:
 | store (by id or handle) | `active` | `suspended`, `closed` | no row, a malformed id, an unknown handle |
 | collection | published, store `active` | unpublished with `published_at` set, or store not `active` | no row, a malformed id, never published |
 | location | published, active, unrestricted, store `active`, and its GoWay place names it back | withdrawn or returned to draft after publishing, restricted, deactivated, store not `active`, or its place no longer vouches for it | no row or no publication, a malformed id, never published |
+| catalog product (after following any merge) | `active`, `discontinued` | `suppressed` | no row, a `draft` (never publicly existed), or a category outside the read cohorts |
 
 - **"Was published" is a stored fact, not a guess.** `listings.published_at` is
   the FIRST activation (one writer, `listingRepository`), and
@@ -125,6 +129,32 @@ gone". Decided once per kind in `public-api.service.ts`:
   `/products?storeId=` naming one; `/products?collectionId=` naming an unpublished
   collection is a 404 or 410 — never an empty page, and never a way to enumerate
   the members of a collection its merchant has not published.
+
+### The comparison catalogue (`/catalog/*`)
+
+`catalog-products.service.ts` reads through Mercaria's own surfaces and nothing
+parallel: the search is `runCanonicalSearch` restricted to products (`GET
+/search`'s pipeline) and the detail is `readCanonicalProductPage` (the page
+mercaria.co renders), so their levers govern these routes too.
+
+- **A rollout lever that is off is a 503 `service_unavailable`**, never the
+  storefront's 404: `CANONICAL_SEARCH` for the search, `CANONICAL_READS` or
+  `CANONICAL_PUBLIC_ROUTES_ENABLED` for the detail. A consumer may discard a ref
+  on a 404, and a rollout decision is not a fact about the product.
+- **`CANONICAL_OFFER_COMPARISON` off answers `offers: null`** — identity still
+  answers, and null cannot read as "nobody sells it".
+- **A merged product answers as its winner**, with the winner's `ref`; the
+  consumer persists that.
+- **Order is the versioned comparison's**, run in `DEFAULT_PRESENTMENT_CURRENCY`
+  (what a crawler and an anonymous shopper get) so it is stable between reads;
+  every price is the offer's NATIVE currency, `null` when Mercaria does not model
+  it. The action is the page row's own `outbound`: a native offer's variant ref,
+  the `/out/:token` redirect (relative to the API origin; the retailer's URL is
+  never published), or `none` with the host disclosed.
+- **Not published:** offer provenance, destination URLs, affiliate routing,
+  seller SKUs and titles, freshness internals, the ranking trace and labels, and
+  the excluded-offer count. Brand is not published either: the contract carries
+  no identity string, and there is no brand ref kind yet.
 
 ### Locations: the trust link, and GoWay down
 
@@ -217,6 +247,10 @@ SAME filters.
   `nextCursor: null`. A consumer that needs a whole store's catalogue beyond that
   wants an export, not this surface.
 - Reads fetch `limit + 1` rows and run no `count(*)`.
+- **The catalogue search is the exception to the offset.** It resumes the
+  canonical search's own keyset over its relevance order, so its public cursor
+  WRAPS that cursor (`{ v, k, f, s }`) under the same kind and fingerprint
+  binding (`q`, `market`); its depth is bounded by the search's own ceiling.
 
 ## The OpenAPI document
 
@@ -327,7 +361,11 @@ product     ${origin}/products/${encodeURIComponent(productId)}
 store       ${origin}/stores/${encodeURIComponent(storeHandle)}
 collection  ${origin}/stores/${encodeURIComponent(storeHandle)}?collection=${encodeURIComponent(collectionId)}
 location    ${origin}/stores/${encodeURIComponent(storeHandle)}?location=${encodeURIComponent(locationId)}
+catalog     ${origin}/p/${encodeURIComponent(catalogProductSlug)}
 ```
+
+A catalog product's slug is not in its ref, so the SDK has no builder for it —
+a consumer uses the `url` the body serves.
 
 - `origin` is `config.web.origin` (`WEB_URL`, default `https://mercaria.co`) with
   every trailing `/` removed.
@@ -370,7 +408,10 @@ credentialed policy: the restrictive direction.
   backfill does not spend the storefront's `listings` or `stores` budget. At the
   SDK defaults it is dominated by `general` above every route; the scope exists so
   this surface can be tuned without re-metering the storefront. A server-side
-  integration calling from one address shares one anonymous per-IP budget.
+  integration calling anonymously from one address shares one per-IP budget; one
+  that sends its Oxy SERVICE token (through the SDK's `getAccessToken`) is metered
+  as that service application (`service:<appId>`, the authenticated budget) by
+  `createOxyRateLimit`. The token grants no read anything else lacks.
 - Every response carries `Vary: Authorization`, because `viewer` depends on it.
   No `Cache-Control` is set.
 
@@ -399,10 +440,10 @@ reconstructed from these reads.
   only.
 - Reviews, seller profiles and seller ratings. A person seller's card carries
   identity only.
-- **The canonical product grain (ADR 0002)** — canonical products, families,
-  offers and comparison. A `MercariaProductRef` names the SELLABLE listing, and a
-  multi-seller canonical identity is a different grain this contract does not
-  carry yet.
+- **Canonical families, brands, merchants and storefronts** as entities of
+  their own. Canonical PRODUCTS and their offers are published under
+  `/catalog/*` with their own ref kind; a `MercariaProductRef` still names the
+  SELLABLE listing.
 - **P2P seller visibility rules** beyond what `GET /listings/:id` applies. This
   surface serves a person-owned listing exactly when the storefront product page
   does; the seller-profile visibility derivation (`docs/seller-profiles.md`)

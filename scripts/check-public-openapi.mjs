@@ -70,6 +70,8 @@ export const EXPECTED_OPERATIONS = [
   ['get', '/locations', 'listLocations'],
   ['get', '/locations/{id}', 'getLocation'],
   ['get', '/locations/{id}/products', 'listLocationProducts'],
+  ['get', '/catalog/products', 'searchCatalogProducts'],
+  ['get', '/catalog/products/{id}', 'getCatalogProduct'],
   ['get', '/openapi.json', 'getOpenApiDocument'],
 ];
 

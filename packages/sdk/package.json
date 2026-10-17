@@ -1,6 +1,6 @@
 {
   "name": "@mercaria.co/sdk",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "The canonical, headless TypeScript client for Mercaria's public commerce API — product, store and collection reads, portable references, typed errors and canonical links for Node, Bun, browsers and React Native.",
   "license": "Apache-2.0",
   "author": "The Oxy Collective, Inc.",
