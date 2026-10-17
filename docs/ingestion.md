@@ -445,6 +445,14 @@ CATALOG_INGESTION_RETIREMENT_BATCH_SIZE=500
 CATALOG_INGESTION_ANOMALY_PRICE_FACTOR=20
 ```
 
+A tick claims up to `BATCH_SIZE` runs and drives one page of each in turn. A page
+that throws is logged (`[Ingestion] page failed; the rest of the batch
+continues`) and the tick moves on: every run in the batch is already leased, so
+aborting would leave the others leased and undriven until expiry, round after
+round. That is how one wedged Open Prices run held every other keyless source to
+about a page an hour for a week in October 2026, with `attempts` in the
+thousands beside a `fetch_count` in the hundreds — the signature to look for.
+
 There is deliberately no flag over the rights, the tables or the operator
 surface. Rights are per-source and versioned, which is a finer instrument than a
 global switch and the one an incident actually needs.
