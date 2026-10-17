@@ -524,21 +524,15 @@ in.
 ## Configuration
 
 ```
-RETAIL_SERVICE_REQUESTS_ENABLED=true    # buyer-facing WRITES; a 503, never a 403
-RETAIL_SERVICE_RECONCILER_ENABLED=true  # the settlement sweep LOOP
 RETAIL_SERVICE_RECONCILE_INTERVAL_MS=60000
 RETAIL_SERVICE_RECONCILE_BATCH_SIZE=50
 RETAIL_SERVICE_RECONCILE_GRACE_MS=30000
 ```
 
-Neither lever gates a durable record. `RETAIL_SERVICE_REQUESTS_ENABLED` is a 503
-rather than a 403 on purpose (#110's decision, same reasoning): this deployment
-DOES do retail returns, it has temporarily stopped taking new ones, and retrying
-later is the client's correct response. Reads, decisions, refunds, return cases,
-warranty cases, supplier recoveries and every request already filed are
-unaffected.
+The buyer-facing paths and the settlement sweep are always on: a deployment that
+sells retail owes its buyers a way to cancel and return. These tune the sweep.
 
-**Neither is `MERCARIA_RETAIL_ENABLED`, and this domain never reads it.** #127
+**This domain never reads `MERCARIA_RETAIL_ENABLED`.** #127
 acceptance 8 is *"existing cases remain operable after new retail checkout or
 supplier integration is paused"*, and the isolation gate fails the build if any
 module here learns to read `config.retail` or a supplier account's `killed`
@@ -585,8 +579,6 @@ escalation as two rows rather than as an absence.
       half.
 - [ ] A transport registered for `guest_portal_messages` (#108's seam). **Until
       then no buyer is told anything.** The requests themselves work.
-- [ ] `RETAIL_SERVICE_REQUESTS_ENABLED` reviewed. It defaults ON, because a
-      deployment that sells retail owes its buyers a way to cancel and return.
 - [ ] The category-exception join (see §"Category exceptions") — until
       `order_items` carries a category, no exception matches and the domain fails
       OPEN there.

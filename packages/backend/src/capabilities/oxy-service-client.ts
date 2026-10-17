@@ -1,27 +1,20 @@
-import { canAttestWorkloadIdentity, OxyServer } from '@oxy.so/core/server';
+import { OxyServer } from '@oxy.so/core/server';
+import { oxyServiceIdentity } from './oxy-service-identity.js';
 
 const OXY_API_URL = (process.env.OXY_API_URL ?? 'https://api.oxy.so').replace(/\/$/, '');
 
 let client: OxyServer | null | undefined;
 
-/**
- * Mercaria's Oxy service principal, or null where it has none.
- *
- * On ECS the task role IS the identity (oxy ADR 0026): `oxy-mercaria-task` is
- * bound to the Mercaria application, and `serviceToken()` attests it whenever
- * no key pair is configured. A pair, where one is set (a laptop, a CI box),
- * still wins. A partial pair is no identity at all, never half of one.
- */
+/** Mercaria's Oxy service principal, or null where it has none (`oxyServiceIdentity`). */
 export function oxyServiceClient(): OxyServer | null {
   if (client !== undefined) return client;
-  const key = process.env.OXY_APPLICATION_KEY?.trim();
-  const secret = process.env.OXY_APPLICATION_SECRET?.trim();
-  if (key && secret) {
+  const identity = oxyServiceIdentity();
+  if (identity?.kind === 'key_pair') {
     client = new OxyServer({
       baseURL: OXY_API_URL,
-      serviceAuth: { apiKey: key, apiSecret: secret },
+      serviceAuth: { apiKey: identity.apiKey, apiSecret: identity.apiSecret },
     });
-  } else if (!key && !secret && canAttestWorkloadIdentity()) {
+  } else if (identity?.kind === 'workload') {
     client = new OxyServer({ baseURL: OXY_API_URL });
   } else {
     client = null;
