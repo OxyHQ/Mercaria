@@ -164,7 +164,10 @@ It is bounded so a million-offer feed cannot stampede Oxy: per task
 `CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT` (10) held at once; per observation
 `CANONICAL_SOURCE_MEDIA_MAX_PER_RECORD` (6) images; and a product that already
 shows `CANONICAL_SOURCE_MEDIA_MAX_PER_PRODUCT` (10) images imports nothing more —
-its thousandth offer costs one read and no Oxy call. Oxy answers a repeated
+its thousandth offer costs one read and no Oxy call. Production runs batch 30 and
+60 in flight (set in the deploy's release environment): at the defaults the drain
+tops out at 30 jobs a minute, below what scryfall bursts queue, and a drain's jobs
+still go to Oxy as one batch request. Oxy answers a repeated
 (owner, URL) without a fetch. A source Oxy refuses for good (4xx other than
 401/403/408/429) is skipped; anything else retries with backoff (1 min doubling to
 6 h) and dead-letters after `CANONICAL_SOURCE_MEDIA_MAX_ATTEMPTS` (8). The loop is

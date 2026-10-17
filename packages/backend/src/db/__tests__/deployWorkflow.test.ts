@@ -124,6 +124,10 @@ describe('the deploy workflow and the migrator agree', () => {
       OXY_FILE_RECONCILIATION_ENABLED: 'true',
       OXY_FILE_RECONCILIATION_DRY_RUN: 'false',
       CANONICAL_SOURCE_MEDIA_IMPORT_ENABLED: 'true',
+      // The drain's throughput: one batch import per poll stays inside Oxy's
+      // per-application request budget (docs/catalog-media.md).
+      CANONICAL_SOURCE_MEDIA_BATCH_SIZE: '30',
+      CANONICAL_SOURCE_MEDIA_MAX_IN_FLIGHT: '60',
     });
     expect(rollout?.run).toContain('--task-definition');
     expect(catalog?.run).toContain(
