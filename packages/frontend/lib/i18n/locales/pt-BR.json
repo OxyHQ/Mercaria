@@ -1821,12 +1821,6 @@
       "notForSale": "Não está à venda"
     }
   },
-  "thread": {
-    "title": "Assistente de compras",
-    "signIn": "Entre para conversar",
-    "viewResults": "Ver resultados da busca",
-    "newConversation": "Nova conversa"
-  },
   "profile": {
     "title": "Perfil",
     "subtitle": "Seus favoritos, pedidos e conta em um só lugar."
@@ -1985,5 +1979,8 @@
     "pendingBody": "Seu responsável pode conferir os itens e o total exatos no Oxy. O pagamento ficará disponível após a aprovação.",
     "refresh": "Atualizar status",
     "account": "Supervisão e conta"
+  },
+  "alia": {
+    "viewResults": "Ver resultados da busca"
   }
 }

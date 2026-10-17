@@ -11,18 +11,20 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('composer opens a shopping thread from text and catalog suggestions', async ({ page }) => {
+// The composer asks Alia in her one sheet; there is no shopping-thread page.
+// Signed out the SDK opens Oxy's sign-in instead, the page stays where it is
+// and the words stay in the field, to send again once signed in.
+test('composer asks Alia from text and catalog suggestions, and never leaves the page', async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   const input = page.locator('[data-testid="shopping-composer"]:visible').getByRole('textbox');
   await input.fill('linen');
   await input.press('Enter');
-  await expect(page).toHaveURL(/\/thread\?q=linen$/);
-  await expect(page.getByTestId('shopping-thread')).toContainText('linen');
-  // Signed out there is no conversation with Alia: the query's catalogue
-  // results and sign-in.
-  await expect(page.getByRole('button', { name: 'Sign in to chat', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(input).toHaveValue('linen');
 
   await page.goto('/');
   await input.click();
@@ -30,7 +32,8 @@ test('composer opens a shopping thread from text and catalog suggestions', async
   await expect(suggestion).toBeVisible();
   const label = await suggestion.innerText();
   await suggestion.click();
-  await expect(page).toHaveURL(new RegExp(`/thread\\?q=${encodeURIComponent(label)}$`));
+  await expect(page).toHaveURL(/\/$/);
+  await expect(input).toHaveValue(label);
 
   await page.goto('/');
   await input.click();
@@ -38,7 +41,8 @@ test('composer opens a shopping thread from text and catalog suggestions', async
   await input.press('ArrowDown');
   const keyboardChoice = await page.getByRole('option', { selected: true }).innerText();
   await input.press('Enter');
-  await expect(page).toHaveURL(new RegExp(`/thread\\?q=${encodeURIComponent(keyboardChoice)}$`));
+  await expect(page).toHaveURL(/\/$/);
+  await expect(input).toHaveValue(keyboardChoice);
   expect(errors).toEqual([]);
 });
 
@@ -73,7 +77,8 @@ test('mobile composer remains inside viewport above navigation', async ({ page }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await composer.getByRole('textbox').fill('beauty');
   await composer.getByRole('textbox').press('Enter');
-  await expect(page).toHaveURL(/\/thread\?q=beauty$/);
+  await expect(page).toHaveURL(/\/$/);
+  await expect(composer.getByRole('textbox')).toHaveValue('beauty');
 });
 
 test('dark Arabic layout and reduced motion retain a usable composer', async ({ page }) => {
@@ -92,8 +97,8 @@ test('dark Arabic layout and reduced motion retain a usable composer', async ({ 
   await expect(page.locator('html')).toHaveClass(/dark/);
   await composer.getByRole('textbox').fill('قميص');
   await composer.getByRole('textbox').press('Enter');
-  await expect(page).toHaveURL(/\/thread\?q=/);
-  await expect(page.getByTestId('shopping-thread')).toContainText('قميص');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(composer.getByRole('textbox')).toHaveValue('قميص');
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1440);
 });
 
@@ -264,10 +269,10 @@ test('saving a product as a guest opens sign-in without pretending it was saved'
   await expect(save).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('thread composer measures its real width and shrinks after clearing multiline input', async ({
+test('composer measures its real width and shrinks after clearing multiline input', async ({
   page,
 }) => {
-  await page.goto('/thread');
+  await page.goto('/explore');
   const composer = page.getByTestId('shopping-composer');
   const input = composer.getByRole('textbox');
   await expect.poll(async () => (await composer.boundingBox())?.height).toBe(64);
@@ -632,9 +637,17 @@ test('conversations a device stored before they moved to Alia are never shown', 
   await page.goto('/');
   await expect(page.getByTestId('home-hero')).toBeVisible();
   await expect(page.getByTestId('thread-shelf')).toHaveCount(0);
+  // The old address opens Alia's sheet on that conversation and leaves itself;
+  // a device's copy is never what is shown.
   await page.goto('/thread?conversationId=private-thread');
-  await expect(page.getByTestId('shopping-thread')).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText('Private shopping question')).toHaveCount(0);
+});
+
+test('an old /thread?q= address leaves itself for the home page', async ({ page }) => {
+  await page.goto('/thread?q=linen');
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId('home-hero')).toBeVisible();
 });
 
 test('store offer headers show fixed savings with their qualifying subtotal and navigate to the store', async ({

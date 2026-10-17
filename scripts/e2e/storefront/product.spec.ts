@@ -1593,7 +1593,8 @@ test('product detail retains the floating shopping composer above mobile navigat
     .toBe(true);
   await composer.getByRole('textbox').fill('Find similar makeup');
   await composer.getByRole('textbox').press('Enter');
-  await expect(page).toHaveURL(/\/thread\?q=Find%20similar%20makeup$/);
+  // Alia's sheet opens over the product (signed out, Oxy's sign-in): the page stays.
+  await expect(page).toHaveURL(new RegExp(`/products/${product.id}$`));
 });
 
 test('store menu reads authored policies, returns to its menu and opens the report sign-in flow', async ({

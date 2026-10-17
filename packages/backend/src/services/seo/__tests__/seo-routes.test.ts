@@ -105,7 +105,8 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   // `SEO_ROBOTS_DISALLOWED_PATHS`. A crawlable one is a crawl budget spent on
   // result pages nobody links to.
   'app/(app)/search.tsx',
-  // A shopper's conversation, never an indexable catalogue landing page.
+  // The old address of the shopping thread: it opens a shopper's conversation
+  // in Alia's sheet and leaves, never an indexable catalogue landing page.
   'app/(app)/thread.tsx',
   'app/(app)/profile.tsx',
   // Local editorial previews; no publishing source or indexable edition yet.

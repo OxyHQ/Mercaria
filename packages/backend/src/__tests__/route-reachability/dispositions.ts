@@ -88,6 +88,16 @@ export const ROUTE_DISPOSITIONS: Readonly<
         'steps back off itself. In-app code opens it with useSettingsDialog().open(' +
         "'referrals') and must never navigate here.",
     },
+    '/thread': {
+      kind: 'deliberate',
+      reason:
+        "The old address of the shopping thread, which is now Alia's one sheet " +
+        '(MercariaAskProvider). It is kept so a browser, bookmark or shared link still lands: ' +
+        '?q= opens the sheet with that first turn, ?conversationId= reopens that conversation, ' +
+        'and the route replaces itself with the home page. In-app code asks the sheet with ' +
+        'useAskAgent() and must never navigate here — that would push a screen whose only act ' +
+        'is to leave.',
+    },
     '/settings': {
       kind: 'deliberate',
       reason:

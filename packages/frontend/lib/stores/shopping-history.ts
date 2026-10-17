@@ -19,8 +19,8 @@ interface ShoppingHistory {
  * Device-local "recently viewed", isolated by Oxy identity.
  *
  * Shopping conversations are not kept here: they are the person's Alia
- * conversations (`app/(app)/thread.tsx`); `migrateShoppingHistory` drops the
- * ones version 0 stored on the device.
+ * conversations started in Mercaria (`components/alia/MercariaAskProvider.tsx`);
+ * `migrateShoppingHistory` drops the ones version 0 stored on the device.
  */
 export const useShoppingHistory = create<ShoppingHistory>()(
   persist(

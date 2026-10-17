@@ -13,6 +13,7 @@ import { ImageResolverProvider } from '@oxy.so/bloom/image-resolver';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
+import { MercariaAskProvider } from '@/components/alia/MercariaAskProvider';
 import { AppErrorBoundary } from '@/components/error-boundary';
 import AppSplashScreen from '@/components/AppSplashScreen';
 import { StorefrontSettingsProvider } from '@/components/settings/StorefrontSettingsProvider';
@@ -171,7 +172,11 @@ function RootLayout() {
               <PortalProvider>
                 <StorefrontSettingsProvider>
                   <OverlayInertBoundary testID="app-content-boundary">
-                    <AppContent />
+                    {/* Alia's one sheet, above every route: a route unmounts
+                        when it is left, and the conversation must not. */}
+                    <MercariaAskProvider>
+                      <AppContent />
+                    </MercariaAskProvider>
                   </OverlayInertBoundary>
                   <PortalOutlet />
                 </StorefrontSettingsProvider>
