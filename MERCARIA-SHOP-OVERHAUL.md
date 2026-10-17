@@ -6,7 +6,7 @@ the RN‑web/NativeWind gotchas behind them. It's written so anyone (or any agen
 this up later has the complete picture.
 
 > Mercaria = Oxy's buy/sell marketplace (eBay/Wallapop‑style: new items from shops +
-> secondhand from people). Expo SDK 56 (RN 0.85.3), NativeWind 5 (Tailwind v4), Bloom
+> secondhand from people). Expo SDK 57 (RN 0.86.3), NativeWind 5 (Tailwind v4), Bloom
 > theme, expo‑router, TanStack Query, Oxy SDK. Monorepo `packages/{frontend,backend,shared-types}`.
 
 ---

@@ -52,7 +52,8 @@
  *
  * Two logical utilities do not survive this stack, which was measured through
  * the real pipeline (tailwindcss 4.2.2 -> react-native-css 3.0.7 -> the RN
- * 0.85.3 style registry) rather than assumed:
+ * 0.86.3 style registry, re-measured by validate-rtl-upstream-premises) rather
+ * than assumed:
  *
  *   * `text-start` / `text-end` compile to `text-align: start|end`, which
  *     react-native-css's `parseTextAlign` rejects outright — it allows only
@@ -60,7 +61,7 @@
  *     emits a warning nobody reads.
  *
  *   * `border-s-*` / `border-e-*` compile to `borderInlineStartWidth`,
- *     `borderInlineStartColor` and `borderInlineStartStyle`. React Native 0.85.3
+ *     `borderInlineStartColor` and `borderInlineStartStyle`. React Native 0.86.3
  *     registers `borderStartWidth` and `borderStartColor` and has never heard of
  *     the `borderInline*` spellings (they appear nowhere under
  *     `node_modules/react-native/Libraries`). So `border-s-2` renders correctly
@@ -257,7 +258,7 @@ const KNOWN_EXCEPTIONS = [
       'Notification priority stripe: the border-l-2 WIDTH on the row, plus the four PRIORITY_COLORS ' +
       'variants (red-500 / orange-400 / blue-400 / muted-foreground) that colour that one stripe. ' +
       'border-s-2 emits borderInlineStartWidth and border-s-red-500 emits borderInlineStartColor, ' +
-      'neither of which RN 0.85.3 registers, so converting would remove the stripe entirely on ' +
+      'neither of which RN 0.86.3 registers, so converting would remove the stripe entirely on ' +
       'native — width and colour alike. Waiting on upstream support.',
   },
   {
@@ -281,7 +282,7 @@ const KNOWN_EXCEPTIONS = [
       "The POS register's cart panel divider — `md:border-l` on the desktop-only right-hand column, " +
       "one occurrence. The single physical utility left in either app after #434's migration: the " +
       'other four findings (two ml-auto, one pr-4, one left-2) all converted. border-s emits ' +
-      'borderInlineStartWidth, which RN 0.85.3 does not register, so converting would drop the ' +
+      'borderInlineStartWidth, which RN 0.86.3 does not register, so converting would drop the ' +
       'divider entirely on a native till while looking correct on web. Same upstream limitation as ' +
       'the storefront entries above.',
   },
