@@ -377,7 +377,10 @@ check('CONTROL — an unmutated copy of the real tree is GREEN', () => {}, {
     // Oxy ADR 0043 adds `oxy-file-references.ts`: the closed value sets of file
     // usage (entity types, owner kinds, event types, event actions) as four type
     // aliases and no property: +1 module, +4 types. Measured by the real guard.
-    'walked 140 contract module(s), 2386 exported type(s), 7979 property signature(s)',
+    // `shopping-thread.ts` LEFT: the shopping thread is a conversation with Alia
+    // through her SDK, so Mercaria publishes no message, request or reply shape
+    // for it — -1 module, -3 types, -6 properties. Measured by the real guard.
+    'walked 139 contract module(s), 2383 exported type(s), 7973 property signature(s)',
     'check A arms exercised by real declarations: 6/9',
   ],
 });

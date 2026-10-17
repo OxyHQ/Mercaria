@@ -1807,16 +1807,9 @@
   },
   "thread": {
     "title": "ショッピングアシスタント",
-    "thinking": "アイデアを探しています…",
-    "stop": "停止",
-    "unavailable": "ショッピングアシスタントはまだ利用できません。カタログの検索は引き続き利用できます。",
     "signIn": "ログインしてチャット",
-    "retry": "再試行",
     "viewResults": "検索結果を見る",
-    "newConversation": "新しい会話",
-    "previewAction": "サンプルデータで試す",
-    "previewLabel": "プレビュー · サンプル回答、AI未接続",
-    "previewReply": "会話のレイアウトを試すためのローカルカタログの例です。商品を開いて詳細を確認するか、別のメッセージを送信してください。"
+    "newConversation": "新しい会話"
   },
   "profile": {
     "title": "プロフィール",

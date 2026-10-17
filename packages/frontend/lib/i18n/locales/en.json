@@ -1807,16 +1807,9 @@
   },
   "thread": {
     "title": "Shopping assistant",
-    "thinking": "Looking for ideas…",
-    "stop": "Stop",
-    "unavailable": "The shopping assistant is not available yet. You can still search the catalogue.",
     "signIn": "Sign in to chat",
-    "retry": "Try again",
     "viewResults": "View search results",
-    "newConversation": "New conversation",
-    "previewAction": "Preview with sample data",
-    "previewLabel": "Preview · Example responses, no AI connected",
-    "previewReply": "These are examples from the local catalogue for trying the conversation layout. Open a product to see its details, or send another message to try a follow-up."
+    "newConversation": "New conversation"
   },
   "profile": {
     "title": "Profile",

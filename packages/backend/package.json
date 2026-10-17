@@ -26,7 +26,6 @@
     "fees:provision": "bun run src/scripts/provision-fee-schedule.ts"
   },
   "dependencies": {
-    "@alia.onl/server": "1.1.0",
     "@goway.to/sdk": "0.3.0",
     "@mercaria/contracts": "workspace:*",
     "@mercaria/shared-types": "workspace:*",

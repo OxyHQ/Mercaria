@@ -20,11 +20,9 @@ test('composer opens a shopping thread from text and catalog suggestions', async
   await input.press('Enter');
   await expect(page).toHaveURL(/\/thread\?q=linen$/);
   await expect(page.getByTestId('shopping-thread')).toContainText('linen');
-  await expect(
-    page.getByText(
-      'The shopping assistant is not available yet. You can still search the catalogue.',
-    ),
-  ).toBeVisible();
+  // Signed out there is no conversation with Alia: the query's catalogue
+  // results and sign-in.
+  await expect(page.getByRole('button', { name: 'Sign in to chat', exact: true })).toBeVisible();
 
   await page.goto('/');
   await input.click();
@@ -185,33 +183,6 @@ test('document footer stays in the content column after scroll and resize', asyn
   await expect(page.getByRole('option')).toHaveCount(0);
 });
 
-test('explicit local thread preview supports follow-ups, cancellation and a new conversation', async ({
-  page,
-}) => {
-  const inference: string[] = [];
-  page.on('request', (request) => {
-    if (request.method() === 'POST' && request.url().endsWith('/shopping-thread'))
-      inference.push(request.url());
-  });
-  await page.goto('/thread?q=linen&preview=1');
-  await expect(page.getByText('Preview · Example responses, no AI connected')).toBeVisible();
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(1);
-  const input = page.locator('[data-testid="shopping-composer"]:visible').getByRole('textbox');
-  await input.fill('Something lighter');
-  await input.press('Enter');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-  await input.fill('Cancel this turn');
-  await input.press('Enter');
-  await page.getByRole('button', { name: 'Stop', exact: true }).click();
-  await expect(input).toBeEnabled();
-  await input.fill('An unsent draft');
-  await page.getByRole('button', { name: 'New conversation', exact: true }).click();
-  await expect(input).toHaveValue('');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(0);
-  await expect(page.getByTestId('shopping-thread')).not.toContainText('linen');
-  expect(inference).toEqual([]);
-});
-
 test('compact hero animates, responds to the pointer and opens the visible product', async ({
   page,
 }) => {
@@ -296,7 +267,7 @@ test('saving a product as a guest opens sign-in without pretending it was saved'
 test('thread composer measures its real width and shrinks after clearing multiline input', async ({
   page,
 }) => {
-  await page.goto('/thread?preview=1');
+  await page.goto('/thread');
   const composer = page.getByTestId('shopping-composer');
   const input = composer.getByRole('textbox');
   await expect.poll(async () => (await composer.boundingBox())?.height).toBe(64);
@@ -460,33 +431,6 @@ for (const width of [390, 1440])
       new RegExp(`/checkout\\?seller=${encodeURIComponent(group.sellerKey)}$`),
     );
   });
-
-test('Keep shopping resumes a persisted conversation including its follow-up', async ({ page }) => {
-  await page.goto('/thread?q=Dinner%20party%20gifts&preview=1');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(1);
-  const composer = page.getByTestId('shopping-composer').getByRole('textbox');
-  await composer.fill('Something under 50');
-  await composer.press('Enter');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-  await page
-    .getByTestId('thread-header')
-    .getByRole('button', { name: 'Home', exact: true })
-    .click();
-  const card = page
-    .getByTestId('thread-shelf')
-    .getByRole('link', { name: 'Dinner party gifts', exact: true });
-  await expect(card).toBeVisible();
-  expect((await card.boundingBox())!.width).toBe(289);
-  expect((await card.boundingBox())!.height).toBe(56);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect.poll(async () => (await card.boundingBox())!.width).toBe(239);
-  await card.click();
-  await expect(page).toHaveURL(/\/thread\?conversationId=/);
-  await expect(page.getByTestId('shopping-thread')).toContainText('Something under 50');
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-  await page.reload();
-  await expect(page.getByTestId('thread-preview-products')).toHaveCount(2);
-});
 
 test('Recently viewed keeps one image-only card per product and opens its full history', async ({
   page,
@@ -661,7 +605,7 @@ test('dark Arabic category arrows mirror direction and relinquish focus at the f
     .toBeGreaterThan(-2);
 });
 
-test('local shopping history never exposes a different account conversation to a guest', async ({
+test('conversations a device stored before they moved to Alia are never shown', async ({
   page,
 }) => {
   await page.addInitScript(() => {

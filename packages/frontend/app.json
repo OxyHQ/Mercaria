@@ -51,6 +51,22 @@
           "merchantIdentifier": "merchant.co.mercaria.app",
           "enableGooglePay": true
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone, to dictate messages and to talk with Alia while you shop",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "react-native-audio-api",
+        {
+          "iosMicrophonePermission": "Allow $(PRODUCT_NAME) to access your microphone, to dictate messages and to talk with Alia while you shop",
+          "iosBackgroundMode": false,
+          "androidForegroundService": false,
+          "androidPermissions": ["android.permission.RECORD_AUDIO"]
+        }
       ]
     ],
     "experiments": {

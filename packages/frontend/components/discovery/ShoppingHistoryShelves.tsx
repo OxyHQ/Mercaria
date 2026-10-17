@@ -1,19 +1,25 @@
 import { renderListingLink } from '@/lib/catalog/product-links';
+import { useConversations } from '@alia.onl/sdk';
 import { View } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { ProductShelf, ThreadShelf } from '@mercaria/ui';
 import { useShoppingHistory, useShoppingHistoryOwner } from '@/lib/stores/shopping-history';
 import { useTranslation } from '@/lib/i18n';
+import { recentConversations } from '@/lib/thread/recent-conversations';
 
+/**
+ * "Keep shopping" is the person's Alia conversations, newest first — the same
+ * ones the shopping thread writes (`app/(app)/thread.tsx`), read from Alia, so
+ * they follow the account to every device and nothing private is kept here.
+ * Signed out there are none (the query does not run).
+ */
 export function ShoppingHistoryShelves() {
   const owner = useShoppingHistoryOwner();
-  const { threads, products, hydrated } = useShoppingHistory();
+  const { products, hydrated } = useShoppingHistory();
+  const conversations = useConversations();
   const router = useRouter();
   const { t, locale } = useTranslation();
   if (!hydrated) return null;
-  const recentThreads = threads.filter(
-    (thread) => thread.owner === owner && (__DEV__ || !thread.preview),
-  );
   const recentProducts = products
     .filter((item) => item.owner === owner)
     .map((item) => item.product);
@@ -21,25 +27,7 @@ export function ShoppingHistoryShelves() {
     <>
       <ThreadShelf
         title={t('home.keepShopping')}
-        items={recentThreads.map((thread) => {
-          const date = new Date(thread.updatedAt);
-          const today = date.toDateString() === new Date().toDateString();
-          return {
-            id: thread.id,
-            title: thread.title,
-            dateLabel: new Intl.DateTimeFormat(
-              locale,
-              today ? { hour: 'numeric', minute: '2-digit' } : { month: 'long', day: 'numeric' },
-            ).format(date),
-            imageUrls: thread.messages
-              .flatMap((message) =>
-                (message.examples ?? []).flatMap((product) =>
-                  product.imageUrl ? [product.imageUrl] : [],
-                ),
-              )
-              .slice(0, 2),
-          };
-        })}
+        items={recentConversations(conversations.data?.pages ?? [], locale)}
         onPress={(conversationId) =>
           router.push({ pathname: '/thread', params: { conversationId } })
         }

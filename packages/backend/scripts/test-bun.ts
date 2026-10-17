@@ -93,7 +93,6 @@ const EXCLUDED: Readonly<Record<string, readonly string[]>> = {
     'src/services/__tests__/product-type-publication.test.ts',
     'src/services/__tests__/product-type-value-policy.test.ts',
     'src/services/__tests__/report-intake.service.test.ts',
-    'src/services/__tests__/shopping-thread.test.ts',
     'src/services/__tests__/v1-order-buyer-serving.test.ts',
     'src/services/attributes/__tests__/constraint-validation.test.ts',
     'src/services/billing/peable/__tests__/register.test.ts',
