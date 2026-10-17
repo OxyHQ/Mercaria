@@ -39,6 +39,7 @@ import {
   classifyRunOutcome,
   mayRetireUnseen,
   nextRunDelayMs,
+  passSucceeded,
   statusAfterRun,
 } from '../health.js';
 import { NORMALIZATION_LIMITS, canonicalizeNormalizedRecord } from '../normalization.js';
@@ -207,6 +208,17 @@ describe('health', () => {
     // fixes nothing.
     expect(statusAfterRun('active', 'schema_drift')).toBe('active');
     expect(statusAfterRun('failed', 'full_feed_success')).toBe('active');
+  });
+
+  it('counts a finished non-snapshot pass as a success, and an unfinished snapshot as not', () => {
+    // An incremental pass can never be `full_feed_success`; reaching its last
+    // page is the whole of what it can do.
+    expect(passSucceeded({ outcome: 'partial_feed', refreshMode: 'incremental' })).toBe(true);
+    expect(passSucceeded({ outcome: 'partial_feed', refreshMode: 'full_snapshot' })).toBe(false);
+    expect(passSucceeded({ outcome: 'source_outage', refreshMode: 'incremental' })).toBe(false);
+    expect(passSucceeded({ outcome: 'full_feed_success', refreshMode: 'full_snapshot' })).toBe(
+      true,
+    );
   });
 
   it('never moves a source OUT of a decision somebody made', () => {
