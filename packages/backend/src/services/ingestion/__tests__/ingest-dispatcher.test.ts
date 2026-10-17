@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({
+// Plain consts and a dynamic import rather than `vi.hoisted` and a static one,
+// so the file runs under both vitest and `bun test` (scripts/test-bun.ts):
+// bun's `vi.mock` is not hoisted, so the dispatcher must load after it.
+const mocks = {
   claimSourceRuns: vi.fn(),
   runIngestionPage: vi.fn(),
-}));
+};
 
 vi.mock('../../../db/postgres.js', () => ({ getDb: () => ({}) }));
 vi.mock('../../../db/ingestion/catalogSourceConfigRepository.js', () => ({
@@ -18,8 +21,6 @@ vi.mock('../ingest.service.js', () => ({ runIngestionPage: mocks.runIngestionPag
 vi.mock('../../../lib/logger.js', () => ({
   log: { general: { debug: vi.fn(), info: vi.fn(), error: vi.fn() } },
 }));
-
-import { drainCatalogIngestion } from '../ingest-dispatcher.js';
 
 describe('ingestion dispatcher', () => {
   beforeEach(() => {
@@ -37,6 +38,7 @@ describe('ingestion dispatcher', () => {
       return { runId, sourceId: 'source-b', outcome: null, skipped: null };
     });
 
+    const { drainCatalogIngestion } = await import('../ingest-dispatcher.js');
     const results = await drainCatalogIngestion(new Date());
 
     expect(mocks.runIngestionPage).toHaveBeenCalledTimes(2);
